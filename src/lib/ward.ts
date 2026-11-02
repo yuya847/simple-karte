@@ -2,7 +2,7 @@
 // hospitals do. Patients of other teams are fictional placeholders: they fill the map so
 // the ward reads as a ward, but their charts are not part of this prototype.
 
-import type { Sex } from "./types";
+import type { Patient, Sex } from "./types";
 
 export interface Room {
   no: string;
@@ -80,12 +80,27 @@ export const BEDS: BedAssignment[] = [
   { room: "516", bed: "D", other: o("安藤 キヨ", "女", 86, "循環器内科") },
 ];
 
-export function bedOf(patientId: string): BedAssignment | undefined {
-  return BEDS.find((b) => b.patientId === patientId);
+/** The ward as it stands: bed assignments (initial ones plus today's admissions) and a patient lookup. */
+export interface WardState {
+  beds: BedAssignment[];
+  patient: (id: string) => Patient | undefined;
 }
 
-export function occupant(room: string, bed: string): BedAssignment | undefined {
-  return BEDS.find((b) => b.room === room && b.bed === bed);
+export function occupant(beds: BedAssignment[], room: string, bed: string): BedAssignment | undefined {
+  return beds.find((b) => b.room === room && b.bed === bed);
+}
+
+export function emptyBeds(beds: BedAssignment[]): { room: Room; bed: string }[] {
+  return ROOMS.flatMap((room) => room.beds.filter((bed) => !occupant(beds, room.no, bed)).map((bed) => ({ room, bed })));
+}
+
+/** Sex of the people already in a shared room, if any (shared rooms are single-sex on this ward). */
+export function roomSex(ward: WardState, roomNo: string): Sex | null {
+  for (const b of ward.beds.filter((x) => x.room === roomNo)) {
+    const sex = b.patientId ? ward.patient(b.patientId)?.sex : b.other?.sex;
+    if (sex) return sex;
+  }
+  return null;
 }
 
 /** Isolation shown on the map for our patients (by infection). Display only. */
