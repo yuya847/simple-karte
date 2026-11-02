@@ -302,6 +302,12 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
                                 )}
                                 {l.record === "SI" && l.quantity !== undefined && <span className="text-ink-soft"> ×{l.quantity}</span>}
                                 <span className="ml-1.5 text-[10px] text-ink-faint">{l.code}</span>
+                                {l.comments?.map((c) => (
+                                  <div key={c.code} className="ml-3 text-[10px] text-fuji">
+                                    コメント {c.label}
+                                    <span className="ml-1 text-ink-faint">{c.code}</span>
+                                  </div>
+                                ))}
                               </div>
                             ))}
                             {a.parts.length > 1 && <div className="text-right text-[10px] text-ink-faint">{p.yen ? yen(p.points) : `${p.points}点`}</div>}

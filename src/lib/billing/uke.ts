@@ -153,11 +153,13 @@ export function receiptRecords(r: Receipt, no: number, month: string): string[] 
         const sk = first ? act.shikibetsu : null;
         first = false;
         const points = last ? num(part.points) : null;
+        const cm = (l.comments ?? []).slice(0, 3);
+        const commentCells = [0, 1, 2].flatMap((k) => [cm[k]?.code ?? null, cm[k]?.text ?? null]);
         if (l.record === "IY") {
-          out.push(record("IY", ["IY", sk, 1, l.code, num(l.quantity ?? 0, 5), points, act.count, null, null, null, null, null, null, ...days31(act.days)]));
+          out.push(record("IY", ["IY", sk, 1, l.code, num(l.quantity ?? 0, 5), points, act.count, ...commentCells, ...days31(act.days)]));
         } else {
           const quantity = l.quantity !== undefined && shinryoQuantity(l.code) ? num(l.quantity) : null;
-          out.push(record("SI", ["SI", sk, 1, l.code, quantity, points, act.count, null, null, null, null, null, null, ...days31(act.days)]));
+          out.push(record("SI", ["SI", sk, 1, l.code, quantity, points, act.count, ...commentCells, ...days31(act.days)]));
         }
       });
     }

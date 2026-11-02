@@ -236,6 +236,16 @@ describe("特定薬剤治療管理料１（バンコマイシン）", () => {
     expect(t.acts[0].parts[0].points).toBe(1000);
   });
 
+  it("carries the comments the 記載要領 asks for: (カ) and 初回の算定年月 (令和8年10月 → ０８１０)", () => {
+    const r = claim("2026-10", { entries: [lab(OCT1 + 2, ["LAB-VCM"]), lab(OCT1 + 4, ["LAB-VCM"])] });
+    const line = find(r.acts, "113000410").acts[0].parts[0].lines[0];
+    expect(line.comments?.map((c) => [c.code, c.text])).toEqual([
+      ["820100568", undefined],
+      ["840000538", "０８１０"],
+    ]);
+    expect(line.comments?.[1].label).toContain("令和8年10月");
+  });
+
   it("measured once: 470点 + 注8 初回月加算 280点, and a note to recalculate", () => {
     const r = claim("2026-10", { entries: [lab(OCT1 + 2, ["LAB-VCM"])] });
     expect(find(r.acts, "113000410").acts[0].parts[0].points).toBe(750);

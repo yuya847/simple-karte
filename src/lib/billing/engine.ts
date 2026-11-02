@@ -11,7 +11,7 @@ import type { HistoryEntry, InjectionOrder, LabOrder, OrderEntry, PrescriptionOr
 import { CODES, LAB_CODES } from "./codes";
 import { drugPoints, masterQuantity, officialDrugCode } from "./drug";
 import { HOSPITAL, meetsStandards } from "./facility";
-import { bukkaFor, iyakuItem, shinryoItem } from "./master-items";
+import { bukkaFor, commentItem, iyakuItem, shinryoItem } from "./master-items";
 import type { ClaimAct, ClaimInput, ClaimIssue, ClaimLine, ClaimPart, ClaimResult, MealClass, Shikibetsu } from "./model";
 import { allowedKasan, haihan, kaisuLimits, type HaihanWindow } from "./tables";
 import { masterMeta } from "../masters/server";
@@ -49,6 +49,14 @@ function si(code: string, quantity?: number): ClaimLine {
   const it = shinryoItem(code);
   return { record: "SI", code, name: it?.name ?? code, quantity };
 }
+
+function comment(code: string, text?: string, shown?: string) {
+  const it = commentItem(code);
+  const name = it?.name ?? code;
+  return { code, text, label: shown ? `${name.replace(/\s*令和.*$/, "")} ${shown}` : name };
+}
+
+const toZenkakuDigits = (s: string) => s.replace(/[0-9]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0xfee0));
 
 function pts(code: string): number {
   return shinryoItem(code)?.points ?? 0;
@@ -344,7 +352,17 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   const levelsThisMonth = vcmLevels.filter((d) => inMonth.has(d));
   if (levelsThisMonth.length) {
     const d = levelsThisMonth[0];
-    const lines = [si(CODES.特定薬剤治療管理料１)];
+    // 記載要領 別表Ⅰ 項番75: the patient group (カ: 入院中でアミノ配糖体抗生物質等を数日間以上) and 初回の算定年月.
+    const firstMonth = cal(vcmLevels[0]);
+    const lines: ClaimLine[] = [
+      {
+        ...si(CODES.特定薬剤治療管理料１),
+        comments: [
+          comment("820100568"),
+          comment("840000538", toZenkakuDigits(`${String(firstMonth.y - 2018).padStart(2, "0")}${String(firstMonth.m).padStart(2, "0")}`), `令和${firstMonth.y - 2018}年${firstMonth.m}月`),
+        ],
+      },
+    ];
     let points = pts(CODES.特定薬剤治療管理料１);
     let basis = "B001「2」特定薬剤治療管理料１（月1回、初回の測定日）";
     if (vcmLevels.length >= 2) {

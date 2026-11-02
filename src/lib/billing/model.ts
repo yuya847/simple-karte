@@ -31,6 +31,8 @@ export interface ClaimLine {
   unit?: string;
   /** IY: yen for this line's quantity (薬価 × 数量). */
   yen?: number;
+  /** コメント written with this record (記載要領 別表Ⅰ), up to 3. */
+  comments?: { code: string; text?: string; label: string }[];
 }
 
 /** One 点数・回数算定単位: its lines, and the points (or yen for 97) on the last line. */
