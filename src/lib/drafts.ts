@@ -165,7 +165,7 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
 // ---------------------------------------------------------------------------
 
 /** Volume of one dose in mL: fluids by bag size or mL, drugs (powder) count as 0. */
-export function doseVolumeMl(items: DraftItem[]): number {
+export function doseVolumeMl(items: Pick<DraftItem, "drugCode" | "amount" | "unit">[]): number {
   let total = 0;
   for (const it of items) {
     const d = it.drugCode ? findDrug(it.drugCode) : undefined;
