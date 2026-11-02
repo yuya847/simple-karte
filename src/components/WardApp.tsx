@@ -31,6 +31,8 @@ import { Worksheet } from "./Worksheet";
 import { PharmacyView, type ShidoRecord } from "./PharmacyView";
 import { PharmacyInbox } from "./PharmacyInbox";
 import { DialysisView } from "./DialysisView";
+import { SurgeryView } from "./SurgeryView";
+import { initialSurgeries, type Surgery } from "@/lib/surgery";
 import { HD_PATIENTS, HD_SESSIONS_START, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
@@ -132,6 +134,8 @@ export default function WardApp() {
   // Dialysis unit (fictional; kept in this browser only).
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
   const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(HD_SESSIONS_START);
+  // Operating rooms (fictional schedule relative to now; kept in this browser only).
+  const [surgeries, setSurgeries] = useState<Surgery[]>(() => (typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
 
   const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
@@ -378,6 +382,14 @@ export default function WardApp() {
           taken={taken}
           sessionKeys={sessionKeys}
           onTake={(key) => setTaken((t) => ({ ...t, [key]: nowTime }))}
+        />
+      ) : screen === "or" ? (
+        <SurgeryView
+          today={today}
+          nowAbs={abs(0, nowTime)}
+          surgeries={surgeries}
+          people={people}
+          onSave={(x) => setSurgeries((list) => (list.some((y) => y.id === x.id) ? list.map((y) => (y.id === x.id ? x : y)) : [...list, x]))}
         />
       ) : screen === "dialysis" ? (
         <DialysisView
