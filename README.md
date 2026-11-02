@@ -1,34 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Simple Karte
 
-## Getting Started
+病棟で医師が話した指示を、オーダーの下書きにする Web アプリです。
+「Built with Claude: Japan 2026」（2026-11-02〜11-08）の期間中に作っています。
 
-First, run the development server:
+> **作成中です。** 表示される患者・検査値・院内のセットは、すべて架空のデータです。実際の診療には使えません。
+
+## 何をするか
+
+回診のあとに医師が「明日朝 CBC・生化・CRP」「VCM 1g 12 時間ごと」のように話す（または打つ）と、注射・点滴や検体検査のオーダーの下書きが並びます。足りない項目やあいまいなところは聞き返します。医師が確かめて確定します。
+
+## 決めるのは医師、AI は入力係
+
+- AI は、医師が言ったことを下書きにするだけです。何を出すか・どれだけ出すかは決めず、勧めもしません。
+- 単位・量と速度の計算・重複・日時などの確認は、決まった規則をコードで判定します。AI の判断には任せません。
+- 候補を見せるときは、AI が作ったものではなく、病院が承認した指示のセット（このアプリでは架空のもの）から選びます。
+
+## 作者の以前の自作との関係
+
+作者（医師）は以前から、外来のカルテの試作（ファストカルテ。試作は [hoken-karte](https://github.com/yuya847/hoken-karte) として公開）と、抗菌薬の計算ツールを個人で作っています。
+
+- 画面の構造（どこに何を置くか）は、ファストカルテの使い勝手を参考にしています。
+- コード・画面の部品・CSS・データは、すべてハッカソンの期間中に新しく書いたものです。以前の自作からのコピーや流用はありません。色と書体も別のものにしています。
+- 場面は外来ではなく病棟で、主役は話した指示の下書きです。
+
+作った過程は、このリポジトリのコミットの履歴で確かめられます。
+
+## 開発
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで http://localhost:3000 を開きます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 技術
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js](https://nextjs.org) 16（App Router）、TypeScript、Tailwind CSS
+- 公開先：Vercel
