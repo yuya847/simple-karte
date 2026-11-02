@@ -3,7 +3,7 @@
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
 import { effectiveRoute, isReady, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { drugName, durationText, labName, scheduleLabel } from "@/lib/format";
-import { anyDrugName } from "@/lib/master";
+import { anyDrugName, findLab } from "@/lib/master";
 
 interface Props {
   draft: Draft;
@@ -167,9 +167,9 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
           <span key={i}>
             {i > 0 && "、"}
             {t.code ? labName(t.code) : <span className="text-shu">{t.said}（？）</span>}
+            {t.code && findLab(t.code)?.needs === "sets" && draft.cultureSets ? ` ${draft.cultureSets}セット` : ""}
           </span>
         ))}
-        {draft.cultureSets ? <span className="ml-1">{draft.cultureSets}セット</span> : null}
       </div>
       <div className="text-xs text-ink-soft">{r ? `採取 ${ctx.fmtDay(r.day)} ${r.time}　${r.priority}` : "採取日時？"}</div>
       {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}

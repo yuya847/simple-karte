@@ -740,7 +740,9 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     return { order, stopIds: d.duplicate?.action === "replace" ? [d.duplicate.orderId] : [] };
   }
   const r = resolvedCollect(d, ctx)!;
-  const sets = d.cultureSets ? `${d.cultureSets}セット` : null;
+  // The number of sets belongs to the culture, not to the whole order.
+  const cultureCode = d.tests.find((t) => t.code && findLab(t.code)?.needs === "sets")?.code;
+  const sets = d.cultureSets && cultureCode ? `${findLab(cultureCode)!.name} ${d.cultureSets}セット` : null;
   const order: LabOrder = {
     type: "lab",
     codes: d.tests.map((t) => t.code!),
