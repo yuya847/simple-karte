@@ -4,7 +4,7 @@ import type { Diagnosis } from "../diagnoses";
 import type { CultureResult, DailyRecord, DayOffset, HistoryEntry, Sex } from "../types";
 
 /** 診療識別 (記録条件仕様 別表20). */
-export type Shikibetsu = "13" | "21" | "22" | "24" | "27" | "31" | "32" | "33" | "60" | "80" | "90" | "92" | "97";
+export type Shikibetsu = "13" | "21" | "22" | "24" | "27" | "31" | "32" | "33" | "40" | "60" | "80" | "90" | "92" | "97";
 
 export const SHIKIBETSU_NAME: Record<Shikibetsu, string> = {
   "13": "医学管理",
@@ -15,6 +15,7 @@ export const SHIKIBETSU_NAME: Record<Shikibetsu, string> = {
   "31": "注射 皮下筋肉内",
   "32": "注射 静脈内",
   "33": "注射 その他（点滴）",
+  "40": "処置",
   "60": "検査",
   "80": "その他",
   "90": "入院基本料",
@@ -31,6 +32,10 @@ export interface ClaimLine {
   unit?: string;
   /** IY: yen for this line's quantity (薬価 × 数量). */
   yen?: number;
+  /** TO: 単位コード to write (only when the master has none), 単価 (円) to write, 商品名及び規格又はサイズ. */
+  unitCode?: string;
+  unitPrice?: number;
+  product?: string;
   /** コメント written with this record (記載要領 別表Ⅰ), up to 3. */
   comments?: { code: string; text?: string; label: string }[];
 }

@@ -47,7 +47,7 @@ export type Payer = "1" | "2";
 /** 社保 → 1, 国保・後期高齢者 → 2. */
 export const payerOf = (ins: Insurance): Payer => (ins.kind === "国保" || ins.kind === "後期高齢者" ? "2" : "1");
 
-const FIELDS = { IR: 10, RE: 38, HO: 15, SN: 9, JD: 33, MF: 33, SY: 8, SI: 44, IY: 44, CO: 5, GO: 4 } as const;
+const FIELDS = { IR: 10, RE: 38, HO: 15, SN: 9, JD: 33, MF: 33, SY: 8, SI: 44, IY: 44, TO: 48, CO: 5, GO: 4 } as const;
 
 function record(kind: keyof typeof FIELDS, values: (string | number | undefined | null)[]): string {
   const n = FIELDS[kind];
@@ -157,6 +157,25 @@ export function receiptRecords(r: Receipt, no: number, month: string): string[] 
         const commentCells = [0, 1, 2].flatMap((k) => [cm[k]?.code ?? null, cm[k]?.text ?? null]);
         if (l.record === "IY") {
           out.push(record("IY", ["IY", sk, 1, l.code, num(l.quantity ?? 0, 5), points, act.count, ...commentCells, ...days31(act.days)]));
+        } else if (l.record === "TO") {
+          // 使用量 整数部5桁・小数部3桁. 単位コード only when the master has none. 単価 for 購入価格 and always for 酸素.
+          out.push(
+            record("TO", [
+              "TO",
+              sk,
+              1,
+              l.code,
+              l.quantity !== undefined ? num(l.quantity, 3) : null,
+              points,
+              act.count,
+              l.unitCode ?? null,
+              l.unitPrice !== undefined ? num(l.unitPrice, 2) : null,
+              null,
+              l.product ? toZenkaku(l.product) : null,
+              ...commentCells,
+              ...days31(act.days),
+            ]),
+          );
         } else {
           const quantity = l.quantity !== undefined && shinryoQuantity(l.code) ? num(l.quantity) : null;
           out.push(record("SI", ["SI", sk, 1, l.code, quantity, points, act.count, ...commentCells, ...days31(act.days)]));
@@ -217,9 +236,9 @@ export function checkUke(lines: string[], receipts: Receipt[]): string[] {
     if (FIELDS[kind] && cells.length !== FIELDS[kind]) problems.push(`${i + 1}行目 ${kind}：項目数が ${cells.length}（${FIELDS[kind]} のはず）`);
     const bad = unencodable(line);
     if (bad.length) problems.push(`${i + 1}行目：シフトJISにない文字 ${bad.join(" ")}`);
-    if (kind === "SI" || kind === "IY") {
+    if (kind === "SI" || kind === "IY" || kind === "TO") {
       const count = Number(cells[6]);
-      const sum = cells.slice(13).reduce((s, v) => s + (v ? Number(v) : 0), 0);
+      const sum = cells.slice(kind === "TO" ? 17 : 13).reduce((s, v) => s + (v ? Number(v) : 0), 0);
       if (count !== sum) problems.push(`${i + 1}行目 ${kind}：回数 ${count} と算定日の合計 ${sum} が合いません`);
     }
     if (kind === "RE" && sjisLength(cells[4]) > 40) problems.push(`${i + 1}行目 RE：氏名が40バイトを超えます`);
@@ -230,7 +249,7 @@ export function checkUke(lines: string[], receipts: Receipt[]): string[] {
     if (!r.diagnoses.some((d) => d.main)) problems.push(`${who}：主傷病がありません`);
     const uncoded = r.diagnoses.filter((d) => d.code === UNCODED);
     if (uncoded.length) problems.push(`${who}：未コード化傷病名が ${uncoded.length} 件あります（${uncoded.map((d) => d.name).join("、")}）。傷病名マスターの名前に直してください`);
-    if (!r.claim.acts.length) problems.push(`${who}：摘要（SI・IY）がありません`);
+    if (!r.claim.acts.length) problems.push(`${who}：摘要（SI・IY・TO）がありません`);
   }
   return problems;
 }

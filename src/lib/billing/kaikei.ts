@@ -111,6 +111,7 @@ const SECTION_OF: Record<Shikibetsu, string> = {
   "31": "注射",
   "32": "注射",
   "33": "注射",
+  "40": "処置",
   "60": "検査",
   "80": "その他",
   "90": "入院料等",
@@ -118,7 +119,7 @@ const SECTION_OF: Record<Shikibetsu, string> = {
   "97": "食事療養",
 };
 
-const SECTION_ORDER = ["入院料等", "医学管理等", "投薬", "注射", "検査", "その他"];
+const SECTION_ORDER = ["入院料等", "医学管理等", "投薬", "注射", "検査", "処置", "その他"];
 
 export function limitFor(ins: Insurance, medicalCostYen: number, month: string, tasuu: boolean): { yen: number; formula: string; source: string } | null {
   const t = limitTableFor(month);

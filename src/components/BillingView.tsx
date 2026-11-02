@@ -301,6 +301,13 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
                                   </span>
                                 )}
                                 {l.record === "SI" && l.quantity !== undefined && <span className="text-ink-soft"> ×{l.quantity}</span>}
+                                {l.record === "TO" && (
+                                  <span className="text-ink-soft">
+                                    {l.unitPrice !== undefined && ` ${l.unitPrice}円/${l.unit ?? ""}`}
+                                    {l.quantity !== undefined && ` ${l.quantity.toLocaleString("ja-JP")}${l.unit ?? ""}`}
+                                    {l.product && <span className="block text-[10px]">{l.product}</span>}
+                                  </span>
+                                )}
                                 <span className="ml-1.5 text-[10px] text-ink-faint">{l.code}</span>
                                 {l.comments?.map((c) => (
                                   <div key={c.code} className="ml-3 text-[10px] text-fuji">

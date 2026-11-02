@@ -26,7 +26,29 @@ export const DRUG_CODES: Record<string, string> = {
   "ORAL-SPL25": "620003560",
   "ORAL-ROSU25": "622582001",
   "ORAL-MGO330": "620005434",
+  // drugs used in procedures (処置薬剤)
+  "TOP-GEBEN": "620008991", // ゲーベンクリーム１％
+  "TOP-UPASTA": "620668803", // ユーパスタ軟膏
+  "TOP-VASELINE": "620001705", // 白色ワセリン「ケンエー」
+  "TOP-GE120": "620486001", // グリセリン浣腸液５０％「ムネ」１２０ｍＬ
 };
+
+/** 診療行為コード of the procedures of the fictional hospital. Area-based ones by 範囲. */
+export const PROC_CODES = {
+  酸素吸入: "140005610",
+  喀痰吸引: "140003810",
+  留置カテーテル設置: "140013810",
+  摘便: "140037710",
+  創傷処置: { lt100: "140000610", "100-500": "140000710", "500-3000": "140000810", "3000-6000": "140000910", ge6000: "140001010" },
+  重度褥瘡処置: { lt100: "140048610", "100-500": "140048710", "500-3000": "140048810", "3000-6000": "140048910", ge6000: "140049010" },
+} as const;
+
+/** 特定器材コード. 酸素 by how the hospital stores it (the fictional hospital: a CE tank). */
+export const TOKKI_CODES = {
+  "MAT-FOLEY16": "710010158", // 膀胱留置用ディスポーザブルカテーテル（２管一般（１））
+  酸素CE: "739200000", // 液体酸素・定置式液化酸素貯槽（ＣＥ）
+  酸素補正率: "770020070", // 酸素補正率１．３（１気圧）
+} as const;
 
 /** 診療行為コード for each lab item of the fictional hospital (sets expand to their items). */
 export const LAB_CODES: Record<string, string[]> = {

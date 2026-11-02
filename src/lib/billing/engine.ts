@@ -7,11 +7,13 @@
 
 import { minutesOf } from "../dates";
 import { findDrug, findLab, findSet, WARD_RULES } from "../master";
-import type { HistoryEntry, InjectionOrder, LabOrder, OrderEntry, PrescriptionOrder } from "../types";
-import { CODES, LAB_CODES } from "./codes";
-import { drugPoints, masterQuantity, officialDrugCode } from "./drug";
+import { procEvents, procInterval, procMinutes } from "../proc-timing";
+import { AREA_LABEL, CATHETER, findProcDrug, isSevereUlcer } from "../procedures";
+import type { HistoryEntry, InjectionOrder, LabOrder, OrderEntry, PrescriptionOrder, ProcedureOrder } from "../types";
+import { CODES, LAB_CODES, PROC_CODES, TOKKI_CODES } from "./codes";
+import { drugPoints, masterQuantity, materialPoints, officialDrugCode, oxygenYen, procDrugPoints } from "./drug";
 import { HOSPITAL, meetsStandards } from "./facility";
-import { bukkaFor, commentItem, iyakuItem, shinryoItem } from "./master-items";
+import { bukkaFor, commentItem, iyakuItem, shinryoItem, tokkiItem } from "./master-items";
 import type { ClaimAct, ClaimInput, ClaimIssue, ClaimLine, ClaimPart, ClaimResult, MealClass, Shikibetsu } from "./model";
 import { allowedKasan, haihan, kaisuLimits, type HaihanWindow } from "./tables";
 import { masterMeta } from "../masters/server";
@@ -253,6 +255,117 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     }
   }
 
+  // ===== 40 処置 =====
+  const procs = orders.filter((e) => e.order.type === "procedure");
+  const procOf = (e: OrderEntry) => e.order as ProcedureOrder;
+  // 重度褥瘡処置 (J001-4 注1): 初回の処置の日から起算して2月を経過するまで。それ以降は創傷処置の例による。
+  const severeStarts = procs
+    .filter((e) => procOf(e).code === "PROC-ULCER" && procOf(e).depth && isSevereUlcer(procOf(e).depth!))
+    .map((e) => Math.floor(procInterval(e, nowAbs).from / DAY));
+  const severeFirst = severeStarts.length ? Math.min(...severeStarts) : null;
+  const severeLast = severeFirst === null ? null : lastDayOfMonths(input.today, cal(severeFirst), 2);
+  const fmt = (d: number) => `${cal(d).m}/${cal(d).d}`;
+  for (const d of days) {
+    const lo = d * DAY;
+    const hi = (d + 1) * DAY;
+    const done = (e: OrderEntry) => procEvents(e, lo, hi, nowAbs).filter((t) => t <= nowAbs);
+
+    // J024 酸素吸入（1日につき）＋ J201 酸素加算. Oxygen used = the ordered flow × the minutes it ran.
+    let liters = 0;
+    const flows: string[] = [];
+    for (const e of procs) {
+      const o = procOf(e);
+      if (o.code !== "PROC-O2" || !o.o2) continue;
+      const min = procMinutes(e, lo, hi, nowAbs);
+      if (min <= 0) continue;
+      liters += o.o2.lpm * min;
+      flows.push(`${o.o2.lpm}L/分 × ${min.toLocaleString("ja-JP")}分`);
+    }
+    if (liters > 0) {
+      const ox = oxygenPart(liters);
+      add({
+        day: d,
+        shikibetsu: "40",
+        parts: [{ lines: [si(PROC_CODES.酸素吸入)], points: pts(PROC_CODES.酸素吸入) }, ox.part],
+        basis: `J024 酸素吸入（1日につき）＋ J201 酸素加算。${flows.join(" ＋ ")} = ${liters.toLocaleString("ja-JP")}L。${ox.formula}。流量は指示の値で計算（実際の流量は看護記録で確かめる）`,
+      });
+    }
+
+    // J018 喀痰吸引（1日につき）: days it was done.
+    if (procs.some((e) => procOf(e).code === "PROC-SUCTION" && done(e).length > 0)) {
+      add({ day: d, shikibetsu: "40", parts: [{ lines: [si(PROC_CODES.喀痰吸引)], points: pts(PROC_CODES.喀痰吸引) }], basis: "J018 喀痰吸引（1日につき。何回行っても1日1回）" });
+    }
+
+    let woundOrders = 0;
+    for (const e of procs) {
+      const o = procOf(e);
+      const times = done(e);
+      if (o.code === "PROC-FOLEY") {
+        const { from } = procInterval(e, nowAbs);
+        if (from < lo || from >= hi || from > nowAbs) continue;
+        const cat = tokkiItem(TOKKI_CODES["MAT-FOLEY16"]);
+        const yen = cat?.price ?? 0;
+        add({
+          day: d,
+          shikibetsu: "40",
+          parts: [
+            { lines: [si(PROC_CODES.留置カテーテル設置)], points: pts(PROC_CODES.留置カテーテル設置) },
+            {
+              lines: [{ record: "TO", code: TOKKI_CODES["MAT-FOLEY16"], name: cat?.name ?? TOKKI_CODES["MAT-FOLEY16"], quantity: 1, unit: "本", unitCode: "007", product: CATHETER.name.replace(/（.*）$/, "") }],
+              points: materialPoints(yen),
+            },
+          ],
+          basis: `J063 留置カテーテル設置（挿入した日）＋ J400 特定保険医療材料（${cat?.name ?? ""} ${yen}円 ÷ 10 = ${materialPoints(yen)}点）。留置中の日は算定しない`,
+        });
+        continue;
+      }
+      if (times.length === 0) continue;
+      if (o.code === "PROC-TEKIBEN") {
+        add({ day: d, shikibetsu: "40", parts: [{ lines: [si(PROC_CODES.摘便)], points: pts(PROC_CODES.摘便) }], times: times.length, basis: "J022-2 摘便（行った回数ごと）" });
+        continue;
+      }
+      if (o.code === "PROC-GE") {
+        const drug = o.drug ? procDrugPart(o.drug.code, o.drug.amount, issues) : null;
+        if (drug) add({ day: d, shikibetsu: "40", parts: [drug.part], times: times.length, basis: `浣腸の手技は基本診療料に含まれ算定できない。薬剤料のみ（第9部 通則 通知3）。${drug.formula}` });
+        continue;
+      }
+      if (o.code === "PROC-WOUND" || o.code === "PROC-ULCER") {
+        woundOrders++;
+        const area = o.area!;
+        const severe = o.code === "PROC-ULCER" && !!o.depth && isSevereUlcer(o.depth) && severeLast !== null && d <= severeLast;
+        const perDay = severe; // J001-4 は1日につき。J000 は手術後の患者以外は行った回数ごと
+        const n = perDay ? 1 : times.length;
+        const drug = o.drug ? procDrugPart(o.drug.code, o.drug.amount * (perDay ? times.length : 1), issues) : null;
+        const parts: ClaimPart[] = [];
+        let basis: string;
+        if (area === "lt100") {
+          issues.push({
+            level: "excluded",
+            text: `${o.site ?? ""}の${o.code === "PROC-ULCER" ? "褥瘡処置" : "創傷処置"}は100cm²未満のため算定しません。入院中は手術後の患者（手術日から14日まで）だけ算定できる区分です（J000 注1・J001-4 注2）。`,
+          });
+          basis = "100cm²未満のため手技料は算定しない（J000 注1）。";
+        } else {
+          const code = severe ? PROC_CODES.重度褥瘡処置[area] : PROC_CODES.創傷処置[area];
+          parts.push({ lines: [si(code)], points: pts(code) });
+          basis = severe
+            ? `J001-4 重度褥瘡処置（${o.depth}、${AREA_LABEL[area]}、1日につき）。初回 ${fmt(severeFirst!)} から2月を経過するまで（${fmt(severeLast!)} まで）`
+            : `J000 創傷処置（${AREA_LABEL[area]}、行った回数ごと）${o.code === "PROC-ULCER" && o.depth && isSevereUlcer(o.depth) ? `。重度褥瘡処置の期間（${fmt(severeLast!)} まで）を過ぎたため創傷処置の例による（J001-4 注1）` : o.code === "PROC-ULCER" ? `。${o.depth ?? ""}は重度褥瘡処置の対象（D3〜D5）でない` : ""}`;
+        }
+        if (drug) {
+          if (drug.part.points > 0) parts.push(drug.part);
+          basis += `　薬剤：${drug.formula}`;
+        }
+        if (parts.length) add({ day: d, shikibetsu: "40", parts, times: n, basis });
+      }
+    }
+    if (woundOrders > 1) {
+      issues.push({
+        level: "review",
+        text: `${fmt(d)} に創傷処置・褥瘡処置が${woundOrders}つあります。同じ疾病（またはそれに起因する病変）なら面積を合算して1つの区分で算定し、同じ部位なら1つだけ算定します（通知 J000(2)(3)）。人が確かめてください。`,
+      });
+    }
+  }
+
   // ===== 60 検体検査 =====
   const labOrders = orders.filter((e) => e.order.type === "lab" && e.status !== "中止");
   const collections = labOrders
@@ -466,6 +579,54 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
 
 // ---------- helpers ----------
 
+/** J201 酸素加算: the oxygen line, the 補正率 line, and the points (on the last line). */
+function oxygenPart(liters: number): { part: ClaimPart; formula: string } {
+  const tank = tokkiItem(TOKKI_CODES.酸素CE);
+  const corr = tokkiItem(TOKKI_CODES.酸素補正率);
+  const cap = tank?.price ?? 0;
+  const unit = Math.min(HOSPITAL.oxygen.purchaseYenPerL, cap);
+  const yen = oxygenYen(unit, liters);
+  const points = materialPoints(yen);
+  const L = Math.round(liters * 1000) / 1000;
+  return {
+    part: {
+      lines: [
+        { record: "TO", code: TOKKI_CODES.酸素CE, name: tank?.name ?? TOKKI_CODES.酸素CE, quantity: L, unit: tank?.unitName ?? "Ｌ", unitPrice: unit },
+        { record: "TO", code: TOKKI_CODES.酸素補正率, name: corr?.name ?? TOKKI_CODES.酸素補正率 },
+      ],
+      points,
+    },
+    formula: `酸素の価格 ${unit}円/L（購入単価。告示の単価 ${cap}円/L 以下）× ${L.toLocaleString("ja-JP")}L × 補正率1.3 = ${yen.toLocaleString("ja-JP")}円 → ${points}点`,
+  };
+}
+
+/** A 処置薬剤 part (J300: 15円以下は算定しない). Null when the drug has no official code. */
+function procDrugPart(code: string, amount: number, issues: ClaimIssue[]): { part: ClaimPart; formula: string } | null {
+  const d = findProcDrug(code);
+  const official = officialDrugCode(code);
+  const q = d ? masterQuantity(code, amount, d.unit) : null;
+  if (!d || !official || q === null) {
+    issues.push({ level: "review", text: `処置の薬剤 ${d?.name ?? code} を医薬品マスターに結べませんでした。` });
+    return null;
+  }
+  const line = iyLine(official, q);
+  const yen = line.yen ?? 0;
+  const points = procDrugPoints(yen);
+  if (points === 0) issues.push({ level: "info", text: `${line.name} ${q}${line.unit ?? ""}は ${Math.round(yen * 100) / 100}円で15円以下のため、薬剤料を算定しません（J300 注1）。` });
+  return { part: { lines: [line], points }, formula: `${line.name} ${q}${line.unit ?? ""} = ${Math.round(yen * 100) / 100}円 → ${points}点` };
+}
+
+/**
+ * The last day (offset from today) of a period of n months counted from day `first` (民法143条:
+ * 応当日の前日、応当日がなければその月の末日).
+ */
+function lastDayOfMonths(today: string, first: { y: number; m: number; d: number }, n: number): number {
+  const ym = first.m - 1 + n;
+  const lastOfMonth = new Date(Date.UTC(first.y, ym + 1, 0)).getUTCDate();
+  const end = first.d > lastOfMonth ? Date.UTC(first.y, ym, lastOfMonth) : Date.UTC(first.y, ym, first.d) - 86_400_000;
+  return Math.round((end - parseDate(today)) / 86_400_000);
+}
+
 /** 食事療養標準負担額 (1食あたり、令和8年6月〜) by the patient's 区分, with its 診療行為コード. */
 export const MEAL_FUTAN: Record<MealClass, { code: string; label: string }> = {
   一般: { code: "197000810", label: "一般" },
@@ -662,7 +823,7 @@ function applyRules(acts: DayAct[], ctx: RuleCtx): DayAct[] {
   return out;
 }
 
-const ORDER: Shikibetsu[] = ["13", "21", "22", "24", "27", "31", "32", "33", "60", "80", "90", "92", "97"];
+const ORDER: Shikibetsu[] = ["13", "21", "22", "24", "27", "31", "32", "33", "40", "60", "80", "90", "92", "97"];
 
 /** Merge identical day entries into receipt entries (count = days × times). */
 function mergeActs(acts: DayAct[], cal: ReturnType<typeof calendar>): ClaimAct[] {

@@ -23,6 +23,11 @@ export const HOSPITAL = {
   beds: { general: 134 },
   /** The ward in this app (5階東) bills 急性期一般入院料４. */
   wardBase: "190199910",
+  /**
+   * 酸素: stored in a 定置式液化酸素貯槽（CE）. 購入単価 (円/L) worked out from last year's purchases
+   * (通知 J201(5)) — a FICTIONAL figure. The claim uses the lower of this and the 告示 単価.
+   */
+  oxygen: { kind: "CE", purchaseYenPerL: 0.16 },
 } as const;
 
 export const FACILITY_STANDARDS: FacilityStandard[] = [

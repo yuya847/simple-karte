@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DailyRecord, InjectionOrder, LabOrder, OrderEntry, PrescriptionOrder } from "../types";
+import type { DailyRecord, InjectionOrder, LabOrder, OrderEntry, PrescriptionOrder, ProcedureOrder } from "../types";
+import { materialPoints, oxygenYen } from "./drug";
 import { calculateClaim, seikagaku1Points } from "./engine";
 import { type BillingOptions, type ClaimAct, type ClaimInput, DEFAULT_OPTIONS } from "./model";
 
@@ -8,7 +9,7 @@ const TODAY = "2026-11-02";
 const OCT1 = -32;
 
 let seq = 0;
-const order = (day: number, o: InjectionOrder | LabOrder | PrescriptionOrder, extra: Partial<OrderEntry> = {}): OrderEntry => ({
+const order = (day: number, o: InjectionOrder | LabOrder | PrescriptionOrder | ProcedureOrder, extra: Partial<OrderEntry> = {}): OrderEntry => ({
   kind: "order",
   id: `o${++seq}`,
   day,
@@ -305,5 +306,126 @@ describe("入院時食事療養（Ⅰ）", () => {
     const r = claim("2026-10", { daily, mealClass: "低所得Ⅱ（90日以下）" });
     expect(r.meals.futanYen).toBe(270 * 4);
     expect(find(r.acts, "197000910").count).toBe(2);
+  });
+});
+
+describe("処置（第9部）", () => {
+  const proc = (day: number, o: Omit<ProcedureOrder, "type" | "start"> & { start?: ProcedureOrder["start"] }, extra: Partial<OrderEntry> = {}) =>
+    order(day, { type: "procedure", start: { day, time: "09:00" }, ...o } as ProcedureOrder, extra);
+
+  it("酸素の価格: the official examples (2.31円×10L×1.3 = 30円 → 3点, 0.30円×300L×1.3 = 117円 → 12点)", () => {
+    expect(oxygenYen(2.31, 10)).toBe(30);
+    expect(materialPoints(30)).toBe(3);
+    expect(oxygenYen(0.3, 300)).toBe(117);
+    expect(materialPoints(117)).toBe(12);
+  });
+
+  it("酸素吸入 65点 a day, and the oxygen used: flow × minutes, at the purchase price (0.16円 ≤ 0.19円)", () => {
+    // 2L/分 from 10/31 09:00 to 11/1 09:00 (stopped), then 1L/分 to now (11/2 10:00)
+    const r = claim("2026-10", {
+      admittedOn: -5,
+      entries: [
+        proc(-2, { code: "PROC-O2", o2: { device: "鼻カニュラ", lpm: 2 }, schedule: { kind: "continuous" } }, { status: "中止", stoppedOn: -1, stoppedTime: "09:00" }),
+      ],
+    });
+    const o2 = find(r.acts, "140005610");
+    expect(o2.days).toEqual([31]);
+    const act = o2.acts[0];
+    expect(act.parts[0].points).toBe(65);
+    // 10/31: 09:00–24:00 = 900分 × 2L = 1,800L → 0.16 × 1800 × 1.3 = 374.4 → 374円 → 37点
+    expect(act.parts[1].lines[0]).toMatchObject({ code: "739200000", quantity: 1800, unitPrice: 0.16 });
+    expect(act.parts[1].lines[1].code).toBe("770020070");
+    expect(act.parts[1].points).toBe(37);
+  });
+
+  it("two flows on one day: one 酸素吸入, the oxygen summed", () => {
+    const r = claim("2026-11", {
+      admittedOn: -5,
+      entries: [
+        proc(-2, { code: "PROC-O2", o2: { device: "鼻カニュラ", lpm: 2 }, schedule: { kind: "continuous" } }, { status: "中止", stoppedOn: -1, stoppedTime: "09:00" }),
+        proc(-1, { code: "PROC-O2", o2: { device: "鼻カニュラ", lpm: 1 }, schedule: { kind: "continuous" } }),
+      ],
+    });
+    const nov1 = find(r.acts, "140005610").acts.find((a) => a.days[1])!;
+    expect(nov1.count).toBe(1);
+    // 00:00–09:00 2L (1,080L) + 09:00–24:00 1L (900L) = 1,980L → 411.84 → 412円 → 41点
+    expect(nov1.parts[1].lines[0].quantity).toBe(1980);
+    expect(nov1.parts[1].points).toBe(41);
+    // today up to now only: 00:00–10:00 1L = 600L → 124.8 → 125円 → 13点
+    const nov2 = find(r.acts, "140005610").acts.find((a) => a.days[2])!;
+    expect(nov2.parts[1].lines[0].quantity).toBe(600);
+    expect(nov2.parts[1].points).toBe(13);
+  });
+
+  it("喀痰吸引 48点 once a day on days it was done (必要時: from the record)", () => {
+    const r = claim("2026-11", {
+      admittedOn: -5,
+      entries: [proc(-2, { code: "PROC-SUCTION", schedule: { kind: "prn" }, done: [{ day: -1, time: "02:00" }, { day: -1, time: "05:00" }, { day: 0, time: "08:00" }] })],
+    });
+    expect(find(r.acts, "140003810")).toMatchObject({ count: 2, days: [1, 2] });
+  });
+
+  it("膀胱留置カテーテル: 留置カテーテル設置 40点 and the catheter (233円 → 23点) on the day it went in only", () => {
+    const r = claim("2026-11", { admittedOn: -5, entries: [proc(-1, { code: "PROC-FOLEY", schedule: { kind: "continuous" } })] });
+    const f = find(r.acts, "140013810");
+    expect(f).toMatchObject({ count: 1, days: [1] });
+    expect(f.acts[0].parts[1].lines[0]).toMatchObject({ record: "TO", code: "710010158", unitCode: "007" });
+    expect(f.acts[0].parts[1].points).toBe(23);
+  });
+
+  it("グリセリン浣腸: no 手技料 (basic fee), the drug only (156.80円 → 16点)", () => {
+    const r = claim("2026-11", { admittedOn: -5, entries: [proc(-1, { code: "PROC-GE", schedule: { kind: "once" }, drug: { code: "TOP-GE120", amount: 1 } })] });
+    const ge = find(r.acts, "620486001");
+    expect(ge.count).toBe(1);
+    expect(ge.acts[0].parts).toHaveLength(1);
+    expect(ge.acts[0].parts[0].points).toBe(16);
+  });
+
+  it("創傷処置 100〜500cm² 60点 each time it is done; ゲーベン 10g (128円 → 13点) with it", () => {
+    const r = claim("2026-11", {
+      admittedOn: -5,
+      entries: [proc(-1, { code: "PROC-WOUND", site: "右下腿", area: "100-500", schedule: { kind: "per_day", count: 2 }, drug: { code: "TOP-GEBEN", amount: 10 } }, { time: "08:00" })],
+    });
+    // 11/1 10:00 and 18:00, 11/2 10:00 (now) → 3 times
+    const w = find(r.acts, "140000710");
+    expect(w.count).toBe(3);
+    expect(w.acts[0].parts.map((p) => p.points)).toEqual([60, 13]);
+  });
+
+  it("創傷処置 under 100cm² is not billed in hospital (not after surgery), but the drug is; 15円以下 is not billed (J300)", () => {
+    const r = claim("2026-11", {
+      admittedOn: -5,
+      entries: [
+        proc(-1, { code: "PROC-WOUND", site: "左前腕", area: "lt100", schedule: { kind: "per_day", count: 1 }, drug: { code: "TOP-GEBEN", amount: 5 } }, { time: "08:00" }),
+        proc(-1, { code: "PROC-WOUND", site: "右前腕", area: "lt100", schedule: { kind: "per_day", count: 1 }, drug: { code: "TOP-VASELINE", amount: 3 } }, { time: "08:00" }),
+      ],
+    });
+    expect(find(r.acts, "140000610").count).toBe(0);
+    expect(r.issues.some((i) => i.level === "excluded" && i.text.includes("100cm²未満"))).toBe(true);
+    // ゲーベン 5g = 64円 → 6点, billed as a drug of 処置
+    expect(find(r.acts, "620008991").acts[0].parts[0].points).toBe(6);
+    // 白色ワセリン 3g = 9.48円 ≦ 15円 → not billed
+    expect(find(r.acts, "620001705").count).toBe(0);
+    expect(r.issues.some((i) => i.text.includes("J300 注1"))).toBe(true);
+    expect(r.issues.some((i) => i.level === "review" && i.text.includes("面積を合算"))).toBe(true);
+  });
+
+  it("褥瘡 D3: 重度褥瘡処置 once a day for 2 months from the first one, then 創傷処置", () => {
+    // first on 2026-09-02 (day -61): 2 months end on 11/1 → 11/2 is 創傷処置
+    const r = claim("2026-11", {
+      admittedOn: -70,
+      entries: [proc(-61, { code: "PROC-ULCER", site: "仙骨部", area: "100-500", depth: "D3", schedule: { kind: "per_day", count: 2 } }, { time: "08:00" })],
+    });
+    expect(find(r.acts, "140048710")).toMatchObject({ count: 1, days: [1] });
+    expect(find(r.acts, "140000710")).toMatchObject({ count: 1, days: [2] });
+  });
+
+  it("褥瘡 d2 is billed as 創傷処置 from the start", () => {
+    const r = claim("2026-11", {
+      admittedOn: -5,
+      entries: [proc(-1, { code: "PROC-ULCER", site: "仙骨部", area: "100-500", depth: "d2", schedule: { kind: "per_day", count: 1 } }, { time: "08:00" })],
+    });
+    expect(find(r.acts, "140048710").count).toBe(0);
+    expect(find(r.acts, "140000710").count).toBe(2);
   });
 });

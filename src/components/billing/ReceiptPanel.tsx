@@ -25,6 +25,7 @@ const RECORD_NAME: Record<string, string> = {
   SY: "傷病名",
   SI: "診療行為",
   IY: "医薬品",
+  TO: "特定器材",
   CO: "コメント",
   GO: "請求書",
 };

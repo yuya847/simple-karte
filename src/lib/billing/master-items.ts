@@ -137,3 +137,34 @@ export function commentItem(code: string): CommentItem | undefined {
   }
   return comments.get(code);
 }
+
+export interface TokkiItem {
+  code: string;
+  name: string;
+  /** 単位コード (別表22). "0" = none in the master: the receipt must give one. */
+  unitCode: string;
+  unitName: string;
+  /** 金額種別: 1 金額 / 2 購入価格 / 5 %加算 / 9 乗算割合. */
+  priceKind: string;
+  /** 金額 (円). For 酸素 it is the upper limit of the 単価. */
+  price: number;
+  /** 酸素等区分: 0 / 1 補正率・高気圧 / 2 CE / 3 LGC / 4 大型ボンベ / 5 小型ボンベ / 9 窒素. */
+  oxygenKind: string;
+}
+
+let tokki: Map<string, TokkiItem> | null = null;
+
+/** 特定器材マスター (cols 3 code, 5 name, 8 単位コード, 10 単位名, 11 金額種別, 12 金額, 21 酸素等区分). */
+export function tokkiItem(code: string): TokkiItem | undefined {
+  if (!tokki) {
+    const m = loadMaster("t");
+    const at = (col: number) => m.cols!.indexOf(col);
+    tokki = new Map(
+      m.rows.map((r) => [
+        r[at(3)],
+        { code: r[at(3)], name: r[at(5)], unitCode: r[at(8)], unitName: r[at(10)], priceKind: r[at(11)], price: Number(r[at(12)]), oxygenKind: r[at(21)] },
+      ]),
+    );
+  }
+  return tokki.get(code);
+}

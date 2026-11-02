@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LabOrder, OrderEntry } from "../types";
+import type { LabOrder, OrderEntry, ProcedureOrder } from "../types";
 import { calculateClaim } from "./engine";
 import { INSURANCE } from "./insurance";
 import { DEFAULT_OPTIONS } from "./model";
@@ -123,5 +123,65 @@ describe("the file", () => {
 
   it("a 国保 patient goes to the other file", () => {
     expect(buildUke([receipt], "2", "2026-10", "2026-11").count).toBe(0);
+  });
+});
+
+describe("処置の特定器材（TO）", () => {
+  const procs: OrderEntry[] = [
+    {
+      kind: "order",
+      id: "o2",
+      day: -2,
+      time: "09:00",
+      author: "試験",
+      status: "中止",
+      stoppedOn: -2,
+      stoppedTime: "19:00",
+      order: { type: "procedure", code: "PROC-O2", o2: { device: "鼻カニュラ", lpm: 2 }, schedule: { kind: "continuous" }, start: { day: -2, time: "09:00" } } as ProcedureOrder,
+    },
+    {
+      kind: "order",
+      id: "foley",
+      day: -2,
+      time: "09:00",
+      author: "試験",
+      status: "有効",
+      order: { type: "procedure", code: "PROC-FOLEY", schedule: { kind: "continuous" }, start: { day: -2, time: "09:30" } } as ProcedureOrder,
+    },
+  ];
+  const c = calculateClaim({
+    today: "2026-11-02",
+    nowTime: "10:00",
+    month: "2026-10",
+    patient: { id: "90010260", name: "森 久美子", sex: "女", age: 64, admittedOn: -3 },
+    entries: procs,
+    daily: [],
+    cultures: [],
+    diagnoses: [],
+    options: DEFAULT_OPTIONS,
+  });
+  const lines = receiptRecords({ ...receipt, claim: c }, 1, "2026-10");
+  const sk40 = lines.findIndex((l) => l.startsWith("SI,40,"));
+
+  it("酸素: SI 酸素吸入 65, then TO 酸素 (使用量 1200L, 単価 0.16) and TO 補正率 with the points", () => {
+    // 10/31 09:00–19:00 = 600分 × 2L = 1,200L → 0.16 × 1200 × 1.3 = 249.6 → 250円 → 25点
+    const [si, ox, corr] = lines.slice(sk40, sk40 + 3).map((l) => l.split(","));
+    expect(si.slice(0, 7)).toEqual(["SI", "40", "1", "140005610", "", "65", "1"]);
+    expect(ox).toHaveLength(48);
+    expect(ox.slice(0, 11)).toEqual(["TO", "", "1", "739200000", "1200", "", "1", "", "0.16", "", ""]);
+    expect(corr.slice(0, 7)).toEqual(["TO", "", "1", "770020070", "", "25", "1"]);
+    expect(corr[47]).toBe("1"); // 31日
+  });
+
+  it("カテーテル: a new 40 unit, 単位コード 007（本） and the product name in 全角", () => {
+    const i = lines.findIndex((l, k) => k > sk40 && l.startsWith("SI,40,1,140013810"));
+    const to = lines[i + 1].split(",");
+    expect(to.slice(0, 11)).toEqual(["TO", "", "1", "710010158", "1", "23", "1", "007", "", "", "２管バルーンカテーテル　１６Ｆｒ"]);
+  });
+
+  it("the file check passes (field counts, 回数 = 算定日の合計)", () => {
+    const f = buildUke([{ ...receipt, claim: c }], "1", "2026-10", "2026-11");
+    // (the fixture's 未コード化傷病名 is reported on purpose; no record-level problem)
+    expect(f.problems.filter((p) => /行目/.test(p))).toEqual([]);
   });
 });
