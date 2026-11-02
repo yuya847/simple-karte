@@ -7,6 +7,7 @@ import { checkDraft, draftsFromAi, isReady, toOrder, type CheckContext, type Dra
 import { orderLines } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { admitFromEr, type AdmitForm } from "@/lib/admission";
+import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
@@ -25,6 +26,7 @@ import { ToolRail, type PanelKind } from "./ToolRail";
 import { WardMap, type ChartSummary } from "./WardMap";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddInjectionPanel, AddLabPanel } from "./panels/AddPanels";
+import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
@@ -102,6 +104,8 @@ export default function WardApp() {
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
   const [admitted, setAdmitted] = useState<Patient[]>([]);
   const [newBeds, setNewBeds] = useState<BedAssignment[]>([]);
+  // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
+  const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
 
   const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
@@ -242,6 +246,11 @@ export default function WardApp() {
     const { patient: p, bed } = admitFromEr(from, form, id, nowTime);
     setAdmitted((a) => [...a, p]);
     setNewBeds((b) => [...b, bed]);
+    // The admission diagnosis typed in the ED is kept as 未コード化傷病名 until a master name is chosen.
+    setDiagnoses((all) => ({
+      ...all,
+      [id]: [{ id: newId(), code: UNCODED, name: form.diagnosis.trim(), prefixes: [], suffixes: [], main: true, start: 0, outcome: "継続" }],
+    }));
     setEr((list) => list.map((x) => (x.id === from.id ? { ...x, status: "入院済", admittedAs: id } : x)));
     openPatient(id);
   };
@@ -317,7 +326,7 @@ export default function WardApp() {
         />
       ) : patient && ctx ? (
         <>
-          <PatientBar patient={patient} today={today} />
+          <PatientBar patient={patient} today={today} diagnoses={diagnoses[patient.id] ?? []} onOpenDiagnoses={() => setPanel("diagnoses")} />
           <div
             className={`grid min-h-0 flex-1 ${
               wideLeft ? "grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_68px]" : "grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]"
@@ -368,6 +377,17 @@ export default function WardApp() {
                 }
                 onConfirm={confirm}
               />
+              {panel === "diagnoses" && (
+                <Drawer title="病名" onClose={closePanel} wide>
+                  <DiagnosisPanel
+                    diagnoses={diagnoses[patient.id] ?? []}
+                    admittedOn={patient.admittedOn}
+                    today={today}
+                    newId={newId}
+                    onChange={(next) => setDiagnoses((all) => ({ ...all, [patient.id]: next }))}
+                  />
+                </Drawer>
+              )}
               {panel === "results" && (
                 <Drawer title="検査結果" onClose={closePanel} wide>
                   <ResultsPanel patient={patient} today={today} />

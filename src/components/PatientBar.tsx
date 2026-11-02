@@ -2,11 +2,14 @@
 
 import { bmi, cockcroftGault, latestValue } from "@/lib/clinical";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
+import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import type { Patient } from "@/lib/types";
 
 interface Props {
   patient: Patient;
   today: CalendarDate;
+  diagnoses: Diagnosis[];
+  onOpenDiagnoses: () => void;
 }
 
 function dayLabel(day: number): string {
@@ -16,7 +19,8 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, onOpenDiagnoses }: Props) {
+  const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
   const cre = latestValue(p, "Cre");
   const ccr = cre ? cockcroftGault(p.age, p.weightKg, cre.value, p.sex) : undefined;
   const admitted = addDays(today, p.admittedOn);
@@ -48,8 +52,12 @@ export function PatientBar({ patient: p, today }: Props) {
         <dd>
           {formatShort(admitted)}　<b className="text-ink">入院{hospitalDay(p.admittedOn, 0)}日目</b>
         </dd>
-        <dt className="text-ink-faint">病名</dt>
-        <dd className="text-ink">{p.admissionDiagnosis}</dd>
+        <dt className="text-ink-faint">主病名</dt>
+        <dd className="text-ink">
+          <button type="button" onClick={onOpenDiagnoses} className="text-left hover:underline" title="病名の一覧を開く">
+            {mains.length ? mains.map(diagnosisLabel).join("、") : <span className="text-yamabuki">未登録（入院時：{p.admissionDiagnosis}）</span>}
+          </button>
+        </dd>
       </dl>
 
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">
