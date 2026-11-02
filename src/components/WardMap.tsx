@@ -3,9 +3,8 @@
 import { FlaskConical, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { hospitalDay } from "@/lib/dates";
-import { findPatient } from "@/lib/patients";
 import type { Patient } from "@/lib/types";
-import { BEDS, ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room } from "@/lib/ward";
+import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room, type WardState } from "@/lib/ward";
 
 export interface ChartSummary {
   drafts: number;
@@ -13,16 +12,17 @@ export interface ChartSummary {
 }
 
 interface Props {
+  ward: WardState;
   summaries: Record<string, ChartSummary>;
   onOpen: (patientId: string) => void;
 }
 
 /** Floor plan of the ward. Our patients can be opened; other teams' beds are shown for context only. */
-export function WardMap({ summaries, onOpen }: Props) {
+export function WardMap({ ward, summaries, onOpen }: Props) {
   const [mineOnly, setMineOnly] = useState(false);
-  const occupied = BEDS.length;
+  const occupied = ward.beds.length;
   const totalBeds = ROOMS.reduce((n, r) => n + r.beds.length, 0);
-  const mine = BEDS.filter((b) => b.patientId).length;
+  const mine = ward.beds.filter((b) => b.patientId).length;
   const north = ROOMS.filter((r) => r.side === "north");
   const south = ROOMS.filter((r) => r.side === "south");
   const southBeforeNs = south.slice(0, 3);
@@ -46,15 +46,15 @@ export function WardMap({ summaries, onOpen }: Props) {
       </header>
 
       <div className="min-w-[1100px] space-y-2">
-        <RoomRow rooms={north} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} />
+        <RoomRow ward={ward} rooms={north} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} />
         <div className="flex h-8 items-center justify-center rounded bg-tab/60 text-[11px] tracking-[0.5em] text-ink-faint">廊下</div>
         <div className="flex gap-2">
-          <RoomRow rooms={southBeforeNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} inline />
+          <RoomRow ward={ward} rooms={southBeforeNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} inline />
           <div className="flex min-h-40 flex-[1.4] flex-col items-center justify-center rounded-lg border border-rule bg-tab/50 text-center text-xs text-ink-soft">
             <b className="text-sm text-ink">ナース</b>
             <b className="text-sm text-ink">ステーション</b>
           </div>
-          <RoomRow rooms={southAfterNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} inline />
+          <RoomRow ward={ward} rooms={southAfterNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} inline />
         </div>
       </div>
       <p className="mt-3 text-[11px] text-ink-faint">
@@ -64,7 +64,7 @@ export function WardMap({ summaries, onOpen }: Props) {
   );
 }
 
-function RoomRow({ rooms, summaries, onOpen, mineOnly, inline }: { rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; mineOnly: boolean; inline?: boolean }) {
+function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; mineOnly: boolean; inline?: boolean }) {
   const body = rooms.map((r) => (
     <div key={r.no} className={`flex flex-col rounded-lg border border-rule bg-sheet ${r.kind === "4床室" ? "flex-[2]" : "flex-1"}`}>
       <div className="nums flex items-baseline gap-2 border-b border-rule-soft px-2.5 py-1">
@@ -73,8 +73,8 @@ function RoomRow({ rooms, summaries, onOpen, mineOnly, inline }: { rooms: Room[]
       </div>
       <div className={`grid flex-1 gap-1.5 p-1.5 ${r.kind === "4床室" ? "grid-cols-2" : "grid-cols-1"}`}>
         {r.beds.map((b) => {
-          const occ = occupant(r.no, b);
-          const patient = occ?.patientId ? findPatient(occ.patientId) : undefined;
+          const occ = occupant(ward.beds, r.no, b);
+          const patient = occ?.patientId ? ward.patient(occ.patientId) : undefined;
           return (
             <div key={b || "single"} className="min-h-24 min-w-0">
               {patient ? (
@@ -117,6 +117,7 @@ function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: st
         {p.admissionDiagnosis}
       </div>
       <div className="flex flex-wrap gap-1">
+        {p.admittedOn === 0 && <Tag tone="ai">新入院</Tag>}
         {isolation && (
           <Tag tone="fuji">
             <ShieldAlert size={10} />

@@ -5,13 +5,13 @@ import { useMemo, useState } from "react";
 import { upcomingToday } from "@/lib/calendar";
 import { abs } from "@/lib/flowsheet";
 import { hospitalDay } from "@/lib/dates";
-import { findPatient } from "@/lib/patients";
 import { currentEntries, ordersOf, type SessionChanges } from "@/lib/record";
 import type { Patient } from "@/lib/types";
-import { BEDS, WARD_NAME, isolationFor, type BedAssignment } from "@/lib/ward";
+import { WARD_NAME, isolationFor, type BedAssignment, type WardState } from "@/lib/ward";
 import type { ChartSummary } from "./WardMap";
 
 interface Props {
+  ward: WardState;
   nowTime: string;
   changes: Record<string, SessionChanges>;
   summaries: Record<string, ChartSummary>;
@@ -30,7 +30,7 @@ interface Row {
 const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
 
 /** Ward patient list. Our patients open on click or Enter; other teams' rows are context only. */
-export function PatientList({ nowTime, changes, summaries, onOpen }: Props) {
+export function PatientList({ ward, nowTime, changes, summaries, onOpen }: Props) {
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "room", asc: true });
@@ -38,8 +38,8 @@ export function PatientList({ nowTime, changes, summaries, onOpen }: Props) {
   const nowAbs = abs(0, nowTime);
 
   const rows: Row[] = useMemo(() => {
-    const all = BEDS.map((b) => {
-      const patient = b.patientId ? findPatient(b.patientId) : undefined;
+    const all = ward.beds.map((b) => {
+      const patient = b.patientId ? ward.patient(b.patientId) : undefined;
       return { bed: b, patient, kana: patient?.kana ?? b.other?.name ?? "", day: patient ? hospitalDay(patient.admittedOn, 0) : null };
     });
     const filtered = all
@@ -56,7 +56,7 @@ export function PatientList({ nowTime, changes, summaries, onOpen }: Props) {
       if (sort.key === "day") return dir * ((a.day ?? -1) - (b.day ?? -1));
       return dir * roomKey(a.bed).localeCompare(roomKey(b.bed));
     });
-  }, [scope, q, sort]);
+  }, [ward, scope, q, sort]);
 
   const openable = rows.filter((r) => r.patient);
   const at = Math.min(cursor, Math.max(openable.length - 1, 0));
@@ -83,8 +83,8 @@ export function PatientList({ nowTime, changes, summaries, onOpen }: Props) {
         <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
           {(
             [
-              ["mine", `受け持ち（${BEDS.filter((b) => b.patientId).length}）`],
-              ["all", `病棟全体（${BEDS.length}）`],
+              ["mine", `受け持ち（${ward.beds.filter((b) => b.patientId).length}）`],
+              ["all", `病棟全体（${ward.beds.length}）`],
             ] as const
           ).map(([v, label]) => (
             <button
@@ -227,6 +227,7 @@ function MyRow({
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         <b>{row.day}日目</b>
+        {p.admittedOn === 0 && <div className="text-[10px] font-bold text-ai">新入院</div>}
       </td>
       <td className="px-3 py-2">{p.admissionDiagnosis}</td>
       <td className="px-3 py-2">

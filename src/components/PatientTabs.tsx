@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, List, Plus, Search, X } from "lucide-react";
+import { Ambulance, LayoutGrid, List, Plus, Search, X } from "lucide-react";
 import type { Patient } from "@/lib/types";
 
 interface Props {
@@ -14,11 +14,12 @@ interface Props {
   onOpenPicker: () => void;
 }
 
-export type PinnedTab = "map" | "list";
+export type PinnedTab = "map" | "list" | "er";
 
 const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
   { key: "map", label: "病棟マップ", icon: LayoutGrid },
   { key: "list", label: "患者一覧", icon: List },
+  { key: "er", label: "救急", icon: Ambulance },
 ];
 
 /** Browser-style tabs: pinned ward views first, then one tab per open patient chart. */

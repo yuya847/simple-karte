@@ -6,10 +6,15 @@ import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type Calen
 import { checkDraft, draftsFromAi, isReady, toOrder, type CheckContext, type Draft, type Issue, type StopDraft } from "@/lib/drafts";
 import { orderLines } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
-import { PATIENTS, findPatient } from "@/lib/patients";
+import { admitFromEr, type AdmitForm } from "@/lib/admission";
+import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
+import { abs } from "@/lib/flowsheet";
+import { PATIENTS } from "@/lib/patients";
+import { BEDS, type BedAssignment, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
-import type { DayOffset, HistoryEntry, OrderEntry } from "@/lib/types";
+import type { DayOffset, HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 import { DateTree } from "./DateTree";
+import { EmergencyBoard } from "./EmergencyBoard";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
@@ -92,8 +97,16 @@ export default function WardApp() {
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
-  // The ward map is the pinned first tab and the start screen; the patient list is the second.
+  // The ward map is the pinned first tab and the start screen; then the patient list and the ED board.
   const [screen, setScreen] = useState<PinnedTab | "chart">("map");
+  // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
+  const [admitted, setAdmitted] = useState<Patient[]>([]);
+  const [newBeds, setNewBeds] = useState<BedAssignment[]>([]);
+  const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
+
+  const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
+  const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
+  const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
 
   const openPatient = useCallback((id: string) => {
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -224,6 +237,15 @@ export default function WardApp() {
     }));
   };
 
+  const admit = (from: ErPatient, form: AdmitForm) => {
+    const id = `9002${String(admitted.length + 1).padStart(4, "0")}`;
+    const { patient: p, bed } = admitFromEr(from, form, id, nowTime);
+    setAdmitted((a) => [...a, p]);
+    setNewBeds((b) => [...b, bed]);
+    setEr((list) => list.map((x) => (x.id === from.id ? { ...x, status: "入院済", admittedAs: id } : x)));
+    openPatient(id);
+  };
+
   const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft] }));
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
   const addStopDraft = (entry: OrderEntry) => {
@@ -274,9 +296,20 @@ export default function WardApp() {
       />
 
       {screen === "map" ? (
-        <WardMap summaries={summaries} onOpen={openPatient} />
+        <WardMap ward={ward} summaries={summaries} onOpen={openPatient} />
+      ) : screen === "er" ? (
+        <EmergencyBoard
+          patients={er}
+          nowAbs={abs(0, nowTime)}
+          ward={ward}
+          onRegister={(p) => setEr((list) => [...list, p])}
+          onStatus={(id, st: ErStatus) => setEr((list) => list.map((p) => (p.id === id ? { ...p, status: st } : p)))}
+          onAdmit={admit}
+          onOpenChart={openPatient}
+        />
       ) : screen === "list" ? (
         <PatientList
+          ward={ward}
           nowTime={nowTime}
           changes={Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped }]))}
           summaries={summaries}
@@ -377,7 +410,7 @@ export default function WardApp() {
         </div>
       )}
 
-      {pickerOpen && <PatientPicker patients={PATIENTS} openIds={tabs} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && <PatientPicker patients={allPatients} openIds={tabs} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
     </div>
   );
 }
