@@ -50,7 +50,7 @@ export const LAB_CODES: Record<string, string[]> = {
   "LAB-COAG": ["160012010", "160012310"], // ＰＴ、ＡＰＴＴ
   "LAB-BNP": ["160162350"], // ＢＮＰ
   "LAB-BCX": ["160058610"], // 細菌培養同定検査（血液）
-  "LAB-UA": ["160000310"], // 尿一般
+  "LAB-UA": ["160000310", "160005010"], // 尿一般、尿沈渣（鏡検法）
   "LAB-UCX": ["160058410"], // 細菌培養同定検査（泌尿器）
   // A drug level (バンコマイシン) is billed through 特定薬剤治療管理料１, not as a lab item.
   "LAB-VCM": [],
