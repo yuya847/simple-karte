@@ -1,13 +1,14 @@
 "use client";
 
 import { Check, Square } from "lucide-react";
-import { injectionCell, prescriptionCell } from "@/lib/calendar";
+import { injectionCell, prescriptionCell, procedureCell } from "@/lib/calendar";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { abs, fluidByDay } from "@/lib/flowsheet";
-import { durationText, oralName, scheduleTextFor, timingText } from "@/lib/format";
+import { durationText, oralName, procedureLines, scheduleTextFor, timingText } from "@/lib/format";
+import { findProc } from "@/lib/procedures";
 import { findDrug } from "@/lib/master";
 import { ordersOf } from "@/lib/record";
-import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder } from "@/lib/types";
+import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "@/lib/types";
 
 interface CalendarProps {
   patient: Patient;
@@ -303,6 +304,77 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
         <tr>
           <td colSpan={days.length + 1} className="px-3 py-6 text-ink-faint">
             処方はありません
+          </td>
+        </tr>
+      )}
+    </Frame>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+const PROC_GROUPS: { title: string; test: (o: ProcedureOrder) => boolean }[] = [
+  { title: "酸素・留置", test: (o) => o.schedule.kind === "continuous" },
+  { title: "決まった時刻", test: (o) => o.schedule.kind === "per_day" || o.schedule.kind === "every_days" || o.schedule.kind === "once" },
+  { title: "必要時", test: (o) => o.schedule.kind === "prn" },
+];
+
+export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops }: CalendarProps) {
+  const days = calendarDays(patient);
+  const nowAbs = abs(0, nowTime);
+  const orders = ordersOf(entries).filter((e) => e.order.type === "procedure");
+
+  return (
+    <Frame
+      days={days}
+      today={today}
+      patient={patient}
+      selectedDay={selectedDay}
+      onSelectDay={onSelectDay}
+      note="決まった時刻の処置は、時刻を過ぎたものを ✓ にしています（この試作では実施の記録はなく、架空です）。時刻は病棟の約束（1日1回 10:00、1日2回 10:00・18:00、1日3回 6:00・14:00・22:00）。必要時の処置は、実施した時刻（架空の記録）を出します。"
+    >
+      {PROC_GROUPS.map((g) => {
+        const rows = orders.filter((e) => g.test(e.order as ProcedureOrder));
+        if (rows.length === 0) return null;
+        return [
+          <GroupRow key={g.title} title={g.title} span={days.length + 1} />,
+          ...rows.map((e) => {
+            const o = e.order as ProcedureOrder;
+            const { main, detail } = procedureLines(o, today);
+            return (
+              <tr key={e.id}>
+                <RowHead entry={e} title={main} lines={[detail]} onStopDraft={onStopDraft} drafted={draftedStops.includes(e.id)} />
+                {days.map((d) => {
+                  const c = procedureCell(e, d, nowAbs);
+                  return (
+                    <Cell key={d} day={d}>
+                      <div className="flex flex-wrap gap-1">
+                        {c.running && (
+                          <Chip state={c.running.state}>
+                            {o.o2 ? `${o.o2.lpm}L/分` : findProc(o.code)?.name === "膀胱留置カテーテル" ? "留置" : "実施中"}
+                            {c.running.from && <span className="opacity-75">{c.running.from}〜</span>}
+                          </Chip>
+                        )}
+                        {c.times.map((t) => (
+                          <Chip key={t.time} state={t.state}>
+                            {t.time}
+                            {o.schedule.kind === "prn" ? " 実施" : ""}
+                          </Chip>
+                        ))}
+                        {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止{c.stopped.time ? ` ${c.stopped.time}` : ""}</span>}
+                      </div>
+                    </Cell>
+                  );
+                })}
+              </tr>
+            );
+          }),
+        ];
+      })}
+      {orders.length === 0 && (
+        <tr>
+          <td colSpan={days.length + 1} className="px-3 py-6 text-ink-faint">
+            処置はありません
           </td>
         </tr>
       )}

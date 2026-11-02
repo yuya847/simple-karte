@@ -1,13 +1,13 @@
 "use client";
 
-import { Activity, Bandage, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-lab" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-lab" | "add-procedure" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
-  key: PanelKind | "disabled-rx" | "disabled-proc";
+  key: PanelKind | "disabled-rx";
   label: string;
   icon: LucideIcon;
   disabled?: boolean;
@@ -21,7 +21,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-lab", label: "検体検査", icon: TestTube },
       { key: "disabled-rx", label: "処方", icon: Pill, disabled: true },
-      { key: "disabled-proc", label: "処置", icon: Bandage, disabled: true },
+      { key: "add-procedure", label: "処置", icon: Bandage },
     ],
   },
   {
@@ -50,6 +50,7 @@ const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
   { key: "flowsheet", label: "経過表", icon: Activity },
   { key: "injection-cal", label: "注射カレンダー", icon: CalendarDays },
   { key: "rx-cal", label: "処方カレンダー", icon: CalendarRange },
+  { key: "proc-cal", label: "処置カレンダー", icon: CalendarCheck },
 ];
 
 /** Fixed column of tools on the far right: order types, then things to look at. */

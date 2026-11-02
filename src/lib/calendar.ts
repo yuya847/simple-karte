@@ -4,7 +4,8 @@
 import { abs, doseTimes, orderInterval } from "./flowsheet";
 import { doseVolumeMl } from "./drafts";
 import { findDrug, WARD_RULES } from "./master";
-import type { DayOffset, DoseTiming, InjectionOrder, OrderEntry, PrescriptionOrder } from "./types";
+import { procEvents, procInterval } from "./proc-timing";
+import type { DayOffset, DoseTiming, InjectionOrder, OrderEntry, PrescriptionOrder, ProcedureOrder } from "./types";
 
 export type MarkState = "done" | "planned";
 
@@ -87,6 +88,36 @@ export function prescriptionCell(entry: OrderEntry, day: DayOffset, nowAbs: numb
     prnUses: (o.prnUses ?? []).filter((u) => u.day === day).map((u) => u.time),
     stopped: entry.status === "中止" && (entry.stoppedOn ?? 0) === day,
   };
+}
+
+export interface ProcedureCell {
+  /** 酸素・留置: the order runs (part of) this day. */
+  running?: { state: MarkState | "now"; from?: string; to?: string };
+  /** Times it is done (scheduled ones past now count as done; 必要時 ones only as recorded). */
+  times: { time: string; state: MarkState }[];
+  stopped?: { time: string | null };
+}
+
+export function procedureCell(entry: OrderEntry, day: DayOffset, nowAbs: number): ProcedureCell {
+  const o = entry.order as ProcedureOrder;
+  const lo = day * 1440;
+  const hi = lo + 1440;
+  const { from, to } = procInterval(entry, nowAbs);
+  const cell: ProcedureCell = { times: [] };
+  if (entry.status === "中止" && to !== null && to >= lo && to < hi) cell.stopped = { time: hhmm(to - lo) };
+  if (o.schedule.kind === "continuous") {
+    if (from < hi && (to === null || to > lo)) {
+      const end = Math.min(hi, to ?? Infinity);
+      cell.running = {
+        state: end <= nowAbs ? "done" : Math.max(lo, from) > nowAbs ? "planned" : "now",
+        from: from >= lo ? hhmm(from - lo) : undefined,
+        to: to !== null && to < hi ? hhmm(to - lo) : undefined,
+      };
+    }
+    return cell;
+  }
+  cell.times = procEvents(entry, lo, hi, nowAbs).map((t) => ({ time: hhmm(t - lo), state: stateAt(t, nowAbs) }));
+  return cell;
 }
 
 /** Short list of what is still ahead today (and the next morning's draw), for the patient list. */

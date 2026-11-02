@@ -4,16 +4,17 @@ import { useEffect, useRef } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
-import { InjectionCalendar, PrescriptionCalendar } from "./Calendars";
+import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar } from "./Calendars";
 import { FlowSheet } from "./FlowSheet";
 
-export type LeftView = "record" | "flowsheet" | "injection-cal" | "rx-cal";
+export type LeftView = "record" | "flowsheet" | "injection-cal" | "rx-cal" | "proc-cal";
 
-export const LEFT_VIEWS: { key: LeftView; label: string }[] = [
+export const LEFT_VIEWS: { key: LeftView; label: string; title?: string }[] = [
   { key: "record", label: "経過" },
   { key: "flowsheet", label: "経過表" },
-  { key: "injection-cal", label: "注射カレンダー" },
-  { key: "rx-cal", label: "処方カレンダー" },
+  { key: "injection-cal", label: "注射", title: "注射カレンダー" },
+  { key: "rx-cal", label: "処方", title: "処方カレンダー" },
+  { key: "proc-cal", label: "処置", title: "処置カレンダー" },
 ];
 
 interface Props {
@@ -39,14 +40,15 @@ export function HistoryPane(props: Props) {
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex items-center gap-3 border-b border-rule-soft px-4 py-1.5">
         <div role="tablist" aria-label="左の表示" className="flex rounded-md border border-rule p-0.5 text-sm">
-          {LEFT_VIEWS.map(({ key: v, label }) => (
+          {LEFT_VIEWS.map(({ key: v, label, title }) => (
             <button
               key={v}
               type="button"
               role="tab"
+              title={title}
               aria-selected={view === v}
               onClick={() => onView(v)}
-              className={`rounded px-2.5 py-0.5 ${view === v ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
+              className={`whitespace-nowrap rounded px-2.5 py-0.5 ${view === v ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
             >
               {label}
             </button>
@@ -65,6 +67,8 @@ export function HistoryPane(props: Props) {
         <InjectionCalendar {...calendarProps} />
       ) : view === "rx-cal" ? (
         <PrescriptionCalendar {...calendarProps} />
+      ) : view === "proc-cal" ? (
+        <ProcedureCalendar {...calendarProps} />
       ) : (
         <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} />
       )}

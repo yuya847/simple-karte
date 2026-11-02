@@ -1,9 +1,10 @@
 "use client";
 
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
-import { effectiveRoute, isReady, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
-import { drugName, durationText, labName, scheduleLabel } from "@/lib/format";
+import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
+import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
 import { anyDrugName, findLab } from "@/lib/master";
+import { AREA_LABEL, findProc, findProcDrug, procScheduleText } from "@/lib/procedures";
 
 interface Props {
   draft: Draft;
@@ -14,7 +15,7 @@ interface Props {
   onRedo: () => void;
 }
 
-const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", stop: "中止", unclear: "聞き取れず" };
+const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", stop: "中止", unclear: "聞き取れず" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo }: Props) {
@@ -122,7 +123,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     const o = target ? ctx.activeOrders.find((x) => x.id === target) : undefined;
     return (
       <p>
-        <b>{draft.drugCode ? anyDrugName(draft.drugCode) : draft.said}</b> を中止
+        <b>{draft.procCode ? procName(draft.procCode) : draft.drugCode ? anyDrugName(draft.drugCode) : draft.said}</b> を中止
         {o && <span className="block text-xs text-ink-soft">{ctx.describe(o)}</span>}
       </p>
     );
@@ -152,6 +153,35 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
               <span className="ml-1">{it.amount ?? "？"}{it.unit ?? ""}</span>
             </span>
           ))}
+        </div>
+        <div className="text-xs text-ink-soft">{parts.join("　")}</div>
+        {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}
+      </div>
+    );
+  }
+
+  if (draft.kind === "procedure") {
+    const m = draft.code ? findProc(draft.code) : undefined;
+    const area = procArea(draft).area;
+    const schedule = procSchedule(draft);
+    const head = [m ? m.name : null];
+    if (m?.needs.includes("o2")) head.push(`${draft.o2.device ?? "器具？"} ${draft.o2.lpm ?? "？"}L/分`);
+    if (m?.needs.includes("site")) head.push(draft.site ?? "部位？");
+    const parts: string[] = [];
+    if (m?.needs.includes("depth")) parts.push(draft.depth ?? "深さ？");
+    if (m?.needs.includes("area")) parts.push(area ? AREA_LABEL[area] : "範囲？");
+    parts.push(schedule ? procScheduleText(schedule) : "回数？");
+    const drug = m?.uses ?? (draft.drug?.code ? { code: draft.drug.code, amount: draft.drug.amount } : null);
+    if (drug) {
+      const pd = findProcDrug(drug.code);
+      parts.push(`${pd?.name ?? drug.code} ${drug.amount ?? "？"}${pd?.unit ?? ""}`);
+    }
+    parts.push(`開始 ${ctx.fmtDay(draft.start.day ?? 0)} ${draft.start.time ?? "指示受け後"}`);
+    if (draft.days) parts.push(`${draft.days}日間`);
+    return (
+      <div>
+        <div className="font-bold">
+          {m ? head.filter(Boolean).join("　") : <span className="text-shu">{draft.said}（？）</span>}
         </div>
         <div className="text-xs text-ink-soft">{parts.join("　")}</div>
         {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}

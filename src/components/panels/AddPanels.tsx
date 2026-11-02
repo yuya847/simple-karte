@@ -2,8 +2,9 @@
 
 import { Search } from "lucide-react";
 import { useState } from "react";
-import type { Draft, LabDraft } from "@/lib/drafts";
+import { newProcedureDraft, type Draft, type LabDraft } from "@/lib/drafts";
 import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES } from "@/lib/master";
+import { PROCEDURES, findProcDrug } from "@/lib/procedures";
 
 /** Browse the injection master. Picking a drug puts its name into the instruction box to finish by voice or keys. */
 export function AddInjectionPanel({ onPick }: { onPick: (text: string) => void }) {
@@ -75,6 +76,30 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
           明日朝の定時（{WARD_RULES.routineDrawTime}）
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Pick a procedure from the master. It becomes a draft right away; the checks ask for what the
+ * item needs (器具・流量、部位・範囲・深さ、回数), each with choices for the doctor.
+ */
+export function AddProcedurePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
+  return (
+    <div>
+      <p className="mb-2 text-xs text-ink-soft">選ぶと右に下書きができます。足りないところ（流量・部位・範囲・回数など）は下書きの上で選ぶか、話して足してください。</p>
+      <ul className="divide-y divide-rule-soft">
+        {PROCEDURES.map((p) => (
+          <li key={p.code}>
+            <button type="button" onClick={() => onAdd(newProcedureDraft(p.code, newId()))} className="flex w-full items-baseline gap-2 px-1 py-2 text-left text-sm hover:bg-paper">
+              <span className="font-bold">{p.name}</span>
+              {p.uses && <span className="text-xs text-ink-soft">{findProcDrug(p.uses.code)?.name}</span>}
+              <span className="ml-auto truncate text-[11px] text-ink-faint">{p.aliases.slice(0, 3).join("・")}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[11px] text-ink-faint">処置の項目と院内の取り決めは架空の病院のものです。算定のコードと点数は公式の医科診療行為マスターから読みます。</p>
     </div>
   );
 }

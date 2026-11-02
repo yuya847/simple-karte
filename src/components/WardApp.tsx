@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
 import { checkDraft, draftsFromAi, isReady, toOrder, type CheckContext, type Draft, type Issue, type StopDraft } from "@/lib/drafts";
-import { orderLines } from "@/lib/format";
+import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { admitFromEr, type AdmitForm } from "@/lib/admission";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
@@ -28,7 +28,7 @@ import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { WardMap, type ChartSummary } from "./WardMap";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
-import { AddInjectionPanel, AddLabPanel } from "./panels/AddPanels";
+import { AddInjectionPanel, AddLabPanel, AddProcedurePanel } from "./panels/AddPanels";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
@@ -49,6 +49,8 @@ interface ChartState {
   added: OrderEntry[];
   /** Orders stopped today in this session. */
   stopped: string[];
+  /** When each of them was stopped ("HH:MM"). */
+  stopTimes: Record<string, string>;
   drafting: boolean;
   error: string | null;
   meta: DraftMeta | null;
@@ -64,6 +66,7 @@ const newChart = (): ChartState => ({
   drafts: [],
   added: [],
   stopped: [],
+  stopTimes: {},
   drafting: false,
   error: null,
   meta: null,
@@ -157,8 +160,8 @@ export default function WardApp() {
 
   // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
   const entries: HistoryEntry[] = useMemo(
-    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped }) : []),
-    [patient, chart.stopped, chart.added],
+    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes }) : []),
+    [patient, chart.stopped, chart.stopTimes, chart.added],
   );
 
   const ctx: CheckContext | null = useMemo(() => {
@@ -231,7 +234,8 @@ export default function WardApp() {
     const lines = [
       ...stoppedEntries.map((e) => {
         const o = e.order;
-        const name = o.type === "injection" ? anyDrugName(o.items[0].drugCode) : o.type === "prescription" ? anyDrugName(o.drugCode) : "";
+        const name =
+          o.type === "injection" ? anyDrugName(o.items[0].drugCode) : o.type === "prescription" ? anyDrugName(o.drugCode) : o.type === "procedure" ? procedureTitle(o) : "";
         return `・${name} 中止`;
       }),
       ...added.map((e) => planLine(e, today)),
@@ -239,6 +243,7 @@ export default function WardApp() {
     update((c) => ({
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
+      stopTimes: { ...c.stopTimes, ...Object.fromEntries(stops.map((id) => [id, nowTime])) },
       drafts: [],
       note: lines.length ? `${c.note.replace(/\s*$/, "")}\n${lines.join("\n")}\n` : c.note,
       flash: `${added.length + stops.length}件を確定しました。左の経過と記事の P) に入りました。`,
@@ -260,12 +265,13 @@ export default function WardApp() {
     openPatient(id);
   };
 
-  const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft] }));
+  const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft], flash: null }));
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
   const addStopDraft = (entry: OrderEntry) => {
     const o = entry.order;
     const drugCode = o.type === "injection" ? o.items[0].drugCode : o.type === "prescription" ? o.drugCode : null;
-    if (!drugCode) return;
+    const procCode = o.type === "procedure" ? o.code : null;
+    if (!drugCode && !procCode) return;
     const draft: StopDraft = {
       id: newId(),
       origin: "manual",
@@ -273,7 +279,8 @@ export default function WardApp() {
       comment: null,
       kind: "stop",
       drugCode,
-      said: anyDrugName(drugCode),
+      ...(procCode ? { procCode } : {}),
+      said: o.type === "procedure" ? procedureTitle(o) : anyDrugName(drugCode!),
       targetOrderId: entry.id,
     };
     update((c) => (c.drafts.some((d) => d.kind === "stop" && d.targetOrderId === entry.id) ? {} : { drafts: [...c.drafts, draft], flash: null }));
@@ -325,7 +332,7 @@ export default function WardApp() {
         <PatientList
           ward={ward}
           nowTime={nowTime}
-          changes={Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped }]))}
+          changes={Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes }]))}
           summaries={summaries}
           onOpen={openPatient}
         />
@@ -352,7 +359,7 @@ export default function WardApp() {
                   wardPayload={() =>
                     allPatients.map((p) => {
                       const c = charts[p.id];
-                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS);
+                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS);
                     })
                   }
                 />
@@ -432,6 +439,11 @@ export default function WardApp() {
               {panel === "add-injection" && (
                 <Drawer title="注射（マスターから選ぶ）" onClose={closePanel}>
                   <AddInjectionPanel onPick={insertText} />
+                </Drawer>
+              )}
+              {panel === "add-procedure" && (
+                <Drawer title="処置（マスターから選ぶ）" onClose={closePanel}>
+                  <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-lab" && (

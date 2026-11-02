@@ -2,7 +2,8 @@
 
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { findDrug, findLab, findOralDrug, findSet } from "./master";
-import type { InjectionOrder, InjectionSchedule, LabOrder, Order, PrescriptionOrder } from "./types";
+import { AREA_LABEL, DEPTH_LABEL, findProc, findProcDrug, procScheduleText } from "./procedures";
+import type { InjectionOrder, InjectionSchedule, LabOrder, Order, PrescriptionOrder, ProcedureOrder } from "./types";
 
 export function scheduleText(s: InjectionSchedule): string {
   switch (s.kind) {
@@ -82,9 +83,37 @@ export function prescriptionLines(order: PrescriptionOrder, today: CalendarDate)
   return { main, detail: parts.join("　") };
 }
 
+export function procName(code: string): string {
+  return findProc(code)?.name ?? code;
+}
+
+/** "褥瘡処置　仙骨部" / "酸素吸入　鼻カニュラ 2L/分" */
+export function procedureTitle(o: ProcedureOrder): string {
+  const parts = [procName(o.code)];
+  if (o.o2) parts.push(`${o.o2.device} ${o.o2.lpm}L/分`);
+  if (o.site) parts.push(o.site);
+  return parts.join("　");
+}
+
+export function procedureLines(order: ProcedureOrder, today: CalendarDate): { main: string; detail: string } {
+  const parts: string[] = [];
+  if (order.depth) parts.push(DEPTH_LABEL[order.depth].split(" ")[0]);
+  if (order.area) parts.push(AREA_LABEL[order.area]);
+  parts.push(procScheduleText(order.schedule));
+  if (order.drug) {
+    const d = findProcDrug(order.drug.code);
+    parts.push(`${d?.name ?? order.drug.code} ${order.drug.amount}${d?.unit ?? ""}`);
+  }
+  parts.push(`開始 ${formatShort(addDays(today, order.start.day))}${order.start.time ? ` ${order.start.time}` : ""}`);
+  if (order.schedule.kind !== "continuous") parts.push(order.days ? `${order.days}日間` : "継続");
+  if (order.comment) parts.push(order.comment);
+  return { main: procedureTitle(order), detail: parts.join("　") };
+}
+
 export function orderLines(order: Order, today: CalendarDate) {
   if (order.type === "injection") return injectionLines(order, today);
   if (order.type === "lab") return labLines(order, today);
+  if (order.type === "procedure") return procedureLines(order, today);
   return prescriptionLines(order, today);
 }
 
@@ -92,4 +121,5 @@ export const ORDER_TYPE_LABEL: Record<Order["type"], string> = {
   injection: "注射",
   lab: "検体検査",
   prescription: "処方",
+  procedure: "処置",
 };
