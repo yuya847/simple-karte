@@ -2,7 +2,7 @@
 
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
 import { effectiveRoute, isReady, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
-import { drugName, labName, scheduleLabel } from "@/lib/format";
+import { drugName, durationText, labName, scheduleLabel } from "@/lib/format";
 import { findDrug } from "@/lib/master";
 
 interface Props {
@@ -136,7 +136,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
       draft.schedule ? scheduleLabel(draft.schedule, draft.items[0]?.drugCode) : "回数？",
     ];
     if (route === "点滴静注") {
-      if (plan.minutesPerDose !== null) parts.push(`1回${fmtMin(plan.minutesPerDose)}`);
+      if (plan.minutesPerDose !== null) parts.push(`1回${durationText(plan.minutesPerDose)}`);
       if (plan.rateMlPerH !== null) parts.push(`${plan.rateMlPerH}mL/時`);
       if (plan.minutesPerDose === null && plan.rateMlPerH === null) parts.push("速度？");
     }
@@ -177,8 +177,3 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
   );
 }
 
-function fmtMin(min: number): string {
-  const m = Math.round(min);
-  if (m < 60) return `${m}分`;
-  return m % 60 === 0 ? `${m / 60}時間` : `${Math.floor(m / 60)}時間${m % 60}分`;
-}

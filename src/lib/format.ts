@@ -26,6 +26,13 @@ export function scheduleTextFor(order: InjectionOrder): string {
   return scheduleLabel(order.schedule, order.items[0]?.drugCode);
 }
 
+/** "30分", "1時間", "10時間", "1時間30分" */
+export function durationText(minutes: number): string {
+  const m = Math.round(minutes);
+  if (m < 60) return `${m}分`;
+  return m % 60 === 0 ? `${m / 60}時間` : `${Math.floor(m / 60)}時間${m % 60}分`;
+}
+
 export function drugName(code: string): string {
   const d = findDrug(code);
   return d ? `${d.name} ${d.package}` : code;
@@ -38,7 +45,7 @@ export function labName(code: string): string {
 export function injectionLines(order: InjectionOrder, today: CalendarDate): { main: string; detail: string } {
   const main = order.items.map((it) => `${drugName(it.drugCode)}　${it.amount}${it.unit}`).join(" ＋ ");
   const parts = [order.route, scheduleTextFor(order)];
-  if (order.minutesPerDose) parts.push(`1回${order.minutesPerDose}分`);
+  if (order.minutesPerDose) parts.push(`1回${durationText(order.minutesPerDose)}`);
   if (order.rateMlPerH) parts.push(`${order.rateMlPerH}mL/時`);
   const start = formatShort(addDays(today, order.start.day));
   parts.push(`開始 ${start}${order.start.time ? ` ${order.start.time}` : ""}`);
