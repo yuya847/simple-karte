@@ -1,7 +1,8 @@
 "use client";
 
-import { Activity, Bandage, ClipboardList, FlaskConical, ListChecks, Pill, ScanLine, Syringe, TestTube } from "lucide-react";
+import { Activity, Bandage, CalendarDays, CalendarRange, ClipboardList, FlaskConical, ListChecks, Pill, ScanLine, Syringe, TestTube } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { LeftView } from "./HistoryPane";
 
 export type PanelKind = "add-injection" | "add-lab" | "results" | "imaging" | "active-orders";
 
@@ -35,32 +36,44 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
 interface Props {
   open: PanelKind | null;
   onOpen: (p: PanelKind | null) => void;
-  /** The flow sheet replaces the past record in the left pane, so it is a switch, not a panel. */
-  flowsheet: boolean;
-  onToggleFlowsheet: () => void;
+  /** These replace the past record in the left pane, so they are switches, not panels. */
+  leftView: LeftView;
+  onLeftView: (v: LeftView) => void;
 }
 
+const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
+  { key: "flowsheet", label: "経過表", icon: Activity },
+  { key: "injection-cal", label: "注射カレンダー", icon: CalendarDays },
+  { key: "rx-cal", label: "処方カレンダー", icon: CalendarRange },
+];
+
 /** Fixed column of tools on the far right: order types, then things to look at. */
-export function ToolRail({ open, onOpen, flowsheet, onToggleFlowsheet }: Props) {
+export function ToolRail({ open, onOpen, leftView, onLeftView }: Props) {
   return (
     <aside aria-label="ツール" className="flex flex-col items-stretch gap-1 border-l border-rule bg-paper px-1 py-2">
       {GROUPS.map((g, gi) => (
         <div key={g.title} className={gi > 0 ? "mt-2 border-t border-rule pt-2" : ""}>
           <div className="mb-1 text-center text-[10px] text-ink-faint">{g.title}</div>
-          {g.title === "参照" && (
-            <button
-              type="button"
-              title="経過表（左の欄に出します）"
-              onClick={onToggleFlowsheet}
-              aria-pressed={flowsheet}
-              className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${
-                flowsheet ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"
-              }`}
-            >
-              <Activity size={18} strokeWidth={1.8} />
-              経過表
-            </button>
-          )}
+          {g.title === "参照" &&
+            LEFT_TOOLS.map((t) => {
+              const Icon = t.icon;
+              const on = leftView === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  title={`${t.label}（左の欄に出します）`}
+                  onClick={() => onLeftView(on ? "record" : t.key)}
+                  aria-pressed={on}
+                  className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${
+                    on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"
+                  }`}
+                >
+                  <Icon size={18} strokeWidth={1.8} />
+                  {t.label}
+                </button>
+              );
+            })}
           {g.tools.map((t) => {
             const Icon = t.icon;
             const active = open === t.key;

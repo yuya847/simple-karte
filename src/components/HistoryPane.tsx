@@ -4,9 +4,17 @@ import { useEffect, useRef } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
+import { InjectionCalendar, PrescriptionCalendar } from "./Calendars";
 import { FlowSheet } from "./FlowSheet";
 
-export type LeftView = "record" | "flowsheet";
+export type LeftView = "record" | "flowsheet" | "injection-cal" | "rx-cal";
+
+export const LEFT_VIEWS: { key: LeftView; label: string }[] = [
+  { key: "record", label: "経過" },
+  { key: "flowsheet", label: "経過表" },
+  { key: "injection-cal", label: "注射カレンダー" },
+  { key: "rx-cal", label: "処方カレンダー" },
+];
 
 interface Props {
   patient: Patient;
@@ -19,21 +27,19 @@ interface Props {
   onToggleStopped: () => void;
   view: LeftView;
   onView: (v: LeftView) => void;
+  onStopDraft: (entry: OrderEntry) => void;
+  draftedStops: string[];
 }
 
-/** Left pane: the past record (notes and orders by day) or the flow sheet. */
+/** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops } = props;
+  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex items-center gap-3 border-b border-rule-soft px-4 py-1.5">
         <div role="tablist" aria-label="左の表示" className="flex rounded-md border border-rule p-0.5 text-sm">
-          {(
-            [
-              ["record", "経過（記事・オーダ）"],
-              ["flowsheet", "経過表"],
-            ] as const
-          ).map(([v, label]) => (
+          {LEFT_VIEWS.map(({ key: v, label }) => (
             <button
               key={v}
               type="button"
@@ -55,6 +61,10 @@ export function HistoryPane(props: Props) {
       </div>
       {view === "flowsheet" ? (
         <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} />
+      ) : view === "injection-cal" ? (
+        <InjectionCalendar {...calendarProps} />
+      ) : view === "rx-cal" ? (
+        <PrescriptionCalendar {...calendarProps} />
       ) : (
         <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} />
       )}
