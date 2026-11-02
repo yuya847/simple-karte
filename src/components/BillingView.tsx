@@ -1,6 +1,11 @@
 "use client";
 
 import { AlertTriangle, Ban, Info, ListChecks, Loader2 } from "lucide-react";
+import { BillPanel } from "./billing/BillPanel";
+import { ReceiptPanel } from "./billing/ReceiptPanel";
+import type { Insurance } from "@/lib/billing/insurance";
+import type { Bill } from "@/lib/billing/kaikei";
+import { patientMonthPayload, type PatientMonthPayload } from "@/lib/billing/payload";
 import { useEffect, useMemo, useState } from "react";
 import { addDays, formatShort, isoDate, type CalendarDate } from "@/lib/dates";
 import type { Diagnosis } from "@/lib/diagnoses";
@@ -15,7 +20,16 @@ interface Props {
   nowTime: string;
   options: BillingOptions;
   onOptions: (next: BillingOptions) => void;
+  /** Every patient of the ward, for the month's receipt files. */
+  wardPayload: () => PatientMonthPayload[];
 }
+
+type Tab = "claim" | "bill" | "receipt";
+const TABS: { key: Tab; label: string }[] = [
+  { key: "claim", label: "算定" },
+  { key: "bill", label: "会計" },
+  { key: "receipt", label: "レセプト" },
+];
 
 /** Months of this admission up to this month, as "YYYY-MM". */
 function admissionMonths(today: CalendarDate, admittedOn: number): string[] {
@@ -59,7 +73,11 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions }: Props) {
+export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload }: Props) {
+  const [tab, setTab] = useState<Tab>("claim");
+  const [bill, setBill] = useState<Bill | null>(null);
+  const [insurance, setInsurance] = useState<(Insurance & { assumed?: boolean }) | null>(null);
+  const [receiptLines, setReceiptLines] = useState<string[]>([]);
   const months = useMemo(() => admissionMonths(today, patient.admittedOn), [today, patient.admittedOn]);
   const [month, setMonth] = useState(months[months.length - 1]);
   const [result, setResult] = useState<ClaimResult | null>(null);
@@ -76,27 +94,14 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           method: "POST",
           headers: { "content-type": "application/json" },
           signal: ctl.signal,
-          body: JSON.stringify({
-            today: isoDate(today),
-            nowTime,
-            month,
-            patient: {
-              id: patient.id,
-              name: patient.name,
-              sex: patient.sex,
-              age: patient.age,
-              admittedOn: patient.admittedOn,
-            },
-            entries,
-            daily: patient.daily,
-            cultures: patient.cultures,
-            diagnoses,
-            options,
-          }),
+          body: JSON.stringify({ today: isoDate(today), nowTime, month, ...patientMonthPayload(patient, entries, diagnoses, options) }),
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
         setResult(json.result as ClaimResult);
+        setBill(json.bill as Bill);
+        setInsurance(json.insurance);
+        setReceiptLines(json.receipt.lines as string[]);
       } catch (e) {
         if (ctl.signal.aborted) return;
         setError(e instanceof Error ? e.message : "算定できませんでした。");
@@ -122,7 +127,21 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   return (
     <section aria-label="算定" className="flex min-h-0 flex-col border-l border-rule bg-sheet">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <h2 className="font-bold">算定（入院・出来高）</h2>
+        <div role="tablist" aria-label="医事" className="flex rounded-md border border-rule bg-paper p-0.5">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+              className={`rounded px-3 py-1 text-sm ${tab === t.key ? "bg-sheet font-bold text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-ink-faint">入院・出来高</span>
         <div role="tablist" aria-label="請求する月" className="flex gap-1">
           {months.map((m) => (
             <button
@@ -145,6 +164,13 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto px-4 py-3">
         {error && <p className="mb-3 rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
+
+        {tab === "bill" && result && bill && insurance && <BillPanel claim={result} bill={bill} insurance={insurance} month={month} />}
+        {tab === "receipt" && result && (
+          <ReceiptPanel lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
+        )}
+        {tab === "claim" && (
+          <>
 
         {result && (
           <div className="nums mb-3 flex flex-wrap items-end gap-x-8 gap-y-2">
@@ -310,6 +336,8 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
               <p key={s}>出典：{s}</p>
             ))}
           </div>
+        )}
+          </>
         )}
       </div>
     </section>

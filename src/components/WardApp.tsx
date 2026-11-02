@@ -9,6 +9,7 @@ import { anyDrugName } from "@/lib/master";
 import { admitFromEr, type AdmitForm } from "@/lib/admission";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
+import { patientMonthPayload } from "@/lib/billing/payload";
 import { BillingView } from "./BillingView";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
@@ -348,6 +349,12 @@ export default function WardApp() {
                   nowTime={nowTime}
                   options={billing[patient.id] ?? DEFAULT_OPTIONS}
                   onOptions={(next) => setBilling((all) => ({ ...all, [patient.id]: next }))}
+                  wardPayload={() =>
+                    allPatients.map((p) => {
+                      const c = charts[p.id];
+                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS);
+                    })
+                  }
                 />
               </div>
             ) : (
