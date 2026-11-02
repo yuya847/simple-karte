@@ -108,3 +108,53 @@ export function isolationFor(infections: string[]): string | null {
   if (infections.some((i) => i.includes("MRSA"))) return "接触予防策";
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Who looks after whom today, and the ward's plans (all FICTIONAL)
+// ---------------------------------------------------------------------------
+
+/** 日勤 nurse in charge of each room today (fictional). */
+const NURSE_BY_ROOM: Record<string, string> = {
+  "501": "看護師 佐々木", "502": "看護師 佐々木", "503": "看護師 佐々木", "505": "看護師 佐々木",
+  "506": "看護師 高橋", "507": "看護師 高橋", "508": "看護師 高橋",
+  "510": "看護師 伊藤", "511": "看護師 伊藤", "512": "看護師 伊藤", "513": "看護師 伊藤",
+  "515": "看護師 渡辺", "516": "看護師 渡辺",
+};
+
+export function nurseFor(room: string): string {
+  return NURSE_BY_ROOM[room] ?? "（未定）";
+}
+
+/** Attending doctors of the other teams (fictional), by department. */
+const DOCTOR_BY_DEPARTMENT: Record<string, string> = {
+  消化器内科: "田村（消化器内科）",
+  循環器内科: "中川（循環器内科）",
+  呼吸器内科: "佐藤（呼吸器内科）",
+  "総合診療科（B チーム）": "木下（総合診療科 B）",
+};
+
+export function doctorFor(department: string): string {
+  return DOCTOR_BY_DEPARTMENT[department] ?? department;
+}
+
+export interface WardPlan {
+  kind: "入院" | "退院";
+  /** 0 = today, 1 = tomorrow. */
+  day: 0 | 1;
+  time: string;
+  name: string;
+  sex: Sex;
+  age: number;
+  department: string;
+  room: string;
+  bed: string;
+  note?: string;
+}
+
+/** Planned admissions and discharges for today and tomorrow (fictional). Admissions go to empty beds. */
+export const WARD_PLANS: WardPlan[] = [
+  { kind: "入院", day: 0, time: "14:00", name: "小川 節子", sex: "女", age: 78, department: "総合診療科（B チーム）", room: "513", bed: "C", note: "紹介・肺炎の疑い" },
+  { kind: "退院", day: 1, time: "10:00", name: "堀 誠", sex: "男", age: 68, department: "消化器内科", room: "505", bed: "A" },
+  { kind: "退院", day: 1, time: "11:00", name: "杉本 進", sex: "男", age: 62, department: "消化器内科", room: "508", bed: "C" },
+  { kind: "入院", day: 1, time: "10:30", name: "太田 実", sex: "男", age: 66, department: "消化器内科", room: "507", bed: "B", note: "大腸内視鏡の検査入院" },
+];

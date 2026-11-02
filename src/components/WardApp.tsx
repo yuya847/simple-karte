@@ -28,7 +28,7 @@ import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { WardMap, type ChartSummary } from "./WardMap";
 import { Worksheet } from "./Worksheet";
-import { sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
+import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddInjectionPanel, AddLabPanel, AddProcedurePanel } from "./panels/AddPanels";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
@@ -305,6 +305,13 @@ export default function WardApp() {
     return [{ patient: p, room: `${b.room}${b.bed}`, entries }];
   });
 
+  // 指示受けがまだ: this session's new orders and stops that no nurse has taken yet.
+  const sessionKeys = sessionChangeKeys(sessionChanges);
+  const waiting: Record<string, number> = {};
+  for (const c of orderChanges(people, -1440, abs(0, nowTime))) {
+    if (sessionKeys.has(c.key) && !taken[c.key]) waiting[c.patientId] = (waiting[c.patientId] ?? 0) + 1;
+  }
+
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length }]),
   );
@@ -347,7 +354,7 @@ export default function WardApp() {
           today={today}
           nowTime={nowTime}
           taken={taken}
-          sessionKeys={sessionChangeKeys(sessionChanges)}
+          sessionKeys={sessionKeys}
           onTake={(key) => setTaken((t) => ({ ...t, [key]: nowTime }))}
         />
       ) : screen === "list" ? (
@@ -356,6 +363,7 @@ export default function WardApp() {
           nowTime={nowTime}
           changes={sessionChanges}
           summaries={summaries}
+          waiting={waiting}
           onOpen={openPatient}
         />
       ) : patient && ctx ? (
