@@ -131,6 +131,34 @@ export const COLS = {
   z: [3, 7, 10, 14, 16, 19],
 };
 
+/**
+ * Keep only what the engine uses from the 医科電子点数表 (column numbers per the
+ * 活用手引き §5). Rows whose 変更区分 is "1" (deleted) are dropped.
+ */
+export function compactTensuhyo(raw) {
+  const live = (rows) => rows.filter((r) => r[0] !== "1");
+  // 01 補助マスター: code → [包括単位①, G①, 単位②, G②, 単位③, G③, 背反(日), (月), (同時), (週), 入院基本料識別, 算定回数関連]
+  const aux = {};
+  for (const r of live(raw["01"] ?? [])) aux[r[1]] = [r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[19], r[20]];
+  // 02 包括: group → [[child code, 特例条件]]
+  const hokatsu = {};
+  for (const r of live(raw["02"] ?? [])) (hokatsu[r[1]] ??= []).push([r[2], r[4]]);
+  // 03-1..4 背反 (1日 / 同一月 / 同時 / 1週間): [code1, code2, 背反区分, 特例条件]
+  const haihan = {};
+  for (const [id, key] of [
+    ["03-1", "day"],
+    ["03-2", "month"],
+    ["03-3", "same"],
+    ["03-4", "week"],
+  ])
+    haihan[key] = live(raw[id] ?? []).map((r) => [r[1], r[3], r[5], r[6]]);
+  // 04 入院基本料: [group, 加算 code, 加算識別]
+  const nyuin = live(raw["04"] ?? []).map((r) => [r[1], r[2], r[4]]);
+  // 05 算定回数: [code, 算定単位コード, 上限, 特例条件]
+  const kaisu = live(raw["05"] ?? []).map((r) => [r[1], r[3], r[5], r[6]]);
+  return { aux, hokatsu, haihan, nyuin, kaisu };
+}
+
 async function main() {
   await mkdir(outDir, { recursive: true });
   const meta = { builtAt: new Date().toISOString(), sources: [] };
@@ -141,16 +169,16 @@ async function main() {
     meta.sources.push({ key: src.key, label: src.label, url: src.url, files: files.map((f) => f.name) });
 
     if (src.key === "tensuhyo") {
-      // Each CSV is kept as rows; the engine maps columns per the 活用手引き.
-      const tables = {};
+      const raw = {};
       for (const f of files) {
         if (!f.name.toLowerCase().endsWith(".csv")) continue;
         const base = f.name.split("/").pop();
         const id = base.match(/^(\d\d(?:-\d)?)/)?.[1];
-        if (id) tables[id] = parseCsv(f.text());
+        if (id) raw[id] = parseCsv(f.text());
       }
+      const tables = compactTensuhyo(raw);
       await writeFile(join(outDir, "tensuhyo.json"), JSON.stringify(tables));
-      console.log(`tensuhyo: ${Object.entries(tables).map(([k, v]) => `${k}=${v.length}`).join(" ")}`);
+      console.log(`tensuhyo: ${Object.entries(raw).map(([k, v]) => `${k}=${v.length}`).join(" ")}`);
       continue;
     }
 
