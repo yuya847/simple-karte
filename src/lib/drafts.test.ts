@@ -4,6 +4,7 @@ import {
   checkDraft,
   draftsFromAi,
   isReady,
+  newProcedureDraft,
   ratePlan,
   resolvedCollect,
   scopeFromWords,
@@ -12,9 +13,11 @@ import {
   type Draft,
   type InjectionDraft,
   type LabDraft,
+  type ProcedureDraft,
   type StopDraft,
 } from "./drafts";
 import { PATIENTS } from "./patients";
+import { parseSize } from "./procedures";
 import type { OrderEntry } from "./types";
 
 const sakura = PATIENTS[0];
@@ -152,6 +155,12 @@ describe("per-bag or whole-day, decided from the words", () => {
       collect: { day: "unspecified", when: "unspecified", time: null, before_dose_number: null, before_dose_drug_code: null },
       priority: null,
       culture_sets: null,
+      procedure_code: "",
+      site: "",
+      size_said: "",
+      depth: "",
+      o2_device: "",
+      o2_lpm: 0,
       comment: null,
     };
     const [d] = draftsFromAi({ orders: [o], not_understood: [] }, () => "x");
@@ -188,6 +197,12 @@ describe("units and master", () => {
       collect: { day: "unspecified", when: "unspecified", time: null, before_dose_number: null, before_dose_drug_code: null },
       priority: null,
       culture_sets: null,
+      procedure_code: "",
+      site: "",
+      size_said: "",
+      depth: "",
+      o2_device: "",
+      o2_lpm: 0,
       comment: null,
     };
     const res: AiDraftResponse = { orders: [o], not_understood: [{ source_text: "いつもの", reason: "中身が分からない" }] };
@@ -270,5 +285,131 @@ describe("collection time", () => {
   it("asks when an injection start time has already passed", () => {
     const issues = checkDraft(vcm({ start: { day: 0, time: "07:00" } }), ctx());
     expect(keyOf(issues, "start-past")?.level).toBe("ask");
+  });
+});
+
+describe("処置の下書き", () => {
+  const oura = PATIENTS.find((p) => p.id === "90010244")!;
+  const ouraOrders = oura.history.filter((e): e is OrderEntry => e.kind === "order");
+  const ouraCtx = (drafts: Draft[] = []) => ctx(drafts, { activeOrders: ouraOrders.filter((o) => o.status === "有効") });
+  const apply = (d: Draft, issues: ReturnType<typeof checkDraft>, key: string, label: string) => {
+    const c = keyOf(issues, key)!.choices!.find((x) => x.label.startsWith(label))!;
+    return c.apply!(d);
+  };
+
+  it("an oxygen draft picked by hand asks for the device and the flow, offering the running device first", () => {
+    let d: Draft = newProcedureDraft("PROC-O2", "p1");
+    let issues = checkDraft(d, ouraCtx());
+    expect(keyOf(issues, "o2-device")!.choices![0].label).toBe("鼻カニュラ（今の酸素と同じ）");
+    expect(keyOf(issues, "o2-flow")!.choices).toBeUndefined();
+    d = apply(d, issues, "o2-device", "鼻カニュラ");
+    issues = checkDraft(d, ouraCtx());
+    expect(keyOf(issues, "o2-flow")!.choices!.map((c) => c.label)).toEqual(["0.5L/分", "1L/分", "2L/分", "3L/分", "4L/分", "5L/分", "6L/分"]);
+    d = apply(d, issues, "o2-flow", "2L");
+    issues = checkDraft(d, ouraCtx());
+    expect(keyOf(issues, "o2-volume")!.formula).toBe("2L/分 × 1,440分 = 2,880L");
+    // the 1L order is running: replace or add
+    expect(keyOf(issues, "duplicate")!.level).toBe("ask");
+    d = apply(d, issues, "duplicate", "前のオーダを止めて");
+    issues = checkDraft(d, ouraCtx());
+    expect(isReady(issues)).toBe(true);
+    const r = toOrder(d, ouraCtx());
+    expect(r.order).toMatchObject({ type: "procedure", code: "PROC-O2", o2: { device: "鼻カニュラ", lpm: 2 }, schedule: { kind: "continuous" } });
+    expect(r.stopIds).toEqual(["oura-o2-1l"]);
+  });
+
+  it("a flow outside the ward's range for the device is asked, not changed", () => {
+    const d = { ...newProcedureDraft("PROC-O2", "p1"), o2: { device: "鼻カニュラ" as const, lpm: 8 } };
+    const issues = checkDraft(d, ctx());
+    expect(keyOf(issues, "o2-range")!.level).toBe("ask");
+    expect(isReady(checkDraft({ ...d, flowOk: true }, ctx()))).toBe(true);
+  });
+
+  it("a pressure ulcer: the area is computed from the lengths said; depth and schedule are asked", () => {
+    const d: ProcedureDraft = { ...newProcedureDraft("PROC-ULCER", "p2"), site: "仙骨部", size: { lengthCm: 12, widthCm: 10, areaCm2: null } };
+    let issues = checkDraft(d, ctx());
+    expect(keyOf(issues, "area")).toMatchObject({ level: "info", message: "100〜500cm²未満", formula: "12cm × 10cm = 120cm²" });
+    expect(keyOf(issues, "depth")!.level).toBe("ask");
+    expect(keyOf(issues, "schedule")!.choices!.map((c) => c.label)).toEqual(["1日1回", "1日2回", "隔日"]);
+    const ready: ProcedureDraft = { ...d, depth: "D3", schedule: { kind: "per_day", count: 1 } };
+    issues = checkDraft(ready, ctx());
+    expect(keyOf(issues, "depth")!.message).toContain("重度褥瘡処置 J001-4");
+    expect(isReady(issues)).toBe(true);
+    expect(toOrder(ready, ctx()).order).toMatchObject({ area: "100-500", depth: "D3", site: "仙骨部", comment: "12cm × 10cm" });
+  });
+
+  it("under 100cm² can be ordered, with a note that it is not billed in hospital", () => {
+    const d: ProcedureDraft = { ...newProcedureDraft("PROC-WOUND", "p3"), site: "左前腕", area: "lt100", schedule: { kind: "per_day", count: 1 } };
+    const issues = checkDraft(d, ctx());
+    expect(keyOf(issues, "area-lt100")!.level).toBe("info");
+    expect(isReady(issues)).toBe(true);
+  });
+
+  it("an enema always uses its drug; nothing else is asked but when", () => {
+    const d: ProcedureDraft = { ...newProcedureDraft("PROC-GE", "p4"), schedule: { kind: "once" } };
+    const issues = checkDraft(d, ctx());
+    expect(isReady(issues)).toBe(true);
+    expect(toOrder(d, ctx()).order).toMatchObject({ drug: { code: "TOP-GE120", amount: 1 } });
+  });
+
+  it("stopping a procedure finds the one running order", () => {
+    const stop: StopDraft = { id: "s", origin: "ai", sourceText: "酸素オフ", comment: null, kind: "stop", drugCode: null, procCode: "PROC-O2", said: "酸素", targetOrderId: null };
+    const issues = checkDraft(stop, ouraCtx());
+    expect(isReady(issues)).toBe(true);
+    expect(toOrder(stop, ouraCtx()).stopIds).toEqual(["oura-o2-1l"]);
+  });
+
+  it("from Claude's output: lengths stay as said, the schedule and the stop map to the master", () => {
+    const base = {
+      drugs: [] as AiOrder["drugs"],
+      route: null,
+      frequency: { kind: "unspecified" as const, value: null },
+      infusion: { minutes: null, applies_to: null, rate_ml_per_h: null },
+      start: { day: "unspecified" as const, time: null },
+      days: null,
+      tests: [] as AiOrder["tests"],
+      collect: { day: "unspecified" as const, when: "unspecified" as const, time: null, before_dose_number: null, before_dose_drug_code: null },
+      priority: null,
+      culture_sets: null,
+      comment: null,
+    } satisfies Partial<AiOrder>;
+    const none = { procedure_code: "", site: "", size_said: "", depth: "", o2_device: "", o2_lpm: 0 };
+    const res: AiDraftResponse = {
+      orders: [
+        {
+          ...base,
+          ...none,
+          kind: "procedure",
+          source_text: "仙骨部の褥瘡 10×8cm、ゲーベン塗布で1日1回",
+          procedure_code: "PROC-ULCER",
+          site: "仙骨部",
+          size_said: "10×8cm",
+          frequency: { kind: "per_day", value: 1 },
+          drugs: [{ code: "TOP-GEBEN", said: "ゲーベン", amount: null, unit: null }],
+        },
+        { ...base, ...none, kind: "stop", source_text: "尿カテ抜去", procedure_code: "PROC-FOLEY" },
+        { ...base, ...none, kind: "procedure", source_text: "吸引は痰が多い時", procedure_code: "PROC-SUCTION", frequency: { kind: "prn", value: null }, comment: "痰が多い時" },
+      ],
+      not_understood: [],
+    };
+    let n = 0;
+    const [ulcer, stop, suction] = draftsFromAi(res, () => `x${++n}`);
+    expect(ulcer).toMatchObject({ kind: "procedure", code: "PROC-ULCER", size: { lengthCm: 10, widthCm: 8 }, schedule: { kind: "per_day", count: 1 } });
+    expect(keyOf(checkDraft(ulcer, ctx()), "area")!.formula).toBe("10cm × 8cm = 80cm²");
+    expect(keyOf(checkDraft(ulcer, ctx()), "drug-amount")!.choices!.map((c) => c.label)).toEqual(["5g", "10g", "20g"]);
+    expect(stop).toMatchObject({ kind: "stop", procCode: "PROC-FOLEY", drugCode: null });
+    expect(suction).toMatchObject({ schedule: { kind: "prn", condition: "痰が多い時" }, comment: null });
+  });
+
+  it.each([
+    ["12×10センチ", { lengthCm: 12, widthCm: 10 }],
+    ["１２ｃｍ x １０ｃｍ", { lengthCm: 12, widthCm: 10 }],
+    ["8かける6", { lengthCm: 8, widthCm: 6 }],
+    ["30×20mm", { lengthCm: 3, widthCm: 2 }],
+    ["5cm四方", { lengthCm: 5, widthCm: 5 }],
+    ["150平方センチ", { areaCm2: 150 }],
+    ["手のひら大", null],
+  ])("size words %s are read in code", (words, expected) => {
+    expect(parseSize(words)).toEqual(expected);
   });
 });

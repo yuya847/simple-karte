@@ -7,6 +7,27 @@
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import { minutesOf } from "./dates";
 import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findSet, type DrugMaster } from "./master";
+import {
+  AREA_CLASSES,
+  AREA_LABEL,
+  DEPTHS,
+  DEPTH_LABEL,
+  O2_DEVICES,
+  O2_DEVICE_NAMES,
+  PROCEDURES,
+  PROC_DRUGS,
+  areaClassOf,
+  findProc,
+  findProcDrug,
+  isSevereUlcer,
+  parseSize,
+  procScheduleText,
+  type AreaClass,
+  type O2Device,
+  type ProcMaster,
+  type ProcSchedule,
+  type UlcerDepth,
+} from "./procedures";
 import type {
   DayOffset,
   InjectionOrder,
@@ -16,6 +37,7 @@ import type {
   LabPriority,
   Order,
   OrderEntry,
+  ProcedureOrder,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -68,9 +90,33 @@ export interface LabDraft extends DraftBase {
   duplicateOk: boolean;
 }
 
+export interface ProcedureDraft extends DraftBase {
+  kind: "procedure";
+  code: string | null;
+  said: string;
+  site: string | null;
+  /** Lengths or area read from the words (parseSize). The area class is computed from them in code. */
+  size: { lengthCm: number | null; widthCm: number | null; areaCm2: number | null };
+  /** The size words, when they could not be read as a size. */
+  sizeSaid?: string | null;
+  /** Area class chosen by the doctor when no size was said. */
+  area: AreaClass | null;
+  depth: UlcerDepth | null;
+  o2: { device: O2Device | null; lpm: number | null };
+  schedule: ProcSchedule | null;
+  start: { day: DayOffset | null; time: string | null };
+  days: number | null;
+  drug: { code: string | null; said: string; amount: number | null } | null;
+  /** Doctor's answer when the flow is outside the ward's usual range for the device. */
+  flowOk: boolean;
+  duplicate: { action: "replace" | "add"; orderId: string } | null;
+}
+
 export interface StopDraft extends DraftBase {
   kind: "stop";
   drugCode: string | null;
+  /** Set instead of drugCode when a procedure (酸素, 留置カテーテル …) is stopped. */
+  procCode?: string | null;
   said: string;
   targetOrderId: string | null;
 }
@@ -80,7 +126,7 @@ export interface UnclearDraft extends DraftBase {
   reason: string;
 }
 
-export type Draft = InjectionDraft | LabDraft | StopDraft | UnclearDraft;
+export type Draft = InjectionDraft | LabDraft | ProcedureDraft | StopDraft | UnclearDraft;
 
 // ---------------------------------------------------------------------------
 // From Claude's output to drafts (codes not in the master are dropped to null)
@@ -90,6 +136,56 @@ const DAY: Record<string, DayOffset | null> = { today: 0, tomorrow: 1, day_after
 
 const validDrug = (code: string | null) => (code && findDrug(code) ? code : null);
 const validLab = (code: string | null) => (code && (findLab(code) || findSet(code)) ? code : null);
+const validProc = (code: string | null | undefined) => (code && findProc(code) ? code : null);
+const validProcDrug = (code: string | null | undefined) => (code && findProcDrug(code) ? code : null);
+
+function procScheduleFrom(f: AiOrder["frequency"], prn: string | null): ProcSchedule | null {
+  // (prn: the condition words, which Claude puts in the comment)
+  if (f.kind === "prn") return prn ? { kind: "prn", condition: prn } : { kind: "prn" };
+  if (f.kind === "once") return { kind: "once" };
+  if (f.kind === "continuous") return { kind: "continuous" };
+  if (f.value === null || f.value <= 0) return null;
+  if (f.kind === "per_day") return { kind: "per_day", count: f.value };
+  if (f.kind === "every_days") return { kind: "every_days", days: f.value };
+  return null;
+}
+
+const text = (s: string) => (s.trim() ? s.trim() : null);
+const said = (n: number) => (n > 0 ? n : null);
+
+function sizeFrom(words: string | null): Pick<ProcedureDraft, "size" | "sizeSaid"> {
+  const none = { lengthCm: null, widthCm: null, areaCm2: null };
+  if (!words) return { size: none, sizeSaid: null };
+  const p = parseSize(words);
+  if (!p) return { size: none, sizeSaid: words };
+  return { size: "areaCm2" in p ? { ...none, areaCm2: p.areaCm2 } : { ...none, lengthCm: p.lengthCm, widthCm: p.widthCm }, sizeSaid: null };
+}
+const asDepth = (s: string | null): UlcerDepth | null => (s && (DEPTHS as string[]).includes(s) ? (s as UlcerDepth) : null);
+const asDevice = (s: string | null): O2Device | null => (s && (O2_DEVICE_NAMES as string[]).includes(s) ? (s as O2Device) : null);
+
+/** An empty procedure draft for a master item, picked by hand. The checks then ask what is missing. */
+export function newProcedureDraft(code: string, id: string): ProcedureDraft {
+  return {
+    id,
+    origin: "manual",
+    sourceText: "（マスターから選択）",
+    comment: null,
+    kind: "procedure",
+    code,
+    said: findProc(code)?.name ?? code,
+    site: null,
+    size: { lengthCm: null, widthCm: null, areaCm2: null },
+    area: null,
+    depth: null,
+    o2: { device: null, lpm: null },
+    schedule: null,
+    start: { day: null, time: null },
+    days: null,
+    drug: null,
+    flowOk: false,
+    duplicate: null,
+  };
+}
 
 function scheduleFrom(f: AiOrder["frequency"]): InjectionSchedule | null {
   if (f.kind === "once") return { kind: "once" };
@@ -118,7 +214,32 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
     const base = { id: newId(), origin: "ai" as const, sourceText: o.source_text, comment: o.comment };
     if (o.kind === "stop") {
       const d = o.drugs[0];
-      drafts.push({ ...base, kind: "stop", drugCode: validDrug(d?.code ?? null), said: d?.said ?? o.source_text, targetOrderId: null });
+      if (!d && text(o.procedure_code)) {
+        drafts.push({ ...base, kind: "stop", drugCode: null, procCode: validProc(text(o.procedure_code)), said: o.source_text, targetOrderId: null });
+      } else {
+        drafts.push({ ...base, kind: "stop", drugCode: validDrug(d?.code ?? null), said: d?.said ?? o.source_text, targetOrderId: null });
+      }
+    } else if (o.kind === "procedure") {
+      const dr = o.drugs[0];
+      const prn = o.frequency.kind === "prn";
+      drafts.push({
+        ...base,
+        comment: prn ? null : o.comment,
+        kind: "procedure",
+        code: validProc(text(o.procedure_code)),
+        said: o.source_text,
+        site: text(o.site),
+        ...sizeFrom(text(o.size_said)),
+        area: null,
+        depth: asDepth(text(o.depth)),
+        o2: { device: asDevice(text(o.o2_device)), lpm: said(o.o2_lpm) },
+        schedule: procScheduleFrom(o.frequency, prn ? (o.comment?.trim() || null) : null),
+        start: { day: DAY[o.start.day] ?? null, time: o.start.time },
+        days: o.days,
+        drug: dr ? { code: validProcDrug(dr.code), said: dr.said, amount: dr.amount } : null,
+        flowOk: false,
+        duplicate: null,
+      });
     } else if (o.kind === "injection") {
       const schedule = scheduleFrom(o.frequency);
       const severalBags = schedule?.kind === "per_day" && schedule.count > 1 && o.infusion.minutes !== null;
@@ -136,7 +257,7 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
         days: o.days,
         duplicate: null,
       });
-    } else {
+    } else if (o.kind === "lab") {
       const when = o.collect.when === "unspecified" ? null : o.collect.when;
       drafts.push({
         ...base,
@@ -301,10 +422,19 @@ function stopTargets(drugCode: string, ctx: CheckContext): OrderEntry[] {
   );
 }
 
+/** Running orders of a procedure. */
+function procTargets(code: string, ctx: CheckContext): OrderEntry[] {
+  return ctx.activeOrders.filter((o) => o.order.type === "procedure" && o.order.code === code);
+}
+
+function targetsOf(d: StopDraft, ctx: CheckContext): OrderEntry[] {
+  if (d.procCode) return procTargets(d.procCode, ctx);
+  return d.drugCode ? stopTargets(d.drugCode, ctx) : [];
+}
+
 export function resolvedStopTarget(d: StopDraft, ctx: CheckContext): string | null {
   if (d.targetOrderId) return d.targetOrderId;
-  if (!d.drugCode) return null;
-  const t = stopTargets(d.drugCode, ctx);
+  const t = targetsOf(d, ctx);
   return t.length === 1 ? t[0].id : null;
 }
 
@@ -665,6 +795,36 @@ function checkLab(d: LabDraft, ctx: CheckContext): Issue[] {
 }
 
 function checkStop(d: StopDraft, ctx: CheckContext): Issue[] {
+  if (d.procCode !== undefined && d.procCode !== null) {
+    const name = findProc(d.procCode)!.name;
+    const targets = targetsOf(d, ctx);
+    if (targets.length === 0) return [{ key: "target", level: "stop", title: "中止", message: `${name} の有効なオーダが見つかりません。` }];
+    const resolved = resolvedStopTarget(d, ctx);
+    if (!resolved) {
+      return [
+        {
+          key: "target",
+          level: "ask",
+          title: "中止",
+          message: `${name} の有効なオーダが複数あります。どれを止めますか。`,
+          choices: targets.map((t) => ({ label: ctx.describe(t), apply: (x) => ({ ...(x as StopDraft), targetOrderId: t.id }) })),
+        },
+      ];
+    }
+    const t = ctx.activeOrders.find((o) => o.id === resolved)!;
+    return [{ key: "target", level: "info", title: "中止", message: `確定すると中止になります：${ctx.describe(t)}` }];
+  }
+  if (d.procCode === null) {
+    return [
+      {
+        key: "proc",
+        level: "stop",
+        title: "中止",
+        message: `中止する処置「${d.said}」が院内の処置マスターにありません。`,
+        choices: procCandidates(d.said).map((c) => ({ label: c.name, apply: (x) => ({ ...(x as StopDraft), procCode: c.code }) })),
+      },
+    ];
+  }
   if (!d.drugCode) {
     return [
       {
@@ -696,12 +856,274 @@ function checkStop(d: StopDraft, ctx: CheckContext): Issue[] {
   return [{ key: "target", level: "info", title: "中止", message: `確定すると中止になります：${ctx.describe(t)}` }];
 }
 
+// ---------------------------------------------------------------------------
+// Procedures (処置)
+// ---------------------------------------------------------------------------
+
+function procCandidates(said: string): ProcMaster[] {
+  const s = said.replace(/\s/g, "");
+  if (!s) return [];
+  return PROCEDURES.filter((p) => [p.name, ...p.aliases].some((a) => a.includes(s) || s.includes(a))).slice(0, 4);
+}
+
+const fmtNum = (n: number) => n.toLocaleString("ja-JP");
+
+/** The area class of a wound: chosen, or computed from the area / lengths said. */
+export function procArea(d: ProcedureDraft): { area: AreaClass | null; formula: string | null } {
+  if (d.area) return { area: d.area, formula: null };
+  const { lengthCm: l, widthCm: w, areaCm2 } = d.size;
+  if (areaCm2 !== null) return { area: areaClassOf(areaCm2), formula: `${fmtNum(areaCm2)}cm²` };
+  if (l !== null && w !== null) return { area: areaClassOf(l * w), formula: `${l}cm × ${w}cm = ${fmtNum(Math.round(l * w * 10) / 10)}cm²` };
+  return { area: null, formula: null };
+}
+
+/** The schedule in effect: 酸素 and 留置 always run until stopped. */
+export function procSchedule(d: ProcedureDraft): ProcSchedule | null {
+  const m = d.code ? findProc(d.code) : undefined;
+  if (m?.continuous) return { kind: "continuous" };
+  return d.schedule;
+}
+
+/** Amount choices for a procedure drug, by its unit. Offered for the doctor to pick; nothing is preselected. */
+const DRUG_AMOUNTS: Record<string, number[]> = { g: [5, 10, 20], 個: [1, 2] };
+
+/** Flows offered when the flow is missing: the device's usual range on this ward. */
+function flowChoices(device: O2Device): number[] {
+  const { min, max } = O2_DEVICES[device];
+  const all = [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15];
+  return all.filter((x) => x >= min && x <= max);
+}
+
+function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
+  const issues: Issue[] = [];
+  const m = d.code ? findProc(d.code) : undefined;
+  if (!m) {
+    issues.push({
+      key: "proc",
+      level: "stop",
+      title: "処置",
+      message: `「${d.said}」は院内の処置マスターにありません。`,
+      choices: procCandidates(d.said).map((c) => ({ label: c.name, apply: (x) => ({ ...(x as ProcedureDraft), code: c.code }) })),
+    });
+    return issues;
+  }
+  const set = (patch: Partial<ProcedureDraft>) => (x: Draft) => ({ ...(x as ProcedureDraft), ...patch });
+
+  // 酸素: device and flow
+  if (m.needs.includes("o2")) {
+    const running = procTargets(m.code, ctx).find((o) => o.order.type === "procedure" && o.order.o2);
+    const runningDevice = running && running.order.type === "procedure" ? running.order.o2?.device : undefined;
+    if (!d.o2.device) {
+      const names = runningDevice ? [runningDevice, ...O2_DEVICE_NAMES.filter((n) => n !== runningDevice)] : O2_DEVICE_NAMES;
+      issues.push({
+        key: "o2-device",
+        level: "ask",
+        title: "器具",
+        message: "酸素の器具が抜けています。",
+        choices: names.map((n) => ({
+          label: n === runningDevice ? `${n}（今の酸素と同じ）` : n,
+          apply: (x) => ({ ...(x as ProcedureDraft), o2: { ...(x as ProcedureDraft).o2, device: n } }),
+        })),
+      });
+    }
+    if (d.o2.lpm === null) {
+      issues.push({
+        key: "o2-flow",
+        level: "ask",
+        title: "流量",
+        message: "酸素の流量（L/分）が抜けています。",
+        choices: d.o2.device
+          ? flowChoices(d.o2.device).map((f) => ({ label: `${f}L/分`, apply: (x) => ({ ...(x as ProcedureDraft), o2: { ...(x as ProcedureDraft).o2, lpm: f } }) }))
+          : undefined,
+      });
+    } else if (d.o2.device) {
+      const r = O2_DEVICES[d.o2.device];
+      if ((d.o2.lpm < r.min || d.o2.lpm > r.max) && !d.flowOk) {
+        issues.push({
+          key: "o2-range",
+          level: "ask",
+          title: "流量",
+          message: `${d.o2.device}で${d.o2.lpm}L/分です。この病棟の取り決め（架空）では、${d.o2.device}は${r.min}〜${r.max}L/分で使います。`,
+          choices: [{ label: `${d.o2.lpm}L/分で出す`, apply: set({ flowOk: true }) }],
+        });
+      }
+      if (d.o2.lpm > 0) {
+        issues.push({
+          key: "o2-volume",
+          level: "info",
+          title: "計算",
+          message: "1日続けた場合の酸素量",
+          formula: `${d.o2.lpm}L/分 × 1,440分 = ${fmtNum(d.o2.lpm * 1440)}L`,
+        });
+      }
+    }
+  }
+
+  // 部位
+  if (m.needs.includes("site") && !d.site) {
+    issues.push({
+      key: "site",
+      level: "ask",
+      title: "部位",
+      message: "部位が抜けています。",
+      choices: m.sites?.map((s) => ({ label: s, apply: set({ site: s }) })),
+    });
+  }
+
+  // 範囲
+  if (m.needs.includes("area")) {
+    const a = procArea(d);
+    if (!a.area) {
+      issues.push({
+        key: "area",
+        level: "ask",
+        title: "範囲",
+        message: d.sizeSaid
+          ? `「${d.sizeSaid}」を大きさに直せませんでした。縦×横を言うか、区分を選んでください。`
+          : "範囲（大きさ）が抜けています。縦×横を言うか、区分を選んでください。",
+        choices: AREA_CLASSES.map((c) => ({ label: AREA_LABEL[c], apply: set({ area: c }) })),
+      });
+    } else {
+      issues.push({ key: "area", level: "info", title: "範囲", message: AREA_LABEL[a.area], formula: a.formula ?? undefined });
+      if (a.area === "lt100") {
+        issues.push({
+          key: "area-lt100",
+          level: "info",
+          title: "算定",
+          message: "100cm²未満は、入院中は手術後の患者（手術日から14日まで）だけ算定できる区分です（J000 注1・J001-4 注2）。処置は出せます。",
+        });
+      }
+    }
+  }
+
+  // 深さ（褥瘡）
+  if (m.needs.includes("depth")) {
+    if (!d.depth) {
+      issues.push({
+        key: "depth",
+        level: "ask",
+        title: "深さ",
+        message: "褥瘡の深さ（DESIGN-R®2020）が抜けています。",
+        choices: DEPTHS.map((x) => ({ label: DEPTH_LABEL[x], apply: set({ depth: x }) })),
+      });
+    } else {
+      issues.push({
+        key: "depth",
+        level: "info",
+        title: "深さ",
+        message: `${DEPTH_LABEL[d.depth]}（算定は${isSevereUlcer(d.depth) ? "重度褥瘡処置 J001-4" : "創傷処置 J000"}の区分）`,
+      });
+    }
+  }
+
+  // 回数
+  const schedule = procSchedule(d);
+  if (!schedule) {
+    issues.push({
+      key: "schedule",
+      level: "ask",
+      title: "回数",
+      message: "回数（1日何回・隔日・必要時）が抜けています。",
+      choices: m.schedules.map((s) => ({ label: procScheduleText(s), apply: set({ schedule: s }) })),
+    });
+  } else if (m.continuous) {
+    issues.push({ key: "schedule", level: "info", title: "回数", message: "中止するまで続きます。" });
+  }
+
+  // 薬剤
+  if (m.uses) {
+    const u = findProcDrug(m.uses.code)!;
+    issues.push({ key: "uses", level: "info", title: "薬剤", message: `${u.name} を1回に${m.uses.amount}${u.unit}使います。` });
+  }
+  if (d.drug) {
+    const pd = d.drug.code ? findProcDrug(d.drug.code) : undefined;
+    if (!pd) {
+      const s = d.drug.said.replace(/\s/g, "");
+      issues.push({
+        key: "drug",
+        level: "stop",
+        title: "薬剤",
+        message: `「${d.drug.said}」は院内の処置薬のマスターにありません。`,
+        choices: PROC_DRUGS.filter((x) => !s || [x.name, ...x.aliases].some((a) => a.includes(s) || s.includes(a)))
+          .slice(0, 4)
+          .map((x) => ({ label: x.name, apply: (y) => ({ ...(y as ProcedureDraft), drug: { ...(y as ProcedureDraft).drug!, code: x.code } }) })),
+      });
+    } else if (m.drugs && !m.drugs.includes(pd.code)) {
+      issues.push({ key: "drug", level: "stop", title: "薬剤", message: `${pd.name} は ${m.name} で使う薬に入っていません。` });
+    } else if (d.drug.amount === null) {
+      issues.push({
+        key: "drug-amount",
+        level: "ask",
+        title: "量",
+        message: `${pd.name} の1回の量が抜けています。`,
+        choices: (DRUG_AMOUNTS[pd.unit] ?? []).map((n) => ({
+          label: `${n}${pd.unit}`,
+          apply: (y) => ({ ...(y as ProcedureDraft), drug: { ...(y as ProcedureDraft).drug!, amount: n } }),
+        })),
+      });
+    }
+  }
+
+  // 開始
+  const startDay = d.start.day ?? 0;
+  if (startDay === 0 && d.start.time && minutesOf(d.start.time) < minutesOf(ctx.nowTime)) {
+    issues.push({
+      key: "start-past",
+      level: "ask",
+      title: "日時",
+      message: `開始時刻（今日 ${d.start.time}）はもう過ぎています。`,
+      choices: [
+        { label: "指示受け後すぐに開始", apply: set({ start: { day: 0, time: null } }) },
+        { label: `明日の ${d.start.time} から`, apply: (x) => ({ ...(x as ProcedureDraft), start: { day: 1, time: (x as ProcedureDraft).start.time } }) },
+      ],
+    });
+  } else {
+    issues.push({
+      key: "start",
+      level: "info",
+      title: "開始",
+      message: `${ctx.fmtDay(startDay)} ${d.start.time ?? "指示受け後すぐ"}${d.start.day === null ? "（日付の指定なし → 今日）" : ""}`,
+    });
+  }
+
+  // 重複: the same procedure (on the same site) already running
+  const same = procTargets(m.code, ctx).filter(
+    (o) =>
+      o.order.type === "procedure" &&
+      (!m.needs.includes("site") || !d.site || !o.order.site || o.order.site === d.site) &&
+      !ctx.drafts.some((x) => x.kind === "stop" && x.id !== d.id && resolvedStopTarget(x, ctx) === o.id),
+  );
+  if (same.length > 0 && !d.duplicate) {
+    const o = same[0];
+    issues.push({
+      key: "duplicate",
+      level: "ask",
+      title: "重複",
+      message: `同じ処置の有効なオーダがあります：${ctx.describe(o)}`,
+      choices: [
+        { label: "前のオーダを止めて、これに置き換える", apply: set({ duplicate: { action: "replace", orderId: o.id } }) },
+        { label: "前のオーダはそのまま、追加で出す", apply: set({ duplicate: { action: "add", orderId: o.id } }) },
+      ],
+    });
+  } else if (d.duplicate) {
+    issues.push({
+      key: "duplicate",
+      level: "info",
+      title: "重複",
+      message: d.duplicate.action === "replace" ? "確定すると、前のオーダは中止になります。" : "前のオーダと重ねて出します。",
+    });
+  }
+  return issues;
+}
+
 export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
   switch (d.kind) {
     case "injection":
       return checkInjection(d, ctx);
     case "lab":
       return checkLab(d, ctx);
+    case "procedure":
+      return checkProcedure(d, ctx);
     case "stop":
       return checkStop(d, ctx);
     case "unclear":
@@ -724,6 +1146,25 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     return { stopIds: id ? [id] : [] };
   }
   if (d.kind === "unclear") return { stopIds: [] };
+  if (d.kind === "procedure") {
+    const m = findProc(d.code!)!;
+    const a = procArea(d);
+    const size = a.formula && (d.size.lengthCm !== null || d.size.areaCm2 !== null) ? a.formula.split(" = ")[0] : null;
+    const order: ProcedureOrder = {
+      type: "procedure",
+      code: m.code,
+      site: d.site ?? undefined,
+      area: m.needs.includes("area") ? a.area! : undefined,
+      depth: m.needs.includes("depth") ? d.depth! : undefined,
+      o2: m.needs.includes("o2") ? { device: d.o2.device!, lpm: d.o2.lpm! } : undefined,
+      schedule: procSchedule(d)!,
+      start: { day: d.start.day ?? 0, time: d.start.time ?? undefined },
+      days: d.days ?? undefined,
+      drug: m.uses ? { code: m.uses.code, amount: m.uses.amount } : d.drug ? { code: d.drug.code!, amount: d.drug.amount! } : undefined,
+      comment: [size, d.comment].filter(Boolean).join("　") || undefined,
+    };
+    return { order, stopIds: d.duplicate?.action === "replace" ? [d.duplicate.orderId] : [] };
+  }
   if (d.kind === "injection") {
     const plan = ratePlan(d);
     const order: InjectionOrder = {
