@@ -56,7 +56,8 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
     duplicateOk: false,
   });
 
-  const groups = [...new Set(LAB_TESTS.map((t) => t.group).filter((g) => g && g !== "セット"))] as string[];
+  const ORDER = ["血液学", "凝固・線溶", "生化学", "炎症・感染", "心筋・心不全", "内分泌", "血液ガス", "尿", "微生物", "薬物濃度"];
+  const groups = ORDER.filter((g) => LAB_TESTS.some((t) => t.group === g));
   const containers = [...new Set(picked.map((c) => labInfo(c).container))];
   const notes = picked.flatMap((c) => (labInfo(c).note ? [`${LAB_TESTS.find((t) => t.code === c)?.abbr ?? c}：${labInfo(c).note}`] : []));
 
