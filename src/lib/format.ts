@@ -1,8 +1,8 @@
 // Turn orders into the short lines shown in the chart.
 
 import { addDays, formatShort, type CalendarDate } from "./dates";
-import { findDrug, findLab, findSet } from "./master";
-import type { InjectionOrder, InjectionSchedule, LabOrder, Order } from "./types";
+import { findDrug, findLab, findOralDrug, findSet } from "./master";
+import type { InjectionOrder, InjectionSchedule, LabOrder, Order, PrescriptionOrder } from "./types";
 
 export function scheduleText(s: InjectionSchedule): string {
   switch (s.kind) {
@@ -62,11 +62,34 @@ export function labLines(order: LabOrder, today: CalendarDate): { main: string; 
   return { main, detail: parts.join("　") };
 }
 
+export function oralName(code: string): string {
+  const d = findOralDrug(code);
+  return d ? `${d.name} ${d.strength}` : code;
+}
+
+/** "1日2回 朝・夕" or "頓用 発熱時（38.5℃以上） 1日3回まで" */
+export function timingText(o: PrescriptionOrder): string {
+  if (o.timings.length === 0) return `頓用 ${o.prn ?? ""}${o.maxPerDay ? ` 1日${o.maxPerDay}回まで` : ""}`.trim();
+  return `1日${o.timings.length}回 ${o.timings.join("・")}`;
+}
+
+export function prescriptionLines(order: PrescriptionOrder, today: CalendarDate): { main: string; detail: string } {
+  const main = `${oralName(order.drugCode)}　1回${order.amount}${order.unit}`;
+  const parts: string[] = [order.category, timingText(order)];
+  parts.push(`開始 ${formatShort(addDays(today, order.start.day))}${order.start.timing ? ` ${order.start.timing}` : ""}`);
+  parts.push(order.days ? `${order.days}日分` : "継続");
+  if (order.comment) parts.push(order.comment);
+  return { main, detail: parts.join("　") };
+}
+
 export function orderLines(order: Order, today: CalendarDate) {
-  return order.type === "injection" ? injectionLines(order, today) : labLines(order, today);
+  if (order.type === "injection") return injectionLines(order, today);
+  if (order.type === "lab") return labLines(order, today);
+  return prescriptionLines(order, today);
 }
 
 export const ORDER_TYPE_LABEL: Record<Order["type"], string> = {
   injection: "注射",
   lab: "検体検査",
+  prescription: "処方",
 };

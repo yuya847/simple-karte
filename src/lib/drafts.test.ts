@@ -215,6 +215,12 @@ describe("duplicates and stops", () => {
     expect(toOrder(d, ctx()).stopIds).toEqual(["sakura-cez"]);
   });
 
+  it("finds a running oral prescription to stop", () => {
+    const d: StopDraft = { id: "s", origin: "manual", sourceText: "", comment: null, kind: "stop", drugCode: "ORAL-AMLO5", said: "アムロジピン", targetOrderId: null };
+    expect(isReady(checkDraft(d, ctx()))).toBe(true);
+    expect(toOrder(d, ctx()).stopIds).toEqual(["sakura-amlo"]);
+  });
+
   it("stops when there is nothing to stop", () => {
     const d: StopDraft = { id: "s", origin: "ai", sourceText: "", comment: null, kind: "stop", drugCode: "INJ-FRS20", said: "ラシックス", targetOrderId: null };
     expect(checkDraft(d, ctx())[0].level).toBe("stop");

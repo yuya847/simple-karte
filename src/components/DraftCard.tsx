@@ -3,7 +3,7 @@
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
 import { effectiveRoute, isReady, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { drugName, durationText, labName, scheduleLabel } from "@/lib/format";
-import { findDrug } from "@/lib/master";
+import { anyDrugName } from "@/lib/master";
 
 interface Props {
   draft: Draft;
@@ -122,7 +122,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     const o = target ? ctx.activeOrders.find((x) => x.id === target) : undefined;
     return (
       <p>
-        <b>{draft.drugCode ? findDrug(draft.drugCode)?.name : draft.said}</b> を中止
+        <b>{draft.drugCode ? anyDrugName(draft.drugCode) : draft.said}</b> を中止
         {o && <span className="block text-xs text-ink-soft">{ctx.describe(o)}</span>}
       </p>
     );

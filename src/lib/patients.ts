@@ -2,6 +2,7 @@
 // Days are offsets from "today" so the demo always reads as the current week.
 
 import type { HistoryEntry, Patient } from "./types";
+import { PRESCRIPTIONS } from "./prescriptions";
 import { DAILY, VITALS } from "./vitals";
 
 type BasePatient = Omit<Patient, "vitals" | "daily">;
@@ -536,6 +537,7 @@ const mori: BasePatient = {
 
 export const PATIENTS: Patient[] = [sakura, oura, kitamura, mori].map((p) => ({
   ...p,
+  history: [...p.history, ...(PRESCRIPTIONS[p.id] ?? [])],
   vitals: VITALS[p.id] ?? [],
   daily: DAILY[p.id] ?? [],
 }));

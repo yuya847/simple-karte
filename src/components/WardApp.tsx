@@ -5,7 +5,7 @@ import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
 import { checkDraft, draftsFromAi, isReady, toOrder, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { orderLines } from "@/lib/format";
-import { findDrug } from "@/lib/master";
+import { anyDrugName } from "@/lib/master";
 import { PATIENTS, findPatient } from "@/lib/patients";
 import type { DayOffset, HistoryEntry, OrderEntry } from "@/lib/types";
 import { DateTree } from "./DateTree";
@@ -210,7 +210,8 @@ export default function WardApp() {
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
       ...stoppedEntries.map((e) => {
-        const name = e.order.type === "injection" ? findDrug(e.order.items[0].drugCode)?.name : "";
+        const o = e.order;
+        const name = o.type === "injection" ? anyDrugName(o.items[0].drugCode) : o.type === "prescription" ? anyDrugName(o.drugCode) : "";
         return `・${name} 中止`;
       }),
       ...added.map((e) => planLine(e, today)),

@@ -134,6 +134,38 @@ export const DRUGS: DrugMaster[] = [
   },
 ];
 
+/** Oral drugs of the fictional hospital (public names and strengths). */
+export interface OralDrugMaster {
+  code: string;
+  name: string;
+  strength: string;
+  unit: "錠" | "カプセル" | "包";
+  aliases: string[];
+}
+
+export const ORAL_DRUGS: OralDrugMaster[] = [
+  { code: "ORAL-AMLO5", name: "アムロジピン錠", strength: "5mg", unit: "錠", aliases: ["アムロジピン", "ノルバスク", "アムロジン"] },
+  { code: "ORAL-LPZ15", name: "ランソプラゾールOD錠", strength: "15mg", unit: "錠", aliases: ["ランソプラゾール", "タケプロン"] },
+  { code: "ORAL-APAP500", name: "アセトアミノフェン錠", strength: "500mg", unit: "錠", aliases: ["カロナール", "アセトアミノフェン"] },
+  { code: "ORAL-DNP5", name: "ドネペジル塩酸塩OD錠", strength: "5mg", unit: "錠", aliases: ["ドネペジル", "アリセプト"] },
+  { code: "ORAL-ENA5", name: "エナラプリルマレイン酸塩錠", strength: "5mg", unit: "錠", aliases: ["エナラプリル", "レニベース"] },
+  { code: "ORAL-BISO25", name: "ビソプロロールフマル酸塩錠", strength: "2.5mg", unit: "錠", aliases: ["ビソプロロール", "メインテート"] },
+  { code: "ORAL-SPL25", name: "スピロノラクトン錠", strength: "25mg", unit: "錠", aliases: ["スピロノラクトン", "アルダクトン"] },
+  { code: "ORAL-ROSU25", name: "ロスバスタチン錠", strength: "2.5mg", unit: "錠", aliases: ["ロスバスタチン", "クレストール"] },
+  { code: "ORAL-MGO330", name: "酸化マグネシウム錠", strength: "330mg", unit: "錠", aliases: ["酸化マグネシウム", "マグミット", "カマ"] },
+];
+
+export function findOralDrug(code: string): OralDrugMaster | undefined {
+  return ORAL_DRUGS.find((d) => d.code === code);
+}
+
+/** Name of an injection or oral drug, for messages. */
+export function anyDrugName(code: string): string {
+  const inj = DRUGS.find((d) => d.code === code);
+  if (inj) return inj.name;
+  return ORAL_DRUGS.find((d) => d.code === code)?.name ?? code;
+}
+
 export interface LabMaster {
   code: string;
   name: string;
@@ -263,6 +295,8 @@ export const WARD_RULES = {
   routineDrawTime: "06:00",
   /** A drug level timed "before the N-th dose" is drawn this many minutes before that dose. */
   minutesBeforeDoseForLevel: 30,
+  /** Clock time of each oral dose timing on this ward. */
+  medTimes: { 朝: "08:00", 昼: "12:00", 夕: "18:00", 眠前: "21:00" },
 } as const;
 
 export function findDrug(code: string): DrugMaster | undefined {

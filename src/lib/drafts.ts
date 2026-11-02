@@ -6,7 +6,7 @@
 
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import { minutesOf } from "./dates";
-import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, findDrug, findLab, findSet, type DrugMaster } from "./master";
+import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findSet, type DrugMaster } from "./master";
 import type {
   DayOffset,
   InjectionOrder,
@@ -294,8 +294,11 @@ function activeSameDrug(d: InjectionDraft, ctx: CheckContext): OrderEntry[] {
   return ctx.activeOrders.filter((o) => o.order.type === "injection" && o.order.items[0]?.drugCode === code);
 }
 
+/** Running orders of a drug: the main drug of an injection, or an oral prescription. */
 function stopTargets(drugCode: string, ctx: CheckContext): OrderEntry[] {
-  return ctx.activeOrders.filter((o) => o.order.type === "injection" && o.order.items.some((it, i) => i === 0 && it.drugCode === drugCode));
+  return ctx.activeOrders.filter(
+    (o) => (o.order.type === "injection" && o.order.items[0]?.drugCode === drugCode) || (o.order.type === "prescription" && o.order.drugCode === drugCode),
+  );
 }
 
 export function resolvedStopTarget(d: StopDraft, ctx: CheckContext): string | null {
@@ -675,7 +678,7 @@ function checkStop(d: StopDraft, ctx: CheckContext): Issue[] {
   }
   const targets = stopTargets(d.drugCode, ctx);
   if (targets.length === 0) {
-    return [{ key: "target", level: "stop", title: "中止", message: `${findDrug(d.drugCode)?.name} の有効なオーダが見つかりません。` }];
+    return [{ key: "target", level: "stop", title: "中止", message: `${anyDrugName(d.drugCode)} の有効なオーダが見つかりません。` }];
   }
   const resolved = resolvedStopTarget(d, ctx);
   if (!resolved) {

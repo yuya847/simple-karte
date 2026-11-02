@@ -86,7 +86,7 @@ export interface OrderEntry {
 
 // ---------- Orders ----------
 
-export type Order = InjectionOrder | LabOrder;
+export type Order = InjectionOrder | LabOrder | PrescriptionOrder;
 
 export type InjectionRoute = "点滴静注" | "静注" | "皮下注" | "筋注";
 
@@ -125,6 +125,29 @@ export interface LabOrder {
   collect: { day: DayOffset; time: string };
   priority: LabPriority;
   comment?: string;
+}
+
+/** When oral drugs are taken. The clock time of each is a ward rule (see master.ts). */
+export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
+
+export interface PrescriptionOrder {
+  type: "prescription";
+  /** 定期 = regular, 臨時 = one-off/short, 持参薬 = the patient's own drugs brought from home. */
+  category: "定期" | "臨時" | "持参薬";
+  drugCode: string;
+  /** Amount per time, e.g. 1 (錠). */
+  amount: number;
+  unit: string;
+  /** Empty for as-needed (頓用) drugs. */
+  timings: DoseTiming[];
+  /** Condition for an as-needed drug, e.g. "発熱時（38.5℃以上）". */
+  prn?: string;
+  maxPerDay?: number;
+  start: { day: DayOffset; timing?: DoseTiming };
+  days?: number;
+  comment?: string;
+  /** FICTIONAL record of when an as-needed dose was taken. */
+  prnUses?: { day: DayOffset; time: string }[];
 }
 
 // ---------- Results ----------
