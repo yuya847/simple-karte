@@ -1,5 +1,7 @@
 // Domain types for the ward chart. All patient data in this app is fictional.
 
+import type { AreaClass, O2Device, ProcSchedule, UlcerDepth } from "./procedures";
+
 /** Day offset from "today" (0 = today, -1 = yesterday). Dates are resolved at runtime. */
 export type DayOffset = number;
 
@@ -81,12 +83,14 @@ export interface OrderEntry {
   status: OrderStatus;
   /** Day the order was stopped, when status is 中止. */
   stoppedOn?: DayOffset;
+  /** Clock time of the stop, when known ("HH:MM"). Without it the order counts to the end of stoppedOn. */
+  stoppedTime?: string;
   order: Order;
 }
 
 // ---------- Orders ----------
 
-export type Order = InjectionOrder | LabOrder | PrescriptionOrder;
+export type Order = InjectionOrder | LabOrder | PrescriptionOrder | ProcedureOrder;
 
 export type InjectionRoute = "点滴静注" | "静注" | "皮下注" | "筋注";
 
@@ -148,6 +152,27 @@ export interface PrescriptionOrder {
   comment?: string;
   /** FICTIONAL record of when an as-needed dose was taken. */
   prnUses?: { day: DayOffset; time: string }[];
+}
+
+/** A ward procedure (処置). The item comes from the fictional hospital's master (procedures.ts). */
+export interface ProcedureOrder {
+  type: "procedure";
+  code: string;
+  /** 部位, as said. */
+  site?: string;
+  /** 範囲 (wound / pressure ulcer). */
+  area?: AreaClass;
+  /** DESIGN-R2020 depth (pressure ulcer). */
+  depth?: UlcerDepth;
+  o2?: { device: O2Device; lpm: number };
+  schedule: ProcSchedule;
+  start: { day: DayOffset; time?: string };
+  days?: number;
+  /** Drug used each time (処置薬剤), amount in the drug's unit. */
+  drug?: { code: string; amount: number };
+  comment?: string;
+  /** FICTIONAL record of when an as-needed procedure was done. */
+  done?: { day: DayOffset; time: string }[];
 }
 
 // ---------- Results ----------
