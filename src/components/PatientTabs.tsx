@@ -1,18 +1,20 @@
 "use client";
 
-import { Plus, Search, X } from "lucide-react";
+import { LayoutGrid, Plus, Search, X } from "lucide-react";
 import type { Patient } from "@/lib/types";
 
 interface Props {
   tabs: Patient[];
   activeId: string | null;
+  mapActive: boolean;
+  onSelectMap: () => void;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onOpenPicker: () => void;
 }
 
 /** Browser-style tabs: one tab per open patient chart. */
-export function PatientTabs({ tabs, activeId, onSelect, onClose, onOpenPicker }: Props) {
+export function PatientTabs({ tabs, activeId, mapActive, onSelectMap, onSelect, onClose, onOpenPicker }: Props) {
   return (
     <div className="flex items-end gap-1 bg-tab px-2 pt-1.5 border-b border-rule">
       <div className="flex items-center gap-2 pr-3 pb-1.5 text-sm font-bold tracking-wide text-ink">
@@ -20,6 +22,19 @@ export function PatientTabs({ tabs, activeId, onSelect, onClose, onOpenPicker }:
         Simple Karte
       </div>
       <div role="tablist" aria-label="開いている患者" className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto scroll-thin">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mapActive}
+          onClick={onSelectMap}
+          title="病棟マップ"
+          className={`flex h-9 shrink-0 items-center gap-1.5 rounded-t-lg border border-b-0 px-3 text-sm ${
+            mapActive ? "z-10 -mb-px border-rule bg-paper font-bold text-ink" : "border-transparent text-ink-soft hover:bg-sheet/60"
+          }`}
+        >
+          <LayoutGrid size={15} />
+          病棟マップ
+        </button>
         {tabs.map((p) => {
           const active = p.id === activeId;
           return (

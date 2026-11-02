@@ -4,18 +4,77 @@ import { useEffect, useRef } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
+import { FlowSheet } from "./FlowSheet";
+
+export type LeftView = "record" | "flowsheet";
 
 interface Props {
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
+  nowTime: string;
   selectedDay: DayOffset | null;
+  onSelectDay: (d: DayOffset) => void;
   showStopped: boolean;
   onToggleStopped: () => void;
+  view: LeftView;
+  onView: (v: LeftView) => void;
 }
 
-/** Past record: newest day first; inside a day, notes and orders in time order. */
-export function HistoryPane({ patient, entries, today, selectedDay, showStopped, onToggleStopped }: Props) {
+/** Left pane: the past record (notes and orders by day) or the flow sheet. */
+export function HistoryPane(props: Props) {
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries } = props;
+  return (
+    <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
+      <div className="flex items-center gap-3 border-b border-rule-soft px-4 py-1.5">
+        <div role="tablist" aria-label="左の表示" className="flex rounded-md border border-rule p-0.5 text-sm">
+          {(
+            [
+              ["record", "経過（記事・オーダ）"],
+              ["flowsheet", "経過表"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => onView(v)}
+              className={`rounded px-2.5 py-0.5 ${view === v ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {view === "record" && (
+          <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-ink-faint">
+            <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
+            中止したオーダも表示
+          </label>
+        )}
+      </div>
+      {view === "flowsheet" ? (
+        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} />
+      ) : (
+        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} />
+      )}
+    </section>
+  );
+}
+
+function RecordList({
+  patient,
+  entries,
+  today,
+  selectedDay,
+  showStopped,
+}: {
+  patient: Patient;
+  entries: HistoryEntry[];
+  today: CalendarDate;
+  selectedDay: DayOffset | null;
+  showStopped: boolean;
+}) {
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,14 +86,6 @@ export function HistoryPane({ patient, entries, today, selectedDay, showStopped,
   for (let d = 0; d >= patient.admittedOn; d--) days.push(d);
 
   return (
-    <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
-      <div className="flex items-center justify-between border-b border-rule-soft px-4 py-2">
-        <h2 className="text-sm font-bold">経過（記事・オーダ）</h2>
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-faint">
-          <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
-          中止したオーダも表示
-        </label>
-      </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
         {days.map((d) => {
           const items = entries
@@ -66,7 +117,6 @@ export function HistoryPane({ patient, entries, today, selectedDay, showStopped,
           );
         })}
       </div>
-    </section>
   );
 }
 

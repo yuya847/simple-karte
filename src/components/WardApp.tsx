@@ -9,12 +9,13 @@ import { findDrug } from "@/lib/master";
 import { PATIENTS, findPatient } from "@/lib/patients";
 import type { DayOffset, HistoryEntry, OrderEntry } from "@/lib/types";
 import { DateTree } from "./DateTree";
-import { HistoryPane } from "./HistoryPane";
+import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
 import { PatientTabs } from "./PatientTabs";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
+import { WardMap, type ChartSummary } from "./WardMap";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddInjectionPanel, AddLabPanel } from "./panels/AddPanels";
 import { Drawer } from "./panels/Drawer";
@@ -28,6 +29,7 @@ const DOCTOR = "山本（専攻医）";
 interface ChartState {
   selectedDay: DayOffset | null;
   showStopped: boolean;
+  leftView: LeftView;
   note: string;
   instruction: string;
   drafts: Draft[];
@@ -44,6 +46,7 @@ interface ChartState {
 const newChart = (): ChartState => ({
   selectedDay: null,
   showStopped: false,
+  leftView: "record",
   note: NOTE_TEMPLATE,
   instruction: "",
   drafts: [],
@@ -87,10 +90,14 @@ export default function WardApp() {
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
+  // The ward map is the pinned first tab and the start screen.
+  const [screen, setScreen] = useState<"map" | "chart">("map");
 
   const openPatient = useCallback((id: string) => {
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
     setActiveId(id);
+    setScreen("chart");
+    setPanel(null);
     setPickerOpen(false);
   }, []);
 
@@ -99,6 +106,7 @@ export default function WardApp() {
     const next = tabs.filter((t) => t !== id);
     setTabs(next);
     if (activeId === id) setActiveId(next[Math.min(i, next.length - 1)] ?? null);
+    if (next.length === 0) setScreen("map");
     setCharts((c) => {
       const rest = { ...c };
       delete rest[id];
@@ -225,31 +233,52 @@ export default function WardApp() {
       return { instruction: cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${text}` : text };
     });
 
+  const summaries: Record<string, ChartSummary> = Object.fromEntries(
+    Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length }]),
+  );
+  const flowsheet = chart.leftView === "flowsheet";
+
   return (
     <div className="flex h-screen flex-col">
       <PatientTabs
         tabs={tabs.map((id) => findPatient(id)!).filter(Boolean)}
-        activeId={activeId}
+        activeId={screen === "chart" ? activeId : null}
+        mapActive={screen === "map"}
+        onSelectMap={() => {
+          setScreen("map");
+          setPanel(null);
+        }}
         onSelect={(id) => {
           setActiveId(id);
+          setScreen("chart");
           setPanel(null);
         }}
         onClose={closePatient}
         onOpenPicker={() => setPickerOpen(true)}
       />
 
-      {patient && ctx ? (
+      {screen === "map" ? (
+        <WardMap summaries={summaries} onOpen={openPatient} />
+      ) : patient && ctx ? (
         <>
           <PatientBar patient={patient} today={today} />
-          <div className="grid min-h-0 flex-1 grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]">
+          <div
+            className={`grid min-h-0 flex-1 ${
+              flowsheet ? "grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_68px]" : "grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]"
+            }`}
+          >
             <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} />
             <HistoryPane
               patient={patient}
               entries={entries}
               today={today}
+              nowTime={nowTime}
               selectedDay={chart.selectedDay}
+              onSelectDay={(d) => update({ selectedDay: d })}
               showStopped={chart.showStopped}
               onToggleStopped={() => update({ showStopped: !chart.showStopped })}
+              view={chart.leftView}
+              onView={(v) => update({ leftView: v })}
             />
             <div className="relative flex min-h-0 flex-col">
               <TodayPane
@@ -307,7 +336,12 @@ export default function WardApp() {
                 </Drawer>
               )}
             </div>
-            <ToolRail open={panel} onOpen={setPanel} />
+            <ToolRail
+              open={panel}
+              onOpen={setPanel}
+              flowsheet={flowsheet}
+              onToggleFlowsheet={() => update({ leftView: flowsheet ? "record" : "flowsheet" })}
+            />
           </div>
         </>
       ) : (

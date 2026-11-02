@@ -1,6 +1,6 @@
 "use client";
 
-import { Bandage, ClipboardList, FlaskConical, ListChecks, Pill, ScanLine, Syringe, TestTube } from "lucide-react";
+import { Activity, Bandage, ClipboardList, FlaskConical, ListChecks, Pill, ScanLine, Syringe, TestTube } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type PanelKind = "add-injection" | "add-lab" | "results" | "imaging" | "active-orders";
@@ -35,15 +35,32 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
 interface Props {
   open: PanelKind | null;
   onOpen: (p: PanelKind | null) => void;
+  /** The flow sheet replaces the past record in the left pane, so it is a switch, not a panel. */
+  flowsheet: boolean;
+  onToggleFlowsheet: () => void;
 }
 
 /** Fixed column of tools on the far right: order types, then things to look at. */
-export function ToolRail({ open, onOpen }: Props) {
+export function ToolRail({ open, onOpen, flowsheet, onToggleFlowsheet }: Props) {
   return (
     <aside aria-label="ツール" className="flex flex-col items-stretch gap-1 border-l border-rule bg-paper px-1 py-2">
       {GROUPS.map((g, gi) => (
         <div key={g.title} className={gi > 0 ? "mt-2 border-t border-rule pt-2" : ""}>
           <div className="mb-1 text-center text-[10px] text-ink-faint">{g.title}</div>
+          {g.title === "参照" && (
+            <button
+              type="button"
+              title="経過表（左の欄に出します）"
+              onClick={onToggleFlowsheet}
+              aria-pressed={flowsheet}
+              className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${
+                flowsheet ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"
+              }`}
+            >
+              <Activity size={18} strokeWidth={1.8} />
+              経過表
+            </button>
+          )}
           {g.tools.map((t) => {
             const Icon = t.icon;
             const active = open === t.key;
