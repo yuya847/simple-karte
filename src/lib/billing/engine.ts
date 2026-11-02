@@ -142,6 +142,10 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   if (o.kyukyu) {
     const code = o.kyukyu === "1" ? "190171910" : "190172010";
     for (const d of days) if (hospitalDay(d) <= 7) add({ day: d, shikibetsu: "90", parts: [{ lines: [si(code)], points: pts(code) }], basis: `A205 救急医療管理加算${o.kyukyu}（入院した日から起算して7日を限度。状態は人が確認）` });
+    issues.push({
+      level: "review",
+      text: `救急医療管理加算${o.kyukyu}：レセプトの摘要に、入院時の患者の状態${o.kyukyu === "2" ? "と、入院後3日以内に行った主な診療行為" : ""}のコメントが要ります（記載要領）。いまは自動では入りません。`,
+    });
   }
   if (o.ninchisho) {
     for (const d of days) {
