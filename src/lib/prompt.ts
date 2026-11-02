@@ -1,11 +1,12 @@
 // System prompt for the order-drafting call. It is built once from the master so the
 // prefix stays byte-identical across requests (cacheable). No patient data goes in.
 
-import { DRUGS, LAB_TESTS, ORDER_SETS } from "./master";
+import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS } from "./master";
 import { PROC_DRUGS, PROCEDURES } from "./procedures";
 
 const master = {
   drugs: DRUGS.map((d) => ({ code: d.code, name: d.name, package: d.package, kind: d.kind, units: d.units, routes: d.routes, aliases: d.aliases })),
+  oral_drugs: ORAL_DRUGS.map((d) => ({ code: d.code, name: d.name, strength: d.strength, unit: d.unit, aliases: d.aliases })),
   lab_tests: LAB_TESTS.map((t) => ({ code: t.code, name: t.name, specimen: t.specimen, aliases: t.aliases })),
   order_sets: ORDER_SETS.map((s) => ({ code: s.code, name: s.name, aliases: s.aliases, contains: s.labCodes })),
   procedures: PROCEDURES.map((p) => ({ code: p.code, name: p.name, aliases: p.aliases, needs: p.needs, drugs: p.drugs ?? [] })),
@@ -37,13 +38,18 @@ How to transcribe
 - Continuing a running drug with changes ("ヴィーンFは続けて、20時間で") → kind "injection" with what was said. The app compares it with running orders.
 - Labs: "明日朝" → day tomorrow, when morning_routine. "今日もう一回" / "今から" / "すぐ" → day today, when now. A clock time → specific_time. A drug level "3回目の前" / "3回目投与前" → when before_dose, before_dose_number 3, before_dose_drug_code = that drug's code.
 - "血培2セット" → LAB-BCX, culture_sets 2. "至急" → priority 至急. Otherwise priority unspecified.
+- Oral prescriptions (処方): kind "prescription", one order per usage (drugs taken at the same times with the same days go in one order, like an Rp). drugs: codes from oral_drugs (match name or alias AND strength; strength not said and several strengths exist → code ""), amount and unit as said.
+  - rx_amount_is: "1日3錠" / "1日量" / "分3で3錠" → 1日量. "1回1錠" → 1回量. Not clear → "".
+  - rx_timings as said: "朝食後" → 朝, "朝夕" → 朝 夕, "毎食後" → 朝 昼 夕, "寝る前" / "眠前" → 眠前. "分3" alone without times → leave rx_timings empty (the app asks).
+  - rx_category: "定期" / "臨時" only if said; "頓用" / "疼痛時" / "不眠時" / "発熱時" → 頓用 with the condition words in comment, "1日3回まで" → rx_max_per_day 3.
+  - days: "7日分" → 7.
 - Procedures (処置): kind "procedure", one order per procedure and site. procedure_code from the procedures master by name or alias. Anything not said is "" (text) or 0 (numbers), never a guess. For other kinds all procedure fields are "" or 0.
   - Oxygen: "酸素2L" → PROC-O2, o2_lpm 2. "カニュラ" → 鼻カニュラ, "マスク" → 簡易酸素マスク, "リザーバー" → リザーバー付きマスク. Device not said → "". A new flow for running oxygen ("酸素1Lに下げて") is a procedure order with the new flow; the app compares it with running orders.
   - size_said: copy the size words as said ("10×8cm", "150平方センチ"). Never compute an area.
   - depth: only when a DESIGN-R depth is said ("D3", "d2"). Words like "深い" are not a depth: leave "".
   - frequency for procedures: "1日1回" → per_day 1, "1日2回" → per_day 2, "隔日" → every_days 2, "必要時" / "適宜" / "痰が多い時" → prn, with the condition words ("痰が多い時") in comment, "1回" / "今" → once. Oxygen and catheters run until stopped → continuous. Not said → unspecified.
   - drugs for a procedure: an ointment or enema said with it ("ゲーベン塗布") → one drug with its code from procedure_drugs, amount only if said, unit as said.
-- Anything that is not an injection, a specimen lab order or a procedure in the master (diet, rest, vital signs, imaging, oral drugs) or that you cannot map (e.g. "いつもの" with no matching set) goes in not_understood with a short reason in Japanese. This prototype handles injections, specimen labs and the procedures in the master only.
+- Anything that is not an injection, a specimen lab order, an oral prescription or a procedure in the master (diet, rest, vital signs, imaging) or that you cannot map (e.g. "いつもの" with no matching set) goes in not_understood with a short reason in Japanese. This prototype handles injections, specimen labs, oral prescriptions and the procedures in the master only.
 - For fields that do not apply to the order kind, use empty arrays, "", 0 or "unspecified".
 
 Master of this (fictional) hospital:

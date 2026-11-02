@@ -5,6 +5,8 @@ import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedColl
 import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
 import { anyDrugName, findLab } from "@/lib/master";
 import { AREA_LABEL, findProc, findProcDrug, procScheduleText } from "@/lib/procedures";
+import { findOralDrug } from "@/lib/master";
+import { perDoseOf, usageLabel } from "@/lib/rx";
 
 interface Props {
   draft: Draft;
@@ -15,7 +17,7 @@ interface Props {
   onRedo: () => void;
 }
 
-const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", stop: "中止", unclear: "聞き取れず" };
+const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "処方", stop: "中止", unclear: "聞き取れず" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo }: Props) {
@@ -155,6 +157,45 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
           ))}
         </div>
         <div className="text-xs text-ink-soft">{parts.join("　")}</div>
+        {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}
+      </div>
+    );
+  }
+
+  if (draft.kind === "prescription") {
+    const prn = draft.timings !== null && draft.timings.length === 0;
+    const times = draft.timings?.length ?? 0;
+    return (
+      <div>
+        <table className="w-full text-[13px]">
+          <tbody>
+            {draft.items.map((it, i) => {
+              const m = it.drugCode ? findOralDrug(it.drugCode) : undefined;
+              const per = draft.timings ? perDoseOf(it, prn ? 1 : times) : null;
+              return (
+                <tr key={i} className="align-baseline">
+                  <td className="w-8 text-[11px] text-ink-faint">{i === 0 ? "Rp" : ""}</td>
+                  <td className="font-bold">{m ? `${m.name} ${m.strength}` : <span className="text-shu">{it.said}（？）</span>}</td>
+                  <td className="whitespace-nowrap text-right">
+                    {prn ? `1回${per ?? "？"}${m?.unit ?? ""}` : `1日${it.daily ?? (per !== null ? per * times : "？")}${m?.unit ?? ""}`}
+                    {!prn && per !== null && (
+                      <span className="block text-[11px] text-ai">
+                        1回{per}
+                        {m?.unit}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div className="mt-0.5 text-xs text-ink-soft">
+          {draft.timings === null ? "用法？" : prn ? `頓用 ${draft.prn ?? "条件？"}${draft.maxPerDay ? `（1日${draft.maxPerDay}回まで）` : ""}` : usageLabel(draft.timings)}
+          {!prn && `　${draft.days ? `${draft.days}日分` : "日数？"}`}
+          {!prn && `　${draft.category ?? "定期・臨時？"}`}
+          {draft.acks.length > 0 && <span className="ml-2 rounded bg-yamabuki-soft px-1 text-yamabuki">{draft.acks.join("・")}</span>}
+        </div>
         {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}
       </div>
     );

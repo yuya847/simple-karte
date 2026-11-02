@@ -4,10 +4,10 @@ import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, Clipboar
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-lab" | "add-procedure" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-procedure" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
-  key: PanelKind | "disabled-rx";
+  key: PanelKind;
   label: string;
   icon: LucideIcon;
   disabled?: boolean;
@@ -20,7 +20,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "diagnoses", label: "病名", icon: FileHeart },
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-lab", label: "検体検査", icon: TestTube },
-      { key: "disabled-rx", label: "処方", icon: Pill, disabled: true },
+      { key: "add-rx", label: "処方", icon: Pill },
       { key: "add-procedure", label: "処置", icon: Bandage },
     ],
   },

@@ -37,7 +37,7 @@ import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
-import { AddInjectionPanel, AddLabPanel, AddProcedurePanel } from "./panels/AddPanels";
+import { AddInjectionPanel, AddLabPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
@@ -199,8 +199,9 @@ export default function WardApp() {
         const { main, detail } = orderLines(o.order, today);
         return `${main}（${detail}）`;
       },
+      allergies: patient?.allergies ?? [],
     };
-  }, [entries, chart.drafts, nowTime, today]);
+  }, [entries, chart.drafts, nowTime, today, patient]);
 
   const issues: Record<string, Issue[]> = useMemo(() => {
     if (!ctx) return {};
@@ -256,7 +257,7 @@ export default function WardApp() {
     for (const d of chart.drafts) {
       const r = toOrder(d, ctx);
       stops.push(...r.stopIds);
-      if (r.order) added.push({ kind: "order", id: newId(), day: 0, time: nowTime, author: DOCTOR, status: "有効", order: r.order });
+      for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) added.push({ kind: "order", id: newId(), day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o });
     }
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
@@ -566,6 +567,11 @@ export default function WardApp() {
               {panel === "add-injection" && (
                 <Drawer title="注射（マスターから選ぶ）" onClose={closePanel}>
                   <AddInjectionPanel onPick={insertText} />
+                </Drawer>
+              )}
+              {panel === "add-rx" && (
+                <Drawer title="処方（Rp 入力）" onClose={closePanel} wide>
+                  <AddRxPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-procedure" && (

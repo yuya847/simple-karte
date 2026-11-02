@@ -3,7 +3,8 @@
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { newProcedureDraft, type Draft, type LabDraft } from "@/lib/drafts";
-import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES } from "@/lib/master";
+import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug } from "@/lib/master";
+import { USAGES } from "@/lib/rx";
 import { PROCEDURES, findProcDrug } from "@/lib/procedures";
 
 /** Browse the injection master. Picking a drug puts its name into the instruction box to finish by voice or keys. */
@@ -100,6 +101,184 @@ export function AddProcedurePanel({ onAdd, newId }: { onAdd: (d: Draft) => void;
         ))}
       </ul>
       <p className="mt-3 text-[11px] text-ink-faint">処置の項目と院内の取り決めは架空の病院のものです。算定のコードと点数は公式の医科診療行為マスターから読みます。</p>
+    </div>
+  );
+}
+
+interface RpRow {
+  drugCode: string;
+  daily: string;
+}
+interface Rp {
+  rows: RpRow[];
+  usage: string;
+  days: string;
+  category: "定期" | "臨時";
+  prn: string;
+  maxPerDay: string;
+}
+const newRp = (): Rp => ({ rows: [], usage: "", days: "7", category: "定期", prn: "", maxPerDay: "" });
+
+/**
+ * Oral prescriptions by Rp: search the master (前方一致 / 部分一致), put drugs in an Rp, give
+ * the daily amount (1日量), usage and days. The amount per dose (1回量) is worked out and shown.
+ * Each Rp becomes a draft and goes through the same checks (errors / warnings to 承知).
+ */
+export function AddRxPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newId: () => string }) {
+  const [q, setQ] = useState("");
+  const [prefix, setPrefix] = useState(false);
+  const [rps, setRps] = useState<Rp[]>([newRp()]);
+  const [cur, setCur] = useState(0);
+  const norm = (s: string) => s.normalize("NFKC").toLowerCase();
+  const list = ORAL_DRUGS.filter((d) => !q || [d.name, ...d.aliases].some((a) => (prefix ? norm(a).startsWith(norm(q)) : norm(a).includes(norm(q)))));
+  const upd = (i: number, patch: Partial<Rp>) => setRps((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const usage = (u: string) => (u === "頓用" ? [] : USAGES.find((x) => x.label === u)?.timings ?? null);
+
+  const toDraft = (rp: Rp): Draft => {
+    const timings = rp.usage ? usage(rp.usage) : null;
+    const prn = rp.usage === "頓用";
+    return {
+      id: newId(),
+      origin: "manual",
+      sourceText: "（Rp 入力）",
+      comment: null,
+      kind: "prescription",
+      category: prn ? null : rp.category,
+      items: rp.rows.map((r) => ({ drugCode: r.drugCode, said: findOralDrug(r.drugCode)?.name ?? r.drugCode, daily: prn ? null : Number(r.daily) || null, perDose: prn ? Number(r.daily) || null : null })),
+      timings,
+      prn: prn ? rp.prn.trim() || null : null,
+      maxPerDay: prn ? Number(rp.maxPerDay) || null : null,
+      days: prn ? null : Number(rp.days) || null,
+      start: { day: null, timing: null },
+      acks: [],
+    };
+  };
+  const ready = rps.filter((r) => r.rows.length);
+  return (
+    <div className="space-y-3 text-[13px]">
+      <div className="flex items-center gap-2">
+        <label className="flex flex-1 items-center gap-2 rounded-md border border-rule px-2 py-1.5">
+          <Search size={14} className="text-ink-faint" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬の名前・略称" className="flex-1 bg-transparent text-sm outline-none" autoFocus />
+        </label>
+        <div role="radiogroup" className="flex rounded-md border border-rule p-0.5 text-[11px]">
+          {[
+            [true, "前方一致"],
+            [false, "部分一致"],
+          ].map(([v, l]) => (
+            <button key={String(l)} type="button" role="radio" aria-checked={prefix === v} onClick={() => setPrefix(v as boolean)} className={`rounded px-1.5 py-0.5 ${prefix === v ? "bg-ink text-white" : "text-ink-soft"}`}>
+              {l as string}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ul className="max-h-40 divide-y divide-rule-soft overflow-y-auto rounded border border-rule-soft">
+        {list.map((d) => (
+          <li key={d.code}>
+            <button
+              type="button"
+              onClick={() => upd(cur, { rows: [...rps[cur].rows, { drugCode: d.code, daily: "" }] })}
+              className="flex w-full items-baseline gap-2 px-2 py-1.5 text-left hover:bg-paper"
+            >
+              <b>{d.name}</b>
+              <span className="text-xs text-ink-soft">
+                {d.strength}／{d.unit}
+              </span>
+              <span className="ml-auto text-[11px] text-ink-faint">Rp{cur + 1} に入れる</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {rps.map((rp, i) => {
+        const timings = rp.usage ? usage(rp.usage) : null;
+        const prn = rp.usage === "頓用";
+        return (
+          <section key={i} onClick={() => setCur(i)} className={`rounded-md border p-2 ${cur === i ? "border-ai" : "border-rule"}`}>
+            <div className="mb-1 text-[11px] font-bold text-ink-soft">Rp{i + 1}</div>
+            {rp.rows.length === 0 && <p className="text-[12px] text-ink-faint">上の一覧から薬を選ぶと、この Rp に入ります。</p>}
+            <table className="w-full">
+              <tbody>
+                {rp.rows.map((r, k) => {
+                  const m = findOralDrug(r.drugCode)!;
+                  const n = Number(r.daily);
+                  const per = timings && timings.length && n ? Math.round((n / timings.length) * 100) / 100 : null;
+                  return (
+                    <tr key={k} className="align-baseline">
+                      <td className="py-0.5 font-bold">
+                        {m.name} {m.strength}
+                      </td>
+                      <td className="whitespace-nowrap py-0.5 text-right">
+                        {prn ? "1回" : "1日"}
+                        <input
+                          value={r.daily}
+                          onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, daily: e.target.value } : x)) })}
+                          inputMode="decimal"
+                          className="mx-1 w-12 rounded border border-rule bg-paper px-1 text-right"
+                        />
+                        {m.unit}
+                        {per !== null && !prn && (
+                          <span className="block text-[11px] text-ai">
+                            1回{per}
+                            {m.unit}
+                          </span>
+                        )}
+                      </td>
+                      <td className="w-6 text-right">
+                        <button type="button" onClick={() => upd(i, { rows: rp.rows.filter((_, j) => j !== k) })} className="text-ink-faint hover:text-shu" aria-label="外す">
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
+              <select value={rp.usage} onChange={(e) => upd(i, { usage: e.target.value })} className="rounded border border-rule bg-paper px-1 py-0.5">
+                <option value="">用法を選ぶ</option>
+                {USAGES.map((u) => (
+                  <option key={u.label}>{u.label}</option>
+                ))}
+                <option>頓用</option>
+              </select>
+              {prn ? (
+                <>
+                  <input value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} placeholder="条件（疼痛時など）" className="w-28 rounded border border-rule bg-paper px-1 py-0.5" />
+                  1日
+                  <input value={rp.maxPerDay} onChange={(e) => upd(i, { maxPerDay: e.target.value })} inputMode="numeric" className="w-8 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
+                  回まで
+                </>
+              ) : (
+                <>
+                  <input value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" className="w-10 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
+                  日分
+                  <select value={rp.category} onChange={(e) => upd(i, { category: e.target.value as Rp["category"] })} className="rounded border border-rule bg-paper px-1 py-0.5">
+                    <option>定期</option>
+                    <option>臨時</option>
+                  </select>
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })}
+      <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
+        <button
+          type="button"
+          onClick={() => {
+            setRps((r) => [...r, newRp()]);
+            setCur(rps.length);
+          }}
+          className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft"
+        >
+          Rp を足す
+        </button>
+        <button type="button" disabled={!ready.length} onClick={() => onAdd(ready.map(toDraft))} className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+          下書きにする（{ready.length} Rp）
+        </button>
+      </div>
+      <p className="text-[11px] text-ink-faint">1回量は1日量 ÷ 回数でコードが出します。チェック（割り切れない量・重複・アレルギー・極量）は右の下書きに出ます。重複・アレルギー・極量は、承知コメントを付けて確定できます。</p>
     </div>
   );
 }

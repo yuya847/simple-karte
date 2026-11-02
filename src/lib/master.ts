@@ -141,12 +141,20 @@ export interface OralDrugMaster {
   strength: string;
   unit: "錠" | "カプセル" | "包";
   aliases: string[];
+  /** Strength of one unit in mg (for the daily-amount check). */
+  mg?: number;
+  /** Classes an allergy or a duplicate check looks at (e.g. "NSAIDs"). */
+  classes?: string[];
+  /** Upper limit of the daily amount in mg, from the package insert (adults). Checked in code; the doctor may confirm it with a comment. */
+  maxDailyMg?: { mg: number; source: string };
+  /** A tablet with a score line: halves are allowed. */
+  scored?: boolean;
 }
 
 export const ORAL_DRUGS: OralDrugMaster[] = [
-  { code: "ORAL-AMLO5", name: "アムロジピン錠", strength: "5mg", unit: "錠", aliases: ["アムロジピン", "ノルバスク", "アムロジン"] },
+  { code: "ORAL-AMLO5", name: "アムロジピン錠", strength: "5mg", unit: "錠", aliases: ["アムロジピン", "ノルバスク", "アムロジン"], mg: 5, classes: ["カルシウム拮抗薬"], maxDailyMg: { mg: 10, source: "添付文書（高血圧症：1日最大10mg）" }, scored: true },
   { code: "ORAL-LPZ15", name: "ランソプラゾールOD錠", strength: "15mg", unit: "錠", aliases: ["ランソプラゾール", "タケプロン"] },
-  { code: "ORAL-APAP500", name: "アセトアミノフェン錠", strength: "500mg", unit: "錠", aliases: ["カロナール", "アセトアミノフェン"] },
+  { code: "ORAL-APAP500", name: "アセトアミノフェン錠", strength: "500mg", unit: "錠", aliases: ["カロナール", "アセトアミノフェン"], mg: 500, classes: ["解熱鎮痛薬"], maxDailyMg: { mg: 4000, source: "添付文書（成人の鎮痛：1日総量4,000mgを限度）" }, scored: true },
   { code: "ORAL-DNP5", name: "ドネペジル塩酸塩OD錠", strength: "5mg", unit: "錠", aliases: ["ドネペジル", "アリセプト"] },
   { code: "ORAL-ENA5", name: "エナラプリルマレイン酸塩錠", strength: "5mg", unit: "錠", aliases: ["エナラプリル", "レニベース"] },
   { code: "ORAL-BISO25", name: "ビソプロロールフマル酸塩錠", strength: "2.5mg", unit: "錠", aliases: ["ビソプロロール", "メインテート"] },
@@ -154,6 +162,9 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   { code: "ORAL-ROSU25", name: "ロスバスタチン錠", strength: "2.5mg", unit: "錠", aliases: ["ロスバスタチン", "クレストール"] },
   { code: "ORAL-MGO330", name: "酸化マグネシウム錠", strength: "330mg", unit: "錠", aliases: ["酸化マグネシウム", "マグミット", "カマ"] },
   { code: "ORAL-FRS20", name: "フロセミド錠", strength: "20mg", unit: "錠", aliases: ["フロセミド", "ラシックス"] },
+  { code: "ORAL-LOX60", name: "ロキソプロフェンNa錠", strength: "60mg", unit: "錠", aliases: ["ロキソプロフェン", "ロキソニン", "ロキソ"], mg: 60, classes: ["NSAIDs", "解熱鎮痛薬"], maxDailyMg: { mg: 180, source: "添付文書（1日最大180mg）" } },
+  { code: "ORAL-REBA100", name: "レバミピド錠", strength: "100mg", unit: "錠", aliases: ["レバミピド", "ムコスタ"] },
+  { code: "ORAL-SENNA12", name: "センノシド錠", strength: "12mg", unit: "錠", aliases: ["センノシド", "プルゼニド"] },
 ];
 
 /** The active ingredient of an oral drug of the master (its name without the dosage form). */

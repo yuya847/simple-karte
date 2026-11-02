@@ -6,7 +6,7 @@
 
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import { minutesOf } from "./dates";
-import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findSet, type DrugMaster } from "./master";
+import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findOralDrug, findSet, type DrugMaster } from "./master";
 import {
   AREA_CLASSES,
   AREA_LABEL,
@@ -39,6 +39,9 @@ import type {
   OrderEntry,
   ProcedureOrder,
 } from "./types";
+import { checkPrescription, toPrescriptionOrders, type PrescriptionDraft } from "./rx";
+
+export type { PrescriptionDraft } from "./rx";
 
 // ---------------------------------------------------------------------------
 // Draft types
@@ -126,7 +129,7 @@ export interface UnclearDraft extends DraftBase {
   reason: string;
 }
 
-export type Draft = InjectionDraft | LabDraft | ProcedureDraft | StopDraft | UnclearDraft;
+export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | StopDraft | UnclearDraft;
 
 // ---------------------------------------------------------------------------
 // From Claude's output to drafts (codes not in the master are dropped to null)
@@ -219,6 +222,28 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
       } else {
         drafts.push({ ...base, kind: "stop", drugCode: validDrug(d?.code ?? null), said: d?.said ?? o.source_text, targetOrderId: null });
       }
+    } else if (o.kind === "prescription") {
+      const prn = o.rx_category === "頓用";
+      const timings = prn ? [] : o.rx_timings.length ? o.rx_timings : null;
+      const perDose = o.rx_amount_is === "1回量" || prn;
+      drafts.push({
+        ...base,
+        comment: prn ? null : o.comment,
+        kind: "prescription",
+        category: o.rx_category === "定期" || o.rx_category === "臨時" ? o.rx_category : null,
+        items: o.drugs.map((d) => ({
+          drugCode: d.code && findOralDrug(d.code) ? d.code : null,
+          said: d.said,
+          daily: perDose ? null : d.amount,
+          perDose: perDose ? d.amount : null,
+        })),
+        timings,
+        prn: prn ? (o.comment?.trim() || null) : null,
+        maxPerDay: o.rx_max_per_day > 0 ? o.rx_max_per_day : null,
+        days: o.days,
+        start: { day: DAY[o.start.day] ?? null, timing: null },
+        acks: [],
+      });
     } else if (o.kind === "procedure") {
       const dr = o.drugs[0];
       const prn = o.frequency.kind === "prn";
@@ -383,6 +408,8 @@ export interface CheckContext {
   fmtDay: (d: DayOffset) => string;
   /** One-line description of an existing order. */
   describe: (o: OrderEntry) => string;
+  /** The patient's allergies (for the prescription check). */
+  allergies?: string[];
 }
 
 function drugCandidates(said: string): DrugMaster[] {
@@ -1124,6 +1151,8 @@ export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
       return checkLab(d, ctx);
     case "procedure":
       return checkProcedure(d, ctx);
+    case "prescription":
+      return checkPrescription(d, ctx, ctx.allergies ?? []);
     case "stop":
       return checkStop(d, ctx);
     case "unclear":
@@ -1137,7 +1166,7 @@ export const isReady = (issues: Issue[]) => issues.every((i) => i.level === "inf
 // Confirm: drafts → orders
 // ---------------------------------------------------------------------------
 
-export type ConfirmResult = { order?: Order; stopIds: string[] };
+export type ConfirmResult = { order?: Order; orders?: Order[]; stopIds: string[] };
 
 /** Only call when isReady(checkDraft(d, ctx)). */
 export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
@@ -1146,6 +1175,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     return { stopIds: id ? [id] : [] };
   }
   if (d.kind === "unclear") return { stopIds: [] };
+  if (d.kind === "prescription") return { orders: toPrescriptionOrders(d, ctx.nowTime, d.id), stopIds: [] };
   if (d.kind === "procedure") {
     const m = findProc(d.code!)!;
     const a = procArea(d);

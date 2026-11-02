@@ -155,6 +155,10 @@ describe("per-bag or whole-day, decided from the words", () => {
       collect: { day: "unspecified", when: "unspecified", time: null, before_dose_number: null, before_dose_drug_code: null },
       priority: null,
       culture_sets: null,
+      rx_category: "",
+      rx_amount_is: "",
+      rx_timings: [],
+      rx_max_per_day: 0,
       procedure_code: "",
       site: "",
       size_said: "",
@@ -197,6 +201,10 @@ describe("units and master", () => {
       collect: { day: "unspecified", when: "unspecified", time: null, before_dose_number: null, before_dose_drug_code: null },
       priority: null,
       culture_sets: null,
+      rx_category: "",
+      rx_amount_is: "",
+      rx_timings: [],
+      rx_max_per_day: 0,
       procedure_code: "",
       site: "",
       size_said: "",
@@ -373,7 +381,7 @@ describe("処置の下書き", () => {
       culture_sets: null,
       comment: null,
     } satisfies Partial<AiOrder>;
-    const none = { procedure_code: "", site: "", size_said: "", depth: "", o2_device: "", o2_lpm: 0 };
+    const none = { rx_category: "" as const, rx_amount_is: "" as const, rx_timings: [], rx_max_per_day: 0, procedure_code: "", site: "", size_said: "", depth: "", o2_device: "", o2_lpm: 0 };
     const res: AiDraftResponse = {
       orders: [
         {

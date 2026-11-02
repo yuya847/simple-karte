@@ -25,9 +25,16 @@ const Test = z.object({ code: z.string().nullable(), said: z.string() });
 
 const FREQUENCY = ["per_day", "every_hours", "every_days", "prn", "continuous", "once", "unspecified"] as const;
 
+const RX_TIMING = z.enum(["朝", "昼", "夕", "眠前"]);
+
 export const AiOrder = z.object({
-  kind: z.enum(["injection", "lab", "procedure", "stop"]),
+  kind: z.enum(["injection", "lab", "procedure", "prescription", "stop"]),
   source_text: z.string(),
+  // prescription
+  rx_category: z.enum(["定期", "臨時", "頓用", ""]),
+  rx_amount_is: z.enum(["1日量", "1回量", ""]),
+  rx_timings: z.array(RX_TIMING),
+  rx_max_per_day: z.number(),
   // procedure ("" / 0 = not said; read in drafts.ts)
   procedure_code: z.string(),
   site: z.string(),
@@ -85,8 +92,13 @@ const WireTest = z.object({
 });
 
 export const AiWireOrder = z.object({
-  kind: z.enum(["injection", "lab", "procedure", "stop"]),
+  kind: z.enum(["injection", "lab", "procedure", "prescription", "stop"]),
   source_text: z.string().describe("The exact part of the instruction this order came from"),
+
+  rx_category: z.enum(["定期", "臨時", "頓用", ""]).describe('Oral prescription: "定期" / "臨時" if said, "頓用" for as-needed; "" otherwise'),
+  rx_amount_is: z.enum(["1日量", "1回量", ""]).describe('Whether the amount said is per day ("1日3錠") or per dose ("1回1錠"); "" if not said or not a prescription'),
+  rx_timings: z.array(RX_TIMING).describe("When an oral drug is taken, as said (朝食後 → 朝, 毎食後 → 朝 昼 夕, 寝る前 → 眠前). Empty if not said"),
+  rx_max_per_day: z.number().describe('As-needed: "1日3回まで" → 3; 0 otherwise'),
 
   procedure_code: z.string().describe('Master procedure code, for procedure orders and for stopping a procedure; "" otherwise or if not in the master'),
   site: z.string().describe('Body site as said ("仙骨部", "右踵"); "" if not said'),
@@ -146,6 +158,10 @@ export function fromWire(w: AiWireResponse): AiDraftResponse {
     orders: w.orders.map((o) => ({
       kind: o.kind,
       source_text: o.source_text,
+      rx_category: o.rx_category,
+      rx_amount_is: o.rx_amount_is,
+      rx_timings: o.rx_timings,
+      rx_max_per_day: o.rx_max_per_day,
       procedure_code: o.procedure_code,
       site: o.site,
       size_said: o.size_said,

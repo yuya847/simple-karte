@@ -152,6 +152,12 @@ export interface PrescriptionOrder {
   comment?: string;
   /** FICTIONAL record of when an as-needed dose was taken. */
   prnUses?: { day: DayOffset; time: string }[];
+  /** Drugs ordered together with one usage share an Rp (剤). */
+  rp?: string;
+  /** The daily amount as ordered (1日量); `amount` is then 1日量 ÷ 回数. */
+  dailyAmount?: number;
+  /** 承知コメント the doctor added to confirm a warning (重複承知・アレルギー承知・極量承知). */
+  acks?: string[];
 }
 
 /** A ward procedure (処置). The item comes from the fictional hospital's master (procedures.ts). */

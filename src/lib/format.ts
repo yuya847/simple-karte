@@ -75,7 +75,7 @@ export function timingText(o: PrescriptionOrder): string {
 }
 
 export function prescriptionLines(order: PrescriptionOrder, today: CalendarDate): { main: string; detail: string } {
-  const main = `${oralName(order.drugCode)}　1回${order.amount}${order.unit}`;
+  const main = `${oralName(order.drugCode)}　1回${order.amount}${order.unit}${order.dailyAmount ? `（1日${order.dailyAmount}${order.unit}）` : ""}`;
   const parts: string[] = [order.category, timingText(order)];
   parts.push(`開始 ${formatShort(addDays(today, order.start.day))}${order.start.timing ? ` ${order.start.timing}` : ""}`);
   parts.push(order.days ? `${order.days}日分` : "継続");
