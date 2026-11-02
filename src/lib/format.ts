@@ -16,10 +16,14 @@ export function scheduleText(s: InjectionSchedule): string {
 }
 
 /** Fluids are counted in bags ("本"), other drugs in doses ("回"). */
+export function scheduleLabel(s: InjectionSchedule, mainDrugCode?: string | null): string {
+  const main = mainDrugCode ? findDrug(mainDrugCode) : undefined;
+  if (s.kind === "per_day" && main?.kind === "輸液") return `1日${s.count}本`;
+  return scheduleText(s);
+}
+
 export function scheduleTextFor(order: InjectionOrder): string {
-  const main = findDrug(order.items[0]?.drugCode ?? "");
-  if (order.schedule.kind === "per_day" && main?.kind === "輸液") return `1日${order.schedule.count}本`;
-  return scheduleText(order.schedule);
+  return scheduleLabel(order.schedule, order.items[0]?.drugCode);
 }
 
 export function drugName(code: string): string {

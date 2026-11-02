@@ -1,22 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { isoDate, todayInTokyo, type CalendarDate } from "@/lib/dates";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AiDraftResponse } from "@/lib/ai-schema";
+import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
+import { checkDraft, draftsFromAi, isReady, toOrder, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
+import { orderLines } from "@/lib/format";
+import { findDrug } from "@/lib/master";
 import { PATIENTS, findPatient } from "@/lib/patients";
-import type { DayOffset, HistoryEntry } from "@/lib/types";
+import type { DayOffset, HistoryEntry, OrderEntry } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { HistoryPane } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
 import { PatientTabs } from "./PatientTabs";
-import { TodayPane } from "./TodayPane";
+import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
+import { AddInjectionPanel, AddLabPanel } from "./panels/AddPanels";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
 
 const NOTE_TEMPLATE = "S)\nO)\nA)\nP)\n";
+const DOCTOR = "山本（専攻医）";
 
 /** Per-patient working state. Kept while the tab is open, so switching tabs loses nothing. */
 interface ChartState {
@@ -24,23 +30,58 @@ interface ChartState {
   showStopped: boolean;
   note: string;
   instruction: string;
+  drafts: Draft[];
+  /** Orders confirmed today in this session. */
+  added: OrderEntry[];
+  /** Orders stopped today in this session. */
+  stopped: string[];
+  drafting: boolean;
+  error: string | null;
+  meta: DraftMeta | null;
+  flash: string | null;
 }
 
-const newChart = (): ChartState => ({ selectedDay: null, showStopped: false, note: NOTE_TEMPLATE, instruction: "" });
+const newChart = (): ChartState => ({
+  selectedDay: null,
+  showStopped: false,
+  note: NOTE_TEMPLATE,
+  instruction: "",
+  drafts: [],
+  added: [],
+  stopped: [],
+  drafting: false,
+  error: null,
+  meta: null,
+  flash: null,
+});
 
-// "Today" comes from the browser clock in Japan time. The server never renders it,
-// so the page cannot disagree with itself across midnight.
+// "Today" and "now" come from the browser clock in Japan time. The server never renders
+// them, so the page cannot disagree with itself across midnight.
 const noSubscribe = () => () => {};
+const everyFifteenSeconds = (cb: () => void) => {
+  const t = setInterval(cb, 15_000);
+  return () => clearInterval(t);
+};
 const clientToday = () => isoDate(todayInTokyo());
-const serverToday = () => null;
+const clientNow = () => nowTimeInTokyo();
+const serverNull = () => null;
 
 function parseIso(s: string): CalendarDate {
   const [y, m, d] = s.split("-").map(Number);
   return { y, m, d };
 }
 
+const newId = () => crypto.randomUUID();
+
+/** Short line for the P) section of today's note, written by code from the confirmed order. */
+function planLine(entry: OrderEntry, today: CalendarDate): string {
+  const { main, detail } = orderLines(entry.order, today);
+  return `・${main}　${detail}`;
+}
+
 export default function WardApp() {
-  const todayKey = useSyncExternalStore(noSubscribe, clientToday, serverToday);
+  const todayKey = useSyncExternalStore(noSubscribe, clientToday, serverNull);
+  const nowTime = useSyncExternalStore(everyFifteenSeconds, clientNow, serverNull);
   const [tabs, setTabs] = useState<string[]>([PATIENTS[0].id]);
   const [activeId, setActiveId] = useState<string | null>(PATIENTS[0].id);
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
@@ -78,16 +119,111 @@ export default function WardApp() {
 
   const closePanel = useCallback(() => setPanel(null), []);
 
-  if (!todayKey) return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
-  const today = parseIso(todayKey);
-
   const patient = activeId ? findPatient(activeId) : undefined;
   const chart = (activeId && charts[activeId]) || newChart();
-  const update = (patch: Partial<ChartState>) => {
+  const today = useMemo(() => (todayKey ? parseIso(todayKey) : null), [todayKey]);
+
+  // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
+  const entries: HistoryEntry[] = useMemo(() => {
+    if (!patient) return [];
+    const stopped = new Set(chart.stopped);
+    const base = patient.history.map((e) =>
+      e.kind === "order" && stopped.has(e.id) ? { ...e, status: "中止" as const, stoppedOn: 0 } : e,
+    );
+    return [...base, ...chart.added];
+  }, [patient, chart.stopped, chart.added]);
+
+  const ctx: CheckContext | null = useMemo(() => {
+    if (!today || !nowTime) return null;
+    const orders = entries.filter((e): e is OrderEntry => e.kind === "order");
+    return {
+      activeOrders: orders.filter((o) => o.status === "有効"),
+      labOrders: orders.filter((o) => o.order.type === "lab" && o.status !== "中止"),
+      drafts: chart.drafts,
+      nowTime,
+      fmtDay: (d) => formatShort(addDays(today, d)),
+      describe: (o) => {
+        const { main, detail } = orderLines(o.order, today);
+        return `${main}（${detail}）`;
+      },
+    };
+  }, [entries, chart.drafts, nowTime, today]);
+
+  const issues: Record<string, Issue[]> = useMemo(() => {
+    if (!ctx) return {};
+    return Object.fromEntries(chart.drafts.map((d) => [d.id, checkDraft(d, ctx)]));
+  }, [chart.drafts, ctx]);
+
+  if (!today || !nowTime || (patient && !ctx)) {
+    return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
+  }
+
+  const update = (patch: Partial<ChartState> | ((c: ChartState) => Partial<ChartState>)) => {
     if (!activeId) return;
-    setCharts((c) => ({ ...c, [activeId]: { ...(c[activeId] ?? newChart()), ...patch } }));
+    const id = activeId;
+    setCharts((all) => {
+      const cur = all[id] ?? newChart();
+      const p = typeof patch === "function" ? patch(cur) : patch;
+      return { ...all, [id]: { ...cur, ...p } };
+    });
   };
-  const entries: HistoryEntry[] = patient?.history ?? [];
+
+  const requestDrafts = async () => {
+    const text = chart.instruction.trim();
+    if (!text) return;
+    update({ drafting: true, error: null, flash: null });
+    try {
+      const res = await fetch("/api/draft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
+      const parsed = AiDraftResponse.safeParse(json.result);
+      if (!parsed.success) throw new Error("下書きの形が正しくありませんでした。");
+      const drafts = draftsFromAi(parsed.data, newId);
+      update((c) => ({ drafts: [...c.drafts, ...drafts], instruction: "", drafting: false, meta: json.meta ?? null }));
+    } catch (e) {
+      update({ drafting: false, error: e instanceof Error ? e.message : "下書きを作れませんでした。" });
+    }
+  };
+
+  const confirm = () => {
+    if (!ctx) return;
+    if (!chart.drafts.every((d) => isReady(issues[d.id] ?? []))) return;
+    const added: OrderEntry[] = [];
+    const stops: string[] = [];
+    for (const d of chart.drafts) {
+      const r = toOrder(d, ctx);
+      stops.push(...r.stopIds);
+      if (r.order) added.push({ kind: "order", id: newId(), day: 0, time: nowTime, author: DOCTOR, status: "有効", order: r.order });
+    }
+    const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
+    const lines = [
+      ...stoppedEntries.map((e) => {
+        const name = e.order.type === "injection" ? findDrug(e.order.items[0].drugCode)?.name : "";
+        return `・${name} 中止`;
+      }),
+      ...added.map((e) => planLine(e, today)),
+    ];
+    update((c) => ({
+      added: [...c.added, ...added],
+      stopped: [...c.stopped, ...stops],
+      drafts: [],
+      note: lines.length ? `${c.note.replace(/\s*$/, "")}\n${lines.join("\n")}\n` : c.note,
+      flash: `${added.length + stops.length}件を確定しました。左の経過と記事の P) に入りました。`,
+      selectedDay: 0,
+    }));
+  };
+
+  const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft] }));
+  // Append to the instruction box, adding a sentence break when needed.
+  const insertText = (text: string) =>
+    update((c) => {
+      const cur = c.instruction.replace(/\s*$/, "");
+      return { instruction: cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${text}` : text };
+    });
 
   return (
     <div className="flex h-screen flex-col">
@@ -102,17 +238,11 @@ export default function WardApp() {
         onOpenPicker={() => setPickerOpen(true)}
       />
 
-      {patient ? (
+      {patient && ctx ? (
         <>
           <PatientBar patient={patient} today={today} />
-          <div className="grid min-h-0 flex-1 grid-cols-[150px_minmax(0,1fr)_minmax(0,1.15fr)_68px]">
-            <DateTree
-              patient={patient}
-              entries={entries}
-              today={today}
-              selectedDay={chart.selectedDay}
-              onSelect={(d) => update({ selectedDay: d })}
-            />
+          <div className="grid min-h-0 flex-1 grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]">
+            <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} />
             <HistoryPane
               patient={patient}
               entries={entries}
@@ -129,6 +259,27 @@ export default function WardApp() {
                 onNoteChange={(v) => update({ note: v })}
                 instruction={chart.instruction}
                 onInstructionChange={(v) => update({ instruction: v })}
+                onAppendInstruction={insertText}
+                drafts={chart.drafts}
+                issues={issues}
+                ctx={ctx}
+                drafting={chart.drafting}
+                error={chart.error}
+                meta={chart.meta}
+                flash={chart.flash}
+                onDraft={requestDrafts}
+                onApply={(next) => update((c) => ({ drafts: c.drafts.map((d) => (d.id === next.id ? next : d)), flash: null }))}
+                onRemove={(id) => update((c) => ({ drafts: c.drafts.filter((d) => d.id !== id) }))}
+                onRedo={(id) =>
+                  update((c) => {
+                    const d = c.drafts.find((x) => x.id === id);
+                    return {
+                      drafts: c.drafts.filter((x) => x.id !== id),
+                      instruction: d ? (c.instruction ? `${c.instruction}。${d.sourceText}` : d.sourceText) : c.instruction,
+                    };
+                  })
+                }
+                onConfirm={confirm}
               />
               {panel === "results" && (
                 <Drawer title="検査結果" onClose={closePanel} wide>
@@ -145,9 +296,14 @@ export default function WardApp() {
                   <ActiveOrdersPanel entries={entries} today={today} />
                 </Drawer>
               )}
-              {(panel === "add-injection" || panel === "add-lab") && (
-                <Drawer title={panel === "add-injection" ? "注射を足す" : "検体検査を足す"} onClose={closePanel}>
-                  <p className="text-sm text-ink-faint">準備中です。</p>
+              {panel === "add-injection" && (
+                <Drawer title="注射（マスターから選ぶ）" onClose={closePanel}>
+                  <AddInjectionPanel onPick={insertText} />
+                </Drawer>
+              )}
+              {panel === "add-lab" && (
+                <Drawer title="検体検査（マスターから選ぶ）" onClose={closePanel}>
+                  <AddLabPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
             </div>
