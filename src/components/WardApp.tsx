@@ -28,6 +28,9 @@ import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { WardMap, type ChartSummary } from "./WardMap";
 import { Worksheet } from "./Worksheet";
+import { PharmacyView, type ShidoRecord } from "./PharmacyView";
+import { PharmacyInbox } from "./PharmacyInbox";
+import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddInjectionPanel, AddLabPanel, AddProcedurePanel } from "./panels/AddPanels";
@@ -118,6 +121,12 @@ export default function WardApp() {
   const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
   // 指示受け by a nurse: change key → time. Kept in this browser only.
   const [taken, setTaken] = useState<Record<string, string>>({});
+  // Pharmacy work (all kept in this browser only).
+  const [audited, setAudited] = useState<Record<string, string>>({});
+  const [queries, setQueries] = useState<Query[]>([]);
+  const [reports, setReports] = useState<BroughtReport[]>([]);
+  const [shido, setShido] = useState<Record<string, ShidoRecord[]>>({});
+  const [dispensed, setDispensed] = useState<Record<string, string>>({});
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
 
   const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
@@ -202,6 +211,12 @@ export default function WardApp() {
       return { ...all, [id]: { ...cur, ...p } };
     });
   };
+
+  const updateFor = (id: string, patch: (c: ChartState) => Partial<ChartState>) =>
+    setCharts((all) => {
+      const cur = all[id] ?? newChart();
+      return { ...all, [id]: { ...cur, ...patch(cur) } };
+    });
 
   const requestDrafts = async () => {
     const text = chart.instruction.trim();
@@ -357,6 +372,36 @@ export default function WardApp() {
           sessionKeys={sessionKeys}
           onTake={(key) => setTaken((t) => ({ ...t, [key]: nowTime }))}
         />
+      ) : screen === "pharmacy" ? (
+        <PharmacyView
+          people={people}
+          today={today}
+          nowTime={nowTime}
+          audited={audited}
+          onAudit={(id) => setAudited((a) => ({ ...a, [id]: nowTime }))}
+          queries={queries}
+          onAsk={(q) => setQueries((qs) => [...qs, { ...q, id: newId(), askedAt: nowTime, by: "薬剤師 小林", status: "回答待ち" }])}
+          reports={reports}
+          onReport={(r) => setReports((rs) => [...rs, { ...r, id: newId(), at: nowTime, by: "薬剤師 小林", status: "医師へ報告" }])}
+          shido={shido}
+          onShido={(pid, rec) => {
+            const days = (shido[pid] ?? []).map((x) => x.day);
+            const dow = (d: number) => new Date(Date.UTC(today.y, today.m - 1, today.d + d)).getUTCDay();
+            const month = (d: number) => {
+              const t = new Date(Date.UTC(today.y, today.m - 1, today.d + d));
+              return `${t.getUTCFullYear()}-${t.getUTCMonth() + 1}`;
+            };
+            if (!b008Check(days, 0, dow, month)) {
+              setBilling((all) => {
+                const cur = all[pid] ?? DEFAULT_OPTIONS;
+                return { ...all, [pid]: { ...cur, yakuzaiShido: [...cur.yakuzaiShido, { day: 0, kind: rec.kind }] } };
+              });
+            }
+            setShido((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { ...rec, day: 0, at: nowTime }] }));
+          }}
+          dispensed={dispensed}
+          onDispense={(key) => setDispensed((d) => ({ ...d, [key]: nowTime }))}
+        />
       ) : screen === "list" ? (
         <PatientList
           ward={ward}
@@ -411,6 +456,30 @@ export default function WardApp() {
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
             />
             <div className="relative flex min-h-0 flex-col">
+              <PharmacyInbox
+                today={today}
+                entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                queries={queries.filter((q) => q.patientId === patient.id)}
+                reports={reports.filter((r) => r.patientId === patient.id)}
+                onChange={(q) => {
+                  const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === q.orderId);
+                  if (e) addStopDraft(e);
+                  setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更", answeredAt: nowTime } : x)));
+                  update({ flash: "前のオーダの中止の下書きを作りました。正しい内容を話すか打って、まとめて確定してください。" });
+                }}
+                onKeep={(q, answer) => setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更なし", answer: answer.trim() || undefined, answeredAt: nowTime } : x)))}
+                onDecide={(r, rows) => {
+                  const orders = ordersFromReport({ ...r, rows }, nowTime);
+                  const added: OrderEntry[] = orders.map((o) => ({ kind: "order", id: newId(), day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o }));
+                  const stopped = rows.filter((x) => x.decision === "中止").map((x) => `・持参薬 ${x.said} ${x.strength}：中止（鑑別報告より）`);
+                  updateFor(patient.id, (c) => ({
+                    added: [...c.added, ...added],
+                    note: `${c.note.replace(/\s*$/, "")}\n${[...added.map((e) => planLine(e, today)), ...stopped].join("\n")}\n`,
+                    flash: `持参薬の指示を確定しました（オーダ ${added.length}件・中止 ${stopped.length}件）。`,
+                  }));
+                  setReports((rs) => rs.map((x) => (x.id === r.id ? { ...x, rows, status: "指示済" } : x)));
+                }}
+              />
               <TodayPane
                 patient={patient}
                 today={today}

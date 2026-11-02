@@ -5,32 +5,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { AiWireResponse, DraftRequest, fromWire } from "@/lib/ai-schema";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
+import { limited } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
 const MODEL = "claude-opus-5-5";
 
-// Best-effort limits for a public demo. Each serverless instance keeps its own counts.
-const WINDOW_MS = 10 * 60 * 1000;
-const PER_IP = 20;
-const PER_INSTANCE = 300;
-const hits = new Map<string, number[]>();
-let instanceHits: number[] = [];
-
-function limited(ip: string): boolean {
-  const now = Date.now();
-  instanceHits = instanceHits.filter((t) => now - t < WINDOW_MS);
-  const mine = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (mine.length >= PER_IP || instanceHits.length >= PER_INSTANCE) return true;
-  mine.push(now);
-  instanceHits.push(now);
-  hits.set(ip, mine);
-  return false;
-}
-
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (limited(ip)) {
+  if (limited(request)) {
     return Response.json({ error: "回数の上限に達しました。10分ほどおいてから試してください。" }, { status: 429 });
   }
 

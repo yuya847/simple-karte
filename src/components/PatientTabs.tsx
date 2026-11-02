@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Ambulance, LayoutGrid, List, Plus, Printer, Search, X } from "lucide-react";
+import { Ambulance, LayoutGrid, List, Pill, Plus, Printer, Search, X } from "lucide-react";
 import type { Patient } from "@/lib/types";
 
 interface Props {
@@ -15,13 +15,14 @@ interface Props {
   onOpenPicker: () => void;
 }
 
-export type PinnedTab = "map" | "list" | "sheet" | "er";
+export type PinnedTab = "map" | "list" | "sheet" | "er" | "pharmacy";
 
 const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
   { key: "map", label: "病棟マップ", icon: LayoutGrid },
   { key: "list", label: "患者一覧", icon: List },
   { key: "sheet", label: "ワークシート", icon: Printer },
   { key: "er", label: "救急", icon: Ambulance },
+  { key: "pharmacy", label: "薬剤部", icon: Pill },
 ];
 
 /** Browser-style tabs: pinned ward views first, then one tab per open patient chart. */
@@ -40,12 +41,13 @@ export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, 
             aria-selected={pinned === key}
             onClick={() => onSelectPinned(key)}
             title={label}
-            className={`flex h-9 shrink-0 items-center gap-1.5 rounded-t-lg border border-b-0 px-3 text-sm ${
+            className={`flex h-9 shrink-0 items-center gap-1.5 rounded-t-lg border border-b-0 px-2.5 text-sm ${
               pinned === key ? "z-10 -mb-px border-rule bg-paper font-bold text-ink" : "border-transparent text-ink-soft hover:bg-sheet/60"
             }`}
           >
             <Icon size={15} />
-            {label}
+            {/* On narrow screens the ward views show their icon only (the name is in the tooltip). */}
+            <span className={pinned === key ? "" : "hidden xl:inline"}>{label}</span>
           </button>
         ))}
         {tabs.map((p) => {

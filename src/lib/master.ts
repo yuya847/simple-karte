@@ -153,7 +153,14 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   { code: "ORAL-SPL25", name: "スピロノラクトン錠", strength: "25mg", unit: "錠", aliases: ["スピロノラクトン", "アルダクトン"] },
   { code: "ORAL-ROSU25", name: "ロスバスタチン錠", strength: "2.5mg", unit: "錠", aliases: ["ロスバスタチン", "クレストール"] },
   { code: "ORAL-MGO330", name: "酸化マグネシウム錠", strength: "330mg", unit: "錠", aliases: ["酸化マグネシウム", "マグミット", "カマ"] },
+  { code: "ORAL-FRS20", name: "フロセミド錠", strength: "20mg", unit: "錠", aliases: ["フロセミド", "ラシックス"] },
 ];
+
+/** The active ingredient of an oral drug of the master (its name without the dosage form). */
+export function ingredientOf(code: string): string | null {
+  const d = ORAL_DRUGS.find((x) => x.code === code);
+  return d ? d.name.replace(/(OD)?錠$|カプセル$|散$/, "") : null;
+}
 
 export function findOralDrug(code: string): OralDrugMaster | undefined {
   return ORAL_DRUGS.find((d) => d.code === code);

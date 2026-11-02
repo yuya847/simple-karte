@@ -26,6 +26,7 @@ export const DRUG_CODES: Record<string, string> = {
   "ORAL-SPL25": "620003560",
   "ORAL-ROSU25": "622582001",
   "ORAL-MGO330": "620005434",
+  "ORAL-FRS20": "620004042", // フロセミド錠２０ｍｇ「ＮＰ」
   // drugs used in procedures (処置薬剤)
   "TOP-GEBEN": "620008991", // ゲーベンクリーム１％
   "TOP-UPASTA": "620668803", // ユーパスタ軟膏
