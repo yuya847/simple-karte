@@ -121,7 +121,7 @@ export function imagingTitle(o: ImagingOrder): string {
 }
 
 export function imagingLines(o: ImagingOrder, today: CalendarDate): { main: string; detail: string } {
-  const parts = [o.views?.join("＋"), examWhen(o.when, today), o.transport, `目的：${o.purpose}`, o.acks?.join("・"), o.answers?.metal && `体内金属：${o.answers.metal}`, o.comment].filter(Boolean) as string[];
+  const parts = [o.views?.join("＋"), o.reading && `読影 ${o.reading}`, examWhen(o.when, today), o.transport, `目的：${o.purpose}`, o.acks?.join("・"), o.answers?.metal && `体内金属：${o.answers.metal}`, o.comment].filter(Boolean) as string[];
   return { main: imagingTitle(o), detail: parts.join("　") };
 }
 

@@ -30,6 +30,7 @@ export const DRUG_CODES: Record<string, string> = {
   "ORAL-LOX60": "620098902", // ロキソプロフェンＮａ錠６０ｍｇ「ＹＤ」
   "ORAL-REBA100": "620009460", // レバミピド錠１００ｍｇ「あすか」
   "ORAL-SENNA12": "620480205", // センノシド錠１２ｍｇ「セイコー」
+  "ORAL-MET250": "621676001", // メトホルミン塩酸塩錠２５０ｍｇ「ＳＮ」
   // drugs used in procedures (処置薬剤)
   "TOP-GEBEN": "620008991", // ゲーベンクリーム１％
   "TOP-UPASTA": "620668803", // ユーパスタ軟膏

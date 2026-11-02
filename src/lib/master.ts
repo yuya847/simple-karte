@@ -165,6 +165,7 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   { code: "ORAL-LOX60", name: "ロキソプロフェンNa錠", strength: "60mg", unit: "錠", aliases: ["ロキソプロフェン", "ロキソニン", "ロキソ"], mg: 60, classes: ["NSAIDs", "解熱鎮痛薬"], maxDailyMg: { mg: 180, source: "添付文書（1日最大180mg）" } },
   { code: "ORAL-REBA100", name: "レバミピド錠", strength: "100mg", unit: "錠", aliases: ["レバミピド", "ムコスタ"] },
   { code: "ORAL-SENNA12", name: "センノシド錠", strength: "12mg", unit: "錠", aliases: ["センノシド", "プルゼニド"] },
+  { code: "ORAL-MET250", name: "メトホルミン塩酸塩錠", strength: "250mg", unit: "錠", aliases: ["メトホルミン", "メトグルコ"], mg: 250, classes: ["ビグアナイド系"] },
 ];
 
 /** The active ingredient of an oral drug of the master (its name without the dosage form). */

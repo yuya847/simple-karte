@@ -35,7 +35,7 @@ describe("部位はコードが言葉から決める", () => {
 describe("画像検査の確認", () => {
   it("X線: 方向・日時・移動・目的が抜けていれば聞く", () => {
     const d = { ...emptyImaging("x", "X線"), region: "R-CHEST" };
-    expect(keys(d)).toEqual(["views", "transport", "when", "purpose"]);
+    expect(keys(d)).toEqual(["views", "reading", "transport", "when", "purpose"]);
   });
   it("造影CT（佐倉）: eGFR を計算して出し、ヨード造影剤アレルギーは承知が要る", () => {
     const d = { ...emptyImaging("c", "CT"), region: "R-ABD-PELVIS", contrast: "造影" as const, transport: "車椅子" as const, purpose: "膿瘍", when: { day: 1, time: "14:00", priority: "予約" as const } };
@@ -60,6 +60,22 @@ describe("画像検査の確認", () => {
   it("胸腹部の X線はマスターにない → 止める", () => {
     const d = { ...emptyImaging("x", "X線"), region: regionFromWords("胸腹部") };
     expect(checkDraft(d, ctx()).find((i) => i.key === "region")?.level).toBe("stop");
+  });
+  it("ヨード造影でビグアナイド系を内服中 → 休薬の指示を求める", () => {
+    const met: OrderEntry = { kind: "order", id: "met", day: -1, time: "09:00", author: "x", status: "有効", order: { type: "prescription", category: "定期", drugCode: "ORAL-MET250", amount: 1, unit: "錠", timings: ["朝", "夕"], start: { day: -1, timing: "夕" } } };
+    const d = { ...emptyImaging("c", "CT"), region: "R-CHEST", contrast: "造影" as const, transport: "車椅子" as const, purpose: "x", when: { day: 1, time: "14:00", priority: "予約" as const }, acks: ["造影剤アレルギー承知"] };
+    expect(keys(d, ctx(sakura, { activeOrders: [met] }))).toContain("biguanide");
+  });
+  it("Cre が90日より古ければ確かめる", () => {
+    const d = { ...emptyImaging("c", "CT"), region: "R-CHEST", contrast: "放射線科一任" as const, transport: "車椅子" as const, purpose: "x", when: { day: 1, time: "14:00", priority: "予約" as const }, acks: ["造影剤アレルギー承知"] };
+    const old = ctx(sakura);
+    old.patientFacts = { ...old.patientFacts!, cre: { value: 0.8, day: -120 } };
+    expect(checkDraft(d, old).find((i) => i.key === "egfr")?.message).toContain("90日を超えて");
+  });
+  it("ホルター心電図をつけている日の画像検査", () => {
+    const holter: OrderEntry = { kind: "order", id: "h", day: 0, time: "09:00", author: "x", status: "有効", order: { type: "physio", test: "PHY-HOLTER", purpose: "x", when: { day: 1, time: "10:00", priority: "予約" }, place: "ベッドサイド" } };
+    const d = { ...emptyImaging("x", "X線"), region: "R-CHEST", views: ["立位正面（PA）"], reading: "後日" as const, transport: "車椅子" as const, purpose: "x", when: { day: 1, time: "14:00", priority: "予約" as const } };
+    expect(keys(d, ctx(sakura, { activeOrders: [holter] }))).toEqual(["holter"]);
   });
   it("MRI: 体内金属の確認", () => {
     const d = { ...emptyImaging("m", "MRI"), region: "R-HEAD", contrast: "単純" as const, transport: "車椅子" as const, purpose: "x", when: { day: 1, time: "09:30", priority: "予約" as const } };

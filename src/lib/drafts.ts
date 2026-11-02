@@ -1209,7 +1209,7 @@ export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
     case "imaging":
       return checkImaging(d, ctx, ctx.patientFacts ?? null);
     case "physio":
-      return checkPhysio(d, ctx);
+      return checkPhysio(d, ctx, ctx.patientFacts ?? null);
     case "stop":
       return checkStop(d, ctx);
     case "unclear":

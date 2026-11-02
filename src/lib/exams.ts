@@ -4,11 +4,14 @@
 
 import type { CheckContext, Draft, Issue } from "./drafts";
 import { minutesOf } from "./dates";
-import type { DayOffset, Patient, Sex } from "./types";
+import { findOralDrug } from "./master";
+import type { DayOffset, OrderEntry, Patient, Sex } from "./types";
 
 export type Modality = "X線" | "ポータブルX線" | "CT" | "MRI";
 export const MODALITIES: Modality[] = ["X線", "ポータブルX線", "CT", "MRI"];
-export type Contrast = "単純" | "造影" | "単純＋造影";
+export type Contrast = "単純" | "造影" | "単純＋造影" | "放射線科一任";
+export type Reading = "緊急読影" | "当日中" | "後日" | "読影不要";
+export const READINGS: Reading[] = ["緊急読影", "当日中", "後日", "読影不要"];
 export type Transport = "独歩" | "車椅子" | "ストレッチャー" | "病室（ポータブル）";
 export type ExamPriority = "予約" | "至急";
 
@@ -108,6 +111,8 @@ export interface ImagingDraft extends ExamBase {
   transport: Transport | null;
   /** Answers to the safety questions (MRI 体内金属, 妊娠). */
   answers: { metal?: string; pregnancy?: string };
+  /** 読影区分（単純写真）. */
+  reading: Reading | null;
 }
 
 export interface PhysioDraft extends ExamBase {
@@ -118,7 +123,7 @@ export interface PhysioDraft extends ExamBase {
   transport: Transport | null;
 }
 
-export const EXAM_ACK = { 腎機能: "腎機能承知", 造影剤: "造影剤アレルギー承知", 喘息: "喘息承知" } as const;
+export const EXAM_ACK = { 腎機能: "腎機能承知", 造影剤: "造影剤アレルギー承知", 喘息: "喘息承知", ビグアナイド: "ビグアナイド休薬指示済み", ホルター: "ホルター装着中承知" } as const;
 
 const set = <T extends ImagingDraft | PhysioDraft>(patch: Partial<T>) => (x: Draft) => ({ ...(x as T), ...patch });
 const ack = (a: string) => (x: Draft) => ({ ...(x as ImagingDraft), acks: [...new Set([...(x as ImagingDraft).acks, a])] });
@@ -148,6 +153,13 @@ export interface ExamPatientFacts {
   age: number;
   allergies: string[];
   cre: { value: number; day: DayOffset } | null;
+  heightCm?: number;
+  weightKg?: number;
+}
+
+/** Running oral drugs of a class (e.g. ビグアナイド系), for the contrast check. */
+function runningOfClass(orders: OrderEntry[], cls: string): string[] {
+  return orders.flatMap((o) => (o.order.type === "prescription" && findOralDrug(o.order.drugCode)?.classes?.includes(cls) ? [findOralDrug(o.order.drugCode)!.name] : []));
 }
 
 export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatientFacts | null): Issue[] {
@@ -175,8 +187,11 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
     }
     if ((d.views?.length ?? 1) > 1) issues.push({ key: "films", level: "info", title: "算定", message: "同じ部位の2枚目からは写真診断・撮影が100分の50になります（E001・E002 通則）。" });
   }
+  if (xray && !d.reading) {
+    issues.push({ key: "reading", level: "ask", title: "読影", message: "読影区分が抜けています。", choices: READINGS.map((r) => ({ label: r, apply: set<ImagingDraft>({ reading: r }) })) });
+  }
   if ((d.modality === "CT" || d.modality === "MRI") && !d.contrast) {
-    issues.push({ key: "contrast", level: "ask", title: "造影", message: "単純か造影かが抜けています。", choices: (["単純", "造影", "単純＋造影"] as Contrast[]).map((c) => ({ label: c, apply: set<ImagingDraft>({ contrast: c }) })) });
+    issues.push({ key: "contrast", level: "ask", title: "造影", message: "単純か造影かが抜けています。", choices: (["単純", "造影", "単純＋造影", "放射線科一任"] as Contrast[]).map((c) => ({ label: c, apply: set<ImagingDraft>({ contrast: c }) })) });
   }
   if (d.modality === "ポータブルX線") {
     if (d.transport !== "病室（ポータブル）") issues.push({ key: "transport", level: "info", title: "移動", message: "病室で撮影（移動なし）" });
@@ -184,25 +199,55 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
     issues.push({ key: "transport", level: "ask", title: "移動", message: "移動の方法が抜けています。", choices: (["独歩", "車椅子", "ストレッチャー"] as Transport[]).map((t) => ({ label: t, apply: set<ImagingDraft>({ transport: t }) })) });
   }
 
-  // 造影: 腎機能・アレルギー・喘息（判断は医師。コードは値を出して承知を求めるだけ）
+  // 造影: 腎機能・アレルギー・喘息・ビグアナイド（判断は医師。コードは値と指針の名前を出して承知を求めるだけ）
+  // 「放射線科一任」も造影の可能性があるので同じ確認をする。
   if (d.contrast && d.contrast !== "単純" && pt) {
-    const agent = d.modality === "MRI" ? "ガドリニウム造影剤" : "ヨード造影剤";
+    const gd = d.modality === "MRI";
+    const agent = gd ? "ガドリニウム造影剤" : "ヨード造影剤";
+    const guideline = gd
+      ? "「腎障害患者におけるガドリニウム造影剤使用に関するガイドライン」第3版（2024）は、長期透析・透析をしていない eGFR 30未満の慢性腎不全・急性腎不全では、できるだけ避けて他の検査で代替するとしています"
+      : "「腎障害患者におけるヨード造影剤使用に関するガイドライン2018」は、静脈からの造影で eGFR 30未満に予防策を勧めています";
     if (pt.cre) {
       const e = egfr(pt.cre.value, pt.age, pt.sex);
+      const stale = pt.cre.day < -90;
       const msg = `eGFR ${e}（Cre ${pt.cre.value}、${ctx.fmtDay(pt.cre.day)}。194 × Cr^−1.094 × 年齢^−0.287${pt.sex === "女" ? " × 0.739" : ""}）`;
-      if (e < 30 && !d.acks.includes(EXAM_ACK.腎機能)) {
-        issues.push({ key: "egfr", level: "ask", title: "腎機能", message: `${msg}。eGFR 30未満の造影は放射線科医と相談する（院内の取り決め・架空）。`, choices: [{ label: `相談済み・承知（${EXAM_ACK.腎機能}）`, apply: ack(EXAM_ACK.腎機能) }] });
+      if ((e < 30 || stale) && !d.acks.includes(EXAM_ACK.腎機能)) {
+        issues.push({
+          key: "egfr",
+          level: "ask",
+          title: "腎機能",
+          message: stale ? `${msg}。Cre の測定から90日を超えています。` : `${msg}。${guideline}。`,
+          choices: [{ label: `確かめた・承知（${EXAM_ACK.腎機能}）`, apply: ack(EXAM_ACK.腎機能) }],
+        });
       } else issues.push({ key: "egfr", level: "info", title: "腎機能", message: msg });
     } else {
       issues.push({ key: "egfr", level: "ask", title: "腎機能", message: "Cre の値がありません。造影の前に腎機能を確かめてください。", choices: [{ label: `承知（${EXAM_ACK.腎機能}）`, apply: ack(EXAM_ACK.腎機能) }] });
     }
-    const allergy = pt.allergies.find((a) => a.includes("造影剤") && (agent === "ヨード造影剤" ? a.includes("ヨード") || !a.includes("ガドリニウム") : a.includes("ガドリニウム")));
+    const allergy = pt.allergies.find((a) => a.includes("造影剤") && (gd ? a.includes("ガドリニウム") : !a.includes("ガドリニウム")));
     if (allergy && !d.acks.includes(EXAM_ACK.造影剤)) {
       issues.push({ key: "allergy", level: "ask", title: "アレルギー", message: `カルテのアレルギー：${allergy}（${agent}）`, choices: [{ label: `承知して出す（${EXAM_ACK.造影剤}）`, apply: ack(EXAM_ACK.造影剤) }] });
     }
     const asthma = pt.allergies.find((a) => a.includes("喘息"));
-    if (asthma && agent === "ヨード造影剤" && !d.acks.includes(EXAM_ACK.喘息)) {
+    if (asthma && !d.acks.includes(EXAM_ACK.喘息)) {
       issues.push({ key: "asthma", level: "ask", title: "喘息", message: `カルテに喘息の記載：${asthma}`, choices: [{ label: `承知して出す（${EXAM_ACK.喘息}）`, apply: ack(EXAM_ACK.喘息) }] });
+    }
+    const bg = gd ? [] : runningOfClass(ctx.activeOrders, "ビグアナイド系");
+    if (bg.length && !d.acks.includes(EXAM_ACK.ビグアナイド)) {
+      issues.push({
+        key: "biguanide",
+        level: "ask",
+        title: "内服",
+        message: `ビグアナイド系（${bg.join("、")}）を内服中です。日本医学放射線学会ほかの「ヨード造影剤とビグアナイド系糖尿病薬との併用注意について」は、造影の前後の一時休薬を求めています。`,
+        choices: [{ label: `休薬の指示を出した（${EXAM_ACK.ビグアナイド}）`, apply: ack(EXAM_ACK.ビグアナイド) }],
+      });
+    }
+  }
+  // ホルター心電図をつけている日は、X線・CT・MRI と重ならないように（生理検査の案内の例）
+  {
+    const day = d.when.day ?? 0;
+    const holter = ctx.activeOrders.find((o) => o.order.type === "physio" && o.order.test === "PHY-HOLTER" && (o.order.when.day === day || o.order.when.day === day - 1));
+    if (holter && !d.acks.includes(EXAM_ACK.ホルター)) {
+      issues.push({ key: "holter", level: "ask", title: "ホルター", message: `ホルター心電図をつけている時期と重なります：${ctx.describe(holter)}`, choices: [{ label: `承知（${EXAM_ACK.ホルター}）`, apply: ack(EXAM_ACK.ホルター) }] });
     }
   }
   if (d.modality === "MRI" && !d.answers.metal) {
@@ -237,7 +282,7 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
   return issues;
 }
 
-export function checkPhysio(d: PhysioDraft, ctx: CheckContext): Issue[] {
+export function checkPhysio(d: PhysioDraft, ctx: CheckContext, pt: ExamPatientFacts | null = null): Issue[] {
   const issues: Issue[] = [];
   const m = d.test ? findPhysio(d.test) : undefined;
   if (!m) {
@@ -267,6 +312,12 @@ export function checkPhysio(d: PhysioDraft, ctx: CheckContext): Issue[] {
     issues.push({ key: "transport", level: "ask", title: "移動", message: "移動の方法が抜けています。", choices: (["独歩", "車椅子", "ストレッチャー"] as Transport[]).map((t) => ({ label: t, apply: set<PhysioDraft>({ transport: t }) })) });
   }
   if (m.note) issues.push({ key: "note", level: "info", title: "準備", message: m.note });
+  if ((d.test === "PHY-ABI" || d.test === "PHY-SPIRO") && pt && (!pt.heightCm || !pt.weightKg)) {
+    issues.push({ key: "body", level: "stop", title: "身長・体重", message: `${m.name}には身長と体重が要ります。カルテに入れてください。` });
+  }
+  if (d.when.priority === "至急" || d.place === "ベッドサイド") {
+    issues.push({ key: "phone", level: "info", title: "連絡", message: "至急・ベッドサイドの生理検査は、生理検査室に電話で伝えます（感染症も）。" });
+  }
   checkWhen(d, ctx, issues);
   if (!d.duplicateOk) {
     const day = d.when.day ?? 0;
@@ -291,6 +342,7 @@ export interface ImagingOrder {
   transport: Transport;
   acks?: string[];
   answers?: { metal?: string; pregnancy?: string };
+  reading?: Reading;
   comment?: string;
 }
 
@@ -317,6 +369,7 @@ export function toImagingOrder(d: ImagingDraft): ImagingOrder {
     region: d.region!,
     views: d.modality === "ポータブルX線" ? ["臥位正面（AP）"] : (d.views ?? undefined),
     contrast: d.modality === "CT" || d.modality === "MRI" ? d.contrast! : undefined,
+    reading: d.reading ?? undefined,
     purpose: d.purpose!,
     when: { day: d.when.day ?? 0, time: d.when.time ?? undefined, priority: d.when.priority! },
     transport: d.modality === "ポータブルX線" ? "病室（ポータブル）" : d.transport!,
@@ -351,6 +404,7 @@ export const emptyImaging = (id: string, modality: Modality | null = null): Imag
   contrast: null,
   transport: modality === "ポータブルX線" ? "病室（ポータブル）" : null,
   answers: {},
+  reading: null,
   purpose: null,
   when: { day: null, time: null, priority: null },
   acks: [],

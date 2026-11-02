@@ -201,7 +201,7 @@ export default function WardApp() {
         return `${main}（${detail}）`;
       },
       allergies: patient?.allergies ?? [],
-      patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: patient.allergies, cre: latestCre(patient) } : null,
+      patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: patient.allergies, cre: latestCre(patient), heightCm: patient.heightCm, weightKg: patient.weightKg } : null,
     };
   }, [entries, chart.drafts, nowTime, today, patient]);
 
