@@ -1,5 +1,7 @@
 # Simple Karte
 
+<img src="docs/logo.svg" alt="SimpleKarte" width="360">
+
 病棟で医師が話した指示を、オーダーの下書きにする Web アプリです。
 「Built with Claude: Japan 2026」（2026-11-02〜11-08）の期間中に作っています。
 
@@ -63,6 +65,7 @@
 - **推定クレアチニン・クリアランス**：Cockcroft-Gault の式（Cockcroft DW, Gault MH. Nephron 1976;16:31-41）。表示だけで、量の判定には使いません。
 - **検査の基準範囲**：一般的な成人の基準範囲を、表示の H／L のためだけに使っています。
 - **音声入力**：ブラウザ（Chrome）の音声認識を使います。Chrome では、音声は Google のサーバーで文字にされます。
+- **ロゴ**：書体 Plus Jakarta Sans（SIL Open Font License 1.1、Tokotype）の字形を線にして、字間を整え、i の点を朱にしたものです（`public/simple-karte-logo.svg`、`docs/logo.svg`）。
 
 ## 開発
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Ambulance, LayoutGrid, List, Plus, Search, X } from "lucide-react";
 import type { Patient } from "@/lib/types";
 
@@ -26,9 +27,8 @@ const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
 export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, onClose, onOpenPicker }: Props) {
   return (
     <div className="flex items-end gap-1 bg-tab px-2 pt-1.5 border-b border-rule">
-      <div className="flex items-center gap-2 pr-3 pb-1.5 text-sm font-bold tracking-wide text-ink">
-        <span className="inline-block h-4 w-1.5 rounded-sm bg-ai" aria-hidden />
-        Simple Karte
+      <div className="flex items-center pr-3 pb-2 pl-1">
+        <Image src="/simple-karte-logo-small.svg" alt="SimpleKarte" width={114} height={20} priority />
       </div>
       <div role="tablist" aria-label="開いている患者" className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto scroll-thin">
         {PINNED.map(({ key, label, icon: Icon }) => (
