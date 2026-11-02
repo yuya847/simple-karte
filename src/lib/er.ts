@@ -2,7 +2,10 @@
 // "now" so the board always looks like today. Triage levels (JTAS 1–5) are what a triage
 // nurse entered; the app never assigns them.
 
+import { FACILITY_STANDARDS } from "./billing/facility";
 import type { Sex } from "./types";
+
+const filed = (code: string) => FACILITY_STANDARDS.some((f) => f.code === code);
 
 export type Jtas = 1 | 2 | 3 | 4 | 5;
 
@@ -161,16 +164,25 @@ export interface ErFeeHint {
   note: string;
 }
 
-/** What B001-2-6 says about this visit. `filed` = the hospital has filed for it (the fictional one has not). */
-export function erFeeHint(p: ErPatient, today: { y: number; m: number; d: number }, filed = false): ErFeeHint | null {
+/**
+ * What B001-2-6 says about this visit, against the hospital's filings (施設基準 4230〜4232 for the
+ * 管理料, 4229 for 院内トリアージ実施体制加算, which only adds to 夜間休日救急医学管理料).
+ */
+export function erFeeHint(p: ErPatient, today: { y: number; m: number; d: number }): ErFeeHint | null {
   const v = visitTime(p.arrivedAbs, today);
-  const tail = filed ? "" : "（届出が要る。この院は届出なし → 算定しない）";
+  const base = ["4230", "4231", "4232"].some(filed);
+  const tail = base ? "（届出の区分で算定）" : "（届出が要る。この院は届出なし → 算定しない）";
   if (p.arrival === "救急車") {
     const add = v.holiday || v.saturday ? (v.night ? "時間外救急搬送加算 300点" : "時間外救急搬送加算 200点") : v.night ? "時間外救急搬送加算 250点" : "";
     return { item: "救急搬送医学管理料（B001-2-6 の1）", note: `${v.label}${add ? `・${add}の対象` : ""}${tail}` };
   }
   if (!v.inHours && (v.night || v.holiday || v.saturday)) {
-    return { item: "夜間休日救急医学管理料（B001-2-6 の2）＋院内トリアージ実施体制加算 50点", note: `${v.label}${tail}` };
+    const triage = filed("4229")
+      ? base
+        ? "院内トリアージ実施体制加算 50点も（届出あり）"
+        : "院内トリアージ実施体制加算は届出ありだが、この管理料に加える加算なので算定しない"
+      : "";
+    return { item: "夜間休日救急医学管理料（B001-2-6 の2）", note: `${v.label}${tail}${triage ? `。${triage}` : ""}` };
   }
   return null;
 }
