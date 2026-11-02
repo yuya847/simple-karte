@@ -433,7 +433,13 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     totalPoints,
     meals,
     issues: issues.filter((x, i) => issues.findIndex((y) => y.level === x.level && y.text === x.text) === i),
-    sources: meta.sources.map((s) => `${s.label}（${s.files.find((f) => /\d{8}/.test(f)) ?? s.files[0]}）`),
+    sources: meta.sources
+      .filter((s) => s.key !== "c" && s.key !== "t")
+      .map((s) => {
+        const dated = s.files.find((f) => /\d{8}/.test(f));
+        const ymd = dated ? /(\d{4})(\d{2})(\d{2})/.exec(dated)! : null;
+        return ymd ? `${s.label}（${ymd[1]}年${Number(ymd[2])}月${Number(ymd[3])}日版）` : `${s.label}（${s.url.split("/").pop()}）`;
+      }),
   };
 }
 

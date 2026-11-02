@@ -21,7 +21,7 @@ const order = (day: number, o: InjectionOrder | LabOrder | PrescriptionOrder, ex
 const lab = (day: number, codes: string[], time = "06:00", comment?: string) =>
   order(day, { type: "lab", codes, collect: { day, time }, priority: "定時", comment });
 
-function claim(month: string, over: Partial<ClaimInput> & { admittedOn?: number; dischargedOn?: number; options?: Partial<BillingOptions> } = {}) {
+function claim(month: string, over: Omit<Partial<ClaimInput>, "options"> & { admittedOn?: number; dischargedOn?: number; options?: Partial<BillingOptions> } = {}) {
   const { admittedOn = OCT1, dischargedOn, options, ...rest } = over;
   return calculateClaim({
     today: TODAY,

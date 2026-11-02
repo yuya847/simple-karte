@@ -8,6 +8,8 @@ import { orderLines } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { admitFromEr, type AdmitForm } from "@/lib/admission";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
+import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
+import { BillingView } from "./BillingView";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
@@ -106,6 +108,8 @@ export default function WardApp() {
   const [newBeds, setNewBeds] = useState<BedAssignment[]>([]);
   // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
   const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
+  // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
+  const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
 
   const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
@@ -333,6 +337,21 @@ export default function WardApp() {
             }`}
           >
             <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} />
+            {panel === "billing" ? (
+              <div className="col-span-2 flex min-h-0 flex-col">
+                <BillingView
+                  key={patient.id}
+                  patient={patient}
+                  entries={entries}
+                  diagnoses={diagnoses[patient.id] ?? []}
+                  today={today}
+                  nowTime={nowTime}
+                  options={billing[patient.id] ?? DEFAULT_OPTIONS}
+                  onOptions={(next) => setBilling((all) => ({ ...all, [patient.id]: next }))}
+                />
+              </div>
+            ) : (
+              <>
             <HistoryPane
               patient={patient}
               entries={entries}
@@ -414,6 +433,8 @@ export default function WardApp() {
                 </Drawer>
               )}
             </div>
+              </>
+            )}
             <ToolRail
               open={panel}
               onOpen={setPanel}

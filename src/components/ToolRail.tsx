@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ScanLine, Syringe, TestTube } from "lucide-react";
+import { Activity, Bandage, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-lab" | "results" | "imaging" | "active-orders";
+export type PanelKind = "diagnoses" | "add-injection" | "add-lab" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind | "disabled-rx" | "disabled-proc";
@@ -31,6 +31,10 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "imaging", label: "放射線画像", icon: ScanLine },
       { key: "active-orders", label: "有効オーダ", icon: ListChecks },
     ],
+  },
+  {
+    title: "医事",
+    tools: [{ key: "billing", label: "算定", icon: ReceiptJapaneseYen }],
   },
 ];
 
