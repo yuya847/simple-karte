@@ -2,6 +2,9 @@
 // Days are offsets from "today" so the demo always reads as the current week.
 
 import type { HistoryEntry, Patient } from "./types";
+import { DAILY, VITALS } from "./vitals";
+
+type BasePatient = Omit<Patient, "vitals" | "daily">;
 
 let seq = 0;
 const oid = (p: string) => `${p}-${++seq}`;
@@ -183,7 +186,7 @@ const sakuraHistory: HistoryEntry[] = [
   },
 ];
 
-const sakura: Patient = {
+const sakura: BasePatient = {
   id: "90010231",
   name: "佐倉 修",
   kana: "サクラ オサム",
@@ -260,7 +263,7 @@ const sakura: Patient = {
 // ---------------------------------------------------------------------------
 // 2. 大浦 トメ：誤嚥性肺炎（入院2日目）
 // ---------------------------------------------------------------------------
-const oura: Patient = {
+const oura: BasePatient = {
   id: "90010244",
   name: "大浦 トメ",
   kana: "オオウラ トメ",
@@ -362,7 +365,7 @@ const oura: Patient = {
 // ---------------------------------------------------------------------------
 // 3. 北村 博：慢性心不全の急性増悪（入院6日目）
 // ---------------------------------------------------------------------------
-const kitamura: Patient = {
+const kitamura: BasePatient = {
   id: "90010198",
   name: "北村 博",
   kana: "キタムラ ヒロシ",
@@ -440,7 +443,7 @@ const kitamura: Patient = {
 // ---------------------------------------------------------------------------
 // 4. 森 久美子：急性腎盂腎炎（入院3日目）
 // ---------------------------------------------------------------------------
-const mori: Patient = {
+const mori: BasePatient = {
   id: "90010260",
   name: "森 久美子",
   kana: "モリ クミコ",
@@ -531,7 +534,11 @@ const mori: Patient = {
   imaging: [],
 };
 
-export const PATIENTS: Patient[] = [sakura, oura, kitamura, mori];
+export const PATIENTS: Patient[] = [sakura, oura, kitamura, mori].map((p) => ({
+  ...p,
+  vitals: VITALS[p.id] ?? [],
+  daily: DAILY[p.id] ?? [],
+}));
 
 export function findPatient(id: string): Patient | undefined {
   return PATIENTS.find((p) => p.id === id);

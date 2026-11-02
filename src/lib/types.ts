@@ -27,6 +27,32 @@ export interface Patient {
   labs: LabResult[];
   cultures: CultureResult[];
   imaging: ImagingStudy[];
+  vitals: VitalSign[];
+  daily: DailyRecord[];
+}
+
+// ---------- Flow sheet (経過表) ----------
+
+/** One set of vital signs taken by a nurse. */
+export interface VitalSign {
+  day: DayOffset;
+  time: string;
+  bt?: number; // ℃
+  hr?: number; // /分
+  sbp?: number; // mmHg
+  dbp?: number;
+  rr?: number; // /分
+  spo2?: number; // %
+  o2?: string; // "室内気" or "鼻カニュラ 2L" etc.
+}
+
+/** Per-day nursing record. Meals are the staple eaten, in tenths (割), breakfast/lunch/dinner. */
+export interface DailyRecord {
+  day: DayOffset;
+  meals?: "絶食" | [number | null, number | null, number | null];
+  urineMl?: number;
+  stools?: number;
+  weightKg?: number;
 }
 
 // ---------- Past record (left pane) ----------
