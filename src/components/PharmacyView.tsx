@@ -95,6 +95,7 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
         const { main, detail } = orderLines(it.entry.order, today);
         const qs = queries.filter((q) => q.orderId === it.entry.id);
         const open = qs.find((q) => queryOpen(q, people.find((x) => x.patient.id === it.patient.id)?.entries ?? []));
+        const changed = !open && qs.some((q) => q.status === "変更");
         return (
           <article key={it.entry.id} className={`${card} px-4 py-2.5 text-[13px]`}>
             <div className="flex flex-wrap items-baseline gap-2">
@@ -107,6 +108,8 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
               <span className="ml-auto flex items-center gap-2 text-xs">
                 {open ? (
                   <span className="rounded bg-yamabuki-soft px-1.5 py-0.5 font-bold text-yamabuki">疑義照会 {open.status === "回答待ち" ? "回答待ち" : "変更待ち（前のオーダが有効）"}</span>
+                ) : changed ? (
+                  <span className="rounded bg-tab px-1.5 py-0.5 text-ink-soft">疑義照会で変更（このオーダは中止済み）</span>
                 ) : audited[it.entry.id] ? (
                   <span className="flex items-center gap-0.5 text-wakatake">
                     <Check size={13} />

@@ -33,7 +33,7 @@ import { PharmacyInbox } from "./PharmacyInbox";
 import { DialysisView } from "./DialysisView";
 import { SurgeryView } from "./SurgeryView";
 import { initialSurgeries, type Surgery } from "@/lib/surgery";
-import { HD_PATIENTS, HD_SESSIONS_START, type HdPatient, type HdSession } from "@/lib/dialysis";
+import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
@@ -133,7 +133,7 @@ export default function WardApp() {
   const [dispensed, setDispensed] = useState<Record<string, string>>({});
   // Dialysis unit (fictional; kept in this browser only).
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
-  const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(HD_SESSIONS_START);
+  const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(() => (typeof window === "undefined" ? {} : initialHdSessions(nowTimeInTokyo())));
   // Operating rooms (fictional schedule relative to now; kept in this browser only).
   const [surgeries, setSurgeries] = useState<Surgery[]>(() => (typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
@@ -295,7 +295,7 @@ export default function WardApp() {
 
   const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft], flash: null }));
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
-  const addStopDraft = (entry: OrderEntry) => {
+  const addStopDraft = (entry: OrderEntry, source = "（カレンダーから）") => {
     const o = entry.order;
     const drugCode = o.type === "injection" ? o.items[0].drugCode : o.type === "prescription" ? o.drugCode : null;
     const procCode = o.type === "procedure" ? o.code : null;
@@ -303,7 +303,7 @@ export default function WardApp() {
     const draft: StopDraft = {
       id: newId(),
       origin: "manual",
-      sourceText: "（カレンダーから）",
+      sourceText: source,
       comment: null,
       kind: "stop",
       drugCode,
@@ -491,7 +491,7 @@ export default function WardApp() {
                 reports={reports.filter((r) => r.patientId === patient.id)}
                 onChange={(q) => {
                   const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === q.orderId);
-                  if (e) addStopDraft(e);
+                  if (e) addStopDraft(e, "（疑義照会から）");
                   setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更", answeredAt: nowTime } : x)));
                   update({ flash: "前のオーダの中止の下書きを作りました。正しい内容を話すか打って、まとめて確定してください。" });
                 }}

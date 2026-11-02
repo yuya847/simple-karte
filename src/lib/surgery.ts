@@ -90,7 +90,22 @@ const s = (o: Partial<Surgery> & Pick<Surgery, "id" | "name" | "sex" | "age" | "
 /** FICTIONAL schedule for today and tomorrow (other teams' patients). */
 export function initialSurgeries(nowAbs: number): Surgery[] {
   return [
-    s({ id: "or-1", name: "本田 美香", sex: "女", age: 52, department: "外科", day: 0, room: "手術室1", start: "08:45", minutes: 120, procedure: "腹腔鏡下胆嚢摘出術", site: "胆嚢", laparoscopic: true, status: "入室", record: { anesStart: nowAbs - 70, opStart: nowAbs - 50 } }),
+    // The first case is under way once it is past its start (fixed clock times, not "minutes ago").
+    s({
+      id: "or-1",
+      name: "本田 美香",
+      sex: "女",
+      age: 52,
+      department: "外科",
+      day: 0,
+      room: "手術室1",
+      start: "08:45",
+      minutes: 120,
+      procedure: "腹腔鏡下胆嚢摘出術",
+      site: "胆嚢",
+      laparoscopic: true,
+      ...(nowAbs >= 9 * 60 + 5 ? { status: "入室" as const, record: { anesStart: 8 * 60 + 50, opStart: 9 * 60 + 5 } } : {}),
+    }),
     s({ id: "or-2", name: "大野 勇", sex: "男", age: 78, department: "整形外科", day: 0, room: "手術室2", start: "09:00", minutes: 120, procedure: "人工骨頭挿入術", site: "股関節", side: "左", position: "側臥位", anesthesia: "脊椎麻酔", blood: "輸血準備" }),
     s({ id: "or-3", name: "森田 哲也", sex: "男", age: 64, department: "外科", day: 0, room: "手術室1", start: "13:30", minutes: 90, procedure: "鼠径ヘルニア手術", site: "鼠径部", side: "右" }),
     s({ id: "or-4", name: "小松 恵子", sex: "女", age: 69, department: "整形外科", day: 1, room: "手術室2", start: "09:00", minutes: 150, procedure: "人工膝関節置換術", site: "膝関節", side: "右", blood: "輸血準備" }),

@@ -164,11 +164,15 @@ export const HD_PATIENTS: HdPatient[] = [
   },
 ];
 
-/** Today's sessions already under way in the fictional unit (relative to the demo morning). */
-export const HD_SESSIONS_START: Record<string, HdSession> = {
-  "hd-1": { preWeight: 61.2, start: "08:40", drugsGiven: [] },
-  "hd-2": { preWeight: 46.1, drugsGiven: [] },
-};
+/** Today's sessions in the fictional unit: weights taken, and the first case started once it is past 08:40. */
+export function initialHdSessions(nowTime: string): Record<string, HdSession> {
+  const [h, m] = nowTime.split(":").map(Number);
+  const started = h * 60 + m >= 8 * 60 + 40;
+  return {
+    "hd-1": { preWeight: 61.2, ...(started ? { start: "08:40" } : {}), drugsGiven: [] },
+    "hd-2": { preWeight: 46.1, drugsGiven: [] },
+  };
+}
 
 export function runsOn(p: HdPatient, dow: number): boolean {
   return p.weekdays === "月水金" ? [1, 3, 5].includes(dow) : [2, 4, 6].includes(dow);
