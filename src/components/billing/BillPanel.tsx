@@ -42,6 +42,7 @@ export function BillPanel({ claim, bill, insurance, month }: { claim: ClaimResul
                 <th className="py-1 text-left font-normal text-ink-soft">
                   自己負担限度額（{insurance.incomeClass}）
                   <div className="text-[11px] text-ink-faint">{bill.limit.formula}</div>
+                  <div className="text-[10px] text-ink-faint">{bill.limit.source}</div>
                 </th>
                 <td className="py-1 text-right">{yen(bill.limit.yen)}</td>
               </tr>

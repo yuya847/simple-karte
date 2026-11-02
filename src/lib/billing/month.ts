@@ -68,8 +68,10 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     mealClass: insurance.mealClass,
   });
   if ("assumed" in insurance) claim.issues.push({ level: "review", text: "保険の情報が登録されていないため、年齢から仮の保険（負担割合・所得区分）で計算しています。" });
-  const bill = calculateBill(claim, insurance);
   const ageAtMonth = ageOn(insurance.birthDate, parse(`${month}-01`));
+  const [by, bm, bd] = insurance.birthDate.split("-").map(Number);
+  const turns75ThisMonth = Number(month.slice(0, 4)) - by === 75 && Number(month.slice(5)) === bm && bd !== 1;
+  const bill = calculateBill(claim, insurance, { turns75ThisMonth });
   const receipt: Receipt = {
     patient: {
       id: input.patient.id,
