@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Ambulance, LayoutGrid, List, Plus, Search, X } from "lucide-react";
+import { Ambulance, LayoutGrid, List, Plus, Printer, Search, X } from "lucide-react";
 import type { Patient } from "@/lib/types";
 
 interface Props {
@@ -15,11 +15,12 @@ interface Props {
   onOpenPicker: () => void;
 }
 
-export type PinnedTab = "map" | "list" | "er";
+export type PinnedTab = "map" | "list" | "sheet" | "er";
 
 const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
   { key: "map", label: "病棟マップ", icon: LayoutGrid },
   { key: "list", label: "患者一覧", icon: List },
+  { key: "sheet", label: "ワークシート", icon: Printer },
   { key: "er", label: "救急", icon: Ambulance },
 ];
 

@@ -54,3 +54,16 @@ body {
   outline: 2px solid var(--color-ai);
   outline-offset: 2px;
 }
+
+/* Printing: only the sheet (rendered into <body> by the worksheet) goes on paper. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  html,
+  body {
+    height: auto;
+    background: #fff;
+  }
+}

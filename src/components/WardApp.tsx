@@ -27,6 +27,8 @@ import { PatientTabs, type PinnedTab } from "./PatientTabs";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { WardMap, type ChartSummary } from "./WardMap";
+import { Worksheet } from "./Worksheet";
+import { sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddInjectionPanel, AddLabPanel, AddProcedurePanel } from "./panels/AddPanels";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
@@ -114,6 +116,8 @@ export default function WardApp() {
   const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
   const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
+  // 指示受け by a nurse: change key → time. Kept in this browser only.
+  const [taken, setTaken] = useState<Record<string, string>>({});
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
 
   const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
@@ -292,13 +296,22 @@ export default function WardApp() {
       return { instruction: cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${text}` : text };
     });
 
+  const sessionChanges = Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes }]));
+  // Our patients with their bed and the record as it stands now (for the worksheet and the list).
+  const people: WorkPatient[] = ward.beds.flatMap((b) => {
+    const p = b.patientId ? findPatient(b.patientId) : undefined;
+    if (!p) return [];
+    const entries = currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order");
+    return [{ patient: p, room: `${b.room}${b.bed}`, entries }];
+  });
+
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length }]),
   );
   const wideLeft = chart.leftView !== "record";
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col print:hidden">
       <PatientTabs
         tabs={tabs.map((id) => findPatient(id)!).filter(Boolean)}
         activeId={screen === "chart" ? activeId : null}
@@ -328,11 +341,20 @@ export default function WardApp() {
           onAdmit={admit}
           onOpenChart={openPatient}
         />
+      ) : screen === "sheet" ? (
+        <Worksheet
+          people={people}
+          today={today}
+          nowTime={nowTime}
+          taken={taken}
+          sessionKeys={sessionChangeKeys(sessionChanges)}
+          onTake={(key) => setTaken((t) => ({ ...t, [key]: nowTime }))}
+        />
       ) : screen === "list" ? (
         <PatientList
           ward={ward}
           nowTime={nowTime}
-          changes={Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes }]))}
+          changes={sessionChanges}
           summaries={summaries}
           onOpen={openPatient}
         />
