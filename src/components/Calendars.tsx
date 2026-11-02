@@ -1,0 +1,311 @@
+"use client";
+
+import { Check, Square } from "lucide-react";
+import { injectionCell, prescriptionCell } from "@/lib/calendar";
+import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
+import { abs, fluidByDay } from "@/lib/flowsheet";
+import { durationText, oralName, scheduleTextFor, timingText } from "@/lib/format";
+import { findDrug } from "@/lib/master";
+import { ordersOf } from "@/lib/record";
+import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder } from "@/lib/types";
+
+interface CalendarProps {
+  patient: Patient;
+  entries: HistoryEntry[];
+  today: CalendarDate;
+  nowTime: string;
+  selectedDay: DayOffset | null;
+  onSelectDay: (d: DayOffset) => void;
+  /** Put a stop draft for this order into today's drafts. The doctor confirms it there. */
+  onStopDraft: (entry: OrderEntry) => void;
+  draftedStops: string[];
+}
+
+const HEAD_W = 230;
+const COL_W = 92;
+const AHEAD = 3;
+
+function calendarDays(p: Patient): DayOffset[] {
+  const days: DayOffset[] = [];
+  for (let d = p.admittedOn; d <= AHEAD; d++) days.push(d);
+  return days;
+}
+
+function Frame({
+  days,
+  today,
+  patient,
+  selectedDay,
+  onSelectDay,
+  children,
+  note,
+}: {
+  days: DayOffset[];
+  today: CalendarDate;
+  patient: Patient;
+  selectedDay: DayOffset | null;
+  onSelectDay: (d: DayOffset) => void;
+  children: React.ReactNode;
+  note: string;
+}) {
+  return (
+    <div className="scroll-thin min-h-0 flex-1 overflow-auto pb-24">
+      <table className="nums border-separate border-spacing-0 text-[12px]" style={{ width: HEAD_W + days.length * COL_W }}>
+        <colgroup>
+          <col style={{ width: HEAD_W }} />
+          {days.map((d) => (
+            <col key={d} style={{ width: COL_W }} />
+          ))}
+        </colgroup>
+        <thead>
+          <tr>
+            <th className="sticky left-0 top-0 z-20 border-b border-rule bg-sheet" />
+            {days.map((d) => (
+              <th key={d} className={`sticky top-0 z-10 border-b border-l border-rule bg-sheet p-0 font-normal ${d === 0 ? "bg-ai-soft" : ""}`}>
+                <button
+                  type="button"
+                  disabled={d > 0}
+                  onClick={() => onSelectDay(d)}
+                  className={`flex w-full flex-col items-center py-1 ${d === selectedDay ? "bg-ai text-white" : d > 0 ? "text-ink-faint" : "hover:bg-paper"}`}
+                >
+                  <b>{formatShort(addDays(today, d))}</b>
+                  <span className={`text-[10px] ${d === selectedDay ? "text-white/80" : "text-ink-faint"}`}>
+                    {d === 0 ? "今日" : d > 0 ? "予定" : `${hospitalDay(patient.admittedOn, d)}日目`}
+                  </span>
+                </button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+      <p className="mt-2 px-3 text-[10px] text-ink-faint">{note}</p>
+    </div>
+  );
+}
+
+function GroupRow({ title, span }: { title: string; span: number }) {
+  return (
+    <tr>
+      <td colSpan={span} className="sticky left-0 border-b border-rule bg-paper px-3 pb-0.5 pt-3 text-[11px] font-bold text-ink-soft">
+        {title}
+      </td>
+    </tr>
+  );
+}
+
+function RowHead({ entry, title, lines, onStopDraft, drafted }: { entry: OrderEntry; title: string; lines: string[]; onStopDraft: (e: OrderEntry) => void; drafted: boolean }) {
+  const stopped = entry.status === "中止";
+  return (
+    <th className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1.5 text-left align-top font-normal">
+      <div className={`font-bold ${stopped ? "text-ink-faint line-through" : "text-ink"}`}>{title}</div>
+      {lines.map((l) => (
+        <div key={l} className="text-[11px] text-ink-soft">
+          {l}
+        </div>
+      ))}
+      <div className="mt-1 flex items-center gap-2 text-[10px]">
+        <span className={`rounded border px-1 ${stopped ? "border-shu/40 text-shu" : "border-wakatake/40 text-wakatake"}`}>{entry.status}</span>
+        {entry.status === "有効" &&
+          (drafted ? (
+            <span className="text-yamabuki">中止の下書きあり</span>
+          ) : (
+            <button type="button" onClick={() => onStopDraft(entry)} className="rounded border border-rule px-1.5 text-ink-soft hover:border-shu hover:text-shu">
+              中止の下書き
+            </button>
+          ))}
+      </div>
+    </th>
+  );
+}
+
+function Cell({ day, children }: { day: DayOffset; children?: React.ReactNode }) {
+  return <td className={`border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${day === 0 ? "bg-ai-soft/30" : day > 0 ? "bg-paper/50" : ""}`}>{children}</td>;
+}
+
+function Chip({ state, children }: { state: "done" | "planned" | "now"; children: React.ReactNode }) {
+  const style =
+    state === "done" ? "bg-tab text-ink-soft" : state === "now" ? "bg-ai text-white" : "border border-ai/50 bg-sheet text-ai";
+  return (
+    <span className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1 py-px text-[11px] ${style}`}>
+      {state === "done" && <Check size={10} />}
+      {children}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
+  { title: "抗菌薬", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "抗菌薬" },
+  { title: "輸液", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "輸液" },
+  { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
+];
+
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops }: CalendarProps) {
+  const days = calendarDays(patient);
+  const nowAbs = abs(0, nowTime);
+  const orders = ordersOf(entries).filter((e) => e.order.type === "injection");
+  const fluid = fluidByDay(orders, days, nowAbs);
+
+  return (
+    <Frame
+      days={days}
+      today={today}
+      patient={patient}
+      selectedDay={selectedDay}
+      onSelectDay={onSelectDay}
+      note="✓ は予定の時刻を過ぎた投与です（この試作では実施の記録はなく、架空です）。枠だけのものはこれからの予定。点滴量はオーダから計算した概算です。"
+    >
+      {INJ_GROUPS.map((g) => {
+        const rows = orders.filter((e) => g.test(e.order as InjectionOrder));
+        if (rows.length === 0) return null;
+        return [
+          <GroupRow key={g.title} title={g.title} span={days.length + 1} />,
+          ...rows.map((e) => {
+            const o = e.order as InjectionOrder;
+            const main = findDrug(o.items[0].drugCode);
+            const lines = [
+              o.items.map((it) => `${findDrug(it.drugCode)?.name ?? it.drugCode} ${it.amount}${it.unit}`).join(" ＋ "),
+              [o.route, scheduleTextFor(o), o.minutesPerDose ? `1回${durationText(o.minutesPerDose)}` : null, o.rateMlPerH ? `${o.rateMlPerH}mL/時` : null]
+                .filter(Boolean)
+                .join("　"),
+            ];
+            return (
+              <tr key={e.id}>
+                <RowHead entry={e} title={main?.aliases[0] ?? main?.name ?? ""} lines={lines} onStopDraft={onStopDraft} drafted={draftedStops.includes(e.id)} />
+                {days.map((d) => {
+                  const c = injectionCell(e, d, nowAbs);
+                  return (
+                    <Cell key={d} day={d}>
+                      <div className="flex flex-wrap gap-1">
+                        {c.doses.map((x) => (
+                          <Chip key={x.time} state={x.state}>
+                            {x.time}
+                          </Chip>
+                        ))}
+                        {c.infusion && (
+                          <Chip state={c.infusion.state}>
+                            {c.infusion.state === "now" ? "投与中 " : ""}
+                            {c.infusion.volumeMl.toLocaleString("ja-JP")}mL
+                          </Chip>
+                        )}
+                        {c.timesPerDay && <Chip state={d < 0 ? "done" : d === 0 ? "now" : "planned"}>{c.timesPerDay}回</Chip>}
+                        {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止{c.stopped.time ? ` ${c.stopped.time}` : ""}</span>}
+                      </div>
+                    </Cell>
+                  );
+                })}
+              </tr>
+            );
+          }),
+        ];
+      })}
+      {orders.length === 0 && (
+        <tr>
+          <td colSpan={days.length + 1} className="px-3 py-6 text-ink-faint">
+            注射のオーダはありません
+          </td>
+        </tr>
+      )}
+      <tr>
+        <th className="sticky left-0 z-[5] border-t border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">
+          点滴量（オーダから計算）
+        </th>
+        {days.map((d) => (
+          <td key={d} className="border-l border-t border-rule bg-paper px-1.5 py-1.5 text-right text-[11px]">
+            {fluid[d] ? `${fluid[d].toLocaleString("ja-JP")}mL` : ""}
+          </td>
+        ))}
+      </tr>
+    </Frame>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+const RX_GROUPS: PrescriptionOrder["category"][] = ["定期", "臨時", "持参薬"];
+
+export function PrescriptionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops }: CalendarProps) {
+  const days = calendarDays(patient);
+  const nowAbs = abs(0, nowTime);
+  const orders = ordersOf(entries).filter((e) => e.order.type === "prescription");
+
+  return (
+    <Frame
+      days={days}
+      today={today}
+      patient={patient}
+      selectedDay={selectedDay}
+      onSelectDay={onSelectDay}
+      note="✓ は服用の時刻を過ぎたものです（この試作では服薬の記録はなく、架空です）。服用の時刻は病棟の約束（朝 8:00・昼 12:00・夕 18:00・眠前 21:00）。頓用は使った時刻を出します。"
+    >
+      <tr>
+        <th className="sticky left-0 z-[5] border-b border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">食事（主食・割）</th>
+        {days.map((d) => {
+          const r = patient.daily.find((x) => x.day === d);
+          const text = !r?.meals ? "" : r.meals === "絶食" ? "絶食" : r.meals.map((m) => (m === null ? "−" : m)).join("/");
+          return (
+            <td key={d} className={`border-b border-l border-rule bg-paper px-1.5 py-1.5 text-center text-[11px] ${text === "絶食" ? "font-bold text-yamabuki" : ""}`}>
+              {text}
+            </td>
+          );
+        })}
+      </tr>
+      {RX_GROUPS.map((cat) => {
+        const rows = orders.filter((e) => (e.order as PrescriptionOrder).category === cat);
+        if (rows.length === 0) return null;
+        return [
+          <GroupRow key={cat} title={cat} span={days.length + 1} />,
+          ...rows.map((e) => {
+            const o = e.order as PrescriptionOrder;
+            return (
+              <tr key={e.id}>
+                <RowHead
+                  entry={e}
+                  title={oralName(o.drugCode)}
+                  lines={[`1回${o.amount}${o.unit}　${timingText(o)}${o.days ? `　${o.days}日分` : ""}`, ...(o.comment ? [o.comment] : [])]}
+                  onStopDraft={onStopDraft}
+                  drafted={draftedStops.includes(e.id)}
+                />
+                {days.map((d) => {
+                  const c = prescriptionCell(e, d, nowAbs);
+                  return (
+                    <Cell key={d} day={d}>
+                      <div className="flex flex-wrap gap-1">
+                        {c.slots.map((s) =>
+                          s.state ? (
+                            <Chip key={s.timing} state={s.state}>
+                              {s.timing}
+                            </Chip>
+                          ) : (
+                            <span key={s.timing} className="inline-flex items-center px-1 text-[11px] text-ink-faint/50">
+                              <Square size={8} />
+                            </span>
+                          ),
+                        )}
+                        {c.prnUses.map((t) => (
+                          <Chip key={t} state="done">
+                            {t} 使用
+                          </Chip>
+                        ))}
+                        {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止</span>}
+                      </div>
+                    </Cell>
+                  );
+                })}
+              </tr>
+            );
+          }),
+        ];
+      })}
+      {orders.length === 0 && (
+        <tr>
+          <td colSpan={days.length + 1} className="px-3 py-6 text-ink-faint">
+            処方はありません
+          </td>
+        </tr>
+      )}
+    </Frame>
+  );
+}
