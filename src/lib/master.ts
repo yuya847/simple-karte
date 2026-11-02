@@ -261,6 +261,8 @@ export const ANALYTES: { code: string; name: string; unit: string; low?: number;
 export const WARD_RULES = {
   /** Time of the routine morning blood draw ("明日朝" means this time). */
   routineDrawTime: "06:00",
+  /** A drug level timed "before the N-th dose" is drawn this many minutes before that dose. */
+  minutesBeforeDoseForLevel: 30,
 } as const;
 
 export function findDrug(code: string): DrugMaster | undefined {
