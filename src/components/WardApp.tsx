@@ -30,6 +30,8 @@ import { WardMap, type ChartSummary } from "./WardMap";
 import { Worksheet } from "./Worksheet";
 import { PharmacyView, type ShidoRecord } from "./PharmacyView";
 import { PharmacyInbox } from "./PharmacyInbox";
+import { DialysisView } from "./DialysisView";
+import { HD_PATIENTS, HD_SESSIONS_START, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
@@ -127,6 +129,9 @@ export default function WardApp() {
   const [reports, setReports] = useState<BroughtReport[]>([]);
   const [shido, setShido] = useState<Record<string, ShidoRecord[]>>({});
   const [dispensed, setDispensed] = useState<Record<string, string>>({});
+  // Dialysis unit (fictional; kept in this browser only).
+  const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
+  const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(HD_SESSIONS_START);
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
 
   const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
@@ -373,6 +378,15 @@ export default function WardApp() {
           taken={taken}
           sessionKeys={sessionKeys}
           onTake={(key) => setTaken((t) => ({ ...t, [key]: nowTime }))}
+        />
+      ) : screen === "dialysis" ? (
+        <DialysisView
+          today={today}
+          nowTime={nowTime}
+          patients={hdPatients}
+          sessions={hdSessions}
+          onPatient={(p) => setHdPatients((list) => list.map((x) => (x.id === p.id ? p : x)))}
+          onSession={(id, s) => setHdSessions((all) => ({ ...all, [id]: s }))}
         />
       ) : screen === "pharmacy" ? (
         <PharmacyView
