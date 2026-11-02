@@ -12,7 +12,7 @@ import { CODES, LAB_CODES } from "./codes";
 import { drugPoints, masterQuantity, officialDrugCode } from "./drug";
 import { HOSPITAL, meetsStandards } from "./facility";
 import { bukkaFor, iyakuItem, shinryoItem } from "./master-items";
-import type { ClaimAct, ClaimInput, ClaimIssue, ClaimLine, ClaimPart, ClaimResult, Shikibetsu } from "./model";
+import type { ClaimAct, ClaimInput, ClaimIssue, ClaimLine, ClaimPart, ClaimResult, MealClass, Shikibetsu } from "./model";
 import { allowedKasan, haihan, kaisuLimits, type HaihanWindow } from "./tables";
 import { masterMeta } from "../masters/server";
 
@@ -177,20 +177,16 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     if (!rec?.meals || rec.meals === "絶食") continue;
     const served = rec.meals.filter((m) => m !== null).length;
     if (!served) continue;
-    const ryoyo: ClaimLine[] = [si("197000110", served)];
-    let ryoyoYen = pts("197000110") * served;
-    if (o.specialDiet) {
-      ryoyo.push(si("197000470", served));
-      ryoyoYen += pts("197000470") * served;
-    }
+    // 記載要領: 食事療養費（集計先970）、特別食加算、標準負担額（971）は別々の単位。数量データは1日の食数。
+    const futan = MEAL_FUTAN[input.mealClass ?? "一般"];
+    const parts: ClaimPart[] = [{ lines: [si("197000110", served)], points: pts("197000110") * served, yen: true }];
+    if (o.specialDiet) parts.push({ lines: [si("197000470", served)], points: pts("197000470") * served, yen: true });
+    parts.push({ lines: [si(futan.code, served)], points: pts(futan.code) * served, yen: true });
     add({
       day: d,
       shikibetsu: "97",
-      parts: [
-        { lines: ryoyo, points: ryoyoYen, yen: true },
-        { lines: [si("197000810", served)], points: pts("197000810") * served, yen: true },
-      ],
-      basis: `入院時食事療養（Ⅰ）${served}食${o.specialDiet ? "（特別食加算）" : ""}と標準負担額（一般）。実際に出した食数`,
+      parts,
+      basis: `入院時食事療養（Ⅰ）${served}食${o.specialDiet ? "＋特別食加算" : ""}、標準負担額（${futan.label}）。実際に出した食数で数える`,
     });
   }
 
@@ -420,8 +416,11 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   const totalPoints = merged.filter((a) => a.shikibetsu !== "97").reduce((s, a) => s + a.parts.reduce((t, x) => t + x.points, 0) * a.count, 0);
   const meals = { ryoyoYen: 0, futanYen: 0 };
   for (const a of merged.filter((x) => x.shikibetsu === "97")) {
-    meals.ryoyoYen += a.parts[0].points * a.count;
-    meals.futanYen += (a.parts[1]?.points ?? 0) * a.count;
+    for (const part of a.parts) {
+      const futan = shinryoItem(part.lines[0].code)?.sumInpatient === "971";
+      if (futan) meals.futanYen += part.points * a.count;
+      else meals.ryoyoYen += part.points * a.count;
+    }
   }
   const meta = masterMeta();
   return {
@@ -444,6 +443,15 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
 }
 
 // ---------- helpers ----------
+
+/** 食事療養標準負担額 (1食あたり、令和8年6月〜) by the patient's 区分, with its 診療行為コード. */
+export const MEAL_FUTAN: Record<MealClass, { code: string; label: string }> = {
+  一般: { code: "197000810", label: "一般" },
+  "低所得Ⅱ（90日以下）": { code: "197000910", label: "低所得Ⅱ・90日以下" },
+  "低所得Ⅱ（90日超）": { code: "197001010", label: "低所得Ⅱ・90日超" },
+  低所得Ⅰ: { code: "197001110", label: "低所得Ⅰ" },
+  指定難病等: { code: "197003310", label: "指定難病・小児慢性特定疾病" },
+};
 
 /**
  * D007 生化学的検査（Ⅰ）注: 1回に採取した血液で「1」〜「8」の検査を5項目以上 → 項目数で決まる点数

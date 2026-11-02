@@ -280,4 +280,20 @@ describe("入院時食事療養（Ⅰ）", () => {
     const r = claim("2026-10", { daily, options: { specialDiet: true } });
     expect(r.meals.ryoyoYen).toBe((730 + 76) * 4);
   });
+
+  it("each amount is its own unit (記載要領): 食事療養費, 特別食加算, 標準負担額 (a meal served counts even if not eaten)", () => {
+    const r = claim("2026-10", { daily, options: { specialDiet: true } });
+    const day2 = r.acts.find((a) => a.shikibetsu === "97" && a.days[2])!;
+    expect(day2.parts.map((p) => [p.lines[0].code, p.lines[0].quantity, p.points])).toEqual([
+      ["197000110", 3, 2190],
+      ["197000470", 3, 228],
+      ["197000810", 3, 1650],
+    ]);
+  });
+
+  it("標準負担額 follows the patient's 区分 (低所得Ⅱ・90日以下 270円)", () => {
+    const r = claim("2026-10", { daily, mealClass: "低所得Ⅱ（90日以下）" });
+    expect(r.meals.futanYen).toBe(270 * 4);
+    expect(find(r.acts, "197000910").count).toBe(2);
+  });
 });

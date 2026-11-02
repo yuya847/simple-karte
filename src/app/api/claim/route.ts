@@ -34,6 +34,7 @@ const Request = z.object({
     specialDiet: z.boolean(),
     yakuzaiShido: z.array(z.object({ day: Day, kind: z.enum(["1", "2"]) })).max(10),
   }),
+  mealClass: z.enum(["一般", "低所得Ⅱ（90日以下）", "低所得Ⅱ（90日超）", "低所得Ⅰ", "指定難病等"]).optional(),
 });
 
 export async function POST(request: Request) {

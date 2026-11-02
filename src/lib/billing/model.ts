@@ -86,6 +86,9 @@ export const DEFAULT_OPTIONS: BillingOptions = {
   yakuzaiShido: [],
 };
 
+/** 食事療養標準負担額の区分（限度額適用・標準負担額減額認定などで決まる）. */
+export type MealClass = "一般" | "低所得Ⅱ（90日以下）" | "低所得Ⅱ（90日超）" | "低所得Ⅰ" | "指定難病等";
+
 export interface ClaimInput {
   /** Today in Japan, "YYYY-MM-DD", and the time now "HH:MM". Day offsets are relative to today. */
   today: string;
@@ -105,6 +108,8 @@ export interface ClaimInput {
   cultures: CultureResult[];
   diagnoses: Diagnosis[];
   options: BillingOptions;
+  /** Default 一般. */
+  mealClass?: MealClass;
 }
 
 export interface ClaimResult {
