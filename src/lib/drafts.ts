@@ -99,6 +99,19 @@ function scheduleFrom(f: AiOrder["frequency"]): InjectionSchedule | null {
   return null;
 }
 
+/**
+ * Whether "N時間で" is said right after a per-bag or whole-day phrase. Claude's reading of
+ * this is not stable from run to run, so for several bags a day the code decides from the
+ * words: if they do not say it, the doctor is asked.
+ */
+export function scopeFromWords(text: string): "per_dose" | "whole_day" | null {
+  const t = text.normalize("NFKC").replace(/\s/g, "");
+  const time = String.raw`[0-9.]+時間`;
+  if (new RegExp(String.raw`(1(本|袋)(あたり)?|各)(を|は)?(${time})`).test(t)) return "per_dose";
+  if (new RegExp(String.raw`([2-9](本|袋)|全部|合計|1日分|1日量)(を|は)?(${time})`).test(t)) return "whole_day";
+  return null;
+}
+
 export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[] {
   const drafts: Draft[] = [];
   for (const o of res.orders) {
@@ -107,14 +120,16 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
       const d = o.drugs[0];
       drafts.push({ ...base, kind: "stop", drugCode: validDrug(d?.code ?? null), said: d?.said ?? o.source_text, targetOrderId: null });
     } else if (o.kind === "injection") {
+      const schedule = scheduleFrom(o.frequency);
+      const severalBags = schedule?.kind === "per_day" && schedule.count > 1 && o.infusion.minutes !== null;
       drafts.push({
         ...base,
         kind: "injection",
         items: o.drugs.map((d) => ({ drugCode: validDrug(d.code), said: d.said, amount: d.amount, unit: d.unit })),
         route: o.route,
-        schedule: scheduleFrom(o.frequency),
+        schedule,
         infusionMinutes: o.infusion.minutes,
-        infusionScope: o.infusion.applies_to,
+        infusionScope: severalBags ? (scopeFromWords(o.source_text) ?? "unclear") : o.infusion.applies_to,
         rateMlPerH: o.infusion.rate_ml_per_h,
         prefer: null,
         start: { day: DAY[o.start.day] ?? null, time: o.start.time },

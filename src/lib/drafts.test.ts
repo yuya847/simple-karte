@@ -6,6 +6,7 @@ import {
   isReady,
   ratePlan,
   resolvedCollect,
+  scopeFromWords,
   toOrder,
   type CheckContext,
   type Draft,
@@ -122,6 +123,39 @@ describe("infusion time and rate", () => {
     expect(isReady(issues)).toBe(true);
     const { order } = toOrder(vcm(), ctx());
     expect(order).toMatchObject({ route: "点滴静注", minutesPerDose: 60, rateMlPerH: 100, start: { day: 0, time: "10:00" } });
+  });
+});
+
+describe("per-bag or whole-day, decided from the words", () => {
+  it.each([
+    ["ヴィーンFは1日2本を続けて、20時間で", null],
+    ["生食500を1日2本、20時間で", null],
+    ["生食500 1本20時間で 1日2本", "per_dose"],
+    ["生食500を1日2本、2本を20時間で", "whole_day"],
+    ["ソルデム3A 1日分を24時間で", "whole_day"],
+    ["生食５００を１本あたり１０時間で", "per_dose"],
+  ])("%s → %s", (text, expected) => {
+    expect(scopeFromWords(text)).toBe(expected);
+  });
+
+  it("overrides Claude's guess when the words do not say", () => {
+    const o: AiOrder = {
+      kind: "injection",
+      source_text: "ヴィーンFは1日2本を続けて、20時間で",
+      drugs: [{ code: "INJ-VEENF500", said: "ヴィーンF", amount: 1, unit: "本" }],
+      route: null,
+      frequency: { kind: "per_day", value: 2 },
+      infusion: { minutes: 1200, applies_to: "whole_day", rate_ml_per_h: null },
+      start: { day: "unspecified", time: null },
+      days: null,
+      tests: [],
+      collect: { day: "unspecified", when: "unspecified", time: null, before_dose_number: null, before_dose_drug_code: null },
+      priority: null,
+      culture_sets: null,
+      comment: null,
+    };
+    const [d] = draftsFromAi({ orders: [o], not_understood: [] }, () => "x");
+    expect((d as InjectionDraft).infusionScope).toBe("unclear");
   });
 });
 
