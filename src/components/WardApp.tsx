@@ -337,7 +337,7 @@ export default function WardApp() {
   }
 
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
-    Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length }]),
+    Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
   );
   const wideLeft = chart.leftView !== "record";
 
@@ -381,7 +381,7 @@ export default function WardApp() {
           nowTime={nowTime}
           taken={taken}
           sessionKeys={sessionKeys}
-          onTake={(key) => setTaken((t) => ({ ...t, [key]: nowTime }))}
+          onTake={(keys) => setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, nowTime])) }))}
         />
       ) : screen === "or" ? (
         <SurgeryView

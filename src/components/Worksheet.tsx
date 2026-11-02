@@ -17,7 +17,8 @@ interface Props {
   taken: Record<string, string>;
   /** Changes made before this session count as taken. */
   sessionKeys: Set<string>;
-  onTake: (key: string) => void;
+  /** Take one or several changes (指示受け). */
+  onTake: (keys: string[]) => void;
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血"];
@@ -72,7 +73,18 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake }
             </label>
           ))}
         </fieldset>
-        {waiting > 0 && <span className="rounded bg-yamabuki-soft px-2 py-0.5 text-xs font-bold text-yamabuki">指示受けがまだ {waiting}件</span>}
+        {waiting > 0 && (
+          <>
+            <span className="rounded bg-yamabuki-soft px-2 py-0.5 text-xs font-bold text-yamabuki">指示受けがまだ {waiting}件</span>
+            <button
+              type="button"
+              onClick={() => onTake(changes.filter((c) => !isTaken(c)).map((c) => c.key))}
+              className="rounded border border-yamabuki px-2 py-0.5 text-xs font-bold text-yamabuki hover:bg-yamabuki hover:text-white"
+            >
+              まとめて受ける
+            </button>
+          </>
+        )}
         <button type="button" onClick={() => window.print()} className="ml-auto flex items-center gap-1.5 rounded-md bg-ai px-3 py-1.5 font-bold text-white">
           <Printer size={15} />
           印刷（A4横）
@@ -127,7 +139,7 @@ interface SheetProps {
   isTaken: (c: OrderChange) => boolean;
   taken: Record<string, string>;
   sessionKeys: Set<string>;
-  onTake: (key: string) => void;
+  onTake: (keys: string[]) => void;
   interactive: boolean;
 }
 
@@ -183,7 +195,7 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                           {taken[c.key]}
                         </span>
                       ) : interactive ? (
-                        <button type="button" onClick={() => onTake(c.key)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[11px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
+                        <button type="button" onClick={() => onTake([c.key])} className="rounded border border-yamabuki px-1.5 py-0.5 text-[11px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
                           指示を受ける
                         </button>
                       ) : (

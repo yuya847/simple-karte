@@ -9,6 +9,8 @@ import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room,
 export interface ChartSummary {
   drafts: number;
   confirmedToday: number;
+  /** New orders and stops a nurse has not taken yet (指示受けがまだ). */
+  waiting?: number;
 }
 
 interface Props {
@@ -150,6 +152,7 @@ function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: st
         {!newCulture && labsToday && <Tag tone="ai">採血結果（今日）</Tag>}
         {summary && summary.drafts > 0 && <Tag tone="yamabuki">下書き {summary.drafts}件</Tag>}
         {summary && summary.confirmedToday > 0 && <Tag tone="wakatake">今日確定 {summary.confirmedToday}件</Tag>}
+        {summary && (summary.waiting ?? 0) > 0 && <Tag tone="yamabuki">指示受けがまだ {summary.waiting}件</Tag>}
       </div>
     </button>
   );
