@@ -3,7 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { AiDraftResponse, DraftRequest } from "@/lib/ai-schema";
+import { AiWireResponse, DraftRequest, fromWire } from "@/lib/ai-schema";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 
 export const maxDuration = 60;
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       betas: speed === "fast" ? ["server-side-fallback-2026-07-01", "fast-mode-2026-02-01"] : ["server-side-fallback-2026-07-01"],
       ...(speed === "fast" ? { speed: "fast" as const } : {}),
       fallbacks: "default",
-      output_config: { effort: "low", format: betaZodOutputFormat(AiDraftResponse) },
+      output_config: { effort: "low", format: betaZodOutputFormat(AiWireResponse) },
       system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: `<dictation>\n${body.data.text}\n</dictation>` }],
     });
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "下書きを作れませんでした。指示を短く分けて試してください。" }, { status: 502 });
     }
     return Response.json({
-      result: res.parsed_output,
+      result: fromWire(res.parsed_output),
       meta: {
         model: res.model,
         speed: res.usage.speed ?? "standard",
