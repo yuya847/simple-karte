@@ -1,1 +1,56 @@
 @import "tailwindcss";
+
+/*
+  Palette: a paper ward chart.
+  生成り (paper) background, 墨 (ink) text, 藍 (indigo) for actions,
+  朱 (vermilion) for stops, 山吹 (amber) for questions, 若竹 (green) for done.
+*/
+@theme {
+  --color-paper: #f5f1e6;
+  --color-sheet: #fffdf7;
+  --color-tab: #e8e1d0;
+  --color-rule: #d9cfba;
+  --color-rule-soft: #ebe4d4;
+  --color-ink: #26221c;
+  --color-ink-soft: #5f584b;
+  --color-ink-faint: #8c8473;
+  --color-ai: #2b4a7e;
+  --color-ai-soft: #e6ecf6;
+  --color-shu: #b5402b;
+  --color-shu-soft: #f8e6e1;
+  --color-yamabuki: #9a6512;
+  --color-yamabuki-soft: #f8eed9;
+  --color-wakatake: #3b7650;
+  --color-wakatake-soft: #e3efe6;
+  --color-fuji: #6a4c93;
+  --color-fuji-soft: #efe8f6;
+
+  --font-sans: var(--font-biz), "Hiragino Sans", "Yu Gothic UI", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-feature-settings: "palt" 1;
+}
+
+/* Numbers line up in tables and order lines. */
+.nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin scrollbars so the columns stay calm. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ai);
+  outline-offset: 2px;
+}
