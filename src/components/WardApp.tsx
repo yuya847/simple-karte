@@ -358,7 +358,9 @@ export default function WardApp() {
           patients={er}
           nowAbs={abs(0, nowTime)}
           ward={ward}
+          today={today}
           onRegister={(p) => setEr((list) => [...list, p])}
+          onUpdate={(p) => setEr((list) => list.map((x) => (x.id === p.id ? p : x)))}
           onStatus={(id, st: ErStatus) => setEr((list) => list.map((p) => (p.id === id ? { ...p, status: st } : p)))}
           onAdmit={admit}
           onOpenChart={openPatient}

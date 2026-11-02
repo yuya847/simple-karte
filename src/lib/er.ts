@@ -4,7 +4,9 @@
 
 import type { Sex } from "./types";
 
-export type ErStatus = "診察待ち" | "診察中" | "入院依頼" | "帰宅" | "入院済";
+export type Jtas = 1 | 2 | 3 | 4 | 5;
+
+export type ErStatus = "搬送中" | "診察待ち" | "診察中" | "入院依頼" | "帰宅" | "入院済";
 export type Arrival = "救急車" | "独歩" | "紹介";
 
 export interface ErPatient {
@@ -17,8 +19,14 @@ export interface ErPatient {
   /** Arrival as an absolute minute (day offset × 1440 + minutes). */
   arrivedAbs: number;
   complaint: string;
-  /** JTAS level entered by the triage nurse (1 = 蘇生 … 5 = 非緊急). */
-  jtas: 1 | 2 | 3 | 4 | 5;
+  /** JTAS level entered by the triage nurse (1 = 蘇生 … 5 = 非緊急). Not set before arrival. */
+  jtas?: Jtas;
+  /** When the nurse last triaged (absolute minute). Defaults to the arrival. */
+  triagedAbs?: number;
+  /** Earlier triages (level and time), oldest first. */
+  triageLog?: { abs: number; jtas: Jtas }[];
+  /** What the ambulance crew said on the phone, read into items (before arrival). */
+  hotline?: { eta: number; jcs?: string; history?: string };
   status: ErStatus;
   vitals?: { bt?: number; hr?: number; sbp?: number; dbp?: number; rr?: number; spo2?: number; o2?: string };
   heightCm?: number;
@@ -29,13 +37,27 @@ export interface ErPatient {
   admittedAs?: string;
 }
 
-export const JTAS_LABEL: Record<ErPatient["jtas"], string> = {
+export const JTAS_LABEL: Record<Jtas, string> = {
   1: "蘇生",
   2: "緊急",
   3: "準緊急",
   4: "低緊急",
   5: "非緊急",
 };
+
+/**
+ * Minutes until the next re-triage for each JTAS level (JTAS: 蘇生 継続, 緊急 15分, 準緊急 30分,
+ * 低緊急 60分, 非緊急 120分). The level itself is the nurse's; code only counts the time.
+ */
+export const REASSESS_MIN: Record<Jtas, number> = { 1: 0, 2: 15, 3: 30, 4: 60, 5: 120 };
+
+/** Minutes left until re-triage (negative = overdue), or null when not applicable. */
+export function reassessIn(p: ErPatient, nowAbs: number): number | null {
+  if (!p.jtas || p.status === "帰宅" || p.status === "入院済" || p.status === "搬送中") return null;
+  if (p.jtas === 1) return 0;
+  const last = p.triagedAbs ?? p.arrivedAbs;
+  return last + REASSESS_MIN[p.jtas] - nowAbs;
+}
 
 /** Fictional ED board relative to the current time (minutes since midnight). */
 export function initialErPatients(nowAbs: number): ErPatient[] {
@@ -103,4 +125,52 @@ export function initialErPatients(nowAbs: number): ErPatient[] {
       allergies: [],
     },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// 救急外来医学管理料（B001-2-6、令和8年度）: which part a visit falls under. Display only:
+// outpatient claims are not made in this prototype, and the fictional hospital (modelled on a real
+// hospital's filings) has not filed for it.
+// ---------------------------------------------------------------------------
+
+/** 国民の祝日（内閣府、2026年）. 診療報酬の「休日」は日曜・祝日と12月29日〜1月3日. */
+const HOLIDAYS_2026 = ["01-01", "01-12", "02-11", "02-23", "03-20", "04-29", "05-03", "05-04", "05-05", "05-06", "07-20", "08-11", "09-21", "09-22", "09-23", "10-12", "11-03", "11-23"];
+
+export function isHoliday(y: number, m: number, d: number): boolean {
+  const key = `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  if ((m === 12 && d >= 29) || (m === 1 && d <= 3)) return true;
+  return y === 2026 && HOLIDAYS_2026.includes(key);
+}
+
+/** The fictional hospital's 診療時間: weekdays 9:00–17:00, Saturdays 9:00–12:00. 夜間 = 18:00–翌8:00 (通知の目安). */
+export function visitTime(arrivedAbs: number, today: { y: number; m: number; d: number }): { label: string; night: boolean; holiday: boolean; saturday: boolean; inHours: boolean } {
+  const day = Math.floor(arrivedAbs / 1440);
+  const min = arrivedAbs - day * 1440;
+  const t = new Date(Date.UTC(today.y, today.m - 1, today.d + day));
+  const dow = t.getUTCDay();
+  const holiday = dow === 0 || isHoliday(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+  const saturday = dow === 6;
+  const night = min >= 18 * 60 || min < 8 * 60;
+  const inHours = !holiday && (saturday ? min >= 540 && min < 720 : min >= 540 && min < 1020);
+  const label = `${holiday ? (dow === 0 ? "日曜" : "祝日") : saturday ? "土曜" : "平日"}${night ? "・夜間" : inHours ? "・診療時間内" : "・時間外"}`;
+  return { label, night, holiday, saturday, inHours };
+}
+
+export interface ErFeeHint {
+  item: string;
+  note: string;
+}
+
+/** What B001-2-6 says about this visit. `filed` = the hospital has filed for it (the fictional one has not). */
+export function erFeeHint(p: ErPatient, today: { y: number; m: number; d: number }, filed = false): ErFeeHint | null {
+  const v = visitTime(p.arrivedAbs, today);
+  const tail = filed ? "" : "（届出が要る。この院は届出なし → 算定しない）";
+  if (p.arrival === "救急車") {
+    const add = v.holiday || v.saturday ? (v.night ? "時間外救急搬送加算 300点" : "時間外救急搬送加算 200点") : v.night ? "時間外救急搬送加算 250点" : "";
+    return { item: "救急搬送医学管理料（B001-2-6 の1）", note: `${v.label}${add ? `・${add}の対象` : ""}${tail}` };
+  }
+  if (!v.inHours && (v.night || v.holiday || v.saturday)) {
+    return { item: "夜間休日救急医学管理料（B001-2-6 の2）＋院内トリアージ実施体制加算 50点", note: `${v.label}${tail}` };
+  }
+  return null;
 }

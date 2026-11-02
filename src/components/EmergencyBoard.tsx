@@ -1,9 +1,10 @@
 "use client";
 
-import { Ambulance, BedDouble, Plus, X } from "lucide-react";
+import { Ambulance, BedDouble, PhoneCall, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { bedProblem, formProblems, type AdmitForm } from "@/lib/admission";
-import { JTAS_LABEL, type Arrival, type ErPatient, type ErStatus } from "@/lib/er";
+import type { CalendarDate } from "@/lib/dates";
+import { JTAS_LABEL, REASSESS_MIN, erFeeHint, reassessIn, type Arrival, type ErPatient, type ErStatus, type Jtas } from "@/lib/er";
 import type { Sex } from "@/lib/types";
 import { emptyBeds, type WardState } from "@/lib/ward";
 
@@ -11,7 +12,10 @@ interface Props {
   patients: ErPatient[];
   nowAbs: number;
   ward: WardState;
+  today: CalendarDate;
   onRegister: (p: ErPatient) => void;
+  /** Replace a patient's row (arrival of a pre-announced ambulance, re-triage). */
+  onUpdate: (p: ErPatient) => void;
   onStatus: (id: string, s: ErStatus) => void;
   onAdmit: (er: ErPatient, form: AdmitForm) => void;
   onOpenChart: (patientId: string) => void;
@@ -25,14 +29,17 @@ const hhmm = (min: number) => {
 const DONE: ErStatus[] = ["帰宅", "入院済"];
 
 /** Emergency department board: who is here, how urgent (as triaged by a nurse), and admission to the ward. */
-export function EmergencyBoard({ patients, nowAbs, ward, onRegister, onStatus, onAdmit, onOpenChart }: Props) {
+export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUpdate, onStatus, onAdmit, onOpenChart }: Props) {
   const [registering, setRegistering] = useState(false);
+  const [arriving, setArriving] = useState<ErPatient | null>(null);
+  const [calling, setCalling] = useState(false);
   const [admitting, setAdmitting] = useState<ErPatient | null>(null);
+  const [retriage, setRetriage] = useState<string | null>(null);
 
   const sorted = [...patients].sort((a, b) => {
     const da = DONE.includes(a.status) ? 1 : 0;
     const db = DONE.includes(b.status) ? 1 : 0;
-    return da - db || a.jtas - b.jtas || a.arrivedAbs - b.arrivedAbs;
+    return da - db || (a.jtas ?? 0) - (b.jtas ?? 0) || a.arrivedAbs - b.arrivedAbs;
   });
   const active = patients.filter((p) => !DONE.includes(p.status)).length;
 
@@ -49,8 +56,16 @@ export function EmergencyBoard({ patients, nowAbs, ward, onRegister, onStatus, o
         </p>
         <button
           type="button"
+          onClick={() => setCalling(true)}
+          className="ml-auto flex items-center gap-1.5 rounded-md border border-shu/60 bg-sheet px-3 py-1.5 text-sm font-bold text-shu hover:bg-shu-soft"
+        >
+          <PhoneCall size={15} />
+          救急隊から（受入要請）
+        </button>
+        <button
+          type="button"
           onClick={() => setRegistering(true)}
-          className="ml-auto flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90"
+          className="flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-bold text-white hover:bg-ink/90"
         >
           <Plus size={15} />
           受付
@@ -75,27 +90,77 @@ export function EmergencyBoard({ patients, nowAbs, ward, onRegister, onStatus, o
               const done = DONE.includes(p.status);
               return (
                 <tr key={p.id} className={`border-b border-rule-soft align-top ${done ? "text-ink-faint" : "bg-sheet"}`}>
-                  <td className="whitespace-nowrap px-3 py-2">
+                  <td className="px-3 py-2">
                     <b className={done ? "" : "text-ink"}>{hhmm(p.arrivedAbs)}</b>
-                    <div className="text-[11px]">
-                      {p.arrival}・{Math.max(0, nowAbs - p.arrivedAbs)}分前
+                    <div className="whitespace-nowrap text-[11px]">
+                      {p.status === "搬送中" ? (
+                        <span className="font-bold text-shu">到着予定・あと{Math.max(0, p.arrivedAbs - nowAbs)}分</span>
+                      ) : (
+                        <>
+                          {p.arrival}・{Math.max(0, nowAbs - p.arrivedAbs)}分前
+                        </>
+                      )}
                     </div>
+                    {p.status !== "搬送中" && (() => {
+                      const h = erFeeHint(p, today);
+                      return h ? (
+                        <div className="mt-0.5 max-w-52 text-[10px] leading-tight text-ink-faint" title="救急外来医学管理料（B001-2-6、令和8年度）。この試作は外来の算定をしません。">
+                          {h.item}：{h.note}
+                        </div>
+                      ) : null;
+                    })()}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    <span
-                      className={`rounded border px-1.5 py-0.5 text-[12px] font-bold ${
-                        done ? "border-rule" : p.jtas <= 2 ? "border-shu/50 bg-shu-soft text-shu" : p.jtas === 3 ? "border-yamabuki/50 bg-yamabuki-soft text-yamabuki" : "border-rule text-ink-soft"
-                      }`}
-                    >
-                      JTAS {p.jtas}　{JTAS_LABEL[p.jtas]}
-                    </span>
+                    {p.jtas ? (
+                      <span
+                        className={`rounded border px-1.5 py-0.5 text-[12px] font-bold ${
+                          done ? "border-rule" : p.jtas <= 2 ? "border-shu/50 bg-shu-soft text-shu" : p.jtas === 3 ? "border-yamabuki/50 bg-yamabuki-soft text-yamabuki" : "border-rule text-ink-soft"
+                        }`}
+                      >
+                        JTAS {p.jtas}　{JTAS_LABEL[p.jtas]}
+                      </span>
+                    ) : (
+                      <span className="text-[12px] text-ink-faint">未判定（到着前）</span>
+                    )}
+                    <Reassess p={p} nowAbs={nowAbs} />
+                    {!done && p.jtas && p.status !== "搬送中" && (
+                      retriage === p.id ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {([1, 2, 3, 4, 5] as Jtas[]).map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => {
+                                onUpdate({ ...p, jtas: n, triagedAbs: nowAbs, triageLog: [...(p.triageLog ?? [{ abs: p.triagedAbs ?? p.arrivedAbs, jtas: p.jtas! }]), { abs: nowAbs, jtas: n }] });
+                                setRetriage(null);
+                              }}
+                              className="rounded border border-rule bg-sheet px-1.5 text-[11px] hover:border-ai hover:text-ai"
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => setRetriage(p.id)} className="mt-1 block text-[11px] text-ai hover:underline">
+                          再判定を入れる（看護師）
+                        </button>
+                      )
+                    )}
+                    {p.triageLog && p.triageLog.length > 1 && (
+                      <div className="mt-0.5 text-[10px] text-ink-faint">{p.triageLog.map((t) => `${hhmm(t.abs)} ${t.jtas}`).join(" → ")}</div>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <div className="text-[10px] text-ink-faint">{p.kana}</div>
                     <b className={done ? "" : "text-ink"}>{p.name}</b>
                     <span className="ml-2 text-[12px]">
-                      {p.sex}・{p.age}歳
+                      {p.sex}・{p.age ? `${p.age}歳` : "年齢不明"}
                     </span>
+                    {p.hotline && (
+                      <div className="text-[11px] text-ink-soft">
+                        救急隊：{[p.hotline.jcs && `意識 ${p.hotline.jcs}`, p.hotline.history].filter(Boolean).join("　")}
+                      </div>
+                    )}
                     {p.allergies.length > 0 && <div className="text-[11px] font-bold text-shu">アレルギー：{p.allergies.join("、")}</div>}
                   </td>
                   <td className="px-3 py-2">
@@ -117,6 +182,10 @@ export function EmergencyBoard({ patients, nowAbs, ward, onRegister, onStatus, o
                   <td className="px-3 py-2">
                     {p.status === "入院済" ? (
                       <span>入院済</span>
+                    ) : p.status === "搬送中" ? (
+                      <button type="button" onClick={() => setArriving(p)} className="rounded-md bg-shu px-2 py-1 text-[12px] font-bold text-white">
+                        到着・受付
+                      </button>
                     ) : (
                       <select
                         value={p.status}
@@ -135,7 +204,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, onRegister, onStatus, o
                       <button type="button" onClick={() => onOpenChart(p.admittedAs!)} className="text-[12px] font-bold text-ai hover:underline">
                         カルテを開く
                       </button>
-                    ) : p.status !== "帰宅" ? (
+                    ) : p.status !== "帰宅" && p.status !== "搬送中" ? (
                       <button
                         type="button"
                         onClick={() => setAdmitting(p)}
@@ -154,7 +223,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, onRegister, onStatus, o
           </tbody>
         </table>
         <p className="px-5 py-3 text-[11px] text-ink-faint">
-          患者はすべて架空です。受付で入れた内容はこのブラウザの中だけにあり、サーバーには送りません。保険証の確認などの事務の手続きは、この試作では扱いません。トリアージの段階（JTAS）は看護師が判定して入れるもので、アプリは判定しません。
+          患者はすべて架空です。受付で入れた内容はこのブラウザの中だけにあり、サーバーには送りません。保険証の確認などの事務の手続きは、この試作では扱いません。トリアージの段階（JTAS）は看護師が判定して入れるもので、アプリは判定しません。アプリは前の判定からの時間を数え、再評価の目安（緊急15分・準緊急30分・低緊急60分・非緊急120分）を過ぎたら赤で出します。救急外来医学管理料の欄は、来院の仕方と時刻からコードで出した目安です（外来の算定はこの試作では行いません）。
         </p>
       </div>
 
@@ -165,6 +234,27 @@ export function EmergencyBoard({ patients, nowAbs, ward, onRegister, onStatus, o
           onSave={(p) => {
             onRegister(p);
             setRegistering(false);
+          }}
+        />
+      )}
+      {arriving && (
+        <RegisterDialog
+          nowAbs={nowAbs}
+          initial={arriving}
+          onCancel={() => setArriving(null)}
+          onSave={(p) => {
+            onUpdate({ ...p, id: arriving.id, hotline: arriving.hotline });
+            setArriving(null);
+          }}
+        />
+      )}
+      {calling && (
+        <HotlineDialog
+          nowAbs={nowAbs}
+          onCancel={() => setCalling(false)}
+          onSave={(p) => {
+            onRegister(p);
+            setCalling(false);
           }}
         />
       )}
@@ -211,30 +301,33 @@ function Field({ label, children, wide }: { label: string; children: React.React
 const input = "rounded-md border border-rule bg-sheet px-2 py-1.5 text-[13px] text-ink outline-none focus:border-ai";
 const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 
-function RegisterDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel: () => void; onSave: (p: ErPatient) => void }) {
+function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number; initial?: ErPatient; onCancel: () => void; onSave: (p: ErPatient) => void }) {
+  const v = initial?.vitals;
+  const str = (x?: number) => (x === undefined ? "" : String(x));
   const [f, setF] = useState({
     name: "",
     kana: "",
-    sex: "女" as Sex,
-    age: "",
-    arrival: "救急車" as Arrival,
-    complaint: "",
-    jtas: "3",
-    bt: "",
-    hr: "",
-    sbp: "",
-    dbp: "",
-    rr: "",
-    spo2: "",
+    sex: (initial?.sex ?? "女") as Sex,
+    age: str(initial?.age || undefined),
+    arrival: (initial?.arrival ?? "救急車") as Arrival,
+    complaint: initial?.complaint ?? "",
+    // A new arrival has no level until the nurse picks one.
+    jtas: "",
+    bt: str(v?.bt),
+    hr: str(v?.hr),
+    sbp: str(v?.sbp),
+    dbp: str(v?.dbp),
+    rr: str(v?.rr),
+    spo2: str(v?.spo2),
     height: "",
     weight: "",
     allergies: "",
   });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
-  const missing = [!f.name.trim() && "氏名", !(Number(f.age) > 0) && "年齢", !f.complaint.trim() && "主訴"].filter(Boolean);
+  const missing = [!f.name.trim() && "氏名", !(Number(f.age) > 0) && "年齢", !f.complaint.trim() && "主訴", !f.jtas && "トリアージ"].filter(Boolean);
 
   return (
-    <Dialog title="救急外来の受付（架空の患者）" onClose={onCancel}>
+    <Dialog title={initial ? "到着・受付（救急隊の情報を下書きにしています）" : "救急外来の受付（架空の患者）"} onClose={onCancel}>
       <p className="mb-3 rounded-md bg-yamabuki-soft px-3 py-2 text-[12px] text-yamabuki">名前は架空のものを入れてください。実在の人の情報は入れないでください。</p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="氏名">
@@ -261,9 +354,10 @@ function RegisterDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel
         </Field>
         <Field label="トリアージ（看護師が判定した JTAS）">
           <select value={f.jtas} onChange={set("jtas")} className={input}>
-            {[1, 2, 3, 4, 5].map((n) => (
+            <option value="">（看護師が選ぶ）</option>
+            {([1, 2, 3, 4, 5] as Jtas[]).map((n) => (
               <option key={n} value={n}>
-                JTAS {n}　{JTAS_LABEL[n as ErPatient["jtas"]]}
+                JTAS {n}　{JTAS_LABEL[n]}
               </option>
             ))}
           </select>
@@ -312,9 +406,10 @@ function RegisterDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel
               arrival: f.arrival,
               arrivedAbs: nowAbs,
               complaint: f.complaint.trim(),
-              jtas: Number(f.jtas) as ErPatient["jtas"],
+              jtas: Number(f.jtas) as Jtas,
+              triagedAbs: nowAbs,
               status: "診察待ち",
-              vitals: { bt: num(f.bt), hr: num(f.hr), sbp: num(f.sbp), dbp: num(f.dbp), rr: num(f.rr), spo2: num(f.spo2), o2: "室内気" },
+              vitals: { bt: num(f.bt), hr: num(f.hr), sbp: num(f.sbp), dbp: num(f.dbp), rr: num(f.rr), spo2: num(f.spo2), o2: initial?.vitals?.o2 ?? "室内気" },
               heightCm: num(f.height),
               weightKg: num(f.weight),
               allergies: f.allergies.split(/[、,]/).map((a) => a.trim()).filter(Boolean),
@@ -410,6 +505,103 @@ function AdmitDialog({ er, ward, onCancel, onAdmit }: { er: ErPatient; ward: War
         </button>
       </div>
       <p className="mt-2 text-[11px] text-ink-faint">受けるとカルテが開きます。入院時の指示は、右の欄に話すか打ってください（例：入院時採血セット、血培2セット、生食500 1日2本 24時間で）。</p>
+    </Dialog>
+  );
+}
+
+function Reassess({ p, nowAbs }: { p: ErPatient; nowAbs: number }) {
+  const left = reassessIn(p, nowAbs);
+  if (left === null || !p.jtas) return null;
+  if (p.jtas === 1) return <div className="mt-0.5 text-[11px] font-bold text-shu">継続して観察</div>;
+  return (
+    <div className={`mt-0.5 text-[11px] ${left < 0 ? "font-bold text-shu" : "text-ink-soft"}`} title={`JTAS ${p.jtas}：${REASSESS_MIN[p.jtas]}分ごとに再評価（目安）`}>
+      {left < 0 ? `再評価 ${-left}分超過` : `再評価まで あと${left}分`}
+    </div>
+  );
+}
+
+const SAMPLE_CALL = "救急隊です。80代男性、自宅で呼吸苦の訴え。血圧160の90、脈110、呼吸数30、サチュレーション88、リザーバー10Lで95まで上がっています。体温37.4度、意識はJCS1桁。心不全で通院中、ラシックス内服。あと10分で着きます。";
+
+interface Call {
+  age?: number;
+  sex?: Sex;
+  complaint: string;
+  vitals: ErPatient["vitals"];
+  jcs?: string;
+  eta?: number;
+  history?: string;
+}
+
+/** The crew's phone report → items (Claude copies what was said) → a pre-arrival row. */
+function HotlineDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel: () => void; onSave: (p: ErPatient) => void }) {
+  const [text, setText] = useState("");
+  const [call, setCall] = useState<Call | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const read = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/hotline", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
+      setCall(json.call);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "読み取れませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const v = call?.vitals;
+  return (
+    <Dialog title="救急隊からの受入要請" onClose={onCancel}>
+      <p className="mb-2 text-[12px] text-ink-soft">電話で聞いたことを打つか話して、Claude で項目に分けます。Claude は言われたことを写すだけで、緊急度は決めません（トリアージは到着後に看護師が入れます）。氏名は入れないでください。</p>
+      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} className={`${input} w-full`} placeholder="例：80代男性、呼吸苦。血圧160の90、脈110、SpO2 88…あと10分" />
+      <div className="mt-2 flex items-center gap-2">
+        <button type="button" onClick={() => setText(SAMPLE_CALL)} className="rounded border border-rule px-2 py-1 text-[12px] text-ink-soft">
+          例文（架空）
+        </button>
+        <button type="button" disabled={!text.trim() || busy} onClick={read} className="rounded bg-ai px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40">
+          {busy ? "読み取り中…" : "Claude で項目にする"}
+        </button>
+        {error && <span className="text-[12px] text-shu">{error}</span>}
+      </div>
+      {call && (
+        <div className="mt-3 rounded-md border border-rule bg-paper p-3 text-[13px]">
+          <div>
+            <b>{call.sex ?? "性別不明"}・{call.age ? `${call.age}歳` : "年齢不明"}</b>　{call.complaint}
+          </div>
+          <div className="nums text-ink-soft">
+            BT {v?.bt ?? "—"}　HR {v?.hr ?? "—"}　BP {v?.sbp ?? "—"}/{v?.dbp ?? "—"}　RR {v?.rr ?? "—"}　SpO2 {v?.spo2 ?? "—"}%{v?.o2 ? `（${v.o2}）` : ""}
+          </div>
+          <div className="text-ink-soft">
+            意識 {call.jcs ?? "—"}　既往・内服 {call.history ?? "—"}
+          </div>
+          <div className="mt-1 font-bold text-shu">到着予定：{call.eta ? `あと${call.eta}分` : "言われていません"}</div>
+          <button
+            type="button"
+            onClick={() =>
+              onSave({
+                id: `er-${Date.now()}`,
+                name: "（到着前）",
+                kana: "",
+                sex: call.sex ?? "男",
+                age: call.age ?? 0,
+                arrival: "救急車",
+                arrivedAbs: nowAbs + (call.eta ?? 0),
+                complaint: call.complaint,
+                status: "搬送中",
+                vitals: call.vitals,
+                allergies: [],
+                hotline: { eta: call.eta ?? 0, jcs: call.jcs, history: call.history },
+              })
+            }
+            className="mt-2 rounded-md bg-shu px-4 py-1.5 text-sm font-bold text-white"
+          >
+            受け入れる（搬送中として一覧に入れる）
+          </button>
+        </div>
+      )}
     </Dialog>
   );
 }
