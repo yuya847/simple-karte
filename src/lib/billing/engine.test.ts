@@ -445,9 +445,10 @@ describe("検体検査を1項目ずつ（SRL の単位）", () => {
     // FT4 + NT-proBNP = 2項目 → 包括にならず各点数。TSH（D008 の6、包括外）も同じ欄に：121 + 136 + 98
     expect(find(r.acts, "160033310").acts[0].parts[0].points).toBe(355);
   });
-  it("内分泌を3項目（FT4・NT-proBNP・BNP を1週間あけて）→ 410点", () => {
-    const r = claim("2026-11", { admittedOn: -20, entries: [lab(-15, ["LAB-BNP"]), lab(-1, ["LAB-FT4", "LAB-NTBNP"])] });
+  it("BNP と NT-proBNP でも、1週間を超えて離れていれば両方算定（10/3 と 10/13）", () => {
+    const r = claim("2026-10", { admittedOn: -40, entries: [lab(-30, ["LAB-BNP"]), lab(-20, ["LAB-NTBNP"])] });
     expect(find(r.acts, "160162350").count).toBe(1);
+    expect(find(r.acts, "160181250").count).toBe(1);
   });
   it("出血・凝固（D006 の14〜34）を3項目以上: 530点（Dダイマーは1項目なので各点数）", () => {
     const r = claim("2026-11", { admittedOn: -5, entries: [lab(-1, ["LAB-DD", "LAB-PT", "LAB-APTT", "LAB-FIB"])] });
