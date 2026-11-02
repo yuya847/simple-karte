@@ -43,13 +43,16 @@ How to transcribe
   - rx_timings as said: "朝食後" → 朝, "朝夕" → 朝 夕, "毎食後" → 朝 昼 夕, "寝る前" / "眠前" → 眠前. "分3" alone without times → leave rx_timings empty (the app asks).
   - rx_category: "定期" / "臨時" only if said; "頓用" / "疼痛時" / "不眠時" / "発熱時" → 頓用 with the condition words in comment, "1日3回まで" → rx_max_per_day 3.
   - days: "7日分" → 7.
+- Imaging (画像検査) → kind "imaging"; physiological tests (心電図・エコー・呼吸機能・ABI・ホルター・脳波) → kind "physio". One order per study.
+  - exam: the study as said. exam_region: the body region words as said (imaging only). exam_contrast only if said. exam_purpose: the reason as said.
+  - When: "今から" / "すぐ" / "至急" → priority 至急 and start day today. "明日" → start day tomorrow, a clock time → start time. Otherwise unspecified.
 - Procedures (処置): kind "procedure", one order per procedure and site. procedure_code from the procedures master by name or alias. Anything not said is "" (text) or 0 (numbers), never a guess. For other kinds all procedure fields are "" or 0.
   - Oxygen: "酸素2L" → PROC-O2, o2_lpm 2. "カニュラ" → 鼻カニュラ, "マスク" → 簡易酸素マスク, "リザーバー" → リザーバー付きマスク. Device not said → "". A new flow for running oxygen ("酸素1Lに下げて") is a procedure order with the new flow; the app compares it with running orders.
   - size_said: copy the size words as said ("10×8cm", "150平方センチ"). Never compute an area.
   - depth: only when a DESIGN-R depth is said ("D3", "d2"). Words like "深い" are not a depth: leave "".
   - frequency for procedures: "1日1回" → per_day 1, "1日2回" → per_day 2, "隔日" → every_days 2, "必要時" / "適宜" / "痰が多い時" → prn, with the condition words ("痰が多い時") in comment, "1回" / "今" → once. Oxygen and catheters run until stopped → continuous. Not said → unspecified.
   - drugs for a procedure: an ointment or enema said with it ("ゲーベン塗布") → one drug with its code from procedure_drugs, amount only if said, unit as said.
-- Anything that is not an injection, a specimen lab order, an oral prescription or a procedure in the master (diet, rest, vital signs, imaging) or that you cannot map (e.g. "いつもの" with no matching set) goes in not_understood with a short reason in Japanese. This prototype handles injections, specimen labs, oral prescriptions and the procedures in the master only.
+- Anything that is not an injection, a specimen lab order, an oral prescription, an imaging or physiological test, or a procedure in the master (diet, rest, vital signs) or that you cannot map (e.g. "いつもの" with no matching set) goes in not_understood with a short reason in Japanese. This prototype handles injections, specimen labs, oral prescriptions, imaging, physiological tests and the procedures in the master only.
 - For fields that do not apply to the order kind, use empty arrays, "", 0 or "unspecified".
 
 Master of this (fictional) hospital:

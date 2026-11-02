@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, HeartPulse, Radiation } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-procedure" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -20,6 +20,8 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "diagnoses", label: "病名", icon: FileHeart },
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-lab", label: "検体検査", icon: TestTube },
+      { key: "add-imaging", label: "画像検査", icon: Radiation },
+      { key: "add-physio", label: "生理検査", icon: HeartPulse },
       { key: "add-rx", label: "処方", icon: Pill },
       { key: "add-procedure", label: "処置", icon: Bandage },
     ],
@@ -56,7 +58,7 @@ const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
 /** Fixed column of tools on the far right: order types, then things to look at. */
 export function ToolRail({ open, onOpen, leftView, onLeftView }: Props) {
   return (
-    <aside aria-label="ツール" className="flex flex-col items-stretch gap-1 border-l border-rule bg-paper px-1 py-2">
+    <aside aria-label="ツール" className="scroll-thin flex min-h-0 flex-col items-stretch gap-1 overflow-y-auto border-l border-rule bg-paper px-1 py-2">
       {GROUPS.map((g, gi) => (
         <div key={g.title} className={gi > 0 ? "mt-2 border-t border-rule pt-2" : ""}>
           <div className="mb-1 text-center text-[10px] text-ink-faint">{g.title}</div>

@@ -21,12 +21,13 @@ interface Props {
   onTake: (keys: string[]) => void;
 }
 
-const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血"];
+const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
 const KIND_STYLE: Record<WorkKind, string> = {
   注射: "bg-ai-soft text-ai",
   内服: "bg-wakatake-soft text-wakatake",
   処置: "bg-fuji-soft text-fuji",
   採血: "bg-yamabuki-soft text-yamabuki",
+  検査: "bg-tab text-ink",
 };
 
 const noSubscribe = () => () => {};

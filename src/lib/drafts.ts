@@ -40,6 +40,33 @@ import type {
   ProcedureOrder,
 } from "./types";
 import { checkPrescription, toPrescriptionOrders, type PrescriptionDraft } from "./rx";
+import { PHYSIO, REGIONS, checkImaging, checkPhysio, emptyImaging, emptyPhysio, toImagingOrder, toPhysioOrder, type ExamPatientFacts, type ImagingDraft, type Modality, type PhysioDraft } from "./exams";
+
+/** 移動 said in words (code reads the words). */
+function transportFromWords(w: string) {
+  if (/ストレッチャー/.test(w)) return "ストレッチャー" as const;
+  if (/車椅子|車いす/.test(w)) return "車椅子" as const;
+  if (/独歩|歩いて/.test(w)) return "独歩" as const;
+  return null;
+}
+
+/**
+ * The region of the master these words name (code, not Claude, decides). The longest name
+ * wins ("胸腹部" over "腹"); whether the modality is done for it is checked afterwards.
+ */
+export function regionFromWords(words: string, _modality?: Modality | null): string | null {
+  const w = words.normalize("NFKC").replace(/\s/g, "");
+  if (!w) return null;
+  let best: { code: string; len: number } | null = null;
+  for (const r of REGIONS) {
+    for (const a of [r.name, ...r.aliases]) {
+      if (w.includes(a) && (!best || a.length > best.len)) best = { code: r.code, len: a.length };
+    }
+  }
+  return best?.code ?? null;
+}
+
+export type { ImagingDraft, PhysioDraft } from "./exams";
 
 export type { PrescriptionDraft } from "./rx";
 
@@ -129,7 +156,7 @@ export interface UnclearDraft extends DraftBase {
   reason: string;
 }
 
-export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | StopDraft | UnclearDraft;
+export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | ImagingDraft | PhysioDraft | StopDraft | UnclearDraft;
 
 // ---------------------------------------------------------------------------
 // From Claude's output to drafts (codes not in the master are dropped to null)
@@ -221,6 +248,30 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
         drafts.push({ ...base, kind: "stop", drugCode: null, procCode: validProc(text(o.procedure_code)), said: o.source_text, targetOrderId: null });
       } else {
         drafts.push({ ...base, kind: "stop", drugCode: validDrug(d?.code ?? null), said: d?.said ?? o.source_text, targetOrderId: null });
+      }
+    } else if (o.kind === "imaging" || o.kind === "physio") {
+      const priority = o.priority === "至急" ? ("至急" as const) : o.start.time || o.start.day !== "unspecified" ? ("予約" as const) : null;
+      const when = { day: DAY[o.start.day] ?? (priority === "至急" ? 0 : null), time: o.start.time, priority };
+      const purpose = o.exam_purpose.trim() || null;
+      if (o.kind === "imaging") {
+        const modality = (["X線", "ポータブルX線", "CT", "MRI"] as const).find((m) => m === o.exam) ?? null;
+        drafts.push({
+          ...emptyImaging(base.id, modality),
+          origin: "ai",
+          sourceText: o.source_text,
+          comment: o.comment,
+          region: regionFromWords(o.exam_region, modality),
+          regionSaid: o.exam_region.trim(),
+          contrast: o.exam_contrast || null,
+          purpose,
+          when,
+          transport: modality === "ポータブルX線" ? "病室（ポータブル）" : transportFromWords(`${o.source_text}${o.comment ?? ""}`),
+        });
+      } else {
+        const test = PHYSIO.find((p) => p.aliases.includes(o.exam) || p.name.startsWith(o.exam))?.code ?? null;
+        const words = `${o.source_text}${o.comment ?? ""}`;
+        const place = /ベッドサイド|病室で|ベッド上/.test(words) ? ("ベッドサイド" as const) : /検査室|生理検査室/.test(words) ? ("検査室" as const) : null;
+        drafts.push({ ...emptyPhysio(base.id, test), origin: "ai", sourceText: o.source_text, comment: o.comment, said: o.exam || o.source_text, purpose, when, place, transport: transportFromWords(words) });
       }
     } else if (o.kind === "prescription") {
       const prn = o.rx_category === "頓用";
@@ -410,6 +461,8 @@ export interface CheckContext {
   describe: (o: OrderEntry) => string;
   /** The patient's allergies (for the prescription check). */
   allergies?: string[];
+  /** Sex, age, allergies and the latest Cre (for contrast and pregnancy checks). */
+  patientFacts?: ExamPatientFacts | null;
 }
 
 function drugCandidates(said: string): DrugMaster[] {
@@ -1153,6 +1206,10 @@ export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
       return checkProcedure(d, ctx);
     case "prescription":
       return checkPrescription(d, ctx, ctx.allergies ?? []);
+    case "imaging":
+      return checkImaging(d, ctx, ctx.patientFacts ?? null);
+    case "physio":
+      return checkPhysio(d, ctx);
     case "stop":
       return checkStop(d, ctx);
     case "unclear":
@@ -1176,6 +1233,8 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
   }
   if (d.kind === "unclear") return { stopIds: [] };
   if (d.kind === "prescription") return { orders: toPrescriptionOrders(d, ctx.nowTime, d.id), stopIds: [] };
+  if (d.kind === "imaging") return { order: toImagingOrder(d), stopIds: [] };
+  if (d.kind === "physio") return { order: toPhysioOrder(d), stopIds: [] };
   if (d.kind === "procedure") {
     const m = findProc(d.code!)!;
     const a = procArea(d);

@@ -3,7 +3,8 @@
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { findDrug, findLab, findOralDrug, findSet } from "./master";
 import { AREA_LABEL, DEPTH_LABEL, findProc, findProcDrug, procScheduleText } from "./procedures";
-import type { InjectionOrder, InjectionSchedule, LabOrder, Order, PrescriptionOrder, ProcedureOrder } from "./types";
+import type { ImagingOrder, InjectionOrder, InjectionSchedule, LabOrder, Order, PhysioOrder, PrescriptionOrder, ProcedureOrder } from "./types";
+import { findPhysio, findRegion } from "./exams";
 
 export function scheduleText(s: InjectionSchedule): string {
   switch (s.kind) {
@@ -110,7 +111,28 @@ export function procedureLines(order: ProcedureOrder, today: CalendarDate): { ma
   return { main: procedureTitle(order), detail: parts.join("　") };
 }
 
+function examWhen(w: ImagingOrder["when"], today: CalendarDate): string {
+  return w.priority === "至急" ? "至急" : `${formatShort(addDays(today, w.day))}${w.time ? ` ${w.time}` : ""} 予約`;
+}
+
+export function imagingTitle(o: ImagingOrder): string {
+  const region = findRegion(o.region)?.name ?? o.region;
+  return `${o.modality}　${region}${o.contrast ? `　${o.contrast}` : ""}`;
+}
+
+export function imagingLines(o: ImagingOrder, today: CalendarDate): { main: string; detail: string } {
+  const parts = [o.views?.join("＋"), examWhen(o.when, today), o.transport, `目的：${o.purpose}`, o.acks?.join("・"), o.answers?.metal && `体内金属：${o.answers.metal}`, o.comment].filter(Boolean) as string[];
+  return { main: imagingTitle(o), detail: parts.join("　") };
+}
+
+export function physioLines(o: PhysioOrder, today: CalendarDate): { main: string; detail: string } {
+  const parts = [examWhen(o.when, today), o.place, o.transport, `目的：${o.purpose}`, o.comment].filter(Boolean) as string[];
+  return { main: findPhysio(o.test)?.name ?? o.test, detail: parts.join("　") };
+}
+
 export function orderLines(order: Order, today: CalendarDate) {
+  if (order.type === "imaging") return imagingLines(order, today);
+  if (order.type === "physio") return physioLines(order, today);
   if (order.type === "injection") return injectionLines(order, today);
   if (order.type === "lab") return labLines(order, today);
   if (order.type === "procedure") return procedureLines(order, today);
@@ -122,4 +144,6 @@ export const ORDER_TYPE_LABEL: Record<Order["type"], string> = {
   lab: "検体検査",
   prescription: "処方",
   procedure: "処置",
+  imaging: "画像検査",
+  physio: "生理検査",
 };

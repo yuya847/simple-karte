@@ -1,6 +1,9 @@
 // Domain types for the ward chart. All patient data in this app is fictional.
 
 import type { AreaClass, O2Device, ProcSchedule, UlcerDepth } from "./procedures";
+import type { ImagingOrder, PhysioOrder } from "./exams";
+
+export type { ImagingOrder, PhysioOrder } from "./exams";
 
 /** Day offset from "today" (0 = today, -1 = yesterday). Dates are resolved at runtime. */
 export type DayOffset = number;
@@ -90,7 +93,7 @@ export interface OrderEntry {
 
 // ---------- Orders ----------
 
-export type Order = InjectionOrder | LabOrder | PrescriptionOrder | ProcedureOrder;
+export type Order = InjectionOrder | LabOrder | PrescriptionOrder | ProcedureOrder | ImagingOrder | PhysioOrder;
 
 export type InjectionRoute = "点滴静注" | "静注" | "皮下注" | "筋注";
 
@@ -203,7 +206,7 @@ export interface CultureResult {
 export interface ImagingStudy {
   id: string;
   day: DayOffset;
-  modality: "X線" | "CT" | "超音波";
+  modality: "X線" | "CT" | "MRI" | "超音波";
   region: string;
   report: string;
   reader: string;

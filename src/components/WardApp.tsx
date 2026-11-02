@@ -37,7 +37,8 @@ import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
-import { AddInjectionPanel, AddLabPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
+import { AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
+import { latestCre } from "@/lib/exams";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
@@ -200,6 +201,7 @@ export default function WardApp() {
         return `${main}（${detail}）`;
       },
       allergies: patient?.allergies ?? [],
+      patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: patient.allergies, cre: latestCre(patient) } : null,
     };
   }, [entries, chart.drafts, nowTime, today, patient]);
 
@@ -556,7 +558,7 @@ export default function WardApp() {
               )}
               {panel === "imaging" && (
                 <Drawer title="放射線画像" onClose={closePanel} wide>
-                  <ImagingPanel patient={patient} today={today} />
+                  <ImagingPanel patient={patient} today={today} entries={entries} nowAbs={abs(0, nowTime)} />
                 </Drawer>
               )}
               {panel === "active-orders" && (
@@ -572,6 +574,16 @@ export default function WardApp() {
               {panel === "add-rx" && (
                 <Drawer title="処方（Rp 入力）" onClose={closePanel} wide>
                   <AddRxPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "add-imaging" && (
+                <Drawer title="画像検査" onClose={closePanel}>
+                  <AddImagingPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "add-physio" && (
+                <Drawer title="生理検査" onClose={closePanel}>
+                  <AddPhysioPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-procedure" && (

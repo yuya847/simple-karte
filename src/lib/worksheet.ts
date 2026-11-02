@@ -5,7 +5,11 @@ import { prescriptionCell } from "./calendar";
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { doseVolumeMl } from "./drafts";
 import { abs, doseTimes, orderInterval } from "./flowsheet";
-import { drugName, durationText, labName, oralName, procedureTitle, scheduleTextFor } from "./format";
+import { drugName, durationText, labName, oralName, orderLines, procedureTitle, scheduleTextFor } from "./format";
+import { examAt } from "./exams";
+
+// Exam lines only need the title here; the date part is not shown on the worksheet.
+const todayStub = { y: 2000, m: 1, d: 1 };
 import { findDrug, findLab, WARD_RULES } from "./master";
 import { procEvents, procInterval } from "./proc-timing";
 import { AREA_LABEL, findProc, findProcDrug, procScheduleText } from "./procedures";
@@ -27,7 +31,7 @@ export function shiftWindow(shift: Shift, day: DayOffset): { lo: number; hi: num
   return { lo, hi };
 }
 
-export type WorkKind = "注射" | "内服" | "処置" | "採血";
+export type WorkKind = "注射" | "内服" | "処置" | "採血" | "検査";
 
 export interface WorkPatient {
   patient: Patient;
@@ -152,6 +156,12 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         } else {
           for (const t of procEvents(e, lo, hi, nowAbs)) timed.push({ ...base, at: t, kind: "処置", main, detail, orderId: e.id, state: state(t) });
         }
+      } else if (o.type === "imaging" || o.type === "physio") {
+        if (e.status === "中止") continue;
+        const t = examAt(o, abs(e.day, e.time));
+        if (t < lo || t >= hi) continue;
+        const { main, detail } = orderLines(o, todayStub);
+        timed.push({ ...base, at: t, kind: "検査", main, detail: [o.type === "imaging" ? o.transport : o.place === "検査室" ? `検査室へ ${o.transport ?? ""}` : "ベッドサイド", o.when.priority === "至急" ? "至急" : ""].filter(Boolean).join("　") || detail, orderId: e.id, state: state(t), urgent: o.when.priority === "至急" });
       } else if (o.type === "lab") {
         const lab = o as LabOrder;
         if (e.status === "中止") continue;

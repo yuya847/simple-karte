@@ -26,10 +26,17 @@ const Test = z.object({ code: z.string().nullable(), said: z.string() });
 const FREQUENCY = ["per_day", "every_hours", "every_days", "prn", "continuous", "once", "unspecified"] as const;
 
 const RX_TIMING = z.enum(["朝", "昼", "夕", "眠前"]);
+const EXAM = z.enum(["X線", "ポータブルX線", "CT", "MRI", "心電図", "心エコー", "腹部エコー", "頸動脈エコー", "下肢静脈エコー", "呼吸機能", "ABI", "ホルター心電図", "脳波", ""]);
+
 
 export const AiOrder = z.object({
-  kind: z.enum(["injection", "lab", "procedure", "prescription", "stop"]),
+  kind: z.enum(["injection", "lab", "procedure", "prescription", "imaging", "physio", "stop"]),
   source_text: z.string(),
+  // imaging / physiological test
+  exam: EXAM,
+  exam_region: z.string(),
+  exam_contrast: z.enum(["単純", "造影", "単純＋造影", ""]),
+  exam_purpose: z.string(),
   // prescription
   rx_category: z.enum(["定期", "臨時", "頓用", ""]),
   rx_amount_is: z.enum(["1日量", "1回量", ""]),
@@ -92,8 +99,13 @@ const WireTest = z.object({
 });
 
 export const AiWireOrder = z.object({
-  kind: z.enum(["injection", "lab", "procedure", "prescription", "stop"]),
+  kind: z.enum(["injection", "lab", "procedure", "prescription", "imaging", "physio", "stop"]),
   source_text: z.string().describe("The exact part of the instruction this order came from"),
+
+  exam: EXAM.describe('Imaging or physiological test as said ("レントゲン" → X線, "ポータブル" → ポータブルX線, "ECG" → 心電図); "" otherwise'),
+  exam_region: z.string().describe('Body region as said for imaging ("胸部", "腹部骨盤"); "" if not said'),
+  exam_contrast: z.enum(["単純", "造影", "単純＋造影", ""]).describe('"造影" only if said; "単純" only if said; "" otherwise'),
+  exam_purpose: z.string().describe('Why, as said ("肺炎の評価", "心不全の経過"); "" if not said'),
 
   rx_category: z.enum(["定期", "臨時", "頓用", ""]).describe('Oral prescription: "定期" / "臨時" if said, "頓用" for as-needed; "" otherwise'),
   rx_amount_is: z.enum(["1日量", "1回量", ""]).describe('Whether the amount said is per day ("1日3錠") or per dose ("1回1錠"); "" if not said or not a prescription'),
@@ -158,6 +170,10 @@ export function fromWire(w: AiWireResponse): AiDraftResponse {
     orders: w.orders.map((o) => ({
       kind: o.kind,
       source_text: o.source_text,
+      exam: o.exam,
+      exam_region: o.exam_region,
+      exam_contrast: o.exam_contrast,
+      exam_purpose: o.exam_purpose,
       rx_category: o.rx_category,
       rx_amount_is: o.rx_amount_is,
       rx_timings: o.rx_timings,

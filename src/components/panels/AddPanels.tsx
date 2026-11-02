@@ -5,6 +5,7 @@ import { useState } from "react";
 import { newProcedureDraft, type Draft, type LabDraft } from "@/lib/drafts";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug } from "@/lib/master";
 import { USAGES } from "@/lib/rx";
+import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
 import { PROCEDURES, findProcDrug } from "@/lib/procedures";
 
 /** Browse the injection master. Picking a drug puts its name into the instruction box to finish by voice or keys. */
@@ -279,6 +280,99 @@ export function AddRxPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newI
         </button>
       </div>
       <p className="text-[11px] text-ink-faint">1回量は1日量 ÷ 回数でコードが出します。チェック（割り切れない量・重複・アレルギー・極量）は右の下書きに出ます。重複・アレルギー・極量は、承知コメントを付けて確定できます。</p>
+    </div>
+  );
+}
+
+/**
+ * Imaging order: pick the modality, then the region (only regions this hospital does for that
+ * modality), and say why. Views, contrast, date and transport are asked on the draft with choices,
+ * and the safety checks (eGFR, contrast allergy, MRI metal, pregnancy) run there.
+ */
+export function AddImagingPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
+  const [modality, setModality] = useState<Modality>("X線");
+  const [region, setRegion] = useState<string | null>(null);
+  const [purpose, setPurpose] = useState("");
+  const regions = REGIONS.filter((r) => r.modalities.includes(modality));
+  return (
+    <div className="space-y-3 text-[13px]">
+      <div role="radiogroup" aria-label="種類" className="flex flex-wrap gap-1">
+        {MODALITIES.map((m) => (
+          <button
+            key={m}
+            type="button"
+            role="radio"
+            aria-checked={modality === m}
+            onClick={() => {
+              setModality(m);
+              setRegion(null);
+            }}
+            className={`rounded-md border px-3 py-1.5 ${modality === m ? "border-ai bg-ai font-bold text-white" : "border-rule text-ink-soft hover:border-ai"}`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <div>
+        <h3 className="mb-1 text-xs font-bold text-ink-soft">部位（{modality}）</h3>
+        <div className="grid grid-cols-3 gap-1.5">
+          {regions.map((r) => (
+            <button
+              key={r.code}
+              type="button"
+              onClick={() => setRegion(r.code)}
+              className={`rounded-md border px-2 py-2 ${region === r.code ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule hover:border-ai"}`}
+            >
+              {r.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="flex flex-col gap-1 text-xs text-ink-soft">
+        目的（臨床診断・知りたいこと）
+        <input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="例：肺炎の経過" className="rounded-md border border-rule bg-paper px-2 py-1.5 text-[13px] text-ink outline-none focus:border-ai" />
+      </label>
+      <button
+        type="button"
+        disabled={!region}
+        onClick={() => onAdd({ ...emptyImaging(newId(), modality), region, purpose: purpose.trim() || null })}
+        className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+      >
+        下書きにする
+      </button>
+      <p className="text-[11px] text-ink-faint">撮影の方向・単純か造影か・日時・移動は、右の下書きで選びます。造影なら腎機能（eGFR はコードで計算）・造影剤アレルギー、MRI なら体内金属の確認が出ます。部位と検査の組み合わせは架空の病院のものです。</p>
+    </div>
+  );
+}
+
+/** Physiological tests: pick the test and say why; place, date and transport are asked on the draft. */
+export function AddPhysioPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
+  const [test, setTest] = useState<string | null>(null);
+  const [purpose, setPurpose] = useState("");
+  return (
+    <div className="space-y-3 text-[13px]">
+      <ul className="divide-y divide-rule-soft rounded border border-rule-soft">
+        {PHYSIO.map((p) => (
+          <li key={p.code}>
+            <button type="button" onClick={() => setTest(p.code)} className={`flex w-full items-baseline gap-2 px-2 py-2 text-left ${test === p.code ? "bg-ai-soft font-bold text-ai" : "hover:bg-paper"}`}>
+              {p.name}
+              <span className="ml-auto text-[11px] font-normal text-ink-faint">{p.bedside ? "ベッドサイド可" : "検査室"}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <label className="flex flex-col gap-1 text-xs text-ink-soft">
+        目的
+        <input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="例：心機能評価" className="rounded-md border border-rule bg-paper px-2 py-1.5 text-[13px] text-ink outline-none focus:border-ai" />
+      </label>
+      <button
+        type="button"
+        disabled={!test}
+        onClick={() => onAdd({ ...emptyPhysio(newId(), test), purpose: purpose.trim() || null })}
+        className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+      >
+        下書きにする
+      </button>
     </div>
   );
 }

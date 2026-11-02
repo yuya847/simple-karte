@@ -4,7 +4,7 @@ import type { Diagnosis } from "../diagnoses";
 import type { CultureResult, DailyRecord, DayOffset, HistoryEntry, Sex } from "../types";
 
 /** 診療識別 (記録条件仕様 別表20). */
-export type Shikibetsu = "13" | "21" | "22" | "24" | "27" | "31" | "32" | "33" | "40" | "60" | "80" | "90" | "92" | "97";
+export type Shikibetsu = "13" | "21" | "22" | "24" | "27" | "31" | "32" | "33" | "40" | "60" | "70" | "80" | "90" | "92" | "97";
 
 export const SHIKIBETSU_NAME: Record<Shikibetsu, string> = {
   "13": "医学管理",
@@ -17,6 +17,7 @@ export const SHIKIBETSU_NAME: Record<Shikibetsu, string> = {
   "33": "注射 その他（点滴）",
   "40": "処置",
   "60": "検査",
+  "70": "画像診断",
   "80": "その他",
   "90": "入院基本料",
   "92": "特定入院料・その他",

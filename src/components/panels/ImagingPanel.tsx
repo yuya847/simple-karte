@@ -2,11 +2,29 @@
 
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import type { ImagingStudy, Patient } from "@/lib/types";
+import { examAt, findRegion } from "@/lib/exams";
+import type { HistoryEntry, ImagingOrder, ImagingStudy, Patient } from "@/lib/types";
 
 /** Radiology studies with their reports. Images are schematic placeholders, not real images. */
-export function ImagingPanel({ patient, today }: { patient: Patient; today: CalendarDate }) {
-  const studies = [...patient.imaging].sort((a, b) => b.day - a.day);
+export function ImagingPanel({ patient, today, entries = [], nowAbs = 0 }: { patient: Patient; today: CalendarDate; entries?: HistoryEntry[]; nowAbs?: number }) {
+  // Studies ordered in this app: done (time passed) ones wait for the report; ahead ones are booked.
+  const ordered: ImagingStudy[] = entries.flatMap((e) => {
+    if (e.kind !== "order" || e.order.type !== "imaging" || e.status === "中止") return [];
+    const o = e.order as ImagingOrder;
+    const at = examAt(o, e.day * 1440 + Number(e.time.slice(0, 2)) * 60 + Number(e.time.slice(3)));
+    const done = at <= nowAbs;
+    return [
+      {
+        id: e.id,
+        day: Math.floor(at / 1440),
+        modality: o.modality === "ポータブルX線" ? "X線" : o.modality,
+        region: `${findRegion(o.region)?.name ?? o.region}${o.contrast ? `（${o.contrast}）` : ""}`,
+        report: done ? "撮影済み。読影をお待ちください（この試作では読影レポートは架空の記録だけです）。" : `予約：${o.when.priority === "至急" ? "至急" : `${o.when.time ?? ""}`}　目的：${o.purpose}`,
+        reader: done ? "（読影待ち）" : "（未実施）",
+      },
+    ];
+  });
+  const studies = [...patient.imaging, ...ordered].sort((a, b) => b.day - a.day);
   const [selectedId, setSelectedId] = useState(studies[0]?.id);
   const selected = studies.find((s) => s.id === selectedId);
 

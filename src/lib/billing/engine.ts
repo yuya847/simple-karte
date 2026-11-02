@@ -10,7 +10,8 @@ import { findDrug, findLab, findSet, WARD_RULES } from "../master";
 import { procEvents, procInterval, procMinutes } from "../proc-timing";
 import { AREA_LABEL, CATHETER, findProcDrug, isSevereUlcer } from "../procedures";
 import type { HistoryEntry, InjectionOrder, LabOrder, OrderEntry, PrescriptionOrder, ProcedureOrder } from "../types";
-import { CODES, LAB_CODES, PROC_CODES, TOKKI_CODES } from "./codes";
+import { CODES, IMAGING_CODES as IC, LAB_CODES, PROC_CODES, RESP_JUDGE, TOKKI_CODES } from "./codes";
+import { examAt, findPhysio, findRegion, type ImagingOrder, type PhysioOrder } from "../exams";
 import { drugPoints, masterQuantity, materialPoints, officialDrugCode, oxygenYen, procDrugPoints } from "./drug";
 import { HOSPITAL, meetsStandards } from "./facility";
 import { bukkaFor, commentItem, iyakuItem, shinryoItem, tokkiItem } from "./master-items";
@@ -364,6 +365,66 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
         text: `${fmt(d)} に創傷処置・褥瘡処置が${woundOrders}つあります。同じ疾病（またはそれに起因する病変）なら面積を合算して1つの区分で算定し、同じ部位なら1つだけ算定します（通知 J000(2)(3)）。人が確かめてください。`,
       });
     }
+  }
+
+  // ===== 70 画像診断・60 生理検査 =====
+  // A study counts as done once its time has passed (no 実施 record in this prototype).
+  const studies = orders
+    .filter((e) => (e.order.type === "imaging" || e.order.type === "physio") && e.status !== "中止")
+    .map((e) => ({ e, at: examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time)) }))
+    .filter(({ at }) => at <= nowAbs && inMonth.has(Math.floor(at / DAY)))
+    .sort((a, b) => a.at - b.at);
+  let ctMriCount = 0;
+  for (const { e, at } of studies) {
+    const d = Math.floor(at / DAY);
+    if (e.order.type === "physio") {
+      const o = e.order as PhysioOrder;
+      const m = findPhysio(o.test);
+      if (!m) continue;
+      add({ day: d, shikibetsu: "60", parts: [{ lines: m.codes.map((c) => si(c)), points: m.codes.reduce((s, c) => s + pts(c), 0) }], basis: `${m.name}（生体検査。${o.place}）` });
+      if (o.test === "PHY-SPIRO") add({ day: d, shikibetsu: "60", parts: [{ lines: [si(RESP_JUDGE)], points: pts(RESP_JUDGE) }], basis: "D205 呼吸機能検査等判断料（月1回）" });
+      continue;
+    }
+    const o = e.order as ImagingOrder;
+    const region = findRegion(o.region);
+    if (o.modality === "X線" || o.modality === "ポータブルX線") {
+      // 第2節 通則3: 同一部位・同時に2枚以上 → 2〜5枚目は写真診断・撮影とも100分の50、6枚目以降は算定しない
+      const films = Math.min(o.views?.length ?? 1, 5);
+      const k = 1 + 0.5 * (films - 1);
+      const diag = region?.xray === "ロ" ? IC.写真診断ロ : IC.写真診断イ;
+      const lines = [si(diag), ...(films > 1 && diag === IC.写真診断イ ? [si(IC.写真診断イ2枚以上)] : []), si(IC.単純撮影デジタル), ...(films > 1 ? [si(IC.単純撮影デジタル2枚以上)] : []), si(IC.電子画像管理加算単純)];
+      const points = Math.round(pts(diag) * k) + Math.round(pts(IC.単純撮影デジタル) * k) + pts(IC.電子画像管理加算単純);
+      add({
+        day: d,
+        shikibetsu: "70",
+        parts: [{ lines, points }],
+        basis: `E001 写真診断（${region?.xray ?? "イ"}：${region?.name ?? o.region}）＋ E002 撮影（デジタル）＋ 電子画像管理加算（単純撮影）。${films}枚${films > 1 ? `（2枚目から100分の50：(${pts(diag)} + ${pts(IC.単純撮影デジタル)}) × ${k}）` : ""}${o.modality === "ポータブルX線" ? "。病室で撮影" : ""}`,
+      });
+      if ((o.views?.length ?? 1) > 1 && region?.xray === "ロ") issues.push({ level: "review", text: `${region.name}の2枚目の写真診断（ロ）の記録の仕方を確かめてください。` });
+      continue;
+    }
+    // CT / MRI
+    ctMriCount++;
+    const ct = o.modality === "CT";
+    const base = ct ? IC.CT : IC.MRI;
+    const contrast = o.contrast && o.contrast !== "単純" ? (ct ? IC.CT造影 : IC.MRI造影) : null;
+    const second = ctMriCount >= 2;
+    const shootLines = [si(base), ...(second ? [si(IC.CTMRI2回目減算)] : []), ...(contrast ? [si(contrast)] : [])];
+    // 通則2: 同一月の2回目以降は撮影の所定点数の100分の80（造影剤使用加算は減算に含めない扱い。下の確かめるを参照）
+    const shoot = (second ? Math.round(pts(base) * 0.8) : pts(base)) + (contrast ? pts(contrast) : 0);
+    add({
+      day: d,
+      shikibetsu: "70",
+      parts: [
+        { lines: shootLines, points: shoot },
+        { lines: [si(IC.電子画像管理加算断層)], points: pts(IC.電子画像管理加算断層) },
+      ],
+      basis: `${ct ? "E200 CT撮影（16列以上64列未満）" : "E202 MRI撮影（1.5テスラ以上3テスラ未満）"}${contrast ? "＋造影剤使用加算" : ""}${second ? "（同一月2回目以降：撮影料は100分の80。第3節 通則2）" : ""} ＋ 電子画像管理加算（一連につき）。${region?.name ?? ""}`,
+    });
+    // E203 コンピューター断層診断: 種類・回数にかかわらず月1回
+    if (!second) add({ day: d, shikibetsu: "70", parts: [{ lines: [si(IC.断層診断)], points: pts(IC.断層診断) }], basis: "E203 コンピューター断層診断（CT・MRI の種類・回数にかかわらず月1回）" });
+    if (second && contrast) issues.push({ level: "review", text: "同一月2回目以降のCT・MRIの減算（100分の80）を、造影剤使用加算にも掛けるかを確かめてください（この試作は撮影料だけに掛けています）。" });
+    if (contrast) issues.push({ level: "review", text: "造影剤（薬剤料）はこの試作では入っていません。使った造影剤を足してください。" });
   }
 
   // ===== 60 検体検査 =====
@@ -823,7 +884,7 @@ function applyRules(acts: DayAct[], ctx: RuleCtx): DayAct[] {
   return out;
 }
 
-const ORDER: Shikibetsu[] = ["13", "21", "22", "24", "27", "31", "32", "33", "40", "60", "80", "90", "92", "97"];
+const ORDER: Shikibetsu[] = ["13", "21", "22", "24", "27", "31", "32", "33", "40", "60", "70", "80", "90", "92", "97"];
 
 /** Merge identical day entries into receipt entries (count = days × times). */
 function mergeActs(acts: DayAct[], cal: ReturnType<typeof calendar>): ClaimAct[] {

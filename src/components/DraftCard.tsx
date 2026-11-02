@@ -7,6 +7,7 @@ import { anyDrugName, findLab } from "@/lib/master";
 import { AREA_LABEL, findProc, findProcDrug, procScheduleText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
 import { perDoseOf, usageLabel } from "@/lib/rx";
+import { findPhysio, findRegion } from "@/lib/exams";
 
 interface Props {
   draft: Draft;
@@ -17,7 +18,7 @@ interface Props {
   onRedo: () => void;
 }
 
-const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "処方", stop: "中止", unclear: "聞き取れず" };
+const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "処方", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo }: Props) {
@@ -158,6 +159,29 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
         </div>
         <div className="text-xs text-ink-soft">{parts.join("　")}</div>
         {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}
+      </div>
+    );
+  }
+
+  if (draft.kind === "imaging" || draft.kind === "physio") {
+    const w = draft.when;
+    const when = !w.priority ? "日時？" : w.priority === "至急" ? "至急" : `${ctx.fmtDay(w.day ?? 0)} ${w.time ?? ""} 予約`;
+    const head =
+      draft.kind === "imaging"
+        ? [draft.modality ?? "種類？", draft.region ? (findRegion(draft.region)?.name ?? draft.region) : draft.regionSaid ? `${draft.regionSaid}（？）` : "部位？", draft.contrast].filter(Boolean).join("　")
+        : draft.test
+          ? (findPhysio(draft.test)?.name ?? draft.test)
+          : `${draft.said || "検査"}（？）`;
+    const sub =
+      draft.kind === "imaging"
+        ? [draft.views?.join("＋"), when, draft.transport ?? (draft.modality === "ポータブルX線" ? "病室" : "移動？")]
+        : [when, draft.place ?? "場所？", draft.place === "検査室" ? (draft.transport ?? "移動？") : null];
+    return (
+      <div>
+        <div className="font-bold">{head}</div>
+        <div className="text-xs text-ink-soft">{sub.filter(Boolean).join("　")}</div>
+        <div className="text-xs text-ink-soft">目的：{draft.purpose ?? <span className="text-yamabuki">？</span>}</div>
+        {draft.acks.length > 0 && <span className="rounded bg-yamabuki-soft px-1 text-[11px] text-yamabuki">{draft.acks.join("・")}</span>}
       </div>
     );
   }

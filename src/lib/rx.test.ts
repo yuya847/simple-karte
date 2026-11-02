@@ -52,7 +52,8 @@ describe("処方（Rp）", () => {
     expect(w.level).toBe("ask");
     const acked = w.choices![0].apply!(d);
     expect(isReady(checkDraft(acked, ctx()))).toBe(true);
-    expect((toOrder(acked, ctx()).orders ?? [])[0].acks).toEqual(["アレルギー承知"]);
+    const o = (toOrder(acked, ctx()).orders ?? [])[0];
+    expect(o.type === "prescription" && o.acks).toEqual(["アレルギー承知"]);
   });
   it("極量: ロキソプロフェン 1日4錠 = 240mg > 180mg", () => {
     const d = rx({ items: [{ drugCode: "ORAL-LOX60", said: "", daily: 4, perDose: null }], timings: ["朝", "昼", "夕", "眠前"], acks: ["アレルギー承知"] });
