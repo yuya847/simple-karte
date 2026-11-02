@@ -1,0 +1,538 @@
+// FICTIONAL patients for the demo. Names, IDs, findings and results are all made up.
+// Days are offsets from "today" so the demo always reads as the current week.
+
+import type { HistoryEntry, Patient } from "./types";
+
+let seq = 0;
+const oid = (p: string) => `${p}-${++seq}`;
+
+// ---------------------------------------------------------------------------
+// 1. 佐倉 修：右下腿蜂窩織炎 → 血液培養で MRSA（入院4日目の朝に判明）
+// ---------------------------------------------------------------------------
+const sakuraHistory: HistoryEntry[] = [
+  {
+    kind: "note",
+    day: -3,
+    time: "14:20",
+    author: "山本（専攻医）",
+    role: "医師",
+    soap: {
+      s: "2日前から右下腿の痛みと腫れ。昨日から38℃台の発熱。",
+      o: "BT 38.9℃、BP 128/74、HR 104、SpO2 96%（室内気）。右下腿前面に15×10cmの発赤・熱感・圧痛。水疱・紫斑なし、握雪感なし。足趾間に白癬あり。",
+      a: "右下腿蜂窩織炎。菌血症の可能性あり。",
+      p: "血液培養2セット採取後に抗菌薬開始。補液。下腿X線。発赤の範囲をマーキング。",
+    },
+  },
+  {
+    kind: "order",
+    id: oid("o"),
+    day: -3,
+    time: "14:30",
+    author: "山本（専攻医）",
+    status: "実施済",
+    order: {
+      type: "lab",
+      codes: ["LAB-BCX"],
+      collect: { day: -3, time: "14:40" },
+      priority: "至急",
+      comment: "2セット（右腕・左腕）",
+    },
+  },
+  {
+    kind: "order",
+    id: oid("o"),
+    day: -3,
+    time: "14:30",
+    author: "山本（専攻医）",
+    status: "実施済",
+    order: {
+      type: "lab",
+      codes: ["SET-ADMIT"],
+      collect: { day: -3, time: "14:40" },
+      priority: "至急",
+    },
+  },
+  {
+    kind: "order",
+    id: "sakura-cez",
+    day: -3,
+    time: "14:35",
+    author: "山本（専攻医）",
+    status: "有効",
+    order: {
+      type: "injection",
+      items: [
+        { drugCode: "INJ-CEZ1", amount: 2, unit: "g" },
+        { drugCode: "INJ-NS100", amount: 100, unit: "mL" },
+      ],
+      route: "点滴静注",
+      schedule: { kind: "every_hours", hours: 8 },
+      minutesPerDose: 30,
+      start: { day: -3, time: "15:30" },
+    },
+  },
+  {
+    kind: "order",
+    id: "sakura-veenf",
+    day: -3,
+    time: "14:35",
+    author: "山本（専攻医）",
+    status: "有効",
+    order: {
+      type: "injection",
+      items: [{ drugCode: "INJ-VEENF500", amount: 500, unit: "mL" }],
+      route: "点滴静注",
+      schedule: { kind: "per_day", count: 2 },
+      rateMlPerH: 42,
+      start: { day: -3, time: "15:00" },
+    },
+  },
+  {
+    kind: "note",
+    day: -3,
+    time: "16:10",
+    author: "看護師 田中",
+    role: "看護師",
+    text: "入院時オリエンテーション済。右下腿の発赤をマーキング。転倒リスク評価：中。",
+  },
+  {
+    kind: "note",
+    day: -2,
+    time: "09:10",
+    author: "山本（専攻医）",
+    role: "医師",
+    soap: {
+      s: "足の痛みは昨日と変わらない。",
+      o: "BT 38.2℃、HR 96。発赤はマーキングの範囲内。",
+      a: "右下腿蜂窩織炎、治療2日目。",
+      p: "CEZ継続。血液培養の結果待ち。明朝採血。",
+    },
+  },
+  {
+    kind: "order",
+    id: oid("o"),
+    day: -2,
+    time: "09:20",
+    author: "山本（専攻医）",
+    status: "実施済",
+    order: {
+      type: "lab",
+      codes: ["SET-ROUTINE"],
+      collect: { day: -1, time: "06:00" },
+      priority: "定時",
+    },
+  },
+  {
+    kind: "note",
+    day: -1,
+    time: "09:00",
+    author: "山本（専攻医）",
+    role: "医師",
+    soap: {
+      s: "少し楽になった。",
+      o: "BT 37.8℃、HR 90。発赤はやや縮小。WBC 12,100、CRP 14.6。",
+      a: "改善傾向。",
+      p: "CEZ継続。",
+    },
+  },
+  {
+    kind: "note",
+    day: -1,
+    time: "16:30",
+    author: "微生物検査室",
+    role: "検査室",
+    text: "血液培養（入院1日目採取）2/2セット陽性。グラム染色：グラム陽性球菌（ブドウ状）。同定・感受性は明朝報告予定。",
+  },
+  {
+    kind: "note",
+    day: -1,
+    time: "16:50",
+    author: "山本（専攻医）",
+    role: "医師",
+    text: "血液培養2/2セットでGPC（cluster）の報告。黄色ブドウ球菌を疑う。同定・感受性の結果を待ち、明朝の結果で抗菌薬を見直す。",
+  },
+  {
+    kind: "order",
+    id: oid("o"),
+    day: -1,
+    time: "17:00",
+    author: "山本（専攻医）",
+    status: "実施済",
+    order: {
+      type: "lab",
+      codes: ["SET-ROUTINE"],
+      collect: { day: 0, time: "06:00" },
+      priority: "定時",
+    },
+  },
+  {
+    kind: "note",
+    day: 0,
+    time: "07:00",
+    author: "看護師 佐々木",
+    role: "看護師",
+    text: "BT 37.6℃、BP 122/70、HR 88、SpO2 97%（室内気）。右下腿の発赤はマーキング内で縮小。夜間は眠れていた。",
+  },
+  {
+    kind: "note",
+    day: 0,
+    time: "07:50",
+    author: "微生物検査室",
+    role: "検査室",
+    text: "血液培養（入院1日目採取）：MRSA（メチシリン耐性黄色ブドウ球菌）と同定。感受性は検査結果の画面を参照。",
+  },
+];
+
+const sakura: Patient = {
+  id: "90010231",
+  name: "佐倉 修",
+  kana: "サクラ オサム",
+  sex: "男",
+  age: 72,
+  ward: "5階東",
+  room: "512",
+  department: "総合診療科",
+  attending: "山本（専攻医）",
+  admittedOn: -3,
+  admissionDiagnosis: "右下腿蜂窩織炎、菌血症",
+  heightCm: 165,
+  weightKg: 58,
+  allergies: ["ヨード造影剤（蕁麻疹）"],
+  infections: ["MRSA（血液）"],
+  cautions: ["転倒注意"],
+  history: sakuraHistory,
+  labs: [
+    {
+      day: -3,
+      time: "14:40",
+      values: { WBC: 14800, Neut: 88, Hb: 13.2, Plt: 18.4, CRP: 18.2, AST: 28, ALT: 22, BUN: 28, Cre: 1.32, Na: 136, K: 4.1, Alb: 3.4 },
+    },
+    {
+      day: -1,
+      time: "06:00",
+      values: { WBC: 12100, Neut: 84, Hb: 12.6, Plt: 17.9, CRP: 14.6, AST: 25, ALT: 20, BUN: 22, Cre: 1.18, Na: 138, K: 3.9, Alb: 3.2 },
+    },
+    {
+      day: 0,
+      time: "06:00",
+      values: { WBC: 10900, Neut: 80, Hb: 12.4, Plt: 19.6, CRP: 11.8, AST: 24, ALT: 19, BUN: 19, Cre: 1.1, Na: 139, K: 3.8, Alb: 3.1 },
+    },
+  ],
+  cultures: [
+    {
+      collectedOn: -3,
+      specimen: "血液",
+      sets: "2/2セット陽性",
+      status: "最終報告",
+      reportedOn: 0,
+      gram: "グラム陽性球菌（ブドウ状）",
+      organism: "MRSA（メチシリン耐性黄色ブドウ球菌）",
+      susceptibility: [
+        { drug: "MPIPC", mic: "≧4", result: "R" },
+        { drug: "CEZ", mic: "≧32", result: "R" },
+        { drug: "VCM", mic: "1", result: "S" },
+        { drug: "TEIC", mic: "≦0.5", result: "S" },
+        { drug: "LZD", mic: "2", result: "S" },
+        { drug: "DAP", mic: "0.5", result: "S" },
+      ],
+    },
+  ],
+  imaging: [
+    {
+      id: "img-sakura-1",
+      day: -3,
+      modality: "X線",
+      region: "胸部正面",
+      report: "両肺野に明らかな浸潤影なし。心拡大なし（CTR 48%）。肋骨横隔膜角は鋭。",
+      reader: "放射線科（架空）",
+    },
+    {
+      id: "img-sakura-2",
+      day: -3,
+      modality: "X線",
+      region: "右下腿 2方向",
+      report: "骨折・骨膜反応なし。前面の軟部組織に腫脹あり。皮下のガス像なし。",
+      reader: "放射線科（架空）",
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// 2. 大浦 トメ：誤嚥性肺炎（入院2日目）
+// ---------------------------------------------------------------------------
+const oura: Patient = {
+  id: "90010244",
+  name: "大浦 トメ",
+  kana: "オオウラ トメ",
+  sex: "女",
+  age: 86,
+  ward: "5階東",
+  room: "515",
+  department: "総合診療科",
+  attending: "山本（専攻医）",
+  admittedOn: -1,
+  admissionDiagnosis: "誤嚥性肺炎",
+  heightCm: 145,
+  weightKg: 41,
+  allergies: [],
+  infections: [],
+  cautions: ["絶食中", "転倒注意"],
+  history: [
+    {
+      kind: "note",
+      day: -1,
+      time: "11:30",
+      author: "山本（専攻医）",
+      role: "医師",
+      soap: {
+        s: "施設職員より：昨夜から発熱、咳と痰が増えた。",
+        o: "BT 38.3℃、SpO2 92%（室内気）→ 酸素2Lで96%。右下肺に湿性ラ音。",
+        a: "誤嚥性肺炎。",
+        p: "絶食、補液、抗菌薬開始。嚥下評価を依頼。",
+      },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -1,
+      time: "11:40",
+      author: "山本（専攻医）",
+      status: "実施済",
+      order: { type: "lab", codes: ["SET-ADMIT"], collect: { day: -1, time: "11:50" }, priority: "至急" },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -1,
+      time: "11:40",
+      author: "山本（専攻医）",
+      status: "実施済",
+      order: { type: "lab", codes: ["LAB-BCX"], collect: { day: -1, time: "11:50" }, priority: "至急", comment: "2セット" },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -1,
+      time: "11:45",
+      author: "山本（専攻医）",
+      status: "有効",
+      order: {
+        type: "injection",
+        items: [{ drugCode: "INJ-SBTABPC3", amount: 3, unit: "g" }, { drugCode: "INJ-NS100", amount: 100, unit: "mL" }],
+        route: "点滴静注",
+        schedule: { kind: "every_hours", hours: 6 },
+        minutesPerDose: 30,
+        start: { day: -1, time: "12:00" },
+      },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -1,
+      time: "11:45",
+      author: "山本（専攻医）",
+      status: "有効",
+      order: {
+        type: "injection",
+        items: [{ drugCode: "INJ-SOL3A500", amount: 500, unit: "mL" }],
+        route: "点滴静注",
+        schedule: { kind: "per_day", count: 2 },
+        rateMlPerH: 42,
+        start: { day: -1, time: "12:00" },
+      },
+    },
+    {
+      kind: "note",
+      day: 0,
+      time: "06:30",
+      author: "看護師 佐々木",
+      role: "看護師",
+      text: "BT 37.9℃、SpO2 95%（酸素1L）。夜間に痰の吸引2回。",
+    },
+  ],
+  labs: [
+    { day: -1, time: "11:50", values: { WBC: 11800, Neut: 86, Hb: 11.2, Plt: 22.1, CRP: 9.6, AST: 22, ALT: 14, BUN: 31, Cre: 0.82, Na: 141, K: 3.7, Alb: 3.0 } },
+  ],
+  cultures: [{ collectedOn: -1, specimen: "血液", sets: "2セット", status: "培養中" }],
+  imaging: [
+    { id: "img-oura-1", day: -1, modality: "X線", region: "胸部正面", report: "右下肺野に浸潤影。胸水なし。", reader: "放射線科（架空）" },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// 3. 北村 博：慢性心不全の急性増悪（入院6日目）
+// ---------------------------------------------------------------------------
+const kitamura: Patient = {
+  id: "90010198",
+  name: "北村 博",
+  kana: "キタムラ ヒロシ",
+  sex: "男",
+  age: 79,
+  ward: "5階東",
+  room: "508",
+  department: "総合診療科",
+  attending: "山本（専攻医）",
+  admittedOn: -5,
+  admissionDiagnosis: "慢性心不全の急性増悪",
+  heightCm: 168,
+  weightKg: 63,
+  allergies: ["NSAIDs（喘息発作）"],
+  infections: [],
+  cautions: ["水分制限 1,000mL/日"],
+  history: [
+    {
+      kind: "note",
+      day: -5,
+      time: "15:00",
+      author: "山本（専攻医）",
+      role: "医師",
+      soap: {
+        s: "1週間前から息切れと足のむくみ。体重が4kg増えた。",
+        o: "BP 156/88、HR 98、SpO2 91%（室内気）。両下腿に圧痕性浮腫。体重67kg。",
+        a: "慢性心不全の急性増悪。",
+        p: "利尿薬の静注、水分制限、連日体重測定。",
+      },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -5,
+      time: "15:10",
+      author: "山本（専攻医）",
+      status: "有効",
+      order: {
+        type: "injection",
+        items: [{ drugCode: "INJ-FRS20", amount: 20, unit: "mg" }],
+        route: "静注",
+        schedule: { kind: "per_day", count: 2 },
+        start: { day: -5, time: "16:00" },
+      },
+    },
+    {
+      kind: "note",
+      day: -2,
+      time: "09:30",
+      author: "山本（専攻医）",
+      role: "医師",
+      soap: { o: "体重64kg。浮腫は軽減。", a: "改善傾向。", p: "利尿薬継続。" },
+    },
+    {
+      kind: "note",
+      day: -1,
+      time: "09:15",
+      author: "山本（専攻医）",
+      role: "医師",
+      soap: { o: "体重63kg。SpO2 96%（室内気）。", a: "うっ血は改善。", p: "内服への切り替えを検討。" },
+    },
+  ],
+  labs: [
+    { day: -5, time: "15:20", values: { WBC: 6200, Hb: 12.1, Plt: 20.3, CRP: 0.4, BUN: 26, Cre: 1.28, Na: 134, K: 4.4, BNP: 1240 } },
+    { day: -2, time: "06:00", values: { BUN: 30, Cre: 1.35, Na: 136, K: 3.9, BNP: 610 } },
+    { day: 0, time: "06:00", values: { BUN: 28, Cre: 1.31, Na: 137, K: 3.6, BNP: 380 } },
+  ],
+  cultures: [],
+  imaging: [
+    { id: "img-kita-1", day: -5, modality: "X線", region: "胸部正面", report: "両側胸水、肺うっ血。CTR 62%。", reader: "放射線科（架空）" },
+    { id: "img-kita-2", day: -1, modality: "X線", region: "胸部正面", report: "両側胸水は減少。肺うっ血は改善。CTR 58%。", reader: "放射線科（架空）" },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// 4. 森 久美子：急性腎盂腎炎（入院3日目）
+// ---------------------------------------------------------------------------
+const mori: Patient = {
+  id: "90010260",
+  name: "森 久美子",
+  kana: "モリ クミコ",
+  sex: "女",
+  age: 64,
+  ward: "5階東",
+  room: "511",
+  department: "総合診療科",
+  attending: "山本（専攻医）",
+  admittedOn: -2,
+  admissionDiagnosis: "急性腎盂腎炎",
+  heightCm: 158,
+  weightKg: 55,
+  allergies: [],
+  infections: [],
+  cautions: [],
+  history: [
+    {
+      kind: "note",
+      day: -2,
+      time: "20:10",
+      author: "山本（専攻医）",
+      role: "医師",
+      soap: {
+        s: "昨日から悪寒を伴う発熱と左腰の痛み。",
+        o: "BT 39.4℃、BP 112/68、HR 112。左CVA叩打痛あり。",
+        a: "急性腎盂腎炎。",
+        p: "尿培養・血液培養のあと抗菌薬開始。補液。",
+      },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -2,
+      time: "20:20",
+      author: "山本（専攻医）",
+      status: "実施済",
+      order: { type: "lab", codes: ["LAB-UA", "LAB-UCX"], collect: { day: -2, time: "20:30" }, priority: "至急" },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -2,
+      time: "20:25",
+      author: "山本（専攻医）",
+      status: "有効",
+      order: {
+        type: "injection",
+        items: [{ drugCode: "INJ-CTRX1", amount: 2, unit: "g" }, { drugCode: "INJ-NS100", amount: 100, unit: "mL" }],
+        route: "点滴静注",
+        schedule: { kind: "every_hours", hours: 24 },
+        minutesPerDose: 30,
+        start: { day: -2, time: "21:00" },
+      },
+    },
+    {
+      kind: "order",
+      id: oid("o"),
+      day: -2,
+      time: "20:25",
+      author: "山本（専攻医）",
+      status: "有効",
+      order: {
+        type: "injection",
+        items: [{ drugCode: "INJ-NS500", amount: 500, unit: "mL" }],
+        route: "点滴静注",
+        schedule: { kind: "per_day", count: 2 },
+        rateMlPerH: 42,
+        start: { day: -2, time: "21:00" },
+      },
+    },
+    {
+      kind: "note",
+      day: -1,
+      time: "10:00",
+      author: "山本（専攻医）",
+      role: "医師",
+      soap: { o: "BT 38.1℃。腰痛は軽減。", a: "治療2日目。", p: "CTRX継続。尿培養の結果待ち。" },
+    },
+  ],
+  labs: [
+    { day: -2, time: "20:30", values: { WBC: 15200, Neut: 90, Hb: 12.8, Plt: 16.2, CRP: 21.3, BUN: 18, Cre: 0.94, Na: 137, K: 3.8 } },
+    { day: 0, time: "06:00", values: { WBC: 9800, Neut: 78, Hb: 12.1, Plt: 17.5, CRP: 12.0, BUN: 13, Cre: 0.8, Na: 139, K: 3.9 } },
+  ],
+  cultures: [
+    { collectedOn: -2, specimen: "尿", status: "中間報告", reportedOn: -1, gram: "グラム陰性桿菌 10⁵/mL" },
+  ],
+  imaging: [],
+};
+
+export const PATIENTS: Patient[] = [sakura, oura, kitamura, mori];
+
+export function findPatient(id: string): Patient | undefined {
+  return PATIENTS.find((p) => p.id === id);
+}
