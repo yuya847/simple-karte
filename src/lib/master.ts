@@ -185,9 +185,14 @@ export function anyDrugName(code: string): string {
   return ORAL_DRUGS.find((d) => d.code === code)?.name ?? code;
 }
 
+export type LabGroup = "血液学" | "凝固・線溶" | "生化学" | "炎症・感染" | "心筋・心不全" | "内分泌" | "血液ガス" | "尿" | "微生物" | "薬物濃度" | "セット";
+
 export interface LabMaster {
   code: string;
   name: string;
+  /** Short name shown on the order buttons (WBC, Na, Mg …). */
+  abbr?: string;
+  group?: LabGroup;
   specimen: "血液" | "尿" | "その他";
   /** For sets: analyte codes the set contains. */
   contains?: string[];
@@ -199,6 +204,8 @@ export interface LabMaster {
 export const LAB_TESTS: LabMaster[] = [
   {
     code: "LAB-CBC",
+    group: "血液学",
+    abbr: "血算",
     name: "血算（CBC）",
     specimen: "血液",
     contains: ["WBC", "RBC", "Hb", "Ht", "Plt"],
@@ -206,6 +213,8 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-DIFF",
+    group: "血液学",
+    abbr: "白血球分画",
     name: "白血球分画",
     specimen: "血液",
     contains: ["Neut", "Lymph"],
@@ -213,6 +222,8 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-CHEM",
+    group: "セット",
+    abbr: "生化学セット",
     name: "生化学（病棟定期セット）",
     specimen: "血液",
     contains: ["TP", "Alb", "AST", "ALT", "LDH", "ALP", "T-Bil", "BUN", "Cre", "Na", "K", "Cl", "Glu"],
@@ -220,6 +231,8 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-CRP",
+    group: "炎症・感染",
+    abbr: "CRP",
     name: "CRP",
     specimen: "血液",
     contains: ["CRP"],
@@ -227,6 +240,8 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-COAG",
+    group: "凝固・線溶",
+    abbr: "PT・APTT",
     name: "凝固（PT・APTT）",
     specimen: "血液",
     contains: ["PT-INR", "APTT"],
@@ -234,6 +249,8 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-BNP",
+    group: "心筋・心不全",
+    abbr: "BNP",
     name: "BNP",
     specimen: "血液",
     contains: ["BNP"],
@@ -241,6 +258,8 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-VCM",
+    group: "薬物濃度",
+    abbr: "VCM",
     name: "バンコマイシン血中濃度",
     specimen: "血液",
     contains: ["VCM"],
@@ -248,6 +267,8 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-BCX",
+    group: "微生物",
+    abbr: "血液培養",
     name: "血液培養",
     specimen: "血液",
     aliases: ["血培", "血液培養"],
@@ -255,12 +276,67 @@ export const LAB_TESTS: LabMaster[] = [
   },
   {
     code: "LAB-UA",
+    group: "尿",
+    abbr: "尿一般",
     name: "尿一般（定性・沈渣）",
     specimen: "尿",
     aliases: ["検尿", "尿一般", "尿定性", "沈渣"],
   },
+  { code: "LAB-WBC", name: "白血球数（末梢血液一般として算定）", abbr: "WBC", group: "血液学", specimen: "血液", contains: ["WBC"], aliases: ["WBC", "白血球", "白血球数"] },
+  { code: "LAB-HB", name: "ヘモグロビン（末梢血液一般として算定）", abbr: "Hb", group: "血液学", specimen: "血液", contains: ["Hb"], aliases: ["Hb", "ヘモグロビン", "ヘモグロ"] },
+  { code: "LAB-PLT", name: "血小板数（末梢血液一般として算定）", abbr: "Plt", group: "血液学", specimen: "血液", contains: ["Plt"], aliases: ["Plt", "血小板"] },
+  { code: "LAB-RET", name: "網赤血球数", abbr: "Ret", group: "血液学", specimen: "血液", contains: ["Ret"], aliases: ["網赤血球", "レチクロ", "Ret"] },
+  { code: "LAB-PT", name: "プロトロンビン時間（PT-INR）", abbr: "PT", group: "凝固・線溶", specimen: "血液", contains: ["PT-INR"], aliases: ["PT-INR", "INR", "プロトロンビン"] },
+  { code: "LAB-APTT", name: "活性化部分トロンボプラスチン時間", abbr: "APTT", group: "凝固・線溶", specimen: "血液", contains: ["APTT"], aliases: ["APTT"] },
+  { code: "LAB-FIB", name: "フィブリノゲン", abbr: "Fib", group: "凝固・線溶", specimen: "血液", contains: ["Fib"], aliases: ["フィブリノゲン", "Fib", "フィブリノーゲン"] },
+  { code: "LAB-DD", name: "Dダイマー", abbr: "D-ダイマー", group: "凝固・線溶", specimen: "血液", contains: ["DD"], aliases: ["Dダイマー", "D-ダイマー", "Dダイ"] },
+  { code: "LAB-FDP", name: "FDP（定量）", abbr: "FDP", group: "凝固・線溶", specimen: "血液", contains: ["FDP"], aliases: ["FDP"] },
+  { code: "LAB-TP", name: "総蛋白", abbr: "TP", group: "生化学", specimen: "血液", contains: ["TP"], aliases: ["TP", "総蛋白"] },
+  { code: "LAB-ALB", name: "アルブミン", abbr: "Alb", group: "生化学", specimen: "血液", contains: ["Alb"], aliases: ["Alb", "アルブミン"] },
+  { code: "LAB-AST", name: "AST", abbr: "AST", group: "生化学", specimen: "血液", contains: ["AST"], aliases: ["AST", "GOT"] },
+  { code: "LAB-ALT", name: "ALT", abbr: "ALT", group: "生化学", specimen: "血液", contains: ["ALT"], aliases: ["ALT", "GPT"] },
+  { code: "LAB-LD", name: "LD（乳酸脱水素酵素）", abbr: "LD", group: "生化学", specimen: "血液", contains: ["LDH"], aliases: ["LD", "LDH"] },
+  { code: "LAB-ALP", name: "ALP（IFCC）", abbr: "ALP", group: "生化学", specimen: "血液", contains: ["ALP"], aliases: ["ALP"] },
+  { code: "LAB-GGT", name: "γ-GT", abbr: "γ-GT", group: "生化学", specimen: "血液", contains: ["GGT"], aliases: ["γGT", "γ-GT", "ガンマGT", "GGT", "γGTP"] },
+  { code: "LAB-TBIL", name: "総ビリルビン", abbr: "T-Bil", group: "生化学", specimen: "血液", contains: ["T-Bil"], aliases: ["T-Bil", "総ビリルビン", "TB"] },
+  { code: "LAB-DBIL", name: "直接ビリルビン", abbr: "D-Bil", group: "生化学", specimen: "血液", contains: ["D-Bil"], aliases: ["D-Bil", "直接ビリルビン", "DB"] },
+  { code: "LAB-CHE", name: "コリンエステラーゼ", abbr: "ChE", group: "生化学", specimen: "血液", contains: ["ChE"], aliases: ["ChE", "コリンエステラーゼ"] },
+  { code: "LAB-AMY", name: "アミラーゼ", abbr: "AMY", group: "生化学", specimen: "血液", contains: ["AMY"], aliases: ["AMY", "アミラーゼ"] },
+  { code: "LAB-CK", name: "CK", abbr: "CK", group: "生化学", specimen: "血液", contains: ["CK"], aliases: ["CK", "CPK"] },
+  { code: "LAB-BUN", name: "尿素窒素", abbr: "BUN", group: "生化学", specimen: "血液", contains: ["BUN"], aliases: ["BUN", "尿素窒素", "UN"] },
+  { code: "LAB-CRE", name: "クレアチニン", abbr: "Cre", group: "生化学", specimen: "血液", contains: ["Cre"], aliases: ["Cre", "クレアチニン", "Cr"] },
+  { code: "LAB-URIC", name: "尿酸", abbr: "UA", group: "生化学", specimen: "血液", contains: ["UA"], aliases: ["尿酸", "UA（尿酸）"] },
+  { code: "LAB-NA", name: "ナトリウム", abbr: "Na", group: "生化学", specimen: "血液", contains: ["Na"], aliases: ["Na", "ナトリウム"] },
+  { code: "LAB-CL", name: "クロール", abbr: "Cl", group: "生化学", specimen: "血液", contains: ["Cl"], aliases: ["Cl", "クロール"] },
+  { code: "LAB-K", name: "カリウム", abbr: "K", group: "生化学", specimen: "血液", contains: ["K"], aliases: ["K", "カリウム"] },
+  { code: "LAB-CA", name: "カルシウム", abbr: "Ca", group: "生化学", specimen: "血液", contains: ["Ca"], aliases: ["Ca", "カルシウム"] },
+  { code: "LAB-IP", name: "無機リン", abbr: "IP", group: "生化学", specimen: "血液", contains: ["IP"], aliases: ["IP", "P", "リン", "無機リン"] },
+  { code: "LAB-MG", name: "マグネシウム", abbr: "Mg", group: "生化学", specimen: "血液", contains: ["Mg"], aliases: ["Mg", "マグネシウム"] },
+  { code: "LAB-GLU", name: "グルコース（血糖）", abbr: "Glu", group: "生化学", specimen: "血液", contains: ["Glu"], aliases: ["血糖", "Glu", "BS", "グルコース"] },
+  { code: "LAB-HBA1C", name: "HbA1c", abbr: "HbA1c", group: "生化学", specimen: "血液", contains: ["HbA1c"], aliases: ["HbA1c", "A1c", "ヘモグロビンA1c"] },
+  { code: "LAB-TG", name: "中性脂肪", abbr: "TG", group: "生化学", specimen: "血液", contains: ["TG"], aliases: ["TG", "中性脂肪", "トリグリセリド"] },
+  { code: "LAB-TCHO", name: "総コレステロール", abbr: "T-Cho", group: "生化学", specimen: "血液", contains: ["TC"], aliases: ["T-Cho", "総コレステロール", "TC"] },
+  { code: "LAB-HDL", name: "HDL-コレステロール", abbr: "HDL-C", group: "生化学", specimen: "血液", contains: ["HDL"], aliases: ["HDL", "HDL-C"] },
+  { code: "LAB-LDL", name: "LDL-コレステロール", abbr: "LDL-C", group: "生化学", specimen: "血液", contains: ["LDL"], aliases: ["LDL", "LDL-C"] },
+  { code: "LAB-FE", name: "血清鉄", abbr: "Fe", group: "生化学", specimen: "血液", contains: ["Fe"], aliases: ["Fe", "血清鉄", "鉄"] },
+  { code: "LAB-UIBC", name: "不飽和鉄結合能", abbr: "UIBC", group: "生化学", specimen: "血液", contains: ["UIBC"], aliases: ["UIBC"] },
+  { code: "LAB-FERRITIN", name: "フェリチン", abbr: "フェリチン", group: "生化学", specimen: "血液", contains: ["Ferritin"], aliases: ["フェリチン"] },
+  { code: "LAB-NH3", name: "アンモニア", abbr: "NH3", group: "生化学", specimen: "血液", contains: ["NH3"], aliases: ["NH3", "アンモニア"] },
+  { code: "LAB-LAC", name: "乳酸", abbr: "乳酸", group: "生化学", specimen: "血液", contains: ["Lac"], aliases: ["乳酸", "ラクテート", "Lac"] },
+  { code: "LAB-PCT", name: "プロカルシトニン（定量）", abbr: "PCT", group: "炎症・感染", specimen: "血液", contains: ["PCT"], aliases: ["PCT", "プロカルシトニン"] },
+  { code: "LAB-NTBNP", name: "NT-proBNP", abbr: "NT-proBNP", group: "心筋・心不全", specimen: "血液", contains: ["NTproBNP"], aliases: ["NT-proBNP", "NTproBNP"] },
+  { code: "LAB-TNT", name: "心筋トロポニンT", abbr: "TnT", group: "心筋・心不全", specimen: "血液", contains: ["TnT"], aliases: ["トロポニン", "トロポニンT", "TnT"] },
+  { code: "LAB-TSH", name: "TSH", abbr: "TSH", group: "内分泌", specimen: "血液", contains: ["TSH"], aliases: ["TSH", "甲状腺刺激ホルモン"] },
+  { code: "LAB-FT4", name: "FT4", abbr: "FT4", group: "内分泌", specimen: "血液", contains: ["FT4"], aliases: ["FT4", "遊離T4"] },
+  { code: "LAB-BGA", name: "血液ガス（動脈血）", abbr: "血ガス", group: "血液ガス", specimen: "血液", contains: ["pH", "PaCO2", "PaO2", "HCO3"], aliases: ["血ガス", "血液ガス", "BGA", "ABG", "動脈血ガス"] },
+  { code: "LAB-UPRO", name: "尿蛋白（定量）", abbr: "尿蛋白", group: "尿", specimen: "尿", contains: ["UPro"], aliases: ["尿蛋白", "尿タンパク"] },
+  { code: "LAB-UNA", name: "尿中ナトリウム・クロール", abbr: "尿Na", group: "尿", specimen: "尿", contains: ["UNa"], aliases: ["尿中Na", "尿Na", "尿中ナトリウム"] },
+  { code: "LAB-UK", name: "尿中カリウム", abbr: "尿K", group: "尿", specimen: "尿", contains: ["UK"], aliases: ["尿中K", "尿K"] },
+  { code: "LAB-UCRE", name: "尿中クレアチニン", abbr: "尿Cre", group: "尿", specimen: "尿", contains: ["UCre"], aliases: ["尿中Cre", "尿Cre", "尿中クレアチニン"] },
   {
     code: "LAB-UCX",
+    group: "微生物",
+    abbr: "尿培養",
     name: "尿培養",
     specimen: "尿",
     aliases: ["尿培", "尿培養"],
@@ -290,23 +366,130 @@ export const ORDER_SETS: OrderSet[] = [
   },
 ];
 
-/** Analytes shown in the lab result table, with units and reference ranges (general adult ranges). */
-export const ANALYTES: { code: string; name: string; unit: string; low?: number; high?: number }[] = [
-  { code: "WBC", name: "WBC", unit: "/μL", low: 3300, high: 8600 },
-  { code: "Neut", name: "好中球", unit: "%", low: 40, high: 75 },
-  { code: "Hb", name: "Hb", unit: "g/dL", low: 13.7, high: 16.8 },
-  { code: "Plt", name: "Plt", unit: "万/μL", low: 15.8, high: 34.8 },
-  { code: "CRP", name: "CRP", unit: "mg/dL", high: 0.14 },
-  { code: "AST", name: "AST", unit: "U/L", low: 13, high: 30 },
-  { code: "ALT", name: "ALT", unit: "U/L", low: 10, high: 42 },
-  { code: "BUN", name: "BUN", unit: "mg/dL", low: 8, high: 20 },
-  { code: "Cre", name: "Cre", unit: "mg/dL", low: 0.65, high: 1.07 },
-  { code: "Na", name: "Na", unit: "mmol/L", low: 138, high: 145 },
-  { code: "K", name: "K", unit: "mmol/L", low: 3.6, high: 4.8 },
-  { code: "Alb", name: "Alb", unit: "g/dL", low: 4.1, high: 5.1 },
-  { code: "BNP", name: "BNP", unit: "pg/mL", high: 18.4 },
+/**
+ * Analytes shown in the lab result table, with reference ranges and where they come from.
+ * - 共用基準範囲: JCCLS「日本における主要な臨床検査項目の共用基準範囲」2022/10/01 版（表1-1）.
+ * - SRL: SRL「総合検査案内 2026-2027（セントラルラボラトリー版）」for items without a 共用基準範囲.
+ * A clinical decision value / cut-off (判断値) is kept apart from a reference range.
+ * Units follow the 共用基準範囲 (WBC as /μL, Plt as 万/μL for display).
+ */
+export interface Analyte {
+  code: string;
+  name: string;
+  unit: string;
+  low?: number;
+  high?: number;
+  /** Sex-specific range, when the source gives one. */
+  m?: { low?: number; high?: number };
+  f?: { low?: number; high?: number };
+  source?: "共用基準範囲" | "SRL";
+  /** A decision value or cut-off, shown apart from the reference range. */
+  judgment?: string;
+}
+
+export const ANALYTES: Analyte[] = [
+  { code: "WBC", name: "WBC", unit: "/μL", low: 3300, high: 8600, source: "共用基準範囲" },
+  { code: "Neut", name: "好中球", unit: "%", low: 41.2, high: 75.4, source: "SRL" },
+  { code: "Hb", name: "Hb", unit: "g/dL", m: { low: 13.7, high: 16.8 }, f: { low: 11.6, high: 14.8 }, source: "共用基準範囲" },
+  { code: "Plt", name: "Plt", unit: "万/μL", low: 15.8, high: 34.8, source: "共用基準範囲" },
+  { code: "Ret", name: "網赤血球", unit: "‰", m: { low: 2, high: 27 }, f: { low: 2, high: 26 }, source: "SRL" },
+  { code: "PT-INR", name: "PT-INR", unit: "", source: "SRL", judgment: "SRL の案内に INR の基準値の記載なし（PT 秒 10.5〜13.5）" },
+  { code: "APTT", name: "APTT", unit: "秒", low: 24.3, high: 36.0, source: "SRL" },
+  { code: "Fib", name: "フィブリノゲン", unit: "mg/dL", low: 150, high: 400, source: "SRL" },
+  { code: "DD", name: "Dダイマー", unit: "μg/mL", high: 1.0, source: "SRL" },
+  { code: "FDP", name: "FDP", unit: "μg/mL", high: 4, source: "SRL" },
+  { code: "CRP", name: "CRP", unit: "mg/dL", high: 0.14, source: "共用基準範囲" },
+  { code: "PCT", name: "PCT", unit: "ng/mL", high: 0.05, source: "SRL", judgment: "敗血症の鑑別のカットオフ 0.50、重症度判定 2.00 以上（SRL）" },
+  { code: "TP", name: "TP", unit: "g/dL", low: 6.6, high: 8.1, source: "共用基準範囲" },
+  { code: "Alb", name: "Alb", unit: "g/dL", low: 4.1, high: 5.1, source: "共用基準範囲" },
+  { code: "AST", name: "AST", unit: "U/L", low: 13, high: 30, source: "共用基準範囲" },
+  { code: "ALT", name: "ALT", unit: "U/L", m: { low: 10, high: 42 }, f: { low: 7, high: 23 }, source: "共用基準範囲" },
+  { code: "LDH", name: "LD（IFCC）", unit: "U/L", low: 124, high: 222, source: "共用基準範囲" },
+  { code: "ALP", name: "ALP（IFCC）", unit: "U/L", low: 38, high: 113, source: "共用基準範囲" },
+  { code: "GGT", name: "γ-GT", unit: "U/L", m: { low: 13, high: 64 }, f: { low: 9, high: 32 }, source: "共用基準範囲" },
+  { code: "T-Bil", name: "T-Bil", unit: "mg/dL", low: 0.4, high: 1.5, source: "共用基準範囲" },
+  { code: "D-Bil", name: "D-Bil", unit: "mg/dL", high: 0.4, source: "SRL" },
+  { code: "ChE", name: "ChE", unit: "U/L", m: { low: 240, high: 486 }, f: { low: 201, high: 421 }, source: "共用基準範囲" },
+  { code: "AMY", name: "AMY", unit: "U/L", low: 44, high: 132, source: "共用基準範囲" },
+  { code: "CK", name: "CK", unit: "U/L", m: { low: 59, high: 248 }, f: { low: 41, high: 153 }, source: "共用基準範囲" },
+  { code: "BUN", name: "BUN", unit: "mg/dL", low: 8, high: 20, source: "共用基準範囲" },
+  { code: "Cre", name: "Cre", unit: "mg/dL", m: { low: 0.65, high: 1.07 }, f: { low: 0.46, high: 0.79 }, source: "共用基準範囲" },
+  { code: "UA", name: "UA", unit: "mg/dL", m: { low: 3.7, high: 7.8 }, f: { low: 2.6, high: 5.5 }, source: "共用基準範囲" },
+  { code: "Na", name: "Na", unit: "mmol/L", low: 138, high: 145, source: "共用基準範囲" },
+  { code: "K", name: "K", unit: "mmol/L", low: 3.6, high: 4.8, source: "共用基準範囲" },
+  { code: "Cl", name: "Cl", unit: "mmol/L", low: 101, high: 108, source: "共用基準範囲" },
+  { code: "Ca", name: "Ca", unit: "mg/dL", low: 8.8, high: 10.1, source: "共用基準範囲" },
+  { code: "IP", name: "IP", unit: "mg/dL", low: 2.7, high: 4.6, source: "共用基準範囲" },
+  { code: "Mg", name: "Mg", unit: "mg/dL", low: 1.8, high: 2.6, source: "SRL" },
+  { code: "Glu", name: "Glu", unit: "mg/dL", low: 73, high: 109, source: "共用基準範囲" },
+  { code: "HbA1c", name: "HbA1c（NGSP）", unit: "%", low: 4.9, high: 6.0, source: "共用基準範囲" },
+  { code: "TG", name: "TG", unit: "mg/dL", m: { low: 40, high: 234 }, f: { low: 30, high: 117 }, source: "共用基準範囲" },
+  { code: "TC", name: "T-Cho", unit: "mg/dL", low: 142, high: 248, source: "共用基準範囲" },
+  { code: "HDL", name: "HDL-C", unit: "mg/dL", m: { low: 38, high: 90 }, f: { low: 48, high: 103 }, source: "共用基準範囲" },
+  { code: "LDL", name: "LDL-C", unit: "mg/dL", low: 65, high: 163, source: "共用基準範囲" },
+  { code: "Fe", name: "Fe", unit: "μg/dL", low: 40, high: 188, source: "共用基準範囲" },
+  { code: "UIBC", name: "UIBC", unit: "μg/dL", m: { low: 104, high: 259 }, f: { low: 108, high: 325 }, source: "SRL" },
+  { code: "Ferritin", name: "フェリチン", unit: "ng/mL", m: { low: 39.4, high: 340 }, f: { low: 3.6, high: 114 }, source: "SRL" },
+  { code: "NH3", name: "NH3", unit: "μg/dL", low: 30, high: 80, source: "SRL" },
+  { code: "Lac", name: "乳酸", unit: "mg/dL", low: 3.0, high: 17.0, source: "SRL" },
+  { code: "BNP", name: "BNP", unit: "pg/mL", high: 18.4, source: "SRL" },
+  { code: "NTproBNP", name: "NT-proBNP", unit: "pg/mL", source: "SRL", judgment: "125未満（心不全の可能性を判断するカットオフ値、SRL）" },
+  { code: "TnT", name: "トロポニンT", unit: "ng/mL", high: 0.014, source: "SRL", judgment: "急性心筋梗塞の診断カットオフ 0.100（SRL）" },
+  { code: "TSH", name: "TSH", unit: "μIU/mL", low: 0.61, high: 4.23, source: "SRL" },
+  { code: "FT4", name: "FT4", unit: "ng/dL", low: 0.75, high: 1.45, source: "SRL" },
   { code: "VCM", name: "VCM", unit: "μg/mL" },
 ];
+
+/** The reference range for this sex (sex-specific when the source gives one). */
+export function rangeFor(a: Analyte, sex: "男" | "女"): { low?: number; high?: number } {
+  const r = sex === "男" ? a.m : a.f;
+  return r ?? { low: a.low, high: a.high };
+}
+
+/**
+ * Where and how each item is collected and how long the result takes, after the SRL 総合検査案内
+ * 2026-2027 (容器 = SRL の容器記号). The fictional hospital runs most tests in house (当日);
+ * items marked 外注 go to an outside lab.
+ */
+export const LAB_INFO: Record<string, { material: string; container: string; tat: string; note?: string }> = {
+  "LAB-CBC": { material: "血液 2.0mL（EDTA-2K）", container: "PK2", tat: "院内・当日" },
+  "LAB-WBC": { material: "血液 2.0mL（EDTA-2K）", container: "PK2", tat: "院内・当日" },
+  "LAB-HB": { material: "血液 2.0mL（EDTA-2K）", container: "PK2", tat: "院内・当日" },
+  "LAB-PLT": { material: "血液 2.0mL（EDTA-2K）", container: "PK2", tat: "院内・当日" },
+  "LAB-DIFF": { material: "血液 2.0mL（EDTA-2K）", container: "PK2", tat: "院内・当日" },
+  "LAB-RET": { material: "血液 2.0mL（EDTA-2K）", container: "PK2", tat: "院内・当日" },
+  "LAB-COAG": { material: "血漿 0.5mL（3.2%クエン酸Na、すぐ遠心）", container: "PC2", tat: "院内・当日" },
+  "LAB-PT": { material: "血漿 0.5mL（3.2%クエン酸Na、すぐ遠心）", container: "PC2", tat: "院内・当日" },
+  "LAB-APTT": { material: "血漿 0.5mL（3.2%クエン酸Na）", container: "PC2", tat: "院内・当日" },
+  "LAB-FIB": { material: "血漿 0.5mL（3.2%クエン酸Na）", container: "PC2", tat: "院内・当日" },
+  "LAB-DD": { material: "血漿 0.5mL（3.2%クエン酸Na）", container: "PC2", tat: "院内・当日" },
+  "LAB-FDP": { material: "血漿 0.3mL（3.2%クエン酸Na）", container: "PC2", tat: "院内・当日" },
+  "LAB-GLU": { material: "血漿 0.5mL（フッ化Na）", container: "PF2", tat: "院内・当日" },
+  "LAB-HBA1C": { material: "血液 2.0mL（フッ化Na）", container: "PF2", tat: "院内・当日" },
+  "LAB-FERRITIN": { material: "血清 0.4mL", container: "S09", tat: "外注・2〜4日" },
+  "LAB-UIBC": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
+  "LAB-NH3": { material: "血液 1.0mL を除蛋白液容器へ", container: "M40", tat: "院内・当日", note: "採血後すぐ専用容器（除蛋白液）に正確に1.0mL入れ、すぐ遠心" },
+  "LAB-LAC": { material: "血液 1.0mL を除蛋白液容器へ", container: "M30", tat: "院内・当日", note: "採血後すぐ専用容器（除蛋白液）に正確に1.0mL入れ、すぐ遠心" },
+  "LAB-PCT": { material: "血清 0.4mL", container: "S09", tat: "外注・2〜4日" },
+  "LAB-BNP": { material: "血漿 0.5mL（EDTA-2Na、すぐ遠心）", container: "PN2", tat: "院内・当日" },
+  "LAB-NTBNP": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
+  "LAB-TNT": { material: "血清 0.5mL", container: "S09", tat: "院内・当日" },
+  "LAB-TSH": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
+  "LAB-FT4": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
+  "LAB-BGA": { material: "動脈血（ヘパリン）", container: "血ガス用シリンジ", tat: "院内・すぐ", note: "院内で行った場合だけ算定できる（D007-35）" },
+  "LAB-UA": { material: "部分尿 10mL", container: "U40", tat: "院内・当日", note: "院内で行った場合だけ算定できる（D000）" },
+  "LAB-UPRO": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
+  "LAB-UNA": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
+  "LAB-UK": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
+  "LAB-UCRE": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
+  "LAB-BCX": { material: "血液（好気・嫌気ボトル）", container: "血液培養ボトル", tat: "院内・数日" },
+  "LAB-UCX": { material: "尿", container: "滅菌容器", tat: "院内・数日" },
+};
+
+/** Default for serum chemistry: 血清 0.5mL, S09（分離剤入り）, 院内・当日. */
+export function labInfo(code: string) {
+  return LAB_INFO[code] ?? { material: "血清 0.5mL", container: "S09", tat: "院内・当日" };
+}
 
 /** Ward rules of the fictional hospital. */
 export const WARD_RULES = {

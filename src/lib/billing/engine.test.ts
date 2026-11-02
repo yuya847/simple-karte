@@ -429,3 +429,28 @@ describe("処置（第9部）", () => {
     expect(find(r.acts, "140000710").count).toBe(2);
   });
 });
+
+describe("検体検査を1項目ずつ（SRL の単位）", () => {
+  it("WBC と Plt を選んでも末梢血液一般は1回、Na と Cl もナトリウム及びクロールは1回", () => {
+    const r = claim("2026-11", { admittedOn: -5, entries: [lab(-1, ["LAB-WBC", "LAB-PLT", "LAB-NA", "LAB-CL", "LAB-K", "LAB-MG"])] });
+    expect(find(r.acts, "160008010").count).toBe(1);
+    expect(find(r.acts, "160021110").count).toBe(1);
+    // Na・Cl、K、Mg = 3項目（4項目以下は各点数の合計 11 × 3）
+    expect(find(r.acts, "160022210").acts[0].parts[0].points).toBe(33);
+  });
+  it("内分泌（D008 の12〜51）を3項目以上 → 項目数の点数（FT4・BNP・NT-proBNP は1週間ルールで2項目に）", () => {
+    const r = claim("2026-11", { admittedOn: -5, entries: [lab(-1, ["LAB-FT4", "LAB-BNP", "LAB-NTBNP", "LAB-TSH"])] });
+    expect(find(r.acts, "160162350").count).toBe(0); // BNP 130 < NT-proBNP 136
+    expect(r.issues.some((i) => i.text.includes("D008 通知(7)イ"))).toBe(true);
+    // FT4 + NT-proBNP = 2項目 → 包括にならず各点数。TSH（D008 の6、包括外）も同じ欄に：121 + 136 + 98
+    expect(find(r.acts, "160033310").acts[0].parts[0].points).toBe(355);
+  });
+  it("内分泌を3項目（FT4・NT-proBNP・BNP を1週間あけて）→ 410点", () => {
+    const r = claim("2026-11", { admittedOn: -20, entries: [lab(-15, ["LAB-BNP"]), lab(-1, ["LAB-FT4", "LAB-NTBNP"])] });
+    expect(find(r.acts, "160162350").count).toBe(1);
+  });
+  it("出血・凝固（D006 の14〜34）を3項目以上: 530点（Dダイマーは1項目なので各点数）", () => {
+    const r = claim("2026-11", { admittedOn: -5, entries: [lab(-1, ["LAB-DD", "LAB-PT", "LAB-APTT", "LAB-FIB"])] });
+    expect(find(r.acts, "160114010").acts[0].parts[0].points).toBe(127 + 18 + 29 + 23);
+  });
+});

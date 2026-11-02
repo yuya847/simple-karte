@@ -3,7 +3,7 @@
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { newProcedureDraft, type Draft, type LabDraft } from "@/lib/drafts";
-import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug } from "@/lib/master";
+import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { USAGES } from "@/lib/rx";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
 import { PROCEDURES, findProcDrug } from "@/lib/procedures";
@@ -34,7 +34,11 @@ export function AddInjectionPanel({ onPick }: { onPick: (text: string) => void }
   );
 }
 
-/** Pick lab sets/tests and a draw time. Becomes a draft that goes through the same checks. */
+/**
+ * Pick lab items one by one (grouped like a lab's test guide) or a hospital set, and a draw time.
+ * Each item shows its material and container (after the SRL 総合検査案内); it becomes a draft
+ * that goes through the same checks.
+ */
 export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
   const [picked, setPicked] = useState<string[]>([]);
   const toggle = (code: string) => setPicked((p) => (p.includes(code) ? p.filter((c) => c !== code) : [...p, code]));
@@ -52,24 +56,58 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
     duplicateOk: false,
   });
 
-  const row = (code: string, name: string, sub?: string) => (
-    <label key={code} className="flex cursor-pointer items-baseline gap-2 px-1 py-1.5 text-sm hover:bg-paper">
-      <input type="checkbox" checked={picked.includes(code)} onChange={() => toggle(code)} className="accent-ai" />
-      <span className="font-bold">{name}</span>
-      {sub && <span className="truncate text-[11px] text-ink-faint">{sub}</span>}
-    </label>
-  );
+  const groups = [...new Set(LAB_TESTS.map((t) => t.group).filter((g) => g && g !== "セット"))] as string[];
+  const containers = [...new Set(picked.map((c) => labInfo(c).container))];
+  const notes = picked.flatMap((c) => (labInfo(c).note ? [`${LAB_TESTS.find((t) => t.code === c)?.abbr ?? c}：${labInfo(c).note}`] : []));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 text-[13px]">
       <section>
         <h3 className="mb-1 text-xs font-bold text-ink-soft">院内セット（架空の病院）</h3>
-        {ORDER_SETS.map((s) => row(s.code, s.name, s.labCodes.map((c) => LAB_TESTS.find((t) => t.code === c)?.name).join("、")))}
+        <div className="flex flex-wrap gap-1.5">
+          {[...ORDER_SETS.map((s) => ({ code: s.code, label: s.name, sub: s.labCodes.map((c) => LAB_TESTS.find((t) => t.code === c)?.abbr).join("・") })), { code: "LAB-CHEM", label: "生化学（病棟定期セット）", sub: "13項目" }].map((x) => (
+            <button
+              key={x.code}
+              type="button"
+              title={x.sub}
+              onClick={() => toggle(x.code)}
+              className={`rounded-md border px-2 py-1 ${picked.includes(x.code) ? "border-ai bg-ai font-bold text-white" : "border-rule hover:border-ai"}`}
+            >
+              {x.label}
+            </button>
+          ))}
+        </div>
       </section>
-      <section>
-        <h3 className="mb-1 text-xs font-bold text-ink-soft">項目</h3>
-        {LAB_TESTS.map((t) => row(t.code, t.name, t.specimen))}
-      </section>
+      {groups.map((g) => (
+        <section key={g}>
+          <h3 className="mb-1 text-xs font-bold text-ink-soft">{g}</h3>
+          <div className="flex flex-wrap gap-1">
+            {LAB_TESTS.filter((t) => t.group === g).map((t) => (
+              <button
+                key={t.code}
+                type="button"
+                title={`${t.name}　${labInfo(t.code).material}・${labInfo(t.code).container}・${labInfo(t.code).tat}`}
+                onClick={() => toggle(t.code)}
+                className={`nums min-w-12 rounded border px-1.5 py-0.5 text-[12px] ${picked.includes(t.code) ? "border-ai bg-ai font-bold text-white" : "border-rule hover:border-ai"}`}
+              >
+                {t.abbr ?? t.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+      {picked.length > 0 && (
+        <div className="rounded-md bg-paper px-2 py-1.5 text-[12px]">
+          <div>
+            <b>{picked.length}項目</b>　容器：{containers.join("・")}
+          </div>
+          {notes.map((n) => (
+            <div key={n} className="text-yamabuki">
+              {n}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
         <button type="button" disabled={!picked.length} onClick={() => onAdd(make("now"))} className="flex-1 rounded-md border border-ai px-3 py-2 text-sm text-ai disabled:opacity-40">
           今すぐ（至急）
@@ -78,6 +116,7 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
           明日朝の定時（{WARD_RULES.routineDrawTime}）
         </button>
       </div>
+      <p className="text-[11px] text-ink-faint">項目の分け方・材料・容器（SRL の容器記号）・所要日数は SRL「総合検査案内 2026-2027」を参考にしました。院内か外注かは架空の病院の設定です。結果の基準範囲は JCCLS 共用基準範囲（なければ SRL の値）です。</p>
     </div>
   );
 }

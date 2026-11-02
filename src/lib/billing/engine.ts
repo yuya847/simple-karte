@@ -437,11 +437,27 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   const firstChem = collections.find(({ o }) => o.collect.day >= p.admittedOn && expandLab(o.codes).some((c) => shinryoItem(c)?.bundleGroup === "1"));
   const judgedGroups = new Map<string, number>(); // group → first day in month
   let vcmLevels: number[] = [];
+  // BNP・NT-proBNP（・ANP）: 2つ以上を最初の検査の日から1週間以内に行ったら主たるもの1つ（D008 通知(7)イ）。
+  // 主たるもの = 点数の高い方として、もう一方を外す。各実施日は摘要に書く（同ウ）.
+  const NP = ["160162350", "160181250"];
+  const npDone = collections.flatMap(({ e, o }) => expandLab(o.codes).filter((c) => NP.includes(c)).map((c) => ({ id: e.id, code: c, day: o.collect.day })));
+  const npDropped = new Set<string>(); // `${orderId}|${code}`
+  for (const a of npDone) {
+    const near = npDone.filter((b) => b.code !== a.code && Math.abs(b.day - a.day) < 7);
+    if (!near.length) continue;
+    const all = [a, ...near];
+    const main = [...all].sort((x, y) => pts(y.code) - pts(x.code))[0];
+    for (const x of all) if (x.code !== main.code) npDropped.add(`${x.id}|${x.code}`);
+  }
+  if (npDropped.size) {
+    issues.push({ level: "excluded", text: "BNP と NT-proBNP を1週間以内に行ったので、主たるもの（点数の高い方）だけを算定し、もう一方を外しました（D008 通知(7)イ）。" });
+    issues.push({ level: "review", text: "BNP・NT-proBNP の各実施日を摘要欄に書いてください（D008 通知(7)ウ）。" });
+  }
   for (const { e, o: lab } of collections) {
     const d = lab.collect.day;
     if (lab.codes.includes("LAB-VCM")) vcmLevels.push(d);
     if (!inMonth.has(d)) continue;
-    const codes = [...new Set(expandLab(lab.codes))];
+    const codes = [...new Set(expandLab(lab.codes))].filter((c) => !npDropped.has(`${e.id}|${c}`));
     if (!codes.length) continue;
     const bundle = codes.filter((c) => shinryoItem(c)?.bundleGroup === "1");
     const cultures: string[] = codes.filter((c) => c === "160058610" || c === "160058410");
@@ -464,15 +480,24 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     } else if (bundle.length) {
       add({ day: d, shikibetsu: "60", parts: [{ lines: bundle.map((c) => si(c)), points: bundle.reduce((s, c) => s + pts(c), 0) }], basis: "D007 生化学的検査（Ⅰ）（4項目以下は各点数の合計）" });
     }
-    const otherGroups = new Map<string, number>();
+    // 項目数で点数が決まる包括（内分泌 D008・腫瘍マーカー D009・出血凝固 D006）: 1回の採血の項目数で
+    const grouped = new Map<string, string[]>();
     for (const c of others) {
       const g = shinryoItem(c)?.bundleGroup ?? "0";
-      if (g !== "0") otherGroups.set(g, (otherGroups.get(g) ?? 0) + 1);
+      if (OTHER_BUNDLES[g]) grouped.set(g, [...(grouped.get(g) ?? []), c]);
     }
-    for (const [g, n] of otherGroups)
-      if (n >= 2) issues.push({ level: "review", text: `包括対象検査の群${g}を1回の採血で${n}項目行っています。この群の項目数による点数はまだ組んでいないので、確かめてください。` });
-    if (others.length) {
-      add({ day: d, shikibetsu: "60", parts: [{ lines: others.map((c) => si(c)), points: others.reduce((s, c) => s + pts(c), 0) }], basis: "検体検査（各項目の点数の合計）" });
+    const bundledAway = new Set<string>();
+    for (const [g, list] of grouped) {
+      const rule = OTHER_BUNDLES[g];
+      const points = rule.points(list.length);
+      if (points === null) continue;
+      list.forEach((c) => bundledAway.add(c));
+      add({ day: d, shikibetsu: "60", parts: [{ lines: list.map((c) => si(c)), points }], basis: `${rule.name}を1回の採血で${list.length}項目（${points}点。告示 ${rule.kubun} 注）` });
+    }
+    for (const g of grouped.keys()) if (!OTHER_BUNDLES[g]) issues.push({ level: "review", text: `包括対象検査の群${g}の点数はまだ組んでいません。確かめてください。` });
+    const singles = others.filter((c) => !bundledAway.has(c));
+    if (singles.length) {
+      add({ day: d, shikibetsu: "60", parts: [{ lines: singles.map((c) => si(c)), points: singles.reduce((s, c) => s + pts(c), 0) }], basis: "検体検査（各項目の点数の合計）" });
     }
     for (const c of cultures) {
       const sets = c === "160058610" ? Number(/(\d)\s*セット/.exec(lab.comment ?? "")?.[1] ?? 1) : 1;
@@ -695,6 +720,16 @@ export const MEAL_FUTAN: Record<MealClass, { code: string; label: string }> = {
   "低所得Ⅱ（90日超）": { code: "197001010", label: "低所得Ⅱ・90日超" },
   低所得Ⅰ: { code: "197001110", label: "低所得Ⅰ" },
   指定難病等: { code: "197003310", label: "指定難病・小児慢性特定疾病" },
+};
+
+/**
+ * 項目数で点数が決まる包括（令和8年度告示）. 群 = 医科診療行為マスター 列16. 生化学的検査（Ⅰ）は seikagaku1Points.
+ * The master holds only which group an item counts in; the points per number of items come from the 点数表.
+ */
+export const OTHER_BUNDLES: Record<string, { name: string; kubun: string; points: (n: number) => number | null }> = {
+  "2": { name: "内分泌学的検査（D008 の12〜51）", kubun: "D008", points: (n) => (n < 3 ? null : n <= 5 ? 410 : n <= 7 ? 623 : 900) },
+  "5": { name: "腫瘍マーカー（D009 の2〜36）", kubun: "D009", points: (n) => (n < 2 ? null : n === 2 ? 230 : n === 3 ? 290 : 385) },
+  "6": { name: "出血・凝固検査（D006 の14〜34）", kubun: "D006", points: (n) => (n < 3 ? null : n <= 4 ? 530 : 722) },
 };
 
 /**
