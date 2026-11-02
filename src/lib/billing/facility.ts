@@ -16,6 +16,10 @@ export interface FacilityStandard {
 
 export const HOSPITAL = {
   name: "架空総合病院",
+  /** 都道府県番号 (神奈川県) and a made-up 医療機関コード (郡市区2・番号4・検証番号1). */
+  prefecture: "14",
+  code: "9900010",
+  tel: "045-000-0000",
   beds: { general: 134 },
   /** The ward in this app (5階東) bills 急性期一般入院料４. */
   wardBase: "190199910",
