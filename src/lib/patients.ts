@@ -584,6 +584,8 @@ const mori: BasePatient = {
         schedule: { kind: "per_day", count: 2 },
         rateMlPerH: 42,
         start: { day: -2, time: "21:00" },
+        // 補液は3日間（今日まで）。続けるなら注射カレンダーの「延長」で。
+        days: 3,
       },
     },
     {

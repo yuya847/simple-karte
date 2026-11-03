@@ -154,12 +154,20 @@ export interface StopDraft extends DraftBase {
   targetOrderId: string | null;
 }
 
+/** 延長: add days to a running order that has an end (日数). Confirmed like any other draft. */
+export interface ExtendDraft extends DraftBase {
+  kind: "extend";
+  targetOrderId: string;
+  /** Days added to the order's 日数. */
+  addDays: number;
+}
+
 export interface UnclearDraft extends DraftBase {
   kind: "unclear";
   reason: string;
 }
 
-export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | ImagingDraft | PhysioDraft | StopDraft | UnclearDraft;
+export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | ImagingDraft | PhysioDraft | StopDraft | ExtendDraft | UnclearDraft;
 
 // ---------------------------------------------------------------------------
 // From Claude's output to drafts (codes not in the master are dropped to null)
@@ -513,7 +521,10 @@ export function effectiveRoute(d: InjectionDraft): InjectionRoute | null {
 function activeSameDrug(d: InjectionDraft, ctx: CheckContext): OrderEntry[] {
   const code = d.items[0]?.drugCode;
   if (!code) return [];
-  return ctx.activeOrders.filter((o) => o.order.type === "injection" && o.order.items[0]?.drugCode === code);
+  // An order already being stopped by a draft (e.g. 修正 from the calendar) is not a duplicate.
+  return ctx.activeOrders.filter(
+    (o) => o.order.type === "injection" && o.order.items[0]?.drugCode === code && !ctx.drafts.some((x) => x.kind === "stop" && resolvedStopTarget(x, ctx) === o.id),
+  );
 }
 
 /** Running orders of a drug: the main drug of an injection, or an oral prescription. */
@@ -1267,6 +1278,8 @@ export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
       return checkPhysio(d, ctx, ctx.patientFacts ?? null);
     case "stop":
       return checkStop(d, ctx);
+    case "extend":
+      return checkExtend(d, ctx);
     case "unclear":
       return [{ key: "unclear", level: "ask", title: "聞き取れず", message: d.reason }];
   }
@@ -1278,7 +1291,41 @@ export const isReady = (issues: Issue[]) => issues.every((i) => i.level === "inf
 // Confirm: drafts → orders
 // ---------------------------------------------------------------------------
 
-export type ConfirmResult = { order?: Order; orders?: Order[]; stopIds: string[]; /** Consent forms to prepare for the new order. */ consents?: ConsentCode[] };
+export type ConfirmResult = {
+  order?: Order;
+  orders?: Order[];
+  stopIds: string[];
+  /** Consent forms to prepare for the new order. */
+  consents?: ConsentCode[];
+  /** 延長: the order's new 日数. */
+  extend?: { orderId: string; days: number };
+};
+
+/** The last day of an order that has 日数 (offset from today), or null when it runs until changed. */
+export function orderEndDay(o: Order): DayOffset | null {
+  const start = "start" in o && o.start && typeof o.start === "object" && "day" in o.start ? (o.start.day as DayOffset) : null;
+  const days = "days" in o ? (o.days as number | undefined) : undefined;
+  return start === null || !days ? null : start + days - 1;
+}
+
+function checkExtend(d: ExtendDraft, ctx: CheckContext): Issue[] {
+  const target = ctx.activeOrders.find((o) => o.id === d.targetOrderId);
+  if (!target) return [{ key: "extend-target", level: "stop", title: "延長", message: "延長するオーダが、もう有効ではありません。" }];
+  const end = orderEndDay(target.order);
+  if (end === null) return [{ key: "extend-open", level: "stop", title: "延長", message: "日数の決まっていないオーダは、延長しなくても続きます。" }];
+  if (ctx.drafts.some((x) => x.kind === "stop" && resolvedStopTarget(x, ctx) === target.id))
+    return [{ key: "extend-stop", level: "stop", title: "延長", message: "同じオーダの中止の下書きがあります。どちらかを消してください。" }];
+  const days = (target.order as { days: number }).days;
+  return [
+    {
+      key: "extend-calc",
+      level: "info",
+      title: "延長",
+      message: `${ctx.describe(target)}`,
+      formula: `${days}日間（〜${ctx.fmtDay(end)}） → ${days + d.addDays}日間（〜${ctx.fmtDay(end + d.addDays)}）`,
+    },
+  ];
+}
 
 /** Only call when isReady(checkDraft(d, ctx)). */
 export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
@@ -1287,6 +1334,10 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     return { stopIds: id ? [id] : [] };
   }
   if (d.kind === "unclear") return { stopIds: [] };
+  if (d.kind === "extend") {
+    const target = ctx.activeOrders.find((o) => o.id === d.targetOrderId)!;
+    return { stopIds: [], extend: { orderId: target.id, days: (target.order as { days: number }).days + d.addDays } };
+  }
   if (d.kind === "prescription") return { orders: toPrescriptionOrders(d, ctx.nowTime, d.id), stopIds: [] };
   if (d.kind === "imaging") {
     const order = toImagingOrder(d);

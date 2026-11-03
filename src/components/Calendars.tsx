@@ -8,6 +8,7 @@ import { durationText, oralName, procedureLines, scheduleTextFor, timingText } f
 import { findProc } from "@/lib/procedures";
 import { findDrug } from "@/lib/master";
 import { ordersOf } from "@/lib/record";
+import { orderEndDay } from "@/lib/drafts";
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "@/lib/types";
 
 interface CalendarProps {
@@ -20,6 +21,9 @@ interface CalendarProps {
   /** Put a stop draft for this order into today's drafts. The doctor confirms it there. */
   onStopDraft: (entry: OrderEntry) => void;
   draftedStops: string[];
+  /** 延長: add days to an order with an end. 修正: stop it and copy it into the 注射 tab. */
+  onExtendDraft?: (entry: OrderEntry, days: number) => void;
+  onModify?: (entry: OrderEntry) => void;
 }
 
 const HEAD_W = 230;
@@ -95,8 +99,28 @@ function GroupRow({ title, span }: { title: string; span: number }) {
   );
 }
 
-function RowHead({ entry, title, lines, onStopDraft, drafted }: { entry: OrderEntry; title: string; lines: string[]; onStopDraft: (e: OrderEntry) => void; drafted: boolean }) {
+function RowHead({
+  entry,
+  title,
+  lines,
+  onStopDraft,
+  drafted,
+  onExtend,
+  onModify,
+  endLabel,
+}: {
+  entry: OrderEntry;
+  title: string;
+  lines: string[];
+  onStopDraft: (e: OrderEntry) => void;
+  drafted: boolean;
+  onExtend?: (days: number) => void;
+  onModify?: () => void;
+  /** "〜11/5" when the order has an end; null when it runs until changed. */
+  endLabel?: string | null;
+}) {
   const stopped = entry.status === "中止";
+  const active = entry.status === "有効";
   return (
     <th className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1.5 text-left align-top font-normal">
       <div className={`font-bold ${stopped ? "text-ink-faint line-through" : "text-ink"}`}>{title}</div>
@@ -105,15 +129,38 @@ function RowHead({ entry, title, lines, onStopDraft, drafted }: { entry: OrderEn
           {l}
         </div>
       ))}
-      <div className="mt-1 flex items-center gap-2 text-[10px]">
+      {endLabel !== undefined && active && <div className="text-[11px] text-ink-soft">{endLabel ? `${endLabel}まで` : "終了日なし（変えるまで続く）"}</div>}
+      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
         <span className={`rounded border px-1 ${stopped ? "border-shu/40 text-shu" : "border-wakatake/40 text-wakatake"}`}>{entry.status}</span>
-        {entry.status === "有効" &&
+        {active &&
           (drafted ? (
             <span className="text-yamabuki">中止の下書きあり</span>
           ) : (
-            <button type="button" onClick={() => onStopDraft(entry)} className="rounded border border-rule px-1.5 text-ink-soft hover:border-shu hover:text-shu">
-              中止の下書き
-            </button>
+            <>
+              <button type="button" onClick={() => onStopDraft(entry)} className="rounded border border-rule px-1.5 text-ink-soft hover:border-shu hover:text-shu pointer-coarse:py-1">
+                中止の下書き
+              </button>
+              {onModify && (
+                <button type="button" onClick={onModify} title="このオーダを止め、同じ内容を注射のタブに写して直す" className="rounded border border-rule px-1.5 text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1">
+                  修正
+                </button>
+              )}
+              {onExtend && endLabel && (
+                <select
+                  value=""
+                  aria-label={`${title}を延長`}
+                  onChange={(e) => e.target.value && onExtend(Number(e.target.value))}
+                  className="rounded border border-rule bg-sheet px-1 text-ink-soft hover:border-ai pointer-coarse:py-1"
+                >
+                  <option value="">延長…</option>
+                  {[1, 2, 3, 5, 7, 14].map((n) => (
+                    <option key={n} value={n}>
+                      ＋{n}日
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
           ))}
       </div>
     </th>
@@ -143,7 +190,7 @@ const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
   { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
 ];
 
-export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops }: CalendarProps) {
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify }: CalendarProps) {
   const days = calendarDays(patient);
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "injection");
@@ -174,7 +221,16 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
             ];
             return (
               <tr key={e.id}>
-                <RowHead entry={e} title={main?.aliases[0] ?? main?.name ?? ""} lines={lines} onStopDraft={onStopDraft} drafted={draftedStops.includes(e.id)} />
+                <RowHead
+                  entry={e}
+                  title={main?.aliases[0] ?? main?.name ?? ""}
+                  lines={lines}
+                  onStopDraft={onStopDraft}
+                  drafted={draftedStops.includes(e.id)}
+                  endLabel={orderEndDay(o) === null ? null : `〜${formatShort(addDays(today, orderEndDay(o)!))}`}
+                  onExtend={onExtendDraft ? (n) => onExtendDraft(e, n) : undefined}
+                  onModify={onModify ? () => onModify(e) : undefined}
+                />
                 {days.map((d) => {
                   const c = injectionCell(e, d, nowAbs);
                   return (

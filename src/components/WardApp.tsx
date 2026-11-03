@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
-import { checkDraft, draftsFromAi, isReady, toOrder, type CheckContext, type Draft, type Issue, type StopDraft } from "@/lib/drafts";
+import { checkDraft, draftsFromAi, isReady, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type Issue, type StopDraft } from "@/lib/drafts";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { admitFromEr, type AdmitForm } from "@/lib/admission";
@@ -16,7 +16,7 @@ import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
 import { BEDS, type BedAssignment, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
-import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
+import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { HistoryPane, type LeftView } from "./HistoryPane";
@@ -98,6 +98,10 @@ interface ChartState {
   stopped: string[];
   /** When each of them was stopped ("HH:MM"). */
   stopTimes: Record<string, string>;
+  /** 延長 confirmed today: order id → its new 日数. */
+  extended: Record<string, number>;
+  /** An order to copy into the 注射 tab for 修正 (the old one gets a stop draft). */
+  injSeed?: { key: string; order: InjectionOrder };
   drafting: boolean;
   error: string | null;
   meta: DraftMeta | null;
@@ -117,6 +121,7 @@ const newChart = (): ChartState => ({
   added: [],
   stopped: [],
   stopTimes: {},
+  extended: {},
   drafting: false,
   error: null,
   meta: null,
@@ -282,8 +287,8 @@ export default function WardApp() {
 
   // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
   const entries: HistoryEntry[] = useMemo(
-    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes, notes: notes[patient.id], revised: revised[patient.id] }) : []),
-    [patient, chart.stopped, chart.stopTimes, chart.added, notes, revised],
+    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes, extended: chart.extended, notes: notes[patient.id], revised: revised[patient.id] }) : []),
+    [patient, chart.stopped, chart.stopTimes, chart.extended, chart.added, notes, revised],
   );
 
   const ctx: CheckContext | null = useMemo(() => {
@@ -357,10 +362,12 @@ export default function WardApp() {
     if (!chart.drafts.every((d) => isReady(issues[d.id] ?? []))) return;
     const added: OrderEntry[] = [];
     const stops: string[] = [];
+    const extended: Record<string, number> = {};
     const newConsents: ConsentRecord[] = [];
     for (const d of chart.drafts) {
       const r = toOrder(d, ctx);
       stops.push(...r.stopIds);
+      if (r.extend) extended[r.extend.orderId] = r.extend.days;
       const ids: string[] = [];
       for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) {
         const id = newId();
@@ -378,6 +385,13 @@ export default function WardApp() {
           o.type === "injection" ? anyDrugName(o.items[0].drugCode) : o.type === "prescription" ? anyDrugName(o.drugCode) : o.type === "procedure" ? procedureTitle(o) : "";
         return `・${name} 中止`;
       }),
+      ...Object.entries(extended).flatMap(([id, days]) => {
+        const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === id);
+        if (!e) return [];
+        const o = e.order as InjectionOrder;
+        const end = orderEndDay({ ...o, days } as InjectionOrder);
+        return [`・${o.type === "injection" ? anyDrugName(o.items[0].drugCode) : orderLines(e.order, today).main} 延長：${o.days}日間 → ${days}日間（〜${end !== null ? formatShort(addDays(today, end)) : ""}）`];
+      }),
       ...added.map((e) => planLine(e, today) + (e.verbal ? `（口頭指示 ${e.verbal.doctor} → 受け ${e.verbal.takenBy}）` : "")),
     ];
     if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
@@ -390,9 +404,10 @@ export default function WardApp() {
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
       stopTimes: { ...c.stopTimes, ...Object.fromEntries(stops.map((id) => [id, nowTime])) },
+      extended: { ...c.extended, ...extended },
       drafts: [],
       note: lines.length ? `${c.note.replace(/\s*$/, "")}\n${lines.join("\n")}\n` : c.note,
-      flash: `${added.length + stops.length}件を確定しました。左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
+      flash: `${added.length + stops.length + Object.keys(extended).length}件を確定しました。左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
       selectedDay: 0,
     }));
   };
@@ -460,7 +475,7 @@ export default function WardApp() {
       return { instruction: cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${text}` : text };
     });
 
-  const sessionChanges = Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, notes: notes[id], revised: revised[id] }]));
+  const sessionChanges = Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
   // Our patients with their bed and the record as it stands now (for the worksheet and the list).
   const people: WorkPatient[] = ward.beds.flatMap((b) => {
     const p = b.patientId ? findPatient(b.patientId) : undefined;
@@ -790,7 +805,7 @@ export default function WardApp() {
                   wardPayload={() =>
                     allPatients.map((p) => {
                       const c = charts[p.id];
-                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id) });
+                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id) });
                     })
                   }
                 />
@@ -809,6 +824,21 @@ export default function WardApp() {
               view={chart.leftView}
               onView={(v) => update({ leftView: v })}
               onStopDraft={addStopDraft}
+              onExtendDraft={(e, n) => {
+                const draft: ExtendDraft = { id: newId(), origin: "manual", sourceText: "（カレンダーから延長）", comment: null, kind: "extend", targetOrderId: e.id, addDays: n };
+                update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], rightTab: "note", flash: `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
+              }}
+              onModify={(e) => {
+                if (e.order.type !== "injection") return;
+                addStopDraft(e, "（カレンダーから修正）");
+                const order = e.order;
+                update((c) => ({
+                  injSeed: { key: newId(), order },
+                  openTabs: c.openTabs.includes("injection") ? c.openTabs : [...c.openTabs, "injection"],
+                  rightTab: "injection",
+                  flash: "前のオーダの中止の下書きを入れ、同じ内容を注射のタブに写しました。直して下書きにし、まとめて確定してください。",
+                }));
+              }}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
               onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
               onReviseNote={(e, text, reason) => {
@@ -936,6 +966,7 @@ export default function WardApp() {
                     key={patient.id}
                     newId={newId}
                     drafts={chart.drafts}
+                    seed={chart.injSeed}
                     onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                   />
                   </fieldset>

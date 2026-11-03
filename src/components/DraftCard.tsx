@@ -21,7 +21,7 @@ interface Props {
   rp?: number;
 }
 
-const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
+const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", extend: "延長", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
@@ -126,6 +126,16 @@ function IssueRow({ issue, draft, onApply, onRemove }: { issue: Issue; draft: Dr
 
 function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
   if (draft.kind === "unclear") return <p className="text-ink-soft">この部分はオーダにできませんでした。</p>;
+
+  if (draft.kind === "extend") {
+    const o = ctx.activeOrders.find((x) => x.id === draft.targetOrderId);
+    return (
+      <p>
+        <b>{draft.addDays}日延長</b>
+        {o && <span className="block text-xs text-ink-soft">{ctx.describe(o)}</span>}
+      </p>
+    );
+  }
 
   if (draft.kind === "stop") {
     const target = resolvedStopTarget(draft, ctx);

@@ -33,6 +33,9 @@ interface Props {
   onView: (v: LeftView) => void;
   onStopDraft: (entry: OrderEntry) => void;
   draftedStops: string[];
+  /** 延長 (add days) and 修正 (stop and copy into the 注射 tab) from the injection calendar. */
+  onExtendDraft?: (entry: OrderEntry, days: number) => void;
+  onModify?: (entry: OrderEntry) => void;
   /** Correct a confirmed note (a new version; the earlier ones are kept). */
   onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
   /** Put vital-sign lines copied from the flow sheet into O) of today's note. */
@@ -41,8 +44,8 @@ interface Props {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals } = props;
-  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops };
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify } = props;
+  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex items-center gap-3 border-b border-rule-soft px-4 py-1.5">

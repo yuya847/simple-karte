@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
 import { newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
-import type { InjectionRoute, InjectionSchedule } from "@/lib/types";
+import type { InjectionOrder, InjectionRoute, InjectionSchedule } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
@@ -169,8 +169,18 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  * drug, drugs mixed in, and the fluid), then the route, frequency, drip time and start. Each Rp
  * becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
  */
-export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[] }) {
+export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: { key: string; order: InjectionOrder } }) {
   const [rps, setRps] = useState<InjRp[]>([newInjRp(), newInjRp()]);
+  // 修正 from the calendar: the order is copied into the first empty Rp, to be changed and drafted again.
+  const [seeded, setSeeded] = useState<string | null>(null);
+  if (seed && seed.key !== seeded) {
+    setSeeded(seed.key);
+    const rp = rpFromOrder(seed.order);
+    setRps((r) => {
+      const i = r.findIndex((x) => x.rows.length === 0);
+      return i < 0 ? [...r, rp] : r.map((x, j) => (j === i ? rp : x));
+    });
+  }
   const first = drafts.filter((d) => d.kind === "injection").length + 1;
   const upd = (i: number, patch: Partial<InjRp>) =>
     setRps((r) =>
@@ -364,6 +374,21 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
       <p className="text-[11px] text-ink-faint">点滴の速度（mL/時）は量と時間からコードで計算し、下書きに式を出します。経路・重複・時刻の確認も下書きに出ます。</p>
     </div>
   );
+}
+
+/** An order as an Rp to change (修正): same drugs, route, frequency and drip time; it starts today. */
+function rpFromOrder(o: InjectionOrder): InjRp {
+  const rows = o.items.map((it) => ({ drugCode: it.drugCode, amount: String(it.amount), unit: it.unit }));
+  const lock = !!o.comment?.startsWith("ロック");
+  const tab = ROUTE_TABS.find((t) => t.route === o.route && !!t.lock === lock) ?? ROUTE_TABS.find((t) => t.route === o.route);
+  const rp: InjRp = { ...newInjRp(), rows, route: tab?.key ?? "" };
+  const same = (a: InjectionSchedule, b: InjectionSchedule) => a.kind === b.kind && (a.kind !== "per_day" || (b.kind === "per_day" && a.count === b.count)) && (a.kind !== "every_hours" || (b.kind === "every_hours" && a.hours === b.hours));
+  rp.sched = schedulesOf(rp).findIndex((x) => same(x.value, o.schedule));
+  rp.minutes = o.minutesPerDose && DRIP_MINUTES.includes(o.minutesPerDose) ? o.minutesPerDose : 0;
+  const left = o.days ? o.start.day + o.days : 0;
+  rp.days = left > 0 ? String(left) : "";
+  rp.comment = (lock ? o.comment!.replace(/^ロック\s*/, "") : (o.comment ?? "")).trim();
+  return rp;
 }
 
 // The first drug picked is the main one (as on a slip): a fluid first means a bag with drugs mixed in,
