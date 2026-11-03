@@ -7,9 +7,11 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import { WARD_NAME } from "@/lib/ward";
-import { marState, prnToday, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
+import { marState, prnToday, standingPrnId, standingPrnState, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
+import { drugLabel, type PrnRule } from "@/lib/standing";
+import { findOralDrug } from "@/lib/master";
 import { MarCell } from "./MarCell";
-import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type Shift, type WorkKind, type WorkPatient } from "@/lib/worksheet";
+import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
 interface Props {
   people: WorkPatient[];
@@ -29,6 +31,8 @@ interface Props {
   /** Take a record back (reason), and the records taken back, by dose key. */
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
   voided?: Record<string, VoidedRecord[]>;
+  /** 指示簿の頓用 of each patient (given from the standing orders, not from an order). */
+  standingPrn?: { patientId: string; room: string; name: string; rule: PrnRule }[];
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -46,7 +50,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {} }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [] }: Props) {
   const [day, setDay] = useState<0 | 1>(0);
   const [shift, setShift] = useState<Shift>("day");
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
@@ -60,7 +64,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   const isTaken = (c: OrderChange) => !sessionKeys.has(c.key) || !!taken[c.key];
   const waiting = changes.filter((c) => !isTaken(c)).length;
 
-  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, people };
+  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, people };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -157,12 +161,13 @@ interface SheetProps {
   onRecord: (r: AdminRecord) => void;
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
   voided: Record<string, VoidedRecord[]>;
+  standingPrn: { patientId: string; room: string; name: string; rule: PrnRule }[];
   people: WorkPatient[];
 }
 
 type DayOffsetLike = 0 | 1;
 
-function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, people }: SheetProps) {
+function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, people }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   const maxOf = (orderId: string) => {
@@ -171,7 +176,32 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
   };
   const s = SHIFTS[shift];
   const timed = sheet.timed.filter((i) => kinds.includes(i.kind));
-  const untimed = sheet.untimed.filter((i) => kinds.includes(i.kind));
+  // 指示簿の頓用 sit with the other 必要時 items; each is recorded like a dose of an order.
+  const fromStanding: (WorkItem & { rule: PrnRule })[] = standingPrn.map(({ patientId, room, name, rule }) => ({
+    at: null,
+    kind: rule.drug.code.startsWith("ORAL-") ? "内服" : "注射",
+    patientId,
+    room,
+    name,
+    main: `${drugLabel(rule.drug.code)} ${rule.drug.amount}${rule.drug.unit}`,
+    detail: `指示簿 ${rule.when}${rule.detail ? `（${rule.detail}）` : ""}　${rule.intervalH}時間あけて1日${rule.maxPerDay}回まで`,
+    orderId: standingPrnId(patientId, rule.id),
+    state: null,
+    rule,
+  }));
+  const ruleOf = (orderId: string) => fromStanding.find((x) => x.orderId === orderId)?.rule;
+  // The same drug in this patient's other 頓用 (指示簿 or a 頓用 prescription), one dose in mg and the
+  // insert's daily maximum (oral master), so that the interval and the day's total are per drug.
+  const sameOf = (orderId: string) => {
+    const me = fromStanding.find((x) => x.orderId === orderId);
+    if (!me) return undefined;
+    const code = me.rule.drug.code;
+    const rx = people.find((x) => x.patient.id === me.patientId)?.entries.filter((e) => e.status === "有効" && e.order.type === "prescription" && e.order.drugCode === code && e.order.timings.length === 0) ?? [];
+    const oral = findOralDrug(code);
+    const doseMg = oral?.mg ? oral.mg * me.rule.drug.amount : me.rule.drug.unit === "mg" ? me.rule.drug.amount : undefined;
+    return { ids: [...fromStanding.filter((x) => x.patientId === me.patientId && x.rule.drug.code === code && x.orderId !== orderId).map((x) => x.orderId), ...rx.map((e) => e.id)], doseMg, maxDailyMg: oral?.maxDailyMg };
+  };
+  const untimed = [...sheet.untimed, ...fromStanding].filter((i) => kinds.includes(i.kind));
   const running = sheet.running.filter((i) => kinds.includes(i.kind));
   const th = "border-b border-ink/40 px-1.5 py-1 text-left font-bold";
   const td = "border-b border-rule px-1.5 py-1 align-top";
@@ -334,7 +364,7 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                   </td>
                   <td className={`${td} w-32 text-ink-faint`}>
                     {interactive ? (
-                      <MarCell item={i} state="予定" nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} prn={i.kind === "内服" ? { ...prnToday(i.orderId, records, maxOf(i.orderId)), max: maxOf(i.orderId) } : undefined} onRecord={onRecord} />
+                      <MarCell item={i} state="予定" nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} prn={ruleOf(i.orderId) ? standingPrnState(i.orderId, records, ruleOf(i.orderId)!, nowAbs, sameOf(i.orderId)) : i.kind === "内服" ? { ...prnToday(i.orderId, records, maxOf(i.orderId)), max: maxOf(i.orderId) } : undefined} onRecord={onRecord} />
                     ) : (
                       "実施 □□□"
                     )}

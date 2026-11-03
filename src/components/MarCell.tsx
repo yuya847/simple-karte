@@ -15,7 +15,7 @@ interface Props {
   /** Another patient's ID, for the demo button "別の患者のリストバンド". */
   otherPatientId?: string;
   /** For 必要時: how many given today and whether over the limit. */
-  prn?: { given: number; over: boolean; max?: number };
+  prn?: { given: number; over: boolean; max?: number; wait?: string; limit?: string; sameToday?: number };
   onRecord: (r: AdminRecord) => void;
   /** Take a record back with a reason (the record stays in the history). */
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
@@ -119,6 +119,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
         {prn && (
           <span className={`text-[11px] ${prn.over ? "font-bold text-shu" : "text-ink-soft"}`}>
             今日 {prn.given}回{prn.max ? `／${prn.max}回まで` : ""}
+            {prn.sameToday !== undefined && `（同じ薬は合わせて${prn.sameToday}回）`}
           </span>
         )}
         {state !== "記録済み" && (
@@ -162,9 +163,10 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
               時刻のずれを承知して記録する（必要なら医師に確かめる）
             </label>
           )}
-          {prn?.over && <p className="font-bold text-shu">今日はもう上限の回数を使っています。医師に確かめてください。</p>}
+          {prn?.limit ? <p className="font-bold text-shu">{prn.limit}医師に確かめてください。</p> : prn?.over && <p className="font-bold text-shu">今日はもう上限の回数を使っています。医師に確かめてください。</p>}
+          {prn?.wait && <p className="font-bold text-shu">{prn.wait}</p>}
           <div className="flex flex-wrap items-center gap-1 pt-0.5">
-            <button type="button" disabled={!ok || prn?.over} onClick={() => save("実施")} className="rounded bg-wakatake px-2 py-0.5 font-bold text-white disabled:opacity-40">
+            <button type="button" disabled={!ok || prn?.over || !!prn?.wait} onClick={() => save("実施")} className="rounded bg-wakatake px-2 py-0.5 font-bold text-white disabled:opacity-40">
               実施を記録
             </button>
             {item.at !== null && (

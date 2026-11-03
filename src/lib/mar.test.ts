@@ -46,3 +46,31 @@ describe("実施の状態", () => {
     expect(prnToday("p", {}, 2)).toEqual({ given: 0, over: false });
   });
 });
+
+describe("指示簿の頓用", () => {
+  it("counts today's doses and the interval since the last one", async () => {
+    const { standingPrnState } = await import("./mar");
+    const rec = (at: number) => ({ key: `s|${at}`, orderId: "s", patientId: "p", at, status: "実施" as const, doneAt: "", by: "", checked: { patient: true, label: null } });
+    const rule = { intervalH: 6, maxPerDay: 3 };
+    expect(standingPrnState("s", {}, rule, 600)).toMatchObject({ given: 0, over: false, wait: undefined });
+    const one = { a: rec(480) }; // 08:00
+    expect(standingPrnState("s", one, rule, 600).wait).toContain("前回 08:00 に使っています。6時間あける");
+    expect(standingPrnState("s", one, rule, 480 + 360).wait).toBeUndefined();
+    expect(standingPrnState("s", { a: rec(100), b: rec(500), c: rec(900) }, rule, 1300)).toMatchObject({ given: 3, over: true });
+  });
+});
+
+describe("同じ薬の頓用は合わせて数える", () => {
+  it("uses the other rule's dose for the interval and the insert's daily maximum", async () => {
+    const { standingPrnState } = await import("./mar");
+    const rec = (id: string, at: number) => ({ key: `${id}|${at}`, orderId: id, patientId: "p", at, status: "実施" as const, doneAt: "", by: "", checked: { patient: true, label: null } });
+    const rule = { intervalH: 6, maxPerDay: 3 };
+    const same = { ids: ["pain"], doseMg: 500, maxDailyMg: { mg: 1500, source: "試験" } };
+    // 発熱時 never used, but 疼痛時 (same drug) at 08:00: wait.
+    expect(standingPrnState("fever", { a: rec("pain", 480) }, rule, 600, same).wait).toContain("同じ薬をほかの頓用で 08:00");
+    // Three doses of the same drug today (1,500mg): one more would pass 1,500mg.
+    const st = standingPrnState("fever", { a: rec("pain", 0), b: rec("pain", 400), c: rec("fever", 800) }, rule, 1300, same);
+    expect(st).toMatchObject({ over: true, sameToday: 3 });
+    expect(st.limit).toContain("2000mg");
+  });
+});

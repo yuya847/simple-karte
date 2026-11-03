@@ -1276,6 +1276,11 @@ export default function WardApp() {
           people={people}
           today={today}
           nowTime={nowTime}
+          // 指示簿の頓用: only standing orders a nurse has taken (指示受け) are used on the ward.
+          standingPrn={people.flatMap((x) => {
+            const s = standingNow(x.patient.id);
+            return s?.taken ? s.prn.map((rule) => ({ patientId: x.patient.id, room: x.room, name: x.patient.name, rule })) : [];
+          })}
           taken={taken}
           sessionKeys={sessionKeys}
           onTake={(keys) => {

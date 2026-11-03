@@ -103,3 +103,40 @@ export function prnToday(orderId: string, records: Record<string, AdminRecord>, 
   const given = Object.values(records).filter((r) => r.orderId === orderId && r.status === "実施" && r.at >= 0 && r.at < 1440).length;
   return { given, over: maxPerDay !== undefined && given >= maxPerDay };
 }
+
+/** The id a 指示簿の頓用 is recorded under (it is not an order). */
+export const standingPrnId = (patientId: string, ruleId: string) => `standing-${patientId}-${ruleId}`;
+
+/**
+ * 指示簿の頓用 (PRN in the standing orders): how many given today, the day's limit, and whether the
+ * ordered interval has passed since the last dose (minutes from today 00:00).
+ */
+export function standingPrnState(
+  orderId: string,
+  records: Record<string, AdminRecord>,
+  rule: { intervalH: number; maxPerDay: number },
+  nowAbs: number,
+  /** The same drug in this patient's other 頓用 (ids), with one dose in mg and the insert's daily maximum. */
+  same?: { ids: string[]; doseMg?: number; maxDailyMg?: { mg: number; source: string } },
+) {
+  const given = Object.values(records).filter((r) => r.orderId === orderId && r.status === "実施");
+  const today = given.filter((r) => r.at >= 0 && r.at < 1440).length;
+  const hm = (m: number) => `${String(Math.floor((((m % 1440) + 1440) % 1440) / 60)).padStart(2, "0")}:${String((((m % 1440) + 1440) % 1440) % 60).padStart(2, "0")}`;
+  // The same drug under another 頓用 counts too: the interval and the daily maximum are per drug.
+  const others = same ? Object.values(records).filter((r) => same.ids.includes(r.orderId) && r.status === "実施") : [];
+  const lastAny = [...given, ...others].reduce<number | null>((m, r) => (m === null || r.at > m ? r.at : m), null);
+  const todayAll = today + others.filter((r) => r.at >= 0 && r.at < 1440).length;
+  const mgOver = same?.doseMg && same.maxDailyMg ? (todayAll + 1) * same.doseMg > same.maxDailyMg.mg : false;
+  const leftAny = lastAny === null ? 0 : lastAny + rule.intervalH * 60 - nowAbs;
+  return {
+    given: today,
+    max: rule.maxPerDay,
+    over: today >= rule.maxPerDay || mgOver,
+    sameToday: others.length ? todayAll : undefined,
+    limit: mgOver && same?.doseMg && same.maxDailyMg ? `同じ薬を今日ほかの頓用も合わせて${todayAll}回（${todayAll * same.doseMg}mg）使っています。もう1回で${(todayAll + 1) * same.doseMg}mg となり、1日の上限 ${same.maxDailyMg.mg}mg（${same.maxDailyMg.source}）を超えます。` : undefined,
+    wait:
+      leftAny > 0 && lastAny !== null
+        ? `${others.some((r) => r.at === lastAny) ? "同じ薬をほかの頓用で" : "前回"} ${hm(lastAny)} に使っています。${rule.intervalH}時間あける指示です（あと${Math.floor(leftAny / 60) ? `${Math.floor(leftAny / 60)}時間` : ""}${leftAny % 60}分）。医師に確かめてください。`
+        : undefined,
+  };
+}
