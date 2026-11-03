@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CheckSquare, ChevronDown, MessagesSquare, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, UserRound, X } from "lucide-react";
+import { CheckSquare, ChevronDown, MessagesSquare, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Area, AreaKey } from "@/lib/nav";
@@ -255,7 +255,7 @@ function TodoButton({ todos, narrow }: { todos: Todo[]; narrow?: boolean }) {
 }
 
 /** 自分: the role (login stand-in for the demo) and the audit log. */
-function UserButton({ role, onRole, onArea, auditOn, narrow }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; narrow?: boolean }) {
+function UserButton({ role, onRole, onArea, auditOn, extractOn, narrow }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; narrow?: boolean }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   return (
@@ -284,6 +284,19 @@ function UserButton({ role, onRole, onArea, auditOn, narrow }: { role: Role; onR
             </li>
           ))}
         </ul>
+        {extractOn && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onArea("extract");
+            }}
+            className="flex w-full items-center gap-2 rounded border-t border-rule-soft px-2 py-1.5 text-left hover:bg-paper"
+          >
+            <Table2 size={14} />
+            データ抽出（CSV）
+          </button>
+        )}
         {auditOn && (
           <button
             type="button"
@@ -383,7 +396,7 @@ export function AppFrame(p: Props) {
             </button>
           )}
           <TodoButton todos={p.todos} narrow={narrow} />
-          <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} narrow={narrow} />
+          <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} narrow={narrow} />
         </div>
       </nav>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

@@ -7,7 +7,7 @@
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
-export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "board" | "manual" | "incident" | "chat" | "audit";
+export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "board" | "manual" | "incident" | "chat" | "audit" | "extract";
 
 export interface Area {
   key: AreaKey;
@@ -35,6 +35,7 @@ export const AREAS: Area[] = [
   { key: "incident", label: "インシデントレポート", short: "インシデント", kind: "page" },
   { key: "chat", label: "チャット", short: "チャット", kind: "page", tool: true },
   { key: "audit", label: "監査ログ", short: "監査", kind: "page", tool: true },
+  { key: "extract", label: "データ抽出", short: "抽出", kind: "page", tool: true },
 ];
 
 /** The view a role must have to use a place (from the role's tabs in roles.ts). */
@@ -86,6 +87,7 @@ export function areasFor(role: Role): Area[] {
     if (a.key === "ward") return wardTabsFor(role).length > 0;
     if (a.key === "opd") return role === "医師" || role === "看護師";
     if (EVERYONE.includes(a.key)) return true;
+    if (a.key === "extract") return role === "医師" || role === "医事課" || role === "看護師";
     const need = NEEDS[a.key];
     return !!need && mine.includes(need);
   });

@@ -28,6 +28,8 @@ import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
 import { StickyStrip, type Sticky } from "./StickyStrip";
 import { BoardView } from "./BoardView";
+import { ExtractView } from "./ExtractView";
+import { runExtract } from "@/lib/extract";
 import { ManualView } from "./ManualView";
 import { IncidentView } from "./IncidentView";
 import { INITIAL_NOTICES, INITIAL_READS, markRead, unreadCount, type Notice, type Reads } from "@/lib/board";
@@ -954,6 +956,19 @@ export default function WardApp() {
             else setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st as OpdStatus } : x)));
           }}
           newId={newId}
+        />
+      ) : screen === "extract" ? (
+        <ExtractView
+          run={(q) =>
+            runExtract(
+              q,
+              allPatients,
+              (p) => currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order"),
+              (p) => diagnoses[p.id] ?? [],
+              (p) => `${floorOf(p.room).replace("病棟", "")} ${p.room}`,
+            )
+          }
+          onExport={(n) => auditLog({ role: me.role, actor: me.name, action: "データ抽出を CSV で保存した", detail: `${n}件` })}
         />
       ) : screen === "board" ? (
         <BoardView

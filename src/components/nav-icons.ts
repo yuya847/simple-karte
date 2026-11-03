@@ -18,6 +18,7 @@ import {
   Scissors,
   ScrollText,
   Stethoscope,
+  Table2,
   TriangleAlert,
   UserRound,
   Users,
@@ -39,6 +40,7 @@ export const AREA_ICON: Record<AreaKey, Icon> = {
   incident: TriangleAlert,
   chat: MessagesSquare,
   audit: ScrollText,
+  extract: Table2,
 };
 
 export const WARD_ICON: Record<WardTab, Icon> = {
