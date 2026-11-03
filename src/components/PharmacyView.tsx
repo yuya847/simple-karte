@@ -1,8 +1,11 @@
 "use client";
 
-import { Activity, BookOpenText, Check, Droplet, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe } from "lucide-react";
+import { Activity, BookOpenText, Check, Droplet, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe } from "lucide-react";
 import { createPortal, flushSync } from "react-dom";
 import { DrugLabel } from "./Labels";
+import { DrugInfoSheet, MedBagFace, NotebookSticker } from "./HomeRxPrint";
+import { bagLine, bagsOf } from "@/lib/discharge-rx";
+import { DRUG_INFO_SOURCE, drugInfoOf } from "@/lib/drug-info";
 import { labelFor } from "@/lib/mar";
 import { txText } from "@/lib/procedures";
 import { ageSex } from "@/lib/person";
@@ -45,17 +48,21 @@ interface Props {
   /** 病棟薬剤業務日誌: the pharmacist's own words today. */
   journal: { text: string; at: string }[];
   onJournal: (text: string) => void;
+  /** 退院時の薬: 調剤・鑑査・説明 and the pharmacist's wording, by patient. */
+  homeRx: Record<string, HomeRxRecord>;
+  onHomeRx: (patientId: string, patch: Partial<HomeRxRecord>) => void;
   onDispense: (key: string) => void;
   tdm: TdmReport[];
   onTdm: (r: Omit<TdmReport, "id" | "at" | "by" | "status">) => void;
 }
 
-type Tab = "audit" | "brought" | "shido" | "dispense" | "blood" | "tdm" | "journal";
+type Tab = "audit" | "brought" | "shido" | "dispense" | "home" | "blood" | "tdm" | "journal";
 const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
   { key: "audit", label: "処方監査・疑義照会", icon: MessageSquareWarning },
   { key: "brought", label: "持参薬鑑別", icon: ScanText },
   { key: "shido", label: "服薬指導", icon: Pill },
   { key: "dispense", label: "注射払出・ラベル（明日分）", icon: Syringe },
+  { key: "home", label: "退院時の薬", icon: Package },
   { key: "blood", label: "血液製剤", icon: Droplet },
   { key: "tdm", label: "TDM", icon: Activity },
   { key: "journal", label: "業務日誌", icon: NotebookText },
@@ -67,6 +74,7 @@ const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ確かめて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。" },
   { tab: "shido", steps: "患者を選んで指導の内容を記録します。服薬指導の算定の回数（週1回・月4回まで）はコードが数え、超えると知らせます。" },
   { tab: "dispense", steps: "明日の注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
+  { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
   { tab: "blood", steps: "医師が確定した輸血のオーダが並びます。製剤の製造番号（ロット）を入れて払い出すと、払出の記録になり、今日の日報に入ります。" },
   { tab: "tdm", steps: "バンコマイシンの血中濃度から、コードが AUC を計算します（式つき）。薬剤師が提案を書いて医師へ報告します。" },
   { tab: "journal", steps: "今日の監査・疑義照会・持参薬鑑別・服薬指導・払出・TDM の件数をコードが数えます。所感を書き残せます。" },
@@ -119,6 +127,7 @@ export function PharmacyView(p: Props) {
           {tab === "brought" && <Brought {...p} />}
           {tab === "shido" && <Shido {...p} />}
           {tab === "dispense" && <Dispense {...p} />}
+          {tab === "home" && <Home {...p} />}
           {tab === "blood" && <Blood {...p} />}
           {tab === "tdm" && <TdmView people={p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
           {tab === "journal" && <Journal {...p} />}
@@ -619,7 +628,7 @@ function Blood({ people, today, txIssued, onTxIssue }: Props) {
 // 病棟薬剤業務日誌: today's work counted by code, with the pharmacist's words.
 // ---------------------------------------------------------------------------
 
-function Journal({ people, nowTime, audited, queries, reports, shido, dispensed, txIssued, tdm, journal, onJournal }: Props) {
+function Journal({ people, nowTime, audited, queries, reports, shido, dispensed, txIssued, tdm, journal, onJournal, homeRx }: Props) {
   const [text, setText] = useState("");
   const shidoToday = Object.values(shido).flat().filter((r) => r.day === 0).length;
   const lines: [string, number][] = [
@@ -630,6 +639,7 @@ function Journal({ people, nowTime, audited, queries, reports, shido, dispensed,
     ["服薬指導", shidoToday],
     ["注射の払出（回）", Object.keys(dispensed).length],
     ["血液製剤の払出", Object.keys(txIssued).length],
+    ["退院時の薬の説明", Object.values(homeRx).filter((r) => r.handed).length],
     ["TDM の報告", tdm.length],
     ["担当の患者", people.length],
   ];
@@ -667,6 +677,167 @@ function Journal({ people, nowTime, audited, queries, reports, shido, dispensed,
         </button>
         <p className="text-[11px] text-ink-faint">件数はこの画面での記録からコードで数えています（架空のデータ）。</p>
       </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 退院時の薬: 退院時処方 → 調剤 → 鑑査 → 説明して渡す, with 薬袋, the 薬剤情報提供文書 and the
+// お薬手帳 sticker printed from the order. Amounts are counted in code; the words can be edited.
+// ---------------------------------------------------------------------------
+
+export interface HomeRxRecord {
+  dispensed?: { by: string; at: string };
+  checked?: { by: string; at: string };
+  handed?: { by: string; at: string; note: string };
+  /** The pharmacist's own wording of 気をつけること, by drug code. */
+  care?: Record<string, string[]>;
+}
+
+function Home({ people, today, nowTime, homeRx, onHomeRx }: Props) {
+  const [printing, setPrinting] = useState<React.ReactNode | null>(null);
+  const [note, setNote] = useState<Record<string, string>>({});
+  const date = formatShort(today).replace(/（.）/, "");
+  const list = people.map((x) => ({ x, bags: bagsOf(x.entries) })).filter((r) => r.bags.length);
+  const print = (node: React.ReactNode, what: string, who: string) => {
+    flushSync(() => setPrinting(node));
+    const done = () => {
+      setPrinting(null);
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+    auditLog({ role: "薬剤師", actor: PHARMACIST, action: `${what}を印刷した`, patient: who });
+  };
+  if (!list.length) return <p className="text-ink-faint">退院時処方はありません（医師が内服の区分「退院時」で出します）。</p>;
+  return (
+    <section className="space-y-4">
+      {list.map(({ x, bags }) => {
+        const rec = homeRx[x.patient.id] ?? {};
+        const hp = { id: x.patient.id, name: x.patient.name, kana: x.patient.kana, ageSex: ageSex(x.patient), allergies: x.patient.allergies };
+        const care = (code: string) => rec.care?.[code] ?? drugInfoOf(code).care;
+        const by = { dispensed: rec.dispensed?.by.replace("薬剤師 ", ""), checked: rec.checked?.by.replace("薬剤師 ", "") };
+        const leave = x.entries.find((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院");
+        const leaveText = leave && leave.order.type === "procedure" ? `退院 ${formatShort(addDays(today, leave.order.start.day))} ${leave.order.start.time ?? ""}` : "退院日は未入力";
+        const step = (label: string, done: { by: string; at: string } | undefined, can: boolean, act: () => void, warn?: string) => (
+          <div className={`flex min-w-40 flex-1 flex-col gap-1 rounded-md border px-3 py-2 ${done ? "border-wakatake/50 bg-wakatake-soft/40" : "border-rule"}`}>
+            <span className="text-xs font-bold text-ink-soft">{label}</span>
+            {done ? (
+              <span className="flex items-center gap-1 text-xs text-wakatake">
+                <Check size={12} />
+                {done.at}　{done.by}
+              </span>
+            ) : (
+              <button type="button" disabled={!can} onClick={act} className="self-start rounded border border-ai px-2 py-0.5 text-xs text-ai hover:bg-ai hover:text-white disabled:opacity-40">
+                {label.replace(/^[①-③]/, "")}した
+              </button>
+            )}
+            {warn && <span className="text-[11px] text-yamabuki">{warn}</span>}
+          </div>
+        );
+        return (
+          <article key={x.patient.id} className={`${card} space-y-3 p-4 text-[13px]`}>
+            <h3 className="flex flex-wrap items-baseline gap-2 font-bold">
+              {x.room}　{x.patient.name}
+              <span className="text-xs font-normal text-ink-soft">
+                {leaveText}　／　処方 {formatShort(addDays(today, bags[0].at.day))} {bags[0].at.time} {bags[0].doctor}
+              </span>
+            </h3>
+            <ol className="space-y-1">
+              {bags.map((b, i) => (
+                <li key={b.rp} className="nums">
+                  <b>Rp{i + 1}</b>（{b.kind}）{bagLine(b)}
+                  <span className="ml-2 text-xs text-ink-soft">計 {b.drugs.map((d) => `${d.name} ${d.total ?? "？"}${d.unit}`).join("・")}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="flex flex-wrap gap-2">
+              {step("①調剤", rec.dispensed, true, () => {
+                auditLog({ role: "薬剤師", actor: PHARMACIST, action: "退院時処方を調剤した", patient: x.patient.name });
+                onHomeRx(x.patient.id, { dispensed: { by: PHARMACIST, at: `${date} ${nowTime}` } });
+              })}
+              {step(
+                "②鑑査",
+                rec.checked,
+                !!rec.dispensed,
+                () => {
+                  auditLog({ role: "薬剤師", actor: PHARMACIST, action: "退院時処方を鑑査した", patient: x.patient.name });
+                  onHomeRx(x.patient.id, { checked: { by: PHARMACIST, at: `${date} ${nowTime}` } });
+                },
+                rec.dispensed && !rec.checked ? "調剤した人とは別の薬剤師が鑑査するのが望ましい（このデモの薬剤師は1人です）" : undefined,
+              )}
+              <div className={`flex min-w-56 flex-[2] flex-col gap-1 rounded-md border px-3 py-2 ${rec.handed ? "border-wakatake/50 bg-wakatake-soft/40" : "border-rule"}`}>
+                <span className="text-xs font-bold text-ink-soft">③説明して渡す</span>
+                {rec.handed ? (
+                  <span className="text-xs text-wakatake">
+                    <Check size={12} className="inline" /> {rec.handed.at}　{rec.handed.by}
+                    {rec.handed.note && <span className="block text-ink">{rec.handed.note}</span>}
+                  </span>
+                ) : (
+                  <>
+                    <input value={note[x.patient.id] ?? ""} onChange={(e) => setNote((m) => ({ ...m, [x.patient.id]: e.target.value }))} placeholder="誰に・何を説明したか（例：本人と長女に。ふらつき時は連絡）" aria-label="説明の記録" className="rounded border border-rule bg-paper px-2 py-0.5 text-xs" />
+                    <button
+                      type="button"
+                      disabled={!rec.checked || !(note[x.patient.id] ?? "").trim()}
+                      onClick={() => {
+                        auditLog({ role: "薬剤師", actor: PHARMACIST, action: "退院時の薬を説明して渡した", patient: x.patient.name, detail: note[x.patient.id] });
+                        onHomeRx(x.patient.id, { handed: { by: PHARMACIST, at: `${date} ${nowTime}`, note: note[x.patient.id].trim() } });
+                      }}
+                      className="self-start rounded border border-ai px-2 py-0.5 text-xs text-ai hover:bg-ai hover:text-white disabled:opacity-40"
+                    >
+                      説明して渡した
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => print(<div className="flex flex-wrap gap-[4mm]">{bags.map((b) => <MedBagFace key={b.rp} p={hp} b={b} date={date} by={by} />)}</div>, "薬袋", x.patient.name)} className="flex items-center gap-1 rounded-md border border-rule px-3 py-1 hover:border-ai hover:text-ai">
+                <Printer size={14} />
+                薬袋（{bags.length}枚）
+              </button>
+              <button type="button" onClick={() => print(<DrugInfoSheet p={hp} bags={bags} care={care} date={date} pharmacist={PHARMACIST} />, "薬剤情報提供文書", x.patient.name)} className="flex items-center gap-1 rounded-md border border-rule px-3 py-1 hover:border-ai hover:text-ai">
+                <Printer size={14} />
+                お薬の説明書（A4）
+              </button>
+              <button type="button" onClick={() => print(<NotebookSticker p={hp} bags={bags} date={date} doctor={bags[0].doctor} />, "お薬手帳のシール", x.patient.name)} className="flex items-center gap-1 rounded-md border border-rule px-3 py-1 hover:border-ai hover:text-ai">
+                <Printer size={14} />
+                お薬手帳のシール
+              </button>
+            </div>
+            <details className="rounded-md border border-rule-soft bg-paper p-2">
+              <summary className="cursor-pointer text-xs font-bold text-ink-soft">説明書の「気をつけること」を見る・直す</summary>
+              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                {bags.flatMap((b) =>
+                  b.drugs.map((d) => (
+                    <label key={`${b.rp}-${d.code}`} className="block text-xs">
+                      <b>
+                        {d.name} {d.strength}
+                      </b>
+                      <span className="ml-1 text-ink-soft">{d.info.what}</span>
+                      <textarea
+                        value={care(d.code).join("\n")}
+                        onChange={(e) => onHomeRx(x.patient.id, { care: { ...(rec.care ?? {}), [d.code]: e.target.value.split("\n") } })}
+                        rows={3}
+                        aria-label={`${d.name} の気をつけること`}
+                        className="mt-0.5 w-full rounded border border-rule bg-white px-2 py-1"
+                      />
+                    </label>
+                  )),
+                )}
+              </div>
+              <p className="mt-1 text-[11px] text-ink-faint">1行が1項目です。最初の文面は添付文書をもとにした要約（{DRUG_INFO_SOURCE.label}）で、印刷の前に薬剤師が確かめます。</p>
+            </details>
+            <div className="flex flex-wrap items-start gap-3 overflow-x-auto rounded-md border border-rule bg-paper p-2">
+              {bags.map((b) => (
+                <MedBagFace key={b.rp} p={hp} b={b} date={date} by={by} />
+              ))}
+              <NotebookSticker p={hp} bags={bags} date={date} doctor={bags[0].doctor} />
+            </div>
+          </article>
+        );
+      })}
+      {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[8mm] print:block">{printing}</div>, document.body)}
     </section>
   );
 }

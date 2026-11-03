@@ -96,7 +96,7 @@ import { Dockable, defaultWin, type Win } from "./Dockable";
 import { InjectionCalendar } from "./Calendars";
 import { WardMap, type ChartSummary, type Pick } from "./WardMap";
 import { Worksheet } from "./Worksheet";
-import { PharmacyView, type ShidoRecord } from "./PharmacyView";
+import { PharmacyView, type HomeRxRecord, type ShidoRecord } from "./PharmacyView";
 import { PharmacyInbox } from "./PharmacyInbox";
 import { DialysisView } from "./DialysisView";
 import { SurgeryView } from "./SurgeryView";
@@ -339,6 +339,7 @@ export default function WardApp() {
   // 薬剤部：血液製剤の払出（製造番号）と病棟薬剤業務日誌.
   const [txIssued, setTxIssued] = useState<Record<string, { lot: string; at: string; by: string }>>({});
   const [pharmJournal, setPharmJournal] = useState<{ text: string; at: string }[]>([]);
+  const [homeRx, setHomeRx] = useState<Record<string, HomeRxRecord>>({});
   // 書類作成で作った書類.
   const [documents, setDocuments] = useState<DocRecord[]>([]);
   // 他科依頼の返書 (by order id).
@@ -1378,6 +1379,8 @@ export default function WardApp() {
             auditLog({ role: me.role, actor: me.name, action: "確定（血液製剤の払出）", patient: who, detail: `製造番号 ${lot}` });
             setTxIssued((all) => ({ ...all, [entryId]: { lot, at: nowTime, by: me.name } }));
           }}
+          homeRx={homeRx}
+          onHomeRx={(id, patch) => setHomeRx((all) => ({ ...all, [id]: { ...all[id], ...patch } }))}
           journal={pharmJournal}
           onJournal={(text) => {
             auditLog({ role: me.role, actor: me.name, action: "病棟薬剤業務日誌に書き残した", detail: text.slice(0, 80) });
