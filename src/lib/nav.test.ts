@@ -29,6 +29,12 @@ describe("② inside 病棟", () => {
     expect(wardTabsFor("看護師")).toContain("acuity");
     expect(wardTabsFor("医事課")).not.toContain("handoff");
   });
+  it("医事課の仕事: only 医事課 has it, as the ward's work", () => {
+    expect(wardTabsFor("医事課")).toContain("iji");
+    expect(wardTabsFor("医師")).not.toContain("iji");
+    expect(wardTabLabel("iji", "5階東病棟")).toBe("医事課の仕事");
+    expect(homeArea("医事課")).toBe("ward");
+  });
   it("病棟の食事: the 管理栄養士 starts there, nurses can read it", () => {
     expect(wardTabsFor("管理栄養士")).toContain("meals");
     expect(wardTabsFor("看護師")).toContain("meals");

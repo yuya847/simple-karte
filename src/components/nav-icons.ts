@@ -18,6 +18,7 @@ import {
   Hotel,
   Pill,
   Printer,
+  ReceiptJapaneseYen,
   Scissors,
   ScrollText,
   Stethoscope,
@@ -63,4 +64,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   meals: Utensils,
   acuity: ClipboardCheck,
   journal: NotebookText,
+  iji: ReceiptJapaneseYen,
 };

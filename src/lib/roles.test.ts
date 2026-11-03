@@ -33,4 +33,12 @@ describe("roles", () => {
     expect(can("医事課", "note")).toBe(false);
     expect(can("MSW", "note")).toBe(true);
   });
+
+  it("医事課 registers the insurance and records the bill; it starts on its own work list", () => {
+    expect(can("医事課", "insurance")).toBe(true);
+    expect(can("医事課", "settle")).toBe(true);
+    expect(can("医師", "insurance")).toBe(false);
+    expect(denyReason("医師", "insurance")).toBe("保険の登録は医事課が行います（いまは医師で入っています）。");
+    expect(home("医事課")).toBe("iji");
+  });
 });

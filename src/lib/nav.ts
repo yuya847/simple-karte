@@ -48,7 +48,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal";
+export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -75,6 +75,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "meals", label: "病棟の食事", hint: "今日と明日の朝・昼・夕：食種・形態・食止め、食数（コードで数える）と締切", group: "work", needs: "meals" },
   { key: "acuity", label: "看護必要度", hint: "B 項目の評価（5階東）", group: "work", needs: "acuity" },
   { key: "journal", label: "看護日誌", hint: "選んだ階の今日の数（コードで数える）と所感", group: "work", needs: "sheet" },
+  { key: "iji", label: "医事課の仕事", hint: "患者ごとに、保険の未登録・退院して会計がまだ・算定の要確認・未コード化の病名", group: "work", needs: "iji" },
 ];
 
 export const wardTabInfo = (t: WardTab): WardTabInfo => WARD_TABS.find((x) => x.key === t)!;

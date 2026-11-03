@@ -34,7 +34,7 @@ export const ROLE_LONG: Record<Role, string> = {
 };
 
 /** The ward-level tabs pinned before the patient tabs. */
-export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit";
+export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit" | "iji";
 
 /** The tabs each role sees, first one is where the role starts. */
 export const TABS: Record<Role, PinnedTab[]> = {
@@ -44,7 +44,7 @@ export const TABS: Record<Role, PinnedTab[]> = {
   臨床検査技師: ["lab", "map", "list", "chat"],
   管理栄養士: ["meals", "admit", "map", "list", "chat"],
   MSW: ["admit", "map", "list", "chat"],
-  医事課: ["list", "map", "audit"],
+  医事課: ["iji", "list", "map", "audit"],
 };
 
 export const home = (r: Role): PinnedTab => TABS[r][0];
@@ -63,6 +63,8 @@ export type Action =
   | "acuity"
   | "pharmacy"
   | "billing"
+  | "insurance"
+  | "settle"
   | "note"
   | "result.ack"
   | "panic.call"
@@ -93,6 +95,8 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   acuity: { label: "看護必要度の評価", who: ["看護師"] },
   pharmacy: { label: "薬剤部の業務", who: ["薬剤師"] },
   billing: { label: "算定の入力", who: ["医事課", "医師"] },
+  insurance: { label: "保険の登録", who: ["医事課"] },
+  settle: { label: "会計の記録", who: ["医事課"] },
   note: { label: "記事の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW"] },
   "result.ack": { label: "結果の確認", who: ["医師"] },
   "panic.call": { label: "パニック値の連絡", who: ["臨床検査技師"] },
