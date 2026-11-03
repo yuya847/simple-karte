@@ -59,6 +59,7 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   handoff: ArrowRightLeft,
   admit: ClipboardList,
   support: Hotel,
+  beds: BedDouble,
   meals: Utensils,
   acuity: ClipboardCheck,
   journal: NotebookText,

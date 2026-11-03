@@ -58,6 +58,7 @@ import { PhsView } from "./PhsView";
 import { TransferPanel } from "./panels/TransferPanel";
 import { BedsidePanel } from "./panels/BedsidePanel";
 import { SupportBoard } from "./SupportBoard";
+import { BedControlView } from "./BedControlView";
 import { transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
@@ -1328,6 +1329,25 @@ export default function WardApp() {
               },
             ];
           })()}
+        />
+      ) : screen === "beds" ? (
+        <BedControlView
+          floors={FLOORS}
+          beds={allBeds}
+          patient={findPatient}
+          plans={[
+            ...WARD_PLANS.filter((w) => w.day >= 0 && w.day <= 1).map((w) => ({ floor: WARD_NAME, day: w.day, kind: w.kind })),
+            ...requests.filter((r) => r.status === "申込" && r.when.day >= 0 && r.when.day <= 1).map((r) => ({ floor: r.ward, day: r.when.day, kind: "入院" as const })),
+            ...people.flatMap((x) =>
+              x.entries.flatMap((e) => (e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院" && e.order.leave.from.day >= 0 && e.order.leave.from.day <= 1 ? [{ floor: floorOf(x.room.replace(/[A-Z]$/, "")), day: e.order.leave.from.day, kind: "退院" as const }] : [])),
+            ),
+          ]}
+          requests={requests}
+          moves={scheduleItems()
+            .filter((x) => /入院|退院|転床|転棟|転科/.test(x.what))
+            .map((x) => ({ day: x.sort < 1440 ? 0 : 1, time: x.when.split(" ")[1] ?? null, who: `${x.room} ${x.name}`, what: x.what }))}
+          fmtDay={(d) => formatShort(addDays(today, d))}
+          onAccept={acceptRequest}
         />
       ) : screen === "support" ? (
         <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
