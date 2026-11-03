@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, Droplet, Droplets, FlaskRound, Hand, Layers, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -24,9 +24,11 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-lab", label: "検体検査", icon: TestTube },
       { key: "add-imaging", label: "画像検査", icon: Radiation },
-      { key: "add-physio", label: "生理検査", icon: HeartPulse },
+      { key: "add-physio", label: "生理・内視鏡", icon: HeartPulse },
       { key: "add-rx", label: "内服", icon: Pill },
       { key: "add-procedure", label: "処置", icon: Bandage },
+      { key: "add-rehab", label: "リハビリ", icon: Footprints },
+      { key: "add-consult", label: "他科依頼", icon: Send },
       { key: "add-dialysis", label: "透析", icon: Droplets },
       { key: "add-transfusion", label: "輸血", icon: Droplet },
       { key: "regimen", label: "レジメン", icon: FlaskRound },

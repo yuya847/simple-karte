@@ -89,7 +89,7 @@ import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
-import { AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
+import { AddConsultPanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
 import { latestValue } from "@/lib/clinical";
 import { ConsentPanel } from "./panels/ConsentPanel";
@@ -309,6 +309,8 @@ export default function WardApp() {
   const [manualOpen, setManualOpen] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
   const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
+  // 他科依頼の返書 (by order id).
+  const [consultReplies, setConsultReplies] = useState<Record<string, { text: string; by: string; at: string }>>({});
   // 看護日誌: the charge nurse's words, per floor.
   const [journal, setJournal] = useState<Record<string, { text: string; by: string; at: string }[]>>({});
   // 妊娠中の印 and 付箋, per patient.
@@ -900,7 +902,7 @@ export default function WardApp() {
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
-    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock } : {}),
+    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
@@ -1749,13 +1751,47 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "add-physio" && (
-                <Drawer title="生理検査" onClose={closePanel} locked={orderBlock}>
+                <Drawer title="生理検査・内視鏡" onClose={closePanel} locked={orderBlock}>
                   <AddPhysioPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "add-rehab" && (
+                <Drawer title="リハビリ処方" onClose={closePanel} locked={orderBlock}>
+                  <AddRehabPanel
+                    newId={newId}
+                    admittedOn={patient.admittedOn}
+                    rest={standing[patient.id]?.at(-1)?.rest ?? null}
+                    onAdd={(d) => {
+                      addManualLab(d);
+                      closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "add-consult" && (
+                <Drawer title="他科依頼" onClose={closePanel} wide>
+                  <AddConsultPanel
+                    newId={newId}
+                    consults={entries.filter((e): e is OrderEntry => e.kind === "order" && e.order.type === "procedure" && e.order.code === "PROC-CONSULT")}
+                    replies={consultReplies}
+                    onReply={(entryId, text, by) => {
+                      const e = entries.find((x) => x.kind === "order" && x.id === entryId);
+                      const dept = e && e.kind === "order" && e.order.type === "procedure" ? e.order.consult?.dept : "";
+                      auditLog({ role: "医師", actor: by, action: "確定（他科依頼の返書）", patient: patient.name, detail: `${dept}　${text.slice(0, 80)}` });
+                      setConsultReplies((all) => ({ ...all, [entryId]: { text, by, at: nowTime } }));
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${dept}から返書（${by}）：${text}\n` }));
+                    }}
+                    onAdd={(d) => {
+                      if (orderBlock) return;
+                      addManualLab(d);
+                      closePanel();
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "sets" && (

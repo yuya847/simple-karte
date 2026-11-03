@@ -4,13 +4,14 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
 import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
-import type { HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, Patient, TxOrder } from "@/lib/types";
+import type { ConsultOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
+import { CONSULT_DEPTS, REHAB_FIELDS, consultText } from "@/lib/procedures";
 import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_DO, TX_PRODUCTS, TX_USE, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
 
 const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
@@ -1391,5 +1392,132 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
         </div>
       )}
     </section>
+  );
+}
+
+/** リハビリ処方: the disease category, who, the onset day it is counted from, the goal and cautions (all chosen by the doctor). */
+export function AddRehabPanel({ onAdd, newId, admittedOn, rest }: { onAdd: (d: Draft) => void; newId: () => string; admittedOn: number; rest?: string | null }) {
+  const [field, setField] = useState<RehabOrder["field"] | null>(null);
+  const [who, setWho] = useState<RehabOrder["therapists"]>([]);
+  const [onset, setOnset] = useState<number | null>(null);
+  const [goal, setGoal] = useState("");
+  const [cautions, setCautions] = useState("");
+  const missing = [!field && "区分", !who.length && "職種", onset === null && "起算日", !goal.trim() && "目標"].filter((x): x is string => !!x);
+  const submit = () => {
+    if (missing.length) return;
+    onAdd({ ...newProcedureDraft("PROC-REHAB", newId()), sourceText: "（リハビリの欄から）", rehab: { field: field!, therapists: who, onset: onset!, goal: goal.trim(), cautions: cautions.trim() }, schedule: { kind: "per_day", count: 1 }, start: { day: 1, time: null } });
+  };
+  const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
+  const input = "w-full rounded border border-rule bg-paper px-2 py-1";
+  return (
+    <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[12px]">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="w-16 text-ink-soft">区分</span>
+        <TabChoice label="疾患別リハビリの区分" options={REHAB_FIELDS.map((f) => ({ value: f, label: f }))} value={field} onChange={setField} />
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="w-16 text-ink-soft">職種</span>
+        {(["PT", "OT", "ST"] as const).map((t) => (
+          <label key={t} className={`flex items-center gap-1 rounded border px-2 py-0.5 ${who.includes(t) ? "border-ai bg-ai-soft" : "border-rule"}`}>
+            <input type="checkbox" checked={who.includes(t)} onChange={() => setWho((w) => (w.includes(t) ? w.filter((x) => x !== t) : [...w, t]))} className="accent-ai" />
+            {t === "PT" ? "PT（理学療法）" : t === "OT" ? "OT（作業療法）" : "ST（言語聴覚療法）"}
+          </label>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="w-16 text-ink-soft">起算日</span>
+        <TabChoice
+          label="起算日"
+          options={[
+            { value: admittedOn, label: "入院日" },
+            { value: admittedOn - 1, label: "入院の前日（発症）" },
+            { value: 0, label: "今日" },
+          ]}
+          value={onset}
+          onChange={setOnset}
+        />
+        <span className="text-[11px] text-ink-faint">発症・手術・急性増悪の日</span>
+      </div>
+      <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="目標（例：病棟内を杖歩行で自立、自宅退院）" aria-label="リハビリの目標" className={input} />
+      <input value={cautions} onChange={(e) => setCautions(e.target.value)} placeholder="注意・中止の基準（例：SpO2 90%未満で中止、右下肢は荷重可）" aria-label="リハビリの注意" className={input} />
+      {rest && <p className="text-[11px] text-ink-soft">指示簿の安静度：{rest}（リハビリと合っているか確かめてください）</p>}
+      <button type="button" disabled={missing.length > 0} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+        下書きにする（明日から）
+      </button>
+      {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}
+    </div>
+  );
+}
+
+/** 他科依頼: ask another department (the doctor writes the question), and record their answer (返書). */
+export function AddConsultPanel({ onAdd, newId, consults, replies, onReply }: { onAdd: (d: Draft) => void; newId: () => string; consults: OrderEntry[]; replies: Record<string, { text: string; by: string; at: string }>; onReply: (entryId: string, text: string, by: string) => void }) {
+  const [dept, setDept] = useState<string | null>(null);
+  const [urgency, setUrgency] = useState<ConsultOrder["urgency"] | null>(null);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<Record<string, { text: string; by: string }>>({});
+  const missing = [!dept && "依頼先", !urgency && "至急か", !question.trim() && "聞きたいこと"].filter((x): x is string => !!x);
+  const submit = () => {
+    if (missing.length) return;
+    onAdd({ ...newProcedureDraft("PROC-CONSULT", newId()), sourceText: "（他科依頼の欄から）", consult: { dept: dept!, urgency: urgency!, question: question.trim() }, schedule: { kind: "once" }, start: { day: 0, time: null } });
+    setDept(null);
+    setUrgency(null);
+    setQuestion("");
+  };
+  const input = "w-full rounded border border-rule bg-paper px-2 py-1";
+  return (
+    <div className="space-y-3 text-[12px]">
+      {consults.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="font-bold text-ink-soft">これまでの依頼と返書</h3>
+          {consults.map((e) => {
+            const c = e.order.type === "procedure" ? e.order.consult : undefined;
+            if (!c) return null;
+            const r = replies[e.id];
+            const a = answer[e.id] ?? { text: "", by: "" };
+            return (
+              <div key={e.id} className="rounded-md border border-rule bg-sheet p-2">
+                <div className="nums text-[11px] text-ink-faint">
+                  {e.time}　{e.author}
+                </div>
+                <div>{consultText(c)}</div>
+                {r ? (
+                  <p className="mt-1 whitespace-pre-wrap rounded bg-wakatake-soft px-2 py-1">
+                    <b>返書</b>（{r.at} {r.by}）：{r.text}
+                  </p>
+                ) : (
+                  <div className="mt-1 space-y-1">
+                    <textarea value={a.text} onChange={(x) => setAnswer((all) => ({ ...all, [e.id]: { ...a, text: x.target.value } }))} rows={2} placeholder={`${c.dept}の医師の返書（書いた本人が入れる）`} aria-label="返書" className={input} />
+                    <div className="flex items-center gap-1.5">
+                      <input value={a.by} onChange={(x) => setAnswer((all) => ({ ...all, [e.id]: { ...a, by: x.target.value } }))} placeholder={`返書を書いた医師（例：${c.dept} 田中）`} aria-label="返書を書いた医師" className={`${input} flex-1`} />
+                      <button type="button" disabled={!a.text.trim() || !a.by.trim()} onClick={() => onReply(e.id, a.text.trim(), a.by.trim())} className="rounded bg-wakatake px-3 py-1 font-bold text-white disabled:opacity-40">
+                        返書を記録
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+      )}
+      <section className="space-y-2 rounded-md border border-rule p-2">
+        <h3 className="font-bold">新しく依頼する</h3>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="w-14 text-ink-soft">依頼先</span>
+          <select value={dept ?? ""} onChange={(e) => setDept(e.target.value || null)} aria-label="依頼先の科" className="rounded border border-rule bg-paper px-2 py-1">
+            <option value="">選ぶ</option>
+            {CONSULT_DEPTS.map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+          <TabChoice label="至急か" options={(["至急", "通常"] as const).map((x) => ({ value: x, label: x }))} value={urgency} onChange={setUrgency} />
+        </div>
+        <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} placeholder="聞きたいこと（例：心房細動の抗凝固療法について、ご高診をお願いします）" aria-label="聞きたいこと" className={input} />
+        <button type="button" disabled={missing.length > 0} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+          下書きにする
+        </button>
+        {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}
+      </section>
+    </div>
   );
 }
