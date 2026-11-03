@@ -223,7 +223,7 @@ function steps(cls: DpcClass, pattern: readonly [string, string], input: DpcInpu
       at,
       axis: name,
       digits: c[idx],
-      reason: (c[idx] === "x" ? `${notSplit}。` : "") + said + (drugs.length ? `。薬剤（${drugs.join("・")}）は記録から判定していません` : ""),
+      reason: c[idx] === "x" && !defs.length ? notSplit : (c[idx] === "x" ? `${notSplit}。` : "") + said + (drugs.length ? `。薬剤（${drugs.join("・")}）は記録から判定していません` : ""),
     });
   }
   out.push({
