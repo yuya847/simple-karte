@@ -252,6 +252,17 @@ export interface LeaveOrder {
   note: string;
 }
 
+/** 移動オーダ（転床・転棟・転科）: booked for a day and time; carried out (実施) on the ward. */
+export interface MoveOrder {
+  kind: "転床" | "転棟" | "転科";
+  /** 転床・転棟: the bed. */
+  to?: { room: string; bed: string };
+  /** 転科: the new department and attending doctor. */
+  toDept?: string;
+  toDoctor?: string;
+  reason: string;
+}
+
 /** 指導の依頼: asked of another profession (栄養食事指導 → 管理栄養士, 服薬指導 → 薬剤師 …). */
 export interface GuideOrder {
   kind: "栄養食事指導" | "服薬指導" | "退院時の生活指導";
@@ -281,6 +292,8 @@ export interface ProcedureOrder {
   leave?: LeaveOrder;
   /** 指導の依頼 (PROC-GUIDE). */
   guide?: GuideOrder;
+  /** 移動（転床・転棟・転科, PROC-MOVE）. */
+  move?: MoveOrder;
   schedule: ProcSchedule;
   start: { day: DayOffset; time?: string };
   days?: number;

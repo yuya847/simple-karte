@@ -2,7 +2,7 @@
 // needs to be complete, and the ward's clock times. The official codes and points live in the
 // billing side (billing/codes.ts → 医科診療行為マスター); nothing here is a fee.
 
-import type { ConsultOrder, GuideOrder, HdOrder, LeaveOrder, RehabOrder, TxOrder } from "./types";
+import type { ConsultOrder, GuideOrder, HdOrder, LeaveOrder, MoveOrder, RehabOrder, TxOrder } from "./types";
 
 /** 範囲 of a wound / pressure ulcer, as the 点数表 divides it (cm²). */
 export type AreaClass = "lt100" | "100-500" | "500-3000" | "3000-6000" | "ge6000";
@@ -108,7 +108,7 @@ export interface ProcMaster {
   code: string;
   name: string;
   /** What the order must say to be complete. */
-  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx" | "rehab" | "consult" | "leave" | "guide")[];
+  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx" | "rehab" | "consult" | "leave" | "guide" | "move")[];
   /** Schedules a doctor may choose for this item. The first is never preselected. */
   schedules: ProcSchedule[];
   /** For 留置 and 酸素: the order runs until stopped; its schedule is always 継続. */
@@ -217,6 +217,13 @@ export const PROCEDURES: ProcMaster[] = [
     needs: ["leave"],
     schedules: [{ kind: "once" }],
     aliases: ["退院", "退院申込", "外泊", "外出"],
+  },
+  {
+    code: "PROC-MOVE",
+    name: "移動（転床・転棟・転科）",
+    needs: ["move"],
+    schedules: [{ kind: "once" }],
+    aliases: ["転床", "転棟", "転科", "移動"],
   },
   {
     code: "PROC-GUIDE",
@@ -360,6 +367,8 @@ export const REHAB_FIELDS: RehabOrder["field"][] = ["脳血管疾患等", "運�
 export const CONSULT_DEPTS = ["循環器内科", "呼吸器内科", "消化器内科", "腎臓内科", "脳神経内科", "整形外科", "外科", "泌尿器科", "皮膚科", "精神科", "リハビリテーション科"];
 export const rehabText = (r: RehabOrder) => `${r.field}リハビリ（${r.therapists.join("・")}）　目標：${r.goal}${r.cautions ? `　注意：${r.cautions}` : ""}`;
 export const consultText = (c: ConsultOrder) => `${c.dept}へ（${c.urgency}）：${c.question}`;
+export const moveText = (m: MoveOrder) =>
+  m.kind === "転科" ? `転科 → ${m.toDept ?? "？"}（主治医 ${m.toDoctor ?? "？"}）　${m.reason}` : `${m.kind} → ${m.to ? `${m.to.room}${m.to.bed ? `-${m.to.bed}` : ""}` : "？"}　${m.reason}`;
 export const GUIDE_TO: Record<GuideOrder["kind"], "管理栄養士" | "薬剤師" | "看護師"> = { 栄養食事指導: "管理栄養士", 服薬指導: "薬剤師", 退院時の生活指導: "看護師" };
 export const guideText = (g: GuideOrder) => `${g.kind}（${GUIDE_TO[g.kind]}へ）${g.note ? `：${g.note}` : ""}`;
 export const leaveText = (l: LeaveOrder, fmtDay: (d: number) => string) =>

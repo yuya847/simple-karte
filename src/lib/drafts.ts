@@ -49,6 +49,7 @@ import type {
   ConsultOrder,
   LeaveOrder,
   GuideOrder,
+  MoveOrder,
   InjectionRoute,
   InjectionSchedule,
   LabOrder,
@@ -162,6 +163,7 @@ export interface ProcedureDraft extends DraftBase {
   consult?: ConsultOrder | null;
   leave?: LeaveOrder | null;
   guide?: GuideOrder | null;
+  move?: MoveOrder | null;
   schedule: ProcSchedule | null;
   start: { day: DayOffset | null; time: string | null };
   days: number | null;
@@ -1191,6 +1193,10 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
     else if (l.back && l.back.day * 1440 + minutesOf(l.back.time) <= l.from.day * 1440 + minutesOf(l.from.time)) issues.push({ key: "leave", level: "stop", title: l.kind, message: "戻る日時が出る日時より前です。" });
     else issues.push({ key: "leave", level: "info", title: l.kind, message: `${l.kind === "退院" ? "確定すると病棟の退院予定に入ります。退院処方・サマリ・紹介状が要るかは別に確かめてください。" : "確定すると病棟の予定に入ります。"}` });
   }
+  if (m.needs.includes("move")) {
+    if (!d.move) issues.push({ key: "move", level: "stop", title: "移動", message: "移動先は、左の「移動・食事」のカレンダーで日付を押して選んでください。" });
+    else issues.push({ key: "move", level: "info", title: d.move.kind, message: `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? ""} に予約します。当日、病棟で「実施」を押すと移ります（4床室の性別などは、そのときもう一度確かめます）。` });
+  }
   if (m.needs.includes("guide")) {
     if (!d.guide) issues.push({ key: "guide", level: "stop", title: "指導の依頼", message: "指導の種類は、右の「指導の依頼」の欄で選んでください。" });
     else issues.push({ key: "guide", level: "info", title: "指導の依頼", message: `確定すると${GUIDE_TO[d.guide.kind]}のやることに入ります。` });
@@ -1490,6 +1496,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       consult: m.needs.includes("consult") && d.consult ? d.consult : undefined,
       leave: m.needs.includes("leave") && d.leave ? d.leave : undefined,
       guide: m.needs.includes("guide") && d.guide ? d.guide : undefined,
+      move: m.needs.includes("move") && d.move ? d.move : undefined,
       schedule: procSchedule(d)!,
       start: { day: d.start.day ?? 0, time: d.start.time ?? undefined },
       days: d.days ?? undefined,
