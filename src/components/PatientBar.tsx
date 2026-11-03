@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { bmi, cockcroftGault, latestValue } from "@/lib/clinical";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
@@ -16,6 +18,8 @@ interface Props {
   onOpenDiagnoses: () => void;
   onOpenDirective: () => void;
   onOpenDiet?: () => void;
+  /** 妊娠中の印 (set by a doctor or nurse). */
+  onPregnancy?: (v: { weeks: number | null } | null) => void;
 }
 
 function dayLabel(day: number): string {
@@ -25,7 +29,9 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onPregnancy }: Props) {
+  const [pregEdit, setPregEdit] = useState(false);
+  const [weeks, setWeeks] = useState("");
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
   const cre = latestValue(p, "Cre");
   const ccr = cre ? cockcroftGault(p.age, p.weightKg, cre.value, p.sex) : undefined;
@@ -96,6 +102,37 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         )}
         <Badge tone="shu" label="アレルギー" values={p.allergies.length ? p.allergies : ["なし"]} quiet={!p.allergies.length} />
         {p.infections.length > 0 && <Badge tone="fuji" label="感染症" values={p.infections} />}
+        {p.pregnancy ? (
+          <button type="button" onClick={() => onPregnancy?.(null)} title="押すと妊娠中の印を外します">
+            <Badge tone="shu" label="妊娠中" values={[p.pregnancy.weeks ? `${p.pregnancy.weeks}週` : "週数不明"]} />
+          </button>
+        ) : (
+          onPregnancy &&
+          p.sex === "女" &&
+          (pregEdit ? (
+            <span className="flex items-center gap-1">
+              <input value={weeks} onChange={(e) => setWeeks(e.target.value)} inputMode="numeric" placeholder="週" aria-label="妊娠週数" className="w-12 rounded border border-rule px-1 py-0.5 text-right" />
+              <button
+                type="button"
+                onClick={() => {
+                  onPregnancy({ weeks: Number(weeks) > 0 ? Number(weeks) : null });
+                  setPregEdit(false);
+                  setWeeks("");
+                }}
+                className="rounded bg-shu px-1.5 py-0.5 font-bold text-white"
+              >
+                妊娠中の印を付ける
+              </button>
+              <button type="button" onClick={() => setPregEdit(false)} className="text-ink-faint">
+                やめる
+              </button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setPregEdit(true)} className="rounded border border-dashed border-rule px-1.5 py-0.5 text-ink-faint hover:text-shu" title="妊娠中の印を付ける（医師・看護師）">
+              ＋妊娠中
+            </button>
+          ))
+        )}
         {p.cautions.map((c) => (
           <Badge key={c} tone="yamabuki" label="注意" values={[c]} />
         ))}

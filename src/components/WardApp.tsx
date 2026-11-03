@@ -26,6 +26,7 @@ import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
+import { StickyStrip, type Sticky } from "./StickyStrip";
 import { BoardView } from "./BoardView";
 import { ManualView } from "./ManualView";
 import { IncidentView } from "./IncidentView";
@@ -301,6 +302,9 @@ export default function WardApp() {
   const [manualOpen, setManualOpen] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
   const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
+  // 妊娠中の印 and 付箋, per patient.
+  const [pregnancy, setPregnancy] = useState<Record<string, { weeks: number | null } | null>>({});
+  const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
   // 身体的拘束 records (start, reviews each shift, end).
   const [restraints, setRestraints] = useState<Restraint[]>(INITIAL_RESTRAINTS);
   // 指示簿 per patient, every version kept (the last one is in force).
@@ -350,12 +354,13 @@ export default function WardApp() {
           cultures: mergeCultures(p.cultures, arrivedCultures[p.id]),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
           room: moves[p.id]?.room ?? p.room,
+          pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
@@ -474,7 +479,7 @@ export default function WardApp() {
       },
       allergies: patient?.allergies ?? [],
       consents: consents.filter((c) => c.patientId === patient?.id).map((c) => ({ code: c.code, status: c.status })),
-      patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: patient.allergies, cre: latestCre(patient), heightCm: patient.heightCm, weightKg: patient.weightKg } : null,
+      patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: patient.allergies, cre: latestCre(patient), heightCm: patient.heightCm, weightKg: patient.weightKg, pregnancy: patient.pregnancy ?? null } : null,
       txFacts: patient ? { blood: patient.blood, latest: { Hb: latestValue(patient, "Hb"), Plt: latestValue(patient, "Plt"), "PT-INR": latestValue(patient, "PT-INR") } } : null,
     };
   }, [entries, chart.drafts, nowTime, today, patient, consents]);
@@ -1236,6 +1241,21 @@ export default function WardApp() {
             onOpenDiagnoses={() => setPanel("diagnoses")}
             onOpenDirective={() => setPanel("directive")}
             onOpenDiet={() => setPanel("diet")}
+            onPregnancy={
+              deny("vitals")
+                ? undefined
+                : (v) => {
+                    auditLog({ role: me.role, actor: me.name, action: v ? "確定（妊娠中の印）" : "妊娠中の印を外した", patient: patient.name, detail: v?.weeks ? `${v.weeks}週` : undefined });
+                    setPregnancy((all) => ({ ...all, [patient.id]: v }));
+                  }
+            }
+          />
+          <StickyStrip
+            stickies={stickies[patient.id] ?? []}
+            nowTime={nowTime}
+            newId={newId}
+            onAdd={(st) => setStickies((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }))}
+            onRemove={(id) => setStickies((all) => ({ ...all, [patient.id]: (all[patient.id] ?? []).filter((x) => x.id !== id) }))}
           />
           <div
             className={`grid min-h-0 flex-1 ${
