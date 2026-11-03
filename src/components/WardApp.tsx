@@ -54,6 +54,7 @@ import { SetPanel } from "./panels/SetPanel";
 import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
+import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
 import { bagsOf } from "@/lib/discharge-rx";
@@ -324,6 +325,8 @@ export default function WardApp() {
   const [movesDone, setMovesDone] = useState<Record<string, string>>({});
   // 退院を実施した時, and the 退院 being confirmed (the checklist dialog).
   const [discharged, setDischarged] = useState<Record<string, { day: number; time: string; by: string }>>({});
+  // 今日の尿量・排便・食事・体重 entered on the ward (added to each patient's record of today).
+  const [extraDaily, setExtraDaily] = useState<Record<string, DailyAdd>>({});
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
@@ -447,12 +450,13 @@ export default function WardApp() {
           attending: deptChanges[p.id]?.doctor ?? p.attending,
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ...(discharged[p.id] ? { dischargedAt: discharged[p.id] } : {}),
+          daily: withToday(p.daily, extraDaily[p.id]),
           ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
@@ -1911,6 +1915,12 @@ export default function WardApp() {
                   <VitalsPanel
                     nowTime={nowTime}
                     last={patient.vitals.at(-1)}
+                    today={patient.daily.find((d) => d.day === 0)}
+                    prevWeight={prevWeightOf(patient.daily)}
+                    onDaily={(d) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（尿量・排便・食事・体重）", patient: patient.name, detail: [d.urineMl && `尿量 +${d.urineMl}mL`, d.stools && `排便 +${d.stools}回`, d.meal && `${["朝", "昼", "夕"][d.meal.slot]} ${d.meal.tenths}割`, d.weightKg !== undefined && `体重 ${d.weightKg}kg`].filter(Boolean).join("・") });
+                      setExtraDaily((all) => ({ ...all, [patient.id]: addDaily(all[patient.id], d) }));
+                    }}
                     onSave={(v) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
