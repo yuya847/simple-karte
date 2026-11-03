@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 import { newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
 import type { InjectionRoute, InjectionSchedule } from "@/lib/types";
+import { rpLine, rpNumbers } from "@/lib/rp";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { USAGES } from "@/lib/rx";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
@@ -23,160 +24,248 @@ const FLUID_SCHEDULES: { label: string; value: InjectionSchedule }[] = [1, 2, 3,
 const DRIP_MINUTES = [30, 60, 90, 120, 180, 240, 360, 480, 720, 1440];
 const minutesLabel = (m: number) => (m < 60 ? `${m}分` : m % 60 === 0 ? `${m / 60}時間` : `${Math.floor(m / 60)}時間${m % 60}分`);
 
-/**
- * Pick an injection from the master and fill in the amount, route, frequency, drip time and start.
- * It becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
- */
-export function AddInjectionPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
-  const [q, setQ] = useState("");
-  const [code, setCode] = useState<string | null>(null);
-  const drug = DRUGS.find((d) => d.code === code);
-  const fluid = drug?.kind === "輸液";
-  const [amount, setAmount] = useState("");
-  const [unit, setUnit] = useState("");
-  const [solvent, setSolvent] = useState("");
-  const [route, setRoute] = useState<InjectionRoute | "">("");
-  const [sched, setSched] = useState(-1);
-  const [minutes, setMinutes] = useState(0);
-  const [startDay, setStartDay] = useState(0);
-  const [startTime, setStartTime] = useState("");
-  const [days, setDays] = useState("");
-  const [comment, setComment] = useState("");
-  const pick = (c: string) => {
-    const d = DRUGS.find((x) => x.code === c)!;
-    setCode(c);
-    setAmount(d.kind === "輸液" ? "1" : d.strength ? String(d.strength.amount) : "");
-    setUnit(d.kind === "輸液" ? (d.units.includes("本") ? "本" : d.units[0]) : (d.strength?.unit ?? d.units[0]));
-    setRoute(d.routes.length === 1 ? d.routes[0] : "");
-    setSched(-1);
-    setMinutes(0);
-    setSolvent("");
+interface InjRow {
+  drugCode: string;
+  amount: string;
+  unit: string;
+}
+interface InjRp {
+  rows: InjRow[];
+  route: InjectionRoute | "";
+  sched: number;
+  minutes: number;
+  startDay: number;
+  startTime: string;
+  days: string;
+  comment: string;
+}
+const newInjRp = (): InjRp => ({ rows: [], route: "", sched: -1, minutes: 0, startDay: 0, startTime: "", days: "", comment: "" });
+const rowFor = (code: string): InjRow => {
+  const d = DRUGS.find((x) => x.code === code)!;
+  return {
+    drugCode: code,
+    amount: d.kind === "輸液" ? "1" : d.strength ? String(d.strength.amount) : "1",
+    unit: d.kind === "輸液" ? (d.units.includes("本") ? "本" : d.units[0]) : (d.strength?.unit ?? d.units[0]),
   };
-  const schedules = fluid ? FLUID_SCHEDULES : SCHEDULES;
-  const fluids = DRUGS.filter((d) => d.kind === "輸液" && (d.volumeMl ?? 0) <= 250);
-  const list = DRUGS.filter((d) => !q || [d.name, ...d.aliases].some((a) => a.includes(q)));
-  const ready = !!drug && Number(amount) > 0 && !!unit && !!route && sched >= 0 && (route !== "点滴静注" || minutes > 0);
+};
+/** Routes every drug in the Rp can be given by. */
+const routesOf = (rows: InjRow[]): InjectionRoute[] => {
+  const lists = rows.map((r) => DRUGS.find((d) => d.code === r.drugCode)?.routes ?? []);
+  return lists.length ? lists.reduce((a, b) => a.filter((x) => b.includes(x))) : [];
+};
 
-  const add = () => {
-    if (!drug || !route) return;
-    const sv = solvent ? DRUGS.find((d) => d.code === solvent) : undefined;
-    const items = [
-      { drugCode: drug.code, said: drug.aliases[0] ?? drug.name, amount: Number(amount), unit },
-      ...(sv ? [{ drugCode: sv.code, said: sv.aliases[0] ?? sv.name, amount: sv.volumeMl ?? 1, unit: "mL" }] : []),
-    ];
-    const draft: InjectionDraft = {
+/** The drafts already collected under the note, numbered Rp1, Rp2 … (shown at the top of the window). */
+function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "prescription" }) {
+  const mine = drafts.filter((d) => d.kind === kind);
+  const no = rpNumbers(drafts);
+  if (mine.length === 0) return null;
+  return (
+    <section className="rounded-md border border-rule bg-paper p-2">
+      <h3 className="mb-1 text-[11px] font-bold text-ink-soft">記事の下に貯まっている{kind === "injection" ? "注射" : "処方"}（確定はまだ）</h3>
+      <ol className="space-y-0.5 text-[12px]">
+        {mine.map((d) => (
+          <li key={d.id} className="nums flex gap-2">
+            <b className="shrink-0 text-ai">Rp{no[d.id]}</b>
+            <span>{rpLine(d)}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/**
+ * Injections by Rp, like the prescription window: put one or more drugs in an Rp (混注: the main
+ * drug, drugs mixed in, and the fluid), then the route, frequency, drip time and start. Each Rp
+ * becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
+ */
+export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[] }) {
+  const [q, setQ] = useState("");
+  const [rps, setRps] = useState<InjRp[]>([newInjRp()]);
+  const [cur, setCur] = useState(0);
+  const first = drafts.filter((d) => d.kind === "injection").length + 1;
+  const upd = (i: number, patch: Partial<InjRp>) =>
+    setRps((r) =>
+      r.map((x, j) => {
+        if (j !== i) return x;
+        const next = { ...x, ...patch };
+        // Keep the route valid for every drug; pick it when only one is left.
+        const routes = routesOf(next.rows);
+        if (next.route && !routes.includes(next.route)) next.route = "";
+        if (!next.route && routes.length === 1) next.route = routes[0];
+        return next;
+      }),
+    );
+  const list = DRUGS.filter((d) => !q || [d.name, ...d.aliases].some((a) => a.includes(q)));
+  const fluids = DRUGS.filter((d) => d.kind === "輸液");
+  // The first drug picked is the main one (as on a slip): a fluid first means a bag with drugs mixed
+  // in, counted in bags (1日2本); a drug first means doses of that drug (8時間ごと), with any solvent after it.
+  const isFluidRp = (rp: InjRp) => rp.rows.length > 0 && DRUGS.find((d) => d.code === rp.rows[0].drugCode)?.kind === "輸液";
+  const schedulesOf = (rp: InjRp) => (isFluidRp(rp) ? FLUID_SCHEDULES : SCHEDULES);
+  const readyRp = (rp: InjRp) => rp.rows.length > 0 && rp.rows.every((r) => Number(r.amount) > 0 && r.unit) && !!rp.route && rp.sched >= 0 && (rp.route !== "点滴静注" || rp.minutes > 0);
+  const ready = rps.filter(readyRp);
+
+  const toDraft = (rp: InjRp): InjectionDraft => {
+    const rows = rp.rows;
+    return {
       id: newId(),
       origin: "manual",
-      sourceText: "（マスターから選択）",
-      comment: comment.trim() || null,
+      sourceText: rows.length > 1 ? "（マスターから選択・混注）" : "（マスターから選択）",
+      comment: rp.comment.trim() || null,
       kind: "injection",
-      items,
-      route,
-      schedule: schedules[sched].value,
-      infusionMinutes: route === "点滴静注" ? minutes : null,
-      infusionScope: route === "点滴静注" ? "per_dose" : null,
+      items: rows.map((r) => {
+        const d = DRUGS.find((x) => x.code === r.drugCode)!;
+        return { drugCode: r.drugCode, said: d.aliases[0] ?? d.name, amount: Number(r.amount), unit: r.unit };
+      }),
+      route: rp.route || null,
+      schedule: schedulesOf(rp)[rp.sched].value,
+      infusionMinutes: rp.route === "点滴静注" ? rp.minutes : null,
+      infusionScope: rp.route === "点滴静注" ? "per_dose" : null,
       rateMlPerH: null,
       prefer: null,
-      start: { day: startDay, time: startTime || null },
-      days: Number(days) > 0 ? Number(days) : null,
+      start: { day: rp.startDay, time: rp.startTime || null },
+      days: Number(rp.days) > 0 ? Number(rp.days) : null,
       duplicate: null,
     };
-    onAdd(draft);
   };
 
-  const field = "rounded border border-rule bg-sheet px-1.5 py-1 text-sm";
+  const field = "rounded border border-rule bg-paper px-1 py-0.5";
+  const chip = (on: boolean) => `rounded border px-1.5 py-0.5 ${on ? "border-ai bg-ai font-bold text-white" : "border-rule bg-paper"}`;
   return (
     <div className="space-y-3 text-[13px]">
-      {!drug ? (
-        <>
-          <label className="flex items-center gap-2 rounded-md border border-rule px-2 py-1.5">
-            <Search size={14} className="text-ink-faint" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬の名前・略称" className="flex-1 bg-transparent text-sm outline-none" autoFocus />
-          </label>
-          <ul className="divide-y divide-rule-soft">
-            {list.map((d) => (
-              <li key={d.code}>
-                <button type="button" onClick={() => pick(d.code)} className="nums flex w-full items-baseline gap-2 px-1 py-2 text-left text-sm hover:bg-paper">
-                  <span className="font-bold">{d.name}</span>
-                  <span className="text-xs text-ink-soft">{d.package}</span>
-                  <span className="ml-auto text-[11px] text-ink-faint">{d.aliases.slice(0, 3).join("・")}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <>
-          <div className="flex items-baseline gap-2">
-            <b className="text-base">{drug.name}</b>
-            <span className="text-xs text-ink-soft">{drug.package}</span>
-            <button type="button" onClick={() => setCode(null)} className="ml-auto rounded border border-rule px-2 py-0.5 text-xs text-ink-soft">
-              薬を選び直す
+      <CollectedRps drafts={drafts} kind="injection" />
+      <label className="flex items-center gap-2 rounded-md border border-rule px-2 py-1.5">
+        <Search size={14} className="text-ink-faint" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬の名前・略称（選ぶと、選んでいる Rp に入ります。2つ目からは混注）" className="flex-1 bg-transparent text-sm outline-none" autoFocus />
+      </label>
+      <ul className="max-h-40 divide-y divide-rule-soft overflow-y-auto rounded border border-rule-soft">
+        {list.map((d) => (
+          <li key={d.code}>
+            <button type="button" onClick={() => upd(cur, { rows: [...rps[cur].rows, rowFor(d.code)] })} className="nums flex w-full items-baseline gap-2 px-2 py-1.5 text-left hover:bg-paper">
+              <b>{d.name}</b>
+              <span className="text-xs text-ink-soft">{d.package}</span>
+              <span className="ml-auto text-[11px] text-ink-faint">Rp{first + cur} に{rps[cur].rows.length ? "混注" : "入れる"}</span>
             </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-16 text-xs text-ink-soft">量</span>
-            <input type="number" min={0} step="any" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${field} w-24`} aria-label="量" />
-            <select value={unit} onChange={(e) => setUnit(e.target.value)} className={field} aria-label="単位">
-              {drug.units.map((u) => (
-                <option key={u}>{u}</option>
-              ))}
-            </select>
-            {!fluid && drug.routes.includes("点滴静注") && (
-              <select value={solvent} onChange={(e) => setSolvent(e.target.value)} className={field} aria-label="溶かす輸液">
-                <option value="">溶かす輸液なし</option>
+          </li>
+        ))}
+      </ul>
+
+      {rps.map((rp, i) => {
+        const routes = routesOf(rp.rows);
+        const schedules = schedulesOf(rp);
+        return (
+          <section key={i} onClick={() => setCur(i)} className={`space-y-1.5 rounded-md border p-2 ${cur === i ? "border-ai" : "border-rule"}`}>
+            <div className="text-[11px] font-bold text-ink-soft">Rp{first + i}</div>
+            {rp.rows.length === 0 && <p className="text-[12px] text-ink-faint">上の一覧から薬を選ぶと、この Rp に入ります。続けて選ぶと混注になります（最初に選んだ薬が主薬。輸液を最初に選ぶと「1日◯本」で数えます）。</p>}
+            <table className="w-full">
+              <tbody>
+                {rp.rows.map((r, k) => {
+                  const m = DRUGS.find((d) => d.code === r.drugCode)!;
+                  return (
+                    <tr key={k} className="align-baseline">
+                      <td className="py-0.5">
+                        {k > 0 && <span className="mr-1 text-[11px] text-ink-faint">＋</span>}
+                        <b>{m.name}</b> <span className="text-xs text-ink-soft">{m.package}</span>
+                      </td>
+                      <td className="whitespace-nowrap py-0.5 text-right">
+                        <input
+                          value={r.amount}
+                          onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, amount: e.target.value } : x)) })}
+                          inputMode="decimal"
+                          aria-label="量"
+                          className="w-14 rounded border border-rule bg-paper px-1 text-right"
+                        />
+                        <select value={r.unit} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, unit: e.target.value } : x)) })} aria-label="単位" className="ml-1 rounded border border-rule bg-paper px-0.5">
+                          {m.units.map((u) => (
+                            <option key={u}>{u}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="w-6 text-right">
+                        <button type="button" onClick={() => upd(i, { rows: rp.rows.filter((_, j) => j !== k) })} className="text-ink-faint hover:text-shu" aria-label="外す">
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {rp.rows.length > 0 && !isFluidRp(rp) && routes.includes("点滴静注") && !rp.rows.some((r) => DRUGS.find((d) => d.code === r.drugCode)?.kind === "輸液") && (
+              <select value="" onChange={(e) => e.target.value && upd(i, { rows: [...rp.rows, { ...rowFor(e.target.value), amount: "1", unit: "本" }] })} className={`${field} text-[12px]`} aria-label="溶媒">
+                <option value="">＋ 溶媒（輸液）を選ぶ</option>
                 {fluids.map((f) => (
                   <option key={f.code} value={f.code}>
-                    ＋ {f.name} {f.package}
+                    {f.name} {f.package}
                   </option>
                 ))}
               </select>
             )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-16 text-xs text-ink-soft">経路</span>
-            {drug.routes.map((r) => (
-              <button key={r} type="button" onClick={() => setRoute(r)} className={`rounded-md border px-2 py-1 ${route === r ? "border-ai bg-ai font-bold text-white" : "border-rule"}`}>
-                {r}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="w-16 text-xs text-ink-soft">回数</span>
-            {schedules.map((x, i) => (
-              <button key={x.label} type="button" onClick={() => setSched(i)} className={`rounded-md border px-2 py-1 ${sched === i ? "border-ai bg-ai font-bold text-white" : "border-rule"}`}>
-                {x.label}
-              </button>
-            ))}
-          </div>
-          {route === "点滴静注" && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="w-16 text-xs text-ink-soft">1回の時間</span>
-              {DRIP_MINUTES.map((m) => (
-                <button key={m} type="button" onClick={() => setMinutes(m)} className={`nums rounded-md border px-2 py-1 ${minutes === m ? "border-ai bg-ai font-bold text-white" : "border-rule"}`}>
-                  {minutesLabel(m)}
-                </button>
-              ))}
-              <span className="text-[11px] text-ink-faint">{fluid ? "1本あたり。速度（mL/時）はコードで計算します" : "1回あたり"}</span>
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-16 text-xs text-ink-soft">開始</span>
-            <select value={startDay} onChange={(e) => setStartDay(Number(e.target.value))} className={field} aria-label="開始日">
-              <option value={0}>今日</option>
-              <option value={1}>明日</option>
-            </select>
-            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={field} aria-label="開始時刻" />
-            <span className="text-[11px] text-ink-faint">時刻を入れなければ指示受け後すぐ</span>
-            <span className="ml-auto text-xs text-ink-soft">日数</span>
-            <input type="number" min={1} value={days} onChange={(e) => setDays(e.target.value)} placeholder="—" className={`${field} w-16`} aria-label="日数" />
-          </div>
-          <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="コメント（任意）" className={`${field} w-full`} />
-          <button type="button" disabled={!ready} onClick={add} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-            下書きに入れる（記事の下に貯まります）
-          </button>
-        </>
-      )}
+            {rp.rows.length > 0 && (
+              <div className="space-y-1 text-[12px]">
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="w-14 text-ink-soft">経路</span>
+                  {routes.length === 0 ? (
+                    <span className="text-shu">同じ経路で使えない薬が混ざっています</span>
+                  ) : (
+                    routes.map((r) => (
+                      <button key={r} type="button" onClick={() => upd(i, { route: r })} className={chip(rp.route === r)}>
+                        {r}
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="w-14 text-ink-soft">回数</span>
+                  {schedules.map((x, j) => (
+                    <button key={x.label} type="button" onClick={() => upd(i, { sched: j })} className={chip(rp.sched === j)}>
+                      {x.label}
+                    </button>
+                  ))}
+                </div>
+                {rp.route === "点滴静注" && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="w-14 text-ink-soft">1回の時間</span>
+                    {DRIP_MINUTES.map((m) => (
+                      <button key={m} type="button" onClick={() => upd(i, { minutes: m })} className={`nums ${chip(rp.minutes === m)}`}>
+                        {minutesLabel(m)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-14 text-ink-soft">開始</span>
+                  <select value={rp.startDay} onChange={(e) => upd(i, { startDay: Number(e.target.value) })} className={field} aria-label="開始日">
+                    <option value={0}>今日</option>
+                    <option value={1}>明日</option>
+                  </select>
+                  <input type="time" value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={field} aria-label="開始時刻" />
+                  <span className="text-[11px] text-ink-faint">空なら指示受け後すぐ</span>
+                  <input value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" placeholder="—" aria-label="日数" className={`${field} ml-auto w-10 text-right`} />
+                  日間
+                </div>
+                <input value={rp.comment} onChange={(e) => upd(i, { comment: e.target.value })} placeholder="コメント（任意）" className={`${field} w-full`} />
+              </div>
+            )}
+          </section>
+        );
+      })}
+      <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
+        <button
+          type="button"
+          onClick={() => {
+            setRps((r) => [...r, newInjRp()]);
+            setCur(rps.length);
+          }}
+          className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft"
+        >
+          Rp を足す
+        </button>
+        <button type="button" disabled={!ready.length} onClick={() => onAdd(ready.map(toDraft))} className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+          下書きにする（{ready.length} Rp）
+        </button>
+      </div>
+      <p className="text-[11px] text-ink-faint">点滴の速度（mL/時）は量と時間からコードで計算し、下書きに式を出します。経路・重複・時刻の確認も下書きに出ます。</p>
     </div>
   );
 }
@@ -312,8 +401,9 @@ const newRp = (): Rp => ({ rows: [], usage: "", days: "7", category: "定期", p
  * the daily amount (1日量), usage and days. The amount per dose (1回量) is worked out and shown.
  * Each Rp becomes a draft and goes through the same checks (errors / warnings to 承知).
  */
-export function AddRxPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newId: () => string }) {
+export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts?: Draft[] }) {
   const [q, setQ] = useState("");
+  const first = drafts.filter((d) => d.kind === "prescription").length + 1;
   const [prefix, setPrefix] = useState(false);
   const [rps, setRps] = useState<Rp[]>([newRp()]);
   const [cur, setCur] = useState(0);
@@ -344,6 +434,7 @@ export function AddRxPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newI
   const ready = rps.filter((r) => r.rows.length);
   return (
     <div className="space-y-3 text-[13px]">
+      <CollectedRps drafts={drafts} kind="prescription" />
       <div className="flex items-center gap-2">
         <label className="flex flex-1 items-center gap-2 rounded-md border border-rule px-2 py-1.5">
           <Search size={14} className="text-ink-faint" />
@@ -372,7 +463,7 @@ export function AddRxPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newI
               <span className="text-xs text-ink-soft">
                 {d.strength}／{d.unit}
               </span>
-              <span className="ml-auto text-[11px] text-ink-faint">Rp{cur + 1} に入れる</span>
+              <span className="ml-auto text-[11px] text-ink-faint">Rp{first + cur} に入れる</span>
             </button>
           </li>
         ))}
@@ -383,7 +474,7 @@ export function AddRxPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newI
         const prn = rp.usage === "頓用";
         return (
           <section key={i} onClick={() => setCur(i)} className={`rounded-md border p-2 ${cur === i ? "border-ai" : "border-rule"}`}>
-            <div className="mb-1 text-[11px] font-bold text-ink-soft">Rp{i + 1}</div>
+            <div className="mb-1 text-[11px] font-bold text-ink-soft">Rp{first + i}</div>
             {rp.rows.length === 0 && <p className="text-[12px] text-ink-faint">上の一覧から薬を選ぶと、この Rp に入ります。</p>}
             <table className="w-full">
               <tbody>

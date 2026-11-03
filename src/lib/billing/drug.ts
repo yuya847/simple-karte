@@ -41,7 +41,9 @@ export function oxygenYen(unitYenPerL: number, liters: number): number {
 export function masterQuantity(drugCode: string, amount: number, unit: string): number | null {
   const inj = findDrug(drugCode);
   if (inj) {
-    if (unit === "本" || unit === "袋" || unit === "V" || unit === "A") return amount;
+    if (unit === "本" || unit === "袋" || unit === "V" || unit === "A" || unit === "キット") return amount;
+    if (unit === "mEq" && inj.strength?.unit === "mEq") return amount / inj.strength.amount;
+    if (unit === "mL" && inj.strength?.unit === "mEq") return amount / inj.strength.amount; // 1 mEq/mL
     if (unit === "mL") {
       if (inj.volumeMl) return amount / inj.volumeMl; // fluids: bags
       return null;

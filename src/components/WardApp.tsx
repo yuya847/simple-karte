@@ -920,13 +920,13 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "add-injection" && (
-                <Drawer title="注射（マスターから選ぶ）" onClose={closePanel} wide locked={orderBlock}>
-                  <AddInjectionPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                <Drawer title="注射（Rp 入力）" onClose={closePanel} wide locked={orderBlock}>
+                  <AddInjectionPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} drafts={chart.drafts} />
                 </Drawer>
               )}
               {panel === "add-rx" && (
                 <Drawer title="処方（Rp 入力）" onClose={closePanel} wide locked={orderBlock}>
-                  <AddRxPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} />
+                  <AddRxPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} drafts={chart.drafts} />
                 </Drawer>
               )}
               {panel === "vitals" && (

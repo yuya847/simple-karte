@@ -17,12 +17,14 @@ interface Props {
   onRemove: () => void;
   /** Put the words back into the instruction box (only while that box is shown). */
   onRedo?: () => void;
+  /** Rp number for an injection or prescription (Rp1, Rp2 … within its kind). */
+  rp?: number;
 }
 
 const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "処方", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
-export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo }: Props) {
+export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
   const ready = isReady(issues);
   const blocking = issues.filter((i) => i.level !== "info");
   const infos = issues.filter((i) => i.level === "info");
@@ -36,6 +38,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo }: Pro
       <header className="flex items-center gap-2 border-b border-rule-soft px-3 py-1.5">
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${draft.kind === "stop" ? "bg-shu-soft text-shu" : "bg-ai-soft text-ai"}`}>
           {KIND_LABEL[draft.kind]}
+          {rp ? ` Rp${rp}` : ""}
         </span>
         <span className="truncate text-xs text-ink-faint" title="話した言葉">
           「{draft.sourceText}」

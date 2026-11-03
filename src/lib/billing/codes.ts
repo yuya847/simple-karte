@@ -16,6 +16,8 @@ export const DRUG_CODES: Record<string, string> = {
   "INJ-CTRX1": "621538303", // セフトリアキソンナトリウム静注用１ｇ「日医工」
   "INJ-FRS20": "620004758", // フロセミド注２０ｍｇ「トーワ」
   "INJ-APAP1000": "622525501", // アセリオ静注液１０００ｍｇバッグ
+  "INJ-KCL20": "620004659", // ＫＣＬ注２０ｍＥｑキット「テルモ」 １モル２０ｍＬ
+  "INJ-VITAMEDIN": "643180017", // ビタメジン静注用
   // oral drugs dispensed by the hospital (持参薬 are the patient's own and are not billed)
   "ORAL-AMLO5": "620007860",
   "ORAL-LPZ15": "620009451",

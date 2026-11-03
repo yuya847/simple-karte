@@ -13,7 +13,7 @@ export interface DrugMaster {
   /** For fluids: volume of one bag/bottle in mL. */
   volumeMl?: number;
   /** For vials/ampoules: strength of one unit. */
-  strength?: { amount: number; unit: "g" | "mg"; per: "V" | "A" | "袋" };
+  strength?: { amount: number; unit: "g" | "mg" | "mEq"; per: "V" | "A" | "袋" | "キット" };
   /** Units a doctor may use for this drug. Anything else is a unit error. */
   units: string[];
   routes: InjectionRoute[];
@@ -132,7 +132,33 @@ export const DRUGS: DrugMaster[] = [
     routes: ["点滴静注"],
     aliases: ["アセリオ", "アセトアミノフェン"],
   },
+  {
+    code: "INJ-KCL20",
+    name: "KCL注20mEqキット",
+    package: "20mEq/20mL/キット",
+    kind: "その他",
+    strength: { amount: 20, unit: "mEq", per: "キット" },
+    units: ["mEq", "mL", "キット"],
+    // Never given as it is: always mixed into a fluid and dripped (checked in code).
+    routes: ["点滴静注"],
+    aliases: ["KCL", "KCl", "塩化カリウム", "カリウム"],
+  },
+  {
+    code: "INJ-VITAMEDIN",
+    name: "ビタメジン静注用",
+    package: "1V（瓶）",
+    kind: "その他",
+    units: ["V"],
+    routes: ["点滴静注", "静注"],
+    aliases: ["ビタメジン", "ビタミンB1・B6・B12"],
+  },
 ];
+
+/**
+ * KCl injection limits, from the package insert of KCL注20mEqキット「テルモ」（用法・用量に関連する注意）:
+ * dilute to 40 mEq/L or less, no faster than 20 mEq per hour, no more than 100 mEq a day.
+ */
+export const KCL_LIMITS = { maxMeqPerL: 40, maxMeqPerHour: 20, maxMeqPerDay: 100, source: "KCL注20mEqキット「テルモ」添付文書（用法・用量に関連する注意）" };
 
 /** Oral drugs of the fictional hospital (public names and strengths). */
 export interface OralDrugMaster {

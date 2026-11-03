@@ -10,6 +10,7 @@ import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { isBlankNote } from "@/lib/notes";
+import { rpNumbers } from "@/lib/rp";
 
 export interface DraftMeta {
   model: string;
@@ -175,6 +176,7 @@ export function TodayPane(p: Props) {
             {p.drafts.map((d) => (
               <DraftCard
                 key={d.id}
+                rp={rpNumbers(p.drafts)[d.id]}
                 draft={d}
                 issues={p.issues[d.id] ?? []}
                 ctx={p.ctx}

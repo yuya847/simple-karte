@@ -6,7 +6,7 @@
 
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import { minutesOf } from "./dates";
-import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findOralDrug, findSet, type DrugMaster } from "./master";
+import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findOralDrug, findSet, type DrugMaster, KCL_LIMITS } from "./master";
 import {
   AREA_CLASSES,
   AREA_LABEL,
@@ -683,6 +683,38 @@ function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
       } else if (plan.formula && !issues.some((i) => i.key === "rate-mismatch")) {
         issues.push({ key: "rate-calc", level: "info", title: "計算", message: "速度", formula: plan.formula });
       }
+    }
+  }
+
+  // KCl: always mixed into a fluid and dripped. Concentration, rate and daily amount by code
+  // (KCL_LIMITS, from the package insert).
+  const kcl = d.items.filter((it) => it.drugCode === "INJ-KCL20" && it.amount !== null);
+  if (kcl.length) {
+    const meq = kcl.reduce((n, it) => n + (it.unit === "キット" ? it.amount! * 20 : it.amount!), 0); // 1 mEq/mL
+    const fluidMl = doseVolumeMl(d.items.filter((it) => it.drugCode && findDrug(it.drugCode)?.kind === "輸液"));
+    const src = KCL_LIMITS.source;
+    if (fluidMl === 0 || route !== "点滴静注") {
+      issues.push({ key: "kcl-mix", level: "stop", title: "KCl", message: `KCl はそのまま静注しません。輸液に混ぜて点滴します（${src}）。` });
+    } else {
+      const total = fluidMl + meq;
+      const perL = round1((meq / total) * 1000);
+      if (perL > KCL_LIMITS.maxMeqPerL)
+        issues.push({ key: "kcl-conc", level: "stop", title: "KCl 濃度", message: `カリウムの濃度が ${KCL_LIMITS.maxMeqPerL} mEq/L を超えます（${src}）。`, formula: `${meq}mEq ÷ ${total}mL × 1000 = ${perL}mEq/L` });
+      const plan = ratePlan(d);
+      const perHour = plan.minutesPerDose ? round1(meq / (plan.minutesPerDose / 60)) : null;
+      if (perHour !== null && perHour > KCL_LIMITS.maxMeqPerHour)
+        issues.push({ key: "kcl-rate", level: "stop", title: "KCl 速度", message: `カリウムが1時間に ${KCL_LIMITS.maxMeqPerHour} mEq を超えて入ります（${src}）。`, formula: `${meq}mEq ÷ ${hoursText(plan.minutesPerDose!)} = ${perHour}mEq/時` });
+      const perDay = d.schedule ? meq * dosesPerDay(d.schedule) : null;
+      if (perDay !== null && perDay > KCL_LIMITS.maxMeqPerDay)
+        issues.push({ key: "kcl-day", level: "stop", title: "KCl 1日量", message: `カリウムが1日 ${KCL_LIMITS.maxMeqPerDay} mEq を超えます（${src}）。`, formula: `${meq}mEq × ${round1(dosesPerDay(d.schedule!))}回 = ${perDay}mEq/日` });
+      if (!issues.some((i) => i.key.startsWith("kcl-")))
+        issues.push({
+          key: "kcl-calc",
+          level: "info",
+          title: "KCl",
+          message: `濃度・速度・1日量は添付文書の上限の中です（${KCL_LIMITS.maxMeqPerL}mEq/L・${KCL_LIMITS.maxMeqPerHour}mEq/時・${KCL_LIMITS.maxMeqPerDay}mEq/日）`,
+          formula: `${meq}mEq ÷ ${total}mL × 1000 = ${perL}mEq/L${perHour !== null ? `、${perHour}mEq/時` : ""}${perDay !== null ? `、${perDay}mEq/日` : ""}`,
+        });
     }
   }
 

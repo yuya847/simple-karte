@@ -429,3 +429,45 @@ describe("処置の下書き", () => {
     expect(parseSize(words)).toEqual(expected);
   });
 });
+
+describe("KCl mixed into a fluid (混注)", () => {
+  const ctx0 = {
+    activeOrders: [],
+    labOrders: [],
+    drafts: [],
+    nowTime: "09:00",
+    fmtDay: (d: number) => String(d),
+    describe: () => "",
+    allergies: [],
+    consents: [],
+    patientFacts: null,
+  } as unknown as Parameters<typeof checkDraft>[1];
+  const kclDraft = (kcl: number, fluid: string | null, minutes: number, perDay = 1): InjectionDraft => ({
+    id: "k",
+    origin: "manual",
+    sourceText: "",
+    comment: null,
+    kind: "injection",
+    items: [{ drugCode: "INJ-KCL20", said: "KCL", amount: kcl, unit: "mEq" }, ...(fluid ? [{ drugCode: fluid, said: "", amount: 1, unit: "本" }] : [])],
+    route: "点滴静注",
+    schedule: { kind: "per_day", count: perDay },
+    infusionMinutes: minutes,
+    infusionScope: "per_dose",
+    rateMlPerH: null,
+    prefer: null,
+    start: { day: 0, time: null },
+    days: null,
+    duplicate: null,
+  });
+  const keys = (d: InjectionDraft) => checkDraft(d, ctx0).map((i) => i.key);
+
+  it("stops KCl without a fluid", () => {
+    expect(keys(kclDraft(20, null, 60))).toContain("kcl-mix");
+  });
+  it("checks concentration, rate and daily amount by code", () => {
+    expect(keys(kclDraft(20, "INJ-SOL3A500", 240))).toContain("kcl-calc");
+    expect(keys(kclDraft(40, "INJ-SOL3A500", 240))).toContain("kcl-conc");
+    expect(keys(kclDraft(20, "INJ-SOL3A500", 30))).toContain("kcl-rate");
+    expect(keys(kclDraft(20, "INJ-SOL3A500", 240, 6))).toContain("kcl-day");
+  });
+});
