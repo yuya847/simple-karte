@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { admitFromEr, bedProblem, formProblems, type AdmitForm } from "./admission";
+import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, bedProblem, formProblems, requestProblems, type AdmissionRequest, type AdmitForm } from "./admission";
+import { OPD_PATIENTS, waitingMinutes } from "./opd";
 import { initialErPatients } from "./er";
 import { abs } from "./flowsheet";
 import { findPatient } from "./patients";
@@ -49,5 +50,33 @@ describe("admission from the emergency department", () => {
     expect(patient.vitals).toEqual([{ day: 0, time: "08:25", bt: 38.8, hr: 112, sbp: 98, dbp: 54, rr: 24, spo2: 94, o2: "室内気" }]);
     expect(patient.history[0]).toMatchObject({ author: "救急外来", time: "08:25" });
     expect(patient.history[0].kind === "note" && patient.history[0].text).toContain("JTAS 2");
+  });
+});
+
+describe("入院申込 from 外来", () => {
+  const op = OPD_PATIENTS.find((x) => x.id === "opd-1")!;
+  const req: AdmissionRequest = { ...INITIAL_REQUESTS[0], id: "r2", from: { kind: "opd", id: op.id }, name: op.name, kana: op.kana, sex: op.sex, age: op.age, diagnosis: "心不全の増悪", purpose: "治療", heightCm: 164, weightKg: 63.5, urgency: "予定", rest: "歩行可" };
+
+  it("asks for what the doctor must write", () => {
+    expect(requestProblems({ diagnosis: "", purpose: " ", heightCm: 0, weightKg: 50 })).toEqual(["入院時の病名", "入院の目的", "身長"]);
+    expect(requestProblems(req)).toEqual([]);
+  });
+
+  it("builds the ward patient from the outpatient record and the request", () => {
+    const { patient, bed } = admitFromOpd(op, req, { room: "502", bed: "" }, "90020002", "11:00", ["夜間の起座呼吸あり。"]);
+    expect(bed).toEqual({ room: "502", bed: "", patientId: "90020002" });
+    expect(patient).toMatchObject({ admittedOn: 0, room: "502", admissionDiagnosis: "心不全の増悪", weightKg: 63.5, attending: req.attending });
+    expect(patient.history.map((h) => (h.kind === "note" ? h.text : ""))).toEqual([
+      "外来：体重60.5kg、下腿浮腫なし。処方継続。",
+      "外来：HbA1c 7.1%。体重60.8kg。処方継続。",
+      "外来：夜間の起座呼吸あり。",
+      "外来から入院（予定）。入院時病名：心不全の増悪。目的：治療。安静度：歩行可。502へ。",
+    ]);
+    expect(patient.vitals[0]).toMatchObject({ day: 0, time: "08:42", sbp: 156, spo2: 92 });
+  });
+
+  it("counts the wait from reception, not during or after the visit", () => {
+    expect(waitingMinutes(OPD_PATIENTS.find((x) => x.id === "opd-2")!, 9 * 60 + 35)).toBe(30);
+    expect(waitingMinutes(op, 9 * 60 + 35)).toBeNull(); // 診察中
   });
 });
