@@ -4,6 +4,7 @@
 // patients and orders here are fictional.
 
 import type { ErPatient } from "./er";
+import { deskCultures } from "./lab-culture";
 import { deskLabs, withRedraws, type LabDesk } from "./lab-desk";
 import type { OpdPatient } from "./opd";
 import { STAFF } from "./roles";
@@ -69,7 +70,7 @@ export function visitPerson(kind: "er" | "opd", v: ErPatient | OpdPatient, order
     cautions: [],
     history: orders,
     labs: deskLabs(desk, id),
-    cultures: [],
+    cultures: deskCultures(desk, id),
     imaging: [],
     vitals: [],
     daily: [],

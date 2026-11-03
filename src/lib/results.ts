@@ -78,6 +78,13 @@ const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(
  */
 export const labKey = (pid: string, l: LabResult) => `lab|${pid}|${l.day}|${l.time}${l.id ? `|${l.id}` : ""}${l.corrected ? `|v${l.corrected.version}` : ""}`;
 
+/**
+ * The key of a culture report. Each step is a new result for the doctor: the Gram stain (中間報告),
+ * the organism named (中間報告 with 菌名) and the final report. A culture taken in this session carries
+ * its label code.
+ */
+export const cultureKeyOf = (pid: string, c: CultureResult) => `cx|${pid}|${c.collectedOn}|${c.specimen}${c.id ? `|${c.id}` : ""}|${c.status}${c.status === "中間報告" && c.organism ? "|菌名" : ""}`;
+
 /** What a correction changed, in one line (saying which of the values it replaced were panic values). */
 export function correctedLine(l: LabResult, limits: PanicLimit[]): string | undefined {
   const c = l.corrected;
@@ -102,9 +109,12 @@ export function panicOf(values: Record<string, number>, limits: PanicLimit[]): P
   return out;
 }
 
-/** A blood culture that has turned positive is phoned in like a panic value. */
+/**
+ * A blood culture that has turned positive is phoned in like a panic value: the first report (the
+ * Gram stain of the positive bottle). The organism named later is a result to see, not a new call.
+ */
 export function bloodCulturePanic(c: CultureResult): PanicHit[] {
-  if (c.specimen !== "血液" || c.status !== "中間報告" || !(c.gram || c.organism)) return [];
+  if (c.specimen !== "血液" || c.status !== "中間報告" || !(c.gram || c.organism) || c.stage === "中間報告") return [];
   return [{ code: "BC", name: `血液培養陽性（${c.gram ?? c.organism}）`, value: NaN, unit: "", side: "高", limit: NaN }];
 }
 
@@ -150,14 +160,15 @@ export function resultsOf(p: Patient, limits: PanicLimit[]): ResultItem[] {
   }
   for (const c of p.cultures) {
     if (c.status === "培養中") continue;
+    const resistant = c.susceptibility?.filter((s) => s.result === "R").map((s) => s.drug) ?? [];
     out.push({
-      key: `cx|${p.id}|${c.collectedOn}|${c.specimen}|${c.status}`,
+      key: cultureKeyOf(p.id, c),
       patientId: p.id,
       kind: "培養",
       day: c.reportedOn ?? c.collectedOn,
       time: c.reportedTime ?? "",
-      title: `${c.specimen}培養 ${c.status}${c.sets ? `（${c.sets}）` : ""}`,
-      detail: c.organism ?? c.gram ?? "",
+      title: `${c.specimen}培養 ${c.status}${c.stage === "塗抹" ? "（塗抹）" : ""}${c.sets ? `（${c.sets}）` : ""}`,
+      detail: `${c.organism ?? c.gram ?? ""}${c.susceptibility?.length ? `　感受性 ${c.susceptibility.length}剤${resistant.length ? `（R：${resistant.join("・")}）` : ""}` : ""}`,
       panic: bloodCulturePanic(c),
     });
   }
@@ -193,9 +204,9 @@ export function cultureArrivals(nowAbs: number): Record<string, CultureResult[]>
   };
 }
 
-/** A culture reported later replaces the earlier report of the same specimen. */
+/** A culture reported later replaces the earlier report of the same specimen (and label, for one taken in this session). */
 export function mergeCultures(base: CultureResult[], later: CultureResult[] = []): CultureResult[] {
-  const same = (a: CultureResult, b: CultureResult) => a.collectedOn === b.collectedOn && a.specimen === b.specimen;
+  const same = (a: CultureResult, b: CultureResult) => a.collectedOn === b.collectedOn && a.specimen === b.specimen && (a.id ?? "") === (b.id ?? "");
   return [...base.filter((c) => !later.some((l) => same(c, l))), ...later];
 }
 

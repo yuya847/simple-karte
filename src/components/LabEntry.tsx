@@ -3,6 +3,7 @@
 import { Check, ClipboardPen } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
+import { culturesIn } from "@/lib/lab-culture";
 import { changeLine, checkEntry, confirmReport, correctReport, entryPlan, rangeText, rejectSpecimen, rejectText, toEnter, versionOf, whenText, type DrawRow, type LabDesk } from "@/lib/lab-desk";
 import { ageSex } from "@/lib/person";
 import { hitLine, labKey, type PanicCall, type PanicLimit } from "@/lib/results";
@@ -126,6 +127,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
               ) : (
                 <p className="rounded-lg border border-rule bg-sheet p-3 text-ink-soft">
                   {row.room} {row.name}さん {whenText(row.at)} {row.tests}：この画面で入れる項目はありません（{entryPlan(row.codes).other.map((o) => `${o.name}は${o.why}`).join("、")}）。
+                  {culturesIn(row.codes).length > 0 && "培養は上の「培養」で、塗抹・中間報告・最終報告の順に報告します。"}
                 </p>
               )}
               <LabReject

@@ -321,11 +321,20 @@ export interface LabResult {
   corrected?: { version: number; reason: string; by: string; at: { day: DayOffset; time: string }; before: Record<string, number> };
 }
 
+/** The steps the laboratory reports a culture in (塗抹 = グラム染色). */
+export type CultureStage = "塗抹" | "中間報告" | "最終報告";
+
 export interface CultureResult {
+  /** The label code of a sample taken in during this session (keeps two cultures of one specimen and day apart). */
+  id?: string;
   collectedOn: DayOffset;
   specimen: string;
   sets?: string;
   status: "培養中" | "中間報告" | "最終報告";
+  /** The step the laboratory reported last in this session (塗抹 and 中間報告 are both status 中間報告). */
+  stage?: CultureStage;
+  /** Each step reported in this session: who and when, in one line. */
+  log?: { stage: CultureStage; by: string; day: DayOffset; time: string; text: string }[];
   reportedOn?: DayOffset;
   /** Clock time of the report ("HH:MM"), when known. */
   reportedTime?: string;

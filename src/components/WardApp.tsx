@@ -149,6 +149,7 @@ import { ResultsInbox } from "./ResultsInbox";
 import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
 import { EMPTY_DESK, demoLabOrders, deskLabs, redrawChangeKeys, withRedraws, type LabDesk } from "@/lib/lab-desk";
 import { visitLabOrders, visitPeople } from "@/lib/lab-visits";
+import { deskCultures } from "@/lib/lab-culture";
 import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
@@ -556,7 +557,7 @@ export default function WardApp() {
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])],
           history: [...p.history, ...(demoLabs[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
-          cultures: mergeCultures(p.cultures, arrivedCultures[p.id]),
+          cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
           room: moves[p.id]?.room ?? p.room,
           department: deptChanges[p.id]?.dept ?? p.department,

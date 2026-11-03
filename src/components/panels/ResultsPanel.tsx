@@ -84,6 +84,15 @@ export function ResultsPanel({ patient, today }: { patient: Patient; today: Cale
                   {c.sets && <span>{c.sets}</span>}
                   <span className="ml-auto rounded border border-rule px-1">{c.status}</span>
                 </div>
+                {c.log && c.log.length > 0 && (
+                  <ol className="nums mb-1 text-[11px] text-ink-soft">
+                    {c.log.map((l, n) => (
+                      <li key={n}>
+                        {formatShort(addDays(today, l.day))} {l.time} {l.by}　{l.text}
+                      </li>
+                    ))}
+                  </ol>
+                )}
                 {c.gram && <div>グラム染色：{c.gram}</div>}
                 {c.organism && <div className="font-bold">同定：{c.organism}</div>}
                 {c.susceptibility && (

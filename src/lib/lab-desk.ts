@@ -4,6 +4,7 @@
 // values are all worked out by code. A person reads the label, measures, types and confirms.
 
 import { abs } from "./flowsheet";
+import { startCultures, worksOfCode, type CultureWork } from "./lab-culture";
 import { labelFor, marState, type AdminRecord } from "./mar";
 import { ANALYTES, findLab, findSet, labInfo, rangeFor, WARD_RULES, type Analyte } from "./master";
 import { panicOf, placeOf, type ContactAttempt, type PanicHit, type PanicLimit, type Place } from "./results";
@@ -71,9 +72,11 @@ export interface LabDesk {
   tries: Record<string, ContactAttempt[]>;
   /** Samples sent back for a new draw (再採血), by the label code that is no longer taken in. */
   rejected: Record<string, Rejection>;
+  /** Cultures reported step by step (細菌検査), by culture key. */
+  cultures: Record<string, CultureWork>;
 }
 
-export const EMPTY_DESK: LabDesk = { received: {}, reports: {}, tries: {}, rejected: {} };
+export const EMPTY_DESK: LabDesk = { received: {}, reports: {}, tries: {}, rejected: {}, cultures: {} };
 
 export type DrawStatus = "未採取" | "採取しなかった" | "採取済み" | "受付済み" | "再採血" | "報告済み";
 
@@ -103,6 +106,10 @@ export interface DrawRow {
   rejection?: Rejection;
   /** This draw is the new draw for a sample that was sent back. */
   redrawOf?: Rejection;
+  /** The order's comment (血液培養 2セット …). */
+  comment?: string;
+  /** A culture of this sample has a step reported (it can no longer be sent back). */
+  cultureStarted?: boolean;
 }
 
 const hhmm = (min: number) => {
@@ -146,7 +153,23 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
     const order = person?.entries.find((e) => e.id === i.orderId)?.order as LabOrder | undefined;
     const codes = order?.codes ?? [];
     const redrawOf = Object.values(desk.rejected).find((r) => r.redrawId === i.orderId);
-    const base = { code, orderId: i.orderId, patientId: i.patientId, place: placeOf(i.patientId), room: i.room, name: i.name, at, tests: i.main, codes, container: containersOf(codes), urgent: !!i.urgent, ...(redrawOf ? { redrawOf } : {}) };
+    const started = worksOfCode(desk.cultures, i.patientId, code).some((w) => w.steps.length > 0);
+    const base = {
+      code,
+      orderId: i.orderId,
+      patientId: i.patientId,
+      place: placeOf(i.patientId),
+      room: i.room,
+      name: i.name,
+      at,
+      tests: i.main,
+      codes,
+      container: containersOf(codes),
+      urgent: !!i.urgent,
+      ...(redrawOf ? { redrawOf } : {}),
+      ...(order?.comment ? { comment: order.comment } : {}),
+      ...(started ? { cultureStarted: true } : {}),
+    };
     const report = desk.reports[code];
     if (report) return { ...base, status: "報告済み" as const, report, reception: desk.received[code] };
     const rejection = desk.rejected[code];
@@ -213,9 +236,10 @@ export function scanSpecimen(input: string, rows: DrawRow[], people: WorkPatient
   return { ok: true, tone: "ok", row, message: `受け付けました：${who}${row.redrawOf ? "（再採血）" : ""}。` };
 }
 
+/** 受付: who and when; a culture in the sample starts (培養中). */
 export function receive(desk: LabDesk, row: DrawRow, by: string, nowAbs: number): LabDesk {
   const r: Reception = { code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, by, day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs), collected: row.status === "採取済み" };
-  return { ...desk, received: { ...desk.received, [row.code]: r } };
+  return { ...desk, received: { ...desk.received, [row.code]: r }, cultures: startCultures(desk.cultures, row) };
 }
 
 /** How many draws are in each state. */
@@ -243,6 +267,7 @@ export function rejectBlock(row: DrawRow): string | null {
   if (row.status === "報告済み") return "結果を報告した検体は、再採血ではなく「訂正」で直します。";
   if (row.status === "再採血") return "再採血を依頼済みです。";
   if (row.status !== "受付済み") return "受け付けた検体だけ再採血にできます。";
+  if (row.cultureStarted) return "培養の報告を始めた検体は再採血にできません。";
   return null;
 }
 
@@ -256,7 +281,9 @@ export function rejectSpecimen(desk: LabDesk, row: DrawRow, reason: RejectReason
   const root = rootOrderId(row.orderId);
   const count = Object.values(desk.rejected).filter((r) => rootOrderId(r.orderId) === root).length;
   const r: Rejection = { code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, reason, ...(n ? { note: n } : {}), by, day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs), redrawId: `${root}-re${count + 1}` };
-  return { ...desk, rejected: { ...desk.rejected, [row.code]: r } };
+  // A culture of the sample sent back did not start; the new draw starts its own.
+  const drop = new Set(worksOfCode(desk.cultures, row.patientId, row.code).map((w) => w.key));
+  return { ...desk, rejected: { ...desk.rejected, [row.code]: r }, cultures: Object.fromEntries(Object.entries(desk.cultures).filter(([k]) => !drop.has(k))) };
 }
 
 /**
