@@ -36,6 +36,8 @@ export interface GuidanceRecord {
   answers: string[];
   /** 栄養食事指導: who the fee schedule covers (the notice's (1)), chosen by the person; 対象外 = not billed. */
   eligible?: (typeof NUTRITION_ELIGIBLE)[number];
+  /** It went to the claim (入院栄養食事指導料): only these count toward 初回・2回目 and 週1回. */
+  billed?: boolean;
 }
 
 /** 入院栄養食事指導料 covers 特別食 patients and those in the notice's (1) ア〜ウ. */

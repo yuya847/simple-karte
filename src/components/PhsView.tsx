@@ -245,6 +245,7 @@ export function PhsView(p: Props) {
 
           {tab === "notices" && (
             <div className="space-y-2 text-[13px]">
+              {(me.role === "看護師" || me.role === "医師") && (
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-rule-soft p-2">
                 <b className="text-xs">一斉連絡</b>
                 <select value={bcTo} onChange={(e) => setBcTo(e.target.value as PhsNotice["to"])} aria-label="一斉連絡の相手" className="rounded border border-rule bg-paper px-1 py-0.5 text-xs">
@@ -265,6 +266,7 @@ export function PhsView(p: Props) {
                   送る
                 </button>
               </div>
+              )}
               {p.notices.length === 0 && <p className="text-ink-faint">お知らせはありません。医師がオーダを変えると、ここと看護師の画面に出ます。</p>}
               {[...p.notices].reverse().map((n) => (
                 <article key={n.id} className={`rounded-md border p-2 ${n.readBy.includes(me.name) ? "border-rule-soft" : "border-yamabuki"}`}>

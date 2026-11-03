@@ -92,7 +92,9 @@ export function slide(c: NurseCall, nowMs: number, team: string, leader: string,
   const steps = [team, leader, ALL_NURSES].filter((x, i, all) => x !== c.to && all.indexOf(x) === i);
   const due = Math.min(steps.length, Math.floor((nowMs - c.ms) / (PASS_ON_SECONDS * 1000)));
   if (due <= c.slides.length) return c;
-  const next = steps.slice(c.slides.length, due).map((to) => ({ at: clock, to, why: `${callTarget(c)}が${PASS_ON_SECONDS}秒応答しなかったため（病棟の取り決め）` }));
+  // Each step names who did not answer before it (the first, the team, the leader …).
+  const prevOf = (i: number) => (i === 0 ? c.to : steps[i - 1]);
+  const next = steps.slice(c.slides.length, due).map((to, k) => ({ at: clock, to, why: `${prevOf(c.slides.length + k)}が${PASS_ON_SECONDS}秒応答しなかったため（病棟の取り決め）` }));
   return { ...c, slides: [...c.slides, ...next] };
 }
 

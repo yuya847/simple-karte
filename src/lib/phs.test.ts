@@ -19,6 +19,9 @@ describe("院内連絡", () => {
     expect(callTarget(one)).toBe(team);
     const three = slide(one, PASS_ON_SECONDS * 3000 + 5, team, "看護師 渡辺", "22:03");
     expect(three.slides.map((x) => x.to)).toEqual([team, "看護師 渡辺", ALL_NURSES]);
+    // Each step names who did not answer before it, also when several steps come at once.
+    const late = slide(c, PASS_ON_SECONDS * 3000 + 5, team, "看護師 渡辺", "22:03");
+    expect(late.slides.map((x) => x.why.split("が")[0])).toEqual(["看護師 伊藤", team, "看護師 渡辺"]);
     expect(slide({ ...c, answered: { at: "22:00", by: "x" } }, 999999, team, "看護師 渡辺", "22:05").slides).toHaveLength(0);
     // The leader's own patient skips the leader.
     expect(slide({ ...c, to: "看護師 渡辺" }, PASS_ON_SECONDS * 3000, team, "看護師 渡辺", "22:03").slides.map((x) => x.to)).toEqual([team, ALL_NURSES]);

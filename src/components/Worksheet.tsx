@@ -56,12 +56,17 @@ const noSubscribe = () => () => {};
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
 export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [] }: Props) {
-  const [day, setDay] = useState<0 | 1>(0);
-  // Opens on the shift of the time now (日勤 08:30–17:00, otherwise 夜勤).
-  const [shift, setShift] = useState<Shift>(() => {
-    const m = abs(0, nowTime) % 1440;
-    return m >= 510 && m < 1020 ? "day" : "night";
-  });
+  // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
+  // left open past the next morning, tomorrow's day shift.
+  const start = (() => {
+    const n = abs(0, nowTime);
+    const m = n % 1440;
+    const d = Math.floor(n / 1440);
+    const [dd, sh]: [number, Shift] = m < 510 ? [d - 1, "night"] : m < 1020 ? [d, "day"] : [d, "night"];
+    return { day: Math.max(-1, Math.min(1, dd)) as DayOffsetLike, shift: sh };
+  })();
+  const [day, setDay] = useState<DayOffsetLike>(start.day);
+  const [shift, setShift] = useState<Shift>(start.shift);
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const nowAbs = abs(0, nowTime);
@@ -83,6 +88,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
           label="日付"
           value={day}
           options={[
+            { value: -1, label: `昨日 ${formatShort(addDays(today, -1))}` },
             { value: 0, label: `今日 ${formatShort(today)}` },
             { value: 1, label: `明日 ${formatShort(addDays(today, 1))}` },
           ]}
@@ -176,7 +182,7 @@ interface SheetProps {
   people: WorkPatient[];
 }
 
-type DayOffsetLike = 0 | 1;
+type DayOffsetLike = -1 | 0 | 1;
 
 function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people }: SheetProps) {
   const nowAbs = abs(0, nowTime);

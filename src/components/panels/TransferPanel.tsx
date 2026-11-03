@@ -104,7 +104,7 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
                 <input value={f.note} onChange={(e) => setForm((m) => ({ ...m, [a.id]: { ...f, note: e.target.value } }))} placeholder={needWho ? "誰が決めたか（例：本人・長女と主治医で決めた）" : "返事の内容（例：空床は11/10から）"} aria-label={`${a.facility} の返事`} className="min-w-40 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5" />
                 <button
                   type="button"
-                  disabled={!f.state || (needWho && !f.note.trim()) || (f.state === "面談・見学の予定" && !f.meeting.trim())}
+                  disabled={!f.state || (needWho && !f.note.trim()) || (needWho && !!decided) || (f.state === "面談・見学の予定" && !f.meeting.trim())}
                   onClick={() => {
                     onUpdate(a.id, f.state as AskState, f.note.trim(), f.meeting.trim() || undefined);
                     setForm((m) => ({ ...m, [a.id]: { state: "", note: "", meeting: "" } }));

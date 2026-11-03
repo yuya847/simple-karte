@@ -270,10 +270,15 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                         {inPreview && <span className="whitespace-nowrap rounded border border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
                         {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
                         {c.doses.map((x) => (
-                          <span key={x.time} className="inline-flex items-center gap-0.5">
-                            <Chip state={x.state}>{x.time}</Chip>
-                            <MarMark r={marOf?.(e.id, d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5)))} />
-                          </span>
+                          (() => {
+                            const r = marOf?.(e.id, d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5)));
+                            return (
+                              <span key={x.time} className={`inline-flex items-center gap-0.5 ${r?.status === "未実施" ? "line-through decoration-shu" : ""}`}>
+                                <Chip state={x.state}>{x.time}</Chip>
+                                <MarMark r={r} />
+                              </span>
+                            );
+                          })()
                         ))}
                         {c.infusion && (
                           <Chip state={c.infusion.state}>

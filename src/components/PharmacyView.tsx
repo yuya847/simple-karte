@@ -50,6 +50,8 @@ interface Props {
   onJournal: (text: string) => void;
   /** 退院時の薬: 調剤・鑑査・説明 and the pharmacist's wording, by patient. */
   homeRx: Record<string, HomeRxRecord>;
+  /** Patients discharged today (their 退院時の薬 can still be handed over and recorded). */
+  dischargedPeople?: WorkPatient[];
   onHomeRx: (patientId: string, patch: Partial<HomeRxRecord>) => void;
   onDispense: (key: string) => void;
   tdm: TdmReport[];
@@ -73,7 +75,7 @@ const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "audit", steps: "医師が出した注射・内服が新しい順に並びます。重複はコードが調べます。量・飲み合わせ・腎機能を確かめて「監査済み」。疑問があれば「疑義照会」を書くと、医師のカルテの右上に届き、医師が答えるか処方を直します。" },
   { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ確かめて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。" },
   { tab: "shido", steps: "患者を選んで指導の内容を記録します。服薬指導の算定の回数（週1回・月4回まで）はコードが数え、超えると知らせます。" },
-  { tab: "dispense", steps: "明日分（毎日の払出）と、今日の残り（臨時・追加のオーダ）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
+  { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
   { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
   { tab: "blood", steps: "医師が確定した輸血のオーダが並びます。製剤の製造番号（ロット）を入れて払い出すと、払出の記録になり、今日の日報に入ります。" },
   { tab: "tdm", steps: "バンコマイシンの血中濃度から、コードが AUC を計算します（式つき）。薬剤師が提案を書いて医師へ報告します。" },
@@ -372,7 +374,7 @@ function Brought({ people, nowTime, reports, onReport }: Props) {
               return (
                 <li key={r.id}>
                   {r.at}　{pt?.room} {pt?.patient.name}　{r.rows.length}剤　<b className={r.status === "指示済" ? "text-wakatake" : "text-yamabuki"}>{r.status}</b>
-                  {r.status === "指示済" && <span className="text-ink-soft">（{r.rows.map((x) => `${x.said}：${x.decision ?? "—"}`).join("、")}）</span>}
+                  {(r.status === "指示済" || r.status === "指示の下書き") && <span className="text-ink-soft">（{r.rows.map((x) => `${x.said}：${x.decision ?? "—"}`).join("、")}）</span>}
                 </li>
               );
             })}
@@ -466,10 +468,11 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
     if (e && abs(e.day, e.time) >= -1440 && !audited[orderId]) return "まだ監査していません。「処方監査・疑義照会」で監査してから払い出してください。";
     return null;
   };
-  // 明日分 (the usual daily dispensing) or 今日の残り (臨時・追加: doses from now to midnight not yet dispensed).
+  // 明日分 (the usual daily dispensing) or 今日 (臨時・追加: every dose of today, past ones included, so that
+  // one ordered for "now" or not yet dispensed stays on the list; the dispensed ones are marked).
   const [which, setWhich] = useState<"tomorrow" | "today">("tomorrow");
   const nowAbs = abs(0, nowTime);
-  const { lo, hi } = which === "tomorrow" ? shiftWindow("all", 1) : { lo: nowAbs, hi: (Math.floor(nowAbs / 1440) + 1) * 1440 };
+  const { lo, hi } = which === "tomorrow" ? shiftWindow("all", 1) : { lo: Math.floor(nowAbs / 1440) * 1440, hi: (Math.floor(nowAbs / 1440) + 1) * 1440 };
   const sheet = buildWorksheet(people, lo, hi, nowAbs);
   const doses = sheet.timed.filter((i) => i.kind === "注射" && i.at !== null);
   const byPatient = people.map((x) => ({ ...x, doses: doses.filter((d) => d.patientId === x.patient.id) })).filter((x) => x.doses.length);
@@ -499,7 +502,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
     const code = scan.trim().toUpperCase();
     if (!code) return;
     const hit = doses.find((d) => labelFor(d.orderId, d.at!) === code);
-    if (!hit) setResult({ ok: false, text: `「${code}」は${which === "tomorrow" ? "明日" : "今日の残り"}の注射のどの回でもありません。取りそろえを確かめてください。` });
+    if (!hit) setResult({ ok: false, text: `「${code}」は${which === "tomorrow" ? "明日" : "今日"}の注射のどの回でもありません。取りそろえを確かめてください。` });
     else {
       const key = `${hit.orderId}|${hit.at}`;
       const block = blockOf(hit.orderId);
@@ -520,7 +523,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
           {(
             [
               ["tomorrow", "明日分"],
-              ["today", "今日の残り（臨時・追加）"],
+              ["today", "今日（臨時・追加）"],
             ] as const
           ).map(([k, l]) => (
             <button key={k} type="button" aria-pressed={which === k} onClick={() => setWhich(k)} className={`rounded px-2 py-0.5 ${which === k ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
@@ -528,7 +531,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
             </button>
           ))}
         </span>
-        {which === "tomorrow" ? `明日（${formatShort(addDays(today, 1))}）` : "今からきょうの終わりまで"}の注射を、患者ごと・1回ごとに並べます（オーダからコードで計算。持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
+        {which === "tomorrow" ? `明日（${formatShort(addDays(today, 1))}）` : "今日（時刻の過ぎた回も）"}の注射を、患者ごと・1回ごとに並べます（オーダからコードで計算。持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
       </p>
       <div className={`${card} flex flex-wrap items-center gap-2 p-3 text-[13px]`}>
         <b>鑑査</b>
@@ -731,11 +734,11 @@ export interface HomeRxRecord {
   care?: Record<string, string[]>;
 }
 
-function Home({ people, today, nowTime, homeRx, onHomeRx }: Props) {
+function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx }: Props) {
   const [printing, setPrinting] = useState<React.ReactNode | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
   const date = formatShort(today).replace(/（.）/, "");
-  const list = people.map((x) => ({ x, bags: bagsOf(x.entries) })).filter((r) => r.bags.length);
+  const list = [...people, ...dischargedPeople].map((x) => ({ x, bags: bagsOf(x.entries) })).filter((r) => r.bags.length);
   const print = (node: React.ReactNode, what: string, who: string) => {
     flushSync(() => setPrinting(node));
     const done = () => {

@@ -24,7 +24,7 @@ export function GuideRecordPanel({ role, entries, records, today, onSave }: { ro
   const [eligible, setEligible] = useState<GuidanceRecord["eligible"] | null>(null);
   const open = kind ? openRequests(entries, kind, records) : [];
   const mins = minutes.trim() ? Number(minutes) : null;
-  const earlierNutrition = records.filter((r) => r.kind === "栄養食事指導" && r.eligible && r.eligible !== "対象外（算定しない）");
+  const earlierNutrition = records.filter((r) => r.kind === "栄養食事指導" && r.billed);
   const dow = (d: number) => new Date(Date.UTC(today.y, today.m - 1, today.d + d)).getUTCDay();
   const notes =
     kind === "栄養食事指導" && eligible && eligible !== "対象外（算定しない）"
