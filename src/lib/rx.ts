@@ -23,7 +23,8 @@ export interface PrescriptionDraft {
   sourceText: string;
   comment: string | null;
   kind: "prescription";
-  category: "定期" | "臨時" | "退院時" | null;
+  /** 持参薬 only comes from the pharmacist's 持参薬鑑別 (the doctor's choice there), never from the Rp editor. */
+  category: "定期" | "臨時" | "退院時" | "持参薬" | null;
   items: RxItem[];
   /** 服用時点. Empty with `prn` set = 頓用. null = not said. */
   timings: DoseTiming[] | null;
@@ -214,7 +215,7 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
     const per = perDoseOf(it, prn ? 1 : d.timings!.length)!;
     return {
       type: "prescription",
-      category: d.category === "退院時" ? "退院時" : prn ? "臨時" : d.category!,
+      category: d.category === "退院時" || d.category === "持参薬" ? d.category : prn ? "臨時" : d.category!,
       drugCode: m.code,
       amount: per,
       unit: m.unit,

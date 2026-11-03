@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PATIENTS } from "./patients";
-import { alreadyOrdered, auditItems, b008Check, matchOral, nextTiming, ordersFromReport, queryOpen, type BroughtReport, type Query } from "./pharmacy";
+import { alreadyOrdered, auditItems, b008Check, draftsFromReport, matchOral, nextTiming, ordersFromReport, queryOpen, type BroughtReport, type Query } from "./pharmacy";
 import type { OrderEntry } from "./types";
 
 const people = PATIENTS.map((p, i) => ({ patient: p, room: ["512", "515B", "508A", "511"][i], entries: p.history.filter((e): e is OrderEntry => e.kind === "order") }));
@@ -78,6 +78,27 @@ describe("持参薬鑑別（照合はコード）", () => {
     expect(o[0]).toMatchObject({ category: "持参薬", drugCode: "ORAL-FRS20", days: 28, start: { day: 1, timing: "朝" } });
     expect(o[1]).toMatchObject({ category: "定期", drugCode: "ORAL-MGO330", amount: 2, start: { day: 0, timing: "夕" } });
     expect(o[2]).toMatchObject({ category: "臨時", prn: "疼痛時", timings: [] });
+  });
+
+  it("the choices go through the prescription checks as drafts, and keep 持参薬 when confirmed", async () => {
+    const { checkPrescription, toPrescriptionOrders } = await import("./rx");
+    const r: BroughtReport = {
+      id: "r",
+      patientId: "p",
+      by: "薬剤師",
+      at: "07:00",
+      status: "医師へ報告",
+      rows: [
+        { said: "ロキソニン錠", strength: "60mg", amount: 1, unit: "錠", timings: ["朝", "昼", "夕"], daysLeft: 10, prn: null, match: "ORAL-LOX60", checked: true, decision: "持参薬で継続" },
+      ],
+    };
+    let n = 0;
+    const [d] = draftsFromReport(r, "10:00", () => `d${++n}`);
+    expect(d).toMatchObject({ kind: "prescription", category: "持参薬", days: 10, start: { day: 0, timing: "昼" } });
+    const ctx = { activeOrders: [], labOrders: [], drafts: [], nowTime: "10:00", fmtDay: () => "", describe: () => "" };
+    // An NSAIDs allergy is asked about, as for any prescription.
+    expect(checkPrescription(d, ctx, ["NSAIDs（喘息発作）"]).some((i) => i.title === "アレルギー")).toBe(true);
+    expect(toPrescriptionOrders(d, "10:00", "rp")[0]).toMatchObject({ category: "持参薬", drugCode: "ORAL-LOX60", days: 10 });
   });
 });
 

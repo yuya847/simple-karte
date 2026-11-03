@@ -2,6 +2,7 @@
 // (疑義照会), identifying drugs brought from home (持参薬鑑別) and medication counselling
 // (薬剤管理指導). Checks are plain code; Claude only reads the 持参薬 list into rows.
 
+import type { PrescriptionDraft } from "./rx";
 import { ORAL_DRUGS, findDrug, findOralDrug, ingredientOf, WARD_RULES } from "./master";
 import { minutesOf } from "./dates";
 import type { DayOffset, DoseTiming, OrderEntry, Patient, PrescriptionOrder } from "./types";
@@ -146,6 +147,28 @@ export function nextTiming(timings: DoseTiming[], nowTime: string): { day: DayOf
   const now = minutesOf(nowTime);
   const today = sorted.find((t) => minutesOf(WARD_RULES.medTimes[t]) > now);
   return today ? { day: 0, timing: today } : { day: 1, timing: sorted[0] };
+}
+
+/**
+ * The doctor's choices as prescription drafts, one Rp per row, so that they go through the same checks
+ * (allergy, duplicate, daily maximum) and the same 確定 as any other prescription.
+ */
+export function draftsFromReport(r: BroughtReport, nowTime: string, newId: () => string): PrescriptionDraft[] {
+  return ordersFromReport(r, nowTime).map((o) => ({
+    id: newId(),
+    origin: "manual",
+    sourceText: "（持参薬鑑別の報告から）",
+    comment: o.comment ?? null,
+    kind: "prescription",
+    category: o.category === "退院時" ? null : o.category,
+    items: [{ drugCode: o.drugCode, said: findOralDrug(o.drugCode)?.name ?? o.drugCode, daily: null, perDose: o.amount }],
+    timings: o.timings,
+    prn: o.prn ?? null,
+    maxPerDay: o.maxPerDay ?? null,
+    days: o.days ?? null,
+    start: { day: o.start.day, timing: o.start.timing ?? null },
+    acks: [],
+  }));
 }
 
 /** The orders the doctor's choices make. 中止 makes none. */

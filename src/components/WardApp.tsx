@@ -102,7 +102,7 @@ import { DialysisView } from "./DialysisView";
 import { SurgeryView } from "./SurgeryView";
 import { initialSurgeries, type Surgery } from "@/lib/surgery";
 import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
-import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
+import { b008Check, draftsFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddConsultPanel, AddGuidePanel, AddLeavePanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
@@ -1608,15 +1608,15 @@ export default function WardApp() {
                   setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更なし", answer: answer.trim() || undefined, answeredAt: nowTime } : x)));
                 }}
                 onDecide={(r, rows) => {
-                  const orders = ordersFromReport({ ...r, rows }, nowTime);
-                  const added: OrderEntry[] = orders.map((o) => ({ kind: "order", id: newId(), day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o }));
+                  // The choices become drafts: they get the same checks (allergy, duplicate, maximum) and the same 確定.
+                  const made = draftsFromReport({ ...r, rows }, nowTime, newId);
                   const stopped = rows.filter((x) => x.decision === "中止").map((x) => `・持参薬 ${x.said} ${x.strength}：中止（鑑別報告より）`);
                   updateFor(patient.id, (c) => ({
-                    added: [...c.added, ...added],
-                    note: `${c.note.replace(/\s*$/, "")}\n${[...added.map((e) => planLine(e, today)), ...stopped].join("\n")}\n`,
-                    flash: `持参薬の指示を確定しました（オーダ ${added.length}件・中止 ${stopped.length}件）。`,
+                    drafts: [...c.drafts, ...made],
+                    note: stopped.length ? `${c.note.replace(/\s*$/, "")}\n${stopped.join("\n")}\n` : c.note,
+                    flash: `持参薬の指示を下書きにしました（${made.length}件${stopped.length ? `・中止 ${stopped.length}件は記事に追記` : ""}）。下書きの確認を見て、まとめて確定してください。`,
                   }));
-                  auditLog({ role: me.role, actor: me.name, action: "確定（持参薬の指示）", patient: patient.name, detail: rows.map((x) => `${x.said}：${x.decision}`).join("、") });
+                  auditLog({ role: me.role, actor: me.name, action: "持参薬の指示を決めた（下書き）", patient: patient.name, detail: rows.map((x) => `${x.said}：${x.decision}`).join("、") });
                   setReports((rs) => rs.map((x) => (x.id === r.id ? { ...x, rows, status: "指示済" } : x)));
                 }}
               />
