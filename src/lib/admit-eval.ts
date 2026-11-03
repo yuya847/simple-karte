@@ -194,12 +194,13 @@ export function reviseNutrition(cur: NutritionRecord, next: NutritionFields, by:
   return { ...next, by, at, revision: { kind: revision.kind, reason: revision.reason.trim() }, earlier: [...earlier, prev] };
 }
 
-/** Why a revision cannot be saved yet (empty when it can). */
-export function revisionProblems(next: NutritionFields, revision: { kind: "再評価" | "訂正"; reason: string }): string[] {
+/** Why a revision cannot be saved yet (empty when it can). A reassessment may keep the same plan; a correction must change something. */
+export function revisionProblems(next: NutritionFields, revision: { kind: "再評価" | "訂正"; reason: string }, before?: NutritionFields): string[] {
   const out: string[] = [];
   if (!next.goal.trim() || !next.energyKcal || !next.proteinG) out.push("目標・エネルギー・たんぱく質を入れてください。");
   if (revision.kind === "再評価" && !(next.reassessOn > 0)) out.push("再評価したので、次の再評価の日（1日後より先）を決めてください。");
   if (revision.kind === "訂正" && !revision.reason.trim()) out.push("訂正の理由を書いてください。");
+  if (revision.kind === "訂正" && before && nutritionChanges(before, next).length === 0) out.push("直したところがまだありません。");
   return out;
 }
 

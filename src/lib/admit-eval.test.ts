@@ -103,6 +103,8 @@ describe("栄養の再評価と栄養管理計画書の版", () => {
   it("what must be filled before a revision is saved", () => {
     expect(revisionProblems({ ...first, reassessOn: 0 }, { kind: "再評価", reason: "" })).toEqual(["再評価したので、次の再評価の日（1日後より先）を決めてください。"]);
     expect(revisionProblems(first, { kind: "訂正", reason: " " })).toEqual(["訂正の理由を書いてください。"]);
-    expect(revisionProblems({ ...first, reassessOn: 7 }, { kind: "再評価", reason: "" })).toEqual([]);
+    expect(revisionProblems({ ...first, reassessOn: 7 }, { kind: "再評価", reason: "" }, first)).toEqual([]);
+    expect(revisionProblems(first, { kind: "訂正", reason: "入れ間違い" }, first)).toEqual(["直したところがまだありません。"]);
+    expect(revisionProblems({ ...first, proteinG: 50 }, { kind: "訂正", reason: "入れ間違い" }, first)).toEqual([]);
   });
 });

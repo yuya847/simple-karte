@@ -11,13 +11,18 @@ import {
   PRESSURE_ITEMS,
   PRESSURE_TARGET_RANKS,
   duesOf,
+  nutritionChanges,
+  nutritionVersions,
   pressurePlanNeeded,
   pressureTarget,
+  reviseNutrition,
+  revisionProblems,
   suggestions,
   type AdlRank,
   type AdmitEval,
   type Due,
   type ItemKey,
+  type NutritionFields,
   type NutritionRecord,
   type PlanRecord,
   type PressureRecord,
@@ -39,6 +44,7 @@ interface Props {
 const COLUMNS: { key: ItemKey; short: string; action: Action }[] = [
   { key: "plan", short: "入院診療計画書", action: "plan" },
   { key: "nutrition", short: "栄養管理計画", action: "assess.nutrition" },
+  { key: "reassess", short: "栄養の再評価", action: "assess.nutrition" },
   { key: "pressure", short: "褥瘡", action: "assess.nursing" },
   { key: "fall", short: "転倒・転落", action: "assess.nursing" },
   { key: "delirium", short: "せん妄", action: "assess.nursing" },
@@ -153,7 +159,7 @@ function Detail({ w, ev, item, today, nowTime, onSave }: { w: WorkPatient; ev: A
       <DenyNote action={col.action} className="mb-2" />
       <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
         {item === "plan" && <PlanForm w={w} ev={ev} today={today} nowTime={nowTime} onSave={onSave} />}
-        {item === "nutrition" && <NutritionForm w={w} ev={ev} nowTime={nowTime} onSave={onSave} />}
+        {(item === "nutrition" || item === "reassess") && <NutritionForm w={w} ev={ev} today={today} nowTime={nowTime} onSave={onSave} start={item === "reassess" ? "再評価" : null} />}
         {item === "pressure" && <PressureForm ev={ev} nowTime={nowTime} onSave={onSave} />}
         {item === "fall" && <ChecklistForm kind="fall" ev={ev} nowTime={nowTime} onSave={onSave} suggested={[]} />}
         {item === "delirium" && <ChecklistForm kind="delirium" ev={ev} nowTime={nowTime} onSave={onSave} suggested={suggestions(w.patient, !!ev.emergency).delirium} />}
@@ -228,18 +234,50 @@ function PlanForm({ w, ev, today, nowTime, onSave }: { w: WorkPatient; ev: Admit
   );
 }
 
-function NutritionForm({ w, ev, nowTime, onSave }: { w: WorkPatient; ev: AdmitEval; nowTime: string; onSave: (e: AdmitEval, what: string) => void }) {
+type Revise = "再評価" | "訂正";
+const fieldsOf = (r: NutritionRecord): NutritionFields => ({ goal: r.goal, energyKcal: r.energyKcal, proteinG: r.proteinG, route: r.route, counseling: r.counseling, reassessOn: r.reassessOn });
+
+/**
+ * 栄養管理計画書: made once, then never overwritten. 「再評価した」 and 「訂正する」 add a version (who, when,
+ * why); the earlier versions stay below with what changed.
+ */
+function NutritionForm({ w, ev, today, nowTime, onSave, start }: { w: WorkPatient; ev: AdmitEval; today: CalendarDate; nowTime: string; onSave: (e: AdmitEval, what: string) => void; start: Revise | null }) {
   const me = useMe();
   const p = w.patient;
   const bmi = p.weightKg / (p.heightCm / 100) ** 2;
-  const [f, setF] = useState<Omit<NutritionRecord, "by" | "at">>(ev.nutrition ?? { goal: "", energyKcal: 0, proteinG: 0, route: "経口", counseling: "", reassessOn: 7 });
-  const done = !!ev.nutrition;
+  const cur = ev.nutrition;
+  const blank: NutritionFields = { goal: "", energyKcal: 0, proteinG: 0, route: "経口", counseling: "", reassessOn: 7 };
+  // A reassessment starts from the version in force, with the next date at the same interval as before (7 days if none).
+  const startFields = (k: Revise | null): NutritionFields => {
+    if (!cur) return blank;
+    const gap = cur.reassessOn - cur.at.day;
+    return k === "再評価" ? { ...fieldsOf(cur), reassessOn: gap > 0 ? gap : 7 } : fieldsOf(cur);
+  };
+  const [mode, setMode] = useState<Revise | null>(cur ? start : null);
+  const [f, setF] = useState<NutritionFields>(() => startFields(cur ? start : null));
+  const [reason, setReason] = useState("");
+  const done = !!cur && mode === null;
+  const day = (d: number) => formatShort(addDays(today, d)).replace(/（.）/, "");
   if (ev.plan?.nutritionNeeded === "無") return <p className="text-xs text-ink-soft">入院診療計画書で「特別な栄養管理の必要性：無」なので、栄養管理計画書は要りません。</p>;
+  const versions = cur ? nutritionVersions(cur) : [];
+  const problems = mode ? revisionProblems(f, { kind: mode, reason }, cur ? fieldsOf(cur) : undefined) : [];
+  const changes = cur && mode ? nutritionChanges(fieldsOf(cur), f, day) : [];
+  const begin = (k: Revise) => {
+    setMode(k);
+    setF(startFields(k));
+    setReason("");
+  };
   return (
     <div className="space-y-2 text-xs text-ink-soft">
       <p className="nums">
         身長 {p.heightCm} cm・体重 {p.weightKg} kg・BMI {bmi.toFixed(1)}（コードで計算）　{p.dietNow ? `いまの食事：${p.dietNow}` : ""}
       </p>
+      {cur && (
+        <p className="nums text-ink">
+          {mode ? `第${versions.length}版をもとに直しています` : `いまの版：第${versions.length}版`}（{day(cur.at.day)} {cur.at.time} {cur.by}
+          {cur.revision ? `・${cur.revision.kind}` : "・作成"}）
+        </p>
+      )}
       <label className="block">
         目標
         <input value={f.goal} readOnly={done} onChange={(e) => setF({ ...f, goal: e.target.value })} className={`mt-0.5 w-full ${input}`} />
@@ -263,22 +301,51 @@ function NutritionForm({ w, ev, nowTime, onSave }: { w: WorkPatient; ev: AdmitEv
             </label>
           ))}
         </span>
-        <label className="flex items-center gap-1">
-          再評価
-          <input type="number" min={1} value={f.reassessOn} readOnly={done} onChange={(e) => setF({ ...f, reassessOn: Number(e.target.value) })} className={`w-12 ${input}`} />
-          日後
-        </label>
+        {done ? (
+          <span className={`nums ${cur!.reassessOn <= 0 ? "font-bold text-shu" : ""}`}>
+            再評価の日 {day(cur!.reassessOn)}
+            {cur!.reassessOn < 0 ? "（過ぎています）" : cur!.reassessOn === 0 ? "（今日）" : `（${cur!.reassessOn}日後）`}
+          </span>
+        ) : (
+          <label className="flex items-center gap-1">
+            {mode === "再評価" ? "次の再評価" : "再評価"}
+            <input type="number" min={1} value={f.reassessOn} onChange={(e) => setF({ ...f, reassessOn: Number(e.target.value) })} className={`w-12 ${input}`} />
+            日後<span className="nums text-ink-faint">（{day(f.reassessOn)}）</span>
+          </label>
+        )}
       </div>
       <label className="block">
         栄養食事相談（入院時・退院時の指導の予定など）
         <input value={f.counseling} readOnly={done} onChange={(e) => setF({ ...f, counseling: e.target.value })} className={`mt-0.5 w-full ${input}`} />
       </label>
-      <div className="flex justify-end">
-        {done ? (
-          <span className="font-bold text-wakatake">
-            {ev.nutrition!.at.time} {ev.nutrition!.by} が作りました
-          </span>
-        ) : (
+      {mode && (
+        <div className="space-y-1 rounded border border-ai/40 bg-ai-soft p-2 text-ink">
+          <div className="flex flex-wrap items-center gap-2">
+            {(["再評価", "訂正"] as const).map((k) => (
+              <label key={k} className="flex items-center gap-0.5">
+                <input type="radio" checked={mode === k} onChange={() => begin(k)} className="accent-ai" />
+                {k === "再評価" ? "再評価した" : "訂正する（書き間違いなど）"}
+              </label>
+            ))}
+            <span className="text-ink-soft">第{versions.length + 1}版として残します。前の版は消えません。</span>
+          </div>
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={mode === "再評価" ? "評価の内容（例：食事量は5割、体重 −1kg）" : "訂正の理由（必須。例：たんぱく質の入れ間違い）"}
+            aria-label={mode === "再評価" ? "評価の内容" : "訂正の理由"}
+            className={`w-full ${input}`}
+          />
+          {(changes.length > 0 || mode === "再評価") && <p className="text-ink-soft">{changes.length ? `変わるところ：${changes.join("／")}` : "内容は前の版と同じです（同じ計画で再評価したことを残します）。"}</p>}
+          {problems.map((m) => (
+            <p key={m} className="text-shu">
+              {m}
+            </p>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {!cur ? (
           <button
             type="button"
             disabled={!f.goal.trim() || !f.energyKcal || !f.proteinG}
@@ -287,8 +354,51 @@ function NutritionForm({ w, ev, nowTime, onSave }: { w: WorkPatient; ev: AdmitEv
           >
             栄養管理計画書を作った（{me.name}）
           </button>
+        ) : mode ? (
+          <>
+            <button type="button" onClick={() => setMode(null)} className="rounded border border-rule px-3 py-1">
+              やめる
+            </button>
+            <button
+              type="button"
+              disabled={problems.length > 0}
+              onClick={() => {
+                onSave({ ...ev, nutrition: reviseNutrition(cur, f, me.name, { day: 0, time: nowTime }, { kind: mode, reason }) }, `栄養管理計画書 第${versions.length + 1}版（${mode}${reason.trim() ? `：${reason.trim()}` : ""}）`);
+                setMode(null);
+              }}
+              className="rounded bg-ai px-3 py-1 font-bold text-white disabled:opacity-40"
+            >
+              第{versions.length + 1}版を確定（{me.name}・{nowTime}）
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={() => begin("再評価")} className="rounded bg-ai px-3 py-1 font-bold text-white">
+              再評価した
+            </button>
+            <button type="button" onClick={() => begin("訂正")} className="rounded border border-ai px-3 py-1 text-ai">
+              訂正する
+            </button>
+          </>
         )}
       </div>
+      {versions.length > 1 && (
+        <section className="rounded border border-rule-soft bg-paper p-2">
+          <h4 className="mb-1 font-bold text-ink-soft">版の履歴（前の版は消えずに残ります）</h4>
+          <ol className="space-y-1">
+            {versions.map((v, i) => (
+              <li key={i} className="nums">
+                <b className="text-ink">第{i + 1}版</b> {day(v.at.day)} {v.at.time} {v.by}　{v.revision ? `${v.revision.kind}${v.revision.reason ? `：${v.revision.reason}` : ""}` : "作成"}
+                {i > 0 && (
+                  <span className="block pl-4 text-ink-faint">
+                    {nutritionChanges(versions[i - 1], v, day).join("／") || "内容の変更なし"}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
     </div>
   );
 }
