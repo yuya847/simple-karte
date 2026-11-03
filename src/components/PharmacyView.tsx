@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BookOpenText, Check, Droplet, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe } from "lucide-react";
+import { Activity, BookOpenText, Check, Droplet, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
 import { createPortal, flushSync } from "react-dom";
 import { DrugLabel } from "./Labels";
 import { DrugInfoSheet, MedBagFace, NotebookSticker } from "./HomeRxPrint";
@@ -20,6 +20,7 @@ import { alreadyOrdered, auditItems, b008Check, dispenseBlock, matchOral, queryO
 import type { DayOffset } from "@/lib/types";
 import { buildWorksheet, shiftWindow, timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { CLAUDE, auditLog } from "@/lib/audit";
+import { STEP_LABEL, TIMING_LABEL, oralKey, oralToDispense, packetsOf, qtyFormula, qtyText, recordStep, sameHands, slotRange, stepBlock, type OralPatient, type OralRecord, type OralRp, type OralStepName, type Packet } from "@/lib/oral-dispense";
 import { STAFF } from "@/lib/roles";
 
 export interface ShidoRecord {
@@ -54,16 +55,20 @@ interface Props {
   dischargedPeople?: WorkPatient[];
   onHomeRx: (patientId: string, patch: Partial<HomeRxRecord>) => void;
   onDispense: (key: string) => void;
+  /** 内服の調剤: 調剤・鑑査・払出 by Rp and the days counted (oral-dispense.ts oralKey). */
+  oralRx: Record<string, OralRecord>;
+  onOralRx: (key: string, rec: OralRecord) => void;
   tdm: TdmReport[];
   onTdm: (r: Omit<TdmReport, "id" | "at" | "by" | "status">) => void;
 }
 
-type Tab = "audit" | "brought" | "shido" | "dispense" | "home" | "blood" | "tdm" | "journal";
+type Tab = "audit" | "brought" | "shido" | "dispense" | "oral" | "home" | "blood" | "tdm" | "journal";
 const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
   { key: "audit", label: "処方監査・疑義照会", icon: MessageSquareWarning },
   { key: "brought", label: "持参薬鑑別", icon: ScanText },
   { key: "shido", label: "服薬指導", icon: Pill },
   { key: "dispense", label: "注射払出・ラベル", icon: Syringe },
+  { key: "oral", label: "内服の調剤", icon: Tablets },
   { key: "home", label: "退院時の薬", icon: Package },
   { key: "blood", label: "血液製剤", icon: Droplet },
   { key: "tdm", label: "TDM", icon: Activity },
@@ -76,10 +81,11 @@ const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ確かめて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。" },
   { tab: "shido", steps: "患者を選んで指導の内容を記録します。服薬指導の算定の回数（週1回・月4回まで）はコードが数え、超えると知らせます。" },
   { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
+  { tab: "oral", steps: "病棟で飲む内服（定期・臨時）を、患者ごと・Rp ごとに並べます。「定期」は明日から選んだ日数分、「臨時（今日の新規）」は今日出た臨時の全日数と、今日出た定期の今日の分です。量は「1回量 × 服用回数」をオーダの開始・日数・中止からコードで数え、式を出します。Rp ごとに ①調剤 → ②鑑査（できれば別の薬剤師。同じ人なら印が付く）→ ③払出 を記録し、誰がいつかが残ります。疑義照会の回答待ち・まだ監査していないオーダは止まり、調剤のあとで処方が変わると調剤し直しになります。「配薬ラベル」で1回分（日付と朝・昼・夕・眠前）ごとのラベルを印刷できます（一包化の袋に貼る形）。持参薬と退院時処方は入りません（退院時は「退院時の薬」タブ）。頓用は回数が決まらないので数えません。" },
   { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
   { tab: "blood", steps: "医師が確定した輸血のオーダが並びます。製剤の製造番号（ロット）を入れて払い出すと、払出の記録になり、今日の日報に入ります。" },
   { tab: "tdm", steps: "バンコマイシンの血中濃度から、コードが AUC を計算します（式つき）。薬剤師が提案を書いて医師へ報告します。" },
-  { tab: "journal", steps: "今日の監査・疑義照会・持参薬鑑別・服薬指導・払出・TDM の件数をコードが数えます。所感を書き残せます。" },
+  { tab: "journal", steps: "今日の監査・疑義照会・持参薬鑑別・服薬指導・払出（注射・内服）・TDM の件数をコードが数えます。所感を書き残せます。" },
 ];
 
 const PHARMACIST = STAFF.薬剤師.name;
@@ -129,6 +135,7 @@ export function PharmacyView(p: Props) {
           {tab === "brought" && <Brought {...p} />}
           {tab === "shido" && <Shido {...p} />}
           {tab === "dispense" && <Dispense {...p} />}
+          {tab === "oral" && <Oral {...p} />}
           {tab === "home" && <Home {...p} />}
           {tab === "blood" && <Blood {...p} />}
           {tab === "tdm" && <TdmView people={p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
@@ -599,6 +606,222 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
 }
 
 // ---------------------------------------------------------------------------
+// 内服の調剤: 定期 (from tomorrow, N days) and today's 臨時, Rp by Rp: 調剤 → 鑑査 → 払出 (who and when),
+// amounts counted in code (oral-dispense.ts), and 配薬 labels, one per day and timing (as on 一包化 packets).
+// ---------------------------------------------------------------------------
+
+/** A fictional colleague, so that 鑑査 can be done by someone other than the one who prepared it. */
+const COLLEAGUE = "薬剤師 吉田";
+const STEPS: OralStepName[] = ["prepared", "checked", "issued"];
+
+/** 配薬ラベル: one packet (a day and a timing) with every drug taken then. */
+function PacketLabel({ x, pack, date }: { x: OralPatient; pack: Packet; date: string }) {
+  return (
+    <div className="h-[34mm] w-[64mm] break-inside-avoid overflow-hidden rounded border border-ink/60 bg-white p-1.5 text-[8pt] leading-snug text-ink print:rounded-none">
+      <div className="flex items-baseline gap-1 border-b border-ink/40 pb-0.5">
+        <b className="text-[11pt]">{x.patient.name}</b>
+        <span className="nums ml-auto">{x.room}</span>
+      </div>
+      <div className="nums flex items-baseline gap-2">
+        <span className="text-[7pt]">ID {x.patient.id}</span>
+        <b className="ml-auto text-[10pt]">
+          {date}　{TIMING_LABEL[pack.timing]}
+        </b>
+      </div>
+      <ul className="nums mt-0.5">
+        {pack.drugs.map((d, i) => (
+          <li key={i}>
+            {d.name} {d.strength}　<b>{d.per}{d.unit}</b>
+          </li>
+        ))}
+      </ul>
+      {x.patient.allergies.length > 0 && <div className="text-[7pt] font-bold">アレルギー：{x.patient.allergies.join("、")}</div>}
+    </div>
+  );
+}
+
+function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Props) {
+  const [mode, setMode] = useState<"定期" | "臨時">("定期");
+  const [days, setDays] = useState(7);
+  const [checker, setChecker] = useState(PHARMACIST);
+  const [printing, setPrinting] = useState<React.ReactNode | null>(null);
+  const nowAbs = abs(0, nowTime);
+  const list = oralToDispense(people, mode === "定期" ? { kind: "定期", days } : { kind: "臨時" }, nowAbs).filter((x) => x.rps.length);
+  const date = formatShort(today).replace(/（.）/, "");
+  const day = (d: DayOffset) => formatShort(addDays(today, d));
+  const blockOf = (rp: OralRp) => rp.orderIds.map((id) => dispenseBlock(id, people, queries, audited)).find((b) => b) ?? null;
+  const fresh = (rp: OralRp) => !!oralRx[oralKey(rp)]?.prepared && oralRx[oralKey(rp)]?.qty === qtyText(rp);
+  const done = (rp: OralRp, s: OralStepName) => fresh(rp) && !!oralRx[oralKey(rp)]?.[s];
+  const act = (x: OralPatient, rp: OralRp, step: OralStepName) => {
+    const key = oralKey(rp);
+    const by = step === "checked" ? checker : PHARMACIST;
+    onOralRx(key, recordStep(oralRx[key], step, rp, { by, at: `${date} ${nowTime}` }));
+    auditLog({ role: "薬剤師", actor: by, action: `内服を${STEP_LABEL[step]}した`, patient: x.patient.name, detail: `${rp.category}　${rp.lines.map((l) => `${l.name} ${l.total}${l.unit}`).join("・")}` });
+  };
+  const labelsOf = (x: OralPatient) => packetsOf(x.rps).map((pk) => <PacketLabel key={`${x.patient.id}-${pk.day}-${pk.timing}`} x={x} pack={pk} date={day(pk.day)} />);
+  const print = (nodes: React.ReactNode, who: string, n: number) => {
+    flushSync(() => setPrinting(<div className="flex flex-wrap content-start gap-[3mm]">{nodes}</div>));
+    const end = () => {
+      setPrinting(null);
+      window.removeEventListener("afterprint", end);
+    };
+    window.addEventListener("afterprint", end);
+    window.print();
+    auditLog({ role: "薬剤師", actor: PHARMACIST, action: "配薬ラベルを印刷した", patient: who, detail: `${n}枚` });
+  };
+  const labelCount = list.reduce((n, x) => n + packetsOf(x.rps).length, 0);
+  const rpCount = list.reduce((n, x) => n + x.rps.length, 0);
+  const issuedCount = list.reduce((n, x) => n + x.rps.filter((rp) => done(rp, "issued")).length, 0);
+  const range = (rp: OralRp) => {
+    const r = slotRange(rp);
+    return r ? `${day(r.first.day)} ${r.first.timing}〜${day(r.last.day)} ${r.last.timing}` : "";
+  };
+  return (
+    <section className="space-y-3">
+      <p className="text-xs text-ink-soft">
+        <span className="mr-2 inline-flex rounded-md border border-rule p-0.5 align-middle">
+          {(
+            [
+              ["定期", "定期"],
+              ["臨時", "臨時（今日の新規）"],
+            ] as const
+          ).map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)} className={`rounded px-2 py-0.5 ${mode === k ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
+              {l}
+            </button>
+          ))}
+        </span>
+        {mode === "定期" ? (
+          <>
+            明日（{day(1)}）から
+            <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="定期の日数" className="mx-1 rounded border border-rule bg-paper px-1 py-0.5">
+              {[3, 7, 14].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            日分の定期処方です。
+          </>
+        ) : (
+          "今日出た臨時処方（全日数）と、今日出た定期処方の今日の分（明日からは定期に入る）です。"
+        )}
+        量はオーダの開始・日数・中止から服用の回数をコードで数え、1回量を掛けます。持参薬と退院時処方は入りません。頓用は回数が決まらないので数えません。
+      </p>
+      <div className={`${card} flex flex-wrap items-center gap-3 p-3 text-[13px]`}>
+        <label className="flex items-center gap-2">
+          鑑査する人
+          <select value={checker} onChange={(e) => setChecker(e.target.value)} className="rounded border border-rule bg-paper px-2 py-0.5">
+            <option value={PHARMACIST}>{PHARMACIST}（自分）</option>
+            <option value={COLLEAGUE}>{COLLEAGUE}（架空の同僚）</option>
+          </select>
+        </label>
+        <span className="nums text-ink-soft">
+          Rp {rpCount}件　払出済み {issuedCount}件
+        </span>
+        <button type="button" onClick={() => print(list.flatMap(labelsOf), "全員", labelCount)} disabled={!labelCount} className="ml-auto flex items-center gap-1 rounded-md border border-rule px-3 py-1 disabled:opacity-40">
+          <Printer size={14} />
+          全員の配薬ラベル（{labelCount}枚）
+        </button>
+      </div>
+      {list.map((x) => {
+        const leave = x.entries.find((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院");
+        const n = packetsOf(x.rps).length;
+        return (
+          <article key={x.patient.id} className={`${card} p-4 text-[13px]`}>
+            <h3 className="mb-1 flex flex-wrap items-center gap-2 font-bold">
+              {x.room}　{x.patient.name}
+              {leave && leave.order.type === "procedure" && <span className="text-xs font-normal text-yamabuki">退院の予定 {day(leave.order.start.day)}</span>}
+              {x.patient.allergies.length > 0 && <span className="text-xs font-normal text-shu">アレルギー：{x.patient.allergies.join("、")}</span>}
+              <span className="ml-auto flex flex-wrap gap-1 font-normal">
+                {STEPS.map((s) => {
+                  const ok = x.rps.filter((rp) => !stepBlock(s, oralRx[oralKey(rp)], rp, blockOf(rp)));
+                  return (
+                    <button key={s} type="button" disabled={!ok.length} onClick={() => ok.forEach((rp) => act(x, rp, s))} className="rounded border border-rule px-2 py-0.5 text-xs hover:border-ai hover:text-ai disabled:opacity-40">
+                      まとめて{STEP_LABEL[s]}（{ok.length}）
+                    </button>
+                  );
+                })}
+                <button type="button" onClick={() => print(labelsOf(x), x.patient.name, n)} disabled={!n} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs hover:border-ai hover:text-ai disabled:opacity-40">
+                  <Printer size={13} />
+                  配薬ラベル（{n}枚）
+                </button>
+              </span>
+            </h3>
+            <ol className="divide-y divide-rule-soft">
+              {x.rps.map((rp, i) => {
+                const rec = oralRx[oralKey(rp)];
+                const block = blockOf(rp);
+                const stale = !!rec?.prepared && !fresh(rp);
+                return (
+                  <li key={oralKey(rp)} className="flex flex-wrap items-start gap-3 py-2">
+                    <div className="min-w-64 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <b>Rp{i + 1}</b>
+                        <span className={`rounded px-1.5 text-[11px] ${rp.category === "臨時" ? "bg-yamabuki-soft text-yamabuki" : "bg-tab text-ink-soft"}`}>
+                          {rp.category}
+                          {rp.first ? "（初回・今日の分）" : ""}
+                        </span>
+                        <span>{rp.how}</span>
+                        <span className="nums text-xs text-ink-soft">{range(rp)}</span>
+                      </div>
+                      {rp.lines.map((l) => (
+                        <div key={l.orderId} className="nums">
+                          {l.name} {l.strength}　<span className="text-xs text-ink-soft">{qtyFormula(l, rp.timings.length)}</span>　<b>計 {l.total}{l.unit}</b>
+                        </div>
+                      ))}
+                      <div className="text-[11px] text-ink-faint">
+                        処方 {day(rp.writtenAt.day)} {rp.writtenAt.time}　{rp.doctor}
+                      </div>
+                      {rp.unbounded && <div className="text-[11px] font-bold text-shu">日数の指定がないので、量を数えられません。医師に日数を確かめてください。</div>}
+                      {block && <div className="text-[11px] font-bold text-shu">{block}</div>}
+                      {stale && (
+                        <div className="text-[11px] font-bold text-yamabuki">
+                          調剤（{rec!.prepared!.at} {rec!.prepared!.by}）のあとで処方が変わりました。調剤し直してください。
+                        </div>
+                      )}
+                      {!stale && sameHands(rec) && <div className="text-[11px] text-yamabuki">調剤した人と同じ薬剤師が鑑査しました（1人で行った記録）。</div>}
+                    </div>
+                    <div className="flex gap-1.5">
+                      {STEPS.map((s, j) => {
+                        const why = stepBlock(s, rec, rp, block);
+                        const d = done(rp, s) ? rec![s]! : null;
+                        return (
+                          <div key={s} className={`flex w-28 flex-col gap-0.5 rounded-md border px-2 py-1 ${d ? "border-wakatake/50 bg-wakatake-soft/40" : "border-rule"}`}>
+                            <span className="text-[11px] font-bold text-ink-soft">
+                              {"①②③"[j]}
+                              {STEP_LABEL[s]}
+                            </span>
+                            {d ? (
+                              <span className="nums text-[11px] leading-tight text-wakatake">
+                                <Check size={11} className="inline" /> {d.at.split(" ")[1]}
+                                <span className="block truncate">{d.by.replace("薬剤師 ", "")}</span>
+                              </span>
+                            ) : (
+                              <button type="button" disabled={!!why} title={why ?? undefined} onClick={() => act(x, rp, s)} className="self-start rounded border border-ai px-1.5 py-0.5 text-[11px] text-ai hover:bg-ai hover:text-white disabled:border-rule disabled:text-ink-faint disabled:hover:bg-transparent">
+                                {s === "prepared" && stale ? "調剤し直した" : `${STEP_LABEL[s]}した`}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+            {x.prn.length > 0 && <p className="mt-1 text-[11px] text-ink-faint">頓用（回数が決まらないので数えない）：{x.prn.map((q) => `${q.name} ${q.text}`).join("／")}</p>}
+          </article>
+        );
+      })}
+      {list.length === 0 && <p className="text-ink-faint">{mode === "定期" ? "定期の内服はありません。" : "今日出た臨時・定期の内服はありません（医師がカルテの「内服」から出すと、ここに入ります）。"}</p>}
+      {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[5mm] print:block">{printing}</div>, document.body)}
+      <p className="text-[11px] text-ink-faint">鑑査は、調剤した人とは別の薬剤師が行うのが望ましいため、架空の同僚を選べます（同じ人のときは印が付きます）。架空の病院・架空の患者です。</p>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 血液製剤: transfusion orders confirmed by doctors, issued with the product's lot number (日報).
 // ---------------------------------------------------------------------------
 
@@ -662,7 +885,7 @@ function Blood({ people, today, txIssued, onTxIssue }: Props) {
 // 病棟薬剤業務日誌: today's work counted by code, with the pharmacist's words.
 // ---------------------------------------------------------------------------
 
-function Journal({ people, nowTime, audited, queries, reports, shido, dispensed, txIssued, tdm, journal, onJournal, homeRx }: Props) {
+function Journal({ people, nowTime, audited, queries, reports, shido, dispensed, oralRx, txIssued, tdm, journal, onJournal, homeRx }: Props) {
   const [text, setText] = useState("");
   const shidoToday = Object.values(shido).flat().filter((r) => r.day === 0).length;
   const lines: [string, number][] = [
@@ -672,6 +895,7 @@ function Journal({ people, nowTime, audited, queries, reports, shido, dispensed,
     ["持参薬鑑別の報告", reports.length],
     ["服薬指導", shidoToday],
     ["注射の払出（回）", Object.keys(dispensed).length],
+    ["内服の払出（Rp）", Object.values(oralRx).filter((r) => r.issued).length],
     ["血液製剤の払出", Object.keys(txIssued).length],
     ["退院時の薬の説明", Object.values(homeRx).filter((r) => r.handed).length],
     ["TDM の報告", tdm.length],

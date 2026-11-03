@@ -117,6 +117,7 @@ import { InjectionCalendar } from "./Calendars";
 import { WardMap, type ChartSummary, type Pick } from "./WardMap";
 import { Worksheet } from "./Worksheet";
 import { PharmacyView, type HomeRxRecord, type ShidoRecord } from "./PharmacyView";
+import type { OralRecord } from "@/lib/oral-dispense";
 import { PharmacyInbox } from "./PharmacyInbox";
 import { DialysisView } from "./DialysisView";
 import { SurgeryView } from "./SurgeryView";
@@ -395,6 +396,7 @@ export default function WardApp() {
   const [reports, setReports] = useState<BroughtReport[]>([]);
   const [shido, setShido] = useState<Record<string, ShidoRecord[]>>({});
   const [dispensed, setDispensed] = useState<Record<string, string>>({});
+  const [oralRx, setOralRx] = useState<Record<string, OralRecord>>({});
   // Dialysis unit (fictional; kept in this browser only).
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
   const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(() => (typeof window === "undefined" ? {} : initialHdSessions(nowTimeInTokyo())));
@@ -1813,6 +1815,8 @@ export default function WardApp() {
           }}
           dispensed={dispensed}
           onDispense={(key) => setDispensed((d) => ({ ...d, [key]: nowTime }))}
+          oralRx={oralRx}
+          onOralRx={(key, rec) => setOralRx((all) => ({ ...all, [key]: rec }))}
           txIssued={txIssued}
           onTxIssue={(entryId, lot) => {
             const who = people.find((x) => x.entries.some((e) => e.id === entryId))?.patient.name;
