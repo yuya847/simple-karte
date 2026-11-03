@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, CalendarClock, DoorOpen, GraduationCap, Luggage, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, PenTool, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, CalendarClock, DoorOpen, FileStack, GraduationCap, Luggage, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, PenTool, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "docs" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -48,6 +48,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "consents", label: "同意書", icon: FileSignature },
       { key: "directive", label: "事前指示", icon: HeartHandshake },
       { key: "discharge", label: "退院サマリ", icon: FileText },
+      { key: "docs", label: "書類作成", icon: FileStack },
       { key: "summary", label: "連携サマリ", icon: Share2 },
       { key: "schema", label: "シェーマ", icon: PenTool },
       { key: "chat", label: "チャット", icon: MessagesSquare },

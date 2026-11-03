@@ -15,7 +15,7 @@ import { BillingView } from "./BillingView";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
-import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, doctorFor, floorOf, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
+import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, doctorFor, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
@@ -51,6 +51,10 @@ import { RegimenPanel } from "./panels/RegimenPanel";
 import { SummaryPanel } from "./panels/SummaryPanel";
 import { SetPanel } from "./panels/SetPanel";
 import { SchemaPanel } from "./panels/SchemaPanel";
+import { DocsPanel } from "./panels/DocsPanel";
+import { ageSex } from "@/lib/person";
+import { stayDays, type DocKind, type DocRecord } from "@/lib/documents";
+import { diagnosisLabel } from "@/lib/diagnoses";
 import { summaryFacts } from "@/lib/summary";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
@@ -330,6 +334,8 @@ export default function WardApp() {
   const [manualOpen, setManualOpen] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
   const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
+  // 書類作成で作った書類.
+  const [documents, setDocuments] = useState<DocRecord[]>([]);
   // 他科依頼の返書 (by order id).
   const [consultReplies, setConsultReplies] = useState<Record<string, { text: string; by: string; at: string }>>({});
   // 看護日誌: the charge nurse's words, per floor.
@@ -1969,6 +1975,45 @@ export default function WardApp() {
                       if (orderBlock) return;
                       addManualLab(d);
                       closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "docs" && (
+                <Drawer title="書類作成" onClose={closePanel} wide>
+                  <DocsPanel
+                    patient={patient}
+                    today={formatShort(today)}
+                    saved={documents.filter((d) => d.patientId === patient.id)}
+                    onOpenReferral={() => setPanel("discharge")}
+                    initial={(k: DocKind): Record<string, string> => {
+                      const pl = evals[patient.id]?.plan;
+                      return k === "入院診療計画書" && pl ? { symptoms: pl.symptoms, treatment: pl.treatment, tests: pl.tests, surgery: pl.surgery, days: String(pl.days), nutrition: pl.nutritionNeeded, other: pl.other, explainedTo: pl.explainedTo } : {};
+                    }}
+                    auto={(k: DocKind) => {
+                      const fmt = (d: number) => formatShort(addDays(today, d));
+                      const dx = (diagnoses[patient.id] ?? []).filter((d) => d.outcome === "継続").map(diagnosisLabel).join("、") || patient.admissionDiagnosis;
+                      const leave = entries.find((e): e is OrderEntry => e.kind === "order" && e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院");
+                      const dDay = leave && leave.order.type === "procedure" ? leave.order.leave!.from.day : null;
+                      const drugs = entries.filter((e): e is OrderEntry => e.kind === "order" && e.status === "有効" && e.order.type === "prescription").map((e) => orderLines(e.order, today).main).join("、");
+                      const base = { name: `${patient.name}（${ageSex(patient)}）`, diagnosis: dx, admitted: fmt(patient.admittedOn) };
+                      if (k === "入院診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, attending: patient.attending, staff: `${nurseFor(patient.room)}（看護）` };
+                      if (k === "退院証明書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", stay: dDay !== null ? `${stayDays(patient.admittedOn, dDay)}日` : "—", fee: "急性期一般入院料４（架空の病院の届出）" };
+                      if (k === "退院療養計画書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", drugs: drugs || "なし" };
+                      return base;
+                    }}
+                    onSave={(k, v) => {
+                      auditLog({ role: me.role, actor: me.name, action: `確定（${k}を作成）`, patient: patient.name });
+                      setDocuments((all) => [...all, { id: newId(), patientId: patient.id, kind: k, values: v, by: me.name, at: { day: 0, time: nowTime } }]);
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${k}を作成（${me.name}）\n` }));
+                      if (k === "入院診療計画書")
+                        setEvals((all) => ({
+                          ...all,
+                          [patient.id]: {
+                            ...(all[patient.id] ?? { patientId: patient.id }),
+                            plan: { days: Number(v.days) || 0, symptoms: v.symptoms, treatment: v.treatment, tests: v.tests, surgery: v.surgery ?? "", other: v.other ?? "", nutritionNeeded: v.nutrition === "有" ? "有" : "無", explainedTo: v.explainedTo, explainedBy: me.name, explainedAt: { day: 0, time: nowTime } },
+                          },
+                        }));
                     }}
                   />
                 </Drawer>
