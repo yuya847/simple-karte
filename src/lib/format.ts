@@ -3,7 +3,7 @@
 import { timingName } from "./rx";
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { findDrug, findLab, findOralDrug, findSet } from "./master";
-import { AREA_LABEL, DEPTH_LABEL, findProc, findProcDrug, procScheduleText } from "./procedures";
+import { AREA_LABEL, DEPTH_LABEL, findProc, findProcDrug, hdText, procScheduleText } from "./procedures";
 import type { ImagingOrder, InjectionOrder, InjectionSchedule, LabOrder, Order, PhysioOrder, PrescriptionOrder, ProcedureOrder } from "./types";
 import { findPhysio, findRegion } from "./exams";
 
@@ -93,12 +93,14 @@ export function procName(code: string): string {
 export function procedureTitle(o: ProcedureOrder): string {
   const parts = [procName(o.code)];
   if (o.o2) parts.push(`${o.o2.device} ${o.o2.lpm}L/分`);
+  if (o.hd) parts.push(`${o.hd.method}（${o.hd.purpose}）`);
   if (o.site) parts.push(o.site);
   return parts.join("　");
 }
 
 export function procedureLines(order: ProcedureOrder, today: CalendarDate): { main: string; detail: string } {
   const parts: string[] = [];
+  if (order.hd) parts.push(hdText(order.hd));
   if (order.depth) parts.push(DEPTH_LABEL[order.depth].split(" ")[0]);
   if (order.area) parts.push(AREA_LABEL[order.area]);
   parts.push(procScheduleText(order.schedule));

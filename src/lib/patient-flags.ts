@@ -7,6 +7,7 @@ import { isolationFor } from "./ward";
 import type { OrderEntry, Patient, ProcedureOrder } from "./types";
 import { orderInterval } from "./flowsheet";
 import { findDrug } from "./master";
+import { hdText } from "./procedures";
 
 export type FlagTone = "shu" | "fuji" | "ai" | "yamabuki" | "wakatake" | "ink";
 
@@ -45,6 +46,7 @@ export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, wait
     if (!running(from, to, nowAbs)) continue;
     if (o.code === "PROC-O2" && o.o2) out.push({ label: `酸素 ${o.o2.lpm}L`, tone: "ai", title: `${o.o2.device} ${o.o2.lpm}L/分` });
     if (o.code === "PROC-FOLEY") out.push({ label: "尿カテ", tone: "ai", title: "膀胱留置カテーテル 留置中" });
+    if (o.code === "PROC-HD" && o.hd) out.push({ label: "透析", tone: "ai", title: `${o.hd.method}（${o.hd.purpose}）${hdText(o.hd)}` });
   }
   const drip = entries.some((e) => {
     if (e.order.type !== "injection" || e.order.route !== "点滴静注") return false;

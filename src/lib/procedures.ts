@@ -2,6 +2,8 @@
 // needs to be complete, and the ward's clock times. The official codes and points live in the
 // billing side (billing/codes.ts → 医科診療行為マスター); nothing here is a fee.
 
+import type { HdOrder } from "./types";
+
 /** 範囲 of a wound / pressure ulcer, as the 点数表 divides it (cm²). */
 export type AreaClass = "lt100" | "100-500" | "500-3000" | "3000-6000" | "ge6000";
 
@@ -106,7 +108,7 @@ export interface ProcMaster {
   code: string;
   name: string;
   /** What the order must say to be complete. */
-  needs: ("site" | "area" | "depth" | "o2")[];
+  needs: ("site" | "area" | "depth" | "o2" | "hd")[];
   /** Schedules a doctor may choose for this item. The first is never preselected. */
   schedules: ProcSchedule[];
   /** For 留置 and 酸素: the order runs until stopped; its schedule is always 継続. */
@@ -195,7 +197,52 @@ export const PROCEDURES: ProcMaster[] = [
     uses: { code: "TOP-GE120", amount: 1 },
     aliases: ["浣腸", "GE", "グリセリン浣腸"],
   },
+  {
+    code: "PROC-HD",
+    name: "血液透析（透析指示）",
+    needs: ["hd"],
+    schedules: [{ kind: "once" }, { kind: "every_days", days: 2 }],
+    aliases: ["透析", "HD", "血液透析", "人工透析", "HDF", "ECUM", "透析指示"],
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// 透析指示（PROC-HD）: the choices on the order sheet, and the ultrafiltration rate worked out in code
+// ---------------------------------------------------------------------------
+
+export const HD_PURPOSES: HdOrder["purpose"][] = ["導入", "維持", "緊急"];
+export const HD_METHODS: HdOrder["method"][] = ["HD", "オンラインHDF", "ECUM"];
+export const HD_MINUTES = [120, 180, 240, 300];
+export const HD_QB = [100, 150, 200, 250];
+export const HD_MEMBRANES = [1.0, 1.3, 1.5, 1.8, 2.1];
+export const HD_UF = [0, 0.5, 1, 1.5, 2, 2.5, 3];
+export const HD_ACCESS = ["透析用カテーテル（右内頸静脈）", "透析用カテーテル（左内頸静脈）", "透析用カテーテル（大腿静脈）", "AVF（シャント）", "AVG（人工血管）"];
+/** Amounts offered for each anticoagulant (the doctor may type another). */
+export const HD_ANTICOAG: Record<HdOrder["anticoag"]["drug"], { initial?: { unit: string; choices: number[] }; hourly?: { unit: string; choices: number[] } }> = {
+  ヘパリン: { initial: { unit: "単位", choices: [0, 500, 1000, 2000] }, hourly: { unit: "単位/時", choices: [250, 500, 750, 1000] } },
+  ナファモスタット: { hourly: { unit: "mg/時", choices: [20, 30, 40, 50] } },
+  なし: {},
+};
+/** 平均除水速度の目安. For maintenance dialysis; on the ward it is shown as a reference to weigh. */
+export const HD_UF_RATE = { max: 15, source: "日本透析医学会「維持血液透析ガイドライン：血液透析処方」（2013）：平均除水速度 15mL/kg/時 以下" };
+
+const hm = (m: number) => (m % 60 ? `${Math.floor(m / 60)}時間${m % 60}分` : `${m / 60}時間`);
+
+/** 除水速度 = 除水量 ÷ 時間 ÷ 体重 (mL/kg/時), with the sum written out. */
+export function hdUfRate(uf: number, minutes: number, weightKg: number): { rate: number; formula: string } {
+  const rate = Math.round(((uf * 1000) / (minutes / 60) / weightKg) * 10) / 10;
+  return { rate, formula: `${(uf * 1000).toLocaleString("ja-JP")}mL ÷ ${hm(minutes)} ÷ ${weightKg}kg = ${rate}mL/kg/時` };
+}
+
+/** "4時間　Qb 200mL/分　膜面積 1.5m²　ヘパリン 初回1000単位・持続500単位/時　除水 2L　DW 50kg　透析用カテーテル（右内頸静脈）" */
+export function hdText(h: HdOrder): string {
+  const a = HD_ANTICOAG[h.anticoag.drug];
+  const ac =
+    h.anticoag.drug === "なし"
+      ? "抗凝固薬なし"
+      : `${h.anticoag.drug} ${[a.initial && h.anticoag.initial !== null ? `初回${h.anticoag.initial.toLocaleString("ja-JP")}${a.initial.unit}` : null, a.hourly && h.anticoag.hourly !== null ? `持続${h.anticoag.hourly.toLocaleString("ja-JP")}${a.hourly.unit}` : null].filter(Boolean).join("・")}`;
+  return [hm(h.minutes), `Qb ${h.qb}mL/分`, `膜面積 ${h.membrane.toFixed(1)}m²`, ac, `除水 ${h.uf}L`, h.dw !== null ? `DW ${h.dw}kg` : null, h.access].filter(Boolean).join("　");
+}
 
 export function findProc(code: string): ProcMaster | undefined {
   return PROCEDURES.find((p) => p.code === code);

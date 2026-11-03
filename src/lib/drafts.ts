@@ -17,8 +17,11 @@ import {
   PROCEDURES,
   PROC_DRUGS,
   areaClassOf,
+  HD_UF_RATE,
   findProc,
   findProcDrug,
+  hdText,
+  hdUfRate,
   isSevereUlcer,
   parseSize,
   procScheduleText,
@@ -30,6 +33,7 @@ import {
 } from "./procedures";
 import type {
   DayOffset,
+  HdOrder,
   InjectionOrder,
   InjectionRoute,
   InjectionSchedule,
@@ -134,6 +138,10 @@ export interface ProcedureDraft extends DraftBase {
   area: AreaClass | null;
   depth: UlcerDepth | null;
   o2: { device: O2Device | null; lpm: number | null };
+  /** 透析の条件 (PROC-HD), entered in the 透析 panel. */
+  hd?: HdOrder | null;
+  /** Doctor's answer when the ultrafiltration rate is over the guideline's mark. */
+  hdOk?: boolean;
   schedule: ProcSchedule | null;
   start: { day: DayOffset | null; time: string | null };
   days: number | null;
@@ -1103,6 +1111,41 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
     }
   }
 
+  // 透析の条件: chosen by the doctor in the 透析 panel; the ultrafiltration rate is worked out here.
+  if (m.needs.includes("hd")) {
+    if (!d.hd) {
+      issues.push({ key: "hd", level: "stop", title: "透析", message: "透析の条件（時間・血流量・抗凝固薬・除水量など）は、右の「透析」の欄で入れてください。" });
+    } else {
+      const h = d.hd;
+      issues.push({ key: "hd", level: "info", title: "条件", message: `${h.method}（${h.purpose}）　${hdText(h)}` });
+      const w = ctx.patientFacts?.weightKg;
+      if (h.uf > 0 && w) {
+        const r = hdUfRate(h.uf, h.minutes, w);
+        const over = r.rate > HD_UF_RATE.max;
+        if (over && !d.hdOk)
+          issues.push({
+            key: "hd-uf",
+            level: "ask",
+            title: "除水速度",
+            message: `除水速度が ${r.rate}mL/kg/時 で、目安の ${HD_UF_RATE.max}mL/kg/時 を超えます（${HD_UF_RATE.source}。体重はカルテの値）。`,
+            formula: r.formula,
+            choices: [{ label: `${r.rate}mL/kg/時のまま出す`, apply: set({ hdOk: true }) }],
+          });
+        else
+          issues.push({
+            key: "hd-uf",
+            level: "info",
+            title: "除水速度",
+            message: over ? `目安（${HD_UF_RATE.max}mL/kg/時）を超えることを承知で出します。` : `目安は ${HD_UF_RATE.max}mL/kg/時 以下（${HD_UF_RATE.source}）。`,
+            formula: r.formula,
+          });
+      } else if (h.uf > 0) {
+        issues.push({ key: "hd-uf", level: "info", title: "除水速度", message: "体重がカルテにないため、除水速度を計算できません。" });
+      }
+      if (h.dw !== null && w) issues.push({ key: "hd-dw", level: "info", title: "DW", message: "カルテの体重と DW の差（参考）", formula: `${w}kg − DW ${h.dw}kg = ${Math.round((w - h.dw) * 10) / 10}kg` });
+    }
+  }
+
   // 部位
   if (m.needs.includes("site") && !d.site) {
     issues.push({
@@ -1356,6 +1399,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       area: m.needs.includes("area") ? a.area! : undefined,
       depth: m.needs.includes("depth") ? d.depth! : undefined,
       o2: m.needs.includes("o2") ? { device: d.o2.device!, lpm: d.o2.lpm! } : undefined,
+      hd: m.needs.includes("hd") && d.hd ? d.hd : undefined,
       schedule: procSchedule(d)!,
       start: { day: d.start.day ?? 0, time: d.start.time ?? undefined },
       days: d.days ?? undefined,

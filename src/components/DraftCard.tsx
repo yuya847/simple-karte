@@ -4,7 +4,7 @@ import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from 
 import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
 import { anyDrugName, findLab } from "@/lib/master";
-import { AREA_LABEL, findProc, findProcDrug, procScheduleText } from "@/lib/procedures";
+import { AREA_LABEL, findProc, findProcDrug, hdText, procScheduleText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
 import { perDoseOf, timingName } from "@/lib/rx";
 import { findPhysio, findRegion } from "@/lib/exams";
@@ -251,7 +251,9 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     const head = [m ? m.name : null];
     if (m?.needs.includes("o2")) head.push(`${draft.o2.device ?? "器具？"} ${draft.o2.lpm ?? "？"}L/分`);
     if (m?.needs.includes("site")) head.push(draft.site ?? "部位？");
+    if (m?.needs.includes("hd")) head.push(draft.hd ? `${draft.hd.method}（${draft.hd.purpose}）` : "条件？");
     const parts: string[] = [];
+    if (m?.needs.includes("hd") && draft.hd) parts.push(hdText(draft.hd));
     if (m?.needs.includes("depth")) parts.push(draft.depth ?? "深さ？");
     if (m?.needs.includes("area")) parts.push(area ? AREA_LABEL[area] : "範囲？");
     parts.push(schedule ? procScheduleText(schedule) : "回数？");

@@ -190,6 +190,26 @@ export interface PrescriptionOrder {
   acks?: string[];
 }
 
+/** 透析指示: the conditions of a hemodialysis on the ward, as on a dialysis order sheet. */
+export interface HdOrder {
+  /** 導入（透析を始める）・維持（維持透析の患者の入院中）・緊急. */
+  purpose: "導入" | "維持" | "緊急";
+  method: "HD" | "オンラインHDF" | "ECUM";
+  minutes: number;
+  /** 血流量 mL/分 */
+  qb: number;
+  /** ダイアライザの膜面積 m² */
+  membrane: number;
+  /** 抗凝固薬: ヘパリンは初回（単位）と持続（単位/時）、ナファモスタットは持続（mg/時）. */
+  anticoag: { drug: "ヘパリン" | "ナファモスタット" | "なし"; initial: number | null; hourly: number | null };
+  /** 除水量 L */
+  uf: number;
+  /** ドライウェイト kg（決まっていれば） */
+  dw: number | null;
+  /** バスキュラーアクセス */
+  access: string;
+}
+
 /** A ward procedure (処置). The item comes from the fictional hospital's master (procedures.ts). */
 export interface ProcedureOrder {
   type: "procedure";
@@ -201,6 +221,8 @@ export interface ProcedureOrder {
   /** DESIGN-R2020 depth (pressure ulcer). */
   depth?: UlcerDepth;
   o2?: { device: O2Device; lpm: number };
+  /** 血液透析の条件 (PROC-HD). */
+  hd?: HdOrder;
   schedule: ProcSchedule;
   start: { day: DayOffset; time?: string };
   days?: number;
