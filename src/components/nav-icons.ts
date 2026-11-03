@@ -5,6 +5,7 @@ import {
   BookOpen,
   BriefcaseMedical,
   Building2,
+  CalendarDays,
   ClipboardCheck,
   ClipboardList,
   Droplets,
@@ -65,4 +66,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   acuity: ClipboardCheck,
   journal: NotebookText,
   iji: ReceiptJapaneseYen,
+  roster: CalendarDays,
 };

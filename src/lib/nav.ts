@@ -48,7 +48,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji";
+export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -76,6 +76,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "acuity", label: "看護必要度", hint: "B 項目の評価（5階東）", group: "work", needs: "acuity" },
   { key: "journal", label: "看護日誌", hint: "選んだ階の今日の数（コードで数える）と所感", group: "work", needs: "sheet" },
   { key: "iji", label: "医事課の仕事", hint: "患者ごとに、保険の未登録・退院して会計がまだ・算定の要確認・未コード化の病名", group: "work", needs: "iji" },
+  { key: "roster", label: "勤務表と様式9", hint: "看護師長が月の勤務を入れ、夜勤時間・月平均72時間・10対1・夜勤の組み合わせをコードで確かめる（5階東）", group: "work", needs: "sheet" },
 ];
 
 export const wardTabInfo = (t: WardTab): WardTabInfo => WARD_TABS.find((x) => x.key === t)!;

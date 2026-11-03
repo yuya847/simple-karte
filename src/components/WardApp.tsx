@@ -40,6 +40,8 @@ import { StickyStrip, type Sticky } from "./StickyStrip";
 import { BoardView } from "./BoardView";
 import { ExtractView } from "./ExtractView";
 import { JournalView } from "./JournalView";
+import { RosterView } from "./RosterView";
+import type { RosterBook } from "@/lib/roster";
 import { MealsView } from "./MealsView";
 import { journalLines, staffing } from "@/lib/journal";
 import { GUIDE_TO } from "@/lib/procedures";
@@ -428,6 +430,8 @@ export default function WardApp() {
   const [consultReplies, setConsultReplies] = useState<Record<string, { text: string; by: string; at: string }>>({});
   // 看護日誌: the charge nurse's words, per floor.
   const [journal, setJournal] = useState<Record<string, { text: string; by: string; at: string }[]>>({});
+  // 勤務表と様式9 (5階東): null = the fictional draft, until the 看護師長 changes it.
+  const [rosterBook, setRosterBook] = useState<RosterBook | null>(null);
   // 妊娠中の印 and 付箋, per patient.
   const [pregnancy, setPregnancy] = useState<Record<string, { weeks: number | null } | null>>({});
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
@@ -1473,6 +1477,8 @@ export default function WardApp() {
             setJournal((all) => ({ ...all, [floor]: [...(all[floor] ?? []), { text, by: me.name, at: nowTime }] }));
           }}
         />
+      ) : screen === "roster" ? (
+        <RosterView book={rosterBook} today={today} nowTime={nowTime} onChange={setRosterBook} />
       ) : screen === "extract" ? (
         <ExtractView
           run={(q) =>

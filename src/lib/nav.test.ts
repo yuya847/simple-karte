@@ -41,6 +41,11 @@ describe("② inside 病棟", () => {
     expect(wardTabsFor("MSW")).not.toContain("meals");
     expect(homeArea("管理栄養士")).toBe("ward");
   });
+  it("勤務表と様式9: for nurses (the 看護師長 uses it), not for the other roles", () => {
+    expect(wardTabsFor("看護師")).toContain("roster");
+    expect(wardTabsFor("医師")).not.toContain("roster");
+    expect(wardTabsFor("薬剤師")).not.toContain("roster");
+  });
   it("keeps only allowed screens from saved defaults, once each and in order", () => {
     expect(allowedWardTabs("医師", ["mine", "sheet", "map", "mine", "x" as never])).toEqual(["mine", "map"]);
   });
