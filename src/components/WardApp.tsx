@@ -23,6 +23,9 @@ import { EmergencyBoard } from "./EmergencyBoard";
 import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
 import { WardRequests } from "./WardRequests";
+import { StandingPanel } from "./panels/StandingPanel";
+import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
+import type { Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
@@ -275,6 +278,8 @@ export default function WardApp() {
   const [opd, setOpd] = useState<OpdPatient[]>(OPD_PATIENTS);
   const [visitNotes, setVisitNotes] = useState<Record<string, VisitNote[]>>({});
   const [requests, setRequests] = useState<AdmissionRequest[]>(INITIAL_REQUESTS);
+  // 指示簿 per patient, every version kept (the last one is in force).
+  const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(initialStanding);
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
@@ -755,6 +760,26 @@ export default function WardApp() {
     const v = verbalUnsigned(x.entries).length;
     if (!deny("order.sign") && v) todos.push({ key: `verbal-${pid}`, label: `口頭指示の承認待ち：${x.patient.name}さん`, count: v, tone: "yamabuki", go: () => openPatient(pid) });
   }
+  // 指示簿: the latest vitals against the call criteria, and versions no nurse has taken yet.
+  const standingNow = (pid: string) => standing[pid]?.at(-1);
+  const callsMet: Record<string, string[]> = Object.fromEntries(people.map((x) => [x.patient.id, callHits(standingNow(x.patient.id), x.patient.vitals.at(-1))]));
+  const standingFlags: Record<string, Flag[]> = Object.fromEntries(
+    people.map((x) => {
+      const pid = x.patient.id;
+      const out: Flag[] = callsMet[pid].length ? [{ label: "医師を呼ぶ基準", tone: "shu", title: `指示簿の基準に当たる：${callsMet[pid].join("、")}` }] : [];
+      if (standingNow(pid) && !standingNow(pid)!.taken) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
+      return [pid, out];
+    }),
+  );
+  const openStanding = (pid: string) => {
+    openPatient(pid);
+    setPanel("standing");
+  };
+  for (const x of people) {
+    const pid = x.patient.id;
+    if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
+    if (role === "看護師" && standingNow(pid) && !standingNow(pid)!.taken) todos.push({ key: `standing-${pid}`, label: `指示簿の指示受けがまだ：${x.patient.name}さん`, count: 1, tone: "yamabuki", go: () => openStanding(pid) });
+  }
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
   if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
@@ -1084,6 +1109,7 @@ export default function WardApp() {
           summaries={summaries}
           waiting={waiting}
           resultState={resultState}
+          extraFlags={standingFlags}
           marPending={Object.fromEntries(
             people.map((x) => {
               const start = sessionStart ?? abs(0, nowTime);
@@ -1533,6 +1559,29 @@ export default function WardApp() {
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "standing" && (
+                <Drawer title="指示簿（約束指示）" onClose={closePanel} wide>
+                  <StandingPanel
+                    versions={standing[patient.id] ?? []}
+                    allergies={patient.allergies}
+                    nowTime={nowTime}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    newId={newId}
+                    onSave={(st) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（指示簿）", patient: patient.name, detail: `第${(standing[patient.id]?.length ?? 0) + 1}版` });
+                      setStanding((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }));
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿を変更（第${(standing[patient.id]?.length ?? 0) + 1}版）\n` }));
+                    }}
+                    onTake={() => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（指示簿の指示受け）", patient: patient.name });
+                      setStanding((all) => {
+                        const vs = all[patient.id] ?? [];
+                        return { ...all, [patient.id]: vs.map((v, i) => (i === vs.length - 1 ? { ...v, taken: { by: me.name, time: nowTime } } : v)) };
+                      });
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "add-dialysis" && (

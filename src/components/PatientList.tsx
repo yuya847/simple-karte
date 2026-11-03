@@ -34,6 +34,8 @@ interface Props {
   marPending?: Record<string, number>;
   /** Results not yet seen by the doctor (and how many are panic values). */
   resultState?: Record<string, { unseen: number; panic: number }>;
+  /** More marks per patient from outside the record (指示簿: call criteria met, 指示受けがまだ). */
+  extraFlags?: Record<string, Flag[]>;
   onOpen: (patientId: string) => void;
 }
 
@@ -81,7 +83,7 @@ interface Row {
 const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
 
 /** Ward patient list. Our patients open on click or Enter; other teams' rows are context only. */
-export function PatientList({ ward, title, pick, defaultGroup = "room", floor, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, onOpen }: Props) {
+export function PatientList({ ward, title, pick, defaultGroup = "room", floor, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, onOpen }: Props) {
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "room", asc: true });
@@ -259,7 +261,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                     patient={r.patient}
                     focused={openable[at] === r}
                     upcoming={upcomingToday(ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs)}
-                    flags={flagsFor(r.patient, ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs, waiting[r.patient.id] ?? 0, consentState[r.patient.id], marPending[r.patient.id] ?? 0, resultState[r.patient.id])}
+                    flags={[...(extraFlags[r.patient.id] ?? []), ...flagsFor(r.patient, ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs, waiting[r.patient.id] ?? 0, consentState[r.patient.id], marPending[r.patient.id] ?? 0, resultState[r.patient.id])]}
                     plans={planFor(r.bed)}
                     summary={summaries[r.patient.id]}
                     onOpen={() => onOpen(r.patient!.id)}

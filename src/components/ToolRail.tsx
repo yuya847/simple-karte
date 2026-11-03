@@ -4,7 +4,7 @@ import { Activity, Bandage, CalendarCheck, Droplets, CalendarDays, CalendarRange
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "standing" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -18,6 +18,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
     title: "オーダ",
     tools: [
       { key: "diagnoses", label: "病名", icon: FileHeart },
+      { key: "standing", label: "指示簿", icon: ClipboardList },
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-lab", label: "検体検査", icon: TestTube },
       { key: "add-imaging", label: "画像検査", icon: Radiation },
