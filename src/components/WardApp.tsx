@@ -1315,8 +1315,12 @@ export default function WardApp() {
           taken={taken}
           sessionKeys={sessionKeys}
           onTake={(keys) => {
-            auditLog({ role: me.role, actor: me.name, action: "指示受け", detail: `${keys.length}件` });
-            setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, nowTime])) }));
+            // Who took which change, and when (shown on the worksheet and in the audit log).
+            const what = [...orderChanges(people, -1440, abs(0, nowTime)), ...others]
+              .filter((c) => keys.includes(c.key))
+              .map((c) => `${c.name}：${c.kind} ${"entry" in c ? orderLines(c.entry.order, today).main : c.text.main}`);
+            auditLog({ role: me.role, actor: me.name, action: "指示受け", detail: `${keys.length}件　${what.join("／")}`.slice(0, 400) });
+            setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, `${nowTime} ${me.name}`])) }));
           }}
           records={mar}
           sessionStart={sessionStart ?? abs(0, nowTime)}
