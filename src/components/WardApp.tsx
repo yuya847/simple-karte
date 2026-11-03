@@ -25,6 +25,7 @@ import { EmergencyBoard } from "./EmergencyBoard";
 import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
 import { WardRequests } from "./WardRequests";
+import { BedMoveDialog } from "./BedMoveDialog";
 import { StandingPanel } from "./panels/StandingPanel";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
@@ -247,6 +248,9 @@ export default function WardApp() {
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
   const [admitted, setAdmitted] = useState<Patient[]>([]);
   const [newBeds, setNewBeds] = useState<BedAssignment[]>([]);
+  // 転棟・転床: where each moved patient is now, and the move being chosen (dialog).
+  const [moves, setMoves] = useState<Record<string, { room: string; bed: string }>>({});
+  const [moving, setMoving] = useState<{ patientId: string; to?: { room: string; bed: string } } | null>(null);
   // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
   const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
@@ -327,14 +331,19 @@ export default function WardApp() {
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])],
           cultures: mergeCultures(p.cultures, arrivedCultures[p.id]),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
+          room: moves[p.id]?.room ?? p.room,
+          ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
-  const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
+  const ward: WardState = useMemo(
+    () => ({ beds: [...BEDS, ...newBeds].map((b) => (b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b)), patient: findPatient }),
+    [newBeds, findPatient, moves],
+  );
 
   // What is in front: the ② tab (and its ③), and in it a chart, 新しいタブ, or its own screen.
   const owner: Owner | null = area === "ward" ? (wardTab === "menu" ? null : wardOwner(wardTab)) : area === "er" || area === "opd" ? area : null;
@@ -761,8 +770,8 @@ export default function WardApp() {
     });
   // The lists of 病棟: a floor, 受け持ち, by department, all wards, by attending doctor.
   const floorInfo: Floor = FLOORS.find((f) => f.name === floor) ?? FLOORS[0];
-  const bedsOn = (name: string) => (name === WARD_NAME ? ward.beds : OTHER_FLOOR_BEDS.filter((b) => floorOf(b.room) === name));
   const allBeds = [...ward.beds, ...OTHER_FLOOR_BEDS];
+  const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
   const deptOf = (b: BedAssignment) => (b.patientId ? findPatient(b.patientId)?.department : b.other?.department) ?? "";
   const doctorOf = (b: BedAssignment) => (b.patientId ? (findPatient(b.patientId)?.attending ?? "") : doctorFor(b.other?.department ?? ""));
   const choices = (xs: string[], all: string) => [{ value: "", label: all }, ...[...new Set(xs)].filter(Boolean).sort((a, b) => a.localeCompare(b, "ja")).map((x) => ({ value: x, label: x }))];
@@ -931,7 +940,15 @@ export default function WardApp() {
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />
-          <WardMap ward={{ beds: bedsOn(floor), patient: findPatient }} rooms={floorInfo.rooms} title="病棟マップ" pick={floorPick} summaries={summaries} onOpen={openPatient} />
+          <WardMap
+            ward={{ beds: bedsOn(floor), patient: findPatient }}
+            rooms={floorInfo.rooms}
+            title="病棟マップ"
+            pick={floorPick}
+            summaries={summaries}
+            onOpen={openPatient}
+            onMove={deny("bed.move") ? undefined : (patientId, to) => setMoving({ patientId, to })}
+          />
         </div>
       ) : screen === "er" ? (
         <EmergencyBoard
@@ -1224,6 +1241,8 @@ export default function WardApp() {
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
               onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
               onDo={doFromHistory}
+              diets={diets}
+              onOpenDiet={() => setPanel("diet")}
               onReviseNote={(e, text, reason) => {
                 const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
                 setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));
@@ -1769,6 +1788,26 @@ export default function WardApp() {
         {content}
       </AppFrame>
 
+      {moving && findPatient(moving.patientId) && (
+        <BedMoveDialog
+          patient={findPatient(moving.patientId)!}
+          from={(() => {
+            const b = ward.beds.find((x) => x.patientId === moving.patientId)!;
+            return { room: b.room, bed: b.bed };
+          })()}
+          initial={moving.to}
+          allBeds={{ beds: allBeds, patient: findPatient }}
+          onCancel={() => setMoving(null)}
+          onMove={(m) => {
+            const who = findPatient(m.patientId)!;
+            const at = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `-${b.bed}` : ""}`;
+            auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}）`, patient: who.name, detail: `${at(m.from)} → ${at(m.to)}　理由：${m.reason}` });
+            setMoves((all) => ({ ...all, [m.patientId]: m.to }));
+            updateFor(m.patientId, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${m.kind}：${at(m.from)} → ${at(m.to)}（${m.reason}）\n` }));
+            setMoving(null);
+          }}
+        />
+      )}
       {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
     </div>
     </RoleProvider>

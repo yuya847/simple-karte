@@ -50,12 +50,14 @@ interface Props {
   pick?: Pick;
   summaries: Record<string, ChartSummary>;
   onOpen: (patientId: string) => void;
+  /** 転棟・転床: a patient card dropped on an empty bed, or the card's 「移動」 (no bed chosen yet). */
+  onMove?: (patientId: string, to?: { room: string; bed: string }) => void;
   /** A 病棟 tab narrower than the ward (受け持ち, a department): its beds stay clear, the rest fade. */
   scope?: { label: string; test: (b: BedAssignment) => boolean };
 }
 
 /** Floor plan of the ward. Our patients can be opened; other teams' beds are shown for context only. */
-export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, scope }: Props) {
+export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, onMove, scope }: Props) {
   const [mineOnly, setMineOnly] = useState(false);
   const occupied = ward.beds.length;
   const totalBeds = rooms.reduce((n, r) => n + r.beds.length, 0);
@@ -90,15 +92,15 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
       </header>
 
       <div className="min-w-[1100px] space-y-2">
-        <RoomRow ward={ward} rooms={north} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} scope={scope} />
+        <RoomRow ward={ward} rooms={north} summaries={summaries} onOpen={onOpen} onMove={onMove} mineOnly={mineOnly} scope={scope} />
         <div className="flex h-8 items-center justify-center rounded bg-tab/60 text-[11px] tracking-[0.5em] text-ink-faint">廊下</div>
         <div className="flex gap-2">
-          <RoomRow ward={ward} rooms={southBeforeNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} scope={scope} inline />
+          <RoomRow ward={ward} rooms={southBeforeNs} summaries={summaries} onOpen={onOpen} onMove={onMove} mineOnly={mineOnly} scope={scope} inline />
           <div className="flex min-h-40 flex-[1.4] flex-col items-center justify-center rounded-lg border border-rule bg-tab/50 text-center text-xs text-ink-soft">
             <b className="text-sm text-ink">ナース</b>
             <b className="text-sm text-ink">ステーション</b>
           </div>
-          <RoomRow ward={ward} rooms={southAfterNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} scope={scope} inline />
+          <RoomRow ward={ward} rooms={southAfterNs} summaries={summaries} onOpen={onOpen} onMove={onMove} mineOnly={mineOnly} scope={scope} inline />
         </div>
       </div>
       <p className="mt-3 text-[11px] text-ink-faint">
@@ -108,7 +110,9 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
   );
 }
 
-function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, scope, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; mineOnly: boolean; scope?: Props["scope"]; inline?: boolean }) {
+const BED_MIME = "application/x-simple-karte-bed";
+
+function RoomRow({ ward, rooms, summaries, onOpen, onMove, mineOnly, scope, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; onMove?: Props["onMove"]; mineOnly: boolean; scope?: Props["scope"]; inline?: boolean }) {
   const body = rooms.map((r) => (
     <div key={r.no} className={`flex flex-col rounded-lg border border-rule bg-sheet ${r.kind === "4床室" ? "flex-[2]" : "flex-1"}`}>
       <div className="nums flex items-baseline gap-2 border-b border-rule-soft px-2.5 py-1">
@@ -123,11 +127,27 @@ function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, scope, inline }: { 
           return (
             <div key={b || "single"} className={`min-h-24 min-w-0 ${out && patient ? "opacity-35" : ""}`}>
               {patient ? (
-                <MyBed patient={patient} bed={b} summary={summaries[patient.id]} onOpen={() => onOpen(patient.id)} />
+                <MyBed patient={patient} bed={b} summary={summaries[patient.id]} onOpen={() => onOpen(patient.id)} onMove={onMove ? () => onMove(patient.id) : undefined} />
               ) : occ?.other ? (
                 <OtherBed other={occ.other} bed={b} faded={scope ? out : mineOnly} />
               ) : (
-                <div className="flex h-full items-center justify-center rounded-md border border-dashed border-rule text-[11px] text-ink-faint">
+                <div
+                  onDragOver={(e) => {
+                    if (!onMove || !e.dataTransfer.types.includes(BED_MIME)) return;
+                    e.preventDefault();
+                    e.currentTarget.classList.add("border-ai", "bg-ai-soft");
+                  }}
+                  onDragLeave={(e) => e.currentTarget.classList.remove("border-ai", "bg-ai-soft")}
+                  onDrop={(e) => {
+                    e.currentTarget.classList.remove("border-ai", "bg-ai-soft");
+                    const pid = e.dataTransfer.getData(BED_MIME);
+                    if (pid && onMove) {
+                      e.preventDefault();
+                      onMove(pid, { room: r.no, bed: b });
+                    }
+                  }}
+                  className="flex h-full items-center justify-center rounded-md border border-dashed border-rule text-[11px] text-ink-faint"
+                >
                   {b && <span className="mr-1">{b}</span>}空床
                 </div>
               )}
@@ -140,16 +160,27 @@ function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, scope, inline }: { 
   return inline ? <>{body}</> : <div className="flex gap-2">{body}</div>;
 }
 
-function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: string; summary?: ChartSummary; onOpen: () => void }) {
+function MyBed({ patient: p, bed, summary, onOpen, onMove }: { patient: Patient; bed: string; summary?: ChartSummary; onOpen: () => void; onMove?: () => void }) {
   const latest = p.vitals.at(-1);
   const score = latest ? news2(latest) : null;
   const isolation = isolationFor(p.infections);
   const newCulture = p.cultures.some((c) => c.reportedOn === 0);
   const labsToday = p.labs.some((l) => l.day === 0);
   return (
+    <div className="relative h-full">
+    {onMove && (
+      <button type="button" onClick={onMove} title="転棟・転床（空床へドラッグしても動かせます）" className="absolute right-1 top-1 z-10 rounded border border-rule bg-sheet px-1 text-[10px] text-ink-soft hover:border-ai hover:text-ai pointer-coarse:px-2 pointer-coarse:py-1">
+        移動
+      </button>
+    )}
     <button
       type="button"
       onClick={onOpen}
+      draggable={!!onMove}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(BED_MIME, p.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
       className="nums flex h-full w-full flex-col gap-0.5 rounded-md border-2 border-ai/60 bg-sheet px-2 py-1.5 text-left text-[11px] shadow-sm hover:border-ai hover:bg-ai-soft/40"
     >
       <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
@@ -202,6 +233,7 @@ function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: st
         {summary && (summary.waiting ?? 0) > 0 && <Tag tone="yamabuki">指示受けがまだ {summary.waiting}件</Tag>}
       </div>
     </button>
+    </div>
   );
 }
 
