@@ -243,6 +243,21 @@ export interface ConsultOrder {
   urgency: "至急" | "通常";
 }
 
+/** 退院申込・外泊・外出: when, where to, and (外泊・外出) when the patient comes back. */
+export interface LeaveOrder {
+  kind: "退院" | "外泊" | "外出";
+  from: { day: number; time: string };
+  back?: { day: number; time: string };
+  destination: string;
+  note: string;
+}
+
+/** 指導の依頼: asked of another profession (栄養食事指導 → 管理栄養士, 服薬指導 → 薬剤師 …). */
+export interface GuideOrder {
+  kind: "栄養食事指導" | "服薬指導" | "退院時の生活指導";
+  note: string;
+}
+
 /** A ward procedure (処置). The item comes from the fictional hospital's master (procedures.ts). */
 export interface ProcedureOrder {
   type: "procedure";
@@ -262,6 +277,10 @@ export interface ProcedureOrder {
   rehab?: RehabOrder;
   /** 他科依頼 (PROC-CONSULT). */
   consult?: ConsultOrder;
+  /** 退院・外泊・外出 (PROC-LEAVE). */
+  leave?: LeaveOrder;
+  /** 指導の依頼 (PROC-GUIDE). */
+  guide?: GuideOrder;
   schedule: ProcSchedule;
   start: { day: DayOffset; time?: string };
   days?: number;

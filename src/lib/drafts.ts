@@ -18,6 +18,7 @@ import {
   PROC_DRUGS,
   areaClassOf,
   HD_UF_RATE,
+  GUIDE_TO,
   TX_DO,
   TX_PRODUCTS,
   TX_USE,
@@ -46,6 +47,8 @@ import type {
   TxOrder,
   RehabOrder,
   ConsultOrder,
+  LeaveOrder,
+  GuideOrder,
   InjectionRoute,
   InjectionSchedule,
   LabOrder,
@@ -157,6 +160,8 @@ export interface ProcedureDraft extends DraftBase {
   tx?: TxOrder | null;
   rehab?: RehabOrder | null;
   consult?: ConsultOrder | null;
+  leave?: LeaveOrder | null;
+  guide?: GuideOrder | null;
   schedule: ProcSchedule | null;
   start: { day: DayOffset | null; time: string | null };
   days: number | null;
@@ -1178,6 +1183,19 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
     else issues.push({ key: "consult", level: "info", title: "他科依頼", message: `${d.consult.dept}（${d.consult.urgency}）。確定すると依頼先に届き、返書は「他科依頼」の欄に記録されます。` });
   }
 
+  // 退院・外泊・外出 and 指導の依頼.
+  if (m.needs.includes("leave")) {
+    const l = d.leave;
+    if (!l) issues.push({ key: "leave", level: "stop", title: "退院・外泊", message: "日時と行き先は、右の「退院・外泊」の欄で入れてください。" });
+    else if (l.kind !== "退院" && !l.back) issues.push({ key: "leave", level: "stop", title: l.kind, message: `${l.kind}は戻る日時が要ります。` });
+    else if (l.back && l.back.day * 1440 + minutesOf(l.back.time) <= l.from.day * 1440 + minutesOf(l.from.time)) issues.push({ key: "leave", level: "stop", title: l.kind, message: "戻る日時が出る日時より前です。" });
+    else issues.push({ key: "leave", level: "info", title: l.kind, message: `${l.kind === "退院" ? "確定すると病棟の退院予定に入ります。退院処方・サマリ・紹介状が要るかは別に確かめてください。" : "確定すると病棟の予定に入ります。"}` });
+  }
+  if (m.needs.includes("guide")) {
+    if (!d.guide) issues.push({ key: "guide", level: "stop", title: "指導の依頼", message: "指導の種類は、右の「指導の依頼」の欄で選んでください。" });
+    else issues.push({ key: "guide", level: "info", title: "指導の依頼", message: `確定すると${GUIDE_TO[d.guide.kind]}のやることに入ります。` });
+  }
+
   // 輸血: the blood type (2 samples), the antibody screen for red cells, the expected effect and the pace.
   if (m.needs.includes("tx")) {
     if (!d.tx) {
@@ -1470,6 +1488,8 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       tx: m.needs.includes("tx") && d.tx ? d.tx : undefined,
       rehab: m.needs.includes("rehab") && d.rehab ? d.rehab : undefined,
       consult: m.needs.includes("consult") && d.consult ? d.consult : undefined,
+      leave: m.needs.includes("leave") && d.leave ? d.leave : undefined,
+      guide: m.needs.includes("guide") && d.guide ? d.guide : undefined,
       schedule: procSchedule(d)!,
       start: { day: d.start.day ?? 0, time: d.start.time ?? undefined },
       days: d.days ?? undefined,

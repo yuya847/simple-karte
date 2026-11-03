@@ -4,7 +4,7 @@ import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from 
 import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
 import { anyDrugName, findLab } from "@/lib/master";
-import { AREA_LABEL, consultText, findProc, findProcDrug, hdText, procScheduleText, rehabText, txText } from "@/lib/procedures";
+import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, procScheduleText, rehabText, txText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
 import { perDoseOf, timingName } from "@/lib/rx";
 import { findPhysio, findRegion } from "@/lib/exams";
@@ -257,6 +257,8 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     if (m?.needs.includes("tx")) parts.push(draft.tx ? txText(draft.tx) : "製剤？");
     if (m?.needs.includes("rehab")) parts.push(draft.rehab ? rehabText(draft.rehab) : "区分？");
     if (m?.needs.includes("consult")) parts.push(draft.consult ? consultText(draft.consult) : "依頼先？");
+    if (m?.needs.includes("leave")) parts.push(draft.leave ? leaveText(draft.leave, ctx.fmtDay) : "日時？");
+    if (m?.needs.includes("guide")) parts.push(draft.guide ? guideText(draft.guide) : "種類？");
     if (m?.needs.includes("depth")) parts.push(draft.depth ?? "深さ？");
     if (m?.needs.includes("area")) parts.push(area ? AREA_LABEL[area] : "範囲？");
     parts.push(schedule ? procScheduleText(schedule) : "回数？");
