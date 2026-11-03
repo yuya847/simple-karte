@@ -1,9 +1,8 @@
 "use client";
 
-import { Ambulance, BedDouble, PhoneCall, Plus, X } from "lucide-react";
-import { DenyNote, useDeny } from "./RoleContext";
+import { Ambulance, PhoneCall, Plus, X } from "lucide-react";
 import { useState } from "react";
-import { bedProblem, formProblems, type AdmitForm } from "@/lib/admission";
+import type { AdmissionRequest } from "@/lib/admission";
 import type { CalendarDate } from "@/lib/dates";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { JTAS_LABEL, REASSESS_MIN, erFeeHint, reassessIn, type Arrival, type ErPatient, type ErStatus, type Jtas } from "@/lib/er";
@@ -20,8 +19,11 @@ interface Props {
   /** Replace a patient's row (arrival of a pre-announced ambulance, re-triage). */
   onUpdate: (p: ErPatient) => void;
   onStatus: (id: string, s: ErStatus) => void;
-  onAdmit: (er: ErPatient, form: AdmitForm) => void;
   onOpenChart: (patientId: string) => void;
+  /** Open the patient's own tab (受診の画面: 記録と入院申込). */
+  onOpenVisit: (id: string) => void;
+  /** 入院申込 made for each ED patient. */
+  requests: Record<string, AdmissionRequest | undefined>;
 }
 
 const hhmm = (min: number) => {
@@ -31,12 +33,11 @@ const hhmm = (min: number) => {
 };
 const DONE: ErStatus[] = ["帰宅", "入院済"];
 
-/** Emergency department board: who is here, how urgent (as triaged by a nurse), and admission to the ward. */
-export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUpdate, onStatus, onAdmit, onOpenChart }: Props) {
+/** Emergency department board: who is here and how urgent (as triaged by a nurse). Each name opens the patient's tab. */
+export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUpdate, onStatus, onOpenChart, onOpenVisit, requests }: Props) {
   const [registering, setRegistering] = useState(false);
   const [arriving, setArriving] = useState<ErPatient | null>(null);
   const [calling, setCalling] = useState(false);
-  const [admitting, setAdmitting] = useState<ErPatient | null>(null);
   const [retriage, setRetriage] = useState<string | null>(null);
 
   const sorted = [...patients].sort((a, b) => {
@@ -85,7 +86,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
               <th className="px-3 py-2 font-normal">主訴</th>
               <th className="px-3 py-2 font-normal">来院時バイタル</th>
               <th className="px-3 py-2 font-normal">状態</th>
-              <th className="px-3 py-2 font-normal">入院</th>
+              <th className="px-3 py-2 font-normal">入院申込</th>
             </tr>
           </thead>
           <tbody>
@@ -155,7 +156,9 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                   </td>
                   <td className="px-3 py-2">
                     <div className="text-[10px] text-ink-faint">{p.kana}</div>
-                    <b className={done ? "" : "text-ink"}>{p.name}</b>
+                    <button type="button" onClick={() => onOpenVisit(p.id)} title="この患者のタブを開く（記録・入院申込）" className={`font-bold hover:underline ${done ? "" : "text-ai"}`}>
+                      {p.name}
+                    </button>
                     <span className="ml-2 text-[12px]">
                       {ageSex(p)}
                     </span>
@@ -202,21 +205,19 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                       </select>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 text-[12px]">
                     {p.admittedAs ? (
-                      <button type="button" onClick={() => onOpenChart(p.admittedAs!)} className="text-[12px] font-bold text-ai hover:underline">
-                        カルテを開く
+                      <button type="button" onClick={() => onOpenChart(p.admittedAs!)} className="font-bold text-ai hover:underline">
+                        入院済・カルテを開く
+                      </button>
+                    ) : requests[p.id]?.status === "申込" ? (
+                      <button type="button" onClick={() => onOpenVisit(p.id)} className="text-left font-bold text-yamabuki hover:underline">
+                        入院申込済
+                        <span className="block font-normal">{requests[p.id]!.ward}・ベッド待ち</span>
                       </button>
                     ) : p.status !== "帰宅" && p.status !== "搬送中" ? (
-                      <button
-                        type="button"
-                        onClick={() => setAdmitting(p)}
-                        className={`flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-bold ${
-                          p.status === "入院依頼" ? "bg-ai text-white hover:bg-ai/90" : "border border-ai/40 text-ai hover:bg-ai-soft"
-                        }`}
-                      >
-                        <BedDouble size={14} />
-                        入院にする
+                      <button type="button" onClick={() => onOpenVisit(p.id)} className="text-ink-soft hover:text-ai hover:underline">
+                        開く
                       </button>
                     ) : null}
                   </td>
@@ -258,17 +259,6 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
           onSave={(p) => {
             onRegister(p);
             setCalling(false);
-          }}
-        />
-      )}
-      {admitting && (
-        <AdmitDialog
-          er={admitting}
-          ward={ward}
-          onCancel={() => setAdmitting(null)}
-          onAdmit={(f) => {
-            onAdmit(admitting, f);
-            setAdmitting(null);
           }}
         />
       )}
@@ -434,93 +424,6 @@ function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number;
           受け付ける
         </button>
       </div>
-    </Dialog>
-  );
-}
-
-function AdmitDialog({ er, ward, onCancel, onAdmit }: { er: ErPatient; ward: WardState; onCancel: () => void; onAdmit: (f: AdmitForm) => void }) {
-  const denyAdmit = useDeny()("er.admit");
-  const [f, setF] = useState<AdmitForm>({
-    diagnosis: "",
-    department: "総合診療科",
-    heightCm: er.heightCm ?? 0,
-    weightKg: er.weightKg ?? 0,
-    allergies: er.allergies,
-    room: "",
-    bed: "",
-  });
-  const beds = emptyBeds(ward.beds);
-  const problems = formProblems(f);
-
-  return (
-    <Dialog title={`入院にする：${er.name}（${ageSex(er)}）`} onClose={onCancel}>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="入院時の病名（医師が入れる）" wide>
-          <input value={f.diagnosis} onChange={(e) => setF({ ...f, diagnosis: e.target.value })} className={input} placeholder="例：尿路感染症の疑い" />
-        </Field>
-        <Field label="診療科">
-          <select value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })} className={input}>
-            <option>総合診療科</option>
-          </select>
-        </Field>
-        <Field label="主治医">
-          <input value="山本（専攻医）" readOnly className={`${input} text-ink-soft`} />
-        </Field>
-        <Field label="身長 cm">
-          <input value={f.heightCm || ""} onChange={(e) => setF({ ...f, heightCm: Number(e.target.value) })} inputMode="decimal" className={input} />
-        </Field>
-        <Field label="体重 kg">
-          <input value={f.weightKg || ""} onChange={(e) => setF({ ...f, weightKg: Number(e.target.value) })} inputMode="decimal" className={input} />
-        </Field>
-        <Field label="アレルギー（、で区切る）" wide>
-          <input
-            value={f.allergies.join("、")}
-            onChange={(e) => setF({ ...f, allergies: e.target.value.split(/[、,]/).map((a) => a.trim()).filter(Boolean) })}
-            className={input}
-            placeholder="なし"
-          />
-        </Field>
-      </div>
-
-      <h3 className="mb-1.5 mt-4 text-[12px] font-bold text-ink-soft">ベッド（5階東の空床）</h3>
-      <div className="grid grid-cols-4 gap-1.5">
-        {beds.map(({ room, bed }) => {
-          const problem = bedProblem(ward, room, er.sex);
-          const chosen = f.room === room.no && f.bed === bed;
-          return (
-            <button
-              key={`${room.no}${bed}`}
-              type="button"
-              disabled={!!problem}
-              onClick={() => setF({ ...f, room: room.no, bed })}
-              title={problem ?? undefined}
-              className={`nums rounded-md border px-2 py-1.5 text-left text-[12px] ${
-                chosen ? "border-ai bg-ai text-white" : problem ? "cursor-not-allowed border-rule-soft text-ink-faint/60" : "border-rule hover:border-ai"
-              }`}
-            >
-              <b>
-                {room.no}
-                {bed && `-${bed}`}
-              </b>
-              <div className={`text-[10px] ${chosen ? "text-white/80" : ""}`}>{problem ?? room.kind}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-4 flex items-center gap-3">
-        {problems.length > 0 && <span className="text-[12px] text-yamabuki">{problems.join("・")}</span>}
-        <DenyNote action="er.admit" />
-        <button
-          type="button"
-          disabled={problems.length > 0 || !!denyAdmit}
-          onClick={() => onAdmit(f)}
-          className="ml-auto rounded-md bg-ai px-5 py-2 text-sm font-bold text-white disabled:bg-ai/40"
-        >
-          入院を受ける
-        </button>
-      </div>
-      <p className="mt-2 text-[11px] text-ink-faint">受けるとカルテが開きます。入院時の指示は、右の欄に話すか打ってください（例：入院時採血セット、血培2セット、生食500 1日2本 24時間で）。</p>
     </Dialog>
   );
 }

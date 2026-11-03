@@ -25,7 +25,7 @@ export interface Area {
 export const AREAS: Area[] = [
   { key: "ward", label: "病棟", short: "病棟", kind: "ward" },
   { key: "er", label: "救急外来", short: "救急", kind: "patients" },
-  { key: "opd", label: "外来", short: "外来", kind: "patients", soon: "この試作には外来はまだありません" },
+  { key: "opd", label: "外来", short: "外来", kind: "patients" },
   { key: "or", label: "手術室", short: "手術室", kind: "page" },
   { key: "dialysis", label: "透析室", short: "透析", kind: "page" },
   { key: "pharmacy", label: "薬剤部", short: "薬剤部", kind: "page" },

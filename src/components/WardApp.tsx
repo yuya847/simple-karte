@@ -6,7 +6,8 @@ import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type Calen
 import { checkDraft, draftsFromAi, isReady, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type Issue, type StopDraft } from "@/lib/drafts";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
-import { admitFromEr, type AdmitForm } from "@/lib/admission";
+import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
+import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
 import { patientMonthPayload } from "@/lib/billing/payload";
@@ -19,6 +20,9 @@ import { currentEntries } from "@/lib/record";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { EmergencyBoard } from "./EmergencyBoard";
+import { OpdBoard } from "./OpdBoard";
+import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
+import { WardRequests } from "./WardRequests";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
@@ -178,7 +182,7 @@ function planLine(entry: OrderEntry, today: CalendarDate): string {
 }
 
 /** What the main area shows: a ② screen, a place, a chart, 新しいタブ, or 病棟's menu of screens. */
-type Screen = WardTab | AreaKey | "chart" | "new" | "wardmenu";
+type Screen = WardTab | AreaKey | "chart" | "new" | "wardmenu" | "visit";
 /** front[owner] when the tab shows 新しいタブ. */
 const NEW_TAB = "__new__";
 const LIST_TABS = ["floor", "mine", "dept", "all", "doctor"] as const;
@@ -267,6 +271,10 @@ export default function WardApp() {
   // Operating rooms (fictional schedule relative to now; kept in this browser only).
   const [surgeries, setSurgeries] = useState<Surgery[]>(() => (typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
+  // 外来 today, the record written in each ED/outpatient tab, and the 入院申込 waiting on the wards.
+  const [opd, setOpd] = useState<OpdPatient[]>(OPD_PATIENTS);
+  const [visitNotes, setVisitNotes] = useState<Record<string, VisitNote[]>>({});
+  const [requests, setRequests] = useState<AdmissionRequest[]>(INITIAL_REQUESTS);
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
@@ -320,7 +328,23 @@ export default function WardApp() {
   const owner: Owner | null = area === "ward" ? (wardTab === "menu" ? null : wardOwner(wardTab)) : area === "er" || area === "opd" ? area : null;
   const shownThere = owner ? front[owner] : undefined;
   const activeId = shownThere && shownThere !== NEW_TAB && findPatient(shownThere) ? shownThere : null;
-  const screen: Screen = area === "ward" && wardTab === "menu" ? "wardmenu" : shownThere === NEW_TAB ? "new" : activeId ? "chart" : area === "ward" ? (wardTab as WardTab) : area;
+  // A patient of 救急外来 or 外来 (key "er:◯" / "opd:◯"): their visit, not a ward chart.
+  const visitOf = (key: string): Visit | null => {
+    const i = key.indexOf(":");
+    const kind = key.slice(0, i);
+    const id = key.slice(i + 1);
+    if (kind === "er") {
+      const x = er.find((e) => e.id === id);
+      return x ? { kind: "er", er: x } : null;
+    }
+    if (kind === "opd") {
+      const x = opd.find((o) => o.id === id);
+      return x ? { kind: "opd", op: x } : null;
+    }
+    return null;
+  };
+  const visitKey = shownThere && !activeId && visitOf(shownThere) ? shownThere : null;
+  const screen: Screen = area === "ward" && wardTab === "menu" ? "wardmenu" : shownThere === NEW_TAB ? "new" : activeId ? "chart" : visitKey ? "visit" : area === "ward" ? (wardTab as WardTab) : area;
   const myWardTabs = wardTabsFor(role);
 
   /** Bring a ② tab to the front (opening it in 病棟 if needed), showing a chart, 新しいタブ or its own screen. */
@@ -348,6 +372,17 @@ export default function WardApp() {
     if (newTabFor === o) setNewTabFor(null);
     show(o, id);
     setPickerOpen(false);
+  };
+
+  // A patient of 救急外来 or 外来 opens as a tab after the list (②).
+  const openVisit = (kind: "er" | "opd", id: string) => {
+    const key = `${kind}:${id}`;
+    const v = visitOf(key);
+    auditLog({ role: me.role, actor: me.name, action: "受診の画面を開いた", patient: v ? (v.kind === "er" ? v.er.name : v.op.name) : id });
+    const o = ownerFor(patientTabs, key, kind, kind);
+    if (!patientTabs.some((t) => t.id === key)) setPatientTabs((ts) => [...ts, { id: key, owner: o }]);
+    if (newTabFor === o) setNewTabFor(null);
+    show(o, key);
   };
 
   const closePatient = (id: string) => {
@@ -526,21 +561,39 @@ export default function WardApp() {
     }
   };
 
-  const admit = (from: ErPatient, form: AdmitForm) => {
+  // The ward takes in an 入院申込: the bed is decided and the ward chart is made from the visit.
+  const acceptRequest = (r: AdmissionRequest, bed: { room: string; bed: string }) => {
     const id = `9002${String(admitted.length + 1).padStart(4, "0")}`;
-    const { patient: p, bed } = admitFromEr(from, form, id, nowTime);
+    const said = (visitNotes[`${r.from.kind}:${r.from.id}`] ?? []).map((n) => n.text);
+    let built: ReturnType<typeof admitFromOpd> | null = null;
+    if (r.from.kind === "er") {
+      const e = er.find((x) => x.id === r.from.id);
+      if (!e) return;
+      built = admitFromEr(e, { diagnosis: r.diagnosis, department: r.department, heightCm: r.heightCm, weightKg: r.weightKg, allergies: r.allergies, room: bed.room, bed: bed.bed }, id, nowTime);
+      built.patient.history.splice(1, 0, ...said.map((t) => ({ kind: "note" as const, day: 0, time: nowTime, author: r.attending, role: "医師" as const, text: `救急外来：${t}` })));
+      setEr((list) => list.map((x) => (x.id === e.id ? { ...x, status: "入院済", admittedAs: id } : x)));
+    } else {
+      const o = opd.find((x) => x.id === r.from.id);
+      if (!o) return;
+      built = admitFromOpd(o, r, bed, id, nowTime, said);
+      setOpd((list) => list.map((x) => (x.id === o.id ? { ...x, status: "終了" } : x)));
+    }
+    const { patient: p, bed: b } = built;
+    auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `-${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
     setAdmitted((a) => [...a, p]);
-    // Admitted from the ED: an emergency admission (退院困難な要因 イ, 栄養管理計画は7日以内).
-    setEvals((all) => ({ ...all, [id]: { patientId: id, emergency: true } }));
-    setNewBeds((b) => [...b, bed]);
-    // The admission diagnosis typed in the ED is kept as 未コード化傷病名 until a master name is chosen.
+    // 緊急入院 counts as emergency (退院困難な要因 イ, 栄養管理計画は7日以内).
+    setEvals((all) => ({ ...all, [id]: { patientId: id, emergency: r.urgency === "緊急" } }));
+    setNewBeds((x) => [...x, b]);
+    // The admission diagnosis is kept as 未コード化傷病名 until a master name is chosen.
     setDiagnoses((all) => ({
       ...all,
-      [id]: [{ id: newId(), code: UNCODED, name: form.diagnosis.trim(), prefixes: [], suffixes: [], main: true, start: 0, outcome: "継続" }],
+      [id]: [{ id: newId(), code: UNCODED, name: r.diagnosis.trim(), prefixes: [], suffixes: [], main: true, start: 0, outcome: "継続" }],
     }));
-    setEr((list) => list.map((x) => (x.id === from.id ? { ...x, status: "入院済", admittedAs: id } : x)));
+    setRequests((rs) => rs.map((x) => (x.id === r.id ? { ...x, status: "入院済", admittedAs: id } : x)));
     openPatient(id);
   };
+  const requestFor = (kind: "er" | "opd") =>
+    Object.fromEntries(requests.filter((r) => r.from.kind === kind && r.status !== "取消").map((r) => [r.from.id, r])) as Record<string, AdmissionRequest | undefined>;
 
   const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft], flash: null }));
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
@@ -773,8 +826,53 @@ export default function WardApp() {
             openPatient(id);
           }}
         />
+      ) : screen === "visit" && visitKey ? (
+        <VisitChart
+          key={visitKey}
+          visit={visitOf(visitKey)!}
+          nowTime={nowTime}
+          fmtDay={(d) => formatShort(addDays(today, d))}
+          notes={visitNotes[visitKey] ?? []}
+          onNote={(text) => {
+            const v = visitOf(visitKey)!;
+            auditLog({ role: me.role, actor: me.name, action: "確定（受診の記録）", patient: v.kind === "er" ? v.er.name : v.op.name, detail: text.slice(0, 120) });
+            setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text, at: nowTime, by: me.name }] }));
+          }}
+          request={requests.find((r) => `${r.from.kind}:${r.from.id}` === visitKey && r.status !== "取消")}
+          onRequest={(r) => {
+            auditLog({ role: me.role, actor: me.name, action: "確定（入院申込）", patient: r.name, detail: `${r.urgency}　${r.ward}　${r.diagnosis}` });
+            setRequests((rs) => [...rs, r]);
+            if (r.from.kind === "er") setEr((list) => list.map((x) => (x.id === r.from.id && x.status !== "入院済" ? { ...x, status: "入院依頼" } : x)));
+          }}
+          onCancelRequest={(id) => {
+            auditLog({ role: me.role, actor: me.name, action: "入院申込を取り消した", patient: requests.find((r) => r.id === id)?.name });
+            setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status: "取消" } : r)));
+          }}
+          onOpenChart={openPatient}
+          onStatus={(st) => {
+            const i = visitKey.indexOf(":");
+            const kind = visitKey.slice(0, i);
+            const id = visitKey.slice(i + 1);
+            if (kind === "er") setEr((list) => list.map((x) => (x.id === id ? { ...x, status: st as ErStatus } : x)));
+            else setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st as OpdStatus } : x)));
+          }}
+          newId={newId}
+        />
+      ) : screen === "opd" ? (
+        <OpdBoard
+          patients={opd}
+          nowTime={nowTime}
+          requests={requestFor("opd")}
+          onOpen={(id) => openVisit("opd", id)}
+          onStatus={(id, st) => setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st } : x)))}
+          onArrive={(id) => setOpd((list) => list.map((x) => (x.id === id ? { ...x, arrived: nowTime, status: "受付済" } : x)))}
+          onOpenChart={openPatient}
+        />
       ) : screen === "map" ? (
-        <WardMap ward={{ beds: bedsOn(floor), patient: findPatient }} rooms={floorInfo.rooms} title="病棟マップ" pick={floorPick} summaries={summaries} onOpen={openPatient} />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />
+          <WardMap ward={{ beds: bedsOn(floor), patient: findPatient }} rooms={floorInfo.rooms} title="病棟マップ" pick={floorPick} summaries={summaries} onOpen={openPatient} />
+        </div>
       ) : screen === "er" ? (
         <EmergencyBoard
           patients={er}
@@ -787,8 +885,9 @@ export default function WardApp() {
           }}
           onUpdate={(p) => setEr((list) => list.map((x) => (x.id === p.id ? p : x)))}
           onStatus={(id, st: ErStatus) => setEr((list) => list.map((p) => (p.id === id ? { ...p, status: st } : p)))}
-          onAdmit={admit}
           onOpenChart={openPatient}
+          onOpenVisit={(id) => openVisit("er", id)}
+          requests={requestFor("er")}
         />
       ) : screen === "sheet" ? (
         <Worksheet
@@ -971,6 +1070,8 @@ export default function WardApp() {
           }}
         />
       ) : listKey ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+        {listKey === "floor" && <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />}
         <PatientList
           key={listKey}
           ward={{ beds: lists[listKey].beds, patient: findPatient }}
@@ -998,6 +1099,7 @@ export default function WardApp() {
           )}
           onOpen={openPatient}
         />
+        </div>
       ) : patient && ctx ? (
         <>
           <PatientBar
@@ -1479,6 +1581,11 @@ export default function WardApp() {
   // inside 病棟 (the ② screen itself, then the charts opened from it).
   function tabRows(): TabRow[] {
     const chartItem = (t: PatientTab): TabItem[] => {
+      const v = visitOf(t.id);
+      if (v) {
+        const x = v.kind === "er" ? v.er : v.op;
+        return [{ key: t.id, label: x.name, patient: { sex: x.sex, age: x.age }, active: front[t.owner] === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${x.name} のタブを閉じる` }];
+      }
       const p = findPatient(t.id);
       if (!p) return [];
       return [{ key: t.id, label: p.name, patient: { sex: p.sex, age: p.age, room: p.room, infections: p.infections }, active: front[t.owner] === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${p.name} のカルテを閉じる` }];
