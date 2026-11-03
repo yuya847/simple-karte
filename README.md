@@ -147,6 +147,16 @@ npm run dev
 npm test                     # 確認のルールのテスト
 ```
 
+### 記録の保存（Supabase、任意）
+
+`NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`（公開用のキー）を環境変数に入れると、その日の記録（架空の患者だけ）が Supabase に保存され、再読み込みしても残ります。入れなければ、これまでどおり保存しません。
+
+1. Supabase のプロジェクトの SQL Editor で `supabase/schema.sql` を1回実行します（表 `workspaces` と、保存・読み込み・消去の3つの関数）。表そのものは公開用のキーから読めず、ブラウザは自分の記録の ID を知っている関数だけを呼べます。
+2. 2つの値を Vercel の環境変数（と手元の `.env.local`）に入れます。キーはリポジトリに入れません。
+3. 画面の右下に「保存しました」と出ます。「ほかの端末で開くリンク」で同じ記録を別の端末で開け、「初めの状態に戻す」で今日の記録を消して初めからにします。
+
+架空の患者のデータは「今日」を基準にした日付で作られているので、保存した記録はその日のうちだけ読み込み、日が変わると初めの状態から始まります。実在の患者の情報は入れないでください。
+
 ## 技術
 
 - [Next.js](https://nextjs.org) 16（App Router）、TypeScript、Tailwind CSS、lucide-react

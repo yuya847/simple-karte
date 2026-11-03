@@ -55,6 +55,8 @@ import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
+import { useWorkspace } from "@/lib/use-workspace";
+import { WorkspaceStatus } from "./WorkspaceStatus";
 import { TransferPanel } from "./panels/TransferPanel";
 import { BedsidePanel } from "./panels/BedsidePanel";
 import { SupportBoard } from "./SupportBoard";
@@ -460,6 +462,78 @@ export default function WardApp() {
   const [calls, setCalls] = useState<Record<string, PanicCall>>({});
   // 検査室: samples taken in, results confirmed (merged into each patient's labs), tries to reach a doctor.
   const [labDesk, setLabDesk] = useState<LabDesk>(EMPTY_DESK);
+  // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
+  const workspace = useWorkspace(
+    {
+      charts: [charts, setCharts],
+      admitted: [admitted, setAdmitted],
+      newBeds: [newBeds, setNewBeds],
+      moves: [moves, setMoves],
+      movesDone: [movesDone, setMovesDone],
+      discharged: [discharged, setDischarged],
+      extraDaily: [extraDaily, setExtraDaily],
+      extendLog: [extendLog, setExtendLog],
+      nurseCalls: [nurseCalls, setNurseCalls],
+      emergencies: [emergencies, setEmergencies],
+      callNotes: [callNotes, setCallNotes],
+      phsNotices: [phsNotices, setPhsNotices],
+      bedInfo: [bedInfo, setBedInfo],
+      transferAsks: [transferAsks, setTransferAsks],
+      boardReminders: [boardReminders, setBoardReminders],
+      deptChanges: [deptChanges, setDeptChanges],
+      moveLog: [moveLog, setMoveLog],
+      diagnoses: [diagnoses, setDiagnoses],
+      billing: [billing, setBilling],
+      consents: [consents, setConsents],
+      taken: [taken, setTaken],
+      audited: [audited, setAudited],
+      queries: [queries, setQueries],
+      reports: [reports, setReports],
+      shido: [shido, setShido],
+      dispensed: [dispensed, setDispensed],
+      hdPatients: [hdPatients, setHdPatients],
+      hdSessions: [hdSessions, setHdSessions],
+      surgeries: [surgeries, setSurgeries],
+      er: [er, setEr],
+      opd: [opd, setOpd],
+      visitNotes: [visitNotes, setVisitNotes],
+      requests: [requests, setRequests],
+      opdRx: [opdRx, setOpdRx],
+      revisits: [revisits, setRevisits],
+      notices: [notices, setNotices],
+      reads: [reads, setReads],
+      incidents: [incidents, setIncidents],
+      txIssued: [txIssued, setTxIssued],
+      pharmJournal: [pharmJournal, setPharmJournal],
+      homeRx: [homeRx, setHomeRx],
+      guidance: [guidance, setGuidance],
+      documents: [documents, setDocuments],
+      consultReplies: [consultReplies, setConsultReplies],
+      journal: [journal, setJournal],
+      pregnancy: [pregnancy, setPregnancy],
+      stickies: [stickies, setStickies],
+      restraints: [restraints, setRestraints],
+      standing: [standing, setStanding],
+      extraVitals: [extraVitals, setExtraVitals],
+      mar: [mar, setMar],
+      marVoided: [marVoided, setMarVoided],
+      sessionStart: [sessionStart, setSessionStart],
+      directives: [directives, setDirectives],
+      diets: [diets, setDiets],
+      tdmReports: [tdmReports, setTdmReports],
+      bRecords: [bRecords, setBRecords],
+      discharges: [discharges, setDischarges],
+      extraCautions: [extraCautions, setExtraCautions],
+      notes: [notes, setNotes],
+      revised: [revised, setRevised],
+      handoffs: [handoffs, setHandoffs],
+      evals: [evals, setEvals],
+      acks: [acks, setAcks],
+      calls: [calls, setCalls],
+      labDesk: [labDesk, setLabDesk],
+    } as unknown as Record<string, [unknown, (v: never) => void]>,
+    todayKey,
+  );
   const [demoLabs] = useState(() => (typeof window === "undefined" ? {} : demoLabOrders(abs(0, nowTimeInTokyo()))));
   const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
@@ -2761,8 +2835,9 @@ export default function WardApp() {
             ))}
         </div>
       )}
+      <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} />
       {Number(nowTime.slice(0, 2)) >= 24 && (
-        <p role="status" className="fixed bottom-2 right-2 z-40 max-w-xs rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[11px] text-ink shadow print:hidden">
+        <p role="status" className="fixed bottom-10 right-2 z-40 max-w-xs rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[11px] text-ink shadow print:hidden">
           日付が変わりました。この画面は {formatShort(today)} を「今日」として続けているので、{nowTime.slice(0, 2)}:{nowTime.slice(3)}（翌{Number(nowTime.slice(0, 2)) - 24}:{nowTime.slice(3)}）のように時刻を付けます。
         </p>
       )}
