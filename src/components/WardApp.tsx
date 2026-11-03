@@ -44,6 +44,7 @@ import { VitalsPanel } from "./panels/VitalsPanel";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
 import { DietPanel } from "./panels/DietPanel";
+import type { TdmReport } from "@/lib/tdm";
 import { INITIAL_DIETS, dietAt, dietLabel, nextMeal, type DietOrder } from "@/lib/diet";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
@@ -180,6 +181,7 @@ export default function WardApp() {
   // Advance directives (history kept) and warnings added on the band.
   const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
   const [diets, setDiets] = useState<DietOrder[]>(INITIAL_DIETS);
+  const [tdmReports, setTdmReports] = useState<TdmReport[]>([]);
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   const allPatients = useMemo(
     () =>
@@ -570,6 +572,11 @@ export default function WardApp() {
           }}
           dispensed={dispensed}
           onDispense={(key) => setDispensed((d) => ({ ...d, [key]: nowTime }))}
+          tdm={tdmReports}
+          onTdm={(r) => {
+            auditLog({ role: "薬剤師", actor: "薬剤師 小林（架空）", action: "TDM を医師に報告", patient: findPatient(r.patientId)?.name, detail: `${r.drug} AUC24 ${Math.round(r.auc24)}　${r.proposal}` });
+            setTdmReports((all) => [...all, { ...r, id: newId(), at: nowTime, by: "薬剤師 小林（架空）", status: "医師へ報告" }]);
+          }}
         />
       ) : screen === "list" ? (
         <PatientList
@@ -663,6 +670,12 @@ export default function WardApp() {
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                 queries={queries.filter((q) => q.patientId === patient.id)}
                 reports={reports.filter((r) => r.patientId === patient.id)}
+                tdm={tdmReports.filter((r) => r.patientId === patient.id)}
+                onTdmSeen={(r) => {
+                  auditLog({ role: "医師", actor: DOCTOR, action: "TDM の報告を確認", patient: patient.name, detail: `${r.drug} AUC24 ${Math.round(r.auc24)}` });
+                  setTdmReports((all) => all.map((x) => (x.id === r.id ? { ...x, status: "確認済" } : x)));
+                  update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・TDM（${r.by}）：${r.drug} AUC24 ${Math.round(r.auc24)} μg·h/mL。薬剤師より「${r.proposal}」\n` }));
+                }}
                 onChange={(q) => {
                   const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === q.orderId);
                   if (e) addStopDraft(e, "（疑義照会から）");

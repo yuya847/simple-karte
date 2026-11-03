@@ -3,6 +3,7 @@
 import { MessageSquareWarning, ScanText } from "lucide-react";
 import { useState } from "react";
 import { orderLines, oralName } from "@/lib/format";
+import type { TdmReport } from "@/lib/tdm";
 import { queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
 import type { CalendarDate } from "@/lib/dates";
 import type { OrderEntry } from "@/lib/types";
@@ -16,21 +17,39 @@ interface Props {
   onChange: (q: Query) => void;
   onKeep: (q: Query, answer: string) => void;
   onDecide: (r: BroughtReport, rows: BroughtRow[]) => void;
+  tdm?: TdmReport[];
+  onTdmSeen?: (r: TdmReport) => void;
 }
 
 const DECISIONS: NonNullable<BroughtRow["decision"]>[] = ["持参薬で継続", "院内の薬に切替", "中止"];
 
 /** What the pharmacy sent to the doctor for this patient: questions on orders, and the 持参薬 report. */
-export function PharmacyInbox({ today, entries, queries, reports, onChange, onKeep, onDecide }: Props) {
+export function PharmacyInbox({ today, entries, queries, reports, onChange, onKeep, onDecide, tdm = [], onTdmSeen }: Props) {
   const open = queries.filter((q) => q.status === "回答待ち");
   const waitingStop = queries.filter((q) => q.status === "変更" && queryOpen(q, entries));
   const pending = reports.filter((r) => r.status === "医師へ報告");
   const [keepText, setKeepText] = useState<Record<string, string>>({});
   const [choices, setChoices] = useState<Record<string, BroughtRow[]>>({});
-  if (!open.length && !waitingStop.length && !pending.length) return null;
+  const tdmNew = tdm.filter((r) => r.status === "医師へ報告");
+  if (!open.length && !waitingStop.length && !pending.length && !tdmNew.length) return null;
 
   return (
     <div className="scroll-thin max-h-[45%] shrink-0 overflow-auto border-b border-yamabuki/50 bg-yamabuki-soft/60 px-4 py-2 text-[12px]">
+      {tdmNew.map((r) => (
+        <div key={r.id} className="mb-2">
+          <div className="flex items-center gap-1 font-bold text-yamabuki">
+            <MessageSquareWarning size={14} />
+            薬剤部から TDM の報告（{r.at} {r.by}）
+          </div>
+          <div className="nums text-ink-soft">
+            {r.drug} {r.regimen.dose}mg {r.regimen.tau}時間ごと（点滴{r.regimen.tinf}時間）：AUC24 <b className="text-ink">{Math.round(r.auc24)}</b> μg·h/mL、Cmin {r.cmin.toFixed(1)}（2点採血・コードで計算）
+          </div>
+          <div className="my-0.5 text-ink">「{r.proposal}」</div>
+          <button type="button" onClick={() => onTdmSeen?.(r)} className="rounded border border-rule bg-sheet px-2 py-0.5 text-ink-soft hover:text-ink">
+            確認した（投与を変えるときは、話すか打ってオーダする）
+          </button>
+        </div>
+      ))}
       {open.map((q) => {
         const e = entries.find((x) => x.id === q.orderId);
         const lines = e ? orderLines(e.order, today) : null;

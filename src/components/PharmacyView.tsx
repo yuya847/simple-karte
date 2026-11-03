@@ -1,6 +1,8 @@
 "use client";
 
-import { Check, MessageSquareWarning, Pill, ScanText, Syringe } from "lucide-react";
+import { Activity, Check, MessageSquareWarning, Pill, ScanText, Syringe } from "lucide-react";
+import { TdmView } from "./TdmView";
+import type { TdmReport } from "@/lib/tdm";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
@@ -31,14 +33,17 @@ interface Props {
   onShido: (patientId: string, rec: Omit<ShidoRecord, "at" | "day">) => void;
   dispensed: Record<string, string>;
   onDispense: (key: string) => void;
+  tdm: TdmReport[];
+  onTdm: (r: Omit<TdmReport, "id" | "at" | "by" | "status">) => void;
 }
 
-type Tab = "audit" | "brought" | "shido" | "dispense";
+type Tab = "audit" | "brought" | "shido" | "dispense" | "tdm";
 const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
   { key: "audit", label: "処方監査・疑義照会", icon: MessageSquareWarning },
   { key: "brought", label: "持参薬鑑別", icon: ScanText },
   { key: "shido", label: "服薬指導", icon: Pill },
   { key: "dispense", label: "注射払出（明日分）", icon: Syringe },
+  { key: "tdm", label: "TDM", icon: Activity },
 ];
 
 const PHARMACIST = "薬剤師 小林";
@@ -73,6 +78,7 @@ export function PharmacyView(p: Props) {
           {tab === "brought" && <Brought {...p} />}
           {tab === "shido" && <Shido {...p} />}
           {tab === "dispense" && <Dispense {...p} />}
+          {tab === "tdm" && <TdmView people={p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
         </div>
       </div>
     </div>
