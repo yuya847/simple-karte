@@ -95,6 +95,8 @@ export interface OrderEntry {
   /** Clock time of the stop, when known ("HH:MM"). Without it the order counts to the end of stoppedOn. */
   stoppedTime?: string;
   order: Order;
+  /** 口頭指示: a nurse entered it on the doctor's spoken order; the doctor signs afterwards. */
+  verbal?: { takenBy: string; doctor: string; at: { day: DayOffset; time: string }; signedAt?: { day: DayOffset; time: string } };
 }
 
 // ---------- Orders ----------

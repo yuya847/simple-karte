@@ -41,6 +41,7 @@ import { AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddPro
 import { latestCre } from "@/lib/exams";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
+import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
@@ -56,6 +57,7 @@ import { ResultsPanel } from "./panels/ResultsPanel";
 
 const NOTE_TEMPLATE = "S)\nO)\nA)\nP)\n";
 const DOCTOR = "山本（専攻医）";
+const NURSE = "看護師（あなた）";
 
 /** Per-patient working state. Kept while the tab is open, so switching tabs loses nothing. */
 interface ChartState {
@@ -167,6 +169,8 @@ export default function WardApp() {
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
   // 与薬・実施の記録 (eMAR). Items due before this session are taken as recorded by the earlier shift.
   const [mar, setMar] = useState<Record<string, AdminRecord>>({});
+  // 口頭指示 mode for the next 確定 (a nurse enters the doctor's spoken order).
+  const [verbalMode, setVerbalMode] = useState(false);
   const [sessionStart, setSessionStart] = useState<number | null>(null);
   if (sessionStart === null && nowTime) setSessionStart(abs(0, nowTime));
   // Advance directives (history kept) and warnings added on the band.
@@ -309,7 +313,7 @@ export default function WardApp() {
       for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) {
         const id = newId();
         ids.push(id);
-        added.push({ kind: "order", id, day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o });
+        added.push({ kind: "order", id, day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o, ...(verbalMode ? { verbal: { takenBy: NURSE, doctor: DOCTOR, at: { day: 0, time: nowTime } } } : {}) });
       }
       // A consent form to prepare with the order (説明前): the doctor explains before it is done.
       for (const code of r.consents ?? []) newConsents.push({ id: newId(), patientId: patient!.id, code, status: "説明前", orderId: ids[0], createdAt: { day: 0, time: nowTime }, answers: {} });
@@ -322,10 +326,15 @@ export default function WardApp() {
           o.type === "injection" ? anyDrugName(o.items[0].drugCode) : o.type === "prescription" ? anyDrugName(o.drugCode) : o.type === "procedure" ? procedureTitle(o) : "";
         return `・${name} 中止`;
       }),
-      ...added.map((e) => planLine(e, today)),
+      ...added.map((e) => planLine(e, today) + (e.verbal ? `（口頭指示 ${e.verbal.doctor} → 受け ${e.verbal.takenBy}）` : "")),
     ];
     if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
-    auditLog({ role: "医師", actor: DOCTOR, action: "確定（オーダ）", patient: patient?.name, detail: lines.map((l) => l.replace(/^・/, "")).join("／").slice(0, 200) });
+    auditLog(
+      verbalMode
+        ? { role: "看護師", actor: NURSE, action: `確定（口頭指示を代行入力。指示 ${DOCTOR}）`, patient: patient?.name, detail: lines.map((l) => l.replace(/^・/, "")).join("／").slice(0, 200) }
+        : { role: "医師", actor: DOCTOR, action: "確定（オーダ）", patient: patient?.name, detail: lines.map((l) => l.replace(/^・/, "")).join("／").slice(0, 200) },
+    );
+    setVerbalMode(false);
     update((c) => ({
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
@@ -615,6 +624,18 @@ export default function WardApp() {
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
             />
             <div className="relative flex min-h-0 flex-col">
+              <VerbalInbox
+                entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                today={today}
+                nowAbs={abs(0, nowTime)}
+                onSign={(ids) => {
+                  auditLog({ role: "医師", actor: DOCTOR, action: "確定（口頭指示を承認）", patient: patient.name, detail: `${ids.length}件` });
+                  update((c) => ({
+                    added: c.added.map((e) => (ids.includes(e.id) && e.verbal ? { ...e, verbal: { ...e.verbal, signedAt: { day: 0, time: nowTime } } } : e)),
+                    flash: `口頭指示 ${ids.length}件を承認しました。`,
+                  }));
+                }}
+              />
               <PharmacyInbox
                 today={today}
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
@@ -675,6 +696,8 @@ export default function WardApp() {
                   })
                 }
                 onConfirm={confirm}
+                verbal={verbalMode}
+                onVerbal={setVerbalMode}
               />
               {panel === "diagnoses" && (
                 <Drawer title="病名" onClose={closePanel} wide>

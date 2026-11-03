@@ -1,5 +1,6 @@
 "use client";
 
+import { VERBAL_RULE } from "@/lib/verbal";
 import { Loader2, Mic, MicOff, Sparkles } from "lucide-react";
 import { useRef } from "react";
 import { formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
@@ -35,6 +36,9 @@ interface Props {
   onRemove: (id: string) => void;
   onRedo: (id: string) => void;
   onConfirm: () => void;
+  /** 口頭指示 mode: a nurse enters the doctor's spoken order. */
+  verbal?: boolean;
+  onVerbal?: (v: boolean) => void;
 }
 
 /** Today's writing: the note on top, then the spoken/typed instructions and their order drafts. */
@@ -156,13 +160,19 @@ export function TodayPane(p: Props) {
             `${readyCount}件すべて確定できます`
           )}
         </span>
+        {p.onVerbal && (
+          <label className="ml-auto flex cursor-pointer items-center gap-1 text-xs text-ink-soft" title={VERBAL_RULE}>
+            <input type="checkbox" className="accent-yamabuki" checked={!!p.verbal} onChange={(e) => p.onVerbal!(e.target.checked)} />
+            口頭指示（看護師が受けて入力）
+          </label>
+        )}
         <button
           type="button"
           disabled={!canConfirm}
           onClick={p.onConfirm}
-          className="ml-auto rounded-md bg-ink px-6 py-2 text-sm font-bold text-white hover:bg-ink/90 disabled:bg-ink/30"
+          className={`${p.onVerbal ? "" : "ml-auto"} rounded-md px-6 py-2 text-sm font-bold text-white disabled:opacity-30 ${p.verbal ? "bg-yamabuki" : "bg-ink hover:bg-ink/90"}`}
         >
-          確定{p.drafts.length > 0 ? `（${p.drafts.length}件）` : ""}
+          {p.verbal ? "口頭指示で" : ""}確定{p.drafts.length > 0 ? `（${p.drafts.length}件）` : ""}
         </button>
       </div>
     </section>

@@ -2,6 +2,7 @@
 
 import { procInterval } from "./proc-timing";
 import { news2 } from "./news2";
+import { verbalOverdue, verbalUnsigned } from "./verbal";
 import { isolationFor } from "./ward";
 import type { OrderEntry, Patient, ProcedureOrder } from "./types";
 import { orderInterval } from "./flowsheet";
@@ -19,6 +20,8 @@ const running = (from: number, to: number | null, nowAbs: number) => from <= now
 
 export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0): Flag[] {
   const out: Flag[] = [];
+  const unsigned = verbalUnsigned(entries);
+  if (unsigned.length) out.push({ label: `口頭指示 承認待ち ${unsigned.length}`, tone: unsigned.some((e) => verbalOverdue(e, nowAbs)) ? "shu" : "yamabuki", title: "看護師が代わりに入力したオーダ。医師が内容を確かめて承認する" });
   if (marPending > 0) out.push({ label: `実施の入力がまだ ${marPending}`, tone: "shu", title: "予定の時刻を過ぎても実施・未実施の記録がないもの（ワークシートの「照合」から）" });
   if (p.codeStatus === "DNAR") out.push({ label: "DNAR", tone: "shu", title: "事前指示：心停止時の心肺蘇生を行わない（ほかの治療は項目ごと）" });
   const last = p.vitals.at(-1);
