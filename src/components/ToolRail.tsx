@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, CalendarClock, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, PenTool, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, CalendarClock, DoorOpen, GraduationCap, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, PenTool, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-guide" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -29,6 +29,8 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "add-procedure", label: "処置", icon: Bandage },
       { key: "add-rehab", label: "リハビリ", icon: Footprints },
       { key: "add-consult", label: "他科依頼", icon: Send },
+      { key: "add-leave", label: "退院・外泊", icon: DoorOpen },
+      { key: "add-guide", label: "指導の依頼", icon: GraduationCap },
       { key: "add-dialysis", label: "透析", icon: Droplets },
       { key: "add-transfusion", label: "輸血", icon: Droplet },
       { key: "regimen", label: "レジメン", icon: FlaskRound },

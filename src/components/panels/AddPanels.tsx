@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
 import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
-import type { ConsultOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
+import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
@@ -13,7 +13,7 @@ import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxS
 import { matchInj, type InjPattern } from "@/lib/inj-memory";
 import { scheduleLabel } from "@/lib/format";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
-import { CONSULT_DEPTS, REHAB_FIELDS, consultText } from "@/lib/procedures";
+import { CONSULT_DEPTS, GUIDE_TO, REHAB_FIELDS, consultText } from "@/lib/procedures";
 import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_DO, TX_PRODUCTS, TX_USE, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
 
 const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
@@ -1582,5 +1582,81 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
         </div>
       )}
     </section>
+  );
+}
+
+/** 退院申込・外泊・外出: kind, when, where to and (外泊・外出) when back — chosen by the doctor. */
+export function AddLeavePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
+  const [kind, setKind] = useState<LeaveOrder["kind"] | null>(null);
+  const [day, setDay] = useState<number | null>(null);
+  const [time, setTime] = useState("");
+  const [backDay, setBackDay] = useState<number | null>(null);
+  const [backTime, setBackTime] = useState("");
+  const [dest, setDest] = useState("");
+  const [note, setNote] = useState("");
+  const away = kind === "外泊" || kind === "外出";
+  const missing = [!kind && "種類", day === null && "日", !time && "時刻", !dest.trim() && "行き先", away && backDay === null && "戻る日", away && !backTime && "戻る時刻"].filter((x): x is string => !!x);
+  const days = [
+    { value: 0, label: "今日" },
+    { value: 1, label: "明日" },
+    { value: 2, label: "あさって" },
+    { value: 3, label: "3日後" },
+  ];
+  const submit = () => {
+    if (missing.length) return;
+    const leave: LeaveOrder = { kind: kind!, from: { day: day!, time }, ...(away ? { back: { day: backDay!, time: backTime } } : {}), destination: dest.trim(), note: note.trim() };
+    onAdd({ ...newProcedureDraft("PROC-LEAVE", newId()), sourceText: "（退院・外泊の欄から）", leave, schedule: { kind: "once" }, start: { day: day!, time } });
+  };
+  const row = (label: string, el: React.ReactNode) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-16 text-ink-soft">{label}</span>
+      {el}
+    </div>
+  );
+  return (
+    <div className="space-y-2 text-[12px]">
+      {row("種類", <TabChoice label="退院・外泊・外出" options={(["退院", "外泊", "外出"] as const).map((x) => ({ value: x, label: x }))} value={kind} onChange={setKind} />)}
+      {row(
+        kind === "退院" ? "退院" : "出る",
+        <>
+          <TabChoice label="出る日" options={days} value={day} onChange={setDay} />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="出る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+        </>,
+      )}
+      {away &&
+        row(
+          "戻る",
+          <>
+            <TabChoice label="戻る日" options={days} value={backDay} onChange={setBackDay} />
+            <input type="time" value={backTime} onChange={(e) => setBackTime(e.target.value)} aria-label="戻る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+          </>,
+        )}
+      {row("行き先", <input value={dest} onChange={(e) => setDest(e.target.value)} placeholder={kind === "退院" ? "例：自宅（長女と同居）・施設・転院先" : "例：自宅"} className="flex-1 rounded border border-rule bg-paper px-2 py-1" />)}
+      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="申し送り（例：介護タクシー、退院処方は7日分）" aria-label="退院・外泊の申し送り" className="w-full rounded border border-rule bg-paper px-2 py-1" />
+      <button type="button" disabled={missing.length > 0} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+        下書きにする
+      </button>
+      {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}
+    </div>
+  );
+}
+
+/** 指導の依頼: which guidance (it goes to that profession's やること) and what to cover. */
+export function AddGuidePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
+  const [kind, setKind] = useState<GuideOrder["kind"] | null>(null);
+  const [note, setNote] = useState("");
+  return (
+    <div className="space-y-2 text-[12px]">
+      <TabChoice label="指導の種類" options={(Object.keys(GUIDE_TO) as GuideOrder["kind"][]).map((k) => ({ value: k, label: `${k}（${GUIDE_TO[k]}）` }))} value={kind} onChange={setKind} />
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="伝えたいこと（例：減塩6g未満。家族も一緒に）" aria-label="指導で伝えたいこと" className="w-full rounded border border-rule bg-paper px-2 py-1" />
+      <button
+        type="button"
+        disabled={!kind}
+        onClick={() => kind && onAdd({ ...newProcedureDraft("PROC-GUIDE", newId()), sourceText: "（指導の依頼の欄から）", guide: { kind, note: note.trim() }, schedule: { kind: "once" }, start: { day: 0, time: null } })}
+        className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+      >
+        下書きにする
+      </button>
+    </div>
   );
 }

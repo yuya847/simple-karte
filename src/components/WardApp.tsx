@@ -33,6 +33,7 @@ import { BoardView } from "./BoardView";
 import { ExtractView } from "./ExtractView";
 import { JournalView } from "./JournalView";
 import { journalLines, staffing } from "@/lib/journal";
+import { GUIDE_TO } from "@/lib/procedures";
 import { bookingsOf } from "@/lib/bookings";
 import { runExtract } from "@/lib/extract";
 import { ManualView } from "./ManualView";
@@ -93,7 +94,7 @@ import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
-import { AddConsultPanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
+import { AddConsultPanel, AddGuidePanel, AddLeavePanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
 import { latestValue } from "@/lib/clinical";
 import { ConsentPanel } from "./panels/ConsentPanel";
@@ -855,6 +856,11 @@ export default function WardApp() {
       const pid = x.patient.id;
       const out: Flag[] = callsMet[pid].length ? [{ label: "医師を呼ぶ基準", tone: "shu", title: `指示簿の基準に当たる：${callsMet[pid].join("、")}` }] : [];
       if (standingNow(pid) && !standingNow(pid)!.taken) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
+      for (const e of x.entries) {
+        if (e.status !== "有効" || e.order.type !== "procedure" || !e.order.leave) continue;
+        const l = e.order.leave;
+        if (l.from.day >= 0 && l.from.day <= 1) out.push({ label: `${l.from.day === 0 ? "今日" : "明日"} ${l.from.time} ${l.kind}`, tone: "wakatake", title: `${l.destination}${l.back ? `　戻り ${l.back.time}` : ""}` });
+      }
       const rs = activeOf(restraints, pid);
       if (rs) out.push({ label: `身体的拘束中 ${durationText(minutesOf(rs, abs(0, nowTime)))}`, tone: "shu", title: `${rs.devices.join("・")}　${reviewDue(rs, abs(0, nowTime))?.text ?? ""}` });
       return [pid, out];
@@ -867,6 +873,11 @@ export default function WardApp() {
   for (const x of people) {
     const pid = x.patient.id;
     if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
+    for (const e of x.entries) {
+      if (e.status !== "有効" || e.order.type !== "procedure" || !e.order.guide || !e.order.guide.kind) continue;
+      const g = e.order.guide;
+      if (GUIDE_TO[g.kind] === role) todos.push({ key: `guide-${e.id}`, label: `${g.kind}の依頼：${x.patient.name}さん`, detail: g.note || undefined, count: 1, tone: "ai", go: () => openPatient(pid) });
+    }
     const rsNow = activeOf(restraints, pid);
     const due = rsNow ? reviewDue(rsNow, abs(0, nowTime)) : null;
     if (due?.late && (role === "看護師" || role === "医師")) todos.push({ key: `restraint-${pid}`, label: `身体的拘束の見直し：${x.patient.name}さん`, detail: due.text, count: 1, tone: "shu", go: () => (openPatient(pid), setPanel("restraint")) });
@@ -911,7 +922,7 @@ export default function WardApp() {
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
-    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock } : {}),
+    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-guide": orderBlock } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
@@ -1803,6 +1814,28 @@ export default function WardApp() {
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "add-leave" && (
+                <Drawer title="退院申込・外泊・外出" onClose={closePanel} locked={orderBlock}>
+                  <AddLeavePanel
+                    newId={newId}
+                    onAdd={(d) => {
+                      addManualLab(d);
+                      closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "add-guide" && (
+                <Drawer title="指導の依頼" onClose={closePanel} locked={orderBlock}>
+                  <AddGuidePanel
+                    newId={newId}
+                    onAdd={(d) => {
+                      addManualLab(d);
+                      closePanel();
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "add-rehab" && (
