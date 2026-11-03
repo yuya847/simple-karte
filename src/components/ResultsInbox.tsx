@@ -60,7 +60,8 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
                 <span className="flex items-center gap-0.5 text-ink-soft">
                   <PhoneCall size={11} />
                   {call.at.time} {call.by} → {call.to}
-                  {call.readBack ? "（復唱あり）" : "（復唱なし）"}
+                  {call.readBack ? "（復唱あり）" : `（復唱なし${call.noReadBack ? `：${call.noReadBack}` : ""}）`}
+                  {(call.attempts?.length ?? 1) > 1 && `（${call.attempts!.length}回目の連絡で報告）`}
                 </span>
               )}
               {i.panic.length > 0 ? (

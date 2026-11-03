@@ -132,7 +132,8 @@ import { LabView } from "./LabView";
 import { AdmitEvalView } from "./AdmitEvalView";
 import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type AdmitEval } from "@/lib/admit-eval";
 import { ResultsInbox } from "./ResultsInbox";
-import { PANIC_LIMITS, PANIC_SOURCE, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
+import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
+import { EMPTY_DESK, demoLabOrders, deskLabs, type LabDesk } from "@/lib/lab-desk";
 import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
@@ -424,6 +425,9 @@ export default function WardApp() {
   // Results the doctor marked as seen, and panic values phoned in by the laboratory.
   const [acks, setAcks] = useState<Record<string, Ack>>({});
   const [calls, setCalls] = useState<Record<string, PanicCall>>({});
+  // 検査室: samples taken in, results confirmed (merged into each patient's labs), tries to reach a doctor.
+  const [labDesk, setLabDesk] = useState<LabDesk>(EMPTY_DESK);
+  const [demoLabs] = useState(() => (typeof window === "undefined" ? {} : demoLabOrders(abs(0, nowTimeInTokyo()))));
   const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
     () =>
@@ -434,6 +438,8 @@ export default function WardApp() {
         return {
           ...p,
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])],
+          history: [...p.history, ...(demoLabs[p.id] ?? [])],
+          labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(p.cultures, arrivedCultures[p.id]),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
           room: moves[p.id]?.room ?? p.room,
@@ -446,7 +452,7 @@ export default function WardApp() {
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
@@ -1019,7 +1025,7 @@ export default function WardApp() {
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
   if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
-  const toCall = uncalled(wardResults.filter((i) => i.day === 0), calls).length;
+  const toCall = uncalled(wardResults, calls).length;
   if (!deny("panic.call") && toCall) todos.push({ key: "call", label: "パニック値の連絡がまだ", detail: "検査室で連絡を記録する", count: toCall, tone: "shu", go: () => openArea("lab") });
 
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
@@ -1339,7 +1345,7 @@ export default function WardApp() {
       ) : screen === "lab" ? (
         <LabView
           people={people}
-          items={wardResults.filter((i) => i.day === 0)}
+          items={wardResults}
           calls={calls}
           acks={acks}
           limits={PANIC_LIMITS}
@@ -1347,9 +1353,13 @@ export default function WardApp() {
           nowTime={nowTime}
           attending={DOCTOR}
           onCall={(c) => {
-            auditLog({ role: me.role, actor: me.name, action: "確定（パニック値を電話で連絡）", patient: findPatient(c.patientId)?.name, detail: `${c.hits.map(hitLine).join("、")} → ${c.to}${c.readBack ? "（復唱あり）" : "（復唱なし）"}` });
+            auditLog({ role: me.role, actor: me.name, action: "確定（パニック値を電話で連絡）", patient: findPatient(c.patientId)?.name, detail: `${c.hits.map(hitLine).join("、")}　${callLine(c)}` });
             setCalls((all) => ({ ...all, [c.key]: c }));
           }}
+          records={mar}
+          sessionStart={sessionStart ?? abs(0, nowTime)}
+          desk={labDesk}
+          onDesk={setLabDesk}
         />
       ) : screen === "handoff" ? (
         <HandoffView
@@ -2384,7 +2394,7 @@ export default function WardApp() {
         rows={tabRows()}
         chartShown={screen === "chart"}
         onOpenPicker={() => setPickerOpen(true)}
-        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, board: unreadCount(notices, reads, me.name) }}
+        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults, calls).length, board: unreadCount(notices, reads, me.name) }}
         todos={todos}
       >
         {content}

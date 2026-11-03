@@ -1,15 +1,21 @@
 "use client";
 
-import { FlaskConical, PhoneCall } from "lucide-react";
-import { useState } from "react";
-import { callScript, hitLine, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
+import { BookOpenText, ClipboardPen, FlaskConical, HelpCircle, PhoneCall, ScanLine } from "lucide-react";
+import { useRef, useState } from "react";
+import { auditLog } from "@/lib/audit";
+import { abs } from "@/lib/flowsheet";
+import { drawRows, receive, scanSpecimen, statusCounts, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
+import type { AdminRecord } from "@/lib/mar";
+import { callScript, hitLine, labBoard, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
+import { LabEntry } from "./LabEntry";
+import { PanicCard } from "./PanicCard";
 
 interface Props {
   people: WorkPatient[];
-  /** Today's results of the ward's patients. */
+  /** Results of the ward's patients (shown: from today on, and any panic value not reported yet). */
   items: ResultItem[];
   calls: Record<string, PanicCall>;
   /** The doctor's 確認 (with the response for a panic value), to check that someone acted. */
@@ -19,27 +25,246 @@ interface Props {
   nowTime: string;
   attending: string;
   onCall: (c: PanicCall) => void;
+  /** 与薬・実施の記録: the ward records each draw there (ワークシートの照合). */
+  records: Record<string, AdminRecord>;
+  sessionStart: number;
+  /** What the laboratory did in this session: samples taken in, results, tries to reach a doctor. */
+  desk: LabDesk;
+  onDesk: (f: (d: LabDesk) => LabDesk) => void;
 }
 
-/** 検査室: today's results for the ward, panic values found by code, and the record of each phone call. */
-export function LabView({ people, items, calls, acks, limits, limitsSource, nowTime, attending, onCall }: Props) {
-  const name = (pid: string) => people.find((x) => x.patient.id === pid);
-  items = [...items].sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
-  const panic = items.filter((i) => i.panic.length > 0);
-  const waiting = panic.filter((i) => !calls[i.key]);
-  return (
-    <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
-      <header className="mb-3 flex flex-wrap items-baseline gap-2">
-        <h2 className="flex items-center gap-1.5 text-base font-bold">
-          <FlaskConical size={17} />
-          検査室：今日の結果（5階東病棟）
-        </h2>
-        <span className={`text-xs font-bold ${waiting.length ? "text-shu" : "text-wakatake"}`}>
-          {waiting.length ? `パニック値の連絡がまだ ${waiting.length}件` : "パニック値はすべて連絡済み"}
-        </span>
-      </header>
-      <DenyNote action="panic.call" className="mb-2" />
+type Tab = "receive" | "enter" | "results";
+const TABS: { key: Tab; label: string; icon: typeof ScanLine }[] = [
+  { key: "receive", label: "検体の受付", icon: ScanLine },
+  { key: "enter", label: "結果の入力", icon: ClipboardPen },
+  { key: "results", label: "結果とパニック値", icon: PhoneCall },
+];
 
+/** How to use each tab (the technologist's day), shown at the top (can be folded). */
+const GUIDE: Record<Tab, string> = {
+  receive:
+    "今日と明日の朝（夜勤の終わる 9:00 まで）の採血・採尿が時刻の順に並びます。病棟がワークシートの「照合」で採取を記録すると「採取済み」になります。届いた検体のラベルをバーコードリーダーで読むと（番号のあとに Enter が入ります）、コードがどの採血かを探して「受付済み」にし、時刻と受けた人を残します。一覧にない番号・中止の検査・受付済み・病棟が未実施と記録した採血・時刻より前で採取の記録もない採血は止めます。デモでは行の「読む」で読めます。",
+  enter:
+    "受け付けた検体が並びます。オーダの項目ごとに値を入れると（Enter で次の項目へ）、基準範囲との H／L とパニック値をコードが判定し、前回値を並べます（基準範囲は JCCLS 共用基準範囲・SRL、パニック値はこの架空の病院の値）。全部の項目を入れて「確定」すると、誰がいつ確定したかが残り、医師のカルテの「未確認の結果」と検査結果の表に出ます。パニック値があれば「結果とパニック値」に出ます。",
+  results:
+    "コードが判定したパニック値は、報告するまで日付に関係なく残ります。オーダーした医師に電話か対面で直接伝え、最後に値を復唱してもらいます（提言第20号）。つながらなければ「記録してかけ直す」で回ごとに残します（時刻・手段・相手・誰）。「報告した」は、復唱を確かめたか、復唱できなかった理由を書くと押せます。下の表は今日からの結果です。",
+};
+
+/** 検査室: taking in samples, entering results, and phoning panic values. Code finds and checks; people do. */
+export function LabView(p: Props) {
+  const { people, items, calls, records, sessionStart, desk, nowTime } = p;
+  const nowAbs = abs(0, nowTime);
+  const waiting = uncalled(items, calls);
+  const [tab, setTab] = useState<Tab>(() => (waiting.length ? "results" : "receive"));
+  const [guide, setGuide] = useState(true);
+  const [flash, setFlash] = useState("");
+  const rows = drawRows(people, records, desk, sessionStart, nowAbs);
+  const toEnterCount = rows.filter((r) => r.status === "受付済み").length;
+  const badge: Partial<Record<Tab, number>> = { enter: toEnterCount, results: waiting.length };
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
+        <h1 className="flex items-center gap-1.5 text-base font-bold">
+          <FlaskConical size={17} />
+          検査室（5階東病棟）
+        </h1>
+        <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
+          {TABS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`flex items-center gap-1 rounded px-2.5 py-0.5 ${tab === key ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
+            >
+              <Icon size={14} />
+              {label}
+              {!!badge[key] && <span className={`nums rounded-full px-1.5 text-[11px] font-bold ${key === "results" ? "bg-shu text-white" : "bg-ai-soft text-ai"}`}>{badge[key]}</span>}
+            </button>
+          ))}
+        </div>
+        <span className={`text-xs font-bold ${waiting.length ? "text-shu" : "text-wakatake"}`}>
+          {waiting.length ? `パニック値の連絡がまだ ${waiting.length}件` : "パニック値はすべて報告済み"}
+        </span>
+        <button type="button" onClick={() => setGuide((g) => !g)} aria-expanded={guide} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+          <HelpCircle size={13} />
+          使い方
+        </button>
+      </div>
+      {guide && (
+        <div className="border-b border-rule bg-ai-soft/40 px-5 py-2 text-[12px]">
+          <p className="mb-1 flex items-center gap-1 font-bold text-ai">
+            <BookOpenText size={14} />
+            使い方：{TABS.find((t) => t.key === tab)?.label}
+          </p>
+          <p className="text-ink">{GUIDE[tab]}</p>
+          <p className="mt-1 text-[11px] text-ink-soft">臨床検査技師として操作するには、左下の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。採取の記録は看護師でワークシートの「照合」から、結果の確認と対応は医師でカルテの右上から行います。</p>
+        </div>
+      )}
+      {flash && (
+        <p role="status" className="border-b border-shu/40 bg-shu-soft px-5 py-1.5 text-[12px] font-bold text-shu">
+          {flash}
+        </p>
+      )}
+      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
+        {tab === "receive" && <Receive rows={rows} people={people} nowAbs={nowAbs} onDesk={p.onDesk} />}
+        {tab === "enter" && (
+          <LabEntry
+            rows={rows}
+            people={people}
+            limits={p.limits}
+            nowAbs={nowAbs}
+            onDesk={p.onDesk}
+            onPanic={(line) => {
+              setFlash(`パニック値：${line}。オーダーした医師に連絡し、ここに記録してください。`);
+              setTab("results");
+            }}
+          />
+        )}
+        {tab === "results" && <Results {...p} items={labBoard(items, calls)} onReported={() => setFlash("")} />}
+      </div>
+    </div>
+  );
+}
+
+const STATUS_STYLE: Record<DrawStatus, string> = {
+  未採取: "text-ink-soft",
+  採取しなかった: "font-bold text-shu",
+  採取済み: "font-bold text-ai",
+  受付済み: "font-bold text-wakatake",
+  報告済み: "text-ink-faint",
+};
+
+const TONE: Record<SpecimenScan["tone"], string> = {
+  ok: "border-wakatake/50 bg-wakatake-soft text-wakatake",
+  warn: "border-yamabuki/50 bg-yamabuki-soft text-yamabuki",
+  stop: "border-shu/50 bg-shu-soft text-shu",
+};
+
+function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: WorkPatient[]; nowAbs: number; onDesk: Props["onDesk"] }) {
+  const me = useMe();
+  const deny = useDeny()("lab.receive");
+  const [code, setCode] = useState("");
+  const box = useRef<HTMLInputElement>(null);
+  const [scan, setScan] = useState<SpecimenScan | null>(null);
+  const counts = statusCounts(rows);
+  const read = (input: string) => {
+    const s = scanSpecimen(input, rows, people, nowAbs);
+    setCode("");
+    box.current?.focus();
+    if (!s) return;
+    setScan(s);
+    const row = s.row;
+    if (!s.ok || !row) return;
+    onDesk((d) => receive(d, row, me.name, nowAbs));
+    auditLog({ role: me.role, actor: me.name, action: "確定（検体の受付）", patient: row.name, detail: `${whenText(row.at)} ${row.tests}${row.status === "採取済み" ? "" : "（病棟の採取の記録なし）"}` });
+  };
+  return (
+    <div className="mx-auto max-w-[1100px] space-y-3">
+      <DenyNote action="lab.receive" />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          read(code);
+        }}
+        className="flex flex-wrap items-center gap-2 rounded-lg border border-rule bg-sheet p-3"
+      >
+        <ScanLine size={18} className="text-ai" />
+        <label className="flex items-center gap-2 font-bold">
+          検体ラベル
+          <input
+            ref={box}
+            autoFocus
+            disabled={!!deny}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="バーコードリーダーで読む（Enter）"
+            aria-label="検体ラベルの番号"
+            className="nums w-72 rounded border border-rule bg-paper px-2 py-1 font-normal"
+          />
+        </label>
+        <button type="submit" disabled={!!deny || !code.trim()} className="rounded bg-ai px-3 py-1 font-bold text-white disabled:opacity-40">
+          受付
+        </button>
+        <span className="nums ml-auto text-xs text-ink-soft">
+          未採取 {counts.未採取}・採取済み {counts.採取済み}・受付済み {counts.受付済み}・報告済み {counts.報告済み}
+          {counts.採取しなかった ? `・採取しなかった ${counts.採取しなかった}` : ""}
+        </span>
+        {scan && (
+          <p role="status" className={`w-full rounded border px-2 py-1 text-[12px] font-bold ${TONE[scan.tone]}`}>
+            {scan.message}
+          </p>
+        )}
+      </form>
+
+      <table className="w-full border-collapse text-[12px]">
+        <thead>
+          <tr className="border-b border-rule text-left text-ink-soft">
+            <th className="py-1 pr-2 font-normal">採血の時刻</th>
+            <th className="py-1 pr-2 font-normal">患者</th>
+            <th className="py-1 pr-2 font-normal">検査</th>
+            <th className="py-1 pr-2 font-normal">容器</th>
+            <th className="py-1 pr-2 font-normal">ラベル</th>
+            <th className="py-1 pr-2 font-normal">状態</th>
+            <th className="py-1 font-normal" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={7} className="py-3 text-center text-ink-faint">
+                今日と明日の朝の採血はありません。
+              </td>
+            </tr>
+          )}
+          {rows.map((r) => (
+            <tr key={r.code} className="border-b border-rule-soft align-top">
+              <td className="nums py-1 pr-2">
+                {whenText(r.at)}
+                {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
+              </td>
+              <td className="py-1 pr-2">
+                <span className="nums text-ink-faint">{r.room}</span> {r.name}
+              </td>
+              <td className="py-1 pr-2">{r.tests}</td>
+              <td className="py-1 pr-2 text-ink-soft">{r.container}</td>
+              <td className="nums py-1 pr-2 font-mono text-[11px] text-ink-soft">{r.code}</td>
+              <td className={`py-1 pr-2 ${STATUS_STYLE[r.status]}`}>
+                {r.status}
+                <span className="block text-[10px] font-normal text-ink-soft">{statusNote(r, nowAbs)}</span>
+              </td>
+              <td className="py-1 text-right">
+                {!deny && (r.status === "採取済み" || r.status === "未採取") && (
+                  <button type="button" onClick={() => read(r.code)} className="rounded border border-ai px-1.5 text-[11px] text-ai hover:bg-ai hover:text-white" title="デモ：この検体のラベルを読む">
+                    読む
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function statusNote(r: DrawRow, nowAbs: number): string {
+  if (r.status === "報告済み") return r.report ? `${r.report.reported.time} ${r.report.by}` : "前の記録";
+  if (r.status === "受付済み") return `${r.reception!.time} ${r.reception!.by}${r.reception!.collected ? "" : "（採取の記録なし）"}`;
+  if (r.status === "採取済み") return r.collectedAt === "前の勤務" ? "前の勤務" : `${r.collectedAt ?? ""} ${r.collectedBy ?? ""}`.trim();
+  if (r.status === "採取しなかった") return r.notDoneReason ?? "";
+  return r.at <= nowAbs ? "時刻を過ぎた" : "予定";
+}
+
+function Results({ people, items, calls, acks, limits, limitsSource, nowTime, attending, onCall, desk, onDesk, onReported }: Props & { onReported: () => void }) {
+  const name = (pid: string) => people.find((x) => x.patient.id === pid);
+  const sorted = [...items].sort((a, b) => a.day - b.day || (a.time || "99").localeCompare(b.time || "99"));
+  const panic = sorted.filter((i) => i.panic.length > 0);
+  const when = (i: ResultItem) => (i.time ? whenText(abs(i.day, i.time)) : i.day === 0 ? "—" : whenText(i.day * 1440).replace(/ 00:00$/, ""));
+  return (
+    <div className="mx-auto max-w-[1100px]">
+      <DenyNote action="panic.call" className="mb-2" />
       {panic.length > 0 && (
         <section className="mb-4 space-y-2">
           <h3 className="text-xs font-bold text-shu">パニック値（コードで判定。連絡するのは人）</h3>
@@ -50,12 +275,19 @@ export function LabView({ people, items, calls, acks, limits, limitsSource, nowT
                 key={i.key}
                 item={i}
                 who={w ? `${w.room} ${w.patient.name}さん` : i.patientId}
+                name={w?.patient.name ?? i.patientId}
+                when={when(i)}
                 script={w ? callScript(i, w.patient, w.room) : []}
                 call={calls[i.key]}
                 ack={acks[i.key]}
+                tries={desk.tries[i.key] ?? []}
                 nowTime={nowTime}
                 attending={attending}
-                onCall={onCall}
+                onCall={(c) => {
+                  onCall(c);
+                  onReported();
+                }}
+                onDesk={onDesk}
               />
             );
           })}
@@ -63,7 +295,7 @@ export function LabView({ people, items, calls, acks, limits, limitsSource, nowT
       )}
 
       <section>
-        <h3 className="mb-1 text-xs font-bold text-ink-soft">今日の結果（{items.length}件）</h3>
+        <h3 className="mb-1 text-xs font-bold text-ink-soft">今日からの結果（{items.length}件）</h3>
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr className="border-b border-rule text-left text-ink-soft">
@@ -74,11 +306,11 @@ export function LabView({ people, items, calls, acks, limits, limitsSource, nowT
             </tr>
           </thead>
           <tbody>
-            {items.map((i) => {
+            {sorted.map((i) => {
               const w = name(i.patientId);
               return (
                 <tr key={i.key} className="border-b border-rule-soft align-top">
-                  <td className="nums py-1 pr-2">{i.time || "—"}</td>
+                  <td className="nums py-1 pr-2">{when(i)}</td>
                   <td className="py-1 pr-2">
                     <span className="nums text-ink-faint">{w?.room}</span> {w?.patient.name}
                   </td>
@@ -103,70 +335,6 @@ export function LabView({ people, items, calls, acks, limits, limitsSource, nowT
         </p>
         <p className="mt-1">{limitsSource}</p>
       </section>
-    </div>
-  );
-}
-
-function PanicCard({ item, who, script, call, ack, nowTime, attending, onCall }: { item: ResultItem; who: string; script: string[]; call?: PanicCall; ack?: Ack; nowTime: string; attending: string; onCall: (c: PanicCall) => void }) {
-  const me = useMe();
-  const deny = useDeny()("panic.call");
-  const [to, setTo] = useState(`主治医 ${attending}（オーダーした医師）`);
-  const [means, setMeans] = useState<PanicCall["means"]>("電話");
-  const [readBack, setReadBack] = useState(false);
-  return (
-    <div className="rounded-lg border border-shu/50 bg-shu-soft/50 p-3">
-      <div className="flex flex-wrap items-baseline gap-2">
-        <b>{who}</b>
-        <span className="nums text-ink-soft">
-          {item.kind === "培養" ? "報告" : "採取"} {item.time}
-        </span>
-        <b className="text-shu">{item.panic.map(hitLine).join("、")}</b>
-      </div>
-      {call ? (
-        <div className="mt-1 space-y-0.5 text-xs">
-          <p className="flex items-center gap-1 text-wakatake">
-            <PhoneCall size={12} />
-            {call.at.time} に {call.by} が {call.to} へ{call.means}で報告（{call.readBack ? "復唱あり" : "復唱なし"}）
-          </p>
-          {ack ? (
-            <p className="text-wakatake">
-              医師の対応：{ack.at.time} {ack.by}「{ack.response ?? "確認した"}」
-            </p>
-          ) : (
-            <p className="font-bold text-yamabuki">医師の対応の記録がまだです。続けば、もう一度連絡するか、同じ科の医師・管理当直に連絡します。</p>
-          )}
-        </div>
-      ) : (
-        <fieldset disabled={!!deny} className="m-0 mt-1 min-w-0 space-y-1 border-0 p-0 text-xs">
-          <div className="rounded border border-rule bg-sheet px-2 py-1 text-ink-soft">
-            <span className="font-bold">伝える内容（提言第20号の順。コードで並べた）：</span>
-            {script.join("　")}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1">
-            報告した相手
-            <input value={to} onChange={(e) => setTo(e.target.value)} className="w-64 rounded border border-rule bg-sheet px-1.5 py-0.5" />
-          </label>
-          <select value={means} onChange={(e) => setMeans(e.target.value as PanicCall["means"])} aria-label="手段" className="rounded border border-rule bg-sheet px-1 py-0.5">
-            <option>電話</option>
-            <option>対面</option>
-          </select>
-          <label className="flex items-center gap-1">
-            <input type="checkbox" checked={readBack} onChange={(e) => setReadBack(e.target.checked)} className="accent-shu" />
-            相手が値を復唱した
-          </label>
-          <button
-            type="button"
-            disabled={!to.trim()}
-            onClick={() => onCall({ key: item.key, patientId: item.patientId, hits: item.panic, by: me.name, to: to.trim(), means, readBack, at: { day: 0, time: nowTime } })}
-            className="ml-auto flex items-center gap-1 rounded bg-shu px-3 py-1 font-bold text-white disabled:opacity-40"
-          >
-            <PhoneCall size={12} />
-            報告した（{nowTime}）
-          </button>
-          </div>
-        </fieldset>
-      )}
     </div>
   );
 }
