@@ -56,6 +56,7 @@ import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
 import { TransferPanel } from "./panels/TransferPanel";
+import { BedsidePanel } from "./panels/BedsidePanel";
 import { transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
@@ -2271,6 +2272,31 @@ export default function WardApp() {
                       if (orderBlock) return;
                       addManualLab(d);
                       closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "bedside" && (
+                <Drawer title="ベッドサイド表示" onClose={closePanel} wide>
+                  <BedsidePanel
+                    b={{
+                      room: patient.room,
+                      name: patient.name,
+                      kana: patient.kana,
+                      doctor: patient.attending,
+                      nurse: nurseFor(patient.room.replace(/[A-Z]$/, "")),
+                      rest: standingNow(patient.id)?.rest ?? null,
+                      diet: patient.dietNow ?? null,
+                      marks: [
+                        ...patient.cautions.map((c) => ({ label: c, tone: "yamabuki" as const })),
+                        ...(patient.allergies.length ? [{ label: `アレルギー：${patient.allergies.map((a) => a.replace(/（.*?）/, "")).join("・")}`, tone: "shu" as const }] : []),
+                        ...(patient.infections.length ? [{ label: "感染対策あり", tone: "fuji" as const }] : []),
+                        ...(bedInfo[patient.id]?.rescue ? [{ label: `救護 ${bedInfo[patient.id]!.rescue}`, tone: "ai" as const }] : []),
+                        ...(bedInfo[patient.id]?.sensors ?? []).map((x) => ({ label: x, tone: "ai" as const })),
+                      ],
+                      today: scheduleItems()
+                        .filter((x) => x.name === patient.name)
+                        .map((x) => ({ when: x.when, what: x.what })),
                     }}
                   />
                 </Drawer>
