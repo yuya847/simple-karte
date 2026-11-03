@@ -53,6 +53,8 @@ import { SetPanel } from "./panels/SetPanel";
 import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
+import { GuideRecordPanel, type GuidanceInput } from "./panels/GuideRecordPanel";
+import { guidanceNoteText, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord } from "@/lib/guidance";
 import { labelItems } from "@/lib/labels";
 import { ageSex } from "@/lib/person";
 import { stayDays, type DocKind, type DocRecord } from "@/lib/documents";
@@ -363,6 +365,8 @@ export default function WardApp() {
   const [txIssued, setTxIssued] = useState<Record<string, { lot: string; at: string; by: string }>>({});
   const [pharmJournal, setPharmJournal] = useState<{ text: string; at: string }[]>([]);
   const [homeRx, setHomeRx] = useState<Record<string, HomeRxRecord>>({});
+  // 指導の記録 (栄養食事指導・服薬指導・退院時の生活指導): each answers the 指導の依頼 and goes into the chart.
+  const [guidance, setGuidance] = useState<GuidanceRecord[]>([]);
   // 書類作成で作った書類.
   const [documents, setDocuments] = useState<DocRecord[]>([]);
   // 他科依頼の返書 (by order id).
@@ -703,6 +707,21 @@ export default function WardApp() {
 
   const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft], flash: null }));
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
+  // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
+  // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.
+  const recordGuidance = (pid: string, r: GuidanceInput, fromPharmacy = false) => {
+    const rec: GuidanceRecord = { ...r, id: newId(), patientId: pid, by: me.name, at: { day: 0, time: nowTime } };
+    setGuidance((all) => [...all, rec]);
+    const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text: guidanceNoteText(rec) };
+    setNotes((all) => ({ ...all, [pid]: [...(all[pid] ?? []), n] }));
+    if (r.kind === "栄養食事指導" && r.eligible && r.eligible !== "対象外（算定しない）") {
+      const earlier = guidance.filter((g) => g.patientId === pid && g.kind === "栄養食事指導" && g.eligible && g.eligible !== "対象外（算定しない）").map((g) => g.at.day);
+      const dow = (d: number) => new Date(Date.UTC(today.y, today.m - 1, today.d + d)).getUTCDay();
+      if (!nutritionCountNote(earlier, 0, dow) && !nutritionTimeNote(r.minutes, earlier.length)) setBilling((all) => ({ ...all, [pid]: { ...(all[pid] ?? DEFAULT_OPTIONS), eiyoShido: [...((all[pid] ?? DEFAULT_OPTIONS).eiyoShido ?? []), { day: 0 }] } }));
+    }
+    if (!fromPharmacy) auditLog({ role: me.role, actor: me.name, action: `確定（${r.kind}の記録）`, patient: findPatient(pid)?.name, detail: `${r.heard}・${r.minutes ?? "？"}分${r.answers.length ? `・依頼 ${r.answers.length}件を済みに` : ""}` });
+  };
+
   const addStopDraft = (entry: OrderEntry, source = "（カレンダーから）") => {
     const o = entry.order;
     const drugCode = o.type === "injection" ? o.items[0].drugCode : o.type === "prescription" ? o.drugCode : null;
@@ -956,7 +975,24 @@ export default function WardApp() {
     for (const e of x.entries) {
       if (e.status !== "有効" || e.order.type !== "procedure" || !e.order.guide || !e.order.guide.kind) continue;
       const g = e.order.guide;
-      if (GUIDE_TO[g.kind] === role) todos.push({ key: `guide-${e.id}`, label: `${g.kind}の依頼：${x.patient.name}さん`, detail: g.note || undefined, count: 1, tone: "ai", go: () => openPatient(pid) });
+      // A request answered by a 指導の記録 is done.
+      if (!openRequests([e], g.kind, guidance).length) continue;
+      if (GUIDE_TO[g.kind] === role)
+        todos.push({
+          key: `guide-${e.id}`,
+          label: `${g.kind}の依頼：${x.patient.name}さん`,
+          detail: g.note || undefined,
+          count: 1,
+          tone: "ai",
+          // 薬剤師 records 服薬指導 in 薬剤部; the others in the chart's 指導の記録.
+          go:
+            role === "薬剤師"
+              ? () => openArea("pharmacy")
+              : () => {
+                  openPatient(pid);
+                  setPanel("guide-record");
+                },
+        });
     }
     const rsNow = activeOf(restraints, pid);
     const due = rsNow ? reviewDue(rsNow, abs(0, nowTime)) : null;
@@ -1386,6 +1422,9 @@ export default function WardApp() {
               });
             }
             auditLog({ role: me.role, actor: me.name, action: "確定（服薬指導）", patient: findPatient(pid)?.name, detail: `区分${rec.kind}` });
+            // Into the chart as the pharmacist's note, answering an open 服薬指導 request.
+            const pe = people.find((x) => x.patient.id === pid)?.entries ?? [];
+            recordGuidance(pid, { kind: "服薬指導", heard: "本人", minutes: null, text: `（薬剤管理指導 区分${rec.kind}）${rec.text}`, answers: openRequests(pe, "服薬指導", guidance).map((e) => e.id) }, true);
             setShido((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { ...rec, day: 0, at: nowTime }] }));
           }}
           dispensed={dispensed}
@@ -2012,6 +2051,17 @@ export default function WardApp() {
                       addManualLab(d);
                       closePanel();
                     }}
+                  />
+                </Drawer>
+              )}
+              {panel === "guide-record" && (
+                <Drawer title="指導の記録" onClose={closePanel}>
+                  <GuideRecordPanel
+                    role={role}
+                    entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    records={guidance.filter((r) => r.patientId === patient.id)}
+                    today={today}
+                    onSave={(r) => recordGuidance(patient.id, r)}
                   />
                 </Drawer>
               )}
