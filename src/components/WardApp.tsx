@@ -37,6 +37,7 @@ import { StickyStrip, type Sticky } from "./StickyStrip";
 import { BoardView } from "./BoardView";
 import { ExtractView } from "./ExtractView";
 import { JournalView } from "./JournalView";
+import { MealsView } from "./MealsView";
 import { journalLines, staffing } from "@/lib/journal";
 import { GUIDE_TO } from "@/lib/procedures";
 import { bookingsOf } from "@/lib/bookings";
@@ -1163,6 +1164,8 @@ export default function WardApp() {
             ];
           })()}
         />
+      ) : screen === "meals" ? (
+        <MealsView title={WARD_NAME} people={people} diets={diets} today={today} nowTime={nowTime} />
       ) : screen === "journal" ? (
         <JournalView
           title="看護日誌"

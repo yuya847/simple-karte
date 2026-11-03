@@ -28,6 +28,12 @@ describe("② inside 病棟", () => {
     expect(wardTabsFor("看護師")).toContain("acuity");
     expect(wardTabsFor("医事課")).not.toContain("handoff");
   });
+  it("病棟の食事: the 管理栄養士 starts there, nurses can read it", () => {
+    expect(wardTabsFor("管理栄養士")).toContain("meals");
+    expect(wardTabsFor("看護師")).toContain("meals");
+    expect(wardTabsFor("MSW")).not.toContain("meals");
+    expect(homeArea("管理栄養士")).toBe("ward");
+  });
   it("keeps only allowed screens from saved defaults, once each and in order", () => {
     expect(allowedWardTabs("医師", ["mine", "sheet", "map", "mine", "x" as never])).toEqual(["mine", "map"]);
   });

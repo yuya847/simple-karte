@@ -23,6 +23,7 @@ import {
   TriangleAlert,
   UserRound,
   Users,
+  Utensils,
 } from "lucide-react";
 import type { AreaKey, WardTab } from "@/lib/nav";
 
@@ -54,6 +55,7 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   sheet: Printer,
   handoff: ArrowRightLeft,
   admit: ClipboardList,
+  meals: Utensils,
   acuity: ClipboardCheck,
   journal: NotebookText,
 };

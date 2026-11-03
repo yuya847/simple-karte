@@ -34,15 +34,15 @@ export const ROLE_LONG: Record<Role, string> = {
 };
 
 /** The ward-level tabs pinned before the patient tabs. */
-export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "lab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit";
+export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit";
 
 /** The tabs each role sees, first one is where the role starts. */
 export const TABS: Record<Role, PinnedTab[]> = {
   医師: ["map", "list", "handoff", "admit", "er", "or", "dialysis", "chat", "audit"],
-  看護師: ["sheet", "map", "list", "handoff", "admit", "acuity", "er", "or", "dialysis", "chat"],
+  看護師: ["sheet", "map", "list", "handoff", "admit", "meals", "acuity", "er", "or", "dialysis", "chat"],
   薬剤師: ["pharmacy", "map", "list", "chat"],
   臨床検査技師: ["lab", "map", "list", "chat"],
-  管理栄養士: ["admit", "map", "list", "chat"],
+  管理栄養士: ["meals", "admit", "map", "list", "chat"],
   MSW: ["admit", "map", "list", "chat"],
   医事課: ["list", "map", "audit"],
 };
