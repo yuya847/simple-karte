@@ -2,7 +2,7 @@
 // needs to be complete, and the ward's clock times. The official codes and points live in the
 // billing side (billing/codes.ts → 医科診療行為マスター); nothing here is a fee.
 
-import type { HdOrder, TxOrder } from "./types";
+import type { ConsultOrder, HdOrder, RehabOrder, TxOrder } from "./types";
 
 /** 範囲 of a wound / pressure ulcer, as the 点数表 divides it (cm²). */
 export type AreaClass = "lt100" | "100-500" | "500-3000" | "3000-6000" | "ge6000";
@@ -108,7 +108,7 @@ export interface ProcMaster {
   code: string;
   name: string;
   /** What the order must say to be complete. */
-  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx")[];
+  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx" | "rehab" | "consult")[];
   /** Schedules a doctor may choose for this item. The first is never preselected. */
   schedules: ProcSchedule[];
   /** For 留置 and 酸素: the order runs until stopped; its schedule is always 継続. */
@@ -196,6 +196,20 @@ export const PROCEDURES: ProcMaster[] = [
     schedules: [{ kind: "once" }, { kind: "prn" }],
     uses: { code: "TOP-GE120", amount: 1 },
     aliases: ["浣腸", "GE", "グリセリン浣腸"],
+  },
+  {
+    code: "PROC-REHAB",
+    name: "リハビリ処方",
+    needs: ["rehab"],
+    schedules: [{ kind: "per_day", count: 1 }],
+    aliases: ["リハビリ", "リハ", "PT", "OT", "ST", "理学療法", "作業療法", "言語聴覚療法"],
+  },
+  {
+    code: "PROC-CONSULT",
+    name: "他科依頼",
+    needs: ["consult"],
+    schedules: [{ kind: "once" }],
+    aliases: ["他科依頼", "他科診", "コンサルト", "対診", "紹介"],
   },
   {
     code: "PROC-TX",
@@ -326,6 +340,12 @@ export function txMinutes(ml: number): { minutes: number; formula: string } {
 }
 
 export const txText = (o: TxOrder) => `${TX_PRODUCTS[o.product].name} ${TX_PRODUCTS[o.product].units.find((u) => u.units === o.units)?.label ?? `${o.units}単位`}　${o.abo}型 Rh${o.rh === "+" ? "(+)" : "(−)"}`;
+
+// リハビリ処方・他科依頼
+export const REHAB_FIELDS: RehabOrder["field"][] = ["脳血管疾患等", "運動器", "呼吸器", "心大血管疾患", "廃用症候群"];
+export const CONSULT_DEPTS = ["循環器内科", "呼吸器内科", "消化器内科", "腎臓内科", "脳神経内科", "整形外科", "外科", "泌尿器科", "皮膚科", "精神科", "リハビリテーション科"];
+export const rehabText = (r: RehabOrder) => `${r.field}リハビリ（${r.therapists.join("・")}）　目標：${r.goal}${r.cautions ? `　注意：${r.cautions}` : ""}`;
+export const consultText = (c: ConsultOrder) => `${c.dept}へ（${c.urgency}）：${c.question}`;
 
 export function findProc(code: string): ProcMaster | undefined {
   return PROCEDURES.find((p) => p.code === code);

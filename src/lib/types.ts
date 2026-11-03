@@ -224,6 +224,23 @@ export interface TxOrder {
   reason: string;
 }
 
+/** リハビリ処方: the disease category, who (PT・OT・ST), the onset day it is counted from, goal and cautions. */
+export interface RehabOrder {
+  field: "脳血管疾患等" | "運動器" | "呼吸器" | "心大血管疾患" | "廃用症候群";
+  therapists: ("PT" | "OT" | "ST")[];
+  /** 起算日 (day offset): the day the disease began or the operation. */
+  onset: number;
+  goal: string;
+  cautions: string;
+}
+
+/** 他科依頼: a question to another department (the answer, 返書, is recorded separately). */
+export interface ConsultOrder {
+  dept: string;
+  question: string;
+  urgency: "至急" | "通常";
+}
+
 /** A ward procedure (処置). The item comes from the fictional hospital's master (procedures.ts). */
 export interface ProcedureOrder {
   type: "procedure";
@@ -239,6 +256,10 @@ export interface ProcedureOrder {
   hd?: HdOrder;
   /** 輸血 (PROC-TX). */
   tx?: TxOrder;
+  /** リハビリ処方 (PROC-REHAB). */
+  rehab?: RehabOrder;
+  /** 他科依頼 (PROC-CONSULT). */
+  consult?: ConsultOrder;
   schedule: ProcSchedule;
   start: { day: DayOffset; time?: string };
   days?: number;

@@ -44,6 +44,8 @@ import type {
   InjectionOrder,
   Patient,
   TxOrder,
+  RehabOrder,
+  ConsultOrder,
   InjectionRoute,
   InjectionSchedule,
   LabOrder,
@@ -153,6 +155,8 @@ export interface ProcedureDraft extends DraftBase {
   hdOk?: boolean;
   /** 輸血 (PROC-TX), entered in the 輸血 panel. */
   tx?: TxOrder | null;
+  rehab?: RehabOrder | null;
+  consult?: ConsultOrder | null;
   schedule: ProcSchedule | null;
   start: { day: DayOffset | null; time: string | null };
   days: number | null;
@@ -1164,6 +1168,16 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
     }
   }
 
+  // リハビリ処方 and 他科依頼: entered in their panels.
+  if (m.needs.includes("rehab")) {
+    if (!d.rehab) issues.push({ key: "rehab", level: "stop", title: "リハビリ", message: "疾患別の区分・職種・起算日・目標は、右の「リハビリ」の欄で入れてください。" });
+    else issues.push({ key: "rehab", level: "info", title: "リハビリ", message: `${d.rehab.field}　${d.rehab.therapists.join("・")}　起算日 ${ctx.fmtDay(d.rehab.onset)}（今日で${1 - d.rehab.onset}日目）。算定できる日数の上限は区分ごとに点数表で決まっています。` });
+  }
+  if (m.needs.includes("consult")) {
+    if (!d.consult) issues.push({ key: "consult", level: "stop", title: "他科依頼", message: "依頼先と聞きたいことは、右の「他科依頼」の欄で入れてください。" });
+    else issues.push({ key: "consult", level: "info", title: "他科依頼", message: `${d.consult.dept}（${d.consult.urgency}）。確定すると依頼先に届き、返書は「他科依頼」の欄に記録されます。` });
+  }
+
   // 輸血: the blood type (2 samples), the antibody screen for red cells, the expected effect and the pace.
   if (m.needs.includes("tx")) {
     if (!d.tx) {
@@ -1454,6 +1468,8 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       o2: m.needs.includes("o2") ? { device: d.o2.device!, lpm: d.o2.lpm! } : undefined,
       hd: m.needs.includes("hd") && d.hd ? d.hd : undefined,
       tx: m.needs.includes("tx") && d.tx ? d.tx : undefined,
+      rehab: m.needs.includes("rehab") && d.rehab ? d.rehab : undefined,
+      consult: m.needs.includes("consult") && d.consult ? d.consult : undefined,
       schedule: procSchedule(d)!,
       start: { day: d.start.day ?? 0, time: d.start.time ?? undefined },
       days: d.days ?? undefined,
