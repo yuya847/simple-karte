@@ -1785,6 +1785,7 @@ export default function WardApp() {
               onStopDraft={addStopDraft}
               onExtendDraft={extendDraft}
               pendingExtends={pendingExtends}
+              marOf={(id, at) => mar[`${id}|${at}`]}
               onModify={modifyOrder}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
               onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
@@ -2056,6 +2057,7 @@ export default function WardApp() {
                           onExtendDraft={!deny("order") ? extendDraft : undefined}
                           onModify={!deny("order") ? modifyOrder : undefined}
                           pendingExtends={pendingExtends}
+                          marOf={(id, at) => mar[`${id}|${at}`]}
                         />,
                       )}
                   </>

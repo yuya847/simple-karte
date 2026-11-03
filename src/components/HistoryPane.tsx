@@ -17,6 +17,9 @@ import { BookingList } from "./BookingList";
 import type { Booking } from "@/lib/bookings";
 import type { DietOrder } from "@/lib/diet";
 
+/** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00). */
+type CalendarMar = (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
+
 export type LeftView = "record" | "flowsheet" | "injection-cal" | "rx-cal" | "proc-cal" | "diet-cal" | "bookings";
 
 export const LEFT_VIEWS: { key: LeftView; label: string; title?: string }[] = [
@@ -46,6 +49,7 @@ interface Props {
   onExtendDraft?: (entry: OrderEntry, days: number) => void;
   onModify?: (entry: OrderEntry) => void;
   pendingExtends?: Record<string, number>;
+  marOf?: CalendarMar;
   /** Correct a confirmed note (a new version; the earlier ones are kept). */
   onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
   /** Put vital-sign lines copied from the flow sheet into O) of today's note. */
@@ -84,8 +88,8 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove } = props;
-  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends };
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove } = props;
+  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex items-center gap-3 border-b border-rule-soft px-4 py-1.5">

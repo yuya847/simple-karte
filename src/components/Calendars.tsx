@@ -27,6 +27,18 @@ interface CalendarProps {
   onModify?: (entry: OrderEntry) => void;
   /** Extensions waiting as drafts: order id → days added (shown dotted until confirmed). */
   pendingExtends?: Record<string, number>;
+  /** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00), shown on the dose. */
+  marOf?: (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
+}
+
+/** 実施 / 未実施 as the nurse recorded it, next to a dose. */
+function MarMark({ r }: { r?: { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } }) {
+  if (!r) return null;
+  return (
+    <span className={`whitespace-nowrap text-[10px] font-bold ${r.status === "実施" ? "text-wakatake" : "text-shu"}`} title={`${r.status} ${r.doneAt} ${r.by}${r.reason ? `（${r.reason}）` : ""}`}>
+      {r.status === "実施" ? "済" : `未実施${r.reason ? `：${r.reason}` : ""}`}
+    </span>
+  );
 }
 
 const HEAD_W = 230;
@@ -195,7 +207,7 @@ const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
   { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
 ];
 
-export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {} }: CalendarProps) {
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, marOf }: CalendarProps) {
   const days = calendarDays(patient, INJ_AHEAD);
   // The end being dragged (or moved with ← →) on one order, before it becomes a draft.
   const [drag, setDrag] = useState<{ id: string; to: DayOffset } | null>(null);
@@ -258,9 +270,10 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                         {inPreview && <span className="whitespace-nowrap rounded border border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
                         {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
                         {c.doses.map((x) => (
-                          <Chip key={x.time} state={x.state}>
-                            {x.time}
-                          </Chip>
+                          <span key={x.time} className="inline-flex items-center gap-0.5">
+                            <Chip state={x.state}>{x.time}</Chip>
+                            <MarMark r={marOf?.(e.id, d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5)))} />
+                          </span>
                         ))}
                         {c.infusion && (
                           <Chip state={c.infusion.state}>
