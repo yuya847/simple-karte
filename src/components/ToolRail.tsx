@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, Droplet, Droplets, FlaskRound, Hand, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, Droplet, Droplets, FlaskRound, Hand, Layers, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -19,6 +19,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
     tools: [
       { key: "diagnoses", label: "病名", icon: FileHeart },
       { key: "standing", label: "指示簿", icon: ClipboardList },
+      { key: "sets", label: "セット", icon: Layers },
       { key: "restraint", label: "身体的拘束", icon: Hand },
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-lab", label: "検体検査", icon: TestTube },

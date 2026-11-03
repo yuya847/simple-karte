@@ -40,6 +40,7 @@ import { StandingPanel } from "./panels/StandingPanel";
 import { RestraintPanel } from "./panels/RestraintPanel";
 import { RegimenPanel } from "./panels/RegimenPanel";
 import { SummaryPanel } from "./panels/SummaryPanel";
+import { SetPanel } from "./panels/SetPanel";
 import { summaryFacts } from "@/lib/summary";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
@@ -899,7 +900,7 @@ export default function WardApp() {
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
-    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock } : {}),
+    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
@@ -1755,6 +1756,17 @@ export default function WardApp() {
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "sets" && (
+                <Drawer title="セット展開" onClose={closePanel} locked={orderBlock}>
+                  <SetPanel
+                    newId={newId}
+                    onAdd={(ds) => {
+                      update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `セットから ${ds.length}件を下書きにしました。それぞれ確かめて確定してください。` }));
+                      closePanel();
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "summary" && (
