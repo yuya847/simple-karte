@@ -8,7 +8,7 @@ import { labelFor, marState, type AdminRecord } from "./mar";
 import { ANALYTES, findLab, findSet, labInfo, rangeFor, WARD_RULES, type Analyte } from "./master";
 import { panicOf, type ContactAttempt, type PanicHit, type PanicLimit } from "./results";
 import type { DayOffset, LabOrder, LabResult, OrderEntry, Patient, Sex } from "./types";
-import { SHIFTS, buildWorksheet, type WorkPatient } from "./worksheet";
+import { SHIFTS, buildWorksheet, changeKey, type WorkPatient } from "./worksheet";
 
 /** A sample taken in at the laboratory (the label was read). */
 export interface Reception {
@@ -44,17 +44,38 @@ export interface LabReport extends ReportVersion {
   earlier?: ReportVersion[];
 }
 
+export const REJECT_REASONS = ["溶血", "量不足", "凝固", "ラベル不一致", "その他"] as const;
+export type RejectReason = (typeof REJECT_REASONS)[number];
+
+/** A received sample the laboratory cannot measure: the draw goes back to the ward as 再採血. */
+export interface Rejection {
+  code: string;
+  orderId: string;
+  patientId: string;
+  /** Scheduled time of the draw that was rejected. */
+  at: number;
+  reason: RejectReason;
+  note?: string;
+  by: string;
+  day: DayOffset;
+  time: string;
+  /** The new draw sent back to the ward: an id of its own, so its label carries a new code. */
+  redrawId: string;
+}
+
 /** What the laboratory did in this session (kept in this browser only). */
 export interface LabDesk {
   received: Record<string, Reception>;
   reports: Record<string, LabReport>;
   /** Tries that did not reach anyone yet, by result key (moved into the call once reported). */
   tries: Record<string, ContactAttempt[]>;
+  /** Samples sent back for a new draw (再採血), by the label code that is no longer taken in. */
+  rejected: Record<string, Rejection>;
 }
 
-export const EMPTY_DESK: LabDesk = { received: {}, reports: {}, tries: {} };
+export const EMPTY_DESK: LabDesk = { received: {}, reports: {}, tries: {}, rejected: {} };
 
-export type DrawStatus = "未採取" | "採取しなかった" | "採取済み" | "受付済み" | "報告済み";
+export type DrawStatus = "未採取" | "採取しなかった" | "採取済み" | "受付済み" | "再採血" | "報告済み";
 
 export interface DrawRow {
   code: string;
@@ -76,6 +97,10 @@ export interface DrawRow {
   report?: LabReport;
   /** The result is already in the fictional record (before this session). */
   fromRecord?: boolean;
+  /** This sample was sent back (再採血): why, who, when, and the new draw. */
+  rejection?: Rejection;
+  /** This draw is the new draw for a sample that was sent back. */
+  redrawOf?: Rejection;
 }
 
 const hhmm = (min: number) => {
@@ -118,9 +143,12 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
     const person = people.find((x) => x.patient.id === i.patientId);
     const order = person?.entries.find((e) => e.id === i.orderId)?.order as LabOrder | undefined;
     const codes = order?.codes ?? [];
-    const base = { code, orderId: i.orderId, patientId: i.patientId, room: i.room, name: i.name, at, tests: i.main, codes, container: containersOf(codes), urgent: !!i.urgent };
+    const redrawOf = Object.values(desk.rejected).find((r) => r.redrawId === i.orderId);
+    const base = { code, orderId: i.orderId, patientId: i.patientId, room: i.room, name: i.name, at, tests: i.main, codes, container: containersOf(codes), urgent: !!i.urgent, ...(redrawOf ? { redrawOf } : {}) };
     const report = desk.reports[code];
     if (report) return { ...base, status: "報告済み" as const, report, reception: desk.received[code] };
+    const rejection = desk.rejected[code];
+    if (rejection) return { ...base, status: "再採血" as const, rejection, reception: desk.received[code] };
     if (person?.patient.labs.some((l) => !l.id && abs(l.day, l.time) === at)) return { ...base, status: "報告済み" as const, fromRecord: true };
     const reception = desk.received[code];
     if (reception) return { ...base, status: "受付済み" as const, reception };
@@ -164,6 +192,10 @@ export function scanSpecimen(input: string, rows: DrawRow[], people: WorkPatient
   }
   const who = `${row.room} ${row.name}さん ${whenText(row.at)} ${row.tests}`;
   if (row.status === "報告済み") return { ok: false, tone: "warn", row, message: `結果を報告済みの検体です（${who}${row.report ? `　${row.report.reported.time} ${row.report.by}` : "　前の記録"}）。` };
+  if (row.status === "再採血" && row.rejection) {
+    const r = row.rejection;
+    return { ok: false, tone: "stop", row, message: `再採血を頼んだ検体のラベルです（${who}　${rejectText(r)} ${r.time} ${r.by}）。このラベルでは受け付けません。採り直した検体の新しいラベル（${redrawCode(r)}）を読んでください。` };
+  }
   if (row.status === "受付済み") return { ok: false, tone: "warn", row, message: `受付済みの検体です（${who}　${row.reception!.time} ${row.reception!.by}）。` };
   if (row.status === "採取しなかった") return { ok: false, tone: "stop", row, message: `病棟が「未実施${row.notDoneReason ? `（${row.notDoneReason}）` : ""}」と記録した採血です（${who}）。受け付けません。病棟に確かめてください。` };
   if (row.status === "未採取") {
@@ -171,7 +203,7 @@ export function scanSpecimen(input: string, rows: DrawRow[], people: WorkPatient
       return { ok: false, tone: "stop", row, message: `採血の予定（${whenText(row.at)}）より前で、病棟の採取の記録もありません。受け付けません。` };
     return { ok: true, tone: "warn", row, message: `受け付けました：${who}。病棟の採取の記録がまだです。病棟にワークシートの「照合」で記録を頼んでください。` };
   }
-  return { ok: true, tone: "ok", row, message: `受け付けました：${who}。` };
+  return { ok: true, tone: "ok", row, message: `受け付けました：${who}${row.redrawOf ? "（再採血）" : ""}。` };
 }
 
 export function receive(desk: LabDesk, row: DrawRow, by: string, nowAbs: number): LabDesk {
@@ -181,10 +213,77 @@ export function receive(desk: LabDesk, row: DrawRow, by: string, nowAbs: number)
 
 /** How many draws are in each state. */
 export function statusCounts(rows: DrawRow[]): Record<DrawStatus, number> {
-  const out: Record<DrawStatus, number> = { 未採取: 0, 採取しなかった: 0, 採取済み: 0, 受付済み: 0, 報告済み: 0 };
+  const out: Record<DrawStatus, number> = { 未採取: 0, 採取しなかった: 0, 採取済み: 0, 受付済み: 0, 再採血: 0, 報告済み: 0 };
   for (const r of rows) out[r.status]++;
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// 再採血: a received sample that cannot be measured goes back to the ward as a new draw.
+// ---------------------------------------------------------------------------
+
+/** The reason in words (その他 is the words written). */
+export const rejectText = (r: Pick<Rejection, "reason" | "note">) => (r.reason === "その他" ? (r.note ?? "その他") : `${r.reason}${r.note ? `（${r.note}）` : ""}`);
+
+/** The order id the first draw had (a new draw of a new draw still belongs to it). */
+export const rootOrderId = (orderId: string) => orderId.replace(/(-re\d+)+$/, "");
+
+/** The code printed on the label of the new draw. */
+export const redrawCode = (r: Pick<Rejection, "redrawId" | "day" | "time">) => labelFor(r.redrawId, abs(r.day, r.time));
+
+/** Why a sample cannot be sent back now (null when it can): only a sample taken in and not reported. */
+export function rejectBlock(row: DrawRow): string | null {
+  if (row.status === "報告済み") return "結果を報告した検体は、再採血ではなく「訂正」で直します。";
+  if (row.status === "再採血") return "再採血を依頼済みです。";
+  if (row.status !== "受付済み") return "受け付けた検体だけ再採血にできます。";
+  return null;
+}
+
+/**
+ * 再採血: the sample is not taken in again (its code is kept as rejected, with who, when and why),
+ * and a new draw of the same order goes back to the ward from now, under a new label code.
+ */
+export function rejectSpecimen(desk: LabDesk, row: DrawRow, reason: RejectReason | null, note: string, by: string, nowAbs: number): LabDesk {
+  const n = note.trim();
+  if (!reason || (reason === "その他" && !n) || rejectBlock(row)) return desk;
+  const root = rootOrderId(row.orderId);
+  const count = Object.values(desk.rejected).filter((r) => rootOrderId(r.orderId) === root).length;
+  const r: Rejection = { code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, reason, ...(n ? { note: n } : {}), by, day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs), redrawId: `${root}-re${count + 1}` };
+  return { ...desk, rejected: { ...desk.rejected, [row.code]: r } };
+}
+
+/**
+ * The orders with their new draws (再採血) added: each is the first order drawn again from the time the
+ * laboratory sent the sample back, with the reason in its comment. It stops when the order stops.
+ * They go to the ward's list (worksheet, labels, 照合) and to the laboratory, not into the chart.
+ */
+export function withRedraws(entries: OrderEntry[], desk: LabDesk, patientId: string): OrderEntry[] {
+  const mine = Object.values(desk.rejected)
+    .filter((r) => r.patientId === patientId)
+    .sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time) || a.redrawId.localeCompare(b.redrawId));
+  if (!mine.length) return entries;
+  const out = [...entries];
+  for (const r of mine) {
+    const root = out.find((e) => e.id === rootOrderId(r.orderId));
+    if (!root || root.order.type !== "lab" || out.some((e) => e.id === r.redrawId)) continue;
+    const comment = [`再採血：${rejectText(r)}（${r.by} ${r.time}）`, root.order.comment].filter(Boolean).join("　");
+    out.push({
+      kind: "order",
+      id: r.redrawId,
+      day: r.day,
+      time: r.time,
+      author: `${r.by}（再採血の依頼）`,
+      status: root.status,
+      ...(root.stoppedOn !== undefined ? { stoppedOn: root.stoppedOn } : {}),
+      ...(root.stoppedTime ? { stoppedTime: root.stoppedTime } : {}),
+      order: { ...root.order, collect: { day: r.day, time: r.time }, comment },
+    });
+  }
+  return out;
+}
+
+/** The new draws wait for a nurse's 指示受け like a new order (keys of the worksheet). */
+export const redrawChangeKeys = (desk: LabDesk) => Object.values(desk.rejected).map((r) => changeKey(r.redrawId, "新規"));
 
 /**
  * The fictional events of this demo (like the blood culture in results.ts), so the laboratory has

@@ -3,11 +3,12 @@
 import { Check, ClipboardPen } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
-import { changeLine, checkEntry, confirmReport, correctReport, entryPlan, rangeText, toEnter, versionOf, whenText, type DrawRow, type LabDesk } from "@/lib/lab-desk";
+import { changeLine, checkEntry, confirmReport, correctReport, entryPlan, rangeText, rejectSpecimen, rejectText, toEnter, versionOf, whenText, type DrawRow, type LabDesk } from "@/lib/lab-desk";
 import { ageSex } from "@/lib/person";
 import { hitLine, labKey, type PanicCall, type PanicLimit } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
 import { LabCorrect } from "./LabCorrect";
+import { LabReject } from "./LabReject";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 interface Props {
@@ -36,7 +37,8 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
   // Results confirmed in this session (the fictional record before it is not corrected here).
   const reported = rows.filter((r) => r.status === "報告済み" && r.report);
   const fixing = reported.find((r) => r.code === sel);
-  const row = fixing ? undefined : (withItems.find((r) => r.code === sel) ?? withItems[0]);
+  const row = fixing ? undefined : (received.find((r) => r.code === sel) ?? withItems[0] ?? without[0]);
+  const [sentBack, setSentBack] = useState("");
   const fixPerson = fixing && people.find((x) => x.patient.id === fixing.patientId);
   const fixLab = fixPerson?.patient.labs.find((l) => l.id === fixing!.code);
   const pick = (r: DrawRow, on: boolean, tone: "ai" | "yamabuki") => (
@@ -56,6 +58,11 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
   return (
     <div className="mx-auto max-w-[1100px] space-y-2">
       <DenyNote action="lab.result" />
+      {sentBack && (
+        <p role="status" className="rounded border border-yamabuki/50 bg-yamabuki-soft px-2 py-1 text-[12px] font-bold text-yamabuki">
+          {sentBack}
+        </p>
+      )}
       {received.length === 0 && reported.length === 0 ? (
         <p className="rounded-lg border border-rule bg-sheet p-4 text-ink-soft">受け付けた検体はありません。「検体の受付」でラベルを読むと、ここに並びます。</p>
       ) : (
@@ -66,9 +73,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
               <li key={r.code}>{pick(r, r.code === row?.code, "ai")}</li>
             ))}
             {without.map((r) => (
-              <li key={r.code} className="rounded border border-rule-soft px-2 py-1 text-[11px] text-ink-faint">
-                {whenText(r.at)} {r.name}　{r.tests}：この画面で入れる項目なし（{entryPlan(r.codes).other.map((o) => `${o.name}は${o.why}`).join("、")}）
-              </li>
+              <li key={r.code}>{pick(r, r.code === row?.code, "ai")}</li>
             ))}
             {reported.length > 0 && <li className="pt-2 text-[11px] font-bold text-ink-soft">確定した結果（押すと訂正できます）</li>}
             {reported.map((r) => (
@@ -99,21 +104,40 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
             />
           )}
           {row && (
-            <Form
-              key={row.code}
-              row={row}
-              person={people.find((x) => x.patient.id === row.patientId)}
-              raw={raw[row.code] ?? {}}
-              onRaw={(v) => setRaw((all) => ({ ...all, [row.code]: v }))}
-              limits={limits}
-              locked={!!deny}
-              onConfirm={(values, panicLine, n) => {
-                onDesk((d) => confirmReport(d, row, values, me.name, nowAbs));
-                auditLog({ role: me.role, actor: me.name, action: "確定（検査結果）", patient: row.name, detail: `${whenText(row.at)} ${n}項目${panicLine ? `　パニック値：${panicLine}` : ""}` });
-                setSel(null);
-                if (panicLine) onPanic(`${row.room} ${row.name}さん ${panicLine}`);
-              }}
-            />
+            <div className="min-w-0 flex-1 space-y-2">
+              {entryPlan(row.codes).analytes.length > 0 ? (
+                <Form
+                  key={row.code}
+                  row={row}
+                  person={people.find((x) => x.patient.id === row.patientId)}
+                  raw={raw[row.code] ?? {}}
+                  onRaw={(v) => setRaw((all) => ({ ...all, [row.code]: v }))}
+                  limits={limits}
+                  locked={!!deny}
+                  onConfirm={(values, panicLine, n) => {
+                    onDesk((d) => confirmReport(d, row, values, me.name, nowAbs));
+                    auditLog({ role: me.role, actor: me.name, action: "確定（検査結果）", patient: row.name, detail: `${whenText(row.at)} ${n}項目${panicLine ? `　パニック値：${panicLine}` : ""}` });
+                    setSel(null);
+                    if (panicLine) onPanic(`${row.room} ${row.name}さん ${panicLine}`);
+                  }}
+                />
+              ) : (
+                <p className="rounded-lg border border-rule bg-sheet p-3 text-ink-soft">
+                  {row.room} {row.name}さん {whenText(row.at)} {row.tests}：この画面で入れる項目はありません（{entryPlan(row.codes).other.map((o) => `${o.name}は${o.why}`).join("、")}）。
+                </p>
+              )}
+              <LabReject
+                key={`reject-${row.code}`}
+                row={row}
+                onReject={(reason, note) => {
+                  onDesk((d) => rejectSpecimen(d, row, reason, note, me.name, nowAbs));
+                  const why = rejectText({ reason, note: note.trim() || undefined });
+                  auditLog({ role: me.role, actor: me.name, action: "確定（再採血の依頼）", patient: row.name, detail: `${whenText(row.at)} ${row.tests}　理由：${why}　ラベル ${row.code} は受け付けない` });
+                  setSel(null);
+                  setSentBack(`再採血を依頼しました：${row.room} ${row.name}さん ${row.tests}（${why}）。新しいラベルの採血が受付の一覧に「再採血」で並びます。`);
+                }}
+              />
+            </div>
           )}
         </div>
       )}

@@ -4,7 +4,7 @@ import { BookOpenText, ClipboardPen, FlaskConical, HelpCircle, PhoneCall, ScanLi
 import { useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { abs } from "@/lib/flowsheet";
-import { drawRows, receive, scanSpecimen, statusCounts, versionOf, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
+import { drawRows, receive, redrawCode, rejectText, scanSpecimen, statusCounts, versionOf, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
 import type { AdminRecord } from "@/lib/mar";
 import { callScript, hitLine, labBoard, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
@@ -134,6 +134,7 @@ const STATUS_STYLE: Record<DrawStatus, string> = {
   採取しなかった: "font-bold text-shu",
   採取済み: "font-bold text-ai",
   受付済み: "font-bold text-wakatake",
+  再採血: "font-bold text-yamabuki",
   報告済み: "text-ink-faint",
 };
 
@@ -191,6 +192,7 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
         <span className="nums ml-auto text-xs text-ink-soft">
           未採取 {counts.未採取}・採取済み {counts.採取済み}・受付済み {counts.受付済み}・報告済み {counts.報告済み}
           {counts.採取しなかった ? `・採取しなかった ${counts.採取しなかった}` : ""}
+          {counts.再採血 ? `・再採血を依頼 ${counts.再採血}` : ""}
         </span>
         {scan && (
           <p role="status" className={`w-full rounded border px-2 py-1 text-[12px] font-bold ${TONE[scan.tone]}`}>
@@ -228,7 +230,11 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
               <td className="py-1 pr-2">
                 <span className="nums text-ink-faint">{r.room}</span> {r.name}
               </td>
-              <td className="py-1 pr-2">{r.tests}</td>
+              <td className="py-1 pr-2">
+                {r.redrawOf && <span className="mr-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">再採血</span>}
+                {r.tests}
+                {r.redrawOf && <span className="block text-[10px] text-yamabuki">前の検体 {r.redrawOf.code}：{rejectText(r.redrawOf)}（{r.redrawOf.time} {r.redrawOf.by}）</span>}
+              </td>
               <td className="py-1 pr-2 text-ink-soft">{r.container}</td>
               <td className="nums py-1 pr-2 font-mono text-[11px] text-ink-soft">{r.code}</td>
               <td className={`py-1 pr-2 ${STATUS_STYLE[r.status]}`}>
@@ -252,6 +258,7 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
 
 function statusNote(r: DrawRow, nowAbs: number): string {
   if (r.status === "報告済み") return r.report ? `${r.report.reported.time} ${r.report.by}${versionOf(r.report) > 1 ? `（訂正 第${versionOf(r.report)}版）` : ""}` : "前の記録";
+  if (r.status === "再採血" && r.rejection) return `${rejectText(r.rejection)} ${r.rejection.time} ${r.rejection.by} → 新しいラベル ${redrawCode(r.rejection)}`;
   if (r.status === "受付済み") return `${r.reception!.time} ${r.reception!.by}${r.reception!.collected ? "" : "（採取の記録なし）"}`;
   if (r.status === "採取済み") return r.collectedAt === "前の勤務" ? "前の勤務" : `${r.collectedAt ?? ""} ${r.collectedBy ?? ""}`.trim();
   if (r.status === "採取しなかった") return r.notDoneReason ?? "";

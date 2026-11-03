@@ -147,7 +147,7 @@ import { AdmitEvalView } from "./AdmitEvalView";
 import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type AdmitEval } from "@/lib/admit-eval";
 import { ResultsInbox } from "./ResultsInbox";
 import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
-import { EMPTY_DESK, demoLabOrders, deskLabs, type LabDesk } from "@/lib/lab-desk";
+import { EMPTY_DESK, demoLabOrders, deskLabs, redrawChangeKeys, withRedraws, type LabDesk } from "@/lib/lab-desk";
 import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
@@ -1028,7 +1028,8 @@ export default function WardApp() {
     const p = b.patientId ? findPatient(b.patientId) : undefined;
     if (!p) return [];
     const entries = currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order");
-    return [{ patient: p, room: `${b.room}${b.bed}`, entries }];
+    // 再採血 sent back by the laboratory are drawn again by the ward (worksheet, labels, 照合).
+    return [{ patient: p, room: `${b.room}${b.bed}`, entries: withRedraws(entries, labDesk, p.id) }];
   });
 
   // 指示受けがまだ: this session's new orders and stops that no nurse has taken yet.
@@ -1042,7 +1043,7 @@ export default function WardApp() {
     -1440,
     abs(0, nowTime),
   );
-  const sessionKeys = new Set([...sessionChangeKeys(sessionChanges), ...others.map((c) => c.key)]);
+  const sessionKeys = new Set([...sessionChangeKeys(sessionChanges), ...others.map((c) => c.key), ...redrawChangeKeys(labDesk)]);
   const waiting: Record<string, number> = {};
   for (const c of [...orderChanges(people, -1440, abs(0, nowTime)), ...others]) {
     if (sessionKeys.has(c.key) && !taken[c.key]) waiting[c.patientId] = (waiting[c.patientId] ?? 0) + 1;

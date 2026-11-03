@@ -19,6 +19,11 @@ import {
   parseValue,
   rangeText,
   receive,
+  redrawChangeKeys,
+  redrawCode,
+  rejectBlock,
+  rejectSpecimen,
+  rejectText,
   scanSpecimen,
   statusCounts,
   testCodes,
@@ -26,7 +31,9 @@ import {
   versionOf,
   versionsOf,
   whenText,
+  withRedraws,
 } from "./lab-desk";
+import { buildWorksheet, changeKey, orderChanges } from "./worksheet";
 import { latestValue } from "./clinical";
 import { ANALYTES } from "./master";
 import { PANIC_LIMITS, labKey, resultsOf, uncalled, unseen } from "./results";
@@ -268,6 +275,67 @@ describe("パニック値の連絡：つながらなかった回", () => {
     const d = addTry(addTry(EMPTY_DESK, "k1", t("10:00")), "k1", t("10:05"));
     expect(d.tries.k1.map((x) => x.at.time)).toEqual(["10:00", "10:05"]);
     expect(EMPTY_DESK.tries).toEqual({});
+  });
+});
+
+describe("再採血", () => {
+  const recs = { [marKey("ord-t2", T20)]: record("ord-t2", T20) };
+  const row = drawRows(people, recs, EMPTY_DESK, 9 * 60, T20).find((r) => r.orderId === "ord-t2")!;
+  const got = receive(EMPTY_DESK, row, "検査技師 中村", T20 + 10);
+  const received = drawRows(people, recs, got, 9 * 60, T20 + 10).find((r) => r.orderId === "ord-t2")!;
+  const sent = rejectSpecimen(got, received, "溶血", "", "検査技師 中村", T20 + 15);
+  const withNew = (d: typeof sent): WorkPatient[] => people.map((x) => ({ ...x, entries: withRedraws(x.entries, d, x.patient.id) }));
+
+  it("only a sample taken in and not reported; その他 needs words", () => {
+    expect(rejectBlock(row)).toContain("受け付けた検体だけ");
+    expect(rejectBlock(received)).toBeNull();
+    expect(rejectSpecimen(got, row, "溶血", "", "x", T20 + 15)).toBe(got);
+    expect(rejectSpecimen(got, received, "その他", " ", "x", T20 + 15)).toBe(got);
+    expect(rejectSpecimen(got, received, null, "", "x", T20 + 15)).toBe(got);
+    expect(sent.rejected[row.code]).toMatchObject({ reason: "溶血", by: "検査技師 中村", day: 0, time: "20:15", redrawId: "ord-t2-re1" });
+    expect(rejectText({ reason: "その他", note: "容器違い" })).toBe("容器違い");
+    expect(rejectText({ reason: "量不足", note: "2mL" })).toBe("量不足（2mL）");
+  });
+
+  it("goes back to the ward as a new draw from now, with the reason, waiting for 指示受け", () => {
+    const entries = withNew(sent)[0].entries;
+    const redraw = entries.find((e) => e.id === "ord-t2-re1")!;
+    expect(redraw).toMatchObject({ day: 0, time: "20:15", status: "有効", author: "検査技師 中村（再採血の依頼）", order: { type: "lab", codes: ["LAB-VCM"], collect: { day: 0, time: "20:15" }, comment: "再採血：溶血（検査技師 中村 20:15）" } });
+    const item = buildWorksheet(withNew(sent), 0, 1440, T20 + 15).timed.find((i) => i.orderId === "ord-t2-re1")!;
+    expect(item).toMatchObject({ kind: "採血", at: T20 + 15 });
+    expect(item.detail).toContain("再採血：溶血");
+    expect(orderChanges(withNew(sent), -1440, T20 + 15).map((c) => c.key)).toContain(changeKey("ord-t2-re1", "新規"));
+    expect(redrawChangeKeys(sent)).toEqual([changeKey("ord-t2-re1", "新規")]);
+    expect(withRedraws(people[0].entries, EMPTY_DESK, sakura.id)).toBe(people[0].entries);
+  });
+
+  it("the old label is not taken in again; the new draw has its own label", () => {
+    const rows = drawRows(withNew(sent), recs, sent, 9 * 60, T20 + 15);
+    const old = rows.find((r) => r.code === row.code)!;
+    expect(old).toMatchObject({ status: "再採血", rejection: { reason: "溶血" } });
+    const fresh = rows.find((r) => r.orderId === "ord-t2-re1")!;
+    expect(fresh.code).toBe(redrawCode(sent.rejected[row.code]));
+    expect(fresh.code).not.toBe(row.code);
+    expect(fresh).toMatchObject({ status: "未採取", redrawOf: { code: row.code } });
+    const again = scanSpecimen(row.code, rows, withNew(sent), T20 + 20)!;
+    expect(again).toMatchObject({ ok: false, tone: "stop" });
+    expect(again.message).toContain(fresh.code);
+    expect(statusCounts(rows).再採血).toBe(1);
+    const drawn = { ...recs, [marKey("ord-t2-re1", T20 + 15)]: { ...record("ord-t2-re1", T20 + 15), doneAt: "20:25" } };
+    const rows2 = drawRows(withNew(sent), drawn, sent, 9 * 60, T20 + 30);
+    expect(rows2.find((r) => r.code === fresh.code)).toMatchObject({ status: "採取済み", collectedAt: "20:25" });
+    expect(scanSpecimen(fresh.code, rows2, withNew(sent), T20 + 30)!.message).toContain("（再採血）");
+  });
+
+  it("a new draw sent back again gets another new draw; a stopped order stops its new draws", () => {
+    const rows = drawRows(withNew(sent), recs, sent, 9 * 60, T20 + 15);
+    const fresh = rows.find((r) => r.orderId === "ord-t2-re1")!;
+    const d2 = rejectSpecimen(receive(sent, fresh, "x", T20 + 40), { ...fresh, status: "受付済み" }, "凝固", "", "検査技師 中村", T20 + 45);
+    expect(d2.rejected[fresh.code].redrawId).toBe("ord-t2-re2");
+    expect(withNew(d2)[0].entries.filter((e) => e.id.startsWith("ord-t2-re")).map((e) => e.id)).toEqual(["ord-t2-re1", "ord-t2-re2"]);
+    const stopped = people.map((x) => ({ ...x, entries: x.entries.map((e) => (e.id === "ord-t2" ? { ...e, status: "中止" as const, stoppedOn: 0, stoppedTime: "20:30" } : e)) }));
+    const redraws = withRedraws(stopped[0].entries, sent, sakura.id).filter((e) => e.id === "ord-t2-re1");
+    expect(redraws[0]).toMatchObject({ status: "中止", stoppedTime: "20:30" });
   });
 });
 
