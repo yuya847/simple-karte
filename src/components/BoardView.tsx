@@ -19,6 +19,10 @@ interface Props {
   onRead: (id: string, name: string) => void;
   /** A new notice was put up. */
   onPost: (n: Notice) => void;
+  /** Everyone the notice is for (to show who has not read it), and the reminders sent (notice id → names, time). */
+  staff?: string[];
+  reminded?: Record<string, { names: string[]; at: string; by: string }>;
+  onRemind?: (id: string, names: string[]) => void;
 }
 
 let seq = 0;
@@ -28,7 +32,7 @@ const input = "rounded-md border border-rule bg-sheet px-2 py-1.5 text-[13px] te
 const postedAt = (n: Notice, today: CalendarDate) => `${formatShort(addDays(today, n.posted.day))} ${n.posted.time}`;
 
 /** 掲示板: notices from the departments of the fictional hospital, with who has read each one. */
-export function BoardView({ notices, reads, today, nowTime, onRead, onPost }: Props) {
+export function BoardView({ notices, reads, today, nowTime, onRead, onPost, staff = [], reminded = {}, onRemind }: Props) {
   const me = useMe();
   const [dept, setDept] = useState<Dept | "">("");
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -154,7 +158,7 @@ export function BoardView({ notices, reads, today, nowTime, onRead, onPost }: Pr
               }}
             />
           ) : open ? (
-            <NoticeDetail notice={open} readers={reads[open.id] ?? []} today={today} />
+            <NoticeDetail notice={open} readers={reads[open.id] ?? []} today={today} staff={staff} reminded={reminded[open.id]} onRemind={onRemind ? (names) => onRemind(open.id, names) : undefined} />
           ) : (
             <p className="text-ink-faint">左の一覧から掲示を選ぶと、ここに出ます。開くと既読になります。</p>
           )}
@@ -164,7 +168,8 @@ export function BoardView({ notices, reads, today, nowTime, onRead, onPost }: Pr
   );
 }
 
-function NoticeDetail({ notice: n, readers, today }: { notice: Notice; readers: string[]; today: CalendarDate }) {
+function NoticeDetail({ notice: n, readers, today, staff, reminded, onRemind }: { notice: Notice; readers: string[]; today: CalendarDate; staff: string[]; reminded?: { names: string[]; at: string; by: string }; onRemind?: (names: string[]) => void }) {
+  const notYet = staff.filter((s) => !readers.includes(s));
   return (
     <article className="mx-auto max-w-3xl rounded-lg border border-rule bg-sheet p-5">
       <div className="mb-1 flex flex-wrap items-center gap-2 text-[12px]">
@@ -186,6 +191,21 @@ function NoticeDetail({ notice: n, readers, today }: { notice: Notice; readers: 
         <Check size={12} className="text-wakatake" />
         開いた人（{readers.length}人）：{readers.length ? readers.join("、") : "まだいません"}
       </p>
+      {notYet.length > 0 && (
+        <p className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-ink-soft">
+          まだの人（{notYet.length}人）：{notYet.join("、")}
+          {onRemind && (
+            <button type="button" onClick={() => onRemind(notYet)} className="ml-1 rounded border border-yamabuki px-1.5 py-0.5 font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
+              まだの人に知らせる
+            </button>
+          )}
+          {reminded && (
+            <span className="nums">
+              （{reminded.at} {reminded.by} が {reminded.names.length}人に知らせました）
+            </span>
+          )}
+        </p>
+      )}
     </article>
   );
 }

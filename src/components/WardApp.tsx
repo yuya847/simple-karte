@@ -340,6 +340,8 @@ export default function WardApp() {
   const [callNotes, setCallNotes] = useState<CallNote[]>([]);
   // 転院・施設の調整: what was asked where, and each answer.
   const [transferAsks, setTransferAsks] = useState<TransferAsk[]>([]);
+  // 掲示板: reminders sent to those who have not read a notice (notice id → names).
+  const [boardReminders, setBoardReminders] = useState<Record<string, { names: string[]; at: string; by: string }>>({});
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
@@ -1082,6 +1084,11 @@ export default function WardApp() {
   if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
   const toCall = uncalled(wardResults, calls).length;
+  // 掲示板: notices someone asked me to read, still unread.
+  for (const n of notices) {
+    const r = boardReminders[n.id];
+    if (r && r.names.includes(me.name) && !(reads[n.id] ?? []).includes(me.name)) todos.push({ key: `board-${n.id}`, label: `掲示を読む：${n.title}`, detail: `${r.at} ${r.by}から`, count: 1, tone: "yamabuki", go: () => openArea("board") });
+  }
   if (!deny("panic.call") && toCall) todos.push({ key: "call", label: "パニック値の連絡がまだ", detail: "検査室で連絡を記録する", count: toCall, tone: "shu", go: () => openArea("lab") });
 
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
@@ -1320,6 +1327,12 @@ export default function WardApp() {
           nowTime={nowTime}
           onRead={(id, name) => setReads((r) => markRead(r, id, name))}
           onPost={(n) => setNotices((ns) => [...ns, n])}
+          staff={Object.values(STAFF).map((x) => x.name)}
+          reminded={boardReminders}
+          onRemind={(id, names) => {
+            auditLog({ role: me.role, actor: me.name, action: "掲示の未読者に知らせた", detail: `${notices.find((n) => n.id === id)?.title ?? id}　${names.join("、")}` });
+            setBoardReminders((all) => ({ ...all, [id]: { names, at: nowTime, by: me.name } }));
+          }}
         />
       ) : screen === "manual" ? (
         <ManualView openId={manualOpen} onOpen={setManualOpen} />
