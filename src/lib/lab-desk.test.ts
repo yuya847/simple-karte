@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DESK, addTry, checkEntry, confirmReport, containersOf, deskLabs, deskWindow, drawRows, entryPlan, flagOf, normalizeCode, parseValue, rangeText, receive, scanSpecimen, statusCounts, testCodes, toEnter, whenText } from "./lab-desk";
+import { EMPTY_DESK, addTry, checkEntry, confirmReport, containersOf, demoLabOrders, deskLabs, deskWindow, drawRows, entryPlan, flagOf, normalizeCode, parseValue, rangeText, receive, scanSpecimen, statusCounts, testCodes, toEnter, whenText } from "./lab-desk";
+import { latestValue } from "./clinical";
 import { ANALYTES } from "./master";
 import { PANIC_LIMITS, labKey, resultsOf, uncalled } from "./results";
 import { labelFor, marKey, type AdminRecord } from "./mar";
@@ -210,6 +211,27 @@ describe("結果の入力", () => {
     expect(waiting).toHaveLength(1);
     expect(waiting[0]).toMatchObject({ day: 1, time: "06:00" });
     expect(waiting[0].panic.map((h) => h.code)).toEqual(["K"]);
+  });
+});
+
+describe("確定した結果が最新値になる", () => {
+  it("a result confirmed later today is the latest value (header, dose checks)", () => {
+    const p = { ...sakura, labs: [...sakura.labs, { day: 0, time: "20:00", values: { Cre: 1.9 }, id: "X-1200" }] };
+    expect(latestValue(p, "Cre")).toEqual({ value: 1.9, day: 0 });
+  });
+});
+
+describe("デモの架空の採血", () => {
+  it("北村さんの至急の電解質は少し前に採取済み（前の勤務）、森さんは明日の朝の定期採血", () => {
+    const now = 600;
+    const demo = demoLabOrders(now);
+    const ward: WorkPatient[] = PATIENTS.filter((p) => demo[p.id]).map((p) => ({ patient: p, room: p.id === "90010198" ? "508A" : "511", entries: demo[p.id] }));
+    const rows = drawRows(ward, {}, EMPTY_DESK, now, now);
+    expect(rows.map((r) => `${r.name} ${whenText(r.at)} ${r.status}${r.urgent ? " 至急" : ""}`)).toEqual(["北村 博 09:35 採取済み 至急", "森 久美子 明日 06:00 未採取"]);
+    expect(rows[0].collectedAt).toBe("前の勤務");
+    expect(entryPlan(rows[0].codes).analytes.map((a) => a.code)).toEqual(["Na", "K", "Cl", "BUN", "Cre"]);
+    expect(scanSpecimen(rows[0].code, rows, ward, now)).toMatchObject({ ok: true, tone: "ok" });
+    expect(scanSpecimen(rows[1].code, rows, ward, now)).toMatchObject({ ok: false, tone: "stop" });
   });
 });
 

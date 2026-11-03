@@ -7,7 +7,7 @@ import { abs } from "./flowsheet";
 import { labelFor, marState, type AdminRecord } from "./mar";
 import { ANALYTES, findLab, findSet, labInfo, rangeFor, WARD_RULES, type Analyte } from "./master";
 import { panicOf, type ContactAttempt, type PanicHit, type PanicLimit } from "./results";
-import type { DayOffset, LabOrder, LabResult, Patient, Sex } from "./types";
+import type { DayOffset, LabOrder, LabResult, OrderEntry, Patient, Sex } from "./types";
 import { SHIFTS, buildWorksheet, type WorkPatient } from "./worksheet";
 
 /** A sample taken in at the laboratory (the label was read). */
@@ -176,6 +176,22 @@ export function statusCounts(rows: DrawRow[]): Record<DrawStatus, number> {
   const out: Record<DrawStatus, number> = { 未採取: 0, 採取しなかった: 0, 採取済み: 0, 受付済み: 0, 報告済み: 0 };
   for (const r of rows) out[r.status]++;
   return out;
+}
+
+/**
+ * The fictional events of this demo (like the blood culture in results.ts), so the laboratory has
+ * samples to take in: 山本医師 ordered urgent electrolytes for 北村さん a little before the session
+ * began and the ward drew them just before (so they count as recorded by the earlier shift), and
+ * 森さん has tomorrow's routine draw (ordered yesterday).
+ */
+export function demoLabOrders(nowAbs: number): Record<string, OrderEntry[]> {
+  const drawn = Math.max(0, nowAbs - 25);
+  const ordered = Math.max(0, nowAbs - 50);
+  const entry = (id: string, day: DayOffset, time: string, order: LabOrder): OrderEntry => ({ kind: "order", id, day, time, author: "山本（専攻医）", status: "有効", order });
+  return {
+    "90010198": [entry("o-lab-demo1", 0, hhmm(ordered), { type: "lab", codes: ["SET-LYTES", "LAB-BUN", "LAB-CRE"], collect: { day: 0, time: hhmm(drawn) }, priority: "至急" })],
+    "90010260": [entry("o-lab-demo2", -1, "17:30", { type: "lab", codes: ["SET-ROUTINE"], collect: { day: 1, time: WARD_RULES.routineDrawTime }, priority: "定時" })],
+  };
 }
 
 // ---------------------------------------------------------------------------
