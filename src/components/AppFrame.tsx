@@ -263,9 +263,11 @@ function UserButton({ role, onRole, onScreen, layout, onLayout, compact }: { rol
   );
 }
 
-function LayoutSwitch({ layout, onLayout }: { layout: Layout; onLayout: (l: Layout) => void }) {
+/** 画面の並び A / B (for comparing the two; shown on screen until one is chosen). */
+function LayoutSwitch({ layout, onLayout, short }: { layout: Layout; onLayout: (l: Layout) => void; short?: boolean }) {
   return (
-    <div role="radiogroup" aria-label="画面の並び" className="inline-flex rounded-md border border-rule bg-paper p-0.5 text-xs">
+    <div role="radiogroup" aria-label="画面の並び" title="画面の並びを切り替える（A 上にホーム／B 左にメニュー）" className="inline-flex items-center rounded-md border border-rule bg-paper p-0.5 text-xs">
+      {!short && <span className="px-1 text-ink-faint">並び</span>}
       {(
         [
           ["A", "A 上にホーム"],
@@ -273,7 +275,7 @@ function LayoutSwitch({ layout, onLayout }: { layout: Layout; onLayout: (l: Layo
         ] as const
       ).map(([v, l]) => (
         <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => onLayout(v)} className={`whitespace-nowrap rounded px-2 py-0.5 pointer-coarse:py-1.5 ${layout === v ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
-          {l}
+          {short ? v : l}
         </button>
       ))}
     </div>
@@ -320,6 +322,7 @@ export function AppFrame(p: Props) {
               </button>
             )}
             <TodoButton todos={p.todos} />
+            <LayoutSwitch layout={p.layout} onLayout={p.onLayout} short />
             <UserButton role={p.role} onRole={p.onRole} onScreen={p.onScreen} layout={p.layout} onLayout={p.onLayout} />
           </div>
         </div>
@@ -476,6 +479,9 @@ function LayoutB(p: Props & { depts: Dept[]; goDept: (d: Dept) => void }) {
             </button>
           )}
           <TodoButton todos={p.todos} compact />
+          <div className="px-1 py-1">
+            <LayoutSwitch layout={p.layout} onLayout={p.onLayout} short />
+          </div>
           <UserButton role={p.role} onRole={p.onRole} onScreen={p.onScreen} layout={p.layout} onLayout={p.onLayout} compact />
         </div>
       </nav>
