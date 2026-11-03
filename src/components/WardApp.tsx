@@ -29,6 +29,8 @@ import { BedMoveDialog } from "./BedMoveDialog";
 import { StickyStrip, type Sticky } from "./StickyStrip";
 import { BoardView } from "./BoardView";
 import { ExtractView } from "./ExtractView";
+import { JournalView } from "./JournalView";
+import { journalLines, staffing } from "@/lib/journal";
 import { runExtract } from "@/lib/extract";
 import { ManualView } from "./ManualView";
 import { IncidentView } from "./IncidentView";
@@ -306,6 +308,8 @@ export default function WardApp() {
   const [manualOpen, setManualOpen] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
   const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
+  // 看護日誌: the charge nurse's words, per floor.
+  const [journal, setJournal] = useState<Record<string, { text: string; by: string; at: string }[]>>({});
   // 妊娠中の印 and 付箋, per patient.
   const [pregnancy, setPregnancy] = useState<Record<string, { weeks: number | null } | null>>({});
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
@@ -958,6 +962,29 @@ export default function WardApp() {
             else setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st as OpdStatus } : x)));
           }}
           newId={newId}
+        />
+      ) : screen === "journal" ? (
+        <JournalView
+          title="看護日誌"
+          pick={floorPick}
+          nowTime={nowTime}
+          staff={staffing(floorInfo)}
+          lines={journalLines({
+            floor: floorInfo,
+            ward,
+            beds: allBeds,
+            requests,
+            restrained: restraints.filter((r) => !r.end).map((r) => findPatient(r.patientId)?.name ?? ""),
+            callsMet: people.filter((x) => callsMet[x.patient.id]?.length).map((x) => x.patient.name),
+            surgeriesToday: surgeries.filter((x) => x.day === 0).map((x) => x.name),
+            dialysisToday: people.filter((x) => x.entries.some((e) => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-HD" && e.order.start.day === 0)).map((x) => x.patient.name),
+            incidentsToday: incidents.filter((r) => r.occurred.day === 0).length,
+          })}
+          saved={journal[floor] ?? []}
+          onSave={(text) => {
+            auditLog({ role: me.role, actor: me.name, action: "看護日誌に書き残した", detail: `${floor}　${text.slice(0, 80)}` });
+            setJournal((all) => ({ ...all, [floor]: [...(all[floor] ?? []), { text, by: me.name, at: nowTime }] }));
+          }}
         />
       ) : screen === "extract" ? (
         <ExtractView

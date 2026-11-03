@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   List,
   Megaphone,
+  NotebookText,
   MessagesSquare,
   Pill,
   Printer,
@@ -54,4 +55,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   handoff: ArrowRightLeft,
   admit: ClipboardList,
   acuity: ClipboardCheck,
+  journal: NotebookText,
 };
