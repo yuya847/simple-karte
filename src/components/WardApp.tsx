@@ -136,7 +136,7 @@ import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
-import { overdue, type AdminRecord } from "@/lib/mar";
+import { overdue, type AdminRecord, type VoidedRecord } from "@/lib/mar";
 import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
@@ -391,6 +391,8 @@ export default function WardApp() {
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
   // 与薬・実施の記録 (eMAR). Items due before this session are taken as recorded by the earlier shift.
   const [mar, setMar] = useState<Record<string, AdminRecord>>({});
+  // 実施・未実施 records taken back (with who, when and why), by dose key.
+  const [marVoided, setMarVoided] = useState<Record<string, VoidedRecord[]>>({});
   // A nurse confirming orders is always entering a doctor's spoken order (口頭指示).
   const verbalMode = role === "看護師";
   const [sessionStart, setSessionStart] = useState<number | null>(null);
@@ -1285,6 +1287,17 @@ export default function WardApp() {
               detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.status === "実施" ? `リストバンド${r.checked.patient ? "一致" : "—"}${r.checked.label === null ? "" : `・ラベル${r.checked.label ? "一致" : "—"}`}${r.offBy !== undefined ? `・予定より${Math.abs(r.offBy)}分${r.offBy > 0 ? "遅れ" : "早め"}` : ""}` : r.reason}`,
             });
             setMar((all) => ({ ...all, [r.key]: r }));
+          }}
+          voided={marVoided}
+          onVoid={(r, reason) => {
+            const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
+            auditLog({ role: me.role, actor: me.name, action: `${r.status}の記録を取り消した`, patient: findPatient(r.patientId)?.name, detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.doneAt} ${r.by} の記録　理由：${reason}` });
+            setMarVoided((all) => ({ ...all, [r.key]: [...(all[r.key] ?? []), { record: r, by: me.name, at: nowTime, reason }] }));
+            setMar((all) => {
+              const next = { ...all };
+              delete next[r.key];
+              return next;
+            });
           }}
         />
       ) : screen === "audit" ? (

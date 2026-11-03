@@ -9,6 +9,16 @@ import type { WorkItem } from "./worksheet";
 export const NOT_DONE_REASONS = ["患者が拒否", "絶食・検査のため", "医師の指示で中止・延期", "薬が届いていない", "患者が不在", "その他"] as const;
 export type NotDoneReason = (typeof NOT_DONE_REASONS)[number];
 
+/** Why a 実施・未実施 record is taken back (it stays in the history). */
+export const VOID_REASONS = ["別の患者・別の回に記録した", "実施と未実施を取り違えた", "時刻を間違えた", "その他"] as const;
+export type VoidReason = (typeof VOID_REASONS)[number];
+export interface VoidedRecord {
+  record: AdminRecord;
+  by: string;
+  at: string;
+  reason: VoidReason;
+}
+
 export interface AdminRecord {
   key: string;
   orderId: string;

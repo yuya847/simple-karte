@@ -7,7 +7,7 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import { WARD_NAME } from "@/lib/ward";
-import { marState, prnToday, type AdminRecord } from "@/lib/mar";
+import { marState, prnToday, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
 import { MarCell } from "./MarCell";
 import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type Shift, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
@@ -26,6 +26,9 @@ interface Props {
   /** Items due before this time count as recorded by the (fictional) earlier shift. */
   sessionStart: number;
   onRecord: (r: AdminRecord) => void;
+  /** Take a record back (reason), and the records taken back, by dose key. */
+  onVoid?: (r: AdminRecord, reason: VoidReason) => void;
+  voided?: Record<string, VoidedRecord[]>;
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -43,7 +46,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {} }: Props) {
   const [day, setDay] = useState<0 | 1>(0);
   const [shift, setShift] = useState<Shift>("day");
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
@@ -57,7 +60,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   const isTaken = (c: OrderChange) => !sessionKeys.has(c.key) || !!taken[c.key];
   const waiting = changes.filter((c) => !isTaken(c)).length;
 
-  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, people };
+  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, people };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -152,12 +155,14 @@ interface SheetProps {
   records: Record<string, AdminRecord>;
   sessionStart: number;
   onRecord: (r: AdminRecord) => void;
+  onVoid?: (r: AdminRecord, reason: VoidReason) => void;
+  voided: Record<string, VoidedRecord[]>;
   people: WorkPatient[];
 }
 
 type DayOffsetLike = 0 | 1;
 
-function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, people }: SheetProps) {
+function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, people }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   const maxOf = (orderId: string) => {
@@ -297,7 +302,7 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                     </td>
                     <td className={td}>
                       {interactive && i.at !== null ? (
-                        <MarCell item={i} state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} onRecord={onRecord} />
+                        <MarCell item={i} state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} onRecord={onRecord} onVoid={onVoid} voided={(voided[`${i.orderId}|${i.at}`] ?? []).map((v) => ({ by: v.by, at: v.at, reason: v.reason, status: `${v.record.status} ${v.record.doneAt}` }))} />
                       ) : (
                         <PrintMar state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} />
                       )}

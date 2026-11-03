@@ -2,7 +2,7 @@
 
 import { ScanLine } from "lucide-react";
 import { useState } from "react";
-import { NOT_DONE_REASONS, checkScan, labelFor, marKey, needsLabel, type AdminRecord, type MarState, type NotDoneReason } from "@/lib/mar";
+import { NOT_DONE_REASONS, VOID_REASONS, checkScan, labelFor, marKey, needsLabel, type AdminRecord, type MarState, type NotDoneReason, type VoidReason } from "@/lib/mar";
 import type { WorkItem } from "@/lib/worksheet";
 import { useMe } from "./RoleContext";
 
@@ -17,6 +17,10 @@ interface Props {
   /** For 必要時: how many given today and whether over the limit. */
   prn?: { given: number; over: boolean; max?: number };
   onRecord: (r: AdminRecord) => void;
+  /** Take a record back with a reason (the record stays in the history). */
+  onVoid?: (r: AdminRecord, reason: VoidReason) => void;
+  /** Earlier records of this dose that were taken back. */
+  voided?: { by: string; at: string; reason: string; status: string }[];
 }
 
 const STATE_STYLE: Record<MarState, string> = {
@@ -28,8 +32,10 @@ const STATE_STYLE: Record<MarState, string> = {
 };
 
 /** The 実施 cell of the worksheet: read the wristband and label, then record 実施 or 未実施. */
-export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord }: Props) {
+export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord, onVoid, voided = [] }: Props) {
   const me = useMe();
+  const [voiding, setVoiding] = useState(false);
+  const [voidReason, setVoidReason] = useState<VoidReason | "">("");
   const [open, setOpen] = useState(false);
   const [wb, setWb] = useState("");
   const [lb, setLb] = useState("");
@@ -68,11 +74,46 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
         {record.status} {record.doneAt}
         {record.reason && <span className="block text-[10px]">{record.reason}</span>}
         {record.offBy !== undefined && <span className="block text-[10px] text-yamabuki">予定より{Math.abs(record.offBy)}分{record.offBy > 0 ? "遅れ" : "早め"}</span>}
+        {onVoid &&
+          (voiding ? (
+            <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-ink">
+              <select value={voidReason} onChange={(e) => setVoidReason(e.target.value as VoidReason)} aria-label="取り消す理由" className="rounded border border-rule bg-paper px-0.5">
+                <option value="">理由を選ぶ</option>
+                {VOID_REASONS.map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!voidReason}
+                onClick={() => {
+                  onVoid(record, voidReason as VoidReason);
+                  setVoiding(false);
+                  setVoidReason("");
+                }}
+                className="rounded border border-shu px-1 text-shu disabled:opacity-40"
+              >
+                取り消す
+              </button>
+              <button type="button" onClick={() => setVoiding(false)} className="text-ink-faint">
+                やめる
+              </button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setVoiding(true)} className="block text-[10px] text-ink-faint underline hover:text-shu">
+              記録を取り消す
+            </button>
+          ))}
       </span>
     );
   }
   return (
     <div className="space-y-1">
+      {voided.map((v, i) => (
+        <span key={i} className="block text-[10px] text-ink-faint line-through decoration-ink-faint/60" title={`取り消し：${v.at} ${v.by}（${v.reason}）`}>
+          {v.status}（取り消し {v.at}・{v.reason}）
+        </span>
+      ))}
       <div className="flex items-center gap-1">
         {item.at !== null && <span className={`text-[11px] ${STATE_STYLE[state]}`}>{state === "記録済み" ? "実施（前の勤務）" : state}</span>}
         {prn && (
