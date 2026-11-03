@@ -80,15 +80,28 @@ body {
 }
 
 /*
- * Opened from the iPad home screen (standalone), the system blurs a band of the page just under the
- * status bar. An empty band of the tab bar's colour sits there instead, so the tabs below stay sharp.
+ * Opened from the iPad home screen (standalone), iPadOS 26 blurs about 40pt of the page under the
+ * status bar ("scroll edge effect"). When an opaque position: fixed box touches the top edge
+ * (at least 90% of the width, taller than 10px), WebKit takes its colour for that edge and fills it
+ * instead of blurring. This band is that box: it draws nothing itself (background-clip: text with
+ * no text), it only gives WebKit the tab bar's colour. Reported to work on a real iPad by
+ * https://github.com/coder/xum/pull/7022 (no Apple documentation of the rule).
  */
-.standalone-top {
+.standalone-edge {
   display: none;
 }
 @media (display-mode: standalone) {
-  .standalone-top {
+  .standalone-edge {
     display: block;
-    height: max(env(safe-area-inset-top), 30px);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    background-color: var(--color-tab);
+    -webkit-background-clip: text;
+    background-clip: text;
+    z-index: 2147483647;
+    pointer-events: none;
   }
 }

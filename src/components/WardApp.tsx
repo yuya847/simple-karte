@@ -563,7 +563,7 @@ export default function WardApp() {
   return (
     <RoleProvider value={role}>
     <div className="flex h-screen flex-col print:hidden">
-      <div aria-hidden className="standalone-top shrink-0 bg-tab" />
+      <div aria-hidden className="standalone-edge" />
       <PatientTabs
         role={role}
         onRole={switchRole}
