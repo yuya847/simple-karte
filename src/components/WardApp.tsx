@@ -45,6 +45,8 @@ import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
+import { ChatThread, ChatView } from "./ChatView";
+import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { overdue, type AdminRecord } from "@/lib/mar";
 import { buildWorksheet } from "@/lib/worksheet";
@@ -487,6 +489,16 @@ export default function WardApp() {
         />
       ) : screen === "audit" ? (
         <AuditView />
+      ) : screen === "chat" ? (
+        <ChatView
+          patients={people.map((x) => ({ patient: x.patient, room: x.room }))}
+          today={today}
+          nowTime={nowTime}
+          onChart={(pid, m, line) => {
+            auditLog({ role: "医師", actor: DOCTOR, action: "チャットをカルテに転記", patient: findPatient(pid)?.name, detail: m.text });
+            updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n${line}\n` }));
+          }}
+        />
       ) : screen === "or" ? (
         <SurgeryView
           today={today}
@@ -746,6 +758,21 @@ export default function WardApp() {
                       closePanel();
                     }}
                   />
+                </Drawer>
+              )}
+              {panel === "chat" && (
+                <Drawer title={`チャット：${patient.name}さん`} onClose={closePanel}>
+                  <div className="h-[70vh]">
+                    <ChatThread
+                      channel={{ id: patientChannel(patient.id), name: `${patient.name}さん`, kind: "患者", patientId: patient.id, description: "" }}
+                      today={today}
+                      nowTime={nowTime}
+                      onChart={(m, line) => {
+                        auditLog({ role: "医師", actor: DOCTOR, action: "チャットをカルテに転記", patient: patient.name, detail: m.text });
+                        update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n${line}\n` }));
+                      }}
+                    />
+                  </div>
                 </Drawer>
               )}
               {panel === "directive" && (

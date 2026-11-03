@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, HeartHandshake, HeartPulse, Radiation, Thermometer } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "consents" | "vitals" | "directive" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "consents" | "vitals" | "directive" | "chat" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -35,6 +35,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
     tools: [
       { key: "consents", label: "同意書", icon: FileSignature },
       { key: "directive", label: "事前指示", icon: HeartHandshake },
+      { key: "chat", label: "チャット", icon: MessagesSquare },
     ],
   },
   {
