@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DESK, containersOf, deskWindow, drawRows, normalizeCode, receive, scanSpecimen, statusCounts, testCodes, whenText } from "./lab-desk";
+import { EMPTY_DESK, checkEntry, confirmReport, containersOf, deskLabs, deskWindow, drawRows, entryPlan, flagOf, normalizeCode, parseValue, rangeText, receive, scanSpecimen, statusCounts, testCodes, toEnter, whenText } from "./lab-desk";
+import { ANALYTES } from "./master";
+import { PANIC_LIMITS, labKey, resultsOf, uncalled } from "./results";
 import { labelFor, marKey, type AdminRecord } from "./mar";
 import { PATIENTS } from "./patients";
 import { currentEntries } from "./record";
@@ -136,5 +138,77 @@ describe("検体の受付：ラベルを読む", () => {
     expect(whenText(360)).toBe("06:00");
     expect(whenText(T6)).toBe("明日 06:00");
     expect(whenText(-1080)).toBe("昨日 06:00");
+  });
+});
+
+describe("結果の入力", () => {
+  const a = (code: string) => ANALYTES.find((x) => x.code === code)!;
+
+  it("the analytes of the order, sets opened up; parts without a value field are listed apart", () => {
+    const plan = entryPlan(["SET-ROUTINE"]);
+    expect(plan.analytes.map((x) => x.code)).toEqual(["WBC", "Hb", "Plt", "TP", "Alb", "AST", "ALT", "LDH", "ALP", "T-Bil", "BUN", "Cre", "Na", "K", "Cl", "Glu", "CRP"]);
+    expect(plan.other).toEqual([
+      { name: "RBC", why: "結果の表に欄がない" },
+      { name: "Ht", why: "結果の表に欄がない" },
+    ]);
+    expect(entryPlan(["LAB-BCX"])).toEqual({ analytes: [], other: [{ name: "血液培養", why: "細菌検査で報告" }] });
+    expect(entryPlan(["LAB-NA", "LAB-NA"]).analytes).toHaveLength(1);
+  });
+
+  it("H/L against the reference range, by sex", () => {
+    expect(flagOf(a("Hb"), "男", 13.0)).toBe("L");
+    expect(flagOf(a("Hb"), "女", 13.0)).toBe("");
+    expect(flagOf(a("CRP"), "男", 0.5)).toBe("H");
+    expect(flagOf(a("CRP"), "男", 0.14)).toBe("");
+    expect(rangeText(a("CRP"), "男")).toBe("0.14以下");
+    expect(rangeText(a("Na"), "女")).toBe("138〜145");
+  });
+
+  it("reads typed values; full-width digits and commas are fine, words are not", () => {
+    expect(parseValue("１２．５")).toEqual({ value: 12.5 });
+    expect(parseValue("12,100")).toEqual({ value: 12100 });
+    expect(parseValue("")).toEqual({ value: null });
+    expect(parseValue("溶血")).toMatchObject({ value: null, error: "数で入れてください" });
+    expect(parseValue("-1")).toMatchObject({ value: null });
+  });
+
+  it("checks every value: missing, errors, flags, panic values, and the previous value", () => {
+    const plan = entryPlan(["SET-LYTES"]);
+    const c = checkEntry(plan, { Na: "140", K: "7.2", Cl: "x" }, sakura, PANIC_LIMITS, T6);
+    expect(c.ready).toBe(false);
+    expect(c.errors).toBe(1);
+    expect(c.rows.find((r) => r.analyte.code === "K")).toMatchObject({ flag: "H", panic: { code: "K", side: "高" } });
+    expect(c.panic.map((h) => h.code)).toEqual(["K"]);
+    expect(c.rows.find((r) => r.analyte.code === "Na")!.prev).toEqual({ value: sakura.labs.find((l) => l.day === 0)!.values.Na, when: "06:00" });
+    const ok = checkEntry(plan, { Na: "140", K: "4.0", Cl: "104" }, sakura, PANIC_LIMITS, T6);
+    expect(ok).toMatchObject({ ready: true, missing: 0, errors: 0, panic: [], values: { Na: 140, K: 4, Cl: 104 } });
+    expect(checkEntry(entryPlan(["LAB-BCX"]), {}, sakura, PANIC_LIMITS, T6).ready).toBe(false);
+  });
+
+  it("確定 keeps who and when, once; the result goes to the patient's results with its own key", () => {
+    const recs = { [marKey("ord-t2", T20)]: record("ord-t2", T20) };
+    const row = drawRows(people, recs, EMPTY_DESK, 9 * 60, T20).find((r) => r.orderId === "ord-t2")!;
+    expect(confirmReport(EMPTY_DESK, row, { VCM: 12 }, "検査技師 中村", T20 + 30)).toBe(EMPTY_DESK);
+    const got = receive(EMPTY_DESK, row, "検査技師 中村", T20 + 10);
+    expect(toEnter(drawRows(people, recs, got, 9 * 60, T20 + 10)).map((r) => r.orderId)).toEqual(["ord-t2"]);
+    const done = confirmReport(got, row, { VCM: 12 }, "検査技師 中村", T20 + 40);
+    expect(done.reports[row.code]).toMatchObject({ by: "検査技師 中村", reported: { day: 0, time: "20:40" } });
+    expect(confirmReport(done, row, { VCM: 99 }, "x", T20 + 50)).toBe(done);
+    expect(drawRows(people, recs, done, 9 * 60, T20 + 40).find((r) => r.orderId === "ord-t2")!.status).toBe("報告済み");
+    const labs = deskLabs(done, sakura.id);
+    expect(labs).toEqual([{ day: 0, time: "20:00", values: { VCM: 12 }, id: row.code, reportedBy: "検査技師 中村", reportedAt: { day: 0, time: "20:40" } }]);
+    expect(labKey(sakura.id, labs[0])).toBe(`lab|${sakura.id}|0|20:00|${row.code}`);
+    expect(labKey(sakura.id, { day: 0, time: "06:00", values: {} })).toBe(`lab|${sakura.id}|0|06:00`);
+  });
+
+  it("a confirmed panic value enters the panic-call list (tomorrow's draw too)", () => {
+    const recs = { [marKey("ord-t1", T6)]: { ...record("ord-t1", T6), doneAt: "06:02" } };
+    const row = drawRows(people, recs, EMPTY_DESK, 9 * 60, T6 + 30).find((r) => r.orderId === "ord-t1")!;
+    const desk = confirmReport(receive(EMPTY_DESK, row, "検査技師 中村", T6 + 30), row, { K: 7.4, Na: 139 }, "検査技師 中村", T6 + 60);
+    const p = { ...sakura, labs: [...sakura.labs, ...deskLabs(desk, sakura.id)] };
+    const waiting = uncalled(resultsOf(p, PANIC_LIMITS), {});
+    expect(waiting).toHaveLength(1);
+    expect(waiting[0]).toMatchObject({ day: 1, time: "06:00" });
+    expect(waiting[0].panic.map((h) => h.code)).toEqual(["K"]);
   });
 });

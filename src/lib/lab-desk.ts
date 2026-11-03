@@ -1,11 +1,13 @@
-// 検査室の受付: the blood and urine samples the ward draws today and tomorrow morning, and which
-// of them the laboratory has received. Which draw a label belongs to, whether the ward recorded the
-// draw and whether a sample may be taken in are all worked out by code. A person reads the label.
+// 検査室: the blood and urine samples the ward draws today and tomorrow morning, which of them the
+// laboratory has received, and the results it enters. Which draw a label belongs to, whether the ward
+// recorded the draw, whether a sample may be taken in, H/L against the reference range and panic
+// values are all worked out by code. A person reads the label, measures, types and confirms.
 
 import { abs } from "./flowsheet";
 import { labelFor, marState, type AdminRecord } from "./mar";
-import { findSet, labInfo, WARD_RULES } from "./master";
-import type { DayOffset, LabOrder } from "./types";
+import { ANALYTES, findLab, findSet, labInfo, rangeFor, WARD_RULES, type Analyte } from "./master";
+import { panicOf, type ContactAttempt, type PanicHit, type PanicLimit } from "./results";
+import type { DayOffset, LabOrder, LabResult, Patient, Sex } from "./types";
 import { SHIFTS, buildWorksheet, type WorkPatient } from "./worksheet";
 
 /** A sample taken in at the laboratory (the label was read). */
@@ -32,15 +34,6 @@ export interface LabReport {
   values: Record<string, number>;
   by: string;
   reported: { day: DayOffset; time: string };
-}
-
-/** One try at reaching a doctor about a panic value. */
-export interface ContactAttempt {
-  at: { day: DayOffset; time: string };
-  by: string;
-  to: string;
-  means: "電話" | "対面";
-  result: "伝えた" | "つながらない（不在・話し中）" | "伝言・折り返しを頼んだ";
 }
 
 /** What the laboratory did in this session (kept in this browser only). */
@@ -183,4 +176,131 @@ export function statusCounts(rows: DrawRow[]): Record<DrawStatus, number> {
   const out: Record<DrawStatus, number> = { 未採取: 0, 採取しなかった: 0, 採取済み: 0, 受付済み: 0, 報告済み: 0 };
   for (const r of rows) out[r.status]++;
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// 結果の入力: the analytes of the order, H/L and panic values by code, then 確定.
+// ---------------------------------------------------------------------------
+
+export interface EntryPlan {
+  /** Values to type, in the order of the lab order. */
+  analytes: Analyte[];
+  /** Parts of the order not entered on this screen, and why. */
+  other: { name: string; why: string }[];
+}
+
+export function entryPlan(codes: string[]): EntryPlan {
+  const analytes: Analyte[] = [];
+  const other: { name: string; why: string }[] = [];
+  const addOther = (name: string, why: string) => {
+    if (!other.some((o) => o.name === name)) other.push({ name, why });
+  };
+  for (const c of testCodes(codes)) {
+    const t = findLab(c);
+    if (!t) {
+      addOther(c, "マスターにない");
+      continue;
+    }
+    if (!t.contains) {
+      addOther(t.abbr ?? t.name, t.group === "微生物" ? "細菌検査で報告" : "この試作では入れない");
+      continue;
+    }
+    for (const a of t.contains) {
+      const an = ANALYTES.find((x) => x.code === a);
+      if (!an) addOther(a, "結果の表に欄がない");
+      else if (!analytes.some((x) => x.code === a)) analytes.push(an);
+    }
+  }
+  return { analytes, other };
+}
+
+export type Flag = "H" | "L" | "";
+
+/** H/L against the reference range for this sex (the same rule as the result table). */
+export function flagOf(a: Analyte, sex: Sex, v: number): Flag {
+  const r = rangeFor(a, sex);
+  if (r.high !== undefined && v > r.high) return "H";
+  if (r.low !== undefined && v < r.low) return "L";
+  return "";
+}
+
+export function rangeText(a: Analyte, sex: Sex): string {
+  const r = rangeFor(a, sex);
+  if (r.low !== undefined && r.high !== undefined) return `${r.low}〜${r.high}`;
+  if (r.high !== undefined) return `${r.high}以下`;
+  if (r.low !== undefined) return `${r.low}以上`;
+  return "—";
+}
+
+/** A typed value: full-width digits and thousands commas are fine; anything else is an error. */
+export function parseValue(raw: string): { value: number | null; error?: string } {
+  const s = raw.normalize("NFKC").replace(/,/g, "").trim();
+  if (!s) return { value: null };
+  if (!/^\d+(\.\d+)?$/.test(s)) return { value: null, error: "数で入れてください" };
+  return { value: Number(s) };
+}
+
+export interface ValueRow {
+  analyte: Analyte;
+  raw: string;
+  value: number | null;
+  error?: string;
+  flag: Flag;
+  panic?: PanicHit;
+  /** The last value before this draw, for reference (display only). */
+  prev?: { value: number; when: string };
+}
+
+export interface EntryCheck {
+  rows: ValueRow[];
+  values: Record<string, number>;
+  missing: number;
+  errors: number;
+  panic: PanicHit[];
+  /** Every value typed and valid. */
+  ready: boolean;
+}
+
+export function checkEntry(plan: EntryPlan, raw: Record<string, string>, patient: Patient, limits: PanicLimit[], at: number): EntryCheck {
+  const values: Record<string, number> = {};
+  const parsed = plan.analytes.map((a) => {
+    const p = parseValue(raw[a.code] ?? "");
+    if (p.value !== null) values[a.code] = p.value;
+    return { a, ...p };
+  });
+  const panic = panicOf(values, limits);
+  const earlier = [...patient.labs].filter((l) => abs(l.day, l.time) < at).sort((x, y) => abs(y.day, y.time) - abs(x.day, x.time));
+  const rows: ValueRow[] = parsed.map(({ a, value, error }) => {
+    const last = earlier.find((l) => a.code in l.values);
+    return {
+      analyte: a,
+      raw: raw[a.code] ?? "",
+      value,
+      error,
+      flag: value === null ? "" : flagOf(a, patient.sex, value),
+      panic: panic.find((h) => h.code === a.code),
+      prev: last ? { value: last.values[a.code], when: whenText(abs(last.day, last.time)) } : undefined,
+    };
+  });
+  const missing = rows.filter((r) => r.value === null && !r.error).length;
+  const errors = rows.filter((r) => r.error).length;
+  return { rows, values, missing, errors, panic, ready: plan.analytes.length > 0 && missing === 0 && errors === 0 };
+}
+
+/** Samples received and waiting for their result (those with values to type). */
+export const toEnter = (rows: DrawRow[]) => rows.filter((r) => r.status === "受付済み");
+
+/** 確定: who and when are kept; a sample is reported once. */
+export function confirmReport(desk: LabDesk, row: DrawRow, values: Record<string, number>, by: string, nowAbs: number): LabDesk {
+  if (desk.reports[row.code] || !desk.received[row.code]) return desk;
+  const r: LabReport = { code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, values, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) } };
+  return { ...desk, reports: { ...desk.reports, [row.code]: r } };
+}
+
+/** The confirmed results of a patient, as rows of the result table (filed at the draw time). */
+export function deskLabs(desk: LabDesk, patientId: string): LabResult[] {
+  return Object.values(desk.reports)
+    .filter((r) => r.patientId === patientId)
+    .sort((a, b) => a.at - b.at)
+    .map((r) => ({ day: Math.floor(r.at / 1440), time: hhmm(r.at), values: r.values, id: r.code, reportedBy: r.by, reportedAt: r.reported }));
 }

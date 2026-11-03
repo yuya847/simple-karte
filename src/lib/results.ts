@@ -35,6 +35,15 @@ export interface PanicHit {
   limit: number;
 }
 
+/** One try at reaching a doctor about a panic value. Only 伝えた (told directly) is a report. */
+export interface ContactAttempt {
+  at: { day: DayOffset; time: string };
+  by: string;
+  to: string;
+  means: "電話" | "対面";
+  result: "伝えた" | "つながらない（不在・話し中）" | "伝言・折り返しを頼んだ";
+}
+
 /** A panic value phoned to the ward (who called, who took it, whether it was read back). */
 export interface PanicCall {
   key: string;
@@ -45,6 +54,10 @@ export interface PanicCall {
   means: "電話" | "対面";
   readBack: boolean;
   at: { day: DayOffset; time: string };
+  /** Why the value could not be read back (written by the technologist when readBack is false). */
+  noReadBack?: string;
+  /** Every try, oldest first; the last one is the report. */
+  attempts?: ContactAttempt[];
 }
 
 export interface Ack {
@@ -56,7 +69,8 @@ export interface Ack {
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
 
-export const labKey = (pid: string, l: LabResult) => `lab|${pid}|${l.day}|${l.time}`;
+/** A result the laboratory entered in this session also carries its label code (two orders may share a draw time). */
+export const labKey = (pid: string, l: LabResult) => `lab|${pid}|${l.day}|${l.time}${l.id ? `|${l.id}` : ""}`;
 
 /** Values beyond the panic limits of the fictional hospital. */
 export function panicOf(values: Record<string, number>, limits: PanicLimit[]): PanicHit[] {
