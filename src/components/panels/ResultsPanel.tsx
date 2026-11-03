@@ -6,7 +6,7 @@ import type { Patient } from "@/lib/types";
 
 /** Lab results by date, plus culture reports. Values are shown, never judged. */
 export function ResultsPanel({ patient, today }: { patient: Patient; today: CalendarDate }) {
-  const results = [...patient.labs].sort((a, b) => a.day - b.day);
+  const results = [...patient.labs].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
   const rows = ANALYTES.filter((a) => results.some((r) => a.code in r.values));
 
   return (
@@ -24,7 +24,7 @@ export function ResultsPanel({ patient, today }: { patient: Patient; today: Cale
                   <th className="py-1 pr-3 text-left font-normal">単位</th>
                   <th className="py-1 pr-3 text-left font-normal" title="共用＝JCCLS 共用基準範囲（2022）、SRL＝SRL 総合検査案内 2026-2027。＊は判断値あり">基準範囲</th>
                   {results.map((r) => (
-                    <th key={`${r.day}-${r.time}`} className="py-1 pl-3 text-right font-normal">
+                    <th key={`${r.day}-${r.time}-${r.id ?? ""}`} className="py-1 pl-3 text-right font-normal">
                       {formatShort(addDays(today, r.day))}
                       <br />
                       {r.time}
@@ -49,7 +49,7 @@ export function ResultsPanel({ patient, today }: { patient: Patient; today: Cale
                       const rg = rangeFor(a, patient.sex);
                       const flag = v === undefined ? "" : rg.high !== undefined && v > rg.high ? "H" : rg.low !== undefined && v < rg.low ? "L" : "";
                       return (
-                        <td key={`${r.day}-${r.time}`} className={`py-1 pl-3 text-right ${flag === "H" ? "text-shu" : flag === "L" ? "text-ai" : ""}`}>
+                        <td key={`${r.day}-${r.time}-${r.id ?? ""}`} className={`py-1 pl-3 text-right ${flag === "H" ? "text-shu" : flag === "L" ? "text-ai" : ""}`}>
                           {v === undefined ? "—" : v.toLocaleString("ja-JP")}
                           <span className="inline-block w-3 text-[10px]">{flag}</span>
                         </td>

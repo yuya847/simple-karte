@@ -5,7 +5,7 @@ import type { Patient } from "./types";
 
 /** Latest value of an analyte, with the day it was measured. */
 export function latestValue(patient: Patient, code: string): { value: number; day: number } | undefined {
-  const sorted = [...patient.labs].sort((a, b) => b.day - a.day);
+  const sorted = [...patient.labs].sort((a, b) => b.day - a.day || b.time.localeCompare(a.time));
   for (const r of sorted) {
     if (code in r.values) return { value: r.values[code], day: r.day };
   }

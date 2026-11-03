@@ -29,7 +29,7 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
     });
   const dx = extra.diagnoses.filter((d) => d.outcome === "継続");
   const labs = KEY_LABS.flatMap((code) => {
-    const r = [...p.labs].sort((a, b) => b.day - a.day).find((x) => code in x.values);
+    const r = [...p.labs].sort((a, b) => b.day - a.day || b.time.localeCompare(a.time)).find((x) => code in x.values);
     if (!r) return [];
     const a = ANALYTES.find((x) => x.code === code);
     return [`${a?.name ?? code} ${r.values[code]}${a?.unit ?? ""}（${r.day === 0 ? "今日" : `${-r.day}日前`}）`];
