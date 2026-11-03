@@ -828,6 +828,7 @@ export default function WardApp() {
                 const draft: ExtendDraft = { id: newId(), origin: "manual", sourceText: "（カレンダーから延長）", comment: null, kind: "extend", targetOrderId: e.id, addDays: n };
                 update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], rightTab: "note", flash: `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
               }}
+              pendingExtends={Object.fromEntries(chart.drafts.flatMap((d) => (d.kind === "extend" ? [[d.targetOrderId, d.addDays]] : [])))}
               onModify={(e) => {
                 if (e.order.type !== "injection") return;
                 addStopDraft(e, "（カレンダーから修正）");

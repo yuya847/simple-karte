@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Square } from "lucide-react";
+import { ArrowRight, Check, Square } from "lucide-react";
+import { useState } from "react";
 import { injectionCell, prescriptionCell, procedureCell } from "@/lib/calendar";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { abs, fluidByDay } from "@/lib/flowsheet";
@@ -24,17 +25,21 @@ interface CalendarProps {
   /** 延長: add days to an order with an end. 修正: stop it and copy it into the 注射 tab. */
   onExtendDraft?: (entry: OrderEntry, days: number) => void;
   onModify?: (entry: OrderEntry) => void;
+  /** Extensions waiting as drafts: order id → days added (shown dotted until confirmed). */
+  pendingExtends?: Record<string, number>;
 }
 
 const HEAD_W = 230;
 const COL_W = 92;
 const AHEAD = 3;
 
-function calendarDays(p: Patient): DayOffset[] {
+function calendarDays(p: Patient, ahead = AHEAD): DayOffset[] {
   const days: DayOffset[] = [];
-  for (let d = p.admittedOn; d <= AHEAD; d++) days.push(d);
+  for (let d = p.admittedOn; d <= ahead; d++) days.push(d);
   return days;
 }
+/** The injection calendar looks a week ahead, so a drip can be extended by tapping or dragging. */
+const INJ_AHEAD = 7;
 
 function Frame({
   days,
@@ -190,8 +195,12 @@ const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
   { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
 ];
 
-export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify }: CalendarProps) {
-  const days = calendarDays(patient);
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {} }: CalendarProps) {
+  const days = calendarDays(patient, INJ_AHEAD);
+  // The end being dragged (or moved with ← →) on one order, before it becomes a draft.
+  const [drag, setDrag] = useState<{ id: string; to: DayOffset } | null>(null);
+  const lastDay = days[days.length - 1];
+  const fmt = (d: DayOffset) => formatShort(addDays(today, d));
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "injection");
   const fluid = fluidByDay(orders, days, nowAbs);
@@ -203,7 +212,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note="✓ は予定の時刻を過ぎた投与です（この試作では実施の記録はなく、架空です）。枠だけのものはこれからの予定。点滴量はオーダから計算した概算です。"
+      note="✓ は予定の時刻を過ぎた投与です（この試作では実施の記録はなく、架空です）。枠だけのものはこれからの予定。点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。"
     >
       {INJ_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as InjectionOrder));
@@ -233,9 +242,21 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                 />
                 {days.map((d) => {
                   const c = injectionCell(e, d, nowAbs);
+                  const end = e.status === "有効" && onExtendDraft ? orderEndDay(o) : null;
+                  const extendable = end !== null && d > end;
+                  const to = drag?.id === e.id ? drag.to : end !== null && pendingExtends[e.id] ? end + pendingExtends[e.id] : null;
+                  const inPreview = end !== null && to !== null && d > end && d <= to;
                   return (
-                    <Cell key={d} day={d}>
+                    <td
+                      key={d}
+                      data-cal-day={d}
+                      onClick={extendable ? () => onExtendDraft!(e, d - end!) : undefined}
+                      title={extendable ? `ここまで延長（〜${fmt(d)}、${d - end!}日）` : undefined}
+                      className={`group/ext relative border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""} ${extendable ? "cursor-pointer hover:bg-ai-soft/70" : ""}`}
+                    >
                       <div className="flex flex-wrap gap-1">
+                        {inPreview && <span className="whitespace-nowrap rounded border border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
+                        {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
                         {c.doses.map((x) => (
                           <Chip key={x.time} state={x.state}>
                             {x.time}
@@ -250,7 +271,21 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                         {c.timesPerDay && <Chip state={d < 0 ? "done" : d === 0 ? "now" : "planned"}>{c.timesPerDay}回</Chip>}
                         {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止{c.stopped.time ? ` ${c.stopped.time}` : ""}</span>}
                       </div>
-                    </Cell>
+                      {end !== null && d === end && (
+                        <ExtendHandle
+                          label={`${main?.aliases[0] ?? main?.name ?? ""}の終わりの日（〜${fmt(end)}）`}
+                          end={end}
+                          max={lastDay}
+                          value={drag?.id === e.id ? drag.to : end}
+                          fmt={fmt}
+                          onMove={(t) => setDrag({ id: e.id, to: t })}
+                          onDone={(t) => {
+                            setDrag(null);
+                            if (t > end) onExtendDraft!(e, t - end);
+                          }}
+                        />
+                      )}
+                    </td>
                   );
                 })}
               </tr>
@@ -276,6 +311,61 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
         ))}
       </tr>
     </Frame>
+  );
+}
+
+
+/**
+ * The arrow at the end of a drip: drag it right to extend (finger or mouse), or with the keyboard,
+ * ← → to choose the day and Enter to make the draft (Esc cancels).
+ */
+function ExtendHandle({ label, end, max, value, fmt, onMove, onDone }: { label: string; end: DayOffset; max: DayOffset; value: DayOffset; fmt: (d: DayOffset) => string; onMove: (to: DayOffset) => void; onDone: (to: DayOffset) => void }) {
+  const dayAt = (x: number, y: number): DayOffset | null => {
+    const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-cal-day]");
+    return el ? Number(el.dataset.calDay) : null;
+  };
+  const clamp = (d: number) => Math.min(max, Math.max(end, d));
+  return (
+    <button
+      type="button"
+      role="slider"
+      aria-label={`${label}。右へ引くか ← → で延長`}
+      aria-valuemin={end}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      aria-valuetext={value > end ? `〜${fmt(value)}（${value - end}日延長）` : `〜${fmt(end)}`}
+      title="右へ引くと延長（← → と Enter でも）"
+      style={{ touchAction: "none" }}
+      onClick={(ev) => ev.stopPropagation()}
+      onPointerDown={(ev) => {
+        ev.stopPropagation();
+        ev.currentTarget.setPointerCapture(ev.pointerId);
+        onMove(end);
+      }}
+      onPointerMove={(ev) => {
+        if (!ev.currentTarget.hasPointerCapture(ev.pointerId)) return;
+        const d = dayAt(ev.clientX, ev.clientY);
+        if (d !== null) onMove(clamp(d));
+      }}
+      onPointerUp={(ev) => {
+        if (!ev.currentTarget.hasPointerCapture(ev.pointerId)) return;
+        ev.currentTarget.releasePointerCapture(ev.pointerId);
+        const d = dayAt(ev.clientX, ev.clientY);
+        onDone(clamp(d ?? value));
+      }}
+      onPointerCancel={() => onDone(end)}
+      onKeyDown={(ev) => {
+        if (ev.key === "ArrowRight") onMove(clamp(value + 1));
+        else if (ev.key === "ArrowLeft") onMove(clamp(value - 1));
+        else if (ev.key === "Enter") onDone(value);
+        else if (ev.key === "Escape") onDone(end);
+        else return;
+        ev.preventDefault();
+      }}
+      className="absolute right-0 top-1/2 flex h-7 w-6 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-l bg-ai/90 text-white shadow outline-none focus-visible:ring-2 focus-visible:ring-ai/60 pointer-coarse:h-9 pointer-coarse:w-8"
+    >
+      <ArrowRight size={14} />
+    </button>
   );
 }
 
