@@ -17,7 +17,9 @@ import {
   dietAt,
   dietLabel,
   findTherapeutic,
-  heldBy,
+  holdTitle,
+  LEAVE_HOLD_RULE,
+  mealHolds,
   nextOrderableMeal,
   pastDeadline,
   type DietKind,
@@ -137,12 +139,12 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
                 </td>
                 {MEALS.map((m) => {
                   const d = dietAt(diets, patient.id, day, m);
-                  const held = heldBy(entries, day, m, examTime);
+                  const held = mealHolds(entries, day, m, examTime);
                   const served = abs(day, MEAL_TIMES[m]) <= nowAbs;
                   return (
                     <td key={m} className={`px-1 py-1 ${served ? "text-ink-faint" : ""}`}>
-                      <span className={d?.kind === "絶食" || held.length ? "font-bold text-yamabuki" : ""}>{held.length ? "検査で止め" : dietLabel(d)}</span>
-                      {held.length > 0 && <div className="text-[10px] text-yamabuki">{held.join("、")}</div>}
+                      <span className={d?.kind === "絶食" || held.length ? "font-bold text-yamabuki" : ""}>{held.length ? holdTitle(held) : dietLabel(d)}</span>
+                      {held.length > 0 && <div className="text-[10px] text-yamabuki">{held.map((h) => h.label).join("、")}</div>}
                     </td>
                   );
                 })}
@@ -150,7 +152,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
             ))}
           </tbody>
         </table>
-        <p className="mt-1 text-[10px] text-ink-faint">検査で止めるのは、架空の病院の約束（腹部エコー・造影CT の前の1食）。締切は朝食が前日17:00、昼食が当日10:00、夕食が当日15:00（架空）。</p>
+        <p className="mt-1 text-[10px] text-ink-faint">検査で止めるのは、架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。締切は朝食が前日17:00、昼食が当日10:00、夕食が当日15:00（架空）。</p>
       </section>
 
       <section className="space-y-2 rounded-md border border-rule bg-paper p-3">

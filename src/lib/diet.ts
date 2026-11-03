@@ -123,11 +123,43 @@ export const FASTING_EXAMS: Record<string, string> = { "PHY-ABDUS": "腹部エ�
 /** `examTime` gives an exam order's time (minutes from today 00:00); passed in to keep this module free of exams.ts. */
 export type ExamTime = (e: OrderEntry) => number;
 
-export function heldBy(entries: OrderEntry[], day: number, meal: Meal, examTime: ExamTime): string[] {
-  const out: string[] = [];
+/** Why a meal is not served (食止め): an exam, or the patient is away (外泊・外出) or has left (退院). */
+export interface MealHold {
+  kind: "検査" | "外泊" | "外出" | "退院";
+  label: string;
+  /** The order that holds the meal, and when it was ordered (to compare with the kitchen's deadline). */
+  orderId: string;
+  orderedAt: { day: DayOffset; time: string };
+}
+
+/**
+ * 外泊・外出・退院 hold the meals whose serving time falls while the patient is off the ward
+ * (fictional hospital rule): from the time of leaving (that meal included) up to the time of coming back
+ * (a meal served at the time of coming back is served). 退院 has no coming back.
+ */
+export const LEAVE_HOLD_RULE = "外泊・外出は出る時刻から戻る時刻まで、退院は出る時刻からあとの、配膳の時刻（朝7:30・昼12:00・夕18:00）がある食事を止める（架空の病院の取り決め）";
+
+const relDay = (d: number) => (d === 0 ? "今日" : d === 1 ? "明日" : d === 2 ? "明後日" : d === -1 ? "昨日" : d > 0 ? `${d}日後` : `${-d}日前`);
+const clock = (m: number) => `${String(Math.floor((((m % 1440) + 1440) % 1440) / 60)).padStart(2, "0")}:${String(((m % 60) + 60) % 60).padStart(2, "0")}`;
+
+/** Every hold of one meal, with its reason. */
+export function mealHolds(entries: OrderEntry[], day: number, meal: Meal, examTime: ExamTime): MealHold[] {
+  const out: MealHold[] = [];
+  const served = abs(day, MEAL_TIMES[meal]);
   for (const e of entries) {
     if (e.status === "中止") continue;
     const o = e.order;
+    const orderedAt = { day: e.day, time: e.time };
+    if (o.type === "procedure" && o.leave) {
+      const l = o.leave;
+      const from = abs(l.from.day, l.from.time);
+      const back = l.back ? abs(l.back.day, l.back.time) : null;
+      if (l.kind !== "退院" && back === null) continue; // 外泊・外出 need a time to come back (the draft stops without it)
+      if (served < from || (back !== null && served >= back)) continue;
+      const span = `${relDay(l.from.day)} ${l.from.time}${l.back ? `〜${relDay(l.back.day)} ${l.back.time}` : ""}`;
+      out.push({ kind: l.kind, label: `${l.kind}（${span}）`, orderId: e.id, orderedAt });
+      continue;
+    }
     let label: string | null = null;
     if (o.type === "physio" && FASTING_EXAMS[o.test]) label = FASTING_EXAMS[o.test];
     if (o.type === "imaging" && o.modality === "CT" && o.contrast !== "単純") label = FASTING_EXAMS["CT-CONTRAST"];
@@ -135,9 +167,20 @@ export function heldBy(entries: OrderEntry[], day: number, meal: Meal, examTime:
     const at = examTime(e);
     if (Math.floor(at / 1440) !== day) continue;
     const before = MEALS.filter((m) => abs(day, MEAL_TIMES[m]) < at).at(-1);
-    if (before === meal) out.push(`${label}（${String(Math.floor((at % 1440) / 60)).padStart(2, "0")}:${String(at % 60).padStart(2, "0")}）`);
+    if (before === meal) out.push({ kind: "検査", label: `${label}（${clock(at)}）`, orderId: e.id, orderedAt });
   }
   return out;
+}
+
+/** What holds the meal, in words (for the grid and the calendar). */
+export function heldBy(entries: OrderEntry[], day: number, meal: Meal, examTime: ExamTime): string[] {
+  return mealHolds(entries, day, meal, examTime).map((h) => h.label);
+}
+
+/** The heading of a held meal: 「検査で止め」「外泊で止め」…, or 「食止め」 when there are different reasons. */
+export function holdTitle(holds: Pick<MealHold, "kind">[]): string {
+  const kinds = [...new Set(holds.map((h) => h.kind))];
+  return kinds.length === 1 ? `${kinds[0]}で止め` : "食止め";
 }
 
 /** Past the kitchen's deadline for this meal (the change then needs a phone call). */

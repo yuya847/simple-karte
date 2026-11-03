@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { MEALS, MEAL_TIMES, dietAt, dietLabel, heldBy, type DietOrder } from "@/lib/diet";
+import { LEAVE_HOLD_RULE, MEALS, MEAL_TIMES, dietAt, dietLabel, holdTitle, mealHolds, type DietOrder } from "@/lib/diet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
 import { abs } from "@/lib/flowsheet";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
@@ -62,7 +62,8 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
       const label = dietLabel(o);
       const changed = !!prev && label !== prev;
       prev = label;
-      return { day, m, o, label, changed, held: heldBy(orders, day, m, examTime), served: abs(day, MEAL_TIMES[m]) <= nowAbs };
+      const holds = mealHolds(orders, day, m, examTime);
+      return { day, m, o, label, changed, holds, held: holds.map((h) => h.label), served: abs(day, MEAL_TIMES[m]) <= nowAbs };
     }),
   );
   return (
@@ -124,13 +125,13 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
                     <button
                       type="button"
                       onClick={onOpenDiet}
-                      title={`${formatShort(addDays(today, d))} ${m}：${c.held.length ? `検査で止め（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`}
+                      title={`${formatShort(addDays(today, d))} ${m}：${c.held.length ? `${holdTitle(c.holds)}（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`}
                       className={`block min-h-12 w-full rounded px-1.5 py-1 text-left ${tone} ${c.served ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${d === 0 ? "outline outline-1 outline-ai/30" : ""}`}
                     >
                       {c.changed && <span className="mb-0.5 block text-[9px] font-bold text-ai">ここから変更</span>}
                       {c.held.length ? (
                         <>
-                          <b>検査で止め</b>
+                          <b>{holdTitle(c.holds)}</b>
                           <span className="block text-[10px]">{c.held.join("、")}</span>
                         </>
                       ) : (
@@ -177,7 +178,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
           </div>,
           document.body,
         )}
-      <p className="mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。押すと右に食事の欄が開きます。検査で止めるのは架空の病院の約束（腹部エコー・造影CT の前の1食）。</p>
+      <p className="mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。押すと右に食事の欄が開きます。検査で止めるのは架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
     </div>
   );
 }

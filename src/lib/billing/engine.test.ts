@@ -478,6 +478,26 @@ describe("食事オーダーからの食事療養（令和8年6月〜）", () =>
     expect(codesOf(1)).toEqual(["197000110×3", "197000470×3", "197000810×3"]); // 11/1: 減塩食 3食＋特別食
     expect(codesOf(2)).toEqual(["197003110×3", "197000810×3"]); // 11/2: 経管（流動食のみ）
   });
+  it("外泊中の食事は数えない（出る時刻から戻る時刻までに配膳の時刻がある食事）", async () => {
+    const { INITIAL_DIETS } = await import("../diet");
+    const diet = { ...INITIAL_DIETS[0], id: "d", patientId: "P", from: { day: -2, meal: "朝" as const } };
+    const stay: OrderEntry = {
+      kind: "order",
+      id: "leave",
+      day: -2,
+      time: "09:00",
+      author: "山本（専攻医）",
+      status: "有効",
+      order: { type: "procedure", code: "PROC-LEAVE", leave: { kind: "外泊", from: { day: -1, time: "13:00" }, back: { day: 0, time: "17:00" }, destination: "自宅", note: "" }, schedule: { kind: "once" }, start: { day: -1, time: "13:00" } },
+    };
+    const run = (entries: OrderEntry[]) => calculateClaim({ today: "2026-11-03", nowTime: "20:00", month: "2026-11", patient: { id: "P", name: "x", sex: "男", age: 70, admittedOn: -2 }, entries, daily: [], cultures: [], diagnoses: [], options: DEFAULT_OPTIONS, diets: [diet] });
+    const count = (r: ReturnType<typeof run>, day: number) => r.acts.find((a) => a.shikibetsu === "97" && a.days[day])?.parts[0].lines[0].quantity ?? 0;
+    const without = run([]);
+    const away = run([stay]);
+    expect([1, 2, 3].map((d) => count(without, d))).toEqual([3, 3, 3]);
+    expect([1, 2, 3].map((d) => count(away, d))).toEqual([3, 2, 1]); // 11/2 は朝・昼だけ、11/3 は夕だけ
+    expect(away.meals.ryoyoYen).toBe(730 * 6);
+  });
   it("B009 診療情報提供料（Ⅰ）: 紹介先ごとに月1回", () => {
     const r = calculateClaim({ today: "2026-11-03", nowTime: "20:00", month: "2026-11", patient: { id: "P", name: "x", sex: "男", age: 70, admittedOn: -2 }, entries: [], daily: [], cultures: [], diagnoses: [], options: DEFAULT_OPTIONS, letters: [{ day: 0, to: "架空クリニック" }, { day: 0, to: "架空クリニック" }] });
     expect(r.acts.filter((a) => a.parts.some((p) => p.lines.some((l) => l.code === "180016110")))).toHaveLength(1);

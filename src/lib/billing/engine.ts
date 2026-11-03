@@ -216,7 +216,7 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   }
 
   // ===== 97 食事療養（円）=====
-  // With diet orders: count each served meal from the orders (1日3食まで、食止め・絶食は数えない、
+  // With diet orders: count each served meal from the orders (1日3食まで、食止め（検査・外泊・外出・退院）・絶食は数えない、
   // 流動食のみ・特別食は食事ごと). Without them: the meals recorded in the daily record.
   const diets = (input.diets ?? []).filter((x) => x.patientId === p.id);
   if (diets.length) {
