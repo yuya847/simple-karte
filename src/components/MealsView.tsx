@@ -1,6 +1,8 @@
 "use client";
 
-import { Utensils } from "lucide-react";
+import { Printer, Utensils } from "lucide-react";
+import { useState } from "react";
+import { createPortal, flushSync } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { LEAVE_HOLD_RULE, MEAL_DEADLINE, holdTitle, type DietOrder } from "@/lib/diet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
@@ -26,6 +28,7 @@ interface Props {
  * Changes made after the deadline are flagged. It only shows; the diet is ordered by the doctor.
  */
 export function MealsView({ title, people, diets, today, nowTime }: Props) {
+  const [printing, setPrinting] = useState(false);
   const nowAbs = abs(0, nowTime);
   const { rows, slots } = wardMeals(people, diets, DAYS, nowAbs, examTime);
   const types = [...new Set(slots.flatMap((s) => s.byType.map((b) => b.type)))].sort(
@@ -57,35 +60,9 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
       </tr>
     </>
   );
-  return (
-    <section aria-label="病棟の食事" className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper">
-      <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
-        <h1 className="flex items-center gap-1.5 text-lg font-bold">
-          <Utensils size={18} />
-          病棟の食事
-          <span className="ml-1 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
-        </h1>
-        <span className="nums text-sm text-ink-soft">
-          {title}　{nowTime} 時点（食事の指示と、食事を止めるオーダ（検査・外泊・外出・退院）からコードで出しています）
-        </span>
-      </header>
-
-      <div className="space-y-4 px-5 py-4 text-[13px]">
-        {late.length > 0 && (
-          <section className="rounded-lg border border-shu bg-shu-soft p-3" aria-label="締切後の変更">
-            <h2 className="mb-1 font-bold text-shu">締切を過ぎてからの変更 {late.length}件</h2>
-            <ul className="space-y-0.5">
-              {late.map(({ r, c }) => (
-                <li key={`${r.patientId}${c.day}${c.meal}`}>
-                  <span className="nums text-ink-soft">{r.room}</span> <b>{r.name}</b>　{day(c.day)}の{c.meal}食：{c.holds.length ? holdTitle(c.holds) : c.type}
-                  <span className="text-ink-soft">　{c.late.join("／")}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-1 text-[11px] text-ink-soft">献立と盛り付けに間に合うかは、厨房と確かめてください（締切は架空の病院の取り決め）。</p>
-          </section>
-        )}
-
+  // The counts and the patients' meals: shown here and printed as the 食数表 for the kitchen.
+  const tables = (
+    <>
         <section aria-label="食数">
           <h2 className="mb-1 text-xs font-bold text-ink-soft">食数（食種ごと。コードで数えています）</h2>
           <div className="scroll-thin overflow-x-auto rounded-lg border border-rule bg-sheet">
@@ -179,6 +156,51 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
             </table>
           </div>
         </section>
+    </>
+  );
+  const print = () => {
+    flushSync(() => setPrinting(true));
+    const done = () => {
+      setPrinting(false);
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+  };
+  return (
+    <section aria-label="病棟の食事" className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper">
+      <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
+        <h1 className="flex items-center gap-1.5 text-lg font-bold">
+          <Utensils size={18} />
+          病棟の食事
+          <span className="ml-1 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
+        </h1>
+        <button type="button" onClick={print} className="flex items-center gap-1 rounded-md border border-rule px-2.5 py-1 text-sm hover:border-ai hover:text-ai">
+          <Printer size={14} />
+          食数表を印刷
+        </button>
+        <span className="nums text-sm text-ink-soft">
+          {title}　{nowTime} 時点（食事の指示と、食事を止めるオーダ（検査・外泊・外出・退院）からコードで出しています）
+        </span>
+      </header>
+
+      <div className="space-y-4 px-5 py-4 text-[13px]">
+        {late.length > 0 && (
+          <section className="rounded-lg border border-shu bg-shu-soft p-3" aria-label="締切後の変更">
+            <h2 className="mb-1 font-bold text-shu">締切を過ぎてからの変更 {late.length}件</h2>
+            <ul className="space-y-0.5">
+              {late.map(({ r, c }) => (
+                <li key={`${r.patientId}${c.day}${c.meal}`}>
+                  <span className="nums text-ink-soft">{r.room}</span> <b>{r.name}</b>　{day(c.day)}の{c.meal}食：{c.holds.length ? holdTitle(c.holds) : c.type}
+                  <span className="text-ink-soft">　{c.late.join("／")}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[11px] text-ink-soft">献立と盛り付けに間に合うかは、厨房と確かめてください（締切は架空の病院の取り決め）。</p>
+          </section>
+        )}
+
+        {tables}
 
         <ul className="space-y-0.5 text-[11px] text-ink-faint">
           <li>締切は、朝食が前日 {MEAL_DEADLINE.朝.time}、昼食が当日 {MEAL_DEADLINE.昼.time}、夕食が当日 {MEAL_DEADLINE.夕.time}（架空の病院の取り決め）。締切のあとに入った食事の指示・食止め・食止めの取り消しに印を付けます。</li>
@@ -187,6 +209,16 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
           <li>食事を決めるのは医師です（カルテの右の「食事」）。この画面は見るだけで、AI は使いません。</li>
         </ul>
       </div>
+      {printing &&
+        createPortal(
+          <div className="print-sheet hidden bg-white p-[5mm] text-[10pt] text-ink print:block">
+            <h1 className="mb-2 text-base font-bold">
+              食数表　{title}　{nowTime} 時点（架空の病院）
+            </h1>
+            {tables}
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }
