@@ -202,6 +202,7 @@ const sakura: BasePatient = {
   heightCm: 165,
   weightKg: 58,
   allergies: ["ヨード造影剤（蕁麻疹）"],
+  blood: { abo: "A", rh: "+", checks: 2, antibody: "陰性" },
   infections: ["MRSA（血液）"],
   cautions: ["転倒注意"],
   history: sakuraHistory,
@@ -279,6 +280,7 @@ const oura: BasePatient = {
   heightCm: 145,
   weightKg: 41,
   allergies: [],
+  blood: { abo: "A", rh: "+", checks: 2, antibody: "陰性" },
   infections: [],
   cautions: ["転倒注意"],
   history: [
@@ -420,6 +422,7 @@ const kitamura: BasePatient = {
   heightCm: 168,
   weightKg: 63,
   allergies: ["NSAIDs（喘息発作）"],
+  blood: { abo: "O", rh: "+", checks: 1 },
   infections: [],
   cautions: ["水分制限 1,000mL/日"],
   history: [
@@ -529,6 +532,7 @@ const mori: BasePatient = {
   heightCm: 158,
   weightKg: 55,
   allergies: [],
+  blood: { abo: "B", rh: "+", checks: 2, antibody: "陰性" },
   infections: [],
   cautions: [],
   history: [

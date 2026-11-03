@@ -33,6 +33,8 @@ export interface Patient {
   heightCm: number;
   weightKg: number;
   allergies: string[];
+  /** 血液型 (ABO・RhD), how many separate samples confirmed it, and the irregular antibody screen. */
+  blood?: { abo: "A" | "B" | "O" | "AB"; rh: "+" | "-"; checks: number; antibody?: "陰性" | "陽性" };
   infections: string[];
   cautions: string[];
   history: HistoryEntry[];
@@ -210,6 +212,16 @@ export interface HdOrder {
   access: string;
 }
 
+/** 輸血: one blood product order. The blood type is copied from the chart when ordered. */
+export interface TxOrder {
+  product: "RBC" | "FFP" | "PC";
+  units: number;
+  abo: "A" | "B" | "O" | "AB";
+  rh: "+" | "-";
+  /** Why (the doctor's words, e.g. 「Hb 6.4、ふらつきあり」). */
+  reason: string;
+}
+
 /** A ward procedure (処置). The item comes from the fictional hospital's master (procedures.ts). */
 export interface ProcedureOrder {
   type: "procedure";
@@ -223,6 +235,8 @@ export interface ProcedureOrder {
   o2?: { device: O2Device; lpm: number };
   /** 血液透析の条件 (PROC-HD). */
   hd?: HdOrder;
+  /** 輸血 (PROC-TX). */
+  tx?: TxOrder;
   schedule: ProcSchedule;
   start: { day: DayOffset; time?: string };
   days?: number;

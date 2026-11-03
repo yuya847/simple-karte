@@ -18,11 +18,18 @@ import {
   PROC_DRUGS,
   areaClassOf,
   HD_UF_RATE,
+  TX_DO,
+  TX_PRODUCTS,
+  TX_USE,
   findProc,
   findProcDrug,
   hdText,
   hdUfRate,
   isSevereUlcer,
+  txEffect,
+  txMinutes,
+  txText,
+  txVolume,
   parseSize,
   procScheduleText,
   type AreaClass,
@@ -35,6 +42,8 @@ import type {
   DayOffset,
   HdOrder,
   InjectionOrder,
+  Patient,
+  TxOrder,
   InjectionRoute,
   InjectionSchedule,
   LabOrder,
@@ -142,6 +151,8 @@ export interface ProcedureDraft extends DraftBase {
   hd?: HdOrder | null;
   /** Doctor's answer when the ultrafiltration rate is over the guideline's mark. */
   hdOk?: boolean;
+  /** 輸血 (PROC-TX), entered in the 輸血 panel. */
+  tx?: TxOrder | null;
   schedule: ProcSchedule | null;
   start: { day: DayOffset | null; time: string | null };
   days: number | null;
@@ -482,6 +493,8 @@ export interface CheckContext {
   allergies?: string[];
   /** Sex, age, allergies and the latest Cre (for contrast and pregnancy checks). */
   patientFacts?: ExamPatientFacts | null;
+  /** For a transfusion: the blood type on the chart and the latest Hb, Plt and PT-INR. */
+  txFacts?: { blood?: Patient["blood"]; latest: Record<string, { value: number; day: number } | undefined> } | null;
   /** Consent forms of this patient (code and status), for orders that need one. */
   consents?: { code: string; status: string }[];
 }
@@ -1146,6 +1159,37 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
     }
   }
 
+  // 輸血: the blood type (2 samples), the antibody screen for red cells, the expected effect and the pace.
+  if (m.needs.includes("tx")) {
+    if (!d.tx) {
+      issues.push({ key: "tx", level: "stop", title: "輸血", message: "製剤と量は、右の「輸血」の欄で入れてください。" });
+    } else {
+      const t = d.tx;
+      const b = ctx.txFacts?.blood;
+      issues.push({ key: "tx", level: "info", title: "製剤", message: txText(t) });
+      if (!b) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `血液型が検査されていません。血液型は、別の時点に採った2つの検体で確かめます（${TX_DO.label}）。` });
+      else if (b.checks < 2) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `血液型（${b.abo}型 Rh${b.rh}）の確認が${b.checks}回です。別の時点に採った検体で2回目を確かめてから出します（${TX_DO.label}）。` });
+      else if (b.abo !== t.abo || b.rh !== t.rh) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `カルテの血液型（${b.abo}型 Rh${b.rh}）と製剤の型が違います。` });
+      if (t.product === "RBC") {
+        if (!b?.antibody) issues.push({ key: "tx-ab", level: "stop", title: "不規則抗体", message: `赤血球の輸血の前に、不規則抗体のスクリーニングが要ります（${TX_DO.label}）。` });
+        else if (b.antibody === "陽性") issues.push({ key: "tx-ab", level: "ask", title: "不規則抗体", message: "不規則抗体が陽性です。抗原のない血液を用意するのに時間がかかることがあります。検査室と相談してください。", choices: [{ label: "検査室と相談した", apply: (x) => ({ ...(x as ProcedureDraft), comment: [(x as ProcedureDraft).comment, "不規則抗体陽性：検査室と相談済み"].filter(Boolean).join("　") }) }] });
+        issues.push({ key: "tx-cross", level: "info", title: "交差適合試験", message: "確定すると、検査室が交差適合試験をします（この試作では結果の入力はありません）。" });
+      }
+      const lab = TX_PRODUCTS[t.product].lab;
+      const last = ctx.txFacts?.latest[lab];
+      const guide = t.product === "RBC" ? "慢性貧血では Hb 7g/dL が目安の一つ（病態で判断する）" : t.product === "PC" ? "予防の輸血は 1〜2万/µL が目安の一つ" : "PT-INR 2.0 以上（または活性 30%以下）が目安の一つ";
+      issues.push({ key: "tx-lab", level: "info", title: "検査値", message: `${TX_PRODUCTS[t.product].labLabel} ${last ? `${last.value}（${ctx.fmtDay(last.day)}）` : "の値がカルテにありません"}。${guide}（${TX_USE.label}、参考）。` });
+      const w = ctx.patientFacts?.weightKg;
+      if (w) {
+        const e = txEffect(t, w);
+        issues.push({ key: "tx-effect", level: "info", title: "予測", message: `${e.text}（${TX_USE.label}の式。体重はカルテの値）`, formula: e.formula });
+      }
+      const ml = txVolume(t);
+      const run = txMinutes(ml);
+      issues.push({ key: "tx-rate", level: "info", title: "速さ", message: `最初の10〜15分は1mL/分ほど、その後は5mL/分ほど（${TX_DO.label}）。約${ml}mL で約${run.minutes}分。開始後5分間と15分後に、そばで様子を見ます。`, formula: run.formula });
+    }
+  }
+
   // 部位
   if (m.needs.includes("site") && !d.site) {
     issues.push({
@@ -1400,6 +1444,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       depth: m.needs.includes("depth") ? d.depth! : undefined,
       o2: m.needs.includes("o2") ? { device: d.o2.device!, lpm: d.o2.lpm! } : undefined,
       hd: m.needs.includes("hd") && d.hd ? d.hd : undefined,
+      tx: m.needs.includes("tx") && d.tx ? d.tx : undefined,
       schedule: procSchedule(d)!,
       start: { day: d.start.day ?? 0, time: d.start.time ?? undefined },
       days: d.days ?? undefined,

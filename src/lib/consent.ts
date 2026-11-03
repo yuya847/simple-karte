@@ -3,7 +3,7 @@
 // AI never writes or changes a form. Which orders need which form, and whether one is in place,
 // are checked in code. Numbers (frequencies) appear only with their source.
 
-export type ConsentCode = "CONSENT-ADMISSION" | "CONSENT-CT-CONTRAST" | "CONSENT-CVC";
+export type ConsentCode = "CONSENT-ADMISSION" | "CONSENT-CT-CONTRAST" | "CONSENT-CVC" | "CONSENT-TRANSFUSION";
 export type ConsentStatus = "説明前" | "同意" | "拒否" | "撤回";
 
 export interface ConsentSection {
@@ -74,6 +74,7 @@ export const signatureOf = (r: ConsentRecord, role: SignRole) => r.signatures?.f
 export function consentFor(order: { type: string; modality?: string; contrast?: string; code?: string }): ConsentCode | null {
   if (order.type === "imaging" && order.modality === "CT" && order.contrast && order.contrast !== "単純") return "CONSENT-CT-CONTRAST";
   if (order.type === "procedure" && order.code === "PROC-CVC") return "CONSENT-CVC";
+  if (order.type === "procedure" && order.code === "PROC-TX") return "CONSENT-TRANSFUSION";
   return null;
 }
 

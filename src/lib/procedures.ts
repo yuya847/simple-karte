@@ -2,7 +2,7 @@
 // needs to be complete, and the ward's clock times. The official codes and points live in the
 // billing side (billing/codes.ts → 医科診療行為マスター); nothing here is a fee.
 
-import type { HdOrder } from "./types";
+import type { HdOrder, TxOrder } from "./types";
 
 /** 範囲 of a wound / pressure ulcer, as the 点数表 divides it (cm²). */
 export type AreaClass = "lt100" | "100-500" | "500-3000" | "3000-6000" | "ge6000";
@@ -108,7 +108,7 @@ export interface ProcMaster {
   code: string;
   name: string;
   /** What the order must say to be complete. */
-  needs: ("site" | "area" | "depth" | "o2" | "hd")[];
+  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx")[];
   /** Schedules a doctor may choose for this item. The first is never preselected. */
   schedules: ProcSchedule[];
   /** For 留置 and 酸素: the order runs until stopped; its schedule is always 継続. */
@@ -198,6 +198,13 @@ export const PROCEDURES: ProcMaster[] = [
     aliases: ["浣腸", "GE", "グリセリン浣腸"],
   },
   {
+    code: "PROC-TX",
+    name: "輸血",
+    needs: ["tx"],
+    schedules: [{ kind: "once" }],
+    aliases: ["輸血", "赤血球", "RBC", "FFP", "血小板輸血", "PC", "濃厚血小板", "新鮮凍結血漿"],
+  },
+  {
     code: "PROC-HD",
     name: "血液透析（透析指示）",
     needs: ["hd"],
@@ -243,6 +250,82 @@ export function hdText(h: HdOrder): string {
       : `${h.anticoag.drug} ${[a.initial && h.anticoag.initial !== null ? `初回${h.anticoag.initial.toLocaleString("ja-JP")}${a.initial.unit}` : null, a.hourly && h.anticoag.hourly !== null ? `持続${h.anticoag.hourly.toLocaleString("ja-JP")}${a.hourly.unit}` : null].filter(Boolean).join("・")}`;
   return [hm(h.minutes), `Qb ${h.qb}mL/分`, `膜面積 ${h.membrane.toFixed(1)}m²`, ac, `除水 ${h.uf}L`, h.dw !== null ? `DW ${h.dw}kg` : null, h.access].filter(Boolean).join("　");
 }
+
+// ---------------------------------------------------------------------------
+// 輸血（PROC-TX）: blood products of the Japanese Red Cross as the fictional hospital stocks them, and
+// the expected effect worked out in code with the formulas of the Ministry's guideline.
+// ---------------------------------------------------------------------------
+
+export const TX_USE = { label: "厚生労働省「血液製剤の使用指針」", url: "https://www.mhlw.go.jp/new-info/kobetu/iyaku/kenketsugo/5tekisei3b01.html" };
+export const TX_DO = { label: "厚生労働省「輸血療法の実施に関する指針」（令和2年3月改正）", url: "https://www.mhlw.go.jp/new-info/kobetu/iyaku/kenketsugo/dl/5tekisei3a.pdf" };
+
+export const TX_PRODUCTS: Record<TxOrder["product"], { name: string; short: string; units: { units: number; label: string; ml: number }[]; lab: string; labLabel: string }> = {
+  RBC: {
+    name: "照射赤血球液-LR「日赤」",
+    short: "赤血球",
+    units: [
+      { units: 1, label: "1単位（約140mL）", ml: 140 },
+      { units: 2, label: "2単位（約280mL）", ml: 280 },
+      { units: 4, label: "4単位（2袋）", ml: 560 },
+    ],
+    lab: "Hb",
+    labLabel: "Hb",
+  },
+  FFP: {
+    name: "新鮮凍結血漿-LR「日赤」",
+    short: "血漿（FFP）",
+    units: [
+      { units: 2, label: "240（2単位・約240mL）", ml: 240 },
+      { units: 4, label: "480（4単位・約480mL）", ml: 480 },
+      { units: 6, label: "240＋480（6単位）", ml: 720 },
+    ],
+    lab: "PT-INR",
+    labLabel: "PT-INR",
+  },
+  PC: {
+    name: "照射濃厚血小板「日赤」",
+    short: "血小板",
+    units: [
+      { units: 10, label: "10単位（約200mL）", ml: 200 },
+      { units: 15, label: "15単位（約250mL）", ml: 250 },
+      { units: 20, label: "20単位（約250mL）", ml: 250 },
+    ],
+    lab: "Plt",
+    labLabel: "Plt",
+  },
+};
+
+export const txVolume = (o: Pick<TxOrder, "product" | "units">) => TX_PRODUCTS[o.product].units.find((u) => u.units === o.units)?.ml ?? 0;
+
+/** The expected effect, with the sum written out (循環血液量 70mL/kg). */
+export function txEffect(o: Pick<TxOrder, "product" | "units">, weightKg: number): { text: string; formula: string } {
+  const bloodMl = weightKg * 70;
+  if (o.product === "RBC") {
+    // 1単位 (200mL 献血由来) は Hb 14〜15g/dL × 2dL ≒ 29g の Hb を含む（指針の例：2単位で 56〜60g）。
+    const hb = o.units * 29;
+    const rise = Math.round((hb / (bloodMl / 100)) * 10) / 10;
+    return { text: `予測上昇 Hb 約 +${rise}g/dL`, formula: `${o.units}単位 × 約29g = 約${hb}g ÷ 循環血液量 ${weightKg}kg × 70mL/kg = ${(bloodMl / 100).toFixed(1)}dL = +${rise}g/dL` };
+  }
+  if (o.product === "PC") {
+    // 10単位あたり 2.0×10¹¹ 個以上。予測血小板増加数(/µL) = 輸血血小板総数 ÷ (循環血液量(mL) × 10³) × 2/3
+    const count = (o.units / 10) * 2.0e11;
+    const rise = Math.round((count / (bloodMl * 1000)) * (2 / 3));
+    return { text: `予測血小板増加数 約 +${(rise / 10000).toFixed(1)}万/µL`, formula: `${(count / 1e11).toFixed(1)}×10¹¹個 ÷ (${bloodMl.toLocaleString("ja-JP")}mL × 10³) × 2/3 = ${rise.toLocaleString("ja-JP")}/µL` };
+  }
+  const ml = txVolume(o);
+  const lo = Math.round(weightKg * 8);
+  const hi = Math.round(weightKg * 12);
+  return { text: `${ml}mL（${(ml / weightKg).toFixed(1)}mL/kg）。凝固因子を20〜30%上げる量の目安は ${lo}〜${hi}mL`, formula: `${weightKg}kg × 8〜12mL/kg = ${lo}〜${hi}mL` };
+}
+
+/** How long it runs at the guideline's pace: about 1mL/分 for the first 15 minutes, then about 5mL/分. */
+export function txMinutes(ml: number): { minutes: number; formula: string } {
+  const after = Math.max(0, ml - 15);
+  const minutes = 15 + Math.ceil(after / 5);
+  return { minutes, formula: `最初の15分 15mL ＋ 残り ${after}mL ÷ 5mL/分 = ${minutes}分` };
+}
+
+export const txText = (o: TxOrder) => `${TX_PRODUCTS[o.product].name} ${TX_PRODUCTS[o.product].units.find((u) => u.units === o.units)?.label ?? `${o.units}単位`}　${o.abo}型 Rh${o.rh === "+" ? "(+)" : "(−)"}`;
 
 export function findProc(code: string): ProcMaster | undefined {
   return PROCEDURES.find((p) => p.code === code);
