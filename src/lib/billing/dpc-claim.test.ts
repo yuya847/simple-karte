@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { INITIAL_DIAGNOSES } from "../diagnoses";
 import { PATIENTS } from "../patients";
 import type { HistoryEntry, OrderEntry } from "../types";
-import { classifyCode, dpcMonth } from "./dpc-claim";
+import { classifyCode, dpcMonth, DpcRequest, dpcView } from "./dpc-claim";
 import { FICTIONAL_COEFFICIENT } from "./dpc";
 import { calculateClaim } from "./engine";
 import { DEFAULT_OPTIONS, type ClaimInput } from "./model";
@@ -98,6 +98,27 @@ describe("デモの患者の月：包括 + 出来高に残る部分 と 出来�
     const r = dpcMonth(input("90010260"), "2026-11", opts);
     expect(r.outcome?.ok && r.outcome.d.code).toBe("110310xx99xxxx");
     expect(r.now).toEqual({ hospitalDay: 3, period: "Ⅰ", points: 3232 });
+  });
+
+  it("画面が送る形（POST /api/dpc）を受け付け、表の中身は返さずにコードと行を返す", () => {
+    const p = PATIENTS.find((x) => x.id === "90010198")!;
+    const body = JSON.parse(
+      JSON.stringify({
+        today: TODAY,
+        nowTime: "12:00",
+        month: "2026-11",
+        ...patientMonthPayload(p, p.history, INITIAL_DIAGNOSES[p.id], DEFAULT_OPTIONS, { diets: [], letters: [], notGiven: [] }),
+        dpc: { coefficient: 1.3, transfer: true },
+      }),
+    );
+    const parsed = DpcRequest.safeParse(body);
+    expect(parsed.success).toBe(true);
+    const { month, dpc, ...rest } = parsed.data!;
+    const view = JSON.parse(JSON.stringify(dpcView(dpcMonth(rest as unknown as Omit<ClaimInput, "month">, month, dpc))));
+    expect(view.outcome.d.code).toBe("050130xx9900x1");
+    expect(view.outcome.d.cls).toEqual({ code: "050130", name: "心不全", mdcName: "循環器系疾患", usesTransfer: true });
+    expect(view.outcome.d.row.points).toEqual([2937, 2091, 1778]);
+    expect(DpcRequest.safeParse({ ...body, dpc: { coefficient: 9, transfer: null } }).success).toBe(false);
   });
 
   it("輸血のオーダ（実施済）は手術あり：森さんなら 110310xx97xxxx", () => {

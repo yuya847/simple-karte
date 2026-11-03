@@ -5,13 +5,15 @@
 // (same list in 保医発0318第４号 第3の1(3)): イ the parts of the 点数表 that are contained, ロ the items taken
 // out of them again. Anything not contained (手術・麻酔・リハビリ・在宅・評価料 …) is billed by the 点数表.
 
+import { z } from "zod";
 import { diagnosisLabel, isSuspected, type Diagnosis } from "../diagnoses";
 import { loadMaster } from "../masters/server";
 import type { OrderEntry, ProcedureOrder } from "../types";
-import { deriveDpc, packagePoints, periodOf, type DpcAct, type DpcIssue, type DpcOutcome, type DpcPackageLine, type DpcPeriod } from "./dpc";
+import { deriveDpc, packagePoints, periodOf, type DpcAct, type DpcDerivation, type DpcIssue, type DpcOutcome, type DpcPackageLine, type DpcPeriod } from "./dpc";
 import { DPC_SOURCES } from "./dpc-table";
 import { calculateClaim } from "./engine";
 import type { ClaimAct, ClaimInput, ClaimPart, ClaimResult, Shikibetsu } from "./model";
+import { ClaimRequest } from "./request";
 
 // ---------- 区分 of a claimed line ----------
 
@@ -355,4 +357,23 @@ export function dpcMonth(input: Omit<ClaimInput, "month">, month: string, opts: 
     issues,
     sources: Object.values(DPC_SOURCES),
   };
+}
+
+/** POST /api/dpc: the 算定 request plus the doctor's choices and the (fictional) coefficient. */
+export const DpcRequest = ClaimRequest.extend({
+  dpc: z.object({
+    mainDiagnosisId: z.string().max(80).optional(),
+    coefficient: z.number().min(0.5).max(3),
+    transfer: z.boolean().nullable(),
+  }),
+});
+
+/** What the screen gets: the class without its lookup tables (they stay on the server). */
+export type DpcDerivationView = Omit<DpcDerivation, "cls"> & { cls: { code: string; name: string; mdcName: string; usesTransfer: boolean } };
+export type DpcMonthView = Omit<DpcMonth, "outcome"> & { outcome: { ok: true; d: DpcDerivationView } | { ok: false; reason: string; issues: DpcIssue[] } | null };
+
+export function dpcView(r: DpcMonth): DpcMonthView {
+  if (!r.outcome?.ok) return { ...r, outcome: r.outcome };
+  const { cls, ...d } = r.outcome.d;
+  return { ...r, outcome: { ok: true, d: { ...d, cls: { code: cls.code, name: cls.name, mdcName: cls.mdcName, usesTransfer: !!cls.transfer } } } };
 }
