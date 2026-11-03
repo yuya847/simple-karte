@@ -23,7 +23,10 @@ import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
 import { PatientList } from "./PatientList";
-import { PatientTabs, type PinnedTab } from "./PatientTabs";
+import type { PinnedTab } from "@/lib/roles";
+import { AppFrame, type Todo } from "./AppFrame";
+import type { Layout } from "@/lib/nav";
+import { verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { RightTabs, type RightTab } from "./RightTabs";
@@ -166,6 +169,16 @@ export default function WardApp() {
   const [screen, setScreen] = useState<PinnedTab | "chart">(home("医師"));
   // Who is using the chart. The demo picks a role instead of logging in.
   const [role, setRole] = useState<Role>("医師");
+  // A: a home tab and patient tabs on top. B: a menu down the left. Kept in this browser only.
+  const [layout, setLayout] = useState<Layout>("B");
+  useEffect(() => {
+    try {
+      const l = localStorage.getItem("sk-layout");
+      if (l === "A" || l === "B") setLayout(l);
+    } catch {
+      // No storage: use the default.
+    }
+  }, []);
   const me = STAFF[role];
   const deny = (a: Parameters<typeof denyReason>[1]) => denyReason(role, a);
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
@@ -542,6 +555,26 @@ export default function WardApp() {
       updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・パニック値（${seen.flatMap((i) => i.panic.map(hitLine)).join("、")}）${calls[keys[0]] ? `：${calls[keys[0]].at.time} ${calls[keys[0]].by}より${calls[keys[0]].means}で報告` : ""}。対応：${response}\n` }));
   };
 
+  const goScreen = (t: PinnedTab) => {
+    setScreen(t);
+    setPanel(null);
+  };
+  // やること: what waits for this role, from everywhere, each with where to go.
+  const todos: Todo[] = [];
+  for (const x of people) {
+    const pid = x.patient.id;
+    const r = resultState[pid];
+    if (!deny("result.ack") && r?.panic) todos.push({ key: `panic-${pid}`, label: `パニック値：${x.patient.name}さん`, detail: "対応を書いて確認する", count: r.panic, tone: "shu", go: () => openPatient(pid) });
+    if (!deny("result.ack") && r && r.unseen > r.panic) todos.push({ key: `unseen-${pid}`, label: `未確認の結果：${x.patient.name}さん`, count: r.unseen - r.panic, tone: "ai", go: () => openPatient(pid) });
+    const v = verbalUnsigned(x.entries).length;
+    if (!deny("order.sign") && v) todos.push({ key: `verbal-${pid}`, label: `口頭指示の承認待ち：${x.patient.name}さん`, count: v, tone: "yamabuki", go: () => openPatient(pid) });
+  }
+  const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
+  if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goScreen("sheet") });
+  if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goScreen("admit") });
+  const toCall = uncalled(wardResults.filter((i) => i.day === 0), calls).length;
+  if (!deny("panic.call") && toCall) todos.push({ key: "call", label: "パニック値の連絡がまだ", detail: "検査室で連絡を記録する", count: toCall, tone: "shu", go: () => goScreen("lab") });
+
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
   );
@@ -560,30 +593,9 @@ export default function WardApp() {
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
-  return (
-    <RoleProvider value={role}>
-    <div className="flex h-screen flex-col print:hidden">
-      <div aria-hidden className="standalone-edge" />
-      <PatientTabs
-        role={role}
-        onRole={switchRole}
-        badges={{ lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, list: role === "医師" ? unseenResults.length : 0, admit: admitDue }}
-        tabs={tabs.map((id) => findPatient(id)!).filter(Boolean)}
-        activeId={screen === "chart" ? activeId : null}
-        pinned={screen === "chart" ? null : screen}
-        onSelectPinned={(t) => {
-          setScreen(t);
-          setPanel(null);
-        }}
-        onSelect={(id) => {
-          setActiveId(id);
-          setScreen("chart");
-          setPanel(null);
-        }}
-        onClose={closePatient}
-        onOpenPicker={() => setPickerOpen(true)}
-      />
-
+  // The screen itself (the same in both layouts).
+  const content = (
+    <>
       {screen === "map" ? (
         <WardMap ward={ward} summaries={summaries} onOpen={openPatient} />
       ) : screen === "er" ? (
@@ -1267,6 +1279,41 @@ export default function WardApp() {
           </button>
         </div>
       )}
+    </>
+  );
+
+  return (
+    <RoleProvider value={role}>
+    <div className="flex h-screen flex-col print:hidden">
+      <div aria-hidden className="standalone-edge" />
+      <AppFrame
+        layout={layout}
+        onLayout={(l) => {
+          setLayout(l);
+          try {
+            localStorage.setItem("sk-layout", l);
+          } catch {
+            // No storage (private window): the choice lasts until the page is reloaded.
+          }
+        }}
+        role={role}
+        onRole={switchRole}
+        screen={screen}
+        onScreen={goScreen}
+        patients={tabs.map((id) => findPatient(id)!).filter(Boolean)}
+        activeId={activeId}
+        onSelectPatient={(id) => {
+          setActiveId(id);
+          setScreen("chart");
+          setPanel(null);
+        }}
+        onClosePatient={closePatient}
+        onOpenPicker={() => setPickerOpen(true)}
+        badges={{ lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, list: role === "医師" ? unseenResults.length : 0, admit: admitDue }}
+        todos={todos}
+      >
+        {content}
+      </AppFrame>
 
       {pickerOpen && <PatientPicker patients={allPatients} openIds={tabs} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
     </div>
