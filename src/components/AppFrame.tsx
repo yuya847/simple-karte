@@ -26,7 +26,8 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { DEPTS, VIEW_LABEL, deptOf, deptsFor, hasTool, type Dept, type Layout } from "@/lib/nav";
 import { ROLES, ROLE_LONG, STAFF, type PinnedTab, type Role } from "@/lib/roles";
 import type { Patient } from "@/lib/types";
@@ -84,13 +85,40 @@ function Badge({ n, tone = "shu" }: { n: number; tone?: "shu" | "ai" | "yamabuki
   return <span className={`nums rounded-full ${bg} px-1.5 text-[10px] font-bold leading-4 text-white`}>{n}</span>;
 }
 
-/** A small menu that closes on Esc or a press outside. */
-function Popover({ open, onClose, children, className = "" }: { open: boolean; onClose: () => void; children: React.ReactNode; className?: string }) {
+type Place = "below-right" | "below-left" | "beside";
+
+/**
+ * A small menu drawn on top of the whole screen (not clipped by the menu it comes from), next to the
+ * button that opened it. Closes on Esc or a press outside.
+ */
+function Popover({ open, onClose, anchor, place, width, children }: { open: boolean; onClose: () => void; anchor: React.RefObject<HTMLElement | null>; place: Place; width: number; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<React.CSSProperties>({ visibility: "hidden" });
+  useLayoutEffect(() => {
+    if (!open) return;
+    const put = () => {
+      const a = anchor.current?.getBoundingClientRect();
+      if (!a) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const left = place === "beside" ? a.right + 6 : place === "below-left" ? a.left : a.right - width;
+      const x = Math.max(8, Math.min(left, vw - width - 8));
+      setPos(
+        place === "beside"
+          ? { left: x, bottom: Math.max(8, vh - a.bottom), maxHeight: vh - 16 }
+          : { left: x, top: a.bottom + 4, maxHeight: vh - a.bottom - 12 },
+      );
+    };
+    put();
+    window.addEventListener("resize", put);
+    return () => window.removeEventListener("resize", put);
+  }, [open, anchor, place, width]);
   useEffect(() => {
     if (!open) return;
     const away = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || anchor.current?.contains(t)) return;
+      onClose();
     };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("pointerdown", away, true);
@@ -99,12 +127,17 @@ function Popover({ open, onClose, children, className = "" }: { open: boolean; o
       window.removeEventListener("pointerdown", away, true);
       window.removeEventListener("keydown", esc);
     };
-  }, [open, onClose]);
-  if (!open) return null;
-  return (
-    <div ref={ref} className={`absolute z-50 mt-1 rounded-lg border border-rule bg-sheet p-1.5 text-sm shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)] ${className}`}>
+  }, [open, onClose, anchor]);
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      ref={ref}
+      style={{ position: "fixed", zIndex: 1000, width, ...pos }}
+      className="scroll-thin overflow-y-auto rounded-lg border border-rule bg-sheet p-1.5 text-sm shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]"
+    >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -157,23 +190,32 @@ function PatientStrip({ patients, activeId, onSelect, onClose, onOpenPicker }: {
 }
 
 /** やること: what is waiting for this role, gathered from everywhere; each line goes to its place. */
-function TodoButton({ todos, compact }: { todos: Todo[]; compact?: boolean }) {
+function TodoButton({ todos, side, narrow }: { todos: Todo[]; side?: boolean; narrow?: boolean }) {
   const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
   const total = todos.reduce((n, t) => n + t.count, 0);
   return (
     <div className="relative">
       <button
+        ref={btn}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title="やること（未確認の結果・口頭指示・指示受け・期限など）"
-        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2 ${compact ? "w-full" : ""}`}
+        className={side ? navItem(false, narrow) : "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2"}
       >
-        <CheckSquare size={16} />
-        <span className={compact ? "hidden lg:inline" : "hidden xl:inline"}>やること</span>
-        <Badge n={total} />
+        <span className="relative">
+          <CheckSquare size={16} />
+          {side && narrow && total > 0 && <span className="absolute -right-2.5 -top-2"><Badge n={total} /></span>}
+        </span>
+        {side ? <NavLabel full="やること" short="やること" narrow={narrow} /> : <span className="hidden xl:inline">やること</span>}
+        {!(side && narrow) && (
+          <span className={side ? "ml-auto hidden lg:inline" : ""}>
+            <Badge n={total} />
+          </span>
+        )}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} className={compact ? "bottom-full left-0 mb-1 w-80" : "right-0 w-80"}>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place={side ? "beside" : "below-right"} width={320}>
         <h3 className="px-2 pb-1 pt-0.5 text-xs font-bold text-ink-soft">やること（{total}件）</h3>
         {todos.length === 0 ? (
           <p className="px-2 py-2 text-xs text-ink-faint">いま待っていることはありません。</p>
@@ -205,24 +247,30 @@ function TodoButton({ todos, compact }: { todos: Todo[]; compact?: boolean }) {
 }
 
 /** 自分: the role (login stand-in for the demo), the audit log, and which layout to use. */
-function UserButton({ role, onRole, onScreen, layout, onLayout, compact }: { role: Role; onRole: (r: Role) => void; onScreen: (t: PinnedTab) => void; layout: Layout; onLayout: (l: Layout) => void; compact?: boolean }) {
+function UserButton({ role, onRole, onScreen, layout, onLayout, side, narrow }: { role: Role; onRole: (r: Role) => void; onScreen: (t: PinnedTab) => void; layout: Layout; onLayout: (l: Layout) => void; side?: boolean; narrow?: boolean }) {
   const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
   return (
     <div className="relative">
       <button
+        ref={btn}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title="職種の切り替え（デモではログインの代わり）・監査ログ・画面の並び"
-        className={`flex items-center gap-1.5 rounded-md border border-rule bg-sheet px-2 py-1 text-xs pointer-coarse:py-2 ${compact ? "w-full" : ""}`}
+        className={side ? `${navItem(false, narrow)} border border-rule bg-sheet` : "flex items-center gap-1.5 rounded-md border border-rule bg-sheet px-2 py-1 text-xs pointer-coarse:py-2"}
       >
-        <UserRound size={14} className="shrink-0 text-ink-soft" />
-        <b className={`truncate ${compact ? "hidden lg:inline" : ""}`}>
-          {role}：{STAFF[role].name}
-        </b>
-        <ChevronDown size={13} className={`shrink-0 text-ink-faint ${compact ? "hidden lg:inline" : ""}`} />
+        <UserRound size={side ? 16 : 14} className="shrink-0 text-ink-soft" />
+        {side ? (
+          <NavLabel full={`${role}：${STAFF[role].name}`} short={role} narrow={narrow} />
+        ) : (
+          <b className="truncate">
+            {role}：{STAFF[role].name}
+          </b>
+        )}
+        <ChevronDown size={13} className={`shrink-0 text-ink-faint ${side ? (narrow ? "hidden" : "hidden lg:inline") : ""}`} />
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} className={compact ? "bottom-full left-0 mb-1 w-72" : "right-0 w-72"}>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place={side ? "beside" : "below-right"} width={288}>
         <h3 className="px-2 pb-1 text-xs font-bold text-ink-soft">職種（デモではログインの代わり）</h3>
         <ul className="mb-1">
           {ROLES.map((r) => (
@@ -359,6 +407,7 @@ export function AppFrame(p: Props) {
 /** A: the home tab — the department you are in (switch it with ▾) and back to its screens. */
 function HomeTab({ dept, depts, active, badge, badges, onHome, onDept }: { dept?: Dept; depts: Dept[]; active: boolean; badge: number; badges: Props["badges"]; onHome: () => void; onDept: (d: Dept) => void }) {
   const [open, setOpen] = useState(false);
+  const caret = useRef<HTMLButtonElement>(null);
   const Icon = dept ? (DEPT_ICON[dept.key] ?? Home) : Home;
   return (
     <div className="relative shrink-0">
@@ -370,11 +419,11 @@ function HomeTab({ dept, depts, active, badge, badges, onHome, onDept }: { dept?
           <span className="whitespace-nowrap">{dept?.label ?? "ホーム"}</span>
           <Badge n={badge} />
         </button>
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="部署を切り替える" title="部署を切り替える" className="flex h-full items-center pl-0.5 pr-2 text-ink-faint hover:text-ink">
+        <button ref={caret} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="部署を切り替える" title="部署を切り替える" className="flex h-full items-center pl-0.5 pr-2 text-ink-faint hover:text-ink">
           <ChevronDown size={14} />
         </button>
       </div>
-      <Popover open={open} onClose={() => setOpen(false)} className="left-0 w-60">
+      <Popover open={open} onClose={() => setOpen(false)} anchor={caret} place="below-left" width={240}>
         <h3 className="px-2 pb-1 text-xs font-bold text-ink-soft">部署</h3>
         <ul>
           {depts.map((d) => {
@@ -407,64 +456,105 @@ function HomeTab({ dept, depts, active, badge, badges, onHome, onDept }: { dept?
   );
 }
 
+const VIEW_SHORT: Record<PinnedTab, string> = {
+  map: "マップ",
+  list: "一覧",
+  sheet: "ワーク",
+  handoff: "申し送り",
+  admit: "入院評価",
+  acuity: "必要度",
+  er: "救急",
+  or: "手術室",
+  dialysis: "透析",
+  pharmacy: "薬剤部",
+  lab: "検査室",
+  chat: "チャット",
+  audit: "監査",
+};
+const DEPT_SHORT: Record<string, string> = { ward: "5階東", er: "救急", or: "手術室", dialysis: "透析", pharmacy: "薬剤部", lab: "検査室", opd: "外来" };
+
+/**
+ * An item of the left menu: a row with the full name when the menu is wide (on screens 1024px and
+ * up), or the icon over a small name when it is narrow (like the tools on the right of the chart).
+ */
+function navItem(on: boolean, narrow?: boolean) {
+  const shape = narrow
+    ? "flex-col justify-center gap-0.5 px-0.5 py-1.5 text-center"
+    : "flex-col justify-center gap-0.5 px-0.5 py-1.5 text-center lg:flex-row lg:justify-start lg:gap-2 lg:px-2 lg:text-left";
+  return `relative flex w-full items-center rounded-md text-sm pointer-coarse:py-2 ${shape} ${on ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
+}
+
+function NavLabel({ full, short, narrow }: { full: string; short: string; narrow?: boolean }) {
+  return (
+    <>
+      <span className={narrow ? "hidden" : "hidden truncate lg:inline"}>{full}</span>
+      <span className={`text-[10px] leading-tight ${narrow ? "" : "lg:hidden"}`}>{short}</span>
+    </>
+  );
+}
+
+/** A count on a menu item: at the end of the row when wide, a dot on the icon when narrow. */
+function NavCount({ n, narrow }: { n: number; narrow?: boolean }) {
+  if (!n) return null;
+  return (
+    <>
+      {!narrow && (
+        <span className="ml-auto hidden lg:inline">
+          <Badge n={n} />
+        </span>
+      )}
+      <span className={`absolute right-1.5 top-1 h-2 w-2 rounded-full bg-shu ${narrow ? "" : "lg:hidden"}`} />
+    </>
+  );
+}
+
 /** B: a menu down the left (departments and their screens, chat, やること, 自分); patient tabs on top. */
 function LayoutB(p: Props & { depts: Dept[]; goDept: (d: Dept) => void }) {
-  // null = automatic: icons only while a chart is open (it needs the width), names elsewhere.
+  // null = automatic: narrow while a chart is open (it needs the width), wide elsewhere.
   const [collapsed, setCollapsed] = useState<boolean | null>(null);
-  const wide = collapsed === null ? p.screen !== "chart" : !collapsed;
-  const item = (on: boolean) =>
-    `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm pointer-coarse:py-2.5 ${on ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
-  const label = wide ? "hidden lg:inline truncate" : "hidden";
+  const narrow = collapsed === null ? p.screen === "chart" : collapsed;
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="メニュー" className={`scroll-thin flex shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule bg-tab px-1.5 py-2 ${wide ? "w-14 lg:w-52" : "w-14"}`}>
-        <div className="mb-2 flex items-center gap-1 px-1">
-          <span className={wide ? "hidden lg:block" : "hidden"}>
+      <nav aria-label="メニュー" className={`scroll-thin flex shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule bg-tab px-1 py-2 ${narrow ? "w-16" : "w-16 lg:w-52 lg:px-1.5"}`}>
+        <div className="mb-1 flex items-center gap-1 px-1">
+          <span className={narrow ? "hidden" : "hidden lg:block"}>
             <Image src="/simple-karte-logo-small.svg" alt="SimpleKarte" width={104} height={18} priority />
           </span>
           <button
             type="button"
-            onClick={() => setCollapsed(wide)}
-            aria-label={wide ? "メニューをたたむ" : "メニューを広げる"}
-            title={wide ? "たたむ（カルテを開いている間は自動でたたみます）" : "広げる"}
-            className="ml-auto rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink"
+            onClick={() => setCollapsed(!narrow)}
+            aria-label={narrow ? "メニューを広げる" : "メニューをたたむ"}
+            title={narrow ? "広げる" : "たたむ（カルテを開いている間は自動でたたみます）"}
+            className={`rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink ${narrow ? "mx-auto" : "mx-auto lg:ml-auto lg:mr-0"}`}
           >
-            {wide ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+            {narrow ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
         </div>
         {p.depts.map((d) => {
           const DIcon = DEPT_ICON[d.key] ?? Home;
           if (d.views.length <= 1) {
             const v = d.views[0];
-            const on = !!v && p.screen === v;
             return (
-              <button key={d.key} type="button" disabled={!v} title={d.soon ?? d.label} onClick={() => p.goDept(d)} className={`${item(on)} disabled:text-ink-faint/50`}>
+              <button key={d.key} type="button" disabled={!v} title={d.soon ?? d.label} onClick={() => p.goDept(d)} className={`${navItem(!!v && p.screen === v, narrow)} disabled:text-ink-faint/50`}>
                 <DIcon size={16} className="shrink-0" />
-                <span className={label}>
-                  {d.label}
-                  {d.soon ? "（準備中）" : ""}
-                </span>
-                {v && <span className={`ml-auto ${wide ? "" : "absolute"}`}><Badge n={p.badges[v] ?? 0} /></span>}
+                <NavLabel full={`${d.label}${d.soon ? "（準備中）" : ""}`} short={DEPT_SHORT[d.key] ?? d.label} narrow={narrow} />
+                {v && <NavCount n={p.badges[v] ?? 0} narrow={narrow} />}
               </button>
             );
           }
           return (
-            <div key={d.key} className="mb-1">
-              <div className={`flex items-center gap-2 px-2 pb-0.5 pt-1.5 text-[11px] font-bold text-ink-faint ${wide ? "" : "justify-center"}`} title={d.label}>
-                <DIcon size={13} className={wide ? "lg:hidden" : ""} />
-                <span className={label}>{d.label}</span>
+            <div key={d.key} className="mb-1 border-b border-rule/60 pb-1">
+              <div className={`px-1 pb-0.5 pt-1 text-[10px] font-bold text-ink-faint ${narrow ? "text-center" : "text-center lg:px-2 lg:text-left lg:text-[11px]"}`} title={d.label}>
+                <span className={narrow ? "" : "lg:hidden"}>{DEPT_SHORT[d.key] ?? d.label}</span>
+                <span className={narrow ? "hidden" : "hidden lg:inline"}>{d.label}</span>
               </div>
               {d.views.map((v) => {
                 const Icon = VIEW_ICON[v];
-                const on = p.screen === v;
                 return (
-                  <button key={v} type="button" onClick={() => p.onScreen(v)} title={VIEW_LABEL[v]} className={`relative ${item(on)}`}>
+                  <button key={v} type="button" onClick={() => p.onScreen(v)} title={VIEW_LABEL[v]} className={navItem(p.screen === v, narrow)}>
                     <Icon size={16} className="shrink-0" />
-                    <span className={label}>{VIEW_LABEL[v]}</span>
-                    <span className={wide ? "ml-auto hidden lg:inline" : "hidden"}>
-                      <Badge n={p.badges[v] ?? 0} />
-                    </span>
-                    {!!p.badges[v] && <span className={`absolute right-1 top-1 h-2 w-2 rounded-full bg-shu ${wide ? "lg:hidden" : ""}`} />}
+                    <NavLabel full={VIEW_LABEL[v]} short={VIEW_SHORT[v]} narrow={narrow} />
+                    <NavCount n={p.badges[v] ?? 0} narrow={narrow} />
                   </button>
                 );
               })}
@@ -473,16 +563,16 @@ function LayoutB(p: Props & { depts: Dept[]; goDept: (d: Dept) => void }) {
         })}
         <div className="mt-auto space-y-0.5 border-t border-rule pt-2">
           {hasTool(p.role, "chat") && (
-            <button type="button" onClick={() => p.onScreen("chat")} title="チャット" className={item(p.screen === "chat")}>
+            <button type="button" onClick={() => p.onScreen("chat")} title="チャット" className={navItem(p.screen === "chat", narrow)}>
               <MessagesSquare size={16} className="shrink-0" />
-              <span className={label}>チャット</span>
+              <NavLabel full="チャット" short="チャット" narrow={narrow} />
             </button>
           )}
-          <TodoButton todos={p.todos} compact />
-          <div className="px-1 py-1">
+          <TodoButton todos={p.todos} side narrow={narrow} />
+          <div className="flex justify-center py-1">
             <LayoutSwitch layout={p.layout} onLayout={p.onLayout} short />
           </div>
-          <UserButton role={p.role} onRole={p.onRole} onScreen={p.onScreen} layout={p.layout} onLayout={p.onLayout} compact />
+          <UserButton role={p.role} onRole={p.onRole} onScreen={p.onScreen} layout={p.layout} onLayout={p.onLayout} side narrow={narrow} />
         </div>
       </nav>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
