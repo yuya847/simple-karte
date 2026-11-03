@@ -157,7 +157,7 @@ function Detail({ w, ev, item, today, nowTime, onSave }: { w: WorkPatient; ev: A
         {item === "pressure" && <PressureForm ev={ev} nowTime={nowTime} onSave={onSave} />}
         {item === "fall" && <ChecklistForm kind="fall" ev={ev} nowTime={nowTime} onSave={onSave} suggested={[]} />}
         {item === "delirium" && <ChecklistForm kind="delirium" ev={ev} nowTime={nowTime} onSave={onSave} suggested={suggestions(w.patient, !!ev.emergency).delirium} />}
-        {(item === "discharge" || item === "talk" || item === "conference") && <DischargeForm w={w} ev={ev} nowTime={nowTime} onSave={onSave} />}
+        {(item === "discharge" || item === "talk" || item === "conference") && <DischargeForm w={w} ev={ev} nowTime={nowTime} today={today} onSave={onSave} />}
       </fieldset>
     </section>
   );
@@ -424,17 +424,19 @@ function ChecklistForm({ kind, ev, nowTime, onSave, suggested }: { kind: "fall" 
   );
 }
 
-function DischargeForm({ w, ev, nowTime, onSave }: { w: WorkPatient; ev: AdmitEval; nowTime: string; onSave: (e: AdmitEval, what: string) => void }) {
+function DischargeForm({ w, ev, nowTime, today, onSave }: { w: WorkPatient; ev: AdmitEval; nowTime: string; today: CalendarDate; onSave: (e: AdmitEval, what: string) => void }) {
+  const when = (a: { day: number; time: string }) => `${a.day === 0 ? "今日" : formatShort(addDays(today, a.day)).replace(/（.）/, "")} ${a.time}`;
   const me = useMe();
   const sug = suggestions(w.patient, !!ev.emergency).discharge;
   const ds = ev.discharge;
   const [factors, setFactors] = useState<string[]>(ds?.factors ?? sug);
   const [note, setNote] = useState(ds?.note ?? "");
-  const now = { day: 0, time: nowTime };
+  const now = { day: 0, time: nowTime, by: me.name };
   const step = (label: string, field: "talkedAt" | "planStartedAt" | "conferenceAt") =>
     ds?.[field] ? (
       <span className="text-wakatake">
-        {label}：済（{ds[field]!.day === 0 ? "今日" : `${ds[field]!.day}日`} {ds[field]!.time}）
+        {label}：済（{when(ds[field]!)}
+        {ds[field]!.by ? ` ${ds[field]!.by}` : ""}）
       </span>
     ) : (
       <button type="button" disabled={!ds || ds.factors.length === 0} onClick={() => onSave({ ...ev, discharge: { ...ds!, [field]: now } }, `退院支援：${label}`)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
@@ -464,7 +466,7 @@ function DischargeForm({ w, ev, nowTime, onSave }: { w: WorkPatient; ev: AdmitEv
       <div className="flex flex-wrap items-center gap-2">
         {ds ? (
           <span className="text-wakatake">
-            抽出：済（{ds.extractedAt.day === 0 ? "今日" : `${ds.extractedAt.day}日`} {ds.extractedAt.time} {ds.extractedBy}）{ds.factors.length ? `　要因 ${ds.factors.join("・")}` : "　要因なし"}
+            抽出：済（{when(ds.extractedAt)} {ds.extractedBy}）{ds.factors.length ? `　要因 ${ds.factors.join("・")}` : "　要因なし"}
           </span>
         ) : (
           <button

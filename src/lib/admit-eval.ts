@@ -73,7 +73,8 @@ export const DISCHARGE_FACTORS = [
   { key: "チ", label: "その他ア〜タに準ずる" },
 ] as const;
 
-type At = { day: DayOffset; time: string };
+/** When, and (for steps done in this app) who. */
+type At = { day: DayOffset; time: string; by?: string };
 
 export interface PlanRecord {
   /** 推定される入院期間（日）. */
