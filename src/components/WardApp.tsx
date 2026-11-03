@@ -43,6 +43,8 @@ import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
+import { DietPanel } from "./panels/DietPanel";
+import { INITIAL_DIETS, dietAt, dietLabel, nextMeal, type DietOrder } from "@/lib/diet";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
 import { ChatThread, ChatView } from "./ChatView";
@@ -177,16 +179,23 @@ export default function WardApp() {
   if (sessionStart === null && nowTime) setSessionStart(abs(0, nowTime));
   // Advance directives (history kept) and warnings added on the band.
   const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
+  const [diets, setDiets] = useState<DietOrder[]>(INITIAL_DIETS);
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   const allPatients = useMemo(
     () =>
       [...PATIENTS, ...admitted].map((p) => {
         const d = currentDirective(directives, p.id);
-        return extraVitals[p.id]?.length || extraCautions[p.id]?.length || d
-          ? { ...p, vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])], cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])], codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined }
-          : p;
+        const next = nextMeal(nowTime ? abs(0, nowTime) : 0);
+        const diet = dietAt(diets, p.id, next.day, next.meal);
+        return {
+          ...p,
+          vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])],
+          cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
+          codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
+          dietNow: diet ? dietLabel(diet) : undefined,
+        };
       }),
-    [admitted, extraVitals, extraCautions, directives],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
@@ -593,6 +602,7 @@ export default function WardApp() {
             directive={currentDirective(directives, patient.id)}
             onOpenDiagnoses={() => setPanel("diagnoses")}
             onOpenDirective={() => setPanel("directive")}
+            onOpenDiet={() => setPanel("diet")}
           />
           <div
             className={`grid min-h-0 flex-1 ${
@@ -755,6 +765,25 @@ export default function WardApp() {
                     onSave={(v) => {
                       auditLog({ role: "看護師", actor: "看護師（あなた）", action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
+                      closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "diet" && (
+                <Drawer title="食事" onClose={closePanel} wide>
+                  <DietPanel
+                    patient={patient}
+                    today={today}
+                    nowTime={nowTime}
+                    doctor={DOCTOR}
+                    diets={diets}
+                    entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    onSave={(d) => {
+                      setDiets((all) => [...all, d]);
+                      const when = `${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から`;
+                      auditLog({ role: "医師", actor: DOCTOR, action: "確定（食事）", patient: patient.name, detail: `${dietLabel(d)}（${when}）` });
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・食事：${dietLabel(d)}（${when}）${d.comment ? `　${d.comment}` : ""}\n`, flash: `食事を確定しました（${when}）。` }));
                       closePanel();
                     }}
                   />

@@ -53,7 +53,7 @@ export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, wait
   if (drip) out.push({ label: "持続点滴", tone: "ai" });
 
   const today = p.daily.find((d) => d.day === 0);
-  if (today?.meals === "絶食" || p.cautions.includes("絶食中")) out.push({ label: "絶食", tone: "yamabuki" });
+  if (p.dietNow ? p.dietNow.startsWith("絶食") : today?.meals === "絶食") out.push({ label: "絶食", tone: "yamabuki", title: p.dietNow });
   for (const c of p.cautions.filter((c) => c !== "絶食中")) out.push({ label: c, tone: "yamabuki" });
   return out;
 }

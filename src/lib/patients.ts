@@ -280,7 +280,7 @@ const oura: BasePatient = {
   weightKg: 41,
   allergies: [],
   infections: [],
-  cautions: ["絶食中", "転倒注意"],
+  cautions: ["転倒注意"],
   history: [
     {
       kind: "note",
