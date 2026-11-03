@@ -31,6 +31,7 @@ import { BoardView } from "./BoardView";
 import { ExtractView } from "./ExtractView";
 import { JournalView } from "./JournalView";
 import { journalLines, staffing } from "@/lib/journal";
+import { bookingsOf } from "@/lib/bookings";
 import { runExtract } from "@/lib/extract";
 import { ManualView } from "./ManualView";
 import { IncidentView } from "./IncidentView";
@@ -1358,6 +1359,12 @@ export default function WardApp() {
               onDo={doFromHistory}
               diets={diets}
               onOpenDiet={() => setPanel("diet")}
+              bookings={bookingsOf(
+                entries.filter((e): e is OrderEntry => e.kind === "order"),
+                surgeries.filter((x) => x.patientId === patient.id),
+                today,
+                abs(0, nowTime),
+              )}
               onOpenImage={(id) => {
                 setImageFocus(id);
                 setPanel("imaging");

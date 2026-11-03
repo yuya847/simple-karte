@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, CalendarClock, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
@@ -81,6 +81,7 @@ const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
   { key: "rx-cal", label: "処方カレンダー", icon: CalendarRange },
   { key: "proc-cal", label: "処置カレンダー", icon: CalendarCheck },
   { key: "diet-cal", label: "食事カレンダー", icon: Utensils },
+  { key: "bookings", label: "予約の一覧", icon: CalendarClock },
 ];
 
 /** Fixed column of tools on the far right: order types, then things to look at. */
