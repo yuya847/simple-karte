@@ -2,6 +2,8 @@
 
 import { AlertTriangle, CheckCircle2, Download, FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { auditLog } from "@/lib/audit";
+import { useMe } from "../RoleContext";
 import type { PatientMonthPayload } from "@/lib/billing/payload";
 
 interface UkeResult {
@@ -44,6 +46,7 @@ export function ReceiptPanel({
   nowTime: string;
   wardPayload: () => PatientMonthPayload[];
 }) {
+  const me = useMe();
   const [files, setFiles] = useState<UkeResult[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +78,7 @@ export function ReceiptPanel({
     a.href = url;
     a.download = f.filename;
     a.click();
+    auditLog({ role: me.role, actor: me.name, action: "レセプトのファイルを書き出した", detail: f.filename });
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 

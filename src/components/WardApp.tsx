@@ -1538,7 +1538,13 @@ export default function WardApp() {
                   options={billing[patient.id] ?? DEFAULT_OPTIONS}
                   diets={diets}
                   letters={lettersOf(patient.id)}
-                  onOptions={(next) => setBilling((all) => ({ ...all, [patient.id]: next }))}
+                  onOptions={(next) => {
+                    // What changed in the claim's options, for the audit log (医事課 and doctors change them).
+                    const cur = billing[patient.id] ?? DEFAULT_OPTIONS;
+                    const changed = (Object.keys(next) as (keyof typeof next)[]).filter((k) => JSON.stringify(next[k]) !== JSON.stringify(cur[k]));
+                    if (changed.length) auditLog({ role: me.role, actor: me.name, action: "算定の設定を変えた", patient: patient.name, detail: changed.map((k) => `${k}: ${JSON.stringify(cur[k] ?? null)} → ${JSON.stringify(next[k])}`).join("、") });
+                    setBilling((all) => ({ ...all, [patient.id]: next }));
+                  }}
                   wardPayload={() =>
                     allPatients.map((p) => {
                       const c = charts[p.id];
