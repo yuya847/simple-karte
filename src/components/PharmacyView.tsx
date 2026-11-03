@@ -8,6 +8,7 @@ import { orderLines, oralName } from "@/lib/format";
 import { alreadyOrdered, auditItems, b008Check, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
 import type { DayOffset } from "@/lib/types";
 import { buildWorksheet, shiftWindow, timeLabel, type WorkPatient } from "@/lib/worksheet";
+import { CLAUDE, auditLog } from "@/lib/audit";
 
 export interface ShidoRecord {
   day: DayOffset;
@@ -193,6 +194,7 @@ function Brought({ people, nowTime, reports, onReport }: Props) {
       const res = await fetch("/api/mochikomi", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
+      auditLog({ role: "AI", actor: CLAUDE, action: "お薬手帳を表に写した", patient: person?.patient.name, detail: `${json.rows.length}剤` });
       setRows(
         (json.rows as Omit<BroughtRow, "match" | "checked" | "decision">[]).map((r) => ({ ...r, match: matchOral(r.said, r.strength), checked: false, decision: null })),
       );

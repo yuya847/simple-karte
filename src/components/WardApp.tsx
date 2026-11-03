@@ -41,6 +41,9 @@ import { AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddPro
 import { latestCre } from "@/lib/exams";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
+import { AuditView } from "./AuditView";
+import { CLAUDE, auditLog } from "@/lib/audit";
+import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { Drawer } from "./panels/Drawer";
@@ -166,12 +169,13 @@ export default function WardApp() {
   const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
 
   const openPatient = useCallback((id: string) => {
+    auditLog({ role: "医師", actor: DOCTOR, action: "カルテを開いた", patient: findPatient(id)?.name ?? id });
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
     setActiveId(id);
     setScreen("chart");
     setPanel(null);
     setPickerOpen(false);
-  }, []);
+  }, [findPatient]);
 
   const closePatient = (id: string) => {
     const i = tabs.indexOf(id);
@@ -268,6 +272,7 @@ export default function WardApp() {
       const parsed = AiDraftResponse.safeParse(json.result);
       if (!parsed.success) throw new Error("下書きの形が正しくありませんでした。");
       const drafts = draftsFromAi(parsed.data, newId);
+      auditLog({ role: "AI", actor: CLAUDE, action: "下書きを作った", patient: patient?.name, detail: `${drafts.length}件 「${text.slice(0, 50)}${text.length > 50 ? "…" : ""}」${json.meta?.ms ? `（${(json.meta.ms / 1000).toFixed(1)}秒）` : ""}` });
       update((c) => ({ drafts: [...c.drafts, ...drafts], instruction: "", drafting: false, meta: json.meta ?? null }));
     } catch (e) {
       update({ drafting: false, error: e instanceof Error ? e.message : "下書きを作れませんでした。" });
@@ -303,6 +308,7 @@ export default function WardApp() {
       ...added.map((e) => planLine(e, today)),
     ];
     if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
+    auditLog({ role: "医師", actor: DOCTOR, action: "確定（オーダ）", patient: patient?.name, detail: lines.map((l) => l.replace(/^・/, "")).join("／").slice(0, 200) });
     update((c) => ({
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
@@ -322,6 +328,7 @@ export default function WardApp() {
     const before = consents.find((c) => c.id === r.id);
     setConsents((all) => all.map((c) => (c.id === r.id ? r : c)));
     if (before && before.status !== r.status && r.status !== "説明前") {
+      auditLog({ role: "医師", actor: DOCTOR, action: `確定（同意書：${r.status}）`, patient: patient?.name, detail: findConsent(r.code).short });
       const t = findConsent(r.code).short;
       const line = `・同意書：${t} ${r.status === "同意" ? "説明・同意" : r.status === "拒否" ? "説明・同意されず" : "同意の撤回"}（${nowTime}${r.explainedBy ? ` 説明 ${r.explainedBy}` : ""}${r.witness ? `、同席 ${r.witness}` : ""}）`;
       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n${line}\n` }));
@@ -417,7 +424,10 @@ export default function WardApp() {
           nowAbs={abs(0, nowTime)}
           ward={ward}
           today={today}
-          onRegister={(p) => setEr((list) => [...list, p])}
+          onRegister={(p) => {
+            auditLog({ role: "看護師", actor: "看護師（あなた）", action: p.status === "搬送中" ? "確定（救急隊の受入要請）" : "確定（救急受付）", patient: p.name, detail: p.complaint });
+            setEr((list) => [...list, p]);
+          }}
           onUpdate={(p) => setEr((list) => list.map((x) => (x.id === p.id ? p : x)))}
           onStatus={(id, st: ErStatus) => setEr((list) => list.map((p) => (p.id === id ? { ...p, status: st } : p)))}
           onAdmit={admit}
@@ -430,15 +440,23 @@ export default function WardApp() {
           nowTime={nowTime}
           taken={taken}
           sessionKeys={sessionKeys}
-          onTake={(keys) => setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, nowTime])) }))}
+          onTake={(keys) => {
+            auditLog({ role: "看護師", actor: "看護師（あなた）", action: "指示受け", detail: `${keys.length}件` });
+            setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, nowTime])) }));
+          }}
         />
+      ) : screen === "audit" ? (
+        <AuditView />
       ) : screen === "or" ? (
         <SurgeryView
           today={today}
           nowAbs={abs(0, nowTime)}
           surgeries={surgeries}
           people={people}
-          onSave={(x) => setSurgeries((list) => (list.some((y) => y.id === x.id) ? list.map((y) => (y.id === x.id ? x : y)) : [...list, x]))}
+          onSave={(x) => {
+            auditLog({ role: "医師", actor: DOCTOR, action: x.status === "申込" ? "確定（手術申込）" : "手術室の記録", patient: x.name, detail: `${x.procedure} ${x.room ?? ""} ${x.start ?? ""}` });
+            setSurgeries((list) => (list.some((y) => y.id === x.id) ? list.map((y) => (y.id === x.id ? x : y)) : [...list, x]));
+          }}
         />
       ) : screen === "dialysis" ? (
         <DialysisView
@@ -446,7 +464,10 @@ export default function WardApp() {
           nowTime={nowTime}
           patients={hdPatients}
           sessions={hdSessions}
-          onPatient={(p) => setHdPatients((list) => list.map((x) => (x.id === p.id ? p : x)))}
+          onPatient={(p) => {
+            auditLog({ role: "医師", actor: DOCTOR, action: "確定（透析条件）", patient: p.name, detail: p.history.at(-1)?.text });
+            setHdPatients((list) => list.map((x) => (x.id === p.id ? p : x)));
+          }}
           onSession={(id, s) => setHdSessions((all) => ({ ...all, [id]: s }))}
         />
       ) : screen === "pharmacy" ? (
@@ -455,11 +476,20 @@ export default function WardApp() {
           today={today}
           nowTime={nowTime}
           audited={audited}
-          onAudit={(id) => setAudited((a) => ({ ...a, [id]: nowTime }))}
+          onAudit={(id) => {
+            auditLog({ role: "薬剤師", actor: "薬剤師 小林", action: "処方監査", detail: id });
+            setAudited((a) => ({ ...a, [id]: nowTime }));
+          }}
           queries={queries}
-          onAsk={(q) => setQueries((qs) => [...qs, { ...q, id: newId(), askedAt: nowTime, by: "薬剤師 小林", status: "回答待ち" }])}
+          onAsk={(q) => {
+            auditLog({ role: "薬剤師", actor: "薬剤師 小林", action: "疑義照会", patient: findPatient(q.patientId)?.name, detail: q.question });
+            setQueries((qs) => [...qs, { ...q, id: newId(), askedAt: nowTime, by: "薬剤師 小林", status: "回答待ち" }]);
+          }}
           reports={reports}
-          onReport={(r) => setReports((rs) => [...rs, { ...r, id: newId(), at: nowTime, by: "薬剤師 小林", status: "医師へ報告" }])}
+          onReport={(r) => {
+            auditLog({ role: "薬剤師", actor: "薬剤師 小林", action: "確定（持参薬鑑別を報告）", patient: findPatient(r.patientId)?.name, detail: `${r.rows.length}剤` });
+            setReports((rs) => [...rs, { ...r, id: newId(), at: nowTime, by: "薬剤師 小林", status: "医師へ報告" }]);
+          }}
           shido={shido}
           onShido={(pid, rec) => {
             const days = (shido[pid] ?? []).map((x) => x.day);
@@ -474,6 +504,7 @@ export default function WardApp() {
                 return { ...all, [pid]: { ...cur, yakuzaiShido: [...cur.yakuzaiShido, { day: 0, kind: rec.kind }] } };
               });
             }
+            auditLog({ role: "薬剤師", actor: "薬剤師 小林", action: "確定（服薬指導）", patient: findPatient(pid)?.name, detail: `区分${rec.kind}` });
             setShido((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { ...rec, day: 0, at: nowTime }] }));
           }}
           dispensed={dispensed}
@@ -547,10 +578,14 @@ export default function WardApp() {
                 onChange={(q) => {
                   const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === q.orderId);
                   if (e) addStopDraft(e, "（疑義照会から）");
+                  auditLog({ role: "医師", actor: DOCTOR, action: "疑義照会に回答（変更する）", patient: patient.name, detail: q.question });
                   setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更", answeredAt: nowTime } : x)));
                   update({ flash: "前のオーダの中止の下書きを作りました。正しい内容を話すか打って、まとめて確定してください。" });
                 }}
-                onKeep={(q, answer) => setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更なし", answer: answer.trim() || undefined, answeredAt: nowTime } : x)))}
+                onKeep={(q, answer) => {
+                  auditLog({ role: "医師", actor: DOCTOR, action: "疑義照会に回答（変更しない）", patient: patient.name, detail: answer || q.question });
+                  setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更なし", answer: answer.trim() || undefined, answeredAt: nowTime } : x)));
+                }}
                 onDecide={(r, rows) => {
                   const orders = ordersFromReport({ ...r, rows }, nowTime);
                   const added: OrderEntry[] = orders.map((o) => ({ kind: "order", id: newId(), day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o }));
@@ -560,6 +595,7 @@ export default function WardApp() {
                     note: `${c.note.replace(/\s*$/, "")}\n${[...added.map((e) => planLine(e, today)), ...stopped].join("\n")}\n`,
                     flash: `持参薬の指示を確定しました（オーダ ${added.length}件・中止 ${stopped.length}件）。`,
                   }));
+                  auditLog({ role: "医師", actor: DOCTOR, action: "確定（持参薬の指示）", patient: patient.name, detail: rows.map((x) => `${x.said}：${x.decision}`).join("、") });
                   setReports((rs) => rs.map((x) => (x.id === r.id ? { ...x, rows, status: "指示済" } : x)));
                 }}
               />
@@ -580,7 +616,10 @@ export default function WardApp() {
                 flash={chart.flash}
                 onDraft={requestDrafts}
                 onApply={(next) => update((c) => ({ drafts: c.drafts.map((d) => (d.id === next.id ? next : d)), flash: null }))}
-                onRemove={(id) => update((c) => ({ drafts: c.drafts.filter((d) => d.id !== id) }))}
+                onRemove={(id) => {
+                  auditLog({ role: "医師", actor: DOCTOR, action: "下書きを消した", patient: patient.name, detail: chart.drafts.find((d) => d.id === id)?.sourceText });
+                  update((c) => ({ drafts: c.drafts.filter((d) => d.id !== id) }));
+                }}
                 onRedo={(id) =>
                   update((c) => {
                     const d = c.drafts.find((x) => x.id === id);
@@ -634,6 +673,7 @@ export default function WardApp() {
                     nowTime={nowTime}
                     last={patient.vitals.at(-1)}
                     onSave={(v) => {
+                      auditLog({ role: "看護師", actor: "看護師（あなた）", action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
                       closePanel();
                     }}

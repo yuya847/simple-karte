@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ACVPU_LABEL, news2, type Acvpu } from "@/lib/news2";
 import { useSpeech } from "@/lib/use-speech";
 import type { VitalSign } from "@/lib/types";
+import { CLAUDE, auditLog } from "@/lib/audit";
 
 interface Props {
   nowTime: string;
@@ -36,6 +37,7 @@ export function VitalsPanel({ nowTime, last, onSave }: Props) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
       const x = json.vitals;
+      auditLog({ role: "AI", actor: CLAUDE, action: "バイタルを数値に写した", detail: text });
       const s = (n?: number) => (n === undefined ? "" : String(n));
       setF((cur) => ({ bt: s(x.bt) || cur.bt, hr: s(x.hr) || cur.hr, sbp: s(x.sbp) || cur.sbp, dbp: s(x.dbp) || cur.dbp, rr: s(x.rr) || cur.rr, spo2: s(x.spo2) || cur.spo2, o2: x.o2 ?? cur.o2, avpu: x.avpu ?? cur.avpu }));
     } catch (e) {

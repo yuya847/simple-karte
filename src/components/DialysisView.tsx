@@ -5,6 +5,7 @@ import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { applyHdChange, hdDiff, hdFee, runsOn, ufPlan, type Course, type HdChangeRequest, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { isHoliday } from "@/lib/er";
+import { CLAUDE, auditLog } from "@/lib/audit";
 
 interface Props {
   today: CalendarDate;
@@ -118,6 +119,7 @@ function Conditions({ p, nowTime, onPatient }: { p: HdPatient; today: CalendarDa
       const res = await fetch("/api/hd-order", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
+      auditLog({ role: "AI", actor: CLAUDE, action: "透析条件の変更を項目に写した", patient: p.name, detail: text });
       setReq(json.change);
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み取れませんでした。");

@@ -19,6 +19,7 @@ import {
   type Surgery,
 } from "@/lib/surgery";
 import { isolationFor } from "@/lib/ward";
+import { CLAUDE, auditLog } from "@/lib/audit";
 import type { WorkPatient } from "@/lib/worksheet";
 
 interface Props {
@@ -265,6 +266,7 @@ function RequestDialog({ people, all, nowAbs, onCancel, onSave }: { people: Work
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
       const r = json.request;
+      auditLog({ role: "AI", actor: CLAUDE, action: "手術申込を項目に写した", patient: pt.name, detail: text });
       setX((cur) => ({
         ...cur,
         procedure: r.procedure || cur.procedure,

@@ -4,6 +4,7 @@ import { Ambulance, BedDouble, PhoneCall, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { bedProblem, formProblems, type AdmitForm } from "@/lib/admission";
 import type { CalendarDate } from "@/lib/dates";
+import { CLAUDE, auditLog } from "@/lib/audit";
 import { JTAS_LABEL, REASSESS_MIN, erFeeHint, reassessIn, type Arrival, type ErPatient, type ErStatus, type Jtas } from "@/lib/er";
 import type { Sex } from "@/lib/types";
 import { emptyBeds, type WardState } from "@/lib/ward";
@@ -545,6 +546,7 @@ function HotlineDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel:
       const res = await fetch("/api/hotline", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
+      auditLog({ role: "AI", actor: CLAUDE, action: "救急隊の連絡を項目に写した", detail: json.call.complaint });
       setCall(json.call);
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み取れませんでした。");
