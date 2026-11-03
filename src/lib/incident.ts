@@ -61,6 +61,15 @@ export interface Moment {
   time: string;
 }
 
+export interface IncidentPatient {
+  id: string;
+  name: string;
+  room: string;
+}
+
+/** "508A 北村 博" */
+export const patientLabel = (p: IncidentPatient): string => `${p.room} ${p.name}`;
+
 export interface StatusChange {
   status: IncidentStatus;
   by: string;
@@ -75,7 +84,7 @@ export interface IncidentReport {
   /** What "その他" is, or which ward. */
   placeNote?: string;
   /** The patient, when there is one (the room and name are kept as they were at the time). */
-  patient?: { id: string; label: string };
+  patient?: IncidentPatient;
   kind: IncidentKind;
   kindNote?: string;
   level: Level;
@@ -206,7 +215,7 @@ export const PURPOSE_SOURCE =
 /** Builds the report from a complete draft (call missingOf first). */
 export function toReport(
   d: IncidentDraft,
-  x: { id: string; reporter: { role: Role; name: string }; now: Moment; patient?: { id: string; label: string } },
+  x: { id: string; reporter: { role: Role; name: string }; now: Moment; patient?: IncidentPatient },
 ): IncidentReport {
   return {
     id: x.id,
@@ -259,7 +268,7 @@ export const INITIAL_INCIDENTS: IncidentReport[] = [
     found: { day: -4, time: "03:15" },
     place: "病棟",
     placeNote: "5階東病棟",
-    patient: { id: "90010198", label: "508A 北村 博" },
+    patient: { id: "90010198", room: "508A", name: "北村 博" },
     kind: "転倒・転落",
     level: "2",
     what: "夜間、ナースコールを押さずに1人でトイレへ歩こうとして、ベッドの横で尻もちをついているのを巡回のときに見つけた。本人は「頭は打っていない」と話した。",
@@ -281,7 +290,7 @@ export const INITIAL_INCIDENTS: IncidentReport[] = [
     found: { day: -1, time: "12:10" },
     place: "病棟",
     placeNote: "5階東病棟",
-    patient: { id: "90010260", label: "511 森 久美子" },
+    patient: { id: "90010260", room: "511", name: "森 久美子" },
     kind: "薬剤（内服）",
     level: "1",
     what: "朝食後の内服薬（整腸剤）を配り忘れた。昼の配薬のときに、配薬カートに朝の分が残っているのに気づいた。",
