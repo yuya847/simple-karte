@@ -82,6 +82,20 @@ export interface NoteEntry {
   /** SOAP sections, or a single free-text body. */
   soap?: { s?: string; o?: string; a?: string; p?: string };
   text?: string;
+  /** Notes confirmed in this app carry an id. */
+  id?: string;
+  /** Every version when the note was corrected, oldest first (the fields above are the last one). */
+  versions?: NoteVersion[];
+}
+
+export interface NoteVersion {
+  day: DayOffset;
+  time: string;
+  author: string;
+  soap?: NoteEntry["soap"];
+  text?: string;
+  /** Why it was corrected (empty for the first version). */
+  reason?: string;
 }
 
 export type OrderStatus = "有効" | "中止" | "終了" | "実施済";

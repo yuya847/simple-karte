@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { History, PencilLine } from "lucide-react";
+import { canRevise, diffLines, noteText, versionsOf } from "@/lib/notes";
+import { useMe } from "./RoleContext";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
@@ -30,11 +33,13 @@ interface Props {
   onView: (v: LeftView) => void;
   onStopDraft: (entry: OrderEntry) => void;
   draftedStops: string[];
+  /** Correct a confirmed note (a new version; the earlier ones are kept). */
+  onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
 }
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
@@ -70,7 +75,7 @@ export function HistoryPane(props: Props) {
       ) : view === "proc-cal" ? (
         <ProcedureCalendar {...calendarProps} />
       ) : (
-        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} />
+        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} />
       )}
     </section>
   );
@@ -82,12 +87,14 @@ function RecordList({
   today,
   selectedDay,
   showStopped,
+  onReviseNote,
 }: {
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
   selectedDay: DayOffset | null;
   showStopped: boolean;
+  onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
 
@@ -123,7 +130,7 @@ function RecordList({
               ) : (
                 <ol className="space-y-2">
                   {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} /> : <OrderRow entry={e} today={today} />}</li>
+                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} /> : <OrderRow entry={e} today={today} />}</li>
                   ))}
                 </ol>
               )}
@@ -145,29 +152,117 @@ const ROLE_STYLE: Record<NoteEntry["role"], string> = {
   検査室: "text-fuji",
 };
 
-function Note({ entry }: { entry: NoteEntry }) {
+function Note({ entry, today, onRevise }: { entry: NoteEntry; today: CalendarDate; onRevise?: (e: NoteEntry, text: string, reason: string) => void }) {
+  const me = useMe();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [reason, setReason] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const versions = versionsOf(entry);
+  const last = versions.at(-1)!;
+  const mine = !!onRevise && canRevise(entry, me.name);
   return (
     <article className="text-[13px] leading-relaxed">
       <div className="nums mb-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
         <span>{entry.time}</span>
         <span className={`font-bold ${ROLE_STYLE[entry.role]}`}>{entry.role}</span>
         <span>{entry.author}</span>
+        {versions.length > 1 && (
+          <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>
+            <History size={11} />
+            修正あり（第{versions.length}版 {last.day === 0 ? "" : formatShort(addDays(today, last.day))}
+            {last.time} {last.author}）
+          </button>
+        )}
+        {mine && !editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(noteText(entry));
+              setReason("");
+              setEditing(true);
+            }}
+            className="ml-auto flex items-center gap-0.5 rounded px-1 text-ink-faint hover:bg-paper hover:text-ink"
+            title="自分が書いた記事だけ直せます。前の版は残ります。"
+          >
+            <PencilLine size={11} />
+            修正
+          </button>
+        )}
       </div>
-      {entry.soap ? (
-        <dl className="grid grid-cols-[1.5rem_1fr] gap-y-0.5">
-          {(["s", "o", "a", "p"] as const).map((k) =>
-            entry.soap?.[k] ? (
-              <div key={k} className="contents">
-                <dt className="font-bold text-ink-faint">{k.toUpperCase()})</dt>
-                <dd>{entry.soap[k]}</dd>
-              </div>
-            ) : null,
-          )}
-        </dl>
+      {editing ? (
+        <div className="space-y-1 rounded-md border border-yamabuki/50 bg-yamabuki-soft/30 p-2">
+          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={5} aria-label="記事の修正" className="nums w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] outline-none" />
+          <label className="flex items-center gap-1 text-[11px] text-ink-soft">
+            修正の理由
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：数値の誤記" className="flex-1 rounded border border-rule bg-sheet px-1.5 py-0.5 text-[12px] text-ink" />
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-ink-faint">前の版は消えずに残り、誰でも見られます。</span>
+            <button type="button" onClick={() => setEditing(false)} className="ml-auto rounded border border-rule px-2 py-0.5 text-[11px]">
+              やめる
+            </button>
+            <button
+              type="button"
+              disabled={!reason.trim() || draft.trim() === noteText(entry).trim()}
+              onClick={() => {
+                onRevise!(entry, draft, reason);
+                setEditing(false);
+              }}
+              className="rounded bg-yamabuki px-2 py-0.5 text-[11px] font-bold text-white disabled:opacity-40"
+            >
+              修正を確定（{me.name}）
+            </button>
+          </div>
+        </div>
       ) : (
-        <p>{entry.text}</p>
+        <NoteBody n={entry} />
+      )}
+      {showHistory && versions.length > 1 && (
+        <ol className="mt-1 space-y-1.5 border-l-2 border-yamabuki/40 pl-2 text-[12px]">
+          {versions.map((v, i) => (
+            <li key={i}>
+              <div className="nums text-[11px] text-ink-faint">
+                第{i + 1}版　{v.day === 0 ? "今日" : formatShort(addDays(today, v.day))} {v.time}　{v.author}
+                {v.reason ? `　理由：${v.reason}` : i === 0 ? "　（最初の記録）" : ""}
+              </div>
+              {i === 0 ? (
+                <div className="whitespace-pre-wrap text-ink-soft">{noteText(v)}</div>
+              ) : (
+                <div className="whitespace-pre-wrap">
+                  {diffLines(noteText(versions[i - 1]), noteText(v)).map((l, j) =>
+                    l.kind === "same" ? (
+                      <div key={j} className="text-ink-soft">{l.text || " "}</div>
+                    ) : l.kind === "removed" ? (
+                      <div key={j} className="text-shu line-through" aria-label="消した行">{l.text || " "}</div>
+                    ) : (
+                      <div key={j} className="bg-wakatake-soft text-wakatake" aria-label="足した行">{l.text || " "}</div>
+                    ),
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ol>
       )}
     </article>
+  );
+}
+
+function NoteBody({ n }: { n: Pick<NoteEntry, "soap" | "text"> }) {
+  return n.soap ? (
+    <dl className="grid grid-cols-[1.5rem_1fr] gap-y-0.5">
+      {(["s", "o", "a", "p"] as const).map((k) =>
+        n.soap?.[k] ? (
+          <div key={k} className="contents">
+            <dt className="font-bold text-ink-faint">{k.toUpperCase()})</dt>
+            <dd className="whitespace-pre-wrap">{n.soap[k]}</dd>
+          </div>
+        ) : null,
+      )}
+    </dl>
+  ) : (
+    <p className="whitespace-pre-wrap">{n.text}</p>
   );
 }
 

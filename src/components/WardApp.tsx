@@ -16,7 +16,7 @@ import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
 import { BEDS, type BedAssignment, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
-import type { DayOffset, HistoryEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
+import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { HistoryPane, type LeftView } from "./HistoryPane";
@@ -62,6 +62,7 @@ import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { RoleProvider } from "./RoleContext";
 import { STAFF, denyReason, home, type Role } from "@/lib/roles";
+import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
@@ -195,6 +196,9 @@ export default function WardApp() {
   const [bRecords, setBRecords] = useState<BRecord[]>(INITIAL_B);
   const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>({});
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
+  // Notes confirmed in this session, and corrected notes (by key, earlier versions inside).
+  const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
+  const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
   const allPatients = useMemo(
     () =>
       [...PATIENTS, ...admitted].map((p) => {
@@ -228,12 +232,8 @@ export default function WardApp() {
     const next = tabs.filter((t) => t !== id);
     setTabs(next);
     if (activeId === id) setActiveId(next[Math.min(i, next.length - 1)] ?? null);
-    if (next.length === 0) setScreen("map");
-    setCharts((c) => {
-      const rest = { ...c };
-      delete rest[id];
-      return rest;
-    });
+    if (next.length === 0) setScreen(home(role));
+    // The chart's state stays: today's confirmed orders and notes belong to the record, not to the tab.
   };
 
   useEffect(() => {
@@ -255,8 +255,8 @@ export default function WardApp() {
 
   // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
   const entries: HistoryEntry[] = useMemo(
-    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes }) : []),
-    [patient, chart.stopped, chart.stopTimes, chart.added],
+    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes, notes: notes[patient.id], revised: revised[patient.id] }) : []),
+    [patient, chart.stopped, chart.stopTimes, chart.added, notes, revised],
   );
 
   const ctx: CheckContext | null = useMemo(() => {
@@ -431,7 +431,7 @@ export default function WardApp() {
       return { instruction: cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${text}` : text };
     });
 
-  const sessionChanges = Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes }]));
+  const sessionChanges = Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, notes: notes[id], revised: revised[id] }]));
   // Our patients with their bed and the record as it stands now (for the worksheet and the list).
   const people: WorkPatient[] = ward.beds.flatMap((b) => {
     const p = b.patientId ? findPatient(b.patientId) : undefined;
@@ -678,7 +678,7 @@ export default function WardApp() {
                   wardPayload={() =>
                     allPatients.map((p) => {
                       const c = charts[p.id];
-                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id) });
+                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id) });
                     })
                   }
                 />
@@ -698,6 +698,11 @@ export default function WardApp() {
               onView={(v) => update({ leftView: v })}
               onStopDraft={addStopDraft}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
+              onReviseNote={(e, text, reason) => {
+                const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
+                setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));
+                auditLog({ role: me.role, actor: me.name, action: `確定（記事の修正・第${next.versions!.length}版）`, patient: patient.name, detail: `${e.time} の記事　理由：${reason.trim()}` });
+              }}
             />
             <div className="relative flex min-h-0 flex-col">
               <VerbalInbox
@@ -779,6 +784,12 @@ export default function WardApp() {
                 }
                 onConfirm={confirm}
                 orderMode={orderMode}
+                onConfirmNote={() => {
+                  const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, ...parseNote(chart.note) };
+                  setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
+                  auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: chart.note.replace(/\s+/g, " ").slice(0, 120) });
+                  update({ note: noteTemplate(me.role), flash: "記事を確定しました。左の経過に入りました。" });
+                }}
               />
               {panel === "diagnoses" && (
                 <Drawer title="病名" onClose={closePanel} wide locked={deny("diagnosis")}>

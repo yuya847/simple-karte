@@ -8,7 +8,8 @@ import { isReady, type CheckContext, type Draft, type Issue } from "@/lib/drafts
 import type { Patient } from "@/lib/types";
 import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
-import { DenyNote } from "./RoleContext";
+import { DenyNote, useDeny, useMe } from "./RoleContext";
+import { isBlankNote } from "@/lib/notes";
 
 export interface DraftMeta {
   model: string;
@@ -39,11 +40,15 @@ interface Props {
   onConfirm: () => void;
   /** Who is writing orders: the doctor, a nurse taking a spoken order (口頭指示), or nobody (other roles). */
   orderMode: "doctor" | "verbal" | "none";
+  /** Save today's note into the record (who and when are added by code). */
+  onConfirmNote: () => void;
 }
 
 /** Today's writing: the note on top, then the spoken/typed instructions and their order drafts. */
 export function TodayPane(p: Props) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const me = useMe();
+  const noteLocked = !!useDeny()("note");
   const speech = useSpeech(p.onAppendInstruction);
 
   const readyCount = p.drafts.filter((d) => isReady(p.issues[d.id] ?? [])).length;
@@ -60,13 +65,32 @@ export function TodayPane(p: Props) {
       </div>
 
       <div className="scroll-thin min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
-        <textarea
-          value={p.note}
-          onChange={(e) => p.onNoteChange(e.target.value)}
-          aria-label="記事"
-          rows={7}
-          className="nums w-full resize-y rounded-md border border-rule bg-sheet px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-ai"
-        />
+        <div>
+          <textarea
+            value={p.note}
+            onChange={(e) => p.onNoteChange(e.target.value)}
+            readOnly={noteLocked}
+            aria-label="記事"
+            rows={7}
+            className="nums w-full resize-y rounded-md border border-rule bg-sheet px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-ai read-only:bg-paper"
+          />
+          <div className="mt-1 flex items-center gap-2">
+            <DenyNote action="note" />
+            {!noteLocked && (
+              <>
+                <span className="text-[11px] text-ink-faint">確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。</span>
+                <button
+                  type="button"
+                  disabled={isBlankNote(p.note)}
+                  onClick={p.onConfirmNote}
+                  className="ml-auto shrink-0 rounded-md border border-ink px-3 py-1 text-xs font-bold text-ink hover:bg-ink hover:text-white disabled:opacity-30"
+                >
+                  記事を確定（{me.name}）
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
         {p.orderMode === "none" ? (
           <DenyNote action="order" className="rounded-lg border border-rule bg-paper px-3 py-2" />
