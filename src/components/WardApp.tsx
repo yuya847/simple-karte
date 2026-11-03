@@ -324,6 +324,8 @@ export default function WardApp() {
   const [floor, setFloor] = useState(WARD_NAME);
   const [deptPick, setDeptPick] = useState("");
   const [doctorPick, setDoctorPick] = useState("");
+  // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
+  const [myTeam, setMyTeam] = useState("");
   const me = STAFF[role];
   const deny = (a: Parameters<typeof denyReason>[1]) => denyReason(role, a);
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
@@ -1009,7 +1011,27 @@ export default function WardApp() {
   const floorPick: Pick = { label: "階", value: floor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
   const lists: Record<(typeof LIST_TABS)[number], { beds: BedAssignment[]; title: string; pick?: Pick; group: GroupBy; floor?: Floor }> = {
     floor: { beds: bedsOn(floor), title: "患者一覧", pick: floorPick, group: "room", floor: floorInfo },
-    mine: { beds: ward.beds.filter((b) => b.patientId), title: "受け持ち患者", group: "room" },
+    // 受け持ち: a doctor's own patients (主治医); a nurse's team for this shift; others the whole ward.
+    mine:
+      role === "医師"
+        ? { beds: ward.beds.filter((b) => b.patientId && findPatient(b.patientId)?.attending === me.name), title: "受け持ち患者（主治医）", group: "room" }
+        : role === "看護師"
+          ? {
+              beds: ward.beds.filter((b) => b.patientId && (!myTeam || teamOf(b.room) === myTeam)),
+              title: "受け持ち患者",
+              group: "room",
+              pick: {
+                label: "チーム",
+                value: myTeam,
+                options: [
+                  { value: "", label: "5階東すべて" },
+                  { value: "A", label: "A チーム（501〜508）" },
+                  { value: "B", label: "B チーム（510〜516）" },
+                ],
+                onChange: setMyTeam,
+              },
+            }
+          : { beds: ward.beds.filter((b) => b.patientId), title: "受け持ち患者", group: "room" },
     dept: {
       beds: deptPick ? allBeds.filter((b) => deptOf(b) === deptPick) : allBeds,
       title: "科別",
