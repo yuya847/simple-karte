@@ -70,7 +70,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
       {blocking.length > 0 && (
         <ul className="space-y-2 px-3 pb-2">
           {blocking.map((i) => (
-            <IssueRow key={i.key} issue={i} draft={draft} onApply={onApply} onRemove={onRemove} />
+            <IssueRow key={i.key} issue={i} draft={draft} onApply={onApply} onRemove={onRemove} canRedo={!!onRedo} />
           ))}
         </ul>
       )}
@@ -91,7 +91,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
   );
 }
 
-function IssueRow({ issue, draft, onApply, onRemove }: { issue: Issue; draft: Draft; onApply: (d: Draft) => void; onRemove: () => void }) {
+function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; draft: Draft; onApply: (d: Draft) => void; onRemove: () => void; canRedo: boolean }) {
   const stop = issue.level === "stop";
   return (
     <li className={`rounded-md px-2.5 py-2 ${stop ? "bg-shu-soft" : "bg-yamabuki-soft"}`}>
@@ -118,7 +118,9 @@ function IssueRow({ issue, draft, onApply, onRemove }: { issue: Issue; draft: Dr
         </div>
       )}
       {(!issue.choices || issue.choices.length === 0) && (
-        <div className="mt-1 ml-5 text-[11px] text-ink-soft">↺ で指示の欄に戻して、言い直してください。</div>
+        <div className="mt-1 ml-5 text-[11px] text-ink-soft">
+          {canRedo ? "↺ で指示の欄に戻して、言い直してください。" : draft.kind === "injection" || draft.kind === "prescription" ? "この下書きを消して（ごみ箱）、上のタブで入れ直してください。" : "この下書きを消して（ごみ箱）、右のツールで入れ直してください。"}
+        </div>
       )}
     </li>
   );

@@ -3,7 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
-import { newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
+import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
 import type { InjectionOrder, InjectionRoute, InjectionSchedule } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
@@ -24,6 +24,7 @@ const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
 ];
 const FLUID_SCHEDULES: { label: string; value: InjectionSchedule }[] = [1, 2, 3, 4].map((c) => ({ label: `1日${c}本`, value: { kind: "per_day", count: c } }));
 const DRIP_MINUTES = [30, 60, 90, 120, 180, 240, 360, 480, 720, 1440];
+const DRIP_RATES = [20, 40, 60, 80, 100, 125, 200];
 const minutesLabel = (m: number) => (m < 60 ? `${m}分` : m % 60 === 0 ? `${m / 60}時間` : `${Math.floor(m / 60)}時間${m % 60}分`);
 
 interface InjRow {
@@ -53,12 +54,15 @@ interface InjRp {
   route: string;
   sched: number;
   minutes: number;
+  /** A drip is given either by time per dose or by rate (mL/時); null = by what fits (fluid → rate). */
+  rateMode: "time" | "rate" | null;
+  rate: string;
   startDay: number;
   startTime: string;
   days: string;
   comment: string;
 }
-const newInjRp = (): InjRp => ({ rows: [], route: "", sched: -1, minutes: 0, startDay: 0, startTime: "", days: "", comment: "" });
+const newInjRp = (): InjRp => ({ rows: [], route: "", sched: -1, minutes: 0, rateMode: null, rate: "", startDay: 0, startTime: "", days: "", comment: "" });
 const rowFor = (code: string): InjRow => {
   const d = DRUGS.find((x) => x.code === code)!;
   return {
@@ -201,7 +205,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: D
     ...(rp.rows.every((r) => Number(r.amount) > 0 && r.unit) ? [] : ["量"]),
     ...(rp.route ? [] : ["経路"]),
     ...(rp.sched >= 0 ? [] : ["回数"]),
-    ...(routeOf(rp) === "点滴静注" && !rp.minutes ? ["1回の時間"] : []),
+    ...(routeOf(rp) === "点滴静注" && (modeOf(rp) === "time" ? !rp.minutes : !(Number(rp.rate) > 0)) ? [modeOf(rp) === "time" ? "1回の時間" : "速度"] : []),
   ];
   const filled = rps.filter((r) => r.rows.length > 0);
   // An Rp started but not finished is never dropped quietly: it blocks until filled or emptied.
@@ -224,9 +228,9 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: D
       }),
       route,
       schedule: schedulesOf(rp)[rp.sched].value,
-      infusionMinutes: route === "点滴静注" ? rp.minutes : null,
+      infusionMinutes: route === "点滴静注" && modeOf(rp) === "time" ? rp.minutes : null,
       infusionScope: route === "点滴静注" ? "per_dose" : null,
-      rateMlPerH: null,
+      rateMlPerH: route === "点滴静注" && modeOf(rp) === "rate" ? Number(rp.rate) : null,
       prefer: null,
       start: { day: rp.startDay, time: rp.startTime || null },
       days: Number(rp.days) > 0 ? Number(rp.days) : null,
@@ -329,10 +333,35 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: D
                   <TabChoice label={`Rp${first + i} の回数`} options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
                 </div>
                 {route === "点滴静注" && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="w-16 text-ink-soft">1回の時間</span>
-                    <TabChoice label={`Rp${first + i} の1回の時間`} options={DRIP_MINUTES.map((m) => ({ value: m, label: minutesLabel(m) }))} value={rp.minutes || null} onChange={(v) => upd(i, { minutes: v })} />
-                  </div>
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="w-16 text-ink-soft">落とし方</span>
+                      <TabChoice
+                        label={`Rp${first + i} の落とし方`}
+                        options={[
+                          { value: "time", label: "時間で" },
+                          { value: "rate", label: "速度で（mL/時）" },
+                        ]}
+                        value={modeOf(rp)}
+                        onChange={(v) => upd(i, { rateMode: v as "time" | "rate" })}
+                      />
+                    </div>
+                    {modeOf(rp) === "time" ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="w-16 text-ink-soft">1回の時間</span>
+                        <TabChoice label={`Rp${first + i} の1回の時間`} options={DRIP_MINUTES.map((m) => ({ value: m, label: minutesLabel(m) }))} value={rp.minutes || null} onChange={(v) => upd(i, { minutes: v })} />
+                        <DripCalc rp={rp} />
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="w-16 text-ink-soft">速度</span>
+                        <input value={rp.rate} onChange={(e) => upd(i, { rate: e.target.value })} inputMode="decimal" aria-label={`Rp${first + i} の速度（mL/時）`} className={`${field} w-16 text-right`} />
+                        mL/時
+                        <TabChoice label={`Rp${first + i} のよく使う速度`} options={DRIP_RATES.map((r) => ({ value: r, label: String(r) }))} value={Number(rp.rate) || null} onChange={(v) => upd(i, { rate: String(v) })} />
+                        <DripCalc rp={rp} />
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">開始</span>
@@ -385,10 +414,35 @@ function rpFromOrder(o: InjectionOrder): InjRp {
   const same = (a: InjectionSchedule, b: InjectionSchedule) => a.kind === b.kind && (a.kind !== "per_day" || (b.kind === "per_day" && a.count === b.count)) && (a.kind !== "every_hours" || (b.kind === "every_hours" && a.hours === b.hours));
   rp.sched = schedulesOf(rp).findIndex((x) => same(x.value, o.schedule));
   rp.minutes = o.minutesPerDose && DRIP_MINUTES.includes(o.minutesPerDose) ? o.minutesPerDose : 0;
+  // A drip given by rate (or with a time not among the choices) is copied by its rate.
+  if (o.route === "点滴静注" && o.rateMlPerH && !rp.minutes) {
+    rp.rateMode = "rate";
+    rp.rate = String(o.rateMlPerH);
+  }
   const left = o.days ? o.start.day + o.days : 0;
   rp.days = left > 0 ? String(left) : "";
   rp.comment = (lock ? o.comment!.replace(/^ロック\s*/, "") : (o.comment ?? "")).trim();
   return rp;
+}
+
+/** How the drip is given: as chosen, else by rate for a bag (fluid first) and by time for a drug. */
+const modeOf = (rp: InjRp): "time" | "rate" => rp.rateMode ?? (isFluidRp(rp) ? "rate" : "time");
+
+/** The other half, worked out by code: the rate from the time, or the time per bag from the rate. */
+function DripCalc({ rp }: { rp: InjRp }) {
+  const vol = doseVolumeMl(rp.rows.map((r) => ({ drugCode: r.drugCode, amount: Number(r.amount) || null, unit: r.unit })));
+  if (!vol) return null;
+  const mode = modeOf(rp);
+  const rate = Number(rp.rate);
+  const text =
+    mode === "time"
+      ? rp.minutes
+        ? `${vol}mL ÷ ${minutesLabel(rp.minutes)} = ${Math.round((vol / (rp.minutes / 60)) * 10) / 10}mL/時`
+        : null
+      : rate > 0
+        ? `1回 ${vol}mL ÷ ${rate}mL/時 = ${minutesLabel(Math.round((vol / rate) * 60))}`
+        : null;
+  return text ? <span className="nums text-[11px] text-ai">{text}（コードで計算）</span> : null;
 }
 
 // The first drug picked is the main one (as on a slip): a fluid first means a bag with drugs mixed in,
