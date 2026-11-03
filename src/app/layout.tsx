@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { BIZ_UDPGothic } from "next/font/google";
 import "./globals.css";
 
@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   title: "Simple Karte",
   description:
     "病棟で医師が話した指示を、オーダーの下書きにする Web アプリ。決めるのは医師、AI は入力係。",
+  // Added to the home screen of an iPad, it opens full screen like an app.
+  appleWebApp: { capable: true, title: "Simple Karte", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#f5f1e6",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

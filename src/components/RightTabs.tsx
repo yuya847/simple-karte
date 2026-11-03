@@ -47,7 +47,7 @@ export function RightTabs({ open, value, onChange, onOpen, onClose, counts, canO
               if (e.key === "Enter" || e.key === " ") onChange(key);
             }}
             title={`${key === "note" ? "記事と、貯まっているオーダの下書き・確定" : `${label}を Rp ごとに入れる`}（⌥${TABS[key].key}）`}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-t-md border border-b-0 px-3 py-1.5 text-sm ${on ? "-mb-px border-rule bg-sheet font-bold text-ink" : "border-transparent text-ink-soft hover:text-ink"}`}
+            className={`flex cursor-pointer items-center gap-1.5 rounded-t-md border border-b-0 px-3 py-1.5 text-sm pointer-coarse:px-4 pointer-coarse:py-2.5 ${on ? "-mb-px border-rule bg-sheet font-bold text-ink" : "border-transparent text-ink-soft hover:text-ink"}`}
           >
             <Icon size={14} />
             {label}
@@ -61,7 +61,7 @@ export function RightTabs({ open, value, onChange, onOpen, onClose, counts, canO
                   e.stopPropagation();
                   onClose(key);
                 }}
-                className="-mr-1 rounded p-0.5 text-ink-faint hover:bg-paper hover:text-ink"
+                className="-mr-1 rounded p-0.5 text-ink-faint hover:bg-paper hover:text-ink pointer-coarse:p-1.5"
               >
                 <X size={13} />
               </button>
@@ -69,7 +69,7 @@ export function RightTabs({ open, value, onChange, onOpen, onClose, counts, canO
           </div>
         );
       })}
-      {open.length === 0 && <span className="pb-1.5 pl-2 text-[11px] text-ink-faint">注射・内服は右端のツールか ⌥2・⌥3 で開きます</span>}
+      {open.length < 2 && <span className="pb-1.5 pl-2 text-[11px] text-ink-faint">閉じたタブは右端のツールか ⌥2・⌥3 で開きます</span>}
     </div>
   );
 }

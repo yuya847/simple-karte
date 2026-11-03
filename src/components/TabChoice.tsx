@@ -52,7 +52,7 @@ export function TabChoice<T extends string | number>({ label, options, value, on
               else return;
               e.preventDefault();
             }}
-            className={`nums rounded px-2 py-0.5 text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ai/60 ${
+            className={`nums rounded px-2 py-0.5 text-[12px] outline-none pointer-coarse:px-3 pointer-coarse:py-1.5 pointer-coarse:text-[13px] focus-visible:ring-2 focus-visible:ring-ai/60 ${
               on ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink disabled:text-ink-faint/40"
             }`}
           >

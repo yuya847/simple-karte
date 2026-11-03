@@ -108,7 +108,8 @@ const newChart = (): ChartState => ({
   showStopped: false,
   leftView: "record",
   rightTab: "note",
-  openTabs: [],
+  // 注射 and 内服 are there from the start; each closes with × and opens again from the tools.
+  openTabs: ["injection", "rx"],
   note: NOTE_TEMPLATE,
   instruction: "",
   drafts: [],
@@ -270,6 +271,9 @@ export default function WardApp() {
   }, []);
 
   const closePanel = useCallback(() => setPanel(null), []);
+  // Put the cursor in the first drug search of 注射 / 内服 when that tab is shown (keyboard use).
+  const focusRightTab = (t: string) =>
+    requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-right-tab="${t}"] input[role=combobox]`)?.focus());
 
   const patient = activeId ? findPatient(activeId) : undefined;
   const chart = (activeId && charts[activeId]) || newChart();
@@ -760,10 +764,15 @@ export default function WardApp() {
           />
           <div
             className={`grid min-h-0 flex-1 ${
-              wideLeft ? "grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_68px]" : "grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]"
+              // Narrow screens (iPad held upright) drop the date column; the record still scrolls by day.
+              wideLeft
+                ? "grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_60px] lg:grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_68px]"
+                : "grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_60px] lg:grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]"
             }`}
           >
-            <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} />
+            <div className="hidden min-h-0 lg:block">
+              <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} />
+            </div>
             {panel === "billing" ? (
               <div className="col-span-2 flex min-h-0 flex-col">
                 <BillingView
@@ -864,8 +873,14 @@ export default function WardApp() {
               <RightTabs
                 open={chart.openTabs}
                 value={chart.rightTab}
-                onChange={(t) => update({ rightTab: t })}
-                onOpen={(t) => update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }))}
+                onChange={(t) => {
+                  update({ rightTab: t });
+                  focusRightTab(t);
+                }}
+                onOpen={(t) => {
+                  update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }));
+                  focusRightTab(t);
+                }}
                 canOrder={!orderBlock}
                 onClose={(t) => update((c) => ({ openTabs: c.openTabs.filter((x) => x !== t), rightTab: c.rightTab === t ? "note" : c.rightTab }))}
                 counts={{ note: chart.drafts.length, injection: chart.drafts.filter((d) => d.kind === "injection").length, rx: chart.drafts.filter((d) => d.kind === "prescription").length }}
@@ -913,25 +928,25 @@ export default function WardApp() {
               </div>
               {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
               {chart.openTabs.includes("injection") && (
-                <div className={chart.rightTab === "injection" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
+                <div data-right-tab="injection" className={chart.rightTab === "injection" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
                   <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                   <AddInjectionPanel
                     key={patient.id}
                     newId={newId}
                     drafts={chart.drafts}
-                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], openTabs: c.openTabs.filter((x) => x !== "injection"), rightTab: "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                   />
                   </fieldset>
                 </div>
               )}
               {chart.openTabs.includes("rx") && (
-                <div className={chart.rightTab === "rx" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
+                <div data-right-tab="rx" className={chart.rightTab === "rx" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
                   <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                   <AddRxPanel
                     key={patient.id}
                     newId={newId}
                     drafts={chart.drafts}
-                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], openTabs: c.openTabs.filter((x) => x !== "rx"), rightTab: "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                   />
                   </fieldset>
                 </div>
@@ -1106,6 +1121,7 @@ export default function WardApp() {
                   const t: RightTab = p === "add-injection" ? "injection" : "rx";
                   setPanel(null);
                   update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }));
+                  focusRightTab(t);
                 } else if (p === null && !panel) update({ rightTab: "note" });
                 else setPanel(p);
               }}

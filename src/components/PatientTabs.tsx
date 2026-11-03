@@ -120,7 +120,7 @@ export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, 
       <button
         type="button"
         onClick={onOpenPicker}
-        className="mb-1.5 flex items-center gap-2 rounded-md border border-rule bg-sheet px-2.5 py-1 text-xs text-ink-soft hover:text-ink"
+        className="mb-1.5 hidden items-center gap-2 rounded-md border border-rule bg-sheet px-2.5 py-1 text-xs text-ink-soft hover:text-ink lg:flex"
       >
         <Search size={13} />
         患者を開く
