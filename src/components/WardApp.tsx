@@ -57,6 +57,7 @@ import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
 import { TransferPanel } from "./panels/TransferPanel";
 import { BedsidePanel } from "./panels/BedsidePanel";
+import { SupportBoard } from "./SupportBoard";
 import { transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
@@ -1287,6 +1288,8 @@ export default function WardApp() {
             ];
           })()}
         />
+      ) : screen === "support" ? (
+        <SupportBoard people={people} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
       ) : screen === "meals" ? (
         <MealsView title={WARD_NAME} people={people} diets={diets} today={today} nowTime={nowTime} />
       ) : screen === "journal" ? (

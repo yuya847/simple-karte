@@ -23,7 +23,8 @@ describe("① places by role", () => {
 
 describe("② inside 病棟", () => {
   it("offers the patient lists to everyone and the ward's work by role", () => {
-    expect(wardTabsFor("医師")).toEqual(["map", "floor", "mine", "dept", "all", "doctor", "handoff", "admit"]);
+    expect(wardTabsFor("医師")).toEqual(["map", "floor", "mine", "dept", "all", "doctor", "handoff", "admit", "support"]);
+    expect(wardTabsFor("MSW")).toContain("support");
     expect(wardTabsFor("看護師")).toContain("sheet");
     expect(wardTabsFor("看護師")).toContain("acuity");
     expect(wardTabsFor("医事課")).not.toContain("handoff");

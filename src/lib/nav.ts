@@ -48,7 +48,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "meals" | "acuity" | "journal";
+export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "meals" | "acuity" | "journal";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -70,6 +70,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "sheet", label: "ワークシート", hint: "今日の与薬・処置と指示受け", group: "work", needs: "sheet" },
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },
   { key: "admit", label: "入院時の評価", hint: "期限のある評価（褥瘡・栄養・退院支援など）", group: "work", needs: "admit" },
+  { key: "support", label: "退院支援の一覧", hint: "患者ごとに、退院困難な要因・話合い・計画・カンファレンス・計画書・転院の打診・退院の予定", group: "work", needs: "admit" },
   { key: "meals", label: "病棟の食事", hint: "今日と明日の朝・昼・夕：食種・形態・食止め、食数（コードで数える）と締切", group: "work", needs: "meals" },
   { key: "acuity", label: "看護必要度", hint: "B 項目の評価（5階東）", group: "work", needs: "acuity" },
   { key: "journal", label: "看護日誌", hint: "選んだ階の今日の数（コードで数える）と所感", group: "work", needs: "sheet" },
