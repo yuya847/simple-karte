@@ -218,4 +218,14 @@ export interface ImagingStudy {
   region: string;
   report: string;
   reader: string;
+  /** 部位マスターのコード（画像検査オーダーから作った検査）。 */
+  regionCode?: string;
+  /** X線の撮影方向（例：["立位正面（PA）", "側面"]）。 */
+  views?: string[];
+  /** CT・MRI の造影（単純・造影・単純＋造影・放射線科一任）。 */
+  contrast?: string;
+  /** 撮影の時刻 "HH:MM"。 */
+  time?: string;
+  /** まだ撮影していない（予約中）。画像はない。 */
+  pending?: boolean;
 }
