@@ -11,6 +11,7 @@ import { flagsFor, type Flag, type FlagTone } from "@/lib/patient-flags";
 import type { Patient } from "@/lib/types";
 import { WARD_NAME, WARD_PLANS, doctorFor, emptyBeds, nurseFor, type BedAssignment, type WardPlan, type WardState } from "@/lib/ward";
 import type { ChartSummary } from "./WardMap";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   ward: WardState;
@@ -279,7 +280,7 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
                     </td>
                     <td className="px-3 py-1.5">{r.bed.other?.name}</td>
                     <td className="px-3 py-1.5">
-                      {r.bed.other?.sex}・{r.bed.other?.age}歳
+                      {r.bed.other ? ageSex(r.bed.other) : ""}
                     </td>
                     <td className="px-3 py-1.5">—</td>
                     <td className="px-3 py-1.5">他チーム：{r.bed.other?.department}</td>
@@ -303,7 +304,7 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
                   </td>
                   <td className="px-3 py-1.5">{p.name}</td>
                   <td className="px-3 py-1.5">
-                    {p.sex}・{p.age}歳
+                    {ageSex(p)}
                   </td>
                   <td className="px-3 py-1.5 font-bold">{planText(p)}</td>
                   <td className="px-3 py-1.5" colSpan={7}>
@@ -370,7 +371,7 @@ function MyRow({
         </div>
       </td>
       <td className="whitespace-nowrap px-3 py-2">
-        {p.sex}・{p.age}歳
+        {ageSex(p)}
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         <b>{row.day}日目</b>

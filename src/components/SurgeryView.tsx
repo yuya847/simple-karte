@@ -21,6 +21,7 @@ import {
 import { isolationFor } from "@/lib/ward";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import type { WorkPatient } from "@/lib/worksheet";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   today: CalendarDate;
@@ -165,7 +166,7 @@ function CaseDetail({ x, all, nowAbs, onSave }: { x: Surgery; all: Surgery[]; no
     <section className="mt-3 grid gap-3 rounded-lg border border-rule bg-sheet p-4 text-[13px] md:grid-cols-2">
       <div>
         <h3 className="font-bold">
-          {x.name}（{x.sex}・{x.age}歳）　{x.ward} {x.department}
+          {x.name}（{ageSex(x)}）　{x.ward} {x.department}
         </h3>
         <p className="mt-1">
           <b>{x.procedure}</b>　{x.site} {x.side !== "なし" ? x.side : ""}　{x.position}　{x.anesthesia}

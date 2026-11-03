@@ -33,8 +33,8 @@ export function PatientAvatar({ sex, age, size = 44, className = "" }: Props) {
   const headR = band === "小児" ? 17 : 15.5;
   const id = `av${useId().replace(/:/g, "")}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={`${sex}性・${age}歳のイラスト`} className={`shrink-0 ${className}`}>
-      <title>{`${sex}性・${age}歳（${band}）`}</title>
+    <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={`${age}歳${sex}性のイラスト`} className={`shrink-0 ${className}`}>
+      <title>{`${age}歳${sex}性（${band}）`}</title>
       <defs>
         <clipPath id={id}>
           <circle cx="32" cy="32" r="32" />

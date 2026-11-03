@@ -6,6 +6,7 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { applyHdChange, hdDiff, hdFee, runsOn, ufPlan, type Course, type HdChangeRequest, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { isHoliday } from "@/lib/er";
 import { CLAUDE, auditLog } from "@/lib/audit";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   today: CalendarDate;
@@ -71,7 +72,7 @@ export function DialysisView({ today, nowTime, patients, sessions, onPatient, on
                             <span className="text-[11px] text-ink-faint">{x.bed}番</span>
                             <b>{x.name}</b>
                             <span className="text-[11px] text-ink-soft">
-                              {x.sex}・{x.age}歳・{x.status}
+                              {ageSex(x)}・{x.status}
                             </span>
                           </div>
                           <div className="nums text-[11px] text-ink-soft">
@@ -94,7 +95,7 @@ export function DialysisView({ today, nowTime, patients, sessions, onPatient, on
             <header className="flex items-baseline gap-3">
               <h2 className="text-lg font-bold">{p.name}</h2>
               <span className="text-sm text-ink-soft">
-                {p.sex}・{p.age}歳　{p.status}　{p.weekdays} {p.course}　{p.bed}番ベッド　導入 {formatShort(addDays(today, p.startedOn))}
+                {ageSex(p)}　{p.status}　{p.weekdays} {p.course}　{p.bed}番ベッド　導入 {formatShort(addDays(today, p.startedOn))}
               </span>
             </header>
             <Conditions key={`c-${p.id}`} p={p} today={today} nowTime={nowTime} onPatient={onPatient} />

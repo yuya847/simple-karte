@@ -7,6 +7,7 @@ import { egfr, latestCre } from "@/lib/exams";
 import { VCM_NOTES, VCM_TARGET, predict, regimenFromOrder, sawchukZaske, type Levels, type Regimen, type TdmReport } from "@/lib/tdm";
 import type { InjectionOrder } from "@/lib/types";
 import type { WorkPatient } from "@/lib/worksheet";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   people: WorkPatient[];
@@ -62,7 +63,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
         <span className="text-ink-soft">薬：バンコマイシン（ほかの薬は今後）</span>
         {person && (
           <span className="text-ink-soft">
-            体重 {person.patient.weightKg}kg・{person.patient.sex}・{person.patient.age}歳
+            体重 {person.patient.weightKg}kg・{ageSex(person.patient)}
             {(() => {
               const c = latestCre(person.patient);
               if (!c) return null;

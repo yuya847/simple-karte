@@ -11,6 +11,7 @@ import type { Diagnosis } from "@/lib/diagnoses";
 import { useSpeech } from "@/lib/use-speech";
 import type { OrderEntry, Patient } from "@/lib/types";
 import { CLAUDE, auditLog } from "@/lib/audit";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   patient: Patient;
@@ -294,7 +295,7 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
         <h2 className="mt-1 text-center text-lg font-bold">退院時サマリー</h2>
         <div className="mt-2 grid grid-cols-2 gap-x-4 text-[12px]">
           <span>
-            患者：<b>{p.name}</b>（{p.sex}・{p.age}歳）ID {p.id}
+            患者：<b>{p.name}</b>（{ageSex(p)}）ID {p.id}
           </span>
           <span>
             {p.department}　主治医 {p.attending}
@@ -349,7 +350,7 @@ function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: Discharg
         </div>
       </div>
       <p className="mb-2">
-        患者：<b>{p.name}</b> 様（{p.sex}・{p.age}歳）
+        患者：<b>{p.name}</b> 様（{ageSex(p)}）
       </p>
       <p className="mb-2">平素より大変お世話になっております。下記の患者さんをご紹介いたします。</p>
       <Rows title="紹介の目的" items={d.letter.purpose ? [d.letter.purpose] : []} />

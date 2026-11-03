@@ -58,6 +58,7 @@ export function admitFromEr(er: ErPatient, f: AdmitForm, id: string, nowTime: st
     kana: er.kana,
     sex: er.sex,
     age: er.age,
+    ...(er.ageMonths !== undefined ? { ageMonths: er.ageMonths } : {}),
     ward: "5階東",
     room: f.room,
     department: f.department,

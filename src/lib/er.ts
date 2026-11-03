@@ -18,6 +18,8 @@ export interface ErPatient {
   kana: string;
   sex: Sex;
   age: number;
+  /** Months, for a child of 3 or younger (shown as ◯歳◯カ月). */
+  ageMonths?: number;
   arrival: Arrival;
   /** Arrival as an absolute minute (day offset × 1440 + minutes). */
   arrivedAbs: number;

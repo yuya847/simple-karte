@@ -10,6 +10,7 @@ import { useSpeech } from "@/lib/use-speech";
 import type { WorkPatient } from "@/lib/worksheet";
 import { PatientAvatar } from "./PatientAvatar";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   people: WorkPatient[];
@@ -146,7 +147,7 @@ function Card({ w, today, nowTime, shift, facts, h: saved, onSave, onSend, onRec
           {w.room}　{w.patient.name}さん
         </h3>
         <span className="text-xs text-ink-soft">
-          {w.patient.age}歳 {w.patient.sex}性　{shift}
+          {ageSex(w.patient)}　{shift}
         </span>
         <span className={`ml-auto text-xs font-bold ${STATUS_STYLE[statusOf(saved)]}`}>{statusOf(saved)}</span>
       </header>

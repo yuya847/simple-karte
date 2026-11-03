@@ -6,6 +6,7 @@ import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import { bandLabel, reviewDue, type AdvanceDirective } from "@/lib/directives";
 import type { Patient } from "@/lib/types";
 import { PatientAvatar } from "./PatientAvatar";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   patient: Patient;
@@ -39,7 +40,7 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
           <div className="text-xl font-bold leading-tight">{p.name}</div>
         </div>
         <div className="nums text-sm text-ink-soft">
-          {p.sex}・{p.age}歳
+          {ageSex(p)}
         </div>
         <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] text-ink-soft">架空の患者</span>
       </div>

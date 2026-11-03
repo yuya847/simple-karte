@@ -21,6 +21,8 @@ export interface Patient {
   kana: string;
   sex: Sex;
   age: number;
+  /** Months, for a child of 3 or younger (shown as ◯歳◯カ月). */
+  ageMonths?: number;
   ward: string;
   room: string;
   department: string;

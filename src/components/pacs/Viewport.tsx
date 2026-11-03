@@ -10,6 +10,7 @@ import { applyMatrix, invertMatrix, orientationLabels, stepSlice, viewMatrix, zo
 import { buildLut, dragStep, dragWindow } from "@/lib/pacs/window";
 import type { Patient } from "@/lib/types";
 import { corner, drawMeasurement, FICTION, MEASURE, OVERLAY, paintPixels, scaleBar, text } from "./draw";
+import { ageSex } from "@/lib/person";
 
 export type Tool = "window" | "pan" | "zoom" | "distance" | "angle" | "roi";
 
@@ -132,7 +133,7 @@ export function Viewport({
 
     // 四隅の文字（DICOM ビューアの四隅表示の考え方）
     const s = pacs.study;
-    corner(ctx, [`${patient.name}（${patient.kana}）`, `ID ${patient.id}`, `${patient.sex}・${patient.age}歳`], "tl", size.w, size.h);
+    corner(ctx, [`${patient.name}（${patient.kana}）`, `ID ${patient.id}`, ageSex(patient)], "tl", size.w, size.h);
     corner(
       ctx,
       [`${tag ? `${tag}　` : ""}${formatShort(addDays(today, s.day))}${s.time ? ` ${s.time}` : ""}`, `${s.modality}　${s.region}`, `Se ${series.number}：${series.description}`],

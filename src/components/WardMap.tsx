@@ -7,6 +7,7 @@ import { news2 } from "@/lib/news2";
 import { PatientAvatar } from "./PatientAvatar";
 import type { Patient } from "@/lib/types";
 import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room, type WardState } from "@/lib/ward";
+import { ageSex } from "@/lib/person";
 
 export interface ChartSummary {
   drafts: number;
@@ -117,7 +118,7 @@ function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: st
         <b className="truncate text-[13px] text-ink">{p.name}</b>
       </div>
       <div className="text-ink-soft">
-        {p.sex}・{p.age}歳・<b className="whitespace-nowrap text-ink">入院{hospitalDay(p.admittedOn, 0)}日目</b>
+        {ageSex(p)}・<b className="whitespace-nowrap text-ink">入院{hospitalDay(p.admittedOn, 0)}日目</b>
       </div>
       <div className="truncate whitespace-nowrap text-ink-soft" title={p.admissionDiagnosis}>
         {p.admissionDiagnosis}
@@ -175,7 +176,7 @@ function OtherBed({ other, bed, faded }: { other: OtherPatient; bed: string; fad
         <span className="truncate text-ink-soft">{other.name}</span>
       </div>
       <div className="truncate whitespace-nowrap">
-        {other.sex}・{other.age}歳・{other.department}
+        {ageSex(other)}・{other.department}
       </div>
       {other.note && <span className="mt-auto self-start rounded border border-rule px-1">{other.note}</span>}
     </div>

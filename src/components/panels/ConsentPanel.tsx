@@ -10,6 +10,7 @@ import { ConsentSign } from "../ConsentSign";
 import { orderLines } from "@/lib/format";
 import { HOSPITAL } from "@/lib/billing/facility";
 import type { OrderEntry, Patient } from "@/lib/types";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   patient: Patient;
@@ -235,7 +236,7 @@ function Document({ r, patient, room, today, orders, print, reading }: { r: Cons
         <h2 className="mt-1 text-center text-lg font-bold">{t.title}</h2>
         <div className="mt-2 grid grid-cols-2 gap-x-4 text-[12px]">
           <span>
-            患者氏名：<b>{patient.name}</b> 様（{patient.sex}・{patient.age}歳）
+            患者氏名：<b>{patient.name}</b> 様（{ageSex(patient)}）
           </span>
           <span>患者ID：{patient.id}</span>
           <span>病棟・病室：{patient.ward} {room}</span>

@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hospitalDay } from "@/lib/dates";
 import type { Patient } from "@/lib/types";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   patients: Patient[];
@@ -75,7 +76,7 @@ export function PatientPicker({ patients, openIds, onOpen, onClose }: Props) {
                 <span className="text-ink-soft">{p.room}</span>
                 <span className="font-bold">{p.name}</span>
                 <span className="text-xs text-ink-soft">
-                  {p.sex}・{p.age}歳
+                  {ageSex(p)}
                 </span>
                 <span className="truncate text-xs text-ink-soft">
                   {p.admissionDiagnosis}　入院{hospitalDay(p.admittedOn, 0)}日目

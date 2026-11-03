@@ -9,6 +9,7 @@ import { CLAUDE, auditLog } from "@/lib/audit";
 import { JTAS_LABEL, REASSESS_MIN, erFeeHint, reassessIn, type Arrival, type ErPatient, type ErStatus, type Jtas } from "@/lib/er";
 import type { Sex } from "@/lib/types";
 import { emptyBeds, type WardState } from "@/lib/ward";
+import { ageSex } from "@/lib/person";
 
 interface Props {
   patients: ErPatient[];
@@ -156,7 +157,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                     <div className="text-[10px] text-ink-faint">{p.kana}</div>
                     <b className={done ? "" : "text-ink"}>{p.name}</b>
                     <span className="ml-2 text-[12px]">
-                      {p.sex}・{p.age ? `${p.age}歳` : "年齢不明"}
+                      {ageSex(p)}
                     </span>
                     {p.hotline && (
                       <div className="text-[11px] text-ink-soft">
@@ -310,7 +311,8 @@ function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number;
     name: "",
     kana: "",
     sex: (initial?.sex ?? "女") as Sex,
-    age: str(initial?.age || undefined),
+    age: str(initial?.age ?? undefined),
+    ageMonths: str(initial?.ageMonths),
     arrival: (initial?.arrival ?? "救急車") as Arrival,
     complaint: initial?.complaint ?? "",
     // A new arrival has no level until the nurse picks one.
@@ -326,7 +328,8 @@ function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number;
     allergies: "",
   });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
-  const missing = [!f.name.trim() && "氏名", !(Number(f.age) > 0) && "年齢", !f.complaint.trim() && "主訴", !f.jtas && "トリアージ"].filter(Boolean);
+  const young = f.age.trim() !== "" && Number(f.age) <= 3;
+  const missing = [!f.name.trim() && "氏名", (f.age.trim() === "" || !(Number(f.age) >= 0)) && "年齢", !f.complaint.trim() && "主訴", !f.jtas && "トリアージ"].filter(Boolean);
 
   return (
     <Dialog title={initial ? "到着・受付（救急隊の情報を下書きにしています）" : "救急外来の受付（架空の患者）"} onClose={onCancel}>
@@ -345,7 +348,15 @@ function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number;
           </select>
         </Field>
         <Field label="年齢">
-          <input value={f.age} onChange={set("age")} inputMode="numeric" className={input} />
+          <span className="flex items-center gap-1">
+            <input value={f.age} onChange={set("age")} inputMode="numeric" className={input} />歳
+            {young && (
+              <>
+                <input value={f.ageMonths} onChange={set("ageMonths")} inputMode="numeric" aria-label="月齢（カ月）" className={`${input} w-12`} />
+                カ月
+              </>
+            )}
+          </span>
         </Field>
         <Field label="来院方法">
           <select value={f.arrival} onChange={set("arrival")} className={input}>
@@ -405,6 +416,7 @@ function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number;
               kana: f.kana.trim(),
               sex: f.sex,
               age: Number(f.age),
+              ...(young && f.ageMonths.trim() !== "" ? { ageMonths: Number(f.ageMonths) } : {}),
               arrival: f.arrival,
               arrivedAbs: nowAbs,
               complaint: f.complaint.trim(),
@@ -441,7 +453,7 @@ function AdmitDialog({ er, ward, onCancel, onAdmit }: { er: ErPatient; ward: War
   const problems = formProblems(f);
 
   return (
-    <Dialog title={`入院にする：${er.name}（${er.sex}・${er.age}歳）`} onClose={onCancel}>
+    <Dialog title={`入院にする：${er.name}（${ageSex(er)}）`} onClose={onCancel}>
       <div className="grid grid-cols-2 gap-3">
         <Field label="入院時の病名（医師が入れる）" wide>
           <input value={f.diagnosis} onChange={(e) => setF({ ...f, diagnosis: e.target.value })} className={input} placeholder="例：尿路感染症の疑い" />
@@ -574,7 +586,7 @@ function HotlineDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel:
       {call && (
         <div className="mt-3 rounded-md border border-rule bg-paper p-3 text-[13px]">
           <div>
-            <b>{call.sex ?? "性別不明"}・{call.age ? `${call.age}歳` : "年齢不明"}</b>　{call.complaint}
+            <b>{ageSex(call)}</b>　{call.complaint}
           </div>
           <div className="nums text-ink-soft">
             BT {v?.bt ?? "—"}　HR {v?.hr ?? "—"}　BP {v?.sbp ?? "—"}/{v?.dbp ?? "—"}　RR {v?.rr ?? "—"}　SpO2 {v?.spo2 ?? "—"}%{v?.o2 ? `（${v.o2}）` : ""}
