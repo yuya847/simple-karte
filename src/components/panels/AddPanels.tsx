@@ -9,6 +9,7 @@ import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
+import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
 import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_DO, TX_PRODUCTS, TX_USE, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
 
@@ -674,10 +675,51 @@ const TIMES: { value: number | "頓用"; label: string }[] = [
  * inside each Rp (前方一致 / 部分一致); the 1日量 is worked out by code and shown. Each Rp becomes a
  * draft and goes through the same checks (errors / warnings to 承知).
  */
-export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts?: Draft[] }) {
+/** A remembered Rp (処方の記憶 or Do) as an Rp to change before drafting. */
+const rpFromPattern = (p: Pick<RxPattern, "rows" | "times" | "timing" | "days" | "category" | "prn" | "maxPerDay">): Rp => ({
+  rows: p.rows.map((r) => ({ drugCode: r.drugCode, per: String(r.per) })),
+  times: p.times,
+  timing: p.timing,
+  days: p.days ? String(p.days) : "",
+  category: p.category,
+  prn: p.prn ?? "",
+  maxPerDay: p.maxPerDay ? String(p.maxPerDay) : "",
+});
+
+export function AddRxPanel({
+  onAdd,
+  newId,
+  drafts = [],
+  seed,
+  memory,
+}: {
+  onAdd: (d: Draft[]) => void;
+  newId: () => string;
+  drafts?: Draft[];
+  /** Do: a past prescription to copy in. */
+  seed?: { key: string; pattern: RxPattern };
+  /** 処方の記憶: the doctor's patterns, this patient's previous prescriptions, and who is writing. */
+  memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string };
+}) {
   const first = drafts.filter((d) => d.kind === "prescription").length + 1;
   const [prefix, setPrefix] = useState(false);
   const [rps, setRps] = useState<Rp[]>([newRp(), newRp()]);
+  // Put a remembered Rp into the first empty Rp (or a new one).
+  const putIn = (ps: Rp[]) =>
+    setRps((r) => {
+      const out = [...r];
+      for (const x of ps) {
+        const i = out.findIndex((y) => y.rows.length === 0);
+        if (i < 0) out.push(x);
+        else out[i] = x;
+      }
+      return out.some((y) => y.rows.length === 0) ? out : [...out, newRp()];
+    });
+  const [seeded, setSeeded] = useState<string | null>(null);
+  if (seed && seed.key !== seeded) {
+    setSeeded(seed.key);
+    putIn([rpFromPattern(seed.pattern)]);
+  }
   const options = ORAL_DRUGS.map((d) => ({ code: d.code, name: d.name, sub: `${d.strength}／${d.unit}`, aliases: d.aliases }));
   const upd = (i: number, patch: Partial<Rp>) =>
     setRps((r) =>
@@ -734,6 +776,7 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="prescription" />
+      {memory && <RxMemory memory={memory} rps={rps} onPut={(ps) => putIn(ps.map(rpFromPattern))} newId={newId} />}
       <div className="flex items-start gap-2">
         <p className="flex-1 text-[11px] text-ink-faint">「1回1錠　1日3回　毎食後」の順に入れます。キーボードだけで：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、回数・用法・定期臨時は ← → で選ぶ、⌘Enter（Ctrl+Enter）で下書きにする。1回量を空にして Backspace でその薬を外します。</p>
         <div role="radiogroup" aria-label="薬の検索" className="flex shrink-0 rounded-md border border-rule p-0.5 text-[11px]">
@@ -1234,5 +1277,118 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
         予測の式：{TX_USE.label}。血液型・不規則抗体・速さ：{TX_DO.label}。下書きで血液型・抗体・同意書をコードが確かめます。
       </p>
     </div>
+  );
+}
+
+/**
+ * 処方の記憶: the doctor's own patterns (most used first), this patient's previous prescriptions (Do),
+ * and named sets. Choosing one copies it into an Rp to check and change; nothing is drafted by itself.
+ */
+function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern[]; previous: RxPattern[]; me: string }; rps: Rp[]; onPut: (ps: Omit<RxPattern, "count" | "lastDay" | "patients" | "key">[]) => void; newId: () => string }) {
+  const [tab, setTab] = useState<"often" | "prev" | "sets">("often");
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [sets, setSets] = useState<RxSet[]>(() => loadSets());
+  const [name, setName] = useState("");
+  const mySets = sets.filter((s) => s.owner === memory.me);
+  const list = (tab === "often" ? memory.patterns : memory.previous).filter((p) => matchPattern(p, q));
+  const filledRps = rps.filter((r) => r.rows.length > 0 && r.times !== null);
+  const saveSet = () => {
+    if (!name.trim() || !filledRps.length) return;
+    const next = [
+      ...sets,
+      {
+        id: newId(),
+        name: name.trim(),
+        owner: memory.me,
+        rps: filledRps.map((r) => ({ rows: r.rows.map((x) => ({ drugCode: x.drugCode, per: Number(x.per) || 0 })), times: r.times!, timing: r.timing, days: Number(r.days) || null, category: r.category, prn: r.prn || undefined, maxPerDay: Number(r.maxPerDay) || undefined })),
+      },
+    ];
+    setSets(next);
+    saveSets(next);
+    setName("");
+  };
+  const ago = (d: number) => (d === 0 ? "今日" : `${-d}日前`);
+  return (
+    <section className="rounded-md border border-rule bg-paper p-2 text-[12px]">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left font-bold text-ink-soft">
+        処方の記憶
+        <span className="font-normal text-ink-faint">よく出す処方 {memory.patterns.length}・前回処方 {memory.previous.length}・セット {mySets.length}</span>
+        <span className="ml-auto text-ai">{open ? "たたむ" : "開く"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <TabChoice
+              label="処方の記憶"
+              options={[
+                { value: "often", label: "よく出す処方" },
+                { value: "prev", label: "前回処方（Do）" },
+                { value: "sets", label: "セット" },
+              ]}
+              value={tab}
+              onChange={(v) => setTab(v as typeof tab)}
+            />
+            {tab !== "sets" && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬で絞る（ひらがな可）" aria-label="処方の記憶を薬で絞る" className="flex-1 rounded border border-rule bg-sheet px-2 py-0.5" />}
+          </div>
+          {tab === "sets" ? (
+            <>
+              {mySets.length === 0 && <p className="text-ink-faint">セットはまだありません。下の Rp を入れてから、名前を付けて登録できます。</p>}
+              <ul className="space-y-1">
+                {mySets.map((s) => (
+                  <li key={s.id} className="flex items-start gap-2 rounded border border-rule-soft bg-sheet px-2 py-1">
+                    <div className="min-w-0 flex-1">
+                      <b>{s.name}</b>
+                      {s.rps.map((r, i) => (
+                        <div key={i} className="nums text-ink-soft">
+                          {patternLine(r)}
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => onPut(s.rps)} className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white">
+                      写す
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = sets.filter((x) => x.id !== s.id);
+                        setSets(next);
+                        saveSets(next);
+                      }}
+                      className="shrink-0 text-ink-faint hover:text-shu"
+                    >
+                      消す
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex items-center gap-1.5">
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="セットの名前（例：便秘時セット）" aria-label="セットの名前" className="flex-1 rounded border border-rule bg-sheet px-2 py-0.5" />
+                <button type="button" disabled={!name.trim() || !filledRps.length} onClick={saveSet} className="rounded border border-ai px-2 py-0.5 font-bold text-ai disabled:opacity-40">
+                  いまの Rp（{filledRps.length}）を登録
+                </button>
+              </div>
+              <p className="text-[11px] text-ink-faint">セットは自分の名前で、このブラウザに保存します（この端末のみに適用されます）。</p>
+            </>
+          ) : (
+            <ul className="scroll-thin max-h-52 space-y-1 overflow-y-auto">
+              {list.length === 0 && <li className="text-ink-faint">{tab === "prev" ? "この患者の前回の処方はありません（持参薬は除く）。" : "当てはまる処方はありません。"}</li>}
+              {list.map((p) => (
+                <li key={`${p.key}-${p.lastDay}`} className="flex items-start gap-2 rounded border border-rule-soft bg-sheet px-2 py-1">
+                  <div className="nums min-w-0 flex-1">
+                    <div>{patternLine(p)}</div>
+                    <div className="text-[11px] text-ink-faint">{tab === "often" ? `${p.count}回・${p.patients}人・最後は${ago(p.lastDay)}` : `${ago(p.lastDay)}の処方`}</div>
+                  </div>
+                  <button type="button" onClick={() => onPut([p])} className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white">
+                    写す
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-[11px] text-ink-faint">よく出す処方は、自分が過去に出した処方（架空のデータを含む）を Rp ごとにまとめ、回数と新しさの順に並べたものです。写したあと、量・日数を確かめてから下書きにします。</p>
+        </div>
+      )}
+    </section>
   );
 }

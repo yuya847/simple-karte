@@ -19,6 +19,8 @@ import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, doctorFor, floorOf, type Bed
 import { currentEntries } from "@/lib/record";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
+import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
+import { PAST_RX, patternsOf, previousOf, type RxPattern } from "@/lib/rx-memory";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
@@ -135,6 +137,8 @@ interface ChartState {
   extended: Record<string, number>;
   /** An order to copy into the 注射 tab for 修正 (the old one gets a stop draft). */
   injSeed?: { key: string; order: InjectionOrder };
+  /** Do of a past prescription (or one picked from 処方の記憶): copied into the 内服 tab. */
+  rxSeed?: { key: string; pattern: RxPattern };
   drafting: boolean;
   error: string | null;
   meta: DraftMeta | null;
@@ -303,6 +307,8 @@ export default function WardApp() {
   const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
   // Right-side tabs shown in their own window (別ウインドウ), and which window is in front.
   const [floating, setFloating] = useState<Partial<Record<RightTab, Win>>>({});
+  // A past note or order is being dragged over the right side (Do).
+  const [dropping, setDropping] = useState(false);
   const [zOrder, setZOrder] = useState<RightTab[]>([]);
   // 入院時の評価（計画書・栄養・褥瘡・転倒転落・せん妄・退院支援）.
   const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
@@ -645,6 +651,33 @@ export default function WardApp() {
     update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: floating[t] ? c.rightTab : t }));
     if (floating[t]) toFront(t);
     focusRightTab(t);
+  };
+
+  // Do: a past note or order copied to the right (dragged from the left, or from its menu).
+  const doFromHistory = (p: DoPayload) => {
+    if (p.kind === "note") {
+      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${p.text}\n`, flash: `${p.label} の記載を記事に写しました（Do）。直してから確定してください。` }));
+      openRight("note");
+      return;
+    }
+    const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === p.entryId);
+    if (!e || !patient) return;
+    const o = e.order;
+    if (o.type === "injection") {
+      update({ injSeed: { key: newId(), order: o }, flash: "同じ注射を注射のタブに写しました（Do）。直して下書きにしてください。" });
+      openRight("injection");
+    } else if (o.type === "prescription") {
+      const rp = o.rp;
+      const same = entries.filter((x): x is OrderEntry => x.kind === "order" && x.order.type === "prescription" && (rp ? x.order.rp === rp : x.id === e.id));
+      const [pattern] = previousOf(patient.id, same.map((x) => (x.order.type === "prescription" && x.order.category === "持参薬" ? { ...x, order: { ...x.order, category: "定期" as const } } : x)));
+      if (!pattern) return;
+      update({ rxSeed: { key: newId(), pattern }, flash: "同じ処方を内服のタブに写しました（Do）。日数などを確かめて下書きにしてください。" });
+      openRight("rx");
+    } else if (o.type === "lab") {
+      addManualLab({ id: newId(), origin: "manual", sourceText: "（Do：前の検査から）", comment: null, kind: "lab", tests: o.codes.map((code) => ({ code, said: code })), collect: { day: null, when: null, time: null, beforeDose: null }, priority: null, cultureSets: null, duplicateOk: false });
+      update({ flash: "同じ検査を下書きにしました（Do）。採る日時を選んでください。" });
+      openRight("note");
+    }
   };
 
   // Append to the instruction box, adding a sentence break when needed.
@@ -1190,13 +1223,33 @@ export default function WardApp() {
               onModify={modifyOrder}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
               onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
+              onDo={doFromHistory}
               onReviseNote={(e, text, reason) => {
                 const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
                 setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));
                 auditLog({ role: me.role, actor: me.name, action: `確定（記事の修正・第${next.versions!.length}版）`, patient: patient.name, detail: `${e.time} の記事　理由：${reason.trim()}` });
               }}
             />
-            <div className="relative flex min-h-0 flex-col">
+            <div
+              className={`relative flex min-h-0 flex-col ${dropping ? "ring-2 ring-inset ring-ai" : ""}`}
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes(DO_MIME)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+                if (!dropping) setDropping(true);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropping(false);
+              }}
+              onDrop={(e) => {
+                const d = readDo(e);
+                setDropping(false);
+                if (!d) return;
+                e.preventDefault();
+                doFromHistory(d);
+              }}
+            >
+              {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
               <ResultsInbox
                 today={today}
                 items={unseen(resultsOf(patient, PANIC_LIMITS), acks)}
@@ -1382,6 +1435,12 @@ export default function WardApp() {
                               key={patient.id}
                               newId={newId}
                               drafts={chart.drafts}
+                              seed={chart.rxSeed}
+                              memory={{
+                                patterns: patternsOf([...PAST_RX, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
+                                previous: previousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
+                                me: me.name,
+                              }}
                               onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                             />
                           </fieldset>

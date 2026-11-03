@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { History, PencilLine } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Copy, GripVertical, History, MoreHorizontal, PencilLine, Search, X } from "lucide-react";
+import { searchKey } from "@/lib/kana";
+import { LAB_TESTS } from "@/lib/master";
 import { canRevise, diffLines, noteText, versionsOf } from "@/lib/notes";
 import { useMe } from "./RoleContext";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
@@ -41,11 +44,30 @@ interface Props {
   onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
   /** Put vital-sign lines copied from the flow sheet into O) of today's note. */
   onInsertVitals?: (text: string) => void;
+  /** Do: copy a past note or order to the right (dragged there, or from the menu). */
+  onDo?: (p: DoPayload) => void;
 }
+
+/** What is copied to the right (Do): a past note's text, or a past order to write again. */
+export type DoPayload = { kind: "note"; text: string; label: string } | { kind: "order"; entryId: string };
+export const DO_MIME = "application/x-simple-karte-do";
+export function readDo(e: React.DragEvent): DoPayload | null {
+  try {
+    const v = e.dataTransfer.getData(DO_MIME);
+    return v ? (JSON.parse(v) as DoPayload) : null;
+  } catch {
+    return null;
+  }
+}
+const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
+  e.dataTransfer.setData(DO_MIME, JSON.stringify(p));
+  e.dataTransfer.setData("text/plain", p.kind === "note" ? p.text : "");
+  e.dataTransfer.effectAllowed = "copy";
+};
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, onDo } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
@@ -81,11 +103,26 @@ export function HistoryPane(props: Props) {
       ) : view === "proc-cal" ? (
         <ProcedureCalendar {...calendarProps} />
       ) : (
-        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} />
+        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} />
       )}
     </section>
   );
 }
+
+/** Kinds of record to narrow the list to (one at a time), like the navigator of a ward chart. */
+const KINDS: { key: string; label: string; test: (e: HistoryEntry) => boolean }[] = [
+  { key: "all", label: "すべて", test: () => true },
+  { key: "doctor", label: "医師の記載", test: (e) => e.kind === "note" && e.role === "医師" },
+  { key: "nurse", label: "看護の記載", test: (e) => e.kind === "note" && e.role === "看護師" },
+  { key: "staff", label: "ほかの職種", test: (e) => e.kind === "note" && e.role !== "医師" && e.role !== "看護師" },
+  { key: "prescription", label: "内服", test: (e) => e.kind === "order" && e.order.type === "prescription" },
+  { key: "injection", label: "注射", test: (e) => e.kind === "order" && e.order.type === "injection" },
+  { key: "lab", label: "検体検査", test: (e) => e.kind === "order" && e.order.type === "lab" },
+  { key: "exam", label: "画像・生理", test: (e) => e.kind === "order" && (e.order.type === "imaging" || e.order.type === "physio") },
+  { key: "procedure", label: "処置・透析・輸血", test: (e) => e.kind === "order" && e.order.type === "procedure" },
+];
+
+const textOf = (e: HistoryEntry, today: CalendarDate) => (e.kind === "note" ? `${e.author} ${noteText(e)}` : `${orderLines(e.order, today).main} ${orderLines(e.order, today).detail} ${e.author}`);
 
 function RecordList({
   patient,
@@ -94,6 +131,7 @@ function RecordList({
   selectedDay,
   showStopped,
   onReviseNote,
+  onDo,
 }: {
   patient: Patient;
   entries: HistoryEntry[];
@@ -101,8 +139,11 @@ function RecordList({
   selectedDay: DayOffset | null;
   showStopped: boolean;
   onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
+  onDo?: (p: DoPayload) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const [kind, setKind] = useState("all");
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     if (selectedDay === null) return;
@@ -111,14 +152,68 @@ function RecordList({
 
   const days: DayOffset[] = [];
   for (let d = 0; d >= patient.admittedOn; d--) days.push(d);
+  const visible = entries.filter((e) => showStopped || e.kind !== "order" || e.status !== "中止");
+  const k = KINDS.find((x) => x.key === kind)!;
+  const key = searchKey(q.trim());
+  const shown = visible.filter((e) => k.test(e) && (!key || searchKey(textOf(e, today)).includes(key)));
+  const narrowed = kind !== "all" || !!key;
 
   return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="space-y-1.5 border-b border-rule-soft px-4 py-2">
+        <div role="radiogroup" aria-label="記録の種類で絞る" className="flex flex-wrap gap-1">
+          {KINDS.map((x) => {
+            const n = visible.filter(x.test).length;
+            const on = kind === x.key;
+            return (
+              <button
+                key={x.key}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                disabled={x.key !== "all" && n === 0}
+                onClick={() => setKind(x.key)}
+                className={`nums rounded-full border px-2 py-0.5 text-[11px] pointer-coarse:py-1.5 ${on ? "border-ink bg-ink font-bold text-white" : "border-rule text-ink-soft hover:border-ai hover:text-ai disabled:opacity-40"}`}
+              >
+                {x.label}
+                <span className={`ml-1 ${on ? "text-white/80" : "text-ink-faint"}`}>{n}</span>
+              </button>
+            );
+          })}
+        </div>
+        <label className="flex items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
+          <Search size={13} className="text-ink-faint" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" className="flex-1 bg-transparent text-[12px] outline-none" />
+          {q && (
+            <button type="button" onClick={() => setQ("")} aria-label="検索を消す" className="text-ink-faint hover:text-ink">
+              <X size={13} />
+            </button>
+          )}
+        </label>
+        {narrowed && (
+          <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
+            <b>
+              {kind !== "all" ? `「${k.label}」` : ""}
+              {key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shown.length}件
+            </b>
+            <button
+              type="button"
+              onClick={() => {
+                setKind("all");
+                setQ("");
+              }}
+              className="ml-auto underline"
+            >
+              すべてに戻す
+            </button>
+          </p>
+        )}
+        {onDo && <p className="text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。</p>}
+      </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
         {days.map((d) => {
-          const items = entries
-            .filter((e) => e.day === d)
-            .filter((e) => showStopped || e.kind !== "order" || e.status !== "中止")
-            .sort((a, b) => minutesOf(a.time) - minutesOf(b.time));
+          const items = shown.filter((e) => e.day === d).sort((a, b) => minutesOf(a.time) - minutesOf(b.time));
+          if (narrowed && items.length === 0) return null;
           return (
             <div
               key={d}
@@ -136,14 +231,60 @@ function RecordList({
               ) : (
                 <ol className="space-y-2">
                   {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} /> : <OrderRow entry={e} today={today} />}</li>
+                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} />}</li>
                   ))}
                 </ol>
               )}
             </div>
           );
         })}
+        {narrowed && shown.length === 0 && <p className="py-6 text-center text-xs text-ink-faint">当てはまる記録はありません。</p>}
       </div>
+    </div>
+  );
+}
+
+/** A small menu at the pointer (right click) or under the 「…」 button (touch). Esc or a press outside closes it. */
+function Menu({ at, onClose, items }: { at: { x: number; y: number }; onClose: () => void; items: { label: string; icon: typeof Copy; onClick: () => void; disabled?: string }[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && onClose();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("pointerdown", away, true);
+    window.addEventListener("keydown", esc);
+    ref.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    return () => {
+      window.removeEventListener("pointerdown", away, true);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [onClose]);
+  const left = Math.min(at.x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 230);
+  const top = Math.min(at.y, (typeof window === "undefined" ? 800 : window.innerHeight) - 40 * items.length - 16);
+  return createPortal(
+    <div ref={ref} role="menu" style={{ position: "fixed", left, top, zIndex: 1000 }} className="w-56 rounded-lg border border-rule bg-sheet p-1 text-[13px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
+      {items.map((it) => {
+        const Icon = it.icon;
+        return (
+          <button
+            key={it.label}
+            type="button"
+            role="menuitem"
+            disabled={!!it.disabled}
+            title={it.disabled}
+            onClick={() => {
+              onClose();
+              it.onClick();
+            }}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper disabled:text-ink-faint/60 pointer-coarse:py-2.5"
+          >
+            <Icon size={14} />
+            {it.label}
+            {it.disabled && <span className="ml-auto text-[10px]">—</span>}
+          </button>
+        );
+      })}
+    </div>,
+    document.body,
   );
 }
 
@@ -158,8 +299,9 @@ const ROLE_STYLE: Record<NoteEntry["role"], string> = {
   検査室: "text-fuji",
 };
 
-function Note({ entry, today, onRevise }: { entry: NoteEntry; today: CalendarDate; onRevise?: (e: NoteEntry, text: string, reason: string) => void }) {
+function Note({ entry, today, onRevise, onDo }: { entry: NoteEntry; today: CalendarDate; onRevise?: (e: NoteEntry, text: string, reason: string) => void; onDo?: (p: DoPayload) => void }) {
   const me = useMe();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [reason, setReason] = useState("");
@@ -167,9 +309,38 @@ function Note({ entry, today, onRevise }: { entry: NoteEntry; today: CalendarDat
   const versions = versionsOf(entry);
   const last = versions.at(-1)!;
   const mine = !!onRevise && canRevise(entry, me.name);
+  const startEdit = () => {
+    setDraft(noteText(entry));
+    setReason("");
+    setEditing(true);
+  };
+  const doPayload: DoPayload = { kind: "note", text: noteText(entry), label: `${entry.time} ${entry.author}` };
   return (
-    <article className="text-[13px] leading-relaxed">
+    <article
+      draggable={!!onDo && !editing}
+      onDragStart={onDo ? dragDo(doPayload) : undefined}
+      onDoubleClick={() => (editing ? undefined : mine ? startEdit() : setShowHistory((v) => !v))}
+      onContextMenu={(e) => {
+        if (editing) return;
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
+      title={mine ? "ダブルクリックで修正、右クリックでメニュー" : "ダブルクリックで履歴、右クリックでメニュー"}
+      className={`group text-[13px] leading-relaxed ${onDo && !editing ? "cursor-grab active:cursor-grabbing" : ""}`}
+    >
+      {menu && (
+        <Menu
+          at={menu}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "右の記事へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload), disabled: onDo ? undefined : "写せません" },
+            { label: "修正する", icon: PencilLine, onClick: startEdit, disabled: mine ? undefined : "自分が書いた記事だけ直せます" },
+            { label: versions.length > 1 ? `修正の履歴を見る（第${versions.length}版まで）` : "修正の履歴を見る（修正なし）", icon: History, onClick: () => setShowHistory(true), disabled: versions.length > 1 ? undefined : "修正はありません" },
+          ]}
+        />
+      )}
       <div className="nums mb-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
+        {onDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
         <span>{entry.time}</span>
         <span className={`font-bold ${ROLE_STYLE[entry.role]}`}>{entry.role}</span>
         <span>{entry.author}</span>
@@ -181,18 +352,22 @@ function Note({ entry, today, onRevise }: { entry: NoteEntry; today: CalendarDat
           </button>
         )}
         {mine && !editing && (
-          <button
-            type="button"
-            onClick={() => {
-              setDraft(noteText(entry));
-              setReason("");
-              setEditing(true);
-            }}
-            className="ml-auto flex items-center gap-0.5 rounded px-1 text-ink-faint hover:bg-paper hover:text-ink"
-            title="自分が書いた記事だけ直せます。前の版は残ります。"
-          >
+          <button type="button" onClick={startEdit} className="ml-auto flex items-center gap-0.5 rounded px-1 text-ink-faint hover:bg-paper hover:text-ink" title="自分が書いた記事だけ直せます。前の版は残ります。">
             <PencilLine size={11} />
             修正
+          </button>
+        )}
+        {!editing && (
+          <button
+            type="button"
+            aria-label="記事のメニュー"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setMenu({ x: r.left, y: r.bottom + 4 });
+            }}
+            className={`${mine ? "" : "ml-auto"} rounded px-1 text-ink-faint opacity-60 hover:bg-paper hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100`}
+          >
+            <MoreHorizontal size={13} />
           </button>
         )}
       </div>
@@ -279,21 +454,65 @@ const STATUS_STYLE: Record<OrderEntry["status"], string> = {
   中止: "border-shu/40 text-shu",
 };
 
-function OrderRow({ entry, today }: { entry: OrderEntry; today: CalendarDate }) {
+/** The items a lab order contains (a set's analytes, or the test itself), as abbreviations. */
+function labItems(codes: string[]): string[] {
+  return codes.flatMap((c) => {
+    const t = LAB_TESTS.find((x) => x.code === c);
+    if (!t) return [c];
+    return t.contains && t.contains.length > 1 ? t.contains : [t.abbr ?? t.name];
+  });
+}
+
+function OrderRow({ entry, today, onDo }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void }) {
   const { main, detail } = orderLines(entry.order, today);
   const stopped = entry.status === "中止";
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const doPayload: DoPayload = { kind: "order", entryId: entry.id };
+  const canDo = !!onDo && ["prescription", "injection", "lab"].includes(entry.order.type);
   return (
-    <div className={`rounded-md border border-rule-soft bg-paper/60 px-2.5 py-1.5 text-[13px] ${stopped ? "opacity-60" : ""}`}>
+    <div
+      draggable={canDo}
+      onDragStart={canDo ? dragDo(doPayload) : undefined}
+      onContextMenu={(e) => {
+        if (!canDo) return;
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
+      title={canDo ? "右へドラッグするか右クリックで、同じオーダを写せます（Do）" : undefined}
+      className={`group rounded-md border border-rule-soft bg-paper/60 px-2.5 py-1.5 text-[13px] ${stopped ? "opacity-60" : ""} ${canDo ? "cursor-grab active:cursor-grabbing" : ""}`}
+    >
+      {menu && <Menu at={menu} onClose={() => setMenu(null)} items={[{ label: "右へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload) }]} />}
       <div className="nums flex items-center gap-2 text-[11px] text-ink-faint">
+        {canDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
         <span>{entry.time}</span>
         <span className="font-bold text-ink-soft">{ORDER_TYPE_LABEL[entry.order.type]}</span>
         <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
           {entry.status}
           {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
         </span>
+        {canDo && (
+          <button
+            type="button"
+            aria-label="オーダのメニュー"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setMenu({ x: r.left - 180, y: r.bottom + 4 });
+            }}
+            className="rounded px-1 opacity-60 hover:bg-sheet hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100"
+          >
+            <MoreHorizontal size={13} />
+          </button>
+        )}
       </div>
       <div className={`nums ${stopped ? "line-through" : ""}`}>{main}</div>
       <div className="nums text-xs text-ink-soft">{detail}</div>
+      {entry.order.type === "lab" && (
+        <ul aria-label="検査の内訳" className="nums mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-ink-soft">
+          {labItems(entry.order.codes).map((x, i) => (
+            <li key={`${x}-${i}`}>・{x}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
