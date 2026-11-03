@@ -54,6 +54,8 @@ import { SetPanel } from "./panels/SetPanel";
 import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
+import { PhsView } from "./PhsView";
+import { onDuty, passOn, type CallNote, type Emergency, type NurseCall } from "@/lib/phs";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
@@ -330,6 +332,10 @@ export default function WardApp() {
   // 延長 confirmed in this session (for 指示受け), and the diet orders there were at the start.
   const [extendLog, setExtendLog] = useState<{ orderId: string; patientId: string; days: number; at: number; by: string; text: string }[]>([]);
   const [initialDietIds] = useState(() => new Set(INITIAL_DIETS.map((d) => d.id)));
+  // 院内連絡: nurse calls, emergency calls and call notes (院内PHS の代わり).
+  const [nurseCalls, setNurseCalls] = useState<NurseCall[]>([]);
+  const [emergencies, setEmergencies] = useState<Emergency[]>([]);
+  const [callNotes, setCallNotes] = useState<CallNote[]>([]);
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
@@ -537,6 +543,20 @@ export default function WardApp() {
     // The chart's state stays: today's confirmed orders and notes belong to the record, not to the tab.
   };
 
+  // A nurse call nobody answers goes on to the ward leader (the rule in phs.ts), checked every 5 seconds.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const clock = clientNow();
+      const [h, m] = clock.split(":").map(Number);
+      const leader = onDuty((h * 60 + m) % 1440, false).find((c) => c.role === "病棟リーダー")!.name;
+      setNurseCalls((cs) => {
+        const next = cs.map((c) => passOn(c, Date.now(), leader, clock));
+        return next.some((c, i) => c !== cs[i]) ? next : cs;
+      });
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -739,6 +759,15 @@ export default function WardApp() {
 
   const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft], flash: null }));
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
+  // 院内連絡: the patient's cautions shown with a nurse call, and records that go into the chart.
+  const cautionsOf = (pid: string) => {
+    const p = findPatient(pid);
+    if (!p) return [];
+    return [...p.cautions, ...p.infections.map((i) => `隔離：${i}`), ...(p.allergies.length ? [`アレルギー：${p.allergies.join("、")}`] : []), ...(activeOf(restraints, pid) ? ["身体的拘束中"] : []), ...(p.codeStatus ? [p.codeStatus] : [])];
+  };
+  const chartNote = (pid: string, text: string) => setNotes((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text } as NoteEntry] }));
+  const updateCall = (id: string, patch: (c: NurseCall) => Partial<NurseCall>) => setNurseCalls((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch(c) } : c)));
+  const answerCall = (id: string) => updateCall(id, (c) => (c.answered ? {} : { answered: { at: nowTime, by: me.name } }));
   // Doses the ward recorded as 未実施, for the claim ("orderId|minutes").
   const notGivenOf = (pid: string) => Object.values(mar).filter((r) => r.patientId === pid && r.status === "未実施").map((r) => r.key);
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
@@ -1235,6 +1264,49 @@ export default function WardApp() {
             )
           }
           onExport={(n) => auditLog({ role: me.role, actor: me.name, action: "データ抽出を CSV で保存した", detail: `${n}件` })}
+        />
+      ) : screen === "phs" ? (
+        <PhsView
+          people={people}
+          nowTime={nowTime}
+          contacts={onDuty(abs(0, nowTime) % 1440, [0, 6].includes(new Date(Date.UTC(today.y, today.m - 1, today.d)).getUTCDay()))}
+          cautionsOf={cautionsOf}
+          calls={nurseCalls}
+          emergencies={emergencies}
+          notes={callNotes}
+          onRing={(pid) => {
+            const x = people.find((y) => y.patient.id === pid);
+            if (!x) return;
+            setNurseCalls((cs) => [...cs, { id: newId(), patientId: pid, room: x.room, bed: "", at: nowTime, ms: Date.now(), to: nurseFor(x.room.replace(/[A-Z]$/, "")) }]);
+          }}
+          onAnswer={answerCall}
+          onArrive={(id) => updateCall(id, (c) => ({ arrived: { at: nowTime, by: me.name }, ...(c.answered ? {} : { answered: { at: nowTime, by: me.name } }) }))}
+          onDone={(id, reason, memo) => {
+            const c = nurseCalls.find((x) => x.id === id);
+            updateCall(id, () => ({ done: { at: nowTime, by: me.name, reason, memo } }));
+            if (c) {
+              auditLog({ role: me.role, actor: me.name, action: "ナースコールに対応した", patient: findPatient(c.patientId)?.name, detail: `${c.at} 呼出 → 応答 ${c.answered?.at ?? nowTime} → 完了 ${nowTime}　${reason}${memo ? `：${memo}` : ""}` });
+              chartNote(c.patientId, `【ナースコール】${c.at} 呼出、${c.arrived?.at ?? nowTime} 訪室。${reason}${memo ? `：${memo}` : ""}`);
+            }
+          }}
+          onRaise={(kind, place, pid) => {
+            auditLog({ role: me.role, actor: me.name, action: `緊急通報（${kind}）`, patient: pid ? findPatient(pid)?.name : undefined, detail: place });
+            setEmergencies((es) => [...es, { id: newId(), kind, place, patientId: pid, at: nowTime, by: me.name, came: [] }]);
+          }}
+          onCome={(id) => setEmergencies((es) => es.map((e) => (e.id === id ? { ...e, came: [...e.came, { name: me.name, at: nowTime }] } : e)))}
+          onClose={(id, note) => {
+            const e = emergencies.find((x) => x.id === id);
+            setEmergencies((es) => es.map((x) => (x.id === id ? { ...x, closed: { at: nowTime, by: me.name, note } } : x)));
+            if (e) {
+              auditLog({ role: me.role, actor: me.name, action: `緊急通報を解除（${e.kind}）`, patient: e.patientId ? findPatient(e.patientId)?.name : undefined, detail: note });
+              if (e.patientId) chartNote(e.patientId, `【緊急通報】${e.kind}　${e.at} 発信（${e.by}）〜 ${nowTime} 解除。到着：${e.came.map((c) => `${c.name} ${c.at}`).join("、") || "記録なし"}。経過：${note}`);
+            }
+          }}
+          onNote={(n) => {
+            setCallNotes((all) => [...all, { ...n, id: newId(), at: nowTime, from: me.name }]);
+            auditLog({ role: me.role, actor: me.name, action: "通話メモを残した", patient: n.patientId ? findPatient(n.patientId)?.name : undefined, detail: `→ ${n.to}：${n.text}`.slice(0, 200) });
+            if (n.patientId) chartNote(n.patientId, `【通話】${nowTime} ${me.name} → ${n.to}：${n.text}`);
+          }}
         />
       ) : screen === "board" ? (
         <BoardView
@@ -2433,11 +2505,50 @@ export default function WardApp() {
         rows={tabRows()}
         chartShown={screen === "chart"}
         onOpenPicker={() => setPickerOpen(true)}
-        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults, calls).length, board: unreadCount(notices, reads, me.name) }}
+        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length, board: unreadCount(notices, reads, me.name) }}
         todos={todos}
       >
         {content}
       </AppFrame>
+      {/* 緊急通報 on every screen until it is closed. */}
+      {emergencies
+        .filter((e) => !e.closed)
+        .map((e) => (
+          <div key={e.id} role="alert" className="fixed inset-x-0 top-0 z-50 flex flex-wrap items-center justify-center gap-3 bg-shu px-4 py-1.5 text-sm font-bold text-white shadow print:hidden">
+            <span>
+              {e.kind}　{e.place}　{e.at} 発信（{e.by}）
+            </span>
+            {!e.came.some((c) => c.name === me.name) && (
+              <button type="button" onClick={() => setEmergencies((es) => es.map((x) => (x.id === e.id ? { ...x, came: [...x.came, { name: me.name, at: nowTime }] } : x)))} className="rounded bg-white px-2 py-0.5 text-shu">
+                駆けつけた
+              </button>
+            )}
+            <button type="button" onClick={() => openArea("phs")} className="rounded border border-white px-2 py-0.5">
+              院内連絡を開く
+            </button>
+          </div>
+        ))}
+      {/* A nurse call rings on the nurses' screens (as on their phones). */}
+      {role === "看護師" && (
+        <div className="fixed bottom-2 left-2 z-40 flex flex-col gap-1.5 print:hidden">
+          {nurseCalls
+            .filter((c) => !c.answered)
+            .map((c) => (
+              <div key={c.id} role="alert" className="flex items-center gap-2 rounded-md border border-shu bg-sheet px-3 py-1.5 text-[13px] shadow">
+                <b className="text-shu">ナースコール</b>
+                <span>
+                  {c.room} {findPatient(c.patientId)?.name}さん → {c.passedOn?.to ?? c.to}
+                </span>
+                <button type="button" onClick={() => answerCall(c.id)} className="rounded bg-yamabuki px-2 py-0.5 text-xs font-bold text-white">
+                  応答
+                </button>
+                <button type="button" onClick={() => openArea("phs")} className="text-xs text-ai underline">
+                  開く
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
       {Number(nowTime.slice(0, 2)) >= 24 && (
         <p role="status" className="fixed bottom-2 right-2 z-40 max-w-xs rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[11px] text-ink shadow print:hidden">
           日付が変わりました。この画面は {formatShort(today)} を「今日」として続けているので、{nowTime.slice(0, 2)}:{nowTime.slice(3)}（翌{Number(nowTime.slice(0, 2)) - 24}:{nowTime.slice(3)}）のように時刻を付けます。
