@@ -1,62 +1,40 @@
 "use client";
 
-import { Ambulance, BedDouble, CheckSquare, Droplets, FlaskConical, MessagesSquare, Pill, Scissors, ScrollText, Search, Stethoscope } from "lucide-react";
+import { CheckSquare, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { kanaMatch } from "@/lib/kana";
-import { VIEW_LABEL, viewsForScope, type Area, type AreaKey, type Scope } from "@/lib/nav";
-import type { PinnedTab } from "@/lib/roles";
 import { ageSex } from "@/lib/person";
 import type { Patient } from "@/lib/types";
 import type { Todo } from "./AppFrame";
 import { PatientAvatar } from "./PatientAvatar";
 
-const AREA_ICON: Record<AreaKey, typeof Pill> = {
-  ward: BedDouble,
-  opd: Stethoscope,
-  er: Ambulance,
-  or: Scissors,
-  dialysis: Droplets,
-  pharmacy: Pill,
-  lab: FlaskConical,
-  chat: MessagesSquare,
-  audit: ScrollText,
-};
-
 interface Props {
   patients: Patient[];
-  /** Charts open now (shown first, as 最近). */
+  /** Charts open now (shown first). */
   openIds: string[];
-  areas: Area[];
-  /** What can be opened inside 病棟 (the ward, 受け持ち, departments). */
-  scopes: Scope[];
+  /** The tab the chart will open under (e.g. 受け持ち患者). */
+  under: string;
   todos: Todo[];
   onPatient: (id: string) => void;
-  onArea: (k: AreaKey) => void;
-  onWard: (scopeKey: string, view: PinnedTab) => void;
 }
 
 /**
- * 新しいタブ: what this tab can become — a patient's chart (search by name, kana, ID or room), a place,
- * a view inside 病棟, or something waiting in やること. Keyboard: type, ↓↑, Enter.
+ * 新しいタブ: a patient's chart to open here (search by name, kana, ID or room), or something waiting
+ * in やること. Keyboard: type, ↓↑, Enter.
  */
-export function NewTabPage({ patients, openIds, areas, scopes, todos, onPatient, onArea, onWard }: Props) {
+export function NewTabPage({ patients, openIds, under, todos, onPatient }: Props) {
   const [q, setQ] = useState("");
   const [at, setAt] = useState(0);
   const box = useRef<HTMLInputElement>(null);
   useEffect(() => box.current?.focus(), []);
   const recent = [...openIds.map((id) => patients.find((p) => p.id === id)).filter((p): p is Patient => !!p), ...patients.filter((p) => !openIds.includes(p.id))];
   const hits = q.trim() ? patients.filter((p) => [p.name, p.kana, p.room, p.id, p.admissionDiagnosis].some((f) => kanaMatch(f, q))) : recent;
-  const places = areas.filter((a) => !a.tool);
-  const wardViews = areas.find((a) => a.key === "ward")?.views ?? [];
-  const quick = scopes
-    .filter((s) => !s.soon && s.kind !== "dept")
-    .flatMap((s) => viewsForScope(s, wardViews).slice(0, 4).map((v) => ({ s, v })));
 
   return (
     <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper">
       <div className="mx-auto max-w-4xl space-y-6 px-6 py-6 text-sm">
         <section>
-          <h2 className="mb-2 font-bold">患者のカルテを開く</h2>
+          <h2 className="mb-2 font-bold">患者のカルテを開く<span className="ml-2 text-[12px] font-normal text-ink-soft">「{under}」の下にタブで開きます（ほかの所で開いていれば、そこへ移ります）</span></h2>
           <label className="flex items-center gap-2 rounded-lg border border-rule bg-sheet px-3 py-2 focus-within:border-ai">
             <Search size={16} className="text-ink-faint" />
             <input
@@ -104,43 +82,6 @@ export function NewTabPage({ patients, openIds, areas, scopes, todos, onPatient,
             {q.trim() && hits.length === 0 && <li className="text-ink-faint">見つかりません（カルテのある患者だけを探します）。</li>}
           </ul>
         </section>
-
-        <section>
-          <h2 className="mb-2 font-bold">場所</h2>
-          <div className="flex flex-wrap gap-2">
-            {places.map((a) => {
-              const Icon = AREA_ICON[a.key];
-              return (
-                <button
-                  key={a.key}
-                  type="button"
-                  disabled={!a.views.length}
-                  title={a.soon}
-                  onClick={() => onArea(a.key)}
-                  className="flex items-center gap-2 rounded-lg border border-rule bg-sheet px-4 py-2.5 hover:border-ai disabled:text-ink-faint/60 pointer-coarse:py-3.5"
-                >
-                  <Icon size={18} />
-                  {a.label}
-                  {a.soon && <span className="text-[11px]">（準備中）</span>}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {quick.length > 0 && (
-          <section>
-            <h2 className="mb-2 font-bold">病棟の中をすぐ開く</h2>
-            <div className="flex flex-wrap gap-2">
-              {quick.map(({ s, v }) => (
-                <button key={`${s.key}-${v}`} type="button" onClick={() => onWard(s.key, v)} className="rounded-lg border border-rule bg-sheet px-3 py-2 text-left hover:border-ai pointer-coarse:py-3">
-                  <span className="block text-[11px] text-ink-faint">{s.label}</span>
-                  {VIEW_LABEL[v]}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section>
           <h2 className="mb-2 flex items-center gap-1.5 font-bold">

@@ -9,12 +9,20 @@ import { hospitalDay } from "@/lib/dates";
 import { currentEntries, ordersOf, type SessionChanges } from "@/lib/record";
 import { flagsFor, type Flag, type FlagTone } from "@/lib/patient-flags";
 import type { Patient } from "@/lib/types";
-import { WARD_NAME, WARD_PLANS, doctorFor, emptyBeds, nurseFor, type BedAssignment, type WardPlan, type WardState } from "@/lib/ward";
-import type { ChartSummary } from "./WardMap";
+import { WARD_PLANS, doctorFor, emptyBeds, floorOf, nurseFor, type BedAssignment, type Floor, type WardPlan, type WardState } from "@/lib/ward";
+import { PickSelect, type ChartSummary, type Pick } from "./WardMap";
 import { ageSex } from "@/lib/person";
 
 interface Props {
+  /** The beds to list (a floor, 受け持ち, a department, all wards …) and the patient lookup. */
   ward: WardState;
+  title: string;
+  /** A pulldown in the header (◯階・科・主治医). */
+  pick?: Pick;
+  /** How the rows are grouped at first. */
+  defaultGroup?: GroupBy;
+  /** The floor listed: its empty beds and today's and tomorrow's admissions and discharges. */
+  floor?: Floor;
   nowTime: string;
   changes: Record<string, SessionChanges>;
   summaries: Record<string, ChartSummary>;
@@ -26,14 +34,13 @@ interface Props {
   marPending?: Record<string, number>;
   /** Results not yet seen by the doctor (and how many are panic values). */
   resultState?: Record<string, { unseen: number; panic: number }>;
-  /** A 病棟 tab narrower than the ward (受け持ち, a department): only its patients are listed. */
-  scope?: { label: string; test: (b: BedAssignment) => boolean };
   onOpen: (patientId: string) => void;
 }
 
-type GroupBy = "room" | "department" | "doctor" | "nurse";
+export type GroupBy = "room" | "floor" | "department" | "doctor" | "nurse";
 const GROUPS: { key: GroupBy; label: string }[] = [
   { key: "room", label: "部屋順" },
+  { key: "floor", label: "病棟" },
   { key: "department", label: "診療科" },
   { key: "doctor", label: "主治医" },
   { key: "nurse", label: "担当看護師" },
@@ -74,9 +81,8 @@ interface Row {
 const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
 
 /** Ward patient list. Our patients open on click or Enter; other teams' rows are context only. */
-export function PatientList({ ward, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, onOpen, scope: limit }: Props) {
-  const [scope, setScope] = useState<"mine" | "all">("mine");
-  const [groupBy, setGroupBy] = useState<GroupBy>("room");
+export function PatientList({ ward, title, pick, defaultGroup = "room", floor, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, onOpen }: Props) {
+  const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "room", asc: true });
   const [cursor, setCursor] = useState(0);
@@ -87,23 +93,22 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
       const patient = b.patientId ? ward.patient(b.patientId) : undefined;
       return { bed: b, patient, kana: patient?.kana ?? b.other?.name ?? "", day: patient ? hospitalDay(patient.admittedOn, 0) : null };
     });
-    const filtered = all
-      .filter((r) => (limit ? limit.test(r.bed) : scope === "all" || r.patient))
-      .filter((r) => {
-        const s = q.trim();
-        if (!s) return true;
-        const fields = [r.bed.room, r.patient?.name, r.patient?.kana, r.patient?.admissionDiagnosis, r.patient?.id, r.bed.other?.name, r.bed.other?.department];
-        return fields.some((f) => f?.includes(s));
-      });
+    const filtered = all.filter((r) => {
+      const s = q.trim();
+      if (!s) return true;
+      const fields = [r.bed.room, r.patient?.name, r.patient?.kana, r.patient?.admissionDiagnosis, r.patient?.id, r.bed.other?.name, r.bed.other?.department];
+      return fields.some((f) => f?.includes(s));
+    });
     const dir = sort.asc ? 1 : -1;
     return filtered.sort((a, b) => {
       if (sort.key === "name") return dir * a.kana.localeCompare(b.kana, "ja");
       if (sort.key === "day") return dir * ((a.day ?? -1) - (b.day ?? -1));
       return dir * roomKey(a.bed).localeCompare(roomKey(b.bed));
     });
-  }, [ward, scope, q, sort, limit]);
+  }, [ward, q, sort]);
 
   const groupOf = (r: Row): string => {
+    if (groupBy === "floor") return floorOf(r.bed.room);
     if (groupBy === "department") return r.patient?.department ?? r.bed.other?.department ?? "";
     if (groupBy === "doctor") return r.patient?.attending ?? doctorFor(r.bed.other?.department ?? "");
     if (groupBy === "nurse") return nurseFor(r.bed.room);
@@ -122,9 +127,11 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
   const ordered = grouped.flatMap((g) => g.rows);
   const openable = ordered.filter((r) => r.patient);
   const planFor = (b: BedAssignment) => WARD_PLANS.filter((p) => p.kind === "退院" && p.room === b.room && p.bed === b.bed);
-  const admittedToday = ward.beds.filter((b) => b.patientId && ward.patient(b.patientId)?.admittedOn === 0);
-  const empties = emptyBeds(ward.beds);
-  const reserved = WARD_PLANS.filter((p) => p.kind === "入院" && empties.some((e) => e.room.no === p.room && e.bed === p.bed));
+  const inFloor = (room: string) => !!floor && floor.rooms.some((r) => r.no === room);
+  const admittedToday = ward.beds.filter((b) => b.patientId && ward.patient(b.patientId)?.admittedOn === 0 && inFloor(b.room));
+  const plansHere = WARD_PLANS.filter((p) => inFloor(p.room));
+  const empties = floor ? emptyBeds(ward.beds, floor.rooms) : [];
+  const reserved = plansHere.filter((p) => p.kind === "入院" && empties.some((e) => e.room.no === p.room && e.bed === p.bed));
   const at = Math.min(cursor, Math.max(openable.length - 1, 0));
 
   const header = (key: SortKey, label: string) => (
@@ -143,28 +150,11 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
     <section aria-label="患者一覧" className="flex min-h-0 flex-1 flex-col bg-paper">
       <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
         <h1 className="text-lg font-bold">
-          {limit ? limit.label : WARD_NAME} 患者一覧
+          {title}
           <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
+          <span className="nums ml-2 text-sm font-normal text-ink-soft">{rows.length}人</span>
         </h1>
-        <div role="tablist" className={`flex rounded-md border border-rule p-0.5 text-sm ${limit ? "hidden" : ""}`}>
-          {(
-            [
-              ["mine", `受け持ち（${ward.beds.filter((b) => b.patientId).length}）`],
-              ["all", `病棟全体（${ward.beds.length}）`],
-            ] as const
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              role="tab"
-              aria-selected={scope === v}
-              onClick={() => setScope(v)}
-              className={`rounded px-2.5 py-0.5 ${scope === v ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {pick && <PickSelect pick={pick} />}
         <div role="radiogroup" aria-label="まとめ方" className="flex rounded-md border border-rule p-0.5 text-sm">
           {GROUPS.map((g) => (
             <button
@@ -204,9 +194,9 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
         </label>
       </header>
 
-      <div className="flex flex-wrap gap-x-6 gap-y-1 border-b border-rule bg-sheet px-5 py-2 text-[12px]">
+      <div className={`flex flex-wrap gap-x-6 gap-y-1 border-b border-rule bg-sheet px-5 py-2 text-[12px] ${floor ? "" : "hidden"}`}>
         {([0, 1] as const).map((d) => {
-          const plans = WARD_PLANS.filter((p) => p.day === d);
+          const plans = plansHere.filter((p) => p.day === d);
           const viaEr = d === 0 ? admittedToday : [];
           return (
             <div key={d} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
@@ -297,8 +287,8 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
                 ),
               ),
             ])}
-            {scope === "all" &&
-              WARD_PLANS.filter((p) => p.kind === "入院" && empties.some((e) => e.room.no === p.room && e.bed === p.bed)).map((p) => (
+            {!q.trim() &&
+              reserved.map((p) => (
                 <tr key={`plan-${p.name}`} className="border-b border-dashed border-rule text-ai">
                   <td className="px-3 py-1.5">
                     {p.room}

@@ -17,8 +17,37 @@ export interface ChartSummary {
   waiting?: number;
 }
 
+/** A pulldown in a screen's header (◯階・科・主治医). */
+export interface Pick {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}
+
+export function PickSelect({ pick }: { pick: Pick }) {
+  return (
+    <label className="flex items-center gap-1.5 text-sm text-ink-soft">
+      {pick.label}
+      <select value={pick.value} onChange={(e) => pick.onChange(e.target.value)} aria-label={pick.label} className="rounded-md border border-rule bg-sheet px-2 py-1 text-sm font-bold text-ink pointer-coarse:py-2">
+        {pick.options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 interface Props {
+  /** The beds of the floor shown, and the patient lookup. */
   ward: WardState;
+  /** The floor's rooms (5階東 when not given). */
+  rooms?: Room[];
+  title?: string;
+  /** Choose the floor. */
+  pick?: Pick;
   summaries: Record<string, ChartSummary>;
   onOpen: (patientId: string) => void;
   /** A 病棟 tab narrower than the ward (受け持ち, a department): its beds stay clear, the rest fade. */
@@ -26,13 +55,13 @@ interface Props {
 }
 
 /** Floor plan of the ward. Our patients can be opened; other teams' beds are shown for context only. */
-export function WardMap({ ward, summaries, onOpen, scope }: Props) {
+export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, scope }: Props) {
   const [mineOnly, setMineOnly] = useState(false);
   const occupied = ward.beds.length;
-  const totalBeds = ROOMS.reduce((n, r) => n + r.beds.length, 0);
+  const totalBeds = rooms.reduce((n, r) => n + r.beds.length, 0);
   const mine = ward.beds.filter((b) => b.patientId).length;
-  const north = ROOMS.filter((r) => r.side === "north");
-  const south = ROOMS.filter((r) => r.side === "south");
+  const north = rooms.filter((r) => r.side === "north");
+  const south = rooms.filter((r) => r.side === "south");
   const southBeforeNs = south.slice(0, 3);
   const southAfterNs = south.slice(3);
 
@@ -40,9 +69,10 @@ export function WardMap({ ward, summaries, onOpen, scope }: Props) {
     <section aria-label="病棟マップ" className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper px-5 py-4">
       <header className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
         <h1 className="text-lg font-bold">
-          {WARD_NAME}
+          {title}
           <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空の病棟</span>
         </h1>
+        {pick && <PickSelect pick={pick} />}
         <p className="nums text-sm text-ink-soft">
           入院 <b className="text-ink">{occupied}</b>名・空床 <b className="text-ink">{totalBeds - occupied}</b>床・受け持ち <b className="text-ai">{mine}</b>名
         </p>

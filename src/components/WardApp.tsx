@@ -14,7 +14,7 @@ import { BillingView } from "./BillingView";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
-import { BEDS, type BedAssignment, type WardState } from "@/lib/ward";
+import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, doctorFor, floorOf, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
@@ -22,18 +22,37 @@ import { EmergencyBoard } from "./EmergencyBoard";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
-import { PatientList } from "./PatientList";
-import type { PinnedTab } from "@/lib/roles";
-import { AppFrame, type Todo } from "./AppFrame";
+import { PatientList, type GroupBy } from "./PatientList";
+import { AppFrame, type TabItem, type TabRow, type Todo } from "./AppFrame";
 import { NewTabPage } from "./NewTabPage";
-import { areaOf, areasFor, bedInScope, defaultScopes, scopeOptions, viewsForScope, type AreaKey, type Scope } from "@/lib/nav";
+import { WardMenu } from "./WardMenu";
+import { AREA_ICON, WARD_ICON } from "./nav-icons";
+import { LayoutList, Plus } from "lucide-react";
+import {
+  AREAS,
+  allowedWardTabs,
+  areasFor,
+  homeArea,
+  nextAfterClose,
+  ownerFor,
+  rehome,
+  wardOwner,
+  wardTabInfo,
+  wardTabLabel,
+  wardTabOf,
+  wardTabsFor,
+  type AreaKey,
+  type Owner,
+  type PatientTab,
+  type WardTab,
+} from "@/lib/nav";
 import { verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { RightTabs, type RightTab } from "./RightTabs";
 import { Dockable, defaultWin, type Win } from "./Dockable";
 import { InjectionCalendar } from "./Calendars";
-import { WardMap, type ChartSummary } from "./WardMap";
+import { WardMap, type ChartSummary, type Pick } from "./WardMap";
 import { Worksheet } from "./Worksheet";
 import { PharmacyView, type ShidoRecord } from "./PharmacyView";
 import { PharmacyInbox } from "./PharmacyInbox";
@@ -75,7 +94,7 @@ import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { RoleProvider } from "./RoleContext";
-import { STAFF, TABS, denyReason, home, type Role } from "@/lib/roles";
+import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
 import { Drawer } from "./panels/Drawer";
@@ -158,26 +177,59 @@ function planLine(entry: OrderEntry, today: CalendarDate): string {
   return `・${main}　${detail}`;
 }
 
+/** What the main area shows: a ② screen, a place, a chart, 新しいタブ, or 病棟's menu of screens. */
+type Screen = WardTab | AreaKey | "chart" | "new" | "wardmenu";
+/** front[owner] when the tab shows 新しいタブ. */
+const NEW_TAB = "__new__";
+const LIST_TABS = ["floor", "mine", "dept", "all", "doctor"] as const;
+
+// 病棟's screens to open first (最初に開く), per role. A convenience kept in this browser only.
+const WARD_DEFAULTS_KEY = "simple-karte:ward-defaults";
+function loadWardDefaults(): Record<string, WardTab[]> {
+  try {
+    const v = typeof window === "undefined" ? null : window.localStorage.getItem(WARD_DEFAULTS_KEY);
+    const o: unknown = v ? JSON.parse(v) : {};
+    return o && typeof o === "object" ? (o as Record<string, WardTab[]>) : {};
+  } catch {
+    return {};
+  }
+}
+function saveWardDefaults(v: Record<string, WardTab[]>) {
+  try {
+    window.localStorage.setItem(WARD_DEFAULTS_KEY, JSON.stringify(v));
+  } catch {
+    // Storage blocked (private window): the check works until the page is closed.
+  }
+}
+const defaultsOf = (all: Record<string, WardTab[]>, role: Role): WardTab[] => (Array.isArray(all[role]) ? all[role] : []);
+
 export default function WardApp() {
   const todayKey = useSyncExternalStore(noSubscribe, clientToday, serverNull);
   const nowTime = useSyncExternalStore(everyFifteenSeconds, clientNow, serverNull);
-  const [tabs, setTabs] = useState<string[]>([PATIENTS[0].id]);
-  const [activeId, setActiveId] = useState<string | null>(PATIENTS[0].id);
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
-  // The ward map is the pinned first tab and the start screen; then the patient list and the ED board.
-  // What the main area shows: a place's view, a patient's chart, or 新しいタブ (a menu of what to open).
-  const [screen, setScreen] = useState<PinnedTab | "chart" | "new">(home("医師"));
-  const [newTabOpen, setNewTabOpen] = useState(false);
   // Who is using the chart. The demo picks a role instead of logging in.
   const [role, setRole] = useState<Role>("医師");
-  // Places opened from the left menu (tabs on top), and inside 病棟 the tabs of which patients.
-  const [openAreas, setOpenAreas] = useState<AreaKey[]>([areaOf(home("医師"))]);
-  const [scopes, setScopes] = useState<string[]>(defaultScopes("医師"));
-  const [activeScope, setActiveScope] = useState<string>(defaultScopes("医師")[0]);
-  // The view last shown in each 病棟 tab, so switching tabs returns to it.
-  const [scopeView, setScopeView] = useState<Record<string, PinnedTab>>({});
+  // ①②③: the place chosen in the left menu; inside 病棟 the screens open as tabs (②) and the one in
+  // front ("menu" = 病棟's menu of screens); the charts, each under the tab it was opened from (③; in
+  // 救急外来 and 外来 they follow the list on ②); and what each tab shows (a chart id, 新しいタブ, or
+  // nothing = its own screen).
+  const [boot] = useState(() => {
+    const defaults = loadWardDefaults();
+    return { defaults, tabs: allowedWardTabs("医師", defaultsOf(defaults, "医師")) };
+  });
+  const [area, setArea] = useState<AreaKey>(homeArea("医師"));
+  const [wardDefaults, setWardDefaults] = useState<Record<string, WardTab[]>>(boot.defaults);
+  const [wardTabs, setWardTabs] = useState<WardTab[]>(boot.tabs);
+  const [wardTab, setWardTab] = useState<WardTab | "menu">(boot.tabs[0] ?? "menu");
+  const [patientTabs, setPatientTabs] = useState<PatientTab[]>([]);
+  const [front, setFront] = useState<Partial<Record<Owner, string>>>({});
+  const [newTabFor, setNewTabFor] = useState<Owner | null>(null);
+  // The floor shown on 病棟マップ and ◯階, and the department and doctor chosen on 科別 and 主治医別.
+  const [floor, setFloor] = useState(WARD_NAME);
+  const [deptPick, setDeptPick] = useState("");
+  const [doctorPick, setDoctorPick] = useState("");
   const me = STAFF[role];
   const deny = (a: Parameters<typeof denyReason>[1]) => denyReason(role, a);
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
@@ -264,21 +316,46 @@ export default function WardApp() {
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
 
-  const openPatient = useCallback((id: string) => {
-    auditLog({ role: me.role, actor: me.name, action: "カルテを開いた", patient: findPatient(id)?.name ?? id });
-    setTabs((t) => (t.includes(id) ? t : [...t, id]));
-    setActiveId(id);
-    setScreen("chart");
+  // What is in front: the ② tab (and its ③), and in it a chart, 新しいタブ, or its own screen.
+  const owner: Owner | null = area === "ward" ? (wardTab === "menu" ? null : wardOwner(wardTab)) : area === "er" || area === "opd" ? area : null;
+  const shownThere = owner ? front[owner] : undefined;
+  const activeId = shownThere && shownThere !== NEW_TAB && findPatient(shownThere) ? shownThere : null;
+  const screen: Screen = area === "ward" && wardTab === "menu" ? "wardmenu" : shownThere === NEW_TAB ? "new" : activeId ? "chart" : area === "ward" ? (wardTab as WardTab) : area;
+  const myWardTabs = wardTabsFor(role);
+
+  /** Bring a ② tab to the front (opening it in 病棟 if needed), showing a chart, 新しいタブ or its own screen. */
+  const show = (o: Owner, what?: string) => {
+    const w = wardTabOf(o);
+    if (w) {
+      setArea("ward");
+      setWardTabs((all) => (all.includes(w) ? all : [...all, w]));
+      setWardTab(w);
+    } else setArea(o as AreaKey);
+    setFront((f) => ({ ...f, [o]: what }));
     setPanel(null);
+  };
+  // Opened from a place without patient tabs (やること, ⌘K on 手術室 …): under the first patient list of 病棟.
+  const listOwner = (): Owner => {
+    const open = wardTabs.find((t) => wardTabInfo(t).group === "patients");
+    const any = (["mine", "all", "floor", "dept", "doctor", "map"] as WardTab[]).find((t) => myWardTabs.includes(t));
+    return wardOwner(open ?? any ?? myWardTabs[0] ?? "mine");
+  };
+  // A chart opens where it is already open, else under the tab in front.
+  const openPatient = (id: string) => {
+    auditLog({ role: me.role, actor: me.name, action: "カルテを開いた", patient: findPatient(id)?.name ?? id });
+    const o = ownerFor(patientTabs, id, owner, listOwner());
+    if (!patientTabs.some((t) => t.id === id)) setPatientTabs((ts) => [...ts, { id, owner: o }]);
+    if (newTabFor === o) setNewTabFor(null);
+    show(o, id);
     setPickerOpen(false);
-  }, [findPatient, me]);
+  };
 
   const closePatient = (id: string) => {
-    const i = tabs.indexOf(id);
-    const next = tabs.filter((t) => t !== id);
-    setTabs(next);
-    if (activeId === id) setActiveId(next[Math.min(i, next.length - 1)] ?? null);
-    if (next.length === 0) setScreen(home(role));
+    const t = patientTabs.find((x) => x.id === id);
+    if (!t) return;
+    const next = nextAfterClose(patientTabs, id);
+    setPatientTabs((ts) => ts.filter((x) => x.id !== id));
+    if (front[t.owner] === id) setFront((f) => ({ ...f, [t.owner]: next ?? undefined }));
     // The chart's state stays: today's confirmed orders and notes belong to the record, not to the tab.
   };
 
@@ -554,52 +631,67 @@ export default function WardApp() {
       updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・パニック値（${seen.flatMap((i) => i.panic.map(hitLine)).join("、")}）${calls[keys[0]] ? `：${calls[keys[0]].at.time} ${calls[keys[0]].by}より${calls[keys[0]].means}で報告` : ""}。対応：${response}\n` }));
   };
 
-  const goScreen = (t: PinnedTab) => {
-    const a = areaOf(t);
-    setOpenAreas((o) => (o.includes(a) ? o : [...o, a]));
-    if (a === "ward") setScopeView((v) => ({ ...v, [activeScope]: t }));
-    setScreen(t);
-    setPanel(null);
-  };
-  // The places this role uses; 病棟 opens on the last view of its active tab.
   const areas = areasFor(role);
-  const scopeList = scopeOptions([...new Set(ward.beds.map((b) => (b.patientId ? findPatient(b.patientId)?.department : b.other?.department)).filter((d): d is string => !!d))]);
-  const scope = scopeList.find((s) => s.key === activeScope) ?? scopeList[0];
-  const wardViews = viewsForScope(scope, areas.find((a) => a.key === "ward")?.views ?? []);
+  /** A ② screen of 病棟, shown on its own (from やること, its menu …). */
+  const goWard = (t: WardTab) => show(wardOwner(t), undefined);
   const openArea = (k: AreaKey) => {
     const a = areas.find((x) => x.key === k);
-    if (!a || !a.views.length) return;
-    const v = k === "ward" ? (scopeView[activeScope] && wardViews.includes(scopeView[activeScope]) ? scopeView[activeScope] : wardViews[0]) : a.views[0];
-    if (v) goScreen(v);
-  };
-  const closeArea = (k: AreaKey) => {
-    const rest = openAreas.filter((x) => x !== k);
-    setOpenAreas(rest);
-    if (screen !== "chart" && screen !== "new" && areaOf(screen) === k) {
-      // Show another open place, else a chart, else the role's first place again.
-      const next = areas.find((a) => rest.includes(a.key) && a.views.length);
-      if (next) openArea(next.key);
-      else if (tabs.length) {
-        setActiveId(activeId ?? tabs[0]);
-        setScreen("chart");
-      } else openArea(areaOf(home(role)));
+    if (!a || a.soon) return;
+    setPanel(null);
+    setArea(k);
+    // 病棟 with nothing open: the screens checked 最初に開く, else its menu.
+    if (k === "ward" && !wardTabs.length) {
+      const d = allowedWardTabs(role, defaultsOf(wardDefaults, role));
+      setWardTabs(d);
+      setWardTab(d[0] ?? "menu");
     }
   };
-  const chooseScope = (key: string) => {
-    const s = scopeList.find((x) => x.key === key);
-    if (!s) return;
-    setActiveScope(key);
-    const views = viewsForScope(s, areas.find((a) => a.key === "ward")?.views ?? []);
-    const v = scopeView[key] && views.includes(scopeView[key]) ? scopeView[key] : screen !== "chart" && screen !== "new" && views.includes(screen) ? screen : views[0];
-    if (v) {
-      setScopeView((m) => ({ ...m, [key]: v }));
-      setScreen(v);
+  // Closing a ② tab closes the charts under it (their records stay).
+  const closeWardTab = (t: WardTab) => {
+    const o = wardOwner(t);
+    const rest = wardTabs.filter((x) => x !== t);
+    setWardTabs(rest);
+    setPatientTabs((ts) => ts.filter((x) => x.owner !== o));
+    setFront((f) => ({ ...f, [o]: undefined }));
+    if (newTabFor === o) setNewTabFor(null);
+    if (wardTab === t) {
+      const i = wardTabs.indexOf(t);
+      setWardTab(rest[Math.min(i, rest.length - 1)] ?? "menu");
     }
   };
-  // Which beds and which of our patients the active 病棟 tab shows.
-  const inScope = (b: BedAssignment) => bedInScope(scope, b, b.patientId ? findPatient(b.patientId) : undefined);
-  const scopedPeople = people.filter((x) => bedInScope(scope, { room: x.room, bed: "", patientId: x.patient.id }, x.patient));
-  const scopeLimit = scope.kind === "ward" ? undefined : { label: scope.label, test: inScope };
+  const toggleDefault = (t: WardTab) =>
+    setWardDefaults((all) => {
+      const cur = defaultsOf(all, role);
+      const next = { ...all, [role]: cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t] };
+      saveWardDefaults(next);
+      return next;
+    });
+  // The lists of 病棟: a floor, 受け持ち, by department, all wards, by attending doctor.
+  const floorInfo: Floor = FLOORS.find((f) => f.name === floor) ?? FLOORS[0];
+  const bedsOn = (name: string) => (name === WARD_NAME ? ward.beds : OTHER_FLOOR_BEDS.filter((b) => floorOf(b.room) === name));
+  const allBeds = [...ward.beds, ...OTHER_FLOOR_BEDS];
+  const deptOf = (b: BedAssignment) => (b.patientId ? findPatient(b.patientId)?.department : b.other?.department) ?? "";
+  const doctorOf = (b: BedAssignment) => (b.patientId ? (findPatient(b.patientId)?.attending ?? "") : doctorFor(b.other?.department ?? ""));
+  const choices = (xs: string[], all: string) => [{ value: "", label: all }, ...[...new Set(xs)].filter(Boolean).sort((a, b) => a.localeCompare(b, "ja")).map((x) => ({ value: x, label: x }))];
+  const floorPick: Pick = { label: "階", value: floor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
+  const lists: Record<(typeof LIST_TABS)[number], { beds: BedAssignment[]; title: string; pick?: Pick; group: GroupBy; floor?: Floor }> = {
+    floor: { beds: bedsOn(floor), title: "患者一覧", pick: floorPick, group: "room", floor: floorInfo },
+    mine: { beds: ward.beds.filter((b) => b.patientId), title: "受け持ち患者", group: "room" },
+    dept: {
+      beds: deptPick ? allBeds.filter((b) => deptOf(b) === deptPick) : allBeds,
+      title: "科別",
+      pick: { label: "科", value: deptPick, options: choices(allBeds.map(deptOf), "すべての科"), onChange: setDeptPick },
+      group: "department",
+    },
+    all: { beds: allBeds, title: "全病棟の患者一覧", group: "floor" },
+    doctor: {
+      beds: doctorPick ? allBeds.filter((b) => doctorOf(b) === doctorPick) : allBeds,
+      title: "主治医別",
+      pick: { label: "主治医", value: doctorPick, options: choices(allBeds.map(doctorOf), "すべての主治医"), onChange: setDoctorPick },
+      group: "doctor",
+    },
+  };
+  const listKey = LIST_TABS.find((k) => k === screen);
   // やること: what waits for this role, from everywhere, each with where to go.
   const todos: Todo[] = [];
   for (const x of people) {
@@ -611,45 +703,39 @@ export default function WardApp() {
     if (!deny("order.sign") && v) todos.push({ key: `verbal-${pid}`, label: `口頭指示の承認待ち：${x.patient.name}さん`, count: v, tone: "yamabuki", go: () => openPatient(pid) });
   }
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
-  if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goScreen("sheet") });
-  if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goScreen("admit") });
+  if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
+  if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
   const toCall = uncalled(wardResults.filter((i) => i.day === 0), calls).length;
-  if (!deny("panic.call") && toCall) todos.push({ key: "call", label: "パニック値の連絡がまだ", detail: "検査室で連絡を記録する", count: toCall, tone: "shu", go: () => goScreen("lab") });
+  if (!deny("panic.call") && toCall) todos.push({ key: "call", label: "パニック値の連絡がまだ", detail: "検査室で連絡を記録する", count: toCall, tone: "shu", go: () => openArea("lab") });
 
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
   );
   const wideLeft = chart.leftView !== "record";
 
-  // 新しいタブ: ＋ opens a menu tab; choosing from it turns that tab into the place or chart chosen.
-  const openNewTab = () => {
-    setNewTabOpen(true);
-    setScreen("new");
-    setPanel(null);
+  // 新しいタブ (＋ on ③, or on ② in 救急外来・外来): find a patient and open the chart under that tab.
+  const openNewTab = (o: Owner) => {
+    setNewTabFor(o);
+    show(o, NEW_TAB);
   };
   const closeNewTab = () => {
-    setNewTabOpen(false);
-    if (screen !== "new") return;
-    const next = areas.find((a) => openAreas.includes(a.key) && a.views.length);
-    if (next) openArea(next.key);
-    else if (tabs.length) {
-      setActiveId(activeId ?? tabs[0]);
-      setScreen("chart");
-    } else openArea(areaOf(home(role)));
-  };
-  const fromNewTab = (go: () => void) => () => {
-    setNewTabOpen(false);
-    go();
+    const o = newTabFor;
+    setNewTabFor(null);
+    if (o) setFront((f) => (f[o] === NEW_TAB ? { ...f, [o]: undefined } : f));
   };
 
   const switchRole = (r: Role) => {
     auditLog({ role: r, actor: STAFF[r].name, action: "職種を選んで入った（デモではログインの代わり）" });
     setRole(r);
-    setScreen(home(r));
-    setOpenAreas([areaOf(home(r))]);
-    setScopes(defaultScopes(r));
-    setActiveScope(defaultScopes(r)[0]);
-    setScopeView({});
+    // Charts stay open; those under a screen the role cannot open move to its first patient list.
+    const moved = rehome(patientTabs, wardTabsFor(r));
+    const keep = allowedWardTabs(r, [...defaultsOf(wardDefaults, r), ...wardTabs, ...moved.flatMap((t) => wardTabOf(t.owner) ?? [])]);
+    setPatientTabs(moved);
+    setWardTabs(keep);
+    setWardTab(keep[0] ?? "menu");
+    setArea(homeArea(r));
+    setFront({});
+    setNewTabFor(null);
     setPanel(null);
   };
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
@@ -659,29 +745,36 @@ export default function WardApp() {
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
-  // The screen itself (the same in both layouts).
+  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.length : 0, admit: admitDue };
+  const ownerLabel = (o: Owner) => {
+    const w = wardTabOf(o);
+    return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";
+  };
+
+  // The screen itself.
   const content = (
     <>
-      {screen === "new" ? (
+      {screen === "wardmenu" ? (
+        <WardMenu options={myWardTabs} open={wardTabs} defaults={allowedWardTabs(role, defaultsOf(wardDefaults, role))} badges={wardBadges} onOpen={goWard} onToggleDefault={toggleDefault} />
+      ) : screen === "new" ? (
         <NewTabPage
           patients={allPatients}
-          openIds={tabs}
-          areas={areas}
-          scopes={scopeList}
-          todos={todos.map((t) => ({ ...t, go: fromNewTab(t.go) }))}
-          onPatient={(id) => fromNewTab(() => openPatient(id))()}
-          onArea={(k) => fromNewTab(() => openArea(k))()}
-          onWard={(key, v) =>
-            fromNewTab(() => {
-              setScopes((all) => (all.includes(key) ? all : [...all, key]));
-              setActiveScope(key);
-              setScopeView((m) => ({ ...m, [key]: v }));
-              goScreen(v);
-            })()
-          }
+          openIds={patientTabs.map((t) => t.id)}
+          under={owner ? ownerLabel(owner) : ""}
+          todos={todos.map((t) => ({
+            ...t,
+            go: () => {
+              closeNewTab();
+              t.go();
+            },
+          }))}
+          onPatient={(id) => {
+            closeNewTab();
+            openPatient(id);
+          }}
         />
       ) : screen === "map" ? (
-        <WardMap ward={ward} summaries={summaries} onOpen={openPatient} scope={scopeLimit} />
+        <WardMap ward={{ beds: bedsOn(floor), patient: findPatient }} rooms={floorInfo.rooms} title="病棟マップ" pick={floorPick} summaries={summaries} onOpen={openPatient} />
       ) : screen === "er" ? (
         <EmergencyBoard
           patients={er}
@@ -699,7 +792,7 @@ export default function WardApp() {
         />
       ) : screen === "sheet" ? (
         <Worksheet
-          people={scopedPeople}
+          people={people}
           today={today}
           nowTime={nowTime}
           taken={taken}
@@ -727,7 +820,7 @@ export default function WardApp() {
         <AuditView />
       ) : screen === "admit" ? (
         <AdmitEvalView
-          people={scopedPeople}
+          people={people}
           evals={evals}
           today={today}
           nowTime={nowTime}
@@ -763,7 +856,7 @@ export default function WardApp() {
         />
       ) : screen === "handoff" ? (
         <HandoffView
-          people={scopedPeople}
+          people={people}
           today={today}
           nowTime={nowTime}
           handoffs={handoffs}
@@ -871,10 +964,14 @@ export default function WardApp() {
             setTdmReports((all) => [...all, { ...r, id: newId(), at: nowTime, by: me.name, status: "医師へ報告" }]);
           }}
         />
-      ) : screen === "list" ? (
+      ) : listKey ? (
         <PatientList
-          ward={ward}
-          scope={scopeLimit}
+          key={listKey}
+          ward={{ beds: lists[listKey].beds, patient: findPatient }}
+          title={lists[listKey].title}
+          pick={lists[listKey].pick}
+          defaultGroup={lists[listKey].group}
+          floor={lists[listKey].floor}
           nowTime={nowTime}
           changes={sessionChanges}
           summaries={summaries}
@@ -1367,6 +1464,50 @@ export default function WardApp() {
     </>
   );
 
+  // The rows of tabs on top: ② (病棟's screens, or the list and the patients of 救急外来・外来), and ③
+  // inside 病棟 (the ② screen itself, then the charts opened from it).
+  function tabRows(): TabRow[] {
+    const chartItem = (t: PatientTab): TabItem[] => {
+      const p = findPatient(t.id);
+      if (!p) return [];
+      return [{ key: t.id, label: p.name, patient: { sex: p.sex, age: p.age, room: p.room, infections: p.infections }, active: front[t.owner] === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${p.name} のカルテを閉じる` }];
+    };
+    const under = (o: Owner): TabItem[] => [
+      ...patientTabs.filter((t) => t.owner === o).flatMap(chartItem),
+      ...(newTabFor === o ? [{ key: "new", label: "新しいタブ", icon: Plus, menu: true, active: front[o] === NEW_TAB, onSelect: () => show(o, NEW_TAB), onClose: closeNewTab, closeLabel: "新しいタブを閉じる" }] : []),
+    ];
+    const newTab = (o: Owner) => ({ label: "新しいタブ", title: "新しいタブ（患者を探して、ここにカルテを開く）", onClick: () => openNewTab(o) });
+    if (area === "ward") {
+      const second: TabItem[] = wardTabs.map((t) => ({
+        key: t,
+        label: wardTabLabel(t, floor),
+        icon: WARD_ICON[t],
+        active: wardTab === t,
+        badge: wardBadges[t],
+        charts: patientTabs.filter((x) => x.owner === wardOwner(t)).length,
+        title: wardTabInfo(t).hint,
+        onSelect: () => setWardTab(t),
+        onClose: () => closeWardTab(t),
+      }));
+      if (wardTab === "menu" || !wardTabs.length)
+        second.push({ key: "menu", label: "画面を選ぶ", icon: LayoutList, menu: true, active: wardTab === "menu", onSelect: () => setWardTab("menu"), onClose: wardTabs.length ? () => setWardTab(wardTabs[wardTabs.length - 1]) : undefined, closeLabel: "画面を選ぶメニューを閉じる" });
+      const rows: TabRow[] = [{ label: "病棟の画面", items: second, plus: { label: "画面を開く", title: "病棟の画面を開く（病棟マップ・◯階・受け持ち患者・科別・患者一覧・主治医別・ワークシート…）", onClick: () => setWardTab("menu") } }];
+      if (wardTab !== "menu") {
+        const o = wardOwner(wardTab);
+        const self: TabItem = { key: "self", label: wardTabLabel(wardTab, floor), icon: WARD_ICON[wardTab], active: !front[o], title: "この画面に戻る", onSelect: () => show(o, undefined) };
+        rows.push({ label: `${wardTabLabel(wardTab, floor)}から開いたカルテ`, items: [self, ...under(o)], plus: newTab(o) });
+      }
+      return rows;
+    }
+    if (area === "er" || area === "opd") {
+      const o: Owner = area;
+      const self: TabItem = { key: "self", label: area === "er" ? "救急の患者一覧" : "外来の受付一覧", icon: AREA_ICON[area], active: !front[o], onSelect: () => show(o, undefined) };
+      return [{ label: `${ownerLabel(o)}のタブ`, items: [self, ...under(o)], plus: newTab(o) }];
+    }
+    const a = AREAS.find((x) => x.key === area);
+    return [{ label: "画面", items: [{ key: area, label: a?.label ?? "", icon: AREA_ICON[area], active: true, onSelect: () => undefined }] }];
+  }
+
   return (
     <RoleProvider value={role}>
     <div className="flex h-screen flex-col print:hidden">
@@ -1375,46 +1516,18 @@ export default function WardApp() {
         role={role}
         onRole={switchRole}
         areas={areas}
-        openAreas={openAreas}
-        screen={screen}
+        area={area}
         onArea={openArea}
-        onCloseArea={closeArea}
-        newTabOpen={newTabOpen}
-        onNewTab={openNewTab}
-        onCloseNewTab={closeNewTab}
-        onView={goScreen}
-        ward={{
-          scopes: scopes.map((k) => scopeList.find((x) => x.key === k)).filter((x): x is Scope => !!x),
-          active: scope.key,
-          options: scopeList,
-          onScope: chooseScope,
-          onAdd: (key) => {
-            setScopes((all) => (all.includes(key) ? all : [...all, key]));
-            chooseScope(key);
-          },
-          onClose: (key) => {
-            const rest = scopes.filter((k) => k !== key);
-            setScopes(rest);
-            if (key === activeScope && rest.length) chooseScope(rest[0]);
-          },
-          views: wardViews,
-        }}
-        patients={tabs.map((id) => findPatient(id)!).filter(Boolean)}
-        activeId={activeId}
-        onSelectPatient={(id) => {
-          setActiveId(id);
-          setScreen("chart");
-          setPanel(null);
-        }}
-        onClosePatient={closePatient}
+        rows={tabRows()}
+        chartShown={screen === "chart"}
         onOpenPicker={() => setPickerOpen(true)}
-        badges={{ lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, list: role === "医師" ? unseenResults.length : 0, admit: admitDue }}
+        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length }}
         todos={todos}
       >
         {content}
       </AppFrame>
 
-      {pickerOpen && <PatientPicker patients={allPatients} openIds={tabs} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
     </div>
     </RoleProvider>
   );

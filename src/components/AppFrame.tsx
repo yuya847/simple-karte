@@ -1,38 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import {
-  Ambulance,
-  ArrowRightLeft,
-  BedDouble,
-  CheckSquare,
-  ChevronDown,
-  ClipboardCheck,
-  ClipboardList,
-  Droplets,
-  FlaskConical,
-  Home,
-  LayoutGrid,
-  List,
-  MessagesSquare,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Pill,
-  Plus,
-  Printer,
-  Scissors,
-  ScrollText,
-  Search,
-  Stethoscope,
-  UserRound,
-  Users,
-  X,
-} from "lucide-react";
+import { CheckSquare, ChevronDown, MessagesSquare, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, UserRound, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { VIEW_LABEL, areaOf, type Area, type AreaKey, type Scope } from "@/lib/nav";
-import { ROLES, ROLE_LONG, STAFF, type PinnedTab, type Role } from "@/lib/roles";
-import type { Patient } from "@/lib/types";
+import type { Area, AreaKey } from "@/lib/nav";
+import { ROLES, ROLE_LONG, STAFF, type Role } from "@/lib/roles";
+import type { Sex } from "@/lib/types";
+import { AREA_ICON, type Icon } from "./nav-icons";
 import { PatientAvatar } from "./PatientAvatar";
 
 export interface Todo {
@@ -44,17 +19,31 @@ export interface Todo {
   go: () => void;
 }
 
-export interface WardBar {
-  /** The tabs open inside 病棟 (a ward, 受け持ち, a department). */
-  scopes: Scope[];
-  active: string;
-  /** Everything that can be opened as a tab there. */
-  options: Scope[];
-  onScope: (key: string) => void;
-  onAdd: (key: string) => void;
-  onClose: (key: string) => void;
-  /** The views of the active tab (マップ・一覧・ワークシート…). */
-  views: PinnedTab[];
+/** A tab in one of the rows on top: a screen (② or the list of ③) or a patient's chart. */
+export interface TabItem {
+  key: string;
+  label: string;
+  icon?: Icon;
+  /** A patient's chart: the face, the room and an infection mark. */
+  patient?: { sex: Sex; age: number; room?: string; infections?: string[] };
+  active: boolean;
+  /** Something waiting (red). */
+  badge?: number;
+  /** How many charts are open under this tab (②). */
+  charts?: number;
+  /** A menu tab (新しいタブ・画面を選ぶ), drawn with a dashed edge. */
+  menu?: boolean;
+  title?: string;
+  onSelect: () => void;
+  onClose?: () => void;
+  closeLabel?: string;
+}
+
+export interface TabRow {
+  label: string;
+  items: TabItem[];
+  /** ＋ at the end of the row. */
+  plus?: { label: string; title: string; onClick: () => void };
 }
 
 interface Props {
@@ -62,55 +51,19 @@ interface Props {
   onRole: (r: Role) => void;
   /** The places and tools this role uses. */
   areas: Area[];
-  /** Places open as tabs on top. */
-  openAreas: AreaKey[];
-  screen: PinnedTab | "chart" | "new";
+  /** ① the place chosen in the left menu. */
+  area: AreaKey;
   onArea: (k: AreaKey) => void;
-  onCloseArea: (k: AreaKey) => void;
-  /** 新しいタブ (＋): a tab showing a menu of what to open. */
-  newTabOpen: boolean;
-  onNewTab: () => void;
-  onCloseNewTab: () => void;
-  onView: (v: PinnedTab) => void;
-  patients: Patient[];
-  activeId: string | null;
-  onSelectPatient: (id: string) => void;
-  onClosePatient: (id: string) => void;
+  /** ② and, inside 病棟, ③. */
+  rows: TabRow[];
+  /** A chart is shown (the left menu folds to icons by itself to give it room). */
+  chartShown: boolean;
   onOpenPicker: () => void;
-  badges: Partial<Record<PinnedTab, number>>;
+  /** Counts on the places of the left menu. */
+  areaBadges: Partial<Record<AreaKey, number>>;
   todos: Todo[];
-  ward: WardBar;
   children: React.ReactNode;
 }
-
-const VIEW_ICON: Record<PinnedTab, typeof Home> = {
-  map: LayoutGrid,
-  list: List,
-  sheet: Printer,
-  handoff: ArrowRightLeft,
-  admit: ClipboardList,
-  acuity: ClipboardCheck,
-  er: Ambulance,
-  or: Scissors,
-  dialysis: Droplets,
-  pharmacy: Pill,
-  lab: FlaskConical,
-  chat: MessagesSquare,
-  audit: ScrollText,
-};
-const AREA_ICON: Record<AreaKey, typeof Home> = {
-  ward: BedDouble,
-  opd: Stethoscope,
-  er: Ambulance,
-  or: Scissors,
-  dialysis: Droplets,
-  pharmacy: Pill,
-  lab: FlaskConical,
-  chat: MessagesSquare,
-  audit: ScrollText,
-};
-
-const sum = (badges: Props["badges"], views: PinnedTab[]) => views.reduce((n, v) => n + (badges[v] ?? 0), 0);
 
 function Badge({ n, tone = "shu" }: { n: number; tone?: "shu" | "ai" | "yamabuki" }) {
   if (!n) return null;
@@ -166,10 +119,10 @@ function Popover({ open, onClose, anchor, place, width, children }: { open: bool
   );
 }
 
-const tabShape = (active: boolean) =>
-  `group relative flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg border border-b-0 px-3 text-sm pointer-coarse:h-11 ${
-    active ? "z-10 -mb-px border-rule bg-sheet text-ink" : "border-transparent text-ink-soft hover:bg-sheet/60"
-  }`;
+const tabShape = (active: boolean, small: boolean, menu?: boolean) =>
+  `group relative flex shrink-0 cursor-pointer items-center gap-1.5 border border-b-0 ${small ? "h-8 rounded-t-md px-2.5 text-[13px] pointer-coarse:h-10" : "h-9 rounded-t-lg px-3 text-sm pointer-coarse:h-11"} ${
+    active ? `z-10 -mb-px border-rule ${small ? "bg-paper" : "bg-sheet"} font-bold text-ink` : `${menu ? "border-dashed border-rule" : "border-transparent"} text-ink-soft ${small ? "hover:bg-paper/60" : "hover:bg-sheet/60"}`
+  } ${menu && active ? "border-dashed" : ""}`;
 
 function CloseX({ label, onClose }: { label: string; onClose: () => void }) {
   return (
@@ -187,152 +140,62 @@ function CloseX({ label, onClose }: { label: string; onClose: () => void }) {
   );
 }
 
-/** The tab bar on top: the places opened from the left menu, then patients' charts. */
-function TopTabs(p: Props) {
-  const current = p.screen === "chart" || p.screen === "new" ? null : areaOf(p.screen);
-  const open = p.openAreas.map((k) => p.areas.find((a) => a.key === k)).filter((a): a is Area => !!a);
+/** One row of tabs: ② (large, on the frame's color) or ③ (small, on the sheet). */
+function Row({ row, small, end }: { row: TabRow; small: boolean; end?: React.ReactNode }) {
   return (
-    <div className="flex items-end gap-1 border-b border-rule bg-tab px-2 pt-1.5">
-      <div role="tablist" aria-label="開いている画面とカルテ" className="scroll-thin flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
-        {open.map((a) => {
-          const Icon = AREA_ICON[a.key];
-          const on = current === a.key;
-          return (
-            <div key={a.key} role="tab" aria-selected={on} tabIndex={0} onClick={() => p.onArea(a.key)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && p.onArea(a.key)} className={`${tabShape(on)} ${on ? "font-bold" : ""}`}>
-              <Icon size={15} />
-              <span className="whitespace-nowrap">{a.label}</span>
-              <Badge n={sum(p.badges, a.views)} />
-              <CloseX label={`${a.label}のタブを閉じる`} onClose={() => p.onCloseArea(a.key)} />
-            </div>
-          );
-        })}
-        {open.length > 0 && p.patients.length > 0 && <span aria-hidden className="mx-0.5 mb-2 h-5 w-px shrink-0 bg-rule" />}
-        {p.patients.map((pt) => {
-          const on = p.screen === "chart" && pt.id === p.activeId;
+    <div className={`flex items-end gap-1 border-b border-rule ${small ? "bg-sheet px-3 pt-1" : "bg-tab px-2 pt-1.5"}`}>
+      <div role="tablist" aria-label={row.label} className="scroll-thin flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
+        {row.items.map((t) => {
+          const Icon = t.icon;
           return (
             <div
-              key={pt.id}
+              key={t.key}
               role="tab"
-              aria-selected={on}
+              aria-selected={t.active}
               tabIndex={0}
-              onClick={() => p.onSelectPatient(pt.id)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && p.onSelectPatient(pt.id)}
-              onAuxClick={(e) => e.button === 1 && p.onClosePatient(pt.id)}
-              className={`${tabShape(on)} min-w-36 max-w-60`}
+              title={t.title}
+              onClick={t.onSelect}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && t.onSelect()}
+              onAuxClick={(e) => e.button === 1 && t.onClose?.()}
+              className={`${tabShape(t.active, small, t.menu)} ${t.patient ? "min-w-36 max-w-60" : ""}`}
             >
-              {pt.infections.length > 0 && <span className="h-2 w-2 shrink-0 rounded-full bg-fuji" title={`感染症：${pt.infections.join("、")}`} />}
-              <PatientAvatar sex={pt.sex} age={pt.age} size={20} className="rounded-full" />
-              <span className="truncate font-bold">{pt.name}</span>
-              <span className="nums shrink-0 text-xs text-ink-faint">{pt.room}</span>
-              <CloseX label={`${pt.name} のカルテを閉じる`} onClose={() => p.onClosePatient(pt.id)} />
+              {t.patient ? (
+                <>
+                  {!!t.patient.infections?.length && <span className="h-2 w-2 shrink-0 rounded-full bg-fuji" title={`感染症：${t.patient.infections.join("、")}`} />}
+                  <PatientAvatar sex={t.patient.sex} age={t.patient.age} size={small ? 18 : 20} className="rounded-full" />
+                  <span className="truncate font-bold">{t.label}</span>
+                  {t.patient.room && <span className="nums shrink-0 text-xs font-normal text-ink-faint">{t.patient.room}</span>}
+                </>
+              ) : (
+                <>
+                  {Icon && <Icon size={small ? 14 : 15} className="shrink-0" />}
+                  <span className="whitespace-nowrap">{t.label}</span>
+                </>
+              )}
+              <Badge n={t.badge ?? 0} />
+              {!!t.charts && (
+                <span title={`この下で開いているカルテ ${t.charts}件`} className="nums rounded-full border border-rule px-1.5 text-[10px] font-normal leading-4 text-ink-soft">
+                  {t.charts}
+                </span>
+              )}
+              {t.onClose && <CloseX label={t.closeLabel ?? `${t.label}のタブを閉じる`} onClose={t.onClose} />}
             </div>
           );
         })}
-        {p.newTabOpen && (
-          <div role="tab" aria-selected={p.screen === "new"} tabIndex={0} onClick={p.onNewTab} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && p.onNewTab()} className={`${tabShape(p.screen === "new")} min-w-32`}>
-            <Plus size={14} />
-            <span className="whitespace-nowrap">新しいタブ</span>
-            <CloseX label="新しいタブを閉じる" onClose={p.onCloseNewTab} />
-          </div>
+        {row.plus && (
+          <button
+            type="button"
+            onClick={row.plus.onClick}
+            aria-label={row.plus.label}
+            title={row.plus.title}
+            className={`mb-1 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-ink-soft hover:text-ink pointer-coarse:py-2 ${small ? "text-xs hover:bg-paper" : "hover:bg-sheet/70"}`}
+          >
+            <Plus size={small ? 14 : 16} />
+            {small && <span>{row.plus.label}</span>}
+          </button>
         )}
-        <button type="button" onClick={p.onNewTab} aria-label="新しいタブ" title="新しいタブ（患者・場所・病棟の画面・やることから選ぶ）" className="mb-1 shrink-0 rounded-md p-1.5 text-ink-soft hover:bg-sheet/70 hover:text-ink">
-          <Plus size={16} />
-        </button>
       </div>
-      <button type="button" onClick={p.onOpenPicker} title="患者を開く（⌘K）" className="mb-1 flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2">
-        <Search size={16} />
-        <span className="hidden xl:inline">患者を開く</span>
-        <kbd className="hidden rounded border border-rule px-1 text-[10px] xl:inline">⌘K</kbd>
-      </button>
-    </div>
-  );
-}
-
-/** Inside 病棟: tabs of which patients (a ward, 受け持ち, a department; open more with ＋), then the views. */
-function WardBarView({ ward, screen, badges, onView }: { ward: WardBar; screen: PinnedTab; badges: Props["badges"]; onView: (v: PinnedTab) => void }) {
-  const [adding, setAdding] = useState(false);
-  const plus = useRef<HTMLButtonElement>(null);
-  const groups: { title: string; kind: Scope["kind"] }[] = [
-    { title: "病棟", kind: "ward" },
-    { title: "受け持ち", kind: "mine" },
-    { title: "診療科", kind: "dept" },
-  ];
-  return (
-    <div className="shrink-0 border-b border-rule bg-sheet">
-      <div role="tablist" aria-label="病棟の中のタブ" className="scroll-thin flex items-end gap-1 overflow-x-auto border-b border-rule-soft px-3 pt-1.5">
-        {ward.scopes.map((s) => {
-          const on = s.key === ward.active;
-          const Icon = s.kind === "mine" ? UserRound : s.kind === "dept" ? Users : BedDouble;
-          return (
-            <div
-              key={s.key}
-              role="tab"
-              aria-selected={on}
-              tabIndex={0}
-              onClick={() => ward.onScope(s.key)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && ward.onScope(s.key)}
-              className={`group flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-md border border-b-0 px-2.5 text-[13px] pointer-coarse:h-10 ${on ? "-mb-px border-rule bg-paper font-bold text-ink" : "border-transparent text-ink-soft hover:bg-paper/60"}`}
-            >
-              <Icon size={14} />
-              <span className="whitespace-nowrap">{s.label}</span>
-              {ward.scopes.length > 1 && <CloseX label={`${s.label}のタブを閉じる`} onClose={() => ward.onClose(s.key)} />}
-            </div>
-          );
-        })}
-        <button ref={plus} type="button" onClick={() => setAdding((a) => !a)} aria-expanded={adding} title="病棟・受け持ち・診療科のタブを開く" className="mb-1 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-ink-soft hover:bg-paper hover:text-ink pointer-coarse:py-2">
-          <Plus size={14} />
-          タブを開く
-        </button>
-        <Popover open={adding} onClose={() => setAdding(false)} anchor={plus} place="below-left" width={260}>
-          {groups.map((g) => (
-            <div key={g.kind} className="mb-1">
-              <h3 className="px-2 pb-0.5 pt-1 text-[11px] font-bold text-ink-faint">{g.title}</h3>
-              {ward.options
-                .filter((o) => o.kind === g.kind)
-                .map((o) => {
-                  const isOpen = ward.scopes.some((s) => s.key === o.key);
-                  return (
-                    <button
-                      key={o.key}
-                      type="button"
-                      disabled={!!o.soon}
-                      title={o.soon}
-                      onClick={() => {
-                        setAdding(false);
-                        ward.onAdd(o.key);
-                      }}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper disabled:text-ink-faint/60 pointer-coarse:py-2.5"
-                    >
-                      {o.label}
-                      {o.soon && <span className="text-[11px]">（準備中）</span>}
-                      {isOpen && <span className="ml-auto text-[11px] text-ink-faint">開いています</span>}
-                    </button>
-                  );
-                })}
-            </div>
-          ))}
-        </Popover>
-      </div>
-      <div role="tablist" aria-label="画面" className="scroll-thin flex items-center gap-1 overflow-x-auto bg-paper px-3 py-1">
-        {ward.views.map((v) => {
-          const Icon = VIEW_ICON[v];
-          const on = screen === v;
-          return (
-            <button
-              key={v}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => onView(v)}
-              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-sm pointer-coarse:py-2 ${on ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}
-            >
-              <Icon size={14} />
-              {VIEW_LABEL[v]}
-              <Badge n={badges[v] ?? 0} />
-            </button>
-          );
-        })}
-      </div>
+      {end}
     </div>
   );
 }
@@ -475,16 +338,16 @@ function NavCount({ n, narrow }: { n: number; narrow?: boolean }) {
 }
 
 /**
- * The frame: the places down the left (病棟・外来・救急外来・手術室…, then チャット・やること・自分), and on
- * top the tabs of the places opened from it and of patients' charts. 病棟 has its own tabs inside.
+ * The frame (①>②>③): the places down the left (病棟・救急外来・外来・手術室…, then チャット・やること・自分);
+ * on top the tabs of the place chosen (②) and, inside 病棟, the charts opened under the ② tab (③).
  */
 export function AppFrame(p: Props) {
-  // null = automatic: narrow while a chart is open (it needs the width), wide elsewhere.
+  // null = automatic: narrow while a chart is shown (it needs the width), wide elsewhere.
   const [collapsed, setCollapsed] = useState<boolean | null>(null);
-  const narrow = collapsed === null ? p.screen === "chart" : collapsed;
-  const current = p.screen === "chart" || p.screen === "new" ? null : areaOf(p.screen);
+  const narrow = collapsed === null ? p.chartShown : collapsed;
   const places = p.areas.filter((a) => !a.tool);
   const chat = p.areas.find((a) => a.key === "chat");
+  const [second, third] = p.rows;
   return (
     <div className="flex min-h-0 flex-1">
       <nav aria-label="メニュー" className={`scroll-thin flex shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule bg-tab px-1 py-2 ${narrow ? "w-16" : "w-16 lg:w-48 lg:px-1.5"}`}>
@@ -505,16 +368,16 @@ export function AppFrame(p: Props) {
         {places.map((a) => {
           const Icon = AREA_ICON[a.key];
           return (
-            <button key={a.key} type="button" disabled={!a.views.length} title={a.soon ?? a.label} onClick={() => p.onArea(a.key)} className={`${navItem(current === a.key, narrow)} disabled:text-ink-faint/50`}>
+            <button key={a.key} type="button" disabled={!!a.soon} aria-current={p.area === a.key ? "page" : undefined} title={a.soon ? `${a.label}（${a.soon}）` : a.label} onClick={() => p.onArea(a.key)} className={`${navItem(p.area === a.key, narrow)} disabled:text-ink-faint/50`}>
               <Icon size={17} className="shrink-0" />
               <NavLabel full={`${a.label}${a.soon ? "（準備中）" : ""}`} short={a.short} narrow={narrow} />
-              <NavCount n={sum(p.badges, a.views)} narrow={narrow} />
+              <NavCount n={p.areaBadges[a.key] ?? 0} narrow={narrow} />
             </button>
           );
         })}
         <div className="mt-auto space-y-0.5 border-t border-rule pt-2">
           {chat && (
-            <button type="button" onClick={() => p.onArea("chat")} title="チャット" className={navItem(current === "chat", narrow)}>
+            <button type="button" onClick={() => p.onArea("chat")} title="チャット" aria-current={p.area === "chat" ? "page" : undefined} className={navItem(p.area === "chat", narrow)}>
               <MessagesSquare size={16} className="shrink-0" />
               <NavLabel full="チャット" short="チャット" narrow={narrow} />
             </button>
@@ -524,8 +387,20 @@ export function AppFrame(p: Props) {
         </div>
       </nav>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <TopTabs {...p} />
-        {current === "ward" && p.screen !== "chart" && p.screen !== "new" && <WardBarView ward={p.ward} screen={p.screen} badges={p.badges} onView={p.onView} />}
+        {second && (
+          <Row
+            row={second}
+            small={false}
+            end={
+              <button type="button" onClick={p.onOpenPicker} title="患者を開く（⌘K）" className="mb-1 flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2">
+                <Search size={16} />
+                <span className="hidden xl:inline">患者を開く</span>
+                <kbd className="hidden rounded border border-rule px-1 text-[10px] xl:inline">⌘K</kbd>
+              </button>
+            }
+          />
+        )}
+        {third && <Row row={third} small />}
         {p.children}
       </div>
     </div>
