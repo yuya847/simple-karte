@@ -4,13 +4,13 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
 import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
-import type { HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule } from "@/lib/types";
+import type { HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, Patient, TxOrder } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
-import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, findProc, findProcDrug, hdUfRate, procScheduleText } from "@/lib/procedures";
+import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_DO, TX_PRODUCTS, TX_USE, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
 
 const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
   { label: "1回だけ", value: { kind: "once" } },
@@ -1140,6 +1140,99 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
         {missing.length > 0 && <p className="mt-1 text-[12px] text-yamabuki">未選択：{missing.join("・")}</p>}
       </div>
       <p className="text-[11px] text-ink-faint">除水速度の目安：{HD_UF_RATE.source}（維持透析の目安。病棟の透析では参考として出します）。確定すると処置カレンダー・ワークシート・透析室の「病棟からの透析指示」に出ます。</p>
+    </div>
+  );
+}
+
+/**
+ * 輸血: the product and the amount chosen by the doctor, with the blood type on the chart, the latest
+ * value, and the expected effect and pace worked out in code (血液製剤の使用指針・輸血療法の実施に関する指針).
+ */
+export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: { onAdd: (d: Draft) => void; newId: () => string; blood?: Patient["blood"]; weightKg?: number; latest: Record<string, { value: number; day: number } | undefined> }) {
+  const [product, setProduct] = useState<TxOrder["product"] | null>(null);
+  const [units, setUnits] = useState<number | null>(null);
+  const [day, setDay] = useState(0);
+  const [time, setTime] = useState("");
+  const [reason, setReason] = useState("");
+  const p = product ? TX_PRODUCTS[product] : null;
+  const missing = [!product && "製剤", !units && "量", !reason.trim() && "輸血の理由"].filter((x): x is string => !!x);
+  const effect = product && units && weightKg ? txEffect({ product, units }, weightKg) : null;
+  const run = product && units ? txMinutes(txVolume({ product, units })) : null;
+  const submit = () => {
+    if (missing.length || !blood || !product || !units) return;
+    onAdd({ ...newProcedureDraft("PROC-TX", newId()), sourceText: "（輸血の欄から）", tx: { product, units, abo: blood.abo, rh: blood.rh, reason: reason.trim() }, schedule: { kind: "once" }, start: { day, time: time || null }, comment: reason.trim() });
+  };
+  const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
+  const row = (label: string, el: React.ReactNode) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-20 shrink-0 text-ink-soft">{label}</span>
+      {el}
+    </div>
+  );
+  const last = p ? latest[p.lab] : undefined;
+  return (
+    <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[12px]">
+      <div className={`rounded-md px-2 py-1.5 ${blood && blood.checks >= 2 ? "bg-paper" : "bg-shu-soft text-shu"}`}>
+        血液型：{blood ? `${blood.abo}型 Rh${blood.rh === "+" ? "(+)" : "(−)"}（確認 ${blood.checks}回）　不規則抗体：${blood.antibody ?? "未検査"}` : "未検査"}
+        {(!blood || blood.checks < 2) && <span className="ml-1 font-bold">— 別の時点の検体で2回確かめるまで、輸血は出せません</span>}
+      </div>
+      {row(
+        "製剤",
+        <TabChoice
+          label="血液製剤"
+          options={(Object.keys(TX_PRODUCTS) as TxOrder["product"][]).map((k) => ({ value: k, label: TX_PRODUCTS[k].short }))}
+          value={product}
+          onChange={(v) => {
+            setProduct(v);
+            setUnits(null);
+          }}
+        />,
+      )}
+      {p && row("量", <TabChoice label="製剤の量" options={p.units.map((u) => ({ value: u.units, label: u.label }))} value={units} onChange={setUnits} />)}
+      {p && <p className="pl-[5.5rem] text-ink-soft">{p.name}</p>}
+      {row(
+        "日時",
+        <>
+          <TabChoice
+            label="輸血の日"
+            options={[
+              { value: 0, label: "今日" },
+              { value: 1, label: "明日" },
+            ]}
+            value={day}
+            onChange={setDay}
+          />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="輸血の開始時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+          <span className="text-[11px] text-ink-faint">空なら準備ができしだい</span>
+        </>,
+      )}
+      {row("理由", <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：Hb 6.4、ふらつきあり" className="flex-1 rounded border border-rule bg-paper px-2 py-1" />)}
+      {p && (
+        <div className="nums space-y-0.5 rounded-md bg-paper px-2 py-1.5 text-ai">
+          <div>
+            {p.labLabel}：{last ? `${last.value}（最新）` : "カルテに値がありません"}
+          </div>
+          {effect && (
+            <div>
+              {effect.text}（{effect.formula}、コードで計算）
+            </div>
+          )}
+          {run && (
+            <div>
+              時間の見込み：約{run.minutes}分（{run.formula}）
+            </div>
+          )}
+        </div>
+      )}
+      <div className="sticky bottom-0 border-t border-rule bg-sheet pt-3">
+        <button type="button" disabled={missing.length > 0 || !blood} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+          下書きにする<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
+        </button>
+        {missing.length > 0 && <p className="mt-1 text-yamabuki">未入力：{missing.join("・")}</p>}
+      </div>
+      <p className="text-[11px] text-ink-faint">
+        予測の式：{TX_USE.label}。血液型・不規則抗体・速さ：{TX_DO.label}。下書きで血液型・抗体・同意書をコードが確かめます。
+      </p>
     </div>
   );
 }
