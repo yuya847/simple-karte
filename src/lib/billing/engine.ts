@@ -621,18 +621,23 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
         ],
       },
     ];
-    let points = pts(CODES.特定薬剤治療管理料１);
-    let basis = "B001「2」特定薬剤治療管理料１（月1回、初回の測定日）";
-    if (vcmLevels.length >= 2) {
+    // 4月目以降は100分の50（注4。初回の算定月から暦月で数える）.
+    const [cy, cm] = input.month.split("-").map(Number);
+    const sinceFirst = cy * 12 + cm - (firstMonth.y * 12 + firstMonth.m);
+    const base = sinceFirst >= 3 ? "113000510" : CODES.特定薬剤治療管理料１;
+    if (base !== CODES.特定薬剤治療管理料１) lines[0] = { ...lines[0], ...si(base), comments: lines[0].comments };
+    let points = pts(base);
+    let basis = `B001「2」特定薬剤治療管理料１（月1回、その月の初回の測定日${sinceFirst >= 3 ? "。4月目以降は100分の50" : ""}）`;
+    const firstMonthNow = inMonth.has(vcmLevels[0]);
+    if (firstMonthNow && levelsThisMonth.length >= 2) {
       lines.push(si("113029170"));
       points += pts("113029170");
-      basis += "＋注7 バンコマイシン（血中濃度を複数回測定して投与量を精密に管理。1回に限り）";
-      issues.push({ level: "review", text: "特定薬剤治療管理料の注7（バンコマイシン530点）は入院中1回に限ります。前の月に算定していないか確かめてください。" });
-    } else if (vcmLevels[0] === d) {
+      basis += "＋注7 バンコマイシン（初回の月に複数回測定して投与量を精密に管理。1回に限り、注8 は算定しない）";
+    } else if (firstMonthNow) {
       lines.push(si("113000770"));
       points += pts("113000770");
       basis += "＋注8 初回月加算（第1回目）";
-      issues.push({ level: "review", text: "バンコマイシンの濃度を2回以上測ると、注8（初回月加算280点）ではなく注7（530点）になります。測定が増えたら算定し直してください。" });
+      issues.push({ level: "review", text: "バンコマイシンの濃度を同じ月にもう1回測ると、注8（初回月加算280点）ではなく注7（530点）になります。測定が増えたら算定し直してください。" });
     }
     add({ day: d, shikibetsu: "13", parts: [{ lines, points }], basis });
   }

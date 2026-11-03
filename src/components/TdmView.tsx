@@ -3,7 +3,8 @@
 import { Plus, Send, X } from "lucide-react";
 import { useState } from "react";
 import { anyDrugName } from "@/lib/master";
-import { VCM_TARGET, predict, regimenFromOrder, sawchukZaske, type Levels, type Regimen, type TdmReport } from "@/lib/tdm";
+import { egfr, latestCre } from "@/lib/exams";
+import { VCM_NOTES, VCM_TARGET, predict, regimenFromOrder, sawchukZaske, type Levels, type Regimen, type TdmReport } from "@/lib/tdm";
 import type { InjectionOrder } from "@/lib/types";
 import type { WorkPatient } from "@/lib/worksheet";
 
@@ -62,6 +63,12 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
         {person && (
           <span className="text-ink-soft">
             体重 {person.patient.weightKg}kg・{person.patient.sex}・{person.patient.age}歳
+            {(() => {
+              const c = latestCre(person.patient);
+              if (!c) return null;
+              const g = egfr(c.value, person.patient.age, person.patient.sex);
+              return <span className={g < 30 ? "font-bold text-shu" : ""}>・Cre {c.value}（eGFR {g}）</span>;
+            })()}
           </span>
         )}
       </div>
@@ -108,6 +115,16 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
             例を入れる（架空の値）
           </button>
           <p className="text-[11px] text-ink-faint">トラフ1点だけでは AUC は計算しません（集団の値を使うベイズ推定のソフトが要ります）。</p>
+          <details className="text-[11px] text-ink-soft">
+            <summary className="cursor-pointer">ガイドラインの採血と腎機能の目安</summary>
+            <ul className="mt-0.5 list-disc pl-4">
+              {VCM_NOTES.map((n) => (
+                <li key={n.text}>
+                  {n.text}（{n.source}）
+                </li>
+              ))}
+            </ul>
+          </details>
         </div>
       </section>
 

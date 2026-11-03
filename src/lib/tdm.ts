@@ -95,7 +95,17 @@ export interface TdmReport {
 }
 
 /** Targets shown next to the result (filled from the guideline; the decision stays with people). */
-export const VCM_TARGET: { auc24: [number, number] | null; source: string } = { auc24: null, source: "" };
+export const VCM_GUIDE = "日本化学療法学会・日本TDM学会「抗菌薬TDM臨床実践ガイドライン2022」";
+export const VCM_TARGET: { auc24: [number, number] | null; source: string } = { auc24: [400, 600], source: `${VCM_GUIDE} p.12` };
+
+/** What the guideline says about sampling and kidneys (shown as reference; the decision stays with people). */
+export const VCM_NOTES: { text: string; source: string }[] = [
+  { text: "トラフは投与前30分以内、ピークは点滴終了1〜2時間後に採血する", source: `${VCM_GUIDE} p.12` },
+  { text: "軽中等症・ソフトを使わないときの初回は、4〜5回目の投与の直前（3日目）", source: `${VCM_GUIDE} p.12` },
+  { text: "重症・腎機能低下・腎障害のリスクがある症例は、ピークとトラフの2点採血がすすめられている", source: `${VCM_GUIDE} p.10` },
+  { text: "成人ではトラフ値だけで効果と安全の両方を満たす目標は設定できないとされる", source: `${VCM_GUIDE} p.13` },
+  { text: "eGFR 30未満では代わりの薬も考える", source: `${VCM_GUIDE} p.19` },
+];
 
 /** mg per dose and the schedule from a vancomycin injection order, when they can be read. */
 export function regimenFromOrder(o: { items: { drugCode: string; amount: number; unit: string }[]; schedule: { kind: string; hours?: number }; minutesPerDose?: number }): Partial<Regimen> {

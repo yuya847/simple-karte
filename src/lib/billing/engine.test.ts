@@ -247,7 +247,12 @@ describe("特定薬剤治療管理料１（バンコマイシン）", () => {
     expect(line.comments?.[1].label).toContain("令和8年10月");
   });
 
-  it("measured once: 470点 + 注8 初回月加算 280点, and a note to recalculate", () => {
+  it("the month after the first: 470点 only (注7・注8 are for the first month)", () => {
+    const r = claim("2026-11", { entries: [lab(OCT1 + 2, ["LAB-VCM"]), lab(0, ["LAB-VCM"]), lab(-1, ["LAB-VCM"])] });
+    expect(find(r.acts, "113000410").acts[0].parts[0].points).toBe(470);
+  });
+
+    it("measured once: 470点 + 注8 初回月加算 280点, and a note to recalculate", () => {
     const r = claim("2026-10", { entries: [lab(OCT1 + 2, ["LAB-VCM"])] });
     expect(find(r.acts, "113000410").acts[0].parts[0].points).toBe(750);
     expect(r.issues.some((i) => i.text.includes("注7"))).toBe(true);
