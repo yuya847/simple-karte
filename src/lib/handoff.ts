@@ -38,6 +38,8 @@ export interface Handoff {
   patientId: string;
   /** e.g. "日勤→夜勤". */
   shift: string;
+  /** Start of the shift it is handed to (minutes from today 00:00): one handoff per patient per shift. */
+  shiftLo?: number;
   severity: Severity | null;
   summary: string;
   actions: HandoffAction[];
@@ -59,9 +61,10 @@ export const statusOf = (h?: Handoff): HandoffStatus => (!h ? "未作成" : h.re
 export function nextShift(nowAbs: number): { label: string; from: string; lo: number; hi: number } {
   const day = Math.floor(nowAbs / 1440);
   const m = nowAbs - day * 1440;
-  // Before 08:30 → the day shift; before 16:30 → the night shift; later → tomorrow's day shift.
-  if (m < 510) return { label: "夜勤→日勤", from: "日勤", ...shiftWindow("day", day) };
-  if (m < 990) return { label: "日勤→夜勤", from: "夜勤", ...shiftWindow("night", day) };
+  // The shifts overlap 08:30–09:00 and 16:30–17:00, which is when the handoff is given: until 09:00 it
+  // is still 夜勤→日勤, until 17:00 日勤→夜勤; after 17:00 the next one is tomorrow morning's.
+  if (m < 540) return { label: "夜勤→日勤", from: "日勤", ...shiftWindow("day", day) };
+  if (m < 1020) return { label: "日勤→夜勤", from: "夜勤", ...shiftWindow("night", day) };
   return { label: "夜勤→日勤", from: "日勤", ...shiftWindow("day", day + 1) };
 }
 
@@ -109,6 +112,16 @@ export function sendProblems(h: Handoff): string[] {
   if (!h.severity) out.push("重症度を選んでください（安定・要注意・不安定）");
   if (!h.summary.trim()) out.push("患者の要約が空です");
   return out;
+}
+
+/** Where a handoff is kept: per patient and per shift handed to. */
+export const handoffKey = (patientId: string, shiftLo: number) => `${patientId}@${shiftLo}`;
+
+/** The latest handoff of an earlier shift for this patient (shown while writing the next one). */
+export function previousHandoff(all: Record<string, Handoff>, patientId: string, shiftLo: number): Handoff | undefined {
+  return Object.values(all)
+    .filter((h) => h.patientId === patientId && h.sentAt && (h.shiftLo ?? -Infinity) < shiftLo)
+    .sort((a, b) => (b.shiftLo ?? 0) - (a.shiftLo ?? 0))[0];
 }
 
 export const emptyHandoff = (id: string, patientId: string, shift: string, from: string): Handoff => ({

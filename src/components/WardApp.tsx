@@ -127,7 +127,7 @@ import { AdmitEvalView } from "./AdmitEvalView";
 import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type AdmitEval } from "@/lib/admit-eval";
 import { ResultsInbox } from "./ResultsInbox";
 import { PANIC_LIMITS, PANIC_SOURCE, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
-import type { Handoff } from "@/lib/handoff";
+import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
@@ -1289,14 +1289,14 @@ export default function WardApp() {
           extraFacts={Object.fromEntries(
             Object.entries(resultState).flatMap(([pid, r]) => (r.unseen ? [[pid, [`医師が未確認の結果：${r.unseen}件${r.panic ? `（パニック値 ${r.panic}件）` : ""}`]]] : [])),
           )}
-          onSave={(h) => setHandoffs((all) => ({ ...all, [h.patientId]: h }))}
+          onSave={(h) => setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0)]: h }))}
           onSend={(h) => {
             auditLog({ role: me.role, actor: me.name, action: "確定（申し送りを送った）", patient: findPatient(h.patientId)?.name, detail: `${h.shift}　${h.severity}　やること ${h.actions.length}件` });
-            setHandoffs((all) => ({ ...all, [h.patientId]: h }));
+            setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0)]: h }));
           }}
           onReceive={(h) => {
             auditLog({ role: me.role, actor: h.to ?? me.name, action: "確定（申し送りを受けた・復唱）", patient: findPatient(h.patientId)?.name, detail: h.synthesis });
-            setHandoffs((all) => ({ ...all, [h.patientId]: h }));
+            setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0)]: h }));
           }}
         />
       ) : screen === "acuity" ? (

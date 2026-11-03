@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { FIELDS, IPASS_SOURCE, SEVERITIES, emptyHandoff, handoffFacts, nextShift, sendProblems, statusOf, type Handoff, type Severity } from "@/lib/handoff";
+import { FIELDS, IPASS_SOURCE, SEVERITIES, emptyHandoff, handoffFacts, handoffKey, nextShift, previousHandoff, sendProblems, statusOf, type Handoff, type Severity } from "@/lib/handoff";
 import { useSpeech } from "@/lib/use-speech";
 import type { WorkPatient } from "@/lib/worksheet";
 import { PatientAvatar } from "./PatientAvatar";
@@ -52,7 +52,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
         <p className="mb-3 text-[11px] text-ink-soft">I-PASS の順に送ります。カルテの事実はコードで集め、話した言葉は Claude が欄に分けるだけです。重症度は送る人が選びます。</p>
         <ul className="space-y-1">
           {people.map((x) => {
-            const h = handoffs[x.patient.id];
+            const h = handoffs[handoffKey(x.patient.id, ns.lo)];
             const st = statusOf(h);
             const sev = SEVERITIES.find((s) => s.key === h?.severity);
             return (
@@ -80,13 +80,15 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
       </aside>
       {w ? (
         <Card
-          key={w.patient.id}
+          key={handoffKey(w.patient.id, ns.lo)}
+          shiftLo={ns.lo}
+          prev={previousHandoff(handoffs, w.patient.id, ns.lo)}
           w={w}
           today={today}
           nowTime={nowTime}
           shift={ns.label}
           facts={handoffFacts(w, nowAbs, today, extraFacts[w.patient.id])}
-          h={handoffs[w.patient.id]}
+          h={handoffs[handoffKey(w.patient.id, ns.lo)]}
           onSave={onSave}
           onSend={onSend}
           onReceive={onReceive}
@@ -98,10 +100,10 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
   );
 }
 
-function Card({ w, today, nowTime, shift, facts, h: saved, onSave, onSend, onReceive }: { w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
+function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
   const me = useMe();
   const deny = useDeny()("handoff");
-  const [h, setH] = useState<Handoff>(saved ?? emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name));
+  const [h, setH] = useState<Handoff>(saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo });
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,6 +154,23 @@ function Card({ w, today, nowTime, shift, facts, h: saved, onSave, onSend, onRec
         <span className={`ml-auto text-xs font-bold ${STATUS_STYLE[statusOf(saved)]}`}>{statusOf(saved)}</span>
       </header>
       <DenyNote action="handoff" className="mb-2" />
+      {prev && (
+        <details className="mb-3 rounded-lg border border-rule-soft bg-paper p-3">
+          <summary className="cursor-pointer text-xs font-bold text-ink-soft">
+            前の勤務の申し送り（{prev.shift}　{prev.from}
+            {prev.sentAt ? ` ${prev.sentAt.time}` : ""}）
+          </summary>
+          <p className="mt-1">{prev.summary}</p>
+          {prev.actions.length > 0 && (
+            <ul className="mt-1 list-disc pl-5">
+              {prev.actions.map((a, i) => (
+                <li key={i}>{a.text}</li>
+              ))}
+            </ul>
+          )}
+          {prev.contingency && <p className="mt-1 text-ink-soft">もし：{prev.contingency}</p>}
+        </details>
+      )}
 
       <div className="mb-3 rounded-lg border border-rule bg-sheet p-3">
         <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから（コードで集めた事実。AI は使っていません）</h4>
