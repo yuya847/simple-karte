@@ -52,6 +52,8 @@ import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLi
 import { AuditView } from "./AuditView";
 import { ChatThread, ChatView } from "./ChatView";
 import { AcuityView } from "./AcuityView";
+import { HandoffView } from "./HandoffView";
+import type { Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
@@ -199,6 +201,7 @@ export default function WardApp() {
   // Notes confirmed in this session, and corrected notes (by key, earlier versions inside).
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
+  const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
   const allPatients = useMemo(
     () =>
       [...PATIENTS, ...admitted].map((p) => {
@@ -532,6 +535,22 @@ export default function WardApp() {
         />
       ) : screen === "audit" ? (
         <AuditView />
+      ) : screen === "handoff" ? (
+        <HandoffView
+          people={people}
+          today={today}
+          nowTime={nowTime}
+          handoffs={handoffs}
+          onSave={(h) => setHandoffs((all) => ({ ...all, [h.patientId]: h }))}
+          onSend={(h) => {
+            auditLog({ role: me.role, actor: me.name, action: "確定（申し送りを送った）", patient: findPatient(h.patientId)?.name, detail: `${h.shift}　${h.severity}　やること ${h.actions.length}件` });
+            setHandoffs((all) => ({ ...all, [h.patientId]: h }));
+          }}
+          onReceive={(h) => {
+            auditLog({ role: me.role, actor: h.to ?? me.name, action: "確定（申し送りを受けた・復唱）", patient: findPatient(h.patientId)?.name, detail: h.synthesis });
+            setHandoffs((all) => ({ ...all, [h.patientId]: h }));
+          }}
+        />
       ) : screen === "acuity" ? (
         <AcuityView
           people={people}

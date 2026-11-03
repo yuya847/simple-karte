@@ -38,8 +38,8 @@ export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "lab" |
 
 /** The tabs each role sees, first one is where the role starts. */
 export const TABS: Record<Role, PinnedTab[]> = {
-  医師: ["map", "list", "er", "or", "dialysis", "chat", "audit"],
-  看護師: ["sheet", "map", "list", "acuity", "er", "or", "dialysis", "chat"],
+  医師: ["map", "list", "handoff", "er", "or", "dialysis", "chat", "audit"],
+  看護師: ["sheet", "map", "list", "handoff", "acuity", "er", "or", "dialysis", "chat"],
   薬剤師: ["pharmacy", "map", "list", "chat"],
   臨床検査技師: ["list", "map", "chat"],
   管理栄養士: ["list", "map", "chat"],
