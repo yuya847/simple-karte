@@ -2189,6 +2189,10 @@ export default function WardApp() {
                       if (k === "入院診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, attending: patient.attending, staff: `${nurseFor(patient.room)}（看護）` };
                       if (k === "退院証明書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", stay: dDay !== null ? `${stayDays(patient.admittedOn, dDay)}日` : "—", fee: "急性期一般入院料４（架空の病院の届出）" };
                       if (k === "退院療養計画書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", drugs: drugs || "なし" };
+                      if (k === "退院支援計画書") {
+                        const ds = evals[patient.id]?.discharge;
+                        return { ...base, startedAt: ds?.planStartedAt ? fmt(ds.planStartedAt.day) : "（入院時の評価で「退院支援計画の着手」がまだ）", madeAt: fmt(0), factors: ds?.factors.length ? ds.factors.join("・") : "（入院時の評価で退院困難な要因がまだ）" };
+                      }
                       return base;
                     }}
                     onSave={(k, v) => {

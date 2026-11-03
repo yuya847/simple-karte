@@ -2,8 +2,14 @@
 // chart already says (name, ward, diagnoses, dates, drugs) is filled in by code; what needs judgement
 // is written by the doctor. Nothing is written by AI.
 
-export type DocKind = "入院診療計画書" | "退院証明書" | "診断書" | "退院療養計画書";
-export const DOC_KINDS: DocKind[] = ["入院診療計画書", "退院証明書", "診断書", "退院療養計画書"];
+export type DocKind = "入院診療計画書" | "退院証明書" | "診断書" | "退院療養計画書" | "退院支援計画書";
+export const DOC_KINDS: DocKind[] = ["入院診療計画書", "退院証明書", "診断書", "退院療養計画書", "退院支援計画書"];
+
+/** What a 退院支援計画 must contain (A246 入退院支援加算 (4) ア〜キ) and that it is explained and handed over in writing ((6)). */
+export const DISCHARGE_PLAN_SOURCE = {
+  label: "厚生労働省保険局医療課長通知 保医発0305第4号（令和6年3月5日）別添1 A246 入退院支援加算 (4)(6)",
+  url: "https://www.mhlw.go.jp/content/12404000/001293312.pdf",
+};
 
 export interface DocField {
   key: string;
@@ -69,6 +75,24 @@ export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> 
       { key: "services", label: "必要な保健・医療・福祉のサービス", long: true, optional: true },
       { key: "next", label: "次の受診" },
       { key: "contact", label: "具合が悪いときの連絡先" },
+    ],
+  },
+  退院支援計画書: {
+    purpose: "退院困難な要因のある患者に、退院支援の計画を文書で説明して渡す（内容は通知 A246 (4) ア〜キのとおり。様式は架空の病院のもの）",
+    fields: [
+      { key: "name", label: "患者氏名", auto: true },
+      { key: "admitted", label: "入院日", auto: true },
+      { key: "startedAt", label: "退院支援計画着手日", auto: true },
+      { key: "madeAt", label: "退院支援計画作成日", auto: true },
+      { key: "factors", label: "退院困難な要因", auto: true },
+      { key: "consultant", label: "退院に関する患者以外の相談者（続柄）" },
+      { key: "planners", label: "退院支援計画を行う者（病棟責任者・病棟専任の入退院支援職員・入退院支援部門の担当者）", long: true },
+      { key: "problems", label: "退院に係る問題点・課題等", long: true },
+      { key: "goal", label: "退院へ向けた目標・支援期間・支援の概要", long: true },
+      { key: "destination", label: "予想される退院先" },
+      { key: "services", label: "退院後に利用が予測される福祉サービスと担当者名", long: true, optional: true },
+      { key: "inpatient", label: "入院中に必要な療養支援（リハビリ・栄養管理・口腔管理など）と多職種チームとの役割分担", long: true },
+      { key: "explainedTo", label: "説明して渡した相手（本人・家族）" },
     ],
   },
 };
