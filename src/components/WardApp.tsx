@@ -110,7 +110,7 @@ import { SurgeryView } from "./SurgeryView";
 import { initialSurgeries, type Surgery } from "@/lib/surgery";
 import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { b008Check, draftsFromReport, queryOpen, type BroughtReport, type Query } from "@/lib/pharmacy";
-import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
+import { orderChanges, otherChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddConsultPanel, AddGuidePanel, AddLeavePanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
@@ -327,6 +327,9 @@ export default function WardApp() {
   const [discharged, setDischarged] = useState<Record<string, { day: number; time: string; by: string }>>({});
   // 今日の尿量・排便・食事・体重 entered on the ward (added to each patient's record of today).
   const [extraDaily, setExtraDaily] = useState<Record<string, DailyAdd>>({});
+  // 延長 confirmed in this session (for 指示受け), and the diet orders there were at the start.
+  const [extendLog, setExtendLog] = useState<{ orderId: string; patientId: string; days: number; at: number; by: string; text: string }[]>([]);
+  const [initialDietIds] = useState(() => new Set(INITIAL_DIETS.map((d) => d.id)));
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
@@ -657,6 +660,12 @@ export default function WardApp() {
       ...added.map((e) => planLine(e, today) + (e.verbal ? `（口頭指示 ${e.verbal.doctor} → 受け ${e.verbal.takenBy}）` : "")),
     ];
     if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
+    // 延長 goes to the nurses' 指示受け like a new order.
+    const extLog = Object.entries(extended).flatMap(([id, days]) => {
+      const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === id);
+      return e ? [{ orderId: id, patientId: patient!.id, days, at: abs(0, nowTime), by: DOCTOR, text: orderLines(e.order, today).main }] : [];
+    });
+    if (extLog.length) setExtendLog((all) => [...all, ...extLog]);
     auditLog(
       verbalMode
         ? { role: me.role, actor: me.name, action: `確定（口頭指示を代行入力。指示 ${DOCTOR}）`, patient: patient?.name, detail: lines.map((l) => l.replace(/^・/, "")).join("／").slice(0, 200) }
@@ -834,9 +843,19 @@ export default function WardApp() {
   });
 
   // 指示受けがまだ: this session's new orders and stops that no nurse has taken yet.
-  const sessionKeys = sessionChangeKeys(sessionChanges);
+  // 延長 and 食事 changes made in this session wait for 指示受け too.
+  const others = otherChanges(
+    people,
+    extendLog,
+    diets
+      .filter((d) => !initialDietIds.has(d.id))
+      .map((d) => ({ id: d.id, patientId: d.patientId, at: d.at, by: d.by, label: dietLabel(d), from: `${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から` })),
+    -1440,
+    abs(0, nowTime),
+  );
+  const sessionKeys = new Set([...sessionChangeKeys(sessionChanges), ...others.map((c) => c.key)]);
   const waiting: Record<string, number> = {};
-  for (const c of orderChanges(people, -1440, abs(0, nowTime))) {
+  for (const c of [...orderChanges(people, -1440, abs(0, nowTime)), ...others]) {
     if (sessionKeys.has(c.key) && !taken[c.key]) waiting[c.patientId] = (waiting[c.patientId] ?? 0) + 1;
   }
 
@@ -1286,6 +1305,7 @@ export default function WardApp() {
           people={people}
           today={today}
           nowTime={nowTime}
+          others={others}
           queried={Object.fromEntries(queries.filter((q) => queryOpen(q, people.find((x) => x.patient.id === q.patientId)?.entries ?? [])).map((q) => [q.orderId, q.question]))}
           // 指示簿の頓用: only standing orders a nurse has taken (指示受け) are used on the ward.
           standingPrn={people.flatMap((x) => {

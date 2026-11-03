@@ -11,7 +11,7 @@ import { marState, prnToday, standingPrnId, standingPrnState, type AdminRecord, 
 import { drugLabel, type PrnRule } from "@/lib/standing";
 import { findOralDrug } from "@/lib/master";
 import { MarCell } from "./MarCell";
-import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
+import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
 interface Props {
   people: WorkPatient[];
@@ -31,6 +31,8 @@ interface Props {
   /** Take a record back (reason), and the records taken back, by dose key. */
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
   voided?: Record<string, VoidedRecord[]>;
+  /** 延長 and 食事 changes to take, besides the orders. */
+  others?: OtherChange[];
   /** Orders the pharmacy is asking the doctor about (疑義照会中), with the question. */
   queried?: Record<string, string>;
   /** 指示簿の頓用 of each patient (given from the standing orders, not from an order). */
@@ -52,7 +54,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {} }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [] }: Props) {
   const [day, setDay] = useState<0 | 1>(0);
   const [shift, setShift] = useState<Shift>("day");
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
@@ -62,8 +64,9 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
 
   const sheet = useMemo(() => buildWorksheet(people, lo, hi, nowAbs), [people, lo, hi, nowAbs]);
   // 指示受け: what was ordered or stopped since yesterday 00:00.
-  const changes = useMemo(() => orderChanges(people, -1440, nowAbs), [people, nowAbs]);
-  const isTaken = (c: OrderChange) => !sessionKeys.has(c.key) || !!taken[c.key];
+  // ＋ 延長 and 食事 changes (kept outside the orders), in time order.
+  const changes = useMemo(() => [...orderChanges(people, -1440, nowAbs), ...others].sort((a, b) => a.at - b.at || a.room.localeCompare(b.room)), [people, nowAbs, others]);
+  const isTaken = (c: { key: string }) => !sessionKeys.has(c.key) || !!taken[c.key];
   const waiting = changes.filter((c) => !isTaken(c)).length;
 
   const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people };
@@ -147,13 +150,13 @@ function Segmented<T extends string | number>({ label, value, options, onChange 
 
 interface SheetProps {
   sheet: ReturnType<typeof buildWorksheet>;
-  changes: OrderChange[];
+  changes: (OrderChange | OtherChange)[];
   kinds: WorkKind[];
   today: CalendarDate;
   day: DayOffsetLike;
   shift: Shift;
   nowTime: string;
-  isTaken: (c: OrderChange) => boolean;
+  isTaken: (c: { key: string }) => boolean;
   taken: Record<string, string>;
   sessionKeys: Set<string>;
   onTake: (keys: string[]) => void;
@@ -238,7 +241,8 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
             </thead>
             <tbody>
               {changes.map((c) => {
-                const { main, detail } = orderLines(c.entry.order, today);
+                const isOrder = "entry" in c;
+                const { main, detail } = isOrder ? orderLines(c.entry.order, today) : c.text;
                 const ok = isTaken(c);
                 return (
                   <tr key={c.key} className={c.kind === "中止" ? "text-ink-soft" : ""}>
@@ -264,11 +268,11 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                     </td>
                     <td className={`${td} font-bold ${c.kind === "中止" ? "text-shu" : ""}`}>{c.kind}</td>
                     <td className={td}>
-                      <span className="mr-1 text-ink-faint">{ORDER_TYPE_LABEL[c.entry.order.type]}</span>
+                      <span className="mr-1 text-ink-faint">{isOrder ? ORDER_TYPE_LABEL[c.entry.order.type] : c.text.type}</span>
                       <span className={c.kind === "中止" ? "line-through" : "font-bold"}>{main}</span>
                       <div className="text-ink-soft">{detail}</div>
                     </td>
-                    <td className={td}>{c.entry.author}</td>
+                    <td className={td}>{isOrder ? c.entry.author : c.text.author}</td>
                   </tr>
                 );
               })}

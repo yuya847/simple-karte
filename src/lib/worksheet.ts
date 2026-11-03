@@ -203,7 +203,7 @@ export interface OrderChange {
   timeKnown: boolean;
 }
 
-export const changeKey = (entryId: string, kind: "新規" | "中止") => `${entryId}|${kind}`;
+export const changeKey = (entryId: string, kind: "新規" | "中止" | "延長" | "食事") => `${entryId}|${kind}`;
 
 export function orderChanges(people: WorkPatient[], since: number, nowAbs: number): OrderChange[] {
   const out: OrderChange[] = [];
@@ -233,4 +233,41 @@ export function sessionChangeKeys(changes: Record<string, { added: OrderEntry[];
     for (const id of c.stopped) keys.add(changeKey(id, "中止"));
   }
   return keys;
+}
+
+/** A 延長 or a 食事 change to take (指示受け): kept outside the orders, shown with them. */
+export interface OtherChange {
+  kind: "延長" | "食事";
+  at: number;
+  text: { type: string; main: string; detail: string; author: string };
+  patientId: string;
+  room: string;
+  name: string;
+  key: string;
+  timeKnown: true;
+}
+
+/** 延長 and 食事 changes as 指示受け items (both are kept outside the orders). */
+export function otherChanges(
+  people: WorkPatient[],
+  extensions: { orderId: string; patientId: string; days: number; at: number; by: string; text: string }[],
+  diets: { id: string; patientId: string; at: { day: DayOffset; time: string }; by: string; label: string; from: string }[],
+  since: number,
+  nowAbs: number,
+): OtherChange[] {
+  const where = (pid: string) => people.find((x) => x.patient.id === pid);
+  const out: OtherChange[] = [];
+  for (const x of extensions) {
+    const w = where(x.patientId);
+    const e = w?.entries.find((y) => y.id === x.orderId);
+    if (!w || !e || x.at < since || x.at > nowAbs) continue;
+    out.push({ kind: "延長", at: x.at, text: { type: "延長", main: x.text, detail: `${x.days}日間に`, author: x.by }, patientId: x.patientId, room: w.room, name: w.patient.name, key: changeKey(`${x.orderId}@${x.at}`, "延長"), timeKnown: true });
+  }
+  for (const d of diets) {
+    const w = where(d.patientId);
+    const at = abs(d.at.day, d.at.time);
+    if (!w || at < since || at > nowAbs) continue;
+    out.push({ kind: "食事", at, text: { type: "食事", main: d.label, detail: d.from, author: d.by }, patientId: d.patientId, room: w.room, name: w.patient.name, key: changeKey(d.id, "食事"), timeKnown: true });
+  }
+  return out;
 }

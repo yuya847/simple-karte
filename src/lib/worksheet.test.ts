@@ -74,3 +74,25 @@ describe("指示受け", () => {
     expect(list.filter((c) => !keys.has(c.key)).length).toBeGreaterThan(0);
   });
 });
+
+describe("延長と食事の変更も指示受けに", () => {
+  it("lists them with the time and who, inside the window", async () => {
+    const { otherChanges } = await import("./worksheet");
+    const { PATIENTS } = await import("./patients");
+    const p = PATIENTS[0];
+    const people = [{ patient: p, room: p.room, entries: p.history.filter((e): e is import("./types").OrderEntry => e.kind === "order") }];
+    const orderId = people[0].entries[0].id;
+    const out = otherChanges(
+      people,
+      [{ orderId, patientId: p.id, days: 7, at: 600, by: "山本（専攻医）", text: "セファゾリン" }],
+      [{ id: "d1", patientId: p.id, at: { day: 0, time: "11:00" }, by: "山本（専攻医）", label: "全粥", from: "今日の夕食から" }, { id: "d0", patientId: p.id, at: { day: -3, time: "11:00" }, by: "x", label: "常食", from: "" }],
+      -1440,
+      720,
+    );
+    expect(out.map((c) => [c.kind, c.at, c.text.main])).toEqual([
+      ["延長", 600, "セファゾリン"],
+      ["食事", 660, "全粥"],
+    ]);
+    expect(new Set(out.map((c) => c.key)).size).toBe(2);
+  });
+});
