@@ -2,7 +2,7 @@
 
 import { FlaskConical, PhoneCall } from "lucide-react";
 import { useState } from "react";
-import { hitLine, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
+import { callScript, hitLine, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -12,6 +12,8 @@ interface Props {
   /** Today's results of the ward's patients. */
   items: ResultItem[];
   calls: Record<string, PanicCall>;
+  /** The doctor's 確認 (with the response for a panic value), to check that someone acted. */
+  acks: Record<string, Ack>;
   limits: PanicLimit[];
   limitsSource: string;
   nowTime: string;
@@ -20,7 +22,7 @@ interface Props {
 }
 
 /** 検査室: today's results for the ward, panic values found by code, and the record of each phone call. */
-export function LabView({ people, items, calls, limits, limitsSource, nowTime, attending, onCall }: Props) {
+export function LabView({ people, items, calls, acks, limits, limitsSource, nowTime, attending, onCall }: Props) {
   const name = (pid: string) => people.find((x) => x.patient.id === pid);
   items = [...items].sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
   const panic = items.filter((i) => i.panic.length > 0);
@@ -43,7 +45,19 @@ export function LabView({ people, items, calls, limits, limitsSource, nowTime, a
           <h3 className="text-xs font-bold text-shu">パニック値（コードで判定。連絡するのは人）</h3>
           {panic.map((i) => {
             const w = name(i.patientId);
-            return <PanicCard key={i.key} item={i} who={w ? `${w.room} ${w.patient.name}さん` : i.patientId} call={calls[i.key]} nowTime={nowTime} attending={attending} onCall={onCall} />;
+            return (
+              <PanicCard
+                key={i.key}
+                item={i}
+                who={w ? `${w.room} ${w.patient.name}さん` : i.patientId}
+                script={w ? callScript(i, w.patient, w.room) : []}
+                call={calls[i.key]}
+                ack={acks[i.key]}
+                nowTime={nowTime}
+                attending={attending}
+                onCall={onCall}
+              />
+            );
           })}
         </section>
       )}
@@ -93,10 +107,11 @@ export function LabView({ people, items, calls, limits, limitsSource, nowTime, a
   );
 }
 
-function PanicCard({ item, who, call, nowTime, attending, onCall }: { item: ResultItem; who: string; call?: PanicCall; nowTime: string; attending: string; onCall: (c: PanicCall) => void }) {
+function PanicCard({ item, who, script, call, ack, nowTime, attending, onCall }: { item: ResultItem; who: string; script: string[]; call?: PanicCall; ack?: Ack; nowTime: string; attending: string; onCall: (c: PanicCall) => void }) {
   const me = useMe();
   const deny = useDeny()("panic.call");
-  const [to, setTo] = useState(`主治医 ${attending}`);
+  const [to, setTo] = useState(`主治医 ${attending}（オーダーした医師）`);
+  const [means, setMeans] = useState<PanicCall["means"]>("電話");
   const [readBack, setReadBack] = useState(false);
   return (
     <div className="rounded-lg border border-shu/50 bg-shu-soft/50 p-3">
@@ -108,16 +123,34 @@ function PanicCard({ item, who, call, nowTime, attending, onCall }: { item: Resu
         <b className="text-shu">{item.panic.map(hitLine).join("、")}</b>
       </div>
       {call ? (
-        <p className="mt-1 flex items-center gap-1 text-xs text-wakatake">
-          <PhoneCall size={12} />
-          {call.at.time} に {call.by} が {call.to} へ電話で連絡（{call.readBack ? "復唱あり" : "復唱なし"}）。医師が確認するまでカルテに残ります。
-        </p>
+        <div className="mt-1 space-y-0.5 text-xs">
+          <p className="flex items-center gap-1 text-wakatake">
+            <PhoneCall size={12} />
+            {call.at.time} に {call.by} が {call.to} へ{call.means}で報告（{call.readBack ? "復唱あり" : "復唱なし"}）
+          </p>
+          {ack ? (
+            <p className="text-wakatake">
+              医師の対応：{ack.at.time} {ack.by}「{ack.response ?? "確認した"}」
+            </p>
+          ) : (
+            <p className="font-bold text-yamabuki">医師の対応の記録がまだです。続けば、もう一度連絡するか、同じ科の医師・管理当直に連絡します。</p>
+          )}
+        </div>
       ) : (
-        <fieldset disabled={!!deny} className="m-0 mt-1 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0 text-xs">
+        <fieldset disabled={!!deny} className="m-0 mt-1 min-w-0 space-y-1 border-0 p-0 text-xs">
+          <div className="rounded border border-rule bg-sheet px-2 py-1 text-ink-soft">
+            <span className="font-bold">伝える内容（提言第20号の順。コードで並べた）：</span>
+            {script.join("　")}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1">
-            連絡した相手
-            <input value={to} onChange={(e) => setTo(e.target.value)} className="w-48 rounded border border-rule bg-sheet px-1.5 py-0.5" />
+            報告した相手
+            <input value={to} onChange={(e) => setTo(e.target.value)} className="w-64 rounded border border-rule bg-sheet px-1.5 py-0.5" />
           </label>
+          <select value={means} onChange={(e) => setMeans(e.target.value as PanicCall["means"])} aria-label="手段" className="rounded border border-rule bg-sheet px-1 py-0.5">
+            <option>電話</option>
+            <option>対面</option>
+          </select>
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={readBack} onChange={(e) => setReadBack(e.target.checked)} className="accent-shu" />
             相手が値を復唱した
@@ -125,12 +158,13 @@ function PanicCard({ item, who, call, nowTime, attending, onCall }: { item: Resu
           <button
             type="button"
             disabled={!to.trim()}
-            onClick={() => onCall({ key: item.key, patientId: item.patientId, hits: item.panic, by: me.name, to: to.trim(), readBack, at: { day: 0, time: nowTime } })}
+            onClick={() => onCall({ key: item.key, patientId: item.patientId, hits: item.panic, by: me.name, to: to.trim(), means, readBack, at: { day: 0, time: nowTime } })}
             className="ml-auto flex items-center gap-1 rounded bg-shu px-3 py-1 font-bold text-white disabled:opacity-40"
           >
             <PhoneCall size={12} />
-            電話で連絡した（{nowTime}）
+            報告した（{nowTime}）
           </button>
+          </div>
         </fieldset>
       )}
     </div>

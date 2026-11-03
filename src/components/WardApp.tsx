@@ -477,9 +477,12 @@ export default function WardApp() {
   const admitDue = TABS[role].includes("admit")
     ? people.reduce((n, x) => n + duesOf(evals[x.patient.id] ?? { patientId: x.patient.id }, x.patient.admittedOn).filter((d) => (d.state === "期限切れ" || d.state === "今日まで") && d.who.some((r) => r === role)).length, 0)
     : 0;
-  const markSeen = (pid: string, keys: string[]) => {
-    auditLog({ role: me.role, actor: me.name, action: "結果を確認した", patient: findPatient(pid)?.name, detail: wardResults.filter((i) => keys.includes(i.key)).map((i) => `${i.kind} ${i.time} ${i.title}`).join("／").slice(0, 200) });
-    setAcks((a) => ({ ...a, ...Object.fromEntries(keys.map((k) => [k, { by: me.name, at: { day: 0, time: nowTime } }])) }));
+  const markSeen = (pid: string, keys: string[], response?: string) => {
+    const seen = wardResults.filter((i) => keys.includes(i.key));
+    auditLog({ role: me.role, actor: me.name, action: response ? "確定（パニック値への対応）" : "結果を確認した", patient: findPatient(pid)?.name, detail: `${seen.map((i) => `${i.kind} ${i.time} ${i.title}`).join("／").slice(0, 160)}${response ? `　対応：${response}` : ""}` });
+    setAcks((a) => ({ ...a, ...Object.fromEntries(keys.map((k) => [k, { by: me.name, at: { day: 0, time: nowTime }, ...(response ? { response } : {}) }])) }));
+    if (response)
+      updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・パニック値（${seen.flatMap((i) => i.panic.map(hitLine)).join("、")}）${calls[keys[0]] ? `：${calls[keys[0]].at.time} ${calls[keys[0]].by}より${calls[keys[0]].means}で報告` : ""}。対応：${response}\n` }));
   };
 
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
@@ -594,6 +597,7 @@ export default function WardApp() {
           people={people}
           items={wardResults.filter((i) => i.day === 0)}
           calls={calls}
+          acks={acks}
           limits={PANIC_LIMITS}
           limitsSource={PANIC_SOURCE}
           nowTime={nowTime}
@@ -800,7 +804,7 @@ export default function WardApp() {
                 today={today}
                 items={unseen(resultsOf(patient, PANIC_LIMITS), acks)}
                 calls={calls}
-                onSeen={(keys) => markSeen(patient.id, keys)}
+                onSeen={(keys, response) => markSeen(patient.id, keys, response)}
                 onOpenResults={() => setPanel("results")}
               />
               <VerbalInbox

@@ -1,6 +1,8 @@
 // Chart notes: confirmed with who and when, and corrected only by adding a new version.
 // The earlier versions stay, so anyone can see what was written first, what changed, who changed it,
-// when and why (真正性: the record is not overwritten).
+// when and why (真正性: the record is not overwritten). 厚生労働省「医療情報システムの安全管理に関する
+// ガイドライン 第7.0版」（令和8年6月）システム運用編 14章：入力者・確定者・日時を残し、確定後の更新は
+// 履歴を残して前後を比べられ、更新の順序が分かること。
 
 import type { DayOffset, NoteEntry, NoteVersion } from "./types";
 

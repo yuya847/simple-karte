@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { PANIC_LIMITS, bloodCulturePanic, cultureArrivals, hitLine, mergeCultures, panicOf, resultsOf, uncalled, unseen } from "./results";
+import { PANIC_LIMITS, bloodCulturePanic, callScript, cultureArrivals, hitLine, mergeCultures, panicOf, resultsOf, uncalled, unseen } from "./results";
 import { PATIENTS } from "./patients";
 
 describe("results", () => {
   it("finds values beyond the panic limits by code", () => {
-    const hits = panicOf({ K: 6.4, Na: 140, Glu: 45 }, PANIC_LIMITS);
-    expect(hits.map((h) => `${h.code}${h.side}`)).toEqual(["K高", "Glu低"]);
-    expect(hitLine(hits[0])).toBe("K 6.4 mmol/L（6以上）");
+    const hits = panicOf({ K: 7.2, Na: 140, Glu: 45, Plt: 2.1 }, PANIC_LIMITS);
+    expect(hits.map((h) => `${h.code}${h.side}`)).toEqual(["Glu低", "K高", "Plt低"]);
+    expect(hitLine(hits[1])).toBe("K 7.2 mmol/L（7以上）");
+    expect(panicOf({ K: 6.4, Na: 120 }, PANIC_LIMITS)).toEqual([]);
   });
 
   it("a blood culture that turned positive is phoned in like a panic value", () => {
@@ -33,6 +34,15 @@ describe("results", () => {
     const items = resultsOf(p, PANIC_LIMITS);
     expect(uncalled(items, {})).toHaveLength(1);
     const key = uncalled(items, {})[0].key;
-    expect(uncalled(items, { [key]: { key, patientId: p.id, hits: [], by: "検査技師 中村", to: "主治医", readBack: true, at: { day: 0, time: "10:00" } } })).toHaveLength(0);
+    expect(uncalled(items, { [key]: { key, patientId: p.id, hits: [], by: "検査技師 中村", to: "主治医", means: "電話", readBack: true, at: { day: 0, time: "10:00" } } })).toHaveLength(0);
+  });
+
+  it("puts the call in the order of 提言第20号", () => {
+    const p = { ...PATIENTS[1], cultures: cultureArrivals(600)["90010244"] };
+    const item = uncalled(resultsOf(p, PANIC_LIMITS), {})[0];
+    const lines = callScript(item, p, "515B");
+    expect(lines[0]).toBe("「パニック値の報告です」");
+    expect(lines[2]).toBe(`② ${p.name}さん（ID ${p.id}）`);
+    expect(lines.at(-1)).toBe("「復唱をお願いします」");
   });
 });

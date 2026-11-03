@@ -42,6 +42,7 @@ export interface PanicCall {
   hits: PanicHit[];
   by: string;
   to: string;
+  means: "電話" | "対面";
   readBack: boolean;
   at: { day: DayOffset; time: string };
 }
@@ -49,6 +50,8 @@ export interface PanicCall {
 export interface Ack {
   by: string;
   at: { day: DayOffset; time: string };
+  /** For a panic value: what the doctor did (提言第20号 提言3; 医療安全情報 No.236). */
+  response?: string;
 }
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
@@ -162,12 +165,47 @@ export function mergeCultures(base: CultureResult[], later: CultureResult[] = []
   return [...base.filter((c) => !later.some((l) => same(c, l))), ...later];
 }
 
-/** Panic limits of the fictional hospital (each hospital sets its own; see the source). */
+/**
+ * Panic limits of the fictional hospital: the examples in the JSLM table (2024年改定版 別表, the same
+ * values as the 2021 table), for the analytes this chart has. Each hospital sets its own limits.
+ */
 export const PANIC_LIMITS: PanicLimit[] = [
-  { code: "K", low: 2.5, high: 6.0 },
-  { code: "Na", low: 120, high: 160 },
   { code: "Glu", low: 50, high: 500 },
-  { code: "Hb", low: 5.0 },
-  { code: "Plt", low: 3.0 },
+  { code: "Na", low: 115, high: 165 },
+  { code: "K", low: 1.5, high: 7.0 },
+  { code: "Cl", high: 120 },
+  { code: "Ca", low: 6.0, high: 12.0 },
+  { code: "BUN", high: 80 },
+  { code: "TP", low: 4.0, high: 10.0 },
+  { code: "Alb", low: 2.0, high: 6.0 },
+  { code: "UA", low: 1.0, high: 10.0 },
+  { code: "AST", high: 300 },
+  { code: "ALT", high: 300 },
+  { code: "LDH", high: 1000 },
+  { code: "AMY", high: 1000 },
+  { code: "Cre", high: 3.0 },
+  { code: "CK", high: 5000 },
+  { code: "ChE", low: 20 },
+  // 乳酸 5.0 mmol/L, in this chart's unit (mg/dL): 5.0 × 9.01 ≈ 45.
+  { code: "Lac", high: 45 },
+  { code: "WBC", low: 1500, high: 20000 },
+  { code: "Hb", low: 5, high: 20 },
+  { code: "Plt", low: 3, high: 100 },
+  { code: "PT-INR", high: 2.0 },
+  { code: "Fib", low: 100, high: 700 },
+  { code: "FDP", high: 20 },
 ];
-export const PANIC_SOURCE = "（出典を確認中）";
+export const PANIC_SOURCE =
+  "日本臨床検査医学会「臨床検査『パニック値』運用に関する提言書（2024年改定版）」別表の例を、架空の病院の値として使っています（閾値は医療機関ごとに決めるもの）。グルコースの高値は入院の値、クレアチニンは急性腎不全の例、PT-INR はワルファリン治療中でないときの例、乳酸は 5.0 mmol/L を mg/dL に換算。境界の値を含めて判定します。連絡の手順は医療事故調査・支援センター「医療事故の再発防止に向けた提言 第20号」（2024年12月）：オーダーした医師に電話か対面で直接伝え、最後に復唱してもらい、検査室は報告の記録を、医師は対応の記録を残します。";
+
+/** What to say on the phone, in the order of 提言第20号 図2 (put together by code). */
+export function callScript(item: ResultItem, p: { name: string; id: string }, room: string): string[] {
+  return [
+    "「パニック値の報告です」",
+    `① 入院（5階東 ${room}）`,
+    `② ${p.name}さん（ID ${p.id}）`,
+    `③ ${item.kind === "培養" ? "報告" : "採取"} ${item.day === 0 ? "今日" : `${item.day}日`} ${item.time || "—"}`,
+    `④ ${item.panic.map(hitLine).join("、")}`,
+    "「復唱をお願いします」",
+  ];
+}

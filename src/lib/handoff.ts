@@ -11,7 +11,7 @@ import { orderLines } from "./format";
 import type { DayOffset } from "./types";
 
 export const IPASS_SOURCE =
-  "Starmer AJ, et al. Changes in Medical Errors after Implementation of a Handoff Program. N Engl J Med 2014;371:1803-12（I-PASS）";
+  "Starmer AJ, et al. I-PASS, a mnemonic to standardize verbal handoffs. Pediatrics 2012;129:201-4（各文字と重症度の3区分）／Starmer AJ, et al. Changes in Medical Errors after Implementation of a Handoff Program. N Engl J Med 2014;371:1803-12。日本語の訳は公的なものがないので、原語を併記しています";
 
 export const SEVERITIES = [
   { key: "安定", en: "stable", tone: "wakatake" },
