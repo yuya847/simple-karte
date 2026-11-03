@@ -313,6 +313,8 @@ export default function WardApp() {
   const [floating, setFloating] = useState<Partial<Record<RightTab, Win>>>({});
   // A past note or order is being dragged over the right side (Do).
   const [dropping, setDropping] = useState(false);
+  // The imaging order opened from the left (its study comes first in the PACS viewer).
+  const [imageFocus, setImageFocus] = useState<string | null>(null);
   const [zOrder, setZOrder] = useState<RightTab[]>([]);
   // 入院時の評価（計画書・栄養・褥瘡・転倒転落・せん妄・退院支援）.
   const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
@@ -1243,6 +1245,10 @@ export default function WardApp() {
               onDo={doFromHistory}
               diets={diets}
               onOpenDiet={() => setPanel("diet")}
+              onOpenImage={(id) => {
+                setImageFocus(id);
+                setPanel("imaging");
+              }}
               onReviseNote={(e, text, reason) => {
                 const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
                 setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));
@@ -1505,7 +1511,7 @@ export default function WardApp() {
               )}
               {panel === "imaging" && (
                 <Drawer title="放射線画像" onClose={closePanel} wide>
-                  <ImagingPanel patient={patient} today={today} entries={entries} nowAbs={abs(0, nowTime)} />
+                  <ImagingPanel patient={patient} today={today} entries={entries} nowAbs={abs(0, nowTime)} focus={imageFocus ?? undefined} />
                 </Drawer>
               )}
               {panel === "active-orders" && (
@@ -1701,7 +1707,10 @@ export default function WardApp() {
                   update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }));
                   focusRightTab(t);
                 } else if (p === null && !panel) update({ rightTab: "note" });
-                else setPanel(p);
+                else {
+                  if (p === "imaging") setImageFocus(null);
+                  setPanel(p);
+                }
               }}
               blocked={blocked}
               leftView={chart.leftView}

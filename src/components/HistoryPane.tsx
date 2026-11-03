@@ -52,6 +52,8 @@ interface Props {
   /** Diet orders, for the 食事 calendar; pressing a meal opens the diet panel. */
   diets?: DietOrder[];
   onOpenDiet?: () => void;
+  /** Open an imaging order's pictures in the PACS viewer. */
+  onOpenImage?: (entryId: string) => void;
 }
 
 /** What is copied to the right (Do): a past note's text, or a past order to write again. */
@@ -73,7 +75,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, onDo, diets, onOpenDiet } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, onDo, diets, onOpenDiet, onOpenImage } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
@@ -111,7 +113,7 @@ export function HistoryPane(props: Props) {
       ) : view === "diet-cal" ? (
         <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} />
       ) : (
-        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} />
+        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} />
       )}
     </section>
   );
@@ -140,6 +142,7 @@ function RecordList({
   showStopped,
   onReviseNote,
   onDo,
+  onOpenImage,
 }: {
   patient: Patient;
   entries: HistoryEntry[];
@@ -148,6 +151,7 @@ function RecordList({
   showStopped: boolean;
   onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
   onDo?: (p: DoPayload) => void;
+  onOpenImage?: (entryId: string) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [kind, setKind] = useState("all");
@@ -239,7 +243,7 @@ function RecordList({
               ) : (
                 <ol className="space-y-2">
                   {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} />}</li>
+                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} />}</li>
                   ))}
                 </ol>
               )}
@@ -471,7 +475,7 @@ function labItems(codes: string[]): string[] {
   });
 }
 
-function OrderRow({ entry, today, onDo }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void }) {
+function OrderRow({ entry, today, onDo, onOpenImage }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void }) {
   const { main, detail } = orderLines(entry.order, today);
   const stopped = entry.status === "中止";
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -514,6 +518,11 @@ function OrderRow({ entry, today, onDo }: { entry: OrderEntry; today: CalendarDa
       </div>
       <div className={`nums ${stopped ? "line-through" : ""}`}>{main}</div>
       <div className="nums text-xs text-ink-soft">{detail}</div>
+      {entry.order.type === "imaging" && onOpenImage && !stopped && (
+        <button type="button" onClick={() => onOpenImage(entry.id)} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+          画像を開く（PACS）
+        </button>
+      )}
       {entry.order.type === "lab" && (
         <ul aria-label="検査の内訳" className="nums mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-ink-soft">
           {labItems(entry.order.codes).map((x, i) => (

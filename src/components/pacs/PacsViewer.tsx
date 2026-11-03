@@ -82,9 +82,10 @@ const noSubscribe = () => () => {};
  * 放射線画像のビューア（PACS ビューアの試作）。画像はすべてコードで作った架空の合成画像。
  * AI は使わない。所見を書いたり異常を判定したりせず、計測はコードで計算して式を出すだけ。
  */
-export function PacsViewer({ patient, today, studies }: { patient: Patient; today: CalendarDate; studies: ImagingStudy[] }) {
+export function PacsViewer({ patient, today, studies, focus }: { patient: Patient; today: CalendarDate; studies: ImagingStudy[]; focus?: string }) {
   const pacsList = useMemo(() => buildPacsStudies(patient, studies), [patient, studies]);
-  const [panes, setPanes] = useState<Pane[]>(() => [paneFor(pacsList.find((s) => s.series.length > 0) ?? pacsList[0])]);
+  // Opened from an imaging order on the left: that study first.
+  const [panes, setPanes] = useState<Pane[]>(() => [paneFor(pacsList.find((s) => s.study.id === focus && s.series.length > 0) ?? pacsList.find((s) => s.series.length > 0) ?? pacsList[0])]);
   const [active, setActive] = useState(0);
   const [tool, setTool] = useState<Tool>("window");
   const [measures, setMeasures] = useState<Record<string, Measurement[]>>({});
