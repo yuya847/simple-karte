@@ -25,13 +25,10 @@ export interface Revisit {
  * (allergy, the day's maximum…); the doctor answers what is asked and confirms. Next visit: day,
  * time and what it is for, chosen by the doctor.
  */
-export function OpdOrders({ allergies, nowTime, newId, fmtDay, rx, revisit, onRx, onRevisit, memory }: { allergies: string[]; nowTime: string; newId: () => string; fmtDay: (d: number) => string; rx: OpdRx[]; revisit?: Revisit; onRx: (lines: string[]) => void; onRevisit: (r: Omit<Revisit, "by">) => void; memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string } }) {
+export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory }: { allergies: string[]; nowTime: string; newId: () => string; fmtDay: (d: number) => string; rx: OpdRx[]; onRx: (lines: string[]) => void; memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string } }) {
   const deny = useDeny()("order");
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [writing, setWriting] = useState(false);
-  const [day, setDay] = useState<number | null>(null);
-  const [time, setTime] = useState("");
-  const [purpose, setPurpose] = useState("");
   const ctx: CheckContext = { activeOrders: [], labOrders: [], drafts, nowTime, fmtDay, describe: (o) => o.id, allergies };
   const issues = drafts.map((d) => checkDraft(d, ctx));
   const ready = drafts.length > 0 && issues.every(isReady);
@@ -103,7 +100,18 @@ export function OpdOrders({ allergies, nowTime, newId, fmtDay, rx, revisit, onRx
           </button>
         )}
       </section>
+    </div>
+  );
+}
 
+/** 再診予約: when (1〜8週間後), the time and what for — chosen by the doctor. */
+export function RevisitPanel({ fmtDay, revisit, onRevisit }: { fmtDay: (d: number) => string; revisit?: Revisit; onRevisit: (r: Omit<Revisit, "by">) => void }) {
+  const deny = useDeny()("order");
+  const [day, setDay] = useState<number | null>(null);
+  const [time, setTime] = useState("");
+  const [purpose, setPurpose] = useState("");
+  return (
+    <div className="space-y-3">
       <section className="rounded-lg border border-rule bg-sheet p-3 text-[13px]">
         <h2 className="mb-2 text-xs font-bold text-ink-soft">再診予約</h2>
         {revisit ? (

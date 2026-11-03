@@ -25,7 +25,8 @@ import { PAST_INJ, injPatternsOf, injPreviousOf } from "@/lib/inj-memory";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
-import { OpdOrders, type OpdRx, type Revisit } from "./OpdOrders";
+import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders";
+import { CalendarPlus, Pill as PillIcon } from "lucide-react";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
 import { StickyStrip, type Sticky } from "./StickyStrip";
@@ -985,31 +986,53 @@ export default function WardApp() {
             else setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st as OpdStatus } : x)));
           }}
           newId={newId}
-          opdOrders={(() => {
+          extraTools={(() => {
             const v = visitOf(visitKey)!;
-            if (v.kind !== "opd") return null;
+            if (v.kind !== "opd") return [];
             const op = v.op;
-            return (
-              <OpdOrders
-                allergies={op.allergies}
-                memory={{ patterns: patternsOf(PAST_RX), previous: [], me: me.name }}
-                nowTime={nowTime}
-                newId={newId}
-                fmtDay={(d) => formatShort(addDays(today, d))}
-                rx={opdRx[op.id] ?? []}
-                revisit={revisits[op.id]}
-                onRx={(lines) => {
-                  auditLog({ role: me.role, actor: me.name, action: "確定（外来処方・院外処方せん）", patient: op.name, detail: lines.join("／").slice(0, 160) });
-                  setOpdRx((all) => ({ ...all, [op.id]: [...(all[op.id] ?? []), { lines, by: me.name, at: nowTime }] }));
-                  setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text: `処方（院外）：\n${lines.join("\n")}`, at: nowTime, by: me.name }] }));
-                }}
-                onRevisit={(r) => {
-                  auditLog({ role: me.role, actor: me.name, action: "確定（再診予約）", patient: op.name, detail: `${formatShort(addDays(today, r.day))} ${r.time} ${r.purpose}` });
-                  setRevisits((all) => ({ ...all, [op.id]: { ...r, by: me.name } }));
-                  setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text: `次回：${formatShort(addDays(today, r.day))} ${r.time}（${r.purpose}）`, at: nowTime, by: me.name }] }));
-                }}
-              />
-            );
+            const fmt = (d: number) => formatShort(addDays(today, d));
+            const rxDone = opdRx[op.id] ?? [];
+            const rv = revisits[op.id];
+            return [
+              {
+                key: "rx",
+                label: "外来処方",
+                icon: PillIcon,
+                summary: rxDone.length ? rxDone.flatMap((r) => r.lines).map((l) => <div key={l} className="text-[12px]">{l}</div>) : undefined,
+                panel: (
+                  <OpdRxPanel
+                    allergies={op.allergies}
+                    memory={{ patterns: patternsOf(PAST_RX), previous: [], me: me.name }}
+                    nowTime={nowTime}
+                    newId={newId}
+                    fmtDay={fmt}
+                    rx={rxDone}
+                    onRx={(lines) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（外来処方・院外処方せん）", patient: op.name, detail: lines.join("／").slice(0, 160) });
+                      setOpdRx((all) => ({ ...all, [op.id]: [...(all[op.id] ?? []), { lines, by: me.name, at: nowTime }] }));
+                      setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text: `処方（院外）：\n${lines.join("\n")}`, at: nowTime, by: me.name }] }));
+                    }}
+                  />
+                ),
+              },
+              {
+                key: "revisit",
+                label: "再診予約",
+                icon: CalendarPlus,
+                summary: rv ? <p className="nums text-[12px]">{fmt(rv.day)} {rv.time}　{rv.purpose}（{rv.by}）</p> : undefined,
+                panel: (
+                  <RevisitPanel
+                    fmtDay={fmt}
+                    revisit={rv}
+                    onRevisit={(r) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（再診予約）", patient: op.name, detail: `${fmt(r.day)} ${r.time} ${r.purpose}` });
+                      setRevisits((all) => ({ ...all, [op.id]: { ...r, by: me.name } }));
+                      setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text: `次回：${fmt(r.day)} ${r.time}（${r.purpose}）`, at: nowTime, by: me.name }] }));
+                    }}
+                  />
+                ),
+              },
+            ];
           })()}
         />
       ) : screen === "journal" ? (

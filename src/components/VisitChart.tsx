@@ -1,6 +1,6 @@
 "use client";
 
-import { BedDouble, FileText } from "lucide-react";
+import { BedDouble, X } from "lucide-react";
 import { useState } from "react";
 import { REQUEST_WARDS, requestProblems, type AdmissionRequest } from "@/lib/admission";
 import { JTAS_LABEL, type ErPatient, type ErStatus } from "@/lib/er";
@@ -29,8 +29,8 @@ interface Props {
   onOpenChart: (patientId: string) => void;
   onStatus: (s: string) => void;
   newId: () => string;
-  /** 外来処方・再診予約 (外来 only). */
-  opdOrders?: React.ReactNode;
+  /** More order tools on the right (外来処方・再診予約 …), each with a short summary for the main area. */
+  extraTools?: { key: string; label: string; icon: typeof BedDouble; panel: React.ReactNode; summary?: React.ReactNode }[];
 }
 
 const ER_STATUSES: ErStatus[] = ["診察待ち", "診察中", "入院依頼", "帰宅"];
@@ -39,15 +39,78 @@ const ER_STATUSES: ErStatus[] = ["診察待ち", "診察中", "入院依頼", "�
  * The tab of one patient in 救急外来 or 外来: what is known of the visit, today's record, and the
  * 入院申込 (the ward takes it and decides the bed). The doctor writes; nothing is chosen for them.
  */
-export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onRequest, onCancelRequest, onOpenChart, onStatus, newId, opdOrders }: Props) {
+export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onRequest, onCancelRequest, onOpenChart, onStatus, newId, extraTools = [] }: Props) {
   const me = useMe();
   const p = visit.kind === "er" ? visit.er : visit.op;
   const [text, setText] = useState("");
-  const [writing, setWriting] = useState(false);
+  // The order tool open on the right (入院申込, 外来処方, 再診予約), like the tools of a ward chart.
+  const [tool, setTool] = useState<string | null>(null);
   const admittedAs = request?.admittedAs ?? (visit.kind === "er" ? visit.er.admittedAs : undefined);
   const status = visit.kind === "er" ? visit.er.status : visit.op.status;
 
+  const requestStatus = admittedAs ? (
+    <div className="space-y-2">
+      <p className="font-bold text-wakatake">入院しました。</p>
+      <button type="button" onClick={() => onOpenChart(admittedAs)} className="rounded-md border border-ai px-3 py-1.5 font-bold text-ai hover:bg-ai-soft">
+        病棟のカルテを開く
+      </button>
+    </div>
+  ) : request && request.status === "申込" ? (
+    <div className="space-y-2">
+      <p className="font-bold text-yamabuki">申込済み・病棟でベッドを決めるのを待っています</p>
+      <dl className="grid grid-cols-[6rem_1fr] gap-y-1 text-[12px]">
+        <dt className="text-ink-faint">区分・予定</dt>
+        <dd className="nums">
+          {request.urgency}　{fmtDay(request.when.day)} {request.when.time ?? "（時刻は病棟と調整）"}
+        </dd>
+        <dt className="text-ink-faint">病棟・部屋</dt>
+        <dd>
+          {request.ward}・{request.roomWish}
+        </dd>
+        <dt className="text-ink-faint">病名・目的</dt>
+        <dd>
+          {request.diagnosis}・{request.purpose}
+        </dd>
+        <dt className="text-ink-faint">安静度・感染</dt>
+        <dd>
+          {request.rest}・{request.isolation}
+        </dd>
+        <dt className="text-ink-faint">申込</dt>
+        <dd className="nums">
+          {request.at.time}　{request.by}
+        </dd>
+      </dl>
+      <button type="button" onClick={() => onCancelRequest(request.id)} className="text-[12px] text-ink-faint hover:text-shu">
+        申込を取り消す
+      </button>
+    </div>
+  ) : null;
+  const tools = [
+    {
+      key: "admit",
+      label: "入院申込",
+      icon: BedDouble,
+      panel:
+        requestStatus ??
+        <RequestForm
+          visit={visit}
+          me={me.name}
+          nowTime={nowTime}
+          newId={newId}
+          onCancel={() => setTool(null)}
+          onSend={(r) => {
+            onRequest(r);
+            setTool(null);
+          }}
+        />,
+      summary: requestStatus,
+    },
+    ...extraTools,
+  ];
+  const open = tools.find((t) => t.key === tool);
+
   return (
+    <div className="flex min-h-0 flex-1">
     <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper">
       <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-rule bg-sheet px-5 py-3">
         <div>
@@ -123,65 +186,46 @@ export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onR
         </div>
 
         <div className="space-y-4">
-        {opdOrders}
-        <section className="h-fit rounded-lg border border-rule bg-sheet p-3 text-[13px]">
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-ink-soft">
-            <BedDouble size={14} />
-            入院申込
-          </h2>
-          {admittedAs ? (
-            <div className="space-y-2">
-              <p className="font-bold text-wakatake">入院しました。</p>
-              <button type="button" onClick={() => onOpenChart(admittedAs)} className="rounded-md border border-ai px-3 py-1.5 font-bold text-ai hover:bg-ai-soft">
-                病棟のカルテを開く
-              </button>
-            </div>
-          ) : request && request.status === "申込" ? (
-            <div className="space-y-2">
-              <p className="font-bold text-yamabuki">申込済み・病棟でベッドを決めるのを待っています</p>
-              <dl className="grid grid-cols-[6rem_1fr] gap-y-1 text-[12px]">
-                <dt className="text-ink-faint">区分・予定</dt>
-                <dd className="nums">
-                  {request.urgency}　{fmtDay(request.when.day)} {request.when.time ?? "（時刻は病棟と調整）"}
-                </dd>
-                <dt className="text-ink-faint">病棟・部屋</dt>
-                <dd>
-                  {request.ward}・{request.roomWish}
-                </dd>
-                <dt className="text-ink-faint">病名・目的</dt>
-                <dd>
-                  {request.diagnosis}・{request.purpose}
-                </dd>
-                <dt className="text-ink-faint">安静度・感染</dt>
-                <dd>
-                  {request.rest}・{request.isolation}
-                </dd>
-                <dt className="text-ink-faint">申込</dt>
-                <dd className="nums">
-                  {request.at.time}　{request.by}
-                </dd>
-              </dl>
-              <button type="button" onClick={() => onCancelRequest(request.id)} className="text-[12px] text-ink-faint hover:text-shu">
-                申込を取り消す
-              </button>
-            </div>
-          ) : writing ? (
-            <RequestForm visit={visit} me={me.name} nowTime={nowTime} newId={newId} onCancel={() => setWriting(false)} onSend={(r) => {
-                onRequest(r);
-                setWriting(false);
-              }} />
-          ) : (
-            <div className="space-y-2">
-              <p className="text-[12px] text-ink-soft">入院が要るときは、入院申込を出します。病棟がベッドを決めると入院になり、病棟のカルテができます。</p>
-              <button type="button" onClick={() => setWriting(true)} className="flex items-center gap-1.5 rounded-md bg-ai px-4 py-2 text-sm font-bold text-white">
-                <FileText size={15} />
-                入院申込を書く
-              </button>
-            </div>
-          )}
-        </section>
+          {tools.filter((t) => t.summary).map((t) => (
+            <section key={t.key} className="rounded-lg border border-rule bg-sheet p-3 text-[13px]">
+              <h2 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-ink-soft">
+                <t.icon size={14} />
+                {t.label}
+              </h2>
+              {t.summary}
+            </section>
+          ))}
+          {!tools.some((t) => t.summary) && <p className="text-[12px] text-ink-faint">入院申込・処方・再診予約などは、右端のオーダの列から出します。</p>}
         </div>
       </div>
+    </div>
+    {open && (
+      <aside aria-label={open.label} className="scroll-thin min-h-0 w-[min(32rem,48vw)] shrink-0 overflow-y-auto border-l border-rule bg-sheet p-3 text-[13px]">
+        <div className="mb-2 flex items-center gap-2">
+          <open.icon size={16} className="text-ai" />
+          <h2 className="font-bold">{open.label}</h2>
+          <button type="button" onClick={() => setTool(null)} aria-label="閉じる" className="ml-auto rounded p-1 text-ink-faint hover:text-ink">
+            <X size={16} />
+          </button>
+        </div>
+        {open.panel}
+      </aside>
+    )}
+    <nav aria-label="オーダ" className="scroll-thin flex w-16 shrink-0 flex-col items-stretch gap-1 overflow-y-auto border-l border-rule bg-paper px-1 py-2">
+      <div className="mb-1 text-center text-[10px] text-ink-faint">オーダ</div>
+      {tools.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          aria-pressed={tool === t.key}
+          onClick={() => setTool(tool === t.key ? null : t.key)}
+          className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight pointer-coarse:py-2.5 ${tool === t.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}
+        >
+          <t.icon size={18} />
+          {t.label}
+        </button>
+      ))}
+    </nav>
     </div>
   );
 }
