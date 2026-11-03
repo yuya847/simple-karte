@@ -4,13 +4,13 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
 import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
-import type { InjectionOrder, InjectionRoute, InjectionSchedule } from "@/lib/types";
+import type { HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
-import { PROCEDURES, findProcDrug } from "@/lib/procedures";
+import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, findProc, findProcDrug, hdUfRate, procScheduleText } from "@/lib/procedures";
 
 const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
   { label: "1回だけ", value: { kind: "once" } },
@@ -219,11 +219,11 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: D
       return next < 0 ? [...out, newInjRp()] : out;
     });
     const at = next < 0 ? rps.length : next;
-    requestAnimationFrame(() => keys.root.current?.querySelector<HTMLInputElement>(`[data-rp="${at}"] input[role=combobox]`)?.focus());
+    requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${at}"] input[role=combobox]`)?.focus());
   };
   const reopen = (i: number) => {
     setRps((r) => r.map((x, j) => (j === i ? { ...x, done: false } : x)));
-    requestAnimationFrame(() => keys.root.current?.querySelector<HTMLElement>(`[data-rp="${i}"] [role=radio][tabindex="0"]`)?.focus());
+    requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLElement>(`[data-rp="${i}"] [role=radio][tabindex="0"]`)?.focus());
   };
   // Moving into another Rp decides the finished ones (they fold to one line).
   const foldOthers = (i: number) =>
@@ -263,11 +263,11 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: D
     onAdd(ready.map(toDraft));
     setRps([newInjRp(), newInjRp()]);
   };
-  const keys = usePanelKeys(submit);
+  const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
 
   const field = "rounded border border-rule bg-paper px-1 py-0.5 outline-none focus:border-ai";
   return (
-    <div ref={keys.root} onKeyDown={keys.onKeyDown} className="space-y-3 text-[13px]">
+    <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
       <p className="text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ。選び終えたら「決める」（コメントの欄で Enter）で1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。量を空にして Backspace でその薬を外します。</p>
 
@@ -729,10 +729,10 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
     onAdd(ready.map(toDraft));
     setRps([newRp(), newRp()]);
   };
-  const keys = usePanelKeys(submit);
+  const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
   const field = "rounded border border-rule bg-paper px-1 py-0.5 outline-none focus:border-ai";
   return (
-    <div ref={keys.root} onKeyDown={keys.onKeyDown} className="space-y-3 text-[13px]">
+    <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="prescription" />
       <div className="flex items-start gap-2">
         <p className="flex-1 text-[11px] text-ink-faint">「1回1錠　1日3回　毎食後」の順に入れます。キーボードだけで：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、回数・用法・定期臨時は ← → で選ぶ、⌘Enter（Ctrl+Enter）で下書きにする。1回量を空にして Backspace でその薬を外します。</p>
@@ -965,6 +965,181 @@ export function AddPhysioPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; ne
       >
         下書きにする
       </button>
+    </div>
+  );
+}
+
+/**
+ * 透析指示: the conditions of a hemodialysis on the ward, chosen item by item (nothing preselected).
+ * The ultrafiltration rate is worked out in code from the amount, the time and the chart's weight, and
+ * set against the guideline's mark. It becomes a 処置 draft (血液透析) checked like any other.
+ */
+export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft) => void; newId: () => string; weightKg?: number }) {
+  const master = findProc("PROC-HD")!;
+  const [f, setF] = useState({
+    purpose: null as HdOrder["purpose"] | null,
+    method: null as HdOrder["method"] | null,
+    startDay: 0,
+    startTime: "",
+    sched: null as number | null,
+    days: "",
+    minutes: null as number | null,
+    qb: null as number | null,
+    membrane: null as number | null,
+    drug: null as HdOrder["anticoag"]["drug"] | null,
+    initial: "",
+    hourly: "",
+    uf: "",
+    dw: "",
+    access: null as string | null,
+    comment: "",
+  });
+  const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }));
+  const ac = f.drug ? HD_ANTICOAG[f.drug] : null;
+  const missing = [
+    !f.purpose && "区分",
+    !f.method && "方法",
+    f.sched === null && "回数",
+    !f.minutes && "時間",
+    !f.qb && "血流量",
+    !f.membrane && "膜面積",
+    !f.drug && "抗凝固薬",
+    !!ac?.initial && f.initial.trim() === "" && "初回量",
+    !!ac?.hourly && f.hourly.trim() === "" && "持続量",
+    f.uf.trim() === "" && "除水量",
+    !f.access && "アクセス",
+  ].filter((x): x is string => !!x);
+  const uf = Number(f.uf);
+  const rate = f.minutes && uf > 0 && weightKg ? hdUfRate(uf, f.minutes, weightKg) : null;
+  const submit = () => {
+    if (missing.length) return;
+    const hd: HdOrder = {
+      purpose: f.purpose!,
+      method: f.method!,
+      minutes: f.minutes!,
+      qb: f.qb!,
+      membrane: f.membrane!,
+      anticoag: { drug: f.drug!, initial: ac?.initial ? Number(f.initial) : null, hourly: ac?.hourly ? Number(f.hourly) : null },
+      uf,
+      dw: f.dw.trim() ? Number(f.dw) : null,
+      access: f.access!,
+    };
+    onAdd({
+      ...newProcedureDraft("PROC-HD", newId()),
+      sourceText: "（透析の欄から）",
+      hd,
+      schedule: master.schedules[f.sched!],
+      start: { day: f.startDay, time: f.startTime || null },
+      days: Number(f.days) > 0 ? Number(f.days) : null,
+      comment: f.comment.trim() || null,
+    });
+  };
+  const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
+  const field = "rounded border border-rule bg-paper px-1 py-0.5 outline-none focus:border-ai";
+  const row = (label: string, children: React.ReactNode) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-20 shrink-0 text-ink-soft">{label}</span>
+      {children}
+    </div>
+  );
+  return (
+    <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[12px]">
+      <p className="text-[11px] text-ink-faint">項目は医師が選びます（最初から選ばれているものはありません）。← → で選び、Tab で次の項目へ、⌘Enter（Ctrl+Enter）で下書きにします。</p>
+      {row("区分", <TabChoice label="透析の区分" options={HD_PURPOSES.map((x) => ({ value: x, label: x }))} value={f.purpose} onChange={(v) => set({ purpose: v })} />)}
+      {row("方法", <TabChoice label="透析の方法" options={HD_METHODS.map((x) => ({ value: x, label: x }))} value={f.method} onChange={(v) => set({ method: v })} />)}
+      {row(
+        "日時",
+        <>
+          <TabChoice
+            label="透析の日"
+            options={[
+              { value: 0, label: "今日" },
+              { value: 1, label: "明日" },
+            ]}
+            value={f.startDay}
+            onChange={(v) => set({ startDay: v })}
+          />
+          <input type="time" value={f.startTime} onChange={(e) => set({ startTime: e.target.value })} aria-label="透析の開始時刻" className={field} />
+          <span className="text-[11px] text-ink-faint">空なら透析室と調整</span>
+        </>,
+      )}
+      {row(
+        "回数",
+        <>
+          <TabChoice label="透析の回数" options={master.schedules.map((x, i) => ({ value: i, label: procScheduleText(x) }))} value={f.sched} onChange={(v) => set({ sched: v })} />
+          {f.sched !== null && master.schedules[f.sched].kind !== "once" && (
+            <>
+              <input value={f.days} onChange={(e) => set({ days: e.target.value })} inputMode="numeric" placeholder="—" aria-label="透析の日数" className={`${field} w-10 text-right`} />
+              日間
+            </>
+          )}
+        </>,
+      )}
+      {row("時間", <TabChoice label="透析の時間" options={HD_MINUTES.map((m) => ({ value: m, label: `${m / 60}時間` }))} value={f.minutes} onChange={(v) => set({ minutes: v })} />)}
+      {row(
+        "血流量",
+        <>
+          <TabChoice label="血流量" options={HD_QB.map((q) => ({ value: q, label: String(q) }))} value={f.qb} onChange={(v) => set({ qb: v })} />
+          mL/分
+        </>,
+      )}
+      {row(
+        "膜面積",
+        <>
+          <TabChoice label="ダイアライザの膜面積" options={HD_MEMBRANES.map((m) => ({ value: m, label: m.toFixed(1) }))} value={f.membrane} onChange={(v) => set({ membrane: v })} />
+          m²
+        </>,
+      )}
+      {row("抗凝固薬", <TabChoice label="抗凝固薬" options={(["ヘパリン", "ナファモスタット", "なし"] as const).map((x) => ({ value: x, label: x }))} value={f.drug} onChange={(v) => set({ drug: v, initial: "", hourly: "" })} />)}
+      {ac?.initial &&
+        row(
+          "　初回",
+          <>
+            <input value={f.initial} onChange={(e) => set({ initial: e.target.value })} inputMode="numeric" aria-label="抗凝固薬の初回量" className={`${field} w-16 text-right`} />
+            {ac.initial.unit}
+            <TabChoice label="よく使う初回量" options={ac.initial.choices.map((n) => ({ value: n, label: n.toLocaleString("ja-JP") }))} value={f.initial === "" ? null : Number(f.initial)} onChange={(v) => set({ initial: String(v) })} />
+          </>,
+        )}
+      {ac?.hourly &&
+        row(
+          "　持続",
+          <>
+            <input value={f.hourly} onChange={(e) => set({ hourly: e.target.value })} inputMode="numeric" aria-label="抗凝固薬の持続量" className={`${field} w-16 text-right`} />
+            {ac.hourly.unit}
+            <TabChoice label="よく使う持続量" options={ac.hourly.choices.map((n) => ({ value: n, label: n.toLocaleString("ja-JP") }))} value={f.hourly === "" ? null : Number(f.hourly)} onChange={(v) => set({ hourly: String(v) })} />
+          </>,
+        )}
+      {row(
+        "除水量",
+        <>
+          <input value={f.uf} onChange={(e) => set({ uf: e.target.value })} inputMode="decimal" aria-label="除水量（L）" className={`${field} w-14 text-right`} />
+          L
+          <TabChoice label="よく使う除水量" options={HD_UF.map((n) => ({ value: n, label: String(n) }))} value={f.uf === "" ? null : Number(f.uf)} onChange={(v) => set({ uf: String(v) })} />
+        </>,
+      )}
+      {rate ? (
+        <p className={`nums pl-[5.5rem] text-[11px] ${rate.rate > HD_UF_RATE.max ? "font-bold text-shu" : "text-ai"}`}>
+          除水速度 {rate.formula}（コードで計算。体重はカルテの値）{rate.rate > HD_UF_RATE.max ? `　目安の ${HD_UF_RATE.max}mL/kg/時 を超えます` : ""}
+        </p>
+      ) : uf > 0 && !weightKg ? (
+        <p className="pl-[5.5rem] text-[11px] text-ink-faint">体重がカルテにないため、除水速度は計算しません。</p>
+      ) : null}
+      {row(
+        "DW",
+        <>
+          <input value={f.dw} onChange={(e) => set({ dw: e.target.value })} inputMode="decimal" placeholder="任意" aria-label="ドライウェイト（kg）" className={`${field} w-16 text-right`} />
+          kg
+        </>,
+      )}
+      {row("アクセス", <TabChoice label="バスキュラーアクセス" options={HD_ACCESS.map((x) => ({ value: x, label: x }))} value={f.access} onChange={(v) => set({ access: v })} />)}
+      <input value={f.comment} onChange={(e) => set({ comment: e.target.value })} placeholder="コメント（任意：補液、透析中の採血、輸血など）" aria-label="透析のコメント" className={`${field} w-full`} />
+      <div className="sticky bottom-0 border-t border-rule bg-sheet pt-3">
+        <button type="button" disabled={missing.length > 0} onClick={submit} title="⌘Enter（Ctrl+Enter）でも押せます" className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+          下書きにする<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
+        </button>
+        {missing.length > 0 && <p className="mt-1 text-[12px] text-yamabuki">未選択：{missing.join("・")}</p>}
+      </div>
+      <p className="text-[11px] text-ink-faint">除水速度の目安：{HD_UF_RATE.source}（維持透析の目安。病棟の透析では参考として出します）。確定すると処置カレンダー・ワークシート・透析室の「病棟からの透析指示」に出ます。</p>
     </div>
   );
 }

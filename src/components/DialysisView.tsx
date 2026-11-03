@@ -7,6 +7,16 @@ import { applyHdChange, hdDiff, hdFee, runsOn, ufPlan, type Course, type HdChang
 import { isHoliday } from "@/lib/er";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { ageSex } from "@/lib/person";
+import { hdText, procScheduleText } from "@/lib/procedures";
+import type { OrderEntry, ProcedureOrder } from "@/lib/types";
+
+/** An HD order written on a ward chart (透析指示), shown to the dialysis unit. */
+export interface WardHdOrder {
+  patientId: string;
+  name: string;
+  room: string;
+  entry: OrderEntry;
+}
 
 interface Props {
   today: CalendarDate;
@@ -15,6 +25,9 @@ interface Props {
   sessions: Record<string, HdSession>;
   onPatient: (p: HdPatient) => void;
   onSession: (id: string, s: HdSession) => void;
+  /** 透析指示 from the ward charts. */
+  wardOrders?: WardHdOrder[];
+  onOpenChart?: (patientId: string) => void;
 }
 
 const DOCTOR = "山本（専攻医）";
@@ -22,7 +35,7 @@ const card = "rounded-lg border border-rule bg-sheet";
 const input = "w-24 rounded border border-rule bg-paper px-2 py-1 text-[13px] outline-none focus:border-ai";
 
 /** 透析室: today's schedule, each patient's conditions, and today's session with the arithmetic in code. */
-export function DialysisView({ today, nowTime, patients, sessions, onPatient, onSession }: Props) {
+export function DialysisView({ today, nowTime, patients, sessions, onPatient, onSession, wardOrders = [], onOpenChart }: Props) {
   const dow = new Date(Date.UTC(today.y, today.m - 1, today.d)).getUTCDay();
   const holiday = dow === 0 || isHoliday(today.y, today.m, today.d);
   const todays = patients.filter((p) => runsOn(p, dow));
@@ -50,6 +63,38 @@ export function DialysisView({ today, nowTime, patients, sessions, onPatient, on
           {formatShort(today)}（{["日", "月", "火", "水", "木", "金", "土"][dow]}曜{holiday ? "・休日" : ""}）　{todays.length}人
         </span>
       </div>
+      {wardOrders.length > 0 && (
+        <section aria-label="病棟からの透析指示" className="border-b border-rule bg-ai-soft/30 px-5 py-2">
+          <h2 className="mb-1 text-[12px] font-bold text-ai">病棟からの透析指示（{wardOrders.length}件）</h2>
+          <ul className="space-y-1 text-[12px]">
+            {wardOrders.map((w) => {
+              const o = w.entry.order as ProcedureOrder;
+              return (
+                <li key={w.entry.id} className="nums flex flex-wrap items-baseline gap-x-2">
+                  <b>{w.name}</b>
+                  <span className="text-ink-faint">{w.room}</span>
+                  {o.hd && (
+                    <span className="font-bold">
+                      {o.hd.method}（{o.hd.purpose}）
+                    </span>
+                  )}
+                  {o.hd && <span>{hdText(o.hd)}</span>}
+                  <span className="text-ink-soft">
+                    {procScheduleText(o.schedule)}　{formatShort(addDays(today, o.start.day))} {o.start.time ?? "（時刻は透析室と調整）"}
+                    {o.days ? `　${o.days}日間` : ""}
+                    {o.comment ? `　${o.comment}` : ""}　指示 {w.entry.author}
+                  </span>
+                  {onOpenChart && (
+                    <button type="button" onClick={() => onOpenChart(w.patientId)} className="text-ai hover:underline">
+                      カルテを開く
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <aside className="scroll-thin min-h-0 overflow-auto border-r border-rule bg-paper p-3">
           {(["午前", "午後"] as Course[]).map((c) => (

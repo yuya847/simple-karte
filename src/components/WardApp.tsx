@@ -63,7 +63,7 @@ import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "
 import { b008Check, ordersFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
-import { AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
+import { AddDialysisPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
@@ -741,7 +741,7 @@ export default function WardApp() {
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
-    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock } : {}),
+    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
@@ -918,6 +918,12 @@ export default function WardApp() {
             setHdPatients((list) => list.map((x) => (x.id === p.id ? p : x)));
           }}
           onSession={(id, s) => setHdSessions((all) => ({ ...all, [id]: s }))}
+          wardOrders={people.flatMap((x) =>
+            x.entries
+              .filter((e) => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-HD")
+              .map((entry) => ({ patientId: x.patient.id, name: x.patient.name, room: x.room, entry })),
+          )}
+          onOpenChart={openPatient}
         />
       ) : screen === "pharmacy" ? (
         <PharmacyView
@@ -1425,6 +1431,11 @@ export default function WardApp() {
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "add-dialysis" && (
+                <Drawer title="透析指示" onClose={closePanel} locked={orderBlock}>
+                  <AddDialysisPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} weightKg={patient.weightKg} />
                 </Drawer>
               )}
               {panel === "add-lab" && (
