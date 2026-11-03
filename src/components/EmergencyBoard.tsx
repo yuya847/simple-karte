@@ -1,6 +1,7 @@
 "use client";
 
 import { Ambulance, BedDouble, PhoneCall, Plus, X } from "lucide-react";
+import { DenyNote, useDeny } from "./RoleContext";
 import { useState } from "react";
 import { bedProblem, formProblems, type AdmitForm } from "@/lib/admission";
 import type { CalendarDate } from "@/lib/dates";
@@ -426,6 +427,7 @@ function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number;
 }
 
 function AdmitDialog({ er, ward, onCancel, onAdmit }: { er: ErPatient; ward: WardState; onCancel: () => void; onAdmit: (f: AdmitForm) => void }) {
+  const denyAdmit = useDeny()("er.admit");
   const [f, setF] = useState<AdmitForm>({
     diagnosis: "",
     department: "総合診療科",
@@ -496,9 +498,10 @@ function AdmitDialog({ er, ward, onCancel, onAdmit }: { er: ErPatient; ward: War
 
       <div className="mt-4 flex items-center gap-3">
         {problems.length > 0 && <span className="text-[12px] text-yamabuki">{problems.join("・")}</span>}
+        <DenyNote action="er.admit" />
         <button
           type="button"
-          disabled={problems.length > 0}
+          disabled={problems.length > 0 || !!denyAdmit}
           onClick={() => onAdmit(f)}
           className="ml-auto rounded-md bg-ai px-5 py-2 text-sm font-bold text-white disabled:bg-ai/40"
         >

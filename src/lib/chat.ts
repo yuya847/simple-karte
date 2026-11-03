@@ -7,7 +7,9 @@
 
 import { useSyncExternalStore } from "react";
 
-export type ChatRole = "医師" | "看護師" | "薬剤師" | "臨床工学技士" | "医事課" | "管理者";
+import type { Role } from "./roles";
+
+export type ChatRole = Role | "臨床工学技士" | "管理者";
 
 export interface ChatMessage {
   id: string;

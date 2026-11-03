@@ -7,6 +7,7 @@ import type { TdmReport } from "@/lib/tdm";
 import { queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
 import type { CalendarDate } from "@/lib/dates";
 import type { OrderEntry } from "@/lib/types";
+import { DenyNote, useDeny } from "./RoleContext";
 
 interface Props {
   today: CalendarDate;
@@ -31,10 +32,13 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
   const [keepText, setKeepText] = useState<Record<string, string>>({});
   const [choices, setChoices] = useState<Record<string, BroughtRow[]>>({});
   const tdmNew = tdm.filter((r) => r.status === "医師へ報告");
+  const locked = !!useDeny()("order.sign");
   if (!open.length && !waitingStop.length && !pending.length && !tdmNew.length) return null;
 
   return (
     <div className="scroll-thin max-h-[45%] shrink-0 overflow-auto border-b border-yamabuki/50 bg-yamabuki-soft/60 px-4 py-2 text-[12px]">
+      <DenyNote action="order.sign" className="mb-1" />
+      <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0 [&_button:disabled]:opacity-40">
       {tdmNew.map((r) => (
         <div key={r.id} className="mb-2">
           <div className="flex items-center gap-1 font-bold text-yamabuki">
@@ -129,6 +133,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
           </div>
         );
       })}
+      </fieldset>
     </div>
   );
 }

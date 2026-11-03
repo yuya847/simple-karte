@@ -1,6 +1,7 @@
 "use client";
 
 import { Mic, Printer, Square } from "lucide-react";
+import { DenyNote, useDeny } from "../RoleContext";
 import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { HOSPITAL } from "@/lib/billing/facility";
@@ -42,7 +43,8 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const facts = collectFacts(patient, entries, diagnoses, today, d.dischargeDay);
   const checks = dischargeChecks(patient, entries, consentsPending);
-  const locked = d.status === "確定";
+  const deny = useDeny()("discharge");
+  const locked = d.status === "確定" || !!deny;
   const setSection = (k: SectionKey, v: string) => setD((x) => ({ ...x, sections: { ...x.sections, [k]: v } }));
 
   const place = async () => {
@@ -67,6 +69,7 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
   const doc = (print?: boolean) => (tab === "summary" ? <SummaryDoc d={d} patient={patient} facts={facts} directive={directive} today={today} print={print} /> : <LetterDoc d={d} patient={patient} facts={facts} today={today} doctor={doctor} print={print} />);
   return (
     <div className="space-y-3 text-[13px]">
+      <DenyNote action="discharge" />
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" className="flex rounded-md border border-rule p-0.5">
           {(
@@ -114,7 +117,7 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
             ))}
           </select>
         </label>
-        <span className={`rounded px-1.5 text-[11px] font-bold ${locked ? "bg-wakatake-soft text-wakatake" : "bg-yamabuki-soft text-yamabuki"}`}>{d.status}</span>
+        <span className={`rounded px-1.5 text-[11px] font-bold ${d.status === "確定" ? "bg-wakatake-soft text-wakatake" : "bg-yamabuki-soft text-yamabuki"}`}>{d.status}</span>
         <span className="text-[11px] text-ink-faint" title={SUMMARY_DEADLINE_SOURCE}>
           作成の期限：退院日の翌日から{SUMMARY_DEADLINE_DAYS}日以内（{formatShort(addDays(today, d.dischargeDay + SUMMARY_DEADLINE_DAYS))}まで。診療録管理体制加算１の要件）
         </span>
@@ -207,7 +210,7 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
         {tab === "letter" && (
           <button
             type="button"
-            disabled={!d.letter.to.trim() || !d.letter.purpose.trim() || !d.sections.course.trim()}
+            disabled={!!deny || !d.letter.to.trim() || !d.letter.purpose.trim() || !d.sections.course.trim()}
             title={!d.sections.course.trim() ? "退院時サマリーの経過を先に書いてください" : undefined}
             onClick={() => {
               const x: DischargeDraft = { ...d, letter: { ...d.letter, issuedAt: { day: 0, time: nowTime } } };

@@ -6,18 +6,15 @@ import { FIXED_CHANNELS, markCharted, markRead, patientChannel, postMessage, unr
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { useSpeech } from "@/lib/use-speech";
 import type { Patient } from "@/lib/types";
-
-/** Who is writing (the demo lets one person switch roles). */
-export const CHAT_IDENTITIES: { author: string; role: ChatRole }[] = [
-  { author: "山本（専攻医）", role: "医師" },
-  { author: "看護師（あなた）", role: "看護師" },
-  { author: "薬剤師 小林（架空）", role: "薬剤師" },
-];
+import { useMe } from "./RoleContext";
 
 const ROLE_STYLE: Record<ChatRole, string> = {
   医師: "bg-ai-soft text-ai",
   看護師: "bg-wakatake-soft text-wakatake",
   薬剤師: "bg-fuji-soft text-fuji",
+  臨床検査技師: "bg-fuji-soft text-fuji",
+  管理栄養士: "bg-yamabuki-soft text-yamabuki",
+  MSW: "bg-fuji-soft text-fuji",
   臨床工学技士: "bg-tab text-ink",
   医事課: "bg-tab text-ink",
   管理者: "bg-yamabuki-soft text-yamabuki",
@@ -38,7 +35,7 @@ interface ThreadProps {
 export function ChatThread({ channel, today, nowTime, onChart }: ThreadProps) {
   const state = useChat();
   const list = state.messages.filter((m) => m.channel === channel.id).sort((a, b) => a.at.day - b.at.day || a.at.time.localeCompare(b.at.time));
-  const [who, setWho] = useState(0);
+  const me = useMe();
   const [text, setText] = useState("");
   const [urgent, setUrgent] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -50,7 +47,7 @@ export function ChatThread({ channel, today, nowTime, onChart }: ThreadProps) {
   const send = () => {
     const t = text.trim();
     if (!t) return;
-    postMessage({ id: newId(), channel: channel.id, at: { day: 0, time: nowTime }, ...CHAT_IDENTITIES[who], text: t, urgent: urgent || undefined });
+    postMessage({ id: newId(), channel: channel.id, at: { day: 0, time: nowTime }, author: me.name, role: me.role, text: t, urgent: urgent || undefined });
     setText("");
     setUrgent(false);
   };
@@ -94,16 +91,10 @@ export function ChatThread({ channel, today, nowTime, onChart }: ThreadProps) {
       </div>
       <div className="border-t border-rule pt-2">
         <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] text-ink-soft">
-          <label className="flex items-center gap-1">
+          <span className="flex items-center gap-1" title="書く人は右上で選んだ職種です">
             <User size={12} />
-            <select value={who} onChange={(e) => setWho(Number(e.target.value))} className="rounded border border-rule bg-sheet px-1 py-0.5" aria-label="書く人">
-              {CHAT_IDENTITIES.map((x, i) => (
-                <option key={x.author} value={i}>
-                  {x.role}：{x.author}
-                </option>
-              ))}
-            </select>
-          </label>
+            {me.role}：{me.name}
+          </span>
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} className="accent-shu" />
             至急

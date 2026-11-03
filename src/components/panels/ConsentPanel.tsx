@@ -1,6 +1,7 @@
 "use client";
 
 import { FileSignature, Printer } from "lucide-react";
+import { DenyNote, useDeny } from "../RoleContext";
 import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -37,8 +38,10 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
   const [signing, setSigning] = useState(false);
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const r = records.find((x) => x.id === selected) ?? records[0];
+  const locked = !!useDeny()("consent");
   return (
     <div className="grid grid-cols-[200px_1fr] gap-4 text-[13px]">
+      <DenyNote action="consent" className="col-span-2" />
       <aside className="space-y-3">
         <ul className="space-y-1">
           {records.map((x) => (
@@ -52,7 +55,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
           ))}
           {records.length === 0 && <li className="text-ink-faint">同意書はまだありません。</li>}
         </ul>
-        <div>
+        <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0 disabled:opacity-50">
           <h3 className="mb-1 text-xs font-bold text-ink-soft">新しく作る</h3>
           {CONSENT_TEMPLATES.map((t) => (
             <button key={t.code} type="button" onClick={() => onCreate(t.code)} className="mb-1 flex w-full items-center gap-1 rounded border border-rule px-2 py-1 text-left hover:border-ai">
@@ -60,12 +63,14 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
               {t.short}
             </button>
           ))}
-        </div>
+        </fieldset>
         <p className="text-[10px] text-ink-faint">雛形の文は架空の病院のもので、AI は作りも書き換えもしません。患者の情報だけが入ります。署名は iPad などのタブレットに指かペンでもらうか、印刷した紙にもらいます。</p>
       </aside>
       {r ? (
         <div>
-          <Editor key={r.id} r={r} patient={patient} today={today} nowTime={nowTime} doctor={doctor} orders={orders} onUpdate={onUpdate} onSign={() => setSigning(true)} />
+          <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
+            <Editor key={r.id} r={r} patient={patient} today={today} nowTime={nowTime} doctor={doctor} orders={orders} onUpdate={onUpdate} onSign={() => setSigning(true)} />
+          </fieldset>
           {signing && (
             <ConsentSign
               record={r}

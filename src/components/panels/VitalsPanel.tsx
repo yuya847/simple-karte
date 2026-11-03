@@ -6,6 +6,7 @@ import { ACVPU_LABEL, news2, type Acvpu } from "@/lib/news2";
 import { useSpeech } from "@/lib/use-speech";
 import type { VitalSign } from "@/lib/types";
 import { CLAUDE, auditLog } from "@/lib/audit";
+import { useMe } from "../RoleContext";
 
 interface Props {
   nowTime: string;
@@ -21,6 +22,7 @@ const RISK_STYLE = { 低: "bg-wakatake-soft text-wakatake", "低〜中": "bg-yam
 
 /** Vital signs entry (typed or spoken). Claude copies the numbers; NEWS2 is code; the nurse confirms. */
 export function VitalsPanel({ nowTime, last, onSave }: Props) {
+  const me = useMe();
   const [f, setF] = useState<Form>(empty);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -121,7 +123,7 @@ export function VitalsPanel({ nowTime, last, onSave }: Props) {
         type="button"
         disabled={!filled}
         onClick={() => {
-          onSave({ day: 0, time: nowTime, ...v, by: "看護師（あなた）" });
+          onSave({ day: 0, time: nowTime, ...v, by: me.name });
           setF(empty);
           setText("");
         }}

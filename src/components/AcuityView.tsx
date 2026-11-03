@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { B_ITEMS, FICTIONAL_AMBULANCE_PER_YEAR, WARD_STANDARD, bFor, bNeeded, evaluateDay, responseCoefficient, type BKey, type BRecord, type DayEval } from "@/lib/acuity";
+import { STAFF } from "@/lib/roles";
 import { HOSPITAL } from "@/lib/billing/facility";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
@@ -126,7 +127,7 @@ export function AcuityView({ people, today, nowTime, records, ambulance, fasting
           e={cur}
           record={bFor(records, sel.pid, sel.day)}
           fasting={fasting(sel.pid, sel.day)}
-          onSave={(state, assist) => onSave({ patientId: sel.pid, day: sel.day, state, assist, by: "看護師（あなた）" })}
+          onSave={(state, assist) => onSave({ patientId: sel.pid, day: sel.day, state, assist, by: STAFF.看護師.name })}
         />
       )}
     </main>

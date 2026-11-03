@@ -4,6 +4,7 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { orderLines } from "@/lib/format";
 import { verbalDeadline, verbalOverdue, verbalUnsigned } from "@/lib/verbal";
 import type { OrderEntry } from "@/lib/types";
+import { DenyNote, useDeny } from "./RoleContext";
 
 interface Props {
   entries: OrderEntry[];
@@ -17,9 +18,11 @@ const clock = (m: number) => `${String(Math.floor((((m % 1440) + 1440) % 1440) /
 /** 口頭指示 waiting for the doctor's signature (shown in the chart). */
 export function VerbalInbox({ entries, today, nowAbs, onSign }: Props) {
   const list = verbalUnsigned(entries);
+  const locked = !!useDeny()("order.sign");
   if (list.length === 0) return null;
   return (
     <section className="border-b border-rule bg-yamabuki-soft/60 px-4 py-2 text-[12px]">
+      <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0 [&_button:disabled]:opacity-40">
       <div className="flex items-center gap-2">
         <b className="text-yamabuki">口頭指示の承認待ち {list.length}件</b>
         <span className="text-ink-soft">看護師が代わりに入力したオーダです。内容を確かめて承認してください。</span>
@@ -47,6 +50,8 @@ export function VerbalInbox({ entries, today, nowAbs, onSign }: Props) {
           );
         })}
       </ul>
+      </fieldset>
+      <DenyNote action="order.sign" className="mt-1" />
     </section>
   );
 }

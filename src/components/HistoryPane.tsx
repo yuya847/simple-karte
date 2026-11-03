@@ -138,6 +138,10 @@ const ROLE_STYLE: Record<NoteEntry["role"], string> = {
   医師: "text-ai",
   看護師: "text-wakatake",
   薬剤師: "text-yamabuki",
+  臨床検査技師: "text-fuji",
+  管理栄養士: "text-yamabuki",
+  MSW: "text-fuji",
+  医事課: "text-ink-soft",
   検査室: "text-fuji",
 };
 

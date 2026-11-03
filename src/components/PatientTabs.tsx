@@ -2,8 +2,11 @@
 
 import { PatientAvatar } from "./PatientAvatar";
 import Image from "next/image";
-import { Ambulance, Droplets, LayoutGrid, List, Pill, Plus, Printer, Scissors, Search, X, ScrollText, MessagesSquare, ClipboardCheck } from "lucide-react";
+import { Ambulance, Droplets, LayoutGrid, List, Pill, Plus, Printer, Scissors, Search, X, ScrollText, MessagesSquare, ClipboardCheck, ArrowRightLeft, ClipboardList, FlaskConical, UserRound } from "lucide-react";
 import type { Patient } from "@/lib/types";
+import { ROLES, ROLE_LONG, STAFF, TABS, type PinnedTab, type Role } from "@/lib/roles";
+
+export type { PinnedTab };
 
 interface Props {
   tabs: Patient[];
@@ -14,14 +17,19 @@ interface Props {
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onOpenPicker: () => void;
+  role: Role;
+  onRole: (r: Role) => void;
+  /** Small counts shown on a pinned tab (e.g. results not yet seen). */
+  badges?: Partial<Record<PinnedTab, number>>;
 }
-
-export type PinnedTab = "map" | "list" | "sheet" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit";
 
 const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
   { key: "map", label: "病棟マップ", icon: LayoutGrid },
   { key: "list", label: "患者一覧", icon: List },
   { key: "sheet", label: "ワークシート", icon: Printer },
+  { key: "handoff", label: "申し送り", icon: ArrowRightLeft },
+  { key: "admit", label: "入院時の評価", icon: ClipboardList },
+  { key: "lab", label: "検査室", icon: FlaskConical },
   { key: "er", label: "救急", icon: Ambulance },
   { key: "pharmacy", label: "薬剤部", icon: Pill },
   { key: "dialysis", label: "透析室", icon: Droplets },
@@ -32,14 +40,16 @@ const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
 ];
 
 /** Browser-style tabs: pinned ward views first, then one tab per open patient chart. */
-export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, onClose, onOpenPicker }: Props) {
+export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, onClose, onOpenPicker, role, onRole, badges = {} }: Props) {
+  const mine = TABS[role];
+  const shownTabs = PINNED.filter((t) => mine.includes(t.key)).sort((a, b) => mine.indexOf(a.key) - mine.indexOf(b.key));
   return (
     <div className="flex items-end gap-1 bg-tab px-2 pt-1.5 border-b border-rule">
       <div className="flex items-center pr-3 pb-2 pl-1">
         <Image src="/simple-karte-logo-small.svg" alt="SimpleKarte" width={114} height={20} priority />
       </div>
       <div role="tablist" aria-label="開いている患者" className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto scroll-thin">
-        {PINNED.map(({ key, label, icon: Icon }) => (
+        {shownTabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
@@ -54,6 +64,7 @@ export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, 
             <Icon size={15} />
             {/* On narrow screens the ward views show their icon only (the name is in the tooltip). */}
             <span className={pinned === key ? "" : "hidden xl:inline"}>{label}</span>
+            {!!badges[key] && <span className="nums rounded-full bg-shu px-1.5 text-[10px] font-bold leading-4 text-white">{badges[key]}</span>}
           </button>
         ))}
         {tabs.map((p) => {
@@ -115,6 +126,24 @@ export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, 
         患者を開く
         <kbd className="rounded border border-rule px-1 text-[10px]">⌘K</kbd>
       </button>
+      <label
+        className="mb-1.5 ml-1 flex items-center gap-1 rounded-md border border-rule bg-sheet px-2 py-1 text-xs"
+        title="デモなので、ログインの代わりに職種を選びます。職種ごとに最初の画面・タブ・確定できる操作が変わります。"
+      >
+        <UserRound size={13} className="text-ink-soft" />
+        <select
+          aria-label="職種（デモではログインの代わり）"
+          value={role}
+          onChange={(e) => onRole(e.target.value as Role)}
+          className="bg-transparent font-bold outline-none"
+        >
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LONG[r]}：{STAFF[r].name}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

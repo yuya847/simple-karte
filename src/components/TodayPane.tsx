@@ -8,6 +8,7 @@ import { isReady, type CheckContext, type Draft, type Issue } from "@/lib/drafts
 import type { Patient } from "@/lib/types";
 import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
+import { DenyNote } from "./RoleContext";
 
 export interface DraftMeta {
   model: string;
@@ -36,9 +37,8 @@ interface Props {
   onRemove: (id: string) => void;
   onRedo: (id: string) => void;
   onConfirm: () => void;
-  /** 口頭指示 mode: a nurse enters the doctor's spoken order. */
-  verbal?: boolean;
-  onVerbal?: (v: boolean) => void;
+  /** Who is writing orders: the doctor, a nurse taking a spoken order (口頭指示), or nobody (other roles). */
+  orderMode: "doctor" | "verbal" | "none";
 }
 
 /** Today's writing: the note on top, then the spoken/typed instructions and their order drafts. */
@@ -68,11 +68,16 @@ export function TodayPane(p: Props) {
           className="nums w-full resize-y rounded-md border border-rule bg-sheet px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-ai"
         />
 
-        <div className="rounded-lg border border-ai/30 bg-ai-soft/40 p-3">
-          <div className="mb-2 flex flex-wrap items-center gap-x-2 text-sm font-bold text-ai">
+        {p.orderMode === "none" ? (
+          <DenyNote action="order" className="rounded-lg border border-rule bg-paper px-3 py-2" />
+        ) : (
+        <div className={`rounded-lg border p-3 ${p.orderMode === "verbal" ? "border-yamabuki/40 bg-yamabuki-soft/40" : "border-ai/30 bg-ai-soft/40"}`}>
+          <div className={`mb-2 flex flex-wrap items-center gap-x-2 text-sm font-bold ${p.orderMode === "verbal" ? "text-yamabuki" : "text-ai"}`}>
             <Sparkles size={15} />
-            指示（話す・打つ）
-            <span className="text-xs font-normal text-ink-soft">→ Claude がオーダの下書きにします。決めるのは医師です。</span>
+            {p.orderMode === "verbal" ? "口頭指示を受けて入力（看護師）" : "指示（話す・打つ）"}
+            <span className="text-xs font-normal text-ink-soft">
+              {p.orderMode === "verbal" ? `→ 医師が言ったとおりに話すか打ちます。確定すると医師の承認待ちになります。${VERBAL_RULE}` : "→ Claude がオーダの下書きにします。決めるのは医師です。"}
+            </span>
           </div>
           <textarea
             ref={box}
@@ -124,6 +129,7 @@ export function TodayPane(p: Props) {
           </div>
           {p.error && <p className="mt-2 text-xs text-shu">{p.error}</p>}
         </div>
+        )}
 
         {p.drafts.length > 0 && (
           <div className="space-y-2">
@@ -160,20 +166,16 @@ export function TodayPane(p: Props) {
             `${readyCount}件すべて確定できます`
           )}
         </span>
-        {p.onVerbal && (
-          <label className="ml-auto flex cursor-pointer items-center gap-1 text-xs text-ink-soft" title={VERBAL_RULE}>
-            <input type="checkbox" className="accent-yamabuki" checked={!!p.verbal} onChange={(e) => p.onVerbal!(e.target.checked)} />
-            口頭指示（看護師が受けて入力）
-          </label>
-        )}
+        {p.orderMode !== "none" && (
         <button
           type="button"
           disabled={!canConfirm}
           onClick={p.onConfirm}
-          className={`${p.onVerbal ? "" : "ml-auto"} rounded-md px-6 py-2 text-sm font-bold text-white disabled:opacity-30 ${p.verbal ? "bg-yamabuki" : "bg-ink hover:bg-ink/90"}`}
+          className={`ml-auto rounded-md px-6 py-2 text-sm font-bold text-white disabled:opacity-30 ${p.orderMode === "verbal" ? "bg-yamabuki" : "bg-ink hover:bg-ink/90"}`}
         >
-          {p.verbal ? "口頭指示で" : ""}確定{p.drafts.length > 0 ? `（${p.drafts.length}件）` : ""}
+          {p.orderMode === "verbal" ? "口頭指示で" : ""}確定{p.drafts.length > 0 ? `（${p.drafts.length}件）` : ""}
         </button>
+        )}
       </div>
     </section>
   );

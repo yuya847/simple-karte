@@ -11,6 +11,7 @@ import { alreadyOrdered, auditItems, b008Check, matchOral, queryOpen, type Broug
 import type { DayOffset } from "@/lib/types";
 import { buildWorksheet, shiftWindow, timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { CLAUDE, auditLog } from "@/lib/audit";
+import { STAFF } from "@/lib/roles";
 
 export interface ShidoRecord {
   day: DayOffset;
@@ -46,7 +47,7 @@ const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
   { key: "tdm", label: "TDM", icon: Activity },
 ];
 
-const PHARMACIST = "薬剤師 小林";
+const PHARMACIST = STAFF.薬剤師.name;
 
 /** The pharmacy's ward work. Checks are code; Claude only reads the お薬手帳 lines; the doctor decides. */
 export function PharmacyView(p: Props) {

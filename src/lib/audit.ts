@@ -3,8 +3,9 @@
 // event to storage that cannot be changed afterwards (e.g. a write-once log on the server).
 
 import { useSyncExternalStore } from "react";
+import type { Role } from "./roles";
 
-export type AuditRole = "AI" | "医師" | "看護師" | "薬剤師" | "臨床工学技士" | "事務";
+export type AuditRole = "AI" | Role | "臨床工学技士" | "事務";
 
 export interface AuditEvent {
   seq: number;

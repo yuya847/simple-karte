@@ -2,6 +2,7 @@
 
 import type { AreaClass, O2Device, ProcSchedule, UlcerDepth } from "./procedures";
 import type { ImagingOrder, PhysioOrder } from "./exams";
+import type { Role } from "./roles";
 
 export type { ImagingOrder, PhysioOrder } from "./exams";
 
@@ -77,7 +78,7 @@ export interface NoteEntry {
   day: DayOffset;
   time: string; // "HH:MM"
   author: string;
-  role: "医師" | "看護師" | "薬剤師" | "検査室";
+  role: Role | "検査室";
   /** SOAP sections, or a single free-text body. */
   soap?: { s?: string; o?: string; a?: string; p?: string };
   text?: string;

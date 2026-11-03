@@ -1,10 +1,10 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Lock, X } from "lucide-react";
 import { useEffect } from "react";
 
 /** Panel that slides over the right side of the chart. The chart behind stays as it was. */
-export function Drawer({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+export function Drawer({ title, onClose, children, wide, locked }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; locked?: string | null }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -27,7 +27,21 @@ export function Drawer({ title, onClose, children, wide }: { title: string; onCl
           <X size={16} />
         </button>
       </div>
-      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+      {locked && (
+        <p className="flex items-center gap-1.5 border-b border-rule bg-paper px-4 py-1.5 text-xs text-ink-soft">
+          <Lock size={12} className="shrink-0" />
+          見るだけです。{locked}
+        </p>
+      )}
+      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-4">
+        {locked ? (
+          <fieldset disabled className="m-0 min-w-0 border-0 p-0">
+            {children}
+          </fieldset>
+        ) : (
+          children
+        )}
+      </div>
     </div>
   );
 }

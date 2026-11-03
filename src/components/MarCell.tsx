@@ -4,6 +4,7 @@ import { ScanLine } from "lucide-react";
 import { useState } from "react";
 import { NOT_DONE_REASONS, checkScan, labelFor, marKey, needsLabel, type AdminRecord, type MarState, type NotDoneReason } from "@/lib/mar";
 import type { WorkItem } from "@/lib/worksheet";
+import { useMe } from "./RoleContext";
 
 interface Props {
   item: WorkItem;
@@ -28,6 +29,7 @@ const STATE_STYLE: Record<MarState, string> = {
 
 /** The 実施 cell of the worksheet: read the wristband and label, then record 実施 or 未実施. */
 export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord }: Props) {
+  const me = useMe();
   const [open, setOpen] = useState(false);
   const [wb, setWb] = useState("");
   const [lb, setLb] = useState("");
@@ -47,7 +49,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
       at,
       status,
       doneAt: nowTime,
-      by: "看護師（あなた）",
+      by: me.name,
       reason: status === "未実施" ? (reason as NotDoneReason) : undefined,
       checked: { patient: result.patient === "ok", label: labelNeeded ? result.label === "ok" : null },
       offBy: status === "実施" ? result.offBy : undefined,
