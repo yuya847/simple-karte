@@ -94,7 +94,9 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
       {pending.map((r) => {
         const rows = choices[r.id] ?? r.rows;
         const set = (i: number, d: BroughtRow["decision"]) => setChoices((c) => ({ ...c, [r.id]: rows.map((x, j) => (j === i ? { ...x, decision: d } : x)) }));
-        const ready = rows.every((x) => x.decision && (x.decision === "中止" || x.match));
+        const setAmount = (i: number, v: string) => setChoices((c) => ({ ...c, [r.id]: rows.map((x, j) => (j === i ? { ...x, amount: v.trim() === "" || !(Number(v) > 0) ? null : Number(v) } : x)) }));
+        // To continue or switch a drug the doctor needs its 1回量 (the お薬手帳 may not say it).
+        const ready = rows.every((x) => x.decision && (x.decision === "中止" || (x.match && x.amount !== null)));
         return (
           <div key={r.id} className="mb-2">
             <div className="flex items-center gap-1 font-bold text-yamabuki">
@@ -109,6 +111,13 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
                     {x.unit} {x.timings.length ? x.timings.join("・") : `頓用 ${x.prn ?? ""}`}
                     {x.match ? <span className="text-ink-soft">（院内：{oralName(x.match)}）</span> : <span className="text-shu">（院内にない）</span>}
                   </span>
+                  {x.amount === null && x.decision && x.decision !== "中止" && (
+                    <label className="flex items-center gap-1 text-shu">
+                      1回量
+                      <input inputMode="decimal" onChange={(e) => setAmount(i, e.target.value)} aria-label={`${x.said} の1回量`} className="w-12 rounded border border-shu bg-paper px-1 text-right" />
+                      {x.unit}
+                    </label>
+                  )}
                   {DECISIONS.map((d) => {
                     const disabled = d !== "中止" && !x.match;
                     return (
@@ -127,7 +136,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
               ))}
             </ul>
             <button type="button" disabled={!ready} onClick={() => onDecide(r, rows)} className="mt-1.5 rounded bg-ai px-3 py-1 font-bold text-white disabled:opacity-40">
-              選んだとおりに指示を確定
+              選んだとおりに下書きにする
             </button>
             <span className="ml-2 text-ink-faint">開始は、それぞれの次の服用時刻（病棟の約束）からです。</span>
           </div>

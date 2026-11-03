@@ -48,7 +48,7 @@ function Board({ b }: { b: BedsideInfo }) {
       </div>
       {b.marks.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {b.marks.map((m, i) => (
+          {b.marks.filter((m, i) => b.marks.findIndex((x) => x.label === m.label) === i).map((m, i) => (
             <span key={`${m.label}-${i}`} className={`rounded-lg px-3 py-1.5 text-xl font-bold ${TONE[m.tone]}`}>
               {m.label}
             </span>
