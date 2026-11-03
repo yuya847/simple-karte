@@ -74,6 +74,7 @@ const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
   { key: "injection-cal", label: "注射カレンダー", icon: CalendarDays },
   { key: "rx-cal", label: "処方カレンダー", icon: CalendarRange },
   { key: "proc-cal", label: "処置カレンダー", icon: CalendarCheck },
+  { key: "diet-cal", label: "食事カレンダー", icon: Utensils },
 ];
 
 /** Fixed column of tools on the far right: order types, then things to look at. */
