@@ -24,7 +24,7 @@ interface Props {
   /** Every patient of the ward, for the month's receipt files. */
   wardPayload: () => PatientMonthPayload[];
   diets?: DietOrder[];
-  letters?: { day: number; to: string }[];
+  letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[];
 }
 
 type Tab = "claim" | "bill" | "receipt";
@@ -91,7 +91,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [] });
   useEffect(() => {
     const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string }[] };
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[] };
     const run = async () => {
       setLoading(true);
       setError(null);

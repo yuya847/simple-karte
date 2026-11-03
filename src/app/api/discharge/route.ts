@@ -13,6 +13,7 @@ const Request = z.object({ text: z.string().trim().min(1).max(3000) });
 
 const Wire = z.object({
   complaint: z.string().describe("主訴：医師が言った文をそのまま。なければ \"\""),
+  reason: z.string().describe("入院理由（なぜ入院したか）：医師が言った文をそのまま。なければ \"\""),
   present: z.string().describe("現病歴：医師が言った文をそのまま。なければ \"\""),
   course: z.string().describe("入院後の経過：医師が言った文をそのまま。なければ \"\""),
   status: z.string().describe("退院時の状態：医師が言った文をそのまま。なければ \"\""),
@@ -20,7 +21,7 @@ const Wire = z.object({
   unplaced: z.string().describe("どの欄か決められなかった文。なければ \"\""),
 });
 
-const SYSTEM = `You place a Japanese doctor's dictated discharge account into five sections. Rules:
+const SYSTEM = `You place a Japanese doctor's dictated discharge account into six sections. Rules:
 - Use only the doctor's own sentences. Do not add, infer, summarize, or change any fact, number, drug, date or judgment.
 - You may remove fillers (えー、あの) and fix obvious speech-recognition punctuation, nothing else.
 - Put each sentence in the one section it belongs to, in the order spoken. If unsure, put it in "unplaced".

@@ -122,7 +122,7 @@ export interface ClaimInput {
   /** Diet orders (when given, meals are counted from them). */
   diets?: DietOrder[];
   /** 診療情報提供書 issued (day offsets). */
-  letters?: { day: DayOffset; to: string }[];
+  letters?: { day: DayOffset; to: string; dischargeDay?: DayOffset; attach?: boolean }[];
 }
 
 export interface ClaimResult {

@@ -189,7 +189,22 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
       continue;
     }
     sentTo.add(key);
-    add({ day: l.day, shikibetsu: "13", parts: [{ lines: [si("180016110")], points: pts("180016110") }], basis: `B009 診療情報提供料（Ⅰ）（${key} へ。紹介先ごとに月1回）` });
+    const lines: ClaimLine[] = [si("180016110")];
+    let points = pts("180016110");
+    let basis = `B009 診療情報提供料（Ⅰ）（${key} へ。紹介先ごとに月1回）`;
+    // 注8: 退院の日の属する月又はその翌月に、退院後の治療計画・検査結果・画像情報などを添付して紹介した場合.
+    if (l.attach && l.dischargeDay !== undefined) {
+      const dm = cal(l.dischargeDay);
+      const lm = cal(l.day);
+      const months = lm.y * 12 + lm.m - (dm.y * 12 + dm.m);
+      if (months === 0 || months === 1) {
+        lines.push(si("113009470"));
+        points += pts("113009470");
+        basis += "＋注8 退院時診療状況添付加算（退院の月かその翌月、治療計画・検査結果・画像を添付）";
+        if (l.day < l.dischargeDay) issues.push({ level: "review", text: "退院時診療状況添付加算は退院する患者の紹介に付きます。退院日より前に発行しているので、退院が決まっているか確かめてください。" });
+      }
+    }
+    add({ day: l.day, shikibetsu: "13", parts: [{ lines, points }], basis });
   }
 
   // ===== 80 その他（評価料・物価対応料。1日につき1回）=====

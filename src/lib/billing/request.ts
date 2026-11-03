@@ -22,7 +22,7 @@ export const PatientMonthSchema = z.object({
   daily: z.array(z.looseObject({ day: Day })).max(800),
   cultures: z.array(z.looseObject({ collectedOn: Day })).max(200),
   diets: z.array(z.looseObject({ patientId: z.string().max(40) })).max(300).optional(),
-  letters: z.array(z.object({ day: Day, to: z.string().max(80) })).max(20).optional(),
+  letters: z.array(z.object({ day: Day, to: z.string().max(80), dischargeDay: Day.optional(), attach: z.boolean().optional() })).max(20).optional(),
   diagnoses: z
     .array(
       z.object({

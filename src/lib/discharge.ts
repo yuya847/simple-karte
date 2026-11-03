@@ -12,6 +12,7 @@ import { verbalUnsigned } from "./verbal";
 
 export const SECTIONS = [
   { key: "complaint", label: "主訴" },
+  { key: "reason", label: "入院理由" },
   { key: "present", label: "現病歴" },
   { key: "course", label: "入院後の経過" },
   { key: "status", label: "退院時の状態" },
@@ -24,15 +25,38 @@ export interface DischargeDraft {
   /** Planned or actual discharge day (offset from today). */
   dischargeDay: number;
   destination: string;
+  /** 退院時転帰・入院経路（JP-CLINS のコード）. */
+  outcome: string;
+  route: string;
   sections: Record<SectionKey, string>;
   status: "作成中" | "確定";
   confirmedAt?: { day: number; time: string };
   confirmedBy?: string;
   /** 診療情報提供書. */
-  letter: { to: string; dept: string; doctor: string; purpose: string; issuedAt?: { day: number; time: string } };
+  letter: { to: string; dept: string; doctor: string; purpose: string; issuedAt?: { day: number; time: string }; /** 退院後の治療計画・検査結果・画像を添付（B009 注8）. */ attach?: boolean };
 }
 
-export const emptySections = (): Record<SectionKey, string> => ({ complaint: "", present: "", course: "", status: "", plan: "" });
+export const emptySections = (): Record<SectionKey, string> => ({ complaint: "", reason: "", present: "", course: "", status: "", plan: "" });
+
+/** 退院時転帰 and 入院経路 — codes of JP-CLINS v1.13.0 (HS039 退院時サマリー HL7 FHIR 記述仕様で必須). */
+export const OUTCOMES = [
+  { code: "1", label: "治癒・軽快" },
+  { code: "3", label: "寛解" },
+  { code: "4", label: "不変" },
+  { code: "5", label: "増悪" },
+  { code: "6", label: "傷病による死亡" },
+  { code: "7", label: "傷病以外による死亡" },
+  { code: "9", label: "その他" },
+];
+export const ROUTES = [
+  { code: "1", label: "家庭から" },
+  { code: "0", label: "転棟" },
+  { code: "4", label: "転院" },
+  { code: "5", label: "介護・福祉施設から" },
+  { code: "8", label: "院内出生" },
+  { code: "9", label: "その他" },
+];
+export const labelOf = (list: { code: string; label: string }[], code?: string) => list.find((x) => x.code === code)?.label ?? "—";
 
 /** Key tests: first and latest value of each analyte the patient has, in the master's order. */
 export function labTrend(p: Patient, codes = ["WBC", "Hb", "Plt", "CRP", "PCT", "Alb", "AST", "ALT", "BUN", "Cre", "Na", "K", "BNP", "NT-proBNP", "Glu", "HbA1c"]) {
@@ -99,5 +123,7 @@ export function dischargeChecks(p: Patient, entries: OrderEntry[], consentsPendi
   return out;
 }
 
-/** Deadline for the summary (the fictional hospital follows the 14-day rule of 診療録管理体制加算; see decisions). */
+/** Deadline for the summary: 診療録管理体制加算１ asks that 9 in 10 of last month's discharges have one made within
+ * 14 days counted from the day after discharge (保医発0305第7号 p.95〜96). */
 export const SUMMARY_DEADLINE_DAYS = 14;
+export const SUMMARY_DEADLINE_SOURCE = "診療録管理体制加算１の要件（退院日の翌日から起算して14日以内の作成が毎月9割以上。令和8年度）";

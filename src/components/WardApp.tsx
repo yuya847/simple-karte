@@ -365,6 +365,11 @@ export default function WardApp() {
     }));
   };
 
+  const lettersOf = (pid: string) => {
+    const d = discharges[pid];
+    return d?.letter.issuedAt ? [{ day: d.letter.issuedAt.day, to: d.letter.to, dischargeDay: d.dischargeDay, attach: !!d.letter.attach }] : [];
+  };
+
   const createConsent = (code: ConsentCode) => {
     if (!patient) return;
     setConsents((all) => [...all, { id: newId(), patientId: patient.id, code, status: "説明前", createdAt: { day: 0, time: nowTime }, answers: {} }]);
@@ -647,12 +652,12 @@ export default function WardApp() {
                   nowTime={nowTime}
                   options={billing[patient.id] ?? DEFAULT_OPTIONS}
                   diets={diets}
-                  letters={discharges[patient.id]?.letter.issuedAt ? [{ day: discharges[patient.id].letter.issuedAt!.day, to: discharges[patient.id].letter.to }] : []}
+                  letters={lettersOf(patient.id)}
                   onOptions={(next) => setBilling((all) => ({ ...all, [patient.id]: next }))}
                   wardPayload={() =>
                     allPatients.map((p) => {
                       const c = charts[p.id];
-                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: discharges[p.id]?.letter.issuedAt ? [{ day: discharges[p.id].letter.issuedAt!.day, to: discharges[p.id].letter.to }] : [] });
+                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id) });
                     })
                   }
                 />

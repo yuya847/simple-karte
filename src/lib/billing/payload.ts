@@ -5,7 +5,7 @@ import type { DietOrder } from "../diet";
 import type { HistoryEntry, Patient } from "../types";
 import type { BillingOptions } from "./model";
 
-export function patientMonthPayload(patient: Patient, entries: HistoryEntry[], diagnoses: Diagnosis[], options: BillingOptions, extra: { diets?: DietOrder[]; letters?: { day: number; to: string }[] } = {}) {
+export function patientMonthPayload(patient: Patient, entries: HistoryEntry[], diagnoses: Diagnosis[], options: BillingOptions, extra: { diets?: DietOrder[]; letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[] } = {}) {
   return {
     diets: (extra.diets ?? []).filter((d) => d.patientId === patient.id),
     letters: extra.letters ?? [],

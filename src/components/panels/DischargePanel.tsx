@@ -5,7 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { HOSPITAL } from "@/lib/billing/facility";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { SECTIONS, SUMMARY_DEADLINE_DAYS, collectFacts, dischargeChecks, emptySections, type DischargeDraft, type Facts, type SectionKey } from "@/lib/discharge";
+import { OUTCOMES, ROUTES, SECTIONS, SUMMARY_DEADLINE_DAYS, SUMMARY_DEADLINE_SOURCE, labelOf, collectFacts, dischargeChecks, emptySections, type DischargeDraft, type Facts, type SectionKey } from "@/lib/discharge";
 import type { Diagnosis } from "@/lib/diagnoses";
 import { useSpeech } from "@/lib/use-speech";
 import type { OrderEntry, Patient } from "@/lib/types";
@@ -32,7 +32,7 @@ const noSubscribe = () => () => {};
 export function DischargePanel({ patient, today, nowTime, doctor, entries, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter }: Props) {
   const [tab, setTab] = useState<"summary" | "letter">("summary");
   const [d, setD] = useState<DischargeDraft>(
-    draft ?? { patientId: patient.id, dischargeDay: 2, destination: "自宅", sections: emptySections(), status: "作成中", letter: { to: "", dept: "", doctor: "", purpose: "" } },
+    draft ?? { patientId: patient.id, dischargeDay: 2, destination: "自宅", outcome: "1", route: "1", sections: emptySections(), status: "作成中", letter: { to: "", dept: "", doctor: "", purpose: "", attach: true } },
   );
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -94,9 +94,29 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
         <label className="text-xs text-ink-soft">
           退院先 <input disabled={locked} value={d.destination} onChange={(e) => setD({ ...d, destination: e.target.value })} className="w-28 rounded border border-rule bg-sheet px-1" />
         </label>
+        <label className="text-xs text-ink-soft">
+          転帰{" "}
+          <select disabled={locked} value={d.outcome} onChange={(e) => setD({ ...d, outcome: e.target.value })} className="rounded border border-rule bg-sheet px-1">
+            {OUTCOMES.map((o) => (
+              <option key={o.code} value={o.code}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs text-ink-soft">
+          入院経路{" "}
+          <select disabled={locked} value={d.route} onChange={(e) => setD({ ...d, route: e.target.value })} className="rounded border border-rule bg-sheet px-1">
+            {ROUTES.map((o) => (
+              <option key={o.code} value={o.code}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <span className={`rounded px-1.5 text-[11px] font-bold ${locked ? "bg-wakatake-soft text-wakatake" : "bg-yamabuki-soft text-yamabuki"}`}>{d.status}</span>
-        <span className="text-[11px] text-ink-faint">
-          作成の期限：退院日の翌日から{SUMMARY_DEADLINE_DAYS}日以内（{formatShort(addDays(today, d.dischargeDay + SUMMARY_DEADLINE_DAYS))}まで）
+        <span className="text-[11px] text-ink-faint" title={SUMMARY_DEADLINE_SOURCE}>
+          作成の期限：退院日の翌日から{SUMMARY_DEADLINE_DAYS}日以内（{formatShort(addDays(today, d.dischargeDay + SUMMARY_DEADLINE_DAYS))}まで。診療録管理体制加算１の要件）
         </span>
       </div>
 
@@ -155,6 +175,10 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
           <label className="col-span-2 text-ink-soft">
             紹介の目的
             <input value={d.letter.purpose} onChange={(e) => setD({ ...d, letter: { ...d.letter, purpose: e.target.value } })} placeholder="例：退院後の経過観察と血液検査のお願い" className="mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] text-ink" />
+          </label>
+          <label className="col-span-2 flex items-center gap-1 text-ink-soft">
+            <input type="checkbox" checked={!!d.letter.attach} onChange={(e) => setD({ ...d, letter: { ...d.letter, attach: e.target.checked } })} className="accent-ai" />
+            退院後の治療計画・検査結果・画像の情報を添付する（退院の月かその翌月なら B009 注8 退院時診療状況添付加算）
           </label>
           <p className="col-span-2 text-ink-faint">経過・検査・処方は退院時サマリーと同じもの（カルテから）を載せます。</p>
         </section>
@@ -276,13 +300,15 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
             入院 {facts.admitted} → 退院 {facts.discharge}（{facts.days}日間）
           </span>
           <span>退院先：{d.destination}</span>
+          <span>入院経路：{labelOf(ROUTES, d.route)}</span>
+          <span>転帰：{labelOf(OUTCOMES, d.outcome)}</span>
         </div>
       </header>
       <Rows title="入院時診断" items={[facts.admissionDiagnosis]} />
       <Rows title="退院時診断（病名の一覧から）" items={facts.diagnoses} />
       <Rows title="アレルギー・薬剤禁忌" items={facts.allergies} />
       <Rows title="感染症" items={facts.infections} />
-      {SECTIONS.slice(0, 3).map((s) => (
+      {SECTIONS.slice(0, 4).map((s) => (
         <Prose key={s.key} title={s.label} text={d.sections[s.key]} />
       ))}
       <Rows title="注射（期間）" items={facts.injections} />
@@ -291,7 +317,7 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
       <Rows title="画像" items={facts.imaging} />
       <Labs facts={facts} today={today} />
       <Rows title="退院時処方" items={facts.prescriptions} />
-      {SECTIONS.slice(3).map((s) => (
+      {SECTIONS.slice(4).map((s) => (
         <Prose key={s.key} title={s.label} text={d.sections[s.key]} />
       ))}
       {directive && <Rows title="事前指示" items={[directive]} />}
@@ -331,6 +357,7 @@ function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: Discharg
       <Labs facts={facts} today={today} />
       <Rows title="培養" items={facts.cultures} />
       <Rows title="現在の処方" items={facts.prescriptions} />
+      {d.letter.attach && <Rows title="添付" items={["退院後の治療計画", "検査結果（上の推移）", "画像の所見（上の一覧）"]} />}
       <Prose title="今後の方針" text={d.sections.plan} />
       <p className="mt-3">ご高診のほど、よろしくお願い申し上げます。</p>
       <p className="mt-3 text-[10px] text-ink-faint">架空の病院・架空の患者。事実はカルテからコードで集め、経過は医師の口述です。</p>

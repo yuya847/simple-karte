@@ -477,3 +477,11 @@ describe("食事オーダーからの食事療養（令和8年6月〜）", () =>
     expect(r.acts.filter((a) => a.parts.some((p) => p.lines.some((l) => l.code === "180016110")))).toHaveLength(1);
   });
 });
+
+describe("退院時診療状況添付加算（B009 注8）", () => {
+  it("+200点 when attached and issued in the discharge month", () => {
+    const r = calculateClaim({ today: "2026-11-03", nowTime: "20:00", month: "2026-11", patient: { id: "P", name: "x", sex: "男", age: 70, admittedOn: -2 }, entries: [], daily: [], cultures: [], diagnoses: [], options: DEFAULT_OPTIONS, letters: [{ day: 0, to: "架空クリニック", dischargeDay: 0, attach: true }] });
+    const a = r.acts.find((x) => x.parts.some((p) => p.lines.some((l) => l.code === "180016110")))!;
+    expect(a.parts[0].points).toBe(450);
+  });
+});
