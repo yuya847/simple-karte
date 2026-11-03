@@ -78,6 +78,15 @@ function drugPart(lines: ClaimLine[]): ClaimPart {
   return { lines, points: drugPoints(yen) };
 }
 
+/**
+ * 特例条件 of 回数 that were read in the 告示 and do not apply to this fictional hospital (急性期一般入院料):
+ * shown as information instead of asking every time.
+ */
+const TOKUREI_READ: Record<string, string> = {
+  "190192110":
+    "回数の特例条件は、療養病棟入院基本料・精神病棟入院基本料など（特定機能病院の精神病棟を含む）で入院日から8週間を限度とするもの（令和6年 厚生労働省告示第57号 A244 注1 で確認。令和8年の本文は未確認）。この架空の病院は急性期一般入院料なので当たりません。",
+};
+
 // ---------- the engine ----------
 
 export function calculateClaim(input: ClaimInput): ClaimResult {
@@ -1006,7 +1015,10 @@ function applyRules(acts: DayAct[], ctx: RuleCtx): DayAct[] {
           ctx.issues.push({ level: "excluded", text: `${shinryoItem(code)?.name} は算定回数の上限（${lim.unit === "121" ? "1日" : lim.unit === "131" ? "1月" : lim.unit === "138" ? "1週" : "入院中"} ${lim.limit}回）を超えるため外しました。`, codes: [code] });
           return false;
         }
-        if (lim.tokurei && !counts.has(key)) ctx.issues.push({ level: "review", text: `${shinryoItem(code)?.name} には算定回数の特例条件があります（電子点数表に中身はありません）。告示・通知で確かめてください。`, codes: [code] });
+        if (lim.tokurei && !counts.has(key)) {
+          const known = TOKUREI_READ[code];
+          ctx.issues.push(known ? { level: "info", text: `${shinryoItem(code)?.name}：${known}`, codes: [code] } : { level: "review", text: `${shinryoItem(code)?.name} には算定回数の特例条件があります（電子点数表に中身はありません）。告示・通知で確かめてください。`, codes: [code] });
+        }
         counts.set(key, n);
       }
     }
