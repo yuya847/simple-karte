@@ -187,7 +187,7 @@ function Document({ r, patient, room, today, orders, print }: { r: ConsentRecord
     <article className={`${print ? "" : "rounded-lg border border-rule bg-sheet p-6 shadow-sm"} text-[12.5px] leading-relaxed text-ink print:text-[11px]`}>
       <header className="mb-3 border-b-2 border-ink pb-2">
         <div className="flex items-baseline justify-between text-[11px] text-ink-soft">
-          <span>{HOSPITAL.name}（架空）</span>
+          <span>{HOSPITAL.name}</span>
           <span>{t.version}</span>
         </div>
         <h2 className="mt-1 text-center text-lg font-bold">{t.title}</h2>
