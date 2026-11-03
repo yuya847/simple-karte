@@ -53,6 +53,9 @@ import { AuditView } from "./AuditView";
 import { ChatThread, ChatView } from "./ChatView";
 import { AcuityView } from "./AcuityView";
 import { HandoffView } from "./HandoffView";
+import { LabView } from "./LabView";
+import { ResultsInbox } from "./ResultsInbox";
+import { PANIC_LIMITS, PANIC_SOURCE, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
 import type { Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
@@ -202,6 +205,10 @@ export default function WardApp() {
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
   const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
+  // Results the doctor marked as seen, and panic values phoned in by the laboratory.
+  const [acks, setAcks] = useState<Record<string, Ack>>({});
+  const [calls, setCalls] = useState<Record<string, PanicCall>>({});
+  const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
     () =>
       [...PATIENTS, ...admitted].map((p) => {
@@ -211,12 +218,13 @@ export default function WardApp() {
         return {
           ...p,
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])],
+          cultures: mergeCultures(p.cultures, arrivedCultures[p.id]),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
@@ -450,6 +458,20 @@ export default function WardApp() {
     if (sessionKeys.has(c.key) && !taken[c.key]) waiting[c.patientId] = (waiting[c.patientId] ?? 0) + 1;
   }
 
+  // Results per patient on the ward: what the doctor has not seen, and panic values not yet phoned in.
+  const wardResults = people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS));
+  const unseenResults = unseen(wardResults, acks);
+  const resultState = Object.fromEntries(
+    people.map((x) => {
+      const mine = unseenResults.filter((i) => i.patientId === x.patient.id);
+      return [x.patient.id, { unseen: mine.length, panic: mine.filter((i) => i.panic.length > 0).length }];
+    }),
+  );
+  const markSeen = (pid: string, keys: string[]) => {
+    auditLog({ role: me.role, actor: me.name, action: "結果を確認した", patient: findPatient(pid)?.name, detail: wardResults.filter((i) => keys.includes(i.key)).map((i) => `${i.kind} ${i.time} ${i.title}`).join("／").slice(0, 200) });
+    setAcks((a) => ({ ...a, ...Object.fromEntries(keys.map((k) => [k, { by: me.name, at: { day: 0, time: nowTime } }])) }));
+  };
+
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
   );
@@ -474,6 +496,7 @@ export default function WardApp() {
       <PatientTabs
         role={role}
         onRole={switchRole}
+        badges={{ lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, list: role === "医師" ? unseenResults.length : 0 }}
         tabs={tabs.map((id) => findPatient(id)!).filter(Boolean)}
         activeId={screen === "chart" ? activeId : null}
         pinned={screen === "chart" ? null : screen}
@@ -535,12 +558,29 @@ export default function WardApp() {
         />
       ) : screen === "audit" ? (
         <AuditView />
+      ) : screen === "lab" ? (
+        <LabView
+          people={people}
+          items={wardResults.filter((i) => i.day === 0)}
+          calls={calls}
+          limits={PANIC_LIMITS}
+          limitsSource={PANIC_SOURCE}
+          nowTime={nowTime}
+          attending={DOCTOR}
+          onCall={(c) => {
+            auditLog({ role: me.role, actor: me.name, action: "確定（パニック値を電話で連絡）", patient: findPatient(c.patientId)?.name, detail: `${c.hits.map(hitLine).join("、")} → ${c.to}${c.readBack ? "（復唱あり）" : "（復唱なし）"}` });
+            setCalls((all) => ({ ...all, [c.key]: c }));
+          }}
+        />
       ) : screen === "handoff" ? (
         <HandoffView
           people={people}
           today={today}
           nowTime={nowTime}
           handoffs={handoffs}
+          extraFacts={Object.fromEntries(
+            Object.entries(resultState).flatMap(([pid, r]) => (r.unseen ? [[pid, [`医師が未確認の結果：${r.unseen}件${r.panic ? `（パニック値 ${r.panic}件）` : ""}`]]] : [])),
+          )}
           onSave={(h) => setHandoffs((all) => ({ ...all, [h.patientId]: h }))}
           onSend={(h) => {
             auditLog({ role: me.role, actor: me.name, action: "確定（申し送りを送った）", patient: findPatient(h.patientId)?.name, detail: `${h.shift}　${h.severity}　やること ${h.actions.length}件` });
@@ -649,6 +689,7 @@ export default function WardApp() {
           changes={sessionChanges}
           summaries={summaries}
           waiting={waiting}
+          resultState={resultState}
           marPending={Object.fromEntries(
             people.map((x) => {
               const start = sessionStart ?? abs(0, nowTime);
@@ -724,6 +765,13 @@ export default function WardApp() {
               }}
             />
             <div className="relative flex min-h-0 flex-col">
+              <ResultsInbox
+                today={today}
+                items={unseen(resultsOf(patient, PANIC_LIMITS), acks)}
+                calls={calls}
+                onSeen={(keys) => markSeen(patient.id, keys)}
+                onOpenResults={() => setPanel("results")}
+              />
               <VerbalInbox
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                 today={today}

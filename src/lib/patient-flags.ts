@@ -18,8 +18,10 @@ export interface Flag {
 
 const running = (from: number, to: number | null, nowAbs: number) => from <= nowAbs && (to === null || to > nowAbs);
 
-export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0): Flag[] {
+export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0, results?: { unseen: number; panic: number }): Flag[] {
   const out: Flag[] = [];
+  if (results?.panic) out.push({ label: `パニック値 ${results.panic}`, tone: "shu", title: "パニック値の結果を、医師がまだ確認していません" });
+  if (results?.unseen) out.push({ label: `未確認の結果 ${results.unseen}`, tone: "ai", title: "今日の検査・画像・培養の結果を、医師がまだ確認していません" });
   const unsigned = verbalUnsigned(entries);
   if (unsigned.length) out.push({ label: `口頭指示 承認待ち ${unsigned.length}`, tone: unsigned.some((e) => verbalOverdue(e, nowAbs)) ? "shu" : "yamabuki", title: "看護師が代わりに入力したオーダ。医師が内容を確かめて承認する" });
   if (marPending > 0) out.push({ label: `実施の入力がまだ ${marPending}`, tone: "shu", title: "予定の時刻を過ぎても実施・未実施の記録がないもの（ワークシートの「照合」から）" });

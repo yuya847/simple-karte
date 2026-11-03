@@ -223,6 +223,8 @@ export interface CultureResult {
   sets?: string;
   status: "培養中" | "中間報告" | "最終報告";
   reportedOn?: DayOffset;
+  /** Clock time of the report ("HH:MM"), when known. */
+  reportedTime?: string;
   organism?: string;
   gram?: string;
   susceptibility?: { drug: string; mic: string; result: "S" | "I" | "R" }[];

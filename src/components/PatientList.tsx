@@ -23,6 +23,8 @@ interface Props {
   consentState?: Record<string, { admission: boolean; pending: string[] }>;
   /** Doses past due without a 実施 record, per patient. */
   marPending?: Record<string, number>;
+  /** Results not yet seen by the doctor (and how many are panic values). */
+  resultState?: Record<string, { unseen: number; panic: number }>;
   onOpen: (patientId: string) => void;
 }
 
@@ -69,7 +71,7 @@ interface Row {
 const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
 
 /** Ward patient list. Our patients open on click or Enter; other teams' rows are context only. */
-export function PatientList({ ward, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, onOpen }: Props) {
+export function PatientList({ ward, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, onOpen }: Props) {
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const [groupBy, setGroupBy] = useState<GroupBy>("room");
   const [q, setQ] = useState("");
@@ -264,7 +266,7 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
                     patient={r.patient}
                     focused={openable[at] === r}
                     upcoming={upcomingToday(ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs)}
-                    flags={flagsFor(r.patient, ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs, waiting[r.patient.id] ?? 0, consentState[r.patient.id], marPending[r.patient.id] ?? 0)}
+                    flags={flagsFor(r.patient, ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs, waiting[r.patient.id] ?? 0, consentState[r.patient.id], marPending[r.patient.id] ?? 0, resultState[r.patient.id])}
                     plans={planFor(r.bed)}
                     summary={summaries[r.patient.id]}
                     onOpen={() => onOpen(r.patient!.id)}
