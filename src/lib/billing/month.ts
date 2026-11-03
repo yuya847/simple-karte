@@ -2,7 +2,7 @@
 
 import type { Diagnosis } from "../diagnoses";
 import { calculateClaim } from "./engine";
-import { ageOn, assumedInsurance, INSURANCE, type Insurance } from "./insurance";
+import { ageOn, ASSUMED_INSURANCE_ISSUE, assumedInsurance, INSURANCE, type Insurance } from "./insurance";
 import { calculateBill, type Bill } from "./kaikei";
 import type { BillingOptions, ClaimInput, ClaimResult } from "./model";
 import type { Receipt, ReceiptDiagnosis } from "./uke";
@@ -17,6 +17,8 @@ export interface PatientMonthInput {
   options: BillingOptions;
   diets?: ClaimInput["diets"];
   letters?: ClaimInput["letters"];
+  /** The insurance 医事課 registered (保険の登録). Without it: the demo's own, else assumed from age. */
+  insurance?: Insurance;
 }
 
 export interface PatientMonth {
@@ -57,7 +59,7 @@ export function receiptDiagnoses(diagnoses: Diagnosis[], today: string, month: s
 
 export function patientMonth(input: PatientMonthInput, today: string, nowTime: string, month: string): PatientMonth {
   const t = parse(today);
-  const insurance = INSURANCE[input.patient.id] ?? assumedInsurance(input.patient.age, t);
+  const insurance = input.insurance ?? INSURANCE[input.patient.id] ?? assumedInsurance(input.patient.age, t);
   const claim = calculateClaim({
     today,
     nowTime,
@@ -73,7 +75,7 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     diets: input.diets,
     letters: input.letters,
   });
-  if ("assumed" in insurance) claim.issues.push({ level: "review", text: "保険の情報が登録されていないため、年齢から仮の保険（負担割合・所得区分）で計算しています。" });
+  if ("assumed" in insurance) claim.issues.push({ level: "review", text: ASSUMED_INSURANCE_ISSUE });
   const ageAtMonth = ageOn(insurance.birthDate, parse(`${month}-01`));
   const [by, bm, bd] = insurance.birthDate.split("-").map(Number);
   const turns75ThisMonth = Number(month.slice(0, 4)) - by === 75 && Number(month.slice(5)) === bm && bd !== 1;

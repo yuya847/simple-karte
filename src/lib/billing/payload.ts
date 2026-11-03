@@ -3,9 +3,16 @@
 import type { Diagnosis } from "../diagnoses";
 import type { DietOrder } from "../diet";
 import type { HistoryEntry, Patient } from "../types";
+import type { Insurance } from "./insurance";
 import type { BillingOptions } from "./model";
 
-export function patientMonthPayload(patient: Patient, entries: HistoryEntry[], diagnoses: Diagnosis[], options: BillingOptions, extra: { diets?: DietOrder[]; letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven?: string[] } = {}) {
+export function patientMonthPayload(
+  patient: Patient,
+  entries: HistoryEntry[],
+  diagnoses: Diagnosis[],
+  options: BillingOptions,
+  extra: { diets?: DietOrder[]; letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven?: string[]; insurance?: Insurance } = {},
+) {
   // 退院を実施した日 (入退院支援加算１ is claimed on it).
   // 未実施 doses of this patient's injections only.
   const orderIds = new Set(entries.flatMap((e) => (e.kind === "order" ? [e.id] : [])));
@@ -20,6 +27,8 @@ export function patientMonthPayload(patient: Patient, entries: HistoryEntry[], d
     cultures: patient.cultures,
     diagnoses,
     options,
+    // The insurance 医事課 registered (保険の登録); left out while there is none.
+    ...(extra.insurance ? { insurance: extra.insurance } : {}),
   };
 }
 

@@ -1,9 +1,39 @@
 import { describe, expect, it } from "vitest";
+import { ASSUMED_INSURANCE_ISSUE, INSURANCE, type Insurance } from "./insurance";
 import { DEFAULT_OPTIONS } from "./model";
 import { patientMonth, type PatientMonthInput } from "./month";
 import { patientMonthPayload } from "./payload";
+import { ClaimRequest } from "./request";
 import { PATIENTS } from "../patients";
 import type { OrderEntry } from "../types";
+
+describe("保険の登録を算定に使う", () => {
+  // A patient admitted in this session: no insurance in the demo data.
+  const p = { ...PATIENTS[0], id: "90029999", history: [] };
+  const run = (insurance?: Insurance) => patientMonth(patientMonthPayload(p, [], [], DEFAULT_OPTIONS, { insurance }) as unknown as PatientMonthInput, "2026-11-03", "12:00", "2026-11");
+  const registered = INSURANCE["90010231"];
+
+  it("assumes from age while nothing is registered, and says so", () => {
+    const r = run();
+    expect(r.insurance.assumed).toBe(true);
+    expect(r.claim.issues.some((i) => i.text === ASSUMED_INSURANCE_ISSUE)).toBe(true);
+  });
+  it("uses the registered insurance once 医事課 registers it: the note goes away", () => {
+    const r = run(registered);
+    expect(r.insurance).toEqual(registered);
+    expect(r.claim.issues.some((i) => i.text === ASSUMED_INSURANCE_ISSUE)).toBe(false);
+    expect(r.receipt.patient.insurance.insurerNumber).toBe(registered.insurerNumber);
+  });
+  it("the API takes the registered insurance, drops unknown fields and refuses a wrong 検証番号", () => {
+    const body = { today: "2026-11-03", nowTime: "12:00", month: "2026-11", ...patientMonthPayload(p, [], [], DEFAULT_OPTIONS, { insurance: { ...registered, assumed: true } as Insurance }) };
+    const ok = ClaimRequest.safeParse(body);
+    expect(ok.success).toBe(true);
+    expect(ok.data?.insurance).toEqual(registered);
+    const last = Number(registered.insurerNumber.slice(-1));
+    const wrong = registered.insurerNumber.slice(0, -1) + String((last + 1) % 10);
+    expect(ClaimRequest.safeParse({ ...body, insurance: { ...registered, insurerNumber: wrong } }).success).toBe(false);
+  });
+});
 
 describe("病棟の記録から算定まで", () => {
   it("carries the 未実施 doses and the discharge day through to the claim", () => {

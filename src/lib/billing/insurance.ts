@@ -120,6 +120,9 @@ export const INSURANCE: Record<string, Insurance> = {
   },
 };
 
+/** The claim's note while no insurance is registered (it goes away once 医事課 registers it). */
+export const ASSUMED_INSURANCE_ISSUE = "保険の情報が登録されていないため、年齢から仮の保険（負担割合・所得区分）で計算しています。";
+
 /** For a patient admitted in this demo without insurance details: assumed from age, and marked as such. */
 export function assumedInsurance(age: number, today: { y: number; m: number; d: number }): Insurance & { assumed: true } {
   const birthYear = today.y - age - (today.m > 1 ? 0 : 1);
