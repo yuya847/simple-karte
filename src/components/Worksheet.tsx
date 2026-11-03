@@ -7,6 +7,8 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import { WARD_NAME } from "@/lib/ward";
+import { marState, prnToday, type AdminRecord } from "@/lib/mar";
+import { MarCell } from "./MarCell";
 import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type Shift, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
 interface Props {
@@ -19,6 +21,11 @@ interface Props {
   sessionKeys: Set<string>;
   /** Take one or several changes (指示受け). */
   onTake: (keys: string[]) => void;
+  /** 与薬・実施の記録. */
+  records: Record<string, AdminRecord>;
+  /** Items due before this time count as recorded by the (fictional) earlier shift. */
+  sessionStart: number;
+  onRecord: (r: AdminRecord) => void;
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -36,7 +43,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord }: Props) {
   const [day, setDay] = useState<0 | 1>(0);
   const [shift, setShift] = useState<Shift>("day");
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
@@ -50,7 +57,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake }
   const isTaken = (c: OrderChange) => !sessionKeys.has(c.key) || !!taken[c.key];
   const waiting = changes.filter((c) => !isTaken(c)).length;
 
-  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys };
+  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, people };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -96,7 +103,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake }
           <Sheet {...props} onTake={onTake} interactive />
         </div>
         <p className="mx-auto mt-2 max-w-[1100px] text-[11px] text-ink-faint">
-          オーダからコードで集めています（AI は使っていません）。実施の記録はこの試作にはなく、時刻を過ぎたものを「済」にしています。点滴のつなぎ替えの時刻は、開始時刻と1日の本数から計算した目安です。
+          オーダからコードで集めています（AI は使っていません）。「照合」でリストバンドと薬・検体のラベルを読み（バーコードリーダーはキーボードと同じに入力されます）、患者・薬・時刻をコードが確かめてから実施を記録します。この画面を開く前の分は、前の勤務帯が記録したものとして扱います（架空）。点滴のつなぎ替えの時刻は、開始時刻と1日の本数から計算した目安です。
         </p>
       </div>
       {mounted &&
@@ -142,11 +149,21 @@ interface SheetProps {
   sessionKeys: Set<string>;
   onTake: (keys: string[]) => void;
   interactive: boolean;
+  records: Record<string, AdminRecord>;
+  sessionStart: number;
+  onRecord: (r: AdminRecord) => void;
+  people: WorkPatient[];
 }
 
 type DayOffsetLike = 0 | 1;
 
-function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive }: SheetProps) {
+function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, people }: SheetProps) {
+  const nowAbs = abs(0, nowTime);
+  const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
+  const maxOf = (orderId: string) => {
+    for (const x of people) for (const e of x.entries) if (e.id === orderId && e.order.type === "prescription") return e.order.maxPerDay;
+    return undefined;
+  };
   const s = SHIFTS[shift];
   const timed = sheet.timed.filter((i) => kinds.includes(i.kind));
   const untimed = sheet.untimed.filter((i) => kinds.includes(i.kind));
@@ -278,7 +295,13 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                       <b>{i.main}</b>
                       {i.urgent && <span className="ml-1 font-bold text-shu">至急</span>}　<span className="text-ink-soft">{i.detail}</span>
                     </td>
-                    <td className={`${td} ${i.state === "done" ? "text-ink-faint" : ""}`}>{i.state === "done" ? "済（時刻経過）" : "□　　　"}</td>
+                    <td className={td}>
+                      {interactive && i.at !== null ? (
+                        <MarCell item={i} state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} onRecord={onRecord} />
+                      ) : (
+                        <PrintMar state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} />
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -304,7 +327,13 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                   <td className={td}>
                     <b>{i.main}</b>　<span className="text-ink-soft">{i.detail}</span>
                   </td>
-                  <td className={`${td} w-32 text-ink-faint`}>実施 □□□</td>
+                  <td className={`${td} w-32 text-ink-faint`}>
+                    {interactive ? (
+                      <MarCell item={i} state="予定" nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} prn={i.kind === "内服" ? { ...prnToday(i.orderId, records, maxOf(i.orderId)), max: maxOf(i.orderId) } : undefined} onRecord={onRecord} />
+                    ) : (
+                      "実施 □□□"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -314,6 +343,12 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
       <p className="mt-2 text-[10px] text-ink-faint">Simple Karte の試作。架空の病院・架空の患者で、実際の看護には使えません。</p>
     </div>
   );
+}
+
+function PrintMar({ state, record }: { state: ReturnType<typeof marState>; record?: AdminRecord }) {
+  if (record) return <span>{record.status} {record.doneAt}{record.reason ? `（${record.reason}）` : ""}</span>;
+  if (state === "記録済み") return <span className="text-ink-faint">実施（前の勤務）</span>;
+  return <span>□　　　</span>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

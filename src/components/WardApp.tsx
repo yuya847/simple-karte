@@ -45,6 +45,8 @@ import { DirectivePanel } from "./panels/DirectivePanel";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
 import { CLAUDE, auditLog } from "@/lib/audit";
+import { overdue, type AdminRecord } from "@/lib/mar";
+import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
@@ -163,6 +165,10 @@ export default function WardApp() {
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
+  // 与薬・実施の記録 (eMAR). Items due before this session are taken as recorded by the earlier shift.
+  const [mar, setMar] = useState<Record<string, AdminRecord>>({});
+  const [sessionStart, setSessionStart] = useState<number | null>(null);
+  if (sessionStart === null && nowTime) setSessionStart(abs(0, nowTime));
   // Advance directives (history kept) and warnings added on the band.
   const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
@@ -455,6 +461,20 @@ export default function WardApp() {
             auditLog({ role: "看護師", actor: "看護師（あなた）", action: "指示受け", detail: `${keys.length}件` });
             setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, nowTime])) }));
           }}
+          records={mar}
+          sessionStart={sessionStart ?? abs(0, nowTime)}
+          onRecord={(r) => {
+            const who = findPatient(r.patientId);
+            const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
+            auditLog({
+              role: "看護師",
+              actor: r.by,
+              action: r.status === "実施" ? "確定（実施）" : "確定（未実施）",
+              patient: who?.name,
+              detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.status === "実施" ? `リストバンド${r.checked.patient ? "一致" : "—"}${r.checked.label === null ? "" : `・ラベル${r.checked.label ? "一致" : "—"}`}${r.offBy !== undefined ? `・予定より${Math.abs(r.offBy)}分${r.offBy > 0 ? "遅れ" : "早め"}` : ""}` : r.reason}`,
+            });
+            setMar((all) => ({ ...all, [r.key]: r }));
+          }}
         />
       ) : screen === "audit" ? (
         <AuditView />
@@ -528,6 +548,13 @@ export default function WardApp() {
           changes={sessionChanges}
           summaries={summaries}
           waiting={waiting}
+          marPending={Object.fromEntries(
+            people.map((x) => {
+              const start = sessionStart ?? abs(0, nowTime);
+              const nowAbs = abs(0, nowTime);
+              return [x.patient.id, buildWorksheet([x], start, nowAbs + 1, nowAbs).timed.filter((i) => overdue(i, mar, start, nowAbs)).length];
+            }),
+          )}
           consentState={Object.fromEntries(
             allPatients.map((p) => {
               const mine = consents.filter((c) => c.patientId === p.id);

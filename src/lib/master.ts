@@ -499,6 +499,8 @@ export const WARD_RULES = {
   minutesBeforeDoseForLevel: 30,
   /** Clock time of each oral dose timing on this ward. */
   medTimes: { 朝: "08:00", 昼: "12:00", 夕: "18:00", 眠前: "21:00" },
+  /** 与薬: giving a dose more than this many minutes before or after its time needs a reason. */
+  marWindowMin: 60,
 } as const;
 
 export function findDrug(code: string): DrugMaster | undefined {

@@ -17,8 +17,9 @@ export interface Flag {
 
 const running = (from: number, to: number | null, nowAbs: number) => from <= nowAbs && (to === null || to > nowAbs);
 
-export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }): Flag[] {
+export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0): Flag[] {
   const out: Flag[] = [];
+  if (marPending > 0) out.push({ label: `実施の入力がまだ ${marPending}`, tone: "shu", title: "予定の時刻を過ぎても実施・未実施の記録がないもの（ワークシートの「照合」から）" });
   if (p.codeStatus === "DNAR") out.push({ label: "DNAR", tone: "shu", title: "事前指示：心停止時の心肺蘇生を行わない（ほかの治療は項目ごと）" });
   const last = p.vitals.at(-1);
   if (last) {
