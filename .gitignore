@@ -44,3 +44,6 @@ next-env.d.ts
 # official master data (downloaded at build time, not redistributed)
 /.cache/
 /src/data/generated/
+
+# agent worktrees
+/.claude/worktrees/
