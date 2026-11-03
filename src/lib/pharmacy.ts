@@ -90,6 +90,19 @@ export function queryOpen(q: Query, entries: OrderEntry[]): boolean {
   return false;
 }
 
+/**
+ * Why an order cannot be dispensed yet, or null: the doctor has not answered a 疑義照会 on it, or (for orders
+ * written since yesterday, the ones in 処方監査) it has not been audited. Older orders were audited before this record begins.
+ */
+export function dispenseBlock(orderId: string, people: { entries: OrderEntry[] }[], queries: Query[], audited: Record<string, string>): string | null {
+  const x = people.find((y) => y.entries.some((e) => e.id === orderId));
+  const e = x?.entries.find((y) => y.id === orderId);
+  const q = queries.find((y) => y.orderId === orderId && queryOpen(y, x?.entries ?? []));
+  if (q) return `疑義照会の回答待ちです（${q.question}）。回答のあとで払い出してください。`;
+  if (e && abs(e.day, e.time) >= -1440 && !audited[orderId]) return "まだ監査していません。「処方監査・疑義照会」で監査してから払い出してください。";
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // 持参薬鑑別
 // ---------------------------------------------------------------------------

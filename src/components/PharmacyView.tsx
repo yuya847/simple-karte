@@ -16,7 +16,7 @@ import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { orderLines, oralName } from "@/lib/format";
-import { alreadyOrdered, auditItems, b008Check, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
+import { alreadyOrdered, auditItems, b008Check, dispenseBlock, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
 import type { DayOffset } from "@/lib/types";
 import { buildWorksheet, shiftWindow, timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { CLAUDE, auditLog } from "@/lib/audit";
@@ -458,16 +458,8 @@ function Shido({ people, today, shido, onShido }: Props) {
 // ---------------------------------------------------------------------------
 
 function Dispense({ people, today, nowTime, dispensed, onDispense, audited, queries }: Props) {
-  // Before dispensing: the doctor has not answered a 疑義照会 on it, and (for orders written since yesterday,
-  // the ones in 処方監査) it has been audited. Older orders were audited before this record begins.
-  const blockOf = (orderId: string): string | null => {
-    const x = people.find((y) => y.entries.some((e) => e.id === orderId));
-    const e = x?.entries.find((y) => y.id === orderId);
-    const q = queries.find((y) => y.orderId === orderId && queryOpen(y, x?.entries ?? []));
-    if (q) return `疑義照会の回答待ちです（${q.question}）。回答のあとで払い出してください。`;
-    if (e && abs(e.day, e.time) >= -1440 && !audited[orderId]) return "まだ監査していません。「処方監査・疑義照会」で監査してから払い出してください。";
-    return null;
-  };
+  // Before dispensing: no open 疑義照会, and audited when written since yesterday (pharmacy.ts dispenseBlock).
+  const blockOf = (orderId: string): string | null => dispenseBlock(orderId, people, queries, audited);
   // 明日分 (the usual daily dispensing) or 今日 (臨時・追加: every dose of today, past ones included, so that
   // one ordered for "now" or not yet dispensed stays on the list; the dispensed ones are marked).
   const [which, setWhich] = useState<"tomorrow" | "today">("tomorrow");
