@@ -14,13 +14,16 @@ export interface BedMove {
   to: { room: string; bed: string };
   kind: "転床" | "転棟";
   reason: string;
+  /** Booked for a later time (from the 移動・食事 calendar): the time of day. */
+  time?: string;
 }
 
 /**
  * 転棟・転床: choose the floor and an empty bed (shared rooms are single-sex), write the reason, and
  * confirm. A patient on contact precautions going into a shared room is asked about (cohorting).
  */
-export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMove }: { patient: Patient; from: { room: string; bed: string }; initial?: { room: string; bed: string }; allBeds: WardState; onCancel: () => void; onMove: (m: BedMove) => void }) {
+export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMove, reserve }: { patient: Patient; from: { room: string; bed: string }; initial?: { room: string; bed: string }; allBeds: WardState; onCancel: () => void; onMove: (m: BedMove) => void; reserve?: { label: string } }) {
+  const [time, setTime] = useState("");
   const deny = useDeny()("bed.move");
   const [floor, setFloor] = useState(initial ? floorOf(initial.room) : floorOf(from.room));
   const allRooms = FLOORS.flatMap((f) => f.rooms);
@@ -46,7 +49,9 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" role="dialog" aria-label="転棟・転床">
       <div className="w-full max-w-2xl rounded-lg border border-rule bg-sheet p-4 text-[13px] shadow-xl">
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-base font-bold">転棟・転床：{patient.name}</h2>
+          <h2 className="text-base font-bold">
+            転棟・転床{reserve ? `の予約（${reserve.label}）` : ""}：{patient.name}
+          </h2>
           <button type="button" onClick={onCancel} aria-label="閉じる" className="ml-auto rounded p-1 text-ink-faint hover:text-ink">
             <X size={16} />
           </button>
@@ -83,6 +88,13 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
           理由
           <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：重症観察のためナースステーションの近くへ" className="flex-1 rounded border border-rule bg-paper px-2 py-1" />
         </label>
+        {reserve && (
+          <label className="mt-2 flex items-center gap-1.5">
+            時刻
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="移動の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+            <span className="text-[11px] text-ink-faint">予約は下書きになり、確定したあと当日に病棟で「実施」します。</span>
+          </label>
+        )}
         {askIso && (
           <label className="mt-2 flex items-center gap-1.5 text-yamabuki">
             <input type="checkbox" checked={ok} onChange={() => setOk(!ok)} className="accent-yamabuki" />
@@ -96,11 +108,11 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
           </button>
           <button
             type="button"
-            disabled={!to || !!toProblem || !reason.trim() || (askIso && !ok) || !!deny}
-            onClick={() => to && onMove({ patientId: patient.id, from, to, kind, reason: reason.trim() })}
+            disabled={!to || !!toProblem || !reason.trim() || (askIso && !ok) || (!!reserve && !time) || (!reserve && !!deny)}
+            onClick={() => to && onMove({ patientId: patient.id, from, to, kind, reason: reason.trim(), ...(reserve ? { time } : {}) })}
             className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40"
           >
-            {kind}を確定
+            {reserve ? `${kind}の予約を下書きにする` : `${kind}を確定`}
           </button>
         </div>
       </div>

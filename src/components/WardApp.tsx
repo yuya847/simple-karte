@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
-import { checkDraft, draftsFromAi, isReady, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type Issue, type StopDraft } from "@/lib/drafts";
+import { checkDraft, draftsFromAi, isReady, newProcedureDraft, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type Issue, type StopDraft } from "@/lib/drafts";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
@@ -29,6 +29,10 @@ import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders"
 import { CalendarPlus, Pill as PillIcon } from "lucide-react";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
+import { DeptMoveDialog } from "./DeptMoveDialog";
+import type { BookWhat, MoveEvent } from "./DietCalendar";
+import { moveText } from "@/lib/procedures";
+import { bedProblem } from "@/lib/admission";
 import { StickyStrip, type Sticky } from "./StickyStrip";
 import { BoardView } from "./BoardView";
 import { ExtractView } from "./ExtractView";
@@ -275,6 +279,12 @@ export default function WardApp() {
   // 転棟・転床: where each moved patient is now, and the move being chosen (dialog).
   const [moves, setMoves] = useState<Record<string, { room: string; bed: string }>>({});
   const [moving, setMoving] = useState<{ patientId: string; to?: { room: string; bed: string } } | null>(null);
+  // 移動の予約: what is being booked from the calendar, booked moves carried out, 転科, and moves done.
+  const [booking, setBooking] = useState<{ day: number; what: "move" | "dept" } | null>(null);
+  const [leavePreset, setLeavePreset] = useState<number | null>(null);
+  const [movesDone, setMovesDone] = useState<Record<string, string>>({});
+  const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
+  const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
   // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
   const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
@@ -376,13 +386,15 @@ export default function WardApp() {
           cultures: mergeCultures(p.cultures, arrivedCultures[p.id]),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
           room: moves[p.id]?.room ?? p.room,
+          department: deptChanges[p.id]?.dept ?? p.department,
+          attending: deptChanges[p.id]?.doctor ?? p.attending,
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
@@ -867,6 +879,46 @@ export default function WardApp() {
       return [pid, out];
     }),
   );
+  // The 移動 row of the 移動・食事 calendar: admission, booked and done moves, discharge and leave.
+  const moveEventsOf = (pid: string): MoveEvent[] => {
+    const p = findPatient(pid);
+    const es = (people.find((x) => x.patient.id === pid)?.entries ?? []).filter((e) => e.status === "有効" && e.order.type === "procedure");
+    return [
+      ...(p ? [{ day: p.admittedOn, time: null, label: "入院", tone: "ink" as const }] : []),
+      ...es.flatMap((e): MoveEvent[] => {
+        const o = e.order;
+        if (o.type !== "procedure") return [];
+        if (o.move) return [{ day: o.start.day, time: o.start.time ?? null, label: moveText(o.move), tone: "ai", entryId: e.id, done: !!movesDone[e.id] }];
+        if (o.leave) return [{ day: o.leave.from.day, time: o.leave.from.time, label: `${o.leave.kind}（${o.leave.destination}）`, tone: o.leave.kind === "退院" ? "wakatake" : "yamabuki" }, ...(o.leave.back ? [{ day: o.leave.back.day, time: o.leave.back.time, label: `${o.leave.kind}から帰院`, tone: "yamabuki" as const }] : [])];
+        return [];
+      }),
+      ...moveLog.filter((m) => m.patientId === pid).map((m) => ({ day: 0, time: m.time, label: m.label, tone: "ai" as const, done: true })),
+    ];
+  };
+  // 実施: carry out a booked move now (the bed is checked again: still empty, the room's sex).
+  const doMove = (entryId: string) => {
+    const x = people.find((y) => y.entries.some((e) => e.id === entryId));
+    const e = x?.entries.find((y) => y.id === entryId);
+    if (!x || !e || e.order.type !== "procedure" || !e.order.move) return;
+    const m = e.order.move;
+    const pid = x.patient.id;
+    if (m.kind === "転科") {
+      setDeptChanges((all) => ({ ...all, [pid]: { dept: m.toDept!, doctor: m.toDoctor! } }));
+    } else {
+      const to = m.to!;
+      const room = FLOORS.flatMap((f) => f.rooms).find((r) => r.no === to.room);
+      const taken = allBeds.some((b) => b.room === to.room && b.bed === to.bed && b.patientId !== pid);
+      const problem = taken ? "そのベッドはいま空いていません" : room ? bedProblem({ beds: allBeds, patient: findPatient }, room, x.patient.sex) : "その部屋はありません";
+      if (problem) {
+        update({ flash: `実施できません：${problem}。予約を中止して、別のベッドで予約し直してください。` });
+        return;
+      }
+      setMoves((all) => ({ ...all, [pid]: to }));
+    }
+    auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}の実施）`, patient: x.patient.name, detail: moveText(m) });
+    setMovesDone((all) => ({ ...all, [entryId]: nowTime }));
+    updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${m.kind}を実施（${nowTime}）：${moveText(m)}\n` }));
+  };
   const openStanding = (pid: string) => {
     openPatient(pid);
     setPanel("standing");
@@ -923,7 +975,7 @@ export default function WardApp() {
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
-    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-guide": orderBlock } : {}),
+    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
@@ -1427,6 +1479,15 @@ export default function WardApp() {
               onDo={doFromHistory}
               diets={diets}
               onOpenDiet={() => setPanel("diet")}
+              moves={moveEventsOf(patient.id)}
+              onBook={(day: number, what: BookWhat) => {
+                if (what === "move" || what === "dept") setBooking({ day, what });
+                else if (what === "退院" || what === "外泊") {
+                  setLeavePreset(day);
+                  setPanel(what === "退院" ? "add-discharge" : "add-leave");
+                }
+              }}
+              onDoMove={doMove}
               bookings={bookingsOf(
                 entries.filter((e): e is OrderEntry => e.kind === "order"),
                 surgeries.filter((x) => x.patientId === patient.id),
@@ -1840,9 +1901,26 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "add-leave" && (
-                <Drawer title="退院申込・外泊・外出" onClose={closePanel} locked={orderBlock}>
+                <Drawer title="外泊・外出" onClose={closePanel} locked={orderBlock}>
                   <AddLeavePanel
+                    key={`leave-${leavePreset}`}
                     newId={newId}
+                    kinds={["外泊", "外出"]}
+                    initialDay={leavePreset}
+                    onAdd={(d) => {
+                      addManualLab(d);
+                      closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "add-discharge" && (
+                <Drawer title="退院オーダ" onClose={closePanel} locked={orderBlock}>
+                  <AddLeavePanel
+                    key={`discharge-${leavePreset}`}
+                    newId={newId}
+                    kinds={["退院"]}
+                    initialDay={leavePreset}
                     onAdd={(d) => {
                       addManualLab(d);
                       closePanel();
@@ -2138,8 +2216,40 @@ export default function WardApp() {
             const at = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `-${b.bed}` : ""}`;
             auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}）`, patient: who.name, detail: `${at(m.from)} → ${at(m.to)}　理由：${m.reason}` });
             setMoves((all) => ({ ...all, [m.patientId]: m.to }));
+            setMoveLog((l) => [...l, { patientId: m.patientId, label: `${m.kind} ${m.from.room}→${m.to.room}${m.to.bed ? `-${m.to.bed}` : ""}`, time: nowTime }]);
             updateFor(m.patientId, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${m.kind}：${at(m.from)} → ${at(m.to)}（${m.reason}）\n` }));
             setMoving(null);
+          }}
+        />
+      )}
+      {booking?.what === "move" && patient && (
+        <BedMoveDialog
+          patient={patient}
+          from={(() => {
+            const b = ward.beds.find((x) => x.patientId === patient.id)!;
+            return { room: b.room, bed: b.bed };
+          })()}
+          allBeds={{ beds: allBeds, patient: findPatient }}
+          reserve={{ label: formatShort(addDays(today, booking.day)) }}
+          onCancel={() => setBooking(null)}
+          onMove={(m) => {
+            addManualLab({ ...newProcedureDraft("PROC-MOVE", newId()), sourceText: "（移動・食事カレンダーから）", move: { kind: m.kind, to: m.to, reason: m.reason }, schedule: { kind: "once" }, start: { day: booking.day, time: m.time ?? null } });
+            update({ flash: `${m.kind}の予約を下書きにしました。確かめて確定してください。` });
+            openRight("note");
+            setBooking(null);
+          }}
+        />
+      )}
+      {booking?.what === "dept" && patient && (
+        <DeptMoveDialog
+          patient={patient}
+          dayLabel={formatShort(addDays(today, booking.day))}
+          onCancel={() => setBooking(null)}
+          onBook={(m) => {
+            addManualLab({ ...newProcedureDraft("PROC-MOVE", newId()), sourceText: "（移動・食事カレンダーから）", move: { kind: "転科", toDept: m.toDept, toDoctor: m.toDoctor, reason: m.reason }, schedule: { kind: "once" }, start: { day: booking.day, time: m.time } });
+            update({ flash: "転科の予約を下書きにしました。確かめて確定してください。" });
+            openRight("note");
+            setBooking(null);
           }}
         />
       )}

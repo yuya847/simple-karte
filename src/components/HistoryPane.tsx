@@ -12,7 +12,7 @@ import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
 import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar } from "./Calendars";
 import { FlowSheet } from "./FlowSheet";
-import { DietCalendar } from "./DietCalendar";
+import { DietCalendar, type BookWhat, type MoveEvent } from "./DietCalendar";
 import { BookingList } from "./BookingList";
 import type { Booking } from "@/lib/bookings";
 import type { DietOrder } from "@/lib/diet";
@@ -25,7 +25,7 @@ export const LEFT_VIEWS: { key: LeftView; label: string; title?: string }[] = [
   { key: "injection-cal", label: "注射", title: "注射カレンダー" },
   { key: "rx-cal", label: "処方", title: "処方カレンダー" },
   { key: "proc-cal", label: "処置", title: "処置カレンダー" },
-  { key: "diet-cal", label: "食事", title: "食事カレンダー" },
+  { key: "diet-cal", label: "移動・食事", title: "移動・食事カレンダー（日付を押すと転床・転棟・転科・退院を予約）" },
   { key: "bookings", label: "予約", title: "予約の一覧（検査・透析・リハビリ・手術など）" },
 ];
 
@@ -59,6 +59,10 @@ interface Props {
   onOpenImage?: (entryId: string) => void;
   /** The patient's bookings (予約の一覧). */
   bookings?: Booking[];
+  /** 移動 row of the 移動・食事 calendar, booking from a date, and carrying out a booked move. */
+  moves?: MoveEvent[];
+  onBook?: (day: number, what: BookWhat) => void;
+  onDoMove?: (entryId: string) => void;
 }
 
 /** What is copied to the right (Do): a past note's text, or a past order to write again. */
@@ -80,7 +84,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, onDo, diets, onOpenDiet, onOpenImage, bookings } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
@@ -118,7 +122,7 @@ export function HistoryPane(props: Props) {
       ) : view === "bookings" ? (
         <BookingList bookings={bookings ?? []} today={today} />
       ) : view === "diet-cal" ? (
-        <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} />
+        <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} moves={moves} onBook={onBook} onDoMove={onDoMove} />
       ) : (
         <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} />
       )}

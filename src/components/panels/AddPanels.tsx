@@ -1586,9 +1586,9 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
 }
 
 /** 退院申込・外泊・外出: kind, when, where to and (外泊・外出) when back — chosen by the doctor. */
-export function AddLeavePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
-  const [kind, setKind] = useState<LeaveOrder["kind"] | null>(null);
-  const [day, setDay] = useState<number | null>(null);
+export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外出"], initialDay = null }: { onAdd: (d: Draft) => void; newId: () => string; kinds?: LeaveOrder["kind"][]; initialDay?: number | null }) {
+  const [kind, setKind] = useState<LeaveOrder["kind"] | null>(kinds.length === 1 ? kinds[0] : null);
+  const [day, setDay] = useState<number | null>(initialDay);
   const [time, setTime] = useState("");
   const [backDay, setBackDay] = useState<number | null>(null);
   const [backTime, setBackTime] = useState("");
@@ -1601,6 +1601,7 @@ export function AddLeavePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; new
     { value: 1, label: "明日" },
     { value: 2, label: "あさって" },
     { value: 3, label: "3日後" },
+    ...(initialDay !== null && initialDay > 3 ? [{ value: initialDay, label: `${initialDay}日後` }] : []),
   ];
   const submit = () => {
     if (missing.length) return;
@@ -1615,7 +1616,7 @@ export function AddLeavePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; new
   );
   return (
     <div className="space-y-2 text-[12px]">
-      {row("種類", <TabChoice label="退院・外泊・外出" options={(["退院", "外泊", "外出"] as const).map((x) => ({ value: x, label: x }))} value={kind} onChange={setKind} />)}
+      {kinds.length > 1 && row("種類", <TabChoice label="退院・外泊・外出" options={kinds.map((x) => ({ value: x, label: x }))} value={kind} onChange={setKind} />)}
       {row(
         kind === "退院" ? "退院" : "出る",
         <>
