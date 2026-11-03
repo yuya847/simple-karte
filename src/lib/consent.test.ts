@@ -54,3 +54,14 @@ describe("中心静脈カテーテルの算定", () => {
     expect(a.parts.map((p) => p.points)).toEqual([700, 170]);
   });
 });
+
+describe("タブレットの署名", () => {
+  it("needs the patient (or the proxy) and the doctor", async () => {
+    const { signaturesMissing } = await import("./consent");
+    const sig = (role: "本人" | "代諾者" | "説明した医師" | "同席者") => ({ role, name: "x", dataUrl: "data:image/png;base64,", at: { day: 0, time: "10:00" } });
+    expect(signaturesMissing([], false)).toEqual(["本人", "説明した医師"]);
+    expect(signaturesMissing([sig("本人")], false)).toEqual(["説明した医師"]);
+    expect(signaturesMissing([sig("本人"), sig("説明した医師")], true)).toEqual(["代諾者"]);
+    expect(signaturesMissing([sig("代諾者"), sig("説明した医師")], true)).toEqual([]);
+  });
+});

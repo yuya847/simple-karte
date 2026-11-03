@@ -46,9 +46,29 @@ export interface ConsentRecord {
   extra?: string;
   /** Who recorded a refusal or a withdrawal, and when. */
   closedAt?: { day: number; time: string };
+  /** Signed on a tablet (iPad): PNG images, kept with the record. Without them the paper form is signed. */
+  signatures?: ConsentSignature[];
+  /** What the patient (or proxy) chose on the tablet. */
+  choice?: "同意する" | "同意しない";
+}
+
+export type SignRole = "本人" | "代諾者" | "説明した医師" | "同席者";
+export interface ConsentSignature {
+  role: SignRole;
+  name: string;
+  dataUrl: string;
+  at: { day: number; time: string };
+}
+
+/** The signatures a tablet consent needs: the patient or the proxy, and the doctor. */
+export function signaturesMissing(sigs: ConsentSignature[], byProxy: boolean): SignRole[] {
+  const need: SignRole[] = [byProxy ? "代諾者" : "本人", "説明した医師"];
+  return need.filter((r) => !sigs.some((s) => s.role === r));
 }
 
 export const consentDone = (r: ConsentRecord) => r.status === "同意";
+
+export const signatureOf = (r: ConsentRecord, role: SignRole) => r.signatures?.find((s) => s.role === role);
 
 /** The form an order needs, if any. */
 export function consentFor(order: { type: string; modality?: string; contrast?: string; code?: string }): ConsentCode | null {

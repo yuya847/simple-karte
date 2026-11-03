@@ -4,7 +4,8 @@ import { FileSignature, Printer } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { CONSENT_TEMPLATES, findConsent, type ConsentCode, type ConsentRecord, type ConsentStatus } from "@/lib/consent";
+import { CONSENT_TEMPLATES, findConsent, signatureOf, type ConsentCode, type ConsentRecord, type ConsentStatus, type SignRole } from "@/lib/consent";
+import { ConsentSign } from "../ConsentSign";
 import { orderLines } from "@/lib/format";
 import { HOSPITAL } from "@/lib/billing/facility";
 import type { OrderEntry, Patient } from "@/lib/types";
@@ -33,6 +34,7 @@ const noSubscribe = () => () => {};
 /** The patient's explanation and consent forms: list, fill in, record the answer, print on A4. */
 export function ConsentPanel({ patient, room, today, nowTime, doctor, records, orders, onCreate, onUpdate }: Props) {
   const [selected, setSelected] = useState<string | null>(records[0]?.id ?? null);
+  const [signing, setSigning] = useState(false);
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const r = records.find((x) => x.id === selected) ?? records[0];
   return (
@@ -59,11 +61,25 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
             </button>
           ))}
         </div>
-        <p className="text-[10px] text-ink-faint">雛形の文は架空の病院のもので、AI は作りも書き換えもしません。患者の情報だけが入ります。署名は印刷した紙にもらいます。</p>
+        <p className="text-[10px] text-ink-faint">雛形の文は架空の病院のもので、AI は作りも書き換えもしません。患者の情報だけが入ります。署名は iPad などのタブレットに指かペンでもらうか、印刷した紙にもらいます。</p>
       </aside>
       {r ? (
         <div>
-          <Editor key={r.id} r={r} patient={patient} today={today} nowTime={nowTime} doctor={doctor} orders={orders} onUpdate={onUpdate} />
+          <Editor key={r.id} r={r} patient={patient} today={today} nowTime={nowTime} doctor={doctor} orders={orders} onUpdate={onUpdate} onSign={() => setSigning(true)} />
+          {signing && (
+            <ConsentSign
+              record={r}
+              patientName={patient.name}
+              doctor={doctor}
+              nowTime={nowTime}
+              document={<Document r={r} patient={patient} room={room} today={today} orders={orders} reading />}
+              onClose={() => setSigning(false)}
+              onDone={(x) => {
+                onUpdate(x);
+                setSigning(false);
+              }}
+            />
+          )}
           <div className="mt-3 flex justify-end">
             <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 rounded-md border border-ai px-3 py-1.5 font-bold text-ai hover:bg-ai hover:text-white">
               <Printer size={14} />
@@ -86,7 +102,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
   );
 }
 
-function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate }: { r: ConsentRecord; patient: Patient; today: CalendarDate; nowTime: string; doctor: string; orders: OrderEntry[]; onUpdate: (r: ConsentRecord) => void }) {
+function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }: { r: ConsentRecord; patient: Patient; today: CalendarDate; nowTime: string; doctor: string; orders: OrderEntry[]; onUpdate: (r: ConsentRecord) => void; onSign: () => void }) {
   const t = findConsent(r.code);
   const [extra, setExtra] = useState(r.extra ?? "");
   const [witness, setWitness] = useState(r.witness ?? "");
@@ -148,6 +164,20 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate }: { r: C
         <button type="button" onClick={() => save({})} className="rounded border border-rule px-2 py-1 text-xs">
           書いた内容を残す
         </button>
+        {r.status === "説明前" && (
+          <button
+            type="button"
+            disabled={unanswered.length > 0}
+            title={unanswered.length ? "問診にすべて答えてから" : "患者さんに iPad を渡して、読んで署名してもらう"}
+            onClick={() => {
+              save({});
+              onSign();
+            }}
+            className="rounded bg-ai px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
+          >
+            iPad で署名してもらう
+          </button>
+        )}
         {r.status !== "同意" && (
           <button
             type="button"
@@ -178,8 +208,15 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate }: { r: C
   );
 }
 
-/** The printed form (A4 portrait). */
-function Document({ r, patient, room, today, orders, print }: { r: ConsentRecord; patient: Patient; room: string; today: CalendarDate; orders: OrderEntry[]; print?: boolean }) {
+/** A signature image when signed on a tablet, otherwise a line to sign on paper. */
+function Sig({ r, role, width = "w-40" }: { r: ConsentRecord; role: SignRole; width?: string }) {
+  const s = signatureOf(r, role);
+  // eslint-disable-next-line @next/next/no-img-element
+  return s ? <img src={s.dataUrl} alt={`${role}の署名`} className={`inline-block h-10 ${width} border-b border-ink/40 object-contain align-bottom`} /> : <span>＿＿＿＿＿＿＿＿</span>;
+}
+
+/** The printed form (A4 portrait). `reading` hides the signature block (shown on the tablet before signing). */
+function Document({ r, patient, room, today, orders, print, reading }: { r: ConsentRecord; patient: Patient; room: string; today: CalendarDate; orders: OrderEntry[]; print?: boolean; reading?: boolean }) {
   const t = findConsent(r.code);
   const order = r.orderId ? orders.find((o) => o.id === r.orderId) : undefined;
   const when = r.explainedAt ?? r.createdAt;
@@ -238,24 +275,31 @@ function Document({ r, patient, room, today, orders, print }: { r: ConsentRecord
           <p className="pl-3">{r.extra}</p>
         </section>
       )}
-      <section className="mt-4 break-inside-avoid border-t border-ink pt-3">
+      {!reading && <section className="mt-4 break-inside-avoid border-t border-ink pt-3">
         <p>
-          私は、上記について説明を受け、内容を理解しました。（□ 同意します　□ 同意しません）
+          私は、上記について説明を受け、内容を理解しました。（{r.choice ? (r.choice === "同意する" ? "■ 同意します　□ 同意しません" : "□ 同意します　■ 同意しません") : "□ 同意します　□ 同意しません"}）
         </p>
         <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-[12px]">
           <span>
             説明日時：{formatShort(addDays(today, when.day))} {r.explainedAt ? when.time : "　　：　　"}
           </span>
-          <span>説明した医師：{r.explainedBy ?? ""}　署名＿＿＿＿＿＿＿＿</span>
-          <span>同席者：{r.witness ?? ""}　署名＿＿＿＿＿＿＿＿</span>
-          <span>本人署名：＿＿＿＿＿＿＿＿＿＿</span>
           <span>
-            代諾者：{r.proxy?.name ?? "＿＿＿＿＿＿"}（続柄：{r.proxy?.relation ?? "＿＿"}）署名＿＿＿＿＿＿
+            説明した医師：{r.explainedBy ?? ""}　署名 <Sig r={r} role="説明した医師" />
+          </span>
+          <span>
+            同席者：{r.witness ?? ""}　署名 <Sig r={r} role="同席者" />
+          </span>
+          <span>
+            本人署名：<Sig r={r} role="本人" width="w-48" />
+          </span>
+          <span>
+            代諾者：{r.proxy?.name ?? "＿＿＿＿＿＿"}（続柄：{r.proxy?.relation ?? "＿＿"}）署名 <Sig r={r} role="代諾者" />
           </span>
           <span>状態：{r.status}</span>
+          {r.signatures?.length ? <span className="text-[11px] text-ink-soft">タブレットで署名（{r.signatures.map((s) => `${s.role} ${s.at.time}`).join("、")}）</span> : null}
         </div>
         <p className="mt-3 text-[11px] text-ink-soft">同意の撤回：　　年　月　日　本人／代諾者署名＿＿＿＿＿＿＿＿</p>
-      </section>
+      </section>}
       {t.sources.length > 0 && <p className="mt-3 text-[10px] text-ink-faint">出典：{t.sources.map((s) => s.label).join("／")}</p>}
       <p className="mt-2 text-[10px] text-ink-faint">Simple Karte の試作。架空の病院・架空の患者の雛形で、実際の説明・同意には使えません。</p>
     </article>

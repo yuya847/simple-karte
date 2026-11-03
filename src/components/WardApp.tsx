@@ -356,7 +356,7 @@ export default function WardApp() {
     if (before && before.status !== r.status && r.status !== "説明前") {
       auditLog({ role: "医師", actor: DOCTOR, action: `確定（同意書：${r.status}）`, patient: patient?.name, detail: findConsent(r.code).short });
       const t = findConsent(r.code).short;
-      const line = `・同意書：${t} ${r.status === "同意" ? "説明・同意" : r.status === "拒否" ? "説明・同意されず" : "同意の撤回"}（${nowTime}${r.explainedBy ? ` 説明 ${r.explainedBy}` : ""}${r.witness ? `、同席 ${r.witness}` : ""}）`;
+      const line = `・同意書：${t} ${r.status === "同意" ? "説明・同意" : r.status === "拒否" ? "説明・同意されず" : "同意の撤回"}（${nowTime}${r.explainedBy ? ` 説明 ${r.explainedBy}` : ""}${r.witness ? `、同席 ${r.witness}` : ""}${r.signatures?.length ? `、タブレットで署名：${r.signatures.map((x) => x.role).join("・")}` : ""}）`;
       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n${line}\n` }));
     }
   };
