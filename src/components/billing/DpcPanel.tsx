@@ -148,7 +148,15 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
                   <span className="ml-2 font-normal text-ink-soft">（MDC {d.cls.code.slice(0, 2)} {d.cls.mdcName}）</span>
                 </div>
                 <div className="text-ink-soft">
-                  {Object.entries({ 手術: d.row.label.surgery, 手術・処置等１: d.row.label.shochi1, 手術・処置等２: d.row.label.shochi2, 定義副傷病: d.row.label.fukushobyo, 重症度等: d.row.label.severity })
+                  {(
+                    [
+                      ["手術", d.row.label.surgery],
+                      ["手術・処置等１", d.row.label.shochi1],
+                      ["手術・処置等２", d.row.label.shochi2],
+                      ["定義副傷病", d.row.label.fukushobyo],
+                      ["重症度等", d.row.label.severity],
+                    ] as const
+                  )
                     .filter(([, v]) => v)
                     .map(([k, v]) => `${k} ${v}`)
                     .join("　")}
