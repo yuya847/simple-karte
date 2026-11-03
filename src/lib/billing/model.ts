@@ -83,6 +83,8 @@ export interface BillingOptions {
   specialDiet: boolean;
   /** 薬剤管理指導料 (B008) days, with 1 (特に安全管理が必要な医薬品) or 2. */
   yakuzaiShido: { day: DayOffset; kind: "1" | "2" }[];
+  /** 入院栄養食事指導料１ (B001 10 イ) days, counted in order (初回・2回目), from 指導の記録 when the patient is eligible. */
+  eiyoShido?: { day: DayOffset }[];
 }
 
 export const DEFAULT_OPTIONS: BillingOptions = {
@@ -93,6 +95,7 @@ export const DEFAULT_OPTIONS: BillingOptions = {
   kyoryoku: "",
   specialDiet: false,
   yakuzaiShido: [],
+  eiyoShido: [],
 };
 
 /** 食事療養標準負担額の区分（限度額適用・標準負担額減額認定などで決まる）. */

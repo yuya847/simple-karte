@@ -277,6 +277,12 @@ describe("投薬（入院）", () => {
     expect(find(r.acts, "120001710").count).toBe(0);
     expect(find(r.acts, "120001610")).toMatchObject({ count: 1, days: [4] });
   });
+
+  it("入院栄養食事指導料１: 初回 260, 2回目 200, no third", () => {
+    const r = claim("2026-10", { entries: [mgo], options: { eiyoShido: [{ day: OCT1 + 17 }, { day: OCT1 + 3 }, { day: OCT1 + 10 }] } });
+    expect(find(r.acts, "113017610")).toMatchObject({ count: 1, days: [4] });
+    expect(find(r.acts, "113017710")).toMatchObject({ count: 1, days: [11] });
+  });
 });
 
 describe("入院時食事療養（Ⅰ）", () => {

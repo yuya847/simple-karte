@@ -656,6 +656,15 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     }
     add({ day: d, shikibetsu: "13", parts: [{ lines, points }], basis });
   }
+  // B001 10 入院栄養食事指導料１: 初回 and 2回目 only (入院中2回), each in order of the stay.
+  [...(o.eiyoShido ?? [])]
+    .sort((a, b) => a.day - b.day)
+    .slice(0, 2)
+    .forEach((g, i) => {
+      if (!inMonth.has(g.day)) return;
+      const code = i === 0 ? "113017610" : "113017710";
+      add({ day: g.day, shikibetsu: "13", parts: [{ lines: [si(code)], points: pts(code) }], basis: `B001 10 イ 入院栄養食事指導料１（${i === 0 ? "初回" : "2回目"}。入院中2回・週1回まで）` });
+    });
   for (const y of o.yakuzaiShido) {
     if (!inMonth.has(y.day)) continue;
     const code = y.kind === "1" ? "113010810" : "120001610";
