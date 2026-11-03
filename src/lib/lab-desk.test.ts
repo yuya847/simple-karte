@@ -1,8 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DESK, addTry, checkEntry, confirmReport, containersOf, demoLabOrders, deskLabs, deskWindow, drawRows, entryPlan, flagOf, normalizeCode, parseValue, rangeText, receive, scanSpecimen, statusCounts, testCodes, toEnter, whenText } from "./lab-desk";
+import {
+  EMPTY_DESK,
+  addTry,
+  changeLine,
+  checkCorrection,
+  checkEntry,
+  confirmReport,
+  containersOf,
+  correctReport,
+  correctionReason,
+  demoLabOrders,
+  deskLabs,
+  deskWindow,
+  drawRows,
+  entryPlan,
+  flagOf,
+  normalizeCode,
+  parseValue,
+  rangeText,
+  receive,
+  scanSpecimen,
+  statusCounts,
+  testCodes,
+  toEnter,
+  versionOf,
+  versionsOf,
+  whenText,
+} from "./lab-desk";
 import { latestValue } from "./clinical";
 import { ANALYTES } from "./master";
-import { PANIC_LIMITS, labKey, resultsOf, uncalled } from "./results";
+import { PANIC_LIMITS, labKey, resultsOf, uncalled, unseen } from "./results";
 import { labelFor, marKey, type AdminRecord } from "./mar";
 import { PATIENTS } from "./patients";
 import { currentEntries } from "./record";
@@ -241,5 +268,68 @@ describe("パニック値の連絡：つながらなかった回", () => {
     const d = addTry(addTry(EMPTY_DESK, "k1", t("10:00")), "k1", t("10:05"));
     expect(d.tries.k1.map((x) => x.at.time)).toEqual(["10:00", "10:05"]);
     expect(EMPTY_DESK.tries).toEqual({});
+  });
+});
+
+describe("結果の訂正", () => {
+  const recs = { [marKey("ord-t1", T6)]: { ...record("ord-t1", T6), doneAt: "06:02" } };
+  const row = drawRows(people, recs, EMPTY_DESK, 9 * 60, T6 + 30).find((r) => r.orderId === "ord-t1")!;
+  const lytes = entryPlan(["SET-LYTES"]);
+  const reported = confirmReport(receive(EMPTY_DESK, row, "検査技師 中村", T6 + 30), row, { Na: 139, K: 7.4, Cl: 104 }, "検査技師 中村", T6 + 60);
+  const at = (d: typeof reported) => ({ ...sakura, labs: [...sakura.labs, ...deskLabs(d, sakura.id)] });
+
+  it("needs a changed value, every value valid, and a reason", () => {
+    const r = reported.reports[row.code];
+    const same = checkEntry(lytes, { Na: "139", K: "7.4", Cl: "104" }, sakura, PANIC_LIMITS, T6);
+    expect(checkCorrection(r, same, "入力の誤り", PANIC_LIMITS)).toMatchObject({ ready: false, missing: ["変えた値"] });
+    const fixed = checkEntry(lytes, { Na: "139", K: "4.7", Cl: "104" }, sakura, PANIC_LIMITS, T6);
+    expect(checkCorrection(r, fixed, "", PANIC_LIMITS)).toMatchObject({ ready: false, missing: ["訂正の理由"] });
+    const ok = checkCorrection(r, fixed, "入力の誤り", PANIC_LIMITS);
+    expect(ok.ready).toBe(true);
+    expect(changeLine(ok.changes)).toBe("K 7.4→4.7");
+    expect(ok.panicBefore.map((h) => h.code)).toEqual(["K"]);
+    expect(ok.panicAfter).toEqual([]);
+    const bad = checkEntry(lytes, { Na: "139", K: "x", Cl: "104" }, sakura, PANIC_LIMITS, T6);
+    expect(checkCorrection(r, bad, "入力の誤り", PANIC_LIMITS).missing).toContain("数でない値");
+    expect(correctionReason("入力の誤り", " 転記 ")).toBe("入力の誤り（転記）");
+    expect(correctionReason("その他", "")).toBe("");
+    expect(correctionReason(null, "x")).toBe("");
+  });
+
+  it("keeps the version it replaced (who, when, why) and does nothing without a reason or a change", () => {
+    expect(correctReport(reported, row.code, { Na: 139, K: 4.7, Cl: 104 }, " ", "検査技師 佐々木", T6 + 90)).toBe(reported);
+    expect(correctReport(reported, row.code, { Na: 139, K: 7.4, Cl: 104 }, "入力の誤り", "検査技師 佐々木", T6 + 90)).toBe(reported);
+    expect(correctReport(reported, "NOPE", { K: 1 }, "入力の誤り", "x", T6 + 90)).toBe(reported);
+    const fixed = correctReport(reported, row.code, { Na: 139, K: 4.7, Cl: 104 }, "入力の誤り", "検査技師 佐々木", T6 + 90);
+    const r = fixed.reports[row.code];
+    expect(r).toMatchObject({ values: { K: 4.7 }, by: "検査技師 佐々木", reported: { day: 1, time: "07:30" }, reason: "入力の誤り" });
+    expect(versionOf(r)).toBe(2);
+    expect(versionsOf(r).map((v) => `${v.reported.time} ${v.by} K${v.values.K}${v.reason ? ` ${v.reason}` : ""}`)).toEqual(["07:00 検査技師 中村 K7.4", "07:30 検査技師 佐々木 K4.7 入力の誤り"]);
+    const again = correctReport(fixed, row.code, { Na: 141, K: 4.7, Cl: 104 }, "再測定の結果", "検査技師 中村", T6 + 120);
+    expect(versionOf(again.reports[row.code])).toBe(3);
+    expect(again.reports[row.code].earlier!.map((v) => v.values.Na)).toEqual([139, 139]);
+  });
+
+  it("the doctor sees a corrected result again as not seen, marked 訂正 with what changed", () => {
+    const before = resultsOf(at(reported), PANIC_LIMITS).find((i) => i.key.includes(row.code))!;
+    const acks = { [before.key]: { by: "山本（専攻医）", at: { day: 1, time: "07:10" } } };
+    const fixed = correctReport(reported, row.code, { Na: 139, K: 4.7, Cl: 104 }, "入力の誤り", "検査技師 佐々木", T6 + 90);
+    const after = resultsOf(at(fixed), PANIC_LIMITS).filter((i) => i.key.includes(row.code));
+    expect(after).toHaveLength(1);
+    expect(after[0].key).toBe(`${before.key}|v2`);
+    expect(unseen(after, acks)).toHaveLength(1);
+    expect(after[0].title).toContain("訂正");
+    expect(after[0].corrected).toBe("訂正（第2版）：K 7.4→4.7（訂正前のKはパニック値）　理由：入力の誤り（07:30 検査技師 佐々木）");
+    expect(deskLabs(fixed, sakura.id)[0].corrected).toMatchObject({ version: 2, before: { K: 7.4 }, by: "検査技師 佐々木" });
+  });
+
+  it("the panic flow follows the version in force: one that stops being a panic value drops out, one that becomes one is phoned in", () => {
+    expect(uncalled(resultsOf(at(reported), PANIC_LIMITS), {}).map((i) => i.panic.map((h) => h.code))).toEqual([["K"]]);
+    const notPanic = correctReport(reported, row.code, { Na: 139, K: 4.7, Cl: 104 }, "入力の誤り", "x", T6 + 90);
+    expect(uncalled(resultsOf(at(notPanic), PANIC_LIMITS), {})).toEqual([]);
+    const becomes = correctReport(notPanic, row.code, { Na: 112, K: 4.7, Cl: 104 }, "再測定の結果", "x", T6 + 100);
+    const waiting = uncalled(resultsOf(at(becomes), PANIC_LIMITS), {});
+    expect(waiting.map((i) => i.panic.map((h) => h.code))).toEqual([["Na"]]);
+    expect(waiting[0].key.endsWith("|v3")).toBe(true);
   });
 });

@@ -3,10 +3,11 @@
 import { Check, ClipboardPen } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
-import { checkEntry, confirmReport, entryPlan, rangeText, toEnter, whenText, type DrawRow, type LabDesk } from "@/lib/lab-desk";
+import { changeLine, checkEntry, confirmReport, correctReport, entryPlan, rangeText, toEnter, versionOf, whenText, type DrawRow, type LabDesk } from "@/lib/lab-desk";
 import { ageSex } from "@/lib/person";
-import { hitLine, type PanicLimit } from "@/lib/results";
+import { hitLine, labKey, type PanicCall, type PanicLimit } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
+import { LabCorrect } from "./LabCorrect";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
   people: WorkPatient[];
   limits: PanicLimit[];
   nowAbs: number;
+  /** Panic values phoned in (to say, when correcting one, that the doctor was told the old value). */
+  calls: Record<string, PanicCall>;
   onDesk: (f: (d: LabDesk) => LabDesk) => void;
   /** A confirmed result had panic values (one line for the banner). */
   onPanic: (line: string) => void;
@@ -21,8 +24,8 @@ interface Props {
 
 const fmt = (n: number) => n.toLocaleString("ja-JP", { maximumFractionDigits: 3 });
 
-/** 結果の入力: the values of each received sample, checked by code as they are typed, then 確定. */
-export function LabEntry({ rows, people, limits, nowAbs, onDesk, onPanic }: Props) {
+/** 結果の入力: the values of each received sample, checked by code as they are typed, then 確定. A confirmed result can be corrected. */
+export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic }: Props) {
   const me = useMe();
   const deny = useDeny()("lab.result");
   const [sel, setSel] = useState<string | null>(null);
@@ -30,36 +33,71 @@ export function LabEntry({ rows, people, limits, nowAbs, onDesk, onPanic }: Prop
   const received = toEnter(rows);
   const withItems = received.filter((r) => entryPlan(r.codes).analytes.length > 0);
   const without = received.filter((r) => entryPlan(r.codes).analytes.length === 0);
-  const row = withItems.find((r) => r.code === sel) ?? withItems[0];
+  // Results confirmed in this session (the fictional record before it is not corrected here).
+  const reported = rows.filter((r) => r.status === "報告済み" && r.report);
+  const fixing = reported.find((r) => r.code === sel);
+  const row = fixing ? undefined : (withItems.find((r) => r.code === sel) ?? withItems[0]);
+  const fixPerson = fixing && people.find((x) => x.patient.id === fixing.patientId);
+  const fixLab = fixPerson?.patient.labs.find((l) => l.id === fixing!.code);
+  const pick = (r: DrawRow, on: boolean, tone: "ai" | "yamabuki") => (
+    <button
+      type="button"
+      onClick={() => setSel(r.code)}
+      className={`w-full rounded border px-2 py-1 text-left text-[12px] ${on ? (tone === "ai" ? "border-ai bg-ai-soft" : "border-yamabuki bg-yamabuki-soft") : "border-rule bg-sheet hover:border-ai"}`}
+    >
+      <span className="nums block text-ink-soft">
+        {whenText(r.at)}　<span className="text-ink-faint">{r.room}</span> <b className="text-ink">{r.name}</b>
+        {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
+        {r.report && versionOf(r.report) > 1 && <span className="ml-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">訂正 第{versionOf(r.report)}版</span>}
+      </span>
+      <span className="block truncate">{r.tests}</span>
+    </button>
+  );
   return (
     <div className="mx-auto max-w-[1100px] space-y-2">
       <DenyNote action="lab.result" />
-      {received.length === 0 ? (
+      {received.length === 0 && reported.length === 0 ? (
         <p className="rounded-lg border border-rule bg-sheet p-4 text-ink-soft">受け付けた検体はありません。「検体の受付」でラベルを読むと、ここに並びます。</p>
       ) : (
         <div className="flex flex-wrap items-start gap-3">
           <ul className="w-64 shrink-0 space-y-1">
+            {received.length > 0 && <li className="text-[11px] font-bold text-ink-soft">入力を待つ検体</li>}
             {withItems.map((r) => (
-              <li key={r.code}>
-                <button
-                  type="button"
-                  onClick={() => setSel(r.code)}
-                  className={`w-full rounded border px-2 py-1 text-left text-[12px] ${r.code === row?.code ? "border-ai bg-ai-soft" : "border-rule bg-sheet hover:border-ai"}`}
-                >
-                  <span className="nums block text-ink-soft">
-                    {whenText(r.at)}　<span className="text-ink-faint">{r.room}</span> <b className="text-ink">{r.name}</b>
-                    {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
-                  </span>
-                  <span className="block truncate">{r.tests}</span>
-                </button>
-              </li>
+              <li key={r.code}>{pick(r, r.code === row?.code, "ai")}</li>
             ))}
             {without.map((r) => (
               <li key={r.code} className="rounded border border-rule-soft px-2 py-1 text-[11px] text-ink-faint">
                 {whenText(r.at)} {r.name}　{r.tests}：この画面で入れる項目なし（{entryPlan(r.codes).other.map((o) => `${o.name}は${o.why}`).join("、")}）
               </li>
             ))}
+            {reported.length > 0 && <li className="pt-2 text-[11px] font-bold text-ink-soft">確定した結果（押すと訂正できます）</li>}
+            {reported.map((r) => (
+              <li key={r.code}>{pick(r, r.code === fixing?.code, "yamabuki")}</li>
+            ))}
           </ul>
+          {fixing && (
+            <LabCorrect
+              key={`${fixing.code}-${versionOf(fixing.report!)}`}
+              row={fixing}
+              person={fixPerson}
+              limits={limits}
+              locked={!!deny}
+              call={fixLab ? calls[labKey(fixing.patientId, fixLab)] : undefined}
+              onConfirm={(values, reason, check) => {
+                const v = versionOf(fixing.report!) + 1;
+                onDesk((d) => correctReport(d, fixing.code, values, reason, me.name, nowAbs));
+                const lost = check.panicBefore.filter((h) => !check.panicAfter.some((x) => x.code === h.code));
+                auditLog({
+                  role: me.role,
+                  actor: me.name,
+                  action: "確定（検査結果の訂正）",
+                  patient: fixing.name,
+                  detail: `${whenText(fixing.at)} 第${v}版　${changeLine(check.changes)}　理由：${reason}${check.panicAfter.length ? `　訂正後のパニック値：${check.panicAfter.map(hitLine).join("、")}` : ""}${lost.length ? `　パニック値でなくなった：${lost.map((h) => h.name).join("・")}` : ""}`,
+                });
+                if (check.panicAfter.length) onPanic(`${fixing.room} ${fixing.name}さん（訂正後）${check.panicAfter.map(hitLine).join("、")}`);
+              }}
+            />
+          )}
           {row && (
             <Form
               key={row.code}

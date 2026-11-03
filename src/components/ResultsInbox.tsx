@@ -51,11 +51,13 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
                 {i.day === 0 ? "今日" : formatShort(addDays(today, i.day))} {i.time}
               </span>
               <span>{i.title}</span>
+              {i.corrected && <span className="rounded bg-yamabuki px-1 text-[11px] font-bold text-white">訂正</span>}
               {i.panic.length > 0 ? (
                 <b className="text-shu">パニック値：{i.panic.map(hitLine).join("、")}</b>
               ) : (
                 <span className="text-ink-soft">{i.detail}</span>
               )}
+              {i.corrected && <span className="w-full pl-10 font-bold text-yamabuki">{i.corrected}</span>}
               {call && (
                 <span className="flex items-center gap-0.5 text-ink-soft">
                   <PhoneCall size={11} />

@@ -317,6 +317,8 @@ export interface LabResult {
   id?: string;
   reportedBy?: string;
   reportedAt?: { day: DayOffset; time: string };
+  /** Set when the laboratory corrected the values (訂正): the version now shown, why, and the values it replaced. */
+  corrected?: { version: number; reason: string; by: string; at: { day: DayOffset; time: string }; before: Record<string, number> };
 }
 
 export interface CultureResult {

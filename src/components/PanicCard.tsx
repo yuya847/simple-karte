@@ -50,6 +50,7 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
         </span>
         <b className="text-shu">{item.panic.map(hitLine).join("、")}</b>
       </div>
+      {item.corrected && <p className="text-[11px] font-bold text-yamabuki">{item.corrected}。訂正した値として伝えます。</p>}
       {history.length > (call ? 1 : 0) && (
         <ol className="nums mt-1 space-y-0.5 text-[11px]">
           {history.map((t, n) => (

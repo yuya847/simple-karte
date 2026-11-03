@@ -24,10 +24,16 @@ export function ResultsPanel({ patient, today }: { patient: Patient; today: Cale
                   <th className="py-1 pr-3 text-left font-normal">単位</th>
                   <th className="py-1 pr-3 text-left font-normal" title="共用＝JCCLS 共用基準範囲（2022）、SRL＝SRL 総合検査案内 2026-2027。＊は判断値あり">基準範囲</th>
                   {results.map((r) => (
-                    <th key={`${r.day}-${r.time}-${r.id ?? ""}`} className="py-1 pl-3 text-right font-normal">
+                    <th key={`${r.day}-${r.time}-${r.id ?? ""}`} className="py-1 pl-3 text-right font-normal" title={r.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : undefined}>
                       {formatShort(addDays(today, r.day))}
                       <br />
                       {r.time}
+                      {r.corrected && (
+                        <>
+                          <br />
+                          <span className="font-bold text-yamabuki">訂正 第{r.corrected.version}版</span>
+                        </>
+                      )}
                     </th>
                   ))}
                 </tr>

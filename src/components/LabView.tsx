@@ -4,7 +4,7 @@ import { BookOpenText, ClipboardPen, FlaskConical, HelpCircle, PhoneCall, ScanLi
 import { useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { abs } from "@/lib/flowsheet";
-import { drawRows, receive, scanSpecimen, statusCounts, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
+import { drawRows, receive, scanSpecimen, statusCounts, versionOf, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
 import type { AdminRecord } from "@/lib/mar";
 import { callScript, hitLine, labBoard, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
@@ -115,6 +115,7 @@ export function LabView(p: Props) {
             people={people}
             limits={p.limits}
             nowAbs={nowAbs}
+            calls={calls}
             onDesk={p.onDesk}
             onPanic={(line) => {
               setFlash(`パニック値：${line}。オーダーした医師に連絡し、ここに記録してください。`);
@@ -250,7 +251,7 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
 }
 
 function statusNote(r: DrawRow, nowAbs: number): string {
-  if (r.status === "報告済み") return r.report ? `${r.report.reported.time} ${r.report.by}` : "前の記録";
+  if (r.status === "報告済み") return r.report ? `${r.report.reported.time} ${r.report.by}${versionOf(r.report) > 1 ? `（訂正 第${versionOf(r.report)}版）` : ""}` : "前の記録";
   if (r.status === "受付済み") return `${r.reception!.time} ${r.reception!.by}${r.reception!.collected ? "" : "（採取の記録なし）"}`;
   if (r.status === "採取済み") return r.collectedAt === "前の勤務" ? "前の勤務" : `${r.collectedAt ?? ""} ${r.collectedBy ?? ""}`.trim();
   if (r.status === "採取しなかった") return r.notDoneReason ?? "";
@@ -315,7 +316,10 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
                     <span className="nums text-ink-faint">{w?.room}</span> {w?.patient.name}
                   </td>
                   <td className="py-1 pr-2">{i.title}</td>
-                  <td className={`py-1 ${i.panic.length ? "font-bold text-shu" : ""}`}>{i.panic.length ? `パニック値：${i.panic.map(hitLine).join("、")}` : i.detail}</td>
+                  <td className={`py-1 ${i.panic.length ? "font-bold text-shu" : ""}`}>
+                    {i.panic.length ? `パニック値：${i.panic.map(hitLine).join("、")}` : i.detail}
+                    {i.corrected && <span className="block font-bold text-yamabuki">{i.corrected}</span>}
+                  </td>
                 </tr>
               );
             })}

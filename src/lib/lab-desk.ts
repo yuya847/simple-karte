@@ -24,16 +24,24 @@ export interface Reception {
   collected: boolean;
 }
 
-/** A result the laboratory confirmed (values by analyte code). */
-export interface LabReport {
+/** One version of a confirmed result: the values, who confirmed them and when. */
+export interface ReportVersion {
+  values: Record<string, number>;
+  by: string;
+  reported: { day: DayOffset; time: string };
+  /** Why this version replaced the one before it (訂正の理由). The first version has none. */
+  reason?: string;
+}
+
+/** A result the laboratory confirmed (values by analyte code). The fields of ReportVersion are the version in force. */
+export interface LabReport extends ReportVersion {
   code: string;
   orderId: string;
   patientId: string;
   /** Scheduled draw time; the result is filed under it, like the printed label. */
   at: number;
-  values: Record<string, number>;
-  by: string;
-  reported: { day: DayOffset; time: string };
+  /** Earlier versions, oldest first: a correction never overwrites what it replaced. */
+  earlier?: ReportVersion[];
 }
 
 /** What the laboratory did in this session (kept in this browser only). */
@@ -318,8 +326,91 @@ export function deskLabs(desk: LabDesk, patientId: string): LabResult[] {
   return Object.values(desk.reports)
     .filter((r) => r.patientId === patientId)
     .sort((a, b) => a.at - b.at)
-    .map((r) => ({ day: Math.floor(r.at / 1440), time: hhmm(r.at), values: r.values, id: r.code, reportedBy: r.by, reportedAt: r.reported }));
+    .map((r) => {
+      const prev = r.earlier?.at(-1);
+      return {
+        day: Math.floor(r.at / 1440),
+        time: hhmm(r.at),
+        values: r.values,
+        id: r.code,
+        reportedBy: r.by,
+        reportedAt: r.reported,
+        ...(prev ? { corrected: { version: versionOf(r), reason: r.reason ?? "", by: r.by, at: r.reported, before: prev.values } } : {}),
+      };
+    });
 }
+
+// ---------------------------------------------------------------------------
+// 結果の訂正: a confirmed value is changed with a reason; the version it replaced is kept.
+// ---------------------------------------------------------------------------
+
+/** 第◯版 of a result (1 until it is corrected). */
+export const versionOf = (r: Pick<LabReport, "earlier">) => (r.earlier?.length ?? 0) + 1;
+
+export const CORRECTION_REASONS = ["入力の誤り", "再測定の結果", "機器・試薬の不具合", "その他"] as const;
+export type CorrectionReason = (typeof CORRECTION_REASONS)[number];
+
+/** The reason as it is kept: the kind, with the words written (その他 is the words alone). */
+export function correctionReason(kind: CorrectionReason | null, note: string): string {
+  const n = note.trim();
+  if (!kind) return "";
+  if (kind === "その他") return n;
+  return n ? `${kind}（${n}）` : kind;
+}
+
+export interface ValueChange {
+  code: string;
+  name: string;
+  unit: string;
+  from: number;
+  to: number;
+}
+
+/** The values that differ between two versions (in the order of the analyte master). */
+export function changesOf(before: Record<string, number>, after: Record<string, number>): ValueChange[] {
+  const codes = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((c) => before[c] !== after[c] && before[c] !== undefined && after[c] !== undefined);
+  return ANALYTES.filter((a) => codes.includes(a.code)).map((a) => ({ code: a.code, name: a.name, unit: a.unit, from: before[a.code], to: after[a.code] }));
+}
+
+const num = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000));
+export const changeLine = (c: ValueChange[]) => c.map((x) => `${x.name} ${num(x.from)}→${num(x.to)}`).join("、");
+
+export interface CorrectionCheck {
+  changes: ValueChange[];
+  /** Why 訂正 cannot be confirmed yet (empty when it can). */
+  missing: string[];
+  /** Panic values before and after (the panic flow follows the version in force). */
+  panicBefore: PanicHit[];
+  panicAfter: PanicHit[];
+  ready: boolean;
+}
+
+/** 訂正 needs every value valid, at least one value changed, and a reason. */
+export function checkCorrection(report: LabReport, entry: EntryCheck, reason: string, limits: PanicLimit[]): CorrectionCheck {
+  const changes = entry.errors || entry.missing ? [] : changesOf(report.values, entry.values);
+  const missing = [
+    entry.errors ? "数でない値" : "",
+    entry.missing ? `空の項目 ${entry.missing}` : "",
+    !entry.errors && !entry.missing && changes.length === 0 ? "変えた値" : "",
+    !reason.trim() ? "訂正の理由" : "",
+  ].filter(Boolean);
+  return { changes, missing, panicBefore: panicOf(report.values, limits), panicAfter: entry.panic, ready: missing.length === 0 };
+}
+
+/**
+ * 訂正: the new values become the version in force (who, when, why); the version before is kept in
+ * `earlier`. A report is corrected only with a reason and a changed value.
+ */
+export function correctReport(desk: LabDesk, code: string, values: Record<string, number>, reason: string, by: string, nowAbs: number): LabDesk {
+  const r = desk.reports[code];
+  if (!r || !reason.trim() || changesOf(r.values, values).length === 0) return desk;
+  const before: ReportVersion = { values: r.values, by: r.by, reported: r.reported, ...(r.reason ? { reason: r.reason } : {}) };
+  const next: LabReport = { ...r, values, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, reason: reason.trim(), earlier: [...(r.earlier ?? []), before] };
+  return { ...desk, reports: { ...desk.reports, [code]: next } };
+}
+
+/** Every version of a report, oldest first (the last is in force). */
+export const versionsOf = (r: LabReport): ReportVersion[] => [...(r.earlier ?? []), { values: r.values, by: r.by, reported: r.reported, ...(r.reason ? { reason: r.reason } : {}) }];
 
 /** A try that did not reach anyone (不在・話し中・伝言), kept until the value is reported. */
 export function addTry(desk: LabDesk, key: string, t: ContactAttempt): LabDesk {

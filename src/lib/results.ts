@@ -18,6 +18,8 @@ export interface ResultItem {
   detail: string;
   /** Values beyond a panic limit (laboratory results only). */
   panic: PanicHit[];
+  /** The laboratory corrected this result (訂正): what changed, why, who and when. */
+  corrected?: string;
 }
 
 export interface PanicLimit {
@@ -69,8 +71,22 @@ export interface Ack {
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
 
-/** A result the laboratory entered in this session also carries its label code (two orders may share a draw time). */
-export const labKey = (pid: string, l: LabResult) => `lab|${pid}|${l.day}|${l.time}${l.id ? `|${l.id}` : ""}`;
+/**
+ * A result the laboratory entered in this session also carries its label code (two orders may share a
+ * draw time). A corrected result carries its version, so the doctor sees it again as not yet seen and
+ * a panic value in it is phoned in again.
+ */
+export const labKey = (pid: string, l: LabResult) => `lab|${pid}|${l.day}|${l.time}${l.id ? `|${l.id}` : ""}${l.corrected ? `|v${l.corrected.version}` : ""}`;
+
+/** What a correction changed, in one line (saying which of the values it replaced were panic values). */
+export function correctedLine(l: LabResult, limits: PanicLimit[]): string | undefined {
+  const c = l.corrected;
+  if (!c) return undefined;
+  const codes = ANALYTES.filter((a) => a.code in c.before && a.code in l.values && c.before[a.code] !== l.values[a.code]);
+  const changed = codes.map((a) => `${a.name} ${fmt(c.before[a.code])}→${fmt(l.values[a.code])}`);
+  const wasPanic = panicOf(c.before, limits).filter((h) => codes.some((a) => a.code === h.code));
+  return `訂正（第${c.version}版）：${changed.join("、")}${wasPanic.length ? `（訂正前の${wasPanic.map((h) => h.name).join("・")}はパニック値）` : ""}　理由：${c.reason}（${c.at.time} ${c.by}）`;
+}
 
 /** Values beyond the panic limits of the fictional hospital. */
 export function panicOf(values: Record<string, number>, limits: PanicLimit[]): PanicHit[] {
@@ -113,9 +129,10 @@ export function resultsOf(p: Patient, limits: PanicLimit[]): ResultItem[] {
       kind: "検査",
       day: l.day,
       time: l.time,
-      title: `検体検査 ${Object.keys(l.values).length}項目`,
+      title: `検体検査 ${Object.keys(l.values).length}項目${l.corrected ? "（訂正）" : ""}`,
       detail: abnormal.length ? `基準範囲の外：${abnormal.join("、")}` : "すべて基準範囲の中",
       panic: panicOf(l.values, limits),
+      ...(l.corrected ? { corrected: correctedLine(l, limits) } : {}),
     });
   }
   for (const s of p.imaging) {
