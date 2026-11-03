@@ -1034,7 +1034,8 @@ export default function WardApp() {
         ? { beds: ward.beds.filter((b) => b.patientId && findPatient(b.patientId)?.attending === me.name), title: "受け持ち患者（主治医）", group: "room" }
         : role === "看護師"
           ? {
-              beds: ward.beds.filter((b) => b.patientId && (!myTeam || teamOf(b.room) === myTeam)),
+              // Teams are 5階東's: a patient moved to another floor is in neither team (shown under すべて).
+              beds: ward.beds.filter((b) => b.patientId && (!myTeam || (floorOf(b.room) === WARD_NAME && teamOf(b.room) === myTeam))),
               title: "受け持ち患者",
               group: "room",
               pick: {
@@ -1219,7 +1220,8 @@ export default function WardApp() {
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
-  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.length : 0, admit: admitDue };
+  // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
+  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => findPatient(i.patientId)?.attending === me.name).length : 0, admit: admitDue };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";

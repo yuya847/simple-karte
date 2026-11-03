@@ -472,7 +472,9 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
   // one ordered for "now" or not yet dispensed stays on the list; the dispensed ones are marked).
   const [which, setWhich] = useState<"tomorrow" | "today">("tomorrow");
   const nowAbs = abs(0, nowTime);
-  const { lo, hi } = which === "tomorrow" ? shiftWindow("all", 1) : { lo: Math.floor(nowAbs / 1440) * 1440, hi: (Math.floor(nowAbs / 1440) + 1) * 1440 };
+  // After midnight the clock runs on (24:30 …): "today" is then the next calendar day, and 明日分 the one after.
+  const dayNow = Math.floor(nowAbs / 1440);
+  const { lo, hi } = which === "tomorrow" ? shiftWindow("all", dayNow + 1) : { lo: dayNow * 1440, hi: (dayNow + 1) * 1440 };
   const sheet = buildWorksheet(people, lo, hi, nowAbs);
   const doses = sheet.timed.filter((i) => i.kind === "注射" && i.at !== null);
   const byPatient = people.map((x) => ({ ...x, doses: doses.filter((d) => d.patientId === x.patient.id) })).filter((x) => x.doses.length);
@@ -531,7 +533,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
             </button>
           ))}
         </span>
-        {which === "tomorrow" ? `明日（${formatShort(addDays(today, 1))}）` : "今日（時刻の過ぎた回も）"}の注射を、患者ごと・1回ごとに並べます（オーダからコードで計算。持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
+        {which === "tomorrow" ? `明日（${formatShort(addDays(today, dayNow + 1))}）` : `今日（${formatShort(addDays(today, dayNow))}、時刻の過ぎた回も）`}の注射を、患者ごと・1回ごとに並べます（オーダからコードで計算。持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
       </p>
       <div className={`${card} flex flex-wrap items-center gap-2 p-3 text-[13px]`}>
         <b>鑑査</b>
@@ -566,7 +568,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
               const key = `${d.orderId}|${d.at}`;
               return (
                 <li key={key} className="flex items-baseline gap-3 py-1">
-                  <span className="nums w-24 font-bold">{d.at !== null ? timeLabel(d.at, which === "tomorrow" ? 1 : 0, today) : ""}</span>
+                  <span className="nums w-24 font-bold">{d.at !== null ? timeLabel(d.at, which === "tomorrow" ? dayNow + 1 : dayNow, today) : ""}</span>
                   <span className="flex-1">
                     {d.main}　<span className="text-xs text-ink-soft">{d.detail}</span>
                   </span>
