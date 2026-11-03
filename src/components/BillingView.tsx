@@ -4,6 +4,7 @@ import type { DietOrder } from "@/lib/diet";
 import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "lucide-react";
 import { BillPanel } from "./billing/BillPanel";
 import { InsurancePanel } from "./billing/InsurancePanel";
+import { DpcPanel } from "./billing/DpcPanel";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
@@ -40,12 +41,13 @@ interface Props {
   onSettle?: (s: Settlement) => void;
 }
 
-type Tab = "insurance" | "claim" | "bill" | "receipt";
+type Tab = "insurance" | "claim" | "bill" | "receipt" | "dpc";
 const TABS: { key: Tab; label: string }[] = [
   { key: "insurance", label: "保険" },
   { key: "claim", label: "算定" },
   { key: "bill", label: "会計" },
   { key: "receipt", label: "レセプト" },
+  { key: "dpc", label: "DPC" },
 ];
 
 /** Months of this admission up to this month, as "YYYY-MM". */
@@ -227,6 +229,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
         {tab === "receipt" && result && (
           <ReceiptPanel lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
+        {tab === "dpc" && <DpcPanel key={patient.id} patient={patient} entries={entries} diagnoses={diagnoses} today={today} nowTime={nowTime} month={month} options={options} extraJson={extraJson} />}
         {tab === "claim" && (
           <>
 
