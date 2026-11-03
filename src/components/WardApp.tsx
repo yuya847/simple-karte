@@ -86,6 +86,8 @@ interface ChartState {
   leftView: LeftView;
   /** The right side: writing the note, or entering injections / oral drugs by Rp. */
   rightTab: RightTab;
+  /** Tabs open on the right besides 記事作成 (opened from the tools, closed with ×). */
+  openTabs: RightTab[];
   note: string;
   instruction: string;
   drafts: Draft[];
@@ -106,6 +108,7 @@ const newChart = (): ChartState => ({
   showStopped: false,
   leftView: "record",
   rightTab: "note",
+  openTabs: [],
   note: NOTE_TEMPLATE,
   instruction: "",
   drafts: [],
@@ -859,10 +862,11 @@ export default function WardApp() {
                 }}
               />
               <RightTabs
+                open={chart.openTabs}
                 value={chart.rightTab}
                 onChange={(t) => update({ rightTab: t })}
+                onClose={(t) => update((c) => ({ openTabs: c.openTabs.filter((x) => x !== t), rightTab: c.rightTab === t ? "note" : c.rightTab }))}
                 counts={{ note: chart.drafts.length, injection: chart.drafts.filter((d) => d.kind === "injection").length, rx: chart.drafts.filter((d) => d.kind === "prescription").length }}
-                locked={orderBlock}
               />
               <div className={chart.rightTab === "note" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
               <TodayPane
@@ -906,22 +910,30 @@ export default function WardApp() {
               />
               </div>
               {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
-              <div className={chart.rightTab === "injection" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
-                <AddInjectionPanel
-                  key={patient.id}
-                  newId={newId}
-                  drafts={chart.drafts}
-                  onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
-                />
-              </div>
-              <div className={chart.rightTab === "rx" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
-                <AddRxPanel
-                  key={patient.id}
-                  newId={newId}
-                  drafts={chart.drafts}
-                  onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
-                />
-              </div>
+              {chart.openTabs.includes("injection") && (
+                <div className={chart.rightTab === "injection" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
+                  <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
+                  <AddInjectionPanel
+                    key={patient.id}
+                    newId={newId}
+                    drafts={chart.drafts}
+                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], openTabs: c.openTabs.filter((x) => x !== "injection"), rightTab: "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                  />
+                  </fieldset>
+                </div>
+              )}
+              {chart.openTabs.includes("rx") && (
+                <div className={chart.rightTab === "rx" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
+                  <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
+                  <AddRxPanel
+                    key={patient.id}
+                    newId={newId}
+                    drafts={chart.drafts}
+                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], openTabs: c.openTabs.filter((x) => x !== "rx"), rightTab: "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                  />
+                  </fieldset>
+                </div>
+              )}
               {panel === "diagnoses" && (
                 <Drawer title="病名" onClose={closePanel} wide locked={deny("diagnosis")}>
                   <DiagnosisPanel
@@ -1089,8 +1101,9 @@ export default function WardApp() {
               onOpen={(p) => {
                 // 注射 and 内服 are tabs on the right, not panels.
                 if (p === "add-injection" || p === "add-rx") {
+                  const t: RightTab = p === "add-injection" ? "injection" : "rx";
                   setPanel(null);
-                  update({ rightTab: p === "add-injection" ? "injection" : "rx" });
+                  update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }));
                 } else if (p === null && !panel) update({ rightTab: "note" });
                 else setPanel(p);
               }}
