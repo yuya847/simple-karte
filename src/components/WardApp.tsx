@@ -336,6 +336,9 @@ export default function WardApp() {
   const [manualOpen, setManualOpen] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
   const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
+  // 薬剤部：血液製剤の払出（製造番号）と病棟薬剤業務日誌.
+  const [txIssued, setTxIssued] = useState<Record<string, { lot: string; at: string; by: string }>>({});
+  const [pharmJournal, setPharmJournal] = useState<{ text: string; at: string }[]>([]);
   // 書類作成で作った書類.
   const [documents, setDocuments] = useState<DocRecord[]>([]);
   // 他科依頼の返書 (by order id).
@@ -1369,6 +1372,17 @@ export default function WardApp() {
           }}
           dispensed={dispensed}
           onDispense={(key) => setDispensed((d) => ({ ...d, [key]: nowTime }))}
+          txIssued={txIssued}
+          onTxIssue={(entryId, lot) => {
+            const who = people.find((x) => x.entries.some((e) => e.id === entryId))?.patient.name;
+            auditLog({ role: me.role, actor: me.name, action: "確定（血液製剤の払出）", patient: who, detail: `製造番号 ${lot}` });
+            setTxIssued((all) => ({ ...all, [entryId]: { lot, at: nowTime, by: me.name } }));
+          }}
+          journal={pharmJournal}
+          onJournal={(text) => {
+            auditLog({ role: me.role, actor: me.name, action: "病棟薬剤業務日誌に書き残した", detail: text.slice(0, 80) });
+            setPharmJournal((j) => [...j, { text, at: nowTime }]);
+          }}
           tdm={tdmReports}
           onTdm={(r) => {
             auditLog({ role: me.role, actor: me.name, action: "TDM を医師に報告", patient: findPatient(r.patientId)?.name, detail: `${r.drug} AUC24 ${Math.round(r.auc24)}　${r.proposal}` });
