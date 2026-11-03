@@ -15,7 +15,7 @@ import { BillingView } from "./BillingView";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
-import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, doctorFor, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
+import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, WARD_PLANS, doctorFor, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
@@ -57,7 +57,8 @@ import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
 import { TransferPanel } from "./panels/TransferPanel";
 import { transferSummary, type TransferAsk } from "@/lib/transfer";
-import { onDuty, passOn, type CallNote, type Emergency, type NurseCall } from "@/lib/phs";
+import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
+import type { ScheduleItem } from "./PhsView";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
@@ -338,6 +339,9 @@ export default function WardApp() {
   const [nurseCalls, setNurseCalls] = useState<NurseCall[]>([]);
   const [emergencies, setEmergencies] = useState<Emergency[]>([]);
   const [callNotes, setCallNotes] = useState<CallNote[]>([]);
+  // お知らせ on the nurses' phones (オーダ変更・一斉連絡), and what nurses registered per bed (救護区分・センサー).
+  const [phsNotices, setPhsNotices] = useState<PhsNotice[]>([]);
+  const [bedInfo, setBedInfo] = useState<Record<string, BedInfo>>({});
   // 転院・施設の調整: what was asked where, and each answer.
   const [transferAsks, setTransferAsks] = useState<TransferAsk[]>([]);
   // 掲示板: reminders sent to those who have not read a notice (notice id → names).
@@ -556,7 +560,7 @@ export default function WardApp() {
       const [h, m] = clock.split(":").map(Number);
       const leader = onDuty((h * 60 + m) % 1440, false).find((c) => c.role === "病棟リーダー")!.name;
       setNurseCalls((cs) => {
-        const next = cs.map((c) => passOn(c, Date.now(), leader, clock));
+        const next = cs.map((c) => slide(c, Date.now(), `5階東 ${teamOf(c.room)} チームの看護師`, leader, clock));
         return next.some((c, i) => c !== cs[i]) ? next : cs;
       });
     }, 5000);
@@ -686,6 +690,21 @@ export default function WardApp() {
       ...added.map((e) => planLine(e, today) + (e.verbal ? `（口頭指示 ${e.verbal.doctor} → 受け ${e.verbal.takenBy}）` : "")),
     ];
     if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
+    // オーダーアラート: a doctor's changes go to the nurses' phones of the patient's team.
+    if (role === "医師" && (added.length || stops.length || Object.keys(extended).length))
+      setPhsNotices((ns) => [
+        ...ns,
+        {
+          id: newId(),
+          at: nowTime,
+          kind: "オーダ変更",
+          text: `${patient!.room} ${patient!.name}さん：${[added.length && `新規 ${added.length}件`, stops.length && `中止 ${stops.length}件`, Object.keys(extended).length && `延長 ${Object.keys(extended).length}件`].filter(Boolean).join("・")}（指示受けはワークシートで）`,
+          patientId: patient!.id,
+          to: teamOf(patient!.room),
+          from: me.name,
+          readBy: [],
+        },
+      ]);
     // 延長 goes to the nurses' 指示受け like a new order.
     const extLog = Object.entries(extended).flatMap(([id, days]) => {
       const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === id);
@@ -774,6 +793,20 @@ export default function WardApp() {
   const chartNote = (pid: string, text: string) => setNotes((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text } as NoteEntry] }));
   const updateCall = (id: string, patch: (c: NurseCall) => Partial<NurseCall>) => setNurseCalls((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch(c) } : c)));
   const answerCall = (id: string) => updateCall(id, (c) => (c.answered ? {} : { answered: { at: nowTime, by: me.name } }));
+  // 予定一覧 (院内連絡): today's and tomorrow's admissions and discharges, moves and leave, exams and operations.
+  const scheduleItems = (): ScheduleItem[] => {
+    const nowAbs = abs(0, nowTime);
+    const when = (d: number, t: string | null) => `${d === 0 ? "今日" : d === 1 ? "明日" : formatShort(addDays(today, d))} ${t ?? ""}`.trim();
+    const sort = (d: number, t: string | null) => d * 1440 + (t ? abs(0, t) : 0);
+    const out: ScheduleItem[] = [];
+    for (const x of people) {
+      for (const m of moveEventsOf(x.patient.id)) if (m.day >= 0 && m.day <= 1 && m.label !== "入院") out.push({ when: when(m.day, m.time), sort: sort(m.day, m.time), room: x.room, name: x.patient.name, what: `${m.label}${m.done ? "（済）" : ""}` });
+      for (const i of buildWorksheet([x], 0, 2 * 1440, nowAbs).timed.filter((t) => t.kind === "検査")) out.push({ when: when(Math.floor(i.at! / 1440), `${String(Math.floor((i.at! % 1440) / 60)).padStart(2, "0")}:${String(i.at! % 60).padStart(2, "0")}`), sort: i.at!, room: x.room, name: x.patient.name, what: `検査：${i.main}` });
+    }
+    for (const sx of surgeries) if (sx.patientId && sx.day >= 0 && sx.day <= 1) out.push({ when: when(sx.day, sx.start), sort: sort(sx.day, sx.start), room: findPatient(sx.patientId)?.room ?? "", name: sx.name, what: "手術" });
+    for (const w of WARD_PLANS) out.push({ when: when(w.day, w.time), sort: sort(w.day, w.time), room: `${w.room}${w.bed}`, name: w.name, what: `${w.kind}（${w.department}）${w.note ? `：${w.note}` : ""}` });
+    return out.sort((a, b) => a.sort - b.sort);
+  };
   // Doses the ward recorded as 未実施, for the claim ("orderId|minutes").
   const notGivenOf = (pid: string) => Object.values(mar).filter((r) => r.patientId === pid && r.status === "未実施").map((r) => r.key);
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
@@ -1285,10 +1318,22 @@ export default function WardApp() {
           calls={nurseCalls}
           emergencies={emergencies}
           notes={callNotes}
-          onRing={(pid) => {
+          notices={phsNotices}
+          beds={bedInfo}
+          schedule={scheduleItems()}
+          onRing={(pid, kind) => {
             const x = people.find((y) => y.patient.id === pid);
             if (!x) return;
-            setNurseCalls((cs) => [...cs, { id: newId(), patientId: pid, room: x.room, bed: "", at: nowTime, ms: Date.now(), to: nurseFor(x.room.replace(/[A-Z]$/, "")) }]);
+            setNurseCalls((cs) => [...cs, { id: newId(), kind, patientId: pid, room: x.room, bed: "", at: nowTime, ms: Date.now(), to: nurseFor(x.room.replace(/[A-Z]$/, "")), slides: [] }]);
+          }}
+          onBroadcast={(to, text) => {
+            auditLog({ role: me.role, actor: me.name, action: "一斉連絡", detail: `${to === "全員" ? "看護師全員" : `${to} チーム`}：${text}` });
+            setPhsNotices((ns) => [...ns, { id: newId(), at: nowTime, kind: "一斉連絡", text, to, from: me.name, readBy: [] }]);
+          }}
+          onReadNotice={(id) => setPhsNotices((ns) => ns.map((n) => (n.id === id && !n.readBy.includes(me.name) ? { ...n, readBy: [...n.readBy, me.name] } : n)))}
+          onBed={(pid, info) => {
+            auditLog({ role: me.role, actor: me.name, action: "ベッドの情報を登録", patient: findPatient(pid)?.name, detail: `救護区分 ${info.rescue ?? "未登録"}・センサー ${info.sensors.join("、") || "なし"}` });
+            setBedInfo((all) => ({ ...all, [pid]: info }));
           }}
           onAnswer={answerCall}
           onArrive={(id) => updateCall(id, (c) => ({ arrived: { at: nowTime, by: me.name }, ...(c.answered ? {} : { answered: { at: nowTime, by: me.name } }) }))}
@@ -2540,7 +2585,7 @@ export default function WardApp() {
         rows={tabRows()}
         chartShown={screen === "chart"}
         onOpenPicker={() => setPickerOpen(true)}
-        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length, board: unreadCount(notices, reads, me.name) }}
+        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name)).length : 0), board: unreadCount(notices, reads, me.name) }}
         todos={todos}
       >
         {content}
@@ -2566,13 +2611,26 @@ export default function WardApp() {
       {/* A nurse call rings on the nurses' screens (as on their phones). */}
       {role === "看護師" && (
         <div className="fixed bottom-2 left-2 z-40 flex flex-col gap-1.5 print:hidden">
+          {phsNotices
+            .filter((n) => !n.readBy.includes(me.name))
+            .slice(-3)
+            .map((n) => (
+              <div key={n.id} role="status" className="flex max-w-md items-center gap-2 rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[13px] shadow">
+                <b className="shrink-0 text-yamabuki">{n.kind}</b>
+                <span className="min-w-0">{n.text}</span>
+                <button type="button" onClick={() => setPhsNotices((ns) => ns.map((x) => (x.id === n.id ? { ...x, readBy: [...x.readBy, me.name] } : x)))} className="shrink-0 rounded border border-rule px-1.5 text-xs">
+                  見た
+                </button>
+              </div>
+            ))}
           {nurseCalls
             .filter((c) => !c.answered)
             .map((c) => (
               <div key={c.id} role="alert" className="flex items-center gap-2 rounded-md border border-shu bg-sheet px-3 py-1.5 text-[13px] shadow">
                 <b className="text-shu">ナースコール</b>
                 <span>
-                  {c.room} {findPatient(c.patientId)?.name}さん → {c.passedOn?.to ?? c.to}
+                  {c.kind !== "通常" && <span className="mr-1 rounded border border-shu px-1 text-[11px] text-shu">{c.kind}</span>}
+                  {c.room} {findPatient(c.patientId)?.name}さん → {callTarget(c)}
                 </span>
                 <button type="button" onClick={() => answerCall(c.id)} className="rounded bg-yamabuki px-2 py-0.5 text-xs font-bold text-white">
                   応答

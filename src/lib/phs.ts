@@ -33,23 +33,47 @@ export function onDuty(minutesOfDay: number, weekend: boolean): Contact[] {
 }
 
 // ---------------------------------------------------------------------------
-// ナースコール
+// ナースコール (the kinds of call, teams, and how an unanswered call slides on)
 // ---------------------------------------------------------------------------
 
-/** Seconds without an answer before a call goes on to the ward leader (架空の病院の取り決め). */
+/** Kinds of call the fictional ward tells apart (a sensor or a monitor also rings as a call). */
+export const CALL_KINDS = ["通常", "トイレ", "点滴", "離床センサー", "起き上がりセンサー", "見守りカメラ", "モニタのアラーム"] as const;
+export type CallKind = (typeof CALL_KINDS)[number];
+
+/** Sensors a nurse can register on a bed (物品管理), each ringing as its own kind of call. */
+export const SENSORS = ["離床センサー", "起き上がりセンサー", "見守りカメラ"] as const;
+export type Sensor = (typeof SENSORS)[number];
+
+/** 救護区分: how a patient is moved out in a fire (set by a nurse). */
+export const RESCUE = ["担送", "護送", "独歩"] as const;
+export type Rescue = (typeof RESCUE)[number];
+
+/** Per bed: what the nurse registered (患者情報管理). */
+export interface BedInfo {
+  rescue?: Rescue;
+  sensors: Sensor[];
+}
+
+/** Teams of the fictional 5階東 (rooms 501–508 = A, 510–516 = B). */
+export const teamOf = (room: string): "A" | "B" => (Number(room.replace(/[A-Z]$/, "")) < 510 ? "A" : "B");
+
+/** Seconds without an answer before a call slides to the next (架空の病院の取り決め). */
 export const PASS_ON_SECONDS = 60;
 export const CALL_REASONS = ["トイレ", "痛み・苦しい", "点滴・機器のアラーム", "転倒・ベッドから出ている", "その他"] as const;
+export const ALL_NURSES = "病棟の看護師全員（一斉）";
 
 export interface NurseCall {
   id: string;
+  kind: CallKind;
   patientId: string;
   room: string;
   bed: string;
-  /** When it rang: clock time and real milliseconds (for the pass-on timer). */
+  /** When it rang: clock time and real milliseconds (for the slide timer). */
   at: string;
   ms: number;
   to: string;
-  passedOn?: { at: string; to: string; why: string };
+  /** Where it slid when nobody answered: team, then the leader, then everyone. */
+  slides: { at: string; to: string; why: string }[];
   answered?: { at: string; by: string };
   arrived?: { at: string; by: string };
   done?: { at: string; by: string; reason: (typeof CALL_REASONS)[number]; memo: string };
@@ -57,22 +81,64 @@ export interface NurseCall {
 
 export type CallState = "呼出中" | "応答" | "訪室" | "完了";
 export const callState = (c: NurseCall): CallState => (c.done ? "完了" : c.arrived ? "訪室" : c.answered ? "応答" : "呼出中");
+export const callTarget = (c: NurseCall) => c.slides.at(-1)?.to ?? c.to;
 
-/** Where a call goes when the leader is the one who did not answer. */
-export const ALL_NURSES = "病棟の看護師全員（一斉）";
+/**
+ * 呼出スライド: every PASS_ON_SECONDS without an answer the call goes one step on — the patient's team,
+ * the ward leader, then every nurse on the ward. Each step keeps why.
+ */
+export function slide(c: NurseCall, nowMs: number, team: string, leader: string, clock: string): NurseCall {
+  if (c.answered) return c;
+  const steps = [team, leader, ALL_NURSES].filter((x, i, all) => x !== c.to && all.indexOf(x) === i);
+  const due = Math.min(steps.length, Math.floor((nowMs - c.ms) / (PASS_ON_SECONDS * 1000)));
+  if (due <= c.slides.length) return c;
+  const next = steps.slice(c.slides.length, due).map((to) => ({ at: clock, to, why: `${callTarget(c)}が${PASS_ON_SECONDS}秒応答しなかったため（病棟の取り決め）` }));
+  return { ...c, slides: [...c.slides, ...next] };
+}
 
-/** A call nobody answered for PASS_ON_SECONDS goes to the leader (once; to everyone if the leader had it), with the reason shown. */
-export function passOn(c: NurseCall, nowMs: number, leader: string, clock: string): NurseCall {
-  if (c.answered || c.passedOn || nowMs - c.ms < PASS_ON_SECONDS * 1000) return c;
-  const to = c.to === leader ? ALL_NURSES : leader;
-  return { ...c, passedOn: { at: clock, to, why: `${c.to}が${PASS_ON_SECONDS}秒応答しなかったため（病棟の取り決め）` } };
+/** 呼出履歴: how many calls of each kind (and the average minutes to answer). */
+export function callCounts(calls: NurseCall[]): { kind: CallKind; n: number; avgAnswerMin: number | null }[] {
+  return CALL_KINDS.map((kind) => {
+    const of = calls.filter((c) => c.kind === kind);
+    const waits = of.filter((c) => c.answered).map((c) => {
+      const [h1, m1] = c.at.split(":").map(Number);
+      const [h2, m2] = c.answered!.at.split(":").map(Number);
+      return h2 * 60 + m2 - (h1 * 60 + m1);
+    });
+    return { kind, n: of.length, avgAnswerMin: waits.length ? Math.round((waits.reduce((a, b) => a + b, 0) / waits.length) * 10) / 10 : null };
+  }).filter((x) => x.n > 0);
+}
+
+// ---------------------------------------------------------------------------
+// お知らせ (オーダ変更・一斉連絡) on the nurses' phones
+// ---------------------------------------------------------------------------
+
+export interface PhsNotice {
+  id: string;
+  at: string;
+  kind: "オーダ変更" | "一斉連絡" | "火災";
+  text: string;
+  patientId?: string;
+  /** Who it is for: a team, or every nurse. */
+  to: "A" | "B" | "全員";
+  from: string;
+  readBy: string[];
+}
+
+/** Patients to help out in a fire (担送・護送), and those whose 救護区分 nobody has set yet. */
+export function evacuation(people: { id: string; name: string; room: string }[], beds: Record<string, BedInfo>) {
+  return {
+    carry: people.filter((p) => beds[p.id]?.rescue === "担送"),
+    escort: people.filter((p) => beds[p.id]?.rescue === "護送"),
+    unknown: people.filter((p) => !beds[p.id]?.rescue),
+  };
 }
 
 // ---------------------------------------------------------------------------
 // 緊急通報
 // ---------------------------------------------------------------------------
 
-export const EMERGENCY_KINDS = ["コードブルー（急変・心肺停止）", "応援要請（人手が要る）", "スタットコール（暴言・暴力）"] as const;
+export const EMERGENCY_KINDS = ["コードブルー（急変・心肺停止）", "応援要請（人手が要る）", "スタットコール（暴言・暴力）", "AED の使用（扉が開いた）", "火災（避難）"] as const;
 
 export interface Emergency {
   id: string;
