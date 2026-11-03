@@ -180,6 +180,29 @@ interface ChartState {
   flash: string | null;
 }
 
+/**
+ * What a chart holds for everyone (today's confirmed orders, stops and extensions) is kept under the
+ * patient id; what one person is writing (the note, the instruction, drafts, what is on screen) under
+ * "id|role", so that a nurse never confirms a doctor's half-written note or drafts as their own.
+ */
+const SHARED_KEYS = ["added", "stopped", "stopTimes", "extended"] as const;
+type SharedKey = (typeof SHARED_KEYS)[number];
+const isShared = (k: string): k is SharedKey => (SHARED_KEYS as readonly string[]).includes(k);
+const deskKeyOf = (id: string, role: string) => `${id}|${role}`;
+function mergedChart(all: Record<string, ChartState>, id: string, role: string): ChartState {
+  const base = all[id] ?? newChart();
+  const desk = all[deskKeyOf(id, role)] ?? newChart();
+  return { ...desk, added: base.added, stopped: base.stopped, stopTimes: base.stopTimes, extended: base.extended };
+}
+function applyChart(all: Record<string, ChartState>, id: string, role: string, patch: (c: ChartState) => Partial<ChartState>): Record<string, ChartState> {
+  const p = patch(mergedChart(all, id, role));
+  const shared: Partial<ChartState> = {};
+  const mine: Partial<ChartState> = {};
+  for (const [k, v] of Object.entries(p)) Object.assign(isShared(k) ? shared : mine, { [k]: v });
+  const dk = deskKeyOf(id, role);
+  return { ...all, [id]: { ...(all[id] ?? newChart()), ...shared }, [dk]: { ...(all[dk] ?? newChart()), ...mine } };
+}
+
 const newChart = (): ChartState => ({
   selectedDay: null,
   showStopped: false,
@@ -501,7 +524,7 @@ export default function WardApp() {
     requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-right-tab="${t}"] input[role=combobox]`)?.focus());
 
   const patient = activeId ? findPatient(activeId) : undefined;
-  const chart = (activeId && charts[activeId]) || newChart();
+  const chart = activeId ? mergedChart(charts, activeId, role) : newChart();
   const today = useMemo(() => (todayKey ? parseIso(todayKey) : null), [todayKey]);
 
   // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
@@ -542,18 +565,10 @@ export default function WardApp() {
   const update = (patch: Partial<ChartState> | ((c: ChartState) => Partial<ChartState>)) => {
     if (!activeId) return;
     const id = activeId;
-    setCharts((all) => {
-      const cur = all[id] ?? newChart();
-      const p = typeof patch === "function" ? patch(cur) : patch;
-      return { ...all, [id]: { ...cur, ...p } };
-    });
+    setCharts((all) => applyChart(all, id, role, (c) => (typeof patch === "function" ? patch(c) : patch)));
   };
 
-  const updateFor = (id: string, patch: (c: ChartState) => Partial<ChartState>) =>
-    setCharts((all) => {
-      const cur = all[id] ?? newChart();
-      return { ...all, [id]: { ...cur, ...patch(cur) } };
-    });
+  const updateFor = (id: string, patch: (c: ChartState) => Partial<ChartState>) => setCharts((all) => applyChart(all, id, role, patch));
 
   const requestDrafts = async () => {
     const text = chart.instruction.trim();
@@ -765,7 +780,7 @@ export default function WardApp() {
       return { instruction: cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${text}` : text };
     });
 
-  const sessionChanges = Object.fromEntries(Object.entries(charts).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
+  const sessionChanges = Object.fromEntries(Object.entries(charts).filter(([k]) => !k.includes("|")).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
   // Our patients with their bed and the record as it stands now (for the worksheet and the list).
   const people: WorkPatient[] = ward.beds.flatMap((b) => {
     const p = b.patientId ? findPatient(b.patientId) : undefined;
@@ -955,7 +970,9 @@ export default function WardApp() {
   if (!deny("panic.call") && toCall) todos.push({ key: "call", label: "パニック値の連絡がまだ", detail: "検査室で連絡を記録する", count: toCall, tone: "shu", go: () => openArea("lab") });
 
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
-    Object.entries(charts).map(([id, c]) => [id, { drafts: c.drafts.length, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
+    Object.entries(charts)
+      .filter(([k]) => !k.includes("|"))
+      .map(([id, c]) => [id, { drafts: charts[deskKeyOf(id, role)]?.drafts.length ?? 0, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
   );
   const wideLeft = chart.leftView !== "record";
 
