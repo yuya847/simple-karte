@@ -11,7 +11,10 @@ import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
 import { patientMonthPayload } from "@/lib/billing/payload";
+import { currentInsurance } from "@/lib/billing/registration";
+import { INITIAL_DESK, withInsurance, withSettlement, type IjiDesk } from "@/lib/billing/worklist";
 import { BillingView } from "./BillingView";
+import { IjiBoard } from "./IjiBoard";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
@@ -366,6 +369,8 @@ export default function WardApp() {
   const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
   const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
+  // 医事課: the insurance registered per patient (every version) and 退院時の会計. Kept in this browser only.
+  const [iji, setIji] = useState<IjiDesk>(INITIAL_DESK);
   // Consent forms (fictional). The four patients gave the admission consent on their admission day.
   const [consents, setConsents] = useState<ConsentRecord[]>(() =>
     PATIENTS.map((p) => ({
@@ -908,6 +913,11 @@ export default function WardApp() {
   };
   // Doses the ward recorded as 未実施, for the claim ("orderId|minutes").
   const notGivenOf = (pid: string) => Object.values(mar).filter((r) => r.patientId === pid && r.status === "未実施").map((r) => r.key);
+  // What the billing APIs get for one patient: the record as it stands, with the insurance 医事課 registered.
+  const claimPayloadOf = (p: Patient) => {
+    const c = charts[p.id];
+    return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insurance: currentInsurance(iji.insurance, p.id) });
+  };
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
   // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.
   const recordGuidance = (pid: string, r: GuidanceInput, fromPharmacy = false) => {
@@ -1423,6 +1433,8 @@ export default function WardApp() {
           fmtDay={(d) => formatShort(addDays(today, d))}
           onAccept={acceptRequest}
         />
+      ) : screen === "iji" ? (
+        <IjiBoard patients={allPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => allPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} />
       ) : screen === "support" ? (
         <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
       ) : screen === "meals" ? (
@@ -1900,12 +1912,11 @@ export default function WardApp() {
                     if (changed.length) auditLog({ role: me.role, actor: me.name, action: "算定の設定を変えた", patient: patient.name, detail: changed.map((k) => `${k}: ${JSON.stringify(cur[k] ?? null)} → ${JSON.stringify(next[k])}`).join("、") });
                     setBilling((all) => ({ ...all, [patient.id]: next }));
                   }}
-                  wardPayload={() =>
-                    allPatients.map((p) => {
-                      const c = charts[p.id];
-                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id) });
-                    })
-                  }
+                  wardPayload={() => allPatients.map(claimPayloadOf)}
+                  insurance={iji.insurance[patient.id]}
+                  onRegister={(r) => setIji((d) => withInsurance(d, patient.id, r))}
+                  settlement={iji.settled[patient.id]}
+                  onSettle={(s) => setIji((d) => withSettlement(d, patient.id, s))}
                 />
               </div>
             ) : (
