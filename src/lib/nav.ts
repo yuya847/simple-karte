@@ -1,25 +1,35 @@
-// How the screens are organised: who (職種) → where (部署) → which view of it → whose chart (患者).
-// Both layouts (A: a home tab with the department's views; B: a menu down the left) use this.
+// How the screens are organised: who (職種) → where (場所: 病棟・外来・救急外来…, the left menu) →
+// which patients (inside 病棟: a ward, a department, or 受け持ち, as tabs) → which view (マップ・一覧…)
+// → whose chart (a patient tab). Places and patients share the tab bar on top.
 
 import { TABS, type PinnedTab, type Role } from "./roles";
+import type { BedAssignment } from "./ward";
+import type { Patient } from "./types";
 
-export interface Dept {
-  key: string;
+export type AreaKey = "ward" | "opd" | "er" | "or" | "dialysis" | "pharmacy" | "lab" | "chat" | "audit";
+
+export interface Area {
+  key: AreaKey;
   label: string;
-  /** The department's own screens, in order. */
+  /** Short name under the icon when the left menu is narrow. */
+  short: string;
   views: PinnedTab[];
-  /** Not in this prototype yet (shown, but cannot be opened). */
+  /** Not in this prototype yet: shown in the menu, cannot be opened. */
   soon?: string;
+  /** A tool rather than a place (shown at the bottom of the menu, or in the user menu). */
+  tool?: boolean;
 }
 
-export const DEPTS: Dept[] = [
-  { key: "ward", label: "5階東病棟", views: ["sheet", "map", "list", "handoff", "admit", "acuity"] },
-  { key: "er", label: "救急外来", views: ["er"] },
-  { key: "or", label: "手術室", views: ["or"] },
-  { key: "dialysis", label: "透析室", views: ["dialysis"] },
-  { key: "pharmacy", label: "薬剤部", views: ["pharmacy"] },
-  { key: "lab", label: "検査室", views: ["lab"] },
-  { key: "opd", label: "外来", views: [], soon: "この試作には外来はまだありません" },
+export const AREAS: Area[] = [
+  { key: "ward", label: "病棟", short: "病棟", views: ["sheet", "map", "list", "handoff", "admit", "acuity"] },
+  { key: "opd", label: "外来", short: "外来", views: [], soon: "この試作には外来はまだありません" },
+  { key: "er", label: "救急外来", short: "救急", views: ["er"] },
+  { key: "or", label: "手術室", short: "手術室", views: ["or"] },
+  { key: "dialysis", label: "透析室", short: "透析", views: ["dialysis"] },
+  { key: "pharmacy", label: "薬剤部", short: "薬剤部", views: ["pharmacy"] },
+  { key: "lab", label: "検査室", short: "検査室", views: ["lab"] },
+  { key: "chat", label: "チャット", short: "チャット", views: ["chat"], tool: true },
+  { key: "audit", label: "監査ログ", short: "監査", views: ["audit"], tool: true },
 ];
 
 export const VIEW_LABEL: Record<PinnedTab, string> = {
@@ -38,19 +48,54 @@ export const VIEW_LABEL: Record<PinnedTab, string> = {
   audit: "監査ログ",
 };
 
-/** The departments a role works in, with only the views it may open; its usual place first. */
-export function deptsFor(role: Role): Dept[] {
+/** The places (and tools) a role uses, each with only the views it may open, its usual place first. */
+export function areasFor(role: Role): Area[] {
   const mine = TABS[role];
-  const out = DEPTS.map((d) => ({ ...d, views: d.views.filter((v) => mine.includes(v)).sort((a, b) => mine.indexOf(a) - mine.indexOf(b)) })).filter(
-    (d) => d.views.length > 0 || (d.soon && (role === "医師" || role === "看護師")),
+  const out = AREAS.map((a) => ({ ...a, views: a.views.filter((v) => mine.includes(v)).sort((x, y) => mine.indexOf(x) - mine.indexOf(y)) })).filter(
+    (a) => a.views.length > 0 || (a.soon && (role === "医師" || role === "看護師")),
   );
-  const first = mine.find((t) => DEPTS.some((d) => d.views.includes(t)));
-  return out.sort((a, b) => Number(b.views.includes(first!)) - Number(a.views.includes(first!)));
+  const first = mine[0];
+  return out.sort((a, b) => Number(b.views.includes(first)) - Number(a.views.includes(first)));
 }
 
-export const deptOf = (view: PinnedTab): Dept | undefined => DEPTS.find((d) => d.views.includes(view));
+export const areaOf = (view: PinnedTab): AreaKey => AREAS.find((a) => a.views.includes(view))?.key ?? "ward";
 
-/** Tools that are not places: chat and the audit log (shown only if the role has them). */
-export const hasTool = (role: Role, t: "chat" | "audit") => TABS[role].includes(t);
+// ---------------------------------------------------------------------------
+// Inside 病棟: which patients (tabs that can be opened and closed)
+// ---------------------------------------------------------------------------
 
-export type Layout = "A" | "B";
+export interface Scope {
+  key: string;
+  kind: "ward" | "dept" | "mine";
+  label: string;
+  value: string;
+  soon?: string;
+}
+
+/** The wards of the fictional hospital (only 5階東 has patients in this prototype). */
+export const WARDS: { name: string; soon?: string }[] = [{ name: "5階東病棟" }, { name: "5階南病棟", soon: "この試作の病棟は5階東だけです" }];
+
+export function scopeOptions(departments: string[]): Scope[] {
+  return [
+    ...WARDS.map((w): Scope => ({ key: `ward:${w.name}`, kind: "ward", label: w.name, value: w.name, soon: w.soon })),
+    { key: "mine", kind: "mine", label: "受け持ち患者", value: "" },
+    ...departments.map((d): Scope => ({ key: `dept:${d}`, kind: "dept", label: d, value: d })),
+  ];
+}
+
+/** The tabs open inside 病棟 at first, by role. */
+export function defaultScopes(role: Role): string[] {
+  if (role === "医師") return ["mine", "ward:5階東病棟"];
+  if (role === "看護師") return ["ward:5階東病棟", "mine"];
+  return ["ward:5階東病棟"];
+}
+
+/** Whether a bed (and its patient) belongs to the tab: the ward, 受け持ち (our team's charts), or a department. */
+export function bedInScope(s: Scope, b: BedAssignment, patient?: Patient): boolean {
+  if (s.kind === "ward") return true;
+  if (s.kind === "mine") return !!b.patientId;
+  return (patient?.department ?? b.other?.department) === s.value;
+}
+
+/** Views that make sense for the tab: 看護必要度 is counted for a whole ward only. */
+export const viewsForScope = (s: Scope, views: PinnedTab[]) => (s.kind === "ward" ? views : views.filter((v) => v !== "acuity"));

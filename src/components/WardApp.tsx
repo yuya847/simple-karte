@@ -25,7 +25,7 @@ import { PatientPicker } from "./PatientPicker";
 import { PatientList } from "./PatientList";
 import type { PinnedTab } from "@/lib/roles";
 import { AppFrame, type Todo } from "./AppFrame";
-import type { Layout } from "@/lib/nav";
+import { areaOf, areasFor, bedInScope, defaultScopes, scopeOptions, viewsForScope, type AreaKey, type Scope } from "@/lib/nav";
 import { verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
@@ -169,16 +169,12 @@ export default function WardApp() {
   const [screen, setScreen] = useState<PinnedTab | "chart">(home("医師"));
   // Who is using the chart. The demo picks a role instead of logging in.
   const [role, setRole] = useState<Role>("医師");
-  // A: a home tab and patient tabs on top. B: a menu down the left. Kept in this browser only.
-  const [layout, setLayout] = useState<Layout>("B");
-  useEffect(() => {
-    try {
-      const l = localStorage.getItem("sk-layout");
-      if (l === "A" || l === "B") setLayout(l);
-    } catch {
-      // No storage: use the default.
-    }
-  }, []);
+  // Places opened from the left menu (tabs on top), and inside 病棟 the tabs of which patients.
+  const [openAreas, setOpenAreas] = useState<AreaKey[]>([areaOf(home("医師"))]);
+  const [scopes, setScopes] = useState<string[]>(defaultScopes("医師"));
+  const [activeScope, setActiveScope] = useState<string>(defaultScopes("医師")[0]);
+  // The view last shown in each 病棟 tab, so switching tabs returns to it.
+  const [scopeView, setScopeView] = useState<Record<string, PinnedTab>>({});
   const me = STAFF[role];
   const deny = (a: Parameters<typeof denyReason>[1]) => denyReason(role, a);
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
@@ -556,9 +552,51 @@ export default function WardApp() {
   };
 
   const goScreen = (t: PinnedTab) => {
+    const a = areaOf(t);
+    setOpenAreas((o) => (o.includes(a) ? o : [...o, a]));
+    if (a === "ward") setScopeView((v) => ({ ...v, [activeScope]: t }));
     setScreen(t);
     setPanel(null);
   };
+  // The places this role uses; 病棟 opens on the last view of its active tab.
+  const areas = areasFor(role);
+  const scopeList = scopeOptions([...new Set(ward.beds.map((b) => (b.patientId ? findPatient(b.patientId)?.department : b.other?.department)).filter((d): d is string => !!d))]);
+  const scope = scopeList.find((s) => s.key === activeScope) ?? scopeList[0];
+  const wardViews = viewsForScope(scope, areas.find((a) => a.key === "ward")?.views ?? []);
+  const openArea = (k: AreaKey) => {
+    const a = areas.find((x) => x.key === k);
+    if (!a || !a.views.length) return;
+    const v = k === "ward" ? (scopeView[activeScope] && wardViews.includes(scopeView[activeScope]) ? scopeView[activeScope] : wardViews[0]) : a.views[0];
+    if (v) goScreen(v);
+  };
+  const closeArea = (k: AreaKey) => {
+    const rest = openAreas.filter((x) => x !== k);
+    setOpenAreas(rest);
+    if (screen !== "chart" && areaOf(screen) === k) {
+      // Show another open place, else a chart, else the role's first place again.
+      const next = areas.find((a) => rest.includes(a.key) && a.views.length);
+      if (next) openArea(next.key);
+      else if (tabs.length) {
+        setActiveId(activeId ?? tabs[0]);
+        setScreen("chart");
+      } else openArea(areaOf(home(role)));
+    }
+  };
+  const chooseScope = (key: string) => {
+    const s = scopeList.find((x) => x.key === key);
+    if (!s) return;
+    setActiveScope(key);
+    const views = viewsForScope(s, areas.find((a) => a.key === "ward")?.views ?? []);
+    const v = scopeView[key] && views.includes(scopeView[key]) ? scopeView[key] : screen !== "chart" && views.includes(screen) ? screen : views[0];
+    if (v) {
+      setScopeView((m) => ({ ...m, [key]: v }));
+      setScreen(v);
+    }
+  };
+  // Which beds and which of our patients the active 病棟 tab shows.
+  const inScope = (b: BedAssignment) => bedInScope(scope, b, b.patientId ? findPatient(b.patientId) : undefined);
+  const scopedPeople = people.filter((x) => bedInScope(scope, { room: x.room, bed: "", patientId: x.patient.id }, x.patient));
+  const scopeLimit = scope.kind === "ward" ? undefined : { label: scope.label, test: inScope };
   // やること: what waits for this role, from everywhere, each with where to go.
   const todos: Todo[] = [];
   for (const x of people) {
@@ -584,6 +622,10 @@ export default function WardApp() {
     auditLog({ role: r, actor: STAFF[r].name, action: "職種を選んで入った（デモではログインの代わり）" });
     setRole(r);
     setScreen(home(r));
+    setOpenAreas([areaOf(home(r))]);
+    setScopes(defaultScopes(r));
+    setActiveScope(defaultScopes(r)[0]);
+    setScopeView({});
     setPanel(null);
   };
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
@@ -597,7 +639,7 @@ export default function WardApp() {
   const content = (
     <>
       {screen === "map" ? (
-        <WardMap ward={ward} summaries={summaries} onOpen={openPatient} />
+        <WardMap ward={ward} summaries={summaries} onOpen={openPatient} scope={scopeLimit} />
       ) : screen === "er" ? (
         <EmergencyBoard
           patients={er}
@@ -615,7 +657,7 @@ export default function WardApp() {
         />
       ) : screen === "sheet" ? (
         <Worksheet
-          people={people}
+          people={scopedPeople}
           today={today}
           nowTime={nowTime}
           taken={taken}
@@ -643,7 +685,7 @@ export default function WardApp() {
         <AuditView />
       ) : screen === "admit" ? (
         <AdmitEvalView
-          people={people}
+          people={scopedPeople}
           evals={evals}
           today={today}
           nowTime={nowTime}
@@ -679,7 +721,7 @@ export default function WardApp() {
         />
       ) : screen === "handoff" ? (
         <HandoffView
-          people={people}
+          people={scopedPeople}
           today={today}
           nowTime={nowTime}
           handoffs={handoffs}
@@ -790,6 +832,7 @@ export default function WardApp() {
       ) : screen === "list" ? (
         <PatientList
           ward={ward}
+          scope={scopeLimit}
           nowTime={nowTime}
           changes={sessionChanges}
           summaries={summaries}
@@ -1287,19 +1330,30 @@ export default function WardApp() {
     <div className="flex h-screen flex-col print:hidden">
       <div aria-hidden className="standalone-edge" />
       <AppFrame
-        layout={layout}
-        onLayout={(l) => {
-          setLayout(l);
-          try {
-            localStorage.setItem("sk-layout", l);
-          } catch {
-            // No storage (private window): the choice lasts until the page is reloaded.
-          }
-        }}
         role={role}
         onRole={switchRole}
+        areas={areas}
+        openAreas={openAreas}
         screen={screen}
-        onScreen={goScreen}
+        onArea={openArea}
+        onCloseArea={closeArea}
+        onView={goScreen}
+        ward={{
+          scopes: scopes.map((k) => scopeList.find((x) => x.key === k)).filter((x): x is Scope => !!x),
+          active: scope.key,
+          options: scopeList,
+          onScope: chooseScope,
+          onAdd: (key) => {
+            setScopes((all) => (all.includes(key) ? all : [...all, key]));
+            chooseScope(key);
+          },
+          onClose: (key) => {
+            const rest = scopes.filter((k) => k !== key);
+            setScopes(rest);
+            if (key === activeScope && rest.length) chooseScope(rest[0]);
+          },
+          views: wardViews,
+        }}
         patients={tabs.map((id) => findPatient(id)!).filter(Boolean)}
         activeId={activeId}
         onSelectPatient={(id) => {

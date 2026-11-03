@@ -7,6 +7,7 @@ import { news2 } from "@/lib/news2";
 import { PatientAvatar } from "./PatientAvatar";
 import type { Patient } from "@/lib/types";
 import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room, type WardState } from "@/lib/ward";
+import type { BedAssignment } from "@/lib/ward";
 import { ageSex } from "@/lib/person";
 
 export interface ChartSummary {
@@ -20,10 +21,12 @@ interface Props {
   ward: WardState;
   summaries: Record<string, ChartSummary>;
   onOpen: (patientId: string) => void;
+  /** A 病棟 tab narrower than the ward (受け持ち, a department): its beds stay clear, the rest fade. */
+  scope?: { label: string; test: (b: BedAssignment) => boolean };
 }
 
 /** Floor plan of the ward. Our patients can be opened; other teams' beds are shown for context only. */
-export function WardMap({ ward, summaries, onOpen }: Props) {
+export function WardMap({ ward, summaries, onOpen, scope }: Props) {
   const [mineOnly, setMineOnly] = useState(false);
   const occupied = ward.beds.length;
   const totalBeds = ROOMS.reduce((n, r) => n + r.beds.length, 0);
@@ -43,23 +46,29 @@ export function WardMap({ ward, summaries, onOpen }: Props) {
         <p className="nums text-sm text-ink-soft">
           入院 <b className="text-ink">{occupied}</b>名・空床 <b className="text-ink">{totalBeds - occupied}</b>床・受け持ち <b className="text-ai">{mine}</b>名
         </p>
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
-          <input type="checkbox" checked={mineOnly} onChange={() => setMineOnly(!mineOnly)} className="accent-ai" />
-          受け持ちだけ表示
-        </label>
+        {scope ? (
+          <p className="text-xs text-ink-soft">
+            <b className="text-ink">{scope.label}</b>の {ward.beds.filter(scope.test).length}名を濃く、ほかを薄く出しています
+          </p>
+        ) : (
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
+            <input type="checkbox" checked={mineOnly} onChange={() => setMineOnly(!mineOnly)} className="accent-ai" />
+            受け持ちだけ表示
+          </label>
+        )}
         <Legend />
       </header>
 
       <div className="min-w-[1100px] space-y-2">
-        <RoomRow ward={ward} rooms={north} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} />
+        <RoomRow ward={ward} rooms={north} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} scope={scope} />
         <div className="flex h-8 items-center justify-center rounded bg-tab/60 text-[11px] tracking-[0.5em] text-ink-faint">廊下</div>
         <div className="flex gap-2">
-          <RoomRow ward={ward} rooms={southBeforeNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} inline />
+          <RoomRow ward={ward} rooms={southBeforeNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} scope={scope} inline />
           <div className="flex min-h-40 flex-[1.4] flex-col items-center justify-center rounded-lg border border-rule bg-tab/50 text-center text-xs text-ink-soft">
             <b className="text-sm text-ink">ナース</b>
             <b className="text-sm text-ink">ステーション</b>
           </div>
-          <RoomRow ward={ward} rooms={southAfterNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} inline />
+          <RoomRow ward={ward} rooms={southAfterNs} summaries={summaries} onOpen={onOpen} mineOnly={mineOnly} scope={scope} inline />
         </div>
       </div>
       <p className="mt-3 text-[11px] text-ink-faint">
@@ -69,7 +78,7 @@ export function WardMap({ ward, summaries, onOpen }: Props) {
   );
 }
 
-function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; mineOnly: boolean; inline?: boolean }) {
+function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, scope, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; mineOnly: boolean; scope?: Props["scope"]; inline?: boolean }) {
   const body = rooms.map((r) => (
     <div key={r.no} className={`flex flex-col rounded-lg border border-rule bg-sheet ${r.kind === "4床室" ? "flex-[2]" : "flex-1"}`}>
       <div className="nums flex items-baseline gap-2 border-b border-rule-soft px-2.5 py-1">
@@ -80,12 +89,13 @@ function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, inline }: { ward: W
         {r.beds.map((b) => {
           const occ = occupant(ward.beds, r.no, b);
           const patient = occ?.patientId ? ward.patient(occ.patientId) : undefined;
+          const out = !!scope && !!occ && !scope.test(occ);
           return (
-            <div key={b || "single"} className="min-h-24 min-w-0">
+            <div key={b || "single"} className={`min-h-24 min-w-0 ${out && patient ? "opacity-35" : ""}`}>
               {patient ? (
                 <MyBed patient={patient} bed={b} summary={summaries[patient.id]} onOpen={() => onOpen(patient.id)} />
               ) : occ?.other ? (
-                <OtherBed other={occ.other} bed={b} faded={mineOnly} />
+                <OtherBed other={occ.other} bed={b} faded={scope ? out : mineOnly} />
               ) : (
                 <div className="flex h-full items-center justify-center rounded-md border border-dashed border-rule text-[11px] text-ink-faint">
                   {b && <span className="mr-1">{b}</span>}空床

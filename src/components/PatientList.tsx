@@ -26,6 +26,8 @@ interface Props {
   marPending?: Record<string, number>;
   /** Results not yet seen by the doctor (and how many are panic values). */
   resultState?: Record<string, { unseen: number; panic: number }>;
+  /** A 病棟 tab narrower than the ward (受け持ち, a department): only its patients are listed. */
+  scope?: { label: string; test: (b: BedAssignment) => boolean };
   onOpen: (patientId: string) => void;
 }
 
@@ -72,7 +74,7 @@ interface Row {
 const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
 
 /** Ward patient list. Our patients open on click or Enter; other teams' rows are context only. */
-export function PatientList({ ward, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, onOpen }: Props) {
+export function PatientList({ ward, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, onOpen, scope: limit }: Props) {
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const [groupBy, setGroupBy] = useState<GroupBy>("room");
   const [q, setQ] = useState("");
@@ -86,7 +88,7 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
       return { bed: b, patient, kana: patient?.kana ?? b.other?.name ?? "", day: patient ? hospitalDay(patient.admittedOn, 0) : null };
     });
     const filtered = all
-      .filter((r) => scope === "all" || r.patient)
+      .filter((r) => (limit ? limit.test(r.bed) : scope === "all" || r.patient))
       .filter((r) => {
         const s = q.trim();
         if (!s) return true;
@@ -99,7 +101,7 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
       if (sort.key === "day") return dir * ((a.day ?? -1) - (b.day ?? -1));
       return dir * roomKey(a.bed).localeCompare(roomKey(b.bed));
     });
-  }, [ward, scope, q, sort]);
+  }, [ward, scope, q, sort, limit]);
 
   const groupOf = (r: Row): string => {
     if (groupBy === "department") return r.patient?.department ?? r.bed.other?.department ?? "";
@@ -141,10 +143,10 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, consen
     <section aria-label="患者一覧" className="flex min-h-0 flex-1 flex-col bg-paper">
       <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
         <h1 className="text-lg font-bold">
-          {WARD_NAME} 患者一覧
+          {limit ? limit.label : WARD_NAME} 患者一覧
           <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
         </h1>
-        <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
+        <div role="tablist" className={`flex rounded-md border border-rule p-0.5 text-sm ${limit ? "hidden" : ""}`}>
           {(
             [
               ["mine", `受け持ち（${ward.beds.filter((b) => b.patientId).length}）`],
