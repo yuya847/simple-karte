@@ -313,6 +313,10 @@ export interface LabResult {
   day: DayOffset;
   time: string;
   values: Record<string, number>; // keyed by analyte code
+  /** Set when the laboratory confirmed it in this session: the specimen label code, who and when. */
+  id?: string;
+  reportedBy?: string;
+  reportedAt?: { day: DayOffset; time: string };
 }
 
 export interface CultureResult {
