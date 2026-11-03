@@ -78,3 +78,17 @@ body {
     background: #fff;
   }
 }
+
+/*
+ * Opened from the iPad home screen (standalone), the system blurs a band of the page just under the
+ * status bar. An empty band of the tab bar's colour sits there instead, so the tabs below stay sharp.
+ */
+.standalone-top {
+  display: none;
+}
+@media (display-mode: standalone) {
+  .standalone-top {
+    display: block;
+    height: max(env(safe-area-inset-top), 30px);
+  }
+}

@@ -27,6 +27,8 @@ import { PatientTabs, type PinnedTab } from "./PatientTabs";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { RightTabs, type RightTab } from "./RightTabs";
+import { Dockable, defaultWin, type Win } from "./Dockable";
+import { InjectionCalendar } from "./Calendars";
 import { WardMap, type ChartSummary } from "./WardMap";
 import { Worksheet } from "./Worksheet";
 import { PharmacyView, type ShidoRecord } from "./PharmacyView";
@@ -221,6 +223,9 @@ export default function WardApp() {
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
   const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
+  // Right-side tabs shown in their own window (別ウインドウ), and which window is in front.
+  const [floating, setFloating] = useState<Partial<Record<RightTab, Win>>>({});
+  const [zOrder, setZOrder] = useState<RightTab[]>([]);
   // 入院時の評価（計画書・栄養・褥瘡・転倒転落・せん妄・退院支援）.
   const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
   // Results the doctor marked as seen, and panic values phoned in by the laboratory.
@@ -468,6 +473,31 @@ export default function WardApp() {
     };
     update((c) => (c.drafts.some((d) => d.kind === "stop" && d.targetOrderId === entry.id) ? {} : { drafts: [...c.drafts, draft], flash: null }));
   };
+  // 延長 and 修正 from the injection calendar (left view or the right tab).
+  const extendDraft = (e: OrderEntry, n: number) => {
+    const draft: ExtendDraft = { id: newId(), origin: "manual", sourceText: "（カレンダーから延長）", comment: null, kind: "extend", targetOrderId: e.id, addDays: n };
+    update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], flash: `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
+  };
+  const modifyOrder = (e: OrderEntry) => {
+    if (e.order.type !== "injection") return;
+    addStopDraft(e, "（カレンダーから修正）");
+    const order = e.order;
+    update((c) => ({
+      injSeed: { key: newId(), order },
+      openTabs: c.openTabs.includes("injection") ? c.openTabs : [...c.openTabs, "injection"],
+      rightTab: floating.injection ? c.rightTab : "injection",
+      flash: "前のオーダの中止の下書きを入れ、同じ内容を注射のタブに写しました。直して下書きにし、まとめて確定してください。",
+    }));
+    if (floating.injection) toFront("injection");
+  };
+  const pendingExtends: Record<string, number> = Object.fromEntries(chart.drafts.flatMap((d) => (d.kind === "extend" ? [[d.targetOrderId, d.addDays]] : [])));
+  const toFront = (t: RightTab) => setZOrder((z) => [...z.filter((x) => x !== t), t]);
+  const openRight = (t: RightTab) => {
+    update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: floating[t] ? c.rightTab : t }));
+    if (floating[t]) toFront(t);
+    focusRightTab(t);
+  };
+
   // Append to the instruction box, adding a sentence break when needed.
   const insertText = (text: string) =>
     update((c) => {
@@ -533,6 +563,7 @@ export default function WardApp() {
   return (
     <RoleProvider value={role}>
     <div className="flex h-screen flex-col print:hidden">
+      <div aria-hidden className="standalone-top shrink-0 bg-tab" />
       <PatientTabs
         role={role}
         onRole={switchRole}
@@ -824,22 +855,9 @@ export default function WardApp() {
               view={chart.leftView}
               onView={(v) => update({ leftView: v })}
               onStopDraft={addStopDraft}
-              onExtendDraft={(e, n) => {
-                const draft: ExtendDraft = { id: newId(), origin: "manual", sourceText: "（カレンダーから延長）", comment: null, kind: "extend", targetOrderId: e.id, addDays: n };
-                update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], rightTab: "note", flash: `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
-              }}
-              pendingExtends={Object.fromEntries(chart.drafts.flatMap((d) => (d.kind === "extend" ? [[d.targetOrderId, d.addDays]] : [])))}
-              onModify={(e) => {
-                if (e.order.type !== "injection") return;
-                addStopDraft(e, "（カレンダーから修正）");
-                const order = e.order;
-                update((c) => ({
-                  injSeed: { key: newId(), order },
-                  openTabs: c.openTabs.includes("injection") ? c.openTabs : [...c.openTabs, "injection"],
-                  rightTab: "injection",
-                  flash: "前のオーダの中止の下書きを入れ、同じ内容を注射のタブに写しました。直して下書きにし、まとめて確定してください。",
-                }));
-              }}
+              onExtendDraft={extendDraft}
+              pendingExtends={pendingExtends}
+              onModify={modifyOrder}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
               onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
               onReviseNote={(e, text, reason) => {
@@ -906,85 +924,161 @@ export default function WardApp() {
               <RightTabs
                 open={chart.openTabs}
                 value={chart.rightTab}
+                floating={(Object.keys(floating) as RightTab[]).filter((t) => floating[t])}
                 onChange={(t) => {
+                  if (floating[t]) return toFront(t);
                   update({ rightTab: t });
                   focusRightTab(t);
                 }}
-                onOpen={(t) => {
-                  update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }));
-                  focusRightTab(t);
+                onOpen={openRight}
+                onFloat={(t) => {
+                  const n = Object.values(floating).filter(Boolean).length;
+                  setFloating((f) => ({ ...f, [t]: defaultWin(n) }));
+                  toFront(t);
+                  // The right side shows another tab that is still docked.
+                  update((c) => {
+                    const docked = (["note", ...c.openTabs] as RightTab[]).find((x) => x !== t && !floating[x]);
+                    return c.rightTab === t && docked ? { rightTab: docked } : {};
+                  });
                 }}
                 canOrder={!orderBlock}
-                onClose={(t) => update((c) => ({ openTabs: c.openTabs.filter((x) => x !== t), rightTab: c.rightTab === t ? "note" : c.rightTab }))}
-                counts={{ note: chart.drafts.length, injection: chart.drafts.filter((d) => d.kind === "injection").length, rx: chart.drafts.filter((d) => d.kind === "prescription").length }}
-              />
-              <div className={chart.rightTab === "note" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
-              <TodayPane
-                patient={patient}
-                today={today}
-                note={chart.note}
-                onNoteChange={(v) => update({ note: v })}
-                instruction={chart.instruction}
-                onInstructionChange={(v) => update({ instruction: v })}
-                onAppendInstruction={insertText}
-                drafts={chart.drafts}
-                issues={issues}
-                ctx={ctx}
-                drafting={chart.drafting}
-                error={chart.error}
-                meta={chart.meta}
-                flash={chart.flash}
-                onDraft={requestDrafts}
-                onApply={(next) => update((c) => ({ drafts: c.drafts.map((d) => (d.id === next.id ? next : d)), flash: null }))}
-                onRemove={(id) => {
-                  auditLog({ role: me.role, actor: me.name, action: "下書きを消した", patient: patient.name, detail: chart.drafts.find((d) => d.id === id)?.sourceText });
-                  update((c) => ({ drafts: c.drafts.filter((d) => d.id !== id) }));
+                onClose={(t) => {
+                  setFloating((f) => ({ ...f, [t]: undefined }));
+                  update((c) => ({ openTabs: c.openTabs.filter((x) => x !== t), rightTab: c.rightTab === t ? "note" : c.rightTab }));
                 }}
-                onRedo={(id) =>
-                  update((c) => {
-                    const d = c.drafts.find((x) => x.id === id);
-                    return {
-                      drafts: c.drafts.filter((x) => x.id !== id),
-                      instruction: d ? (c.instruction ? `${c.instruction}。${d.sourceText}` : d.sourceText) : c.instruction,
-                    };
-                  })
-                }
-                onConfirm={confirm}
-                orderMode={orderMode}
-                onConfirmNote={() => {
-                  const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, ...parseNote(chart.note) };
-                  setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
-                  auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: chart.note.replace(/\s+/g, " ").slice(0, 120) });
-                  update({ note: noteTemplate(me.role), flash: "記事を確定しました。左の経過に入りました。" });
+                counts={{
+                  note: chart.drafts.length,
+                  injection: chart.drafts.filter((d) => d.kind === "injection").length,
+                  rx: chart.drafts.filter((d) => d.kind === "prescription").length,
+                  injcal: chart.drafts.filter((d) => d.kind === "extend").length,
                 }}
               />
-              </div>
-              {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
-              {chart.openTabs.includes("injection") && (
-                <div data-right-tab="injection" className={chart.rightTab === "injection" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
-                  <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
-                  <AddInjectionPanel
-                    key={patient.id}
-                    newId={newId}
-                    drafts={chart.drafts}
-                    seed={chart.injSeed}
-                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
-                  />
-                  </fieldset>
-                </div>
-              )}
-              {chart.openTabs.includes("rx") && (
-                <div data-right-tab="rx" className={chart.rightTab === "rx" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
-                  <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
-                  <AddRxPanel
-                    key={patient.id}
-                    newId={newId}
-                    drafts={chart.drafts}
-                    onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
-                  />
-                  </fieldset>
-                </div>
-              )}
+              {(() => {
+                // Which tab the right side shows: the chosen one, unless it is in its own window.
+                const docked = ([chart.rightTab, "note", ...chart.openTabs] as RightTab[]).find((t) => (t === "note" || chart.openTabs.includes(t)) && !floating[t]) ?? null;
+                const dock = (t: RightTab, title: string, dockedClass: string, children: React.ReactNode) => (
+                  <Dockable
+                    key={t}
+                    tab={t}
+                    title={`${title}：${patient.name}さん`}
+                    active={docked === t}
+                    win={floating[t]}
+                    z={Math.max(0, zOrder.indexOf(t))}
+                    dockedClass={dockedClass}
+                    onMove={(w) => setFloating((f) => ({ ...f, [t]: w }))}
+                    onDock={() => {
+                      setFloating((f) => ({ ...f, [t]: undefined }));
+                      update({ rightTab: t });
+                    }}
+                    onFront={() => toFront(t)}
+                  >
+                    {children}
+                  </Dockable>
+                );
+                const pane = "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3";
+                return (
+                  <>
+                    {docked === null && <p className="flex-1 bg-sheet p-6 text-sm text-ink-faint">右の欄のタブは、すべて別ウインドウで表示しています。ウインドウの「右の欄に戻す」で戻せます。</p>}
+                    {dock(
+                      "note",
+                      "記事作成",
+                      "flex min-h-0 flex-1 flex-col",
+                      <TodayPane
+                        patient={patient}
+                        today={today}
+                        note={chart.note}
+                        onNoteChange={(v) => update({ note: v })}
+                        instruction={chart.instruction}
+                        onInstructionChange={(v) => update({ instruction: v })}
+                        onAppendInstruction={insertText}
+                        drafts={chart.drafts}
+                        issues={issues}
+                        ctx={ctx}
+                        drafting={chart.drafting}
+                        error={chart.error}
+                        meta={chart.meta}
+                        flash={chart.flash}
+                        onDraft={requestDrafts}
+                        onApply={(next) => update((c) => ({ drafts: c.drafts.map((d) => (d.id === next.id ? next : d)), flash: null }))}
+                        onRemove={(id) => {
+                          auditLog({ role: me.role, actor: me.name, action: "下書きを消した", patient: patient.name, detail: chart.drafts.find((d) => d.id === id)?.sourceText });
+                          update((c) => ({ drafts: c.drafts.filter((d) => d.id !== id) }));
+                        }}
+                        onRedo={(id) =>
+                          update((c) => {
+                            const d = c.drafts.find((x) => x.id === id);
+                            return {
+                              drafts: c.drafts.filter((x) => x.id !== id),
+                              instruction: d ? (c.instruction ? `${c.instruction}。${d.sourceText}` : d.sourceText) : c.instruction,
+                            };
+                          })
+                        }
+                        onConfirm={confirm}
+                        orderMode={orderMode}
+                        onConfirmNote={() => {
+                          const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, ...parseNote(chart.note) };
+                          setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
+                          auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: chart.note.replace(/\s+/g, " ").slice(0, 120) });
+                          update({ note: noteTemplate(me.role), flash: "記事を確定しました。左の経過に入りました。" });
+                        }}
+                      />,
+                    )}
+                    {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
+                    {chart.openTabs.includes("injection") &&
+                      dock(
+                        "injection",
+                        "注射",
+                        "flex min-h-0 flex-1 flex-col",
+                        <div data-right-tab="injection" className={pane}>
+                          <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
+                            <AddInjectionPanel
+                              key={patient.id}
+                              newId={newId}
+                              drafts={chart.drafts}
+                              seed={chart.injSeed}
+                              onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                            />
+                          </fieldset>
+                        </div>,
+                      )}
+                    {chart.openTabs.includes("rx") &&
+                      dock(
+                        "rx",
+                        "内服",
+                        "flex min-h-0 flex-1 flex-col",
+                        <div data-right-tab="rx" className={pane}>
+                          <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
+                            <AddRxPanel
+                              key={patient.id}
+                              newId={newId}
+                              drafts={chart.drafts}
+                              onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                            />
+                          </fieldset>
+                        </div>,
+                      )}
+                    {chart.openTabs.includes("injcal") &&
+                      dock(
+                        "injcal",
+                        "注射カレンダー",
+                        "flex min-h-0 flex-1 flex-col bg-sheet",
+                        <InjectionCalendar
+                          patient={patient}
+                          entries={entries}
+                          today={today}
+                          nowTime={nowTime}
+                          selectedDay={chart.selectedDay}
+                          onSelectDay={(d) => update({ selectedDay: d })}
+                          onStopDraft={addStopDraft}
+                          draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
+                          onExtendDraft={!deny("order") ? extendDraft : undefined}
+                          onModify={!deny("order") ? modifyOrder : undefined}
+                          pendingExtends={pendingExtends}
+                        />,
+                      )}
+                  </>
+                );
+              })()}
               {panel === "diagnoses" && (
                 <Drawer title="病名" onClose={closePanel} wide locked={deny("diagnosis")}>
                   <DiagnosisPanel
@@ -1162,6 +1256,7 @@ export default function WardApp() {
               blocked={blocked}
               leftView={chart.leftView}
               onLeftView={(v) => update({ leftView: v })}
+              injectionCalendar={{ on: chart.openTabs.includes("injcal") && (chart.rightTab === "injcal" || !!floating.injcal), open: () => openRight("injcal") }}
             />
           </div>
         </>

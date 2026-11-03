@@ -62,6 +62,8 @@ interface Props {
   onLeftView: (v: LeftView) => void;
   /** Tools this role cannot use, with the reason (shown as the tooltip). */
   blocked?: Partial<Record<PanelKind, string>>;
+  /** The injection calendar opens as a tab on the right (it is for changing orders, not only reading). */
+  injectionCalendar?: { on: boolean; open: () => void };
 }
 
 const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
@@ -72,7 +74,7 @@ const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
 ];
 
 /** Fixed column of tools on the far right: order types, then things to look at. */
-export function ToolRail({ open, onOpen, leftView, onLeftView, blocked = {} }: Props) {
+export function ToolRail({ open, onOpen, leftView, onLeftView, blocked = {}, injectionCalendar }: Props) {
   return (
     <aside aria-label="ツール" className="scroll-thin flex min-h-0 flex-col items-stretch gap-1 overflow-y-auto border-l border-rule bg-paper px-1 py-2">
       {GROUPS.map((g, gi) => (
@@ -81,13 +83,14 @@ export function ToolRail({ open, onOpen, leftView, onLeftView, blocked = {} }: P
           {g.title === "参照" &&
             LEFT_TOOLS.map((t) => {
               const Icon = t.icon;
-              const on = leftView === t.key;
+              const right = t.key === "injection-cal" && injectionCalendar;
+              const on = right ? injectionCalendar.on : leftView === t.key;
               return (
                 <button
                   key={t.key}
                   type="button"
-                  title={`${t.label}（左の欄に出します）`}
-                  onClick={() => onLeftView(on ? "record" : t.key)}
+                  title={right ? `${t.label}（右の欄のタブで開きます。延長・修正もここで）` : `${t.label}（左の欄に出します）`}
+                  onClick={() => (right ? injectionCalendar.open() : onLeftView(on ? "record" : t.key))}
                   aria-pressed={on}
                   className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${
                     on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"
