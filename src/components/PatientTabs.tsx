@@ -1,5 +1,6 @@
 "use client";
 
+import { PatientAvatar } from "./PatientAvatar";
 import Image from "next/image";
 import { Ambulance, Droplets, LayoutGrid, List, Pill, Plus, Printer, Scissors, Search, X, ScrollText, MessagesSquare } from "lucide-react";
 import type { Patient } from "@/lib/types";
@@ -78,6 +79,7 @@ export function PatientTabs({ tabs, activeId, pinned, onSelectPinned, onSelect, 
               {p.infections.length > 0 && (
                 <span className="h-2 w-2 shrink-0 rounded-full bg-fuji" title={`感染症：${p.infections.join("、")}`} />
               )}
+              <PatientAvatar sex={p.sex} age={p.age} size={20} className="rounded-full" />
               <span className="truncate font-bold">{p.name}</span>
               <span className="nums shrink-0 text-xs text-ink-faint">{p.room}</span>
               <button

@@ -4,6 +4,7 @@ import { FlaskConical, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { hospitalDay } from "@/lib/dates";
 import { news2 } from "@/lib/news2";
+import { PatientAvatar } from "./PatientAvatar";
 import type { Patient } from "@/lib/types";
 import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room, type WardState } from "@/lib/ward";
 
@@ -112,6 +113,7 @@ function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: st
     >
       <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
         {bed && <span className="text-ink-faint">{bed}</span>}
+        <PatientAvatar sex={p.sex} age={p.age} size={22} className="self-center rounded-full" />
         <b className="truncate text-[13px] text-ink">{p.name}</b>
       </div>
       <div className="text-ink-soft">

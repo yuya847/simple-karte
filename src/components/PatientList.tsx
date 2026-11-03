@@ -1,5 +1,6 @@
 "use client";
 
+import { PatientAvatar } from "./PatientAvatar";
 import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { upcomingToday } from "@/lib/calendar";
@@ -356,10 +357,15 @@ function MyRow({
         {row.bed.bed && <span className="text-ink-faint">-{row.bed.bed}</span>}
       </td>
       <td className="px-3 py-2">
-        <div className="text-[10px] text-ink-faint">{p.kana}</div>
-        <button type="button" onClick={onOpen} className="font-bold text-ai hover:underline">
-          {p.name}
-        </button>
+        <div className="flex items-center gap-2">
+          <PatientAvatar sex={p.sex} age={p.age} size={30} className="rounded-full" />
+          <div>
+            <div className="text-[10px] text-ink-faint">{p.kana}</div>
+            <button type="button" onClick={onOpen} className="font-bold text-ai hover:underline">
+              {p.name}
+            </button>
+          </div>
+        </div>
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         {p.sex}・{p.age}歳

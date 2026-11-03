@@ -5,6 +5,7 @@ import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/date
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import { bandLabel, reviewDue, type AdvanceDirective } from "@/lib/directives";
 import type { Patient } from "@/lib/types";
+import { PatientAvatar } from "./PatientAvatar";
 
 interface Props {
   patient: Patient;
@@ -30,7 +31,8 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
 
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule bg-sheet px-4 py-2.5">
-      <div className="flex items-baseline gap-3">
+      <div className="flex items-center gap-3">
+        <PatientAvatar sex={p.sex} age={p.age} size={46} className="rounded-full ring-1 ring-rule" />
         <div>
           <div className="text-[11px] leading-none text-ink-faint">{p.kana}</div>
           <div className="text-xl font-bold leading-tight">{p.name}</div>
