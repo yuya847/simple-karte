@@ -5,6 +5,7 @@ import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from 
 import { abs, doseTimes, fluidByDay, orderInterval } from "@/lib/flowsheet";
 import { durationText, labName, scheduleTextFor } from "@/lib/format";
 import { findDrug } from "@/lib/master";
+import { news2 } from "@/lib/news2";
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, VitalSign } from "@/lib/types";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
@@ -454,6 +455,7 @@ function VitalTable({ vitals, today }: { vitals: VitalSign[]; today: CalendarDat
           <th className="py-1 text-right font-normal">呼吸数</th>
           <th className="py-1 text-right font-normal">SpO2</th>
           <th className="py-1 pl-3 text-left font-normal">酸素</th>
+          <th className="py-1 pl-3 text-right font-normal" title="NEWS2（RCP 2017）をコードで計算">NEWS2</th>
         </tr>
       </thead>
       <tbody>
@@ -470,6 +472,10 @@ function VitalTable({ vitals, today }: { vitals: VitalSign[]; today: CalendarDat
             <td className="py-1 text-right">{v.rr}</td>
             <td className="py-1 text-right">{v.spo2}</td>
             <td className="py-1 pl-3">{v.o2}</td>
+            <td className={`py-1 pl-3 text-right ${news2(v).total >= 5 || news2(v).red ? "font-bold text-shu" : ""}`}>
+              {news2(v).total}
+              {news2(v).missing.length ? "＊" : ""}
+            </td>
           </tr>
         ))}
       </tbody>

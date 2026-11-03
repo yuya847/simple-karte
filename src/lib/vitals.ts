@@ -7,7 +7,7 @@ import type { DailyRecord, VitalSign } from "./types";
 type Row = [day: number, time: string, bt: number, hr: number, sbp: number, dbp: number, rr: number, spo2: number, o2?: string];
 
 const rows = (list: Row[]): VitalSign[] =>
-  list.map(([day, time, bt, hr, sbp, dbp, rr, spo2, o2]) => ({ day, time, bt, hr, sbp, dbp, rr, spo2, o2: o2 ?? "室内気" }));
+  list.map(([day, time, bt, hr, sbp, dbp, rr, spo2, o2]) => ({ day, time, bt, hr, sbp, dbp, rr, spo2, o2: o2 ?? "室内気", avpu: "A" as const }));
 
 export const VITALS: Record<string, VitalSign[]> = {
   // 佐倉 修：右下腿蜂窩織炎 → MRSA 菌血症

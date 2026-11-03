@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, HeartPulse, Radiation } from "lucide-react";
+import { Activity, Bandage, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, HeartPulse, Radiation, Thermometer } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "consents" | "results" | "imaging" | "active-orders" | "billing";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "consents" | "vitals" | "results" | "imaging" | "active-orders" | "billing";
 
 interface Tool {
   key: PanelKind;
@@ -25,6 +25,10 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "add-rx", label: "処方", icon: Pill },
       { key: "add-procedure", label: "処置", icon: Bandage },
     ],
+  },
+  {
+    title: "看護",
+    tools: [{ key: "vitals", label: "バイタル", icon: Thermometer }],
   },
   {
     title: "文書",

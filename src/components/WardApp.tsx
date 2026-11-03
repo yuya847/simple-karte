@@ -16,7 +16,7 @@ import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
 import { BEDS, type BedAssignment, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
-import type { DayOffset, HistoryEntry, OrderEntry, Patient } from "@/lib/types";
+import type { DayOffset, HistoryEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { HistoryPane, type LeftView } from "./HistoryPane";
@@ -40,6 +40,7 @@ import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
 import { ConsentPanel } from "./panels/ConsentPanel";
+import { VitalsPanel } from "./panels/VitalsPanel";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { Drawer } from "./panels/Drawer";
@@ -155,7 +156,12 @@ export default function WardApp() {
   const [surgeries, setSurgeries] = useState<Surgery[]>(() => (typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
 
-  const allPatients = useMemo(() => [...PATIENTS, ...admitted], [admitted]);
+  // Vital signs entered in this session (kept in this browser only), merged into each patient.
+  const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
+  const allPatients = useMemo(
+    () => [...PATIENTS, ...admitted].map((p) => (extraVitals[p.id]?.length ? { ...p, vitals: [...p.vitals, ...extraVitals[p.id]] } : p)),
+    [admitted, extraVitals],
+  );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
 
@@ -620,6 +626,18 @@ export default function WardApp() {
               {panel === "add-rx" && (
                 <Drawer title="処方（Rp 入力）" onClose={closePanel} wide>
                   <AddRxPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "vitals" && (
+                <Drawer title="バイタル（看護師が入れる）" onClose={closePanel}>
+                  <VitalsPanel
+                    nowTime={nowTime}
+                    last={patient.vitals.at(-1)}
+                    onSave={(v) => {
+                      setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
+                      closePanel();
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "consents" && (

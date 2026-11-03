@@ -3,6 +3,7 @@
 import { FlaskConical, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { hospitalDay } from "@/lib/dates";
+import { news2 } from "@/lib/news2";
 import type { Patient } from "@/lib/types";
 import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room, type WardState } from "@/lib/ward";
 
@@ -99,6 +100,7 @@ function RoomRow({ ward, rooms, summaries, onOpen, mineOnly, inline }: { ward: W
 
 function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: string; summary?: ChartSummary; onOpen: () => void }) {
   const latest = p.vitals.at(-1);
+  const score = latest ? news2(latest) : null;
   const isolation = isolationFor(p.infections);
   const newCulture = p.cultures.some((c) => c.reportedOn === 0);
   const labsToday = p.labs.some((l) => l.day === 0);
@@ -136,6 +138,7 @@ function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: st
       {latest && (
         <div className="flex flex-wrap gap-x-2 text-ink-soft" title={`${latest.time} の測定`}>
           <span className="whitespace-nowrap">BT {latest.bt?.toFixed(1)}</span>
+          {score && (score.total >= 5 || score.red) && <span className="whitespace-nowrap font-bold text-shu">NEWS2 {score.total}</span>}
           <span className="whitespace-nowrap">
             SpO2 {latest.spo2}%{latest.o2 && latest.o2 !== "室内気" ? `（${latest.o2.replace("鼻カニュラ ", "")}）` : ""}
           </span>

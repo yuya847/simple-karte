@@ -49,6 +49,10 @@ export interface VitalSign {
   rr?: number; // /分
   spo2?: number; // %
   o2?: string; // "室内気" or "鼻カニュラ 2L" etc.
+  /** 意識（ACVPU）. */
+  avpu?: "A" | "C" | "V" | "P" | "U";
+  /** Who took it (entered in this app). */
+  by?: string;
 }
 
 /** Per-day nursing record. Meals are the staple eaten, in tenths (割), breakfast/lunch/dinner. */

@@ -1,6 +1,7 @@
 // Marks on the patient list, worked out by code from the record. Facts only: no "要注意" judgement.
 
 import { procInterval } from "./proc-timing";
+import { news2 } from "./news2";
 import { isolationFor } from "./ward";
 import type { OrderEntry, Patient, ProcedureOrder } from "./types";
 import { orderInterval } from "./flowsheet";
@@ -18,6 +19,11 @@ const running = (from: number, to: number | null, nowAbs: number) => from <= now
 
 export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }): Flag[] {
   const out: Flag[] = [];
+  const last = p.vitals.at(-1);
+  if (last) {
+    const n = news2(last);
+    if (n.total >= 5 || n.red) out.push({ label: `NEWS2 ${n.total}`, tone: "shu", title: `${last.time} の測定。観察の目安（RCP）：${n.monitoring}` });
+  }
   if (consent && !consent.admission) out.push({ label: "包括同意なし", tone: "yamabuki", title: "入院時の包括同意書がまだです" });
   if (consent?.pending.length) out.push({ label: `同意書 説明前 ${consent.pending.length}`, tone: "yamabuki", title: consent.pending.join("、") });
   const iso = isolationFor(p.infections);
