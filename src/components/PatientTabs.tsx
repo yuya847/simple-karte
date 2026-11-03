@@ -2,7 +2,7 @@
 
 import { PatientAvatar } from "./PatientAvatar";
 import Image from "next/image";
-import { Ambulance, Droplets, LayoutGrid, List, Pill, Plus, Printer, Scissors, Search, X, ScrollText, MessagesSquare } from "lucide-react";
+import { Ambulance, Droplets, LayoutGrid, List, Pill, Plus, Printer, Scissors, Search, X, ScrollText, MessagesSquare, ClipboardCheck } from "lucide-react";
 import type { Patient } from "@/lib/types";
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
   onOpenPicker: () => void;
 }
 
-export type PinnedTab = "map" | "list" | "sheet" | "er" | "pharmacy" | "dialysis" | "or" | "chat" | "audit";
+export type PinnedTab = "map" | "list" | "sheet" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit";
 
 const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
   { key: "map", label: "病棟マップ", icon: LayoutGrid },
@@ -26,6 +26,7 @@ const PINNED: { key: PinnedTab; label: string; icon: typeof LayoutGrid }[] = [
   { key: "pharmacy", label: "薬剤部", icon: Pill },
   { key: "dialysis", label: "透析室", icon: Droplets },
   { key: "or", label: "手術室", icon: Scissors },
+  { key: "acuity", label: "看護必要度", icon: ClipboardCheck },
   { key: "chat", label: "チャット", icon: MessagesSquare },
   { key: "audit", label: "監査ログ", icon: ScrollText },
 ];

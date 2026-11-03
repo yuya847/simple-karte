@@ -47,10 +47,12 @@ import { DietPanel } from "./panels/DietPanel";
 import { DischargePanel } from "./panels/DischargePanel";
 import type { DischargeDraft } from "@/lib/discharge";
 import type { TdmReport } from "@/lib/tdm";
-import { INITIAL_DIETS, dietAt, dietLabel, nextMeal, type DietOrder } from "@/lib/diet";
+import { INITIAL_DIETS, MEALS, dietAt, dietLabel, nextMeal, type DietOrder } from "@/lib/diet";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
 import { ChatThread, ChatView } from "./ChatView";
+import { AcuityView } from "./AcuityView";
+import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { overdue, type AdminRecord } from "@/lib/mar";
@@ -184,6 +186,7 @@ export default function WardApp() {
   const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
   const [diets, setDiets] = useState<DietOrder[]>(INITIAL_DIETS);
   const [tdmReports, setTdmReports] = useState<TdmReport[]>([]);
+  const [bRecords, setBRecords] = useState<BRecord[]>(INITIAL_B);
   const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>({});
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   const allPatients = useMemo(
@@ -503,6 +506,19 @@ export default function WardApp() {
         />
       ) : screen === "audit" ? (
         <AuditView />
+      ) : screen === "acuity" ? (
+        <AcuityView
+          people={people}
+          today={today}
+          nowTime={nowTime}
+          records={bRecords}
+          ambulance={{ ...FICTIONAL_AMBULANCE, ...Object.fromEntries(er.filter((x) => x.admittedAs).map((x) => [x.admittedAs!, x.arrival === "救急車"])) }}
+          fasting={(pid, day) => MEALS.every((m) => dietAt(diets, pid, day, m)?.kind === "絶食")}
+          onSave={(r) => {
+            auditLog({ role: "看護師", actor: r.by, action: "確定（看護必要度 B項目）", patient: findPatient(r.patientId)?.name, detail: `${r.day === 0 ? "今日" : `${r.day}日`}` });
+            setBRecords((all) => [...all.filter((x) => !(x.patientId === r.patientId && x.day === r.day)), r]);
+          }}
+        />
       ) : screen === "chat" ? (
         <ChatView
           patients={people.map((x) => ({ patient: x.patient, room: x.room }))}
