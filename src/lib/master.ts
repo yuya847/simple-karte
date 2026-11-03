@@ -364,6 +364,12 @@ export const ORDER_SETS: OrderSet[] = [
     labCodes: ["LAB-CBC", "LAB-CHEM", "LAB-CRP"],
     aliases: ["定期採血", "いつもの採血", "定期セット"],
   },
+  {
+    code: "SET-LYTES",
+    name: "電解質（Na・K・Cl）",
+    labCodes: ["LAB-NA", "LAB-K", "LAB-CL"],
+    aliases: ["電解質", "エレクトロライト", "Na・K・Cl", "ナトカリクロール"],
+  },
 ];
 
 /**
@@ -501,6 +507,8 @@ export const WARD_RULES = {
   medTimes: { 朝: "08:00", 昼: "12:00", 夕: "18:00", 眠前: "21:00" },
   /** 与薬: giving a dose more than this many minutes before or after its time needs a reason. */
   marWindowMin: 60,
+  /** 口頭指示: the doctor signs within this many hours (the fictional hospital's rule). */
+  verbalSignHours: 24,
 } as const;
 
 export function findDrug(code: string): DrugMaster | undefined {
