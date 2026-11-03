@@ -835,7 +835,7 @@ export default function WardApp() {
                   if (e) addStopDraft(e, "（疑義照会から）");
                   auditLog({ role: me.role, actor: me.name, action: "疑義照会に回答（変更する）", patient: patient.name, detail: q.question });
                   setQueries((qs) => qs.map((x) => (x.id === q.id ? { ...x, status: "変更", answeredAt: nowTime } : x)));
-                  update({ flash: "前のオーダの中止の下書きを作りました。正しい内容を話すか打って、まとめて確定してください。" });
+                  update({ flash: "前のオーダの中止の下書きを作りました。正しい内容を右のツールから足して、まとめて確定してください。" });
                 }}
                 onKeep={(q, answer) => {
                   auditLog({ role: me.role, actor: me.name, action: "疑義照会に回答（変更しない）", patient: patient.name, detail: answer || q.question });
@@ -920,8 +920,8 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "add-injection" && (
-                <Drawer title="注射（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
-                  <AddInjectionPanel onPick={insertText} />
+                <Drawer title="注射（マスターから選ぶ）" onClose={closePanel} wide locked={orderBlock}>
+                  <AddInjectionPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-rx" && (

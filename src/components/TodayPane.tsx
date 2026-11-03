@@ -44,7 +44,13 @@ interface Props {
   onConfirmNote: () => void;
 }
 
-/** Today's writing: the note on top, then the spoken/typed instructions and their order drafts. */
+/**
+ * The box where the doctor says or types orders for Claude to draft. Hidden for now (the user's
+ * request, 2026-11-03): orders are picked from the tools on the right and collect under the note.
+ */
+const SHOW_DICTATION = false;
+
+/** Today's writing: the note on top, then the order drafts collecting under it. */
 export function TodayPane(p: Props) {
   const box = useRef<HTMLTextAreaElement>(null);
   const me = useMe();
@@ -94,7 +100,7 @@ export function TodayPane(p: Props) {
 
         {p.orderMode === "none" ? (
           <DenyNote action="order" className="rounded-lg border border-rule bg-paper px-3 py-2" />
-        ) : (
+        ) : !SHOW_DICTATION ? null : (
         <div className={`rounded-lg border p-3 ${p.orderMode === "verbal" ? "border-yamabuki/40 bg-yamabuki-soft/40" : "border-ai/30 bg-ai-soft/40"}`}>
           <div className={`mb-2 flex flex-wrap items-center gap-x-2 text-sm font-bold ${p.orderMode === "verbal" ? "text-yamabuki" : "text-ai"}`}>
             <Sparkles size={15} />
@@ -155,6 +161,14 @@ export function TodayPane(p: Props) {
         </div>
         )}
 
+        {p.orderMode !== "none" && !SHOW_DICTATION && (
+          <div className={`rounded-lg border border-dashed px-3 py-2 text-xs ${p.orderMode === "verbal" ? "border-yamabuki/60 text-yamabuki" : "border-rule text-ink-soft"}`}>
+            {p.orderMode === "verbal" ? <b>口頭指示を受けて入力（看護師）：</b> : <b>オーダ：</b>}
+            右のツール（注射・検体検査・画像検査・生理検査・処方・処置）から選ぶと、ここに下書きが貯まります。確認に答えて、下の「確定」でまとめて確定します。
+            {p.orderMode === "verbal" && ` 確定すると医師の承認待ちになります。${VERBAL_RULE}`}
+          </div>
+        )}
+
         {p.drafts.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-ink-soft">オーダの下書き（{p.drafts.length}件）</h3>
@@ -166,10 +180,14 @@ export function TodayPane(p: Props) {
                 ctx={p.ctx}
                 onApply={p.onApply}
                 onRemove={() => p.onRemove(d.id)}
-                onRedo={() => {
-                  p.onRedo(d.id);
-                  box.current?.focus();
-                }}
+                onRedo={
+                  SHOW_DICTATION
+                    ? () => {
+                        p.onRedo(d.id);
+                        box.current?.focus();
+                      }
+                    : undefined
+                }
               />
             ))}
           </div>

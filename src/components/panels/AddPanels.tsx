@@ -2,34 +2,181 @@
 
 import { Search } from "lucide-react";
 import { useState } from "react";
-import { newProcedureDraft, type Draft, type LabDraft } from "@/lib/drafts";
+import { newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
+import type { InjectionRoute, InjectionSchedule } from "@/lib/types";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { USAGES } from "@/lib/rx";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
 import { PROCEDURES, findProcDrug } from "@/lib/procedures";
 
-/** Browse the injection master. Picking a drug puts its name into the instruction box to finish by voice or keys. */
-export function AddInjectionPanel({ onPick }: { onPick: (text: string) => void }) {
+const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
+  { label: "1回だけ", value: { kind: "once" } },
+  { label: "1日1回", value: { kind: "per_day", count: 1 } },
+  { label: "1日2回", value: { kind: "per_day", count: 2 } },
+  { label: "1日3回", value: { kind: "per_day", count: 3 } },
+  { label: "6時間ごと", value: { kind: "every_hours", hours: 6 } },
+  { label: "8時間ごと", value: { kind: "every_hours", hours: 8 } },
+  { label: "12時間ごと", value: { kind: "every_hours", hours: 12 } },
+  { label: "24時間ごと", value: { kind: "every_hours", hours: 24 } },
+];
+const FLUID_SCHEDULES: { label: string; value: InjectionSchedule }[] = [1, 2, 3, 4].map((c) => ({ label: `1日${c}本`, value: { kind: "per_day", count: c } }));
+const DRIP_MINUTES = [30, 60, 90, 120, 180, 240, 360, 480, 720, 1440];
+const minutesLabel = (m: number) => (m < 60 ? `${m}分` : m % 60 === 0 ? `${m / 60}時間` : `${Math.floor(m / 60)}時間${m % 60}分`);
+
+/**
+ * Pick an injection from the master and fill in the amount, route, frequency, drip time and start.
+ * It becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
+ */
+export function AddInjectionPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
   const [q, setQ] = useState("");
+  const [code, setCode] = useState<string | null>(null);
+  const drug = DRUGS.find((d) => d.code === code);
+  const fluid = drug?.kind === "輸液";
+  const [amount, setAmount] = useState("");
+  const [unit, setUnit] = useState("");
+  const [solvent, setSolvent] = useState("");
+  const [route, setRoute] = useState<InjectionRoute | "">("");
+  const [sched, setSched] = useState(-1);
+  const [minutes, setMinutes] = useState(0);
+  const [startDay, setStartDay] = useState(0);
+  const [startTime, setStartTime] = useState("");
+  const [days, setDays] = useState("");
+  const [comment, setComment] = useState("");
+  const pick = (c: string) => {
+    const d = DRUGS.find((x) => x.code === c)!;
+    setCode(c);
+    setAmount(d.kind === "輸液" ? "1" : d.strength ? String(d.strength.amount) : "");
+    setUnit(d.kind === "輸液" ? (d.units.includes("本") ? "本" : d.units[0]) : (d.strength?.unit ?? d.units[0]));
+    setRoute(d.routes.length === 1 ? d.routes[0] : "");
+    setSched(-1);
+    setMinutes(0);
+    setSolvent("");
+  };
+  const schedules = fluid ? FLUID_SCHEDULES : SCHEDULES;
+  const fluids = DRUGS.filter((d) => d.kind === "輸液" && (d.volumeMl ?? 0) <= 250);
   const list = DRUGS.filter((d) => !q || [d.name, ...d.aliases].some((a) => a.includes(q)));
+  const ready = !!drug && Number(amount) > 0 && !!unit && !!route && sched >= 0 && (route !== "点滴静注" || minutes > 0);
+
+  const add = () => {
+    if (!drug || !route) return;
+    const sv = solvent ? DRUGS.find((d) => d.code === solvent) : undefined;
+    const items = [
+      { drugCode: drug.code, said: drug.aliases[0] ?? drug.name, amount: Number(amount), unit },
+      ...(sv ? [{ drugCode: sv.code, said: sv.aliases[0] ?? sv.name, amount: sv.volumeMl ?? 1, unit: "mL" }] : []),
+    ];
+    const draft: InjectionDraft = {
+      id: newId(),
+      origin: "manual",
+      sourceText: "（マスターから選択）",
+      comment: comment.trim() || null,
+      kind: "injection",
+      items,
+      route,
+      schedule: schedules[sched].value,
+      infusionMinutes: route === "点滴静注" ? minutes : null,
+      infusionScope: route === "点滴静注" ? "per_dose" : null,
+      rateMlPerH: null,
+      prefer: null,
+      start: { day: startDay, time: startTime || null },
+      days: Number(days) > 0 ? Number(days) : null,
+      duplicate: null,
+    };
+    onAdd(draft);
+  };
+
+  const field = "rounded border border-rule bg-sheet px-1.5 py-1 text-sm";
   return (
-    <div>
-      <label className="mb-3 flex items-center gap-2 rounded-md border border-rule px-2 py-1.5">
-        <Search size={14} className="text-ink-faint" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬の名前・略称" className="flex-1 bg-transparent text-sm outline-none" autoFocus />
-      </label>
-      <p className="mb-2 text-xs text-ink-soft">選ぶと指示の欄に名前が入ります。量・回数・速度は続けて話すか打ってください。</p>
-      <ul className="divide-y divide-rule-soft">
-        {list.map((d) => (
-          <li key={d.code}>
-            <button type="button" onClick={() => onPick(d.aliases[0] ?? d.name)} className="nums flex w-full items-baseline gap-2 px-1 py-2 text-left text-sm hover:bg-paper">
-              <span className="font-bold">{d.name}</span>
-              <span className="text-xs text-ink-soft">{d.package}</span>
-              <span className="ml-auto text-[11px] text-ink-faint">{d.aliases.slice(0, 3).join("・")}</span>
+    <div className="space-y-3 text-[13px]">
+      {!drug ? (
+        <>
+          <label className="flex items-center gap-2 rounded-md border border-rule px-2 py-1.5">
+            <Search size={14} className="text-ink-faint" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬の名前・略称" className="flex-1 bg-transparent text-sm outline-none" autoFocus />
+          </label>
+          <ul className="divide-y divide-rule-soft">
+            {list.map((d) => (
+              <li key={d.code}>
+                <button type="button" onClick={() => pick(d.code)} className="nums flex w-full items-baseline gap-2 px-1 py-2 text-left text-sm hover:bg-paper">
+                  <span className="font-bold">{d.name}</span>
+                  <span className="text-xs text-ink-soft">{d.package}</span>
+                  <span className="ml-auto text-[11px] text-ink-faint">{d.aliases.slice(0, 3).join("・")}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-2">
+            <b className="text-base">{drug.name}</b>
+            <span className="text-xs text-ink-soft">{drug.package}</span>
+            <button type="button" onClick={() => setCode(null)} className="ml-auto rounded border border-rule px-2 py-0.5 text-xs text-ink-soft">
+              薬を選び直す
             </button>
-          </li>
-        ))}
-      </ul>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-16 text-xs text-ink-soft">量</span>
+            <input type="number" min={0} step="any" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${field} w-24`} aria-label="量" />
+            <select value={unit} onChange={(e) => setUnit(e.target.value)} className={field} aria-label="単位">
+              {drug.units.map((u) => (
+                <option key={u}>{u}</option>
+              ))}
+            </select>
+            {!fluid && drug.routes.includes("点滴静注") && (
+              <select value={solvent} onChange={(e) => setSolvent(e.target.value)} className={field} aria-label="溶かす輸液">
+                <option value="">溶かす輸液なし</option>
+                {fluids.map((f) => (
+                  <option key={f.code} value={f.code}>
+                    ＋ {f.name} {f.package}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-16 text-xs text-ink-soft">経路</span>
+            {drug.routes.map((r) => (
+              <button key={r} type="button" onClick={() => setRoute(r)} className={`rounded-md border px-2 py-1 ${route === r ? "border-ai bg-ai font-bold text-white" : "border-rule"}`}>
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="w-16 text-xs text-ink-soft">回数</span>
+            {schedules.map((x, i) => (
+              <button key={x.label} type="button" onClick={() => setSched(i)} className={`rounded-md border px-2 py-1 ${sched === i ? "border-ai bg-ai font-bold text-white" : "border-rule"}`}>
+                {x.label}
+              </button>
+            ))}
+          </div>
+          {route === "点滴静注" && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="w-16 text-xs text-ink-soft">1回の時間</span>
+              {DRIP_MINUTES.map((m) => (
+                <button key={m} type="button" onClick={() => setMinutes(m)} className={`nums rounded-md border px-2 py-1 ${minutes === m ? "border-ai bg-ai font-bold text-white" : "border-rule"}`}>
+                  {minutesLabel(m)}
+                </button>
+              ))}
+              <span className="text-[11px] text-ink-faint">{fluid ? "1本あたり。速度（mL/時）はコードで計算します" : "1回あたり"}</span>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-16 text-xs text-ink-soft">開始</span>
+            <select value={startDay} onChange={(e) => setStartDay(Number(e.target.value))} className={field} aria-label="開始日">
+              <option value={0}>今日</option>
+              <option value={1}>明日</option>
+            </select>
+            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={field} aria-label="開始時刻" />
+            <span className="text-[11px] text-ink-faint">時刻を入れなければ指示受け後すぐ</span>
+            <span className="ml-auto text-xs text-ink-soft">日数</span>
+            <input type="number" min={1} value={days} onChange={(e) => setDays(e.target.value)} placeholder="—" className={`${field} w-16`} aria-label="日数" />
+          </div>
+          <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="コメント（任意）" className={`${field} w-full`} />
+          <button type="button" disabled={!ready} onClick={add} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+            下書きに入れる（記事の下に貯まります）
+          </button>
+        </>
+      )}
     </div>
   );
 }

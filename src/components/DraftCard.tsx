@@ -15,7 +15,8 @@ interface Props {
   ctx: CheckContext;
   onApply: (next: Draft) => void;
   onRemove: () => void;
-  onRedo: () => void;
+  /** Put the words back into the instruction box (only while that box is shown). */
+  onRedo?: () => void;
 }
 
 const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "処方", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
@@ -48,9 +49,11 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo }: Pro
           ) : (
             <span className="text-xs text-yamabuki">確認 {blocking.length}件</span>
           )}
-          <button type="button" onClick={onRedo} title="言い直す（指示の欄に戻す）" className="rounded p-1 text-ink-faint hover:bg-paper hover:text-ink">
-            <RotateCcw size={14} />
-          </button>
+          {onRedo && (
+            <button type="button" onClick={onRedo} title="言い直す（指示の欄に戻す）" className="rounded p-1 text-ink-faint hover:bg-paper hover:text-ink">
+              <RotateCcw size={14} />
+            </button>
+          )}
           <button type="button" onClick={onRemove} title="この下書きを消す" className="rounded p-1 text-ink-faint hover:bg-paper hover:text-shu">
             <Trash2 size={14} />
           </button>
