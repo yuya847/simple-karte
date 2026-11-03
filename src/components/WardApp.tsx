@@ -33,6 +33,7 @@ import { INITIAL_NOTICES, INITIAL_READS, markRead, unreadCount, type Notice, typ
 import { INITIAL_INCIDENTS, applyStatus, emptyDraft, type IncidentDraft, type IncidentReport } from "@/lib/incident";
 import { StandingPanel } from "./panels/StandingPanel";
 import { RestraintPanel } from "./panels/RestraintPanel";
+import { RegimenPanel } from "./panels/RegimenPanel";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
@@ -885,7 +886,7 @@ export default function WardApp() {
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
-    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock } : {}),
+    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
   };
 
@@ -1690,6 +1691,18 @@ export default function WardApp() {
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "regimen" && (
+                <Drawer title="レジメン（化学療法）" onClose={closePanel} locked={orderBlock} wide>
+                  <RegimenPanel
+                    patient={{ sex: patient.sex, age: patient.age, heightCm: patient.heightCm, weightKg: patient.weightKg, cre: latestValue(patient, "Cre")?.value ?? null }}
+                    newId={newId}
+                    onAdd={(ds) => {
+                      update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `レジメンの注射 ${ds.length}本を記事の下に入れました。確かめて確定してください。` }));
+                      closePanel();
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "restraint" && (
