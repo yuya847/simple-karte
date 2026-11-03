@@ -61,7 +61,7 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
   if (mine.length === 0) return null;
   return (
     <section className="rounded-md border border-rule bg-paper p-2">
-      <h3 className="mb-1 text-[11px] font-bold text-ink-soft">記事の下に貯まっている{kind === "injection" ? "注射" : "処方"}（確定はまだ）</h3>
+      <h3 className="mb-1 text-[11px] font-bold text-ink-soft">記事の下に貯まっている{kind === "injection" ? "注射" : "内服"}（確定はまだ）</h3>
       <ol className="space-y-0.5 text-[12px]">
         {mine.map((d) => (
           <li key={d.id} className="nums flex gap-2">
@@ -261,7 +261,18 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
         >
           Rp を足す
         </button>
-        <button type="button" disabled={!ready.length} onClick={() => onAdd(ready.map(toDraft))} className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+        <button
+          type="button"
+          disabled={!ready.length}
+          onClick={() => {
+            onAdd(ready.map(toDraft));
+            // Start over for the next Rp (the panel stays open as a tab).
+            setRps([newInjRp()]);
+            setCur(0);
+            setQ("");
+          }}
+          className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+        >
           下書きにする（{ready.length} Rp）
         </button>
       </div>
@@ -553,7 +564,17 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
         >
           Rp を足す
         </button>
-        <button type="button" disabled={!ready.length} onClick={() => onAdd(ready.map(toDraft))} className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+        <button
+          type="button"
+          disabled={!ready.length}
+          onClick={() => {
+            onAdd(ready.map(toDraft));
+            setRps([newRp()]);
+            setCur(0);
+            setQ("");
+          }}
+          className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
+        >
           下書きにする（{ready.length} Rp）
         </button>
       </div>

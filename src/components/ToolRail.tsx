@@ -22,7 +22,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "add-lab", label: "検体検査", icon: TestTube },
       { key: "add-imaging", label: "画像検査", icon: Radiation },
       { key: "add-physio", label: "生理検査", icon: HeartPulse },
-      { key: "add-rx", label: "処方", icon: Pill },
+      { key: "add-rx", label: "内服", icon: Pill },
       { key: "add-procedure", label: "処置", icon: Bandage },
       { key: "diet", label: "食事", icon: Utensils },
     ],

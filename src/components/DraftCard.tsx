@@ -21,7 +21,7 @@ interface Props {
   rp?: number;
 }
 
-const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "処方", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
+const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {

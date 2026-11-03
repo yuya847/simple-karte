@@ -26,6 +26,7 @@ import { PatientList } from "./PatientList";
 import { PatientTabs, type PinnedTab } from "./PatientTabs";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
+import { RightTabs, type RightTab } from "./RightTabs";
 import { WardMap, type ChartSummary } from "./WardMap";
 import { Worksheet } from "./Worksheet";
 import { PharmacyView, type ShidoRecord } from "./PharmacyView";
@@ -83,6 +84,8 @@ interface ChartState {
   selectedDay: DayOffset | null;
   showStopped: boolean;
   leftView: LeftView;
+  /** The right side: writing the note, or entering injections / oral drugs by Rp. */
+  rightTab: RightTab;
   note: string;
   instruction: string;
   drafts: Draft[];
@@ -102,6 +105,7 @@ const newChart = (): ChartState => ({
   selectedDay: null,
   showStopped: false,
   leftView: "record",
+  rightTab: "note",
   note: NOTE_TEMPLATE,
   instruction: "",
   drafts: [],
@@ -854,6 +858,13 @@ export default function WardApp() {
                   setReports((rs) => rs.map((x) => (x.id === r.id ? { ...x, rows, status: "指示済" } : x)));
                 }}
               />
+              <RightTabs
+                value={chart.rightTab}
+                onChange={(t) => update({ rightTab: t })}
+                counts={{ note: chart.drafts.length, injection: chart.drafts.filter((d) => d.kind === "injection").length, rx: chart.drafts.filter((d) => d.kind === "prescription").length }}
+                locked={orderBlock}
+              />
+              <div className={chart.rightTab === "note" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
               <TodayPane
                 patient={patient}
                 today={today}
@@ -893,6 +904,24 @@ export default function WardApp() {
                   update({ note: noteTemplate(me.role), flash: "記事を確定しました。左の経過に入りました。" });
                 }}
               />
+              </div>
+              {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
+              <div className={chart.rightTab === "injection" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
+                <AddInjectionPanel
+                  key={patient.id}
+                  newId={newId}
+                  drafts={chart.drafts}
+                  onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                />
+              </div>
+              <div className={chart.rightTab === "rx" ? "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3" : "hidden"}>
+                <AddRxPanel
+                  key={patient.id}
+                  newId={newId}
+                  drafts={chart.drafts}
+                  onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                />
+              </div>
               {panel === "diagnoses" && (
                 <Drawer title="病名" onClose={closePanel} wide locked={deny("diagnosis")}>
                   <DiagnosisPanel
@@ -917,16 +946,6 @@ export default function WardApp() {
               {panel === "active-orders" && (
                 <Drawer title="有効なオーダ" onClose={closePanel}>
                   <ActiveOrdersPanel entries={entries} today={today} />
-                </Drawer>
-              )}
-              {panel === "add-injection" && (
-                <Drawer title="注射（Rp 入力）" onClose={closePanel} wide locked={orderBlock}>
-                  <AddInjectionPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} drafts={chart.drafts} />
-                </Drawer>
-              )}
-              {panel === "add-rx" && (
-                <Drawer title="処方（Rp 入力）" onClose={closePanel} wide locked={orderBlock}>
-                  <AddRxPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} drafts={chart.drafts} />
                 </Drawer>
               )}
               {panel === "vitals" && (
@@ -1066,8 +1085,15 @@ export default function WardApp() {
               </>
             )}
             <ToolRail
-              open={panel}
-              onOpen={setPanel}
+              open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
+              onOpen={(p) => {
+                // 注射 and 内服 are tabs on the right, not panels.
+                if (p === "add-injection" || p === "add-rx") {
+                  setPanel(null);
+                  update({ rightTab: p === "add-injection" ? "injection" : "rx" });
+                } else if (p === null && !panel) update({ rightTab: "note" });
+                else setPanel(p);
+              }}
               blocked={blocked}
               leftView={chart.leftView}
               onLeftView={(v) => update({ leftView: v })}
