@@ -37,6 +37,8 @@ import { INITIAL_INCIDENTS, applyStatus, emptyDraft, type IncidentDraft, type In
 import { StandingPanel } from "./panels/StandingPanel";
 import { RestraintPanel } from "./panels/RestraintPanel";
 import { RegimenPanel } from "./panels/RegimenPanel";
+import { SummaryPanel } from "./panels/SummaryPanel";
+import { summaryFacts } from "@/lib/summary";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
@@ -1726,6 +1728,20 @@ export default function WardApp() {
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "summary" && (
+                <Drawer title="連携サマリ・看護サマリ" onClose={closePanel} wide>
+                  <SummaryPanel
+                    patient={patient}
+                    today={formatShort(today)}
+                    nowTime={nowTime}
+                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standing[patient.id]?.at(-1), dietNow: patient.dietNow, evals: evals[patient.id] })}
+                    onSave={(to, words) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・連携サマリを作成（宛先：${to}）${words ? `。申し送り：${words}` : ""}\n` }));
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "regimen" && (
