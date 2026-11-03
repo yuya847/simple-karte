@@ -19,6 +19,7 @@ const running = (from: number, to: number | null, nowAbs: number) => from <= now
 
 export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }): Flag[] {
   const out: Flag[] = [];
+  if (p.codeStatus === "DNAR") out.push({ label: "DNAR", tone: "shu", title: "事前指示：心停止時の心肺蘇生を行わない（ほかの治療は項目ごと）" });
   const last = p.vitals.at(-1);
   if (last) {
     const n = news2(last);

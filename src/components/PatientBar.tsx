@@ -3,13 +3,16 @@
 import { bmi, cockcroftGault, latestValue } from "@/lib/clinical";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
+import { bandLabel, reviewDue, type AdvanceDirective } from "@/lib/directives";
 import type { Patient } from "@/lib/types";
 
 interface Props {
   patient: Patient;
   today: CalendarDate;
   diagnoses: Diagnosis[];
+  directive?: AdvanceDirective;
   onOpenDiagnoses: () => void;
+  onOpenDirective: () => void;
 }
 
 function dayLabel(day: number): string {
@@ -19,7 +22,7 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today, diagnoses, onOpenDiagnoses }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective }: Props) {
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
   const cre = latestValue(p, "Cre");
   const ccr = cre ? cockcroftGault(p.age, p.weightKg, cre.value, p.sex) : undefined;
@@ -79,6 +82,9 @@ export function PatientBar({ patient: p, today, diagnoses, onOpenDiagnoses }: Pr
       </dl>
 
       <div className="ml-auto flex flex-wrap items-center gap-1.5 text-xs">
+        <button type="button" onClick={onOpenDirective} title={directive ? `${formatShort(addDays(today, directive.decidedAt.day))} ${directive.by}${directive.discussedWith ? `（${directive.discussedWith}と）` : ""}` : "事前指示を記録する"}>
+          <Badge tone="shu" label="事前指示" values={[bandLabel(directive) + (reviewDue(directive) ? "（見直しの日）" : "")]} quiet={!directive || directive.cpr === "未確認"} />
+        </button>
         <Badge tone="shu" label="アレルギー" values={p.allergies.length ? p.allergies : ["なし"]} quiet={!p.allergies.length} />
         {p.infections.length > 0 && <Badge tone="fuji" label="感染症" values={p.infections} />}
         {p.cautions.map((c) => (

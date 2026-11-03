@@ -121,6 +121,7 @@ function MyBed({ patient: p, bed, summary, onOpen }: { patient: Patient; bed: st
         {p.admissionDiagnosis}
       </div>
       <div className="flex flex-wrap gap-1">
+        {p.codeStatus === "DNAR" && <Tag tone="shu">DNAR</Tag>}
         {p.admittedOn === 0 && <Tag tone="ai">新入院</Tag>}
         {isolation && (
           <Tag tone="fuji">

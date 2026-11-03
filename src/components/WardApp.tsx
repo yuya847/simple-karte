@@ -41,6 +41,8 @@ import { AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddPro
 import { latestCre } from "@/lib/exams";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
+import { DirectivePanel } from "./panels/DirectivePanel";
+import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { news2 } from "@/lib/news2";
@@ -161,9 +163,18 @@ export default function WardApp() {
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
+  // Advance directives (history kept) and warnings added on the band.
+  const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
+  const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   const allPatients = useMemo(
-    () => [...PATIENTS, ...admitted].map((p) => (extraVitals[p.id]?.length ? { ...p, vitals: [...p.vitals, ...extraVitals[p.id]] } : p)),
-    [admitted, extraVitals],
+    () =>
+      [...PATIENTS, ...admitted].map((p) => {
+        const d = currentDirective(directives, p.id);
+        return extraVitals[p.id]?.length || extraCautions[p.id]?.length || d
+          ? { ...p, vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])], cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])], codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined }
+          : p;
+      }),
+    [admitted, extraVitals, extraCautions, directives],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(() => ({ beds: [...BEDS, ...newBeds], patient: findPatient }), [newBeds, findPatient]);
@@ -527,7 +538,14 @@ export default function WardApp() {
         />
       ) : patient && ctx ? (
         <>
-          <PatientBar patient={patient} today={today} diagnoses={diagnoses[patient.id] ?? []} onOpenDiagnoses={() => setPanel("diagnoses")} />
+          <PatientBar
+            patient={patient}
+            today={today}
+            diagnoses={diagnoses[patient.id] ?? []}
+            directive={currentDirective(directives, patient.id)}
+            onOpenDiagnoses={() => setPanel("diagnoses")}
+            onOpenDirective={() => setPanel("directive")}
+          />
           <div
             className={`grid min-h-0 flex-1 ${
               wideLeft ? "grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_68px]" : "grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]"
@@ -676,6 +694,28 @@ export default function WardApp() {
                       auditLog({ role: "看護師", actor: "看護師（あなた）", action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
                       closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "directive" && (
+                <Drawer title="事前指示・注意の掲示" onClose={closePanel}>
+                  <DirectivePanel
+                    patientId={patient.id}
+                    today={today}
+                    nowTime={nowTime}
+                    doctor={DOCTOR}
+                    history={directives.filter((d) => d.patientId === patient.id)}
+                    cautions={patient.cautions}
+                    onSave={(d) => {
+                      setDirectives((all) => [...all.map((x) => (x.patientId === d.patientId && x.status === "有効" ? { ...x, status: "取消" as const } : x)), d]);
+                      auditLog({ role: "医師", actor: DOCTOR, action: "確定（事前指示）", patient: patient.name, detail: directiveLine(d) });
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・事前指示：${directiveLine(d)}\n`, flash: "事前指示を確定しました。患者の帯と病棟マップに出ます。" }));
+                      closePanel();
+                    }}
+                    onAddCaution={(text) => {
+                      setExtraCautions((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), text] }));
+                      auditLog({ role: "医師", actor: DOCTOR, action: "注意を掲示", patient: patient.name, detail: text });
                     }}
                   />
                 </Drawer>

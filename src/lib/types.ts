@@ -11,6 +11,8 @@ export type DayOffset = number;
 export type Sex = "男" | "女";
 
 export interface Patient {
+  /** Code status from the current advance directive ("DNAR" etc.), filled in by the app. */
+  codeStatus?: string;
   id: string;
   name: string;
   kana: string;
