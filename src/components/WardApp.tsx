@@ -54,6 +54,8 @@ import { ChatThread, ChatView } from "./ChatView";
 import { AcuityView } from "./AcuityView";
 import { HandoffView } from "./HandoffView";
 import { LabView } from "./LabView";
+import { AdmitEvalView } from "./AdmitEvalView";
+import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type AdmitEval } from "@/lib/admit-eval";
 import { ResultsInbox } from "./ResultsInbox";
 import { PANIC_LIMITS, PANIC_SOURCE, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
 import type { Handoff } from "@/lib/handoff";
@@ -66,7 +68,7 @@ import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { RoleProvider } from "./RoleContext";
-import { STAFF, denyReason, home, type Role } from "@/lib/roles";
+import { STAFF, TABS, denyReason, home, type Role } from "@/lib/roles";
 import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
@@ -205,6 +207,8 @@ export default function WardApp() {
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
   const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
+  // 入院時の評価（計画書・栄養・褥瘡・転倒転落・せん妄・退院支援）.
+  const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
   // Results the doctor marked as seen, and panic values phoned in by the laboratory.
   const [acks, setAcks] = useState<Record<string, Ack>>({});
   const [calls, setCalls] = useState<Record<string, PanicCall>>({});
@@ -405,6 +409,8 @@ export default function WardApp() {
     const id = `9002${String(admitted.length + 1).padStart(4, "0")}`;
     const { patient: p, bed } = admitFromEr(from, form, id, nowTime);
     setAdmitted((a) => [...a, p]);
+    // Admitted from the ED: an emergency admission (退院困難な要因 イ, 栄養管理計画は7日以内).
+    setEvals((all) => ({ ...all, [id]: { patientId: id, emergency: true } }));
     setNewBeds((b) => [...b, bed]);
     // The admission diagnosis typed in the ED is kept as 未コード化傷病名 until a master name is chosen.
     setDiagnoses((all) => ({
@@ -467,6 +473,10 @@ export default function WardApp() {
       return [x.patient.id, { unseen: mine.length, panic: mine.filter((i) => i.panic.length > 0).length }];
     }),
   );
+  // 入院時の評価 that this role must do today or is already late with.
+  const admitDue = TABS[role].includes("admit")
+    ? people.reduce((n, x) => n + duesOf(evals[x.patient.id] ?? { patientId: x.patient.id }, x.patient.admittedOn).filter((d) => (d.state === "期限切れ" || d.state === "今日まで") && d.who.some((r) => r === role)).length, 0)
+    : 0;
   const markSeen = (pid: string, keys: string[]) => {
     auditLog({ role: me.role, actor: me.name, action: "結果を確認した", patient: findPatient(pid)?.name, detail: wardResults.filter((i) => keys.includes(i.key)).map((i) => `${i.kind} ${i.time} ${i.title}`).join("／").slice(0, 200) });
     setAcks((a) => ({ ...a, ...Object.fromEntries(keys.map((k) => [k, { by: me.name, at: { day: 0, time: nowTime } }])) }));
@@ -496,7 +506,7 @@ export default function WardApp() {
       <PatientTabs
         role={role}
         onRole={switchRole}
-        badges={{ lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, list: role === "医師" ? unseenResults.length : 0 }}
+        badges={{ lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, list: role === "医師" ? unseenResults.length : 0, admit: admitDue }}
         tabs={tabs.map((id) => findPatient(id)!).filter(Boolean)}
         activeId={screen === "chart" ? activeId : null}
         pinned={screen === "chart" ? null : screen}
@@ -558,6 +568,27 @@ export default function WardApp() {
         />
       ) : screen === "audit" ? (
         <AuditView />
+      ) : screen === "admit" ? (
+        <AdmitEvalView
+          people={people}
+          evals={evals}
+          today={today}
+          nowTime={nowTime}
+          onSave={(e, what) => {
+            const p = findPatient(e.patientId);
+            auditLog({ role: me.role, actor: me.name, action: `確定（入院時の評価：${what}）`, patient: p?.name });
+            setEvals((all) => ({ ...all, [e.patientId]: e }));
+            if (p) {
+              const sen = deliriumBillable(e, p.admittedOn);
+              const nyu = dischargeSupportMet(e, p.admittedOn);
+              if (sen || nyu)
+                setBilling((all) => {
+                  const cur = all[p.id] ?? DEFAULT_OPTIONS;
+                  return { ...all, [p.id]: { ...cur, senmou: cur.senmou || sen, nyutaiin: cur.nyutaiin || nyu } };
+                });
+            }
+          }}
+        />
       ) : screen === "lab" ? (
         <LabView
           people={people}
