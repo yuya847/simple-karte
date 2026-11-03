@@ -44,6 +44,8 @@ import { VitalsPanel } from "./panels/VitalsPanel";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
 import { DietPanel } from "./panels/DietPanel";
+import { DischargePanel } from "./panels/DischargePanel";
+import type { DischargeDraft } from "@/lib/discharge";
 import type { TdmReport } from "@/lib/tdm";
 import { INITIAL_DIETS, dietAt, dietLabel, nextMeal, type DietOrder } from "@/lib/diet";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
@@ -182,6 +184,7 @@ export default function WardApp() {
   const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
   const [diets, setDiets] = useState<DietOrder[]>(INITIAL_DIETS);
   const [tdmReports, setTdmReports] = useState<TdmReport[]>([]);
+  const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>({});
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   const allPatients = useMemo(
     () =>
@@ -779,6 +782,35 @@ export default function WardApp() {
                       auditLog({ role: "看護師", actor: "看護師（あなた）", action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
                       closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "discharge" && (
+                <Drawer title="退院時サマリー・診療情報提供書" onClose={closePanel} wide>
+                  <DischargePanel
+                    patient={patient}
+                    today={today}
+                    nowTime={nowTime}
+                    doctor={DOCTOR}
+                    entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    diagnoses={diagnoses[patient.id] ?? []}
+                    consentsPending={consents.filter((c) => c.patientId === patient.id && c.status === "説明前").map((c) => findConsent(c.code).short)}
+                    directive={currentDirective(directives, patient.id) ? directiveLine(currentDirective(directives, patient.id)!) : undefined}
+                    draft={discharges[patient.id]}
+                    onSave={(d) => {
+                      setDischarges((all) => ({ ...all, [patient.id]: d }));
+                      update({ flash: "退院時サマリーを途中まで残しました。" });
+                    }}
+                    onConfirm={(d) => {
+                      setDischarges((all) => ({ ...all, [patient.id]: d }));
+                      auditLog({ role: "医師", actor: DOCTOR, action: "確定（退院時サマリー）", patient: patient.name, detail: `退院 ${d.dischargeDay}日後・${d.destination}` });
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・退院時サマリーを確定（退院先：${d.destination}）\n` }));
+                    }}
+                    onIssueLetter={(d) => {
+                      setDischarges((all) => ({ ...all, [patient.id]: d }));
+                      auditLog({ role: "医師", actor: DOCTOR, action: "確定（診療情報提供書）", patient: patient.name, detail: `${d.letter.to} ${d.letter.dept}：${d.letter.purpose}` });
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・診療情報提供書：${d.letter.to} ${d.letter.dept} ${d.letter.doctor ? `${d.letter.doctor}先生` : ""}（${d.letter.purpose}）\n` }));
                     }}
                   />
                 </Drawer>
