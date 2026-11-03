@@ -9,6 +9,7 @@ import type { Role } from "./roles";
 export const R8 = {
   plan: "告示第70号 第四 一(3)・保医発0305第7号 別添2 第1の1（入院した日から起算して7日以内に文書で説明。令和8年度から署名は不要、説明日と説明者を記録）",
   nutrition: "保医発0305第7号 別添2 第1の5(3)(4)（特別な栄養管理の必要性を入院診療計画書に書く。必要なら栄養管理計画書を入院日に。救急や休日の入院は入院後7日以内）",
+  reassess: "保医発0305第7号 別添2 第1の5(5)(7)（栄養管理計画書に栄養状態の評価の間隔を書き、計画に基づいて定期的に評価し、必要なら計画を見直す）。期限は計画書で決めた再評価の日",
   pressure: "保医発0305第7号 別添2 第1の4(3)・別添6 別紙3（日常生活の自立度が低い患者の危険因子の評価。「できない」「あり」が1つ以上なら計画）",
   delirium: "保医発0305第6号 別添1 A247-2(4)・別紙様式7の3（リスク因子の確認は入院前か入院後3日以内、対策は確認後速やかに）",
   discharge: "保医発0305第6号 別添1 A246(2)(3)(5)（入退院支援加算１：退院困難な要因の抽出は入院後3日以内、話合い・計画の着手・カンファレンスは7日以内）",
@@ -101,7 +102,15 @@ export interface NutritionRecord {
   reassessOn: DayOffset;
   by: string;
   at: At;
+  /** Why this version was made: a reassessment, or a correction (none for the first version). */
+  revision?: { kind: "再評価" | "訂正"; reason: string };
+  /** The earlier versions, oldest first (the fields above are the version in force). */
+  earlier?: NutritionVersion[];
 }
+
+export type NutritionVersion = Omit<NutritionRecord, "earlier">;
+/** What a person writes in the plan (who and when are added by code). */
+export type NutritionFields = Pick<NutritionRecord, "goal" | "energyKcal" | "proteinG" | "route" | "counseling" | "reassessOn">;
 
 export interface PressureRecord {
   adl: AdlRank;
@@ -144,7 +153,7 @@ export interface AdmitEval {
   discharge?: DischargeSupport;
 }
 
-export type ItemKey = "plan" | "nutrition" | "pressure" | "fall" | "delirium" | "discharge" | "talk" | "conference";
+export type ItemKey = "plan" | "nutrition" | "reassess" | "pressure" | "fall" | "delirium" | "discharge" | "talk" | "conference";
 
 export interface Due {
   key: ItemKey;
@@ -167,6 +176,50 @@ export const pressureTarget = (adl: AdlRank) => PRESSURE_TARGET_RANKS.includes(a
 /** A care plan is needed: any 「できない」「あり」, or a pressure ulcer now. */
 export const pressurePlanNeeded = (r: PressureRecord) => r.ulcerNow || (pressureTarget(r.adl) && Object.values(r.items).some(Boolean));
 
+const relDay = (d: DayOffset) => (d === 0 ? "今日" : d === -1 ? "昨日" : d === 1 ? "明日" : d < 0 ? `${-d}日前` : `${d}日後`);
+
+// ---------- 栄養管理計画書の版 ----------
+// A saved plan is never overwritten: a reassessment (再評価) or a correction (訂正) adds a version, and
+// every earlier version stays with who wrote it and when (as the notes do, see notes.ts).
+
+/** Every version of the plan, oldest first; the last one is in force. */
+export function nutritionVersions(r: NutritionRecord): NutritionVersion[] {
+  const { earlier = [], ...cur } = r;
+  return [...earlier, cur];
+}
+
+/** A new version of the plan; the version in force becomes the latest earlier one. */
+export function reviseNutrition(cur: NutritionRecord, next: NutritionFields, by: string, at: At, revision: { kind: "再評価" | "訂正"; reason: string }): NutritionRecord {
+  const { earlier = [], ...prev } = cur;
+  return { ...next, by, at, revision: { kind: revision.kind, reason: revision.reason.trim() }, earlier: [...earlier, prev] };
+}
+
+/** Why a revision cannot be saved yet (empty when it can). */
+export function revisionProblems(next: NutritionFields, revision: { kind: "再評価" | "訂正"; reason: string }): string[] {
+  const out: string[] = [];
+  if (!next.goal.trim() || !next.energyKcal || !next.proteinG) out.push("目標・エネルギー・たんぱく質を入れてください。");
+  if (revision.kind === "再評価" && !(next.reassessOn > 0)) out.push("再評価したので、次の再評価の日（1日後より先）を決めてください。");
+  if (revision.kind === "訂正" && !revision.reason.trim()) out.push("訂正の理由を書いてください。");
+  return out;
+}
+
+const NUTRITION_LABELS: { key: keyof NutritionFields; label: string; show: (v: NutritionFields[keyof NutritionFields]) => string }[] = [
+  { key: "goal", label: "目標", show: (v) => String(v) || "（なし）" },
+  { key: "energyKcal", label: "エネルギー", show: (v) => `${v}kcal` },
+  { key: "proteinG", label: "たんぱく質", show: (v) => `${v}g` },
+  { key: "route", label: "栄養補給方法", show: (v) => String(v) },
+  { key: "counseling", label: "栄養食事相談", show: (v) => String(v) || "（なし）" },
+  { key: "reassessOn", label: "再評価の日", show: (v) => relDay(Number(v)) },
+];
+
+/** What changed from one version to the next, in words (「エネルギー：1600kcal → 1400kcal」). */
+export function nutritionChanges(before: NutritionFields, after: NutritionFields, showDay: (d: DayOffset) => string = relDay): string[] {
+  return NUTRITION_LABELS.filter((f) => before[f.key] !== after[f.key]).map((f) => {
+    const show = f.key === "reassessOn" ? (v: NutritionFields[keyof NutritionFields]) => showDay(Number(v)) : f.show;
+    return `${f.label}：${show(before[f.key])} → ${show(after[f.key])}`;
+  });
+}
+
 function state(dueOn: DayOffset | null, doneOn: DayOffset | undefined): Due["state"] {
   if (dueOn === null) return "不要";
   if (doneOn !== undefined) return "済";
@@ -186,9 +239,26 @@ export function duesOf(a: AdmitEval, admittedOn: DayOffset): Due[] {
     label: "栄養管理計画書",
     who: ["管理栄養士"],
     dueOn: nNeeded === "無" ? null : a.emergency ? d(7) : d(1),
-    doneOn: a.nutrition?.at.day,
+    // The plan was made on the day of its first version (later versions are reassessments or corrections).
+    doneOn: a.nutrition ? nutritionVersions(a.nutrition)[0].at.day : undefined,
     note: nNeeded === undefined ? "必要かどうかは入院診療計画書で決めます" : nNeeded === "有" ? `特別な栄養管理が必要（${a.emergency ? "救急・休日の入院なので7日以内" : "入院日に作る"}）` : undefined,
     source: R8.nutrition,
+  });
+  const n = a.nutrition;
+  const lastReassess = n ? nutritionVersions(n).filter((v) => v.revision?.kind === "再評価").at(-1) : undefined;
+  add({
+    key: "reassess",
+    label: "栄養の再評価",
+    who: ["管理栄養士"],
+    dueOn: n && nNeeded !== "無" ? n.reassessOn : null,
+    note: !n
+      ? nNeeded === "無"
+        ? undefined
+        : "栄養管理計画書を作ると、計画書で決めた再評価の日がここに出ます"
+      : lastReassess
+        ? `前回の再評価：${relDay(lastReassess.at.day)} ${lastReassess.at.time} ${lastReassess.by}`
+        : `計画書（${relDay(n.at.day)} ${n.by}）で決めた日。再評価したら計画書の「再評価した」で次の日を決めます`,
+    source: R8.reassess,
   });
   const pr = a.pressure;
   add({
@@ -261,7 +331,7 @@ export function initialEvals(): AdmitEval[] {
       patientId: "90010198", // 北村（入院6日目）
       emergency: false,
       plan: { days: 14, symptoms: "労作時の息切れ、下腿浮腫", treatment: "利尿薬、塩分制限食", tests: "血液検査、胸部X線、心エコー", surgery: "なし", other: "看護計画：体重・尿量の観察", nutritionNeeded: "有", explainedTo: "本人・妻", explainedBy: "山本（専攻医）", explainedAt: at(-5, "17:20") },
-      nutrition: { goal: "体重を目標まで戻し、塩分6g未満を続ける", energyKcal: 1600, proteinG: 60, route: "経口", counseling: "退院時に本人と妻へ減塩の栄養食事指導", reassessOn: 2, by: "管理栄養士 高橋", at: at(-5, "17:50") },
+      nutrition: { goal: "体重を目標まで戻し、塩分6g未満を続ける", energyKcal: 1600, proteinG: 60, route: "経口", counseling: "退院時に本人と妻へ減塩の栄養食事指導", reassessOn: 0, by: "管理栄養士 高橋", at: at(-5, "17:50") },
       pressure: { adl: "A2", items: {}, ulcerNow: false, plan: "", by: "看護師 佐々木", at: at(-5, "18:00") },
       fall: { checked: ["頻尿や夜間の排泄行動"], measures: [], plan: "夜間はポータブルトイレ。足元灯", by: "看護師 佐々木", at: at(-5, "18:00") },
       delirium: { checked: ["70歳以上"], measures: ["適切な睡眠管理（非薬物的な入眠の促進等）", "本人及び家族へのせん妄に関する情報提供"], by: "看護師 佐々木", at: at(-4, "10:00") },
