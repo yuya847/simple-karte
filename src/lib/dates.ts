@@ -72,3 +72,21 @@ export function minutesOf(time: string): number {
 export function compareMoments(a: { day: DayOffset; time: string }, b: { day: DayOffset; time: string }): number {
   return a.day - b.day || minutesOf(a.time) - minutesOf(b.time);
 }
+
+/** Whole days from `a` to `b`. */
+export function daysFrom(a: CalendarDate, b: CalendarDate): number {
+  return Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / 86400000);
+}
+
+/**
+ * The clock as the continuation of the day the app was opened on: after midnight "00:30" is "24:30", so
+ * that times keep their order and "today 00:00 + minutes" stays right through a night shift (the
+ * records of this prototype live in the page, which keeps its first day as 今日).
+ */
+export function continuedTime(boot: CalendarDate, now: Date = new Date()): string {
+  const t = nowTimeInTokyo(now);
+  const d = daysFrom(boot, todayInTokyo(now));
+  if (d <= 0) return t;
+  const [h, m] = t.split(":").map(Number);
+  return `${String(h + 24 * d).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}

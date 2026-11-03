@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AiDraftResponse } from "@/lib/ai-schema";
-import { addDays, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
+import { addDays, continuedTime, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
 import { checkDraft, draftsFromAi, isReady, newProcedureDraft, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type Issue, type StopDraft } from "@/lib/drafts";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
@@ -236,8 +236,11 @@ const everyFifteenSeconds = (cb: () => void) => {
   const t = setInterval(cb, 15_000);
   return () => clearInterval(t);
 };
-const clientToday = () => isoDate(todayInTokyo());
-const clientNow = () => nowTimeInTokyo();
+// 今日 is the day the page was opened: the records here live in the page, and every day offset is counted
+// from it. After midnight the clock runs on (00:30 → "24:30") so that a night shift keeps its order.
+let bootDay: string | null = null;
+const clientToday = () => (bootDay ??= isoDate(todayInTokyo()));
+const clientNow = () => continuedTime(parseIso(clientToday()));
 const serverNull = () => null;
 
 function parseIso(s: string): CalendarDate {
@@ -2381,6 +2384,11 @@ export default function WardApp() {
       >
         {content}
       </AppFrame>
+      {Number(nowTime.slice(0, 2)) >= 24 && (
+        <p role="status" className="fixed bottom-2 right-2 z-40 max-w-xs rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[11px] text-ink shadow print:hidden">
+          日付が変わりました。この画面は {formatShort(today)} を「今日」として続けているので、{nowTime.slice(0, 2)}:{nowTime.slice(3)}（翌{Number(nowTime.slice(0, 2)) - 24}:{nowTime.slice(3)}）のように時刻を付けます。
+        </p>
+      )}
 
       {dischargeAsk &&
         (() => {
