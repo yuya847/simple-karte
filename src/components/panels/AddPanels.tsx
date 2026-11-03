@@ -1,7 +1,8 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { TabChoice } from "../TabChoice";
 import { newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
 import type { InjectionRoute, InjectionSchedule } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
@@ -29,9 +30,26 @@ interface InjRow {
   amount: string;
   unit: string;
 }
+/**
+ * Routes as the ward says them. 末梢静脈 is a drip, ワンショット an IV push, ロック a flush of 生食 or
+ * heparin to keep the line open (given as 静注; the word ロック goes into the order's comment).
+ */
+const ROUTE_TABS: { key: string; route: InjectionRoute; lock?: boolean; title: string }[] = [
+  { key: "末梢静脈", route: "点滴静注", title: "末梢静脈からの点滴（点滴静注）" },
+  { key: "ワンショット", route: "静注", title: "静脈注射（ワンショット）" },
+  { key: "筋注", route: "筋注", title: "筋肉注射" },
+  { key: "皮下注", route: "皮下注", title: "皮下注射" },
+  { key: "ロック", route: "静注", lock: true, title: "生食・ヘパリンでルートの閉塞を防ぐ（静注として出す）" },
+];
+const masterOf = (code: string) => DRUGS.find((d) => d.code === code);
+/** Whether every drug in the Rp can be given this way. */
+const routeOk = (rows: InjRow[], tab: (typeof ROUTE_TABS)[number]) =>
+  rows.length > 0 && (tab.lock ? rows.every((r) => masterOf(r.drugCode)?.lock) : rows.every((r) => masterOf(r.drugCode)?.routes.includes(tab.route)));
+
 interface InjRp {
   rows: InjRow[];
-  route: InjectionRoute | "";
+  /** The route tab chosen (ROUTE_TABS key), "" until chosen. */
+  route: string;
   sched: number;
   minutes: number;
   startDay: number;
@@ -48,43 +66,55 @@ const rowFor = (code: string): InjRow => {
     unit: d.kind === "輸液" ? (d.units.includes("本") ? "本" : d.units[0]) : (d.strength?.unit ?? d.units[0]),
   };
 };
-/** Routes every drug in the Rp can be given by. */
-const routesOf = (rows: InjRow[]): InjectionRoute[] => {
-  const lists = rows.map((r) => DRUGS.find((d) => d.code === r.drugCode)?.routes ?? []);
-  return lists.length ? lists.reduce((a, b) => a.filter((x) => b.includes(x))) : [];
-};
+/** The route tabs open for these drugs. */
+const routeTabsFor = (rows: InjRow[]) => ROUTE_TABS.filter((t) => routeOk(rows, t));
+const routeOf = (rp: InjRp): InjectionRoute | null => ROUTE_TABS.find((t) => t.key === rp.route)?.route ?? null;
 
-/** A drug search inside one Rp: type, then pick from the list under the box (Enter takes the first). */
+/**
+ * A drug search inside one Rp. Keyboard: type, ↓ ↑ to move in the list, Enter to put the drug in,
+ * Esc to clear. The box stays for the next drug (混注 or another drug of the same Rp).
+ */
 function RpDrugSearch({ options, onPick, placeholder, prefix = false }: { options: { code: string; name: string; sub: string; aliases: string[] }[]; onPick: (code: string) => void; placeholder: string; prefix?: boolean }) {
   const [q, setQ] = useState("");
+  const [at, setAt] = useState(0);
   const norm = (x: string) => x.normalize("NFKC").toLowerCase();
   const hits = q.trim() ? options.filter((d) => [d.name, ...d.aliases].some((a) => (prefix ? norm(a).startsWith(norm(q)) : norm(a).includes(norm(q))))).slice(0, 8) : [];
   const pick = (code: string) => {
     onPick(code);
     setQ("");
+    setAt(0);
   };
   return (
     <div className="relative">
-      <label className="flex items-center gap-1.5 rounded border border-dashed border-rule bg-paper px-2 py-1">
+      <label className="flex items-center gap-1.5 rounded border border-dashed border-rule bg-paper px-2 py-1 focus-within:border-ai">
         <Search size={13} className="text-ink-faint" />
         <input
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setAt(0);
+          }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && hits[0]) {
-              e.preventDefault();
-              pick(hits[0].code);
-            }
+            if (e.nativeEvent.isComposing) return;
+            if (e.key === "ArrowDown" && hits.length) setAt((a) => Math.min(a + 1, hits.length - 1));
+            else if (e.key === "ArrowUp" && hits.length) setAt((a) => Math.max(a - 1, 0));
+            else if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && hits[at]) pick(hits[at].code);
+            else if (e.key === "Escape" && q) setQ("");
+            else return;
+            e.preventDefault();
           }}
           placeholder={placeholder}
+          aria-label={placeholder}
+          role="combobox"
+          aria-expanded={hits.length > 0}
           className="flex-1 bg-transparent text-[13px] outline-none"
         />
       </label>
       {hits.length > 0 && (
-        <ul className="absolute inset-x-0 top-full z-10 mt-0.5 divide-y divide-rule-soft rounded border border-rule bg-sheet shadow-md">
-          {hits.map((d) => (
-            <li key={d.code}>
-              <button type="button" onClick={() => pick(d.code)} className="nums flex w-full items-baseline gap-2 px-2 py-1.5 text-left hover:bg-paper">
+        <ul role="listbox" className="absolute inset-x-0 top-full z-10 mt-0.5 divide-y divide-rule-soft rounded border border-rule bg-sheet shadow-md">
+          {hits.map((d, i) => (
+            <li key={d.code} role="option" aria-selected={i === at}>
+              <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(d.code)} className={`nums flex w-full items-baseline gap-2 px-2 py-1.5 text-left ${i === at ? "bg-ai-soft" : "hover:bg-paper"}`}>
                 <b>{d.name}</b>
                 <span className="text-xs text-ink-soft">{d.sub}</span>
                 <span className="ml-auto text-[11px] text-ink-faint">{d.aliases.slice(0, 3).join("・")}</span>
@@ -96,6 +126,21 @@ function RpDrugSearch({ options, onPick, placeholder, prefix = false }: { option
       {q.trim() && hits.length === 0 && <p className="mt-0.5 text-[11px] text-ink-faint">院内のマスターにありません。</p>}
     </div>
   );
+}
+
+/** Focus the first box of a panel when it opens, and ⌘Enter / Ctrl+Enter anywhere in it to make the drafts. */
+function usePanelKeys(submit: () => void) {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    root.current?.querySelector<HTMLInputElement>("input[role=combobox]")?.focus();
+  }, []);
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      submit();
+    }
+  };
+  return { root, onKeyDown };
 }
 
 /** The drafts already collected under the note, numbered Rp1, Rp2 … (shown at the top of the window). */
@@ -131,24 +176,21 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
       r.map((x, j) => {
         if (j !== i) return x;
         const next = { ...x, ...patch };
-        // Keep the route valid for every drug; pick it when only one is left.
-        const routes = routesOf(next.rows);
-        if (next.route && !routes.includes(next.route)) next.route = "";
-        if (!next.route && routes.length === 1) next.route = routes[0];
+        // Keep the route valid for every drug; choose it when only one is left.
+        const open = routeTabsFor(next.rows);
+        if (next.route && !open.some((t) => t.key === next.route)) next.route = "";
+        if (!next.route && open.length === 1) next.route = open[0].key;
+        if (next.sched >= schedulesOf(next).length) next.sched = -1;
         return next;
       }),
     );
   const fluids = DRUGS.filter((d) => d.kind === "輸液");
   const options = DRUGS.map((d) => ({ code: d.code, name: d.name, sub: d.package, aliases: d.aliases }));
-  // The first drug picked is the main one (as on a slip): a fluid first means a bag with drugs mixed
-  // in, counted in bags (1日2本); a drug first means doses of that drug (8時間ごと), with any solvent after it.
-  const isFluidRp = (rp: InjRp) => rp.rows.length > 0 && DRUGS.find((d) => d.code === rp.rows[0].drugCode)?.kind === "輸液";
-  const schedulesOf = (rp: InjRp) => (isFluidRp(rp) ? FLUID_SCHEDULES : SCHEDULES);
   const missingOf = (rp: InjRp) => [
     ...(rp.rows.every((r) => Number(r.amount) > 0 && r.unit) ? [] : ["量"]),
     ...(rp.route ? [] : ["経路"]),
     ...(rp.sched >= 0 ? [] : ["回数"]),
-    ...(rp.route === "点滴静注" && !rp.minutes ? ["1回の時間"] : []),
+    ...(routeOf(rp) === "点滴静注" && !rp.minutes ? ["1回の時間"] : []),
   ];
   const filled = rps.filter((r) => r.rows.length > 0);
   // An Rp started but not finished is never dropped quietly: it blocks until filled or emptied.
@@ -156,21 +198,23 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
   const ready = unfinished.length ? [] : filled;
 
   const toDraft = (rp: InjRp): InjectionDraft => {
-    const rows = rp.rows;
+    const route = routeOf(rp);
+    const lock = ROUTE_TABS.find((t) => t.key === rp.route)?.lock;
+    const comment = [lock ? "ロック" : "", rp.comment.trim()].filter(Boolean).join("　");
     return {
       id: newId(),
       origin: "manual",
-      sourceText: rows.length > 1 ? "（マスターから選択・混注）" : "（マスターから選択）",
-      comment: rp.comment.trim() || null,
+      sourceText: rp.rows.length > 1 ? "（マスターから選択・混注）" : "（マスターから選択）",
+      comment: comment || null,
       kind: "injection",
-      items: rows.map((r) => {
-        const d = DRUGS.find((x) => x.code === r.drugCode)!;
+      items: rp.rows.map((r) => {
+        const d = masterOf(r.drugCode)!;
         return { drugCode: r.drugCode, said: d.aliases[0] ?? d.name, amount: Number(r.amount), unit: r.unit };
       }),
-      route: rp.route || null,
+      route,
       schedule: schedulesOf(rp)[rp.sched].value,
-      infusionMinutes: rp.route === "点滴静注" ? rp.minutes : null,
-      infusionScope: rp.route === "点滴静注" ? "per_dose" : null,
+      infusionMinutes: route === "点滴静注" ? rp.minutes : null,
+      infusionScope: route === "点滴静注" ? "per_dose" : null,
       rateMlPerH: null,
       prefer: null,
       start: { day: rp.startDay, time: rp.startTime || null },
@@ -178,23 +222,30 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
       duplicate: null,
     };
   };
+  const submit = () => {
+    if (!ready.length) return;
+    onAdd(ready.map(toDraft));
+    setRps([newInjRp(), newInjRp()]);
+  };
+  const keys = usePanelKeys(submit);
 
-  const field = "rounded border border-rule bg-paper px-1 py-0.5";
-  const chip = (on: boolean) => `rounded border px-1.5 py-0.5 ${on ? "border-ai bg-ai font-bold text-white" : "border-rule bg-paper"}`;
+  const field = "rounded border border-rule bg-paper px-1 py-0.5 outline-none focus:border-ai";
   return (
-    <div className="space-y-3 text-[13px]">
+    <div ref={keys.root} onKeyDown={keys.onKeyDown} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
+      <p className="text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ、⌘Enter（Ctrl+Enter）で下書きにする。量を空にして Backspace でその薬を外します。</p>
 
       {rps.map((rp, i) => {
-        const routes = routesOf(rp.rows);
+        const open = routeTabsFor(rp.rows);
         const schedules = schedulesOf(rp);
+        const route = routeOf(rp);
         return (
           <section key={i} className={`space-y-1.5 rounded-md border p-2 ${rp.rows.length ? "border-ai/50" : "border-rule"}`}>
             <div className="flex items-baseline gap-2">
               <b className="text-ai">Rp{first + i}</b>
               {rp.rows.length === 0 && <span className="text-[11px] text-ink-faint">最初に選んだ薬が主薬。続けて選ぶと混注（輸液を最初に選ぶと「1日◯本」で数えます）</span>}
               {rps.length > 1 && (
-                <button type="button" onClick={() => setRps((r) => r.filter((_, j) => j !== i))} className="ml-auto text-[11px] text-ink-faint hover:text-shu">
+                <button type="button" tabIndex={-1} onClick={() => setRps((r) => r.filter((_, j) => j !== i))} className="ml-auto text-[11px] text-ink-faint hover:text-shu">
                   この Rp を消す
                 </button>
               )}
@@ -202,7 +253,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
             <table className="w-full">
               <tbody>
                 {rp.rows.map((r, k) => {
-                  const m = DRUGS.find((d) => d.code === r.drugCode)!;
+                  const m = masterOf(r.drugCode)!;
                   return (
                     <tr key={k} className="align-baseline">
                       <td className="py-0.5">
@@ -213,18 +264,24 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
                         <input
                           value={r.amount}
                           onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, amount: e.target.value } : x)) })}
+                          onKeyDown={(e) => {
+                            if (e.key === "Backspace" && r.amount === "") {
+                              e.preventDefault();
+                              upd(i, { rows: rp.rows.filter((_, j) => j !== k) });
+                            }
+                          }}
                           inputMode="decimal"
-                          aria-label="量"
-                          className="w-14 rounded border border-rule bg-paper px-1 text-right"
+                          aria-label={`${m.name}の量`}
+                          className={`${field} w-14 text-right`}
                         />
-                        <select value={r.unit} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, unit: e.target.value } : x)) })} aria-label="単位" className="ml-1 rounded border border-rule bg-paper px-0.5">
+                        <select value={r.unit} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, unit: e.target.value } : x)) })} aria-label={`${m.name}の単位`} className={`${field} ml-1`}>
                           {m.units.map((u) => (
                             <option key={u}>{u}</option>
                           ))}
                         </select>
                       </td>
                       <td className="w-6 text-right">
-                        <button type="button" onClick={() => upd(i, { rows: rp.rows.filter((_, j) => j !== k) })} className="text-ink-faint hover:text-shu" aria-label="外す">
+                        <button type="button" tabIndex={-1} onClick={() => upd(i, { rows: rp.rows.filter((_, j) => j !== k) })} className="text-ink-faint hover:text-shu" aria-label="外す">
                           ×
                         </button>
                       </td>
@@ -233,8 +290,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
                 })}
               </tbody>
             </table>
-            <RpDrugSearch options={options} onPick={(c) => upd(i, { rows: [...rp.rows, rowFor(c)] })} placeholder={rp.rows.length ? "混注する薬を足す（名前・略称）" : "薬を入れる（名前・略称）"} />
-            {rp.rows.length > 0 && !isFluidRp(rp) && routes.includes("点滴静注") && !rp.rows.some((r) => DRUGS.find((d) => d.code === r.drugCode)?.kind === "輸液") && (
+            <RpDrugSearch options={options} onPick={(c) => upd(i, { rows: [...rp.rows, rowFor(c)] })} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称）` : `Rp${first + i} に薬を入れる（名前・略称）`} />
+            {rp.rows.length > 0 && !isFluidRp(rp) && open.some((t) => t.route === "点滴静注") && !rp.rows.some((r) => masterOf(r.drugCode)?.kind === "輸液") && (
               <select value="" onChange={(e) => e.target.value && upd(i, { rows: [...rp.rows, { ...rowFor(e.target.value), amount: "1", unit: "本" }] })} className={`${field} text-[12px]`} aria-label="溶媒">
                 <option value="">＋ 溶媒（輸液）を選ぶ</option>
                 {fluids.map((f) => (
@@ -246,72 +303,60 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
             )}
             {rp.rows.length > 0 && (
               <div className="space-y-1 text-[12px]">
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="w-14 text-ink-soft">経路</span>
-                  {routes.length === 0 ? (
-                    <span className="text-shu">同じ経路で使えない薬が混ざっています</span>
-                  ) : (
-                    routes.map((r) => (
-                      <button key={r} type="button" onClick={() => upd(i, { route: r })} className={chip(rp.route === r)}>
-                        {r}
-                      </button>
-                    ))
-                  )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-16 text-ink-soft">経路</span>
+                  <TabChoice
+                    label={`Rp${first + i} の経路`}
+                    options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.key, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
+                    value={rp.route || null}
+                    onChange={(v) => upd(i, { route: v, minutes: ROUTE_TABS.find((t) => t.key === v)?.route === "点滴静注" ? rp.minutes : 0 })}
+                  />
+                  {open.length === 0 && <span className="text-shu">同じ経路で使えない薬が混ざっています</span>}
                 </div>
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="w-14 text-ink-soft">回数</span>
-                  {schedules.map((x, j) => (
-                    <button key={x.label} type="button" onClick={() => upd(i, { sched: j })} className={chip(rp.sched === j)}>
-                      {x.label}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-16 text-ink-soft">回数</span>
+                  <TabChoice label={`Rp${first + i} の回数`} options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
                 </div>
-                {rp.route === "点滴静注" && (
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="w-14 text-ink-soft">1回の時間</span>
-                    {DRIP_MINUTES.map((m) => (
-                      <button key={m} type="button" onClick={() => upd(i, { minutes: m })} className={`nums ${chip(rp.minutes === m)}`}>
-                        {minutesLabel(m)}
-                      </button>
-                    ))}
+                {route === "点滴静注" && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="w-16 text-ink-soft">1回の時間</span>
+                    <TabChoice label={`Rp${first + i} の1回の時間`} options={DRIP_MINUTES.map((m) => ({ value: m, label: minutesLabel(m) }))} value={rp.minutes || null} onChange={(v) => upd(i, { minutes: v })} />
                   </div>
                 )}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-14 text-ink-soft">開始</span>
-                  <select value={rp.startDay} onChange={(e) => upd(i, { startDay: Number(e.target.value) })} className={field} aria-label="開始日">
-                    <option value={0}>今日</option>
-                    <option value={1}>明日</option>
-                  </select>
-                  <input type="time" value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={field} aria-label="開始時刻" />
+                  <span className="w-16 text-ink-soft">開始</span>
+                  <TabChoice
+                    label={`Rp${first + i} の開始日`}
+                    options={[
+                      { value: 0, label: "今日" },
+                      { value: 1, label: "明日" },
+                    ]}
+                    value={rp.startDay}
+                    onChange={(v) => upd(i, { startDay: v })}
+                  />
+                  <input type="time" value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={field} aria-label={`Rp${first + i} の開始時刻`} />
                   <span className="text-[11px] text-ink-faint">空なら指示受け後すぐ</span>
-                  <input value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" placeholder="—" aria-label="日数" className={`${field} ml-auto w-10 text-right`} />
+                  <input value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" placeholder="—" aria-label={`Rp${first + i} の日数`} className={`${field} ml-auto w-10 text-right`} />
                   日間
                 </div>
-                <input value={rp.comment} onChange={(e) => upd(i, { comment: e.target.value })} placeholder="コメント（任意）" className={`${field} w-full`} />
+                <input value={rp.comment} onChange={(e) => upd(i, { comment: e.target.value })} placeholder="コメント（任意）" aria-label={`Rp${first + i} のコメント`} className={`${field} w-full`} />
               </div>
             )}
           </section>
         );
       })}
       <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
-        <button
-          type="button"
-          onClick={() => setRps((r) => [...r, newInjRp()])}
-          className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft"
-        >
+        <button type="button" onClick={() => setRps((r) => [...r, newInjRp()])} className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft">
           Rp を足す
         </button>
         <button
           type="button"
           disabled={!ready.length}
-          title={unfinished.length ? unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未選択`).join("／") : undefined}
-          onClick={() => {
-            onAdd(ready.map(toDraft));
-            setRps([newInjRp(), newInjRp()]);
-          }}
+          title={unfinished.length ? unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未選択`).join("／") : "⌘Enter（Ctrl+Enter）でも押せます"}
+          onClick={submit}
           className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
         >
-          下書きにする（{ready.length} Rp）
+          下書きにする（{ready.length} Rp）<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
         </button>
       </div>
       {unfinished.length > 0 && <p className="text-[12px] text-yamabuki">{unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未選択`).join("　")}</p>}
@@ -319,6 +364,11 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
     </div>
   );
 }
+
+// The first drug picked is the main one (as on a slip): a fluid first means a bag with drugs mixed in,
+// counted in bags (1日2本); a drug first means doses of that drug (8時間ごと), with any solvent after it.
+const isFluidRp = (rp: InjRp) => rp.rows.length > 0 && masterOf(rp.rows[0].drugCode)?.kind === "輸液";
+const schedulesOf = (rp: InjRp) => (isFluidRp(rp) ? FLUID_SCHEDULES : SCHEDULES);
 
 /**
  * Pick lab items one by one (grouped like a lab's test guide) or a hospital set, and a draw time.
@@ -479,9 +529,16 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
     };
   };
   const ready = rps.filter((r) => r.rows.length);
+  const submit = () => {
+    if (!ready.length) return;
+    onAdd(ready.map(toDraft));
+    setRps([newRp(), newRp()]);
+  };
+  const keys = usePanelKeys(submit);
   return (
-    <div className="space-y-3 text-[13px]">
+    <div ref={keys.root} onKeyDown={keys.onKeyDown} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="prescription" />
+      <p className="text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、用法と定期・臨時は ← → で選ぶ、⌘Enter（Ctrl+Enter）で下書きにする。1日量を空にして Backspace でその薬を外します。</p>
       <div className="flex items-center justify-end gap-2 text-[11px] text-ink-soft">
         薬の検索
         <div role="radiogroup" className="flex rounded-md border border-rule p-0.5">
@@ -504,7 +561,7 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
             <div className="flex items-baseline gap-2">
               <b className="text-ai">Rp{first + i}</b>
               {rps.length > 1 && (
-                <button type="button" onClick={() => setRps((r) => r.filter((_, j) => j !== i))} className="ml-auto text-[11px] text-ink-faint hover:text-shu">
+                <button type="button" tabIndex={-1} onClick={() => setRps((r) => r.filter((_, j) => j !== i))} className="ml-auto text-[11px] text-ink-faint hover:text-shu">
                   この Rp を消す
                 </button>
               )}
@@ -524,6 +581,13 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
                         {prn ? "1回" : "1日"}
                         <input
                           value={r.daily}
+                          aria-label={`${m.name}の${prn ? "1回量" : "1日量"}`}
+                          onKeyDown={(e) => {
+                            if (e.key === "Backspace" && r.daily === "") {
+                              e.preventDefault();
+                              upd(i, { rows: rp.rows.filter((_, j) => j !== k) });
+                            }
+                          }}
                           onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, daily: e.target.value } : x)) })}
                           inputMode="decimal"
                           className="mx-1 w-12 rounded border border-rule bg-paper px-1 text-right"
@@ -537,7 +601,7 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
                         )}
                       </td>
                       <td className="w-6 text-right">
-                        <button type="button" onClick={() => upd(i, { rows: rp.rows.filter((_, j) => j !== k) })} className="text-ink-faint hover:text-shu" aria-label="外す">
+                        <button type="button" tabIndex={-1} onClick={() => upd(i, { rows: rp.rows.filter((_, j) => j !== k) })} className="text-ink-faint hover:text-shu" aria-label="外す">
                           ×
                         </button>
                       </td>
@@ -546,15 +610,9 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
                 })}
               </tbody>
             </table>
-            <RpDrugSearch options={options} prefix={prefix} onPick={(c) => upd(i, { rows: [...rp.rows, { drugCode: c, daily: "" }] })} placeholder={rp.rows.length ? "同じ用法の薬を足す（名前・略称）" : "薬を入れる（名前・略称）"} />
+            <RpDrugSearch options={options} prefix={prefix} onPick={(c) => upd(i, { rows: [...rp.rows, { drugCode: c, daily: "" }] })} placeholder={rp.rows.length ? `Rp${first + i} に同じ用法の薬を足す（名前・略称）` : `Rp${first + i} に薬を入れる（名前・略称）`} />
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
-              <select value={rp.usage} onChange={(e) => upd(i, { usage: e.target.value })} className="rounded border border-rule bg-paper px-1 py-0.5">
-                <option value="">用法を選ぶ</option>
-                {USAGES.map((u) => (
-                  <option key={u.label}>{u.label}</option>
-                ))}
-                <option>頓用</option>
-              </select>
+              <TabChoice label={`Rp${first + i} の用法`} options={[...USAGES.map((u) => ({ value: u.label, label: u.label })), { value: "頓用", label: "頓用" }]} value={rp.usage || null} onChange={(v) => upd(i, { usage: v })} />
               {prn ? (
                 <>
                   <input value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} placeholder="条件（疼痛時など）" className="w-28 rounded border border-rule bg-paper px-1 py-0.5" />
@@ -566,10 +624,15 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
                 <>
                   <input value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" className="w-10 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
                   日分
-                  <select value={rp.category} onChange={(e) => upd(i, { category: e.target.value as Rp["category"] })} className="rounded border border-rule bg-paper px-1 py-0.5">
-                    <option>定期</option>
-                    <option>臨時</option>
-                  </select>
+                  <TabChoice
+                    label={`Rp${first + i} の定期・臨時`}
+                    options={[
+                      { value: "定期", label: "定期" },
+                      { value: "臨時", label: "臨時" },
+                    ]}
+                    value={rp.category}
+                    onChange={(v) => upd(i, { category: v as Rp["category"] })}
+                  />
                 </>
               )}
             </div>
@@ -584,16 +647,8 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
         >
           Rp を足す
         </button>
-        <button
-          type="button"
-          disabled={!ready.length}
-          onClick={() => {
-            onAdd(ready.map(toDraft));
-            setRps([newRp(), newRp()]);
-          }}
-          className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
-        >
-          下書きにする（{ready.length} Rp）
+        <button type="button" disabled={!ready.length} title="⌘Enter（Ctrl+Enter）でも押せます" onClick={submit} className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+          下書きにする（{ready.length} Rp）<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
         </button>
       </div>
       <p className="text-[11px] text-ink-faint">1回量は1日量 ÷ 回数でコードが出します。チェック（割り切れない量・重複・アレルギー・極量）は記事の下の下書きに出ます。重複・アレルギー・極量は、承知コメントを付けて確定できます。</p>

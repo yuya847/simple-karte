@@ -865,6 +865,8 @@ export default function WardApp() {
                 open={chart.openTabs}
                 value={chart.rightTab}
                 onChange={(t) => update({ rightTab: t })}
+                onOpen={(t) => update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }))}
+                canOrder={!orderBlock}
                 onClose={(t) => update((c) => ({ openTabs: c.openTabs.filter((x) => x !== t), rightTab: c.rightTab === t ? "note" : c.rightTab }))}
                 counts={{ note: chart.drafts.length, injection: chart.drafts.filter((d) => d.kind === "injection").length, rx: chart.drafts.filter((d) => d.kind === "prescription").length }}
               />

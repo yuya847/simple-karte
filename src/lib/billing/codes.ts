@@ -18,6 +18,8 @@ export const DRUG_CODES: Record<string, string> = {
   "INJ-APAP1000": "622525501", // アセリオ静注液１０００ｍｇバッグ
   "INJ-KCL20": "620004659", // ＫＣＬ注２０ｍＥｑキット「テルモ」 １モル２０ｍＬ
   "INJ-VITAMEDIN": "643180017", // ビタメジン静注用
+  "INJ-NSSY10": "620008529", // 生食注シリンジ「オーツカ」１０ｍＬ
+  "INJ-HEPLOCK10": "620004193", // ヘパリンＮａロック１０Ｕ／ｍＬシリンジオーツカ１０ｍＬ
   // oral drugs dispensed by the hospital (持参薬 are the patient's own and are not billed)
   "ORAL-AMLO5": "620007860",
   "ORAL-LPZ15": "620009451",

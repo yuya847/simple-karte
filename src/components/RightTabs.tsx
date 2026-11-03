@@ -1,21 +1,36 @@
 "use client";
 
 import { NotebookPen, Pill, Syringe, X } from "lucide-react";
+import { useEffect } from "react";
 
 export type RightTab = "note" | "injection" | "rx";
 
-const TABS: Record<RightTab, { label: string; icon: typeof Pill }> = {
-  note: { label: "記事作成", icon: NotebookPen },
-  injection: { label: "注射", icon: Syringe },
-  rx: { label: "内服", icon: Pill },
+const TABS: Record<RightTab, { label: string; icon: typeof Pill; key: string }> = {
+  note: { label: "記事作成", icon: NotebookPen, key: "1" },
+  injection: { label: "注射", icon: Syringe, key: "2" },
+  rx: { label: "内服", icon: Pill, key: "3" },
 };
+const BY_DIGIT: Record<string, RightTab> = { Digit1: "note", Digit2: "injection", Digit3: "rx" };
 
 /**
  * Tabs over the right side of the chart. 記事作成 is always there; 注射 and 内服 open from the tools
  * on the far right and close with ×.
  */
-export function RightTabs({ open, value, onChange, onClose, counts }: { open: RightTab[]; value: RightTab; onChange: (t: RightTab) => void; onClose: (t: RightTab) => void; counts: Record<RightTab, number> }) {
+export function RightTabs({ open, value, onChange, onOpen, onClose, counts, canOrder }: { open: RightTab[]; value: RightTab; onChange: (t: RightTab) => void; onOpen: (t: RightTab) => void; onClose: (t: RightTab) => void; counts: Record<RightTab, number>; canOrder: boolean }) {
   const shown: RightTab[] = ["note", ...open.filter((t) => t !== "note")];
+  // ⌥1 記事作成・⌥2 注射・⌥3 内服 (Alt on Windows), from anywhere in the chart. e.code, so the
+  // characters ⌥ types on a Mac do not matter.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.altKey && !e.metaKey && !e.ctrlKey ? BY_DIGIT[e.code] : undefined;
+      if (!t || (t !== "note" && !canOrder)) return;
+      e.preventDefault();
+      if (t === "note") onChange(t);
+      else onOpen(t);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onChange, onOpen, canOrder]);
   return (
     <div role="tablist" aria-label="右の欄" className="flex items-end gap-1 border-b border-rule bg-paper px-3 pt-1.5">
       {shown.map((key) => {
@@ -31,7 +46,7 @@ export function RightTabs({ open, value, onChange, onClose, counts }: { open: Ri
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") onChange(key);
             }}
-            title={key === "note" ? "記事と、貯まっているオーダの下書き・確定" : `${label}を Rp ごとに入れる`}
+            title={`${key === "note" ? "記事と、貯まっているオーダの下書き・確定" : `${label}を Rp ごとに入れる`}（⌥${TABS[key].key}）`}
             className={`flex cursor-pointer items-center gap-1.5 rounded-t-md border border-b-0 px-3 py-1.5 text-sm ${on ? "-mb-px border-rule bg-sheet font-bold text-ink" : "border-transparent text-ink-soft hover:text-ink"}`}
           >
             <Icon size={14} />
@@ -54,7 +69,7 @@ export function RightTabs({ open, value, onChange, onClose, counts }: { open: Ri
           </div>
         );
       })}
-      {open.length === 0 && <span className="pb-1.5 pl-2 text-[11px] text-ink-faint">注射・内服は右端のツールから開きます</span>}
+      {open.length === 0 && <span className="pb-1.5 pl-2 text-[11px] text-ink-faint">注射・内服は右端のツールか ⌥2・⌥3 で開きます</span>}
     </div>
   );
 }

@@ -19,6 +19,8 @@ export interface DrugMaster {
   routes: InjectionRoute[];
   /** Words doctors say for this drug (brand names, abbreviations). */
   aliases: string[];
+  /** A flush to keep a line open (ロック): 生食・ヘパリンのシリンジ. */
+  lock?: boolean;
 }
 
 export const DRUGS: DrugMaster[] = [
@@ -151,6 +153,28 @@ export const DRUGS: DrugMaster[] = [
     units: ["V"],
     routes: ["点滴静注", "静注"],
     aliases: ["ビタメジン", "ビタミンB1・B6・B12"],
+  },
+  {
+    code: "INJ-NSSY10",
+    name: "生食注シリンジ",
+    package: "10mL/筒",
+    kind: "その他",
+    volumeMl: 10,
+    units: ["本", "mL"],
+    routes: ["静注"],
+    aliases: ["生食シリンジ", "生食ロック", "生食フラッシュ"],
+    lock: true,
+  },
+  {
+    code: "INJ-HEPLOCK10",
+    name: "ヘパリンNaロック用シリンジ",
+    package: "10単位/mL・10mL/筒",
+    kind: "その他",
+    volumeMl: 10,
+    units: ["本", "mL"],
+    routes: ["静注"],
+    aliases: ["ヘパロック", "ヘパリンロック"],
+    lock: true,
   },
 ];
 
