@@ -52,6 +52,8 @@ import { SummaryPanel } from "./panels/SummaryPanel";
 import { SetPanel } from "./panels/SetPanel";
 import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
+import { LabelsPanel } from "./panels/LabelsPanel";
+import { labelItems } from "@/lib/labels";
 import { ageSex } from "@/lib/person";
 import { stayDays, type DocKind, type DocRecord } from "@/lib/documents";
 import { diagnosisLabel } from "@/lib/diagnoses";
@@ -1977,6 +1979,22 @@ export default function WardApp() {
                       closePanel();
                     }}
                   />
+                </Drawer>
+              )}
+              {panel === "labels" && (
+                <Drawer title="ラベルの発行" onClose={closePanel} wide>
+                  {(() => {
+                    const person = people.find((x) => x.patient.id === patient.id);
+                    const items = person ? labelItems(person, today, abs(0, nowTime)) : { specimens: [], drugs: [] };
+                    return (
+                      <LabelsPanel
+                        p={{ id: patient.id, name: patient.name, kana: patient.kana, ageSex: ageSex(patient), where: `${patient.ward} ${patient.room}`, allergies: patient.allergies, blood: patient.blood ? `${patient.blood.abo}型 Rh${patient.blood.rh === "+" ? "(+)" : "(−)"}` : undefined }}
+                        specimens={items.specimens}
+                        drugs={items.drugs}
+                        onPrint={(what, n) => auditLog({ role: me.role, actor: me.name, action: `${what}を印刷した`, patient: patient.name, detail: `${n}枚` })}
+                      />
+                    );
+                  })()}
                 </Drawer>
               )}
               {panel === "docs" && (
