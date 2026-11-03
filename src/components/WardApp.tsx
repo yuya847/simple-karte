@@ -646,11 +646,13 @@ export default function WardApp() {
                   today={today}
                   nowTime={nowTime}
                   options={billing[patient.id] ?? DEFAULT_OPTIONS}
+                  diets={diets}
+                  letters={discharges[patient.id]?.letter.issuedAt ? [{ day: discharges[patient.id].letter.issuedAt!.day, to: discharges[patient.id].letter.to }] : []}
                   onOptions={(next) => setBilling((all) => ({ ...all, [patient.id]: next }))}
                   wardPayload={() =>
                     allPatients.map((p) => {
                       const c = charts[p.id];
-                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS);
+                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: discharges[p.id]?.letter.issuedAt ? [{ day: discharges[p.id].letter.issuedAt!.day, to: discharges[p.id].letter.to }] : [] });
                     })
                   }
                 />

@@ -1,5 +1,6 @@
 "use client";
 
+import type { DietOrder } from "@/lib/diet";
 import { AlertTriangle, Ban, Info, ListChecks, Loader2 } from "lucide-react";
 import { BillPanel } from "./billing/BillPanel";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
@@ -22,6 +23,8 @@ interface Props {
   onOptions: (next: BillingOptions) => void;
   /** Every patient of the ward, for the month's receipt files. */
   wardPayload: () => PatientMonthPayload[];
+  diets?: DietOrder[];
+  letters?: { day: number; to: string }[];
 }
 
 type Tab = "claim" | "bill" | "receipt";
@@ -73,7 +76,7 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload }: Props) {
+export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters }: Props) {
   const [tab, setTab] = useState<Tab>("claim");
   const [bill, setBill] = useState<Bill | null>(null);
   const [insurance, setInsurance] = useState<(Insurance & { assumed?: boolean }) | null>(null);
@@ -84,8 +87,11 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Diets and letters by value, so a new array with the same content does not re-run the claim.
+  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [] });
   useEffect(() => {
     const ctl = new AbortController();
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string }[] };
     const run = async () => {
       setLoading(true);
       setError(null);
@@ -94,7 +100,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           method: "POST",
           headers: { "content-type": "application/json" },
           signal: ctl.signal,
-          body: JSON.stringify({ today: isoDate(today), nowTime, month, ...patientMonthPayload(patient, entries, diagnoses, options) }),
+          body: JSON.stringify({ today: isoDate(today), nowTime, month, ...patientMonthPayload(patient, entries, diagnoses, options, extra) }),
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
@@ -111,7 +117,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
     };
     run();
     return () => ctl.abort();
-  }, [month, options, entries, diagnoses, patient, today, nowTime]);
+  }, [month, options, entries, diagnoses, patient, today, nowTime, extraJson]);
 
   const groups = useMemo(() => {
     const g = new Map<Shikibetsu, ClaimAct[]>();
@@ -213,7 +219,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
                 <option value="2">それ以外（200点）</option>
               </select>
             </label>
-            <Check label="特別食（食事箋）" checked={options.specialDiet} onChange={(v) => set({ specialDiet: v })} />
+            <Check label="特別食（食事オーダーがないときだけ使う）" checked={options.specialDiet} onChange={(v) => set({ specialDiet: v })} />
             <label className="flex items-center gap-1.5">
               薬剤管理指導料（今日）
               <select

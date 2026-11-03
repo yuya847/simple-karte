@@ -3,7 +3,6 @@
 // class are code. The diet changes from a given meal and stays until the next order.
 
 import { abs } from "./flowsheet";
-import { examAt } from "./exams";
 import type { DayOffset, OrderEntry } from "./types";
 
 export type Meal = "朝" | "昼" | "夕";
@@ -121,7 +120,10 @@ export function dietLabel(o?: DietOrder): string {
 /** Exams that hold a meal (fictional hospital rule): the last meal served before the exam, that day. */
 export const FASTING_EXAMS: Record<string, string> = { "PHY-ABDUS": "腹部エコー", "CT-CONTRAST": "造影CT" };
 
-export function heldBy(entries: OrderEntry[], day: number, meal: Meal): string[] {
+/** `examTime` gives an exam order's time (minutes from today 00:00); passed in to keep this module free of exams.ts. */
+export type ExamTime = (e: OrderEntry) => number;
+
+export function heldBy(entries: OrderEntry[], day: number, meal: Meal, examTime: ExamTime): string[] {
   const out: string[] = [];
   for (const e of entries) {
     if (e.status === "中止") continue;
@@ -130,7 +132,7 @@ export function heldBy(entries: OrderEntry[], day: number, meal: Meal): string[]
     if (o.type === "physio" && FASTING_EXAMS[o.test]) label = FASTING_EXAMS[o.test];
     if (o.type === "imaging" && o.modality === "CT" && o.contrast !== "単純") label = FASTING_EXAMS["CT-CONTRAST"];
     if (!label || (o.type !== "physio" && o.type !== "imaging")) continue;
-    const at = examAt(o, abs(e.day, e.time));
+    const at = examTime(e);
     if (Math.floor(at / 1440) !== day) continue;
     const before = MEALS.filter((m) => abs(day, MEAL_TIMES[m]) < at).at(-1);
     if (before === meal) out.push(`${label}（${String(Math.floor((at % 1440) / 60)).padStart(2, "0")}:${String(at % 60).padStart(2, "0")}）`);
@@ -161,3 +163,60 @@ export const INITIAL_DIETS: DietOrder[] = [
   { id: "diet-90010198", patientId: "90010198", from: { day: -5, meal: "夕" }, kind: "治療食", therapeutic: "TD-SALT-HEART", saltG: 6, staple: "米飯", side: "常菜", comment: "水分制限 1,000mL/日（食事の水分を含む）", by: "山本（専攻医）", at: { day: -5, time: "16:00" } },
   { id: "diet-90010260", patientId: "90010260", from: { day: -2, meal: "昼" }, kind: "常食", staple: "米飯", side: "常菜", by: "山本（専攻医）", at: { day: -2, time: "10:30" } },
 ];
+
+// ---------- 入院時食事療養（令和8年6月〜）----------
+// 告示第76号・第77号、保医発0305第16号. Amounts come from the master (codes below).
+export const MEAL_CODES = {
+  /** 入院時食事療養（１）（２以外）730円 */
+  normal: "197000110",
+  /** 入院時食事療養（１）流動食のみ（市販の流動食だけを経管で）665円 */
+  liquidOnly: "197003110",
+  /** 特別食加算 76円 */
+  special: "197000470",
+} as const;
+
+/** The fictional hospital has not filed the 届出 for 嚥下調整食 as a 特別食 (new in R8; four requirements). */
+export const DYSPHAGIA_SPECIAL_FILED = false;
+
+/** Whether this meal counts as 特別食 (code reads the order; the doctor's 食事箋 is the order itself). */
+export function specialDiet(o: DietOrder): { special: boolean; note: string; review?: string } {
+  if (o.kind === "経管栄養") return { special: false, note: "市販の流動食だけを経管で出す食事は「流動食のみ」（特別食加算はつかない）" };
+  if (o.kind === "嚥下調整食")
+    return DYSPHAGIA_SPECIAL_FILED
+      ? { special: true, note: "嚥下調整食（令和8年度から特別食）", review: "単にペースト・刻みにしただけのものは対象外" }
+      : { special: false, note: "嚥下調整食の特別食加算は届出が要る（架空の病院は未届出）" };
+  if (o.kind !== "治療食") return { special: false, note: "" };
+  switch (o.therapeutic) {
+    case "TD-ENERGY":
+      return { special: true, note: "糖尿食" };
+    case "TD-KIDNEY":
+      return { special: true, note: "腎臓食" };
+    case "TD-LIVER":
+      return { special: true, note: "肝臓食" };
+    case "TD-PANCREAS":
+      return { special: true, note: "膵臓食" };
+    case "TD-ULCER":
+      return { special: true, note: "胃潰瘍食（流動食は除く）" };
+    case "TD-SALT-HEART":
+      return o.saltG !== undefined && o.saltG <= 6 ? { special: true, note: "心臓疾患の減塩食（食塩6g未満は腎臓食に準じる）" } : { special: false, note: "減塩食は食塩6g未満のときだけ特別食" };
+    case "TD-LIPID":
+      return { special: true, note: "脂質異常症食", review: "LDL 140以上・HDL 40未満・中性脂肪 150以上（mg/dL）のいずれかか、高度肥満症（BMI 35以上など）であることを確かめる" };
+    case "TD-LOWRESIDUE":
+      return { special: true, note: "検査食", review: "大腸X線・大腸内視鏡の前の低残渣食か潜血食に限る" };
+    default:
+      return { special: false, note: "" };
+  }
+}
+
+/** Meals served on a day by the diet orders: each served meal with its class. */
+export function mealsServed(orders: DietOrder[], entries: OrderEntry[], patientId: string, day: number, untilAbs: number, examTime: ExamTime) {
+  const out: { meal: Meal; code: string; special: boolean; note: string; review?: string }[] = [];
+  for (const meal of MEALS) {
+    if (abs(day, MEAL_TIMES[meal]) > untilAbs) continue;
+    const o = dietAt(orders, patientId, day, meal);
+    if (!o || o.kind === "絶食" || heldBy(entries, day, meal, examTime).length) continue;
+    const s = specialDiet(o);
+    out.push({ meal, code: o.kind === "経管栄養" ? MEAL_CODES.liquidOnly : MEAL_CODES.normal, ...s });
+  }
+  return out;
+}

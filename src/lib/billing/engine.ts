@@ -9,6 +9,7 @@ import { minutesOf } from "../dates";
 import { findDrug, findLab, findSet, WARD_RULES } from "../master";
 import { procEvents, procInterval, procMinutes } from "../proc-timing";
 import { AREA_LABEL, CATHETER, findProcDrug, isSevereUlcer } from "../procedures";
+import { MEAL_CODES, mealsServed } from "../diet";
 import type { HistoryEntry, InjectionOrder, LabOrder, OrderEntry, PrescriptionOrder, ProcedureOrder } from "../types";
 import { CODES, IMAGING_CODES as IC, LAB_CODES, PROC_CODES, RESP_JUDGE, TOKKI_CODES } from "./codes";
 import { examAt, findPhysio, findRegion, type ImagingOrder, type PhysioOrder } from "../exams";
@@ -178,6 +179,19 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     } else issues.push({ level: "info", text: "入退院支援加算１は退院した日に算定します（まだ退院していません）。" });
   }
 
+  // ===== 13 診療情報提供料（Ⅰ）: 紹介先の医療機関ごとに患者1人につき月1回（B009）=====
+  const sentTo = new Set<string>();
+  for (const l of input.letters ?? []) {
+    if (!inMonth.has(l.day)) continue;
+    const key = l.to.trim() || "（紹介先）";
+    if (sentTo.has(key)) {
+      issues.push({ level: "info", text: `診療情報提供料（Ⅰ）は紹介先ごとに月1回です（${key} へは今月もう算定しています）。` });
+      continue;
+    }
+    sentTo.add(key);
+    add({ day: l.day, shikibetsu: "13", parts: [{ lines: [si("180016110")], points: pts("180016110") }], basis: `B009 診療情報提供料（Ⅰ）（${key} へ。紹介先ごとに月1回）` });
+  }
+
   // ===== 80 その他（評価料・物価対応料。1日につき1回）=====
   const bukka = bukkaFor(base).find((b) => !b.name.includes("看護・多職種協働"));
   for (const d of days) {
@@ -187,7 +201,33 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   }
 
   // ===== 97 食事療養（円）=====
-  for (const d of days) {
+  // With diet orders: count each served meal from the orders (1日3食まで、食止め・絶食は数えない、
+  // 流動食のみ・特別食は食事ごと). Without them: the meals recorded in the daily record.
+  const diets = (input.diets ?? []).filter((x) => x.patientId === p.id);
+  if (diets.length) {
+    const futan = MEAL_FUTAN[input.mealClass ?? "一般"];
+    const reviews = new Set<string>();
+    for (const d of days) {
+      const served = mealsServed(diets, orders, p.id, d, nowAbs, (e) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time)));
+      if (!served.length) continue;
+      const parts: ClaimPart[] = [];
+      for (const code of [MEAL_CODES.normal, MEAL_CODES.liquidOnly]) {
+        const n = served.filter((m) => m.code === code).length;
+        if (n) parts.push({ lines: [si(code, n)], points: pts(code) * n, yen: true });
+      }
+      const special = served.filter((m) => m.special);
+      if (special.length) parts.push({ lines: [si(MEAL_CODES.special, special.length)], points: pts(MEAL_CODES.special) * special.length, yen: true });
+      parts.push({ lines: [si(futan.code, served.length)], points: pts(futan.code) * served.length, yen: true });
+      for (const m of served) if (m.review) reviews.add(`${m.note}：${m.review}`);
+      add({
+        day: d,
+        shikibetsu: "97",
+        parts,
+        basis: `入院時食事療養（Ⅰ）${served.map((m) => `${m.meal}${m.code === MEAL_CODES.liquidOnly ? "（流動食のみ）" : ""}${m.special ? "＊" : ""}`).join("・")}（＊特別食加算：${[...new Set(special.map((m) => m.note))].join("、") || "なし"}）、標準負担額（${futan.label}）。食事オーダーから数える`,
+      });
+    }
+    for (const r of reviews) issues.push({ level: "review", text: `特別食加算：${r}` });
+  } else for (const d of days) {
     const rec = input.daily.find((r) => r.day === d);
     if (!rec?.meals || rec.meals === "絶食") continue;
     const served = rec.meals.filter((m) => m !== null).length;

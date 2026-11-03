@@ -14,6 +14,8 @@ export interface PatientMonthInput {
   cultures: ClaimInput["cultures"];
   diagnoses: Diagnosis[];
   options: BillingOptions;
+  diets?: ClaimInput["diets"];
+  letters?: ClaimInput["letters"];
 }
 
 export interface PatientMonth {
@@ -66,6 +68,8 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     diagnoses: input.diagnoses,
     options: input.options,
     mealClass: insurance.mealClass,
+    diets: input.diets,
+    letters: input.letters,
   });
   if ("assumed" in insurance) claim.issues.push({ level: "review", text: "保険の情報が登録されていないため、年齢から仮の保険（負担割合・所得区分）で計算しています。" });
   const ageAtMonth = ageOn(insurance.birthDate, parse(`${month}-01`));

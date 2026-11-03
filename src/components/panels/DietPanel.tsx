@@ -29,6 +29,9 @@ import {
   type Thickness,
 } from "@/lib/diet";
 import { abs } from "@/lib/flowsheet";
+import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
+
+const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
 import { useSpeech } from "@/lib/use-speech";
 import type { OrderEntry, Patient } from "@/lib/types";
 import { CLAUDE, auditLog } from "@/lib/audit";
@@ -134,7 +137,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
                 </td>
                 {MEALS.map((m) => {
                   const d = dietAt(diets, patient.id, day, m);
-                  const held = heldBy(entries, day, m);
+                  const held = heldBy(entries, day, m, examTime);
                   const served = abs(day, MEAL_TIMES[m]) <= nowAbs;
                   return (
                     <td key={m} className={`px-1 py-1 ${served ? "text-ink-faint" : ""}`}>

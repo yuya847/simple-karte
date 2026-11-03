@@ -455,3 +455,20 @@ describe("検体検査を1項目ずつ（SRL の単位）", () => {
     expect(find(r.acts, "160114010").acts[0].parts[0].points).toBe(127 + 18 + 29 + 23);
   });
 });
+
+describe("食事オーダーからの食事療養（令和8年6月〜）", () => {
+  it("counts served meals: 減塩食6g未満は特別食、経管は流動食のみ、絶食は数えない", async () => {
+    const { INITIAL_DIETS } = await import("../diet");
+    const tube = { ...INITIAL_DIETS[3], id: "t", patientId: "P", from: { day: -1, meal: "朝" as const }, kind: "経管栄養" as const, tube: { product: "EN-STD", mlPerMeal: 300 } };
+    const salt = { ...INITIAL_DIETS[2], id: "s", patientId: "P", from: { day: -2, meal: "朝" as const } };
+    const r = calculateClaim({ today: "2026-11-03", nowTime: "20:00", month: "2026-11", patient: { id: "P", name: "x", sex: "男", age: 70, admittedOn: -2 }, entries: [], daily: [], cultures: [], diagnoses: [], options: DEFAULT_OPTIONS, diets: [salt, tube] });
+    const meals = r.acts.filter((a) => a.shikibetsu === "97");
+    const codesOf = (day: number) => meals.find((a) => a.days[day])?.parts.flatMap((p) => p.lines.map((l) => `${l.code}×${l.quantity ?? 1}`));
+    expect(codesOf(1)).toEqual(["197000110×3", "197000470×3", "197000810×3"]); // 11/1: 減塩食 3食＋特別食
+    expect(codesOf(2)).toEqual(["197003110×3", "197000810×3"]); // 11/2: 経管（流動食のみ）
+  });
+  it("B009 診療情報提供料（Ⅰ）: 紹介先ごとに月1回", () => {
+    const r = calculateClaim({ today: "2026-11-03", nowTime: "20:00", month: "2026-11", patient: { id: "P", name: "x", sex: "男", age: 70, admittedOn: -2 }, entries: [], daily: [], cultures: [], diagnoses: [], options: DEFAULT_OPTIONS, letters: [{ day: 0, to: "架空クリニック" }, { day: 0, to: "架空クリニック" }] });
+    expect(r.acts.filter((a) => a.parts.some((p) => p.lines.some((l) => l.code === "180016110")))).toHaveLength(1);
+  });
+});

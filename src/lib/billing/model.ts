@@ -1,5 +1,6 @@
 // Shapes shared by the billing engine (server) and the billing screens (client).
 
+import type { DietOrder } from "../diet";
 import type { Diagnosis } from "../diagnoses";
 import type { CultureResult, DailyRecord, DayOffset, HistoryEntry, Sex } from "../types";
 
@@ -118,6 +119,10 @@ export interface ClaimInput {
   options: BillingOptions;
   /** Default 一般. */
   mealClass?: MealClass;
+  /** Diet orders (when given, meals are counted from them). */
+  diets?: DietOrder[];
+  /** 診療情報提供書 issued (day offsets). */
+  letters?: { day: DayOffset; to: string }[];
 }
 
 export interface ClaimResult {

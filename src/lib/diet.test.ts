@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { examAt, type PhysioOrder } from "./exams";
+import { abs } from "./flowsheet";
 import { INITIAL_DIETS, dietAt, dietLabel, heldBy, nextMeal, nextOrderableMeal, pastDeadline, type DietOrder } from "./diet";
 import type { OrderEntry } from "./types";
 
@@ -23,8 +25,9 @@ describe("食事オーダー", () => {
   });
   it("an afternoon abdominal echo holds lunch; a morning one holds breakfast", () => {
     const echo = (time: string): OrderEntry => ({ kind: "order", id: "e", day: 0, time: "08:00", author: "x", status: "有効", order: { type: "physio", test: "PHY-ABDUS", when: { day: 1, time, priority: "予約" }, place: "検査室" } as unknown as OrderEntry["order"] });
-    expect(heldBy([echo("14:00")], 1, "昼")).toEqual(["腹部エコー（14:00）"]);
-    expect(heldBy([echo("14:00")], 1, "朝")).toEqual([]);
-    expect(heldBy([echo("09:00")], 1, "朝")).toEqual(["腹部エコー（09:00）"]);
+    const t = (e: OrderEntry) => examAt(e.order as PhysioOrder, abs(e.day, e.time));
+    expect(heldBy([echo("14:00")], 1, "昼", t)).toEqual(["腹部エコー（14:00）"]);
+    expect(heldBy([echo("14:00")], 1, "朝", t)).toEqual([]);
+    expect(heldBy([echo("09:00")], 1, "朝", t)).toEqual(["腹部エコー（09:00）"]);
   });
 });
