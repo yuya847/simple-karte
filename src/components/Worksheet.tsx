@@ -10,6 +10,7 @@ import { WARD_NAME } from "@/lib/ward";
 import { marState, prnToday, standingPrnId, standingPrnState, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
 import { drugLabel, type PrnRule } from "@/lib/standing";
 import { findOralDrug } from "@/lib/master";
+import { dripRate, dripText } from "@/lib/drip";
 import { MarCell } from "./MarCell";
 import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
@@ -196,6 +197,11 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
     rule,
   }));
   const ruleOf = (orderId: string) => fromStanding.find((x) => x.orderId === orderId)?.rule;
+  // 点滴の速さ (mL/時, 滴/分) for an injection, computed from the order.
+  const rateOf = (orderId: string) => {
+    const e = people.flatMap((x) => x.entries).find((y) => y.id === orderId);
+    return e && e.order.type === "injection" ? dripRate(e.order) : null;
+  };
   // The same drug in this patient's other 頓用 (指示簿 or a 頓用 prescription), one dose in mg and the
   // insert's daily maximum (oral master), so that the interval and the day's total are per drug.
   const sameOf = (orderId: string) => {
@@ -297,6 +303,7 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                   </td>
                   <td className={td}>
                     <b>{r.main}</b>　<span className="text-ink-soft">{r.detail}</span>
+                    {rateOf(r.orderId) && <div className="nums text-[11px] text-ai">速さ {dripText(rateOf(r.orderId)!)}</div>}
                   </td>
                   <td className={`${td} w-32 text-ink-faint`}>確認 □□□</td>
                 </tr>
@@ -336,6 +343,11 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                     <td className={td}>
                       <b>{i.main}</b>{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}
                       {i.urgent && <span className="ml-1 font-bold text-shu">至急</span>}　<span className="text-ink-soft">{i.detail}</span>
+                      {i.kind === "注射" && rateOf(i.orderId) && (
+                        <div className="nums text-[11px] text-ai">
+                          速さ {rateOf(i.orderId)!.mlPerH}mL/時 → 20滴セット 約{rateOf(i.orderId)!.drops20}滴/分・60滴セット 約{rateOf(i.orderId)!.drops60}滴/分
+                        </div>
+                      )}
                     </td>
                     <td className={td}>
                       {interactive && i.at !== null ? (
