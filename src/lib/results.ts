@@ -232,13 +232,17 @@ export const PANIC_LIMITS: PanicLimit[] = [
 export const PANIC_SOURCE =
   "日本臨床検査医学会「臨床検査『パニック値』運用に関する提言書（2024年改定版）」別表の例を、架空の病院の値として使っています（閾値は医療機関ごとに決めるもの）。グルコースの高値は入院の値、クレアチニンは急性腎不全の例、PT-INR はワルファリン治療中でないときの例、乳酸は 5.0 mmol/L を mg/dL に換算。境界の値を含めて判定します。連絡の手順は医療事故調査・支援センター「医療事故の再発防止に向けた提言 第20号」（2024年12月）：オーダーした医師に電話か対面で直接伝え、最後に復唱してもらい、検査室は報告の記録を、医師は対応の記録を残します。";
 
+/** Where the patient is: a ward chart, or a visit of 救急外来 / 外来 (ids "er:◯" / "opd:◯", like the visit tabs). */
+export type Place = "病棟" | "救急" | "外来";
+export const placeOf = (patientId: string): Place => (patientId.startsWith("er:") ? "救急" : patientId.startsWith("opd:") ? "外来" : "病棟");
+
 const dayWord = (d: DayOffset) => (d === 0 ? "今日" : d === 1 ? "明日" : d === -1 ? "昨日" : d > 0 ? `${d}日後` : `${-d}日前`);
 
 /** What to say on the phone, in the order of 提言第20号 図2 (put together by code). */
 export function callScript(item: ResultItem, p: { name: string; id: string }, room: string): string[] {
   return [
     "「パニック値の報告です」",
-    `① 入院（5階東 ${room}）`,
+    { 病棟: `① 入院（5階東 ${room}）`, 救急: "① 救急外来", 外来: "① 外来" }[placeOf(item.patientId)],
     `② ${p.name}さん（ID ${p.id}）`,
     `③ ${item.kind === "培養" ? "報告" : "採取"} ${dayWord(item.day)} ${item.time || "—"}`,
     `④ ${item.panic.map(hitLine).join("、")}`,

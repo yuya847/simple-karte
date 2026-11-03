@@ -8,6 +8,7 @@ import { ageSex } from "@/lib/person";
 import { hitLine, labKey, type PanicCall, type PanicLimit } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
 import { LabCorrect } from "./LabCorrect";
+import { PlaceMark } from "./LabMarks";
 import { LabReject } from "./LabReject";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
@@ -48,7 +49,8 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
       className={`w-full rounded border px-2 py-1 text-left text-[12px] ${on ? (tone === "ai" ? "border-ai bg-ai-soft" : "border-yamabuki bg-yamabuki-soft") : "border-rule bg-sheet hover:border-ai"}`}
     >
       <span className="nums block text-ink-soft">
-        {whenText(r.at)}　<span className="text-ink-faint">{r.room}</span> <b className="text-ink">{r.name}</b>
+        {whenText(r.at)}　<PlaceMark place={r.place} room={r.room} /> <b className="text-ink">{r.name}</b>
+        {r.redrawOf && <span className="ml-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">再採血</span>}
         {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
         {r.report && versionOf(r.report) > 1 && <span className="ml-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">訂正 第{versionOf(r.report)}版</span>}
       </span>

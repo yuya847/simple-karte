@@ -6,7 +6,7 @@
 import { abs } from "./flowsheet";
 import { labelFor, marState, type AdminRecord } from "./mar";
 import { ANALYTES, findLab, findSet, labInfo, rangeFor, WARD_RULES, type Analyte } from "./master";
-import { panicOf, type ContactAttempt, type PanicHit, type PanicLimit } from "./results";
+import { panicOf, placeOf, type ContactAttempt, type PanicHit, type PanicLimit, type Place } from "./results";
 import type { DayOffset, LabOrder, LabResult, OrderEntry, Patient, Sex } from "./types";
 import { SHIFTS, buildWorksheet, changeKey, type WorkPatient } from "./worksheet";
 
@@ -81,6 +81,8 @@ export interface DrawRow {
   code: string;
   orderId: string;
   patientId: string;
+  /** 病棟, or a visit of 救急外来 / 外来 (shown with its mark). */
+  place: Place;
   room: string;
   name: string;
   at: number;
@@ -144,7 +146,7 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
     const order = person?.entries.find((e) => e.id === i.orderId)?.order as LabOrder | undefined;
     const codes = order?.codes ?? [];
     const redrawOf = Object.values(desk.rejected).find((r) => r.redrawId === i.orderId);
-    const base = { code, orderId: i.orderId, patientId: i.patientId, room: i.room, name: i.name, at, tests: i.main, codes, container: containersOf(codes), urgent: !!i.urgent, ...(redrawOf ? { redrawOf } : {}) };
+    const base = { code, orderId: i.orderId, patientId: i.patientId, place: placeOf(i.patientId), room: i.room, name: i.name, at, tests: i.main, codes, container: containersOf(codes), urgent: !!i.urgent, ...(redrawOf ? { redrawOf } : {}) };
     const report = desk.reports[code];
     if (report) return { ...base, status: "報告済み" as const, report, reception: desk.received[code] };
     const rejection = desk.rejected[code];
@@ -160,6 +162,9 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
     return { ...base, status: "未採取" as const };
   });
 }
+
+/** The name of the place on the screen and in messages. */
+export const PLACE_NAME: Record<Place, string> = { 病棟: "病棟", 救急: "救急外来", 外来: "外来" };
 
 export type ScanTone = "ok" | "warn" | "stop";
 
@@ -200,7 +205,9 @@ export function scanSpecimen(input: string, rows: DrawRow[], people: WorkPatient
   if (row.status === "採取しなかった") return { ok: false, tone: "stop", row, message: `病棟が「未実施${row.notDoneReason ? `（${row.notDoneReason}）` : ""}」と記録した採血です（${who}）。受け付けません。病棟に確かめてください。` };
   if (row.status === "未採取") {
     if (row.at - nowAbs > WARD_RULES.marWindowMin)
-      return { ok: false, tone: "stop", row, message: `採血の予定（${whenText(row.at)}）より前で、病棟の採取の記録もありません。受け付けません。` };
+      return { ok: false, tone: "stop", row, message: `採血の予定（${whenText(row.at)}）より前で、${row.place === "病棟" ? "病棟" : PLACE_NAME[row.place]}の採取の記録もありません。受け付けません。` };
+    if (row.place !== "病棟")
+      return { ok: true, tone: "warn", row, message: `受け付けました：${who}。${PLACE_NAME[row.place]}の採取の記録はこの試作にありません。採った人と時刻を${PLACE_NAME[row.place]}に確かめてください。` };
     return { ok: true, tone: "warn", row, message: `受け付けました：${who}。病棟の採取の記録がまだです。病棟にワークシートの「照合」で記録を頼んでください。` };
   }
   return { ok: true, tone: "ok", row, message: `受け付けました：${who}${row.redrawOf ? "（再採血）" : ""}。` };

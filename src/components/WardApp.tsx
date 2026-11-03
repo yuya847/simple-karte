@@ -148,6 +148,7 @@ import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type Admit
 import { ResultsInbox } from "./ResultsInbox";
 import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
 import { EMPTY_DESK, demoLabOrders, deskLabs, redrawChangeKeys, withRedraws, type LabDesk } from "@/lib/lab-desk";
+import { visitLabOrders, visitPeople } from "@/lib/lab-visits";
 import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
@@ -541,6 +542,8 @@ export default function WardApp() {
     todayKey,
   );
   const [demoLabs] = useState(() => (typeof window === "undefined" ? {} : demoLabOrders(abs(0, nowTimeInTokyo()))));
+  // Lab orders of today's 救急外来・外来 visits (fictional), by visit key "er:◯" / "opd:◯".
+  const [visitLabs] = useState(() => (typeof window === "undefined" ? {} : visitLabOrders(abs(0, nowTimeInTokyo()))));
   const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
     () =>
@@ -1051,6 +1054,9 @@ export default function WardApp() {
 
   // Results per patient on the ward: what the doctor has not seen, and panic values not yet phoned in.
   const wardResults = people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS));
+  // 救急外来・外来 visits with lab orders: the laboratory takes in and results their samples too.
+  const labVisits = visitPeople(er, opd, visitLabs, labDesk);
+  const labItems = [...wardResults, ...labVisits.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS))];
   const unseenResults = unseen(wardResults, acks);
   const resultState = Object.fromEntries(
     people.map((x) => {
@@ -1260,7 +1266,7 @@ export default function WardApp() {
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
   if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
-  const toCall = uncalled(wardResults, calls).length;
+  const toCall = uncalled(labItems, calls).length;
   // 掲示板: notices someone asked me to read, still unread.
   for (const n of notices) {
     const r = boardReminders[n.id];
@@ -1675,8 +1681,8 @@ export default function WardApp() {
         />
       ) : screen === "lab" ? (
         <LabView
-          people={people}
-          items={wardResults}
+          people={[...people, ...labVisits]}
+          items={labItems}
           calls={calls}
           acks={acks}
           limits={PANIC_LIMITS}
@@ -2787,7 +2793,7 @@ export default function WardApp() {
         rows={tabRows()}
         chartShown={screen === "chart"}
         onOpenPicker={() => setPickerOpen(true)}
-        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name) && forMyTeam(n)).length : 0), board: unreadCount(notices, reads, me.name) }}
+        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(labItems, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name) && forMyTeam(n)).length : 0), board: unreadCount(notices, reads, me.name) }}
         todos={todos}
       >
         {content}

@@ -4,18 +4,20 @@ import { BookOpenText, ClipboardPen, FlaskConical, HelpCircle, PhoneCall, ScanLi
 import { useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { abs } from "@/lib/flowsheet";
-import { drawRows, receive, redrawCode, rejectText, scanSpecimen, statusCounts, versionOf, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
+import { PLACE_NAME, drawRows, receive, redrawCode, rejectText, scanSpecimen, statusCounts, versionOf, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
 import type { AdminRecord } from "@/lib/mar";
-import { callScript, hitLine, labBoard, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
+import { callScript, hitLine, labBoard, placeOf, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { LabEntry } from "./LabEntry";
+import { PlaceMark } from "./LabMarks";
 import { PanicCard } from "./PanicCard";
 
 interface Props {
+  /** The ward's patients, and today's visits of 救急外来・外来 with lab orders (ids "er:◯" / "opd:◯"). */
   people: WorkPatient[];
-  /** Results of the ward's patients (shown: from today on, and any panic value not reported yet). */
+  /** Results of these patients (shown: from today on, and any panic value not reported yet). */
   items: ResultItem[];
   calls: Record<string, PanicCall>;
   /** The doctor's 確認 (with the response for a panic value), to check that someone acted. */
@@ -66,7 +68,7 @@ export function LabView(p: Props) {
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <FlaskConical size={17} />
-          検査室（5階東病棟）
+          検査室（5階東病棟・救急外来・外来）
         </h1>
         <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
           {TABS.map(({ key, label, icon: Icon }) => (
@@ -228,7 +230,7 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
                 {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
               </td>
               <td className="py-1 pr-2">
-                <span className="nums text-ink-faint">{r.room}</span> {r.name}
+                <PlaceMark place={r.place} room={r.room} /> {r.name}
               </td>
               <td className="py-1 pr-2">
                 {r.redrawOf && <span className="mr-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">再採血</span>}
@@ -260,7 +262,7 @@ function statusNote(r: DrawRow, nowAbs: number): string {
   if (r.status === "報告済み") return r.report ? `${r.report.reported.time} ${r.report.by}${versionOf(r.report) > 1 ? `（訂正 第${versionOf(r.report)}版）` : ""}` : "前の記録";
   if (r.status === "再採血" && r.rejection) return `${rejectText(r.rejection)} ${r.rejection.time} ${r.rejection.by} → 新しいラベル ${redrawCode(r.rejection)}`;
   if (r.status === "受付済み") return `${r.reception!.time} ${r.reception!.by}${r.reception!.collected ? "" : "（採取の記録なし）"}`;
-  if (r.status === "採取済み") return r.collectedAt === "前の勤務" ? "前の勤務" : `${r.collectedAt ?? ""} ${r.collectedBy ?? ""}`.trim();
+  if (r.status === "採取済み") return r.collectedAt === "前の勤務" ? (r.place === "病棟" ? "前の勤務" : `${PLACE_NAME[r.place]}で採取`) : `${r.collectedAt ?? ""} ${r.collectedBy ?? ""}`.trim();
   if (r.status === "採取しなかった") return r.notDoneReason ?? "";
   return r.at <= nowAbs ? "時刻を過ぎた" : "予定";
 }
@@ -282,7 +284,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
               <PanicCard
                 key={i.key}
                 item={i}
-                who={w ? `${w.room} ${w.patient.name}さん` : i.patientId}
+                who={w ? `${placeOf(i.patientId) === "病棟" ? w.room : PLACE_NAME[placeOf(i.patientId)]} ${w.patient.name}さん` : i.patientId}
                 name={w?.patient.name ?? i.patientId}
                 when={when(i)}
                 script={w ? callScript(i, w.patient, w.room) : []}
@@ -290,7 +292,8 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
                 ack={acks[i.key]}
                 tries={desk.tries[i.key] ?? []}
                 nowTime={nowTime}
-                attending={attending}
+                // A visit's sample: the doctor of that visit ordered it.
+                attending={w && placeOf(i.patientId) !== "病棟" ? w.patient.attending : attending}
                 onCall={(c) => {
                   onCall(c);
                   onReported();
@@ -320,7 +323,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
                 <tr key={i.key} className="border-b border-rule-soft align-top">
                   <td className="nums py-1 pr-2">{when(i)}</td>
                   <td className="py-1 pr-2">
-                    <span className="nums text-ink-faint">{w?.room}</span> {w?.patient.name}
+                    <PlaceMark place={placeOf(i.patientId)} room={w?.room ?? ""} /> {w?.patient.name}
                   </td>
                   <td className="py-1 pr-2">{i.title}</td>
                   <td className={`py-1 ${i.panic.length ? "font-bold text-shu" : ""}`}>
