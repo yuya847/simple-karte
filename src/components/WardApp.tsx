@@ -32,6 +32,8 @@ import { IncidentView } from "./IncidentView";
 import { INITIAL_NOTICES, INITIAL_READS, markRead, unreadCount, type Notice, type Reads } from "@/lib/board";
 import { INITIAL_INCIDENTS, applyStatus, emptyDraft, type IncidentDraft, type IncidentReport } from "@/lib/incident";
 import { StandingPanel } from "./panels/StandingPanel";
+import { RestraintPanel } from "./panels/RestraintPanel";
+import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
@@ -298,6 +300,8 @@ export default function WardApp() {
   const [manualOpen, setManualOpen] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
   const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
+  // 身体的拘束 records (start, reviews each shift, end).
+  const [restraints, setRestraints] = useState<Restraint[]>(INITIAL_RESTRAINTS);
   // 指示簿 per patient, every version kept (the last one is in force).
   const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(initialStanding);
 
@@ -825,6 +829,8 @@ export default function WardApp() {
       const pid = x.patient.id;
       const out: Flag[] = callsMet[pid].length ? [{ label: "医師を呼ぶ基準", tone: "shu", title: `指示簿の基準に当たる：${callsMet[pid].join("、")}` }] : [];
       if (standingNow(pid) && !standingNow(pid)!.taken) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
+      const rs = activeOf(restraints, pid);
+      if (rs) out.push({ label: `身体的拘束中 ${durationText(minutesOf(rs, abs(0, nowTime)))}`, tone: "shu", title: `${rs.devices.join("・")}　${reviewDue(rs, abs(0, nowTime))?.text ?? ""}` });
       return [pid, out];
     }),
   );
@@ -835,6 +841,9 @@ export default function WardApp() {
   for (const x of people) {
     const pid = x.patient.id;
     if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
+    const rsNow = activeOf(restraints, pid);
+    const due = rsNow ? reviewDue(rsNow, abs(0, nowTime)) : null;
+    if (due?.late && (role === "看護師" || role === "医師")) todos.push({ key: `restraint-${pid}`, label: `身体的拘束の見直し：${x.patient.name}さん`, detail: due.text, count: 1, tone: "shu", go: () => (openPatient(pid), setPanel("restraint")) });
     if (role === "看護師" && standingNow(pid) && !standingNow(pid)!.taken) todos.push({ key: `standing-${pid}`, label: `指示簿の指示受けがまだ：${x.patient.name}さん`, count: 1, tone: "yamabuki", go: () => openStanding(pid) });
   }
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
@@ -1681,6 +1690,26 @@ export default function WardApp() {
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "restraint" && (
+                <Drawer title="身体的拘束" onClose={closePanel} wide>
+                  <RestraintPanel
+                    records={restraints.filter((r) => r.patientId === patient.id)}
+                    nowAbs={abs(0, nowTime)}
+                    nowTime={nowTime}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    onStart={(d) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（身体的拘束の開始）", patient: patient.name, detail: `${d.devices.join("・")}　理由：${d.why}` });
+                      setRestraints((all) => [...all, { ...d, id: newId(), patientId: patient.id, start: { day: 0, time: nowTime }, reviews: [] }]);
+                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・身体的拘束を開始（${nowTime}）：${d.devices.join("・")}。理由：${d.why}。心身の状況：${d.state}\n` }));
+                    }}
+                    onReview={(id, decision, note) => {
+                      auditLog({ role: me.role, actor: me.name, action: decision === "やめる" ? "確定（身体的拘束の解除）" : "身体的拘束の見直し（続ける）", patient: patient.name, detail: note });
+                      setRestraints((all) => all.map((r) => (r.id !== id ? r : { ...r, reviews: [...r.reviews, { at: { day: 0, time: nowTime }, by: me.name, decision, note }], ...(decision === "やめる" ? { end: { at: { day: 0, time: nowTime }, by: me.name, note } } : {}) })));
+                      if (decision === "やめる") update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・身体的拘束を解除（${nowTime}）：${note}\n` }));
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "standing" && (
