@@ -6,6 +6,7 @@ import { TabChoice } from "../TabChoice";
 import { newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
 import type { InjectionRoute, InjectionSchedule } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
+import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
@@ -77,8 +78,8 @@ const routeOf = (rp: InjRp): InjectionRoute | null => ROUTE_TABS.find((t) => t.k
 function RpDrugSearch({ options, onPick, placeholder, prefix = false }: { options: { code: string; name: string; sub: string; aliases: string[] }[]; onPick: (code: string) => void; placeholder: string; prefix?: boolean }) {
   const [q, setQ] = useState("");
   const [at, setAt] = useState(0);
-  const norm = (x: string) => x.normalize("NFKC").toLowerCase();
-  const hits = q.trim() ? options.filter((d) => [d.name, ...d.aliases].some((a) => (prefix ? norm(a).startsWith(norm(q)) : norm(a).includes(norm(q))))).slice(0, 8) : [];
+  // ひらがなでもカタカナでも、全角・半角でも引ける（「かろな」→ カロナール）.
+  const hits = q.trim() ? options.filter((d) => [d.name, ...d.aliases].some((a) => kanaMatch(a, q, prefix))).slice(0, 8) : [];
   const pick = (code: string) => {
     onPick(code);
     setQ("");
@@ -290,7 +291,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts }: { onAdd: (d: Draft[]
                 })}
               </tbody>
             </table>
-            <RpDrugSearch options={options} onPick={(c) => upd(i, { rows: [...rp.rows, rowFor(c)] })} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称）` : `Rp${first + i} に薬を入れる（名前・略称）`} />
+            <RpDrugSearch options={options} onPick={(c) => upd(i, { rows: [...rp.rows, rowFor(c)] })} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称・ひらがな可）` : `Rp${first + i} に薬を入れる（名前・略称・ひらがな可）`} />
             {rp.rows.length > 0 && !isFluidRp(rp) && open.some((t) => t.route === "点滴静注") && !rp.rows.some((r) => masterOf(r.drugCode)?.kind === "輸液") && (
               <select value="" onChange={(e) => e.target.value && upd(i, { rows: [...rp.rows, { ...rowFor(e.target.value), amount: "1", unit: "本" }] })} className={`${field} text-[12px]`} aria-label="溶媒">
                 <option value="">＋ 溶媒（輸液）を選ぶ</option>
@@ -644,7 +645,7 @@ export function AddRxPanel({ onAdd, newId, drafts = [] }: { onAdd: (d: Draft[]) 
                 })}
               </tbody>
             </table>
-            <RpDrugSearch options={options} prefix={prefix} onPick={(c) => upd(i, { rows: [...rp.rows, { drugCode: c, per: "1" }] })} placeholder={rp.rows.length ? `${label} に同じ飲み方の薬を足す（名前・略称）` : `${label} に薬を入れる（名前・略称）`} />
+            <RpDrugSearch options={options} prefix={prefix} onPick={(c) => upd(i, { rows: [...rp.rows, { drugCode: c, per: "1" }] })} placeholder={rp.rows.length ? `${label} に同じ飲み方の薬を足す（名前・略称・ひらがな可）` : `${label} に薬を入れる（名前・略称・ひらがな可）`} />
             {rp.rows.length > 0 && (
               <div className="space-y-1 text-[12px]">
                 <div className="flex flex-wrap items-center gap-1.5">

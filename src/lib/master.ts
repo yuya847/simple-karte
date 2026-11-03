@@ -32,7 +32,7 @@ export const DRUGS: DrugMaster[] = [
     volumeMl: 500,
     units: ["mL", "本", "袋"],
     routes: ["点滴静注"],
-    aliases: ["生食", "生理食塩水", "NS", "生食500"],
+    aliases: ["生食", "生理食塩水", "NS", "生食500", "セイショク", "セイリショクエンスイ"],
   },
   {
     code: "INJ-NS100",
@@ -42,7 +42,7 @@ export const DRUGS: DrugMaster[] = [
     volumeMl: 100,
     units: ["mL", "本", "袋"],
     routes: ["点滴静注"],
-    aliases: ["生食100", "生食 100"],
+    aliases: ["生食100", "生食 100", "セイショク100"],
   },
   {
     code: "INJ-VEENF500",
@@ -62,7 +62,7 @@ export const DRUGS: DrugMaster[] = [
     volumeMl: 500,
     units: ["mL", "本", "袋"],
     routes: ["点滴静注"],
-    aliases: ["ソルデム3A", "ソルデム", "3A", "維持液"],
+    aliases: ["ソルデム3A", "ソルデム", "3A", "維持液", "イジエキ"],
   },
   {
     code: "INJ-GLU5-500",
@@ -72,7 +72,7 @@ export const DRUGS: DrugMaster[] = [
     volumeMl: 500,
     units: ["mL", "本", "袋"],
     routes: ["点滴静注"],
-    aliases: ["5%ブドウ糖", "5%TZ", "5%糖"],
+    aliases: ["5%ブドウ糖", "5%TZ", "5%糖", "ブドウトウ"],
   },
   {
     code: "INJ-VCM05",
@@ -143,7 +143,7 @@ export const DRUGS: DrugMaster[] = [
     units: ["mEq", "mL", "キット"],
     // Never given as it is: always mixed into a fluid and dripped (checked in code).
     routes: ["点滴静注"],
-    aliases: ["KCL", "KCl", "塩化カリウム", "カリウム"],
+    aliases: ["KCL", "KCl", "塩化カリウム", "カリウム", "エンカカリウム"],
   },
   {
     code: "INJ-VITAMEDIN",
@@ -162,7 +162,7 @@ export const DRUGS: DrugMaster[] = [
     volumeMl: 10,
     units: ["本", "mL"],
     routes: ["静注"],
-    aliases: ["生食シリンジ", "生食ロック", "生食フラッシュ"],
+    aliases: ["生食シリンジ", "生食ロック", "生食フラッシュ", "セイショクシリンジ"],
     lock: true,
   },
   {
@@ -210,7 +210,7 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   { code: "ORAL-BISO25", name: "ビソプロロールフマル酸塩錠", strength: "2.5mg", unit: "錠", aliases: ["ビソプロロール", "メインテート"] },
   { code: "ORAL-SPL25", name: "スピロノラクトン錠", strength: "25mg", unit: "錠", aliases: ["スピロノラクトン", "アルダクトン"] },
   { code: "ORAL-ROSU25", name: "ロスバスタチン錠", strength: "2.5mg", unit: "錠", aliases: ["ロスバスタチン", "クレストール"] },
-  { code: "ORAL-MGO330", name: "酸化マグネシウム錠", strength: "330mg", unit: "錠", aliases: ["酸化マグネシウム", "マグミット", "カマ"] },
+  { code: "ORAL-MGO330", name: "酸化マグネシウム錠", strength: "330mg", unit: "錠", aliases: ["酸化マグネシウム", "マグミット", "カマ", "サンカマグネシウム"] },
   { code: "ORAL-FRS20", name: "フロセミド錠", strength: "20mg", unit: "錠", aliases: ["フロセミド", "ラシックス"] },
   { code: "ORAL-LOX60", name: "ロキソプロフェンNa錠", strength: "60mg", unit: "錠", aliases: ["ロキソプロフェン", "ロキソニン", "ロキソ"], mg: 60, classes: ["NSAIDs", "解熱鎮痛薬"], maxDailyMg: { mg: 180, source: "添付文書（1日最大180mg）" } },
   { code: "ORAL-REBA100", name: "レバミピド錠", strength: "100mg", unit: "錠", aliases: ["レバミピド", "ムコスタ"] },
