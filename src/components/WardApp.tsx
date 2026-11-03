@@ -545,6 +545,8 @@ export default function WardApp() {
       calls: [calls, setCalls],
       labDesk: [labDesk, setLabDesk],
       iji: [iji, setIji],
+      oralRx: [oralRx, setOralRx],
+      rosterBook: [rosterBook, setRosterBook],
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
   );
