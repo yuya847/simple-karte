@@ -71,6 +71,7 @@ import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { RoleProvider } from "./RoleContext";
 import { STAFF, TABS, denyReason, home, type Role } from "@/lib/roles";
 import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
+import { insertIntoO } from "@/lib/vitals-text";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
@@ -809,6 +810,7 @@ export default function WardApp() {
               onView={(v) => update({ leftView: v })}
               onStopDraft={addStopDraft}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
+              onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
               onReviseNote={(e, text, reason) => {
                 const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
                 setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));

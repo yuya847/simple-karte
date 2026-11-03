@@ -35,11 +35,13 @@ interface Props {
   draftedStops: string[];
   /** Correct a confirmed note (a new version; the earlier ones are kept). */
   onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
+  /** Put vital-sign lines copied from the flow sheet into O) of today's note. */
+  onInsertVitals?: (text: string) => void;
 }
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
@@ -67,7 +69,7 @@ export function HistoryPane(props: Props) {
         )}
       </div>
       {view === "flowsheet" ? (
-        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} />
+        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} />
       ) : view === "injection-cal" ? (
         <InjectionCalendar {...calendarProps} />
       ) : view === "rx-cal" ? (

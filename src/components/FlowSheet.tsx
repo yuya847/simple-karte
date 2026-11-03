@@ -1,5 +1,8 @@
 "use client";
 
+import { Copy, ClipboardPaste } from "lucide-react";
+import { TabChoice } from "./TabChoice";
+import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
 import { useEffect, useRef, useState } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { abs, doseTimes, fluidByDay, orderInterval } from "@/lib/flowsheet";
@@ -26,6 +29,8 @@ interface Props {
   nowTime: string;
   selectedDay: DayOffset | null;
   onSelectDay: (d: DayOffset) => void;
+  /** Put copied vital-sign lines into the O) of today's note. */
+  onInsertVitals?: (text: string) => void;
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -50,8 +55,10 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay }: Props) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals }: Props) {
   const [wrap, width] = useWidth<HTMLDivElement>();
+  const [range, setRange] = useState<VitalRange>("latest");
+  const [copied, setCopied] = useState<string | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [showTable, setShowTable] = useState(false);
 
@@ -105,6 +112,19 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
           {showTable ? "グラフで見る" : "表で見る"}
         </button>
       </div>
+      <VitalCopy
+        vitals={vitalsIn(vitals, range, nowAbs, selectedDay)}
+        today={today}
+        range={range}
+        onRange={(r) => {
+          setRange(r);
+          setCopied(null);
+        }}
+        dayLabel={selectedDay === null ? null : formatShort(addDays(today, selectedDay))}
+        copied={copied}
+        onCopied={setCopied}
+        onInsert={onInsertVitals}
+      />
 
       {showTable ? (
         <VitalTable vitals={vitals} today={today} />
@@ -481,4 +501,79 @@ function VitalTable({ vitals, today }: { vitals: VitalSign[]; today: CalendarDat
       </tbody>
     </table>
   );
+}
+
+/** Copy the vital signs of a range as text (to paste anywhere), or put them straight into O) of the note. */
+function VitalCopy({ vitals, today, range, onRange, dayLabel, copied, onCopied, onInsert }: { vitals: VitalSign[]; today: CalendarDate; range: VitalRange; onRange: (r: VitalRange) => void; dayLabel: string | null; copied: string | null; onCopied: (m: string | null) => void; onInsert?: (text: string) => void }) {
+  const text = vitalsText(vitals, today);
+  const copy = () => {
+    const done = `${vitals.length}件をコピーしました。記事などに貼り付けられます`;
+    if (copyText(text)) return onCopied(done);
+    // Fall back to the Clipboard API; it may wait for permission, so do not wait forever.
+    const failed = () => onCopied("コピーできませんでした。下の文を選んでコピーしてください");
+    if (!navigator.clipboard) return failed();
+    const timer = setTimeout(failed, 1500);
+    navigator.clipboard.writeText(text).then(
+      () => {
+        clearTimeout(timer);
+        onCopied(done);
+      },
+      () => {
+        clearTimeout(timer);
+        failed();
+      },
+    );
+  };
+  return (
+    <div className="mb-2 rounded-md border border-rule bg-sheet px-2 py-1.5 text-[12px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <b className="text-ink-soft">バイタルをコピー</b>
+        <TabChoice label="コピーする範囲" options={VITAL_RANGES.map((r) => ({ ...r, label: r.value === "day" ? `選んだ日${dayLabel ? `（${dayLabel}）` : ""}` : r.label, disabled: r.value === "day" && !dayLabel, title: r.value === "day" && !dayLabel ? "上の日付を押して日を選ぶ" : undefined }))} value={range} onChange={onRange} />
+        <button type="button" disabled={!vitals.length} onClick={copy} className="flex items-center gap-1 rounded border border-ai px-2 py-0.5 text-ai hover:bg-ai hover:text-white disabled:opacity-40">
+          <Copy size={12} />
+          コピー
+        </button>
+        {onInsert && (
+          <button
+            type="button"
+            disabled={!vitals.length}
+            onClick={() => {
+              onInsert(text);
+              onCopied(`${vitals.length}件を記事の O) に入れました`);
+            }}
+            className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-ink-soft hover:text-ink disabled:opacity-40"
+          >
+            <ClipboardPaste size={12} />
+            記事の O) に入れる
+          </button>
+        )}
+        {copied && <span className="text-wakatake">{copied}</span>}
+      </div>
+      {vitals.length > 0 ? <pre className="nums mt-1 whitespace-pre-wrap font-sans text-[11px] text-ink-soft">{text}</pre> : <p className="mt-1 text-[11px] text-ink-faint">この範囲の測定はありません。</p>}
+    </div>
+  );
+}
+
+/**
+ * Copy through a hidden text box, inside the click itself. This works in every browser here,
+ * including Safari on iPad, and never waits for a permission prompt.
+ */
+function copyText(text: string): boolean {
+  const back = document.activeElement as HTMLElement | null;
+  const t = document.createElement("textarea");
+  t.value = text;
+  t.setAttribute("readonly", "");
+  Object.assign(t.style, { position: "fixed", top: "0", left: "-9999px", fontSize: "16px" });
+  document.body.appendChild(t);
+  t.select();
+  t.setSelectionRange(0, text.length);
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  t.remove();
+  back?.focus();
+  return ok;
 }
