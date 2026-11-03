@@ -20,6 +20,15 @@ describe("roles", () => {
     for (const r of ROLES) expect(TABS[r]).toContain(home(r));
   });
 
+  it("only the laboratory takes in samples, enters results and phones panic values", () => {
+    for (const a of ["lab.receive", "lab.result", "panic.call"] as const) {
+      expect(can("臨床検査技師", a)).toBe(true);
+      expect(can("医師", a)).toBe(false);
+      expect(can("看護師", a)).toBe(false);
+    }
+    expect(denyReason("看護師", "lab.result")).toBe("検査結果の入力と確定は臨床検査技師が行います（いまは看護師で入っています）。");
+  });
+
   it("医事課 does not write clinical notes", () => {
     expect(can("医事課", "note")).toBe(false);
     expect(can("MSW", "note")).toBe(true);

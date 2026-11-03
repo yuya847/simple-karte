@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DESK, checkEntry, confirmReport, containersOf, deskLabs, deskWindow, drawRows, entryPlan, flagOf, normalizeCode, parseValue, rangeText, receive, scanSpecimen, statusCounts, testCodes, toEnter, whenText } from "./lab-desk";
+import { EMPTY_DESK, addTry, checkEntry, confirmReport, containersOf, deskLabs, deskWindow, drawRows, entryPlan, flagOf, normalizeCode, parseValue, rangeText, receive, scanSpecimen, statusCounts, testCodes, toEnter, whenText } from "./lab-desk";
 import { ANALYTES } from "./master";
 import { PANIC_LIMITS, labKey, resultsOf, uncalled } from "./results";
 import { labelFor, marKey, type AdminRecord } from "./mar";
@@ -210,5 +210,14 @@ describe("結果の入力", () => {
     expect(waiting).toHaveLength(1);
     expect(waiting[0]).toMatchObject({ day: 1, time: "06:00" });
     expect(waiting[0].panic.map((h) => h.code)).toEqual(["K"]);
+  });
+});
+
+describe("パニック値の連絡：つながらなかった回", () => {
+  it("each try is kept, oldest first, per result", () => {
+    const t = (time: string) => ({ at: { day: 0, time }, by: "検査技師 中村", to: "主治医", means: "電話" as const, result: "つながらない（不在・話し中）" as const });
+    const d = addTry(addTry(EMPTY_DESK, "k1", t("10:00")), "k1", t("10:05"));
+    expect(d.tries.k1.map((x) => x.at.time)).toEqual(["10:00", "10:05"]);
+    expect(EMPTY_DESK.tries).toEqual({});
   });
 });

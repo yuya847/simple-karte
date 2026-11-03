@@ -304,3 +304,8 @@ export function deskLabs(desk: LabDesk, patientId: string): LabResult[] {
     .sort((a, b) => a.at - b.at)
     .map((r) => ({ day: Math.floor(r.at / 1440), time: hhmm(r.at), values: r.values, id: r.code, reportedBy: r.by, reportedAt: r.reported }));
 }
+
+/** A try that did not reach anyone (不在・話し中・伝言), kept until the value is reported. */
+export function addTry(desk: LabDesk, key: string, t: ContactAttempt): LabDesk {
+  return { ...desk, tries: { ...desk.tries, [key]: [...(desk.tries[key] ?? []), t] } };
+}

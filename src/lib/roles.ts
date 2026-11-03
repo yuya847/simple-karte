@@ -66,6 +66,8 @@ export type Action =
   | "note"
   | "result.ack"
   | "panic.call"
+  | "lab.receive"
+  | "lab.result"
   | "handoff"
   | "plan"
   | "assess.nursing"
@@ -94,6 +96,8 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   note: { label: "記事の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW"] },
   "result.ack": { label: "結果の確認", who: ["医師"] },
   "panic.call": { label: "パニック値の連絡", who: ["臨床検査技師"] },
+  "lab.receive": { label: "検体の受付", who: ["臨床検査技師"] },
+  "lab.result": { label: "検査結果の入力と確定", who: ["臨床検査技師"] },
   handoff: { label: "申し送り", who: ["看護師", "医師"] },
   plan: { label: "入院診療計画書の確定", who: ["医師"] },
   "assess.nursing": { label: "看護の評価（褥瘡・転倒転落・せん妄）", who: ["看護師"] },

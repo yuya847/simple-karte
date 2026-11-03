@@ -155,10 +155,13 @@ export function unseen(items: ResultItem[], acks: Record<string, Ack>): ResultIt
   return items.filter((i) => i.day >= 0 && !acks[i.key]);
 }
 
-/** Panic values found but not phoned in yet. */
+/** Panic values found but not phoned in yet, whatever their day (one left over stays until reported). */
 export function uncalled(items: ResultItem[], calls: Record<string, PanicCall>): ResultItem[] {
   return items.filter((i) => i.panic.length > 0 && !calls[i.key]);
 }
+
+/** What the laboratory lists: results from today on, and any panic value not reported yet. */
+export const labBoard = (items: ResultItem[], calls: Record<string, PanicCall>) => items.filter((i) => i.day >= 0 || (i.panic.length > 0 && !calls[i.key]));
 
 const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
@@ -212,14 +215,63 @@ export const PANIC_LIMITS: PanicLimit[] = [
 export const PANIC_SOURCE =
   "日本臨床検査医学会「臨床検査『パニック値』運用に関する提言書（2024年改定版）」別表の例を、架空の病院の値として使っています（閾値は医療機関ごとに決めるもの）。グルコースの高値は入院の値、クレアチニンは急性腎不全の例、PT-INR はワルファリン治療中でないときの例、乳酸は 5.0 mmol/L を mg/dL に換算。境界の値を含めて判定します。連絡の手順は医療事故調査・支援センター「医療事故の再発防止に向けた提言 第20号」（2024年12月）：オーダーした医師に電話か対面で直接伝え、最後に復唱してもらい、検査室は報告の記録を、医師は対応の記録を残します。";
 
+const dayWord = (d: DayOffset) => (d === 0 ? "今日" : d === 1 ? "明日" : d === -1 ? "昨日" : d > 0 ? `${d}日後` : `${-d}日前`);
+
 /** What to say on the phone, in the order of 提言第20号 図2 (put together by code). */
 export function callScript(item: ResultItem, p: { name: string; id: string }, room: string): string[] {
   return [
     "「パニック値の報告です」",
     `① 入院（5階東 ${room}）`,
     `② ${p.name}さん（ID ${p.id}）`,
-    `③ ${item.kind === "培養" ? "報告" : "採取"} ${item.day === 0 ? "今日" : `${item.day}日`} ${item.time || "—"}`,
+    `③ ${item.kind === "培養" ? "報告" : "採取"} ${dayWord(item.day)} ${item.time || "—"}`,
     `④ ${item.panic.map(hitLine).join("、")}`,
     "「復唱をお願いします」",
   ];
+}
+
+// ---------------------------------------------------------------------------
+// The call itself: tries that did not reach anyone, then the report (read back, or why not).
+// ---------------------------------------------------------------------------
+
+/**
+ * The fictional hospital's rule when the ordering doctor cannot be reached. 提言第20号 asks for the
+ * report to go straight to the doctor who ordered the test, so a message left with someone is not a
+ * report and the laboratory keeps trying.
+ */
+export const PANIC_REACH_RULE = {
+  /** Tries that did not reach the ordering doctor before going to another doctor. */
+  triesBeforeOthers: 2,
+  text: "この架空の病院の取り決め：オーダーした医師につながらなければかけ直します。2回つながらなければ同じ科の医師へ、それでもつながらなければ管理当直へ連絡します。伝言は報告に数えません（直接伝えてから「報告した」）。",
+} as const;
+
+/** Who the laboratory may phone, in the order of the rule. */
+export const reachList = (attending: string) => [`主治医 ${attending}（オーダーした医師）`, "同じ科の医師", "管理当直"];
+
+/** Tries that did not reach anyone, and whether the rule says to go on to another doctor. */
+export function reachState(tries: ContactAttempt[]): { failed: number; goOthers: boolean } {
+  const failed = tries.filter((t) => t.result !== "伝えた").length;
+  return { failed, goOthers: failed >= PANIC_REACH_RULE.triesBeforeOthers };
+}
+
+/** 報告した needs a person on the line, and the value read back — or a written reason why it was not. */
+export function canReport(to: string, readBack: boolean, noReadBack: string): boolean {
+  return !!to.trim() && (readBack || !!noReadBack.trim());
+}
+
+/** The report, with every try before it (oldest first; the last one is the report). */
+export function reportCall(
+  item: Pick<ResultItem, "key" | "patientId" | "panic">,
+  tries: ContactAttempt[],
+  r: { by: string; to: string; means: PanicCall["means"]; readBack: boolean; noReadBack?: string; at: { day: DayOffset; time: string } },
+): PanicCall {
+  const to = r.to.trim();
+  const last: ContactAttempt = { at: r.at, by: r.by, to, means: r.means, result: "伝えた" };
+  const reason = r.readBack ? undefined : r.noReadBack?.trim() || undefined;
+  return { key: item.key, patientId: item.patientId, hits: item.panic, by: r.by, to, means: r.means, readBack: r.readBack, at: r.at, ...(reason ? { noReadBack: reason } : {}), attempts: [...tries, last] };
+}
+
+/** One line for the audit log and the doctor's inbox. */
+export function callLine(c: PanicCall): string {
+  const n = c.attempts?.length ?? 1;
+  return `${c.at.time} ${c.by} → ${c.to}（${c.means}・${c.readBack ? "復唱あり" : `復唱なし：${c.noReadBack ?? "理由の記録なし"}`}${n > 1 ? `・${n}回目の連絡で報告` : ""}）`;
 }
