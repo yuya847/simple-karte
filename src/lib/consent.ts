@@ -21,8 +21,11 @@ export interface ConsentTemplate {
   short: string;
   version: string;
   sections: ConsentSection[];
-  /** 問診 (yes/no) asked before the procedure. */
+  /** 問診 or risk check (yes/no) before the procedure. */
   questions?: { id: string; label: string }[];
+  questionsTitle?: string;
+  /** Shown when any answer is はい. */
+  yesNote?: string;
   sources: { label: string; url: string }[];
 }
 

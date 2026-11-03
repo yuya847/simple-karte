@@ -22,6 +22,17 @@ describe("同意書が要るオーダー", () => {
     expect(isReady(checkDraft(ready, ctx()))).toBe(true);
     expect(toOrder(ready, ctx()).consents).toEqual(["CONSENT-CVC"]);
   });
+  it("numbers come with a source (造影CT・中心静脈カテーテル)", () => {
+    for (const code of ["CONSENT-CT-CONTRAST", "CONSENT-CVC"]) {
+      const t = CONSENT_TEMPLATES.find((x) => x.code === code)!;
+      const facts = t.sections.flatMap((s) => s.facts ?? []);
+      expect(facts.length, code).toBeGreaterThan(2);
+      // every source named in a fact is listed in the form's sources
+      for (const f of facts) expect(t.sources.some((s) => f.source.startsWith(s.label)), `${code}: ${f.source}`).toBe(true);
+      // numbers only inside facts, not in the explanation lines
+      for (const s of t.sections) for (const l of s.lines) expect(/\d+(\.\d+)?\s*%/.test(l), `${code}: ${l}`).toBe(false);
+    }
+  });
   it("every template has the parts a form needs", () => {
     for (const t of CONSENT_TEMPLATES) {
       expect(t.sections.some((s) => s.heading.includes("同意しない場合")), t.code).toBe(true);

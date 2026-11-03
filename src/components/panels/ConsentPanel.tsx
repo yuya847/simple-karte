@@ -105,7 +105,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate }: { r: C
       </div>
       {t.questions && (
         <div>
-          <h4 className="text-xs font-bold text-ink-soft">問診（患者に聞いて入れる）</h4>
+          <h4 className="text-xs font-bold text-ink-soft">{t.questionsTitle ?? "問診（患者に聞いて入れる）"}</h4>
           <ul className="mt-1 space-y-0.5">
             {t.questions.map((q) => (
               <li key={q.id} className="flex flex-wrap items-center gap-1.5">
@@ -123,7 +123,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate }: { r: C
               </li>
             ))}
           </ul>
-          {Object.values(r.answers).includes("はい") && <p className="mt-1 text-[12px] font-bold text-shu">「はい」の項目があります。担当医が確かめてから進めてください。</p>}
+          {Object.values(r.answers).includes("はい") && <p className="mt-1 text-[12px] font-bold text-shu">{t.yesNote ?? "「はい」の項目があります。担当医が確かめてから進めてください。"}</p>}
         </div>
       )}
       <label className="block text-xs text-ink-soft">
@@ -219,7 +219,7 @@ function Document({ r, patient, room, today, orders, print }: { r: ConsentRecord
       ))}
       {t.questions && (
         <section className="mb-2 break-inside-avoid">
-          <h3 className="font-bold">■ 問診</h3>
+          <h3 className="font-bold">■ {t.questionsTitle?.replace(/（.*$/, "") ?? "問診"}</h3>
           <table className="ml-3 text-[12px]">
             <tbody>
               {t.questions.map((q) => (
