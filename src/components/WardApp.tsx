@@ -53,6 +53,9 @@ import { SetPanel } from "./panels/SetPanel";
 import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
+import { DischargeDialog } from "./DischargeDialog";
+import { dischargeChecklist } from "@/lib/discharge-check";
+import { bagsOf } from "@/lib/discharge-rx";
 import { GuideRecordPanel, type GuidanceInput } from "./panels/GuideRecordPanel";
 import { guidanceNoteText, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord } from "@/lib/guidance";
 import { labelItems } from "@/lib/labels";
@@ -314,6 +317,9 @@ export default function WardApp() {
   const [booking, setBooking] = useState<{ day: number; what: "move" | "dept" } | null>(null);
   const [leavePreset, setLeavePreset] = useState<number | null>(null);
   const [movesDone, setMovesDone] = useState<Record<string, string>>({});
+  // 退院を実施した時, and the 退院 being confirmed (the checklist dialog).
+  const [discharged, setDischarged] = useState<Record<string, { day: number; time: string; by: string }>>({});
+  const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
   // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
@@ -428,12 +434,13 @@ export default function WardApp() {
           department: deptChanges[p.id]?.dept ?? p.department,
           attending: deptChanges[p.id]?.doctor ?? p.attending,
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
+          ...(discharged[p.id] ? { dischargedAt: discharged[p.id] } : {}),
           ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
@@ -935,7 +942,7 @@ export default function WardApp() {
         const o = e.order;
         if (o.type !== "procedure") return [];
         if (o.move) return [{ day: o.start.day, time: o.start.time ?? null, label: moveText(o.move), tone: "ai", entryId: e.id, done: !!movesDone[e.id] }];
-        if (o.leave) return [{ day: o.leave.from.day, time: o.leave.from.time, label: `${o.leave.kind}（${o.leave.destination}）`, tone: o.leave.kind === "退院" ? "wakatake" : "yamabuki" }, ...(o.leave.back ? [{ day: o.leave.back.day, time: o.leave.back.time, label: `${o.leave.kind}から帰院`, tone: "yamabuki" as const }] : [])];
+        if (o.leave) return [{ day: o.leave.from.day, time: o.leave.from.time, label: `${o.leave.kind}（${o.leave.destination}）`, tone: o.leave.kind === "退院" ? "wakatake" : "yamabuki", ...(o.leave.kind === "退院" ? { entryId: e.id, done: !!discharged[pid] } : {}) }, ...(o.leave.back ? [{ day: o.leave.back.day, time: o.leave.back.time, label: `${o.leave.kind}から帰院`, tone: "yamabuki" as const }] : [])];
         return [];
       }),
       ...moveLog.filter((m) => m.patientId === pid).map((m) => ({ day: 0, time: m.time, label: m.label, tone: "ai" as const, done: true })),
@@ -945,6 +952,8 @@ export default function WardApp() {
   const doMove = (entryId: string) => {
     const x = people.find((y) => y.entries.some((e) => e.id === entryId));
     const e = x?.entries.find((y) => y.id === entryId);
+    // 退院: show the checklist first.
+    if (x && e && e.order.type === "procedure" && e.order.leave?.kind === "退院") return setDischargeAsk(x.patient.id);
     if (!x || !e || e.order.type !== "procedure" || !e.order.move) return;
     const m = e.order.move;
     const pid = x.patient.id;
@@ -2347,6 +2356,34 @@ export default function WardApp() {
       >
         {content}
       </AppFrame>
+
+      {dischargeAsk &&
+        (() => {
+          const x = people.find((y) => y.patient.id === dischargeAsk);
+          if (!x) return null;
+          const pid = x.patient.id;
+          const items = dischargeChecklist({
+            entries: x.entries,
+            homeRx: { exists: bagsOf(x.entries).length > 0, handed: !!homeRx[pid]?.handed },
+            documents: documents.filter((d) => d.patientId === pid).map((d) => d.kind),
+            guidance: guidance.filter((g) => g.patientId === pid).map((g) => g.kind),
+            restrained: !!activeOf(restraints, pid),
+          });
+          return (
+            <DischargeDialog
+              name={x.patient.name}
+              items={items}
+              onClose={() => setDischargeAsk(null)}
+              onDo={() => {
+                const left = items.filter((i) => i.state === "todo").map((i) => i.label);
+                auditLog({ role: me.role, actor: me.name, action: "確定（退院の実施）", patient: x.patient.name, detail: left.length ? `済んでいないもの：${left.join("・")}` : "準備はすべて済み" });
+                setDischarged((all) => ({ ...all, [pid]: { day: 0, time: nowTime, by: me.name } }));
+                updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・退院を実施（${nowTime}）${left.length ? `。済んでいないもの：${left.join("・")}` : ""}\n` }));
+                setDischargeAsk(null);
+              }}
+            />
+          );
+        })()}
 
       {moving && findPatient(moving.patientId) && (
         <BedMoveDialog

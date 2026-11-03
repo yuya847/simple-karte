@@ -102,6 +102,7 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         )}
         <Badge tone="shu" label="アレルギー" values={p.allergies.length ? p.allergies : ["なし"]} quiet={!p.allergies.length} />
         {p.infections.length > 0 && <Badge tone="fuji" label="感染症" values={p.infections} />}
+        {p.dischargedAt && <Badge tone="fuji" label="退院済み" values={[`${p.dischargedAt.day === 0 ? "" : `${p.dischargedAt.day}日 `}${p.dischargedAt.time}`]} />}
         {p.pregnancy ? (
           <button type="button" onClick={() => onPregnancy?.(null)} title="押すと妊娠中の印を外します">
             <Badge tone="shu" label="妊娠中" values={[p.pregnancy.weeks ? `${p.pregnancy.weeks}週` : "週数不明"]} />

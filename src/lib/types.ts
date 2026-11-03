@@ -35,6 +35,8 @@ export interface Patient {
   allergies: string[];
   /** 妊娠中 (marked by a doctor or nurse; weeks if known). Filled in by the app. */
   pregnancy?: { weeks: number | null } | null;
+  /** 退院を実施した時 (filled in by the app). */
+  dischargedAt?: { day: DayOffset; time: string; by: string };
   /** 血液型 (ABO・RhD), how many separate samples confirmed it, and the irregular antibody screen. */
   blood?: { abo: "A" | "B" | "O" | "AB"; rh: "+" | "-"; checks: number; antibody?: "陰性" | "陽性" };
   infections: string[];
