@@ -21,6 +21,7 @@ import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Pa
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
 import { PAST_RX, patternsOf, previousOf, type RxPattern } from "@/lib/rx-memory";
+import { PAST_INJ, injPatternsOf, injPreviousOf } from "@/lib/inj-memory";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
@@ -1597,6 +1598,10 @@ export default function WardApp() {
                               newId={newId}
                               drafts={chart.drafts}
                               seed={chart.injSeed}
+                              memory={{
+                                patterns: injPatternsOf([...PAST_INJ, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
+                                previous: injPreviousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
+                              }}
                               onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                             />
                           </fieldset>

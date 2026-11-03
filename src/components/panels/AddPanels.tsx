@@ -10,6 +10,8 @@ import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
+import { matchInj, type InjPattern } from "@/lib/inj-memory";
+import { scheduleLabel } from "@/lib/format";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
 import { CONSULT_DEPTS, REHAB_FIELDS, consultText } from "@/lib/procedures";
 import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_DO, TX_PRODUCTS, TX_USE, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
@@ -177,8 +179,16 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  * drug, drugs mixed in, and the fluid), then the route, frequency, drip time and start. Each Rp
  * becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
  */
-export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: { key: string; order: InjectionOrder } }) {
+export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: { key: string; order: InjectionOrder }; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
   const [rps, setRps] = useState<InjRp[]>([newInjRp(), newInjRp()]);
+  // 注射の記憶 / Do: the order copied into the first empty Rp.
+  const putOrder = (o: InjectionOrder) =>
+    setRps((r) => {
+      const rp = rpFromOrder(o);
+      const i = r.findIndex((x) => x.rows.length === 0);
+      const out = i < 0 ? [...r, rp] : r.map((x, j) => (j === i ? rp : x));
+      return out.some((x) => x.rows.length === 0) ? out : [...out, newInjRp()];
+    });
   // 修正 from the calendar: the order is copied into the first empty Rp, to be changed and drafted again.
   const [seeded, setSeeded] = useState<string | null>(null);
   if (seed && seed.key !== seeded) {
@@ -272,6 +282,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: D
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
+      {memory && <InjMemory memory={memory} onPut={putOrder} />}
       <p className="text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ。選び終えたら「決める」（コメントの欄で Enter）で1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。量を空にして Backspace でその薬を外します。</p>
 
       {rps.map((rp, i) => {
@@ -1519,5 +1530,57 @@ export function AddConsultPanel({ onAdd, newId, consults, replies, onReply }: { 
         {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}
       </section>
     </div>
+  );
+}
+
+const injLine = (o: InjectionOrder) =>
+  `${o.items.map((i) => `${masterOf(i.drugCode)?.name ?? i.drugCode} ${i.amount}${i.unit}`).join(" ＋ ")}　${o.route}　${scheduleLabel(o.schedule, o.items[0]?.drugCode)}${o.minutesPerDose ? `　1回${minutesLabel(o.minutesPerDose)}` : ""}${o.rateMlPerH ? `　${o.rateMlPerH}mL/時` : ""}${o.days ? `　${o.days}日間` : ""}`;
+
+/** 注射の記憶: the doctor's injections (most used first) and this patient's previous ones (Do). */
+function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previous: InjPattern[] }; onPut: (o: InjectionOrder) => void }) {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"often" | "prev">("often");
+  const [q, setQ] = useState("");
+  const list = (tab === "often" ? memory.patterns : memory.previous).filter((p) => matchInj(p, q));
+  const ago = (d: number) => (d === 0 ? "今日" : `${-d}日前`);
+  return (
+    <section className="rounded-md border border-rule bg-paper p-2 text-[12px]">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left font-bold text-ink-soft">
+        注射の記憶
+        <span className="font-normal text-ink-faint">よく出す注射 {memory.patterns.length}・前回の注射 {memory.previous.length}</span>
+        <span className="ml-auto text-ai">{open ? "たたむ" : "開く"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <TabChoice
+              label="注射の記憶"
+              options={[
+                { value: "often", label: "よく出す注射" },
+                { value: "prev", label: "前回の注射（Do）" },
+              ]}
+              value={tab}
+              onChange={(v) => setTab(v as typeof tab)}
+            />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬で絞る（ひらがな可）" aria-label="注射の記憶を薬で絞る" className="flex-1 rounded border border-rule bg-sheet px-2 py-0.5" />
+          </div>
+          <ul className="scroll-thin max-h-52 space-y-1 overflow-y-auto">
+            {list.length === 0 && <li className="text-ink-faint">{tab === "prev" ? "この患者の前の注射はありません。" : "当てはまる注射はありません。"}</li>}
+            {list.map((p) => (
+              <li key={`${p.key}-${p.lastDay}`} className="flex items-start gap-2 rounded border border-rule-soft bg-sheet px-2 py-1">
+                <div className="nums min-w-0 flex-1">
+                  <div>{injLine(p.order)}</div>
+                  <div className="text-[11px] text-ink-faint">{tab === "often" ? `${p.count}回・${p.patients}人・最後は${ago(p.lastDay)}` : `${ago(p.lastDay)}のオーダ`}</div>
+                </div>
+                <button type="button" onClick={() => onPut(p.order)} className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white">
+                  写す
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-ink-faint">自分が過去に出した注射（架空のデータを含む）を、同じ薬・経路・回数・落とし方ごとにまとめています。抗がん薬は出しません（レジメンの欄から）。写したあと、開始と日数を確かめて下書きにします。</p>
+        </div>
+      )}
+    </section>
   );
 }
