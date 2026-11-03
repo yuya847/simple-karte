@@ -2,6 +2,8 @@
 
 import type { Draft } from "./drafts";
 import { drugName, durationText, oralName, scheduleLabel } from "./format";
+import { findOralDrug } from "./master";
+import { howText, perDoseOf } from "./rx";
 
 export type RpKind = "injection" | "prescription";
 
@@ -23,9 +25,14 @@ export function rpLine(d: Draft): string {
     return `${drugs}　${parts.join("　")}`;
   }
   if (d.kind === "prescription") {
-    const drugs = d.items.map((it) => `${it.drugCode ? oralName(it.drugCode) : it.said} ${d.prn ? `1回${it.perDose ?? "？"}` : `1日${it.daily ?? "？"}`}`).join("、");
-    const how = d.timings === null ? "用法？" : d.timings.length === 0 ? `頓用（${d.prn ?? "条件？"}）` : d.timings.join("・");
-    return `${drugs}　${how}${d.days ? `　${d.days}日分` : ""}${d.category ? `　${d.category}` : ""}`;
+    const times = d.timings === null ? 0 : d.timings.length;
+    const drugs = d.items
+      .map((it) => {
+        const per = perDoseOf(it, d.timings && d.timings.length === 0 ? 1 : times);
+        return `${it.drugCode ? oralName(it.drugCode) : it.said} 1回${per ?? "？"}${it.drugCode ? (findOralDrug(it.drugCode)?.unit ?? "") : ""}`;
+      })
+      .join("、");
+    return `${drugs}　${howText(d.timings, d.prn, d.maxPerDay)}${d.days ? `　${d.days}日分` : ""}${d.category ? `　${d.category}` : ""}`;
   }
   return "";
 }

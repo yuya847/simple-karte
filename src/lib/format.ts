@@ -1,5 +1,6 @@
 // Turn orders into the short lines shown in the chart.
 
+import { timingName } from "./rx";
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { findDrug, findLab, findOralDrug, findSet } from "./master";
 import { AREA_LABEL, DEPTH_LABEL, findProc, findProcDrug, procScheduleText } from "./procedures";
@@ -72,7 +73,7 @@ export function oralName(code: string): string {
 /** "1日2回 朝・夕" or "頓用 発熱時（38.5℃以上） 1日3回まで" */
 export function timingText(o: PrescriptionOrder): string {
   if (o.timings.length === 0) return `頓用 ${o.prn ?? ""}${o.maxPerDay ? ` 1日${o.maxPerDay}回まで` : ""}`.trim();
-  return `1日${o.timings.length}回 ${o.timings.join("・")}`;
+  return `1日${o.timings.length}回 ${timingName(o.timings)}`;
 }
 
 export function prescriptionLines(order: PrescriptionOrder, today: CalendarDate): { main: string; detail: string } {

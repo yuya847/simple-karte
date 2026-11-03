@@ -6,7 +6,7 @@ import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/
 import { anyDrugName, findLab } from "@/lib/master";
 import { AREA_LABEL, findProc, findProcDrug, procScheduleText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
-import { perDoseOf, usageLabel } from "@/lib/rx";
+import { perDoseOf, timingName } from "@/lib/rx";
 import { findPhysio, findRegion } from "@/lib/exams";
 
 interface Props {
@@ -207,10 +207,11 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
                   <td className="w-8 text-[11px] text-ink-faint">{i === 0 ? "Rp" : ""}</td>
                   <td className="font-bold">{m ? `${m.name} ${m.strength}` : <span className="text-shu">{it.said}（？）</span>}</td>
                   <td className="whitespace-nowrap text-right">
-                    {prn ? `1回${per ?? "？"}${m?.unit ?? ""}` : `1日${it.daily ?? (per !== null ? per * times : "？")}${m?.unit ?? ""}`}
-                    {!prn && per !== null && (
-                      <span className="block text-[11px] text-ai">
-                        1回{per}
+                    1回{per ?? "？"}
+                    {m?.unit ?? ""}
+                    {!prn && per !== null && times > 0 && (
+                      <span className="block text-[11px] text-ink-faint">
+                        1日{it.daily ?? Math.round(per * times * 100) / 100}
                         {m?.unit}
                       </span>
                     )}
@@ -221,7 +222,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
           </tbody>
         </table>
         <div className="mt-0.5 text-xs text-ink-soft">
-          {draft.timings === null ? "用法？" : prn ? `頓用 ${draft.prn ?? "条件？"}${draft.maxPerDay ? `（1日${draft.maxPerDay}回まで）` : ""}` : usageLabel(draft.timings)}
+          {draft.timings === null ? "用法？" : prn ? `頓用 ${draft.prn ?? "条件？"}${draft.maxPerDay ? `（1日${draft.maxPerDay}回まで）` : ""}` : `1日${draft.timings.length}回　${timingName(draft.timings)}`}
           {!prn && `　${draft.days ? `${draft.days}日分` : "日数？"}`}
           {!prn && `　${draft.category ?? "定期・臨時？"}`}
           {draft.acks.length > 0 && <span className="ml-2 rounded bg-yamabuki-soft px-1 text-yamabuki">{draft.acks.join("・")}</span>}

@@ -1,6 +1,6 @@
-// Oral prescriptions (処方) as an Rp: drugs that share one usage. Japanese prescriptions give the
-// daily amount (1日量) and the number of times (分N); code works out the amount per dose (1回量)
-// and shows both. Checks are split as in Japanese EHRs: errors that stop the order, and warnings
+// Oral prescriptions (処方) as an Rp: drugs that share one usage. Entered as 1回量・1日◯回・用法
+// （例：1回1錠　1日3回　毎食後）, as the MHLW report on how to write oral prescriptions (2010) makes
+// the 1回量 the basis; a spoken 1日量・分N is still read, and code works out the other and shows both. Checks are split as in Japanese EHRs: errors that stop the order, and warnings
 // the doctor may confirm with a 承知コメント (重複承知・アレルギー承知・極量承知). Nothing is recommended.
 
 import type { CheckContext, Draft, Issue } from "./drafts";
@@ -42,6 +42,35 @@ export const USAGES: { label: string; timings: DoseTiming[] }[] = [
   { label: "分2 朝夕食後", timings: ["朝", "夕"] },
   { label: "分3 毎食後", timings: ["朝", "昼", "夕"] },
 ];
+
+/** When to take it, by the number of times a day (the choices offered for each). */
+export const TIMINGS_BY_TIMES: Record<number, { label: string; timings: DoseTiming[] }[]> = {
+  1: [
+    { label: "朝食後", timings: ["朝"] },
+    { label: "昼食後", timings: ["昼"] },
+    { label: "夕食後", timings: ["夕"] },
+    { label: "眠前", timings: ["眠前"] },
+  ],
+  2: [
+    { label: "朝夕食後", timings: ["朝", "夕"] },
+    { label: "朝食後・眠前", timings: ["朝", "眠前"] },
+  ],
+  3: [{ label: "毎食後", timings: ["朝", "昼", "夕"] }],
+  4: [{ label: "毎食後・眠前", timings: ["朝", "昼", "夕", "眠前"] }],
+};
+
+/** "毎食後", "朝夕食後", "眠前" … for the timings. */
+export function timingName(timings: DoseTiming[]): string {
+  const hit = (TIMINGS_BY_TIMES[timings.length] ?? []).find((t) => t.timings.join() === timings.join());
+  return hit?.label ?? timings.join("・");
+}
+
+/** "1日3回　毎食後" / "頓用 疼痛時（1日3回まで）" — how often, after the 1回量. */
+export function howText(timings: DoseTiming[] | null, prn: string | null, maxPerDay: number | null): string {
+  if (timings === null) return "用法？";
+  if (timings.length === 0) return `頓用 ${prn ?? "条件？"}${maxPerDay ? `（1日${maxPerDay}回まで）` : ""}`;
+  return `1日${timings.length}回　${timingName(timings)}`;
+}
 
 export function usageLabel(timings: DoseTiming[]): string {
   const hit = USAGES.find((u) => u.timings.join() === timings.join());

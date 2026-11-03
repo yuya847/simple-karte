@@ -43,6 +43,6 @@ describe("Rp numbers", () => {
   });
   it("writes one line per Rp", () => {
     expect(rpLine(inj("a"))).toContain("12時間ごと　1回1時間　5日間");
-    expect(rpLine(rx("b"))).toBe("ロキソニン 1日3　朝・昼・夕　5日分　定期");
+    expect(rpLine(rx("b"))).toBe("ロキソニン 1回1　1日3回　毎食後　5日分　定期");
   });
 });
