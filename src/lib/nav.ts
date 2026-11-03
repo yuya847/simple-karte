@@ -30,9 +30,9 @@ export const AREAS: Area[] = [
   { key: "dialysis", label: "透析室", short: "透析", kind: "page" },
   { key: "pharmacy", label: "薬剤部", short: "薬剤部", kind: "page" },
   { key: "lab", label: "検査室", short: "検査室", kind: "page" },
-  { key: "board", label: "掲示板", short: "掲示板", kind: "page", soon: "準備中" },
-  { key: "manual", label: "院内マニュアル", short: "マニュアル", kind: "page", soon: "準備中" },
-  { key: "incident", label: "インシデントレポート", short: "インシデント", kind: "page", soon: "準備中" },
+  { key: "board", label: "掲示板", short: "掲示板", kind: "page" },
+  { key: "manual", label: "院内マニュアル", short: "マニュアル", kind: "page" },
+  { key: "incident", label: "インシデントレポート", short: "インシデント", kind: "page" },
   { key: "chat", label: "チャット", short: "チャット", kind: "page", tool: true },
   { key: "audit", label: "監査ログ", short: "監査", kind: "page", tool: true },
 ];

@@ -26,6 +26,11 @@ import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
+import { BoardView } from "./BoardView";
+import { ManualView } from "./ManualView";
+import { IncidentView } from "./IncidentView";
+import { INITIAL_NOTICES, INITIAL_READS, markRead, unreadCount, type Notice, type Reads } from "@/lib/board";
+import { INITIAL_INCIDENTS, applyStatus, emptyDraft, type IncidentDraft, type IncidentReport } from "@/lib/incident";
 import { StandingPanel } from "./panels/StandingPanel";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
@@ -287,6 +292,12 @@ export default function WardApp() {
   const [opd, setOpd] = useState<OpdPatient[]>(OPD_PATIENTS);
   const [visitNotes, setVisitNotes] = useState<Record<string, VisitNote[]>>({});
   const [requests, setRequests] = useState<AdmissionRequest[]>(INITIAL_REQUESTS);
+  // 掲示板 (notices and who read them), 院内マニュアル (the one open), インシデントレポート (and the draft).
+  const [notices, setNotices] = useState<Notice[]>(INITIAL_NOTICES);
+  const [reads, setReads] = useState<Reads>(INITIAL_READS);
+  const [manualOpen, setManualOpen] = useState<string | null>(null);
+  const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
+  const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
   // 指示簿 per patient, every version kept (the last one is in force).
   const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(initialStanding);
 
@@ -928,6 +939,31 @@ export default function WardApp() {
             else setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st as OpdStatus } : x)));
           }}
           newId={newId}
+        />
+      ) : screen === "board" ? (
+        <BoardView
+          notices={notices}
+          reads={reads}
+          today={today}
+          nowTime={nowTime}
+          onRead={(id, name) => setReads((r) => markRead(r, id, name))}
+          onPost={(n) => setNotices((ns) => [...ns, n])}
+        />
+      ) : screen === "manual" ? (
+        <ManualView openId={manualOpen} onOpen={setManualOpen} />
+      ) : screen === "incident" ? (
+        <IncidentView
+          reports={incidents}
+          patients={people.map((x) => ({ id: x.patient.id, name: x.patient.name, room: x.room }))}
+          today={today}
+          nowTime={nowTime}
+          onSubmit={(r) => {
+            setIncidents((rs) => [...rs, r]);
+            setIncidentDraft(emptyDraft());
+          }}
+          onStatus={(id, _st, change) => setIncidents((rs) => applyStatus(rs, id, change))}
+          draft={incidentDraft}
+          onDraft={setIncidentDraft}
         />
       ) : screen === "opd" ? (
         <OpdBoard
@@ -1791,7 +1827,7 @@ export default function WardApp() {
         rows={tabRows()}
         chartShown={screen === "chart"}
         onOpenPicker={() => setPickerOpen(true)}
-        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length }}
+        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(wardResults.filter((i) => i.day === 0), calls).length, board: unreadCount(notices, reads, me.name) }}
         todos={todos}
       >
         {content}
