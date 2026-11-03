@@ -31,6 +31,8 @@ interface Props {
   /** Take a record back (reason), and the records taken back, by dose key. */
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
   voided?: Record<string, VoidedRecord[]>;
+  /** Orders the pharmacy is asking the doctor about (疑義照会中), with the question. */
+  queried?: Record<string, string>;
   /** 指示簿の頓用 of each patient (given from the standing orders, not from an order). */
   standingPrn?: { patientId: string; room: string; name: string; rule: PrnRule }[];
 }
@@ -50,7 +52,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [] }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {} }: Props) {
   const [day, setDay] = useState<0 | 1>(0);
   const [shift, setShift] = useState<Shift>("day");
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
@@ -64,7 +66,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   const isTaken = (c: OrderChange) => !sessionKeys.has(c.key) || !!taken[c.key];
   const waiting = changes.filter((c) => !isTaken(c)).length;
 
-  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, people };
+  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -162,12 +164,13 @@ interface SheetProps {
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
   voided: Record<string, VoidedRecord[]>;
   standingPrn: { patientId: string; room: string; name: string; rule: PrnRule }[];
+  queried: Record<string, string>;
   people: WorkPatient[];
 }
 
 type DayOffsetLike = 0 | 1;
 
-function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, people }: SheetProps) {
+function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   const maxOf = (orderId: string) => {
@@ -327,12 +330,12 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                       <Kind kind={i.kind} />
                     </td>
                     <td className={td}>
-                      <b>{i.main}</b>
+                      <b>{i.main}</b>{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}
                       {i.urgent && <span className="ml-1 font-bold text-shu">至急</span>}　<span className="text-ink-soft">{i.detail}</span>
                     </td>
                     <td className={td}>
                       {interactive && i.at !== null ? (
-                        <MarCell item={i} state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} onRecord={onRecord} onVoid={onVoid} voided={(voided[`${i.orderId}|${i.at}`] ?? []).map((v) => ({ by: v.by, at: v.at, reason: v.reason, status: `${v.record.status} ${v.record.doneAt}` }))} />
+                        <MarCell item={i} state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} onRecord={onRecord} queried={queried[i.orderId]} onVoid={onVoid} voided={(voided[`${i.orderId}|${i.at}`] ?? []).map((v) => ({ by: v.by, at: v.at, reason: v.reason, status: `${v.record.status} ${v.record.doneAt}` }))} />
                       ) : (
                         <PrintMar state={marState(i, records, sessionStart, nowAbs)} record={records[`${i.orderId}|${i.at}`]} />
                       )}
@@ -360,7 +363,7 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                     <Kind kind={i.kind} />
                   </td>
                   <td className={td}>
-                    <b>{i.main}</b>　<span className="text-ink-soft">{i.detail}</span>
+                    <b>{i.main}</b>{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}　<span className="text-ink-soft">{i.detail}</span>
                   </td>
                   <td className={`${td} w-32 text-ink-faint`}>
                     {interactive ? (

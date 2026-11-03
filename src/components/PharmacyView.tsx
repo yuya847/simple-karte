@@ -455,7 +455,17 @@ function Shido({ people, today, shido, onShido }: Props) {
 
 // ---------------------------------------------------------------------------
 
-function Dispense({ people, today, nowTime, dispensed, onDispense }: Props) {
+function Dispense({ people, today, nowTime, dispensed, onDispense, audited, queries }: Props) {
+  // Before dispensing: the doctor has not answered a 疑義照会 on it, and (for orders written since yesterday,
+  // the ones in 処方監査) it has been audited. Older orders were audited before this record begins.
+  const blockOf = (orderId: string): string | null => {
+    const x = people.find((y) => y.entries.some((e) => e.id === orderId));
+    const e = x?.entries.find((y) => y.id === orderId);
+    const q = queries.find((y) => y.orderId === orderId && queryOpen(y, x?.entries ?? []));
+    if (q) return `疑義照会の回答待ちです（${q.question}）。回答のあとで払い出してください。`;
+    if (e && abs(e.day, e.time) >= -1440 && !audited[orderId]) return "まだ監査していません。「処方監査・疑義照会」で監査してから払い出してください。";
+    return null;
+  };
   const { lo, hi } = shiftWindow("all", 1);
   const sheet = buildWorksheet(people, lo, hi, abs(0, nowTime));
   const doses = sheet.timed.filter((i) => i.kind === "注射" && i.at !== null);
@@ -489,7 +499,9 @@ function Dispense({ people, today, nowTime, dispensed, onDispense }: Props) {
     if (!hit) setResult({ ok: false, text: `「${code}」は明日の注射のどの回でもありません。取りそろえを確かめてください。` });
     else {
       const key = `${hit.orderId}|${hit.at}`;
-      if (dispensed[key]) setResult({ ok: false, text: `この回（${hit.name}さん ${timeLabel(hit.at!, -99, today)}）はもう払い出しています。` });
+      const block = blockOf(hit.orderId);
+      if (block) setResult({ ok: false, text: `${hit.name}さん ${hit.main}：${block}` });
+      else if (dispensed[key]) setResult({ ok: false, text: `この回（${hit.name}さん ${timeLabel(hit.at!, -99, today)}）はもう払い出しています。` });
       else {
         onDispense(key);
         auditLog({ role: "薬剤師", actor: PHARMACIST, action: "鑑査一致・払出", patient: hit.name, detail: `${hit.main}　${timeLabel(hit.at!, -99, today)}` });
@@ -541,7 +553,11 @@ function Dispense({ people, today, nowTime, dispensed, onDispense }: Props) {
                     {d.main}　<span className="text-xs text-ink-soft">{d.detail}</span>
                   </span>
                   <span className="nums font-mono text-[11px] text-ink-faint">{labelFor(d.orderId, d.at!)}</span>
-                  {dispensed[key] ? (
+                  {blockOf(d.orderId) && !dispensed[key] ? (
+                    <span className="max-w-56 text-[11px] font-bold text-shu" title={blockOf(d.orderId)!}>
+                      {blockOf(d.orderId)!.startsWith("疑義") ? "疑義照会の回答待ち" : "未監査"}
+                    </span>
+                  ) : dispensed[key] ? (
                     <span className="flex items-center gap-0.5 text-xs text-wakatake">
                       <Check size={12} />
                       払出 {dispensed[key]}

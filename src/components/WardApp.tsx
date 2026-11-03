@@ -108,7 +108,7 @@ import { DialysisView } from "./DialysisView";
 import { SurgeryView } from "./SurgeryView";
 import { initialSurgeries, type Surgery } from "@/lib/surgery";
 import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
-import { b008Check, draftsFromReport, type BroughtReport, type Query } from "@/lib/pharmacy";
+import { b008Check, draftsFromReport, queryOpen, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddConsultPanel, AddGuidePanel, AddLeavePanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
@@ -1282,6 +1282,7 @@ export default function WardApp() {
           people={people}
           today={today}
           nowTime={nowTime}
+          queried={Object.fromEntries(queries.filter((q) => queryOpen(q, people.find((x) => x.patient.id === q.patientId)?.entries ?? [])).map((q) => [q.orderId, q.question]))}
           // 指示簿の頓用: only standing orders a nurse has taken (指示受け) are used on the ward.
           standingPrn={people.flatMap((x) => {
             const s = standingNow(x.patient.id);

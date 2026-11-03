@@ -19,6 +19,8 @@ interface Props {
   onRecord: (r: AdminRecord) => void;
   /** Take a record back with a reason (the record stays in the history). */
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
+  /** 薬剤部が疑義照会中 (the question), for this order. */
+  queried?: string;
   /** Earlier records of this dose that were taken back. */
   voided?: { by: string; at: string; reason: string; status: string }[];
 }
@@ -32,7 +34,8 @@ const STATE_STYLE: Record<MarState, string> = {
 };
 
 /** The 実施 cell of the worksheet: read the wristband and label, then record 実施 or 未実施. */
-export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord, onVoid, voided = [] }: Props) {
+export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord, onVoid, voided = [], queried }: Props) {
+  const [queryAck, setQueryAck] = useState(false);
   const me = useMe();
   const [voiding, setVoiding] = useState(false);
   const [voidReason, setVoidReason] = useState<VoidReason | "">("");
@@ -165,8 +168,16 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
           )}
           {prn?.limit ? <p className="font-bold text-shu">{prn.limit}医師に確かめてください。</p> : prn?.over && <p className="font-bold text-shu">今日はもう上限の回数を使っています。医師に確かめてください。</p>}
           {prn?.wait && <p className="font-bold text-shu">{prn.wait}</p>}
+          {queried && (
+            <label className="flex items-start gap-1 font-bold text-shu">
+              <input type="checkbox" checked={queryAck} onChange={(e) => setQueryAck(e.target.checked)} className="mt-0.5 accent-shu" />
+              <span>
+                薬剤部が疑義照会中です（{queried}）。医師に確かめてから記録する
+              </span>
+            </label>
+          )}
           <div className="flex flex-wrap items-center gap-1 pt-0.5">
-            <button type="button" disabled={!ok || prn?.over || !!prn?.wait} onClick={() => save("実施")} className="rounded bg-wakatake px-2 py-0.5 font-bold text-white disabled:opacity-40">
+            <button type="button" disabled={!ok || prn?.over || !!prn?.wait || (!!queried && !queryAck)} onClick={() => save("実施")} className="rounded bg-wakatake px-2 py-0.5 font-bold text-white disabled:opacity-40">
               実施を記録
             </button>
             {item.at !== null && (
