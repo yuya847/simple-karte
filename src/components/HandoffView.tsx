@@ -103,7 +103,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
 function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
   const me = useMe();
   const deny = useDeny()("handoff");
-  const [h, setH] = useState<Handoff>(saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo });
+  const [h, setH] = useState<Handoff>(() => saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo });
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
