@@ -563,7 +563,13 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
                       払出 {dispensed[key]}
                     </span>
                   ) : (
-                    <button type="button" onClick={() => onDispense(key)} title="鑑査の欄でラベルを読むと、ここが自動で付きます" className="rounded border border-ai px-2 py-0.5 text-xs text-ai hover:bg-ai hover:text-white">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        auditLog({ role: "薬剤師", actor: PHARMACIST, action: "払い出した（ラベルを読まずに）", patient: x.patient.name, detail: `${d.main}　${timeLabel(d.at!, -99, today)}` });
+                        onDispense(key);
+                      }}
+                      title="鑑査の欄でラベルを読むと、ここが自動で付きます" className="rounded border border-ai px-2 py-0.5 text-xs text-ai hover:bg-ai hover:text-white">
                       払い出した
                     </button>
                   )}

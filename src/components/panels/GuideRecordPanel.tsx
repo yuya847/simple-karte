@@ -7,7 +7,7 @@ import type { Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
 import { TabChoice } from "../TabChoice";
 
-const KINDS: GuideKind[] = ["栄養食事指導", "服薬指導", "退院時の生活指導"];
+/** Who records which guidance: 栄養食事指導 = 管理栄養士, 服薬指導 = 薬剤師, 退院時の生活指導 = 看護師. */
 const KIND_OF: Partial<Record<Role, GuideKind>> = { 管理栄養士: "栄養食事指導", 薬剤師: "服薬指導", 看護師: "退院時の生活指導" };
 
 export type GuidanceInput = Omit<GuidanceRecord, "id" | "patientId" | "by" | "at">;
@@ -17,24 +17,25 @@ export type GuidanceInput = Omit<GuidanceRecord, "id" | "patientId" | "by" | "at
  * (closing it) and goes into the chart as the writer's note. The fee schedule's limits are counted in code.
  */
 export function GuideRecordPanel({ role, entries, records, today, onSave }: { role: Role; entries: OrderEntry[]; records: GuidanceRecord[]; today: CalendarDate; onSave: (r: GuidanceInput) => void }) {
-  const [kind, setKind] = useState<GuideKind>(KIND_OF[role] ?? "退院時の生活指導");
+  const kind = KIND_OF[role];
   const [heard, setHeard] = useState<GuidanceRecord["heard"] | null>(null);
   const [minutes, setMinutes] = useState("");
   const [text, setText] = useState("");
   const [eligible, setEligible] = useState<GuidanceRecord["eligible"] | null>(null);
-  const open = openRequests(entries, kind, records);
+  const open = kind ? openRequests(entries, kind, records) : [];
   const mins = minutes.trim() ? Number(minutes) : null;
   const earlierNutrition = records.filter((r) => r.kind === "栄養食事指導" && r.eligible && r.eligible !== "対象外（算定しない）");
   const dow = (d: number) => new Date(Date.UTC(today.y, today.m - 1, today.d + d)).getUTCDay();
   const notes =
     kind === "栄養食事指導" && eligible && eligible !== "対象外（算定しない）"
-      ? [nutritionCountNote(earlierNutrition.map((r) => r.at.day), 0, dow), nutritionTimeNote(mins, earlierNutrition.length)].filter((x): x is string => !!x)
+      ? [open.length ? null : "医師の依頼（指示）がないので、", nutritionCountNote(earlierNutrition.map((r) => r.at.day), 0, dow), nutritionTimeNote(mins, earlierNutrition.length)].filter((x): x is string => !!x)
       : [];
   const problems = [...guidanceProblems({ text, minutes: mins }), ...(heard ? [] : ["相手"]), ...(kind === "栄養食事指導" && !eligible ? ["算定の対象"] : [])];
   const field = "rounded border border-rule bg-paper px-2 py-1";
+  if (!kind) return <p className="text-[13px] text-ink-soft">指導の記録は、栄養食事指導を管理栄養士、服薬指導を薬剤師（薬剤部の「服薬指導」）、退院時の生活指導を看護師が書きます。依頼は医師が「指導の依頼」から出します。</p>;
   return (
     <div className="space-y-3 text-[13px]">
-      <TabChoice label="指導の種類" options={KINDS.map((k) => ({ value: k, label: k }))} value={kind} onChange={(v) => setKind(v as GuideKind)} />
+      <p className="font-bold">{kind}</p>
       <div className="rounded-md border border-rule-soft bg-paper p-2 text-xs">
         <b>医師からの依頼</b>
         {open.length ? (

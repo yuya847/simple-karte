@@ -11,7 +11,7 @@ import { marState, prnToday, standingPrnId, standingPrnState, type AdminRecord, 
 import { drugLabel, type PrnRule } from "@/lib/standing";
 import { findOralDrug } from "@/lib/master";
 import { dripRate, dripText } from "@/lib/drip";
-import { MarCell } from "./MarCell";
+import { MarCell, VoidControl } from "./MarCell";
 import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
 interface Props {
@@ -57,7 +57,11 @@ const noSubscribe = () => () => {};
  */
 export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [] }: Props) {
   const [day, setDay] = useState<0 | 1>(0);
-  const [shift, setShift] = useState<Shift>("day");
+  // Opens on the shift of the time now (日勤 08:30–17:00, otherwise 夜勤).
+  const [shift, setShift] = useState<Shift>(() => {
+    const m = abs(0, nowTime) % 1440;
+    return m >= 510 && m < 1020 ? "day" : "night";
+  });
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const nowAbs = abs(0, nowTime);
@@ -383,7 +387,19 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
                   </td>
                   <td className={`${td} w-32 text-ink-faint`}>
                     {interactive ? (
-                      <MarCell item={i} state="予定" nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} prn={ruleOf(i.orderId) ? standingPrnState(i.orderId, records, ruleOf(i.orderId)!, nowAbs, sameOf(i.orderId)) : i.kind === "内服" ? { ...prnToday(i.orderId, records, maxOf(i.orderId)), max: maxOf(i.orderId) } : undefined} onRecord={onRecord} />
+                      <>
+                      <MarCell item={i} state="予定" nowAbs={nowAbs} nowTime={nowTime} otherPatientId={other(i.patientId)} prn={ruleOf(i.orderId) ? standingPrnState(i.orderId, records, ruleOf(i.orderId)!, nowAbs, sameOf(i.orderId)) : i.kind === "内服" ? { ...prnToday(i.orderId, records, maxOf(i.orderId), nowAbs), max: maxOf(i.orderId) } : undefined} onRecord={onRecord} queried={queried[i.orderId]} />
+                        {/* Today's doses of this 必要時 item, each can be taken back. */}
+                        {Object.values(records)
+                          .filter((r) => r.orderId === i.orderId && Math.floor(r.at / 1440) === Math.floor(nowAbs / 1440))
+                          .sort((a, b) => a.at - b.at)
+                          .map((r) => (
+                            <div key={r.key} className="mt-0.5 text-[10px] text-ink-soft">
+                              {r.status} {r.doneAt} {r.by}
+                              {onVoid && <VoidControl record={r} onVoid={onVoid} />}
+                            </div>
+                          ))}
+                      </>
                     ) : (
                       "実施 □□□"
                     )}

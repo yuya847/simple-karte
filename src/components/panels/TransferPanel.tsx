@@ -95,7 +95,8 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                 <select value={f.state} onChange={(e) => setForm((m) => ({ ...m, [a.id]: { ...f, state: e.target.value as AskState } }))} aria-label={`${a.facility} の状態`} className="rounded border border-rule bg-paper px-1 py-0.5">
                   <option value="">状態を変える</option>
-                  {ASK_STATES.filter((s) => s !== a.state && s !== "打診中").map((s) => (
+                  {/* Only one place can be 決定. */}
+                  {ASK_STATES.filter((s) => s !== a.state && s !== "打診中" && !(s === "決定" && decided)).map((s) => (
                     <option key={s}>{s}</option>
                   ))}
                 </select>

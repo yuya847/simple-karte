@@ -40,6 +40,8 @@ export interface Handoff {
   shift: string;
   /** Start of the shift it is handed to (minutes from today 00:00): one handoff per patient per shift. */
   shiftLo?: number;
+  /** Doctors hand over to doctors, nurses to nurses: one handoff per patient per shift per role. */
+  role?: string;
   severity: Severity | null;
   summary: string;
   actions: HandoffAction[];
@@ -115,12 +117,12 @@ export function sendProblems(h: Handoff): string[] {
 }
 
 /** Where a handoff is kept: per patient and per shift handed to. */
-export const handoffKey = (patientId: string, shiftLo: number) => `${patientId}@${shiftLo}`;
+export const handoffKey = (patientId: string, shiftLo: number, role = "") => `${patientId}@${shiftLo}@${role}`;
 
 /** The latest handoff of an earlier shift for this patient (shown while writing the next one). */
-export function previousHandoff(all: Record<string, Handoff>, patientId: string, shiftLo: number): Handoff | undefined {
+export function previousHandoff(all: Record<string, Handoff>, patientId: string, shiftLo: number, role = ""): Handoff | undefined {
   return Object.values(all)
-    .filter((h) => h.patientId === patientId && h.sentAt && (h.shiftLo ?? -Infinity) < shiftLo)
+    .filter((h) => h.patientId === patientId && h.sentAt && (h.shiftLo ?? -Infinity) < shiftLo && (h.role ?? "") === role)
     .sort((a, b) => (b.shiftLo ?? 0) - (a.shiftLo ?? 0))[0];
 }
 

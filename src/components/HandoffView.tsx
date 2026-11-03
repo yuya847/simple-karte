@@ -38,6 +38,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 /** 申し送り for the whole ward, one patient at a time, in the I-PASS order. */
 export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {}, onSave, onSend, onReceive }: Props) {
+  const me = useMe();
   const nowAbs = abs(0, nowTime);
   const ns = nextShift(nowAbs);
   const [sel, setSel] = useState(people[0]?.patient.id ?? "");
@@ -52,7 +53,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
         <p className="mb-3 text-[11px] text-ink-soft">I-PASS の順に送ります。カルテの事実はコードで集め、話した言葉は Claude が欄に分けるだけです。重症度は送る人が選びます。</p>
         <ul className="space-y-1">
           {people.map((x) => {
-            const h = handoffs[handoffKey(x.patient.id, ns.lo)];
+            const h = handoffs[handoffKey(x.patient.id, ns.lo, me.role)];
             const st = statusOf(h);
             const sev = SEVERITIES.find((s) => s.key === h?.severity);
             return (
@@ -80,15 +81,15 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
       </aside>
       {w ? (
         <Card
-          key={handoffKey(w.patient.id, ns.lo)}
+          key={handoffKey(w.patient.id, ns.lo, me.role)}
           shiftLo={ns.lo}
-          prev={previousHandoff(handoffs, w.patient.id, ns.lo)}
+          prev={previousHandoff(handoffs, w.patient.id, ns.lo, me.role)}
           w={w}
           today={today}
           nowTime={nowTime}
           shift={ns.label}
           facts={handoffFacts(w, nowAbs, today, extraFacts[w.patient.id])}
-          h={handoffs[handoffKey(w.patient.id, ns.lo)]}
+          h={handoffs[handoffKey(w.patient.id, ns.lo, me.role)]}
           onSave={onSave}
           onSend={onSend}
           onReceive={onReceive}
@@ -103,7 +104,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
 function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
   const me = useMe();
   const deny = useDeny()("handoff");
-  const [h, setH] = useState<Handoff>(() => saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo });
+  const [h, setH] = useState<Handoff>(() => saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo, role: me.role });
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

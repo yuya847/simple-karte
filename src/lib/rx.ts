@@ -33,6 +33,8 @@ export interface PrescriptionDraft {
   days: number | null;
   start: { day: DayOffset | null; timing: DoseTiming | null };
   acks: string[];
+  /** The 持参薬鑑別 report this draft answers (it becomes 指示済 when the draft is confirmed). */
+  reportId?: string;
 }
 
 /** 用法 of this ward (as in the Rp editor). */

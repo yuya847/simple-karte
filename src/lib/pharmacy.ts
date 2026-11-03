@@ -118,7 +118,8 @@ export interface BroughtReport {
   rows: BroughtRow[];
   by: string;
   at: string;
-  status: "鑑別中" | "医師へ報告" | "指示済";
+  /** 指示の下書き: the doctor chose, the drafts wait for 確定 (back to 医師へ報告 if they are all removed). */
+  status: "鑑別中" | "医師へ報告" | "指示の下書き" | "指示済";
 }
 
 const norm = (s: string) => s.normalize("NFKC").replace(/\s/g, "").toLowerCase();
@@ -168,6 +169,7 @@ export function draftsFromReport(r: BroughtReport, nowTime: string, newId: () =>
     days: o.days ?? null,
     start: { day: o.start.day, timing: o.start.timing ?? null },
     acks: [],
+    reportId: r.id,
   }));
 }
 

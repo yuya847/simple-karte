@@ -24,6 +24,9 @@ describe("handoff", () => {
     expect(Object.keys(all)).toHaveLength(2);
     expect(previousHandoff(all, "p", 990)?.summary).toBe("朝の送り");
     expect(previousHandoff(all, "p", 510)).toBeUndefined();
+    // A doctor's handoff is kept apart from a nurse's, and the previous one is the same role's.
+    expect(handoffKey("p", 990, "医師")).not.toBe(handoffKey("p", 990, "看護師"));
+    expect(previousHandoff({ x: { ...morning, role: "看護師" } }, "p", 990, "医師")).toBeUndefined();
   });
 
   it("the person chooses the severity and says the summary before sending", () => {

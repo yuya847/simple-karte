@@ -7,12 +7,12 @@ const guide: OrderEntry = { kind: "order", id: "g", day: 0, time: "09:00", autho
 
 describe("退院の準備", () => {
   it("lists what is still to do, from the record", () => {
-    const items = dischargeChecklist({ entries: [inj, guide], homeRx: { exists: true, handed: false }, documents: ["退院証明書"], guidance: [], restrained: true });
+    const items = dischargeChecklist({ entries: [inj, guide], homeRx: { exists: true, handed: false }, documents: ["退院証明書"], answeredGuides: [], restrained: true });
     const state = Object.fromEntries(items.map((i) => [i.label, i.state]));
     expect(state).toMatchObject({ 退院時の薬: "todo", 退院証明書: "ok", 退院療養計画書: "todo", 指導の依頼: "todo", 身体的拘束: "todo", "注射・酸素・カテーテルの有効なオーダ": "todo" });
   });
   it("is all done when everything is finished", () => {
-    const items = dischargeChecklist({ entries: [guide], homeRx: { exists: false, handed: false }, documents: ["退院証明書", "退院療養計画書"], guidance: ["栄養食事指導"], restrained: false });
+    const items = dischargeChecklist({ entries: [guide], homeRx: { exists: false, handed: false }, documents: ["退院証明書", "退院療養計画書"], answeredGuides: ["g"], restrained: false });
     expect(items.filter((i) => i.state === "todo")).toEqual([]);
     expect(items[0].state).toBe("none");
   });

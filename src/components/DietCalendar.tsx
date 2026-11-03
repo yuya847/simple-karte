@@ -102,7 +102,8 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
                     .map((m, i) => (
                       <div key={i} className={`rounded px-1.5 py-0.5 ${EVENT_TONE[m.tone]} ${m.done ? "opacity-60" : ""}`}>
                         <span className="nums">{m.time ?? ""}</span> {m.label}
-                        {m.entryId && !m.done && onDoMove && (
+                        {/* 実施 only on or after the booked day. */}
+                        {m.entryId && !m.done && onDoMove && m.day <= 0 && (
                           <button type="button" onClick={() => onDoMove(m.entryId!)} className="ml-1 rounded bg-sheet px-1 text-[10px] font-bold text-ink hover:text-ai">
                             実施
                           </button>

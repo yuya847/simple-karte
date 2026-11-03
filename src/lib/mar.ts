@@ -99,8 +99,11 @@ export const overdue = (item: Pick<WorkItem, "orderId" | "at">, records: Record<
   item.at !== null && marState(item, records, sessionStart, nowAbs) === "未入力" && nowAbs - item.at > WARD_RULES.marWindowMin;
 
 /** 必要時 (頓用) given today, and whether another dose would go over the day's limit. */
-export function prnToday(orderId: string, records: Record<string, AdminRecord>, maxPerDay?: number) {
-  const given = Object.values(records).filter((r) => r.orderId === orderId && r.status === "実施" && r.at >= 0 && r.at < 1440).length;
+/** Same calendar day as now (after midnight the clock runs on past 1440, see dates.ts continuedTime). */
+const sameDay = (at: number, nowAbs: number) => Math.floor(at / 1440) === Math.floor(nowAbs / 1440);
+
+export function prnToday(orderId: string, records: Record<string, AdminRecord>, maxPerDay?: number, nowAbs = 0) {
+  const given = Object.values(records).filter((r) => r.orderId === orderId && r.status === "実施" && sameDay(r.at, nowAbs)).length;
   return { given, over: maxPerDay !== undefined && given >= maxPerDay };
 }
 
@@ -120,12 +123,12 @@ export function standingPrnState(
   same?: { ids: string[]; doseMg?: number; maxDailyMg?: { mg: number; source: string } },
 ) {
   const given = Object.values(records).filter((r) => r.orderId === orderId && r.status === "実施");
-  const today = given.filter((r) => r.at >= 0 && r.at < 1440).length;
+  const today = given.filter((r) => sameDay(r.at, nowAbs)).length;
   const hm = (m: number) => `${String(Math.floor((((m % 1440) + 1440) % 1440) / 60)).padStart(2, "0")}:${String((((m % 1440) + 1440) % 1440) % 60).padStart(2, "0")}`;
   // The same drug under another 頓用 counts too: the interval and the daily maximum are per drug.
   const others = same ? Object.values(records).filter((r) => same.ids.includes(r.orderId) && r.status === "実施") : [];
   const lastAny = [...given, ...others].reduce<number | null>((m, r) => (m === null || r.at > m ? r.at : m), null);
-  const todayAll = today + others.filter((r) => r.at >= 0 && r.at < 1440).length;
+  const todayAll = today + others.filter((r) => sameDay(r.at, nowAbs)).length;
   const mgOver = same?.doseMg && same.maxDailyMg ? (todayAll + 1) * same.doseMg > same.maxDailyMg.mg : false;
   const leftAny = lastAny === null ? 0 : lastAny + rule.intervalH * 60 - nowAbs;
   return {

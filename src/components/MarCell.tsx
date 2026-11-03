@@ -37,8 +37,6 @@ const STATE_STYLE: Record<MarState, string> = {
 export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord, onVoid, voided = [], queried }: Props) {
   const [queryAck, setQueryAck] = useState(false);
   const me = useMe();
-  const [voiding, setVoiding] = useState(false);
-  const [voidReason, setVoidReason] = useState<VoidReason | "">("");
   const [open, setOpen] = useState(false);
   const [wb, setWb] = useState("");
   const [lb, setLb] = useState("");
@@ -77,36 +75,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
         {record.status} {record.doneAt}
         {record.reason && <span className="block text-[10px]">{record.reason}</span>}
         {record.offBy !== undefined && <span className="block text-[10px] text-yamabuki">予定より{Math.abs(record.offBy)}分{record.offBy > 0 ? "遅れ" : "早め"}</span>}
-        {onVoid &&
-          (voiding ? (
-            <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-ink">
-              <select value={voidReason} onChange={(e) => setVoidReason(e.target.value as VoidReason)} aria-label="取り消す理由" className="rounded border border-rule bg-paper px-0.5">
-                <option value="">理由を選ぶ</option>
-                {VOID_REASONS.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!voidReason}
-                onClick={() => {
-                  onVoid(record, voidReason as VoidReason);
-                  setVoiding(false);
-                  setVoidReason("");
-                }}
-                className="rounded border border-shu px-1 text-shu disabled:opacity-40"
-              >
-                取り消す
-              </button>
-              <button type="button" onClick={() => setVoiding(false)} className="text-ink-faint">
-                やめる
-              </button>
-            </span>
-          ) : (
-            <button type="button" onClick={() => setVoiding(true)} className="block text-[10px] text-ink-faint underline hover:text-shu">
-              記録を取り消す
-            </button>
-          ))}
+        {onVoid && <VoidControl record={record} onVoid={onVoid} />}
       </span>
     );
   }
@@ -197,5 +166,40 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
         </div>
       )}
     </div>
+  );
+}
+
+/** 記録を取り消す: choose why, then the record is taken back (it stays in the history). */
+export function VoidControl({ record, onVoid }: { record: AdminRecord; onVoid: (r: AdminRecord, reason: VoidReason) => void }) {
+  const [voiding, setVoiding] = useState(false);
+  const [voidReason, setVoidReason] = useState<VoidReason | "">("");
+  return voiding ? (
+    <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-ink">
+      <select value={voidReason} onChange={(e) => setVoidReason(e.target.value as VoidReason)} aria-label="取り消す理由" className="rounded border border-rule bg-paper px-0.5">
+        <option value="">理由を選ぶ</option>
+        {VOID_REASONS.map((r) => (
+          <option key={r}>{r}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={!voidReason}
+        onClick={() => {
+          onVoid(record, voidReason as VoidReason);
+          setVoiding(false);
+          setVoidReason("");
+        }}
+        className="rounded border border-shu px-1 text-shu disabled:opacity-40"
+      >
+        取り消す
+      </button>
+      <button type="button" onClick={() => setVoiding(false)} className="text-ink-faint">
+        やめる
+      </button>
+    </span>
+  ) : (
+    <button type="button" onClick={() => setVoiding(true)} className="block text-[10px] text-ink-faint underline hover:text-shu">
+      記録を取り消す
+    </button>
   );
 }

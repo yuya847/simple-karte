@@ -249,6 +249,12 @@ const everyFifteenSeconds = (cb: () => void) => {
 let bootDay: string | null = null;
 const clientToday = () => (bootDay ??= isoDate(todayInTokyo()));
 const clientNow = () => continuedTime(parseIso(clientToday()));
+/** Saturday or Sunday at this time (minutes from the page's first day, which may run past midnight). */
+const weekendAt = (absMin: number) => {
+  const t = parseIso(clientToday());
+  const d = new Date(Date.UTC(t.y, t.m - 1, t.d + Math.floor(absMin / 1440))).getUTCDay();
+  return d === 0 || d === 6;
+};
 const serverNull = () => null;
 
 function parseIso(s: string): CalendarDate {
@@ -480,8 +486,12 @@ export default function WardApp() {
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
-    () => ({ beds: [...BEDS, ...newBeds].map((b) => (b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b)), patient: findPatient }),
-    [newBeds, findPatient, moves],
+    () => ({
+      // A patient whose discharge was carried out leaves the bed (the chart stays open where it is).
+      beds: [...BEDS, ...newBeds].map((b) => (b.patientId && discharged[b.patientId] ? { room: b.room, bed: b.bed } : b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b)),
+      patient: findPatient,
+    }),
+    [newBeds, findPatient, moves, discharged],
   );
 
   // What is in front: the ② tab (and its ③), and in it a chart, 新しいタブ, or its own screen.
@@ -559,7 +569,7 @@ export default function WardApp() {
     const t = setInterval(() => {
       const clock = clientNow();
       const [h, m] = clock.split(":").map(Number);
-      const leader = onDuty((h * 60 + m) % 1440, false).find((c) => c.role === "病棟リーダー")!.name;
+      const leader = onDuty((h * 60 + m) % 1440, weekendAt(h * 60 + m)).find((c) => c.role === "病棟リーダー")!.name;
       setNurseCalls((cs) => {
         const next = cs.map((c) => slide(c, Date.now(), `5階東 ${teamOf(c.room)} チームの看護師`, leader, clock));
         return next.some((c, i) => c !== cs[i]) ? next : cs;
@@ -691,6 +701,9 @@ export default function WardApp() {
       ...added.map((e) => planLine(e, today) + (e.verbal ? `（口頭指示 ${e.verbal.doctor} → 受け ${e.verbal.takenBy}）` : "")),
     ];
     if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
+    // 持参薬 reports answered by these drafts are now 指示済.
+    const answered = new Set(chart.drafts.flatMap((d) => ((d as { reportId?: string }).reportId ? [(d as { reportId?: string }).reportId!] : [])));
+    if (answered.size) setReports((rs) => rs.map((x) => (answered.has(x.id) ? { ...x, status: "指示済" } : x)));
     // オーダーアラート: a doctor's changes go to the nurses' phones of the patient's team.
     if (role === "医師" && (added.length || stops.length || Object.keys(extended).length))
       setPhsNotices((ns) => [
@@ -817,7 +830,8 @@ export default function WardApp() {
     setGuidance((all) => [...all, rec]);
     const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text: guidanceNoteText(rec) };
     setNotes((all) => ({ ...all, [pid]: [...(all[pid] ?? []), n] }));
-    if (r.kind === "栄養食事指導" && r.eligible && r.eligible !== "対象外（算定しない）") {
+    // Billed only when the 管理栄養士 gave it on the doctor's request (医師の指示に基づき, B001 10 注1).
+    if (r.kind === "栄養食事指導" && me.role === "管理栄養士" && r.answers.length > 0 && r.eligible && r.eligible !== "対象外（算定しない）") {
       const earlier = guidance.filter((g) => g.patientId === pid && g.kind === "栄養食事指導" && g.eligible && g.eligible !== "対象外（算定しない）").map((g) => g.at.day);
       const dow = (d: number) => new Date(Date.UTC(today.y, today.m - 1, today.d + d)).getUTCDay();
       if (!nutritionCountNote(earlier, 0, dow) && !nutritionTimeNote(r.minutes, earlier.length)) setBilling((all) => ({ ...all, [pid]: { ...(all[pid] ?? DEFAULT_OPTIONS), eiyoShido: [...((all[pid] ?? DEFAULT_OPTIONS).eiyoShido ?? []), { day: 0 }] } }));
@@ -1056,6 +1070,7 @@ export default function WardApp() {
   };
   // 実施: carry out a booked move now (the bed is checked again: still empty, the room's sex).
   const doMove = (entryId: string) => {
+    if (deny("bed.move")) return;
     const x = people.find((y) => y.entries.some((e) => e.id === entryId));
     const e = x?.entries.find((y) => y.id === entryId);
     // 退院: show the checklist first.
@@ -1314,7 +1329,7 @@ export default function WardApp() {
         <PhsView
           people={people}
           nowTime={nowTime}
-          contacts={onDuty(abs(0, nowTime) % 1440, [0, 6].includes(new Date(Date.UTC(today.y, today.m - 1, today.d)).getUTCDay()))}
+          contacts={onDuty(abs(0, nowTime) % 1440, weekendAt(abs(0, nowTime)))}
           cautionsOf={cautionsOf}
           calls={nurseCalls}
           emergencies={emergencies}
@@ -1442,10 +1457,10 @@ export default function WardApp() {
           nowTime={nowTime}
           others={others}
           queried={Object.fromEntries(queries.filter((q) => queryOpen(q, people.find((x) => x.patient.id === q.patientId)?.entries ?? [])).map((q) => [q.orderId, q.question]))}
-          // 指示簿の頓用: only standing orders a nurse has taken (指示受け) are used on the ward.
+          // 指示簿の頓用: the latest version a nurse has taken (指示受け); a newer one waits for 指示受け.
           standingPrn={people.flatMap((x) => {
-            const s = standingNow(x.patient.id);
-            return s?.taken ? s.prn.map((rule) => ({ patientId: x.patient.id, room: x.room, name: x.patient.name, rule })) : [];
+            const s = [...(standing[x.patient.id] ?? [])].reverse().find((v) => v.taken);
+            return s ? s.prn.map((rule) => ({ patientId: x.patient.id, room: x.room, name: x.patient.name, rule })) : [];
           })}
           taken={taken}
           sessionKeys={sessionKeys}
@@ -1534,14 +1549,14 @@ export default function WardApp() {
           extraFacts={Object.fromEntries(
             Object.entries(resultState).flatMap(([pid, r]) => (r.unseen ? [[pid, [`医師が未確認の結果：${r.unseen}件${r.panic ? `（パニック値 ${r.panic}件）` : ""}`]]] : [])),
           )}
-          onSave={(h) => setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0)]: h }))}
+          onSave={(h) => setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0, h.role)]: h }))}
           onSend={(h) => {
             auditLog({ role: me.role, actor: me.name, action: "確定（申し送りを送った）", patient: findPatient(h.patientId)?.name, detail: `${h.shift}　${h.severity}　やること ${h.actions.length}件` });
-            setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0)]: h }));
+            setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0, h.role)]: h }));
           }}
           onReceive={(h) => {
             auditLog({ role: me.role, actor: h.to ?? me.name, action: "確定（申し送りを受けた・復唱）", patient: findPatient(h.patientId)?.name, detail: h.synthesis });
-            setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0)]: h }));
+            setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0, h.role)]: h }));
           }}
         />
       ) : screen === "acuity" ? (
@@ -1784,7 +1799,7 @@ export default function WardApp() {
                   setPanel(what === "退院" ? "add-discharge" : "add-leave");
                 }
               }}
-              onDoMove={doMove}
+              onDoMove={deny("bed.move") ? undefined : doMove}
               bookings={bookingsOf(
                 entries.filter((e): e is OrderEntry => e.kind === "order"),
                 surgeries.filter((x) => x.patientId === patient.id),
@@ -1872,7 +1887,7 @@ export default function WardApp() {
                     flash: `持参薬の指示を下書きにしました（${made.length}件${stopped.length ? `・中止 ${stopped.length}件は記事に追記` : ""}）。下書きの確認を見て、まとめて確定してください。`,
                   }));
                   auditLog({ role: me.role, actor: me.name, action: "持参薬の指示を決めた（下書き）", patient: patient.name, detail: rows.map((x) => `${x.said}：${x.decision}`).join("、") });
-                  setReports((rs) => rs.map((x) => (x.id === r.id ? { ...x, rows, status: "指示済" } : x)));
+                  setReports((rs) => rs.map((x) => (x.id === r.id ? { ...x, rows, status: "指示の下書き" } : x)));
                 }}
               />
               <RightTabs
@@ -1957,6 +1972,9 @@ export default function WardApp() {
                         onRemove={(id) => {
                           auditLog({ role: me.role, actor: me.name, action: "下書きを消した", patient: patient.name, detail: chart.drafts.find((d) => d.id === id)?.sourceText });
                           update((c) => ({ drafts: c.drafts.filter((d) => d.id !== id) }));
+                          // A 持参薬 report whose drafts are all removed goes back to the doctor's inbox.
+                          const rid = (chart.drafts.find((d) => d.id === id) as { reportId?: string } | undefined)?.reportId;
+                          if (rid && !chart.drafts.some((d) => d.id !== id && (d as { reportId?: string }).reportId === rid)) setReports((rs) => rs.map((x) => (x.id === rid && x.status === "指示の下書き" ? { ...x, status: "医師へ報告" } : x)));
                         }}
                         onRedo={(id) =>
                           update((c) => {
@@ -2617,10 +2635,12 @@ export default function WardApp() {
         {content}
       </AppFrame>
       {/* 緊急通報 on every screen until it is closed. */}
+      {emergencies.some((e) => !e.closed) && (
+        <div className="fixed inset-x-0 top-0 z-50 flex flex-col print:hidden">
       {emergencies
         .filter((e) => !e.closed)
         .map((e) => (
-          <div key={e.id} role="alert" className="fixed inset-x-0 top-0 z-50 flex flex-wrap items-center justify-center gap-3 bg-shu px-4 py-1.5 text-sm font-bold text-white shadow print:hidden">
+          <div key={e.id} role="alert" className="flex flex-wrap items-center justify-center gap-3 border-b border-white/40 bg-shu px-4 py-1.5 text-sm font-bold text-white shadow">
             <span>
               {e.kind}　{e.place}　{e.at} 発信（{e.by}）
             </span>
@@ -2634,6 +2654,8 @@ export default function WardApp() {
             </button>
           </div>
         ))}
+        </div>
+      )}
       {/* A nurse call rings on the nurses' screens (as on their phones). */}
       {role === "看護師" && (
         <div className="fixed bottom-2 left-2 z-40 flex flex-col gap-1.5 print:hidden">
@@ -2683,7 +2705,7 @@ export default function WardApp() {
             entries: x.entries,
             homeRx: { exists: bagsOf(x.entries).length > 0, handed: !!homeRx[pid]?.handed },
             documents: documents.filter((d) => d.patientId === pid).map((d) => d.kind),
-            guidance: guidance.filter((g) => g.patientId === pid).map((g) => g.kind),
+            answeredGuides: guidance.filter((g) => g.patientId === pid).flatMap((g) => g.answers),
             restrained: !!activeOf(restraints, pid),
           });
           return (

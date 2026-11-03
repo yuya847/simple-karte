@@ -9,8 +9,8 @@ export interface DischargeFacts {
   homeRx: { exists: boolean; handed: boolean };
   /** Kinds of documents made for this patient (書類作成). */
   documents: string[];
-  /** 指導の記録 kinds for this patient. */
-  guidance: string[];
+  /** 指導の依頼 (order ids) answered by a 指導の記録. */
+  answeredGuides: string[];
   /** An ongoing 身体的拘束. */
   restrained: boolean;
 }
@@ -23,7 +23,7 @@ export interface CheckItem {
 
 export function dischargeChecklist(f: DischargeFacts): CheckItem[] {
   const running = f.entries.filter((e) => e.status === "有効" && (e.order.type === "injection" || (e.order.type === "procedure" && ["PROC-O2", "PROC-FOLEY", "PROC-CVC"].includes(e.order.code))));
-  const openGuide = f.entries.filter((e) => e.status === "有効" && e.order.type === "procedure" && e.order.guide?.kind && !f.guidance.includes(e.order.guide.kind));
+  const openGuide = f.entries.filter((e) => e.status === "有効" && e.order.type === "procedure" && e.order.guide?.kind && !f.answeredGuides.includes(e.id));
   return [
     { label: "退院時の薬", state: !f.homeRx.exists ? "none" : f.homeRx.handed ? "ok" : "todo", detail: !f.homeRx.exists ? "退院時処方はありません" : f.homeRx.handed ? "薬剤部が説明して渡しました" : "薬剤部でまだ渡していません" },
     { label: "退院証明書", state: f.documents.includes("退院証明書") ? "ok" : "todo", detail: f.documents.includes("退院証明書") ? "作成済み" : "書類作成でまだ作っていません" },

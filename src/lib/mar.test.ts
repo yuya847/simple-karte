@@ -44,6 +44,9 @@ describe("実施の状態", () => {
     const r = { ...rec, key: "p|300", orderId: "p", at: 300 };
     expect(prnToday("p", { [r.key]: r }, 1)).toEqual({ given: 1, over: true });
     expect(prnToday("p", {}, 2)).toEqual({ given: 0, over: false });
+    // After midnight (the clock runs on past 1440) a dose at 24:30 counts for the new day.
+    expect(prnToday("p", { k: { ...r, at: 1470 } }, 1, 1500)).toEqual({ given: 1, over: true });
+    expect(prnToday("p", { k: { ...r, at: 600 } }, 1, 1500)).toEqual({ given: 0, over: false });
   });
 });
 
