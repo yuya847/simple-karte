@@ -55,6 +55,8 @@ import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
+import { TransferPanel } from "./panels/TransferPanel";
+import { transferSummary, type TransferAsk } from "@/lib/transfer";
 import { onDuty, passOn, type CallNote, type Emergency, type NurseCall } from "@/lib/phs";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
 import { DischargeDialog } from "./DischargeDialog";
@@ -336,6 +338,8 @@ export default function WardApp() {
   const [nurseCalls, setNurseCalls] = useState<NurseCall[]>([]);
   const [emergencies, setEmergencies] = useState<Emergency[]>([]);
   const [callNotes, setCallNotes] = useState<CallNote[]>([]);
+  // 転院・施設の調整: what was asked where, and each answer.
+  const [transferAsks, setTransferAsks] = useState<TransferAsk[]>([]);
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
@@ -2209,6 +2213,24 @@ export default function WardApp() {
                       if (orderBlock) return;
                       addManualLab(d);
                       closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "transfer" && (
+                <Drawer title="転院・施設の調整" onClose={closePanel} wide>
+                  <TransferPanel
+                    summary={transferSummary(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), { dietNow: patient.dietNow, restrained: !!activeOf(restraints, patient.id) })}
+                    asks={transferAsks.filter((a) => a.patientId === patient.id)}
+                    onAsk={(fs) => {
+                      auditLog({ role: me.role, actor: me.name, action: "転院・施設に打診した", patient: patient.name, detail: fs.map((f) => f.name).join("、") });
+                      setTransferAsks((all) => [...all, ...fs.map((f) => ({ id: newId(), patientId: patient.id, facility: f.name, kind: f.kind, state: "打診中" as const, log: [{ at: nowTime, by: me.name, state: "打診中" as const, note: "" }] }))]);
+                    }}
+                    onUpdate={(id, state, note, meeting) => {
+                      const a = transferAsks.find((x) => x.id === id);
+                      auditLog({ role: me.role, actor: me.name, action: `転院・施設の調整：${state}`, patient: patient.name, detail: `${a?.facility ?? ""}　${note}` });
+                      setTransferAsks((all) => all.map((x) => (x.id === id ? { ...x, state, ...(meeting ? { meeting } : {}), log: [...x.log, { at: nowTime, by: me.name, state, note }] } : x)));
+                      if (state === "決定" && a) chartNote(patient.id, `【転院・施設の調整】${a.facility}（${a.kind}）に決定。${note}`);
                     }}
                   />
                 </Drawer>
