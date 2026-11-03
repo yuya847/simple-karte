@@ -4,8 +4,9 @@ import type { Diagnosis } from "../diagnoses";
 import { calculateClaim } from "./engine";
 import { ageOn, ASSUMED_INSURANCE_ISSUE, assumedInsurance, INSURANCE, type Insurance } from "./insurance";
 import { calculateBill, type Bill } from "./kaikei";
-import type { BillingOptions, ClaimInput, ClaimResult } from "./model";
+import type { BillingOptions, ClaimInput, ClaimIssue, ClaimResult } from "./model";
 import type { Receipt, ReceiptDiagnosis } from "./uke";
+import { reviewIssues } from "./worklist";
 
 export interface PatientMonthInput {
   patient: ClaimInput["patient"] & { kana: string };
@@ -96,4 +97,12 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     window: { medicalYen: bill.medicalYen, kogaku: bill.kogaku, tasuu: false },
   };
   return { insurance, claim, bill, receipt };
+}
+
+/** For 医事課の仕事: each patient's month through the same claim, keeping only what a person must look at. */
+export function claimChecks(inputs: PatientMonthInput[], today: string, nowTime: string, month: string): { id: string; days: number; issues: ClaimIssue[] }[] {
+  return inputs.map((input) => {
+    const pm = patientMonth(input, today, nowTime, month);
+    return { id: input.patient.id, days: pm.claim.days, issues: reviewIssues(pm.claim.issues) };
+  });
 }
