@@ -158,6 +158,8 @@ export interface ExamPatientFacts {
   cre: { value: number; day: DayOffset } | null;
   heightCm?: number;
   weightKg?: number;
+  /** 妊娠中 marked on the chart (weeks if known). */
+  pregnancy?: { weeks: number | null } | null;
 }
 
 /** Running oral drugs of a class (e.g. ビグアナイド系), for the contrast check. */
@@ -265,12 +267,12 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
       ],
     });
   }
-  if (pt && pt.sex === "女" && pt.age >= 12 && pt.age <= 55 && d.modality !== "MRI" && !d.answers.pregnancy) {
+  if (pt && ((pt.sex === "女" && pt.age >= 12 && pt.age <= 55) || pt.pregnancy) && d.modality !== "MRI" && !d.answers.pregnancy) {
     issues.push({
       key: "pregnancy",
       level: "ask",
       title: "妊娠",
-      message: "妊娠の可能性の確認が要ります。",
+      message: pt.pregnancy ? `カルテに妊娠中${pt.pregnancy.weeks ? `（${pt.pregnancy.weeks}週）` : ""}の印があります。放射線科と相談してください。` : "妊娠の可能性の確認が要ります。",
       choices: ["なし（確認済み）", "可能性あり（放射線科と相談）"].map((a) => ({ label: a, apply: (x: Draft) => ({ ...(x as ImagingDraft), answers: { ...(x as ImagingDraft).answers, pregnancy: a } }) })),
     });
   }

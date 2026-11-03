@@ -33,6 +33,8 @@ export interface Patient {
   heightCm: number;
   weightKg: number;
   allergies: string[];
+  /** 妊娠中 (marked by a doctor or nurse; weeks if known). Filled in by the app. */
+  pregnancy?: { weeks: number | null } | null;
   /** 血液型 (ABO・RhD), how many separate samples confirmed it, and the irregular antibody screen. */
   blood?: { abo: "A" | "B" | "O" | "AB"; rh: "+" | "-"; checks: number; antibody?: "陰性" | "陽性" };
   infections: string[];

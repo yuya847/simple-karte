@@ -1354,16 +1354,20 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
   return issues;
 }
 
+/** 妊娠中 marked on the chart: said on every drug draft (the package insert decides; the app has no list). */
+const pregnancyNote = (ctx: CheckContext): Issue[] =>
+  ctx.patientFacts?.pregnancy ? [{ key: "pregnancy", level: "info", title: "妊娠中", message: `カルテに妊娠中${ctx.patientFacts.pregnancy.weeks ? `（${ctx.patientFacts.pregnancy.weeks}週）` : ""}の印があります。妊婦への投与は添付文書の記載を確かめてください。` }] : [];
+
 export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
   switch (d.kind) {
     case "injection":
-      return checkInjection(d, ctx);
+      return [...checkInjection(d, ctx), ...pregnancyNote(ctx)];
     case "lab":
       return checkLab(d, ctx);
     case "procedure":
       return checkProcedure(d, ctx);
     case "prescription":
-      return checkPrescription(d, ctx, ctx.allergies ?? []);
+      return [...checkPrescription(d, ctx, ctx.allergies ?? []), ...pregnancyNote(ctx)];
     case "imaging":
       return checkImaging(d, ctx, ctx.patientFacts ?? null);
     case "physio":
