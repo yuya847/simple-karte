@@ -1,12 +1,17 @@
 "use client";
 
 import type { DietOrder } from "@/lib/diet";
-import { AlertTriangle, Ban, Info, ListChecks, Loader2 } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "lucide-react";
 import { BillPanel } from "./billing/BillPanel";
+import { InsurancePanel } from "./billing/InsurancePanel";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
+import { DenyNote, useDeny, useMe } from "./RoleContext";
+import { auditLog } from "@/lib/audit";
 import type { Insurance } from "@/lib/billing/insurance";
 import type { Bill } from "@/lib/billing/kaikei";
 import { patientMonthPayload, type PatientMonthPayload } from "@/lib/billing/payload";
+import type { InsuranceRecord } from "@/lib/billing/registration";
+import type { Settlement } from "@/lib/billing/worklist";
 import { useEffect, useMemo, useState } from "react";
 import { addDays, formatShort, isoDate, type CalendarDate } from "@/lib/dates";
 import type { Diagnosis } from "@/lib/diagnoses";
@@ -27,10 +32,17 @@ interface Props {
   letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[];
   /** Injection doses recorded as 未実施 on the ward ("orderId|minutes"). */
   notGiven?: string[];
+  /** The insurance 医事課 registered for this patient (every version; the last is in force). */
+  insurance?: InsuranceRecord[];
+  onRegister?: (r: InsuranceRecord) => void;
+  /** 退院時の会計, once recorded. */
+  settlement?: Settlement;
+  onSettle?: (s: Settlement) => void;
 }
 
-type Tab = "claim" | "bill" | "receipt";
+type Tab = "insurance" | "claim" | "bill" | "receipt";
 const TABS: { key: Tab; label: string }[] = [
+  { key: "insurance", label: "保険" },
   { key: "claim", label: "算定" },
   { key: "bill", label: "会計" },
   { key: "receipt", label: "レセプト" },
@@ -78,8 +90,12 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven }: Props) {
-  const [tab, setTab] = useState<Tab>("claim");
+export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insurance: records = [], onRegister, settlement, onSettle }: Props) {
+  const me = useMe();
+  const deny = useDeny();
+  const registered = records[records.length - 1];
+  // 医事課 starts on 保険 while the patient has none registered; everyone else on 算定.
+  const [tab, setTab] = useState<Tab>(() => (!registered && !deny("insurance") ? "insurance" : "claim"));
   const [bill, setBill] = useState<Bill | null>(null);
   const [insurance, setInsurance] = useState<(Insurance & { assumed?: boolean }) | null>(null);
   const [receiptLines, setReceiptLines] = useState<string[]>([]);
@@ -89,11 +105,11 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Diets and letters by value, so a new array with the same content does not re-run the claim.
-  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [] });
+  // Diets, letters and the registered insurance by value, so a new array with the same content does not re-run the claim.
+  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insurance: registered?.insurance });
   useEffect(() => {
     const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[] };
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[]; insurance?: Insurance };
     const run = async () => {
       setLoading(true);
       setError(null);
@@ -146,6 +162,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
               className={`rounded px-3 py-1 text-sm ${tab === t.key ? "bg-sheet font-bold text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}
             >
               {t.label}
+              {t.key === "insurance" && !registered && <span className="ml-1 rounded bg-shu-soft px-1 text-[10px] font-normal text-shu">未登録</span>}
             </button>
           ))}
         </div>
@@ -173,12 +190,64 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
       <div className="scroll-thin min-h-0 flex-1 overflow-auto px-4 py-3">
         {error && <p className="mb-3 rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
 
+        {tab === "insurance" && <InsurancePanel patient={patient} records={records} today={today} nowTime={nowTime} onRegister={(r) => onRegister?.(r)} />}
+        {tab === "bill" && patient.dischargedAt && (
+          <div className="mb-3 rounded-md border border-rule bg-paper px-3 py-2 text-xs">
+            {settlement ? (
+              <p className="nums flex items-center gap-1.5 text-wakatake">
+                <CheckCircle2 size={13} />
+                退院時の会計：済み（{formatShort(addDays(today, settlement.at.day))} {settlement.at.time} {settlement.by}
+                {settlement.yen !== null ? `、${Number(settlement.month.slice(5))}月分 ${yen(settlement.yen)}` : ""}）
+              </p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="nums font-bold text-yamabuki">
+                  退院済み（{formatShort(addDays(today, patient.dischargedAt.day))} {patient.dischargedAt.time}）・会計がまだです。
+                </span>
+                <button
+                  type="button"
+                  disabled={!!deny("settle") || !bill || loading}
+                  onClick={() => {
+                    if (!bill) return;
+                    const s: Settlement = { month, yen: bill.totalYen, by: me.name, at: { day: 0, time: nowTime } };
+                    auditLog({ role: me.role, actor: me.name, action: "退院時の会計を記録した", patient: patient.name, detail: `${Number(month.slice(5))}月分 ${yen(bill.totalYen)}` });
+                    onSettle?.(s);
+                  }}
+                  className="rounded-md bg-ai px-2.5 py-1 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  会計を済ませた{bill ? `（お支払い ${yen(bill.totalYen)}）` : ""}
+                </button>
+                <span className="text-[11px] text-ink-faint">お金のやりとりはこの試作にはありません。窓口で受け取ったことを記録します。</span>
+                <DenyNote action="settle" className="w-full" />
+              </div>
+            )}
+          </div>
+        )}
         {tab === "bill" && result && bill && insurance && <BillPanel claim={result} bill={bill} insurance={insurance} month={month} />}
         {tab === "receipt" && result && (
           <ReceiptPanel lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
         {tab === "claim" && (
           <>
+
+        {!registered && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-yamabuki/40 bg-yamabuki-soft px-3 py-2 text-xs text-yamabuki">
+            <AlertTriangle size={13} />
+            保険が未登録です。年齢から仮の保険で計算しています。
+            <button type="button" onClick={() => setTab("insurance")} className="rounded border border-yamabuki/50 bg-sheet px-2 py-0.5 font-bold">
+              保険を登録する
+            </button>
+          </div>
+        )}
+        {patient.dischargedAt && !settlement && (
+          <div className="nums mb-3 flex flex-wrap items-center gap-2 rounded-md border border-yamabuki/40 bg-yamabuki-soft px-3 py-2 text-xs text-yamabuki">
+            <AlertTriangle size={13} />
+            退院済み（{formatShort(addDays(today, patient.dischargedAt.day))} {patient.dischargedAt.time}）・会計がまだです。
+            <button type="button" onClick={() => setTab("bill")} className="rounded border border-yamabuki/50 bg-sheet px-2 py-0.5 font-bold">
+              会計へ
+            </button>
+          </div>
+        )}
 
         {result && (
           <div className="nums mb-3 flex flex-wrap items-end gap-x-8 gap-y-2">
