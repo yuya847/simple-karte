@@ -37,7 +37,8 @@ function DailyForm({ today, prevWeight, onDaily }: { today?: DailyRecord; prevWe
   const [weight, setWeight] = useState("");
   const n = (s: string) => (s.trim() === "" ? undefined : Number(s));
   const w = n(weight);
-  const bad = [urine, stools, tenths, weight].some((s) => s.trim() !== "" && !Number.isFinite(Number(s))) || (n(tenths) !== undefined && (n(tenths)! < 0 || n(tenths)! > 10)) || (n(tenths) !== undefined && slot === null);
+  // Numbers only, none below zero (to take back a wrong entry, enter it again as it should be and note why).
+  const bad = [urine, stools, tenths, weight].some((s) => s.trim() !== "" && (!Number.isFinite(Number(s)) || Number(s) < 0)) || (n(tenths) !== undefined && (n(tenths)! < 0 || n(tenths)! > 10)) || (n(tenths) !== undefined && slot === null);
   const any = [urine, stools, weight].some((s) => s.trim()) || (slot !== null && tenths.trim() !== "");
   const box = "w-16 rounded border border-rule bg-paper px-1.5 py-1 text-right text-[13px] outline-none focus:border-ai";
   const meals = today?.meals;
