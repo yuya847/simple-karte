@@ -418,6 +418,17 @@ function Note({ entry, today, onRevise, onDo }: { entry: NoteEntry; today: Calen
       ) : (
         <NoteBody n={entry} />
       )}
+      {entry.figures && entry.figures.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-2">
+          {entry.figures.map((f, i) => (
+            <figure key={i} className="w-40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={f.dataUrl} alt={f.caption} draggable={false} className="w-40 rounded border border-rule bg-white" />
+              <figcaption className="text-[11px] text-ink-soft">{f.caption}</figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
       {showHistory && versions.length > 1 && (
         <ol className="mt-1 space-y-1.5 border-l-2 border-yamabuki/40 pl-2 text-[12px]">
           {versions.map((v, i) => (

@@ -42,6 +42,7 @@ import { RestraintPanel } from "./panels/RestraintPanel";
 import { RegimenPanel } from "./panels/RegimenPanel";
 import { SummaryPanel } from "./panels/SummaryPanel";
 import { SetPanel } from "./panels/SetPanel";
+import { SchemaPanel } from "./panels/SchemaPanel";
 import { summaryFacts } from "@/lib/summary";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
@@ -155,6 +156,8 @@ interface ChartState {
   extended: Record<string, number>;
   /** An order to copy into the 注射 tab for 修正 (the old one gets a stop draft). */
   injSeed?: { key: string; order: InjectionOrder };
+  /** シェーマ attached to today's note (kept with it when confirmed). */
+  figures?: { caption: string; dataUrl: string }[];
   /** Do of a past prescription (or one picked from 処方の記憶): copied into the 内服 tab. */
   rxSeed?: { key: string; pattern: RxPattern };
   drafting: boolean;
@@ -1544,10 +1547,10 @@ export default function WardApp() {
                         onConfirm={confirm}
                         orderMode={orderMode}
                         onConfirmNote={() => {
-                          const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, ...parseNote(chart.note) };
+                          const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
                           setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
                           auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: chart.note.replace(/\s+/g, " ").slice(0, 120) });
-                          update({ note: noteTemplate(me.role), flash: "記事を確定しました。左の経過に入りました。" });
+                          update({ note: noteTemplate(me.role), figures: [], flash: "記事を確定しました。左の経過に入りました。" });
                         }}
                       />,
                     )}
@@ -1799,6 +1802,27 @@ export default function WardApp() {
                       closePanel();
                     }}
                   />
+                </Drawer>
+              )}
+              {panel === "schema" && (
+                <Drawer title="シェーマ" onClose={closePanel}>
+                  <SchemaPanel
+                    onAttach={(f) => {
+                      update((c) => ({ figures: [...(c.figures ?? []), f], note: insertIntoO(c.note, `シェーマ（${f.caption}）`), flash: "シェーマを今日の記事に貼りました。記事を確定すると一緒に残ります。" }));
+                      openRight("note");
+                    }}
+                  />
+                  {(chart.figures ?? []).length > 0 && (
+                    <div className="mt-3 border-t border-rule pt-2 text-[12px]">
+                      <div className="mb-1 text-ink-soft">今日の記事に貼ったシェーマ（確定前）</div>
+                      <div className="flex flex-wrap gap-2">
+                        {chart.figures!.map((f, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={f.dataUrl} alt={f.caption} title={f.caption} className="size-24 rounded border border-rule" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </Drawer>
               )}
               {panel === "sets" && (

@@ -90,6 +90,8 @@ export interface NoteEntry {
   text?: string;
   /** Notes confirmed in this app carry an id. */
   id?: string;
+  /** シェーマ drawn for the note (PNG data URLs with a caption). */
+  figures?: { caption: string; dataUrl: string }[];
   /** Every version when the note was corrected, oldest first (the fields above are the last one). */
   versions?: NoteVersion[];
 }
