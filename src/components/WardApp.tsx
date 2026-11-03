@@ -25,6 +25,7 @@ import { PatientPicker } from "./PatientPicker";
 import { PatientList } from "./PatientList";
 import type { PinnedTab } from "@/lib/roles";
 import { AppFrame, type Todo } from "./AppFrame";
+import { NewTabPage } from "./NewTabPage";
 import { areaOf, areasFor, bedInScope, defaultScopes, scopeOptions, viewsForScope, type AreaKey, type Scope } from "@/lib/nav";
 import { verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
@@ -166,7 +167,9 @@ export default function WardApp() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
   // The ward map is the pinned first tab and the start screen; then the patient list and the ED board.
-  const [screen, setScreen] = useState<PinnedTab | "chart">(home("医師"));
+  // What the main area shows: a place's view, a patient's chart, or 新しいタブ (a menu of what to open).
+  const [screen, setScreen] = useState<PinnedTab | "chart" | "new">(home("医師"));
+  const [newTabOpen, setNewTabOpen] = useState(false);
   // Who is using the chart. The demo picks a role instead of logging in.
   const [role, setRole] = useState<Role>("医師");
   // Places opened from the left menu (tabs on top), and inside 病棟 the tabs of which patients.
@@ -572,7 +575,7 @@ export default function WardApp() {
   const closeArea = (k: AreaKey) => {
     const rest = openAreas.filter((x) => x !== k);
     setOpenAreas(rest);
-    if (screen !== "chart" && areaOf(screen) === k) {
+    if (screen !== "chart" && screen !== "new" && areaOf(screen) === k) {
       // Show another open place, else a chart, else the role's first place again.
       const next = areas.find((a) => rest.includes(a.key) && a.views.length);
       if (next) openArea(next.key);
@@ -587,7 +590,7 @@ export default function WardApp() {
     if (!s) return;
     setActiveScope(key);
     const views = viewsForScope(s, areas.find((a) => a.key === "ward")?.views ?? []);
-    const v = scopeView[key] && views.includes(scopeView[key]) ? scopeView[key] : screen !== "chart" && views.includes(screen) ? screen : views[0];
+    const v = scopeView[key] && views.includes(scopeView[key]) ? scopeView[key] : screen !== "chart" && screen !== "new" && views.includes(screen) ? screen : views[0];
     if (v) {
       setScopeView((m) => ({ ...m, [key]: v }));
       setScreen(v);
@@ -618,6 +621,27 @@ export default function WardApp() {
   );
   const wideLeft = chart.leftView !== "record";
 
+  // 新しいタブ: ＋ opens a menu tab; choosing from it turns that tab into the place or chart chosen.
+  const openNewTab = () => {
+    setNewTabOpen(true);
+    setScreen("new");
+    setPanel(null);
+  };
+  const closeNewTab = () => {
+    setNewTabOpen(false);
+    if (screen !== "new") return;
+    const next = areas.find((a) => openAreas.includes(a.key) && a.views.length);
+    if (next) openArea(next.key);
+    else if (tabs.length) {
+      setActiveId(activeId ?? tabs[0]);
+      setScreen("chart");
+    } else openArea(areaOf(home(role)));
+  };
+  const fromNewTab = (go: () => void) => () => {
+    setNewTabOpen(false);
+    go();
+  };
+
   const switchRole = (r: Role) => {
     auditLog({ role: r, actor: STAFF[r].name, action: "職種を選んで入った（デモではログインの代わり）" });
     setRole(r);
@@ -638,7 +662,25 @@ export default function WardApp() {
   // The screen itself (the same in both layouts).
   const content = (
     <>
-      {screen === "map" ? (
+      {screen === "new" ? (
+        <NewTabPage
+          patients={allPatients}
+          openIds={tabs}
+          areas={areas}
+          scopes={scopeList}
+          todos={todos.map((t) => ({ ...t, go: fromNewTab(t.go) }))}
+          onPatient={(id) => fromNewTab(() => openPatient(id))()}
+          onArea={(k) => fromNewTab(() => openArea(k))()}
+          onWard={(key, v) =>
+            fromNewTab(() => {
+              setScopes((all) => (all.includes(key) ? all : [...all, key]));
+              setActiveScope(key);
+              setScopeView((m) => ({ ...m, [key]: v }));
+              goScreen(v);
+            })()
+          }
+        />
+      ) : screen === "map" ? (
         <WardMap ward={ward} summaries={summaries} onOpen={openPatient} scope={scopeLimit} />
       ) : screen === "er" ? (
         <EmergencyBoard
@@ -1337,6 +1379,9 @@ export default function WardApp() {
         screen={screen}
         onArea={openArea}
         onCloseArea={closeArea}
+        newTabOpen={newTabOpen}
+        onNewTab={openNewTab}
+        onCloseNewTab={closeNewTab}
         onView={goScreen}
         ward={{
           scopes: scopes.map((k) => scopeList.find((x) => x.key === k)).filter((x): x is Scope => !!x),

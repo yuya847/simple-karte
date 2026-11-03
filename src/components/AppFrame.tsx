@@ -64,9 +64,13 @@ interface Props {
   areas: Area[];
   /** Places open as tabs on top. */
   openAreas: AreaKey[];
-  screen: PinnedTab | "chart";
+  screen: PinnedTab | "chart" | "new";
   onArea: (k: AreaKey) => void;
   onCloseArea: (k: AreaKey) => void;
+  /** 新しいタブ (＋): a tab showing a menu of what to open. */
+  newTabOpen: boolean;
+  onNewTab: () => void;
+  onCloseNewTab: () => void;
   onView: (v: PinnedTab) => void;
   patients: Patient[];
   activeId: string | null;
@@ -185,7 +189,7 @@ function CloseX({ label, onClose }: { label: string; onClose: () => void }) {
 
 /** The tab bar on top: the places opened from the left menu, then patients' charts. */
 function TopTabs(p: Props) {
-  const current = p.screen === "chart" ? null : areaOf(p.screen);
+  const current = p.screen === "chart" || p.screen === "new" ? null : areaOf(p.screen);
   const open = p.openAreas.map((k) => p.areas.find((a) => a.key === k)).filter((a): a is Area => !!a);
   return (
     <div className="flex items-end gap-1 border-b border-rule bg-tab px-2 pt-1.5">
@@ -224,7 +228,14 @@ function TopTabs(p: Props) {
             </div>
           );
         })}
-        <button type="button" onClick={p.onOpenPicker} aria-label="患者を開く" title="患者を開く（⌘K）" className="mb-1 shrink-0 rounded-md p-1.5 text-ink-soft hover:bg-sheet/70 hover:text-ink">
+        {p.newTabOpen && (
+          <div role="tab" aria-selected={p.screen === "new"} tabIndex={0} onClick={p.onNewTab} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && p.onNewTab()} className={`${tabShape(p.screen === "new")} min-w-32`}>
+            <Plus size={14} />
+            <span className="whitespace-nowrap">新しいタブ</span>
+            <CloseX label="新しいタブを閉じる" onClose={p.onCloseNewTab} />
+          </div>
+        )}
+        <button type="button" onClick={p.onNewTab} aria-label="新しいタブ" title="新しいタブ（患者・場所・病棟の画面・やることから選ぶ）" className="mb-1 shrink-0 rounded-md p-1.5 text-ink-soft hover:bg-sheet/70 hover:text-ink">
           <Plus size={16} />
         </button>
       </div>
@@ -471,7 +482,7 @@ export function AppFrame(p: Props) {
   // null = automatic: narrow while a chart is open (it needs the width), wide elsewhere.
   const [collapsed, setCollapsed] = useState<boolean | null>(null);
   const narrow = collapsed === null ? p.screen === "chart" : collapsed;
-  const current = p.screen === "chart" ? null : areaOf(p.screen);
+  const current = p.screen === "chart" || p.screen === "new" ? null : areaOf(p.screen);
   const places = p.areas.filter((a) => !a.tool);
   const chat = p.areas.find((a) => a.key === "chat");
   return (
@@ -514,7 +525,7 @@ export function AppFrame(p: Props) {
       </nav>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <TopTabs {...p} />
-        {current === "ward" && p.screen !== "chart" && <WardBarView ward={p.ward} screen={p.screen} badges={p.badges} onView={p.onView} />}
+        {current === "ward" && p.screen !== "chart" && p.screen !== "new" && <WardBarView ward={p.ward} screen={p.screen} badges={p.badges} onView={p.onView} />}
         {p.children}
       </div>
     </div>
