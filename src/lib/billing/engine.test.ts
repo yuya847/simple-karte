@@ -150,6 +150,27 @@ describe("注射", () => {
     ]);
   });
 
+  it("a dose the ward recorded as 未実施 is not claimed", () => {
+    const vcm = order(OCT1, {
+      type: "injection",
+      items: [
+        { drugCode: "INJ-VCM05", amount: 1, unit: "g" },
+        { drugCode: "INJ-NS100", amount: 100, unit: "mL" },
+      ],
+      route: "点滴静注",
+      schedule: { kind: "every_hours", hours: 12 },
+      start: { day: OCT1, time: "10:00" },
+    });
+    // 10/2 22:00 (day OCT1 + 1) recorded as 未実施: one dose that day instead of two.
+    const r = claim("2026-10", { entries: [vcm], notGiven: [`${vcm.id}|${(OCT1 + 1) * 1440 + 22 * 60}`] });
+    const day2 = r.acts.find((a) => a.shikibetsu === "33" && a.days[2]);
+    expect(day2?.parts[0].lines.map((l) => [l.code, l.quantity])).toEqual([
+      ["620005694", 2],
+      ["640412105", 1],
+    ]);
+    expect(r.issues.some((i) => i.text.includes("未実施と記録された1回"))).toBe(true);
+  });
+
   it("500mL or more a day: 点滴注射 102点 and the day's drugs as one 剤", () => {
     const fluid = order(OCT1, {
       type: "injection",

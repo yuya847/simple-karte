@@ -25,6 +25,8 @@ interface Props {
   wardPayload: () => PatientMonthPayload[];
   diets?: DietOrder[];
   letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[];
+  /** Injection doses recorded as 未実施 on the ward ("orderId|minutes"). */
+  notGiven?: string[];
 }
 
 type Tab = "claim" | "bill" | "receipt";
@@ -76,7 +78,7 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters }: Props) {
+export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven }: Props) {
   const [tab, setTab] = useState<Tab>("claim");
   const [bill, setBill] = useState<Bill | null>(null);
   const [insurance, setInsurance] = useState<(Insurance & { assumed?: boolean }) | null>(null);
@@ -88,10 +90,10 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   const [loading, setLoading] = useState(false);
 
   // Diets and letters by value, so a new array with the same content does not re-run the claim.
-  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [] });
+  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [] });
   useEffect(() => {
     const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[] };
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[] };
     const run = async () => {
       setLoading(true);
       setError(null);

@@ -10,6 +10,7 @@ import type { Receipt, ReceiptDiagnosis } from "./uke";
 export interface PatientMonthInput {
   patient: ClaimInput["patient"] & { kana: string };
   entries: ClaimInput["entries"];
+  notGiven?: ClaimInput["notGiven"];
   daily: ClaimInput["daily"];
   cultures: ClaimInput["cultures"];
   diagnoses: Diagnosis[];
@@ -63,6 +64,7 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     month,
     patient: input.patient,
     entries: input.entries,
+    notGiven: input.notGiven,
     daily: input.daily,
     cultures: input.cultures,
     diagnoses: input.diagnoses,

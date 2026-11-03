@@ -717,6 +717,8 @@ export default function WardApp() {
 
   const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft], flash: null }));
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
+  // Doses the ward recorded as 未実施, for the claim ("orderId|minutes").
+  const notGivenOf = (pid: string) => Object.values(mar).filter((r) => r.patientId === pid && r.status === "未実施").map((r) => r.key);
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
   // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.
   const recordGuidance = (pid: string, r: GuidanceInput, fromPharmacy = false) => {
@@ -1554,6 +1556,7 @@ export default function WardApp() {
                   options={billing[patient.id] ?? DEFAULT_OPTIONS}
                   diets={diets}
                   letters={lettersOf(patient.id)}
+                  notGiven={notGivenOf(patient.id)}
                   onOptions={(next) => {
                     // What changed in the claim's options, for the audit log (医事課 and doctors change them).
                     const cur = billing[patient.id] ?? DEFAULT_OPTIONS;
@@ -1564,7 +1567,7 @@ export default function WardApp() {
                   wardPayload={() =>
                     allPatients.map((p) => {
                       const c = charts[p.id];
-                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id) });
+                      return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id) });
                     })
                   }
                 />

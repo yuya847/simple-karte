@@ -116,6 +116,8 @@ export interface ClaimInput {
     dischargedOn?: DayOffset;
   };
   entries: HistoryEntry[];
+  /** Injection doses the ward recorded as 未実施 ("orderId|minutes"): not claimed. */
+  notGiven?: string[];
   daily: DailyRecord[];
   cultures: CultureResult[];
   diagnoses: Diagnosis[];

@@ -262,13 +262,21 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
 
   // ===== 注射 =====
   const injections = orders.filter((e) => e.order.type === "injection");
+  // Doses the nurse recorded as 未実施 are not claimed: one dose (or one bag) less on that day.
+  const notGiven = (input.notGiven ?? []).map((k) => {
+    const i = k.lastIndexOf("|");
+    return { orderId: k.slice(0, i), at: Number(k.slice(i + 1)) };
+  });
   for (const d of days) {
     const lo = d * DAY;
     const hi = Math.min((d + 1) * DAY, d === 0 ? nowAbs + 1 : (d + 1) * DAY);
     const byRoute: Record<string, { lines: Map<string, number>; volume: number }> = {};
     for (const e of injections) {
       const ord = e.order as InjectionOrder;
-      const doses = injectionDoses(e, lo, hi, nowAbs);
+      const counted = injectionDoses(e, lo, hi, nowAbs);
+      const skipped = notGiven.filter((n) => n.orderId === e.id && n.at >= lo && n.at < hi).length;
+      const doses = counted.bags > 0 ? { count: counted.count, bags: Math.max(0, counted.bags - skipped) } : { count: Math.max(0, counted.count - skipped), bags: 0 };
+      if (skipped) issues.push({ level: "info", text: `${findDrug((e.order as InjectionOrder).items[0]?.drugCode ?? "")?.name ?? "注射"}：病棟で未実施と記録された${skipped}回は算定しません。` });
       if (doses.count === 0 && doses.bags === 0) continue;
       const route = ord.route;
       byRoute[route] ??= { lines: new Map(), volume: 0 };
