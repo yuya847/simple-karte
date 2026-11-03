@@ -29,6 +29,8 @@ interface Props {
   onOpenChart: (patientId: string) => void;
   onStatus: (s: string) => void;
   newId: () => string;
+  /** 外来処方・再診予約 (外来 only). */
+  opdOrders?: React.ReactNode;
 }
 
 const ER_STATUSES: ErStatus[] = ["診察待ち", "診察中", "入院依頼", "帰宅"];
@@ -37,7 +39,7 @@ const ER_STATUSES: ErStatus[] = ["診察待ち", "診察中", "入院依頼", "�
  * The tab of one patient in 救急外来 or 外来: what is known of the visit, today's record, and the
  * 入院申込 (the ward takes it and decides the bed). The doctor writes; nothing is chosen for them.
  */
-export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onRequest, onCancelRequest, onOpenChart, onStatus, newId }: Props) {
+export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onRequest, onCancelRequest, onOpenChart, onStatus, newId, opdOrders }: Props) {
   const me = useMe();
   const p = visit.kind === "er" ? visit.er : visit.op;
   const [text, setText] = useState("");
@@ -120,6 +122,8 @@ export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onR
           </section>
         </div>
 
+        <div className="space-y-4">
+        {opdOrders}
         <section className="h-fit rounded-lg border border-rule bg-sheet p-3 text-[13px]">
           <h2 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-ink-soft">
             <BedDouble size={14} />
@@ -176,6 +180,7 @@ export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onR
             </div>
           )}
         </section>
+        </div>
       </div>
     </div>
   );
