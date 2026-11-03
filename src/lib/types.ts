@@ -172,8 +172,9 @@ export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
 
 export interface PrescriptionOrder {
   type: "prescription";
-  /** 定期 = regular, 臨時 = one-off/short, 持参薬 = the patient's own drugs brought from home. */
-  category: "定期" | "臨時" | "持参薬";
+  /** 定期 = regular, 臨時 = one-off/short, 持参薬 = the patient's own drugs brought from home,
+   * 退院時 = 退院時処方 (taken home; dispensed by the pharmacy with 薬袋 and 薬剤情報提供文書, never given on the ward). */
+  category: "定期" | "臨時" | "持参薬" | "退院時";
   drugCode: string;
   /** Amount per time, e.g. 1 (錠). */
   amount: number;

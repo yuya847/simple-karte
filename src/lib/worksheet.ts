@@ -126,6 +126,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         }
       } else if (o.type === "prescription") {
         const rx = o as PrescriptionOrder;
+        if (rx.category === "退院時") continue;
         const main = `${oralName(rx.drugCode)} 1回${rx.amount}${rx.unit}`;
         if (rx.timings.length === 0) {
           if (e.status === "有効") untimed.push({ ...base, at: null, kind: "内服", main, detail: `頓用 ${rx.prn ?? ""}${rx.maxPerDay ? `（1日${rx.maxPerDay}回まで）` : ""}`, orderId: e.id, state: null });

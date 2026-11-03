@@ -39,7 +39,14 @@ export function auditItems(people: { patient: Patient; room: string; entries: Or
         const o = e.order;
         const ing = ingredientOf(o.drugCode);
         const same = entries.filter(
-          (x) => x.id !== e.id && isRunning(x) && x.order.type === "prescription" && ingredientOf((x.order as PrescriptionOrder).drugCode) === ing && (x.order as PrescriptionOrder).timings.length > 0,
+          (x) =>
+            x.id !== e.id &&
+            isRunning(x) &&
+            x.order.type === "prescription" &&
+            ingredientOf((x.order as PrescriptionOrder).drugCode) === ing &&
+            (x.order as PrescriptionOrder).timings.length > 0 &&
+            // 退院時処方 is compared only with other 退院時処方 (it repeats the ward's drugs on purpose).
+            ((x.order as PrescriptionOrder).category === "退院時") === (o.category === "退院時"),
         );
         if (ing && o.timings.length > 0 && isRunning(e) && same.length) {
           checks.push({ level: "ask", text: `同じ成分（${ing}）の内服が ${same.map((x) => (x.order as PrescriptionOrder).category).join("・")} でも有効です。` });

@@ -15,7 +15,7 @@ export interface RxPattern {
   /** The usage label (毎食後, 朝夕食後 …), empty for 頓用. */
   timing: string;
   days: number | null;
-  category: "定期" | "臨時";
+  category: "定期" | "臨時" | "退院時";
   prn?: string;
   maxPerDay?: number;
   count: number;
@@ -42,7 +42,7 @@ export function rpsOf(entries: { patientId: string; entry: OrderEntry }[]): (Omi
     const rows = g.orders.map((x) => ({ drugCode: x.drugCode, per: x.amount }));
     const times: number | "頓用" = o.timings.length ? o.timings.length : "頓用";
     const timing = timingLabel(o.timings);
-    const category = o.category === "定期" ? "定期" : "臨時";
+    const category = o.category === "持参薬" ? "定期" : o.category;
     const key = [rows.map((r) => `${r.drugCode}:${r.per}`).join("+"), times, timing, o.days ?? "", category, o.prn ?? "", o.maxPerDay ?? ""].join("|");
     return { key, rows, times, timing, days: o.days ?? null, category, prn: o.prn, maxPerDay: o.maxPerDay, day: g.day, patientId: g.patientId };
   });

@@ -322,7 +322,7 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
         ...base,
         comment: prn ? null : o.comment,
         kind: "prescription",
-        category: o.rx_category === "定期" || o.rx_category === "臨時" ? o.rx_category : null,
+        category: o.rx_category === "定期" || o.rx_category === "臨時" || o.rx_category === "退院時" ? o.rx_category : null,
         items: o.drugs.map((d) => ({
           drugCode: d.code && findOralDrug(d.code) ? d.code : null,
           said: d.said,

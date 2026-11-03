@@ -63,6 +63,11 @@ export const PRESCRIPTIONS: Record<string, OrderEntry[]> = {
       start: { day: -3, timing: "夕" },
       days: 7,
     }),
+    // 退院時処方 (退院は明日の予定): 家で飲む分。病棟では配らず、薬剤部が薬袋と説明書を作る。
+    ...(["ORAL-ENA5", "ORAL-BISO25", "ORAL-SPL25"] as const).map((drugCode, i) =>
+      rx(`kita-home-${i}`, 0, "10:30", { category: "退院時", drugCode, amount: 1, unit: "錠", timings: ["朝"], start: { day: 1, timing: "朝" }, days: 14, rp: "kita-home-rp1" }),
+    ),
+    rx("kita-home-mgo", 0, "10:30", { category: "退院時", drugCode: "ORAL-MGO330", amount: 1, unit: "錠", timings: ["朝", "夕"], start: { day: 1, timing: "朝" }, days: 14, rp: "kita-home-rp2" }),
   ],
   // 森 久美子
   "90010260": [

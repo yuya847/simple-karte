@@ -41,7 +41,7 @@ How to transcribe
 - Oral prescriptions (処方): kind "prescription", one order per usage (drugs taken at the same times with the same days go in one order, like an Rp). drugs: codes from oral_drugs (match name or alias AND strength; strength not said and several strengths exist → code ""), amount and unit as said.
   - rx_amount_is: "1日3錠" / "1日量" / "分3で3錠" → 1日量. "1回1錠" → 1回量. Not clear → "".
   - rx_timings as said: "朝食後" → 朝, "朝夕" → 朝 夕, "毎食後" → 朝 昼 夕, "寝る前" / "眠前" → 眠前. "分3" alone without times → leave rx_timings empty (the app asks).
-  - rx_category: "定期" / "臨時" only if said; "頓用" / "疼痛時" / "不眠時" / "発熱時" → 頓用 with the condition words in comment, "1日3回まで" → rx_max_per_day 3.
+  - rx_category: "定期" / "臨時" / "退院時" (退院時処方・退院処方) only if said; "頓用" / "疼痛時" / "不眠時" / "発熱時" → 頓用 with the condition words in comment, "1日3回まで" → rx_max_per_day 3.
   - days: "7日分" → 7.
 - Imaging (画像検査) → kind "imaging"; physiological tests (心電図・エコー・呼吸機能・ABI・ホルター・脳波) → kind "physio". One order per study.
   - exam: the study as said. exam_region: the body region words as said (imaging only). exam_contrast only if said. exam_purpose: the reason as said.

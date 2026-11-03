@@ -23,7 +23,7 @@ export interface PrescriptionDraft {
   sourceText: string;
   comment: string | null;
   kind: "prescription";
-  category: "定期" | "臨時" | null;
+  category: "定期" | "臨時" | "退院時" | null;
   items: RxItem[];
   /** 服用時点. Empty with `prn` set = 頓用. null = not said. */
   timings: DoseTiming[] | null;
@@ -186,7 +186,9 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
     }
     // 重複（同じ成分の内服が有効）
     const ing = ingredientOf(m.code);
-    const same = ctx.activeOrders.filter((o) => o.order.type === "prescription" && ingredientOf(o.order.drugCode) === ing);
+    // A 退院時処方 repeats what is taken on the ward on purpose: compare it only with other 退院時処方.
+    const home = (o: PrescriptionOrder) => o.category === "退院時";
+    const same = ctx.activeOrders.filter((o) => o.order.type === "prescription" && ingredientOf(o.order.drugCode) === ing && home(o.order) === (d.category === "退院時"));
     if (same.length && !d.acks.includes(ACK.重複)) {
       issues.push({
         key: `dup-${i}`,
@@ -212,7 +214,7 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
     const per = perDoseOf(it, prn ? 1 : d.timings!.length)!;
     return {
       type: "prescription",
-      category: prn ? "臨時" : d.category!,
+      category: d.category === "退院時" ? "退院時" : prn ? "臨時" : d.category!,
       drugCode: m.code,
       amount: per,
       unit: m.unit,

@@ -14,7 +14,9 @@ describe("処方の記憶", () => {
 
   it("gives this patient's previous prescriptions for Do, leaving out the drugs brought from home", () => {
     const prev = previousOf("90010198", PRESCRIPTIONS["90010198"]);
-    expect(prev).toHaveLength(1);
-    expect(patternLine(prev[0])).toBe("酸化マグネシウム錠330mg 1回1錠　1日2回 朝夕食後　7日分　定期");
+    // The 退院時処方 written today comes first (2 Rp), then the 定期 from 3 days ago.
+    expect(prev).toHaveLength(3);
+    expect(prev.slice(0, 2).every((p) => p.category === "退院時")).toBe(true);
+    expect(patternLine(prev[2])).toBe("酸化マグネシウム錠330mg 1回1錠　1日2回 朝夕食後　7日分　定期");
   });
 });

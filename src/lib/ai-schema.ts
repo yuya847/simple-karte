@@ -38,7 +38,7 @@ export const AiOrder = z.object({
   exam_contrast: z.enum(["単純", "造影", "単純＋造影", ""]),
   exam_purpose: z.string(),
   // prescription
-  rx_category: z.enum(["定期", "臨時", "頓用", ""]),
+  rx_category: z.enum(["定期", "臨時", "退院時", "頓用", ""]),
   rx_amount_is: z.enum(["1日量", "1回量", ""]),
   rx_timings: z.array(RX_TIMING),
   rx_max_per_day: z.number(),
@@ -107,7 +107,7 @@ export const AiWireOrder = z.object({
   exam_contrast: z.enum(["単純", "造影", "単純＋造影", ""]).describe('"造影" only if said; "単純" only if said; "" otherwise'),
   exam_purpose: z.string().describe('Why, as said ("肺炎の評価", "心不全の経過"); "" if not said'),
 
-  rx_category: z.enum(["定期", "臨時", "頓用", ""]).describe('Oral prescription: "定期" / "臨時" if said, "頓用" for as-needed; "" otherwise'),
+  rx_category: z.enum(["定期", "臨時", "退院時", "頓用", ""]).describe('Oral prescription: "定期" / "臨時" / "退院時" (退院時処方) if said, "頓用" for as-needed; "" otherwise'),
   rx_amount_is: z.enum(["1日量", "1回量", ""]).describe('Whether the amount said is per day ("1日3錠") or per dose ("1回1錠"); "" if not said or not a prescription'),
   rx_timings: z.array(RX_TIMING).describe("When an oral drug is taken, as said (朝食後 → 朝, 毎食後 → 朝 昼 夕, 寝る前 → 眠前). Empty if not said"),
   rx_max_per_day: z.number().describe('As-needed: "1日3回まで" → 3; 0 otherwise'),

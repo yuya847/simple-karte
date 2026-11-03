@@ -81,7 +81,8 @@ export function prescriptionCell(entry: OrderEntry, day: DayOffset, nowAbs: numb
   const { from, to } = rxWindow(entry, nowAbs);
   const slots = o.timings.map((timing) => {
     const t = abs(day, WARD_RULES.medTimes[timing]);
-    return { timing, state: t >= from && t < to ? stateAt(t, nowAbs) : null };
+    // 退院時処方 is taken at home: nothing to give on the ward.
+    return { timing, state: o.category !== "退院時" && t >= from && t < to ? stateAt(t, nowAbs) : null };
   });
   return {
     slots,

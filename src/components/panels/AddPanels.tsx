@@ -670,7 +670,7 @@ interface Rp {
   /** The timing label for that number of times (毎食後, 朝夕食後 …). */
   timing: string;
   days: string;
-  category: "定期" | "臨時";
+  category: "定期" | "臨時" | "退院時";
   prn: string;
   maxPerDay: string;
 }
@@ -769,7 +769,7 @@ export function AddRxPanel({
       sourceText: "（Rp 入力）",
       comment: null,
       kind: "prescription",
-      category: prn ? null : rp.category,
+      category: rp.category === "退院時" ? "退院時" : prn ? null : rp.category,
       items: rp.rows.map((r) => ({ drugCode: r.drugCode, said: findOralDrug(r.drugCode)?.name ?? r.drugCode, daily: null, perDose: Number(r.per) || null })),
       timings: timingsOf(rp),
       prn: prn ? rp.prn.trim() || null : null,
@@ -894,6 +894,7 @@ export function AddRxPanel({
                         options={[
                           { value: "定期", label: "定期" },
                           { value: "臨時", label: "臨時" },
+                          { value: "退院時", label: "退院時" },
                         ]}
                         value={rp.category}
                         onChange={(v) => upd(i, { category: v as Rp["category"] })}

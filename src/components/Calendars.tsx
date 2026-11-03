@@ -371,7 +371,7 @@ function ExtendHandle({ label, end, max, value, fmt, onMove, onDone }: { label: 
 
 // ---------------------------------------------------------------------------
 
-const RX_GROUPS: PrescriptionOrder["category"][] = ["定期", "臨時", "持参薬"];
+const RX_GROUPS: PrescriptionOrder["category"][] = ["定期", "臨時", "持参薬", "退院時"];
 
 export function PrescriptionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops }: CalendarProps) {
   const days = calendarDays(patient);
