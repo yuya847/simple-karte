@@ -320,6 +320,25 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
         });
         continue;
       }
+      if (o.code === "PROC-CVC") {
+        const { from } = procInterval(e, nowAbs);
+        if (from < lo || from >= hi || from > nowAbs) continue;
+        const picc = (o.site ?? "").includes("PICC");
+        const code = picc ? PROC_CODES.末梢留置型中心静脈カテーテル挿入 : PROC_CODES.中心静脈カテーテル挿入;
+        const mat = picc ? TOKKI_CODES["MAT-PICC"] : TOKKI_CODES["MAT-CVC"];
+        const item = tokkiItem(mat);
+        const yen = item?.price ?? 0;
+        add({
+          day: d,
+          shikibetsu: "33",
+          parts: [
+            { lines: [si(code)], points: pts(code) },
+            { lines: [{ record: "TO", code: mat, name: item?.name ?? mat, quantity: 1, unit: "本", unitCode: "007", product: picc ? "PICC カテーテル 4Fr（架空の院内採用品）" : "CVカテーテル トリプルルーメン 7Fr（架空の院内採用品）" }], points: materialPoints(yen) },
+          ],
+          basis: `${picc ? "G005-3 末梢留置型中心静脈注射用カテーテル挿入" : "G005-2 中心静脈注射用カテーテル挿入"}（${o.site ?? ""}。挿入に伴う検査・画像診断は所定点数に含む）＋ 材料（${item?.name ?? ""} ${yen.toLocaleString("ja-JP")}円 → ${materialPoints(yen)}点）`,
+        });
+        continue;
+      }
       if (times.length === 0) continue;
       if (o.code === "PROC-TEKIBEN") {
         add({ day: d, shikibetsu: "40", parts: [{ lines: [si(PROC_CODES.摘便)], points: pts(PROC_CODES.摘便) }], times: times.length, basis: "J022-2 摘便（行った回数ごと）" });

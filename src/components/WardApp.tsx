@@ -39,6 +39,8 @@ import { orderChanges, sessionChangeKeys, type WorkPatient } from "@/lib/workshe
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
+import { ConsentPanel } from "./panels/ConsentPanel";
+import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
@@ -124,6 +126,20 @@ export default function WardApp() {
   const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
   const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
+  // Consent forms (fictional). The four patients gave the admission consent on their admission day.
+  const [consents, setConsents] = useState<ConsentRecord[]>(() =>
+    PATIENTS.map((p) => ({
+      id: `consent-adm-${p.id}`,
+      patientId: p.id,
+      code: "CONSENT-ADMISSION" as const,
+      status: "同意" as const,
+      createdAt: { day: p.admittedOn, time: "15:00" },
+      explainedAt: { day: p.admittedOn, time: "15:30" },
+      explainedBy: DOCTOR,
+      witness: "看護師（架空）",
+      answers: {},
+    })),
+  );
   // 指示受け by a nurse: change key → time. Kept in this browser only.
   const [taken, setTaken] = useState<Record<string, string>>({});
   // Pharmacy work (all kept in this browser only).
@@ -201,9 +217,10 @@ export default function WardApp() {
         return `${main}（${detail}）`;
       },
       allergies: patient?.allergies ?? [],
+      consents: consents.filter((c) => c.patientId === patient?.id).map((c) => ({ code: c.code, status: c.status })),
       patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: patient.allergies, cre: latestCre(patient), heightCm: patient.heightCm, weightKg: patient.weightKg } : null,
     };
-  }, [entries, chart.drafts, nowTime, today, patient]);
+  }, [entries, chart.drafts, nowTime, today, patient, consents]);
 
   const issues: Record<string, Issue[]> = useMemo(() => {
     if (!ctx) return {};
@@ -256,10 +273,18 @@ export default function WardApp() {
     if (!chart.drafts.every((d) => isReady(issues[d.id] ?? []))) return;
     const added: OrderEntry[] = [];
     const stops: string[] = [];
+    const newConsents: ConsentRecord[] = [];
     for (const d of chart.drafts) {
       const r = toOrder(d, ctx);
       stops.push(...r.stopIds);
-      for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) added.push({ kind: "order", id: newId(), day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o });
+      const ids: string[] = [];
+      for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) {
+        const id = newId();
+        ids.push(id);
+        added.push({ kind: "order", id, day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o });
+      }
+      // A consent form to prepare with the order (説明前): the doctor explains before it is done.
+      for (const code of r.consents ?? []) newConsents.push({ id: newId(), patientId: patient!.id, code, status: "説明前", orderId: ids[0], createdAt: { day: 0, time: nowTime }, answers: {} });
     }
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
@@ -271,15 +296,30 @@ export default function WardApp() {
       }),
       ...added.map((e) => planLine(e, today)),
     ];
+    if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
     update((c) => ({
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
       stopTimes: { ...c.stopTimes, ...Object.fromEntries(stops.map((id) => [id, nowTime])) },
       drafts: [],
       note: lines.length ? `${c.note.replace(/\s*$/, "")}\n${lines.join("\n")}\n` : c.note,
-      flash: `${added.length + stops.length}件を確定しました。左の経過と記事の P) に入りました。`,
+      flash: `${added.length + stops.length}件を確定しました。左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
       selectedDay: 0,
     }));
+  };
+
+  const createConsent = (code: ConsentCode) => {
+    if (!patient) return;
+    setConsents((all) => [...all, { id: newId(), patientId: patient.id, code, status: "説明前", createdAt: { day: 0, time: nowTime }, answers: {} }]);
+  };
+  const updateConsent = (r: ConsentRecord) => {
+    const before = consents.find((c) => c.id === r.id);
+    setConsents((all) => all.map((c) => (c.id === r.id ? r : c)));
+    if (before && before.status !== r.status && r.status !== "説明前") {
+      const t = findConsent(r.code).short;
+      const line = `・同意書：${t} ${r.status === "同意" ? "説明・同意" : r.status === "拒否" ? "説明・同意されず" : "同意の撤回"}（${nowTime}${r.explainedBy ? ` 説明 ${r.explainedBy}` : ""}${r.witness ? `、同席 ${r.witness}` : ""}）`;
+      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n${line}\n` }));
+    }
   };
 
   const admit = (from: ErPatient, form: AdmitForm) => {
@@ -440,6 +480,12 @@ export default function WardApp() {
           changes={sessionChanges}
           summaries={summaries}
           waiting={waiting}
+          consentState={Object.fromEntries(
+            allPatients.map((p) => {
+              const mine = consents.filter((c) => c.patientId === p.id);
+              return [p.id, { admission: mine.some((c) => c.code === "CONSENT-ADMISSION" && c.status === "同意"), pending: mine.filter((c) => c.status === "説明前").map((c) => findConsent(c.code).short) }];
+            }),
+          )}
           onOpen={openPatient}
         />
       ) : patient && ctx ? (
@@ -574,6 +620,21 @@ export default function WardApp() {
               {panel === "add-rx" && (
                 <Drawer title="処方（Rp 入力）" onClose={closePanel} wide>
                   <AddRxPanel onAdd={(ds) => { update((c) => ({ drafts: [...c.drafts, ...ds], flash: null })); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "consents" && (
+                <Drawer title="説明・同意書" onClose={closePanel} wide>
+                  <ConsentPanel
+                    patient={patient}
+                    room={ward.beds.find((b) => b.patientId === patient.id)?.room ?? ""}
+                    today={today}
+                    nowTime={nowTime}
+                    doctor={DOCTOR}
+                    records={consents.filter((c) => c.patientId === patient.id)}
+                    orders={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    onCreate={createConsent}
+                    onUpdate={updateConsent}
+                  />
                 </Drawer>
               )}
               {panel === "add-imaging" && (

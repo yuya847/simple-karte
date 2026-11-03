@@ -40,6 +40,7 @@ import type {
   ProcedureOrder,
 } from "./types";
 import { checkPrescription, toPrescriptionOrders, type PrescriptionDraft } from "./rx";
+import { consentFor, findConsent, type ConsentCode } from "./consent";
 import { PHYSIO, REGIONS, checkImaging, checkPhysio, emptyImaging, emptyPhysio, toImagingOrder, toPhysioOrder, type ExamPatientFacts, type ImagingDraft, type Modality, type PhysioDraft } from "./exams";
 
 /** 移動 said in words (code reads the words). */
@@ -139,6 +140,8 @@ export interface ProcedureDraft extends DraftBase {
   drug: { code: string | null; said: string; amount: number | null } | null;
   /** Doctor's answer when the flow is outside the ward's usual range for the device. */
   flowOk: boolean;
+  /** Prepare the consent form with the order. */
+  consentPlanned?: boolean;
   duplicate: { action: "replace" | "add"; orderId: string } | null;
 }
 
@@ -463,6 +466,24 @@ export interface CheckContext {
   allergies?: string[];
   /** Sex, age, allergies and the latest Cre (for contrast and pregnancy checks). */
   patientFacts?: ExamPatientFacts | null;
+  /** Consent forms of this patient (code and status), for orders that need one. */
+  consents?: { code: string; status: string }[];
+}
+
+/** An order that needs a consent form: in place, or to be prepared with the order. */
+export function consentIssue(code: string | null, ctx: CheckContext, planned: boolean, apply: (x: Draft) => Draft): Issue | null {
+  if (!code) return null;
+  const name = findConsent(code as ConsentCode).short;
+  const have = (ctx.consents ?? []).filter((c) => c.code === code);
+  if (have.some((c) => c.status === "同意")) return { key: "consent", level: "info", title: "同意書", message: `${name}：同意あり` };
+  if (planned || have.some((c) => c.status === "説明前")) return { key: "consent", level: "info", title: "同意書", message: `${name}：実施までに説明して同意を得る（同意書の下書きあり）` };
+  return {
+    key: "consent",
+    level: "ask",
+    title: "同意書",
+    message: `${name}の説明・同意書が要ります（実施の前に）。`,
+    choices: [{ label: "同意書を用意する（確定すると下書きができる）", apply }],
+  };
 }
 
 function drugCandidates(said: string): DrugMaster[] {
@@ -1193,6 +1214,8 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
       message: d.duplicate.action === "replace" ? "確定すると、前のオーダは中止になります。" : "前のオーダと重ねて出します。",
     });
   }
+  const ci = consentIssue(consentFor({ type: "procedure", code: m.code }), ctx, !!d.consentPlanned, (x) => ({ ...(x as ProcedureDraft), consentPlanned: true }));
+  if (ci) issues.push(ci);
   return issues;
 }
 
@@ -1223,7 +1246,7 @@ export const isReady = (issues: Issue[]) => issues.every((i) => i.level === "inf
 // Confirm: drafts → orders
 // ---------------------------------------------------------------------------
 
-export type ConfirmResult = { order?: Order; orders?: Order[]; stopIds: string[] };
+export type ConfirmResult = { order?: Order; orders?: Order[]; stopIds: string[]; /** Consent forms to prepare for the new order. */ consents?: ConsentCode[] };
 
 /** Only call when isReady(checkDraft(d, ctx)). */
 export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
@@ -1233,7 +1256,11 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
   }
   if (d.kind === "unclear") return { stopIds: [] };
   if (d.kind === "prescription") return { orders: toPrescriptionOrders(d, ctx.nowTime, d.id), stopIds: [] };
-  if (d.kind === "imaging") return { order: toImagingOrder(d), stopIds: [] };
+  if (d.kind === "imaging") {
+    const order = toImagingOrder(d);
+    const need = consentFor(order);
+    return { order, stopIds: [], consents: need && d.consentPlanned ? [need] : [] };
+  }
   if (d.kind === "physio") return { order: toPhysioOrder(d), stopIds: [] };
   if (d.kind === "procedure") {
     const m = findProc(d.code!)!;
@@ -1252,7 +1279,8 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       drug: m.uses ? { code: m.uses.code, amount: m.uses.amount } : d.drug ? { code: d.drug.code!, amount: d.drug.amount! } : undefined,
       comment: [size, d.comment].filter(Boolean).join("　") || undefined,
     };
-    return { order, stopIds: d.duplicate?.action === "replace" ? [d.duplicate.orderId] : [] };
+    const need = consentFor(order);
+    return { order, stopIds: d.duplicate?.action === "replace" ? [d.duplicate.orderId] : [], consents: need && d.consentPlanned ? [need] : [] };
   }
   if (d.kind === "injection") {
     const plan = ratePlan(d);

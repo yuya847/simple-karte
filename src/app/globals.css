@@ -57,9 +57,20 @@ body {
 
 /* Printing: only the sheet (rendered into <body> by the worksheet) goes on paper. */
 @media print {
-  @page {
+  /* Worksheets print landscape, consent forms portrait (CSS named pages). */
+  @page ws {
     size: A4 landscape;
     margin: 10mm;
+  }
+  @page consent {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+  .print-sheet {
+    page: ws;
+  }
+  .print-consent {
+    page: consent;
   }
   html,
   body {

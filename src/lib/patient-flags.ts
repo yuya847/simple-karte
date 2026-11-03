@@ -16,8 +16,10 @@ export interface Flag {
 
 const running = (from: number, to: number | null, nowAbs: number) => from <= nowAbs && (to === null || to > nowAbs);
 
-export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0): Flag[] {
+export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }): Flag[] {
   const out: Flag[] = [];
+  if (consent && !consent.admission) out.push({ label: "包括同意なし", tone: "yamabuki", title: "入院時の包括同意書がまだです" });
+  if (consent?.pending.length) out.push({ label: `同意書 説明前 ${consent.pending.length}`, tone: "yamabuki", title: consent.pending.join("、") });
   const iso = isolationFor(p.infections);
   if (iso) out.push({ label: iso, tone: "fuji", title: p.infections.join("、") });
   for (const a of p.allergies) out.push({ label: `アレルギー ${a}`, tone: "shu" });

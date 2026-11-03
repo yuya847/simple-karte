@@ -18,6 +18,8 @@ interface Props {
   summaries: Record<string, ChartSummary>;
   /** 指示受けがまだ, per patient. */
   waiting: Record<string, number>;
+  /** Consent state per patient. */
+  consentState?: Record<string, { admission: boolean; pending: string[] }>;
   onOpen: (patientId: string) => void;
 }
 
@@ -64,7 +66,7 @@ interface Row {
 const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
 
 /** Ward patient list. Our patients open on click or Enter; other teams' rows are context only. */
-export function PatientList({ ward, nowTime, changes, summaries, waiting, onOpen }: Props) {
+export function PatientList({ ward, nowTime, changes, summaries, waiting, consentState = {}, onOpen }: Props) {
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const [groupBy, setGroupBy] = useState<GroupBy>("room");
   const [q, setQ] = useState("");
@@ -259,7 +261,7 @@ export function PatientList({ ward, nowTime, changes, summaries, waiting, onOpen
                     patient={r.patient}
                     focused={openable[at] === r}
                     upcoming={upcomingToday(ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs)}
-                    flags={flagsFor(r.patient, ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs, waiting[r.patient.id] ?? 0)}
+                    flags={flagsFor(r.patient, ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs, waiting[r.patient.id] ?? 0, consentState[r.patient.id])}
                     plans={planFor(r.bed)}
                     summary={summaries[r.patient.id]}
                     onOpen={() => onOpen(r.patient!.id)}

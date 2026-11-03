@@ -172,6 +172,15 @@ export const PROCEDURES: ProcMaster[] = [
     aliases: ["バルーン", "尿カテ", "尿道カテーテル", "フォーリー", "膀胱カテーテル", "尿道バルーン"],
   },
   {
+    code: "PROC-CVC",
+    name: "中心静脈カテーテル挿入",
+    needs: ["site"],
+    schedules: [{ kind: "continuous" }],
+    continuous: true,
+    sites: ["右内頸静脈", "左内頸静脈", "右鎖骨下静脈", "左鎖骨下静脈", "右大腿静脈", "左大腿静脈", "右上腕（PICC）", "左上腕（PICC）"],
+    aliases: ["CV", "CVC", "中心静脈", "中心静脈カテーテル", "CVカテ", "PICC"],
+  },
+  {
     code: "PROC-TEKIBEN",
     name: "摘便",
     needs: [],

@@ -45,8 +45,16 @@ describe("画像検査の確認", () => {
     const allergy = issues.find((i) => i.key === "allergy")!;
     expect(allergy.level).toBe("ask");
     const acked = allergy.choices![0].apply!(d);
-    expect(isReady(checkDraft(acked, ctx()))).toBe(true);
-    expect((toOrder(acked, ctx()).order as ImagingOrder).acks).toEqual(["造影剤アレルギー承知"]);
+    // 造影CT は説明・同意書が要る: 同意書を用意する → 確定すると同意書の下書きができる
+    const consent = checkDraft(acked, ctx()).find((i) => i.key === "consent")!;
+    expect(consent.level).toBe("ask");
+    const ready = consent.choices![0].apply!(acked);
+    expect(isReady(checkDraft(ready, ctx()))).toBe(true);
+    const r = toOrder(ready, ctx());
+    expect((r.order as ImagingOrder).acks).toEqual(["造影剤アレルギー承知"]);
+    expect(r.consents).toEqual(["CONSENT-CT-CONTRAST"]);
+    // 同意があれば聞かない
+    expect(checkDraft(acked, ctx(sakura, { consents: [{ code: "CONSENT-CT-CONTRAST", status: "同意" }] })).find((i) => i.key === "consent")?.level).toBe("info");
   });
   it("造影CT（北村）: カルテに喘息の記載 → 承知が要る", () => {
     const d = { ...emptyImaging("c", "CT"), region: "R-CHEST", contrast: "造影" as const, transport: "車椅子" as const, purpose: "x", when: { day: 1, time: "14:00", priority: "予約" as const } };

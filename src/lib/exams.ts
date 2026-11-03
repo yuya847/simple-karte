@@ -2,7 +2,8 @@
 // ordered, the questions an order must answer, and the checks — all in code. Claude only fills
 // in what the doctor said; it never picks a study, a region or a contrast.
 
-import type { CheckContext, Draft, Issue } from "./drafts";
+import { consentIssue, type CheckContext, type Draft, type Issue } from "./drafts";
+import { consentFor } from "./consent";
 import { minutesOf } from "./dates";
 import { findOralDrug } from "./master";
 import type { DayOffset, OrderEntry, Patient, Sex } from "./types";
@@ -113,6 +114,8 @@ export interface ImagingDraft extends ExamBase {
   answers: { metal?: string; pregnancy?: string };
   /** 読影区分（単純写真）. */
   reading: Reading | null;
+  /** Prepare the consent form with the order. */
+  consentPlanned?: boolean;
 }
 
 export interface PhysioDraft extends ExamBase {
@@ -277,6 +280,10 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
     const day = d.when.day ?? 0;
     const dup = ctx.activeOrders.find((o) => o.order.type === "imaging" && o.order.modality === d.modality && o.order.region === d.region && o.order.when.day === day);
     if (dup) issues.push({ key: "dup", level: "ask", title: "重複", message: `同じ日に同じ検査があります：${ctx.describe(dup)}`, choices: [{ label: "重ねて出す", apply: set<ImagingDraft>({ duplicateOk: true }) }, { label: "この下書きを消す", remove: true }] });
+  }
+  if (d.modality && d.contrast) {
+    const ci = consentIssue(consentFor({ type: "imaging", modality: d.modality, contrast: d.contrast }), ctx, !!d.consentPlanned, (x) => ({ ...(x as ImagingDraft), consentPlanned: true }));
+    if (ci) issues.push(ci);
   }
   if (d.acks.length) issues.push({ key: "acks", level: "info", title: "承知", message: d.acks.join("・") });
   return issues;
