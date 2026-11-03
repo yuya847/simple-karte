@@ -118,7 +118,7 @@ export function dietLabel(o?: DietOrder): string {
 }
 
 /** Exams that hold a meal (fictional hospital rule): the last meal served before the exam, that day. */
-export const FASTING_EXAMS: Record<string, string> = { "PHY-ABDUS": "腹部エコー", "CT-CONTRAST": "造影CT" };
+export const FASTING_EXAMS: Record<string, string> = { "PHY-ABDUS": "腹部エコー", "CT-CONTRAST": "造影CT", "PHY-EGD": "胃カメラ", "PHY-CF": "大腸内視鏡", "PHY-BF": "気管支鏡" };
 
 /** `examTime` gives an exam order's time (minutes from today 00:00); passed in to keep this module free of exams.ts. */
 export type ExamTime = (e: OrderEntry) => number;

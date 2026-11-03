@@ -63,6 +63,10 @@ export const PHYSIO: PhysioMaster[] = [
   { code: "PHY-ABI", name: "ABI（血管伸展性検査）", codes: ["160071750"], bedside: false, aliases: ["ABI", "PWV", "血管伸展性"] },
   { code: "PHY-HOLTER", name: "ホルター心電図（24時間）", codes: ["160069610"], bedside: true, aliases: ["ホルター", "24時間心電図"] },
   { code: "PHY-EEG", name: "脳波", codes: ["160075310"], bedside: false, aliases: ["脳波", "EEG"] },
+  // 内視鏡（院内の約束・架空：上部は検査の前の食事を止める、大腸は前日から検査食と下剤）
+  { code: "PHY-EGD", name: "上部消化管内視鏡（胃カメラ）", codes: ["160093810"], bedside: false, note: "検査の前は絶食（院内の約束・架空）", aliases: ["胃カメラ", "上部内視鏡", "上部消化管内視鏡", "GF", "EGD", "GIF"] },
+  { code: "PHY-CF", name: "大腸内視鏡（全大腸）", codes: ["160094910"], bedside: false, note: "前日から検査食と下剤、当日は絶食（院内の約束・架空）", aliases: ["大腸カメラ", "大腸内視鏡", "下部内視鏡", "CF", "TCS"] },
+  { code: "PHY-BF", name: "気管支鏡", codes: ["160092810"], bedside: false, note: "検査の前は絶食（院内の約束・架空）", aliases: ["気管支鏡", "BF", "ブロンコ"] },
 ];
 
 export function findPhysio(code: string) {
