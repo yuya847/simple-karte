@@ -21,6 +21,8 @@ export interface DrugMaster {
   aliases: string[];
   /** A flush to keep a line open (ロック): 生食・ヘパリンのシリンジ. */
   lock?: boolean;
+  /** 抗がん薬: ordered only from the regimen panel (架空の病院の取り決め), where the dose is calculated. */
+  chemo?: boolean;
 }
 
 export const DRUGS: DrugMaster[] = [
@@ -186,6 +188,7 @@ export const DRUGS: DrugMaster[] = [
     units: ["mg"],
     routes: ["点滴静注"],
     aliases: ["PTX", "パクリタキセル", "タキソール", "パクリ"],
+    chemo: true,
   },
   {
     code: "INJ-CBDCA",
@@ -196,6 +199,7 @@ export const DRUGS: DrugMaster[] = [
     units: ["mg"],
     routes: ["点滴静注"],
     aliases: ["CBDCA", "カルボプラチン", "パラプラチン", "カルボ"],
+    chemo: true,
   },
   {
     code: "INJ-ETP",
@@ -206,6 +210,7 @@ export const DRUGS: DrugMaster[] = [
     units: ["mg"],
     routes: ["点滴静注"],
     aliases: ["ETP", "VP-16", "VP16", "エトポシド", "ラステット", "ベプシド"],
+    chemo: true,
   },
   {
     code: "INJ-PALO",

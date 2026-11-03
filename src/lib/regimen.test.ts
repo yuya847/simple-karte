@@ -272,3 +272,18 @@ describe("the regimen master", () => {
     expect([...REDUCTIONS]).toEqual([0, 10, 20, 25]);
   });
 });
+
+describe("抗がん薬はレジメンの欄からだけ", () => {
+  it("stops a chemo drug drafted outside the regimen panel", async () => {
+    const { checkDraft } = await import("./drafts");
+    const d = {
+      id: "x", origin: "manual" as const, sourceText: "（マスターから選択）", comment: null, kind: "injection" as const,
+      items: [{ drugCode: "INJ-PTX", said: "PTX", amount: 300, unit: "mg" }],
+      route: "点滴静注" as const, schedule: { kind: "once" as const }, infusionMinutes: 180, infusionScope: "per_dose" as const, rateMlPerH: null, prefer: null,
+      start: { day: 0, time: null }, days: null, duplicate: null,
+    };
+    const ctx = { activeOrders: [], labOrders: [], drafts: [], nowTime: "08:30", fmtDay: (n: number) => `D${n}`, describe: () => "" };
+    expect(checkDraft(d as never, ctx).find((i) => i.key === "chemo")?.level).toBe("stop");
+    expect(checkDraft({ ...d, sourceText: "（レジメン CBDCA+PTX（3週ごと） 1コース目 day1）" } as never, ctx).find((i) => i.key === "chemo")).toBeUndefined();
+  });
+});

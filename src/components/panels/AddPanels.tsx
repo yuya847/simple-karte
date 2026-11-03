@@ -203,7 +203,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed }: { onAdd: (d: D
       }),
     );
   const fluids = DRUGS.filter((d) => d.kind === "輸液");
-  const options = DRUGS.map((d) => ({ code: d.code, name: d.name, sub: d.package, aliases: d.aliases }));
+  // 抗がん薬 are ordered from the regimen panel only.
+  const options = DRUGS.filter((d) => !d.chemo).map((d) => ({ code: d.code, name: d.name, sub: d.package, aliases: d.aliases }));
   const missingOf = (rp: InjRp) => [
     ...(rp.rows.every((r) => Number(r.amount) > 0 && r.unit) ? [] : ["量"]),
     ...(rp.route ? [] : ["経路"]),

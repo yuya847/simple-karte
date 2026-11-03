@@ -64,8 +64,10 @@ export interface Hit {
 /** Injection drugs excluded from A3 (別表2: 生理食塩液・輸液 など) — here, the master's 輸液. */
 const a3Counts = (code: string) => DRUGS.find((d) => d.code === code)?.kind !== "輸液";
 
-/** A6 drugs by item (①③⑦⑧⑨ = 3 points; ②④⑥ = 2). The fictional master has none of them yet. */
-export const A6_DRUGS: Record<string, { no: string; points: 2 | 3; name: string }> = {};
+/** A6 drugs by item (①③⑦⑧⑨ = 3 points; ②④⑥ = 2): the fictional master's 抗がん薬 (注射剤) under ①. */
+export const A6_DRUGS: Record<string, { no: string; points: 2 | 3; name: string }> = Object.fromEntries(
+  DRUGS.filter((d) => d.chemo).map((d) => [d.code, { no: "①", points: 3 as const, name: "抗悪性腫瘍剤の使用（注射剤のみ）" }]),
+);
 
 const overlaps = (iv: { from: number; to: number | null }, day: number) => iv.from < (day + 1) * 1440 && (iv.to ?? Infinity) > day * 1440;
 
