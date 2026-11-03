@@ -158,7 +158,7 @@ export const DRUGS: DrugMaster[] = [
  * KCl injection limits, from the package insert of KCL注20mEqキット「テルモ」（用法・用量に関連する注意）:
  * dilute to 40 mEq/L or less, no faster than 20 mEq per hour, no more than 100 mEq a day.
  */
-export const KCL_LIMITS = { maxMeqPerL: 40, maxMeqPerHour: 20, maxMeqPerDay: 100, source: "KCL注20mEqキット「テルモ」添付文書（用法・用量に関連する注意）" };
+export const KCL_LIMITS = { maxMeqPerL: 40, maxMeqPerHour: 20, maxMeqPerDay: 100, source: "KCL注20mEqキット「テルモ」添付文書 7.1〜7.3（2023年4月改訂 第1版）" };
 
 /** Oral drugs of the fictional hospital (public names and strengths). */
 export interface OralDrugMaster {
