@@ -202,6 +202,7 @@ import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
 import { LiaisonView } from "./LiaisonView";
+import { StatsView } from "./StatsView";
 import { EMPTY_LIAISON, type LiaisonBook } from "@/lib/liaison";
 
 const NOTE_TEMPLATE = "S)\nO)\nA)\nP)\n";
@@ -1926,6 +1927,8 @@ export default function WardApp() {
           voided={marVoided}
           onVoid={voidMar}
         />
+      ) : screen === "stats" ? (
+        <StatsView today={today} nowTime={nowTime} floors={FLOORS} beds={[...BEDS, ...newBeds, ...OTHER_FLOOR_BEDS]} moves={moves} patient={findPatient} opd={opd} er={er} />
       ) : screen === "liaison" ? (
         <LiaisonView
           today={today}
