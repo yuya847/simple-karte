@@ -20,7 +20,7 @@ interface Props {
   fmtDay?: (d: number) => string;
 }
 
-type Nibp = { state: "idle" } | { state: "measuring"; left: number } | { state: "done"; sbp: number; dbp: number; time: string; recorded?: string };
+type Nibp = { state: "idle" } | { state: "measuring"; left: number; sbp: number; dbp: number; time: string } | { state: "done"; sbp: number; dbp: number; time: string; recorded?: string };
 
 /** One second counted up while the tab is shown (the wobble's tick). Stops while the tab is hidden. */
 function useTick(): number {
@@ -66,19 +66,19 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
   const [nibp, setNibp] = useState<Nibp>({ state: "idle" });
   const [recorded, setRecorded] = useState<{ time: string; by: string; what: string } | null>(null);
 
-  // The simulated cuff: counts down, then shows a pressure near the last recorded one.
+  // The simulated cuff: the result is worked out when the button is pressed; the count-down only reveals it.
+  const measuring = nibp.state === "measuring";
   useEffect(() => {
-    if (nibp.state !== "measuring") return;
-    const id = window.setTimeout(() => {
+    if (!measuring) return;
+    const id = window.setInterval(() => {
       setNibp((n) => {
         if (n.state !== "measuring") return n;
-        if (n.left > 1) return { state: "measuring", left: n.left - 1 };
-        const bp = simulatedNibp(lastBp, patient.id, tick);
-        return { state: "done", ...bp, time: nowTime };
+        if (n.left > 1) return { ...n, left: n.left - 1 };
+        return { state: "done", sbp: n.sbp, dbp: n.dbp, time: n.time };
       });
     }, 1000);
-    return () => window.clearTimeout(id);
-  }, [nibp, lastBp, patient.id, tick, nowTime]);
+    return () => window.clearInterval(id);
+  }, [measuring]);
 
   const shownBp = nibp.state === "done" ? { sbp: nibp.sbp, dbp: nibp.dbp, time: nibp.time, fresh: true } : lastBp ? { sbp: lastBp.sbp!, dbp: lastBp.dbp, time: lastBp.time, day: lastBp.day, fresh: false } : null;
   const values: MonitorValues = { hr: live.hr, spo2: live.spo2, rr: live.rr, sbp: shownBp?.sbp };
@@ -188,7 +188,7 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
 
       <div className="space-y-2 rounded-md border border-rule-soft bg-paper p-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" disabled={nibp.state === "measuring"} onClick={() => setNibp({ state: "measuring", left: NIBP_SECONDS })} className="rounded-md border border-ai px-3 py-1 font-bold text-ai hover:bg-ai hover:text-white disabled:opacity-40">
+          <button type="button" disabled={nibp.state === "measuring"} onClick={() => setNibp({ state: "measuring", left: NIBP_SECONDS, ...simulatedNibp(lastBp, patient.id, tick), time: nowTime })} className="rounded-md border border-ai px-3 py-1 font-bold text-ai hover:bg-ai hover:text-white disabled:opacity-40">
             NIBP 測定
           </button>
           {nibp.state === "done" && !nibp.recorded && (
