@@ -3,6 +3,7 @@
 
 import type { CalendarDate } from "./dates";
 import { drugCodesOf } from "./drug-class";
+import { labItemsText } from "./format";
 import { labelFor } from "./mar";
 import { labInfo } from "./master";
 import type { OrderEntry } from "./types";
@@ -13,6 +14,10 @@ export interface SpecimenLabelData {
   when: string;
   tests: string;
   container: string;
+  /** Where the sample is drawn (病棟採血 …), when the order says. */
+  site?: string;
+  /** The order's 依頼コメント and 検査目的, when the order says. */
+  note?: string;
 }
 export interface DrugLabelData {
   code: string;
@@ -31,8 +36,10 @@ export function labelItems(person: WorkPatient, today: CalendarDate, nowAbs: num
       .filter((i) => i.kind === "採血")
       .map((i) => {
         const o = orderOf(i.orderId);
-        const containers = o && o.type === "lab" ? [...new Set(o.codes.map((c) => labInfo(c).container))].join("・") : "";
-        return { code: labelFor(i.orderId, i.at!), when: timeLabel(i.at!, -99, today), tests: i.main, container: containers };
+        const lab = o && o.type === "lab" ? o : null;
+        const containers = lab ? [...new Set(lab.codes.map((c) => labInfo(c).container))].join("・") : "";
+        const note = lab ? [lab.comment, lab.purpose ? `目的：${lab.purpose}` : null].filter(Boolean).join("　") : "";
+        return { code: labelFor(i.orderId, i.at!), when: timeLabel(i.at!, -99, today), tests: lab ? labItemsText(lab) : i.main, container: containers, ...(lab?.site ? { site: lab.site } : {}), ...(note ? { note } : {}) };
       }),
     drugs: timed.filter((i) => i.kind === "注射").map((i) => ({ code: labelFor(i.orderId, i.at!), when: timeLabel(i.at!, -99, today), main: i.main, detail: i.detail, drugs: drugCodesOf(orderOf(i.orderId)) })),
   };

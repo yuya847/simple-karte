@@ -40,7 +40,7 @@ import { PANIC_LIMITS, labKey, resultsOf, uncalled, unseen } from "./results";
 import { labelFor, marKey, type AdminRecord } from "./mar";
 import { PATIENTS } from "./patients";
 import { currentEntries } from "./record";
-import type { OrderEntry } from "./types";
+import type { LabOrder, OrderEntry } from "./types";
 import type { WorkPatient } from "./worksheet";
 
 // Fictional orders added for the test: tomorrow's routine draw, a level today 20:00, a stopped draw.
@@ -266,6 +266,19 @@ describe("デモの架空の採血", () => {
     expect(entryPlan(rows[0].codes).analytes.map((a) => a.code)).toEqual(["Na", "K", "Cl", "BUN", "Cre"]);
     expect(scanSpecimen(rows[0].code, rows, ward, now)).toMatchObject({ ok: true, tone: "ok" });
     expect(scanSpecimen(rows[1].code, rows, ward, now)).toMatchObject({ ok: false, tone: "stop" });
+  });
+
+  it("an order with some items 至急 is taken in first, and the desk reads the items, the place and the purpose in one line", () => {
+    const now = 600;
+    const demo = demoLabOrders(now);
+    const mori = demo["90010260"].map((e) => ({ ...e, order: { ...(e.order as LabOrder), codes: ["LAB-CBC", "LAB-K"], urgentCodes: ["LAB-K"], site: "病棟採血" as const, purpose: "低K の経過", comment: "ヘパリンロックから採取" } }));
+    const ward: WorkPatient[] = PATIENTS.filter((p) => p.id === "90010260").map((p) => ({ patient: p, room: "511", entries: mori }));
+    const row = drawRows(ward, {}, EMPTY_DESK, now, now)[0];
+    expect(row.urgent).toBe(true);
+    expect(row.urgentItems).toEqual(["K"]);
+    expect(row.site).toBe("病棟採血");
+    expect(row.purpose).toBe("低K の経過");
+    expect(row.comment).toBe("至急：K　病棟採血　目的：低K の経過　ヘパリンロックから採取");
   });
 });
 

@@ -59,6 +59,7 @@ import type {
   InjectionSchedule,
   LabOrder,
   LabPriority,
+  LabSite,
   Order,
   OrderEntry,
   ProcedureOrder,
@@ -145,7 +146,8 @@ export type CollectWhen = "morning_routine" | "now" | "specific_time" | "before_
 
 export interface LabDraft extends DraftBase {
   kind: "lab";
-  tests: { code: string | null; said: string }[];
+  /** `urgent`: this item is 至急 on its own (every item 至急 is the same as the whole order 至急). */
+  tests: { code: string | null; said: string; urgent?: boolean }[];
   collect: {
     day: DayOffset | null;
     when: CollectWhen | null;
@@ -155,7 +157,18 @@ export interface LabDraft extends DraftBase {
   priority: LabPriority | null;
   cultureSets: number | null;
   duplicateOk: boolean;
+  /** Where the sample is drawn; the ward's default is 病棟採血. */
+  site?: LabSite | null;
+  /** What the test is for (free text). */
+  purpose?: string | null;
 }
+
+/** The items of a lab draft marked 至急 on their own; empty when none or when all of them are (then the order is 至急). */
+export function urgentItemsOf(d: Pick<LabDraft, "tests">): string[] {
+  const urgent = d.tests.filter((t) => t.urgent && t.code).map((t) => t.code!);
+  return urgent.length === d.tests.length ? [] : urgent;
+}
+export const allItemsUrgent = (d: Pick<LabDraft, "tests">) => d.tests.length > 0 && d.tests.every((t) => t.urgent);
 
 export interface ProcedureDraft extends DraftBase {
   kind: "procedure";
@@ -899,23 +912,25 @@ export function beforeDoseTime(d: LabDraft, ctx: CheckContext): { day: DayOffset
 /** Resolved collection day/time/priority, or null when something is missing. */
 export function resolvedCollect(d: LabDraft, ctx: CheckContext): { day: DayOffset; time: string; priority: LabPriority; why: string } | null {
   const c = d.collect;
+  // Every item marked 至急 on its own is the same as the whole order 至急.
+  const priority = (fallback: LabPriority): LabPriority => (allItemsUrgent(d) ? "至急" : (d.priority ?? fallback));
   if (c.when === "before_dose") {
     const t = beforeDoseTime(d, ctx);
     if (!t) return null;
-    return { day: t.day, time: t.time, priority: d.priority ?? "定時", why: `${t.doseLabel}の${WARD_RULES.minutesBeforeDoseForLevel}分前` };
+    return { day: t.day, time: t.time, priority: priority("定時"), why: `${t.doseLabel}の${WARD_RULES.minutesBeforeDoseForLevel}分前` };
   }
   if (c.when === "now") {
     const [h, m] = ctx.nowTime.split(":").map(Number);
     const up = Math.ceil((h * 60 + m) / 5) * 5;
     const time = `${String(Math.floor(up / 60) % 24).padStart(2, "0")}:${String(up % 60).padStart(2, "0")}`;
-    return { day: 0, time, priority: d.priority ?? "至急", why: "「今すぐ」は至急として扱います" };
+    return { day: 0, time, priority: priority("至急"), why: "「今すぐ」は至急として扱います" };
   }
   if (c.when === "morning_routine") {
     const day = c.day ?? (minutesOf(ctx.nowTime) < minutesOf(WARD_RULES.routineDrawTime) ? 0 : 1);
-    return { day, time: WARD_RULES.routineDrawTime, priority: d.priority ?? "定時", why: `「朝」は定時採血（${WARD_RULES.routineDrawTime}）` };
+    return { day, time: WARD_RULES.routineDrawTime, priority: priority("定時"), why: `「朝」は定時採血（${WARD_RULES.routineDrawTime}）` };
   }
   if (c.when === "specific_time" && c.time) {
-    return { day: c.day ?? 0, time: c.time, priority: d.priority ?? "定時", why: "" };
+    return { day: c.day ?? 0, time: c.time, priority: priority("定時"), why: "" };
   }
   return null;
 }
@@ -995,6 +1010,11 @@ function checkLab(d: LabDraft, ctx: CheckContext): Issue[] {
         message: `${ctx.fmtDay(r.day)} ${r.time}　${r.priority}${r.why ? `（${r.why}）` : ""}`,
       });
     }
+    // Items marked 至急 on their own (the rest of the order keeps its priority).
+    const urgent = urgentItemsOf(d);
+    if (urgent.length) issues.push({ key: "urgent-items", level: "info", title: "至急の項目", message: `${urgent.map((c) => findLab(c)?.abbr ?? findLab(c)?.name ?? c).join("・")}（ほかの項目は${r.priority}）` });
+    const extras = [d.site ? `採血場所：${d.site}` : null, d.purpose ? `検査目的：${d.purpose}` : null].filter(Boolean);
+    if (extras.length) issues.push({ key: "lab-extras", level: "info", title: "採血", message: extras.join("　") });
 
     // Same analytes already ordered for the same day
     if (!d.duplicateOk) {
@@ -1588,11 +1608,15 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
   // The number of sets belongs to the culture, not to the whole order.
   const cultureCode = d.tests.find((t) => t.code && findLab(t.code)?.needs === "sets")?.code;
   const sets = d.cultureSets && cultureCode ? `${findLab(cultureCode)!.name} ${d.cultureSets}セット` : null;
+  const urgentCodes = urgentItemsOf(d);
   const order: LabOrder = {
     type: "lab",
     codes: d.tests.map((t) => t.code!),
     collect: { day: r.day, time: r.time },
     priority: r.priority,
+    ...(urgentCodes.length ? { urgentCodes } : {}),
+    ...(d.site ? { site: d.site } : {}),
+    ...(d.purpose?.trim() ? { purpose: d.purpose.trim() } : {}),
     comment: [sets, r.why && d.collect.when === "before_dose" ? r.why : null, d.comment].filter(Boolean).join("　") || undefined,
   };
   return { order, stopIds: [] };

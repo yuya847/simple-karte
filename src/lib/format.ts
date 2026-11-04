@@ -58,10 +58,18 @@ export function injectionLines(order: InjectionOrder, today: CalendarDate): { ma
   return { main, detail: parts.join("　") };
 }
 
+/** 「K（至急）、Na（至急）、血算」: the items, each marked when it alone is 至急. */
+export function labItemsText(order: Pick<LabOrder, "codes" | "urgentCodes">): string {
+  const urgent = new Set(order.urgentCodes ?? []);
+  return order.codes.map((c) => `${labName(c)}${urgent.has(c) ? "（至急）" : ""}`).join("、");
+}
+
 export function labLines(order: LabOrder, today: CalendarDate): { main: string; detail: string } {
-  const main = order.codes.map(labName).join("、");
+  const main = labItemsText(order);
   const when = `${formatShort(addDays(today, order.collect.day))} ${order.collect.time}`;
   const parts = [`採取 ${when}`, order.priority];
+  if (order.site) parts.push(order.site);
+  if (order.purpose) parts.push(`目的：${order.purpose}`);
   if (order.comment) parts.push(order.comment);
   return { main, detail: parts.join("　") };
 }

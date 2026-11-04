@@ -201,12 +201,21 @@ export interface InteractionReason {
 
 export type LabPriority = "定時" | "至急";
 
+/** Where the sample is drawn (the fictional hospital's three places; the ward draws on the ward). */
+export type LabSite = "中央採血室" | "自科採血" | "病棟採血";
+export const LAB_SITES: readonly LabSite[] = ["中央採血室", "自科採血", "病棟採血"];
+
 export interface LabOrder {
   type: "lab";
   /** Lab test codes or set codes from the master. */
   codes: string[];
   collect: { day: DayOffset; time: string };
   priority: LabPriority;
+  /** The items marked 至急 when only some of them are (all of them 至急: `priority` is 至急 and this is left out). */
+  urgentCodes?: string[];
+  site?: LabSite;
+  /** What the test is for (free text the doctor wrote). */
+  purpose?: string;
   comment?: string;
 }
 

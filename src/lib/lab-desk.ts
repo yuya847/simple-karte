@@ -108,6 +108,12 @@ export interface DrawRow {
   redrawOf?: Rejection;
   /** The order's comment (血液培養 2セット …). */
   comment?: string;
+  /** The items 至急 on their own (names), when only some of the order is 至急. */
+  urgentItems?: string[];
+  /** Where the sample is drawn (病棟採血 …), when the order says. */
+  site?: string;
+  /** What the test is for, when the order says. */
+  purpose?: string;
   /** A culture of this sample has a step reported (it can no longer be sent back). */
   cultureStarted?: boolean;
 }
@@ -154,6 +160,7 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
     const codes = order?.codes ?? [];
     const redrawOf = Object.values(desk.rejected).find((r) => r.redrawId === i.orderId);
     const started = worksOfCode(desk.cultures, i.patientId, code).some((w) => w.steps.length > 0);
+    const urgentItems = (order?.urgentCodes ?? []).map((c) => findLab(c)?.abbr ?? findLab(c)?.name ?? c);
     const base = {
       code,
       orderId: i.orderId,
@@ -165,9 +172,16 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
       tests: i.main,
       codes,
       container: containersOf(codes),
-      urgent: !!i.urgent,
+      // A sample with any 至急 item is taken in first, like a whole 至急 order.
+      urgent: !!i.urgent || urgentItems.length > 0,
+      ...(urgentItems.length ? { urgentItems } : {}),
+      ...(order?.site ? { site: order.site } : {}),
+      ...(order?.purpose ? { purpose: order.purpose } : {}),
       ...(redrawOf ? { redrawOf } : {}),
-      ...(order?.comment ? { comment: order.comment } : {}),
+      // The 至急 items, the place and the purpose are shown with the comment, so the desk reads them in one line.
+      ...(order?.comment || urgentItems.length || order?.site || order?.purpose
+        ? { comment: [urgentItems.length ? `至急：${urgentItems.join("・")}` : null, order?.site ?? null, order?.purpose ? `目的：${order.purpose}` : null, order?.comment ?? null].filter(Boolean).join("　") }
+        : {}),
       ...(started ? { cultureStarted: true } : {}),
     };
     const report = desk.reports[code];

@@ -76,6 +76,8 @@ export interface SpecimenItem {
   when: string;
   tests: string;
   container: string;
+  site?: string;
+  note?: string;
 }
 
 /** 検体ラベル: the code read at the bedside (照合), patient, when, tests and the tube. */
@@ -88,8 +90,10 @@ export function SpecimenLabel({ p, s }: { p: LabelPatient; s: SpecimenItem }) {
       </div>
       <div className="nums">
         {s.when}　容器 {s.container}
+        {s.site ? `　${s.site}` : ""}
       </div>
       <div className="truncate">{s.tests}</div>
+      {s.note && <div className="truncate text-[6.5pt]">{s.note}</div>}
       <Barcode value={s.code} height={16} module={0.9} />
     </div>
   );
