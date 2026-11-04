@@ -18,6 +18,7 @@ import {
   FileClock,
   FileCheck,
   FileSearch,
+  FileText,
   FlaskConical,
   Footprints,
   Handshake,
@@ -118,4 +119,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   nsummaries: FileCheck,
   falls: Footprints,
   vitals: Thermometer,
+  reports: FileText,
 };

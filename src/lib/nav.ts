@@ -63,7 +63,7 @@ const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysi
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "mine" | "all" | "sheet" | "take" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals";
+export type WardTab = "map" | "mine" | "all" | "sheet" | "take" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -89,6 +89,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "vitals", label: "バイタルの一括入力", hint: "業務分担の受け持ち・チーム・階の全員のバイタルを1つの表で入れ、指示簿の連絡基準と NEWS2 で知らせる（カルテのバイタルと同じ記録）", group: "work", needs: "sheet" },
   { key: "assign", label: "業務分担", hint: "勤務表のその勤務帯の看護師に部屋・ベッドの受け持ちを割り当てる（ワークシートと病棟マップに出る。確定のあとの変更は理由つきで記録）", group: "work", needs: "sheet" },
   { key: "status", label: "状態の一括登録", hint: "勤務帯ごとに、階の全員の重症度・看護度・救護区分・感染経路別予防策を1つの表で入れて登録する（区分の多くは架空の病院の取り決め）", group: "work", needs: "sheet" },
+  { key: "reports", label: "レポート", hint: "受け持ちの患者の読影・病理・内視鏡・生理検査のレポートを患者ごとに、未読の多い順に。本文を読み、医師は「確認した」で既読にする", group: "work", needs: "handoff" },
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },
   { key: "admit", label: "入院時の評価", hint: "期限のある評価（褥瘡・栄養・退院支援など）", group: "work", needs: "admit" },
   { key: "paths", label: "クリティカルパス", hint: "パスを使っている患者の今日の日目・評価がまだのアウトカム、バリアンスの一覧と分類ごとの件数", group: "work", needs: "handoff" },

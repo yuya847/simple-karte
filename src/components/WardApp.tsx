@@ -250,6 +250,9 @@ import { RehabView } from "./RehabView";
 import { RehabProgressPanel } from "./panels/RehabProgressPanel";
 import { PathRequestPanel } from "./panels/PathRequestPanel";
 import { DeptReportsPanel } from "./panels/DeptReportsPanel";
+import { ReportList, WardReportList } from "./ReportList";
+import { ReportContext } from "./ReportMark";
+import { reportsOf, unreadReports, wardReportRows } from "@/lib/reports";
 import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
 import { bedPeople, useCareDepts } from "@/lib/use-care-depts";
@@ -1161,6 +1164,14 @@ export default function WardApp() {
   const unseenHere: ResultItem[] = patient ? unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id), ...care.results.filter((i) => i.patientId === patient.id)], acks) : [];
   // 口頭指示 waiting for a doctor's signature: a count on the 有効なオーダ tool, the inbox inside it (not over the note).
   const verbalHere = patient ? verbalUnsigned(entries.filter((e): e is OrderEntry => e.kind === "order")) : [];
+  // レポート一覧 and the marks on the order rows (reports.ts): the same keys and 確認 as the results above.
+  const reportSrc = { ris: dept.ris, physio: dept.physioDesk, pathology: dept.pathology, endo: care.endo };
+  const reportsHere = patient ? reportsOf(patient, entries, reportSrc) : [];
+  const unreadHere = unreadReports(reportsHere, acks);
+  const openReportImage = (id: string) => {
+    setImageFocus(id);
+    setPanel("imaging");
+  };
   const confirmNote = () => {
     if (!patient) return;
                           // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
@@ -1917,7 +1928,8 @@ export default function WardApp() {
   };
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
-  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "医師" ? unseenResults.filter((i) => isMine(i.patientId)).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length };
+  const wardReports = wardReportRows(people, reportSrc, acks);
+  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "医師" ? unseenResults.filter((i) => isMine(i.patientId)).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length, reports: wardReports.filter((r) => isMine(r.patientId)).reduce((n, r) => n + r.unread, 0) };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabInfo(w).label : o === "er" ? "救急外来" : "外来";
@@ -2104,6 +2116,8 @@ export default function WardApp() {
         <SummaryList rows={summaryNow} today={today} onOpen={(id) => (openPatient(id), setPanel("discharge"))} />
       ) : screen === "io" ? (
         <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standing[pid]?.at(-1)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
+      ) : screen === "reports" ? (
+        <WardReportList rows={wardReports} mine={isMine} acks={acks} today={today} onSeen={deny("result.ack") ? undefined : (pid, keys) => markSeen(pid, keys)} onOpen={openPatient} />
       ) : screen === "undone" ? (
         <UndoneView rows={undoneNow} gaps={gapsNow} clock={clockText} forBilling={role === "医事課"} onOpen={openPatient} onSheet={TABS[role].includes("sheet") ? () => goWard("sheet") : undefined} onBilling={role === "医事課" ? (pid) => (openPatient(pid), setPanel("billing")) : undefined} />
       ) : screen === "roster" ? (
@@ -2730,6 +2744,7 @@ export default function WardApp() {
               </div>
             ) : (
               <>
+            <ReportContext.Provider value={{ reports: reportsHere, acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
             <HistoryPane
               patient={patient}
               coedit={presence.coedit}
@@ -2836,6 +2851,7 @@ export default function WardApp() {
                 if (resident) setCosign((all) => noteRevised(all, { ref: noteKey(e), patientId: patient.id, by: me.name, at: { day: 0, time: nowTime }, text: text.trim() }, newId));
               }}
             />
+            </ReportContext.Provider>
             <div
               className={`relative flex min-h-0 flex-col ${dropping ? "ring-2 ring-inset ring-ai" : ""}`}
               onDragOver={(e) => {
@@ -3107,6 +3123,11 @@ export default function WardApp() {
               {panel === "reports" && (
                 <Drawer title="病理・生理検査の報告" onClose={closePanel} wide>
                   <DeptReportsPanel patientId={patient.id} patientName={patient.name} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} physio={dept.physioDesk} pathology={dept.pathology} acks={acks} today={today} onSeen={(keys) => markSeen(patient.id, keys)} />
+                </Drawer>
+              )}
+              {panel === "report-list" && (
+                <Drawer title="レポート一覧" onClose={closePanel} wide>
+                  <ReportList reports={reportsHere} acks={acks} today={today} onSeen={deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys)} onOpenImage={openReportImage} />
                 </Drawer>
               )}
               {panel === "visit-request" && visitOf(patient.id) && (
@@ -3901,7 +3922,7 @@ export default function WardApp() {
             )}
             <ToolRail
               open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
-              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length } }}
+              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, "report-list": { n: unreadHere.length } }}
               onOpen={(p) => {
                 // 注射 and 内服 are tabs on the right, not panels.
                 if (p === "add-injection" || p === "add-rx") {

@@ -30,6 +30,7 @@ import type { StandingLine } from "@/lib/standing-lines";
 import { StandingCalendar } from "./StandingCalendar";
 import type { TakeBadge } from "@/lib/order-confirm";
 import { TakeBadgeMark } from "./TakeConfirm";
+import { OrderReportMark } from "./ReportMark";
 
 /** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00). */
 type CalendarMar = (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
@@ -744,6 +745,7 @@ function OrderRow({ entry, today, onDo, onOpenImage, onOpenResult, takeBadge }: 
         <span className="font-bold text-ink-soft">{ORDER_TYPE_LABEL[entry.order.type]}</span>
         <CosignMark refId={entry.id} />
         {takeBadge && <TakeBadgeMark badge={takeBadge} />}
+        <OrderReportMark orderId={entry.id} />
         <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
           {entry.status}
           {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}

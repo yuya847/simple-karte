@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "visit-revisit" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "visit-revisit" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list";
 
 interface Tool {
   key: PanelKind;
@@ -94,6 +94,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     main: [
       { key: "results", label: "検査結果", icon: FlaskConical },
       { key: "reports", label: "病理・生理", icon: FileSearch },
+      { key: "report-list", label: "レポート一覧", icon: FileText },
       { key: "rehab-progress", label: "リハビリの経過", icon: Footprints },
       { key: "imaging", label: "放射線画像", icon: ScanLine },
       { key: "active-orders", label: "有効オーダ", icon: ListChecks },
