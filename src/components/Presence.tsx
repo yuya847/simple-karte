@@ -1,55 +1,49 @@
 "use client";
 
-import { RefreshCw, Users } from "lucide-react";
-import { peerLine, type Peer, type Stale } from "@/lib/presence";
+import { GitMerge, PencilLine, Users, X } from "lucide-react";
+import { editorLine, mergedText, peerLine, type NoteEditor, type Peer, type Where } from "@/lib/presence";
 
-/** Over a chart: the others who have it open (another tab of this browser, another device). */
-export function PresenceStrip({ peers }: { peers: Peer[] }) {
-  if (!peers.length) return null;
-  const writing = peers.some((p) => p.editing);
+/** Over a chart: the others who have it open (another tab of this browser, another device), and who is correcting which note. */
+export function PresenceStrip({ peers, editors = [] }: { peers: Peer[]; editors?: NoteEditor[] }) {
+  if (!peers.length && !editors.length) return null;
+  const writing = peers.some((p) => p.editing) || editors.length > 0;
   return (
     <div role="status" className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b px-4 py-1 text-[12px] print:hidden ${writing ? "border-yamabuki bg-yamabuki-soft" : "border-rule-soft bg-sheet"}`}>
       <Users size={13} className={writing ? "text-yamabuki" : "text-ink-soft"} />
-      <b>このカルテを開いている人：</b>
-      <span>{peers.map(peerLine).join("、")}</span>
-      <span className="hint text-ink-soft">同じ患者の記事やオーダを別々に書くと、あとから保存したほうが前のものを上書きするので、ここで確定する前に声をかけ合ってください。あちらが先に保存すると、こちらは読み込み直すまで確定できません。</span>
+      {peers.length > 0 && (
+        <>
+          <b>このカルテを開いている人：</b>
+          <span>{peers.map(peerLine).join("、")}</span>
+        </>
+      )}
+      {editors.length > 0 && (
+        <>
+          <PencilLine size={12} className="text-yamabuki" />
+          <span>{editors.map(editorLine).join("、")}</span>
+        </>
+      )}
+      <span className="hint text-ink-soft">同じ患者を何人で開いても、それぞれの記事やオーダはあとから合わせて保存されます。同じ記事を同時に直すと、お互いの文字が入って見え、確定すると一つの版に二人の名前が付きます。</span>
     </div>
   );
 }
 
-/** At the top while this page's records are older than the saved ones (saving is stopped). */
-export function StaleBanner({ stale, onRefresh, busy }: { stale: Stale; onRefresh: () => void; busy: boolean }) {
+/** For a few seconds after newer records of someone else were merged into this page. */
+export function MergedNotice({ by, where, at, onClose }: { by: string; where: Where; at: string; onClose: () => void }) {
   return (
-    <div role="alert" className="fixed inset-x-0 top-0 z-40 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-yamabuki bg-yamabuki-soft px-4 py-1.5 text-[13px] shadow print:hidden">
-      <span>
-        別の{stale.where}（{stale.by}）で {stale.at} に記録が保存されました。このページの記録はそれより古いので、上書きしないように保存を止めています。
-      </span>
-      <button type="button" disabled={busy} onClick={onRefresh} className="flex items-center gap-1 rounded-md bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-50">
-        <RefreshCw size={13} />
-        {busy ? "読み込んでいます…" : "最新の記録を読み込む"}
-      </button>
-      <span className="text-[11px] text-ink-soft">開いているカルテで書いている記事と下書きは残します。</span>
-    </div>
-  );
-}
-
-/** Confirming a note or an order while the saved records are newer: read them first. */
-export function StaleAsk({ text, onRefresh, onCancel, busy }: { text: string; onRefresh: () => void; onCancel: () => void; busy: boolean }) {
-  return (
-    <div role="dialog" aria-modal="true" aria-label="確定の前に最新の記録を読み込む" className="fixed inset-0 z-[60] grid place-items-center bg-ink/30 p-4 print:hidden">
-      <div className="max-w-md space-y-3 rounded-lg border border-yamabuki bg-sheet p-4 text-[13px] shadow-lg">
-        <h2 className="font-bold text-yamabuki">確定していません</h2>
-        <p>{text}</p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={busy} onClick={onRefresh} className="flex items-center gap-1 rounded-md bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-50">
-            <RefreshCw size={14} />
-            {busy ? "読み込んでいます…" : "最新の記録を読み込む"}
-          </button>
-          <button type="button" onClick={onCancel} className="rounded-md border border-rule px-3 py-1.5">
-            やめる
-          </button>
-        </div>
+    <div role="status" className="fixed inset-x-0 top-0 z-40 flex items-center justify-center gap-2 px-4 py-1 print:hidden">
+      <div className="flex items-center gap-2 rounded-full border border-wakatake bg-wakatake-soft px-3 py-1 text-[12px] text-ink shadow">
+        <GitMerge size={13} className="text-wakatake" />
+        <span>{mergedText(by, where, at)}</span>
+        <span className="hint text-ink-soft">この画面の記録と合わせました。書いている記事と下書きはそのままです。</span>
+        <button type="button" onClick={onClose} aria-label="閉じる" className="rounded p-0.5 text-ink-soft hover:bg-sheet">
+          <X size={12} />
+        </button>
       </div>
     </div>
   );
+}
+
+/** How the devices are connected, for the status in the corner. */
+export function liveLabel(live: "unknown" | "on" | "off"): string {
+  return live === "on" ? "ほかの端末の変更はすぐ届きます" : live === "off" ? "ほかの端末の変更は30秒ごとに確かめます" : "";
 }

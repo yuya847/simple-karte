@@ -19,6 +19,8 @@ export interface MergeResult {
   data: Record<string, unknown>;
   /** The top-level records where something of the saved side came in. */
   changed: string[];
+  /** The top-level records where this page holds something the saved side lacks (so the result is to be saved). What is local to this page does not count. */
+  kept: string[];
 }
 
 type Obj = Record<string, unknown>;
@@ -123,8 +125,11 @@ export function merge3(mine: unknown, theirs: unknown, base: unknown): unknown {
 export function mergeWorkspace(mine: Record<string, unknown>, theirs: Record<string, unknown>, base: Record<string, unknown> | null, opts: MergeOptions = {}): MergeResult {
   const data: Record<string, unknown> = {};
   const changed: string[] = [];
+  const kept: string[] = [];
   const takeTheirs = new Set(opts.theirs ?? []);
   const keepMine = new Set(opts.mine ?? []);
+  // Without what is local to this page, for telling whether the saved side lacks something.
+  const shared = (k: string, v: unknown) => (opts.local && isObj(v) ? Object.fromEntries(Object.entries(v).filter(([sub]) => !opts.local!(k, sub))) : v);
   for (const k of new Set([...Object.keys(mine), ...Object.keys(theirs)])) {
     const m = mine[k];
     const t = theirs[k];
@@ -136,8 +141,9 @@ export function mergeWorkspace(mine: Record<string, unknown>, theirs: Record<str
     else v = merge3(m, t, b);
     data[k] = v;
     if (!sameJson(v, m)) changed.push(k);
+    if (!keepMine.has(k) && !takeTheirs.has(k) && !sameJson(shared(k, v), shared(k, t))) kept.push(k);
   }
-  return { data, changed };
+  return { data, changed, kept };
 }
 
 /** For `charts`: what one role is writing (its desk "patient|role") stays on this page. */

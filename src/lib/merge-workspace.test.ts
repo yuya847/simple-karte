@@ -12,6 +12,9 @@ describe("同時に開いたときの記録のマージ", () => {
     expect((r.data.notes as Record<string, { id: string }[]>).p1.map((n) => n.id)).toEqual(["n1", "n2", "n3"]);
     expect((r.data.notes as Record<string, { id: string }[]>).p2.map((n) => n.id)).toEqual(["n4"]);
     expect(r.changed).toEqual(["notes"]);
+    // n2 is only here: the merged records are to be saved.
+    expect(r.kept).toEqual(["notes"]);
+    expect(mergeWorkspace(theirs, theirs, base).kept).toEqual([]);
   });
 
   it("keeps every version when the same note was corrected on both pages (the saved text is the last)", () => {
@@ -48,6 +51,9 @@ describe("同時に開いたときの記録のマージ", () => {
     expect(charts["p1|医師"].drafts).toEqual([{ id: "d1" }]);
     // Another role's desk is theirs to keep; this role's desk written elsewhere is not brought in.
     expect(charts["p1|看護師"].note).toBe("# 転倒");
+    // What the chart holds for everyone differs from the saved side (a2, x1), so it is to be saved; the desk alone would not be.
+    expect(r.kept).toEqual(["charts"]);
+    expect(mergeWorkspace({ charts: { p1: shared([], [], {}), "p1|医師": desk("S) 書きかけ", []) } }, { charts: { p1: shared([], [], {}) } }, null, { local: chartDeskOf("医師") }).kept).toEqual([]);
   });
 
   it("lets a removal through when the base is known, and removes nothing without it", () => {
@@ -72,6 +78,7 @@ describe("同時に開いたときの記録のマージ", () => {
     const r = mergeWorkspace(mine, theirs, null, { theirs: ["audit"], mine: ["__writer"] });
     expect(r.data).toEqual({ audit: [{ seq: 1, action: "B" }], __writer: { tab: "me" }, onlyHere: [1] });
     expect(r.changed).toEqual(["audit"]);
+    expect(r.kept).toEqual(["onlyHere"]);
   });
 
   it("changes nothing when the saved records are the same", () => {

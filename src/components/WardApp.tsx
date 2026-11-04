@@ -254,8 +254,9 @@ import { masterIssues } from "@/lib/master-local";
 import { SystemView } from "./SystemView";
 import { DowntimeView } from "./DowntimeView";
 import { usePresence } from "@/lib/use-presence";
-import { staleText, thisTab } from "@/lib/presence";
-import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
+import { thisTab } from "@/lib/presence";
+import { chartDeskOf } from "@/lib/merge-workspace";
+import { liveLabel, MergedNotice, PresenceStrip } from "./Presence";
 import { ScanPanel } from "./panels/ScanPanel";
 import { withdraw } from "@/lib/scans";
 import { SignBox } from "./panels/SignBox";
@@ -635,8 +636,7 @@ export default function WardApp() {
   const [returns, setReturns] = useState<ReturnDesk>(EMPTY_RETURNS);
   // 国のサービス（模擬）: what was registered with or sent to the simulated services.
   const [national, setNational] = useState<NationalRecord[]>([]);
-  // 排他制御: while another tab or device saved newer records, this page does not save (usePresence says so).
-  const holdSaves = useRef(false);
+  // 同時利用: after each save the other tabs and devices are told (usePresence fills this in).
   const onSaved = useRef<(() => void) | null>(null);
   // Who saved the records last (this tab), for the other devices.
   const writer = useMemo(() => ({ tab: thisTab(), by: me.name, role: me.role }), [me]);
@@ -742,7 +742,8 @@ export default function WardApp() {
       __writer: [writer, () => {}],
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
-    { hold: () => holdSaves.current, onSaved: () => onSaved.current?.() },
+    // Records saved elsewhere are merged in: this role's desk (note, drafts) stays; the audit log's setter merges itself.
+    { onSaved: () => onSaved.current?.(), merge: { local: chartDeskOf(me.role), theirs: ["audit"], mine: ["__writer"] } },
   );
   const [demoLabs] = useState(() => (typeof window === "undefined" ? {} : demoLabOrders(abs(0, nowTimeInTokyo()))));
   // Lab orders of today's 救急外来・外来 visits (fictional), by visit key "er:◯" / "opd:◯".
@@ -970,9 +971,18 @@ export default function WardApp() {
     return Object.fromEntries(chart.drafts.map((d) => [d.id, [...checkDraft(d, ctx), ...masterIssues(d, infra.masterOv, infra.masterLog)]]));
   }, [chart.drafts, ctx, infra.masterOv, infra.masterLog]);
 
-  // 同時利用の警告・排他制御: the others with this chart open, and whether newer records were saved elsewhere.
-  const presence = usePresence({ wsId: workspace.id, shared: workspace.status !== "off" && workspace.status !== "loading", me, patientId: activeId, note: chart.note, drafts: chart.drafts.length, holdRef: holdSaves, savedRef: onSaved });
-  const [catchingUp, setCatchingUp] = useState(false);
+  // 同時利用: the others with this chart open and who is correcting which note; records saved elsewhere are merged in.
+  const presence = usePresence({
+    wsId: workspace.id,
+    shared: workspace.status !== "off" && workspace.status !== "loading",
+    me,
+    patientId: activeId,
+    note: chart.note,
+    drafts: chart.drafts.length,
+    savedRef: onSaved,
+    pull: workspace.pull,
+    onMerged: (m) => auditLog({ role: me.role, actor: me.name, action: "別のタブ・端末で保存された記録を取り込んだ", detail: `${m.by}${m.role ? `（${m.role}）` : ""}が ${m.at} に保存${m.changed.length ? `　変わった記録：${m.changed.slice(0, 12).join("・")}` : ""}` }),
+  });
 
   if (!today || !nowTime || (patient && !ctx)) {
     return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
@@ -1128,18 +1138,6 @@ export default function WardApp() {
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
                           update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
                           };
-
-  // 排他制御: read the records saved by another tab or device into this page, keeping the note and drafts of the chart in front.
-  const catchUp = async () => {
-    const keep = activeId ? { id: activeId, note: chart.note, drafts: chart.drafts } : null;
-    setCatchingUp(true);
-    const ok = await workspace.refresh();
-    setCatchingUp(false);
-    if (!ok) return;
-    presence.caughtUp();
-    if (keep) updateFor(keep.id, () => ({ note: keep.note, drafts: keep.drafts }));
-    auditLog({ role: me.role, actor: me.name, action: "最新の記録を読み込んだ（別のタブ・端末で保存されたため）" });
-  };
 
   // 研修医の記録を、指導医か上級医が確かめる. Each confirmation goes to the audit log.
   const confirmCosign = (ids: string[], comment: string) => {
@@ -2614,7 +2612,7 @@ export default function WardApp() {
             onRemove={(id) => setStickies((all) => ({ ...all, [patient.id]: (all[patient.id] ?? []).filter((x) => x.id !== id) }))}
           />
           {limitNow && <LimitStrip limit={limitNow} inTeam={inTeamNow} grant={grantNow} fmtDay={(d) => formatShort(addDays(today, d))} />}
-          <PresenceStrip peers={presence.on(patient.id)} />
+          <PresenceStrip peers={presence.on(patient.id)} editors={presence.editorsOn(patient.id)} />
           <div
             data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
@@ -2658,6 +2656,7 @@ export default function WardApp() {
               <>
             <HistoryPane
               patient={patient}
+              coedit={presence.coedit}
               entries={entries}
               today={today}
               nowTime={nowTime}
@@ -2752,10 +2751,10 @@ export default function WardApp() {
                 setResultFocus(at);
                 setPanel("results");
               }}
-              onReviseNote={(e, text, reason) => {
-                const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
+              onReviseNote={(e, text, reason, by) => {
+                const next = reviseNote(e, text, by ?? me.name, { day: 0, time: nowTime }, reason);
                 setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));
-                auditLog({ role: me.role, actor: me.name, action: `確定（記事の修正・第${next.versions!.length}版）`, patient: patient.name, detail: `${e.time} の記事　理由：${reason.trim()}` });
+                auditLog({ role: me.role, actor: me.name, action: `確定（記事の修正・第${next.versions!.length}版）`, patient: patient.name, detail: `${e.time} の記事　理由：${reason.trim()}${by ? `　一緒に直した人：${by}` : ""}` });
                 if (resident) setCosign((all) => noteRevised(all, { ref: noteKey(e), patientId: patient.id, by: me.name, at: { day: 0, time: nowTime }, text: text.trim() }, newId));
               }}
             />
@@ -4008,7 +4007,7 @@ export default function WardApp() {
             ))}
         </div>
       )}
-      <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} />
+      <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} live={liveLabel(presence.live)} />
       {login.gate && (
         <LoginGate
           users={loginUsers}
@@ -4022,8 +4021,7 @@ export default function WardApp() {
           onTurnOff={() => login.change({ ...login.settings, on: false }, me)}
         />
       )}
-      {presence.stale && workspace.status !== "off" && <StaleBanner stale={presence.stale} onRefresh={catchUp} busy={catchingUp} />}
-      {presence.ask && <StaleAsk text={staleText(presence.stale!, presence.ask.patientId, findPatient(presence.ask.patientId)?.name)} onRefresh={catchUp} onCancel={presence.cancelAsk} busy={catchingUp} />}
+      {presence.merged && <MergedNotice by={presence.merged.by} where={presence.merged.where} at={presence.merged.at} onClose={presence.dismiss} />}
       {Number(nowTime.slice(0, 2)) >= 24 && (
         <p role="status" className="fixed bottom-10 right-2 z-40 max-w-xs rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[11px] text-ink shadow print:hidden">
           日付が変わりました。この画面は {formatShort(today)} を「今日」として続けているので、{nowTime.slice(0, 2)}:{nowTime.slice(3)}（翌{Number(nowTime.slice(0, 2)) - 24}:{nowTime.slice(3)}）のように時刻を付けます。

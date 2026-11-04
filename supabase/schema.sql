@@ -95,3 +95,9 @@ $$;
 
 revoke all on function public.touch_presence(uuid, text, text, text, text, boolean) from public;
 grant execute on function public.touch_presence(uuid, text, text, text, text, boolean) to anon, authenticated;
+
+-- 別の端末とのやりとり（Realtime Broadcast）: no SQL. Who is here, who saved and the text being typed in a past
+-- note go through Supabase Realtime Broadcast on a channel per workspace (simple-karte:ws:<id>); nothing is
+-- stored. In the project's settings (Project Settings › Realtime) "Enable Realtime service" and "Allow public
+-- access to channels" must be on (both are the defaults). The records themselves are saved through the
+-- functions above; when another tab or device saved, the page reads them and merges them (src/lib/merge-workspace.ts).

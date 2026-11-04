@@ -10,7 +10,7 @@ import { currentEntries } from "@/lib/record";
 import { STAFF, type Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
 import { DowntimeView } from "./DowntimeView";
-import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
+import { MergedNotice, PresenceStrip } from "./Presence";
 import { ScanPanel } from "./panels/ScanPanel";
 import { withdraw, type ScanDoc } from "@/lib/scans";
 import { SignBox } from "./panels/SignBox";
@@ -65,15 +65,14 @@ describe("同時利用の警告", () => {
     expect(renderToStaticMarkup(<PresenceStrip peers={[]} />)).toBe("");
   });
 
-  it("says saving is stopped and asks to read the newest records before confirming", () => {
-    const stale = { by: "看護師 佐藤", role: "看護師", at: "10:32", where: "タブ" as const, patients: { p1: ["記事の確定"] } };
-    const banner = renderToStaticMarkup(<StaleBanner stale={stale} onRefresh={() => {}} busy={false} />);
-    expect(banner).toContain("別のタブ（看護師 佐藤）で 10:32 に記録が保存されました");
-    expect(banner).toContain("保存を止めています");
-    expect(banner).toContain("最新の記録を読み込む");
-    const ask = renderToStaticMarkup(<StaleAsk text="大浦 トメさんの記録は、別のタブで変わりました。" onRefresh={() => {}} onCancel={() => {}} busy={false} />);
-    expect(ask).toContain("確定していません");
-    expect(ask).toContain("やめる");
+  it("names who is correcting which note, and says whose changes were merged in instead of stopping", () => {
+    const editor = { tab: "e", who: "看護師 佐藤", role: "看護師", patient: "p1", note: "n1", label: "10:32 の記事", text: "S) 熱はない", cursor: 3, seen: 0 };
+    const html = renderToStaticMarkup(<PresenceStrip peers={[]} editors={[editor]} />);
+    expect(html).toContain("看護師 佐藤（10:32 の記事を修正中）");
+    expect(html).toContain("bg-yamabuki-soft");
+    const notice = renderToStaticMarkup(<MergedNotice by="看護師 佐藤" where="タブ" at="10:32" onClose={() => {}} />);
+    expect(notice).toContain("看護師 佐藤さんの変更を取り込みました（別のタブ・10:32 の保存）。");
+    expect(notice).not.toContain("保存を止めています");
   });
 });
 
