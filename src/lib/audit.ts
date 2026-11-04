@@ -26,7 +26,6 @@ export interface AuditEvent {
 
 let events: AuditEvent[] = [];
 let seq = 0;
-let restored = false;
 const listeners = new Set<() => void>();
 
 const clock = () => new Date().toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
@@ -85,19 +84,25 @@ const isEvent = (v: unknown): v is AuditEvent => {
   );
 };
 
+const sameEvent = (e: AuditEvent) => [e.date ?? "", e.at, e.role, e.actor, e.action, e.patient ?? "", e.detail ?? "", e.restricted ? "1" : ""].join("\u0001");
+
 /**
- * Put back the events saved with the records, read once when the page opens: they come first, and the
- * events of this page so far follow them with their numbers continued (the order of what happened is
- * kept). Anything that is not an event is left out. A second call does nothing.
+ * Put back the events saved with the records (when the page opens, and when it reads the records saved by
+ * another tab or device): the saved events and this page's events that are not among them, in the order they
+ * happened, numbered again from 1. Anything that is not an event is left out.
  */
 export function auditRestore(saved: unknown): void {
-  if (restored || !Array.isArray(saved)) return;
-  restored = true;
+  if (!Array.isArray(saved)) return;
   const kept = auditForSave(saved.filter(isEvent).sort((a, b) => a.seq - b.seq));
   if (!kept.length) return;
-  const last = kept.at(-1)!.seq;
-  events = [...kept, ...events.map((e, i) => ({ ...e, seq: last + i + 1 }))];
-  seq = last + (events.length - kept.length);
+  const have = new Set(kept.map(sameEvent));
+  const when = (e: AuditEvent) => `${e.date ?? ""} ${e.at}`;
+  const merged = [...kept, ...events.filter((e) => !have.has(sameEvent(e)))]
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => (when(a.e) < when(b.e) ? -1 : when(a.e) > when(b.e) ? 1 : a.i - b.i))
+    .map(({ e }, i) => ({ ...e, seq: i + 1 }));
+  events = merged;
+  seq = merged.length;
   listeners.forEach((l) => l());
 }
 

@@ -51,3 +51,22 @@ export async function loadWorkspace(id: string, day: string): Promise<Record<str
 
 export const saveWorkspace = (id: string, day: string, data: Record<string, unknown>) => rpc<null>("save_workspace", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: data });
 export const resetWorkspace = (id: string) => rpc<null>("reset_workspace", { p_id: id });
+
+/** One row of touch_presence: another tab of the workspace seen in the last 30 seconds (or nulls), and the workspace's last save. */
+export interface PresenceRow {
+  tab: string | null;
+  who: string | null;
+  role: string | null;
+  patient: string | null;
+  editing: boolean | null;
+  ws_updated: string | null;
+  ws_writer: string | null;
+  ws_by: string | null;
+}
+
+/**
+ * 同時利用 across devices (supabase/schema.sql, the part 「同時利用」): say that this tab is here and which
+ * chart it has open, and hear about the others and the last save. Fails when the table was not made.
+ */
+export const touchPresence = (ws: string, me: { tab: string; who: string; role: string; patient: string | null; editing: boolean }) =>
+  rpc<PresenceRow[]>("touch_presence", { p_ws: ws, p_tab: me.tab, p_who: me.who, p_role: me.role, p_patient: me.patient, p_editing: me.editing });

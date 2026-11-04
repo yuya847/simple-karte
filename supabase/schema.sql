@@ -53,3 +53,45 @@ revoke all on function public.reset_workspace(uuid) from public;
 grant execute on function public.save_workspace(uuid, integer, date, jsonb) to anon, authenticated;
 grant execute on function public.load_workspace(uuid) to anon, authenticated;
 grant execute on function public.reset_workspace(uuid) to anon, authenticated;
+
+-- 同時利用（排他制御・同時利用の警告）: optional. Run this part too to let devices see each other: each open tab
+-- says every 10 seconds which chart it has open (fictional staff names and patient ids only) and hears about
+-- the other tabs of the same workspace and who saved the records last. Without it, the app still warns about
+-- the other tabs of the same browser. Rows older than 10 minutes are removed on each call.
+create table if not exists public.workspace_presence (
+  ws uuid not null,
+  tab text not null,
+  who text not null,
+  role text not null,
+  patient text,
+  editing boolean not null default false,
+  seen timestamptz not null default now(),
+  primary key (ws, tab),
+  constraint presence_sizes check (char_length(tab) <= 80 and char_length(who) <= 80 and char_length(role) <= 16 and coalesce(char_length(patient), 0) <= 80)
+);
+
+alter table public.workspace_presence enable row level security;
+revoke all on table public.workspace_presence from anon, authenticated;
+
+create or replace function public.touch_presence(p_ws uuid, p_tab text, p_who text, p_role text, p_patient text, p_editing boolean)
+returns table (tab text, who text, role text, patient text, editing boolean, ws_updated timestamptz, ws_writer text, ws_by text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  delete from public.workspace_presence p where p.seen < now() - interval '10 minutes';
+  insert into public.workspace_presence as p (ws, tab, who, role, patient, editing, seen)
+  values (p_ws, p_tab, p_who, p_role, p_patient, coalesce(p_editing, false), now())
+  on conflict on constraint workspace_presence_pkey do update set who = excluded.who, role = excluded.role, patient = excluded.patient, editing = excluded.editing, seen = now();
+  return query
+    select o.tab, o.who, o.role, o.patient, o.editing, w.updated_at, w.data -> '__writer' ->> 'tab', w.data -> '__writer' ->> 'by'
+    from (select 1) as one
+    left join public.workspace_presence o on o.ws = p_ws and o.tab <> p_tab and o.seen > now() - interval '30 seconds'
+    left join public.workspaces w on w.id = p_ws;
+end;
+$$;
+
+revoke all on function public.touch_presence(uuid, text, text, text, text, boolean) from public;
+grant execute on function public.touch_presence(uuid, text, text, text, text, boolean) to anon, authenticated;
