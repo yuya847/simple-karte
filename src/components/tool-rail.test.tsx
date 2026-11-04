@@ -128,3 +128,15 @@ it("参照だけの職種では保存群が対象外でも参照を選ぶ", () =
   expect(tabs(html)).toHaveLength(1);
   expect(tabs(html)[0]).toContain('aria-selected="true"');
 });
+
+it("参照に検査時系列を追加し、未確認の数字は検査結果に残す", () => {
+  const html = as("医師", <ToolRail open="results-timeline" onOpen={() => {}} badges={{ results: { n: 2, urgent: true } }} />);
+  expect(html).toContain("検査時系列");
+  expect(html).toContain("lucide-trending-up");
+  expect(html).toContain('aria-label="検査結果：未確認 2件"');
+  expect(html).not.toContain('aria-label="検査時系列：未確認');
+  const src = readFileSync(fileURLToPath(new URL("./WardApp.tsx", import.meta.url)), "utf8");
+  expect(src).toMatch(/const WINDOW_PANELS[^\n]*"results-timeline"/);
+  expect(src).toContain('panel === "results-timeline"');
+  expect(src).toContain("<ResultBrowser");
+});

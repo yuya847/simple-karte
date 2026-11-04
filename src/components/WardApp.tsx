@@ -214,7 +214,7 @@ import { HandoffView } from "./HandoffView";
 import { LabView } from "./LabView";
 import { AdmitEvalView } from "./AdmitEvalView";
 import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type AdmitEval } from "@/lib/admit-eval";
-import { ResultsInbox } from "./ResultsInbox";
+import { ResultBrowser } from "./ResultBrowser";
 import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall, type ResultItem } from "@/lib/results";
 import { EMPTY_DESK, demoLabOrders, deskLabs, drawRows, redrawChangeKeys, withRedraws, type LabDesk } from "@/lib/lab-desk";
 import { pendingDraws } from "@/lib/lab-table";
@@ -258,7 +258,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "standing", "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "standing", "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -2985,7 +2985,7 @@ export default function WardApp() {
               }}
               onOpenResult={(at) => {
                 setResultFocus(at);
-                setPanel("results");
+                setPanel("results-timeline");
               }}
               onReviseNote={(e, text, reason, by) => {
                 const next = reviseNote(e, text, by ?? me.name, { day: 0, time: nowTime }, reason);
@@ -3348,11 +3348,12 @@ export default function WardApp() {
               )}
               {panel === "results" && (
                 <Drawer title="検査結果" onClose={closePanel} wide expandable>
-                  {unseenHere.length > 0 && (
-                    <div className="mb-3 rounded-lg border border-rule bg-paper">
-                      <ResultsInbox today={today} items={unseenHere} calls={calls} onSeen={(keys, response) => markSeen(patient.id, keys, response)} />
-                    </div>
-                  )}
+                  <ResultBrowser key={patient.id} patient={patient} today={today} items={unseenHere} extra={[...dept.results, ...care.results]} calls={calls} onSeen={(keys, response) => markSeen(patient.id, keys, response)} onTimeline={() => setPanel("results-timeline")} />
+                </Drawer>
+              )}
+              {panel === "results-timeline" && (
+                <Drawer title="検査時系列" onClose={closePanel} wide expandable>
+                  <button type="button" className="mb-3 rounded border border-rule px-3 py-1 text-sm" onClick={() => setPanel("results")}>検査結果一覧へ戻る</button>
                   <ResultsPanel
                     patient={patient}
                     today={today}
