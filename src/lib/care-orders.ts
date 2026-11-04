@@ -456,6 +456,48 @@ export function careFlowRows(orders: CareOrder[], records: CareRecord[], days: D
   return rows;
 }
 
+/** One time of a care row in the zoomed-in flow sheet (3日・1日・勤務帯・1時間): the task or the 必要時 record. */
+export interface CareFlowMark {
+  at: number;
+  orderId: string;
+  text: string;
+  tone: CareFlowCell["tone"];
+  title: string;
+}
+
+/**
+ * The same rows as careFlowRows, but each task at its time inside [lo, hi): 済 (or what was seen),
+ * 不可, 未 (past without a record), ・ (ahead); 必要時 records at the time they were done.
+ */
+export function careFlowMarks(orders: CareOrder[], records: CareRecord[], lo: number, hi: number, nowAbs: number, sessionStart: number): (Omit<CareFlowRow, "cells"> & { marks: CareFlowMark[] })[] {
+  const groups = new Map<string, CareOrder[]>();
+  for (const o of orders) {
+    const k = `${o.kind}|${o.item}`;
+    groups.set(k, [...(groups.get(k) ?? []), o]);
+  }
+  const rows: (Omit<CareFlowRow, "cells"> & { marks: CareFlowMark[] })[] = [];
+  for (const [key, os] of groups) {
+    const latest = [...os].sort((a, b) => absOf(b.at) - absOf(a.at))[0];
+    const ids = new Set(os.map((o) => o.id));
+    const unit = latest.unit ?? "";
+    const marks: CareFlowMark[] = [];
+    const slots = os.flatMap((o) => careSlots(o, lo, hi).map((at) => ({ orderId: o.id, at })));
+    for (const s of slots) {
+      const st = careState(s, records, sessionStart, nowAbs);
+      const r = recordOf(records, careKey(s.orderId, s.at));
+      const tone: CareFlowCell["tone"] = st === "未実施" ? "not" : st === "未入力" ? "late" : st === "予定" ? "plan" : "done";
+      const text = st === "未実施" ? "不可" : st === "未入力" ? "未" : st === "予定" ? "・" : r?.value ? `${r.value}${unit}` : "済";
+      marks.push({ at: s.at, orderId: s.orderId, text, tone, title: `${hhmm(s.at)} ${latest.item}：${st === "記録済み" ? "実施（前の勤務）" : st}${r?.value ? ` ${r.value}${unit}` : ""}${r?.reason ? `（${r.reason}）` : ""}${r ? ` ${r.doneAt} ${r.by}` : ""}` });
+    }
+    for (const r of records) {
+      if (!ids.has(r.orderId) || r.voided || r.at < lo || r.at >= hi || slots.some((s) => careKey(s.orderId, s.at) === r.key)) continue;
+      marks.push({ at: r.at, orderId: r.orderId, text: r.value ? `${r.value}${unit}` : r.status === "実施" ? "済" : "不可", tone: r.status === "実施" ? "done" : "not", title: `${r.doneAt} ${latest.item}：${r.status}${r.value ? ` ${r.value}${unit}` : ""}${r.note ? ` ${r.note}` : ""} ${r.by}` });
+    }
+    if (marks.length) rows.push({ key, label: latest.item, sub: shortSchedule(latest), kind: latest.kind, marks: marks.sort((a, b) => a.at - b.at) });
+  }
+  return rows;
+}
+
 // ---------------------------------------------------------------------------
 // Fictional orders and records for the fictional patients
 // ---------------------------------------------------------------------------

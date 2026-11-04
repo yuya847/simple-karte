@@ -25,6 +25,8 @@ interface Props {
   plotW: number;
   labelW: number;
   standingIo: string | null;
+  /** Zoomed in: each IN/OUT at its time, and the totals per shift (日勤・夜勤) instead of per 24 hours. */
+  byTime?: boolean;
 }
 
 type Cell = { top: string; sub?: string; title: string };
@@ -36,10 +38,10 @@ const r = (x: number) => String(Math.round(x));
  * as the vitals. Recorded amounts and what the orders plan are kept apart: the plan is in ( ). Each drip
  * has its own row (this period / its total since it began), then IN合計, each OUT, OUT合計 and IN − OUT.
  */
-export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, labelW, standingIo }: Props) {
+export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, labelW, standingIo, byTime = false }: Props) {
   const days: number[] = [];
   for (let d = ioDayOf(t0 + 1); ioDay(d).lo < endAbs; d++) days.push(d);
-  const wins = days.map((d) => ioDay(d));
+  const wins = byTime ? days.flatMap((d) => ioShifts(d)).filter((w) => w.hi > t0 && w.lo < endAbs) : days.map((d) => ioDay(d));
   const state = (w: IoWindow) => (w.hi <= nowAbs ? "past" : w.lo >= nowAbs ? "future" : "now");
   const upTo = (w: IoWindow) => ({ lo: w.lo, hi: Math.min(w.hi, nowAbs) });
   const sum = (ls: IoLine[], w: { lo: number; hi: number }) => ls.filter((l) => inWindow(l.at, w)).reduce((a, l) => a + l.ml, 0);
@@ -115,19 +117,40 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
     );
   };
 
+  // Zoomed in: each recorded amount at its time (the drips at the time they ended).
+  const lineRow = (key: string, label: string, sub: string | undefined, ls: IoLine[]) => (
+    <div key={key} className="flex border-b border-rule-soft">
+      <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: labelW }}>
+        {label}
+        {sub && <div className="text-[9px] font-normal text-ink-faint">{sub}</div>}
+      </div>
+      <div className="relative h-6 flex-1">
+        {ls
+          .filter((l) => l.at >= t0 && l.at <= endAbs)
+          .map((l, i) => (
+            <span key={`${l.at}-${i}`} title={`${l.what}：${l.formula ?? `${l.ml}mL`}（${l.from}・${l.by}）`} className="absolute top-1 -translate-x-1/2 whitespace-nowrap text-ink" style={{ left: xAbs(l.at) }}>
+              {r(l.ml)}
+            </span>
+          ))}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div className="mt-3 flex items-baseline gap-2 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">
         水分出納（IN/OUT） mL
         <span className="font-normal text-ink-faint">
-          セルは {IO_RULES.dayClose}〜翌{IO_RULES.dayClose}（架空の病院の取り決め）　指示簿：{standingIo ?? "なし"}
+          {byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}（架空の病院の取り決め）　指示簿：{standingIo ?? "なし"}
         </span>
       </div>
       <div className="relative">
-        {drips.map((e) => row(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　今回/計` : undefined, (w) => dripCell(e, w)))}
-        {inKinds.map((k) => row(`in-${k}`, k, "IN", (w) => kindCell("IN", k, w)))}
+        {byTime
+          ? drips.map((e) => lineRow(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　終了時` : undefined, lines.filter((l) => l.orderId === e.id)))
+          : drips.map((e) => row(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　今回/計` : undefined, (w) => dripCell(e, w)))}
+        {inKinds.map((k) => (byTime ? lineRow(`in-${k}`, k, "IN", lines.filter((l) => l.side === "IN" && l.kind === k && !l.orderId)) : row(`in-${k}`, k, "IN", (w) => kindCell("IN", k, w))))}
         {row("in", "IN合計", undefined, (w) => totalCell("IN", w), true)}
-        {outKinds.map((k) => row(`out-${k}`, k, "OUT", (w) => kindCell("OUT", k, w)))}
+        {outKinds.map((k) => (byTime ? lineRow(`out-${k}`, k, "OUT", lines.filter((l) => l.side === "OUT" && l.kind === k)) : row(`out-${k}`, k, "OUT", (w) => kindCell("OUT", k, w))))}
         {row("out", "OUT合計", undefined, (w) => totalCell("OUT", w), true)}
         {row("bal", "IN − OUT", undefined, balanceCell, true)}
         {nowAbs > t0 && nowAbs < endAbs && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-[#8c8473]" style={{ left: labelW + xAbs(nowAbs) }} />}

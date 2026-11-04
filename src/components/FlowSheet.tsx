@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, ClipboardPaste } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, ClipboardPaste } from "lucide-react";
 import { TabChoice } from "./TabChoice";
 import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
 import { useEffect, useRef, useState } from "react";
@@ -16,10 +16,12 @@ import { ioLines } from "@/lib/io-balance";
 import { IoFlowRows, type FlowIo } from "./IoFlowRows";
 import type { DietOrder } from "@/lib/diet";
 import { examAt } from "@/lib/exams";
-import { dietDayCell, mealDiets } from "@/lib/flow-diet";
+import { dietDayCell, mealDiets, mealText, type MealDiet } from "@/lib/flow-diet";
+import { FLOW_SCALES, anchorFor, canStep, daysIn, flowWindow, stepAnchor, type FlowScale, type FlowWindow } from "@/lib/flow-scale";
+import type { FlowZoom } from "./CareFlowRows";
 import { hospitalDayText } from "@/lib/flow-days";
 import type { MoveEvent } from "./DietCalendar";
-import { FlowDayRows, type FlowDays } from "./FlowDayRows";
+import { FlowDayRows, type DayBox, type FlowDays } from "./FlowDayRows";
 import { FlowLabRows } from "./FlowLabRows";
 import type { PendingDraw } from "@/lib/lab-table";
 import { useFlowPrefs } from "@/lib/flow-prefs";
@@ -38,7 +40,21 @@ const GRID = "#ebe4d4";
 const SURFACE = "#fffdf7";
 
 const LABEL_W = 76;
-const MIN_COL = 64;
+
+const clock = (min: number) => {
+  const m = ((min % 1440) + 1440) % 1440;
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+};
+
+/** "11/2（月）〜11/4（水）", "11/4（水） 日勤 8:30〜17:00", "11/4（水） 10:00〜11:00". */
+function windowLabel(w: FlowWindow, today: CalendarDate): string {
+  const dayOf = (t: number) => formatShort(addDays(today, Math.floor(t / 1440)));
+  const lastDay = Math.floor((w.hi - 1) / 1440);
+  if (w.byDay || w.scale === "3d") return `${dayOf(w.lo)}〜${formatShort(addDays(today, lastDay))}`;
+  if (w.scale === "1d") return dayOf(w.lo);
+  if (w.scale === "shift") return `${dayOf(w.lo)} ${w.shift === "day" ? "日勤" : "夜勤"} ${clock(w.lo)}〜${w.shift === "night" ? "翌" : ""}${clock(w.hi)}`;
+  return `${dayOf(w.lo)} ${clock(w.lo)}〜${clock(w.hi)}`;
+}
 
 export interface FlowSheetProps {
   patient: Patient;
@@ -66,6 +82,8 @@ export interface FlowSheetProps {
   /** Open a day of 経過 with one kind of note (the 記録 marks), and start a note on the right. */
   onOpenRecord?: (day: DayOffset, kind: NoteGroupKey) => void;
   onWriteNote?: () => void;
+  /** The scale to open on (入院から when not given). */
+  initialScale?: FlowScale;
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -92,7 +110,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote }: FlowSheetProps) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all" }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -100,19 +118,28 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const [copied, setCopied] = useState<string | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [showTable, setShowTable] = useState(false);
-
-  const days: DayOffset[] = [];
-  for (let d = p.admittedOn; d <= 1; d++) days.push(d);
-  const plotW = Math.max((width || 600) - LABEL_W, days.length * MIN_COL);
-  const colW = plotW / days.length;
-  const t0 = p.admittedOn * 1440;
-  const xAbs = (a: number) => ((a - t0) / 1440) * colW;
-  const x = (day: DayOffset, time: string) => xAbs(abs(day, time));
-  /** Where a day's cell sits on the time axis. */
-  const dayBox = (d: DayOffset) => ({ left: xAbs(d * 1440), width: xAbs((d + 1) * 1440) - xAbs(d * 1440) });
   const nowAbs = abs(0, nowTime);
+  // 表示期間: 入院から (one column a day) unless a person chooses another; `anchor` null follows now.
+  const [scale, setScale] = useState<FlowScale>(initialScale);
+  const [anchor, setAnchor] = useState<number | null>(null);
+  const win = flowWindow(scale, anchor ?? nowAbs, p.admittedOn);
+  const { lo: t0, hi: t1 } = win;
 
-  const vitals = p.vitals;
+  const days: DayOffset[] = daysIn(win);
+  const plotW = Math.max((width || 600) - LABEL_W, win.minWidth);
+  const xAbs = (a: number) => ((a - t0) / (t1 - t0)) * plotW;
+  const x = (day: DayOffset, time: string) => xAbs(abs(day, time));
+  /** Where a day's cell sits on the time axis (cut to the window). */
+  const dayBox = (d: DayOffset) => {
+    const l = Math.max(0, xAbs(d * 1440));
+    return { left: l, width: Math.max(0, Math.min(plotW, xAbs((d + 1) * 1440)) - l) };
+  };
+  const inWin = (a: number) => a >= t0 && a <= t1;
+  /** Zoomed in, the rows put each item at its time. */
+  const zoom = win.byDay ? undefined : { lo: t0, hi: t1, xAbs };
+  const nowIn = inWin(nowAbs);
+
+  const vitals = p.vitals.filter((v) => inWin(abs(v.day, v.time)));
   const orders = entries.filter((e): e is OrderEntry => e.kind === "order");
   const injections = orders.filter((o) => o.order.type === "injection");
   const labs = orders.filter((o) => o.order.type === "lab" && o.status !== "中止");
@@ -138,16 +165,19 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
     setHover(vitals.length ? best : null);
   };
 
+  const band = (d: DayOffset, fill: string, opacity: number) => {
+    if (!days.includes(d)) return null;
+    const b = dayBox(d);
+    return <rect x={b.left} y={0} width={b.width} height="100%" fill={fill} opacity={opacity} />;
+  };
   const dayBands = (
     <>
-      {selectedDay !== null && selectedDay <= 1 && (
-        <rect x={(selectedDay - p.admittedOn) * colW} y={0} width={colW} height="100%" fill="#e6ecf6" opacity={0.6} />
-      )}
-      <rect x={(1 - p.admittedOn) * colW} y={0} width={colW} height="100%" fill="#f5f1e6" opacity={0.7} />
-      {days.map((d, i) => (i > 0 ? <line key={d} x1={i * colW} x2={i * colW} y1={0} y2="100%" stroke={GRID} strokeWidth={1} /> : null))}
+      {selectedDay !== null && selectedDay <= 1 && band(selectedDay, "#e6ecf6", 0.6)}
+      {band(1, "#f5f1e6", 0.7)}
+      {win.ticks.map((t) => (t.at > t0 && t.at < t1 ? <line key={t.at} x1={xAbs(t.at)} x2={xAbs(t.at)} y1={0} y2="100%" stroke={t.major ? "#d9cfba" : GRID} strokeWidth={1} /> : null))}
     </>
   );
-  const nowLine = <line x1={xAbs(nowAbs)} x2={xAbs(nowAbs)} y1={0} y2="100%" stroke="#8c8473" strokeWidth={1} />;
+  const nowLine = nowIn ? <line x1={xAbs(nowAbs)} x2={xAbs(nowAbs)} y1={0} y2="100%" stroke="#8c8473" strokeWidth={1} /> : null;
   const crosshair = hovered && <line x1={x(hovered.day, hovered.time)} x2={x(hovered.day, hovered.time)} y1={0} y2="100%" stroke="#26221c" strokeWidth={1} opacity={0.5} />;
 
   return (
@@ -159,7 +189,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
         </button>
       </div>
       <VitalCopy
-        vitals={vitalsIn(vitals, range, nowAbs, selectedDay)}
+        vitals={vitalsIn(p.vitals, range, nowAbs, selectedDay)}
         today={today}
         range={range}
         onRange={(r) => {
@@ -172,32 +202,71 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
         onInsert={onInsertVitals}
       />
 
+      {!showTable && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]">
+          <b className="text-ink-soft">表示</b>
+          <TabChoice
+            label="表示期間と時間の目盛り"
+            options={FLOW_SCALES.map((s) => ({ value: s.key, label: s.label, title: s.title }))}
+            value={scale}
+            onChange={(s) => {
+              setScale(s);
+              setAnchor(anchorFor(selectedDay, nowAbs));
+            }}
+          />
+          {scale !== "all" && (
+            <>
+              <button type="button" disabled={!canStep(win, -1, p.admittedOn)} onClick={() => setAnchor(stepAnchor(win, anchor ?? nowAbs, -1, p.admittedOn))} aria-label="前へ" className="flex items-center rounded border border-rule px-1.5 py-0.5 text-ink-soft hover:text-ink disabled:opacity-40">
+                <ChevronLeft size={13} />前
+              </button>
+              <button type="button" onClick={() => setAnchor(null)} className={`rounded border px-2 py-0.5 ${anchor === null ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule text-ink-soft hover:text-ink"}`}>
+                いま
+              </button>
+              <button type="button" disabled={!canStep(win, 1, p.admittedOn)} onClick={() => setAnchor(stepAnchor(win, anchor ?? nowAbs, 1, p.admittedOn))} aria-label="次へ" className="flex items-center rounded border border-rule px-1.5 py-0.5 text-ink-soft hover:text-ink disabled:opacity-40">
+                次<ChevronRight size={13} />
+              </button>
+            </>
+          )}
+          <span className="nums text-ink-soft">{windowLabel(win, today)}</span>
+        </div>
+      )}
       {showTable ? (
-        <VitalTable vitals={vitals} today={today} />
+        <VitalTable vitals={p.vitals} today={today} />
       ) : (
         <div style={{ width: LABEL_W + plotW }} className="nums text-[11px]">
           {/* Date header */}
           <Row label="" sub="病日">
-            <div className="relative h-9">
-              {days.map((d, i) => (
-                <button
-                  key={d}
-                  type="button"
-                  disabled={d > 0}
-                  onClick={() => onSelectDay(d)}
-                  title={`${formatShort(addDays(today, d))}　入院${hospitalDayText(p.admittedOn, d)}${d === 0 ? "（今日）" : d > 0 ? "（明日・予定）" : ""}`}
-                  className={`absolute top-0 flex h-9 flex-col items-center justify-center border-l border-rule-soft text-center ${
-                    d === selectedDay ? "bg-ai text-white" : d > 0 ? "text-ink-faint" : d === 0 ? "text-ai hover:bg-sheet" : "hover:bg-sheet"
-                  }`}
-                  style={{ left: i * colW, width: colW }}
-                >
-                  <span className="font-bold">{formatShort(addDays(today, d))}</span>
-                  <span className={`text-[10px] ${d === selectedDay ? "text-white/80" : "text-ink-faint"}`}>
-                    {hospitalDayText(p.admittedOn, d)}
-                    {d === 0 && colW >= 84 ? "・今日" : ""}
-                  </span>
-                </button>
-              ))}
+            <div className={`relative ${win.byDay ? "h-9" : "h-12"}`}>
+              {days.map((d) => {
+                const b = dayBox(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    disabled={d > 0 || d < p.admittedOn}
+                    onClick={() => onSelectDay(d)}
+                    title={`${formatShort(addDays(today, d))}　入院${hospitalDayText(p.admittedOn, d)}${d === 0 ? "（今日）" : d > 0 ? "（明日・予定）" : ""}`}
+                    className={`absolute top-0 flex h-9 flex-col items-center justify-center overflow-hidden border-l border-rule-soft text-center ${
+                      d === selectedDay ? "bg-ai text-white" : d > 0 || d < p.admittedOn ? "text-ink-faint" : d === 0 ? "text-ai hover:bg-sheet" : "hover:bg-sheet"
+                    }`}
+                    style={{ left: b.left, width: b.width }}
+                  >
+                    <span className="whitespace-nowrap font-bold">{formatShort(addDays(today, d))}</span>
+                    <span className={`whitespace-nowrap text-[10px] ${d === selectedDay ? "text-white/80" : "text-ink-faint"}`}>
+                      {hospitalDayText(p.admittedOn, d)}
+                      {d === 0 && b.width >= 84 ? "・今日" : ""}
+                    </span>
+                  </button>
+                );
+              })}
+              {!win.byDay &&
+                win.ticks.map((t) =>
+                  t.label ? (
+                    <span key={t.at} className={`absolute top-9 -translate-x-1/2 whitespace-nowrap text-[10px] ${t.major ? "font-bold text-ink-soft" : "text-ink-faint"}`} style={{ left: Math.min(plotW - 8, Math.max(8, xAbs(t.at))) }}>
+                      {t.label}
+                    </span>
+                  ) : null,
+                )}
             </div>
           </Row>
           <FlowDayRows days={days} box={dayBox} entries={orders} moves={moves} info={dayInfo} labelW={LABEL_W} today={today} admittedOn={p.admittedOn} />
@@ -274,40 +343,40 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
 
           {/* Daily nursing record */}
           <Section title="観察・記録" />
-          <DietRow days={days} colW={colW} cell={(d) => dietDayCell(meals, d)} />
-          <DayRow label="食事（割）" days={days} colW={colW} value={(d) => {
+          <DietRow days={days} box={dayBox} cell={(d) => dietDayCell(meals, d)} meals={meals} zoom={zoom} />
+          <DayRow label="食事（割）" days={days} box={dayBox} value={(d) => {
             const r = p.daily.find((x) => x.day === d);
             if (!r?.meals) return "";
             if (r.meals === "絶食") return "絶食";
             return r.meals.map((m) => (m === null ? "−" : m)).join("/");
           }} />
-          <DayRow label="尿量 mL" sub="0〜24時" days={days} colW={colW} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />
-          <DayRow label="便 回" days={days} colW={colW} value={(d) => {
+          <DayRow label="尿量 mL" sub="0〜24時" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />
+          <DayRow label="便 回" days={days} box={dayBox} value={(d) => {
             const s = p.daily.find((x) => x.day === d)?.stools;
             return s === undefined ? "" : String(s);
           }} />
-          <DayRow label="体重 kg" days={days} colW={colW} value={(d) => p.daily.find((x) => x.day === d)?.weightKg?.toFixed(1) ?? ""} />
+          <DayRow label="体重 kg" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.weightKg?.toFixed(1) ?? ""} />
           <DayRow
             label="点滴量 mL"
             sub="オーダから計算"
             days={days}
-            colW={colW}
+            box={dayBox}
             value={(d) => (fluid[d] ? `${d > 0 ? "（" : ""}${fluid[d].toLocaleString("ja-JP")}${d > 0 ? "）" : ""}` : "")}
           />
 
           {/* 血糖測定 has its own row with the values (below), so it is not repeated with the care rows. */}
-          {care && <CareFlowRows {...care} orders={care.orders.filter((o) => !isGlucoseCare(o))} days={days} colW={colW} labelW={LABEL_W} nowX={xAbs(nowAbs)} nowAbs={nowAbs} />}
+          {care && <CareFlowRows {...care} orders={care.orders.filter((o) => !isGlucoseCare(o))} days={days} box={dayBox} labelW={LABEL_W} nowX={nowIn ? xAbs(nowAbs) : null} nowAbs={nowAbs} zoom={zoom} />}
           {/* 水分出納: recorded and planned kept apart, one cell per 24 hours from the close */}
-          {io && ioRows && <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={2 * 1440} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} />}
+          {io && ioRows && <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={t1} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} byTime={!win.byDay} />}
 
           {/* Injections as bars over time */}
-          <FlowOralRows orders={orders} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} />
-          <FlowGlucoseRows points={glucose} insulin={insulin} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} xAbs={xAbs} lo={t0} hi={2 * 1440} />
+          <FlowOralRows orders={orders} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} zoom={zoom} />
+          <FlowGlucoseRows points={glucose} insulin={insulin} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} xAbs={xAbs} lo={t0} hi={t1} zoom={zoom} />
 
           <Section title="注射" />
           {injections.length === 0 && <Row label=""><div className="h-6 text-ink-faint">なし</div></Row>}
           {injections.map((e) => (
-            <InjectionBar key={e.id} entry={e} xAbs={xAbs} plotW={plotW} nowAbs={nowAbs} endAbs={2 * 1440} startAbs={t0} />
+            <InjectionBar key={e.id} entry={e} xAbs={xAbs} plotW={plotW} nowAbs={nowAbs} endAbs={t1} startAbs={t0} />
           ))}
 
           {/* Blood draws */}
@@ -318,6 +387,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
                 const o = e.order;
                 if (o.type !== "lab") return null;
                 const a = abs(o.collect.day, o.collect.time);
+                if (!inWin(a)) return null;
                 const done = a <= nowAbs;
                 return (
                   <span
@@ -330,8 +400,8 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
               })}
             </div>
           </Row>
-          <FlowLabRows patient={p} pending={pendingLabs} orders={orders} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} analytes={prefs.analytes} onAnalytes={(codes) => setPrefs((x) => ({ ...x, analytes: codes }))} />
-          <FlowNoteRows entries={entries} days={days} box={dayBox} labelW={LABEL_W} onOpen={onOpenRecord} onWrite={onWriteNote} />
+          <FlowLabRows patient={p} pending={pendingLabs} orders={orders} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} analytes={prefs.analytes} onAnalytes={(codes) => setPrefs((x) => ({ ...x, analytes: codes }))} zoom={zoom} />
+          <FlowNoteRows entries={entries} days={days} box={dayBox} labelW={LABEL_W} onOpen={onOpenRecord} onWrite={onWriteNote} zoom={zoom} />
           <p className="hint pl-[76px] pt-0.5 text-[10px] text-ink-faint">記録の印（医＝医師、看＝看護師、他＝ほかの職種の記事の数）を押すと、左の「経過」でその日のその記事だけを開きます。</p>
           <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
             ● 採取済み　○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
@@ -442,39 +512,59 @@ function PointRow({ label, vitals, x, value }: { label: string; vitals: VitalSig
   );
 }
 
-function DayRow({ label, sub, days, colW, value }: { label: string; sub?: string; days: DayOffset[]; colW: number; value: (d: DayOffset) => string }) {
+function DayRow({ label, sub, days, box, value }: { label: string; sub?: string; days: DayOffset[]; box: DayBox; value: (d: DayOffset) => string }) {
   return (
     <Row label={label} sub={sub}>
       <div className="relative h-6">
-        {days.map((d, i) => (
-          <span key={d} className={`absolute top-1 text-center ${d > 0 ? "text-ink-faint" : "text-ink"}`} style={{ left: i * colW, width: colW }}>
-            {value(d)}
-          </span>
-        ))}
+        {days.map((d) => {
+          const b = box(d);
+          return (
+            <span key={d} className={`absolute top-1 truncate text-center ${d > 0 ? "text-ink-faint" : "text-ink"}`} style={{ left: b.left, width: b.width }}>
+              {value(d)}
+            </span>
+          );
+        })}
       </div>
     </Row>
   );
 }
 
-/** 食種: the diet of each day from the diet orders; a change in the day is marked, the meals are on touch. */
-function DietRow({ days, colW, cell }: { days: DayOffset[]; colW: number; cell: (d: DayOffset) => ReturnType<typeof dietDayCell> }) {
+/**
+ * 食種: the diet of each day from the diet orders; a change in the day is marked, the meals are on touch.
+ * Zoomed in, each meal sits at its serving time.
+ */
+function DietRow({ days, box, cell, meals, zoom }: { days: DayOffset[]; box: DayBox; cell: (d: DayOffset) => ReturnType<typeof dietDayCell>; meals: MealDiet[]; zoom?: FlowZoom }) {
   return (
     <Row label="食種" sub="食事オーダー">
       <div className="relative h-6">
-        {days.map((d, i) => {
-          const c = cell(d);
-          if (c.empty) return null;
-          return (
-            <span
-              key={d}
-              title={c.title}
-              className={`absolute top-0.5 truncate rounded-sm px-0.5 text-center leading-5 ${c.held ? "bg-yamabuki-soft text-yamabuki" : c.text.startsWith("絶食") ? "text-yamabuki" : d > 0 ? "text-ink-faint" : "text-ink"} ${c.changed ? "font-bold ring-1 ring-inset ring-ai/50" : ""}`}
-              style={{ left: i * colW + 1, width: colW - 2 }}
-            >
-              {c.text}
-            </span>
-          );
-        })}
+        {zoom
+          ? meals
+              .filter((m) => m.at >= zoom.lo && m.at < zoom.hi && (m.order || m.holds.length))
+              .map((m) => (
+                <span
+                  key={m.at}
+                  title={`${m.meal}：${m.holds.length ? `${mealText(m)}（${m.holds.map((h) => h.label).join("、")}）` : m.label}`}
+                  className={`absolute top-0.5 -translate-x-1/2 whitespace-nowrap rounded-sm px-0.5 leading-5 ${m.holds.length ? "bg-yamabuki-soft text-yamabuki" : m.order?.kind === "絶食" ? "text-yamabuki" : "text-ink"}`}
+                  style={{ left: zoom.xAbs(m.at) }}
+                >
+                  {m.meal} {mealText(m)}
+                </span>
+              ))
+          : days.map((d) => {
+              const c = cell(d);
+              if (c.empty) return null;
+              const b = box(d);
+              return (
+                <span
+                  key={d}
+                  title={c.title}
+                  className={`absolute top-0.5 truncate rounded-sm px-0.5 text-center leading-5 ${c.held ? "bg-yamabuki-soft text-yamabuki" : c.text.startsWith("絶食") ? "text-yamabuki" : d > 0 ? "text-ink-faint" : "text-ink"} ${c.changed ? "font-bold ring-1 ring-inset ring-ai/50" : ""}`}
+                  style={{ left: b.left + 1, width: Math.max(0, b.width - 2) }}
+                >
+                  {c.text}
+                </span>
+              );
+            })}
       </div>
     </Row>
   );
@@ -485,6 +575,8 @@ function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs }: { entry:
   const { from, to } = orderInterval(entry, nowAbs);
   const x1 = Math.max(0, xAbs(Math.max(from, startAbs)));
   const x2 = Math.min(plotW, xAbs(Math.min(to ?? endAbs, endAbs)));
+  // The order runs at some time of the period shown.
+  const shown = from < endAbs && (to === null || to > startAbs);
   const stopped = entry.status === "中止";
   const ticks = doseTimes(entry, nowAbs, startAbs, endAbs);
   const main = o.items[0];
@@ -494,19 +586,21 @@ function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs }: { entry:
   return (
     <Row label={shortDrug(main.drugCode)}>
       <div className="relative h-6" title={title}>
-        <span
-          className="absolute top-2.5 h-1 rounded-full"
-          style={{ left: x1, width: Math.max(2, x2 - x1), background: stopped ? "#b9b09c" : "#5f584b" }}
-        />
+        {shown && (
+          <span
+            className="absolute top-2.5 h-1 rounded-full"
+            style={{ left: x1, width: Math.max(2, x2 - x1), background: stopped ? "#b9b09c" : "#5f584b" }}
+          />
+        )}
         {ticks.map((t) => (
           <span key={t} className="absolute top-1 h-4 w-0.5 -translate-x-1/2 rounded" style={{ left: xAbs(t), background: t > nowAbs ? "#b9b09c" : "#5f584b" }} />
         ))}
-        {stopped && (
-          <span className="absolute top-0.5 -translate-x-1/2 text-[10px] font-bold text-shu" style={{ left: x2 + 10 }}>
+        {shown && stopped && to !== null && to <= endAbs && (
+          <span className="absolute top-0.5 -translate-x-1/2 text-[10px] font-bold text-shu" style={{ left: Math.min(plotW - 12, x2 + 10) }}>
             中止
           </span>
         )}
-        {!stopped && to === null && (
+        {shown && !stopped && to === null && (
           <span className="absolute top-0.5 text-[10px] text-ink-faint" style={{ left: Math.min(plotW - 12, x2 - 12) }}>
             →
           </span>

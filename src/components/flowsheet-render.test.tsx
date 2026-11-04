@@ -50,6 +50,21 @@ describe("経過表の画面", () => {
     expect(render("90010244")).not.toContain("記事を書く");
   });
 
+  it("every period and time scale renders, items at their time when zoomed in", () => {
+    const care = { orders: INITIAL_CARE_ORDERS.filter((o) => o.patientId === "90010244"), records: initialCareRecords(), sessionStart: 540 };
+    const io = { typed: [], records: {}, sessionStart: 540, standingIo: null };
+    for (const s of ["all", "week", "3d", "1d", "shift", "1h"] as const) {
+      const html = render("90010244", { care, io, initialScale: s, mar: { records: {}, sessionStart: 540 } });
+      expect(html).toContain("体温");
+      expect(html).toContain("表示期間と時間の目盛り");
+    }
+    const day = render("90010244", { care, initialScale: "1d" });
+    expect(day).toContain("12時");
+    expect(day).toContain("前");
+    expect(render("90010244", { initialScale: "1h" })).toContain("10:30");
+    expect(render("90010244", { initialScale: "shift" })).toContain("日勤 8:30〜17:00");
+  });
+
   it("dates: 病日, 術後日数, 移動 and a counted day", () => {
     const html = render("90010231", {
       moves: [{ day: -3, time: null, label: "入院", tone: "ink" }, { day: 1, time: "10:00", label: "外泊（自宅）", tone: "yamabuki" }],

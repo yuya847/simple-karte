@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   INITIAL_CARE_ORDERS,
+  careFlowMarks,
   careFlowRows,
   careKey,
   careLate,
@@ -190,6 +191,24 @@ describe("看護ケア指示：経過表の行", () => {
     const p = careFlowRows([prn], [rec("s1", at(-1, "23:10"), { doneAt: "23:10" })], [-1, 0], at(0, "12:00"), at(0, "08:00"))[0];
     expect(p.cells[-1].text).toBe("1回");
     expect(p.cells[0]).toBeUndefined();
+  });
+});
+
+describe("看護ケア指示：経過表を時刻で見るとき", () => {
+  it("each task at its time: 済 / 不可 / 未 / ・, and 必要時 at the time it was done", () => {
+    const o = order({ schedule: { kind: "times", times: ["08:30", "12:30", "18:30"] } });
+    const prn = order({ id: "c2", item: "吸引", schedule: { kind: "prn" } });
+    const records = [rec("c1", at(0, "08:30")), rec("c1", at(0, "12:30"), { status: "未実施", reason: "患者が拒否" as never }), rec("c2", at(0, "10:10"), { doneAt: "10:10" })];
+    const rows = careFlowMarks([o, prn], records, 0, 1440, at(0, "14:00"), at(0, "08:00"));
+    const care = rows.find((r) => r.label === "口腔ケア")!;
+    expect(care.marks.map((m) => [m.at, m.text, m.tone])).toEqual([
+      [at(0, "08:30"), "済", "done"],
+      [at(0, "12:30"), "不可", "not"],
+      [at(0, "18:30"), "・", "plan"],
+    ]);
+    expect(rows.find((r) => r.label === "吸引")!.marks.map((m) => [m.at, m.text])).toEqual([[at(0, "10:10"), "済"]]);
+    // Without a record after this session began, a past task is 未.
+    expect(careFlowMarks([o], [], 0, 1440, at(0, "14:00"), at(0, "08:00"))[0].marks.map((m) => m.text)).toEqual(["未", "未", "・"]);
   });
 });
 

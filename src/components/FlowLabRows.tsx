@@ -7,6 +7,7 @@ import type { PendingDraw } from "@/lib/lab-table";
 import type { Analyte } from "@/lib/master";
 import type { DayOffset, OrderEntry, Patient } from "@/lib/types";
 import type { DayBox } from "./FlowDayRows";
+import type { FlowZoom } from "./CareFlowRows";
 
 const FLAG_STYLE = { H: "font-bold text-shu", L: "font-bold text-ai", "": "text-ink" } as const;
 const PENDING_TEXT = { 採取待ち: "採取待ち", 検査中: "検査中", 予定: "○" } as const;
@@ -26,7 +27,7 @@ function MarkText({ a, m, more }: { a: Analyte; m: LabMark; more?: number }) {
  * 検査値の行: one row per chosen analyte, each day's last value (H red, L blue, against the master's
  * reference range), draws waiting for their result and draws ahead. The choice is kept per user.
  */
-export function FlowLabRows({ patient, pending, orders, nowAbs, days, box, labelW, analytes, onAnalytes }: { patient: Patient; pending: PendingDraw[]; orders: OrderEntry[]; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; analytes: string[]; onAnalytes: (codes: string[]) => void }) {
+export function FlowLabRows({ patient, pending, orders, nowAbs, days, box, labelW, analytes, onAnalytes, zoom }: { patient: Patient; pending: PendingDraw[]; orders: OrderEntry[]; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; analytes: string[]; onAnalytes: (codes: string[]) => void; zoom?: FlowZoom }) {
   const [choosing, setChoosing] = useState(false);
   const rows = analytes.map(findAnalyte).filter((a): a is Analyte => !!a);
   return (
@@ -40,7 +41,15 @@ export function FlowLabRows({ patient, pending, orders, nowAbs, days, box, label
               {a.unit && <div className="text-[9px] text-ink-faint">{a.unit}</div>}
             </div>
             <div className="relative min-h-6 flex-1">
-              {days.map((d) => {
+              {zoom
+                ? marks
+                    .filter((m) => m.at >= zoom.lo && m.at < zoom.hi)
+                    .map((m) => (
+                      <span key={`${m.kind}-${m.at}`} title={m.title} className="absolute top-1 -translate-x-1/2 whitespace-nowrap" style={{ left: zoom.xAbs(m.at) }}>
+                        <MarkText a={a} m={m} />
+                      </span>
+                    ))
+                : days.map((d) => {
                 const c = labDayCell(marks, d);
                 if (!c) return null;
                 const b = box(d);

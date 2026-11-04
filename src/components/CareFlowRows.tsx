@@ -1,7 +1,8 @@
 "use client";
 
-import { careFlowRows, type CareFlowCell, type CareOrder, type CareRecord } from "@/lib/care-orders";
+import { careFlowMarks, careFlowRows, type CareFlowCell, type CareOrder, type CareRecord } from "@/lib/care-orders";
 import type { DayOffset } from "@/lib/types";
+import type { DayBox } from "./FlowDayRows";
 
 const TONE: Record<CareFlowCell["tone"], string> = {
   done: "text-ink",
@@ -10,12 +11,20 @@ const TONE: Record<CareFlowCell["tone"], string> = {
   plan: "text-ink-faint",
 };
 
+/** The time axis when the flow sheet is zoomed in (3日・1日・勤務帯・1時間): items sit at their time. */
+export interface FlowZoom {
+  lo: number;
+  hi: number;
+  xAbs: (a: number) => number;
+}
+
 /**
  * 看護ケア・観察 rows of the flow sheet: one row per item, one cell per day. Past days show 済 (or 済 n/m,
- * 不可, 未) or what was seen; days ahead show a dot with how many times. A line marks now.
+ * 不可, 未) or what was seen; days ahead show a dot with how many times. A line marks now. Zoomed in, each
+ * task sits at its time instead.
  */
-export function CareFlowRows({ orders, records, days, colW, labelW, nowX, nowAbs, sessionStart }: { orders: CareOrder[]; records: CareRecord[]; days: DayOffset[]; colW: number; labelW: number; nowX: number; nowAbs: number; sessionStart: number }) {
-  const rows = careFlowRows(orders, records, days, nowAbs, sessionStart);
+export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs, sessionStart, zoom }: { orders: CareOrder[]; records: CareRecord[]; days: DayOffset[]; box: DayBox; labelW: number; nowX: number | null; nowAbs: number; sessionStart: number; zoom?: FlowZoom }) {
+  const rows = zoom ? careFlowMarks(orders, records, zoom.lo, zoom.hi, nowAbs, sessionStart) : careFlowRows(orders, records, days, nowAbs, sessionStart);
   return (
     <>
       <div className="mt-3 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">看護ケア・観察（看護師の指示）</div>
@@ -32,14 +41,24 @@ export function CareFlowRows({ orders, records, days, colW, labelW, nowX, nowAbs
             <div className="text-[9px] text-ink-faint">{r.sub}</div>
           </div>
           <div className="relative min-h-6 flex-1">
-            <span className="absolute inset-y-0 w-px bg-ink-faint/60" style={{ left: nowX }} aria-hidden />
-            {days.map((d, i) =>
-              r.cells[d] ? (
-                <span key={d} title={r.cells[d].title} className={`absolute top-1 truncate px-0.5 text-center ${TONE[r.cells[d].tone]}`} style={{ left: i * colW, width: colW }}>
-                  {r.cells[d].text}
-                </span>
-              ) : null,
-            )}
+            {nowX !== null && <span className="absolute inset-y-0 w-px bg-ink-faint/60" style={{ left: nowX }} aria-hidden />}
+            {"marks" in r && zoom
+              ? r.marks.map((m) => (
+                  <span key={`${m.orderId}-${m.at}`} title={m.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${TONE[m.tone]}`} style={{ left: zoom.xAbs(m.at) }}>
+                    {m.text}
+                  </span>
+                ))
+              : "cells" in r &&
+                days.map((d) => {
+                  const c = r.cells[d];
+                  if (!c) return null;
+                  const b = box(d);
+                  return (
+                    <span key={d} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
+                      {c.text}
+                    </span>
+                  );
+                })}
           </div>
         </div>
       ))}

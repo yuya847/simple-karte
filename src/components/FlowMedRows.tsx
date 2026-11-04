@@ -1,9 +1,11 @@
 "use client";
 
 import { WARD_RULES, findDrug } from "@/lib/master";
+import { abs } from "@/lib/flowsheet";
 import { glucoseDayCell, insulinDoses, medCell, oralSlots, timingsOf, type GlucosePoint, type MedCell } from "@/lib/flow-meds";
 import type { AdminRecord } from "@/lib/mar";
 import type { DayOffset, OrderEntry } from "@/lib/types";
+import type { FlowZoom } from "./CareFlowRows";
 import type { DayBox } from "./FlowDayRows";
 
 const TONE: Record<MedCell["tone"], string> = { done: "text-ink", not: "font-bold text-shu", late: "font-bold text-yamabuki", plan: "text-ink-faint", stop: "font-bold text-shu" };
@@ -25,11 +27,14 @@ function Line({ label, sub, labelW, children }: { label: string; sub?: string; l
   );
 }
 
+const at = (x: number) => ({ left: x });
+const inZoom = (z: FlowZoom, t: number) => t >= z.lo && t < z.hi;
+
 /**
  * 内服（定時の分）: one row per timing (朝・昼・夕・眠前), each day 済 / 不可 / 未 / 中止 from the 与薬の記録,
- * the drugs and who gave them on touch.
+ * the drugs and who gave them on touch. Zoomed in, each timing sits at its clock time.
  */
-export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW }: { orders: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number }) {
+export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom }: { orders: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; zoom?: FlowZoom }) {
   const timings = timingsOf(orders);
   return (
     <>
@@ -42,11 +47,17 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW }: { order
       {timings.map((t) => (
         <Line key={t} label={t} sub={WARD_RULES.medTimes[t]} labelW={labelW}>
           {days.map((d) => {
+            const time = abs(d, WARD_RULES.medTimes[t]);
+            if (zoom && !inZoom(zoom, time)) return null;
             const s = oralSlots(orders, d, t, mar.records, mar.sessionStart, nowAbs);
             const c = medCell(s.slots, s.stopped);
             if (!c) return null;
             const b = box(d);
-            return (
+            return zoom ? (
+              <span key={d} title={c.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${TONE[c.tone]}`} style={at(zoom.xAbs(time))}>
+                {c.text}
+              </span>
+            ) : (
               <span key={d} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
                 {c.text}
               </span>
@@ -63,23 +74,31 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW }: { order
   );
 }
 
-/** 血糖 (the values of each day) and one row per insulin order with its doses from the 与薬の記録. */
-export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi }: { points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number }) {
+/** 血糖 (the values of each day, or each at its time when zoomed in) and one row per insulin order with its doses. */
+export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi, zoom }: { points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number; zoom?: FlowZoom }) {
   if (!points.length && !insulin.length) return null;
   return (
     <>
       <div className="mt-3 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">血糖・インスリン</div>
       <Line label="血糖" sub="mg/dL" labelW={labelW}>
-        {days.map((d) => {
-          const c = glucoseDayCell(points, d);
-          if (!c) return null;
-          const b = box(d);
-          return (
-            <span key={d} title={c.title} className="absolute top-1 truncate px-0.5 text-center text-ink" style={{ left: b.left, width: b.width }}>
-              {c.text}
-            </span>
-          );
-        })}
+        {zoom
+          ? points
+              .filter((p) => inZoom(zoom, p.at))
+              .map((p) => (
+                <span key={`${p.at}-${p.source}`} title={p.title} className="absolute top-1 -translate-x-1/2 whitespace-nowrap text-ink" style={at(zoom.xAbs(p.at))}>
+                  {p.value}
+                </span>
+              ))
+          : days.map((d) => {
+              const c = glucoseDayCell(points, d);
+              if (!c) return null;
+              const b = box(d);
+              return (
+                <span key={d} title={c.title} className="absolute top-1 truncate px-0.5 text-center text-ink" style={{ left: b.left, width: b.width }}>
+                  {c.text}
+                </span>
+              );
+            })}
       </Line>
       {insulin.map((e) => {
         const drug = e.order.type === "injection" ? findDrug(e.order.items[0].drugCode) : undefined;
@@ -96,7 +115,7 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
           </Line>
         );
       })}
-      <p className="pl-[76px] pt-0.5 text-[10px] text-ink-faint">血糖は看護ケア・観察の「血糖測定」に入れた値（簡易血糖）と検体検査の Glu を、その日の測った順に並べています。インスリンは注射オーダと与薬の記録から。</p>
+      <p className="pl-[76px] pt-0.5 text-[10px] text-ink-faint">血糖は看護ケア・観察の「血糖測定」に入れた値（簡易血糖）と検体検査の Glu を、測った順に並べています。インスリンは注射オーダと与薬の記録から。</p>
     </>
   );
 }

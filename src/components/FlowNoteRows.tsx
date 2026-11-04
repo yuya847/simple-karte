@@ -1,8 +1,9 @@
 "use client";
 
 import { PencilLine } from "lucide-react";
-import { noteMarks, type NoteGroupKey } from "@/lib/flow-notes";
+import { NOTE_GROUPS, noteMarks, noteTimes, type NoteGroupKey } from "@/lib/flow-notes";
 import type { DayOffset, HistoryEntry } from "@/lib/types";
+import type { FlowZoom } from "./CareFlowRows";
 import type { DayBox } from "./FlowDayRows";
 
 const MARK_STYLE: Record<NoteGroupKey, string> = { doctor: "border-ai/50 text-ai", nurse: "border-wakatake/50 text-wakatake", staff: "border-yamabuki/50 text-yamabuki" };
@@ -11,7 +12,8 @@ const MARK_STYLE: Record<NoteGroupKey, string> = { doctor: "border-ai/50 text-ai
  * 記録: each day, how many notes the doctors (医), nurses (看) and the other staff (他) wrote. Pressing a mark
  * opens that day in 経過 with only those notes; 「記事を書く」 opens the note on the right.
  */
-export function FlowNoteRows({ entries, days, box, labelW, onOpen, onWrite }: { entries: HistoryEntry[]; days: DayOffset[]; box: DayBox; labelW: number; onOpen?: (day: DayOffset, kind: NoteGroupKey) => void; onWrite?: () => void }) {
+export function FlowNoteRows({ entries, days, box, labelW, onOpen, onWrite, zoom }: { entries: HistoryEntry[]; days: DayOffset[]; box: DayBox; labelW: number; onOpen?: (day: DayOffset, kind: NoteGroupKey) => void; onWrite?: () => void; zoom?: FlowZoom }) {
+  const mark = Object.fromEntries(NOTE_GROUPS.map((g) => [g.key, g]));
   return (
     <>
       <div className="mt-3 flex items-center gap-2 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">
@@ -29,7 +31,24 @@ export function FlowNoteRows({ entries, days, box, labelW, onOpen, onWrite }: { 
           <div className="text-[9px] text-ink-faint">医・看・他</div>
         </div>
         <div className="relative h-7 flex-1">
-          {days.map((d) => {
+          {zoom &&
+            noteTimes(entries)
+              .filter((n) => n.at >= zoom.lo && n.at < zoom.hi)
+              .map((n, i) => (
+                <button
+                  key={`${n.at}-${i}`}
+                  type="button"
+                  disabled={!onOpen}
+                  onClick={() => onOpen?.(n.day, n.group)}
+                  title={`${n.line}（押すと経過でこの日を開く）`}
+                  aria-label={`${n.line} の記事を経過で開く`}
+                  className={`absolute top-1 -translate-x-1/2 rounded border bg-sheet px-0.5 text-[10px] leading-4 hover:bg-paper ${MARK_STYLE[n.group]}`}
+                  style={{ left: zoom.xAbs(n.at) }}
+                >
+                  {mark[n.group].mark}
+                </button>
+              ))}
+          {!zoom && days.map((d) => {
             const marks = noteMarks(entries, d);
             if (!marks.length) return null;
             const b = box(d);
