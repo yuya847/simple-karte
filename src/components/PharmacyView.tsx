@@ -11,6 +11,8 @@ import { txText } from "@/lib/procedures";
 import { ageSex } from "@/lib/person";
 import type { OrderEntry } from "@/lib/types";
 import { TdmView } from "./TdmView";
+import { SourceLinks } from "./DraftCard";
+import { orderInteractions } from "@/lib/interactions";
 import type { TdmReport } from "@/lib/tdm";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -77,7 +79,7 @@ const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
 
 /** How to use each tab (the pharmacist's day), shown at the top (can be folded). */
 const GUIDE: { tab: Tab; steps: string }[] = [
-  { tab: "audit", steps: "医師が出した注射・内服が新しい順に並びます。重複はコードが調べます。量・飲み合わせ・腎機能を確かめて「監査済み」。疑問があれば「疑義照会」を書くと、医師のカルテの右上に届き、医師が答えるか処方を直します。" },
+  { tab: "audit", steps: "医師が出した注射・内服が新しい順に並びます。重複と、電子添文にある併用禁忌・併用注意・配合（同じ Rp の中）はコードが調べ、電子添文へのリンクと、医師が理由を入れた場合はその理由を出します。量・飲み合わせ・腎機能を確かめて「監査済み」。疑問があれば「疑義照会」を書くと、医師のカルテの右上に届き、医師が答えるか処方を直します。" },
   { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ確かめて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。" },
   { tab: "shido", steps: "患者を選んで指導の内容を記録します。服薬指導の算定の回数（週1回・月4回まで）はコードが数え、超えると知らせます。" },
   { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
@@ -157,7 +159,9 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
   const [text, setText] = useState("");
   return (
     <section className="space-y-2">
-      <p className="text-xs text-ink-soft">昨日と今日に出た注射・内服のオーダです。重複はコードが調べます。飲み合わせ・量・腎機能の判断は薬剤師が行い、疑問は医師に照会します（医師はカルテの右上で答えます）。</p>
+      <p className="text-xs text-ink-soft">
+        昨日と今日に出た注射・内服のオーダです。重複と、院内の薬の組み合わせのうち電子添文で確かめた併用禁忌・併用注意・配合（同じ Rp の中だけ。ほかの Rp の側管は調べていません）はコードが調べます。表にない組み合わせは「問題なし」ではありません。飲み合わせ・量・腎機能の判断は薬剤師が行い、疑問は医師に照会します（医師はカルテの右上で答えます）。
+      </p>
       {items.length === 0 && <p className="text-ink-faint">新しいオーダはありません。</p>}
       {items.map((it) => {
         const { main, detail } = orderLines(it.entry.order, today);
@@ -203,6 +207,15 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
                 {c.text}
               </div>
             ))}
+            <AuditInteractions
+              entry={it.entry}
+              entries={people.find((x) => x.patient.id === it.patient.id)?.entries ?? []}
+              canAsk={!open && !audited[it.entry.id]}
+              onAsk={(t) => {
+                setAsking(it.entry.id);
+                setText(t);
+              }}
+            />
             {qs.map((q) => (
               <div key={q.id} className="mt-1.5 rounded bg-paper px-2 py-1 text-xs">
                 <b>照会</b> {q.askedAt} {q.by}：{q.question}
@@ -239,6 +252,48 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * 併用禁忌・併用注意・配合 of a confirmed order against the patient's other running orders (code, from the
+ * 電子添文), with the doctor's reason when one was entered. The pharmacist decides whether to ask the doctor.
+ */
+function AuditInteractions({ entry, entries, canAsk, onAsk }: { entry: OrderEntry; entries: OrderEntry[]; canAsk: boolean; onAsk: (text: string) => void }) {
+  const found = orderInteractions(entry, entries);
+  if (!found.length) return null;
+  const reasons = entry.order.type === "injection" || entry.order.type === "prescription" ? (entry.order.interactionReasons ?? []) : [];
+  return (
+    <ul className="mt-1.5 space-y-1">
+      {found.map((f) => {
+        const r = reasons.find((x) => x.pairId === f.pairId);
+        const strong = f.needsReason;
+        return (
+          <li key={f.key} className={`rounded px-2 py-1 text-xs ${strong ? "bg-shu-soft" : "bg-yamabuki-soft/60"}`}>
+            <b className={strong ? "text-shu" : "text-yamabuki"}>
+              {f.level}
+              {f.level === "配合" && strong ? "（電子添文：混ぜない）" : ""}
+            </b>
+            　{f.name} × {f.other.name}（{f.other.where}）：{f.text}
+            {r ? (
+              <div className="mt-0.5 text-ink">
+                <b>医師の理由</b>（{r.drugs}）：{r.reason}
+              </div>
+            ) : strong ? (
+              <div className="mt-0.5 text-shu">このオーダに医師の理由の記録はありません。</div>
+            ) : null}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2">
+              <SourceLinks sources={f.sources} />
+              {canAsk && (
+                <button type="button" onClick={() => onAsk(`${f.level}（${f.name} × ${f.other.name}）について：`)} className="rounded border border-yamabuki/60 px-1.5 text-yamabuki hover:bg-yamabuki hover:text-white">
+                  この件で疑義照会を書く
+                </button>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 const SAMPLE = `2026年10月20日　あおば内科クリニック（架空）
 Rp1　ノルバスク錠5mg　1回1錠　1日1回　朝食後　28日分
