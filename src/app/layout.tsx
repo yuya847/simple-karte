@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { KeyboardGuard } from "@/components/KeyboardGuard";
 import { BIZ_UDPGothic } from "next/font/google";
 import "./globals.css";
 
@@ -20,13 +21,18 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Chrome/Android: the layout shrinks for the keyboard instead of scrolling (Safari ignores this).
+  interactiveWidget: "resizes-content",
   themeColor: "#f5f1e6",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ja" className={biz.variable}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <KeyboardGuard />
+        {children}
+      </body>
     </html>
   );
 }

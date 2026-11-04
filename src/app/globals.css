@@ -141,6 +141,14 @@ html:not([data-hints="on"]) .hint {
 }
 /* iPad・iPhone: Safari が 16px 未満の入力欄にフォーカスすると画面を拡大して欄を中央に寄せるので、指で使う端末では入力欄の文字を 16px にする。 */
 @media (pointer: coarse) {
+  /* The page itself never scrolls on a touch device (the columns scroll inside): Safari then has nothing to push away. */
+  html,
+  body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    overflow: hidden;
+  }
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   select,
   textarea {
