@@ -27,19 +27,10 @@ const FLAG_STYLE = { urgent: "bg-shu text-white", highRisk: "bg-shu-soft text-sh
  * second nurse; any can be held to ask the doctor first.
  */
 export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today, nurses, onTake, onHold, confirm, showPatient = true, notes = true }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; interactive: boolean; day: number; today: CalendarDate; nurses: string[]; onTake: (keys: string[], second?: string) => void; onHold: (key: string, reason: TakeHold["reason"], note: string) => void; confirm?: ConfirmProps; showPatient?: boolean; notes?: boolean }) {
-  const me = useMe();
   const [open, setOpen] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
-  const [checked, setChecked] = useState(false);
-  const [second, setSecond] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
-  const [reason, setReason] = useState<TakeHold["reason"] | "">("");
-  const [note, setNote] = useState("");
-  const close = () => {
-    setOpen(null);
-    setChecked(false);
-    setSecond("");
-  };
+  const close = () => setOpen(null);
   const cols = showPatient ? 6 : 5;
   // 指示受け, then straight on to 指示確認 (the schedule the change makes opens under the row).
   const take = (r: TakeRow, second?: string) => {
@@ -156,71 +147,27 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
               open === r.key && !ok && (
                 <tr key={`${r.key}-open`}>
                   <td colSpan={cols} className="border-b border-rule-soft bg-paper px-3 py-2 text-[12px]">
-                    <p className="font-bold">1件ずつ受ける理由：{r.mustOne.join("・")}</p>
-                    <label className="mt-1 flex items-center gap-1.5">
-                      <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="accent-ai" />
-                      指示の内容（薬・量・単位・速さ・経路・時刻{r.kind === "変更" ? "、前と後で変わったところ" : ""}）を自分の目で確かめた
-                    </label>
-                    {r.flags.highRisk && (
-                      <label className="mt-1 flex items-center gap-1.5">
-                        2人目の確認者
-                        <select value={second} onChange={(e) => setSecond(e.target.value)} aria-label="2人目の確認者" className="rounded border border-rule bg-sheet px-1 py-0.5">
-                          <option value="">選ぶ</option>
-                          {nurses
-                            .filter((n) => n !== me.name)
-                            .map((n) => (
-                              <option key={n}>{n}</option>
-                            ))}
-                        </select>
-                        <span className="text-ink-faint">（本人とは別の人。2人とも自分の目で指示を見る。試作では名前を選ぶだけ）</span>
-                      </label>
-                    )}
-                    <div className="mt-1.5 flex gap-2">
-                      <button
-                        type="button"
-                        disabled={!checked || (!!r.flags.highRisk && !second)}
-                        onClick={() => {
-                          take(r, second || undefined);
-                          close();
-                        }}
-                        className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40"
-                      >
-                        受ける
-                      </button>
-                      <button type="button" onClick={close} className="text-ink-soft underline">
-                        やめる
-                      </button>
-                    </div>
+                    <TakeOnePanel
+                      row={r}
+                      nurses={nurses}
+                      onTake={(second) => {
+                        take(r, second);
+                        close();
+                      }}
+                      onClose={close}
+                    />
                   </td>
                 </tr>
               ),
               asking === r.key && !ok && (
                 <tr key={`${r.key}-ask`}>
                   <td colSpan={cols} className="border-b border-rule-soft bg-paper px-3 py-2 text-[12px]">
-                    <div className="flex flex-wrap items-center gap-2">
-                      医師に確認する理由
-                      <select value={reason} onChange={(e) => setReason(e.target.value as TakeHold["reason"])} aria-label="確認の理由" className="rounded border border-rule bg-sheet px-1 py-0.5">
-                        <option value="">選ぶ</option>
-                        {HOLD_REASONS.map((x) => (
-                          <option key={x}>{x}</option>
-                        ))}
-                      </select>
-                      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="何を確かめたいか（短く）" aria-label="確認したいこと" className="min-w-48 flex-1 rounded border border-rule bg-sheet px-1.5 py-0.5" />
-                      <button
-                        type="button"
-                        disabled={!reason || (reason === "その他" && !note.trim())}
-                        onClick={() => {
-                          onHold(r.key, reason as TakeHold["reason"], note.trim());
-                          setAsking(null);
-                          setReason("");
-                          setNote("");
-                        }}
-                        className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40"
-                      >
-                        医師に送る
-                      </button>
-                    </div>
-                    <p className="mt-1 text-ink-faint">送ると、受けないまま「医師に確認中」になり、医師のやることとカルテに出ます。回答のあとで受けます。</p>
+                    <AskDoctorPanel
+                      onHold={(reason, note) => {
+                        onHold(r.key, reason, note);
+                        setAsking(null);
+                      }}
+                    />
                   </td>
                 </tr>
               ),
@@ -250,6 +197,80 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
         【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。高リスク薬の一覧と時間外の区切りは架空の病院の取り決めです。
       </p>
       )}
+    </>
+  );
+}
+
+/**
+ * 1件ずつ受ける: the nurse ticks that she looked at the order with her own eyes (and, for a high-risk
+ * drug, names the second nurse) before taking it. Shared by the worksheet's table and the 指示受け screen.
+ */
+export function TakeOnePanel({ row, nurses, onTake, onClose }: { row: TakeRow; nurses: string[]; onTake: (second?: string) => void; onClose: () => void }) {
+  const me = useMe();
+  const [checked, setChecked] = useState(false);
+  const [second, setSecond] = useState("");
+  return (
+    <>
+      <p className="font-bold">1件ずつ受ける理由：{row.mustOne.join("・")}</p>
+      <label className="mt-1 flex items-center gap-1.5">
+        <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="accent-ai" />
+        指示の内容（薬・量・単位・速さ・経路・時刻{row.kind === "変更" ? "、前と後で変わったところ" : ""}）を自分の目で確かめた
+      </label>
+      {row.flags.highRisk && (
+        <label className="mt-1 flex items-center gap-1.5">
+          2人目の確認者
+          <select value={second} onChange={(e) => setSecond(e.target.value)} aria-label="2人目の確認者" className="rounded border border-rule bg-sheet px-1 py-0.5">
+            <option value="">選ぶ</option>
+            {nurses
+              .filter((n) => n !== me.name)
+              .map((n) => (
+                <option key={n}>{n}</option>
+              ))}
+          </select>
+          <span className="text-ink-faint">（本人とは別の人。2人とも自分の目で指示を見る。試作では名前を選ぶだけ）</span>
+        </label>
+      )}
+      <div className="mt-1.5 flex gap-2">
+        <button type="button" disabled={!checked || (!!row.flags.highRisk && !second)} onClick={() => onTake(second || undefined)} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
+          受ける
+        </button>
+        <button type="button" onClick={onClose} className="text-ink-soft underline">
+          やめる
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** 医師に確認: the reason and a short note, sent to the doctor instead of taking the change. */
+export function AskDoctorPanel({ onHold }: { onHold: (reason: TakeHold["reason"], note: string) => void }) {
+  const [reason, setReason] = useState<TakeHold["reason"] | "">("");
+  const [note, setNote] = useState("");
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        医師に確認する理由
+        <select value={reason} onChange={(e) => setReason(e.target.value as TakeHold["reason"])} aria-label="確認の理由" className="rounded border border-rule bg-sheet px-1 py-0.5">
+          <option value="">選ぶ</option>
+          {HOLD_REASONS.map((x) => (
+            <option key={x}>{x}</option>
+          ))}
+        </select>
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="何を確かめたいか（短く）" aria-label="確認したいこと" className="min-w-48 flex-1 rounded border border-rule bg-sheet px-1.5 py-0.5" />
+        <button
+          type="button"
+          disabled={!reason || (reason === "その他" && !note.trim())}
+          onClick={() => {
+            onHold(reason as TakeHold["reason"], note.trim());
+            setReason("");
+            setNote("");
+          }}
+          className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40"
+        >
+          医師に送る
+        </button>
+      </div>
+      <p className="mt-1 text-ink-faint">送ると、受けないまま「医師に確認中」になり、医師のやることとカルテに出ます。回答のあとで受けます。</p>
     </>
   );
 }

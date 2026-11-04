@@ -4,7 +4,7 @@
 // 「日時／者」 on the right (指示開始・実施・指示受け), and the order itself as 「項目名：値」 lines.
 // Code arranges what the orders say; nurses and doctors decide. Nothing here calls AI.
 
-import { addDays, formatShort, minutesOf, type CalendarDate } from "./dates";
+import { addDays, formatShort, type CalendarDate } from "./dates";
 import { findPhysio } from "./exams";
 import { drugName, durationText, imagingTitle, labName, oralName, procedureTitle, scheduleTextFor, timingText } from "./format";
 import { WARD_RULES } from "./master";
