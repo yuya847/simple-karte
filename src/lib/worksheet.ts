@@ -7,6 +7,7 @@ import { doseVolumeMl } from "./drafts";
 import { abs, doseTimes, orderInterval } from "./flowsheet";
 import { drugName, durationText, labName, oralName, orderLines, procedureTitle, scheduleTextFor } from "./format";
 import { examAt } from "./exams";
+import { dripInfo, type DripInfo } from "./drip-course";
 
 // Exam lines only need the title here; the date part is not shown on the worksheet.
 const todayStub = { y: 2000, m: 1, d: 1 };
@@ -52,6 +53,8 @@ export interface WorkItem {
   /** done = its time has passed (no 実施 record in this prototype), planned = ahead. */
   state: "done" | "planned" | null;
   urgent?: boolean;
+  /** 点滴: recorded at 開始 and at 終了 (the bag's volume and rate, drip-course.ts). */
+  drip?: DripInfo;
 }
 
 /** Running all through the shift: drips, oxygen, catheters. */
@@ -182,6 +185,9 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
       }
     }
   }
+  // 点滴 doses carry their bag (volume, rate), so that they are recorded at 開始 and at 終了.
+  const drips = new Map(people.flatMap(({ entries }) => entries.flatMap((e) => (e.order.type === "injection" && dripInfo(e.order) ? [[e.id, dripInfo(e.order)!] as const] : []))));
+  for (const i of [...timed, ...untimed]) if (i.kind === "注射" && drips.has(i.orderId)) i.drip = drips.get(i.orderId);
   const order = (a: WorkItem, b: WorkItem) => (a.at ?? 0) - (b.at ?? 0) || a.room.localeCompare(b.room);
   return { timed: timed.sort(order), untimed: untimed.sort(order), running: running.sort((a, b) => a.room.localeCompare(b.room)) };
 }

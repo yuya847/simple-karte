@@ -19,6 +19,26 @@ export interface VoidedRecord {
   reason: VoidReason;
 }
 
+/** Why a 点滴 ended before the whole bag went in (the choices are the fictional hospital's). */
+export const DRIP_STOP_REASONS = ["中止の指示", "漏れ", "自己抜去", "その他"] as const;
+export type DripStopReason = (typeof DRIP_STOP_REASONS)[number];
+
+/** 点滴の終了 (the second of the two records, 2回実施): when, by whom, and what was left in the bag. */
+export interface DripEnd {
+  /** When it ended (minutes from today 00:00), and when it was written down ("HH:MM"). */
+  at: number;
+  recordedAt: string;
+  by: string;
+  /** 全量 = the whole bag went in; otherwise the mL left in it (残量). */
+  full: boolean;
+  leftMl: number;
+  /** What went in: the bag's volume − 残量 (counted by code). */
+  givenMl: number;
+  /** Needed when it ended with some left. */
+  reason?: DripStopReason;
+  note?: string;
+}
+
 export interface AdminRecord {
   key: string;
   orderId: string;
@@ -35,6 +55,15 @@ export interface AdminRecord {
   checked: { patient: boolean; label: boolean | null };
   /** Minutes off the scheduled time (+ late, − early), when outside the ward's window. */
   offBy?: number;
+  /**
+   * 点滴 (2回実施): set at 開始 — the bag's volume, the rate, the minutes it takes, and when it started
+   * (minutes from today 00:00). Records written in one step (before this field) have none.
+   */
+  drip?: { volumeMl: number; mlPerH: number | null; minutes: number | null; startAt: number };
+  /** 点滴の終了, once recorded. */
+  end?: DripEnd;
+  /** 終了 records taken back (the 開始 stays). */
+  endVoided?: { end: DripEnd; by: string; at: string; reason: VoidReason }[];
 }
 
 export const marKey = (orderId: string, at: number) => `${orderId}|${at}`;
