@@ -13,8 +13,10 @@ import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
 import { patientMonthPayload } from "@/lib/billing/payload";
-import { currentInsurance, currentRecord } from "@/lib/billing/registration";
+import { currentInsurance } from "@/lib/billing/registration";
 import { INITIAL_DESK, withInsurance, withSettlement, type IjiDesk } from "@/lib/billing/worklist";
+import { unpaidVisits, type OpdSettleBook } from "@/lib/billing/opd-settle";
+import { OpdBillPanel } from "./billing/OpdBillPanel";
 import { BillingView } from "./BillingView";
 import { IjiBoard } from "./IjiBoard";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
@@ -583,6 +585,8 @@ export default function WardApp() {
   // 外来処方（院外処方せん）と再診予約, per outpatient.
   const [opdRx, setOpdRx] = useState<Record<string, OpdRx[]>>({});
   const [revisits, setRevisits] = useState<Record<string, Revisit>>({});
+  // 外来の会計（入金の記録）, by visit key "opd:◯".
+  const [opdBills, setOpdBills] = useState<OpdSettleBook>({});
   // 掲示板 (notices and who read them), 院内マニュアル (the one open), インシデントレポート (and the draft).
   const [notices, setNotices] = useState<Notice[]>(INITIAL_NOTICES);
   const [reads, setReads] = useState<Reads>(INITIAL_READS);
@@ -731,6 +735,7 @@ export default function WardApp() {
       requests: [requests, setRequests],
       opdRx: [opdRx, setOpdRx],
       revisits: [revisits, setRevisits],
+      opdBills: [opdBills, setOpdBills],
       notices: [notices, setNotices],
       reads: [reads, setReads],
       incidents: [incidents, setIncidents],
@@ -2829,6 +2834,8 @@ export default function WardApp() {
                 request={requests.find((r) => `${r.from.kind}:${r.from.id}` === patient.id && r.status !== "取消")}
                 revisit={v.kind === "opd" ? revisits[v.op.id] : undefined}
                 rxCount={v.kind === "opd" ? (opdRx[v.op.id] ?? []).length : 0}
+                paid={opdBills[patient.id] ? { yen: opdBills[patient.id].yen, time: opdBills[patient.id].at.time } : undefined}
+                onOpenBill={v.kind === "opd" ? () => setPanel("opd-bill") : undefined}
                 fmtDay={(d) => formatShort(addDays(today, d))}
                 canOrder={!deny("order")}
                 onStatus={(st) => {
@@ -3268,11 +3275,42 @@ export default function WardApp() {
                     if (!v || v.kind !== "opd") return null;
                     const op = v.op;
                     const items = joinLines((opdRx[op.id] ?? []).map((r) => r.items ?? []));
-                    const { insurance, assumed } = insuranceFor(iji.insurance, op, today);
+                    // The visit's insurance is keyed by the chart id ("opd:◯"), like the 患者基本情報 window.
+                    const { insurance, assumed } = insuranceFor(iji.insurance, { id: patient.id, age: op.age }, today);
                     return (
                       <div className="mt-4">
                         <ErxPanel key={JSON.stringify(items)} patient={{ id: op.id, name: op.name, kana: op.kana, sex: op.sex, birthDate: birthDateOf(op, today) }} patientKey={op.id} department={op.department} insurance={insurance} insuranceAssumed={assumed} lines={items} today={today} nowTime={nowTime} mode="外来" serial={nextSerial(national, today.y)} done={recordsOf(national, op.id)} onRegistered={(r) => setNational((all) => [...all, r])} />
                       </div>
+                    );
+                  })()}
+                </Drawer>
+              )}
+              {panel === "opd-bill" && visitOf(patient.id)?.kind === "opd" && (
+                <Drawer title={`外来の会計　${patient.name}`} onClose={closePanel} wide>
+                  {(() => {
+                    const v = visitOf(patient.id);
+                    if (!v || v.kind !== "opd") return null;
+                    return (
+                      <OpdBillPanel
+                        key={patient.id}
+                        visit={v.op}
+                        visitKey={patient.id}
+                        entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                        rx={opdRx[v.op.id] ?? []}
+                        records={iji.insurance[patient.id]}
+                        today={today}
+                        nowTime={nowTime}
+                        settlement={opdBills[patient.id]}
+                        book={opdBills}
+                        unpaid={unpaidVisits(opd, opdBills)}
+                        onOpenVisit={(id) => openVisit("opd", id)}
+                        onOpenInsurance={() => setPanel("patient-info")}
+                        onSettle={(s) => {
+                          if (deny("settle")) return;
+                          setOpdBills((all) => ({ ...all, [s.visitId]: s }));
+                          setOpd((list) => list.map((x) => (x.id === v.op.id ? { ...x, status: "終了" } : x)));
+                        }}
+                      />
                     );
                   })()}
                 </Drawer>
@@ -3990,7 +4028,11 @@ export default function WardApp() {
                     nowTime={nowTime}
                     fmtDay={(d) => formatShort(addDays(today, d))}
                     contacts={contactsBook[patient.id]}
-                    insurance={currentRecord(iji.insurance, patient.id)}
+                    insurance={iji.insurance[patient.id]}
+                    onRegisterInsurance={(r) => {
+                      if (deny("insurance")) return;
+                      setIji((d) => withInsurance(d, patient.id, r));
+                    }}
                     doctors={doctorsFor(patient.id, entries)}
                     anamnesis={anamnesis[patient.id]}
                     directive={currentDirective(directives, patient.id)}

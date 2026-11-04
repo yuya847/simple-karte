@@ -1,6 +1,6 @@
 "use client";
 
-import { Ambulance, BedDouble, CalendarPlus, Pill, Stethoscope } from "lucide-react";
+import { Ambulance, BedDouble, CalendarPlus, Pill, ReceiptJapaneseYen, Stethoscope } from "lucide-react";
 import type { AdmissionRequest } from "@/lib/admission";
 import { JTAS_LABEL } from "@/lib/er";
 import { OPD_STATUSES } from "@/lib/opd";
@@ -17,7 +17,7 @@ const hhmm = (min: number) => {
  * visit is (来院・主訴・トリアージ), its status, and the visit's own actions (入院申込, 外来処方, 再診予約).
  * Everything else is the same chart as a ward patient.
  */
-export function VisitStrip({ visit, request, revisit, rxCount, fmtDay, canOrder, onStatus, onOpenRequest, onCancelRequest, onOpenChart, onOpenRx, onOpenRevisit }: { visit: Visit; request?: AdmissionRequest; revisit?: Revisit; rxCount: number; fmtDay: (d: number) => string; canOrder: boolean; onStatus: (s: string) => void; onOpenRequest: () => void; onCancelRequest: (id: string) => void; onOpenChart: (patientId: string) => void; onOpenRx: () => void; onOpenRevisit: () => void }) {
+export function VisitStrip({ visit, request, revisit, rxCount, paid, fmtDay, canOrder, onStatus, onOpenRequest, onCancelRequest, onOpenChart, onOpenRx, onOpenRevisit, onOpenBill }: { visit: Visit; request?: AdmissionRequest; revisit?: Revisit; rxCount: number; /** The visit's bill, once paid (外来の会計). */ paid?: { yen: number; time: string }; fmtDay: (d: number) => string; canOrder: boolean; onStatus: (s: string) => void; onOpenRequest: () => void; onCancelRequest: (id: string) => void; onOpenChart: (patientId: string) => void; onOpenRx: () => void; onOpenRevisit: () => void; onOpenBill?: () => void }) {
   const status = visit.kind === "er" ? visit.er.status : visit.op.status;
   const admittedAs = request?.admittedAs ?? (visit.kind === "er" ? visit.er.admittedAs : undefined);
   const fixed = status === "入院済" || status === "搬送中";
@@ -87,10 +87,16 @@ export function VisitStrip({ visit, request, revisit, rxCount, fmtDay, canOrder,
               <CalendarPlus size={13} />
               再診予約{revisit ? `（${fmtDay(revisit.day)} ${revisit.time}）` : ""}
             </button>
+            {onOpenBill && (
+              <button type="button" onClick={onOpenBill} title="この受診の算定と患者負担、領収書・診療明細書、入金" className={`${btn} ${paid ? "border-wakatake text-wakatake" : status === "会計待ち" ? "border-yamabuki text-yamabuki" : ""}`}>
+                <ReceiptJapaneseYen size={13} />
+                会計{paid ? `（済 ${paid.yen.toLocaleString("ja-JP")}円 ${paid.time}）` : status === "会計待ち" ? "（未収）" : ""}
+              </button>
+            )}
           </>
         )}
       </span>
-      <p className="hint w-full text-[11px] text-ink-faint">受診の患者も病棟と同じカルテです。記事・注射・内服は右の欄、検査や画像のオーダは右端のツールから。入院したら、病棟のカルテに引き継がれます。</p>
+      <p className="hint w-full text-[11px] text-ink-faint">受診の患者も病棟と同じカルテです。記事・注射・内服は右の欄、検査や画像のオーダは右端のツールから。「会計」でこの受診の点数と患者負担、領収書・入金。入院したら、病棟のカルテに引き継がれます。</p>
     </div>
   );
 }
