@@ -1,5 +1,7 @@
 "use client";
 
+import { dietLabel } from "@/lib/diet";
+
 import { useState } from "react";
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
 import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
@@ -23,7 +25,7 @@ interface Props {
   rp?: number;
 }
 
-const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", extend: "延長", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず" };
+const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", extend: "延長", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず", diet: "食事" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
@@ -177,6 +179,17 @@ function ReasonInput({ input, draft, onApply }: { input: NonNullable<Issue["inpu
 
 function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
   if (draft.kind === "unclear") return <p className="text-ink-soft">この部分はオーダにできませんでした。</p>;
+  if (draft.kind === "diet") {
+    const d = draft.diet;
+    return (
+      <div>
+        <div className="font-bold">{dietLabel({ ...d, id: "", by: "", at: { day: 0, time: "" } })}</div>
+        <div className="text-xs text-ink-soft">
+          {d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の{d.from.meal}食から{d.comment ? `　${d.comment}` : ""}
+        </div>
+      </div>
+    );
+  }
 
   if (draft.kind === "extend") {
     const o = ctx.activeOrders.find((x) => x.id === draft.targetOrderId);

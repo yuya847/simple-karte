@@ -9,7 +9,7 @@ import { ANALYTES, rangeFor, type Analyte } from "@/lib/master";
 import type { Patient } from "@/lib/types";
 
 /** Lab results by date, plus culture reports. Values are shown, never judged. */
-export function ResultsPanel({ patient, today, pending = [], onExport }: { patient: Patient; today: CalendarDate; pending?: PendingDraw[]; onExport?: (what: "CSV" | "コピー" | "印刷", n: number) => void }) {
+export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }: { patient: Patient; today: CalendarDate; pending?: PendingDraw[]; onExport?: (what: "CSV" | "コピー" | "印刷", n: number) => void; focusAt?: { day: number; time: string } }) {
   const [order, setOrder] = useState<Order>("旧→新");
   const [period, setPeriod] = useState<PeriodKey>("all");
   const [abnormalOnly, setAbnormalOnly] = useState(false);
@@ -112,7 +112,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport }: { patie
               <p className="text-sm text-ink-faint">この期間の結果はありません</p>
             ) : (
               <div className="scroll-thin overflow-x-auto">
-                <LabTable cols={cols} rows={rows} patient={patient} today={today} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
+                <LabTable cols={cols} rows={rows} patient={patient} today={today} focusAt={focusAt} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
               </div>
             )}
             <p className="mt-1 text-[11px] text-ink-faint">H／L は一般的な成人の基準範囲との比較（架空の病院の設定）。<span className="hint">項目名を押すと経過のグラフ。「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの。</span></p>
@@ -189,7 +189,8 @@ export function ResultsPanel({ patient, today, pending = [], onExport }: { patie
   );
 }
 
-function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend }: { cols: LabColumn[]; rows: Analyte[]; patient: Patient; today: CalendarDate; picked?: string[]; onPick?: (key: string, on: boolean) => void; trend?: string | null; onTrend?: (code: string | null) => void }) {
+function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, focusAt }: { cols: LabColumn[]; rows: Analyte[]; patient: Patient; today: CalendarDate; picked?: string[]; onPick?: (key: string, on: boolean) => void; trend?: string | null; onTrend?: (code: string | null) => void; focusAt?: { day: number; time: string } }) {
+  const isFocus = (c: LabColumn) => !!focusAt && c.kind === "result" && c.day === focusAt.day && c.time === focusAt.time;
   return (
     <table className="nums w-full border-collapse text-[13px] print:text-[9pt]">
       <thead>
@@ -202,7 +203,7 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend }
           {cols.map((c) => {
             const r = c.kind === "result" ? c.lab : null;
             return (
-              <th key={c.key} className={`py-1 pl-3 text-right align-bottom font-normal ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined}>
+              <th key={c.key} ref={isFocus(c) ? (el) => el?.scrollIntoView({ inline: "center", block: "nearest" }) : undefined} className={`py-1 pl-3 text-right align-bottom font-normal ${isFocus(c) ? "rounded-t bg-ai-soft text-ai" : ""} ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined}>
                 {onPick && c.kind === "result" && (
                   <input type="checkbox" className="mb-0.5 print:hidden" aria-label={`${formatShort(addDays(today, c.day))} ${c.time} の結果をコピーに入れる`} checked={picked?.includes(c.key) ?? false} onChange={(e) => onPick(c.key, e.target.checked)} />
                 )}
@@ -252,7 +253,7 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend }
             {cols.map((c) => {
               const x = cellOf(c, a, patient.sex);
               return (
-                <td key={c.key} className={`py-1 pl-3 text-right ${x.kind === "value" && x.flag === "H" ? "text-shu" : x.kind === "value" && x.flag === "L" ? "text-ai" : ""}`}>
+                <td key={c.key} className={`py-1 pl-3 text-right ${isFocus(c) ? "bg-ai-soft/60" : ""} ${x.kind === "value" && x.flag === "H" ? "text-shu" : x.kind === "value" && x.flag === "L" ? "text-ai" : ""}`}>
                   {x.kind === "value" ? (
                     <>
                       {x.value.toLocaleString("ja-JP")}

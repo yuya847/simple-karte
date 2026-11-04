@@ -22,6 +22,8 @@ interface Props {
   onOpenProfile?: () => void;
   /** 妊娠中の印 (set by a doctor or nurse). */
   onPregnancy?: (v: { weeks: number | null } | null) => void;
+  /** 保存・オーダーのみ・未確認の結果: the chart's actions, on the right of the bar. */
+  actions?: React.ReactNode;
 }
 
 function dayLabel(day: number): string {
@@ -31,13 +33,15 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, actions }: Props) {
   const [pregEdit, setPregEdit] = useState(false);
   const [weeks, setWeeks] = useState("");
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
   const cre = latestValue(p, "Cre");
   const ccr = cre ? cockcroftGault(p.age, p.weightKg, cre.value, p.sex) : undefined;
   const admitted = addDays(today, p.admittedOn);
+  // A 救急外来・外来 visit opened in the chart screen (its id is "er:…" / "opd:…"): no bed, no 入院日数.
+  const visit = /^(er|opd):/.test(p.id);
 
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule bg-sheet px-4 py-2.5">
@@ -52,20 +56,19 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         </div>
         <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] text-ink-soft">架空の患者</span>
       </div>
+      {actions && <div className="order-last ml-auto flex shrink-0 flex-wrap items-center gap-1.5 xl:order-none">{actions}</div>}
 
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">
         <dt className="text-ink-faint">ID</dt>
-        <dd>{p.id}</dd>
-        <dt className="text-ink-faint">病棟</dt>
-        <dd>
-          {p.ward} {p.room}号室
-        </dd>
+        <dd>{visit ? p.id.replace(/^(er|opd):/, "") : p.id}</dd>
+        <dt className="text-ink-faint">{visit ? "場所" : "病棟"}</dt>
+        <dd>{visit ? p.ward : `${p.ward} ${p.room}号室`}</dd>
       </dl>
 
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">
-        <dt className="text-ink-faint">入院</dt>
+        <dt className="text-ink-faint">{visit ? "受診" : "入院"}</dt>
         <dd>
-          {formatShort(admitted)}　<b className="text-ink">入院{hospitalDay(p.admittedOn, 0)}日目</b>
+          {formatShort(admitted)}　{visit ? <b className="text-ink">今日の受診</b> : <b className="text-ink">入院{hospitalDay(p.admittedOn, 0)}日目</b>}
         </dd>
         <dt className="text-ink-faint">主病名</dt>
         <dd className="text-ink">

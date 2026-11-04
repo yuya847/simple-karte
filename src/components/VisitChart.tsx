@@ -33,7 +33,7 @@ interface Props {
   extraTools?: { key: string; label: string; icon: typeof BedDouble; panel: React.ReactNode; summary?: React.ReactNode; wide?: boolean }[];
 }
 
-const ER_STATUSES: ErStatus[] = ["診察待ち", "診察中", "入院依頼", "帰宅"];
+export const ER_STATUSES: ErStatus[] = ["診察待ち", "診察中", "入院依頼", "帰宅"];
 
 /**
  * The tab of one patient in 救急外来 or 外来: what is known of the visit, today's record, and the
@@ -297,7 +297,7 @@ function OpdFacts({ op, fmtDay }: { op: OpdPatient; fmtDay: (d: number) => strin
 }
 
 /** 入院申込の欄. Every choice is the doctor's; nothing is preselected except what the record already says (身長・体重・アレルギー). */
-function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { visit: Visit; me: string; nowTime: string; newId: () => string; onCancel: () => void; onSend: (r: AdmissionRequest) => void }) {
+export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { visit: Visit; me: string; nowTime: string; newId: () => string; onCancel: () => void; onSend: (r: AdmissionRequest) => void }) {
   const deny = useDeny()("er.admit");
   const p = visit.kind === "er" ? visit.er : visit.op;
   const [f, setF] = useState({

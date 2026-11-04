@@ -29,10 +29,9 @@ import { PAST_INJ, injPatternsOf, injPreviousOf } from "@/lib/inj-memory";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { EMPTY_OPD_DESK, OpdDesk, type OpdDeskBook } from "./OpdDesk";
 import { OTHER_DEPT_TODAY } from "@/lib/opd-desk";
-import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
+import { RequestForm, type Visit, type VisitNote } from "./VisitChart";
+import { VisitStrip } from "./VisitStrip";
 import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders";
-import { CalendarPlus, ClipboardList, FlaskConical, Pill as PillIcon, ScanLine } from "lucide-react";
-import { VisitOrders } from "./VisitOrders";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
 import { DeptMoveDialog } from "./DeptMoveDialog";
@@ -107,7 +106,7 @@ import { loadRecent, pushRecent, saveRecent, type RecentOpen } from "@/lib/recen
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
 import { AREA_ICON, WARD_ICON } from "./nav-icons";
-import { LayoutList, Plus } from "lucide-react";
+import { Eye, LayoutList, Plus, X } from "lucide-react";
 import {
   AREAS,
   allowedWardTabs,
@@ -170,10 +169,10 @@ import { LabView } from "./LabView";
 import { AdmitEvalView } from "./AdmitEvalView";
 import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type AdmitEval } from "@/lib/admit-eval";
 import { ResultsInbox } from "./ResultsInbox";
-import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
+import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall, type ResultItem } from "@/lib/results";
 import { EMPTY_DESK, demoLabOrders, deskLabs, drawRows, redrawChangeKeys, withRedraws, type LabDesk } from "@/lib/lab-desk";
 import { pendingDraws } from "@/lib/lab-table";
-import { visitLabOrders, visitPeople } from "@/lib/lab-visits";
+import { visitLabOrders, visitPerson } from "@/lib/lab-visits";
 import { deskCultures } from "@/lib/lab-culture";
 import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
@@ -192,7 +191,7 @@ import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
-import { nextFrame, noteKey, parseNote, reviseNote } from "@/lib/notes";
+import { eventTimeProblem, isBlankNote, nextFrame, noteKey, noteText, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
 import { narcoticBlock } from "@/lib/narcotics";
 import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
@@ -371,6 +370,10 @@ export default function WardApp() {
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
+  // 未確認の結果の窓: shown for a chart with unseen results until closed (per patient, this page).
+  const [resultsWin, setResultsWin] = useState<Record<string, boolean>>({});
+  // 結果を表示 from a lab order in the record: the draw to show in the results table.
+  const [resultFocus, setResultFocus] = useState<{ day: number; time: string } | null>(null);
   // What a pressed cell of the flow sheet asked for (the time for バイタル・水分出納, the rows for the others).
   const [flowReq, setFlowReq] = useState<FlowEntry | null>(null);
   // Who is using the chart. The demo picks a role instead of logging in.
@@ -694,8 +697,18 @@ export default function WardApp() {
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
+  // 救急外来・外来 of today: each visit is a (small) patient too, so it opens in the same chart screen as a
+  // ward patient (its record is the visit's orders and notes; a chart opened for the visit keeps the rest).
+  const visitPatientsAll: WorkPatient[] = useMemo(
+    () =>
+      [...er.map((v) => visitPerson("er", v, visitEntries[`er:${v.id}`] ?? [], labDesk)), ...opd.map((v) => visitPerson("opd", v, visitEntries[`opd:${v.id}`] ?? [], labDesk))].map((x) => ({
+        ...x,
+        patient: { ...x.patient, vitals: [...x.patient.vitals, ...(extraVitals[x.patient.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)), pregnancy: pregnancy[x.patient.id] ?? null },
+      })),
+    [er, opd, visitEntries, labDesk, extraVitals, pregnancy],
+  );
   // ~80 charts: looked up by number, not by searching the list.
-  const patientById = useMemo(() => new Map(allPatients.map((p) => [p.id, p])), [allPatients]);
+  const patientById = useMemo(() => new Map([...allPatients, ...visitPatientsAll.map((x) => x.patient)].map((p) => [p.id, p])), [allPatients, visitPatientsAll]);
   const findPatient = useCallback((id: string) => patientById.get(id), [patientById]);
   // The 山本チーム's patients (and today's admissions): the worksheet, やること and the boards are theirs.
   const teamIds = useMemo(() => new Set([...PATIENTS, ...admitted].map((p) => p.id)), [admitted]);
@@ -911,7 +924,12 @@ export default function WardApp() {
     const stops: string[] = [];
     const extended: Record<string, number> = {};
     const newConsents: ConsentRecord[] = [];
+    const dietsAdded: DietOrder[] = [];
     for (const d of chart.drafts) {
+      if (d.kind === "diet") {
+        dietsAdded.push({ ...d.diet, id: newId(), patientId: patient!.id, by: verbalMode ? DOCTOR : me.name, at: { day: 0, time: nowTime } });
+        continue;
+      }
       const r = toOrder(d, ctx);
       stops.push(...r.stopIds);
       if (r.extend) extended[r.extend.orderId] = r.extend.days;
@@ -930,6 +948,10 @@ export default function WardApp() {
     // 麻薬: only a 麻薬施用者 with a valid licence (麻薬及び向精神薬取締法 第27条第1項).
     const narc = narcoticBlock(added.map((e) => e.order), verbalMode ? DOCTOR : me.name, today);
     if (narc) return update({ flash: narc });
+    if (dietsAdded.length) {
+      setDiets((all) => [...all, ...dietsAdded]);
+      for (const d of dietsAdded) auditLog({ role: me.role, actor: me.name, action: "確定（食事）", patient: patient?.name, detail: `${dietLabel(d)}（${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から）` });
+    }
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
       ...stoppedEntries.map((e) => {
@@ -994,10 +1016,22 @@ export default function WardApp() {
       extended: { ...c.extended, ...extended },
       drafts: [],
       note: lines.length ? `${c.note.replace(/\s*$/, "")}\n${lines.join("\n")}\n` : c.note,
-      flash: `${added.length + stops.length + Object.keys(extended).length}件を確定しました。左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
+      flash: `${added.length + stops.length + Object.keys(extended).length + dietsAdded.length}件を確定しました。${dietsAdded.length ? `食事の変更は食事のオーダに入りました。` : ""}左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
       selectedDay: 0,
     }));
   };
+  // 保存 on the bar: the note of the day (記録時刻・記載時刻 kept apart), by the person writing.
+  const unseenHere: ResultItem[] = patient ? unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id)], acks) : [];
+  const confirmNote = () => {
+    if (!patient) return;
+                          // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
+                          const at = chart.noteAt ?? { day: 0, time: nowTime };
+                          const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
+                          setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
+                          auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: `${chart.noteAt ? `記録時刻 ${formatShort(addDays(today, at.day))} ${at.time}　` : ""}${chart.note.replace(/\s+/g, " ").slice(0, 120)}` });
+                          if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
+                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
+                          };
 
   // 研修医の記録を、指導医か上級医が確かめる. Each confirmation goes to the audit log.
   const confirmCosign = (ids: string[], comment: string) => {
@@ -1030,7 +1064,8 @@ export default function WardApp() {
   // The ward takes in an 入院申込: the bed is decided and the ward chart is made from the visit.
   const acceptRequest = (r: AdmissionRequest, bed: { room: string; bed: string }) => {
     const id = `9002${String(admitted.length + 1).padStart(4, "0")}`;
-    const said = (visitNotes[`${r.from.kind}:${r.from.id}`] ?? []).map((n) => n.text);
+    const vkey = `${r.from.kind}:${r.from.id}`;
+    const said = [...(visitNotes[vkey] ?? []).map((n) => n.text), ...(notes[vkey] ?? []).map((n) => noteText(n))];
     let built: ReturnType<typeof admitFromOpd> | null = null;
     if (r.from.kind === "er") {
       const e = er.find((x) => x.id === r.from.id);
@@ -1235,7 +1270,9 @@ export default function WardApp() {
   // 病理・生理 reports are read and marked like the other results.
   const wardResults = [...people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS)), ...dept.results.filter((i) => people.some((x) => x.patient.id === i.patientId))];
   // 救急外来・外来 visits with lab orders: the laboratory takes in and results their samples too.
-  const labVisits = visitPeople(er, opd, visitEntries, labDesk);
+  const labVisits: WorkPatient[] = visitPatientsAll
+    .map((x) => ({ ...x, entries: withRedraws(currentEntries(x.patient, sessionChanges[x.patient.id]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, x.patient.id) }))
+    .filter((x) => x.entries.length > 0);
   const labItems = [...wardResults, ...labVisits.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS))];
   const unseenResults = unseen(wardResults, acks);
   const resultState = Object.fromEntries(
@@ -1604,6 +1641,9 @@ export default function WardApp() {
     setPanel(null);
   };
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
+  const noteReady = !!patient && !isBlankNote(chart.note) && !deny("note") && !(chart.noteAt && eventTimeProblem(chart.noteAt, { day: 0, time: nowTime }, patient.admittedOn));
+  const ordersReady = !!ctx && orderMode !== "none" && chart.drafts.length > 0 && chart.drafts.every((d) => isReady(issues[d.id] ?? []));
+
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
     ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
@@ -1640,136 +1680,6 @@ export default function WardApp() {
             closeNewTab();
             openPatient(id);
           }}
-        />
-      ) : screen === "visit" && visitKey ? (
-        <VisitChart
-          key={visitKey}
-          visit={visitOf(visitKey)!}
-          nowTime={nowTime}
-          fmtDay={(d) => formatShort(addDays(today, d))}
-          notes={visitNotes[visitKey] ?? []}
-          onNote={(text) => {
-            const v = visitOf(visitKey)!;
-            auditLog({ role: me.role, actor: me.name, action: "確定（受診の記録）", patient: v.kind === "er" ? v.er.name : v.op.name, detail: text.slice(0, 120) });
-            setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text, at: nowTime, by: me.name }] }));
-          }}
-          request={requests.find((r) => `${r.from.kind}:${r.from.id}` === visitKey && r.status !== "取消")}
-          onRequest={(r) => {
-            auditLog({ role: me.role, actor: me.name, action: "確定（入院申込）", patient: r.name, detail: `${r.urgency}　${r.ward}　${r.diagnosis}` });
-            setRequests((rs) => [...rs, r]);
-            if (r.from.kind === "er") setEr((list) => list.map((x) => (x.id === r.from.id && x.status !== "入院済" ? { ...x, status: "入院依頼" } : x)));
-          }}
-          onCancelRequest={(id) => {
-            auditLog({ role: me.role, actor: me.name, action: "入院申込を取り消した", patient: requests.find((r) => r.id === id)?.name });
-            setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status: "取消" } : r)));
-          }}
-          onOpenChart={openPatient}
-          onStatus={(st) => {
-            const i = visitKey.indexOf(":");
-            const kind = visitKey.slice(0, i);
-            const id = visitKey.slice(i + 1);
-            if (kind === "er") setEr((list) => list.map((x) => (x.id === id ? { ...x, status: st as ErStatus } : x)));
-            else setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st as OpdStatus } : x)));
-          }}
-          newId={newId}
-          extraTools={(() => {
-            const v = visitOf(visitKey)!;
-            const vp = labVisits.find((x) => x.patient.id === visitKey);
-            const nowAbs = abs(0, nowTime);
-            const pend = vp ? pendingDraws(drawRows(labVisits, mar, labDesk, sessionStart ?? nowAbs, nowAbs), visitKey, nowAbs) : [];
-            const labTool = {
-              key: "results",
-              label: "検査結果",
-              icon: FlaskConical,
-              wide: true,
-              summary: vp && (vp.patient.labs.length || pend.length) ? <p className="text-[12px]">検体検査：{vp.patient.labs.length ? `結果 ${vp.patient.labs.length}回` : "結果はまだ"}{pend.length ? `（${pend.map((d) => d.status).join("・")}）` : ""}　右の「検査結果」で時系列の表とグラフ</p> : undefined,
-              panel: vp ? (
-                <ResultsPanel patient={vp.patient} today={today} pending={pend} onExport={(what, n) => auditLog({ role: me.role, actor: me.name, action: `検査結果の${what}`, patient: vp.patient.name, detail: `${n}回分` })} />
-              ) : (
-                <p className="text-[12px] text-ink-faint">この受診の検体検査はありません。</p>
-              ),
-            };
-            const vName = v.kind === "er" ? v.er.name : v.op.name;
-            const vOrders = visitEntries[visitKey] ?? [];
-            const ordersTool = {
-              key: "orders",
-              label: "オーダ・検査歴",
-              icon: ClipboardList,
-              wide: true,
-              summary: vOrders.length ? <p className="text-[12px]">オーダ {vOrders.length}件（{["lab", "imaging", "physio"].map((t) => vOrders.filter((e) => e.order.type === t).length).map((n, i) => `${["検体", "画像", "生理"][i]} ${n}`).join("・")}）　右の「オーダ・検査歴」で出す・見る</p> : undefined,
-              panel: vp ? (
-                <VisitOrders
-                  patient={vp.patient}
-                  orders={vOrders}
-                  today={today}
-                  nowTime={nowTime}
-                  newId={newId}
-                  me={me.name}
-                  onConfirm={(added) => {
-                    auditLog({ role: me.role, actor: me.name, action: "オーダの確定（受診）", patient: vName, detail: added.map((e) => orderLines(e.order, today).main).join("／").slice(0, 160) });
-                    setVisitOrders((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), ...added] }));
-                  }}
-                />
-              ) : (
-                <p className="text-[12px] text-ink-faint">この受診の記録を読み込めませんでした。</p>
-              ),
-            };
-            const imagingTool = {
-              key: "imaging",
-              label: "放射線画像",
-              icon: ScanLine,
-              wide: true,
-              panel: vp ? <ImagingPanel patient={vp.patient} today={today} entries={vOrders} nowAbs={nowAbs} /> : <p className="text-[12px] text-ink-faint">画像はありません。</p>,
-            };
-            if (v.kind !== "opd") return [ordersTool, labTool, imagingTool];
-            const op = v.op;
-            const fmt = (d: number) => formatShort(addDays(today, d));
-            const rxDone = opdRx[op.id] ?? [];
-            const rv = revisits[op.id];
-            return [
-              ordersTool,
-              labTool,
-              imagingTool,
-              {
-                key: "rx",
-                label: "外来処方",
-                icon: PillIcon,
-                summary: rxDone.length ? rxDone.flatMap((r) => r.lines).map((l) => <div key={l} className="text-[12px]">{l}</div>) : undefined,
-                panel: (
-                  <OpdRxPanel
-                    allergies={op.allergies}
-                    memory={{ patterns: patternsOf(PAST_RX), previous: [], me: me.name }}
-                    nowTime={nowTime}
-                    newId={newId}
-                    fmtDay={fmt}
-                    rx={rxDone}
-                    onRx={(lines) => {
-                      auditLog({ role: me.role, actor: me.name, action: "確定（外来処方・院外処方せん）", patient: op.name, detail: lines.join("／").slice(0, 160) });
-                      setOpdRx((all) => ({ ...all, [op.id]: [...(all[op.id] ?? []), { lines, by: me.name, at: nowTime }] }));
-                      setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text: `処方（院外）：\n${lines.join("\n")}`, at: nowTime, by: me.name }] }));
-                    }}
-                  />
-                ),
-              },
-              {
-                key: "revisit",
-                label: "再診予約",
-                icon: CalendarPlus,
-                summary: rv ? <p className="nums text-[12px]">{fmt(rv.day)} {rv.time}　{rv.purpose}（{rv.by}）</p> : undefined,
-                panel: (
-                  <RevisitPanel
-                    fmtDay={fmt}
-                    revisit={rv}
-                    onRevisit={(r) => {
-                      auditLog({ role: me.role, actor: me.name, action: "確定（再診予約）", patient: op.name, detail: `${fmt(r.day)} ${r.time} ${r.purpose}` });
-                      setRevisits((all) => ({ ...all, [op.id]: { ...r, by: me.name } }));
-                      setVisitNotes((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), { text: `次回：${fmt(r.day)} ${r.time}（${r.purpose}）`, at: nowTime, by: me.name }] }));
-                    }}
-                  />
-                ),
-              },
-            ];
-          })()}
         />
       ) : screen === "beds" ? (
         <BedControlView
@@ -2289,6 +2199,35 @@ export default function WardApp() {
             onOpenDirective={() => setPanel("directive")}
             onOpenDiet={() => setPanel("diet")}
             onOpenProfile={() => setPanel("profile")}
+            actions={
+              <>
+                {unseenHere.length > 0 && (
+                  <button type="button" onClick={() => setResultsWin((w) => ({ ...w, [patient.id]: true }))} className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold ${unseenHere.some((i) => i.panic.length) ? "border-shu bg-shu-soft text-shu" : "border-ai bg-ai-soft text-ai"}`} title="未確認の結果を窓で出す">
+                    <Eye size={14} />
+                    未確認の結果 {unseenHere.length}
+                  </button>
+                )}
+                {orderMode !== "none" && (
+                  <button type="button" disabled={!ordersReady} onClick={confirm} title={ordersReady ? "貯めたオーダだけを飛ばす（記事はそのまま）" : "飛ばせる下書きがありません（確認が残っているか、下書きがない）"} className={`rounded-md border px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${orderMode === "verbal" ? "border-yamabuki text-yamabuki" : "border-ink text-ink hover:bg-paper"}`}>
+                    {orderMode === "verbal" ? "口頭指示で" : ""}オーダーのみ{chart.drafts.length ? ` ${chart.drafts.length}` : ""}
+                  </button>
+                )}
+                {!deny("note") && (
+                  <button
+                    type="button"
+                    disabled={!noteReady && !ordersReady}
+                    onClick={() => {
+                      if (noteReady) confirmNote();
+                      if (ordersReady) confirm();
+                    }}
+                    title="記事を確定し、貯めたオーダも一緒に飛ばす"
+                    className="rounded-md bg-ink px-4 py-1.5 text-sm font-bold text-white hover:bg-ink/90 disabled:opacity-40"
+                  >
+                    保存{noteReady && ordersReady ? "（記事＋オーダ）" : noteReady ? "（記事）" : ordersReady ? "（オーダ）" : ""}
+                  </button>
+                )}
+              </>
+            }
             onPregnancy={
               deny("vitals")
                 ? undefined
@@ -2298,6 +2237,33 @@ export default function WardApp() {
                   }
             }
           />
+          {(() => {
+            const v = visitOf(patient.id);
+            if (!v) return null;
+            const vid = v.kind === "er" ? v.er.id : v.op.id;
+            return (
+              <VisitStrip
+                visit={v}
+                request={requests.find((r) => `${r.from.kind}:${r.from.id}` === patient.id && r.status !== "取消")}
+                revisit={v.kind === "opd" ? revisits[v.op.id] : undefined}
+                rxCount={v.kind === "opd" ? (opdRx[v.op.id] ?? []).length : 0}
+                fmtDay={(d) => formatShort(addDays(today, d))}
+                canOrder={!deny("order")}
+                onStatus={(st) => {
+                  if (v.kind === "er") setEr((list) => list.map((x) => (x.id === vid ? { ...x, status: st as ErStatus } : x)));
+                  else setOpd((list) => list.map((x) => (x.id === vid ? { ...x, status: st as OpdStatus } : x)));
+                }}
+                onOpenRequest={() => setPanel("visit-request")}
+                onCancelRequest={(id) => {
+                  auditLog({ role: me.role, actor: me.name, action: "入院申込を取り消した", patient: patient.name });
+                  setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status: "取消" } : r)));
+                }}
+                onOpenChart={openPatient}
+                onOpenRx={() => setPanel("visit-rx")}
+                onOpenRevisit={() => setPanel("visit-revisit")}
+              />
+            );
+          })()}
           <StickyStrip
             stickies={stickies[patient.id] ?? []}
             nowTime={nowTime}
@@ -2437,6 +2403,10 @@ export default function WardApp() {
                 setImageFocus(id);
                 setPanel("imaging");
               }}
+              onOpenResult={(at) => {
+                setResultFocus(at);
+                setPanel("results");
+              }}
               onReviseNote={(e, text, reason) => {
                 const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
                 setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));
@@ -2464,13 +2434,17 @@ export default function WardApp() {
               }}
             >
               {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
-              <ResultsInbox
-                today={today}
-                items={unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id)], acks)}
-                calls={calls}
-                onSeen={(keys, response) => markSeen(patient.id, keys, response)}
-                onOpenResults={() => setPanel("results")}
-              />
+              {unseenHere.length > 0 && (resultsWin[patient.id] ?? true) && (
+                <div role="dialog" aria-label="未確認の結果" className="fixed right-4 top-28 z-40 max-h-[70vh] w-[min(680px,92vw)] overflow-y-auto rounded-lg border border-rule bg-sheet shadow-[0_16px_40px_-12px_rgba(38,34,28,0.45)]">
+                  <div className="flex items-center justify-between border-b border-rule px-3 py-1.5 text-sm">
+                    <b>未確認の結果（窓）</b>
+                    <button type="button" onClick={() => setResultsWin((w) => ({ ...w, [patient.id]: false }))} aria-label="窓を閉じる" className="rounded p-1 text-ink-faint hover:bg-paper hover:text-ink">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <ResultsInbox today={today} items={unseenHere} calls={calls} onSeen={(keys, response) => markSeen(patient.id, keys, response)} onOpenResults={() => setPanel("results")} />
+                </div>
+              )}
               <VerbalInbox
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                 today={today}
@@ -2632,15 +2606,7 @@ export default function WardApp() {
                         orderMode={orderMode}
                         noteAt={chart.noteAt ?? null}
                         onNoteAt={(a) => update({ noteAt: a })}
-                        onConfirmNote={() => {
-                          // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
-                          const at = chart.noteAt ?? { day: 0, time: nowTime };
-                          const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
-                          setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
-                          auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: `${chart.noteAt ? `記録時刻 ${formatShort(addDays(today, at.day))} ${at.time}　` : ""}${chart.note.replace(/\s+/g, " ").slice(0, 120)}` });
-                          if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
-                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
-                        }}
+                        onConfirmNote={confirmNote}
                       />,
                     )}
                     {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
@@ -2729,11 +2695,62 @@ export default function WardApp() {
                   <DeptReportsPanel patientId={patient.id} patientName={patient.name} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} physio={dept.physioDesk} pathology={dept.pathology} acks={acks} today={today} onSeen={(keys) => markSeen(patient.id, keys)} />
                 </Drawer>
               )}
+              {panel === "visit-request" && visitOf(patient.id) && (
+                <Drawer title="入院申込" onClose={closePanel}>
+                  <RequestForm
+                    visit={visitOf(patient.id)!}
+                    me={me.name}
+                    nowTime={nowTime}
+                    newId={newId}
+                    onCancel={closePanel}
+                    onSend={(r) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（入院申込）", patient: r.name, detail: `${r.urgency}　${r.ward}　${r.diagnosis}` });
+                      setRequests((rs) => [...rs, r]);
+                      if (r.from.kind === "er") setEr((list) => list.map((x) => (x.id === r.from.id && x.status !== "入院済" ? { ...x, status: "入院依頼" } : x)));
+                      closePanel();
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "visit-rx" && visitOf(patient.id)?.kind === "opd" && (
+                <Drawer title="外来処方" onClose={closePanel}>
+                  <OpdRxPanel
+                    allergies={patient.allergies}
+                    memory={{ patterns: patternsOf(PAST_RX), previous: [], me: me.name }}
+                    nowTime={nowTime}
+                    newId={newId}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    rx={opdRx[patient.id.slice(4)] ?? []}
+                    onRx={(lines) => {
+                      const oid = patient.id.slice(4);
+                      auditLog({ role: me.role, actor: me.name, action: "確定（外来処方・院外処方せん）", patient: patient.name, detail: lines.join("／").slice(0, 160) });
+                      setOpdRx((all) => ({ ...all, [oid]: [...(all[oid] ?? []), { lines, by: me.name, at: nowTime }] }));
+                      setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text: `処方（院外）：\n${lines.join("\n")}` }] }));
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "visit-revisit" && visitOf(patient.id)?.kind === "opd" && (
+                <Drawer title="再診予約" onClose={closePanel}>
+                  <RevisitPanel
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    revisit={revisits[patient.id.slice(4)]}
+                    onRevisit={(r) => {
+                      const oid = patient.id.slice(4);
+                      const fmt = (d: number) => formatShort(addDays(today, d));
+                      auditLog({ role: me.role, actor: me.name, action: "確定（再診予約）", patient: patient.name, detail: `${fmt(r.day)} ${r.time} ${r.purpose}` });
+                      setRevisits((all) => ({ ...all, [oid]: { ...r, by: me.name } }));
+                      setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text: `次回：${fmt(r.day)} ${r.time}（${r.purpose}）` }] }));
+                    }}
+                  />
+                </Drawer>
+              )}
               {panel === "results" && (
                 <Drawer title="検査結果" onClose={closePanel} wide expandable>
                   <ResultsPanel
                     patient={patient}
                     today={today}
+                    focusAt={resultFocus ?? undefined}
                     pending={pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime))}
                     onExport={(what, n) => auditLog({ role: me.role, actor: me.name, action: `検査結果の${what}`, patient: patient.name, detail: `${n}回分` })}
                   />
@@ -2859,10 +2876,10 @@ export default function WardApp() {
                     diets={diets}
                     entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                     onSave={(d) => {
-                      setDiets((all) => [...all, d]);
+                      // A draft on the right, sent with the other orders by 保存 or オーダーのみ.
+                      const diet = { patientId: d.patientId, from: d.from, kind: d.kind, staple: d.staple, side: d.side, therapeutic: d.therapeutic, energyKcal: d.energyKcal, saltG: d.saltG, proteinG: d.proteinG, dysphagia: d.dysphagia, thickness: d.thickness, tube: d.tube, npoReason: d.npoReason, comment: d.comment };
                       const when = `${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から`;
-                      auditLog({ role: me.role, actor: me.name, action: "確定（食事）", patient: patient.name, detail: `${dietLabel(d)}（${when}）` });
-                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・食事：${dietLabel(d)}（${when}）${d.comment ? `　${d.comment}` : ""}\n`, flash: `食事を確定しました（${when}）。` }));
+                      update((c) => ({ drafts: [...c.drafts, { id: newId(), origin: "manual", sourceText: `食事：${dietLabel(d)}（${when}）`, comment: null, kind: "diet", diet }], flash: `食事の変更を下書きにしました（${when}）。上の「オーダーのみ」か「保存」で飛びます。` }));
                       closePanel();
                     }}
                   />

@@ -326,7 +326,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
             <tr>
               <th className="px-3 py-2 font-normal">{header("room", "病室")}</th>
               <th className="px-3 py-2 font-normal">{header("name", "氏名")}</th>
-              <th className="px-3 py-2 font-normal">性・年齢</th>
+              <th className="px-3 py-2 font-normal">年齢性別・ID</th>
               <th className="px-3 py-2 font-normal">{header("day", "入院")}</th>
               <th className="px-3 py-2 font-normal" title="DPC（診断群分類）：カルテの病名と記録から、算定の DPC と同じ計算で出す分類と入院期間。医療資源を最も投入した傷病名を主治医が選ぶまでは仮">DPC</th>
               <th className="px-3 py-2 font-normal">診療科・担当</th>
@@ -491,7 +491,8 @@ function MyRow({
         </div>
       </td>
       <td className="whitespace-nowrap px-3 py-2">
-        {ageSex(p)}
+        <div>{ageSex(p)}</div>
+        <div className="nums text-[11px] text-ink-faint">{p.id}</div>
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         <b>{row.day}日目</b>

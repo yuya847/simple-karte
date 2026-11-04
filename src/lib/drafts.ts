@@ -6,6 +6,7 @@
 
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import { minutesOf } from "./dates";
+import { dietLabel, type DietOrder } from "./diet";
 import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findOralDrug, findSet, type DrugMaster, KCL_LIMITS } from "./master";
 import {
   AREA_CLASSES,
@@ -203,7 +204,13 @@ export interface UnclearDraft extends DraftBase {
   reason: string;
 }
 
-export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | ImagingDraft | PhysioDraft | StopDraft | ExtendDraft | UnclearDraft;
+/** 食事の変更: kept with the other drafts and sent with them (it becomes a DietOrder, not an Order). */
+export interface DietDraft extends DraftBase {
+  kind: "diet";
+  diet: Omit<DietOrder, "id" | "by" | "at">;
+}
+
+export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | ImagingDraft | PhysioDraft | StopDraft | ExtendDraft | UnclearDraft | DietDraft;
 
 // ---------------------------------------------------------------------------
 // From Claude's output to drafts (codes not in the master are dropped to null)
@@ -1409,6 +1416,8 @@ const stoppingIds = (ctx: CheckContext) => ctx.drafts.flatMap((x) => (x.kind ===
 
 export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
   switch (d.kind) {
+    case "diet":
+      return [{ key: "diet", level: "info", title: "食事", message: `${dietLabel({ ...d.diet, id: "", by: "", at: { day: 0, time: "" } })}（${d.diet.from.day === 0 ? "今日" : d.diet.from.day === 1 ? "明日" : "明後日"}の${d.diet.from.meal}食から）${d.diet.comment ? `　${d.diet.comment}` : ""}` }];
     case "injection":
       return [...checkInjection(d, ctx), ...interactionIssues(d, ctx, stoppingIds(ctx)), ...pregnancyNote(ctx)];
     case "lab":
@@ -1478,7 +1487,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     const id = resolvedStopTarget(d, ctx);
     return { stopIds: id ? [id] : [] };
   }
-  if (d.kind === "unclear") return { stopIds: [] };
+  if (d.kind === "unclear" || d.kind === "diet") return { stopIds: [] };
   if (d.kind === "extend") {
     const target = ctx.activeOrders.find((o) => o.id === d.targetOrderId)!;
     return { stopIds: [], extend: { orderId: target.id, days: (target.order as { days: number }).days + d.addDays } };

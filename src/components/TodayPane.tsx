@@ -230,14 +230,7 @@ export function TodayPane(p: Props) {
                   確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。
                   {me.role === "看護師" && "フォーカスは「# 見出し」の下に D)（データ）・Act)（行為）・R)（反応）、経時記録は1行ずつ時刻から書きます。"}
                 </span>
-                <button
-                  type="button"
-                  disabled={isBlankNote(p.note) || !!timeProblem}
-                  onClick={p.onConfirmNote}
-                  className="ml-auto shrink-0 rounded-md border border-ink px-3 py-1 text-xs font-bold text-ink hover:bg-ink hover:text-white disabled:opacity-30"
-                >
-                  記事を確定（{me.name}）
-                </button>
+                <span className="ml-auto text-[11px] text-ink-faint">{isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します"}</span>
               </>
             )}
           </div>
@@ -354,16 +347,7 @@ export function TodayPane(p: Props) {
             `${readyCount}件すべて確定できます`
           )}
         </span>
-        {p.orderMode !== "none" && (
-        <button
-          type="button"
-          disabled={!canConfirm}
-          onClick={p.onConfirm}
-          className={`ml-auto rounded-md px-6 py-2 text-sm font-bold text-white disabled:opacity-30 ${p.orderMode === "verbal" ? "bg-yamabuki" : "bg-ink hover:bg-ink/90"}`}
-        >
-          {p.orderMode === "verbal" ? "口頭指示で" : ""}確定{p.drafts.length > 0 ? `（${p.drafts.length}件）` : ""}
-        </button>
-        )}
+        {p.orderMode !== "none" && canConfirm && <span className="ml-auto text-[11px] text-ink-faint">上の「オーダーのみ」か「保存」で飛びます</span>}
       </div>
     </section>
   );

@@ -256,8 +256,9 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
           }}
           className="w-full rounded-md bg-ai px-3 py-2 font-bold text-white disabled:opacity-40"
         >
-          確定（{nowTime}　{doctor}）
+          食事の変更をオーダの下書きに入れる
         </button>
+        <p className="hint text-[11px] text-ink-faint">右の欄の下書きに入ります。上の「オーダーのみ」か「保存」で、ほかのオーダと一緒に飛びます。</p>
       </section>
     </div>
   );

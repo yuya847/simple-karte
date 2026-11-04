@@ -64,7 +64,6 @@ describe("記事作成", () => {
     expect(html).toMatch(/aria-pressed="true"[^>]*>経時記録</);
     expect(html).toContain("＋今の時刻（10:00）");
     expect(html).toContain("これから先の時刻にはできません。");
-    expect(html).toMatch(/disabled=""[^>]*>記事を確定/);
     expect(html).toContain("書いた時刻（確定の時刻）も変えずに残ります。");
   });
 });
@@ -80,8 +79,9 @@ describe("左の経過", () => {
   it("shows the focus with D・Act・R, and the part buttons", () => {
     expect(html).toContain("# 転倒");
     expect(html).toContain("Act)");
-    for (const b of ["全", "#", "S", "O", "A", "P", "D", "Act", "R", "経時"]) expect(html).toContain(`>${b}</button>`);
-    expect(html).toContain("フォーカス（DAR）（1）");
+    for (const b of ["すべて", "記載だけ", "オーダだけ"]) expect(html).toContain(`>${b}</button>`);
+    expect(html).toContain('aria-label="記載を書いた職種"');
+    expect(html).toContain('aria-label="オーダの種類"');
   });
 
   it("shows 記録時刻, when it was written late, and when it was updated", () => {

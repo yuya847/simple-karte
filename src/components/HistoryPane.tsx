@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Copy, GripVertical, History, MoreHorizontal, PencilLine, Search, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS } from "@/lib/master";
-import { NOTE_PARTS, NOTE_PART_TITLE, canRevise, diffLines, hasPart, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
+import { canRevise, diffLines, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
@@ -65,6 +65,8 @@ interface Props {
   onOpenDiet?: () => void;
   /** Open an imaging order's pictures in the PACS viewer. */
   onOpenImage?: (entryId: string) => void;
+  /** 検体検査: open the results table at this draw (day and time of the collection). */
+  onOpenResult?: (at: { day: DayOffset; time: string }) => void;
   /** The patient's bookings (予約の一覧). */
   bookings?: Booking[];
   /** 移動 row of the 移動・食事 calendar, booking from a date, and carrying out a booked move. */
@@ -103,7 +105,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
   // A 記録 mark of the flow sheet opens 経過 on that day with only that kind of note (n renews the list).
   const [recordKind, setRecordKind] = useState<{ kind: string; n: number }>({ kind: "all", n: 0 });
@@ -150,26 +152,27 @@ export function HistoryPane(props: Props) {
       ) : view === "diet-cal" ? (
         <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} moves={moves} onBook={onBook} onDoMove={onDoMove} />
       ) : (
-        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} />
+        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} />
       )}
     </section>
   );
 }
 
 /** Kinds of record to narrow the list to (one at a time), like the navigator of a ward chart. */
-const KINDS: { key: string; label: string; test: (e: HistoryEntry) => boolean }[] = [
-  { key: "all", label: "すべて", test: () => true },
-  { key: "doctor", label: "医師の記載", test: (e) => e.kind === "note" && e.role === "医師" },
-  { key: "nurse", label: "看護の記載", test: (e) => e.kind === "note" && e.role === "看護師" },
-  { key: "staff", label: "ほかの職種", test: (e) => e.kind === "note" && e.role !== "医師" && e.role !== "看護師" },
-  { key: "focus", label: "フォーカス（DAR）", test: (e) => e.kind === "note" && !!e.focus?.length },
-  { key: "timeline", label: "経時記録", test: (e) => e.kind === "note" && !!e.timeline?.length },
-  { key: "prescription", label: "内服", test: (e) => e.kind === "order" && e.order.type === "prescription" },
-  { key: "injection", label: "注射", test: (e) => e.kind === "order" && e.order.type === "injection" },
-  { key: "lab", label: "検体検査", test: (e) => e.kind === "order" && e.order.type === "lab" },
-  { key: "exam", label: "画像・生理", test: (e) => e.kind === "order" && (e.order.type === "imaging" || e.order.type === "physio") },
-  { key: "procedure", label: "処置・透析・輸血", test: (e) => e.kind === "order" && e.order.type === "procedure" },
+/** What the record is filtered by: the writer's profession for notes, the kind for orders. Each is a checkbox. */
+const CATS: { key: string; group: "note" | "order"; label: string; test: (e: HistoryEntry) => boolean }[] = [
+  { key: "doctor", group: "note", label: "医師", test: (e) => e.kind === "note" && e.role === "医師" },
+  { key: "nurse", group: "note", label: "看護師", test: (e) => e.kind === "note" && e.role === "看護師" },
+  { key: "staff", group: "note", label: "ほかの職種", test: (e) => e.kind === "note" && e.role !== "医師" && e.role !== "看護師" },
+  { key: "prescription", group: "order", label: "内服", test: (e) => e.kind === "order" && e.order.type === "prescription" },
+  { key: "injection", group: "order", label: "注射", test: (e) => e.kind === "order" && e.order.type === "injection" },
+  { key: "lab", group: "order", label: "検体検査", test: (e) => e.kind === "order" && e.order.type === "lab" },
+  { key: "exam", group: "order", label: "画像・生理", test: (e) => e.kind === "order" && (e.order.type === "imaging" || e.order.type === "physio") },
+  { key: "procedure", group: "order", label: "処置・透析・輸血", test: (e) => e.kind === "order" && e.order.type === "procedure" },
 ];
+const ALL_CATS = CATS.map((c) => c.key);
+/** The categories a quick choice stands for (記載だけ・オーダだけ), or an old single-kind key. */
+const catsFor = (key: string): string[] => (key === "notes" ? CATS.filter((c) => c.group === "note").map((c) => c.key) : key === "orders" ? CATS.filter((c) => c.group === "order").map((c) => c.key) : CATS.some((c) => c.key === key) ? [key] : ALL_CATS);
 
 const textOf = (e: HistoryEntry, today: CalendarDate) => (e.kind === "note" ? `${e.author} ${noteText(e)}` : `${orderLines(e.order, today).main} ${orderLines(e.order, today).detail} ${e.author}`);
 
@@ -183,6 +186,7 @@ function RecordList({
   onReviseNote,
   onDo,
   onOpenImage,
+  onOpenResult,
 }: {
   kindInit?: string;
   patient: Patient;
@@ -193,12 +197,18 @@ function RecordList({
   onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
   onDo?: (p: DoPayload) => void;
   onOpenImage?: (entryId: string) => void;
+  onOpenResult?: (at: { day: DayOffset; time: string }) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const [kind, setKind] = useState(KINDS.some((k) => k.key === kindInit) ? kindInit : "all");
+  // A draw's result is filed under the collection time (the same as the printed label).
+  const resultAt = (e: HistoryEntry) => {
+    if (e.kind !== "order" || e.order.type !== "lab") return null;
+    const c = e.order.collect;
+    return patient.labs.some((l) => l.day === c.day && l.time === c.time) ? { day: c.day, time: c.time } : null;
+  };
+  const [on, setOn] = useState<string[]>(() => catsFor(kindInit));
   const [q, setQ] = useState("");
-  // 記事の部分（全・#・S・O・A・P・D・Act・R・経時）: only notes with that part, showing only that part.
-  const [part, setPart] = useState<NotePart>("全");
+  const toggle = (k: string) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
 
   useEffect(() => {
     if (selectedDay === null) return;
@@ -208,29 +218,41 @@ function RecordList({
   const days: DayOffset[] = [];
   for (let d = 0; d >= patient.admittedOn; d--) days.push(d);
   const visible = entries.filter((e) => showStopped || e.kind !== "order" || e.status !== "中止");
-  const k = KINDS.find((x) => x.key === kind)!;
   const key = searchKey(q.trim());
-  const shown = visible.filter((e) => k.test(e) && (part === "全" || (e.kind === "note" && hasPart(e, part))) && (!key || searchKey(textOf(e, today)).includes(key)));
-  const narrowed = kind !== "all" || !!key || part !== "全";
+  const shown = visible.filter((e) => CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key)));
+  const narrowed = on.length !== ALL_CATS.length || !!key;
+  const counts = Object.fromEntries(CATS.map((c) => [c.key, visible.filter(c.test).length]));
+  const allOf = (g: "note" | "order") => CATS.filter((c) => c.group === g).every((c) => on.includes(c.key));
+  const onlyOf = (g: "note" | "order") => allOf(g) && CATS.filter((c) => c.group !== g).every((c) => !on.includes(c.key));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-1.5 border-b border-rule-soft px-4 py-2">
-        <div className="flex items-center gap-2">
-          <label className="flex shrink-0 items-center gap-1 text-[12px] text-ink-soft">
-            <span className="sr-only">記録の種類で絞る</span>
-            <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="記録の種類で絞る" className={`rounded-md border bg-paper px-1.5 py-1 text-[12px] ${kind !== "all" ? "border-ai font-bold text-ai" : "border-rule"}`}>
-              {KINDS.map((x) => {
-                const n = visible.filter(x.test).length;
-                return (
-                  <option key={x.key} value={x.key} disabled={x.key !== "all" && n === 0}>
-                    {x.label}（{n}）
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-          <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+          <span role="group" aria-label="早く絞る" className="flex rounded-md border border-rule p-0.5">
+            {([
+              ["all", "すべて", on.length === ALL_CATS.length],
+              ["notes", "記載だけ", onlyOf("note")],
+              ["orders", "オーダだけ", onlyOf("order")],
+            ] as const).map(([k, label, active]) => (
+              <button key={k} type="button" aria-pressed={active} onClick={() => setOn(catsFor(k))} className={`rounded px-2 py-0.5 ${active ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}>
+                {label}
+              </button>
+            ))}
+          </span>
+          {(["note", "order"] as const).map((g) => (
+            <span key={g} role="group" aria-label={g === "note" ? "記載を書いた職種" : "オーダの種類"} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-ink-faint">{g === "note" ? "記載" : "オーダ"}</span>
+              {CATS.filter((c) => c.group === g).map((c) => (
+                <label key={c.key} className={`nums flex cursor-pointer items-center gap-0.5 ${counts[c.key] === 0 ? "text-ink-faint/60" : on.includes(c.key) ? "text-ink" : "text-ink-soft"}`}>
+                  <input type="checkbox" checked={on.includes(c.key)} onChange={() => toggle(c.key)} className="accent-ai" />
+                  {g === "note" ? <span className={`rounded px-1 leading-4 ${ROLE_CHIP[c.key]}`}>{c.label}</span> : c.label}
+                  <span className="text-ink-faint">{counts[c.key]}</span>
+                </label>
+              ))}
+            </span>
+          ))}
+          <label className="flex min-w-40 flex-1 items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
             <Search size={13} className="shrink-0 text-ink-faint" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
             {q && (
@@ -240,38 +262,17 @@ function RecordList({
             )}
           </label>
         </div>
-        <RoleLegend />
-        <div role="group" aria-label="記事の部分で絞る" className="flex flex-wrap items-center gap-0.5 text-[11px]">
-          {NOTE_PARTS.map((x) => {
-            const n = x === "全" ? null : visible.filter((e) => e.kind === "note" && hasPart(e, x)).length;
-            return (
-              <button
-                key={x}
-                type="button"
-                aria-pressed={part === x}
-                disabled={n === 0}
-                title={`${NOTE_PART_TITLE[x]}${n === null ? "" : `（${n}件）`}`}
-                onClick={() => setPart(x)}
-                className={`nums min-w-6 rounded border px-1 py-0.5 pointer-coarse:py-1 ${part === x ? "border-ai bg-ai font-bold text-white" : "border-rule bg-paper text-ink-soft hover:text-ink disabled:opacity-30"} ${x === "D" ? "ml-1.5" : ""} ${x === "経時" ? "ml-1.5" : ""}`}
-              >
-                {x}
-              </button>
-            );
-          })}
-        </div>
         {narrowed && (
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
-              {kind !== "all" ? `「${k.label}」` : ""}
-              {part !== "全" ? `「${NOTE_PART_TITLE[part]}」` : ""}
+              {on.length !== ALL_CATS.length ? `${CATS.filter((c) => on.includes(c.key)).map((c) => c.label).join("・") || "なし"}` : ""}
               {key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shown.length}件
             </b>
             <button
               type="button"
               onClick={() => {
-                setKind("all");
+                setOn(ALL_CATS);
                 setQ("");
-                setPart("全");
               }}
               className="ml-auto underline"
             >
@@ -284,7 +285,8 @@ function RecordList({
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
         {days.map((d) => {
           const items = shown.filter((e) => e.day === d).sort((a, b) => minutesOf(a.time) - minutesOf(b.time));
-          if (narrowed && items.length === 0) return null;
+          // A day with nothing to show is left out (today stays, as the place for the day's records).
+          if (items.length === 0 && d !== 0) return null;
           return (
             <div
               key={d}
@@ -297,12 +299,10 @@ function RecordList({
                   入院{hospitalDay(patient.admittedOn, d)}日目{d === 0 ? "（今日）" : ""}
                 </span>
               </h3>
-              {items.length === 0 ? (
-                <p className="text-xs text-ink-faint">記録なし</p>
-              ) : (
+              {items.length === 0 ? null : (
                 <ol className="space-y-2">
                   {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} part={part} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} />}</li>
+                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} />}</li>
                   ))}
                 </ol>
               )}
@@ -371,19 +371,8 @@ export const ROLE_COLORS: Record<NoteEntry["role"], { text: string; chip: string
   検査室: { text: "text-fuji", chip: "bg-fuji text-white", edge: "border-l-fuji", bg: "bg-fuji-soft/50" },
 };
 
-/** The legend of the colours, over the record. */
-export function RoleLegend() {
-  const shown: NoteEntry["role"][] = ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW", "医事課"];
-  return (
-    <div className="flex flex-wrap items-center gap-1 text-[10px] text-ink-faint" aria-label="職種の色">
-      {shown.map((r) => (
-        <span key={r} className={`rounded px-1 leading-4 ${ROLE_COLORS[r].chip}`}>
-          {r}
-        </span>
-      ))}
-    </div>
-  );
-}
+/** The chip colour of each note-writer checkbox (ほかの職種 takes the pharmacist's). */
+const ROLE_CHIP: Record<string, string> = { doctor: ROLE_COLORS.医師.chip, nurse: ROLE_COLORS.看護師.chip, staff: "bg-ink-soft text-white" };
 
 function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry; today: CalendarDate; part?: NotePart; onRevise?: (e: NoteEntry, text: string, reason: string) => void; onDo?: (p: DoPayload) => void }) {
   const me = useMe();
@@ -614,7 +603,7 @@ function labItems(codes: string[]): string[] {
   });
 }
 
-function OrderRow({ entry, today, onDo, onOpenImage }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void }) {
+function OrderRow({ entry, today, onDo, onOpenImage, onOpenResult }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void }) {
   const { main, detail } = orderLines(entry.order, today);
   const stopped = entry.status === "中止";
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -661,6 +650,11 @@ function OrderRow({ entry, today, onDo, onOpenImage }: { entry: OrderEntry; toda
       {entry.order.type === "imaging" && onOpenImage && !stopped && (
         <button type="button" onClick={() => onOpenImage(entry.id)} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
           画像を開く（PACS）
+        </button>
+      )}
+      {entry.order.type === "lab" && onOpenResult && !stopped && (
+        <button type="button" onClick={onOpenResult} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+          結果を表示
         </button>
       )}
       {entry.order.type === "lab" && (
