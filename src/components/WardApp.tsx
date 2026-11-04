@@ -1,6 +1,7 @@
 "use client";
 
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
+import { normalizeRightState, orderWindows, showOrderWindow } from "@/lib/order-windows";
 import { recordsForCompletedOrders } from "@/lib/completed-orders";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -8,7 +9,7 @@ import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, continuedTime, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
 import { checkDraft, draftsFromAi, isReady, newProcedureDraft, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type InjectionDraft, type Issue, type StopDraft } from "@/lib/drafts";
 import type { InjSeed, InjStart } from "@/lib/inj-calendar";
-import { besideWin, bigWin, keepWin, keptWin } from "@/lib/win-prefs";
+import { bigWin, keepWin, keptWin } from "@/lib/win-prefs";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
@@ -256,7 +257,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -369,7 +370,7 @@ const deskKeyOf = (id: string, role: string) => `${id}|${role}`;
 function mergedChart(all: Record<string, ChartState>, id: string, role: string): ChartState {
   const base = all[id] ?? newChart();
   const desk = all[deskKeyOf(id, role)] ?? newChart();
-  return { ...desk, added: base.added, stopped: base.stopped, stopTimes: base.stopTimes, extended: base.extended };
+  return { ...desk, ...normalizeRightState(desk), added: base.added, stopped: base.stopped, stopTimes: base.stopTimes, extended: base.extended };
 }
 function applyChart(all: Record<string, ChartState>, id: string, role: string, patch: (c: ChartState) => Partial<ChartState>): Record<string, ChartState> {
   const p = patch(mergedChart(all, id, role));
@@ -385,8 +386,8 @@ const newChart = (): ChartState => ({
   showStopped: false,
   leftView: "record",
   rightTab: "note",
-  // 注射 and 内服 are there from the start; each closes with × and opens again from the tools.
-  openTabs: ["injection", "rx"],
+  // Entry forms open from the tools; only optional reference tabs are kept here.
+  openTabs: [],
   note: NOTE_TEMPLATE,
   instruction: "",
   drafts: [],
@@ -476,6 +477,8 @@ export default function WardApp() {
   const nowTime = useSyncExternalStore(everyFifteenSeconds, clientNow, serverNull);
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [orderWins, setOrderWins] = useState<string[]>([]);
+  const openOrder = (key: string) => setOrderWins((v) => showOrderWindow(v, key));
   const [panel, setPanel] = useState<PanelKind | null>(null);
   /** The record template a pinned tile on the rail asked to open (テンプレート panel). */
   const [templateFocus, setTemplateFocus] = useState<string | null>(null);
@@ -1005,9 +1008,6 @@ export default function WardApp() {
     setPanel(null);
     setFlowReq(null);
   }, []);
-  // Put the cursor in the first drug search of 注射 / 内服 when that tab is shown (keyboard use).
-  const focusRightTab = (t: string) =>
-    requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-right-tab="${t}"] input[role=combobox]`)?.focus());
 
   const patient = activeId ? findPatient(activeId) : undefined;
   const chart = activeId ? mergedChart(charts, activeId, desk) : newChart();
@@ -1409,13 +1409,11 @@ export default function WardApp() {
     if (e.order.type !== "injection") return;
     addStopDraft(e, "（カレンダーから修正）");
     const order = e.order;
-    update((c) => ({
+    update({
       injSeed: { key: newId(), order },
-      openTabs: c.openTabs.includes("injection") ? c.openTabs : [...c.openTabs, "injection"],
-      rightTab: floating.injection ? c.rightTab : "injection",
-      flash: "前のオーダの中止の下書きを入れ、同じ内容を注射のタブに写しました。直して下書きにし、まとめて確定してください。",
-    }));
-    if (floating.injection) toFront("injection");
+      flash: "前のオーダの中止の下書きを入れ、同じ内容を注射のウインドウに写しました。直して下書きにし、まとめて確定してください。",
+    });
+    openOrder("add-injection");
   };
   const pendingExtends: Record<string, number> = Object.fromEntries(chart.drafts.flatMap((d) => (d.kind === "extend" ? [[d.targetOrderId, d.addDays]] : [])));
   const toFront = (t: RightTab) => setZOrder((z) => [...z.filter((x) => x !== t), t]);
@@ -1426,21 +1424,15 @@ export default function WardApp() {
     const away = !!floating[t] || !!win;
     update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: away ? c.rightTab : t }));
     if (away) toFront(t);
-    focusRightTab(t);
   };
-  // 新規 from the injection calendar: the start (day and time band) and, for Do, the order go to the 注射 tab.
-  // When the calendar is in its own window, the 注射 tab opens in a window beside it, so both stay in view.
+  // The calendar sends the start and optional Do order to the injection entry window.
   const newInjection = (start: InjStart, from?: InjectionOrder) => {
-    const injWin = floating.injection ?? (floating.injcal ? besideWin(floating.injcal, window.innerWidth, window.innerHeight) : undefined);
-    if (injWin && !floating.injection) setFloating((f) => ({ ...f, injection: injWin }));
-    update((c) => ({
+    update({
       injSeed: { key: newId(), order: from, start },
-      openTabs: c.openTabs.includes("injection") ? c.openTabs : [...c.openTabs, "injection"],
-      rightTab: injWin ? c.rightTab : "injection",
-      flash: from ? "同じ内容を注射のタブに写しました（Do）。開始日を確かめ、下書きにしてください。" : "開始の日時を注射のタブに入れました。薬を選んで下書きにし、記事の下で確定してください。",
-    }));
-    // The 注射 tab itself puts the focus on the Rp that took the start (the first box would be the wrong Rp when Rp1 is filled).
-    if (injWin) toFront("injection");
+      flash: from ? "同じ内容を注射のウインドウに写しました（Do）。開始日を確かめ、下書きにしてください。" : "開始の日時を注射のウインドウに入れました。薬を選んで下書きにし、記事の下で確定してください。",
+    });
+    // The injection form itself puts the focus on the Rp that took the start (the first box would be the wrong Rp when Rp1 is filled).
+    openOrder("add-injection");
   };
   const pendingNewInj = chart.drafts.filter((d): d is InjectionDraft => d.kind === "injection");
 
@@ -1455,15 +1447,15 @@ export default function WardApp() {
     if (!e || !patient) return;
     const o = e.order;
     if (o.type === "injection") {
-      update({ injSeed: { key: newId(), order: o }, flash: "同じ注射を注射のタブに写しました（Do）。直して下書きにしてください。" });
-      openRight("injection");
+      update({ injSeed: { key: newId(), order: o }, flash: "同じ注射を注射のウインドウに写しました（Do）。直して下書きにしてください。" });
+      openOrder("add-injection");
     } else if (o.type === "prescription") {
       const rp = o.rp;
       const same = entries.filter((x): x is OrderEntry => x.kind === "order" && x.order.type === "prescription" && (rp ? x.order.rp === rp : x.id === e.id));
       const [pattern] = previousOf(patient.id, same.map((x) => (x.order.type === "prescription" && x.order.category === "持参薬" ? { ...x, order: { ...x.order, category: "定期" as const } } : x)));
       if (!pattern) return;
-      update({ rxSeed: { key: newId(), pattern }, flash: "同じ処方を内服のタブに写しました（Do）。日数などを確かめて下書きにしてください。" });
-      openRight("rx");
+      update({ rxSeed: { key: newId(), pattern }, flash: "同じ処方を内服のウインドウに写しました（Do）。日数などを確かめて下書きにしてください。" });
+      openOrder("add-rx");
     } else if (o.type === "lab") {
       addManualLab({ id: newId(), origin: "manual", sourceText: "（Do：前の検査から）", comment: null, kind: "lab", tests: o.codes.map((code) => ({ code, said: code })), collect: { day: null, when: null, time: null, beforeDose: null }, priority: null, cultureSets: null, duplicateOk: false });
       update({ flash: "同じ検査を下書きにしました（Do）。採る日時を選んでください。" });
@@ -3064,7 +3056,6 @@ export default function WardApp() {
                 onChange={(t) => {
                   if (floating[t]) return toFront(t);
                   update({ rightTab: t });
-                  focusRightTab(t);
                 }}
                 onOpen={openRight}
                 onFloat={(t) => {
@@ -3073,25 +3064,22 @@ export default function WardApp() {
                   toFront(t);
                   // The right side shows another tab that is still docked.
                   update((c) => {
-                    const docked = (["note", "injection", "rx", ...c.openTabs] as RightTab[]).find((x) => x !== t && !floating[x]);
+                    const docked = (["note", ...c.openTabs] as RightTab[]).find((x) => x !== t && !floating[x]);
                     return c.rightTab === t && docked ? { rightTab: docked } : {};
                   });
                 }}
-                canOrder={!orderBlock}
                 onClose={(t) => {
                   setFloating((f) => ({ ...f, [t]: undefined }));
                   update((c) => ({ openTabs: c.openTabs.filter((x) => x !== t), rightTab: c.rightTab === t ? "note" : c.rightTab }));
                 }}
                 counts={{
                   note: chart.drafts.length,
-                  injection: chart.drafts.filter((d) => d.kind === "injection").length,
-                  rx: chart.drafts.filter((d) => d.kind === "prescription").length,
                   injcal: chart.drafts.filter((d) => d.kind === "extend").length,
                 }}
               />
               {(() => {
                 // Which tab the right side shows: the chosen one, unless it is in its own window.
-                const docked = ([chart.rightTab, "note", "injection", "rx", ...chart.openTabs] as RightTab[]).find((t) => (t === "note" || t === "injection" || t === "rx" || chart.openTabs.includes(t)) && !floating[t]) ?? null;
+                const docked = ([chart.rightTab, "note", ...chart.openTabs] as RightTab[]).find((t) => (t === "note" || chart.openTabs.includes(t)) && !floating[t]) ?? null;
                 const dock = (t: RightTab, title: string, dockedClass: string, children: React.ReactNode) => (
                   <Dockable
                     key={t}
@@ -3115,7 +3103,7 @@ export default function WardApp() {
                     {children}
                   </Dockable>
                 );
-                const pane = "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3";
+
                 // The reading windows (経過表・内服・処置・移動・食事・指示簿・予約): what each shows and does.
                 const refProps = refPropsOf(patient);
                 return (
@@ -3165,12 +3153,9 @@ export default function WardApp() {
                         onConfirmNote={() => presence.guard(patient.id, "記事の確定", confirmNote)}
                       />,
                     )}
-                    {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
-                    {dock(
-                        "injection",
-                        "注射",
-                        "flex min-h-0 flex-1 flex-col",
-                        <div data-right-tab="injection" className={pane}>
+                    {/* Other tools can open while these entry windows keep their unfinished Rp. */}
+                    {orderWins.includes("add-injection") && (
+                      <Drawer key={`injection:${patient.id}:${desk}`} title={`注射：${patient.name}さん`} windowKey="add-injection" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-injection"))}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddInjectionPanel
                               key={patient.id}
@@ -3181,13 +3166,10 @@ export default function WardApp() {
                               onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                             />
                           </fieldset>
-                        </div>,
-                      )}
-                    {dock(
-                        "rx",
-                        "内服",
-                        "flex min-h-0 flex-1 flex-col",
-                        <div data-right-tab="rx" className={pane}>
+                      </Drawer>
+                    )}
+                    {orderWins.includes("add-rx") && (
+                      <Drawer key={`rx:${patient.id}:${desk}`} title={`内服：${patient.name}さん`} windowKey="add-rx" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-rx"))}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddRxPanel
                               ward={patient.ward}
@@ -3203,8 +3185,8 @@ export default function WardApp() {
                               onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                             />
                           </fieldset>
-                        </div>,
-                      )}
+                      </Drawer>
+                    )}
                     {chart.openTabs.includes("injcal") &&
                       dock(
                         "injcal",
@@ -4186,18 +4168,12 @@ export default function WardApp() {
               </>
             )}
             <ToolRail
-              open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
+              open={panel}
               badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
               openTemplate={panel === "templates" ? templateFocus : null}
               onOpen={(p, o) => {
                 setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);
-                // 注射 and 内服 are tabs on the right, not panels.
-                if (p === "add-injection" || p === "add-rx") {
-                  const t: RightTab = p === "add-injection" ? "injection" : "rx";
-                  setPanel(null);
-                  update((c) => ({ openTabs: c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: t }));
-                  focusRightTab(t);
-                } else if (p === null && !panel) update({ rightTab: "note" });
+                if (p === "add-injection" || p === "add-rx") openOrder(p);
                 else {
                   if (p === "imaging") setImageFocus(null);
                   setFlowReq(null);

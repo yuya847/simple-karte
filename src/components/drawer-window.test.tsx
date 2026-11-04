@@ -2,7 +2,8 @@
 // as a window first is a table WardApp gives through DrawerDefaults, and the server still draws the
 // drawer (there is no window to measure) so the markup never depends on a device.
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { orderWindows } from "@/lib/order-windows";
 import { bigWin } from "./Dockable";
 import { Drawer, DrawerDefaults } from "./panels/Drawer";
 
@@ -32,6 +33,27 @@ describe("パネルの別ウインドウ", () => {
     expect(html).not.toContain("引き出しに戻す");
     expect(html).toContain("見るだけです。医師が出します。");
     expect(html).toContain("<fieldset disabled");
+  });
+
+  it("注射・内服 open as nonmodal windows, using this device's remembered size and place", () => {
+    vi.stubGlobal("window", { innerWidth: 1400, innerHeight: 900, localStorage: {
+      getItem: () => JSON.stringify({ mode: "drawer", win: { x: 40, y: 70, w: 700, h: 600 } }),
+    } });
+    try {
+      for (const key of orderWindows) {
+        const html = renderToStaticMarkup(
+          <DrawerDefaults.Provider value={{ panel: "add-lab", windowed: new Set(orderWindows) }}>
+            <Drawer title={key} windowKey={key} onClose={() => {}}><input aria-label="薬" /></Drawer>
+          </DrawerDefaults.Provider>,
+        );
+        expect(html).toContain(`data-drawer-window="${key}"`);
+        expect(html).toContain("left:40px;top:70px;width:700px;height:600px");
+        expect(html).not.toContain('aria-modal="true"');
+        expect(html).not.toContain("inset-0");
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("the first window is about 80% of the screen, centred", () => {

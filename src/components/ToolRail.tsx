@@ -270,7 +270,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const grid = list ? "flex flex-col gap-0.5" : "grid grid-cols-3 gap-0.5";
 
   return (
-    <aside aria-label="ツール" className={`scroll-thin flex min-h-0 flex-col overflow-y-auto border-l border-rule bg-paper px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
+    <aside aria-label="ツール" className={`scroll-thin relative z-[60] flex min-h-0 flex-col overflow-y-auto border-l border-rule bg-paper px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
       <div className="mb-1 flex items-center justify-between px-0.5">
         <span className="text-[10px] text-ink-faint">オーダと道具</span>
         <span className="flex items-center gap-0.5">

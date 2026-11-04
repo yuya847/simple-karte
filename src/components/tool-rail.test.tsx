@@ -81,6 +81,14 @@ describe("右端ツールの中の帯（指示受け・研修医の記録の確�
 
 
 describe("処方・注射の入口", () => {
+  it("注射を開いていても群タブと処方は押せる", () => {
+    const html = as("医師", <ToolRail open="add-injection" onOpen={() => {}} />);
+    for (const tab of tabs(html)) expect(tab).not.toContain("disabled");
+    const prescription = (html.match(/<button[^>]*>/g) ?? []).find((button) => button.includes('title="処方"'));
+    expect(prescription).toBeTruthy();
+    expect(prescription).not.toContain("disabled");
+  });
+
   it("介入の先頭に処方・注射を並べ、既存の権限による無効表示を使う", () => {
     expect(groupsFor("医師")[0].main.slice(0, 2).map((t) => t.key)).toEqual(["add-rx", "add-injection"]);
     for (const role of ROLES) {

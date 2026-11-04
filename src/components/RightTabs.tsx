@@ -1,14 +1,12 @@
 "use client";
 
-import { Activity, ArrowRightLeft, Bandage, CalendarCheck, CalendarDays, ClipboardList, NotebookPen, PictureInPicture2, Pill, PillBottle, Syringe, X } from "lucide-react";
+import { Activity, ArrowRightLeft, Bandage, CalendarCheck, CalendarDays, ClipboardList, NotebookPen, PictureInPicture2, Pill, PillBottle, X } from "lucide-react";
 import { useEffect } from "react";
 
-export type RightTab = "note" | "injection" | "rx" | "injcal" | "flowsheet" | "rxcal" | "proccal" | "dietcal" | "standingcal" | "bookings";
+export type RightTab = "note" | "injcal" | "flowsheet" | "rxcal" | "proccal" | "dietcal" | "standingcal" | "bookings";
 
 export const RIGHT_TABS: Record<RightTab, { label: string; icon: typeof Pill; key: string; title?: string }> = {
   note: { label: "記事作成", icon: NotebookPen, key: "1" },
-  injection: { label: "注射", icon: Syringe, key: "2" },
-  rx: { label: "内服", icon: Pill, key: "3" },
   injcal: { label: "注射カレンダー", icon: CalendarDays, key: "4" },
   flowsheet: { label: "経過表", icon: Activity, key: "5", title: "経過表（温度板）：バイタル・検査値・注射・食事・水分出納を日ごとに" },
   rxcal: { label: "内服カレンダー", icon: PillBottle, key: "6", title: "内服カレンダー：処方の行ごとに、続く期間を帯で" },
@@ -17,7 +15,7 @@ export const RIGHT_TABS: Record<RightTab, { label: string; icon: typeof Pill; ke
   standingcal: { label: "指示簿", icon: ClipboardList, key: "9", title: "指示簿カレンダー（指示の行ごとに、続く期間を帯で）" },
   bookings: { label: "予約", icon: CalendarCheck, key: "0", title: "予約の一覧（検査・透析・リハビリ・手術・外来予約など）" },
 };
-const BY_DIGIT: Record<string, RightTab> = { Digit1: "note", Digit2: "injection", Digit3: "rx", Digit4: "injcal", Digit5: "flowsheet", Digit6: "rxcal", Digit7: "proccal", Digit8: "dietcal", Digit9: "standingcal", Digit0: "bookings" };
+const BY_DIGIT: Record<string, RightTab> = { Digit1: "note", Digit4: "injcal", Digit5: "flowsheet", Digit6: "rxcal", Digit7: "proccal", Digit8: "dietcal", Digit9: "standingcal", Digit0: "bookings" };
 
 /** The reading tabs: they open from the tools on the far right (参照), in their own large window first, and close with ×. */
 export const REF_TABS = ["flowsheet", "rxcal", "proccal", "dietcal", "standingcal", "bookings"] as const;
@@ -29,7 +27,7 @@ export const WINDOW_TABS: ReadonlySet<RightTab> = new Set<RightTab>(["injcal", .
 const CLOSABLE: ReadonlySet<RightTab> = WINDOW_TABS;
 
 /**
- * Tabs over the right side of the chart. 記事作成・注射・内服 are always there; 注射カレンダー and the reading
+ * Tabs over the right side of the chart. 記事作成 are always there; 注射カレンダー and the reading
  * tabs (経過表・内服・処置・移動・食事・指示簿・予約) open from the tools on the far right and close with ×.
  * Any tab can be shown in its own window (別ウインドウ).
  */
@@ -42,7 +40,6 @@ export function RightTabs({
   onClose,
   onFloat,
   counts,
-  canOrder,
 }: {
   open: RightTab[];
   value: RightTab;
@@ -53,24 +50,23 @@ export function RightTabs({
   onClose: (t: RightTab) => void;
   onFloat: (t: RightTab) => void;
   counts: Partial<Record<RightTab, number>>;
-  canOrder: boolean;
 }) {
-  // 記事作成・注射・内服 are always there (the only place to enter 注射 and 内服); the others open from
+  // 記事作成 are always there; the others open from
   // the tools on the far right and close with ×.
-  const shown: RightTab[] = ["note", "injection", "rx", ...open.filter((t) => CLOSABLE.has(t))];
-  // ⌥1 記事作成・⌥2 注射・⌥3 内服・⌥4 注射カレンダー・⌥5〜⌥0 the reading tabs (Alt on Windows), from anywhere
+  const shown: RightTab[] = ["note", ...open.filter((t) => CLOSABLE.has(t))];
+  // ⌥1 記事作成・⌥4 注射カレンダー・⌥5〜⌥0 the reading tabs (Alt on Windows), from anywhere
   // in the chart. e.code, so the characters ⌥ types on a Mac do not matter.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.altKey && !e.metaKey && !e.ctrlKey ? BY_DIGIT[e.code] : undefined;
-      if (!t || ((t === "injection" || t === "rx") && !canOrder)) return;
+      if (!t) return;
       e.preventDefault();
       if (t === "note") onChange(t);
       else onOpen(t);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onChange, onOpen, canOrder]);
+  }, [onChange, onOpen]);
 
   return (
     <div role="tablist" aria-label="右の欄" className="scroll-thin flex items-end gap-1 overflow-x-auto border-b border-rule bg-paper px-2 pt-1.5">

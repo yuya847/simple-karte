@@ -64,8 +64,17 @@ describe("右の欄の参照のタブ", () => {
     expect(isRefTab("flowsheet")).toBe(true);
     expect(isRefTab("injcal")).toBe(false);
   });
+  it("the right column has only note entry, without injection/prescription tabs or their shortcuts", () => {
+    const html = renderToStaticMarkup(<RightTabs open={[]} value="note" floating={[]} onChange={() => {}} onOpen={() => {}} onClose={() => {}} onFloat={() => {}} counts={{ note: 2 }} />);
+    expect(html).toContain("記事作成");
+    expect(html).not.toContain("注射");
+    expect(html).not.toContain("内服");
+    expect(html).not.toContain("⌥2");
+    expect(html).not.toContain("⌥3");
+    expect(html.match(/role="tab"/g)).toHaveLength(1);
+  });
   it("an open reading tab is shown with its × and a ⌥ shortcut; a closed one is not", () => {
-    const html = renderToStaticMarkup(<RightTabs open={["injection", "rx", "flowsheet", "bookings"]} value="note" floating={[]} onChange={() => {}} onOpen={() => {}} onClose={() => {}} onFloat={() => {}} counts={{}} canOrder />);
+    const html = renderToStaticMarkup(<RightTabs open={["flowsheet", "bookings"]} value="note" floating={[]} onChange={() => {}} onOpen={() => {}} onClose={() => {}} onFloat={() => {}} counts={{}} />);
     expect(html).toContain("経過表");
     expect(html).toContain('aria-label="経過表のタブを閉じる"');
     expect(html).toContain("（⌥5）");
