@@ -242,7 +242,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -275,6 +275,9 @@ import { FallBoard } from "./FallBoard";
 import { fallTriggers } from "@/lib/fall-reassess";
 import { assignKey, crewOn, nurseOfBed, planLines, roomNurses } from "@/lib/assignments";
 import { VitalsBulk } from "./VitalsBulk";
+import { CentralMonitor } from "./CentralMonitor";
+import { MonitorPanel } from "./panels/MonitorPanel";
+import { EMPTY_MANUAL, toggleMonitor, type MonitorManual } from "@/lib/monitor";
 import { initialRosterBook } from "@/lib/roster";
 import { PressurePanel } from "./panels/PressurePanel";
 import { useInfra } from "@/lib/use-infra";
@@ -625,6 +628,8 @@ export default function WardApp() {
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
+  // 患者モニター（模擬）: put on or taken off by hand by the nurses (the rule's choice is code; lib/monitor.ts).
+  const [monitorManual, setMonitorManual] = useState<MonitorManual>(EMPTY_MANUAL);
   // 与薬・実施の記録 (eMAR). Items due before this session are taken as recorded by the earlier shift.
   const [mar, setMar] = useState<Record<string, AdminRecord>>({});
   // 実施・未実施 records taken back (with who, when and why), by dose key.
@@ -747,6 +752,7 @@ export default function WardApp() {
       paths: [paths, setPaths],
       standingLines: [standingLines, setStandingLines],
       extraVitals: [extraVitals, setExtraVitals],
+      monitorManual: [monitorManual, setMonitorManual],
       mar: [mar, setMar],
       marVoided: [marVoided, setMarVoided],
       io: [io, setIo],
@@ -2122,6 +2128,18 @@ export default function WardApp() {
             nm.setAssignBook((all) => ({ ...all, [assignKey(floor, d, s)]: sheet }));
           }}
         />
+      ) : screen === "monitor" ? (
+        <CentralMonitor
+          candidates={people.map((x) => ({ id: x.patient.id, name: x.patient.name, room: x.room, admittedOn: x.patient.admittedOn, latest: x.patient.vitals.at(-1) }))}
+          manual={monitorManual}
+          lockedWhy={role === "看護師" ? null : "モニターの付け外しは看護師が行います（架空の病院の取り決め）。"}
+          nowTime={nowTime}
+          onToggle={(pid, on) => {
+            auditLog({ role: me.role, actor: me.name, action: on ? "モニターを付けた（模擬）" : "モニターを外した（模擬）", patient: findPatient(pid)?.name });
+            setMonitorManual((m) => toggleMonitor(m, pid, on));
+          }}
+          onOpen={(id) => (openPatient(id), setPanel("monitor"))}
+        />
       ) : screen === "vitals" ? (
         <VitalsBulk
           pick={floorPick}
@@ -3296,6 +3314,17 @@ export default function WardApp() {
                     </div>
                   )}
                   <ActiveOrdersPanel entries={entries} today={today} />
+                </Drawer>
+              )}
+              {panel === "monitor" && (
+                <Drawer title="患者モニター（模擬）" onClose={closePanel}>
+                  <MonitorPanel
+                    patient={patient}
+                    nowTime={nowTime}
+                    lockedWhy={deny("vitals")}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    onRecord={(v) => setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }))}
+                  />
                 </Drawer>
               )}
               {panel === "vitals" && (
