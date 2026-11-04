@@ -98,6 +98,11 @@ export interface NoteEntry {
   timeline?: { time: string; text: string }[];
   /** Notes confirmed in this app carry an id. */
   id?: string;
+  /**
+   * When it was written (記載日時), kept and never changed. `day`/`time` above are 記録時刻: when what is
+   * written happened, set earlier when writing late. Absent in the stored record (written at that time).
+   */
+  writtenAt?: { day: DayOffset; time: string };
   /** シェーマ drawn for the note (PNG data URLs with a caption). */
   figures?: { caption: string; dataUrl: string }[];
   /** Every version when the note was corrected, oldest first (the fields above are the last one). */

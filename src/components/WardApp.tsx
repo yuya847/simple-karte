@@ -229,6 +229,8 @@ interface ChartState {
   injSeed?: { key: string; order: InjectionOrder };
   /** シェーマ attached to today's note (kept with it when confirmed). */
   figures?: { caption: string; dataUrl: string }[];
+  /** 記録時刻 of today's note when it is written late (null/absent = the time it is confirmed). */
+  noteAt?: { day: DayOffset; time: string } | null;
   /** Do of a past prescription (or one picked from 処方の記憶): copied into the 内服 tab. */
   rxSeed?: { key: string; pattern: RxPattern };
   drafting: boolean;
@@ -2502,12 +2504,16 @@ export default function WardApp() {
                         }}
                         onConfirm={confirm}
                         orderMode={orderMode}
+                        noteAt={chart.noteAt ?? null}
+                        onNoteAt={(a) => update({ noteAt: a })}
                         onConfirmNote={() => {
-                          const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
+                          // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
+                          const at = chart.noteAt ?? { day: 0, time: nowTime };
+                          const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
                           setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
-                          auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: chart.note.replace(/\s+/g, " ").slice(0, 120) });
+                          auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: `${chart.noteAt ? `記録時刻 ${formatShort(addDays(today, at.day))} ${at.time}　` : ""}${chart.note.replace(/\s+/g, " ").slice(0, 120)}` });
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
-                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], flash: "記事を確定しました。左の経過に入りました。" });
+                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
                         }}
                       />,
                     )}

@@ -186,7 +186,61 @@ export const noteKey = (e: NoteEntry) => e.id ?? `${e.day}|${e.time}|${e.author}
 
 /** All versions of a note, oldest first; the last one is what the chart shows. */
 export function versionsOf(e: NoteEntry): NoteVersion[] {
-  return e.versions ?? [{ day: e.day, time: e.time, author: e.author, soap: e.soap, text: e.text, focus: e.focus, timeline: e.timeline }];
+  // The first version is dated when it was written (記載), which is not the 記録時刻 of a late note.
+  return e.versions ?? [{ day: e.writtenAt?.day ?? e.day, time: e.writtenAt?.time ?? e.time, author: e.author, soap: e.soap, text: e.text, focus: e.focus, timeline: e.timeline }];
+}
+
+// ---------- 記録時刻・記載時刻・更新時刻 ----------
+// 記録時刻 (when it happened) can be set earlier when writing late; when it was written and every update are
+// kept as they were. 富山市民病院 システム機能一覧 1.3(10)(11)（ケアした時間と記録した時間の両方を記録、遡って
+// 記録）, 沖縄県立南部医療センター 仕様書 B.13.12（カルテ日時・入力日時・入力者の履歴）, 電子カルテ標準仕様研究会
+// 標準仕様書 v1.0 1.03 の 12（指示日時・実施日時・記載日時を各々独立して管理）.
+export const NOTE_TIME_SOURCES = [
+  { name: "富山市民病院 システム機能一覧 1.3 (10)(11)", url: "https://www.tch.toyama.toyama.jp/tmh/02_3_siyousyo_system.pdf" },
+  { name: "沖縄県立南部医療センター・こども医療センター 基幹システム更新 仕様書 B.13.12", url: "https://nanbuweb.hosp.pref.okinawa.jp/userfiles/files/07-1_siyousyo_server.pdf" },
+  { name: "電子カルテ標準仕様研究会「電子カルテシステム標準仕様書 v1.0」1.03 の 12", url: "http://hci-bc.com/pdf/StandardSpec_v1body_c.pdf" },
+];
+
+type Moment = { day: DayOffset; time: string };
+const minutes = (t: string) => {
+  const m = t.match(/^(\d{1,2}):(\d{2})$/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+};
+const absMin = (a: Moment) => a.day * 1440 + minutes(a.time);
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** A clock that ran past midnight ("24:30" of day 0) as the next day's time (day 1, "00:30"). */
+export function normalMoment(a: Moment): Moment {
+  const m = absMin(a);
+  if (!Number.isFinite(m)) return a;
+  const day = Math.floor(m / 1440);
+  const rest = m - day * 1440;
+  return { day, time: `${pad(Math.floor(rest / 60))}:${pad(rest % 60)}` };
+}
+
+/** Why a 記録時刻 cannot be used (null when it can): not a time, later than now, or before the admission day. */
+export function eventTimeProblem(at: Moment, now: Moment, admittedOn: DayOffset): string | null {
+  if (!/^\d{1,2}:\d{2}$/.test(at.time) || minutes(at.time) >= 1440) return "時刻を「時:分」で入れてください。";
+  if (absMin(at) > absMin(now)) return "これから先の時刻にはできません。";
+  if (at.day < admittedOn) return "入院の日より前にはできません。";
+  return null;
+}
+
+/** Days a late note may be dated on: from today back to the admission day, at most a week (newest first). */
+export function eventDays(now: Moment, admittedOn: DayOffset): DayOffset[] {
+  const top = normalMoment(now).day;
+  const out: DayOffset[] = [];
+  for (let d = top; d >= Math.max(admittedOn, top - 7); d--) out.push(d);
+  return out;
+}
+
+/** 記録時刻・記載時刻・更新時刻 of a note; written late when 記載 is after 記録. */
+export function noteTimes(e: NoteEntry): { event: Moment; written: Moment; updated: Moment | null; late: boolean } {
+  const vs = versionsOf(e);
+  const written = { day: vs[0].day, time: vs[0].time };
+  const last = vs.at(-1)!;
+  const late = !!e.writtenAt && absMin(normalMoment(e.writtenAt)) > absMin(normalMoment({ day: e.day, time: e.time }));
+  return { event: { day: e.day, time: e.time }, written, updated: vs.length > 1 ? { day: last.day, time: last.time } : null, late };
 }
 
 /** Only the person who wrote a note corrects it; others write a new note. */

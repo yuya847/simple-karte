@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Copy, GripVertical, History, MoreHorizontal, PencilLine, Search, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS } from "@/lib/master";
-import { NOTE_PARTS, NOTE_PART_TITLE, canRevise, diffLines, hasPart, noteText, versionsOf, type NotePart } from "@/lib/notes";
+import { NOTE_PARTS, NOTE_PART_TITLE, canRevise, diffLines, hasPart, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
@@ -378,6 +378,9 @@ function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry
   const [showHistory, setShowHistory] = useState(false);
   const versions = versionsOf(entry);
   const last = versions.at(-1)!;
+  // 記録時刻 (when it happened), 記載 (when it was written; later for a late note) and 更新 (the last correction).
+  const times = noteTimes(entry);
+  const dayOf = (d: DayOffset) => (d === 0 ? "今日" : formatShort(addDays(today, d)));
   const mine = !!onRevise && canRevise(entry, me.name);
   const startEdit = () => {
     setDraft(noteText(entry));
@@ -411,15 +414,23 @@ function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry
       )}
       <div className="nums mb-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
         {onDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
-        <span>{entry.time}</span>
+        <span title={`記録時刻 ${dayOf(times.event.day)} ${times.event.time}／記載 ${dayOf(times.written.day)} ${times.written.time}${times.updated ? `／更新 ${dayOf(times.updated.day)} ${times.updated.time}` : ""}`}>
+          {times.late || times.updated ? "記録 " : ""}
+          {entry.time}
+        </span>
         <span className={`font-bold ${ROLE_STYLE[entry.role]}`}>{entry.role}</span>
         <span>{entry.author}</span>
         <CosignMark refId={entry.id} />
+        {times.late && (
+          <span className="rounded border border-fuji/50 px-1 text-fuji" title="出来事の時刻（記録時刻）より後に書いた記事。書いた時刻は変わらずに残ります。">
+            記載 {dayOf(times.written.day)} {times.written.time}（遅れて記載）
+          </span>
+        )}
         {versions.length > 1 && (
           <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>
             <History size={11} />
-            修正あり（第{versions.length}版 {last.day === 0 ? "" : formatShort(addDays(today, last.day))}
-            {last.time} {last.author}）
+            更新 {last.day === 0 ? "" : formatShort(addDays(today, last.day))}
+            {last.time} {last.author}（第{versions.length}版）
           </button>
         )}
         {mine && !editing && (
