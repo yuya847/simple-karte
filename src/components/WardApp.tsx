@@ -99,6 +99,7 @@ import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/prof
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
+import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
@@ -520,6 +521,8 @@ export default function WardApp() {
   const [nursingPlans, setNursingPlans] = useState<NursingProblem[]>(INITIAL_PLANS);
   // 指示簿 per patient, every version kept (the last one is in force).
   const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(initialStanding);
+  // 条件付き指示 (指示簿): what a nurse did for each value that met one, by hit key.
+  const [condAcks, setCondAcks] = useState<Record<string, CondAck>>({});
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
@@ -630,6 +633,7 @@ export default function WardApp() {
       careRecords: [careRecords, setCareRecords],
       nursingPlans: [nursingPlans, setNursingPlans],
       standing: [standing, setStanding],
+      condAcks: [condAcks, setCondAcks],
       extraVitals: [extraVitals, setExtraVitals],
       mar: [mar, setMar],
       marVoided: [marVoided, setMarVoided],
@@ -1416,10 +1420,14 @@ export default function WardApp() {
   // 指示簿: the latest vitals against the call criteria, and versions no nurse has taken yet.
   const standingNow = (pid: string) => standing[pid]?.at(-1);
   const callsMet: Record<string, string[]> = Object.fromEntries(people.map((x) => [x.patient.id, callHits(standingNow(x.patient.id), x.patient.vitals.at(-1))]));
+  // 条件付き指示: the latest lab and vital values against the doctor's conditions (code compares only).
+  const condsAll = (pid: string) => condHits(pid, standingNow(pid)?.conds, findPatient(pid) ?? { labs: [], vitals: [] });
+  const condsMet = Object.fromEntries(people.map((x) => [x.patient.id, openHits(condsAll(x.patient.id), condAcks)]));
   const standingFlags: Record<string, Flag[]> = Object.fromEntries(
     people.map((x) => {
       const pid = x.patient.id;
       const out: Flag[] = callsMet[pid].length ? [{ label: "医師を呼ぶ基準", tone: "shu", title: `指示簿の基準に当たる：${callsMet[pid].join("、")}` }] : [];
+      if (condsMet[pid].length) out.push({ label: `条件付き指示 ${condsMet[pid].length}`, tone: "shu", title: condsMet[pid].map((h) => h.text).join("、") });
       if (standingNow(pid) && !standingNow(pid)!.taken) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
       out.push(...leaveFlags(x.entries));
       const rs = activeOf(restraints, pid);
@@ -1494,6 +1502,7 @@ export default function WardApp() {
   for (const x of people) {
     const pid = x.patient.id;
     if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
+    if (condsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `cond-${pid}`, label: `条件付き指示に当たる：${x.patient.name}さん`, detail: condsMet[pid].map((h) => h.text).join("、"), count: condsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
     for (const e of x.entries) {
       if (e.status !== "有効" || e.order.type !== "procedure" || !e.order.guide || !e.order.guide.kind) continue;
       const g = e.order.guide;
@@ -3318,6 +3327,13 @@ export default function WardApp() {
                     nowTime={nowTime}
                     fmtDay={(d) => formatShort(addDays(today, d))}
                     newId={newId}
+                    condHits={condsAll(patient.id)}
+                    condAcks={condAcks}
+                    onCondRecord={(h, note) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（条件付き指示への対応）", patient: patient.name, detail: `${h.text}　対応：${note}` });
+                      setCondAcks((all) => ({ ...all, [h.key]: { key: h.key, by: me.name, at: { day: 0, time: nowTime }, note } }));
+                      chartNote(patient.id, ackLine(h, note, nowTime));
+                    }}
                     onSave={(st) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（指示簿）", patient: patient.name, detail: `第${(standing[patient.id]?.length ?? 0) + 1}版` });
                       setStanding((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }));

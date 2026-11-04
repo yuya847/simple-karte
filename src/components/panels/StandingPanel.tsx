@@ -20,6 +20,8 @@ import {
   type PrnRule,
   type StandingOrders,
 } from "@/lib/standing";
+import { condMissing, ruleText, type CondAck, type CondHit } from "@/lib/cond-orders";
+import { CondEditor, CondHits } from "../CondOrders";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { TabChoice } from "../TabChoice";
 
@@ -34,7 +36,30 @@ const PRN_DRUGS = [
  * nurse takes it (指示受け). As-needed drugs are checked in code: the day's total against the package
  * insert, whether the interval fits in a day, and allergies.
  */
-export function StandingPanel({ versions, allergies, nowTime, fmtDay, onSave, onTake, newId }: { versions: StandingOrders[]; allergies: string[]; nowTime: string; fmtDay: (d: number) => string; onSave: (s: StandingOrders) => void; onTake: () => void; newId: () => string }) {
+export function StandingPanel({
+  versions,
+  allergies,
+  nowTime,
+  fmtDay,
+  onSave,
+  onTake,
+  newId,
+  condHits = [],
+  condAcks = {},
+  onCondRecord,
+}: {
+  versions: StandingOrders[];
+  allergies: string[];
+  nowTime: string;
+  fmtDay: (d: number) => string;
+  onSave: (s: StandingOrders) => void;
+  onTake: () => void;
+  newId: () => string;
+  /** 条件付き指示 the latest values meet, and the nurses' records of what was done. */
+  condHits?: CondHit[];
+  condAcks?: Record<string, CondAck>;
+  onCondRecord?: (h: CondHit, note: string) => void;
+}) {
   const me = useMe();
   const deny = useDeny();
   const cur = versions.at(-1);
@@ -53,6 +78,7 @@ export function StandingPanel({ versions, allergies, nowTime, fmtDay, onSave, on
       !edit.weight && "体重",
       !edit.io && "水分出納",
       edit.prn.some((r) => !r.drug.code || !(r.drug.amount > 0) || !r.intervalH || !r.maxPerDay) && "頓用の薬・量・間隔・回数",
+      (edit.conds ?? []).some((r) => condMissing(r).length > 0) && "条件付き指示の項目・値・すること",
     ].filter((x): x is string => !!x);
     const row = (label: string, el: React.ReactNode) => (
       <div className="flex flex-wrap items-center gap-1.5">
@@ -157,6 +183,8 @@ export function StandingPanel({ versions, allergies, nowTime, fmtDay, onSave, on
           </div>
         </section>
 
+        <CondEditor conds={edit.conds ?? []} onChange={(conds) => set({ conds })} newId={newId} />
+
         <textarea value={edit.other} onChange={(e) => set({ other: e.target.value })} rows={2} placeholder="その他の指示（任意）" aria-label="その他の指示" className="w-full rounded border border-rule bg-paper px-2 py-1" />
         {ask && !stop && (
           <label className="flex items-center gap-1.5 text-yamabuki">
@@ -209,6 +237,7 @@ export function StandingPanel({ versions, allergies, nowTime, fmtDay, onSave, on
               </button>
             )}
           </div>
+          <CondHits hits={condHits} acks={condAcks} fmtDay={fmtDay} canRecord={!!onCondRecord && (me.role === "看護師" || me.role === "医師")} onRecord={(h, note) => onCondRecord?.(h, note)} />
           <StandingView s={cur} />
         </>
       ) : (
@@ -218,7 +247,7 @@ export function StandingPanel({ versions, allergies, nowTime, fmtDay, onSave, on
         <button
           type="button"
           disabled={!!deny("order")}
-          onClick={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))}
+          onClick={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))}
           className="rounded-md border border-ai px-3 py-1.5 font-bold text-ai hover:bg-ai-soft disabled:opacity-40"
         >
           {cur ? "指示簿を変える" : "指示簿を書く"}
@@ -272,6 +301,15 @@ export function StandingView({ s }: { s: StandingOrders }) {
           "—"
         ),
       )}
+      {(s.conds ?? []).length > 0 &&
+        line(
+          "条件付き指示",
+          <ul>
+            {(s.conds ?? []).map((r) => (
+              <li key={r.id}>{ruleText(r)}</li>
+            ))}
+          </ul>,
+        )}
       {s.other && line("その他", s.other)}
     </dl>
   );
