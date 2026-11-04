@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedWardTabs, areasFor, homeArea, nextAfterClose, ownerFor, rehome, wardOwner, wardTabLabel, wardTabsFor, type PatientTab } from "./nav";
+import { allowedWardTabs, areasFor, homeArea, nextAfterClose, ownerFor, readWardTab, rehome, WARD_TABS, wardOwner, wardTabInfo, wardTabsFor, type PatientTab } from "./nav";
 
 describe("① places by role", () => {
   it("everyone has 病棟 and the hospital's notices; 外来 is for doctors and nurses", () => {
@@ -50,7 +50,7 @@ describe("① places by role", () => {
 
 describe("② inside 病棟", () => {
   it("offers the patient lists to everyone and the ward's work by role", () => {
-    for (const t of ["all", "map", "mine", "recent", "favorites", "floor", "handoff", "admit", "paths", "beds", "support", "cosign", "summaries"]) expect(wardTabsFor("医師")).toContain(t);
+    for (const t of ["all", "map", "mine", "recent", "favorites", "handoff", "admit", "paths", "beds", "support", "cosign", "summaries"]) expect(wardTabsFor("医師")).toContain(t);
     expect(wardTabsFor("医師").slice(0, 3)).toEqual(["all", "map", "mine"]);
     // お気に入りの患者: everyone, right after 最近開いた患者.
     for (const r of ["医師", "看護師", "薬剤師", "MSW", "医事課", "管理栄養士"] as const) expect(wardTabsFor(r).indexOf("favorites")).toBe(wardTabsFor(r).indexOf("recent") + 1);
@@ -66,7 +66,7 @@ describe("② inside 病棟", () => {
   it("医事課の仕事: only 医事課 has it, as the ward's work", () => {
     expect(wardTabsFor("医事課")).toContain("iji");
     expect(wardTabsFor("医師")).not.toContain("iji");
-    expect(wardTabLabel("iji", "5階東病棟")).toBe("医事課の仕事");
+    expect(wardTabInfo("iji").label).toBe("医事課の仕事");
     expect(homeArea("医事課")).toBe("ward");
   });
   it("病棟の食事: the 管理栄養士 starts there, nurses can read it", () => {
@@ -88,9 +88,17 @@ describe("② inside 病棟", () => {
   it("keeps only allowed screens from saved defaults, once each and in order", () => {
     expect(allowedWardTabs("医師", ["mine", "sheet", "map", "mine", "x" as never])).toEqual(["mine", "map"]);
   });
-  it("names ◯階 after the floor chosen", () => {
-    expect(wardTabLabel("floor", "6階東病棟")).toBe("6階東病棟");
-    expect(wardTabLabel("mine", "6階東病棟")).toBe("受け持ち患者");
+  it("◯階の患者一覧 is gone: 入院患者一覧 has the ward pulldown (全病棟 or one ward with its empty beds)", () => {
+    expect(WARD_TABS.map((t) => t.key)).not.toContain("floor");
+    expect(WARD_TABS.filter((t) => t.group === "patients").map((t) => t.key)).toEqual(["all", "map", "mine", "recent", "favorites"]);
+    expect(wardTabInfo("all").hint).toContain("空床");
+  });
+  it("reads a saved ◯階の患者一覧 (最初に開く) as 入院患者一覧, once", () => {
+    expect(readWardTab("floor")).toBe("all");
+    expect(readWardTab("mine")).toBe("mine");
+    expect(readWardTab("nothing")).toBeNull();
+    expect(allowedWardTabs("医師", ["floor", "mine", "all"])).toEqual(["all", "mine"]);
+    expect(allowedWardTabs("看護師", ["map", "floor"])).toEqual(["map", "all"]);
   });
 });
 

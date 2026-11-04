@@ -129,17 +129,17 @@ import { loadRecent, pushRecent, saveRecent, type RecentOpen } from "@/lib/recen
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
 import { AREA_ICON, WARD_ICON } from "./nav-icons";
-import { LayoutList, Plus } from "lucide-react";
+import { Building2, LayoutList, Plus } from "lucide-react";
 import {
   AREAS,
   allowedWardTabs,
   areasFor,
   homeArea,
   ownerFor,
+  readWardTab,
   rehome,
   wardOwner,
   wardTabInfo,
-  wardTabLabel,
   wardTabOf,
   wardTabsFor,
   type AreaKey,
@@ -412,16 +412,18 @@ type Screen = WardTab | AreaKey | "chart" | "new" | "wardmenu" | "visit";
 /** front[owner] when the tab shows 新しいタブ. */
 const NEW_TAB = "__new__";
 const ALL_WARDS = "全病棟";
-const LIST_TABS = ["floor", "mine", "all"] as const;
+const LIST_TABS = ["mine", "all"] as const;
 
 // 病棟's screens to open first (最初に開く), per role. A convenience kept in this browser only.
 // v2 (2026-11-04): the menu is shown first unless the user checks a screen again (older saved choices are not read).
+// A saved screen that was renamed since (◯階の患者一覧 → 入院患者一覧) is read as the screen it became.
 const WARD_DEFAULTS_KEY = "simple-karte:ward-defaults-v2";
 function loadWardDefaults(): Record<string, WardTab[]> {
   try {
     const v = typeof window === "undefined" ? null : window.localStorage.getItem(WARD_DEFAULTS_KEY);
     const o: unknown = v ? JSON.parse(v) : {};
-    return o && typeof o === "object" ? (o as Record<string, WardTab[]>) : {};
+    if (!o || typeof o !== "object") return {};
+    return Object.fromEntries(Object.entries(o as Record<string, unknown>).map(([role, tabs]) => [role, Array.isArray(tabs) ? [...new Set(tabs.flatMap((t) => (typeof t === "string" ? readWardTab(t) ?? [] : [])))] : []]));
   } catch {
     return {};
   }
@@ -465,9 +467,10 @@ export default function WardApp() {
   const [patientTabs, setPatientTabs] = useState<PatientTab[]>([]);
   const [front, setFront] = useState<Partial<Record<Owner, string>>>({});
   const [newTabFor, setNewTabFor] = useState<Owner | null>(null);
-  // The floor shown on 病棟マップ and ◯階, and the day they show (0 = today; not saved).
+  // The floor shown on 病棟マップ (and 看護日誌) and the day it shows (0 = today; not saved), and the ward chosen on 入院患者一覧 (全病棟 or one ward).
   const [floor, setFloor] = useState(WARD_NAME);
   const [asOfDay, setAsOfDay] = useState(0);
+  const [listWard, setListWard] = useState(ALL_WARDS);
   const [recentByPerson, setRecentByPerson] = useState<Record<string, RecentOpen[]>>({});
   // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
   const [myTeam, setMyTeam] = useState("");
@@ -874,7 +877,7 @@ export default function WardApp() {
   // Opened from a place without patient tabs (やること, ⌘K on 手術室 …): under the first patient list of 病棟.
   const listOwner = (): Owner => {
     const open = wardTabs.find((t) => wardTabInfo(t).group === "patients");
-    const any = (["mine", "all", "floor", "map"] as WardTab[]).find((t) => myWardTabs.includes(t));
+    const any = (["mine", "all", "map"] as WardTab[]).find((t) => myWardTabs.includes(t));
     return wardOwner(open ?? any ?? myWardTabs[0] ?? "mine");
   };
   // A chart opens where it is already open, else under the tab in front.
@@ -1507,10 +1510,9 @@ export default function WardApp() {
       saveWardDefaults(next);
       return next;
     });
-  // The lists of 病棟: a floor, 受け持ち, by department, all wards, by attending doctor.
-  // 「全病棟」 is chosen only on the patient list (◯階); the map and the journal show one floor (5階東 then).
-  const oneFloor = floor === ALL_WARDS ? WARD_NAME : floor;
-  const floorInfo: Floor = FLOORS.find((f) => f.name === oneFloor) ?? FLOORS[0];
+  // The lists of 病棟: 入院患者一覧 (全病棟, or one ward with its empty beds and today's and tomorrow's
+  // admissions and discharges) and 受け持ち. The map and the journal show one floor (5階東 at first).
+  const floorInfo: Floor = FLOORS.find((f) => f.name === floor) ?? FLOORS[0];
   // 受け持ち (it stands out on the list and the map): a doctor's own patients (主治医のチーム・担当医・コンサルト医), else the team's.
   const isMine = (pid: string) => (role === "医師" ? involved(me.name, doctorsOf(findPatient(pid)?.attending ?? "", doctorBook[pid])) : teamIds.has(pid));
   // 主治医・担当医・コンサルト医 of a patient as the record stands (a consult order not yet answered adds the asked doctor as 依頼中).
@@ -1523,16 +1525,16 @@ export default function WardApp() {
     return x ?? (p && b ? { patient: p, room: `${b.room}${b.bed}`, entries: withRedraws(currentEntries(p, sessionChanges[pid]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, pid) } : undefined);
   };
   const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
-  // 病棟マップ・◯階 on the day chosen (ward-asof.ts): today as it stands, a later day from the plans, a past day from the record.
+  // 病棟マップ・入院患者一覧 of one ward on the day chosen (ward-asof.ts): today as it stands, a later day from the plans, a past day from the record.
   const asOfPlans = { admissions: admissionPlans(WARD_PLANS, requests), discharges: dischargePlans(everBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id])) };
   const asOfOn = (name: string): WardAsOf => {
     const floors = name === ALL_WARDS ? FLOORS : FLOORS.filter((f) => f.name === name);
     return bedsAsOf(asOfDay, { beds: everBeds.filter((b) => floors.some((f) => f.name === floorOf(b.room))), rooms: floors.flatMap((f) => f.rooms), floors: floors.map((f) => f.name), patient: findPatient, ...asOfPlans });
   };
   const dayNavFor = (asOf: WardAsOf): DayNavProps => ({ day: asOfDay, ...dayRange(asOf), onChange: setAsOfDay, fmtDay: (d) => formatShort(addDays(today, d)), counts: { admit: asOf.counts.admit, discharge: asOf.counts.discharge } });
-  const mapAsOf = asOfOn(oneFloor);
+  const mapAsOf = asOfOn(floor);
   // Every patient of the floor shown, by room (状態の一括登録・業務分担・バイタルの一括入力).
-  const floorPeople = bedsOn(oneFloor)
+  const floorPeople = bedsOn(floor)
     .flatMap((b) => {
       const p = b.patientId ? findPatient(b.patientId) : undefined;
       return p ? [{ id: p.id, name: p.name, room: `${b.room}${b.bed}`, infections: p.infections, rescue: bedInfo[p.id]?.rescue, patient: p }] : [];
@@ -1541,13 +1543,14 @@ export default function WardApp() {
   // 業務分担 of the shift going on now (5階東 has the 勤務表), for the map's rooms.
   const shiftNow = currentShift(nowTime);
   const planNow = nm.assignBook[assignKey(WARD_NAME, shiftNow.day, shiftNow.shift)];
-  const floorPick: Pick = { label: "階", value: oneFloor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
-  const listPick: Pick = { label: "病棟", value: floor, options: [{ value: ALL_WARDS, label: "全病棟" }, ...FLOORS.map((f) => ({ value: f.name, label: f.name }))], onChange: setFloor };
-  const allWards = floor === ALL_WARDS;
+  const floorPick: Pick = { label: "階", value: floor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
+  const listPick: Pick = { label: "病棟", value: listWard, options: [{ value: ALL_WARDS, label: "全病棟" }, ...FLOORS.map((f) => ({ value: f.name, label: f.name }))], onChange: setListWard };
+  const allWards = listWard === ALL_WARDS;
   const lists: Record<(typeof LIST_TABS)[number], { beds: BedAssignment[]; title: string; pick?: Pick; group: GroupBy; floor?: Floor }> = {
-    floor: allWards
-      ? { beds: allBeds, title: "患者一覧", pick: listPick, group: "floor", floor: { name: ALL_WARDS, rooms: FLOORS.flatMap((f) => f.rooms) } }
-      : { beds: bedsOn(floor), title: "患者一覧", pick: listPick, group: "room", floor: floorInfo },
+    // 入院患者一覧: every ward grouped by ward, or the ward chosen by room (with its empty beds and 入退院).
+    all: allWards
+      ? { beds: allBeds, title: "入院患者一覧", pick: listPick, group: "floor" }
+      : { beds: bedsOn(listWard), title: "入院患者一覧", pick: listPick, group: "room", floor: FLOORS.find((f) => f.name === listWard) },
     // 受け持ち: a doctor's own patients (主治医); a nurse's team for this shift; others the whole ward.
     mine:
       role === "医師"
@@ -1570,7 +1573,6 @@ export default function WardApp() {
               },
             }
           : { beds: ward.beds.filter((b) => b.patientId && teamIds.has(b.patientId)), title: "受け持ち患者", group: "room" },
-    all: { beds: allBeds, title: "入院患者一覧", group: "floor" },
   };
   const listKey = LIST_TABS.find((k) => k === screen);
   // A list of one ward moves over the days like the map (全病棟 and the team's lists stay on today).
@@ -1915,7 +1917,7 @@ export default function WardApp() {
   const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "医師" ? unseenResults.filter((i) => isMine(i.patientId)).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
-    return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";
+    return w ? wardTabInfo(w).label : o === "er" ? "救急外来" : "外来";
   };
 
   // The screen itself.
@@ -1969,7 +1971,7 @@ export default function WardApp() {
           ulcers={nm.ulcers}
           fmtDay={(d) => formatShort(addDays(today, d))}
           where={(pid) => {
-            const b = bedsOn(oneFloor).find((x) => x.patientId === pid);
+            const b = bedsOn(floor).find((x) => x.patientId === pid);
             const p = b && findPatient(pid);
             return p ? { name: p.name, room: `${b.room}${b.bed}` } : undefined;
           }}
@@ -1978,24 +1980,24 @@ export default function WardApp() {
       ) : screen === "assign" ? (
         <AssignBoard
           pick={floorPick}
-          hasRoster={oneFloor === WARD_NAME}
+          hasRoster={floor === WARD_NAME}
           rooms={floorInfo.rooms}
           beds={floorPeople.map((x) => ({ key: x.room, patientId: x.id, name: x.name }))}
           nurses={rosterNow!.nurses}
           crewOf={(d, s) => crewOn(rosterNow!, today, d, s)}
-          sheetOf={(d, s) => nm.assignBook[assignKey(oneFloor, d, s)]}
+          sheetOf={(d, s) => nm.assignBook[assignKey(floor, d, s)]}
           nowTime={nowTime}
           canEdit={!deny("nursing.manage")}
           onChange={(d, s, sheet, what) => {
-            auditLog({ role: me.role, actor: me.name, action: "業務分担", detail: `${oneFloor} ${shiftKey(d, s)}　${what}` });
-            nm.setAssignBook((all) => ({ ...all, [assignKey(oneFloor, d, s)]: sheet }));
+            auditLog({ role: me.role, actor: me.name, action: "業務分担", detail: `${floor} ${shiftKey(d, s)}　${what}` });
+            nm.setAssignBook((all) => ({ ...all, [assignKey(floor, d, s)]: sheet }));
           }}
         />
       ) : screen === "vitals" ? (
         <VitalsBulk
           pick={floorPick}
           patients={floorPeople.map((x) => ({ id: x.id, name: x.name, room: x.room, last: x.patient.vitals.at(-1), standing: standingNow(x.id) }))}
-          mine={oneFloor === WARD_NAME ? floorPeople.filter((x) => nurseOfBed(planNow, x.room, rosterNow!.nurses) === me.name).map((x) => x.id) : []}
+          mine={floor === WARD_NAME ? floorPeople.filter((x) => nurseOfBed(planNow, x.room, rosterNow!.nurses) === me.name).map((x) => x.id) : []}
           team={floorPeople.filter((x) => teamIds.has(x.id)).map((x) => x.id)}
           nowTime={nowTime}
           canType={!deny("vitals")}
@@ -2037,12 +2039,12 @@ export default function WardApp() {
         <StatusBoard
           pick={floorPick}
           patients={floorPeople}
-          book={nm.statusBook[oneFloor] ?? {}}
+          book={nm.statusBook[floor] ?? {}}
           nowTime={nowTime}
           canType={!deny("nursing.manage")}
           onRegister={(day, shift, sheet, changed) => {
-            auditLog({ role: me.role, actor: me.name, action: "確定（状態の一括登録）", detail: `${oneFloor} ${shiftKey(day, shift)}　${changed.length}人を登録` });
-            nm.setStatusBook((all) => ({ ...all, [oneFloor]: { ...all[oneFloor], [shiftKey(day, shift)]: [...(all[oneFloor]?.[shiftKey(day, shift)] ?? []), sheet] } }));
+            auditLog({ role: me.role, actor: me.name, action: "確定（状態の一括登録）", detail: `${floor} ${shiftKey(day, shift)}　${changed.length}人を登録` });
+            nm.setStatusBook((all) => ({ ...all, [floor]: { ...all[floor], [shiftKey(day, shift)]: [...(all[floor]?.[shiftKey(day, shift)] ?? []), sheet] } }));
             // 救護区分 is the bed's record too (院内連絡).
             setBedInfo((all) => ({ ...all, ...Object.fromEntries(changed.filter((id) => sheet.rows[id]?.rescue).map((id) => [id, { sensors: all[id]?.sensors ?? [], rescue: sheet.rows[id].rescue }])) }));
           }}
@@ -2066,10 +2068,10 @@ export default function WardApp() {
             dialysisToday: people.filter((x) => x.entries.some((e) => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-HD" && e.order.start.day === 0)).map((x) => x.patient.name),
             incidentsToday: incidents.filter((r) => r.occurred.day === 0).length,
           })}
-          saved={journal[oneFloor] ?? []}
+          saved={journal[floor] ?? []}
           onSave={(text) => {
-            auditLog({ role: me.role, actor: me.name, action: "看護日誌に書き残した", detail: `${oneFloor}　${text.slice(0, 80)}` });
-            setJournal((all) => ({ ...all, [oneFloor]: [...(all[oneFloor] ?? []), { text, by: me.name, at: nowTime }] }));
+            auditLog({ role: me.role, actor: me.name, action: "看護日誌に書き残した", detail: `${floor}　${text.slice(0, 80)}` });
+            setJournal((all) => ({ ...all, [floor]: [...(all[floor] ?? []), { text, by: me.name, at: nowTime }] }));
           }}
         />
       ) : screen === "cosign" ? (
@@ -2223,7 +2225,7 @@ export default function WardApp() {
         />
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {asOfDay === 0 && <WardRequests floor={oneFloor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />}
+          {asOfDay === 0 && <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />}
           <WardMap
             ward={{ beds: mapAsOf.beds, patient: findPatient }}
             rooms={floorInfo.rooms}
@@ -2236,7 +2238,7 @@ export default function WardApp() {
             onOpen={openPatient}
             // 転棟・転床 is today's work: another day is for looking only.
             onMove={asOfDay !== 0 || deny("bed.move") ? undefined : (patientId, to) => setMoving({ patientId, to })}
-            roomNote={oneFloor === WARD_NAME ? (r) => roomNurses(planNow, r.no, r.beds, rosterNow!.nurses).map((n) => n.replace(/^(看護師長|准看護師|看護師) /, "")).join("・") || undefined : undefined}
+            roomNote={floor === WARD_NAME ? (r) => roomNurses(planNow, r.no, r.beds, rosterNow!.nurses).map((n) => n.replace(/^(看護師長|准看護師|看護師) /, "")).join("・") || undefined : undefined}
           />
         </div>
       ) : screen === "er" ? (
@@ -2550,7 +2552,7 @@ export default function WardApp() {
         <div className="flex min-h-0 flex-1 flex-col">
         <PatientList
           // A new list when 全病棟 is chosen or left, so it starts grouped by ward (or by room).
-          key={listKey === "floor" && allWards ? "floor-all" : listKey}
+          key={listKey === "all" && !allWards ? "all-one" : listKey}
           ward={{ beds: listAsOf ? listAsOf.beds : lists[listKey].beds, patient: findPatient }}
           title={lists[listKey].title}
           pick={lists[listKey].pick}
@@ -3951,7 +3953,7 @@ export default function WardApp() {
       if (o) {
         const w = wardTabOf(o);
         crumbs.push({ label: w ? "病棟" : (AREAS.find((x) => x.key === o)?.label ?? "") });
-        crumbs.push({ label: w ? wardTabLabel(w, floor) : o === "er" ? "救急の患者一覧" : "外来の受付一覧", onClick: () => show(o, undefined) });
+        crumbs.push({ label: w ? wardTabInfo(w).label : o === "er" ? "救急の患者一覧" : "外来の受付一覧", onClick: () => show(o, undefined) });
         const p = shownTab ? findPatient(shownTab.id) : undefined;
         const v = shownTab ? visitOf(shownTab.id) : null;
         crumbs.push({ label: p ? `${p.room} ${p.name}` : v ? (v.kind === "er" ? v.er.name : v.op.name) : "新しいタブ" });
@@ -3962,29 +3964,33 @@ export default function WardApp() {
       const patientViews = myWardTabs.filter((v) => wardTabInfo(v).group === "patients");
       const items: TabItem[] = wardTabs.map((t) => ({
         key: t,
-        label: wardTabLabel(t, floor),
+        label: wardTabInfo(t).label,
         icon: WARD_ICON[t],
         active: onScreen && wardTab === t,
         badge: wardBadges[t],
         title: wardTabInfo(t).hint,
         onSelect: () => show(wardOwner(t), undefined),
         onClose: () => closeWardTab(t),
-        // ⌄ on a patient view (入院患者一覧・病棟マップ・受け持ち患者・病棟の患者一覧): switch it in place.
-        // ⌄: the other patient views, and each ward's list by name (5階東病棟・5階南病棟・6階東病棟).
+        // ⌄ on a patient view (入院患者一覧・病棟マップ・受け持ち患者・最近開いた患者): switch it in place.
+        // ⌄: the other patient views, and 入院患者一覧 of one ward by name (5階東病棟・5階南病棟・6階東病棟).
         switcher:
           wardTabInfo(t).group === "patients"
             ? {
                 options: [
-                  ...patientViews.filter((v) => v !== "floor").map((v) => ({ key: v, label: wardTabInfo(v).label, icon: WARD_ICON[v] })),
-                  ...(patientViews.includes("floor") ? FLOORS.map((f) => ({ key: `floor:${f.name}`, label: f.name, icon: WARD_ICON.floor, group: "病棟ごとの患者一覧" })) : []),
+                  ...patientViews.map((v) => ({ key: v, label: wardTabInfo(v).label, icon: WARD_ICON[v] })),
+                  ...(patientViews.includes("all") ? FLOORS.map((f) => ({ key: `ward:${f.name}`, label: f.name, icon: Building2, group: "病棟ごとの入院患者一覧" })) : []),
                 ],
-                current: t === "floor" ? (floor === ALL_WARDS ? "all" : `floor:${floor}`) : t,
+                current: t === "all" && !allWards ? `ward:${listWard}` : t,
                 onPick: (k: string) => {
-                  if (k.startsWith("floor:")) {
-                    setFloor(k.slice(6));
-                    if (t !== "floor") swapWardView(t, "floor");
-                    else show(wardOwner("floor"), undefined);
-                  } else swapWardView(t, k as WardTab);
+                  if (k.startsWith("ward:")) {
+                    setListWard(k.slice(5));
+                    if (t !== "all") swapWardView(t, "all");
+                    else show(wardOwner("all"), undefined);
+                  } else {
+                    if (k === "all") setListWard(ALL_WARDS);
+                    if (k === t) show(wardOwner(t), undefined);
+                    else swapWardView(t, k as WardTab);
+                  }
                 },
               }
             : undefined,

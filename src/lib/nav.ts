@@ -1,9 +1,11 @@
 // How the screens are organised:
 // - the top row: the place pulldown (病棟・救急外来・外来・手術室・透析室… and the shared places), then the
-//   screens of the place. 病棟: the screens chosen from its menu (入院患者一覧・病棟マップ・受け持ち患者・
-//   ◯階, and the ward's work; 科別・主治医別 are the conditions and grouping of 入院患者一覧). 救急外来・外来: the list. The other places open as they are.
-// - the second row: every open chart in one row, wherever it was opened from; each chart remembers the
-//   screen it was opened from (its owner), shown as a breadcrumb over the chart.
+//   screens of the place. 病棟: the screens chosen from its menu (入院患者一覧・病棟マップ・受け持ち患者,
+//   and the ward's work; 科別・主治医別・◯階 are the conditions, grouping and ward pulldown of 入院患者一覧).
+//   救急外来・外来: the list. The other places open as they are.
+// - the second row: every open chart in one row, wherever it was opened from, grouped by place (病棟・
+//   救急外来・外来; tab-groups.ts); each chart remembers the screen it was opened from (its owner), shown
+//   as a breadcrumb over the chart.
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
@@ -61,7 +63,7 @@ const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysi
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "take" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals";
+export type WardTab = "map" | "mine" | "all" | "sheet" | "take" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -74,12 +76,11 @@ export interface WardTabInfo {
 }
 
 export const WARD_TABS: WardTabInfo[] = [
-  { key: "all", label: "入院患者一覧", hint: "全病棟の入院患者。病棟・診療科・主治医・担当看護師・入院日数・DPC の期間・印で絞り、病棟・診療科・主治医・担当看護師ごとにまとめられます", group: "patients", needs: "list" },
+  { key: "all", label: "入院患者一覧", hint: "入院患者の一覧。「病棟」のプルダウンで全病棟か1つの病棟（その病棟の今日・明日の入退院と空床も出る）を選び、病棟・診療科・主治医・担当看護師・入院日数・DPC の期間・印で絞り、病棟・診療科・主治医・担当看護師ごとにまとめられます", group: "patients", needs: "list" },
   { key: "map", label: "病棟マップ", hint: "部屋とベッドの見取り図と入院申込。階を選べます", group: "patients", needs: "map" },
   { key: "mine", label: "受け持ち患者", hint: "自分のチームの患者", group: "patients", needs: "list" },
   { key: "recent", label: "最近開いた患者", hint: "自分が最近カルテを開いた患者を新しい順に（この端末のみに保存）", group: "patients", needs: "list" },
   { key: "favorites", label: "お気に入りの患者", hint: "氏名の横の☆で登録した患者を全病棟から（この端末のみに保存）", group: "patients", needs: "list" },
-  { key: "floor", label: "◯階の患者一覧", hint: "選んだ病棟（全病棟も選べる）の患者と、今日・明日の入退院と空床", group: "patients", needs: "list" },
   { key: "take", label: "指示受け", hint: "病棟の患者の、まだ受けていない指示（新規・変更・中止・指示簿・食事）を患者ごとに、時刻の順か急ぐ順で。受けたら、その指示が今日と明日に作る予定を見て確認する（指示受け → 指示確認 → 実施入力）。今日受けたものと指示票の印刷も", group: "work", needs: "sheet" },
   { key: "sheet", label: "ワークシート", hint: "今日の与薬・処置と指示受け", group: "work", needs: "sheet" },
   { key: "io", label: "水分出納", hint: "受け持ち患者の IN/OUT を勤務の終わりにまとめて入れ、勤務ごと・24時間の合計と IN − OUT を見る", group: "work", needs: "sheet" },
@@ -107,8 +108,10 @@ export const WARD_TABS: WardTabInfo[] = [
 
 export const wardTabInfo = (t: WardTab): WardTabInfo => WARD_TABS.find((x) => x.key === t)!;
 
-/** The ② tab's name: ◯階 shows the floor chosen. */
-export const wardTabLabel = (t: WardTab, floor: string): string => (t === "floor" ? floor : wardTabInfo(t).label);
+/** Screens that no longer exist, read from what was saved earlier (◯階の患者一覧 became the ward pulldown of 入院患者一覧, 2026-11-04). */
+const RENAMED_WARD_TABS: Record<string, WardTab> = { floor: "all" };
+/** A saved ② key as the screen it means now (null: unknown). */
+export const readWardTab = (key: string): WardTab | null => RENAMED_WARD_TABS[key] ?? WARD_TABS.find((t) => t.key === key)?.key ?? null;
 
 /** The ② screens a role may open inside 病棟. */
 export const wardTabsFor = (role: Role): WardTab[] => WARD_TABS.filter((t) => [t.needs].flat().some((n) => TABS[role].includes(n))).map((t) => t.key);
@@ -148,10 +151,10 @@ export function homeArea(role: Role): AreaKey {
   return (Object.entries(NEEDS).find(([, v]) => v === first)?.[0] as AreaKey | undefined) ?? "ward";
 }
 
-/** Keep only the screens the role may open (for defaults saved earlier, or after a role change). */
-export const allowedWardTabs = (role: Role, tabs: WardTab[]): WardTab[] => {
+/** Keep only the screens the role may open (for defaults saved earlier, or after a role change); saved keys of renamed screens are read as the screen they became. */
+export const allowedWardTabs = (role: Role, tabs: readonly string[]): WardTab[] => {
   const ok = wardTabsFor(role);
-  return [...new Set(tabs)].filter((t) => ok.includes(t));
+  return [...new Set(tabs.flatMap((t) => readWardTab(t) ?? []))].filter((t) => ok.includes(t));
 };
 
 // ---------------------------------------------------------------------------
@@ -184,7 +187,7 @@ export function nextAfterClose(tabs: PatientTab[], id: string): string | null {
 
 /** After a role change: charts under a tab the role cannot open move to the role's first patient list. */
 export function rehome(tabs: PatientTab[], allowed: WardTab[]): PatientTab[] {
-  const fallback = (["mine", "all", "floor", "map"] as WardTab[]).find((t) => allowed.includes(t)) ?? allowed[0];
+  const fallback = (["mine", "all", "map"] as WardTab[]).find((t) => allowed.includes(t)) ?? allowed[0];
   return tabs.map((t) => {
     const w = wardTabOf(t.owner);
     return w && !allowed.includes(w) && fallback ? { ...t, owner: wardOwner(fallback) } : t;

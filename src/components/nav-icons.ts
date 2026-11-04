@@ -6,7 +6,6 @@ import {
   BedDouble,
   BookOpen,
   BookMarked,
-  Building2,
   Cable,
   CalendarDays,
   ClipboardCheck,
@@ -92,7 +91,6 @@ export const AREA_ICON: Record<AreaKey, Icon> = {
 
 export const WARD_ICON: Record<WardTab, Icon> = {
   map: LayoutGrid,
-  floor: Building2,
   mine: UserRound,
   recent: History,
   favorites: Star,

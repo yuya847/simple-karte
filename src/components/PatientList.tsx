@@ -28,7 +28,7 @@ interface Props {
   /** The beds to list (a floor, 受け持ち, a department, all wards …) and the patient lookup. */
   ward: WardState;
   title: string;
-  /** A pulldown in the header (◯階・科・主治医). */
+  /** A pulldown in the header (病棟: 全病棟 or one ward; チーム). */
   pick?: Pick;
   /** How the rows are grouped at first. */
   defaultGroup?: GroupBy;
