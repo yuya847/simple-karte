@@ -109,7 +109,11 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
           </button>
         ) : (
           onPregnancy &&
+          // The quick button is shown to women aged 10〜60 only (a display choice of this prototype), so an
+          // 86-year-old's bar does not offer 「＋妊娠中」.
           p.sex === "女" &&
+          p.age >= 10 &&
+          p.age <= 60 &&
           (pregEdit ? (
             <span className="flex items-center gap-1">
               <input value={weeks} onChange={(e) => setWeeks(e.target.value)} inputMode="numeric" placeholder="週" aria-label="妊娠週数" className="w-12 rounded border border-rule px-1 py-0.5 text-right" />
