@@ -24,6 +24,10 @@ import type { PendingDraw } from "@/lib/lab-table";
 import { TakeBadgeMark } from "./TakeConfirm";
 import { OrderReportMark } from "./ReportMark";
 import { InjectionCalendar, PrescriptionCalendar, type CalendarProps } from "./Calendars";
+import { ExecuteMenu, type ExecuteProps, type MenuExtra } from "./ExecuteMenu";
+import { abs } from "@/lib/flowsheet";
+import { canHaveExecution, executionBadge, occurrenceStates, occurrencesOn } from "@/lib/order-execute";
+import { useLongPress } from "@/lib/use-long-press";
 import { FlowSheet } from "./FlowSheet";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import type { RefWindowProps } from "./RefWindows";
@@ -79,6 +83,8 @@ interface Props {
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
   /** 指示受けの状態 of an order (未指示受け／受け ◯◯ hh:mm／確認済み／医師に確認中), shown on each order; null when nothing waits. */
   takeBadgeOf?: (entryId: string) => TakeBadge | null;
+  /** 実施・未実施 from an order row (right click, ⋯, long press) and the calendars' dose cells. Absent: no such menu. */
+  execute?: ExecuteProps;
 }
 
 /** What is copied to the right (Do): a past note's text, or a past order to write again. */
@@ -104,10 +110,10 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
  * calendars of 処置・移動・食事・指示簿 and the 予約 list open from the tools on the far right (参照).
  */
 export function HistoryPane(props: Props) {
-  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, todayBookings, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf } = props;
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, todayBookings, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute } = props;
   const view = asLeftView(props.view);
   const v = views;
-  const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew } : null;
+  const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew, execute } : null;
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex flex-nowrap items-center gap-x-3 border-b border-rule-soft px-4 py-1.5">
@@ -151,7 +157,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} todayBookings={todayBookings} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} todayBookings={todayBookings} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} />
       )}
     </section>
   );
@@ -191,6 +197,7 @@ function RecordList({
   onOpenImage,
   onOpenResult,
   takeBadgeOf,
+  execute,
 }: {
   kindInit?: string;
   patient: Patient;
@@ -206,6 +213,7 @@ function RecordList({
   onOpenImage?: (entryId: string) => void;
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
   takeBadgeOf?: Props["takeBadgeOf"];
+  execute?: ExecuteProps;
 }) {
   const root = useRef<HTMLDivElement>(null);
   // A draw's result is filed under the collection time (the same as the printed label).
@@ -371,7 +379,7 @@ function RecordList({
                         {e.kind === "note" ? (
                           <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k)} onFold={() => fold(k)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
                         ) : (
-                          <OrderRow entry={e} today={today} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k)} onFold={() => fold(k)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} />
+                          <OrderRow entry={e} today={today} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k)} onFold={() => fold(k)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
                         )}
                       </li>
                     );
@@ -826,6 +834,9 @@ export function orderMark(o: OrderEntry["order"]): string {
   return "処置";
 }
 
+/** The small mark of today's 実施 on an order row (order-execute.ts executionBadge). */
+const EXEC_BADGE_STYLE = { done: "border-wakatake/40 text-wakatake", not: "border-shu/40 text-shu", late: "border-yamabuki/60 font-bold text-yamabuki", plan: "border-rule text-ink-soft" };
+
 const ORDER_TONE = { chip: "bg-ink-soft text-white", edge: "border-l-rule", bg: "bg-paper/80" };
 const STOPPED_TONE = { chip: "bg-shu text-white", edge: "border-l-shu/50", bg: "bg-shu-soft/40" };
 
@@ -834,13 +845,21 @@ function Tag({ children }: { children: React.ReactNode }) {
   return <span className="text-[11px] text-ai">【{children}】</span>;
 }
 
-function OrderRow({ entry, today, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge }: { entry: OrderEntry; today: CalendarDate; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null }) {
+function OrderRow({ entry, today, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { entry: OrderEntry; today: CalendarDate; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
   const o = entry.order;
   const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const doPayload: DoPayload = { kind: "order", entryId: entry.id };
   const canDo = !!onDo && ["prescription", "injection", "lab"].includes(o.type);
+  // 実施・未実施 from this row: the order's occurrences today (the worksheet's), and the small mark of today's state.
+  const canExec = !!execute && !!patient && canHaveExecution(entry);
+  const nowAbs = execute ? abs(0, execute.nowTime) : 0;
+  const todays = canExec && menu ? occurrencesOn(patient!, entry, 0, nowAbs) : null;
+  const badge = canExec ? executionBadge(patient!, entry, execute!.records, execute!.sessionStart, nowAbs) : null;
+  const hasMenu = canDo || canExec;
+  const longPress = useLongPress<HTMLElement>(hasMenu ? setMenu : undefined);
+  const extra: MenuExtra[] = canDo ? [{ label: "右へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload) }] : [];
   const tone = stopped ? STOPPED_TONE : o.type === "procedure" && o.opd ? PLACE_COLORS.opd : ORDER_TONE;
   const strike = stopped ? "line-through" : "";
   const right = "shrink-0 whitespace-nowrap font-bold";
@@ -939,30 +958,37 @@ function OrderRow({ entry, today, place, rpNo, folded, onFold, onDo, onOpenImage
       onFold={onFold}
       dragHandle={canDo}
       article={{
+        ...longPress,
         draggable: canDo,
         onDragStart: canDo ? dragDo(doPayload) : undefined,
         onContextMenu: (e: React.MouseEvent) => {
-          if (!canDo) return;
+          if (!hasMenu) return;
           e.preventDefault();
           setMenu({ x: e.clientX, y: e.clientY });
         },
-        title: canDo ? "右へドラッグするか右クリックで、同じオーダを写せます（Do）" : undefined,
+        title: canDo && canExec ? "右へドラッグで同じオーダを写せます（Do）。右クリック（iPad は長押し）で Do と実施・未実施の記録" : canDo ? "右へドラッグするか右クリックで、同じオーダを写せます（Do）" : canExec ? "右クリック（iPad は長押し）か ⋯ で実施・未実施を記録" : undefined,
         className: `${stopped ? "opacity-70" : ""} ${canDo ? "cursor-grab active:cursor-grabbing" : ""}`,
       }}
       meta={
         <>
-          {menu && <Menu at={menu} onClose={() => setMenu(null)} items={[{ label: "右へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload) }]} />}
+          {menu && canExec && todays && <ExecuteMenu at={menu} onClose={() => setMenu(null)} title={main} occurrences={occurrenceStates(todays.timed, execute!.records, execute!.sessionStart, nowAbs)} untimed={todays.untimed} day={0} execute={execute} extra={extra} />}
+          {menu && !canExec && <Menu at={menu} onClose={() => setMenu(null)} items={extra} />}
           <span>第1版：{whenText(today, entry.day, entry.time)}</span>
           <span className="font-bold text-ink">{entry.author}</span>
           {entry.verbal && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">口頭指示 {entry.verbal.doctor} → 受け {entry.verbal.takenBy}</span>}
           <CosignMark refId={entry.id} />
           {takeBadge && <TakeBadgeMark badge={takeBadge} />}
+          {badge && (
+            <span data-exec-badge={badge.tone} title={badge.title} className={`rounded border px-1 ${EXEC_BADGE_STYLE[badge.tone]}`}>
+              {badge.text}
+            </span>
+          )}
         <OrderReportMark orderId={entry.id} />
           <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
             {entry.status}
             {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
           </span>
-          {canDo && (
+          {hasMenu && (
             <button
               type="button"
               aria-label="オーダのメニュー"
