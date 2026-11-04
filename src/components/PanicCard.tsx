@@ -4,7 +4,7 @@ import { PhoneCall, PhoneOff } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { addTry, type LabDesk } from "@/lib/lab-desk";
-import { PANIC_REACH_RULE, canReport, hitLine, reachList, reachState, reportCall, type Ack, type ContactAttempt, type PanicCall, type ResultItem } from "@/lib/results";
+import { PANIC_REACH_RULE, callLine, canReport, hitLine, reachList, reachState, reportBlocker, reportCall, type Ack, type ContactAttempt, type PanicCall, type ResultItem } from "@/lib/results";
 import { useDeny, useMe } from "./RoleContext";
 
 interface Props {
@@ -40,6 +40,7 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
   const reach = reachState(tries);
   const history = call?.attempts ?? tries;
   const at = { day: 0, time: nowTime };
+  const blocker = reportBlocker(to, readBack, noReadBack);
   const listId = `reach-${item.key}`;
   return (
     <div className="rounded-lg border border-shu/50 bg-shu-soft/50 p-3">
@@ -65,7 +66,7 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
         <div className="mt-1 space-y-0.5 text-xs">
           <p className="flex items-center gap-1 text-wakatake">
             <PhoneCall size={12} />
-            {call.at.time} に {call.by} が {call.to} へ{call.means}で報告（{call.readBack ? "復唱あり" : `復唱なし：${call.noReadBack ?? "理由の記録なし"}`}）
+            連絡 {callLine(call)}
           </p>
           {ack ? (
             <p className="text-wakatake">
@@ -137,16 +138,19 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
                 <input value={noReadBack} onChange={(e) => setNoReadBack(e.target.value)} placeholder="例：処置中で、聞いてすぐ電話が切れた" className="min-w-0 flex-1 rounded border border-rule bg-sheet px-1.5 py-0.5" />
               </label>
             )}
-            <button
-              type="button"
-              disabled={!canReport(to, readBack, noReadBack)}
-              onClick={() => onCall(reportCall(item, tries, { by: me.name, to, means, readBack, noReadBack, at }))}
-              title={canReport(to, readBack, noReadBack) ? undefined : "復唱を確かめるか、復唱できなかった理由を書くと押せます"}
-              className="ml-auto flex items-center gap-1 rounded bg-shu px-3 py-1 font-bold text-white disabled:opacity-40"
-            >
-              <PhoneCall size={12} />
-              報告した（{nowTime}）
-            </button>
+            <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              {blocker && <span className="text-[11px] font-bold text-yamabuki">{blocker}</span>}
+              <button
+                type="button"
+                disabled={!canReport(to, readBack, noReadBack)}
+                onClick={() => onCall(reportCall(item, tries, { by: me.name, to, means, readBack, noReadBack, at }))}
+                title={blocker ?? undefined}
+                className="flex items-center gap-1 whitespace-nowrap rounded bg-shu px-3 py-1 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <PhoneCall size={12} />
+                報告した（{nowTime}）
+              </button>
+            </span>
           </div>
           <p className="text-[11px] text-ink-soft">{PANIC_REACH_RULE.text}</p>
         </fieldset>

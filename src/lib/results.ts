@@ -291,6 +291,13 @@ export function canReport(to: string, readBack: boolean, noReadBack: string): bo
   return !!to.trim() && (readBack || !!noReadBack.trim());
 }
 
+/** Why 報告した cannot be pressed yet (shown beside the button), or null when it can. */
+export function reportBlocker(to: string, readBack: boolean, noReadBack: string): string | null {
+  if (canReport(to, readBack, noReadBack)) return null;
+  if (!to.trim()) return "相手を入れると記録できます";
+  return "「相手が値を復唱した」にチェックするか、復唱できなかった理由を書くと記録できます";
+}
+
 /** The report, with every try before it (oldest first; the last one is the report). */
 export function reportCall(
   item: Pick<ResultItem, "key" | "patientId" | "panic">,
