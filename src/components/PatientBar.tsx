@@ -12,6 +12,7 @@ import { PatientAvatar } from "./PatientAvatar";
 import { StarButton } from "./StarButton";
 import { ageSex } from "@/lib/person";
 import { useFavorites } from "@/lib/use-favorites";
+import { useLongPress } from "@/lib/use-long-press";
 
 interface Props {
   patient: Patient;
@@ -29,6 +30,8 @@ interface Props {
   doctors?: PatientDoctors;
   /** Opens the doctors' list (to add or remove a 担当医・コンサルト医). */
   onOpenDoctors?: () => void;
+  /** 患者基本情報 (住所・連絡先・家族・保険・入院前の情報収集 …): opened by double-clicking the name (iPad: a long press). */
+  onOpenInfo?: () => void;
   /** 保存・オーダーのみ・未確認の結果: the chart's actions, on the right of the bar. */
   actions?: React.ReactNode;
 }
@@ -40,8 +43,9 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, actions }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, onOpenInfo, actions }: Props) {
   const [pregEdit, setPregEdit] = useState(false);
+  const longPress = useLongPress<HTMLDivElement>(onOpenInfo);
   const [weeks, setWeeks] = useState("");
   const [favorites, toggleFavorite] = useFavorites();
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
@@ -55,10 +59,22 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule bg-sheet px-4 py-2.5">
       <div className="flex items-center gap-3">
         <PatientAvatar sex={p.sex} age={p.age} size={46} className="rounded-full ring-1 ring-rule" />
-        <div>
+        <div
+          className={onOpenInfo ? "-mx-1 cursor-pointer select-none rounded px-1 hover:bg-paper" : undefined}
+          title={onOpenInfo ? "ダブルクリック（iPad は長押し）で患者基本情報を開く" : undefined}
+          onDoubleClick={onOpenInfo ? (e) => !(e.target as Element).closest("button") && onOpenInfo() : undefined}
+          style={onOpenInfo ? { touchAction: "manipulation" } : undefined}
+          {...longPress}
+        >
           <div className="text-[11px] leading-none text-ink-faint">{p.kana}</div>
           <div className="flex items-center gap-1 text-xl font-bold leading-tight">
-            {p.name}
+            {onOpenInfo ? (
+              <span role="button" tabIndex={0} aria-label={`${p.name}の患者基本情報を開く（ダブルクリックか長押し。キーボードは Enter）`} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpenInfo())} className="rounded focus-visible:outline-2">
+                {p.name}
+              </span>
+            ) : (
+              p.name
+            )}
             <StarButton on={favorites.includes(p.id)} name={p.name} onToggle={() => toggleFavorite(p.id)} size={17} />
           </div>
         </div>

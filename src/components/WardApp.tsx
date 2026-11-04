@@ -13,7 +13,7 @@ import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
 import { patientMonthPayload } from "@/lib/billing/payload";
-import { currentInsurance } from "@/lib/billing/registration";
+import { currentInsurance, currentRecord } from "@/lib/billing/registration";
 import { INITIAL_DESK, withInsurance, withSettlement, type IjiDesk } from "@/lib/billing/worklist";
 import { BillingView } from "./BillingView";
 import { IjiBoard } from "./IjiBoard";
@@ -218,6 +218,8 @@ import { MeProvider, RoleProvider } from "./RoleContext";
 import { DEFAULT_DOCTOR, DOCTORS, isResident, onTeamOf } from "@/lib/doctors";
 import { addDoctor, consultDoctors, doctorsOf, INITIAL_DOCTOR_BOOK, involved, removeDoctor, type DoctorBook } from "@/lib/patient-doctors";
 import { DoctorsPanel } from "./panels/DoctorsPanel";
+import { PatientInfoPanel, patientInfoTitle } from "./panels/PatientInfoPanel";
+import { INITIAL_CONTACTS, type ContactsBook } from "@/lib/patient-contacts";
 import { COSIGN_RULES, byRef, confirmDeny, confirmItems, newItems, noteRevised, pendingOf, residentBlock, type CosignItem } from "@/lib/cosign";
 import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
@@ -239,7 +241,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -597,6 +599,8 @@ export default function WardApp() {
   const [pregnancy, setPregnancy] = useState<Record<string, { weeks: number | null } | null>>({});
   // 担当医・コンサルト医 per patient (the attending is in the record); the list opens from the patient bar.
   const [doctorBook, setDoctorBook] = useState<DoctorBook>(INITIAL_DOCTOR_BOOK);
+  // 患者基本情報 (住所・連絡先・家族・公費・介護・かかりつけ), per patient id (patient-contacts.ts).
+  const [contactsBook, setContactsBook] = useState<ContactsBook>(INITIAL_CONTACTS);
   const [doctorsOpen, setDoctorsOpen] = useState(false);
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
   // 経過表: the days a nurse or doctor chose to count from (イベント日数).
@@ -729,6 +733,7 @@ export default function WardApp() {
       journal: [journal, setJournal],
       pregnancy: [pregnancy, setPregnancy],
       doctorBook: [doctorBook, setDoctorBook],
+      contactsBook: [contactsBook, setContactsBook],
       stickies: [stickies, setStickies],
       flowEvents: [flowEvents, setFlowEvents],
       graphNotes: [graphNotes, setGraphNotes],
@@ -2744,6 +2749,7 @@ export default function WardApp() {
             onOpenProfile={() => setPanel("profile")}
             doctors={doctorsFor(patient.id, entries)}
             onOpenDoctors={() => setDoctorsOpen(true)}
+            onOpenInfo={() => setPanel("patient-info")}
             actions={
               <>
                 {orderMode !== "none" && (
@@ -3898,6 +3904,28 @@ export default function WardApp() {
                       if (deny("profile.doctors")) return;
                       auditLog({ role: me.role, actor: me.name, action: `${r}を外した`, patient: patient.name, detail: name });
                       setDoctorBook((all) => ({ ...all, [patient.id]: removeDoctor(all[patient.id] ?? [], name, r) }));
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "patient-info" && (
+                <Drawer title={patientInfoTitle(patient)} onClose={closePanel} wide>
+                  <PatientInfoPanel
+                    key={patient.id}
+                    patient={patient}
+                    today={today}
+                    nowTime={nowTime}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    contacts={contactsBook[patient.id]}
+                    insurance={currentRecord(iji.insurance, patient.id)}
+                    doctors={doctorsFor(patient.id, entries)}
+                    anamnesis={anamnesis[patient.id]}
+                    directive={currentDirective(directives, patient.id)}
+                    onOpen={(where) => (where === "doctors" ? setDoctorsOpen(true) : setPanel(where))}
+                    onSave={(r) => {
+                      if (deny("profile.contacts")) return;
+                      auditLog({ role: me.role, actor: me.name, action: contactsBook[patient.id] ? "確定（患者基本情報の変更）" : "確定（患者基本情報の登録）", patient: patient.name, detail: r.reason || undefined });
+                      setContactsBook((all) => ({ ...all, [patient.id]: r }));
                     }}
                   />
                 </Drawer>
