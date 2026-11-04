@@ -2,6 +2,10 @@
 import { focusDraftLine } from "@/lib/order-windows";
 
 import { pendingDraftCount, transferEmergencyOrders } from "@/lib/billing/emergency-visit";
+import { nutritionTileBlocks } from "@/lib/nutrition-access";
+import { NutritionPanel } from "./NutritionPanel";
+import { kitchenWaiting } from "@/lib/kitchen";
+import { useKitchenAllergies } from "@/lib/use-kitchen-allergies";
 
 import { useNoticeFocus } from "./useNoticeFocus";
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
@@ -268,7 +272,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "add-consult", "standing", "add-lab", "add-imaging", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["nutrition", ...orderWindows, "add-consult", "standing", "add-lab", "add-imaging", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -873,6 +877,7 @@ export default function WardApp() {
   const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
   // 救急外来・外来 of today: each visit is a (small) patient too, so it opens in the same chart screen as a
   // ward patient (its record is the visit's orders and notes; a chart opened for the visit keeps the rest).
+  useKitchenAllergies(allPatients, care.kitchen, care.setKitchen, me, nowTime ?? "");
   const visitPatientsAll: WorkPatient[] = useMemo(
     () =>
       [...er.map((v) => visitPerson("er", v, visitEntries[`er:${v.id}`] ?? [], labDesk)), ...opd.map((v) => visitPerson("opd", v, visitEntries[`opd:${v.id}`] ?? [], labDesk))].map((x) => ({
@@ -1687,8 +1692,10 @@ export default function WardApp() {
   // やること: what waits for this role, from everywhere, each with where to go.
   const consultPeople = bedPeople(allBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id]));
   const inbox = consultInbox(consultPeople, me.name, consultReplies);
+  const kitchenPending = kitchenWaiting(diets, care.kitchen);
   const todos: Todo[] = [];
   if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) openPatient(n.patientId); } })));
+  if (role === "管理栄養士" && kitchenPending) todos.push({ key: "kitchen", label: "給食の変更が未受け", count: kitchenPending, tone: "shu", go: () => openArea("kitchen") });
   if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
   for (const x of people) {
     const pid = x.patient.id;
@@ -2021,6 +2028,7 @@ export default function WardApp() {
 
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
+    ...nutritionTileBlocks(role),
     ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
     ...(deny("order") ? { "add-pathology": deny("order")! } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
@@ -3595,6 +3603,7 @@ export default function WardApp() {
                   />
                 </Drawer>
               )}
+              {panel === "nutrition" && <Drawer title="栄養管理" onClose={closePanel} wide locked={deny("assess.nutrition")}><NutritionPanel key={patient.id} patient={patient} evaluation={evals[patient.id]} diets={diets} today={today} nowTime={nowTime} onSave={(e, text) => { setEvals(all => ({ ...all, [e.patientId]: e })); chartNote(patient.id, text); }} /></Drawer>}
               {panel === "diet" && (
                 <Drawer title="食事" onClose={closePanel} wide locked={deny("diet")}>
                   <DietPanel
@@ -4369,7 +4378,7 @@ export default function WardApp() {
         patients={rows.patients}
         crumbs={rows.crumbs}
         onOpenPicker={() => setPickerOpen(true)}
-        areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(labItems, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name) && forMyTeam(n)).length : 0), board: unreadCount(notices, reads, me.name) }}
+        areaBadges={{ kitchen: role === "管理栄養士" ? kitchenPending : 0, ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(labItems, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name) && forMyTeam(n)).length : 0), board: unreadCount(notices, reads, me.name) }}
         todos={todos}
         session={login.settings.on && login.session ? { onLogout: login.logout, onLock: login.lock } : undefined}
       >

@@ -1,5 +1,6 @@
 "use client";
 
+import { KitchenChanges } from "./KitchenChanges";
 import { ClipboardCheck, CookingPot, NotebookPen, Printer, Scale, ShoppingCart, Tag, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -95,7 +96,7 @@ export function KitchenView(p: Props) {
         />
       </header>
       <div className="space-y-4 px-5 py-4 text-[13px]">
-        {tab === "count" && <Counts {...p} cellsOf={cellsOf} dowOf={dowOf} />}
+        {tab === "count" && <><KitchenChanges {...p} /><Counts {...p} cellsOf={cellsOf} dowOf={dowOf} /></>}
         {tab === "menu" && <Menus today={p.today} dowOf={dowOf} />}
         {tab === "tickets" && <Tickets {...p} cellsOf={cellsOf} dowOf={dowOf} />}
         {tab === "check" && <Checks {...p} cellsOf={cellsOf} dowOf={dowOf} />}

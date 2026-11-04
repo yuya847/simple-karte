@@ -60,6 +60,8 @@ export const TABS: Record<Role, PinnedTab[]> = {
 export const home = (r: Role): PinnedTab => TABS[r][0];
 
 export type Action =
+  | "io"
+  | "bedside"
   | "consult"
   | "order"
   | "order.verbal"
@@ -133,6 +135,8 @@ export type Action =
   | "master.proc";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
+  io: { label: "水分出納の記録", who: ["医師", "看護師"] },
+  bedside: { label: "ベッドサイド表示", who: ["医師", "看護師"] },
   consult: { label: "コンサルトの依頼・返書・終了", who: ["医師"] },
   order: { label: "オーダの確定", who: ["医師"] },
   "order.verbal": { label: "口頭指示の代行入力", who: ["看護師"] },
@@ -171,7 +175,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   handoff: { label: "申し送り", who: ["看護師", "医師"] },
   plan: { label: "入院診療計画書の確定", who: ["医師"] },
   "assess.nursing": { label: "看護の評価（褥瘡・転倒転落・せん妄）", who: ["看護師"] },
-  "assess.nutrition": { label: "栄養の評価と計画", who: ["管理栄養士", "看護師"] },
+  "assess.nutrition": { label: "栄養の評価と計画", who: ["管理栄養士", "医師", "看護師"] },
   "assess.discharge": { label: "退院支援", who: ["MSW", "看護師"] },
   "er.register": { label: "救急の受付", who: ["看護師", "医師"] },
   "er.admit": { label: "入院申込", who: ["医師"] },

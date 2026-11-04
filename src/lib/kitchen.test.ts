@@ -143,3 +143,28 @@ describe("発注・在庫と検食簿", () => {
     expect(kenshokuMissing({ ...EMPTY_KITCHEN, kenshoku: { "0|朝": { by: "a", role: "管理栄養士", time: "07:00", text: "良" } } }, times, 13 * 60)).toEqual(["昼"]);
   });
 });
+
+// The handoff uses immutable order IDs, so receiving one version never receives a later change.
+describe("今日の食事変更", () => {
+  it("lists new/change/hold orders for today and tomorrow, retaining actor and time", async () => {
+    const { dietChanges, kitchenWaiting, EMPTY_KITCHEN } = await import("./kitchen");
+    const base = { patientId: "p", kind: "常食" as const, by: "医師", from: { day: 0, meal: "朝" as const }, at: { day: 0, time: "08:00" } };
+    const orders = [{ ...base, id: "a" }, { ...base, id: "b", energyKcal: 1600, from: { day: 1, meal: "朝" as const }, at: { day: 0, time: "09:00" } }, { ...base, id: "c", kind: "絶食" as const, at: { day: 0, time: "10:00" } }, { ...base, id: "future", from: { day: 2, meal: "朝" as const } }];
+    const rows = dietChanges(orders);
+    expect(rows).toHaveLength(3);
+    expect(rows.map(r => r.text.split("：")[0])).toEqual(["新規", "変更", "食止め"]);
+    expect(rows[1]).toMatchObject({ by: "医師", time: "09:00" });
+    expect(kitchenWaiting(orders, { ...EMPTY_KITCHEN, received: { "diet:a": { by: "栄養士", day: 0, time: "08:30" } } })).toBe(2);
+  });
+});
+
+it("does not count initial allergies, but retains additions and their receiver independently", async () => {
+  const { allergyChanges, kitchenChanges, kitchenWaiting } = await import("./kitchen");
+  expect(allergyChanges({}, { p: ["卵"] }, "看護師", "09:00", 0)).toEqual([]);
+  const added = allergyChanges({ p: ["卵"] }, { p: ["卵", "乳"] }, "看護師", "09:00", 0);
+  expect(added).toHaveLength(1); expect(added[0]).toMatchObject({ text: "アレルギーの追加：乳", by: "看護師" });
+  const desk = { ...EMPTY_KITCHEN, allergyChanges: added };
+  expect(kitchenChanges([], desk)).toEqual(added);
+  expect(kitchenWaiting([], desk)).toBe(1);
+  expect(kitchenWaiting([], { ...desk, received: { [added[0].id]: { by: "栄養士", day: 0, time: "09:05" } } })).toBe(0);
+});

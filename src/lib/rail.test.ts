@@ -60,3 +60,10 @@ it("表示を切り替えても道具とテンプレートの保存順を保ち�
   saveRail(person, { ...loadRail(person), pins: togglePin(loadRail(person).pins, "results") });
   expect(loadRail(person)).toEqual({ group: "intervention", mode: "list", pins: ["template:rec-fall", "add-rx"] });
 });
+
+it("すべて表示は既定で隠し、この端末の保存を復元する", () => {
+  fakeStorage();
+  expect(loadRail("栄養士").showAll ?? false).toBe(false);
+  saveRail("栄養士", { mode: "icons", pins: [], showAll: true });
+  expect(loadRail("栄養士").showAll).toBe(true);
+});

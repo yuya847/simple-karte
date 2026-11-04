@@ -84,6 +84,7 @@ describe("栄養の再評価と栄養管理計画書の版", () => {
     expect(due({ patientId: "p", plan: plan("有"), nutrition: { ...first, reassessOn: 3 } }, -5, "reassess").state).toBe("期限内");
     expect(due({ patientId: "p", plan: plan("有") }, -5, "reassess")).toMatchObject({ state: "不要", note: "栄養管理計画書を作ると、計画書で決めた再評価の日がここに出ます" });
     expect(due({ patientId: "p", plan: plan("無") }, -5, "reassess").state).toBe("不要");
+    expect(due({ patientId: "p", plan: plan("無"), nutrition: first }, -5, "reassess")).toMatchObject({ dueOn: -1, state: "期限切れ" });
   });
   it("a revision keeps every earlier version with who and when", () => {
     const next = reviseNutrition(first, { ...first, energyKcal: 1400, reassessOn: 7 }, "管理栄養士 佐々木", { day: 0, time: "11:00" }, { kind: "再評価", reason: " 食事量が5割。量を減らす " });

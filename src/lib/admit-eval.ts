@@ -93,6 +93,9 @@ export interface PlanRecord {
 }
 
 export interface NutritionRecord {
+  assessment?: string;
+  sga?: string;
+  food?: string;
   goal: string;
   energyKcal: number;
   proteinG: number;
@@ -191,7 +194,7 @@ export function nutritionVersions(r: NutritionRecord): NutritionVersion[] {
 /** A new version of the plan; the version in force becomes the latest earlier one. */
 export function reviseNutrition(cur: NutritionRecord, next: NutritionFields, by: string, at: At, revision: { kind: "再評価" | "訂正"; reason: string }): NutritionRecord {
   const { earlier = [], ...prev } = cur;
-  return { ...next, by, at, revision: { kind: revision.kind, reason: revision.reason.trim() }, earlier: [...earlier, prev] };
+  return { ...prev, ...next, by, at, revision: { kind: revision.kind, reason: revision.reason.trim() }, earlier: [...earlier, prev] };
 }
 
 /** Why a revision cannot be saved yet (empty when it can). A reassessment may keep the same plan; a correction must change something. */
@@ -251,7 +254,7 @@ export function duesOf(a: AdmitEval, admittedOn: DayOffset): Due[] {
     key: "reassess",
     label: "栄養の再評価",
     who: ["管理栄養士"],
-    dueOn: n && nNeeded !== "無" ? n.reassessOn : null,
+    dueOn: n ? n.reassessOn : null,
     note: !n
       ? nNeeded === "無"
         ? undefined

@@ -13,6 +13,7 @@ export type RailMode = "icons" | "list";
 export type RailPin = string;
 
 export interface RailState {
+  showAll?: boolean;
   mode: RailMode;
   group?: RailGroupKey;
   pins: RailPin[];
@@ -30,8 +31,8 @@ const EMPTY: RailState = { group: "intervention", mode: "icons", pins: [] };
 
 export function loadRail(person: string): RailState {
   try {
-    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { mode?: RailMode; pins?: unknown; group?: unknown } | null;
-    return { group: "intervention", mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
+    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { showAll?: boolean; mode?: RailMode; pins?: unknown; group?: unknown } | null;
+    return { ...(o?.showAll === true ? { showAll: true } : {}), group: "intervention", mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
   } catch {
     return EMPTY;
   }

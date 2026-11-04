@@ -82,3 +82,8 @@ describe("roles", () => {
     expect(home("医事課")).toBe("iji");
   });
 });
+
+it("栄養管理は栄養士・医師・看護師、看護の実施は栄養士に出さない", () => {
+  for (const role of ["管理栄養士", "医師", "看護師"] as const) expect(can(role, "assess.nutrition")).toBe(true);
+  for (const action of ["tx.bedside", "pressure", "bedside", "io"] as const) expect(can("管理栄養士", action)).toBe(false);
+});

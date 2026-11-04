@@ -8,7 +8,7 @@ import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type Rai
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
+export type PanelKind = "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
 
 interface Tool {
   key: PanelKind;
@@ -70,6 +70,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
       { key: "vitals", label: "バイタル", icon: Thermometer },
       { key: "care-orders", label: "ケア指示", icon: ListTodo },
       { key: "nursing-plan", label: "看護計画", icon: ClipboardCheck },
+      { key: "nutrition", label: "栄養管理", icon: Utensils },
       { key: "io", label: "水分出納", icon: GlassWater },
       { key: "anamnesis", label: "情報収集", icon: ClipboardPen },
     ],
@@ -209,6 +210,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
   const all = groups.flatMap((g) => [...g.main, ...g.more]);
+  const showAll = rail.showAll ?? false;
   const list = rail.mode === "list";
 
   const toolTile = (t: Tool): Tile => ({ pin: t.key, label: t.label, icon: t.icon, active: open === t.key, why: blocked[t.key], disabled: t.disabled, badge: badges[t.key], go: () => onOpen(open === t.key ? null : t.key) });
@@ -238,6 +240,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
     const active = t.active;
     const why = t.why;
     const off = t.disabled || !!why;
+    if (off && !showAll) return null;
     const isPin = rail.pins.includes(t.pin);
     const badge = t.badge;
     const tileList = list && where === "tab";
@@ -289,7 +292,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
             </button>
           </span>
         </div>
-        <div role="tablist" aria-label="道具の種類" className="mb-1 grid grid-cols-3 gap-1 border-b border-rule pb-1">
+        <div className="mb-1 flex items-start gap-1">
+        <div role="tablist" aria-label="道具の種類" className="mb-1 grid grid-cols-3 flex-1 gap-1 border-b border-rule pb-1">
           {groups.map((g) => {
             const badged = [...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0);
             return (
@@ -299,6 +303,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
               </button>
             );
           })}
+        </div>
+        <button type="button" aria-pressed={showAll} onClick={() => put({ ...rail, showAll: !showAll })} className="shrink-0 rounded border border-rule px-1 py-1 text-[10px] text-ink-soft">すべて表示{showAll ? "：入" : "：切"}</button>
         </div>
         <div className={grid}>
           {group.key === "reference" && !short && injectionCalendar && (

@@ -6,7 +6,7 @@
 // 日本人の食事摂取基準), finds dishes that contain what the patient must not eat, and counts. The 管理栄養士
 // decides substitutes and changes; the doctor decides the diet.
 
-import { MEALS, findTherapeutic, specialDiet, type DietOrder, type Meal, type Staple } from "./diet";
+import { MEALS, dietAt, dietLabel, findTherapeutic, specialDiet, type DietOrder, type Meal, type Staple } from "./diet";
 import type { Sex } from "./types";
 
 export const KITCHEN_SOURCES = {
@@ -596,6 +596,9 @@ export interface Sub {
 }
 
 export interface KitchenDesk {
+  received?: Record<string, { by: string; day: number; time: string }>;
+  allergySnapshot?: Record<string, string[]>;
+  allergyChanges?: KitchenChange[];
   bans: Record<string, Ban[]>;
   /** 代わりの料理, by `${patientId}|${day}|${meal}|${dishId}`. */
   subs: Record<string, Sub>;
@@ -638,4 +641,31 @@ export function initialKitchen(): KitchenDesk {
       "90010231": [{ food: "牛乳", why: "本人の申告（飲むとおなかをこわす。乳製品は少量なら食べられる）", by: "管理栄養士 高橋", at }],
     },
   };
+}
+
+export interface KitchenChange {
+  id: string;
+  patientId: string;
+  day: number;
+  time: string;
+  by: string;
+  text: string;
+}
+/** Compare immutable order versions. Only orders issued today for today's/tomorrow's meals. */
+export function dietChanges(orders: DietOrder[]): KitchenChange[] {
+  return orders.filter(o => o.at.day === 0 && o.from.day >= 0 && o.from.day <= 1).map(o => {
+    const previous = dietAt(orders.filter((x, index) => x.id !== o.id && (x.at.day < o.at.day || x.at.day === o.at.day && (x.at.time < o.at.time || x.at.time === o.at.time && index < orders.indexOf(o)))), o.patientId, o.from.day, o.from.meal);
+    const action = o.kind === "絶食" ? "食止め" : previous ? "変更" : "新規";
+    return { id: `diet:${o.id}`, patientId: o.patientId, day: o.at.day, time: o.at.time, by: o.by, text: `${action}：${o.from.day === 0 ? "今日" : "明日"}${o.from.meal}食から ${previous ? `${dietLabel(previous)} → ` : ""}${dietLabel(o)} ${o.energyKcal ?? "未指定"}kcal・蛋白${o.proteinG ?? "未指定"}g${o.comment ? `・${o.comment}` : ""}` };
+  });
+}
+export function kitchenChanges(orders: DietOrder[], desk: KitchenDesk): KitchenChange[] {
+  const bans = Object.entries(desk.bans).flatMap(([patientId, items]) => items.filter(b => b.at.day === 0).map(b => ({ id: `ban:${patientId}:${b.at.day}:${b.at.time}:${b.food}`, patientId, day: b.at.day, time: b.at.time, by: b.by, text: `禁止食品の追加：${b.food}（${b.why}）` })));
+  return [...dietChanges(orders), ...(desk.allergyChanges ?? []).filter(c => c.day === 0), ...bans].sort((a,b) => b.time.localeCompare(a.time) || a.id.localeCompare(b.id));
+}
+export const kitchenWaiting = (orders: DietOrder[], desk: KitchenDesk) => kitchenChanges(orders, desk).filter(c => !desk.received?.[c.id]).length;
+
+/** Profile allergy additions only; removed allergies do not erase an earlier handoff. */
+export function allergyChanges(before: Record<string, string[]>, after: Record<string, string[]>, by: string, time: string, version: number): KitchenChange[] {
+  return Object.entries(after).flatMap(([patientId, foods]) => !before[patientId] ? [] : foods.filter(food => !before[patientId].includes(food)).map(food => ({ id: `allergy:${patientId}:${version}:${food}`, patientId, day: 0, time, by, text: `アレルギーの追加：${food}` })));
 }
