@@ -202,3 +202,10 @@ html:not([data-hints="on"]) .hint {
 @media (prefers-reduced-motion: reduce) {
   .karte-tab-flash { animation: none; box-shadow: 0 0 0 3px var(--color-ai); }
 }
+
+/* The patient opened from a nurse notification, removed after two seconds. */
+.notice-patient-highlight {
+  outline: 3px solid var(--color-yamabuki);
+  outline-offset: -3px;
+  background-color: var(--color-yamabuki-soft);
+}

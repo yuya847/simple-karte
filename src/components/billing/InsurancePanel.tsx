@@ -1,5 +1,7 @@
 "use client";
 
+import { BigChoice } from "@/components/BigChoice";
+import { ConfirmCheck } from "@/components/ConfirmCheck";
 import { AlertTriangle, Ban, CheckCircle2, Info, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -129,19 +131,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           </div>
           <div className="col-span-2">
             <span className="mb-0.5 block text-ink-soft">本人・家族</span>
-            <div className="flex flex-wrap gap-3">
-              {(
-                [
-                  ["本人", "本人（国保は世帯主）"],
-                  ["家族", "家族（国保はその他）"],
-                ] as const
-              ).map(([v, label]) => (
-                <label key={v} className="flex items-center gap-1">
-                  <input type="radio" name="relation" checked={form.relation === v} onChange={() => set({ relation: v })} />
-                  {label}
-                </label>
-              ))}
-            </div>
+            <BigChoice label="本人・家族" name="relation" options={[{ value: "本人", label: "本人（国保は世帯主）" }, { value: "家族", label: "家族（国保はその他）" }]} value={form.relation} onChange={(v) => set({ relation: v })} />
           </div>
           <label>
             <span className="mb-0.5 block text-ink-soft">生年月日（カルテは{patient.age}歳）</span>
@@ -149,14 +139,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           </label>
           <div>
             <span className="mb-0.5 block text-ink-soft">負担割合</span>
-            <div className={`flex gap-3 rounded border px-2 py-1 ${fieldTone("rate")}`}>
-              {(["10", "20", "30"] as const).map((v) => (
-                <label key={v} className="flex items-center gap-1">
-                  <input type="radio" name="rate" checked={form.rate === v} onChange={() => set({ rate: v })} />
-                  {Number(v) / 10}割
-                </label>
-              ))}
-            </div>
+            <BigChoice label="負担割合" name="pi-rate" className={`rounded border p-0.5 ${fieldTone("rate")}`} options={(["10", "20", "30"] as const).map((value) => ({ value, label: `${Number(value) / 10}割` }))} value={form.rate} onChange={(v) => set({ rate: v })} />
           </div>
           <label>
             <span className="mb-0.5 block text-ink-soft">所得区分（適用区分）</span>
@@ -194,10 +177,9 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
               ))}
             </select>
           </label>
-          <label className={`col-span-2 flex items-center gap-1.5 ${fieldTone("elderCard") === "border-yamabuki" ? "text-yamabuki" : ""}`}>
-            <input type="checkbox" checked={form.elderCard} onChange={(e) => set({ elderCard: e.target.checked })} />
-            高齢受給者証を確かめた（70〜74歳。負担割合が書いてある）
-          </label>
+          <div className={`col-span-2 flex items-center gap-1.5 ${fieldTone("elderCard") === "border-yamabuki" ? "text-yamabuki" : ""}`}>
+                <ConfirmCheck checked={form.elderCard} onChange={(v) => set({ elderCard: v })}>高齢受給者証を確かめた（70〜74歳。負担割合が書いてある）</ConfirmCheck>
+              </div>
           <label className="col-span-2 sm:col-span-1">
             <span className="mb-0.5 block text-ink-soft">過去12か月の入院日数（区分オ・低所得Ⅱで減額認定のある人）</span>
             <input value={form.stayDays} onChange={(e) => set({ stayDays: e.target.value.trim() })} inputMode="numeric" className={`nums ${input} ${fieldTone("stayDays")}`} />
@@ -206,10 +188,9 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
 
         <div className="mt-4 space-y-2">
           {reveal && warns.length > 0 && !errors && !locked && (
-            <label className="flex items-center gap-1.5 text-xs text-yamabuki">
-              <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-              「確かめる」の{warns.length}件を保険証で確かめた
-            </label>
+            <div className="flex items-center gap-1.5 text-xs text-yamabuki">
+                <ConfirmCheck checked={ack} onChange={(v) => setAck(v)}>「確かめる」の{warns.length}件を保険証で確かめた</ConfirmCheck>
+              </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
             {/* On a fresh form the button stays live so that pressing it shows what is still to fill. */}

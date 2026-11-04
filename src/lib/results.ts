@@ -2,6 +2,7 @@
 // Which results are new, which values cross a panic limit and what is still unconfirmed are all
 // worked out by code. A person phones, a person reads back, and the doctor marks a result as seen.
 
+import { patientPlace } from "./patient-place";
 import { ANALYTES, rangeFor } from "./master";
 import type { CultureResult, DayOffset, LabResult, Patient } from "./types";
 
@@ -246,7 +247,7 @@ export const PANIC_SOURCE =
 
 /** Where the patient is: a ward chart, or a visit of 救急外来 / 外来 (ids "er:◯" / "opd:◯", like the visit tabs). */
 export type Place = "病棟" | "救急" | "外来";
-export const placeOf = (patientId: string): Place => (patientId.startsWith("er:") ? "救急" : patientId.startsWith("opd:") ? "外来" : "病棟");
+export const placeOf = (patientId: string): Place => ({ ward: "病棟", er: "救急", opd: "外来" } as const)[patientPlace(patientId)];
 
 const dayWord = (d: DayOffset) => (d === 0 ? "今日" : d === 1 ? "明日" : d === -1 ? "昨日" : d > 0 ? `${d}日後` : `${-d}日前`);
 

@@ -1,6 +1,7 @@
 // The words of the left record for the kind of chart in front: a stay in the ward (「今回入院」「入院3日目」) or
 // a visit of 救急外来・外来 (「今回の受診」「受診当日」). A visit opens in the same chart screen as a ward patient
 // (its Patient has admittedOn 0), so the date tree and the day headings choose their words here, not by the stay.
+import { patientPlace } from "./patient-place";
 import { hospitalDay } from "./dates";
 import type { DayOffset, Patient } from "./types";
 
@@ -8,8 +9,7 @@ export type StayKind = "入院" | "受診";
 
 /** A visit's chart has the visit's id: "er:◯" / "opd:◯" (the visit tabs) or a bare 救急外来 id "er-◯". */
 export function stayKindOf(patient: Pick<Patient, "id">): StayKind {
-  const id = patient.id;
-  return id.startsWith("er:") || id.startsWith("opd:") || id.startsWith("er-") ? "受診" : "入院";
+  return patientPlace(patient.id) === "ward" ? "入院" : "受診";
 }
 
 /** The top of the date tree: 「今回入院 11/1（日）〜」 for a stay, 「今回の受診 11/4（水）」 for a visit (one day). */

@@ -1,5 +1,6 @@
 "use client";
 
+import { useNoticeFocus } from "./useNoticeFocus";
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
 import { normalizeRightState, orderWindows, showOrderWindow } from "@/lib/order-windows";
 import { ConsultContext } from "./ConsultContext";
@@ -552,6 +553,7 @@ export default function WardApp() {
   const [emergencies, setEmergencies] = useState<Emergency[]>([]);
   const [callNotes, setCallNotes] = useState<CallNote[]>([]);
   // お知らせ on the nurses' phones (オーダ変更・一斉連絡), and what nurses registered per bed (救護区分・センサー).
+  const focusNotice = useNoticeFocus();
   const [phsNotices, setPhsNotices] = useState<PhsNotice[]>([]);
   const [bedInfo, setBedInfo] = useState<Record<string, BedInfo>>({});
   // 転院・施設の調整: what was asked where, and each answer.
@@ -4389,6 +4391,7 @@ export default function WardApp() {
               <div key={n.id} role="status" className="flex max-w-md items-center gap-2 rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[13px] shadow">
                 <b className="shrink-0 text-yamabuki">{n.kind}</b>
                 <span className="min-w-0">{n.text}</span>
+                {n.patientId && <button type="button" onClick={() => { goWard("sheet"); focusNotice(n.patientId!, "sheet"); }} className="shrink-0 text-xs text-ai underline">見る</button>}
                 <button type="button" onClick={() => setPhsNotices((ns) => ns.map((x) => (x.id === n.id ? { ...x, readBy: [...x.readBy, me.name] } : x)))} className="shrink-0 rounded border border-rule px-1.5 text-xs">
                   見た
                 </button>
@@ -4406,7 +4409,7 @@ export default function WardApp() {
                 <button type="button" onClick={() => answerCall(c.id)} className="rounded bg-yamabuki px-2 py-0.5 text-xs font-bold text-white">
                   応答
                 </button>
-                <button type="button" onClick={() => openArea("phs")} className="text-xs text-ai underline">
+                <button type="button" onClick={() => { openArea("phs"); focusNotice(c.patientId, "phs"); }} className="text-xs text-ai underline">
                   開く
                 </button>
               </div>

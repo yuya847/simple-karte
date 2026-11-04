@@ -59,7 +59,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
             const holding = !!hold && !hold.answer && !ok;
             const flags = (Object.entries(r.flags) as [keyof typeof FLAG_STYLE, string][]).filter(([, v]) => v);
             return [
-              <tr key={r.key} className={r.kind === "中止" ? "text-ink-soft" : ok ? "" : r.flags.urgent ? "bg-shu-soft/30" : ""}>
+              <tr key={r.key} data-patient={r.patientId} data-notice-destination="sheet" className={r.kind === "中止" ? "text-ink-soft" : ok ? "" : r.flags.urgent ? "bg-shu-soft/30" : ""}>
                 <td className={td}>
                   {ok ? (
                     <span className="flex flex-col items-start gap-0.5">

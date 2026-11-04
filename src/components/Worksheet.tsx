@@ -339,7 +339,7 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
                 const prev = timed[k - 1];
                 const newHour = !prev || Math.floor((prev.at ?? 0) / 60) !== Math.floor((i.at ?? 0) / 60);
                 return (
-                  <tr key={`${i.orderId}-${i.at}-${k}`} className={newHour ? "border-t border-ink/30" : ""}>
+                  <tr data-patient={i.patientId} data-notice-destination="sheet" key={`${i.orderId}-${i.at}-${k}`} className={newHour ? "border-t border-ink/30" : ""}>
                     <td className={`${td} font-bold`}>{i.at !== null ? timeLabel(i.at, day, today) : ""}</td>
                     <td className={td}>
                       {i.room}　{i.name}
@@ -384,7 +384,7 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
           <table className="w-full border-collapse">
             <tbody>
               {untimed.map((i) => (
-                <tr key={i.orderId}>
+                <tr data-patient={i.patientId} data-notice-destination="sheet" key={i.orderId}>
                   <td className={`${td} w-28`}>
                     {i.room}　{i.name}
                   </td>

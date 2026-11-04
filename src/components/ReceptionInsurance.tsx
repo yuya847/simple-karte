@@ -4,8 +4,10 @@
 // 資格確認（模擬）. The same form as 保険の登録 (registration.ts), with the fields a reception needs; 公費・生活
 // 保護・労災 are registered in the 患者基本情報 window. Code checks the entries; the person receives.
 
+import { BigChoice } from "@/components/BigChoice";
+import { ConfirmCheck } from "@/components/ConfirmCheck";
 import { AlertTriangle, Ban, Info } from "lucide-react";
-import { VERIFY_METHODS, rateLabel, type IncomeClass, type VerifyMethod } from "@/lib/billing/insurance";
+import { VERIFY_METHODS, type IncomeClass, type VerifyMethod } from "@/lib/billing/insurance";
 import { ELDER_CLASSES, insuranceSummary, isMedical, kindOptionOf, KOUKI_CLASSES, PROOFS, UNDER70_CLASSES, type FormCheck, type InsuranceForm, type InsuranceRecord } from "@/lib/billing/registration";
 import { type CalendarDate, isoDate } from "@/lib/dates";
 import { RECEPTION_KIND_OPTIONS } from "@/lib/opd-reception";
@@ -102,25 +104,11 @@ export function ReceptionInsurance({ form, onChange, today, checks, derived = []
             </div>
             <div className="text-[11px] text-ink-soft">
               本人・家族
-              <div role="radiogroup" aria-label="本人・家族" className={`flex gap-1.5 rounded border p-0.5 ${tone("relation")}`}>
-                {(["本人", "家族"] as const).map((v) => (
-                  <label key={v} className={`flex min-h-8 flex-1 cursor-pointer items-center justify-center gap-1 rounded text-[12px] ${form.relation === v ? "bg-ai-soft font-bold text-ai" : "text-ink"}`}>
-                    <input type="radio" name="rc-relation" checked={form.relation === v} onChange={() => onChange({ relation: v })} className="accent-ai" />
-                    {v}
-                  </label>
-                ))}
-              </div>
+              <BigChoice label="本人・家族" name="rc-relation" className={`rounded border p-0.5 ${tone("relation")}`} options={[{ value: "本人", label: "本人" }, { value: "家族", label: "家族" }]} value={form.relation} onChange={(v) => onChange({ relation: v })} />
             </div>
             <div className="text-[11px] text-ink-soft">
               負担割合
-              <div role="radiogroup" aria-label="負担割合" className={`flex gap-1.5 rounded border p-0.5 ${tone("rate")}`}>
-                {(["10", "20", "30"] as const).map((v) => (
-                  <label key={v} className={`flex min-h-8 flex-1 cursor-pointer items-center justify-center gap-1 rounded text-[12px] ${form.rate === v ? "bg-ai-soft font-bold text-ai" : "text-ink"}`}>
-                    <input type="radio" name="rc-rate" checked={form.rate === v} onChange={() => onChange({ rate: v })} className="accent-ai" />
-                    {rateLabel(Number(v))}
-                  </label>
-                ))}
-              </div>
+              <BigChoice label="負担割合" name="rc-rate" className={`rounded border p-0.5 ${tone("rate")}`} options={(["10", "20", "30"] as const).map((value) => ({ value, label: `${Number(value) / 10}割` }))} value={form.rate} onChange={(v) => onChange({ rate: v })} />
             </div>
             <label className="text-[11px] text-ink-soft">
               所得区分（適用区分）
@@ -158,10 +146,9 @@ export function ReceptionInsurance({ form, onChange, today, checks, derived = []
                 ))}
               </select>
             </label>
-            <label className="flex items-center gap-1.5 self-end pb-1 text-[12px]">
-              <input type="checkbox" checked={form.elderCard} onChange={(e) => onChange({ elderCard: e.target.checked })} />
-              高齢受給者証を確かめた（70〜74歳）
-            </label>
+            <div className="flex items-center gap-1.5 self-end pb-1 text-[12px]">
+                <ConfirmCheck checked={form.elderCard} onChange={(v) => onChange({ elderCard: v })}>高齢受給者証を確かめた（70〜74歳）</ConfirmCheck>
+              </div>
           </>
         )}
         {form.coverage !== "自費" && (

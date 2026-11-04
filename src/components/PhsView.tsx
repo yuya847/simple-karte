@@ -1,7 +1,8 @@
 "use client";
 
+import { NOTICE_FOCUS_EVENT } from "@/lib/notice-focus";
 import { BellRing, CalendarClock, History, Megaphone, Phone, PhoneCall, Siren, StickyNote, Tags } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CALL_KINDS, CALL_REASONS, EMERGENCY_KINDS, PASS_ON_SECONDS, RESCUE, SENSORS, callCounts, callState, callTarget, evacuation, teamOf, type BedInfo, type CallKind, type CallNote, type Contact, type Emergency, type NurseCall, type PhsNotice, type Rescue, type Sensor } from "@/lib/phs";
 import type { WorkPatient } from "@/lib/worksheet";
 import { useMe } from "./RoleContext";
@@ -54,6 +55,13 @@ const TABS: { key: Tab; label: string; icon: typeof Phone }[] = [
 export function PhsView(p: Props) {
   const me = useMe();
   const [tab, setTab] = useState<Tab>("calls");
+  useEffect(() => {
+    const revealCall = (event: Event) => {
+      if ((event as CustomEvent).detail === "phs") setTab("calls");
+    };
+    window.addEventListener(NOTICE_FOCUS_EVENT, revealCall);
+    return () => window.removeEventListener(NOTICE_FOCUS_EVENT, revealCall);
+  }, []);
   const [ringBed, setRingBed] = useState("");
   const [ringKind, setRingKind] = useState<CallKind>("通常");
   const [kind, setKind] = useState<Emergency["kind"] | "">("");
@@ -182,7 +190,7 @@ export function PhsView(p: Props) {
                 const d = doneAs[c.id] ?? { reason: "", memo: "" };
                 const info = p.beds[c.patientId];
                 return (
-                  <article key={c.id} className={`rounded-md border p-2 text-[13px] ${st === "呼出中" ? "border-shu" : "border-rule"}`}>
+                  <article key={c.id} data-patient={c.patientId} data-notice-destination="phs" className={`rounded-md border p-2 text-[13px] ${st === "呼出中" ? "border-shu" : "border-rule"}`}>
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span className={`rounded px-1.5 text-[11px] font-bold ${STATE_STYLE[st]}`}>{st}</span>
                       <span className="rounded border border-ink/30 px-1 text-[11px]">{c.kind}</span>

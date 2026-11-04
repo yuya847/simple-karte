@@ -1,3 +1,5 @@
+import { patientPlace } from "./patient-place";
+
 // The second row (every open chart) grouped by where the patient is: 病棟 (an inpatient's chart), 救急外来
 // and 外来 (a visit, keyed "er:…" / "opd:…"). An ED patient admitted to the ward has a ward chart of its
 // own (a new id), so that chart is 病棟's while the visit's tab, if still open, stays under 救急外来.
@@ -11,8 +13,7 @@ export const PLACE_LABEL: Record<Place, string> = { ward: "病棟", er: "救急�
 
 /** Where a chart's patient is, from its tab key: a visit key names its place; anything else is an inpatient. */
 export function placeOf(key: string): Place {
-  const kind = key.slice(0, key.indexOf(":"));
-  return kind === "er" || kind === "opd" ? kind : "ward";
+  return patientPlace(key);
 }
 
 export interface PlaceGroup<T> {
