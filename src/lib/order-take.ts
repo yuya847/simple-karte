@@ -74,7 +74,7 @@ export interface TakeRow {
   /** Key of the row (the first change key); `keys` are all the changes it takes. */
   key: string;
   keys: string[];
-  kind: "新規" | "中止" | "変更" | "延長" | "食事";
+  kind: "新規" | "中止" | "変更" | "延長" | "食事" | "指示簿";
   at: number;
   timeKnown: boolean;
   patientId: string;

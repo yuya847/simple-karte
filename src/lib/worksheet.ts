@@ -209,7 +209,7 @@ export interface OrderChange {
   timeKnown: boolean;
 }
 
-export const changeKey = (entryId: string, kind: "新規" | "中止" | "延長" | "食事") => `${entryId}|${kind}`;
+export const changeKey = (entryId: string, kind: "新規" | "中止" | "延長" | "食事" | "指示簿") => `${entryId}|${kind}`;
 
 export function orderChanges(people: WorkPatient[], since: number, nowAbs: number): OrderChange[] {
   const out: OrderChange[] = [];
@@ -241,9 +241,9 @@ export function sessionChangeKeys(changes: Record<string, { added: OrderEntry[];
   return keys;
 }
 
-/** A 延長 or a 食事 change to take (指示受け): kept outside the orders, shown with them. */
+/** A 延長, a 食事 or a 指示簿 change to take (指示受け): kept outside the orders, shown with them. */
 export interface OtherChange {
-  kind: "延長" | "食事";
+  kind: "延長" | "食事" | "指示簿";
   at: number;
   text: { type: string; main: string; detail: string; author: string };
   patientId: string;
