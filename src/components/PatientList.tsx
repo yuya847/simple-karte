@@ -15,7 +15,10 @@ import { ageSex } from "@/lib/person";
 import { periodNote, rangesText } from "@/lib/dpc-brief";
 import { activeCount, choicesOf, DAY_BUCKETS, DPC_CHOICES, EMPTY_FILTER, flagKey, matches, type FilterFacts, type ListFilter } from "@/lib/patient-filter";
 import { useDpcBriefs, type DpcBriefs } from "@/lib/use-dpc-briefs";
+import { useEmphasizeTeam } from "@/lib/use-emphasis";
+import { EmphasisToggle } from "./EmphasisToggle";
 import type { CalendarDate } from "@/lib/dates";
+import type { OrderEntry } from "@/lib/types";
 
 interface Props {
   /** The beds to list (a floor, 受け持ち, a department, all wards …) and the patient lookup. */
@@ -43,6 +46,8 @@ interface Props {
   /** The record the 算定 calculation gets for a patient, to show its DPC の入院期間 (null: not shown). */
   dpcPayload?: (patientId: string) => object | null;
   today?: CalendarDate;
+  /** The viewer's own team (受け持ち): it stands out while 「受け持ちを目立たせる」 is on. Everyone when not given. */
+  mine?: (patientId: string) => boolean;
   onOpen: (patientId: string) => void;
 }
 
@@ -85,54 +90,87 @@ interface Row {
   patient?: Patient;
   kana: string;
   day: number | null;
+  /** The viewer's own team. */
+  mine: boolean;
+}
+
+/** What a row shows from the record, worked out once per change of the record (not on each keystroke). */
+interface RowWork {
+  entries: OrderEntry[];
+  flags: Flag[];
+  upcoming: string[];
+  leaving: boolean;
 }
 
 const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
+const everyone = () => true;
 
-/** Ward patient list. Our patients open on click or Enter; other teams' rows are context only. */
-export function PatientList({ ward, title, pick, defaultGroup = "room", floor, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, onOpen }: Props) {
+/**
+ * Ward patient list. Every patient opens on click or Enter. With 「受け持ちを目立たせる」 (the default) the
+ * viewer's team gets the full row and the others a short gray one; without it, everyone gets the full row.
+ */
+export function PatientList({ ward, title, pick, defaultGroup = "room", floor, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, onOpen }: Props) {
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [cond, setCond] = useState<ListFilter>(EMPTY_FILTER);
   const [showCond, setShowCond] = useState(false);
-  const dpc = useDpcBriefs(
-    ward.beds.flatMap((b) => (b.patientId ? [b.patientId] : [])),
-    dpcPayload ?? (() => null),
-    today ?? null,
-    nowTime,
-    !!dpcPayload && !!today,
-  );
+  const [emphasize, setEmphasize] = useEmphasizeTeam();
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "room", asc: true });
   const [cursor, setCursor] = useState(0);
   const nowAbs = abs(0, nowTime);
 
-  const flagsOf = (p: Patient): Flag[] => {
-    const entries = ordersOf(currentEntries(p, changes[p.id]));
-    return [...(extraFlags[p.id] ?? []), ...flagsFor(p, entries, nowAbs, waiting[p.id] ?? 0, consentState[p.id], marPending[p.id] ?? 0, resultState[p.id])];
-  };
-  const factsOf = (r: Row): FilterFacts => {
-    const p = r.patient;
-    const brief = p ? dpc[p.id] : undefined;
-    const entries = p ? ordersOf(currentEntries(p, changes[p.id])) : [];
-    const leaving = entries.some((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院" && e.order.leave.from.day >= 0 && e.order.leave.from.day <= 1);
-    return {
-      floor: floorOf(r.bed.room),
-      department: p?.department ?? r.bed.other?.department ?? "",
-      doctor: p?.attending ?? doctorFor(r.bed.other?.department ?? ""),
-      nurse: nurseFor(r.bed.room),
-      day: r.day,
-      dpc: brief && brief !== "loading" && brief.ok && brief.hokatsu ? brief.period : null,
-      flags: p ? [...new Set(flagsOf(p).map((f) => flagKey(f.label)))] : [],
-      mine: !!p,
-      discharge: leaving || WARD_PLANS.some((x) => x.kind === "退院" && x.room === r.bed.room && x.bed === r.bed.bed),
-    };
-  };
-
-  const all: Row[] = ward.beds.map((b) => {
-    const patient = b.patientId ? ward.patient(b.patientId) : undefined;
-    return { bed: b, patient, kana: patient?.kana ?? b.other?.name ?? "", day: patient ? hospitalDay(patient.admittedOn, 0) : null };
-  });
-  const facts = all.map(factsOf);
+  const all: Row[] = useMemo(
+    () =>
+      ward.beds.map((b) => {
+        const patient = b.patientId ? ward.patient(b.patientId) : undefined;
+        return { bed: b, patient, kana: patient?.kana ?? b.other?.name ?? "", day: patient ? hospitalDay(patient.admittedOn, 0) : null, mine: !!patient && mineOf(patient.id) };
+      }),
+    [ward, mineOf],
+  );
+  const full = (r: Row) => !!r.patient && (!emphasize || r.mine);
+  // The DPC column is fetched for the full rows only (the gray rows show none).
+  const payloadOf = useMemo(() => dpcPayload ?? (() => null), [dpcPayload]);
+  const dpc = useDpcBriefs(
+    all.flatMap((r) => (r.patient && full(r) ? [r.patient.id] : [])),
+    payloadOf,
+    today ?? null,
+    nowTime,
+    !!dpcPayload && !!today,
+  );
+  const work: Map<string, RowWork> = useMemo(
+    () =>
+      new Map(
+        all.flatMap((r) => {
+          const p = r.patient;
+          if (!p) return [];
+          const entries = ordersOf(currentEntries(p, changes[p.id]));
+          const flags = [...(extraFlags[p.id] ?? []), ...flagsFor(p, entries, nowAbs, waiting[p.id] ?? 0, consentState[p.id], marPending[p.id] ?? 0, resultState[p.id])];
+          const leaving = entries.some((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院" && e.order.leave.from.day >= 0 && e.order.leave.from.day <= 1);
+          return [[p.id, { entries, flags, upcoming: upcomingToday(entries, nowAbs), leaving }]];
+        }),
+      ),
+    [all, changes, extraFlags, nowAbs, waiting, consentState, marPending, resultState],
+  );
+  const facts: FilterFacts[] = useMemo(
+    () =>
+      all.map((r) => {
+        const p = r.patient;
+        const brief = p ? dpc[p.id] : undefined;
+        const w = p ? work.get(p.id) : undefined;
+        return {
+          floor: floorOf(r.bed.room),
+          department: p?.department ?? r.bed.other?.department ?? "",
+          doctor: p?.attending ?? doctorFor(r.bed.other?.department ?? ""),
+          nurse: nurseFor(r.bed.room),
+          day: r.day,
+          dpc: brief && brief !== "loading" && brief.ok && brief.hokatsu ? brief.period : null,
+          flags: w ? [...new Set(w.flags.map((f) => flagKey(f.label)))] : [],
+          mine: r.mine,
+          discharge: !!w?.leaving || WARD_PLANS.some((x) => x.kind === "退院" && x.room === r.bed.room && x.bed === r.bed.bed),
+        };
+      }),
+    [all, dpc, work],
+  );
   const choices = choicesOf(facts);
   const nCond = activeCount(cond);
   const rows: Row[] = useMemo(() => {
@@ -149,9 +187,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
       if (sort.key === "day") return dir * ((a.day ?? -1) - (b.day ?? -1));
       return dir * roomKey(a.bed).localeCompare(roomKey(b.bed));
     });
-    // `all` and `facts` are rebuilt from these props on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ward, q, sort, cond, dpc, changes, waiting, resultState, extraFlags, consentState, marPending, nowTime]);
+  }, [all, facts, q, sort, cond]);
 
   const groupOf = (r: Row): string => {
     if (groupBy === "floor") return floorOf(r.bed.room);
@@ -224,6 +260,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
           <SlidersHorizontal size={14} />
           条件で絞る{nCond ? `（${nCond}）` : ""}
         </button>
+        <EmphasisToggle on={emphasize} onChange={setEmphasize} />
         <label className="flex items-center gap-2 rounded-md border border-rule bg-sheet px-2 py-1">
           <Search size={14} className="text-ink-faint" />
           <input
@@ -311,38 +348,58 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                 </tr>
               ) : null,
               ...g.rows.map((r) =>
-                r.patient ? (
+                r.patient && full(r) ? (
                   <MyRow
                     key={roomKey(r.bed)}
                     row={r}
                     patient={r.patient}
                     focused={openable[at] === r}
-                    upcoming={upcomingToday(ordersOf(currentEntries(r.patient, changes[r.patient.id])), nowAbs)}
-                    flags={flagsOf(r.patient)}
+                    upcoming={work.get(r.patient.id)?.upcoming ?? []}
+                    flags={work.get(r.patient.id)?.flags ?? []}
                     dpc={dpc[r.patient.id]}
                     plans={planFor(r.bed)}
                     summary={summaries[r.patient.id]}
                     onOpen={() => onOpen(r.patient!.id)}
                   />
                 ) : (
-                  <tr key={roomKey(r.bed)} className="border-b border-rule-soft text-ink-faint" title="受け持ち以外の患者（架空）。この試作ではカルテを開けません。">
+                  <tr
+                    key={roomKey(r.bed)}
+                    onClick={r.patient ? () => onOpen(r.patient!.id) : undefined}
+                    className={`border-b border-rule-soft text-ink-faint ${r.patient ? "cursor-pointer hover:bg-ai-soft/30" : ""} ${openable[at] === r ? "outline outline-2 -outline-offset-2 outline-ai" : ""}`}
+                    title={r.patient ? "受け持ち以外の患者（架空）。押すとカルテが開きます（開いた記録は監査ログに残ります）" : "受け持ち以外の患者（架空）"}
+                  >
                     <td className="px-3 py-1.5">
                       {r.bed.room}
                       {r.bed.bed && `-${r.bed.bed}`}
                     </td>
-                    <td className="px-3 py-1.5">{r.bed.other?.name}</td>
                     <td className="px-3 py-1.5">
-                      {r.bed.other ? ageSex(r.bed.other) : ""}
+                      {r.patient ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpen(r.patient!.id);
+                          }}
+                          className="text-ink-soft hover:text-ai hover:underline"
+                        >
+                          {r.patient.name}
+                        </button>
+                      ) : (
+                        r.bed.other?.name
+                      )}
                     </td>
-                    <td className="px-3 py-1.5">—</td>
+                    <td className="px-3 py-1.5">
+                      {r.patient ? ageSex(r.patient) : r.bed.other ? ageSex(r.bed.other) : ""}
+                    </td>
+                    <td className="px-3 py-1.5">{r.day ? `${r.day}日目` : "—"}</td>
                     <td className="px-3 py-1.5">—</td>
                     <td className="px-3 py-1.5 text-[11px]">
-                      <div className="font-bold">{r.bed.other?.department}</div>
-                      <div>{doctorFor(r.bed.other?.department ?? "")}</div>
+                      <div className="font-bold">{r.patient?.department ?? r.bed.other?.department}</div>
+                      <div>{r.patient?.attending ?? doctorFor(r.bed.other?.department ?? "")}</div>
                       <div>{nurseFor(r.bed.room)}</div>
                     </td>
                     <td className="px-3 py-1.5" colSpan={5}>
-                      {[...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && x !== "明日退院").join("　")}
+                      {[...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && !(x === "明日退院" && planFor(r.bed).length)).join("　")}
                     </td>
                   </tr>
                 ),
@@ -419,7 +476,15 @@ function MyRow({
           <PatientAvatar sex={p.sex} age={p.age} size={30} className="rounded-full" />
           <div>
             <div className="text-[10px] text-ink-faint">{p.kana}</div>
-            <button type="button" onClick={onOpen} className="font-bold text-ai hover:underline">
+            <button
+              type="button"
+              onClick={(e) => {
+                // The row opens it too: once is enough (each opening is written to the audit log).
+                e.stopPropagation();
+                onOpen();
+              }}
+              className="font-bold text-ai hover:underline"
+            >
               {p.name}
             </button>
           </div>
@@ -441,7 +506,8 @@ function MyRow({
         <div>{nurseFor(row.bed.room)}</div>
       </td>
       <td className="px-3 py-2">
-        <Flags flags={[...plans.map((x) => ({ label: planText(x), tone: "wakatake" as const })), ...flags]} />
+        {/* The ward's plan and the 退院 order say the same thing: shown once. */}
+        <Flags flags={[...plans.map((x) => ({ label: planText(x), tone: "wakatake" as const })), ...flags].filter((f, i, xs) => xs.findIndex((y) => y.label === f.label) === i)} />
       </td>
       <td className="whitespace-nowrap px-3 py-2 text-[12px]">
         {latest && (
