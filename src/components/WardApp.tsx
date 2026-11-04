@@ -242,6 +242,8 @@ import { VitalsBulk } from "./VitalsBulk";
 import { initialRosterBook } from "@/lib/roster";
 import { PressurePanel } from "./panels/PressurePanel";
 import { useInfra } from "@/lib/use-infra";
+import { masterIssues } from "@/lib/master-local";
+import { SystemView } from "./SystemView";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -928,8 +930,9 @@ export default function WardApp() {
 
   const issues: Record<string, Issue[]> = useMemo(() => {
     if (!ctx) return {};
-    return Object.fromEntries(chart.drafts.map((d) => [d.id, checkDraft(d, ctx)]));
-  }, [chart.drafts, ctx]);
+    // マスタ管理: an item made 中止 or 非採用 there cannot be ordered.
+    return Object.fromEntries(chart.drafts.map((d) => [d.id, [...checkDraft(d, ctx), ...masterIssues(d, infra.masterOv, infra.masterLog)]]));
+  }, [chart.drafts, ctx, infra.masterOv, infra.masterLog]);
 
   if (!today || !nowTime || (patient && !ctx)) {
     return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
@@ -2161,6 +2164,8 @@ export default function WardApp() {
         <KitchenView people={everyone} diets={diets} desk={care.kitchen} onDesk={care.setKitchen} today={today} nowTime={nowTime} />
       ) : screen === "teams" ? (
         <TeamsView people={everyone} desk={care.teams} onDesk={care.setTeams} diagnoses={diagnoses} diets={diets} today={today} nowTime={nowTime} onOpen={(id) => (openPatient(id), setPanel("team"))} />
+      ) : screen === "system" ? (
+        <SystemView nowTime={nowTime} newId={newId} />
       ) : screen === "audit" ? (
         <AuditView />
       ) : screen === "admit" ? (

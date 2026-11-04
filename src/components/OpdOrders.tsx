@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { checkDraft, isReady, type CheckContext, type Draft } from "@/lib/drafts";
+import { masterIssues, useMasterLocal, useMasterLog } from "@/lib/master-local";
 import { rpLine } from "@/lib/rp";
 import { isNarcotic } from "@/lib/drug-class";
 import { NARCOTIC_RULES } from "@/lib/narcotics";
@@ -39,6 +40,11 @@ export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory
   // 麻薬 cannot go on an 院外処方せん here (NARCOTIC_RULES.outpatient).
   const narcotic = drafts.some((d) => d.kind === "prescription" && d.items.some((it) => !!it.drugCode && isNarcotic(it.drugCode)));
   const ready = drafts.length > 0 && issues.every(isReady) && !narcotic;
+  // マスタ管理: an item made 中止 or 非採用 there cannot be prescribed.
+  const ml = useMasterLocal();
+  const mlog = useMasterLog();
+  const issues = drafts.map((d) => [...checkDraft(d, ctx), ...masterIssues(d, ml, mlog)]);
+  const ready = drafts.length > 0 && issues.every(isReady);
   return (
     <div className="space-y-3">
       <section className="rounded-lg border border-rule bg-sheet p-3 text-[13px]">

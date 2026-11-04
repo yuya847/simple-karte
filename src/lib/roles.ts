@@ -108,7 +108,10 @@ export type Action =
   | "team.decide"
   | "pressure"
   | "pressure"
-  | "nursing.manage";
+  | "nursing.manage"
+  | "master.drug"
+  | "master.lab"
+  | "master.proc";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
   order: { label: "オーダの確定", who: ["医師"] },
@@ -173,6 +176,10 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   // 褥瘡対策の診療計画は褥瘡対策チームの専任の医師と専任の看護職員が作る（通知 別添2 第1の4(3)）。経過の記録は看護師と医師。
   pressure: { label: "褥瘡の評価（DESIGN-R®2020）・写真・褥瘡対策の診療計画書", who: ["看護師", "医師"] },
   "nursing.manage": { label: "状態の一括登録・業務分担・看護サマリの承認", who: ["看護師"] },
+  // マスタ管理: which department changes which master is the fictional hospital's rule (架空の病院の取り決め).
+  "master.drug": { label: "医薬品マスタ（注射薬・内服薬）の変更", who: ["薬剤師"] },
+  "master.lab": { label: "検査マスタの変更", who: ["臨床検査技師"] },
+  "master.proc": { label: "処置マスタの変更", who: ["医事課"] },
 };
 
 export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);

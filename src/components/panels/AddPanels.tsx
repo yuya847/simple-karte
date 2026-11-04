@@ -8,6 +8,7 @@ import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, Inj
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
 import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
+import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
 import { matchInj, type InjPattern } from "@/lib/inj-memory";
@@ -214,8 +215,9 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
       }),
     );
   const fluids = DRUGS.filter((d) => d.kind === "輸液");
-  // 抗がん薬 are ordered from the regimen panel only.
-  const options = DRUGS.filter((d) => !d.chemo).map((d) => ({ code: d.code, name: d.name, sub: d.package, aliases: d.aliases }));
+  // 抗がん薬 are ordered from the regimen panel only. マスタ管理: 採用 and not 中止, in 表示順, with the 院内名.
+  const ml = useMasterLocal();
+  const options = pickable("注射薬", DRUGS.filter((d) => !d.chemo), ml).map((d) => ({ code: d.code, name: nameIn(ml, "注射薬", d.code, d.name), sub: nameIn(ml, "注射薬", d.code, "") ? `${d.name} ${d.package}` : d.package, aliases: [d.name, ...d.aliases] }));
   const missingOf = (rp: InjRp) => [
     ...(rp.rows.every((r) => Number(r.amount) > 0 && r.unit) ? [] : ["量"]),
     ...(rp.route ? [] : ["経路"]),
@@ -569,7 +571,10 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
   });
 
   const ORDER = ["血液学", "凝固・線溶", "生化学", "炎症・感染", "心筋・心不全", "内分泌", "血液ガス", "尿", "微生物", "薬物濃度"];
-  const groups = ORDER.filter((g) => LAB_TESTS.some((t) => t.group === g));
+  // マスタ管理: 採用 and not 中止, in 表示順, with the 院内名.
+  const ml = useMasterLocal();
+  const shownTests = pickable("検体検査", LAB_TESTS, ml);
+  const groups = ORDER.filter((g) => shownTests.some((t) => t.group === g));
   const containers = [...new Set(picked.map((c) => labInfo(c).container))];
   const notes = picked.flatMap((c) => (labInfo(c).note ? [`${LAB_TESTS.find((t) => t.code === c)?.abbr ?? c}：${labInfo(c).note}`] : []));
 
@@ -595,7 +600,7 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
         <section key={g}>
           <h3 className="mb-1 text-xs font-bold text-ink-soft">{g}</h3>
           <div className="flex flex-wrap gap-1">
-            {LAB_TESTS.filter((t) => t.group === g).map((t) => (
+            {shownTests.filter((t) => t.group === g).map((t) => (
               <button
                 key={t.code}
                 type="button"
@@ -603,7 +608,7 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
                 onClick={() => toggle(t.code)}
                 className={`nums min-w-12 rounded border px-1.5 py-0.5 text-[12px] ${picked.includes(t.code) ? "border-ai bg-ai font-bold text-white" : "border-rule hover:border-ai"}`}
               >
-                {t.abbr ?? t.name}
+                {nameIn(ml, "検体検査", t.code, t.abbr ?? t.name)}
               </button>
             ))}
           </div>
@@ -639,14 +644,16 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
  * item needs (器具・流量、部位・範囲・深さ、回数), each with choices for the doctor.
  */
 export function AddProcedurePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
+  // マスタ管理: 採用 and not 中止, in 表示順, with the 院内名.
+  const ml = useMasterLocal();
   return (
     <div>
       <p className="hint mb-2 text-xs text-ink-soft">選ぶと右に下書きができます。足りないところ（流量・部位・範囲・回数など）は下書きの上で選ぶか、話して足してください。</p>
       <ul className="divide-y divide-rule-soft">
-        {PROCEDURES.map((p) => (
+        {pickable("処置", PROCEDURES, ml).map((p) => (
           <li key={p.code}>
             <button type="button" onClick={() => onAdd(newProcedureDraft(p.code, newId()))} className="flex w-full items-baseline gap-2 px-1 py-2 text-left text-sm hover:bg-paper">
-              <span className="font-bold">{p.name}</span>
+              <span className="font-bold">{nameIn(ml, "処置", p.code, p.name)}</span>
               {p.uses && <span className="text-xs text-ink-soft">{findProcDrug(p.uses.code)?.name}</span>}
               <span className="ml-auto truncate text-[11px] text-ink-faint">{p.aliases.slice(0, 3).join("・")}</span>
             </button>
@@ -733,7 +740,9 @@ export function AddRxPanel({
     setSeeded(seed.key);
     putIn([rpFromPattern(seed.pattern)]);
   }
-  const options = ORAL_DRUGS.map((d) => ({ code: d.code, name: d.name, sub: `${d.strength}／${d.unit}`, aliases: d.aliases }));
+  // マスタ管理: 採用 and not 中止, in 表示順, with the 院内名.
+  const ml = useMasterLocal();
+  const options = pickable("内服薬", ORAL_DRUGS, ml).map((d) => ({ code: d.code, name: nameIn(ml, "内服薬", d.code, d.name), sub: nameIn(ml, "内服薬", d.code, "") ? `${d.name} ${d.strength}／${d.unit}` : `${d.strength}／${d.unit}`, aliases: [d.name, ...d.aliases] }));
   const upd = (i: number, patch: Partial<Rp>) =>
     setRps((r) =>
       r.map((x, j) => {

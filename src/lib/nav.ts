@@ -7,7 +7,7 @@
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
-export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats" | "druginfo" | "endo" | "kitchen" | "teams";
+export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats" | "druginfo" | "endo" | "kitchen" | "teams" | "bcp" | "system";
 
 export interface Area {
   key: AreaKey;
@@ -44,6 +44,8 @@ export const AREAS: Area[] = [
   { key: "druginfo", label: "医薬品集・DI", short: "医薬品集", kind: "page" },
   { key: "manual", label: "院内マニュアル", short: "マニュアル", kind: "page" },
   { key: "incident", label: "インシデントレポート", short: "インシデント", kind: "page" },
+  { key: "bcp", label: "障害時の参照", short: "障害時", kind: "page" },
+  { key: "system", label: "システム管理", short: "システム", kind: "page" },
   { key: "chat", label: "チャット", short: "チャット", kind: "page", tool: true },
   { key: "audit", label: "監査ログ", short: "監査", kind: "page", tool: true },
   { key: "extract", label: "データ抽出", short: "抽出", kind: "page", tool: true },
@@ -121,6 +123,9 @@ export function areasFor(role: Role): Area[] {
     if (a.key === "endo") return role === "医師" || role === "看護師";
     if (a.key === "kitchen") return role === "管理栄養士" || role === "医師" || role === "看護師";
     if (a.key === "teams") return role !== "医事課";
+    // 障害時の参照: printed by those who care for the inpatients (their essentials). システム管理: everyone looks; who changes what is in roles.ts.
+    if (a.key === "bcp") return role === "医師" || role === "看護師" || role === "薬剤師";
+    if (a.key === "system") return true;
     if (EVERYONE.includes(a.key)) return true;
     if (a.key === "extract") return role === "医師" || role === "医事課" || role === "看護師";
     // 病理: the technologists' work, and the report the pathologist (a doctor) writes.
