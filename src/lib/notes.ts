@@ -23,7 +23,7 @@ export const NOTE_FORM_SOURCES = [
 
 const FOCUS_MARK = /^(D|Act|R)\)[ \t]?/i;
 // "# 転倒" or, numbered by the note box, "#1 転倒": the number is the place in the note, not part of the title.
-const TITLE_MARK = /^[#＃][ \t]*(?:\d+[.．)）:：]?(?=[ \t]|$))?[ \t]*/;
+const TITLE_MARK = /^[ \t　]*[#＃][ \t]*(?:\d+(?:-\d+)*[.．)）:：]?(?=[ \t]|$))?[ \t]*/;
 const TIME_LINE = /^(\d{1,2}:\d{2})[ \t]?(.*)$/;
 const TIMELINE_HEAD = "【経時記録】";
 

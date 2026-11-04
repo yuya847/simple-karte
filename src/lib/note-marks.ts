@@ -2,7 +2,7 @@
 // with "#" (a problem, "#1 尿路感染症") is a heading. The stored text keeps the marks as typed; searching,
 // copying and printing use the plain string.
 
-import { isProblemLine } from "./note-problems";
+import { isProblemLine, problemTree, type ProblemNode } from "./note-problems";
 
 export type MarkKind = "text" | "b" | "i" | "bi";
 
@@ -15,6 +15,9 @@ export interface MarkLine {
   /** A "#" line: the name of a problem. */
   heading: boolean;
   parts: MarkPart[];
+  /** Written hierarchical number, when this is a problem heading. */
+  problemPath?: string;
+  parentPath?: string;
 }
 
 const MARKS = /\*\*\*([^*\n]+?)\*\*\*|\*\*([^\n]+?)\*\*|\*([^*\n]+?)\*/g;
@@ -36,7 +39,15 @@ export function markParts(line: string): MarkPart[] {
 
 /** The lines of a note with their marks read, for drawing. */
 export function markLines(text: string): MarkLine[] {
-  return text.split("\n").map((line) => ({ heading: isProblemLine(line), parts: markParts(line) }));
+  const paths = new Map<number, { problemPath: string; parentPath?: string }>();
+  const visit = (nodes: ProblemNode[], parentPath?: string) => {
+    for (const node of nodes) {
+      paths.set(node.from, { problemPath: node.path, ...(parentPath ? { parentPath } : {}) });
+      visit(node.children, node.path);
+    }
+  };
+  visit(problemTree(text));
+  return text.split("\n").map((line, i) => ({ heading: isProblemLine(line) || /^[ \t　]*#[ \t]*(?=[^\d\s])/.test(line), parts: markParts(line), ...paths.get(i) }));
 }
 
 /** Whether the text has anything to draw differently (no marks: the plain string is drawn as it is). */

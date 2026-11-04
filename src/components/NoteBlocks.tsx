@@ -2,9 +2,9 @@
 
 import { GripVertical } from "lucide-react";
 import { useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
+import { indentBlock, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
 import { isProblemLine } from "@/lib/note-problems";
-import { indentLines, toggleMark } from "@/lib/note-edit";
+import { toggleMark } from "@/lib/note-edit";
 import { renumberProblems } from "@/lib/note-problems";
 import { expandAt, type Phrase } from "@/lib/phrases";
 
@@ -117,8 +117,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       commit(numbered(r.text, r.caret));
       return;
     }
-    // Not in the middle of IME composition, and not while deleting (so "＃1 " can be erased).
-    if (isComposing || composing.current || v.length < lines[i].length) {
+    // IME composition is numbered once the conversion finishes.
+    if (isComposing || composing.current) {
       onChange(r.text);
       return;
     }
@@ -182,8 +182,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
           return;
         }
       }
-      const r = indentLines(line, s, en, e.shiftKey);
-      commit({ text: replaceLine(text, i, r.text).text, start: base + r.start, end: base + r.end });
+      commit(indentBlock(text, i, s, en, e.shiftKey));
       return;
     }
     if (e.key === "Enter") {

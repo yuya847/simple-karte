@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveProblem, problemBlocks, renumberProblems } from "./note-problems";
+import { moveProblem, problemBlocks, problemTree, renumberProblems } from "./note-problems";
 import { isBlankNote, noteText, parseNote } from "./notes";
 
 describe("＃ のプロブレムの番号", () => {
@@ -9,9 +9,9 @@ describe("＃ のプロブレムの番号", () => {
     expect(renumberProblems("A)\n＃尿路感染症\n＃高血圧", 14)).toEqual({ text: "A)\n＃1 尿路感染症\n＃2 高血圧", caret: 18 });
   });
 
-  it("a half-width '#' with no digit after it is a problem typed with the half-width key: it becomes ＃1", () => {
-    expect(renumberProblems("#尿路感染症").text).toBe("＃1 尿路感染症");
-    expect(renumberProblems("# 尿路感染症").text).toBe("＃1 尿路感染症");
+  it("half-width # lines stay as written", () => {
+    expect(renumberProblems("#尿路感染症").text).toBe("#尿路感染症");
+    expect(renumberProblems("# 尿路感染症").text).toBe("# 尿路感染症");
     // A bare "#" waits for what follows (it may be "#7").
     expect(renumberProblems("#").text).toBe("#");
     expect(renumberProblems("# ").text).toBe("# ");
@@ -25,7 +25,7 @@ describe("＃ のプロブレムの番号", () => {
   });
 
   it("an indented '＃' line is a problem too, keeping its indent", () => {
-    expect(renumberProblems("A)\n  ＃高血圧\n　#貧血").text).toBe("A)\n  ＃1 高血圧\n　＃2 貧血");
+    expect(renumberProblems("A)\n  ＃高血圧\n　#貧血").text).toBe("A)\n  ＃1 高血圧\n　#貧血");
   });
 
   it("leaves the half-width '#' of a number alone: at the start of a line (#7 90%狭窄) and inside it (LAD #7)", () => {
@@ -77,5 +77,30 @@ describe("＃ のブロックの並べ替え", () => {
     expect(moveProblem(note, 3, 0)).toBe(note);
     expect(moveProblem(note, 1, 1)).toBe(note);
     expect(moveProblem(note, 9, 0)).toBe(note);
+  });
+});
+
+describe("枝番", () => {
+  it("numbers two depths, siblings and roots, ignoring ordinary body and half-width #", () => {
+    const text = "＃肺炎\n  ＃喀痰\n    ＃結果\n  本文\n  ＃血培\n#7 狭窄\n#見出し\n＃高血圧";
+    const expected = "＃1 肺炎\n  ＃1-1 喀痰\n    ＃1-1-1 結果\n  本文\n  ＃1-2 血培\n#7 狭窄\n#見出し\n＃2 高血圧";
+    expect(renumberProblems(text).text).toBe(expected);
+    expect(renumberProblems(expected).text).toBe(expected);
+    expect(renumberProblems(expected.replace("  ＃1-2", "＃1-2")).text).toContain("＃2 血培\n#7 狭窄\n#見出し\n＃3 高血圧");
+  });
+  it("renumbers inserted and deleted children and keeps the caret on the title", () => {
+    const text = "＃1 肺炎\n  ＃追加\n  ＃1-1 培養\n＃2 高血圧";
+    const result = renumberProblems(text, text.indexOf("培養"));
+    expect(result.text).toBe("＃1 肺炎\n  ＃1-1 追加\n  ＃1-2 培養\n＃2 高血圧");
+    expect(result.text.slice(result.caret)).toBe("培養\n＃2 高血圧");
+    expect(renumberProblems(result.text.replace("  ＃1-1 追加\n", "")).text).toContain("  ＃1-1 培養");
+  });
+  it("reads written paths even without indent and leaves legacy flat indices available", () => {
+    const tree = problemTree("＃1 肺炎\n＃1-1 培養\n＃1-1-1 結果\n＃2 高血圧");
+    expect(tree.map((p) => p.path)).toEqual(["1", "2"]);
+    expect(tree[0].children[0].title).toBe("培養");
+    expect(tree[0].children[0].children[0].path).toBe("1-1-1");
+    expect(problemBlocks("＃1 肺炎\n  ＃1-1 培養")[1].number).toBe(2);
+    expect(parseNote("＃1 肺炎\nD) 観察\n  ＃1-1 培養\nD) 採取").focus?.map((f) => f.title)).toEqual(["肺炎", "培養"]);
   });
 });

@@ -24,7 +24,7 @@ export function NoteText({ text }: { text: string }) {
       {markLines(text).map((l, i) => (
         <Fragment key={i}>
           {i > 0 && "\n"}
-          {l.heading ? <b className="text-ink">{l.parts.map(part)}</b> : l.parts.map(part)}
+          {l.heading ? <b className="text-ink" data-problem-parent={l.parentPath}>{l.parts.map(part)}</b> : l.parts.map(part)}
         </Fragment>
       ))}
     </>

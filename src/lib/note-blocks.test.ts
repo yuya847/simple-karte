@@ -1,3 +1,4 @@
+import { indentBlock } from "./note-blocks";
 import { describe, expect, it } from "vitest";
 import { fromLines, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt } from "./note-blocks";
 import { formFrame } from "./notes";
@@ -103,4 +104,18 @@ describe("行の操作", () => {
       expect(isHeadingLine(l), l).toBe(false);
     }
   });
+});
+
+it("Tab makes a child, Shift+Tab restores roots, and moves renumber children", () => {
+  const text = "＃1 肺炎\n＃2 培養\n＃3 高血圧";
+  const child = indentBlock(text, 1, 3, 5);
+  expect(child.text).toBe("＃1 肺炎\n  ＃1-1 培養\n＃2 高血圧");
+  expect(child.text.slice(child.start, child.end)).toBe("培養");
+  expect(indentBlock(child.text, 1, 7, 9, true).text).toBe(text);
+  const nested = indentBlock("＃1 肺炎\n  ＃1-1 培養\n  ＃1-2 結果", 2, 7);
+  expect(nested.text).toContain("    ＃1-1-1 結果");
+  const siblings = "＃1 肺炎\n  ＃1-1 喀痰\n  ＃1-2 血培\n＃2 高血圧";
+  const moved = "＃1 肺炎\n  ＃1-1 血培\n  ＃1-2 喀痰\n＃2 高血圧";
+  expect(moveLines(siblings, 2, 2, 1)).toBe(moved);
+  expect(nudgeLine(siblings, 2, 7, -1).text).toBe(moved);
 });

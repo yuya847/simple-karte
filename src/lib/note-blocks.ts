@@ -4,7 +4,7 @@
 // body under it move as one block; any other line moves alone. The numbers of the "＃" lines are given again
 // by renumberProblems after every move (note-problems.ts).
 
-import { INDENT } from "./note-edit";
+import { indentLines, INDENT } from "./note-edit";
 import { isProblemLine, moveProblem, problemBlocks, renumberProblems } from "./note-problems";
 
 /** The lines of a note; joining them with "\n" gives the text back exactly (a trailing "\n" is a last empty line). */
@@ -169,5 +169,17 @@ const FOCUS_BLANK = /^[ \t　]*#\s*$/;
  */
 export function isHeadingLine(line: string): boolean {
   const t = line.trim();
-  return isProblemLine(line) || FOCUS_BLANK.test(line) || SOAP.test(t) || DAR.test(t) || TIME.test(t) || t === "【経時記録】";
+  return isProblemLine(line) || /^[ \t　]*#[ \t]*(?=[^\d\s])/.test(line) || FOCUS_BLANK.test(line) || SOAP.test(t) || DAR.test(t) || TIME.test(t) || t === "【経時記録】";
+}
+
+/** Tab / Shift+Tab, preserving both ends of the selection through renumbering. */
+export function indentBlock(text: string, line: number, start: number, end = start, out = false) {
+  const r = indentLines(toLines(text)[line] ?? "", start, end, out);
+  const changed = replaceLine(text, line, r.text).text;
+  const base = offsetOf(changed, { line, col: 0 });
+  return {
+    text: renumberProblems(changed).text,
+    start: renumberProblems(changed, base + r.start).caret,
+    end: renumberProblems(changed, base + r.end).caret,
+  };
 }

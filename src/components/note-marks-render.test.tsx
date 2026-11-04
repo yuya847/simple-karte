@@ -104,3 +104,9 @@ describe("記事の太字・見出しの表示", () => {
     expect(frame.match(/data-heading="true"/g)?.length).toBe(4);
   });
 });
+
+it("draws a nested problem with its parent number and keeps the written path", () => {
+  const html = renderToStaticMarkup(<NoteText text={"＃1 肺炎\n  ＃1-1 喀痰培養\n    ＃1-1-1 結果"} />);
+  expect(html).toContain('data-problem-parent="1">  ＃1-1 喀痰培養');
+  expect(html).toContain('data-problem-parent="1-1">    ＃1-1-1 結果');
+});
