@@ -40,9 +40,21 @@ export interface TabItem {
   switcher?: { options: { key: string; label: string; icon?: Icon; group?: string }[]; onPick: (key: string) => void; current?: string };
 }
 
+/** Tabs of one place in the row of charts (病棟・救急外来・外来), headed by the place's name. */
+export interface TabGroup {
+  key: string;
+  label: string;
+  /** Pressing the heading: that place's list. */
+  onSelect?: () => void;
+  items: TabItem[];
+}
+
 export interface TabRow {
   label: string;
+  /** The tabs (after the groups, when there are groups: 新しいタブ). */
   items: TabItem[];
+  /** Tabs in groups by place, each with a small heading; one group alone has no heading. */
+  groups?: TabGroup[];
   /** ＋ at the end of the row. */
   plus?: { label: string; title: string; onClick: () => void };
 }
@@ -74,7 +86,7 @@ interface Props {
   onArea: (k: AreaKey) => void;
   /** The top row: the screens of the place (病棟: the screens chosen from its menu; 救急外来・外来: the list). */
   screens: TabRow;
-  /** The second row: every open chart, wherever it was opened from (null: none open). */
+  /** The second row: every open chart, wherever it was opened from, in groups by place (null: none open). */
   patients: TabRow | null;
   /** Where the chart in front was opened from. */
   crumbs?: Crumb[];
@@ -214,45 +226,70 @@ function TabSwitch({ tab }: { tab: TabItem }) {
   );
 }
 
-/** One row of tabs: the screens (large, on the frame's color) or the charts (small, on the sheet). */
-function Row({ row, small, start, end }: { row: TabRow; small: boolean; start?: React.ReactNode; end?: React.ReactNode }) {
+/** One tab of a row. */
+function Tab({ t, small }: { t: TabItem; small: boolean }) {
+  const Icon = t.icon;
+  return (
+    <div
+      role="tab"
+      aria-selected={t.active}
+      tabIndex={0}
+      title={t.title}
+      onClick={t.onSelect}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && t.onSelect()}
+      onAuxClick={(e) => e.button === 1 && t.onClose?.()}
+      className={`${tabShape(t.active, small, t.menu)} ${t.patient ? "min-w-36 max-w-60" : ""}`}
+    >
+      {t.patient ? (
+        <>
+          {!!t.patient.infections?.length && <span className="h-2 w-2 shrink-0 rounded-full bg-fuji" title={`感染症：${t.patient.infections.join("、")}`} />}
+          <PatientAvatar sex={t.patient.sex} age={t.patient.age} size={small ? 18 : 20} className="rounded-full" />
+          <span className="truncate font-bold">{t.label}</span>
+          {t.patient.room && <span className="nums shrink-0 text-xs font-normal text-ink-faint">{t.patient.room}</span>}
+        </>
+      ) : (
+        <>
+          {Icon && <Icon size={small ? 14 : 15} className="shrink-0" />}
+          <span className="whitespace-nowrap">{t.label}</span>
+        </>
+      )}
+      <Badge n={t.badge ?? 0} />
+      {t.switcher && <TabSwitch tab={t} />}
+      {t.onClose && <CloseX label={t.closeLabel ?? `${t.label}のタブを閉じる`} onClose={t.onClose} />}
+    </div>
+  );
+}
+
+/**
+ * One row of tabs: the screens (large, on the frame's color) or the charts (small, on the sheet). The row
+ * scrolls sideways instead of wrapping. Groups (the charts by place) each start with a small heading and
+ * are set apart by a vertical rule and a wider gap; a single group has no heading.
+ */
+export function Row({ row, small, start, end }: { row: TabRow; small: boolean; start?: React.ReactNode; end?: React.ReactNode }) {
+  const groups = row.groups ?? [];
+  const headed = groups.length > 1;
   return (
     <div className={`flex items-end gap-1 border-b border-rule ${small ? "bg-sheet px-3 pt-1" : "bg-tab px-2 pt-1.5"}`}>
       {start}
       <div role="tablist" aria-label={row.label} className="scroll-thin flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
-        {row.items.map((t) => {
-          const Icon = t.icon;
-          return (
-            <div
-              key={t.key}
-              role="tab"
-              aria-selected={t.active}
-              tabIndex={0}
-              title={t.title}
-              onClick={t.onSelect}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && t.onSelect()}
-              onAuxClick={(e) => e.button === 1 && t.onClose?.()}
-              className={`${tabShape(t.active, small, t.menu)} ${t.patient ? "min-w-36 max-w-60" : ""}`}
-            >
-              {t.patient ? (
-                <>
-                  {!!t.patient.infections?.length && <span className="h-2 w-2 shrink-0 rounded-full bg-fuji" title={`感染症：${t.patient.infections.join("、")}`} />}
-                  <PatientAvatar sex={t.patient.sex} age={t.patient.age} size={small ? 18 : 20} className="rounded-full" />
-                  <span className="truncate font-bold">{t.label}</span>
-                  {t.patient.room && <span className="nums shrink-0 text-xs font-normal text-ink-faint">{t.patient.room}</span>}
-                </>
+        {groups.map((g, i) => (
+          <div key={g.key} role="group" aria-label={g.label} className={`flex shrink-0 items-end gap-1 ${i > 0 ? "ml-2 border-l border-rule pl-3" : ""}`}>
+            {headed &&
+              (g.onSelect ? (
+                <button type="button" onClick={g.onSelect} title={`${g.label}の一覧へ`} className="mb-1.5 shrink-0 whitespace-nowrap rounded px-1 text-[11px] font-bold text-ink-faint hover:bg-paper hover:text-ink pointer-coarse:py-1">
+                  {g.label}
+                </button>
               ) : (
-                <>
-                  {Icon && <Icon size={small ? 14 : 15} className="shrink-0" />}
-                  <span className="whitespace-nowrap">{t.label}</span>
-                </>
-              )}
-              <Badge n={t.badge ?? 0} />
-              {t.switcher && <TabSwitch tab={t} />}
-              {t.onClose && <CloseX label={t.closeLabel ?? `${t.label}のタブを閉じる`} onClose={t.onClose} />}
-            </div>
-          );
-        })}
+                <span className="mb-1.5 shrink-0 whitespace-nowrap px-1 text-[11px] font-bold text-ink-faint">{g.label}</span>
+              ))}
+            {g.items.map((t) => (
+              <Tab key={t.key} t={t} small={small} />
+            ))}
+          </div>
+        ))}
+        {row.items.map((t) => (
+          <Tab key={t.key} t={t} small={small} />
+        ))}
         {row.plus && (
           <button
             type="button"
@@ -480,8 +517,8 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
 
 /**
  * The frame: the top row (場所 pulldown, the screens of the place, then 患者を開く・やること・掲示板・自分),
- * the row of open charts (one row, wherever each was opened from), and over a chart the breadcrumb of
- * where it was opened from.
+ * the row of open charts (one row, wherever each was opened from, in groups 病棟・救急外来・外来), and
+ * over a chart the breadcrumb of where it was opened from.
  */
 export function AppFrame(p: Props) {
   const boardOn = p.areas.some((a) => a.key === "board");

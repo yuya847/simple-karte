@@ -121,7 +121,8 @@ import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
 import { PatientList, type GroupBy } from "./PatientList";
-import { AppFrame, type Crumb, type TabItem, type TabRow, type Todo } from "./AppFrame";
+import { AppFrame, type Crumb, type TabGroup, type TabItem, type TabRow, type Todo } from "./AppFrame";
+import { groupByPlace, type Place } from "@/lib/tab-groups";
 import { PullToRefresh } from "./PullToRefresh";
 import { RecentPatients } from "./RecentPatients";
 import { FavoritePatients } from "./FavoritePatients";
@@ -3926,7 +3927,8 @@ export default function WardApp() {
   );
 
   // The tabs on top: the screens of the place (病棟: the screens chosen from its menu; 救急外来・外来: the
-  // list; other places: their page), and one row of every open chart wherever it was opened from.
+  // list; other places: their page), and one row of every open chart wherever it was opened from, in
+  // groups by where the patient is (病棟・救急外来・外来; the heading opens that place's list).
   function tabRows(): { screens: TabRow; patients: TabRow | null; crumbs: Crumb[] } {
     const inFront = screen === "chart" ? activeId : screen === "visit" ? visitKey : null;
     const chartItem = (t: PatientTab): TabItem[] => {
@@ -3940,11 +3942,14 @@ export default function WardApp() {
       if (!p) return [];
       return [{ key: t.id, label: p.name, patient: { sex: p.sex, age: p.age, room: p.room, infections: p.infections }, title: `${from}から開いた`, active: inFront === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${p.name} のカルテを閉じる` }];
     };
-    const charts: TabItem[] = [
-      ...patientTabs.flatMap(chartItem),
-      ...(newTabFor ? [{ key: "new", label: "新しいタブ", icon: Plus, menu: true, active: screen === "new", onSelect: () => show(newTabFor, NEW_TAB), onClose: closeNewTab, closeLabel: "新しいタブを閉じる" }] : []),
-    ];
-    const patients: TabRow | null = charts.length ? { label: "開いているカルテ", items: charts, plus: { label: "新しいタブ", title: "新しいタブ（患者を探して開く）", onClick: () => openNewTab(owner ?? listOwner()) } } : null;
+    // An ED patient admitted today has a ward chart of its own (病棟); the visit's tab stays 救急外来's.
+    const placeOfTab = (t: PatientTab): Place => visitOf(t.id)?.kind ?? "ward";
+    const listOf: Record<Place, () => void> = { ward: () => show(listOwner(), undefined), er: () => show("er", undefined), opd: () => show("opd", undefined) };
+    const groups: TabGroup[] = groupByPlace(patientTabs, placeOfTab)
+      .map((g) => ({ key: g.key, label: g.label, onSelect: listOf[g.key], items: g.items.flatMap(chartItem) }))
+      .filter((g) => g.items.length > 0);
+    const charts: TabItem[] = newTabFor ? [{ key: "new", label: "新しいタブ", icon: Plus, menu: true, active: screen === "new", onSelect: () => show(newTabFor, NEW_TAB), onClose: closeNewTab, closeLabel: "新しいタブを閉じる" }] : [];
+    const patients: TabRow | null = groups.length || charts.length ? { label: "開いているカルテ", items: charts, groups, plus: { label: "新しいタブ", title: "新しいタブ（患者を探して開く）", onClick: () => openNewTab(owner ?? listOwner()) } } : null;
     // Over a chart: where it was opened from (the screen is a link back to it).
     const shownTab = patientTabs.find((t) => t.id === inFront);
     const crumbs: Crumb[] = [];
