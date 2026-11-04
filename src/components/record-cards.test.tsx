@@ -103,17 +103,26 @@ describe("依頼日と実施日", () => {
     expect(html).toContain("採取 11/3（火） 06:00");
     expect(html).toContain('data-order-id="o-lab-next"');
   });
-  it("the day it happens gets a section of its own ahead of today, with the plan and 「依頼 …」 to go to the card; an operation says where it comes from", () => {
-    expect(html).toContain("data-future");
-    expect(html).toContain('aria-label="11/11（水）の予定"');
-    expect(html).toContain("入院11日目（予定）");
-    expect(html).toContain("依頼 11/4（水）");
-    expect(html).toContain("デブリードマン");
-    expect(html).toContain("手術の予定表から");
-    expect(html).toContain('aria-label="11/5（木）の予定"');
-    expect(html).toContain("依頼 11/3（火）");
-    expect(html.indexOf("11/11（水）の予定")).toBeLessThan(html.indexOf("11/5（木）の予定"));
-    expect(html.indexOf("11/5（木）の予定")).toBeLessThan(html.indexOf("入院4日目（今日）"));
+  it("the days ahead are one folded line above today by default — 「予定 N日 — 次は …」 — so today's section is the first seen", () => {
+    expect(html).toContain("予定 2日 — 次は 11/5（木） 検体検査");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("data-future");
+    expect(html).not.toContain("11/11（水）の予定");
+    expect(html.indexOf("予定 2日")).toBeLessThan(html.indexOf("入院4日目（今日）"));
+  });
+  it("opened (a day ahead chosen in the date tree), each day it happens gets a section of its own ahead of today, with the plan and 「依頼 …」 to go to the card; an operation says where it comes from", () => {
+    const open = as("医師", <HistoryPane {...base} selectedDay={7} patient={sakura} entries={entries} planned={planned} nowTime="10:00" />);
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).toContain("data-future");
+    expect(open).toContain('aria-label="11/11（水）の予定"');
+    expect(open).toContain("入院11日目（予定）");
+    expect(open).toContain("依頼 11/4（水）");
+    expect(open).toContain("デブリードマン");
+    expect(open).toContain("手術の予定表から");
+    expect(open).toContain('aria-label="11/5（木）の予定"');
+    expect(open).toContain("依頼 11/3（火）");
+    expect(open.indexOf("11/11（水）の予定")).toBeLessThan(open.indexOf("11/5（木）の予定"));
+    expect(open.indexOf("11/5（木）の予定")).toBeLessThan(open.indexOf("入院4日目（今日）"));
   });
   it("an order written and carried out the same day, already past, needs no mark; a past day's section carries what was planned on it", () => {
     // A draw ordered yesterday 14:30 and collected yesterday 14:40: no 採取 mark on its card.

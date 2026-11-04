@@ -4,7 +4,8 @@
 // ahead with something planned, today … the admission day, then the visits before it, each marked with the clinic
 // and the doctor.
 
-import { plannedDaysAhead, plansOn, type PlanItem } from "./schedule-days";
+import { addDays, formatShort, type CalendarDate } from "./dates";
+import { planKindsLabel, plannedDaysAhead, plansOn, type PlanItem } from "./schedule-days";
 import type { OpdPatient } from "./opd";
 import type { DayOffset, HistoryEntry } from "./types";
 
@@ -144,6 +145,18 @@ export function daySections(admittedOn: DayOffset, entries: HistoryEntry[], visi
     out.push({ day: v.day, place: { dept: v.dept, doctor: v.doctor }, entries: items, plans: [] });
   }
   return out;
+}
+
+/**
+ * The days ahead of the record folded into one line: the sections after today (farthest first, as the record lists
+ * them), the nearest of them, and the heading 「予定 3日 — 次は 11/5（木） 検体検査」. The record shows this line
+ * folded by default, so today's section is always the first one seen.
+ */
+export function aheadSummary(sections: DaySection[], today: CalendarDate): { days: DaySection[]; next: DaySection | null; heading: string } {
+  const days = sections.filter((s) => s.future);
+  const next = days.at(-1) ?? null;
+  const heading = next ? `予定 ${days.length}日 — 次は ${formatShort(addDays(today, next.day))} ${planKindsLabel(next.plans)}` : "";
+  return { days, next, heading };
 }
 
 /** "外来・循環器内科 森（架空）" — the heading mark of a visit. */

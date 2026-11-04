@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OPD_PATIENTS } from "./opd";
-import { OPD_VISITS, daySections, placeLabel, visitsFromOpd, visitsOf } from "./opd-history";
+import { OPD_VISITS, aheadSummary, daySections, placeLabel, visitsFromOpd, visitsOf } from "./opd-history";
 import { PATIENTS } from "./patients";
 import type { PlanItem } from "./schedule-days";
 import type { HistoryEntry } from "./types";
@@ -55,5 +55,16 @@ describe("外来の受診歴", () => {
     expect(daySections(-3, [], [{ ...v, day: -3 }], []).some((x) => x.place)).toBe(false);
     expect(daySections(-3, [], [v], [], false).some((x) => x.place)).toBe(true);
     expect(daySections(-3, [], [v], [], true).some((x) => x.place)).toBe(false);
+  });
+  it("the days ahead fold into one line: how many, the nearest one, and 「予定 N日 — 次は 11/6（金） 検体検査」", () => {
+    const today = { y: 2026, m: 11, d: 4 };
+    const plan = (day: number, kind: PlanItem["kind"], label: string): PlanItem => ({ kind, day, verb: "x", label, orderId: label, orderedOn: 0 });
+    const s = daySections(-3, [], [], [plan(9, "外来予約", "再診"), plan(2, "検体検査", "CBC"), plan(2, "画像", "CT"), plan(0, "検体検査", "今日")]);
+    const a = aheadSummary(s, today);
+    expect(a.days.map((x) => x.day)).toEqual([9, 2]);
+    expect(a.next?.day).toBe(2);
+    expect(a.heading).toBe("予定 2日 — 次は 11/6（金） 画像・検体検査");
+    // Nothing ahead: no line.
+    expect(aheadSummary(daySections(-3, [], [], []), today)).toEqual({ days: [], next: null, heading: "" });
   });
 });

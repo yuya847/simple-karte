@@ -17,7 +17,7 @@ import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, drugName, durationText, oralName, orderLines, scheduleTextFor, timingText } from "@/lib/format";
 import { executionMarks, isAhead, planVerb, type PlanItem } from "@/lib/schedule-days";
-import { daySections, placeLabel, type OpdVisit } from "@/lib/opd-history";
+import { aheadSummary, daySections, placeLabel, type DaySection, type OpdVisit } from "@/lib/opd-history";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
 import type { TakeBadge } from "@/lib/order-confirm";
 import type { PendingDraw } from "@/lib/lab-table";
@@ -250,10 +250,23 @@ function RecordList({
   const fold = (k: string, e: HistoryEntry) => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !isFolded(k, e) } }));
   const nowAbs = nowTime ? abs(0, nowTime) : null;
 
+  // The days ahead (予定) are one folded line above today, so today's section is always the first seen; they open
+  // when a day of them is chosen in the date tree (or at the start, when such a day is already chosen).
+  const [aheadOpen, setAheadOpen] = useState(() => selectedDay !== null && selectedDay > 0);
+  const [seenDay, setSeenDay] = useState(selectedDay);
+  if (selectedDay !== seenDay) {
+    setSeenDay(selectedDay);
+    if (selectedDay !== null && selectedDay > 0 && !aheadOpen) setAheadOpen(true);
+  }
+  // Scroll to the chosen day once it is in the DOM (a day ahead gets there only after the fold opens).
+  const scrolledFor = useRef<DayOffset | null>(null);
   useEffect(() => {
-    if (selectedDay === null) return;
-    root.current?.querySelector(`[data-day="${selectedDay}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [selectedDay]);
+    if (selectedDay === null || scrolledFor.current === selectedDay) return;
+    const el = root.current?.querySelector(`[data-day="${selectedDay}"]`);
+    if (!el) return;
+    scrolledFor.current = selectedDay;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedDay, aheadOpen]);
   // 「依頼 11/4」 on a plan: open the order's card (on the day it was written) and scroll to it.
   const jumpToOrder = (id: string) => {
     setFolded((f) => ({ ...f, each: { ...f.each, [id]: false } }));
@@ -280,6 +293,7 @@ function RecordList({
     keepPlan,
   );
   const shownCount = sections.reduce((n, s) => n + s.entries.length + s.plans.length, 0);
+  const ahead = aheadSummary(sections, today);
   // Tell the date tree which records are left (only while narrowed), so days with nothing are not listed.
   const shownKey = narrowed ? shown.map((e) => `${e.kind}:${e.day}:${e.time}:${e.kind === "order" ? e.id : e.author}`).join("|") : "";
   useEffect(() => {
@@ -385,61 +399,74 @@ function RecordList({
           </p>
         )}
         {onDo && <p className="hint text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。見出しの ▸ で記録をたたみます。入院前の外来の受診は、入院の記録の下に科と医師の印つきで続きます。</p>}
-        <p className="hint text-[10px] text-ink-faint">オーダは依頼した日のカードに出し、採取・撮影・開始・受診など実施の日が別なら見出しに「採取予定 11/11（水）」のように添えます。実施の日の節にも「その日の予定」として薄く並び、「依頼 11/4」を押すと依頼日のカードへ移ります。今日より先に予定のある日は左の日付ツリーの「予定」に出ます。</p>
+        <p className="hint text-[10px] text-ink-faint">オーダは依頼した日のカードに出し、採取・撮影・開始・受診など実施の日が別なら見出しに「採取予定 11/11（水）」のように添えます。実施の日の節にも「その日の予定」として薄く並び、「依頼 11/4」を押すと依頼日のカードへ移ります。今日より先に予定のある日は、上の「予定 N日」の1行に畳んであり（▸ で開く）、左の日付ツリーの「予定」からも開けます。退院時処方は自宅で飲むものなので予定に出しません。</p>
       </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
-        {sections.map((s) => {
-          const d = s.day;
-          const place = s.place ? `${s.place.dept} 外来` : herePlace;
-          const rpNo = rpNoOf(s.entries);
-          return (
-            <div
-              key={`${s.place ? "v" : "d"}${d}`}
-              data-day={d}
-              data-place={s.place ? "opd" : undefined}
-              data-future={s.future || undefined}
-              className={`scroll-mt-2 border-b border-rule-soft ${s.future ? "py-2" : "py-3"} ${selectedDay === d ? "rounded-md bg-ai-soft/50 ring-1 ring-ai/30 -mx-2 px-2" : ""}`}
-            >
-              <h3 className={`nums flex flex-wrap items-baseline gap-2 text-sm ${s.future ? "mb-1" : "mb-2"}`}>
-                {s.place && (
-                  <span className={`flex items-center gap-1 rounded px-1.5 text-[11px] font-bold leading-5 ${PLACE_COLORS.opd.chip}`}>
-                    <Stethoscope size={11} />
-                    {placeLabel(s.place)}
-                  </span>
-                )}
-                {s.future && (
-                  <span className="flex items-center gap-1 rounded border border-mizu/60 px-1.5 text-[11px] font-bold leading-5 text-mizu">
-                    <CalendarDays size={11} />
-                    予定
-                  </span>
-                )}
-                <span className={`font-bold ${s.future ? "text-ink-soft" : ""}`}>{formatShort(addDays(today, d))}</span>
-                <span className="text-xs text-ink-faint">{s.place ? `入院の${patient.admittedOn - d}日前` : `入院${hospitalDay(patient.admittedOn, d)}日目${d === 0 ? "（今日）" : s.future ? "（予定）" : ""}`}</span>
-              </h3>
-              {s.plans.length > 0 && <PlanList day={d} plans={s.plans} today={today} nowAbs={nowAbs} onJump={jumpToOrder} />}
-              {s.entries.length === 0 ? null : (
-                <ol className="space-y-2">
-                  {s.entries.map((e, i) => {
-                    const k = e.kind === "note" ? noteKey(e) : e.id;
-                    return (
-                      <li key={`${d}-${i}`}>
-                        {e.kind === "note" ? (
-                          <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
-                        ) : (
-                          <OrderRow entry={e} today={today} now={nowAbs} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </div>
-          );
-        })}
+        {ahead.days.length > 0 && (
+          <div data-ahead className="border-b border-rule-soft py-1.5">
+            <button type="button" onClick={() => setAheadOpen((o) => !o)} aria-expanded={aheadOpen} className="nums flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-[12px] text-mizu hover:bg-sheet">
+              {aheadOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <CalendarDays size={12} />
+              <span className="font-bold">{ahead.heading}</span>
+            </button>
+            {aheadOpen && ahead.days.map(renderSection)}
+          </div>
+        )}
+        {sections.filter((s) => !s.future).map(renderSection)}
         {narrowed && shownCount === 0 && <p className="py-6 text-center text-xs text-ink-faint">当てはまる記録はありません。</p>}
       </div>
     </div>
   );
+
+  /** One day of the record: the heading (date, hospital day, a clinic's or 予定's mark), the plans on it, then its cards. */
+  function renderSection(s: DaySection) {
+    const d = s.day;
+    const place = s.place ? `${s.place.dept} 外来` : herePlace;
+    const rpNo = rpNoOf(s.entries);
+    return (
+      <div
+        key={`${s.place ? "v" : "d"}${d}`}
+        data-day={d}
+        data-place={s.place ? "opd" : undefined}
+        data-future={s.future || undefined}
+        className={`scroll-mt-2 border-b border-rule-soft ${s.future ? "py-2" : "py-3"} ${selectedDay === d ? "rounded-md bg-ai-soft/50 ring-1 ring-ai/30 -mx-2 px-2" : ""}`}
+      >
+        <h3 className={`nums flex flex-wrap items-baseline gap-2 text-sm ${s.future ? "mb-1" : "mb-2"}`}>
+          {s.place && (
+            <span className={`flex items-center gap-1 rounded px-1.5 text-[11px] font-bold leading-5 ${PLACE_COLORS.opd.chip}`}>
+              <Stethoscope size={11} />
+              {placeLabel(s.place)}
+            </span>
+          )}
+          {s.future && (
+            <span className="flex items-center gap-1 rounded border border-mizu/60 px-1.5 text-[11px] font-bold leading-5 text-mizu">
+              <CalendarDays size={11} />
+              予定
+            </span>
+          )}
+          <span className={`font-bold ${s.future ? "text-ink-soft" : ""}`}>{formatShort(addDays(today, d))}</span>
+          <span className="text-xs text-ink-faint">{s.place ? `入院の${patient.admittedOn - d}日前` : `入院${hospitalDay(patient.admittedOn, d)}日目${d === 0 ? "（今日）" : s.future ? "（予定）" : ""}`}</span>
+        </h3>
+        {s.plans.length > 0 && <PlanList day={d} plans={s.plans} today={today} nowAbs={nowAbs} onJump={jumpToOrder} />}
+        {s.entries.length === 0 ? null : (
+          <ol className="space-y-2">
+            {s.entries.map((e, i) => {
+              const k = e.kind === "note" ? noteKey(e) : e.id;
+              return (
+                <li key={`${d}-${i}`}>
+                  {e.kind === "note" ? (
+                    <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
+                  ) : (
+                    <OrderRow entry={e} today={today} now={nowAbs} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    );
+  }
 }
 
 /** The colour of a place other than this ward: a visit to the outpatient clinic (mizu, apart from the professions' colours). */
