@@ -106,7 +106,7 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   ulcers: Bandage,
   status: ClipboardPen,
   assign: Users,
-  summaries: FileCheck,
+  nsummaries: FileCheck,
   falls: Footprints,
   vitals: Thermometer,
 };

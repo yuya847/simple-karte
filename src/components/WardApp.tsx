@@ -1866,7 +1866,7 @@ export default function WardApp() {
           }}
           onOpen={openPatient}
         />
-      ) : screen === "summaries" ? (
+      ) : screen === "nsummaries" ? (
         <SummaryApprovals
           pick={floorPick}
           patients={floorPeople.map((x) => ({ id: x.id, name: x.name, room: x.room, admittedOn: x.patient.admittedOn }))}
