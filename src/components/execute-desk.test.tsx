@@ -72,3 +72,28 @@ describe("実施入力の画面", () => {
     expect(html).toContain("実施済みも表示する<span class=\"nums text-ink-faint\">（2件）");
   });
 });
+
+describe("実施入力と指示受け with the fictional ward's patients", () => {
+  it("render every kind of order in the record without error", async () => {
+    const { PATIENTS } = await import("@/lib/patients");
+    const { currentEntries } = await import("@/lib/record");
+    const { orderChanges } = await import("@/lib/worksheet");
+    const { takeRows } = await import("@/lib/order-take");
+    const { TakeDesk } = await import("./TakeDesk");
+    const people: WorkPatient[] = PATIENTS.map((p, i) => ({ patient: p, room: ["512", "515B", "508A", "511"][i], entries: currentEntries(p).filter((e): e is OrderEntry => e.kind === "order") }));
+    const html = renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <ExecuteDesk {...base} people={people} taken={{}} sessionKeys={new Set()} records={{}} sessionStart={0} />
+      </RoleProvider>,
+    );
+    expect(html).toContain("入院");
+    const rows = takeRows(orderChanges(people, -1440 * 30, 730), people, TODAY);
+    expect(rows.length).toBeGreaterThan(3);
+    const take = renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <TakeDesk people={people} rows={rows} taken={{}} isTaken={() => false} holds={{}} confirms={{}} nurses={[]} today={TODAY} nowTime="12:10" onTake={noop} onHold={noop} onConfirm={noop} isMine={() => false} onOpen={noop} onSheet={noop} />
+      </RoleProvider>,
+    );
+    expect(take).toContain("指示開始日時");
+  });
+});
