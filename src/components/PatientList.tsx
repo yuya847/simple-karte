@@ -291,8 +291,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
               <th className="px-3 py-2 font-normal">{header("name", "氏名")}</th>
               <th className="px-3 py-2 font-normal">性・年齢</th>
               <th className="px-3 py-2 font-normal">{header("day", "入院")}</th>
-              <th className="px-3 py-2 font-normal" title="DPC の入院期間（算定の DPC と同じ計算。医療資源病名を主治医が選ぶまでは仮）">DPC</th>
-              <th className="px-3 py-2 font-normal">病名</th>
+              <th className="px-3 py-2 font-normal" title="DPC（診断群分類）：カルテの病名と記録から、算定の DPC と同じ計算で出す分類と入院期間。医療資源を最も投入した傷病名を主治医が選ぶまでは仮">DPC</th>
               <th className="px-3 py-2 font-normal">診療科・担当</th>
               <th className="px-3 py-2 font-normal">印（記録から）</th>
               <th className="px-3 py-2 font-normal">最新バイタル</th>
@@ -305,7 +304,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
             {grouped.map((g) => [
               g.key ? (
                 <tr key={`g-${g.key}`}>
-                  <td colSpan={12} className="sticky left-0 border-b border-rule bg-tab/60 px-3 py-1 text-[12px] font-bold text-ink-soft">
+                  <td colSpan={11} className="sticky left-0 border-b border-rule bg-tab/60 px-3 py-1 text-[12px] font-bold text-ink-soft">
                     {g.key}
                     <span className="ml-2 font-normal">{g.rows.length}人</span>
                   </td>
@@ -337,7 +336,6 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                     </td>
                     <td className="px-3 py-1.5">—</td>
                     <td className="px-3 py-1.5">—</td>
-                    <td className="px-3 py-1.5">—</td>
                     <td className="px-3 py-1.5 text-[11px]">
                       <div className="font-bold">{r.bed.other?.department}</div>
                       <div>{doctorFor(r.bed.other?.department ?? "")}</div>
@@ -362,14 +360,14 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                     {ageSex(p)}
                   </td>
                   <td className="px-3 py-1.5 font-bold">{planText(p)}</td>
-                  <td className="px-3 py-1.5" colSpan={8}>
+                  <td className="px-3 py-1.5" colSpan={7}>
                     {p.department}　{p.note}
                   </td>
                 </tr>
               ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-ink-faint">
+                <td colSpan={11} className="px-3 py-6 text-center text-ink-faint">
                   {nCond ? "条件に合う患者はいません" : "見つかりません"}
                 </td>
               </tr>
@@ -434,10 +432,9 @@ function MyRow({
         <b>{row.day}日目</b>
         {p.admittedOn === 0 && <div className="text-[10px] font-bold text-ai">新入院</div>}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[12px]">
+      <td className="px-3 py-2 text-[12px]">
         <DpcCell b={dpc} />
       </td>
-      <td className="px-3 py-2">{p.admissionDiagnosis}</td>
       <td className="whitespace-nowrap px-3 py-2 text-[11px] text-ink-soft">
         <div className="font-bold text-ink">{p.department}</div>
         <div>{p.attending}</div>
@@ -490,10 +487,16 @@ function DpcCell({ b }: { b?: DpcBriefs[string] }) {
   if (!b.ok) return <span className="text-[11px] text-ink-faint" title={b.reason}>コードなし</span>;
   const tip = `${b.code} ${b.name}${b.days ? `\n${rangesText(b.days)}` : ""}${b.provisional ? "\n医療資源を最も投入した傷病名を主治医がまだ選んでいないため、仮のコードで数えています" : ""}`;
   return (
-    <div title={tip}>
-      <b className={b.period === "Ⅲ" || b.period === "超え" ? "text-shu" : ""}>{b.hokatsu && b.period ? (b.period === "超え" ? "期間超え" : `期間${b.period}`) : "対象外"}</b>
-      {b.provisional && <span className="ml-1 rounded border border-dashed border-ink-faint px-0.5 text-[10px] text-ink-soft">仮</span>}
-      <div className="text-[11px] text-ink-soft">{periodNote(b)}</div>
+    <div title={tip} className="max-w-56 whitespace-normal">
+      <div className="font-bold text-ink">
+        {b.name}
+        {b.provisional && <span className="ml-1 rounded border border-dashed border-ink-faint px-0.5 text-[10px] font-normal text-ink-soft">仮</span>}
+      </div>
+      <div className="nums text-[10px] text-ink-faint">{b.code}</div>
+      <div className="text-[11px]">
+        <b className={b.period === "Ⅲ" || b.period === "超え" ? "text-shu" : ""}>{b.hokatsu && b.period ? (b.period === "超え" ? "期間超え" : `期間${b.period}`) : "包括の対象外"}</b>
+        <span className="ml-1 text-ink-soft">{b.hokatsu ? periodNote(b) : ""}</span>
+      </div>
     </div>
   );
 }
