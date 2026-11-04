@@ -223,7 +223,7 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="py-1 pr-2 font-normal">採血の時刻</th>
-            <th className="py-1 pr-2 font-normal">患者</th>
+            <th className="min-w-[9rem] whitespace-nowrap py-1 pr-2 font-normal">患者</th>
             <th className="py-1 pr-2 font-normal">検査</th>
             <th className="py-1 pr-2 font-normal">容器</th>
             <th className="py-1 pr-2 font-normal">ラベル</th>
@@ -245,7 +245,7 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
                 {whenText(r.at)}
                 {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
               </td>
-              <td className="py-1 pr-2">
+              <td className="min-w-[9rem] whitespace-nowrap py-1 pr-2">
                 <PlaceMark place={r.place} room={r.room} /> {r.name}
               </td>
               <td className="py-1 pr-2">
