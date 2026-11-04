@@ -50,8 +50,10 @@ describe("① places by role", () => {
 
 describe("② inside 病棟", () => {
   it("offers the patient lists to everyone and the ward's work by role", () => {
-    for (const t of ["all", "map", "mine", "recent", "floor", "handoff", "admit", "paths", "beds", "support", "cosign", "summaries"]) expect(wardTabsFor("医師")).toContain(t);
+    for (const t of ["all", "map", "mine", "recent", "favorites", "floor", "handoff", "admit", "paths", "beds", "support", "cosign", "summaries"]) expect(wardTabsFor("医師")).toContain(t);
     expect(wardTabsFor("医師").slice(0, 3)).toEqual(["all", "map", "mine"]);
+    // お気に入りの患者: everyone, right after 最近開いた患者.
+    for (const r of ["医師", "看護師", "薬剤師", "MSW", "医事課", "管理栄養士"] as const) expect(wardTabsFor(r).indexOf("favorites")).toBe(wardTabsFor(r).indexOf("recent") + 1);
     expect(wardTabsFor("医師")).toContain("ulcers");
     // 研修医の記録の確認: doctors, and 医事課 (診療録の管理) to read; not nurses.
     expect(wardTabsFor("医事課")).toContain("cosign");

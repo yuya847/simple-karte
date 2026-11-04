@@ -124,6 +124,7 @@ import { PatientList, type GroupBy } from "./PatientList";
 import { AppFrame, type Crumb, type TabItem, type TabRow, type Todo } from "./AppFrame";
 import { PullToRefresh } from "./PullToRefresh";
 import { RecentPatients } from "./RecentPatients";
+import { FavoritePatients } from "./FavoritePatients";
 import { loadRecent, pushRecent, saveRecent, type RecentOpen } from "@/lib/recent";
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
@@ -2543,6 +2544,8 @@ export default function WardApp() {
         />
       ) : screen === "recent" ? (
         <RecentPatients list={recentList} patient={findPatient} onOpen={openPatient} onClear={() => setRecentList([])} />
+      ) : screen === "favorites" ? (
+        <FavoritePatients patient={findPatient} nowTime={nowTime} changes={sessionChanges} waiting={waiting} resultState={resultState} extraFlags={listFlags} diagnoses={diagnoses} onOpen={openPatient} />
       ) : listKey ? (
         <div className="flex min-h-0 flex-1 flex-col">
         <PatientList

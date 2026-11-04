@@ -9,7 +9,9 @@ import { bandLabel, reviewDue, type AdvanceDirective } from "@/lib/directives";
 import { doctorLabel, type PatientDoctors } from "@/lib/patient-doctors";
 import type { Patient } from "@/lib/types";
 import { PatientAvatar } from "./PatientAvatar";
+import { StarButton } from "./StarButton";
 import { ageSex } from "@/lib/person";
+import { useFavorites } from "@/lib/use-favorites";
 
 interface Props {
   patient: Patient;
@@ -41,6 +43,7 @@ function dayLabel(day: number): string {
 export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, actions }: Props) {
   const [pregEdit, setPregEdit] = useState(false);
   const [weeks, setWeeks] = useState("");
+  const [favorites, toggleFavorite] = useFavorites();
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
   const cre = latestValue(p, "Cre");
   const ccr = cre ? cockcroftGault(p.age, p.weightKg, cre.value, p.sex) : undefined;
@@ -54,7 +57,10 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         <PatientAvatar sex={p.sex} age={p.age} size={46} className="rounded-full ring-1 ring-rule" />
         <div>
           <div className="text-[11px] leading-none text-ink-faint">{p.kana}</div>
-          <div className="text-xl font-bold leading-tight">{p.name}</div>
+          <div className="flex items-center gap-1 text-xl font-bold leading-tight">
+            {p.name}
+            <StarButton on={favorites.includes(p.id)} name={p.name} onToggle={() => toggleFavorite(p.id)} size={17} />
+          </div>
         </div>
         <div className="nums text-sm text-ink-soft">
           {ageSex(p)}
