@@ -3,6 +3,7 @@
 // and ward rules below are made up for this prototype and are not any real hospital's.
 
 import type { InjectionRoute } from "./types";
+import { MORE_LAB_INFO, MORE_LAB_TESTS } from "./lab-master-more";
 
 export interface DrugMaster {
   code: string;
@@ -335,7 +336,23 @@ export function anyDrugName(code: string): string {
   return ORAL_DRUGS.find((d) => d.code === code)?.name ?? code;
 }
 
-export type LabGroup = "血液学" | "凝固・線溶" | "生化学" | "炎症・感染" | "心筋・心不全" | "内分泌" | "血液ガス" | "尿" | "微生物" | "薬物濃度" | "セット";
+export type LabGroup =
+  | "血液学"
+  | "凝固・線溶"
+  | "生化学"
+  | "炎症・感染"
+  | "心筋・心不全"
+  | "内分泌"
+  | "腫瘍マーカー"
+  | "免疫・アレルギー"
+  | "血液ガス"
+  | "尿"
+  | "便"
+  | "微生物"
+  | "微生物（塗抹・遺伝子）"
+  | "薬物濃度"
+  | "輸血検査"
+  | "セット";
 
 export interface LabMaster {
   code: string;
@@ -349,6 +366,8 @@ export interface LabMaster {
   aliases: string[];
   /** Words that must be asked when missing, e.g. number of culture sets. */
   needs?: "sets";
+  /** Kept for old records and the AI's aliases, not offered on the order screen. */
+  hidden?: true;
 }
 
 export const LAB_TESTS: LabMaster[] = [
@@ -389,6 +408,7 @@ export const LAB_TESTS: LabMaster[] = [
     aliases: ["CRP"],
   },
   {
+    // Old pair code (凝固): kept so earlier records and the AI's "凝固" still resolve; the screen offers PT and APTT one by one.
     code: "LAB-COAG",
     group: "凝固・線溶",
     abbr: "PT・APTT",
@@ -396,6 +416,7 @@ export const LAB_TESTS: LabMaster[] = [
     specimen: "血液",
     contains: ["PT-INR", "APTT"],
     aliases: ["凝固", "PT", "APTT"],
+    hidden: true,
   },
   {
     code: "LAB-BNP",
@@ -436,11 +457,11 @@ export const LAB_TESTS: LabMaster[] = [
   { code: "LAB-HB", name: "ヘモグロビン（末梢血液一般として算定）", abbr: "Hb", group: "血液学", specimen: "血液", contains: ["Hb"], aliases: ["Hb", "ヘモグロビン", "ヘモグロ"] },
   { code: "LAB-PLT", name: "血小板数（末梢血液一般として算定）", abbr: "Plt", group: "血液学", specimen: "血液", contains: ["Plt"], aliases: ["Plt", "血小板"] },
   { code: "LAB-RET", name: "網赤血球数", abbr: "Ret", group: "血液学", specimen: "血液", contains: ["Ret"], aliases: ["網赤血球", "レチクロ", "Ret"] },
-  { code: "LAB-PT", name: "プロトロンビン時間（PT-INR）", abbr: "PT", group: "凝固・線溶", specimen: "血液", contains: ["PT-INR"], aliases: ["PT-INR", "INR", "プロトロンビン"] },
-  { code: "LAB-APTT", name: "活性化部分トロンボプラスチン時間", abbr: "APTT", group: "凝固・線溶", specimen: "血液", contains: ["APTT"], aliases: ["APTT"] },
-  { code: "LAB-FIB", name: "フィブリノゲン", abbr: "Fib", group: "凝固・線溶", specimen: "血液", contains: ["Fib"], aliases: ["フィブリノゲン", "Fib", "フィブリノーゲン"] },
-  { code: "LAB-DD", name: "Dダイマー", abbr: "D-ダイマー", group: "凝固・線溶", specimen: "血液", contains: ["DD"], aliases: ["Dダイマー", "D-ダイマー", "Dダイ"] },
-  { code: "LAB-FDP", name: "FDP（定量）", abbr: "FDP", group: "凝固・線溶", specimen: "血液", contains: ["FDP"], aliases: ["FDP"] },
+  { code: "LAB-PT", name: "PT（プロトロンビン時間。外因系の凝固の検査。秒・活性・INR を報告）", abbr: "PT", group: "凝固・線溶", specimen: "血液", contains: ["PT-INR"], aliases: ["PT-INR", "INR", "プロトロンビン"] },
+  { code: "LAB-APTT", name: "APTT（活性化部分トロンボプラスチン時間。内因系の凝固の検査。ヘパリンの調節にも使う）", abbr: "APTT", group: "凝固・線溶", specimen: "血液", contains: ["APTT"], aliases: ["APTT"] },
+  { code: "LAB-FIB", name: "フィブリノゲン（凝固の材料になる蛋白）", abbr: "フィブリノゲン", group: "凝固・線溶", specimen: "血液", contains: ["Fib"], aliases: ["フィブリノゲン", "Fib", "フィブリノーゲン"] },
+  { code: "LAB-DD", name: "Dダイマー（できた血栓が溶けたときに出る分解産物）", abbr: "Dダイマー", group: "凝固・線溶", specimen: "血液", contains: ["DD"], aliases: ["Dダイマー", "D-ダイマー", "Dダイ"] },
+  { code: "LAB-FDP", name: "FDP（フィブリン・フィブリノゲン分解産物、定量）", abbr: "FDP", group: "凝固・線溶", specimen: "血液", contains: ["FDP"], aliases: ["FDP"] },
   { code: "LAB-TP", name: "総蛋白", abbr: "TP", group: "生化学", specimen: "血液", contains: ["TP"], aliases: ["TP", "総蛋白"] },
   { code: "LAB-ALB", name: "アルブミン", abbr: "Alb", group: "生化学", specimen: "血液", contains: ["Alb"], aliases: ["Alb", "アルブミン"] },
   { code: "LAB-AST", name: "AST", abbr: "AST", group: "生化学", specimen: "血液", contains: ["AST"], aliases: ["AST", "GOT"] },
@@ -463,7 +484,7 @@ export const LAB_TESTS: LabMaster[] = [
   { code: "LAB-IP", name: "無機リン", abbr: "IP", group: "生化学", specimen: "血液", contains: ["IP"], aliases: ["IP", "P", "リン", "無機リン"] },
   { code: "LAB-MG", name: "マグネシウム", abbr: "Mg", group: "生化学", specimen: "血液", contains: ["Mg"], aliases: ["Mg", "マグネシウム"] },
   { code: "LAB-GLU", name: "グルコース（血糖）", abbr: "Glu", group: "生化学", specimen: "血液", contains: ["Glu"], aliases: ["血糖", "Glu", "BS", "グルコース"] },
-  { code: "LAB-HBA1C", name: "HbA1c", abbr: "HbA1c", group: "生化学", specimen: "血液", contains: ["HbA1c"], aliases: ["HbA1c", "A1c", "ヘモグロビンA1c"] },
+  { code: "LAB-HBA1C", name: "HbA1c（ヘモグロビンA1c、NGSP）", abbr: "HbA1c", group: "内分泌", specimen: "血液", contains: ["HbA1c"], aliases: ["HbA1c", "A1c", "ヘモグロビンA1c"] },
   { code: "LAB-TG", name: "中性脂肪", abbr: "TG", group: "生化学", specimen: "血液", contains: ["TG"], aliases: ["TG", "中性脂肪", "トリグリセリド"] },
   { code: "LAB-TCHO", name: "総コレステロール", abbr: "T-Cho", group: "生化学", specimen: "血液", contains: ["TC"], aliases: ["T-Cho", "総コレステロール", "TC"] },
   { code: "LAB-HDL", name: "HDL-コレステロール", abbr: "HDL-C", group: "生化学", specimen: "血液", contains: ["HDL"], aliases: ["HDL", "HDL-C"] },
@@ -478,7 +499,7 @@ export const LAB_TESTS: LabMaster[] = [
   { code: "LAB-TNT", name: "心筋トロポニンT", abbr: "TnT", group: "心筋・心不全", specimen: "血液", contains: ["TnT"], aliases: ["トロポニン", "トロポニンT", "TnT"] },
   { code: "LAB-TSH", name: "TSH", abbr: "TSH", group: "内分泌", specimen: "血液", contains: ["TSH"], aliases: ["TSH", "甲状腺刺激ホルモン"] },
   { code: "LAB-FT4", name: "FT4", abbr: "FT4", group: "内分泌", specimen: "血液", contains: ["FT4"], aliases: ["FT4", "遊離T4"] },
-  { code: "LAB-BGA", name: "血液ガス（動脈血）", abbr: "血ガス", group: "血液ガス", specimen: "血液", contains: ["pH", "PaCO2", "PaO2", "HCO3"], aliases: ["血ガス", "血液ガス", "BGA", "ABG", "動脈血ガス"] },
+  { code: "LAB-BGA", name: "動脈血ガス分析（pH・PaCO2・PaO2・HCO3）", abbr: "動脈血ガス", group: "血液ガス", specimen: "血液", contains: ["pH", "PaCO2", "PaO2", "HCO3"], aliases: ["血ガス", "血液ガス", "BGA", "ABG", "動脈血ガス"] },
   { code: "LAB-UPRO", name: "尿蛋白（定量）", abbr: "尿蛋白", group: "尿", specimen: "尿", contains: ["UPro"], aliases: ["尿蛋白", "尿タンパク"] },
   { code: "LAB-UNA", name: "尿中ナトリウム・クロール", abbr: "尿Na", group: "尿", specimen: "尿", contains: ["UNa"], aliases: ["尿中Na", "尿Na", "尿中ナトリウム"] },
   { code: "LAB-UK", name: "尿中カリウム", abbr: "尿K", group: "尿", specimen: "尿", contains: ["UK"], aliases: ["尿中K", "尿K"] },
@@ -491,6 +512,8 @@ export const LAB_TESTS: LabMaster[] = [
     specimen: "尿",
     aliases: ["尿培", "尿培養"],
   },
+  // The rest of the order screen's items (血算〜輸血検査), in the same shape: lab-master-more.ts.
+  ...MORE_LAB_TESTS,
 ];
 
 /** A set approved by the (fictional) hospital. The AI may call it, never edit it. */
@@ -632,7 +655,7 @@ export const LAB_INFO: Record<string, { material: string; container: string; tat
   "LAB-TNT": { material: "血清 0.5mL", container: "S09", tat: "院内・当日" },
   "LAB-TSH": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
   "LAB-FT4": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
-  "LAB-BGA": { material: "動脈血（ヘパリン）", container: "血ガス用シリンジ", tat: "院内・すぐ", note: "院内で行った場合だけ算定できる（D007-35）" },
+  "LAB-BGA": { material: "動脈血（ヘパリン加シリンジ）", container: "血ガス用シリンジ", tat: "院内・すぐ", note: "動脈穿刺は医師が行う（架空の病院の取り決め）。空気を抜いて密栓し、すぐ測る。院内で行った場合だけ算定できる（D007-35）" },
   "LAB-UA": { material: "部分尿 10mL", container: "U40", tat: "院内・当日", note: "院内で行った場合だけ算定できる（D000）" },
   "LAB-UPRO": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
   "LAB-UNA": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
@@ -640,6 +663,7 @@ export const LAB_INFO: Record<string, { material: string; container: string; tat
   "LAB-UCRE": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
   "LAB-BCX": { material: "血液（好気・嫌気ボトル）", container: "血液培養ボトル", tat: "院内・数日" },
   "LAB-UCX": { material: "尿", container: "滅菌容器", tat: "院内・数日" },
+  ...MORE_LAB_INFO,
 };
 
 /** Default for serum chemistry: 血清 0.5mL, S09（分離剤入り）, 院内・当日. */
