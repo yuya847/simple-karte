@@ -30,6 +30,7 @@ import {
   Pill,
   Printer,
   ReceiptJapaneseYen,
+  Route,
   Scissors,
   ChartColumn,
   ScrollText,
@@ -89,4 +90,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   narcotic: KeyRound,
   undone: ClipboardX,
   summaries: FileClock,
+  paths: Route,
 };

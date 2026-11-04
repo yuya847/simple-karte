@@ -260,7 +260,19 @@ export function confirmedOn(path: Pathway, entries: OrderEntry[], day: number): 
   return entries.filter((e) => e.status !== "中止" && "comment" in e.order && typeof e.order.comment === "string" && e.order.comment.includes(tag));
 }
 
-export const evalOf = (book: PathBook, appId: string, key: string) => book.evals.filter((e) => e.appId === appId && e.key === key).at(-1);
+/** Whether one item of a path day has been confirmed as an order (same kind and content, with the path's comment). */
+export function itemConfirmed(path: Pathway, entries: OrderEntry[], day: number, it: PathOrder): boolean {
+  return confirmedOn(path, entries, day).some((e) => {
+    const o = e.order;
+    if (it.kind === "lab") return o.type === "lab" && it.codes.every((c) => o.codes.includes(c));
+    if (it.kind === "imaging") return o.type === "imaging" && o.region === it.region;
+    if (it.kind === "physio") return o.type === "physio" && o.test === it.test;
+    if (it.kind === "rehab") return o.type === "procedure" && o.code === "PROC-REHAB";
+    return o.type === "procedure" && o.code === "PROC-GUIDE" && o.guide?.kind === it.guide.kind;
+  });
+}
+
+export const evalOf =(book: PathBook, appId: string, key: string) => book.evals.filter((e) => e.appId === appId && e.key === key).at(-1);
 
 /** Outcomes due by `upTo` (path day) and not evaluated yet, for the given role (or both). */
 export function dueOutcomes(book: PathBook, app: PathApplication, upTo: number, who?: PathWho): { day: number; outcome: PathOutcome }[] {

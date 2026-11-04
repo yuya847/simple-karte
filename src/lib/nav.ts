@@ -55,7 +55,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone" | "summaries";
+export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone" | "summaries" | "paths";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -79,6 +79,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "undone", label: "未実施の一覧", hint: "時刻を過ぎても実施・未実施の記録がないオーダ（実施漏れ）と、処置の実施の記録と算定が合わないもの（算定漏れの候補）", group: "work", needs: ["sheet", "iji"] },
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },
   { key: "admit", label: "入院時の評価", hint: "期限のある評価（褥瘡・栄養・退院支援など）", group: "work", needs: "admit" },
+  { key: "paths", label: "クリティカルパス", hint: "パスを使っている患者の今日の日目・評価がまだのアウトカム、バリアンスの一覧と分類ごとの件数", group: "work", needs: "handoff" },
   { key: "beds", label: "ベッドコントロール", hint: "全病棟の空床（性別・個室）、今日と明日の入退院、明日の朝の空床の見込み、入院申込に合うベッド", group: "work", needs: "map" },
   { key: "support", label: "退院支援の一覧", hint: "患者ごとに、退院困難な要因・話合い・計画・カンファレンス・計画書・転院の打診・退院の予定", group: "work", needs: "admit" },
   { key: "meals", label: "病棟の食事", hint: "今日と明日の朝・昼・夕：食種・形態・食止め、食数（コードで数える）と締切", group: "work", needs: "meals" },

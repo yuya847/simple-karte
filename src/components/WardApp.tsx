@@ -88,6 +88,9 @@ import { billingGaps, undoneRows } from "@/lib/undone";
 import { UndoneView } from "./UndoneView";
 import { PAST_SUMMARIES, approveDeny, summaryRows } from "@/lib/summary-approval";
 import { SummaryList } from "./SummaryList";
+import { EMPTY_PATHS, activePath, dueOutcomes, findPath, pathDayOf, type PathBook, type PathWho } from "@/lib/pathway";
+import { PathPanel } from "./panels/PathPanel";
+import { PathList } from "./PathList";
 import { bagsOf } from "@/lib/discharge-rx";
 import { GuideRecordPanel, type GuidanceInput } from "./panels/GuideRecordPanel";
 import { guidanceNoteText, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord } from "@/lib/guidance";
@@ -529,6 +532,8 @@ export default function WardApp() {
   const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(initialStanding);
   // 条件付き指示 (指示簿): what a nurse did for each value that met one, by hit key.
   const [condAcks, setCondAcks] = useState<Record<string, CondAck>>({});
+  // クリティカルパス: paths applied to patients, the outcome evaluations and the variances.
+  const [paths, setPaths] = useState<PathBook>(EMPTY_PATHS);
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
@@ -640,6 +645,7 @@ export default function WardApp() {
       nursingPlans: [nursingPlans, setNursingPlans],
       standing: [standing, setStanding],
       condAcks: [condAcks, setCondAcks],
+      paths: [paths, setPaths],
       extraVitals: [extraVitals, setExtraVitals],
       mar: [mar, setMar],
       marVoided: [marVoided, setMarVoided],
@@ -1434,6 +1440,8 @@ export default function WardApp() {
       const pid = x.patient.id;
       const out: Flag[] = callsMet[pid].length ? [{ label: "医師を呼ぶ基準", tone: "shu", title: `指示簿の基準に当たる：${callsMet[pid].join("、")}` }] : [];
       if (condsMet[pid].length) out.push({ label: `条件付き指示 ${condsMet[pid].length}`, tone: "shu", title: condsMet[pid].map((h) => h.text).join("、") });
+      const pa = activePath(paths, pid);
+      if (pa) out.push({ label: `パス ${pathDayOf(pa, 0)}日目`, tone: "ai", title: `${findPath(pa.code)?.name ?? ""}（標準 ${findPath(pa.code)?.length ?? "?"}日）` });
       if (standingNow(pid) && !standingNow(pid)!.taken) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
       out.push(...leaveFlags(x.entries));
       const rs = activeOf(restraints, pid);
@@ -1533,6 +1541,10 @@ export default function WardApp() {
     const pid = x.patient.id;
     if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
     if (condsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `cond-${pid}`, label: `条件付き指示に当たる：${x.patient.name}さん`, detail: condsMet[pid].map((h) => h.text).join("、"), count: condsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
+    // クリティカルパス: outcomes due by today that this profession evaluates.
+    const pa = activePath(paths, pid);
+    const pathDue = pa && (role === "看護師" || role === "医師") ? dueOutcomes(paths, pa, pathDayOf(pa, 0), role as PathWho) : [];
+    if (pathDue.length) todos.push({ key: `path-${pid}`, label: `パスのアウトカムの評価：${x.patient.name}さん（${findPath(pa!.code)?.name} ${pathDayOf(pa!, 0)}日目）`, detail: pathDue.map((d) => d.outcome.text).join("、"), count: pathDue.length, tone: "yamabuki", go: () => (openPatient(pid), setPanel("path")) });
     for (const e of x.entries) {
       if (e.status !== "有効" || e.order.type !== "procedure" || !e.order.guide || !e.order.guide.kind) continue;
       const g = e.order.guide;
@@ -1800,6 +1812,16 @@ export default function WardApp() {
         />
       ) : screen === "narcotic" ? (
         <NarcoticSlips people={people} records={mar} book={narcBook} onBook={setNarcBook} today={today} nowTime={nowTime} newId={newId} />
+      ) : screen === "paths" ? (
+        <PathList
+          book={paths}
+          patientOf={(id) => {
+            const x = people.find((y) => y.patient.id === id) ?? dischargedPeople.find((y) => y.patient.id === id);
+            return x ? { name: x.patient.name, room: x.room } : undefined;
+          }}
+          fmt={(d) => formatShort(addDays(today, d))}
+          onOpen={(pid) => (openPatient(pid), setPanel("path"))}
+        />
       ) : screen === "summaries" ? (
         <SummaryList rows={summaryNow} today={today} onOpen={(id) => (openPatient(id), setPanel("discharge"))} />
       ) : screen === "io" ? (
@@ -3266,6 +3288,21 @@ export default function WardApp() {
                       update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `セットから ${ds.length}件を下書きにしました。それぞれ確かめて確定してください。` }));
                       closePanel();
                     }}
+                  />
+                </Drawer>
+              )}
+              {panel === "path" && (
+                <Drawer title="クリティカルパス" onClose={closePanel} wide expandable>
+                  <PathPanel
+                    patient={patient}
+                    book={paths}
+                    onBook={setPaths}
+                    entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    today={today}
+                    nowTime={nowTime}
+                    newId={newId}
+                    onDrafts={(ds, flash) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash }))}
+                    onNote={(line) => chartNote(patient.id, line)}
                   />
                 </Drawer>
               )}
