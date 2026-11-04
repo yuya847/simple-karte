@@ -2,7 +2,7 @@
 
 import { GripVertical } from "lucide-react";
 import { useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { indentBlock, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
+import { indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
 import { isProblemLine } from "@/lib/note-problems";
 import { toggleMark } from "@/lib/note-edit";
 import { renumberProblems } from "@/lib/note-problems";
@@ -192,6 +192,11 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       commit(numbered(r.text, r.caret));
       return;
     }
+    if (e.key === "Backspace" && isDividerLine(line) && !mod) {
+      e.preventDefault();
+      commit(replaceLine(text, i, ""));
+      return;
+    }
     if (e.key === "Backspace" && s === 0 && en === 0 && i > 0 && !mod) {
       e.preventDefault();
       const r = joinWithPrevious(text, i);
@@ -252,6 +257,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     press.current = null;
   };
 
+  const firstSection = lines.findIndex(isSectionHeadingLine);
+
   return (
     <div
       role="group"
@@ -263,8 +270,11 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
         if (e.target === e.currentTarget) focusLine(lines.length - 1, Infinity);
       }}
     >
+      <p className="hint text-[11px] text-ink-faint">行に --- または ――― だけを入力すると仕切りになります。仕切りの行で Backspace を押すと消せます。</p>
       {lines.map((line, i) => {
         const heading = isHeadingLine(line);
+        const divider = isDividerLine(line);
+        const sectionRule = isSectionHeadingLine(line) && i !== firstSection;
         const unit = drag && i >= drag.from && i <= drag.to;
         const u = unitAt(value, i);
         const gripLabel = u.problem ? `${line.trim()} のブロック（見出しと本文）を動かす（ドラッグか Alt+↑↓）` : `${i + 1}行目を動かす（ドラッグか Alt+↑↓）`;
@@ -317,7 +327,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                 <GripVertical size={14} aria-hidden />
               </button>
             )}
-            <div className="grid">
+            <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""}`}>
+              {divider && <span role="separator" className="pointer-events-none absolute inset-x-2 top-1/2 border-t border-rule" />}
               <div
                 ref={(el) => {
                   mirrors.current[i] = el;
@@ -336,6 +347,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                 readOnly={readOnly}
                 aria-label={`${i + 1}行目`}
                 data-heading={heading || undefined}
+                data-divider={divider || undefined}
                 onChange={(e) => typed(i, e.currentTarget, (e.nativeEvent as InputEvent).isComposing)}
                 onCompositionStart={() => (composing.current = true)}
                 onCompositionEnd={(e) => {
@@ -354,7 +366,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                   const r = renumberProblems(latest.current);
                   if (r.text !== latest.current) onChange(r.text);
                 }}
-                className={`${TEXT} resize-none overflow-hidden rounded bg-transparent outline-none focus:bg-ai-soft/30 [grid-area:1/1/2/2] ${isProblemLine(line) ? "border border-ai/40 bg-sheet font-bold text-ink" : heading ? "font-bold text-ink" : ""}`}
+                className={`${TEXT} ${divider ? "text-transparent caret-transparent" : ""} resize-none overflow-hidden rounded bg-transparent outline-none focus:bg-ai-soft/30 [grid-area:1/1/2/2] ${isProblemLine(line) ? "border border-ai/40 bg-sheet font-bold text-ink" : heading ? "font-bold text-ink" : ""}`}
               />
             </div>
           </div>

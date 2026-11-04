@@ -110,3 +110,28 @@ it("draws a nested problem with its parent number and keeps the written path", (
   expect(html).toContain('data-problem-parent="1">  ＃1-1 喀痰培養');
   expect(html).toContain('data-problem-parent="1-1">    ＃1-1-1 結果');
 });
+
+
+it("draws rules only above section labels after the first, retaining editable divider rows", () => {
+  const html = renderToStaticMarkup(<NoteBlocks value={"前文\nS)\n＃1 肺炎\n09:30 訪室\nO)\n---\nA)\nP)\nD)\nAct)\nR)\n【経時記録】"} onChange={() => {}} />);
+  expect(html.match(/relative grid border-t border-rule/g)?.length).toBe(7);
+  expect(html.match(/role="separator"/g)?.length).toBe(1);
+  expect(html).toContain('data-divider="true"');
+  expect(html).toContain("text-transparent caret-transparent");
+  expect(html).toContain("6行目を動かす");
+  const first = renderToStaticMarkup(<NoteBlocks value="前文\n【経時記録】\n09:30 訪室" onChange={() => {}} />);
+  expect(first).not.toContain("relative grid border-t");
+});
+
+it("keeps dividers through confirmation into a history card", () => {
+  const text = "S) 痛みなし\n---\n続き\nO) 安定\n―――\n続き";
+  const parsed = parseNote(text);
+  expect(parsed.soap?.s).toContain("---");
+  const entry: NoteEntry = { kind: "note", id: "divider-note", day: 0, time: "09:00", author: "山本", role: "医師", ...parsed };
+  const html = as("医師", <HistoryPane patient={sakura} entries={[entry]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />);
+  expect(html.match(/role="separator"/g)?.length).toBe(2);
+  const body = renderToStaticMarkup(<NoteText text={"本文\n---\n―――\n--- 続き"} />);
+  expect(body.match(/role="separator"/g)?.length).toBe(2);
+  expect(body).toContain("--- 続き");
+  expect(body).not.toContain("―――");
+});

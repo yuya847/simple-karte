@@ -82,7 +82,7 @@ export const joinWithNext = (text: string, line: number): Edited => {
 /** The line replaced by what was typed into it (a pasted "\n" makes more lines); the caret after it. */
 export function replaceLine(text: string, line: number, value: string, caretInLine = value.length): Edited {
   const lines = toLines(text);
-  const next = [...lines.slice(0, line), ...value.split("\n"), ...lines.slice(line + 1)];
+  const next = [...lines.slice(0, line), ...value.split("\n").map((line) => isDividerLine(line) ? "---" : line), ...lines.slice(line + 1)];
   const out = fromLines(next);
   const before = value.slice(0, caretInLine);
   const added = before.split("\n");
@@ -156,6 +156,15 @@ export function nudgeLine(text: string, line: number, col: number, dir: -1 | 1):
   if (at < 0 || at > lines.length) return keep;
   const out = moveLines(text, line, line, at);
   return { text: out, caret: offsetOf(out, { line: movedLine(line, line, at), col }) };
+}
+
+/** A whole line of three hyphens or horizontal bars, allowing indentation. */
+export const isDividerLine = (line: string): boolean => /^(---|―――)$/.test(line.trim());
+
+/** Section labels get rules; problem headings and individual timestamps do not. */
+export function isSectionHeadingLine(line: string): boolean {
+  const t = line.trim();
+  return SOAP.test(t) || DAR.test(t) || t === "【経時記録】";
 }
 
 const SOAP = /^[SOAP]\)/i;

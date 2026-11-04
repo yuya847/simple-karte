@@ -1,4 +1,4 @@
-import { indentBlock } from "./note-blocks";
+import { isDividerLine, isSectionHeadingLine, indentBlock } from "./note-blocks";
 import { describe, expect, it } from "vitest";
 import { fromLines, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt } from "./note-blocks";
 import { formFrame } from "./notes";
@@ -118,4 +118,21 @@ it("Tab makes a child, Shift+Tab restores roots, and moves renumber children", (
   const moved = "＃1 肺炎\n  ＃1-1 血培\n  ＃1-2 喀痰\n＃2 高血圧";
   expect(moveLines(siblings, 2, 2, 1)).toBe(moved);
   expect(nudgeLine(siblings, 2, 7, -1).text).toBe(moved);
+});
+
+
+it("recognizes only whole divider lines, normalizes input and moves them alone", () => {
+  for (const line of ["---", "―――", "  ---  ", "\t―――"]) expect(isDividerLine(line)).toBe(true);
+  for (const line of ["--", "----", "――", "――――", "文---", "--- 文", "", "ー ー ー"]) expect(isDividerLine(line)).toBe(false);
+  const text = replaceLine("S)\n\nO)", 1, "―――").text;
+  expect(text).toBe("S)\n---\nO)");
+  expect(unitAt(text, 1)).toMatchObject({ from: 1, to: 1, problem: false });
+  expect(moveLines(text, 1, 1, 3)).toBe("S)\nO)\n---");
+  expect(replaceLine(text, 1, "").text).toBe("S)\n\nO)");
+  expect(replaceLine("", 0, "S)\n―――\nO)").text).toBe(text);
+});
+
+it("separates section labels from problem headings and individual times", () => {
+  for (const line of ["S)", " O) 所見", "A)", "P)", "D)", "Act)", "R)", "【経時記録】"]) expect(isSectionHeadingLine(line)).toBe(true);
+  for (const line of ["＃1 肺炎", "# 転倒", "09:30 訪室", "---", "Sodium"]) expect(isSectionHeadingLine(line)).toBe(false);
 });

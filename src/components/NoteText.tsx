@@ -1,3 +1,4 @@
+import { isDividerLine } from "@/lib/note-blocks";
 import { Fragment } from "react";
 import { markLines, type MarkPart } from "@/lib/note-marks";
 
@@ -19,12 +20,13 @@ const part = (p: MarkPart, i: number) =>
  * whitespace-pre-wrap (the line breaks are kept as "\n").
  */
 export function NoteText({ text }: { text: string }) {
+  const lines = text.split("\n");
   return (
     <>
       {markLines(text).map((l, i) => (
         <Fragment key={i}>
           {i > 0 && "\n"}
-          {l.heading ? <b className="text-ink" data-problem-parent={l.parentPath}>{l.parts.map(part)}</b> : l.parts.map(part)}
+          {isDividerLine(lines[i]) ? <span role="separator" className="my-2 block border-t border-rule" /> : l.heading ? <b className="text-ink" data-problem-parent={l.parentPath}>{l.parts.map(part)}</b> : l.parts.map(part)}
         </Fragment>
       ))}
     </>
