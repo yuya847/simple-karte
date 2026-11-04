@@ -37,6 +37,8 @@ export interface Notice {
   until: DayOffset | null;
   /** The public source, when the notice cites a rule. */
   source?: string;
+  /** DI（医薬品情報）: the master drugs the notice is about (薬剤部 posts; formulary.ts lists them by drug). */
+  drugs?: string[];
 }
 
 /** Notice id → names of the staff who opened it. */
@@ -139,6 +141,18 @@ export const INITIAL_NOTICES: Notice[] = [
     until: 10,
   },
   {
+    id: "n-di-narcotic",
+    from: "薬剤部",
+    title: "【DI】麻薬2品目を採用しました：麻薬の注射は施用票を書いて残液・空アンプルを返納",
+    body: "{-1} から、モルヒネ塩酸塩注射液10mg「シオノギ」とオキシコンチンTR錠5mg を採用しました（架空の病院の採用）。\n麻薬は、麻薬施用者の免許のある医師だけがオーダできます（麻薬及び向精神薬取締法 第27条）。\n麻薬の注射を実施したら、病棟の「麻薬の施用票」で施用量と残量（mL）を書き、残液の入ったアンプルと空アンプルを薬剤部へ返してください。\nオキシコンチンTR錠は、割ったり、砕いたり、かみ砕いたりせずに服用する薬です（電子添文 8.1）。",
+    by: "薬剤師 小林",
+    posted: { day: -1, time: "15:30" },
+    important: true,
+    until: 14,
+    drugs: ["INJ-MOR10", "ORAL-OXC5"],
+    source: "PMDA 電子添文：モルヒネ塩酸塩注射液10mg「シオノギ」（2024年11月改訂 第3版） https://www.pmda.go.jp/PmdaSearch/iyakuDetail/343018_8114401A1112_2_06 ／オキシコンチンTR錠（2026年3月改訂 第4版） https://www.pmda.go.jp/PmdaSearch/iyakuDetail/343018_8119002G5020_2_09",
+  },
+  {
     id: "n-drug",
     from: "薬剤部",
     title: "採用薬の切り替え：酸化マグネシウム錠の包装が変わります",
@@ -193,6 +207,7 @@ export const INITIAL_NOTICES: Notice[] = [
 /** Who had already opened which notice before this session (fictional staff). */
 export const INITIAL_READS: Reads = {
   "n-drug": [STAFF.薬剤師.name, STAFF.医師.name],
+  "n-di-narcotic": [STAFF.薬剤師.name],
   "n-meal": [STAFF.管理栄養士.name, STAFF.看護師.name],
   "n-fire": [STAFF.看護師.name, STAFF.医事課.name],
   "n-training": [STAFF.看護師.name],

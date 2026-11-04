@@ -6,6 +6,8 @@ import { auditLog } from "@/lib/audit";
 import { DEPTS, ROLE_DEPT, UNTIL_CHOICES, fillDates, isExpired, isRead, postProblems, searchText, sortNotices, unreadCount, untilLabel, type Dept, type Notice, type Reads } from "@/lib/board";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { kanaMatch } from "@/lib/kana";
+import { anyDrugName } from "@/lib/master";
+import { DrugMarks } from "./DrugMarks";
 import { useMe } from "./RoleContext";
 import { TabChoice } from "./TabChoice";
 
@@ -182,6 +184,18 @@ function NoticeDetail({ notice: n, readers, today, staff, reminded, onRemind }: 
         掲示 {postedAt(n, today)}・{n.by}・掲示期限 {untilLabel(n, today)}
       </p>
       <p className="mt-4 whitespace-pre-wrap leading-relaxed text-ink">{fillDates(n.body, today)}</p>
+      {n.drugs && n.drugs.length > 0 && (
+        <p className="mt-2 text-[12px] text-ink-soft">
+          DI の対象：
+          {n.drugs.map((c) => (
+            <span key={c} className="mr-2">
+              {anyDrugName(c)}
+              <DrugMarks codes={[c]} />
+            </span>
+          ))}
+          （「医薬品集・DI」で薬ごとに見られます）
+        </p>
+      )}
       {n.source && (
         <p className="mt-4 border-t border-rule-soft pt-2 text-[11px] text-ink-soft">
           出典：<Linkified text={n.source} />

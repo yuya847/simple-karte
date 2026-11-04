@@ -194,6 +194,7 @@ import { insertIntoO } from "@/lib/vitals-text";
 import { narcoticBlock } from "@/lib/narcotics";
 import { INITIAL_BOOK, type NarcoticBook } from "@/lib/narcotic-book";
 import { NarcoticSlips } from "./NarcoticSlips";
+import { FormularyView } from "./FormularyView";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
@@ -1860,6 +1861,8 @@ export default function WardApp() {
             setBoardReminders((all) => ({ ...all, [id]: { names, at: nowTime, by: me.name } }));
           }}
         />
+      ) : screen === "druginfo" ? (
+        <FormularyView notices={notices} reads={reads} today={today} nowTime={nowTime} staff={Object.values(STAFF).map((x) => x.name)} onRead={(id, name) => setReads((r) => markRead(r, id, name))} onPost={(n) => setNotices((ns) => [...ns, n])} />
       ) : screen === "manual" ? (
         <ManualView openId={manualOpen} onOpen={setManualOpen} />
       ) : screen === "incident" ? (

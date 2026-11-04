@@ -7,7 +7,7 @@
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
-export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats";
+export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats" | "druginfo";
 
 export interface Area {
   key: AreaKey;
@@ -38,6 +38,7 @@ export const AREAS: Area[] = [
   { key: "stats", label: "統計・日報", short: "統計", kind: "page" },
   { key: "phs", label: "院内連絡", short: "連絡", kind: "page" },
   { key: "board", label: "掲示板", short: "掲示板", kind: "page" },
+  { key: "druginfo", label: "医薬品集・DI", short: "医薬品集", kind: "page" },
   { key: "manual", label: "院内マニュアル", short: "マニュアル", kind: "page" },
   { key: "incident", label: "インシデントレポート", short: "インシデント", kind: "page" },
   { key: "chat", label: "チャット", short: "チャット", kind: "page", tool: true },
@@ -47,8 +48,8 @@ export const AREAS: Area[] = [
 
 /** The view a role must have to use a place (from the role's tabs in roles.ts). */
 const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysis: "dialysis", pharmacy: "pharmacy", lab: "lab", blood: "lab", path: "lab", physio: "lab", chat: "chat", audit: "audit" };
-/** Places every role has: in-hospital calls (院内連絡), the hospital's notices, manuals and incident reports. */
-const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
+/** Places every role has: in-hospital calls (院内連絡), the hospital's notices, the formulary (医薬品集・DI), manuals and incident reports. */
+const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
 
 // ---------------------------------------------------------------------------
 // ② inside 病棟
