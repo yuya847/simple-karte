@@ -94,6 +94,7 @@ import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
 import { PatientList, type GroupBy } from "./PatientList";
 import { AppFrame, type Crumb, type TabItem, type TabRow, type Todo } from "./AppFrame";
+import { PullToRefresh } from "./PullToRefresh";
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
 import { AREA_ICON, WARD_ICON } from "./nav-icons";
@@ -3085,6 +3086,22 @@ export default function WardApp() {
     <CosignRefs value={byRef(cosign)}>
     <div className="flex h-screen flex-col print:hidden">
       <div aria-hidden className="standalone-edge" />
+      {/* 引っ張って更新 (iPad): save the records first, then reload; not when they cannot be kept. */}
+      <PullToRefresh
+        refresh={async () => {
+          await workspace.saveNow();
+          window.location.reload();
+        }}
+        blocked={
+          workspace.status === "off"
+            ? "記録の保存が設定されていないので、更新すると入力が消えます。更新はしません"
+            : workspace.status === "error"
+              ? "記録を保存できていないので、更新しませんでした（入力が消えないように）"
+              : workspace.status === "loading"
+                ? "記録を読み込んでいるところです"
+                : null
+        }
+      />
       <AppFrame
         role={role}
         onRole={switchRole}

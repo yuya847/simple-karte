@@ -55,6 +55,12 @@ body {
   outline-offset: 2px;
 }
 
+/* No native pull-to-refresh: 引っ張って更新 (PullToRefresh) saves the records before it reloads. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 /* 使い方の説明 (class "hint"): hidden unless the viewer turns them on from 「使い方」 on the top row. */
 html:not([data-hints="on"]) .hint {
   display: none !important;

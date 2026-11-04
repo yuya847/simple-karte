@@ -56,5 +56,12 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
     if (id) await resetWorkspace(id).catch(() => undefined);
     window.location.reload();
   };
-  return { status, id, reset };
+  /** Save now (before the page is reloaded), without waiting for the second after a change. */
+  const saveNow = async () => {
+    if (!day || !id || !loaded.current) throw new Error("not saved");
+    const data = Object.fromEntries(Object.entries(statesRef.current).map(([k, [v]]) => [k, v]));
+    await saveWorkspace(id, day, data);
+    setStatus("saved");
+  };
+  return { status, id, reset, saveNow };
 }
