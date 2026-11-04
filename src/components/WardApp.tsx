@@ -244,6 +244,7 @@ import { PressurePanel } from "./panels/PressurePanel";
 import { useInfra } from "@/lib/use-infra";
 import { masterIssues } from "@/lib/master-local";
 import { SystemView } from "./SystemView";
+import { DowntimeView } from "./DowntimeView";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -2164,6 +2165,19 @@ export default function WardApp() {
         <KitchenView people={everyone} diets={diets} desk={care.kitchen} onDesk={care.setKitchen} today={today} nowTime={nowTime} />
       ) : screen === "teams" ? (
         <TeamsView people={everyone} desk={care.teams} onDesk={care.setTeams} diagnoses={diagnoses} diets={diets} today={today} nowTime={nowTime} onOpen={(id) => (openPatient(id), setPanel("team"))} />
+      ) : screen === "bcp" ? (
+        <DowntimeView
+          places={FLOORS.map((f) => f.name)}
+          rowsFor={(name) => bedsOn(name).flatMap((b) => (b.patientId ? (workOf(b.patientId) ?? []) : []))}
+          today={today}
+          nowTime={nowTime}
+          mar={mar}
+          sessionStart={sessionStart ?? abs(0, nowTime)}
+          limited={(id) => {
+            const p = findPatient(id);
+            return !!currentLimit(limits, id) && !(p && inCareTeam(me, p, myTeam));
+          }}
+        />
       ) : screen === "system" ? (
         <SystemView nowTime={nowTime} newId={newId} />
       ) : screen === "audit" ? (
