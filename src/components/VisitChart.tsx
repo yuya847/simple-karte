@@ -30,7 +30,7 @@ interface Props {
   onStatus: (s: string) => void;
   newId: () => string;
   /** More order tools on the right (外来処方・再診予約 …), each with a short summary for the main area. */
-  extraTools?: { key: string; label: string; icon: typeof BedDouble; panel: React.ReactNode; summary?: React.ReactNode }[];
+  extraTools?: { key: string; label: string; icon: typeof BedDouble; panel: React.ReactNode; summary?: React.ReactNode; wide?: boolean }[];
 }
 
 const ER_STATUSES: ErStatus[] = ["診察待ち", "診察中", "入院依頼", "帰宅"];
@@ -200,7 +200,7 @@ export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onR
       </div>
     </div>
     {open && (
-      <aside aria-label={open.label} className="scroll-thin min-h-0 w-[min(32rem,48vw)] shrink-0 overflow-y-auto border-l border-rule bg-sheet p-3 text-[13px]">
+      <aside aria-label={open.label} className={`scroll-thin min-h-0 shrink-0 overflow-y-auto border-l border-rule bg-sheet p-3 text-[13px] ${"wide" in open && open.wide ? "w-[min(56rem,72vw)]" : "w-[min(32rem,48vw)]"}`}>
         <div className="mb-2 flex items-center gap-2">
           <open.icon size={16} className="text-ai" />
           <h2 className="font-bold">{open.label}</h2>

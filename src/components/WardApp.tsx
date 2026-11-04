@@ -29,7 +29,7 @@ import { EmergencyBoard } from "./EmergencyBoard";
 import { OpdBoard } from "./OpdBoard";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
 import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders";
-import { CalendarPlus, Pill as PillIcon } from "lucide-react";
+import { CalendarPlus, FlaskConical, Pill as PillIcon } from "lucide-react";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
 import { DeptMoveDialog } from "./DeptMoveDialog";
@@ -1406,12 +1406,28 @@ export default function WardApp() {
           newId={newId}
           extraTools={(() => {
             const v = visitOf(visitKey)!;
-            if (v.kind !== "opd") return [];
+            const vp = labVisits.find((x) => x.patient.id === visitKey);
+            const nowAbs = abs(0, nowTime);
+            const pend = vp ? pendingDraws(drawRows(labVisits, mar, labDesk, sessionStart ?? nowAbs, nowAbs), visitKey, nowAbs) : [];
+            const labTool = {
+              key: "results",
+              label: "検査結果",
+              icon: FlaskConical,
+              wide: true,
+              summary: vp && (vp.patient.labs.length || pend.length) ? <p className="text-[12px]">検体検査：{vp.patient.labs.length ? `結果 ${vp.patient.labs.length}回` : "結果はまだ"}{pend.length ? `（${pend.map((d) => d.status).join("・")}）` : ""}　右の「検査結果」で時系列の表とグラフ</p> : undefined,
+              panel: vp ? (
+                <ResultsPanel patient={vp.patient} today={today} pending={pend} onExport={(what, n) => auditLog({ role: me.role, actor: me.name, action: `検査結果の${what}`, patient: vp.patient.name, detail: `${n}回分` })} />
+              ) : (
+                <p className="text-[12px] text-ink-faint">この受診の検体検査はありません。</p>
+              ),
+            };
+            if (v.kind !== "opd") return [labTool];
             const op = v.op;
             const fmt = (d: number) => formatShort(addDays(today, d));
             const rxDone = opdRx[op.id] ?? [];
             const rv = revisits[op.id];
             return [
+              labTool,
               {
                 key: "rx",
                 label: "外来処方",
@@ -1943,6 +1959,7 @@ export default function WardApp() {
             onRemove={(id) => setStickies((all) => ({ ...all, [patient.id]: (all[patient.id] ?? []).filter((x) => x.id !== id) }))}
           />
           <div
+            data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
               // Narrow screens (iPad held upright) drop the date column; the record still scrolls by day.
               wideLeft
@@ -2301,7 +2318,7 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "results" && (
-                <Drawer title="検査結果" onClose={closePanel} wide>
+                <Drawer title="検査結果" onClose={closePanel} wide expandable>
                   <ResultsPanel
                     patient={patient}
                     today={today}
