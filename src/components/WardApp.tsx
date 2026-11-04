@@ -1090,15 +1090,15 @@ export default function WardApp() {
     }
   };
 
-  const confirm = () => {
+  // Confirms the given drafts (the chart's, or those plus one just saved from a panel). The caller checks readiness.
+  const confirmDrafts = (drafts: Draft[]) => {
     if (!ctx) return;
-    if (!chart.drafts.every((d) => isReady(issues[d.id] ?? []))) return;
     const added: OrderEntry[] = [];
     const stops: string[] = [];
     const extended: Record<string, number> = {};
     const newConsents: ConsentRecord[] = [];
     const dietsAdded: DietOrder[] = [];
-    for (const d of chart.drafts) {
+    for (const d of drafts) {
       if (d.kind === "diet") {
         dietsAdded.push({ ...d.diet, id: newId(), patientId: patient!.id, by: verbalMode ? DOCTOR : me.name, at: { day: 0, time: nowTime } });
         continue;
@@ -1144,7 +1144,7 @@ export default function WardApp() {
     ];
     if (newConsents.length) setConsents((all) => [...all, ...newConsents]);
     // 持参薬 reports answered by these drafts are now 指示済.
-    const answered = new Set(chart.drafts.flatMap((d) => ((d as { reportId?: string }).reportId ? [(d as { reportId?: string }).reportId!] : [])));
+    const answered = new Set(drafts.flatMap((d) => ((d as { reportId?: string }).reportId ? [(d as { reportId?: string }).reportId!] : [])));
     if (answered.size) setReports((rs) => rs.map((x) => (answered.has(x.id) ? { ...x, status: "指示済" } : x)));
     // オーダーアラート: a doctor's changes go to the nurses' phones of the patient's team.
     if (role === "医師" && (added.length || stops.length || Object.keys(extended).length))
@@ -1199,6 +1199,9 @@ export default function WardApp() {
       flash: `${added.length + stops.length + Object.keys(extended).length + dietsAdded.length}件を確定しました。${dietsAdded.length ? `食事の変更は食事のオーダに入りました。` : ""}左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
       selectedDay: 0,
     }));
+  };
+  const confirm = () => {
+    if (chart.drafts.every((d) => isReady(issues[d.id] ?? []))) confirmDrafts(chart.drafts);
   };
   // 保存 on the bar: the note of the day (記録時刻・記載時刻 kept apart), by the person writing.
   const unseenHere: ResultItem[] = patient ? unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id), ...care.results.filter((i) => i.patientId === patient.id)], acks) : [];
@@ -1287,6 +1290,15 @@ export default function WardApp() {
     Object.fromEntries(requests.filter((r) => r.from.kind === kind && r.status !== "取消").map((r) => [r.from.id, r])) as Record<string, AdmissionRequest | undefined>;
 
   const addManualLab = (draft: Draft) => update((c) => ({ drafts: [...c.drafts, draft], flash: null }));
+  // 検体検査の「保存」: when nothing needs an answer (no stop/ask on this draft or the ones already waiting), the
+  // draft is confirmed at once; otherwise it waits under the note like any other draft.
+  const saveLab = (d: Draft) => {
+    const okNew = !!ctx && isReady([...checkDraft(d, ctx), ...masterIssues(d, infra.masterOv, infra.masterLog)]);
+    const okOld = chart.drafts.every((x) => isReady(issues[x.id] ?? []));
+    if (okNew && okOld) confirmDrafts([...chart.drafts, d]);
+    else addManualLab(d);
+    closePanel();
+  };
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
   // お知らせ for a nurse: to everyone, or to the team chosen in 受け持ち患者 (all teams when none is chosen).
   const forMyTeam = (n: PhsNotice) => n.to === "全員" || !myTeam || n.to === myTeam;
@@ -4111,7 +4123,7 @@ export default function WardApp() {
               )}
               {panel === "add-lab" && (
                 <Drawer title="検体検査（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
-                  <AddLabPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} today={today} levelDrugs={levelDrugsFrom(entries.filter((e): e is OrderEntry => e.kind === "order"), anyDrugName)} />
+                  <AddLabPanel onAdd={(d) => { addManualLab(d); closePanel(); }} onSave={saveLab} newId={newId} today={today} levelDrugs={levelDrugsFrom(entries.filter((e): e is OrderEntry => e.kind === "order"), anyDrugName)} />
                 </Drawer>
               )}
             </div>
