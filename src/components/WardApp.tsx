@@ -301,6 +301,7 @@ function planLine(entry: OrderEntry, today: CalendarDate): string {
 type Screen = WardTab | AreaKey | "chart" | "new" | "wardmenu" | "visit";
 /** front[owner] when the tab shows 新しいタブ. */
 const NEW_TAB = "__new__";
+const ALL_WARDS = "全病棟";
 const LIST_TABS = ["floor", "mine", "all"] as const;
 
 // 病棟's screens to open first (最初に開く), per role. A convenience kept in this browser only.
@@ -1201,12 +1202,18 @@ export default function WardApp() {
       return next;
     });
   // The lists of 病棟: a floor, 受け持ち, by department, all wards, by attending doctor.
-  const floorInfo: Floor = FLOORS.find((f) => f.name === floor) ?? FLOORS[0];
+  // 「全病棟」 is chosen only on the patient list (◯階); the map and the journal show one floor (5階東 then).
+  const oneFloor = floor === ALL_WARDS ? WARD_NAME : floor;
+  const floorInfo: Floor = FLOORS.find((f) => f.name === oneFloor) ?? FLOORS[0];
   const allBeds = [...ward.beds, ...OTHER_FLOOR_BEDS];
   const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
-  const floorPick: Pick = { label: "階", value: floor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
+  const floorPick: Pick = { label: "階", value: oneFloor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
+  const listPick: Pick = { label: "病棟", value: floor, options: [{ value: ALL_WARDS, label: "全病棟" }, ...FLOORS.map((f) => ({ value: f.name, label: f.name }))], onChange: setFloor };
+  const allWards = floor === ALL_WARDS;
   const lists: Record<(typeof LIST_TABS)[number], { beds: BedAssignment[]; title: string; pick?: Pick; group: GroupBy; floor?: Floor }> = {
-    floor: { beds: bedsOn(floor), title: "患者一覧", pick: floorPick, group: "room", floor: floorInfo },
+    floor: allWards
+      ? { beds: allBeds, title: "患者一覧", pick: listPick, group: "floor", floor: { name: ALL_WARDS, rooms: FLOORS.flatMap((f) => f.rooms) } }
+      : { beds: bedsOn(floor), title: "患者一覧", pick: listPick, group: "room", floor: floorInfo },
     // 受け持ち: a doctor's own patients (主治医); a nurse's team for this shift; others the whole ward.
     mine:
       role === "医師"
@@ -1613,10 +1620,10 @@ export default function WardApp() {
             dialysisToday: people.filter((x) => x.entries.some((e) => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-HD" && e.order.start.day === 0)).map((x) => x.patient.name),
             incidentsToday: incidents.filter((r) => r.occurred.day === 0).length,
           })}
-          saved={journal[floor] ?? []}
+          saved={journal[oneFloor] ?? []}
           onSave={(text) => {
-            auditLog({ role: me.role, actor: me.name, action: "看護日誌に書き残した", detail: `${floor}　${text.slice(0, 80)}` });
-            setJournal((all) => ({ ...all, [floor]: [...(all[floor] ?? []), { text, by: me.name, at: nowTime }] }));
+            auditLog({ role: me.role, actor: me.name, action: "看護日誌に書き残した", detail: `${oneFloor}　${text.slice(0, 80)}` });
+            setJournal((all) => ({ ...all, [oneFloor]: [...(all[oneFloor] ?? []), { text, by: me.name, at: nowTime }] }));
           }}
         />
       ) : screen === "cosign" ? (
@@ -1745,9 +1752,9 @@ export default function WardApp() {
         />
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />
+          <WardRequests floor={oneFloor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />
           <WardMap
-            ward={{ beds: bedsOn(floor), patient: findPatient }}
+            ward={{ beds: bedsOn(oneFloor), patient: findPatient }}
             rooms={floorInfo.rooms}
             title="病棟マップ"
             pick={floorPick}
@@ -2034,7 +2041,8 @@ export default function WardApp() {
       ) : listKey ? (
         <div className="flex min-h-0 flex-1 flex-col">
         <PatientList
-          key={listKey}
+          // A new list when 全病棟 is chosen or left, so it starts grouped by ward (or by room).
+          key={listKey === "floor" && allWards ? "floor-all" : listKey}
           ward={{ beds: lists[listKey].beds, patient: findPatient }}
           title={lists[listKey].title}
           pick={lists[listKey].pick}
