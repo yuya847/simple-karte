@@ -5,7 +5,12 @@ import { createPortal } from "react-dom";
 import { Copy, GripVertical, History, MoreHorizontal, PencilLine, Search, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS } from "@/lib/master";
-import { canRevise, diffLines, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
+import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
+import { mergeTyping } from "@/lib/coedit";
+import { mapCursor, merge3Text } from "@/lib/diff3";
+import { coAuthors } from "@/lib/presence";
+import type { Coedit } from "@/lib/use-presence";
+import { LiveNote } from "./LiveNote";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
@@ -59,8 +64,10 @@ interface Props {
   onModify?: (entry: OrderEntry) => void;
   pendingExtends?: Record<string, number>;
   marOf?: CalendarMar;
-  /** Correct a confirmed note (a new version; the earlier ones are kept). */
-  onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
+  /** Correct a confirmed note (a new version; the earlier ones are kept). `by` names the people who corrected it together. */
+  onReviseNote?: (e: NoteEntry, text: string, reason: string, by?: string) => void;
+  /** 記事の同時編集: who else is correcting which note, and telling them what this page types. */
+  coedit?: Coedit;
   /** Put vital-sign lines copied from the flow sheet into O) of today's note. */
   onInsertVitals?: (text: string) => void;
   /** Do: copy a past note or order to the right (dragged there, or from the menu). */
@@ -114,7 +121,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal, takeBadgeOf } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, coedit, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal, takeBadgeOf } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
   // A 記録 mark of the flow sheet opens 経過 on that day with only that kind of note (n renews the list).
   const [recordKind, setRecordKind] = useState<{ kind: string; n: number }>({ kind: "all", n: 0 });
@@ -163,7 +170,7 @@ export function HistoryPane(props: Props) {
       ) : view === "standing-cal" ? (
         <StandingCalendar patient={patient} lines={standingCal?.lines ?? []} today={today} nowTime={nowTime} onStop={standingCal?.onStop} onOpenPanel={standingCal?.onOpenPanel} />
       ) : (
-        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
+        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
       )}
     </section>
   );
@@ -195,6 +202,7 @@ function RecordList({
   selectedDay,
   showStopped,
   onReviseNote,
+  coedit,
   onDo,
   onOpenImage,
   onOpenResult,
@@ -206,7 +214,8 @@ function RecordList({
   today: CalendarDate;
   selectedDay: DayOffset | null;
   showStopped: boolean;
-  onReviseNote?: (e: NoteEntry, text: string, reason: string) => void;
+  onReviseNote?: (e: NoteEntry, text: string, reason: string, by?: string) => void;
+  coedit?: Coedit;
   onDo?: (p: DoPayload) => void;
   onOpenImage?: (entryId: string) => void;
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
@@ -315,7 +324,7 @@ function RecordList({
               {items.length === 0 ? null : (
                 <ol className="space-y-2">
                   {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} />}</li>
+                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} patientId={patient.id} today={today} onRevise={onReviseNote} coedit={coedit} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} />}</li>
                   ))}
                 </ol>
               )}
@@ -389,7 +398,9 @@ export const ROLE_COLORS: Record<NoteEntry["role"], { text: string; chip: string
 /** The chip colour of each note-writer checkbox (ほかの職種 takes the pharmacist's). */
 const ROLE_CHIP: Record<string, string> = { doctor: ROLE_COLORS.医師.chip, nurse: ROLE_COLORS.看護師.chip, staff: "bg-ink-soft text-white" };
 
-function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry; today: CalendarDate; part?: NotePart; onRevise?: (e: NoteEntry, text: string, reason: string) => void; onDo?: (p: DoPayload) => void }) {
+const chipOf = (role: string) => ROLE_COLORS[role as NoteEntry["role"]]?.chip ?? "bg-ink-soft text-white";
+
+function Note({ entry, patientId, today, part = "全", onRevise, coedit, onDo }: { entry: NoteEntry; patientId?: string; today: CalendarDate; part?: NotePart; onRevise?: (e: NoteEntry, text: string, reason: string, by?: string) => void; coedit?: Coedit; onDo?: (p: DoPayload) => void }) {
   const me = useMe();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -401,11 +412,68 @@ function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry
   // 記録時刻 (when it happened), 記載 (when it was written; later for a late note) and 更新 (the last correction).
   const times = noteTimes(entry);
   const mine = !!onRevise && canRevise(entry, me.name);
+  // 同時編集: the others correcting this note now, with their text; the base all of them started from.
+  const key = noteKey(entry);
+  const others = coedit?.editors(key) ?? [];
+  const othersSig = others.map((o) => `${o.tab}\u0001${o.cursor}\u0001${o.text}`).join("\u0002");
+  const base = noteText(entry);
+  const baseRef = useRef(base);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const caret = useRef<number | null>(null);
+  const label = `${entry.time} の記事`;
   const startEdit = () => {
-    setDraft(noteText(entry));
+    setDraft(others.length ? mergeTyping(base, others) : base);
     setReason("");
     setEditing(true);
   };
+  const stopEdit = () => {
+    setEditing(false);
+    coedit?.done(key);
+  };
+  // The latest of these for the effects below (the coedit object is made anew on each render of the chart).
+  const live = useRef({ coedit, editing });
+  useEffect(() => {
+    live.current = { coedit, editing };
+  });
+  // Tell the others what is typed here (a third of a second after the last keystroke, and every 5 seconds).
+  useEffect(() => {
+    if (!editing || !coedit || !patientId) return;
+    const send = () => live.current.coedit?.typing({ patient: patientId, note: key, label, text: draft, cursor: textarea.current?.selectionStart ?? draft.length });
+    const t = setTimeout(send, 300);
+    const tick = setInterval(send, 5000);
+    return () => {
+      clearTimeout(t);
+      clearInterval(tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, draft, !!coedit, key, label, patientId]);
+  // Closing the chart while editing ends the edit for the others too.
+  useEffect(() => () => void (live.current.editing && live.current.coedit?.done(key)), [key]);
+  // Someone else typed in the same note: merge their text into this draft (both keep typing), the caret following.
+  useEffect(() => {
+    if (!editing || !others.length || !coedit) return;
+    const merged = mergeTyping(base, [{ tab: coedit.myTab, text: draft }, ...others]);
+    if (merged === draft) return;
+    // Right after the message arrived (not in the same render), the draft takes the merged text.
+    const t = setTimeout(() => {
+      caret.current = mapCursor(draft, merged, textarea.current?.selectionStart ?? draft.length);
+      setDraft(merged);
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [othersSig, editing]);
+  // The note got a new version (someone confirmed) while this page is editing: go on from the new text.
+  useEffect(() => {
+    if (baseRef.current !== base) {
+      if (editing) setDraft((d) => merge3Text(baseRef.current, d, base).text);
+      baseRef.current = base;
+    }
+  }, [base, editing]);
+  useEffect(() => {
+    if (caret.current === null || !textarea.current) return;
+    textarea.current.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  }, [draft]);
   const doPayload: DoPayload = { kind: "note", text: noteText(entry), label: `${entry.time} ${entry.author}` };
   return (
     <article
@@ -472,29 +540,42 @@ function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry
       </div>
       {editing ? (
         <div className="space-y-1 rounded-md border border-yamabuki/50 bg-yamabuki-soft/30 p-2">
-          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={5} aria-label="記事の修正" className="nums w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] outline-none" />
+          {others.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <PencilLine size={11} className="text-yamabuki" aria-hidden />
+              {others.map((o) => (
+                <span key={o.tab} className={`rounded px-1 font-bold leading-4 ${chipOf(o.role)}`}>
+                  {o.who}
+                </span>
+              ))}
+              <span className="text-ink-soft">さんも同じ記事を直しています。打った文字はお互いに入り、確定すると一つの版に全員の名前が付きます。</span>
+            </div>
+          )}
+          <textarea ref={textarea} value={draft} onChange={(e) => setDraft(e.target.value)} rows={5} aria-label="記事の修正" className="nums w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] outline-none" />
           <label className="flex items-center gap-1 text-[11px] text-ink-soft">
             修正の理由
             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：数値の誤記" className="flex-1 rounded border border-rule bg-sheet px-1.5 py-0.5 text-[12px] text-ink" />
           </label>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-ink-faint">前の版は消えずに残り、誰でも見られます。</span>
-            <button type="button" onClick={() => setEditing(false)} className="ml-auto rounded border border-rule px-2 py-0.5 text-[11px]">
+            <button type="button" onClick={stopEdit} className="ml-auto rounded border border-rule px-2 py-0.5 text-[11px]">
               やめる
             </button>
             <button
               type="button"
               disabled={!reason.trim() || draft.trim() === noteText(entry).trim()}
               onClick={() => {
-                onRevise!(entry, draft, reason);
-                setEditing(false);
+                onRevise!(entry, draft, reason, others.length ? coAuthors(me.name, others) : undefined);
+                stopEdit();
               }}
               className="rounded bg-yamabuki px-2 py-0.5 text-[11px] font-bold text-white disabled:opacity-40"
             >
-              修正を確定（{me.name}）
+              修正を確定（{others.length ? coAuthors(me.name, others) : me.name}）
             </button>
           </div>
         </div>
+      ) : others.length > 0 ? (
+        <LiveNote editors={others} base={base} chipOf={chipOf} onJoin={onRevise ? startEdit : undefined} />
       ) : (
         <NoteBody n={entry} part={part} />
       )}
