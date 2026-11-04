@@ -2199,6 +2199,13 @@ export default function WardApp() {
                     },
                 onRemoveEvent: (id) => setFlowEvents((all) => all.filter((x) => x.id !== id || x.by !== me.name)),
               }}
+              flow={
+                chart.leftView === "flowsheet"
+                  ? {
+                      pendingLabs: pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime)),
+                    }
+                  : undefined
+              }
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
               onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
               onDo={doFromHistory}

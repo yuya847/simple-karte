@@ -20,6 +20,10 @@ import { dietDayCell, mealDiets } from "@/lib/flow-diet";
 import { hospitalDayText } from "@/lib/flow-days";
 import type { MoveEvent } from "./DietCalendar";
 import { FlowDayRows, type FlowDays } from "./FlowDayRows";
+import { FlowLabRows } from "./FlowLabRows";
+import type { PendingDraw } from "@/lib/lab-table";
+import { useFlowPrefs } from "@/lib/flow-prefs";
+import { useMe } from "./RoleContext";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -32,7 +36,7 @@ const SURFACE = "#fffdf7";
 const LABEL_W = 76;
 const MIN_COL = 64;
 
-interface Props {
+export interface FlowSheetProps {
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
@@ -51,6 +55,8 @@ interface Props {
   moves?: MoveEvent[];
   /** 術後日数 and the days a person chose to count from. */
   dayInfo?: FlowDays;
+  /** Draws of this patient without a result yet (採取待ち・検査中), for the lab rows. */
+  pendingLabs?: PendingDraw[];
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -77,8 +83,10 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo }: Props) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [] }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
+  const me = useMe();
+  const [prefs, setPrefs] = useFlowPrefs(me.name);
   const [range, setRange] = useState<VitalRange>("latest");
   const [copied, setCopied] = useState<string | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -306,8 +314,9 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
               })}
             </div>
           </Row>
+          <FlowLabRows patient={p} pending={pendingLabs} orders={orders} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} analytes={prefs.analytes} onAnalytes={(codes) => setPrefs((x) => ({ ...x, analytes: codes }))} />
           <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
-            ● 採取済み　○ 予定（印に触れると項目が出ます）。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
+            ● 採取済み　○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
           </p>
         </div>
       )}

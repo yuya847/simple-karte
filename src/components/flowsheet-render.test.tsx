@@ -23,6 +23,14 @@ describe("経過表の画面", () => {
     expect(render("90010244")).toContain("絶食");
   });
 
+  it("lab values: the default analytes with H/L, and a draw waiting for its result", () => {
+    const html = render("90010260", { pendingLabs: [{ at: 540, status: "検査中", analytes: ["CRP"], tests: "CRP", urgent: false }] });
+    expect(html).toContain("出す検査値を選ぶ（WBC・CRP・Hb・Cre・K）");
+    expect(html).toContain("9,800");
+    expect(html).toContain("12");
+    expect(html).toContain("検査中");
+  });
+
   it("dates: 病日, 術後日数, 移動 and a counted day", () => {
     const html = render("90010231", {
       moves: [{ day: -3, time: null, label: "入院", tone: "ink" }, { day: 1, time: "10:00", label: "外泊（自宅）", tone: "yamabuki" }],
