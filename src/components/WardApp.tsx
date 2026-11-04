@@ -188,6 +188,7 @@ import { insertIntoO } from "@/lib/vitals-text";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
+import { TxBedsidePanel } from "./panels/TxBedsidePanel";
 import { BloodBankView } from "./BloodBankView";
 import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
@@ -2602,6 +2603,11 @@ export default function WardApp() {
                       closePanel();
                     }}
                   />
+                </Drawer>
+              )}
+              {panel === "tx-bedside" && (
+                <Drawer title="輸血の実施（照合・観察・副反応）" onClose={closePanel} wide locked={deny("tx.bedside")}>
+                  <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} />
                 </Drawer>
               )}
               {panel === "io" && (
