@@ -11,6 +11,7 @@ import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, lea
 import { findOralDrug } from "@/lib/master";
 import { perDoseOf, timingName } from "@/lib/rx";
 import { findPhysio, findRegion } from "@/lib/exams";
+import { opdPurposeOf } from "@/lib/opd-booking";
 import { DrugMarks } from "./DrugMarks";
 
 interface Props {
@@ -25,7 +26,7 @@ interface Props {
   rp?: number;
 }
 
-const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", extend: "延長", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず", diet: "食事" };
+const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", extend: "延長", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず", diet: "食事", "opd-booking": "外来予約" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
@@ -187,6 +188,20 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
         <div className="text-xs text-ink-soft">
           {d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の{d.from.meal}食から{d.comment ? `　${d.comment}` : ""}
         </div>
+      </div>
+    );
+  }
+
+  if (draft.kind === "opd-booking") {
+    const when = draft.day === null ? "日付？" : `${ctx.fmtDay(draft.day)} ${draft.slot === "時刻" ? (draft.time ?? "時刻？") : (draft.slot ?? "午前・午後？")}`;
+    return (
+      <div>
+        <div className="font-bold">
+          {draft.dept ?? <span className="text-shu">科？</span>}
+          {draft.doctor && <span className="ml-1 font-normal text-ink-soft">（{draft.doctor}）</span>}
+          <span className="ml-2">{when}</span>
+        </div>
+        <div className="text-xs text-ink-soft">{opdPurposeOf(draft) || "目的？"}{draft.note.trim() ? `　${draft.note.trim()}` : ""}</div>
       </div>
     );
   }

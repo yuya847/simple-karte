@@ -92,7 +92,8 @@ const CATS: { key: string; group: "note" | "order"; label: string; test: (e: His
   { key: "injection", group: "order", label: "注射", test: (e) => e.kind === "order" && e.order.type === "injection" },
   { key: "lab", group: "order", label: "検体検査", test: (e) => e.kind === "order" && e.order.type === "lab" },
   { key: "exam", group: "order", label: "画像・生理", test: (e) => e.kind === "order" && (e.order.type === "imaging" || e.order.type === "physio") },
-  { key: "procedure", group: "order", label: "処置・透析・輸血", test: (e) => e.kind === "order" && e.order.type === "procedure" },
+  { key: "procedure", group: "order", label: "処置・透析・輸血", test: (e) => e.kind === "order" && e.order.type === "procedure" && !e.order.opd },
+  { key: "opd", group: "order", label: "外来予約", test: (e) => e.kind === "order" && e.order.type === "procedure" && !!e.order.opd },
 ];
 const ALL_CATS = CATS.map((c) => c.key);
 /** The categories a quick choice stands for (記載だけ・オーダだけ), or an old single-kind key. */
@@ -643,7 +644,7 @@ function OrderRow({ entry, today, onDo, onOpenImage, onOpenResult, takeBadge }: 
       <div className="nums flex items-center gap-2 text-[11px] text-ink-faint">
         {canDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
         <span>{entry.time}</span>
-        <span className="font-bold text-ink-soft">{ORDER_TYPE_LABEL[entry.order.type]}</span>
+        <span className="font-bold text-ink-soft">{entry.order.type === "procedure" && entry.order.opd ? "外来予約" : ORDER_TYPE_LABEL[entry.order.type]}</span>
         <CosignMark refId={entry.id} />
         {takeBadge && <TakeBadgeMark badge={takeBadge} />}
         <OrderReportMark orderId={entry.id} />

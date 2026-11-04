@@ -108,7 +108,7 @@ export interface ProcMaster {
   code: string;
   name: string;
   /** What the order must say to be complete. */
-  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx" | "rehab" | "consult" | "leave" | "guide" | "move")[];
+  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx" | "rehab" | "consult" | "leave" | "guide" | "move" | "opd")[];
   /** Schedules a doctor may choose for this item. The first is never preselected. */
   schedules: ProcSchedule[];
   /** For 留置 and 酸素: the order runs until stopped; its schedule is always 継続. */
@@ -224,6 +224,13 @@ export const PROCEDURES: ProcMaster[] = [
     needs: ["move"],
     schedules: [{ kind: "once" }],
     aliases: ["転床", "転棟", "転科", "移動"],
+  },
+  {
+    code: "PROC-OPD",
+    name: "外来予約",
+    needs: ["opd"],
+    schedules: [{ kind: "once" }],
+    aliases: ["外来予約", "再診予約", "退院後の外来", "次回の外来"],
   },
   {
     code: "PROC-GUIDE",

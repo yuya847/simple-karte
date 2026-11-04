@@ -6,6 +6,7 @@
 
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import { minutesOf } from "./dates";
+import { checkOpdBooking, toOpdBookingOrder } from "./opd-booking";
 import { dietLabel, type DietOrder } from "./diet";
 import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findOralDrug, findSet, type DrugMaster, KCL_LIMITS } from "./master";
 import {
@@ -210,7 +211,23 @@ export interface DietDraft extends DraftBase {
   diet: Omit<DietOrder, "id" | "by" | "at">;
 }
 
-export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | ImagingDraft | PhysioDraft | StopDraft | ExtendDraft | UnclearDraft | DietDraft;
+/** 外来予約: the clinic, the day and slot, and what for — each chosen by the doctor (opd-booking.ts checks it). */
+export interface OpdBookingDraft extends DraftBase {
+  kind: "opd-booking";
+  dept: string | null;
+  doctor: string | null;
+  day: DayOffset | null;
+  slot: "午前" | "午後" | "時刻" | null;
+  time: string | null;
+  /** One of OPD_PURPOSES, with free text after it (purposeNote). */
+  purpose: string | null;
+  purposeNote: string;
+  note: string;
+  /** Doctor's answer to the duplicate question (a second booking on the same day at the same clinic). */
+  duplicateOk: boolean;
+}
+
+export type Draft = InjectionDraft | LabDraft | ProcedureDraft | PrescriptionDraft | ImagingDraft | PhysioDraft | StopDraft | ExtendDraft | UnclearDraft | DietDraft | OpdBookingDraft;
 
 // ---------------------------------------------------------------------------
 // From Claude's output to drafts (codes not in the master are dropped to null)
@@ -1436,6 +1453,8 @@ export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
       return checkExtend(d, ctx);
     case "unclear":
       return [{ key: "unclear", level: "ask", title: "聞き取れず", message: d.reason }];
+    case "opd-booking":
+      return checkOpdBooking(d, ctx);
   }
 }
 
@@ -1488,6 +1507,11 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     return { stopIds: id ? [id] : [] };
   }
   if (d.kind === "unclear" || d.kind === "diet") return { stopIds: [] };
+  if (d.kind === "opd-booking") {
+    const opd = toOpdBookingOrder(d);
+    const order: ProcedureOrder = { type: "procedure", code: "PROC-OPD", opd, schedule: { kind: "once" }, start: { day: opd.day, time: opd.time } };
+    return { order, stopIds: [] };
+  }
   if (d.kind === "extend") {
     const target = ctx.activeOrders.find((o) => o.id === d.targetOrderId)!;
     return { stopIds: [], extend: { orderId: target.id, days: (target.order as { days: number }).days + d.addDays } };

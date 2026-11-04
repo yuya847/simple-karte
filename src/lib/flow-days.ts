@@ -79,7 +79,7 @@ export function eventChoices(entries: OrderEntry[], surgeries: Pick<Surgery, "da
     if (o.type === "injection" && began(e, o.start.day)) {
       const d = findDrug(o.items[0].drugCode);
       add(`${d ? (d.aliases[0] ?? d.name) : o.items[0].drugCode} 開始`, o.start.day);
-    } else if (o.type === "procedure" && !o.leave && !o.move && !o.consult && !o.guide && began(e, o.start.day)) add(`${findProc(o.code)?.name ?? o.code} 開始`, o.start.day);
+    } else if (o.type === "procedure" && !o.leave && !o.move && !o.consult && !o.guide && !o.opd && began(e, o.start.day)) add(`${findProc(o.code)?.name ?? o.code} 開始`, o.start.day);
   }
   for (const s of surgeries) add(`${s.procedure}`, s.day);
   return out.sort((a, b) => a.day - b.day || a.label.localeCompare(b.label));

@@ -35,7 +35,8 @@ import { EMPTY_OPD_DESK, OpdDesk, type OpdDeskBook } from "./OpdDesk";
 import { OTHER_DEPT_TODAY } from "@/lib/opd-desk";
 import { RequestForm, type Visit, type VisitNote } from "./VisitChart";
 import { VisitStrip } from "./VisitStrip";
-import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders";
+import { OpdRxPanel, type OpdRx, type Revisit } from "./OpdOrders";
+import { OpdBookingPanel } from "./panels/OpdBookingPanel";
 import { insuranceFor, NationalPanel } from "./national/NationalPanel";
 import { ErxPanel } from "./national/ErxPanel";
 import { nextSerial, recordsOf, type NationalRecord } from "@/lib/national/log";
@@ -1151,6 +1152,13 @@ export default function WardApp() {
           ...extLog.map((x) => ({ ref: `extend:${x.orderId}`, kind: "延長" as const, text: `${x.text} 延長 → ${x.days}日間` })),
         ], newId),
       ]);
+    // 外来の患者: a confirmed 外来予約 is also the visit's 再診予約 (shown on the strip).
+    if (patient!.id.startsWith("opd:"))
+      for (const e of added)
+        if (e.order.type === "procedure" && e.order.opd) {
+          const b = e.order.opd;
+          setRevisits((all) => ({ ...all, [patient!.id.slice(4)]: { day: b.day, time: b.slot === "時刻" ? (b.time ?? "") : b.slot, purpose: b.purpose, by: e.author } }));
+        }
     update((c) => ({
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
@@ -2694,7 +2702,7 @@ export default function WardApp() {
                 }}
                 onOpenChart={openPatient}
                 onOpenRx={() => setPanel("visit-rx")}
-                onOpenRevisit={() => setPanel("visit-revisit")}
+                onOpenRevisit={() => setPanel("opd-booking")}
               />
             );
           })()}
@@ -3184,17 +3192,16 @@ export default function WardApp() {
                   })()}
                 </Drawer>
               )}
-              {panel === "visit-revisit" && visitOf(patient.id)?.kind === "opd" && (
-                <Drawer title="再診予約" onClose={closePanel}>
-                  <RevisitPanel
+              {panel === "opd-booking" && (
+                <Drawer title="外来予約" onClose={closePanel} locked={deny("order")}>
+                  <OpdBookingPanel
+                    entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    defaultDept={patient.department}
+                    newId={newId}
                     fmtDay={(d) => formatShort(addDays(today, d))}
-                    revisit={revisits[patient.id.slice(4)]}
-                    onRevisit={(r) => {
-                      const oid = patient.id.slice(4);
-                      const fmt = (d: number) => formatShort(addDays(today, d));
-                      auditLog({ role: me.role, actor: me.name, action: "確定（再診予約）", patient: patient.name, detail: `${fmt(r.day)} ${r.time} ${r.purpose}` });
-                      setRevisits((all) => ({ ...all, [oid]: { ...r, by: me.name } }));
-                      setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text: `次回：${fmt(r.day)} ${r.time}（${r.purpose}）` }] }));
+                    onAdd={(d) => {
+                      update((c) => ({ drafts: [...c.drafts, d], rightTab: floating.note ? c.rightTab : "note", flash: "外来予約を記事の下に入れました。確かめて確定してください。" }));
+                      closePanel();
                     }}
                   />
                 </Drawer>

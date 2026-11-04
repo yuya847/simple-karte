@@ -40,8 +40,9 @@ export function remainingGroup(e: OrderEntry, nowAbs: number): StopGroupKey | nu
     return end === null || end >= today ? "内服" : null;
   }
   if (o.type === "procedure") {
-    // The 退院 order is the discharge itself.
+    // The 退院 order is the discharge itself; an 外来予約 is for after it.
     if (o.code === "PROC-LEAVE" && o.leave?.kind === "退院") return null;
+    if (o.code === "PROC-OPD") return null;
     const { from, to } = procInterval(e, nowAbs);
     const running = o.schedule.kind === "once" ? from > nowAbs : to === null || to > nowAbs;
     if (!running) return null;

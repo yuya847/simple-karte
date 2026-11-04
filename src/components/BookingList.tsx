@@ -12,6 +12,7 @@ const TONE: Record<string, string> = {
   リハビリ: "bg-wakatake-soft text-wakatake",
   他科依頼: "bg-yamabuki-soft text-yamabuki",
   手術: "bg-shu-soft text-shu",
+  外来予約: "bg-mizu-soft text-mizu",
 };
 
 /** 予約の一覧 (left view): the patient's bookings by day, from yesterday to two weeks ahead. */
@@ -41,7 +42,7 @@ export function BookingList({ bookings, today }: { bookings: Booking[]; today: C
           </ul>
         </section>
       ))}
-      <p className="text-[10px] text-ink-faint">オーダと手術の予定からコードで並べています（中止したものは出しません）。</p>
+      <p className="text-[10px] text-ink-faint">オーダ（外来予約を含む）と手術の予定からコードで並べています（中止したものは出しません）。</p>
     </div>
   );
 }

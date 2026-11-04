@@ -29,6 +29,10 @@ export function bookingsOf(entries: OrderEntry[], surgeries: { day: number; star
     } else if (o.type === "lab") {
       const at = abs(o.collect.day, o.collect.time);
       out.push({ day: o.collect.day, time: o.collect.time, kind: "採血・検体", label: orderLines(o, today).main, done: at <= nowAbs });
+    } else if (o.type === "procedure" && o.opd) {
+      const b = o.opd;
+      const time = b.slot === "時刻" ? (b.time ?? null) : null;
+      out.push({ day: b.day, time, kind: "外来予約", label: `${b.dept}${b.doctor ? `（${b.doctor}）` : ""}${b.slot === "時刻" ? "" : `　${b.slot}`}　${b.purpose}`, done: time ? abs(b.day, time) <= nowAbs : b.day < 0 });
     } else if (o.type === "procedure" && (o.hd || o.tx || o.consult || o.rehab)) {
       const kind = o.hd ? "透析" : o.tx ? "輸血" : o.consult ? "他科依頼" : "リハビリ";
       const time = o.start.time ?? null;

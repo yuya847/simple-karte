@@ -4,6 +4,7 @@ import { timingName } from "./rx";
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { findDrug, findLab, findOralDrug, findSet } from "./master";
 import { AREA_LABEL, DEPTH_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "./procedures";
+import { opdBookingText } from "./opd-booking";
 import type { ImagingOrder, InjectionOrder, InjectionSchedule, LabOrder, Order, PhysioOrder, PrescriptionOrder, ProcedureOrder } from "./types";
 import { findPhysio, findRegion } from "./exams";
 
@@ -99,6 +100,8 @@ export function procedureTitle(o: ProcedureOrder): string {
 }
 
 export function procedureLines(order: ProcedureOrder, today: CalendarDate): { main: string; detail: string } {
+  // 外来予約: the clinic, the day and slot, and what for (no 開始・日数 — it is one visit).
+  if (order.opd) return { main: `${procName(order.code)}　${order.opd.dept}`, detail: [opdBookingText(order.opd, (d) => formatShort(addDays(today, d))), order.comment].filter(Boolean).join("　") };
   const parts: string[] = [];
   if (order.hd) parts.push(hdText(order.hd));
   if (order.tx) parts.push(txText(order.tx));

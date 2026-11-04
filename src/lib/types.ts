@@ -309,6 +309,22 @@ export interface MoveOrder {
   reason: string;
 }
 
+/**
+ * 外来予約 (PROC-OPD): a visit booked at the hospital's outpatient clinic — after discharge for an inpatient, the
+ * next visit for an outpatient. The slot (午前・午後 or a clock time), the clinics and the range are the
+ * fictional hospital's rules (opd-booking.ts).
+ */
+export interface OpdBookingOrder {
+  dept: string;
+  doctor?: string;
+  day: DayOffset;
+  slot: "午前" | "午後" | "時刻";
+  /** "HH:MM" when the slot is 時刻. */
+  time?: string;
+  purpose: string;
+  note?: string;
+}
+
 /** 指導の依頼: asked of another profession (栄養食事指導 → 管理栄養士, 服薬指導 → 薬剤師 …). */
 export interface GuideOrder {
   kind: "栄養食事指導" | "服薬指導" | "退院時の生活指導";
@@ -340,6 +356,8 @@ export interface ProcedureOrder {
   guide?: GuideOrder;
   /** 移動（転床・転棟・転科, PROC-MOVE）. */
   move?: MoveOrder;
+  /** 外来予約 (PROC-OPD). */
+  opd?: OpdBookingOrder;
   schedule: ProcSchedule;
   start: { day: DayOffset; time?: string };
   days?: number;
