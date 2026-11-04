@@ -15,3 +15,8 @@ describe("場所と区分の既定（架空の病院の取り決め）", () => {
     }
   }
 });
+
+import { onceInfusionMinutes } from "./order-defaults";
+it("1回だけの輸液の量から時間を選ぶ（架空）", () => {
+  expect([500, 250, 100, 200, 0].map(onceInfusionMinutes)).toEqual([60, 30, 30, null, null]);
+});

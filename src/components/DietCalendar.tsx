@@ -51,7 +51,7 @@ const EVENT_TONE: Record<MoveEvent["tone"], string> = {
  * diet marked, and the meals held for an exam. Worked out from the diet orders by code; pressing a
  * meal opens the diet panel to change it.
  */
-export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDiet, dietEdit, moves = [], onBook, onDoMove }: { patient: Patient; entries: HistoryEntry[]; diets: DietOrder[]; today: CalendarDate; nowTime: string; onOpenDiet?: () => void; dietEdit?: { denied: string | null; doctor: string; onDraft: (orders: DietOrder[]) => void }; moves?: MoveEvent[]; onBook?: (day: number, what: BookWhat) => void; onDoMove?: (entryId: string) => void }) {
+export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDiet, dietEdit, moves = [], onBook, onDoMove }: { patient: Patient; entries: HistoryEntry[]; diets: DietOrder[]; today: CalendarDate; nowTime: string; onOpenDiet?: () => void; dietEdit?: { denied: string | null; doctor: string; onDraft: (orders: DietOrder[]) => void; onAdjust?: (orders: DietOrder[]) => void }; moves?: MoveEvent[]; onBook?: (day: number, what: BookWhat) => void; onDoMove?: (entryId: string) => void }) {
   const [editing, setEditing] = useState<{ day: number; meal: Meal } | null>(null);
   const [scope, setScope] = useState<DietScope>("from");
   const [error, setError] = useState("");
@@ -165,6 +165,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
             {error && <p role="alert" className="text-xs text-shu">{error}</p>}
             <DietPanel compact patient={patient} today={today} nowTime={nowTime} doctor={dietEdit.doctor} diets={diets} entries={orders}
               initial={{ ...(dietAt(diets, patient.id, editing.day, editing.meal) ?? { kind: "常食", staple: "米飯", side: "常菜" }), from: editing }}
+              onAdjust={dietEdit.onAdjust ? (d) => { try { dietEdit.onAdjust!(calendarDietOrders(diets, d, scope)); setEditing(null); } catch (e) { setError((e as Error).message); } } : undefined}
               onSave={(d) => { try { dietEdit.onDraft(calendarDietOrders(diets, d, scope)); setEditing(null); } catch (e) { setError((e as Error).message); } }} />
           </div>
         </div>, document.body)}

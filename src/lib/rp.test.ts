@@ -47,3 +47,10 @@ describe("Rp numbers", () => {
     expect(rpLine(rx("b"))).toBe("ロキソニン 1回1　1日3回　毎食後　5日分　定期");
   });
 });
+
+it("1回だけの注射の要約には1日間を付けない", () => {
+  const d = inj("once");
+  if (d.kind !== "injection") throw new Error("注射のテストデータ");
+  expect(rpLine({ ...d, schedule: { kind: "once" }, days: 1 })).not.toContain("1日間");
+  expect(rpLine({ ...d, days: 1 })).toContain("1日間");
+});

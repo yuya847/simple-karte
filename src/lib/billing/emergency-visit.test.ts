@@ -26,3 +26,10 @@ it("救急から入院には確定オーダーだけをIDで重複なく引き�
   expect(transferEmergencyOrders([order], [order, { kind: "note" } as HistoryEntry])).toEqual([order]);
   expect(transferEmergencyOrders([], [order])).toEqual([order]);
 });
+
+import { emergencyRegistrationSection } from "./emergency-visit";
+it("医事課の救急カルテは患者基本情報の保険の節を開く", () => {
+  expect(emergencyRegistrationSection("医事課", "er:test")).toBe("pi-insurance");
+  expect(emergencyRegistrationSection("医師", "er:test")).toBeUndefined();
+  expect(emergencyRegistrationSection("医事課", "90010231")).toBeUndefined();
+});

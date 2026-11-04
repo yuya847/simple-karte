@@ -40,16 +40,17 @@ export interface Therapeutic {
   /** What is set with it. */
   params: ("energyKcal" | "saltG" | "proteinG")[];
   aliases: string[];
+  defaults: { energyKcal: number; proteinG: number };
 }
 export const THERAPEUTICS: Therapeutic[] = [
-  { code: "TD-ENERGY", name: "エネルギー調整食（糖尿病）", params: ["energyKcal"], aliases: ["糖尿病食", "糖尿食", "エネルギー制限", "カロリー制限"] },
-  { code: "TD-SALT-HEART", name: "減塩食（心臓疾患）", params: ["saltG"], aliases: ["心臓食", "減塩食", "塩分制限", "心不全食"] },
-  { code: "TD-KIDNEY", name: "腎臓食", params: ["energyKcal", "proteinG", "saltG"], aliases: ["腎臓食", "蛋白制限", "タンパク制限", "腎食"] },
-  { code: "TD-LIVER", name: "肝臓食", params: ["energyKcal", "proteinG"], aliases: ["肝臓食", "肝食"] },
-  { code: "TD-PANCREAS", name: "膵臓食", params: ["energyKcal"], aliases: ["膵臓食", "膵炎食", "脂肪制限"] },
-  { code: "TD-LIPID", name: "脂質異常症食", params: ["energyKcal"], aliases: ["脂質異常症食", "高脂血症食"] },
-  { code: "TD-ULCER", name: "胃潰瘍食", params: [], aliases: ["胃潰瘍食", "潰瘍食"] },
-  { code: "TD-LOWRESIDUE", name: "低残渣食（検査食）", params: [], aliases: ["低残渣", "検査食", "注腸食"] },
+  { code: "TD-ENERGY", name: "エネルギー調整食（糖尿病）", defaults: { energyKcal: 1600, proteinG: 70 }, params: ["energyKcal"], aliases: ["糖尿病食", "糖尿食", "エネルギー制限", "カロリー制限"] },
+  { code: "TD-SALT-HEART", name: "減塩食（心臓疾患）", defaults: { energyKcal: 1600, proteinG: 65 }, params: ["saltG"], aliases: ["心臓食", "減塩食", "塩分制限", "心不全食"] },
+  { code: "TD-KIDNEY", name: "腎臓食", defaults: { energyKcal: 1800, proteinG: 50 }, params: ["energyKcal", "proteinG", "saltG"], aliases: ["腎臓食", "蛋白制限", "タンパク制限", "腎食"] },
+  { code: "TD-LIVER", name: "肝臓食", defaults: { energyKcal: 1600, proteinG: 50 }, params: ["energyKcal", "proteinG"], aliases: ["肝臓食", "肝食"] },
+  { code: "TD-PANCREAS", name: "膵臓食", defaults: { energyKcal: 1600, proteinG: 65 }, params: ["energyKcal"], aliases: ["膵臓食", "膵炎食", "脂肪制限"] },
+  { code: "TD-LIPID", name: "脂質異常症食", defaults: { energyKcal: 1600, proteinG: 70 }, params: ["energyKcal"], aliases: ["脂質異常症食", "高脂血症食"] },
+  { code: "TD-ULCER", name: "胃潰瘍食", defaults: { energyKcal: 1600, proteinG: 65 }, params: [], aliases: ["胃潰瘍食", "潰瘍食"] },
+  { code: "TD-LOWRESIDUE", name: "低残渣食（検査食）", defaults: { energyKcal: 1600, proteinG: 65 }, params: [], aliases: ["低残渣", "検査食", "注腸食"] },
 ];
 export const findTherapeutic = (code?: string) => THERAPEUTICS.find((t) => t.code === code);
 
@@ -78,6 +79,9 @@ export interface DietOrder {
   /** Why the patient is fasting (絶食). */
   npoReason?: string;
   comment?: string;
+  prohibited?: string;
+  supplement?: string;
+  allergyNote?: string;
   by: string;
   at: { day: DayOffset; time: string };
 }
@@ -114,6 +118,7 @@ export function dietLabel(o?: DietOrder): string {
   if (o.staple && o.kind !== "流動食" && o.kind !== "嚥下調整食") bits.push(o.staple);
   if (o.side && o.side !== "常菜" && o.kind !== "嚥下調整食") bits.push(o.side);
   if (o.thickness && o.thickness !== "なし") bits.push(`水分は${o.thickness}`);
+  bits.push(...[o.prohibited && `禁止：${o.prohibited}`, o.supplement && `補食：${o.supplement}`, o.allergyNote && `アレルギー：${o.allergyNote}`].filter((x): x is string => !!x));
   return bits.join("・");
 }
 
@@ -262,4 +267,12 @@ export function mealsServed(orders: DietOrder[], entries: OrderEntry[], patientI
     out.push({ meal, code: o.kind === "経管栄養" ? MEAL_CODES.liquidOnly : MEAL_CODES.normal, ...s });
   }
   return out;
+}
+
+export const DIET_ADJUSTMENT_HINT = "管理栄養士は主食の形態・禁止食品・補食・アレルギーの反映を直接調整します。食種・治療食・栄養量などの変更は主治医への提案とし、医師の確定後に反映します（架空の病院の取り決め）。";
+export const DIET_NUTRIENT_HINT = "食種ごとの1日指示量の既定（架空の病院の取り決め）：常食1800kcal/蛋白70g、減塩食1600/65、糖尿病食1600/70、腎臓食1800/50、肝臓食1600/50、嚥下調整食1400/55、流動食1000/40。個別の指定量があれば優先します。経管栄養の蛋白は未指定のままです。";
+export function dietNutrients(d?: DietOrder): { energyKcal?: number; proteinG?: number } {
+  if (!d) return {};
+  const defaults = d.kind === "治療食" ? findTherapeutic(d.therapeutic)?.defaults : ({ 常食: { energyKcal: 1800, proteinG: 70 }, 嚥下調整食: { energyKcal: 1400, proteinG: 55 }, 流動食: { energyKcal: 1000, proteinG: 40 }, 絶食: { energyKcal: 0, proteinG: 0 }, 経管栄養: { energyKcal: d.tube ? d.tube.mlPerMeal * 3 * (TUBE_PRODUCTS.find(p => p.code === d.tube?.product)?.kcalPerMl ?? 0) : undefined } } as Partial<Record<DietKind, { energyKcal?: number; proteinG?: number }>>)[d.kind];
+  return { energyKcal: d.energyKcal ?? defaults?.energyKcal, proteinG: d.proteinG ?? defaults?.proteinG };
 }

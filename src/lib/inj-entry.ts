@@ -65,5 +65,5 @@ export function injectionEntryLines(active: InjStep, values: { route: string; sc
     ...(drip ? [{ step: "duration", text: values.duration }] : []),
     { step: "start", text: values.start },
     { step: "days", text: values.days },
-  ] as { step: InjStep; text: string }[]).filter((line) => before(line.step) && !!line.text);
+  ] as { step: InjStep; text: string }[]).filter((line) => before(line.step) && !!line.text && !(line.step === "days" && values.schedule === "1回だけ"));
 }

@@ -21,9 +21,9 @@ describe("院内医薬品集", () => {
     const f = (kisei: typeof EMPTY_QUERY.kisei, route: typeof EMPTY_QUERY.route = "") => searchFormulary(items, { ...EMPTY_QUERY, kisei, route }).map((x) => x.code).sort();
     expect(f("麻薬")).toEqual(["INJ-MOR10", "ORAL-OXC5"]);
     expect(f("毒薬")).toEqual(["INJ-CBDCA", "INJ-PTX"]);
-    expect(f("劇薬", "内服")).toEqual(["ORAL-AMLO5", "ORAL-APAP500", "ORAL-DNP5", "ORAL-MET250", "ORAL-OXC5"]);
+    expect(f("劇薬", "内服")).toEqual(["ORAL-AMLO5", "ORAL-APAP500", "ORAL-CELE100", "ORAL-DEXT15", "ORAL-DNP5", "ORAL-MET250", "ORAL-OXC5", "ORAL-TRAM25", "ORAL-TRAZ25"]);
     expect(f("処方箋医薬品以外")).toContain("ORAL-LOX60");
-    expect(f("ハイリスク")).toEqual(["INJ-CBDCA", "INJ-ETP", "INJ-KCL20", "INJ-PTX", "ORAL-MET250"]);
+    expect(f("ハイリスク")).toEqual(["INJ-CBDCA", "INJ-ETP", "INJ-KCL20", "INJ-PTX", "ORAL-API25", "ORAL-EDO30", "ORAL-MET250", "ORAL-SITA50", "ORAL-TRAZ25", "ORAL-WAR1"]);
   });
   it("薬効順 follows the 日本標準商品分類番号", () => {
     const b = searchFormulary(items, { ...EMPTY_QUERY, sort: "薬効" }).map((x) => x.cls.bunrui);

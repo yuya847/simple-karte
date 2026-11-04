@@ -9,7 +9,7 @@
 // Nothing is suggested: the window shows what was registered.
 
 import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ANAMNESIS_SECTIONS, type AnamnesisFields, type AnamnesisRecord } from "@/lib/anamnesis";
 import type { InsuranceRecord } from "@/lib/billing/registration";
 import { infoInput as input, infoLinkBtn as linkBtn, none, Row, text } from "./InfoRow";
@@ -50,6 +50,7 @@ export type InfoLink = "anamnesis" | "profile" | "directive" | "doctors" | "bill
 
 interface Props {
   patient: Patient;
+  initialSection?: string;
   today: CalendarDate;
   fmtDay: (d: number) => string;
   nowTime: string;
@@ -82,7 +83,8 @@ function answerText(f: AnamnesisFields, key: keyof AnamnesisFields): string {
   return v;
 }
 
-export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts, insurance: insuranceRecords, doctors, anamnesis, directive, onOpen, onSave, onRegisterInsurance }: Props) {
+export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, nowTime, contacts, insurance: insuranceRecords, doctors, anamnesis, directive, onOpen, onSave, onRegisterInsurance }: Props) {
+  useEffect(() => { if (initialSection) document.getElementById(initialSection)?.scrollIntoView({ block: "start" }); }, [initialSection]);
   const insurance = insuranceRecords?.[insuranceRecords.length - 1];
   const me = useMe();
   const denied = useDeny()("profile.contacts");

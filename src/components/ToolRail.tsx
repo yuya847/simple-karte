@@ -144,7 +144,7 @@ const DOCTOR_ONLY: ReadonlySet<PanelKind> = new Set<PanelKind>(["cosign"]);
 /** The groups a role sees, with only its tools when the role has a short list. */
 export function groupsFor(role: string): { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] {
   const only = ONLY[role];
-  const forRole = (ts: Tool[]) => (role === "医師" ? ts : ts.filter((t) => !DOCTOR_ONLY.has(t.key)));
+  const forRole = (ts: Tool[]) => (role === "医師" ? ts : ts.filter((t) => !DOCTOR_ONLY.has(t.key) && !(role === "管理栄養士" && ["restraint", "discharge-stop", "path", "standing"].includes(t.key))));
   const groups = GROUPS.map((g) => ({ ...g, main: forRole(g.main), more: forRole(g.more) }));
   if (!only) return groups;
   const pick = (ts: Tool[]) => ts.filter((t) => only.includes(t.key)).sort((a, b) => only.indexOf(a.key) - only.indexOf(b.key));

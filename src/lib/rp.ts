@@ -21,7 +21,7 @@ export function rpLine(d: Draft): string {
     const drugs = d.items.map((it) => `${it.drugCode ? drugName(it.drugCode) : it.said} ${it.amount ?? "？"}${it.unit ?? ""}`).join(" ＋ ");
     const parts = [d.route ?? "経路？", d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？"];
     if (d.infusionMinutes) parts.push(`1回${durationText(d.infusionMinutes)}`);
-    if (d.days) parts.push(`${d.days}日間`);
+    if (d.days && d.schedule?.kind !== "once") parts.push(`${d.days}日間`);
     return `${drugs}　${parts.join("　")}`;
   }
   if (d.kind === "prescription") {

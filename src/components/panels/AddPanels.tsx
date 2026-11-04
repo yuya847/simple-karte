@@ -3,7 +3,7 @@
 import { injectionDrugLabel } from "@/lib/injection-drug-label";
 import { rxEntryLines, rxEntryStep, validDose, type RxStep } from "@/lib/rx-entry";
 import { todayInTokyo } from "@/lib/dates";
-import { orderDefaults } from "@/lib/order-defaults";
+import { orderDefaults, onceInfusionMinutes, ONCE_INFUSION_HINT } from "@/lib/order-defaults";
 import { nextRegularDay, regularDayOffset, REGULAR_RX_DAYS } from "@/lib/rx-schedule";
 import { History } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
@@ -16,7 +16,7 @@ import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, Inj
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { DecidedEntryLines, DoseTimesEntry, LineEntry, RpDrugSearch } from "../LineEntry";
 import { injectionEntryLines, automaticInjectionEnd, defaultDoseTimes, parseDuration, validateInjectionEnd, injEntryStep, nextInjectionStart, type InjStep } from "@/lib/inj-entry";
-import { DRUGS, ORAL_DRUGS, findOralDrug } from "@/lib/master";
+import { DRUGS, ORAL_DRUGS, ORAL_MASTER_SOURCE, findOralDrug } from "@/lib/master";
 import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
@@ -184,6 +184,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
         if (j !== i) return x;
         const next = { ...x, ...patch };
         if (patch.startNow === undefined && (patch.startTime !== undefined || patch.startDay !== undefined || patch.doseTimes !== undefined)) next.startNow = false;
+        if (patch.minutes !== undefined) next.rateMode = "time";
         if (patch.sched !== undefined && patch.sched >= 0) {
           next.doseTimes = defaultDoseTimes(schedulesOf(next)[patch.sched]?.value);
           if (schedulesOf(next)[patch.sched]?.value.kind === "once") next.doseTimes = [next.startTime || new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date())];
@@ -197,6 +198,10 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
           next.sched = schedulesOf(next).findIndex((s) => s.value.kind === defaults.schedule.kind);
         }
         if (next.sched >= schedulesOf(next).length) next.sched = -1;
+        if (schedulesOf(next)[next.sched]?.value.kind === "once" && isFluidRp(next) && next.rateMode === null && (patch.rows || patch.sched !== undefined)) {
+          const minutes = onceInfusionMinutes(doseVolumeMl(next.rows.map((r) => ({ drugCode: r.drugCode, amount: Number(r.amount) || null, unit: r.unit }))) ?? 0);
+          if (minutes) next.minutes = minutes;
+        }
         return next;
       }),
     );
@@ -470,7 +475,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="w-16 text-ink-soft">1回の時間</span>
                         <input key={`${i}-duration`} list={`${uid}-minutes`} defaultValue={rp.minutes ? minutesLabel(rp.minutes) : ""} aria-label={`Rp${first + i} の1回の時間`} placeholder="分 または 1時間30分" onChange={(e) => upd(i, { minutes: parseDuration(e.target.value) ?? 0 })} className={field} /><datalist id={`${uid}-minutes`}>{DRIP_MINUTES.map((m) => <option key={m} value={minutesLabel(m)} />)}</datalist>
-                        <DripCalc rp={rp} />
+                        <DripCalc rp={rp} /><span className="hint">{ONCE_INFUSION_HINT}</span>
                       </div>
                     ) : (
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -478,7 +483,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                         <input value={rp.rate} onChange={(e) => upd(i, { rate: e.target.value })} inputMode="decimal" aria-label={`Rp${first + i} の速度（mL/時）`} className={`${field} w-16 text-right`} />
                         mL/時
                         <TabChoice label={`Rp${first + i} のよく使う速度`} options={DRIP_RATES.map((r) => ({ value: r, label: String(r) }))} value={Number(rp.rate) || null} onChange={(v) => upd(i, { rate: String(v) })} />
-                        <DripCalc rp={rp} />
+                        <DripCalc rp={rp} /><span className="hint">{ONCE_INFUSION_HINT}</span>
                       </div>
                     )}
                   </InjectionEntryRow>
@@ -617,7 +622,7 @@ function rpFromSeed(seed: InjSeed): InjRp {
 }
 
 /** How the drip is given: as chosen, else by rate for a bag (fluid first) and by time for a drug. */
-const modeOf = (rp: InjRp): "time" | "rate" => rp.rateMode ?? (isFluidRp(rp) ? "rate" : "time");
+const modeOf = (rp: InjRp): "time" | "rate" => rp.rateMode ?? (isFluidRp(rp) && schedulesOf(rp)[rp.sched]?.value.kind !== "once" ? "rate" : "time");
 
 /** The other half, worked out by code: the rate from the time, or the time per bag from the rate. */
 function DripCalc({ rp }: { rp: InjRp }) {
@@ -646,14 +651,14 @@ function RpSummary({ rp }: { rp: InjRp }) {
   const t = todayInTokyo();
   const date = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay));
   const start = `${date.getUTCMonth() + 1}/${date.getUTCDate()}${rp.startTime ? ` ${rp.startTime}` : ""}から`;
-  const parts = [routeOf(rp), schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
+  const parts = [routeOf(rp), schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, schedulesOf(rp)[rp.sched]?.value.kind !== "once" && Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
   return (
     <>
       <b>{drugs.join(" ＋ ")}</b>
       <span className="text-ink-soft">　{parts.join("　")}</span>
       {drip && (
         <span className="ml-1">
-          {"　"}<DripCalc rp={rp} />
+          {"　"}<DripCalc rp={rp} /><span className="hint">{ONCE_INFUSION_HINT}</span>
         </span>
       )}
     </>
@@ -856,6 +861,7 @@ export function AddRxPanel({
       <CollectedRps drafts={drafts} kind="prescription" />
       <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />
       {category === "定期" && <p className="text-xs">{nextDay ? `この病棟の定期処方日：${"日月火水木金土"[REGULAR_RX_DAYS[ward.replace(/病棟$/, "")]]}曜。次は ${nextDay.getMonth() + 1}/${nextDay.getDate()}（${"日月火水木金土"[nextDay.getDay()]}）から` : "この病棟の定期処方日は未設定です。"}</p>}
+      <p className="hint text-xs"><a href={ORAL_MASTER_SOURCE.url} target="_blank" rel="noreferrer" className="text-ai underline">{ORAL_MASTER_SOURCE.label}</a>。品目ごとの出典は院内医薬品集で確認できます。</p>
       <p className="hint text-xs">定期処方日は架空の病院の取り決めです。薬名 → 1回量 → 回数 → 用法 → 日数を Enter または Tab、Esc で前の欄へ。数字・矢印で候補を選べます。「＋コメント」または薬名欄の ; でコメント行を入れます。</p>
       <LineEntry>
       {rps.map((rp, i) => {

@@ -132,7 +132,7 @@ export function IjiBoard({
                   <button type="button" onClick={() => onOpen(p.id, "billing")} className="text-left font-bold text-ai underline-offset-2 hover:underline">
                     {p.room} {p.name}
                   </button>
-                  <div className="text-[11px] text-ink-soft">下書き {pendingDraftCount(charts, p.id)}（医師の確定待ち）</div>
+                  {pendingDraftCount(charts, p.id) > 0 && <div className="text-[11px] text-ink-soft">下書き {pendingDraftCount(charts, p.id)}（医師の確定待ち）</div>}
                   <div className="nums text-[11px] text-ink-faint">
                     {p.id}・入院 {day(p.admittedOn)}・{p.attending}
                   </div>

@@ -22,3 +22,11 @@ it("uses the action permission for each nutrition/nursing tile", async () => {
   expect(nutritionTileBlocks("管理栄養士").io).toBeTruthy();
   expect(nutritionTileBlocks("医師")).toEqual({});
 });
+
+import { compareDietNutrition } from "./nutrition";
+import { INITIAL_DIETS } from "./diet";
+it("食種の既定量と計算量を比べ、指示なしは比較しない", () => {
+  expect(compareDietNutrition(INITIAL_DIETS[0], { kcal: 2000, protein: 72.5 })).toEqual({ prescribed: { energyKcal: 1800, proteinG: 70 }, energyDifference: 200, proteinDifference: 2.5 });
+  expect(compareDietNutrition(undefined, { kcal: 2000, protein: 72.5 }).energyDifference).toBeNull();
+  expect(compareDietNutrition(INITIAL_DIETS[0], null).proteinDifference).toBeNull();
+});

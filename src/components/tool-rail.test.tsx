@@ -196,3 +196,13 @@ it("使えないタイルは既定で隠し、すべて表示の保存時は灰�
   expect(html).toMatch(/disabled="" title="処方は医師が行います"[^>]*text-ink-faint/);
   expect(html).toContain("すべて表示：入");
 });
+
+it("管理栄養士の介入は食事を含み、拘束・一括中止・パス・指示簿は含まない", () => {
+  const tools = groupsFor("管理栄養士").flatMap(g => [...g.main, ...g.more]).map(t => t.key);
+  expect(can("管理栄養士", "diet")).toBe(true);
+  expect(tools).toContain("diet");
+  for (const key of ["restraint", "discharge-stop", "path", "standing"]) expect(tools).not.toContain(key);
+  expect(can("管理栄養士", "restraint")).toBe(false);
+  expect(can("管理栄養士", "order")).toBe(false);
+  expect(tools).toContain("active-orders");
+});

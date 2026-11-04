@@ -4,9 +4,10 @@ import { workspaceOn } from "@/lib/workspace";
 import { useDisplayState } from "@/lib/use-display-state";
 import { useStandingCosign } from "@/lib/use-standing-cosign";
 import { markStandingTake } from "@/lib/standing-cosign";
+import { attendingDesk, dietProposal, dietProposalCount } from "@/lib/diet-workflow";
 import { focusDraftLine } from "@/lib/order-windows";
 
-import { pendingDraftCount, transferEmergencyOrders } from "@/lib/billing/emergency-visit";
+import { emergencyRegistrationSection, pendingDraftCount, transferEmergencyOrders } from "@/lib/billing/emergency-visit";
 import { nutritionTileBlocks } from "@/lib/nutrition-access";
 import { NutritionPanel } from "./NutritionPanel";
 import { kitchenWaiting } from "@/lib/kitchen";
@@ -1706,6 +1707,8 @@ export default function WardApp() {
   if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
   for (const x of people) {
     const pid = x.patient.id;
+    const proposals = dietProposalCount(mergedChart(charts, pid, desk).drafts);
+    if (role === "医師" && proposals) todos.push({ key: `diet-${pid}`, label: `食事の変更の提案：${x.patient.name}さん`, count: proposals, tone: "yamabuki", go: () => openPatient(pid) });
     const r = resultState[pid];
     if (!deny("result.ack") && r?.panic) todos.push({ key: `panic-${pid}`, label: `パニック値：${x.patient.name}さん`, detail: "対応を書いて確認する", count: r.panic, tone: "shu", go: () => openPatient(pid) });
     if (!deny("result.ack") && r && r.unseen > r.panic) todos.push({ key: `unseen-${pid}`, label: `未確認の結果：${x.patient.name}さん`, count: r.unseen - r.panic, tone: "ai", go: () => openPatient(pid) });
@@ -2125,7 +2128,7 @@ export default function WardApp() {
     draftedStops: chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : [])),
     onInsertVitals: (text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" })),
     diets: diets,
-    dietEdit: { denied: deny("diet"), doctor: me.name, onDraft: (orders) => { if (!deny("diet")) update((c) => ({ drafts: [...c.drafts, ...calendarDietDrafts(orders, newId)], flash: "食事の変更を下書きにしました。「オーダーのみ」か「保存」で確定します。" })); } },
+    dietEdit: { denied: deny("diet"), doctor: me.name, onAdjust: role === "管理栄養士" ? (orders) => { setDiets(all => [...all, ...orders]); chartNote(patient!.id, `食事の調整：${orders.map(dietLabel).join("、")}`); } : undefined, onDraft: (orders) => { if (role === "管理栄養士") { setCharts(all => applyChart(all, patient!.id, attendingDesk(patient!.attending), c => ({ drafts: [...c.drafts, ...orders.map(d => dietProposal(d, newId()))] }))); return; } if (!deny("diet")) update((c) => ({ drafts: [...c.drafts, ...calendarDietDrafts(orders, newId)], flash: "食事の変更を下書きにしました。「オーダーのみ」か「保存」で確定します。" })); } },
     onOpenDiet: () => setPanel("diet"),
     moves: moveEventsOf(patient.id),
     onBook: (day: number, what: BookWhat) => {
@@ -3618,12 +3621,14 @@ export default function WardApp() {
                     patient={patient}
                     today={today}
                     nowTime={nowTime}
-                    doctor={DOCTOR}
+                    doctor={me.name}
+                    onAdjust={(d) => { setDiets(all => [...all, d]); chartNote(patient.id, `食事の調整：${dietLabel(d)}`); closePanel(); }}
                     diets={diets}
                     entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                     onSave={(d) => {
+                      if (role === "管理栄養士") { setCharts(all => applyChart(all, patient.id, attendingDesk(patient.attending), c => ({ drafts: [...c.drafts, dietProposal(d, newId())] }))); closePanel(); return; }
                       // A draft on the right, sent with the other orders by 保存 or オーダーのみ.
-                      const diet = { patientId: d.patientId, from: d.from, kind: d.kind, staple: d.staple, side: d.side, therapeutic: d.therapeutic, energyKcal: d.energyKcal, saltG: d.saltG, proteinG: d.proteinG, dysphagia: d.dysphagia, thickness: d.thickness, tube: d.tube, npoReason: d.npoReason, comment: d.comment };
+                      const diet = { prohibited: d.prohibited, supplement: d.supplement, allergyNote: d.allergyNote, patientId: d.patientId, from: d.from, kind: d.kind, staple: d.staple, side: d.side, therapeutic: d.therapeutic, energyKcal: d.energyKcal, saltG: d.saltG, proteinG: d.proteinG, dysphagia: d.dysphagia, thickness: d.thickness, tube: d.tube, npoReason: d.npoReason, comment: d.comment };
                       const when = `${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から`;
                       update((c) => ({ drafts: [...c.drafts, { id: newId(), origin: "manual", sourceText: `食事：${dietLabel(d)}（${when}）`, comment: null, kind: "diet", diet }], flash: `食事の変更を下書きにしました（${when}）。上の「オーダーのみ」か「保存」で飛びます。` }));
                       closePanel();
@@ -4126,6 +4131,7 @@ export default function WardApp() {
               {panel === "patient-info" && (
                 <Drawer title={patientInfoTitle(patient)} onClose={closePanel} wide>
                   <PatientInfoPanel
+                    initialSection={emergencyRegistrationSection(role, patient.id)}
                     key={patient.id}
                     patient={patient}
                     today={today}

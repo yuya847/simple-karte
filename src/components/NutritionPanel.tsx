@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { bmi, requirements, weightLoss } from "@/lib/nutrition";
+import { bmi, requirements, weightLoss, compareDietNutrition } from "@/lib/nutrition";
 import { nutritionVersions, type AdmitEval, type NutritionRecord } from "@/lib/admit-eval";
-import { dietAt, dietLabel, type DietOrder } from "@/lib/diet";
+import { dietAt, dietLabel, DIET_NUTRIENT_HINT, type DietOrder } from "@/lib/diet";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { Patient } from "@/lib/types";
 import { auditLog } from "@/lib/audit";
@@ -29,6 +29,7 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
   const loss = (day: number) => { const w = baseline(day); return w ? `${show(weightLoss(kg, w))}%（${w}kg）` : "記録なし"; };
   const result = requirements(p.sex, p.age, kg, p.heightCm, activity, stress, protein);
   const diet = dietAt(diets, p.id, 0, "夕");
+  const { prescribed, energyDifference, proteinDifference } = compareDietNutrition(diet, result);
   const latestLab = (key: string) => { const r = p.labs.filter(x => x.day <= 0 && x.values[key] != null).sort((a,b) => b.day - a.day || b.time.localeCompare(a.time))[0]; return r ? `${r.values[key]}（${formatShort(addDays(today, r.day))} ${r.time}）` : "記録なし"; };
   const intake = p.daily.filter(x => x.meals && x.day <= 0).sort((a,b) => b.day-a.day).slice(0,3).map(x => `${formatShort(addDays(today,x.day))} ${Array.isArray(x.meals) ? x.meals.map(v => v ?? "未記録").join("／") : x.meals}`).join("、") || "記録なし";
   const body = `身長 ${p.heightCm}cm・体重 ${kg}kg・BMI ${show(bmi(kg,p.heightCm))}\n体重減少率：入院時 ${loss(p.admittedOn)}／1か月前 ${loss(-30)}\nAlb ${latestLab("Alb")}／CRP ${latestLab("CRP")}\n食事摂取量（主食・割）：${intake}\nSGA ${sga || "未選択"}：${assessment}`;
@@ -46,8 +47,9 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
       <label>ストレス係数<select className={field} value={stress} onChange={e => setStress(Number(e.target.value))}>{[1,1.1,1.2,1.3,1.5].map(v => <option key={v}>{v}</option>)}</select></label>
       <label>蛋白 g/kg<input className={field} type="number" min="0.1" step="0.1" value={protein} onChange={e => setProtein(Number(e.target.value))} /></label>
       <p>{result ? `基礎代謝 ${result.basal} × ${activity} × ${stress} ＝ ${result.kcal}kcal、蛋白${result.protein}g/日` : "成人の有効な測定値を確認してください。"}</p>
-      <p>現在の食事：{dietLabel(diet)}／{diet?.energyKcal ?? "未指定"}kcal・蛋白{diet?.proteinG ?? "未指定"}g</p>
-      <p>計算量 − 指示量：{result && diet?.energyKcal != null ? `${result.kcal-diet.energyKcal}kcal` : "比較不可"}／{result && diet?.proteinG != null ? `${(result.protein-diet.proteinG).toFixed(1)}g` : "比較不可"}</p>
+      <p className="hint">{DIET_NUTRIENT_HINT}</p>
+      <p>現在の食事：{dietLabel(diet)}／{prescribed.energyKcal ?? "未指定"}kcal・蛋白{prescribed.proteinG ?? "未指定"}g</p>
+      <p>計算量 − 指示量：{energyDifference != null ? `${energyDifference}kcal` : "比較不可"}／{proteinDifference != null ? `${proteinDifference.toFixed(1)}g` : "比較不可"}</p>
       <button type="button" disabled={!result} className={field} onClick={() => { if(result) {setEnergy(result.kcal);setProteinG(result.protein);} }}>計算値を計画に入れる</button>
       <p className="hint">活動・ストレス係数と蛋白量の初期値は、教科書的な一般値を参考にした架空の病院の取り決めです。疾患別の推奨ではありません。Harris-Benedict（原式）：男 66.473＋13.7516W＋5.0033H−6.755A、女 655.0955＋9.5634W＋1.8496H−4.6756A（W kg、H cm、A 歳）。<a href="https://nutritionalassessment.mumc.nl/en/calculating-energy-expenditure" target="_blank" rel="noreferrer">出典：Maastricht University Medical Center 栄養評価</a>。実測値と病態を確認し、人が必要量を決めます。</p>
     </section>

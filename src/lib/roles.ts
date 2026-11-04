@@ -144,7 +144,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   diagnosis: { label: "病名の登録", who: ["医師"] },
   consent: { label: "説明と同意の記録", who: ["医師"] },
   directive: { label: "事前指示の確定", who: ["医師"] },
-  diet: { label: "食事の指示", who: ["医師"] },
+  diet: { label: "食事の指示", who: ["医師", "管理栄養士"] },
   discharge: { label: "退院時サマリーと紹介状", who: ["医師"] },
   vitals: { label: "バイタルの記録", who: ["看護師", "医師"] },
   mar: { label: "与薬・実施の記録", who: ["看護師", "医師"] },

@@ -34,3 +34,8 @@ export function transferEmergencyOrders(ward: HistoryEntry[], visit: HistoryEntr
   const ids = new Set(ward.flatMap((e) => e.kind === "order" ? [e.id] : []));
   return [...ward, ...visit.filter((e) => e.kind === "order" && !ids.has(e.id))];
 }
+
+/** 医事課が救急の保険登録から開く患者基本情報の節。 */
+export function emergencyRegistrationSection(role: string, patientKey: string): string | undefined {
+  return role === "医事課" && patientKey.startsWith("er:") ? "pi-insurance" : undefined;
+}

@@ -45,7 +45,7 @@ describe("持参薬鑑別（照合はコード）", () => {
     ["マグミット錠", "330mg", "ORAL-MGO330"],
     ["カロナール錠", "500", "ORAL-APAP500"],
     ["アムロジピン錠", "2.5mg", null],
-    ["ワーファリン錠", "1mg", null],
+    ["ワーファリン錠", "1mg", "ORAL-WAR1"],
   ])("%s %s → %s", (said, strength, code) => {
     expect(matchOral(said, strength)).toBe(code);
   });

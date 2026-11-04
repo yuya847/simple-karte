@@ -1,5 +1,8 @@
 "use client";
 
+import { dietNeedsProposal, dietAdjustment } from "@/lib/diet-workflow";
+import { useMe } from "../RoleContext";
+import { DIET_ADJUSTMENT_HINT } from "@/lib/diet";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import {
@@ -42,6 +45,7 @@ interface Props {
   diets: DietOrder[];
   entries: OrderEntry[];
   onSave: (d: DietOrder) => void;
+  onAdjust?: (d: DietOrder) => void;
   initial?: Form;
   compact?: boolean;
 }
@@ -51,10 +55,12 @@ type Form = Omit<DietOrder, "id" | "patientId" | "by" | "at">;
 const DAY_LABEL = ["今日", "明日", "明後日"];
 
 /** Diet order: a 3-day meal grid (what is served, meals held for tests) and a new order (chosen on the form). */
-export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onSave, initial, compact }: Props) {
+export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onSave, onAdjust, initial, compact }: Props) {
   const nowAbs = abs(0, nowTime);
   const first = nextOrderableMeal(nowAbs);
-  const [f, setF] = useState<Form>(initial ?? { from: { day: first.day, meal: first.meal }, kind: "常食", staple: "米飯", side: "常菜" });
+  const me = useMe();
+  const current = dietAt(diets, patient.id, first.day, first.meal);
+  const [f, setF] = useState<Form>(initial ?? (current ? { ...current, from: first } : { from: first, kind: "常食", staple: "米飯", side: "常菜" }));
   const set = (patch: Partial<Form>) => setF((cur) => ({ ...cur, ...patch }));
 
 
@@ -78,6 +84,9 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
   if (f.kind === "絶食" && oral.length) notes.push(`内服薬が ${oral.length}件 有効です。絶食中の内服をどうするか（少量の水で内服する・止めるなど）を指示してください。`);
   if (patient.cautions.some((c) => c.includes("水分制限"))) notes.push(`カルテの注意：${patient.cautions.filter((c) => c.includes("水分制限")).join("、")}`);
 
+  const next = { ...f, id: "", patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } };
+  const effective = dietAt(diets, patient.id, f.from.day, f.from.meal);
+  const direct = me.role === "管理栄養士" && !!onAdjust && !dietNeedsProposal(effective, next);
   const sel = "rounded border border-rule bg-sheet px-1 py-0.5";
   return (
     <div className="space-y-4 text-[13px]">
@@ -236,6 +245,8 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
         {f.kind === "絶食" && (
           <input value={f.npoReason ?? ""} onChange={(e) => set({ npoReason: e.target.value || undefined })} placeholder="絶食の理由（例：嚥下の評価まで）" className="w-full rounded border border-rule bg-sheet px-2 py-1 text-xs" />
         )}
+        {([['prohibited', '禁止食品'], ['supplement', '補食'], ['allergyNote', '反映するアレルギー']] as const).map(([key, label]) => <label key={key} className="block text-xs">{label}<input aria-label={label} value={f[key] ?? ""} onChange={e => set({ [key]: e.target.value || undefined })} className="ml-2 rounded border border-rule bg-sheet px-2 py-1" /></label>)}
+        <button type="button" className="text-xs text-ai underline" onClick={() => set({ allergyNote: patient.allergies.join("、") })}>カルテのアレルギーを反映する</button>
         <input value={f.comment ?? ""} onChange={(e) => set({ comment: e.target.value || undefined })} aria-label="注意（禁止食品・アレルギー・水分制限など）" placeholder="注意（禁止食品・アレルギー・水分制限など）" className="w-full rounded border border-rule bg-sheet px-2 py-1 text-xs" />
         <div className="rounded bg-sheet p-2 text-xs">
           <b>{dietLabel({ ...f, id: "", patientId: "", by: "", at: { day: 0, time: "" } })}</b>
@@ -255,12 +266,14 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
           type="button"
           disabled={errors.length > 0}
           onClick={() => {
-            onSave({ ...f, id: `diet-${Date.now()}`, patientId: patient.id, by: doctor, at: { day: 0, time: nowTime } });
+            const d = { ...next, id: `diet-${Date.now()}`, by: me.role === "管理栄養士" ? me.name : doctor };
+            if (direct && effective && onAdjust) onAdjust(dietAdjustment(effective, d)); else onSave(d);
           }}
           className="w-full rounded-md bg-ai px-3 py-2 font-bold text-white disabled:opacity-40"
         >
-          食事の変更をオーダの下書きに入れる
+          {me.role === "管理栄養士" ? direct ? "食事の調整を反映する" : "医師への提案を主治医の下書きに入れる" : "食事の変更をオーダの下書きに入れる"}
         </button>
+        <p className="hint text-[11px] text-ink-faint">{DIET_ADJUSTMENT_HINT}</p>
         <p className="hint text-[11px] text-ink-faint">右の欄の下書きに入ります。上の「オーダーのみ」か「保存」で、ほかのオーダと一緒に飛びます。</p>
       </section>
     </div>

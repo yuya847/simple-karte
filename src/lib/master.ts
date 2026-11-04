@@ -326,7 +326,34 @@ export interface OralDrugMaster {
   scored?: boolean;
 }
 
+export const ORAL_MASTER_SOURCE = { label: "内服薬の規格・規制区分：PMDA電子添文（追加25品目は2026-11-05確認）", url: "https://www.pmda.go.jp/PmdaSearch/iyakuSearch/" };
+
 export const ORAL_DRUGS: OralDrugMaster[] = [
+  {"code": "ORAL-AMPC250", "name": "アモキシシリン水和物錠", "strength": "250mg", "unit": "錠", "aliases": ["サワシリン", "アモキシシリン水和物", "アモキシシリン", "さわしりん", "あもきししりん水和物", "あもきししりん"], "classes": ["ペニシリン系抗菌薬"]},
+  {"code": "ORAL-AMCL250", "name": "アモキシシリン・クラブラン酸配合錠", "strength": "アモキシシリン250mg・クラブラン酸125mg", "unit": "錠", "aliases": ["オーグメンチン", "アモキシシリン・クラブラン酸配合", "アモキシシリン・クラブラン酸", "おーぐめんちん", "あもきししりん・くらぶらん酸配合", "あもきししりん・くらぶらん酸"], "classes": ["ペニシリン系抗菌薬"]},
+  {"code": "ORAL-LVFX500", "name": "レボフロキサシン錠", "strength": "500mg", "unit": "錠", "aliases": ["クラビット", "レボフロキサシン", "くらびっと", "れぼふろきさしん"], "classes": ["キノロン系抗菌薬"]},
+  {"code": "ORAL-CFPN100", "name": "セフカペンピボキシル塩酸塩錠", "strength": "100mg", "unit": "錠", "aliases": ["フロモックス", "セフカペンピボキシル塩酸塩", "セフカペン", "ふろもっくす", "せふかぺんぴぼきしる塩酸塩", "せふかぺん"], "classes": ["セフェム系抗菌薬"]},
+  {"code": "ORAL-AZM250", "name": "アジスロマイシン錠", "strength": "250mg", "unit": "錠", "aliases": ["ジスロマック", "アジスロマイシン", "じすろまっく", "あじすろまいしん"], "classes": ["マクロライド系抗菌薬"]},
+  {"code": "ORAL-ST", "name": "スルファメトキサゾール・トリメトプリム配合錠", "strength": "400mg・80mg", "unit": "錠", "aliases": ["バクタ", "スルファメトキサゾール・トリメトプリム配合", "ST合剤", "エスティー合剤", "ばくた", "するふぁめときさぞーる・とりめとぷりむ配合", "えすてぃー合剤"], "classes": ["ST合剤"]},
+  {"code": "ORAL-CELE100", "name": "セレコキシブ錠", "strength": "100mg", "unit": "錠", "aliases": ["セレコックス", "セレコキシブ", "せれこっくす", "せれこきしぶ"], "classes": ["NSAIDs"]},
+  {"code": "ORAL-TRAM25", "name": "トラマドール塩酸塩OD錠", "strength": "25mg", "unit": "錠", "aliases": ["トラマール", "トラマドール塩酸塩", "トラマドール", "とらまーる", "とらまどーる塩酸塩", "とらまどーる"], "classes": ["オピオイド"]},
+  {"code": "ORAL-ESOM20", "name": "エソメプラゾールカプセル", "strength": "20mg", "unit": "カプセル", "aliases": ["ネキシウム", "エソメプラゾール", "ねきしうむ", "えそめぷらぞーる"], "classes": ["プロトンポンプ阻害薬"]},
+  {"code": "ORAL-FAMO20", "name": "ファモチジン錠", "strength": "20mg", "unit": "錠", "aliases": ["ガスター", "ファモチジン", "がすたー", "ふぁもちじん"], "classes": ["H2受容体拮抗薬"]},
+  {"code": "ORAL-CAND8", "name": "カンデサルタンシレキセチル錠", "strength": "8mg", "unit": "錠", "aliases": ["ブロプレス", "カンデサルタンシレキセチル", "カンデサルタン", "ぶろぷれす", "かんでさるたんしれきせちる", "かんでさるたん"], "classes": ["ARB"]},
+  {"code": "ORAL-SITA50", "name": "シタグリプチンリン酸塩錠", "strength": "50mg", "unit": "錠", "aliases": ["ジャヌビア", "シタグリプチンリン酸塩", "シタグリプチン", "じゃぬびあ", "したぐりぷちんりん酸塩", "したぐりぷちん"], "classes": ["DPP-4阻害薬"]},
+  {"code": "ORAL-ATOR10", "name": "アトルバスタチン錠", "strength": "10mg", "unit": "錠", "aliases": ["リピトール", "アトルバスタチン", "りぴとーる", "あとるばすたちん"], "classes": ["スタチン"]},
+  {"code": "ORAL-ZOL5", "name": "ゾルピデム酒石酸塩錠", "strength": "5mg", "unit": "錠", "aliases": ["マイスリー", "ゾルピデム酒石酸塩", "ゾルピデム", "まいすりー", "ぞるぴでむ酒石酸塩", "ぞるぴでむ"], "classes": ["睡眠薬"]},
+  {"code": "ORAL-SUV15", "name": "スボレキサント錠", "strength": "15mg", "unit": "錠", "aliases": ["ベルソムラ", "スボレキサント", "べるそむら", "すぼれきさんと"], "classes": ["睡眠薬"]},
+  {"code": "ORAL-TRAZ25", "name": "トラゾドン塩酸塩錠", "strength": "25mg", "unit": "錠", "aliases": ["レスリン", "トラゾドン塩酸塩", "トラゾドン", "れすりん", "とらぞどん"], "classes": ["抗うつ薬"]},
+  {"code": "ORAL-PICO25", "name": "ピコスルファートナトリウム錠", "strength": "2.5mg", "unit": "錠", "aliases": ["ラキソベロン", "ピコスルファートナトリウム", "ピコスルファート", "らきそべろん", "ぴこするふぁーとなとりうむ", "ぴこするふぁーと"], "classes": ["緩下薬"]},
+  {"code": "ORAL-CARB500", "name": "カルボシステイン錠", "strength": "500mg", "unit": "錠", "aliases": ["ムコダイン", "カルボシステイン", "むこだいん", "かるぼしすていん"], "classes": ["去痰薬"]},
+  {"code": "ORAL-DEXT15", "name": "デキストロメトルファン錠", "strength": "15mg", "unit": "錠", "aliases": ["メジコン", "デキストロメトルファン", "めじこん", "できすとろめとるふぁん"], "classes": ["鎮咳薬"]},
+  {"code": "ORAL-WAR1", "name": "ワルファリンカリウム錠", "strength": "1mg", "unit": "錠", "aliases": ["ワーファリン", "ワルファリンカリウム", "ワルファリン", "わーふぁりん", "わるふぁりんかりうむ", "わるふぁりん"], "classes": ["抗凝固薬"]},
+  {"code": "ORAL-API25", "name": "アピキサバン錠", "strength": "2.5mg", "unit": "錠", "aliases": ["エリキュース", "アピキサバン", "えりきゅーす", "あぴきさばん"], "classes": ["抗凝固薬"]},
+  {"code": "ORAL-EDO30", "name": "エドキサバンOD錠", "strength": "30mg", "unit": "錠", "aliases": ["リクシアナ", "エドキサバン", "りくしあな", "えどきさばん"], "classes": ["抗凝固薬"]},
+  {"code": "ORAL-PRED5", "name": "プレドニゾロン錠", "strength": "5mg", "unit": "錠", "aliases": ["プレドニン", "プレドニゾロン", "ぷれどにん", "ぷれどにぞろん"], "classes": ["副腎皮質ホルモン"]},
+  {"code": "ORAL-MECO500", "name": "メコバラミン錠", "strength": "500μg", "unit": "錠", "aliases": ["メチコバール", "メコバラミン", "めちこばーる", "めこばらみん"], "classes": ["ビタミンB12"]},
+  {"code": "ORAL-FOL5", "name": "葉酸錠", "strength": "5mg", "unit": "錠", "aliases": ["フォリアミン", "葉酸", "ふぉりあみん"], "classes": ["葉酸製剤"]},
   { code: "ORAL-AMLO5", name: "アムロジピン錠", strength: "5mg", unit: "錠", aliases: ["アムロジピン", "ノルバスク", "アムロジン"], mg: 5, classes: ["カルシウム拮抗薬"], maxDailyMg: { mg: 10, source: "添付文書（高血圧症：1日最大10mg）" }, scored: true },
   { code: "ORAL-LPZ15", name: "ランソプラゾールOD錠", strength: "15mg", unit: "錠", aliases: ["ランソプラゾール", "タケプロン"] },
   { code: "ORAL-APAP500", name: "アセトアミノフェン錠", strength: "500mg", unit: "錠", aliases: ["カロナール", "アセトアミノフェン"], mg: 500, classes: ["解熱鎮痛薬"], maxDailyMg: { mg: 4000, source: "添付文書（成人の鎮痛：1日総量4,000mgを限度）" }, scored: true },

@@ -1,4 +1,4 @@
-import { injEntryStep, nextInjectionStart, type InjStep } from "./inj-entry";
+import { injectionEntryLines, injEntryStep, nextInjectionStart, type InjStep } from "./inj-entry";
 import { candidateIndex } from "./rx-entry";
 import { describe, expect, it } from "vitest";
 import { automaticInjectionEnd, defaultDoseTimes, injectionFieldIndex, parseDuration, validateInjectionEnd } from "./inj-entry";
@@ -57,4 +57,10 @@ describe("処方と同じ注射の状態遷移", () => {
     expect(nextInjectionStart(times, "11:00")).toEqual({ day: 0, time: "22:00" });
     expect(nextInjectionStart(times, "23:00")).toEqual({ day: 1, time: "10:00" });
   });
+});
+
+it("1回だけの畳んだRpには日数を出さない", () => {
+  const values = { route: "点滴静注", schedule: "1回だけ", times: ["10:00"], duration: "1時間", start: "今日10:00", days: "1日間" };
+  expect(injectionEntryLines("done", values, true).map(l => l.text)).not.toContain("1日間");
+  expect(injectionEntryLines("done", { ...values, schedule: "1日1回" }, true).map(l => l.text)).toContain("1日間");
 });
