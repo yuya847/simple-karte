@@ -151,7 +151,7 @@ export function PharmacyView(p: Props) {
           {tab === "dispense" && <Dispense {...p} />}
           {tab === "oral" && <Oral {...p} />}
           {tab === "home" && <Home {...p} />}
-          {tab === "narcotic" && <NarcoticDesk people={p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} />}
+          {tab === "narcotic" && <NarcoticDesk people={p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} blockOf={(id) => dispenseBlock(id, p.people, p.queries, p.audited)} />}
           {tab === "blood" && <Blood {...p} />}
           {tab === "tdm" && <TdmView people={p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
           {tab === "journal" && <Journal {...p} />}

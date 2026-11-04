@@ -50,6 +50,12 @@ describe("麻薬の画面", () => {
     expect(html).toContain("前帳簿から繰越し");
   });
 
+  it("an oral 麻薬 waits for the 監査 like any order (the reason is shown)", () => {
+    const signed = { ...INITIAL_BOOK, signed: { "o-oxy": { by: "薬剤師 小林", at: { day: 0, time: "10:00" } } } };
+    const html = renderToStaticMarkup(<NarcoticDesk people={people} today={TODAY} nowTime="11:00" book={signed} onBook={noop} newId={id} blockOf={(oid) => (oid === "o-oxy" ? "まだ監査していません。" : null)} />);
+    expect(html).toContain("まだ監査していません。");
+  });
+
   it("a returned slip waits for the pharmacy; once received, its leftover waits for a witness", () => {
     const slip = { id: "s1", orderId: "o-mor", patientId: sakura.id, code: "INJ-MOR10", marKey: "o-mor|600", usedAt: { day: 0, time: "10:05" }, issuedA: 1, usedMl: 0.5, leftMl: 0.5, unusedA: 0, prescriber: "山本（専攻医）", by: "看護師 佐藤", returnedAt: { day: 0, time: "10:20" } };
     const book: NarcoticBook = { ...INITIAL_BOOK, slips: [slip] };

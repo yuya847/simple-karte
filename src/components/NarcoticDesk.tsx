@@ -56,10 +56,12 @@ interface Props {
   book: NarcoticBook;
   onBook: (f: (b: NarcoticBook) => NarcoticBook) => void;
   newId: () => string;
+  /** Why an order cannot be dispensed yet (疑義照会の回答待ち・未監査: pharmacy.ts dispenseBlock), or null. */
+  blockOf?: (orderId: string) => string | null;
 }
 
 /** 薬剤部の麻薬の管理: 麻薬処方箋の確認と払出、施用票の受領、残液の廃棄、病棟からの返納、受払簿、照合、事故届（模擬）. */
-export function NarcoticDesk({ people, today, nowTime, book, onBook, newId }: Props) {
+export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, blockOf }: Props) {
   const now: When = { day: 0, time: nowTime };
   const day = (d: number) => formatShort(addDays(today, d));
   const who = (pid: string | undefined) => people.find((x) => x.patient.id === pid);
@@ -105,7 +107,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId }: Pr
             const signed = book.signed[e.id];
             const oral = e.order.type === "prescription";
             const q = e.order.type === "prescription" ? oralQty(e.order) : null;
-            const block = oral ? oralBlock(book, e, ok) : null;
+            const block = oral ? (oralBlock(book, e, ok) ?? blockOf?.(e.id) ?? null) : null;
             const out = oral ? dispensedFor(book, e.id) : null;
             const slips = book.slips.filter((s) => s.orderId === e.id);
             const code = oral ? (e.order.type === "prescription" ? e.order.drugCode : "") : e.order.type === "injection" ? (e.order.items.find((i) => NARCOTICS.has(i.drugCode))?.drugCode ?? "") : "";
