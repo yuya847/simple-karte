@@ -9,7 +9,8 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 export const LONG_PRESS_MS = 500;
 
-export function useLongPress<T extends Element>(onLongPress: (() => void) | undefined, ms = LONG_PRESS_MS) {
+/** The callback gets where the finger was put down (for a menu at that spot). */
+export function useLongPress<T extends Element>(onLongPress: ((at: { x: number; y: number }) => void) | undefined, ms = LONG_PRESS_MS) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
   const clear = () => {
@@ -26,10 +27,11 @@ export function useLongPress<T extends Element>(onLongPress: (() => void) | unde
       // A button inside (☆ etc.) does its own thing.
       if ((e.target as Element).closest("button")) return;
       clear();
-      start.current = { x: e.clientX, y: e.clientY };
+      const at = { x: e.clientX, y: e.clientY };
+      start.current = at;
       timer.current = setTimeout(() => {
         clear();
-        onLongPress();
+        onLongPress(at);
       }, ms);
     },
     onPointerMove: (e: ReactPointerEvent<T>) => {

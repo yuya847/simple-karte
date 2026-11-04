@@ -6,7 +6,7 @@
 import { WARD_RULES } from "./master";
 import type { WorkItem } from "./worksheet";
 
-export const NOT_DONE_REASONS = ["患者が拒否", "絶食・検査のため", "医師の指示で中止・延期", "薬が届いていない", "患者が不在", "その他"] as const;
+export const NOT_DONE_REASONS = ["患者が拒否", "嘔気・嘔吐", "絶食・検査のため", "医師の指示で中止・延期", "薬が届いていない", "患者が不在", "その他"] as const;
 export type NotDoneReason = (typeof NOT_DONE_REASONS)[number];
 
 /** Why a 実施・未実施 record is taken back (it stays in the history). */
