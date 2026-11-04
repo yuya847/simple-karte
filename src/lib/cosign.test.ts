@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confirmDeny, confirmItems, confirmerAs, cosignLabel, newItems, noteRevised, pendingOf, residentBlock, signerLabel, type CosignItem } from "./cosign";
+import { confirmDeny, confirmItems, confirmerAs, cosignLabel, newItems, noteRevised, pendingOf, residentBlock, signerLabel } from "./cosign";
 import { DEFAULT_DOCTOR, DOCTORS, doctorOf, isResident, onTeamOf, teamOf } from "./doctors";
 import type { Order } from "./types";
 

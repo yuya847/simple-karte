@@ -5,12 +5,17 @@ import { createContext, useContext } from "react";
 import { STAFF, denyReason, type Action, type Role, type Staff } from "@/lib/roles";
 
 const RoleCtx = createContext<Role>("医師");
+/** The person, when the role has more than one to choose from (医師: 研修医・専攻医・指導医…). */
+const MeCtx = createContext<Staff | null>(null);
 
 export const RoleProvider = RoleCtx.Provider;
+export const MeProvider = MeCtx.Provider;
 
 /** The person using the chart now. */
 export function useMe(): Staff {
-  return STAFF[useContext(RoleCtx)];
+  const role = useContext(RoleCtx);
+  const me = useContext(MeCtx);
+  return me && me.role === role ? me : STAFF[role];
 }
 
 /** Returns why an action is locked for the current role, or null when it is allowed. */

@@ -168,7 +168,8 @@ import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
-import { RoleProvider } from "./RoleContext";
+import { MeProvider, RoleProvider } from "./RoleContext";
+import { DEFAULT_DOCTOR, DOCTORS, onTeamOf } from "@/lib/doctors";
 import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
@@ -323,6 +324,8 @@ export default function WardApp() {
   const [panel, setPanel] = useState<PanelKind | null>(null);
   // Who is using the chart. The demo picks a role instead of logging in.
   const [role, setRole] = useState<Role>("医師");
+  // Inside 医師, the person too (研修医・専攻医・指導医・ほかのチームの医師; all fictional).
+  const [doctorName, setDoctorName] = useState(DEFAULT_DOCTOR);
   // ①②③: the place chosen in the left menu; inside 病棟 the screens open as tabs (②) and the one in
   // front ("menu" = 病棟's menu of screens); the charts, each under the tab it was opened from (③; in
   // 救急外来 and 外来 they follow the list on ②); and what each tab shows (a chart id, 新しいタブ, or
@@ -344,7 +347,9 @@ export default function WardApp() {
   const [doctorPick, setDoctorPick] = useState("");
   // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
   const [myTeam, setMyTeam] = useState("");
-  const me = STAFF[role];
+  const me = useMemo(() => (role === "医師" ? { role, name: doctorName } : STAFF[role]), [role, doctorName]);
+  // What one person is writing is kept apart per doctor too (山本 keeps the key he had before).
+  const desk = role === "医師" && doctorName !== DEFAULT_DOCTOR ? `医師:${doctorName}` : role;
   const deny = (a: Parameters<typeof denyReason>[1]) => denyReason(role, a);
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
   const [admitted, setAdmitted] = useState<Patient[]>([]);
@@ -708,7 +713,7 @@ export default function WardApp() {
     requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-right-tab="${t}"] input[role=combobox]`)?.focus());
 
   const patient = activeId ? findPatient(activeId) : undefined;
-  const chart = activeId ? mergedChart(charts, activeId, role) : newChart();
+  const chart = activeId ? mergedChart(charts, activeId, desk) : newChart();
   const today = useMemo(() => (todayKey ? parseIso(todayKey) : null), [todayKey]);
 
   // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
@@ -749,10 +754,10 @@ export default function WardApp() {
   const update = (patch: Partial<ChartState> | ((c: ChartState) => Partial<ChartState>)) => {
     if (!activeId) return;
     const id = activeId;
-    setCharts((all) => applyChart(all, id, role, (c) => (typeof patch === "function" ? patch(c) : patch)));
+    setCharts((all) => applyChart(all, id, desk, (c) => (typeof patch === "function" ? patch(c) : patch)));
   };
 
-  const updateFor = (id: string, patch: (c: ChartState) => Partial<ChartState>) => setCharts((all) => applyChart(all, id, role, patch));
+  const updateFor = (id: string, patch: (c: ChartState) => Partial<ChartState>) => setCharts((all) => applyChart(all, id, desk, patch));
 
   const requestDrafts = async () => {
     const text = chart.instruction.trim();
@@ -791,7 +796,7 @@ export default function WardApp() {
       for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) {
         const id = newId();
         ids.push(id);
-        added.push({ kind: "order", id, day: 0, time: nowTime, author: DOCTOR, status: "有効", order: o, ...(verbalMode ? { verbal: { takenBy: me.name, doctor: DOCTOR, at: { day: 0, time: nowTime } } } : {}) });
+        added.push({ kind: "order", id, day: 0, time: nowTime, author: verbalMode ? DOCTOR : me.name, status: "有効", order: o, ...(verbalMode ? { verbal: { takenBy: me.name, doctor: DOCTOR, at: { day: 0, time: nowTime } } } : {}) });
       }
       // A consent form to prepare with the order (説明前): the doctor explains before it is done.
       for (const code of r.consents ?? []) newConsents.push({ id: newId(), patientId: patient!.id, code, status: "説明前", orderId: ids[0], createdAt: { day: 0, time: nowTime }, answers: {} });
@@ -835,7 +840,7 @@ export default function WardApp() {
     // 延長 goes to the nurses' 指示受け like a new order.
     const extLog = Object.entries(extended).flatMap(([id, days]) => {
       const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === id);
-      return e ? [{ orderId: id, patientId: patient!.id, days, at: abs(0, nowTime), by: DOCTOR, text: orderLines(e.order, today).main }] : [];
+      return e ? [{ orderId: id, patientId: patient!.id, days, at: abs(0, nowTime), by: verbalMode ? DOCTOR : me.name, text: orderLines(e.order, today).main }] : [];
     });
     if (extLog.length) setExtendLog((all) => [...all, ...extLog]);
     auditLog(
@@ -1150,7 +1155,7 @@ export default function WardApp() {
     // 受け持ち: a doctor's own patients (主治医); a nurse's team for this shift; others the whole ward.
     mine:
       role === "医師"
-        ? { beds: ward.beds.filter((b) => b.patientId && findPatient(b.patientId)?.attending === me.name), title: "受け持ち患者（主治医）", group: "room" }
+        ? { beds: ward.beds.filter((b) => b.patientId && onTeamOf(me.name, findPatient(b.patientId)?.attending ?? "")), title: "受け持ち患者（主治医のチーム）", group: "room" }
         : role === "看護師"
           ? {
               // Teams are 5階東's: a patient moved to another floor is in neither team (shown under すべて).
@@ -1325,7 +1330,7 @@ export default function WardApp() {
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts)
       .filter(([k]) => !k.includes("|"))
-      .map(([id, c]) => [id, { drafts: charts[deskKeyOf(id, role)]?.drafts.length ?? 0, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
+      .map(([id, c]) => [id, { drafts: charts[deskKeyOf(id, desk)]?.drafts.length ?? 0, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
   );
   const wideLeft = chart.leftView !== "record";
 
@@ -1340,8 +1345,8 @@ export default function WardApp() {
     if (o) setFront((f) => (f[o] === NEW_TAB ? { ...f, [o]: undefined } : f));
   };
 
-  const switchRole = (r: Role) => {
-    auditLog({ role: r, actor: STAFF[r].name, action: "職種を選んで入った（デモではログインの代わり）" });
+  const switchRole = (r: Role, who?: string) => {
+    auditLog({ role: r, actor: who ?? (r === "医師" ? doctorName : STAFF[r].name), action: "職種を選んで入った（デモではログインの代わり）" });
     setRole(r);
     // Charts stay open; those under a screen the role cannot open move to its first patient list.
     const moved = rehome(patientTabs, wardTabsFor(r));
@@ -1354,6 +1359,12 @@ export default function WardApp() {
     setNewTabFor(null);
     setPanel(null);
   };
+  // 医師 as another person (研修医・指導医…): a login stand-in like the role.
+  const switchDoctor = (name: string) => {
+    if (role !== "医師") switchRole("医師", name);
+    else if (name !== doctorName) auditLog({ role: "医師", actor: name, action: "医師を選んで入った（デモではログインの代わり）" });
+    setDoctorName(name);
+  };
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
@@ -1362,7 +1373,7 @@ export default function WardApp() {
   };
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
-  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => findPatient(i.patientId)?.attending === me.name).length : 0, admit: admitDue };
+  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";
@@ -2924,11 +2935,15 @@ export default function WardApp() {
 
   return (
     <RoleProvider value={role}>
+    <MeProvider value={me}>
     <div className="flex h-screen flex-col print:hidden">
       <div aria-hidden className="standalone-edge" />
       <AppFrame
         role={role}
         onRole={switchRole}
+        meName={me.name}
+        doctors={DOCTORS}
+        onDoctor={switchDoctor}
         areas={areas}
         area={area}
         onArea={openArea}
@@ -3085,6 +3100,7 @@ export default function WardApp() {
       )}
       {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
     </div>
+    </MeProvider>
     </RoleProvider>
   );
 }

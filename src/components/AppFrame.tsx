@@ -46,9 +46,20 @@ export interface TabRow {
   plus?: { label: string; title: string; onClick: () => void };
 }
 
+/** A person to choose inside a role (医師: 研修医・専攻医・指導医・ほかのチーム). */
+export interface PersonChoice {
+  name: string;
+  note: string;
+}
+
 interface Props {
   role: Role;
   onRole: (r: Role) => void;
+  /** The name of the person now (when the role has more than one to choose from). */
+  meName?: string;
+  /** The doctors to choose from inside 医師, and choosing one. */
+  doctors?: PersonChoice[];
+  onDoctor?: (name: string) => void;
   /** The places and tools this role uses. */
   areas: Area[];
   /** ① the place chosen in the left menu. */
@@ -255,14 +266,14 @@ function TodoButton({ todos, narrow }: { todos: Todo[]; narrow?: boolean }) {
 }
 
 /** 自分: the role (login stand-in for the demo) and the audit log. */
-function UserButton({ role, onRole, onArea, auditOn, extractOn, narrow }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; narrow?: boolean }) {
+function UserButton({ role, onRole, onArea, auditOn, extractOn, narrow, meName, doctors, onDoctor }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; narrow?: boolean; meName?: string; doctors?: PersonChoice[]; onDoctor?: (name: string) => void }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   return (
     <div className="relative">
       <button ref={btn} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} title="職種の切り替え（デモではログインの代わり）・監査ログ" className={`${navItem(false, narrow)} border border-rule bg-sheet`}>
         <UserRound size={16} className="shrink-0 text-ink-soft" />
-        <NavLabel full={`${role}：${STAFF[role].name}`} short={role} narrow={narrow} />
+        <NavLabel full={`${role}：${meName ?? STAFF[role].name}`} short={role} narrow={narrow} />
         <ChevronDown size={13} className={`shrink-0 text-ink-faint ${narrow ? "hidden" : "hidden lg:inline"}`} />
       </button>
       <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="beside" width={288}>
@@ -279,8 +290,31 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, narrow }: { role
                 className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-paper pointer-coarse:py-2 ${r === role ? "font-bold text-ai" : ""}`}
               >
                 {ROLE_LONG[r]}
-                <span className="text-xs text-ink-faint">{STAFF[r].name}</span>
+                <span className="text-xs text-ink-faint">{r === role && meName ? meName : STAFF[r].name}</span>
               </button>
+              {r === "医師" && doctors && onDoctor && (
+                <ul aria-label="医師を選ぶ" className="mb-1 ml-4 border-l border-rule-soft pl-1">
+                  {doctors.map((d) => {
+                    const on = role === "医師" && meName === d.name;
+                    return (
+                      <li key={d.name}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => {
+                            setOpen(false);
+                            onDoctor(d.name);
+                          }}
+                          className={`w-full rounded px-2 py-0.5 text-left text-[13px] hover:bg-paper pointer-coarse:py-1.5 ${on ? "font-bold text-ai" : ""}`}
+                        >
+                          {d.name}
+                          <span className="block text-[11px] font-normal leading-tight text-ink-faint">{d.note}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </li>
           ))}
         </ul>
@@ -396,7 +430,7 @@ export function AppFrame(p: Props) {
             </button>
           )}
           <TodoButton todos={p.todos} narrow={narrow} />
-          <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} narrow={narrow} />
+          <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} narrow={narrow} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} />
         </div>
       </nav>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
