@@ -4,15 +4,88 @@
 // ガイドライン 第7.0版」（令和8年6月）システム運用編 14章：入力者・確定者・日時を残し、確定後の更新は
 // 履歴を残して前後を比べられ、更新の順序が分かること。
 
-import type { DayOffset, NoteEntry, NoteVersion } from "./types";
+import type { DayOffset, FocusPart, NoteEntry, NoteVersion } from "./types";
 
 export type { NoteVersion };
 
 const KEYS = ["s", "o", "a", "p"] as const;
 
-/** "S) … O) … A) … P) …" becomes SOAP sections; anything else stays one body of text. */
-export function parseNote(raw: string): Pick<NoteEntry, "soap" | "text"> {
+/** What a note holds: SOAP sections, foci with D・Act・R, a 経時記録, or one body of text. */
+export type NoteContent = Pick<NoteEntry, "soap" | "text" | "focus" | "timeline">;
+
+// 看護記録の形式: SOAP、フォーカスチャーティング（D・Act・R）、経時記録 — 富山市民病院 システム機能一覧
+// 1.3(3)(5)（看護問題（SOAP）・フォーカス（D･Act･R）・経時記録の区分で記載し、絞り込む）、電子カルテ標準仕様研究会
+// 標準仕様書 v1.0 1.03 看護記録 1（フォーカス事項に対して D/Act/R 形式）.
+export const NOTE_FORM_SOURCES = [
+  { name: "電子カルテ標準仕様研究会「電子カルテシステム標準仕様書 v1.0」1.03 看護記録 1 フォーカス＆SOAP", url: "http://hci-bc.com/pdf/StandardSpec_v1body_c.pdf" },
+  { name: "富山市民病院 システム機能一覧 1.3 フォーカス及びSOAP (3)(5)", url: "https://www.tch.toyama.toyama.jp/tmh/02_3_siyousyo_system.pdf" },
+];
+
+const FOCUS_MARK = /^(D|Act|R)\)[ \t]?/i;
+const TITLE_MARK = /^[#＃][ \t]?/;
+const TIME_LINE = /^(\d{1,2}:\d{2})[ \t]?(.*)$/;
+const TIMELINE_HEAD = "【経時記録】";
+
+const isFocusText = (text: string) => /^(D|Act|R)\)/im.test(text);
+const isTimelineText = (text: string) => {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines[0] === TIMELINE_HEAD || (lines.length > 0 && lines.every((l) => TIME_LINE.test(l)));
+};
+
+function parseFocus(text: string): FocusPart[] {
+  const out: (FocusPart & { at?: "title" | "d" | "act" | "r" })[] = [];
+  const cur = () => out.at(-1) ?? (out.push({ title: "" }), out.at(-1)!);
+  const add = (f: FocusPart & { at?: string }, k: "title" | "d" | "act" | "r", v: string) => {
+    if (k === "title") f.title = f.title ? `${f.title} ${v}` : v;
+    else f[k] = f[k] ? `${f[k]}\n${v}` : v;
+  };
+  for (const line of text.split("\n")) {
+    if (TITLE_MARK.test(line)) {
+      out.push({ title: line.replace(TITLE_MARK, "").trim(), at: "title" });
+      continue;
+    }
+    const m = line.match(FOCUS_MARK);
+    const f = cur();
+    if (m) {
+      const k = m[1].toLowerCase() === "d" ? "d" : m[1].toLowerCase() === "r" ? "r" : "act";
+      f.at = k;
+      add(f, k, line.slice(m[0].length));
+    } else if (line.trim()) add(f, f.at ?? "title", line);
+  }
+  return out
+    .map((f) => ({ title: f.title.trim(), ...(f.d?.trim() ? { d: f.d.trim() } : {}), ...(f.act?.trim() ? { act: f.act.trim() } : {}), ...(f.r?.trim() ? { r: f.r.trim() } : {}) }))
+    .filter((f) => f.title || f.d || f.act || f.r);
+}
+
+function parseTimeline(text: string): NonNullable<NoteEntry["timeline"]> {
+  const out: NonNullable<NoteEntry["timeline"]> = [];
+  for (const line of text.split("\n")) {
+    if (line.trim() === TIMELINE_HEAD) continue;
+    const m = line.match(TIME_LINE);
+    if (m) out.push({ time: m[1].padStart(5, "0"), text: m[2] });
+    else if (line.trim()) {
+      const last = out.at(-1);
+      if (last) last.text = last.text ? `${last.text}\n${line.trim()}` : line.trim();
+      else out.push({ time: "", text: line.trim() });
+    }
+  }
+  return out.map((x) => ({ ...x, text: x.text.trim() })).filter((x) => x.text);
+}
+
+/**
+ * "S) … O) … A) … P) …" becomes SOAP sections; "# …／D) …／Act) …／R) …" foci; "【経時記録】" and lines
+ * starting with a clock time a 経時記録; anything else stays one body of text.
+ */
+export function parseNote(raw: string): NoteContent {
   const text = raw.replace(/\s+$/, "");
+  if (isFocusText(text)) {
+    const focus = parseFocus(text);
+    return focus.length ? { focus } : { text: "" };
+  }
+  if (isTimelineText(text)) {
+    const timeline = parseTimeline(text);
+    return timeline.length ? { timeline } : { text: "" };
+  }
   const marks = [...text.matchAll(/^([SOAP])\)\s?/gim)];
   if (marks.length === 0) return { text: text.trim() };
   const before = text.slice(0, marks[0].index).trim();
@@ -28,15 +101,84 @@ export function parseNote(raw: string): Pick<NoteEntry, "soap" | "text"> {
 }
 
 /** The note back as editable text. */
-export function noteText(n: Pick<NoteEntry, "soap" | "text">): string {
+export function noteText(n: NoteContent): string {
   if (n.soap) return KEYS.filter((k) => n.soap?.[k]).map((k) => `${k.toUpperCase()}) ${n.soap![k]}`).join("\n");
+  if (n.focus) return n.focus.map((f) => [f.title && `# ${f.title}`, f.d && `D) ${f.d}`, f.act && `Act) ${f.act}`, f.r && `R) ${f.r}`].filter(Boolean).join("\n")).join("\n");
+  if (n.timeline) return [TIMELINE_HEAD, ...n.timeline.map((x) => `${x.time} ${x.text}`.trim())].join("\n");
   return n.text ?? "";
 }
 
-/** Nothing written yet besides the template. */
+/** Nothing written yet besides the frame. */
 export function isBlankNote(raw: string): boolean {
-  const p = parseNote(raw);
-  return p.soap ? Object.values(p.soap).every((v) => !v?.trim()) : !p.text?.trim();
+  return !noteText(parseNote(raw)).trim();
+}
+
+// ---------- 記録の形式（看護） ----------
+
+export const NOTE_FORMS = ["SOAP", "フォーカス（DAR）", "経時記録", "自由文"] as const;
+export type NoteForm = (typeof NOTE_FORMS)[number];
+
+/** The form a note is being written in (from its marks, so an empty frame counts too). */
+export function noteFormOf(raw: string): NoteForm {
+  if (isFocusText(raw) || (/^[#＃]/m.test(raw) && !/^[SOAP]\)/im.test(raw))) return "フォーカス（DAR）";
+  const first = raw.split("\n").map((l) => l.trim()).find(Boolean);
+  if (first === TIMELINE_HEAD || (first && isTimelineText(raw))) return "経時記録";
+  if (/^[SOAP]\)/im.test(raw)) return "SOAP";
+  return "自由文";
+}
+
+/** The empty frame of a form (a 経時記録 starts with the time now). */
+export function formFrame(form: NoteForm, time: string): string {
+  switch (form) {
+    case "SOAP":
+      return "S)\nO)\nA)\nP)\n";
+    case "フォーカス（DAR）":
+      return "# \nD) \nAct) \nR) \n";
+    case "経時記録":
+      return `${TIMELINE_HEAD}\n${time} \n`;
+    case "自由文":
+      return "";
+  }
+}
+
+// ---------- 記録の部分で絞る（全・#・S・O・A・P・D・Act・R・経時） ----------
+
+export const NOTE_PARTS = ["全", "#", "S", "O", "A", "P", "D", "Act", "R", "経時"] as const;
+export type NotePart = (typeof NOTE_PARTS)[number];
+export const NOTE_PART_TITLE: Record<NotePart, string> = {
+  全: "すべての部分",
+  "#": "フォーカス（#）の見出しだけ",
+  S: "S（主観的情報）",
+  O: "O（客観的情報）",
+  A: "A（評価）",
+  P: "P（計画）",
+  D: "D（データ）",
+  Act: "Act（行為）",
+  R: "R（反応）",
+  経時: "経時記録",
+};
+
+/** Whether a note has the part (全 = any note). */
+export function hasPart(n: NoteContent, part: NotePart): boolean {
+  switch (part) {
+    case "全":
+      return true;
+    case "#":
+      return !!n.focus?.some((f) => f.title);
+    case "S":
+    case "O":
+    case "A":
+    case "P":
+      return !!n.soap?.[part.toLowerCase() as (typeof KEYS)[number]];
+    case "D":
+      return !!n.focus?.some((f) => f.d);
+    case "Act":
+      return !!n.focus?.some((f) => f.act);
+    case "R":
+      return !!n.focus?.some((f) => f.r);
+    case "経時":
+      return !!n.timeline?.length;
+  }
 }
 
 /** A stable key for a note (notes from the stored record have no id). */
@@ -44,7 +186,7 @@ export const noteKey = (e: NoteEntry) => e.id ?? `${e.day}|${e.time}|${e.author}
 
 /** All versions of a note, oldest first; the last one is what the chart shows. */
 export function versionsOf(e: NoteEntry): NoteVersion[] {
-  return e.versions ?? [{ day: e.day, time: e.time, author: e.author, soap: e.soap, text: e.text }];
+  return e.versions ?? [{ day: e.day, time: e.time, author: e.author, soap: e.soap, text: e.text, focus: e.focus, timeline: e.timeline }];
 }
 
 /** Only the person who wrote a note corrects it; others write a new note. */
@@ -54,7 +196,7 @@ export const canRevise = (e: NoteEntry, me: string) => e.author === me;
 export function reviseNote(e: NoteEntry, raw: string, by: string, at: { day: DayOffset; time: string }, reason: string): NoteEntry {
   const next = parseNote(raw);
   const v: NoteVersion = { ...at, author: by, ...next, reason: reason.trim() };
-  return { ...e, soap: next.soap, text: next.text, versions: [...versionsOf(e), v] };
+  return { ...e, soap: next.soap, text: next.text, focus: next.focus, timeline: next.timeline, versions: [...versionsOf(e), v] };
 }
 
 export type DiffLine = { kind: "same" | "removed" | "added"; text: string };
@@ -85,3 +227,6 @@ export function diffLines(before: string, after: string): DiffLine[] {
 
 /** The note template for a role: SOAP for doctors, nurses and pharmacists; free text otherwise. */
 export const noteTemplate = (role: string) => (role === "医師" || role === "看護師" || role === "薬剤師" ? "S)\nO)\nA)\nP)\n" : "");
+
+/** The frame after a note is confirmed: a nurse goes on in the form just used; others start from their template. */
+export const nextFrame = (role: string, confirmed: string, time: string) => (role === "看護師" ? formFrame(noteFormOf(confirmed), time) : noteTemplate(role));

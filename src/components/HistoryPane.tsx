@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Copy, GripVertical, History, MoreHorizontal, PencilLine, Search, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS } from "@/lib/master";
-import { canRevise, diffLines, noteText, versionsOf } from "@/lib/notes";
+import { NOTE_PARTS, NOTE_PART_TITLE, canRevise, diffLines, hasPart, noteText, versionsOf, type NotePart } from "@/lib/notes";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
@@ -162,6 +162,8 @@ const KINDS: { key: string; label: string; test: (e: HistoryEntry) => boolean }[
   { key: "doctor", label: "医師の記載", test: (e) => e.kind === "note" && e.role === "医師" },
   { key: "nurse", label: "看護の記載", test: (e) => e.kind === "note" && e.role === "看護師" },
   { key: "staff", label: "ほかの職種", test: (e) => e.kind === "note" && e.role !== "医師" && e.role !== "看護師" },
+  { key: "focus", label: "フォーカス（DAR）", test: (e) => e.kind === "note" && !!e.focus?.length },
+  { key: "timeline", label: "経時記録", test: (e) => e.kind === "note" && !!e.timeline?.length },
   { key: "prescription", label: "内服", test: (e) => e.kind === "order" && e.order.type === "prescription" },
   { key: "injection", label: "注射", test: (e) => e.kind === "order" && e.order.type === "injection" },
   { key: "lab", label: "検体検査", test: (e) => e.kind === "order" && e.order.type === "lab" },
@@ -195,6 +197,8 @@ function RecordList({
   const root = useRef<HTMLDivElement>(null);
   const [kind, setKind] = useState(KINDS.some((k) => k.key === kindInit) ? kindInit : "all");
   const [q, setQ] = useState("");
+  // 記事の部分（全・#・S・O・A・P・D・Act・R・経時）: only notes with that part, showing only that part.
+  const [part, setPart] = useState<NotePart>("全");
 
   useEffect(() => {
     if (selectedDay === null) return;
@@ -206,8 +210,8 @@ function RecordList({
   const visible = entries.filter((e) => showStopped || e.kind !== "order" || e.status !== "中止");
   const k = KINDS.find((x) => x.key === kind)!;
   const key = searchKey(q.trim());
-  const shown = visible.filter((e) => k.test(e) && (!key || searchKey(textOf(e, today)).includes(key)));
-  const narrowed = kind !== "all" || !!key;
+  const shown = visible.filter((e) => k.test(e) && (part === "全" || (e.kind === "note" && hasPart(e, part))) && (!key || searchKey(textOf(e, today)).includes(key)));
+  const narrowed = kind !== "all" || !!key || part !== "全";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -236,10 +240,29 @@ function RecordList({
             )}
           </label>
         </div>
+        <div role="group" aria-label="記事の部分で絞る" className="flex flex-wrap items-center gap-0.5 text-[11px]">
+          {NOTE_PARTS.map((x) => {
+            const n = x === "全" ? null : visible.filter((e) => e.kind === "note" && hasPart(e, x)).length;
+            return (
+              <button
+                key={x}
+                type="button"
+                aria-pressed={part === x}
+                disabled={n === 0}
+                title={`${NOTE_PART_TITLE[x]}${n === null ? "" : `（${n}件）`}`}
+                onClick={() => setPart(x)}
+                className={`nums min-w-6 rounded border px-1 py-0.5 pointer-coarse:py-1 ${part === x ? "border-ai bg-ai font-bold text-white" : "border-rule bg-paper text-ink-soft hover:text-ink disabled:opacity-30"} ${x === "D" ? "ml-1.5" : ""} ${x === "経時" ? "ml-1.5" : ""}`}
+              >
+                {x}
+              </button>
+            );
+          })}
+        </div>
         {narrowed && (
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
               {kind !== "all" ? `「${k.label}」` : ""}
+              {part !== "全" ? `「${NOTE_PART_TITLE[part]}」` : ""}
               {key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shown.length}件
             </b>
             <button
@@ -247,6 +270,7 @@ function RecordList({
               onClick={() => {
                 setKind("all");
                 setQ("");
+                setPart("全");
               }}
               className="ml-auto underline"
             >
@@ -277,7 +301,7 @@ function RecordList({
               ) : (
                 <ol className="space-y-2">
                   {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} />}</li>
+                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} part={part} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} />}</li>
                   ))}
                 </ol>
               )}
@@ -345,7 +369,7 @@ const ROLE_STYLE: Record<NoteEntry["role"], string> = {
   検査室: "text-fuji",
 };
 
-function Note({ entry, today, onRevise, onDo }: { entry: NoteEntry; today: CalendarDate; onRevise?: (e: NoteEntry, text: string, reason: string) => void; onDo?: (p: DoPayload) => void }) {
+function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry; today: CalendarDate; part?: NotePart; onRevise?: (e: NoteEntry, text: string, reason: string) => void; onDo?: (p: DoPayload) => void }) {
   const me = useMe();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -444,7 +468,7 @@ function Note({ entry, today, onRevise, onDo }: { entry: NoteEntry; today: Calen
           </div>
         </div>
       ) : (
-        <NoteBody n={entry} />
+        <NoteBody n={entry} part={part} />
       )}
       {entry.figures && entry.figures.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-2">
@@ -488,11 +512,56 @@ function Note({ entry, today, onRevise, onDo }: { entry: NoteEntry; today: Calen
   );
 }
 
-function NoteBody({ n }: { n: Pick<NoteEntry, "soap" | "text"> }) {
+function NoteBody({ n, part = "全" }: { n: Pick<NoteEntry, "soap" | "text" | "focus" | "timeline">; part?: NotePart }) {
+  if (n.focus?.length) {
+    const rows = [
+      ["d", "D"],
+      ["act", "Act"],
+      ["r", "R"],
+    ] as const;
+    return (
+      <div className="space-y-1">
+        {n.focus
+          .filter((f) => part === "全" || (part === "#" ? !!f.title : !!f[rows.find((r) => r[1] === part)?.[0] ?? "d"]))
+          .map((f, i) => (
+            <div key={i}>
+              <div className="font-bold text-wakatake"># {f.title || "（フォーカスなし）"}</div>
+              {part !== "#" && (
+                <dl className="grid grid-cols-[2.25rem_1fr] gap-y-0.5">
+                  {rows.map(([k, label]) =>
+                    f[k] && (part === "全" || part === label) ? (
+                      <div key={k} className="contents">
+                        <dt className="font-bold text-ink-faint">{label})</dt>
+                        <dd className="whitespace-pre-wrap">{f[k]}</dd>
+                      </div>
+                    ) : null,
+                  )}
+                </dl>
+              )}
+            </div>
+          ))}
+      </div>
+    );
+  }
+  if (n.timeline?.length) {
+    return (
+      <div>
+        <div className="text-[11px] font-bold text-ink-faint">経時記録</div>
+        <dl className="nums grid grid-cols-[3rem_1fr] gap-y-0.5 border-l-2 border-wakatake/40 pl-2">
+          {n.timeline.map((x, i) => (
+            <div key={i} className="contents">
+              <dt className="font-bold text-ink-soft">{x.time || "—"}</dt>
+              <dd className="whitespace-pre-wrap">{x.text}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    );
+  }
   return n.soap ? (
     <dl className="grid grid-cols-[1.5rem_1fr] gap-y-0.5">
       {(["s", "o", "a", "p"] as const).map((k) =>
-        n.soap?.[k] ? (
+        n.soap?.[k] && (part === "全" || part === k.toUpperCase()) ? (
           <div key={k} className="contents">
             <dt className="font-bold text-ink-faint">{k.toUpperCase()})</dt>
             <dd className="whitespace-pre-wrap">{n.soap[k]}</dd>

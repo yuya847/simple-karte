@@ -107,6 +107,14 @@ describe("fillTemplate", () => {
     expect(startValues(t, facts)).toEqual({ "数値:身長": "165", "数値:体重": "58" });
   });
 
+  it("the nursing template becomes a focus note", () => {
+    const t = parseTemplate(BUILTIN_TEMPLATES.find((x) => x.id === "builtin-fall")!.body);
+    const n = parseNote(fillTemplate(t, { "選択:状況": "座り込み", "複数:行ったこと": ["医師へ報告"] }, facts));
+    expect(n.focus?.[0].title).toBe("転倒・転落");
+    expect(n.focus?.[0].d).toContain("座り込み");
+    expect(n.focus?.[0].act).toContain("医師へ報告");
+  });
+
   it("every built-in template reads without errors", () => {
     for (const b of BUILTIN_TEMPLATES) expect(parseTemplate(b.body).errors).toEqual([]);
   });
@@ -115,7 +123,7 @@ describe("fillTemplate", () => {
 describe("templates offered and saved", () => {
   it("built-ins by role", () => {
     expect(templatesFor("医師", []).builtIn.map((t) => t.name)).toEqual(["入院時記録", "回診", "退院前カンファレンス"]);
-    expect(templatesFor("看護師", []).builtIn.map((t) => t.name)).toEqual(["退院前カンファレンス"]);
+    expect(templatesFor("看護師", []).builtIn.map((t) => t.name)).toEqual(["転倒・転落（フォーカス）", "退院前カンファレンス"]);
     expect(templatesFor("医事課", []).builtIn).toEqual([]);
   });
 

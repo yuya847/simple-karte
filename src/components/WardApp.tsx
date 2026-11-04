@@ -183,7 +183,7 @@ import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
-import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
+import { nextFrame, noteKey, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
@@ -2456,6 +2456,7 @@ export default function WardApp() {
                       <TodayPane
                         patient={patient}
                         today={today}
+                        nowTime={nowTime}
                         note={chart.note}
                         onNoteChange={(v) => update({ note: v })}
                         instruction={chart.instruction}
@@ -2492,7 +2493,7 @@ export default function WardApp() {
                           setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
                           auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: chart.note.replace(/\s+/g, " ").slice(0, 120) });
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
-                          update({ note: noteTemplate(me.role), figures: [], flash: "記事を確定しました。左の経過に入りました。" });
+                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], flash: "記事を確定しました。左の経過に入りました。" });
                         }}
                       />,
                     )}

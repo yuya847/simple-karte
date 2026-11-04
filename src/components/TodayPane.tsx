@@ -9,7 +9,7 @@ import type { Patient } from "@/lib/types";
 import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
-import { isBlankNote } from "@/lib/notes";
+import { NOTE_FORMS, NOTE_FORM_SOURCES, formFrame, isBlankNote, noteFormOf } from "@/lib/notes";
 import { rpNumbers } from "@/lib/rp";
 import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
 import { expandAt, loadPhrases, type Phrase } from "@/lib/phrases";
@@ -25,6 +25,8 @@ export interface DraftMeta {
 interface Props {
   patient: Patient;
   today: CalendarDate;
+  /** Now ("HH:MM"), for a line of a 経時記録. */
+  nowTime: string;
   note: string;
   onNoteChange: (v: string) => void;
   instruction: string;
@@ -108,6 +110,39 @@ export function TodayPane(p: Props) {
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
               {toolButton("template", "テンプレート", LayoutTemplate)}
               {toolButton("phrase", "定型文", TextQuote)}
+              {me.role === "看護師" && (
+                <span role="group" aria-label="記録の形式" className="ml-auto flex items-center gap-0.5 rounded-md border border-rule p-0.5 text-[11px]">
+                  {NOTE_FORMS.map((f) => {
+                    const on = noteFormOf(p.note) === f;
+                    const blank = isBlankNote(p.note);
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={!on && !blank}
+                        title={on ? `${f}で書いています` : blank ? `${f}の枠にする` : "書きかけがあるので形式は変えられません（確定するか、消してから）"}
+                        onClick={() => !on && p.onNoteChange(formFrame(f, p.nowTime))}
+                        className={`rounded px-1.5 py-0.5 pointer-coarse:py-1 ${on ? "bg-wakatake font-bold text-white" : "text-ink-soft hover:text-ink disabled:opacity-40"}`}
+                      >
+                        {f}
+                      </button>
+                    );
+                  })}
+                </span>
+              )}
+              {me.role === "看護師" && noteFormOf(p.note) === "経時記録" && (
+                <button
+                  type="button"
+                  onClick={() => put((n) => {
+                    const text = `${n.replace(/\s*$/, "")}\n${p.nowTime} `;
+                    return { text, caret: text.length };
+                  })}
+                  className="rounded-md border border-wakatake/50 px-2 py-0.5 text-xs text-wakatake hover:bg-wakatake-soft pointer-coarse:py-1.5"
+                >
+                  ＋今の時刻（{p.nowTime}）
+                </button>
+              )}
             </div>
           )}
           {!noteLocked && tool === "template" && (
@@ -140,11 +175,25 @@ export function TodayPane(p: Props) {
             rows={7}
             className="nums w-full resize-y rounded-md border border-rule bg-sheet px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-ai read-only:bg-paper"
           />
+          {me.role === "看護師" && !noteLocked && (
+            <p className="mt-0.5 text-[10px] text-ink-faint">
+              記録の形式（SOAP・フォーカス・経時記録）の根拠：
+              {NOTE_FORM_SOURCES.map((x, i) => (
+                <a key={x.url} href={x.url} target="_blank" rel="noreferrer" className="underline">
+                  {i > 0 ? "、" : ""}
+                  {x.name}
+                </a>
+              ))}
+            </p>
+          )}
           <div className="mt-1 flex items-center gap-2">
             <DenyNote action="note" />
             {!noteLocked && (
               <>
-                <span className="hint text-[11px] text-ink-faint">確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。</span>
+                <span className="hint text-[11px] text-ink-faint">
+                  確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。
+                  {me.role === "看護師" && "フォーカスは「# 見出し」の下に D)（データ）・Act)（行為）・R)（反応）、経時記録は1行ずつ時刻から書きます。"}
+                </span>
                 <button
                   type="button"
                   disabled={isBlankNote(p.note)}

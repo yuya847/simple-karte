@@ -90,6 +90,10 @@ export interface NoteEntry {
   /** SOAP sections, or a single free-text body. */
   soap?: { s?: string; o?: string; a?: string; p?: string };
   text?: string;
+  /** 看護記録 in フォーカスチャーティング: each focus (#) with D（データ）・Act（行為）・R（反応）. */
+  focus?: FocusPart[];
+  /** 看護記録 as 経時記録: what happened, by clock time. */
+  timeline?: { time: string; text: string }[];
   /** Notes confirmed in this app carry an id. */
   id?: string;
   /** シェーマ drawn for the note (PNG data URLs with a caption). */
@@ -98,12 +102,21 @@ export interface NoteEntry {
   versions?: NoteVersion[];
 }
 
+export interface FocusPart {
+  title: string;
+  d?: string;
+  act?: string;
+  r?: string;
+}
+
 export interface NoteVersion {
   day: DayOffset;
   time: string;
   author: string;
   soap?: NoteEntry["soap"];
   text?: string;
+  focus?: NoteEntry["focus"];
+  timeline?: NoteEntry["timeline"];
   /** Why it was corrected (empty for the first version). */
   reason?: string;
 }
