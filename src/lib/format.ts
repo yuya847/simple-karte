@@ -43,7 +43,10 @@ export function drugName(code: string): string {
 }
 
 export function labName(code: string): string {
-  return findSet(code)?.name ?? findLab(code)?.name ?? code;
+  // The master's name may carry an explanation in parentheses (「PT（プロトロンビン時間。…）」): the record keeps
+  // the name only, so an order line stays one line.
+  const raw = findSet(code)?.name ?? findLab(code)?.name ?? code;
+  return raw.replace(/（[^（）]*。[^（）]*）/g, "").trim();
 }
 
 export function injectionLines(order: InjectionOrder, today: CalendarDate): { main: string; detail: string } {
