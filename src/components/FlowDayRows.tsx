@@ -101,7 +101,7 @@ export function FlowDayRows({ days, box, entries, moves, info, labelW, today, ad
         </Line>
       ))}
       {info?.onAddEvent && events.length < FLOW_EVENT_MAX && (
-        <div className="flex border-b border-rule-soft">
+        <div className="flex border-b border-rule-soft print:hidden">
           <div className="shrink-0" style={{ width: labelW }} />
           {adding ? (
             <EventForm

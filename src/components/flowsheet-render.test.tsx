@@ -72,7 +72,7 @@ describe("経過表の画面", () => {
 
   it("groups with headings that fold, and the 行の設定 panel", () => {
     const html = render("90010244", { care: { orders: INITIAL_CARE_ORDERS.filter((o) => o.patientId === "90010244"), records: initialCareRecords(), sessionStart: 540 } });
-    for (const t of ["バイタル", "観察・記録", "看護ケア・観察（看護師の指示）", "内服", "注射", "検体検査", "記録", "行の設定"]) expect(html).toContain(t);
+    for (const t of ["バイタル", "観察・記録", "看護ケア・観察（看護師の指示）", "内服", "注射", "検体検査", "記録", "行の設定", "温度板を印刷（A4横）"]) expect(html).toContain(t);
     const layout = saveSet(toggleCollapsed(DEFAULT_LAYOUT, "inj"), "呼吸", ["痰の量"]);
     const panel = renderToStaticMarkup(<FlowLayoutPanel layout={layout} onLayout={() => {}} careItems={["口腔ケア", "痰の量"]} onClose={() => {}} />);
     expect(panel).toContain("観察項目のセット");

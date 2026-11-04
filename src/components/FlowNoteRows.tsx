@@ -8,20 +8,20 @@ import type { DayBox } from "./FlowDayRows";
 
 const MARK_STYLE: Record<NoteGroupKey, string> = { doctor: "border-ai/50 text-ai", nurse: "border-wakatake/50 text-wakatake", staff: "border-yamabuki/50 text-yamabuki" };
 
-/**
- * 記録: each day, how many notes the doctors (医), nurses (看) and the other staff (他) wrote. Pressing a mark
- * opens that day in 経過 with only those notes; 「記事を書く」 opens the note on the right.
- */
-/** 「記事を書く」 in the heading of the 記録 group. */
+/** 「記事を書く」 in the heading of the 記録 group: opens the note on the right. */
 export function WriteNoteButton({ onWrite }: { onWrite: () => void }) {
   return (
-    <button type="button" onClick={onWrite} className="ml-auto flex items-center gap-1 rounded border border-ai/50 px-1.5 py-0.5 text-[10px] font-bold text-ai hover:bg-ai-soft">
+    <button type="button" onClick={onWrite} className="ml-auto flex items-center gap-1 rounded border border-ai/50 px-1.5 py-0.5 text-[10px] font-bold text-ai hover:bg-ai-soft print:hidden">
       <PencilLine size={11} />
       記事を書く
     </button>
   );
 }
 
+/**
+ * 記録: each day, how many notes the doctors (医), nurses (看) and the other staff (他) wrote. Pressing a mark
+ * opens that day in 経過 with only those notes. Zoomed in, each note sits at its time.
+ */
 export function FlowNoteRows({ entries, days, box, labelW, onOpen, zoom }: { entries: HistoryEntry[]; days: DayOffset[]; box: DayBox; labelW: number; onOpen?: (day: DayOffset, kind: NoteGroupKey) => void; zoom?: FlowZoom }) {
   const mark = Object.fromEntries(NOTE_GROUPS.map((g) => [g.key, g]));
   return (

@@ -11,7 +11,7 @@ export function FlowGroup({ id, title, layout, onLayout, extra, children }: { id
     <section aria-label={title} className="mt-3 first:mt-0">
       <div className="flex items-center gap-2 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">
         <button type="button" onClick={() => onLayout(toggleCollapsed(layout, id))} aria-expanded={!folded} className="flex items-center gap-0.5 rounded px-0.5 hover:bg-paper hover:text-ink">
-          {folded ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+          <span className="print:hidden">{folded ? <ChevronRight size={12} /> : <ChevronDown size={12} />}</span>
           {title}
         </button>
         {folded && <span className="font-normal text-ink-faint">（たたんでいます）</span>}

@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Copy, ClipboardPaste, Rows3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, ClipboardPaste, Printer, Rows3 } from "lucide-react";
 import { TabChoice } from "./TabChoice";
 import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal, flushSync } from "react-dom";
 import { addDays, formatShort, minutesOf, type CalendarDate } from "@/lib/dates";
 import { abs, doseTimes, fluidByDay, orderInterval } from "@/lib/flowsheet";
 import { durationText, labName, scheduleTextFor } from "@/lib/format";
@@ -45,6 +46,8 @@ const GRID = "#ebe4d4";
 const SURFACE = "#fffdf7";
 
 const LABEL_W = 76;
+/** The sheet's width on A4 landscape (297 mm − margins, at 96 px an inch). */
+const PRINT_W = 1000;
 
 const clock = (min: number) => {
   const m = ((min % 1440) + 1440) % 1440;
@@ -93,6 +96,8 @@ export interface FlowSheetProps {
   onEntry?: (req: FlowEntry) => void;
   /** Orders of this patient a nurse has not taken yet (指示受け). */
   untaken?: string[];
+  /** Printed as 温度板 (for the audit log). */
+  onPrint?: () => void;
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -119,7 +124,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", onEntry, untaken = [] }: FlowSheetProps) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", onEntry, untaken = [], onPrint }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -132,6 +137,22 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const [scale, setScale] = useState<FlowScale>(initialScale);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
+  // 温度板の印刷: the period shown, drawn at the width of A4 landscape while the print dialog is open.
+  const [printing, setPrinting] = useState(false);
+  const print = () => {
+    flushSync(() => {
+      setPrinting(true);
+      setHover(null);
+      setMenu(null);
+    });
+    const done = () => {
+      setPrinting(false);
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+    onPrint?.();
+  };
   // A pressed cell with more than one entry (or one this person may not make) shows its choices.
   const deny = useDeny();
   const [menu, setMenu] = useState<{ x: number; y: number; title: string; reqs: FlowEntry[] } | null>(null);
@@ -140,7 +161,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const { lo: t0, hi: t1 } = win;
 
   const days: DayOffset[] = daysIn(win);
-  const plotW = Math.max((width || 600) - LABEL_W, win.minWidth);
+  const plotW = printing ? PRINT_W - LABEL_W : Math.max((width || 600) - LABEL_W, win.minWidth);
   const xAbs = (a: number) => ((a - t0) / (t1 - t0)) * plotW;
   const x = (day: DayOffset, time: string) => xAbs(abs(day, time));
   /** Where a day's cell sits on the time axis (cut to the window). */
@@ -485,6 +506,62 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
     notes: { show: true, extra: onWriteNote ? <WriteNoteButton onWrite={onWriteNote} /> : undefined, body: <FlowNoteRows entries={entries} days={days} box={dayBox} labelW={LABEL_W} onOpen={onOpenRecord} zoom={zoom} /> },
   };
 
+  // The sheet itself: on the screen, and the same on paper (温度板) when printing.
+  const sheet = (
+    <div style={{ width: LABEL_W + plotW }} className="nums text-[11px]">
+      {/* Date header */}
+      <Row label="" sub="病日">
+        <div className={`relative ${win.byDay ? "h-9" : "h-12"}`}>
+          {days.map((d) => {
+            const b = dayBox(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                disabled={d > 0 || d < p.admittedOn}
+                onClick={() => onSelectDay(d)}
+                title={`${formatShort(addDays(today, d))}　入院${hospitalDayText(p.admittedOn, d)}${d === 0 ? "（今日）" : d > 0 ? "（明日・予定）" : ""}`}
+                className={`absolute top-0 flex h-9 flex-col items-center justify-center overflow-hidden border-l border-rule-soft text-center ${
+                  d === selectedDay && !printing ? "bg-ai text-white" : d > 0 || d < p.admittedOn ? "text-ink-faint" : d === 0 ? "text-ai hover:bg-sheet" : "hover:bg-sheet"
+                }`}
+                style={{ left: b.left, width: b.width }}
+              >
+                <span className="whitespace-nowrap font-bold">{formatShort(addDays(today, d))}</span>
+                <span className={`whitespace-nowrap text-[10px] ${d === selectedDay && !printing ? "text-white/80" : "text-ink-faint"}`}>
+                  {hospitalDayText(p.admittedOn, d)}
+                  {d === 0 && b.width >= 84 ? "・今日" : ""}
+                </span>
+              </button>
+            );
+          })}
+          {!win.byDay &&
+            win.ticks.map((t) =>
+              t.label ? (
+                <span key={t.at} className={`absolute top-9 -translate-x-1/2 whitespace-nowrap text-[10px] ${t.major ? "font-bold text-ink-soft" : "text-ink-faint"}`} style={{ left: Math.min(plotW - 8, Math.max(8, xAbs(t.at))) }}>
+                  {t.label}
+                </span>
+              ) : null,
+            )}
+        </div>
+      </Row>
+      <FlowDayRows days={days} box={dayBox} entries={orders} moves={moves} info={dayInfo} labelW={LABEL_W} today={today} admittedOn={p.admittedOn} />
+
+      {/* The groups in the order the person chose (行の設定), each can be folded. */}
+      {groupOrder(layout.order)
+        .filter((k) => groupShown(layout, k) && groups[k].show)
+        .map((k) => (
+          <FlowGroup key={k} id={k} title={FLOW_GROUPS.find((g) => g.key === k)!.title} layout={layout} onLayout={setLayout} extra={groups[k].extra}>
+            {groups[k].body}
+          </FlowGroup>
+        ))}
+
+      <p className="hint pl-[76px] pt-0.5 text-[10px] text-ink-faint">記録の印（医＝医師、看＝看護師、他＝ほかの職種の記事の数）を押すと、左の「経過」でその日のその記事だけを開きます。</p>
+      <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
+        ● 採取済み　○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
+      </p>
+    </div>
+  );
+
   return (
     <div ref={wrap} className="scroll-thin min-h-0 flex-1 overflow-auto px-3 pb-24 pt-2">
       <div className="mb-2 flex items-center gap-3 text-[11px] text-ink-faint">
@@ -537,6 +614,10 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             <Rows3 size={12} />
             行の設定
           </button>
+          <button type="button" onClick={print} title="いま出している期間と行を、A4横・カラーで印刷します" className="flex items-center gap-1 rounded border border-ai px-2 py-0.5 text-ai hover:bg-ai hover:text-white">
+            <Printer size={12} />
+            温度板を印刷（A4横）
+          </button>
         </div>
       )}
       {!showTable && configOpen && <FlowLayoutPanel layout={layout} onLayout={setLayout} careItems={careItems} onClose={() => setConfigOpen(false)} />}
@@ -557,62 +638,25 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
         </p>
       )}
       {menu && <FlowCellMenu at={menu} title={menu.title} actions={menu.reqs.map((r) => ({ label: ENTRY_LABEL[r.kind], disabled: deny(ENTRY_ACTION[r.kind]), onClick: () => onEntry?.(r) }))} onClose={closeMenu} />}
-      {showTable ? (
-        <VitalTable vitals={p.vitals} today={today} />
-      ) : (
-        <div style={{ width: LABEL_W + plotW }} className="nums text-[11px]">
-          {/* Date header */}
-          <Row label="" sub="病日">
-            <div className={`relative ${win.byDay ? "h-9" : "h-12"}`}>
-              {days.map((d) => {
-                const b = dayBox(d);
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    disabled={d > 0 || d < p.admittedOn}
-                    onClick={() => onSelectDay(d)}
-                    title={`${formatShort(addDays(today, d))}　入院${hospitalDayText(p.admittedOn, d)}${d === 0 ? "（今日）" : d > 0 ? "（明日・予定）" : ""}`}
-                    className={`absolute top-0 flex h-9 flex-col items-center justify-center overflow-hidden border-l border-rule-soft text-center ${
-                      d === selectedDay ? "bg-ai text-white" : d > 0 || d < p.admittedOn ? "text-ink-faint" : d === 0 ? "text-ai hover:bg-sheet" : "hover:bg-sheet"
-                    }`}
-                    style={{ left: b.left, width: b.width }}
-                  >
-                    <span className="whitespace-nowrap font-bold">{formatShort(addDays(today, d))}</span>
-                    <span className={`whitespace-nowrap text-[10px] ${d === selectedDay ? "text-white/80" : "text-ink-faint"}`}>
-                      {hospitalDayText(p.admittedOn, d)}
-                      {d === 0 && b.width >= 84 ? "・今日" : ""}
-                    </span>
-                  </button>
-                );
-              })}
-              {!win.byDay &&
-                win.ticks.map((t) =>
-                  t.label ? (
-                    <span key={t.at} className={`absolute top-9 -translate-x-1/2 whitespace-nowrap text-[10px] ${t.major ? "font-bold text-ink-soft" : "text-ink-faint"}`} style={{ left: Math.min(plotW - 8, Math.max(8, xAbs(t.at))) }}>
-                      {t.label}
-                    </span>
-                  ) : null,
-                )}
+      {showTable ? <VitalTable vitals={p.vitals} today={today} /> : sheet}
+      {printing &&
+        createPortal(
+          <div className="print-sheet print-color hidden bg-white p-[4mm] text-ink print:block">
+            <div className="mb-1.5 flex items-baseline gap-4 border-b-2 border-ink pb-1 text-[10pt]">
+              <b className="text-[13pt]">温度板（経過表）</b>
+              <span>
+                {p.name}（{p.id}）{p.sex} {p.age}歳　{p.room}　{p.department}　主治医 {p.attending}
+              </span>
+              <span>入院 {formatShort(addDays(today, p.admittedOn))}</span>
+              <b>{windowLabel(win, today)}</b>
+              <span className="ml-auto">
+                印刷 {formatShort(today)} {nowTime} {me.name}　架空の患者
+              </span>
             </div>
-          </Row>
-          <FlowDayRows days={days} box={dayBox} entries={orders} moves={moves} info={dayInfo} labelW={LABEL_W} today={today} admittedOn={p.admittedOn} />
-
-          {/* The groups in the order the person chose (行の設定), each can be folded. */}
-          {groupOrder(layout.order)
-            .filter((k) => groupShown(layout, k) && groups[k].show)
-            .map((k) => (
-              <FlowGroup key={k} id={k} title={FLOW_GROUPS.find((g) => g.key === k)!.title} layout={layout} onLayout={setLayout} extra={groups[k].extra}>
-                {groups[k].body}
-              </FlowGroup>
-            ))}
-
-          <p className="hint pl-[76px] pt-0.5 text-[10px] text-ink-faint">記録の印（医＝医師、看＝看護師、他＝ほかの職種の記事の数）を押すと、左の「経過」でその日のその記事だけを開きます。</p>
-          <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
-            ● 採取済み　○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
-          </p>
-        </div>
-      )}
+            {sheet}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

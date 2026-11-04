@@ -83,6 +83,11 @@ html:not([data-hints="on"]) .hint {
   .print-consent {
     page: consent;
   }
+  /* 温度板 (the flow sheet) prints in colour: the lines and the marks keep their colours. */
+  .print-color {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
   html,
   body {
     height: auto;

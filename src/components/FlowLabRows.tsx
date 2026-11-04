@@ -63,7 +63,7 @@ export function FlowLabRows({ patient, pending, orders, nowAbs, days, box, label
           </div>
         );
       })}
-      <div className="flex border-b border-rule-soft">
+      <div className="flex border-b border-rule-soft print:hidden">
         <div className="shrink-0" style={{ width: labelW }} />
         <div className="relative flex-1 py-0.5 text-[10px] text-ink-faint">
           <button type="button" onClick={() => setChoosing((v) => !v)} aria-expanded={choosing} className="flex items-center gap-1 rounded px-1 hover:bg-paper hover:text-ai">

@@ -2224,6 +2224,7 @@ export default function WardApp() {
                         setFlowReq(req);
                         setPanel(req.kind === "vitals" ? "vitals" : req.kind === "io" ? "io" : "flow-entry");
                       },
+                      onPrint: () => auditLog({ role: me.role, actor: me.name, action: "経過表（温度板）を印刷", patient: patient.name }),
                       untaken: untakenOf(allTakeRows.filter((r) => r.patientId === patient.id && !isRowTaken(r) && r.keys.some((k) => sessionKeys.has(k))).flatMap((r) => r.keys)),
                       onWriteNote: deny("note")
                         ? undefined
