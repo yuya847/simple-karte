@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { allowedWardTabs, areasFor, homeArea, nextAfterClose, ownerFor, readWardTab, rehome, WARD_TABS, wardOwner, wardTabInfo, wardTabsFor, type PatientTab } from "./nav";
+import { TABS } from "./roles";
 
 describe("① places by role", () => {
   it("everyone has 病棟 and the hospital's notices; 外来 is for doctors and nurses", () => {
@@ -74,6 +75,19 @@ describe("② inside 病棟", () => {
     expect(wardTabsFor("看護師")).toContain("meals");
     expect(wardTabsFor("MSW")).not.toContain("meals");
     expect(homeArea("管理栄養士")).toBe("ward");
+  });
+  it("職種を切り替えたときの最初の画面: 療法士 → リハビリテーション部, MSW → 病棟の入院時の評価, 管理栄養士 → 病棟の食事 (給食 is a place they can open)", () => {
+    expect(TABS.療法士[0]).toBe("rehab");
+    expect(homeArea("療法士")).toBe("rehab");
+    expect(TABS.MSW[0]).toBe("admit");
+    expect(homeArea("MSW")).toBe("ward");
+    expect(allowedWardTabs("MSW", ["admit"])).toEqual(["admit"]);
+    expect(wardTabInfo("admit").label).toBe("入院時の評価");
+    expect(wardTabsFor("MSW")).toContain("support");
+    expect(TABS.管理栄養士[0]).toBe("meals");
+    expect(wardTabInfo("meals").label).toBe("病棟の食事");
+    expect(areasFor("管理栄養士").map((a) => a.key)).toContain("kitchen");
+    expect(areasFor("MSW").map((a) => a.key)).toContain("liaison");
   });
   it("勤務表と様式9: for nurses (the 看護師長 uses it), not for the other roles", () => {
     expect(wardTabsFor("看護師")).toContain("roster");
