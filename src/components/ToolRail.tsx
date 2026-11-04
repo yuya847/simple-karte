@@ -1,11 +1,14 @@
 "use client";
 
-import { Activity, Bandage, Barcode, CalendarClock, CalendarDays, LayoutGrid, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
+import { Activity, Bandage, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { loadMyTemplates } from "@/lib/note-templates";
+import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin } from "@/lib/rail";
+import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill";
+export type PanelKind = "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill";
 
 interface Tool {
   key: PanelKind;
@@ -74,6 +77,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     key: "docs",
     title: "文書",
     main: [
+      { key: "templates", label: "テンプレート", icon: LayoutTemplate },
       { key: "consents", label: "同意書", icon: FileSignature },
       { key: "discharge", label: "退院サマリ", icon: FileText },
       { key: "docs", label: "書類作成", icon: FileStack },
@@ -131,7 +135,10 @@ export const railIsShort = (role: string) => !!ONLY[role];
 
 interface Props {
   open: PanelKind | null;
-  onOpen: (p: PanelKind | null) => void;
+  /** Opens a tool; a pinned テンプレート opens the templates panel with that template's id. */
+  onOpen: (p: PanelKind | null, opts?: { templateId?: string }) => void;
+  /** The template whose form is open (to light its pinned tile). */
+  openTemplate?: string | null;
   /** Tools this role cannot use, with the reason (shown as the tooltip). */
   blocked?: Partial<Record<PanelKind, string>>;
   /** The injection calendar opens in its own large window (it is for making and changing orders, not only reading). */
@@ -142,69 +149,75 @@ interface Props {
   badges?: Partial<Record<PanelKind, { n: number; urgent?: boolean }>>;
 }
 
+/** One button on the rail: a tool, or a pinned template that opens straight into its form. */
+interface Tile {
+  pin: RailPin;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  why?: string;
+  disabled?: boolean;
+  badge?: { n: number; urgent?: boolean };
+  go: () => void;
+}
+
 const toolClass = (off: boolean, active: boolean) =>
   `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
 
 /** The red circle with a count on a tool (shu for a panic value, ai otherwise). */
 const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ${urgent ? "bg-shu" : "bg-ai"}`;
 
-type RailMode = "icons" | "list";
-const RAIL_KEY = "simple-karte:tool-rail";
-
-/** How the rail is shown and which tools are pinned, per person in this browser (a convenience only). */
-function loadRail(person: string): { mode: RailMode; pins: PanelKind[] } {
-  try {
-    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { mode?: RailMode; pins?: PanelKind[] } | null;
-    return { mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins! : [] };
-  } catch {
-    return { mode: "icons", pins: [] };
-  }
-}
-function saveRail(person: string, v: { mode: RailMode; pins: PanelKind[] }) {
-  try {
-    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify(v));
-  } catch {
-    // Storage blocked: the choice lasts until the page is closed.
-  }
-}
-
 /**
  * The column of tools on the far right: tabs by kind (オーダ・看護・文書・参照・医事), the tools of the chosen
  * tab in three columns of icons (or a list with names), and above them an お気に入り bar with the tools
- * this person pinned (★). The pins and the look are kept per person in this browser.
+ * this person pinned (★) — and the record templates pinned from the テンプレート panel, each opening straight
+ * into its form. The pins and the look are kept per person in this browser (src/lib/rail.ts).
  */
-export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calendars = [], badges = {} }: Props) {
+export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, injectionCalendar, calendars = [], badges = {} }: Props) {
   const me = useMe();
   const groups = groupsFor(me.role);
   const short = railIsShort(me.role);
   const [tab, setTab] = useState<GroupKey>(groups[0].key);
-  const [rail, setRail] = useState<{ mode: RailMode; pins: PanelKind[] }>(() => (typeof window === "undefined" ? { mode: "icons", pins: [] } : loadRail(me.name)));
+  const [rail, put] = useRail(me.name);
   const [editPins, setEditPins] = useState(false);
-  const put = (v: { mode: RailMode; pins: PanelKind[] }) => {
-    setRail(v);
-    saveRail(me.name, v);
-  };
   const all = groups.flatMap((g) => [...g.main, ...g.more]);
-  const pinned = rail.pins.map((k) => all.find((t) => t.key === k)).filter((t): t is Tool => !!t);
-  // The tab of the open tool, so the highlighted one is in view.
-  const openIn = groups.find((g) => [...g.main, ...g.more].some((t) => t.key === open))?.key;
-  const shownTab = openIn && !pinned.some((t) => t.key === open) ? openIn : tab;
-  const group = groups.find((g) => g.key === shownTab) ?? groups[0];
   const list = rail.mode === "list";
 
-  const tile = (t: Tool, where: "pins" | "tab") => {
+  const toolTile = (t: Tool): Tile => ({ pin: t.key, label: t.label, icon: t.icon, active: open === t.key, why: blocked[t.key], disabled: t.disabled, badge: badges[t.key], go: () => onOpen(open === t.key ? null : t.key) });
+  // A pinned template's name comes from the hospital's list or the person's own templates (this browser).
+  const mine = rail.pins.some(isTemplatePin) ? loadMyTemplates(me.name) : [];
+  const templateTile = (pin: RailPin): Tile | null => {
+    const id = templateIdOf(pin);
+    const t = id ? findRecordTemplate(id, mine) : undefined;
+    if (!id || !t) return null;
+    const active = open === "templates" && openTemplate === id;
+    return { pin, label: shortNameOf(t), icon: LayoutTemplate, active, why: blocked.templates, go: () => (active ? onOpen(null) : onOpen("templates", { templateId: id })) };
+  };
+  const pinned = rail.pins
+    .map((p) => {
+      if (isTemplatePin(p)) return templateTile(p);
+      const t = all.find((x) => x.key === p);
+      return t ? toolTile(t) : null;
+    })
+    .filter((t): t is Tile => !!t);
+  // The tab of the open tool, so the highlighted one is in view.
+  const openIn = groups.find((g) => [...g.main, ...g.more].some((t) => t.key === open))?.key;
+  const shownTab = openIn && !pinned.some((t) => t.pin === open) ? openIn : tab;
+  const group = groups.find((g) => g.key === shownTab) ?? groups[0];
+
+  const tile = (t: Tile, where: "pins" | "tab") => {
     const Icon = t.icon;
-    const active = open === t.key;
-    const why = blocked[t.key];
+    const active = t.active;
+    const why = t.why;
     const off = t.disabled || !!why;
-    const isPin = rail.pins.includes(t.key);
-    const badge = badges[t.key];
+    const isPin = rail.pins.includes(t.pin);
+    const badge = t.badge;
     const base = list
       ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`
       : toolClass(off, active);
     return (
-      <div key={`${where}-${t.key}`} className="relative">
-        <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && onOpen(active ? null : t.key)} aria-pressed={active} className={base}>
+      <div key={`${where}-${t.pin}`} className="relative">
+        <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
           <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
           <span className={list ? "truncate" : ""}>{t.label}</span>
           {list && badge && badge.n > 0 && <span className={`${badgeClass(badge.urgent)} ml-auto`}>{badge.n}</span>}
@@ -219,7 +232,7 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calend
             type="button"
             aria-label={isPin ? `${t.label}をお気に入りから外す` : `${t.label}をお気に入りに入れる`}
             aria-pressed={isPin}
-            onClick={() => put({ ...rail, pins: isPin ? rail.pins.filter((k) => k !== t.key) : [...rail.pins, t.key] })}
+            onClick={() => put({ ...rail, pins: togglePin(rail.pins, t.pin) })}
             className={`absolute -right-0.5 -top-0.5 rounded-full border bg-sheet p-0.5 ${isPin ? "border-yamabuki text-yamabuki" : "border-rule text-ink-faint hover:text-yamabuki"}`}
           >
             <Star size={11} fill={isPin ? "currentColor" : "none"} />
@@ -248,7 +261,7 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calend
           <Star size={10} fill="currentColor" />
           お気に入り
         </div>
-        {pinned.length === 0 ? <p className="px-0.5 pb-0.5 text-[10px] text-ink-faint">★ でよく使う道具をここに</p> : <div className={grid}>{pinned.map((t) => tile(t, "pins"))}</div>}
+        {pinned.length === 0 ? <p className="px-0.5 pb-0.5 text-[10px] text-ink-faint">★ でよく使う道具をここに（テンプレートの ★ でも）</p> : <div className={grid}>{pinned.map((t) => tile(t, "pins"))}</div>}
       </section>
       <div role="tablist" aria-label="道具の種類" className="mb-1 flex flex-wrap gap-0.5 border-b border-rule pb-1">
         {groups.map((g) => (
@@ -276,7 +289,7 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calend
               </button>
             );
           })}
-        {[...group.main, ...group.more].map((t) => tile(t, "tab"))}
+        {[...group.main, ...group.more].map((t) => tile(toolTile(t), "tab"))}
       </div>
     </aside>
   );
