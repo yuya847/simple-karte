@@ -37,6 +37,7 @@ export const REGIONS: RegionMaster[] = [
   { code: "R-LSPINE", name: "腰椎", modalities: ["X線", "CT", "MRI"], views: [["正面", "側面"]], xray: "イ", aliases: ["腰椎", "腰"] },
   { code: "R-KNEE", name: "膝関節", modalities: ["X線", "MRI"], views: [["正面", "側面"]], xray: "ロ", aliases: ["膝"] },
   { code: "R-LEG", name: "下腿", modalities: ["X線", "MRI"], views: [["正面", "側面"]], xray: "ロ", aliases: ["下腿", "すね"] },
+  { code: "R-HIP", name: "股関節", modalities: ["X線"], views: [["正面"], ["正面", "側面"]], xray: "ロ", aliases: ["股関節", "股"] },
 ];
 
 export function findRegion(code: string) {

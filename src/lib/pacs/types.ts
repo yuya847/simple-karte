@@ -11,12 +11,16 @@ export type XrayView = "PA" | "AP" | "LAT" | "FRONT" | "SUPINE" | "ERECT";
 /** 患者から見た向き（DICOM の考え方：R 右・L 左・A 前・P 後・H 頭・F 足）。 */
 export type Dir = "R" | "L" | "A" | "P" | "H" | "F";
 
-/** 合成画像の作り方。 */
+/**
+ * 画像の作り方。xray・ct・mr・us はコードで作る架空の合成画像。
+ * photo は公開データ（Wikimedia Commons ほか）の本物の医用画像（src/lib/image-credits.ts の ID。1 枚＝1 スライス）。
+ */
 export type Generator =
   | { kind: "xray"; part: BodyPart; view: XrayView; side?: "R" | "L" }
   | { kind: "ct"; part: BodyPart; contrast: boolean }
   | { kind: "mr"; part: BodyPart; weighting: "T1" | "T2"; plane: "axial" | "sagittal"; side?: "R" | "L" }
-  | { kind: "us"; part: BodyPart };
+  | { kind: "us"; part: BodyPart }
+  | { kind: "photo"; images: string[] };
 
 /**
  * 架空の読影レポートに合わせた合成画像の形（架空）。所見を判定するものではなく、
@@ -59,7 +63,7 @@ export interface SeriesSpec {
   width: number;
   /** 行の数（縦） */
   height: number;
-  /** 画素の大きさ（mm）。縦横同じ。 */
+  /** 画素の大きさ（mm）。縦横同じ。公開画像（photo）は大きさが分からないので 1（計測は画素の数で出す）。 */
   spacing: number;
   /** スライスの位置（mm）。X線は 1 枚なので [0]。 */
   positions: number[];

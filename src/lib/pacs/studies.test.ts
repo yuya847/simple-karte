@@ -70,7 +70,8 @@ describe("検査を集める", () => {
       order("o-ct", { modality: "CT", region: "R-CHEST", contrast: "単純＋造影", when: { day: 0, priority: "至急" } }, 0, "09:00"),
       order("o-port", { modality: "ポータブルX線", views: ["臥位正面（AP）"], when: { day: 0, priority: "至急" } }, 0, "09:10"),
     ];
-    const built = buildPacsStudies(sakura, collectStudies(sakura, entries, now));
+    // 合成画像の作り方のテスト（公開データの画像を使うかは photos.test.ts）
+    const built = buildPacsStudies(sakura, collectStudies(sakura, entries, now), { photos: false });
     const ct = built.find((s) => s.study.id === "o-ct")!;
     expect(ct.study.modality).toBe("CT");
     expect(ct.series.map((s) => s.description)).toEqual(["単純 5mm", "造影 5mm"]);

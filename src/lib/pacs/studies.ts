@@ -2,8 +2,10 @@
 // 既存の架空の検査（patient.imaging）と、このアプリで出した画像検査オーダー（時刻を過ぎたもの）の両方に画像を付ける。
 
 import { examAt, findRegion, REGIONS } from "../exams";
+import { findCredit } from "../image-credits";
 import { studyStateOf, type RisDesk } from "../ris";
 import type { HistoryEntry, ImagingOrder, ImagingStudy, Patient } from "../types";
+import { photoSeriesFor, type PhotoSeries } from "./photos";
 import { seedFrom } from "./random";
 import type { BodyPart, Dir, Generator, PacsStudy, PhantomHint, SeriesSpec, WindowPreset, XrayView } from "./types";
 import { CT_PRESETS } from "./window";
@@ -178,9 +180,24 @@ const CT_RANGE: Record<BodyPart, { from: number; to: number; window: WindowPrese
 };
 
 const MR_WINDOW = { T1: { ww: 1000, wl: 500 }, T2: { ww: 1800, wl: 900 } };
+/** 公開画像（0〜255 の灰色）を開いたときの WW/WL：そのまま。 */
+export const PHOTO_WINDOW = { ww: 256, wl: 128 };
+
+/** 公開画像のシリーズ（1 枚＝1 スライス。画素の大きさは分からないので 1）。 */
+function photoSpec(base: Omit<SeriesSpec, "width" | "height" | "spacing" | "positions" | "unit" | "window" | "presets" | "orient">, p: PhotoSeries, modality: ImagingStudy["modality"]): SeriesSpec {
+  const c = findCredit(p.images[0]);
+  const lateral = /側面/.test(p.description);
+  const orient: { right: Dir; down: Dir } = modality === "X線" ? (lateral ? { right: "P", down: "F" } : { right: "L", down: "F" }) : { right: "L", down: "P" };
+  return { ...base, width: c?.width ?? 512, height: c?.height ?? 512, spacing: 1, positions: p.images.map((_, i) => i), unit: "画素値", window: PHOTO_WINDOW, presets: [], orient };
+}
+
+export interface BuildOptions {
+  /** false なら公開画像を使わず、すべて合成画像にする（合成画像のテスト用）。既定は true。 */
+  photos?: boolean;
+}
 
 /** 1 検査のシリーズを作る（画素はまだ作らない）。 */
-export function buildPacsStudy(patient: Patient, study: ImagingStudy, all: ImagingStudy[]): PacsStudy {
+export function buildPacsStudy(patient: Patient, study: ImagingStudy, all: ImagingStudy[], opts: BuildOptions = {}): PacsStudy {
   const regionKey = regionKeyOf(study);
   const status: PacsStudy["status"] = study.pending ? "未実施" : study.reader.includes("読影待ち") ? "読影待ち" : "読影済み";
   if (study.pending) return { study, regionKey, status, series: [] };
@@ -198,6 +215,12 @@ export function buildPacsStudy(patient: Patient, study: ImagingStudy, all: Imagi
     sex: patient.sex,
   });
   const series: SeriesSpec[] = [];
+
+  // 公開データの本物の画像が割り当ててあれば、それを出す（レポートの所見に合うものだけ。photos.ts）
+  const photos = opts.photos === false ? null : photoSeriesFor(study, regionKey, part, study.modality === "X線" ? xrayViews(study, part) : []);
+  if (photos) {
+    return { study, regionKey, status, series: photos.map((p, i) => photoSpec(base(i + 1, p.description, { kind: "photo", images: p.images }), p, study.modality)) };
+  }
 
   if (study.modality === "X線") {
     const [w, h, sp] = XRAY_SIZE[part];
@@ -261,13 +284,13 @@ export function buildPacsStudy(patient: Patient, study: ImagingStudy, all: Imagi
 }
 
 /** 患者の全部の検査を、シリーズ付きで。 */
-export function buildPacsStudies(patient: Patient, studies: ImagingStudy[]): PacsStudy[] {
-  return studies.map((s) => buildPacsStudy(patient, s, studies));
+export function buildPacsStudies(patient: Patient, studies: ImagingStudy[], opts: BuildOptions = {}): PacsStudy[] {
+  return studies.map((s) => buildPacsStudy(patient, s, studies, opts));
 }
 
 /** スライスの位置の書き方（横断は z、矢状断は x）。 */
 export function positionLabel(spec: SeriesSpec, index: number): string {
-  if (spec.positions.length <= 1) return "";
+  if (spec.positions.length <= 1 || spec.gen.kind === "photo") return "";
   const v = spec.positions[Math.min(spec.positions.length - 1, Math.max(0, index))];
   const axis = spec.gen.kind === "mr" && spec.gen.plane === "sagittal" ? "x" : "z";
   return `${axis} ${v >= 0 ? "+" : ""}${v.toFixed(1)} mm`;

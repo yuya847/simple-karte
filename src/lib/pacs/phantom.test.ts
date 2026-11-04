@@ -11,7 +11,8 @@ const sakura = PATIENTS.find((p) => p.id === "90010231")!;
 
 function seriesOf(patient = kitamura, over: Partial<(typeof kitamura.imaging)[number]>) {
   const study = { id: "test-1", day: 0, modality: "X線" as const, region: "胸部正面", report: "", reader: "", ...over };
-  return buildPacsStudy(patient, study, [study]).series;
+  // 合成画像のテストなので、公開データの画像は使わない
+  return buildPacsStudy(patient, study, [study], { photos: false }).series;
 }
 
 const lowest = (px: Int16Array) => px.reduce((m, v) => Math.min(m, v), Infinity);
