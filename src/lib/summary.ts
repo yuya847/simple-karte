@@ -3,6 +3,9 @@
 // 制限事項・ADL). The writer adds their own words; nothing here is written by AI.
 
 import type { AdmitEval } from "./admit-eval";
+import { scheduleLabel, type CareOrder } from "./care-orders";
+import { addDays, formatShort } from "./dates";
+import { summaryLines, type NursingProblem } from "./nursing-plan";
 import { diagnosisLabel, type Diagnosis } from "./diagnoses";
 import { orderLines } from "./format";
 import type { CalendarDate } from "./dates";
@@ -20,7 +23,7 @@ export interface SummarySection {
 
 const KEY_LABS = ["WBC", "Hb", "Plt", "Alb", "Cre", "Na", "K", "CRP"];
 
-export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval }): SummarySection[] {
+export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] } }): SummarySection[] {
   const active = entries.filter((e) => e.status === "有効");
   const lines = (type: OrderEntry["order"]["type"]) =>
     active.filter((e) => e.order.type === type).map((e) => {
@@ -50,6 +53,13 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
         ev?.delirium?.checked.length ? `せん妄の危険因子：${ev.delirium.checked.join("、")}` : null,
       ].filter((x): x is string => !!x),
     },
+    // 看護サマリ: the open nursing problems and the care orders in force (the caller passes those in force).
+    ...(extra.nursing
+      ? [
+          { heading: "看護問題（看護計画）", lines: summaryLines(extra.nursing.problems, p.id, (d) => formatShort(addDays(today, d))) },
+          { heading: "看護ケア（看護師の指示）", lines: extra.nursing.care.filter((o) => o.patientId === p.id).map((o) => `${o.item}　${scheduleLabel(o)}${o.note ? `（${o.note}）` : ""}`) },
+        ]
+      : []),
     { heading: "処方（内服）", lines: lines("prescription") },
     { heading: "注射", lines: lines("injection") },
     { heading: "処置", lines: lines("procedure") },

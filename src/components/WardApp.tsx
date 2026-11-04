@@ -83,8 +83,8 @@ import { stayDays, type DocKind, type DocRecord } from "@/lib/documents";
 import { diagnosisLabel } from "@/lib/diagnoses";
 import { summaryFacts } from "@/lib/summary";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
-import { INITIAL_CARE_ORDERS, initialCareRecords, voidCare, type CareOrder, type CareRecord } from "@/lib/care-orders";
-import { INITIAL_PLANS, type NursingProblem } from "@/lib/nursing-plan";
+import { INITIAL_CARE_ORDERS, careActive, initialCareRecords, lateCare, voidCare, type CareOrder, type CareRecord } from "@/lib/care-orders";
+import { INITIAL_PLANS, dueEvaluations, evalStatus, problemTitle, type NursingProblem } from "@/lib/nursing-plan";
 import { NursingPanel } from "./panels/NursingPanel";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
@@ -1288,7 +1288,13 @@ export default function WardApp() {
     const due = rsNow ? reviewDue(rsNow, abs(0, nowTime)) : null;
     if (due?.late && (role === "看護師" || role === "医師")) todos.push({ key: `restraint-${pid}`, label: `身体的拘束の見直し：${x.patient.name}さん`, detail: due.text, count: 1, tone: "shu", go: () => (openPatient(pid), setPanel("restraint")) });
     if (role === "看護師" && standingNow(pid) && !standingNow(pid)!.taken) todos.push({ key: `standing-${pid}`, label: `指示簿の指示受けがまだ：${x.patient.name}さん`, count: 1, tone: "yamabuki", go: () => openStanding(pid) });
+    // 看護計画: evaluations due today or late (the day after midnight counts as the next day).
+    const planDay = Math.floor(abs(0, nowTime) / 1440);
+    if (role === "看護師") for (const np of dueEvaluations(nursingPlans, [pid], planDay)) todos.push({ key: `nplan-${np.id}`, label: `看護計画の評価：${x.patient.name}さん ${problemTitle(np)}`, detail: evalStatus(np, planDay)?.text, count: 1, tone: evalStatus(np, planDay)?.late ? "shu" : "yamabuki", go: () => (openPatient(pid), setPanel("nursing-plan")) });
   }
+  // 看護ケア・観察: tasks more than an hour past their time without a record.
+  const careLateN = role === "看護師" && sessionStart !== null ? lateCare(careOrders, careRecords, people.map((x) => x.patient.id), sessionStart, abs(0, nowTime)).length : 0;
+  if (careLateN) todos.push({ key: "care-late", label: "看護ケア・観察の記録がまだ（1時間を過ぎたもの）", detail: "ワークシートで記録する", count: careLateN, tone: "yamabuki", go: () => goWard("sheet") });
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
   // 指示受け rows of the ward (for the doctor's view, the handoff and the todo).
   const allTakeRows = takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today);
@@ -2727,7 +2733,7 @@ export default function WardApp() {
                     patient={patient}
                     today={formatShort(today)}
                     nowTime={nowTime}
-                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standing[patient.id]?.at(-1), dietNow: patient.dietNow, evals: evals[patient.id] })}
+                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standing[patient.id]?.at(-1), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) } })}
                     onSave={(to, words) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・連携サマリを作成（宛先：${to}）${words ? `。申し送り：${words}` : ""}\n` }));
