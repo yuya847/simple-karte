@@ -155,13 +155,13 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
   return (
     <div className="space-y-3 text-[13px]" onKeyDown={focusNextOnEnter}>
       <div className="flex gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="例：38度2分、脈104、98の60、呼吸24、93%、鼻カニュラ2L、清明" className="flex-1 rounded border border-rule bg-paper px-2 py-1.5 outline-none focus:border-ai" />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="例：38度2分、脈104、98の60、呼吸24、93%、鼻カニュラ2L、清明" className="min-w-0 flex-1 rounded border border-rule bg-paper px-2 py-1.5 outline-none focus:border-ai" />
         {speech.supported && (
-          <button type="button" onClick={speech.listening ? speech.stop : speech.start} className="rounded border border-rule px-2" title="話して入力">
+          <button type="button" onClick={speech.listening ? speech.stop : speech.start} className="shrink-0 rounded border border-rule px-2" title="話して入力">
             {speech.listening ? <Square size={14} /> : <Mic size={14} />}
           </button>
         )}
-        <button type="button" disabled={!text.trim() || busy} onClick={read} className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40">
+        <button type="button" disabled={!text.trim() || busy} onClick={read} className="shrink-0 whitespace-nowrap rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40">
           {busy ? "…" : "数値にする"}
         </button>
       </div>
