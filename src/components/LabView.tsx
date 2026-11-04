@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpenText, ClipboardPen, FlaskConical, HelpCircle, Microscope, PhoneCall, ScanLine } from "lucide-react";
+import { useHints } from "@/lib/hints";
 import { useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { abs } from "@/lib/flowsheet";
@@ -66,7 +67,10 @@ export function LabView(p: Props) {
   const nowAbs = abs(0, nowTime);
   const waiting = uncalled(items, calls);
   const [tab, setTab] = useState<Tab>(() => (waiting.length ? "results" : "receive"));
-  const [guide, setGuide] = useState(true);
+  // The guide follows 「使い方」 on the top row until it is opened or closed here.
+  const [hintsOn] = useHints();
+  const [guideSet, setGuide] = useState<boolean | null>(null);
+  const guide = guideSet ?? hintsOn;
   const [flash, setFlash] = useState("");
   const rows = drawRows(people, records, desk, sessionStart, nowAbs);
   // A sample with only cultures is reported in 培養, not counted here.
@@ -103,7 +107,7 @@ export function LabView(p: Props) {
         <span className={`text-xs font-bold ${waiting.length ? "text-shu" : "text-wakatake"}`}>
           {waiting.length ? `パニック値の連絡がまだ ${waiting.length}件` : "パニック値はすべて報告済み"}
         </span>
-        <button type="button" onClick={() => setGuide((g) => !g)} aria-expanded={guide} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>

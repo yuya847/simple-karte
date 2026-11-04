@@ -55,6 +55,11 @@ body {
   outline-offset: 2px;
 }
 
+/* 使い方の説明 (class "hint"): hidden unless the viewer turns them on from 「使い方」 on the top row. */
+html:not([data-hints="on"]) .hint {
+  display: none !important;
+}
+
 /* Printing: only the sheet (rendered into <body> by the worksheet) goes on paper. */
 @media print {
   /* Worksheets print landscape, consent forms portrait (CSS named pages). */

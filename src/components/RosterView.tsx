@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useHints } from "@/lib/hints";
 import { BookOpenText, Check, HelpCircle, X } from "lucide-react";
 import { useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
@@ -68,7 +69,10 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
   const me = useMe();
   const [which, setWhich] = useState<"this" | "next">("this");
   const [paint, setPaint] = useState<ShiftCode>("夜");
-  const [guide, setGuide] = useState(true);
+  // The guide follows 「使い方」 on the top row until it is opened or closed here.
+  const [hintsOn] = useHints();
+  const [guideSet, setGuide] = useState<boolean | null>(null);
+  const guide = guideSet ?? hintsOn;
   const [ng, setNg] = useState<[string, string]>(["", ""]);
   const book = saved ?? initialRosterBook(today.y, today.m);
   const thisKey = monthKey(today.y, today.m);
@@ -129,7 +133,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
           届出：{WARD_BASE.name}（看護職員 {WARD_BASE.ratio}対1・看護師7割以上・夜勤は看護師1人を含む2人以上・月平均夜勤時間数 72時間以下）
         </span>
         <span className="ml-auto text-xs text-ink-faint">看護師長の画面です（デモでは看護師で開けます。{me.name}として記録）</span>
-        <button type="button" onClick={() => setGuide((g) => !g)} aria-expanded={guide} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>

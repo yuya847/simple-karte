@@ -112,7 +112,7 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
             })}
           </tbody>
         </table>
-        <p className="px-5 py-3 text-[11px] text-ink-faint">患者はすべて架空です。名前を押すと、その患者のタブが開き、今日の記録と入院申込を書けます。外来の算定と処方せんは、この試作では扱いません。</p>
+        <p className="px-5 py-3 text-[11px] text-ink-faint">患者はすべて架空です。<span className="hint">名前を押すと、その患者のタブが開き、今日の記録と入院申込を書けます。</span>外来の算定と処方せんは、この試作では扱いません。</p>
       </div>
     </section>
   );

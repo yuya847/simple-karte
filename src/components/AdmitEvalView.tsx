@@ -140,7 +140,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave }: Props) 
           onSave={onSave}
         />
       )}
-      {!sel && <p className="mt-3 text-xs text-ink-faint">表の枠を押すと、その項目を書く欄が出ます。太字の列が、いまの職種が書く項目です。</p>}
+      {!sel && <p className="hint mt-3 text-xs text-ink-faint">表の枠を押すと、その項目を書く欄が出ます。太字の列が、いまの職種が書く項目です。</p>}
     </div>
   );
 }

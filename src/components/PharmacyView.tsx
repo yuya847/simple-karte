@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity, BookOpenText, Check, Droplet, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
+import { useHints } from "@/lib/hints";
 import { createPortal, flushSync } from "react-dom";
 import { DrugLabel } from "./Labels";
 import { DrugInfoSheet, MedBagFace, NotebookSticker } from "./HomeRxPrint";
@@ -95,7 +96,10 @@ const PHARMACIST = STAFF.薬剤師.name;
 /** The pharmacy's ward work. Checks are code; Claude only reads the お薬手帳 lines; the doctor decides. */
 export function PharmacyView(p: Props) {
   const [tab, setTab] = useState<Tab>("audit");
-  const [guide, setGuide] = useState(true);
+  // The guide follows 「使い方」 on the top row until it is opened or closed here.
+  const [hintsOn] = useHints();
+  const [guideSet, setGuide] = useState<boolean | null>(null);
+  const guide = guideSet ?? hintsOn;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
@@ -116,7 +120,7 @@ export function PharmacyView(p: Props) {
           ))}
         </div>
         <span className="ml-auto text-xs text-ink-faint">{PHARMACIST}（架空）として操作します</span>
-        <button type="button" onClick={() => setGuide((g) => !g)} aria-expanded={guide} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>

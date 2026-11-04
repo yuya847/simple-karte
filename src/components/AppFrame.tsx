@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CheckSquare, ChevronDown, ChevronRight, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
+import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Area, AreaKey } from "@/lib/nav";
@@ -9,6 +9,7 @@ import { ROLES, ROLE_LONG, STAFF, type Role } from "@/lib/roles";
 import type { Sex } from "@/lib/types";
 import { AREA_ICON, type Icon } from "./nav-icons";
 import { PatientAvatar } from "./PatientAvatar";
+import { useHints } from "@/lib/hints";
 
 export interface Todo {
   key: string;
@@ -411,6 +412,7 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
  */
 export function AppFrame(p: Props) {
   const boardOn = p.areas.some((a) => a.key === "board");
+  const [hints, toggleHints] = useHints();
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <Row
@@ -430,6 +432,10 @@ export function AppFrame(p: Props) {
               <Search size={16} />
               <span className="hidden xl:inline">患者を開く</span>
               <kbd className="hidden rounded border border-rule px-1 text-[10px] xl:inline">⌘K</kbd>
+            </button>
+            <button type="button" onClick={toggleHints} aria-pressed={hints} title={hints ? "使い方の説明を隠す" : "画面ごとの使い方の説明を出す"} className={`${barButton} ${hints ? "bg-ai-soft font-bold text-ai" : ""}`}>
+              <CircleHelp size={16} />
+              <span className="hidden lg:inline">使い方</span>
             </button>
             <TodoButton todos={p.todos} />
             {boardOn && (

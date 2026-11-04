@@ -115,7 +115,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport }: { patie
                 <LabTable cols={cols} rows={rows} patient={patient} today={today} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
               </div>
             )}
-            <p className="mt-1 text-[11px] text-ink-faint">H／L は一般的な成人の基準範囲との比較（架空の病院の設定）。項目名を押すと経過のグラフ。「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの。</p>
+            <p className="mt-1 text-[11px] text-ink-faint">H／L は一般的な成人の基準範囲との比較（架空の病院の設定）。<span className="hint">項目名を押すと経過のグラフ。「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの。</span></p>
           </>
         )}
       </section>

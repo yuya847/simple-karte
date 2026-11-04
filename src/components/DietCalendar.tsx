@@ -179,7 +179,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
           </div>,
           document.body,
         )}
-      <p className="mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。押すと右に食事の欄が開きます。検査で止めるのは架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
+      <p className="hint mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。押すと右に食事の欄が開きます。検査で止めるのは架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
     </div>
   );
 }

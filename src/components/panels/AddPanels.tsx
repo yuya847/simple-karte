@@ -641,7 +641,7 @@ export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId
 export function AddProcedurePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
   return (
     <div>
-      <p className="mb-2 text-xs text-ink-soft">選ぶと右に下書きができます。足りないところ（流量・部位・範囲・回数など）は下書きの上で選ぶか、話して足してください。</p>
+      <p className="hint mb-2 text-xs text-ink-soft">選ぶと右に下書きができます。足りないところ（流量・部位・範囲・回数など）は下書きの上で選ぶか、話して足してください。</p>
       <ul className="divide-y divide-rule-soft">
         {PROCEDURES.map((p) => (
           <li key={p.code}>
@@ -928,7 +928,7 @@ export function AddRxPanel({
         </button>
       </div>
       {unfinished.length > 0 && <p className="text-[12px] text-yamabuki">{unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未入力`).join("　")}</p>}
-      <p className="text-[11px] text-ink-faint">1日量は1回量 × 回数でコードが出します。チェック（重複・アレルギー・極量）は記事の下の下書きに出て、承知コメントを付けて確定できます。</p>
+      <p className="hint text-[11px] text-ink-faint">1日量は1回量 × 回数でコードが出します。チェック（重複・アレルギー・極量）は記事の下の下書きに出て、承知コメントを付けて確定できます。</p>
     </div>
   );
 }

@@ -85,7 +85,7 @@ export function TodayPane(p: Props) {
             <DenyNote action="note" />
             {!noteLocked && (
               <>
-                <span className="text-[11px] text-ink-faint">確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。</span>
+                <span className="hint text-[11px] text-ink-faint">確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。</span>
                 <button
                   type="button"
                   disabled={isBlankNote(p.note)}
@@ -163,7 +163,7 @@ export function TodayPane(p: Props) {
         )}
 
         {p.orderMode !== "none" && !SHOW_DICTATION && (
-          <div className={`rounded-lg border border-dashed px-3 py-2 text-xs ${p.orderMode === "verbal" ? "border-yamabuki/60 text-yamabuki" : "border-rule text-ink-soft"}`}>
+          <div className={`rounded-lg border border-dashed px-3 py-2 text-xs ${p.orderMode === "verbal" ? "border-yamabuki/60 text-yamabuki" : "hint border-rule text-ink-soft"}`}>
             {p.orderMode === "verbal" ? <b>口頭指示を受けて入力（看護師）：</b> : <b>オーダ：</b>}
             上のタブ「注射」「内服」で Rp を入れるか、右のツール（検体検査・画像検査・生理検査・処置）から選ぶと、ここに下書きが貯まります。確認に答えて、下の「確定」でまとめて確定します。
             {p.orderMode === "verbal" && ` 確定すると医師の承認待ちになります。${VERBAL_RULE}`}
