@@ -190,7 +190,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
     upd(i, { step });
     requestAnimationFrame(() => {
       const row = panelRoot.current?.querySelector<HTMLElement>(`[data-rp="${i}"] [data-step="${step}"]`);
-      (row?.querySelector<HTMLElement>('input, select, button[tabindex="0"]:not(:disabled)') ?? row?.querySelector<HTMLElement>('button:not(:disabled)'))?.focus();
+      // The text field first (the 1回の時間 line has toggle buttons before its field), then a chosen chip, then any button.
+      (row?.querySelector<HTMLElement>("input, select") ?? row?.querySelector<HTMLElement>('button[tabindex="0"]:not(:disabled)') ?? row?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus();
     });
   };
   const fluids = DRUGS.filter((d) => d.kind === "輸液");
