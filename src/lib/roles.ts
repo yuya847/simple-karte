@@ -85,7 +85,13 @@ export type Action =
   | "bed.assign"
   | "bed.move"
   | "restraint"
-  | "nursing.plan";
+  | "nursing.plan"
+  | "profile.allergy"
+  | "profile.infection"
+  | "profile.contra"
+  | "profile.body"
+  | "profile.care"
+  | "profile.blood";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
   order: { label: "オーダの確定", who: ["医師"] },
@@ -124,6 +130,13 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "bed.move": { label: "転棟・転床", who: ["医師", "看護師"] },
   restraint: { label: "身体的拘束の記録", who: ["医師", "看護師"] },
   "nursing.plan": { label: "看護計画と看護ケア指示の記録", who: ["看護師"] },
+  // 患者プロファイル: who registers what is the fictional hospital's rule (架空の病院の取り決め).
+  "profile.allergy": { label: "アレルギーの登録・変更", who: ["医師", "看護師", "薬剤師", "管理栄養士"] },
+  "profile.infection": { label: "感染症の登録・変更", who: ["医師", "看護師"] },
+  "profile.contra": { label: "禁忌の登録・変更", who: ["医師", "薬剤師"] },
+  "profile.body": { label: "身長・体重の登録", who: ["医師", "看護師", "管理栄養士"] },
+  "profile.care": { label: "介助（移動・食事・排泄・入浴）の登録", who: ["看護師", "医師"] },
+  "profile.blood": { label: "血液型の登録", who: ["医師", "臨床検査技師"] },
 };
 
 export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);

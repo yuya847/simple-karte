@@ -41,6 +41,8 @@ export interface Patient {
   blood?: { abo: "A" | "B" | "O" | "AB"; rh: "+" | "-"; checks: number; antibody?: "陰性" | "陽性" };
   infections: string[];
   cautions: string[];
+  /** 禁忌 registered in the patient profile (薬・検査など), filled in by the app. */
+  contraindications?: string[];
   history: HistoryEntry[];
   labs: LabResult[];
   cultures: CultureResult[];

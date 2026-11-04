@@ -18,6 +18,8 @@ interface Props {
   onOpenDiagnoses: () => void;
   onOpenDirective: () => void;
   onOpenDiet?: () => void;
+  /** 患者プロファイル (allergies, infections, contraindications, blood type, height and weight). */
+  onOpenProfile?: () => void;
   /** 妊娠中の印 (set by a doctor or nurse). */
   onPregnancy?: (v: { weeks: number | null } | null) => void;
 }
@@ -29,7 +31,7 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onPregnancy }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy }: Props) {
   const [pregEdit, setPregEdit] = useState(false);
   const [weeks, setWeeks] = useState("");
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
@@ -100,8 +102,19 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
             <Badge tone="yamabuki" label="食事" values={[p.dietNow]} quiet={!p.dietNow.startsWith("絶食")} />
           </button>
         )}
-        <Badge tone="shu" label="アレルギー" values={p.allergies.length ? p.allergies : ["なし"]} quiet={!p.allergies.length} />
-        {p.infections.length > 0 && <Badge tone="fuji" label="感染症" values={p.infections} />}
+        <button type="button" onClick={onOpenProfile} title="患者プロファイルを開く（アレルギー・感染症・禁忌）">
+          <Badge tone="shu" label="アレルギー" values={p.allergies.length ? p.allergies : ["なし"]} quiet={!p.allergies.length} />
+        </button>
+        {p.infections.length > 0 && (
+          <button type="button" onClick={onOpenProfile} title="患者プロファイルを開く">
+            <Badge tone="fuji" label="感染症" values={p.infections} />
+          </button>
+        )}
+        {(p.contraindications ?? []).length > 0 && (
+          <button type="button" onClick={onOpenProfile} title="患者プロファイルを開く">
+            <Badge tone="shu" label="禁忌" values={p.contraindications!} />
+          </button>
+        )}
         {p.dischargedAt && <Badge tone="fuji" label="退院済み" values={[`${p.dischargedAt.day === 0 ? "" : `${p.dischargedAt.day}日 `}${p.dischargedAt.time}`]} />}
         {p.pregnancy ? (
           <button type="button" onClick={() => onPregnancy?.(null)} title="押すと妊娠中の印を外します">

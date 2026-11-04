@@ -87,6 +87,8 @@ import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type 
 import { INITIAL_CARE_ORDERS, careActive, initialCareRecords, lateCare, voidCare, type CareOrder, type CareRecord } from "@/lib/care-orders";
 import { INITIAL_PLANS, dueEvaluations, evalStatus, problemTitle, type NursingProblem } from "@/lib/nursing-plan";
 import { NursingPanel } from "./panels/NursingPanel";
+import { ProfilePanel } from "./panels/ProfilePanel";
+import { applyProfile, checkList, type ProfileChange } from "@/lib/profile";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
@@ -509,6 +511,8 @@ export default function WardApp() {
   const [bRecords, setBRecords] = useState<BRecord[]>(INITIAL_B);
   const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>({});
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
+  // 患者プロファイルの変更（アレルギー・感染症・禁忌・血液型・身長体重・介助）, every change kept.
+  const [profileLog, setProfileLog] = useState<ProfileChange[]>([]);
   // Notes confirmed in this session, and corrected notes (by key, earlier versions inside).
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
@@ -597,6 +601,7 @@ export default function WardApp() {
       bRecords: [bRecords, setBRecords],
       discharges: [discharges, setDischarges],
       extraCautions: [extraCautions, setExtraCautions],
+      profileLog: [profileLog, setProfileLog],
       notes: [notes, setNotes],
       revised: [revised, setRevised],
       handoffs: [handoffs, setHandoffs],
@@ -621,7 +626,8 @@ export default function WardApp() {
   const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
     () =>
-      [...PATIENTS, ...admitted].map((p) => {
+      [...PATIENTS, ...admitted].map((p0) => {
+        const p = applyProfile(p0, profileLog);
         const d = currentDirective(directives, p.id);
         const next = nextMeal(nowTime ? abs(0, nowTime) : 0);
         const diet = dietAt(diets, p.id, next.day, next.meal);
@@ -645,7 +651,7 @@ export default function WardApp() {
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio, profileLog],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
@@ -796,9 +802,9 @@ export default function WardApp() {
         const { main, detail } = orderLines(o.order, today);
         return `${main}（${detail}）`;
       },
-      allergies: patient?.allergies ?? [],
+      allergies: patient ? checkList(patient) : [],
       consents: consents.filter((c) => c.patientId === patient?.id).map((c) => ({ code: c.code, status: c.status })),
-      patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: patient.allergies, cre: latestCre(patient), heightCm: patient.heightCm, weightKg: patient.weightKg, pregnancy: patient.pregnancy ?? null } : null,
+      patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: checkList(patient), cre: latestCre(patient), heightCm: patient.heightCm, weightKg: patient.weightKg, pregnancy: patient.pregnancy ?? null } : null,
       txFacts: patient ? { blood: patient.blood, latest: { Hb: latestValue(patient, "Hb"), Plt: latestValue(patient, "Plt"), "PT-INR": latestValue(patient, "PT-INR") } } : null,
     };
   }, [entries, chart.drafts, nowTime, today, patient, consents]);
@@ -2147,6 +2153,7 @@ export default function WardApp() {
             onOpenDiagnoses={() => setPanel("diagnoses")}
             onOpenDirective={() => setPanel("directive")}
             onOpenDiet={() => setPanel("diet")}
+            onOpenProfile={() => setPanel("profile")}
             onPregnancy={
               deny("vitals")
                 ? undefined
@@ -3084,6 +3091,20 @@ export default function WardApp() {
                     newId={newId}
                     onOrders={(f, what) => (auditLog({ role: me.role, actor: me.name, action: "確定（看護ケア指示）", patient: patient.name, detail: what }), setCareOrders(f))}
                     onPlans={(f, what) => (auditLog({ role: me.role, actor: me.name, action: "確定（看護計画）", patient: patient.name, detail: what }), setNursingPlans(f))}
+                  />
+                </Drawer>
+              )}
+              {panel === "profile" && (
+                <Drawer title="患者プロファイル" onClose={closePanel} wide>
+                  <ProfilePanel
+                    base={[...PATIENTS, ...admitted].find((p) => p.id === patient.id) ?? patient}
+                    log={profileLog.filter((c) => c.patientId === patient.id)}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    onChange={(c) => {
+                      const full = { ...c, id: newId(), patientId: patient.id, by: me.name, role: me.role, at: { day: 0, time: nowTime } } as ProfileChange;
+                      auditLog({ role: me.role, actor: me.name, action: "確定（患者プロファイル）", patient: patient.name, detail: JSON.stringify(c) });
+                      setProfileLog((all) => [...all, full]);
+                    }}
                   />
                 </Drawer>
               )}
