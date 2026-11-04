@@ -146,6 +146,8 @@ export interface RisContrast extends Stamp {
 export interface RisReport extends Stamp {
   findings: string;
   impression: string;
+  /** 推奨される次検査（提言 1-2 の診断欄の一項目。reports.ts では「推奨」の見出しで出す）. */
+  recommendation?: string;
   /** Why this version replaced the one before (訂正). */
   reason?: string;
 }
@@ -521,7 +523,7 @@ export function studyStateOf(o: ImagingOrder, w: RisWork | undefined): { pending
       reader: state === "中止" ? "（中止）" : "（未実施）",
     };
   }
-  if (w.report) return { pending: false, report: `${w.report.findings}\n【診断】${w.report.impression}`, reader: `${w.report.by}（${w.report.time}）`, at: w.done };
+  if (w.report) return { pending: false, report: `${w.report.findings}\n【診断】${w.report.impression}${w.report.recommendation ? `\n【推奨】${w.report.recommendation}` : ""}`, reader: `${w.report.by}（${w.report.time}）`, at: w.done };
   return { pending: false, report: needsReading(o) ? "撮影済み。読影をお待ちください。" : "撮影済み（読影不要のオーダ）。", reader: needsReading(o) ? "（読影待ち）" : "（読影不要）", at: w.done };
 }
 
@@ -587,6 +589,7 @@ export function initialRisDesk(nowAbs: number): RisDesk {
         by: RADIOLOGIST,
         findings: "臥位正面（AP）。両側の肋骨横隔膜角は前回（昨日）と同じく鈍。肺血管影の増強は軽度。",
         impression: "両側胸水と肺うっ血は前回と著変なし。",
+        recommendation: "胸水の増減は臨床所見と合わせて。必要なら立位で再撮影。",
       },
       mpps: [
         { ...at(145), kind: "N-CREATE", status: "IN PROGRESS", ae: "SK_PORTA" },

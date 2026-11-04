@@ -259,6 +259,17 @@ const sakura: BasePatient = {
       report: "骨折・骨膜反応なし。前面の軟部組織に腫脹あり。皮下のガス像なし。",
       reader: "放射線科（架空）",
     },
+    // 今朝のエコー（架空）。今日の報告なので、医師が「確認した」を押すまで未読。
+    {
+      id: "img-sakura-3",
+      day: 0,
+      time: "08:20",
+      modality: "超音波",
+      region: "右下肢静脈",
+      regionCode: "R-LEG",
+      report: "右の総大腿静脈〜膝窩静脈〜後脛骨静脈・腓骨静脈は圧迫で虚脱し、内部に血栓エコーなし。前面の皮下組織は肥厚し、敷石状の浮腫を認める。液体の貯留（膿瘍）なし。\n【診断】右下肢の深部静脈血栓なし。皮下の浮腫は蜂窩織炎に合う所見。\n【推奨】腫脹が増すときは再検。",
+      reader: "放射線科 石田（架空）",
+    },
   ],
 };
 
@@ -400,7 +411,18 @@ const oura: BasePatient = {
   ],
   cultures: [{ collectedOn: -1, specimen: "血液", sets: "2セット", status: "培養中" }],
   imaging: [
-    { id: "img-oura-1", day: -1, modality: "X線", region: "胸部正面", report: "右下肺野に浸潤影。胸水なし。", reader: "放射線科（架空）" },
+    { id: "img-oura-1", day: -1, time: "11:20", modality: "X線", region: "胸部正面", report: "右下肺野に浸潤影。胸水なし。", reader: "放射線科（架空）" },
+    {
+      id: "img-oura-2",
+      day: -1,
+      time: "13:40",
+      modality: "CT",
+      region: "胸部（単純）",
+      regionCode: "R-CHEST",
+      contrast: "単純",
+      report: "右下葉背側（S6・S10）に気管支透亮像を伴う浸潤影。両側下葉の背側に軽度の無気肺。胸水なし。縦隔リンパ節の腫大なし。心拡大なし。\n【診断】右下葉の肺炎。背側優位の分布は誤嚥性肺炎に合う。\n【推奨】経過は胸部 X 線で。改善が乏しければ CT で再評価。",
+      reader: "放射線科 石田（架空）",
+    },
   ],
 };
 
@@ -608,7 +630,20 @@ const mori: BasePatient = {
   cultures: [
     { collectedOn: -2, specimen: "尿", status: "中間報告", reportedOn: -1, gram: "グラム陰性桿菌 10⁵/mL" },
   ],
-  imaging: [],
+  // 入院時の CT（架空）。読影レポートの見出し（所見・診断・推奨）は reports.ts が 【】 の印で分ける。
+  imaging: [
+    {
+      id: "img-mori-1",
+      day: -2,
+      time: "21:10",
+      modality: "CT",
+      region: "腹部・骨盤（単純）",
+      regionCode: "R-ABD-PELVIS",
+      contrast: "単純",
+      report: "左腎は右に比べ軽度に腫大し、腎周囲の脂肪織に索状の濃度上昇を認める。水腎症・腎結石なし。腎実質に低吸収域（膿瘍を疑う所見）なし。気腫性変化なし。肝・胆・膵・脾に特記すべき所見なし。少量の腹水なし。\n【診断】左急性腎盂腎炎に合う所見。膿瘍・水腎症・気腫性変化なし。\n【推奨】解熱しない場合は造影 CT で膿瘍の有無を再評価。",
+      reader: "放射線科 石田（架空）",
+    },
+  ],
 };
 
 export const PATIENTS: Patient[] = [sakura, oura, kitamura, mori].map((p) => ({
