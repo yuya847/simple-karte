@@ -72,7 +72,14 @@ const COLUMNS: { key: keyof ExtractRow; label: string }[] = [
 export const EXTRACT_COLUMNS = COLUMNS;
 
 /** CSV for Excel: a BOM so Japanese opens correctly, every field quoted, quotes doubled. */
-export function toCsv(rows: ExtractRow[]): string {
+export function csvOf(header: string[], rows: (string | number)[][]): string {
   const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-  return "﻿" + [COLUMNS.map((c) => cell(c.label)).join(","), ...rows.map((r) => COLUMNS.map((c) => cell(r[c.key])).join(","))].join("\r\n") + "\r\n";
+  return "﻿" + [header.map(cell).join(","), ...rows.map((r) => r.map(cell).join(","))].join("\r\n") + "\r\n";
+}
+
+export function toCsv(rows: ExtractRow[]): string {
+  return csvOf(
+    COLUMNS.map((c) => c.label),
+    rows.map((r) => COLUMNS.map((c) => r[c.key])),
+  );
 }
