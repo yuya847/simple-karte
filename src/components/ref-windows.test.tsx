@@ -19,21 +19,46 @@ const asDoctor = (el: React.ReactElement) =>
     </RoleProvider>,
   );
 
-describe("左の欄は経過だけ", () => {
-  const html = asDoctor(<HistoryPane patient={sakura} entries={sakura.history} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />);
-  it("has no tab row (経過表・注射・内服 …) over the record, and keeps the filter row", () => {
-    expect(html).not.toContain('aria-label="左の表示"');
-    expect(html).not.toContain(">経過表<");
-    expect(html).toContain('aria-label="経過"');
+describe("左の欄の5つのタブ", () => {
+  const base = { patient: sakura, entries: sakura.history, today, selectedDay: null, showStopped: false, onToggleStopped: () => {} };
+  const views = { patient: sakura, entries: sakura.history, today, nowTime: "10:00", selectedDay: null, onSelectDay: () => {}, onStopDraft: () => {}, draftedStops: [] as string[] };
+  it("経過・経過表・内服歴・注射歴・検査結果 are the tabs, in one row that scrolls (no wrap); 処置・移動・食事・指示簿・予約 are not there", () => {
+    const html = asDoctor(<HistoryPane {...base} />);
+    const row = html.slice(html.indexOf('aria-label="左の表示"'), html.indexOf("</div>", html.indexOf('aria-label="左の表示"')));
+    expect(row).toContain(">経過<");
+    expect(row).toContain(">経過表<");
+    expect(row).toContain(">内服歴<");
+    expect(row).toContain(">注射歴<");
+    expect(row).toContain(">検査結果<");
+    expect(row).toContain("overflow-x-auto");
+    for (const x of [">処置<", ">移動・食事<", ">指示簿<", ">予約<"]) expect(row).not.toContain(x);
+    expect(html).toContain("flex-nowrap");
     expect(html).toContain("中止したオーダも表示");
     expect(html).toContain('aria-label="記載を書いた職種"');
-    expect(html).toContain('aria-label="オーダの種類"');
+  });
+  it("an unknown saved tab (an older value) falls back to 経過", () => {
+    const html = asDoctor(<HistoryPane {...base} view="diet-cal" />);
+    expect(html).toMatch(/aria-selected="true"[^>]*>経過</);
+    expect(html).toContain("中止したオーダも表示");
+  });
+  it("経過表・内服歴・注射歴・検査結果 show their view with a 別ウインドウで開く button in place of the checkbox", () => {
+    const flow = asDoctor(<HistoryPane {...base} view="flowsheet" views={views} onFloat={() => {}} />);
+    expect(flow).toContain("体温");
+    expect(flow).toContain("別ウインドウで開く");
+    expect(flow).not.toContain("中止したオーダも表示");
+    expect(asDoctor(<HistoryPane {...base} view="rx-history" views={views} onFloat={() => {}} />)).toContain("内服");
+    expect(asDoctor(<HistoryPane {...base} view="inj-history" views={views} onFloat={() => {}} />)).toContain("セファゾリン");
+    const results = asDoctor(<HistoryPane {...base} view="results" views={views} onFloat={() => {}} />);
+    expect(results).toContain("検体検査");
+    expect(results).toContain("CRP");
+    expect(results).toContain("検査結果を右の引き出しで開く");
   });
 });
 
 describe("右の欄の参照のタブ", () => {
-  it("the reading tabs open in their own window first, like the injection calendar", () => {
+  it("the reading tabs (経過表 too, for its own window) open in their own window first, like the injection calendar", () => {
     for (const t of REF_TABS) expect(WINDOW_TABS.has(t)).toBe(true);
+    expect(REF_TABS).toContain("flowsheet");
     expect(WINDOW_TABS.has("injcal")).toBe(true);
     expect(WINDOW_TABS.has("note")).toBe(false);
     expect(isRefTab("flowsheet")).toBe(true);

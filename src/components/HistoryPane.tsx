@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Copy, GripVertical, History, MoreHorizontal, PencilLine, Search, X } from "lucide-react";
+import { Copy, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS } from "@/lib/master";
 import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
@@ -18,8 +18,32 @@ import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from 
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
 import type { TakeBadge } from "@/lib/order-confirm";
+import type { PendingDraw } from "@/lib/lab-table";
 import { TakeBadgeMark } from "./TakeConfirm";
 import { OrderReportMark } from "./ReportMark";
+import { InjectionCalendar, PrescriptionCalendar, type CalendarProps } from "./Calendars";
+import { FlowSheet } from "./FlowSheet";
+import { ResultsPanel } from "./panels/ResultsPanel";
+import type { RefWindowProps } from "./RefWindows";
+
+export type LeftView = "record" | "flowsheet" | "rx-history" | "inj-history" | "results";
+
+/** The tabs over the left pane. The calendars of 処置・移動・食事・指示簿 and the 予約 list are windows from the tools (参照). */
+export const LEFT_VIEWS: { key: LeftView; label: string; title: string }[] = [
+  { key: "record", label: "経過", title: "経過：記事とオーダを日付ごとに" },
+  { key: "flowsheet", label: "経過表", title: "経過表（温度板）" },
+  { key: "rx-history", label: "内服歴", title: "内服歴（内服カレンダー：処方の行ごとに、続く期間を帯で）" },
+  { key: "inj-history", label: "注射歴", title: "注射歴（注射カレンダー：注射の行ごとに、投与の予定と実施を）" },
+  { key: "results", label: "検査結果", title: "検査結果（時系列）：採血ごとの値を並べ、期間・並べ替え・グラフ・コピー・CSV・印刷" },
+];
+const asLeftView = (v: string | undefined): LeftView => (LEFT_VIEWS.some((x) => x.key === v) ? (v as LeftView) : "record");
+
+/** What the other left tabs show: the same bundle as the reading windows, plus the injection calendar's 新規 and the results table. */
+export type LeftViewProps = RefWindowProps & {
+  onNewInjection?: CalendarProps["onNewInjection"];
+  pendingNew?: CalendarProps["pendingNew"];
+  results?: { pending?: PendingDraw[]; onExport?: (what: "CSV" | "コピー" | "印刷", n: number) => void; focusAt?: { day: number; time: string } };
+};
 
 interface Props {
   patient: Patient;
@@ -28,6 +52,13 @@ interface Props {
   selectedDay: DayOffset | null;
   showStopped: boolean;
   onToggleStopped: () => void;
+  /** Which left tab is shown (経過 when absent or unknown — an older saved value), and changing it. */
+  view?: string;
+  onView?: (v: LeftView) => void;
+  /** 別ウインドウで開く on a tab: the same view in its own large window (the flow sheet and the calendars) or the results drawer. */
+  onFloat?: (v: Exclude<LeftView, "record">) => void;
+  /** What the other tabs show (the flow sheet, the calendars, the results table). */
+  views?: LeftViewProps;
   /** A 記録 mark of the flow sheet: show that kind of note only (n renews the list each time). */
   focus?: { kind: string; n: number };
   /** Correct a confirmed note (a new version; the earlier ones are kept). `by` names the people who corrected it together. */
@@ -62,22 +93,60 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 };
 
 /**
- * Left pane: the record (経過) to read while writing on the right. The flow sheet and the calendars are not
- * here: they open from the tools on the far right (参照) in their own window.
+ * Left pane: what to read while writing on the right — 経過 (the record), 経過表, 内服歴, 注射歴 and 検査結果
+ * (時系列). Each of the last four can also be opened in its own window (the ⧉ button on the tab). The
+ * calendars of 処置・移動・食事・指示簿 and the 予約 list open from the tools on the far right (参照).
  */
 export function HistoryPane(props: Props) {
-  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, focus, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf } = props;
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf } = props;
+  const view = asLeftView(props.view);
+  const v = views;
+  const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew } : null;
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft px-4 py-1.5">
-        <h2 className="text-sm font-bold">経過</h2>
-        <span className="hint text-[10px] text-ink-faint">経過表・カレンダー・予約の一覧は、右端のツールの「参照」から別ウインドウで開きます。</span>
-        <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-faint">
-          <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
-          中止したオーダも表示
-        </label>
+      <div className="flex flex-nowrap items-center gap-x-3 border-b border-rule-soft px-4 py-1.5">
+        <div role="tablist" aria-label="左の表示" className="scroll-thin flex min-w-0 max-w-full shrink overflow-x-auto rounded-md border border-rule p-0.5 text-sm">
+          {LEFT_VIEWS.map(({ key: k, label, title }) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              title={title}
+              aria-selected={view === k}
+              onClick={() => onView?.(k)}
+              className={`whitespace-nowrap rounded px-2.5 py-0.5 ${view === k ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {view === "record" ? (
+          <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-faint">
+            <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
+            中止したオーダも表示
+          </label>
+        ) : (
+          onFloat && (
+            <button type="button" onClick={() => onFloat(view)} title={view === "results" ? "検査結果を右の引き出しで開く（引き出しは別ウインドウにもできます）" : "別ウインドウで開く（大きなウインドウ。動かせて、左の欄と並べて見られます）"} className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-rule px-1.5 py-0.5 text-[11px] text-ink-soft hover:border-ai hover:text-ink pointer-coarse:py-1.5">
+              <PictureInPicture2 size={13} />
+              別ウインドウで開く
+            </button>
+          )
+        )}
       </div>
-      <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
+      {view === "flowsheet" && v ? (
+        <FlowSheet patient={patient} entries={entries} today={today} nowTime={v.nowTime} selectedDay={selectedDay} onSelectDay={v.onSelectDay} onInsertVitals={v.onInsertVitals} care={v.care} io={v.io} diets={v.diets} moves={v.moves} dayInfo={v.flowDays} {...v.flow} />
+      ) : view === "rx-history" && calendarProps ? (
+        <PrescriptionCalendar {...calendarProps} />
+      ) : view === "inj-history" && calendarProps ? (
+        <InjectionCalendar {...calendarProps} />
+      ) : view === "results" ? (
+        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
+        </div>
+      ) : (
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
+      )}
     </section>
   );
 }

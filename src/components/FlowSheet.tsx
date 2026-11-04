@@ -94,6 +94,9 @@ export interface FlowSheetProps {
   onWriteNote?: () => void;
   /** The scale to open on (入院から when not given). */
   initialScale?: FlowScale;
+  /** The scale kept outside (the chart), so the left tab and the sheet's own window show the same zoom. */
+  scale?: FlowScale;
+  onScale?: (s: FlowScale) => void;
   /** Open the chart's own entry for a pressed cell (バイタル・看護ケア・水分出納・与薬・指示受け). */
   onEntry?: (req: FlowEntry) => void;
   /** Orders of this patient a nurse has not taken yet (指示受け). */
@@ -130,7 +133,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", onEntry, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -140,7 +143,12 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const [showTable, setShowTable] = useState(false);
   const nowAbs = abs(0, nowTime);
   // 表示期間: 入院から (one column a day) unless a person chooses another; `anchor` null follows now.
-  const [scale, setScale] = useState<FlowScale>(initialScale);
+  const [ownScale, setOwnScale] = useState<FlowScale>(initialScale);
+  const scale = scaleProp ?? ownScale;
+  const setScale = (s: FlowScale) => {
+    setOwnScale(s);
+    onScale?.(s);
+  };
   const [anchor, setAnchor] = useState<number | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   // 温度板の印刷: the period shown, drawn at the width of A4 landscape while the print dialog is open.
