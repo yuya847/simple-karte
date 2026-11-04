@@ -164,7 +164,14 @@ export interface RisWork {
   patientId: string;
   /** e.g. 「CT　腹部・骨盤　単純」. */
   label: string;
+  /** 指示受け・受付 by the technologist (ris-take.ts): from here the study is 受付済み. */
   arrived?: Stamp;
+  /** 指示確認 after taking a contrast or MRI order: what the technologist looked at (ris-take.ts). */
+  confirmed?: Stamp & { items: string[] };
+  /** 呼出: the waiting room display, or the ward asked to bring the patient (ris-take.ts). */
+  called?: Stamp & { how: "待合の表示" | "病棟へ搬送依頼" };
+  /** 来室 (for a portable: the technologist reached the bedside). */
+  inRoom?: Stamp;
   room?: RoomKey;
   /** 撮影の予定時刻（割り当てたとき）. */
   slot?: Moment;
