@@ -60,6 +60,7 @@ export const TABS: Record<Role, PinnedTab[]> = {
 export const home = (r: Role): PinnedTab => TABS[r][0];
 
 export type Action =
+  | "consult"
   | "order"
   | "order.verbal"
   | "order.sign"
@@ -132,6 +133,7 @@ export type Action =
   | "master.proc";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
+  consult: { label: "コンサルトの依頼・返書・終了", who: ["医師"] },
   order: { label: "オーダの確定", who: ["医師"] },
   "order.verbal": { label: "口頭指示の代行入力", who: ["看護師"] },
   "order.sign": { label: "口頭指示の承認・薬剤部への回答", who: ["医師"] },

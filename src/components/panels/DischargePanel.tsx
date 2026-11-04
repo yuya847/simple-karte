@@ -39,7 +39,7 @@ const noSubscribe = () => () => {};
 /** 退院時サマリー and 診療情報提供書: facts by code, the doctor's account placed by Claude, signed by the doctor. */
 export function DischargePanel({ patient, today, nowTime, doctor, entries, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter, attending = patient.attending, onApprove, onReturn }: Props) {
   const me = useMe();
-  const [tab, setTab] = useState<"summary" | "letter">("summary");
+  const [tab, setTab] = useState<"summary" | "letter">(draft?.letter.to ? "letter" : "summary");
   const [d, setD] = useState<DischargeDraft>(
     draft ?? { patientId: patient.id, dischargeDay: 2, destination: "自宅", outcome: "1", route: "1", sections: emptySections(), status: "作成中", letter: { to: "", dept: "", doctor: "", purpose: "", attach: true } },
   );

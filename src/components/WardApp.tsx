@@ -2,6 +2,9 @@
 
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
 import { normalizeRightState, orderWindows, showOrderWindow } from "@/lib/order-windows";
+import { ConsultContext } from "./ConsultContext";
+import { ConsultPanel, ConsultBanner, ConsultInboxView } from "./ConsultPanel";
+import { consultInbox, consultNotifications, referralDraft, consultReplyNote, replyConsult, closeConsult, type ConsultReplies } from "@/lib/consult";
 import { recordsForCompletedOrders } from "@/lib/completed-orders";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -191,7 +194,7 @@ import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "
 import { b008Check, draftsFromReport, queryOpen, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, otherChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
-import { AddConsultPanel, AddGuidePanel, AddLeavePanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
+import { AddGuidePanel, AddLeavePanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
 import { latestValue } from "@/lib/clinical";
 import { ImagingConsentProvider } from "./ImagingConsent";
@@ -260,7 +263,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "standing", "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "add-consult", "standing", "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -620,7 +623,7 @@ export default function WardApp() {
   // 書類作成で作った書類.
   const [documents, setDocuments] = useState<DocRecord[]>([]);
   // 他科依頼の返書 (by order id).
-  const [consultReplies, setConsultReplies] = useState<Record<string, { text: string; by: string; at: string }>>({});
+  const [consultReplies, setConsultReplies] = useState<ConsultReplies>({});
   // 看護日誌: the charge nurse's words, per floor.
   const [journal, setJournal] = useState<Record<string, { text: string; by: string; at: string }[]>>({});
   // 勤務表と様式9 (5階東): null = the fictional draft, until the 看護師長 changes it.
@@ -1599,7 +1602,7 @@ export default function WardApp() {
   // admissions and discharges) and 受け持ち. The map and the journal show one floor (5階東 at first).
   const floorInfo: Floor = FLOORS.find((f) => f.name === floor) ?? FLOORS[0];
   // 受け持ち (it stands out on the list and the map): a doctor's own patients (主治医のチーム・担当医・コンサルト医), else the team's.
-  const isMine = (pid: string) => (role === "医師" ? involved(me.name, doctorsOf(findPatient(pid)?.attending ?? "", doctorBook[pid])) : teamIds.has(pid));
+  const isMine = (pid: string) => (role === "医師" ? involved(me.name, doctorsFor(pid, findPatient(pid) ? currentEntries(findPatient(pid)!, sessionChanges[pid]) : [])) : teamIds.has(pid));
   // 主治医・担当医・コンサルト医 of a patient as the record stands (a consult order not yet answered adds the asked doctor as 依頼中).
   const doctorsFor = (pid: string, es: HistoryEntry[]) => doctorsOf(findPatient(pid)?.attending ?? "", doctorBook[pid], consultDoctors(es, consultReplies));
   // Any patient on a bed with the record as it stands (the team's from `people`; another team's opened from a list).
@@ -1674,7 +1677,10 @@ export default function WardApp() {
     setIo((all) => all.map((x) => (x.id === id ? { ...x, voided: { by: me.name, at: nowTime, reason } } : x)));
   };
   // やること: what waits for this role, from everywhere, each with where to go.
+  const consultPeople = bedPeople(allBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id]));
+  const inbox = consultInbox(consultPeople, me.name, consultReplies);
   const todos: Todo[] = [];
+  if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
   for (const x of people) {
     const pid = x.patient.id;
     const r = resultState[pid];
@@ -2307,6 +2313,8 @@ export default function WardApp() {
         <SummaryList rows={summaryNow} today={today} onOpen={(id) => (openPatient(id), setPanel("discharge"))} />
       ) : screen === "io" ? (
         <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standing[pid]?.at(-1)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
+      ) : screen === "consults" ? (
+        <ConsultInboxView rows={inbox} onOpen={(id) => { openPatient(id); setPanel("add-consult"); }} />
       ) : screen === "reports" ? (
         <WardReportList rows={wardReports} mine={isMine} acks={acks} today={today} onSeen={deny("result.ack") ? undefined : (pid, keys) => markSeen(pid, keys)} onOpen={openPatient} />
       ) : screen === "undone" ? (
@@ -2822,6 +2830,7 @@ export default function WardApp() {
       ) : patient && ctx ? (
         <>
           <PatientSwitchFlash patient={{ id: patient.id }} />
+          <ConsultBanner entries={entries} replies={consultReplies} onOpen={() => setPanel("add-consult")} />
           <PatientBar
             patient={patient}
             today={today}
@@ -2951,7 +2960,7 @@ export default function WardApp() {
               </div>
             ) : (
               <>
-            <ReportContext.Provider value={{ reports: reportsHere, acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
+            <ConsultContext.Provider value={consultReplies}><ReportContext.Provider value={{ reports: reportsHere, acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
             <HistoryPane
               onShown={setShownEntries}
               patient={patient}
@@ -2996,7 +3005,7 @@ export default function WardApp() {
                 if (resident) setCosign((all) => noteRevised(all, { ref: noteKey(e), patientId: patient.id, by: me.name, at: { day: 0, time: nowTime }, text: text.trim() }, newId));
               }}
             />
-            </ReportContext.Provider>
+            </ReportContext.Provider></ConsultContext.Provider>
             <div
               className={`relative flex min-h-0 flex-col ${dropping ? "ring-2 ring-inset ring-ai" : ""}`}
               onDragOver={(e) => {
@@ -3721,20 +3730,25 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "add-consult" && (
-                <Drawer title="他科依頼" onClose={closePanel} wide>
-                  <AddConsultPanel
+                <Drawer title="コンサルト" onClose={closePanel} wide>
+                  <ConsultPanel
+                    patient={patient} entries={entries}
+                    onCloseConsult={(id) => { if (deny("consult")) return; setConsultReplies(all => ({ ...all, [id]: closeConsult(all[id]) })); }}
+                    onRefer={(to, dept, purpose, summary) => { if (deny("consult")) return; setDischarges(all => ({ ...all, [patient.id]: referralDraft(patient.id, to, dept, purpose, summary) })); setPanel("discharge"); }}
                     newId={newId}
                     consults={entries.filter((e): e is OrderEntry => e.kind === "order" && e.order.type === "procedure" && e.order.code === "PROC-CONSULT")}
                     replies={consultReplies}
                     onReply={(entryId, text, by) => {
+                      if (deny("consult")) return;
+                      setNotes(all => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), consultReplyNote(newId(), text, me.name, nowTime)] }));
                       const e = entries.find((x) => x.kind === "order" && x.id === entryId);
                       const dept = e && e.kind === "order" && e.order.type === "procedure" ? e.order.consult?.dept : "";
                       auditLog({ role: "医師", actor: by, action: "確定（他科依頼の返書）", patient: patient.name, detail: `${dept}　${text.slice(0, 80)}` });
-                      setConsultReplies((all) => ({ ...all, [entryId]: { text, by, at: nowTime } }));
+                      setConsultReplies((all) => ({ ...all, [entryId]: replyConsult(all[entryId], text, by, nowTime) }));
                       // The doctor who answered is the patient's コンサルト医 from now on (the 依頼中 placeholder goes).
                       auditLog({ role: "医師", actor: by, action: "確定（コンサルト医の登録：他科依頼の返書）", patient: patient.name, detail: `${dept} ${by}` });
                       setDoctorBook((all) => ({ ...all, [patient.id]: addDoctor(all[patient.id] ?? [], { name: by, role: "コンサルト医", department: dept, since: { day: 0, time: nowTime }, by, note: "他科依頼の返書" }) }));
-                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${dept}から返書（${by}）：${text}\n` }));
+
                     }}
                     onAdd={(d) => {
                       if (orderBlock) return;

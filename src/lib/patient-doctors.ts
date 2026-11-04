@@ -4,6 +4,7 @@
 // matches names and writes the marks. A consult order not yet answered puts the asked department's doctor
 // on the list as 「依頼中」 (provisional) until the reply names who took it. All names are fictional.
 
+import { doctorsIn } from "./consult";
 import { onTeamOf } from "./doctors";
 import type { DayOffset, HistoryEntry } from "./types";
 import { doctorFor } from "./ward";
@@ -48,16 +49,21 @@ export function removeDoctor(list: OtherDoctor[], name: string, role: DoctorRole
  * コンサルト医 from the 他科依頼 orders (PROC-CONSULT) still in force: answered ones name the doctor who
  * replied; the others put the asked department's doctor on the list as 依頼中.
  */
-export function consultDoctors(entries: HistoryEntry[], replies: Record<string, { by: string; at: string }>, whoOf: (department: string) => string = doctorFor): OtherDoctor[] {
+export function consultDoctors(entries: HistoryEntry[], replies: Record<string, { by: string; at: string; closed?: boolean }>, whoOf: (department: string) => string = doctorFor): OtherDoctor[] {
   const out: OtherDoctor[] = [];
   for (const e of entries) {
     if (e.kind !== "order" || e.status !== "有効" || e.order.type !== "procedure" || e.order.code !== "PROC-CONSULT" || !e.order.consult) continue;
     const dept = e.order.consult.dept;
     const r = replies[e.id];
-    const d: OtherDoctor = r
+    if (r?.closed) continue;
+    const d: OtherDoctor = r && r.by
       ? { name: r.by, role: "コンサルト医", department: dept, since: { day: 0, time: r.at }, by: r.by, note: "他科依頼の返書" }
-      : { name: whoOf(dept), role: "コンサルト医", department: dept, since: { day: e.day, time: e.time }, by: e.author, note: "他科依頼（返書待ち）", pending: true };
-    if (!out.some((x) => same(x, d))) out.push(d);
+      : { name: e.order.consult.doctor === "" ? (doctorsIn(dept)[0]?.name || whoOf(dept)) : (e.order.consult.doctor ?? whoOf(dept)), role: "コンサルト医", department: dept, since: { day: e.day, time: e.time }, by: e.author, note: "他科依頼（返書待ち）", pending: true };
+    const names = !r && e.order.consult.doctor === "" ? doctorsIn(dept).map(x => x.name) : [];
+    for (const name of names.length ? names : [d.name]) {
+      const next = { ...d, name };
+      if (!out.some((x) => same(x, next))) out.push(next);
+    }
   }
   return out;
 }

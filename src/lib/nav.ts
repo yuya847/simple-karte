@@ -63,7 +63,7 @@ const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysi
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "mine" | "all" | "sheet" | "take" | "execute" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals" | "monitor";
+export type WardTab = "consults" | "map" | "mine" | "all" | "sheet" | "take" | "execute" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals" | "monitor";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -81,6 +81,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "mine", label: "受け持ち患者", hint: "自分のチームの患者", group: "patients", needs: "list" },
   { key: "recent", label: "最近開いた患者", hint: "自分が最近カルテを開いた患者を新しい順に（この端末のみに保存）", group: "patients", needs: "list" },
   { key: "favorites", label: "お気に入りの患者", hint: "氏名の横の☆で登録した患者を全病棟から（この端末のみに保存）", group: "patients", needs: "list" },
+  { key: "consults", label: "コンサルト依頼", hint: "自分と自分の科への依頼を古い順に見る", group: "work", needs: "handoff" },
   { key: "take", label: "指示受け", hint: "病棟の患者の、まだ受けていない指示（新規・変更・中止・指示簿・食事）を患者ごとに、時刻の順か急ぐ順で。受けたら、その指示が今日と明日に作る予定を見て確認する（指示受け → 指示確認 → 実施入力）。今日受けたものと指示票の印刷も", group: "work", needs: "sheet" },
   { key: "execute", label: "実施入力", hint: "その日の予定（注射・内服・処置・採血・検査）を患者ごとに指示票の形で並べ、「実施した」で時刻と実施者を入れて記録する（ワークシートと同じ記録。照合はしない）", group: "work", needs: "sheet" },
   { key: "sheet", label: "ワークシート", hint: "今日の与薬・処置と指示受け", group: "work", needs: "sheet" },
@@ -117,7 +118,7 @@ const RENAMED_WARD_TABS: Record<string, WardTab> = { floor: "all" };
 export const readWardTab = (key: string): WardTab | null => RENAMED_WARD_TABS[key] ?? WARD_TABS.find((t) => t.key === key)?.key ?? null;
 
 /** The ② screens a role may open inside 病棟. */
-export const wardTabsFor = (role: Role): WardTab[] => WARD_TABS.filter((t) => [t.needs].flat().some((n) => TABS[role].includes(n))).map((t) => t.key);
+export const wardTabsFor = (role: Role): WardTab[] => WARD_TABS.filter((t) => (t.key !== "consults" || role === "医師" || role === "デバッグ") && [t.needs].flat().some((n) => TABS[role].includes(n))).map((t) => t.key);
 
 /** The places (and tools) a role uses, in the menu's order. */
 export function areasFor(role: Role): Area[] {

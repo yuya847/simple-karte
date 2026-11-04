@@ -78,3 +78,5 @@ describe("患者の医師（主治医・担当医・コンサルト医）", () =
     for (const p of asConsultant) expect(relationOf("山本（専攻医）", doctorsOf(p.attending, INITIAL_DOCTOR_BOOK[p.id]))).toBe("コンサルト医");
   });
 });
+
+ it("指名したコンサルト医に患者を加え終了時は依頼中の印を外す", () => { const e = consult("named", "循環器内科"); if(e.order.type === "procedure" && e.order.consult) e.order.consult.doctor = "井上（循環器内科）"; expect(consultDoctors([e], {})[0].name).toBe("井上（循環器内科）"); expect(consultDoctors([e], { named: { by: "", at: "", closed: true } })).toEqual([]); });

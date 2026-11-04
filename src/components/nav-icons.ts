@@ -93,6 +93,7 @@ export const AREA_ICON: Record<AreaKey, Icon> = {
 };
 
 export const WARD_ICON: Record<WardTab, Icon> = {
+  consults: ArrowRightLeft,
   map: LayoutGrid,
   mine: UserRound,
   recent: History,

@@ -85,6 +85,7 @@ export type HistoryEntry = NoteEntry | OrderEntry;
 
 export interface NoteEntry {
   kind: "note";
+  category?: "コンサルト返書";
   day: DayOffset;
   time: string; // "HH:MM"
   author: string;
@@ -298,7 +299,9 @@ export interface RehabOrder {
 export interface ConsultOrder {
   dept: string;
   question: string;
-  urgency: "至急" | "通常";
+  urgency: "至急" | "通常" | "本日中" | "数日以内" | "定期";
+  doctor?: string;
+  summary?: string;
 }
 
 /** 退院申込・外泊・外出: when, where to, and (外泊・外出) when the patient comes back. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
+import { TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { loadMyTemplates } from "@/lib/note-templates";
@@ -39,7 +39,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     ],
     more: [
       { key: "add-rehab", label: "リハビリ", icon: Footprints },
-      { key: "add-consult", label: "他科依頼", icon: Send },
+      { key: "add-consult", label: "コンサルト", icon: MessageSquareShare },
       { key: "add-transfusion", label: "輸血", icon: Droplet },
       { key: "add-dialysis", label: "透析", icon: Droplets },
       { key: "regimen", label: "レジメン", icon: FlaskRound },
@@ -247,7 +247,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
       <div key={`${where}-${t.pin}`} className="relative">
         <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
           <Icon size={tileList ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
-          <span className={tileList ? "truncate" : where === "pins" ? "w-full break-words text-center" : ""}>{t.label}</span>
+          <span className={tileList ? "truncate" : where === "pins" ? "w-full break-words text-center" : ""}>{t.label}{t.pin === "add-consult" && where !== "pins" && <small className="block text-[9px] font-normal">他科依頼・紹介</small>}</span>
           {tileList && badge && badge.n > 0 && <span className={`${badgeClass(badge.urgent)} ml-auto`}>{badge.n}</span>}
         </button>
         {!tileList && !editPins && badge && badge.n > 0 && (

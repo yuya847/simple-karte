@@ -418,7 +418,7 @@ export const txText = (o: TxOrder) => `${TX_PRODUCTS[o.product].name} ${TX_PRODU
 export const REHAB_FIELDS: RehabOrder["field"][] = ["脳血管疾患等", "運動器", "呼吸器", "心大血管疾患", "廃用症候群"];
 export const CONSULT_DEPTS = ["循環器内科", "呼吸器内科", "消化器内科", "腎臓内科", "脳神経内科", "整形外科", "外科", "泌尿器科", "皮膚科", "精神科", "リハビリテーション科"];
 export const rehabText = (r: RehabOrder) => `${r.field}リハビリ（${r.therapists.join("・")}）　目標：${r.goal}${r.cautions ? `　注意：${r.cautions}` : ""}`;
-export const consultText = (c: ConsultOrder) => `${c.dept}へ（${c.urgency}）：${c.question}`;
+export const consultText = (c: ConsultOrder) => `${c.dept}へ${c.doctor ? ` ${c.doctor}` : ""}（${c.urgency}）：${c.question}${c.summary ? `\n経過の要約：${c.summary}` : ""}`;
 export const moveText = (m: MoveOrder) =>
   m.kind === "転科" ? `転科 → ${m.toDept ?? "？"}（主治医 ${m.toDoctor ?? "？"}）　${m.reason}` : `${m.kind} → ${m.to ? `${m.to.room}${m.to.bed ? `-${m.to.bed}` : ""}` : "？"}　${m.reason}`;
 export const GUIDE_TO: Record<GuideOrder["kind"], "管理栄養士" | "薬剤師" | "看護師"> = { 栄養食事指導: "管理栄養士", 服薬指導: "薬剤師", 退院時の生活指導: "看護師" };

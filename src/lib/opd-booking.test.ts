@@ -15,7 +15,7 @@ describe("外来予約の下書き", () => {
   it("the clinics are the fictional hospital's outpatient departments, each with a doctor; the range is tomorrow to 90 days ahead", () => {
     expect(OPD_CLINICS.map((c) => c.name)).toContain("総合診療科");
     expect(opdDoctorsOf("総合診療科")).toContain("山本（専攻医）");
-    expect(opdDoctorsOf("循環器内科")).toEqual(["循環器内科 森（架空）"]);
+    expect(opdDoctorsOf("循環器内科")).toEqual(["循環器内科 森（架空）", "井上（循環器内科）"]);
     expect(bookableDays()[0]).toBe(1);
     expect(bookableDays().at(-1)).toBe(OPD_BOOKING_RULES.maxDays);
     expect(OPD_BOOKING_RULES.note).toContain("架空の病院の取り決め");

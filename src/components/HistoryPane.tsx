@@ -1,4 +1,5 @@
 "use client";
+import { ConsultStatus } from "./ConsultContext";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -725,7 +726,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
   };
   return (
     <Card
-      mark="記事"
+      mark={entry.category ?? "記事"}
       when={whenText(today, times.event.day, times.event.time)}
       place={place}
       tone={tone}
@@ -1116,7 +1117,7 @@ function OrderRow({ sharedMarkKeys = [], grouped = false, hideStatus = false, hi
       </div>
     ) : (
       <div className="nums">
-        <div className={strike}>{main}</div>
+        <div className={strike}>{o.type === "procedure" && o.consult ? "コンサルト" : main}{o.type === "procedure" && o.consult && <ConsultStatus id={entry.id} />}</div>
         <div className="text-xs text-ink-soft">{detail}</div>
         {o.type === "imaging" && onOpenImage && !stopped && (
           <button type="button" onClick={() => onOpenImage(entry.id)} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">

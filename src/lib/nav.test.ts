@@ -151,3 +151,5 @@ describe("③ charts under the tab they were opened from", () => {
     expect(moved).toEqual([{ id: "a", owner: "ward:mine" }, { id: "d", owner: "er" }]);
   });
 });
+
+ it("コンサルト依頼は医師の病棟メニューに出す", () => { expect(wardTabsFor("医師")).toContain("consults"); expect(wardTabsFor("看護師")).not.toContain("consults"); });

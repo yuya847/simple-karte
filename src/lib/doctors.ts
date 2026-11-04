@@ -21,10 +21,11 @@ export const DOCTORS: Doctor[] = [
   { name: "研修医 田中", rank: "研修医", team: YAMAMOTO_TEAM, note: "初期研修1年目。記事とオーダは指導医か上級医が確かめる" },
   { name: "指導医 高橋", rank: "指導医", team: YAMAMOTO_TEAM, note: "このチームの指導医" },
   { name: "木下（総合診療科 B）", rank: "医師", team: "総合診療科 B（木下チーム）", note: "ほかのチームの医師（当直のときなど）" },
+  { name: "井上（循環器内科）", rank: "医師", team: "循環器内科", note: "コンサルト担当（架空）" },
   { name: "放射線科 石田（架空）", rank: "医師", team: "放射線科", note: "放射線科医。放射線部で読影レポートを書く" },
 ];
 
-export const DEFAULT_DOCTOR = DOCTORS[0].name;
+export const DEFAULT_DOCTOR = STAFF.医師.name;
 
 export const doctorOf = (name: string): Doctor | undefined => DOCTORS.find((d) => d.name === name);
 
