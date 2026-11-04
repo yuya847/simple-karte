@@ -3,7 +3,7 @@
 import { coverageOf, rateLabel, type Insurance } from "@/lib/billing/insurance";
 import { useState } from "react";
 
-import { bmi, cockcroftGault, latestValue } from "@/lib/clinical";
+import { bodyText, estimatedCcr, latestValue } from "@/lib/clinical";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import { bandLabel, reviewDue, type AdvanceDirective } from "@/lib/directives";
@@ -53,7 +53,9 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
   const [favorites, toggleFavorite] = useFavorites();
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
   const cre = latestValue(p, "Cre");
-  const ccr = cre ? cockcroftGault(p.age, p.weightKg, cre.value, p.sex) : undefined;
+  // 推定CCr needs the weight: an outpatient without one gets 「測定なし」, not a number from 0 kg.
+  const ccr = estimatedCcr(p, cre?.value);
+  const body = bodyText(p);
   const admitted = addDays(today, p.admittedOn);
   // A 救急外来・外来 visit opened in the chart screen (its id is "er:…" / "opd:…"): no bed, no 入院日数.
   const visit = /^(er|opd):/.test(p.id);
@@ -111,14 +113,15 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">
         <dt className="text-ink-faint">体格</dt>
         <dd>
-          {p.heightCm}cm　<b className="text-ink">{p.weightKg}kg</b>　BMI {bmi(p.heightCm, p.weightKg).toFixed(1)}
+          {body.height}　<b className="text-ink">{body.weight}</b>　BMI {body.bmi}
+          {body.unmeasured && <span className="ml-1 text-ink-faint">（未測定）</span>}
         </dd>
         <dt className="text-ink-faint">腎機能</dt>
         <dd>
           {cre ? (
             <>
-              Cre <b className="text-ink">{cre.value.toFixed(2)}</b>（{dayLabel(cre.day)}）　推定CCr {ccr!.toFixed(0)} mL/分
-              <span className="text-ink-faint">（CG式）</span>
+              Cre <b className="text-ink">{cre.value.toFixed(2)}</b>（{dayLabel(cre.day)}）　推定CCr {ccr !== null ? `${ccr.toFixed(0)} mL/分` : "測定なし（体重の記録がない）"}
+              {ccr !== null && <span className="text-ink-faint">（CG式）</span>}
             </>
           ) : (
             "測定なし"

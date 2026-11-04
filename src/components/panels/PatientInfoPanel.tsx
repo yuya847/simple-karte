@@ -14,6 +14,7 @@ import { ANAMNESIS_SECTIONS, type AnamnesisFields, type AnamnesisRecord } from "
 import type { InsuranceRecord } from "@/lib/billing/registration";
 import { infoInput as input, infoLinkBtn as linkBtn, none, Row, text } from "./InfoRow";
 import { InsuranceSection } from "./InsuranceSection";
+import { bodyText } from "@/lib/clinical";
 import { type CalendarDate, hospitalDay } from "@/lib/dates";
 import { bandLabel, type AdvanceDirective } from "@/lib/directives";
 import {
@@ -90,6 +91,8 @@ export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts,
   const [reason, setReason] = useState("");
   const when = (at: { day: number; time: string }) => `${at.day === 0 ? "今日" : fmtDay(at.day)} ${at.time}`;
   const visit = /^(er|opd):/.test(p.id);
+  // An outpatient has no height or weight until measured: 「—（未測定）」, never 0 cm.
+  const body = bodyText(p, { spaced: true });
   const birth = birthDateOf(p, today, insurance?.insurance.birthDate);
   const base = `${fmtDay(p.admittedOn)} 入院受付（架空の初期データ）`;
   const first = contacts ? primaryContact(contacts) : undefined;
@@ -161,9 +164,10 @@ export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts,
           <Row label="血液型" by={p.blood ? "プロファイル（医師・臨床検査技師）" : undefined}>
             {bloodText(p.blood)}
           </Row>
-          <Row label="身長・体重" by="プロファイル（医師・看護師・管理栄養士）">
+          <Row label="身長・体重" by={body.unmeasured ? "未測定" : "プロファイル（医師・看護師・管理栄養士）"}>
             <span className="nums">
-              {p.heightCm} cm　{p.weightKg} kg
+              {body.height}　{body.weight}
+              {body.unmeasured && <span className="ml-1 text-ink-faint">（未測定）</span>}
             </span>
           </Row>
           <Row label="診療科" by={base}>

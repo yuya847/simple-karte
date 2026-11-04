@@ -14,6 +14,7 @@ import type { OrderEntry } from "@/lib/types";
 import { OpdBillPanel, sections } from "./billing/OpdBillPanel";
 import { InsuranceSection } from "./panels/InsuranceSection";
 import { PatientInfoPanel } from "./panels/PatientInfoPanel";
+import { PatientBar } from "./PatientBar";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -40,6 +41,22 @@ describe("患者基本情報の保険・制度", () => {
     expect(html).toContain("2027-07-31");
     expect(html).toContain(">保険を編集</button>");
     expect(html).toContain("介護保険・かかりつけ");
+  });
+  it("an outpatient without height and weight: 「—（未測定）」 in the window and the bar, no 0 cm, no BMI NaN, no CCr", () => {
+    // 中谷 (opd-6) has no measurement; 石田 (opd-1) has one.
+    const html = as("医事課", <PatientInfoPanel patient={patientOf(nakatani)} today={today} fmtDay={fmtDay} nowTime="10:00" onSave={() => {}} />);
+    expect(html).toContain("（未測定）");
+    expect(html).not.toContain("0 cm");
+    expect(html).not.toContain("0 kg");
+    const bar = renderToStaticMarkup(<PatientBar patient={patientOf(nakatani)} today={today} diagnoses={[]} onOpenDiagnoses={() => {}} onOpenDirective={() => {}} />);
+    expect(bar).toContain("（未測定）");
+    expect(bar).not.toContain("0cm");
+    expect(bar).not.toContain("NaN");
+    expect(bar).toContain("測定なし");
+    const measuredBar = renderToStaticMarkup(<PatientBar patient={patientOf(ishida)} today={today} diagnoses={[]} onOpenDiagnoses={() => {}} onOpenDirective={() => {}} />);
+    expect(measuredBar).toContain("164cm");
+    expect(measuredBar).toContain("BMI 23.6");
+    expect(measuredBar).not.toContain("（未測定）");
   });
   it("shows 生活保護 with the 公費 (法別 12) and no 医保 numbers", () => {
     const html = as("看護師", <InsuranceSection patient={patientOf(yoshimura)} today={today} fmtDay={fmtDay} nowTime="10:00" records={INITIAL_INSURANCE_BOOK["opd:opd-3"]} onRegister={() => {}} />);
