@@ -221,6 +221,7 @@ import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
 import { NarcoticSlips } from "./NarcoticSlips";
 import { FormularyView } from "./FormularyView";
 import { Drawer, DrawerDefaults } from "./panels/Drawer";
+import { levelDrugsFrom } from "@/lib/lab-catalog";
 import { ImagingPanel } from "./panels/ImagingPanel";
 
 /**
@@ -3860,7 +3861,7 @@ export default function WardApp() {
               )}
               {panel === "add-lab" && (
                 <Drawer title="検体検査（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
-                  <AddLabPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                  <AddLabPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} today={today} levelDrugs={levelDrugsFrom(entries.filter((e): e is OrderEntry => e.kind === "order"), anyDrugName)} />
                 </Drawer>
               )}
             </div>

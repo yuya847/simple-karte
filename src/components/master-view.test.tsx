@@ -33,11 +33,12 @@ describe("マスタ管理の画面", () => {
   it("takes a 中止 out of the lab picker and shows a 院内名 in the procedure list at once", () => {
     const lab = LAB_TESTS.find((t) => t.group === "血液学" && t.abbr)!;
     const proc = PROCEDURES[0];
-    const before = renderToStaticMarkup(<AddLabPanel onAdd={() => {}} newId={newId} />);
+    // The lab picker opens on the 院内セット tab; the 血液学 items are on the 血算・血液像 tab.
+    const before = renderToStaticMarkup(<AddLabPanel onAdd={() => {}} newId={newId} initialTab="cbc" />);
     expect(before).toContain(`>${lab.abbr}</button>`);
     const meta = { reason: "試し", by: "検査技師 中村", role: "臨床検査技師", at: { day: 0, time: "10:00" } };
     addMasterChanges([...changesFor(NO_OVERRIDES, "検体検査", lab.code, { stopped: true }, meta, newId), ...changesFor(NO_OVERRIDES, "処置", proc.code, { localName: "院内の呼び名" }, meta, newId)]);
-    const after = renderToStaticMarkup(<AddLabPanel onAdd={() => {}} newId={newId} />);
+    const after = renderToStaticMarkup(<AddLabPanel onAdd={() => {}} newId={newId} initialTab="cbc" />);
     expect(after).not.toContain(`>${lab.abbr}</button>`);
     expect(renderToStaticMarkup(<AddProcedurePanel onAdd={() => {}} newId={newId} />)).toContain("院内の呼び名");
     expect(as("臨床検査技師", <MasterView nowTime="10:00" newId={newId} />)).toContain("変更の履歴");

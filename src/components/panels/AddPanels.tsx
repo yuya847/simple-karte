@@ -3,12 +3,12 @@
 import { History, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
-import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
+import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft } from "@/lib/drafts";
 import type { InjSeed } from "@/lib/inj-calendar";
 import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
-import { DRUGS, LAB_TESTS, ORAL_DRUGS, ORDER_SETS, WARD_RULES, findOralDrug, labInfo } from "@/lib/master";
+import { DRUGS, ORAL_DRUGS, findOralDrug } from "@/lib/master";
 import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
@@ -582,96 +582,8 @@ function RpSummary({ rp }: { rp: InjRp }) {
 const isFluidRp = (rp: InjRp) => rp.rows.length > 0 && masterOf(rp.rows[0].drugCode)?.kind === "輸液";
 const schedulesOf = (rp: InjRp) => (isFluidRp(rp) ? FLUID_SCHEDULES : SCHEDULES);
 
-/**
- * Pick lab items one by one (grouped like a lab's test guide) or a hospital set, and a draw time.
- * Each item shows its material and container (after the SRL 総合検査案内); it becomes a draft
- * that goes through the same checks.
- */
-export function AddLabPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
-  const [picked, setPicked] = useState<string[]>([]);
-  const toggle = (code: string) => setPicked((p) => (p.includes(code) ? p.filter((c) => c !== code) : [...p, code]));
-
-  const make = (when: "now" | "morning_routine"): LabDraft => ({
-    id: newId(),
-    origin: "manual",
-    sourceText: "（マスターから選択）",
-    comment: null,
-    kind: "lab",
-    tests: picked.map((code) => ({ code, said: code })),
-    collect: { day: when === "now" ? 0 : 1, when, time: null, beforeDose: null },
-    priority: null,
-    cultureSets: null,
-    duplicateOk: false,
-  });
-
-  const ORDER = ["血液学", "凝固・線溶", "生化学", "炎症・感染", "心筋・心不全", "内分泌", "血液ガス", "尿", "微生物", "薬物濃度"];
-  // マスタ管理: 採用 and not 中止, in 表示順, with the 院内名.
-  const ml = useMasterLocal();
-  const shownTests = pickable("検体検査", LAB_TESTS, ml);
-  const groups = ORDER.filter((g) => shownTests.some((t) => t.group === g));
-  const containers = [...new Set(picked.map((c) => labInfo(c).container))];
-  const notes = picked.flatMap((c) => (labInfo(c).note ? [`${LAB_TESTS.find((t) => t.code === c)?.abbr ?? c}：${labInfo(c).note}`] : []));
-
-  return (
-    <div className="space-y-3 text-[13px]">
-      <section>
-        <h3 className="mb-1 text-xs font-bold text-ink-soft">院内セット（架空の病院）</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {[...ORDER_SETS.map((s) => ({ code: s.code, label: s.name, sub: s.labCodes.map((c) => LAB_TESTS.find((t) => t.code === c)?.abbr).join("・") })), { code: "LAB-CHEM", label: "生化学（病棟定期セット）", sub: "13項目" }].map((x) => (
-            <button
-              key={x.code}
-              type="button"
-              title={x.sub}
-              onClick={() => toggle(x.code)}
-              className={`rounded-md border px-2 py-1 ${picked.includes(x.code) ? "border-ai bg-ai font-bold text-white" : "border-rule hover:border-ai"}`}
-            >
-              {x.label}
-            </button>
-          ))}
-        </div>
-      </section>
-      {groups.map((g) => (
-        <section key={g}>
-          <h3 className="mb-1 text-xs font-bold text-ink-soft">{g}</h3>
-          <div className="flex flex-wrap gap-1">
-            {shownTests.filter((t) => t.group === g).map((t) => (
-              <button
-                key={t.code}
-                type="button"
-                title={`${t.name}　${labInfo(t.code).material}・${labInfo(t.code).container}・${labInfo(t.code).tat}`}
-                onClick={() => toggle(t.code)}
-                className={`nums min-w-12 rounded border px-1.5 py-0.5 text-[12px] ${picked.includes(t.code) ? "border-ai bg-ai font-bold text-white" : "border-rule hover:border-ai"}`}
-              >
-                {nameIn(ml, "検体検査", t.code, t.abbr ?? t.name)}
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
-      {picked.length > 0 && (
-        <div className="rounded-md bg-paper px-2 py-1.5 text-[12px]">
-          <div>
-            <b>{picked.length}項目</b>　容器：{containers.join("・")}
-          </div>
-          {notes.map((n) => (
-            <div key={n} className="text-yamabuki">
-              {n}
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
-        <button type="button" disabled={!picked.length} onClick={() => onAdd(make("now"))} className="flex-1 rounded-md border border-ai px-3 py-2 text-sm text-ai disabled:opacity-40">
-          今すぐ（至急）
-        </button>
-        <button type="button" disabled={!picked.length} onClick={() => onAdd(make("morning_routine"))} className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-          明日朝の定時（{WARD_RULES.routineDrawTime}）
-        </button>
-      </div>
-      <p className="text-[11px] text-ink-faint">項目の分け方・材料・容器（SRL の容器記号）・所要日数は SRL「総合検査案内 2026-2027」を参考にしました。院内か外注かは架空の病院の設定です。結果の基準範囲は JCCLS 共用基準範囲（なければ SRL の値）です。</p>
-    </div>
-  );
-}
+// The lab order screen lives in its own file (tabs, draw time, points); re-exported for the callers.
+export { AddLabPanel } from "./AddLabPanel";
 
 /**
  * Pick a procedure from the master. It becomes a draft right away; the checks ask for what the
