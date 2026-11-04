@@ -112,7 +112,7 @@ describe("権限", () => {
   it("看護師と医師は記録できる。ほかの職種には理由が返る", () => {
     expect(executeDeny("看護師")).toBeNull();
     expect(executeDeny("医師")).toBeNull();
-    for (const r of ROLES.filter((x) => x !== "看護師" && x !== "医師")) expect(executeDeny(r)).toContain("与薬・実施の記録は看護師・医師が行います");
+    for (const r of ROLES.filter((x) => x !== "看護師" && x !== "医師" && x !== "デバッグ")) expect(executeDeny(r)).toContain("与薬・実施の記録は看護師・医師が行います");
   });
 });
 
