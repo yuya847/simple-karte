@@ -1,6 +1,7 @@
 "use client";
 
 import { code128Widths } from "@/lib/barcode";
+import { DrugMarks } from "./DrugMarks";
 
 /** A Code 128 barcode as SVG (black bars on white), the code printed under it. */
 export function Barcode({ value, height = 28, module = 1.2, text = true }: { value: string; height?: number; module?: number; text?: boolean }) {
@@ -12,12 +13,10 @@ export function Barcode({ value, height = 28, module = 1.2, text = true }: { val
   }
   const quiet = 10;
   const total = widths.reduce((s, w) => s + w, 0) + quiet * 2;
-  let x = quiet;
-  const bars = widths.map((w, i) => {
-    const r = i % 2 === 0 ? <rect key={i} x={x * module} y={0} width={w * module} height={height} fill="#000" /> : null;
-    x += w;
-    return r;
-  });
+  // Left edge of each bar or space: the quiet zone plus the widths before it.
+  const lefts: number[] = [];
+  for (let i = 0, at = quiet; i < widths.length; at += widths[i], i++) lefts.push(at);
+  const bars = widths.map((w, i) => (i % 2 === 0 ? <rect key={i} x={lefts[i] * module} y={0} width={w * module} height={height} fill="#000" /> : null));
   return (
     <span className="inline-flex flex-col items-center">
       <svg width={total * module} height={height} viewBox={`0 0 ${total * module} ${height}`} role="img" aria-label={`バーコード ${value}`} className="bg-white">
@@ -101,6 +100,8 @@ export interface DrugItem {
   when: string;
   main: string;
   detail: string;
+  /** The drugs in it: 麻・毒・劇・ハイリスク are printed next to the name. */
+  drugs?: string[];
 }
 
 /** 薬剤ラベル (stuck on the drip bag): patient, room, drugs and amounts, route and pace, time, code. */
@@ -112,7 +113,10 @@ export function DrugLabel({ p, d }: { p: LabelPatient; d: DrugItem }) {
         <span className="nums ml-auto">{p.where}</span>
       </div>
       <div className="nums text-[7pt]">ID {p.id}　{p.ageSex}</div>
-      <div className="mt-0.5 text-[9pt] font-bold">{d.main}</div>
+      <div className="mt-0.5 text-[9pt] font-bold">
+        {d.main}
+        <DrugMarks codes={d.drugs ?? []} print />
+      </div>
       <div className="text-[7.5pt]">{d.detail}</div>
       <div className="nums mt-0.5 font-bold">投与 {d.when}</div>
       {p.allergies.length > 0 && <div className="text-[7pt] font-bold">アレルギー：{p.allergies.join("、")}</div>}

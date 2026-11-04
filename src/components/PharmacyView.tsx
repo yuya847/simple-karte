@@ -12,6 +12,8 @@ import { txText } from "@/lib/procedures";
 import { ageSex } from "@/lib/person";
 import type { OrderEntry } from "@/lib/types";
 import { TdmView } from "./TdmView";
+import { DrugMarks } from "./DrugMarks";
+import { drugCodesOf } from "@/lib/drug-class";
 import { SourceLinks } from "./DraftCard";
 import { orderInteractions } from "@/lib/interactions";
 import type { TdmReport } from "@/lib/tdm";
@@ -202,7 +204,10 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
                 )}
               </span>
             </div>
-            <div className={it.entry.status === "中止" ? "text-ink-faint line-through" : "font-bold"}>{main}</div>
+            <div className={it.entry.status === "中止" ? "text-ink-faint line-through" : "font-bold"}>
+              {main}
+              <DrugMarks codes={drugCodesOf(it.entry.order)} />
+            </div>
             <div className="text-xs text-ink-soft">{detail}</div>
             {it.checks.map((c) => (
               <div key={c.text} className={`mt-1 text-xs ${c.level === "ask" ? "font-bold text-yamabuki" : "text-ink-soft"}`}>
@@ -543,7 +548,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
       <DrugLabel
         key={labelFor(d.orderId, d.at!)}
         p={{ id: x.patient.id, name: x.patient.name, kana: x.patient.kana, ageSex: ageSex(x.patient), where: `${x.patient.ward} ${x.room}`, allergies: x.patient.allergies }}
-        d={{ code: labelFor(d.orderId, d.at!), when: timeLabel(d.at!, -99, today), main: d.main, detail: d.detail }}
+        d={{ code: labelFor(d.orderId, d.at!), when: timeLabel(d.at!, -99, today), main: d.main, detail: d.detail, drugs: drugCodesOf(x.entries.find((e) => e.id === d.orderId)?.order) }}
       />
     ));
   const print = (nodes: React.ReactNode, who: string, n: number) => {
@@ -627,7 +632,8 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
                 <li key={key} className="flex items-baseline gap-3 py-1">
                   <span className="nums w-24 font-bold">{d.at !== null ? timeLabel(d.at, which === "tomorrow" ? dayNow + 1 : dayNow, today) : ""}</span>
                   <span className="flex-1">
-                    {d.main}　<span className="text-xs text-ink-soft">{d.detail}</span>
+                    {d.main}
+                    <DrugMarks codes={drugCodesOf(x.entries.find((e) => e.id === d.orderId)?.order)} />　<span className="text-xs text-ink-soft">{d.detail}</span>
                   </span>
                   <span className="nums font-mono text-[11px] text-ink-faint">{labelFor(d.orderId, d.at!)}</span>
                   {blockOf(d.orderId) && !dispensed[key] ? (
@@ -825,7 +831,8 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
                       </div>
                       {rp.lines.map((l) => (
                         <div key={l.orderId} className="nums">
-                          {l.name} {l.strength}　<span className="text-xs text-ink-soft">{qtyFormula(l, rp.timings.length)}</span>　<b>計 {l.total}{l.unit}</b>
+                          {l.name} {l.strength}
+                          <DrugMarks codes={[l.code]} />　<span className="text-xs text-ink-soft">{qtyFormula(l, rp.timings.length)}</span>　<b>計 {l.total}{l.unit}</b>
                         </div>
                       ))}
                       <div className="text-[11px] text-ink-faint">

@@ -9,6 +9,7 @@ import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, lea
 import { findOralDrug } from "@/lib/master";
 import { perDoseOf, timingName } from "@/lib/rx";
 import { findPhysio, findRegion } from "@/lib/exams";
+import { DrugMarks } from "./DrugMarks";
 
 interface Props {
   draft: Draft;
@@ -219,6 +220,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
             <span key={i}>
               {i > 0 && <span className="font-normal text-ink-faint"> ＋ </span>}
               {it.drugCode ? drugName(it.drugCode) : <span className="text-shu">{it.said}（？）</span>}
+              <DrugMarks codes={[it.drugCode]} />
               <span className="ml-1">{it.amount ?? "？"}{it.unit ?? ""}</span>
             </span>
           ))}
@@ -265,7 +267,10 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
               return (
                 <tr key={i} className="align-baseline">
                   <td className="w-8 text-[11px] text-ink-faint">{i === 0 ? "Rp" : ""}</td>
-                  <td className="font-bold">{m ? `${m.name} ${m.strength}` : <span className="text-shu">{it.said}（？）</span>}</td>
+                  <td className="font-bold">
+                    {m ? `${m.name} ${m.strength}` : <span className="text-shu">{it.said}（？）</span>}
+                    <DrugMarks codes={[it.drugCode]} />
+                  </td>
                   <td className="whitespace-nowrap text-right">
                     1回{per ?? "？"}
                     {m?.unit ?? ""}

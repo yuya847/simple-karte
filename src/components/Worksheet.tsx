@@ -14,6 +14,8 @@ import { MarCell, VoidControl } from "./MarCell";
 import { RunningDrips } from "./DripControls";
 import { TakeTable } from "./TakeTable";
 import { CareSheet } from "./CareSheet";
+import { DrugMarks } from "./DrugMarks";
+import { drugCodesOf } from "@/lib/drug-class";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import type { NursingProblem } from "@/lib/nursing-plan";
 import { sortRows, takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
@@ -211,6 +213,8 @@ type DayOffsetLike = -1 | 0 | 1;
 function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
+  // 麻・毒・劇・ハイリスク of the order's drugs (drug-class.ts).
+  const codesOf = (orderId: string) => drugCodesOf(people.flatMap((x) => x.entries).find((e) => e.id === orderId)?.order);
   const maxOf = (orderId: string) => {
     for (const x of people) for (const e of x.entries) if (e.id === orderId && e.order.type === "prescription") return e.order.maxPerDay;
     return undefined;
@@ -323,7 +327,7 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
                       <Kind kind={i.kind} />
                     </td>
                     <td className={td}>
-                      <b>{i.main}</b>{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}
+                      <b>{i.main}</b><DrugMarks codes={codesOf(i.orderId)} />{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}
                       {i.urgent && <span className="ml-1 font-bold text-shu">至急</span>}　<span className="text-ink-soft">{i.detail}</span>
                       {i.kind === "注射" && rateOf(i.orderId) && (
                         <div className="nums text-[11px] text-ai">
@@ -363,7 +367,7 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
                     <Kind kind={i.kind} />
                   </td>
                   <td className={td}>
-                    <b>{i.main}</b>{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}　<span className="text-ink-soft">{i.detail}</span>
+                    <b>{i.main}</b><DrugMarks codes={codesOf(i.orderId)} />{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}　<span className="text-ink-soft">{i.detail}</span>
                   </td>
                   <td className={`${td} w-32 text-ink-faint`}>
                     {interactive ? (

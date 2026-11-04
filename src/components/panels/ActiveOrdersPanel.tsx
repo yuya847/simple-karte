@@ -3,6 +3,8 @@
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { HistoryEntry, OrderEntry } from "@/lib/types";
+import { drugCodesOf } from "@/lib/drug-class";
+import { DrugMarks } from "../DrugMarks";
 
 /** Orders that are still running. These are what duplicate checks compare against. */
 export function ActiveOrdersPanel({ entries, today }: { entries: HistoryEntry[]; today: CalendarDate }) {
@@ -17,7 +19,10 @@ export function ActiveOrdersPanel({ entries, today }: { entries: HistoryEntry[];
             <div className="nums text-[11px] text-ink-faint">
               {ORDER_TYPE_LABEL[e.order.type]}　{formatShort(addDays(today, e.day))} {e.time} 入力　{e.author}
             </div>
-            <div className="nums">{main}</div>
+            <div className="nums">
+              {main}
+              <DrugMarks codes={drugCodesOf(e.order)} />
+            </div>
             <div className="nums text-xs text-ink-soft">{detail}</div>
           </li>
         );
