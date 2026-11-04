@@ -3,6 +3,7 @@
 // every item; the code checks the arithmetic (1日量・間隔) and compares the latest vitals with the
 // call criteria. Each change is a new version that a nurse takes (指示受け). All data is fictional.
 
+import type { CondRule } from "./cond-orders";
 import { DRUGS, ORAL_DRUGS, findOralDrug } from "./master";
 import type { VitalSign } from "./types";
 
@@ -48,6 +49,8 @@ export interface StandingOrders {
   /** Call when the level of consciousness drops. */
   callConscious: boolean;
   prn: PrnRule[];
+  /** 条件付き指示 (cond-orders.ts): applies when a lab or vital value meets the doctor's condition. */
+  conds?: CondRule[];
   other: string;
   by: string;
   at: { day: number; time: string };
@@ -55,7 +58,7 @@ export interface StandingOrders {
   taken?: { by: string; time: string };
 }
 
-export const emptyStanding = (by: string, at: { day: number; time: string }): StandingOrders => ({ rest: null, bath: null, vitals: null, weight: null, io: null, calls: [], callConscious: false, prn: [], other: "", by, at });
+export const emptyStanding = (by: string, at: { day: number; time: string }): StandingOrders => ({ rest: null, bath: null, vitals: null, weight: null, io: null, calls: [], callConscious: false, prn: [], conds: [], other: "", by, at });
 
 const item = (k: CallKey) => CALL_ITEMS.find((c) => c.key === k)!;
 export const callText = (c: { key: CallKey; value: number }) => `${item(c.key).label} ${c.value}${item(c.key).unit}${c.key === "spo2" ? "未満" : c.key.endsWith("Low") ? "以下" : "以上"}`;
@@ -144,6 +147,10 @@ export function initialStanding(): Record<string, StandingOrders[]> {
         ],
         callConscious: true,
         prn: [{ ...apap("p1", "38.0℃以上・NSAIDs は使わない"), id: "p1" }],
+        conds: [
+          { id: "c1", source: "lab", item: "K", op: "<", value: 4, action: "カリウムを補うかは医師が決める（看護師は投与しない）", callDoctor: true },
+          { id: "c2", source: "vital", item: "sbp", op: "<", value: 95, action: "次のフロセミドの静注は見合わせ、医師の指示を受ける", callDoctor: true },
+        ],
         other: "体重が前日より1kg以上増えたら報告。",
         taken: { by: "看護師 高橋", time: "10:30" },
       },
