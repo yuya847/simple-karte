@@ -234,6 +234,7 @@ import { UlcerBoard } from "./UlcerBoard";
 import { StatusBoard } from "./StatusBoard";
 import { currentShift, shiftKey } from "@/lib/ward-status";
 import { AssignBoard } from "./AssignBoard";
+import { SummaryApprovals } from "./SummaryApprovals";
 import { assignKey, crewOn, planLines, roomNurses } from "@/lib/assignments";
 import { initialRosterBook } from "@/lib/roster";
 import { PressurePanel } from "./panels/PressurePanel";
@@ -1838,6 +1839,24 @@ export default function WardApp() {
             nm.setAssignBook((all) => ({ ...all, [assignKey(oneFloor, d, s)]: sheet }));
           }}
         />
+      ) : screen === "summaries" ? (
+        <SummaryApprovals
+          pick={floorPick}
+          patients={floorPeople.map((x) => ({ id: x.id, name: x.name, room: x.room, admittedOn: x.patient.admittedOn }))}
+          summaries={nm.summaries}
+          canReview={!deny("nursing.manage")}
+          onApprove={(s) => {
+            const why = nm.review(s, { day: 0, time: nowTime });
+            if (why) return window.alert(why);
+            auditLog({ role: me.role, actor: me.name, action: "看護サマリを承認した（看護師長として）", patient: findPatient(s.patientId)?.name, detail: s.kind });
+          }}
+          onReturn={(s, comment) => {
+            const why = nm.review(s, { day: 0, time: nowTime }, comment);
+            if (why) return window.alert(why);
+            auditLog({ role: me.role, actor: me.name, action: "看護サマリを差し戻した（看護師長として）", patient: findPatient(s.patientId)?.name, detail: `${s.kind}　${comment}` });
+          }}
+          onOpen={(id) => (openPatient(id), setPanel("summary"))}
+        />
       ) : screen === "status" ? (
         <StatusBoard
           pick={floorPick}
@@ -3414,6 +3433,15 @@ export default function WardApp() {
                     onSave={(to, words) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・連携サマリを作成（宛先：${to}）${words ? `。申し送り：${words}` : ""}\n` }));
+                    }}
+                    nursing={{
+                      summaries: nm.summaries,
+                      onSubmit: (kind, to, words, sections, again) => {
+                        const why = nm.handIn(newId(), patient.id, kind, { sections, words, to, by: me.name, at: { day: 0, time: nowTime } }, again);
+                        if (why) return window.alert(why);
+                        auditLog({ role: me.role, actor: me.name, action: again ? "看護サマリを直して出し直した" : "看護サマリを看護師長に提出した", patient: patient.name, detail: `${kind}${to ? `　宛先：${to}` : ""}` });
+                        update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${kind === "中間" ? "中間サマリ" : `看護サマリ（${kind}）`}を看護師長に${again ? "出し直した" : "提出"}${to ? `（宛先：${to}）` : ""}\n` }));
+                      },
                     }}
                   />
                 </Drawer>

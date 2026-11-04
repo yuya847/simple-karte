@@ -17,6 +17,7 @@ import {
   Droplet,
   Droplets,
   FileClock,
+  FileCheck,
   FileSearch,
   FlaskConical,
   Handshake,
@@ -103,4 +104,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   ulcers: Bandage,
   status: ClipboardPen,
   assign: Users,
+  summaries: FileCheck,
 };

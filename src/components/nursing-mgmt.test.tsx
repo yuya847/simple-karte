@@ -7,8 +7,12 @@ import { initialUlcers } from "@/lib/pressure-course";
 import { WARD_NURSES } from "@/lib/roster";
 import { ROOMS } from "@/lib/ward";
 import { BEDS_WITH_CHARTS, WARD_CHART_PATIENTS } from "@/lib/ward-charts";
+import { initialSummaries } from "@/lib/nursing-summary";
 import { AssignBoard } from "./AssignBoard";
 import { PressurePanel } from "./panels/PressurePanel";
+import { SummaryPanel } from "./panels/SummaryPanel";
+import { RoleProvider } from "./RoleContext";
+import { SummaryApprovals } from "./SummaryApprovals";
 import { WardMap } from "./WardMap";
 import { StatusBoard } from "./StatusBoard";
 import { UlcerBoard } from "./UlcerBoard";
@@ -20,6 +24,52 @@ const where = (pid: string) => {
 };
 const pick = { label: "階", value: "5階東病棟", options: [{ value: "5階東病棟", label: "5階東病棟" }], onChange: () => {} };
 const fmtDay = (d: number) => `D${d}`;
+
+describe("看護サマリの提出と承認", () => {
+  const sugawara = WARD_CHART_PATIENTS.find((p) => p.name === "菅原 洋子")!;
+  const fujii = WARD_CHART_PATIENTS.find((p) => p.name === "藤井 さよ")!;
+  const patients = [sugawara, fujii].map((p) => ({ id: p.id, name: p.name, room: p.room, admittedOn: p.admittedOn }));
+
+  it("the 看護師長's screen: the fictional 中間サマリ waiting, the approve and return controls, and the overdue 中間サマリ", () => {
+    const html = renderToStaticMarkup(<SummaryApprovals pick={pick} patients={patients} summaries={initialSummaries()} canReview onApprove={() => {}} onReturn={() => {}} onOpen={() => {}} />);
+    expect(html).toContain("承認待ち（1件）");
+    expect(html).toContain("中間サマリ");
+    expect(html).toContain("承認（看護師長 小松）");
+    expect(html).toContain("差し戻す");
+    // 藤井（入院21日目）has no 中間サマリ: overdue.
+    expect(html).toMatch(/藤井 さよ<\/button><\/td><td class="px-2">入院21日目/);
+    expect(html).toContain("期限切れ");
+    expect(html).toContain("確定者");
+    expect(html).toContain("デモでは看護師で開けます");
+  });
+
+  it("a returned summary shows the comment; a viewer who may not review sees no buttons", () => {
+    const [s] = initialSummaries();
+    const back = { ...s, events: [...s.events, { kind: "差し戻し" as const, by: "看護師長 小松", at: { day: 0, time: "09:00" }, comment: "食事の量を書いてください" }] };
+    const html = renderToStaticMarkup(<SummaryApprovals pick={pick} patients={patients} summaries={[back]} canReview={false} onApprove={() => {}} onReturn={() => {}} onOpen={() => {}} />);
+    expect(html).toContain("差し戻し中（1件）");
+    expect(html).toContain("食事の量を書いてください");
+    expect(html).not.toContain("承認（看護師長 小松）");
+  });
+
+  it("a nurse's summary panel offers the kinds and hands in to the 看護師長; others keep 連携サマリ", () => {
+    const [s] = initialSummaries();
+    const nursing = { summaries: [s], onSubmit: () => {} };
+    const html = renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <SummaryPanel patient={sugawara} facts={[{ heading: "病名", lines: ["（架空）"] }]} today="11/4" nowTime="10:00" onSave={() => {}} nursing={nursing} />
+      </RoleProvider>,
+    );
+    expect(html).toContain("中間サマリ");
+    expect(html).toContain("退院・転院時");
+    expect(html).toContain("この患者の看護サマリ");
+    expect(html).toContain("承認待ち");
+    expect(html).toContain("看護サマリを看護師長に提出");
+    const doc = renderToStaticMarkup(<SummaryPanel patient={sugawara} facts={[]} today="11/4" nowTime="10:00" onSave={() => {}} nursing={nursing} />);
+    expect(doc).toContain("連携サマリを確定");
+    expect(doc).not.toContain("看護師長に提出");
+  });
+});
 
 describe("業務分担", () => {
   const nurses = WARD_NURSES;
