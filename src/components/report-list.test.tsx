@@ -27,7 +27,7 @@ const as = (role: Role, el: React.ReactElement) =>
   );
 
 describe("オーダ行のレポートの印", () => {
-  const pane = <HistoryPane patient={kitamura} entries={entries} today={today} nowTime="10:00" selectedDay={null} onSelectDay={() => {}} showStopped={false} onToggleStopped={() => {}} view="record" onView={() => {}} onStopDraft={() => {}} draftedStops={[]} />;
+  const pane = <HistoryPane patient={kitamura} entries={entries} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />;
   it("shows the mark with a red dot on the X-ray order whose report is unread, and gray once confirmed", () => {
     const html = as("医師", <ReportContext.Provider value={{ reports, acks: {}, today }}>{pane}</ReportContext.Provider>);
     expect(html).toContain('aria-label="画像のレポート（未読）を読む"');
