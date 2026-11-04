@@ -292,7 +292,8 @@ const NEW_TAB = "__new__";
 const LIST_TABS = ["floor", "mine", "dept", "all", "doctor"] as const;
 
 // 病棟's screens to open first (最初に開く), per role. A convenience kept in this browser only.
-const WARD_DEFAULTS_KEY = "simple-karte:ward-defaults";
+// v2 (2026-11-04): the menu is shown first unless the user checks a screen again (older saved choices are not read).
+const WARD_DEFAULTS_KEY = "simple-karte:ward-defaults-v2";
 function loadWardDefaults(): Record<string, WardTab[]> {
   try {
     const v = typeof window === "undefined" ? null : window.localStorage.getItem(WARD_DEFAULTS_KEY);
@@ -1164,7 +1165,7 @@ export default function WardApp() {
       pick: { label: "科", value: deptPick, options: choices(allBeds.map(deptOf), "すべての科"), onChange: setDeptPick },
       group: "department",
     },
-    all: { beds: allBeds, title: "全病棟の患者一覧", group: "floor" },
+    all: { beds: allBeds, title: "入院患者一覧", group: "floor" },
     doctor: {
       beds: doctorPick ? allBeds.filter((b) => doctorOf(b) === doctorPick) : allBeds,
       title: "主治医別",
@@ -1902,7 +1903,6 @@ export default function WardApp() {
         />
       ) : listKey ? (
         <div className="flex min-h-0 flex-1 flex-col">
-        {listKey === "floor" && <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />}
         <PatientList
           key={listKey}
           ward={{ beds: lists[listKey].beds, patient: findPatient }}
@@ -1916,6 +1916,11 @@ export default function WardApp() {
           waiting={waiting}
           resultState={resultState}
           extraFlags={standingFlags}
+          today={today}
+          dpcPayload={(id) => {
+            const p = findPatient(id);
+            return p ? claimPayloadOf(p) : null;
+          }}
           marPending={Object.fromEntries(
             people.map((x) => {
               const start = sessionStart ?? abs(0, nowTime);
@@ -2851,7 +2856,7 @@ export default function WardApp() {
       }));
       if (wardTab === "menu" || !wardTabs.length)
         second.push({ key: "menu", label: "画面を選ぶ", icon: LayoutList, menu: true, active: wardTab === "menu", onSelect: () => setWardTab("menu"), onClose: wardTabs.length ? () => setWardTab(wardTabs[wardTabs.length - 1]) : undefined, closeLabel: "画面を選ぶメニューを閉じる" });
-      const rows: TabRow[] = [{ label: "病棟の画面", items: second, plus: { label: "画面を開く", title: "病棟の画面を開く（病棟マップ・◯階・受け持ち患者・科別・患者一覧・主治医別・ワークシート…）", onClick: () => setWardTab("menu") } }];
+      const rows: TabRow[] = [{ label: "病棟の画面", items: second, plus: { label: "画面を開く", title: "病棟の画面を開く（入院患者一覧・病棟マップ・受け持ち患者・ワークシート…）", onClick: () => setWardTab("menu") } }];
       if (wardTab !== "menu") {
         const o = wardOwner(wardTab);
         const self: TabItem = { key: "self", label: wardTabLabel(wardTab, floor), icon: WARD_ICON[wardTab], active: !front[o], title: "この画面に戻る", onSelect: () => show(o, undefined) };
