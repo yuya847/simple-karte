@@ -13,6 +13,8 @@ import { DowntimeView } from "./DowntimeView";
 import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
 import { ScanPanel } from "./panels/ScanPanel";
 import { withdraw, type ScanDoc } from "@/lib/scans";
+import { SignBox } from "./panels/SignBox";
+import { emptySections, type DischargeDraft } from "@/lib/discharge";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -84,5 +86,25 @@ describe("スキャン取込", () => {
     expect(html).toContain("取り消し 09:30 医事課 渡辺：別の患者の紙");
     expect(html).toContain("項番168");
     expect(html).toContain("取り込んだ文書（2件）");
+  });
+});
+
+describe("電子署名（模擬）", () => {
+  const draft: DischargeDraft = { patientId: "p1", dischargeDay: 1, destination: "自宅", outcome: "1", route: "1", sections: emptySections(), status: "確定", confirmedAt: { day: 0, time: "10:00" }, confirmedBy: "山本（専攻医）", letter: { to: "", dept: "", doctor: "", purpose: "" } };
+  const rec = { id: "g1", patientId: "p1", kind: "退院時サマリー" as const, docHash: "a".repeat(64), signature: "MEUC".repeat(20), keyId: "3fa2".repeat(8), signer: "山本（専攻医）", role: "医師", at: { date: "2026-11-04", time: "10:32:05" }, alg: "ECDSA P-256 / SHA-256（模擬）" as const };
+  it("lets a doctor sign the confirmed summary (not the letter not yet issued), shows the signatures and says what it is not", () => {
+    const html = as("医師", <SignBox patientId="p1" draft={draft} records={[rec]} onSigned={() => {}} newId={() => "x"} />);
+    expect(html).toContain("模擬");
+    expect(html).toContain("HPKI（保健医療福祉分野の公開鍵基盤）");
+    expect(html).toContain("法的な署名にはなりません");
+    expect(html).toContain("確定済み");
+    expect(html).toContain("まだ発行していません");
+    expect(html).toContain("署名 2026-11-04 10:32:05");
+    expect(html).toContain("鍵の指紋 3fa23fa2…");
+    expect(html).toContain("企画管理編」14");
+    expect(html).not.toContain("医師が行います");
+  });
+  it("is locked for a nurse", () => {
+    expect(as("看護師", <SignBox patientId="p1" draft={draft} records={[]} onSigned={() => {}} newId={() => "x"} />)).toContain("医師が行います");
   });
 });

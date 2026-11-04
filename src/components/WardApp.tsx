@@ -250,6 +250,7 @@ import { staleText, thisTab } from "@/lib/presence";
 import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
 import { ScanPanel } from "./panels/ScanPanel";
 import { withdraw } from "@/lib/scans";
+import { SignBox } from "./panels/SignBox";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -3157,6 +3158,16 @@ export default function WardApp() {
                     onReturn={(d) => {
                       setDischarges((all) => ({ ...all, [patient.id]: d }));
                       auditLog({ role: me.role, actor: me.name, action: "退院時サマリーを差し戻した", patient: patient.name, detail: d.returned?.comment });
+                    }}
+                  />
+                  <SignBox
+                    patientId={patient.id}
+                    draft={discharges[patient.id]}
+                    records={infra.signatures}
+                    newId={newId}
+                    onSigned={(r) => {
+                      infra.setSignatures((all) => [...all, r]);
+                      auditLog({ role: me.role, actor: me.name, action: `確定（電子署名・模擬：${r.kind}）`, patient: patient.name, detail: `鍵の指紋 ${r.keyId.slice(0, 8)}　文書のハッシュ ${r.docHash.slice(0, 16)}` });
                     }}
                   />
                 </Drawer>
