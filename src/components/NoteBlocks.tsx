@@ -2,7 +2,8 @@
 
 import { GripVertical } from "lucide-react";
 import { useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited, isProblemLine } from "@/lib/note-blocks";
+import { isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
+import { isProblemLine } from "@/lib/note-problems";
 import { indentLines, toggleMark } from "@/lib/note-edit";
 import { renumberProblems } from "@/lib/note-problems";
 import { expandAt, type Phrase } from "@/lib/phrases";
