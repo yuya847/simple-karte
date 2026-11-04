@@ -3,7 +3,7 @@
 import { focusNextOnEnter } from "@/lib/next-field";
 import { Mic, Square } from "lucide-react";
 import { useState } from "react";
-import { ACVPU_LABEL, news2, type Acvpu } from "@/lib/news2";
+import { ACVPU_LABEL, type Acvpu } from "@/lib/news2";
 import { useSpeech } from "@/lib/use-speech";
 import type { DailyRecord, VitalSign } from "@/lib/types";
 import { minutesOf } from "@/lib/dates";
@@ -116,7 +116,6 @@ type Form = { bt: string; hr: string; sbp: string; dbp: string; rr: string; spo2
 const empty: Form = { bt: "", hr: "", sbp: "", dbp: "", rr: "", spo2: "", o2: "室内気", avpu: "" };
 const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 
-const RISK_STYLE = { 低: "bg-wakatake-soft text-wakatake", "低〜中": "bg-yamabuki-soft text-yamabuki", 中: "bg-yamabuki-soft text-yamabuki", 高: "bg-shu-soft text-shu" } as const;
 
 /** Vital signs entry (typed or spoken). Claude copies the numbers; NEWS2 is code; the nurse confirms. */
 export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo, defaultAt, fmtDay }: Props) {
@@ -132,7 +131,6 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
   const speech = useSpeech((t) => setText((x) => (x ? `${x}、${t}` : t)));
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
   const v = { bt: num(f.bt), hr: num(f.hr), sbp: num(f.sbp), dbp: num(f.dbp), rr: num(f.rr), spo2: num(f.spo2), o2: f.o2 || "室内気", avpu: f.avpu || undefined };
-  const score = news2(v);
   const read = async () => {
     setBusy(true);
     setError(null);
@@ -198,24 +196,6 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
           </select>
         </label>
       </div>
-      {filled && (
-        <div className="rounded-md border border-rule bg-paper p-2">
-          <div className="flex items-baseline gap-2">
-            <b>NEWS2 {score.total}点</b>
-            <span className={`rounded px-1.5 text-[11px] font-bold ${RISK_STYLE[score.risk]}`}>{score.risk}</span>
-            <span className="text-[11px] text-ink-soft">観察の目安（RCP）：{score.monitoring}</span>
-          </div>
-          <div className="nums mt-1 flex flex-wrap gap-x-3 text-[11px] text-ink-soft">
-            {score.parts.map((p) => (
-              <span key={p.name} className={p.score === 3 ? "font-bold text-shu" : p.score ? "text-ink" : ""}>
-                {p.name} {p.value}：{p.score}
-              </span>
-            ))}
-          </div>
-          {score.missing.length > 0 && <p className="mt-1 text-[11px] text-yamabuki">未入力：{score.missing.join("・")}（スコアは入力した項目だけ）</p>}
-          <p className="mt-1 text-[10px] text-ink-faint">NEWS2（英国 Royal College of Physicians, 2017）の点数表で、コードが計算しています。SpO2 は Scale 1。対応は病棟の取り決めと医師の判断です。</p>
-        </div>
-      )}
       {last && (
         <p className="text-[11px] text-ink-faint">
           前回 {last.time}：BT {last.bt} HR {last.hr} BP {last.sbp}/{last.dbp} RR {last.rr} SpO2 {last.spo2}%（{last.o2}）

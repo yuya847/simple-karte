@@ -25,6 +25,7 @@ export const FLOW_ROWS: Partial<Record<FlowGroupKey, { key: string; label: strin
     { key: "vitals.rr", label: "呼吸数" },
     { key: "vitals.spo2", label: "SpO2" },
     { key: "vitals.o2", label: "酸素" },
+    { key: "vitals.news2", label: "NEWS2（コードで計算）" },
   ],
   obs: [
     { key: "obs.diet", label: "食種" },

@@ -348,6 +348,22 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
           {show("vitals.rr") && <PointRow label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />}
           {show("vitals.spo2") && <PointRow label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />}
           {show("vitals.o2") && <PointRow label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />}
+          {/* NEWS2 from each set of vitals (code, RCP 2017): ＊ when a part is missing, bold red at 5 or more or a single 3. */}
+          {show("vitals.news2") && (
+            <PointRow
+              label="NEWS2"
+              vitals={vitals}
+              x={x}
+              value={(v) => {
+                const s = news2(v);
+                return s.missing.length === s.parts.length ? "" : `${s.total}${s.missing.length ? "＊" : ""}`;
+              }}
+              tone={(v) => {
+                const s = news2(v);
+                return s.total >= 5 || s.red ? "font-bold text-shu" : s.total >= 1 ? "text-ink" : "";
+              }}
+            />
+          )}
 
           {hovered && <Tooltip v={hovered} left={LABEL_W + x(hovered.day, hovered.time)} plotW={plotW} today={today} />}
         </div>
@@ -770,12 +786,12 @@ function EndLabel({ vitals, pick, x, y }: { vitals: VitalSign[]; pick: (v: Vital
   );
 }
 
-function PointRow({ label, vitals, x, value }: { label: string; vitals: VitalSign[]; x: (d: number, t: string) => number; value: (v: VitalSign) => string }) {
+function PointRow({ label, vitals, x, value, tone }: { label: string; vitals: VitalSign[]; x: (d: number, t: string) => number; value: (v: VitalSign) => string; tone?: (v: VitalSign) => string }) {
   return (
     <Row label={label}>
       <div className="relative h-5">
         {vitals.map((v, i) => (
-          <span key={i} className="absolute top-0.5 -translate-x-1/2 whitespace-nowrap text-[10px] text-ink-soft" style={{ left: x(v.day, v.time) }}>
+          <span key={i} className={`absolute top-0.5 -translate-x-1/2 whitespace-nowrap text-[10px] ${tone?.(v) || "text-ink-soft"}`} style={{ left: x(v.day, v.time) }}>
             {value(v)}
           </span>
         ))}
