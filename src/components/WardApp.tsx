@@ -219,10 +219,15 @@ import { TxBedsidePanel } from "./panels/TxBedsidePanel";
 import { BloodBankView } from "./BloodBankView";
 import { PathologyView } from "./PathologyView";
 import { PhysioView } from "./PhysioView";
+import { EndoView } from "./EndoView";
+import { KitchenView } from "./KitchenView";
+import { TeamsView } from "./TeamsView";
+import { TeamPanel } from "./panels/TeamPanel";
 import { PathRequestPanel } from "./panels/PathRequestPanel";
 import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
+import { bedPeople, useCareDepts } from "@/lib/use-care-depts";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -578,6 +583,8 @@ export default function WardApp() {
   const [labDesk, setLabDesk] = useState<LabDesk>(EMPTY_DESK);
   // 輸血部門 (and the records of the other laboratory departments).
   const dept = useDepartments();
+  // 給食・内視鏡室・チーム医療.
+  const care = useCareDepts();
   // 地域医療連携: the 連携室's entries, 返書 sent/received and facilities chosen.
   const [liaison, setLiaison] = useState<LiaisonBook>(EMPTY_LIAISON);
   // レセプト点検・返戻: the 返戻・査定 files read in and the 再請求 decided.
@@ -678,6 +685,7 @@ export default function WardApp() {
       limits: [limits, setLimits],
       glass: [glass, setGlass],
       ...dept.states,
+      ...care.states,
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
   );
@@ -701,7 +709,7 @@ export default function WardApp() {
           ...p,
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
-          history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoPhysio[p.id] ?? [])],
+          history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoPhysio[p.id] ?? []), ...(care.demoEndo[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
@@ -717,7 +725,7 @@ export default function WardApp() {
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio, profileLog],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio, care.demoEndo, profileLog],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
@@ -1045,7 +1053,7 @@ export default function WardApp() {
     }));
   };
   // 保存 on the bar: the note of the day (記録時刻・記載時刻 kept apart), by the person writing.
-  const unseenHere: ResultItem[] = patient ? unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id)], acks) : [];
+  const unseenHere: ResultItem[] = patient ? unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id), ...care.results.filter((i) => i.patientId === patient.id)], acks) : [];
   const confirmNote = () => {
     if (!patient) return;
                           // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
@@ -1292,7 +1300,11 @@ export default function WardApp() {
 
   // Results per patient on the ward: what the doctor has not seen, and panic values not yet phoned in.
   // 病理・生理 reports are read and marked like the other results.
-  const wardResults = [...people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS)), ...dept.results.filter((i) => people.some((x) => x.patient.id === i.patientId))];
+  // 病理・生理・内視鏡 reports are read and marked like the other results.
+  const deptResults = [...dept.results, ...care.results];
+  const wardResults = [...people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS)), ...deptResults.filter((i) => people.some((x) => x.patient.id === i.patientId))];
+  // 内視鏡室・給食・チーム医療・病理 work for every inpatient (all wards), worked out only while one of them is open.
+  const everyone = screen === "endo" || screen === "kitchen" || screen === "teams" || screen === "path" ? bedPeople(allBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id])) : [];
   // 救急外来・外来 visits with lab orders: the laboratory takes in and results their samples too.
   const labVisits: WorkPatient[] = visitPatientsAll
     .map((x) => ({ ...x, entries: withRedraws(currentEntries(x.patient, sessionChanges[x.patient.id]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, x.patient.id) }))
@@ -2026,6 +2038,12 @@ export default function WardApp() {
             return p && d.letter.issuedAt ? [{ patientId: pid, name: p.name, kana: p.kana, department: p.department, doctor: p.attending, to: d.letter.to, purpose: d.letter.purpose, issuedDay: d.letter.issuedAt.day }] : [];
           })}
         />
+      ) : screen === "endo" ? (
+        <EndoView people={everyone} desk={care.endo} onDesk={care.setEndo} pathology={dept.pathology} onAddPath={(c) => dept.setPathology((cs) => [...cs, c])} onGoPath={() => openArea("path")} acks={acks} today={today} nowTime={nowTime} />
+      ) : screen === "kitchen" ? (
+        <KitchenView people={everyone} diets={diets} desk={care.kitchen} onDesk={care.setKitchen} today={today} nowTime={nowTime} />
+      ) : screen === "teams" ? (
+        <TeamsView people={everyone} desk={care.teams} onDesk={care.setTeams} diagnoses={diagnoses} diets={diets} today={today} nowTime={nowTime} onOpen={(id) => (openPatient(id), setPanel("team"))} />
       ) : screen === "audit" ? (
         <AuditView />
       ) : screen === "admit" ? (
@@ -2074,7 +2092,7 @@ export default function WardApp() {
       ) : screen === "physio" ? (
         <PhysioView people={people} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
       ) : screen === "path" ? (
-        <PathologyView people={people} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
+        <PathologyView people={everyone} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
         <HandoffView
           people={people}
@@ -2772,6 +2790,11 @@ export default function WardApp() {
               {panel === "add-pathology" && (
                 <Drawer title="病理の依頼" onClose={closePanel} locked={deny("order")}>
                   <PathRequestPanel patientId={patient.id} patientName={patient.name} cases={dept.pathology} onAdd={(c) => dept.setPathology((cs) => [...cs, c])} nowTime={nowTime} />
+                </Drawer>
+              )}
+              {panel === "team" && (
+                <Drawer title="チーム医療（依頼・回診・提案の採否）" onClose={closePanel} wide>
+                  <TeamPanel patientId={patient.id} patientName={patient.name} desk={care.teams} onDesk={care.setTeams} today={today} nowTime={nowTime} />
                 </Drawer>
               )}
               {panel === "reports" && (

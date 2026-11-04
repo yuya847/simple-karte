@@ -7,7 +7,7 @@
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
-export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats" | "druginfo";
+export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats" | "druginfo" | "endo" | "kitchen" | "teams";
 
 export interface Area {
   key: AreaKey;
@@ -33,6 +33,9 @@ export const AREAS: Area[] = [
   { key: "blood", label: "輸血部門", short: "輸血", kind: "page" },
   { key: "path", label: "病理", short: "病理", kind: "page" },
   { key: "physio", label: "生理検査室", short: "生理", kind: "page" },
+  { key: "endo", label: "内視鏡室", short: "内視鏡", kind: "page" },
+  { key: "kitchen", label: "栄養部門（給食）", short: "給食", kind: "page" },
+  { key: "teams", label: "チーム医療", short: "チーム", kind: "page" },
   { key: "liaison", label: "地域医療連携", short: "連携", kind: "page" },
   { key: "receipt", label: "レセプト点検・返戻", short: "レセプト", kind: "page" },
   { key: "stats", label: "統計・日報", short: "統計", kind: "page" },
@@ -108,6 +111,10 @@ export function areasFor(role: Role): Area[] {
     if (a.key === "liaison") return role === "医師" || role === "看護師" || role === "MSW" || role === "医事課";
     if (a.key === "receipt") return role === "医事課" || role === "医師";
     if (a.key === "stats") return role === "医師" || role === "看護師" || role === "医事課";
+    // 内視鏡室: the endoscopists (doctors) and nurses. 給食: the 管理栄養士, and doctors and nurses to read (検食 by doctors).
+    if (a.key === "endo") return role === "医師" || role === "看護師";
+    if (a.key === "kitchen") return role === "管理栄養士" || role === "医師" || role === "看護師";
+    if (a.key === "teams") return role !== "医事課";
     if (EVERYONE.includes(a.key)) return true;
     if (a.key === "extract") return role === "医師" || role === "医事課" || role === "看護師";
     // 病理: the technologists' work, and the report the pathologist (a doctor) writes.
