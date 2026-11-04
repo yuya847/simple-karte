@@ -29,7 +29,7 @@ export const LEFT_VIEWS: { key: LeftView; label: string; title?: string }[] = [
   { key: "record", label: "経過" },
   { key: "flowsheet", label: "経過表" },
   { key: "injection-cal", label: "注射", title: "注射カレンダー" },
-  { key: "rx-cal", label: "処方", title: "処方カレンダー" },
+  { key: "rx-cal", label: "内服", title: "内服カレンダー" },
   { key: "proc-cal", label: "処置", title: "処置カレンダー" },
   { key: "diet-cal", label: "移動・食事", title: "移動・食事カレンダー（日付を押すと転床・転棟・転科・退院を予約）" },
   { key: "bookings", label: "予約", title: "予約の一覧（検査・透析・リハビリ・手術など）" },
@@ -195,35 +195,30 @@ function RecordList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-1.5 border-b border-rule-soft px-4 py-2">
-        <div role="radiogroup" aria-label="記録の種類で絞る" className="flex flex-wrap gap-1">
-          {KINDS.map((x) => {
-            const n = visible.filter(x.test).length;
-            const on = kind === x.key;
-            return (
-              <button
-                key={x.key}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled={x.key !== "all" && n === 0}
-                onClick={() => setKind(x.key)}
-                className={`nums rounded-full border px-2 py-0.5 text-[11px] pointer-coarse:py-1.5 ${on ? "border-ink bg-ink font-bold text-white" : "border-rule text-ink-soft hover:border-ai hover:text-ai disabled:opacity-40"}`}
-              >
-                {x.label}
-                <span className={`ml-1 ${on ? "text-white/80" : "text-ink-faint"}`}>{n}</span>
+        <div className="flex items-center gap-2">
+          <label className="flex shrink-0 items-center gap-1 text-[12px] text-ink-soft">
+            <span className="sr-only">記録の種類で絞る</span>
+            <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="記録の種類で絞る" className={`rounded-md border bg-paper px-1.5 py-1 text-[12px] ${kind !== "all" ? "border-ai font-bold text-ai" : "border-rule"}`}>
+              {KINDS.map((x) => {
+                const n = visible.filter(x.test).length;
+                return (
+                  <option key={x.key} value={x.key} disabled={x.key !== "all" && n === 0}>
+                    {x.label}（{n}）
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
+            <Search size={13} className="shrink-0 text-ink-faint" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
+            {q && (
+              <button type="button" onClick={() => setQ("")} aria-label="検索を消す" className="text-ink-faint hover:text-ink">
+                <X size={13} />
               </button>
-            );
-          })}
+            )}
+          </label>
         </div>
-        <label className="flex items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
-          <Search size={13} className="text-ink-faint" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" className="flex-1 bg-transparent text-[12px] outline-none" />
-          {q && (
-            <button type="button" onClick={() => setQ("")} aria-label="検索を消す" className="text-ink-faint hover:text-ink">
-              <X size={13} />
-            </button>
-          )}
-        </label>
         {narrowed && (
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
@@ -242,7 +237,7 @@ function RecordList({
             </button>
           </p>
         )}
-        {onDo && <p className="text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。</p>}
+        {onDo && <p className="hint text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。</p>}
       </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
         {days.map((d) => {
