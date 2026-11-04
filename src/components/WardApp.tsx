@@ -1424,6 +1424,7 @@ export default function WardApp() {
     if (role !== "医師") switchRole("医師", name);
     else if (name !== doctorName) auditLog({ role: "医師", actor: name, action: "医師を選んで入った（デモではログインの代わり）" });
     setDoctorName(name);
+    setPanel(null);
   };
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
@@ -2856,7 +2857,7 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "regimen" && (
-                <Drawer title="レジメン（化学療法）" onClose={closePanel} locked={orderBlock} wide>
+                <Drawer title="レジメン（化学療法）" onClose={closePanel} locked={orderBlock ?? (resident ? COSIGN_RULES.blocked : undefined)} wide>
                   <RegimenPanel
                     patient={{ sex: patient.sex, age: patient.age, heightCm: patient.heightCm, weightKg: patient.weightKg, cre: latestValue(patient, "Cre")?.value ?? null }}
                     newId={newId}
