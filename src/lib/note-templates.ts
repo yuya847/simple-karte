@@ -1,5 +1,5 @@
 // テンプレート（記載のひな形）: a note written by filling a form. The form is read from the template's
-// text: {{選択:疼痛:なし|あり}} is a choice, {{数値:尿量:mL}} a number, {{検査:CRP}} the latest result,
+// text: {{選択:疼痛:なし|あり}} is a choice, {{数値:尿量:mL}} a number, {{時刻:発見時刻}} a clock time, {{検査:CRP}} the latest result,
 // {{計算:BMI}} a value worked out by code from the numbers (the formula is shown with the result).
 // Choices, numbers and quotes as in 電子カルテ標準仕様研究会「電子カルテシステム標準仕様書 v1.0」
 // 1.03 の 6・7（テンプレートの作成・変更、選択肢・数字入力・文字入力）. The built-in templates are the
@@ -22,6 +22,7 @@ export type TemplateField =
   | { kind: "選択"; label: string; options: string[] }
   | { kind: "複数"; label: string; options: string[] }
   | { kind: "数値"; label: string; unit: string }
+  | { kind: "時刻"; label: string }
   | { kind: "文"; label: string }
   | { kind: "検査"; code: string }
   | { kind: "計算"; formula: FormulaKey }
@@ -31,8 +32,8 @@ export type TemplateField =
   | { kind: "日付" }
   | { kind: "入院日数" };
 
-export type InputField = Extract<TemplateField, { kind: "選択" | "複数" | "数値" | "文" }>;
-export const isInput = (f: TemplateField): f is InputField => f.kind === "選択" || f.kind === "複数" || f.kind === "数値" || f.kind === "文";
+export type InputField = Extract<TemplateField, { kind: "選択" | "複数" | "数値" | "時刻" | "文" }>;
+export const isInput = (f: TemplateField): f is InputField => f.kind === "選択" || f.kind === "複数" || f.kind === "数値" || f.kind === "時刻" || f.kind === "文";
 
 /** The same field written twice in one template is one field (one answer). */
 export function fieldKey(f: TemplateField): string {
@@ -40,6 +41,7 @@ export function fieldKey(f: TemplateField): string {
     case "選択":
     case "複数":
     case "数値":
+    case "時刻":
     case "文":
       return `${f.kind}:${f.label}`;
     case "検査":
@@ -59,6 +61,8 @@ export function tokenOf(f: TemplateField): string {
       return `{{${f.kind}:${f.label}:${f.options.join("|")}}}`;
     case "数値":
       return `{{数値:${f.label}${f.unit ? `:${f.unit}` : ""}}}`;
+    case "時刻":
+      return `{{時刻:${f.label}}}`;
     case "文":
       return `{{文:${f.label}}}`;
     case "検査":
@@ -94,6 +98,9 @@ function readToken(inner: string): TemplateField | string {
     case "数値":
       if (!label) return `{{${inner}}}：項目の名前がありません（例：{{数値:尿量:mL}}）`;
       return { kind, label, unit: rest.slice(1).join(":") };
+    case "時刻":
+      if (!label) return `{{${inner}}}：項目の名前がありません（例：{{時刻:発見時刻}}）`;
+      return { kind, label };
     case "文":
       if (!label) return `{{${inner}}}：項目の名前がありません（例：{{文:主訴}}）`;
       return { kind, label };
@@ -295,6 +302,8 @@ export function fieldText(f: TemplateField, values: TemplateValues, facts: Templ
       const n = num(v);
       return n === undefined ? "（未入力）" : `${n}${f.unit}`;
     }
+    case "時刻":
+      return typeof v === "string" && v.trim() ? v.trim() : "（未入力）";
     case "文":
       return typeof v === "string" ? v.trim() : "";
     case "検査":
@@ -333,12 +342,12 @@ export function startValues(t: ParsedTemplate, facts: TemplateFacts): TemplateVa
   return out;
 }
 
-/** The fields still empty (choices not chosen, numbers not entered). Free text may stay empty. */
+/** The fields still empty (choices not chosen, numbers or times not entered). Free text may stay empty. */
 export function unanswered(t: ParsedTemplate, values: TemplateValues): string[] {
   return t.fields.flatMap((f) => {
-    if (f.kind !== "選択" && f.kind !== "複数" && f.kind !== "数値") return [];
+    if (f.kind !== "選択" && f.kind !== "複数" && f.kind !== "数値" && f.kind !== "時刻") return [];
     const v = values[fieldKey(f)];
-    const empty = f.kind === "数値" ? num(v) === undefined : Array.isArray(v) ? v.length === 0 : !v;
+    const empty = f.kind === "数値" ? num(v) === undefined : Array.isArray(v) ? v.length === 0 : typeof v !== "string" || !v.trim();
     return empty ? [f.label] : [];
   });
 }

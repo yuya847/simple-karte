@@ -135,7 +135,7 @@ export function TemplatePanel({ patient, today, onInsert, onClose }: { patient: 
 }
 
 /** One field of the form. */
-function FieldInput({ f, values, set, facts, fields }: { f: TemplateField; values: TemplateValues; set: (k: string, v: string | string[]) => void; facts: TemplateFacts; fields: TemplateField[] }) {
+export function FieldInput({ f, values, set, facts, fields }: { f: TemplateField; values: TemplateValues; set: (k: string, v: string | string[]) => void; facts: TemplateFacts; fields: TemplateField[] }) {
   const k = fieldKey(f);
   const v = values[k];
   const chip = (on: boolean) => `rounded-md border px-2 py-0.5 text-[12px] pointer-coarse:py-1.5 ${on ? "border-ai bg-ai font-bold text-white" : "border-rule bg-sheet text-ink-soft hover:text-ink"}`;
@@ -173,6 +173,12 @@ function FieldInput({ f, values, set, facts, fields }: { f: TemplateField; value
             <input value={typeof v === "string" ? v : ""} onChange={(e) => set(k, e.target.value)} inputMode="decimal" aria-label={f.label} className="nums w-24 rounded border border-rule bg-sheet px-1.5 py-0.5 text-right outline-none focus:border-ai" />
             <span className="text-ink-soft">{f.unit}</span>
           </span>
+        </Row>
+      );
+    case "時刻":
+      return (
+        <Row label={f.label}>
+          <input type="time" value={typeof v === "string" ? v : ""} onChange={(e) => set(k, e.target.value)} aria-label={f.label} className="nums w-28 rounded border border-rule bg-sheet px-1.5 py-0.5 outline-none focus:border-ai" />
         </Row>
       );
     case "文":
@@ -254,6 +260,7 @@ const KINDS: { kind: TemplateField["kind"]; label: string }[] = [
   { kind: "選択", label: "選択肢（1つ）" },
   { kind: "複数", label: "選択肢（いくつでも）" },
   { kind: "数値", label: "数値" },
+  { kind: "時刻", label: "時刻" },
   { kind: "文", label: "文" },
   { kind: "検査", label: "検査値（最新）" },
   { kind: "計算", label: "計算" },
@@ -264,7 +271,7 @@ const KINDS: { kind: TemplateField["kind"]; label: string }[] = [
   { kind: "入院日数", label: "入院◯日目" },
 ];
 
-function TemplateEditor({ start, others, onSave }: { start: { name: string; seed: string; t: NoteTemplate | null }; others: NoteTemplate[]; onSave: (name: string, body: string) => void }) {
+export function TemplateEditor({ start, others, onSave }: { start: { name: string; seed: string; t: NoteTemplate | null }; others: NoteTemplate[]; onSave: (name: string, body: string) => void }) {
   const [name, setName] = useState(start.name);
   const [body, setBody] = useState(start.seed);
   const [kind, setKind] = useState<TemplateField["kind"]>("選択");
@@ -285,6 +292,7 @@ function TemplateEditor({ start, others, onSave }: { start: { name: string; seed
         return label.trim() && opts.length >= 2 ? { kind, label: label.trim(), options: opts } : null;
       case "数値":
         return label.trim() ? { kind, label: label.trim(), unit: unit.trim() } : null;
+      case "時刻":
       case "文":
         return label.trim() ? { kind, label: label.trim() } : null;
       case "検査":
@@ -325,7 +333,7 @@ function TemplateEditor({ start, others, onSave }: { start: { name: string; seed
               </option>
             ))}
           </select>
-          {(kind === "選択" || kind === "複数" || kind === "数値" || kind === "文") && <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="項目の名前（例：疼痛）" aria-label="項目の名前" className={`${input} w-32`} />}
+          {(kind === "選択" || kind === "複数" || kind === "数値" || kind === "時刻" || kind === "文") && <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="項目の名前（例：疼痛）" aria-label="項目の名前" className={`${input} w-32`} />}
           {(kind === "選択" || kind === "複数") && <input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="選択肢を「、」か「|」で区切る" aria-label="選択肢" className={`${input} min-w-40 flex-1`} />}
           {kind === "数値" && <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="単位（例：mL）" aria-label="単位" className={`${input} w-24`} />}
           {kind === "検査" && (
@@ -361,7 +369,7 @@ function TemplateEditor({ start, others, onSave }: { start: { name: string; seed
       {parsed.fields.length > 0 && (
         <p className="text-[11px] text-ink-soft">
           入力の欄：
-          {parsed.fields.map((f) => (f.kind === "選択" || f.kind === "複数" ? `${f.label}（${f.options.join("／")}）` : f.kind === "数値" ? `${f.label}（${f.unit || "数値"}）` : f.kind === "文" ? f.label : f.kind === "計算" ? FORMULAS[f.formula].name : f.kind === "検査" ? `${ANALYTES.find((a) => a.code === f.code)?.name ?? f.code}（カルテから）` : `${f.kind}（カルテから）`)).join("、")}
+          {parsed.fields.map((f) => (f.kind === "選択" || f.kind === "複数" ? `${f.label}（${f.options.join("／")}）` : f.kind === "数値" ? `${f.label}（${f.unit || "数値"}）` : f.kind === "文" || f.kind === "時刻" ? f.label : f.kind === "計算" ? FORMULAS[f.formula].name : f.kind === "検査" ? `${ANALYTES.find((a) => a.code === f.code)?.name ?? f.code}（カルテから）` : `${f.kind}（カルテから）`)).join("、")}
         </p>
       )}
       {problems.length > 0 && (
