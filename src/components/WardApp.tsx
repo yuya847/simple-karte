@@ -248,6 +248,8 @@ import { DowntimeView } from "./DowntimeView";
 import { usePresence } from "@/lib/use-presence";
 import { staleText, thisTab } from "@/lib/presence";
 import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
+import { ScanPanel } from "./panels/ScanPanel";
+import { withdraw } from "@/lib/scans";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -3385,6 +3387,23 @@ export default function WardApp() {
                     records={guidance.filter((r) => r.patientId === patient.id)}
                     today={today}
                     onSave={(r) => recordGuidance(patient.id, r)}
+                  />
+                </Drawer>
+              )}
+              {panel === "scans" && (
+                <Drawer title="スキャン取込" onClose={closePanel} wide>
+                  <ScanPanel
+                    patient={patient}
+                    scans={infra.scans}
+                    today={formatShort(today)}
+                    onAdd={(s) => {
+                      infra.setScans((all) => [...all, { ...s, id: newId(), patientId: patient.id, by: me.name, role: me.role, at: { day: 0, time: nowTime } }]);
+                      auditLog({ role: me.role, actor: me.name, action: "確定（スキャン取込）", patient: patient.name, detail: `${s.type}　文書の日付 ${s.docDate}${s.sample ? "（架空の見本）" : ""}` });
+                    }}
+                    onWithdraw={(id, reason) => {
+                      infra.setScans((all) => all.map((x) => (x.id === id ? withdraw(x, me.name, { day: 0, time: nowTime }, reason) : x)));
+                      auditLog({ role: me.role, actor: me.name, action: "スキャン取込を取り消した", patient: patient.name, detail: reason });
+                    }}
                   />
                 </Drawer>
               )}

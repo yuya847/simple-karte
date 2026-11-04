@@ -11,6 +11,8 @@ import { STAFF, type Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
 import { DowntimeView } from "./DowntimeView";
 import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
+import { ScanPanel } from "./panels/ScanPanel";
+import { withdraw, type ScanDoc } from "@/lib/scans";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -67,5 +69,20 @@ describe("同時利用の警告", () => {
     const ask = renderToStaticMarkup(<StaleAsk text="大浦 トメさんの記録は、別のタブで変わりました。" onRefresh={() => {}} onCancel={() => {}} busy={false} />);
     expect(ask).toContain("確定していません");
     expect(ask).toContain("やめる");
+  });
+});
+
+describe("スキャン取込", () => {
+  const p = PATIENTS[0];
+  const kept: ScanDoc = { id: "s1", patientId: p.id, type: "同意書", docDate: "2026-11-02", note: "外来で署名", by: "医事課 渡辺", role: "医事課", at: { day: 0, time: "09:10" }, mime: "image/jpeg", dataUrl: "data:image/jpeg;base64,AAAA", bytes: 28, original: { name: "見本.jpg", type: "image/jpeg", bytes: 90 }, sample: true };
+  it("warns not to take in real papers, and lists what was taken in with the type, date and who", () => {
+    const html = as("医事課", <ScanPanel patient={p} scans={[kept, withdraw({ ...kept, id: "s2", type: "問診票" }, "医事課 渡辺", { day: 0, time: "09:30" }, "別の患者の紙")]} today="11/4（水）" onAdd={() => {}} onWithdraw={() => {}} />);
+    expect(html).toContain("実在の患者や医療機関の書類・写真は取り込まないでください");
+    expect(html).toContain("架空の見本を作る");
+    expect(html).toContain("同意書</b>　文書の日付 2026-11-02");
+    expect(html).toContain("取込 09:10 医事課 渡辺");
+    expect(html).toContain("取り消し 09:30 医事課 渡辺：別の患者の紙");
+    expect(html).toContain("項番168");
+    expect(html).toContain("取り込んだ文書（2件）");
   });
 });
