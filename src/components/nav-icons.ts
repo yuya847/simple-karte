@@ -25,6 +25,7 @@ import {
   Stethoscope,
   Table2,
   TriangleAlert,
+  UserCheck,
   UserRound,
   Users,
   Utensils,
@@ -67,4 +68,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   journal: NotebookText,
   iji: ReceiptJapaneseYen,
   roster: CalendarDays,
+  cosign: UserCheck,
 };

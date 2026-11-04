@@ -7,6 +7,7 @@ import { searchKey } from "@/lib/kana";
 import { LAB_TESTS } from "@/lib/master";
 import { canRevise, diffLines, noteText, versionsOf } from "@/lib/notes";
 import { useMe } from "./RoleContext";
+import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
@@ -374,6 +375,7 @@ function Note({ entry, today, onRevise, onDo }: { entry: NoteEntry; today: Calen
         <span>{entry.time}</span>
         <span className={`font-bold ${ROLE_STYLE[entry.role]}`}>{entry.role}</span>
         <span>{entry.author}</span>
+        <CosignMark refId={entry.id} />
         {versions.length > 1 && (
           <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>
             <History size={11} />
@@ -527,6 +529,7 @@ function OrderRow({ entry, today, onDo, onOpenImage }: { entry: OrderEntry; toda
         {canDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
         <span>{entry.time}</span>
         <span className="font-bold text-ink-soft">{ORDER_TYPE_LABEL[entry.order.type]}</span>
+        <CosignMark refId={entry.id} />
         <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
           {entry.status}
           {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}

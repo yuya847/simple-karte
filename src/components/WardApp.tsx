@@ -169,7 +169,9 @@ import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { MeProvider, RoleProvider } from "./RoleContext";
-import { DEFAULT_DOCTOR, DOCTORS, onTeamOf } from "@/lib/doctors";
+import { DEFAULT_DOCTOR, DOCTORS, isResident, onTeamOf } from "@/lib/doctors";
+import { COSIGN_RULES, byRef, confirmDeny, confirmItems, newItems, noteRevised, pendingOf, residentBlock, type CosignItem } from "@/lib/cosign";
+import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
 import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
@@ -350,6 +352,8 @@ export default function WardApp() {
   const me = useMemo(() => (role === "医師" ? { role, name: doctorName } : STAFF[role]), [role, doctorName]);
   // What one person is writing is kept apart per doctor too (山本 keeps the key he had before).
   const desk = role === "医師" && doctorName !== DEFAULT_DOCTOR ? `医師:${doctorName}` : role;
+  // A 研修医's notes and orders wait for the 指導医 or 上級医 (they take effect at once: 架空の病院の取り決め).
+  const resident = role === "医師" && isResident(doctorName);
   const deny = (a: Parameters<typeof denyReason>[1]) => denyReason(role, a);
   // Patients admitted today from the ED, and the beds they took. Kept in this browser only.
   const [admitted, setAdmitted] = useState<Patient[]>([]);
@@ -379,6 +383,8 @@ export default function WardApp() {
   const [transferAsks, setTransferAsks] = useState<TransferAsk[]>([]);
   // 指示受け: changes a nurse held to ask the doctor (by row key), with the doctor's answer.
   const [takeHolds, setTakeHolds] = useState<Record<string, TakeHold>>({});
+  // 研修医の記事とオーダ, each waiting for the 指導医 or 上級医 to confirm it (who and when).
+  const [cosign, setCosign] = useState<CosignItem[]>([]);
   // 掲示板: reminders sent to those who have not read a notice (notice id → names).
   const [boardReminders, setBoardReminders] = useState<Record<string, { names: string[]; at: string; by: string }>>({});
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
@@ -569,6 +575,7 @@ export default function WardApp() {
       takeHolds: [takeHolds, setTakeHolds],
       oralRx: [oralRx, setOralRx],
       rosterBook: [rosterBook, setRosterBook],
+      cosign: [cosign, setCosign],
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
   );
@@ -801,6 +808,9 @@ export default function WardApp() {
       // A consent form to prepare with the order (説明前): the doctor explains before it is done.
       for (const code of r.consents ?? []) newConsents.push({ id: newId(), patientId: patient!.id, code, status: "説明前", orderId: ids[0], createdAt: { day: 0, time: nowTime }, answers: {} });
     }
+    // 抗がん薬・麻薬: a 研修医 does not confirm them (架空の病院の取り決め).
+    const notMine = resident ? [...new Set(added.flatMap((e) => residentBlock(e.order) ?? []))] : [];
+    if (notMine.length) return update({ flash: `確定していません（${notMine.join("・")}が入っています）。${COSIGN_RULES.blocked}` });
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
       ...stoppedEntries.map((e) => {
@@ -848,6 +858,16 @@ export default function WardApp() {
         ? { role: me.role, actor: me.name, action: `確定（口頭指示を代行入力。指示 ${DOCTOR}）`, patient: patient?.name, detail: lines.map((l) => l.replace(/^・/, "")).join("／").slice(0, 200) }
         : { role: me.role, actor: me.name, action: "確定（オーダ）", patient: patient?.name, detail: lines.map((l) => l.replace(/^・/, "")).join("／").slice(0, 200) },
     );
+    // 研修医: one item per new order, stop and extension, for the 指導医 or 上級医 to confirm.
+    if (resident)
+      setCosign((all) => [
+        ...all,
+        ...newItems({ patientId: patient!.id, by: me.name, at: { day: 0, time: nowTime } }, [
+          ...added.map((e) => ({ ref: e.id, kind: "オーダ" as const, text: planLine(e, today).replace(/^・/, "") })),
+          ...stoppedEntries.map((e, i) => ({ ref: `stop:${e.id}`, kind: "中止" as const, text: lines[i].replace(/^・/, "") })),
+          ...extLog.map((x) => ({ ref: `extend:${x.orderId}`, kind: "延長" as const, text: `${x.text} 延長 → ${x.days}日間` })),
+        ], newId),
+      ]);
     update((c) => ({
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
@@ -858,6 +878,14 @@ export default function WardApp() {
       flash: `${added.length + stops.length + Object.keys(extended).length}件を確定しました。左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
       selectedDay: 0,
     }));
+  };
+
+  // 研修医の記録を、指導医か上級医が確かめる. Each confirmation goes to the audit log.
+  const confirmCosign = (ids: string[], comment: string) => {
+    const r = confirmItems(cosign, ids, me.name, { day: 0, time: nowTime }, comment);
+    if (!r.done.length) return;
+    setCosign(r.items);
+    for (const i of r.done) auditLog({ role: me.role, actor: me.name, action: `確定（研修医の${i.kind}を確認）`, patient: findPatient(i.patientId)?.name, detail: `${i.by} ${i.at.time}：${i.text.replace(/\s+/g, " ").slice(0, 80)}${i.confirmed?.comment ? `　コメント：${i.confirmed.comment}` : ""}` });
   };
 
   const lettersOf = (pid: string) => {
@@ -1217,6 +1245,13 @@ export default function WardApp() {
       return [pid, out];
     }),
   );
+  // Marks on the patient lists: 指示簿 and 外泊 etc., and records of a 研修医 still waiting (for doctors).
+  const listFlags: Record<string, Flag[]> = Object.fromEntries(
+    allPatients.map((p) => {
+      const n = role === "医師" ? pendingOf(cosign, p.id).length : 0;
+      return [p.id, [...(standingFlags[p.id] ?? []), ...(n ? [{ label: `指導医の確認待ち ${n}`, tone: "yamabuki" as const, title: "研修医が書いた記事・オーダで、指導医か上級医の確認がまだのもの" }] : [])]];
+    }),
+  );
   // The 移動 row of the 移動・食事 calendar: admission, booked and done moves, discharge and leave.
   const moveEventsOf = (pid: string): MoveEvent[] => {
     const p = findPatient(pid);
@@ -1318,6 +1353,8 @@ export default function WardApp() {
     }
   }
   if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
+  const toCosign = role === "医師" ? pendingOf(cosign).filter((i) => !confirmDeny(me.name, i)) : [];
+  if (toCosign.length) todos.push({ key: "cosign", label: "研修医の記録の確認待ち", detail: `${new Set(toCosign.map((i) => i.patientId)).size}人の患者`, count: toCosign.length, tone: "yamabuki", go: () => goWard("cosign") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
   const toCall = uncalled(labItems, calls).length;
   // 掲示板: notices someone asked me to read, still unread.
@@ -1370,10 +1407,11 @@ export default function WardApp() {
   const blocked: Partial<Record<PanelKind, string>> = {
     ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
+    ...(resident ? { regimen: COSIGN_RULES.blocked } : {}),
   };
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
-  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue };
+  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue, cosign: toCosign.length };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";
@@ -1544,6 +1582,17 @@ export default function WardApp() {
             auditLog({ role: me.role, actor: me.name, action: "看護日誌に書き残した", detail: `${floor}　${text.slice(0, 80)}` });
             setJournal((all) => ({ ...all, [floor]: [...(all[floor] ?? []), { text, by: me.name, at: nowTime }] }));
           }}
+        />
+      ) : screen === "cosign" ? (
+        <CosignList
+          items={cosign}
+          meName={me.name}
+          patientOf={(id) => {
+            const p = findPatient(id);
+            return p ? { name: p.name, room: p.room } : undefined;
+          }}
+          onConfirm={confirmCosign}
+          onOpen={openPatient}
         />
       ) : screen === "roster" ? (
         <RosterView book={rosterBook} today={today} nowTime={nowTime} onChange={setRosterBook} />
@@ -1956,7 +2005,7 @@ export default function WardApp() {
           summaries={summaries}
           waiting={waiting}
           resultState={resultState}
-          extraFlags={standingFlags}
+          extraFlags={listFlags}
           today={today}
           dpcPayload={(id) => {
             const p = findPatient(id);
@@ -2092,6 +2141,7 @@ export default function WardApp() {
                 const next = reviseNote(e, text, me.name, { day: 0, time: nowTime }, reason);
                 setRevised((all) => ({ ...all, [patient.id]: { ...(all[patient.id] ?? {}), [noteKey(e)]: next } }));
                 auditLog({ role: me.role, actor: me.name, action: `確定（記事の修正・第${next.versions!.length}版）`, patient: patient.name, detail: `${e.time} の記事　理由：${reason.trim()}` });
+                if (resident) setCosign((all) => noteRevised(all, { ref: noteKey(e), patientId: patient.id, by: me.name, at: { day: 0, time: nowTime }, text: text.trim() }, newId));
               }}
             />
             <div
@@ -2133,6 +2183,7 @@ export default function WardApp() {
                   }));
                 }}
               />
+              {role === "医師" && <CosignStrip items={cosign.filter((i) => i.patientId === patient.id)} meName={me.name} onConfirm={confirmCosign} />}
               {role === "医師" && (
                 <TakeStatus
                   rows={allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k)))}
@@ -2282,6 +2333,7 @@ export default function WardApp() {
                           const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
                           setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
                           auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: chart.note.replace(/\s+/g, " ").slice(0, 120) });
+                          if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
                           update({ note: noteTemplate(me.role), figures: [], flash: "記事を確定しました。左の経過に入りました。" });
                         }}
                       />,
@@ -2936,6 +2988,7 @@ export default function WardApp() {
   return (
     <RoleProvider value={role}>
     <MeProvider value={me}>
+    <CosignRefs value={byRef(cosign)}>
     <div className="flex h-screen flex-col print:hidden">
       <div aria-hidden className="standalone-edge" />
       <AppFrame
@@ -3100,6 +3153,7 @@ export default function WardApp() {
       )}
       {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
     </div>
+    </CosignRefs>
     </MeProvider>
     </RoleProvider>
   );
