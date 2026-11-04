@@ -54,7 +54,8 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   const [win, setWin] = useState<Win | null>(() => {
     if (typeof window === "undefined") return null;
     const r = loadRemembered(key);
-    const mode = r?.mode ?? (windowedFirst ? "window" : "drawer");
+    // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
+    const mode = windowedFirst ? "window" : (r?.mode ?? "drawer");
     return mode === "window" ? clampWin(r?.win ?? bigWin()) : null;
   });
   const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? bigWin()));
