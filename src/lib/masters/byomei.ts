@@ -4,7 +4,7 @@
 import { loadMaster, normalizeForSearch } from "./server";
 
 // Column positions in the generated files (see COLS.b / COLS.z in scripts/masters/build.mjs).
-const B = { code: 0, moveTo: 1, name: 2, short: 3, kana: 4, adopt: 6, icd1: 8, icd2: 9, noStandalone: 10, notClaimable: 11, end: 14 } as const;
+const B = { code: 0, moveTo: 1, name: 2, short: 3, kana: 4, keyNumber: 5, adopt: 6, exCode: 7, icd1: 8, icd2: 9, noStandalone: 10, notClaimable: 11, end: 14 } as const;
 const Z = { code: 0, name: 1, kana: 2, end: 4, kind: 5 } as const;
 
 export interface DiseaseHit {
@@ -88,4 +88,15 @@ export function searchModifiers(q: string, limit = 20): ModifierHit[] {
 
 export function findDisease(code: string): DiseaseHit | undefined {
   return diseases().find((d) => d.hit.code === code)?.hit;
+}
+
+/**
+ * 病名管理番号 and 病名交換用コード (傷病名マスター 項目11・13) of 傷病名コード, for the 電子カルテ情報共有サービス
+ * (JP_Condition_eCS needs the 病名管理番号).
+ */
+export function diseaseKeysOf(codes: string[]): Record<string, { keyNumber: string; exCode: string }> {
+  const want = new Set(codes);
+  const out: Record<string, { keyNumber: string; exCode: string }> = {};
+  for (const r of loadMaster("b").rows) if (want.has(r[B.code]) && r[B.end] === ACTIVE) out[r[B.code]] = { keyNumber: r[B.keyNumber], exCode: r[B.exCode] };
+  return out;
 }
