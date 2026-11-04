@@ -2,9 +2,10 @@
 // gets its own first screen, its own ward tabs, and only the actions its job allows.
 // The people are fictional.
 
-export type Role = "医師" | "看護師" | "薬剤師" | "臨床検査技師" | "診療放射線技師" | "療法士" | "管理栄養士" | "MSW" | "医事課";
+/** デバッグ: a test role that sees every screen and may do every action (for trying the app, not a real job). */
+export type Role = "医師" | "看護師" | "薬剤師" | "臨床検査技師" | "診療放射線技師" | "療法士" | "管理栄養士" | "MSW" | "医事課" | "デバッグ";
 
-export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW", "医事課"];
+export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW", "医事課", "デバッグ"];
 
 export interface Staff {
   role: Role;
@@ -22,6 +23,7 @@ export const STAFF: Record<Role, Staff> = {
   管理栄養士: { role: "管理栄養士", name: "管理栄養士 高橋" },
   MSW: { role: "MSW", name: "MSW 伊藤" },
   医事課: { role: "医事課", name: "医事課 渡辺" },
+  デバッグ: { role: "デバッグ", name: "デバッグ（全部見る）" },
 };
 
 /** What each role is called in full, for the first mention. */
@@ -35,6 +37,7 @@ export const ROLE_LONG: Record<Role, string> = {
   管理栄養士: "管理栄養士",
   MSW: "MSW（医療ソーシャルワーカー）",
   医事課: "医事課",
+  デバッグ: "デバッグ（試すための職種。すべての画面を見て、すべての操作ができます）",
 };
 
 /** The ward-level tabs pinned before the patient tabs. */
@@ -51,6 +54,7 @@ export const TABS: Record<Role, PinnedTab[]> = {
   管理栄養士: ["meals", "admit", "map", "list", "chat"],
   MSW: ["admit", "map", "list", "chat"],
   医事課: ["iji", "list", "map", "audit"],
+  デバッグ: ["map", "list", "sheet", "handoff", "admit", "meals", "lab", "ris", "rehab", "er", "pharmacy", "dialysis", "or", "acuity", "chat", "audit", "iji"],
 };
 
 export const home = (r: Role): PinnedTab => TABS[r][0];
@@ -208,7 +212,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "master.proc": { label: "処置マスタの変更", who: ["医事課"] },
 };
 
-export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);
+export const can = (role: Role, a: Action): boolean => role === "デバッグ" || RULES[a].who.includes(role);
 
 /** Why the action is locked for this role, or null when it is allowed. */
 export function denyReason(role: Role, a: Action): string | null {

@@ -474,6 +474,7 @@ export const ROLE_COLORS: Record<NoteEntry["role"], { text: string; chip: string
   MSW: { text: "text-mizu", chip: "bg-mizu text-white", edge: "border-l-mizu", bg: "bg-mizu-soft/60" },
   医事課: { text: "text-ink-soft", chip: "bg-ink-soft text-white", edge: "border-l-ink-soft", bg: "bg-tab/60" },
   検査室: { text: "text-fuji", chip: "bg-fuji text-white", edge: "border-l-fuji", bg: "bg-fuji-soft/50" },
+  デバッグ: { text: "text-yamabuki", chip: "bg-yamabuki text-white", edge: "border-l-yamabuki", bg: "bg-yamabuki-soft/50" },
 };
 
 /** The chip colour of each note-writer checkbox (ほかの職種 takes the pharmacist's). */

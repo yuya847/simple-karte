@@ -20,6 +20,7 @@ const ROLE_STYLE: Record<ChatRole, string> = {
   臨床工学技士: "bg-tab text-ink",
   医事課: "bg-tab text-ink",
   管理者: "bg-yamabuki-soft text-yamabuki",
+  デバッグ: "bg-yamabuki-soft text-yamabuki",
 };
 
 let seq = 0;

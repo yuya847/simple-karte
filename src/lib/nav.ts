@@ -121,6 +121,8 @@ export const wardTabsFor = (role: Role): WardTab[] => WARD_TABS.filter((t) => [t
 
 /** The places (and tools) a role uses, in the menu's order. */
 export function areasFor(role: Role): Area[] {
+  // デバッグ: every place.
+  if (role === "デバッグ") return AREAS.slice();
   const mine = TABS[role];
   return AREAS.filter((a) => {
     if (a.key === "ward") return wardTabsFor(role).length > 0;

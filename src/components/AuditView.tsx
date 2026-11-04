@@ -17,6 +17,7 @@ const ROLE_STYLE: Record<AuditRole, string> = {
   臨床工学技士: "bg-wakatake-soft text-wakatake",
   医事課: "bg-paper text-ink-soft",
   事務: "bg-paper text-ink-soft",
+  デバッグ: "bg-yamabuki-soft text-yamabuki",
 };
 
 /** The audit log of this session: what Claude copied and what people decided, in order. */

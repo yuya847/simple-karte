@@ -23,6 +23,7 @@ export const ROLE_DEPT: Record<Role, Dept> = {
   管理栄養士: "栄養科",
   MSW: "地域連携室",
   医事課: "医事課",
+  デバッグ: "情報システム室",
 };
 
 export interface Notice {
