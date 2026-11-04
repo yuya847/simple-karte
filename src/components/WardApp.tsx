@@ -2169,6 +2169,7 @@ export default function WardApp() {
               onExtendDraft={extendDraft}
               pendingExtends={pendingExtends}
               marOf={(id, at) => mar[`${id}|${at}`]}
+              io={{ typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null }}
               onModify={modifyOrder}
               care={{ orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) }}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}

@@ -12,6 +12,8 @@ import { news2 } from "@/lib/news2";
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import { CareFlowRows } from "./CareFlowRows";
+import { ioLines } from "@/lib/io-balance";
+import { IoFlowRows, type FlowIo } from "./IoFlowRows";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -35,6 +37,8 @@ interface Props {
   onInsertVitals?: (text: string) => void;
   /** 看護ケア指示 of this patient and their records, shown as rows under 観察・記録. */
   care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
+  /** 水分出納 (IN/OUT) rows. */
+  io?: FlowIo;
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -59,7 +63,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care }: Props) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io }: Props) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const [range, setRange] = useState<VitalRange>("latest");
   const [copied, setCopied] = useState<string | null>(null);
@@ -80,6 +84,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const injections = orders.filter((o) => o.order.type === "injection");
   const labs = orders.filter((o) => o.order.type === "lab" && o.status !== "中止");
   const fluid = fluidByDay(orders, days, nowAbs);
+  const ioRows = io ? ioLines({ patientId: p.id, entries: orders, typed: io.typed, records: io.records, sessionStart: io.sessionStart, nowAbs, from: t0 - 1440 }) : null;
 
   const hovered = hover === null ? null : vitals[hover];
 
@@ -235,7 +240,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             if (r.meals === "絶食") return "絶食";
             return r.meals.map((m) => (m === null ? "−" : m)).join("/");
           }} />
-          <DayRow label="尿量 mL" days={days} colW={colW} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />
+          <DayRow label="尿量 mL" sub="0〜24時" days={days} colW={colW} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />
           <DayRow label="便 回" days={days} colW={colW} value={(d) => {
             const s = p.daily.find((x) => x.day === d)?.stools;
             return s === undefined ? "" : String(s);
@@ -250,6 +255,8 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
           />
 
           {care && <CareFlowRows {...care} days={days} colW={colW} labelW={LABEL_W} nowX={xAbs(nowAbs)} nowAbs={nowAbs} />}
+          {/* 水分出納: recorded and planned kept apart, one cell per 24 hours from the close */}
+          {io && ioRows && <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={2 * 1440} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} />}
 
           {/* Injections as bars over time */}
           <Section title="注射" />
