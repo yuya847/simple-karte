@@ -54,6 +54,7 @@ describe("記事作成", () => {
     expect(html).toContain("テンプレート");
     expect(html).toContain("定型文");
     expect(html).toContain("記録時刻を変更する");
+    expect(html.indexOf("記録時刻を変更する")).toBeLessThan(html.indexOf("テンプレート"));
     expect(html).not.toContain("記録時刻の根拠");
     // The record forms are for nurses.
     expect(html).not.toContain("フォーカス（DAR）");

@@ -107,6 +107,12 @@ export function TodayPane(p: Props) {
         <span className="text-xs text-ink-faint">
           {formatShort(p.today)}　入院{hospitalDay(p.patient.admittedOn, 0)}日目
         </span>
+        {!noteLocked && !p.noteAt && (
+          <button type="button" onClick={() => p.onNoteAt(normalMoment({ day: 0, time: p.nowTime }))} className="inline-flex items-center gap-1 ml-auto shrink-0 px-1.5 py-0.5 text-[11px] text-ink-soft hover:text-ink" title="出来事の時刻が保存の時刻と違うとき（遅れて書くとき）">
+            <Clock3 size={12} />
+            記録時刻を変更する
+          </button>
+        )}
       </div>
 
       <div className="scroll-thin min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
@@ -161,6 +167,29 @@ export function TodayPane(p: Props) {
             </div>
           )}
           <NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} />
+          {p.drafts.length > 0 && (
+            <div aria-label="オーダの下書き">
+              {p.drafts.map((d) => (
+                <DraftCard
+                  key={d.id}
+                  rp={rpNumbers(p.drafts)[d.id]}
+                  draft={d}
+                  issues={p.issues[d.id] ?? []}
+                  ctx={p.ctx}
+                  onApply={p.onApply}
+                  onRemove={() => p.onRemove(d.id)}
+                  onRedo={
+                    SHOW_DICTATION
+                      ? () => {
+                          p.onRedo(d.id);
+                          box.current?.focus();
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
           {!noteLocked && me.role === "看護師" && (
             <p className="hint mt-0.5 text-[10px] text-ink-faint">
               記録の形式（SOAP・フォーカス・経時記録）の根拠：
@@ -172,32 +201,23 @@ export function TodayPane(p: Props) {
               ))}
             </p>
           )}
-          {!noteLocked && (
+          {!noteLocked && p.noteAt && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-soft">
-              {p.noteAt ? (
-                <>
-                  <Clock3 size={12} className="shrink-0" />
-                  <span className="font-bold">記録時刻</span>
-                  <select value={p.noteAt.day} onChange={(e) => p.onNoteAt({ ...p.noteAt!, day: Number(e.target.value) })} aria-label="記録の日" className="rounded border border-rule bg-sheet px-1 py-0.5">
-                    {eventDays({ day: 0, time: p.nowTime }, p.patient.admittedOn).map((d) => (
-                      <option key={d} value={d}>
-                        {d === 0 ? "今日" : d === -1 ? "昨日" : d === 1 ? "翌日" : ""}
-                        {formatShort(addDays(p.today, d))}
-                      </option>
-                    ))}
-                  </select>
-                  <input type="time" value={p.noteAt.time} onChange={(e) => p.onNoteAt({ ...p.noteAt!, time: e.target.value })} aria-label="記録の時刻" className="nums rounded border border-rule bg-sheet px-1 py-0.5" />
-                  <button type="button" onClick={() => p.onNoteAt(null)} className="rounded border border-rule px-1.5 py-0.5 hover:text-ink">
-                    保存の時刻にもどす
-                  </button>
-                  {timeProblem && <span className="w-full font-bold text-shu">{timeProblem}</span>}
-                </>
-              ) : (
-                <button type="button" onClick={() => p.onNoteAt(normalMoment({ day: 0, time: p.nowTime }))} className="inline-flex items-center gap-1 rounded border border-dashed border-rule px-1.5 py-0.5 hover:text-ink" title="出来事の時刻が保存の時刻と違うとき（遅れて書くとき）">
-                  <Clock3 size={12} />
-                  記録時刻を変更する
-                </button>
-              )}
+              <Clock3 size={12} className="shrink-0" />
+              <span className="font-bold">記録時刻</span>
+              <select value={p.noteAt.day} onChange={(e) => p.onNoteAt({ ...p.noteAt!, day: Number(e.target.value) })} aria-label="記録の日" className="rounded border border-rule bg-sheet px-1 py-0.5">
+                {eventDays({ day: 0, time: p.nowTime }, p.patient.admittedOn).map((d) => (
+                  <option key={d} value={d}>
+                    {d === 0 ? "今日" : d === -1 ? "昨日" : d === 1 ? "翌日" : ""}
+                    {formatShort(addDays(p.today, d))}
+                  </option>
+                ))}
+              </select>
+              <input type="time" value={p.noteAt.time} onChange={(e) => p.onNoteAt({ ...p.noteAt!, time: e.target.value })} aria-label="記録の時刻" className="nums rounded border border-rule bg-sheet px-1 py-0.5" />
+              <button type="button" onClick={() => p.onNoteAt(null)} className="rounded border border-rule px-1.5 py-0.5 hover:text-ink">
+                保存の時刻にもどす
+              </button>
+              {timeProblem && <span className="w-full font-bold text-shu">{timeProblem}</span>}
             </div>
           )}
           <div className="mt-1 flex items-center gap-2">
@@ -291,30 +311,7 @@ export function TodayPane(p: Props) {
           </div>
         )}
 
-        {p.drafts.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold text-ink-soft">オーダの下書き（{p.drafts.length}件）</h3>
-            {p.drafts.map((d) => (
-              <DraftCard
-                key={d.id}
-                rp={rpNumbers(p.drafts)[d.id]}
-                draft={d}
-                issues={p.issues[d.id] ?? []}
-                ctx={p.ctx}
-                onApply={p.onApply}
-                onRemove={() => p.onRemove(d.id)}
-                onRedo={
-                  SHOW_DICTATION
-                    ? () => {
-                        p.onRedo(d.id);
-                        box.current?.focus();
-                      }
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-        )}
+
       </div>
 
       <div className="flex items-center gap-3 border-t border-rule bg-paper px-4 py-2.5">

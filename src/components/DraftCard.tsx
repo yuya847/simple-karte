@@ -2,7 +2,8 @@
 
 import { dietLabel } from "@/lib/diet";
 
-import { useState } from "react";
+import { draftLine } from "@/lib/draft-line";
+import { useId, useState } from "react";
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
 import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
@@ -30,17 +31,25 @@ const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "�
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
+  const [open, setOpen] = useState(false);
+  const detailId = useId();
   const ready = isReady(issues);
   const blocking = issues.filter((i) => i.level !== "info");
   const infos = issues.filter((i) => i.level === "info");
 
   return (
-    <article
-      className={`rounded-lg border bg-sheet text-[13px] ${
-        ready ? "border-wakatake/40" : blocking.some((i) => i.level === "stop") ? "border-shu/50" : "border-yamabuki/50"
-      }`}
-    >
-      <header className="flex items-center gap-2 border-b border-rule-soft px-3 py-1.5">
+    <article className="text-[13px] leading-relaxed pointer-coarse:text-[16px]">
+      <div className="flex items-start gap-1 pl-8 pr-2 py-0.5 pointer-coarse:pl-10">
+        <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)} className="nums min-w-0 flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
+          {draftLine(draft, ctx, rp)}
+        </button>
+        <button type="button" aria-label={ready ? "確定できます・詳細を開く" : `確認 ${blocking.length}件・理由を開く`} aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)} className={`shrink-0 p-1 ${ready ? "text-wakatake" : "text-yamabuki"}`}>
+          {ready ? <CheckCircle2 size={14} /> : <AlertOctagon size={14} />}
+        </button>
+        <button type="button" onClick={onRemove} aria-label="この下書きを消す" title="この下書きを消す" className="shrink-0 p-1 text-ink-faint hover:text-shu"><Trash2 size={14} /></button>
+      </div>
+      {open && <div id={detailId} className="ml-8 pointer-coarse:ml-10">
+      <header className="flex items-center gap-2 px-3 py-1.5">
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${draft.kind === "stop" ? "bg-shu-soft text-shu" : "bg-ai-soft text-ai"}`}>
           {KIND_LABEL[draft.kind]}
           {rp ? ` Rp${rp}` : ""}
@@ -93,6 +102,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
           ))}
         </ul>
       )}
+      </div>}
     </article>
   );
 }

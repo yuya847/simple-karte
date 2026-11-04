@@ -55,10 +55,11 @@ describe("外来予約の下書きと記録", () => {
   it("the draft card is labelled 外来予約 and shows the clinic, the day and the purpose", () => {
     const d = newOpdBookingDraft("d1", { dept: "循環器内科", day: 14, slot: "午後", purpose: "再診", purposeNote: "", note: "採血は30分前" });
     const html = renderToStaticMarkup(<DraftCard draft={d} issues={checkDraft(d, ctx)} ctx={ctx} onApply={() => {}} onRemove={() => {}} />);
-    expect(html).toContain(">外来予約<");
+    expect(html).toContain("外来予約 循環器内科");
+    expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("循環器内科");
     expect(html).toContain("D14 午後");
-    expect(html).toContain("再診　採血は30分前");
+    expect(html).toContain("再診 採血は30分前");
     expect(html).toContain("確定できます");
   });
   it("the tools' その他 tab has 外来予約", () => {
