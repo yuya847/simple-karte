@@ -1,6 +1,7 @@
 // Calculations behind the flow sheet (経過表). Times are "absolute minutes": day offset × 1440
 // plus minutes since midnight, so today 18:00 is 1080 and yesterday 06:00 is -1080.
 
+import { defaultDoseTimes } from "./inj-entry";
 import { minutesOf } from "./dates";
 import { doseVolumeMl } from "./drafts";
 import type { DayOffset, InjectionOrder, OrderEntry } from "./types";
@@ -21,15 +22,16 @@ export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number
   return { from, to: null };
 }
 
-/** Dose times of an every-N-hours order inside [lo, hi). */
+/** Prescribed times, per-day defaults, or every-N-hours occurrences inside [lo, hi). */
 export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: number): number[] {
   const o = entry.order as InjectionOrder;
-  if (o.doseTimes?.length) {
+  const times = o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" ? defaultDoseTimes(o.schedule) : [];
+  if (times.length) {
     const { from, to } = orderInterval(entry, nowAbs);
     const out: number[] = [];
     for (let day = Math.floor(lo / 1440) - 1; day <= Math.floor(hi / 1440); day++) {
       if (day < o.start.day || (o.days && day >= o.start.day + o.days)) continue;
-      for (const time of o.doseTimes) {
+      for (const time of times) {
         const at = abs(day, time);
         if (at >= from && at >= lo && at < hi && (to === null || at < to)) out.push(at);
       }

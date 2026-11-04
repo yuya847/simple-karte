@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { injectionCell, prescriptionCell, upcomingToday } from "./calendar";
 import { abs } from "./flowsheet";
+import { occurrencesOn } from "./order-execute";
 import { PATIENTS } from "./patients";
 import type { OrderEntry } from "./types";
 
@@ -89,5 +90,16 @@ describe("upcoming today", () => {
       order: { type: "lab", codes: ["LAB-CBC"], collect: { day: 1, time: "06:00" }, priority: "定時" },
     };
     expect(upcomingToday([order(sakura, "sakura-cez"), vcm, draw], now)).toEqual(["15:30 CEZ", "18:00 VCM", "23:30 CEZ", "明日06:00 採血"]);
+  });
+});
+
+
+describe("旧オーダの投与時刻の共有", () => {
+  it("北村のラシックスも既定時刻をカレンダーと実施メニューで共有する", () => {
+    const e = kitamura.history.find((e): e is OrderEntry => e.kind === "order" && e.order.type === "injection" && e.order.schedule.kind === "per_day" && e.order.schedule.count === 2 && e.order.items.some((it) => it.drugCode === "INJ-FRS20"))!;
+    expect(e).toBeDefined();
+    expect(injectionCell(e, 0, now).doses.map((d) => d.time)).toEqual(["10:00", "22:00"]);
+    expect(occurrencesOn(kitamura, e, 0, now).timed.map((i) => i.at)).toEqual([600, 1320]);
+    expect(occurrencesOn(kitamura, e, 0, now).untimed).toBeNull();
   });
 });

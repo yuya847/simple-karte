@@ -108,19 +108,17 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);
         const detail = parts.join("　");
-        if (o.doseTimes?.length || o.schedule.kind === "every_hours") {
+        if (o.doseTimes?.length || o.schedule.kind === "every_hours" || (o.schedule.kind === "per_day" && !isFluid(o))) {
           for (const t of doseTimes(e, nowAbs, lo, hi)) timed.push({ ...base, at: t, kind: "注射", main, detail, orderId: e.id, state: state(t) });
         } else if (o.schedule.kind === "once") {
           const { from } = orderInterval(e, nowAbs);
           if (from >= lo && from < hi) timed.push({ ...base, at: from, kind: "注射", main, detail, orderId: e.id, state: state(from) });
         } else if (isFluid(o)) {
-          // Continuous fluid: each bag starts every 24h ÷ (bags a day) from the start.
-          const { from, to } = orderInterval(e, nowAbs);
-          const step = 1440 / o.schedule.count;
+          // Bag changes use the same prescribed or default times as the calendar.
           const vol = doseVolumeMl(o.items);
           running.push({ ...base, kind: "注射", main, detail: `${detail}${vol ? `　1本 ${vol}mL` : ""}`, orderId: e.id });
           let n = 0;
-          for (let t = from; t < Math.min(hi, to ?? Infinity); t += step) {
+          for (const t of doseTimes(e, nowAbs, lo, hi)) {
             n++;
             if (t >= lo) timed.push({ ...base, at: t, kind: "注射", main: `${main}（${n}本目）`, detail: "つなぎ替え", orderId: e.id, state: state(t) });
           }

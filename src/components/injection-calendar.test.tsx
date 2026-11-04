@@ -77,3 +77,40 @@ describe("注射カレンダー：新規・Do・下書きの行", () => {
     expect(html).toContain("3日間");
   });
 });
+
+describe("注射カレンダー：各回の共通表示", () => {
+  const base = { patient, today, nowTime: "12:00", selectedDay: null, onSelectDay: () => {}, onStopDraft: () => {}, draftedStops: [] as string[] };
+  const order: InjectionOrder = { ...ctrx, schedule: { kind: "per_day", count: 2 }, days: undefined };
+  const record = (at: number, status: "実施" | "未実施"): import("@/lib/mar").AdminRecord => ({ key: `o1|${at}`, orderId: "o1", patientId: patient.id, at, status, doneAt: "11:00", by: "架空の担当者", checked: { patient: false, label: null } });
+  const execute = (records: import("./ExecuteMenu").ExecuteProps["records"] = {}): import("./ExecuteMenu").ExecuteProps => ({ records, sessionStart: 540, nowTime: "12:00", onRecord: () => {}, onVoid: () => {} });
+  const todayCell = (html: string) => html.match(/<td[^>]*data-cal-day="0"[\s\S]*?<\/td>/)?.[0] ?? "";
+  it("時刻のない旧オーダも10:00・22:00が縦に並び、回数のチップにならない", () => {
+    const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", order)]} execute={execute()} />));
+    expect(html).toContain("flex flex-col items-start");
+    expect(html).toMatch(/>10:00<\/button>[\s\S]*>22:00<\/button>/);
+    expect(html).toContain('data-exec-at="600"');
+    expect(html).toContain('data-exec-at="1320"');
+    expect(html).not.toContain("2回");
+  });
+  it("Rpに指定された時刻を優先し、1日1回なら1つだけ出す", () => {
+    const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", { ...order, doseTimes: ["09:00", "21:00"] })]} />));
+    expect(html).toMatch(/>09:00<\/button>[\s\S]*>21:00<\/button>/);
+    expect(html).not.toContain(">10:00<");
+    const once = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", ctrx)]} />));
+    expect(once).toContain(">10:00<");
+    expect(once).not.toContain(">22:00<");
+  });
+  it("実施記録のある回だけ✓、消した回は薄い取り消し線と担当者・時刻", () => {
+    const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", order)]} execute={execute({ "o1|600": record(600, "実施"), "o1|1320": record(1320, "未実施") })} />));
+    expect(html).toContain("✓ 10:00");
+    expect(html).toContain('title="未実施に戻す"');
+    expect(html).toContain("opacity-40 line-through");
+    expect(html).toContain("消した回 11:00 架空の担当者");
+  });
+  it("取り消した記録は✓にもスキップにもならない", () => {
+    const r = { ...record(600, "未実施"), cancellation: { by: "担当者", at: "12:00", reason: "訂正" } };
+    const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", order)]} execute={execute({ "o1|600": r })} />));
+    expect(html).not.toContain("✓");
+    expect(html).not.toContain("line-through");
+  });
+});

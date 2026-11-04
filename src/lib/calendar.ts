@@ -1,5 +1,4 @@
-// What each day cell of the injection / prescription calendars shows. Administration is
-// not recorded in this prototype: a dose whose time has passed is shown as given.
+// Scheduled times for calendar cells. Actual administration is read from MAR by the view.
 
 import { abs, doseTimes, orderInterval } from "./flowsheet";
 import { doseVolumeMl } from "./drafts";
@@ -18,8 +17,6 @@ export interface InjectionCell {
   doses: { time: string; state: MarkState }[];
   /** Fluids given continuously: volume over this day and whether it is past, ongoing or ahead. */
   infusion?: { volumeMl: number; state: MarkState | "now" };
-  /** Drugs given N times a day without set clock times. */
-  timesPerDay?: number;
   /** Set when the order was stopped on this day. */
   stopped?: { time: string | null };
 }
@@ -41,17 +38,16 @@ export function injectionCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   }
   if (!running) return cell;
 
-  if (o.doseTimes?.length || o.schedule.kind === "every_hours") {
+  if (o.schedule.kind !== "once" || o.doseTimes?.length) {
     cell.doses = doseTimes(entry, nowAbs, lo, hi).map((t) => ({ time: hhmm(t - lo), state: stateAt(t, nowAbs) }));
   } else if (o.schedule.kind === "once") {
     if (from >= lo && from < hi) cell.doses = [{ time: hhmm(from - lo), state: stateAt(from, nowAbs) }];
-  } else if (isFluidOrder(o)) {
+  }
+  if (o.schedule.kind === "per_day" && isFluidOrder(o) && !o.doseTimes?.length) {
     const start = Math.max(lo, from);
     const end = Math.min(hi, to ?? Infinity);
     const volumeMl = Math.round(((doseVolumeMl(o.items) * o.schedule.count) / 1440) * Math.max(0, end - start) / 10) * 10;
     cell.infusion = { volumeMl, state: end <= nowAbs ? "done" : start > nowAbs ? "planned" : "now" };
-  } else {
-    cell.timesPerDay = o.schedule.count;
   }
   return cell;
 }

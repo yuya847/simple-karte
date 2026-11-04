@@ -116,7 +116,7 @@ function Frame({
         </thead>
         <tbody>{children}</tbody>
       </table>
-      <p className="mt-2 px-3 text-[10px] text-ink-faint">{note}</p>
+      <p className="hint mt-2 px-3 text-[10px] text-ink-faint">{note}</p>
     </div>
   );
 }
@@ -235,7 +235,7 @@ const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
   { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
 ];
 
-export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, marOf, onNewInjection, pendingNew = [], execute }: CalendarProps) {
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, onNewInjection, pendingNew = [], execute }: CalendarProps) {
   const days = calendarDays(patient, INJ_AHEAD);
   // The end being dragged (or moved with ← →) on one order, before it becomes a draft.
   const [drag, setDrag] = useState<{ id: string; to: DayOffset } | null>(null);
@@ -305,11 +305,9 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                         {redoable && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋新規（Do）</span>}
                         {c.doses.map((x) => {
                           const at = d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5));
-                          const r = marOf?.(e.id, at);
                           return (
-                            <ExecuteTarget key={x.time} execute={execute} patient={patient} entry={e} at={at} title={lines[0]} className={`inline-flex items-center gap-0.5 ${r?.status === "未実施" ? "line-through decoration-shu" : ""}`}>
+                            <ExecuteTarget key={x.time} execute={execute} patient={patient} entry={e} at={at} title={lines[0]} className="inline-flex items-center gap-0.5">
                               <InjectionDoseToggle execute={execute} patientId={patient.id} orderId={e.id} at={at} time={x.time} record={execute?.records[`${e.id}|${at}`]} />
-                              <MarMark r={r} />
                             </ExecuteTarget>
                           );
                         })}
@@ -319,7 +317,6 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                             {c.infusion.volumeMl.toLocaleString("ja-JP")}mL
                           </Chip>
                         )}
-                        {c.timesPerDay && <Chip state={d < 0 ? "done" : d === 0 ? "now" : "planned"}>{c.timesPerDay}回</Chip>}
                         {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止{c.stopped.time ? ` ${c.stopped.time}` : ""}</span>}
                       </div>
                       {end !== null && d === end && (
