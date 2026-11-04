@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CheckSquare, ChevronDown, MessagesSquare, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
+import { CheckSquare, ChevronDown, ChevronRight, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Area, AreaKey } from "@/lib/nav";
@@ -29,8 +29,6 @@ export interface TabItem {
   active: boolean;
   /** Something waiting (red). */
   badge?: number;
-  /** How many charts are open under this tab (②). */
-  charts?: number;
   /** A menu tab (新しいタブ・画面を選ぶ), drawn with a dashed edge. */
   menu?: boolean;
   title?: string;
@@ -52,6 +50,12 @@ export interface PersonChoice {
   note: string;
 }
 
+/** A step of the breadcrumb over a chart: where it was opened from (病棟 › 入院患者一覧 › 515 大浦 トメ). */
+export interface Crumb {
+  label: string;
+  onClick?: () => void;
+}
+
 interface Props {
   role: Role;
   onRole: (r: Role) => void;
@@ -62,15 +66,17 @@ interface Props {
   onDoctor?: (name: string) => void;
   /** The places and tools this role uses. */
   areas: Area[];
-  /** ① the place chosen in the left menu. */
+  /** The place chosen (病棟・救急外来・外来・手術室…), from the pulldown at the start of the top row. */
   area: AreaKey;
   onArea: (k: AreaKey) => void;
-  /** ② and, inside 病棟, ③. */
-  rows: TabRow[];
-  /** A chart is shown (the left menu folds to icons by itself to give it room). */
-  chartShown: boolean;
+  /** The top row: the screens of the place (病棟: the screens chosen from its menu; 救急外来・外来: the list). */
+  screens: TabRow;
+  /** The second row: every open chart, wherever it was opened from (null: none open). */
+  patients: TabRow | null;
+  /** Where the chart in front was opened from. */
+  crumbs?: Crumb[];
   onOpenPicker: () => void;
-  /** Counts on the places of the left menu. */
+  /** Counts on the places (shown in the pulldown). */
   areaBadges: Partial<Record<AreaKey, number>>;
   todos: Todo[];
   children: React.ReactNode;
@@ -151,10 +157,11 @@ function CloseX({ label, onClose }: { label: string; onClose: () => void }) {
   );
 }
 
-/** One row of tabs: ② (large, on the frame's color) or ③ (small, on the sheet). */
-function Row({ row, small, end }: { row: TabRow; small: boolean; end?: React.ReactNode }) {
+/** One row of tabs: the screens (large, on the frame's color) or the charts (small, on the sheet). */
+function Row({ row, small, start, end }: { row: TabRow; small: boolean; start?: React.ReactNode; end?: React.ReactNode }) {
   return (
     <div className={`flex items-end gap-1 border-b border-rule ${small ? "bg-sheet px-3 pt-1" : "bg-tab px-2 pt-1.5"}`}>
+      {start}
       <div role="tablist" aria-label={row.label} className="scroll-thin flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
         {row.items.map((t) => {
           const Icon = t.icon;
@@ -184,11 +191,6 @@ function Row({ row, small, end }: { row: TabRow; small: boolean; end?: React.Rea
                 </>
               )}
               <Badge n={t.badge ?? 0} />
-              {!!t.charts && (
-                <span title={`この下で開いているカルテ ${t.charts}件`} className="nums rounded-full border border-rule px-1.5 text-[10px] font-normal leading-4 text-ink-soft">
-                  {t.charts}
-                </span>
-              )}
               {t.onClose && <CloseX label={t.closeLabel ?? `${t.label}のタブを閉じる`} onClose={t.onClose} />}
             </div>
           );
@@ -211,30 +213,79 @@ function Row({ row, small, end }: { row: TabRow; small: boolean; end?: React.Rea
   );
 }
 
+/** A button on the right of the top row (患者を開く・やること・掲示板・自分). */
+const barButton = "mb-1 flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2";
+
+/** 場所: the pulldown at the start of the top row (部署, then the hospital's shared places). */
+function PlaceButton({ areas, area, onArea, badges }: { areas: Area[]; area: AreaKey; onArea: (k: AreaKey) => void; badges: Partial<Record<AreaKey, number>> }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const places = areas.filter((a) => !a.tool || a.key === "chat");
+  const depts = places.filter((a) => a.kind !== "page" || ["or", "dialysis", "pharmacy", "lab"].includes(a.key));
+  const shared = places.filter((a) => !depts.includes(a));
+  const now = AREAS_LABEL(areas, area);
+  const Icon = AREA_ICON[area];
+  const elsewhere = places.some((a) => a.key !== area && (badges[a.key] ?? 0) > 0);
+  const item = (a: Area) => {
+    const I = AREA_ICON[a.key];
+    return (
+      <li key={a.key}>
+        <button
+          type="button"
+          disabled={!!a.soon}
+          aria-current={a.key === area ? "page" : undefined}
+          onClick={() => {
+            setOpen(false);
+            onArea(a.key);
+          }}
+          className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper disabled:text-ink-faint/50 pointer-coarse:py-2.5 ${a.key === area ? "font-bold text-ai" : ""}`}
+        >
+          <I size={15} className="shrink-0" />
+          {a.label}
+          {a.soon && <span className="text-[11px] text-ink-faint">（準備中）</span>}
+          <span className="ml-auto">
+            <Badge n={badges[a.key] ?? 0} />
+          </span>
+        </button>
+      </li>
+    );
+  };
+  return (
+    <>
+      <button ref={btn} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" title="場所を選ぶ（病棟・救急外来・外来・手術室…）" className="relative mb-1 flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-rule bg-sheet px-2.5 text-sm font-bold hover:border-ai pointer-coarse:h-10">
+        <Icon size={15} className="shrink-0 text-ai" />
+        {now}
+        <ChevronDown size={14} className="text-ink-faint" />
+        {elsewhere && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-tab bg-shu" title="ほかの場所に待っていることがあります" />}
+      </button>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="below-left" width={248}>
+        <h3 className="px-2 pb-1 pt-0.5 text-xs font-bold text-ink-soft">部署</h3>
+        <ul className="mb-1">{depts.map(item)}</ul>
+        {shared.length > 0 && (
+          <>
+            <h3 className="border-t border-rule-soft px-2 pb-1 pt-1.5 text-xs font-bold text-ink-soft">そのほか</h3>
+            <ul>{shared.map(item)}</ul>
+          </>
+        )}
+      </Popover>
+    </>
+  );
+}
+const AREAS_LABEL = (areas: Area[], k: AreaKey) => areas.find((a) => a.key === k)?.label ?? "";
+
 /** やること: what is waiting for this role, gathered from everywhere; each line goes to its place. */
-function TodoButton({ todos, narrow }: { todos: Todo[]; narrow?: boolean }) {
+function TodoButton({ todos }: { todos: Todo[] }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const total = todos.reduce((n, t) => n + t.count, 0);
   return (
-    <div className="relative">
-      <button ref={btn} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} title="やること（未確認の結果・口頭指示・指示受け・期限など）" className={navItem(false, narrow)}>
-        <span className="relative">
-          <CheckSquare size={16} />
-          {total > 0 && (
-            <span className={`absolute -right-2.5 -top-2 ${narrow ? "" : "lg:hidden"}`}>
-              <Badge n={total} />
-            </span>
-          )}
-        </span>
-        <NavLabel full="やること" short="やること" narrow={narrow} />
-        {!narrow && (
-          <span className="ml-auto hidden lg:inline">
-            <Badge n={total} />
-          </span>
-        )}
+    <>
+      <button ref={btn} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} title="やること（未確認の結果・口頭指示・指示受け・期限など）" className={barButton}>
+        <CheckSquare size={16} />
+        <span className="hidden lg:inline">やること</span>
+        <Badge n={total} />
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="beside" width={320}>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="below-right" width={340}>
         <h3 className="px-2 pb-1 pt-0.5 text-xs font-bold text-ink-soft">やること（{total}件）</h3>
         {todos.length === 0 ? (
           <p className="px-2 py-2 text-xs text-ink-faint">いま待っていることはありません。</p>
@@ -261,22 +312,25 @@ function TodoButton({ todos, narrow }: { todos: Todo[]; narrow?: boolean }) {
           </ul>
         )}
       </Popover>
-    </div>
+    </>
   );
 }
 
-/** 自分: the role (login stand-in for the demo) and the audit log. */
-function UserButton({ role, onRole, onArea, auditOn, extractOn, narrow, meName, doctors, onDoctor }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; narrow?: boolean; meName?: string; doctors?: PersonChoice[]; onDoctor?: (name: string) => void }) {
+/** 自分: the role (login stand-in for the demo), データ抽出 and the audit log. */
+function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors, onDoctor }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; meName?: string; doctors?: PersonChoice[]; onDoctor?: (name: string) => void }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   return (
-    <div className="relative">
-      <button ref={btn} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} title="職種の切り替え（デモではログインの代わり）・監査ログ" className={`${navItem(false, narrow)} border border-rule bg-sheet`}>
+    <>
+      <button ref={btn} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} title="職種の切り替え（デモではログインの代わり）・データ抽出・監査ログ" className={`${barButton} border border-rule bg-sheet`}>
         <UserRound size={16} className="shrink-0 text-ink-soft" />
-        <NavLabel full={`${role}：${meName ?? STAFF[role].name}`} short={role} narrow={narrow} />
-        <ChevronDown size={13} className={`shrink-0 text-ink-faint ${narrow ? "hidden" : "hidden lg:inline"}`} />
+        <span className="max-w-48 truncate">
+          {role}
+          <span className="hidden lg:inline">：{meName ?? STAFF[role].name}</span>
+        </span>
+        <ChevronDown size={13} className="shrink-0 text-ink-faint" />
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="beside" width={288}>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="below-right" width={288}>
         <h3 className="px-2 pb-1 text-xs font-bold text-ink-soft">職種（デモではログインの代わり）</h3>
         <ul className="mb-1">
           {ROLES.map((r) => (
@@ -345,111 +399,68 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, narrow, meName, 
           </button>
         )}
       </Popover>
-    </div>
-  );
-}
-
-/**
- * An item of the left menu: a row with the full name when the menu is wide (on screens 1024px and
- * up), or the icon over a small name when it is narrow (like the tools on the right of the chart).
- */
-function navItem(on: boolean, narrow?: boolean) {
-  const shape = narrow
-    ? "flex-col justify-center gap-0.5 px-0.5 py-1.5 text-center"
-    : "flex-col justify-center gap-0.5 px-0.5 py-1.5 text-center lg:flex-row lg:justify-start lg:gap-2 lg:px-2 lg:text-left";
-  return `relative flex w-full items-center rounded-md text-sm pointer-coarse:py-2 ${shape} ${on ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
-}
-
-function NavLabel({ full, short, narrow }: { full: string; short: string; narrow?: boolean }) {
-  return (
-    <>
-      <span className={narrow ? "hidden" : "hidden truncate lg:inline"}>{full}</span>
-      <span className={`text-[10px] leading-tight ${narrow ? "" : "lg:hidden"}`}>{short}</span>
     </>
   );
 }
 
-/** A count on a menu item: at the end of the row when wide, a dot on the icon when narrow. */
-function NavCount({ n, narrow }: { n: number; narrow?: boolean }) {
-  if (!n) return null;
-  return (
-    <>
-      {!narrow && (
-        <span className="ml-auto hidden lg:inline">
-          <Badge n={n} />
-        </span>
-      )}
-      <span className={`absolute right-1.5 top-1 h-2 w-2 rounded-full bg-shu ${narrow ? "" : "lg:hidden"}`} />
-    </>
-  );
-}
 
 /**
- * The frame (①>②>③): the places down the left (病棟・救急外来・外来・手術室…, then チャット・やること・自分);
- * on top the tabs of the place chosen (②) and, inside 病棟, the charts opened under the ② tab (③).
+ * The frame: the top row (場所 pulldown, the screens of the place, then 患者を開く・やること・掲示板・自分),
+ * the row of open charts (one row, wherever each was opened from), and over a chart the breadcrumb of
+ * where it was opened from.
  */
 export function AppFrame(p: Props) {
-  // null = automatic: narrow while a chart is shown (it needs the width), wide elsewhere.
-  const [collapsed, setCollapsed] = useState<boolean | null>(null);
-  const narrow = collapsed === null ? p.chartShown : collapsed;
-  const places = p.areas.filter((a) => !a.tool);
-  const chat = p.areas.find((a) => a.key === "chat");
-  const [second, third] = p.rows;
+  const boardOn = p.areas.some((a) => a.key === "board");
   return (
-    <div className="flex min-h-0 flex-1">
-      <nav aria-label="メニュー" className={`scroll-thin flex shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule bg-tab px-1 py-2 ${narrow ? "w-16" : "w-16 lg:w-48 lg:px-1.5"}`}>
-        <div className="mb-1 flex items-center gap-1 px-1">
-          <span className={narrow ? "hidden" : "hidden lg:block"}>
-            <Image src="/simple-karte-logo-small.svg" alt="SimpleKarte" width={104} height={18} priority />
-          </span>
-          <button
-            type="button"
-            onClick={() => setCollapsed(!narrow)}
-            aria-label={narrow ? "メニューを広げる" : "メニューをたたむ"}
-            title={narrow ? "広げる" : "たたむ（カルテを開いている間は自動でたたみます）"}
-            className={`rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink ${narrow ? "mx-auto" : "mx-auto lg:ml-auto lg:mr-0"}`}
-          >
-            {narrow ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
-        </div>
-        {places.map((a) => {
-          const Icon = AREA_ICON[a.key];
-          return (
-            <button key={a.key} type="button" disabled={!!a.soon} aria-current={p.area === a.key ? "page" : undefined} title={a.soon ? `${a.label}（${a.soon}）` : a.label} onClick={() => p.onArea(a.key)} className={`${navItem(p.area === a.key, narrow)} disabled:text-ink-faint/50`}>
-              <Icon size={17} className="shrink-0" />
-              <NavLabel full={`${a.label}${a.soon ? "（準備中）" : ""}`} short={a.short} narrow={narrow} />
-              <NavCount n={p.areaBadges[a.key] ?? 0} narrow={narrow} />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <Row
+        row={p.screens}
+        small={false}
+        start={
+          <div className="flex shrink-0 items-end gap-2 pr-1">
+            <span className="mb-2 hidden xl:block">
+              <Image src="/simple-karte-logo-small.svg" alt="SimpleKarte" width={96} height={17} priority />
+            </span>
+            <PlaceButton areas={p.areas} area={p.area} onArea={p.onArea} badges={p.areaBadges} />
+          </div>
+        }
+        end={
+          <div className="flex shrink-0 items-end gap-0.5 pl-1">
+            <button type="button" onClick={p.onOpenPicker} title="患者を開く（⌘K）" className={barButton}>
+              <Search size={16} />
+              <span className="hidden xl:inline">患者を開く</span>
+              <kbd className="hidden rounded border border-rule px-1 text-[10px] xl:inline">⌘K</kbd>
             </button>
-          );
-        })}
-        <div className="mt-auto space-y-0.5 border-t border-rule pt-2">
-          {chat && (
-            <button type="button" onClick={() => p.onArea("chat")} title="チャット" aria-current={p.area === "chat" ? "page" : undefined} className={navItem(p.area === "chat", narrow)}>
-              <MessagesSquare size={16} className="shrink-0" />
-              <NavLabel full="チャット" short="チャット" narrow={narrow} />
-            </button>
-          )}
-          <TodoButton todos={p.todos} narrow={narrow} />
-          <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} narrow={narrow} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} />
-        </div>
-      </nav>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {second && (
-          <Row
-            row={second}
-            small={false}
-            end={
-              <button type="button" onClick={p.onOpenPicker} title="患者を開く（⌘K）" className="mb-1 flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2">
-                <Search size={16} />
-                <span className="hidden xl:inline">患者を開く</span>
-                <kbd className="hidden rounded border border-rule px-1 text-[10px] xl:inline">⌘K</kbd>
+            <TodoButton todos={p.todos} />
+            {boardOn && (
+              <button type="button" onClick={() => p.onArea("board")} title="掲示板" className={barButton}>
+                <Megaphone size={16} />
+                <span className="hidden lg:inline">掲示板</span>
+                <Badge n={p.areaBadges.board ?? 0} />
               </button>
-            }
-          />
-        )}
-        {third && <Row row={third} small />}
-        {p.children}
-      </div>
+            )}
+            <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} />
+          </div>
+        }
+      />
+      {p.patients && <Row row={p.patients} small />}
+      {p.crumbs && p.crumbs.length > 0 && (
+        <nav aria-label="このカルテを開いた場所" className="flex items-center gap-1 border-b border-rule-soft bg-sheet px-4 py-0.5 text-[12px] text-ink-soft">
+          {p.crumbs.map((c, i) => (
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <ChevronRight size={12} className="text-ink-faint" />}
+              {c.onClick ? (
+                <button type="button" onClick={c.onClick} className="hover:text-ai hover:underline">
+                  {c.label}
+                </button>
+              ) : (
+                <span className={i === p.crumbs!.length - 1 ? "font-bold text-ink" : ""}>{c.label}</span>
+              )}
+            </span>
+          ))}
+        </nav>
+      )}
+      {p.children}
     </div>
   );
 }

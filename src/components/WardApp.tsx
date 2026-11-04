@@ -93,7 +93,7 @@ import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
 import { PatientList, type GroupBy } from "./PatientList";
-import { AppFrame, type TabItem, type TabRow, type Todo } from "./AppFrame";
+import { AppFrame, type Crumb, type TabItem, type TabRow, type Todo } from "./AppFrame";
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
 import { AREA_ICON, WARD_ICON } from "./nav-icons";
@@ -103,7 +103,6 @@ import {
   allowedWardTabs,
   areasFor,
   homeArea,
-  nextAfterClose,
   ownerFor,
   rehome,
   wardOwner,
@@ -679,7 +678,8 @@ export default function WardApp() {
     const p = findPatient(id);
     auditLog({ role: me.role, actor: me.name, patient: p?.name ?? id, ...openEvent(currentLimit(limits, id), !!p && inCareTeam(me, p, myTeam), grantOf(glass, id, me.name)) });
     const o = ownerFor(patientTabs, id, owner, listOwner());
-    if (!patientTabs.some((t) => t.id === id)) setPatientTabs((ts) => [...ts, { id, owner: o }]);
+    // Checked inside the update: a press on a name in a list row can open the same chart twice at once.
+    setPatientTabs((ts) => (ts.some((t) => t.id === id) ? ts : [...ts, { id, owner: o }]));
     if (newTabFor === o) setNewTabFor(null);
     show(o, id);
     setPickerOpen(false);
@@ -691,17 +691,25 @@ export default function WardApp() {
     const v = visitOf(key);
     auditLog({ role: me.role, actor: me.name, action: "受診の画面を開いた", patient: v ? (v.kind === "er" ? v.er.name : v.op.name) : id });
     const o = ownerFor(patientTabs, key, kind, kind);
-    if (!patientTabs.some((t) => t.id === key)) setPatientTabs((ts) => [...ts, { id: key, owner: o }]);
+    setPatientTabs((ts) => (ts.some((t) => t.id === key) ? ts : [...ts, { id: key, owner: o }]));
     if (newTabFor === o) setNewTabFor(null);
     show(o, key);
   };
 
+  // Closing a chart's tab shows the tab next to it in the one row of charts, else the screen it came from.
   const closePatient = (id: string) => {
-    const t = patientTabs.find((x) => x.id === id);
-    if (!t) return;
-    const next = nextAfterClose(patientTabs, id);
-    setPatientTabs((ts) => ts.filter((x) => x.id !== id));
-    if (front[t.owner] === id) setFront((f) => ({ ...f, [t.owner]: next ?? undefined }));
+    const i = patientTabs.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    const t = patientTabs[i];
+    const rest = patientTabs.filter((x) => x.id !== id);
+    setPatientTabs(rest);
+    const shownNow = (screen === "chart" && activeId === id) || (screen === "visit" && visitKey === id);
+    setFront((f) => ({ ...f, [t.owner]: f[t.owner] === id ? undefined : f[t.owner] }));
+    if (shownNow) {
+      const next = rest[i] ?? rest[i - 1];
+      if (next) show(next.owner, next.id);
+      else show(t.owner, undefined);
+    }
     // The chart's state stays: today's confirmed orders and notes belong to the record, not to the tab.
   };
 
@@ -1172,17 +1180,19 @@ export default function WardApp() {
     }
   };
   // Closing a ② tab closes the charts under it (their records stay).
+  // Closing a screen tab keeps the charts opened from it: they move under another open patient list (or
+  // stay as they are when none is open; opening one brings its screen back).
   const closeWardTab = (t: WardTab) => {
     const o = wardOwner(t);
     const rest = wardTabs.filter((x) => x !== t);
+    const i = wardTabs.indexOf(t);
+    const nextTab = rest[Math.min(i, rest.length - 1)];
+    const home = rest.find((x) => wardTabInfo(x).group === "patients") ?? nextTab;
     setWardTabs(rest);
-    setPatientTabs((ts) => ts.filter((x) => x.owner !== o));
+    if (home) setPatientTabs((ts) => ts.map((x) => (x.owner === o ? { ...x, owner: wardOwner(home) } : x)));
     setFront((f) => ({ ...f, [o]: undefined }));
     if (newTabFor === o) setNewTabFor(null);
-    if (wardTab === t) {
-      const i = wardTabs.indexOf(t);
-      setWardTab(rest[Math.min(i, rest.length - 1)] ?? "menu");
-    }
+    if (wardTab === t) setWardTab(nextTab ?? "menu");
   };
   const toggleDefault = (t: WardTab) =>
     setWardDefaults((all) => {
@@ -3030,54 +3040,65 @@ export default function WardApp() {
     </>
   );
 
-  // The rows of tabs on top: ② (病棟's screens, or the list and the patients of 救急外来・外来), and ③
-  // inside 病棟 (the ② screen itself, then the charts opened from it).
-  function tabRows(): TabRow[] {
+  // The tabs on top: the screens of the place (病棟: the screens chosen from its menu; 救急外来・外来: the
+  // list; other places: their page), and one row of every open chart wherever it was opened from.
+  function tabRows(): { screens: TabRow; patients: TabRow | null; crumbs: Crumb[] } {
+    const inFront = screen === "chart" ? activeId : screen === "visit" ? visitKey : null;
     const chartItem = (t: PatientTab): TabItem[] => {
+      const from = ownerLabel(t.owner);
       const v = visitOf(t.id);
       if (v) {
         const x = v.kind === "er" ? v.er : v.op;
-        return [{ key: t.id, label: x.name, patient: { sex: x.sex, age: x.age }, active: front[t.owner] === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${x.name} のタブを閉じる` }];
+        return [{ key: t.id, label: x.name, patient: { sex: x.sex, age: x.age }, title: `${from}から開いた`, active: inFront === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${x.name} のタブを閉じる` }];
       }
       const p = findPatient(t.id);
       if (!p) return [];
-      return [{ key: t.id, label: p.name, patient: { sex: p.sex, age: p.age, room: p.room, infections: p.infections }, active: front[t.owner] === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${p.name} のカルテを閉じる` }];
+      return [{ key: t.id, label: p.name, patient: { sex: p.sex, age: p.age, room: p.room, infections: p.infections }, title: `${from}から開いた`, active: inFront === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${p.name} のカルテを閉じる` }];
     };
-    const under = (o: Owner): TabItem[] => [
-      ...patientTabs.filter((t) => t.owner === o).flatMap(chartItem),
-      ...(newTabFor === o ? [{ key: "new", label: "新しいタブ", icon: Plus, menu: true, active: front[o] === NEW_TAB, onSelect: () => show(o, NEW_TAB), onClose: closeNewTab, closeLabel: "新しいタブを閉じる" }] : []),
+    const charts: TabItem[] = [
+      ...patientTabs.flatMap(chartItem),
+      ...(newTabFor ? [{ key: "new", label: "新しいタブ", icon: Plus, menu: true, active: screen === "new", onSelect: () => show(newTabFor, NEW_TAB), onClose: closeNewTab, closeLabel: "新しいタブを閉じる" }] : []),
     ];
-    const newTab = (o: Owner) => ({ label: "新しいタブ", title: "新しいタブ（患者を探して、ここにカルテを開く）", onClick: () => openNewTab(o) });
+    const patients: TabRow | null = charts.length ? { label: "開いているカルテ", items: charts, plus: { label: "新しいタブ", title: "新しいタブ（患者を探して開く）", onClick: () => openNewTab(owner ?? listOwner()) } } : null;
+    // Over a chart: where it was opened from (the screen is a link back to it).
+    const shownTab = patientTabs.find((t) => t.id === inFront);
+    const crumbs: Crumb[] = [];
+    if (shownTab || screen === "new") {
+      const o = shownTab?.owner ?? newTabFor ?? owner;
+      if (o) {
+        const w = wardTabOf(o);
+        crumbs.push({ label: w ? "病棟" : (AREAS.find((x) => x.key === o)?.label ?? "") });
+        crumbs.push({ label: w ? wardTabLabel(w, floor) : o === "er" ? "救急の患者一覧" : "外来の受付一覧", onClick: () => show(o, undefined) });
+        const p = shownTab ? findPatient(shownTab.id) : undefined;
+        const v = shownTab ? visitOf(shownTab.id) : null;
+        crumbs.push({ label: p ? `${p.room} ${p.name}` : v ? (v.kind === "er" ? v.er.name : v.op.name) : "新しいタブ" });
+      }
+    }
     if (area === "ward") {
-      const second: TabItem[] = wardTabs.map((t) => ({
+      const onScreen = screen !== "chart" && screen !== "visit" && screen !== "new";
+      const items: TabItem[] = wardTabs.map((t) => ({
         key: t,
         label: wardTabLabel(t, floor),
         icon: WARD_ICON[t],
-        active: wardTab === t,
+        active: onScreen && wardTab === t,
         badge: wardBadges[t],
-        charts: patientTabs.filter((x) => x.owner === wardOwner(t)).length,
         title: wardTabInfo(t).hint,
-        onSelect: () => setWardTab(t),
+        onSelect: () => show(wardOwner(t), undefined),
         onClose: () => closeWardTab(t),
       }));
       if (wardTab === "menu" || !wardTabs.length)
-        second.push({ key: "menu", label: "画面を選ぶ", icon: LayoutList, menu: true, active: wardTab === "menu", onSelect: () => setWardTab("menu"), onClose: wardTabs.length ? () => setWardTab(wardTabs[wardTabs.length - 1]) : undefined, closeLabel: "画面を選ぶメニューを閉じる" });
-      const rows: TabRow[] = [{ label: "病棟の画面", items: second, plus: { label: "画面を開く", title: "病棟の画面を開く（入院患者一覧・病棟マップ・受け持ち患者・ワークシート…）", onClick: () => setWardTab("menu") } }];
-      if (wardTab !== "menu") {
-        const o = wardOwner(wardTab);
-        const self: TabItem = { key: "self", label: wardTabLabel(wardTab, floor), icon: WARD_ICON[wardTab], active: !front[o], title: "この画面に戻る", onSelect: () => show(o, undefined) };
-        rows.push({ label: `${wardTabLabel(wardTab, floor)}から開いたカルテ`, items: [self, ...under(o)], plus: newTab(o) });
-      }
-      return rows;
+        items.push({ key: "menu", label: "画面を選ぶ", icon: LayoutList, menu: true, active: wardTab === "menu", onSelect: () => setWardTab("menu"), onClose: wardTabs.length ? () => setWardTab(wardTabs[wardTabs.length - 1]) : undefined, closeLabel: "画面を選ぶメニューを閉じる" });
+      return { screens: { label: "病棟の画面", items, plus: { label: "画面を開く", title: "病棟の画面を開く（入院患者一覧・病棟マップ・受け持ち患者・ワークシート…）", onClick: () => setWardTab("menu") } }, patients, crumbs };
     }
     if (area === "er" || area === "opd") {
       const o: Owner = area;
       const self: TabItem = { key: "self", label: area === "er" ? "救急の患者一覧" : "外来の受付一覧", icon: AREA_ICON[area], active: !front[o], onSelect: () => show(o, undefined) };
-      return [{ label: `${ownerLabel(o)}のタブ`, items: [self, ...under(o)], plus: newTab(o) }];
+      return { screens: { label: `${ownerLabel(o)}の画面`, items: [self] }, patients, crumbs };
     }
     const a = AREAS.find((x) => x.key === area);
-    return [{ label: "画面", items: [{ key: area, label: a?.label ?? "", icon: AREA_ICON[area], active: true, onSelect: () => undefined }] }];
+    return { screens: { label: "画面", items: [{ key: area, label: a?.label ?? "", icon: AREA_ICON[area], active: true, onSelect: () => undefined }] }, patients, crumbs };
   }
+  const rows = tabRows();
 
   return (
     <RoleProvider value={role}>
@@ -3094,8 +3115,9 @@ export default function WardApp() {
         areas={areas}
         area={area}
         onArea={openArea}
-        rows={tabRows()}
-        chartShown={screen === "chart"}
+        screens={rows.screens}
+        patients={rows.patients}
+        crumbs={rows.crumbs}
         onOpenPicker={() => setPickerOpen(true)}
         areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(labItems, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name) && forMyTeam(n)).length : 0), board: unreadCount(notices, reads, me.name) }}
         todos={todos}

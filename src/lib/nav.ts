@@ -1,9 +1,9 @@
-// How the screens are organised, in three levels (①>②>③):
-// ① the left menu: the places (病棟・救急外来・外来・手術室・透析室…).
-// ② the tabs on top. 病棟: the screens chosen from its menu (病棟マップ・◯階の患者一覧・受け持ち患者・科別・
-//    患者一覧・主治医別, and the ward's work: ワークシート・申し送り・入院時の評価・看護必要度).
-//    救急外来・外来: the list, then a tab for each patient. The other places open as they are.
-// ③ inside 病棟, under each ② tab: the charts opened from it.
+// How the screens are organised:
+// - the top row: the place pulldown (病棟・救急外来・外来・手術室・透析室… and the shared places), then the
+//   screens of the place. 病棟: the screens chosen from its menu (入院患者一覧・病棟マップ・受け持ち患者・
+//   ◯階・科別・主治医別, and the ward's work). 救急外来・外来: the list. The other places open as they are.
+// - the second row: every open chart in one row, wherever it was opened from; each chart remembers the
+//   screen it was opened from (its owner), shown as a breadcrumb over the chart.
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
