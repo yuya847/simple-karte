@@ -17,3 +17,16 @@ export function normalizeRightState(saved: { rightTab?: unknown; openTabs?: unkn
     openTabs: Array.isArray(saved.openTabs) ? saved.openTabs.filter(isTab) : [],
   };
 }
+
+/** Initial order window leaves the chart's right column visible on a desktop. */
+export function orderWindowSize(width: number, height: number) {
+  return { x: 16, y: Math.max(8, Math.round((height - 520) / 2)), w: Math.min(760, width - 32), h: Math.min(520, height - 16) };
+}
+
+export function focusDraftLine(id: string) {
+  requestAnimationFrame(() => {
+    const line = document.getElementById(`draft-line-${id}`);
+    line?.focus();
+    line?.scrollIntoView({ block: "nearest" });
+  });
+}

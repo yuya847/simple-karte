@@ -23,3 +23,19 @@ describe("draftLine", () => {
     expect(draftLine({ id: "u", kind: "unclear", origin: "ai", sourceText: "あ\nい", reason: "不明", comment: null }, ctx)).toBe("聞き取れず あ い（不明）");
   });
 });
+
+it("manual markers never become a heading, while actual words and comments remain", async () => {
+  const { draftSourceText } = await import("./draft-line");
+  for (const text of ["（Rp 入力）", "（マスターから選択）", "（マスターから選択・混注）", ""]) expect(draftSourceText(text)).toBeNull();
+  expect(draftSourceText("（Rp 入力）　服用後に確認")).toBe("服用後に確認");
+  expect(draftSourceText("（夕食後）に服用")).toBe("（夕食後）に服用");
+});
+
+it("内服は1回量・1日の回数と用法・日数・区分の順で1行になる", async () => {
+  const { prescriptionUsage } = await import("./draft-line");
+  const d: import("./rx").PrescriptionDraft = { id: "rx", kind: "prescription", origin: "manual", sourceText: "（Rp 入力）", comment: null, items: [{ drugCode: "ORAL-APAP500", said: "", daily: 1, perDose: 1 }], timings: ["朝"], days: 7, category: "定期", start: { day: 0, timing: null }, prn: null, maxPerDay: null, acks: [] };
+  expect(draftLine(d, ctx, 1)).toContain("内服 Rp1 アセトアミノフェン錠 500mg 1回1錠 1日1回 朝食後 7日分 定期");
+  expect(prescriptionUsage(d)).toBe("1日1回 朝食後　7日分");
+  expect(prescriptionUsage({ ...d, timings: [], prn: "疼痛時", maxPerDay: 3, days: null })).toBe("頓用 疼痛時（1日3回まで）");
+  expect(prescriptionUsage({ ...d, timings: null })).toBe("用法？　7日分");
+});

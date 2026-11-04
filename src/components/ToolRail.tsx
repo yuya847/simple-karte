@@ -205,7 +205,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const groups = groupsFor(me.role);
   const short = railIsShort(me.role);
   const [rail, put] = useRail(me.name);
-  const tab = groups.find((g) => g.key === rail.group)?.key ?? groups[0].key;
+  const [selectedGroup, setSelectedGroup] = useState<GroupKey>("intervention");
+  const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
   const all = groups.flatMap((g) => [...g.main, ...g.more]);
   const list = rail.mode === "list";
@@ -292,7 +293,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           {groups.map((g) => {
             const badged = [...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0);
             return (
-              <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => put({ ...rail, group: g.key })} data-badged={badged || undefined} className={`${GROUP_TAB_CLASS} ${shownTab === g.key ? "bg-ink text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
+              <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => setSelectedGroup(g.key)} data-badged={badged || undefined} className={`${GROUP_TAB_CLASS} ${shownTab === g.key ? "bg-ink text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
                 {g.title}
                 {badged && <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-block h-2.5 w-2.5 rounded-full border border-paper bg-shu" />}
               </button>

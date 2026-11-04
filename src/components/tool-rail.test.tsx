@@ -176,3 +176,12 @@ describe("アイコン列の左のお気に入り", () => {
     expect(html).toContain(mode === "list" ? "w-44" : "w-52");
   });
 });
+
+it("前に保存された事務の群があっても、新しく開くカルテには介入の処方・注射を出す", () => {
+  vi.stubGlobal("window", { localStorage: { getItem: () => JSON.stringify({ group: "admin", mode: "icons", pins: [] }), setItem: () => {} } });
+  saveRail(STAFF["医師"].name, { group: "admin", mode: "icons", pins: [] });
+  const html = as("医師", <ToolRail open={null} onOpen={() => {}} />);
+  expect(tabs(html)[0]).toContain('aria-selected="true"');
+  expect(html).toContain("処方");
+  expect(html).toContain("注射");
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { injectionDrugLabel } from "@/lib/injection-drug-label";
-import { rxEntryLines, rxEntryStep, rxChoiceIndex, validDose, type RxStep } from "@/lib/rx-entry";
+import { rxEntryLines, rxEntryStep, validDose, type RxStep } from "@/lib/rx-entry";
 import { todayInTokyo } from "@/lib/dates";
 import { nextRegularDay, regularDayOffset, REGULAR_RX_DAYS } from "@/lib/rx-schedule";
 import { History } from "lucide-react";
@@ -275,7 +275,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
-      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
+      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
 
       <LineEntry>
       {rps.map((rp, i) => {
@@ -424,7 +424,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                 <InjectionEntryRow step="route" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">経路</span>
                   <TabChoice
-                    label={`Rp${first + i} の経路`}
+                    numbered label={`Rp${first + i} の経路`}
                     size="lg"
                     options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.lock ? t.key : t.route, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
                     value={rp.route || null}
@@ -434,7 +434,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                 </InjectionEntryRow>
                 <InjectionEntryRow step="schedule" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">回数</span>
-                  <TabChoice label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
+                  <TabChoice numbered label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
                 </InjectionEntryRow>
                 {route === "点滴静注" && (
                   <InjectionEntryRow step="duration" active={rp.step}>
@@ -880,8 +880,8 @@ export function AddRxPanel({
             <button type="button" className="text-xs text-ai" onClick={() => focus(i, "drug")}>＋同じ飲み方の薬</button>
             <DecidedEntryLines lines={rxEntryLines(step, { times: rp.times === "頓用" ? "頓用" : rp.times ? `1日${rp.times}回` : "", usage: prn ? `${rp.prn}${rp.maxPerDay ? ` 1日${rp.maxPerDay}回まで` : ""}` : rp.timing, days: `${rp.days}日分` })} onEdit={(s) => focus(i, s)} />
             {["times", "usage", "days"].includes(step) && <div className="border-b border-rule py-2" data-step={step} onKeyDown={(e) => advance(e, step, step === "times" ? rp.times !== null : step === "usage" ? prn ? !!rp.prn.trim() : !!rp.timing : Number(rp.days) > 0)}>
-              {step === "times" && <select autoFocus aria-label={`${label} の回数`} value={rp.times ?? ""} onChange={(e) => { upd(i, { times: e.target.value === "頓用" ? "頓用" : Number(e.target.value) }); focus(i, "usage"); }} onKeyDown={(e) => { if (/^[1-5]$/.test(e.key) || ["ArrowLeft", "ArrowRight", "ArrowDown"].includes(e.key)) { e.preventDefault(); const n = rxChoiceIndex(TIMES.findIndex((t) => t.value === rp.times), e.key, TIMES.length); upd(i, { times: TIMES[n].value }); } }}><option value="" disabled>回数を選ぶ</option>{TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>}
-              {step === "usage" && (prn ? <><input autoFocus aria-label={`${label} の頓用の条件`} placeholder="疼痛時など" value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} /><label>1日 <input className="w-10" aria-label={`${label} の1日の上限回数`} value={rp.maxPerDay} onChange={(e) => upd(i, { maxPerDay: e.target.value })} />回まで</label></> : <select autoFocus aria-label={`${label} の用法`} value={rp.timing} onKeyDown={(e) => { if (/^[1-9]$/.test(e.key) || ["ArrowLeft", "ArrowRight", "ArrowDown"].includes(e.key)) { e.preventDefault(); upd(i, { timing: choices[rxChoiceIndex(Math.max(0, choices.findIndex((c) => c.label === rp.timing)), e.key, choices.length)].label }); } }} onChange={(e) => { upd(i, { timing: e.target.value }); focus(i, "days"); }}><option value="" disabled>用法を選ぶ</option>{choices.map((c) => <option key={c.label}>{c.label}</option>)}</select>)}
+              {step === "times" && <TabChoice numbered autoFocus label={`${label} の回数`} options={TIMES} value={rp.times} onChange={(v) => upd(i, { times: v })} />}
+              {step === "usage" && (prn ? <><input autoFocus aria-label={`${label} の頓用の条件`} placeholder="疼痛時など" value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} /><label>1日 <input className="w-10" aria-label={`${label} の1日の上限回数`} value={rp.maxPerDay} onChange={(e) => upd(i, { maxPerDay: e.target.value })} />回まで</label></> : <TabChoice numbered autoFocus label={`${label} の用法`} options={choices.map((c) => ({ value: c.label, label: c.label }))} value={rp.timing} onChange={(v) => upd(i, { timing: v })} />)}
               {step === "days" && <label>日数 <input autoFocus aria-label={`${label} の日数`} inputMode="numeric" className={`${field} w-14`} value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} /> 日分</label>}
             </div>}
             {step !== "days" && step !== "drug" && <button type="button" className="ml-2 rounded border border-rule px-2 text-xs" onClick={() => {

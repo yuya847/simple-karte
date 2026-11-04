@@ -26,8 +26,8 @@ describe("注射の Rp：チップと見出し", () => {
       expect(on.length, label).toBe(1);
       expect(on[0], label).toContain("bg-ai font-bold text-white");
     }
-    expect(group(html, "Rp1 の回数")).toContain(">1日1回<");
-    expect(group(html, "Rp1 の回数")).toContain(">1回だけ<");
+    expect(group(html, "Rp1 の回数")).toContain("</span>1日1回<");
+    expect(group(html, "Rp1 の回数")).toContain("</span>1回だけ<");
   });
 
   it("開始・日数・コメント have a visible heading (label) tied to the field; the days field has the unit 日間", () => {

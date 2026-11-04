@@ -1,5 +1,6 @@
 "use client";
 
+import { orderWindows, orderWindowSize } from "@/lib/order-windows";
 import { AppWindow, GripHorizontal, Lock, Maximize2, Minimize2, PanelRightClose, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { bigWin, clampWin, useWinDrag, type Win } from "../Dockable";
@@ -50,6 +51,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   const key = windowKey ?? defaults.panel ?? title;
   const windowedFirst = defaults.windowed.has(key);
   const initialWin = () => {
+    if ((orderWindows as readonly string[]).includes(key)) return orderWindowSize(window.innerWidth, window.innerHeight);
     const w = bigWin();
     return initialWidth ? { ...w, w: initialWidth, x: Math.max(0, (window.innerWidth - initialWidth) / 2) } : w;
   };

@@ -1,4 +1,5 @@
 "use client";
+import { focusDraftLine } from "@/lib/order-windows";
 
 import { useNoticeFocus } from "./useNoticeFocus";
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
@@ -3178,7 +3179,7 @@ export default function WardApp() {
                               drafts={chart.drafts}
                               seed={chart.injSeed}
                               memory={injMemory}
-                              onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                              onAdd={(ds) => { setOrderWins((v) => v.filter((k) => k !== "add-injection")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
                             />
                           </fieldset>
                       </Drawer>
@@ -3197,7 +3198,7 @@ export default function WardApp() {
                                 previous: previousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
                                 me: me.name,
                               }}
-                              onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
+                              onAdd={(ds) => { setOrderWins((v) => v.filter((k) => k !== "add-rx")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
                             />
                           </fieldset>
                       </Drawer>
@@ -4193,7 +4194,7 @@ export default function WardApp() {
             </div>
               </>
             )}
-            <ToolRail
+            <ToolRail key={patient.id}
               open={panel}
               badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
               openTemplate={panel === "templates" ? templateFocus : null}

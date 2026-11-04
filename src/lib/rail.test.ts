@@ -38,10 +38,11 @@ describe("お気に入りの道具", () => {
 });
 
 
-it("新しい群を保存し、古い群や不正な値は介入に戻す（お気に入りは保つ）", () => {
+it("群は保存せず、古い保存値も介入に戻す（お気に入りは保つ）", () => {
   const store = fakeStorage();
   saveRail("群の保存", { mode: "list", pins: ["results"], group: "examination" });
-  expect(loadRail("群の保存")).toEqual({ mode: "list", pins: ["results"], group: "examination" });
+  expect(loadRail("群の保存")).toEqual({ mode: "list", pins: ["results"], group: "intervention" });
+  expect(JSON.parse(store.get("simple-karte:tool-rail:群の保存")!)).toEqual({ mode: "list", pins: ["results"] });
   for (const group of ["order", "nurse", "docs", "ref", "billing", "unknown", null]) {
     store.set("simple-karte:tool-rail:旧群", JSON.stringify({ mode: "list", pins: ["results"], group }));
     expect(loadRail("旧群")).toEqual({ mode: "list", pins: ["results"], group: "intervention" });
@@ -57,5 +58,5 @@ it("表示を切り替えても道具とテンプレートの保存順を保ち�
   saveRail(person, { ...loadRail(person), mode: "list" });
   expect(loadRail(person).pins).toEqual(pins);
   saveRail(person, { ...loadRail(person), pins: togglePin(loadRail(person).pins, "results") });
-  expect(loadRail(person)).toEqual({ group: "reference", mode: "list", pins: ["template:rec-fall", "add-rx"] });
+  expect(loadRail(person)).toEqual({ group: "intervention", mode: "list", pins: ["template:rec-fall", "add-rx"] });
 });

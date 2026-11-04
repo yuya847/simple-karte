@@ -43,3 +43,13 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
   }
   return `${LABEL[d.kind]}${rp && (d.kind === "injection" || d.kind === "prescription") ? ` Rp${rp}` : ""} ${text}${d.comment ? `　${d.comment}` : ""}`.replace(/\s+/g, " ").trim();
 }
+
+/** Manual entry markers are not words dictated by the doctor. */
+export function draftSourceText(source: string): string | null {
+  const text = source.replace(/^[（(](?:Rp 入力|マスターから選択(?:・混注)?|[^）)]*の欄から)[）)]\s*/, "").trim();
+  return text || null;
+}
+
+export function prescriptionUsage(d: Extract<Draft, { kind: "prescription" }>): string {
+  return [d.timings === null ? "用法？" : d.timings.length ? `1日${d.timings.length}回 ${timingName(d.timings)}` : `頓用 ${d.prn ?? "条件？"}${d.maxPerDay ? `（1日${d.maxPerDay}回まで）` : ""}`, d.days ? `${d.days}日分` : null].filter(Boolean).join("　");
+}

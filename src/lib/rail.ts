@@ -31,7 +31,7 @@ const EMPTY: RailState = { group: "intervention", mode: "icons", pins: [] };
 export function loadRail(person: string): RailState {
   try {
     const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { mode?: RailMode; pins?: unknown; group?: unknown } | null;
-    return { group: RAIL_GROUP_KEYS.find((key) => key === o?.group) ?? "intervention", mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
+    return { group: "intervention", mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
   } catch {
     return EMPTY;
   }
@@ -43,7 +43,7 @@ const cache = new Map<string, RailState>();
 export function saveRail(person: string, v: RailState) {
   cache.set(person, v);
   try {
-    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify(v));
+    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify({ mode: v.mode, pins: v.pins }));
   } catch {
     // Storage blocked: the choice lasts until the page is closed.
   }

@@ -61,3 +61,13 @@ describe("パネルの別ウインドウ", () => {
     expect(bigWin()).toEqual({ x: 120, y: 80, w: 960, h: 640 });
   });
 });
+
+it("注射・内服の初回は760×520で左寄り、保存済みの位置と大きさを優先する", () => {
+  vi.stubGlobal("window", { innerWidth: 1400, innerHeight: 900, localStorage: { getItem: () => null } });
+  try {
+    for (const key of orderWindows) {
+      const html = renderToStaticMarkup(<DrawerDefaults.Provider value={{ panel: key, windowed: new Set(orderWindows) }}><Drawer title={key} onClose={() => {}}>入力</Drawer></DrawerDefaults.Provider>);
+      expect(html).toContain("left:16px;top:190px;width:760px;height:520px");
+    }
+  } finally { vi.unstubAllGlobals(); }
+});

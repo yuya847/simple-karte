@@ -2,7 +2,7 @@
 
 import { dietLabel } from "@/lib/diet";
 
-import { draftLine } from "@/lib/draft-line";
+import { draftLine, draftSourceText, prescriptionUsage } from "@/lib/draft-line";
 import { useId, useState } from "react";
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
 import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
@@ -10,7 +10,7 @@ import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/
 import { anyDrugName, findLab } from "@/lib/master";
 import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
-import { perDoseOf, timingName } from "@/lib/rx";
+import { perDoseOf } from "@/lib/rx";
 import { findPhysio, findRegion, viewsText } from "@/lib/exams";
 import { opdPurposeOf } from "@/lib/opd-booking";
 import { DrugMarks } from "./DrugMarks";
@@ -43,7 +43,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
   return (
     <article className="text-[13px] leading-relaxed pointer-coarse:text-[16px]">
       <div className="flex items-start gap-1 pl-8 pr-2 py-0.5 pointer-coarse:pl-10">
-        <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)} className="nums min-w-0 flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
+        <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)} className="nums min-w-0 flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
           {draftLine(draft, ctx, rp)}
         </button>
         <button type="button" aria-label={ready ? "確定できます・詳細を開く" : `確認 ${blocking.length}件・理由を開く`} aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)} className={`shrink-0 p-1 ${ready ? "text-wakatake" : "text-yamabuki"}`}>
@@ -58,7 +58,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
           {rp ? ` Rp${rp}` : ""}
         </span>
         <span className="truncate text-xs text-ink-faint" title="話した言葉">
-          「{draft.sourceText}」
+          {draftSourceText(draft.sourceText) ? `「${draftSourceText(draft.sourceText)}」` : ""}
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-1">
           {ready ? (
@@ -145,7 +145,7 @@ function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; 
       )}
       {(!issue.choices || issue.choices.length === 0) && !issue.input && !(draft.kind === "imaging" && ["purpose", "consent"].includes(issue.key)) && (
         <div className="mt-1 ml-5 text-[11px] text-ink-soft">
-          {canRedo ? "↺ で指示の欄に戻して、言い直してください。" : draft.kind === "injection" || draft.kind === "prescription" ? "この下書きを消して（ごみ箱）、上のタブで入れ直してください。" : "この下書きを消して（ごみ箱）、右のツールで入れ直してください。"}
+          {canRedo ? "↺ で指示の欄に戻して、言い直してください。" : "この下書きを消して（ごみ箱）、右のツールで入れ直してください。"}
         </div>
       )}
     </li>
@@ -316,12 +316,8 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
                   <td className="whitespace-nowrap text-right">
                     1回{per ?? "？"}
                     {m?.unit ?? ""}
-                    {!prn && per !== null && times > 0 && (
-                      <span className="block text-[11px] text-ink-faint">
-                        1日{it.daily ?? Math.round(per * times * 100) / 100}
-                        {m?.unit}
-                      </span>
-                    )}
+                    <span className="ml-2">{prescriptionUsage(draft)}</span>
+                    {!prn && per !== null && times > 0 && <span className="ml-2 text-[11px] text-ink-faint">（1日{it.daily ?? Math.round(per * times * 100) / 100}{m?.unit}）</span>}
                   </td>
                 </tr>
               );
@@ -329,8 +325,6 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
           </tbody>
         </table>
         <div className="mt-0.5 text-xs text-ink-soft">
-          {draft.timings === null ? "用法？" : prn ? `頓用 ${draft.prn ?? "条件？"}${draft.maxPerDay ? `（1日${draft.maxPerDay}回まで）` : ""}` : `1日${draft.timings.length}回　${timingName(draft.timings)}`}
-          {!prn && `　${draft.days ? `${draft.days}日分` : "日数？"}`}
           {!prn && `　${draft.category ?? "定期・臨時？"}`}
           {draft.acks.length > 0 && <span className="ml-2 rounded bg-yamabuki-soft px-1 text-yamabuki">{draft.acks.join("・")}</span>}
         </div>
