@@ -172,6 +172,8 @@ import { MeProvider, RoleProvider } from "./RoleContext";
 import { DEFAULT_DOCTOR, DOCTORS, isResident, onTeamOf } from "@/lib/doctors";
 import { COSIGN_RULES, byRef, confirmDeny, confirmItems, newItems, noteRevised, pendingOf, residentBlock, type CosignItem } from "@/lib/cosign";
 import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
+import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
+import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { noteKey, noteTemplate, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
@@ -385,6 +387,9 @@ export default function WardApp() {
   const [takeHolds, setTakeHolds] = useState<Record<string, TakeHold>>({});
   // 研修医の記事とオーダ, each waiting for the 指導医 or 上級医 to confirm it (who and when).
   const [cosign, setCosign] = useState<CosignItem[]>([]);
+  // 閲覧制限 (every setting kept), and the reasons given to open a limited chart from outside its care team.
+  const [limits, setLimits] = useState<AccessLimit[]>(INITIAL_LIMITS);
+  const [glass, setGlass] = useState<GlassEntry[]>([]);
   // 掲示板: reminders sent to those who have not read a notice (notice id → names).
   const [boardReminders, setBoardReminders] = useState<Record<string, { names: string[]; at: string; by: string }>>({});
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
@@ -576,6 +581,8 @@ export default function WardApp() {
       oralRx: [oralRx, setOralRx],
       rosterBook: [rosterBook, setRosterBook],
       cosign: [cosign, setCosign],
+      limits: [limits, setLimits],
+      glass: [glass, setGlass],
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
   );
@@ -661,7 +668,9 @@ export default function WardApp() {
   };
   // A chart opens where it is already open, else under the tab in front.
   const openPatient = (id: string) => {
-    auditLog({ role: me.role, actor: me.name, action: "カルテを開いた", patient: findPatient(id)?.name ?? id });
+    // A limited chart (閲覧制限): on the care team, with a reason given, or the reason step next.
+    const p = findPatient(id);
+    auditLog({ role: me.role, actor: me.name, patient: p?.name ?? id, ...openEvent(currentLimit(limits, id), !!p && inCareTeam(me, p, myTeam), grantOf(glass, id, me.name)) });
     const o = ownerFor(patientTabs, id, owner, listOwner());
     if (!patientTabs.some((t) => t.id === id)) setPatientTabs((ts) => [...ts, { id, owner: o }]);
     if (newTabFor === o) setNewTabFor(null);
@@ -757,6 +766,11 @@ export default function WardApp() {
   if (!today || !nowTime || (patient && !ctx)) {
     return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
   }
+
+  // 閲覧制限 of the chart in front: the limit, whether I am on its care team, and the reason I gave.
+  const limitNow = patient ? currentLimit(limits, patient.id) : null;
+  const inTeamNow = !!patient && inCareTeam(me, patient, myTeam);
+  const grantNow = patient ? grantOf(glass, patient.id, me.name) : undefined;
 
   const update = (patch: Partial<ChartState> | ((c: ChartState) => Partial<ChartState>)) => {
     if (!activeId) return;
@@ -1249,7 +1263,16 @@ export default function WardApp() {
   const listFlags: Record<string, Flag[]> = Object.fromEntries(
     allPatients.map((p) => {
       const n = role === "医師" ? pendingOf(cosign, p.id).length : 0;
-      return [p.id, [...(standingFlags[p.id] ?? []), ...(n ? [{ label: `指導医の確認待ち ${n}`, tone: "yamabuki" as const, title: "研修医が書いた記事・オーダで、指導医か上級医の確認がまだのもの" }] : [])]];
+      const lim = currentLimit(limits, p.id);
+      const team = inCareTeam(me, p, myTeam);
+      return [
+        p.id,
+        [
+          ...(lim ? [{ label: "閲覧制限", tone: "fuji" as const, title: team ? "担当チームとして開けます。開いた記録は監査ログに残ります" : "担当チームのほかの人は、理由を残してから開きます" }] : []),
+          ...(standingFlags[p.id] ?? []),
+          ...(n ? [{ label: `指導医の確認待ち ${n}`, tone: "yamabuki" as const, title: "研修医が書いた記事・オーダで、指導医か上級医の確認がまだのもの" }] : []),
+        ],
+      ];
     }),
   );
   // The 移動 row of the 移動・食事 calendar: admission, booked and done moves, discharge and leave.
@@ -2027,6 +2050,19 @@ export default function WardApp() {
           onOpen={openPatient}
         />
         </div>
+      ) : patient && limitNow && !inTeamNow && !grantNow ? (
+        <GlassStep
+          patient={patient}
+          me={me.name}
+          onOpen={(reason, note) => {
+            setGlass((all) => [...all, { id: newId(), patientId: patient.id, by: me.name, role: me.role, at: { day: 0, time: nowTime }, reason, note: note.trim() }]);
+            auditLog({ role: me.role, actor: me.name, action: `閲覧制限の患者を開いた（${reason}）`, patient: patient.name, detail: note.trim() || undefined, restricted: true });
+          }}
+          onBack={() => {
+            auditLog({ role: me.role, actor: me.name, action: "閲覧制限の患者を開かずに戻った", patient: patient.name, restricted: true });
+            closePatient(patient.id);
+          }}
+        />
       ) : patient && ctx ? (
         <>
           <PatientBar
@@ -2053,6 +2089,7 @@ export default function WardApp() {
             onAdd={(st) => setStickies((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }))}
             onRemove={(id) => setStickies((all) => ({ ...all, [patient.id]: (all[patient.id] ?? []).filter((x) => x.id !== id) }))}
           />
+          {limitNow && <LimitStrip limit={limitNow} inTeam={inTeamNow} grant={grantNow} fmtDay={(d) => formatShort(addDays(today, d))} />}
           <div
             data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
@@ -2516,6 +2553,20 @@ export default function WardApp() {
                       }}
                     />
                   </div>
+                </Drawer>
+              )}
+              {panel === "access-limit" && (
+                <Drawer title="閲覧制限" onClose={closePanel} locked={limitDeny(role)}>
+                  <LimitPanel
+                    history={limits.filter((l) => l.patientId === patient.id)}
+                    current={limitNow}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    onSave={(on, kind, reason) => {
+                      if (limitDeny(role)) return;
+                      auditLog({ role: me.role, actor: me.name, action: on ? "確定（閲覧制限を設定）" : "確定（閲覧制限を外した）", patient: patient.name, detail: `${kind ? `${kind}　` : ""}理由：${reason}`, restricted: true });
+                      setLimits((all) => [...all, { id: newId(), patientId: patient.id, on, ...(kind ? { kind } : {}), reason, by: me.name, at: { day: 0, time: nowTime } }]);
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "directive" && (

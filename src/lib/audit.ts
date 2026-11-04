@@ -11,11 +11,15 @@ export interface AuditEvent {
   seq: number;
   /** Clock time "HH:MM:SS" (Japan) when it happened. */
   at: string;
+  /** The day "YYYY-MM-DD" (Japan) when it happened (for the access log). */
+  date?: string;
   role: AuditRole;
   actor: string;
   action: string;
   patient?: string;
   detail?: string;
+  /** About a patient whose chart is limited (閲覧制限): shown apart in the access log. */
+  restricted?: boolean;
 }
 
 let events: AuditEvent[] = [];
@@ -24,9 +28,15 @@ const listeners = new Set<() => void>();
 
 const clock = () => new Date().toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
+const day = () => {
+  const parts = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const v = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${v("year")}-${v("month")}-${v("day")}`;
+};
+
 /** Add an event (append only: events are never changed or removed). */
-export function auditLog(e: Omit<AuditEvent, "seq" | "at">): void {
-  events = [...events, { ...e, seq: ++seq, at: clock() }];
+export function auditLog(e: Omit<AuditEvent, "seq" | "at" | "date">): void {
+  events = [...events, { ...e, seq: ++seq, at: clock(), date: day() }];
   listeners.forEach((l) => l());
 }
 

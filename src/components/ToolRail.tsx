@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, ClipboardCheck, ListTodo, Barcode, Hotel, MonitorSmartphone, NotebookPen, CalendarCheck, CalendarClock, DoorOpen, FileStack, GraduationCap, Luggage, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, PenTool, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
+import { Activity, LockKeyhole, Bandage, ClipboardCheck, ListTodo, Barcode, Hotel, MonitorSmartphone, NotebookPen, CalendarCheck, CalendarClock, DoorOpen, FileStack, GraduationCap, Luggage, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, PenTool, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LeftView } from "./HistoryPane";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit";
 
 interface Tool {
   key: PanelKind;
@@ -60,6 +60,7 @@ const GROUPS: { title: string; tools: Tool[] }[] = [
       { key: "transfer", label: "転院・施設の調整", icon: Hotel },
       { key: "schema", label: "シェーマ", icon: PenTool },
       { key: "chat", label: "チャット", icon: MessagesSquare },
+      { key: "access-limit", label: "閲覧制限", icon: LockKeyhole },
     ],
   },
   {
