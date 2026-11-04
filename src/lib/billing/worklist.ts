@@ -24,6 +24,18 @@ export interface IjiDesk {
 export const INITIAL_DESK: IjiDesk = { insurance: INITIAL_INSURANCE_BOOK, settled: {} };
 
 export const withInsurance = (desk: IjiDesk, id: string, r: InsuranceRecord): IjiDesk => ({ ...desk, insurance: withRecord(desk.insurance, id, r) });
+
+/**
+ * The desk read back from a save: the demo registrations are added for the patients the save has no
+ * record for (a save from before an outpatient's registration existed, or an empty list), so the four
+ * outpatients and the inpatients start registered. A record in the save always wins.
+ */
+export function withInitialInsurance(desk: Partial<IjiDesk> | undefined): IjiDesk {
+  const saved = desk?.insurance ?? {};
+  const insurance: InsuranceBook = { ...saved };
+  for (const [id, records] of Object.entries(INITIAL_INSURANCE_BOOK)) if (!(saved[id]?.length > 0)) insurance[id] = records;
+  return { insurance, settled: desk?.settled ?? {} };
+}
 export const withSettlement = (desk: IjiDesk, id: string, s: Settlement): IjiDesk => ({ ...desk, settled: { ...desk.settled, [id]: s } });
 
 /** The claim's issues a person must look at (確かめる・人が選ぶ). The insurance note is its own item. */

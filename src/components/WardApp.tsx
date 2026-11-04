@@ -14,7 +14,7 @@ import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
 import { patientMonthPayload } from "@/lib/billing/payload";
 import { currentInsurance } from "@/lib/billing/registration";
-import { INITIAL_DESK, withInsurance, withSettlement, type IjiDesk } from "@/lib/billing/worklist";
+import { INITIAL_DESK, withInitialInsurance, withInsurance, withSettlement, type IjiDesk } from "@/lib/billing/worklist";
 import { unpaidVisits, type OpdSettleBook } from "@/lib/billing/opd-settle";
 import { OpdBillPanel } from "./billing/OpdBillPanel";
 import { BillingView } from "./BillingView";
@@ -793,7 +793,8 @@ export default function WardApp() {
       liaison: [liaison, setLiaison],
       returns: [returns, setReturns],
       national: [national, setNational],
-      iji: [iji, setIji],
+      // A save from before an outpatient's registration existed gets the demo registrations back (records in the save win).
+      iji: [iji, (v: IjiDesk) => setIji(withInitialInsurance(v))],
       takeHolds: [takeHolds, setTakeHolds],
       takeConfirms: [takeConfirms, setTakeConfirms],
       oralRx: [oralRx, setOralRx],

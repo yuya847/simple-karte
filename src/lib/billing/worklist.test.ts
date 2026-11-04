@@ -5,8 +5,8 @@ import { ASSUMED_INSURANCE_ISSUE, INSURANCE } from "./insurance";
 import { DEFAULT_OPTIONS, type ClaimIssue } from "./model";
 import { claimChecks, type PatientMonthInput } from "./month";
 import { patientMonthPayload } from "./payload";
-import { DEMO_FORMS } from "./registration";
-import { ijiCounts, ijiRows, INITIAL_DESK, reviewIssues, withInsurance, withSettlement } from "./worklist";
+import { DEMO_FORMS, type InsuranceBook } from "./registration";
+import { ijiCounts, ijiRows, INITIAL_DESK, reviewIssues, withInitialInsurance, withInsurance, withSettlement } from "./worklist";
 
 // A patient admitted from the ED in this session (fictional): no insurance yet, the admission diagnosis typed by hand.
 const NEW = "90020001";
@@ -21,6 +21,22 @@ describe("医事課の仕事", () => {
     expect(rows[0].todo).toEqual(["保険の未登録", "病名の未コード化"]);
     expect(rows[0].uncoded.map((d) => d.name)).toEqual(["発熱精査"]);
     for (const id of Object.keys(INSURANCE)) expect(rows.find((r) => r.patientId === id)!.todo).toEqual([]);
+  });
+  it("a desk read back from a save keeps its records and gets the demo registrations it lacks (an outpatient from before, or an empty list)", () => {
+    const mine = withInsurance(INITIAL_DESK, NEW, { form: DEMO_FORMS["90010260"], insurance: INSURANCE["90010260"], action: "登録", by: "医事課 渡辺", at: { day: 0, time: "10:00" } });
+    // Saved before 中谷's registration existed, and with 石田's list emptied; 吉村's own record changed.
+    const changed = { ...INITIAL_DESK.insurance["opd:opd-3"][0], by: "医事課 渡辺", at: { day: 0, time: "09:00" } };
+    const insurance: InsuranceBook = { ...mine.insurance, "opd:opd-1": [], "opd:opd-3": [changed] };
+    delete insurance["opd:opd-6"];
+    const saved = { insurance, settled: { "90010231": { month: "2026-11", yen: 1000, by: "医事課 渡辺", at: { day: 0, time: "11:00" } } } };
+    const desk = withInitialInsurance(saved);
+    expect(desk.insurance["opd:opd-6"]).toEqual(INITIAL_DESK.insurance["opd:opd-6"]);
+    expect(desk.insurance["opd:opd-1"]).toEqual(INITIAL_DESK.insurance["opd:opd-1"]);
+    expect(desk.insurance["opd:opd-3"]).toEqual([changed]);
+    expect(desk.insurance[NEW][0].by).toBe("医事課 渡辺");
+    expect(desk.settled["90010231"].yen).toBe(1000);
+    // A save without the desk at all: the initial desk.
+    expect(withInitialInsurance(undefined)).toEqual(INITIAL_DESK);
   });
   it("registering the insurance takes the item away", () => {
     const desk = withInsurance(INITIAL_DESK, NEW, { form: DEMO_FORMS["90010260"], insurance: INSURANCE["90010260"], action: "登録", by: "医事課 渡辺", at: { day: 0, time: "10:00" } });
