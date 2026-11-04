@@ -255,7 +255,7 @@ describe("下書きのチェック（drafts.ts の checkDraft・toOrder）", () 
     const after = checkDraft(next, ctx(mori, [next]));
     expect(isReady(after)).toBe(true);
     const order = toOrder(next, ctx(mori, [next])).order as InjectionOrder;
-    expect(order.interactionReasons).toEqual([{ pairId: "ctrx-calcium", level: "配合", drugs: expect.stringMatching(/^酢酸リンゲル液（ヴィーンF） × セフトリアキソン/), reason: "テストの理由" }]);
+    expect(order.interactionReasons).toEqual([{ pairId: "ctrx-calcium", level: "配合", drugs: expect.stringMatching(/^ヴィーンF輸液 500mL × ロセフィン静注用1g/), reason: "テストの理由" }]);
   });
 
   it("理由の要らない所見だけなら、オーダに理由の欄は付かない", () => {

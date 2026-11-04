@@ -14,8 +14,8 @@ describe("kana search", () => {
     expect(find(ORAL_DRUGS, "かろな")).toEqual(["アセトアミノフェン錠"]);
     expect(find(ORAL_DRUGS, "ろきそ", true)).toEqual(["ロキソプロフェンNa錠"]);
     expect(find(ORAL_DRUGS, "さんかま")).toEqual(["酸化マグネシウム錠"]);
-    expect(find(DRUGS, "せふぁぞ")).toEqual(["セファゾリンナトリウム注射用"]);
-    expect(find(DRUGS, "せいしょく")).toContain("生理食塩液");
+    expect(find(DRUGS, "せふぁぞ")).toEqual(["セファメジンα注射用1g"]);
+    expect(find(DRUGS, "せいしょく")).toContain("大塚生食注 500mLソフトバッグ");
     expect(find(DRUGS, "えんかかり")).toEqual(["KCL注20mEqキット"]);
   });
 });

@@ -47,7 +47,7 @@ describe("左の欄の5つのタブ", () => {
     expect(flow).toContain("別ウインドウで開く");
     expect(flow).not.toContain("中止したオーダも表示");
     expect(asDoctor(<HistoryPane {...base} view="rx-history" views={views} onFloat={() => {}} />)).toContain("内服");
-    expect(asDoctor(<HistoryPane {...base} view="inj-history" views={views} onFloat={() => {}} />)).toContain("セファゾリン");
+    expect(asDoctor(<HistoryPane {...base} view="inj-history" views={views} onFloat={() => {}} />)).toContain("セファメジンα注射用1g");
     const results = asDoctor(<HistoryPane {...base} view="results" views={views} onFloat={() => {}} />);
     expect(results).toContain("検体検査");
     expect(results).toContain("CRP");

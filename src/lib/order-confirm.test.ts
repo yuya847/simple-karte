@@ -30,7 +30,7 @@ describe("指示確認", () => {
     expect(plan.days.map((d) => d.label)).toEqual(["今日 11/4（水）", "明日 11/5（木）"]);
     expect(plan.days[0].items.map((i) => i.at)).toEqual([14 * 60]); // 14:00 today
     expect(plan.days[1].items.map((i) => i.at)).toEqual([1440 + 2 * 60, 1440 + 14 * 60]); // 02:00 and 14:00 tomorrow
-    expect(plan.days[0].items[0].main).toContain("セファゾリン");
+    expect(plan.days[0].items[0].main).toContain("セファメジンα注射用1g");
     expect(plan.note).toContain("予定 3件");
   });
 

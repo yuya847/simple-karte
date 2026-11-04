@@ -76,7 +76,7 @@ describe("指示受けの画面", () => {
     expect(html).toContain("11/4（水） 14:00"); // 指示開始
     expect(html).toContain("山本（専攻医）");
     expect(html).toContain("手技</dt><dd class=\"nums\">点滴静注");
-    expect(html).toContain("セファゾリン");
+    expect(html).toContain("セファメジンα注射用1g");
     expect(html).toContain("用法</dt><dd class=\"nums\">12時間ごと");
     expect(html).toContain("実施場所</dt><dd class=\"nums\">5階東病棟");
     expect(html).toContain('type="checkbox" aria-label="佐倉 修 入院注射 をチェック"');
@@ -157,7 +157,7 @@ describe("指示受けの画面", () => {
     const slip = renderToStaticMarkup(<OrderSlipPrint ward="5階東病棟" patient={{ id: "p1", name: "佐倉 修", room: "512" }} day={0} today={TODAY} nowTime="12:10" by="山本（専攻医）" lines={slipLines(rows, "p1", 0, ctx)} />);
     expect(slip).toContain("指示票");
     expect(slip).toContain("11/4（水） の指示");
-    expect(slip).toContain("セファゾリン");
+    expect(slip).toContain("セファメジンα注射用1g");
     expect(slip).toContain("11:00 看護師 佐藤");
     expect(slip).toContain("11:05 看護師 佐藤");
     expect(slip).toContain("架空の患者");

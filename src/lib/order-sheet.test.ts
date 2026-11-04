@@ -21,7 +21,7 @@ describe("項目名：値の行（オーダの種類ごと）", () => {
     const f = orderFields(inj, TODAY, WARD);
     expect(f.map((x) => x.label)).toEqual(["手技", "薬品", "用法", "1回の時間", "速度", "指示開始", "日数", "実施場所"]);
     expect(text("手技", f)).toEqual(["点滴静注"]);
-    expect(text("薬品", f)[0]).toMatch(/セファゾリン.*1g/);
+    expect(text("薬品", f)[0]).toMatch(/セファメジンα注射用1g.*1g/);
     expect(text("用法", f)).toEqual(["12時間ごと"]);
     expect(text("速度", f)).toEqual(["200 mL/時"]);
     expect(text("指示開始", f)).toEqual(["11/4（水） 14:00"]);

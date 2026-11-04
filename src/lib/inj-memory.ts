@@ -40,7 +40,7 @@ export function injPreviousOf(patientId: string, entries: OrderEntry[]): InjPatt
 
 export const matchInj = (p: InjPattern, typed: string) => !typed.trim() || p.order.items.some((i) => {
   const d = DRUGS.find((x) => x.code === i.drugCode);
-  return !!d && [d.name, ...d.aliases].some((w) => kanaMatch(w, typed));
+  return !!d && [d.name, d.generic ?? "", d.category ?? "", ...d.aliases].some((w) => kanaMatch(w, typed));
 });
 
 const past = (id: string, patientId: string, day: number, o: Omit<InjectionOrder, "type" | "start">): { patientId: string; entry: OrderEntry } => ({

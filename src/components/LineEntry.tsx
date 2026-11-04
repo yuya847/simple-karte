@@ -7,7 +7,7 @@ export function RpDrugSearch({ options, onPick, placeholder, prefix = false, onE
   const [q, setQ] = useState("");
   const [at, setAt] = useState(0);
   // ひらがなでもカタカナでも、全角・半角でも引ける（「かろな」→ カロナール）.
-  const hits = q.trim() ? options.filter((d) => [d.name, ...d.aliases].some((a) => kanaMatch(a, q, prefix))).slice(0, 8) : [];
+  const hits = q.trim() ? options.filter((d) => [d.name, d.sub, ...d.aliases].some((a) => kanaMatch(a, q, prefix))).slice(0, 8) : [];
   const pick = (code: string) => {
     onPick(code);
     setQ("");
@@ -65,4 +65,9 @@ export function LineEntry({ children }: { children: React.ReactNode }) { return 
 
 export function DoseTimesEntry({ label, times, onChange }: { label: string; times: string[]; onChange: (times: string[]) => void }) {
   return <div className="flex flex-wrap items-center gap-1" aria-label={label}><span>投与時刻</span>{times.map((time, i) => <label key={i} className="inline-flex items-center gap-1"><input aria-label={`${label} ${i + 1}回目`} value={time} placeholder="HH:MM" className="w-16 border-b border-rule bg-transparent" onChange={(e) => onChange(times.map((t, k) => k === i ? e.target.value : t))} /><button type="button" aria-label={`${label} ${i + 1}回目を消す`} onClick={() => onChange(times.filter((_, k) => k !== i))}>×</button></label>)}<button type="button" onClick={() => onChange([...times, ""])}>＋時刻</button></div>;
+}
+
+/** 確定済みの段は罫線の一行。押すとその段へ戻る。 */
+export function DecidedEntryLines<S extends string>({ lines, onEdit }: { lines: { step: S; text: string }[]; onEdit: (step: S) => void }) {
+  return <div className="divide-y divide-rule border-b border-rule">{lines.map(({ step, text }) => <button key={step} type="button" data-decided-step={step} className="block w-full px-2 py-1.5 text-left hover:bg-paper focus:bg-ai-soft" onClick={() => onEdit(step)}>{text}</button>)}</div>;
 }

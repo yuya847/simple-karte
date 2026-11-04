@@ -42,6 +42,7 @@ describe("Rp numbers", () => {
     expect(rpNumbers([inj("a"), rx("b"), inj("c"), rx("d")])).toEqual({ a: 1, b: 1, c: 2, d: 2 });
   });
   it("writes one line per Rp", () => {
+    expect(rpLine(inj("a"))).toContain("大塚生食注 100mLプラボトル");
     expect(rpLine(inj("a"))).toContain("12時間ごと　1回1時間　5日間");
     expect(rpLine(rx("b"))).toBe("ロキソニン 1回1　1日3回　毎食後　5日分　定期");
   });

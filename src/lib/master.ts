@@ -8,6 +8,9 @@ import { MORE_LAB_INFO, MORE_LAB_TESTS } from "./lab-master-more";
 export interface DrugMaster {
   code: string;
   name: string;
+  /** 一般名・分類は商品名と分けて補足と検索に使う。 */
+  generic?: string;
+  category?: string;
   /** Package description shown on screen, e.g. "500mL/袋". */
   package: string;
   kind: "輸液" | "抗菌薬" | "その他";
@@ -29,7 +32,8 @@ export interface DrugMaster {
 export const DRUGS: DrugMaster[] = [
   {
     code: "INJ-NS500",
-    name: "生理食塩液",
+    name: "大塚生食注 500mLソフトバッグ",
+    generic: "生理食塩液",
     package: "500mL/袋",
     kind: "輸液",
     volumeMl: 500,
@@ -39,7 +43,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-NS100",
-    name: "生理食塩液",
+    name: "大塚生食注 100mLプラボトル",
+    generic: "生理食塩液",
     package: "100mL/袋",
     kind: "輸液",
     volumeMl: 100,
@@ -49,7 +54,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-VEENF500",
-    name: "酢酸リンゲル液（ヴィーンF）",
+    name: "ヴィーンF輸液 500mL",
+    generic: "酢酸リンゲル液",
     package: "500mL/袋",
     kind: "輸液",
     volumeMl: 500,
@@ -59,7 +65,9 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-SOL3A500",
-    name: "維持液（ソルデム3A）",
+    name: "ソルデム3A輸液 500mL",
+    generic: "ブドウ糖－電解質液",
+    category: "維持液",
     package: "500mL/袋",
     kind: "輸液",
     volumeMl: 500,
@@ -69,7 +77,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-GLU5-500",
-    name: "5%ブドウ糖液",
+    name: "大塚糖液5%（500mL袋）",
+    generic: "5%ブドウ糖液",
     package: "500mL/袋",
     kind: "輸液",
     volumeMl: 500,
@@ -79,7 +88,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-VCM05",
-    name: "バンコマイシン塩酸塩点滴静注用",
+    name: "塩酸バンコマイシン点滴静注用0.5g",
+    generic: "バンコマイシン塩酸塩点滴静注用",
     package: "0.5g/V",
     kind: "抗菌薬",
     strength: { amount: 0.5, unit: "g", per: "V" },
@@ -89,7 +99,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-CEZ1",
-    name: "セファゾリンナトリウム注射用",
+    name: "セファメジンα注射用1g",
+    generic: "セファゾリンナトリウム注射用",
     package: "1g/V",
     kind: "抗菌薬",
     strength: { amount: 1, unit: "g", per: "V" },
@@ -99,7 +110,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-SBTABPC3",
-    name: "スルバクタム・アンピシリン静注用",
+    name: "スルバシリン静注用3g",
+    generic: "スルバクタム・アンピシリン静注用",
     package: "3g/V",
     kind: "抗菌薬",
     strength: { amount: 3, unit: "g", per: "V" },
@@ -109,7 +121,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-CTRX1",
-    name: "セフトリアキソンナトリウム静注用",
+    name: "ロセフィン静注用1g",
+    generic: "セフトリアキソンナトリウム静注用",
     package: "1g/V",
     kind: "抗菌薬",
     strength: { amount: 1, unit: "g", per: "V" },
@@ -119,7 +132,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-FRS20",
-    name: "フロセミド注",
+    name: "ラシックス注20mg",
+    generic: "フロセミド注",
     package: "20mg/2mL/A",
     kind: "その他",
     strength: { amount: 20, unit: "mg", per: "A" },
@@ -129,7 +143,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-APAP1000",
-    name: "アセトアミノフェン静注液",
+    name: "アセリオ静注液1000mgバッグ",
+    generic: "アセトアミノフェン静注液",
     package: "1000mg/100mL/袋",
     kind: "その他",
     strength: { amount: 1000, unit: "mg", per: "袋" },
@@ -159,7 +174,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-NSSY10",
-    name: "生食注シリンジ",
+    name: "生食注シリンジ「オーツカ」10mL",
+    generic: "生食注シリンジ",
     package: "10mL/筒",
     kind: "その他",
     volumeMl: 10,
@@ -170,7 +186,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-HEPLOCK10",
-    name: "ヘパリンNaロック用シリンジ",
+    name: "ヘパリンNaロック用10単位/mLシリンジ「オーツカ」10mL",
+    generic: "ヘパリンNaロック用シリンジ",
     package: "10単位/mL・10mL/筒",
     kind: "その他",
     volumeMl: 10,
@@ -182,7 +199,8 @@ export const DRUGS: DrugMaster[] = [
   // 抗がん薬と前投薬（院内登録レジメンで使う。量はレジメンの欄でコードが計算する）
   {
     code: "INJ-PTX",
-    name: "パクリタキセル注射液",
+    name: "タキソール注射液100mg",
+    generic: "パクリタキセル注射液",
     package: "100mg/16.7mL/V",
     kind: "その他",
     strength: { amount: 100, unit: "mg", per: "V" },
@@ -193,7 +211,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-CBDCA",
-    name: "カルボプラチン点滴静注液",
+    name: "パラプラチン注射液450mg",
+    generic: "カルボプラチン点滴静注液",
     package: "450mg/45mL/V",
     kind: "その他",
     strength: { amount: 450, unit: "mg", per: "V" },
@@ -204,7 +223,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-ETP",
-    name: "エトポシド点滴静注液",
+    name: "ラステット注100mg/5mL",
+    generic: "エトポシド点滴静注液",
     package: "100mg/5mL/V",
     kind: "その他",
     strength: { amount: 100, unit: "mg", per: "V" },
@@ -215,7 +235,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-PALO",
-    name: "パロノセトロン静注",
+    name: "アロキシ静注0.75mg",
+    generic: "パロノセトロン静注",
     package: "0.75mg/5mL/V",
     kind: "その他",
     strength: { amount: 0.75, unit: "mg", per: "V" },
@@ -225,7 +246,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-FAPR",
-    name: "ホスアプレピタント点滴静注用",
+    name: "プロイメンド点滴静注用150mg",
+    generic: "ホスアプレピタント点滴静注用",
     package: "150mg/V",
     kind: "その他",
     strength: { amount: 150, unit: "mg", per: "V" },
@@ -235,7 +257,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-DEX66",
-    name: "デキサメタゾン注射液（デキサート）",
+    name: "デキサート注射液6.6mg",
+    generic: "デキサメタゾン注射液（デキサート）",
     package: "6.6mg/2mL/V",
     kind: "その他",
     strength: { amount: 6.6, unit: "mg", per: "V" },
@@ -245,7 +268,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-FAMO20",
-    name: "ファモチジン静注",
+    name: "ガスター注射液20mg",
+    generic: "ファモチジン静注",
     package: "20mg/20mL/A",
     kind: "その他",
     strength: { amount: 20, unit: "mg", per: "A" },
@@ -255,7 +279,8 @@ export const DRUGS: DrugMaster[] = [
   },
   {
     code: "INJ-GLU5-250",
-    name: "5%ブドウ糖液",
+    name: "大塚糖液5%（250mL袋）",
+    generic: "5%ブドウ糖液",
     package: "250mL/袋",
     kind: "輸液",
     volumeMl: 250,
@@ -267,7 +292,8 @@ export const DRUGS: DrugMaster[] = [
   // 麻酔の補助で静脈内にも）。麻薬施用者の免許のある医師だけが確定できる（narcotics.ts）。
   {
     code: "INJ-MOR10",
-    name: "モルヒネ塩酸塩注射液",
+    name: "モルヒネ塩酸塩注射液10mg「シオノギ」",
+    generic: "モルヒネ塩酸塩注射液",
     package: "10mg/1mL/A",
     kind: "その他",
     strength: { amount: 10, unit: "mg", per: "A" },

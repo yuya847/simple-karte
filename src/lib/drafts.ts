@@ -590,7 +590,7 @@ export function consentIssue(code: string | null, ctx: CheckContext, planned: bo
 function drugCandidates(said: string): DrugMaster[] {
   const s = said.replace(/\s/g, "");
   if (!s) return [];
-  return DRUGS.filter((d) => [d.name, ...d.aliases].some((a) => a.includes(s) || s.includes(a))).slice(0, 4);
+  return DRUGS.filter((d) => [d.name, d.generic, d.category, ...d.aliases].some((a) => !!a && (a.includes(s) || s.includes(a)))).slice(0, 4);
 }
 
 function labCandidates(said: string): { code: string; name: string }[] {

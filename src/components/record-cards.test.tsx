@@ -27,6 +27,8 @@ describe("経過のカード", () => {
   it("each record is a card: 【記事】【注射】【検体検査】【処方】 with the date (weekday) and time, the place small on the right, and a version line", () => {
     expect(html).toContain("【記事】 11/1（日） 14:20");
     expect(html).toContain("【注射】 11/1（日） 14:35");
+    expect(html).toContain("ヴィーンF輸液 500mL");
+    expect(html).not.toContain("酢酸リンゲル液（ヴィーンF）");
     expect(html).toContain("【検体検査】 11/1（日） 14:30");
     expect(html).toContain("【処方】");
     expect(html).toContain(">総合診療科 病棟<");

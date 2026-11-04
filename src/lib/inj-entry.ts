@@ -42,7 +42,7 @@ export type InjStep = "drug" | "dose" | "route" | "schedule" | "times" | "durati
 export function injEntryStep(step: InjStep, key: string, drip: boolean, valid = true): InjStep {
   const steps: InjStep[] = ["drug", "dose", "route", "schedule", "times", ...(drip ? ["duration" as const] : []), "start", "days", "done"];
   const at = steps.indexOf(step);
-  if (key === "Escape") return steps[Math.max(0, at - 1)];
+  if (["Escape", "ArrowUp"].includes(key)) return steps[Math.max(0, at - 1)];
   if (valid && ["Enter", "Tab", "ArrowRight"].includes(key)) return steps[Math.min(steps.length - 1, at + 1)];
   if (key === "ArrowLeft") return steps[Math.max(0, at - 1)];
   return step;
@@ -52,4 +52,18 @@ export function nextInjectionStart(times: string[], now: string): { day: number;
   const sorted = times.filter(validDoseTime).sort();
   const next = sorted.find((t) => clockMinutes(t) >= clockMinutes(now));
   return { day: next || !sorted.length ? 0 : 1, time: next ?? sorted[0] ?? now };
+}
+
+/** 現在の段より前に医師が確定した内容だけを、入力順に積む。 */
+export function injectionEntryLines(active: InjStep, values: { route: string; schedule: string; times: string[]; duration: string; start: string; days: string }, drip: boolean): { step: InjStep; text: string }[] {
+  const steps: InjStep[] = ["drug", "dose", "route", "schedule", "times", ...(drip ? ["duration" as const] : []), "start", "days", "done"];
+  const before = (step: InjStep) => steps.indexOf(step) < steps.indexOf(active);
+  return ([
+    { step: "route", text: values.route },
+    { step: "schedule", text: values.schedule },
+    { step: "times", text: values.times.join("・") },
+    ...(drip ? [{ step: "duration", text: values.duration }] : []),
+    { step: "start", text: values.start },
+    { step: "days", text: values.days },
+  ] as { step: InjStep; text: string }[]).filter((line) => before(line.step) && !!line.text);
 }

@@ -31,7 +31,7 @@ describe("ワークシート", () => {
   });
 
   it("every-6-hours 抗菌薬 for 大浦 at 12:00 (started 11/2 12:00)", () => {
-    expect(ws.timed.some((i) => i.patientId === "90010244" && i.kind === "注射" && i.at === 720 && i.main.includes("スルバクタム"))).toBe(true);
+    expect(ws.timed.some((i) => i.patientId === "90010244" && i.kind === "注射" && i.at === 720 && i.main.includes("スルバシリン静注用3g"))).toBe(true);
   });
 
   it("running all shift: drips, oxygen, the catheter", () => {
