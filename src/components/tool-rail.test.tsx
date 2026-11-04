@@ -4,7 +4,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { saveRail } from "@/lib/rail";
 import { can, ROLES, STAFF, type Role } from "@/lib/roles";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { GROUP_TAB_CLASS, ToolRail, groupsFor } from "./ToolRail";
@@ -139,4 +140,39 @@ it("参照に検査時系列を追加し、未確認の数字は検査結果に�
   expect(src).toMatch(/const WINDOW_PANELS[^\n]*"results-timeline"/);
   expect(src).toContain('panel === "results-timeline"');
   expect(src).toContain("<ResultBrowser");
+});
+
+describe("アイコン列の左のお気に入り", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    saveRail(STAFF["医師"].name, { mode: "icons", pins: [] });
+  });
+
+  const renderPins = (mode: "icons" | "list", pins: string[]) => {
+    vi.stubGlobal("window", { localStorage: { getItem: () => null, setItem: () => {} } });
+    saveRail(STAFF["医師"].name, { mode, pins });
+    return as("医師", <ToolRail open="results" onOpen={() => {}} badges={{ results: { n: 2, urgent: true } }} />);
+  };
+
+  it("空でも幅56pxの列を残し、使い方の案内だけを置く", () => {
+    const html = renderPins("icons", []);
+    expect(html).toMatch(/<aside[^>]*class="flex min-h-0 overflow-hidden/);
+    const fav = html.match(/<section aria-label="お気に入り"[\s\S]*?<\/section>/)![0];
+    expect(fav).toContain("w-14 shrink-0");
+    expect(fav).toMatch(/<p class="hint [^"]*">★ をここに<\/p>/);
+    expect(fav).not.toContain("<button");
+    expect(html.indexOf(fav)).toBeLessThan(html.indexOf("オーダと道具"));
+  });
+
+  it.each(["icons", "list"] as const)("%s表示でも保存順に縦タイルを並べ、選択と件数を表示する", (mode) => {
+    const html = renderPins(mode, ["results", "add-rx"]);
+    const fav = html.match(/<section aria-label="お気に入り"[\s\S]*?<\/section>/)![0];
+    expect(fav).toContain("flex-col");
+    expect(fav).not.toContain("grid-cols-3");
+    expect(fav).not.toContain("truncate");
+    expect(fav.indexOf('title="検査結果"')).toBeLessThan(fav.indexOf('title="処方"'));
+    expect(fav).toMatch(/title="検査結果"[^>]*aria-pressed="true"[^>]*class="flex w-full flex-col/);
+    expect(fav).toContain('aria-label="検査結果：未確認 2件"');
+    expect(html).toContain(mode === "list" ? "w-44" : "w-52");
+  });
 });

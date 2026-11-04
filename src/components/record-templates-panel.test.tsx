@@ -94,7 +94,7 @@ describe("右端ツールのテンプレート", () => {
     fakeStorage();
     saveRail(STAFF["医師"].name, { mode: "icons", pins: ["results", pinOfTemplate("rec-kyukyu"), pinOfTemplate("rec-fall")] });
     const html = as("医師", <ToolRail open="templates" openTemplate="rec-kyukyu" onOpen={noop} />);
-    const fav = html.slice(html.indexOf('aria-label="お気に入り"'), html.indexOf('role="tablist"'));
+    const fav = html.match(/<section aria-label="お気に入り"[\s\S]*?<\/section>/)![0];
     expect(fav).toContain("検査結果");
     expect(fav).toContain(">救急加算<");
     expect(fav).toContain(">転倒<");
@@ -108,7 +108,7 @@ describe("右端ツールのテンプレート", () => {
     store.set(`simple-karte:note-templates:${me}`, JSON.stringify([{ id: "own-1", name: "術後の観察", roles: ["看護師"], body: "創 {{選択:創:異常なし|発赤}}", by: me }]));
     saveRail(me, { mode: "icons", pins: [pinOfTemplate("gone"), pinOfTemplate("own-1")] });
     const html = as("看護師", <ToolRail open={null} onOpen={noop} />);
-    const fav = html.slice(html.indexOf('aria-label="お気に入り"'), html.indexOf('role="tablist"'));
+    const fav = html.match(/<section aria-label="お気に入り"[\s\S]*?<\/section>/)![0];
     expect(fav).toContain(">術後の観察<");
     expect(fav).not.toContain("gone");
   });

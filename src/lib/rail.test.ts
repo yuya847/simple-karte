@@ -47,3 +47,15 @@ it("新しい群を保存し、古い群や不正な値は介入に戻す（お�
     expect(loadRail("旧群")).toEqual({ mode: "list", pins: ["results"], group: "intervention" });
   }
 });
+
+
+it("表示を切り替えても道具とテンプレートの保存順を保ち、★で外した分だけ除く", () => {
+  fakeStorage();
+  const person = "縦列の保存";
+  const pins = [pinOfTemplate("rec-fall"), "results", "add-rx"];
+  saveRail(person, { group: "reference", mode: "icons", pins });
+  saveRail(person, { ...loadRail(person), mode: "list" });
+  expect(loadRail(person).pins).toEqual(pins);
+  saveRail(person, { ...loadRail(person), pins: togglePin(loadRail(person).pins, "results") });
+  expect(loadRail(person)).toEqual({ group: "reference", mode: "list", pins: ["template:rec-fall", "add-rx"] });
+});

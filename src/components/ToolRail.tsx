@@ -196,7 +196,7 @@ const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-cen
 
 /**
  * The column of tools on the far right: tabs by kind (介入・検査・看護・参照・事務・その他), the tools of the chosen
- * tab in three columns of icons (or a list with names), and above them an お気に入り bar with the tools
+ * tab in three columns of icons (or a list with names), and to their left an お気に入り column with the tools
  * this person pinned (★) — and the record templates pinned from the テンプレート panel, each opening straight
  * into its form. The pins and the look are kept per person in this browser (src/lib/rail.ts).
  */
@@ -239,17 +239,18 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
     const off = t.disabled || !!why;
     const isPin = rail.pins.includes(t.pin);
     const badge = t.badge;
-    const base = list
+    const tileList = list && where === "tab";
+    const base = tileList
       ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`
       : toolClass(off, active);
     return (
       <div key={`${where}-${t.pin}`} className="relative">
         <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
-          <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
-          <span className={list ? "truncate" : ""}>{t.label}</span>
-          {list && badge && badge.n > 0 && <span className={`${badgeClass(badge.urgent)} ml-auto`}>{badge.n}</span>}
+          <Icon size={tileList ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
+          <span className={tileList ? "truncate" : where === "pins" ? "w-full break-words text-center" : ""}>{t.label}</span>
+          {tileList && badge && badge.n > 0 && <span className={`${badgeClass(badge.urgent)} ml-auto`}>{badge.n}</span>}
         </button>
-        {!list && !editPins && badge && badge.n > 0 && (
+        {!tileList && !editPins && badge && badge.n > 0 && (
           <span aria-label={`${t.label}：未確認 ${badge.n}件`} className={`${badgeClass(badge.urgent)} pointer-events-none absolute right-1 top-0`}>
             {badge.n}
           </span>
@@ -271,55 +272,53 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const grid = list ? "flex flex-col gap-0.5" : "grid grid-cols-3 gap-0.5";
 
   return (
-    <aside aria-label="ツール" className={`scroll-thin relative z-[60] flex min-h-0 flex-col overflow-y-auto border-l border-rule bg-paper px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
-      <div className="mb-1 flex items-center justify-between px-0.5">
-        <span className="text-[10px] text-ink-faint">オーダと道具</span>
-        <span className="flex items-center gap-0.5">
-          <button type="button" onClick={() => setEditPins((v) => !v)} aria-pressed={editPins} title="お気に入りを選ぶ（★を押して出し入れ）" className={`rounded p-1 ${editPins ? "bg-yamabuki-soft text-yamabuki" : "text-ink-faint hover:bg-sheet hover:text-ink"}`}>
-            <Star size={13} />
-          </button>
-          <button type="button" onClick={() => put({ ...rail, mode: list ? "icons" : "list" })} title={list ? "アイコンで並べる（3列）" : "名前の一覧で並べる"} className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
-            {list ? <LayoutGrid size={13} /> : <List size={13} />}
-          </button>
-        </span>
-      </div>
-      <section aria-label="お気に入り" className="mb-1.5 rounded-md border border-dashed border-yamabuki/50 bg-yamabuki-soft/30 p-1">
-        <div className="mb-0.5 flex items-center gap-1 px-0.5 text-[10px] text-yamabuki">
-          <Star size={10} fill="currentColor" />
-          お気に入り
-        </div>
-        {pinned.length === 0 ? <p className="px-0.5 pb-0.5 text-[10px] text-ink-faint">★ でよく使う道具をここに（テンプレートの ★ でも）</p> : <div className={grid}>{pinned.map((t) => tile(t, "pins"))}</div>}
+    <aside aria-label="ツール" className="flex min-h-0 overflow-hidden border-l border-rule bg-paper">
+      <section aria-label="お気に入り" className="scroll-thin flex w-14 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule bg-yamabuki-soft/30 px-1 py-1.5">
+        {pinned.length === 0 ? <p className="hint text-center text-[10px] text-ink-faint">★ をここに</p> : pinned.map((t) => tile(t, "pins"))}
       </section>
-      <div role="tablist" aria-label="道具の種類" className="mb-1 grid grid-cols-3 gap-1 border-b border-rule pb-1">
-        {groups.map((g) => {
-          const badged = [...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0);
-          return (
-            <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => put({ ...rail, group: g.key })} data-badged={badged || undefined} className={`${GROUP_TAB_CLASS} ${shownTab === g.key ? "bg-ink text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
-              {g.title}
-              {badged && <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-block h-2.5 w-2.5 rounded-full border border-paper bg-shu" />}
+      <div className={`scroll-thin flex min-h-0 shrink-0 flex-col overflow-y-auto px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
+        <div className="mb-1 flex items-center justify-between px-0.5">
+          <span className="text-[10px] text-ink-faint">オーダと道具</span>
+          <span className="flex items-center gap-0.5">
+            <button type="button" onClick={() => setEditPins((v) => !v)} aria-pressed={editPins} title="お気に入りを選ぶ（★を押して出し入れ）" className={`rounded p-1 ${editPins ? "bg-yamabuki-soft text-yamabuki" : "text-ink-faint hover:bg-sheet hover:text-ink"}`}>
+              <Star size={13} />
             </button>
-          );
-        })}
-      </div>
-      <div className={grid}>
-        {group.key === "reference" && !short && injectionCalendar && (
-          <button type="button" title="注射カレンダー（大きな別ウインドウで開きます。新規・延長・修正もここで。「右の欄に戻す」で右のタブにできます）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
-            <CalendarDays size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
-            注射カレンダー
-          </button>
-        )}
-        {group.key === "reference" &&
-          !short &&
-          calendars.map((c) => {
-            const Icon = c.icon;
+            <button type="button" onClick={() => put({ ...rail, mode: list ? "icons" : "list" })} title={list ? "アイコンで並べる（3列）" : "名前の一覧で並べる"} className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
+              {list ? <LayoutGrid size={13} /> : <List size={13} />}
+            </button>
+          </span>
+        </div>
+        <div role="tablist" aria-label="道具の種類" className="mb-1 grid grid-cols-3 gap-1 border-b border-rule pb-1">
+          {groups.map((g) => {
+            const badged = [...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0);
             return (
-              <button key={c.key} type="button" title={`${c.title ?? c.label}（大きな別ウインドウで開きます。「右の欄に戻す」で右のタブにできます）`} onClick={c.open} aria-pressed={c.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${c.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, c.on)}>
-                <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
-                <span className={list ? "truncate" : ""}>{c.label}</span>
+              <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => put({ ...rail, group: g.key })} data-badged={badged || undefined} className={`${GROUP_TAB_CLASS} ${shownTab === g.key ? "bg-ink text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
+                {g.title}
+                {badged && <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-block h-2.5 w-2.5 rounded-full border border-paper bg-shu" />}
               </button>
             );
           })}
-        {[...group.main, ...group.more].map((t) => tile(toolTile(t), "tab"))}
+        </div>
+        <div className={grid}>
+          {group.key === "reference" && !short && injectionCalendar && (
+            <button type="button" title="注射カレンダー（大きな別ウインドウで開きます。新規・延長・修正もここで。「右の欄に戻す」で右のタブにできます）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
+              <CalendarDays size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
+              注射カレンダー
+            </button>
+          )}
+          {group.key === "reference" &&
+            !short &&
+            calendars.map((c) => {
+              const Icon = c.icon;
+              return (
+                <button key={c.key} type="button" title={`${c.title ?? c.label}（大きな別ウインドウで開きます。「右の欄に戻す」で右のタブにできます）`} onClick={c.open} aria-pressed={c.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${c.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, c.on)}>
+                  <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
+                  <span className={list ? "truncate" : ""}>{c.label}</span>
+                </button>
+              );
+            })}
+          {[...group.main, ...group.more].map((t) => tile(toolTile(t), "tab"))}
+        </div>
       </div>
     </aside>
   );
