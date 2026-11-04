@@ -36,6 +36,8 @@ export interface TabItem {
   onSelect: () => void;
   onClose?: () => void;
   closeLabel?: string;
+  /** ⌄ on the tab: switch this tab to another view of the same kind (入院患者一覧 → 病棟マップ …), in place. */
+  switcher?: { options: { key: string; label: string; icon?: Icon }[]; onPick: (key: string) => void };
 }
 
 export interface TabRow {
@@ -43,8 +45,6 @@ export interface TabRow {
   items: TabItem[];
   /** ＋ at the end of the row. */
   plus?: { label: string; title: string; onClick: () => void };
-  /** A view switch after the tabs (病棟マップ｜一覧). */
-  views?: { label: string; options: { key: string; label: string }[]; value: string; onChange: (key: string) => void };
 }
 
 /** A person to choose inside a role (医師: 研修医・専攻医・指導医・ほかのチーム). */
@@ -160,6 +160,56 @@ function CloseX({ label, onClose }: { label: string; onClose: () => void }) {
   );
 }
 
+/** ⌄ on a tab: the other views of the same kind; choosing one replaces the tab where it is. */
+function TabSwitch({ tab }: { tab: TabItem }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const sw = tab.switcher!;
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        aria-label={`${tab.label}をほかの見せ方に切り替える`}
+        aria-expanded={open}
+        title="切り替える（病棟マップ・入院患者一覧・受け持ち患者…）"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="rounded p-0.5 text-ink-soft hover:bg-tab hover:text-ink pointer-coarse:p-1.5"
+      >
+        <ChevronDown size={15} />
+      </button>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="below-left" width={220}>
+        <ul>
+          {sw.options.map((o) => {
+            const I = o.icon;
+            const on = o.key === tab.key;
+            return (
+              <li key={o.key}>
+                <button
+                  type="button"
+                  aria-current={on ? "true" : undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    if (!on) sw.onPick(o.key);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper pointer-coarse:py-2.5 ${on ? "font-bold text-ai" : ""}`}
+                >
+                  {I && <I size={15} className="shrink-0" />}
+                  {o.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </Popover>
+    </>
+  );
+}
+
 /** One row of tabs: the screens (large, on the frame's color) or the charts (small, on the sheet). */
 function Row({ row, small, start, end }: { row: TabRow; small: boolean; start?: React.ReactNode; end?: React.ReactNode }) {
   return (
@@ -194,26 +244,11 @@ function Row({ row, small, start, end }: { row: TabRow; small: boolean; start?: 
                 </>
               )}
               <Badge n={t.badge ?? 0} />
+              {t.switcher && <TabSwitch tab={t} />}
               {t.onClose && <CloseX label={t.closeLabel ?? `${t.label}のタブを閉じる`} onClose={t.onClose} />}
             </div>
           );
         })}
-        {row.views && (
-          <div role="radiogroup" aria-label={row.views.label} className="mb-1 ml-1 flex shrink-0 rounded-md border border-rule bg-sheet p-0.5 text-[13px]">
-            {row.views.options.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                role="radio"
-                aria-checked={row.views!.value === o.key}
-                onClick={() => row.views!.onChange(o.key)}
-                className={`rounded px-2.5 py-0.5 pointer-coarse:py-1.5 ${row.views!.value === o.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        )}
         {row.plus && (
           <button
             type="button"

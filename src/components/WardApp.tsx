@@ -1194,10 +1194,9 @@ export default function WardApp() {
     if (newTabFor === o) setNewTabFor(null);
     if (wardTab === t) setWardTab(nextTab ?? "menu");
   };
-  // 病棟マップ ⇄ ◯階の患者一覧 in the same tab: the tab is replaced (or, when both are open, the other is shown).
-  const swapFloorView = (to: "map" | "floor") => {
-    const from = wardTab;
-    if (from === to || (from !== "map" && from !== "floor")) return;
+  // ⌄ on a patient view: the tab becomes the chosen view where it is (or, when that one is open, it is shown).
+  const swapWardView = (from: WardTab, to: WardTab) => {
+    if (from === to) return;
     if (!wardTabs.includes(to)) {
       setWardTabs((ts) => ts.map((t) => (t === from ? to : t)));
       setPatientTabs((ts) => ts.map((x) => (x.owner === wardOwner(from) ? { ...x, owner: wardOwner(to) } : x)));
@@ -3074,6 +3073,7 @@ export default function WardApp() {
     }
     if (area === "ward") {
       const onScreen = screen !== "chart" && screen !== "visit" && screen !== "new";
+      const patientViews = myWardTabs.filter((v) => wardTabInfo(v).group === "patients");
       const items: TabItem[] = wardTabs.map((t) => ({
         key: t,
         label: wardTabLabel(t, floor),
@@ -3083,15 +3083,12 @@ export default function WardApp() {
         title: wardTabInfo(t).hint,
         onSelect: () => show(wardOwner(t), undefined),
         onClose: () => closeWardTab(t),
+        // ⌄ on a patient view (入院患者一覧・病棟マップ・受け持ち患者・病棟の患者一覧): switch it in place.
+        switcher: wardTabInfo(t).group === "patients" ? { options: patientViews.map((v) => ({ key: v, label: wardTabInfo(v).label, icon: WARD_ICON[v] })), onPick: (k: string) => swapWardView(t, k as WardTab) } : undefined,
       }));
       if (wardTab === "menu" || !wardTabs.length)
         items.push({ key: "menu", label: "画面を選ぶ", icon: LayoutList, menu: true, active: wardTab === "menu", onSelect: () => setWardTab("menu"), onClose: wardTabs.length ? () => setWardTab(wardTabs[wardTabs.length - 1]) : undefined, closeLabel: "画面を選ぶメニューを閉じる" });
-      // 病棟マップ｜一覧: the same floor as a map or as a list, switched in place (the tab changes, not added).
-      const views =
-        onScreen && (wardTab === "map" || wardTab === "floor") && myWardTabs.includes("map") && myWardTabs.includes("floor")
-          ? { label: "病棟の見せ方", options: [{ key: "map", label: "マップ" }, { key: "floor", label: "一覧" }], value: wardTab, onChange: (k: string) => swapFloorView(k as "map" | "floor") }
-          : undefined;
-      return { screens: { label: "病棟の画面", items, views, plus: { label: "画面を開く", title: "病棟の画面を開く（入院患者一覧・病棟マップ・受け持ち患者・ワークシート…）", onClick: () => setWardTab("menu") } }, patients, crumbs };
+      return { screens: { label: "病棟の画面", items, plus: { label: "画面を開く", title: "病棟の画面を開く（入院患者一覧・病棟マップ・受け持ち患者・ワークシート…）", onClick: () => setWardTab("menu") } }, patients, crumbs };
     }
     if (area === "er" || area === "opd") {
       const o: Owner = area;
