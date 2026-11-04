@@ -321,7 +321,7 @@ function PlaceButton({ areas, area, onArea, onWardMenu, badges }: { areas: Area[
   const { depts, shared } = placeMenuRows(areas);
   const now = AREAS_LABEL(areas, area);
   const Icon = AREA_ICON[area];
-  const elsewhere = places.some((a) => a.key !== area && (badges[a.key] ?? 0) > 0);
+  const elsewhere = [...depts, ...shared].some((a) => a.key !== area && (badges[a.key] ?? 0) > 0);
   const item = (a: Area) => {
     const I = AREA_ICON[a.key];
     return (
