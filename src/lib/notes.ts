@@ -285,7 +285,17 @@ export function diffLines(before: string, after: string): DiffLine[] {
 }
 
 /** The note template for a role: SOAP for doctors, nurses and pharmacists; free text otherwise. */
-export const noteTemplate = (role: string) => (role === "医師" || role === "看護師" || role === "薬剤師" ? "S)\nO)\nA)\nP)\n" : "");
+export function preferredNoteForm(role: string): NoteForm {
+  try {
+    const saved = typeof localStorage === "undefined" ? null : localStorage.getItem(`simple-karte:note-form:${role}`);
+    if (NOTE_FORMS.includes(saved as NoteForm)) return saved as NoteForm;
+  } catch { /* Storage may be unavailable. */ }
+  return role === "看護師" ? "フォーカス（DAR）" : "SOAP";
+}
+export function rememberNoteForm(role: string, form: NoteForm): void {
+  try { localStorage.setItem(`simple-karte:note-form:${role}`, form); } catch { /* Keep writing without storage. */ }
+}
+export const noteTemplate = (role: string) => (["医師", "看護師", "薬剤師"].includes(role) ? formFrame(preferredNoteForm(role), "") : "");
 
 /** The frame after a note is confirmed: a nurse goes on in the form just used; others start from their template. */
 export const nextFrame = (role: string, confirmed: string, time: string) => (role === "看護師" ? formFrame(noteFormOf(confirmed), time) : noteTemplate(role));

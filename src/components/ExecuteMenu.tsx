@@ -238,7 +238,13 @@ export function ExecuteTarget({ execute, patient, entry, at, title, className = 
         e.stopPropagation();
         setMenu({ x: e.clientX, y: e.clientY });
       }}
-      onClick={(e) => menu && e.stopPropagation()}
+      onClick={(e) => {
+        if (e.target instanceof Element && e.target.closest("[data-dose-menu]")) {
+          e.stopPropagation();
+          const rect = e.currentTarget.getBoundingClientRect();
+          setMenu({ x: rect.left, y: rect.bottom });
+        } else if (menu) e.stopPropagation();
+      }}
       className={`cursor-context-menu ${className}`}
     >
       {children}

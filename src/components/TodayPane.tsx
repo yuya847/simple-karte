@@ -2,7 +2,7 @@
 
 import { VERBAL_RULE } from "@/lib/verbal";
 import { Clock3, LayoutTemplate, Loader2, Mic, MicOff, Sparkles, TextQuote } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { isReady, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import type { Flash } from "@/lib/flash";
@@ -10,7 +10,7 @@ import type { Patient } from "@/lib/types";
 import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
-import { NOTE_FORMS, NOTE_FORM_SOURCES, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
+import { preferredNoteForm, rememberNoteForm, NOTE_FORMS, NOTE_FORM_SOURCES, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
 import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
 import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
@@ -43,6 +43,7 @@ interface Props {
   error: string | null;
   meta: DraftMeta | null;
   flash: Flash | null;
+  onContactDoctor?: () => void;
   onDraft: () => void;
   onApply: (d: Draft) => void;
   onRemove: (id: string) => void;
@@ -73,6 +74,12 @@ export function TodayPane(p: Props) {
   const [ph, setPh] = useState<{ user: string; list: Phrase[] }>(() => ({ user: me.name, list: loadPhrases(me.name) }));
   if (ph.user !== me.name) setPh({ user: me.name, list: loadPhrases(me.name) });
   const [selected, setSelected] = useState("");
+  useEffect(() => {
+    if (isBlankNote(p.note)) {
+      const form = preferredNoteForm(me.role);
+      if (noteFormOf(p.note) !== form) p.onNoteChange(formFrame(form, p.nowTime));
+    }
+  }, [me.role, p.note, p.nowTime, p.onNoteChange]);
   const noteLocked = !!useDeny()("note");
   const speech = useSpeech(p.onAppendInstruction);
 
@@ -133,7 +140,7 @@ export function TodayPane(p: Props) {
                         aria-pressed={on}
                         disabled={!on && !blank}
                         title={on ? `${f}で書いています` : blank ? `${f}の枠にする` : "書きかけがあるので形式は変えられません（確定するか、消してから）"}
-                        onClick={() => !on && p.onNoteChange(formFrame(f, p.nowTime))}
+                        onClick={() => { rememberNoteForm(me.role, f); if (!on) p.onNoteChange(formFrame(f, p.nowTime)); }}
                         className={`rounded px-1.5 py-0.5 pointer-coarse:py-1 ${on ? "bg-wakatake font-bold text-white" : "text-ink-soft hover:text-ink disabled:opacity-40"}`}
                       >
                         {f}
@@ -315,12 +322,17 @@ export function TodayPane(p: Props) {
       </div>
 
       <div className="flex items-center gap-3 border-t border-rule bg-paper px-4 py-2.5">
-        <span className="text-xs text-ink-soft">
+        <div className="text-xs text-ink-soft">
           {p.flash ? (
-            <span className="text-wakatake" role="status">
+            <div className="text-wakatake" role="status">
               {typeof p.flash === "string" ? p.flash : p.flash.text}
               {typeof p.flash !== "string" && p.flash.warn && <b className="ml-2 rounded bg-shu px-1.5 text-white">{p.flash.warn}</b>}
-            </span>
+              {typeof p.flash !== "string" && p.flash.contact && <div>
+                {p.flash.contact.reasons.map((reason) => <p key={reason}>{reason}</p>)}
+                <p className="hint">架空の病院の取り決め：NEWS2 7点以上は医師へ連絡。院内連絡は模擬です。</p>
+                <button type="button" disabled={!p.onContactDoctor} onClick={p.onContactDoctor} className="rounded bg-shu px-2 py-1 text-white">医師に連絡する</button>
+              </div>}
+            </div>
           ) : p.drafts.length === 0 ? (
             "下書きはまだありません"
           ) : pending > 0 ? (
@@ -330,7 +342,7 @@ export function TodayPane(p: Props) {
           ) : (
             `${readyCount}件すべて確定できます`
           )}
-        </span>
+        </div>
         {p.orderMode !== "none" && canConfirm && <span className="ml-auto text-[11px] text-ink-faint">上の「オーダーのみ」か「保存」で飛びます</span>}
       </div>
     </section>

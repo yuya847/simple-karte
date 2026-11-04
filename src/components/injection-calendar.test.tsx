@@ -103,14 +103,15 @@ describe("注射カレンダー：各回の共通表示", () => {
   it("実施記録のある回だけ✓、消した回は薄い取り消し線と担当者・時刻", () => {
     const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", order)]} execute={execute({ "o1|600": record(600, "実施"), "o1|1320": record(1320, "未実施") })} />));
     expect(html).toContain("✓ 10:00");
-    expect(html).toContain('title="未実施に戻す"');
+    expect(html).toContain('data-dose-menu="true"');
     expect(html).toContain("opacity-40 line-through");
     expect(html).toContain("消した回 11:00 架空の担当者");
   });
-  it("取り消した記録は✓にもスキップにもならない", () => {
+  it("取り消した過去の記録は記録なしの薄い✓に戻る", () => {
     const r = { ...record(600, "未実施"), cancellation: { by: "担当者", at: "12:00", reason: "訂正" } };
     const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", order)]} execute={execute({ "o1|600": r })} />));
-    expect(html).not.toContain("✓");
+    expect(html).toContain("✓ 10:00");
+    expect(html).toContain("text-wakatake/70");
     expect(html).not.toContain("line-through");
   });
 });

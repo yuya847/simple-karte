@@ -83,6 +83,14 @@ export function callHits(s: StandingOrders | undefined, v: VitalSign | undefined
   });
 }
 
+/** Compare only the doctor's numeric call thresholds; absent measurements never match. */
+export function drCallMatches(v: VitalSign, s?: StandingOrders): string[] {
+  return (s?.calls ?? []).filter((c) => {
+    const it = item(c.key), x = it.of(v);
+    return x !== undefined && Number.isFinite(x) && (it.op === "≥" ? x >= c.value : it.op === "≤" ? x <= c.value : x < c.value);
+  }).map((c) => `指示簿：${callText(c)}で Dr.call`);
+}
+
 export interface PrnIssue {
   level: "stop" | "ask" | "info";
   message: string;

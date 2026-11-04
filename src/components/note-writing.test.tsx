@@ -19,7 +19,7 @@ const as = (role: Role, el: React.ReactElement) =>
     </RoleProvider>,
   );
 const ctx: CheckContext = { activeOrders: [], labOrders: [], drafts: [], nowTime: "10:00", fmtDay: () => "", describe: () => "" };
-const pane = (note: string, noteAt: { day: number; time: string } | null) => (
+const pane = (note: string, noteAt: { day: number; time: string } | null, flash: import("@/lib/flash").Flash | null = null) => (
   <TodayPane
     patient={sakura}
     today={today}
@@ -35,7 +35,7 @@ const pane = (note: string, noteAt: { day: number; time: string } | null) => (
     drafting={false}
     error={null}
     meta={null}
-    flash={null}
+    flash={flash}
     onDraft={() => {}}
     onApply={() => {}}
     onRemove={() => {}}
@@ -91,4 +91,11 @@ describe("左の経過", () => {
     expect(html).toContain("記載 11/4（水） 08:10（遅れて記載）");
     expect(html).toContain("09:00 看護師 佐藤（第2版）");
   });
+});
+
+it("連絡条件の帯には根拠と医師への連絡ボタンを出す", () => {
+  const html = as("看護師", pane("", null, { text: "記録しました", warn: "NEWS2 8点", contact: { score: 8, reasons: ["指示簿：SpO2 90%未満で Dr.call"] } }));
+  expect(html).toContain("医師に連絡する");
+  expect(html).toContain("指示簿：SpO2 90%未満で Dr.call");
+  expect(html).toContain("架空の病院の取り決め：NEWS2 7点以上は医師へ連絡");
 });

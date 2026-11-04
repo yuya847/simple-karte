@@ -92,6 +92,7 @@ import { TakeDesk } from "./TakeDesk";
 import { ExecuteDesk } from "./ExecuteDesk";
 import { orderTakeBadge, unconfirmed, type Confirms } from "@/lib/order-confirm";
 import { entryOfRow, takeRowOnDay, waitingToday } from "@/lib/order-sheet";
+import { vitalsContact, vitalsContactTodos } from "@/lib/vitals-contact";
 import { vitalsFlash, type Flash } from "@/lib/flash";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { useWorkspace } from "@/lib/use-workspace";
@@ -1683,6 +1684,7 @@ export default function WardApp() {
   const consultPeople = bedPeople(allBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id]));
   const inbox = consultInbox(consultPeople, me.name, consultReplies);
   const todos: Todo[] = [];
+  if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) openPatient(n.patientId); } })));
   if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
   for (const x of people) {
     const pid = x.patient.id;
@@ -3145,6 +3147,14 @@ export default function WardApp() {
                         error={chart.error}
                         meta={chart.meta}
                         flash={chart.flash}
+                        onContactDoctor={() => {
+                          const n = vitalsContact(chart.flash, patient, me.name, nowTime, newId());
+                          if (!n) return;
+                          setCallNotes((all) => [...all, n]);
+                          auditLog({ role: me.role, actor: me.name, action: "主治医へ連絡（模擬）", patient: patient.name, detail: n.text });
+                          chartNote(patient.id, `【通話・模擬】${n.from} → ${n.to}：${n.text}`);
+                          update({ flash: "主治医への連絡を記録しました（模擬）。" });
+                        }}
                         onDraft={requestDrafts}
                         onApply={(next) => update((c) => ({ drafts: c.drafts.map((d) => (d.id === next.id ? next : d)), flash: null }))}
                         onRemove={(id) => {
@@ -3480,7 +3490,7 @@ export default function WardApp() {
                       auditLog({ role: me.role, actor: me.name, action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
                       // 手応え: what was recorded (and NEWS2 in 朱 when 5 or more) at the foot of the right pane; the row is in 経過表.
-                      update({ flash: vitalsFlash(v, v.day === 0 ? undefined : formatShort(addDays(today, v.day))) });
+                      update({ flash: vitalsFlash(v, v.day === 0 ? undefined : formatShort(addDays(today, v.day)), standingNow(patient.id)) });
                       closePanel();
                     }}
                   />
