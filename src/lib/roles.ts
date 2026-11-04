@@ -74,6 +74,7 @@ export type Action =
   | "tx.bedside"
   | "path.process"
   | "path.report"
+  | "physio.exam"
   | "handoff"
   | "plan"
   | "assess.nursing"
@@ -111,6 +112,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "tx.bedside": { label: "輸血の照合・観察・副反応の記録", who: ["看護師", "医師"] },
   "path.process": { label: "病理の受付と標本作製の記録", who: ["臨床検査技師"] },
   "path.report": { label: "病理診断の報告書（病理医）", who: ["医師"] },
+  "physio.exam": { label: "生理検査の受付・実施・レポート", who: ["臨床検査技師"] },
   handoff: { label: "申し送り", who: ["看護師", "医師"] },
   plan: { label: "入院診療計画書の確定", who: ["医師"] },
   "assess.nursing": { label: "看護の評価（褥瘡・転倒転落・せん妄）", who: ["看護師"] },

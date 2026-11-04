@@ -43,6 +43,12 @@ describe("roles", () => {
     expect(denyReason("臨床検査技師", "path.report")).toBe("病理診断の報告書（病理医）は医師が行います（いまは臨床検査技師で入っています）。");
   });
 
+  it("生理検査 is done and reported by the laboratory", () => {
+    expect(can("臨床検査技師", "physio.exam")).toBe(true);
+    expect(can("医師", "physio.exam")).toBe(false);
+    expect(can("看護師", "physio.exam")).toBe(false);
+  });
+
   it("医事課 does not write clinical notes", () => {
     expect(can("医事課", "note")).toBe(false);
     expect(can("MSW", "note")).toBe(true);

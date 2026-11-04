@@ -191,6 +191,7 @@ import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
 import { BloodBankView } from "./BloodBankView";
 import { PathologyView } from "./PathologyView";
+import { PhysioView } from "./PhysioView";
 import { PathRequestPanel } from "./panels/PathRequestPanel";
 import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
@@ -628,7 +629,7 @@ export default function WardApp() {
           ...p,
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
-          history: [...p.history, ...(demoLabs[p.id] ?? [])],
+          history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoPhysio[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
@@ -644,7 +645,7 @@ export default function WardApp() {
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
@@ -1941,6 +1942,8 @@ export default function WardApp() {
         />
       ) : screen === "blood" ? (
         <BloodBankView people={people} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood} nowTime={nowTime} today={today} onIssued={(id, rec) => setTxIssued((all) => Object.fromEntries([...Object.entries(all).filter(([k]) => k !== id), ...(rec ? [[id, rec] as const] : [])]))} />
+      ) : screen === "physio" ? (
+        <PhysioView people={people} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
       ) : screen === "path" ? (
         <PathologyView people={people} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
@@ -2576,7 +2579,7 @@ export default function WardApp() {
               )}
               {panel === "reports" && (
                 <Drawer title="病理・生理検査の報告" onClose={closePanel} wide>
-                  <DeptReportsPanel patientId={patient.id} pathology={dept.pathology} acks={acks} today={today} onSeen={(keys) => markSeen(patient.id, keys)} />
+                  <DeptReportsPanel patientId={patient.id} patientName={patient.name} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} physio={dept.physioDesk} pathology={dept.pathology} acks={acks} today={today} onSeen={(keys) => markSeen(patient.id, keys)} />
                 </Drawer>
               )}
               {panel === "results" && (

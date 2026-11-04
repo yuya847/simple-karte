@@ -23,6 +23,10 @@ describe("① places by role", () => {
     expect(areasFor("看護師").map((a) => a.key)).not.toContain("path");
     expect(homeArea("臨床検査技師")).toBe("lab");
   });
+  it("生理検査室 is the laboratory's", () => {
+    expect(areasFor("臨床検査技師").map((a) => a.key)).toContain("physio");
+    expect(areasFor("医師").map((a) => a.key)).not.toContain("physio");
+  });
   it("each role starts at its own place", () => {
     expect(homeArea("医師")).toBe("ward");
     expect(homeArea("看護師")).toBe("ward");
