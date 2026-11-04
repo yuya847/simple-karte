@@ -14,7 +14,7 @@ import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
 import { matchInj, type InjPattern } from "@/lib/inj-memory";
 import { scheduleLabel } from "@/lib/format";
-import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
+import { PHYSIO, emptyPhysio } from "@/lib/exams";
 import { CONSULT_DEPTS, GUIDE_TO, REHAB_FIELDS, consultText } from "@/lib/procedures";
 import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_GUIDE, TX_NOTICE, TX_PACE, TX_PRODUCTS, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
 
@@ -892,66 +892,8 @@ export function AddRxPanel({
   );
 }
 
-/**
- * Imaging order: pick the modality, then the region (only regions this hospital does for that
- * modality), and say why. Views, contrast, date and transport are asked on the draft with choices,
- * and the safety checks (eGFR, contrast allergy, MRI metal, pregnancy) run there.
- */
-export function AddImagingPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
-  const [modality, setModality] = useState<Modality>("X線");
-  const [region, setRegion] = useState<string | null>(null);
-  const [purpose, setPurpose] = useState("");
-  const regions = REGIONS.filter((r) => r.modalities.includes(modality));
-  return (
-    <div className="space-y-3 text-[13px]">
-      <div role="radiogroup" aria-label="種類" className="flex flex-wrap gap-1">
-        {MODALITIES.map((m) => (
-          <button
-            key={m}
-            type="button"
-            role="radio"
-            aria-checked={modality === m}
-            onClick={() => {
-              setModality(m);
-              setRegion(null);
-            }}
-            className={`rounded-md border px-3 py-1.5 ${modality === m ? "border-ai bg-ai font-bold text-white" : "border-rule text-ink-soft hover:border-ai"}`}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
-      <div>
-        <h3 className="mb-1 text-xs font-bold text-ink-soft">部位（{modality}）</h3>
-        <div className="grid grid-cols-3 gap-1.5">
-          {regions.map((r) => (
-            <button
-              key={r.code}
-              type="button"
-              onClick={() => setRegion(r.code)}
-              className={`rounded-md border px-2 py-2 ${region === r.code ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule hover:border-ai"}`}
-            >
-              {r.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <label className="flex flex-col gap-1 text-xs text-ink-soft">
-        目的（臨床診断・知りたいこと）
-        <input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="例：肺炎の経過" className="rounded-md border border-rule bg-paper px-2 py-1.5 text-[13px] text-ink outline-none focus:border-ai" />
-      </label>
-      <button
-        type="button"
-        disabled={!region}
-        onClick={() => onAdd({ ...emptyImaging(newId(), modality), region, purpose: purpose.trim() || null })}
-        className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
-      >
-        下書きにする
-      </button>
-      <p className="hint text-[11px] text-ink-faint">撮影の方向・単純か造影か・日時・移動は、右の下書きで選びます。造影なら腎機能（eGFR はコードで計算）・造影剤アレルギー、MRI なら体内金属の確認が出ます。部位と検査の組み合わせは架空の病院のものです。</p>
-    </div>
-  );
-}
+// The imaging order screen lives in its own file (部位の区分・検索, 左右・体位・方向, CT・MRI の方法と造影, 同意); re-exported for the callers.
+export { AddImagingPanel } from "./AddImagingPanel";
 
 /** Physiological tests: pick the test and say why; place, date and transport are asked on the draft. */
 export function AddPhysioPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {

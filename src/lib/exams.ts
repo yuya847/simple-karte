@@ -111,7 +111,7 @@ export const regionsFor = (m: Modality) => REGIONS.filter((r) => r.modalities.in
 /** The regions of a modality whose name or alias contains the words typed (「手関節」「ひざ」など。空なら全部）. */
 export function searchRegions(m: Modality, text: string): RegionMaster[] {
   const s = text.normalize("NFKC").replace(/\s/g, "");
-  return regionsFor(m).filter((r) => !s || [r.name, ...r.aliases].some((a) => a.includes(s) || s.includes(a)));
+  return regionsFor(m).filter((r) => !s || [r.name, ...r.aliases].some((a) => a.includes(s)));
 }
 
 /** 「右手関節」「両側膝関節」: the region's name with the side in front. */
