@@ -33,7 +33,8 @@ const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "�
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
-  const [open, setOpen] = useState(false);
+  // Open from the start when something still has to be filled in (目的・同意書…), so the fields are right there.
+  const [open, setOpen] = useState(() => issues.some((i) => i.level !== "info"));
   const detailId = useId();
   const ready = isReady(issues);
   const blocking = issues.filter((i) => i.level !== "info");
