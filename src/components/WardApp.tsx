@@ -82,6 +82,8 @@ import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-in
 import { initialIo, ioMissing, windowText, withIoUrine, type IoEntry } from "@/lib/io-balance";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
+import { chosenStops, endedStanding, remainingGroups, type StopGroupKey } from "@/lib/discharge-stop";
+import { DischargeStops } from "./DischargeStops";
 import { bagsOf } from "@/lib/discharge-rx";
 import { GuideRecordPanel, type GuidanceInput } from "./panels/GuideRecordPanel";
 import { guidanceNoteText, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord } from "@/lib/guidance";
@@ -1499,6 +1501,30 @@ export default function WardApp() {
     openPatient(pid);
     setPanel("standing");
   };
+  // 退院時の一括中止: what still runs (by group), and the groups the doctor confirmed, stopped now.
+  const stopGroupsOf = (pid: string) => {
+    const p = findPatient(pid);
+    return p ? remainingGroups(ordersOf(currentEntries(p, sessionChanges[pid])), abs(0, nowTime), standingNow(pid)) : [];
+  };
+  const stopAtDischarge = (pid: string, keys: StopGroupKey[]) => {
+    if (deny("order")) return;
+    const r = chosenStops(stopGroupsOf(pid), keys);
+    const what = (g: (typeof r.groups)[number]) => (g.key === "指示簿" ? "指示簿を終了" : g.entries.map((e) => orderLines(e.order, today).main).join("、"));
+    for (const g of r.groups) auditLog({ role: me.role, actor: me.name, action: "確定（退院時の一括中止）", patient: findPatient(pid)?.name, detail: `${g.key}：${what(g)}`.slice(0, 200) });
+    if (r.standing) setStanding((all) => ({ ...all, [pid]: [...(all[pid] ?? []), endedStanding(me.name, { day: 0, time: nowTime })] }));
+    if (resident) setCosign((all) => [...all, ...newItems({ patientId: pid, by: me.name, at: { day: 0, time: nowTime } }, r.groups.flatMap((g) => g.entries.map((e) => ({ ref: `stop:${e.id}`, kind: "中止" as const, text: `${orderLines(e.order, today).main} 中止（退院時の一括中止）` }))), newId)]);
+    updateFor(pid, (c) => ({
+      stopped: [...c.stopped, ...r.ids.filter((id) => !c.stopped.includes(id))],
+      stopTimes: { ...c.stopTimes, ...Object.fromEntries(r.ids.map((id) => [id, nowTime])) },
+      note: `${c.note.replace(/\s*$/, "")}\n${r.groups.map((g) => `・退院のため一括中止（${g.key}）：${what(g)}`).join("\n")}\n`,
+      flash: `退院時の一括中止：${r.ids.length}件のオーダを中止しました${r.standing ? "（指示簿も終了）" : ""}。看護師の指示受けに入ります。`,
+    }));
+  };
+  if (role === "医師")
+    for (const x of dischargedPeople) {
+      const n = stopGroupsOf(x.patient.id).length;
+      if (n) todos.push({ key: `dc-stop-${x.patient.id}`, label: `退院した患者に有効な指示が残っている：${x.patient.name}さん`, detail: stopGroupsOf(x.patient.id).map((g) => g.key).join("・"), count: n, tone: "yamabuki", go: () => (openPatient(x.patient.id), setPanel("discharge-stop")) });
+    }
   for (const x of people) {
     const pid = x.patient.id;
     if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
@@ -3216,6 +3242,11 @@ export default function WardApp() {
                   />
                 </Drawer>
               )}
+              {panel === "discharge-stop" && (
+                <Drawer title="退院時の一括中止" onClose={closePanel} wide>
+                  <DischargeStops groups={stopGroupsOf(patient.id)} today={today} canStop={!deny("order")} why={deny("order") ?? undefined} onStop={(keys) => stopAtDischarge(patient.id, keys)} />
+                </Drawer>
+              )}
               {panel === "summary" && (
                 <Drawer title="連携サマリ・看護サマリ" onClose={closePanel} wide>
                   <SummaryPanel
@@ -3614,7 +3645,9 @@ export default function WardApp() {
                 updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・退院を実施（${nowTime}）${left.length ? `。済んでいないもの：${left.join("・")}` : ""}\n` }));
                 setDischargeAsk(null);
               }}
-            />
+            >
+              <DischargeStops groups={stopGroupsOf(pid)} today={today} canStop={!deny("order")} why={deny("order") ?? undefined} onStop={(keys) => stopAtDischarge(pid, keys)} />
+            </DischargeDialog>
           );
         })()}
 
