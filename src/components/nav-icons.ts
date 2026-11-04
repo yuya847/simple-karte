@@ -1,5 +1,6 @@
 import {
   Ambulance,
+  History,
   ArrowRightLeft,
   BedDouble,
   BookOpen,
@@ -69,6 +70,7 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   map: LayoutGrid,
   floor: Building2,
   mine: UserRound,
+  recent: History,
   all: List,
   sheet: Printer,
   handoff: ArrowRightLeft,

@@ -101,6 +101,8 @@ import { PatientPicker } from "./PatientPicker";
 import { PatientList, type GroupBy } from "./PatientList";
 import { AppFrame, type Crumb, type TabItem, type TabRow, type Todo } from "./AppFrame";
 import { PullToRefresh } from "./PullToRefresh";
+import { RecentPatients } from "./RecentPatients";
+import { loadRecent, pushRecent, saveRecent, type RecentOpen } from "@/lib/recent";
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
 import { AREA_ICON, WARD_ICON } from "./nav-icons";
@@ -391,6 +393,7 @@ export default function WardApp() {
   const [newTabFor, setNewTabFor] = useState<Owner | null>(null);
   // The floor shown on 病棟マップ and ◯階.
   const [floor, setFloor] = useState(WARD_NAME);
+  const [recentByPerson, setRecentByPerson] = useState<Record<string, RecentOpen[]>>({});
   // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
   const [myTeam, setMyTeam] = useState("");
   const me = useMemo(() => (role === "医師" ? { role, name: doctorName } : STAFF[role]), [role, doctorName]);
@@ -738,7 +741,14 @@ export default function WardApp() {
     return wardOwner(open ?? any ?? myWardTabs[0] ?? "mine");
   };
   // A chart opens where it is already open, else under the tab in front.
+  // 最近開いた患者 (per person, this browser): the list shown under ⌄ → 最近開いた患者.
+  const recentList = recentByPerson[me.name] ?? (todayKey ? loadRecent(me.name, todayKey) : []);
+  const setRecentList = (list: RecentOpen[]) => {
+    if (todayKey) saveRecent(me.name, todayKey, list);
+    setRecentByPerson((all) => ({ ...all, [me.name]: list }));
+  };
   const openPatient = (id: string) => {
+    setRecentList(pushRecent(recentList, id, 0, nowTime ?? ""));
     // A limited chart (閲覧制限): on the care team, with a reason given, or the reason step next.
     const p = findPatient(id);
     auditLog({ role: me.role, actor: me.name, patient: p?.name ?? id, ...openEvent(currentLimit(limits, id), !!p && inCareTeam(me, p, myTeam), grantOf(glass, id, me.name)) });
@@ -2172,6 +2182,8 @@ export default function WardApp() {
             setTdmReports((all) => [...all, { ...r, id: newId(), at: nowTime, by: me.name, status: "医師へ報告" }]);
           }}
         />
+      ) : screen === "recent" ? (
+        <RecentPatients list={recentList} patient={findPatient} onOpen={openPatient} onClear={() => setRecentList([])} />
       ) : listKey ? (
         <div className="flex min-h-0 flex-1 flex-col">
         <PatientList
@@ -3340,7 +3352,24 @@ export default function WardApp() {
         onSelect: () => show(wardOwner(t), undefined),
         onClose: () => closeWardTab(t),
         // ⌄ on a patient view (入院患者一覧・病棟マップ・受け持ち患者・病棟の患者一覧): switch it in place.
-        switcher: wardTabInfo(t).group === "patients" ? { options: patientViews.map((v) => ({ key: v, label: wardTabInfo(v).label, icon: WARD_ICON[v] })), onPick: (k: string) => swapWardView(t, k as WardTab) } : undefined,
+        // ⌄: the other patient views, and each ward's list by name (5階東病棟・5階南病棟・6階東病棟).
+        switcher:
+          wardTabInfo(t).group === "patients"
+            ? {
+                options: [
+                  ...patientViews.filter((v) => v !== "floor").map((v) => ({ key: v, label: wardTabInfo(v).label, icon: WARD_ICON[v] })),
+                  ...(patientViews.includes("floor") ? FLOORS.map((f) => ({ key: `floor:${f.name}`, label: f.name, icon: WARD_ICON.floor, group: "病棟ごとの患者一覧" })) : []),
+                ],
+                current: t === "floor" ? (floor === ALL_WARDS ? "all" : `floor:${floor}`) : t,
+                onPick: (k: string) => {
+                  if (k.startsWith("floor:")) {
+                    setFloor(k.slice(6));
+                    if (t !== "floor") swapWardView(t, "floor");
+                    else show(wardOwner("floor"), undefined);
+                  } else swapWardView(t, k as WardTab);
+                },
+              }
+            : undefined,
       }));
       if (wardTab === "menu" || !wardTabs.length)
         items.push({ key: "menu", label: "画面を選ぶ", icon: LayoutList, menu: true, active: wardTab === "menu", onSelect: () => setWardTab("menu"), onClose: wardTabs.length ? () => setWardTab(wardTabs[wardTabs.length - 1]) : undefined, closeLabel: "画面を選ぶメニューを閉じる" });

@@ -37,7 +37,7 @@ export interface TabItem {
   onClose?: () => void;
   closeLabel?: string;
   /** ⌄ on the tab: switch this tab to another view of the same kind (入院患者一覧 → 病棟マップ …), in place. */
-  switcher?: { options: { key: string; label: string; icon?: Icon }[]; onPick: (key: string) => void };
+  switcher?: { options: { key: string; label: string; icon?: Icon; group?: string }[]; onPick: (key: string) => void; current?: string };
 }
 
 export interface TabRow {
@@ -183,11 +183,13 @@ function TabSwitch({ tab }: { tab: TabItem }) {
       </button>
       <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="below-left" width={220}>
         <ul>
-          {sw.options.map((o) => {
+          {sw.options.map((o, i) => {
             const I = o.icon;
-            const on = o.key === tab.key;
+            const heading = o.group && o.group !== sw.options[i - 1]?.group ? o.group : null;
+            const on = o.key === (sw.current ?? tab.key);
             return (
               <li key={o.key}>
+                {heading && <div className="mt-1 border-t border-rule-soft px-2 pb-0.5 pt-1.5 text-[11px] font-bold text-ink-faint">{heading}</div>}
                 <button
                   type="button"
                   aria-current={on ? "true" : undefined}
