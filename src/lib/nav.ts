@@ -58,7 +58,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone" | "summaries" | "paths" | "ulcers";
+export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone" | "summaries" | "paths" | "ulcers" | "status";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -80,6 +80,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "io", label: "水分出納", hint: "受け持ち患者の IN/OUT を勤務の終わりにまとめて入れ、勤務ごと・24時間の合計と IN − OUT を見る", group: "work", needs: "sheet" },
   { key: "narcotic", label: "麻薬の施用票", hint: "麻薬の注射を実施したら施用票（施用量・残量 mL）を書き、残液・空アンプルを薬剤部へ返納する。残った内服の麻薬の返納も", group: "work", needs: "sheet" },
   { key: "undone", label: "未実施の一覧", hint: "時刻を過ぎても実施・未実施の記録がないオーダ（実施漏れ）と、処置の実施の記録と算定が合わないもの（算定漏れの候補）", group: "work", needs: ["sheet", "iji"] },
+  { key: "status", label: "状態の一括登録", hint: "勤務帯ごとに、階の全員の重症度・看護度・救護区分・感染経路別予防策を1つの表で入れて登録する（区分の多くは架空の病院の取り決め）", group: "work", needs: "sheet" },
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },
   { key: "admit", label: "入院時の評価", hint: "期限のある評価（褥瘡・栄養・退院支援など）", group: "work", needs: "admit" },
   { key: "paths", label: "クリティカルパス", hint: "パスを使っている患者の今日の日目・評価がまだのアウトカム、バリアンスの一覧と分類ごとの件数", group: "work", needs: "handoff" },

@@ -231,6 +231,8 @@ import { bedPeople, useCareDepts } from "@/lib/use-care-depts";
 import { useNursingMgmt } from "@/lib/use-nursing-mgmt";
 import { pressurePlanAuto, riskFromEval } from "@/lib/pressure-course";
 import { UlcerBoard } from "./UlcerBoard";
+import { StatusBoard } from "./StatusBoard";
+import { shiftKey } from "@/lib/ward-status";
 import { PressurePanel } from "./panels/PressurePanel";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
@@ -1396,6 +1398,13 @@ export default function WardApp() {
     return x ?? (p && b ? { patient: p, room: `${b.room}${b.bed}`, entries: withRedraws(currentEntries(p, sessionChanges[pid]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, pid) } : undefined);
   };
   const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
+  // Every patient of the floor shown, by room (状態の一括登録・業務分担・バイタルの一括入力).
+  const floorPeople = bedsOn(oneFloor)
+    .flatMap((b) => {
+      const p = b.patientId ? findPatient(b.patientId) : undefined;
+      return p ? [{ id: p.id, name: p.name, room: `${b.room}${b.bed}`, infections: p.infections, rescue: bedInfo[p.id]?.rescue, patient: p }] : [];
+    })
+    .sort((a, b) => a.room.localeCompare(b.room));
   const floorPick: Pick = { label: "階", value: oneFloor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
   const listPick: Pick = { label: "病棟", value: floor, options: [{ value: ALL_WARDS, label: "全病棟" }, ...FLOORS.map((f) => ({ value: f.name, label: f.name }))], onChange: setFloor };
   const allWards = floor === ALL_WARDS;
@@ -1804,6 +1813,20 @@ export default function WardApp() {
             return p ? { name: p.name, room: `${b.room}${b.bed}` } : undefined;
           }}
           onOpen={(id) => (openPatient(id), setPanel("pressure"))}
+        />
+      ) : screen === "status" ? (
+        <StatusBoard
+          pick={floorPick}
+          patients={floorPeople}
+          book={nm.statusBook[oneFloor] ?? {}}
+          nowTime={nowTime}
+          canType={!deny("nursing.manage")}
+          onRegister={(day, shift, sheet, changed) => {
+            auditLog({ role: me.role, actor: me.name, action: "確定（状態の一括登録）", detail: `${oneFloor} ${shiftKey(day, shift)}　${changed.length}人を登録` });
+            nm.setStatusBook((all) => ({ ...all, [oneFloor]: { ...all[oneFloor], [shiftKey(day, shift)]: [...(all[oneFloor]?.[shiftKey(day, shift)] ?? []), sheet] } }));
+            // 救護区分 is the bed's record too (院内連絡).
+            setBedInfo((all) => ({ ...all, ...Object.fromEntries(changed.filter((id) => sheet.rows[id]?.rescue).map((id) => [id, { sensors: all[id]?.sensors ?? [], rescue: sheet.rows[id].rescue }])) }));
+          }}
         />
       ) : screen === "meals" ? (
         <MealsView title={WARD_NAME} people={people} diets={diets} today={today} nowTime={nowTime} />

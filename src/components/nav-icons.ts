@@ -13,6 +13,7 @@ import {
   ClipboardList,
   ClipboardX,
   CookingPot,
+  ClipboardPen,
   Droplet,
   Droplets,
   FileClock,
@@ -99,4 +100,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   summaries: FileClock,
   paths: Route,
   ulcers: Bandage,
+  status: ClipboardPen,
 };
