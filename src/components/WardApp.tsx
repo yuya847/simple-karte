@@ -239,7 +239,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
