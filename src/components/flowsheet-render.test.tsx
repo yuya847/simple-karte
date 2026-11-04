@@ -43,6 +43,13 @@ describe("経過表の画面", () => {
     expect(sakura).not.toContain(">血糖測定（簡易血糖測定器）<");
   });
 
+  it("記録: the day's notes by who wrote them, and 記事を書く", () => {
+    const html = render("90010244", { onOpenRecord: () => {}, onWriteNote: () => {} });
+    expect(html).toContain("記事を書く");
+    expect(html).toMatch(/医師の記載 \d+件を経過で開く/);
+    expect(render("90010244")).not.toContain("記事を書く");
+  });
+
   it("dates: 病日, 術後日数, 移動 and a counted day", () => {
     const html = render("90010231", {
       moves: [{ day: -3, time: null, label: "入院", tone: "ink" }, { day: 1, time: "10:00", label: "外泊（自宅）", tone: "yamabuki" }],

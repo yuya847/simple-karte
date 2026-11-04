@@ -105,6 +105,13 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 export function HistoryPane(props: Props) {
   const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
+  // A 記録 mark of the flow sheet opens 経過 on that day with only that kind of note (n renews the list).
+  const [recordKind, setRecordKind] = useState<{ kind: string; n: number }>({ kind: "all", n: 0 });
+  const openRecord = (day: DayOffset, kind: string) => {
+    setRecordKind((k) => ({ kind, n: k.n + 1 }));
+    onSelectDay(day);
+    onView("record");
+  };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex items-center gap-3 border-b border-rule-soft px-4 py-1.5">
@@ -131,7 +138,7 @@ export function HistoryPane(props: Props) {
         )}
       </div>
       {view === "flowsheet" ? (
-        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} {...flow} />
+        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} onOpenRecord={openRecord} {...flow} />
       ) : view === "injection-cal" ? (
         <InjectionCalendar {...calendarProps} />
       ) : view === "rx-cal" ? (
@@ -143,7 +150,7 @@ export function HistoryPane(props: Props) {
       ) : view === "diet-cal" ? (
         <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} moves={moves} onBook={onBook} onDoMove={onDoMove} />
       ) : (
-        <RecordList patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} />
+        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} />
       )}
     </section>
   );
@@ -165,6 +172,7 @@ const KINDS: { key: string; label: string; test: (e: HistoryEntry) => boolean }[
 const textOf = (e: HistoryEntry, today: CalendarDate) => (e.kind === "note" ? `${e.author} ${noteText(e)}` : `${orderLines(e.order, today).main} ${orderLines(e.order, today).detail} ${e.author}`);
 
 function RecordList({
+  kindInit = "all",
   patient,
   entries,
   today,
@@ -174,6 +182,7 @@ function RecordList({
   onDo,
   onOpenImage,
 }: {
+  kindInit?: string;
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
@@ -184,7 +193,7 @@ function RecordList({
   onOpenImage?: (entryId: string) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const [kind, setKind] = useState("all");
+  const [kind, setKind] = useState(KINDS.some((k) => k.key === kindInit) ? kindInit : "all");
   const [q, setQ] = useState("");
 
   useEffect(() => {

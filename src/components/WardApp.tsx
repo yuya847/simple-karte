@@ -2204,6 +2204,12 @@ export default function WardApp() {
                   ? {
                       pendingLabs: pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime)),
                       mar: { records: mar, sessionStart: sessionStart ?? abs(0, nowTime) },
+                      onWriteNote: deny("note")
+                        ? undefined
+                        : () => {
+                            update((c) => ({ rightTab: floating.note ? c.rightTab : "note" }));
+                            requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="記事"]')?.focus());
+                          },
                     }
                   : undefined
               }

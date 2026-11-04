@@ -26,6 +26,8 @@ import { useFlowPrefs } from "@/lib/flow-prefs";
 import { useMe } from "./RoleContext";
 import { FlowGlucoseRows, FlowOralRows, type FlowMar } from "./FlowMedRows";
 import { glucosePoints, insulinOrders, isGlucoseCare } from "@/lib/flow-meds";
+import type { NoteGroupKey } from "@/lib/flow-notes";
+import { FlowNoteRows } from "./FlowNoteRows";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -61,6 +63,9 @@ export interface FlowSheetProps {
   pendingLabs?: PendingDraw[];
   /** 与薬の記録 (MAR) for the 内服 and insulin rows (else those of the IN/OUT). */
   mar?: FlowMar;
+  /** Open a day of 経過 with one kind of note (the 記録 marks), and start a note on the right. */
+  onOpenRecord?: (day: DayOffset, kind: NoteGroupKey) => void;
+  onWriteNote?: () => void;
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -87,7 +92,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar }: FlowSheetProps) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -326,6 +331,8 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             </div>
           </Row>
           <FlowLabRows patient={p} pending={pendingLabs} orders={orders} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} analytes={prefs.analytes} onAnalytes={(codes) => setPrefs((x) => ({ ...x, analytes: codes }))} />
+          <FlowNoteRows entries={entries} days={days} box={dayBox} labelW={LABEL_W} onOpen={onOpenRecord} onWrite={onWriteNote} />
+          <p className="hint pl-[76px] pt-0.5 text-[10px] text-ink-faint">記録の印（医＝医師、看＝看護師、他＝ほかの職種の記事の数）を押すと、左の「経過」でその日のその記事だけを開きます。</p>
           <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
             ● 採取済み　○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
           </p>
