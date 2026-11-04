@@ -63,7 +63,7 @@ describe("外来の受診歴", () => {
     const a = aheadSummary(s, today);
     expect(a.days.map((x) => x.day)).toEqual([9, 2]);
     expect(a.next?.day).toBe(2);
-    expect(a.heading).toBe("予定 2日 — 次は 11/6（金） 画像・検体検査");
+    expect(a.heading).toBe("予定 2日 — 次は 11/6（金） 検体検査・画像");
     // Nothing ahead: no line.
     expect(aheadSummary(daySections(-3, [], [], []), today)).toEqual({ days: [], next: null, heading: "" });
   });

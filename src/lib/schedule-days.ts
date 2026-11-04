@@ -135,7 +135,7 @@ export function planItemsOf(e: OrderEntry): PlanItem[] {
   return out;
 }
 
-const byTime = (a: PlanItem, b: PlanItem) => a.day - b.day || (a.time ?? "99").localeCompare(b.time ?? "99") || a.kind.localeCompare(b.kind);
+const byTime = (a: PlanItem, b: PlanItem) => a.day - b.day || (a.time ?? "99").localeCompare(b.time ?? "99") || (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0); // code-point order: the same on every machine (localeCompare differs by ICU/locale)
 
 /** Everything planned for one patient, from the orders of the record and the operations booked, by day and time. */
 export function plannedItems(entries: HistoryEntry[], surgeries: PlannedSurgery[] = []): PlanItem[] {
