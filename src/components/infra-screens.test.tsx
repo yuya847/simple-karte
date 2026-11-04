@@ -15,6 +15,9 @@ import { ScanPanel } from "./panels/ScanPanel";
 import { withdraw, type ScanDoc } from "@/lib/scans";
 import { SignBox } from "./panels/SignBox";
 import { emptySections, type DischargeDraft } from "@/lib/discharge";
+import { LoginGate } from "./LoginGate";
+import { LoginSettingsView } from "./LoginSettingsView";
+import { DEFAULT_LOGIN } from "@/lib/login";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -106,5 +109,33 @@ describe("電子署名（模擬）", () => {
   });
   it("is locked for a nurse", () => {
     expect(as("看護師", <SignBox patientId="p1" draft={draft} records={[]} onSigned={() => {}} newId={() => "x"} />)).toContain("医師が行います");
+  });
+});
+
+describe("ログインの仕組み（既定はオフ）", () => {
+  const users = [
+    { name: "山本（専攻医）", role: "医師" as const },
+    { name: "看護師 佐藤", role: "看護師" as const },
+  ];
+  it("is off at first, says it applies to this device only, and where the rules come from", () => {
+    const html = as("医事課", <LoginSettingsView settings={DEFAULT_LOGIN} onChange={() => {}} users={users} />);
+    expect(html).toContain("ログインの仕組みを使う");
+    expect(html).not.toContain("checked");
+    expect(html).toContain("この端末のみに適用されます");
+    expect(html).toContain("13文字以上");
+    expect(html).toContain("項番171〜173");
+    expect(html).toContain("12.3.2");
+  });
+  it("asks who uses it, without showing the chart, and keeps a way out for the demo", () => {
+    const html = renderToStaticMarkup(<LoginGate users={users} locked={null} current={null} onLogin={() => {}} onTurnOff={() => {}} />);
+    expect(html).toContain("だれが使いますか");
+    expect(html).toContain("看護師 佐藤");
+    expect(html).toContain("（この端末では初めて）");
+    expect(html).toContain("ログインの仕組みを切る（この端末・デモ用）");
+    expect(html).toContain("二要素認証はありません");
+    const locked = renderToStaticMarkup(<LoginGate users={users} locked={{ at: "10:45", minutes: 15 }} current={users[1]} onLogin={() => {}} onTurnOff={() => {}} />);
+    expect(locked).toContain("15分操作がなかったので、10:45 に画面をロックしました");
+    expect(locked).toContain("パスワードを決めてログイン");
+    expect(locked).toContain("別の人でログイン");
   });
 });

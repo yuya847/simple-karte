@@ -207,6 +207,8 @@ import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { eventTimeProblem, isBlankNote, nextFrame, noteKey, noteText, parseNote, reviseNote } from "@/lib/notes";
+import { ROLES, STAFF, TABS, denyReason, type Role } from "@/lib/roles";
+import { nextFrame, noteKey, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
 import { narcoticBlock } from "@/lib/narcotics";
 import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
@@ -251,6 +253,9 @@ import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
 import { ScanPanel } from "./panels/ScanPanel";
 import { withdraw } from "@/lib/scans";
 import { SignBox } from "./panels/SignBox";
+import { useLogin } from "@/lib/use-login";
+import type { LoginUser } from "@/lib/login";
+import { LoginGate } from "./LoginGate";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -444,6 +449,9 @@ export default function WardApp() {
   // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
   const [myTeam, setMyTeam] = useState("");
   const me = useMemo(() => (role === "医師" ? { role, name: doctorName } : STAFF[role]), [role, doctorName]);
+  // ログインの仕組み（既定はオフ。この端末だけ）: when on, the role follows the person who logged in.
+  const login = useLogin();
+  const loginUsers: LoginUser[] = useMemo(() => [...DOCTORS.map((d) => ({ name: d.name, role: "医師" as const })), ...ROLES.filter((r) => r !== "医師").map((r) => ({ name: STAFF[r].name, role: r }))], []);
   // What one person is writing is kept apart per doctor too (山本 keeps the key he had before).
   const desk = role === "医師" && doctorName !== DEFAULT_DOCTOR ? `医師:${doctorName}` : role;
   // A 研修医's notes and orders wait for the 指導医 or 上級医 (they take effect at once: 架空の病院の取り決め).
@@ -2208,7 +2216,7 @@ export default function WardApp() {
           }}
         />
       ) : screen === "system" ? (
-        <SystemView nowTime={nowTime} newId={newId} />
+        <SystemView nowTime={nowTime} newId={newId} login={{ settings: login.settings, onChange: (s) => login.change(s, me), users: loginUsers }} />
       ) : screen === "audit" ? (
         <AuditView />
       ) : screen === "admit" ? (
@@ -3864,6 +3872,7 @@ export default function WardApp() {
         onOpenPicker={() => setPickerOpen(true)}
         areaBadges={{ ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(labItems, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name) && forMyTeam(n)).length : 0), board: unreadCount(notices, reads, me.name) }}
         todos={todos}
+        session={login.settings.on && login.session ? { onLogout: login.logout, onLock: login.lock } : undefined}
       >
         {content}
       </AppFrame>
@@ -3924,6 +3933,19 @@ export default function WardApp() {
         </div>
       )}
       <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} />
+      {login.gate && (
+        <LoginGate
+          users={loginUsers}
+          locked={login.locked}
+          current={login.session}
+          onLogin={(u) => {
+            if (u.role === "医師") switchDoctor(u.name);
+            else if (u.role !== role || !login.session) switchRole(u.role, u.name);
+            login.start(u);
+          }}
+          onTurnOff={() => login.change({ ...login.settings, on: false }, me)}
+        />
+      )}
       {presence.stale && workspace.status !== "off" && <StaleBanner stale={presence.stale} onRefresh={catchUp} busy={catchingUp} />}
       {presence.ask && <StaleAsk text={staleText(presence.stale!, presence.ask.patientId, findPatient(presence.ask.patientId)?.name)} onRefresh={catchUp} onCancel={presence.cancelAsk} busy={catchingUp} />}
       {Number(nowTime.slice(0, 2)) >= 24 && (

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
+import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, LockKeyhole, LogOut, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Area, AreaKey } from "@/lib/nav";
@@ -82,6 +82,8 @@ interface Props {
   /** Counts on the places (shown in the pulldown). */
   areaBadges: Partial<Record<AreaKey, number>>;
   todos: Todo[];
+  /** ログインの仕組み is on and someone is logged in: the menu has ログアウト・画面をロック instead of the roles. */
+  session?: { onLogout: () => void; onLock: () => void };
   children: React.ReactNode;
 }
 
@@ -373,7 +375,7 @@ function TodoButton({ todos }: { todos: Todo[] }) {
 }
 
 /** 自分: the role (login stand-in for the demo), データ抽出 and the audit log. */
-function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors, onDoctor }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; meName?: string; doctors?: PersonChoice[]; onDoctor?: (name: string) => void }) {
+function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors, onDoctor, session }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; meName?: string; doctors?: PersonChoice[]; onDoctor?: (name: string) => void; session?: Props["session"] }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   return (
@@ -387,6 +389,20 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
         <ChevronDown size={13} className="shrink-0 text-ink-faint" />
       </button>
       <Popover open={open} onClose={() => setOpen(false)} anchor={btn} place="below-right" width={288}>
+        {session ? (
+          <div className="mb-1">
+            <h3 className="px-2 pb-1 text-xs font-bold text-ink-soft">ログイン中：{meName ?? STAFF[role].name}（{ROLE_LONG[role]}）</h3>
+            <button type="button" onClick={() => (setOpen(false), session.onLock())} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper">
+              <LockKeyhole size={14} />
+              画面をロック
+            </button>
+            <button type="button" onClick={() => (setOpen(false), session.onLogout())} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper">
+              <LogOut size={14} />
+              ログアウト（別の人に代わる）
+            </button>
+          </div>
+        ) : (
+          <>
         <h3 className="px-2 pb-1 text-xs font-bold text-ink-soft">職種（デモではログインの代わり）</h3>
         <ul className="mb-1">
           {ROLES.map((r) => (
@@ -428,6 +444,8 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
             </li>
           ))}
         </ul>
+          </>
+        )}
         {extractOn && (
           <button
             type="button"
@@ -500,7 +518,7 @@ export function AppFrame(p: Props) {
                 <Badge n={p.areaBadges.board ?? 0} />
               </button>
             )}
-            <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} />
+            <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} session={p.session} />
           </div>
         }
       />

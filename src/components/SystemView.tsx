@@ -1,14 +1,16 @@
 "use client";
 
-import { Database, Settings } from "lucide-react";
+import { Database, KeyRound, Settings } from "lucide-react";
 import { useState } from "react";
+import type { LoginSettings, LoginUser } from "@/lib/login";
 import { SubTabs } from "./DeskParts";
+import { LoginSettingsView } from "./LoginSettingsView";
 import { MasterView } from "./MasterView";
 
-type Tab = "master";
+type Tab = "master" | "login";
 
-/** システム管理: the masters' hospital fields (マスタ管理). */
-export function SystemView({ nowTime, newId }: { nowTime: string; newId: () => string }) {
+/** システム管理: the masters' hospital fields (マスタ管理), and the login of this device (ログインと自動ログアウト). */
+export function SystemView({ nowTime, newId, login }: { nowTime: string; newId: () => string; login: { settings: LoginSettings; onChange: (s: LoginSettings) => void; users: LoginUser[] } }) {
   const [tab, setTab] = useState<Tab>("master");
   return (
     <section aria-label="システム管理" className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper">
@@ -17,9 +19,20 @@ export function SystemView({ nowTime, newId }: { nowTime: string; newId: () => s
           <Settings size={18} className="text-ai" />
           システム管理
         </h1>
-        <SubTabs label="システム管理の画面" value={tab} onChange={setTab} tabs={[{ key: "master", label: "マスタ管理", icon: Database }]} />
+        <SubTabs
+          label="システム管理の画面"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { key: "master", label: "マスタ管理", icon: Database },
+            { key: "login", label: "ログインと自動ログアウト", icon: KeyRound },
+          ]}
+        />
       </header>
-      <div className="px-5 py-4 text-[13px]">{tab === "master" && <MasterView nowTime={nowTime} newId={newId} />}</div>
+      <div className="px-5 py-4 text-[13px]">
+        {tab === "master" && <MasterView nowTime={nowTime} newId={newId} />}
+        {tab === "login" && <LoginSettingsView settings={login.settings} onChange={login.onChange} users={login.users} />}
+      </div>
     </section>
   );
 }
