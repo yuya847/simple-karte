@@ -24,7 +24,8 @@ import { FLOORS, WARD_NAME, WARD_PLANS, floorOf, nurseFor, type BedAssignment, t
 import { BEDS_WITH_CHARTS, OTHER_FLOOR_BEDS_WITH_CHARTS, WARD_CHART_DIETS, WARD_CHART_PATIENTS, withChartDiagnoses, withChartDiets } from "@/lib/ward-charts";
 import { admissionPlans, bedsAsOf, dayRange, dischargePlans, type WardAsOf } from "@/lib/ward-asof";
 import { currentEntries, ordersOf } from "@/lib/record";
-import { withExamRecords } from "@/lib/ris";
+import { risRows, withExamRecords } from "@/lib/ris";
+import { risTodo } from "@/lib/ris-take";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
@@ -1908,6 +1909,13 @@ export default function WardApp() {
     if (r && r.names.includes(me.name) && !(reads[n.id] ?? []).includes(me.name)) todos.push({ key: `board-${n.id}`, label: `掲示を読む：${n.title}`, detail: `${r.at} ${r.by}から`, count: 1, tone: "yamabuki", go: () => openArea("board") });
   }
   if (!deny("panic.call") && toCall) todos.push({ key: "call", label: "パニック値の連絡がまだ", detail: "検査室で連絡を記録する", count: toCall, tone: "shu", go: () => openArea("lab") });
+  // 放射線部 (診療放射線技師): 指示受けがまだ, 造影・MRI の確認がまだ, 今日の未撮影 (ris-take.ts).
+  if (!deny("ris.exam")) {
+    const rt = risTodo(risRows(people, dept.ris));
+    if (rt.untaken) todos.push({ key: "ris-take", label: "画像検査の指示受けがまだ", detail: "放射線部の「指示受け」で受ける", count: rt.untaken, tone: "yamabuki", go: () => openArea("radiology") });
+    if (rt.unconfirmed) todos.push({ key: "ris-confirm", label: "造影・MRI の指示確認がまだ", detail: "同意・腎機能・アレルギー・体内金属を見て「確認した」", count: rt.unconfirmed, tone: "yamabuki", go: () => openArea("radiology") });
+    if (rt.notDoneToday) todos.push({ key: "ris-today", label: "今日の未撮影の画像検査", detail: "放射線部の「当日の予定」で呼出・撮影を記録する", count: rt.notDoneToday, tone: "ai", go: () => openArea("radiology") });
+  }
 
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts)
@@ -2553,7 +2561,7 @@ export default function WardApp() {
       ) : screen === "physio" ? (
         <PhysioView people={people} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
       ) : screen === "radiology" ? (
-        <RadiologyView people={people} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} />
+        <RadiologyView people={people} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} consents={consents} />
       ) : screen === "rehab" ? (
         <RehabView people={people} desk={dept.rehab} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
       ) : screen === "path" ? (
