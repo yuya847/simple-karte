@@ -60,6 +60,8 @@ import { SchemaPanel } from "./panels/SchemaPanel";
 import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
+import { TakeStatus } from "./TakeStatus";
+import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { useWorkspace } from "@/lib/use-workspace";
 import { WorkspaceStatus } from "./WorkspaceStatus";
 import { TransferPanel } from "./panels/TransferPanel";
@@ -365,6 +367,8 @@ export default function WardApp() {
   const [bedInfo, setBedInfo] = useState<Record<string, BedInfo>>({});
   // 転院・施設の調整: what was asked where, and each answer.
   const [transferAsks, setTransferAsks] = useState<TransferAsk[]>([]);
+  // 指示受け: changes a nurse held to ask the doctor (by row key), with the doctor's answer.
+  const [takeHolds, setTakeHolds] = useState<Record<string, TakeHold>>({});
   // 掲示板: reminders sent to those who have not read a notice (notice id → names).
   const [boardReminders, setBoardReminders] = useState<Record<string, { names: string[]; at: string; by: string }>>({});
   const [dischargeAsk, setDischargeAsk] = useState<string | null>(null);
@@ -545,6 +549,7 @@ export default function WardApp() {
       calls: [calls, setCalls],
       labDesk: [labDesk, setLabDesk],
       iji: [iji, setIji],
+      takeHolds: [takeHolds, setTakeHolds],
       oralRx: [oralRx, setOralRx],
       rosterBook: [rosterBook, setRosterBook],
     } as unknown as Record<string, [unknown, (v: never) => void]>,
@@ -1273,6 +1278,22 @@ export default function WardApp() {
     if (role === "看護師" && standingNow(pid) && !standingNow(pid)!.taken) todos.push({ key: `standing-${pid}`, label: `指示簿の指示受けがまだ：${x.patient.name}さん`, count: 1, tone: "yamabuki", go: () => openStanding(pid) });
   }
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
+  // 指示受け rows of the ward (for the doctor's view, the handoff and the todo).
+  const allTakeRows = takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today);
+  const isRowTaken = (r: TakeRow) => r.keys.every((k) => !sessionKeys.has(k) || !!taken[k]);
+  // A nurse's question answered by the doctor: back to the nurse to take it.
+  if (role === "看護師")
+    for (const r of allTakeRows) {
+      const hold = takeHolds[r.key];
+      if (hold?.answer && !isRowTaken(r)) todos.push({ key: `answered-${r.key}`, label: `医師が回答：${r.name}さんの指示`, detail: hold.answer.text, count: 1, tone: "ai", go: () => goWard("sheet") });
+    }
+  if (role === "医師") {
+    for (const r of allTakeRows) {
+      const hold = takeHolds[r.key];
+      if (hold && !hold.answer && !isRowTaken(r)) todos.push({ key: `hold-${r.key}`, label: `看護師から指示の確認：${r.name}さん`, detail: `${r.main}　${hold.reason}`, count: 1, tone: "yamabuki", go: () => openPatient(r.patientId) });
+      else if (r.flags.urgent && !isRowTaken(r) && r.keys.some((k) => sessionKeys.has(k)) && abs(0, nowTime) - r.at >= 15) todos.push({ key: `urgent-${r.key}`, label: `至急の指示がまだ受けられていない：${r.name}さん`, detail: `${r.main}（${abs(0, nowTime) - r.at}分）`, count: 1, tone: "shu", go: () => openPatient(r.patientId) });
+    }
+  }
   if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
   const toCall = uncalled(labItems, calls).length;
@@ -1633,14 +1654,21 @@ export default function WardApp() {
           })}
           taken={taken}
           sessionKeys={sessionKeys}
-          onTake={(keys) => {
+          onTake={(keys, second) => {
             // Who took which change, and when (shown on the worksheet and in the audit log).
             const what = [...orderChanges(people, -1440, abs(0, nowTime)), ...others]
               .filter((c) => keys.includes(c.key))
               .map((c) => `${c.name}：${c.kind} ${"entry" in c ? orderLines(c.entry.order, today).main : c.text.main}`);
-            auditLog({ role: me.role, actor: me.name, action: "指示受け", detail: `${keys.length}件　${what.join("／")}`.slice(0, 400) });
-            setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, `${nowTime} ${me.name}`])) }));
+            auditLog({ role: me.role, actor: me.name, action: second ? "指示受け（2人で確認）" : "指示受け", detail: `${keys.length}件　${what.join("／")}${second ? `　2人目：${second}` : ""}`.slice(0, 400) });
+            setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, `${nowTime} ${me.name}${second ? `・確認 ${second}` : ""}`])) }));
           }}
+          holds={takeHolds}
+          onHold={(key, reason, note) => {
+            const r = allTakeRows.find((x) => x.key === key);
+            auditLog({ role: me.role, actor: me.name, action: "指示受けを保留して医師に確認", patient: r?.name, detail: `${r?.main ?? key}　${reason}${note ? `：${note}` : ""}` });
+            setTakeHolds((all) => ({ ...all, [key]: { by: me.name, at: nowTime, reason, note } }));
+          }}
+          nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]}
           records={mar}
           sessionStart={sessionStart ?? abs(0, nowTime)}
           onRecord={(r) => {
@@ -1716,7 +1744,18 @@ export default function WardApp() {
           nowTime={nowTime}
           handoffs={handoffs}
           extraFacts={Object.fromEntries(
-            Object.entries(resultState).flatMap(([pid, r]) => (r.unseen ? [[pid, [`医師が未確認の結果：${r.unseen}件${r.panic ? `（パニック値 ${r.panic}件）` : ""}`]]] : [])),
+            people.map((x) => {
+              const pid = x.patient.id;
+              const r = resultState[pid];
+              const notTaken = allTakeRows.filter((t) => t.patientId === pid && !isRowTaken(t));
+              return [
+                pid,
+                [
+                  ...(r?.unseen ? [`医師が未確認の結果：${r.unseen}件${r.panic ? `（パニック値 ${r.panic}件）` : ""}`] : []),
+                  ...(notTaken.length ? [`指示受けがまだ：${notTaken.length}件（${notTaken.map((t) => `${t.kind === "変更" ? "【変】" : t.kind} ${t.main}${t.flags.urgent ? "・至急" : ""}${takeHolds[t.key] && !takeHolds[t.key].answer ? "・医師に確認中" : ""}`).join("／")}）`] : []),
+                ],
+              ];
+            }),
           )}
           onSave={(h) => setHandoffs((all) => ({ ...all, [handoffKey(h.patientId, h.shiftLo ?? 0, h.role)]: h }))}
           onSend={(h) => {
@@ -2029,6 +2068,19 @@ export default function WardApp() {
                   }));
                 }}
               />
+              {role === "医師" && (
+                <TakeStatus
+                  rows={allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k)))}
+                  taken={taken}
+                  isTaken={isRowTaken}
+                  holds={takeHolds}
+                  nowAbs={abs(0, nowTime)}
+                  onAnswer={(key, text) => {
+                    auditLog({ role: me.role, actor: me.name, action: "看護師の確認に回答", patient: patient.name, detail: text });
+                    setTakeHolds((all) => ({ ...all, [key]: { ...all[key], answer: { by: me.name, at: nowTime, text } } }));
+                  }}
+                />
+              )}
               <PharmacyInbox
                 today={today}
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
