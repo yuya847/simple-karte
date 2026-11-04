@@ -68,6 +68,9 @@ export function RightTabs({
     return () => window.removeEventListener("keydown", onKey);
   }, [onChange, onOpen]);
 
+  // Only 記事作成 (nothing else opened on the right): no tab bar at all (ユーザー: 記事作成だけならタブはいらない).
+  if (shown.length === 1 && shown[0] === "note" && !floating.includes("note")) return null;
+
   return (
     <div role="tablist" aria-label="右の欄" className="scroll-thin flex items-end gap-1 overflow-x-auto border-b border-rule bg-paper px-2 pt-1.5">
       {shown.map((key) => {
