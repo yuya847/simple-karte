@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS, findSet } from "@/lib/master";
 import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
@@ -81,6 +81,8 @@ interface Props {
   onOpenImage?: (entryId: string) => void;
   /** 検体検査: open the results table at this draw (day and time of the collection). */
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
+  /** The records left after the filter and the search (null when nothing is narrowed), for the date tree. */
+  onShown?: (entries: HistoryEntry[] | null) => void;
   /** 指示受けの状態 of an order (未指示受け／受け ◯◯ hh:mm／確認済み／医師に確認中), shown on each order; null when nothing waits. */
   takeBadgeOf?: (entryId: string) => TakeBadge | null;
   /** 実施・未実施 from an order row (right click, ⋯, long press) and the calendars' dose cells. Absent: no such menu. */
@@ -110,7 +112,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
  * calendars of 処置・移動・食事・指示簿 and the 予約 list open from the tools on the far right (参照).
  */
 export function HistoryPane(props: Props) {
-  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, todayBookings, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute } = props;
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, todayBookings, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown } = props;
   const view = asLeftView(props.view);
   const v = views;
   const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew, execute } : null;
@@ -157,7 +159,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} todayBookings={todayBookings} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} todayBookings={todayBookings} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
       )}
     </section>
   );
@@ -198,6 +200,7 @@ function RecordList({
   onOpenResult,
   takeBadgeOf,
   execute,
+  onShown,
 }: {
   kindInit?: string;
   patient: Patient;
@@ -213,6 +216,7 @@ function RecordList({
   onOpenImage?: (entryId: string) => void;
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
   takeBadgeOf?: Props["takeBadgeOf"];
+  onShown?: Props["onShown"];
   execute?: ExecuteProps;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -227,6 +231,8 @@ function RecordList({
   const toggle = (k: string) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
   // Folding: each card by its key, and 「すべてたたむ」 for the ones not opened by hand since.
   const [folded, setFolded] = useState<{ all: boolean; each: Record<string, boolean> }>({ all: false, each: {} });
+  // 絞り込みと検索はふだん畳んである（アイコンで開く）。
+  const [tools, setTools] = useState<"none" | "filter" | "search">("none");
   const isFolded = (k: string) => folded.each[k] ?? folded.all;
   const fold = (k: string) => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !isFolded(k) } }));
 
@@ -250,6 +256,13 @@ function RecordList({
     narrowed,
   );
   const shownCount = sections.reduce((n, s) => n + s.entries.length, 0);
+  // Tell the date tree which records are left (only while narrowed), so days with nothing are not listed.
+  const shownKey = narrowed ? shown.map((e) => `${e.kind}:${e.day}:${e.time}:${e.kind === "order" ? e.id : e.author}`).join("|") : "";
+  useEffect(() => {
+    onShown?.(narrowed ? shown : null);
+    // `shownKey` stands for `shown`/`narrowed`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownKey]);
   const counts = Object.fromEntries(CATS.map((c) => [c.key, visible.filter(c.test).length]));
   const allOf = (g: "note" | "order") => CATS.filter((c) => c.group === g).every((c) => on.includes(c.key));
   const onlyOf = (g: "note" | "order") => allOf(g) && CATS.filter((c) => c.group !== g).every((c) => !on.includes(c.key));
@@ -272,6 +285,17 @@ function RecordList({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-1.5 border-b border-rule-soft px-4 py-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+          <span role="group" aria-label="絞り込みと検索" className="flex items-center gap-1">
+            <button type="button" onClick={() => setTools((t) => (t === "filter" ? "none" : "filter"))} aria-pressed={tools === "filter"} aria-label="絞り込み" title="職種・オーダの種類で絞る" className={`relative rounded p-1 ${tools === "filter" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
+              <Filter size={14} />
+              {on.length !== ALL_CATS.length && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
+            </button>
+            <button type="button" onClick={() => setTools((t) => (t === "search" ? "none" : "search"))} aria-pressed={tools === "search"} aria-label="記録の中を探す" title="記録の中を探す（ひらがな可）" className={`relative rounded p-1 ${tools === "search" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
+              <Search size={14} />
+              {key && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
+            </button>
+          </span>
+          {tools === "filter" && (
           <span role="group" aria-label="早く絞る" className="flex rounded-md border border-rule p-0.5">
             {([
               ["all", "すべて", on.length === ALL_CATS.length],
@@ -283,7 +307,8 @@ function RecordList({
               </button>
             ))}
           </span>
-          {(["note", "order"] as const).map((g) => (
+          )}
+          {tools === "filter" && (["note", "order"] as const).map((g) => (
             <span key={g} role="group" aria-label={g === "note" ? "記載を書いた職種" : "オーダの種類"} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="text-ink-faint">{g === "note" ? "記載" : "オーダ"}</span>
               {CATS.filter((c) => c.group === g).map((c) => (
@@ -295,16 +320,18 @@ function RecordList({
               ))}
             </span>
           ))}
+          {tools === "search" && (
           <label className="flex min-w-40 flex-1 items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
             <Search size={13} className="shrink-0 text-ink-faint" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" autoFocus className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
             {q && (
               <button type="button" onClick={() => setQ("")} aria-label="検索を消す" className="text-ink-faint hover:text-ink">
                 <X size={13} />
               </button>
             )}
           </label>
-          <span role="group" aria-label="記録の折りたたみ" className="flex items-center gap-1">
+          )}
+          <span role="group" aria-label="記録の折りたたみ" className="ml-auto flex items-center gap-1">
             <button type="button" onClick={() => setFolded({ all: false, each: {} })} aria-pressed={!folded.all} title="すべての記録を開く" className="flex items-center gap-0.5 rounded border border-rule px-1.5 py-0.5 text-ink-soft hover:border-ai hover:text-ink">
               <ChevronsUpDown size={12} />
               すべて展開

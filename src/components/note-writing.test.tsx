@@ -79,9 +79,10 @@ describe("左の経過", () => {
   it("shows the focus with D・Act・R, and the part buttons", () => {
     expect(html).toContain("# 転倒");
     expect(html).toContain("Act)");
-    for (const b of ["すべて", "記載だけ", "オーダだけ"]) expect(html).toContain(`>${b}</button>`);
-    expect(html).toContain('aria-label="記載を書いた職種"');
-    expect(html).toContain('aria-label="オーダの種類"');
+    // The filter and the search are folded behind two icons (opened by a click, not in this SSR).
+    expect(html).toContain('aria-label="絞り込み"');
+    expect(html).toContain('aria-label="記録の中を探す"');
+    expect(html).not.toContain('aria-label="記載を書いた職種"');
   });
 
   it("shows 記録時刻, when it was written late, and when it was updated", () => {

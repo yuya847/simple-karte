@@ -13,15 +13,18 @@ interface Props {
   onSelect: (day: DayOffset) => void;
   /** 外来の受診 before this admission (day and clinic), listed under the stay. */
   visits?: { day: DayOffset; dept: string }[];
+  /** Hide the days with no record or order (today and the chosen day stay). On by default. */
+  hideEmpty?: boolean;
 }
 
 /** Tree of hospital days: this admission → month → day. Clicking a day jumps the past record to it. */
-export function DateTree({ patient, entries, today, selectedDay, onSelect, visits = [] }: Props) {
+export function DateTree({ patient, entries, today, selectedDay, onSelect, visits = [], hideEmpty = true }: Props) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setClosed((c) => ({ ...c, [key]: !c[key] }));
 
   const days: DayOffset[] = [];
-  for (let d = 0; d >= patient.admittedOn; d--) days.push(d);
+  const has = (d: DayOffset) => entries.some((e) => e.day === d);
+  for (let d = 0; d >= patient.admittedOn; d--) if (!hideEmpty || d === 0 || d === selectedDay || has(d)) days.push(d);
 
   const months = new Map<string, DayOffset[]>();
   for (const d of days) {

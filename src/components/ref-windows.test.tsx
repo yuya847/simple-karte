@@ -34,7 +34,7 @@ describe("左の欄の5つのタブ", () => {
     for (const x of [">処置<", ">移動・食事<", ">指示簿<", ">予約<"]) expect(row).not.toContain(x);
     expect(html).toContain("flex-nowrap");
     expect(html).toContain("中止したオーダも表示");
-    expect(html).toContain('aria-label="記載を書いた職種"');
+    expect(html).toContain('aria-label="絞り込み"');
   });
   it("an unknown saved tab (an older value) falls back to 経過", () => {
     const html = asDoctor(<HistoryPane {...base} view="diet-cal" />);

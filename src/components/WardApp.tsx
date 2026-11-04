@@ -468,6 +468,8 @@ export default function WardApp() {
   // 未確認の結果の窓: shown for a chart with unseen results until closed (per patient, this page).
   // 結果を表示 from a lab order in the record: the draw to show in the results table.
   const [resultFocus, setResultFocus] = useState<{ day: number; time: string } | null>(null);
+  // The records left by the 経過 filter/search (null = not narrowed): the date tree lists only their days.
+  const [shownEntries, setShownEntries] = useState<HistoryEntry[] | null>(null);
   // What a pressed cell of the flow sheet asked for (the time for バイタル・水分出納, the rows for the others).
   const [flowReq, setFlowReq] = useState<FlowEntry | null>(null);
   // Who is using the chart. The demo picks a role instead of logging in.
@@ -2864,7 +2866,7 @@ export default function WardApp() {
             }`}
           >
             <div className="hidden min-h-0 lg:block">
-              <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} visits={opdVisitsOf(patient)} />
+              <DateTree patient={patient} entries={shownEntries ?? entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} visits={opdVisitsOf(patient)} />
             </div>
             {panel === "billing" ? (
               <div className="col-span-2 flex min-h-0 flex-col">
@@ -2897,6 +2899,7 @@ export default function WardApp() {
               <>
             <ReportContext.Provider value={{ reports: reportsHere, acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
             <HistoryPane
+              onShown={setShownEntries}
               patient={patient}
               coedit={presence.coedit}
               entries={entries}
