@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { UserRound } from "lucide-react";
 
 /**
@@ -11,19 +11,18 @@ import { UserRound } from "lucide-react";
 const SHOW_MS = 1400;
 
 export function PatientSwitchFlash({ patient }: { patient: { id: string; name: string; kana?: string; age: number; sex: string; room?: string; ward?: string } }) {
-  const [shown, setShown] = useState<typeof patient | null>(null);
-  const last = useRef<string | null>(null);
+  // The id whose card has been dismissed (by the timer or a click); a new id shows the card again.
+  const [hiddenFor, setHiddenFor] = useState<string | null>(null);
+  const { id } = patient;
   useEffect(() => {
-    if (last.current === patient.id) return;
-    last.current = patient.id;
-    setShown(patient);
-    const t = setTimeout(() => setShown(null), SHOW_MS);
+    const t = setTimeout(() => setHiddenFor(id), SHOW_MS);
     return () => clearTimeout(t);
-  }, [patient]);
-  if (!shown) return null;
+  }, [id]);
+  if (hiddenFor === id) return null;
+  const shown = patient;
   const idShown = shown.id.replace(/^(er|opd):/, "");
   return (
-    <div role="status" aria-live="polite" onClick={() => setShown(null)} className="karte-switch pointer-events-auto fixed inset-0 z-[70] flex items-start justify-center bg-ink/20 pt-[18vh] print:hidden">
+    <div role="status" aria-live="polite" onClick={() => setHiddenFor(id)} className="karte-switch pointer-events-auto fixed inset-0 z-[70] flex items-start justify-center bg-ink/20 pt-[18vh] print:hidden">
       <div className="karte-switch-card flex items-center gap-5 rounded-2xl border-4 border-ai bg-sheet px-8 py-6 shadow-[0_24px_60px_-20px_rgba(38,34,28,0.6)]">
         <div className="grid h-16 w-16 place-items-center rounded-full bg-ai-soft text-ai">
           <UserRound size={36} />
