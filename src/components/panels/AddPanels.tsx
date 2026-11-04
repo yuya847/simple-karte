@@ -1,8 +1,9 @@
 "use client";
 
 import { History, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
+import { decideHint } from "@/lib/decide-hint";
 import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft } from "@/lib/drafts";
 import type { InjSeed } from "@/lib/inj-calendar";
 import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
@@ -183,6 +184,8 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  */
 export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
   const [rps, setRps] = useState<InjRp[]>([newInjRp(), newInjRp()]);
+  // For the visible headings (label) of the 開始・日数・コメント fields of each Rp.
+  const uid = useId();
   // 注射の記憶 / Do: the order copied into the first empty Rp.
   const putOrder = (o: InjectionOrder) =>
     setRps((r) => {
@@ -396,6 +399,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                   <span className="w-16 text-ink-soft">経路</span>
                   <TabChoice
                     label={`Rp${first + i} の経路`}
+                    size="lg"
                     options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.key, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
                     value={rp.route || null}
                     onChange={(v) => upd(i, { route: v, minutes: ROUTE_TABS.find((t) => t.key === v)?.route === "点滴静注" ? rp.minutes : 0 })}
@@ -404,7 +408,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">回数</span>
-                  <TabChoice label={`Rp${first + i} の回数`} options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
+                  <TabChoice label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
                 </div>
                 {route === "点滴静注" && (
                   <>
@@ -412,6 +416,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                       <span className="w-16 text-ink-soft">落とし方</span>
                       <TabChoice
                         label={`Rp${first + i} の落とし方`}
+                        size="lg"
                         options={[
                           { value: "time", label: "時間で" },
                           { value: "rate", label: "速度で（mL/時）" },
@@ -438,9 +443,12 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                   </>
                 )}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-16 text-ink-soft">開始</span>
+                  <label htmlFor={`${uid}-${i}-start`} className="w-16 text-ink-soft">
+                    開始
+                  </label>
                   <TabChoice
                     label={`Rp${first + i} の開始日`}
+                    size="lg"
                     options={[
                       { value: 0, label: "今日" },
                       { value: 1, label: "明日" },
@@ -450,35 +458,48 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                     value={rp.startDay}
                     onChange={(v) => upd(i, { startDay: v })}
                   />
-                  <input type="time" value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={field} aria-label={`Rp${first + i} の開始時刻`} />
+                  <input id={`${uid}-${i}-start`} type="time" value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={`${field} min-h-[30px]`} aria-label={`Rp${first + i} の開始時刻`} />
                   <span className="text-[11px] text-ink-faint">空なら指示受け後すぐ</span>
-                  <input value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" placeholder="—" aria-label={`Rp${first + i} の日数`} className={`${field} ml-auto w-10 text-right`} />
-                  日間
                 </div>
-                <input
-                  value={rp.comment}
-                  onChange={(e) => upd(i, { comment: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.nativeEvent.isComposing && !e.metaKey && !e.ctrlKey && complete(rp)) {
-                      e.preventDefault();
-                      decide(i);
-                    }
-                  }}
-                  placeholder="コメント（任意）"
-                  aria-label={`Rp${first + i} のコメント`}
-                  className={`${field} w-full`}
-                />
-                <div className="flex items-center gap-2 pt-0.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <label htmlFor={`${uid}-${i}-days`} className="w-16 text-ink-soft">
+                    日数
+                  </label>
+                  <input id={`${uid}-${i}-days`} value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" placeholder="—" aria-label={`Rp${first + i} の日数`} className={`${field} min-h-[30px] w-14 text-right`} />
+                  <span>日間</span>
+                  <span className="hint text-[11px] text-ink-faint">空なら日数を決めません（1回だけ、または止めるまで）</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <label htmlFor={`${uid}-${i}-comment`} className="w-16 shrink-0 text-ink-soft">
+                    コメント
+                  </label>
+                  <input
+                    id={`${uid}-${i}-comment`}
+                    value={rp.comment}
+                    onChange={(e) => upd(i, { comment: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.nativeEvent.isComposing && !e.metaKey && !e.ctrlKey && complete(rp)) {
+                        e.preventDefault();
+                        decide(i);
+                      }
+                    }}
+                    placeholder="任意"
+                    aria-label={`Rp${first + i} のコメント`}
+                    className={`${field} min-h-[30px] min-w-0 flex-1`}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
                   <button
                     type="button"
                     disabled={!complete(rp)}
                     onClick={() => decide(i)}
-                    title={complete(rp) ? "選んだ結果だけを1行で出し、次の Rp へ進みます（あとで直せます）" : `${missingOf(rp).join("・")}を選ぶと決められます`}
-                    className="rounded-md border border-ai/50 px-3 py-1 text-[12px] font-bold text-ai hover:bg-ai-soft disabled:border-rule disabled:font-normal disabled:text-ink-faint pointer-coarse:py-2"
+                    title={complete(rp) ? "選んだ結果だけを1行で出し、次の Rp へ進みます（あとで直せます）" : decideHint(missingOf(rp))}
+                    className="min-h-[30px] rounded-md border border-ai/50 px-3 py-1 text-[12px] font-bold text-ai hover:bg-ai-soft disabled:border-rule disabled:font-normal disabled:text-ink-faint pointer-coarse:py-2"
                   >
                     Rp{first + i} を決める
                   </button>
-                  <span className="text-[11px] text-ink-faint">{complete(rp) ? "コメントの欄で Enter でも決められます" : `あと：${missingOf(rp).join("・")}`}</span>
+                  {/* Why the button is off, on the screen (not only in the tooltip): the missing things in order. */}
+                  {complete(rp) ? <span className="hint text-[11px] text-ink-faint">コメントの欄で Enter でも決められます</span> : <span className="text-[12px] text-yamabuki">{decideHint(missingOf(rp))}</span>}
                 </div>
               </div>
             )}

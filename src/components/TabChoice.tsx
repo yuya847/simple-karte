@@ -10,10 +10,16 @@ export interface TabOption<T extends string | number> {
 }
 
 /**
+ * The large chips (size="lg", for choices pressed often on a tablet, e.g. the injection's 経路・回数): 30px
+ * and up, room on the sides, the chosen one 藍 with white letters.
+ */
+export const TAB_CHOICE_LG = "min-h-[30px] px-3 py-1 text-[13px]";
+
+/**
  * Choose one of a few values as tabs. Keyboard: Tab comes in on the chosen one (or the first),
  * ← → (↑ ↓) move and choose, Home / End jump to the ends, Space or Enter chooses the focused one.
  */
-export function TabChoice<T extends string | number>({ label, options, value, onChange }: { label: string; options: TabOption<T>[]; value: T | null; onChange: (v: T) => void }) {
+export function TabChoice<T extends string | number>({ label, options, value, onChange, size = "sm" }: { label: string; options: TabOption<T>[]; value: T | null; onChange: (v: T) => void; size?: "sm" | "lg" }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
   const selected = options.findIndex((o) => o.value === value);
@@ -52,8 +58,8 @@ export function TabChoice<T extends string | number>({ label, options, value, on
               else return;
               e.preventDefault();
             }}
-            className={`nums rounded px-2 py-0.5 text-[12px] outline-none pointer-coarse:px-3 pointer-coarse:py-1.5 pointer-coarse:text-[13px] focus-visible:ring-2 focus-visible:ring-ai/60 ${
-              on ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink disabled:text-ink-faint/40"
+            className={`nums rounded outline-none focus-visible:ring-2 focus-visible:ring-ai/60 ${size === "lg" ? TAB_CHOICE_LG : "px-2 py-0.5 text-[12px] pointer-coarse:px-3 pointer-coarse:py-1.5 pointer-coarse:text-[13px]"} ${
+              on ? (size === "lg" ? "bg-ai font-bold text-white" : "bg-ink font-bold text-white") : "text-ink-soft hover:text-ink disabled:text-ink-faint/40"
             }`}
           >
             {o.label}
