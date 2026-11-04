@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CheckContext, Draft, InjectionDraft } from "./drafts";
+import { checkDraft, isReady, toOrder, type CheckContext, type Draft, type InjectionDraft } from "./drafts";
 import {
   INTERACTIONS,
   INTERACTION_SOURCES,
@@ -8,12 +8,13 @@ import {
   findInteractions,
   interactionIssues,
   orderInteractions,
+  reasonsToKeep,
   type InteractionPair,
 } from "./interactions";
 import { DRUGS, ORAL_DRUGS } from "./master";
 import { PATIENTS } from "./patients";
 import type { PrescriptionDraft } from "./rx";
-import type { OrderEntry } from "./types";
+import type { InjectionOrder, OrderEntry } from "./types";
 
 const kitamura = PATIENTS.find((p) => p.id === "90010198")!;
 const mori = PATIENTS.find((p) => p.id === "90010260")!;
@@ -230,5 +231,52 @@ describe("処方監査（薬剤部）: 確定したオーダの所見", () => {
     const entries = ordersOf(kitamura);
     const ena = { ...entries.find((o) => o.id === "kita-ena")!, status: "中止" as const };
     expect(orderInteractions(ena, entries)).toEqual([]);
+  });
+});
+
+describe("下書きのチェック（drafts.ts の checkDraft・toOrder）", () => {
+  it("北村さんに KCl を入れると、持参薬のスピロノラクトン・エナラプリルとの併用注意が情報として出る", () => {
+    const d = inj(["INJ-SOL3A500", "INJ-KCL20"], { items: [{ drugCode: "INJ-SOL3A500", said: "", amount: 500, unit: "mL" }, { drugCode: "INJ-KCL20", said: "", amount: 10, unit: "mEq" }], infusionMinutes: 240 });
+    const issues = checkDraft(d, ctx(kitamura, [d]));
+    const ix = issues.filter((i) => i.key.startsWith("ix-"));
+    expect(ix.map((i) => i.title)).toEqual(["併用注意", "併用注意"]);
+    expect(ix.every((i) => i.level === "info" && (i.sources?.length ?? 0) > 0)).toBe(true);
+    expect(ix.map((i) => i.message).join("／")).toMatch(/スピロノラクトン錠 25mg（持参薬）/);
+    expect(isReady(issues)).toBe(true);
+  });
+
+  it("セフトリアキソンをヴィーンFと同じ Rp にすると、理由を入れるまで確定できない。理由はオーダに残る", () => {
+    const d = inj(["INJ-CTRX1", "INJ-VEENF500"], { items: [{ drugCode: "INJ-VEENF500", said: "", amount: 500, unit: "mL" }, { drugCode: "INJ-CTRX1", said: "", amount: 1, unit: "g" }] });
+    const issues = checkDraft(d, ctx(mori, [d]));
+    const mix = issues.find((i) => i.key.startsWith("ix-ctrx-calcium"))!;
+    expect(mix.level).toBe("ask");
+    expect(isReady(issues)).toBe(false);
+    const next = mix.input!.apply(d, "テストの理由") as InjectionDraft;
+    const after = checkDraft(next, ctx(mori, [next]));
+    expect(isReady(after)).toBe(true);
+    const order = toOrder(next, ctx(mori, [next])).order as InjectionOrder;
+    expect(order.interactionReasons).toEqual([{ pairId: "ctrx-calcium", level: "配合", drugs: expect.stringMatching(/^酢酸リンゲル液（ヴィーンF） × セフトリアキソン/), reason: "テストの理由" }]);
+  });
+
+  it("理由の要らない所見だけなら、オーダに理由の欄は付かない", () => {
+    const d = rx(["ORAL-LOX60"]);
+    const r = toOrder(d, ctx(kitamura, [d]));
+    expect(r.orders).toHaveLength(1);
+    expect("interactionReasons" in r.orders![0]).toBe(false);
+  });
+
+  it("内服の Rp では、理由はその薬のオーダにだけ残る（テスト用の表で）", () => {
+    const table: InteractionPair[] = [{ id: "t", level: "併用禁忌", a: ["ORAL-LOX60"], b: ["ORAL-SPL25"], text: "テスト", refs: [{ doc: "aldactoneA", section: "10.1", as: "テスト" }] }];
+    const d = rx(["ORAL-LOX60", "ORAL-REBA100"], { interactionReasons: { t: "テストの理由" } });
+    expect(reasonsToKeep(d, ctx(kitamura, [d]), [], ["ORAL-LOX60"], table)).toEqual([{ pairId: "t", level: "併用禁忌", drugs: "ロキソプロフェンNa錠 60mg × スピロノラクトン錠 25mg（持参薬）", reason: "テストの理由" }]);
+    expect(reasonsToKeep(d, ctx(kitamura, [d]), [], ["ORAL-REBA100"], table)).toBeUndefined();
+  });
+
+  it("中止の下書きがあるオーダとは照らさない", () => {
+    const d = rx(["ORAL-LOX60"]);
+    const stop: Draft = { id: "s1", origin: "manual", sourceText: "", comment: null, kind: "stop", drugCode: "ORAL-SPL25", said: "", targetOrderId: "kita-spl" };
+    const msgs = (ds: Draft[]) => checkDraft(d, ctx(kitamura, ds)).filter((i) => i.key.startsWith("ix-")).map((i) => i.message).join("／");
+    expect(msgs([d])).toMatch(/スピロノラクトン/);
+    expect(msgs([d, stop])).not.toMatch(/スピロノラクトン/);
   });
 });

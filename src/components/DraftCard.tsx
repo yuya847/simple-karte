@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
 import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
@@ -82,6 +83,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
               <span>
                 <b className="text-ink-faint">{i.title}</b>　{i.message === "速度" ? "" : i.message}
                 {i.formula && <span className="ml-1 rounded bg-paper px-1">{i.formula}</span>}
+                <SourceLinks sources={i.sources} />
               </span>
             </li>
           ))}
@@ -102,6 +104,12 @@ function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; 
         </span>
       </div>
       {issue.formula && <div className="nums mt-1 ml-5 inline-block rounded bg-sheet px-1.5 text-xs">{issue.formula}</div>}
+      {issue.sources && issue.sources.length > 0 && (
+        <div className="mt-1 ml-5 text-xs">
+          <SourceLinks sources={issue.sources} />
+        </div>
+      )}
+      {issue.input && <ReasonInput key={issue.key} input={issue.input} draft={draft} onApply={onApply} />}
       {issue.choices && issue.choices.length > 0 && (
         <div className="mt-1.5 ml-5 flex flex-wrap gap-1.5">
           {issue.choices.map((c) => (
@@ -117,12 +125,52 @@ function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; 
           ))}
         </div>
       )}
-      {(!issue.choices || issue.choices.length === 0) && (
+      {(!issue.choices || issue.choices.length === 0) && !issue.input && (
         <div className="mt-1 ml-5 text-[11px] text-ink-soft">
           {canRedo ? "↺ で指示の欄に戻して、言い直してください。" : draft.kind === "injection" || draft.kind === "prescription" ? "この下書きを消して（ごみ箱）、上のタブで入れ直してください。" : "この下書きを消して（ごみ箱）、右のツールで入れ直してください。"}
         </div>
       )}
     </li>
+  );
+}
+
+/** The documents an issue comes from (電子添文 on PMDA), each opened in a new tab. */
+export function SourceLinks({ sources }: { sources?: { label: string; url: string }[] }) {
+  if (!sources?.length) return null;
+  return (
+    <span className="ml-1 inline-flex flex-wrap gap-x-2">
+      {sources.map((s) => (
+        <a key={`${s.url}${s.label}`} href={s.url} target="_blank" rel="noreferrer" className="text-ai underline decoration-dotted underline-offset-2 hover:text-ink">
+          {s.label}
+        </a>
+      ))}
+    </span>
+  );
+}
+
+/** The doctor's reason to go on (併用禁忌, or a 配合 the 電子添文 says not to make). Enter or the button keeps it on the draft. */
+function ReasonInput({ input, draft, onApply }: { input: NonNullable<Issue["input"]>; draft: Draft; onApply: (d: Draft) => void }) {
+  const [text, setText] = useState("");
+  const done = () => text.trim() && onApply(input.apply(draft, text));
+  return (
+    <div className="mt-1.5 ml-5 flex flex-wrap gap-1.5">
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            done();
+          }
+        }}
+        placeholder={input.placeholder}
+        aria-label={input.placeholder}
+        className="min-w-48 flex-1 rounded border border-rule bg-sheet px-2 py-1 text-xs outline-none focus:border-ai"
+      />
+      <button type="button" disabled={!text.trim()} onClick={done} className="rounded-md border border-ai/40 bg-sheet px-2 py-1 text-xs text-ai hover:bg-ai hover:text-white disabled:opacity-40">
+        {input.button}
+      </button>
+    </div>
   );
 }
 

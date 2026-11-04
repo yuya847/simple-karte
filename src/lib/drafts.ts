@@ -59,6 +59,7 @@ import type {
   ProcedureOrder,
 } from "./types";
 import { checkPrescription, toPrescriptionOrders, type PrescriptionDraft } from "./rx";
+import { interactionIssues, reasonsToKeep } from "./interactions";
 import { consentFor, findConsent, type ConsentCode } from "./consent";
 import { PHYSIO, REGIONS, checkImaging, checkPhysio, emptyImaging, emptyPhysio, toImagingOrder, toPhysioOrder, type ExamPatientFacts, type ImagingDraft, type Modality, type PhysioDraft } from "./exams";
 
@@ -1402,16 +1403,19 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
 const pregnancyNote = (ctx: CheckContext): Issue[] =>
   ctx.patientFacts?.pregnancy ? [{ key: "pregnancy", level: "info", title: "妊娠中", message: `カルテに妊娠中${ctx.patientFacts.pregnancy.weeks ? `（${ctx.patientFacts.pregnancy.weeks}週）` : ""}の印があります。妊婦への投与は添付文書の記載を確かめてください。` }] : [];
 
+/** Orders a stop draft on screen is stopping (drug drafts are not checked against them). */
+const stoppingIds = (ctx: CheckContext) => ctx.drafts.flatMap((x) => (x.kind === "stop" ? [resolvedStopTarget(x, ctx)].filter((id): id is string => !!id) : []));
+
 export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
   switch (d.kind) {
     case "injection":
-      return [...checkInjection(d, ctx), ...pregnancyNote(ctx)];
+      return [...checkInjection(d, ctx), ...interactionIssues(d, ctx, stoppingIds(ctx)), ...pregnancyNote(ctx)];
     case "lab":
       return checkLab(d, ctx);
     case "procedure":
       return checkProcedure(d, ctx);
     case "prescription":
-      return [...checkPrescription(d, ctx, ctx.allergies ?? []), ...pregnancyNote(ctx)];
+      return [...checkPrescription(d, ctx, ctx.allergies ?? []), ...interactionIssues(d, ctx, stoppingIds(ctx)), ...pregnancyNote(ctx)];
     case "imaging":
       return checkImaging(d, ctx, ctx.patientFacts ?? null);
     case "physio":
@@ -1478,7 +1482,14 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     const target = ctx.activeOrders.find((o) => o.id === d.targetOrderId)!;
     return { stopIds: [], extend: { orderId: target.id, days: (target.order as { days: number }).days + d.addDays } };
   }
-  if (d.kind === "prescription") return { orders: toPrescriptionOrders(d, ctx.nowTime, d.id), stopIds: [] };
+  if (d.kind === "prescription") {
+    // The doctor's reasons for 併用禁忌 go on the order of the drug they are about.
+    const orders = toPrescriptionOrders(d, ctx.nowTime, d.id).map((o) => {
+      const interactionReasons = reasonsToKeep(d, ctx, stoppingIds(ctx), [o.drugCode]);
+      return interactionReasons ? { ...o, interactionReasons } : o;
+    });
+    return { orders, stopIds: [] };
+  }
   if (d.kind === "imaging") {
     const order = toImagingOrder(d);
     const need = consentFor(order);
@@ -1525,6 +1536,8 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       days: d.days ?? undefined,
       comment: d.comment ?? undefined,
     };
+    const interactionReasons = reasonsToKeep(d, ctx, stoppingIds(ctx));
+    if (interactionReasons) order.interactionReasons = interactionReasons;
     return { order, stopIds: d.duplicate?.action === "replace" ? [d.duplicate.orderId] : [] };
   }
   const r = resolvedCollect(d, ctx)!;

@@ -646,8 +646,8 @@ export function draftTargets(d: InjectionDraft | PrescriptionDraft, ctx: Pick<Ch
 }
 
 /** The findings of a drug draft (its Rp against the other orders and drafts). */
-export function draftInteractions(d: InjectionDraft | PrescriptionDraft, ctx: Pick<CheckContext, "activeOrders" | "drafts">, stoppedIds: string[]): InteractionFinding[] {
-  return findInteractions(draftCodes(d).codes, draftTargets(d, ctx, stoppedIds));
+export function draftInteractions(d: InjectionDraft | PrescriptionDraft, ctx: Pick<CheckContext, "activeOrders" | "drafts">, stoppedIds: string[], table: InteractionPair[] = INTERACTIONS): InteractionFinding[] {
+  return findInteractions(draftCodes(d).codes, draftTargets(d, ctx, stoppedIds), table);
 }
 
 /** The findings of a confirmed order against the patient's other running orders (for 処方監査). */
@@ -708,9 +708,9 @@ export function interactionIssues(d: DrugDraft, ctx: Pick<CheckContext, "activeO
 }
 
 /** The doctor's reasons for the findings that needed one, kept on the order. Only drugs of `codes` (an oral order is one drug). */
-export function reasonsToKeep(d: DrugDraft, ctx: Pick<CheckContext, "activeOrders" | "drafts">, stoppedIds: string[], codes?: string[]): InteractionReason[] | undefined {
+export function reasonsToKeep(d: DrugDraft, ctx: Pick<CheckContext, "activeOrders" | "drafts">, stoppedIds: string[], codes?: string[], table: InteractionPair[] = INTERACTIONS): InteractionReason[] | undefined {
   const reasons = d.interactionReasons ?? {};
-  const kept = draftInteractions(d, ctx, stoppedIds)
+  const kept = draftInteractions(d, ctx, stoppedIds, table)
     .filter((f) => f.needsReason && reasons[f.pairId]?.trim() && (!codes || codes.includes(f.code) || (f.other.where === "同じ Rp" && codes.includes(f.other.code))))
     .map((f) => ({ pairId: f.pairId, level: f.level, drugs: `${f.name} × ${f.other.name}（${f.other.where}）`, reason: reasons[f.pairId].trim() }));
   return kept.length ? kept : undefined;
