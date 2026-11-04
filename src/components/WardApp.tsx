@@ -192,7 +192,7 @@ import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { nextFrame, noteKey, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
 import { narcoticBlock } from "@/lib/narcotics";
-import { INITIAL_BOOK, type NarcoticBook } from "@/lib/narcotic-book";
+import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
 import { NarcoticSlips } from "./NarcoticSlips";
 import { FormularyView } from "./FormularyView";
 import { Drawer } from "./panels/Drawer";
@@ -1532,6 +1532,11 @@ export default function WardApp() {
   const toCosign = role === "医師" ? pendingOf(cosign).filter((i) => !confirmDeny(me.name, i)) : [];
   if (toCosign.length) todos.push({ key: "cosign", label: "研修医の記録の確認待ち", detail: `${new Set(toCosign.map((i) => i.patientId)).size}人の患者`, count: toCosign.length, tone: "yamabuki", go: () => goWard("cosign") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
+  // 麻薬: the ward writes the 施用票 and returns the ampoules; the pharmacy receives them (narcotic-book.ts).
+  const slipsToWrite = role === "看護師" ? slipsDue(people, mar, narcBook).length : 0;
+  if (slipsToWrite) todos.push({ key: "narc-slip", label: "麻薬の施用票がまだ", detail: "施用量と残量を書いて残液・空アンプルを薬剤部へ返す", count: slipsToWrite, tone: "shu", go: () => goWard("narcotic") });
+  const slipsToReceive = role === "薬剤師" ? narcBook.slips.filter((s) => !s.received).length : 0;
+  if (slipsToReceive) todos.push({ key: "narc-receive", label: "麻薬の施用票と残液の受け取り", detail: "薬剤部の「麻薬」タブで受け取る", count: slipsToReceive, tone: "yamabuki", go: () => openArea("pharmacy") });
   const toCall = uncalled(labItems, calls).length;
   // 掲示板: notices someone asked me to read, still unread.
   for (const n of notices) {
