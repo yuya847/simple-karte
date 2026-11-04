@@ -107,13 +107,14 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
                       </button>
                     )}
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="text-[10px] text-ink-faint">{p.kana}</div>
-                    <button type="button" onClick={() => onOpen(p.id)} title="この患者のタブを開く（記録・入院申込）" className={`font-bold hover:underline ${done ? "" : "text-ai"}`}>
-                      {p.name}
+                  <td className="px-2 py-1">
+                    {/* The whole cell (カナ・氏名・年齢性別・アレルギー) is the button that opens the patient's tab, not only the name. */}
+                    <button type="button" onClick={() => onOpen(p.id)} title="この患者のタブを開く（記録・入院申込）" aria-label={`${p.name} のタブを開く`} className="block min-h-8 w-full rounded px-1 py-1 text-left hover:bg-ai-soft hover:underline">
+                      <span className="block text-[10px] text-ink-faint">{p.kana}</span>
+                      <span className={`font-bold ${done ? "" : "text-ai"}`}>{p.name}</span>
+                      <span className="ml-2 text-[12px]">{ageSex(p)}</span>
+                      {p.allergies.length > 0 && <span className="block text-[11px] font-bold text-shu">アレルギー：{p.allergies.join("、")}</span>}
                     </button>
-                    <span className="ml-2 text-[12px]">{ageSex(p)}</span>
-                    {p.allergies.length > 0 && <div className="text-[11px] font-bold text-shu">アレルギー：{p.allergies.join("、")}</div>}
                   </td>
                   {showDoctor && (
                     <td className="px-3 py-2 text-[12px]">
@@ -173,7 +174,7 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
             })}
           </tbody>
         </table>
-        <p className="px-5 py-3 text-[11px] text-ink-faint">患者はすべて架空です。<span className="hint">名前を押すと、その患者のタブが開き、今日の記録と入院申込を書けます。</span>外来の算定と処方せんは、この試作では扱いません。</p>
+        <p className="px-5 py-3 text-[11px] text-ink-faint">患者はすべて架空です。<span className="hint">氏名の欄を押すと、その患者のタブが開き、今日の記録と入院申込を書けます。</span>外来の算定と処方せんは、この試作では扱いません。</p>
       </div>
     </section>
   );
