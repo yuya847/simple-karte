@@ -69,6 +69,8 @@ import { DocsPanel } from "./panels/DocsPanel";
 import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
 import { TakeStatus } from "./TakeStatus";
+import { TakeDesk } from "./TakeDesk";
+import { orderTakeBadge, unconfirmed, type Confirms } from "@/lib/order-confirm";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { useWorkspace } from "@/lib/use-workspace";
 import { WorkspaceStatus } from "./WorkspaceStatus";
@@ -489,6 +491,8 @@ export default function WardApp() {
   const [transferAsks, setTransferAsks] = useState<TransferAsk[]>([]);
   // 指示受け: changes a nurse held to ask the doctor (by row key), with the doctor's answer.
   const [takeHolds, setTakeHolds] = useState<Record<string, TakeHold>>({});
+  // 指示確認: after taking a change, the nurse looked at the schedule it makes (row key → "HH:MM 看護師 ◯◯").
+  const [takeConfirms, setTakeConfirms] = useState<Confirms>({});
   // 研修医の記事とオーダ, each waiting for the 指導医 or 上級医 to confirm it (who and when).
   const [cosign, setCosign] = useState<CosignItem[]>([]);
   // 閲覧制限 (every setting kept), and the reasons given to open a limited chart from outside its care team.
@@ -724,6 +728,7 @@ export default function WardApp() {
       national: [national, setNational],
       iji: [iji, setIji],
       takeHolds: [takeHolds, setTakeHolds],
+      takeConfirms: [takeConfirms, setTakeConfirms],
       oralRx: [oralRx, setOralRx],
       narcBook: [narcBook, setNarcBook],
       rosterBook: [rosterBook, setRosterBook],
@@ -1728,6 +1733,14 @@ export default function WardApp() {
     auditLog({ role: me.role, actor: me.name, action: "指示受けを保留して医師に確認", patient: r?.name, detail: `${r?.main ?? key}　${reason}${note ? `：${note}` : ""}` });
     setTakeHolds((all) => ({ ...all, [key]: { by: me.name, at: nowTime, reason, note } }));
   };
+  // 指示確認: the nurse looked at the doses and tasks the taken change makes for today and tomorrow.
+  const takeCtx = { taken, isTaken: isRowTaken, holds: takeHolds, confirms: takeConfirms };
+  const confirmOrder = (key: string) => {
+    const r = allTakeRows.find((x) => x.key === key);
+    auditLog({ role: me.role, actor: me.name, action: "指示確認（指示が作る予定を確かめた）", patient: r?.name, detail: `${r ? `${r.kind === "変更" ? "【変】" : r.kind} ${r.main}` : key}` });
+    setTakeConfirms((all) => ({ ...all, [key]: `${nowTime} ${me.name}` }));
+  };
+  const takeNotConfirmed = unconfirmed(allTakeRows, takeCtx).length;
   const recordMar = (r: AdminRecord) => {
     const who = findPatient(r.patientId);
     const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
@@ -1765,7 +1778,8 @@ export default function WardApp() {
       else if (r.flags.urgent && !isRowTaken(r) && r.keys.some((k) => sessionKeys.has(k)) && abs(0, nowTime) - r.at >= 15) todos.push({ key: `urgent-${r.key}`, label: `至急の指示がまだ受けられていない：${r.name}さん`, detail: `${r.main}（${abs(0, nowTime) - r.at}分）`, count: 1, tone: "shu", go: () => openPatient(r.patientId) });
     }
   }
-  if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "ワークシートで受ける", count: takeWaiting, tone: "yamabuki", go: () => goWard("sheet") });
+  if (role === "看護師" && takeWaiting) todos.push({ key: "take", label: "指示受けがまだ", detail: "指示受けの画面で受ける（ワークシートでも）", count: takeWaiting, tone: "yamabuki", go: () => goWard("take") });
+  if (role === "看護師" && takeNotConfirmed) todos.push({ key: "take-confirm", label: "受けた指示の予定の確認がまだ", detail: "指示が今日と明日に作る予定を見て「予定を確認した」", count: takeNotConfirmed, tone: "yamabuki", go: () => goWard("take") });
   const toCosign = role === "医師" ? pendingOf(cosign).filter((i) => !confirmDeny(me.name, i)) : [];
   if (toCosign.length) todos.push({ key: "cosign", label: "研修医の記録の確認待ち", detail: `${new Set(toCosign.map((i) => i.patientId)).size}人の患者`, count: toCosign.length, tone: "yamabuki", go: () => goWard("cosign") });
   if (admitDue) todos.push({ key: "admit", label: "入院時の評価：期限切れ・今日まで", count: admitDue, tone: "shu", go: () => goWard("admit") });
@@ -1834,7 +1848,7 @@ export default function WardApp() {
   };
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
-  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length };
+  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";
@@ -2174,6 +2188,25 @@ export default function WardApp() {
           onOpenVisit={(id) => openVisit("er", id)}
           requests={requestFor("er")}
         />
+      ) : screen === "take" ? (
+        <TakeDesk
+          people={people}
+          rows={allTakeRows}
+          taken={taken}
+          isTaken={isRowTaken}
+          holds={takeHolds}
+          confirms={takeConfirms}
+          nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]}
+          today={today}
+          nowTime={nowTime}
+          onTake={takeOrders}
+          onHold={holdOrder}
+          onConfirm={confirmOrder}
+          // 自分の受け持ち: the shift's 業務分担 when one is set, else the ward's fixed teams (架空の病院の取り決め).
+          isMine={(room) => (planNow ? nurseOfBed(planNow, room, rosterNow!.nurses) === me.name : nurseFor(room.replace(/[A-Z]$/, "")) === me.name)}
+          onOpen={openPatient}
+          onSheet={() => goWard("sheet")}
+        />
       ) : screen === "sheet" ? (
         <Worksheet
           people={people}
@@ -2198,6 +2231,7 @@ export default function WardApp() {
           onTake={takeOrders}
           holds={takeHolds}
           onHold={holdOrder}
+          confirm={{ confirms: takeConfirms, onConfirm: confirmOrder }}
           nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]}
           records={mar}
           sessionStart={sessionStart ?? abs(0, nowTime)}
@@ -2641,6 +2675,7 @@ export default function WardApp() {
               onModify={modifyOrder}
               care={{ orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) }}
               standingCal={{ lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason) => stopStandingLine(patient.id, id, reason), onOpenPanel: () => setPanel("standing") }}
+              takeBadgeOf={(id) => orderTakeBadge(id, allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k))), takeCtx)}
               flowDays={{
                 surgeries: surgeries.filter((x) => x.patientId === patient.id),
                 events: flowEvents.filter((x) => x.patientId === patient.id),
@@ -2774,6 +2809,8 @@ export default function WardApp() {
                   taken={taken}
                   isTaken={isRowTaken}
                   holds={takeHolds}
+                  confirms={takeConfirms}
+                  slip={{ patient: { id: patient.id, name: patient.name, room: people.find((x) => x.patient.id === patient.id)?.room ?? patient.room }, today, nowTime, by: me.name }}
                   nowAbs={abs(0, nowTime)}
                   onAnswer={(key, text) => {
                     auditLog({ role: me.role, actor: me.name, action: "看護師の確認に回答", patient: patient.name, detail: text });
