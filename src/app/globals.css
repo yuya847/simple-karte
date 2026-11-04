@@ -163,3 +163,28 @@ html:not([data-hints="on"]) .hint {
     pointer-events: none;
   }
 }
+
+/* 取違い防止: the patient card that swings in when the chart's patient changes (PatientSwitchFlash). */
+@keyframes karte-switch-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes karte-switch-card {
+  0% { transform: translateY(-24px) scale(0.92); opacity: 0; }
+  18% { transform: translateY(0) scale(1.04); opacity: 1; }
+  30% { transform: scale(1); }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.98); opacity: 0; }
+}
+.karte-switch {
+  animation: karte-switch-in 0.15s ease-out both;
+}
+.karte-switch-card {
+  animation: karte-switch-card 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .karte-switch,
+  .karte-switch-card {
+    animation: none;
+  }
+}

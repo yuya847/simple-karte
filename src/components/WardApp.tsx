@@ -128,6 +128,7 @@ import { HistoryPane, type LeftView } from "./HistoryPane";
 import type { FlowScale } from "@/lib/flow-scale";
 import { RefWindow, REF_TABS, isRefTab, type RefWindowProps } from "./RefWindows";
 import { PatientBar } from "./PatientBar";
+import { PatientSwitchFlash } from "./PatientSwitchFlash";
 import { PatientPicker } from "./PatientPicker";
 import { PatientList, type GroupBy } from "./PatientList";
 import { AppFrame, type Crumb, type TabGroup, type TabItem, type TabRow, type Todo } from "./AppFrame";
@@ -2779,6 +2780,7 @@ export default function WardApp() {
         />
       ) : patient && ctx ? (
         <>
+          <PatientSwitchFlash patient={{ id: patient.id, name: patient.name, kana: patient.kana, age: patient.age, sex: patient.sex, room: patient.room, ward: patient.ward }} />
           <PatientBar
             patient={patient}
             today={today}
