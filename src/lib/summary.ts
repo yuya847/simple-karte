@@ -3,6 +3,7 @@
 // 制限事項・ADL). The writer adds their own words; nothing here is written by AI.
 
 import type { AdmitEval } from "./admit-eval";
+import { anamnesisSummary, type AnamnesisFields } from "./anamnesis";
 import { scheduleLabel, type CareOrder } from "./care-orders";
 import { addDays, formatShort } from "./dates";
 import { summaryLines, type NursingProblem } from "./nursing-plan";
@@ -23,7 +24,7 @@ export interface SummarySection {
 
 const KEY_LABS = ["WBC", "Hb", "Plt", "Alb", "Cre", "Na", "K", "CRP"];
 
-export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] } }): SummarySection[] {
+export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] }; anamnesis?: AnamnesisFields }): SummarySection[] {
   const active = entries.filter((e) => e.status === "有効");
   const lines = (type: OrderEntry["order"]["type"]) =>
     active.filter((e) => e.order.type === type).map((e) => {
@@ -43,7 +44,10 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
   const out: SummarySection[] = [
     { heading: "病名", lines: dx.length ? dx.map((d) => `${diagnosisLabel(d)}${d.main ? "（主病名）" : ""}`) : [p.admissionDiagnosis] },
     { heading: "感染症・アレルギー", lines: [`感染症：${p.infections.join("、") || "なし"}`, `アレルギー：${p.allergies.join("、") || "なし"}`] },
+    ...(p.contraindications?.length ? [{ heading: "禁忌", lines: p.contraindications }] : []),
     { heading: "生活上の注意", lines: [...p.cautions, ...(p.codeStatus ? [`事前指示：${p.codeStatus}`] : [])] },
+    // 入院時の情報収集 (anamnesis.ts): the life before admission, without asking again.
+    ...(extra.anamnesis ? [{ heading: "入院前の生活（入院時の情報収集）", lines: anamnesisSummary(extra.anamnesis) }] : []),
     { heading: "制限事項（安静・入浴・食事）", lines: [s?.rest && `安静度：${s.rest}`, s?.bath && `清潔：${s.bath}`, extra.dietNow && `食事：${extra.dietNow}`].filter((x): x is string => !!x) },
     {
       heading: "ADL・リスク",

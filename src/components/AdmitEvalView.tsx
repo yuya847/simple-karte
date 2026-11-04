@@ -29,6 +29,7 @@ import {
 } from "@/lib/admit-eval";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import type { Action } from "@/lib/roles";
+import type { EvalHints } from "@/lib/anamnesis";
 import type { WorkPatient } from "@/lib/worksheet";
 import { PatientAvatar } from "./PatientAvatar";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -39,6 +40,8 @@ interface Props {
   today: CalendarDate;
   nowTime: string;
   onSave: (e: AdmitEval, what: string) => void;
+  /** Candidates from 入院時の情報収集 (anamnesis.ts), by patient id; the nurse confirms each one. */
+  hints?: Record<string, EvalHints>;
 }
 
 const COLUMNS: { key: ItemKey; short: string; action: Action }[] = [
@@ -62,7 +65,7 @@ const STATE_STYLE: Record<Due["state"], string> = {
 };
 
 /** 入院時の評価: what each patient still needs after admission, with the deadline, by job. */
-export function AdmitEvalView({ people, evals, today, nowTime, onSave }: Props) {
+export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {} }: Props) {
   const deny = useDeny();
   const [sel, setSel] = useState<{ pid: string; key: ItemKey } | null>(null);
   const day = (d: number) => formatShort(addDays(today, d)).replace(/（.）/, "");
@@ -138,6 +141,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave }: Props) 
           today={today}
           nowTime={nowTime}
           onSave={onSave}
+          hints={hints[sel.pid]}
         />
       )}
       {!sel && <p className="hint mt-3 text-xs text-ink-faint">表の枠を押すと、その項目を書く欄が出ます。太字の列が、いまの職種が書く項目です。</p>}
@@ -145,7 +149,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave }: Props) 
   );
 }
 
-function Detail({ w, ev, item, today, nowTime, onSave }: { w: WorkPatient; ev: AdmitEval; item: ItemKey; today: CalendarDate; nowTime: string; onSave: (e: AdmitEval, what: string) => void }) {
+function Detail({ w, ev, item, today, nowTime, onSave, hints }: { w: WorkPatient; ev: AdmitEval; item: ItemKey; today: CalendarDate; nowTime: string; onSave: (e: AdmitEval, what: string) => void; hints?: EvalHints }) {
   const col = COLUMNS.find((c) => c.key === item)!;
   const due = duesOf(ev, w.patient.admittedOn).find((d) => d.key === item)!;
   const locked = !!useDeny()(col.action);
@@ -160,10 +164,11 @@ function Detail({ w, ev, item, today, nowTime, onSave }: { w: WorkPatient; ev: A
       <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
         {item === "plan" && <PlanForm w={w} ev={ev} today={today} nowTime={nowTime} onSave={onSave} />}
         {(item === "nutrition" || item === "reassess") && <NutritionForm w={w} ev={ev} today={today} nowTime={nowTime} onSave={onSave} start={item === "reassess" ? "再評価" : null} />}
-        {item === "pressure" && <PressureForm ev={ev} nowTime={nowTime} onSave={onSave} />}
-        {item === "fall" && <ChecklistForm kind="fall" ev={ev} nowTime={nowTime} onSave={onSave} suggested={[]} />}
-        {item === "delirium" && <ChecklistForm kind="delirium" ev={ev} nowTime={nowTime} onSave={onSave} suggested={suggestions(w.patient, !!ev.emergency).delirium} />}
-        {(item === "discharge" || item === "talk" || item === "conference") && <DischargeForm w={w} ev={ev} nowTime={nowTime} today={today} onSave={onSave} />}
+        {item === "pressure" && <PressureForm ev={ev} nowTime={nowTime} onSave={onSave} adl={hints?.adl} />}
+        {item === "fall" && <ChecklistForm kind="fall" ev={ev} nowTime={nowTime} onSave={onSave} suggested={hints?.fall ?? []} why={hints?.why} />}
+        {item === "delirium" && <ChecklistForm kind="delirium" ev={ev} nowTime={nowTime} onSave={onSave} suggested={[...new Set([...suggestions(w.patient, !!ev.emergency).delirium, ...(hints?.delirium ?? [])])]} why={hints?.why} />}
+        {(item === "discharge" || item === "talk" || item === "conference") && <DischargeForm w={w} ev={ev} nowTime={nowTime} today={today} onSave={onSave} hints={hints} />}
+        {!hints && (item === "pressure" || item === "fall" || item === "delirium" || item === "discharge") && <p className="hint mt-2 text-[11px] text-ink-faint">入院時の情報収集（右端のツール「情報収集」）を書くと、答えから当てはまりそうな項目がここに候補として入ります。</p>}
       </fieldset>
     </section>
   );
@@ -403,9 +408,9 @@ function NutritionForm({ w, ev, today, nowTime, onSave, start }: { w: WorkPatien
   );
 }
 
-function PressureForm({ ev, nowTime, onSave }: { ev: AdmitEval; nowTime: string; onSave: (e: AdmitEval, what: string) => void }) {
+function PressureForm({ ev, nowTime, onSave, adl }: { ev: AdmitEval; nowTime: string; onSave: (e: AdmitEval, what: string) => void; adl?: AdlRank }) {
   const me = useMe();
-  const [f, setF] = useState<Omit<PressureRecord, "by" | "at">>(ev.pressure ?? { adl: "J1", items: {}, ulcerNow: false, plan: "" });
+  const [f, setF] = useState<Omit<PressureRecord, "by" | "at">>(ev.pressure ?? { adl: adl ?? "J1", items: {}, ulcerNow: false, plan: "" });
   const target = pressureTarget(f.adl);
   const needPlan = pressurePlanNeeded({ ...f, by: "", at: { day: 0, time: "" } });
   const complete = !target || PRESSURE_ITEMS.every((i) => f.items[i.key] !== undefined);
@@ -419,6 +424,7 @@ function PressureForm({ ev, nowTime, onSave }: { ev: AdmitEval; nowTime: string;
             <option key={r}>{r}</option>
           ))}
         </select>
+        {!ev.pressure && adl && f.adl === adl && <span className="text-ink-faint">（入院時の情報収集から）</span>}
         <span className="text-ink-faint">評価の対象：{PRESSURE_TARGET_RANKS.join("・")}（架空の病院の設定。通知にランクの線引きはありません）</span>
       </label>
       {target && (
@@ -465,7 +471,7 @@ function PressureForm({ ev, nowTime, onSave }: { ev: AdmitEval; nowTime: string;
   );
 }
 
-function ChecklistForm({ kind, ev, nowTime, onSave, suggested }: { kind: "fall" | "delirium"; ev: AdmitEval; nowTime: string; onSave: (e: AdmitEval, what: string) => void; suggested: string[] }) {
+function ChecklistForm({ kind, ev, nowTime, onSave, suggested, why = {} }: { kind: "fall" | "delirium"; ev: AdmitEval; nowTime: string; onSave: (e: AdmitEval, what: string) => void; suggested: string[]; why?: Record<string, string> }) {
   const me = useMe();
   const rec = ev[kind];
   const [checked, setChecked] = useState<string[]>(rec?.checked ?? suggested);
@@ -483,7 +489,7 @@ function ChecklistForm({ kind, ev, nowTime, onSave, suggested }: { kind: "fall" 
             <label className="flex items-center gap-1">
               <input type="checkbox" checked={checked.includes(r)} onChange={() => toggle(checked, setChecked, r)} className="accent-shu" />
               {r}
-              {suggested.includes(r) && <span className="text-ink-faint">（年齢からコードで）</span>}
+              {suggested.includes(r) && <span className="text-ink-faint">（{why[r] ?? "年齢からコードで"}）</span>}
             </label>
           </li>
         ))}
@@ -534,10 +540,11 @@ function ChecklistForm({ kind, ev, nowTime, onSave, suggested }: { kind: "fall" 
   );
 }
 
-function DischargeForm({ w, ev, nowTime, today, onSave }: { w: WorkPatient; ev: AdmitEval; nowTime: string; today: CalendarDate; onSave: (e: AdmitEval, what: string) => void }) {
+function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatient; ev: AdmitEval; nowTime: string; today: CalendarDate; onSave: (e: AdmitEval, what: string) => void; hints?: EvalHints }) {
   const when = (a: { day: number; time: string }) => `${a.day === 0 ? "今日" : formatShort(addDays(today, a.day)).replace(/（.）/, "")} ${a.time}`;
   const me = useMe();
-  const sug = suggestions(w.patient, !!ev.emergency).discharge;
+  const fromCode = suggestions(w.patient, !!ev.emergency).discharge;
+  const sug = [...new Set([...fromCode, ...(hints?.discharge ?? [])])];
   const ds = ev.discharge;
   const [factors, setFactors] = useState<string[]>(ds?.factors ?? sug);
   const [note, setNote] = useState(ds?.note ?? "");
@@ -563,7 +570,7 @@ function DischargeForm({ w, ev, nowTime, today, onSave }: { w: WorkPatient; ev: 
               <input type="checkbox" disabled={!!ds} checked={factors.includes(f.key)} onChange={() => setFactors(factors.includes(f.key) ? factors.filter((x) => x !== f.key) : [...factors, f.key])} className="mt-0.5 accent-shu" />
               <span>
                 {f.key} {f.label}
-                {sug.includes(f.key) && <span className="text-ink-faint">（{f.key === "イ" ? "入院の経路" : "入院時の病名"}からコードで）</span>}
+                {sug.includes(f.key) && <span className="text-ink-faint">（{[fromCode.includes(f.key) && `${f.key === "イ" ? "入院の経路" : "入院時の病名"}からコードで`, hints?.why[f.key]].filter(Boolean).join("・")}）</span>}
               </span>
             </label>
           </li>

@@ -88,7 +88,9 @@ import { INITIAL_CARE_ORDERS, careActive, initialCareRecords, lateCare, voidCare
 import { INITIAL_PLANS, dueEvaluations, evalStatus, problemTitle, type NursingProblem } from "@/lib/nursing-plan";
 import { NursingPanel } from "./panels/NursingPanel";
 import { ProfilePanel } from "./panels/ProfilePanel";
-import { applyProfile, checkList, type ProfileChange } from "@/lib/profile";
+import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/profile";
+import { AnamnesisPanel } from "./panels/AnamnesisPanel";
+import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
@@ -304,6 +306,7 @@ function parseIso(s: string): CalendarDate {
 }
 
 const newId = () => crypto.randomUUID();
+const anamnesisVersionsCount = (r?: AnamnesisRecord) => (r ? (r.earlier?.length ?? 0) + 1 : 0);
 
 /** Short line for the P) section of today's note, written by code from the confirmed order. */
 function planLine(entry: OrderEntry, today: CalendarDate): string {
@@ -513,6 +516,8 @@ export default function WardApp() {
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   // 患者プロファイルの変更（アレルギー・感染症・禁忌・血液型・身長体重・介助）, every change kept.
   const [profileLog, setProfileLog] = useState<ProfileChange[]>([]);
+  // 入院時の情報収集（アナムネーシス）, by patient id (earlier versions inside).
+  const [anamnesis, setAnamnesis] = useState<Record<string, AnamnesisRecord>>({});
   // Notes confirmed in this session, and corrected notes (by key, earlier versions inside).
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
@@ -602,6 +607,7 @@ export default function WardApp() {
       discharges: [discharges, setDischarges],
       extraCautions: [extraCautions, setExtraCautions],
       profileLog: [profileLog, setProfileLog],
+      anamnesis: [anamnesis, setAnamnesis],
       notes: [notes, setNotes],
       revised: [revised, setRevised],
       handoffs: [handoffs, setHandoffs],
@@ -1912,6 +1918,7 @@ export default function WardApp() {
           evals={evals}
           today={today}
           nowTime={nowTime}
+          hints={Object.fromEntries(Object.entries(anamnesis).map(([id, r]) => [id, evalHints(r.fields)]))}
           onSave={(e, what) => {
             const p = findPatient(e.patientId);
             auditLog({ role: me.role, actor: me.name, action: `確定（入院時の評価：${what}）`, patient: p?.name });
@@ -3036,7 +3043,7 @@ export default function WardApp() {
                     patient={patient}
                     today={formatShort(today)}
                     nowTime={nowTime}
-                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standing[patient.id]?.at(-1), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) } })}
+                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standing[patient.id]?.at(-1), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
                     onSave={(to, words) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・連携サマリを作成（宛先：${to}）${words ? `。申し送り：${words}` : ""}\n` }));
@@ -3091,6 +3098,26 @@ export default function WardApp() {
                     newId={newId}
                     onOrders={(f, what) => (auditLog({ role: me.role, actor: me.name, action: "確定（看護ケア指示）", patient: patient.name, detail: what }), setCareOrders(f))}
                     onPlans={(f, what) => (auditLog({ role: me.role, actor: me.name, action: "確定（看護計画）", patient: patient.name, detail: what }), setNursingPlans(f))}
+                  />
+                </Drawer>
+              )}
+              {panel === "anamnesis" && (
+                <Drawer title="入院時の情報収集（アナムネーシス）" onClose={closePanel} wide>
+                  <AnamnesisPanel
+                    key={`${patient.id}-${anamnesisVersionsCount(anamnesis[patient.id])}`}
+                    patient={patient}
+                    record={anamnesis[patient.id]}
+                    care={careNow(profileLog, patient.id)}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    onSave={(fields, reason) => {
+                      const at = { day: 0, time: nowTime };
+                      const prev = anamnesis[patient.id];
+                      setAnamnesis((all) => ({ ...all, [patient.id]: saveAnamnesis(all[patient.id], patient.id, fields, me.name, at, reason) }));
+                      // 介助 goes on into the patient profile (only where it differs), as the nurse's change.
+                      const cs = careToProfile(fields, careNow(profileLog, patient.id));
+                      if (cs.length) setProfileLog((all) => [...all, ...cs.map((c) => ({ ...c, id: newId(), patientId: patient.id, by: me.name, role: me.role, at }) as ProfileChange)]);
+                      auditLog({ role: me.role, actor: me.name, action: prev ? "確定（入院時の情報収集の更新）" : "確定（入院時の情報収集）", patient: patient.name, detail: reason.trim() || undefined });
+                    }}
                   />
                 </Drawer>
               )}
