@@ -17,7 +17,7 @@ import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
-import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar } from "./Calendars";
+import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar, type CalendarProps } from "./Calendars";
 import { FlowSheet, type FlowSheetProps } from "./FlowSheet";
 import type { FlowIo } from "./IoFlowRows";
 import type { FlowDays } from "./FlowDayRows";
@@ -65,6 +65,9 @@ interface Props {
   onModify?: (entry: OrderEntry) => void;
   pendingExtends?: Record<string, number>;
   marOf?: CalendarMar;
+  /** 新規 from the injection calendar (a day and time band, or Do of an order), and the injection drafts not confirmed yet. */
+  onNewInjection?: CalendarProps["onNewInjection"];
+  pendingNew?: CalendarProps["pendingNew"];
   /** Correct a confirmed note (a new version; the earlier ones are kept). `by` names the people who corrected it together. */
   onReviseNote?: (e: NoteEntry, text: string, reason: string, by?: string) => void;
   /** 記事の同時編集: who else is correcting which note, and telling them what this page types. */
@@ -122,8 +125,8 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, coedit, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal, takeBadgeOf } = props;
-  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, coedit, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onNewInjection, pendingNew, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal, takeBadgeOf } = props;
+  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, onNewInjection, pendingNew };
   // A 記録 mark of the flow sheet opens 経過 on that day with only that kind of note (n renews the list).
   const [recordKind, setRecordKind] = useState<{ kind: string; n: number }>({ kind: "all", n: 0 });
   const openRecord = (day: DayOffset, kind: string) => {

@@ -1,18 +1,19 @@
 "use client";
 
-import { ArrowRight, Check, Square } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Check, Plus, Square } from "lucide-react";
+import { useEffect, useState } from "react";
 import { injectionCell, prescriptionCell, procedureCell } from "@/lib/calendar";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { abs, fluidByDay } from "@/lib/flowsheet";
-import { durationText, oralName, procedureLines, scheduleTextFor, timingText } from "@/lib/format";
+import { durationText, oralName, procedureLines, scheduleLabel, scheduleTextFor, timingText } from "@/lib/format";
 import { findProc } from "@/lib/procedures";
 import { findDrug } from "@/lib/master";
 import { ordersOf } from "@/lib/record";
-import { orderEndDay } from "@/lib/drafts";
+import { orderEndDay, type InjectionDraft } from "@/lib/drafts";
+import { START_BANDS, doStartOf, draftSpan, startAt, type InjStart } from "@/lib/inj-calendar";
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "@/lib/types";
 
-interface CalendarProps {
+export interface CalendarProps {
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
@@ -29,6 +30,13 @@ interface CalendarProps {
   pendingExtends?: Record<string, number>;
   /** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00), shown on the dose. */
   marOf?: (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
+  /**
+   * 新規 (injection calendar): a new injection starting on the day pressed (and its time band), entered in the
+   * 注射 tab as always; `from` is the order to copy for Do (同じ内容で続けて新規). Absent when the viewer cannot order.
+   */
+  onNewInjection?: (start: InjStart, from?: InjectionOrder) => void;
+  /** Injection drafts not confirmed yet, shown as dashed rows so the new order is seen on the calendar at once. */
+  pendingNew?: InjectionDraft[];
 }
 
 /** 実施 / 未実施 as the nurse recorded it, next to a dose. */
@@ -124,6 +132,7 @@ function RowHead({
   drafted,
   onExtend,
   onModify,
+  onDo,
   endLabel,
 }: {
   entry: OrderEntry;
@@ -133,6 +142,8 @@ function RowHead({
   drafted: boolean;
   onExtend?: (days: number) => void;
   onModify?: () => void;
+  /** Do: the same order again as a new one (from the day after it ends, or today). */
+  onDo?: () => void;
   /** "〜11/5" when the order has an end; null when it runs until changed. */
   endLabel?: string | null;
 }) {
@@ -179,6 +190,16 @@ function RowHead({
               )}
             </>
           ))}
+        {onDo && (
+          <button
+            type="button"
+            onClick={onDo}
+            title={active && endLabel ? "同じ内容で新しい注射を出す（終わりの翌日から。注射のタブに写します）" : "同じ内容で新しい注射を出す（今日から。注射のタブに写します）"}
+            className="rounded border border-rule px-1.5 text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1"
+          >
+            同じ内容で新規
+          </button>
+        )}
       </div>
     </th>
   );
@@ -207,10 +228,12 @@ const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
   { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
 ];
 
-export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, marOf }: CalendarProps) {
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, marOf, onNewInjection, pendingNew = [] }: CalendarProps) {
   const days = calendarDays(patient, INJ_AHEAD);
   // The end being dragged (or moved with ← →) on one order, before it becomes a draft.
   const [drag, setDrag] = useState<{ id: string; to: DayOffset } | null>(null);
+  // The day pressed on the ＋ 新しい注射 row, while its time band is being chosen.
+  const [pick, setPick] = useState<DayOffset | null>(null);
   const lastDay = days[days.length - 1];
   const fmt = (d: DayOffset) => formatShort(addDays(today, d));
   const nowAbs = abs(0, nowTime);
@@ -224,7 +247,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note="✓ は予定の時刻を過ぎた投与です（この試作では実施の記録はなく、架空です）。枠だけのものはこれからの予定。点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。"
+      note={`✓ は予定の時刻を過ぎた投与です（この試作では実施の記録はなく、架空です）。枠だけのものはこれからの予定。点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます（時刻帯の時刻は架空の病院の取り決め）。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
     >
       {INJ_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as InjectionOrder));
@@ -251,24 +274,28 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                   endLabel={orderEndDay(o) === null ? null : `〜${formatShort(addDays(today, orderEndDay(o)!))}`}
                   onExtend={onExtendDraft ? (n) => onExtendDraft(e, n) : undefined}
                   onModify={onModify ? () => onModify(e) : undefined}
+                  onDo={onNewInjection && (e.status === "有効" || e.status === "中止") ? () => onNewInjection(doStartOf(o, e.status as "有効" | "中止"), o) : undefined}
                 />
                 {days.map((d) => {
                   const c = injectionCell(e, d, nowAbs);
                   const end = e.status === "有効" && onExtendDraft ? orderEndDay(o) : null;
                   const extendable = end !== null && d > end;
+                  // A stopped order: today's and later cells start the same order again from that day (Do).
+                  const redoable = !!onNewInjection && e.status === "中止" && d >= 0;
                   const to = drag?.id === e.id ? drag.to : end !== null && pendingExtends[e.id] ? end + pendingExtends[e.id] : null;
                   const inPreview = end !== null && to !== null && d > end && d <= to;
                   return (
                     <td
                       key={d}
                       data-cal-day={d}
-                      onClick={extendable ? () => onExtendDraft!(e, d - end!) : undefined}
-                      title={extendable ? `ここまで延長（〜${fmt(d)}、${d - end!}日）` : undefined}
-                      className={`group/ext relative border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""} ${extendable ? "cursor-pointer hover:bg-ai-soft/70" : ""}`}
+                      onClick={extendable ? () => onExtendDraft!(e, d - end!) : redoable ? () => onNewInjection!(startAt(d, o.start.time), o) : undefined}
+                      title={extendable ? `ここまで延長（〜${fmt(d)}、${d - end!}日）` : redoable ? `${fmt(d)}から同じ内容で新規（Do）` : undefined}
+                      className={`group/ext relative border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""} ${extendable || redoable ? "cursor-pointer hover:bg-ai-soft/70" : ""}`}
                     >
                       <div className="flex flex-wrap gap-1">
                         {inPreview && <span className="whitespace-nowrap rounded border border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
                         {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
+                        {redoable && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋新規（Do）</span>}
                         {c.doses.map((x) => (
                           (() => {
                             const r = marOf?.(e.id, d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5)));
@@ -318,6 +345,80 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
           </td>
         </tr>
       )}
+      {pendingNew.length > 0 && [
+        <GroupRow key="pending" title="下書き（まだ確定していない新しい注射）" span={days.length + 1} />,
+        ...pendingNew.map((d) => {
+          const main = d.items[0];
+          const drug = main?.drugCode ? findDrug(main.drugCode) : undefined;
+          const span = draftSpan(d.start, d.days, lastDay);
+          const lines = [
+            d.items.map((it) => `${it.drugCode ? (findDrug(it.drugCode)?.name ?? it.said) : it.said}${it.amount !== null ? ` ${it.amount}${it.unit ?? ""}` : ""}`).join(" ＋ "),
+            [d.route, d.schedule ? scheduleLabel(d.schedule, main?.drugCode) : null, d.days ? `${d.days}日間` : "終了日なし"].filter(Boolean).join("　"),
+          ];
+          return (
+            <tr key={d.id} className="text-ink-soft">
+              <th className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1.5 text-left align-top font-normal">
+                <div className="font-bold text-ink">{drug?.aliases[0] ?? drug?.name ?? main?.said ?? "（薬の未定）"}</div>
+                {lines.map((l) => (
+                  <div key={l} className="text-[11px]">
+                    {l}
+                  </div>
+                ))}
+                <div className="mt-1 text-[10px] text-yamabuki">下書き：記事の下で確定するとオーダになります</div>
+              </th>
+              {days.map((day) => (
+                <td key={day} className={`border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${day === 0 ? "bg-ai-soft/30" : day > 0 ? "bg-paper/50" : ""}`}>
+                  {day >= span.from && day <= span.to && (
+                    <span className="whitespace-nowrap rounded border border-dashed border-yamabuki px-1 py-px text-[11px] text-yamabuki">
+                      {day === span.from && d.start.time ? `${d.start.time} ` : ""}
+                      下書き
+                    </span>
+                  )}
+                </td>
+              ))}
+            </tr>
+          );
+        }),
+      ]}
+      {onNewInjection && (
+        <tr>
+          <th className="sticky left-0 z-[5] border-b border-t border-rule bg-sheet px-3 py-1.5 text-left align-top font-normal">
+            <button type="button" onClick={() => onNewInjection(startAt(0, null))} title="今日から（時刻なし）の新しい注射を注射のタブで入れる" className="flex items-center gap-1 font-bold text-ai hover:underline">
+              <Plus size={13} />
+              新しい注射
+            </button>
+            <div className="hint mt-0.5 text-[10px] text-ink-faint">右の日付の欄を押すと、その日と時刻帯から。薬は注射のタブで選びます。</div>
+          </th>
+          {days.map((d) => (
+            <td key={d} data-new-pick className={`relative border-b border-l border-t border-rule px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""}`}>
+              {d >= 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPick((p) => (p === d ? null : d))}
+                  aria-expanded={pick === d}
+                  aria-haspopup="menu"
+                  title={`${fmt(d)}から新しい注射（時刻帯を選びます）`}
+                  className={`flex w-full items-center justify-center gap-0.5 rounded border border-dashed px-1 py-1 text-[11px] pointer-coarse:py-2 ${pick === d ? "border-ai bg-ai text-white" : "border-rule text-ink-faint hover:border-ai hover:text-ai"}`}
+                >
+                  <Plus size={11} />
+                  新規
+                </button>
+              )}
+              {pick === d && (
+                <StartBandMenu
+                  label={`${fmt(d)}から新しい注射の時刻帯`}
+                  onPick={(time) => {
+                    setPick(null);
+                    onNewInjection(startAt(d, time));
+                  }}
+                  onClose={() => setPick(null)}
+                  alignRight={d >= lastDay - 1}
+                />
+              )}
+            </td>
+          ))}
+        </tr>
+      )}
       <tr>
         <th className="sticky left-0 z-[5] border-t border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">
           点滴量（オーダから計算）
@@ -332,6 +433,39 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
   );
 }
 
+
+/**
+ * The time bands for the start of a new injection, under the day pressed on the ＋ 新しい注射 row.
+ * Esc or a press outside closes it. The clock times are the fictional hospital's rule (架空の病院の取り決め).
+ */
+function StartBandMenu({ label, onPick, onClose, alignRight }: { label: string; onPick: (time: string | null) => void; onClose: () => void; alignRight: boolean }) {
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target instanceof Element) || !e.target.closest("[data-new-pick]")) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+  return (
+    <div role="menu" aria-label={label} className={`absolute bottom-full z-30 mb-0.5 w-56 rounded-md border border-rule bg-sheet p-1.5 text-[12px] shadow-lg ${alignRight ? "right-0" : "left-0"}`}>
+      <div className="px-1 pb-1 text-[11px] font-bold text-ink-soft">{label}</div>
+      {START_BANDS.map((b) => (
+        <button key={b.label} type="button" role="menuitem" onClick={() => onPick(b.time)} className="nums flex w-full items-baseline justify-between gap-2 rounded px-2 py-1 text-left hover:bg-ai-soft pointer-coarse:py-2">
+          <span>{b.label}</span>
+          {b.time && <span className="text-ink-faint">{b.time}</span>}
+        </button>
+      ))}
+      <p className="px-1 pt-1 text-[10px] text-ink-faint">時刻帯の時刻は架空の病院の取り決めです。注射のタブで時刻を打ち直せます。</p>
+    </div>
+  );
+}
 
 /**
  * The arrow at the end of a drip: drag it right to extend (finger or mouse), or with the keyboard,
