@@ -24,6 +24,10 @@
   --color-wakatake-soft: #e3efe6;
   --color-fuji: #6a4c93;
   --color-fuji-soft: #efe8f6;
+  --color-mizu: #2f6f80;
+  --color-mizu-soft: #e0eef1;
+  --color-kuri: #7a4a26;
+  --color-kuri-soft: #f1e7dd;
 
   --font-sans: var(--font-biz), "Hiragino Sans", "Yu Gothic UI", sans-serif;
 }

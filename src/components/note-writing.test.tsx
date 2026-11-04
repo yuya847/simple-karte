@@ -85,8 +85,8 @@ describe("左の経過", () => {
   });
 
   it("shows 記録時刻, when it was written late, and when it was updated", () => {
-    expect(html).toContain(">記録 22:00<");
-    expect(html).toContain("記載 今日 08:10（遅れて記載）");
+    expect(html).toContain("記録 11/3（火） 22:00");
+    expect(html).toContain("記載 11/4（水） 08:10（遅れて記載）");
     expect(html).toContain("09:00 看護師 佐藤（第2版）");
   });
 });

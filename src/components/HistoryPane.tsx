@@ -240,6 +240,7 @@ function RecordList({
             )}
           </label>
         </div>
+        <RoleLegend />
         <div role="group" aria-label="記事の部分で絞る" className="flex flex-wrap items-center gap-0.5 text-[11px]">
           {NOTE_PARTS.map((x) => {
             const n = x === "全" ? null : visible.filter((e) => e.kind === "note" && hasPart(e, x)).length;
@@ -358,16 +359,31 @@ function Menu({ at, onClose, items }: { at: { x: number; y: number }; onClose: (
   );
 }
 
-const ROLE_STYLE: Record<NoteEntry["role"], string> = {
-  医師: "text-ai",
-  看護師: "text-wakatake",
-  薬剤師: "text-yamabuki",
-  臨床検査技師: "text-fuji",
-  管理栄養士: "text-yamabuki",
-  MSW: "text-fuji",
-  医事課: "text-ink-soft",
-  検査室: "text-fuji",
+/** One colour per profession: the chip with the role name, the left edge and a faint background of the note. */
+export const ROLE_COLORS: Record<NoteEntry["role"], { text: string; chip: string; edge: string; bg: string }> = {
+  医師: { text: "text-ai", chip: "bg-ai text-white", edge: "border-l-ai", bg: "bg-ai-soft/40" },
+  看護師: { text: "text-wakatake", chip: "bg-wakatake text-white", edge: "border-l-wakatake", bg: "bg-wakatake-soft/50" },
+  薬剤師: { text: "text-yamabuki", chip: "bg-yamabuki text-white", edge: "border-l-yamabuki", bg: "bg-yamabuki-soft/50" },
+  臨床検査技師: { text: "text-fuji", chip: "bg-fuji text-white", edge: "border-l-fuji", bg: "bg-fuji-soft/50" },
+  管理栄養士: { text: "text-kuri", chip: "bg-kuri text-white", edge: "border-l-kuri", bg: "bg-kuri-soft/60" },
+  MSW: { text: "text-mizu", chip: "bg-mizu text-white", edge: "border-l-mizu", bg: "bg-mizu-soft/60" },
+  医事課: { text: "text-ink-soft", chip: "bg-ink-soft text-white", edge: "border-l-ink-soft", bg: "bg-tab/60" },
+  検査室: { text: "text-fuji", chip: "bg-fuji text-white", edge: "border-l-fuji", bg: "bg-fuji-soft/50" },
 };
+
+/** The legend of the colours, over the record. */
+export function RoleLegend() {
+  const shown: NoteEntry["role"][] = ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW", "医事課"];
+  return (
+    <div className="flex flex-wrap items-center gap-1 text-[10px] text-ink-faint" aria-label="職種の色">
+      {shown.map((r) => (
+        <span key={r} className={`rounded px-1 leading-4 ${ROLE_COLORS[r].chip}`}>
+          {r}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry; today: CalendarDate; part?: NotePart; onRevise?: (e: NoteEntry, text: string, reason: string) => void; onDo?: (p: DoPayload) => void }) {
   const me = useMe();
@@ -380,7 +396,6 @@ function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry
   const last = versions.at(-1)!;
   // 記録時刻 (when it happened), 記載 (when it was written; later for a late note) and 更新 (the last correction).
   const times = noteTimes(entry);
-  const dayOf = (d: DayOffset) => (d === 0 ? "今日" : formatShort(addDays(today, d)));
   const mine = !!onRevise && canRevise(entry, me.name);
   const startEdit = () => {
     setDraft(noteText(entry));
@@ -399,7 +414,7 @@ function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry
         setMenu({ x: e.clientX, y: e.clientY });
       }}
       title={mine ? "ダブルクリックで修正、右クリックでメニュー" : "ダブルクリックで履歴、右クリックでメニュー"}
-      className={`group text-[13px] leading-relaxed ${onDo && !editing ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`group rounded-r-md border-l-[3px] py-1 pl-2.5 pr-1 text-[13px] leading-relaxed ${ROLE_COLORS[entry.role].edge} ${ROLE_COLORS[entry.role].bg} ${onDo && !editing ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {menu && (
         <Menu
@@ -414,18 +429,16 @@ function Note({ entry, today, part = "全", onRevise, onDo }: { entry: NoteEntry
       )}
       <div className="nums mb-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
         {onDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
-        <span title={`記録時刻 ${dayOf(times.event.day)} ${times.event.time}／記載 ${dayOf(times.written.day)} ${times.written.time}${times.updated ? `／更新 ${dayOf(times.updated.day)} ${times.updated.time}` : ""}`}>
-          {times.late || times.updated ? "記録 " : ""}
-          {entry.time}
-        </span>
-        <span className={`font-bold ${ROLE_STYLE[entry.role]}`}>{entry.role}</span>
-        <span>{entry.author}</span>
+        <span className={`rounded px-1 font-bold leading-4 ${ROLE_COLORS[entry.role].chip}`}>{entry.role}</span>
+        <span className="font-bold text-ink">{entry.author}</span>
         <CosignMark refId={entry.id} />
-        {times.late && (
-          <span className="rounded border border-fuji/50 px-1 text-fuji" title="出来事の時刻（記録時刻）より後に書いた記事。書いた時刻は変わらずに残ります。">
-            記載 {dayOf(times.written.day)} {times.written.time}（遅れて記載）
-          </span>
-        )}
+        <span className="text-ink-soft" title="出来事が起きた日時（記録時刻）">
+          記録 {formatShort(addDays(today, times.event.day))} {times.event.time}
+        </span>
+        <span className={times.late ? "rounded border border-fuji/50 px-1 text-fuji" : "text-ink-faint"} title="この記事を書いた日時（記載時刻）。あとから変わりません。">
+          記載 {formatShort(addDays(today, times.written.day))} {times.written.time}
+          {times.late ? "（遅れて記載）" : ""}
+        </span>
         {versions.length > 1 && (
           <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>
             <History size={11} />
