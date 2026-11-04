@@ -40,6 +40,8 @@ export interface PrnRule {
 }
 
 export interface StandingOrders {
+  /** Last valid day (inclusive). Absent = continues until changed. */
+  until?: number;
   rest: (typeof RESTS)[number] | null;
   bath: (typeof BATHS)[number] | null;
   vitals: (typeof VITAL_FREQS)[number] | null;
@@ -194,3 +196,5 @@ export function initialStanding(): Record<string, StandingOrders[]> {
     ],
   };
 }
+
+export const standingEffective = (s: StandingOrders | undefined, day = 0): StandingOrders | undefined => s && s.at.day <= day && (s.until === undefined || day <= s.until) ? s : undefined;

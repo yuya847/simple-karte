@@ -43,7 +43,7 @@ export const LINE_RULES = {
 };
 
 /** The last day of the bar: the stop, the planned end, or null (continues). */
-export const lineEndDay = (l: StandingLine): DayOffset | null => (l.stop ? l.stop.day : l.end ? l.end.day : null);
+export const lineEndDay = (l: StandingLine): DayOffset | null => (l.stop && l.end ? Math.min(l.stop.day, l.end.day) : l.stop ? l.stop.day : l.end ? l.end.day : null);
 
 /** Whether the line holds on a day (a stopped line holds up to the day it was stopped). */
 export function lineOn(l: StandingLine, day: DayOffset): boolean {
@@ -52,10 +52,10 @@ export function lineOn(l: StandingLine, day: DayOffset): boolean {
 }
 
 /** Lines in force or planned (not stopped, not past their end) — what is printed and what the nurse reads. */
-export const currentLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => !l.stop && (l.end === undefined || l.end.day >= today));
+export const currentLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => (!l.stop || l.stop.day > today) && (l.end === undefined || l.end.day >= today));
 
 /** Lines kept as history: stopped, or past their end. */
-export const pastLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => !!l.stop || (l.end !== undefined && l.end.day < today));
+export const pastLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => (!!l.stop && l.stop.day <= today) || (l.end !== undefined && l.end.day < today));
 
 /** Why a line cannot be confirmed yet (empty when it can). */
 export function lineProblems(l: { text: string; start: When; end?: When }): string[] {
@@ -158,15 +158,15 @@ export function linesFromFields(versions: StandingOrders[]): StandingLine[] {
     for (const f of now) {
       seen.add(f.key);
       const cur = open.get(f.key);
-      if (cur && cur.text === f.text) continue;
-      if (cur) cur.line.end = { day: v.at.day, time: v.at.time };
-      const line: StandingLine = { id: `fld-${i}-${f.key}`, cat: f.cat, text: f.text, start: { day: v.at.day, time: v.at.time }, by: v.by, at: { ...v.at }, fromFields: true };
+      if (cur && cur.text === f.text && cur.line.end?.day === v.until) continue;
+      if (cur && (cur.line.end === undefined || cur.line.end.day >= v.at.day)) cur.line.end = { day: v.at.day, time: v.at.time };
+      const line: StandingLine = { id: `fld-${i}-${f.key}`, cat: f.cat, text: f.text, start: { day: v.at.day, time: v.at.time }, end: v.until === undefined ? undefined : { day: v.until }, by: v.by, at: { ...v.at }, fromFields: true };
       out.push(line);
       open.set(f.key, { line, text: f.text });
     }
     for (const [k, cur] of open) {
       if (seen.has(k)) continue;
-      cur.line.end = { day: v.at.day, time: v.at.time };
+      if (cur.line.end === undefined || cur.line.end.day >= v.at.day) cur.line.end = { day: v.at.day, time: v.at.time };
       open.delete(k);
     }
   });
@@ -182,7 +182,7 @@ export function lineChanges(people: WorkPatient[], lines: Record<string, Standin
   for (const { patient: p, room } of people) {
     for (const l of lines[p.id] ?? []) {
       const at = abs(l.at.day, l.at.time);
-      if (!initialIds.has(l.id) && at >= since && at <= nowAbs) {
+      if (!initialIds.has(l.id) && at >= since && at <= nowAbs && abs(l.start.day, l.start.time ?? "00:00") <= nowAbs && (!l.end || abs(l.end.day, l.end.time ?? "23:59") >= nowAbs)) {
         const span = `${whenText(l.start, fmtDay)}から${l.end ? ` ${whenText(l.end, fmtDay)}まで` : "（変えるまで）"}`;
         out.push({ kind: "指示簿", at, text: { type: "指示簿", main: lineLabel(l), detail: span, author: l.by }, patientId: p.id, room, name: p.name, key: changeKey(l.id, "新規"), timeKnown: true });
       }

@@ -1,6 +1,6 @@
-import { abs } from "./flowsheet";
+import { lineEffective } from "./standing-calendar";
 import { changeKey, type WorkPatient } from "./worksheet";
-import { currentLines, type LineCat, type StandingLine } from "./standing-lines";
+import { type LineCat, type StandingLine } from "./standing-lines";
 
 export const CATEGORY_LABELS: Partial<Record<LineCat, string>> = { 安静: "安静度", バイタル: "バイタル測定", 呼出基準: "Dr.call の条件" };
 export const STANDING_CHOICES: Partial<Record<LineCat, readonly string[]>> = {
@@ -25,5 +25,8 @@ export const STANDING_SOURCES = [
 
 /** Text orders remain text: no drug, dose or automated administration limit is inferred. */
 export function worksheetPrnLines(lines: StandingLine[], person: WorkPatient, now: number, taken: Record<string, string>, sessionKeys: Set<string>) {
-  return currentLines(lines).filter((l) => l.cat === "頓用" && abs(l.start.day, l.start.time ?? "00:00") <= now && (!l.end || abs(l.end.day, l.end.time ?? "23:59") >= now) && (!sessionKeys.has(changeKey(l.id, "新規")) || !!taken[changeKey(l.id, "新規")])).map((l) => ({ id: l.id, patientId: person.patient.id, room: person.room, name: person.patient.name, text: l.text }));
+  const day = Math.floor(now / 1440);
+  const minutes = now - day * 1440;
+  const time = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  return lines.filter((l) => lineEffective(l, day, time) && l.cat === "頓用" && (!sessionKeys.has(changeKey(l.id, "新規")) || !!taken[changeKey(l.id, "新規")])).map((l) => ({ id: l.id, patientId: person.patient.id, room: person.room, name: person.patient.name, text: l.text }));
 }

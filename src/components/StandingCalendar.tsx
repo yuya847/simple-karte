@@ -1,5 +1,7 @@
 "use client";
 
+import { StandingBulkStop } from "./StandingBulkStop";
+import type { StandingStopDraft } from "@/lib/standing-calendar";
 import { useState } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { LINE_RULES, barCell, calendarRows, lineCalendarDays, whenText, type StandingLine } from "@/lib/standing-lines";
@@ -16,9 +18,13 @@ const COL_W = 84;
  * a stopped line ends where it was stopped. Press a bar for the full text, who and when; a doctor can stop
  * the line here (with a confirmation). Lines derived from the 項目で選ぶ fields are shown but stopped there.
  */
-export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpenPanel }: { patient: Patient; lines: StandingLine[]; today: CalendarDate; nowTime: string; onStop?: (id: string, reason: string) => void; onOpenPanel?: () => void }) {
-  const me = useMe();
+export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpenPanel, onBulkStop }: { patient: Patient; lines: StandingLine[]; today: CalendarDate; nowTime: string; onStop?: (id: string, reason: string) => void; onOpenPanel?: () => void; onBulkStop?: (draft: StandingStopDraft) => void }) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const selectable = lines.filter((l) => !l.stop && !l.fromFields);
   const deny = useDeny();
+  const canSelect = !!onBulkStop && !deny("order");
+  const toggle = (ids: string[]) => setSelected((prev) => ids.every((id) => prev.includes(id)) ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]);
+  const me = useMe();
   const days = lineCalendarDays(patient.admittedOn);
   const last = days[days.length - 1];
   const groups = calendarRows(lines);
@@ -35,6 +41,7 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {canSelect && <StandingBulkStop lines={lines} ids={selected} today={today} onConfirm={onBulkStop!} onClear={() => setSelected([])} />}
       <div className="scroll-thin min-h-0 flex-1 overflow-auto pb-4">
         <table className="nums border-separate border-spacing-0 text-[12px]" style={{ width: HEAD_W + days.length * COL_W }}>
           <colgroup>
@@ -45,7 +52,7 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
           </colgroup>
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-20 border-b border-rule bg-sheet px-3 py-1 text-left font-normal text-[11px] text-ink-faint">指示簿カレンダー</th>
+              <th className="sticky left-0 top-0 z-20 border-b border-rule bg-sheet px-3 py-1 text-left font-normal text-[11px] text-ink-faint">{canSelect && <input type="checkbox" aria-label="指示を全選択" checked={!!selectable.length && selectable.every((l) => selected.includes(l.id))} onChange={() => toggle(selectable.map((l) => l.id))} />} 指示簿カレンダー</th>
               {days.map((d) => (
                 <th key={d} className={`sticky top-0 z-10 border-b border-l border-rule bg-sheet px-1 py-1 font-normal ${d === 0 ? "bg-ai-soft" : ""}`}>
                   <div className="flex flex-col items-center">
@@ -65,11 +72,11 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
               </tr>
             )}
             {groups.map((g) => (
-              <GroupRows key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} nowPct={nowPct} />
+              <GroupRows key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} nowPct={nowPct} selected={selected} onToggle={canSelect ? toggle : undefined} />
             ))}
           </tbody>
         </table>
-        <p className="mt-2 px-3 text-[10px] text-ink-faint">
+        <p className="hint mt-2 px-3 text-[10px] text-ink-faint">
           {LINE_RULES.cats}
           <span className="hint"> 色の帯が指示の続く期間です。右端で切れずに続く帯は終了日なし（変えるまで）。「中止」と書かれた所で止まった帯は中止した行（履歴として残ります）。帯を押すと全文・書いた人・時刻が下に出ます。薄い帯は「項目で選ぶ」指示簿の版から出した行で、変えるときはその指示簿を変えます。今日の列の赤い線がいまの時刻。</span>
         </p>
@@ -134,20 +141,21 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
   );
 }
 
-function GroupRows({ cat, lines, days, last, openId, onChoose, nowPct }: { cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number }) {
+function GroupRows({ cat, lines, days, last, openId, onChoose, nowPct, selected, onToggle }: { cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number; selected: string[]; onToggle?: (ids: string[]) => void }) {
   return (
     <>
       <tr>
         <td colSpan={days.length + 1} className="sticky left-0 border-b border-rule bg-paper px-3 pb-0.5 pt-2 text-[11px] font-bold text-ink-soft">
-          <CatChip cat={cat} small /> {cat}
+          {onToggle && <input type="checkbox" aria-label={`${cat}を全選択`} checked={lines.some((l) => !l.stop && !l.fromFields) && lines.filter((l) => !l.stop && !l.fromFields).every((l) => selected.includes(l.id))} onChange={() => onToggle(lines.filter((l) => !l.stop && !l.fromFields).map((l) => l.id))} />} <CatChip cat={cat} small /> {cat}
         </td>
       </tr>
       {lines.map((l) => {
         const chosen = openId === l.id;
-        const tone = l.stop ? "bg-shu-soft/70 text-shu" : l.fromFields ? "bg-tab text-ink-soft" : l.start.day > 0 ? "border border-dashed border-ai/60 bg-sheet text-ai" : "bg-ai-soft text-ai";
+        const tone = l.stop ? "bg-shu-soft/40 text-ink-faint line-through" : l.fromFields ? "bg-tab text-ink-soft" : l.start.day > 0 ? "border border-dashed border-ai/60 bg-sheet text-ai" : "bg-ai-soft text-ai";
         return (
           <tr key={l.id} className={chosen ? "bg-yamabuki-soft/30" : ""}>
             <th scope="row" className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1 text-left align-top font-normal">
+              {onToggle && !l.stop && !l.fromFields && <input type="checkbox" aria-label={`${l.text}を選択`} checked={selected.includes(l.id)} onChange={() => onToggle([l.id])} />}
               <button type="button" onClick={() => onChoose(l.id)} aria-expanded={chosen} className={`block w-full truncate text-left hover:text-ai ${l.stop ? "text-ink-faint line-through" : ""}`} title={l.text}>
                 {l.text}
               </button>
@@ -167,7 +175,7 @@ function GroupRows({ cat, lines, days, last, openId, onChoose, nowPct }: { cat: 
                       aria-label={`${l.text}　${c.label || (c.first ? "開始" : c.continues ? "続く" : "")}`}
                       className={`my-1.5 block h-5 w-full truncate px-1 text-left text-[10px] leading-5 ${tone} ${c.first ? "rounded-l" : ""} ${c.last ? "rounded-r" : ""}`}
                     >
-                      {c.label}
+                      {c.first || d === days[0] ? `${l.text}　${c.label}` : c.label}
                       {c.continues && !c.label ? "→" : ""}
                     </button>
                   )}

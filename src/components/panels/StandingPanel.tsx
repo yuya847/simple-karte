@@ -1,5 +1,8 @@
 "use client";
 
+import { StandingCalendar } from "../StandingCalendar";
+import { linesFromFields } from "@/lib/standing-lines";
+import type { StandingStopDraft } from "@/lib/standing-calendar";
 import { useState } from "react";
 import { DRUGS, ORAL_DRUGS } from "@/lib/master";
 import { isNarcotic } from "@/lib/drug-class";
@@ -68,8 +71,9 @@ export function StandingPanel({
   condAcks?: Record<string, CondAck>;
   onCondRecord?: (h: CondHit, note: string) => void;
   /** The free-text lines (指示の行): the main part of the 指示簿; the fields below stay for the worksheet. */
-  lines?: { patient: Patient; lines: StandingLine[]; today: CalendarDate; onAdd: (l: StandingLine) => void; onStop: (id: string, reason: string) => void };
+  lines?: { patient: Patient; lines: StandingLine[]; today: CalendarDate; onAdd: (l: StandingLine) => void; onStop: (id: string, reason: string) => void; onBulkStop?: (draft: StandingStopDraft) => void };
 }) {
+  const [view, setView] = useState<"一覧" | "カレンダー">("一覧");
   const [print, sheet] = usePrintSheet();
   const me = useMe();
   const deny = useDeny();
@@ -83,6 +87,7 @@ export function StandingPanel({
     const stop = issues.some((x) => x.some((i) => i.level === "stop"));
     const ask = issues.some((x) => x.some((i) => i.level === "ask"));
     const missing = [
+      edit.until !== undefined && edit.until < 0 && "終了日（今日以降）",
       edit.prn.some((r) => !r.drug.code || !(r.drug.amount > 0) || !r.intervalH || !r.maxPerDay) && "頓用の薬・量・間隔・回数",
       (edit.conds ?? []).some((r) => condMissing(r).length > 0) && "条件付き指示の項目・値・すること",
     ].filter((x): x is string => !!x);
@@ -189,6 +194,7 @@ export function StandingPanel({
           </div>
         </section>
 
+        <label className="block">終了日（今日からの日数・空欄は変えるまで）<input type="number" aria-label="項目で選ぶ指示の終了日" min={0} value={edit.until ?? ""} onChange={(e) => set({ until: e.target.value === "" ? undefined : Number(e.target.value) })} className="ml-2 w-24 rounded border border-rule p-1" />{edit.until === undefined ? "変えるまで続く" : fmtDay(edit.until)}</label>
         <CondEditor conds={edit.conds ?? []} onChange={(conds) => set({ conds })} newId={newId} />
 
         <textarea value={edit.other} onChange={(e) => set({ other: e.target.value })} rows={2} placeholder="その他の指示（任意）" aria-label="その他の指示" className="w-full rounded border border-rule bg-paper px-2 py-1" />
@@ -220,16 +226,18 @@ export function StandingPanel({
         </div>
       </div>
     );
-    return lines ? <StandingOrderForm lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
+    return lines ? <StandingOrderForm today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
   }
 
   return (
     <div className="space-y-3 text-[13px]">
       {sheet}
       {lines && <button type="button" onClick={() => print(<StandingPrintSheet patient={lines.patient} lines={currentLines(lines.lines)} fields={cur} today={lines.today} nowTime={nowTime} by={me.name} />, { portrait: true })} className="rounded border border-rule px-2 py-1 text-[12px] text-ai">指示簿を印刷（A4 縦）</button>}
-      {lines && (
+      {lines && <div className="flex gap-2" role="group" aria-label="指示簿の表示">{(["一覧", "カレンダー"] as const).map((v) => <button type="button" key={v} aria-pressed={view === v} onClick={() => setView(v)} className={`rounded border border-rule px-3 py-1 ${view === v ? "bg-ai-soft text-ai" : ""}`}>{v}</button>)}</div>}
+      {lines && view === "カレンダー" && <StandingCalendar patient={lines.patient} lines={[...lines.lines, ...linesFromFields(versions)]} today={lines.today} nowTime={nowTime} onBulkStop={lines.onBulkStop} onOpenPanel={() => setView("一覧")} />}
+      {lines && view === "一覧" && (
         <>
-          <StandingOrderForm lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
+          <StandingOrderForm today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
           <h3 className="hint border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
           <p className="hint text-[11px] text-ink-faint">ワークシートの頓用、水分出納の確認、医師を呼ぶ基準の判定はこの項目から出ます。上の行と合わせて指示簿カレンダーに出ます。</p>
         </>
@@ -240,7 +248,7 @@ export function StandingPanel({
         <>
           <div className="flex flex-wrap items-center gap-2 text-[12px]">
             <span className="nums text-ink-soft">
-              {fmtDay(cur.at.day)} {cur.at.time}　{cur.by}（第{versions.length}版）
+              有効：{fmtDay(cur.at.day)} 〜 {cur.until === undefined ? "変えるまで続く" : fmtDay(cur.until)}　{cur.at.time}　{cur.by}（第{versions.length}版）
             </span>
             {cur.taken ? (
               <span className="rounded bg-wakatake-soft px-1.5 text-wakatake">

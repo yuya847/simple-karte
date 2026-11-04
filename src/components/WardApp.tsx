@@ -131,7 +131,7 @@ import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/prof
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { worksheetPrnLines } from "@/lib/standing-form";
-import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
+import { callHits, initialStanding, standingEffective, type StandingOrders } from "@/lib/standing";
 import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
 import { INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/standing-lines";
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
@@ -1690,7 +1690,7 @@ export default function WardApp() {
     if (!deny("order.sign") && v) todos.push({ key: `verbal-${pid}`, label: `口頭指示の承認待ち：${x.patient.name}さん`, count: v, tone: "yamabuki", go: () => openPatient(pid) });
   }
   // 指示簿: the latest vitals against the call criteria, and versions no nurse has taken yet.
-  const standingNow = (pid: string) => standing[pid]?.at(-1);
+  const standingNow = (pid: string) => standingEffective(standing[pid]?.at(-1));
   const callsMet: Record<string, string[]> = Object.fromEntries(people.map((x) => [x.patient.id, callHits(standingNow(x.patient.id), x.patient.vitals.at(-1))]));
   // 条件付き指示: the latest lab and vital values against the doctor's conditions (code compares only).
   const condsAll = (pid: string) => condHits(pid, standingNow(pid)?.conds, findPatient(pid) ?? { labs: [], vitals: [] });
@@ -2516,7 +2516,7 @@ export default function WardApp() {
           // 指示簿の頓用: the latest version a nurse has taken (指示受け); a newer one waits for 指示受け.
           standingFreePrn={people.flatMap((x) => worksheetPrnLines(standingLines[x.patient.id] ?? [], x, abs(0, nowTime), taken, sessionKeys))}
           standingPrn={people.flatMap((x) => {
-            const s = [...(standing[x.patient.id] ?? [])].reverse().find((v) => v.taken);
+            const s = standingEffective([...(standing[x.patient.id] ?? [])].reverse().find((v) => v.taken));
             return s ? s.prn.map((rule) => ({ patientId: x.patient.id, room: x.room, name: x.patient.name, rule })) : [];
           })}
           taken={taken}
@@ -4144,7 +4144,11 @@ export default function WardApp() {
                       setCondAcks((all) => ({ ...all, [h.key]: { key: h.key, by: me.name, at: { day: 0, time: nowTime }, note } }));
                       chartNote(patient.id, ackLine(h, note, nowTime));
                     }}
-                    lines={{ patient, lines: standingLines[patient.id] ?? [], today, onAdd: (l) => addStandingLine(patient.id, l), onStop: (id, reason) => stopStandingLine(patient.id, id, reason) }}
+                    lines={{ patient, lines: standingLines[patient.id] ?? [], today, onBulkStop: (draft) => {
+                      if (deny("order")) return;
+                      setStandingLines((all) => ({ ...all, [patient.id]: draft.ids.reduce((ls, id) => stopLine(ls, id, { day: draft.day, time: draft.day === 0 ? nowTime : "00:00", by: me.name, reason: draft.reason }), all[patient.id] ?? []) }));
+                      auditLog({ role: me.role, actor: me.name, action: "確定（指示簿の一括中止）", patient: patient.name, detail: `${draft.ids.length}件　中止日：${formatShort(addDays(today, draft.day))}　${draft.reason}` });
+                    }, onAdd: (l) => addStandingLine(patient.id, l), onStop: (id, reason) => stopStandingLine(patient.id, id, reason) }}
                     onSave={(st) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（指示簿）", patient: patient.name, detail: `第${(standing[patient.id]?.length ?? 0) + 1}版` });
                       setStanding((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }));
