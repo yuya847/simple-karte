@@ -66,7 +66,7 @@ export function occurrenceStates(items: ExecItem[], records: Record<string, Admi
 export type OccurrenceActions = { kind: "record" } | { kind: "void"; record: AdminRecord } | { kind: "locked"; why: string };
 
 export function actionsFor(occ: Occurrence): OccurrenceActions {
-  if (occ.record) return { kind: "void", record: occ.record };
+  if (occ.record && !occ.record.cancellation) return { kind: "void", record: occ.record };
   const day = Math.floor(occ.item.at! / 1440);
   if (day > 0) return { kind: "locked", why: "明日以降の分は、その日になってから記録します。" };
   if (!canExecuteOn(day)) return { kind: "locked", why: "記録を入れられるのは今日と昨日の分だけです（架空の病院の取り決め）。" };
@@ -85,7 +85,7 @@ export function menuRecord(item: ExecItem, x: { status: "実施" | "未実施"; 
 }
 
 /** "実施 08:05 看護師 佐藤" / "未実施（患者が拒否） 08:10 看護師 佐藤". */
-export const recordText = (r: AdminRecord) => `${r.status}${r.reason ? `（${r.reason}）` : ""} ${r.doneAt} ${r.by}`;
+export const recordText = (r: AdminRecord) => `${r.cancellation ? `取り消し ${r.cancellation.at} ${r.cancellation.by}（${r.cancellation.reason || "理由なし"}）・` : ""}${r.status}${r.reason ? `（${r.reason}）` : ""} ${r.doneAt} ${r.by}`;
 
 export interface ExecBadge {
   text: string;

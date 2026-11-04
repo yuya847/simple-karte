@@ -1,5 +1,7 @@
 "use client";
 
+import { VoidControl } from "./MarCell";
+import type { VoidReason } from "@/lib/mar";
 import { ExternalLink } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
@@ -20,6 +22,7 @@ interface Props {
   /** Items due before this time count as recorded by the (fictional) earlier shift. */
   sessionStart: number;
   onRecord: (r: AdminRecord) => void;
+  onVoid?: (r: AdminRecord, reason: VoidReason) => void;
   /** 指示受け: change key → "HH:MM 看護師 ◯◯", and the keys of this session's changes. */
   taken: Record<string, string>;
   sessionKeys: Set<string>;
@@ -37,7 +40,7 @@ const KIND_TONE: Record<WorkKind, "ai" | "shu" | "yamabuki" | "wakatake" | "ink"
  * 「実施した」 takes the time (now, or typed) and who did it, and writes the same 与薬・実施の記録 the
  * worksheet writes (there with the wristband and label read; here without, and the record says so).
  */
-export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onRecord, taken, sessionKeys, nurses, onOpen, onSheet, onTakeDesk }: Props) {
+export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onRecord, onVoid, taken, sessionKeys, nurses, onOpen, onSheet, onTakeDesk }: Props) {
   const me = useMe();
   const [day, setDay] = useState(0);
   const [showDone, setShowDone] = useState(false);
@@ -50,7 +53,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
   const sheet = useMemo(() => buildWorksheet(people, lo, hi, nowAbs), [people, lo, hi, nowAbs]);
   const keyOf = (i: WorkItem) => marKey(i.orderId, i.at!);
   const stateOf = (i: WorkItem) => executeState(i, records, sessionStart);
-  const recorded = (i: WorkItem) => stateOf(i) !== "未入力" && stateOf(i) !== "予定";
+  const recorded = (i: WorkItem) => !records[keyOf(i)]?.cancellation && stateOf(i) !== "未入力" && stateOf(i) !== "予定";
   const items = sheet.timed.filter((i) => i.at !== null && cats.includes(categoryOfWork(i.kind)));
   const todo = items.filter((i) => !recorded(i));
   const list = showDone ? items : todo;
@@ -86,7 +89,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
     const st = stateOf(i);
     return {
       start: e ? { at: startLabel(e.order, today), by: e.author } : EMPTY_STAMP,
-      done: r ? { at: `${r.doneAt}${r.status === "未実施" ? "（未実施）" : ""}`, by: r.by } : st === "記録済み" ? { at: "", by: "前の勤務帯（架空）" } : EMPTY_STAMP,
+      done: r ? { at: `${r.cancellation ? "" : r.doneAt}${r.status === "未実施" ? "（未実施）" : ""}`, by: r.by } : st === "記録済み" ? { at: "", by: "前の勤務帯（架空）" } : EMPTY_STAMP,
       take: takeStampOf(i.orderId, taken, sessionKeys),
     };
   };
@@ -99,8 +102,9 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
     const st = stateOf(i);
     if (r)
       return (
-        <span className={`text-[11px] font-bold ${r.status === "実施" ? "text-wakatake" : "text-shu"}`}>
-          {r.status} {r.doneAt}
+        <span title={r.cancellation ? `取り消し ${r.cancellation.at} ${r.cancellation.by} ${r.cancellation.reason}` : undefined} className={`text-[11px] font-bold ${r.status === "実施" ? "text-wakatake" : "text-shu"}`}>
+          {r.status} {r.cancellation ? "" : r.doneAt}
+          {onVoid && !r.cancellation && <VoidControl record={r} onVoid={onVoid} />}
           {r.reason ? `（${r.reason}）` : ""}
           {r.offBy !== undefined && <span className="ml-1 font-normal text-yamabuki">予定より{Math.abs(r.offBy)}分{r.offBy > 0 ? "遅れ" : "早め"}</span>}
         </span>

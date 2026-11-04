@@ -1,5 +1,8 @@
 "use client";
 
+import { ExecutionHistory, ExecutionUndo } from "../ExecutionUndo";
+import { cancelExecution } from "@/lib/mar";
+
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import {
@@ -45,6 +48,7 @@ interface Props {
   nowTime: string;
   /** 水分出納: the volume transfused goes in as IN（輸血）when the bag is finished or stopped. */
   onIo: (es: IoEntry[]) => void;
+  onVoidIo?: (lot: string, reason: string) => void;
 }
 
 const field = "rounded border border-rule bg-paper px-1 py-0.5 outline-none focus:border-ai";
@@ -120,6 +124,8 @@ function Bag(p: BagProps) {
           <p className="text-ink-soft">
             照合 {admin.check.time}：{admin.check.by} と {admin.check.second}（リストバンド・製剤のバーコード・外観）
           </p>
+      <ExecutionHistory records={admin.cancellations} />
+          {admin.start && <ExecutionUndo action="tx.bedside" patient={p.patient.name} detail={`輸血 ${unit.lot}`} onUndo={(by, at, reason) => { put({ ...cancelExecution(admin, ["start", "end", "obs", "reaction"], by, at, reason), obs: [] }); p.onVoidIo?.(unit.lot, reason); }} />}
           <Observe {...p} admin={admin} put={put} />
         </>
       )}

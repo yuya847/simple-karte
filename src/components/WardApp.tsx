@@ -96,7 +96,7 @@ import { transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
-import { initialIo, ioMissing, windowText, withIoUrine, type IoEntry } from "@/lib/io-balance";
+import { initialIo, ioMissing, transfusionIoIds, windowText, withIoUrine, type IoEntry } from "@/lib/io-balance";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
 import { chosenStops, endedStanding, remainingGroups, type StopGroupKey } from "@/lib/discharge-stop";
@@ -220,7 +220,7 @@ import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
-import { overdue, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
+import { cancelAdministration, overdue, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
 import { clockText, dripAction, endText } from "@/lib/drip-course";
 import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
@@ -238,7 +238,7 @@ import { CosignList, CosignPanel, CosignRefs } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { eventTimeProblem, isBlankNote, nextFrame, noteKey, noteText, parseNote, reviseNote } from "@/lib/notes";
-import { ROLES, STAFF, TABS, denyReason, type Role } from "@/lib/roles";
+import { ROLES, STAFF, TABS, can, denyReason, type Role } from "@/lib/roles";
 import { insertIntoO } from "@/lib/vitals-text";
 import { narcoticBlock } from "@/lib/narcotics";
 import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
@@ -1913,12 +1913,13 @@ export default function WardApp() {
     setMar((all) => ({ ...all, [r.key]: r }));
   };
   const voidMar = (r: AdminRecord, reason: VoidReason) => {
+    if (!can(me.role, "mar") || mar[r.key] !== r || r.cancellation) return;
     const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
     auditLog({ role: me.role, actor: me.name, action: `${r.status}の記録を取り消した`, patient: findPatient(r.patientId)?.name, detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.doneAt} ${r.by} の記録　理由：${reason}` });
-    setMarVoided((all) => ({ ...all, [r.key]: [...(all[r.key] ?? []), { record: r, by: me.name, at: nowTime, reason }] }));
+    setMarVoided((all) => ({ ...all, [r.key]: [...(all[r.key] ?? []), { record: r, by: me.name, at: new Date().toISOString(), reason }] }));
     setMar((all) => {
       const next = { ...all };
-      delete next[r.key];
+      next[r.key] = cancelAdministration(r, me.name, new Date().toISOString(), reason);
       return next;
     });
   };
@@ -2487,10 +2488,11 @@ export default function WardApp() {
           onOpen={openPatient}
           onSheet={() => goWard("sheet")}
           onExecute={() => goWard("execute")}
+          onVoid={voidMar}
           records={mar}
         />
       ) : screen === "execute" ? (
-        <ExecuteDesk people={people} today={today} nowTime={nowTime} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} onRecord={recordMar} taken={taken} sessionKeys={sessionKeys} nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]} onOpen={openPatient} onSheet={() => goWard("sheet")} onTakeDesk={() => goWard("take")} />
+        <ExecuteDesk onVoid={voidMar} people={people} today={today} nowTime={nowTime} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} onRecord={recordMar} taken={taken} sessionKeys={sessionKeys} nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]} onOpen={openPatient} onSheet={() => goWard("sheet")} onTakeDesk={() => goWard("take")} />
       ) : screen === "sheet" ? (
         <Worksheet
           people={people}
@@ -3481,7 +3483,7 @@ export default function WardApp() {
               )}
               {panel === "tx-bedside" && (
                 <Drawer title="輸血の実施（照合・観察・副反応）" onClose={closePanel} wide locked={deny("tx.bedside")}>
-                  <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} />
+                  <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} onVoidIo={(lot, reason) => transfusionIoIds(io, patient.id, lot).forEach((id) => voidIo(id, reason))} />
                 </Drawer>
               )}
               {panel === "io" && (

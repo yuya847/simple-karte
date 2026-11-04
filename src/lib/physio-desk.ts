@@ -1,3 +1,4 @@
+import type { ExecutionCancellation } from "./mar";
 // 生理検査室 of the fictional hospital: the physiological tests doctors ordered (心電図・心エコー・呼吸機能 …,
 // the orders of exams.ts), taken in (受付), done (実施), and reported with the main values and the
 // technologist's findings. The ordering doctor marks the report as read in the chart. Which tests are due,
@@ -84,6 +85,7 @@ export interface PhysioReport extends Moment {
 }
 
 export interface PhysioWork {
+  cancellations?: ExecutionCancellation[];
   orderId: string;
   patientId: string;
   test: string;

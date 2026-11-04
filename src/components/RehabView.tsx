@@ -1,5 +1,8 @@
 "use client";
 
+import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
+import { cancelExecution } from "@/lib/mar";
+
 // リハビリテーション部: 予定表（療法士ごとの予約）→ 受付・実施（時刻・内容・単位）→ ADL（BI）→ 実施計画書 → 一覧・単位.
 // The prescriptions come from the doctors' charts (リハビリ処方). Therapists and records are fictional.
 
@@ -260,6 +263,8 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking;
   const problems = sessionProblems({ arrived: !!cur?.arrived, start, end, content });
   return (
     <article className={`${card} space-y-1 p-3 text-[12px]`}>
+      <ExecutionHistory records={cur?.cancellations} />
+      {cur?.recordedAt && <ExecutionUndo action="rehab.therapy" patient={rx.name} detail="リハビリの実施" onUndo={(by, at, reason) => put(cancelExecution(cur, ["start", "end", "recordedAt", "content"], by, at, reason))} />}
       <header className="flex flex-wrap items-baseline gap-x-3">
         <span className="nums">
           {b.start}〜{plus(b.start, b.minutes)}

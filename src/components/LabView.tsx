@@ -1,5 +1,8 @@
 "use client";
 
+import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
+import { cancelReception } from "@/lib/lab-desk";
+
 import { BookOpenText, ClipboardPen, FlaskConical, HelpCircle, Microscope, PhoneCall, ScanLine } from "lucide-react";
 import { useHints } from "@/lib/hints";
 import { useRef, useState } from "react";
@@ -128,7 +131,7 @@ export function LabView(p: Props) {
         </p>
       )}
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
-        {tab === "receive" && <Receive rows={rows} people={people} nowAbs={nowAbs} onDesk={p.onDesk} />}
+        {tab === "receive" && <Receive rows={rows} people={people} nowAbs={nowAbs} onDesk={p.onDesk} history={desk.cancellations} />}
         {tab === "enter" && (
           <LabEntry
             rows={rows}
@@ -162,7 +165,7 @@ const TONE: Record<SpecimenScan["tone"], string> = {
   stop: "border-shu/50 bg-shu-soft text-shu",
 };
 
-function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: WorkPatient[]; nowAbs: number; onDesk: Props["onDesk"] }) {
+function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; people: WorkPatient[]; nowAbs: number; onDesk: Props["onDesk"]; history?: LabDesk["cancellations"] }) {
   const me = useMe();
   const deny = useDeny()("lab.receive");
   const [code, setCode] = useState("");
@@ -257,6 +260,8 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
               <td className="nums py-1 pr-2 font-mono text-[11px] text-ink-soft">{r.code}</td>
               <td className={`py-1 pr-2 ${STATUS_STYLE[r.status]}`}>
                 {r.status}
+                <ExecutionHistory records={history?.filter((c) => (c.record.reception as { code?: string } | undefined)?.code === r.code)} />
+                {r.reception && <ExecutionUndo action="lab.receive" patient={r.name} detail={`検体受付 ${r.code}`} onUndo={(by, at, reason) => onDesk((d) => cancelReception(d, r.code, r.patientId, by, at, reason))} />}
                 <span className="block text-[10px] font-normal text-ink-soft">{statusNote(r, nowAbs)}</span>
               </td>
               <td className="whitespace-nowrap py-1 text-right">

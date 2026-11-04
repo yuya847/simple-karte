@@ -94,7 +94,7 @@ export function RadiologyView(p: Props) {
 }
 
 function Exam({ rows, onDesk, nowTime, today }: Props & { rows: RisRow[] }) {
-  const ready = rows.filter((r) => r.status !== "依頼" && r.status !== "中止" && r.status !== "読影済み" && !(r.work?.record && r.work.images) && !(r.order.modality === "MRI" && r.work?.images));
+  const ready = rows.filter((r) => r.status !== "依頼" && r.status !== "中止" || r.work?.cancellations?.length);
   const [pick, setPick] = useState<string | null>(null);
   const target = ready.find((r) => r.orderId === pick) ?? ready[0] ?? null;
   return (

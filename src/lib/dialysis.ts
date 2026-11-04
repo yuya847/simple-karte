@@ -1,3 +1,4 @@
+import type { ExecutionCancellation } from "./mar";
 // The dialysis unit (透析室) of the FICTIONAL hospital: patients, their dialysis conditions
 // (項目は厚生労働科学研究「透析情報標準項目」に沿う), today's sessions, and the arithmetic and
 // fee rules (J038 人工腎臓、令和8年度) worked out in code.
@@ -51,6 +52,7 @@ export interface HdPatient {
 }
 
 export interface HdSession {
+  cancellations?: ExecutionCancellation[];
   preWeight?: number;
   /** 開始（血液を回路に導き入れた時刻）and 終了（返血を終えた時刻）, "HH:MM". */
   start?: string;

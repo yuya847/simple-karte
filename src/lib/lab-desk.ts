@@ -1,3 +1,4 @@
+import { cancelExecution, type ExecutionCancellation } from "./mar";
 // 検査室: the blood and urine samples the ward draws today and tomorrow morning, which of them the
 // laboratory has received, and the results it enters. Which draw a label belongs to, whether the ward
 // recorded the draw, whether a sample may be taken in, H/L against the reference range and panic
@@ -66,6 +67,7 @@ export interface Rejection {
 
 /** What the laboratory did in this session (kept in this browser only). */
 export interface LabDesk {
+  cancellations?: ExecutionCancellation[];
   received: Record<string, Reception>;
   reports: Record<string, LabReport>;
   /** Tries that did not reach anyone yet, by result key (moved into the call once reported). */
@@ -562,4 +564,17 @@ export const versionsOf = (r: LabReport): ReportVersion[] => [...(r.earlier ?? [
 /** A try that did not reach anyone (不在・話し中・伝言), kept until the value is reported. */
 export function addTry(desk: LabDesk, key: string, t: ContactAttempt): LabDesk {
   return { ...desk, tries: { ...desk.tries, [key]: [...(desk.tries[key] ?? []), t] } };
+}
+
+/** Withdraw receipt and its dependent results; other specimens are untouched. */
+export function cancelReception(desk: LabDesk, code: string, patientId: string, by: string, at: string, reason = ""): LabDesk {
+  if (!desk.received[code]) return desk;
+  const related = worksOfCode(desk.cultures, patientId, code);
+  const snapshot = { reception: desk.received[code], report: desk.reports[code], rejection: desk.rejected[code], cultures: related };
+  const history = cancelExecution(snapshot, ["reception", "report", "rejection", "cultures"], by, at, reason).cancellations;
+  const received = { ...desk.received }; delete received[code];
+  const reports = { ...desk.reports }; delete reports[code];
+  const rejected = { ...desk.rejected }; delete rejected[code];
+  const cultures = { ...desk.cultures }; for (const w of related) delete cultures[w.key];
+  return { ...desk, received, reports, rejected, cultures, cancellations: [...(desk.cancellations ?? []), ...history] };
 }

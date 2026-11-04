@@ -1,5 +1,8 @@
 "use client";
 
+import { ExecutionUndo } from "./ExecutionUndo";
+import { cancelExecution } from "@/lib/mar";
+
 // 放射線部: the technologist's record of a study (照射の方法・線量・造影剤 → 撮影済み → 照射録), the ordering
 // doctor's signature, and the radiologist's reading report. What is missing is worked out in ris.ts.
 
@@ -140,6 +143,8 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
   return (
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <RowHead r={r} />
+      {(w.done || w.started || w.arrived) && <ExecutionUndo action="ris.exam" patient={r.name} detail={r.label} onUndo={(by, at, reason) => put((x) => cancelExecution(x, ["arrived", "confirmed", "called", "inRoom", "started", "done", "images", "record", "signed", "report", "contrast", "dose", "exposure"], by, at, reason))} />}
+      {w.cancellations?.map((c, i) => <span key={i} className="hint" title={`${c.at} ${c.by} ${c.reason}`}>撮影・受付の取り消し {c.at} {c.by} {c.reason}</span>)}
       {(r.order.acks?.length || r.order.answers) && (
         <p className="text-ink-soft">
           オーダの確認：{[...(r.order.acks ?? []), r.order.answers?.metal && `体内金属 ${r.order.answers.metal}`, r.order.answers?.pregnancy && `妊娠 ${r.order.answers.pregnancy}`].filter(Boolean).join("・")}

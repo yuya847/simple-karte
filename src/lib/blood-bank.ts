@@ -1,3 +1,4 @@
+import type { ExecutionCancellation } from "./mar";
 // 輸血部門 (the blood bank of the fictional hospital, part of 検査室): each patient's blood typing and
 // irregular antibody screen, the bags taken in from the blood centre (製造番号・有効期限), the crossmatch,
 // the bag assigned to a transfusion order, issue, the bedside check (wristband and bag barcodes, two
@@ -186,6 +187,7 @@ export interface Reaction extends Moment {
 
 /** The bedside record of one bag. */
 export interface TxAdmin {
+  cancellations?: ExecutionCancellation[];
   lot: string;
   orderId: string;
   patientId: string;

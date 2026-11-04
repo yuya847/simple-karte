@@ -1,4 +1,6 @@
 "use client";
+import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
+import { cancelExecution } from "@/lib/mar";
 
 import { BookOpenText, ClipboardList, FilePen, HeartPulse, HelpCircle, ListChecks } from "lucide-react";
 import { useState } from "react";
@@ -127,7 +129,7 @@ function Work({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
   const me = useMe();
   const deny = useDeny()("physio.exam");
   const [reason, setReason] = useState<Record<string, string>>({});
-  const open = rows.filter((r) => r.status === "予約" || r.status === "受付済み");
+  const open = rows.filter((r) => r.status !== "実施できなかった");
   const at = { day: 0, time: nowTime };
   const log = (r: PhysioRow, what: string, detail = "") => auditLog({ role: me.role, actor: me.name, action: `確定（生理検査の${what}）`, patient: r.name, detail: `${r.testName}${detail}` });
   return (
@@ -136,6 +138,8 @@ function Work({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
       {open.map((r) => (
         <article key={r.orderId} className={`${card} p-3 text-[12px]`}>
           <Head r={r} />
+      <ExecutionHistory records={r.work?.cancellations} />
+          {(r.work?.arrived || r.work?.done) && <ExecutionUndo action="physio.exam" patient={r.name} detail={r.testName} onUndo={(by, at, reason) => put(onDesk, r, (w) => cancelExecution(w, ["arrived", "done", "report"], by, at, reason))} />}
           {r.comment && <p className="text-ink-soft">コメント：{r.comment}</p>}
           <p className="mt-1 flex flex-wrap items-center gap-2">
             {r.status === "予約" ? (
@@ -157,7 +161,7 @@ function Work({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
                 </span>
                 <button
                   type="button"
-                  disabled={!!deny}
+                  disabled={!!deny || !!r.work?.done}
                   onClick={() => {
                     put(onDesk, r, (w) => ({ ...w, done: { ...at, by: me.name } }));
                     log(r, "実施");

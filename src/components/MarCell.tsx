@@ -2,10 +2,11 @@
 
 import { ScanLine } from "lucide-react";
 import { useState } from "react";
-import { NOT_DONE_REASONS, VOID_REASONS, checkScan, labelFor, marKey, needsLabel, type AdminRecord, type MarState, type NotDoneReason, type VoidReason } from "@/lib/mar";
+import { NOT_DONE_REASONS, checkScan, labelFor, marKey, needsLabel, type AdminRecord, type MarState, type NotDoneReason, type VoidReason } from "@/lib/mar";
 import type { WorkItem } from "@/lib/worksheet";
 import { clockText } from "@/lib/drip-course";
 import { DripRecordCell } from "./DripControls";
+import { can } from "@/lib/roles";
 import { useMe } from "./RoleContext";
 
 interface Props {
@@ -37,6 +38,8 @@ const STATE_STYLE: Record<MarState, string> = {
 
 /** The 実施 cell of the worksheet: read the wristband and label, then record 実施 or 未実施. */
 export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord, onVoid, voided = [], queried }: Props) {
+  const cancellation = record?.cancellation;
+  if (cancellation) record = undefined;
   const [queryAck, setQueryAck] = useState(false);
   const me = useMe();
   const [open, setOpen] = useState(false);
@@ -77,7 +80,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
     return (
       <span className="block">
         <DripRecordCell record={record} nowAbs={nowAbs} nowTime={nowTime} onRecord={onRecord} />
-        {onVoid && !record.end && <VoidControl record={record} onVoid={onVoid} />}
+        {onVoid && <VoidControl record={record} onVoid={onVoid} />}
       </span>
     );
   }
@@ -92,7 +95,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
     );
   }
   return (
-    <div className="space-y-1">
+    <div className="space-y-1" title={cancellation ? `取り消し ${cancellation.at} ${cancellation.by} ${cancellation.reason}` : undefined}>
       {voided.map((v, i) => (
         <span key={i} className="block text-[10px] text-ink-faint line-through decoration-ink-faint/60" title={`取り消し：${v.at} ${v.by}（${v.reason}）`}>
           {v.status}（取り消し {v.at}・{v.reason}）
@@ -187,20 +190,16 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
 }
 
 /** 記録を取り消す: choose why, then the record is taken back (it stays in the history). */
-export function VoidControl({ record, onVoid }: { record: AdminRecord; onVoid: (r: AdminRecord, reason: VoidReason) => void }) {
+export function VoidControl({ record, onVoid, label = "未実施に戻す" }: { record: AdminRecord; onVoid: (r: AdminRecord, reason: VoidReason) => void; label?: string }) {
   const [voiding, setVoiding] = useState(false);
   const [voidReason, setVoidReason] = useState<VoidReason | "">("");
+  const me = useMe();
+  if (!can(me.role, "mar")) return null;
   return voiding ? (
-    <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-ink">
-      <select value={voidReason} onChange={(e) => setVoidReason(e.target.value as VoidReason)} aria-label="取り消す理由" className="rounded border border-rule bg-paper px-0.5">
-        <option value="">理由を選ぶ</option>
-        {VOID_REASONS.map((r) => (
-          <option key={r}>{r}</option>
-        ))}
-      </select>
+    <span onClick={(e) => e.stopPropagation()} className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-ink">
+      <input value={voidReason} onChange={(e) => setVoidReason(e.target.value)} aria-label="取り消す理由（任意）" placeholder="理由（任意）" className="rounded border border-rule bg-paper px-0.5" />
       <button
         type="button"
-        disabled={!voidReason}
         onClick={() => {
           onVoid(record, voidReason as VoidReason);
           setVoiding(false);
@@ -208,15 +207,15 @@ export function VoidControl({ record, onVoid }: { record: AdminRecord; onVoid: (
         }}
         className="rounded border border-shu px-1 text-shu disabled:opacity-40"
       >
-        取り消す
+        未実施に戻す
       </button>
       <button type="button" onClick={() => setVoiding(false)} className="text-ink-faint">
         やめる
       </button>
     </span>
   ) : (
-    <button type="button" onClick={() => setVoiding(true)} className="block text-[10px] text-ink-faint underline hover:text-shu">
-      記録を取り消す
+    <button type="button" title="未実施に戻す" onClick={(e) => { e.stopPropagation(); setVoiding(true); }} className="block text-[10px] text-ink-faint underline hover:text-shu">
+      {label}
     </button>
   );
 }

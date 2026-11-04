@@ -1,5 +1,8 @@
 "use client";
 
+import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
+import { cancelExecution } from "@/lib/mar";
+
 import { AlertTriangle, Droplets } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -262,6 +265,8 @@ function Session({ p, s, nowTime, holiday, onSession }: { p: HdPatient; s: HdSes
   return (
     <section className={`${card} p-4 text-[13px]`}>
       <h3 className="mb-2 font-bold">今日の透析（看護師・臨床工学技士が入れる）</h3>
+      <ExecutionHistory records={s.cancellations} />
+      {s.start && <ExecutionUndo action="mar" patient={p.name} detail="透析の実施" onUndo={(by, at, reason) => onSession({ ...cancelExecution(s, ["start", "end", "drugsGiven"], by, at, reason), drugsGiven: [] })} />}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col text-[12px] text-ink-soft">
           透析前の体重（kg）

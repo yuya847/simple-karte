@@ -1,4 +1,5 @@
 "use client";
+import { VoidControl } from "./MarCell";
 import { useMe } from "./RoleContext";
 import { executeDeny } from "@/lib/order-execute";
 import { marKey } from "@/lib/mar";
@@ -6,8 +7,9 @@ import type { ExecuteProps } from "./ExecuteMenu";
 import type { AdminRecord } from "@/lib/mar";
 export function InjectionDoseToggle({ execute, patientId, orderId, at, time, record }: { execute?: ExecuteProps; patientId: string; orderId: string; at: number; time: string; record?: AdminRecord }) {
   const me = useMe();
-  const skipped = record?.status === "未実施";
-  return <button type="button" disabled={!execute || !!executeDeny(me.role) || record?.status === "実施"} title={record ? `${record.status} ${record.doneAt} ${record.by}` : "クリックでこの回をスキップ"} className={`text-[11px] ${skipped ? "opacity-40 line-through" : ""}`} onClick={(e) => {
+  if (record?.status === "実施" && execute) return <span className="inline-flex items-center gap-1">{executeDeny(me.role) ? `✓ ${time}` : <VoidControl record={record} onVoid={execute.onVoid} label={`✓ ${time}`} />}</span>;
+  const skipped = record?.status === "未実施" && !record.cancellation;
+  return <button type="button" disabled={!execute || !!executeDeny(me.role)} title={record ? `${record.status} ${record.doneAt} ${record.by}${record.cancellation ? `（取り消し：${record.cancellation.reason || "理由なし"}）` : ""}` : "クリックでこの回をスキップ"} className={`text-[11px] ${skipped ? "opacity-40 line-through" : ""}`} onClick={(e) => {
     e.stopPropagation();
     if (!execute) return;
     if (skipped && record) execute.onVoid(record, "その他");

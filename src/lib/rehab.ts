@@ -1,3 +1,4 @@
+import type { ExecutionCancellation } from "./mar";
 // リハビリテーション部 of the fictional hospital: the doctors' リハビリ処方 (procedures.ts PROC-REHAB) are booked
 // with a therapist (療法士の予約), taken in (受付), done and recorded with their start and end (実施記録), counted
 // in units (疾患別リハビリテーション料：20分以上の個別療法で1単位), checked against the limits of the 告示 and
@@ -100,6 +101,7 @@ export interface RehabBooking {
 }
 
 export interface RehabSession {
+  cancellations?: ExecutionCancellation[];
   id: string;
   bookingId?: string;
   orderId: string;

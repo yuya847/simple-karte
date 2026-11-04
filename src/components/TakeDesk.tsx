@@ -1,4 +1,6 @@
 "use client";
+import { VoidControl } from "./MarCell";
+import type { VoidReason } from "@/lib/mar";
 
 import { Check, ExternalLink, MessageCircleQuestion, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -40,6 +42,7 @@ interface Props {
   onExecute?: () => void;
   /** 与薬・実施の記録, to fill 実施日時／実施者 of each order. */
   records?: Record<string, AdminRecord>;
+  onVoid?: (r: AdminRecord, reason: VoidReason) => void;
 }
 
 const KIND_TAG: Record<TakeRow["kind"], { text: string; tone: "ai" | "shu" | "yamabuki" | "wakatake" | "ink" }> = {
@@ -58,7 +61,7 @@ const KIND_TAG: Record<TakeRow["kind"], { text: string; tone: "ai" | "shu" | "ya
  * 口頭指示・変更 one at a time (a second nurse for a high-risk drug), 医師に確認 to hold; after taking, the
  * schedule the change makes opens for 指示確認. The day's 指示票 of a patient prints on A4.
  */
-export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses, today, nowTime, onTake, onHold, onConfirm, isMine, onOpen, onSheet, onExecute, records = {} }: Props) {
+export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses, today, nowTime, onTake, onHold, onConfirm, isMine, onOpen, onSheet, onExecute, records = {}, onVoid }: Props) {
   const me = useMe();
   const [day, setDay] = useState(0);
   const [showTaken, setShowTaken] = useState(false);
@@ -276,6 +279,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                             ) : null
                           }
                         >
+                          {onVoid && Object.values(records).filter((a) => a.orderId === entryOf(r)?.id && a.status === "実施").map((a) => <span key={a.key} className="inline-flex items-center gap-1 px-3 text-[11px]">{a.doneAt} <VoidControl record={a} onVoid={onVoid} /></span>)}
                           {done[r.key] && (
                             <div role="status" className="mt-1 ml-3 flex items-center gap-1 rounded bg-wakatake-soft px-2 py-1 text-[11px] font-bold text-wakatake">
                               <Check size={12} />

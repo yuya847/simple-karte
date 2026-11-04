@@ -1,3 +1,4 @@
+import type { ExecutionCancellation } from "./mar";
 // 放射線部（RIS：放射線情報システム）of the fictional hospital: the imaging orders doctors gave (exams.ts) are
 // taken in (受付), given a room and a device (撮影室・装置の割り当て), done (撮影済み), written in the 照射録
 // (診療放射線技師法 第28条・施行規則 第16条) with the dose and the contrast medium used, read by a radiologist
@@ -160,6 +161,7 @@ export interface MppsEvent extends Moment {
 }
 
 export interface RisWork {
+  cancellations?: ExecutionCancellation[];
   orderId: string;
   patientId: string;
   /** e.g. 「CT　腹部・骨盤　単純」. */

@@ -239,7 +239,7 @@ export function doneStampOf(orderId: string, records: Record<string, AdminRecord
     .filter((r) => r.orderId === orderId)
     .sort((a, b) => b.at - a.at);
   const r = mine[0];
-  return r ? { at: `${r.doneAt}${r.status === "未実施" ? "（未実施）" : ""}`, by: r.by } : EMPTY_STAMP;
+  return r ? { at: `${r.cancellation ? "" : r.doneAt}${r.status === "未実施" ? "（未実施）" : ""}`, by: r.by } : EMPTY_STAMP;
 }
 
 // ---------------------------------------------------------------------------

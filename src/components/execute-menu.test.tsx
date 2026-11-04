@@ -57,10 +57,10 @@ describe("実施・未実施のメニュー", () => {
     expect(html).toContain(">予定<");
     expect(html).not.toContain("実施した（いま");
   });
-  it("記録のある回（1回だけ）は「この記録を取り消す…」だけ", () => {
+  it("記録のある回（1回だけ）は「未実施に戻す…」だけ", () => {
     const html = as("看護師", <ExecuteMenuBody title="CEZ" occurrences={[occs(inj, { [done.key]: done })[0]]} day={0} execute={exec({ [done.key]: done })} onDone={() => {}} />);
     expect(html).toContain("実施 08:05 看護師 佐藤");
-    expect(html).toContain("この記録を取り消す…");
+    expect(html).toContain("未実施に戻す…");
     expect(html).not.toContain("実施した（いま");
   });
   it("明日の回は記録できない（理由を出す）。頓用は「必要時：実施した（いま）」", () => {

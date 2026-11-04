@@ -8,8 +8,9 @@
 import { Ban, Check, ChevronLeft, Clock, Undo2, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { VoidControl } from "./MarCell";
 import { abs } from "@/lib/flowsheet";
-import { NOT_DONE_REASONS, VOID_REASONS, type AdminRecord, type NotDoneReason, type VoidReason } from "@/lib/mar";
+import { NOT_DONE_REASONS, type AdminRecord, type NotDoneReason, type VoidReason } from "@/lib/mar";
 import { MENU_NOTE, actionsFor, executeDeny, menuRecord, occurrenceAt, occurrenceStates, recordText, type ExecItem, type Occurrence } from "@/lib/order-execute";
 import { parseHHMM } from "@/lib/order-sheet";
 import type { OrderEntry, Patient } from "@/lib/types";
@@ -80,7 +81,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
   const actions = (o: Occurrence, i: number) => {
     const a = actionsFor(o);
     if (a.kind === "locked") return <Item icon={Ban} label="実施・未実施を記録" disabled={a.why} />;
-    if (a.kind === "void") return <Item icon={Undo2} label="この記録を取り消す…" sub={`${a.record.by} の記録。理由を選びます`} onClick={() => setStep({ kind: "void", i })} />;
+    if (a.kind === "void") return <Item icon={Undo2} label="未実施に戻す…" sub={`${a.record.by} の記録。理由は任意です`} onClick={() => setStep({ kind: "void", i })} />;
     return (
       <>
         <Item icon={Check} label={`実施した（いま ${execute?.nowTime ?? ""}）`} sub={`${me.name} が実施したとして記録`} onClick={() => write(o.item, { status: "実施", time: execute?.nowTime ?? "" })} />
@@ -163,17 +164,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
         {back}
         {occLine(o)}
         <div className="px-2 pb-0.5 pt-1 text-[11px] text-ink-soft">取り消す理由（記録は履歴に残ります）</div>
-        {VOID_REASONS.map((r) => (
-          <Item
-            key={r}
-            icon={Undo2}
-            label={r}
-            onClick={() => {
-              if (o.record) execute.onVoid(o.record, r);
-              onDone();
-            }}
-          />
-        ))}
+        {o.record && <VoidControl record={o.record} onVoid={(r, reason) => { execute.onVoid(r, reason); onDone(); }} />}
       </>
     );
   }

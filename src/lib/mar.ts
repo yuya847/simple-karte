@@ -11,7 +11,7 @@ export type NotDoneReason = (typeof NOT_DONE_REASONS)[number];
 
 /** Why a 実施・未実施 record is taken back (it stays in the history). */
 export const VOID_REASONS = ["別の患者・別の回に記録した", "実施と未実施を取り違えた", "時刻を間違えた", "その他"] as const;
-export type VoidReason = (typeof VOID_REASONS)[number];
+export type VoidReason = string;
 export interface VoidedRecord {
   record: AdminRecord;
   by: string;
@@ -40,6 +40,7 @@ export interface DripEnd {
 }
 
 export interface AdminRecord {
+  cancellation?: { by: string; at: string; reason: string };
   key: string;
   orderId: string;
   patientId: string;
@@ -171,4 +172,21 @@ export function standingPrnState(
         ? `${others.some((r) => r.at === lastAny) ? "同じ薬をほかの頓用で" : "前回"} ${hm(lastAny)} に使っています。${rule.intervalH}時間あける指示です（あと${Math.floor(leftAny / 60) ? `${Math.floor(leftAny / 60)}時間` : ""}${leftAny % 60}分）。医師に確かめてください。`
         : undefined,
   };
+}
+
+/** Keep a pending marker so an earlier shift cannot make a cancelled occurrence look done again. */
+export function cancelAdministration(record: AdminRecord, by: string, at: string, reason = ""): AdminRecord {
+  return { key: record.key, orderId: record.orderId, patientId: record.patientId, at: record.at,
+    status: "未実施", doneAt: at, by, checked: { patient: false, label: null },
+    cancellation: { by, at, reason: reason.trim() } };
+}
+
+/** Snapshot the fields being withdrawn, append history, and clear only those active fields. */
+export interface ExecutionCancellation { by: string; at: string; reason: string; record: Record<string, unknown> }
+export function cancelExecution<T extends object>(record: T, fields: readonly (keyof T)[], by: string, at: string, reason = ""): T & { cancellations: ExecutionCancellation[] } {
+  const previous = record as T & { cancellations?: ExecutionCancellation[] };
+  const snapshot: Record<string, unknown> = {};
+  const next = { ...record };
+  for (const field of fields) { snapshot[String(field)] = record[field]; delete next[field]; }
+  return { ...next, cancellations: [...(previous.cancellations ?? []), { by, at, reason: reason.trim(), record: snapshot }] };
 }

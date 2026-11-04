@@ -240,3 +240,7 @@ export function initialIo(nowAbs: number): IoEntry[] {
   add("OUT", "便", 150, abs(-1, "13:30"), "普通便");
   return out.sort((a, b) => a.at - b.at);
 }
+
+/** The bedside completion added these balance entries; keep them as voided history too. */
+export const transfusionIoIds = (entries: IoEntry[], patientId: string, lot: string): string[] =>
+  entries.filter((e) => e.patientId === patientId && e.kind === "輸血" && e.note === `製造番号 ${lot}` && !e.voided).map((e) => e.id);
