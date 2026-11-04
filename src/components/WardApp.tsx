@@ -144,7 +144,7 @@ import { loadRecent, pushRecent, saveRecent, type RecentOpen } from "@/lib/recen
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
 import { AREA_ICON, WARD_ICON } from "./nav-icons";
-import { Building2, LayoutList, Plus } from "lucide-react";
+import { Building2, LayoutList, Plus, Save, Send } from "lucide-react";
 import {
   AREAS,
   allowedWardTabs,
@@ -254,7 +254,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -2840,6 +2840,7 @@ export default function WardApp() {
               <>
                 {orderMode !== "none" && (
                   <button type="button" disabled={!ordersReady} onClick={() => presence.guard(patient.id, "オーダの確定", confirm)} title={ordersReady ? "貯めたオーダだけを飛ばす（記事はそのまま）" : "飛ばせる下書きがありません（確認が残っているか、下書きがない）"} className={`rounded-md border px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${orderMode === "verbal" ? "border-yamabuki text-yamabuki" : "border-ink text-ink hover:bg-paper"}`}>
+                    <Send size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />
                     {orderMode === "verbal" ? "口頭指示で" : ""}オーダーのみ{chart.drafts.length ? ` ${chart.drafts.length}` : ""}
                   </button>
                 )}
@@ -2856,6 +2857,7 @@ export default function WardApp() {
                     title="記事を確定し、貯めたオーダも一緒に飛ばす"
                     className="rounded-md bg-ink px-4 py-1.5 text-sm font-bold text-white hover:bg-ink/90 disabled:opacity-40"
                   >
+                    <Save size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />
                     保存{noteReady && ordersReady ? "（記事＋オーダ）" : noteReady ? "（記事）" : ordersReady ? "（オーダ）" : ""}
                   </button>
                 )}
