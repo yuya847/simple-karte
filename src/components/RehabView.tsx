@@ -111,7 +111,9 @@ function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[]
   const draft = rx ? { orderId: rx.orderId, patientId: rx.patientId, therapist: therapist.name, discipline: therapist.discipline, day, start: form.start, minutes: form.minutes, place: form.place } : null;
   const clashes = draft ? bookingClashes(desk, draft, entries) : [];
   const wrongJob = rx && !rx.order.therapists.includes(therapist.discipline) ? `処方の職種は ${rx.order.therapists.join("・")} です（${therapist.name}は${DISCIPLINE_NAME[therapist.discipline]}）。` : null;
-  const load = therapistLoad(desk, therapist.name, day, today, Math.floor(form.minutes / 20));
+  // Units already booked that day and not recorded yet (recorded ones are counted from the sessions), plus this booking.
+  const booked = desk.bookings.filter((x) => x.therapist === therapist.name && x.day === day && !desk.sessions.some((s) => s.bookingId === x.id && (s.recordedAt || s.notDone))).reduce((n, x) => n + Math.floor(x.minutes / 20), 0);
+  const load = therapistLoad(desk, therapist.name, day, today, booked + Math.floor(form.minutes / 20));
   const book = () => {
     if (!draft || wrongJob) return;
     const b: RehabBooking = { ...draft, id: `rb-${desk.bookings.length + 1}-${draft.orderId}-${draft.therapist}-${draft.day}-${draft.start}`, by: me.name };
@@ -208,7 +210,7 @@ function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[]
           </p>
         ))}
         <p className="text-ink-soft">
-          {therapist.name}のこの日の予約・実施：{load.day}単位（この予約を含む）、週 {load.week}単位
+          {therapist.name}のこの日：{load.day}単位（記録した実施・ほかの予約・この予約）、週 {load.week}単位
         </p>
         <p className="hint text-[11px] text-ink-faint">{REHAB_RULES.booking} 従事者1人の実施単位数は1日18単位を標準、週108単位まで、1日24単位が上限です（留意事項通知 第7部 通則5の2）。</p>
       </div>
