@@ -136,7 +136,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   diet: { label: "食事の指示", who: ["医師"] },
   discharge: { label: "退院時サマリーと紹介状", who: ["医師"] },
   vitals: { label: "バイタルの記録", who: ["看護師", "医師"] },
-  mar: { label: "与薬・実施の記録", who: ["看護師"] },
+  mar: { label: "与薬・実施の記録", who: ["看護師", "医師"] },
   acuity: { label: "看護必要度の評価", who: ["看護師"] },
   pharmacy: { label: "薬剤部の業務", who: ["薬剤師"] },
   billing: { label: "算定の入力", who: ["医事課", "医師"] },
@@ -171,7 +171,8 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "bed.assign": { label: "ベッドを決めて入院を受けること", who: ["看護師", "医師"] },
   "bed.move": { label: "転棟・転床", who: ["医師", "看護師"] },
   restraint: { label: "身体的拘束の記録", who: ["医師", "看護師"] },
-  "nursing.plan": { label: "看護計画と看護ケア指示の記録", who: ["看護師"] },
+  // 医師は看護ケア指示も出せる（ユーザーの決め 2026-11-04：医師はすべてのオーダーができる）。
+  "nursing.plan": { label: "看護計画と看護ケア指示の記録", who: ["看護師", "医師"] },
   // 患者プロファイル: who registers what is the fictional hospital's rule (架空の病院の取り決め).
   "profile.allergy": { label: "アレルギーの登録・変更", who: ["医師", "看護師", "薬剤師", "管理栄養士"] },
   "profile.infection": { label: "感染症の登録・変更", who: ["医師", "看護師"] },
