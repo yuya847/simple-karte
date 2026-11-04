@@ -69,6 +69,7 @@ import { IncidentView } from "./IncidentView";
 import { INITIAL_NOTICES, INITIAL_READS, markRead, unreadCount, type Notice, type Reads } from "@/lib/board";
 import { INITIAL_INCIDENTS, applyStatus, emptyDraft, type IncidentDraft, type IncidentReport } from "@/lib/incident";
 import { StandingPanel } from "./panels/StandingPanel";
+import { RecordTemplatesPanel } from "./panels/RecordTemplatesPanel";
 import { RestraintPanel } from "./panels/RestraintPanel";
 import { RegimenPanel } from "./panels/RegimenPanel";
 import { SummaryPanel } from "./panels/SummaryPanel";
@@ -469,6 +470,8 @@ export default function WardApp() {
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
+  /** The record template a pinned tile on the rail asked to open (テンプレート panel). */
+  const [templateFocus, setTemplateFocus] = useState<string | null>(null);
   // 未確認の結果の窓: shown for a chart with unseen results until closed (per patient, this page).
   // 結果を表示 from a lab order in the record: the draw to show in the results table.
   const [resultFocus, setResultFocus] = useState<{ day: number; time: string } | null>(null);
@@ -1225,6 +1228,16 @@ export default function WardApp() {
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
                           update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
                           };
+
+  // A record template's text, confirmed as a note of its own (【テンプレート名】 heading; the wording was put together by code).
+  const confirmRecord = (text: string, label: string) => {
+    if (!patient) return;
+    const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(text) };
+    setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
+    auditLog({ role: me.role, actor: me.name, action: `確定（記事：${label}）`, patient: patient.name, detail: text.replace(/\s+/g, " ").slice(0, 120) });
+    if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: text.trim() }], newId)]);
+    update({ flash: `${label}を記事として確定しました。左の経過に入りました。` });
+  };
 
   // 研修医の記録を、指導医か上級医が確かめる. Each confirmation goes to the audit log.
   const confirmCosign = (ids: string[], comment: string) => {
@@ -3802,6 +3815,18 @@ export default function WardApp() {
                   })()}
                 </Drawer>
               )}
+              {panel === "templates" && (
+                <Drawer title="テンプレート（型のある記録）" onClose={closePanel} wide>
+                  <RecordTemplatesPanel
+                    key={templateFocus ?? "list"}
+                    initialId={templateFocus}
+                    facts={{ patient, today, nowTime, restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed) }}
+                    onInsert={(text) => update((c) => ({ note: `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note" }))}
+                    onConfirm={confirmRecord}
+                    onOpenPanel={(p) => setPanel(p)}
+                  />
+                </Drawer>
+              )}
               {panel === "docs" && (
                 <Drawer title="書類作成" onClose={closePanel} wide>
                   <DocsPanel
@@ -4132,7 +4157,9 @@ export default function WardApp() {
             <ToolRail
               open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
               badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : (waiting[patient.id] ?? 0), urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length } }}
-              onOpen={(p) => {
+              openTemplate={panel === "templates" ? templateFocus : null}
+              onOpen={(p, o) => {
+                setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);
                 // 注射 and 内服 are tabs on the right, not panels.
                 if (p === "add-injection" || p === "add-rx") {
                   const t: RightTab = p === "add-injection" ? "injection" : "rx";
