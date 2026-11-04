@@ -10,6 +10,8 @@ import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room,
 import type { BedAssignment } from "@/lib/ward";
 import { ageSex } from "@/lib/person";
 import { useEmphasizeTeam } from "@/lib/use-emphasis";
+import { expectedOf, isUnknownBed, markOf, markText, type Expected, type WardAsOf } from "@/lib/ward-asof";
+import { AsOfBand, DayNav, type DayNavProps } from "./DayNav";
 import { EmphasisToggle } from "./EmphasisToggle";
 
 export interface ChartSummary {
@@ -60,21 +62,29 @@ interface Props {
   mine?: (patientId: string) => boolean;
   /** 業務分担 of the shift now: the nurses of a room, shown in its header. */
   roomNote?: (room: Room) => string | undefined;
+  /** 日付の移動 in the header. */
+  dayNav?: DayNavProps;
+  /** The day shown, when `ward.beds` came from bedsAsOf (its marks are drawn; another day gets a band). */
+  asOf?: WardAsOf;
 }
 
 const everyone = () => true;
+const noFmt = (d: number) => `${d}日後`;
 
 /**
  * Floor plan of the ward. Every patient opens on click. With 「受け持ちを目立たせる」 (the default) the viewer's
  * team gets the full card and the others a short gray one; without it, everyone gets the full card.
  */
-export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, onMove, scope, mine: mineOf = everyone, roomNote }: Props) {
+export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, onMove, scope, mine: mineOf = everyone, roomNote, dayNav, asOf }: Props) {
   const [mineOnly, setMineOnly] = useState(false);
   const [emphasize, setEmphasize] = useEmphasizeTeam();
-  const occupied = ward.beds.length;
+  const day = asOf?.day ?? 0;
+  const fmtDay = dayNav?.fmtDay ?? noFmt;
+  const occupied = asOf ? asOf.counts.occupied : ward.beds.length;
   const totalBeds = rooms.reduce((n, r) => n + r.beds.length, 0);
+  const empty = asOf ? asOf.counts.empty : totalBeds - occupied;
   const mine = ward.beds.filter((b) => b.patientId && mineOf(b.patientId)).length;
-  const look: Look = { emphasize, mineOnly, mine: mineOf, roomNote };
+  const look: Look = { emphasize, mineOnly, mine: mineOf, roomNote, day, fmtDay };
   const north = rooms.filter((r) => r.side === "north");
   const south = rooms.filter((r) => r.side === "south");
   const southBeforeNs = south.slice(0, 3);
@@ -88,8 +98,9 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
           <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空の病棟</span>
         </h1>
         {pick && <PickSelect pick={pick} />}
+        {dayNav && <DayNav {...dayNav} />}
         <p className="nums text-sm text-ink-soft">
-          入院 <b className="text-ink">{occupied}</b>名・空床 <b className="text-ink">{totalBeds - occupied}</b>床・受け持ち <b className="text-ai">{mine}</b>名
+          入院 <b className="text-ink">{occupied}</b>名・空床 <b className="text-ink">{empty ?? "—"}</b>床{asOf && asOf.counts.reserved > 0 ? `（うち入院予定 ${asOf.counts.reserved}）` : ""}・受け持ち <b className="text-ai">{mine}</b>名
         </p>
         {scope ? (
           <p className="text-xs text-ink-soft">
@@ -102,8 +113,13 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
           </label>
         )}
         <EmphasisToggle on={emphasize} onChange={setEmphasize} />
-        <Legend emphasize={emphasize} />
+        <Legend emphasize={emphasize} day={day} />
       </header>
+      {asOf && (
+        <div className="-mx-5 mb-3">
+          <AsOfBand asOf={asOf} fmtDay={fmtDay} />
+        </div>
+      )}
 
       <div className="min-w-[1100px] space-y-2">
         <RoomRow ward={ward} rooms={north} summaries={summaries} onOpen={onOpen} onMove={onMove} look={look} scope={scope} />
@@ -132,6 +148,9 @@ interface Look {
   mineOnly: boolean;
   mine: (patientId: string) => boolean;
   roomNote?: Props["roomNote"];
+  /** The day shown (0 = today): 入院◯日目 and 新入院 are counted for it; today's vitals and results show on today only. */
+  day: number;
+  fmtDay: (day: number) => string;
 }
 
 function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; onMove?: Props["onMove"]; look: Look; scope?: Props["scope"]; inline?: boolean }) {
@@ -150,15 +169,33 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
         {r.beds.map((b) => {
           const occ = occupant(ward.beds, r.no, b);
           const patient = occ?.patientId ? ward.patient(occ.patientId) : undefined;
+          const mark = occ ? markOf(occ) : undefined;
+          const expected = occ ? expectedOf(occ) : undefined;
           const out = !!scope && !!occ && !scope.test(occ);
           const mine = !!patient && look.mine(patient.id);
           // 受け持ちだけ表示 fades everyone else (a narrower tab's scope decides instead when there is one).
           const faded = !!occ && (scope ? out : look.mineOnly && !mine);
+          // 退院予定 that day: the card stays, lighter, with the mark on it.
+          const leaving = mark?.kind === "退院予定" ? markText(mark, look.day, look.fmtDay) : null;
           return (
-            <div key={b || "single"} className={`min-h-24 min-w-0 ${faded && (patient && (mine || !look.emphasize)) ? "opacity-35" : ""}`}>
-              {patient && (mine || !look.emphasize) ? (
+            <div key={b || "single"} className={`relative min-h-24 min-w-0 ${faded && (patient && (mine || !look.emphasize)) ? "opacity-35" : leaving ? "opacity-70" : ""}`}>
+              {leaving && <span className="absolute right-1 top-1 z-10 rounded bg-wakatake-soft px-1 py-px text-[10px] font-bold text-wakatake">{leaving}</span>}
+              {occ && isUnknownBed(occ) ? (
+                <div className="flex h-full items-center justify-center rounded-md border border-rule bg-tab/50 text-[11px] text-ink-faint" title="この日に誰がいたか、記録からは分かりません">
+                  {b && <span className="mr-1">{b}</span>}記録なし
+                </div>
+              ) : expected && mark ? (
+                <ExpectedBed who={expected} bed={b} text={markText(mark, look.day, look.fmtDay)} faded={faded} />
+              ) : mark?.kind === "空く予定" ? (
+                <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-wakatake/60 bg-wakatake-soft/30 text-[11px] text-wakatake">
+                  <span>
+                    {b && <span className="mr-1">{b}</span>}空く予定
+                  </span>
+                  <span className="text-[10px] text-ink-soft">{markText(mark, look.day, look.fmtDay).replace(/^空く予定/, "")}</span>
+                </div>
+              ) : patient && (mine || !look.emphasize) ? (
                 // 移動 is offered for the team's patients (their bed moves are the team's work).
-                <MyBed patient={patient} bed={b} summary={summaries[patient.id]} onOpen={() => onOpen(patient.id)} onMove={onMove && mine ? () => onMove(patient.id) : undefined} />
+                <MyBed patient={patient} bed={b} day={look.day} summary={summaries[patient.id]} onOpen={() => onOpen(patient.id)} onMove={onMove && mine ? () => onMove(patient.id) : undefined} />
               ) : patient || occ?.other ? (
                 <OtherBed other={occ!.other} patient={patient} bed={b} faded={faded} onOpen={patient ? () => onOpen(patient.id) : undefined} />
               ) : (
@@ -191,12 +228,13 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
   return inline ? <>{body}</> : <div className="flex gap-2">{body}</div>;
 }
 
-function MyBed({ patient: p, bed, summary, onOpen, onMove }: { patient: Patient; bed: string; summary?: ChartSummary; onOpen: () => void; onMove?: () => void }) {
-  const latest = p.vitals.at(-1);
+function MyBed({ patient: p, bed, day, summary, onOpen, onMove }: { patient: Patient; bed: string; day: number; summary?: ChartSummary; onOpen: () => void; onMove?: () => void }) {
+  // Today's vitals and results are today's: on another day the card shows the standing facts only.
+  const latest = day === 0 ? p.vitals.at(-1) : undefined;
   const score = latest ? news2(latest) : null;
   const isolation = isolationFor(p.infections);
-  const newCulture = p.cultures.some((c) => c.reportedOn === 0);
-  const labsToday = p.labs.some((l) => l.day === 0);
+  const newCulture = day === 0 && p.cultures.some((c) => c.reportedOn === 0);
+  const labsToday = day === 0 && p.labs.some((l) => l.day === 0);
   return (
     <div className="relative h-full">
     {onMove && (
@@ -220,14 +258,14 @@ function MyBed({ patient: p, bed, summary, onOpen, onMove }: { patient: Patient;
         <b className="truncate text-[13px] text-ink">{p.name}</b>
       </div>
       <div className="text-ink-soft">
-        {ageSex(p)}・<b className="whitespace-nowrap text-ink">入院{hospitalDay(p.admittedOn, 0)}日目</b>
+        {ageSex(p)}・<b className="whitespace-nowrap text-ink">入院{hospitalDay(p.admittedOn, day)}日目</b>
       </div>
       <div className="truncate whitespace-nowrap text-ink-soft" title={p.admissionDiagnosis}>
         {p.admissionDiagnosis}
       </div>
       <div className="flex flex-wrap gap-1">
         {p.codeStatus === "DNAR" && <Tag tone="shu">DNAR</Tag>}
-        {p.admittedOn === 0 && <Tag tone="ai">新入院</Tag>}
+        {p.admittedOn === day && <Tag tone="ai">新入院</Tag>}
         {isolation && (
           <Tag tone="fuji">
             <ShieldAlert size={10} />
@@ -295,6 +333,23 @@ function OtherBed({ other, patient, bed, faded, onOpen }: { other?: OtherPatient
   );
 }
 
+/** Someone expected on this bed (入院予定): no chart yet, so a dotted card with what the plan says. */
+function ExpectedBed({ who, bed, text, faded }: { who: Expected; bed: string; text: string; faded: boolean }) {
+  return (
+    <div title="入院予定（予定から）。カルテは入院を受けたときにできます" className={`nums flex h-full w-full flex-col gap-0.5 rounded-md border-2 border-dotted border-ai/70 bg-ai-soft/20 px-2 py-1.5 text-left text-[11px] ${faded ? "opacity-30" : ""}`}>
+      <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+        {bed && <span className="text-ink-faint">{bed}</span>}
+        <b className="truncate text-[13px] text-ink">{who.name}</b>
+      </div>
+      <div className="text-ink-soft">
+        {ageSex(who)}・{who.department}
+      </div>
+      <Tag tone="ai">{text}</Tag>
+      {who.note && <div className="truncate whitespace-nowrap text-ink-soft">{who.note}</div>}
+    </div>
+  );
+}
+
 function Tag({ tone, children }: { tone: "fuji" | "shu" | "yamabuki" | "ai" | "wakatake"; children: React.ReactNode }) {
   const styles = {
     fuji: "bg-fuji-soft text-fuji",
@@ -306,7 +361,7 @@ function Tag({ tone, children }: { tone: "fuji" | "shu" | "yamabuki" | "ai" | "w
   return <span className={`inline-flex items-center gap-0.5 rounded px-1 py-px text-[10px] font-bold ${styles}`}>{children}</span>;
 }
 
-function Legend({ emphasize }: { emphasize: boolean }) {
+function Legend({ emphasize, day }: { emphasize: boolean; day: number }) {
   return (
     <div className="ml-auto flex flex-wrap items-center gap-3 text-[11px] text-ink-soft">
       <span className="flex items-center gap-1">
@@ -320,10 +375,31 @@ function Legend({ emphasize }: { emphasize: boolean }) {
         </span>
       )}
       <span className="hint">押すとカルテが開きます</span>
-      <span className="flex items-center gap-1">
-        <span className="h-3 w-4 rounded-sm border border-dashed border-rule" />
-        空床
-      </span>
+      {day >= 0 && (
+        <span className="flex items-center gap-1">
+          <span className="h-3 w-4 rounded-sm border border-dashed border-rule" />
+          空床
+        </span>
+      )}
+      {day >= 0 && (
+        <span className="flex items-center gap-1">
+          <span className="h-3 w-4 rounded-sm border-2 border-dotted border-ai/70 bg-ai-soft/20" />
+          入院予定
+        </span>
+      )}
+      {day > 0 && (
+        <span className="flex items-center gap-1">
+          <span className="rounded bg-wakatake-soft px-1 font-bold text-wakatake">退院予定</span>
+          <span className="h-3 w-4 rounded-sm border border-dashed border-wakatake/60 bg-wakatake-soft/30" />
+          空く予定
+        </span>
+      )}
+      {day < 0 && (
+        <span className="flex items-center gap-1">
+          <span className="h-3 w-4 rounded-sm border border-rule bg-tab/50" />
+          記録なし
+        </span>
+      )}
     </div>
   );
 }
