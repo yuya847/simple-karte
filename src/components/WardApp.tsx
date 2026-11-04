@@ -1159,6 +1159,8 @@ export default function WardApp() {
   };
   // 保存 on the bar: the note of the day (記録時刻・記載時刻 kept apart), by the person writing.
   const unseenHere: ResultItem[] = patient ? unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id), ...care.results.filter((i) => i.patientId === patient.id)], acks) : [];
+  // 口頭指示 waiting for a doctor's signature: a count on the 有効なオーダ tool, the inbox inside it (not over the note).
+  const verbalHere = patient ? verbalUnsigned(entries.filter((e): e is OrderEntry => e.kind === "order")) : [];
   const confirmNote = () => {
     if (!patient) return;
                           // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
@@ -2854,18 +2856,6 @@ export default function WardApp() {
               }}
             >
               {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
-              <VerbalInbox
-                entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
-                today={today}
-                nowAbs={abs(0, nowTime)}
-                onSign={(ids) => {
-                  auditLog({ role: me.role, actor: me.name, action: "確定（口頭指示を承認）", patient: patient.name, detail: `${ids.length}件` });
-                  update((c) => ({
-                    added: c.added.map((e) => (ids.includes(e.id) && e.verbal ? { ...e, verbal: { ...e.verbal, signedAt: { day: 0, time: nowTime } } } : e)),
-                    flash: `口頭指示 ${ids.length}件を承認しました。`,
-                  }));
-                }}
-              />
               {role === "医師" && <CosignStrip items={cosign.filter((i) => i.patientId === patient.id)} meName={me.name} onConfirm={confirmCosign} />}
               {role === "医師" && (
                 <TakeStatus
@@ -3206,6 +3196,22 @@ export default function WardApp() {
               )}
               {panel === "active-orders" && (
                 <Drawer title="有効なオーダ" onClose={closePanel}>
+                  {verbalHere.length > 0 && !deny("order.sign") && (
+                    <div className="mb-3 rounded-lg border border-rule bg-paper">
+                  <VerbalInbox
+                entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                today={today}
+                nowAbs={abs(0, nowTime)}
+                onSign={(ids) => {
+                  auditLog({ role: me.role, actor: me.name, action: "確定（口頭指示を承認）", patient: patient.name, detail: `${ids.length}件` });
+                  update((c) => ({
+                    added: c.added.map((e) => (ids.includes(e.id) && e.verbal ? { ...e, verbal: { ...e.verbal, signedAt: { day: 0, time: nowTime } } } : e)),
+                    flash: `口頭指示 ${ids.length}件を承認しました。`,
+                  }));
+                }}
+              />
+                    </div>
+                  )}
                   <ActiveOrdersPanel entries={entries} today={today} />
                 </Drawer>
               )}
@@ -3895,7 +3901,7 @@ export default function WardApp() {
             )}
             <ToolRail
               open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
-              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) } }}
+              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length } }}
               onOpen={(p) => {
                 // 注射 and 内服 are tabs on the right, not panels.
                 if (p === "add-injection" || p === "add-rx") {
