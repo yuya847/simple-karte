@@ -4,7 +4,7 @@
 
 export type Role = "医師" | "看護師" | "薬剤師" | "臨床検査技師" | "診療放射線技師" | "療法士" | "管理栄養士" | "MSW" | "医事課";
 
-export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "管理栄養士", "MSW", "医事課"];
+export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW", "医事課"];
 
 export interface Staff {
   role: Role;

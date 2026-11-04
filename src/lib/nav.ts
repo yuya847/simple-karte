@@ -37,7 +37,7 @@ export const AREAS: Area[] = [
   { key: "kitchen", label: "栄養部門（給食）", short: "給食", kind: "page" },
   { key: "teams", label: "チーム医療", short: "チーム", kind: "page" },
   { key: "radiology", label: "放射線部", short: "放射線", kind: "page" },
-  { key: "rehab", label: "リハビリテーション部", short: "リハビリ", kind: "page", soon: "準備中" },
+  { key: "rehab", label: "リハビリテーション部", short: "リハビリ", kind: "page" },
   { key: "liaison", label: "地域医療連携", short: "連携", kind: "page" },
   { key: "receipt", label: "レセプト点検・返戻", short: "レセプト", kind: "page" },
   { key: "stats", label: "統計・日報", short: "統計", kind: "page" },
@@ -54,12 +54,8 @@ export const AREAS: Area[] = [
 ];
 
 /** The view a role must have to use a place (from the role's tabs in roles.ts). */
-const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysis: "dialysis", pharmacy: "pharmacy", lab: "lab", blood: "lab", path: "lab", physio: "lab", chat: "chat", audit: "audit" };
-/** Places every role has: in-hospital calls (院内連絡), the hospital's notices, the formulary (医薬品集・DI), manuals and incident reports. */
 const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
 const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysis: "dialysis", pharmacy: "pharmacy", lab: "lab", blood: "lab", path: "lab", physio: "lab", radiology: "ris", rehab: "rehab", chat: "chat", audit: "audit" };
-/** Places every role has: in-hospital calls (院内連絡), the hospital's notices, manuals and incident reports. */
-const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
 
 // ---------------------------------------------------------------------------
 // ② inside 病棟

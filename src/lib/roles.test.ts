@@ -57,6 +57,15 @@ describe("roles", () => {
     expect(denyReason("看護師", "ris.sign")).toBe("照射録の署名（指示をした医師）は医師が行います（いまは看護師で入っています）。");
   });
 
+  it("リハビリ: therapists record, the doctor makes the 実施計画書, and the doctor, a therapist or a nurse explains it", () => {
+    expect(can("療法士", "rehab.therapy")).toBe(true);
+    expect(can("看護師", "rehab.therapy")).toBe(false);
+    expect(can("医師", "rehab.plan")).toBe(true);
+    expect(can("療法士", "rehab.plan")).toBe(false);
+    for (const r of ["医師", "療法士", "看護師"] as const) expect(can(r, "rehab.explain")).toBe(true);
+    expect(can("MSW", "rehab.explain")).toBe(false);
+  });
+
   it("医事課 does not write clinical notes", () => {
     expect(can("医事課", "note")).toBe(false);
     expect(can("MSW", "note")).toBe(true);

@@ -1,6 +1,6 @@
 "use client";
 
-// The records of 輸血部門・病理・生理検査室・放射線部, with the fictional state they start from. WardApp spreads
+// The records of 輸血部門・病理・生理検査室・放射線部・リハビリテーション部, with the fictional state they start from. WardApp spreads
 // `states` into useWorkspace so they are saved with the other records of the session.
 
 import { useMemo, useState } from "react";
@@ -10,6 +10,7 @@ import { abs } from "./flowsheet";
 import { initialPathology, pathResultItems, type PathCase } from "./pathology";
 import { demoPhysioOrders, initialPhysioDesk, physioResultItems, type PhysioDesk } from "./physio-desk";
 import type { ResultItem } from "./results";
+import { demoRehabOrders, EMPTY_REHAB, initialRehabDesk, type RehabDesk } from "./rehab";
 import { demoRisOrders, initialRisDesk, risResultItems, type RisDesk } from "./ris";
 import type { OrderEntry } from "./types";
 
@@ -22,7 +23,7 @@ const onClient =
 /** The departments' demo orders for each fictional ward patient, merged. */
 const demoOrders = (nowAbs: number): Record<string, OrderEntry[]> => {
   const out: Record<string, OrderEntry[]> = {};
-  for (const part of [demoPhysioOrders(nowAbs), demoRisOrders(nowAbs)]) for (const [id, list] of Object.entries(part)) out[id] = [...(out[id] ?? []), ...list];
+  for (const part of [demoPhysioOrders(nowAbs), demoRisOrders(nowAbs), demoRehabOrders()]) for (const [id, list] of Object.entries(part)) out[id] = [...(out[id] ?? []), ...list];
   return out;
 };
 
@@ -31,7 +32,8 @@ export function useDepartments() {
   const [pathology, setPathology] = useState<PathCase[]>(onClient([], initialPathology));
   const [physioDesk, setPhysioDesk] = useState<PhysioDesk>(onClient({}, initialPhysioDesk));
   const [ris, setRis] = useState<RisDesk>(onClient({}, initialRisDesk));
-  /** Physiological tests and imaging ordered for the fictional ward patients (merged into their records). */
+  const [rehab, setRehab] = useState<RehabDesk>(onClient(EMPTY_REHAB, initialRehabDesk));
+  /** Physiological tests, imaging and rehabilitation ordered for the fictional ward patients (merged into their records). */
   const [demo] = useState<Record<string, OrderEntry[]>>(onClient({}, demoOrders));
   /** Reports the doctor marks as read, like the other results (生理・病理・画像). */
   const results: ResultItem[] = useMemo(() => [...physioResultItems(physioDesk), ...pathResultItems(pathology), ...risResultItems(ris)], [physioDesk, pathology, ris]);
@@ -44,6 +46,8 @@ export function useDepartments() {
     setPhysioDesk,
     ris,
     setRis,
+    rehab,
+    setRehab,
     demoOrders: demo,
     results,
     /** For useWorkspace (the names must stay the same). */
@@ -52,6 +56,7 @@ export function useDepartments() {
       pathology: [pathology, setPathology],
       physioDesk: [physioDesk, setPhysioDesk],
       ris: [ris, setRis],
+      rehab: [rehab, setRehab],
     } as Record<string, [unknown, (v: never) => void]>,
   };
 }

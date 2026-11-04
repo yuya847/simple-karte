@@ -226,6 +226,8 @@ import { KitchenView } from "./KitchenView";
 import { TeamsView } from "./TeamsView";
 import { TeamPanel } from "./panels/TeamPanel";
 import { RadiologyView } from "./RadiologyView";
+import { RehabView } from "./RehabView";
+import { RehabProgressPanel } from "./panels/RehabProgressPanel";
 import { PathRequestPanel } from "./panels/PathRequestPanel";
 import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
@@ -753,8 +755,7 @@ export default function WardApp() {
           ...p,
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
-          history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoPhysio[p.id] ?? []), ...(care.demoEndo[p.id] ?? [])],
-          history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoOrders[p.id] ?? [])],
+          history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoOrders[p.id] ?? []), ...(care.demoEndo[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
@@ -770,8 +771,7 @@ export default function WardApp() {
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio, care.demoEndo, profileLog],
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoOrders, profileLog],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoOrders, profileLog, care.demoEndo],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
@@ -2273,6 +2273,8 @@ export default function WardApp() {
         <PhysioView people={people} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
       ) : screen === "radiology" ? (
         <RadiologyView people={people} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} />
+      ) : screen === "rehab" ? (
+        <RehabView people={people} desk={dept.rehab} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
       ) : screen === "path" ? (
         <PathologyView people={everyone} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
@@ -2980,6 +2982,11 @@ export default function WardApp() {
               {panel === "team" && (
                 <Drawer title="チーム医療（依頼・回診・提案の採否）" onClose={closePanel} wide>
                   <TeamPanel patientId={patient.id} patientName={patient.name} desk={care.teams} onDesk={care.setTeams} today={today} nowTime={nowTime} />
+                </Drawer>
+              )}
+              {panel === "rehab-progress" && (
+                <Drawer title="リハビリの経過" onClose={closePanel} wide>
+                  <RehabProgressPanel patient={patient} entries={entries} desk={dept.rehab} onDesk={dept.setRehab} today={today} nowTime={nowTime} />
                 </Drawer>
               )}
               {panel === "reports" && (

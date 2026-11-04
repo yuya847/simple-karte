@@ -33,6 +33,13 @@ describe("① places by role", () => {
     expect(areasFor("看護師").map((a) => a.key)).not.toContain("radiology");
     expect(homeArea("診療放射線技師")).toBe("radiology");
   });
+  it("リハビリテーション部 is the therapists'; doctors and nurses look at it too", () => {
+    expect(areasFor("療法士").map((a) => a.key)).toContain("rehab");
+    expect(areasFor("医師").map((a) => a.key)).toContain("rehab");
+    expect(areasFor("看護師").map((a) => a.key)).toContain("rehab");
+    expect(areasFor("薬剤師").map((a) => a.key)).not.toContain("rehab");
+    expect(homeArea("療法士")).toBe("rehab");
+  });
   it("each role starts at its own place", () => {
     expect(homeArea("医師")).toBe("ward");
     expect(homeArea("看護師")).toBe("ward");
