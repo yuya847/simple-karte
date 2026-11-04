@@ -10,6 +10,7 @@ import { currentEntries } from "@/lib/record";
 import { STAFF, type Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
 import { DowntimeView } from "./DowntimeView";
+import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -44,5 +45,27 @@ describe("障害時の参照の画面", () => {
     const sw = pub("sw.js");
     expect(sw).toContain('var FILES = ["/downtime/index.html", "/downtime/view.js"];');
     expect(sw).toContain("FILES.indexOf(url.pathname) < 0");
+  });
+});
+
+describe("同時利用の警告", () => {
+  it("names the others with the chart open, and stands out when one is writing", () => {
+    const html = renderToStaticMarkup(<PresenceStrip peers={[{ tab: "b", who: "看護師 佐藤", role: "看護師", patient: "p1", editing: true, where: "タブ", seen: 0 }, { tab: "d", who: "山本（専攻医）", role: "医師", patient: "p1", editing: false, where: "端末", seen: 0 }]} />);
+    expect(html).toContain("このカルテを開いている人");
+    expect(html).toContain("看護師 佐藤（別のタブ・記事か下書きを書いています）");
+    expect(html).toContain("山本（専攻医）（医師・別の端末）");
+    expect(html).toContain("bg-yamabuki-soft");
+    expect(renderToStaticMarkup(<PresenceStrip peers={[]} />)).toBe("");
+  });
+
+  it("says saving is stopped and asks to read the newest records before confirming", () => {
+    const stale = { by: "看護師 佐藤", role: "看護師", at: "10:32", where: "タブ" as const, patients: { p1: ["記事の確定"] } };
+    const banner = renderToStaticMarkup(<StaleBanner stale={stale} onRefresh={() => {}} busy={false} />);
+    expect(banner).toContain("別のタブ（看護師 佐藤）で 10:32 に記録が保存されました");
+    expect(banner).toContain("保存を止めています");
+    expect(banner).toContain("最新の記録を読み込む");
+    const ask = renderToStaticMarkup(<StaleAsk text="大浦 トメさんの記録は、別のタブで変わりました。" onRefresh={() => {}} onCancel={() => {}} busy={false} />);
+    expect(ask).toContain("確定していません");
+    expect(ask).toContain("やめる");
   });
 });

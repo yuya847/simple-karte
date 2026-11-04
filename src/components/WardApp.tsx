@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, continuedTime, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
 import { checkDraft, draftsFromAi, isReady, newProcedureDraft, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type Issue, type StopDraft } from "@/lib/drafts";
@@ -245,6 +245,9 @@ import { useInfra } from "@/lib/use-infra";
 import { masterIssues } from "@/lib/master-local";
 import { SystemView } from "./SystemView";
 import { DowntimeView } from "./DowntimeView";
+import { usePresence } from "@/lib/use-presence";
+import { staleText, thisTab } from "@/lib/presence";
+import { PresenceStrip, StaleAsk, StaleBanner } from "./Presence";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -611,6 +614,11 @@ export default function WardApp() {
   const [returns, setReturns] = useState<ReturnDesk>(EMPTY_RETURNS);
   // 国のサービス（模擬）: what was registered with or sent to the simulated services.
   const [national, setNational] = useState<NationalRecord[]>([]);
+  // 排他制御: while another tab or device saved newer records, this page does not save (usePresence says so).
+  const holdSaves = useRef(false);
+  const onSaved = useRef<(() => void) | null>(null);
+  // Who saved the records last (this tab), for the other devices.
+  const writer = useMemo(() => ({ tab: thisTab(), by: me.name, role: me.role }), [me]);
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
   const workspace = useWorkspace(
     {
@@ -708,8 +716,10 @@ export default function WardApp() {
       ...care.states,
       ...nm.states,
       ...infra.states,
+      __writer: [writer, () => {}],
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
+    { hold: () => holdSaves.current, onSaved: () => onSaved.current?.() },
   );
   const [demoLabs] = useState(() => (typeof window === "undefined" ? {} : demoLabOrders(abs(0, nowTimeInTokyo()))));
   // Lab orders of today's 救急外来・外来 visits (fictional), by visit key "er:◯" / "opd:◯".
@@ -935,6 +945,10 @@ export default function WardApp() {
     return Object.fromEntries(chart.drafts.map((d) => [d.id, [...checkDraft(d, ctx), ...masterIssues(d, infra.masterOv, infra.masterLog)]]));
   }, [chart.drafts, ctx, infra.masterOv, infra.masterLog]);
 
+  // 同時利用の警告・排他制御: the others with this chart open, and whether newer records were saved elsewhere.
+  const presence = usePresence({ wsId: workspace.id, shared: workspace.status !== "off" && workspace.status !== "loading", me, patientId: activeId, note: chart.note, drafts: chart.drafts.length, holdRef: holdSaves, savedRef: onSaved });
+  const [catchingUp, setCatchingUp] = useState(false);
+
   if (!today || !nowTime || (patient && !ctx)) {
     return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
   }
@@ -1089,6 +1103,18 @@ export default function WardApp() {
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
                           update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
                           };
+
+  // 排他制御: read the records saved by another tab or device into this page, keeping the note and drafts of the chart in front.
+  const catchUp = async () => {
+    const keep = activeId ? { id: activeId, note: chart.note, drafts: chart.drafts } : null;
+    setCatchingUp(true);
+    const ok = await workspace.refresh();
+    setCatchingUp(false);
+    if (!ok) return;
+    presence.caughtUp();
+    if (keep) updateFor(keep.id, () => ({ note: keep.note, drafts: keep.drafts }));
+    auditLog({ role: me.role, actor: me.name, action: "最新の記録を読み込んだ（別のタブ・端末で保存されたため）" });
+  };
 
   // 研修医の記録を、指導医か上級医が確かめる. Each confirmation goes to the audit log.
   const confirmCosign = (ids: string[], comment: string) => {
@@ -2446,7 +2472,7 @@ export default function WardApp() {
                   </button>
                 )}
                 {orderMode !== "none" && (
-                  <button type="button" disabled={!ordersReady} onClick={confirm} title={ordersReady ? "貯めたオーダだけを飛ばす（記事はそのまま）" : "飛ばせる下書きがありません（確認が残っているか、下書きがない）"} className={`rounded-md border px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${orderMode === "verbal" ? "border-yamabuki text-yamabuki" : "border-ink text-ink hover:bg-paper"}`}>
+                  <button type="button" disabled={!ordersReady} onClick={() => presence.guard(patient.id, "オーダの確定", confirm)} title={ordersReady ? "貯めたオーダだけを飛ばす（記事はそのまま）" : "飛ばせる下書きがありません（確認が残っているか、下書きがない）"} className={`rounded-md border px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${orderMode === "verbal" ? "border-yamabuki text-yamabuki" : "border-ink text-ink hover:bg-paper"}`}>
                     {orderMode === "verbal" ? "口頭指示で" : ""}オーダーのみ{chart.drafts.length ? ` ${chart.drafts.length}` : ""}
                   </button>
                 )}
@@ -2454,10 +2480,12 @@ export default function WardApp() {
                   <button
                     type="button"
                     disabled={!noteReady && !ordersReady}
-                    onClick={() => {
-                      if (noteReady) confirmNote();
-                      if (ordersReady) confirm();
-                    }}
+                    onClick={() =>
+                      presence.guard(patient.id, "保存", () => {
+                        if (noteReady) confirmNote();
+                        if (ordersReady) confirm();
+                      })
+                    }
                     title="記事を確定し、貯めたオーダも一緒に飛ばす"
                     className="rounded-md bg-ink px-4 py-1.5 text-sm font-bold text-white hover:bg-ink/90 disabled:opacity-40"
                   >
@@ -2510,6 +2538,7 @@ export default function WardApp() {
             onRemove={(id) => setStickies((all) => ({ ...all, [patient.id]: (all[patient.id] ?? []).filter((x) => x.id !== id) }))}
           />
           {limitNow && <LimitStrip limit={limitNow} inTeam={inTeamNow} grant={grantNow} fmtDay={(d) => formatShort(addDays(today, d))} />}
+          <PresenceStrip peers={presence.on(patient.id)} />
           <div
             data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
@@ -2840,11 +2869,11 @@ export default function WardApp() {
                             };
                           });
                         }}
-                        onConfirm={confirm}
+                        onConfirm={() => presence.guard(patient.id, "オーダの確定", confirm)}
                         orderMode={orderMode}
                         noteAt={chart.noteAt ?? null}
                         onNoteAt={(a) => update({ noteAt: a })}
-                        onConfirmNote={confirmNote}
+                        onConfirmNote={() => presence.guard(patient.id, "記事の確定", confirmNote)}
                       />,
                     )}
                     {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
@@ -3865,6 +3894,8 @@ export default function WardApp() {
         </div>
       )}
       <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} />
+      {presence.stale && workspace.status !== "off" && <StaleBanner stale={presence.stale} onRefresh={catchUp} busy={catchingUp} />}
+      {presence.ask && <StaleAsk text={staleText(presence.stale!, presence.ask.patientId, findPatient(presence.ask.patientId)?.name)} onRefresh={catchUp} onCancel={presence.cancelAsk} busy={catchingUp} />}
       {Number(nowTime.slice(0, 2)) >= 24 && (
         <p role="status" className="fixed bottom-10 right-2 z-40 max-w-xs rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[11px] text-ink shadow print:hidden">
           日付が変わりました。この画面は {formatShort(today)} を「今日」として続けているので、{nowTime.slice(0, 2)}:{nowTime.slice(3)}（翌{Number(nowTime.slice(0, 2)) - 24}:{nowTime.slice(3)}）のように時刻を付けます。
