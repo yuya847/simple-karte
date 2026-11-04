@@ -7,8 +7,9 @@ import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/date
 import { abs, fluidByDay } from "@/lib/flowsheet";
 import { durationText, oralName, procedureLines, scheduleLabel, scheduleTextFor, timingText } from "@/lib/format";
 import { findProc } from "@/lib/procedures";
-import { findDrug } from "@/lib/master";
+import { WARD_RULES, findDrug } from "@/lib/master";
 import { ordersOf } from "@/lib/record";
+import { ExecuteTarget, type ExecuteProps } from "./ExecuteMenu";
 import { orderEndDay, type InjectionDraft } from "@/lib/drafts";
 import { START_BANDS, doStartOf, draftSpan, startAt, type InjStart } from "@/lib/inj-calendar";
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "@/lib/types";
@@ -37,7 +38,12 @@ export interface CalendarProps {
   onNewInjection?: (start: InjStart, from?: InjectionOrder) => void;
   /** Injection drafts not confirmed yet, shown as dashed rows so the new order is seen on the calendar at once. */
   pendingNew?: InjectionDraft[];
+  /** 実施・未実施 of a dose from its cell (right click, long press). Absent: the cells only show. */
+  execute?: ExecuteProps;
 }
+
+/** The note under a calendar about recording from its cells, when that is possible. */
+const EXEC_NOTE = (execute: ExecuteProps | undefined) => (execute ? "時刻の札を右クリック（iPad は長押し）すると、その回を実施・未実施にできます（ワークシートと同じ与薬・実施の記録。照合なし）。" : "");
 
 /** 実施 / 未実施 as the nurse recorded it, next to a dose. */
 function MarMark({ r }: { r?: { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } }) {
@@ -228,7 +234,7 @@ const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
   { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
 ];
 
-export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, marOf, onNewInjection, pendingNew = [] }: CalendarProps) {
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, marOf, onNewInjection, pendingNew = [], execute }: CalendarProps) {
   const days = calendarDays(patient, INJ_AHEAD);
   // The end being dragged (or moved with ← →) on one order, before it becomes a draft.
   const [drag, setDrag] = useState<{ id: string; to: DayOffset } | null>(null);
@@ -247,7 +253,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`✓ は予定の時刻を過ぎた投与です（この試作では実施の記録はなく、架空です）。枠だけのものはこれからの予定。点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます（時刻帯の時刻は架空の病院の取り決め）。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
+      note={`✓ は予定の時刻を過ぎた投与、済・未実施は与薬・実施の記録から（記録のない過去の分は架空）。枠だけのものはこれからの予定。${EXEC_NOTE(execute)}点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます（時刻帯の時刻は架空の病院の取り決め）。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
     >
       {INJ_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as InjectionOrder));
@@ -296,17 +302,16 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                         {inPreview && <span className="whitespace-nowrap rounded border border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
                         {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
                         {redoable && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋新規（Do）</span>}
-                        {c.doses.map((x) => (
-                          (() => {
-                            const r = marOf?.(e.id, d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5)));
-                            return (
-                              <span key={x.time} className={`inline-flex items-center gap-0.5 ${r?.status === "未実施" ? "line-through decoration-shu" : ""}`}>
-                                <Chip state={x.state}>{x.time}</Chip>
-                                <MarMark r={r} />
-                              </span>
-                            );
-                          })()
-                        ))}
+                        {c.doses.map((x) => {
+                          const at = d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5));
+                          const r = marOf?.(e.id, at);
+                          return (
+                            <ExecuteTarget key={x.time} execute={execute} patient={patient} entry={e} at={at} title={lines[0]} className={`inline-flex items-center gap-0.5 ${r?.status === "未実施" ? "line-through decoration-shu" : ""}`}>
+                              <Chip state={x.state}>{x.time}</Chip>
+                              <MarMark r={r} />
+                            </ExecuteTarget>
+                          );
+                        })}
                         {c.infusion && (
                           <Chip state={c.infusion.state}>
                             {c.infusion.state === "now" ? "投与中 " : ""}
@@ -525,7 +530,7 @@ function ExtendHandle({ label, end, max, value, fmt, onMove, onDone }: { label: 
 
 const RX_GROUPS: PrescriptionOrder["category"][] = ["定期", "臨時", "持参薬", "退院時"];
 
-export function PrescriptionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops }: CalendarProps) {
+export function PrescriptionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute }: CalendarProps) {
   const days = calendarDays(patient);
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "prescription");
@@ -537,7 +542,7 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note="✓ は服用の時刻を過ぎたものです（この試作では服薬の記録はなく、架空です）。服用の時刻は病棟の約束（朝 8:00・昼 12:00・夕 18:00・眠前 21:00）。頓用は使った時刻を出します。"
+      note={`✓ は服用の時刻を過ぎたもの、済・未実施は与薬の記録から（記録のない過去の分は架空）。服用の時刻は病棟の約束（朝 8:00・昼 12:00・夕 18:00・眠前 21:00）。頓用は使った時刻を出します。${EXEC_NOTE(execute)}`}
     >
       <tr>
         <th className="sticky left-0 z-[5] border-b border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">食事（主食・割）</th>
@@ -574,9 +579,16 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
                       <div className="flex flex-wrap gap-1">
                         {c.slots.map((s) =>
                           s.state ? (
-                            <Chip key={s.timing} state={s.state}>
-                              {s.timing}
-                            </Chip>
+                            (() => {
+                              const at = abs(d, WARD_RULES.medTimes[s.timing]);
+                              const r = marOf?.(e.id, at);
+                              return (
+                                <ExecuteTarget key={s.timing} execute={execute} patient={patient} entry={e} at={at} title={oralName(o.drugCode)} className={`inline-flex items-center gap-0.5 ${r?.status === "未実施" ? "line-through decoration-shu" : ""}`}>
+                                  <Chip state={s.state}>{s.timing}</Chip>
+                                  <MarMark r={r} />
+                                </ExecuteTarget>
+                              );
+                            })()
                           ) : (
                             <span key={s.timing} className="inline-flex items-center px-1 text-[11px] text-ink-faint/50">
                               <Square size={8} />
@@ -617,7 +629,7 @@ const PROC_GROUPS: { title: string; test: (o: ProcedureOrder) => boolean }[] = [
   { title: "必要時", test: (o) => o.schedule.kind === "prn" },
 ];
 
-export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops }: CalendarProps) {
+export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute }: CalendarProps) {
   const days = calendarDays(patient);
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "procedure");
@@ -629,7 +641,7 @@ export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note="決まった時刻の処置は、時刻を過ぎたものを ✓ にしています（この試作では実施の記録はなく、架空です）。時刻は病棟の約束（1日1回 10:00、1日2回 10:00・18:00、1日3回 6:00・14:00・22:00）。必要時の処置は、実施した時刻（架空の記録）を出します。"
+      note={`決まった時刻の処置は、時刻を過ぎたものを ✓ に、済・未実施は実施の記録から（記録のない過去の分は架空）。時刻は病棟の約束（1日1回 10:00、1日2回 10:00・18:00、1日3回 6:00・14:00・22:00）。必要時の処置は、実施した時刻（架空の記録）を出します。${EXEC_NOTE(execute)}`}
     >
       {PROC_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as ProcedureOrder));
@@ -653,12 +665,22 @@ export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDa
                             {c.running.from && <span className="opacity-75">{c.running.from}〜</span>}
                           </Chip>
                         )}
-                        {c.times.map((t) => (
-                          <Chip key={t.time} state={t.state}>
-                            {t.time}
-                            {o.schedule.kind === "prn" ? " 実施" : ""}
-                          </Chip>
-                        ))}
+                        {c.times.map((t) => {
+                          if (o.schedule.kind === "prn")
+                            return (
+                              <Chip key={t.time} state={t.state}>
+                                {t.time} 実施
+                              </Chip>
+                            );
+                          const at = abs(d, t.time);
+                          const r = marOf?.(e.id, at);
+                          return (
+                            <ExecuteTarget key={t.time} execute={execute} patient={patient} entry={e} at={at} title={main} className={`inline-flex items-center gap-0.5 ${r?.status === "未実施" ? "line-through decoration-shu" : ""}`}>
+                              <Chip state={t.state}>{t.time}</Chip>
+                              <MarMark r={r} />
+                            </ExecuteTarget>
+                          );
+                        })}
                         {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止{c.stopped.time ? ` ${c.stopped.time}` : ""}</span>}
                       </div>
                     </Cell>
