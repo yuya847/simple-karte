@@ -1944,9 +1944,9 @@ export default function WardApp() {
           onVoid={voidMar}
         />
       ) : screen === "receipt" ? (
-        <ReceiptDesk patients={allPatients} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => allPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} desk={returns} onDesk={setReturns} />
+        <ReceiptDesk patients={teamPatients} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} desk={returns} onDesk={setReturns} />
       ) : screen === "stats" ? (
-        <StatsView today={today} nowTime={nowTime} floors={FLOORS} beds={[...BEDS, ...newBeds, ...OTHER_FLOOR_BEDS]} moves={moves} patient={findPatient} opd={opd} er={er} />
+        <StatsView today={today} nowTime={nowTime} floors={FLOORS} beds={[...BEDS_WITH_CHARTS, ...newBeds, ...OTHER_FLOOR_BEDS_WITH_CHARTS]} moves={moves} patient={findPatient} opd={opd} er={er} />
       ) : screen === "liaison" ? (
         <LiaisonView
           today={today}
