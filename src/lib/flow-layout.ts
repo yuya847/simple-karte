@@ -18,6 +18,7 @@ export type FlowGroupKey = (typeof FLOW_GROUPS)[number]["key"];
 /** Rows that can be hidden one by one (the care rows are "care:" + kind|item). */
 export const FLOW_ROWS: Partial<Record<FlowGroupKey, { key: string; label: string }[]>> = {
   vitals: [
+    { key: "vitals.notes", label: "付箋" },
     { key: "vitals.bt", label: "体温" },
     { key: "vitals.hr", label: "脈拍" },
     { key: "vitals.bp", label: "血圧" },

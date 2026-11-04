@@ -29,7 +29,9 @@ import { useFlowPrefs } from "@/lib/flow-prefs";
 import { useDeny, useMe } from "./RoleContext";
 import { ENTRY_ACTION, ENTRY_LABEL, cellWindow, timeAtX, type FlowEntry } from "@/lib/flow-entry";
 import { timedOral } from "@/lib/flow-meds";
-import { FlowCellMenu } from "./FlowCellMenu";
+import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
+import { FlowStickyLane } from "./FlowStickyLane";
+import { notesIn, type GraphNote } from "@/lib/flow-stickies";
 import { FlowGlucoseRows, FlowOralRows, type FlowMar } from "./FlowMedRows";
 import { glucosePoints, insulinOrders, isGlucoseCare } from "@/lib/flow-meds";
 import type { NoteGroupKey } from "@/lib/flow-notes";
@@ -98,6 +100,10 @@ export interface FlowSheetProps {
   untaken?: string[];
   /** Printed as 温度板 (for the audit log). */
   onPrint?: () => void;
+  /** 付箋 on the graph, putting one (the 記事 permission) and taking off one's own. */
+  graphNotes?: GraphNote[];
+  onAddNote?: (n: { at: number; text: string }) => void;
+  onRemoveNote?: (id: string) => void;
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -124,7 +130,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", onEntry, untaken = [], onPrint }: FlowSheetProps) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", onEntry, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -155,7 +161,8 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   };
   // A pressed cell with more than one entry (or one this person may not make) shows its choices.
   const deny = useDeny();
-  const [menu, setMenu] = useState<{ x: number; y: number; title: string; reqs: FlowEntry[] } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; title: string; reqs: FlowEntry[]; extra?: CellAction[] } | null>(null);
+  const [noteDraft, setNoteDraft] = useState<number | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const win = flowWindow(scale, anchor ?? nowAbs, p.admittedOn);
   const { lo: t0, hi: t1 } = win;
@@ -210,6 +217,10 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
       {selectedDay !== null && selectedDay <= 1 && band(selectedDay, "#e6ecf6", 0.6)}
       {band(1, "#f5f1e6", 0.7)}
       {win.ticks.map((t) => (t.at > t0 && t.at < t1 ? <line key={t.at} x1={xAbs(t.at)} x2={xAbs(t.at)} y1={0} y2="100%" stroke={t.major ? "#d9cfba" : GRID} strokeWidth={1} /> : null))}
+      {/* 付箋: a dashed line at its time through the strips */}
+      {notesIn(graphNotes, t0, t1).map((n) => (
+        <line key={n.id} x1={xAbs(n.at)} x2={xAbs(n.at)} y1={0} y2="100%" stroke="#9a6512" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
+      ))}
     </>
   );
   const nowLine = nowIn ? <line x1={xAbs(nowAbs)} x2={xAbs(nowAbs)} y1={0} y2="100%" stroke="#8c8473" strokeWidth={1} /> : null;
@@ -244,7 +255,12 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
     vitals: {
       show: true,
       body: (
-        /* Vital strips with one shared crosshair */
+        <>
+        {/* 付箋 at their time, above the strips */}
+        {(graphNotes.length > 0 || onAddNote) && show("vitals.notes") && (
+          <FlowStickyLane notes={notesIn(graphNotes, t0, t1)} xAbs={xAbs} lo={t0} hi={t1} plotW={plotW} labelW={LABEL_W} meName={me.name} fmtAt={fmtAt} draftAt={noteDraft} defaultAt={Math.min(t1, Math.max(t0, nowAbs))} onDraft={setNoteDraft} onAdd={onAddNote} onRemove={onRemoveNote} />
+        )}
+        {/* Vital strips with one shared crosshair */}
         <div
           className="relative outline-none"
           tabIndex={0}
@@ -258,9 +274,10 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             const px = e.clientX - r.left - LABEL_W;
-            if (px < 0 || !onEntry) return;
+            if (px < 0 || (!onEntry && !onAddNote)) return;
             const at = timeAtX(px, plotW, t0, t1, nowAbs);
-            press(e, `${fmtAt(at)} のバイタル`, [{ kind: "vitals", at }], false);
+            // The graph always asks first (a touch there also shows the values): バイタル, or a 付箋 at that time.
+            setMenu({ x: e.clientX, y: e.clientY, title: `${fmtAt(at)}`, reqs: onEntry ? [{ kind: "vitals", at }] : [], extra: onAddNote ? [{ label: "この時刻に付箋を貼る", onClick: () => setNoteDraft(at) }] : [] });
           }}
           onKeyDown={(e) => {
             if (!vitals.length) return;
@@ -326,6 +343,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
 
           {hovered && <Tooltip v={hovered} left={LABEL_W + x(hovered.day, hovered.time)} plotW={plotW} today={today} />}
         </div>
+        </>
       ),
     },
     obs: {
@@ -634,10 +652,10 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
       )}
       {!showTable && onEntry && (
         <p className="hint mb-2 text-[11px] text-ink-faint">
-          セルを押すと、その行とその時刻の入力が開きます：グラフはバイタル、看護ケア・観察と血糖はその記録、水分出納は IN/OUT、内服と注射は実施（与薬の記録）、「未受」は指示受け。入れたものはワークシートや右のツールで入れたものと同じところに残ります。
+          セルを押すと、その行とその時刻の入力が開きます：グラフはバイタルか付箋（付箋の行を押しても貼れます）、看護ケア・観察と血糖はその記録、水分出納は IN/OUT、内服と注射は実施（与薬の記録）、「未受」は指示受け。入れたものはワークシートや右のツールで入れたものと同じところに残ります。
         </p>
       )}
-      {menu && <FlowCellMenu at={menu} title={menu.title} actions={menu.reqs.map((r) => ({ label: ENTRY_LABEL[r.kind], disabled: deny(ENTRY_ACTION[r.kind]), onClick: () => onEntry?.(r) }))} onClose={closeMenu} />}
+      {menu && <FlowCellMenu at={menu} title={menu.title} actions={[...menu.reqs.map((r) => ({ label: ENTRY_LABEL[r.kind], disabled: deny(ENTRY_ACTION[r.kind]), onClick: () => onEntry?.(r) })), ...(menu.extra ?? [])]} onClose={closeMenu} />}
       {showTable ? <VitalTable vitals={p.vitals} today={today} /> : sheet}
       {printing &&
         createPortal(

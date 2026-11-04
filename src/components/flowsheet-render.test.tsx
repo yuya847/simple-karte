@@ -9,6 +9,7 @@ import { FlowGroup, FlowLayoutPanel } from "./FlowLayoutPanel";
 import { FlowSheet } from "./FlowSheet";
 import { FlowEntryPanel } from "./FlowEntryPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
+import { FlowStickyLane } from "./FlowStickyLane";
 import type { OrderEntry } from "@/lib/types";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -119,6 +120,20 @@ describe("経過表の画面", () => {
     expect(at).toContain("14:20");
     expect(at).toContain("確定（11/3（火） 14:20）");
     expect(renderToStaticMarkup(<VitalsPanel nowTime="10:00" onSave={() => {}} />)).toContain("確定（10:00）");
+  });
+
+  it("付箋 on the graph: a marker at its time with the text on touch; the author can take it off", () => {
+    const n = { id: "n1", patientId: "90010231", at: -60, text: "解熱剤のあと再検", by: "看護師 佐藤", role: "看護師", written: { day: 0, time: "09:00" } };
+    const html = render("90010231", { graphNotes: [n], onAddNote: () => {}, onRemoveNote: () => {} });
+    expect(html).toContain("付箋 1枚：解熱剤のあと再検");
+    expect(html).toContain('stroke-dasharray="3 3"');
+    // Read only (no 記事 permission): the marker is there, no 「＋」.
+    const ro = render("90010231", { graphNotes: [n] });
+    expect(ro).toContain("付箋 1枚");
+    expect(ro).not.toContain('aria-label="付箋を貼る"');
+    const lane = renderToStaticMarkup(<FlowStickyLane notes={[n]} xAbs={() => 10} lo={-1440} hi={0} plotW={500} labelW={76} meName="看護師 佐藤" fmtAt={() => "11/3（火） 23:00"} draftAt={-30} defaultAt={0} onDraft={() => {}} onAdd={() => {}} onRemove={() => {}} />);
+    expect(lane).toContain("貼る（看護師 佐藤）");
+    expect(lane).toContain('value="23:30"');
   });
 
   it("dates: 病日, 術後日数, 移動 and a counted day", () => {

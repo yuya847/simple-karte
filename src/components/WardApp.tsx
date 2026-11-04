@@ -132,6 +132,7 @@ import { SurgeryView } from "./SurgeryView";
 import { initialSurgeries, type Surgery } from "@/lib/surgery";
 import type { FlowEvent } from "@/lib/flow-days";
 import { dayTime, ioTimeFor, untakenOf, type FlowEntry } from "@/lib/flow-entry";
+import type { GraphNote } from "@/lib/flow-stickies";
 import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { b008Check, draftsFromReport, queryOpen, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, otherChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
@@ -470,6 +471,8 @@ export default function WardApp() {
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
   // 経過表: the days a nurse or doctor chose to count from (イベント日数).
   const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
+  // 経過表のグラフの付箋 (a note at a time point; its author takes it off).
+  const [graphNotes, setGraphNotes] = useState<GraphNote[]>([]);
   // 身体的拘束 records (start, reviews each shift, end).
   const [restraints, setRestraints] = useState<Restraint[]>(INITIAL_RESTRAINTS);
   // 看護ケア指示 (care and observation orders by nurses), their 実施 records, and the 看護計画.
@@ -567,6 +570,7 @@ export default function WardApp() {
       pregnancy: [pregnancy, setPregnancy],
       stickies: [stickies, setStickies],
       flowEvents: [flowEvents, setFlowEvents],
+      graphNotes: [graphNotes, setGraphNotes],
       restraints: [restraints, setRestraints],
       careOrders: [careOrders, setCareOrders],
       careRecords: [careRecords, setCareRecords],
@@ -2225,6 +2229,19 @@ export default function WardApp() {
                         setPanel(req.kind === "vitals" ? "vitals" : req.kind === "io" ? "io" : "flow-entry");
                       },
                       onPrint: () => auditLog({ role: me.role, actor: me.name, action: "経過表（温度板）を印刷", patient: patient.name }),
+                      graphNotes: graphNotes.filter((n) => n.patientId === patient.id),
+                      onAddNote: deny("note")
+                        ? undefined
+                        : (n) => {
+                            auditLog({ role: me.role, actor: me.name, action: "経過表に付箋を貼った", patient: patient.name, detail: n.text });
+                            setGraphNotes((all) => [...all, { ...n, id: newId(), patientId: patient.id, by: me.name, role: me.role, written: { day: 0, time: nowTime } }]);
+                          },
+                      onRemoveNote: (id) => {
+                        const n = graphNotes.find((x) => x.id === id);
+                        if (!n || n.by !== me.name) return;
+                        auditLog({ role: me.role, actor: me.name, action: "経過表の付箋をはがした", patient: patient.name, detail: n.text });
+                        setGraphNotes((all) => all.filter((x) => x.id !== id));
+                      },
                       untaken: untakenOf(allTakeRows.filter((r) => r.patientId === patient.id && !isRowTaken(r) && r.keys.some((k) => sessionKeys.has(k))).flatMap((r) => r.keys)),
                       onWriteNote: deny("note")
                         ? undefined
