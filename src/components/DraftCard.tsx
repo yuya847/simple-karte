@@ -320,6 +320,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
           {!prn && `　${draft.category ?? "定期・臨時？"}`}
           {draft.acks.length > 0 && <span className="ml-2 rounded bg-yamabuki-soft px-1 text-yamabuki">{draft.acks.join("・")}</span>}
         </div>
+        {draft.onePack && <div className="text-xs text-ink-soft">一包化</div>}
         {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}
       </div>
     );

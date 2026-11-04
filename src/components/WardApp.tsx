@@ -3179,6 +3179,7 @@ export default function WardApp() {
                         <div data-right-tab="rx" className={pane}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddRxPanel
+                              ward={patient.ward}
                               key={patient.id}
                               newId={newId}
                               drafts={chart.drafts}

@@ -1,5 +1,8 @@
 "use client";
 
+import { candidateIndex, rxEntryStep, rxChoiceIndex, validDose, type RxStep } from "@/lib/rx-entry";
+import { todayInTokyo } from "@/lib/dates";
+import { nextRegularDay, regularDayOffset, REGULAR_RX_DAYS } from "@/lib/rx-schedule";
 import { History, Search } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
@@ -88,7 +91,7 @@ const routeOf = (rp: InjRp): InjectionRoute | null => ROUTE_TABS.find((t) => t.k
  * A drug search inside one Rp. Keyboard: type, ↓ ↑ to move in the list, Enter to put the drug in,
  * Esc to clear. The box stays for the next drug (混注 or another drug of the same Rp).
  */
-function RpDrugSearch({ options, onPick, placeholder, prefix = false }: { options: { code: string; name: string; sub: string; aliases: string[] }[]; onPick: (code: string) => void; placeholder: string; prefix?: boolean }) {
+function RpDrugSearch({ options, onPick, placeholder, prefix = false, onEmptyEnter, onBack, onComment }: { onEmptyEnter?: () => void; onBack?: () => void; onComment?: (text: string) => void; options: { code: string; name: string; sub: string; aliases: string[] }[]; onPick: (code: string) => void; placeholder: string; prefix?: boolean }) {
   const [q, setQ] = useState("");
   const [at, setAt] = useState(0);
   // ひらがなでもカタカナでも、全角・半角でも引ける（「かろな」→ カロナール）.
@@ -105,6 +108,7 @@ function RpDrugSearch({ options, onPick, placeholder, prefix = false }: { option
         <input
           value={q}
           onChange={(e) => {
+            if (onComment && e.target.value.startsWith(";")) { onComment(e.target.value.slice(1)); setQ(""); return; }
             setQ(e.target.value);
             setAt(0);
           }}
@@ -112,8 +116,10 @@ function RpDrugSearch({ options, onPick, placeholder, prefix = false }: { option
             if (e.nativeEvent.isComposing) return;
             if (e.key === "ArrowDown" && hits.length) setAt((a) => Math.min(a + 1, hits.length - 1));
             else if (e.key === "ArrowUp" && hits.length) setAt((a) => Math.max(a - 1, 0));
-            else if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && hits[at]) pick(hits[at].code);
+            else if ((e.key === "Enter" || (e.key === "Tab" && onEmptyEnter && !e.shiftKey)) && !e.metaKey && !e.ctrlKey && candidateIndex(hits.length, at) !== null) pick(hits[candidateIndex(hits.length, at)!].code);
+            else if (e.key === "Enter" && !q && onEmptyEnter) onEmptyEnter();
             else if (e.key === "Escape" && q) setQ("");
+            else if (e.key === "Escape" && onBack) onBack();
             else return;
             e.preventDefault();
           }}
@@ -647,6 +653,9 @@ interface Rp {
   category: "定期" | "臨時" | "退院時";
   prn: string;
   maxPerDay: string;
+  onePack?: boolean;
+  comment?: string;
+  step?: RxStep;
 }
 const newRp = (): Rp => ({ rows: [], times: null, timing: "", days: "7", category: "定期", prn: "", maxPerDay: "" });
 const TIMES: { value: number | "頓用"; label: string }[] = [
@@ -679,7 +688,9 @@ export function AddRxPanel({
   drafts = [],
   seed,
   memory,
+  ward = "",
 }: {
+  ward?: string;
   onAdd: (d: Draft[]) => void;
   newId: () => string;
   drafts?: Draft[];
@@ -689,11 +700,15 @@ export function AddRxPanel({
   memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string };
 }) {
   const first = drafts.filter((d) => d.kind === "prescription").length + 1;
-  const [prefix, setPrefix] = useState(false);
-  const [rps, setRps] = useState<Rp[]>([newRp(), newRp()]);
+  const [rps, setRps] = useState<Rp[]>([newRp()]);
+  const [category, setCategory] = useState<Rp["category"]>("定期");
+  const tokyo = todayInTokyo();
+  const today = new Date(tokyo.y, tokyo.m - 1, tokyo.d);
+  const nextDay = nextRegularDay(ward, today);
   // Put a remembered Rp into the first empty Rp (or a new one).
-  const putIn = (ps: Rp[]) =>
-    setRps((r) => {
+  const putIn = (ps: Rp[]) => {
+    if (ps[0]) setCategory(ps[0].category);
+    return setRps((r) => {
       const out = [...r];
       for (const x of ps) {
         const i = out.findIndex((y) => y.rows.length === 0);
@@ -702,6 +717,7 @@ export function AddRxPanel({
       }
       return out.some((y) => y.rows.length === 0) ? out : [...out, newRp()];
     });
+  };
   const [seeded, setSeeded] = useState<string | null>(null);
   if (seed && seed.key !== seeded) {
     setSeeded(seed.key);
@@ -726,7 +742,7 @@ export function AddRxPanel({
   const missingOf = (rp: Rp) => {
     const prn = rp.times === "頓用";
     return [
-      ...(rp.rows.every((r) => Number(r.per) > 0) ? [] : ["1回量"]),
+      ...(rp.rows.every((r) => validDose(r.per, findOralDrug(r.drugCode)!)) ? [] : ["1回量"]),
       ...(rp.times === null ? ["回数"] : []),
       ...(!prn && rp.times !== null && !rp.timing ? ["用法"] : []),
       ...(prn && !rp.prn.trim() ? ["頓用の条件"] : []),
@@ -742,173 +758,102 @@ export function AddRxPanel({
     return {
       id: newId(),
       origin: "manual",
-      sourceText: "（Rp 入力）",
-      comment: null,
+      sourceText: ["（Rp 入力）", rp.comment, rp.onePack ? "一包化" : null].filter(Boolean).join("　"),
+      comment: rp.comment?.trim() || null,
+      onePack: !!rp.onePack,
       kind: "prescription",
-      category: rp.category === "退院時" ? "退院時" : prn ? null : rp.category,
+      category,
       items: rp.rows.map((r) => ({ drugCode: r.drugCode, said: findOralDrug(r.drugCode)?.name ?? r.drugCode, daily: null, perDose: Number(r.per) || null })),
       timings: timingsOf(rp),
       prn: prn ? rp.prn.trim() || null : null,
       maxPerDay: prn ? Number(rp.maxPerDay) || null : null,
       days: prn ? null : Number(rp.days) || null,
-      start: { day: null, timing: null },
+      start: category === "定期" && !prn && nextDay
+        ? { day: regularDayOffset(ward, today), timing: timingsOf(rp)?.[0] ?? null }
+        : { day: null, timing: null },
       acks: [],
     };
   };
   const submit = () => {
     if (!ready.length) return;
-    onAdd(ready.map(toDraft));
-    setRps([newRp(), newRp()]);
+    const trailing = rps.filter((r) => !r.rows.length).map((r) => r.comment?.trim()).filter(Boolean).join("　");
+    onAdd(ready.map((rp, i) => toDraft(i === ready.length - 1 && trailing ? { ...rp, comment: [rp.comment, trailing].filter(Boolean).join("　") } : rp)));
+    setRps([{ ...newRp(), days: category === "臨時" ? "3" : "7" }]);
   };
   const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
   const field = "rounded border border-rule bg-paper px-1 py-0.5 outline-none focus:border-ai";
+  const focus = (i: number, step: RxStep) => {
+    upd(i, { step });
+    requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLElement>(`[data-rp="${i}"] [data-step="${step}"] input, [data-rp="${i}"] [data-step="${step}"] select, [data-rp="${i}"] [data-step="${step}"] button`)?.focus());
+  };
+  const decide = (i: number) => {
+    if (missingOf(rps[i]).length) return;
+    upd(i, { step: "done" });
+    const next = rps.findIndex((r, j) => j > i && !r.rows.length);
+    if (next < 0) setRps((r) => [...r, { ...newRp(), days: category === "臨時" ? "3" : "7" }]);
+    requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${next < 0 ? rps.length : next}"] input[role=combobox]`)?.focus());
+  };
   return (
-    <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
+    <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[13px]">
       <CollectedRps drafts={drafts} kind="prescription" />
-      <div className="flex items-start gap-2">
-        <p className="hint flex-1 text-[11px] text-ink-faint">「1回1錠　1日3回　毎食後」の順に入れます。キーボードだけで：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、回数・用法・定期臨時は ← → で選ぶ、⌘Enter（Ctrl+Enter）で下書きにする。1回量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「処方の記憶」（前回処方・よく出す処方・セット）です。</p>
-        <div role="radiogroup" aria-label="薬の検索" className="flex shrink-0 rounded-md border border-rule p-0.5 text-[11px]">
-          {[
-            [true, "前方一致"],
-            [false, "部分一致"],
-          ].map(([v, l]) => (
-            <button key={String(l)} type="button" tabIndex={-1} role="radio" aria-checked={prefix === v} onClick={() => setPrefix(v as boolean)} className={`rounded px-1.5 py-0.5 ${prefix === v ? "bg-ink text-white" : "text-ink-soft"}`}>
-              {l as string}
-            </button>
-          ))}
-        </div>
-      </div>
-
+      <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />
+      {category === "定期" && <p className="text-xs">{nextDay ? `この病棟の定期処方日：${"日月火水木金土"[REGULAR_RX_DAYS[ward.replace(/病棟$/, "")]]}曜。次は ${nextDay.getMonth() + 1}/${nextDay.getDate()}（${"日月火水木金土"[nextDay.getDay()]}）から` : "この病棟の定期処方日は未設定です。"}</p>}
+      <p className="hint text-xs">定期処方日は架空の病院の取り決めです。薬名 → 1回量 → 回数 → 用法 → 日数を Enter または Tab、Esc で前の欄へ。数字・矢印で候補を選べます。「＋コメント」または薬名欄の ; でコメント行を入れます。</p>
+      <div className="divide-y divide-rule border-y border-rule">
       {rps.map((rp, i) => {
-        const prn = rp.times === "頓用";
-        const timings = timingsOf(rp);
-        const choices = typeof rp.times === "number" ? TIMINGS_BY_TIMES[rp.times] : [];
+        const step = rp.step ?? (rp.rows.length ? "dose" : "drug");
         const label = `Rp${first + i}`;
-        return (
-          <section key={i} className={`space-y-1.5 rounded-md border p-2 ${rp.rows.length ? "border-ai/50" : "border-rule"}`}>
-            <div className="flex items-baseline gap-2">
-              <b className="text-ai">{label}</b>
-              {rps.length > 1 && (
-                <button type="button" tabIndex={-1} onClick={() => setRps((r) => r.filter((_, j) => j !== i))} className="ml-auto text-[11px] text-ink-faint hover:text-shu">
-                  この Rp を消す
-                </button>
-              )}
-            </div>
-            <table className="w-full">
-              <tbody>
-                {rp.rows.map((r, k) => {
-                  const m = findOralDrug(r.drugCode)!;
-                  const per = Number(r.per);
-                  return (
-                    <tr key={k} className="align-baseline">
-                      <td className="py-0.5 font-bold">
-                        {m.name} {m.strength}
-                      </td>
-                      <td className="whitespace-nowrap py-0.5 text-right">
-                        1回
-                        <input
-                          value={r.per}
-                          aria-label={`${m.name}の1回量`}
-                          onKeyDown={(e) => {
-                            if (e.key === "Backspace" && r.per === "") {
-                              e.preventDefault();
-                              upd(i, { rows: rp.rows.filter((_, j) => j !== k) });
-                            }
-                          }}
-                          onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, per: e.target.value } : x)) })}
-                          inputMode="decimal"
-                          className={`${field} mx-1 w-12 text-right`}
-                        />
-                        {m.unit}
-                        {timings && timings.length > 0 && per > 0 && (
-                          <span className="block text-[11px] text-ink-faint">
-                            1日{Math.round(per * timings.length * 100) / 100}
-                            {m.unit}<span className="hint">（コードで計算）</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="w-6 text-right">
-                        <button type="button" tabIndex={-1} onClick={() => upd(i, { rows: rp.rows.filter((_, j) => j !== k) })} className="text-ink-faint hover:text-shu" aria-label="外す">
-                          ×
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="flex items-start gap-1.5">
-              <div className="min-w-0 flex-1">
-                <RpDrugSearch options={options} prefix={prefix} onPick={(c) => upd(i, { rows: [...rp.rows, { drugCode: c, per: "1" }] })} placeholder={rp.rows.length ? `${label} に同じ飲み方の薬を足す（名前・略称・ひらがな可）` : `${label} に薬を入れる（名前・略称・ひらがな可）`} />
-              </div>
-              {memory && i === rps.findIndex((x) => x.rows.length === 0) && <RxMemory memory={memory} rps={rps} onPut={(ps) => putIn(ps.map(rpFromPattern))} newId={newId} />}
-            </div>
-            {rp.rows.length > 0 && (
-              <div className="space-y-1 text-[12px]">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-12 text-ink-soft">回数</span>
-                  <TabChoice label={`${label} の回数`} options={TIMES.map((t) => ({ value: String(t.value), label: t.label }))} value={rp.times === null ? null : String(rp.times)} onChange={(v) => upd(i, { times: v === "頓用" ? "頓用" : Number(v) })} />
-                </div>
-                {!prn && rp.times !== null && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="w-12 text-ink-soft">用法</span>
-                    <TabChoice label={`${label} の用法`} options={choices.map((c) => ({ value: c.label, label: c.label }))} value={rp.timing || null} onChange={(v) => upd(i, { timing: v })} />
-                  </div>
-                )}
-                {prn ? (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="w-12 text-ink-soft">条件</span>
-                    <input value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} placeholder="疼痛時、発熱時（38.5℃以上）など" aria-label={`${label} の頓用の条件`} className={`${field} w-56`} />
-                    1日
-                    <input value={rp.maxPerDay} onChange={(e) => upd(i, { maxPerDay: e.target.value })} inputMode="numeric" aria-label={`${label} の1日の上限回数`} className={`${field} w-8 text-right`} />
-                    回まで
-                  </div>
-                ) : (
-                  rp.times !== null && (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="w-12 text-ink-soft">日数</span>
-                      <input value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" aria-label={`${label} の日数`} className={`${field} w-10 text-right`} />
-                      日分
-                      <TabChoice
-                        label={`${label} の定期・臨時`}
-                        options={[
-                          { value: "定期", label: "定期" },
-                          { value: "臨時", label: "臨時" },
-                          { value: "退院時", label: "退院時" },
-                        ]}
-                        value={rp.category}
-                        onChange={(v) => upd(i, { category: v as Rp["category"] })}
-                      />
-                    </div>
-                  )
-                )}
-                {rp.rows.length > 0 && rp.times !== null && (prn || timings) && (
-                  <p className="nums rounded bg-paper px-2 py-1 text-[12px] text-ink">
-                    {rp.rows.map((r) => `${findOralDrug(r.drugCode)!.name} 1回${r.per || "？"}${findOralDrug(r.drugCode)!.unit}`).join("、")}　{howText(timings, rp.prn.trim() || null, Number(rp.maxPerDay) || null)}
-                    {!prn && Number(rp.days) > 0 ? `　${rp.days}日分　${rp.category}` : ""}
-                  </p>
-                )}
-              </div>
-            )}
-          </section>
-        );
+        const prn = rp.times === "頓用";
+        const choices = typeof rp.times === "number" ? TIMINGS_BY_TIMES[rp.times] : [];
+        const summary = rp.rows.map((r) => { const m = findOralDrug(r.drugCode)!; return `${m.name} ${m.strength}　1回${r.per}${m.unit}`; }).join(" ＋ ");
+        const advance = (e: React.KeyboardEvent, current: RxStep, valid = true) => {
+          if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey || e.shiftKey) return;
+          if (!["Enter", "Tab", "Escape"].includes(e.key)) return;
+          e.preventDefault(); e.stopPropagation();
+          if (current === "usage" && prn) {
+            const condition = (e.target as HTMLElement).getAttribute("aria-label") === `${label} の頓用の条件`;
+            if (condition && e.key !== "Escape" && rp.prn.trim()) {
+              panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] input[aria-label="${label} の1日の上限回数"]`)?.focus(); return;
+            }
+          }
+          if (current === "times" && rp.times === null && e.key !== "Escape") { upd(i, { times: 1 }); focus(i, "usage"); return; }
+          if (current === "usage" && !prn && !rp.timing && e.key !== "Escape") { upd(i, { timing: choices[0].label }); focus(i, "days"); return; }
+          if (current === "days" && e.key !== "Escape") { decide(i); return; }
+          focus(i, rxEntryStep(current, e.key, valid));
+        };
+        const drugSearch = <RpDrugSearch options={options} onEmptyEnter={() => rp.rows.length ? focus(i, "dose") : submit()} onBack={() => i > 0 ? focus(i - 1, "dose") : undefined} onComment={(text) => { upd(i, { comment: text }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }} onPick={(c) => { upd(i, { rows: [...rp.rows, { drugCode: c, per: "" }], step: "dose" }); requestAnimationFrame(() => { const fields = panelRoot.current?.querySelectorAll<HTMLInputElement>(`[data-rp="${i}"] [data-step=dose] input`); fields?.[fields.length - 1]?.focus(); }); }} placeholder={`${label} に薬を入れる（名前・略称・ひらがな可）`} />;
+        return <section key={i} data-rp={i} className="py-2">
+          {rp.comment !== undefined && <div className="border-b border-rule py-1"><input data-comment aria-label={`${label} のコメント`} className="w-full bg-transparent outline-none" placeholder="フリーコメント" value={rp.comment} onChange={(e) => upd(i, { comment: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); focus(i, "drug"); } }} /></div>}
+          {step === "done" ? <button className="w-full py-1 text-left" onClick={() => focus(i, "dose")}><b>{label}</b>　{summary}　{howText(timingsOf(rp), rp.prn, Number(rp.maxPerDay) || null)}　{rp.days}日分{rp.onePack ? "　一包化" : ""}</button> : <>
+          <div className="flex items-baseline gap-2">{!rp.rows.length && <><b>{label}</b><div data-step="drug" className="min-w-0 flex-1">{drugSearch}</div></>}<button type="button" aria-label={`${label} を消す`} className="ml-auto text-xs text-ink-faint" onClick={() => setRps((rs) => rs.length === 1 ? [newRp()] : rs.filter((_, j) => j !== i))}>×</button><button type="button" className="text-xs text-ink-soft" onClick={() => { upd(i, { comment: rp.comment ?? "" }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }}>＋コメント</button></div>
+          {rp.rows.map((r, k) => { const m = findOralDrug(r.drugCode)!; return <div key={k} data-step="dose" className="flex items-center justify-between border-b border-rule-soft py-1" onKeyDown={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") advance(e, "dose", validDose(r.per, m)); }}>
+            <span>{k === 0 && <b className="mr-2">{label}</b>}{m.name} {m.strength}</span><label>1回 <input onKeyDown={(e) => { if (e.key === "Backspace" && !r.per) { e.preventDefault(); const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); } }} aria-label={`${m.name}の1回量`} className={`${field} w-14`} inputMode="decimal" value={r.per} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => j === k ? { ...x, per: e.target.value } : x) })} /> {m.unit}</label><button type="button" aria-label={`${m.name}を外す`} onClick={() => { const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); }}>×</button>
+          </div>; })}
+          <div data-step="drug">
+            {rp.rows.length > 0 && step === "drug" && drugSearch}
+          </div>
+          {memory && !rp.rows.length && <RxMemory memory={memory} rps={rps} onPut={(ps) => putIn(ps.map(rpFromPattern))} newId={newId} />}
+          {rp.rows.length > 0 && <>
+            <button type="button" className="text-xs text-ai" onClick={() => focus(i, "drug")}>＋同じ飲み方の薬</button>
+            {["times", "usage", "days"].includes(step) && <div className="border-b border-rule py-2" data-step={step} onKeyDown={(e) => advance(e, step, step === "times" ? rp.times !== null : step === "usage" ? prn ? !!rp.prn.trim() : !!rp.timing : Number(rp.days) > 0)}>
+              {step === "times" && <select autoFocus aria-label={`${label} の回数`} value={rp.times ?? ""} onChange={(e) => { upd(i, { times: e.target.value === "頓用" ? "頓用" : Number(e.target.value) }); focus(i, "usage"); }} onKeyDown={(e) => { if (/^[1-5]$/.test(e.key) || e.key.startsWith("Arrow")) { e.preventDefault(); const n = rxChoiceIndex(TIMES.findIndex((t) => t.value === rp.times), e.key, TIMES.length); upd(i, { times: TIMES[n].value }); } }}><option value="" disabled>回数を選ぶ</option>{TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>}
+              {step === "usage" && (prn ? <><input autoFocus aria-label={`${label} の頓用の条件`} placeholder="疼痛時など" value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} /><label>1日 <input className="w-10" aria-label={`${label} の1日の上限回数`} value={rp.maxPerDay} onChange={(e) => upd(i, { maxPerDay: e.target.value })} />回まで</label></> : <select autoFocus aria-label={`${label} の用法`} value={rp.timing} onKeyDown={(e) => { if (/^[1-9]$/.test(e.key) || e.key.startsWith("Arrow")) { e.preventDefault(); upd(i, { timing: choices[rxChoiceIndex(Math.max(0, choices.findIndex((c) => c.label === rp.timing)), e.key, choices.length)].label }); } }} onChange={(e) => { upd(i, { timing: e.target.value }); focus(i, "days"); }}><option value="" disabled>用法を選ぶ</option>{choices.map((c) => <option key={c.label}>{c.label}</option>)}</select>)}
+              {step === "days" && <label>日数 <input autoFocus aria-label={`${label} の日数`} inputMode="numeric" className={`${field} w-14`} value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} /> 日分</label>}
+            </div>}
+            {step !== "days" && step !== "drug" && <button type="button" className="ml-2 rounded border border-rule px-2 text-xs" onClick={() => {
+              if (step === "dose" && rp.rows.every((r) => validDose(r.per, findOralDrug(r.drugCode)!))) focus(i, "times");
+              if (step === "times" && rp.times !== null) focus(i, "usage");
+              if (step === "usage" && (prn ? !!rp.prn.trim() : !!rp.timing)) focus(i, "days");
+            }}>次へ</button>}
+            <label className="ml-2 text-xs"><input type="checkbox" checked={!!rp.onePack} onChange={(e) => upd(i, { onePack: e.target.checked })} /> 一包化</label>
+            <button type="button" className="ml-2 text-xs text-ai" disabled={!!missingOf(rp).length} onClick={() => decide(i)}>{label} を決める</button>
+            {rp.rows.some((r) => r.per !== "" && !validDose(r.per, findOralDrug(r.drugCode)!)) && <p className="text-xs text-shu">1回量の刻みを確認してください。</p>}
+          </>}
+          </>}
+        </section>;
       })}
-      <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
-        <button type="button" onClick={() => setRps((r) => [...r, newRp()])} className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft">
-          Rp を足す
-        </button>
-        <button
-          type="button"
-          disabled={!ready.length}
-          title={unfinished.length ? unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未入力`).join("／") : "⌘Enter（Ctrl+Enter）でも押せます"}
-          onClick={submit}
-          className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
-        >
-          下書きにする（{ready.length} Rp）<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
-        </button>
       </div>
-      {unfinished.length > 0 && <p className="text-[12px] text-yamabuki">{unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未入力`).join("　")}</p>}
-      <p className="hint text-[11px] text-ink-faint">1日量は1回量 × 回数でコードが出します。チェック（重複・アレルギー・極量）は記事の下の下書きに出て、承知コメントを付けて確定できます。</p>
+      <button type="button" disabled={!ready.length} onClick={submit} className="w-full rounded bg-ai p-2 font-bold text-white disabled:opacity-40">決める・下書きにする（{ready.length} Rp）</button>
     </div>
   );
 }

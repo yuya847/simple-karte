@@ -3,6 +3,7 @@
 // the 1回量 the basis; a spoken 1日量・分N is still read, and code works out the other and shows both. Checks are split as in Japanese EHRs: errors that stop the order, and warnings
 // the doctor may confirm with a 承知コメント (重複承知・アレルギー承知・極量承知). Nothing is recommended.
 
+import { doseStep } from "./rx-entry";
 import type { CheckContext, Draft, Issue } from "./drafts";
 import { ORAL_DRUGS, ingredientOf, findOralDrug, WARD_RULES } from "./master";
 import { minutesOf } from "./dates";
@@ -23,6 +24,7 @@ export interface PrescriptionDraft {
   sourceText: string;
   comment: string | null;
   kind: "prescription";
+  onePack?: boolean;
   /** 持参薬 only comes from the pharmacist's 持参薬鑑別 (the doctor's choice there), never from the Rp editor. */
   category: "定期" | "臨時" | "退院時" | "持参薬" | null;
   items: RxItem[];
@@ -156,13 +158,13 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
     const per = perDoseOf(it, prn ? 1 : times);
     if (per === null) return;
     // 1回量 must be whole units, or halves of a scored tablet.
-    const step = m.scored ? 0.5 : 1;
+    const step = doseStep(m);
     if (Math.abs(per / step - Math.round(per / step)) > 1e-9 || per <= 0) {
       issues.push({
         key: `split-${i}`,
         level: "stop",
         title: "1回量",
-        message: `${m.name}：1日${it.daily}${m.unit} を${times}回に分けると1回 ${per}${m.unit} になり、${m.scored ? "半錠単位" : "1" + m.unit + "単位"}で割り切れません。`,
+        message: `${m.name}：1日${it.daily}${m.unit} を${times}回に分けると1回 ${per}${m.unit} になり、${step === 0.5 ? "半錠単位" : `${step}${m.unit}単位`}で割り切れません。`,
       });
     } else if (!prn && it.perDose === null) {
       issues.push({ key: `per-${i}`, level: "info", title: "1回量", message: m.name, formula: `1日${it.daily}${m.unit} ÷ ${times}回 = 1回${per}${m.unit}` });
@@ -227,7 +229,8 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
       ...(prn ? { prn: d.prn ?? "必要時", maxPerDay: d.maxPerDay ?? undefined } : {}),
       start,
       days: prn ? undefined : (d.days ?? undefined),
-      comment: d.comment ?? undefined,
+      comment: [d.comment, d.onePack ? "一包化" : null].filter(Boolean).join("　") || undefined,
+      onePack: !!d.onePack,
       rp: rpId,
       dailyAmount: prn ? undefined : (it.daily ?? round2(per * d.timings!.length)),
       acks: d.acks.length ? d.acks : undefined,

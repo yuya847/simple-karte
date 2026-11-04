@@ -77,3 +77,21 @@ describe("処方（Rp）", () => {
     expect(key(rx({ timings: null, days: null }), "usage")?.choices?.map((c) => c.label)).toContain("分3 毎食後");
   });
 });
+
+describe("罫線入力から確定した調剤の文", () => {
+  it("コメントと一包化を下書きの文・全薬のオーダへ渡す", async () => {
+    const { rpLine } = await import("./rp");
+    const { orderLines } = await import("./format");
+    const d = rx({ onePack: true, comment: "服用時に確認", items: [
+      { drugCode: "ORAL-REBA100", said: "レバミピド", daily: null, perDose: 1 },
+      { drugCode: "ORAL-MGO330", said: "酸化マグネシウム", daily: null, perDose: 1 },
+    ] });
+    expect(rpLine(d)).toContain("服用時に確認　一包化");
+    const confirmed = toOrder(d, ctx()).orders!;
+    expect(confirmed).toHaveLength(2);
+    for (const order of confirmed) {
+      expect(order.type === "prescription" && order.onePack).toBe(true);
+      expect(orderLines(order, { y: 2026, m: 11, d: 4 }).detail).toContain("服用時に確認　一包化");
+    }
+  });
+});

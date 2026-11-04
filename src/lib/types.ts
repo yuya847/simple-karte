@@ -223,6 +223,7 @@ export interface LabOrder {
 export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
 
 export interface PrescriptionOrder {
+  onePack?: boolean;
   type: "prescription";
   /** 定期 = regular, 臨時 = one-off/short, 持参薬 = the patient's own drugs brought from home,
    * 退院時 = 退院時処方 (taken home; dispensed by the pharmacy with 薬袋 and 薬剤情報提供文書, never given on the ward). */
