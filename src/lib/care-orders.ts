@@ -71,6 +71,7 @@ export const CARE_ITEMS: { item: string; kind: CareKind; choices?: string[]; uni
   { item: "足浴", kind: "ケア", schedule: { kind: "times", times: ["14:00"] }, everyDays: 2 },
   { item: "離床（車いすに座る）", kind: "ケア", schedule: { kind: "times", times: ["10:00", "15:00"] } },
   { item: "体重測定", kind: "観察", unit: "kg", schedule: { kind: "times", times: ["06:00"] } },
+  { item: "血糖測定（簡易血糖測定器）", kind: "観察", unit: "mg/dL", schedule: { kind: "times", times: ["07:30", "11:30", "17:30"] } },
   { item: "口腔内の乾燥", kind: "観察", choices: ["湿潤", "乾燥", "強い乾燥"], schedule: { kind: "times", times: ["10:00"] } },
   { item: "痰の量", kind: "観察", choices: ["少ない", "中くらい", "多い"], schedule: { kind: "times", times: ["06:00", "14:00", "22:00"] } },
   { item: "下腿のむくみ", kind: "観察", choices: ["なし", "軽い", "強い"], schedule: { kind: "times", times: ["10:00"] } },
@@ -472,6 +473,8 @@ export const INITIAL_CARE_ORDERS: CareOrder[] = [
   ord({ id: "co-231-red", patientId: "90010231", item: "右下腿の発赤の範囲", kind: "観察", schedule: { kind: "times", times: ["10:00"] }, start: { day: -3, time: "16:00" }, note: "入院時にペンで印をつけた線と比べる", by: "看護師 田中", at: { day: -3, time: "16:00" }, plan: { problemId: "np-231-1", list: "OP" } }),
   ord({ id: "co-231-raise", patientId: "90010231", item: "右下肢の挙上", kind: "ケア", schedule: { kind: "times", times: ["10:00", "14:00", "20:00"] }, start: { day: -3, time: "16:00" }, note: "クッションで足を心臓より高く", by: "看護師 田中", at: { day: -3, time: "16:00" }, plan: { problemId: "np-231-1", list: "TP" } }),
   ord({ id: "co-231-wipe", patientId: "90010231", item: "清拭", kind: "ケア", schedule: { kind: "times", times: ["14:00"] }, everyDays: 2, start: { day: -3, time: "16:00" }, note: "右足は創を避けて", by: "看護師 田中", at: { day: -3, time: "16:00" }, plan: { problemId: "np-231-1", list: "TP" } }),
+  // 架空：入院時の血糖が高めだったため、医師に言われて毎食前に測る（経過表の血糖の行の見本）
+  ord({ id: "co-231-bg", patientId: "90010231", item: "血糖測定（簡易血糖測定器）", kind: "観察", unit: "mg/dL", schedule: { kind: "times", times: ["07:30", "11:30", "17:30"] }, start: { day: -2, time: "07:00" }, note: "毎食前。値は数字で入れる（架空の記録）", by: "看護師 田中", at: { day: -3, time: "17:00" } }),
   // 北村さん（慢性心不全の急性増悪）
   ord({ id: "co-198-edema", patientId: "90010198", item: "下腿のむくみ", kind: "観察", choices: ["なし", "軽い", "強い"], schedule: { kind: "times", times: ["10:00"] }, start: { day: -5, time: "15:00" }, by: "看護師 佐藤", at: { day: -5, time: "15:00" }, plan: { problemId: "np-198-1", list: "OP" } }),
   ord({ id: "co-198-breath", patientId: "90010198", item: "夜間の息苦しさ", kind: "観察", choices: ["なし", "あり"], schedule: { kind: "times", times: ["06:00"] }, start: { day: -5, time: "15:00" }, note: "横になって息苦しくなかったか本人に聞く", by: "看護師 佐藤", at: { day: -5, time: "15:00" }, plan: { problemId: "np-198-1", list: "OP" } }),
@@ -489,6 +492,14 @@ const SEEN: Record<string, [DayOffset, string, string, string][]> = {
   "co-231-red": [
     [-2, "10:00", "印の線まで", "看護師 田中"],
     [-1, "10:00", "印より2cmほど内側まで引いた", "看護師 佐藤"],
+  ],
+  "co-231-bg": [
+    [-2, "07:30", "186", "看護師 田中"],
+    [-2, "11:30", "214", "看護師 佐藤"],
+    [-2, "17:30", "198", "看護師 佐藤"],
+    [-1, "07:30", "162", "看護師 渡辺"],
+    [-1, "11:30", "188", "看護師 佐藤"],
+    [-1, "17:30", "171", "看護師 田中"],
   ],
   "co-198-edema": [
     [-4, "10:00", "強い", "看護師 佐藤"],

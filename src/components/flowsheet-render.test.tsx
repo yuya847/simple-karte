@@ -1,6 +1,7 @@
 // The flow sheet (経過表) renders (on the server, without a browser) for each fictional patient.
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { INITIAL_CARE_ORDERS, initialCareRecords } from "@/lib/care-orders";
 import { INITIAL_DIETS } from "@/lib/diet";
 import { PATIENTS } from "@/lib/patients";
 import { FlowSheet } from "./FlowSheet";
@@ -29,6 +30,17 @@ describe("経過表の画面", () => {
     expect(html).toContain("9,800");
     expect(html).toContain("12");
     expect(html).toContain("検査中");
+  });
+
+  it("内服 by timing, and 血糖 from the 血糖測定 observations", () => {
+    const kita = render("90010198", { mar: { records: {}, sessionStart: 540 } });
+    expect(kita).toContain("内服（定期・持参薬など、時刻の決まった分）");
+    expect(kita).toContain("済");
+    expect(kita).not.toContain("血糖・インスリン");
+    const sakura = render("90010231", { care: { orders: INITIAL_CARE_ORDERS.filter((o) => o.patientId === "90010231"), records: initialCareRecords(), sessionStart: 540 } });
+    expect(sakura).toContain("血糖・インスリン");
+    expect(sakura).toContain("186/214/198");
+    expect(sakura).not.toContain(">血糖測定（簡易血糖測定器）<");
   });
 
   it("dates: 病日, 術後日数, 移動 and a counted day", () => {

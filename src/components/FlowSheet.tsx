@@ -24,6 +24,8 @@ import { FlowLabRows } from "./FlowLabRows";
 import type { PendingDraw } from "@/lib/lab-table";
 import { useFlowPrefs } from "@/lib/flow-prefs";
 import { useMe } from "./RoleContext";
+import { FlowGlucoseRows, FlowOralRows, type FlowMar } from "./FlowMedRows";
+import { glucosePoints, insulinOrders, isGlucoseCare } from "@/lib/flow-meds";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -57,6 +59,8 @@ export interface FlowSheetProps {
   dayInfo?: FlowDays;
   /** Draws of this patient without a result yet (採取待ち・検査中), for the lab rows. */
   pendingLabs?: PendingDraw[];
+  /** 与薬の記録 (MAR) for the 内服 and insulin rows (else those of the IN/OUT). */
+  mar?: FlowMar;
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -83,7 +87,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [] }: FlowSheetProps) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -109,6 +113,9 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const labs = orders.filter((o) => o.order.type === "lab" && o.status !== "中止");
   const fluid = fluidByDay(orders, days, nowAbs);
   const meals = mealDiets(diets, orders, p.id, days, examTime);
+  const marRecs: FlowMar = mar ?? { records: io?.records ?? {}, sessionStart: io?.sessionStart ?? care?.sessionStart ?? nowAbs };
+  const glucose = care ? glucosePoints(care.orders, care.records, p.labs) : glucosePoints([], [], p.labs);
+  const insulin = insulinOrders(orders);
   const ioRows = io ? ioLines({ patientId: p.id, entries: orders, typed: io.typed, records: io.records, sessionStart: io.sessionStart, nowAbs, from: t0 - 1440 }) : null;
 
   const hovered = hover === null ? null : vitals[hover];
@@ -283,11 +290,15 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             value={(d) => (fluid[d] ? `${d > 0 ? "（" : ""}${fluid[d].toLocaleString("ja-JP")}${d > 0 ? "）" : ""}` : "")}
           />
 
-          {care && <CareFlowRows {...care} days={days} colW={colW} labelW={LABEL_W} nowX={xAbs(nowAbs)} nowAbs={nowAbs} />}
+          {/* 血糖測定 has its own row with the values (below), so it is not repeated with the care rows. */}
+          {care && <CareFlowRows {...care} orders={care.orders.filter((o) => !isGlucoseCare(o))} days={days} colW={colW} labelW={LABEL_W} nowX={xAbs(nowAbs)} nowAbs={nowAbs} />}
           {/* 水分出納: recorded and planned kept apart, one cell per 24 hours from the close */}
           {io && ioRows && <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={2 * 1440} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} />}
 
           {/* Injections as bars over time */}
+          <FlowOralRows orders={orders} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} />
+          <FlowGlucoseRows points={glucose} insulin={insulin} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} xAbs={xAbs} lo={t0} hi={2 * 1440} />
+
           <Section title="注射" />
           {injections.length === 0 && <Row label=""><div className="h-6 text-ink-faint">なし</div></Row>}
           {injections.map((e) => (
