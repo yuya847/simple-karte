@@ -159,6 +159,7 @@ import { ToolRail, type PanelKind } from "./ToolRail";
 import { RIGHT_TABS, RightTabs, WINDOW_TABS, type RightTab } from "./RightTabs";
 import { Dockable, defaultWin, type Win } from "./Dockable";
 import { InjectionCalendar } from "./Calendars";
+import type { ExecuteProps } from "./ExecuteMenu";
 import { WardMap, type ChartSummary, type Pick } from "./WardMap";
 import type { DayNavProps } from "./DayNav";
 import { Worksheet } from "./Worksheet";
@@ -1856,7 +1857,8 @@ export default function WardApp() {
     // 点滴 (2回実施): the 開始, the 終了 with what went in, or the 終了 taken back.
     const drip = dripAction(r, mar[r.key]);
     auditLog({
-      role: "看護師",
+      // The record names who did it; from the order's menu that is the person using the chart (a doctor too).
+      role: r.by === me.name ? me.role : "看護師",
       actor: drip ? me.name : r.by,
       action: drip ?? (r.status === "実施" ? "確定（実施）" : "確定（未実施）"),
       patient: who?.name,
@@ -1874,6 +1876,8 @@ export default function WardApp() {
       return next;
     });
   };
+  // 実施・未実施 from an order row or a calendar cell (ExecuteMenu): the same records and audit lines as the worksheet.
+  const executeProps: ExecuteProps = { records: mar, sessionStart: sessionStart ?? abs(0, nowTime), nowTime, onRecord: recordMar, onVoid: voidMar };
   // A nurse's question answered by the doctor: back to the nurse to take it.
   if (role === "看護師")
     for (const r of allTakeRows) {
@@ -1981,6 +1985,7 @@ export default function WardApp() {
     onExtendDraft: extendDraft,
     pendingExtends: pendingExtends,
     marOf: (id, at) => mar[`${id}|${at}`],
+    execute: executeProps,
     io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null },
     onModify: modifyOrder,
     care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) },
@@ -2913,6 +2918,7 @@ export default function WardApp() {
                 },
               }}
               onDo={doFromHistory}
+              execute={executeProps}
               takeBadgeOf={(id) => orderTakeBadge(id, allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k))), takeCtx)}
               onOpenImage={(id) => {
                 setImageFocus(id);
@@ -3167,6 +3173,7 @@ export default function WardApp() {
                           onModify={!deny("order") ? modifyOrder : undefined}
                           pendingExtends={pendingExtends}
                           marOf={(id, at) => mar[`${id}|${at}`]}
+                          execute={executeProps}
                           onNewInjection={!deny("order") ? newInjection : undefined}
                           pendingNew={pendingNewInj}
                         />,
