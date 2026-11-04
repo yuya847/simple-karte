@@ -14,8 +14,11 @@ import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
 import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
 import { expandAt, loadPhrases, type Phrase } from "@/lib/phrases";
+import { moveProblem, problemBlocks, renumberProblems } from "@/lib/note-problems";
+import { indentLines, toggleMark, type Range } from "@/lib/note-edit";
 import { TemplatePanel } from "./NoteTemplates";
 import { PhrasePanel } from "./NotePhrases";
+import { ProblemOrder } from "./ProblemOrder";
 
 export interface DraftMeta {
   model: string;
@@ -88,6 +91,21 @@ export function TodayPane(p: Props) {
       el?.setSelectionRange(r.caret, r.caret);
     });
   };
+  // The note with a new selection (Tab indent, ⌘B) — the box keeps the selection after React sets the value.
+  const putRange = (r: Range) => {
+    const el = noteBox.current;
+    p.onNoteChange(r.text);
+    requestAnimationFrame(() => el?.setSelectionRange(r.start, r.end));
+  };
+  // ＃ lines get their numbers while typing (not in the middle of IME composition, and not while deleting,
+  // so "＃1 " can be erased); a blur or the end of composition numbers them too.
+  const composing = useRef(false);
+  const numberProblems = (text: string, caret: number) => {
+    const r = renumberProblems(text, caret);
+    if (r.text === text) p.onNoteChange(text);
+    else putRange({ text: r.text, start: r.caret, end: r.caret });
+  };
+  const problems = problemBlocks(p.note);
   const toolButton = (key: NonNullable<typeof tool>, label: string, Icon: typeof LayoutTemplate) => (
     <button
       type="button"
@@ -160,20 +178,47 @@ export function TodayPane(p: Props) {
               <PhrasePanel phrases={ph.list} onPhrases={(list) => setPh({ user: me.name, list })} selected={selected} onInsert={(text) => put((n, s, e) => insertAt(n, s, e, text))} onClose={() => setTool(null)} />
             </div>
           )}
+          {!noteLocked && problems.length > 1 && <ProblemOrder problems={problems} onMove={(from, to) => p.onNoteChange(moveProblem(p.note, from, to))} />}
           <textarea
             ref={noteBox}
             value={p.note}
-            onChange={(e) => p.onNoteChange(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (composing.current || (e.nativeEvent as InputEvent).isComposing || v.length < p.note.length) p.onNoteChange(v);
+              else numberProblems(v, e.target.selectionStart);
+            }}
+            onCompositionStart={() => (composing.current = true)}
+            onCompositionEnd={(e) => {
+              composing.current = false;
+              numberProblems(e.currentTarget.value, e.currentTarget.selectionStart);
+            }}
+            onBlur={(e) => {
+              const r = renumberProblems(e.currentTarget.value);
+              if (r.text !== e.currentTarget.value) p.onNoteChange(r.text);
+            }}
             onSelect={(e) => setSelected(e.currentTarget.value.slice(e.currentTarget.selectionStart, e.currentTarget.selectionEnd))}
             onKeyDown={(e) => {
-              // 単語登録: 「;読み」 then Tab puts the phrase in its place.
-              if (e.key !== "Tab" || e.shiftKey || noteLocked || e.nativeEvent.isComposing) return;
+              if (noteLocked || e.nativeEvent.isComposing) return;
               const el = e.currentTarget;
-              if (el.selectionStart !== el.selectionEnd) return;
-              const r = expandAt(p.note, el.selectionStart, ph.list);
-              if (!r) return;
+              const s = el.selectionStart;
+              const en = el.selectionEnd;
+              // ⌘B / Ctrl+B: **太字**; ⌘I / Ctrl+I: *斜体* (Markdown's marks; drawn in the record).
+              if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "b" || e.key === "B" || e.key === "i" || e.key === "I")) {
+                e.preventDefault();
+                putRange(toggleMark(p.note, s, en, e.key.toLowerCase() === "b" ? "**" : "*"));
+                return;
+              }
+              if (e.key !== "Tab") return;
               e.preventDefault();
-              put(() => r);
+              // 単語登録: 「;読み」 then Tab puts the phrase in its place; otherwise Tab indents the line(s).
+              if (!e.shiftKey && s === en) {
+                const r = expandAt(p.note, s, ph.list);
+                if (r) {
+                  put(() => r);
+                  return;
+                }
+              }
+              putRange(indentLines(p.note, s, en, e.shiftKey));
             }}
             readOnly={noteLocked}
             aria-label="記事"
@@ -225,7 +270,11 @@ export function TodayPane(p: Props) {
               <>
                 <span className="hint text-[11px] text-ink-faint">
                   確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。
-                  {me.role === "看護師" && "フォーカスは「# 見出し」の下に D)（データ）・Act)（行為）・R)（反応）、経時記録は1行ずつ時刻から書きます。"}
+                  {me.role === "看護師" && "フォーカスは「＃ 見出し」の下に D)（データ）・Act)（行為）・R)（反応）、経時記録は1行ずつ時刻から書きます。"}
+                  <br />
+                  行頭の＃（全角）は問題の番号（＃尿路感染症 → ＃1 尿路感染症）。半角 # は冠動脈などの番号にそのまま使えます。＃が2つ以上あると上に順番の一覧が出て、つまみをドラッグ（か ↑↓）で並べ替えられます。
+                  <br />
+                  Tab で字下げ（Shift+Tab で戻す）、⌘B / Ctrl+B で **太字**、⌘I / Ctrl+I で *斜体*、「;読み」→ Tab で定型文。
                 </span>
                 <span className="ml-auto text-[11px] text-ink-faint">{isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します"}</span>
               </>
