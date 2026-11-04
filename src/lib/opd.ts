@@ -36,6 +36,15 @@ export interface OpdPatient {
   visits: { day: number; text: string }[];
   /** 紹介状 brought by a new patient. */
   referral?: string;
+  /** The 紹介元 chosen from the 連携先の医療機関マスタ at reception (地域医療連携). */
+  referralFrom?: string;
+  /** 診察券の番号 (fictional). */
+  cardNo?: string;
+  /** 受付番号 given at reception (shown on the 受付票 and the waiting-room display). */
+  ticket?: number;
+  /** 診察の呼出 (shown on the waiting-room display) and 会計の呼出. */
+  called?: { at: string; by: string };
+  payCalled?: { at: string; by: string };
 }
 
 const DOCTOR = "山本（専攻医）";

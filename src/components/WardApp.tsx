@@ -27,7 +27,8 @@ import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
 import { PAST_RX, patternsOf, previousOf, type RxPattern } from "@/lib/rx-memory";
 import { PAST_INJ, injPatternsOf, injPreviousOf } from "@/lib/inj-memory";
 import { EmergencyBoard } from "./EmergencyBoard";
-import { OpdBoard } from "./OpdBoard";
+import { EMPTY_OPD_DESK, OpdDesk, type OpdDeskBook } from "./OpdDesk";
+import { OTHER_DEPT_TODAY } from "@/lib/opd-desk";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
 import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders";
 import { CalendarPlus, FlaskConical, Pill as PillIcon } from "lucide-react";
@@ -454,7 +455,9 @@ export default function WardApp() {
   const [surgeries, setSurgeries] = useState<Surgery[]>(() => (typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
   const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
   // 外来 today, the record written in each ED/outpatient tab, and the 入院申込 waiting on the wards.
-  const [opd, setOpd] = useState<OpdPatient[]>(OPD_PATIENTS);
+  const [opd, setOpd] = useState<OpdPatient[]>(() => [...OPD_PATIENTS, ...OTHER_DEPT_TODAY]);
+  // 外来の受付: bookings on later days and the 診察券 issued today.
+  const [opdDesk, setOpdDesk] = useState<OpdDeskBook>(EMPTY_OPD_DESK);
   const [visitNotes, setVisitNotes] = useState<Record<string, VisitNote[]>>({});
   const [requests, setRequests] = useState<AdmissionRequest[]>(INITIAL_REQUESTS);
   // 外来処方（院外処方せん）と再診予約, per outpatient.
@@ -576,6 +579,7 @@ export default function WardApp() {
       surgeries: [surgeries, setSurgeries],
       er: [er, setEr],
       opd: [opd, setOpd],
+      opdDesk: [opdDesk, setOpdDesk],
       visitNotes: [visitNotes, setVisitNotes],
       requests: [requests, setRequests],
       opdRx: [opdRx, setOpdRx],
@@ -1857,14 +1861,21 @@ export default function WardApp() {
           onDraft={setIncidentDraft}
         />
       ) : screen === "opd" ? (
-        <OpdBoard
+        <OpdDesk
           patients={opd}
+          onPatients={setOpd}
+          desk={opdDesk}
+          onDesk={setOpdDesk}
+          revisits={Object.entries(revisits).flatMap(([id, r]) => {
+            const p = opd.find((x) => x.id === id);
+            return p ? [{ day: r.day, time: r.time, name: p.name, doctor: p.doctor }] : [];
+          })}
+          today={today}
           nowTime={nowTime}
           requests={requestFor("opd")}
           onOpen={(id) => openVisit("opd", id)}
-          onStatus={(id, st) => setOpd((list) => list.map((x) => (x.id === id ? { ...x, status: st } : x)))}
-          onArrive={(id) => setOpd((list) => list.map((x) => (x.id === id ? { ...x, arrived: nowTime, status: "受付済" } : x)))}
           onOpenChart={openPatient}
+          newId={newId}
         />
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">

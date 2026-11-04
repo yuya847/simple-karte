@@ -1,7 +1,9 @@
 "use client";
 
-import { Stethoscope } from "lucide-react";
+import { Megaphone, Printer, ReceiptJapaneseYen, Stethoscope } from "lucide-react";
+import type { ReactNode } from "react";
 import type { AdmissionRequest } from "@/lib/admission";
+import { ticketLabel } from "@/lib/opd-desk";
 import { OPD_STATUSES, waitingMinutes, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { ageSex } from "@/lib/person";
 
@@ -13,6 +15,19 @@ interface Props {
   onStatus: (id: string, s: OpdStatus) => void;
   onArrive: (id: string) => void;
   onOpenChart: (patientId: string) => void;
+  /** The title (default: 外来 総合診療科) and anything beside it (the 診療科 filter). */
+  title?: string;
+  tools?: ReactNode;
+  /** 受付番号 and the place in the doctor's order of the 診察. */
+  ticketOf?: (id: string) => number | undefined;
+  orderOf?: (id: string) => number | undefined;
+  /** 診察の呼出, 会計の呼出 and the 受付票; a reason when the role may not. */
+  onCall?: (id: string) => void;
+  onPayCall?: (id: string) => void;
+  onSlip?: (id: string) => void;
+  deny?: { arrive?: string | null; call?: string | null; pay?: string | null };
+  /** Show the 診療科・医師 column (more than one department on the list). */
+  showDoctor?: boolean;
 }
 
 const ORDER: Record<OpdStatus, number> = { 診察中: 0, 診察待ち: 1, 受付済: 2, 予約: 3, 会計待ち: 4, 終了: 5 };
@@ -25,20 +40,22 @@ const TONE: Record<OpdStatus, string> = {
   終了: "text-ink-faint",
 };
 
-/** 外来の受付一覧 of 総合診療科 (fictional): today's patients in the order they need the doctor. */
-export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArrive, onOpenChart }: Props) {
+/** 外来の受付一覧 (fictional): today's patients in the order they need the doctor. */
+export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArrive, onOpenChart, title = "外来　総合診療科", tools, ticketOf, orderOf, onCall, onPayCall, onSlip, deny, showDoctor }: Props) {
   const [h, m] = nowTime.split(":").map(Number);
   const nowMin = h * 60 + m;
   const sorted = [...patients].sort((a, b) => ORDER[a.status] - ORDER[b.status] || (a.slot ?? a.arrived ?? "99").localeCompare(b.slot ?? b.arrived ?? "99"));
   const count = (s: OpdStatus) => patients.filter((p) => p.status === s).length;
+  const small = "rounded border border-rule px-2 py-0.5 text-[12px] hover:border-ai hover:text-ai disabled:opacity-40";
   return (
     <section aria-label="外来" className="flex min-h-0 flex-1 flex-col bg-paper">
       <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
         <h1 className="flex items-center gap-2 text-lg font-bold">
           <Stethoscope size={20} className="text-ai" />
-          外来　総合診療科
+          {title}
           <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
         </h1>
+        {tools}
         <p className="nums text-sm text-ink-soft">
           診察中 <b className="text-ink">{count("診察中")}</b>・待ち <b className="text-ink">{count("診察待ち") + count("受付済")}</b>・予約 <b className="text-ink">{count("予約")}</b>・終わり <b className="text-ink">{count("会計待ち") + count("終了")}</b>
         </p>
@@ -47,9 +64,11 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
         <table className="nums w-full min-w-[960px] border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-paper text-left text-[11px] text-ink-faint shadow-[0_1px_0_var(--color-rule)]">
             <tr>
+              {ticketOf && <th className="px-3 py-2 font-normal">受付番号</th>}
               <th className="px-3 py-2 font-normal">予約</th>
               <th className="px-3 py-2 font-normal">受付・待ち</th>
               <th className="px-3 py-2 font-normal">氏名</th>
+              {showDoctor && <th className="px-3 py-2 font-normal">診療科・医師</th>}
               <th className="px-3 py-2 font-normal">区分</th>
               <th className="px-3 py-2 font-normal">受診の理由</th>
               <th className="px-3 py-2 font-normal">状態</th>
@@ -61,17 +80,29 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
               const wait = waitingMinutes(p, nowMin);
               const req = requests[p.id];
               const done = p.status === "終了";
+              const order = orderOf?.(p.id);
               return (
                 <tr key={p.id} className={`border-b border-rule-soft align-top ${done ? "text-ink-faint" : "bg-sheet"}`}>
+                  {ticketOf && (
+                    <td className="px-3 py-2">
+                      <b className="text-base">{ticketLabel(ticketOf(p.id))}</b>
+                      {p.arrived && onSlip && (
+                        <button type="button" onClick={() => onSlip(p.id)} title="受付票を印刷" aria-label={`${p.name} の受付票を印刷`} className="ml-1 align-middle text-ink-faint hover:text-ai">
+                          <Printer size={13} />
+                        </button>
+                      )}
+                    </td>
+                  )}
                   <td className="px-3 py-2 font-bold">{p.slot ?? <span className="font-normal text-ink-soft">予約外</span>}</td>
                   <td className="px-3 py-2">
                     {p.arrived ? (
                       <>
                         {p.arrived}
                         {wait !== null && <div className={`text-[11px] ${wait >= 30 ? "font-bold text-shu" : "text-ink-soft"}`}>待ち {wait}分</div>}
+                        {order !== undefined && <div className="text-[11px] text-ink-soft">順番 {order}番目</div>}
                       </>
                     ) : (
-                      <button type="button" onClick={() => onArrive(p.id)} className="rounded border border-rule px-2 py-0.5 text-[12px] hover:border-ai hover:text-ai">
+                      <button type="button" onClick={() => onArrive(p.id)} disabled={!!deny?.arrive} title={deny?.arrive ?? undefined} className={small}>
                         受付する
                       </button>
                     )}
@@ -84,6 +115,12 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
                     <span className="ml-2 text-[12px]">{ageSex(p)}</span>
                     {p.allergies.length > 0 && <div className="text-[11px] font-bold text-shu">アレルギー：{p.allergies.join("、")}</div>}
                   </td>
+                  {showDoctor && (
+                    <td className="px-3 py-2 text-[12px]">
+                      {p.department}
+                      <div className="text-ink-soft">{p.doctor}</div>
+                    </td>
+                  )}
                   <td className="px-3 py-2">{p.kind}</td>
                   <td className="max-w-80 px-3 py-2">
                     {p.reason}
@@ -95,6 +132,30 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
                         <option key={s}>{s}</option>
                       ))}
                     </select>
+                    {onCall && (p.status === "受付済" || p.status === "診察待ち") && (
+                      <div className="mt-1">
+                        {p.called ? (
+                          <span className="text-[11px] font-bold text-yamabuki">呼出中 {p.called.at}</span>
+                        ) : (
+                          <button type="button" onClick={() => onCall(p.id)} disabled={!!deny?.call} title={deny?.call ?? "待合の表示に番号を出して呼ぶ"} className={`${small} inline-flex items-center gap-1`}>
+                            <Megaphone size={12} />
+                            呼出
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {onPayCall && p.status === "会計待ち" && (
+                      <div className="mt-1">
+                        {p.payCalled ? (
+                          <span className="text-[11px] font-bold text-wakatake">会計を呼出 {p.payCalled.at}</span>
+                        ) : (
+                          <button type="button" onClick={() => onPayCall(p.id)} disabled={!!deny?.pay} title={deny?.pay ?? "待合の表示の「お会計」に番号を出す"} className={`${small} inline-flex items-center gap-1`}>
+                            <ReceiptJapaneseYen size={12} />
+                            会計の呼出
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-[12px]">
                     {req?.admittedAs ? (
