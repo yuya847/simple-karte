@@ -242,7 +242,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -3327,6 +3327,29 @@ export default function WardApp() {
                   />
                 </Drawer>
               )}
+              {panel === "take" && (
+                <Drawer title="指示受け（この患者）" onClose={closePanel} wide locked={deny("mar")}>
+                  <TakeDesk
+                    people={people.filter((x) => x.patient.id === patient.id)}
+                    rows={allTakeRows.filter((r) => r.patientId === patient.id)}
+                    taken={taken}
+                    isTaken={isRowTaken}
+                    holds={takeHolds}
+                    confirms={takeConfirms}
+                    nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]}
+                    today={today}
+                    nowTime={nowTime}
+                    onTake={takeOrders}
+                    onHold={holdOrder}
+                    onConfirm={confirmOrder}
+                    isMine={(room) => (planNow ? nurseOfBed(planNow, room, rosterNow!.nurses) === me.name : nurseFor(room.replace(/[A-Z]$/, "")) === me.name)}
+                    onOpen={openPatient}
+                    onSheet={() => goWard("sheet")}
+                    onExecute={() => goWard("execute")}
+                    records={mar}
+                  />
+                </Drawer>
+              )}
               {panel === "vitals" && (
                 <Drawer title="バイタル（看護師が入れる）" onClose={closePanel} locked={deny("vitals")}>
                   <VitalsPanel
@@ -4035,7 +4058,7 @@ export default function WardApp() {
             )}
             <ToolRail
               open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
-              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, "report-list": { n: unreadHere.length } }}
+              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : (waiting[patient.id] ?? 0), urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length } }}
               onOpen={(p) => {
                 // 注射 and 内服 are tabs on the right, not panels.
                 if (p === "add-injection" || p === "add-rx") {
