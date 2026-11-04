@@ -44,7 +44,9 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
             </button>
           )}
         </div>
-        <p className="text-[11px] text-ink-faint">{UNDONE_WINDOW}。実施か未実施（理由つき）をワークシートの「照合」で記録すると消えます。</p>
+        <p className="text-[11px] text-ink-faint">
+          {UNDONE_WINDOW}。<span className="hint">実施か未実施（理由つき）をワークシートの「照合」で記録すると消えます。</span>
+        </p>
         {forBilling && <p className="text-[11px] text-yamabuki">算定の計算は、時刻を過ぎた注射・処置を実施として数えます（未実施と記録された注射の回は数えません）。ここにある注射・処置は、記録のないまま算定に入っています。</p>}
         {shown.length === 0 ? (
           <p className="rounded-md border border-rule bg-paper px-3 py-2 text-wakatake">記録がないまま時刻を過ぎたものはありません。</p>
