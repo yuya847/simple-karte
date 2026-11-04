@@ -10,6 +10,11 @@ import { UserRound } from "lucide-react";
  */
 const SHOW_MS = 1400;
 
+/** "5階東 508" for a ward patient; just "外来" when the ward and the room are the same word (外来・救急外来). */
+export function placeLabel(ward: string | undefined, room: string): string {
+  return ward && ward !== room ? `${ward} ${room}` : room;
+}
+
 export function PatientSwitchFlash({ patient }: { patient: { id: string; name: string; kana?: string; age: number; sex: string; room?: string; ward?: string } }) {
   // The id whose card has been dismissed (by the timer or a click); a new id shows the card again.
   const [hiddenFor, setHiddenFor] = useState<string | null>(null);
@@ -35,12 +40,7 @@ export function PatientSwitchFlash({ patient }: { patient: { id: string; name: s
             <span>
               {shown.age}歳{shown.sex}
             </span>
-            {shown.room && (
-              <span>
-                {shown.ward ? `${shown.ward} ` : ""}
-                {shown.room}
-              </span>
-            )}
+            {shown.room && <span>{placeLabel(shown.ward, shown.room)}</span>}
             <span>ID {idShown}</span>
           </div>
         </div>
