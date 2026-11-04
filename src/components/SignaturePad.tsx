@@ -103,7 +103,7 @@ export function SignaturePad({ label, onChange, height = 150 }: Props) {
           style={{ height, touchAction: "none" }}
           className="block w-full rounded-lg border-2 border-ink/40 bg-white"
         />
-        {empty && <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-ink-faint">ここに指かペンで署名してください</span>}
+        {empty && <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-ink-faint">ここにマウス・指・ペンで署名してください</span>}
         <span className="pointer-events-none absolute bottom-3 left-4 right-4 border-b border-dashed border-ink/30" />
       </div>
     </div>

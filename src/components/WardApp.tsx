@@ -194,6 +194,8 @@ import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
 import { AddConsultPanel, AddGuidePanel, AddLeavePanel, AddRehabPanel, AddDialysisPanel, AddTransfusionPanel, AddImagingPanel, AddInjectionPanel, AddLabPanel, AddPhysioPanel, AddProcedurePanel, AddRxPanel } from "./panels/AddPanels";
 import { latestCre } from "@/lib/exams";
 import { latestValue } from "@/lib/clinical";
+import { ImagingConsentProvider } from "./ImagingConsent";
+import { consentDone } from "@/lib/consent";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
 import { IoPanel } from "./IoPanel";
@@ -1038,7 +1040,7 @@ export default function WardApp() {
         return `${main}（${detail}）`;
       },
       allergies: patient ? checkList(patient) : [],
-      consents: consents.filter((c) => c.patientId === patient?.id).map((c) => ({ code: c.code, status: c.status })),
+      consents: consents.filter((c) => c.patientId === patient?.id).map((c) => ({ code: c.code, status: consentDone(c) ? "同意" : c.status })),
       patientFacts: patient ? { sex: patient.sex, age: patient.age, allergies: checkList(patient), cre: latestCre(patient), heightCm: patient.heightCm, weightKg: patient.weightKg, pregnancy: patient.pregnancy ?? null } : null,
       txFacts: patient ? { blood: patient.blood, latest: { Hb: latestValue(patient, "Hb"), Plt: latestValue(patient, "Plt"), "PT-INR": latestValue(patient, "PT-INR") } } : null,
     };
@@ -2907,7 +2909,7 @@ export default function WardApp() {
           />
           {limitNow && <LimitStrip limit={limitNow} inTeam={inTeamNow} grant={grantNow} fmtDay={(d) => formatShort(addDays(today, d))} />}
           <PresenceStrip peers={presence.on(patient.id)} editors={presence.editorsOn(patient.id)} />
-          <DrawerDefaults.Provider value={{ panel, windowed: WINDOW_PANELS }}>
+          <ImagingConsentProvider patient={patient} today={today} records={consents}><DrawerDefaults.Provider value={{ panel, windowed: WINDOW_PANELS }}>
           <div
             data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
@@ -3643,7 +3645,7 @@ export default function WardApp() {
                     room={ward.beds.find((b) => b.patientId === patient.id)?.room ?? ""}
                     today={today}
                     nowTime={nowTime}
-                    doctor={DOCTOR}
+                    doctor={me.name}
                     records={consents.filter((c) => c.patientId === patient.id)}
                     orders={entries.filter((e): e is OrderEntry => e.kind === "order")}
                     onCreate={createConsent}
@@ -4189,7 +4191,7 @@ export default function WardApp() {
               calendars={REF_TABS.map((t) => ({ key: t, label: RIGHT_TABS[t].label, title: RIGHT_TABS[t].title, icon: RIGHT_TABS[t].icon, on: chart.openTabs.includes(t) && (chart.rightTab === t || !!floating[t]), open: () => openRight(t) }))}
             />
           </div>
-          </DrawerDefaults.Provider>
+          </DrawerDefaults.Provider></ImagingConsentProvider>
         </>
       ) : (
         <div className="grid flex-1 place-items-center">

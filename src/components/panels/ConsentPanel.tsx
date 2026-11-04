@@ -2,10 +2,11 @@
 
 import { FileSignature, Printer } from "lucide-react";
 import { DenyNote, useDeny } from "../RoleContext";
-import { useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
+import { usePrintSheet } from "../DeskParts";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { CONSENT_TEMPLATES, findConsent, signatureOf, type ConsentCode, type ConsentRecord, type ConsentStatus, type SignRole } from "@/lib/consent";
+import { DOCTORS } from "@/lib/doctors";
 import { ConsentSign } from "../ConsentSign";
 import { orderLines } from "@/lib/format";
 import { HOSPITAL } from "@/lib/billing/facility";
@@ -31,13 +32,12 @@ const STATUS_STYLE: Record<ConsentStatus, string> = {
   撤回: "bg-shu-soft text-shu",
 };
 
-const noSubscribe = () => () => {};
 
 /** The patient's explanation and consent forms: list, fill in, record the answer, print on A4. */
 export function ConsentPanel({ patient, room, today, nowTime, doctor, records, orders, onCreate, onUpdate }: Props) {
   const [selected, setSelected] = useState<string | null>(records[0]?.id ?? null);
   const [signing, setSigning] = useState(false);
-  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const [print, sheet] = usePrintSheet();
   const r = records.find((x) => x.id === selected) ?? records[0];
   const locked = !!useDeny()("consent");
   return (
@@ -50,6 +50,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
               <button type="button" onClick={() => setSelected(x.id)} className={`w-full rounded-md px-2 py-1.5 text-left ${r?.id === x.id ? "bg-ai-soft" : "hover:bg-paper"}`}>
                 <div className="font-bold">{findConsent(x.code).short}</div>
                 <span className={`rounded px-1 text-[11px] font-bold ${STATUS_STYLE[x.status]}`}>{x.status}</span>
+                <span className="ml-1 text-[11px] text-ink-soft">{x.signatures?.length ? `署名 ${x.signatures.map((s) => s.role).join("・")}` : "電子署名なし"}</span>
                 <span className="ml-1 text-[11px] text-ink-faint">{formatShort(addDays(today, (x.explainedAt ?? x.createdAt).day))}</span>
               </button>
             </li>
@@ -65,7 +66,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
             </button>
           ))}
         </fieldset>
-        <p className="text-[10px] text-ink-faint">雛形の文は架空の病院のもので、AI は作りも書き換えもしません。患者の情報だけが入ります。署名は iPad などのタブレットに指かペンでもらうか、印刷した紙にもらいます。</p>
+        <p className="hint text-[10px] text-ink-faint">雛形の文は架空の病院のもので、AI は作りも書き換えもしません。患者の情報だけが入ります。署名は PC のマウスやタブレットの指・ペンでもらうか、印刷した紙にもらいます。</p>
       </aside>
       {r ? (
         <div>
@@ -76,9 +77,9 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
             <ConsentSign
               record={r}
               patientName={patient.name}
-              doctor={doctor}
+              doctor={r.explainedBy || doctor}
               nowTime={nowTime}
-              document={<Document r={r} patient={patient} room={room} today={today} orders={orders} reading />}
+              document={<ConsentDocument r={r} patient={patient} room={room} today={today} orders={orders} reading />}
               onClose={() => setSigning(false)}
               onDone={(x) => {
                 onUpdate(x);
@@ -87,19 +88,13 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
             />
           )}
           <div className="mt-3 flex justify-end">
-            <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 rounded-md border border-ai px-3 py-1.5 font-bold text-ai hover:bg-ai hover:text-white">
+            <button type="button" onClick={() => print(<ConsentDocument r={r} patient={patient} room={room} today={today} orders={orders} print />, { portrait: true })} className="flex items-center gap-1.5 rounded-md border border-ai px-3 py-1.5 font-bold text-ai hover:bg-ai hover:text-white">
               <Printer size={14} />
               印刷（A4縦）
             </button>
           </div>
-          <Document r={r} patient={patient} room={room} today={today} orders={orders} />
-          {mounted &&
-            createPortal(
-              <div className="print-consent hidden print:block">
-                <Document r={r} patient={patient} room={room} today={today} orders={orders} print />
-              </div>,
-              document.body,
-            )}
+          <ConsentDocument r={r} patient={patient} room={room} today={today} orders={orders} />
+          {sheet}
         </div>
       ) : (
         <p className="text-ink-faint">左から作る同意書を選んでください。</p>
@@ -122,6 +117,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
     <section className="mb-3 space-y-2 rounded-md border border-rule bg-paper p-3">
       <div className="flex flex-wrap items-baseline gap-2">
         <b>{t.short}</b>
+        <label>説明した医師 <select aria-label="同意書の説明医師" value={r.explainedBy || doctor} onChange={(e) => save({ explainedBy: e.target.value })}>{DOCTORS.map((d) => <option key={d.name}>{d.name}</option>)}</select></label>
         <span className={`rounded px-1 text-[11px] font-bold ${STATUS_STYLE[r.status]}`}>{r.status}</span>
         {order && <span className="text-[11px] text-ink-soft">対象のオーダ：{orderLines(order.order, today).main}</span>}
       </div>
@@ -174,14 +170,14 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
           <button
             type="button"
             disabled={unanswered.length > 0}
-            title={unanswered.length ? "問診にすべて答えてから" : "患者さんに iPad を渡して、読んで署名してもらう"}
+            title={unanswered.length ? "問診にすべて答えてから" : "患者と説明した医師がマウス・タッチで署名する"}
             onClick={() => {
               save({});
               onSign();
             }}
             className="rounded bg-ai px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
           >
-            iPad で署名してもらう
+            PC・タブレットで署名する
           </button>
         )}
         {r.status !== "同意" && (
@@ -189,14 +185,14 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
             type="button"
             disabled={unanswered.length > 0}
             title={unanswered.length ? "問診にすべて答えてから" : undefined}
-            onClick={() => save({ status: "同意", explainedAt: { day: 0, time: nowTime }, explainedBy: doctor })}
+            onClick={() => save({ status: "同意", explainedAt: { day: 0, time: nowTime }, explainedBy: r.explainedBy || doctor })}
             className="rounded bg-wakatake px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
           >
             説明して同意を得た（署名は紙）
           </button>
         )}
         {r.status === "説明前" && (
-          <button type="button" onClick={() => save({ status: "拒否", explainedAt: { day: 0, time: nowTime }, explainedBy: doctor, closedAt: { day: 0, time: nowTime } })} className="rounded border border-shu px-2 py-1 text-xs text-shu">
+          <button type="button" onClick={() => save({ status: "拒否", explainedAt: { day: 0, time: nowTime }, explainedBy: r.explainedBy || doctor, closedAt: { day: 0, time: nowTime } })} className="rounded border border-shu px-2 py-1 text-xs text-shu">
             同意されなかった
           </button>
         )}
@@ -222,7 +218,7 @@ function Sig({ r, role, width = "w-40" }: { r: ConsentRecord; role: SignRole; wi
 }
 
 /** The printed form (A4 portrait). `reading` hides the signature block (shown on the tablet before signing). */
-function Document({ r, patient, room, today, orders, print, reading }: { r: ConsentRecord; patient: Patient; room: string; today: CalendarDate; orders: OrderEntry[]; print?: boolean; reading?: boolean }) {
+export function ConsentDocument({ r, patient, room, today, orders, print, reading }: { r: ConsentRecord; patient: Patient; room: string; today: CalendarDate; orders: OrderEntry[]; print?: boolean; reading?: boolean }) {
   const t = findConsent(r.code);
   const order = r.orderId ? orders.find((o) => o.id === r.orderId) : undefined;
   const when = r.explainedAt ?? r.createdAt;
@@ -255,7 +251,7 @@ function Document({ r, patient, room, today, orders, print, reading }: { r: Cons
           ))}
           {s.facts?.map((f) => (
             <p key={f.text} className="pl-3 text-[11px] text-ink-soft">
-              {f.text}（出典：{f.source}）
+              {f.text}<span className="hint">（出典：{f.source}）</span>
             </p>
           ))}
         </section>
@@ -306,8 +302,8 @@ function Document({ r, patient, room, today, orders, print, reading }: { r: Cons
         </div>
         <p className="mt-3 text-[11px] text-ink-soft">同意の撤回：　　年　月　日　本人／代諾者署名＿＿＿＿＿＿＿＿</p>
       </section>}
-      {t.sources.length > 0 && <p className="mt-3 text-[10px] text-ink-faint">出典：{t.sources.map((s) => s.label).join("／")}</p>}
-      <p className="mt-2 text-[10px] text-ink-faint">Simple Karte の試作。架空の病院・架空の患者の雛形で、実際の説明・同意には使えません。</p>
+      {t.sources.length > 0 && <p className="hint mt-3 text-[10px] text-ink-faint">出典：{t.sources.map((s) => s.label).join("／")}</p>}
+      <p className="hint mt-2 text-[10px] text-ink-faint">一般的な説明文です。Simple Karte の試作。架空の病院・架空の患者の雛形で、実際の説明・同意には使えません。</p>
     </article>
   );
 }

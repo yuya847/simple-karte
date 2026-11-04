@@ -63,10 +63,10 @@ export interface ConsentSignature {
 /** The signatures a tablet consent needs: the patient or the proxy, and the doctor. */
 export function signaturesMissing(sigs: ConsentSignature[], byProxy: boolean): SignRole[] {
   const need: SignRole[] = [byProxy ? "代諾者" : "本人", "説明した医師"];
-  return need.filter((r) => !sigs.some((s) => s.role === r));
+  return need.filter((r) => !sigs.some((s) => s.role === r && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(s.dataUrl)));
 }
 
-export const consentDone = (r: ConsentRecord) => r.status === "同意";
+export const consentDone = (r: ConsentRecord) => r.status === "同意" || (r.status === "説明前" && r.choice === "同意する" && signaturesMissing(r.signatures ?? [], !!r.proxy).length === 0);
 
 export const signatureOf = (r: ConsentRecord, role: SignRole) => r.signatures?.find((s) => s.role === role);
 

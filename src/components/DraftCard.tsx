@@ -15,6 +15,8 @@ import { findPhysio, findRegion, viewsText } from "@/lib/exams";
 import { opdPurposeOf } from "@/lib/opd-booking";
 import { DrugMarks } from "./DrugMarks";
 
+import { ImagingDraftEditor } from "./ImagingConsent";
+
 interface Props {
   draft: Draft;
   issues: Issue[];
@@ -81,6 +83,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
         <Summary draft={draft} ctx={ctx} />
       </div>
 
+      {draft.kind === "imaging" && <ImagingDraftEditor draft={draft} onApply={onApply} />}
       {blocking.length > 0 && (
         <ul className="space-y-2 px-3 pb-2">
           {blocking.map((i) => (
@@ -139,7 +142,7 @@ function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; 
           ))}
         </div>
       )}
-      {(!issue.choices || issue.choices.length === 0) && !issue.input && (
+      {(!issue.choices || issue.choices.length === 0) && !issue.input && !(draft.kind === "imaging" && ["purpose", "consent"].includes(issue.key)) && (
         <div className="mt-1 ml-5 text-[11px] text-ink-soft">
           {canRedo ? "↺ で指示の欄に戻して、言い直してください。" : draft.kind === "injection" || draft.kind === "prescription" ? "この下書きを消して（ごみ箱）、上のタブで入れ直してください。" : "この下書きを消して（ごみ箱）、右のツールで入れ直してください。"}
         </div>

@@ -346,7 +346,7 @@ function checkWhen(d: ImagingDraft | PhysioDraft, ctx: CheckContext, issues: Iss
   } else {
     issues.push({ key: "when", level: "info", title: "日時", message: d.when.priority === "至急" ? EXAM_RULES.stat : `${ctx.fmtDay(d.when.day ?? 0)} ${d.when.time ?? "（時刻は検査室が決める）"} 予約` });
   }
-  if (!d.purpose) issues.push({ key: "purpose", level: "ask", title: "目的", message: "検査の目的（臨床診断・知りたいこと）が抜けています。言い足してください。" });
+  if (!d.purpose?.trim()) issues.push({ key: "purpose", level: "ask", title: "目的", message: "検査の目的（臨床診断・知りたいこと）が抜けています。ここで入れる。" });
 }
 
 export interface ExamPatientFacts {
@@ -545,7 +545,7 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
         choices: [{ label: "単純に変える", apply: set<ImagingDraft>({ contrast: "単純", consent: null, agent: null }) }, { label: "この下書きを消す", remove: true }],
       });
     } else if (c?.state === "取得済み") {
-      if (!c.by || !c.at) issues.push({ key: "consent", level: "ask", title: "同意書", message: "同意は取得済みですが、説明した医師と取得日時が抜けています。オーダ画面で入れてください。" });
+      if (!c.by?.trim() || !c.at?.trim()) issues.push({ key: "consent", level: "ask", title: "同意書", message: "同意は取得済みですが、説明した医師と取得日時が抜けています。ここで入れる。" });
       else issues.push({ key: "consent", level: "info", title: "同意書", message: `${code ? `${findConsent(code).short}：` : ""}${consentText(c)}` });
     } else if (code) {
       const ci = consentIssue(code, ctx, !!d.consentPlanned, (x) => ({ ...(x as ImagingDraft), consentPlanned: true }));

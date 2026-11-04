@@ -1,5 +1,8 @@
 "use client";
 
+import { useMe } from "../RoleContext";
+import { DoctorField, ImagingConsentPrint } from "../ImagingConsent";
+import { consentDefaults } from "@/lib/imaging-consent";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { TabChoice } from "../TabChoice";
@@ -65,7 +68,7 @@ export function AddImagingPanel({
   facts = null,
   activeOrders = [],
   fmtDay = (d: DayOffset) => (d === 0 ? "今日" : d < 0 ? `${-d}日前` : `${d}日後`),
-  doctor = "",
+  doctor,
 }: {
   onAdd: (d: Draft) => void;
   newId: () => string;
@@ -75,6 +78,8 @@ export function AddImagingPanel({
   /** The name put in 「説明した医師」 when the consent was taken by the person ordering. */
   doctor?: string;
 }) {
+  const me = useMe();
+  const explainingDoctor = doctor || me.name;
   const [modality, setModality] = useState<Modality>("X線");
   const [group, setGroup] = useState<RegionGroup>("体幹");
   const [query, setQuery] = useState("");
@@ -334,10 +339,10 @@ export function AddImagingPanel({
           {contrast && consentCode && (
             <div className="rounded border border-rule-soft bg-sheet p-2 text-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <b>造影剤使用の説明と同意</b>
+                <b>造影剤使用の説明と同意</b><ImagingConsentPrint draft={d} />
                 <div role="radiogroup" aria-label="同意の取得" className="flex gap-1">
                   {CONSENT_STATES.map((s) => (
-                    <button key={s} type="button" role="radio" aria-checked={(d.consent?.state ?? "未取得") === s} onClick={() => patch({ consent: { ...(d.consent ?? emptyConsent()), state: s, by: s === "取得済み" ? (d.consent?.by ?? doctor ?? null) : d.consent?.by ?? null } })} className={chip((d.consent?.state ?? "未取得") === s)}>
+                    <button key={s} type="button" role="radio" aria-checked={(d.consent?.state ?? "未取得") === s} onClick={() => patch({ consent: consentDefaults(d.consent, s, explainingDoctor, new Date()) })} className={chip((d.consent?.state ?? "未取得") === s)}>
                       {s}
                     </button>
                   ))}
@@ -346,7 +351,7 @@ export function AddImagingPanel({
               {d.consent?.state === "取得済み" && (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <input value={d.consent.at ?? ""} onChange={(e) => patch({ consent: { ...d.consent!, at: e.target.value || null } })} placeholder="取得日時（例：11/3 15:00）" aria-label="取得日時" className={`${field} w-40`} />
-                  <input value={d.consent.by ?? ""} onChange={(e) => patch({ consent: { ...d.consent!, by: e.target.value || null } })} placeholder="説明した医師" aria-label="説明した医師" className={`${field} w-32`} />
+                  <DoctorField value={d.consent.by ?? ""} onChange={(by) => patch({ consent: { ...d.consent!, by: by || null } })} />
                   <select value={d.consent.form ?? ""} onChange={(e) => patch({ consent: { ...d.consent!, form: (e.target.value || null) as ConsentForm | null } })} aria-label="同意書の有無・保管" className={field}>
                     <option value="">同意書の有無・保管</option>
                     {CONSENT_FORMS.map((x) => (
