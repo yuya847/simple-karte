@@ -74,8 +74,11 @@ describe("roles", () => {
   it("医事課 registers the insurance and records the bill; it starts on its own work list", () => {
     expect(can("医事課", "insurance")).toBe(true);
     expect(can("医事課", "settle")).toBe(true);
-    expect(can("医師", "insurance")).toBe(false);
-    expect(denyReason("医師", "insurance")).toBe("保険の登録は医事課が行います（いまは医師で入っています）。");
+    // 医師・看護師 may also register it from the 患者基本情報 window (架空の病院の取り決め, 2026-11-04).
+    expect(can("医師", "insurance")).toBe(true);
+    expect(can("看護師", "insurance")).toBe(true);
+    expect(can("薬剤師", "insurance")).toBe(false);
+    expect(denyReason("薬剤師", "insurance")).toBe("保険の登録・変更（患者基本情報の保険・制度）は医事課・医師・看護師が行います（いまは薬剤師で入っています）。");
     expect(home("医事課")).toBe("iji");
   });
 });

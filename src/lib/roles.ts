@@ -145,7 +145,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   acuity: { label: "看護必要度の評価", who: ["看護師"] },
   pharmacy: { label: "薬剤部の業務", who: ["薬剤師"] },
   billing: { label: "算定の入力", who: ["医事課", "医師"] },
-  insurance: { label: "保険の登録", who: ["医事課"] },
+  insurance: { label: "保険の登録・変更（患者基本情報の保険・制度）", who: ["医事課", "医師", "看護師"] },
   settle: { label: "会計の記録", who: ["医事課"] },
   note: { label: "記事の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW"] },
   "result.ack": { label: "結果の確認", who: ["医師"] },

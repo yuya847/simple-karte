@@ -12,6 +12,8 @@ import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ANAMNESIS_SECTIONS, type AnamnesisFields, type AnamnesisRecord } from "@/lib/anamnesis";
 import type { InsuranceRecord } from "@/lib/billing/registration";
+import { infoInput as input, infoLinkBtn as linkBtn, none, Row, text } from "./InfoRow";
+import { InsuranceSection } from "./InsuranceSection";
 import { type CalendarDate, hospitalDay } from "@/lib/dates";
 import { bandLabel, type AdvanceDirective } from "@/lib/directives";
 import {
@@ -51,8 +53,9 @@ interface Props {
   fmtDay: (d: number) => string;
   nowTime: string;
   contacts?: PatientContacts;
-  /** 保険の登録 by 医事課, the version in force (billing/registration.ts). */
-  insurance?: InsuranceRecord;
+  /** 保険の登録 (billing/registration.ts): every version, the last in force. Shown and changed in 保険・制度. */
+  insurance?: InsuranceRecord[];
+  onRegisterInsurance?: (r: InsuranceRecord) => void;
   doctors?: PatientDoctors;
   anamnesis?: AnamnesisRecord;
   directive?: AdvanceDirective;
@@ -64,27 +67,11 @@ const SECTIONS = [
   { id: "pi-basic", title: "基本" },
   { id: "pi-contacts", title: "連絡先・家族" },
   { id: "pi-insurance", title: "保険・制度" },
+  { id: "pi-care", title: "介護・かかりつけ" },
   { id: "pi-anamnesis", title: "入院前の情報収集" },
   { id: "pi-alerts", title: "アレルギー・感染症・注意・事前指示" },
   { id: "pi-history", title: "登録の履歴" },
 ] as const;
-
-const input = "w-full rounded border border-rule bg-sheet px-1.5 py-0.5 text-[13px] outline-none focus:border-ai";
-const linkBtn = "inline-flex items-center gap-1 rounded border border-rule bg-sheet px-2 py-0.5 text-xs text-ink-soft hover:text-ink pointer-coarse:py-1.5";
-
-/** One item: label, value, and who registered it (gray, right). */
-function Row({ label, children, by }: { label: string; children: React.ReactNode; by?: string }) {
-  return (
-    <div className="grid grid-cols-[8.5rem_1fr] items-start gap-x-2 gap-y-0.5 border-b border-rule-soft py-1 last:border-b-0 sm:grid-cols-[8.5rem_1fr_auto]">
-      <dt className="pt-px text-[12px] text-ink-soft">{label}</dt>
-      <dd className="min-w-0 break-words">{children}</dd>
-      {by && <dd className="nums col-start-2 text-[11px] text-ink-faint sm:col-start-3 sm:max-w-56 sm:text-right">{by}</dd>}
-    </div>
-  );
-}
-
-const none = <span className="text-ink-faint">—</span>;
-const text = (s: string | undefined | null) => (s && s.trim() ? s : none);
 
 /** An answer of the admission interview, as text. */
 function answerText(f: AnamnesisFields, key: keyof AnamnesisFields): string {
@@ -94,7 +81,8 @@ function answerText(f: AnamnesisFields, key: keyof AnamnesisFields): string {
   return v;
 }
 
-export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts, insurance, doctors, anamnesis, directive, onOpen, onSave }: Props) {
+export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts, insurance: insuranceRecords, doctors, anamnesis, directive, onOpen, onSave, onRegisterInsurance }: Props) {
+  const insurance = insuranceRecords?.[insuranceRecords.length - 1];
   const me = useMe();
   const denied = useDeny()("profile.contacts");
   const [edit, setEdit] = useState(false);
@@ -147,7 +135,7 @@ export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts,
           ))}
         </nav>
       </div>
-      <p className="hint text-xs text-ink-soft">患者バーの名前をダブルクリック（iPad は長押し）で開きます。ここは登録された情報を並べて見るところです。連絡先・家族・公費・介護保険・かかりつけはこの窓の「編集」で、保険は医事課の「保険の登録」で、入院前の情報収集は看護師の「情報収集」で、アレルギー・感染症・禁忌は「プロファイル」で変えます。</p>
+      <p className="hint text-xs text-ink-soft">患者バーの名前をダブルクリック（iPad は長押し）で開きます。ここは登録された情報を並べて見るところです。連絡先・家族・介護保険・かかりつけはこの窓の「編集」で、保険・公費は「保険・制度」の「保険を編集」で（医事課の「保険の登録」と同じ記録）、入院前の情報収集は看護師の「情報収集」で、アレルギー・感染症・禁忌は「プロファイル」で変えます。</p>
       <p className="text-xs text-shu">架空のデータです。実在の患者の情報は入れないでください。</p>
 
       {/* 基本 */}
@@ -379,16 +367,8 @@ export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts,
             </div>
 
             <div>
-              <h4 className="mb-1 text-xs font-bold text-ink-soft">公費・介護保険・かかりつけ</h4>
+              <h4 className="mb-1 text-xs font-bold text-ink-soft">介護保険・かかりつけ（公費・保険は「保険・制度」で）</h4>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                <label className="text-[11px] text-ink-soft">
-                  公費（制度名。複数は「・」で区切る）
-                  <input value={draft.insurance.publicAid.join("・")} onChange={(e) => setDraft({ ...draft, insurance: { ...draft.insurance, publicAid: e.target.value.split(/[・,、]/) } })} placeholder="例：指定難病" className={input} />
-                </label>
-                <label className="text-[11px] text-ink-soft">
-                  保険の備考（受付で見たもの）
-                  <input value={draft.insurance.note} onChange={(e) => setDraft({ ...draft, insurance: { ...draft.insurance, note: e.target.value } })} placeholder="例：限度額適用認定証を確認" className={input} />
-                </label>
                 <label className="text-[11px] text-ink-soft">
                   介護保険（要介護度）
                   <select value={draft.care.careLevel} onChange={(e) => setDraft({ ...draft, care: { ...draft.care, careLevel: e.target.value as CareLevel } })} className={input}>
@@ -447,42 +427,21 @@ export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts,
         )}
       </section>
 
-      {/* 保険・制度 */}
-      <section id="pi-insurance" aria-labelledby="pi-insurance-h" className="rounded-lg border border-rule bg-paper/50 p-3">
-        <div className="mb-1 flex flex-wrap items-center gap-2">
-          <h3 id="pi-insurance-h" className="text-sm font-bold">
-            保険・制度
-          </h3>
-          <span className="ml-auto">{open("billing", "保険の登録（算定）を開く")}</span>
-        </div>
+      {/* 保険・制度: the one registration shared with 医事課 (保険の登録) */}
+      <InsuranceSection patient={p} today={today} nowTime={nowTime} fmtDay={fmtDay} records={insuranceRecords} onRegister={onRegisterInsurance} onOpenBilling={onOpen ? () => onOpen("billing") : undefined} />
+
+      {/* 介護・かかりつけ */}
+      <section id="pi-care" aria-labelledby="pi-care-h" className="rounded-lg border border-rule bg-paper/50 p-3">
+        <h3 id="pi-care-h" className="mb-1 text-sm font-bold">
+          介護保険・かかりつけ
+        </h3>
         <dl>
-          {insurance ? (
-            <>
-              <Row label="保険の種類" by={`${when(insurance.at)} ${insurance.by}（保険の登録・${insurance.action}）`}>
-                <b>{insurance.insurance.kind}</b>
-                <span className="ml-2 text-ink-soft">{insurance.insurance.relation}</span>
-              </Row>
-              <Row label="保険者番号・記号番号" by="保険の登録">
-                <span className="nums">
-                  {insurance.insurance.insurerNumber}　{[insurance.insurance.symbol, insurance.insurance.number, insurance.insurance.branch && `枝番 ${insurance.insurance.branch}`].filter(Boolean).join("・")}
-                </span>
-              </Row>
-              <Row label="負担割合" by="保険の登録">
-                <b className="nums">{insurance.insurance.rate / 10}割</b>
-                <span className="ml-2 text-ink-soft">所得区分 {insurance.insurance.incomeClass}</span>
-              </Row>
-              <Row label="限度額の認定" by="保険の登録">
-                {insurance.insurance.limitKnown ? "適用区分がわかっている（限度額適用認定証の提示、またはマイナ保険証での情報提供）" : <span className="text-yamabuki">わからない（認定証の提示かマイナ保険証での情報提供が要ります）</span>}
-              </Row>
-            </>
-          ) : (
-            <Row label="保険" by="未登録">
-              <span className="text-yamabuki">未登録です。医事課が「算定」の保険の登録で入れます（それまで算定は年齢からの仮の保険で計算しています）。</span>
+          {contacts?.insurance.publicAid.length ? (
+            <Row label="公費（受付のメモ）" by={regBy}>
+              {contacts.insurance.publicAid.join("・")}
+              <span className="ml-2 text-xs text-ink-faint">（受給者証は「保険・制度」に登録します）</span>
             </Row>
-          )}
-          <Row label="公費" by={regBy}>
-            {contacts ? (contacts.insurance.publicAid.length ? contacts.insurance.publicAid.join("・") : "なし") : none}
-          </Row>
+          ) : null}
           {contacts?.insurance.note && (
             <Row label="保険の備考" by={regBy}>
               {contacts.insurance.note}
@@ -578,7 +537,7 @@ export function PatientInfoPanel({ patient: p, today, fmtDay, nowTime, contacts,
       {/* 登録の履歴 */}
       <section id="pi-history" aria-labelledby="pi-history-h" className="rounded-lg border border-rule bg-paper/50 p-3">
         <h3 id="pi-history-h" className="mb-1 text-sm font-bold">
-          登録の履歴（連絡先・家族・公費・介護）
+          登録の履歴（連絡先・家族・介護・かかりつけ）
         </h3>
         {versions.length ? (
           <ol className="space-y-1 text-xs">

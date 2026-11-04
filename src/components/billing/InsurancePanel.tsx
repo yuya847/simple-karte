@@ -13,6 +13,7 @@ import {
   INSURER_KINDS,
   insuranceSummary,
   KOUKI_CLASSES,
+  normalizeForm,
   PROOFS,
   toInsurance,
   UNDER70_CLASSES,
@@ -41,12 +42,12 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
   const me = useMe();
   const locked = useDeny()("insurance");
   const current = records[records.length - 1];
-  const [form, setForm] = useState<InsuranceForm>(current?.form ?? EMPTY_FORM);
+  const [form, setForm] = useState<InsuranceForm>(() => normalizeForm(current?.form ?? EMPTY_FORM));
   const [ack, setAck] = useState(false);
   const checks = useMemo(() => checkInsurance(form, { age: patient.age, on: today }), [form, patient.age, today]);
   const errors = hasErrors(checks);
   const warns = checks.filter((c) => c.level === "warn");
-  const changed = !current || JSON.stringify(current.form) !== JSON.stringify(form);
+  const changed = !current || JSON.stringify(normalizeForm(current.form)) !== JSON.stringify(form);
   const action: InsuranceRecord["action"] = !current ? "登録" : changed ? "変更" : "確認";
   const preview = errors ? null : toInsurance(form);
   const fieldTone = (k: keyof InsuranceForm) => (checks.some((c) => c.field === k && c.level === "error") ? "border-shu" : checks.some((c) => c.field === k && c.level === "warn") ? "border-yamabuki" : "border-rule");
@@ -80,7 +81,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           )}
         </h3>
         <p className="mb-3 text-[11px] leading-relaxed text-ink-soft">
-          保険証（資格確認書）・高齢受給者証・限度額適用認定証か、マイナ保険証のオンライン資格確認の画面を見て入れます。最初から選ばれている項目はありません。番号はすべて架空のものを入れてください（このブラウザの中だけに保存します）。公費（生活保護・指定難病など）の併用は、この試作の算定では扱いません。
+          保険証（資格確認書）・高齢受給者証・限度額適用認定証か、マイナ保険証のオンライン資格確認の画面を見て入れます。最初から選ばれている項目はありません。番号はすべて架空のものを入れてください（このブラウザの中だけに保存します）。公費（受給者証）・生活保護・自費・労災、有効期限、資格確認の方法は、患者基本情報の窓の「保険・制度」で入れます（同じ記録です）。
         </p>
 
         <fieldset disabled={!!locked} className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
@@ -211,7 +212,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
               {action === "登録" ? "登録する" : action === "変更" ? "変更を登録する" : "変わりがないことを確かめた"}
             </button>
             {current && changed && !locked && (
-              <button type="button" onClick={() => set(current.form)} className="text-xs text-ink-soft underline-offset-2 hover:underline">
+              <button type="button" onClick={() => set(normalizeForm(current.form))} className="text-xs text-ink-soft underline-offset-2 hover:underline">
                 登録済みの内容に戻す
               </button>
             )}

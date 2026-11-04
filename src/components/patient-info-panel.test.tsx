@@ -4,7 +4,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { emptyAnamnesis, saveAnamnesis } from "@/lib/anamnesis";
-import { INITIAL_INSURANCE_BOOK, currentRecord } from "@/lib/billing/registration";
+import { INITIAL_INSURANCE_BOOK } from "@/lib/billing/registration";
 import { INITIAL_CONTACTS } from "@/lib/patient-contacts";
 import { PATIENTS } from "@/lib/patients";
 import { STAFF, type Role } from "@/lib/roles";
@@ -26,7 +26,7 @@ const anamnesis = saveAnamnesis(undefined, oura.id, { ...emptyAnamnesis(), livin
 
 describe("患者基本情報の窓", () => {
   it("shows every section, with the first person to call, the family's 続柄 and who registered it", () => {
-    const html = as("医師", <PatientInfoPanel patient={oura} today={today} fmtDay={fmtDay} nowTime="10:00" contacts={INITIAL_CONTACTS[oura.id]} insurance={currentRecord(INITIAL_INSURANCE_BOOK, oura.id)} anamnesis={anamnesis} onOpen={() => {}} onSave={() => {}} />);
+    const html = as("医師", <PatientInfoPanel patient={oura} today={today} fmtDay={fmtDay} nowTime="10:00" contacts={INITIAL_CONTACTS[oura.id]} insurance={INITIAL_INSURANCE_BOOK[oura.id]} anamnesis={anamnesis} onOpen={() => {}} onSave={() => {}} />);
     for (const h of ["基本", "連絡先・家族", "保険・制度", "入院前の情報収集（アナムネーシス）", "アレルギー・感染症・注意・事前指示", "登録の履歴"]) expect(html).toContain(h);
     // 基本: the birth date 医事課 registered with the insurance, with the era.
     expect(html).toContain("1940年2月20日（昭和15年）");
@@ -67,7 +67,7 @@ describe("患者基本情報の窓", () => {
     expect(html).toContain("まだ聞き取っていません");
     expect(html).toContain("情報収集を始める");
     expect(html).toContain("住所・連絡先・家族はまだ登録されていません。「登録する」で入れます。");
-    expect(html).toContain("未登録です。医事課が「算定」の保険の登録で入れます");
+    expect(html).toContain("未登録です。「保険を登録する」で入れます");
     // The birth date is made from the age (a fictional one) and gives 72.
     expect(html).toContain("年齢から作った架空の日付");
     expect(html).toMatch(/19(53|54)年\d+月\d+日（昭和(28|29)年）/);
