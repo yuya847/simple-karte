@@ -156,6 +156,17 @@ export interface InjectionOrder {
   /** Number of days, or undefined for "until changed". */
   days?: number;
   comment?: string;
+  /** The doctor's reasons for 併用禁忌 and for a 配合 the 電子添文 says not to make (interactions.ts). */
+  interactionReasons?: InteractionReason[];
+}
+
+/** A finding the doctor confirmed with a reason (併用禁忌, or a 配合 the 電子添文 says not to make). */
+export interface InteractionReason {
+  pairId: string;
+  level: "併用禁忌" | "併用注意" | "配合";
+  /** "A × B（where）" as shown when confirmed. */
+  drugs: string;
+  reason: string;
 }
 
 export type LabPriority = "定時" | "至急";
@@ -197,6 +208,8 @@ export interface PrescriptionOrder {
   dailyAmount?: number;
   /** 承知コメント the doctor added to confirm a warning (重複承知・アレルギー承知・極量承知). */
   acks?: string[];
+  /** The doctor's reasons for 併用禁忌 (interactions.ts). */
+  interactionReasons?: InteractionReason[];
 }
 
 /** 透析指示: the conditions of a hemodialysis on the ward, as on a dialysis order sheet. */

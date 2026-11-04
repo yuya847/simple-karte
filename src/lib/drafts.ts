@@ -122,6 +122,8 @@ export interface InjectionDraft extends DraftBase {
   days: number | null;
   /** Doctor's answer to the duplicate question. */
   duplicate: { action: "replace" | "add"; orderId: string } | null;
+  /** The doctor's reason for a 併用禁忌 or a 配合 the 電子添文 says not to make, by pair id (interactions.ts). */
+  interactionReasons?: Record<string, string>;
 }
 
 export type CollectWhen = "morning_routine" | "now" | "specific_time" | "before_dose";
@@ -485,6 +487,10 @@ export interface Issue {
   message: string;
   formula?: string;
   choices?: Choice[];
+  /** The 電子添文 (or other document) the issue comes from, shown as links. */
+  sources?: { label: string; url: string }[];
+  /** A reason the doctor types to go on (e.g. 併用禁忌); the text is kept on the order. */
+  input?: { placeholder: string; button: string; apply: (d: Draft, text: string) => Draft };
 }
 
 export interface CheckContext {

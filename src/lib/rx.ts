@@ -35,6 +35,8 @@ export interface PrescriptionDraft {
   acks: string[];
   /** The 持参薬鑑別 report this draft answers (it becomes 指示済 when the draft is confirmed). */
   reportId?: string;
+  /** The doctor's reason for a 併用禁忌, by pair id (interactions.ts). */
+  interactionReasons?: Record<string, string>;
 }
 
 /** 用法 of this ward (as in the Rp editor). */
