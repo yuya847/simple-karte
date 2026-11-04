@@ -14,8 +14,8 @@ export const RIGHT_TABS: Record<RightTab, { label: string; icon: typeof Pill; ke
 const BY_DIGIT: Record<string, RightTab> = { Digit1: "note", Digit2: "injection", Digit3: "rx", Digit4: "injcal" };
 
 /**
- * Tabs over the right side of the chart. 記事作成 is always there; 注射・内服・注射カレンダー open
- * from the tools on the far right and close with ×. Any tab can be shown in its own window (別ウインドウ).
+ * Tabs over the right side of the chart. 記事作成・注射・内服 are always there; 注射カレンダー opens from
+ * the tools on the far right and closes with ×. Any tab can be shown in its own window (別ウインドウ).
  */
 export function RightTabs({
   open,
@@ -39,7 +39,9 @@ export function RightTabs({
   counts: Partial<Record<RightTab, number>>;
   canOrder: boolean;
 }) {
-  const shown: RightTab[] = ["note", ...open.filter((t) => t !== "note")];
+  // 記事作成・注射・内服 are always there (the only place to enter 注射 and 内服); 注射カレンダー opens from
+  // the tools on the far right and closes with ×.
+  const shown: RightTab[] = ["note", "injection", "rx", ...open.filter((t) => t === "injcal")];
   // ⌥1 記事作成・⌥2 注射・⌥3 内服・⌥4 注射カレンダー (Alt on Windows), from anywhere in the chart.
   // e.code, so the characters ⌥ types on a Mac do not matter.
   useEffect(() => {
@@ -92,7 +94,7 @@ export function RightTabs({
                 <PictureInPicture2 size={13} />
               </button>
             )}
-            {key !== "note" && (
+            {key === "injcal" && (
               <button
                 type="button"
                 aria-label={`${label}のタブを閉じる`}

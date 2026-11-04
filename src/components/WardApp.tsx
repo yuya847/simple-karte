@@ -2320,7 +2320,7 @@ export default function WardApp() {
                   toFront(t);
                   // The right side shows another tab that is still docked.
                   update((c) => {
-                    const docked = (["note", ...c.openTabs] as RightTab[]).find((x) => x !== t && !floating[x]);
+                    const docked = (["note", "injection", "rx", ...c.openTabs] as RightTab[]).find((x) => x !== t && !floating[x]);
                     return c.rightTab === t && docked ? { rightTab: docked } : {};
                   });
                 }}
@@ -2338,7 +2338,7 @@ export default function WardApp() {
               />
               {(() => {
                 // Which tab the right side shows: the chosen one, unless it is in its own window.
-                const docked = ([chart.rightTab, "note", ...chart.openTabs] as RightTab[]).find((t) => (t === "note" || chart.openTabs.includes(t)) && !floating[t]) ?? null;
+                const docked = ([chart.rightTab, "note", "injection", "rx", ...chart.openTabs] as RightTab[]).find((t) => (t === "note" || t === "injection" || t === "rx" || chart.openTabs.includes(t)) && !floating[t]) ?? null;
                 const dock = (t: RightTab, title: string, dockedClass: string, children: React.ReactNode) => (
                   <Dockable
                     key={t}
@@ -2410,8 +2410,7 @@ export default function WardApp() {
                       />,
                     )}
                     {/* Kept mounted while hidden, so an Rp being written survives a tab switch. */}
-                    {chart.openTabs.includes("injection") &&
-                      dock(
+                    {dock(
                         "injection",
                         "注射",
                         "flex min-h-0 flex-1 flex-col",
@@ -2431,8 +2430,7 @@ export default function WardApp() {
                           </fieldset>
                         </div>,
                       )}
-                    {chart.openTabs.includes("rx") &&
-                      dock(
+                    {dock(
                         "rx",
                         "内服",
                         "flex min-h-0 flex-1 flex-col",
@@ -3024,8 +3022,6 @@ export default function WardApp() {
                 }
               }}
               blocked={blocked}
-              leftView={chart.leftView}
-              onLeftView={(v) => update({ leftView: v })}
               injectionCalendar={{ on: chart.openTabs.includes("injcal") && (chart.rightTab === "injcal" || !!floating.injcal), open: () => openRight("injcal") }}
             />
           </div>

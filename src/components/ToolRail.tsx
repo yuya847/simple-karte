@@ -1,8 +1,9 @@
 "use client";
 
-import { Activity, GlassWater, LockKeyhole, Bandage, ClipboardCheck, ListTodo, Barcode, Hotel, MonitorSmartphone, NotebookPen, CalendarCheck, CalendarClock, DoorOpen, FileStack, GraduationCap, Luggage, Droplet, Droplets, FlaskRound, Footprints, Hand, Layers, PenTool, Send, Share2, CalendarDays, CalendarRange, ClipboardList, FileHeart, FlaskConical, ListChecks, Pill, ReceiptJapaneseYen, ScanLine, Syringe, TestTube, FileSignature, FileText, HeartHandshake, HeartPulse, MessagesSquare, Radiation, Thermometer, Utensils } from "lucide-react";
+import { Bandage, Barcode, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { LeftView } from "./HistoryPane";
+import { useState } from "react";
+import { useMe } from "./RoleContext";
 
 export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io";
 
@@ -13,151 +14,141 @@ interface Tool {
   disabled?: boolean;
 }
 
-const GROUPS: { title: string; tools: Tool[] }[] = [
+type GroupKey = "order" | "nurse" | "docs" | "ref" | "billing";
+
+/**
+ * The tools, each group with the ones used most on top and the rest under 「その他」. 注射 and 内服 are not
+ * here: they are the tabs on the right (記事作成・注射・内服). The calendars and the flow sheet are the tabs
+ * over the left pane.
+ */
+const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
   {
+    key: "order",
     title: "オーダ",
-    tools: [
-      { key: "diagnoses", label: "病名", icon: FileHeart },
-      { key: "standing", label: "指示簿", icon: ClipboardList },
-      { key: "sets", label: "セット", icon: Layers },
-      { key: "restraint", label: "身体的拘束", icon: Hand },
-      { key: "add-injection", label: "注射", icon: Syringe },
+    main: [
       { key: "add-lab", label: "検体検査", icon: TestTube },
       { key: "add-imaging", label: "画像検査", icon: Radiation },
       { key: "add-physio", label: "生理・内視鏡", icon: HeartPulse },
-      { key: "add-rx", label: "内服", icon: Pill },
       { key: "add-procedure", label: "処置", icon: Bandage },
+      { key: "diet", label: "食事", icon: Utensils },
+      { key: "diagnoses", label: "病名", icon: FileHeart },
+      { key: "standing", label: "指示簿", icon: ClipboardList },
+      { key: "sets", label: "セット", icon: Layers },
+    ],
+    more: [
       { key: "add-rehab", label: "リハビリ", icon: Footprints },
       { key: "add-consult", label: "他科依頼", icon: Send },
+      { key: "add-transfusion", label: "輸血", icon: Droplet },
+      { key: "add-dialysis", label: "透析", icon: Droplets },
+      { key: "regimen", label: "レジメン", icon: FlaskRound },
+      { key: "restraint", label: "身体的拘束", icon: Hand },
       { key: "add-discharge", label: "退院", icon: DoorOpen },
       { key: "add-leave", label: "外泊・外出", icon: Luggage },
       { key: "add-guide", label: "指導の依頼", icon: GraduationCap },
-      { key: "add-dialysis", label: "透析", icon: Droplets },
-      { key: "add-transfusion", label: "輸血", icon: Droplet },
-      { key: "regimen", label: "レジメン", icon: FlaskRound },
-      { key: "diet", label: "食事", icon: Utensils },
     ],
   },
   {
+    key: "nurse",
     title: "看護",
-    tools: [
+    main: [
       { key: "vitals", label: "バイタル", icon: Thermometer },
       { key: "care-orders", label: "ケア指示", icon: ListTodo },
       { key: "nursing-plan", label: "看護計画", icon: ClipboardCheck },
       { key: "io", label: "水分出納", icon: GlassWater },
+    ],
+    more: [
       { key: "guide-record", label: "指導の記録", icon: NotebookPen },
       { key: "bedside", label: "ベッドサイド表示", icon: MonitorSmartphone },
     ],
   },
   {
+    key: "docs",
     title: "文書",
-    tools: [
+    main: [
       { key: "consents", label: "同意書", icon: FileSignature },
-      { key: "directive", label: "事前指示", icon: HeartHandshake },
       { key: "discharge", label: "退院サマリ", icon: FileText },
       { key: "docs", label: "書類作成", icon: FileStack },
-      { key: "labels", label: "ラベル", icon: Barcode },
+    ],
+    more: [
+      { key: "directive", label: "事前指示", icon: HeartHandshake },
       { key: "summary", label: "連携サマリ", icon: Share2 },
       { key: "transfer", label: "転院・施設の調整", icon: Hotel },
+      { key: "labels", label: "ラベル", icon: Barcode },
       { key: "schema", label: "シェーマ", icon: PenTool },
-      { key: "chat", label: "チャット", icon: MessagesSquare },
       { key: "access-limit", label: "閲覧制限", icon: LockKeyhole },
+      { key: "chat", label: "チャット", icon: MessagesSquare },
     ],
   },
   {
+    key: "ref",
     title: "参照",
-    tools: [
+    main: [
       { key: "results", label: "検査結果", icon: FlaskConical },
       { key: "imaging", label: "放射線画像", icon: ScanLine },
       { key: "active-orders", label: "有効オーダ", icon: ListChecks },
     ],
+    more: [],
   },
-  {
-    title: "医事",
-    tools: [{ key: "billing", label: "算定", icon: ReceiptJapaneseYen }],
-  },
+  { key: "billing", title: "医事", main: [{ key: "billing", label: "算定", icon: ReceiptJapaneseYen }], more: [] },
 ];
+
+/** Nurses see 看護 first; everyone else オーダ first. */
+const orderFor = (role: string): GroupKey[] => (role === "看護師" ? ["nurse", "order", "docs", "ref", "billing"] : ["order", "nurse", "docs", "ref", "billing"]);
 
 interface Props {
   open: PanelKind | null;
   onOpen: (p: PanelKind | null) => void;
-  /** These replace the past record in the left pane, so they are switches, not panels. */
-  leftView: LeftView;
-  onLeftView: (v: LeftView) => void;
   /** Tools this role cannot use, with the reason (shown as the tooltip). */
   blocked?: Partial<Record<PanelKind, string>>;
   /** The injection calendar opens as a tab on the right (it is for changing orders, not only reading). */
   injectionCalendar?: { on: boolean; open: () => void };
 }
 
-const LEFT_TOOLS: { key: LeftView; label: string; icon: LucideIcon }[] = [
-  { key: "flowsheet", label: "経過表", icon: Activity },
-  { key: "injection-cal", label: "注射カレンダー", icon: CalendarDays },
-  { key: "rx-cal", label: "処方カレンダー", icon: CalendarRange },
-  { key: "proc-cal", label: "処置カレンダー", icon: CalendarCheck },
-  { key: "diet-cal", label: "移動・食事", icon: Utensils },
-  { key: "bookings", label: "予約の一覧", icon: CalendarClock },
-];
+const toolClass = (off: boolean, active: boolean) =>
+  `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
 
-/** Fixed column of tools on the far right: order types, then things to look at. */
-export function ToolRail({ open, onOpen, leftView, onLeftView, blocked = {}, injectionCalendar }: Props) {
+/** Fixed column of tools on the far right: order types, nursing, documents, then things to look at. */
+export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar }: Props) {
+  const me = useMe();
+  const [shown, setShown] = useState<Partial<Record<GroupKey, boolean>>>({});
+  const groups = orderFor(me.role).map((k) => GROUPS.find((g) => g.key === k)!);
+  const button = (t: Tool) => {
+    const Icon = t.icon;
+    const active = open === t.key;
+    const why = blocked[t.key];
+    const off = t.disabled || !!why;
+    return (
+      <button key={t.key} type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && onOpen(active ? null : t.key)} aria-pressed={active} className={toolClass(off, active)}>
+        <Icon size={18} strokeWidth={1.8} />
+        {t.label}
+      </button>
+    );
+  };
   return (
     <aside aria-label="ツール" className="scroll-thin flex min-h-0 flex-col items-stretch gap-1 overflow-y-auto border-l border-rule bg-paper px-1 py-2">
-      {GROUPS.map((g, gi) => (
-        <div key={g.title} className={gi > 0 ? "mt-2 border-t border-rule pt-2" : ""}>
-          <div className="mb-1 text-center text-[10px] text-ink-faint">{g.title}</div>
-          {g.title === "参照" &&
-            LEFT_TOOLS.map((t) => {
-              const Icon = t.icon;
-              const right = t.key === "injection-cal" && injectionCalendar;
-              const on = right ? injectionCalendar.on : leftView === t.key;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  title={right ? `${t.label}（右の欄のタブで開きます。延長・修正もここで）` : `${t.label}（左の欄に出します）`}
-                  onClick={() => (right ? injectionCalendar.open() : onLeftView(on ? "record" : t.key))}
-                  aria-pressed={on}
-                  className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${
-                    on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"
-                  }`}
-                >
-                  <Icon size={18} strokeWidth={1.8} />
-                  {t.label}
-                </button>
-              );
-            })}
-          {g.tools.map((t) => {
-            const Icon = t.icon;
-            const active = open === t.key;
-            const why = blocked[t.key];
-            const off = t.disabled || !!why;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                disabled={off}
-                title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)}
-                onClick={() => !off && onOpen(active ? null : (t.key as PanelKind))}
-                aria-pressed={active}
-                className={`flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${
-                  off
-                    ? "cursor-not-allowed text-ink-faint/50"
-                    : active
-                      ? "bg-ai text-white"
-                      : "text-ink-soft hover:bg-sheet hover:text-ink"
-                }`}
-              >
-                <Icon size={18} strokeWidth={1.8} />
-                {t.label}
+      {groups.map((g, gi) => {
+        // A tool open from 「その他」 keeps the group open, so the highlighted one is in view.
+        const more = shown[g.key] || g.more.some((t) => t.key === open);
+        return (
+          <div key={g.key} className={gi > 0 ? "mt-2 border-t border-rule pt-2" : ""}>
+            <div className="mb-1 text-center text-[10px] text-ink-faint">{g.title}</div>
+            {g.key === "ref" && injectionCalendar && (
+              <button type="button" title="注射カレンダー（右の欄のタブで開きます。延長・修正もここで）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={toolClass(false, injectionCalendar.on)}>
+                <CalendarDays size={18} strokeWidth={1.8} />
+                注射カレンダー
               </button>
-            );
-          })}
-        </div>
-      ))}
-      <div className="mt-auto flex flex-col items-center text-ink-faint" title="キー操作：⌘K 患者を開く／Esc 小窓を閉じる">
-        <ClipboardList size={14} />
-      </div>
+            )}
+            {g.main.map(button)}
+            {more && g.more.map(button)}
+            {g.more.length > 0 && (
+              <button type="button" onClick={() => setShown((s) => ({ ...s, [g.key]: !more }))} aria-expanded={more} className="flex w-full flex-col items-center rounded-md px-1 py-1 text-[10px] leading-tight text-ink-faint hover:bg-sheet hover:text-ink">
+                {more ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {more ? "たたむ" : `その他 ${g.more.length}`}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </aside>
   );
 }
