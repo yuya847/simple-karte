@@ -174,6 +174,8 @@ export type InjectionSchedule =
   | { kind: "once" };
 
 export interface InjectionOrder {
+  doseTimes?: string[];
+  end?: { day: number; time: string };
   type: "injection";
   items: InjectionItem[];
   route: InjectionRoute;

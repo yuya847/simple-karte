@@ -41,7 +41,7 @@ export function injectionCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   }
   if (!running) return cell;
 
-  if (o.schedule.kind === "every_hours") {
+  if (o.doseTimes?.length || o.schedule.kind === "every_hours") {
     cell.doses = doseTimes(entry, nowAbs, lo, hi).map((t) => ({ time: hhmm(t - lo), state: stateAt(t, nowAbs) }));
   } else if (o.schedule.kind === "once") {
     if (from >= lo && from < hi) cell.doses = [{ time: hhmm(from - lo), state: stateAt(from, nowAbs) }];

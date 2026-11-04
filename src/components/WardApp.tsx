@@ -1,4 +1,5 @@
 "use client";
+import { recordsForCompletedOrders } from "@/lib/completed-orders";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AiDraftResponse } from "@/lib/ai-schema";
@@ -1102,6 +1103,7 @@ export default function WardApp() {
   const confirmDrafts = (drafts: Draft[]) => {
     if (!ctx) return;
     const added: OrderEntry[] = [];
+    const completed: OrderEntry[] = [];
     const stops: string[] = [];
     const extended: Record<string, number> = {};
     const newConsents: ConsentRecord[] = [];
@@ -1120,6 +1122,7 @@ export default function WardApp() {
         ids.push(id);
         added.push({ kind: "order", id, day: 0, time: nowTime, author: verbalMode ? DOCTOR : me.name, status: "有効", order: o, ...(verbalMode ? { verbal: { takenBy: me.name, doctor: DOCTOR, at: { day: 0, time: nowTime } } } : {}) });
       }
+      if ("alreadyDone" in d && d.alreadyDone) completed.push(...added.filter((e) => ids.includes(e.id)));
       // A consent form to prepare with the order (説明前): the doctor explains before it is done.
       for (const code of r.consents ?? []) newConsents.push({ id: newId(), patientId: patient!.id, code, status: "説明前", orderId: ids[0], createdAt: { day: 0, time: nowTime }, answers: {} });
     }
@@ -1129,6 +1132,7 @@ export default function WardApp() {
     // 麻薬: only a 麻薬施用者 with a valid licence (麻薬及び向精神薬取締法 第27条第1項).
     const narc = narcoticBlock(added.map((e) => e.order), verbalMode ? DOCTOR : me.name, today);
     if (narc) return update({ flash: narc });
+    for (const r of recordsForCompletedOrders(completed, patient!, nowTime, verbalMode ? DOCTOR : me.name)) recordMar(r);
     if (dietsAdded.length) {
       setDiets((all) => [...all, ...dietsAdded]);
       for (const d of dietsAdded) auditLog({ role: me.role, actor: me.name, action: "確定（食事）", patient: patient?.name, detail: `${dietLabel(d)}（${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から）` });

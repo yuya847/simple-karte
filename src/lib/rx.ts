@@ -19,6 +19,7 @@ export interface RxItem {
 }
 
 export interface PrescriptionDraft {
+  alreadyDone?: boolean;
   id: string;
   origin: "ai" | "manual";
   sourceText: string;

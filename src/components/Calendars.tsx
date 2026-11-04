@@ -9,6 +9,7 @@ import { durationText, oralName, procedureLines, scheduleLabel, scheduleTextFor,
 import { findProc } from "@/lib/procedures";
 import { WARD_RULES, findDrug } from "@/lib/master";
 import { ordersOf } from "@/lib/record";
+import { InjectionDoseToggle } from "./InjectionDoseToggle";
 import { ExecuteTarget, type ExecuteProps } from "./ExecuteMenu";
 import { orderEndDay, type InjectionDraft } from "@/lib/drafts";
 import { START_BANDS, doStartOf, draftSpan, startAt, type InjStart } from "@/lib/inj-calendar";
@@ -253,7 +254,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`✓ は予定の時刻を過ぎた投与、済・未実施は与薬・実施の記録から（記録のない過去の分は架空）。枠だけのものはこれからの予定。${EXEC_NOTE(execute)}点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます（時刻帯の時刻は架空の病院の取り決め）。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
+      note={`✓ は与薬・実施の記録がある投与です。時刻を押すとその回をスキップ、もう一度押すと復活します（実施済みの回は右クリックで記録を確認）。枠だけのものはこれからの予定。${EXEC_NOTE(execute)}点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます（時刻帯の時刻は架空の病院の取り決め）。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
     >
       {INJ_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as InjectionOrder));
@@ -298,7 +299,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                       title={extendable ? `ここまで延長（〜${fmt(d)}、${d - end!}日）` : redoable ? `${fmt(d)}から同じ内容で新規（Do）` : undefined}
                       className={`group/ext relative border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""} ${extendable || redoable ? "cursor-pointer hover:bg-ai-soft/70" : ""}`}
                     >
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-col items-start gap-1">
                         {inPreview && <span className="whitespace-nowrap rounded border border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
                         {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
                         {redoable && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋新規（Do）</span>}
@@ -307,7 +308,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                           const r = marOf?.(e.id, at);
                           return (
                             <ExecuteTarget key={x.time} execute={execute} patient={patient} entry={e} at={at} title={lines[0]} className={`inline-flex items-center gap-0.5 ${r?.status === "未実施" ? "line-through decoration-shu" : ""}`}>
-                              <Chip state={x.state}>{x.time}</Chip>
+                              <InjectionDoseToggle execute={execute} patientId={patient.id} orderId={e.id} at={at} time={x.time} record={execute?.records[`${e.id}|${at}`]} />
                               <MarMark r={r} />
                             </ExecuteTarget>
                           );

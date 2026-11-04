@@ -16,6 +16,7 @@ export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number
     const to = entry.stoppedOn === 0 || entry.stoppedOn === undefined ? nowAbs : (entry.stoppedOn + 1) * 1440;
     return { from, to: Math.max(from, to) };
   }
+  if (o.end) return { from, to: abs(o.end.day, o.end.time) };
   if (o.days) return { from, to: from + o.days * 1440 };
   return { from, to: null };
 }
@@ -23,6 +24,18 @@ export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number
 /** Dose times of an every-N-hours order inside [lo, hi). */
 export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: number): number[] {
   const o = entry.order as InjectionOrder;
+  if (o.doseTimes?.length) {
+    const { from, to } = orderInterval(entry, nowAbs);
+    const out: number[] = [];
+    for (let day = Math.floor(lo / 1440) - 1; day <= Math.floor(hi / 1440); day++) {
+      if (day < o.start.day || (o.days && day >= o.start.day + o.days)) continue;
+      for (const time of o.doseTimes) {
+        const at = abs(day, time);
+        if (at >= from && at >= lo && at < hi && (to === null || at < to)) out.push(at);
+      }
+    }
+    return [...new Set(out)].sort((a, b) => a - b);
+  }
   if (o.schedule.kind !== "every_hours") return [];
   const { from, to } = orderInterval(entry, nowAbs);
   const step = o.schedule.hours * 60;

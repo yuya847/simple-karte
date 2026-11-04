@@ -51,7 +51,7 @@ const isFluid = (o: InjectionOrder) => o.items.every((it) => findDrug(it.drugCod
 export function doseStarts(e: OrderEntry, lo: number, hi: number, nowAbs: number): { at: number; bag?: number }[] {
   if (e.order.type !== "injection") return [];
   const o = e.order;
-  if (o.schedule.kind === "every_hours") return doseTimes(e, nowAbs, lo, hi).map((at) => ({ at }));
+  if (o.doseTimes?.length || o.schedule.kind === "every_hours") return doseTimes(e, nowAbs, lo, hi).map((at) => ({ at }));
   const { from, to } = orderInterval(e, nowAbs);
   if (o.schedule.kind === "once") return from >= lo && from < hi ? [{ at: from }] : [];
   if (!isFluid(o)) return [];
