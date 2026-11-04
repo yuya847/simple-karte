@@ -29,6 +29,14 @@ describe("リハビリテーション部", () => {
     expect(html).toContain("北村 博 40分（訓練室）");
     expect(html).toContain("リハビリの予約・受付・実施の記録・ADL の評価は療法士が行います");
   });
+  it("受付・実施: while 実施を記録 is disabled, what it still needs stands beside the button", () => {
+    const html = as("療法士", <RehabView people={people} desk={desk} onDesk={() => {}} nowTime="09:00" today={today} initialTab="work" />);
+    expect(html).toContain("受付（来室した）");
+    expect(html).toMatch(/<button type="button" disabled="" class="rounded bg-wakatake [^"]*disabled:bg-rule disabled:text-ink-faint">実施を記録<\/button><span class="text-\[11px\] font-bold text-yamabuki">記録するには：受付がまだです・訓練の内容の要点を書いてください<\/span>/);
+    // A nurse: the button is locked for the role, and the list of what is missing is not shown (the lock is explained by DenyNote).
+    const nurse = as("看護師", <RehabView people={people} desk={desk} onDesk={() => {}} nowTime="09:00" today={today} initialTab="work" />);
+    expect(nurse).not.toContain("記録するには：");
+  });
   it("the 実施計画書 has the items of 別紙様式21 and is made by a doctor", () => {
     const kita = rehabPrescriptions(people).find((r) => r.patientId === "90010198")!;
     const html = as("療法士", <RehabPlanForm rx={kita} desk={desk} onDesk={() => {}} nowTime="09:00" fmtDay={(d) => `D${d}`} />);

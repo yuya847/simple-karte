@@ -22,6 +22,7 @@ import {
   REHAB_RULES,
   REHAB_SOURCES,
   rehabPrescriptions,
+  sessionProblems,
   SLOT_TIMES,
   therapistLoad,
   THERAPISTS,
@@ -46,6 +47,8 @@ interface Props {
   onDesk: (f: (d: RehabDesk) => RehabDesk) => void;
   nowTime: string;
   today: CalendarDate;
+  /** The tab to open with (予定表 unless given). */
+  initialTab?: Tab;
 }
 
 type Tab = "schedule" | "work" | "bi" | "plan" | "list";
@@ -59,7 +62,7 @@ const plus = (t: string, m: number) => {
 
 /** リハビリテーション部. */
 export function RehabView(p: Props) {
-  const [tab, setTab] = useState<Tab>("schedule");
+  const [tab, setTab] = useState<Tab>(p.initialTab ?? "schedule");
   const rxs = rehabPrescriptions(p.people);
   const fmt = (d: number) => formatShort(addDays(p.today, d));
   const todays = p.desk.bookings.filter((b) => b.day === 0 && !p.desk.sessions.some((s) => s.bookingId === b.id && (s.recordedAt || s.notDone)));
@@ -254,7 +257,7 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking;
   const cat = categoryOf(rx.order.field);
   const base: RehabSession = cur ?? { id: `rs-${b.id}`, bookingId: b.id, orderId: b.orderId, patientId: b.patientId, therapist: b.therapist, discipline: b.discipline, day: 0, place: b.place };
   const put = (s: RehabSession) => onDesk((d) => ({ ...d, sessions: [...d.sessions.filter((x) => x.id !== s.id), s] }));
-  const problems = [!cur?.arrived && "受付がまだです。", u.units === 0 && "20分に満たないので単位になりません（基本診療料に含まれます）。", !content.trim() && "訓練の内容の要点を書いてください。"].filter((x): x is string => !!x);
+  const problems = sessionProblems({ arrived: !!cur?.arrived, start, end, content });
   return (
     <article className={`${card} space-y-1 p-3 text-[12px]`}>
       <header className="flex flex-wrap items-baseline gap-x-3">
@@ -322,7 +325,6 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking;
         {early.points > 0 ? `　早期リハビリテーション加算 入院${early.dayNo}日目 ${early.points}点 × ${u.units}単位` : "　早期リハビリテーション加算の期間は過ぎています"}
         {holiday ? `　休日リハビリテーション加算 25点 × ${u.units}単位` : ""}
       </p>
-      {problems.length > 0 && <p className="text-ink-faint">{problems.join(" ")}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -331,10 +333,11 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking;
             put({ ...base, ...(cur ?? {}), start, end, place, content: content.trim(), recordedAt: { day: 0, time: nowTime, by: me.name } });
             auditLog({ role: me.role, actor: me.name, action: "確定（リハビリの実施を記録）", patient: rx.name, detail: `${start}〜${end} ${u.units}単位　${content.trim().slice(0, 40)}` });
           }}
-          className="rounded bg-wakatake px-2.5 py-0.5 font-bold text-white disabled:opacity-40"
+          className="rounded bg-wakatake px-2.5 py-0.5 font-bold text-white disabled:cursor-not-allowed disabled:bg-rule disabled:text-ink-faint"
         >
           実施を記録
         </button>
+        {!deny && problems.length > 0 && <span className="text-[11px] font-bold text-yamabuki">記録するには：{problems.join("・")}</span>}
         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="できなかった理由（例：発熱で中止）" aria-label="できなかった理由" disabled={!!deny} className={`${field} ml-auto w-56`} />
         <button
           type="button"

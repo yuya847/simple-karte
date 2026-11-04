@@ -14,6 +14,7 @@ import {
   planState,
   progressOf,
   rehabPrescriptions,
+  sessionProblems,
   standardDays,
   therapistLoad,
   unitsOf,
@@ -66,6 +67,15 @@ describe("単位と上限", () => {
     // 7 × 2単位 = 14、足して 6 → 20単位（標準を超える）
     expect(therapistLoad(full, "理学療法士 木村", 0, today, 6).notes).toEqual(["1日 20単位：標準の18単位を超えています（上限24単位）。"]);
     expect(therapistLoad(full, "理学療法士 木村", 0, today, 12).notes[0]).toContain("上限の24単位を超えます");
+  });
+});
+
+describe("実施を記録に足りないもの", () => {
+  it("names 受付・時刻・20分・内容, in that order, and nothing when all is there", () => {
+    expect(sessionProblems({ arrived: false, start: "", end: "", content: "" })).toEqual(["受付がまだです", "開始と終了の時刻を入れてください", "訓練の内容の要点を書いてください"]);
+    expect(sessionProblems({ arrived: true, start: "09:00", end: "09:15", content: "歩行" })).toEqual(["20分に満たないので単位になりません（基本診療料に含まれます）"]);
+    expect(sessionProblems({ arrived: true, start: "09:00", end: "09:40", content: "  " })).toEqual(["訓練の内容の要点を書いてください"]);
+    expect(sessionProblems({ arrived: true, start: "09:00", end: "09:40", content: "歩行器で30m" })).toEqual([]);
   });
 });
 

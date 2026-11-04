@@ -213,6 +213,16 @@ export function unitsOf(start: string | undefined, end: string | undefined): { m
 
 export const UNIT_RULE = "1単位は患者に20分以上の個別療法として訓練を行った場合。計画書の作成・説明・記録・移動の時間は含みません（留意事項通知 第7部 通則5）。";
 
+/** What 実施を記録 still needs (shown beside the button while it is disabled): 受付, both times, 20 minutes, the content. */
+export function sessionProblems(x: { arrived: boolean; start: string; end: string; content: string }): string[] {
+  const out: string[] = [];
+  if (!x.arrived) out.push("受付がまだです");
+  if (!x.start || !x.end) out.push("開始と終了の時刻を入れてください");
+  else if (unitsOf(x.start, x.end).units === 0) out.push("20分に満たないので単位になりません（基本診療料に含まれます）");
+  if (!x.content.trim()) out.push("訓練の内容の要点を書いてください");
+  return out;
+}
+
 export const doneSessions = (desk: RehabDesk, patientId?: string) => desk.sessions.filter((s) => s.recordedAt && !s.notDone && (!patientId || s.patientId === patientId));
 
 export interface DayUnits {
