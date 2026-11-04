@@ -7,6 +7,7 @@ import { confirmPlan, type Confirms } from "@/lib/order-confirm";
 import { momentLabel } from "@/lib/order-sheet";
 import { HOLD_REASONS, TAKE_SOURCES, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { timeLabel, type WorkPatient } from "@/lib/worksheet";
+import { ConfirmCheck, WAITING_BUTTON, Waits } from "./ConfirmCheck";
 import { useMe } from "./RoleContext";
 import { TakeConfirm } from "./TakeConfirm";
 
@@ -268,10 +269,11 @@ export function TakeOnePanel({ row, nurses, onTake, onClose, today }: { row: Tak
           </>
         )}
       </dl>
-      <label className="mt-1 flex items-center gap-1.5">
-        <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="accent-ai" />
-        指示の内容（薬・量・単位・速さ・経路・時刻{row.kind === "変更" ? "、前と後で変わったところ" : ""}）を自分の目で確かめた
-      </label>
+      <div className="mt-1 flex flex-wrap">
+        <ConfirmCheck checked={checked} onChange={setChecked}>
+          指示の内容（薬・量・単位・速さ・経路・時刻{row.kind === "変更" ? "、前と後で変わったところ" : ""}）を自分の目で確かめた
+        </ConfirmCheck>
+      </div>
       {row.flags.highRisk && (
         <label className="mt-1 flex items-center gap-1.5">
           2人目の確認者
@@ -286,10 +288,12 @@ export function TakeOnePanel({ row, nurses, onTake, onClose, today }: { row: Tak
           <span className="text-ink-faint">（本人とは別の人。2人とも自分の目で指示を見る。試作では名前を選ぶだけ）</span>
         </label>
       )}
-      <div className="mt-1.5 flex gap-2">
-        <button type="button" disabled={!checked || (!!row.flags.highRisk && !second)} onClick={() => onTake(second || undefined)} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <button type="button" disabled={!checked || (!!row.flags.highRisk && !second)} onClick={() => onTake(second || undefined)} className={WAITING_BUTTON}>
           この指示を受ける
         </button>
+        <Waits on={!checked} />
+        <Waits on={checked && !!row.flags.highRisk && !second} text="2人目の確認者を選ぶと受けられます" />
         <button type="button" onClick={onClose} className="text-ink-soft underline">
           やめる
         </button>

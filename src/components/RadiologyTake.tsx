@@ -45,6 +45,7 @@ import {
   type RisTakeKind,
 } from "@/lib/ris-take";
 import type { WorkPatient } from "@/lib/worksheet";
+import { ConfirmCheck, WAITING_BUTTON, Waits } from "./ConfirmCheck";
 import { Sources } from "./DeskParts";
 import { PatientBand, SheetBand, SheetBlock, SheetNotes } from "./OrderSheet";
 import { card, field, whenText, type OnDesk } from "./RisExam";
@@ -286,13 +287,13 @@ function TakeOne({ r, reasons, onTake, onClose }: { r: RisRow; reasons: string[]
         {r.label}　{r.order.views?.join("＋")}　目的：{r.order.purpose}　{r.orderedBy}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1.5">
-          <input type="checkbox" checked={read} onChange={(e) => setRead(e.target.checked)} className="accent-ai" />
+        <ConfirmCheck checked={read} onChange={setRead}>
           部位・造影・予定・目的を自分の目で確かめた
-        </label>
-        <button type="button" disabled={!read} onClick={onTake} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
+        </ConfirmCheck>
+        <button type="button" disabled={!read} onClick={onTake} className={WAITING_BUTTON}>
           指示を受ける
         </button>
+        <Waits on={!read} />
         <button type="button" onClick={onClose} className="text-ink-soft underline">
           あとで
         </button>
@@ -383,13 +384,13 @@ export function RisConfirmPanel({ r, items, onConfirm, onClose }: { r: RisRow; i
         ))}
       </dl>
       <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-rule-soft pt-1.5">
-        <label className="flex items-center gap-1.5">
-          <input type="checkbox" checked={looked} onChange={(e) => setLooked(e.target.checked)} className="accent-ai" />
+        <ConfirmCheck checked={looked} onChange={setLooked} disabled={!!deny}>
           {r.order.modality === "MRI" && !usesContrast(r.order) ? "体内金属・ペースメーカー・閉所を自分の目で確かめた（本人にも聞く）" : "同意・腎機能・アレルギー・内服を自分の目で確かめた"}
-        </label>
-        <button type="button" disabled={!looked || !!deny} onClick={() => onConfirm(items.map((i) => `${i.label}：${i.value}`))} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
+        </ConfirmCheck>
+        <button type="button" disabled={!looked || !!deny} onClick={() => onConfirm(items.map((i) => `${i.label}：${i.value}`))} className={WAITING_BUTTON}>
           確認した
         </button>
+        <Waits on={!looked && !deny} text="確かめたにチェックすると「確認した」を押せます" />
         <button type="button" onClick={onClose} className="text-ink-soft underline">
           あとで
         </button>

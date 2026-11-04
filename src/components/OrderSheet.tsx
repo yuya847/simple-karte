@@ -11,6 +11,7 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { SHEET_CATEGORIES, SHEET_SOURCES, type SheetCategory, type SheetField, type Stamp } from "@/lib/order-sheet";
 import { ageText } from "@/lib/person";
 import type { Patient } from "@/lib/types";
+import { BlockCheck } from "./ConfirmCheck";
 import { DayNav } from "./DayNav";
 import { Sources } from "./DeskParts";
 
@@ -138,12 +139,8 @@ const StampLine = ({ a, b, at, by }: { a: string; b: string; at: string; by: str
 export function SheetBlock({ check, title, tag, when, flags = [], stamps, fields, struck, children, status, labels = WARD_LABELS }: SheetBlockProps) {
   return (
     <div className={`flex gap-2 border-b border-rule-soft px-1 py-1.5 text-[12px] ${struck ? "text-ink-soft" : ""}`}>
-      <div className="w-7 shrink-0 pt-0.5 text-center">
-        {check ? (
-          <input type="checkbox" aria-label={check.label} title={check.title} className="h-4 w-4 accent-ai disabled:opacity-30" checked={check.checked} disabled={check.disabled} onChange={(e) => check.onChange(e.target.checked)} />
-        ) : (
-          <span className="text-ink-faint">—</span>
-        )}
+      <div className="flex w-8 shrink-0 justify-center">
+        {check ? <BlockCheck checked={check.checked} disabled={check.disabled} title={check.title} label={check.label} onChange={check.onChange} /> : <span className="pt-0.5 text-ink-faint">—</span>}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start gap-x-4 gap-y-0.5">
