@@ -235,6 +235,8 @@ import { StatusBoard } from "./StatusBoard";
 import { currentShift, shiftKey } from "@/lib/ward-status";
 import { AssignBoard } from "./AssignBoard";
 import { SummaryApprovals } from "./SummaryApprovals";
+import { FallBoard } from "./FallBoard";
+import { fallTriggers } from "@/lib/fall-reassess";
 import { assignKey, crewOn, planLines, roomNurses } from "@/lib/assignments";
 import { initialRosterBook } from "@/lib/roster";
 import { PressurePanel } from "./panels/PressurePanel";
@@ -1838,6 +1840,17 @@ export default function WardApp() {
             auditLog({ role: me.role, actor: me.name, action: "業務分担", detail: `${oneFloor} ${shiftKey(d, s)}　${what}` });
             nm.setAssignBook((all) => ({ ...all, [assignKey(oneFloor, d, s)]: sheet }));
           }}
+        />
+      ) : screen === "falls" ? (
+        <FallBoard
+          patients={people.map((x) => ({ id: x.patient.id, name: x.patient.name, room: x.room, admittedOn: x.patient.admittedOn, first: evals[x.patient.id]?.fall, reviews: nm.fallReviews[x.patient.id] ?? [], triggers: fallTriggers(x.patient.id, moveLog, surgeries, nowTime) }))}
+          nowTime={nowTime}
+          canRecord={!deny("assess.nursing")}
+          onReview={(pid, r) => {
+            auditLog({ role: me.role, actor: me.name, action: "確定（転倒・転落の再評価）", patient: findPatient(pid)?.name, detail: `危険因子：${r.checked.join("、") || "なし"}${r.plan ? `　対策：${r.plan}` : ""}` });
+            nm.addFallReview(pid, r);
+          }}
+          onOpen={openPatient}
         />
       ) : screen === "summaries" ? (
         <SummaryApprovals

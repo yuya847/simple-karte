@@ -36,6 +36,14 @@ export interface FallTrigger {
   kind: "転棟・転床" | "手術";
 }
 
+/** A patient's triggers from today's 転棟・転床 (moveLog) and the operations that have begun by now. */
+export function fallTriggers(patientId: string, moves: { patientId: string; label: string; time: string }[], surgeries: { patientId?: string; day: number; start: string | null; procedure: string }[], nowTime: string): FallTrigger[] {
+  return [
+    ...moves.filter((m) => m.patientId === patientId).map((m) => ({ at: { day: 0, time: m.time }, label: m.label, kind: "転棟・転床" as const })),
+    ...surgeries.filter((s) => s.patientId === patientId && s.start && (s.day < 0 || (s.day === 0 && s.start <= nowTime))).map((s) => ({ at: { day: s.day, time: s.start! }, label: `手術 ${s.procedure}`, kind: "手術" as const })),
+  ];
+}
+
 export interface FallStep extends ChecklistRecord {
   kind: "入院時" | "再評価";
 }

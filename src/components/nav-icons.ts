@@ -20,6 +20,7 @@ import {
   FileCheck,
   FileSearch,
   FlaskConical,
+  Footprints,
   Handshake,
   GlassWater,
   KeyRound,
@@ -105,4 +106,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   status: ClipboardPen,
   assign: Users,
   summaries: FileCheck,
+  falls: Footprints,
 };

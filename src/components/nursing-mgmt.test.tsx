@@ -7,7 +7,9 @@ import { initialUlcers } from "@/lib/pressure-course";
 import { WARD_NURSES } from "@/lib/roster";
 import { ROOMS } from "@/lib/ward";
 import { BEDS_WITH_CHARTS, WARD_CHART_PATIENTS } from "@/lib/ward-charts";
+import { initialEvals } from "@/lib/admit-eval";
 import { initialSummaries } from "@/lib/nursing-summary";
+import { FallBoard } from "./FallBoard";
 import { AssignBoard } from "./AssignBoard";
 import { PressurePanel } from "./panels/PressurePanel";
 import { SummaryPanel } from "./panels/SummaryPanel";
@@ -24,6 +26,22 @@ const where = (pid: string) => {
 };
 const pick = { label: "階", value: "5階東病棟", options: [{ value: "5階東病棟", label: "5階東病棟" }], onChange: () => {} };
 const fmtDay = (d: number) => `D${d}`;
+
+describe("転倒・転落の再評価", () => {
+  it("lists the team's patients due first, with the reasons and the sources; no score", () => {
+    const evals = initialEvals();
+    const patients = PATIENTS.map((p) => ({ id: p.id, name: p.name, room: p.room, admittedOn: p.admittedOn, first: evals.find((e) => e.patientId === p.id)?.fall, reviews: [], triggers: p.id === "90010231" ? [{ at: { day: 0, time: "09:00" }, label: "転床 512→515-C", kind: "転棟・転床" as const }] : [] }));
+    const html = renderToStaticMarkup(<FallBoard patients={patients} nowTime="10:00" canRecord onReview={() => {}} onOpen={() => {}} />);
+    // 大浦 has no first assessment: due on the admission day (yesterday), first.
+    expect(html.indexOf("大浦 トメ")).toBeLessThan(html.indexOf("北村 博"));
+    expect(html).toContain("入院時の評価がまだです");
+    expect(html).toContain("転棟・転床のあと（転床 512→515-C）");
+    expect(html).toContain("再評価する");
+    expect(html).toContain("提言7");
+    expect(html).toContain("点数の票は使いません");
+    expect(html).not.toMatch(/危険度Ⅰ|合計点/);
+  });
+});
 
 describe("看護サマリの提出と承認", () => {
   const sugawara = WARD_CHART_PATIENTS.find((p) => p.name === "菅原 洋子")!;

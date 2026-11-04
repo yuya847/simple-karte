@@ -58,7 +58,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone" | "summaries" | "paths" | "ulcers" | "status" | "assign";
+export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone" | "summaries" | "paths" | "ulcers" | "status" | "assign" | "falls";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -85,6 +85,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },
   { key: "admit", label: "入院時の評価", hint: "期限のある評価（褥瘡・栄養・退院支援など）", group: "work", needs: "admit" },
   { key: "paths", label: "クリティカルパス", hint: "パスを使っている患者の今日の日目・評価がまだのアウトカム、バリアンスの一覧と分類ごとの件数", group: "work", needs: "handoff" },
+  { key: "falls", label: "転倒・転落の再評価", hint: "受け持ちのチームの患者の、転倒・転落の危険因子を確かめ直す日（前の評価から7日、転棟・転床や手術のあと）と、再評価の記録", group: "work", needs: "sheet" },
   { key: "ulcers", label: "褥瘡のある患者", hint: "階の褥瘡のある患者：部位・発生・最新の DESIGN-R®2020 と前回からの変化・写真・次の評価の期限（記録からコードで並べる）", group: "work", needs: "admit" },
   { key: "beds", label: "ベッドコントロール", hint: "全病棟の空床（性別・個室）、今日と明日の入退院、明日の朝の空床の見込み、入院申込に合うベッド", group: "work", needs: "map" },
   { key: "support", label: "退院支援の一覧", hint: "患者ごとに、退院困難な要因・話合い・計画・カンファレンス・計画書・転院の打診・退院の予定", group: "work", needs: "admit" },

@@ -5,6 +5,7 @@
 // records of the session.
 
 import { useState } from "react";
+import type { ChecklistRecord } from "./admit-eval";
 import type { AssignBook } from "./assignments";
 import { HEAD_NURSE, approve, initialSummaries, resubmit, returnWith, submit, type NurseSummary, type Result, type SummaryKind, type SummaryVersion, type When } from "./nursing-summary";
 import { initialUlcers, type PressureUlcer } from "./pressure-course";
@@ -18,6 +19,8 @@ export function useNursingMgmt() {
   const [assignBook, setAssignBook] = useState<AssignBook>({});
   /** 看護サマリ handed in to the 看護師長. */
   const [summaries, setSummaries] = useState<NurseSummary[]>(initialSummaries);
+  /** 転倒・転落の再評価, by patient (the first assessment is 入院時の評価's). */
+  const [fallReviews, setFallReviews] = useState<Record<string, ChecklistRecord[]>>({});
 
   const put = (s: NurseSummary) => setSummaries((all) => (all.some((x) => x.id === s.id) ? all.map((x) => (x.id === s.id ? s : x)) : [...all, s]));
   const apply = (r: Result): string | null => (r.ok ? (put(r.summary), null) : r.error);
@@ -40,12 +43,15 @@ export function useNursingMgmt() {
     summaries,
     handIn,
     review,
+    fallReviews,
+    addFallReview: (patientId: string, r: ChecklistRecord) => setFallReviews((all) => ({ ...all, [patientId]: [...(all[patientId] ?? []), r] })),
     /** For useWorkspace (the names must stay the same). */
     states: {
       ulcers: [ulcers, setUlcers],
       statusBook: [statusBook, setStatusBook],
       assignBook: [assignBook, setAssignBook],
       nurseSummaries: [summaries, setSummaries],
+      fallReviews: [fallReviews, setFallReviews],
     } as Record<string, [unknown, (v: never) => void]>,
   };
 }

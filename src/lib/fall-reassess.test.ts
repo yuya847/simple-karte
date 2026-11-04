@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FALL_RISKS, initialEvals } from "./admit-eval";
-import { FALL_INTERVAL, FALL_RULES, FALL_SOURCES, fallChanges, fallDue, fallDueList, fallSteps } from "./fall-reassess";
+import { FALL_INTERVAL, FALL_RULES, FALL_SOURCES, fallChanges, fallDue, fallDueList, fallSteps, fallTriggers } from "./fall-reassess";
 
 const rec = (day: number, time: string, checked: string[] = []) => ({ checked, measures: [], plan: "", by: "看護師 A", at: { day, time } });
 
@@ -46,6 +46,20 @@ describe("再評価の期限", () => {
       ["再評価", -1],
     ]);
     expect(fallChanges(rec(0, "09:00", ["歩行時に介助が必要", "向精神薬の使用"]), { checked: ["歩行時に介助が必要", "頻尿や夜間の排泄行動"] })).toEqual({ added: ["頻尿や夜間の排泄行動"], gone: ["向精神薬の使用"] });
+  });
+
+  it("takes today's moves and the operations begun by now as triggers", () => {
+    const tr = fallTriggers("p", [{ patientId: "p", label: "転床 512→515-C", time: "11:20" }, { patientId: "q", label: "x", time: "09:00" }], [
+      { patientId: "p", day: 0, start: "09:00", procedure: "胃瘻造設" },
+      { patientId: "p", day: 0, start: "15:00", procedure: "まだ" },
+      { patientId: "p", day: -2, start: "13:00", procedure: "前の手術" },
+      { patientId: "p", day: 1, start: "09:00", procedure: "明日" },
+    ], "12:00");
+    expect(tr.map((x) => [x.kind, x.at.day, x.label])).toEqual([
+      ["転棟・転床", 0, "転床 512→515-C"],
+      ["手術", 0, "手術 胃瘻造設"],
+      ["手術", -2, "手術 前の手術"],
+    ]);
   });
 
   it("the fictional patients' first assessments use the risk items of 入院時の評価", () => {
