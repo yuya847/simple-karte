@@ -10,20 +10,36 @@ const Month = z.string().regex(/^\d{4}-\d{2}$/);
 const Modifier = z.object({ code: z.string().regex(/^\d{4}$/), name: z.string().max(40) });
 
 /** The insurance 医事課 registered (保険の登録). The 保険者番号 must pass its 検証番号 here too. */
-const InsuranceSchema = z.object({
-  kind: z.enum(["協会けんぽ", "組合健保", "共済", "国保", "後期高齢者"]),
-  insurerNumber: z.string().refine(validInsurerNumber),
-  symbol: z.string().min(1).max(19).optional(),
-  number: z.string().min(1).max(19),
-  branch: z.string().regex(/^\d{2}$/).optional(),
-  relation: z.enum(["本人", "家族"]),
-  birthDate: IsoDate,
-  rate: z.union([z.literal(10), z.literal(20), z.literal(30)]),
-  incomeClass: z.enum(["ア", "イ", "ウ", "エ", "オ", "現役並みⅢ", "現役並みⅡ", "現役並みⅠ", "一般", "一般Ⅱ", "一般Ⅰ", "低所得Ⅱ", "低所得Ⅰ"]),
-  limitKnown: z.boolean(),
-  mealClass: z.enum(["一般", "低所得Ⅱ（90日以下）", "低所得Ⅱ（90日超）", "低所得Ⅰ", "指定難病等"]),
-  daysLast12Months: z.number().int().min(0).max(366).optional(),
+const KohiSchema = z.object({
+  lawNo: z.string().regex(/^\d{2}$/),
+  name: z.string().max(60),
+  payerNumber: z.string().regex(/^\d{8}$/),
+  recipientNumber: z.string().regex(/^\d{7}$/),
+  rate: z.number().int().min(0).max(100),
+  capYen: z.number().int().min(0).max(10_000_000).nullable(),
 });
+
+export const InsuranceSchema = z
+  .object({
+    kind: z.enum(["協会けんぽ", "組合健保", "共済", "国保", "後期高齢者"]),
+    insurerNumber: z.string().max(8),
+    symbol: z.string().min(1).max(19).optional(),
+    number: z.string().max(19),
+    branch: z.string().regex(/^\d{2}$/).optional(),
+    relation: z.enum(["本人", "家族"]),
+    birthDate: IsoDate,
+    rate: z.number().int().min(0).max(100),
+    incomeClass: z.enum(["ア", "イ", "ウ", "エ", "オ", "現役並みⅢ", "現役並みⅡ", "現役並みⅠ", "一般", "一般Ⅱ", "一般Ⅰ", "低所得Ⅱ", "低所得Ⅰ", "該当なし"]),
+    limitKnown: z.boolean(),
+    mealClass: z.enum(["一般", "低所得Ⅱ（90日以下）", "低所得Ⅱ（90日超）", "低所得Ⅰ", "指定難病等"]),
+    daysLast12Months: z.number().int().min(0).max(366).optional(),
+    coverage: z.enum(["医保", "生活保護", "自費", "労災", "公費のみ"]).optional(),
+    kohi: z.array(KohiSchema).max(4).optional(),
+    validUntil: IsoDate.optional(),
+    verify: z.object({ method: z.enum(["オンライン資格確認（模擬）", "保険証", "資格確認書"]), on: z.string().max(10) }).optional(),
+  })
+  // 医保 needs a well-formed 保険者番号・番号 and a 10〜30% rate; the cases without 医保 carry none.
+  .refine((i) => (i.coverage && i.coverage !== "医保") || (validInsurerNumber(i.insurerNumber) && i.number.length > 0 && [10, 20, 30].includes(i.rate)), { message: "保険の内容が読めません。" });
 
 export const PatientMonthSchema = z.object({
   patient: z.object({

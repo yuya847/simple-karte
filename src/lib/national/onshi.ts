@@ -404,6 +404,9 @@ export function formFromQualification(info: QualificationInfo, today: CalendarDa
       incomeClass: incomeClass || current.incomeClass,
       elderCard: !!info.elder || current.elderCard,
       proof: info.limit || info.elder || kouki ? "マイナ保険証（オンライン資格確認）" : current.proof || "なし",
+      coverage: "医保",
+      verify: "オンライン資格確認（模擬）",
+      verifiedOn: isoDate(today),
     },
     derived,
   };

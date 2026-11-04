@@ -13,6 +13,7 @@ import {
   hasErrors,
   INITIAL_INSURANCE_BOOK,
   mealClassOf,
+  OPD_DEMO_FORMS,
   toInsurance,
   windowLimit,
   withRecord,
@@ -36,6 +37,8 @@ const card: InsuranceForm = {
   rate: "30",
   incomeClass: "ウ",
   proof: "なし",
+  verify: "資格確認書",
+  verifiedOn: "2026-11-04",
 };
 
 describe("保険者番号の検証番号（保険者番号等の設定要領 第1の5）", () => {
@@ -86,7 +89,7 @@ describe("デモの4人の登録", () => {
     }
   });
   it("are registered on the admission day; a new version replaces the one in force", () => {
-    expect(Object.keys(INITIAL_INSURANCE_BOOK).sort()).toEqual(Object.keys(INSURANCE).sort());
+    expect(Object.keys(INITIAL_INSURANCE_BOOK).sort()).toEqual([...Object.keys(INSURANCE), ...Object.keys(OPD_DEMO_FORMS)].sort());
     expect(currentInsurance(INITIAL_INSURANCE_BOOK, "90010231")).toEqual(INSURANCE["90010231"]);
     expect(currentInsurance(INITIAL_INSURANCE_BOOK, "90020001")).toBeUndefined();
     const next = withRecord(INITIAL_INSURANCE_BOOK, "90010231", { ...INITIAL_INSURANCE_BOOK["90010231"][0], action: "変更", insurance: { ...INSURANCE["90010231"], rate: 30, incomeClass: "現役並みⅠ" } });
@@ -100,7 +103,7 @@ describe("登録の確かめ", () => {
   const check = (f: Partial<InsuranceForm>, age = 64) => checkInsurance({ ...card, ...f }, { age, on });
 
   it("asks for every item when nothing is entered", () => {
-    expect(level(checkInsurance(EMPTY_FORM, { age: 64, on }), "error").map((c) => c.field)).toEqual(["kind", "insurerNumber", "number", "relation", "birthDate", "rate", "incomeClass", "proof"]);
+    expect(level(checkInsurance(EMPTY_FORM, { age: 64, on }), "error").map((c) => c.field)).toEqual(["kind", "insurerNumber", "number", "relation", "birthDate", "rate", "incomeClass", "proof", "verify"]);
   });
   it("a correct card has no errors", () => {
     expect(hasErrors(check({}))).toBe(false);

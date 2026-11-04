@@ -2,14 +2,46 @@
 // 高齢受給者証、限度額適用認定証、マイナ保険証のオンライン資格確認). Code checks the entries and works out
 // what follows from them (窓口で限度額を使えるか・食事の標準負担額の区分・レセプト種別・特記事項); a person
 // registers. The claim then uses it instead of the age-based assumption (month.ts).
-// All patients and numbers are FICTIONAL. 公費 (生活保護・指定難病など) is not handled by this prototype.
+// All patients and numbers are FICTIONAL. The same registration is shown and changed from the 患者基本情報
+// window (保険・制度), which adds 公費 (受給者証), 生活保護・自費・労災, the 有効期限 and how the 資格 was checked.
 
 import { PATIENTS } from "../patients";
 import type { DayOffset } from "../types";
-import { ageOn, checkDigit, futanKubun, INSURANCE, receiptType, tokkiCode, TOKKI_NAME, type IncomeClass, type Insurance, type InsurerKind } from "./insurance";
+import { kohiKind } from "./futan";
+import { ageOn, checkDigit, futanKubun, INSURANCE, receiptType, tokkiCode, TOKKI_NAME, type Coverage, type IncomeClass, type Insurance, type InsurerKind, type Kohi, type VerifyMethod } from "./insurance";
 import type { MealClass } from "./model";
 
 export const INSURER_KINDS: InsurerKind[] = ["協会けんぽ", "組合健保", "共済", "国保", "後期高齢者"];
+
+/**
+ * 保険の種類 as the window picks it: the 医保 kinds, and the cases without 医保. Each choice sets the
+ * form's `coverage` and (for 医保) `kind`.
+ */
+export const KIND_OPTIONS: { label: string; coverage: Coverage; kind: InsurerKind | "" }[] = [
+  { label: "国民健康保険", coverage: "医保", kind: "国保" },
+  { label: "後期高齢者医療", coverage: "医保", kind: "後期高齢者" },
+  { label: "協会けんぽ（社保）", coverage: "医保", kind: "協会けんぽ" },
+  { label: "組合健保（社保）", coverage: "医保", kind: "組合健保" },
+  { label: "共済（社保）", coverage: "医保", kind: "共済" },
+  { label: "生活保護（医療扶助のみ）", coverage: "生活保護", kind: "" },
+  { label: "自費", coverage: "自費", kind: "" },
+  { label: "労災", coverage: "労災", kind: "" },
+  { label: "公費のみ（医保なし）", coverage: "公費のみ", kind: "" },
+];
+
+export const kindOptionOf = (f: Pick<InsuranceForm, "coverage" | "kind">) => KIND_OPTIONS.find((o) => (f.coverage || "医保") === o.coverage && (o.coverage !== "医保" || o.kind === f.kind));
+
+/** One 受給者証 as typed. */
+export interface KohiForm {
+  lawNo: string;
+  /** 制度名 (from KOHI_KINDS by 法別番号, or typed). */
+  name: string;
+  payerNumber: string;
+  recipientNumber: string;
+  /** 自己負担上限月額 as written on the 受給者証 (digits); empty when the 制度 has none. */
+  capYen: string;
+}
+export const emptyKohi = (): KohiForm => ({ lawNo: "", name: "", payerNumber: "", recipientNumber: "", capYen: "" });
 
 /** How the window learned the 適用区分 (所得区分) for the 高額療養費 limit. */
 export const PROOFS = ["なし", "限度額適用認定証", "限度額適用・標準負担額減額認定証", "マイナ保険証（オンライン資格確認）"] as const;
@@ -35,6 +67,15 @@ export interface InsuranceForm {
   proof: Proof | "";
   /** 過去12か月の入院日数（減額認定を受けていた期間）, as typed. For 区分オ・低所得Ⅱ. */
   stayDays: string;
+  /** 医保 (default when empty), or a case without 医保. */
+  coverage: Coverage | "";
+  /** 受給者証 (公費), in the order shown. */
+  kohi: KohiForm[];
+  /** 有効期限 "YYYY-MM-DD" of the 資格確認書・受給者証; empty when none is written. */
+  validUntil: string;
+  /** 資格確認の方法 and the day it was done. */
+  verify: VerifyMethod | "";
+  verifiedOn: string;
 }
 
 export const EMPTY_FORM: InsuranceForm = {
@@ -50,7 +91,17 @@ export const EMPTY_FORM: InsuranceForm = {
   elderCard: false,
   proof: "",
   stayDays: "",
+  coverage: "",
+  kohi: [],
+  validUntil: "",
+  verify: "",
+  verifiedOn: "",
 };
+
+/** A form saved before these fields existed gets their defaults (records in this browser or the workspace). */
+export const normalizeForm = (f: Partial<InsuranceForm> | undefined): InsuranceForm => ({ ...EMPTY_FORM, ...(f ?? {}), kohi: (f?.kohi ?? []).map((k) => ({ ...emptyKohi(), ...k })) });
+
+export const isMedical = (f: Pick<InsuranceForm, "coverage">) => !f.coverage || f.coverage === "医保";
 
 export interface InsuranceRecord {
   form: InsuranceForm;
@@ -59,6 +110,8 @@ export interface InsuranceRecord {
   action: "登録" | "変更" | "確認";
   by: string;
   at: { day: DayOffset; time: string };
+  /** Why it was changed (asked for a 変更 from the 患者基本情報 window). */
+  reason?: string;
 }
 
 /** Every registration per patient; the last one is in force. */
@@ -215,10 +268,46 @@ export function mealClassOf(f: InsuranceForm): MealClass {
   return "一般";
 }
 
+/** The 受給者証 as the bill uses it (rate and cap from the 制度; the cap typed from the card). */
+export function toKohi(k: KohiForm): Kohi {
+  const kind = kohiKind(k.lawNo);
+  const cap = k.capYen.trim();
+  return {
+    lawNo: k.lawNo.trim(),
+    name: k.name.trim() || kind?.name || `法別 ${k.lawNo}`,
+    payerNumber: k.payerNumber.trim(),
+    recipientNumber: k.recipientNumber.trim(),
+    rate: kind?.rate ?? 0,
+    capYen: cap !== "" && kind?.cap === "受給者証" ? Number(cap) : null,
+  };
+}
+
 /** The insurance the claim uses. Call only when `checkInsurance` has no errors. */
 export function toInsurance(f: InsuranceForm): Insurance {
   const symbol = f.symbol.trim();
   const branch = f.branch.trim();
+  const extra: Partial<Insurance> = {
+    ...(f.kohi.length ? { kohi: f.kohi.map(toKohi) } : {}),
+    ...(f.validUntil ? { validUntil: f.validUntil } : {}),
+    ...(f.verify ? { verify: { method: f.verify, on: f.verifiedOn } } : {}),
+  };
+  if (!isMedical(f)) {
+    const coverage = f.coverage as Coverage;
+    const kohi = extra.kohi ?? [];
+    return {
+      kind: "国保",
+      insurerNumber: "",
+      number: "",
+      relation: "本人",
+      birthDate: f.birthDate,
+      rate: coverage === "自費" ? 100 : coverage === "労災" ? 0 : kohi.length ? Math.min(...kohi.map((k) => k.rate)) : 0,
+      incomeClass: "該当なし",
+      limitKnown: false,
+      mealClass: coverage === "生活保護" ? "低所得Ⅱ（90日以下）" : "一般",
+      coverage,
+      ...extra,
+    };
+  }
   return {
     kind: f.kind as InsurerKind,
     insurerNumber: f.insurerNumber.trim(),
@@ -227,11 +316,12 @@ export function toInsurance(f: InsuranceForm): Insurance {
     ...(branch ? { branch } : {}),
     relation: f.relation as Insurance["relation"],
     birthDate: f.birthDate,
-    rate: Number(f.rate) as Insurance["rate"],
+    rate: Number(f.rate),
     incomeClass: f.incomeClass as IncomeClass,
     limitKnown: windowLimit(f).known,
     mealClass: mealClassOf(f),
     ...(f.stayDays.trim() !== "" ? { daysLast12Months: Number(f.stayDays) } : {}),
+    ...extra,
   };
 }
 
@@ -249,6 +339,15 @@ const RECEIPT_TYPE_NAME: Record<string, string> = {
 export function derived(ins: Insurance, on: Ymd): { label: string; value: string }[] {
   const age = ageOn(ins.birthDate, on);
   const band = ageBand(ins.birthDate, on);
+  if (ins.coverage && ins.coverage !== "医保") {
+    const k = ins.kohi ?? [];
+    return [
+      { label: "年齢", value: `${age}歳（${band}）` },
+      { label: "請求先", value: ins.coverage === "自費" ? "患者本人（全額）" : ins.coverage === "労災" ? "労働基準監督署（労災保険。この試作では算定しない）" : k.length ? k.map((x) => `公費 ${x.lawNo} ${x.name}（負担者番号 ${x.payerNumber}）`).join("／") : "受給者証が未登録" },
+      { label: "窓口の患者負担", value: ins.coverage === "自費" ? "点数 × 10円の全額" : ins.coverage === "労災" ? "なし" : k.length ? k.map((x) => `${x.rate}%${x.capYen !== null ? `・上限 ${x.capYen.toLocaleString("ja-JP")}円/月` : ""}`).join("／") : "—" },
+      { label: "レセプト種別", value: "この試作では公費単独・自費・労災のレセプトは作りません" },
+    ];
+  }
   const rt = receiptType(ins, age, band === "未就学");
   const tokki = tokkiCode(ins, age);
   const kubun = futanKubun(ins, age);
@@ -263,7 +362,11 @@ export function derived(ins: Insurance, on: Ymd): { label: string; value: string
   ];
 }
 
-export const insuranceSummary = (ins: Insurance) => `${ins.kind}（${ins.relation}）${ins.rate / 10}割・区分 ${ins.incomeClass}`;
+export const insuranceSummary = (ins: Insurance) => {
+  const kohi = ins.kohi?.length ? `・公費 ${ins.kohi.map((k) => k.lawNo).join("・")}` : "";
+  if (ins.coverage && ins.coverage !== "医保") return `${ins.coverage}${kohi}`;
+  return `${ins.kind}（${ins.relation}）${ins.rate / 10}割・区分 ${ins.incomeClass}${kohi}`;
+};
 
 // ---------------------------------------------------------------------------
 // Checks
@@ -275,6 +378,49 @@ export interface FormCheck {
   field?: keyof InsuranceForm;
   text: string;
   basis: string;
+}
+
+const KOHI_SRC = "保険者番号等の設定要領 第2（公費負担者番号：法別番号2桁・都道府県番号2桁・実施機関番号3桁・検証番号1桁）・受給者番号は7桁";
+
+/** The 受給者証 entries: numbers in the official form, the 法別番号 matching the 制度, the cap when the 制度 has one. */
+export function checkKohi(list: KohiForm[], on: Ymd, validUntil: string): FormCheck[] {
+  const out: FormCheck[] = [];
+  list.forEach((k, i) => {
+    const n = i + 1;
+    const kind = kohiKind(k.lawNo);
+    if (!k.lawNo) out.push({ level: "error", field: "kohi", text: `公費${n}の制度（法別番号）を選んでください。`, basis: FORMAT_SRC });
+    const payer = k.payerNumber.trim();
+    if (!/^\d{8}$/.test(payer)) out.push({ level: "error", field: "kohi", text: `公費${n}の負担者番号は8桁の数字です。`, basis: KOHI_SRC });
+    else {
+      if (checkDigit(payer.slice(0, 7)) !== payer.slice(7)) out.push({ level: "error", field: "kohi", text: `公費${n}の負担者番号の検証番号（最後の1桁）が合いません。計算：${checkDigitWork(payer.slice(0, 7))}（入力は ${payer.slice(7)}）`, basis: KOHI_SRC });
+      if (k.lawNo && payer.slice(0, 2) !== k.lawNo) out.push({ level: "error", field: "kohi", text: `公費${n}の負担者番号の最初の2桁（${payer.slice(0, 2)}）が制度の法別番号 ${k.lawNo} と合いません。`, basis: KOHI_SRC });
+    }
+    if (!/^\d{7}$/.test(k.recipientNumber.trim())) out.push({ level: "error", field: "kohi", text: `公費${n}の受給者番号は7桁の数字です。`, basis: KOHI_SRC });
+    const cap = k.capYen.trim();
+    if (kind?.cap === "受給者証") {
+      if (cap === "") out.push({ level: "warn", field: "kohi", text: `公費${n}（${kind.name}）は受給者証に自己負担上限月額が書いてあります。空のままだと上限なしで計算します。`, basis: kind.basis });
+      else if (!/^\d+$/.test(cap)) out.push({ level: "error", field: "kohi", text: `公費${n}の上限月額は円の整数で入れてください。`, basis: FORMAT_SRC });
+    } else if (cap !== "") out.push({ level: "warn", field: "kohi", text: `公費${n}（${kind?.name ?? k.lawNo}）には上限月額の決まりがないので、入れた額は使いません。`, basis: kind?.basis ?? FORMAT_SRC });
+    if (kind) out.push({ level: "info", field: "kohi", text: `公費${n} ${kind.name}：患者の負担は費用の${kind.rate}%${kind.cap === "受給者証" ? "（受給者証の上限まで）" : ""}。`, basis: kind.basis });
+  });
+  if (validUntil) {
+    if (!validDate(validUntil)) out.push({ level: "error", field: "validUntil", text: "有効期限が日付になっていません。", basis: FORMAT_SRC });
+    else if (utc(parse(validUntil)) < utc(on)) out.push({ level: "error", field: "validUntil", text: `有効期限（${validUntil}）が切れています。新しい証を確かめてください。`, basis: FORMAT_SRC });
+    else if (utc(parse(validUntil)) - utc(on) < 31 * 86_400_000) out.push({ level: "warn", field: "validUntil", text: `有効期限（${validUntil}）が1か月以内です。更新を伝えてください。`, basis: FORMAT_SRC });
+  }
+  return out;
+}
+
+/** 資格確認の方法 and its day: required for 医保 and 公費; the day must not be in the future. */
+export function checkVerify(f: Pick<InsuranceForm, "verify" | "verifiedOn" | "coverage">, on: Ymd): FormCheck[] {
+  const out: FormCheck[] = [];
+  if (f.coverage === "自費" || f.coverage === "労災") return out;
+  if (!f.verify) out.push({ level: "error", field: "verify", text: "資格確認の方法（オンライン資格確認（模擬）・保険証・資格確認書）を選んでください。", basis: "療養担当規則3条（被保険者証等による資格の確認。オンライン資格確認は模擬）" });
+  if (f.verifiedOn) {
+    if (!validDate(f.verifiedOn)) out.push({ level: "error", field: "verifiedOn", text: "確認日が日付になっていません。", basis: FORMAT_SRC });
+    else if (utc(parse(f.verifiedOn)) > utc(on)) out.push({ level: "error", field: "verifiedOn", text: "確認日が今日より後です。", basis: FORMAT_SRC });
+  }
+  return out;
 }
 
 const REQUIRED: [keyof InsuranceForm, string][] = [
@@ -294,7 +440,25 @@ const REQUIRED: [keyof InsuranceForm, string][] = [
  */
 export function checkInsurance(f: InsuranceForm, ctx: { age: number; on: Ymd }): FormCheck[] {
   const out: FormCheck[] = [];
+  if (!isMedical(f)) {
+    // No 医保: the birth date, the 受給者証 (for 生活保護・公費のみ) and how the 資格 was checked.
+    if (!f.birthDate) out.push({ level: "error", field: "birthDate", text: "生年月日を入れてください。", basis: FORMAT_SRC });
+    else if (!validDate(f.birthDate)) out.push({ level: "error", field: "birthDate", text: "生年月日が日付になっていません。", basis: FORMAT_SRC });
+    else if (ageOn(f.birthDate, ctx.on) !== ctx.age) out.push({ level: "warn", field: "birthDate", text: `生年月日からは${ageOn(f.birthDate, ctx.on)}歳ですが、カルテは${ctx.age}歳です。本人の確認をしてください。`, basis: FORMAT_SRC });
+    if (f.coverage === "生活保護") {
+      if (!f.kohi.length) out.push({ level: "error", field: "kohi", text: "生活保護は公費（法別 12）の負担者番号・受給者番号を医療券（受給者証）から入れてください。", basis: "生活保護法15条・34条（医療扶助は指定医療機関への委託で、医療券で確かめる）" });
+      else if (!f.kohi.some((k) => k.lawNo === "12")) out.push({ level: "error", field: "kohi", text: "生活保護の公費は法別番号 12 です。", basis: KOHI_SRC });
+    }
+    if (f.coverage === "公費のみ" && !f.kohi.length) out.push({ level: "error", field: "kohi", text: "医保のない公費単独は、受給者証（公費）を1つ以上入れてください。", basis: FORMAT_SRC });
+    if (f.coverage === "労災") out.push({ level: "info", text: "労災は労働基準監督署に請求します（様式第5号など）。この試作では労災の点数表で算定せず、患者負担は 0 円とします。", basis: "労働者災害補償保険法13条（療養補償給付）" });
+    if (f.coverage === "自費") out.push({ level: "info", text: "自費は保険を使いません。点数 × 10円の全額が患者負担です（架空の病院の取り決め）。", basis: FORMAT_SRC });
+    out.push(...checkKohi(f.kohi, ctx.on, f.validUntil), ...checkVerify(f, ctx.on));
+    return out;
+  }
   for (const [k, label] of REQUIRED) if (f[k] === "") out.push({ level: "error", field: k, text: `${label}を入れてください。`, basis: FORMAT_SRC });
+  out.push(...checkVerify(f, ctx.on));
+  if (f.kohi.some((k) => k.lawNo === "12")) out.push({ level: "warn", field: "kohi", text: "生活保護の医療扶助は、ふつう国保の人には併用されません（国保の適用除外）。社保との併用か、生活保護単独かを確かめてください。", basis: "国民健康保険法6条9号（生活保護の受給者は国保の被保険者としない）" });
+  out.push(...checkKohi(f.kohi, ctx.on, f.validUntil));
 
   // 保険者番号: digits, 検証番号, 法別番号, 都道府県番号.
   const no = f.insurerNumber.trim();
@@ -393,18 +557,36 @@ export const hasErrors = (cs: FormCheck[]) => cs.some((c) => c.level === "error"
 /** The cards of the four demo patients as 医事課 typed them (toInsurance gives INSURANCE back; see the test). */
 export const DEMO_FORMS: Record<string, InsuranceForm> = {
   // 72歳・国保・高齢受給者証（2割・一般）
-  "90010231": { ...EMPTY_FORM, kind: "国保", insurerNumber: INSURANCE["90010231"].insurerNumber, symbol: "架空", number: "1072", branch: "00", relation: "本人", birthDate: "1954-04-12", rate: "20", incomeClass: "一般", elderCard: true, proof: "なし" },
+  "90010231": { ...EMPTY_FORM, kind: "国保", insurerNumber: INSURANCE["90010231"].insurerNumber, symbol: "架空", number: "1072", branch: "00", relation: "本人", birthDate: "1954-04-12", rate: "20", incomeClass: "一般", elderCard: true, proof: "なし", verify: "資格確認書", verifiedOn: "2026-10-28" },
   // 86歳・後期高齢者（1割・低所得Ⅱ、限度額適用・標準負担額減額認定証）
-  "90010244": { ...EMPTY_FORM, kind: "後期高齢者", insurerNumber: INSURANCE["90010244"].insurerNumber, number: "00086001", relation: "本人", birthDate: "1940-02-20", rate: "10", incomeClass: "低所得Ⅱ", proof: "限度額適用・標準負担額減額認定証", stayDays: "12" },
+  "90010244": { ...EMPTY_FORM, kind: "後期高齢者", insurerNumber: INSURANCE["90010244"].insurerNumber, number: "00086001", relation: "本人", birthDate: "1940-02-20", rate: "10", incomeClass: "低所得Ⅱ", proof: "限度額適用・標準負担額減額認定証", stayDays: "12", verify: "資格確認書", verifiedOn: "2026-10-30" },
   // 79歳・後期高齢者（2割・一般Ⅱ）
-  "90010198": { ...EMPTY_FORM, kind: "後期高齢者", insurerNumber: INSURANCE["90010198"].insurerNumber, number: "00079001", relation: "本人", birthDate: "1947-05-03", rate: "20", incomeClass: "一般Ⅱ", proof: "なし" },
+  "90010198": { ...EMPTY_FORM, kind: "後期高齢者", insurerNumber: INSURANCE["90010198"].insurerNumber, number: "00079001", relation: "本人", birthDate: "1947-05-03", rate: "20", incomeClass: "一般Ⅱ", proof: "なし", verify: "資格確認書", verifiedOn: "2026-11-01" },
   // 64歳・協会けんぽの家族（3割・区分ウ、マイナ保険証で区分の情報あり）
-  "90010260": { ...EMPTY_FORM, kind: "協会けんぽ", insurerNumber: INSURANCE["90010260"].insurerNumber, symbol: "９９９９", number: "64", branch: "01", relation: "家族", birthDate: "1962-03-15", rate: "30", incomeClass: "ウ", proof: "マイナ保険証（オンライン資格確認）" },
+  "90010260": { ...EMPTY_FORM, kind: "協会けんぽ", insurerNumber: INSURANCE["90010260"].insurerNumber, symbol: "９９９９", number: "64", branch: "01", relation: "家族", birthDate: "1962-03-15", rate: "30", incomeClass: "ウ", proof: "マイナ保険証（オンライン資格確認）", verify: "オンライン資格確認（模擬）", verifiedOn: "2026-11-02" },
 };
 
-export const INITIAL_INSURANCE_BOOK: InsuranceBook = Object.fromEntries(
-  Object.entries(DEMO_FORMS).map(([id, form]) => [
+const withCheck = (body: string) => body + checkDigit(body);
+
+/**
+ * Today's outpatients (opd.ts), as 受付 registered them this morning (FICTIONAL numbers, 神奈川県 = 14).
+ * Keys are the visit's chart id ("opd:" + id), the same key the 患者基本情報 window uses.
+ */
+export const OPD_DEMO_FORMS: Record<string, InsuranceForm> = {
+  // 石田 正男 78歳・後期高齢者 2割（一般Ⅱ）・マイナ保険証
+  "opd:opd-1": { ...EMPTY_FORM, kind: "後期高齢者", insurerNumber: withCheck("3914099"), number: "00078001", relation: "本人", birthDate: "1948-06-10", rate: "20", incomeClass: "一般Ⅱ", proof: "マイナ保険証（オンライン資格確認）", verify: "オンライン資格確認（模擬）", verifiedOn: "2026-11-04", validUntil: "2027-07-31" },
+  // 原田 恵子 54歳・協会けんぽ 本人 3割（区分ウ）・資格確認書
+  "opd:opd-2": { ...EMPTY_FORM, kind: "協会けんぽ", insurerNumber: withCheck("0114099"), symbol: "８８８８", number: "54", branch: "00", relation: "本人", birthDate: "1972-02-14", rate: "30", incomeClass: "ウ", proof: "なし", verify: "資格確認書", verifiedOn: "2026-11-04" },
+  // 吉村 拓也 32歳・生活保護（医療扶助 単独、法別 12。医療券は架空）
+  "opd:opd-3": { ...EMPTY_FORM, coverage: "生活保護", birthDate: "1994-08-21", kohi: [{ lawNo: "12", name: "生活保護（医療扶助）", payerNumber: withCheck("1214001"), recipientNumber: "0000321", capYen: "" }], verify: "オンライン資格確認（模擬）", verifiedOn: "2026-11-04" },
+  // 中谷 修 71歳・国保 高齢受給者 2割（一般）・資格確認書（会計待ちの人）
+  "opd:opd-6": { ...EMPTY_FORM, kind: "国保", insurerNumber: withCheck("14099"), symbol: "架空", number: "1071", branch: "00", relation: "本人", birthDate: "1955-01-20", rate: "20", incomeClass: "一般", elderCard: true, proof: "なし", verify: "資格確認書", verifiedOn: "2026-11-04", validUntil: "2027-07-31" },
+};
+
+export const INITIAL_INSURANCE_BOOK: InsuranceBook = Object.fromEntries([
+  ...Object.entries(DEMO_FORMS).map(([id, form]) => [
     id,
     [{ form, insurance: toInsurance(form), action: "登録" as const, by: "医事課（架空）", at: { day: PATIENTS.find((p) => p.id === id)?.admittedOn ?? 0, time: "16:00" } }],
   ]),
-);
+  ...Object.entries(OPD_DEMO_FORMS).map(([id, form]) => [id, [{ form, insurance: toInsurance(form), action: "登録" as const, by: "医事課 渡辺", at: { day: 0, time: "08:30" } }]]),
+]);

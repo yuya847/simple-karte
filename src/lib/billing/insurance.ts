@@ -7,6 +7,32 @@ import type { MealClass } from "./model";
 export type InsurerKind = "協会けんぽ" | "組合健保" | "共済" | "国保" | "後期高齢者";
 
 /**
+ * What pays for the visit: 医保 (the kinds above, 公費 may be added), or no 医保 at all — 生活保護（医療扶助
+ * 単独）, 自費, 労災, 公費のみ（医保のない公費単独）. Only 医保 goes through the 一部負担金 rules below.
+ */
+export type Coverage = "医保" | "生活保護" | "自費" | "労災" | "公費のみ";
+export const COVERAGES: Coverage[] = ["医保", "生活保護", "自費", "労災", "公費のみ"];
+
+/** How the window checked the 資格 (資格確認の方法). The オンライン資格確認 here is a simulation. */
+export type VerifyMethod = "オンライン資格確認（模擬）" | "保険証" | "資格確認書";
+export const VERIFY_METHODS: VerifyMethod[] = ["オンライン資格確認（模擬）", "保険証", "資格確認書"];
+
+/**
+ * One 公費負担医療 the patient has (受給者証). 負担者番号 is 8 digits (法別番号2・都道府県2・実施機関3・検証1),
+ * 受給者番号 7 digits. `rate` is what the patient still pays after 医保 (%), `capYen` the 自己負担上限月額
+ * written on the 受給者証 (null when the 制度 has none). All numbers in this app are FICTIONAL.
+ */
+export interface Kohi {
+  /** 法別番号 (2 digits), e.g. "12" 生活保護, "54" 指定難病. */
+  lawNo: string;
+  name: string;
+  payerNumber: string;
+  recipientNumber: string;
+  rate: number;
+  capYen: number | null;
+}
+
+/**
  * 所得区分 for the 高額療養費 limit. Under 70: ア〜オ. 70 and over: 現役並みⅢ〜Ⅰ, 一般, 低所得Ⅱ, 低所得Ⅰ;
  * 後期高齢者 一般 is split into 一般Ⅱ (2割) and 一般Ⅰ (1割).
  */
@@ -23,7 +49,8 @@ export type IncomeClass =
   | "一般Ⅱ"
   | "一般Ⅰ"
   | "低所得Ⅱ"
-  | "低所得Ⅰ";
+  | "低所得Ⅰ"
+  | "該当なし";
 
 export interface Insurance {
   kind: InsurerKind;
@@ -36,8 +63,9 @@ export interface Insurance {
   /** 本人（国保は世帯主）か家族（国保はその他）か. */
   relation: "本人" | "家族";
   birthDate: string; // YYYY-MM-DD
-  /** 負担割合 (%): 10, 20 or 30. */
-  rate: 10 | 20 | 30;
+  /** 負担割合 (%): 10, 20 or 30 for 医保. 100 for 自費, 0 for 生活保護・労災 (coverage other than 医保). */
+  rate: number;
+  /** 所得区分 (適用区分); 該当なし when there is no 医保. */
   incomeClass: IncomeClass;
   /**
    * The window knows the 適用区分: 限度額適用認定証 shown, or the information given through
@@ -47,6 +75,23 @@ export interface Insurance {
   mealClass: MealClass;
   /** Days in hospital in the last 12 months (for 低所得Ⅱ 90日超). */
   daysLast12Months?: number;
+  /** Left out for 医保 (the default). */
+  coverage?: Coverage;
+  /** 公費負担医療 the patient has (併用 with 医保, or alone when coverage is 生活保護・公費のみ). */
+  kohi?: Kohi[];
+  /** 有効期限 of the 資格確認書・受給者証 "YYYY-MM-DD", when written on it. */
+  validUntil?: string;
+  /** How and when the window checked the 資格. */
+  verify?: { method: VerifyMethod; on: string };
+}
+
+export const coverageOf = (ins: Pick<Insurance, "coverage">): Coverage => ins.coverage ?? "医保";
+
+/** 「3割」「2割」; 自費 is 「全額」, 0 is 「0割（公費・労災）」. */
+export function rateLabel(rate: number): string {
+  if (rate === 100) return "全額（自費）";
+  if (rate % 10 === 0) return `${rate / 10}割`;
+  return `${rate}%`;
 }
 
 /** 検証番号 of a 保険者番号 / 公費負担者番号: weights 2,1,2,1… from the right, digit sums, 10 − (sum mod 10). */
@@ -78,6 +123,7 @@ export const INSURANCE: Record<string, Insurance> = {
     incomeClass: "一般",
     limitKnown: true,
     mealClass: "一般",
+    verify: { method: "資格確認書", on: "2026-10-28" },
   },
   // 86歳・後期高齢者（1割・低所得Ⅱ、限度額適用・標準負担額減額認定あり）
   "90010244": {
@@ -91,6 +137,7 @@ export const INSURANCE: Record<string, Insurance> = {
     limitKnown: true,
     mealClass: "低所得Ⅱ（90日以下）",
     daysLast12Months: 12,
+    verify: { method: "資格確認書", on: "2026-10-30" },
   },
   // 79歳・後期高齢者（2割・一般Ⅱ）
   "90010198": {
@@ -103,6 +150,7 @@ export const INSURANCE: Record<string, Insurance> = {
     incomeClass: "一般Ⅱ",
     limitKnown: true,
     mealClass: "一般",
+    verify: { method: "資格確認書", on: "2026-11-01" },
   },
   // 64歳・協会けんぽの家族（3割・区分ウ、マイナ保険証で適用区分の情報あり）
   "90010260": {
@@ -117,6 +165,7 @@ export const INSURANCE: Record<string, Insurance> = {
     incomeClass: "ウ",
     limitKnown: true,
     mealClass: "一般",
+    verify: { method: "オンライン資格確認（模擬）", on: "2026-11-02" },
   },
 };
 

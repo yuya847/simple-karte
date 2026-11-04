@@ -7,7 +7,8 @@
 // 点数 × 10円 without 食事療養; 健保則100条・104条). One hospital, one month, 入院 separate from 外来.
 // The 21,000円 rule (世帯合算) and the 年間上限 are settled later by the insurer, not at the window.
 
-import { type IncomeClass, type Insurance } from "./insurance";
+import { coverageOf, type IncomeClass, type Insurance } from "./insurance";
+import { kohiShare, NON_MEDICAL_NOTE } from "./futan";
 import type { ClaimResult, Shikibetsu } from "./model";
 
 export interface LimitRule {
@@ -59,7 +60,7 @@ export const LIMIT_TABLES: { from: string; source: string; table: Table }[] = [
 ];
 
 /** The 区分 of the table for a patient's 所得区分 (70歳以上の現役並みⅢ・Ⅱ・Ⅰ use the ア・イ・ウ amounts). */
-const ROW: Record<IncomeClass, keyof Table> = {
+const ROW: Record<Exclude<IncomeClass, "該当なし">, keyof Table> = {
   ア: "ア",
   イ: "イ",
   ウ: "ウ",
@@ -103,6 +104,8 @@ export interface Bill {
 
 /** 領収証（入院）の区分. 食事療養 is shown in 円 separately. */
 const SECTION_OF: Record<Shikibetsu, string> = {
+  "11": "初・再診料",
+  "12": "初・再診料",
   "13": "医学管理等",
   "21": "投薬",
   "22": "投薬",
@@ -123,6 +126,7 @@ const SECTION_OF: Record<Shikibetsu, string> = {
 const SECTION_ORDER = ["入院料等", "医学管理等", "投薬", "注射", "検査", "画像診断", "処置", "その他"];
 
 export function limitFor(ins: Insurance, medicalCostYen: number, month: string, tasuu: boolean): { yen: number; formula: string; source: string } | null {
+  if (ins.incomeClass === "該当なし") return null;
   const t = limitTableFor(month);
   const rule = t.table[ROW[ins.incomeClass]];
   const f = (n: number) => n.toLocaleString("ja-JP");
@@ -137,13 +141,18 @@ export function limitFor(ins: Insurance, medicalCostYen: number, month: string, 
 export function calculateBill(claim: ClaimResult, ins: Insurance, opts: { tasuu?: boolean; turns75ThisMonth?: boolean } = {}): Bill {
   const notes: string[] = [];
   const medicalCostYen = claim.totalPoints * 10;
+  const medical = coverageOf(ins) === "医保";
   const ichibuYen = round10((medicalCostYen * ins.rate) / 100);
-  const limit = ins.limitKnown && claim.days > 0 ? limitFor(ins, medicalCostYen, claim.month, !!opts.tasuu) : null;
-  if (!ins.limitKnown)
+  const limit = medical && ins.limitKnown && claim.days > 0 ? limitFor(ins, medicalCostYen, claim.month, !!opts.tasuu) : null;
+  if (!medical) notes.push(NON_MEDICAL_NOTE[coverageOf(ins)]);
+  else if (!ins.limitKnown)
     notes.push("適用区分がわからないため、高額療養費は窓口では差し引いていません（限度額適用認定証の提示か、マイナ保険証での情報提供が要ります）。あとで保険者に申請すれば払い戻されます。");
   if (opts.turns75ThisMonth) notes.push("75歳になる月は、限度額が半分になる特例があります（健保令42条）。この計算には入れていないので、確かめてください。");
   const kogaku = !!limit && ichibuYen > limit.yen;
-  const medicalYen = kogaku ? limit!.yen : ichibuYen;
+  // 公費併用: the patient pays the 公費's share, up to its 上限, and never more than the 医保 part.
+  const kohi = ins.kohi?.length ? kohiShare(medicalCostYen, kogaku ? limit!.yen : ichibuYen, ins.kohi) : null;
+  if (kohi) notes.push(kohi.note);
+  const medicalYen = kohi ? kohi.patientYen : kogaku ? limit!.yen : ichibuYen;
   const sections = new Map<string, number>();
   for (const a of claim.acts) {
     if (a.shikibetsu === "97") continue;
