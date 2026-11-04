@@ -9,13 +9,13 @@ import { abs } from "./flowsheet";
 import { findDrug, findLab, findOralDrug, findSet } from "./master";
 import { findDisease } from "./masters/byomei";
 import { news2 } from "./news2";
-import { flagsFor } from "./patient-flags";
+import { flagsFor, leaveFlags } from "./patient-flags";
 import { PATIENTS } from "./patients";
 import { PROCEDURES } from "./procedures";
 import { PANIC_LIMITS, resultsOf } from "./results";
 import type { OrderEntry } from "./types";
 import { BEDS, OTHER_FLOOR_BEDS, doctorFor, isolationFor } from "./ward";
-import { WARD_CHARTS, WARD_CHART_DIAGNOSES, WARD_CHART_DIETS, WARD_CHART_DX, WARD_CHART_PATIENTS, buildWardCharts, chartIdOf, isWardChart, withCharts } from "./ward-charts";
+import { WARD_CHARTS, WARD_CHART_DIAGNOSES, WARD_CHART_DIETS, WARD_CHART_DX, WARD_CHART_PATIENTS, buildWardCharts, chartIdOf, isWardChart, withChartDiagnoses, withChartDiets, withCharts } from "./ward-charts";
 
 const others = [...BEDS, ...OTHER_FLOOR_BEDS].filter((b) => b.other);
 const chartOf = (name: string) => WARD_CHART_PATIENTS.find((p) => p.name === name)!;
@@ -161,6 +161,25 @@ describe("the bed's note becomes facts of the record", () => {
   it("everyone has a diet for the next meal", () => {
     const next = nextMeal(abs(0, "09:00"));
     for (const p of WARD_CHART_PATIENTS) expect(dietAt(WARD_CHART_DIETS, p.id, next.day, next.meal), p.name).toBeTruthy();
+  });
+});
+
+describe("records saved before the charts existed", () => {
+  it("get the charts' diagnoses and diets back, without replacing what was saved", () => {
+    const saved = { "90010231": [], [WARD_CHART_PATIENTS[0].id]: [] };
+    const dx = withChartDiagnoses(saved);
+    expect(dx["90010231"]).toEqual([]);
+    expect(dx[WARD_CHART_PATIENTS[0].id]).toEqual([]);
+    expect(dx[WARD_CHART_PATIENTS[1].id]).toEqual(WARD_CHART_DIAGNOSES[WARD_CHART_PATIENTS[1].id]);
+    const mine = WARD_CHART_DIETS.find((d) => d.patientId === WARD_CHART_PATIENTS[2].id)!;
+    const diets = withChartDiets([{ ...mine, id: "changed", kind: "絶食" }]);
+    expect(diets.filter((d) => d.patientId === mine.patientId)).toEqual([{ ...mine, id: "changed", kind: "絶食" }]);
+    expect(new Set(diets.map((d) => d.patientId)).size).toBe(WARD_CHART_PATIENTS.length);
+  });
+
+  it("the 明日退院 order shows as the list's mark", () => {
+    expect(leaveFlags(ordersOf("山口 正夫")).map((f) => f.label)).toEqual(["明日 10:00 退院"]);
+    expect(leaveFlags(ordersOf("岡部 正二"))).toEqual([]);
   });
 });
 

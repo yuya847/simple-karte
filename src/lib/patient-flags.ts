@@ -19,6 +19,16 @@ export interface Flag {
 
 const running = (from: number, to: number | null, nowAbs: number) => from <= nowAbs && (to === null || to > nowAbs);
 
+/** 退院・外泊・外出 today or tomorrow, from the orders (「明日 10:00 退院」). */
+export function leaveFlags(entries: OrderEntry[]): Flag[] {
+  return entries.flatMap((e) => {
+    if (e.status !== "有効" || e.order.type !== "procedure" || !e.order.leave) return [];
+    const l = e.order.leave;
+    if (l.from.day < 0 || l.from.day > 1) return [];
+    return [{ label: `${l.from.day === 0 ? "今日" : "明日"} ${l.from.time} ${l.kind}`, tone: "wakatake" as const, title: `${l.destination}${l.back ? `　戻り ${l.back.time}` : ""}` }];
+  });
+}
+
 export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0, results?: { unseen: number; panic: number }): Flag[] {
   const out: Flag[] = [];
   if (results?.panic) out.push({ label: `パニック値 ${results.panic}`, tone: "shu", title: "パニック値の結果を、医師がまだ確認していません" });

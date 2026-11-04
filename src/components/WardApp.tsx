@@ -18,8 +18,9 @@ import { IjiBoard } from "./IjiBoard";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
-import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, WARD_PLANS, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
-import { currentEntries } from "@/lib/record";
+import { FLOORS, WARD_NAME, WARD_PLANS, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
+import { BEDS_WITH_CHARTS, OTHER_FLOOR_BEDS_WITH_CHARTS, WARD_CHART_DIETS, WARD_CHART_PATIENTS, withChartDiagnoses, withChartDiets } from "@/lib/ward-charts";
+import { currentEntries, ordersOf } from "@/lib/record";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
@@ -92,7 +93,7 @@ import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/prof
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
-import type { Flag } from "@/lib/patient-flags";
+import { leaveFlags, type Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
@@ -310,6 +311,13 @@ function parseIso(s: string): CalendarDate {
 const newId = () => crypto.randomUUID();
 const anamnesisVersionsCount = (r?: AnamnesisRecord) => (r ? (r.earlier?.length ?? 0) + 1 : 0);
 
+/** The admission consent of the team's patients (15:00) and of the other charts (at their admission note). */
+const admissionConsents = (): ConsentRecord[] =>
+  [...PATIENTS, ...WARD_CHART_PATIENTS].map((p) => {
+    const at = PATIENTS.includes(p) ? ["15:00", "15:30"] : [p.history[0]?.time ?? "15:00", p.history[0]?.time ?? "15:30"];
+    return { id: `consent-adm-${p.id}`, patientId: p.id, code: "CONSENT-ADMISSION", status: "同意", createdAt: { day: p.admittedOn, time: at[0] }, explainedAt: { day: p.admittedOn, time: at[1] }, explainedBy: p.attending, witness: "看護師（架空）", answers: {} };
+  });
+
 /** Short line for the P) section of today's note, written by code from the confirmed order. */
 function planLine(entry: OrderEntry, today: CalendarDate): string {
   const { main, detail } = orderLines(entry.order, today);
@@ -397,7 +405,7 @@ export default function WardApp() {
   const [extraDaily, setExtraDaily] = useState<Record<string, DailyAdd>>({});
   // 延長 confirmed in this session (for 指示受け), and the diet orders there were at the start.
   const [extendLog, setExtendLog] = useState<{ orderId: string; patientId: string; days: number; at: number; by: string; text: string }[]>([]);
-  const [initialDietIds] = useState(() => new Set(INITIAL_DIETS.map((d) => d.id)));
+  const [initialDietIds] = useState(() => new Set([...INITIAL_DIETS, ...WARD_CHART_DIETS].map((d) => d.id)));
   // 院内連絡: nurse calls, emergency calls and call notes (院内PHS の代わり).
   const [nurseCalls, setNurseCalls] = useState<NurseCall[]>([]);
   const [emergencies, setEmergencies] = useState<Emergency[]>([]);
@@ -420,25 +428,13 @@ export default function WardApp() {
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
   // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
-  const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(INITIAL_DIAGNOSES);
+  const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(() => withChartDiagnoses(INITIAL_DIAGNOSES));
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
   const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
   // 医事課: the insurance registered per patient (every version) and 退院時の会計. Kept in this browser only.
   const [iji, setIji] = useState<IjiDesk>(INITIAL_DESK);
-  // Consent forms (fictional). The four patients gave the admission consent on their admission day.
-  const [consents, setConsents] = useState<ConsentRecord[]>(() =>
-    PATIENTS.map((p) => ({
-      id: `consent-adm-${p.id}`,
-      patientId: p.id,
-      code: "CONSENT-ADMISSION" as const,
-      status: "同意" as const,
-      createdAt: { day: p.admittedOn, time: "15:00" },
-      explainedAt: { day: p.admittedOn, time: "15:30" },
-      explainedBy: DOCTOR,
-      witness: "看護師（架空）",
-      answers: {},
-    })),
-  );
+  // Consent forms (fictional). Every inpatient gave the admission consent on their admission day.
+  const [consents, setConsents] = useState<ConsentRecord[]>(admissionConsents);
   // 指示受け by a nurse: change key → time. Kept in this browser only.
   const [taken, setTaken] = useState<Record<string, string>>({});
   // Pharmacy work (all kept in this browser only).
@@ -511,7 +507,7 @@ export default function WardApp() {
   if (sessionStart === null && nowTime) setSessionStart(abs(0, nowTime));
   // Advance directives (history kept) and warnings added on the band.
   const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
-  const [diets, setDiets] = useState<DietOrder[]>(INITIAL_DIETS);
+  const [diets, setDiets] = useState<DietOrder[]>(() => [...INITIAL_DIETS, ...WARD_CHART_DIETS]);
   const [tdmReports, setTdmReports] = useState<TdmReport[]>([]);
   const [bRecords, setBRecords] = useState<BRecord[]>(INITIAL_B);
   const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>({});
@@ -560,9 +556,10 @@ export default function WardApp() {
       boardReminders: [boardReminders, setBoardReminders],
       deptChanges: [deptChanges, setDeptChanges],
       moveLog: [moveLog, setMoveLog],
-      diagnoses: [diagnoses, setDiagnoses],
+      // A save from before every inpatient had a chart gets those charts' diagnoses, diets and consent back.
+      diagnoses: [diagnoses, (v: Record<string, Diagnosis[]>) => setDiagnoses(withChartDiagnoses(v))],
       billing: [billing, setBilling],
-      consents: [consents, setConsents],
+      consents: [consents, (v: ConsentRecord[]) => setConsents([...v, ...admissionConsents().filter((c) => !v.some((x) => x.id === c.id))])],
       taken: [taken, setTaken],
       audited: [audited, setAudited],
       queries: [queries, setQueries],
@@ -603,7 +600,7 @@ export default function WardApp() {
       io: [io, setIo],
       sessionStart: [sessionStart, setSessionStart],
       directives: [directives, setDirectives],
-      diets: [diets, setDiets],
+      diets: [diets, (v: DietOrder[]) => setDiets(withChartDiets(v))],
       tdmReports: [tdmReports, setTdmReports],
       bRecords: [bRecords, setBRecords],
       discharges: [discharges, setDischarges],
@@ -634,7 +631,7 @@ export default function WardApp() {
   const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
     () =>
-      [...PATIENTS, ...admitted].map((p0) => {
+      [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].map((p0) => {
         const p = applyProfile(p0, profileLog);
         const d = currentDirective(directives, p.id);
         const next = nextMeal(nowTime ? abs(0, nowTime) : 0);
@@ -662,16 +659,21 @@ export default function WardApp() {
     [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio, profileLog],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
-  const recordBlood = (id: string) => [...PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
-  const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
-  const ward: WardState = useMemo(
-    () => ({
-      // A patient whose discharge was carried out leaves the bed (the chart stays open where it is).
-      beds: [...BEDS, ...newBeds].filter((b) => !(b.patientId && discharged[b.patientId])).map((b) => (b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b)),
-      patient: findPatient,
-    }),
-    [newBeds, findPatient, moves, discharged],
-  );
+  const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
+  // ~80 charts: looked up by number, not by searching the list.
+  const patientById = useMemo(() => new Map(allPatients.map((p) => [p.id, p])), [allPatients]);
+  const findPatient = useCallback((id: string) => patientById.get(id), [patientById]);
+  // The 山本チーム's patients (and today's admissions): the worksheet, やること and the boards are theirs.
+  const teamIds = useMemo(() => new Set([...PATIENTS, ...admitted].map((p) => p.id)), [admitted]);
+  // 医事課 and the receipt file stay the team's: the claim APIs take up to 60 patients in one request.
+  const teamPatients = useMemo(() => allPatients.filter((p) => teamIds.has(p.id)), [allPatients, teamIds]);
+  // 5階東 (and anyone moved from it or admitted today), and every floor's beds.
+  const { ward, allBeds } = useMemo(() => {
+    // A patient whose discharge was carried out leaves the bed (the chart stays open where it is).
+    const placed = (beds: BedAssignment[]) => beds.filter((b) => !(b.patientId && discharged[b.patientId])).map((b) => (b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b));
+    const here = placed([...BEDS_WITH_CHARTS, ...newBeds]);
+    return { ward: { beds: here, patient: findPatient } as WardState, allBeds: [...here, ...placed(OTHER_FLOOR_BEDS_WITH_CHARTS)] };
+  }, [newBeds, findPatient, moves, discharged]);
 
   // What is in front: the ② tab (and its ③), and in it a chart, 新しいタブ, or its own screen.
   const owner: Owner | null = area === "ward" ? (wardTab === "menu" ? null : wardOwner(wardTab)) : area === "er" || area === "opd" ? area : null;
@@ -1154,13 +1156,14 @@ export default function WardApp() {
   // Our patients with their bed and the record as it stands now (for the worksheet and the list).
   // Patients discharged in this session, with the bed they had (for 退院時の薬 and the 退院支援の一覧).
   const dischargedPeople: WorkPatient[] = allPatients.flatMap((p) => {
-    if (!discharged[p.id]) return [];
-    const b = [...BEDS, ...newBeds].find((x) => x.patientId === p.id);
+    if (!discharged[p.id] || !teamIds.has(p.id)) return [];
+    const b = [...BEDS_WITH_CHARTS, ...newBeds].find((x) => x.patientId === p.id);
     const at = moves[p.id] ?? b;
     return [{ patient: p, room: at ? `${at.room}${at.bed}` : p.room, entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }];
   });
+  // Only the team's: the other teams' charts open from the lists, but do not fill the worksheet or やること.
   const people: WorkPatient[] = ward.beds.flatMap((b) => {
-    const p = b.patientId ? findPatient(b.patientId) : undefined;
+    const p = b.patientId && teamIds.has(b.patientId) ? findPatient(b.patientId) : undefined;
     if (!p) return [];
     const entries = currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order");
     // 再採血 sent back by the laboratory are drawn again by the ward (worksheet, labels, 照合).
@@ -1259,7 +1262,15 @@ export default function WardApp() {
   // 「全病棟」 is chosen only on the patient list (◯階); the map and the journal show one floor (5階東 then).
   const oneFloor = floor === ALL_WARDS ? WARD_NAME : floor;
   const floorInfo: Floor = FLOORS.find((f) => f.name === oneFloor) ?? FLOORS[0];
-  const allBeds = [...ward.beds, ...OTHER_FLOOR_BEDS];
+  // 受け持ち (it stands out on the list and the map): a doctor's own patients (主治医のチーム), else the team's.
+  const isMine = (pid: string) => (role === "医師" ? onTeamOf(me.name, findPatient(pid)?.attending ?? "") : teamIds.has(pid));
+  // Any patient on a bed with the record as it stands (the team's from `people`; another team's opened from a list).
+  const workOf = (pid: string): WorkPatient | undefined => {
+    const x = people.find((y) => y.patient.id === pid);
+    const p = x ? undefined : findPatient(pid);
+    const b = p && allBeds.find((y) => y.patientId === pid);
+    return x ?? (p && b ? { patient: p, room: `${b.room}${b.bed}`, entries: withRedraws(currentEntries(p, sessionChanges[pid]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, pid) } : undefined);
+  };
   const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
   const floorPick: Pick = { label: "階", value: oneFloor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
   const listPick: Pick = { label: "病棟", value: floor, options: [{ value: ALL_WARDS, label: "全病棟" }, ...FLOORS.map((f) => ({ value: f.name, label: f.name }))], onChange: setFloor };
@@ -1275,7 +1286,7 @@ export default function WardApp() {
         : role === "看護師"
           ? {
               // Teams are 5階東's: a patient moved to another floor is in neither team (shown under すべて).
-              beds: ward.beds.filter((b) => b.patientId && (!myTeam || (floorOf(b.room) === WARD_NAME && teamOf(b.room) === myTeam))),
+              beds: ward.beds.filter((b) => b.patientId && teamIds.has(b.patientId) && (!myTeam || (floorOf(b.room) === WARD_NAME && teamOf(b.room) === myTeam))),
               title: "受け持ち患者",
               group: "room",
               pick: {
@@ -1289,7 +1300,7 @@ export default function WardApp() {
                 onChange: setMyTeam,
               },
             }
-          : { beds: ward.beds.filter((b) => b.patientId), title: "受け持ち患者", group: "room" },
+          : { beds: ward.beds.filter((b) => b.patientId && teamIds.has(b.patientId)), title: "受け持ち患者", group: "room" },
     all: { beds: allBeds, title: "入院患者一覧", group: "floor" },
   };
   const listKey = LIST_TABS.find((k) => k === screen);
@@ -1321,11 +1332,7 @@ export default function WardApp() {
       const pid = x.patient.id;
       const out: Flag[] = callsMet[pid].length ? [{ label: "医師を呼ぶ基準", tone: "shu", title: `指示簿の基準に当たる：${callsMet[pid].join("、")}` }] : [];
       if (standingNow(pid) && !standingNow(pid)!.taken) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
-      for (const e of x.entries) {
-        if (e.status !== "有効" || e.order.type !== "procedure" || !e.order.leave) continue;
-        const l = e.order.leave;
-        if (l.from.day >= 0 && l.from.day <= 1) out.push({ label: `${l.from.day === 0 ? "今日" : "明日"} ${l.from.time} ${l.kind}`, tone: "wakatake", title: `${l.destination}${l.back ? `　戻り ${l.back.time}` : ""}` });
-      }
+      out.push(...leaveFlags(x.entries));
       const rs = activeOf(restraints, pid);
       if (rs) out.push({ label: `身体的拘束中 ${durationText(minutesOf(rs, abs(0, nowTime)))}`, tone: "shu", title: `${rs.devices.join("・")}　${reviewDue(rs, abs(0, nowTime))?.text ?? ""}` });
       return [pid, out];
@@ -1341,7 +1348,8 @@ export default function WardApp() {
         p.id,
         [
           ...(lim ? [{ label: "閲覧制限", tone: "fuji" as const, title: team ? "担当チームとして開けます。開いた記録は監査ログに残ります" : "担当チームのほかの人は、理由を残してから開きます" }] : []),
-          ...(standingFlags[p.id] ?? []),
+          // Another team's patient: 退院・外泊 from the orders (指示簿 is the team's).
+          ...(standingFlags[p.id] ?? (teamIds.has(p.id) ? [] : leaveFlags(ordersOf(currentEntries(p, sessionChanges[p.id]))))),
           ...(n ? [{ label: `指導医の確認待ち ${n}`, tone: "yamabuki" as const, title: "研修医が書いた記事・オーダで、指導医か上級医の確認がまだのもの" }] : []),
         ],
       ];
@@ -1350,7 +1358,7 @@ export default function WardApp() {
   // The 移動 row of the 移動・食事 calendar: admission, booked and done moves, discharge and leave.
   const moveEventsOf = (pid: string): MoveEvent[] => {
     const p = findPatient(pid);
-    const es = (people.find((x) => x.patient.id === pid)?.entries ?? []).filter((e) => e.status === "有効" && e.order.type === "procedure");
+    const es = (workOf(pid)?.entries ?? []).filter((e) => e.status === "有効" && e.order.type === "procedure");
     return [
       ...(p ? [{ day: p.admittedOn, time: null, label: "入院", tone: "ink" as const }] : []),
       ...es.flatMap((e): MoveEvent[] => {
@@ -1366,7 +1374,7 @@ export default function WardApp() {
   // 実施: carry out a booked move now (the bed is checked again: still empty, the room's sex).
   const doMove = (entryId: string) => {
     if (deny("bed.move")) return;
-    const x = people.find((y) => y.entries.some((e) => e.id === entryId));
+    const x = people.find((y) => y.entries.some((e) => e.id === entryId)) ?? (activeId ? workOf(activeId) : undefined);
     const e = x?.entries.find((y) => y.id === entryId);
     // 退院: show the checklist first.
     if (x && e && e.order.type === "procedure" && e.order.leave?.kind === "退院") return setDischargeAsk(x.patient.id);
@@ -1700,7 +1708,7 @@ export default function WardApp() {
           onAccept={acceptRequest}
         />
       ) : screen === "iji" ? (
-        <IjiBoard patients={allPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => allPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} />
+        <IjiBoard patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} />
       ) : screen === "support" ? (
         <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
       ) : screen === "meals" ? (
@@ -1861,6 +1869,7 @@ export default function WardApp() {
             title="病棟マップ"
             pick={floorPick}
             summaries={summaries}
+            mine={isMine}
             onOpen={openPatient}
             onMove={deny("bed.move") ? undefined : (patientId, to) => setMoving({ patientId, to })}
           />
@@ -2118,6 +2127,7 @@ export default function WardApp() {
           waiting={waiting}
           resultState={resultState}
           extraFlags={listFlags}
+          mine={isMine}
           today={today}
           dpcPayload={(id) => {
             const p = findPatient(id);
@@ -2212,7 +2222,7 @@ export default function WardApp() {
                     if (changed.length) auditLog({ role: me.role, actor: me.name, action: "算定の設定を変えた", patient: patient.name, detail: changed.map((k) => `${k}: ${JSON.stringify(cur[k] ?? null)} → ${JSON.stringify(next[k])}`).join("、") });
                     setBilling((all) => ({ ...all, [patient.id]: next }));
                   }}
-                  wardPayload={() => allPatients.map(claimPayloadOf)}
+                  wardPayload={() => teamPatients.map(claimPayloadOf)}
                   insurance={iji.insurance[patient.id]}
                   onRegister={(r) => setIji((d) => withInsurance(d, patient.id, r))}
                   settlement={iji.settled[patient.id]}
@@ -2955,7 +2965,7 @@ export default function WardApp() {
               {panel === "labels" && (
                 <Drawer title="ラベルの発行" onClose={closePanel} wide>
                   {(() => {
-                    const person = people.find((x) => x.patient.id === patient.id);
+                    const person = workOf(patient.id);
                     const items = person ? labelItems(person, today, abs(0, nowTime)) : { specimens: [], drugs: [] };
                     return (
                       <LabelsPanel
@@ -3390,7 +3400,7 @@ export default function WardApp() {
 
       {dischargeAsk &&
         (() => {
-          const x = people.find((y) => y.patient.id === dischargeAsk);
+          const x = workOf(dischargeAsk);
           if (!x) return null;
           const pid = x.patient.id;
           const items = dischargeChecklist({
