@@ -13,12 +13,10 @@ import { NOTE_FORMS, NOTE_FORM_SOURCES, eventDays, eventTimeProblem, formFrame, 
 import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
 import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
-import { expandAt, loadPhrases, type Phrase } from "@/lib/phrases";
-import { moveProblem, problemBlocks, renumberProblems } from "@/lib/note-problems";
-import { indentLines, toggleMark, type Range } from "@/lib/note-edit";
+import { loadPhrases, type Phrase } from "@/lib/phrases";
 import { TemplatePanel } from "./NoteTemplates";
 import { PhrasePanel } from "./NotePhrases";
-import { ProblemOrder } from "./ProblemOrder";
+import { NoteBlocks, type NoteBlocksHandle } from "./NoteBlocks";
 
 export interface DraftMeta {
   model: string;
@@ -67,7 +65,7 @@ const SHOW_DICTATION = false;
 /** Today's writing: the note on top, then the order drafts collecting under it. */
 export function TodayPane(p: Props) {
   const box = useRef<HTMLTextAreaElement>(null);
-  const noteBox = useRef<HTMLTextAreaElement>(null);
+  const noteBox = useRef<NoteBlocksHandle>(null);
   const [tool, setTool] = useState<"template" | "phrase" | null>(null);
   const me = useMe();
   // 定型文 of the person writing (kept per person in this browser), and the text selected in the note.
@@ -81,31 +79,14 @@ export function TodayPane(p: Props) {
   const pending = p.drafts.length - readyCount;
   const canConfirm = p.drafts.length > 0 && pending === 0;
   const timeProblem = p.noteAt ? eventTimeProblem(p.noteAt, { day: 0, time: p.nowTime }, p.patient.admittedOn) : null;
-  // Text put into the note at the cursor (or in place of the empty frame); the cursor goes after it.
+  // Text put into the note at the cursor — the line the caret is on — (or in place of the empty frame);
+  // the cursor goes after it once the lines have rendered.
   const put = (make: (note: string, start: number, end: number) => Placed) => {
-    const el = noteBox.current;
-    const r = make(p.note, el?.selectionStart ?? p.note.length, el?.selectionEnd ?? p.note.length);
+    const sel = noteBox.current?.selection ?? { start: p.note.length, end: p.note.length };
+    const r = make(p.note, sel.start, sel.end);
     p.onNoteChange(r.text);
-    requestAnimationFrame(() => {
-      el?.focus();
-      el?.setSelectionRange(r.caret, r.caret);
-    });
+    noteBox.current?.select(r.caret);
   };
-  // The note with a new selection (Tab indent, ⌘B) — the box keeps the selection after React sets the value.
-  const putRange = (r: Range) => {
-    const el = noteBox.current;
-    p.onNoteChange(r.text);
-    requestAnimationFrame(() => el?.setSelectionRange(r.start, r.end));
-  };
-  // ＃ lines get their numbers while typing (not in the middle of IME composition, and not while deleting,
-  // so "＃1 " can be erased); a blur or the end of composition numbers them too.
-  const composing = useRef(false);
-  const numberProblems = (text: string, caret: number) => {
-    const r = renumberProblems(text, caret);
-    if (r.text === text) p.onNoteChange(text);
-    else putRange({ text: r.text, start: r.caret, end: r.caret });
-  };
-  const problems = problemBlocks(p.note);
   const toolButton = (key: NonNullable<typeof tool>, label: string, Icon: typeof LayoutTemplate) => (
     <button
       type="button"
@@ -178,53 +159,7 @@ export function TodayPane(p: Props) {
               <PhrasePanel phrases={ph.list} onPhrases={(list) => setPh({ user: me.name, list })} selected={selected} onInsert={(text) => put((n, s, e) => insertAt(n, s, e, text))} onClose={() => setTool(null)} />
             </div>
           )}
-          {!noteLocked && problems.length > 1 && <ProblemOrder problems={problems} onMove={(from, to) => p.onNoteChange(moveProblem(p.note, from, to))} />}
-          <textarea
-            ref={noteBox}
-            value={p.note}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (composing.current || (e.nativeEvent as InputEvent).isComposing || v.length < p.note.length) p.onNoteChange(v);
-              else numberProblems(v, e.target.selectionStart);
-            }}
-            onCompositionStart={() => (composing.current = true)}
-            onCompositionEnd={(e) => {
-              composing.current = false;
-              numberProblems(e.currentTarget.value, e.currentTarget.selectionStart);
-            }}
-            onBlur={(e) => {
-              const r = renumberProblems(e.currentTarget.value);
-              if (r.text !== e.currentTarget.value) p.onNoteChange(r.text);
-            }}
-            onSelect={(e) => setSelected(e.currentTarget.value.slice(e.currentTarget.selectionStart, e.currentTarget.selectionEnd))}
-            onKeyDown={(e) => {
-              if (noteLocked || e.nativeEvent.isComposing) return;
-              const el = e.currentTarget;
-              const s = el.selectionStart;
-              const en = el.selectionEnd;
-              // ⌘B / Ctrl+B: **太字**; ⌘I / Ctrl+I: *斜体* (Markdown's marks; drawn in the record).
-              if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "b" || e.key === "B" || e.key === "i" || e.key === "I")) {
-                e.preventDefault();
-                putRange(toggleMark(p.note, s, en, e.key.toLowerCase() === "b" ? "**" : "*"));
-                return;
-              }
-              if (e.key !== "Tab") return;
-              e.preventDefault();
-              // 単語登録: 「;読み」 then Tab puts the phrase in its place; otherwise Tab indents the line(s).
-              if (!e.shiftKey && s === en) {
-                const r = expandAt(p.note, s, ph.list);
-                if (r) {
-                  put(() => r);
-                  return;
-                }
-              }
-              putRange(indentLines(p.note, s, en, e.shiftKey));
-            }}
-            readOnly={noteLocked}
-            aria-label="記事"
-            rows={7}
-            className="nums w-full resize-y rounded-md border border-rule bg-sheet px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-ai read-only:bg-paper"
-          />
+          <NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} />
           {!noteLocked && me.role === "看護師" && (
             <p className="hint mt-0.5 text-[10px] text-ink-faint">
               記録の形式（SOAP・フォーカス・経時記録）の根拠：
@@ -272,9 +207,11 @@ export function TodayPane(p: Props) {
                   確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。
                   {me.role === "看護師" && "フォーカスは「＃ 見出し」の下に D)（データ）・Act)（行為）・R)（反応）、経時記録は1行ずつ時刻から書きます。"}
                   <br />
-                  行頭の＃（全角）は問題の番号（＃尿路感染症 → ＃1 尿路感染症）。半角 # は冠動脈などの番号にそのまま使えます。＃が2つ以上あると上に順番の一覧が出て、つまみをドラッグ（か ↑↓）で並べ替えられます。
+                  行頭の＃（全角）は問題の番号（＃尿路感染症 → ＃1 尿路感染症）。半角 # は冠動脈などの番号にそのまま使えます。
                   <br />
-                  Tab で字下げ（Shift+Tab で戻す）、⌘B / Ctrl+B で **太字**、⌘I / Ctrl+I で *斜体*、「;読み」→ Tab で定型文。
+                  1行が1つのブロックです。行の左に出るつまみ（⋮⋮）をドラッグすると、その行（＃の行なら見出しと下の本文がまとめて）を青い線の場所へ動かせます（Alt+↑↓ でも）。番号は動かしたあと振り直されます。iPad では行を長押しするとつまみが出ます。
+                  <br />
+                  Enter で次の行（＃の下は字下げ）、行頭で Backspace で前の行につなぐ、↑↓ で行の間を移る、Tab で字下げ（Shift+Tab で戻す）、⌘B / Ctrl+B で **太字**、⌘I / Ctrl+I で *斜体*、「;読み」→ Tab で定型文。
                 </span>
                 <span className="ml-auto text-[11px] text-ink-faint">{isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します"}</span>
               </>

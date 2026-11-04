@@ -1,4 +1,4 @@
-// The record draws **太字**, *斜体* and ＃ headings; the note box lists the problems to reorder.
+// The record draws **太字**, *斜体* and ＃ headings; the note box edits one line at a time, each with a grip.
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { parseNote, reviseNote } from "@/lib/notes";
@@ -7,8 +7,8 @@ import { STAFF, type Role } from "@/lib/roles";
 import type { CheckContext } from "@/lib/drafts";
 import type { NoteEntry } from "@/lib/types";
 import { HistoryPane } from "./HistoryPane";
+import { NoteBlocks } from "./NoteBlocks";
 import { NoteText } from "./NoteText";
-import { ProblemOrder } from "./ProblemOrder";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { TodayPane } from "./TodayPane";
 
@@ -43,7 +43,7 @@ describe("記事の太字・見出しの表示", () => {
     expect(html).toContain("<b>改善</b>");
   });
 
-  it("the note box lists two or more problems to reorder, with the keys in the hint", () => {
+  it("the note box is one line per block, with a grip on each line and the keys in the hint", () => {
     const pane = (note: string) => (
       <TodayPane
         patient={sakura}
@@ -72,26 +72,35 @@ describe("記事の太字・見出しの表示", () => {
         onNoteAt={() => {}}
       />
     );
-    const two = as("医師", pane("A)\n＃1 尿路感染症\n＃2 高血圧\n"));
-    expect(two).toContain('aria-label="プロブレムの順番"');
-    expect(two).toContain("＃2 高血圧 の順番を変える");
-    expect(two).toContain("⌘B / Ctrl+B");
-    expect(two).toContain("半角 # は冠動脈などの番号にそのまま使えます");
-    const one = as("医師", pane("A)\n＃1 尿路感染症\n"));
-    expect(one).not.toContain('aria-label="プロブレムの順番"');
+    const html = as("医師", pane("A)\n＃1 尿路感染症\n  CRP 改善\n＃2 高血圧\n"));
+    expect(html).toContain('aria-label="記事"');
+    expect(html).not.toContain('aria-label="プロブレムの順番"');
+    // Five lines (the trailing line break is an empty fifth line), each a one-row box with a grip.
+    expect(html.match(/<textarea /g)?.length).toBe(5);
+    expect(html).toContain("＃1 尿路感染症 のブロック（見出しと本文）を動かす（ドラッグか Alt+↑↓）");
+    expect(html).toContain("3行目を動かす（ドラッグか Alt+↑↓）");
+    expect(html).toContain("⌘B / Ctrl+B");
+    expect(html).toContain("半角 # は冠動脈などの番号にそのまま使えます");
+    expect(html).toContain("つまみ（⋮⋮）をドラッグ");
+    // A locked note (a role that cannot write) has no grips.
+    const locked = as("医事課", pane("A)\n＃1 尿路感染症\n"));
+    expect(locked).not.toContain("を動かす（ドラッグか");
+    expect(locked).toContain('readOnly=""');
   });
 
-  it("ProblemOrder names each problem with its number", () => {
-    const html = renderToStaticMarkup(
-      <ProblemOrder
-        problems={[
-          { number: 1, title: "尿路感染症", from: 1, to: 2, segment: 1 },
-          { number: 2, title: "", from: 3, to: 3, segment: 1 },
-        ]}
-        onMove={() => {}}
-      />,
-    );
-    expect(html).toContain("＃1");
-    expect(html).toContain("（名前なし）");
+  it("NoteBlocks draws the heading lines bolder (＃, SOAP marks, hh:mm) and an empty note as one line", () => {
+    const html = renderToStaticMarkup(<NoteBlocks value={"S) 痛みなし\nA)\n＃1 尿路感染症\n  CRP **改善**\n09:30 訪室"} onChange={() => {}} />);
+    const boxes = [...html.matchAll(/<textarea ([^>]*)>([^<]*)<\/textarea>/g)].map((m) => ({ attrs: m[1], text: m[2] }));
+    expect(boxes.map((b) => b.text)).toEqual(["S) 痛みなし", "A)", "＃1 尿路感染症", "  CRP **改善**", "09:30 訪室"]);
+    expect(boxes.map((b) => b.attrs.includes("font-bold"))).toEqual([true, true, true, false, true]);
+    expect(boxes.map((b) => b.attrs.includes('data-heading="true"'))).toEqual([true, true, true, false, true]);
+    // The marks stay in the text as typed (drawn in the record).
+    expect(boxes[3].text).toContain("**");
+    expect(boxes[3].attrs).toContain("pointer-coarse:text-[16px]");
+    const empty = renderToStaticMarkup(<NoteBlocks value="" onChange={() => {}} />);
+    expect(empty.match(/<textarea /g)?.length).toBe(1);
+    const frame = renderToStaticMarkup(<NoteBlocks value={"# \nD) \nAct) \nR) \n"} onChange={() => {}} />);
+    expect(frame.match(/<textarea /g)?.length).toBe(5);
+    expect(frame.match(/data-heading="true"/g)?.length).toBe(4);
   });
 });
