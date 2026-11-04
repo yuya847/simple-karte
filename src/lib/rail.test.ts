@@ -28,11 +28,22 @@ describe("お気に入りの道具", () => {
   it("is kept per person in this browser, and a broken entry falls back to the plain rail", () => {
     const store = fakeStorage();
     saveRail("山本", { mode: "list", pins: ["results", "template:rec-fall"] });
-    expect(loadRail("山本")).toEqual({ mode: "list", pins: ["results", "template:rec-fall"] });
-    expect(loadRail("佐藤")).toEqual({ mode: "icons", pins: [] });
+    expect(loadRail("山本")).toEqual({ group: "intervention", mode: "list", pins: ["results", "template:rec-fall"] });
+    expect(loadRail("佐藤")).toEqual({ group: "intervention", mode: "icons", pins: [] });
     store.set("simple-karte:tool-rail:田中", "{bad");
-    expect(loadRail("田中")).toEqual({ mode: "icons", pins: [] });
+    expect(loadRail("田中")).toEqual({ group: "intervention", mode: "icons", pins: [] });
     store.set("simple-karte:tool-rail:鈴木", JSON.stringify({ pins: ["results", 3, null] }));
     expect(loadRail("鈴木").pins).toEqual(["results"]);
   });
+});
+
+
+it("新しい群を保存し、古い群や不正な値は介入に戻す（お気に入りは保つ）", () => {
+  const store = fakeStorage();
+  saveRail("群の保存", { mode: "list", pins: ["results"], group: "examination" });
+  expect(loadRail("群の保存")).toEqual({ mode: "list", pins: ["results"], group: "examination" });
+  for (const group of ["order", "nurse", "docs", "ref", "billing", "unknown", null]) {
+    store.set("simple-karte:tool-rail:旧群", JSON.stringify({ mode: "list", pins: ["results"], group }));
+    expect(loadRail("旧群")).toEqual({ mode: "list", pins: ["results"], group: "intervention" });
+  }
 });

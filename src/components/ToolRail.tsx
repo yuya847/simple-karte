@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
+import { Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { loadMyTemplates } from "@/lib/note-templates";
-import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin } from "@/lib/rail";
+import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type RailGroupKey } from "@/lib/rail";
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 
@@ -17,25 +17,22 @@ interface Tool {
   disabled?: boolean;
 }
 
-type GroupKey = "order" | "nurse" | "docs" | "ref" | "billing";
+type GroupKey = RailGroupKey;
 
 /**
- * The tools, each group with the ones used most on top and the rest under 「その他」. 注射 and 内服 are not
- * here: they are the tabs on the right (記事作成・注射・内服). The calendars and the flow sheet are under 参照
+ * The tools, each group with the ones used most on top. 処方 and 注射 open the right-hand tabs.
+ * The calendars and the flow sheet are under 参照
  * (the `injectionCalendar` and `calendars` props): each opens in its own large window.
  */
 const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
   {
-    key: "order",
-    title: "オーダ",
+    key: "intervention",
+    title: "介入",
     main: [
-      { key: "add-lab", label: "検体検査", icon: TestTube },
-      { key: "add-imaging", label: "画像検査", icon: Radiation },
-      { key: "add-physio", label: "生理・内視鏡", icon: HeartPulse },
+      { key: "add-rx", label: "処方", icon: Pill },
+      { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-procedure", label: "処置", icon: Bandage },
-      { key: "opd-booking", label: "外来予約", icon: CalendarClock },
       { key: "diet", label: "食事", icon: Utensils },
-      { key: "diagnoses", label: "病名", icon: FileHeart },
       { key: "standing", label: "指示簿", icon: ClipboardList },
       { key: "sets", label: "セット", icon: Layers },
       { key: "path", label: "パス", icon: Route },
@@ -43,9 +40,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     more: [
       { key: "add-rehab", label: "リハビリ", icon: Footprints },
       { key: "add-consult", label: "他科依頼", icon: Send },
-      { key: "team", label: "チーム依頼", icon: UsersRound },
       { key: "add-transfusion", label: "輸血", icon: Droplet },
-      { key: "add-pathology", label: "病理", icon: Microscope },
       { key: "add-dialysis", label: "透析", icon: Droplets },
       { key: "regimen", label: "レジメン", icon: FlaskRound },
       { key: "restraint", label: "身体的拘束", icon: Hand },
@@ -53,10 +48,22 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
       { key: "discharge-stop", label: "退院時の一括中止", icon: ListX },
       { key: "add-leave", label: "外泊・外出", icon: Luggage },
       { key: "add-guide", label: "指導の依頼", icon: GraduationCap },
+      { key: "transfer", label: "転院・施設の調整", icon: Hotel },
     ],
   },
   {
-    key: "nurse",
+    key: "examination",
+    title: "検査",
+    main: [
+      { key: "add-lab", label: "検体検査", icon: TestTube },
+      { key: "add-imaging", label: "画像検査", icon: Radiation },
+      { key: "add-physio", label: "生理・内視鏡", icon: HeartPulse },
+      { key: "add-pathology", label: "病理", icon: Microscope },
+    ],
+    more: [],
+  },
+  {
+    key: "nursing",
     title: "看護",
     main: [
       { key: "take", label: "指示受け", icon: ClipboardCheck },
@@ -74,29 +81,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     ],
   },
   {
-    key: "docs",
-    title: "文書",
-    main: [
-      { key: "templates", label: "テンプレート", icon: LayoutTemplate },
-      { key: "consents", label: "同意書", icon: FileSignature },
-      { key: "discharge", label: "退院サマリ", icon: FileText },
-      { key: "docs", label: "書類作成", icon: FileStack },
-      { key: "cosign", label: "研修医の記録の確認", icon: UserCheck },
-    ],
-    more: [
-      { key: "scans", label: "スキャン取込", icon: ScanText },
-      { key: "directive", label: "事前指示", icon: HeartHandshake },
-      { key: "summary", label: "連携サマリ", icon: Share2 },
-      { key: "transfer", label: "転院・施設の調整", icon: Hotel },
-      { key: "labels", label: "ラベル", icon: Barcode },
-      { key: "schema", label: "シェーマ", icon: PenTool },
-      { key: "access-limit", label: "閲覧制限", icon: LockKeyhole },
-      { key: "chat", label: "チャット", icon: MessagesSquare },
-      { key: "national", label: "国のサービス（模擬）", icon: Landmark },
-    ],
-  },
-  {
-    key: "ref",
+    key: "reference",
     title: "参照",
     main: [
       { key: "results", label: "検査結果", icon: FlaskConical },
@@ -110,11 +95,40 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     ],
     more: [],
   },
-  { key: "billing", title: "医事", main: [{ key: "billing", label: "算定", icon: ReceiptJapaneseYen }], more: [] },
+  {
+    key: "admin",
+    title: "事務",
+    main: [
+      { key: "billing", label: "算定", icon: ReceiptJapaneseYen },
+      { key: "consents", label: "同意書", icon: FileSignature },
+      { key: "discharge", label: "退院サマリ", icon: FileText },
+      { key: "docs", label: "書類作成", icon: FileStack },
+    ],
+    more: [
+      { key: "scans", label: "スキャン取込", icon: ScanText },
+      { key: "directive", label: "事前指示", icon: HeartHandshake },
+      { key: "summary", label: "連携サマリ", icon: Share2 },
+      { key: "labels", label: "ラベル", icon: Barcode },
+      { key: "national", label: "国のサービス（模擬）", icon: Landmark },
+    ],
+  },
+  {
+    key: "other",
+    title: "その他",
+    main: [
+      { key: "templates", label: "テンプレート", icon: LayoutTemplate },
+      { key: "cosign", label: "研修医の記録の確認", icon: UserCheck },
+      { key: "opd-booking", label: "外来予約", icon: CalendarClock },
+      { key: "team", label: "チーム依頼", icon: UsersRound },
+    ],
+    more: [
+      { key: "diagnoses", label: "病名", icon: FileHeart },
+      { key: "schema", label: "シェーマ", icon: PenTool },
+      { key: "access-limit", label: "閲覧制限", icon: LockKeyhole },
+      { key: "chat", label: "チャット", icon: MessagesSquare },
+    ],
+  },
 ];
-
-/** Nurses see 看護 first; everyone else オーダ first. */
-const orderFor = (role: string): GroupKey[] => (role === "看護師" ? ["nurse", "order", "docs", "ref", "billing"] : ["order", "nurse", "docs", "ref", "billing"]);
 
 /**
  * Roles that get only a few tools in a ward patient's chart (架空の病院の取り決め): the technologist who opens a
@@ -129,7 +143,7 @@ const DOCTOR_ONLY: ReadonlySet<PanelKind> = new Set<PanelKind>(["cosign"]);
 export function groupsFor(role: string): { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] {
   const only = ONLY[role];
   const forRole = (ts: Tool[]) => (role === "医師" ? ts : ts.filter((t) => !DOCTOR_ONLY.has(t.key)));
-  const groups = orderFor(role).map((k) => GROUPS.find((g) => g.key === k)!).map((g) => ({ ...g, main: forRole(g.main), more: forRole(g.more) }));
+  const groups = GROUPS.map((g) => ({ ...g, main: forRole(g.main), more: forRole(g.more) }));
   if (!only) return groups;
   const pick = (ts: Tool[]) => ts.filter((t) => only.includes(t.key)).sort((a, b) => only.indexOf(a.key) - only.indexOf(b.key));
   return groups.map((g) => ({ ...g, main: pick(g.main), more: pick(g.more) })).filter((g) => g.main.length + g.more.length > 0);
@@ -167,11 +181,11 @@ interface Tile {
 }
 
 /**
- * The group tabs (オーダ・看護・文書・参照・医事): tall enough to press (28px and up), 12px letters, room on
+ * The group tabs (介入・検査・看護・参照・事務・その他): tall enough to press (28px and up), 12px letters, room on
  * the sides; the chosen one black with white letters. The red dot (something unseen inside) sits on
  * the top-right corner.
  */
-export const GROUP_TAB_CLASS = "relative inline-flex min-h-7 items-center rounded-md px-2.5 py-1 text-[12px] leading-none";
+export const GROUP_TAB_CLASS = "relative inline-flex min-h-7 items-center justify-center rounded-md px-2.5 py-1 text-[12px] font-normal leading-none";
 
 const toolClass = (off: boolean, active: boolean) =>
   `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
@@ -180,7 +194,7 @@ const toolClass = (off: boolean, active: boolean) =>
 const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ${urgent ? "bg-shu" : "bg-ai"}`;
 
 /**
- * The column of tools on the far right: tabs by kind (オーダ・看護・文書・参照・医事), the tools of the chosen
+ * The column of tools on the far right: tabs by kind (介入・検査・看護・参照・事務・その他), the tools of the chosen
  * tab in three columns of icons (or a list with names), and above them an お気に入り bar with the tools
  * this person pinned (★) — and the record templates pinned from the テンプレート panel, each opening straight
  * into its form. The pins and the look are kept per person in this browser (src/lib/rail.ts).
@@ -189,8 +203,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const me = useMe();
   const groups = groupsFor(me.role);
   const short = railIsShort(me.role);
-  const [tab, setTab] = useState<GroupKey>(groups[0].key);
   const [rail, put] = useRail(me.name);
+  const tab = groups.find((g) => g.key === rail.group)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
   const all = groups.flatMap((g) => [...g.main, ...g.more]);
   const list = rail.mode === "list";
@@ -275,11 +289,11 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
         </div>
         {pinned.length === 0 ? <p className="px-0.5 pb-0.5 text-[10px] text-ink-faint">★ でよく使う道具をここに（テンプレートの ★ でも）</p> : <div className={grid}>{pinned.map((t) => tile(t, "pins"))}</div>}
       </section>
-      <div role="tablist" aria-label="道具の種類" className="mb-1 flex flex-wrap gap-1 border-b border-rule pb-1">
+      <div role="tablist" aria-label="道具の種類" className="mb-1 grid grid-cols-3 gap-1 border-b border-rule pb-1">
         {groups.map((g) => {
           const badged = [...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0);
           return (
-            <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => setTab(g.key)} data-badged={badged || undefined} className={`${GROUP_TAB_CLASS} ${shownTab === g.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
+            <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => put({ ...rail, group: g.key })} data-badged={badged || undefined} className={`${GROUP_TAB_CLASS} ${shownTab === g.key ? "bg-ink text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
               {g.title}
               {badged && <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-block h-2.5 w-2.5 rounded-full border border-paper bg-shu" />}
             </button>
@@ -287,13 +301,13 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
         })}
       </div>
       <div className={grid}>
-        {group.key === "ref" && !short && injectionCalendar && (
+        {group.key === "reference" && !short && injectionCalendar && (
           <button type="button" title="注射カレンダー（大きな別ウインドウで開きます。新規・延長・修正もここで。「右の欄に戻す」で右のタブにできます）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
             <CalendarDays size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
             注射カレンダー
           </button>
         )}
-        {group.key === "ref" &&
+        {group.key === "reference" &&
           !short &&
           calendars.map((c) => {
             const Icon = c.icon;

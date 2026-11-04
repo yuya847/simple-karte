@@ -4,6 +4,9 @@
 
 import { useSyncExternalStore } from "react";
 
+export const RAIL_GROUP_KEYS = ["intervention", "examination", "nursing", "reference", "admin", "other"] as const;
+export type RailGroupKey = (typeof RAIL_GROUP_KEYS)[number];
+
 export type RailMode = "icons" | "list";
 
 /** A pinned tool: a panel's key, or a record template by id. */
@@ -11,6 +14,7 @@ export type RailPin = string;
 
 export interface RailState {
   mode: RailMode;
+  group?: RailGroupKey;
   pins: RailPin[];
 }
 
@@ -22,12 +26,12 @@ export const isTemplatePin = (p: RailPin) => p.startsWith(TEMPLATE_PREFIX);
 /** The template's id from its pin, or null for a tool's pin. */
 export const templateIdOf = (p: RailPin): string | null => (isTemplatePin(p) ? p.slice(TEMPLATE_PREFIX.length) : null);
 
-const EMPTY: RailState = { mode: "icons", pins: [] };
+const EMPTY: RailState = { group: "intervention", mode: "icons", pins: [] };
 
 export function loadRail(person: string): RailState {
   try {
-    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { mode?: RailMode; pins?: unknown } | null;
-    return { mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
+    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { mode?: RailMode; pins?: unknown; group?: unknown } | null;
+    return { group: RAIL_GROUP_KEYS.find((key) => key === o?.group) ?? "intervention", mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
   } catch {
     return EMPTY;
   }

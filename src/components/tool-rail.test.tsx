@@ -1,11 +1,11 @@
 // The right-end tools render on the server (no browser): the group tabs big enough to press, the red dot on
-// a tab with something unseen, the doctor's 研修医の記録の確認 under 文書, and the strips (指示受け・研修医の
+// a tab with something unseen, the doctor's 研修医の記録の確認 under その他, and the strips (指示受け・研修医の
 // 記録の確認) living in the drawers, not above the note.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { STAFF, type Role } from "@/lib/roles";
+import { can, ROLES, STAFF, type Role } from "@/lib/roles";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { GROUP_TAB_CLASS, ToolRail, groupsFor } from "./ToolRail";
 
@@ -17,21 +17,23 @@ const as = (role: Role, el: React.ReactElement) =>
   );
 const tabs = (html: string) => html.match(/<button[^>]*role="tab"[^>]*>/g) ?? [];
 
-describe("右端ツールの群タブ（オーダ／看護／文書／参照／医事）", () => {
+describe("右端ツールの群タブ（介入／検査／看護／参照／事務／その他）", () => {
   it("each tab is 28px and up, 12px letters, with room on the sides; the chosen one black with white letters", () => {
     const html = as("医師", <ToolRail open={null} onOpen={() => {}} />);
     const ts = tabs(html);
-    expect(ts.length).toBe(5);
+    expect(ts.length).toBe(6);
     for (const t of ts) {
       expect(t).toContain("min-h-7");
       expect(t).toContain("text-[12px]");
       expect(t).toContain("px-2.5");
+      expect(t).toContain("font-normal");
+      expect(t).not.toContain("font-bold");
     }
     expect(GROUP_TAB_CLASS).toContain("min-h-7");
-    expect(ts.filter((t) => t.includes("bg-ink font-bold text-white")).length).toBe(1);
+    expect(ts.filter((t) => t.includes("bg-ink text-white")).length).toBe(1);
     expect(ts[0]).toContain('aria-selected="true"');
-    // The row wraps when the rail is too narrow for one line.
-    expect(html).toMatch(/role="tablist"[^>]*class="[^"]*flex-wrap/);
+    // Equal columns and a shared weight keep every tab in place.
+    expect(html).toMatch(/role="tablist"[^>]*class="[^"]*grid grid-cols-3/);
   });
 
   it("a tab with something unseen inside carries a red dot on its top-right corner (a little bigger than before)", () => {
@@ -46,8 +48,8 @@ describe("右端ツールの群タブ（オーダ／看護／文書／参照／�
 });
 
 describe("右端ツールの中の帯（指示受け・研修医の記録の確認）", () => {
-  it("文書 has 研修医の記録の確認 (cosign) for the doctor, with the count as a red number; the others do not see it", () => {
-    const docs = groupsFor("医師").find((g) => g.key === "docs")!;
+  it("その他 has 研修医の記録の確認 (cosign) for the doctor, with the count as a red number; the others do not see it", () => {
+    const docs = groupsFor("医師").find((g) => g.key === "other")!;
     expect(docs.main.map((t) => t.key)).toContain("cosign");
     expect(groupsFor("看護師").flatMap((g) => [...g.main, ...g.more]).some((t) => t.key === "cosign")).toBe(false);
     const html = as("医師", <ToolRail open="cosign" onOpen={() => {}} badges={{ cosign: { n: 3 } }} />);
@@ -75,4 +77,46 @@ describe("右端ツールの中の帯（指示受け・研修医の記録の確�
     expect(src).toContain('panel === "cosign"');
     expect(src).toContain("<CosignPanel");
   });
+});
+
+
+describe("処方・注射の入口", () => {
+  it("介入の先頭に処方・注射を並べ、既存の権限による無効表示を使う", () => {
+    expect(groupsFor("医師")[0].main.slice(0, 2).map((t) => t.key)).toEqual(["add-rx", "add-injection"]);
+    for (const role of ROLES) {
+      const allowed = can(role, "order") || can(role, "order.verbal");
+      const why = allowed ? undefined : "オーダの確定は医師が行います";
+      const html = as(role, <ToolRail open="add-rx" onOpen={() => {}} blocked={{ "add-rx": why, "add-injection": why }} />);
+      if (role === "診療放射線技師") {
+        expect(html).not.toContain('title="処方"');
+        continue;
+      }
+      const buttons = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+      for (const label of ["処方", "注射"]) {
+        const button = buttons.find((b) => b.includes(`<span class="">${label}</span>`))!;
+        expect(button).toBeTruthy();
+        expect(button.includes('disabled=""')).toBe(!allowed);
+      }
+    }
+  });
+});
+
+
+it("職種共通の6群で、既存の道具を重複なく分類する", () => {
+  for (const role of ROLES.filter((r) => r !== "診療放射線技師")) {
+    const groups = groupsFor(role);
+    expect(groups.map((g) => g.title)).toEqual(["介入", "検査", "看護", "参照", "事務", "その他"]);
+    const keys = groups.flatMap((g) => [...g.main, ...g.more].map((t) => t.key));
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(groups[1].main.map((t) => t.key)).toEqual(["add-lab", "add-imaging", "add-physio", "add-pathology"]);
+    expect(groups[4].main.map((t) => t.key)).toEqual(["billing", "consents", "discharge", "docs"]);
+    expect(groups[5].main.map((t) => t.key)).toContain("opd-booking");
+  }
+});
+
+
+it("参照だけの職種では保存群が対象外でも参照を選ぶ", () => {
+  const html = as("診療放射線技師", <ToolRail open={null} onOpen={() => {}} />);
+  expect(tabs(html)).toHaveLength(1);
+  expect(tabs(html)[0]).toContain('aria-selected="true"');
 });

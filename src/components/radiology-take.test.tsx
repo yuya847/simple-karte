@@ -135,7 +135,7 @@ describe("放射線部の指示受けの画面", () => {
 
   it("in a ward patient's chart the technologist gets only 放射線画像・レポート一覧・患者モニター", () => {
     expect(groupsFor("診療放射線技師").flatMap((g) => [...g.main, ...g.more].map((t) => t.key))).toEqual(["imaging", "report-list", "monitor"]);
-    expect(groupsFor("医師").length).toBe(5);
+    expect(groupsFor("医師").length).toBe(6);
     const html = as("診療放射線技師", <ToolRail open={null} onOpen={noop} calendars={[{ key: "flow", label: "経過表", icon: (() => null) as never, on: false, open: noop }]} />);
     expect(html).toContain("放射線画像");
     expect(html).toContain("レポート一覧");

@@ -83,10 +83,11 @@ describe("テンプレートの引き出し", () => {
 });
 
 describe("右端ツールのテンプレート", () => {
-  it("テンプレート is the first tool under 文書", () => {
+  it("テンプレート is the first tool under その他", () => {
     const html = as("医師", <ToolRail open="templates" onOpen={noop} />);
     expect(html).toContain("テンプレート");
-    expect(html.indexOf(">テンプレート<")).toBeLessThan(html.indexOf(">同意書<"));
+    expect(html.indexOf(">テンプレート<")).toBeLessThan(html.indexOf(">外来予約<"));
+    expect(html).not.toContain(">同意書<");
   });
 
   it("a pinned template sits in お気に入り under its short name, lit when its form is open", () => {

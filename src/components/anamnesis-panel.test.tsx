@@ -20,7 +20,7 @@ const v2 = saveAnamnesis(v1, oura.id, { ...v1.fields, keyPerson: "長女" }, "�
 
 describe("入院時の情報収集", () => {
   it("the nurse finds it on the right rail", () => {
-    expect(as("看護師", <ToolRail open={null} onOpen={() => {}} />)).toContain("情報収集");
+    expect(as("看護師", <ToolRail open="anamnesis" onOpen={() => {}} />)).toContain("情報収集");
   });
 
   it("a new interview starts from the help already in the profile", () => {

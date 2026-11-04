@@ -1,4 +1,4 @@
-// 外来予約 on the screens (server render): the panel's choices and rule note, the draft card, the tool under オーダ,
+// 外来予約 on the screens (server render): the panel's choices and rule note, the draft card, the tool under その他,
 // and the order in the record and the booking list.
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -61,8 +61,8 @@ describe("外来予約の下書きと記録", () => {
     expect(html).toContain("再診　採血は30分前");
     expect(html).toContain("確定できます");
   });
-  it("the tools' オーダ tab has 外来予約", () => {
-    const html = as("医師", <ToolRail open={null} onOpen={() => {}} />);
+  it("the tools' その他 tab has 外来予約", () => {
+    const html = as("医師", <ToolRail open="opd-booking" onOpen={() => {}} />);
     expect(html).toContain(">外来予約<");
     expect(html).toContain("lucide-calendar-clock");
   });
