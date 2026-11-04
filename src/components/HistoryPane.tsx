@@ -20,11 +20,13 @@ import { BookingList } from "./BookingList";
 import type { Booking } from "@/lib/bookings";
 import type { DietOrder } from "@/lib/diet";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
+import type { StandingLine } from "@/lib/standing-lines";
+import { StandingCalendar } from "./StandingCalendar";
 
 /** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00). */
 type CalendarMar = (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
 
-export type LeftView = "record" | "flowsheet" | "injection-cal" | "rx-cal" | "proc-cal" | "diet-cal" | "bookings";
+export type LeftView = "record" | "flowsheet" | "injection-cal" | "rx-cal" | "proc-cal" | "diet-cal" | "standing-cal" | "bookings";
 
 export const LEFT_VIEWS: { key: LeftView; label: string; title?: string }[] = [
   { key: "record", label: "経過" },
@@ -33,6 +35,7 @@ export const LEFT_VIEWS: { key: LeftView; label: string; title?: string }[] = [
   { key: "rx-cal", label: "内服", title: "内服カレンダー" },
   { key: "proc-cal", label: "処置", title: "処置カレンダー" },
   { key: "diet-cal", label: "移動・食事", title: "移動・食事カレンダー（日付を押すと転床・転棟・転科・退院を予約）" },
+  { key: "standing-cal", label: "指示簿", title: "指示簿カレンダー（指示の行ごとに、続く期間を帯で）" },
   { key: "bookings", label: "予約", title: "予約の一覧（検査・透析・リハビリ・手術など）" },
 ];
 
@@ -81,6 +84,8 @@ interface Props {
   flowDays?: FlowDays;
   /** The rest of what the flow sheet shows and does (lab draws waiting, entries from its cells …). */
   flow?: FlowExtra;
+  /** 指示簿カレンダー: the lines (free text and from the fields), stopping one, and opening the 指示簿 panel. */
+  standingCal?: { lines: StandingLine[]; onStop?: (id: string, reason: string) => void; onOpenPanel?: () => void };
 }
 
 /** Flow sheet props that the chart passes through this pane as they are. */
@@ -105,7 +110,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
   // A 記録 mark of the flow sheet opens 経過 on that day with only that kind of note (n renews the list).
   const [recordKind, setRecordKind] = useState<{ kind: string; n: number }>({ kind: "all", n: 0 });
@@ -151,6 +156,8 @@ export function HistoryPane(props: Props) {
         <BookingList bookings={bookings ?? []} today={today} />
       ) : view === "diet-cal" ? (
         <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} moves={moves} onBook={onBook} onDoMove={onDoMove} />
+      ) : view === "standing-cal" ? (
+        <StandingCalendar patient={patient} lines={standingCal?.lines ?? []} today={today} nowTime={nowTime} onStop={standingCal?.onStop} onOpenPanel={standingCal?.onOpenPanel} />
       ) : (
         <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} />
       )}
