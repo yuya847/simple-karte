@@ -22,8 +22,12 @@ import {
 } from "@/lib/standing";
 import { condMissing, ruleText, type CondAck, type CondHit } from "@/lib/cond-orders";
 import { CondEditor, CondHits } from "../CondOrders";
+import type { StandingLine } from "@/lib/standing-lines";
+import type { CalendarDate } from "@/lib/dates";
+import type { Patient } from "@/lib/types";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { TabChoice } from "../TabChoice";
+import { StandingLines } from "./StandingLines";
 
 // 麻薬 are not offered here (NARCOTIC_RULES.prn): each use is ordered, so that the 麻薬施用者 check applies.
 const PRN_DRUGS = [
@@ -47,6 +51,7 @@ export function StandingPanel({
   condHits = [],
   condAcks = {},
   onCondRecord,
+  lines,
 }: {
   versions: StandingOrders[];
   allergies: string[];
@@ -59,6 +64,8 @@ export function StandingPanel({
   condHits?: CondHit[];
   condAcks?: Record<string, CondAck>;
   onCondRecord?: (h: CondHit, note: string) => void;
+  /** The free-text lines (指示の行): the main part of the 指示簿; the fields below stay for the worksheet. */
+  lines?: { patient: Patient; lines: StandingLine[]; today: CalendarDate; onAdd: (l: StandingLine) => void; onStop: (id: string, reason: string) => void };
 }) {
   const me = useMe();
   const deny = useDeny();
@@ -218,6 +225,13 @@ export function StandingPanel({
 
   return (
     <div className="space-y-3 text-[13px]">
+      {lines && (
+        <>
+          <StandingLines patient={lines.patient} lines={lines.lines} fields={cur} today={lines.today} nowTime={nowTime} onAdd={lines.onAdd} onStop={lines.onStop} newId={newId} />
+          <h3 className="border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
+          <p className="hint text-[11px] text-ink-faint">ワークシートの頓用、水分出納の確認、医師を呼ぶ基準の判定はこの項目から出ます。上の行と合わせて指示簿カレンダーに出ます。</p>
+        </>
+      )}
       {cur ? (
         <>
           <div className="flex flex-wrap items-center gap-2 text-[12px]">
