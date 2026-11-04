@@ -61,7 +61,7 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         </div>
         <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] text-ink-soft">架空の患者</span>
       </div>
-      {actions && <div className="order-last ml-auto flex shrink-0 flex-wrap items-center gap-1.5 xl:order-none">{actions}</div>}
+      {actions && <div className="order-last ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">{actions}</div>}
 
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">
         <dt className="text-ink-faint">ID</dt>
