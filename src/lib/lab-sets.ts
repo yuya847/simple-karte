@@ -49,6 +49,7 @@ const HEPATITIS = ["LAB-HBSAG", "LAB-HCVAB", "LAB-HIV", "LAB-TPAB", "LAB-RPR"];
 
 /** 基本セット: the hospital's order sets (ORDER_SETS) and the 生化学 set, opened up to single items. */
 export const BASIC_SETS: LabSet[] = [
+  set("SET-ER-INITIAL", "救急初療セット", ["LAB-CBC", ...CHEM, "LAB-PT", "LAB-APTT", "LAB-DD", "LAB-BGA", "LAB-TNT", "LAB-BNP", "LAB-LAC", "LAB-GLU"]),
   ...ORDER_SETS.map((s) => set(s.code, s.name, s.labCodes)),
   ...LAB_TESTS.filter((t) => t.group === "セット" && !t.hidden).map((t) => set(t.code, t.abbr ?? t.name, [t.code])),
 ];

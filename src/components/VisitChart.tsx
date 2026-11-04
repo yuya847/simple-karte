@@ -1,7 +1,7 @@
 "use client";
 
 import { BedDouble, X } from "lucide-react";
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { REQUEST_WARDS, requestProblems, type AdmissionRequest } from "@/lib/admission";
 import { JTAS_LABEL, type ErPatient, type ErStatus } from "@/lib/er";
 import { OPD_STATUSES, type OpdPatient } from "@/lib/opd";
@@ -296,17 +296,19 @@ function OpdFacts({ op, fmtDay }: { op: OpdPatient; fmtDay: (d: number) => strin
   );
 }
 
-/** 入院申込の欄. Every choice is the doctor's; nothing is preselected except what the record already says (身長・体重・アレルギー). */
+/** 入院申込。救急外来の初期値も医師が変更できる。 */
 export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { visit: Visit; me: string; nowTime: string; newId: () => string; onCancel: () => void; onSend: (r: AdmissionRequest) => void }) {
+  const uid = useId();
+  const formRef = useRef<HTMLDivElement>(null);
   const deny = useDeny()("er.admit");
   const p = visit.kind === "er" ? visit.er : visit.op;
   const [f, setF] = useState({
-    urgency: null as AdmissionRequest["urgency"] | null,
-    day: null as number | null,
+    urgency: (visit.kind === "er" ? "緊急" : null) as AdmissionRequest["urgency"] | null,
+    day: (visit.kind === "er" ? 0 : null) as number | null,
     time: "",
     ward: null as string | null,
     roomWish: null as AdmissionRequest["roomWish"] | null,
-    isolation: null as AdmissionRequest["isolation"] | null,
+    isolation: (visit.kind === "er" ? "なし" : null) as AdmissionRequest["isolation"] | null,
     rest: null as AdmissionRequest["rest"] | null,
     diagnosis: "",
     purpose: "",
@@ -320,15 +322,16 @@ export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { v
     !f.urgency && "区分",
     f.day === null && "入院予定日",
     !f.ward && "病棟",
-    !f.roomWish && "部屋",
     !f.isolation && "感染対策",
     !f.rest && "安静度",
     ...requestProblems(f),
   ].filter((x): x is string => !!x);
   const input = "w-full rounded border border-rule bg-paper px-2 py-1 outline-none focus:border-ai";
   const row = (label: string, el: React.ReactNode) => (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="w-20 shrink-0 text-[12px] text-ink-soft">{label}</span>
+    <div data-request-field={label} className="flex flex-wrap items-center gap-1.5">
+      {["入院時の病名", "入院の目的", "アレルギー"].includes(label)
+        ? <label htmlFor={`${uid}-${label}`} className="w-20 shrink-0 text-[12px] text-ink-soft">{label}</label>
+        : <span className="w-20 shrink-0 text-[12px] text-ink-soft">{label}</span>}
       {el}
     </div>
   );
@@ -348,7 +351,7 @@ export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { v
       urgency: f.urgency!,
       when: { day: f.day!, time: f.time || null },
       ward: f.ward!,
-      roomWish: f.roomWish!,
+      roomWish: f.roomWish ?? "どちらでも",
       isolation: f.isolation!,
       rest: f.rest!,
       purpose: f.purpose.trim(),
@@ -362,7 +365,7 @@ export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { v
     });
   };
   return (
-    <div className="space-y-2 text-[12px]">
+    <div ref={formRef} className="space-y-2 text-[12px]">
       {row("区分", <TabChoice label="入院の区分" options={(["緊急", "予定"] as const).map((x) => ({ value: x, label: x }))} value={f.urgency} onChange={(v) => set({ urgency: v })} />)}
       {row(
         "入院予定日",
@@ -382,30 +385,32 @@ export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { v
         </>,
       )}
       {row("病棟", <TabChoice label="希望の病棟" options={REQUEST_WARDS.map((w) => ({ value: w, label: w }))} value={f.ward} onChange={(v) => set({ ward: v })} />)}
-      {row("部屋", <TabChoice label="部屋の希望" options={(["個室", "大部屋", "どちらでも"] as const).map((x) => ({ value: x, label: x }))} value={f.roomWish} onChange={(v) => set({ roomWish: v })} />)}
+      {row("部屋（任意）", <TabChoice label="部屋の希望" options={(["個室", "大部屋", "どちらでも"] as const).map((x) => ({ value: x, label: x }))} value={f.roomWish} onChange={(v) => set({ roomWish: v })} />)}
       {row("感染対策", <TabChoice label="感染対策" options={(["なし", "接触予防策", "飛沫予防策", "空気予防策"] as const).map((x) => ({ value: x, label: x }))} value={f.isolation} onChange={(v) => set({ isolation: v })} />)}
       {row("安静度", <TabChoice label="安静度" options={(["ベッド上", "車いす", "歩行可"] as const).map((x) => ({ value: x, label: x }))} value={f.rest} onChange={(v) => set({ rest: v })} />)}
-      {row("入院時の病名", <input value={f.diagnosis} onChange={(e) => set({ diagnosis: e.target.value })} placeholder="例：心不全の増悪" className={input} />)}
-      {row("入院の目的", <input value={f.purpose} onChange={(e) => set({ purpose: e.target.value })} placeholder="例：治療（利尿薬の静注）・精査" className={input} />)}
+      {row("入院時の病名", <input id={`${uid}-入院時の病名`} value={f.diagnosis} onChange={(e) => set({ diagnosis: e.target.value })} placeholder="例：心不全の増悪" className={input} />)}
+      {row("入院の目的", <input id={`${uid}-入院の目的`} value={f.purpose} onChange={(e) => set({ purpose: e.target.value })} placeholder="例：治療（利尿薬の静注）・精査" className={input} />)}
       {row(
         "身長・体重",
         <>
-          <input value={f.heightCm || ""} onChange={(e) => set({ heightCm: Number(e.target.value) })} inputMode="decimal" aria-label="身長" className="w-16 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
+          <label htmlFor={`${uid}-身長`}>身長</label><input id={`${uid}-身長`} value={f.heightCm || ""} onChange={(e) => set({ heightCm: Number(e.target.value) })} inputMode="decimal" aria-label="身長" className="w-16 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
           cm
-          <input value={f.weightKg || ""} onChange={(e) => set({ weightKg: Number(e.target.value) })} inputMode="decimal" aria-label="体重" className="w-16 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
+          <label htmlFor={`${uid}-体重`}>体重</label><input id={`${uid}-体重`} value={f.weightKg || ""} onChange={(e) => set({ weightKg: Number(e.target.value) })} inputMode="decimal" aria-label="体重" className="w-16 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
           kg
         </>,
       )}
       {row(
         "アレルギー",
         <input
+          id={`${uid}-アレルギー`}
           value={f.allergies.join("、")}
           onChange={(e) => set({ allergies: e.target.value.split(/[、,]/).map((a) => a.trim()).filter(Boolean) })}
           placeholder="なし"
           className={input}
         />,
       )}
-      <textarea value={f.note} onChange={(e) => set({ note: e.target.value })} rows={2} placeholder="病棟への申し送り（任意）" aria-label="病棟への申し送り" className={input} />
+      <label htmlFor={`${uid}-note`}>病棟への申し送り</label>
+      <textarea id={`${uid}-note`} value={f.note} onChange={(e) => set({ note: e.target.value })} rows={2} placeholder="病棟への申し送り（任意）" aria-label="病棟への申し送り" className={input} />
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <button type="button" disabled={missing.length > 0 || !!deny} onClick={send} className="rounded-md bg-ai px-4 py-2 text-sm font-bold text-white disabled:opacity-40">
           入院申込を出す
@@ -413,7 +418,11 @@ export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { v
         <button type="button" onClick={onCancel} className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft">
           やめる
         </button>
-        {missing.length > 0 && <span className="text-yamabuki">未入力：{missing.join("・")}</span>}
+        {missing.length > 0 && <span className="text-yamabuki">未入力：{missing.map((name, i) => <span key={name}>{i > 0 && "・"}<button type="button" className="underline" onClick={() => {
+          const exact = document.getElementById(`${uid}-${name}`);
+          const row = Array.from(formRef.current?.querySelectorAll<HTMLElement>("[data-request-field]") ?? []).find((el) => el.dataset.requestField === name);
+          (exact ?? row?.querySelector<HTMLElement>('input, textarea, button[tabindex="0"], button'))?.focus();
+        }}>{name}</button></span>)}</span>}
         <DenyNote action="er.admit" />
       </div>
     </div>

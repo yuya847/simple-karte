@@ -265,7 +265,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "add-consult", "standing", "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "add-consult", "standing", "add-lab", "add-imaging", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -3174,6 +3174,7 @@ export default function WardApp() {
                       <Drawer key={`injection:${patient.id}:${desk}`} title={`注射：${patient.name}さん`} windowKey="add-injection" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-injection"))}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddInjectionPanel
+                              patientId={patient.id}
                               key={patient.id}
                               newId={newId}
                               drafts={chart.drafts}
@@ -3667,7 +3668,7 @@ export default function WardApp() {
               )}
               {panel === "add-imaging" && (
                 <Drawer title="画像検査" onClose={closePanel} locked={orderBlock}>
-                  <AddImagingPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                  <AddImagingPanel patientId={patient.id} onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-physio" && (
@@ -4188,7 +4189,7 @@ export default function WardApp() {
               )}
               {panel === "add-lab" && (
                 <Drawer title="検体検査（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
-                  <AddLabPanel onAdd={(d) => { addManualLab(d); closePanel(); }} onSave={saveLab} newId={newId} today={today} levelDrugs={levelDrugsFrom(entries.filter((e): e is OrderEntry => e.kind === "order"), anyDrugName)} />
+                  <AddLabPanel patientId={patient.id} onAdd={(d) => { addManualLab(d); closePanel(); }} onSave={saveLab} newId={newId} today={today} levelDrugs={levelDrugsFrom(entries.filter((e): e is OrderEntry => e.kind === "order"), anyDrugName)} />
                 </Drawer>
               )}
             </div>

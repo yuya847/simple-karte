@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Search } from "lucide-react";
 import { kanaMatch } from "@/lib/kana";
 import { candidateIndex } from "@/lib/rx-entry";
 export function RpDrugSearch({ options, onPick, placeholder, prefix = false, onEmptyEnter, onBack, onComment }: { onEmptyEnter?: () => void; onBack?: () => void; onComment?: (text: string) => void; options: { code: string; name: string; sub: string; aliases: string[] }[]; onPick: (code: string) => void; placeholder: string; prefix?: boolean }) {
+  const listId = useId();
   const [q, setQ] = useState("");
   const [at, setAt] = useState(0);
   // ひらがなでもカタカナでも、全角・半角でも引ける（「かろな」→ カロナール）.
@@ -39,17 +40,17 @@ export function RpDrugSearch({ options, onPick, placeholder, prefix = false, onE
           aria-label={placeholder}
           role="combobox"
           aria-expanded={hits.length > 0}
+          aria-controls={hits.length > 0 ? listId : undefined}
           className="flex-1 bg-transparent text-[13px] outline-none"
         />
       </label>
       {hits.length > 0 && (
-        <ul role="listbox" className="absolute inset-x-0 top-full z-10 mt-0.5 divide-y divide-rule-soft rounded border border-rule bg-sheet shadow-md">
+        <ul id={listId} role="listbox" className="absolute inset-x-0 top-full z-10 mt-0.5 divide-y divide-rule-soft rounded border border-rule bg-sheet shadow-md">
           {hits.map((d, i) => (
             <li key={d.code} role="option" aria-selected={i === at}>
-              <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(d.code)} className={`nums flex w-full items-baseline gap-2 px-2 py-1.5 text-left ${i === at ? "bg-ai-soft" : "hover:bg-paper"}`}>
+              <button type="button" aria-label={`${d.name} ${d.sub}`} tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(d.code)} className={`nums flex w-full items-baseline gap-2 px-2 py-1.5 text-left ${i === at ? "bg-ai-soft" : "hover:bg-paper"}`}>
                 <b>{d.name}</b>
                 <span className="text-xs text-ink-soft">{d.sub}</span>
-                <span className="ml-auto text-[11px] text-ink-faint">{d.aliases.slice(0, 3).join("・")}</span>
               </button>
             </li>
           ))}

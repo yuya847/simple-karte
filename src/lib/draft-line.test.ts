@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { labDraftOf, defaultDraw } from "./lab-catalog";
+import { DEPT_SETS } from "./lab-sets";
 import { draftLine } from "./draft-line";
 import type { CheckContext, InjectionDraft, LabDraft } from "./drafts";
 const ctx: CheckContext = { activeOrders: [], labOrders: [], drafts: [], nowTime: "10:00", fmtDay: () => "11/5（木）", describe: () => "" };
@@ -17,7 +19,7 @@ describe("draftLine", () => {
   });
   it("keeps unresolved lab names and collection questions visible", () => {
     const lab: LabDraft = { id: "l", origin: "manual", sourceText: "", comment: null, kind: "lab", tests: [{ code: null, said: "検査名" }], collect: { day: null, when: null, time: null, beforeDose: null }, priority: null, cultureSets: null, duplicateOk: false };
-    expect(draftLine(lab, ctx)).toBe("検体検査 検査名（？） 採取日時？");
+    expect(draftLine(lab, ctx)).toBe("検体検査 検査名（？）（採取日時？）");
   });
   it("normalizes dictated newlines to a single logical line", () => {
     expect(draftLine({ id: "u", kind: "unclear", origin: "ai", sourceText: "あ\nい", reason: "不明", comment: null }, ctx)).toBe("聞き取れず あ い（不明）");
@@ -38,4 +40,12 @@ it("内服は1回量・1日の回数と用法・日数・区分の順で1行に�
   expect(prescriptionUsage(d)).toBe("1日1回 朝食後　7日分");
   expect(prescriptionUsage({ ...d, timings: [], prn: "疼痛時", maxPerDay: 3, days: null })).toBe("頓用 疼痛時（1日3回まで）");
   expect(prescriptionUsage({ ...d, timings: null })).toBe("用法？　7日分");
+});
+
+it("検体セットは名前と件数、個別選択は先頭3項目と残数を示す", () => {
+  const set = DEPT_SETS.flatMap((d) => d.sets).find((s) => s.name === "心不全セット")!;
+  const lab = labDraftOf("l", set.codes, { ...defaultDraw(), mode: "now", priority: "至急" });
+  expect(draftLine(lab, ctx)).toBe("検体検査 心不全セット 19項目（至急・今すぐ）");
+  expect(draftLine({ ...lab, tests: lab.tests.slice(0, 5) }, ctx)).toContain("ほか 2 項目");
+  expect(lab.tests).toHaveLength(19);
 });

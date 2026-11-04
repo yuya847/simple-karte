@@ -74,3 +74,15 @@ describe("注射の罫線入力の表示", () => {
     expect(html).not.toContain("に混注する薬を足す");
   });
 });
+
+it("新規の注射に区分があり、既定の開始をカレンダー由来と表示しない", () => {
+  for (const patientId of ["er:er-3", "90010231"]) {
+    const html = renderToStaticMarkup(<AddInjectionPanel patientId={patientId} onAdd={() => {}} newId={() => "d"} drafts={[]} />);
+    expect(group(html, "注射の区分")).toMatch(/aria-checked="true"[^>]*>定期<\/button>/);
+    expect(html).not.toContain("（カレンダーから。");
+  }
+});
+it("輸液も1回だけを選べる", () => {
+  const html = render({ ...ctrx, items: [{ drugCode: "INJ-SOL3A500", amount: 1, unit: "本" }], schedule: { kind: "once" } });
+  expect(group(html, "Rp1 の回数")).toMatch(/aria-checked="true"[^>]*>1回だけ<\/button>/);
+});

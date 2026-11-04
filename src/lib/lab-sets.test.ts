@@ -26,7 +26,7 @@ describe("セットの展開", () => {
   });
 
   it("基本セット holds the hospital's sets and the 生化学 set; 科別セット one list per department, every item offered", () => {
-    expect(BASIC_SETS.map((s) => s.name)).toEqual(["入院時採血セット", "定期採血セット", "電解質（Na・K・Cl）", "生化学セット"]);
+    expect(BASIC_SETS.map((s) => s.name)).toEqual(["救急初療セット", "入院時採血セット", "定期採血セット", "電解質（Na・K・Cl）", "生化学セット"]);
     expect(DEPT_SETS.map((d) => d.dept)).toEqual(["総合診療科", "循環器内科", "消化器内科", "呼吸器内科", "整形外科"]);
     const all = [...BASIC_SETS, ...DEPT_SETS.flatMap((d) => d.sets)];
     expect(new Set(all.map((s) => s.code)).size).toBe(all.length);
@@ -56,3 +56,10 @@ describe("セットを押す", () => {
     expect(toggleSet(["LAB-CRP", "LAB-NA", "LAB-K", "LAB-CL"], lytes)).toEqual(["LAB-CRP"]);
   });
 });
+
+ it("救急初療は既存マスターの単項目を重複なく選ぶ", () => {
+   const er = BASIC_SETS.find((s) => s.code === "SET-ER-INITIAL")!;
+   expect(er.codes).toHaveLength(21);
+   expect(new Set(er.codes).size).toBe(21);
+   for (const c of ["LAB-CBC", "LAB-PT", "LAB-APTT", "LAB-DD", "LAB-BGA", "LAB-TNT", "LAB-BNP", "LAB-LAC", "LAB-GLU"]) expect(er.codes).toContain(c);
+ });

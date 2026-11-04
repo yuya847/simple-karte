@@ -3,6 +3,7 @@
 import { injectionDrugLabel } from "@/lib/injection-drug-label";
 import { rxEntryLines, rxEntryStep, validDose, type RxStep } from "@/lib/rx-entry";
 import { todayInTokyo } from "@/lib/dates";
+import { orderDefaults } from "@/lib/order-defaults";
 import { nextRegularDay, regularDayOffset, REGULAR_RX_DAYS } from "@/lib/rx-schedule";
 import { History } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
@@ -36,7 +37,7 @@ const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
   { label: "12時間ごと", value: { kind: "every_hours", hours: 12 } },
   { label: "24時間ごと", value: { kind: "every_hours", hours: 24 } },
 ];
-const FLUID_SCHEDULES: { label: string; value: InjectionSchedule }[] = [1, 2, 3, 4].map((c) => ({ label: `1日${c}本`, value: { kind: "per_day", count: c } }));
+const FLUID_SCHEDULES: { label: string; value: InjectionSchedule }[] = [...[1, 2, 3, 4].map((c) => ({ label: `1日${c}本`, value: { kind: "per_day" as const, count: c } })), { label: "1回だけ", value: { kind: "once" } }];
 const DRIP_MINUTES = [15, 30, 60, 90, 120, 180, 240, 360, 480, 720, 1440];
 const DRIP_RATES = [20, 40, 60, 80, 100, 125, 200];
 const minutesLabel = (m: number) => (m < 60 ? `${m}分` : m % 60 === 0 ? `${m / 60}時間` : `${Math.floor(m / 60)}時間${m % 60}分`);
@@ -140,8 +141,14 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  * drug, drugs mixed in, and the fluid), then the route, frequency, drip time and start. Each Rp
  * becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
  */
-export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
-  const [rps, setRps] = useState<InjRp[]>([newInjRp()]);
+export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientId = "" }: { patientId?: string; onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
+  const [category, setCategory] = useState<"定期" | "臨時">("定期");
+  const freshRp = (kind = category): InjRp => {
+    const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
+    const defaults = orderDefaults(patientId, kind, now);
+    return { ...newInjRp(), sched: SCHEDULES.findIndex((s) => s.value.kind === defaults.schedule.kind), startTime: defaults.start.time, doseTimes: [defaults.start.time] };
+  };
+  const [rps, setRps] = useState<InjRp[]>(() => [freshRp()]);
   // For the visible headings (label) of the 開始・日数・コメント fields of each Rp.
   const uid = useId();
   // 注射の記憶 / Do: the order copied into the first empty Rp.
@@ -150,7 +157,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
       const rp = rpFromOrder(o);
       const i = r.findIndex((x) => x.rows.length === 0);
       const out = i < 0 ? [...r, rp] : r.map((x, j) => (j === i ? rp : x));
-      return out.some((x) => x.rows.length === 0) ? out : [...out, newInjRp()];
+      return out.some((x) => x.rows.length === 0) ? out : [...out, freshRp()];
     });
   // 修正 from the calendar (the order, to be changed and drafted again), Do (the order and its new start), or
   // a new injection from a day of the calendar (only the start): put into the first empty Rp.
@@ -183,6 +190,10 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
         const open = routeTabsFor(next.rows);
         if (next.route && !open.some((t) => t.key === next.route)) next.route = "";
         if (!next.route && open.length === 1) next.route = open[0].key;
+        if (patch.rows && x.rows.length === 0 && next.rows.length) {
+          const defaults = orderDefaults(patientId, category, next.startTime);
+          next.sched = schedulesOf(next).findIndex((s) => s.value.kind === defaults.schedule.kind);
+        }
         if (next.sched >= schedulesOf(next).length) next.sched = -1;
         return next;
       }),
@@ -214,7 +225,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
     const next = rps.findIndex((x, j) => j > i && x.rows.length === 0);
     setRps((r) => {
       const out = r.map((x, j) => (j === i ? { ...x, done: true } : x));
-      return next < 0 ? [...out, newInjRp()] : out;
+      return next < 0 ? [...out, freshRp()] : out;
     });
     const at = next < 0 ? rps.length : next;
     requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${at}"] input[role=combobox]`)?.focus());
@@ -262,7 +273,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
   const submit = () => {
     if (!ready.length) return;
     onAdd(ready.map(toDraft));
-    setRps([newInjRp()]);
+    setRps([freshRp()]);
   };
   const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
   useEffect(() => {
@@ -275,6 +286,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
+      <TabChoice label="注射の区分" options={["定期", "臨時"].map((v) => ({ value: v as "定期" | "臨時", label: v }))} value={category} onChange={(v) => { setCategory(v); setRps((rs) => rs.map((r) => { const d = freshRp(v); return { ...r, sched: schedulesOf(r).findIndex((s) => s.value.kind === SCHEDULES[d.sched].value.kind), startDay: 0, startTime: d.startTime, doseTimes: d.doseTimes }; })); }} />
       <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
 
       <LineEntry>
@@ -296,7 +308,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
               <button type="button" onClick={() => reopen(i)} className="shrink-0 rounded border border-rule bg-sheet px-2 py-0.5 text-[11px] text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1.5">
                 直す
               </button>
-              <button type="button" tabIndex={-1} onClick={() => setRps((r) => (r.length > 1 ? r.filter((_, j) => j !== i) : [newInjRp()]))} className="shrink-0 text-[11px] text-ink-faint hover:text-shu">
+              <button type="button" tabIndex={-1} onClick={() => setRps((r) => (r.length > 1 ? r.filter((_, j) => j !== i) : [freshRp()]))} className="shrink-0 text-[11px] text-ink-faint hover:text-shu">
                 消す
               </button>
             </section>
@@ -343,7 +355,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
             <div className="flex items-baseline gap-2">
               <b className="text-ai">Rp{first + i}</b>
               {rp.rows.length === 0 && <span className="text-[11px] text-ink-faint">最初に選んだ薬が主薬。続けて選ぶと混注（輸液を最初に選ぶと「1日◯本」で数えます）</span>}
-              {rp.rows.length === 0 && (rp.startDay !== 0 || rp.startTime) && (
+              {rp.rows.length === 0 && (seed && (rp.startDay !== 0 || rp.startTime)) && (
                 <span className="nums text-[11px] text-ai" data-start={`${rp.startDay}|${rp.startTime}`}>
                   開始：{rp.startDay === 0 ? "今日" : rp.startDay === 1 ? "明日" : `${rp.startDay}日後`} {rp.startTime || "時刻なし"}（カレンダーから。薬を選ぶと直せます）
                 </span>
@@ -548,7 +560,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
       })}
       </LineEntry>
       <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
-        <button type="button" onClick={() => setRps((r) => [...r, newInjRp()])} className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft">
+        <button type="button" onClick={() => setRps((r) => [...r, freshRp()])} className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft">
           Rp を足す
         </button>
         <button
@@ -637,7 +649,7 @@ function RpSummary({ rp }: { rp: InjRp }) {
       <span className="text-ink-soft">　{parts.join("　")}</span>
       {drip && (
         <span className="ml-1">
-          <DripCalc rp={rp} />
+          {"　"}<DripCalc rp={rp} />
         </span>
       )}
     </>

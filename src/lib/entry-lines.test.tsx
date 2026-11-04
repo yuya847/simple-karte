@@ -33,7 +33,7 @@ describe("注射薬の商品名と補足", () => {
   it("分類は商品名から分離し、かなでも検索できる", () => {
     const drug = findDrug("INJ-SOL3A500")!;
     expect(injectionDrugLabel(drug).name).toBe("ソルデム3A輸液 500mL");
-    expect(injectionDrugLabel(drug).supplement).toContain("維持液");
+    expect(injectionDrugLabel(drug).supplement).toBe(`${drug.package} ・ ${drug.generic}`);
     const terms = [drug.name, drug.generic!, drug.category!, ...drug.aliases];
     for (const query of ["ソルデム", "そるでむ", "ブドウ糖", "維持液", "いじえき"]) expect(terms.some((term) => kanaMatch(term, query))).toBe(true);
     expect(injectionDrugLabel({ name: "商品名", package: "1V" })).toEqual({ name: "商品名", supplement: "1V" });

@@ -1,7 +1,8 @@
 "use client";
 
+import { orderDefaults } from "@/lib/order-defaults";
 import { Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { TabChoice } from "../TabChoice";
 import type { LabPoints } from "@/lib/billing/lab-points";
 import { todayInTokyo, type CalendarDate } from "@/lib/dates";
@@ -33,6 +34,7 @@ const tabClass = (on: boolean) => `shrink-0 rounded px-2 py-0.5 text-[12px] whit
  * and 保存. The doctor decides every item; nothing is suggested here.
  */
 export function AddLabPanel({
+  patientId = "",
   onAdd,
   onSave,
   newId,
@@ -40,6 +42,7 @@ export function AddLabPanel({
   levelDrugs = [],
   initialTab = LAB_TABS[0].key,
 }: {
+  patientId?: string;
   onAdd: (d: Draft) => void;
   /** 保存: the draft is checked and, when nothing stops it or asks, confirmed at once. Without it the draft is only added (onAdd). */
   onSave?: (d: LabDraft) => void;
@@ -49,12 +52,13 @@ export function AddLabPanel({
   levelDrugs?: { code: string; name: string }[];
   initialTab?: string;
 }) {
+  const tabId = useId();
   const [picked, setPicked] = useState<string[]>([]);
   const [urgent, setUrgent] = useState<string[]>([]);
   const [checked, setChecked] = useState<string[]>([]);
   const [tab, setTab] = useState(initialTab);
   const [query, setQuery] = useState("");
-  const [draw, setDraw] = useState<DrawChoice>(defaultDraw());
+  const [draw, setDraw] = useState<DrawChoice>(() => ({ ...defaultDraw(), ...(orderDefaults(patientId, "定期", "").drawMode === "now" ? { mode: "now", day: 0, priority: "至急" } : {}) }));
   const [site, setSite] = useState<LabSite>("病棟採血");
   const [comment, setComment] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -181,7 +185,7 @@ export function AddLabPanel({
           <div className="mb-2 flex items-center gap-2 border-b border-rule pb-1">
             <div role="tablist" aria-label="検査の分類" className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
               {LAB_TABS.map((t) => (
-                <button key={t.key} type="button" role="tab" aria-selected={current.key === t.key && !found} onClick={() => { setTab(t.key); setQuery(""); }} className={tabClass(current.key === t.key && !found)}>
+                <button key={t.key} type="button" id={`${tabId}-${t.key}`} role="tab" aria-controls={`${tabId}-items`} aria-selected={current.key === t.key && !found} onClick={() => { setTab(t.key); setQuery(""); }} className={tabClass(current.key === t.key && !found)}>
                   {t.label}
                 </button>
               ))}
@@ -191,12 +195,14 @@ export function AddLabPanel({
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="項目検索" aria-label="項目検索" className="w-32 rounded border border-rule bg-sheet py-0.5 pl-6 pr-1.5 text-[12px]" />
             </label>
           </div>
+          <div id={`${tabId}-items`} role="tabpanel" aria-labelledby={`${tabId}-${current.key}`}>
           {sections.map((s) => (
             <section key={s.head || current.key} className="mb-2">
               {s.head && <h3 className="mb-1 text-xs font-bold text-ink-soft">{s.head}</h3>}
               <div className="grid grid-cols-2 gap-1 @md:grid-cols-3">{s.items.map(itemButton)}</div>
             </section>
           ))}
+          </div>
           <p className="hint text-[11px] text-ink-faint">札は院内か外注かと所要日数（架空の病院の取り決め）。セットに含まれる項目は薄くなり、別には出せません。</p>
         </section>
 

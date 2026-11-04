@@ -109,3 +109,13 @@ describe("検体検査のオーダ画面", () => {
     expect(h2).toContain(">シスタチンC</span>");
   });
 });
+
+it("救急は今すぐを選び、その他タブは同じパネル内だけに関連づく", () => {
+  const html = renderToStaticMarkup(<AddLabPanel patientId="er:er-3" initialTab="other" onAdd={() => {}} newId={newId} today={today} />);
+  expect(html).toContain("救急初療セット");
+  expect(html).toMatch(/aria-checked="true"[^>]*>今すぐ（至急）</);
+  const panel = html.match(/id="([^"]+)" role="tabpanel" aria-labelledby="([^"]+)"/)!;
+  expect(panel).toBeTruthy();
+  expect(html).toContain(`id="${panel[2]}" role="tab" aria-controls="${panel[1]}"`);
+  expect(html).not.toContain("aria-describedby");
+});

@@ -62,7 +62,10 @@ const toggle = <T,>(xs: T[], x: T) => (xs.includes(x) ? xs.filter((y) => y !== x
  * this hospital does, the doctor decides every item, and the checks on the draft (eGFR, allergy, metal, consent) stop
  * what is missing. `facts` and `activeOrders` (optional) let the panel show the contrast checks here as well.
  */
+import { orderDefaults } from "@/lib/order-defaults";
+
 export function AddImagingPanel({
+  patientId = "",
   onAdd,
   newId,
   facts = null,
@@ -70,6 +73,7 @@ export function AddImagingPanel({
   fmtDay = (d: DayOffset) => (d === 0 ? "今日" : d < 0 ? `${-d}日前` : `${d}日後`),
   doctor,
 }: {
+  patientId?: string;
   onAdd: (d: Draft) => void;
   newId: () => string;
   facts?: ExamPatientFacts | null;
@@ -83,7 +87,12 @@ export function AddImagingPanel({
   const [modality, setModality] = useState<Modality>("X線");
   const [group, setGroup] = useState<RegionGroup>("体幹");
   const [query, setQuery] = useState("");
-  const [d, setD] = useState<ImagingDraft>(() => emptyImaging("preview", "X線"));
+  const [d, setD] = useState<ImagingDraft>(() => {
+    const draft = emptyImaging("preview", "X線");
+    const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
+    const time = orderDefaults(patientId, "定期", now).imagingTime;
+    return time ? { ...draft, when: { day: 0, time, priority: "至急" } } : draft;
+  });
   const patch = (p: Partial<ImagingDraft>) => setD((x) => ({ ...x, ...p }));
 
   const region = d.region ? findRegion(d.region) : undefined;
@@ -98,7 +107,7 @@ export function AddImagingPanel({
   const pickModality = (m: Modality) => {
     setModality(m);
     setQuery("");
-    setD({ ...emptyImaging("preview", m), purpose: d.purpose, comment: d.comment });
+    setD({ ...emptyImaging("preview", m), purpose: d.purpose, comment: d.comment, when: d.when });
     if (!regionsFor(m).some((r) => r.group === group)) setGroup(REGION_GROUPS.find((g) => regionsFor(m).some((r) => r.group === g))!);
   };
   const pickRegion = (code: string) => {
