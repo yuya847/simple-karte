@@ -232,7 +232,10 @@ import { useNursingMgmt } from "@/lib/use-nursing-mgmt";
 import { pressurePlanAuto, riskFromEval } from "@/lib/pressure-course";
 import { UlcerBoard } from "./UlcerBoard";
 import { StatusBoard } from "./StatusBoard";
-import { shiftKey } from "@/lib/ward-status";
+import { currentShift, shiftKey } from "@/lib/ward-status";
+import { AssignBoard } from "./AssignBoard";
+import { assignKey, crewOn, planLines, roomNurses } from "@/lib/assignments";
+import { initialRosterBook } from "@/lib/roster";
 import { PressurePanel } from "./panels/PressurePanel";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
@@ -887,6 +890,8 @@ export default function WardApp() {
   const patient = activeId ? findPatient(activeId) : undefined;
   const chart = activeId ? mergedChart(charts, activeId, desk) : newChart();
   const today = useMemo(() => (todayKey ? parseIso(todayKey) : null), [todayKey]);
+  // The 勤務表 as it stands (the fictional draft until the 看護師長 changes it), for 業務分担.
+  const rosterNow = useMemo(() => (today ? (rosterBook ?? initialRosterBook(today.y, today.m)) : null), [rosterBook, today]);
 
   // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
   const entries: HistoryEntry[] = useMemo(
@@ -1405,6 +1410,9 @@ export default function WardApp() {
       return p ? [{ id: p.id, name: p.name, room: `${b.room}${b.bed}`, infections: p.infections, rescue: bedInfo[p.id]?.rescue, patient: p }] : [];
     })
     .sort((a, b) => a.room.localeCompare(b.room));
+  // 業務分担 of the shift going on now (5階東 has the 勤務表), for the map's rooms.
+  const shiftNow = currentShift(nowTime);
+  const planNow = nm.assignBook[assignKey(WARD_NAME, shiftNow.day, shiftNow.shift)];
   const floorPick: Pick = { label: "階", value: oneFloor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
   const listPick: Pick = { label: "病棟", value: floor, options: [{ value: ALL_WARDS, label: "全病棟" }, ...FLOORS.map((f) => ({ value: f.name, label: f.name }))], onChange: setFloor };
   const allWards = floor === ALL_WARDS;
@@ -1814,6 +1822,22 @@ export default function WardApp() {
           }}
           onOpen={(id) => (openPatient(id), setPanel("pressure"))}
         />
+      ) : screen === "assign" ? (
+        <AssignBoard
+          pick={floorPick}
+          hasRoster={oneFloor === WARD_NAME}
+          rooms={floorInfo.rooms}
+          beds={floorPeople.map((x) => ({ key: x.room, patientId: x.id, name: x.name }))}
+          nurses={rosterNow!.nurses}
+          crewOf={(d, s) => crewOn(rosterNow!, today, d, s)}
+          sheetOf={(d, s) => nm.assignBook[assignKey(oneFloor, d, s)]}
+          nowTime={nowTime}
+          canEdit={!deny("nursing.manage")}
+          onChange={(d, s, sheet, what) => {
+            auditLog({ role: me.role, actor: me.name, action: "業務分担", detail: `${oneFloor} ${shiftKey(d, s)}　${what}` });
+            nm.setAssignBook((all) => ({ ...all, [assignKey(oneFloor, d, s)]: sheet }));
+          }}
+        />
       ) : screen === "status" ? (
         <StatusBoard
           pick={floorPick}
@@ -2014,6 +2038,7 @@ export default function WardApp() {
             mine={isMine}
             onOpen={openPatient}
             onMove={deny("bed.move") ? undefined : (patientId, to) => setMoving({ patientId, to })}
+            roomNote={oneFloor === WARD_NAME ? (r) => roomNurses(planNow, r.no, r.beds, rosterNow!.nurses).map((n) => n.replace(/^(看護師長|准看護師|看護師) /, "")).join("・") || undefined : undefined}
           />
         </div>
       ) : screen === "er" ? (
@@ -2062,6 +2087,7 @@ export default function WardApp() {
           onRecord={recordMar}
           voided={marVoided}
           onVoid={voidMar}
+          assigned={(d, s) => planLines(nm.assignBook[assignKey(WARD_NAME, d, s)], people.map((x) => ({ key: x.room, patientId: x.patient.id, name: x.patient.name })), rosterNow!.nurses)}
         />
       ) : screen === "receipt" ? (
         <ReceiptDesk patients={teamPatients} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} desk={returns} onDesk={setReturns} />

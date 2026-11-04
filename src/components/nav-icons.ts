@@ -44,6 +44,7 @@ import {
   UserCheck,
   UserRound,
   UsersRound,
+  Users,
   Utensils,
 } from "lucide-react";
 import type { AreaKey, WardTab } from "@/lib/nav";
@@ -101,4 +102,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   paths: Route,
   ulcers: Bandage,
   status: ClipboardPen,
+  assign: Users,
 };

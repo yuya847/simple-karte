@@ -1,9 +1,15 @@
 // The nursing-management screens render (on the server, without a browser) from the fictional record.
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { roomNurses } from "@/lib/assignments";
+import { PATIENTS } from "@/lib/patients";
 import { initialUlcers } from "@/lib/pressure-course";
+import { WARD_NURSES } from "@/lib/roster";
+import { ROOMS } from "@/lib/ward";
 import { BEDS_WITH_CHARTS, WARD_CHART_PATIENTS } from "@/lib/ward-charts";
+import { AssignBoard } from "./AssignBoard";
 import { PressurePanel } from "./panels/PressurePanel";
+import { WardMap } from "./WardMap";
 import { StatusBoard } from "./StatusBoard";
 import { UlcerBoard } from "./UlcerBoard";
 
@@ -14,6 +20,36 @@ const where = (pid: string) => {
 };
 const pick = { label: "階", value: "5階東病棟", options: [{ value: "5階東病棟", label: "5階東病棟" }], onChange: () => {} };
 const fmtDay = (d: number) => `D${d}`;
+
+describe("業務分担", () => {
+  const nurses = WARD_NURSES;
+  const crew = nurses.filter((n) => ["n-tanaka", "n-ito", "n-inoue"].includes(n.id));
+  const beds = [
+    { key: "512", patientId: "p1", name: "佐倉 修" },
+    { key: "515B", patientId: "p2", name: "大浦 トメ" },
+  ];
+  const rooms = ROOMS.filter((r) => ["512", "515"].includes(r.no));
+  const plan = { beds: { "512": "n-tanaka", "515B": "n-inoue" }, directs: {}, changes: [{ at: { day: 0, time: "11:00" }, by: "看護師 佐藤", bed: "515B", patient: "大浦 トメ", from: "看護師 田中", to: "准看護師 井上", reason: "入院の受け入れ" }], confirmed: { by: "看護師 佐藤", at: { day: 0, time: "08:45" } } };
+
+  it("shows the shift's nurses from the roster, each bed's nurse, the checks, the number to post and the change log", () => {
+    const html = renderToStaticMarkup(<AssignBoard pick={pick} hasRoster rooms={rooms} beds={beds} nurses={nurses} crewOf={() => crew} sheetOf={(d, s) => (d === 0 && s === "day" ? plan : undefined)} nowTime="10:00" canEdit onChange={() => {}} />);
+    expect(html).toContain("<b>田中</b>");
+    expect(html).toContain("<b>井上</b>");
+    expect(html).toContain("井上に指示を出す看護師（この勤務帯の看護師）が決まっていません");
+    expect(html).toContain("1人</b>以内です");
+    expect(html).toContain("分担を確定 08:45 看護師 佐藤");
+    expect(html).toContain("入院の受け入れ");
+    expect(html).toContain("変える理由");
+    expect(html).toContain("受け持ち患者割当");
+  });
+
+  it("the map shows each room's nurses of the shift now", () => {
+    const all = [...PATIENTS, ...WARD_CHART_PATIENTS];
+    const html = renderToStaticMarkup(<WardMap ward={{ beds: BEDS_WITH_CHARTS, patient: (id) => all.find((p) => p.id === id) }} summaries={{}} onOpen={() => {}} roomNote={(r) => roomNurses(plan, r.no, r.beds, nurses).map((n) => n.replace(/^(准看護師|看護師) /, "")).join("・") || undefined} />);
+    expect(html).toMatch(/title="業務分担（いまの勤務帯の受け持ち）">田中</);
+    expect(html).toMatch(/title="業務分担（いまの勤務帯の受け持ち）">井上</);
+  });
+});
 
 describe("状態の一括登録", () => {
   const patients = [

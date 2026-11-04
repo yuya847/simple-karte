@@ -58,6 +58,8 @@ interface Props {
   scope?: { label: string; test: (b: BedAssignment) => boolean };
   /** The viewer's own team (受け持ち): it stands out while 「受け持ちを目立たせる」 is on. Everyone when not given. */
   mine?: (patientId: string) => boolean;
+  /** 業務分担 of the shift now: the nurses of a room, shown in its header. */
+  roomNote?: (room: Room) => string | undefined;
 }
 
 const everyone = () => true;
@@ -66,13 +68,13 @@ const everyone = () => true;
  * Floor plan of the ward. Every patient opens on click. With 「受け持ちを目立たせる」 (the default) the viewer's
  * team gets the full card and the others a short gray one; without it, everyone gets the full card.
  */
-export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, onMove, scope, mine: mineOf = everyone }: Props) {
+export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, onMove, scope, mine: mineOf = everyone, roomNote }: Props) {
   const [mineOnly, setMineOnly] = useState(false);
   const [emphasize, setEmphasize] = useEmphasizeTeam();
   const occupied = ward.beds.length;
   const totalBeds = rooms.reduce((n, r) => n + r.beds.length, 0);
   const mine = ward.beds.filter((b) => b.patientId && mineOf(b.patientId)).length;
-  const look: Look = { emphasize, mineOnly, mine: mineOf };
+  const look: Look = { emphasize, mineOnly, mine: mineOf, roomNote };
   const north = rooms.filter((r) => r.side === "north");
   const south = rooms.filter((r) => r.side === "south");
   const southBeforeNs = south.slice(0, 3);
@@ -129,6 +131,7 @@ interface Look {
   emphasize: boolean;
   mineOnly: boolean;
   mine: (patientId: string) => boolean;
+  roomNote?: Props["roomNote"];
 }
 
 function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; onMove?: Props["onMove"]; look: Look; scope?: Props["scope"]; inline?: boolean }) {
@@ -137,6 +140,11 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
       <div className="nums flex items-baseline gap-2 border-b border-rule-soft px-2.5 py-1">
         <b className="text-sm">{r.no}</b>
         <span className="text-[10px] text-ink-faint">{r.kind}</span>
+        {look.roomNote?.(r) && (
+          <span className="ml-auto truncate text-[10px] font-bold text-ai" title="業務分担（いまの勤務帯の受け持ち）">
+            {look.roomNote(r)}
+          </span>
+        )}
       </div>
       <div className={`grid flex-1 gap-1.5 p-1.5 ${r.kind === "4床室" ? "grid-cols-2" : "grid-cols-1"}`}>
         {r.beds.map((b) => {

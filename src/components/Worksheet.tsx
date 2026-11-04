@@ -52,6 +52,8 @@ interface Props {
   standingPrn?: { patientId: string; room: string; name: string; rule: PrnRule }[];
   /** 看護ケア指示 (care and observation tasks with their 実施) and the nursing problems due for evaluation. */
   care?: { orders: CareOrder[]; records: CareRecord[]; plans: NursingProblem[]; onRecord: (r: CareRecord) => void; onVoid: (r: CareRecord, reason: string) => void };
+  /** 業務分担 of a shift: one line per nurse (「看護師 田中：512 佐倉・515B 大浦」), for the sheet's header. */
+  assigned?: (day: number, shift: "day" | "night") => string[];
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -69,7 +71,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -98,7 +100,8 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   // まとめて受ける: only rows that may be taken in bulk (not one-at-a-time ones, not held).
   const bulk = rows.filter((r) => !isRowTaken(r) && r.mustOne.length === 0 && !(holds[r.key] && !holds[r.key].answer));
 
-  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care };
+  const assignLines = assigned && shift !== "all" ? assigned(day, shift) : null;
+  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -206,11 +209,13 @@ interface SheetProps {
   queried: Record<string, string>;
   people: WorkPatient[];
   care?: Props["care"];
+  /** 業務分担 lines of the shift (null: not shown, e.g. 終日). */
+  assignLines: string[] | null;
 }
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care }: SheetProps) {
+function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   // 麻・毒・劇・ハイリスク of the order's drugs (drug-class.ts).
@@ -267,6 +272,11 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
           受け持ち {new Set([...timed, ...untimed, ...running].map((x) => x.patientId)).size}人　作成 {formatShort(today)} {nowTime}　架空の患者
         </span>
       </header>
+      {assignLines && (
+        <p className="-mt-2 mb-3 text-[11px]">
+          <b>業務分担</b>　{assignLines.length ? assignLines.join("　／　") : <span className="text-ink-faint">この勤務帯の分担はまだ決まっていません（病棟の「業務分担」で決めます）</span>}
+        </p>
+      )}
 
       <Section title={`指示の変更（昨日と今日）　指示受けがまだ ${rows.filter((r) => !isRowTaken(r)).length}件`}>
         {rows.length === 0 ? <Empty>変更はありません</Empty> : <TakeTable rows={rows} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} />}
