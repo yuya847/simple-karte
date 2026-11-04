@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { aiSummary, useAudit, type AuditRole } from "@/lib/audit";
+import { AUDIT_KEEP, aiSummary, useAudit, type AuditRole } from "@/lib/audit";
 import { AccessLog } from "./AccessLog";
 
 const ROLE_STYLE: Record<AuditRole, string> = {
@@ -59,7 +59,7 @@ export function AuditView() {
         </div>
       </header>
       <p className="mb-3 text-[11px] text-ink-faint">
-        この画面を開いてからの操作を、起きた順に追記だけで残しています（直したり消したりはできません）。「AI」は Claude が言葉を項目に写したこと、それ以外は人が決めたことです。試作なのでこのブラウザのメモリにだけあり、再読み込みで消えます。
+        操作を、起きた順に追記だけで残しています（直したり消したりはできません）。「AI」は Claude が言葉を項目に写したこと、それ以外は人が決めたことです。記録の保存（Supabase）が設定されているときは、その日の記録といっしょに新しいほうから{AUDIT_KEEP.toLocaleString()}件まで保存し、再読み込みしても残ります（保存先の大きさの都合で、それより古いものは保存から外れます）。設定されていないときは、このブラウザのメモリにだけあり、再読み込みで消えます。実際の病院では、書き換えや削除のできない別の保存先に送ります（医療情報システムの安全管理に関するガイドライン 第7.0版 システム運用編 17 ②）。
       </p>
       {view === "access" ? (
         <AccessLog />

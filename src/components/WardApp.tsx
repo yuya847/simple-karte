@@ -241,6 +241,7 @@ import { assignKey, crewOn, nurseOfBed, planLines, roomNurses } from "@/lib/assi
 import { VitalsBulk } from "./VitalsBulk";
 import { initialRosterBook } from "@/lib/roster";
 import { PressurePanel } from "./panels/PressurePanel";
+import { useInfra } from "@/lib/use-infra";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -600,6 +601,7 @@ export default function WardApp() {
   const care = useCareDepts();
   // 看護管理（褥瘡の経過 …）: kept in its own hook, saved with the rest.
   const nm = useNursingMgmt();
+  const infra = useInfra();
   // 地域医療連携: the 連携室's entries, 返書 sent/received and facilities chosen.
   const [liaison, setLiaison] = useState<LiaisonBook>(EMPTY_LIAISON);
   // レセプト点検・返戻: the 返戻・査定 files read in and the 再請求 decided.
@@ -702,6 +704,7 @@ export default function WardApp() {
       ...dept.states,
       ...care.states,
       ...nm.states,
+      ...infra.states,
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
   );
