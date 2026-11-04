@@ -393,7 +393,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
                       {r.expected.note}
                     </td>
                   </tr>
-                ) : !r.patient && !r.bed.other ? (
+                ) : !r.patient && !r.bed.other && r.mark ? (
                   // 空く予定: the bed a patient leaves before the day shown.
                   <tr key={roomKey(r.bed)} className="border-b border-dashed border-wakatake/50 text-wakatake">
                     <td className="px-3 py-1.5">
