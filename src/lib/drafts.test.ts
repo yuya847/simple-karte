@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import {
+  applyChoice,
   checkDraft,
   draftsFromAi,
   isReady,
@@ -470,4 +471,23 @@ describe("KCl mixed into a fluid (混注)", () => {
     expect(keys(kclDraft(20, "INJ-SOL3A500", 30))).toContain("kcl-rate");
     expect(keys(kclDraft(20, "INJ-SOL3A500", 240, 6))).toContain("kcl-day");
   });
+});
+
+it("今すぐの注射は下書きの時刻が過ぎても確定時刻で開始する", () => {
+  const d = injection({ startNow: true, start: { day: 0, time: "07:29" }, schedule: { kind: "once" }, doseTimes: ["07:29"], route: "点滴静注", infusionMinutes: 60, infusionScope: "per_dose", days: 1, end: { day: 0, time: "08:29" } });
+  const c = ctx([], { nowTime: "10:03", activeOrders: [] });
+  expect(checkDraft(d, c).filter((i) => i.level !== "info")).toEqual([]);
+  expect(toOrder(d, c).order).toMatchObject({ start: { day: 0, time: "10:03" }, doseTimes: ["10:03"], end: { day: 0, time: "11:03" } });
+  const fixed = { ...d, startNow: false };
+  const choice = checkDraft(fixed, c).find((i) => i.key === "start-past")!.choices![0];
+  const next = applyChoice(fixed, choice);
+  expect(isReady(checkDraft(next, c))).toBe(true);
+  expect(toOrder(next, c).order).toMatchObject({ start: { day: 0, time: "10:03" }, end: { day: 0, time: "11:03" } });
+});
+
+it("今すぐの検体検査は確定時刻に採取し、過去時刻の確認を出さない", () => {
+  const d = lab({ collect: { day: 0, when: "now", time: null, beforeDose: null } });
+  const c = ctx([], { nowTime: "10:03", activeOrders: [], labOrders: [] });
+  expect(checkDraft(d, c).some((i) => i.key === "collect-past")).toBe(false);
+  expect(toOrder(d, c).order).toMatchObject({ collect: { day: 0, time: "10:03" } });
 });

@@ -255,7 +255,7 @@ export function findPhysio(code: string) {
 }
 
 /** Booking slots of the fictional hospital (X線 every 30 min, CT/MRI/生理 by the hour). */
-export const EXAM_RULES = { open: "09:00", close: "16:30", stat: "今から（至急）" };
+export const EXAM_RULES = { open: "09:00", close: "16:30", stat: "今すぐ（至急）" };
 
 // ---------------------------------------------------------------------------
 // eGFR（日本人の推算式、日本腎臓学会）: 194 × Cr^-1.094 × 年齢^-0.287（女性 × 0.739）
@@ -476,7 +476,7 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
           choices: [{ label: `確かめた・承知（${EXAM_ACK.腎機能}）`, apply: ack(EXAM_ACK.腎機能) }],
         });
       } else issues.push({ key: "egfr", level: "info", title: "腎機能", message: f.egfrText });
-    } else {
+    } else if (!d.acks.includes(EXAM_ACK.腎機能)) {
       issues.push({ key: "egfr", level: "ask", title: "腎機能", message: "Cre の値がありません。造影の前に腎機能を確かめてください。", choices: [{ label: `承知（${EXAM_ACK.腎機能}）`, apply: ack(EXAM_ACK.腎機能) }] });
     }
     if (f.allergy && !d.acks.includes(EXAM_ACK.造影剤)) {

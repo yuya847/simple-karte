@@ -91,7 +91,7 @@ export function AddImagingPanel({
     const draft = emptyImaging("preview", "X線");
     const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
     const time = orderDefaults(patientId, "定期", now).imagingTime;
-    return time ? { ...draft, when: { day: 0, time, priority: "至急" } } : draft;
+    return time ? { ...draft, when: { day: 0, time: null, priority: "至急" } } : draft;
   });
   const patch = (p: Partial<ImagingDraft>) => setD((x) => ({ ...x, ...p }));
 
@@ -384,6 +384,17 @@ export function AddImagingPanel({
         </section>
       )}
 
+      <TabChoice
+        label="いつ行うか"
+        options={[
+          { value: "now", label: "今すぐ（至急）" },
+          { value: "morning", label: "明日 09:30 の枠" },
+          { value: "afternoon", label: "明日 14:00 の枠" },
+        ]}
+        value={d.when.priority === "至急" ? "now" : d.when.day === 1 && d.when.time === "09:30" ? "morning" : d.when.day === 1 && d.when.time === "14:00" ? "afternoon" : ""}
+        onChange={(value) => patch({ when: value === "now" ? { day: 0, time: null, priority: "至急" } : { day: 1, time: value === "morning" ? "09:30" : "14:00", priority: "予約" } })}
+      />
+
       <label className="flex flex-col gap-1 text-xs text-ink-soft">
         目的（臨床診断・知りたいこと）
         <input value={d.purpose ?? ""} onChange={(e) => patch({ purpose: e.target.value || null })} placeholder="例：肺炎の経過" className={field} />
@@ -398,7 +409,7 @@ export function AddImagingPanel({
         下書きにする{missing.length > 0 && `（${missing.join("・")}を選ぶ）`}
       </button>
       <p className="hint text-[11px] text-ink-faint">
-        部位を選ぶと、マスターの標準の方向と体位が入ります。変えるときは押し直します。日時・移動・読影は右の下書きで選びます。造影なら腎機能・造影剤アレルギー・喘息・ビグアナイド・同意、MRI なら体内金属の確認が下書きに出ます。{EXAM_SOURCES.naming}
+        部位を選ぶと、マスターの標準の方向と体位が入ります。変えるときは押し直します。日時はここでも選べます。移動・読影は右の下書きで選びます。造影なら腎機能・造影剤アレルギー・喘息・ビグアナイド・同意、MRI なら体内金属の確認が下書きに出ます。{EXAM_SOURCES.naming}
         造影剤の一般名と量は架空の病院の採用例で、製品と本数は放射線部が記録します。
       </p>
     </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateClaim } from "./billing/engine";
 import { DEFAULT_OPTIONS } from "./billing/model";
-import { checkDraft, isReady, regionFromWords, sideFromWords, toOrder, type CheckContext, type Draft } from "./drafts";
+import { applyChoice, checkDraft, isReady, regionFromWords, sideFromWords, toOrder, type CheckContext, type Draft } from "./drafts";
 import { REGIONS, REGION_GROUPS, contrastFacts, egfr, emptyConsent, emptyImaging, emptyPhysio, findRegion, latestCre, regionsFor, searchRegions, type ImagingOrder, type PhysioOrder } from "./exams";
 import { consentFor, findConsent } from "./consent";
 import { imagingDraftText, imagingLines, imagingMethodText, imagingSummary, imagingTitle } from "./format";
@@ -339,4 +339,23 @@ describe("算定：方向数と両側", () => {
     expect(act(r).basis).toContain("2方向・両側 4枚");
     expect(r.issues.some((i) => i.text.includes("両側を同一部位"))).toBe(true);
   });
+});
+
+it("Creなしの承知は再判定で消え、オーダーを確定できる", () => {
+  const c = ctx(sakura, { patientFacts: { sex: "男", age: 50, allergies: [], cre: null } });
+  const d = { ...emptyImaging("no-cre", "CT"), region: "R-CHEST", contrast: "造影" as const, purpose: "精査", transport: "車椅子" as const, when: { day: 0, time: null, priority: "至急" as const }, consentPlanned: true };
+  const issue = checkDraft(d, c).find((i) => i.key === "egfr")!;
+  const next = applyChoice(d, issue.choices![0]);
+  expect(next.kind === "imaging" && next.acks).toContain("腎機能承知");
+  expect(checkDraft(next, c).filter((i) => i.level !== "info")).toEqual([]);
+  expect(isReady(checkDraft(next, c))).toBe(true);
+  expect((toOrder(next, c).order as ImagingOrder).acks).toContain("腎機能承知");
+});
+
+it("過ぎた画像検査の枠でも今すぐ（至急）が先頭にあり、選ぶと日時の確認が消える", () => {
+  const d = { ...emptyImaging("past", "CT"), when: { day: 0, time: "07:29", priority: "予約" as const } };
+  const issue = checkDraft(d, ctx()).find((i) => i.key === "when")!;
+  expect(issue.choices![0].label).toBe("今すぐ（至急）");
+  const next = applyChoice(d, issue.choices![0]);
+  expect(checkDraft(next, ctx()).find((i) => i.key === "when")?.level).toBe("info");
 });

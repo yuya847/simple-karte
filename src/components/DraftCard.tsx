@@ -5,7 +5,7 @@ import { dietLabel } from "@/lib/diet";
 import { draftLine, draftSourceText, prescriptionUsage } from "@/lib/draft-line";
 import { useId, useState } from "react";
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
-import { effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
+import { applyChoice, effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
 import { anyDrugName, findLab } from "@/lib/master";
 import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "@/lib/procedures";
@@ -35,6 +35,12 @@ const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "�
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
   // Open from the start when something still has to be filled in (目的・同意書…), so the fields are right there.
   const [open, setOpen] = useState(() => issues.some((i) => i.level !== "info"));
+  const issueKey = `${draft.id}:${issues.filter((i) => i.level !== "info").map((i) => i.key).join(",")}`;
+  const [previousIssues, setPreviousIssues] = useState(issueKey);
+  if (previousIssues !== issueKey) {
+    setPreviousIssues(issueKey);
+    if (issues.some((i) => i.level !== "info")) setOpen(true);
+  }
   const detailId = useId();
   const ready = isReady(issues);
   const blocking = issues.filter((i) => i.level !== "info");
@@ -43,11 +49,11 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
   return (
     <article className="text-[13px] leading-relaxed pointer-coarse:text-[16px]">
       <div className="flex items-start gap-1 pl-8 pr-2 py-0.5 pointer-coarse:pl-10">
-        <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)} className="nums min-w-0 flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
+        <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className="nums min-w-0 flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
           {draftLine(draft, ctx, rp)}
         </button>
-        <button type="button" aria-label={ready ? "確定できます・詳細を開く" : `確認 ${blocking.length}件・理由を開く`} aria-expanded={open} aria-controls={detailId} onClick={() => setOpen(!open)} className={`shrink-0 p-1 ${ready ? "text-wakatake" : "text-yamabuki"}`}>
-          {ready ? <CheckCircle2 size={14} /> : <AlertOctagon size={14} />}
+        <button type="button" aria-label={ready ? "確定できます・詳細を開く" : `確認 ${blocking.length}件・理由を開く`} aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className={`shrink-0 p-1 ${ready ? "text-wakatake" : "text-yamabuki"}`}>
+          {ready ? <CheckCircle2 size={14} /> : <><AlertOctagon size={14} className="inline" /> 確認 {blocking.length}件・理由を開く</>}
         </button>
         <button type="button" onClick={onRemove} aria-label="この下書きを消す" title="この下書きを消す" className="shrink-0 p-1 text-ink-faint hover:text-shu"><Trash2 size={14} /></button>
       </div>
@@ -134,7 +140,7 @@ function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; 
             <button
               key={c.label}
               type="button"
-              onClick={() => (c.remove ? onRemove() : c.apply && onApply(c.apply(draft)))}
+              onClick={() => (c.remove ? onRemove() : onApply(applyChoice(draft, c)))}
               className="nums rounded-md border border-ai/40 bg-sheet px-2 py-1 text-left text-xs text-ai hover:bg-ai hover:text-white"
             >
               {c.label}

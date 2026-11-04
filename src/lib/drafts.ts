@@ -127,6 +127,8 @@ export interface DraftItem {
 }
 
 export interface InjectionDraft extends DraftBase {
+  /** Resolve the start at confirmation, rather than when the panel opened. */
+  startNow?: boolean;
   doseTimes?: string[];
   end?: { day: number; time: string };
   kind: "injection";
@@ -535,6 +537,26 @@ export interface Choice {
   remove?: boolean;
 }
 
+/** Keep explicitly chosen end times; move an automatically calculated end with the start. */
+export function resolveImmediateInjection(d: InjectionDraft, nowTime: string): InjectionDraft {
+  const duration = ratePlan(d).minutesPerDose;
+  let end = d.end;
+  if (end && duration && d.start.time) {
+    const oldStart = (d.start.day ?? 0) * 1440 + minutesOf(d.start.time);
+    const oldEnd = end.day * 1440 + minutesOf(end.time);
+    if (oldEnd === oldStart + duration) {
+      const total = minutesOf(nowTime) + duration;
+      end = { day: Math.floor(total / 1440), time: `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}` };
+    }
+  }
+  return { ...d, startNow: false, start: { day: 0, time: nowTime }, doseTimes: d.schedule?.kind === "once" ? [nowTime] : d.doseTimes, end };
+}
+
+/** Apply the doctor's choice through the same path used by DraftCard. */
+export function applyChoice(draft: Draft, choice: Choice): Draft {
+  return choice.apply ? choice.apply(draft) : draft;
+}
+
 export interface Issue {
   key: string;
   level: IssueLevel;
@@ -832,15 +854,15 @@ function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
 
   // Start
   const startDay = d.start.day ?? 0;
-  if (startDay === 0 && d.start.time && minutesOf(d.start.time) < minutesOf(ctx.nowTime)) {
+  if (!d.startNow && startDay === 0 && d.start.time && minutesOf(d.start.time) < minutesOf(ctx.nowTime)) {
     issues.push({
       key: "start-past",
       level: "ask",
       title: "日時",
       message: `開始時刻（今日 ${d.start.time}）はもう過ぎています。`,
       choices: [
-        { label: "指示受け後すぐに開始", apply: (x) => ({ ...(x as InjectionDraft), start: { day: 0, time: null } }) },
-        { label: `明日の ${d.start.time} から`, apply: (x) => ({ ...(x as InjectionDraft), start: { day: 1, time: (x as InjectionDraft).start.time } }) },
+        { label: "指示受け後すぐに開始", apply: (x) => ({ ...(x as InjectionDraft), startNow: true, start: { day: 0, time: (x as InjectionDraft).start.time } }) },
+        { label: `明日の ${d.start.time} から`, apply: (x) => ({ ...(x as InjectionDraft), startNow: false, start: { day: 1, time: (x as InjectionDraft).start.time } }) },
       ],
     });
   } else {
@@ -927,9 +949,7 @@ export function resolvedCollect(d: LabDraft, ctx: CheckContext): { day: DayOffse
     return { day: t.day, time: t.time, priority: priority("定時"), why: `${t.doseLabel}の${WARD_RULES.minutesBeforeDoseForLevel}分前` };
   }
   if (c.when === "now") {
-    const [h, m] = ctx.nowTime.split(":").map(Number);
-    const up = Math.ceil((h * 60 + m) / 5) * 5;
-    const time = `${String(Math.floor(up / 60) % 24).padStart(2, "0")}:${String(up % 60).padStart(2, "0")}`;
+    const time = ctx.nowTime;
     return { day: 0, time, priority: priority("至急"), why: "「今すぐ」は至急として扱います" };
   }
   if (c.when === "morning_routine") {
@@ -1473,7 +1493,7 @@ export function checkDraft(d: Draft, ctx: CheckContext): Issue[] {
     case "diet":
       return [{ key: "diet", level: "info", title: "食事", message: `${dietLabel({ ...d.diet, id: "", by: "", at: { day: 0, time: "" } })}（${d.diet.from.day === 0 ? "今日" : d.diet.from.day === 1 ? "明日" : "明後日"}の${d.diet.from.meal}食から）${d.diet.comment ? `　${d.diet.comment}` : ""}` }];
     case "injection":
-      return [...checkInjection(d, ctx), ...interactionIssues(d, ctx, stoppingIds(ctx)), ...pregnancyNote(ctx)];
+      return [...checkInjection(d.startNow ? { ...resolveImmediateInjection(d, ctx.nowTime), startNow: true } : d, ctx), ...interactionIssues(d, ctx, stoppingIds(ctx)), ...pregnancyNote(ctx)];
     case "lab":
       return checkLab(d, ctx);
     case "procedure":
@@ -1539,6 +1559,7 @@ function checkExtend(d: ExtendDraft, ctx: CheckContext): Issue[] {
 
 /** Only call when isReady(checkDraft(d, ctx)). */
 export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
+  if (d.kind === "injection" && d.startNow) d = resolveImmediateInjection(d, ctx.nowTime);
   if (d.kind === "stop") {
     const id = resolvedStopTarget(d, ctx);
     return { stopIds: id ? [id] : [] };

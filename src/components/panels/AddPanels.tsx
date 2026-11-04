@@ -75,6 +75,7 @@ interface InjRp {
   rate: string;
   startDay: number;
   startTime: string;
+  startNow?: boolean;
   days: string;
   comment: string;
   /** Decided (決める): shown as one line of what was chosen, the choice buttons put away until 直す. */
@@ -146,7 +147,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
   const freshRp = (kind = category): InjRp => {
     const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
     const defaults = orderDefaults(patientId, kind, now);
-    return { ...newInjRp(), sched: SCHEDULES.findIndex((s) => s.value.kind === defaults.schedule.kind), startTime: defaults.start.time, doseTimes: [defaults.start.time] };
+    return { ...newInjRp(), sched: SCHEDULES.findIndex((s) => s.value.kind === defaults.schedule.kind), startNow: defaults.imagingTime !== null || kind === "臨時", startTime: defaults.start.time, doseTimes: [defaults.start.time] };
   };
   const [rps, setRps] = useState<InjRp[]>(() => [freshRp()]);
   // For the visible headings (label) of the 開始・日数・コメント fields of each Rp.
@@ -182,6 +183,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
       r.map((x, j) => {
         if (j !== i) return x;
         const next = { ...x, ...patch };
+        if (patch.startNow === undefined && (patch.startTime !== undefined || patch.startDay !== undefined || patch.doseTimes !== undefined)) next.startNow = false;
         if (patch.sched !== undefined && patch.sched >= 0) {
           next.doseTimes = defaultDoseTimes(schedulesOf(next)[patch.sched]?.value);
           if (schedulesOf(next)[patch.sched]?.value.kind === "once") next.doseTimes = [next.startTime || new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date())];
@@ -253,6 +255,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
       comment: comment || null,
       kind: "injection",
       alreadyDone: rp.alreadyDone,
+      startNow: rp.startNow,
       doseTimes: rp.doseTimes,
       end: rp.endTime ? { day: rp.endDay ?? rp.startDay, time: rp.endTime } : schedulesOf(rp)[rp.sched].value.kind === "once" && rp.minutes && rp.startTime ? automaticInjectionEnd(rp.startDay, rp.startTime, 1, [], rp.minutes) ?? undefined : undefined,
       items: rp.rows.map((r) => {
@@ -286,7 +289,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
-      <TabChoice label="注射の区分" options={["定期", "臨時"].map((v) => ({ value: v as "定期" | "臨時", label: v }))} value={category} onChange={(v) => { setCategory(v); setRps((rs) => rs.map((r) => { const d = freshRp(v); return { ...r, sched: schedulesOf(r).findIndex((s) => s.value.kind === SCHEDULES[d.sched].value.kind), startDay: 0, startTime: d.startTime, doseTimes: d.doseTimes }; })); }} />
+      <TabChoice label="注射の区分" options={["定期", "臨時"].map((v) => ({ value: v as "定期" | "臨時", label: v }))} value={category} onChange={(v) => { setCategory(v); setRps((rs) => rs.map((r) => { const d = freshRp(v); return { ...r, sched: schedulesOf(r).findIndex((s) => s.value.kind === SCHEDULES[d.sched].value.kind), startDay: 0, startNow: d.startNow, startTime: d.startTime, doseTimes: d.doseTimes }; })); }} />
       <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
 
       <LineEntry>
@@ -484,6 +487,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   <label htmlFor={`${uid}-${i}-start`} className="w-16 text-ink-soft">
                     開始
                   </label>
+                  <button type="button" aria-pressed={!!rp.startNow} className={`rounded border px-2 py-1 ${rp.startNow ? "border-ai bg-ai text-white" : "border-rule text-ink-soft"}`} onClick={() => { const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date()); upd(i, { startDay: 0, startTime: now, doseTimes: schedulesOf(rp)[rp.sched]?.value.kind === "once" ? [now] : rp.doseTimes, startNow: true }); }}>今すぐ</button>
                   <TabChoice
                     label={`Rp${first + i} の開始日`}
                     size="lg"
@@ -609,7 +613,7 @@ function rpFromOrder(o: InjectionOrder): InjRp {
 function rpFromSeed(seed: InjSeed): InjRp {
   const rp = seed.order ? rpFromOrder(seed.order) : newInjRp();
   if (!seed.start) return rp;
-  return { ...rp, startDay: seed.start.day, startTime: seed.start.time ?? "", days: seed.order?.days ? String(seed.order.days) : rp.days };
+  return { ...rp, startNow: false, startDay: seed.start.day, startTime: seed.start.time ?? "", days: seed.order?.days ? String(seed.order.days) : rp.days };
 }
 
 /** How the drip is given: as chosen, else by rate for a bag (fluid first) and by time for a drug. */

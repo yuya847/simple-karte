@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDraft, isReady, toOrder, type CheckContext, type Draft } from "./drafts";
+import { applyChoice, checkDraft, isReady, toOrder, type CheckContext, type Draft } from "./drafts";
 import { PATIENTS } from "./patients";
 import { firstDose, perDoseOf, type PrescriptionDraft } from "./rx";
 import type { OrderEntry } from "./types";
@@ -94,4 +94,15 @@ describe("罫線入力から確定した調剤の文", () => {
       expect(orderLines(order, { y: 2026, m: 11, d: 4 }).detail).toContain("服用時に確認　一包化");
     }
   });
+});
+
+it("内服の重複承知を選び、再判定すると確定できる", () => {
+  const d = rx({});
+  const order = toOrder(d, ctx({ activeOrders: [] })).orders![0];
+  const c = ctx({ activeOrders: [{ kind: "order", id: "same", day: 0, time: "09:00", author: "医師", status: "有効", order }], allergies: [] });
+  const choice = checkDraft(d, c).find((i) => i.key === "dup-0")!.choices![0];
+  const next = applyChoice(d, choice);
+  expect(next.kind === "prescription" && next.acks).toContain("重複承知");
+  expect(isReady(checkDraft(next, c))).toBe(true);
+  expect(toOrder(next, c).orders![0]).toMatchObject({ acks: ["重複承知"] });
 });

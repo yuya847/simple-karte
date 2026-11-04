@@ -23,3 +23,9 @@ describe("画像検査のオーダ画面", () => {
     expect(html).not.toContain("推奨");
   });
 });
+
+it("救急外来では今すぐ（至急）を先頭に出し既定にする", () => {
+  const html = renderToStaticMarkup(<AddImagingPanel patientId="er-1" onAdd={() => {}} newId={newId} />);
+  expect(html.indexOf("今すぐ（至急）")).toBeLessThan(html.indexOf("明日 09:30 の枠"));
+  expect(html).toMatch(/aria-checked="true"[^>]*>今すぐ（至急）/);
+});

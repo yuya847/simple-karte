@@ -15,7 +15,7 @@ import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
 import { LAB_SITES, type LabSite } from "@/lib/types";
 
 const MODES: { value: DrawMode; label: string; title: string }[] = [
-  { value: "now", label: "今すぐ（至急）", title: "いまの時刻から5分単位で切り上げ、至急として出す" },
+  { value: "now", label: "今すぐ（至急）", title: "確定時の時刻で、至急として出す" },
   { value: "routine", label: "朝の定時", title: `病棟の定時採血（${WARD_RULES.routineDrawTime}）。日は右で選ぶ` },
   { value: "time", label: "日時を選ぶ", title: "日と時刻を選ぶ（定時の候補か、HH:MM を入れる）" },
   { value: "before_dose", label: "◯回目の投与前", title: `薬物濃度：時間ごとの注射の N 回目の投与の${WARD_RULES.minutesBeforeDoseForLevel}分前（病棟の決まり）` },

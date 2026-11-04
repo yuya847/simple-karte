@@ -10,6 +10,8 @@ it("shows a borderless line; with something to answer the details are open from 
   expect(html).toContain('aria-label="確認 1件・理由を開く"');
   expect(html).toContain('aria-label="この下書きを消す"');
   expect(html).toContain("詳細だけの理由");
+  expect(html).toContain("件・理由を開く</button>");
+  expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(2);
   expect(html).not.toContain("border");
   const ok = renderToStaticMarkup(<DraftCard draft={draft} ctx={ctx} issues={[]} onApply={() => {}} onRemove={() => {}} />);
   expect(ok).toContain('aria-expanded="false"');
