@@ -44,7 +44,7 @@ const cache = new Map<string, RailState>();
 export function saveRail(person: string, v: RailState) {
   cache.set(person, v);
   try {
-    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify({ mode: v.mode, pins: v.pins }));
+    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify({ mode: v.mode, pins: v.pins, ...(v.showAll ? { showAll: true } : {}) }));
   } catch {
     // Storage blocked: the choice lasts until the page is closed.
   }
