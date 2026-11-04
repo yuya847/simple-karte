@@ -50,6 +50,7 @@ interface Props {
   /** Orders the pharmacy is asking the doctor about (疑義照会中), with the question. */
   queried?: Record<string, string>;
   /** 指示簿の頓用 of each patient (given from the standing orders, not from an order). */
+  standingFreePrn?: { id: string; patientId: string; room: string; name: string; text: string }[];
   standingPrn?: { patientId: string; room: string; name: string; rule: PrnRule }[];
   /** 看護ケア指示 (care and observation tasks with their 実施) and the nursing problems due for evaluation. */
   care?: { orders: CareOrder[]; records: CareRecord[]; plans: NursingProblem[]; onRecord: (r: CareRecord) => void; onVoid: (r: CareRecord, reason: string) => void };
@@ -74,7 +75,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], standingFreePrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -107,7 +108,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   // 指示確認: taken in this session but the schedule not yet looked at (marked on the sheet).
   const confirmProps: ConfirmProps | undefined = confirm ? { ...confirm, people, nowAbs } : undefined;
   const notConfirmed = confirm ? unconfirmed(rows, { taken, isTaken: isRowTaken, holds, confirms: confirm.confirms }).length : 0;
-  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines, confirm: confirmProps, notConfirmed };
+  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm: confirmProps, notConfirmed };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -211,6 +212,7 @@ interface SheetProps {
   onRecord: (r: AdminRecord) => void;
   onVoid?: (r: AdminRecord, reason: VoidReason) => void;
   voided: Record<string, VoidedRecord[]>;
+  standingFreePrn: NonNullable<Props["standingFreePrn"]>;
   standingPrn: { patientId: string; room: string; name: string; rule: PrnRule }[];
   queried: Record<string, string>;
   people: WorkPatient[];
@@ -224,7 +226,7 @@ interface SheetProps {
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
+function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   // 麻・毒・劇・ハイリスク of the order's drugs (drug-class.ts).
@@ -371,6 +373,10 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
 
       {care && <CareSheet {...care} people={people} {...shiftWindow(shift, day)} day={day} today={today} nowTime={nowTime} sessionStart={sessionStart} interactive={interactive} />}
 
+      <Section title="指示簿の頓用（自由文）">
+        {standingFreePrn.length ? <table className="w-full border-collapse"><tbody>{standingFreePrn.map((l) => <tr key={`${l.patientId}-${l.id}`}><td className={`${td} w-28`}>{l.room}　{l.name}</td><td className={`${td} whitespace-pre-wrap`}>{l.text}</td></tr>)}</tbody></table> : <Empty>ありません</Empty>}
+        <p className="hint text-ink-faint">指示受け済みの有効な指示です。自由文から薬の量や投与間隔は判定しません。与薬の記録は処方・注射のオーダで行います。</p>
+      </Section>
       <Section title="時刻の決まっていないもの（必要時・1日N回）">
         {untimed.length === 0 ? (
           <Empty>ありません</Empty>

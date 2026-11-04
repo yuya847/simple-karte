@@ -127,6 +127,7 @@ import { ProfilePanel } from "./panels/ProfilePanel";
 import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/profile";
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
+import { worksheetPrnLines } from "@/lib/standing-form";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
 import { INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/standing-lines";
@@ -257,7 +258,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>([...orderWindows, "standing", "add-lab", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -2503,6 +2504,7 @@ export default function WardApp() {
           }}
           queried={Object.fromEntries(queries.filter((q) => queryOpen(q, people.find((x) => x.patient.id === q.patientId)?.entries ?? [])).map((q) => [q.orderId, q.question]))}
           // 指示簿の頓用: the latest version a nurse has taken (指示受け); a newer one waits for 指示受け.
+          standingFreePrn={people.flatMap((x) => worksheetPrnLines(standingLines[x.patient.id] ?? [], x, abs(0, nowTime), taken, sessionKeys))}
           standingPrn={people.flatMap((x) => {
             const s = [...(standing[x.patient.id] ?? [])].reverse().find((v) => v.taken);
             return s ? s.prn.map((rule) => ({ patientId: x.patient.id, room: x.room, name: x.patient.name, rule })) : [];
@@ -4110,8 +4112,9 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "standing" && (
-                <Drawer title="指示簿（約束指示）" onClose={closePanel} wide>
+                <Drawer title="指示簿（約束指示）" onClose={closePanel} wide initialWidth={1100}>
                   <StandingPanel
+                    key={patient.id}
                     versions={standing[patient.id] ?? []}
                     allergies={patient.allergies}
                     nowTime={nowTime}

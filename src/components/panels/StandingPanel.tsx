@@ -27,7 +27,10 @@ import type { CalendarDate } from "@/lib/dates";
 import type { Patient } from "@/lib/types";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { TabChoice } from "../TabChoice";
-import { StandingLines } from "./StandingLines";
+import { usePrintSheet } from "../DeskParts";
+import { StandingPrintSheet } from "./StandingLines";
+import { currentLines } from "@/lib/standing-lines";
+import { StandingOrderForm } from "./StandingOrderForm";
 
 // 麻薬 are not offered here (NARCOTIC_RULES.prn): each use is ordered, so that the 麻薬施用者 check applies.
 const PRN_DRUGS = [
@@ -67,6 +70,7 @@ export function StandingPanel({
   /** The free-text lines (指示の行): the main part of the 指示簿; the fields below stay for the worksheet. */
   lines?: { patient: Patient; lines: StandingLine[]; today: CalendarDate; onAdd: (l: StandingLine) => void; onStop: (id: string, reason: string) => void };
 }) {
+  const [print, sheet] = usePrintSheet();
   const me = useMe();
   const deny = useDeny();
   const cur = versions.at(-1);
@@ -79,11 +83,6 @@ export function StandingPanel({
     const stop = issues.some((x) => x.some((i) => i.level === "stop"));
     const ask = issues.some((x) => x.some((i) => i.level === "ask"));
     const missing = [
-      !edit.rest && "安静度",
-      !edit.bath && "清潔",
-      !edit.vitals && "バイタル測定",
-      !edit.weight && "体重",
-      !edit.io && "水分出納",
       edit.prn.some((r) => !r.drug.code || !(r.drug.amount > 0) || !r.intervalH || !r.maxPerDay) && "頓用の薬・量・間隔・回数",
       (edit.conds ?? []).some((r) => condMissing(r).length > 0) && "条件付き指示の項目・値・すること",
     ].filter((x): x is string => !!x);
@@ -95,14 +94,14 @@ export function StandingPanel({
     );
     const setCall = (key: CallKey, value: number | null) => set({ calls: value === null ? edit.calls.filter((c) => c.key !== key) : [...edit.calls.filter((c) => c.key !== key), { key, value }] });
     const setPrn = (i: number, x: Partial<PrnRule>) => set({ prn: edit.prn.map((r, j) => (j === i ? { ...r, ...x } : r)) });
-    return (
+    const fieldEditor = (
       <div className="space-y-3 text-[12px]">
-        <p className="text-[11px] text-ink-faint">項目は医師が選びます（最初から選ばれているものはありません）。確定すると新しい版になり、看護師が指示受けします。</p>
-        {row("安静度", <TabChoice label="安静度" options={RESTS.map((x) => ({ value: x, label: x }))} value={edit.rest} onChange={(v) => set({ rest: v })} />)}
-        {row("清潔", <TabChoice label="清潔" options={BATHS.map((x) => ({ value: x, label: x }))} value={edit.bath} onChange={(v) => set({ bath: v })} />)}
-        {row("バイタル", <TabChoice label="バイタル測定" options={VITAL_FREQS.map((x) => ({ value: x, label: x }))} value={edit.vitals} onChange={(v) => set({ vitals: v })} />)}
-        {row("体重", <TabChoice label="体重測定" options={WEIGHTS.map((x) => ({ value: x, label: x }))} value={edit.weight} onChange={(v) => set({ weight: v })} />)}
-        {row("水分出納", <TabChoice label="水分出納" options={IO.map((x) => ({ value: x, label: x }))} value={edit.io} onChange={(v) => set({ io: v })} />)}
+        <p className="hint text-[11px] text-ink-faint">項目は医師が選びます（最初から選ばれているものはありません）。確定すると新しい版になり、看護師が指示受けします。</p>
+        {row("安静度", <select aria-label="安静度" value={edit.rest ?? ""} onChange={(e) => set({ rest: (e.target.value || null) as StandingOrders["rest"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{RESTS.map((x) => <option key={x}>{x}</option>)}</select>)}
+        {row("清潔", <select aria-label="清潔" value={edit.bath ?? ""} onChange={(e) => set({ bath: (e.target.value || null) as StandingOrders["bath"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{BATHS.map((x) => <option key={x}>{x}</option>)}</select>)}
+        {row("バイタル", <select aria-label="バイタル測定" value={edit.vitals ?? ""} onChange={(e) => set({ vitals: (e.target.value || null) as StandingOrders["vitals"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{VITAL_FREQS.map((x) => <option key={x}>{x}</option>)}</select>)}
+        {row("体重", <select aria-label="体重測定" value={edit.weight ?? ""} onChange={(e) => set({ weight: (e.target.value || null) as StandingOrders["weight"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{WEIGHTS.map((x) => <option key={x}>{x}</option>)}</select>)}
+        {row("水分出納", <select aria-label="水分出納" value={edit.io ?? ""} onChange={(e) => set({ io: (e.target.value || null) as StandingOrders["io"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{IO.map((x) => <option key={x}>{x}</option>)}</select>)}
 
         <section className="space-y-1 rounded-md border border-rule p-2">
           <h3 className="font-bold text-ink-soft">医師を呼ぶ基準（ドクターコール）</h3>
@@ -221,17 +220,22 @@ export function StandingPanel({
         </div>
       </div>
     );
+    return lines ? <StandingOrderForm lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
   }
 
   return (
     <div className="space-y-3 text-[13px]">
+      {sheet}
+      {lines && <button type="button" onClick={() => print(<StandingPrintSheet patient={lines.patient} lines={currentLines(lines.lines)} fields={cur} today={lines.today} nowTime={nowTime} by={me.name} />, { portrait: true })} className="rounded border border-rule px-2 py-1 text-[12px] text-ai">指示簿を印刷（A4 縦）</button>}
       {lines && (
         <>
-          <StandingLines patient={lines.patient} lines={lines.lines} fields={cur} today={lines.today} nowTime={nowTime} onAdd={lines.onAdd} onStop={lines.onStop} newId={newId} />
-          <h3 className="border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
+          <StandingOrderForm lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
+          <h3 className="hint border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
           <p className="hint text-[11px] text-ink-faint">ワークシートの頓用、水分出納の確認、医師を呼ぶ基準の判定はこの項目から出ます。上の行と合わせて指示簿カレンダーに出ます。</p>
         </>
       )}
+      <details>
+      <summary className="cursor-pointer text-ink-soft">項目で選ぶ指示・指示受け・前の版</summary>
       {cur ? (
         <>
           <div className="flex flex-wrap items-center gap-2 text-[12px]">
@@ -284,6 +288,7 @@ export function StandingPanel({
             ))}
         </details>
       )}
+      </details>
     </div>
   );
 }

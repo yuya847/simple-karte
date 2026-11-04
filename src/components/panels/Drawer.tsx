@@ -45,10 +45,14 @@ function saveRemembered(key: string, r: Remembered) {
  * Which way it opens first comes from WardApp (DrawerDefaults); the last choice and the window's
  * place are remembered for this panel on this device only.
  */
-export function Drawer({ title, onClose, children, wide, locked, expandable, windowKey }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; locked?: string | null; expandable?: boolean; windowKey?: string }) {
+export function Drawer({ title, onClose, children, wide, locked, expandable, windowKey, initialWidth }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; locked?: string | null; expandable?: boolean; windowKey?: string; initialWidth?: number }) {
   const defaults = useContext(DrawerDefaults);
   const key = windowKey ?? defaults.panel ?? title;
   const windowedFirst = defaults.windowed.has(key);
+  const initialWin = () => {
+    const w = bigWin();
+    return initialWidth ? { ...w, w: initialWidth, x: Math.max(0, (window.innerWidth - initialWidth) / 2) } : w;
+  };
   // On the server (and in tests) there is no window: start as the drawer. In the browser the panel
   // opens only after a click, so the first render already knows the remembered place.
   const [win, setWin] = useState<Win | null>(() => {
@@ -56,9 +60,9 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     const r = loadRemembered(key);
     // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
     const mode = windowedFirst ? "window" : (r?.mode ?? "drawer");
-    return mode === "window" ? clampWin(r?.win ?? bigWin()) : null;
+    return mode === "window" ? clampWin(r?.win ?? initialWin()) : null;
   });
-  const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? bigWin()));
+  const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? initialWin()));
   const toDrawer = () => {
     saveRemembered(key, { mode: "drawer", win: win ?? loadRemembered(key)?.win });
     setWin(null);

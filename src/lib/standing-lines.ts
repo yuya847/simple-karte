@@ -6,11 +6,12 @@
 // by AI: the doctor writes, the nurse takes.
 
 import { abs } from "./flowsheet";
+import { ruleText } from "./cond-orders";
 import { callText, prnText, type StandingOrders } from "./standing";
 import type { DayOffset } from "./types";
 import { changeKey, type OtherChange, type WorkPatient } from "./worksheet";
 
-export const LINE_CATS = ["安静", "食事", "清潔", "排泄", "観察", "バイタル", "呼出基準", "処置", "頓用", "その他"] as const;
+export const LINE_CATS = ["安静", "ADL", "食事", "清潔", "排泄", "観察", "バイタル", "呼出基準", "処置", "検査", "頓用", "その他"] as const;
 export type LineCat = (typeof LINE_CATS)[number];
 
 /** A day, with a clock time when one is meant (「11/4 10:00から」 vs 「11/4から」). */
@@ -36,7 +37,7 @@ export interface StandingLine {
 }
 
 export const LINE_RULES = {
-  cats: "分類（安静・食事・清潔・排泄・観察・バイタル・呼出基準・処置・頓用・その他）は架空の病院の取り決めです。",
+  cats: "分類（安静度・ADL・食事・清潔・排泄・観察・バイタル・呼出基準・処置・検査・頓用・その他）は架空の病院の取り決めです。",
   templates: "院内のテンプレートは架空の病院の取り決めです（文は例。医師が直してから確定します）。自分のテンプレートはこの端末のみに保存されます。",
   prn: "頓用を文で書くときは、薬・1回量・間隔・1日の回数を文の中に書いてください。添付文書の上限とアレルギーのコードによる確認は、「項目で選ぶ」の頓用でだけ行います。",
 };
@@ -142,6 +143,7 @@ function fieldLinesOf(s: StandingOrders): FieldLine[] {
   const calls = [...s.calls.map(callText), ...(s.callConscious ? ["意識レベルの低下"] : [])];
   if (calls.length) out.push({ key: "calls", cat: "呼出基準", text: `医師を呼ぶ：${calls.join("、")}` });
   for (const r of s.prn) out.push({ key: `prn:${r.id}`, cat: "頓用", text: prnText(r) });
+  for (const r of s.conds ?? []) out.push({ key: `cond:${r.id}`, cat: "呼出基準", text: ruleText(r) });
   if (s.other.trim()) out.push({ key: "other", cat: "その他", text: s.other.trim() });
   return out;
 }
@@ -205,6 +207,8 @@ export interface LineTemplate {
 
 /** 院内のテンプレート (架空の病院の取り決め). Plain sentences the doctor edits before confirming. */
 export const HOSPITAL_LINE_TEMPLATES: LineTemplate[] = [
+  { id: "h-adl", cat: "ADL", text: "一部介助" },
+  { id: "h-lab", cat: "検査", text: "38℃以上で血液培養2セット採取し Dr.call" },
   { id: "h-rest-bed", cat: "安静", text: "安静度：ベッド上安静（排泄もベッド上）" },
   { id: "h-rest-head", cat: "安静", text: "安静度：ベッド上、頭を上げてよい" },
   { id: "h-rest-wc", cat: "安静", text: "安静度：車いす（移動は介助で）" },
@@ -227,6 +231,11 @@ export const HOSPITAL_LINE_TEMPLATES: LineTemplate[] = [
   { id: "h-vs-4h", cat: "バイタル", text: "バイタル測定：4時間ごと" },
   { id: "h-vs-2h", cat: "バイタル", text: "バイタル測定：2時間ごと（落ち着いたら4時間ごとに戻す）" },
   { id: "h-vs-spo2", cat: "バイタル", text: "SpO2 を持続モニターで見る" },
+  { id: "h-call-sbp180", cat: "呼出基準", text: "SBP（収縮期血圧）180mmHg以上で Dr.call" },
+  { id: "h-call-o2", cat: "呼出基準", text: "SpO2 90%未満で O2 2L/分 開始し Dr.call" },
+  { id: "h-call-glucose", cat: "頓用", text: "血糖70mg/dL未満でブドウ糖10g 内服し Dr.call（意識が清明で嚥下できる場合。嚥下できなければ内服せず直ちに Dr.call）" },
+  { id: "h-call-u100", cat: "呼出基準", text: "尿量が4時間で100mL未満で Dr.call" },
+  { id: "h-prn-loxo", cat: "頓用", text: "疼痛時：ロキソプロフェン60mg 1錠 内服、6時間以上あけて1日3回まで" },
   { id: "h-call-bp", cat: "呼出基準", text: "収縮期血圧 90mmHg以下、または 180mmHg以上で医師を呼ぶ" },
   { id: "h-call-hr", cat: "呼出基準", text: "脈拍 120/分以上、または 40/分以下で医師を呼ぶ" },
   { id: "h-call-bt", cat: "呼出基準", text: "体温 38.5℃以上が頓用で下がらないとき医師を呼ぶ" },
@@ -237,7 +246,7 @@ export const HOSPITAL_LINE_TEMPLATES: LineTemplate[] = [
   { id: "h-proc-gauze", cat: "処置", text: "創部のガーゼ交換は1日1回（朝）" },
   { id: "h-proc-foley", cat: "処置", text: "尿道カテーテルは留置のまま（抜くときは医師が指示する）" },
   { id: "h-proc-stocking", cat: "処置", text: "弾性ストッキングを着ける" },
-  { id: "h-prn-fever", cat: "頓用", text: "発熱時（38.5℃以上）：アセトアミノフェン錠500mg 1錠、6時間以上あけて1日3回まで" },
+  { id: "h-prn-fever", cat: "頓用", text: "発熱時（38℃以上）：アセトアミノフェン錠500mg 1錠 内服、6時間以上あけて1日2回まで" },
   { id: "h-prn-pain", cat: "頓用", text: "疼痛時：アセトアミノフェン錠500mg 1錠、6時間以上あけて1日3回まで" },
   { id: "h-prn-constip", cat: "頓用", text: "便秘時（3日排便なし）：センノシド錠12mg 2錠 眠前、1日1回まで" },
   { id: "h-prn-sleep", cat: "頓用", text: "不眠時：医師に連絡（睡眠薬はオーダで出す）" },

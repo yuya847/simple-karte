@@ -7,8 +7,8 @@ import type { CondRule } from "./cond-orders";
 import { DRUGS, ORAL_DRUGS, findOralDrug } from "./master";
 import type { VitalSign } from "./types";
 
-export const RESTS = ["ベッド上安静", "ベッド上（頭を上げてよい）", "車いす", "病棟内歩行", "院内歩行"] as const;
-export const BATHS = ["清拭", "シャワー浴", "入浴"] as const;
+export const RESTS = ["ベッド上", "室内", "病棟内", "院内フリー", "ベッド上安静", "ベッド上（頭を上げてよい）", "車いす", "病棟内歩行", "院内歩行"] as const;
+export const BATHS = ["シャワー", "清拭", "シャワー浴", "入浴"] as const;
 export const VITAL_FREQS = ["1日1回", "1日3回", "4時間ごと", "2時間ごと"] as const;
 export const WEIGHTS = ["毎朝", "週2回", "なし"] as const;
 export const IO = ["水分出納（IN/OUT）を測る", "尿量だけ測る", "測らない"] as const;

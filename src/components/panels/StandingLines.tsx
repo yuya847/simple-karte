@@ -13,6 +13,8 @@ import { TabChoice } from "../TabChoice";
 import { StandingView } from "./StandingPanel";
 
 const CAT_TONE: Record<LineCat, string> = {
+  ADL: "bg-ai-soft text-ai",
+  検査: "bg-tab text-ink",
   安静: "bg-ai-soft text-ai",
   食事: "bg-yamabuki-soft text-yamabuki",
   清潔: "bg-mizu-soft text-mizu",

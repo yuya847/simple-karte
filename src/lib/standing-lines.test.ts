@@ -78,7 +78,7 @@ describe("指示簿カレンダー", () => {
     const rows = calendarRows([line({ id: "o", cat: "その他" }), line({ id: "v2", cat: "バイタル", start: { day: 0, time: "09:00" } }), line({ id: "v1", cat: "バイタル", start: { day: -3, time: "09:00" } }), line({ id: "r", cat: "安静" })]);
     expect(rows.map((g) => g.cat)).toEqual(["安静", "バイタル", "その他"]);
     expect(rows[1].lines.map((l) => l.id)).toEqual(["v1", "v2"]);
-    expect(LINE_CATS).toHaveLength(10);
+    expect(LINE_CATS).toEqual(["安静", "ADL", "食事", "清潔", "排泄", "観察", "バイタル", "呼出基準", "処置", "検査", "頓用", "その他"]);
   });
 
   it("draws the bar: the start time on the first day, the stop on the last, continuing past the last column", () => {
