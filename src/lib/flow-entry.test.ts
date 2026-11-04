@@ -23,9 +23,10 @@ describe("経過表のセルから入力", () => {
     expect(ioTimeFor(at(0, 11), at(0, 10))).toBeUndefined();
   });
 
-  it("who may: nurses record care, doses and 指示受け; doctors read them", () => {
+  it("who may: nurses (and doctors, since 2026-11-04) record care and doses; the pharmacist reads them", () => {
     expect(can("看護師", ENTRY_ACTION.mar)).toBe(true);
-    expect(can("医師", ENTRY_ACTION.mar)).toBe(false);
+    expect(can("医師", ENTRY_ACTION.mar)).toBe(true);
+    expect(can("薬剤師", ENTRY_ACTION.mar)).toBe(false);
     expect(can("医師", ENTRY_ACTION.vitals)).toBe(true);
     expect(can("薬剤師", ENTRY_ACTION.io)).toBe(false);
     expect(untakenOf(["a|新規", "a|中止", "b|延長"])).toEqual(["a", "b"]);
