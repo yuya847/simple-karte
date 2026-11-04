@@ -299,6 +299,13 @@ describe("投薬（入院）", () => {
     expect(find(r.acts, "120001610")).toMatchObject({ count: 1, days: [4] });
   });
 
+  it("薬剤管理指導料 with 注2 麻薬管理指導加算 (50点) on the same day", () => {
+    const r = claim("2026-10", { entries: [mgo], options: { yakuzaiShido: [{ day: OCT1 + 3, kind: "1", mayaku: true }] } });
+    expect(find(r.acts, "113010810")).toMatchObject({ count: 1, days: [4] });
+    expect(find(r.acts, "113004270")).toMatchObject({ count: 1, days: [4] });
+    expect(find(r.acts, "113004270").acts[0].parts[0].points).toBe(430);
+  });
+
   it("入院栄養食事指導料１: 初回 260, 2回目 200, no third", () => {
     const r = claim("2026-10", { entries: [mgo], options: { eiyoShido: [{ day: OCT1 + 17 }, { day: OCT1 + 3 }, { day: OCT1 + 10 }] } });
     expect(find(r.acts, "113017610")).toMatchObject({ count: 1, days: [4] });

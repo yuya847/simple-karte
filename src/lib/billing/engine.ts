@@ -685,7 +685,9 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   for (const y of o.yakuzaiShido) {
     if (!inMonth.has(y.day)) continue;
     const code = y.kind === "1" ? "113010810" : "120001610";
-    add({ day: y.day, shikibetsu: "13", parts: [{ lines: [si(code)], points: pts(code) }], basis: "B008 薬剤管理指導料（週1回かつ月4回）" });
+    // 注2 麻薬管理指導加算 (113004270, 50点): 麻薬が投与されている患者に麻薬の服用の注意事項等を指導した日.
+    const mayaku = y.mayaku ? "113004270" : null;
+    add({ day: y.day, shikibetsu: "13", parts: [{ lines: [si(code), ...(mayaku ? [si(mayaku)] : [])], points: pts(code) + (mayaku ? pts(mayaku) : 0) }], basis: `B008 薬剤管理指導料（週1回かつ月4回）${mayaku ? "＋注2 麻薬管理指導加算" : ""}` });
   }
 
   // ===== 投薬（入院）=====

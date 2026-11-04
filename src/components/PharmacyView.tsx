@@ -14,6 +14,7 @@ import type { OrderEntry } from "@/lib/types";
 import { TdmView } from "./TdmView";
 import { DrugMarks } from "./DrugMarks";
 import { NarcoticDesk } from "./NarcoticDesk";
+import { ShidoPanel, type ShidoEntry } from "./ShidoPanel";
 import { BroughtReportSheet } from "./BroughtReportSheet";
 import { isNarcotic } from "@/lib/drug-class";
 import { recordBrought } from "@/lib/narcotic-book";
@@ -26,19 +27,14 @@ import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { orderLines, oralName } from "@/lib/format";
-import { alreadyOrdered, auditItems, b008Check, daysOfCount, dispenseBlock, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
+import { alreadyOrdered, auditItems, daysOfCount, dispenseBlock, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
 import type { DayOffset } from "@/lib/types";
 import { buildWorksheet, shiftWindow, timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { STEP_LABEL, TIMING_LABEL, oralKey, oralToDispense, packetsOf, qtyFormula, qtyText, recordStep, sameHands, slotRange, stepBlock, type OralPatient, type OralRecord, type OralRp, type OralStepName, type Packet } from "@/lib/oral-dispense";
 import { STAFF } from "@/lib/roles";
 
-export interface ShidoRecord {
-  day: DayOffset;
-  kind: "1" | "2";
-  text: string;
-  at: string;
-}
+export type ShidoRecord = ShidoEntry;
 
 interface Props {
   people: WorkPatient[];
@@ -93,7 +89,7 @@ const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
 const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "audit", steps: "医師が出した注射・内服が新しい順に並びます。重複と、電子添文にある併用禁忌・併用注意・配合（同じ Rp の中）はコードが調べ、電子添文へのリンクと、医師が理由を入れた場合はその理由を出します。量・飲み合わせ・腎機能を確かめて「監査済み」。疑問があれば「疑義照会」を書くと、医師のカルテの右上に届き、医師が答えるか処方を直します。" },
   { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ実物と照らし、実物の残数（何日分かはコードが数える）と備考・所見を書いて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。「報告した鑑別」から持参薬鑑別報告書を印刷できます。続ける麻薬は麻薬帳簿に（ ）で記載します。" },
-  { tab: "shido", steps: "患者を選んで指導の内容を記録します。服薬指導の算定の回数（週1回・月4回まで）はコードが数え、超えると知らせます。" },
+  { tab: "shido", steps: "患者を選び、医師の同意・副作用歴・薬学的管理指導の内容・指導と相談事項を書きます（薬剤管理指導記録の項目）。氏名・入院日・投薬と注射・アレルギーはカルテから入ります。「1」の対象の薬と麻薬が投与されているかはコードが示し、麻薬の指導をしたら麻薬管理指導加算の欄（ア・イ）も書きます。回数（週1回・月4回まで）はコードが数えます。" },
   { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
   { tab: "oral", steps: "病棟で飲む内服（定期・臨時）を、患者ごと・Rp ごとに並べます。「定期」は明日から選んだ日数分、「臨時（今日の新規）」は今日出た臨時の全日数と、今日出た定期の今日の分です。量は「1回量 × 服用回数」をオーダの開始・日数・中止からコードで数え、式を出します。Rp ごとに ①調剤 → ②鑑査（できれば別の薬剤師。同じ人なら印が付く）→ ③払出 を記録し、誰がいつかが残ります。疑義照会の回答待ち・まだ監査していないオーダは止まり、調剤のあとで処方が変わると調剤し直しになります。「配薬ラベル」で1回分（日付と朝・昼・夕・眠前）ごとのラベルを印刷できます（一包化の袋に貼る形）。持参薬と退院時処方は入りません（退院時は「退院時の薬」タブ）。頓用は回数が決まらないので数えません。" },
   { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
@@ -531,70 +527,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
 // ---------------------------------------------------------------------------
 
 function Shido({ people, today, shido, onShido }: Props) {
-  const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
-  const [kind, setKind] = useState<"1" | "2">("2");
-  const [text, setText] = useState("");
-  const recs = shido[patientId] ?? [];
-  // 週は日曜〜土曜。dow/month from the calendar of today.
-  const dow = (d: DayOffset) => new Date(Date.UTC(today.y, today.m - 1, today.d + d)).getUTCDay();
-  const month = (d: DayOffset) => {
-    const t = new Date(Date.UTC(today.y, today.m - 1, today.d + d));
-    return `${t.getUTCFullYear()}-${t.getUTCMonth() + 1}`;
-  };
-  const warn = b008Check(recs.map((r) => r.day), 0, dow, month);
-  return (
-    <section className={`${card} space-y-3 p-4 text-[13px]`}>
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2">
-          患者
-          <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="rounded border border-rule bg-paper px-2 py-1">
-            {people.map((x) => (
-              <option key={x.patient.id} value={x.patient.id}>
-                {x.room}　{x.patient.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div role="radiogroup" className="flex rounded-md border border-rule p-0.5 text-xs">
-          {(
-            [
-              ["1", "1：特に安全管理が必要な医薬品"],
-              ["2", "2：それ以外"],
-            ] as const
-          ).map(([v, l]) => (
-            <button key={v} type="button" role="radio" aria-checked={kind === v} onClick={() => setKind(v)} className={`rounded px-2 py-0.5 ${kind === v ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="指導の内容、服薬の状況、副作用の確認など（薬剤管理指導記録）" className="w-full rounded border border-rule bg-paper px-2 py-1.5 outline-none" />
-      {warn && <p className="text-xs font-bold text-yamabuki">確認　{warn} 記録は残りますが、算定には入りません。</p>}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          disabled={!text.trim()}
-          onClick={() => {
-            onShido(patientId, { kind, text: text.trim() });
-            setText("");
-          }}
-          className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40"
-        >
-          記録する
-        </button>
-        <span className="text-xs text-ink-faint">記録すると、その日の薬剤管理指導料（B008）が算定の画面に入ります（週1回・月4回まで。週は日曜〜土曜）。</span>
-      </div>
-      {recs.length > 0 && (
-        <ul className="space-y-1 border-t border-rule-soft pt-2 text-xs">
-          {recs.map((r, i) => (
-            <li key={i}>
-              {formatShort(addDays(today, r.day))} {r.at}　区分{r.kind}　{r.text}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
+  return <ShidoPanel people={people} today={today} records={shido} onRecord={onShido} />;
 }
 
 // ---------------------------------------------------------------------------

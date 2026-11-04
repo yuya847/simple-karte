@@ -9,6 +9,7 @@ import { DrugMarks } from "./DrugMarks";
 import { NarcoticDesk } from "./NarcoticDesk";
 import { NarcoticSlips } from "./NarcoticSlips";
 import { RoleProvider } from "./RoleContext";
+import { ShidoPanel } from "./ShidoPanel";
 
 const TODAY = { y: 2026, m: 11, d: 4 };
 const sakura = PATIENTS.find((p) => p.id === "90010231")!;
@@ -72,6 +73,13 @@ describe("麻薬の画面", () => {
     expect(html).toContain("劇薬・麻薬・処方箋医薬品");
     expect(html).toContain("持参薬で継続");
     expect(html).toContain("自己管理できている");
+  });
+
+  it("服薬指導: the chart's drugs with marks, and the 麻薬管理指導加算 reminder", () => {
+    const html = renderToStaticMarkup(<ShidoPanel people={people} today={TODAY} records={{}} onRecord={noop} />);
+    expect(html).toContain("医師の同意を得ている");
+    expect(html).toContain("麻薬管理指導加算の欄");
+    expect(html).toContain("まだ：医師の同意・薬学的管理指導の内容・患者への指導・相談事項");
   });
 
   it("the ward's 施用票: a 麻薬 dose recorded 実施 asks for the amounts", () => {

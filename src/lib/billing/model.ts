@@ -81,8 +81,8 @@ export interface BillingOptions {
   kyoryoku: "" | "1" | "2";
   /** 特別食加算 (入院時食事療養): the diet is a 特別食 on a 食事箋. */
   specialDiet: boolean;
-  /** 薬剤管理指導料 (B008) days, with 1 (特に安全管理が必要な医薬品) or 2. */
-  yakuzaiShido: { day: DayOffset; kind: "1" | "2" }[];
+  /** 薬剤管理指導料 (B008) days, with 1 (特に安全管理が必要な医薬品) or 2, and 注2 麻薬管理指導加算 when given. */
+  yakuzaiShido: { day: DayOffset; kind: "1" | "2"; mayaku?: boolean }[];
   /** 入院栄養食事指導料１ (B001 10 イ) days, counted in order (初回・2回目), from 指導の記録 when the patient is eligible. */
   eiyoShido?: { day: DayOffset }[];
 }

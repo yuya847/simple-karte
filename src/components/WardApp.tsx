@@ -2137,10 +2137,10 @@ export default function WardApp() {
             if (!b008Check(days, 0, dow, month)) {
               setBilling((all) => {
                 const cur = all[pid] ?? DEFAULT_OPTIONS;
-                return { ...all, [pid]: { ...cur, yakuzaiShido: [...cur.yakuzaiShido, { day: 0, kind: rec.kind }] } };
+                return { ...all, [pid]: { ...cur, yakuzaiShido: [...cur.yakuzaiShido, { day: 0, kind: rec.kind, ...(rec.mayaku ? { mayaku: true } : {}) }] } };
               });
             }
-            auditLog({ role: me.role, actor: me.name, action: "確定（服薬指導）", patient: findPatient(pid)?.name, detail: `区分${rec.kind}` });
+            auditLog({ role: me.role, actor: me.name, action: "確定（服薬指導）", patient: findPatient(pid)?.name, detail: `区分${rec.kind}${rec.mayaku ? "・麻薬管理指導加算" : ""}` });
             // Into the chart as the pharmacist's note, answering an open 服薬指導 request.
             const pe = people.find((x) => x.patient.id === pid)?.entries ?? [];
             recordGuidance(pid, { kind: "服薬指導", heard: "本人", minutes: null, text: `（薬剤管理指導 区分${rec.kind}）${rec.text}`, answers: openRequests(pe, "服薬指導", guidance).map((e) => e.id) }, true);

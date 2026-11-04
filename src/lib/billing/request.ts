@@ -64,7 +64,7 @@ export const PatientMonthSchema = z.object({
     nyutaiin: z.boolean(),
     kyoryoku: z.enum(["", "1", "2"]),
     specialDiet: z.boolean(),
-    yakuzaiShido: z.array(z.object({ day: Day, kind: z.enum(["1", "2"]) })).max(10),
+    yakuzaiShido: z.array(z.object({ day: Day, kind: z.enum(["1", "2"]), mayaku: z.boolean().optional() })).max(10),
     eiyoShido: z.array(z.object({ day: Day })).max(10).optional(),
   }),
   insurance: InsuranceSchema.optional(),
