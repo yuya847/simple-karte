@@ -24,7 +24,7 @@ describe("部位の読み取り", () => {
     expect(regionKeyOf(sakura.imaging[1])).toBe("R-LEG");
     expect(regionKeyOf({ ...sakura.imaging[0], region: "胸腹部" })).toBe("R-CHEST-ABD");
     expect(regionKeyOf({ ...sakura.imaging[0], region: "腹部・骨盤" })).toBe("R-ABD-PELVIS");
-    expect(regionKeyOf({ ...sakura.imaging[0], region: "手指" })).toBe("R-OTHER");
+    expect(regionKeyOf({ ...sakura.imaging[0], region: "眼窩" })).toBe("R-OTHER");
   });
 
   it("撮影方向：2方向は正面と側面、胸部は PA、オーダーの方向はそのまま", () => {

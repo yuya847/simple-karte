@@ -31,7 +31,7 @@ export function collectStudies(patient: Patient, entries: HistoryEntry[], nowAbs
         id: e.id,
         day: Math.floor(at / 1440),
         modality: o.modality === "ポータブルX線" ? "X線" : o.modality,
-        region: `${findRegion(o.region)?.name ?? o.region}${o.contrast ? `（${o.contrast}）` : ""}`,
+        region: `${o.side ?? ""}${findRegion(o.region)?.name ?? o.region}${o.contrast ? `（${o.contrast}）` : ""}`,
         report: state ? state.report : done ? "撮影済み。読影をお待ちください（この試作では読影レポートは架空の記録だけです）。" : `予約：${o.when.priority === "至急" ? "至急" : `${o.when.time ?? ""}`}　目的：${o.purpose}`,
         reader: state ? state.reader : done ? "（読影待ち）" : "（未実施）",
         regionCode: o.region,

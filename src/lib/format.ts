@@ -6,7 +6,7 @@ import { findDrug, findLab, findOralDrug, findSet } from "./master";
 import { AREA_LABEL, DEPTH_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "./procedures";
 import { opdBookingText } from "./opd-booking";
 import type { ImagingOrder, InjectionOrder, InjectionSchedule, LabOrder, Order, PhysioOrder, PrescriptionOrder, ProcedureOrder } from "./types";
-import { findPhysio, findRegion } from "./exams";
+import { consentText, defaultPosition, findAgent, findPhysio, findRegion, regionLabel, usesContrast, viewsText, type ImagingDraft } from "./exams";
 
 export function scheduleText(s: InjectionSchedule): string {
   switch (s.kind) {
@@ -127,13 +127,70 @@ function examWhen(w: ImagingOrder["when"], today: CalendarDate): string {
   return w.priority === "至急" ? "至急" : `${formatShort(addDays(today, w.day))}${w.time ? ` ${w.time}` : ""} 予約`;
 }
 
-export function imagingTitle(o: ImagingOrder): string {
-  const region = findRegion(o.region)?.name ?? o.region;
-  return `${o.modality}　${region}${o.contrast ? `　${o.contrast}` : ""}`;
+type ImagingLike = Pick<ImagingOrder, "modality" | "region"> & Partial<Pick<ImagingOrder, "side" | "views" | "position" | "contrast" | "agent" | "ct" | "mri" | "note" | "consent">>;
+
+/** 「単純＋造影（門脈相）」「造影（CTA（血管））」: the contrast and, for CT, the method that goes with it. */
+export function contrastText(o: ImagingLike): string {
+  if (!o.contrast) return "";
+  const extra = [o.ct?.mode && o.ct.mode !== "通常" ? o.ct.mode : null, o.ct?.phases?.length ? o.ct.phases.join("・") : null].filter(Boolean);
+  return `${o.contrast}${extra.length ? `（${extra.join("、")}）` : ""}`;
+}
+
+/** 「CT　腹部・骨盤　単純＋造影（門脈相）」「X線　右手関節」: what the study is (lists, RIS, PACS). */
+export function imagingTitle(o: ImagingLike): string {
+  return `${o.modality}　${regionLabel(o.region, o.side)}${o.contrast ? `　${contrastText(o)}` : ""}`;
+}
+
+/** 「正面・側面（2方向）　座位」「5mm　骨条件・3D　範囲：横隔膜〜恥骨　仰臥位」「T1・T2・拡散強調（DWI）」: how it is taken. */
+export function imagingMethodText(o: ImagingLike): string {
+  const parts: string[] = [];
+  const xray = o.modality === "X線" || o.modality === "ポータブルX線";
+  if (xray && o.views?.length) parts.push(viewsText(o.views));
+  if (o.ct) {
+    if (o.ct.sliceMm) parts.push(`${o.ct.sliceMm}mm`);
+    if (o.ct.recon.length) parts.push(o.ct.recon.join("・"));
+    if (o.ct.range) parts.push(`範囲：${o.ct.range}`);
+  }
+  if (o.mri?.sequences.length) parts.push(o.mri.sequences.join("・"));
+  if (o.agent) {
+    const a = findAgent(o.agent.code);
+    parts.push(`${a?.name ?? o.agent.code}${o.agent.mL ? ` ${o.agent.mL}mL` : ""}`);
+  }
+  // The position is left out when every view already names one (臥位正面・立位正面).
+  if (o.position && !(xray && o.views?.length && o.views.every((v) => /立位|臥位|座位/.test(v)))) parts.push(o.modality === "ポータブルX線" ? `病室で${o.position}` : o.position);
+  if (o.note) parts.push(o.note);
+  return parts.join("　");
+}
+
+/** 「X線　右手関節　正面・側面（2方向）　座位」「CT　胸部〜骨盤　単純＋造影（門脈相）　5mm　同意済」: the whole order in one line. */
+export function imagingSummary(o: ImagingLike): string {
+  return [imagingTitle(o), imagingMethodText(o), usesContrast({ modality: o.modality, contrast: o.contrast ?? null, ct: o.ct }) ? consentText(o.consent) || "同意：未取得" : ""].filter(Boolean).join("　");
+}
+
+/** The same line for a draft that is still being filled in (「部位？」「左右？」 where something is missing). */
+export function imagingDraftText(d: ImagingDraft): string {
+  const region = d.region ? findRegion(d.region) : undefined;
+  const side = region?.sided ? (d.side ?? "左右？") : "";
+  const o: ImagingLike = {
+    modality: d.modality ?? ("X線" as const),
+    region: d.region ?? "",
+    views: d.views ?? undefined,
+    position: d.position ?? defaultPosition(d.modality, region),
+    contrast: d.contrast ?? undefined,
+    agent: d.agent ?? undefined,
+    ct: d.ct ?? undefined,
+    mri: d.mri ?? undefined,
+    note: d.note ?? undefined,
+    consent: d.consent ?? undefined,
+  };
+  const head = `${d.modality ?? "種類？"}　${side}${region?.name ?? "部位？"}${o.contrast ? `　${contrastText(o)}` : ""}`;
+  const xray = d.modality === "X線" || d.modality === "ポータブルX線";
+  const method = xray && !d.views?.length ? `方向？　${imagingMethodText({ ...o, views: undefined })}` : imagingMethodText(o);
+  return [head, method, usesContrast(d) ? consentText(d.consent) || "同意：未取得" : ""].filter(Boolean).join("　");
 }
 
 export function imagingLines(o: ImagingOrder, today: CalendarDate): { main: string; detail: string } {
-  const parts = [o.views?.join("＋"), o.reading && `読影 ${o.reading}`, examWhen(o.when, today), o.transport, `目的：${o.purpose}`, o.acks?.join("・"), o.answers?.metal && `体内金属：${o.answers.metal}`, o.comment].filter(Boolean) as string[];
+  const parts = [imagingMethodText(o), o.reading && `読影 ${o.reading}`, examWhen(o.when, today), o.transport, `目的：${o.purpose}`, o.acks?.join("・"), o.answers?.metal && `体内金属：${o.answers.metal}`, usesContrast(o) ? consentText(o.consent) || "同意：未取得" : null, o.comment].filter(Boolean) as string[];
   return { main: imagingTitle(o), detail: parts.join("　") };
 }
 

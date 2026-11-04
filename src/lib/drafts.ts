@@ -66,7 +66,7 @@ import type {
 import { checkPrescription, toPrescriptionOrders, type PrescriptionDraft } from "./rx";
 import { interactionIssues, reasonsToKeep } from "./interactions";
 import { consentFor, findConsent, type ConsentCode } from "./consent";
-import { PHYSIO, REGIONS, checkImaging, checkPhysio, emptyImaging, emptyPhysio, toImagingOrder, toPhysioOrder, type ExamPatientFacts, type ImagingDraft, type Modality, type PhysioDraft } from "./exams";
+import { PHYSIO, REGIONS, checkImaging, checkPhysio, emptyImaging, emptyPhysio, toImagingOrder, toPhysioOrder, type ExamPatientFacts, type ImagingDraft, type Modality, type PhysioDraft, type Side } from "./exams";
 
 /** 移動 said in words (code reads the words). */
 function transportFromWords(w: string) {
@@ -90,6 +90,15 @@ export function regionFromWords(words: string, _modality?: Modality | null): str
     }
   }
   return best?.code ?? null;
+}
+
+/** The side the words name (「右膝」「両側の股関節」); null when none — the check asks for it when the region needs one. */
+export function sideFromWords(words: string): Side | null {
+  const w = words.normalize("NFKC").replace(/\s/g, "");
+  if (/両側|両/.test(w)) return "両側";
+  if (/右/.test(w)) return "右";
+  if (/左/.test(w)) return "左";
+  return null;
 }
 
 export type { ImagingDraft, PhysioDraft } from "./exams";
@@ -333,6 +342,7 @@ export function draftsFromAi(res: AiDraftResponse, newId: () => string): Draft[]
           comment: o.comment,
           region: regionFromWords(o.exam_region, modality),
           regionSaid: o.exam_region.trim(),
+          side: sideFromWords(o.exam_region),
           contrast: o.exam_contrast || null,
           purpose,
           when,

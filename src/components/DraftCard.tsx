@@ -10,7 +10,7 @@ import { anyDrugName, findLab } from "@/lib/master";
 import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
 import { perDoseOf, timingName } from "@/lib/rx";
-import { findPhysio, findRegion } from "@/lib/exams";
+import { findPhysio, findRegion, viewsText } from "@/lib/exams";
 import { opdPurposeOf } from "@/lib/opd-booking";
 import { DrugMarks } from "./DrugMarks";
 
@@ -264,13 +264,13 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     const when = !w.priority ? "日時？" : w.priority === "至急" ? "至急" : `${ctx.fmtDay(w.day ?? 0)} ${w.time ?? ""} 予約`;
     const head =
       draft.kind === "imaging"
-        ? [draft.modality ?? "種類？", draft.region ? (findRegion(draft.region)?.name ?? draft.region) : draft.regionSaid ? `${draft.regionSaid}（？）` : "部位？", draft.contrast].filter(Boolean).join("　")
+        ? [draft.modality ?? "種類？", draft.region ? `${findRegion(draft.region)?.sided ? (draft.side ?? "左右？") : ""}${findRegion(draft.region)?.name ?? draft.region}` : draft.regionSaid ? `${draft.regionSaid}（？）` : "部位？", draft.contrast].filter(Boolean).join("　")
         : draft.test
           ? (findPhysio(draft.test)?.name ?? draft.test)
           : `${draft.said || "検査"}（？）`;
     const sub =
       draft.kind === "imaging"
-        ? [draft.views?.join("＋"), when, draft.transport ?? (draft.modality === "ポータブルX線" ? "病室" : "移動？")]
+        ? [draft.views?.length ? viewsText(draft.views) : null, draft.position, draft.ct?.mode && draft.ct.mode !== "通常" ? draft.ct.mode : null, draft.ct?.phases?.join("・"), draft.mri?.sequences.join("・"), draft.note, when, draft.transport ?? (draft.modality === "ポータブルX線" ? "病室" : "移動？")]
         : [when, draft.place ?? "場所？", draft.place === "検査室" ? (draft.transport ?? "移動？") : null];
     return (
       <div>

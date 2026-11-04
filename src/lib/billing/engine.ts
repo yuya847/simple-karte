@@ -481,7 +481,9 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     const region = findRegion(o.region);
     if (o.modality === "X線" || o.modality === "ポータブルX線") {
       // 第2節 通則3: 同一部位・同時に2枚以上 → 2〜5枚目は写真診断・撮影とも100分の50、6枚目以降は算定しない
-      const films = Math.min(o.views?.length ?? 1, 5);
+      // 両側は、健側を患側の対照として撮影する同一部位の撮影として、方向数 × 2 枚に数える（下の確かめるを参照）
+      const both = o.side === "両側";
+      const films = Math.min((o.views?.length ?? 1) * (both ? 2 : 1), 5);
       const k = 1 + 0.5 * (films - 1);
       const diag = region?.xray === "ロ" ? IC.写真診断ロ : IC.写真診断イ;
       const lines = [si(diag), ...(films > 1 && diag === IC.写真診断イ ? [si(IC.写真診断イ2枚以上)] : []), si(IC.単純撮影デジタル), ...(films > 1 ? [si(IC.単純撮影デジタル2枚以上)] : []), si(IC.電子画像管理加算単純)];
@@ -490,9 +492,10 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
         day: d,
         shikibetsu: "70",
         parts: [{ lines, points }],
-        basis: `E001 写真診断（${region?.xray ?? "イ"}：${region?.name ?? o.region}）＋ E002 撮影（デジタル）＋ 電子画像管理加算（単純撮影）。${films}枚${films > 1 ? `（2枚目から100分の50：(${pts(diag)} + ${pts(IC.単純撮影デジタル)}) × ${k}）` : ""}${o.modality === "ポータブルX線" ? "。病室で撮影" : ""}`,
+        basis: `E001 写真診断（${region?.xray ?? "イ"}：${o.side ?? ""}${region?.name ?? o.region}）＋ E002 撮影（デジタル）＋ 電子画像管理加算（単純撮影）。${o.views?.length ? `${o.views.length}方向` : "1方向"}${both ? "・両側" : ""} ${films}枚${films > 1 ? `（2枚目から100分の50：(${pts(diag)} + ${pts(IC.単純撮影デジタル)}) × ${k}）` : ""}${o.modality === "ポータブルX線" ? "。病室で撮影" : ""}`,
       });
-      if ((o.views?.length ?? 1) > 1 && region?.xray === "ロ") issues.push({ level: "review", text: `${region.name}の2枚目の写真診断（ロ）の記録の仕方を確かめてください。` });
+      if (films > 1 && region?.xray === "ロ") issues.push({ level: "review", text: `${region.name}の2枚目の写真診断（ロ）の記録の仕方を確かめてください。` });
+      if (both) issues.push({ level: "review", text: `${region?.name ?? o.region}の両側を同一部位の撮影（方向数 × 2 枚、2枚目から100分の50）としています。左右を別の部位として算定するかを確かめてください（第2節 通則3）。` });
       continue;
     }
     // CT / MRI
