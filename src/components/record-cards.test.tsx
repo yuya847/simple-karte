@@ -45,9 +45,8 @@ describe("経過のカード", () => {
     expect(html).toContain("・WBC");
     expect(html).toContain('aria-label="検査の内訳"');
   });
-  it("the folding buttons and each card's ▸ are there, and the drag handle for Do", () => {
-    expect(html).toContain("すべて展開");
-    expect(html).toContain("すべてたたむ");
+  it("each card's ▸ is there, and the drag handle for Do (no 「すべて展開／たたむ」 buttons)", () => {
+    expect(html).not.toContain("すべて展開");
     expect(html).toContain('aria-label="記事をたたむ"');
     expect(html).toContain('aria-label="注射をたたむ"');
     expect(html).toContain('draggable="true"');

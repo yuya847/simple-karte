@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS, findSet } from "@/lib/master";
 import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
@@ -376,16 +376,6 @@ function RecordList({
             )}
           </label>
           )}
-          <span role="group" aria-label="記録の折りたたみ" className="ml-auto flex items-center gap-1">
-            <button type="button" onClick={() => setFolded({ all: false, each: {} })} aria-pressed={!folded.all} title="すべての記録を開く" className="flex items-center gap-0.5 rounded border border-rule px-1.5 py-0.5 text-ink-soft hover:border-ai hover:text-ink">
-              <ChevronsUpDown size={12} />
-              すべて展開
-            </button>
-            <button type="button" onClick={() => setFolded({ all: true, each: {} })} aria-pressed={folded.all} title="記録を見出しだけにする（押すと開く）" className="flex items-center gap-0.5 rounded border border-rule px-1.5 py-0.5 text-ink-soft hover:border-ai hover:text-ink">
-              <ChevronsDownUp size={12} />
-              すべてたたむ
-            </button>
-          </span>
         </div>
         {narrowed && (
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
