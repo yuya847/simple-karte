@@ -72,6 +72,7 @@ import { transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
+import { initialIo, withIoUrine, type IoEntry } from "@/lib/io-balance";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
 import { bagsOf } from "@/lib/discharge-rx";
@@ -138,6 +139,7 @@ import { latestCre } from "@/lib/exams";
 import { latestValue } from "@/lib/clinical";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
+import { IoPanel } from "./IoPanel";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
 import { DietPanel } from "./panels/DietPanel";
@@ -164,7 +166,7 @@ import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { overdue, type AdminRecord, type VoidedRecord } from "@/lib/mar";
-import { dripAction, endText } from "@/lib/drip-course";
+import { clockText, dripAction, endText } from "@/lib/drip-course";
 import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
@@ -476,6 +478,8 @@ export default function WardApp() {
   const [mar, setMar] = useState<Record<string, AdminRecord>>({});
   // 実施・未実施 records taken back (with who, when and why), by dose key.
   const [marVoided, setMarVoided] = useState<Record<string, VoidedRecord[]>>({});
+  // 水分出納 (IN/OUT) typed by the nurses; 点滴 comes from the drip records. Fictional records since yesterday 09:00.
+  const [io, setIo] = useState<IoEntry[]>(() => (typeof window === "undefined" ? [] : initialIo(abs(0, nowTimeInTokyo()))));
   // A nurse confirming orders is always entering a doctor's spoken order (口頭指示).
   const verbalMode = role === "看護師";
   const [sessionStart, setSessionStart] = useState<number | null>(null);
@@ -563,6 +567,7 @@ export default function WardApp() {
       extraVitals: [extraVitals, setExtraVitals],
       mar: [mar, setMar],
       marVoided: [marVoided, setMarVoided],
+      io: [io, setIo],
       sessionStart: [sessionStart, setSessionStart],
       directives: [directives, setDirectives],
       diets: [diets, setDiets],
@@ -609,13 +614,13 @@ export default function WardApp() {
           attending: deptChanges[p.id]?.doctor ?? p.attending,
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ...(discharged[p.id] ? { dischargedAt: discharged[p.id] } : {}),
-          daily: withToday(p.daily, extraDaily[p.id]),
+          daily: withIoUrine(withToday(p.daily, extraDaily[p.id]), io.filter((e) => e.patientId === p.id)),
           ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io],
   );
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
@@ -1232,6 +1237,16 @@ export default function WardApp() {
     },
   };
   const listKey = LIST_TABS.find((k) => k === screen);
+  // 水分出納: typed IN/OUT (who and when are added by code), and taking one back with a reason (it stays).
+  const addIo = (es: IoEntry[]) => {
+    for (const e of es) auditLog({ role: me.role, actor: me.name, action: "確定（水分出納）", patient: findPatient(e.patientId)?.name, detail: `${e.side} ${e.kind} ${e.ml}mL（${clockText(e.at)}）${e.note ? `　${e.note}` : ""}` });
+    setIo((all) => [...all, ...es]);
+  };
+  const voidIo = (id: string, reason: string) => {
+    const e = io.find((x) => x.id === id);
+    auditLog({ role: me.role, actor: me.name, action: "水分出納の記録を取り消した", patient: e ? findPatient(e.patientId)?.name : undefined, detail: e ? `${e.side} ${e.kind} ${e.ml}mL　${e.by} の記録　理由：${reason}` : reason });
+    setIo((all) => all.map((x) => (x.id === id ? { ...x, voided: { by: me.name, at: nowTime, reason } } : x)));
+  };
   // やること: what waits for this role, from everywhere, each with where to go.
   const todos: Todo[] = [];
   for (const x of people) {
@@ -2484,6 +2499,7 @@ export default function WardApp() {
                     last={patient.vitals.at(-1)}
                     today={patient.daily.find((d) => d.day === 0)}
                     prevWeight={prevWeightOf(patient.daily)}
+                    onOpenIo={() => setPanel("io")}
                     onDaily={(d) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（尿量・排便・食事・体重）", patient: patient.name, detail: [d.urineMl && `尿量 +${d.urineMl}mL`, d.stools && `排便 +${d.stools}回`, d.meal && `${["朝", "昼", "夕"][d.meal.slot]} ${d.meal.tenths}割`, d.weightKg !== undefined && `体重 ${d.weightKg}kg`].filter(Boolean).join("・") });
                       setExtraDaily((all) => ({ ...all, [patient.id]: addDaily(all[patient.id], d) }));
@@ -2493,6 +2509,24 @@ export default function WardApp() {
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
                       closePanel();
                     }}
+                  />
+                </Drawer>
+              )}
+              {panel === "io" && (
+                <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
+                  <IoPanel
+                    patientId={patient.id}
+                    entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    typed={io.filter((e) => e.patientId === patient.id)}
+                    records={mar}
+                    sessionStart={sessionStart ?? abs(0, nowTime)}
+                    nowTime={nowTime}
+                    today={today}
+                    standingIo={standing[patient.id]?.at(-1)?.io ?? null}
+                    legacyUrineMl={extraDaily[patient.id]?.urineMl}
+                    onAdd={addIo}
+                    onVoid={voidIo}
+                    newId={newId}
                   />
                 </Drawer>
               )}

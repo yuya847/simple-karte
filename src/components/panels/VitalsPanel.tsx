@@ -8,7 +8,10 @@ import type { DailyRecord, VitalSign } from "@/lib/types";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { useMe } from "../RoleContext";
 
-/** What the nurse adds to today's record: urine and stools are added up, meals and weight are set. */
+/**
+ * What the nurse adds to today's record: stools are added up, meals and weight are set. (urineMl stays for
+ * records typed before; urine is now typed with its time in 水分出納.)
+ */
 export interface DailyInput {
   urineMl?: number;
   stools?: number;
@@ -24,13 +27,14 @@ interface Props {
   today?: DailyRecord;
   prevWeight?: { day: number; kg: number };
   onDaily?: (d: DailyInput) => void;
+  /** Open 水分出納, where urine and the other IN/OUT are typed with their time. */
+  onOpenIo?: () => void;
 }
 
 const MEAL_SLOTS = ["朝", "昼", "夕"] as const;
 
-/** 尿量・排便・食事の摂取量・体重: added to today's record; totals and the weight change are counted in code. */
-function DailyForm({ today, prevWeight, onDaily }: { today?: DailyRecord; prevWeight?: { day: number; kg: number }; onDaily: (d: DailyInput) => void }) {
-  const [urine, setUrine] = useState("");
+/** 排便・食事の摂取量・体重: added to today's record; the weight change is counted in code. 尿量 is typed in 水分出納. */
+function DailyForm({ today, prevWeight, onDaily, onOpenIo }: { today?: DailyRecord; prevWeight?: { day: number; kg: number }; onDaily: (d: DailyInput) => void; onOpenIo?: () => void }) {
   const [stools, setStools] = useState("");
   const [slot, setSlot] = useState<0 | 1 | 2 | null>(null);
   const [tenths, setTenths] = useState("");
@@ -38,24 +42,30 @@ function DailyForm({ today, prevWeight, onDaily }: { today?: DailyRecord; prevWe
   const n = (s: string) => (s.trim() === "" ? undefined : Number(s));
   const w = n(weight);
   // Numbers only, none below zero.
-  const bad = [urine, stools, tenths, weight].some((s) => s.trim() !== "" && (!Number.isFinite(Number(s)) || Number(s) < 0)) || (n(tenths) !== undefined && (n(tenths)! < 0 || n(tenths)! > 10)) || (n(tenths) !== undefined && slot === null);
-  const any = [urine, stools, weight].some((s) => s.trim()) || (slot !== null && tenths.trim() !== "");
+  const bad = [stools, tenths, weight].some((s) => s.trim() !== "" && (!Number.isFinite(Number(s)) || Number(s) < 0)) || (n(tenths) !== undefined && (n(tenths)! < 0 || n(tenths)! > 10)) || (n(tenths) !== undefined && slot === null);
+  const any = [stools, weight].some((s) => s.trim()) || (slot !== null && tenths.trim() !== "");
   const box = "w-16 rounded border border-rule bg-paper px-1.5 py-1 text-right text-[13px] outline-none focus:border-ai";
   const meals = today?.meals;
   return (
     <div className="space-y-2 rounded-md border border-rule-soft bg-paper p-2 text-xs">
       <div className="flex flex-wrap items-baseline gap-x-3 text-ink-soft">
         <b className="text-ink">今日の記録</b>
-        <span className="nums">尿量 {today?.urineMl ?? 0}mL</span>
+        <span className="nums" title="水分出納で入れた尿（0〜24時）を足したもの">尿量 {today?.urineMl ?? 0}mL</span>
         <span className="nums">排便 {today?.stools ?? 0}回</span>
         <span className="nums">食事（主食）{meals === "絶食" ? "絶食" : MEAL_SLOTS.map((s, i) => `${s} ${meals?.[i] ?? "—"}`).join("・")}</span>
         <span className="nums">体重 {today?.weightKg ?? "—"}kg</span>
       </div>
       <div className="nums flex flex-wrap items-end gap-2 text-ink-soft">
-        <label className="flex flex-col gap-0.5">
-          尿量を足す mL
-          <input value={urine} onChange={(e) => setUrine(e.target.value)} inputMode="numeric" aria-label="尿量（mL）" className={box} />
-        </label>
+        <span className="flex flex-col gap-0.5">
+          尿量
+          {onOpenIo ? (
+            <button type="button" onClick={onOpenIo} className="rounded border border-ai px-1.5 py-1 text-ai hover:bg-ai hover:text-white">
+              水分出納で入れる
+            </button>
+          ) : (
+            <span className="py-1 text-ink-faint">水分出納で入れる</span>
+          )}
+        </span>
         <label className="flex flex-col gap-0.5">
           排便 回
           <input value={stools} onChange={(e) => setStools(e.target.value)} inputMode="numeric" aria-label="排便（回）" className={box} />
@@ -79,8 +89,7 @@ function DailyForm({ today, prevWeight, onDaily }: { today?: DailyRecord; prevWe
           type="button"
           disabled={!any || bad}
           onClick={() => {
-            onDaily({ urineMl: n(urine), stools: n(stools), meal: slot !== null && n(tenths) !== undefined ? { slot, tenths: n(tenths)! } : undefined, weightKg: w });
-            setUrine("");
+            onDaily({ stools: n(stools), meal: slot !== null && n(tenths) !== undefined ? { slot, tenths: n(tenths)! } : undefined, weightKg: w });
             setStools("");
             setTenths("");
             setSlot(null);
@@ -104,7 +113,7 @@ const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 const RISK_STYLE = { 低: "bg-wakatake-soft text-wakatake", "低〜中": "bg-yamabuki-soft text-yamabuki", 中: "bg-yamabuki-soft text-yamabuki", 高: "bg-shu-soft text-shu" } as const;
 
 /** Vital signs entry (typed or spoken). Claude copies the numbers; NEWS2 is code; the nurse confirms. */
-export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily }: Props) {
+export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo }: Props) {
   const me = useMe();
   const [f, setF] = useState<Form>(empty);
   const [text, setText] = useState("");
@@ -214,7 +223,7 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily 
       >
         確定（{nowTime}）
       </button>
-      {onDaily && <DailyForm today={today} prevWeight={prevWeight} onDaily={onDaily} />}
+      {onDaily && <DailyForm today={today} prevWeight={prevWeight} onDaily={onDaily} onOpenIo={onOpenIo} />}
     </div>
   );
 }
