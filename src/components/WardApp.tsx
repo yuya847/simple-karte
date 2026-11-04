@@ -84,6 +84,8 @@ import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
 import { chosenStops, endedStanding, remainingGroups, type StopGroupKey } from "@/lib/discharge-stop";
 import { DischargeStops } from "./DischargeStops";
+import { billingGaps, undoneRows } from "@/lib/undone";
+import { UndoneView } from "./UndoneView";
 import { bagsOf } from "@/lib/discharge-rx";
 import { GuideRecordPanel, type GuidanceInput } from "./panels/GuideRecordPanel";
 import { guidanceNoteText, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord } from "@/lib/guidance";
@@ -1563,6 +1565,11 @@ export default function WardApp() {
   // 看護ケア・観察: tasks more than an hour past their time without a record.
   const careLateN = role === "看護師" && sessionStart !== null ? lateCare(careOrders, careRecords, people.map((x) => x.patient.id), sessionStart, abs(0, nowTime)).length : 0;
   if (careLateN) todos.push({ key: "care-late", label: "看護ケア・観察の記録がまだ（1時間を過ぎたもの）", detail: "ワークシートで記録する", count: careLateN, tone: "yamabuki", go: () => goWard("sheet") });
+  // 未実施の一覧: 実施漏れ (nurses) and the records the claim reads differently (医事課).
+  const undoneNow = undoneRows(people, mar, sessionStart ?? abs(0, nowTime), abs(0, nowTime));
+  const gapsNow = billingGaps(people, mar, abs(0, nowTime));
+  if (role === "看護師" && undoneNow.length) todos.push({ key: "undone", label: "実施の記録がないまま時刻を過ぎたもの", detail: "未実施の一覧で確かめる", count: undoneNow.length, tone: "shu", go: () => goWard("undone") });
+  if (role === "医事課" && undoneNow.length + gapsNow.length) todos.push({ key: "undone", label: "未実施・算定と記録の食い違い", detail: `実施の記録なし ${undoneNow.length}件・食い違い ${gapsNow.length}件`, count: undoneNow.length + gapsNow.length, tone: "yamabuki", go: () => goWard("undone") });
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
   // 指示受け rows of the ward (for the doctor's view, the handoff and the todo).
   const allTakeRows = takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today);
@@ -1787,6 +1794,8 @@ export default function WardApp() {
         <NarcoticSlips people={people} records={mar} book={narcBook} onBook={setNarcBook} today={today} nowTime={nowTime} newId={newId} />
       ) : screen === "io" ? (
         <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standing[pid]?.at(-1)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
+      ) : screen === "undone" ? (
+        <UndoneView rows={undoneNow} gaps={gapsNow} clock={clockText} forBilling={role === "医事課"} onOpen={openPatient} onSheet={TABS[role].includes("sheet") ? () => goWard("sheet") : undefined} onBilling={role === "医事課" ? (pid) => (openPatient(pid), setPanel("billing")) : undefined} />
       ) : screen === "roster" ? (
         <RosterView book={rosterBook} today={today} nowTime={nowTime} onChange={setRosterBook} />
       ) : screen === "extract" ? (

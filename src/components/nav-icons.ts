@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  ClipboardX,
   Droplet,
   Droplets,
   FileSearch,
@@ -85,4 +86,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   cosign: UserCheck,
   io: GlassWater,
   narcotic: KeyRound,
+  undone: ClipboardX,
 };

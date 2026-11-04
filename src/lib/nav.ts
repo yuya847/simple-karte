@@ -55,7 +55,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent";
+export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -63,8 +63,8 @@ export interface WardTabInfo {
   hint: string;
   /** 患者を見る (who is where) or 病棟の仕事 (the ward's work for its patients). */
   group: "patients" | "work";
-  /** The role's view that allows it. */
-  needs: PinnedTab;
+  /** The role's view that allows it (any of them, when several). */
+  needs: PinnedTab | PinnedTab[];
 }
 
 export const WARD_TABS: WardTabInfo[] = [
@@ -76,6 +76,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "sheet", label: "ワークシート", hint: "今日の与薬・処置と指示受け", group: "work", needs: "sheet" },
   { key: "io", label: "水分出納", hint: "受け持ち患者の IN/OUT を勤務の終わりにまとめて入れ、勤務ごと・24時間の合計と IN − OUT を見る", group: "work", needs: "sheet" },
   { key: "narcotic", label: "麻薬の施用票", hint: "麻薬の注射を実施したら施用票（施用量・残量 mL）を書き、残液・空アンプルを薬剤部へ返納する。残った内服の麻薬の返納も", group: "work", needs: "sheet" },
+  { key: "undone", label: "未実施の一覧", hint: "時刻を過ぎても実施・未実施の記録がないオーダ（実施漏れ）と、処置の実施の記録と算定が合わないもの（算定漏れの候補）", group: "work", needs: ["sheet", "iji"] },
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },
   { key: "admit", label: "入院時の評価", hint: "期限のある評価（褥瘡・栄養・退院支援など）", group: "work", needs: "admit" },
   { key: "beds", label: "ベッドコントロール", hint: "全病棟の空床（性別・個室）、今日と明日の入退院、明日の朝の空床の見込み、入院申込に合うベッド", group: "work", needs: "map" },
@@ -94,7 +95,7 @@ export const wardTabInfo = (t: WardTab): WardTabInfo => WARD_TABS.find((x) => x.
 export const wardTabLabel = (t: WardTab, floor: string): string => (t === "floor" ? floor : wardTabInfo(t).label);
 
 /** The ② screens a role may open inside 病棟. */
-export const wardTabsFor = (role: Role): WardTab[] => WARD_TABS.filter((t) => TABS[role].includes(t.needs)).map((t) => t.key);
+export const wardTabsFor = (role: Role): WardTab[] => WARD_TABS.filter((t) => [t.needs].flat().some((n) => TABS[role].includes(n))).map((t) => t.key);
 
 /** The places (and tools) a role uses, in the menu's order. */
 export function areasFor(role: Role): Area[] {
