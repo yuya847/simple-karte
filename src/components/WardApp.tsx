@@ -4367,9 +4367,9 @@ export default function WardApp() {
         ))}
         </div>
       )}
-      {/* A nurse call rings on the nurses' screens (as on their phones). */}
+      {/* A nurse call rings on the nurses' screens (as on their phones): bottom right, above the save status, off the screen's content. */}
       {role === "看護師" && (
-        <div className="fixed bottom-2 left-2 z-40 flex flex-col gap-1.5 print:hidden">
+        <div className="fixed bottom-10 right-2 z-40 flex flex-col items-end gap-1.5 print:hidden">
           {phsNotices
             .filter((n) => !n.readBy.includes(me.name) && forMyTeam(n))
             .slice(-3)
