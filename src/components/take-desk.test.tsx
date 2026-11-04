@@ -25,8 +25,8 @@ const inj = (id: string, x: Partial<{ drug: string; time: string }> = {}): Order
   status: "有効",
   order: { type: "injection", items: [{ drugCode: x.drug ?? "INJ-CEZ1", amount: 1, unit: "g" }], route: "点滴静注", schedule: { kind: "every_hours", hours: 12 }, start: { day: 0, time: "14:00" }, minutesPerDose: 30 },
 });
-const p1: WorkPatient = { patient: { id: "p1", name: "佐倉 修" } as never, room: "512", entries: [inj("a")] };
-const p2: WorkPatient = { patient: { id: "p2", name: "大浦 トメ" } as never, room: "503A", entries: [inj("k", { drug: "INJ-KCL20", time: "11:00" })] };
+const p1: WorkPatient = { patient: { id: "p1", name: "佐倉 修", age: 72, sex: "男" } as never, room: "512", entries: [inj("a")] };
+const p2: WorkPatient = { patient: { id: "p2", name: "大浦 トメ", age: 88, sex: "女" } as never, room: "503A", entries: [inj("k", { drug: "INJ-KCL20", time: "11:00" })] };
 const ch = (e: OrderEntry, at: number, p: WorkPatient): OrderChange => ({ kind: "新規", at, entry: e, patientId: p.patient.id, room: p.room, name: p.patient.name, key: `${e.id}|新規`, timeKnown: true });
 const rows = takeRows([ch(p1.entries[0], 600, p1), ch(p2.entries[0], 660, p2)], [p1, p2], TODAY);
 const base = { people: [p1, p2], rows, holds: {}, nurses: ["看護師 佐藤", "看護師 田中"], today: TODAY, nowTime: "12:10", onTake: noop, onHold: noop, onConfirm: noop, onOpen: noop, onSheet: noop };
@@ -38,29 +38,58 @@ describe("指示受けの画面", () => {
     expect(wardTabsFor("医事課")).not.toContain("take");
   });
 
-  it("lists the untaken changes by patient with the elapsed time, the late ones and the one-at-a-time rules", () => {
+  it("lists the untaken changes in the catalog's form: the band at the top, a band per patient, each change with its heading, the three 日時／者 pairs and 項目名：値 lines", () => {
     const html = renderToStaticMarkup(
       <RoleProvider value="看護師">
         <TakeDesk {...base} taken={{}} isTaken={() => false} confirms={{}} isMine={(room) => room === "512"} />
       </RoleProvider>,
     );
+    // The band at the top: the date, 指示受け済みも表示する, the kinds, the checks and 一括受け.
+    expect(html).toContain("今日 11/4（水）");
+    expect(html).toContain("前の日");
+    expect(html).toContain("次の日");
+    expect(html).toContain("指示受け済みも表示する");
+    for (const c of ["処置・検査", "注射・輸血", "処方", "看護指示", "食事", "その他"]) expect(html).toContain(c);
+    expect(html).toContain("全チェック");
+    expect(html).toContain("全チェック解除");
+    expect(html).toContain("一括受け");
     expect(html).toContain("未指示受け 2件");
-    expect(html).toContain("512　佐倉 修");
-    expect(html).toContain("503A　大浦 トメ");
+    expect(html).toContain("遅れ 2件"); // both older than 60 minutes
+    // The band of a patient: 患者ID・氏名・年齢・性別・部屋.
+    expect(html).toContain("患者ID ");
+    expect(html).toContain("佐倉 修");
+    expect(html).toContain("72歳");
+    expect(html).toContain("性別 </span>男");
+    expect(html).toContain("部屋 </span>512");
+    expect(html).toContain("大浦 トメ");
     expect(html).toContain("受け持ち"); // 512 is this nurse's
     expect(html).toContain("2時間10分"); // 10:00 → 12:10
-    expect(html).toContain("遅れ 2件"); // both older than 60 minutes
+    // Each change: the check, the heading (kind and the order's date and time), the three pairs, the lines.
+    expect(html).toContain("入院注射");
+    expect(html).toContain("11/4（水） 10:00");
+    expect(html).toContain("指示開始日時");
+    expect(html).toContain("指示者");
+    expect(html).toContain("実施日時");
+    expect(html).toContain("実施者");
+    expect(html).toContain("指示受け日時");
+    expect(html).toContain("指示受け者");
+    expect(html).toContain("11/4（水） 14:00"); // 指示開始
+    expect(html).toContain("山本（専攻医）");
+    expect(html).toContain("手技</dt><dd class=\"nums\">点滴静注");
+    expect(html).toContain("セファゾリン");
+    expect(html).toContain("用法</dt><dd class=\"nums\">12時間ごと");
+    expect(html).toContain("実施場所</dt><dd class=\"nums\">5階東病棟");
+    expect(html).toContain('type="checkbox" aria-label="佐倉 修 入院注射 をチェック"');
     expect(html).toContain("高リスク薬（カリウム注）");
-    expect(html).toContain("開いて受ける"); // KCl one at a time
+    expect(html).toContain("開いて受ける"); // KCl one at a time: its check is disabled
+    expect(html).toContain('title="1件ずつ受けます：高リスク薬（カリウム注）"');
     expect(html).toContain("指示を受ける");
-    expect(html).toContain("まとめて受ける（1件・1件ずつのもの 1件は除く）");
     expect(html).toContain("指示票（今日・A4）");
-    expect(html).toContain("この端末で今日受けた指示はまだありません");
     expect(html).toContain("denshi_gx.pdf");
     expect(html).toContain("架空の病院の取り決め");
   });
 
-  it("moves taken changes to 今日の指示受け済み with who and when, and asks for 指示確認 until the schedule is looked at", () => {
+  it("a taken change stays until its schedule is confirmed (with who took it and when); confirmed ones are hidden until 指示受け済みも表示する", () => {
     const taken: Record<string, string> = { "a|新規": "11:00 看護師 佐藤" };
     const html = renderToStaticMarkup(
       <RoleProvider value="看護師">
@@ -68,16 +97,29 @@ describe("指示受けの画面", () => {
       </RoleProvider>,
     );
     expect(html).toContain("未指示受け 1件");
-    expect(html).toContain("今日の指示受け済み　1件（予定の確認がまだ 1件）");
-    expect(html).toContain("11:00 看護師 佐藤");
+    expect(html).toContain("受けたが予定の確認がまだ 1件");
+    expect(html).toContain("指示受け日時：</span><span class=\"nums\">11:00");
+    expect(html).toContain("看護師 佐藤");
     expect(html).toContain("予定を確認する（まだ）");
     const done = renderToStaticMarkup(
       <RoleProvider value="看護師">
         <TakeDesk {...base} taken={taken} isTaken={(r) => r.keys.every((k) => !!taken[k])} confirms={{ "a|新規": "11:05 看護師 佐藤" }} isMine={() => false} />
       </RoleProvider>,
     );
-    expect(done).toContain("確認 11:05 看護師 佐藤");
     expect(done).not.toContain("予定を確認する（まだ）");
+    expect(done).not.toContain("佐倉 修"); // hidden: 指示受け済み
+    expect(done).toContain("大浦 トメ");
+    expect(done).toContain("指示受け済みも表示する<span class=\"nums text-ink-faint\">（1件）");
+  });
+
+  it("fills 実施日時／実施者 from the 与薬・実施の記録", () => {
+    const html = renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <TakeDesk {...base} taken={{}} isTaken={() => false} confirms={{}} isMine={() => false} records={{ "a|840": { key: "a|840", orderId: "a", patientId: "p1", at: 840, status: "実施", doneAt: "14:05", by: "看護師 田中", checked: { patient: true, label: true } } }} />
+      </RoleProvider>,
+    );
+    expect(html).toContain("実施日時：</span><span class=\"nums\">14:05");
+    expect(html).toContain("看護師 田中");
   });
 
   it("the 指示確認 panel shows the doses of today and tomorrow and the confirm button", () => {

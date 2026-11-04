@@ -19,7 +19,7 @@ export interface ConfirmProps {
 
 const td = "border-b border-rule-soft px-1.5 py-1 align-top";
 const th = "border-b border-rule px-1.5 py-1 text-left font-normal text-ink-soft";
-const FLAG_STYLE = { urgent: "bg-shu text-white", highRisk: "bg-shu-soft text-shu", verbal: "bg-fuji-soft text-fuji", changed: "bg-yamabuki-soft text-yamabuki", offHours: "bg-tab text-ink" } as const;
+export const FLAG_STYLE = { urgent: "bg-shu text-white", highRisk: "bg-shu-soft text-shu", verbal: "bg-fuji-soft text-fuji", changed: "bg-yamabuki-soft text-yamabuki", offHours: "bg-tab text-ink" } as const;
 
 /**
  * 指示受け: each change with what it is, flags (至急・高リスク・口頭指示・変更・時間外), a 変更 with before and
