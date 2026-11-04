@@ -130,6 +130,7 @@ import { PharmacyInbox } from "./PharmacyInbox";
 import { DialysisView } from "./DialysisView";
 import { SurgeryView } from "./SurgeryView";
 import { initialSurgeries, type Surgery } from "@/lib/surgery";
+import type { FlowEvent } from "@/lib/flow-days";
 import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { b008Check, draftsFromReport, queryOpen, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, otherChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
@@ -463,6 +464,8 @@ export default function WardApp() {
   // 妊娠中の印 and 付箋, per patient.
   const [pregnancy, setPregnancy] = useState<Record<string, { weeks: number | null } | null>>({});
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
+  // 経過表: the days a nurse or doctor chose to count from (イベント日数).
+  const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
   // 身体的拘束 records (start, reviews each shift, end).
   const [restraints, setRestraints] = useState<Restraint[]>(INITIAL_RESTRAINTS);
   // 看護ケア指示 (care and observation orders by nurses), their 実施 records, and the 看護計画.
@@ -559,6 +562,7 @@ export default function WardApp() {
       journal: [journal, setJournal],
       pregnancy: [pregnancy, setPregnancy],
       stickies: [stickies, setStickies],
+      flowEvents: [flowEvents, setFlowEvents],
       restraints: [restraints, setRestraints],
       careOrders: [careOrders, setCareOrders],
       careRecords: [careRecords, setCareRecords],
@@ -2183,6 +2187,18 @@ export default function WardApp() {
               io={{ typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null }}
               onModify={modifyOrder}
               care={{ orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) }}
+              flowDays={{
+                surgeries: surgeries.filter((x) => x.patientId === patient.id),
+                events: flowEvents.filter((x) => x.patientId === patient.id),
+                meName: me.name,
+                onAddEvent: deny("vitals")
+                  ? undefined
+                  : (ev) => {
+                      auditLog({ role: me.role, actor: me.name, action: "経過表に数える日を足した", patient: patient.name, detail: `${ev.label}（${formatShort(addDays(today, ev.day))}）` });
+                      setFlowEvents((all) => [...all, { ...ev, id: newId(), patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }]);
+                    },
+                onRemoveEvent: (id) => setFlowEvents((all) => all.filter((x) => x.id !== id || x.by !== me.name)),
+              }}
               draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
               onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
               onDo={doFromHistory}

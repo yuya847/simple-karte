@@ -4,7 +4,7 @@ import { Copy, ClipboardPaste } from "lucide-react";
 import { TabChoice } from "./TabChoice";
 import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
 import { useEffect, useRef, useState } from "react";
-import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
+import { addDays, formatShort, minutesOf, type CalendarDate } from "@/lib/dates";
 import { abs, doseTimes, fluidByDay, orderInterval } from "@/lib/flowsheet";
 import { durationText, labName, scheduleTextFor } from "@/lib/format";
 import { findDrug } from "@/lib/master";
@@ -17,6 +17,9 @@ import { IoFlowRows, type FlowIo } from "./IoFlowRows";
 import type { DietOrder } from "@/lib/diet";
 import { examAt } from "@/lib/exams";
 import { dietDayCell, mealDiets } from "@/lib/flow-diet";
+import { hospitalDayText } from "@/lib/flow-days";
+import type { MoveEvent } from "./DietCalendar";
+import { FlowDayRows, type FlowDays } from "./FlowDayRows";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -44,6 +47,10 @@ interface Props {
   io?: FlowIo;
   /** 食事オーダー, for the 食種 row. */
   diets?: DietOrder[];
+  /** 移動 (入院・転床・転棟・転科・外泊・外出・退院) on the days, as on the 移動・食事 calendar. */
+  moves?: MoveEvent[];
+  /** 術後日数 and the days a person chose to count from. */
+  dayInfo?: FlowDays;
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -70,7 +77,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [] }: Props) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo }: Props) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const [range, setRange] = useState<VitalRange>("latest");
   const [copied, setCopied] = useState<string | null>(null);
@@ -84,6 +91,8 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const t0 = p.admittedOn * 1440;
   const xAbs = (a: number) => ((a - t0) / 1440) * colW;
   const x = (day: DayOffset, time: string) => xAbs(abs(day, time));
+  /** Where a day's cell sits on the time axis. */
+  const dayBox = (d: DayOffset) => ({ left: xAbs(d * 1440), width: xAbs((d + 1) * 1440) - xAbs(d * 1440) });
   const nowAbs = abs(0, nowTime);
 
   const vitals = p.vitals;
@@ -148,7 +157,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
       ) : (
         <div style={{ width: LABEL_W + plotW }} className="nums text-[11px]">
           {/* Date header */}
-          <Row label="">
+          <Row label="" sub="病日">
             <div className="relative h-9">
               {days.map((d, i) => (
                 <button
@@ -156,19 +165,22 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
                   type="button"
                   disabled={d > 0}
                   onClick={() => onSelectDay(d)}
+                  title={`${formatShort(addDays(today, d))}　入院${hospitalDayText(p.admittedOn, d)}${d === 0 ? "（今日）" : d > 0 ? "（明日・予定）" : ""}`}
                   className={`absolute top-0 flex h-9 flex-col items-center justify-center border-l border-rule-soft text-center ${
-                    d === selectedDay ? "bg-ai text-white" : d > 0 ? "text-ink-faint" : "hover:bg-sheet"
+                    d === selectedDay ? "bg-ai text-white" : d > 0 ? "text-ink-faint" : d === 0 ? "text-ai hover:bg-sheet" : "hover:bg-sheet"
                   }`}
                   style={{ left: i * colW, width: colW }}
                 >
                   <span className="font-bold">{formatShort(addDays(today, d))}</span>
                   <span className={`text-[10px] ${d === selectedDay ? "text-white/80" : "text-ink-faint"}`}>
-                    {d === 0 ? "今日" : d > 0 ? "予定" : `${hospitalDay(p.admittedOn, d)}日目`}
+                    {hospitalDayText(p.admittedOn, d)}
+                    {d === 0 && colW >= 84 ? "・今日" : ""}
                   </span>
                 </button>
               ))}
             </div>
           </Row>
+          <FlowDayRows days={days} box={dayBox} entries={orders} moves={moves} info={dayInfo} labelW={LABEL_W} today={today} admittedOn={p.admittedOn} />
 
           {/* Vital strips with one shared crosshair */}
           <div

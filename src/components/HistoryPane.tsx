@@ -14,6 +14,7 @@ import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/
 import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar } from "./Calendars";
 import { FlowSheet } from "./FlowSheet";
 import type { FlowIo } from "./IoFlowRows";
+import type { FlowDays } from "./FlowDayRows";
 import { DietCalendar, type BookWhat, type MoveEvent } from "./DietCalendar";
 import { BookingList } from "./BookingList";
 import type { Booking } from "@/lib/bookings";
@@ -74,6 +75,8 @@ interface Props {
   care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
   /** 水分出納 rows of the flow sheet. */
   io?: FlowIo;
+  /** 術後日数 and the counted days on the flow sheet's dates. */
+  flowDays?: FlowDays;
 }
 
 /** What is copied to the right (Do): a past note's text, or a past order to write again. */
@@ -95,7 +98,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
@@ -123,7 +126,7 @@ export function HistoryPane(props: Props) {
         )}
       </div>
       {view === "flowsheet" ? (
-        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} />
+        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} />
       ) : view === "injection-cal" ? (
         <InjectionCalendar {...calendarProps} />
       ) : view === "rx-cal" ? (

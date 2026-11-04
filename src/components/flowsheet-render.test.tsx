@@ -22,4 +22,24 @@ describe("経過表の画面", () => {
     expect(html).toContain("心臓食 塩6g");
     expect(render("90010244")).toContain("絶食");
   });
+
+  it("dates: 病日, 術後日数, 移動 and a counted day", () => {
+    const html = render("90010231", {
+      moves: [{ day: -3, time: null, label: "入院", tone: "ink" }, { day: 1, time: "10:00", label: "外泊（自宅）", tone: "yamabuki" }],
+      dayInfo: {
+        surgeries: [{ id: "s", patientId: "90010231", name: "佐倉 修", sex: "男", age: 1, ward: "", department: "", day: -1, room: "手術室1", start: "13:00", minutes: 60, procedure: "切開排膿", site: "", side: null, position: null, anesthesia: null, laparoscopic: false, kind: "予定", blood: "なし", after: "病棟", anesthesiaConsult: false, infections: [], allergies: [], status: "退室", requestedAt: 0 }],
+        events: [{ id: "e", patientId: "90010231", label: "CEZ 開始", day: -3, by: "看護師 佐藤", at: { day: 0, time: "09:00" } }],
+        meName: "看護師 佐藤",
+        onAddEvent: () => {},
+        onRemoveEvent: () => {},
+      },
+    });
+    expect(html).toContain("1日目");
+    expect(html).toContain("術後1日");
+    expect(html).toContain("手術日");
+    expect(html).toContain("外泊");
+    expect(html).toContain("CEZ 開始");
+    expect(html).toContain("+3日");
+    expect(html).toContain("日数を数える日を足す");
+  });
 });
