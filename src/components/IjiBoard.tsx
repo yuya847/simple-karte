@@ -1,5 +1,7 @@
 "use client";
 
+import { EmergencyDesk, type EmergencyDeskProps } from "./billing/EmergencyDesk";
+import { pendingDraftCount } from "@/lib/billing/emergency-visit";
 import { Loader2, ReceiptJapaneseYen, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import type { ClaimIssue } from "@/lib/billing/model";
@@ -23,6 +25,8 @@ const KIND_TONE: Record<IjiKind, string> = {
  */
 export function IjiBoard({
   patients,
+  emergency,
+  charts = {},
   desk,
   diagnoses,
   today,
@@ -31,6 +35,8 @@ export function IjiBoard({
   onOpen,
 }: {
   patients: Patient[];
+  emergency?: EmergencyDeskProps;
+  charts?: Record<string, { drafts: unknown[] }>;
   desk: IjiDesk;
   diagnoses: Record<string, Diagnosis[]>;
   today: CalendarDate;
@@ -105,6 +111,8 @@ export function IjiBoard({
       </div>
       {error && <p className="mb-3 rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
 
+      <p className="hint mb-2 text-xs text-ink-soft">下書きは医師の確定待ちです。確定するまで算定に入りません。</p>
+      {emergency && <EmergencyDesk {...emergency} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -124,6 +132,7 @@ export function IjiBoard({
                   <button type="button" onClick={() => onOpen(p.id, "billing")} className="text-left font-bold text-ai underline-offset-2 hover:underline">
                     {p.room} {p.name}
                   </button>
+                  <div className="text-[11px] text-ink-soft">下書き {pendingDraftCount(charts, p.id)}（医師の確定待ち）</div>
                   <div className="nums text-[11px] text-ink-faint">
                     {p.id}・入院 {day(p.admittedOn)}・{p.attending}
                   </div>

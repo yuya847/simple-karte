@@ -1,6 +1,8 @@
 "use client";
 import { focusDraftLine } from "@/lib/order-windows";
 
+import { pendingDraftCount, transferEmergencyOrders } from "@/lib/billing/emergency-visit";
+
 import { useNoticeFocus } from "./useNoticeFocus";
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
 import { normalizeRightState, orderWindows, showOrderWindow } from "@/lib/order-windows";
@@ -1292,6 +1294,7 @@ export default function WardApp() {
   const acceptRequest = (r: AdmissionRequest, bed: { room: string; bed: string }) => {
     const id = `9002${String(admitted.length + 1).padStart(4, "0")}`;
     const vkey = `${r.from.kind}:${r.from.id}`;
+    if (r.from.kind === "er" && opdBills[vkey]) { window.alert("救急外来で入金済みです。二重会計を防ぐため入院への変更を止めました。この試作では入金の取消・返金は未対応です。"); return; }
     const said = [...(visitNotes[vkey] ?? []).map((n) => n.text), ...(notes[vkey] ?? []).map((n) => noteText(n))];
     let built: ReturnType<typeof admitFromOpd> | null = null;
     if (r.from.kind === "er") {
@@ -1307,6 +1310,7 @@ export default function WardApp() {
       setOpd((list) => list.map((x) => (x.id === o.id ? { ...x, status: "終了" } : x)));
     }
     const { patient: p, bed: b } = built;
+    if (r.from.kind === "er") p.history = transferEmergencyOrders(p.history, withExamRecords(currentEntries(findPatient(vkey)!, charts[vkey]), dept.ris));
     auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `-${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
     setAdmitted((a) => [...a, p]);
     // 緊急入院 counts as emergency (退院困難な要因 イ, 栄養管理計画は7日以内).
@@ -2167,7 +2171,7 @@ export default function WardApp() {
           onAccept={acceptRequest}
         />
       ) : screen === "iji" ? (
-        <IjiBoard patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} />
+        <IjiBoard charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(id.startsWith("er:") ? "patient-info" : where))} />
       ) : screen === "support" ? (
         <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
       ) : screen === "ulcers" ? (

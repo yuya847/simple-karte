@@ -48,6 +48,7 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 };
 
 interface Props {
+  emergency?: import("@/lib/billing/emergency-visit").EmergencyContext;
   visit: OpdPatient;
   /** The visit's chart id ("opd:" + id): the key of the insurance and the settlement. */
   visitKey: string;
@@ -73,7 +74,7 @@ export function shareContext(ins: Insurance, today: CalendarDate) {
   return { month: `${today.y}-${String(today.m).padStart(2, "0")}`, elder: band === "70〜74歳" || band === "75歳以上" || ins.kind === "後期高齢者", turns75ThisMonth: today.y - by === 75 && today.m === bm };
 }
 
-export function OpdBillPanel({ visit, visitKey, entries, rx, records = [], today, nowTime, settlement, book, unpaid, onSettle, onOpenVisit, onOpenInsurance, initial }: Props) {
+export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records = [], today, nowTime, settlement, book, unpaid, onSettle, onOpenVisit, onOpenInsurance, initial }: Props) {
   const me = useMe();
   const denySettle = useDeny()("settle");
   const [claim, setClaim] = useState<OpdClaim | null>(initial ?? null);
@@ -88,7 +89,7 @@ export function OpdBillPanel({ visit, visitKey, entries, rx, records = [], today
   const assumed = !registered;
   const birth = birthDateOf({ id: visitKey, age: visit.age }, today, registered?.birthDate);
   const rxItems = useMemo(() => rx.map((r) => ({ items: r.items ?? [] })), [rx]);
-  const bodyJson = JSON.stringify({ today: isoDate(today), nowTime, visit: { id: visit.id, name: visit.name, age: visit.age, kind: visit.kind, department: visit.department }, entries, rx: rxItems });
+  const bodyJson = JSON.stringify({ emergency, today: isoDate(today), nowTime, visit: { id: visit.id, name: visit.name, age: visit.age, kind: visit.kind, department: visit.department }, entries, rx: rxItems });
   const request = useEffectEvent(() => bodyJson);
   useEffect(() => {
     const ctl = new AbortController();
@@ -123,8 +124,8 @@ export function OpdBillPanel({ visit, visitKey, entries, rx, records = [], today
   const detailNode = () => <DetailSheet visit={visit} date={date} acts={claim!.acts} total={claim!.totalPoints} />;
 
   const settle = () => {
-    if (denySettle || !onSettle || !claim || !share || !method) return;
-    const s: OpdSettlement = { visitId: visitKey, receiptNo: nextReceiptNo(book, today), points: claim.totalPoints, yen: share.patientYen, coverage: coverageOf(insurance), rateLabel: rateLabel(share.rate), method, by: me.name, at: { day: 0, time: nowTime } };
+    if (emergency?.admittedAs || busy || error || denySettle || !onSettle || !claim || !share || !method) return;
+    const s: OpdSettlement = { visitKind: visit.kind, visitId: visitKey, receiptNo: nextReceiptNo(book, today), points: claim.totalPoints, yen: share.patientYen, coverage: coverageOf(insurance), rateLabel: rateLabel(share.rate), method, by: me.name, at: { day: 0, time: nowTime } };
     auditLog({ role: me.role, actor: me.name, action: "確定（外来の会計・入金）", patient: visit.name, detail: `${s.receiptNo}　${pts(s.points)}　${kindLabel} ${s.rateLabel}　お支払い ${yen(s.yen)}（${s.method}）` });
     onSettle(s);
   };
@@ -324,7 +325,7 @@ export function OpdBillPanel({ visit, visitKey, entries, rx, records = [], today
                   <>
                     {/* お支払いの方法: the whole label is the button (36px or taller), coloured when chosen. */}
                     <BigChoice label="お支払いの方法" name="opd-pay-method" value={method} onChange={setMethod} disabled={!!denySettle} className="ml-auto" options={PAY_METHODS.map((m) => ({ value: m, label: m }))} />
-                    <button type="button" onClick={settle} disabled={!!denySettle || !method || !onSettle} className="rounded-md bg-ai px-3 py-1 text-sm font-bold text-white disabled:opacity-40">
+                    <button type="button" onClick={settle} disabled={!!emergency?.admittedAs || busy || !!error || !!denySettle || !method || !onSettle} className="rounded-md bg-ai px-3 py-1 text-sm font-bold text-white disabled:opacity-40">
                       入金（{yen(share.patientYen)}）
                     </button>
                   </>
