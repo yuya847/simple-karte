@@ -16,6 +16,7 @@ import { DietCalendar, type BookWhat, type MoveEvent } from "./DietCalendar";
 import { BookingList } from "./BookingList";
 import type { Booking } from "@/lib/bookings";
 import type { DietOrder } from "@/lib/diet";
+import type { CareOrder, CareRecord } from "@/lib/care-orders";
 
 /** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00). */
 type CalendarMar = (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
@@ -67,6 +68,8 @@ interface Props {
   moves?: MoveEvent[];
   onBook?: (day: number, what: BookWhat) => void;
   onDoMove?: (entryId: string) => void;
+  /** 看護ケア指示 and their records, for the flow sheet. */
+  care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
 }
 
 /** What is copied to the right (Do): a past note's text, or a past order to write again. */
@@ -88,7 +91,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
@@ -116,7 +119,7 @@ export function HistoryPane(props: Props) {
         )}
       </div>
       {view === "flowsheet" ? (
-        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} />
+        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} />
       ) : view === "injection-cal" ? (
         <InjectionCalendar {...calendarProps} />
       ) : view === "rx-cal" ? (

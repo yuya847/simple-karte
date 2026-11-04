@@ -10,6 +10,8 @@ import { durationText, labName, scheduleTextFor } from "@/lib/format";
 import { findDrug } from "@/lib/master";
 import { news2 } from "@/lib/news2";
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, VitalSign } from "@/lib/types";
+import type { CareOrder, CareRecord } from "@/lib/care-orders";
+import { CareFlowRows } from "./CareFlowRows";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -31,6 +33,8 @@ interface Props {
   onSelectDay: (d: DayOffset) => void;
   /** Put copied vital-sign lines into the O) of today's note. */
   onInsertVitals?: (text: string) => void;
+  /** 看護ケア指示 of this patient and their records, shown as rows under 観察・記録. */
+  care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -55,7 +59,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals }: Props) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care }: Props) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const [range, setRange] = useState<VitalRange>("latest");
   const [copied, setCopied] = useState<string | null>(null);
@@ -244,6 +248,8 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             colW={colW}
             value={(d) => (fluid[d] ? `${d > 0 ? "（" : ""}${fluid[d].toLocaleString("ja-JP")}${d > 0 ? "）" : ""}` : "")}
           />
+
+          {care && <CareFlowRows {...care} days={days} colW={colW} labelW={LABEL_W} nowX={xAbs(nowAbs)} nowAbs={nowAbs} />}
 
           {/* Injections as bars over time */}
           <Section title="注射" />
