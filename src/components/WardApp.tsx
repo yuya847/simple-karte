@@ -58,6 +58,7 @@ import { MealsView } from "./MealsView";
 import { journalLines, staffing } from "@/lib/journal";
 import { GUIDE_TO } from "@/lib/procedures";
 import { bookingsOf } from "@/lib/bookings";
+import { visitsFromOpd, visitsOf } from "@/lib/opd-history";
 import { runExtract } from "@/lib/extract";
 import { ManualView } from "./ManualView";
 import { IncidentView } from "./IncidentView";
@@ -1951,6 +1952,11 @@ export default function WardApp() {
   };
 
   // The screen itself.
+  // 外来の受診歴 for the left record: a ward patient's visits before the admission (fictional), an outpatient's past visits.
+  const opdVisitsOf = (p: Patient) => {
+    const v = visitOf(p.id);
+    return v ? (v.kind === "opd" ? visitsFromOpd(v.op) : []) : visitsOf(p.id, p.admittedOn);
+  };
   /** What the left tabs (経過表・内服歴・注射歴) and the reading windows show and do, for the chart in front. */
   const refPropsOf = (patient: Patient): RefWindowProps => ({
     patient,
@@ -2819,7 +2825,7 @@ export default function WardApp() {
             }`}
           >
             <div className="hidden min-h-0 lg:block">
-              <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} />
+              <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} visits={opdVisitsOf(patient)} />
             </div>
             {panel === "billing" ? (
               <div className="col-span-2 flex min-h-0 flex-col">
@@ -2860,6 +2866,13 @@ export default function WardApp() {
               showStopped={chart.showStopped}
               onToggleStopped={() => update({ showStopped: !chart.showStopped })}
               focus={chart.recordFocus}
+              visits={opdVisitsOf(patient)}
+              todayBookings={bookingsOf(
+                entries.filter((e): e is OrderEntry => e.kind === "order"),
+                surgeries.filter((x) => x.patientId === patient.id),
+                today,
+                abs(0, nowTime),
+              ).filter((b) => b.day === 0)}
               view={chart.leftView}
               onView={(v) => update({ leftView: v })}
               onFloat={(v) => (v === "results" ? setPanel("results") : openRight(v === "flowsheet" ? "flowsheet" : v === "rx-history" ? "rxcal" : "injcal"))}

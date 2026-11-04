@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+import type { Booking } from "./bookings";
+import { OPD_PATIENTS } from "./opd";
+import { OPD_VISITS, daySections, placeLabel, visitsFromOpd, visitsOf } from "./opd-history";
+import { PATIENTS } from "./patients";
+import type { HistoryEntry } from "./types";
+
+const note = (day: number, time: string, text: string): HistoryEntry => ({ kind: "note", day, time, author: "山本（専攻医）", role: "医師", text });
+
+describe("外来の受診歴", () => {
+  it("the fictional visits are before each patient's admission, with a clinic and a doctor; visitsOf gives them newest first", () => {
+    for (const v of OPD_VISITS) {
+      const p = PATIENTS.find((x) => x.id === v.patientId)!;
+      expect(v.day).toBeLessThan(p.admittedOn);
+      expect(v.dept).toBeTruthy();
+      expect(v.entries.every((e) => e.day === v.day)).toBe(true);
+    }
+    const sakura = visitsOf("90010231", -3);
+    expect(sakura.map((v) => v.day)).toEqual([-5, -45]);
+    expect(visitsOf("90010231", -50)).toEqual([]);
+    expect(placeLabel(sakura[0])).toBe("外来・総合診療科 山本（専攻医）");
+  });
+  it("an outpatient's past visits become visits of their clinic, each with the doctor's note", () => {
+    const op = OPD_PATIENTS.find((p) => p.id === "opd-1")!;
+    const vs = visitsFromOpd(op);
+    expect(vs.map((v) => v.day)).toEqual([-28, -56]);
+    expect(vs[0].dept).toBe("総合診療科");
+    expect(vs[0].entries[0]).toMatchObject({ kind: "note", day: -28, role: "医師", text: "体重60.5kg、下腿浮腫なし。処方継続。" });
+  });
+  it("the day sections run today → the admission day, then the visits before it (newest first); empty days are left out, today stays", () => {
+    const entries = [note(0, "09:00", "今日"), note(-2, "10:00", "一昨日"), note(-3, "14:00", "入院日")];
+    const visits = [
+      { id: "a", patientId: "x", day: -40, dept: "循環器内科", doctor: "森", entries: [note(-40, "10:00", "外来 1")] },
+      { id: "b", patientId: "x", day: -6, dept: "総合診療科", doctor: "山本", entries: [note(-6, "10:00", "外来 2")] },
+    ];
+    const todays: Booking[] = [
+      { day: 0, time: "10:30", kind: "画像", label: "CT 胸部", done: false },
+      { day: 1, time: "09:00", kind: "採血・検体", label: "CBC", done: false },
+    ];
+    const s = daySections(-3, entries, visits, todays);
+    expect(s.map((x) => `${x.day}${x.place ? ` ${x.place.dept}` : ""}`)).toEqual(["0", "-2", "-3", "-6 総合診療科", "-40 循環器内科"]);
+    expect(s[0].bookings.map((b) => b.label)).toEqual(["CT 胸部"]);
+    expect(s.slice(1).every((x) => x.bookings.length === 0)).toBe(true);
+    // Today with nothing written still has its section (the place for the day's records).
+    expect(daySections(-1, [], [], []).map((x) => x.day)).toEqual([0]);
+  });
+  it("a visit on or after the admission day is not a 'visit before'; a visit emptied by the filters is left out only while filtering", () => {
+    const v = { id: "a", patientId: "x", day: -10, dept: "整形外科", doctor: "長谷川", entries: [] as HistoryEntry[] };
+    expect(daySections(-3, [], [{ ...v, day: -3 }], []).some((x) => x.place)).toBe(false);
+    expect(daySections(-3, [], [v], [], false).some((x) => x.place)).toBe(true);
+    expect(daySections(-3, [], [v], [], true).some((x) => x.place)).toBe(false);
+  });
+});

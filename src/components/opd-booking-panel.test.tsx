@@ -70,7 +70,7 @@ describe("外来予約の下書きと記録", () => {
     const html = as("医師", <HistoryPane patient={sakura} entries={[...sakura.history, booked]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />);
     expect(html).toContain("外来予約　循環器内科");
     expect(html).toContain("11/18（水） 午前（9:00〜12:00）");
-    expect(html).toContain("外来予約</span>");
+    expect(html).toContain("【外来予約】");
     const list = renderToStaticMarkup(<BookingList bookings={[{ day: 14, time: null, kind: "外来予約", label: "循環器内科　午前　退院後の初回", done: false }]} today={today} />);
     expect(list).toContain("外来予約");
     expect(list).toContain("時刻未定");

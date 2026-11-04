@@ -11,10 +11,12 @@ interface Props {
   today: CalendarDate;
   selectedDay: DayOffset | null;
   onSelect: (day: DayOffset) => void;
+  /** 外来の受診 before this admission (day and clinic), listed under the stay. */
+  visits?: { day: DayOffset; dept: string }[];
 }
 
 /** Tree of hospital days: this admission → month → day. Clicking a day jumps the past record to it. */
-export function DateTree({ patient, entries, today, selectedDay, onSelect }: Props) {
+export function DateTree({ patient, entries, today, selectedDay, onSelect, visits = [] }: Props) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setClosed((c) => ({ ...c, [key]: !c[key] }));
 
@@ -79,6 +81,31 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect }: Pro
             )}
           </div>
         ))}
+      {visits.length > 0 && (
+        <>
+          <TreeToggle open={!closed.visits} onClick={() => toggle("visits")} depth={0}>
+            <span className="font-bold text-mizu">入院前の外来</span>
+            <span className="nums ml-1 text-xs text-ink-faint">{visits.length}回</span>
+          </TreeToggle>
+          {!closed.visits && (
+            <ul>
+              {[...visits]
+                .sort((a, b) => b.day - a.day)
+                .map((v) => {
+                  const selected = v.day === selectedDay;
+                  return (
+                    <li key={v.day}>
+                      <button type="button" onClick={() => onSelect(v.day)} aria-current={selected ? "date" : undefined} className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}>
+                        <span>{formatShort(addDays(today, v.day))}</span>
+                        <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{v.dept}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </>
+      )}
     </nav>
   );
 }

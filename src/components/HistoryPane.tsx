@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Copy, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
-import { LAB_TESTS } from "@/lib/master";
+import { LAB_TESTS, findSet } from "@/lib/master";
 import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
 import { mergeTyping } from "@/lib/coedit";
 import { mapCursor, merge3Text } from "@/lib/diff3";
@@ -14,8 +14,10 @@ import { LiveNote } from "./LiveNote";
 import { NoteText } from "./NoteText";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
-import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
-import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
+import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
+import { ORDER_TYPE_LABEL, drugName, durationText, oralName, orderLines, scheduleTextFor, timingText } from "@/lib/format";
+import type { Booking } from "@/lib/bookings";
+import { daySections, placeLabel, type OpdVisit } from "@/lib/opd-history";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
 import type { TakeBadge } from "@/lib/order-confirm";
 import type { PendingDraw } from "@/lib/lab-table";
@@ -61,6 +63,10 @@ interface Props {
   views?: LeftViewProps;
   /** A 記録 mark of the flow sheet: show that kind of note only (n renews the list each time). */
   focus?: { kind: string; n: number };
+  /** 外来の受診 before this admission (or an outpatient's past visits), shown under the stay with the clinic's mark. */
+  visits?: OpdVisit[];
+  /** Today's bookings (検査・画像・外来予約 …), listed under today's heading. */
+  todayBookings?: Booking[];
   /** Correct a confirmed note (a new version; the earlier ones are kept). `by` names the people who corrected it together. */
   onReviseNote?: (e: NoteEntry, text: string, reason: string, by?: string) => void;
   /** 記事の同時編集: who else is correcting which note, and telling them what this page types. */
@@ -98,7 +104,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
  * calendars of 処置・移動・食事・指示簿 and the 予約 list open from the tools on the far right (参照).
  */
 export function HistoryPane(props: Props) {
-  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf } = props;
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, todayBookings, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf } = props;
   const view = asLeftView(props.view);
   const v = views;
   const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew } : null;
@@ -145,7 +151,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} todayBookings={todayBookings} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
       )}
     </section>
   );
@@ -174,6 +180,8 @@ function RecordList({
   kindInit = "all",
   patient,
   entries,
+  visits = [],
+  todayBookings = [],
   today,
   selectedDay,
   showStopped,
@@ -187,6 +195,8 @@ function RecordList({
   kindInit?: string;
   patient: Patient;
   entries: HistoryEntry[];
+  visits?: OpdVisit[];
+  todayBookings?: Booking[];
   today: CalendarDate;
   selectedDay: DayOffset | null;
   showStopped: boolean;
@@ -207,21 +217,48 @@ function RecordList({
   const [on, setOn] = useState<string[]>(() => catsFor(kindInit));
   const [q, setQ] = useState("");
   const toggle = (k: string) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
+  // Folding: each card by its key, and 「すべてたたむ」 for the ones not opened by hand since.
+  const [folded, setFolded] = useState<{ all: boolean; each: Record<string, boolean> }>({ all: false, each: {} });
+  const isFolded = (k: string) => folded.each[k] ?? folded.all;
+  const fold = (k: string) => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !isFolded(k) } }));
 
   useEffect(() => {
     if (selectedDay === null) return;
     root.current?.querySelector(`[data-day="${selectedDay}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedDay]);
 
-  const days: DayOffset[] = [];
-  for (let d = 0; d >= patient.admittedOn; d--) days.push(d);
-  const visible = entries.filter((e) => showStopped || e.kind !== "order" || e.status !== "中止");
+  const keep = (e: HistoryEntry) => showStopped || e.kind !== "order" || e.status !== "中止";
   const key = searchKey(q.trim());
-  const shown = visible.filter((e) => CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key)));
+  const pick = (e: HistoryEntry) => CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key));
+  const visible = [...entries, ...visits.flatMap((v) => v.entries)].filter(keep);
+  const shown = entries.filter(keep).filter(pick);
   const narrowed = on.length !== ALL_CATS.length || !!key;
+  // The filters apply to the visits before the admission as they do to the stay.
+  const sections = daySections(
+    patient.admittedOn,
+    shown,
+    visits.map((v) => ({ ...v, entries: v.entries.filter(keep).filter(pick) })),
+    todayBookings,
+    narrowed,
+  );
+  const shownCount = sections.reduce((n, s) => n + s.entries.length, 0);
   const counts = Object.fromEntries(CATS.map((c) => [c.key, visible.filter(c.test).length]));
   const allOf = (g: "note" | "order") => CATS.filter((c) => c.group === g).every((c) => on.includes(c.key));
   const onlyOf = (g: "note" | "order") => allOf(g) && CATS.filter((c) => c.group !== g).every((c) => !on.includes(c.key));
+  // 科・場所 of the stay's records: the ward (or the clinic, for a visit opened in the chart).
+  const herePlace = `${patient.department} ${patient.ward === "外来" || patient.ward === "救急外来" ? patient.ward : "病棟"}`;
+  // Rp numbers of a day's prescriptions (drugs ordered together share an Rp).
+  const rpNoOf = (items: HistoryEntry[]) => {
+    const rps: string[] = [];
+    const out = new Map<string, number>();
+    for (const e of items) {
+      if (e.kind !== "order" || e.order.type !== "prescription") continue;
+      const rp = e.order.rp ?? e.id;
+      if (!rps.includes(rp)) rps.push(rp);
+      out.set(e.id, rps.indexOf(rp) + 1);
+    }
+    return out;
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -259,12 +296,22 @@ function RecordList({
               </button>
             )}
           </label>
+          <span role="group" aria-label="記録の折りたたみ" className="flex items-center gap-1">
+            <button type="button" onClick={() => setFolded({ all: false, each: {} })} aria-pressed={!folded.all} title="すべての記録を開く" className="flex items-center gap-0.5 rounded border border-rule px-1.5 py-0.5 text-ink-soft hover:border-ai hover:text-ink">
+              <ChevronsUpDown size={12} />
+              すべて展開
+            </button>
+            <button type="button" onClick={() => setFolded({ all: true, each: {} })} aria-pressed={folded.all} title="記録を見出しだけにする（押すと開く）" className="flex items-center gap-0.5 rounded border border-rule px-1.5 py-0.5 text-ink-soft hover:border-ai hover:text-ink">
+              <ChevronsDownUp size={12} />
+              すべてたたむ
+            </button>
+          </span>
         </div>
         {narrowed && (
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
               {on.length !== ALL_CATS.length ? `${CATS.filter((c) => on.includes(c.key)).map((c) => c.label).join("・") || "なし"}` : ""}
-              {key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shown.length}件
+              {key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shownCount}件
             </b>
             <button
               type="button"
@@ -278,40 +325,98 @@ function RecordList({
             </button>
           </p>
         )}
-        {onDo && <p className="hint text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。</p>}
+        {onDo && <p className="hint text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。見出しの ▸ で記録をたたみます。入院前の外来の受診は、入院の記録の下に科と医師の印つきで続きます。</p>}
       </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
-        {days.map((d) => {
-          const items = shown.filter((e) => e.day === d).sort((a, b) => minutesOf(a.time) - minutesOf(b.time));
-          // A day with nothing to show is left out (today stays, as the place for the day's records).
-          if (items.length === 0 && d !== 0) return null;
+        {sections.map((s) => {
+          const d = s.day;
+          const place = s.place ? `${s.place.dept} 外来` : herePlace;
+          const rpNo = rpNoOf(s.entries);
           return (
             <div
-              key={d}
+              key={`${s.place ? "v" : "d"}${d}`}
               data-day={d}
+              data-place={s.place ? "opd" : undefined}
               className={`scroll-mt-2 border-b border-rule-soft py-3 ${selectedDay === d ? "rounded-md bg-ai-soft/50 ring-1 ring-ai/30 -mx-2 px-2" : ""}`}
             >
-              <h3 className="nums mb-2 flex items-baseline gap-2 text-sm">
+              <h3 className="nums mb-2 flex flex-wrap items-baseline gap-2 text-sm">
+                {s.place && (
+                  <span className={`flex items-center gap-1 rounded px-1.5 text-[11px] font-bold leading-5 ${PLACE_COLORS.opd.chip}`}>
+                    <Stethoscope size={11} />
+                    {placeLabel(s.place)}
+                  </span>
+                )}
                 <span className="font-bold">{formatShort(addDays(today, d))}</span>
-                <span className="text-xs text-ink-faint">
-                  入院{hospitalDay(patient.admittedOn, d)}日目{d === 0 ? "（今日）" : ""}
-                </span>
+                <span className="text-xs text-ink-faint">{s.place ? `入院の${patient.admittedOn - d}日前` : `入院${hospitalDay(patient.admittedOn, d)}日目${d === 0 ? "（今日）" : ""}`}</span>
               </h3>
-              {items.length === 0 ? null : (
-                <ol className="space-y-2">
-                  {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} patientId={patient.id} today={today} onRevise={onReviseNote} coedit={coedit} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} />}</li>
+              {s.bookings.length > 0 && (
+                <ul aria-label="今日の予定" className="nums mb-2 space-y-0.5 rounded-md border border-dashed border-mizu/50 bg-mizu-soft/40 px-2.5 py-1.5 text-[12px]">
+                  <li className="text-[10px] font-bold text-mizu">今日の予定（予約のオーダ）</li>
+                  {s.bookings.map((b, i) => (
+                    <li key={i} className={`flex items-baseline gap-2 ${b.done ? "opacity-50" : ""}`}>
+                      <span className="w-12 shrink-0 font-bold">{b.time ?? "時刻未定"}</span>
+                      <span className="shrink-0 rounded bg-sheet px-1 text-[10px] text-ink-soft">{b.kind}</span>
+                      <span className="min-w-0">{b.label}</span>
+                      {b.done && <span className="ml-auto shrink-0 text-[10px] text-ink-faint">済み</span>}
+                    </li>
                   ))}
+                </ul>
+              )}
+              {s.entries.length === 0 ? null : (
+                <ol className="space-y-2">
+                  {s.entries.map((e, i) => {
+                    const k = e.kind === "note" ? noteKey(e) : e.id;
+                    return (
+                      <li key={`${d}-${i}`}>
+                        {e.kind === "note" ? (
+                          <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k)} onFold={() => fold(k)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
+                        ) : (
+                          <OrderRow entry={e} today={today} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k)} onFold={() => fold(k)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} />
+                        )}
+                      </li>
+                    );
+                  })}
                 </ol>
               )}
             </div>
           );
         })}
-        {narrowed && shown.length === 0 && <p className="py-6 text-center text-xs text-ink-faint">当てはまる記録はありません。</p>}
+        {narrowed && shownCount === 0 && <p className="py-6 text-center text-xs text-ink-faint">当てはまる記録はありません。</p>}
       </div>
     </div>
   );
 }
+
+/** The colour of a place other than this ward: a visit to the outpatient clinic (mizu, apart from the professions' colours). */
+export const PLACE_COLORS = {
+  opd: { chip: "bg-mizu text-white", edge: "border-l-mizu", bg: "bg-mizu-soft/40", text: "text-mizu" },
+};
+
+/**
+ * One record as a card: the heading row (【種類】 date and time in bold, the department and place small on the
+ * right, ▸ to fold), a faint line with the version, the times and the writer, then the body.
+ */
+function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article }: { mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean } }) {
+  return (
+    <article {...article} data-folded={folded || undefined} className={`group rounded-md border border-rule-soft border-l-[3px] bg-sheet text-[13px] leading-relaxed ${tone.edge} ${article?.className ?? ""}`}>
+      <div className={`flex items-center gap-1.5 rounded-tr-md px-2 py-1 ${tone.bg}`}>
+        <button type="button" onClick={onFold} aria-expanded={!folded} aria-label={folded ? `${mark}を開く` : `${mark}をたたむ`} className="rounded p-0.5 text-ink-faint hover:bg-sheet hover:text-ink">
+          {folded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {dragHandle && <GripVertical size={11} className="text-ink-faint/60" aria-hidden />}
+        <span className="nums truncate text-[13px] font-bold">
+          【{mark}】 {when}
+        </span>
+        <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] text-ink-faint">{place}</span>
+      </div>
+      <div className="nums flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2.5 py-0.5 text-[11px] text-ink-faint">{meta}</div>
+      {!folded && <div className="px-2.5 pb-1.5 pt-0.5">{children}</div>}
+    </article>
+  );
+}
+
+/** "11/4（水） 10:00" */
+const whenText = (today: CalendarDate, day: DayOffset, time?: string) => `${formatShort(addDays(today, day))}${time ? ` ${time}` : ""}`;
 
 /** A small menu at the pointer (right click) or under the 「…」 button (touch). Esc or a press outside closes it. */
 function Menu({ at, onClose, items }: { at: { x: number; y: number }; onClose: () => void; items: { label: string; icon: typeof Copy; onClick: () => void; disabled?: string }[] }) {
@@ -376,7 +481,7 @@ const ROLE_CHIP: Record<string, string> = { doctor: ROLE_COLORS.医師.chip, nur
 
 const chipOf = (role: string) => ROLE_COLORS[role as NoteEntry["role"]]?.chip ?? "bg-ink-soft text-white";
 
-function Note({ entry, patientId, today, part = "全", onRevise, coedit, onDo }: { entry: NoteEntry; patientId?: string; today: CalendarDate; part?: NotePart; onRevise?: (e: NoteEntry, text: string, reason: string, by?: string) => void; coedit?: Coedit; onDo?: (p: DoPayload) => void }) {
+function Note({ entry, patientId, today, place, folded, onFold, part = "全", onRevise, coedit, onDo }: { entry: NoteEntry; patientId?: string; today: CalendarDate; place: string; folded: boolean; onFold: () => void; part?: NotePart; onRevise?: (e: NoteEntry, text: string, reason: string, by?: string) => void; coedit?: Coedit; onDo?: (p: DoPayload) => void }) {
   const me = useMe();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -451,69 +556,82 @@ function Note({ entry, patientId, today, part = "全", onRevise, coedit, onDo }:
     caret.current = null;
   }, [draft]);
   const doPayload: DoPayload = { kind: "note", text: noteText(entry), label: `${entry.time} ${entry.author}` };
+  const tone = ROLE_COLORS[entry.role];
+  const article = {
+    draggable: !!onDo && !editing,
+    onDragStart: onDo ? dragDo(doPayload) : undefined,
+    onDoubleClick: () => (editing ? undefined : mine ? startEdit() : setShowHistory((v) => !v)),
+    onContextMenu: (e: React.MouseEvent) => {
+      if (editing) return;
+      e.preventDefault();
+      setMenu({ x: e.clientX, y: e.clientY });
+    },
+    title: mine ? "ダブルクリックで修正、右クリックでメニュー" : "ダブルクリックで履歴、右クリックでメニュー",
+    className: onDo && !editing ? "cursor-grab active:cursor-grabbing" : "",
+  };
   return (
-    <article
-      draggable={!!onDo && !editing}
-      onDragStart={onDo ? dragDo(doPayload) : undefined}
-      onDoubleClick={() => (editing ? undefined : mine ? startEdit() : setShowHistory((v) => !v))}
-      onContextMenu={(e) => {
-        if (editing) return;
-        e.preventDefault();
-        setMenu({ x: e.clientX, y: e.clientY });
-      }}
-      title={mine ? "ダブルクリックで修正、右クリックでメニュー" : "ダブルクリックで履歴、右クリックでメニュー"}
-      className={`group rounded-r-md border-l-[3px] py-1 pl-2.5 pr-1 text-[13px] leading-relaxed ${ROLE_COLORS[entry.role].edge} ${ROLE_COLORS[entry.role].bg} ${onDo && !editing ? "cursor-grab active:cursor-grabbing" : ""}`}
+    <Card
+      mark="記事"
+      when={whenText(today, times.event.day, times.event.time)}
+      place={place}
+      tone={tone}
+      folded={folded && !editing}
+      onFold={onFold}
+      dragHandle={!!onDo}
+      article={article}
+      meta={
+        <>
+          {menu && (
+            <Menu
+              at={menu}
+              onClose={() => setMenu(null)}
+              items={[
+                { label: "右の記事へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload), disabled: onDo ? undefined : "写せません" },
+                { label: "修正する", icon: PencilLine, onClick: startEdit, disabled: mine ? undefined : "検査室の記事は直せません" },
+                { label: versions.length > 1 ? `修正の履歴を見る（第${versions.length}版まで）` : "修正の履歴を見る（修正なし）", icon: History, onClick: () => setShowHistory(true), disabled: versions.length > 1 ? undefined : "修正はありません" },
+              ]}
+            />
+          )}
+          <span>第{versions.length}版：</span>
+          <span className="text-ink-soft" title="出来事が起きた日時（記録時刻）">
+            記録 {formatShort(addDays(today, times.event.day))} {times.event.time}
+          </span>
+          <span className={times.late ? "rounded border border-fuji/50 px-1 text-fuji" : ""} title="この記事を書いた日時（記載時刻）。あとから変わりません。">
+            記載 {formatShort(addDays(today, times.written.day))} {times.written.time}
+            {times.late ? "（遅れて記載）" : ""}
+          </span>
+          <span className={`rounded px-1 font-bold leading-4 ${tone.chip}`}>{entry.role}</span>
+          <span className="font-bold text-ink">{entry.author}</span>
+          <CosignMark refId={entry.id} />
+          {versions.length > 1 && (
+            <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>
+              <History size={11} />
+              更新 {last.day === 0 ? "" : formatShort(addDays(today, last.day))}
+              {last.time} {last.author}（第{versions.length}版）
+            </button>
+          )}
+          {mine && !editing && (
+            <button type="button" onClick={startEdit} className="ml-auto flex items-center gap-0.5 rounded px-1 text-ink-faint hover:bg-paper hover:text-ink" title="自分が書いた記事だけ直せます。前の版は残ります。">
+              <PencilLine size={11} />
+              修正
+            </button>
+          )}
+          {!editing && (
+            <button
+              type="button"
+              aria-label="記事のメニュー"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: r.left, y: r.bottom + 4 });
+              }}
+              className={`${mine ? "" : "ml-auto"} rounded px-1 text-ink-faint opacity-60 hover:bg-paper hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100`}
+            >
+              <MoreHorizontal size={13} />
+            </button>
+          )}
+        </>
+      }
     >
-      {menu && (
-        <Menu
-          at={menu}
-          onClose={() => setMenu(null)}
-          items={[
-            { label: "右の記事へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload), disabled: onDo ? undefined : "写せません" },
-            { label: "修正する", icon: PencilLine, onClick: startEdit, disabled: mine ? undefined : "検査室の記事は直せません" },
-            { label: versions.length > 1 ? `修正の履歴を見る（第${versions.length}版まで）` : "修正の履歴を見る（修正なし）", icon: History, onClick: () => setShowHistory(true), disabled: versions.length > 1 ? undefined : "修正はありません" },
-          ]}
-        />
-      )}
-      <div className="nums mb-0.5 flex items-center gap-2 text-[11px] text-ink-faint">
-        {onDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
-        <span className={`rounded px-1 font-bold leading-4 ${ROLE_COLORS[entry.role].chip}`}>{entry.role}</span>
-        <span className="font-bold text-ink">{entry.author}</span>
-        <CosignMark refId={entry.id} />
-        <span className="text-ink-soft" title="出来事が起きた日時（記録時刻）">
-          記録 {formatShort(addDays(today, times.event.day))} {times.event.time}
-        </span>
-        <span className={times.late ? "rounded border border-fuji/50 px-1 text-fuji" : "text-ink-faint"} title="この記事を書いた日時（記載時刻）。あとから変わりません。">
-          記載 {formatShort(addDays(today, times.written.day))} {times.written.time}
-          {times.late ? "（遅れて記載）" : ""}
-        </span>
-        {versions.length > 1 && (
-          <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>
-            <History size={11} />
-            更新 {last.day === 0 ? "" : formatShort(addDays(today, last.day))}
-            {last.time} {last.author}（第{versions.length}版）
-          </button>
-        )}
-        {mine && !editing && (
-          <button type="button" onClick={startEdit} className="ml-auto flex items-center gap-0.5 rounded px-1 text-ink-faint hover:bg-paper hover:text-ink" title="自分が書いた記事だけ直せます。前の版は残ります。">
-            <PencilLine size={11} />
-            修正
-          </button>
-        )}
-        {!editing && (
-          <button
-            type="button"
-            aria-label="記事のメニュー"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setMenu({ x: r.left, y: r.bottom + 4 });
-            }}
-            className={`${mine ? "" : "ml-auto"} rounded px-1 text-ink-faint opacity-60 hover:bg-paper hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100`}
-          >
-            <MoreHorizontal size={13} />
-          </button>
-        )}
-      </div>
       {editing ? (
         <div className="space-y-1 rounded-md border border-yamabuki/50 bg-yamabuki-soft/30 p-2">
           {others.length > 0 && (
@@ -601,7 +719,7 @@ function Note({ entry, patientId, today, part = "全", onRevise, coedit, onDo }:
           ))}
         </ol>
       )}
-    </article>
+    </Card>
   );
 }
 
@@ -682,78 +800,184 @@ const STATUS_STYLE: Record<OrderEntry["status"], string> = {
   中止: "border-shu/40 text-shu",
 };
 
-/** The items a lab order contains (a set's analytes, or the test itself), as abbreviations. */
+/** The items a lab order contains (a set's tests, a test's analytes, or the test itself), as abbreviations. */
 function labItems(codes: string[]): string[] {
-  return codes.flatMap((c) => {
+  const ofTest = (c: string): string[] => {
     const t = LAB_TESTS.find((x) => x.code === c);
     if (!t) return [c];
     return t.contains && t.contains.length > 1 ? t.contains : [t.abbr ?? t.name];
-  });
+  };
+  return codes.flatMap((c) => findSet(c)?.labCodes.flatMap(ofTest) ?? ofTest(c));
 }
 
-function OrderRow({ entry, today, onDo, onOpenImage, onOpenResult, takeBadge }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null }) {
-  const { main, detail } = orderLines(entry.order, today);
+/** The mark in the card's heading: 【処方】【注射】【検体検査】【画像検査】【生理検査】【処置】【透析】【輸血】【リハビリ】【他科依頼】【外来予約】… */
+export function orderMark(o: OrderEntry["order"]): string {
+  if (o.type === "prescription") return "処方";
+  if (o.type !== "procedure") return ORDER_TYPE_LABEL[o.type];
+  if (o.opd) return "外来予約";
+  if (o.hd) return "透析";
+  if (o.tx) return "輸血";
+  if (o.rehab) return "リハビリ";
+  if (o.consult) return "他科依頼";
+  if (o.leave) return o.leave.kind;
+  if (o.move) return "移動";
+  if (o.guide) return "指導の依頼";
+  return "処置";
+}
+
+const ORDER_TONE = { chip: "bg-ink-soft text-white", edge: "border-l-rule", bg: "bg-paper/80" };
+const STOPPED_TONE = { chip: "bg-shu text-white", edge: "border-l-shu/50", bg: "bg-shu-soft/40" };
+
+/** 【服用開始日：…】 and the like: a small note in the chart's blue. */
+function Tag({ children }: { children: React.ReactNode }) {
+  return <span className="text-[11px] text-ai">【{children}】</span>;
+}
+
+function OrderRow({ entry, today, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge }: { entry: OrderEntry; today: CalendarDate; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null }) {
+  const o = entry.order;
+  const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const doPayload: DoPayload = { kind: "order", entryId: entry.id };
-  const canDo = !!onDo && ["prescription", "injection", "lab"].includes(entry.order.type);
-  return (
-    <div
-      draggable={canDo}
-      onDragStart={canDo ? dragDo(doPayload) : undefined}
-      onContextMenu={(e) => {
-        if (!canDo) return;
-        e.preventDefault();
-        setMenu({ x: e.clientX, y: e.clientY });
-      }}
-      title={canDo ? "右へドラッグするか右クリックで、同じオーダを写せます（Do）" : undefined}
-      className={`group rounded-md border border-rule-soft bg-paper/60 px-2.5 py-1.5 text-[13px] ${stopped ? "opacity-60" : ""} ${canDo ? "cursor-grab active:cursor-grabbing" : ""}`}
-    >
-      {menu && <Menu at={menu} onClose={() => setMenu(null)} items={[{ label: "右へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload) }]} />}
-      <div className="nums flex items-center gap-2 text-[11px] text-ink-faint">
-        {canDo && <GripVertical size={11} className="-ml-1 text-ink-faint/60" aria-hidden />}
-        <span>{entry.time}</span>
-        <span className="font-bold text-ink-soft">{entry.order.type === "procedure" && entry.order.opd ? "外来予約" : ORDER_TYPE_LABEL[entry.order.type]}</span>
-        <CosignMark refId={entry.id} />
-        {takeBadge && <TakeBadgeMark badge={takeBadge} />}
-        <OrderReportMark orderId={entry.id} />
-        <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
-          {entry.status}
-          {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
-        </span>
-        {canDo && (
-          <button
-            type="button"
-            aria-label="オーダのメニュー"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setMenu({ x: r.left - 180, y: r.bottom + 4 });
-            }}
-            className="rounded px-1 opacity-60 hover:bg-sheet hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100"
-          >
-            <MoreHorizontal size={13} />
-          </button>
-        )}
+  const canDo = !!onDo && ["prescription", "injection", "lab"].includes(o.type);
+  const tone = stopped ? STOPPED_TONE : o.type === "procedure" && o.opd ? PLACE_COLORS.opd : ORDER_TONE;
+  const strike = stopped ? "line-through" : "";
+  const right = "shrink-0 whitespace-nowrap font-bold";
+  const body =
+    o.type === "prescription" ? (
+      <div className="nums space-y-0.5">
+        <div className="flex items-baseline gap-2">
+          {rpNo && <span className="w-7 shrink-0 text-ink-faint">Rp{rpNo}</span>}
+          <span className={`min-w-0 flex-1 ${strike}`}>{oralName(o.drugCode)}</span>
+          <span className={right}>
+            1回{o.amount}
+            {o.unit}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-baseline justify-end gap-x-3 text-ink-soft">
+          <span className="rounded bg-paper px-1 text-[11px]">{o.category}</span>
+          <span>{timingText(o)}</span>
+          <span className="font-bold text-ink">{o.days ? `${o.days}日分` : "継続"}</span>
+        </div>
+        <div className="text-right">
+          <Tag>
+            服用開始日：{whenText(today, o.start.day)}
+            {o.start.timing ? ` ${o.start.timing}` : ""}
+          </Tag>
+          {o.dailyAmount && (
+            <Tag>
+              1日量：{o.dailyAmount}
+              {o.unit}
+            </Tag>
+          )}
+        </div>
+        {(o.comment || o.acks?.length) && <div className="text-xs text-ink-soft">{[o.comment, ...(o.acks ?? [])].filter(Boolean).join("　")}</div>}
       </div>
-      <div className={`nums ${stopped ? "line-through" : ""}`}>{main}</div>
-      <div className="nums text-xs text-ink-soft">{detail}</div>
-      {entry.order.type === "imaging" && onOpenImage && !stopped && (
-        <button type="button" onClick={() => onOpenImage(entry.id)} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
-          画像を開く（PACS）
-        </button>
-      )}
-      {entry.order.type === "lab" && onOpenResult && !stopped && (
-        <button type="button" onClick={onOpenResult} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
-          結果を表示
-        </button>
-      )}
-      {entry.order.type === "lab" && (
-        <ul aria-label="検査の内訳" className="nums mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-ink-soft">
-          {labItems(entry.order.codes).map((x, i) => (
+    ) : o.type === "injection" ? (
+      <div className="nums space-y-0.5">
+        {o.items.map((it, i) => (
+          <div key={i} className="flex items-baseline gap-2">
+            <span className="w-7 shrink-0 text-ink-faint">{i === 0 ? "" : "＋"}</span>
+            <span className={`min-w-0 flex-1 ${strike}`}>{drugName(it.drugCode)}</span>
+            <span className={right}>
+              {it.amount}
+              {it.unit}
+            </span>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-baseline justify-end gap-x-3 text-ink-soft">
+          <span>{o.route}</span>
+          <span>{scheduleTextFor(o)}</span>
+          {o.minutesPerDose ? <span>1回{durationText(o.minutesPerDose)}</span> : null}
+          {o.rateMlPerH ? <span>{o.rateMlPerH}mL/時</span> : null}
+          <span className="font-bold text-ink">{o.days ? `${o.days}日間` : "継続"}</span>
+        </div>
+        <div className="text-right">
+          <Tag>開始：{whenText(today, o.start.day, o.start.time)}</Tag>
+        </div>
+        {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
+      </div>
+    ) : o.type === "lab" ? (
+      <div className="nums space-y-0.5">
+        <div className={`flex flex-wrap items-baseline gap-x-3 ${strike}`}>
+          <span className="min-w-0 flex-1">{main}</span>
+          <span className="shrink-0 text-ink-soft">
+            採取 {whenText(today, o.collect.day, o.collect.time)}　{o.priority}
+          </span>
+        </div>
+        <ul aria-label="検査の内訳" className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] text-ink-soft">
+          {labItems(o.codes).map((x, i) => (
             <li key={`${x}-${i}`}>・{x}</li>
           ))}
         </ul>
-      )}
-    </div>
+        {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
+        {onOpenResult && !stopped && (
+          <button type="button" onClick={onOpenResult} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+            結果を表示
+          </button>
+        )}
+      </div>
+    ) : (
+      <div className="nums">
+        <div className={strike}>{main}</div>
+        <div className="text-xs text-ink-soft">{detail}</div>
+        {o.type === "imaging" && onOpenImage && !stopped && (
+          <button type="button" onClick={() => onOpenImage(entry.id)} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+            画像を開く（PACS）
+          </button>
+        )}
+      </div>
+    );
+  return (
+    <Card
+      mark={orderMark(o)}
+      when={whenText(today, entry.day, entry.time)}
+      place={place}
+      tone={tone}
+      folded={folded}
+      onFold={onFold}
+      dragHandle={canDo}
+      article={{
+        draggable: canDo,
+        onDragStart: canDo ? dragDo(doPayload) : undefined,
+        onContextMenu: (e: React.MouseEvent) => {
+          if (!canDo) return;
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        },
+        title: canDo ? "右へドラッグするか右クリックで、同じオーダを写せます（Do）" : undefined,
+        className: `${stopped ? "opacity-70" : ""} ${canDo ? "cursor-grab active:cursor-grabbing" : ""}`,
+      }}
+      meta={
+        <>
+          {menu && <Menu at={menu} onClose={() => setMenu(null)} items={[{ label: "右へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload) }]} />}
+          <span>第1版：{whenText(today, entry.day, entry.time)}</span>
+          <span className="font-bold text-ink">{entry.author}</span>
+          {entry.verbal && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">口頭指示 {entry.verbal.doctor} → 受け {entry.verbal.takenBy}</span>}
+          <CosignMark refId={entry.id} />
+          {takeBadge && <TakeBadgeMark badge={takeBadge} />}
+        <OrderReportMark orderId={entry.id} />
+          <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
+            {entry.status}
+            {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
+          </span>
+          {canDo && (
+            <button
+              type="button"
+              aria-label="オーダのメニュー"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: r.left - 180, y: r.bottom + 4 });
+              }}
+              className="rounded px-1 opacity-60 hover:bg-sheet hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100"
+            >
+              <MoreHorizontal size={13} />
+            </button>
+          )}
+        </>
+      }
+    >
+      {body}
+    </Card>
   );
 }
