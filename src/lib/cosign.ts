@@ -3,6 +3,7 @@
 // unconfirmed and checks who may confirm; whether the record is right is decided by the doctor reading it.
 
 import { doctorOf, teamOf, type Doctor } from "./doctors";
+import { NARCOTICS } from "./drug-class";
 import { findDrug } from "./master";
 import type { DayOffset, Order } from "./types";
 
@@ -28,11 +29,8 @@ export const COSIGN_RULES = {
   who: "確かめるのは同じチームの指導医か上級医です。書いた本人は確かめられません（架空の病院の取り決め）。",
 };
 
-/**
- * 麻薬 by drug code. The fictional master has no 麻薬 yet, so the list is empty; when one is added to the
- * master, its code goes here and a 研修医 can no longer confirm it.
- */
-export const NARCOTIC_CODES: ReadonlySet<string> = new Set<string>();
+/** 麻薬 by drug code: the master items whose 電子添文 marks them 麻薬 (drug-class.ts). A 研修医 does not confirm them. */
+export const NARCOTIC_CODES: ReadonlySet<string> = NARCOTICS;
 
 export type CosignKind = "記事" | "記事の修正" | "オーダ" | "中止" | "延長";
 

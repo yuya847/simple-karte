@@ -6,7 +6,7 @@
 import { abs, orderInterval } from "./flowsheet";
 import { DRUGS } from "./master";
 import { procEvents, procInterval } from "./proc-timing";
-import type { InjectionOrder, OrderEntry, ProcedureOrder } from "./types";
+import type { InjectionOrder, OrderEntry, PrescriptionOrder, ProcedureOrder } from "./types";
 
 // ---------- B items (nurse) ----------
 export type BKey = "b8" | "b9" | "b10" | "b11" | "b12" | "b13" | "b14";
@@ -65,9 +65,16 @@ export interface Hit {
 const a3Counts = (code: string) => DRUGS.find((d) => d.code === code)?.kind !== "輸液";
 
 /** A6 drugs by item (①③⑦⑧⑨ = 3 points; ②④⑥ = 2): the fictional master's 抗がん薬 (注射剤) under ①. */
-export const A6_DRUGS: Record<string, { no: string; points: 2 | 3; name: string }> = Object.fromEntries(
-  DRUGS.filter((d) => d.chemo).map((d) => [d.code, { no: "①", points: 3 as const, name: "抗悪性腫瘍剤の使用（注射剤のみ）" }]),
-);
+export const A6_DRUGS: Record<string, { no: string; points: 2 | 3; name: string }> = {
+  ...Object.fromEntries(DRUGS.filter((d) => d.chemo).map((d) => [d.code, { no: "①", points: 3 as const, name: "抗悪性腫瘍剤の使用（注射剤のみ）" }])),
+  // 保医発0305第7号 別紙7 別表1: モルヒネ塩酸塩注射液１０ｍｇ「シオノギ」（620009277）は ③.
+  "INJ-MOR10": { no: "③", points: 3, name: "麻薬の使用（注射剤のみ）" },
+};
+
+/** Oral 麻薬 under ④ (2 points): 別紙7 別表1 lists オキシコンチンＴＲ錠５ｍｇ（622576301）. Counted on the days the order runs. */
+export const A6_ORAL: Record<string, { no: string; points: 2 | 3; name: string }> = {
+  "ORAL-OXC5": { no: "④", points: 2, name: "麻薬の内服・貼付、坐剤の管理" },
+};
 
 const overlaps = (iv: { from: number; to: number | null }, day: number) => iv.from < (day + 1) * 1440 && (iv.to ?? Infinity) > day * 1440;
 
@@ -126,7 +133,8 @@ export function evaluateDay(entries: OrderEntry[], records: BRecord[], patientId
   if (firstA3 !== null && day < firstA3 + 7 && drugs.size >= 3)
     a.push({ no: "A3", name: "注射薬剤3種類以上の管理", points: 1, why: `${drugs.size}種類（輸液・生理食塩液は数えない）。初めて該当した日から7日間` });
   // A6 専門的な治療・処置: not added up — 3 points if any of ①③⑦⑧⑨⑪, else 2.
-  const a6 = [...drugs].map((code) => A6_DRUGS[code]).filter(Boolean);
+  const oralA6 = entries.filter((e) => e.order.type === "prescription" && A6_ORAL[e.order.drugCode] && overlaps(orderInterval(e, ctx.nowAbs), day)).map((e) => A6_ORAL[(e.order as PrescriptionOrder).drugCode]);
+  const a6 = [...new Set([...[...drugs].map((code) => A6_DRUGS[code]), ...oralA6].filter(Boolean))];
   if (a6.length) {
     const pts = a6.some((x) => x.points === 3) ? 3 : 2;
     a.push({ no: "A6", name: "専門的な治療・処置", points: pts, why: a6.map((x) => `${x.no}${x.name}`).join("、") });

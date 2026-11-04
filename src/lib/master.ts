@@ -262,6 +262,18 @@ export const DRUGS: DrugMaster[] = [
     routes: ["点滴静注"],
     aliases: ["5%ブドウ糖250", "5%TZ250", "5%糖250"],
   },
+  // 麻薬（麻薬及び向精神薬取締法）: モルヒネ塩酸塩注射液10mg「シオノギ」の電子添文（1管1mL中10mg、1回5〜10mgを皮下に注射。
+  // 麻酔の補助で静脈内にも）。麻薬施用者の免許のある医師だけが確定できる（narcotics.ts）。
+  {
+    code: "INJ-MOR10",
+    name: "モルヒネ塩酸塩注射液",
+    package: "10mg/1mL/A",
+    kind: "その他",
+    strength: { amount: 10, unit: "mg", per: "A" },
+    units: ["mg", "A", "mL"],
+    routes: ["皮下注", "静注"],
+    aliases: ["モルヒネ", "モルヒネ注", "塩モヒ", "塩酸モルヒネ", "モヒ"],
+  },
 ];
 
 /**
@@ -302,6 +314,8 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   { code: "ORAL-REBA100", name: "レバミピド錠", strength: "100mg", unit: "錠", aliases: ["レバミピド", "ムコスタ"] },
   { code: "ORAL-SENNA12", name: "センノシド錠", strength: "12mg", unit: "錠", aliases: ["センノシド", "プルゼニド"] },
   { code: "ORAL-MET250", name: "メトホルミン塩酸塩錠", strength: "250mg", unit: "錠", aliases: ["メトホルミン", "メトグルコ"], mg: 250, classes: ["ビグアナイド系"] },
+  // 麻薬: オキシコンチンTR錠5mg の電子添文（1日量を2回に分けて12時間ごと。割ったり砕いたりしない：8.1）。
+  { code: "ORAL-OXC5", name: "オキシコドン塩酸塩徐放錠", strength: "5mg", unit: "錠", aliases: ["オキシコンチン", "オキシコンチンTR", "オキシコドン徐放", "オキシコドン"], mg: 5, classes: ["オピオイド"] },
 ];
 
 /** The active ingredient of an oral drug of the master (its name without the dosage form). */

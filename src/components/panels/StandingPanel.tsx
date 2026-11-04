@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { DRUGS, ORAL_DRUGS } from "@/lib/master";
+import { isNarcotic } from "@/lib/drug-class";
+import { NARCOTIC_RULES } from "@/lib/narcotics";
 import {
   BATHS,
   CALL_ITEMS,
@@ -21,9 +23,10 @@ import {
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { TabChoice } from "../TabChoice";
 
+// 麻薬 are not offered here (NARCOTIC_RULES.prn): each use is ordered, so that the 麻薬施用者 check applies.
 const PRN_DRUGS = [
-  ...ORAL_DRUGS.map((d) => ({ code: d.code, label: `${d.name}${d.strength}（内服）`, unit: d.unit })),
-  ...DRUGS.filter((d) => d.kind === "その他" && !d.lock).map((d) => ({ code: d.code, label: `${d.name} ${d.package}（注射）`, unit: d.strength?.unit === "mEq" ? "mEq" : "mg" })),
+  ...ORAL_DRUGS.filter((d) => !isNarcotic(d.code)).map((d) => ({ code: d.code, label: `${d.name}${d.strength}（内服）`, unit: d.unit })),
+  ...DRUGS.filter((d) => d.kind === "その他" && !d.lock && !isNarcotic(d.code)).map((d) => ({ code: d.code, label: `${d.name} ${d.package}（注射）`, unit: d.strength?.unit === "mEq" ? "mEq" : "mg" })),
 ];
 
 /**
@@ -96,6 +99,7 @@ export function StandingPanel({ versions, allergies, nowTime, fmtDay, onSave, on
 
         <section className="space-y-2 rounded-md border border-rule p-2">
           <h3 className="font-bold text-ink-soft">頓用（必要時の薬）</h3>
+          <p className="text-[11px] text-ink-faint">{NARCOTIC_RULES.prn}</p>
           {edit.prn.map((r, i) => {
             const drug = PRN_DRUGS.find((d) => d.code === r.drug.code);
             return (

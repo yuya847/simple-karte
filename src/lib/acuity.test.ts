@@ -21,6 +21,17 @@ describe("看護必要度（令和8年度、急性期一般入院料４・必要
     expect(e.a.map((x) => x.no)).toContain("A7");
     expect(e.meets).toBe(true);
   });
+  it("A6: 麻薬の注射は③（3点）、麻薬の内服は④（2点）。別紙7 別表1 の品目", () => {
+    const mk = (id: string, order: OrderEntry["order"]): OrderEntry => ({ kind: "order", id, day: 0, time: "09:00", author: "山本（専攻医）", status: "有効", order });
+    const mor = mk("m", { type: "injection", items: [{ drugCode: "INJ-MOR10", amount: 5, unit: "mg" }], route: "皮下注", schedule: { kind: "once" }, start: { day: 0, time: "10:00" } });
+    const oxy = mk("o", { type: "prescription", category: "定期", drugCode: "ORAL-OXC5", amount: 1, unit: "錠", timings: ["朝", "夕"], start: { day: 0, timing: "夕" }, days: 7 });
+    const ctx = { admittedOn: -3, ambulance: false, nowAbs: 720 };
+    const a6 = (es: OrderEntry[]) => evaluateDay(es, [], "x", 0, ctx).a.find((x) => x.no === "A6");
+    expect(a6([mor])?.points).toBe(3);
+    expect(a6([oxy])?.points).toBe(2);
+    expect(a6([oxy])?.why).toContain("④");
+    expect(a6([mor, oxy])?.points).toBe(3);
+  });
   it("救急患者応需係数 = 1床あたり年間件数 × 0.005、上限 0.1", () => {
     expect(responseCoefficient(1340, 134)).toBeCloseTo(0.05, 6);
     expect(responseCoefficient(5000, 100)).toBe(0.1);

@@ -49,6 +49,9 @@ export const DRUG_CODES: Record<string, string> = {
   "INJ-DEX66": "620525701", // デキサート注射液６．６ｍｇ ２ｍＬ
   "INJ-FAMO20": "622063601", // ファモチジン静注２０ｍｇ「日新」 ２０ｍＬ
   "INJ-GLU5-250": "643230411", // 大塚糖液５％ ２５０ｍＬ
+  // 麻薬 (the codes are the ones in 保医発0305第7号 別紙7 別表1, A6 ③・④)
+  "INJ-MOR10": "620009277", // モルヒネ塩酸塩注射液１０ｍｇ「シオノギ」
+  "ORAL-OXC5": "622576301", // オキシコンチンＴＲ錠５ｍｇ
 };
 
 /** 診療行為コード of the procedures of the fictional hospital. Area-based ones by 範囲. */

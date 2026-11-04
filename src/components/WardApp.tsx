@@ -191,6 +191,7 @@ import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { nextFrame, noteKey, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
+import { narcoticBlock } from "@/lib/narcotics";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
@@ -901,6 +902,9 @@ export default function WardApp() {
     // 抗がん薬・麻薬: a 研修医 does not confirm them (架空の病院の取り決め).
     const notMine = resident ? [...new Set(added.flatMap((e) => residentBlock(e.order) ?? []))] : [];
     if (notMine.length) return update({ flash: `確定していません（${notMine.join("・")}が入っています）。${COSIGN_RULES.blocked}` });
+    // 麻薬: only a 麻薬施用者 with a valid licence (麻薬及び向精神薬取締法 第27条第1項).
+    const narc = narcoticBlock(added.map((e) => e.order), verbalMode ? DOCTOR : me.name, today);
+    if (narc) return update({ flash: narc });
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
       ...stoppedEntries.map((e) => {

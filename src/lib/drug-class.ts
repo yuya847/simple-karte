@@ -46,6 +46,8 @@ export const DRUG_CLASS_SOURCES = {
 
 /** 電子添文 read for the items added to the master with this module (not in the interaction table). */
 export const EXTRA_SOURCES = {
+  morphineInj: { product: "モルヒネ塩酸塩注射液10mg「シオノギ」・50mg「シオノギ」", maker: "シオノギファーマ（販売：塩野義製薬）", revision: "2024年11月改訂（第3版）", docId: "343018_8114401A1112_2_06", codes: ["INJ-MOR10"] },
+  oxycontinTR: { product: "オキシコンチンTR錠5mg・10mg・20mg・40mg", maker: "シオノギファーマ（販売：塩野義製薬）", revision: "2026年3月改訂（第4版）", docId: "343018_8119002G5020_2_09", codes: ["ORAL-OXC5"] },
   salineSyringe: { product: "生食注シリンジ「オーツカ」5mL・10mL・20mL", maker: "大塚製薬工場", revision: "2025年9月改訂（第2版）", docId: "180079_3311402G7050_1_08", codes: ["INJ-NSSY10"] },
 } as const;
 
@@ -108,6 +110,7 @@ export const DRUG_CLASSES: Record<string, DrugClass> = {
   "INJ-FAPR": { kisei: [処方], yakko: "選択的NK1受容体拮抗型制吐剤", bunrui: "872391", generic: "注射用ホスアプレピタントメグルミン", product: "プロイメンド点滴静注用150mg", doc: "proemend" },
   "INJ-DEX66": { kisei: [処方], yakko: "副腎皮質ホルモン製剤", bunrui: "872454", generic: "デキサメタゾンリン酸エステルナトリウム", product: "デキサート注射液6.6mg", doc: "dexart" },
   "INJ-FAMO20": { kisei: [処方], yakko: "H2受容体拮抗剤", bunrui: "872325", generic: "ファモチジン", product: "ガスター注射液20mg", doc: "gasterInj" },
+  "INJ-MOR10": { kisei: ["劇薬", "麻薬", 処方], yakko: "モルヒネ系製剤", bunrui: "878114", generic: "モルヒネ塩酸塩水和物", product: "モルヒネ塩酸塩注射液10mg「シオノギ」", doc: "morphineInj" },
   // --- 内服 ---
   "ORAL-AMLO5": { kisei: ["劇薬", 処方], yakko: "高血圧症・狭心症治療薬 持続性Ca拮抗薬", bunrui: "872171", generic: "アムロジピンベシル酸塩", product: "ノルバスク錠5mg", doc: "norvasc" },
   "ORAL-LPZ15": { kisei: [], yakko: "プロトンポンプインヒビター", bunrui: "872329", generic: "ランソプラゾール腸溶性口腔内崩壊錠", product: "タケプロンOD錠15", doc: "takepronOD" },
@@ -131,6 +134,7 @@ export const DRUG_CLASSES: Record<string, DrugClass> = {
     doc: "metglco",
     b008: { group: "糖尿病用剤", why: "薬効分類名「ビグアナイド系経口血糖降下剤」（日本標準商品分類 3962）" },
   },
+  "ORAL-OXC5": { kisei: ["劇薬", "麻薬", 処方], yakko: "持続性疼痛治療剤", bunrui: "878119", generic: "オキシコドン塩酸塩水和物", product: "オキシコンチンTR錠5mg", doc: "oxycontinTR" },
 };
 
 export const classOf = (code: string): DrugClass | undefined => DRUG_CLASSES[code];
