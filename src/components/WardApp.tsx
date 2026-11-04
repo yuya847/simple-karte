@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, continuedTime, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
-import { checkDraft, draftsFromAi, isReady, newProcedureDraft, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type Issue, type StopDraft } from "@/lib/drafts";
+import { checkDraft, draftsFromAi, isReady, newProcedureDraft, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type InjectionDraft, type Issue, type StopDraft } from "@/lib/drafts";
+import type { InjSeed, InjStart } from "@/lib/inj-calendar";
+import { besideWin, bigWin, keepWin, keptWin } from "@/lib/win-prefs";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
@@ -293,8 +295,8 @@ interface ChartState {
   stopTimes: Record<string, string>;
   /** 延長 confirmed today: order id → its new 日数. */
   extended: Record<string, number>;
-  /** An order to copy into the 注射 tab for 修正 (the old one gets a stop draft). */
-  injSeed?: { key: string; order: InjectionOrder };
+  /** What the calendar hands to the 注射 tab: an order for 修正 (the old one gets a stop draft) or Do, or only the start of a new injection. */
+  injSeed?: InjSeed;
   /** シェーマ attached to today's note (kept with it when confirmed). */
   figures?: { caption: string; dataUrl: string }[];
   /** 記録時刻 of today's note when it is written late (null/absent = the time it is confirmed). */
@@ -1299,10 +1301,36 @@ export default function WardApp() {
   const pendingExtends: Record<string, number> = Object.fromEntries(chart.drafts.flatMap((d) => (d.kind === "extend" ? [[d.targetOrderId, d.addDays]] : [])));
   const toFront = (t: RightTab) => setZOrder((z) => [...z.filter((x) => x !== t), t]);
   const openRight = (t: RightTab) => {
-    update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: floating[t] ? c.rightTab : t }));
-    if (floating[t]) toFront(t);
+    // The injection calendar opens in its own large window (where this browser last had it), not in the right column.
+    const win = t === "injcal" && !floating.injcal && !chart.openTabs.includes("injcal") ? (keptWin("injcal", window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight)) : undefined;
+    if (win) setFloating((f) => ({ ...f, injcal: win }));
+    const away = !!floating[t] || !!win;
+    update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: away ? c.rightTab : t }));
+    if (away) toFront(t);
     focusRightTab(t);
   };
+  // 新規 from the injection calendar: the start (day and time band) and, for Do, the order go to the 注射 tab.
+  // When the calendar is in its own window, the 注射 tab opens in a window beside it, so both stay in view.
+  const newInjection = (start: InjStart, from?: InjectionOrder) => {
+    const injWin = floating.injection ?? (floating.injcal ? besideWin(floating.injcal, window.innerWidth, window.innerHeight) : undefined);
+    if (injWin && !floating.injection) setFloating((f) => ({ ...f, injection: injWin }));
+    update((c) => ({
+      injSeed: { key: newId(), order: from, start },
+      openTabs: c.openTabs.includes("injection") ? c.openTabs : [...c.openTabs, "injection"],
+      rightTab: injWin ? c.rightTab : "injection",
+      flash: from ? "同じ内容を注射のタブに写しました（Do）。開始日を確かめ、下書きにしてください。" : "開始の日時を注射のタブに入れました。薬を選んで下書きにし、記事の下で確定してください。",
+    }));
+    if (injWin) toFront("injection");
+    focusRightTab("injection");
+  };
+  const pendingNewInj = chart.drafts.filter((d): d is InjectionDraft => d.kind === "injection");
+  // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
+  const injMemory = patient
+    ? {
+        patterns: injPatternsOf([...PAST_INJ, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
+        previous: injPreviousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
+      }
+    : undefined;
 
   // Do: a past note or order copied to the right (dragged from the left, or from its menu).
   const doFromHistory = (p: DoPayload) => {
@@ -2665,6 +2693,8 @@ export default function WardApp() {
               marOf={(id, at) => mar[`${id}|${at}`]}
               io={{ typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null }}
               onModify={modifyOrder}
+              onNewInjection={!deny("order") ? newInjection : undefined}
+              pendingNew={pendingNewInj}
               care={{ orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) }}
               standingCal={{ lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason) => stopStandingLine(patient.id, id, reason), onOpenPanel: () => setPanel("standing") }}
               takeBadgeOf={(id) => orderTakeBadge(id, allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k))), takeCtx)}
@@ -2879,7 +2909,11 @@ export default function WardApp() {
                     win={floating[t]}
                     z={Math.max(0, zOrder.indexOf(t))}
                     dockedClass={dockedClass}
-                    onMove={(w) => setFloating((f) => ({ ...f, [t]: w }))}
+                    onMove={(w) => {
+                      setFloating((f) => ({ ...f, [t]: w }));
+                      // The calendar's window is remembered in this browser only (this device).
+                      if (t === "injcal") keepWin("injcal", w);
+                    }}
                     onDock={() => {
                       setFloating((f) => ({ ...f, [t]: undefined }));
                       update({ rightTab: t });
@@ -2949,10 +2983,7 @@ export default function WardApp() {
                               newId={newId}
                               drafts={chart.drafts}
                               seed={chart.injSeed}
-                              memory={{
-                                patterns: injPatternsOf([...PAST_INJ, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
-                                previous: injPreviousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
-                              }}
+                              memory={injMemory}
                               onAdd={(ds) => update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` }))}
                             />
                           </fieldset>
@@ -2997,6 +3028,8 @@ export default function WardApp() {
                           onModify={!deny("order") ? modifyOrder : undefined}
                           pendingExtends={pendingExtends}
                           marOf={(id, at) => mar[`${id}|${at}`]}
+                          onNewInjection={!deny("order") ? newInjection : undefined}
+                          pendingNew={pendingNewInj}
                         />,
                       )}
                   </>

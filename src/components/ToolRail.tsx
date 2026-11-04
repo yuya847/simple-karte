@@ -112,7 +112,7 @@ interface Props {
   onOpen: (p: PanelKind | null) => void;
   /** Tools this role cannot use, with the reason (shown as the tooltip). */
   blocked?: Partial<Record<PanelKind, string>>;
-  /** The injection calendar opens as a tab on the right (it is for changing orders, not only reading). */
+  /** The injection calendar opens in its own large window (it is for making and changing orders, not only reading). */
   injectionCalendar?: { on: boolean; open: () => void };
   /** Counts shown as a red circle on a tool's icon (e.g. 未確認の結果 on 検査結果); urgent = a panic value among them. */
   badges?: Partial<Record<PanelKind, { n: number; urgent?: boolean }>>;
@@ -235,7 +235,7 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, badges
       </div>
       <div className={grid}>
         {group.key === "ref" && injectionCalendar && (
-          <button type="button" title="注射カレンダー（右の欄のタブで開きます。延長・修正もここで）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
+          <button type="button" title="注射カレンダー（大きな別ウインドウで開きます。新規・延長・修正もここで。「右の欄に戻す」で右のタブにできます）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
             <CalendarDays size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
             注射カレンダー
           </button>
