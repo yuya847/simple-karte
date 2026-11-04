@@ -105,7 +105,8 @@ export type Action =
   | "endo.doctor"
   | "team.request"
   | "team.round"
-  | "team.decide";
+  | "team.decide"
+  | "pressure";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
   order: { label: "オーダの確定", who: ["医師"] },
@@ -167,6 +168,8 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "team.request": { label: "チーム医療への依頼", who: ["医師"] },
   "team.round": { label: "チームの依頼の受付・回診の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW"] },
   "team.decide": { label: "チームの提案の採用・不採用", who: ["医師"] },
+  // 褥瘡対策の診療計画は褥瘡対策チームの専任の医師と専任の看護職員が作る（通知 別添2 第1の4(3)）。経過の記録は看護師と医師。
+  pressure: { label: "褥瘡の評価（DESIGN-R®2020）・写真・褥瘡対策の診療計画書", who: ["看護師", "医師"] },
 };
 
 export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);

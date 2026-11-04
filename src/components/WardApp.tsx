@@ -228,6 +228,10 @@ import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
 import { bedPeople, useCareDepts } from "@/lib/use-care-depts";
+import { useNursingMgmt } from "@/lib/use-nursing-mgmt";
+import { pressurePlanAuto, riskFromEval } from "@/lib/pressure-course";
+import { UlcerBoard } from "./UlcerBoard";
+import { PressurePanel } from "./panels/PressurePanel";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -585,6 +589,8 @@ export default function WardApp() {
   const dept = useDepartments();
   // 給食・内視鏡室・チーム医療.
   const care = useCareDepts();
+  // 看護管理（褥瘡の経過 …）: kept in its own hook, saved with the rest.
+  const nm = useNursingMgmt();
   // 地域医療連携: the 連携室's entries, 返書 sent/received and facilities chosen.
   const [liaison, setLiaison] = useState<LiaisonBook>(EMPTY_LIAISON);
   // レセプト点検・返戻: the 返戻・査定 files read in and the 再請求 decided.
@@ -686,6 +692,7 @@ export default function WardApp() {
       glass: [glass, setGlass],
       ...dept.states,
       ...care.states,
+      ...nm.states,
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
   );
@@ -1786,6 +1793,18 @@ export default function WardApp() {
         <IjiBoard patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} />
       ) : screen === "support" ? (
         <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
+      ) : screen === "ulcers" ? (
+        <UlcerBoard
+          pick={floorPick}
+          ulcers={nm.ulcers}
+          fmtDay={(d) => formatShort(addDays(today, d))}
+          where={(pid) => {
+            const b = bedsOn(oneFloor).find((x) => x.patientId === pid);
+            const p = b && findPatient(pid);
+            return p ? { name: p.name, room: `${b.room}${b.bed}` } : undefined;
+          }}
+          onOpen={(id) => (openPatient(id), setPanel("pressure"))}
+        />
       ) : screen === "meals" ? (
         <MealsView title={WARD_NAME} people={people} diets={diets} today={today} nowTime={nowTime} />
       ) : screen === "journal" ? (
@@ -3248,6 +3267,7 @@ export default function WardApp() {
                     onOpenReferral={() => setPanel("discharge")}
                     initial={(k: DocKind): Record<string, string> => {
                       const pl = evals[patient.id]?.plan;
+                      if (k === "褥瘡対策に関する診療計画書") return { ulcerPast: nm.ulcers.some((u) => u.patientId === patient.id && u.healed) ? "あり（この入院で治癒）" : "", nurse: me.role === "看護師" ? me.name : "", doctor: me.role === "医師" ? me.name : "" };
                       return k === "入院診療計画書" && pl ? { symptoms: pl.symptoms, treatment: pl.treatment, tests: pl.tests, surgery: pl.surgery, days: String(pl.days), nutrition: pl.nutritionNeeded, other: pl.other, explainedTo: pl.explainedTo } : {};
                     }}
                     auto={(k: DocKind) => {
@@ -3258,6 +3278,7 @@ export default function WardApp() {
                       const drugs = entries.filter((e): e is OrderEntry => e.kind === "order" && e.status === "有効" && e.order.type === "prescription").map((e) => orderLines(e.order, today).main).join("、");
                       const base = { name: `${patient.name}（${ageSex(patient)}）`, diagnosis: dx, admitted: fmt(patient.admittedOn) };
                       if (k === "入院診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, attending: patient.attending, staff: `${nurseFor(patient.room)}（看護）` };
+                      if (k === "褥瘡対策に関する診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, ...pressurePlanAuto({ ulcers: nm.ulcers.filter((u) => u.patientId === patient.id), risk: riskFromEval(evals[patient.id]?.pressure), fmt }) };
                       if (k === "退院証明書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", stay: dDay !== null ? `${stayDays(patient.admittedOn, dDay)}日` : "—", fee: "急性期一般入院料４（架空の病院の届出）" };
                       if (k === "退院療養計画書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", drugs: drugs || "なし" };
                       if (k === "退院支援計画書") {
@@ -3344,6 +3365,22 @@ export default function WardApp() {
                     onSave={(to, words) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・連携サマリを作成（宛先：${to}）${words ? `。申し送り：${words}` : ""}\n` }));
+                    }}
+                  />
+                </Drawer>
+              )}
+              {panel === "pressure" && (
+                <Drawer title="褥瘡の経過（DESIGN-R®2020）" onClose={closePanel} wide>
+                  <PressurePanel
+                    patientId={patient.id}
+                    ulcers={nm.ulcers}
+                    nowTime={nowTime}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    newId={newId}
+                    canRecord={!deny("pressure")}
+                    onChange={(u, what) => {
+                      auditLog({ role: me.role, actor: me.name, action: "確定（褥瘡の経過）", patient: patient.name, detail: what });
+                      nm.setUlcers((all) => (all.some((x) => x.id === u.id) ? all.map((x) => (x.id === u.id ? u : x)) : [...all, u]));
                     }}
                   />
                 </Drawer>

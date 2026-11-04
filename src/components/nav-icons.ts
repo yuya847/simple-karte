@@ -1,6 +1,7 @@
 import {
   Ambulance,
   History,
+  Bandage,
   ArrowRightLeft,
   BedDouble,
   BookOpen,
@@ -97,4 +98,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   undone: ClipboardX,
   summaries: FileClock,
   paths: Route,
+  ulcers: Bandage,
 };

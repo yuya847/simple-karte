@@ -18,8 +18,8 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
   const [kind, setKind] = useState<DocKind | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [printing, setPrinting] = useState<DocRecord | null>(null);
-  // 退院支援計画書 is written by the discharge support staff (MSW・看護師); the others by doctors.
-  const action = (k: DocKind) => (k === "入院診療計画書" ? "plan" : k === "退院支援計画書" ? "assess.discharge" : "discharge") as "plan" | "discharge" | "assess.discharge";
+  // 退院支援計画書 is written by the discharge support staff (MSW・看護師), 褥瘡対策の計画書 by the team's doctor and nurse; the others by doctors.
+  const action = (k: DocKind) => (k === "入院診療計画書" ? "plan" : k === "退院支援計画書" ? "assess.discharge" : k === "褥瘡対策に関する診療計画書" ? "pressure" : "discharge") as "plan" | "discharge" | "assess.discharge" | "pressure";
   const sheet = (k: DocKind, v: Record<string, string>, by: string, at: string) => (
     <article className="space-y-1.5 text-[12px] leading-relaxed print:text-[10.5pt]">
       <h2 className="border-b border-rule pb-1 text-base font-bold">{k}</h2>

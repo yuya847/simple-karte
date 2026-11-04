@@ -2,8 +2,8 @@
 // chart already says (name, ward, diagnoses, dates, drugs) is filled in by code; what needs judgement
 // is written by the doctor. Nothing is written by AI.
 
-export type DocKind = "入院診療計画書" | "退院証明書" | "診断書" | "退院療養計画書" | "退院支援計画書";
-export const DOC_KINDS: DocKind[] = ["入院診療計画書", "退院証明書", "診断書", "退院療養計画書", "退院支援計画書"];
+export type DocKind = "入院診療計画書" | "退院証明書" | "診断書" | "退院療養計画書" | "退院支援計画書" | "褥瘡対策に関する診療計画書";
+export const DOC_KINDS: DocKind[] = ["入院診療計画書", "退院証明書", "診断書", "退院療養計画書", "退院支援計画書", "褥瘡対策に関する診療計画書"];
 
 /** What a 退院支援計画 must contain (A246 入退院支援加算 (4) ア〜キ) and that it is explained and handed over in writing ((6)). */
 export const DISCHARGE_PLAN_SOURCE = {
@@ -93,6 +93,27 @@ export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> 
       { key: "services", label: "退院後に利用が予測される福祉サービスと担当者名", long: true, optional: true },
       { key: "inpatient", label: "入院中に必要な療養支援（リハビリ・栄養管理・口腔管理など）と多職種チームとの役割分担", long: true },
       { key: "explainedTo", label: "説明して渡した相手（本人・家族）" },
+    ],
+  },
+  // 項目は通知 別添6 別紙3（pressure-course.ts の PRESSURE_SOURCES）。様式の形は架空の病院のもの。
+  褥瘡対策に関する診療計画書: {
+    purpose: "褥瘡に関する危険因子のある患者と褥瘡のある患者に、褥瘡対策チームの専任の医師と専任の看護職員が作る診療計画（項目は通知 別添6 別紙3 のとおり。様式は架空の病院のもの）",
+    fields: [
+      { key: "ward", label: "病棟（病室）", auto: true },
+      { key: "ulcerNow", label: "褥瘡の有無（現在）", auto: true },
+      { key: "foundOn", label: "褥瘡発生日", auto: true },
+      { key: "ulcerPast", label: "褥瘡の有無（過去）" },
+      { key: "risk", label: "危険因子の評価（日常生活自立度・危険因子）", auto: true, long: true },
+      { key: "design", label: "褥瘡の状態の評価（DESIGN-R®2020）", auto: true, long: true },
+      { key: "bed", label: "圧迫・ズレ力の排除（ベッド上：体位変換、体圧分散寝具、頭部挙上方法など）", long: true },
+      { key: "chair", label: "圧迫・ズレ力の排除（イス上：車椅子姿勢保持など）", long: true },
+      { key: "skin", label: "スキンケア", long: true },
+      { key: "nutritionCare", label: "栄養状態改善", long: true },
+      { key: "rehab", label: "リハビリテーション", long: true },
+      { key: "pharm", label: "薬学的管理に関する事項（褥瘡の発症リスクに影響を与える可能性がある薬剤の使用、薬剤滞留の問題）", long: true, optional: true },
+      { key: "nutritionMgmt", label: "栄養管理に関する事項（栄養管理計画書で対応するときはその旨）", long: true, optional: true },
+      { key: "doctor", label: "記入医師名" },
+      { key: "nurse", label: "記入看護師名" },
     ],
   },
 };

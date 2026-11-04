@@ -8,6 +8,7 @@
 // definitions of the 日本褥瘡学会 (©日本褥瘡学会; the consensus document says its publisher 照林社 holds the
 // rights to copy, reprint and put it into a database) are not copied: the screen links to the society's sheet.
 
+import { PRESSURE_ITEMS, type PressureRecord } from "./admit-eval";
 import { DEPTH_LABEL, DEPTHS, type UlcerDepth } from "./procedures";
 import type { DayOffset } from "./types";
 
@@ -275,6 +276,10 @@ export interface PlanAutoInput {
   risk?: { adl: string; items: { label: string; yes: string; no: string; on?: boolean }[]; by: string; day: DayOffset };
   fmt: (d: DayOffset) => string;
 }
+
+/** 入院時の評価の褥瘡の危険因子 as the plan shows it (an item not asked stays 未評価). */
+export const riskFromEval = (pr?: PressureRecord): PlanAutoInput["risk"] =>
+  pr ? { adl: pr.adl, items: PRESSURE_ITEMS.map((x) => ({ label: x.label, yes: x.yes, no: x.no, on: pr.items[x.key] })), by: pr.by, day: pr.at.day } : undefined;
 
 /** The fields of 褥瘡対策に関する診療計画書 that come from the record. */
 export function pressurePlanAuto({ ulcers, risk, fmt }: PlanAutoInput): Record<string, string> {
