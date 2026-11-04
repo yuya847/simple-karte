@@ -56,10 +56,13 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
   return (
     <nav aria-label="日付" className="scroll-thin h-full overflow-y-auto border-r border-rule bg-paper py-2 text-sm">
       <TreeToggle open={!closed[admissionKey]} onClick={() => toggle(admissionKey)} depth={0}>
-        <span className="font-bold">{top.title}</span>
-        <span className="nums ml-1 text-xs text-ink-faint">
-          {formatShort(addDays(today, patient.admittedOn))}
-          {top.dateSuffix}
+        {/* The title and the date each on their own line: in the 150px column they never fit side by side. */}
+        <span className="flex min-w-0 flex-col">
+          <span className="whitespace-nowrap font-bold">{top.title}</span>
+          <span className="nums whitespace-nowrap text-xs text-ink-faint">
+            {formatShort(addDays(today, patient.admittedOn))}
+            {top.dateSuffix}
+          </span>
         </span>
       </TreeToggle>
       {!closed[admissionKey] &&
