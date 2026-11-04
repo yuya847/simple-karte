@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Booking } from "./bookings";
 import { OPD_PATIENTS } from "./opd";
 import { OPD_VISITS, daySections, placeLabel, visitsFromOpd, visitsOf } from "./opd-history";
 import { PATIENTS } from "./patients";
+import type { PlanItem } from "./schedule-days";
 import type { HistoryEntry } from "./types";
 
 const note = (day: number, time: string, text: string): HistoryEntry => ({ kind: "note", day, time, author: "山本（専攻医）", role: "医師", text });
@@ -33,14 +33,20 @@ describe("外来の受診歴", () => {
       { id: "a", patientId: "x", day: -40, dept: "循環器内科", doctor: "森", entries: [note(-40, "10:00", "外来 1")] },
       { id: "b", patientId: "x", day: -6, dept: "総合診療科", doctor: "山本", entries: [note(-6, "10:00", "外来 2")] },
     ];
-    const todays: Booking[] = [
-      { day: 0, time: "10:30", kind: "画像", label: "CT 胸部", done: false },
-      { day: 1, time: "09:00", kind: "採血・検体", label: "CBC", done: false },
-    ];
-    const s = daySections(-3, entries, visits, todays);
-    expect(s.map((x) => `${x.day}${x.place ? ` ${x.place.dept}` : ""}`)).toEqual(["0", "-2", "-3", "-6 総合診療科", "-40 循環器内科"]);
-    expect(s[0].bookings.map((b) => b.label)).toEqual(["CT 胸部"]);
-    expect(s.slice(1).every((x) => x.bookings.length === 0)).toBe(true);
+    const plan = (day: number, time: string, kind: PlanItem["kind"], label: string, orderedOn: number): PlanItem => ({ kind, day, time, verb: "採取", label, orderId: label, orderedOn });
+    const planned: PlanItem[] = [plan(0, "10:30", "画像", "CT 胸部", -1), plan(0, "15:00", "検体検査", "CRP", 0), plan(2, "06:00", "検体検査", "CBC", 0), plan(9, "10:00", "外来予約", "再診", 0), plan(-2, "06:00", "検体検査", "朝の採血", -3)];
+    const s = daySections(-3, entries, visits, planned);
+    // The days ahead come first, farthest first; then today … the admission day; then the visits.
+    expect(s.map((x) => `${x.day}${x.place ? ` ${x.place.dept}` : ""}${x.future ? " 予定" : ""}`)).toEqual(["9 予定", "2 予定", "0", "-2", "-3", "-6 総合診療科", "-40 循環器内科"]);
+    // Today's plans leave out what was ordered today (its card is in the section); a past day carries its plans too.
+    expect(s[2].plans.map((p) => p.label)).toEqual(["CT 胸部"]);
+    expect(s[3].plans.map((p) => p.label)).toEqual(["朝の採血"]);
+    expect(s[0].plans.map((p) => p.label)).toEqual(["再診"]);
+    expect(s.slice(4).every((x) => x.plans.length === 0)).toBe(true);
+    // The record's filters apply to the plans: only the kinds kept are listed, and a day ahead with nothing left goes.
+    const only = daySections(-3, entries, visits, planned, true, (p) => p.kind === "検体検査");
+    expect(only.filter((x) => x.future).map((x) => x.day)).toEqual([2]);
+    expect(only.find((x) => x.day === 0)!.plans).toEqual([]);
     // Today with nothing written still has its section (the place for the day's records).
     expect(daySections(-1, [], [], []).map((x) => x.day)).toEqual([0]);
   });

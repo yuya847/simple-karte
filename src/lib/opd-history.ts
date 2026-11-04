@@ -1,9 +1,10 @@
 // 外来の受診歴 in the left record: an inpatient's visits to the outpatient clinic before this admission (FICTIONAL,
-// a few per patient), an outpatient's past visits (from the outpatient list), and today's bookings, laid out as
-// the day sections of the record — newest first, like the record itself: today … the admission day, then the
-// visits before it, each marked with the clinic and the doctor.
+// a few per patient), an outpatient's past visits (from the outpatient list), and what is planned on each day
+// (schedule-days.ts), laid out as the day sections of the record — newest first, like the record itself: the days
+// ahead with something planned, today … the admission day, then the visits before it, each marked with the clinic
+// and the doctor.
 
-import type { Booking } from "./bookings";
+import { plannedDaysAhead, plansOn, type PlanItem } from "./schedule-days";
 import type { OpdPatient } from "./opd";
 import type { DayOffset, HistoryEntry } from "./types";
 
@@ -112,31 +113,35 @@ export interface DaySection {
   /** The clinic and doctor of a visit; null for a day of this admission (or of today's visit). */
   place: { dept: string; doctor: string } | null;
   entries: HistoryEntry[];
-  /** Today's bookings (検査・画像・外来予約 …), on the today section only. */
-  bookings: Booking[];
+  /** What is planned on this day by orders written on another day (採取・撮影・開始・終了・受診 …). */
+  plans: PlanItem[];
+  /** A day after today: only plans, no record yet. */
+  future?: true;
 }
 
 const byTime = (a: HistoryEntry, b: HistoryEntry) => a.time.localeCompare(b.time);
 
 /**
- * The day sections of the record, newest first: today down to the admission day (empty days left out, today
- * kept), then the visits before the admission with their clinic. The entries and the visits' entries are given
- * already filtered (the record's filters apply to both); a visit left with nothing is left out, except when
- * nothing is filtered (`narrowed` false), so the visit still shows where it was.
+ * The day sections of the record, newest first: the days ahead that have something planned (farthest first),
+ * today down to the admission day (empty days left out, today kept), then the visits before the admission with
+ * their clinic. Each day of the stay also carries what is planned on it by orders written on another day. The
+ * entries and the visits' entries are given already filtered (the record's filters apply to both), and `keepPlan`
+ * applies the same filters to the plans; a visit left with nothing is left out, except when nothing is filtered
+ * (`narrowed` false), so the visit still shows where it was.
  */
-export function daySections(admittedOn: DayOffset, entries: HistoryEntry[], visits: OpdVisit[], bookings: Booking[], narrowed = false): DaySection[] {
+export function daySections(admittedOn: DayOffset, entries: HistoryEntry[], visits: OpdVisit[], planned: PlanItem[] = [], narrowed = false, keepPlan: (p: PlanItem) => boolean = () => true): DaySection[] {
   const out: DaySection[] = [];
+  for (const { day, items } of plannedDaysAhead(planned, keepPlan).reverse()) out.push({ day, place: null, entries: [], plans: items, future: true });
   for (let d = 0; d >= admittedOn; d--) {
     const items = entries.filter((e) => e.day === d).sort(byTime);
-    const todays = d === 0 ? bookings.filter((b) => b.day === 0) : [];
     if (items.length === 0 && d !== 0) continue;
-    out.push({ day: d, place: null, entries: items, bookings: todays });
+    out.push({ day: d, place: null, entries: items, plans: plansOn(planned, d, keepPlan) });
   }
   for (const v of [...visits].sort((a, b) => b.day - a.day)) {
     if (v.day >= admittedOn) continue;
     const items = [...v.entries].sort(byTime);
     if (items.length === 0 && narrowed) continue;
-    out.push({ day: v.day, place: { dept: v.dept, doctor: v.doctor }, entries: items, bookings: [] });
+    out.push({ day: v.day, place: { dept: v.dept, doctor: v.doctor }, entries: items, plans: [] });
   }
   return out;
 }
