@@ -349,6 +349,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                   setShown(null);
                 }}
                 onBlur={() => {
+                  if (readOnly) return;
                   const r = renumberProblems(latest.current);
                   if (r.text !== latest.current) onChange(r.text);
                 }}
