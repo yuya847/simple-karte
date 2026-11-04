@@ -2,9 +2,9 @@
 // gets its own first screen, its own ward tabs, and only the actions its job allows.
 // The people are fictional.
 
-export type Role = "医師" | "看護師" | "薬剤師" | "臨床検査技師" | "管理栄養士" | "MSW" | "医事課";
+export type Role = "医師" | "看護師" | "薬剤師" | "臨床検査技師" | "診療放射線技師" | "療法士" | "管理栄養士" | "MSW" | "医事課";
 
-export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW", "医事課"];
+export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "管理栄養士", "MSW", "医事課"];
 
 export interface Staff {
   role: Role;
@@ -17,6 +17,8 @@ export const STAFF: Record<Role, Staff> = {
   看護師: { role: "看護師", name: "看護師 佐藤" },
   薬剤師: { role: "薬剤師", name: "薬剤師 小林" },
   臨床検査技師: { role: "臨床検査技師", name: "検査技師 中村" },
+  診療放射線技師: { role: "診療放射線技師", name: "放射線技師 松本" },
+  療法士: { role: "療法士", name: "理学療法士 木村" },
   管理栄養士: { role: "管理栄養士", name: "管理栄養士 高橋" },
   MSW: { role: "MSW", name: "MSW 伊藤" },
   医事課: { role: "医事課", name: "医事課 渡辺" },
@@ -28,13 +30,15 @@ export const ROLE_LONG: Record<Role, string> = {
   看護師: "看護師",
   薬剤師: "薬剤師",
   臨床検査技師: "臨床検査技師",
+  診療放射線技師: "診療放射線技師",
+  療法士: "療法士（理学療法士・作業療法士・言語聴覚士）",
   管理栄養士: "管理栄養士",
   MSW: "MSW（医療ソーシャルワーカー）",
   医事課: "医事課",
 };
 
 /** The ward-level tabs pinned before the patient tabs. */
-export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit" | "iji";
+export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "ris" | "rehab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit" | "iji";
 
 /** The tabs each role sees, first one is where the role starts. */
 export const TABS: Record<Role, PinnedTab[]> = {
@@ -42,6 +46,8 @@ export const TABS: Record<Role, PinnedTab[]> = {
   看護師: ["sheet", "map", "list", "handoff", "admit", "meals", "acuity", "er", "or", "dialysis", "chat"],
   薬剤師: ["pharmacy", "map", "list", "chat"],
   臨床検査技師: ["lab", "map", "list", "chat"],
+  診療放射線技師: ["ris", "map", "list", "chat"],
+  療法士: ["rehab", "map", "list", "chat"],
   管理栄養士: ["meals", "admit", "map", "list", "chat"],
   MSW: ["admit", "map", "list", "chat"],
   医事課: ["iji", "list", "map", "audit"],
@@ -75,6 +81,12 @@ export type Action =
   | "path.process"
   | "path.report"
   | "physio.exam"
+  | "ris.exam"
+  | "ris.report"
+  | "ris.sign"
+  | "rehab.therapy"
+  | "rehab.plan"
+  | "rehab.explain"
   | "handoff"
   | "plan"
   | "assess.nursing"
@@ -129,7 +141,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   billing: { label: "算定の入力", who: ["医事課", "医師"] },
   insurance: { label: "保険の登録", who: ["医事課"] },
   settle: { label: "会計の記録", who: ["医事課"] },
-  note: { label: "記事の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW"] },
+  note: { label: "記事の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW"] },
   "result.ack": { label: "結果の確認", who: ["医師"] },
   "panic.call": { label: "パニック値の連絡", who: ["臨床検査技師"] },
   "lab.receive": { label: "検体の受付", who: ["臨床検査技師"] },
@@ -139,6 +151,15 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "path.process": { label: "病理の受付と標本作製の記録", who: ["臨床検査技師"] },
   "path.report": { label: "病理診断の報告書（病理医）", who: ["医師"] },
   "physio.exam": { label: "生理検査の受付・実施・レポート", who: ["臨床検査技師"] },
+  // 放射線部・リハビリテーション部: who does what is the fictional hospital's rule (架空の病院の取り決め), except
+  // the 照射録's signature, which is the ordering doctor's (診療放射線技師法 第28条), and the 実施計画書, which the
+  // doctor makes and the doctor or the nurse/therapist the doctor asks explains (留意事項通知 第7部 通則4).
+  "ris.exam": { label: "撮影の受付・実施・照射録・線量と造影剤の記録", who: ["診療放射線技師"] },
+  "ris.report": { label: "読影レポート（放射線科医）", who: ["医師"] },
+  "ris.sign": { label: "照射録の署名（指示をした医師）", who: ["医師"] },
+  "rehab.therapy": { label: "リハビリの予約・受付・実施の記録・ADL の評価", who: ["療法士"] },
+  "rehab.plan": { label: "リハビリテーション実施計画書の作成", who: ["医師"] },
+  "rehab.explain": { label: "リハビリテーション実施計画書の説明と交付の記録", who: ["医師", "療法士", "看護師"] },
   handoff: { label: "申し送り", who: ["看護師", "医師"] },
   plan: { label: "入院診療計画書の確定", who: ["医師"] },
   "assess.nursing": { label: "看護の評価（褥瘡・転倒転落・せん妄）", who: ["看護師"] },

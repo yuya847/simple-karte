@@ -365,6 +365,8 @@ export const ROLE_COLORS: Record<NoteEntry["role"], { text: string; chip: string
   看護師: { text: "text-wakatake", chip: "bg-wakatake text-white", edge: "border-l-wakatake", bg: "bg-wakatake-soft/50" },
   薬剤師: { text: "text-yamabuki", chip: "bg-yamabuki text-white", edge: "border-l-yamabuki", bg: "bg-yamabuki-soft/50" },
   臨床検査技師: { text: "text-fuji", chip: "bg-fuji text-white", edge: "border-l-fuji", bg: "bg-fuji-soft/50" },
+  診療放射線技師: { text: "text-fuji", chip: "bg-fuji text-white", edge: "border-l-fuji", bg: "bg-fuji-soft/50" },
+  療法士: { text: "text-wakatake", chip: "bg-wakatake text-white", edge: "border-l-wakatake", bg: "bg-wakatake-soft/50" },
   管理栄養士: { text: "text-kuri", chip: "bg-kuri text-white", edge: "border-l-kuri", bg: "bg-kuri-soft/60" },
   MSW: { text: "text-mizu", chip: "bg-mizu text-white", edge: "border-l-mizu", bg: "bg-mizu-soft/60" },
   医事課: { text: "text-ink-soft", chip: "bg-ink-soft text-white", edge: "border-l-ink-soft", bg: "bg-tab/60" },

@@ -13,6 +13,8 @@ const ROLE_STYLE: Record<ChatRole, string> = {
   看護師: "bg-wakatake-soft text-wakatake",
   薬剤師: "bg-fuji-soft text-fuji",
   臨床検査技師: "bg-fuji-soft text-fuji",
+  診療放射線技師: "bg-fuji-soft text-fuji",
+  療法士: "bg-wakatake-soft text-wakatake",
   管理栄養士: "bg-yamabuki-soft text-yamabuki",
   MSW: "bg-fuji-soft text-fuji",
   臨床工学技士: "bg-tab text-ink",

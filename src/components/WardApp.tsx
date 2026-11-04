@@ -21,6 +21,7 @@ import { PATIENTS } from "@/lib/patients";
 import { FLOORS, WARD_NAME, WARD_PLANS, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
 import { BEDS_WITH_CHARTS, OTHER_FLOOR_BEDS_WITH_CHARTS, WARD_CHART_DIETS, WARD_CHART_PATIENTS, withChartDiagnoses, withChartDiets } from "@/lib/ward-charts";
 import { currentEntries, ordersOf } from "@/lib/record";
+import { withExamRecords } from "@/lib/ris";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
@@ -214,6 +215,7 @@ import { NarcoticSlips } from "./NarcoticSlips";
 import { FormularyView } from "./FormularyView";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
+import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
 import { BloodBankView } from "./BloodBankView";
@@ -223,6 +225,7 @@ import { EndoView } from "./EndoView";
 import { KitchenView } from "./KitchenView";
 import { TeamsView } from "./TeamsView";
 import { TeamPanel } from "./panels/TeamPanel";
+import { RadiologyView } from "./RadiologyView";
 import { PathRequestPanel } from "./panels/PathRequestPanel";
 import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
@@ -751,6 +754,7 @@ export default function WardApp() {
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
           vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
           history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoPhysio[p.id] ?? []), ...(care.demoEndo[p.id] ?? [])],
+          history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoOrders[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
           cautions: [...p.cautions, ...(extraCautions[p.id] ?? [])],
@@ -767,6 +771,7 @@ export default function WardApp() {
         };
       }),
     [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoPhysio, care.demoEndo, profileLog],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoOrders, profileLog],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
@@ -927,6 +932,8 @@ export default function WardApp() {
     () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes, extended: chart.extended, notes: notes[patient.id], revised: revised[patient.id] }) : []),
     [patient, chart.stopped, chart.stopTimes, chart.extended, chart.added, notes, revised],
   );
+  // For the claim: the team's imaging as 放射線部 recorded it (ris.ts withExamRecords).
+  const billedEntries = useMemo(() => (patient && teamIds.has(patient.id) ? withExamRecords(entries, dept.ris) : entries), [patient, teamIds, entries, dept.ris]);
 
   const ctx: CheckContext | null = useMemo(() => {
     if (!today || !nowTime) return null;
@@ -1222,10 +1229,12 @@ export default function WardApp() {
   };
   // Doses the ward recorded as 未実施, for the claim ("orderId|minutes").
   const notGivenOf = (pid: string) => Object.values(mar).filter((r) => r.patientId === pid && r.status === "未実施").map((r) => r.key);
+  // 放射線部 works for the team's patients: their imaging is billed from its record (done, not done, contrast).
+  const withRis = (pid: string, es: HistoryEntry[]) => (teamIds.has(pid) ? withExamRecords(es, dept.ris) : es);
   // What the billing APIs get for one patient: the record as it stands, with the insurance 医事課 registered.
   const claimPayloadOf = (p: Patient) => {
     const c = charts[p.id];
-    return patientMonthPayload(p, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insurance: currentInsurance(iji.insurance, p.id) });
+    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insurance: currentInsurance(iji.insurance, p.id) });
   };
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
   // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.
@@ -2262,6 +2271,8 @@ export default function WardApp() {
         <BloodBankView people={people} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood} nowTime={nowTime} today={today} onIssued={(id, rec) => setTxIssued((all) => Object.fromEntries([...Object.entries(all).filter(([k]) => k !== id), ...(rec ? [[id, rec] as const] : [])]))} />
       ) : screen === "physio" ? (
         <PhysioView people={people} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
+      ) : screen === "radiology" ? (
+        <RadiologyView people={people} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "path" ? (
         <PathologyView people={everyone} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
@@ -2565,7 +2576,7 @@ export default function WardApp() {
                 <BillingView
                   key={patient.id}
                   patient={patient}
-                  entries={entries}
+                  entries={billedEntries}
                   diagnoses={diagnoses[patient.id] ?? []}
                   today={today}
                   nowTime={nowTime}
@@ -3052,7 +3063,8 @@ export default function WardApp() {
               )}
               {panel === "imaging" && (
                 <Drawer title="放射線画像" onClose={closePanel} wide>
-                  <ImagingPanel patient={patient} today={today} entries={entries} nowAbs={abs(0, nowTime)} focus={imageFocus ?? undefined} />
+                  {teamIds.has(patient.id) && <RisChartStrip patient={patient} entries={entries} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} onSeen={(keys) => markSeen(patient.id, keys)} />}
+                  <ImagingPanel patient={patient} today={today} entries={entries} nowAbs={abs(0, nowTime)} focus={imageFocus ?? undefined} ris={teamIds.has(patient.id) ? dept.ris : undefined} />
                 </Drawer>
               )}
               {panel === "active-orders" && (

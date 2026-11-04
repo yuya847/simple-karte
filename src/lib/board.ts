@@ -8,9 +8,9 @@ import { MEAL_DEADLINE } from "./diet";
 import { STAFF, type Role } from "./roles";
 import type { DayOffset } from "./types";
 
-export type Dept = "医療安全管理室" | "感染対策室" | "薬剤部" | "栄養科" | "看護部" | "総務課" | "医事課" | "情報システム室" | "医局" | "検査部" | "地域連携室";
+export type Dept = "医療安全管理室" | "感染対策室" | "薬剤部" | "栄養科" | "看護部" | "総務課" | "医事課" | "情報システム室" | "医局" | "検査部" | "放射線部" | "リハビリテーション部" | "地域連携室";
 
-export const DEPTS: Dept[] = ["医療安全管理室", "感染対策室", "看護部", "医局", "薬剤部", "検査部", "栄養科", "地域連携室", "医事課", "総務課", "情報システム室"];
+export const DEPTS: Dept[] = ["医療安全管理室", "感染対策室", "看護部", "医局", "薬剤部", "検査部", "放射線部", "リハビリテーション部", "栄養科", "地域連携室", "医事課", "総務課", "情報システム室"];
 
 /** Where a post comes from when someone in this role writes it. */
 export const ROLE_DEPT: Record<Role, Dept> = {
@@ -18,6 +18,8 @@ export const ROLE_DEPT: Record<Role, Dept> = {
   看護師: "看護部",
   薬剤師: "薬剤部",
   臨床検査技師: "検査部",
+  診療放射線技師: "放射線部",
+  療法士: "リハビリテーション部",
   管理栄養士: "栄養科",
   MSW: "地域連携室",
   医事課: "医事課",

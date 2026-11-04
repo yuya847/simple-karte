@@ -8,9 +8,10 @@ const id = () => `c${++n}`;
 const base = { patientId: "90010231", by: "研修医 田中", at: { day: 0, time: "09:00" } };
 
 describe("医師の役で選ぶ人（架空）", () => {
-  it("has 山本（専攻医） first, a 研修医, a 指導医 of the same team, and a doctor of another team", () => {
+  it("has 山本（専攻医） first, a 研修医, a 指導医 of the same team, a doctor of another team and the radiologist", () => {
     expect(DEFAULT_DOCTOR).toBe("山本（専攻医）");
-    expect(DOCTORS.map((d) => d.rank)).toEqual(["専攻医", "研修医", "指導医", "医師"]);
+    expect(DOCTORS.map((d) => d.rank)).toEqual(["専攻医", "研修医", "指導医", "医師", "医師"]);
+    expect(teamOf("放射線科 石田（架空）")).toBe("放射線科");
     expect(isResident("研修医 田中")).toBe(true);
     expect(isResident("山本（専攻医）")).toBe(false);
     expect(teamOf("指導医 高橋")).toBe(teamOf("研修医 田中"));

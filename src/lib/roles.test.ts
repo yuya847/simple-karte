@@ -49,6 +49,14 @@ describe("roles", () => {
     expect(can("看護師", "physio.exam")).toBe(false);
   });
 
+  it("放射線部: the technologist records the study, a doctor reads it, and the ordering doctor signs the 照射録", () => {
+    expect(can("診療放射線技師", "ris.exam")).toBe(true);
+    expect(can("医師", "ris.exam")).toBe(false);
+    expect(can("医師", "ris.report")).toBe(true);
+    expect(can("診療放射線技師", "ris.report")).toBe(false);
+    expect(denyReason("看護師", "ris.sign")).toBe("照射録の署名（指示をした医師）は医師が行います（いまは看護師で入っています）。");
+  });
+
   it("医事課 does not write clinical notes", () => {
     expect(can("医事課", "note")).toBe(false);
     expect(can("MSW", "note")).toBe(true);

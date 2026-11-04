@@ -27,6 +27,12 @@ describe("① places by role", () => {
     expect(areasFor("臨床検査技師").map((a) => a.key)).toContain("physio");
     expect(areasFor("医師").map((a) => a.key)).not.toContain("physio");
   });
+  it("放射線部 is the technologists' and the doctors' (読影・照射録の署名); the technologist starts there", () => {
+    expect(areasFor("診療放射線技師").map((a) => a.key)).toContain("radiology");
+    expect(areasFor("医師").map((a) => a.key)).toContain("radiology");
+    expect(areasFor("看護師").map((a) => a.key)).not.toContain("radiology");
+    expect(homeArea("診療放射線技師")).toBe("radiology");
+  });
   it("each role starts at its own place", () => {
     expect(homeArea("医師")).toBe("ward");
     expect(homeArea("看護師")).toBe("ward");

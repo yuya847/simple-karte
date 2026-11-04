@@ -7,7 +7,7 @@
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
-export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats" | "druginfo" | "endo" | "kitchen" | "teams" | "bcp" | "system";
+export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats" | "druginfo" | "endo" | "kitchen" | "teams" | "bcp" | "system" | "radiology" | "rehab";
 
 export interface Area {
   key: AreaKey;
@@ -36,6 +36,8 @@ export const AREAS: Area[] = [
   { key: "endo", label: "内視鏡室", short: "内視鏡", kind: "page" },
   { key: "kitchen", label: "栄養部門（給食）", short: "給食", kind: "page" },
   { key: "teams", label: "チーム医療", short: "チーム", kind: "page" },
+  { key: "radiology", label: "放射線部", short: "放射線", kind: "page" },
+  { key: "rehab", label: "リハビリテーション部", short: "リハビリ", kind: "page", soon: "準備中" },
   { key: "liaison", label: "地域医療連携", short: "連携", kind: "page" },
   { key: "receipt", label: "レセプト点検・返戻", short: "レセプト", kind: "page" },
   { key: "stats", label: "統計・日報", short: "統計", kind: "page" },
@@ -55,6 +57,9 @@ export const AREAS: Area[] = [
 const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysis: "dialysis", pharmacy: "pharmacy", lab: "lab", blood: "lab", path: "lab", physio: "lab", chat: "chat", audit: "audit" };
 /** Places every role has: in-hospital calls (院内連絡), the hospital's notices, the formulary (医薬品集・DI), manuals and incident reports. */
 const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
+const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysis: "dialysis", pharmacy: "pharmacy", lab: "lab", blood: "lab", path: "lab", physio: "lab", radiology: "ris", rehab: "rehab", chat: "chat", audit: "audit" };
+/** Places every role has: in-hospital calls (院内連絡), the hospital's notices, manuals and incident reports. */
+const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
 
 // ---------------------------------------------------------------------------
 // ② inside 病棟
@@ -130,6 +135,10 @@ export function areasFor(role: Role): Area[] {
     if (a.key === "extract") return role === "医師" || role === "医事課" || role === "看護師";
     // 病理: the technologists' work, and the report the pathologist (a doctor) writes.
     if (a.key === "path" && role === "医師") return true;
+    // 放射線部: the technologists' work, the radiologist's report and the 照射録 the ordering doctor signs.
+    if (a.key === "radiology" && role === "医師") return true;
+    // リハビリテーション部: the therapists' work; doctors (実施計画書・経過) and nurses (予定) look at it too.
+    if (a.key === "rehab" && (role === "医師" || role === "看護師")) return true;
     const need = NEEDS[a.key];
     return !!need && mine.includes(need);
   });
