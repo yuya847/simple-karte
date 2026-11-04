@@ -201,6 +201,8 @@ import { PathRequestPanel } from "./panels/PathRequestPanel";
 import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
+import { LiaisonView } from "./LiaisonView";
+import { EMPTY_LIAISON, type LiaisonBook } from "@/lib/liaison";
 
 const NOTE_TEMPLATE = "S)\nO)\nA)\nP)\n";
 /** The attending doctor of the four ward patients (fictional). */
@@ -536,6 +538,8 @@ export default function WardApp() {
   const [labDesk, setLabDesk] = useState<LabDesk>(EMPTY_DESK);
   // 輸血部門 (and the records of the other laboratory departments).
   const dept = useDepartments();
+  // 地域医療連携: the 連携室's entries, 返書 sent/received and facilities chosen.
+  const [liaison, setLiaison] = useState<LiaisonBook>(EMPTY_LIAISON);
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
   const workspace = useWorkspace(
     {
@@ -614,6 +618,7 @@ export default function WardApp() {
       acks: [acks, setAcks],
       calls: [calls, setCalls],
       labDesk: [labDesk, setLabDesk],
+      liaison: [liaison, setLiaison],
       iji: [iji, setIji],
       takeHolds: [takeHolds, setTakeHolds],
       oralRx: [oralRx, setOralRx],
@@ -1920,6 +1925,19 @@ export default function WardApp() {
           onRecord={recordMar}
           voided={marVoided}
           onVoid={voidMar}
+        />
+      ) : screen === "liaison" ? (
+        <LiaisonView
+          today={today}
+          nowTime={nowTime}
+          book={liaison}
+          onBook={setLiaison}
+          opd={opd}
+          er={er}
+          letters={Object.entries(discharges).flatMap(([pid, d]) => {
+            const p = findPatient(pid);
+            return p && d.letter.issuedAt ? [{ patientId: pid, name: p.name, kana: p.kana, department: p.department, doctor: p.attending, to: d.letter.to, purpose: d.letter.purpose, issuedDay: d.letter.issuedAt.day }] : [];
+          })}
         />
       ) : screen === "audit" ? (
         <AuditView />

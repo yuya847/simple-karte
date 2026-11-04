@@ -7,7 +7,7 @@
 
 import { TABS, type PinnedTab, type Role } from "./roles";
 
-export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract";
+export type AreaKey = "ward" | "er" | "opd" | "or" | "dialysis" | "pharmacy" | "lab" | "blood" | "path" | "physio" | "phs" | "board" | "manual" | "incident" | "chat" | "audit" | "extract" | "liaison" | "receipt" | "stats";
 
 export interface Area {
   key: AreaKey;
@@ -33,6 +33,9 @@ export const AREAS: Area[] = [
   { key: "blood", label: "輸血部門", short: "輸血", kind: "page" },
   { key: "path", label: "病理", short: "病理", kind: "page" },
   { key: "physio", label: "生理検査室", short: "生理", kind: "page" },
+  { key: "liaison", label: "地域医療連携", short: "連携", kind: "page" },
+  { key: "receipt", label: "レセプト点検・返戻", short: "レセプト", kind: "page" },
+  { key: "stats", label: "統計・日報", short: "統計", kind: "page" },
   { key: "phs", label: "院内連絡", short: "連絡", kind: "page" },
   { key: "board", label: "掲示板", short: "掲示板", kind: "page" },
   { key: "manual", label: "院内マニュアル", short: "マニュアル", kind: "page" },
@@ -95,7 +98,10 @@ export function areasFor(role: Role): Area[] {
   const mine = TABS[role];
   return AREAS.filter((a) => {
     if (a.key === "ward") return wardTabsFor(role).length > 0;
-    if (a.key === "opd") return role === "医師" || role === "看護師";
+    if (a.key === "opd") return role === "医師" || role === "看護師" || role === "医事課";
+    if (a.key === "liaison") return role === "医師" || role === "看護師" || role === "MSW" || role === "医事課";
+    if (a.key === "receipt") return role === "医事課" || role === "医師";
+    if (a.key === "stats") return role === "医師" || role === "看護師" || role === "医事課";
     if (EVERYONE.includes(a.key)) return true;
     if (a.key === "extract") return role === "医師" || role === "医事課" || role === "看護師";
     // 病理: the technologists' work, and the report the pathologist (a doctor) writes.

@@ -92,7 +92,11 @@ export type Action =
   | "profile.body"
   | "profile.care"
   | "profile.blood"
-  | "anamnesis";
+  | "anamnesis"
+  | "liaison"
+  | "receipt"
+  | "reception"
+  | "opd.call";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
   order: { label: "オーダの確定", who: ["医師"] },
@@ -139,6 +143,10 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "profile.care": { label: "介助（移動・食事・排泄・入浴）の登録", who: ["看護師", "医師"] },
   "profile.blood": { label: "血液型の登録", who: ["医師", "臨床検査技師"] },
   anamnesis: { label: "入院時の情報収集（アナムネーシス）", who: ["看護師"] },
+  liaison: { label: "紹介・逆紹介の台帳と返書の記録", who: ["MSW", "医事課"] },
+  receipt: { label: "返戻・査定の取り込みと再請求の記録", who: ["医事課"] },
+  reception: { label: "外来の受付", who: ["医事課", "看護師"] },
+  "opd.call": { label: "診察の呼出", who: ["医師", "看護師"] },
 };
 
 export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);

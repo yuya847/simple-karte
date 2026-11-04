@@ -275,7 +275,7 @@ function PlaceButton({ areas, area, onArea, badges }: { areas: Area[]; area: Are
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const places = areas.filter((a) => !a.tool || a.key === "chat");
-  const depts = places.filter((a) => a.kind !== "page" || ["or", "dialysis", "pharmacy", "lab"].includes(a.key));
+  const depts = places.filter((a) => a.kind !== "page" || ["or", "dialysis", "pharmacy", "lab", "liaison", "receipt"].includes(a.key));
   const shared = places.filter((a) => !depts.includes(a));
   const now = AREAS_LABEL(areas, area);
   const Icon = AREA_ICON[area];
