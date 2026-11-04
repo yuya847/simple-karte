@@ -396,7 +396,8 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             const px = e.clientX - r.left - LABEL_W;
-            if (px < 0 || !onEntry) return;
+            // The rows only (not the note under them).
+            if (px < 0 || !onEntry || (e.target as HTMLElement).closest("p")) return;
             const at = timeAtX(px, plotW, t0, t1, nowAbs);
             press(e, `${fmtAt(at)} の水分出納`, [{ kind: "io", at }]);
           }}
