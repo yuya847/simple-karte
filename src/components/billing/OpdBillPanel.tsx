@@ -321,10 +321,14 @@ export function OpdBillPanel({ visit, visitKey, entries, rx, records = [], today
                 </button>
                 {!settlement && (
                   <>
-                    <span className="ml-auto flex items-center gap-2 text-[12px]">
+                    {/* お支払いの方法: the whole label is the button (36px or taller), coloured when chosen. */}
+                    <span role="radiogroup" aria-label="お支払いの方法" className="ml-auto flex items-center gap-1.5 text-[13px]">
                       {PAY_METHODS.map((m) => (
-                        <label key={m} className="flex items-center gap-1">
-                          <input type="radio" name="opd-pay-method" checked={method === m} onChange={() => setMethod(m)} disabled={!!denySettle} />
+                        <label
+                          key={m}
+                          className={`flex min-h-9 cursor-pointer select-none items-center gap-1.5 rounded-md border px-3 ${method === m ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule bg-paper hover:border-ai"} ${denySettle ? "cursor-not-allowed opacity-60" : ""}`}
+                        >
+                          <input type="radio" name="opd-pay-method" checked={method === m} onChange={() => setMethod(m)} disabled={!!denySettle} className="accent-ai" />
                           {m}
                         </label>
                       ))}

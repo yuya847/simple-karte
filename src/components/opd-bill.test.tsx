@@ -124,6 +124,10 @@ describe("外来の会計", () => {
     expect(html).toContain("今日の外来の未収");
     expect(html).toContain("（この患者）");
     expect(html).toContain("この試作では算定しないもの");
+    // 現金／カード: the whole label is a button 36px or taller (min-h-9), in a radio group.
+    expect(html).toContain('aria-label="お支払いの方法"');
+    expect(html.match(/<label class="flex min-h-9 cursor-pointer/g)?.length).toBe(2);
+    expect(html.match(/name="opd-pay-method"/g)?.length).toBe(2);
   });
 
   it("a doctor sees the bill but cannot record the payment; a paid visit shows 会計済み", () => {
