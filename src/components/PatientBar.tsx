@@ -6,6 +6,7 @@ import { bmi, cockcroftGault, latestValue } from "@/lib/clinical";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import { bandLabel, reviewDue, type AdvanceDirective } from "@/lib/directives";
+import { doctorLabel, type PatientDoctors } from "@/lib/patient-doctors";
 import type { Patient } from "@/lib/types";
 import { PatientAvatar } from "./PatientAvatar";
 import { ageSex } from "@/lib/person";
@@ -22,6 +23,10 @@ interface Props {
   onOpenProfile?: () => void;
   /** 妊娠中の印 (set by a doctor or nurse). */
   onPregnancy?: (v: { weeks: number | null } | null) => void;
+  /** 主治医・担当医・コンサルト医 (without it the bar shows the attending alone). */
+  doctors?: PatientDoctors;
+  /** Opens the doctors' list (to add or remove a 担当医・コンサルト医). */
+  onOpenDoctors?: () => void;
   /** 保存・オーダーのみ・未確認の結果: the chart's actions, on the right of the bar. */
   actions?: React.ReactNode;
 }
@@ -33,7 +38,7 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, actions }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, actions }: Props) {
   const [pregEdit, setPregEdit] = useState(false);
   const [weeks, setWeeks] = useState("");
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
@@ -157,7 +162,14 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         {p.cautions.map((c) => (
           <Badge key={c} tone="yamabuki" label="注意" values={[c]} />
         ))}
-        <span className="nums text-ink-faint">主治医 {p.attending}</span>
+        <button type="button" onClick={onOpenDoctors} disabled={!onOpenDoctors} className="nums flex flex-wrap items-center gap-x-1 text-left text-ink-faint enabled:hover:text-ink enabled:hover:underline" title={onOpenDoctors ? "主治医・担当医・コンサルト医の一覧を開く（医師は担当医・コンサルト医を足せます）" : undefined} aria-label="患者の医師">
+          <span>主治医 {p.attending}</span>
+          {(doctors?.others ?? []).map((d) => (
+            <span key={`${d.role}:${d.name}`} className={d.pending ? "text-yamabuki" : d.role === "担当医" ? "text-ink-soft" : "text-fuji"}>
+              ／{doctorLabel(d)}
+            </span>
+          ))}
+        </button>
       </div>
     </header>
   );
