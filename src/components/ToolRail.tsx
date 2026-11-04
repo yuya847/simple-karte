@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Bandage, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
+import { Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { loadMyTemplates } from "@/lib/note-templates";
@@ -8,7 +8,7 @@ import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin } from "@
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill";
+export type PanelKind = "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
 
 interface Tool {
   key: PanelKind;
@@ -81,6 +81,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
       { key: "consents", label: "同意書", icon: FileSignature },
       { key: "discharge", label: "退院サマリ", icon: FileText },
       { key: "docs", label: "書類作成", icon: FileStack },
+      { key: "cosign", label: "研修医の記録の確認", icon: UserCheck },
     ],
     more: [
       { key: "scans", label: "スキャン取込", icon: ScanText },
@@ -121,10 +122,14 @@ const orderFor = (role: string): GroupKey[] => (role === "看護師" ? ["nurse",
  */
 const ONLY: Partial<Record<string, PanelKind[]>> = { 診療放射線技師: ["imaging", "report-list", "monitor"] };
 
+/** Tools only a doctor has (the others do not see them): 研修医の記録の確認 is done by the 指導医・上級医. */
+const DOCTOR_ONLY: ReadonlySet<PanelKind> = new Set<PanelKind>(["cosign"]);
+
 /** The groups a role sees, with only its tools when the role has a short list. */
 export function groupsFor(role: string): { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] {
   const only = ONLY[role];
-  const groups = orderFor(role).map((k) => GROUPS.find((g) => g.key === k)!);
+  const forRole = (ts: Tool[]) => (role === "医師" ? ts : ts.filter((t) => !DOCTOR_ONLY.has(t.key)));
+  const groups = orderFor(role).map((k) => GROUPS.find((g) => g.key === k)!).map((g) => ({ ...g, main: forRole(g.main), more: forRole(g.more) }));
   if (!only) return groups;
   const pick = (ts: Tool[]) => ts.filter((t) => only.includes(t.key)).sort((a, b) => only.indexOf(a.key) - only.indexOf(b.key));
   return groups.map((g) => ({ ...g, main: pick(g.main), more: pick(g.more) })).filter((g) => g.main.length + g.more.length > 0);

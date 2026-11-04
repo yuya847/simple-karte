@@ -15,7 +15,7 @@ import { TakeBadgeMark } from "./TakeConfirm";
  * (who and when) and confirmed the schedule, questions held by a nurse with a place to answer, urgent ones
  * still waiting, and the day's 指示票 to print.
  */
-export function TakeStatus({ rows, taken, isTaken, holds, confirms = {}, nowAbs, onAnswer, slip }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; confirms?: Confirms; nowAbs: number; onAnswer: (key: string, text: string) => void; slip?: { patient: { id: string; name: string; room: string }; today: CalendarDate; nowTime: string; by: string } }) {
+export function TakeStatus({ rows, taken, isTaken, holds, confirms = {}, nowAbs, onAnswer, slip, inDrawer = false }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; confirms?: Confirms; nowAbs: number; onAnswer: (key: string, text: string) => void; slip?: { patient: { id: string; name: string; room: string }; today: CalendarDate; nowTime: string; by: string }; /** Inside the 指示受け drawer (right-end tool 看護): always open, above the nurses' table. */ inDrawer?: boolean }) {
   const [answer, setAnswer] = useState<Record<string, string>>({});
   const [print, printSheet] = usePrintSheet();
   if (!rows.length) return null;
@@ -24,7 +24,7 @@ export function TakeStatus({ rows, taken, isTaken, holds, confirms = {}, nowAbs,
   const asks = rows.filter((r) => holds[r.key] && !holds[r.key].answer && !isTaken(r));
   const confirmed = rows.filter((r) => isTaken(r) && confirms[r.key]);
   return (
-    <details open={asks.length > 0 || waiting.some((r) => r.flags.urgent)} className="mx-4 mb-1 rounded-md border border-rule bg-sheet px-3 py-1.5 text-[12px]">
+    <details data-take-status open={inDrawer || asks.length > 0 || waiting.some((r) => r.flags.urgent)} className={`${inDrawer ? "mb-3" : "mx-4 mb-1"} rounded-md border border-rule bg-sheet px-3 py-1.5 text-[12px]`}>
       <summary className="flex cursor-pointer items-center gap-1.5 font-bold">
         <ClipboardCheck size={14} />
         今日の指示の指示受け：まだ {waiting.length}件

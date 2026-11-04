@@ -205,3 +205,16 @@ describe("1件ずつ受けるものは2段階（開いて中身を見てから�
     expect(html).toContain("「開いて受ける」で中身（薬・量・時刻・至急の理由）を広げて見てから「この指示を受ける」を押します");
   });
 });
+
+describe("指示受けの引き出し（右端ツール「看護」）の中の、医師向けの状態の表", () => {
+  it("inDrawer: always open, without the chart's side margins; above the note it was closed unless something was urgent", () => {
+    const taken: Record<string, string> = { "a|新規": "11:00 看護師 佐藤" };
+    const ctx = { taken, isTaken: (r: { keys: string[] }) => r.keys.every((k) => !!taken[k]), holds: {}, confirms: {} };
+    const inDrawer = renderToStaticMarkup(<TakeStatus inDrawer rows={rows} {...ctx} nowAbs={730} onAnswer={noop} />);
+    expect(inDrawer).toMatch(/<details data-take-status="true" open="" class="mb-3 /);
+    expect(inDrawer).not.toContain("mx-4");
+    expect(inDrawer).toContain("まだ 1件");
+    const strip = renderToStaticMarkup(<TakeStatus rows={rows} {...ctx} nowAbs={730} onAnswer={noop} />);
+    expect(strip).toMatch(/<details data-take-status="true" class="mx-4 /);
+  });
+});

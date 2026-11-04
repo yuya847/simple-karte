@@ -231,7 +231,7 @@ import { PatientInfoPanel, patientInfoTitle } from "./panels/PatientInfoPanel";
 import { INITIAL_CONTACTS, type ContactsBook } from "@/lib/patient-contacts";
 import { INITIAL_ANAMNESIS } from "@/lib/anamnesis-initial";
 import { COSIGN_RULES, byRef, confirmDeny, confirmItems, newItems, noteRevised, pendingOf, residentBlock, type CosignItem } from "@/lib/cosign";
-import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
+import { CosignList, CosignPanel, CosignRefs } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { eventTimeProblem, isBlankNote, nextFrame, noteKey, noteText, parseNote, reviseNote } from "@/lib/notes";
@@ -3003,22 +3003,6 @@ export default function WardApp() {
               }}
             >
               {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
-              {role === "医師" && <CosignStrip items={cosign.filter((i) => i.patientId === patient.id)} meName={me.name} onConfirm={confirmCosign} />}
-              {role === "医師" && (
-                <TakeStatus
-                  rows={allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k)))}
-                  taken={taken}
-                  isTaken={isRowTaken}
-                  holds={takeHolds}
-                  confirms={takeConfirms}
-                  slip={{ patient: { id: patient.id, name: patient.name, room: people.find((x) => x.patient.id === patient.id)?.room ?? patient.room }, today, nowTime, by: me.name }}
-                  nowAbs={abs(0, nowTime)}
-                  onAnswer={(key, text) => {
-                    auditLog({ role: me.role, actor: me.name, action: "看護師の確認に回答", patient: patient.name, detail: text });
-                    setTakeHolds((all) => ({ ...all, [key]: { ...all[key], answer: { by: me.name, at: nowTime, text } } }));
-                  }}
-                />
-              )}
               <PharmacyInbox
                 today={today}
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
@@ -3415,6 +3399,23 @@ export default function WardApp() {
               )}
               {panel === "take" && (
                 <Drawer title="指示受け（この患者）" onClose={closePanel} wide locked={deny("mar")}>
+                  {/* The doctor's view first (who took which change, questions to answer, the 指示票), then the nurses' table. */}
+                  {role === "医師" && (
+                    <TakeStatus
+                      inDrawer
+                      rows={allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k)))}
+                      taken={taken}
+                      isTaken={isRowTaken}
+                      holds={takeHolds}
+                      confirms={takeConfirms}
+                      slip={{ patient: { id: patient.id, name: patient.name, room: people.find((x) => x.patient.id === patient.id)?.room ?? patient.room }, today, nowTime, by: me.name }}
+                      nowAbs={abs(0, nowTime)}
+                      onAnswer={(key, text) => {
+                        auditLog({ role: me.role, actor: me.name, action: "看護師の確認に回答", patient: patient.name, detail: text });
+                        setTakeHolds((all) => ({ ...all, [key]: { ...all[key], answer: { by: me.name, at: nowTime, text } } }));
+                      }}
+                    />
+                  )}
                   <TakeDesk
                     people={people.filter((x) => x.patient.id === patient.id)}
                     rows={allTakeRows.filter((r) => r.patientId === patient.id)}
@@ -3434,6 +3435,11 @@ export default function WardApp() {
                     onExecute={() => goWard("execute")}
                     records={mar}
                   />
+                </Drawer>
+              )}
+              {panel === "cosign" && (
+                <Drawer title="研修医の記録の確認（この患者）" onClose={closePanel}>
+                  <CosignPanel items={cosign.filter((i) => i.patientId === patient.id)} meName={me.name} onConfirm={confirmCosign} />
                 </Drawer>
               )}
               {panel === "vitals" && (
@@ -4162,7 +4168,7 @@ export default function WardApp() {
             )}
             <ToolRail
               open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
-              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length } }}
+              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
               openTemplate={panel === "templates" ? templateFocus : null}
               onOpen={(p, o) => {
                 setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);

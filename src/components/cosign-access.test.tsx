@@ -6,7 +6,7 @@ import { confirmItems, newItems } from "@/lib/cosign";
 import { PATIENTS } from "@/lib/patients";
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
 import { AccessLog } from "./AccessLog";
-import { CosignList, CosignMark, CosignRefs, CosignStrip } from "./Cosign";
+import { CosignList, CosignMark, CosignPanel, CosignRefs, CosignStrip } from "./Cosign";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
 const mori = PATIENTS.find((p) => p.id === "90010260")!;
@@ -75,5 +75,20 @@ describe("閲覧制限の画面", () => {
     );
     expect(html).toContain("閲覧制限の患者だけ");
     expect(html).toContain("CSV（comma-separated values、カンマ区切りの表）で書き出す");
+  });
+});
+
+describe("右端ツール「文書」の「研修医の記録の確認」の引き出し", () => {
+  it("waiting records with 確認; the confirmed ones (who and when) under them", () => {
+    const html = renderToStaticMarkup(<CosignPanel items={done} meName="指導医 高橋" onConfirm={() => {}} />);
+    expect(html).toContain("指導医の確認待ち 1件");
+    expect(html).toContain("確認済み 1件");
+    expect(html).toContain("確認 指導医 高橋 10:30");
+    expect(html).not.toContain("確認待ちはありません");
+  });
+  it("nothing waiting: says so", () => {
+    const html = renderToStaticMarkup(<CosignPanel items={done.slice(1)} meName="指導医 高橋" onConfirm={() => {}} />);
+    expect(html).toContain("この患者の研修医の記録に、確認待ちはありません。");
+    expect(html).toContain("確認済み 1件");
   });
 });

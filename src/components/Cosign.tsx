@@ -81,6 +81,37 @@ export function CosignStrip({ items, meName, onConfirm }: { items: CosignItem[];
   );
 }
 
+/**
+ * The right-end tool 文書 > 研修医の記録の確認 (its drawer): this patient's waiting records with 確認, or a
+ * line saying nothing waits, and the confirmed ones of today (who and when) under it.
+ */
+export function CosignPanel({ items, meName, onConfirm }: { items: CosignItem[]; meName: string; onConfirm: (ids: string[], comment: string) => void }) {
+  const waiting = pendingOf(items);
+  const done = items.filter((i) => i.confirmed).toReversed();
+  return (
+    <div className="space-y-3 text-[12px]">
+      {waiting.length ? <CosignStrip items={items} meName={meName} onConfirm={onConfirm} /> : <p className="rounded-md border border-rule bg-sheet px-3 py-2 text-ink-soft">この患者の研修医の記録に、確認待ちはありません。</p>}
+      {done.length > 0 && (
+        <section aria-label="確認済み">
+          <h3 className="mb-1 font-bold text-ink-soft">確認済み {done.length}件</h3>
+          <ul className="space-y-1">
+            {done.map((i) => (
+              <li key={i.id} className="flex items-start gap-2 border-t border-rule-soft pt-1">
+                <span className="shrink-0 rounded border border-rule px-1 text-[11px] text-ink-soft">{i.kind}</span>
+                <span className={`min-w-0 flex-1 ${clamp}`} title={i.text}>
+                  {i.text}
+                </span>
+                <span className="nums shrink-0 text-wakatake">{cosignLabel(i)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <p className="hint text-[11px] text-ink-faint">研修医が書いた記事・オーダは、同じチームの指導医か上級医が内容を読んで「確認」します。件数は右端ツール「文書」のアイコンの赤い数字に出ます。</p>
+    </div>
+  );
+}
+
 type Show = "pending" | "done" | "all";
 
 /** 病棟 > 研修医の記録の確認: every record of a 研修医, waiting or confirmed (who and when). */
