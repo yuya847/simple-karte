@@ -111,6 +111,24 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
 /** Nurses see 看護 first; everyone else オーダ first. */
 const orderFor = (role: string): GroupKey[] => (role === "看護師" ? ["nurse", "order", "docs", "ref", "billing"] : ["order", "nurse", "docs", "ref", "billing"]);
 
+/**
+ * Roles that get only a few tools in a ward patient's chart (架空の病院の取り決め): the technologist who opens a
+ * chart from the radiology department reads the images, the reports and the monitor, and orders nothing.
+ */
+const ONLY: Partial<Record<string, PanelKind[]>> = { 診療放射線技師: ["imaging", "report-list", "monitor"] };
+
+/** The groups a role sees, with only its tools when the role has a short list. */
+export function groupsFor(role: string): { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] {
+  const only = ONLY[role];
+  const groups = orderFor(role).map((k) => GROUPS.find((g) => g.key === k)!);
+  if (!only) return groups;
+  const pick = (ts: Tool[]) => ts.filter((t) => only.includes(t.key)).sort((a, b) => only.indexOf(a.key) - only.indexOf(b.key));
+  return groups.map((g) => ({ ...g, main: pick(g.main), more: pick(g.more) })).filter((g) => g.main.length + g.more.length > 0);
+}
+
+/** Whether the role's rail is the short one (no calendars, no injection calendar). */
+export const railIsShort = (role: string) => !!ONLY[role];
+
 interface Props {
   open: PanelKind | null;
   onOpen: (p: PanelKind | null) => void;
@@ -157,7 +175,8 @@ function saveRail(person: string, v: { mode: RailMode; pins: PanelKind[] }) {
  */
 export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calendars = [], badges = {} }: Props) {
   const me = useMe();
-  const groups = orderFor(me.role).map((k) => GROUPS.find((g) => g.key === k)!);
+  const groups = groupsFor(me.role);
+  const short = railIsShort(me.role);
   const [tab, setTab] = useState<GroupKey>(groups[0].key);
   const [rail, setRail] = useState<{ mode: RailMode; pins: PanelKind[] }>(() => (typeof window === "undefined" ? { mode: "icons", pins: [] } : loadRail(me.name)));
   const [editPins, setEditPins] = useState(false);
@@ -170,7 +189,7 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calend
   // The tab of the open tool, so the highlighted one is in view.
   const openIn = groups.find((g) => [...g.main, ...g.more].some((t) => t.key === open))?.key;
   const shownTab = openIn && !pinned.some((t) => t.key === open) ? openIn : tab;
-  const group = groups.find((g) => g.key === shownTab)!;
+  const group = groups.find((g) => g.key === shownTab) ?? groups[0];
   const list = rail.mode === "list";
 
   const tile = (t: Tool, where: "pins" | "tab") => {
@@ -240,13 +259,14 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calend
         ))}
       </div>
       <div className={grid}>
-        {group.key === "ref" && injectionCalendar && (
+        {group.key === "ref" && !short && injectionCalendar && (
           <button type="button" title="注射カレンダー（大きな別ウインドウで開きます。新規・延長・修正もここで。「右の欄に戻す」で右のタブにできます）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
             <CalendarDays size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
             注射カレンダー
           </button>
         )}
         {group.key === "ref" &&
+          !short &&
           calendars.map((c) => {
             const Icon = c.icon;
             return (
