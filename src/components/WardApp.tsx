@@ -82,6 +82,8 @@ import { TakeStatus } from "./TakeStatus";
 import { TakeDesk } from "./TakeDesk";
 import { ExecuteDesk } from "./ExecuteDesk";
 import { orderTakeBadge, unconfirmed, type Confirms } from "@/lib/order-confirm";
+import { waitingToday } from "@/lib/order-sheet";
+import { vitalsFlash, type Flash } from "@/lib/flash";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { useWorkspace } from "@/lib/use-workspace";
 import { WorkspaceStatus } from "./WorkspaceStatus";
@@ -347,7 +349,7 @@ interface ChartState {
   drafting: boolean;
   error: string | null;
   meta: DraftMeta | null;
-  flash: string | null;
+  flash: Flash | null;
 }
 
 /**
@@ -1851,10 +1853,12 @@ export default function WardApp() {
   const toWrite = role === "医師" ? summaryNow.filter((r) => r.chart && ["未作成", "作成中", "差し戻し"].includes(r.state) && onTeamOf(me.name, r.attending)) : [];
   if (toApprove.length) todos.push({ key: "summary-approve", label: "退院サマリの承認待ち", detail: toApprove.map((r) => `${r.name}さん`).join("、"), count: toApprove.length, tone: "ai", go: () => goWard("summaries") });
   if (toWrite.length) todos.push({ key: "summary-write", label: "退院サマリがまだ（退院した患者）", detail: toWrite.map((r) => `${r.name}さん ${r.state}${r.left !== null && r.left < 0 ? "・期限切れ" : `・あと${r.left}日`}`).join("、"), count: toWrite.length, tone: toWrite.some((r) => r.late) ? "shu" : "yamabuki", go: () => goWard("summaries") });
-  const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
   // 指示受け rows of the ward (for the doctor's view, the handoff and the todo).
   const allTakeRows = takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today);
   const isRowTaken = (r: TakeRow) => r.keys.every((k) => !sessionKeys.has(k) || !!taken[k]);
+  // The tab's badge and 「やること」 count today's untaken rows, as the 指示受け screen lists them (other days: 「ほかの日に N件」).
+  const takeWaitingRows = waitingToday(allTakeRows, people, isRowTaken);
+  const takeWaiting = takeWaitingRows.length;
   // 看護ケアの記録・与薬の記録・指示受け: the worksheet and the cells of the flow sheet record through these.
   const recordCare = (r: CareRecord) => {
     const o = careOrders.find((x) => x.id === r.orderId);
@@ -3450,6 +3454,8 @@ export default function WardApp() {
                     onSave={(v) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
                       setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
+                      // 手応え: what was recorded (and NEWS2 in 朱 when 5 or more) at the foot of the right pane; the row is in 経過表.
+                      update({ flash: vitalsFlash(v, v.day === 0 ? undefined : formatShort(addDays(today, v.day))) });
                       closePanel();
                     }}
                   />
@@ -4156,7 +4162,7 @@ export default function WardApp() {
             )}
             <ToolRail
               open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
-              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : (waiting[patient.id] ?? 0), urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length } }}
+              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length } }}
               openTemplate={panel === "templates" ? templateFocus : null}
               onOpen={(p, o) => {
                 setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);

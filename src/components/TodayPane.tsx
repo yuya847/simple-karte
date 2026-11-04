@@ -5,6 +5,7 @@ import { Clock3, LayoutTemplate, Loader2, Mic, MicOff, Sparkles, TextQuote } fro
 import { useRef, useState } from "react";
 import { formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { isReady, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
+import type { Flash } from "@/lib/flash";
 import type { Patient } from "@/lib/types";
 import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
@@ -41,7 +42,7 @@ interface Props {
   drafting: boolean;
   error: string | null;
   meta: DraftMeta | null;
-  flash: string | null;
+  flash: Flash | null;
   onDraft: () => void;
   onApply: (d: Draft) => void;
   onRemove: (id: string) => void;
@@ -319,7 +320,10 @@ export function TodayPane(p: Props) {
       <div className="flex items-center gap-3 border-t border-rule bg-paper px-4 py-2.5">
         <span className="text-xs text-ink-soft">
           {p.flash ? (
-            <span className="text-wakatake">{p.flash}</span>
+            <span className="text-wakatake" role="status">
+              {typeof p.flash === "string" ? p.flash : p.flash.text}
+              {typeof p.flash !== "string" && p.flash.warn && <b className="ml-2 rounded bg-shu px-1.5 text-white">{p.flash.warn}</b>}
+            </span>
           ) : p.drafts.length === 0 ? (
             "下書きはまだありません"
           ) : pending > 0 ? (
