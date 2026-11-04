@@ -3,9 +3,19 @@
 import { Check, MessageCircleQuestion } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
+import { confirmPlan, type Confirms } from "@/lib/order-confirm";
 import { HOLD_REASONS, TAKE_SOURCES, type TakeHold, type TakeRow } from "@/lib/order-take";
-import { timeLabel } from "@/lib/worksheet";
+import { timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { useMe } from "./RoleContext";
+import { TakeConfirm } from "./TakeConfirm";
+
+/** 指示確認 after 指示受け: who looked at the schedule the change makes (by row key), confirming one, and the orders to expand it from. */
+export interface ConfirmProps {
+  confirms: Confirms;
+  onConfirm: (key: string) => void;
+  people: WorkPatient[];
+  nowAbs: number;
+}
 
 const td = "border-b border-rule-soft px-1.5 py-1 align-top";
 const th = "border-b border-rule px-1.5 py-1 text-left font-normal text-ink-soft";
@@ -16,9 +26,10 @@ const FLAG_STYLE = { urgent: "bg-shu text-white", highRisk: "bg-shu-soft text-sh
  * after, and orders related to it. Some must be taken one at a time with a check, high-risk ones with a
  * second nurse; any can be held to ask the doctor first.
  */
-export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today, nurses, onTake, onHold }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; interactive: boolean; day: number; today: CalendarDate; nurses: string[]; onTake: (keys: string[], second?: string) => void; onHold: (key: string, reason: TakeHold["reason"], note: string) => void }) {
+export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today, nurses, onTake, onHold, confirm, showPatient = true }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; interactive: boolean; day: number; today: CalendarDate; nurses: string[]; onTake: (keys: string[], second?: string) => void; onHold: (key: string, reason: TakeHold["reason"], note: string) => void; confirm?: ConfirmProps; showPatient?: boolean }) {
   const me = useMe();
   const [open, setOpen] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const [second, setSecond] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
@@ -29,6 +40,12 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
     setChecked(false);
     setSecond("");
   };
+  const cols = showPatient ? 6 : 5;
+  // 指示受け, then straight on to 指示確認 (the schedule the change makes opens under the row).
+  const take = (r: TakeRow, second?: string) => {
+    onTake(r.keys, second);
+    if (confirm) setConfirming(r.key);
+  };
   return (
     <>
       <table className="w-full border-collapse">
@@ -36,7 +53,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
           <tr>
             <th className={`${th} w-28`}>指示受け</th>
             <th className={`${th} w-24`}>時刻</th>
-            <th className={`${th} w-28`}>部屋・患者</th>
+            {showPatient && <th className={`${th} w-28`}>部屋・患者</th>}
             <th className={`${th} w-14`}>種別</th>
             <th className={th}>内容</th>
             <th className={`${th} w-28`}>指示</th>
@@ -52,9 +69,19 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
               <tr key={r.key} className={r.kind === "中止" ? "text-ink-soft" : ok ? "" : r.flags.urgent ? "bg-shu-soft/30" : ""}>
                 <td className={td}>
                   {ok ? (
-                    <span className="flex items-start gap-0.5 text-wakatake">
-                      <Check size={12} className="mt-0.5 shrink-0" />
-                      {taken[r.keys.at(-1)!] ?? "受け済"}
+                    <span className="flex flex-col items-start gap-0.5">
+                      <span className="flex items-start gap-0.5 text-wakatake">
+                        <Check size={12} className="mt-0.5 shrink-0" />
+                        {taken[r.keys.at(-1)!] ?? "受け済"}
+                      </span>
+                      {/* 指示確認: only for changes taken in this session (earlier ones count as confirmed by the earlier shift). */}
+                      {confirm && taken[r.keys.at(-1)!] && (confirm.confirms[r.key] ? <span className="text-[10px] text-wakatake">確認 {confirm.confirms[r.key]}</span> : interactive ? (
+                        <button type="button" onClick={() => setConfirming(confirming === r.key ? null : r.key)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[10px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
+                          予定を確認する（まだ）
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-yamabuki">確認がまだ □</span>
+                      ))}
                     </span>
                   ) : holding ? (
                     <span className="text-[11px] font-bold text-yamabuki">
@@ -64,7 +91,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                   ) : interactive ? (
                     <span className="flex flex-col items-start gap-1">
                       {r.mustOne.length === 0 ? (
-                        <button type="button" onClick={() => onTake(r.keys)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[11px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
+                        <button type="button" onClick={() => take(r)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[11px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
                           指示を受ける
                         </button>
                       ) : (
@@ -82,9 +109,11 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                   )}
                 </td>
                 <td className={td}>{r.timeKnown ? timeLabel(r.at, day, today) : `${formatShort(addDays(today, Math.floor(r.at / 1440))).replace(/（.）/, "")}（時刻なし）`}</td>
-                <td className={td}>
-                  {r.room}　{r.name}
-                </td>
+                {showPatient && (
+                  <td className={td}>
+                    {r.room}　{r.name}
+                  </td>
+                )}
                 <td className={`${td} font-bold ${r.kind === "中止" ? "text-shu" : r.kind === "変更" ? "text-yamabuki" : ""}`}>{r.kind === "変更" ? "【変】" : r.kind}</td>
                 <td className={td}>
                   {flags.length > 0 && (
@@ -126,7 +155,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
               </tr>,
               open === r.key && !ok && (
                 <tr key={`${r.key}-open`}>
-                  <td colSpan={6} className="border-b border-rule-soft bg-paper px-3 py-2 text-[12px]">
+                  <td colSpan={cols} className="border-b border-rule-soft bg-paper px-3 py-2 text-[12px]">
                     <p className="font-bold">1件ずつ受ける理由：{r.mustOne.join("・")}</p>
                     <label className="mt-1 flex items-center gap-1.5">
                       <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="accent-ai" />
@@ -151,7 +180,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                         type="button"
                         disabled={!checked || (!!r.flags.highRisk && !second)}
                         onClick={() => {
-                          onTake(r.keys, second || undefined);
+                          take(r, second || undefined);
                           close();
                         }}
                         className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40"
@@ -167,7 +196,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
               ),
               asking === r.key && !ok && (
                 <tr key={`${r.key}-ask`}>
-                  <td colSpan={6} className="border-b border-rule-soft bg-paper px-3 py-2 text-[12px]">
+                  <td colSpan={cols} className="border-b border-rule-soft bg-paper px-3 py-2 text-[12px]">
                     <div className="flex flex-wrap items-center gap-2">
                       医師に確認する理由
                       <select value={reason} onChange={(e) => setReason(e.target.value as TakeHold["reason"])} aria-label="確認の理由" className="rounded border border-rule bg-sheet px-1 py-0.5">
@@ -192,6 +221,23 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                       </button>
                     </div>
                     <p className="mt-1 text-ink-faint">送ると、受けないまま「医師に確認中」になり、医師のやることとカルテに出ます。回答のあとで受けます。</p>
+                  </td>
+                </tr>
+              ),
+              confirm && confirming === r.key && ok && !confirm.confirms[r.key] && (
+                <tr key={`${r.key}-confirm`}>
+                  <td colSpan={cols} className="border-b border-rule-soft bg-paper px-3 py-2">
+                    <TakeConfirm
+                      row={r}
+                      plan={confirmPlan(r, confirm.people, today, confirm.nowAbs)}
+                      today={today}
+                      interactive={interactive}
+                      onConfirm={() => {
+                        confirm.onConfirm(r.key);
+                        setConfirming(null);
+                      }}
+                      onClose={() => setConfirming(null)}
+                    />
                   </td>
                 </tr>
               ),

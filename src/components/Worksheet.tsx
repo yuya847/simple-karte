@@ -12,7 +12,8 @@ import { findOralDrug } from "@/lib/master";
 import { dripRate, dripText } from "@/lib/drip";
 import { MarCell, VoidControl } from "./MarCell";
 import { RunningDrips } from "./DripControls";
-import { TakeTable } from "./TakeTable";
+import { TakeTable, type ConfirmProps } from "./TakeTable";
+import { unconfirmed } from "@/lib/order-confirm";
 import { CareSheet } from "./CareSheet";
 import { DrugMarks } from "./DrugMarks";
 import { drugCodesOf } from "@/lib/drug-class";
@@ -54,6 +55,8 @@ interface Props {
   care?: { orders: CareOrder[]; records: CareRecord[]; plans: NursingProblem[]; onRecord: (r: CareRecord) => void; onVoid: (r: CareRecord, reason: string) => void };
   /** 業務分担 of a shift: one line per nurse (「看護師 田中：512 佐倉・515B 大浦」), for the sheet's header. */
   assigned?: (day: number, shift: "day" | "night") => string[];
+  /** 指示確認: who looked at the schedule a taken change makes, and confirming one (the orders come from `people`). */
+  confirm?: Omit<ConfirmProps, "people" | "nowAbs">;
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -71,7 +74,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -101,7 +104,10 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   const bulk = rows.filter((r) => !isRowTaken(r) && r.mustOne.length === 0 && !(holds[r.key] && !holds[r.key].answer));
 
   const assignLines = assigned && shift !== "all" ? assigned(day, shift) : null;
-  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines };
+  // 指示確認: taken in this session but the schedule not yet looked at (marked on the sheet).
+  const confirmProps: ConfirmProps | undefined = confirm ? { ...confirm, people, nowAbs } : undefined;
+  const notConfirmed = confirm ? unconfirmed(rows, { taken, isTaken: isRowTaken, holds, confirms: confirm.confirms }).length : 0;
+  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines, confirm: confirmProps, notConfirmed };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -211,11 +217,14 @@ interface SheetProps {
   care?: Props["care"];
   /** 業務分担 lines of the shift (null: not shown, e.g. 終日). */
   assignLines: string[] | null;
+  /** 指示確認 (optional), and how many taken changes still wait for it. */
+  confirm?: ConfirmProps;
+  notConfirmed: number;
 }
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines }: SheetProps) {
+function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   // 麻・毒・劇・ハイリスク of the order's drugs (drug-class.ts).
@@ -278,8 +287,8 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
         </p>
       )}
 
-      <Section title={`指示の変更（昨日と今日）　指示受けがまだ ${rows.filter((r) => !isRowTaken(r)).length}件`}>
-        {rows.length === 0 ? <Empty>変更はありません</Empty> : <TakeTable rows={rows} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} />}
+      <Section title={`指示の変更（昨日と今日）　指示受けがまだ ${rows.filter((r) => !isRowTaken(r)).length}件${notConfirmed ? `　受けたが予定の確認がまだ ${notConfirmed}件` : ""}`}>
+        {rows.length === 0 ? <Empty>変更はありません</Empty> : <TakeTable rows={rows} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} />}
       </Section>
 
       <Section title="勤務のあいだ続くもの（点滴・酸素・留置）">
