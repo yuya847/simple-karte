@@ -13,6 +13,7 @@ import {
   FlaskConical,
   Handshake,
   GlassWater,
+  KeyRound,
   LayoutGrid,
   List,
   Megaphone,
@@ -79,4 +80,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   roster: CalendarDays,
   cosign: UserCheck,
   io: GlassWater,
+  narcotic: KeyRound,
 };

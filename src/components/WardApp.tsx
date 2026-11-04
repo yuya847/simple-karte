@@ -192,6 +192,8 @@ import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { nextFrame, noteKey, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
 import { narcoticBlock } from "@/lib/narcotics";
+import { INITIAL_BOOK, type NarcoticBook } from "@/lib/narcotic-book";
+import { NarcoticSlips } from "./NarcoticSlips";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
@@ -451,6 +453,8 @@ export default function WardApp() {
   const [shido, setShido] = useState<Record<string, ShidoRecord[]>>({});
   const [dispensed, setDispensed] = useState<Record<string, string>>({});
   const [oralRx, setOralRx] = useState<Record<string, OralRecord>>({});
+  // 麻薬の管理（受払簿・施用票・返納・廃棄・事故）: narcotic-book.ts.
+  const [narcBook, setNarcBook] = useState<NarcoticBook>(INITIAL_BOOK);
   // Dialysis unit (fictional; kept in this browser only).
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
   const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(() => (typeof window === "undefined" ? {} : initialHdSessions(nowTimeInTokyo())));
@@ -633,6 +637,7 @@ export default function WardApp() {
       iji: [iji, setIji],
       takeHolds: [takeHolds, setTakeHolds],
       oralRx: [oralRx, setOralRx],
+      narcBook: [narcBook, setNarcBook],
       rosterBook: [rosterBook, setRosterBook],
       cosign: [cosign, setCosign],
       limits: [limits, setLimits],
@@ -1766,6 +1771,8 @@ export default function WardApp() {
           onConfirm={confirmCosign}
           onOpen={openPatient}
         />
+      ) : screen === "narcotic" ? (
+        <NarcoticSlips people={people} records={mar} book={narcBook} onBook={setNarcBook} today={today} nowTime={nowTime} newId={newId} />
       ) : screen === "io" ? (
         <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standing[pid]?.at(-1)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
       ) : screen === "roster" ? (
@@ -2140,6 +2147,9 @@ export default function WardApp() {
           onDispense={(key) => setDispensed((d) => ({ ...d, [key]: nowTime }))}
           oralRx={oralRx}
           onOralRx={(key, rec) => setOralRx((all) => ({ ...all, [key]: rec }))}
+          narcBook={narcBook}
+          onNarcBook={setNarcBook}
+          newId={newId}
           txIssued={txIssued}
           homeRx={homeRx}
           onHomeRx={(id, patch) => setHomeRx((all) => ({ ...all, [id]: { ...all[id], ...patch } }))}

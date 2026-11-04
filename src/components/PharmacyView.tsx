@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BookOpenText, Check, Droplet, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
+import { Activity, BookOpenText, Check, Droplet, KeyRound, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
 import { useHints } from "@/lib/hints";
 import { createPortal, flushSync } from "react-dom";
 import { DrugLabel } from "./Labels";
@@ -13,6 +13,8 @@ import { ageSex } from "@/lib/person";
 import type { OrderEntry } from "@/lib/types";
 import { TdmView } from "./TdmView";
 import { DrugMarks } from "./DrugMarks";
+import { NarcoticDesk } from "./NarcoticDesk";
+import type { NarcoticBook } from "@/lib/narcotic-book";
 import { drugCodesOf } from "@/lib/drug-class";
 import { SourceLinks } from "./DraftCard";
 import { orderInteractions } from "@/lib/interactions";
@@ -64,9 +66,13 @@ interface Props {
   onOralRx: (key: string, rec: OralRecord) => void;
   tdm: TdmReport[];
   onTdm: (r: Omit<TdmReport, "id" | "at" | "by" | "status">) => void;
+  /** 麻薬の管理 (narcotic-book.ts): 受払簿・施用票・返納・廃棄・事故. */
+  narcBook: NarcoticBook;
+  onNarcBook: (f: (b: NarcoticBook) => NarcoticBook) => void;
+  newId: () => string;
 }
 
-type Tab = "audit" | "brought" | "shido" | "dispense" | "oral" | "home" | "blood" | "tdm" | "journal";
+type Tab = "audit" | "brought" | "shido" | "dispense" | "oral" | "home" | "narcotic" | "blood" | "tdm" | "journal";
 const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
   { key: "audit", label: "処方監査・疑義照会", icon: MessageSquareWarning },
   { key: "brought", label: "持参薬鑑別", icon: ScanText },
@@ -74,6 +80,7 @@ const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
   { key: "dispense", label: "注射払出・ラベル", icon: Syringe },
   { key: "oral", label: "内服の調剤", icon: Tablets },
   { key: "home", label: "退院時の薬", icon: Package },
+  { key: "narcotic", label: "麻薬", icon: KeyRound },
   { key: "blood", label: "血液製剤", icon: Droplet },
   { key: "tdm", label: "TDM", icon: Activity },
   { key: "journal", label: "業務日誌", icon: NotebookText },
@@ -87,6 +94,7 @@ const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
   { tab: "oral", steps: "病棟で飲む内服（定期・臨時）を、患者ごと・Rp ごとに並べます。「定期」は明日から選んだ日数分、「臨時（今日の新規）」は今日出た臨時の全日数と、今日出た定期の今日の分です。量は「1回量 × 服用回数」をオーダの開始・日数・中止からコードで数え、式を出します。Rp ごとに ①調剤 → ②鑑査（できれば別の薬剤師。同じ人なら印が付く）→ ③払出 を記録し、誰がいつかが残ります。疑義照会の回答待ち・まだ監査していないオーダは止まり、調剤のあとで処方が変わると調剤し直しになります。「配薬ラベル」で1回分（日付と朝・昼・夕・眠前）ごとのラベルを印刷できます（一包化の袋に貼る形）。持参薬と退院時処方は入りません（退院時は「退院時の薬」タブ）。頓用は回数が決まらないので数えません。" },
   { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
+  { tab: "narcotic", steps: "麻薬の処方箋・注射せんごとに、法と施行規則の記載事項（免許番号・日数など）が並びます。印刷した処方箋の署名を確かめ、内服は払い出すと受払簿に入ります。注射は病棟が施用票を書いて残液・空アンプルを返したら受け取り、施用の日の払出として帳簿に入ります。残液と病棟から返った薬は立会者を選んで廃棄し、返納分の調剤済麻薬廃棄届の期限（30日）を出します。受入・在庫との照合・事故（事故届の文面、模擬）もここで書きます。" },
   { tab: "blood", steps: "医師が確定した輸血のオーダと、検査室の輸血部門が払い出した製剤の製造番号（ロット）が並び、今日の日報に入ります。血液製剤の入庫・割付・交差適合試験・払出は輸血部門が一括して行います（この架空の病院の取り決め）。" },
   { tab: "tdm", steps: "バンコマイシンの血中濃度から、コードが AUC を計算します（式つき）。薬剤師が提案を書いて医師へ報告します。" },
   { tab: "journal", steps: "今日の監査・疑義照会・持参薬鑑別・服薬指導・払出（注射・内服）・TDM の件数をコードが数えます。所感を書き残せます。" },
@@ -144,6 +152,7 @@ export function PharmacyView(p: Props) {
           {tab === "dispense" && <Dispense {...p} />}
           {tab === "oral" && <Oral {...p} />}
           {tab === "home" && <Home {...p} />}
+          {tab === "narcotic" && <NarcoticDesk people={p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} />}
           {tab === "blood" && <Blood {...p} />}
           {tab === "tdm" && <TdmView people={p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
           {tab === "journal" && <Journal {...p} />}
