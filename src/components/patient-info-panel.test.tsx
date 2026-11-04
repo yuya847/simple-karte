@@ -34,8 +34,8 @@ describe("患者基本情報の窓", () => {
     expect(html).toContain("A型 Rh(+)");
     expect(html).toContain("誤嚥性肺炎");
     // 連絡先: 第一連絡先 with 続柄, the dummy number and when to call; the second one after it.
-    expect(html).toMatch(/第一連絡先.*<b>長女<\/b> 田辺 幸子.*090-0000-0245.*連絡できる時間帯：日中は携帯に/s);
-    expect(html).toMatch(/第2連絡先.*<b>長男<\/b> 大浦 一郎/s);
+    expect(html).toMatch(/第一連絡先[\s\S]*<b>長女<\/b> 田辺 幸子[\s\S]*090-0000-0245[\s\S]*連絡できる時間帯：日中は携帯に/);
+    expect(html).toMatch(/第2連絡先[\s\S]*<b>長男<\/b> 大浦 一郎/);
     expect(html).toContain("〒000-0000　架空県架空市松が丘2-15-8");
     // 家族: 続柄・年齢・同居・キーパーソン.
     expect(html).toMatch(/<td class="pr-2 font-bold">長女<\/td><td class="pr-2">田辺 幸子<\/td><td class="nums pr-2">60歳<\/td><td class="pr-2">別居<\/td><td class="pr-2"><b class="text-ai">キーパーソン<\/b>/);
@@ -52,9 +52,9 @@ describe("患者基本情報の窓", () => {
     // 入院前の情報収集: the headings and answers of the interview.
     expect(html).toContain("第1版　-1日 20:00 看護師 佐藤");
     expect(html).toContain("家族・社会的背景");
-    expect(html).toMatch(/住まい<\/dt>.*独居/s);
-    expect(html).toMatch(/キーパーソン（続柄・名前）<\/dt>.*長女 田辺 幸子/s);
-    expect(html).toMatch(/介助<\/dt>.*移動 歩行器/s);
+    expect(html).toMatch(/住まい<\/dt>[\s\S]*独居/);
+    expect(html).toMatch(/キーパーソン（続柄・名前）<\/dt>[\s\S]*長女 田辺 幸子/);
+    expect(html).toMatch(/介助<\/dt>[\s\S]*移動 歩行器/);
     expect(html).toContain("家に帰りたい");
     // The notes that do not hide.
     expect(html).toContain("架空のデータです。実在の患者の情報は入れないでください。");
