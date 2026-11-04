@@ -48,7 +48,9 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
         {sorted.map((i) => {
           const call = calls[i.key];
           return (
-            <li key={i.key} className="flex flex-wrap items-baseline gap-2">
+            <li key={i.key} className="flex items-start gap-2">
+              {/* What it is on the left (wrapping), the one button on the right: rows line up in a narrow drawer. */}
+              <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="rounded bg-sheet px-1 text-[11px] text-ink-soft">{i.kind}</span>
               <span className="nums text-ink-faint">
                 {i.day === 0 ? "今日" : formatShort(addDays(today, i.day))} {i.time}
@@ -89,8 +91,10 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
                     対応を記録して確認
                   </button>
                 </span>
-              ) : (
-                <button type="button" disabled={locked} onClick={() => onSeen([i.key])} className="rounded border border-ai px-1.5 text-[11px] text-ai disabled:opacity-40">
+              ) : null}
+              </span>
+              {i.panic.length === 0 && (
+                <button type="button" disabled={locked} onClick={() => onSeen([i.key])} className="shrink-0 rounded border border-ai px-1.5 py-0.5 text-[11px] text-ai disabled:opacity-40">
                   確認した
                 </button>
               )}

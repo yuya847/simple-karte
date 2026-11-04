@@ -82,7 +82,7 @@ import { TakeStatus } from "./TakeStatus";
 import { TakeDesk } from "./TakeDesk";
 import { ExecuteDesk } from "./ExecuteDesk";
 import { orderTakeBadge, unconfirmed, type Confirms } from "@/lib/order-confirm";
-import { waitingToday } from "@/lib/order-sheet";
+import { entryOfRow, takeRowOnDay, waitingToday } from "@/lib/order-sheet";
 import { vitalsFlash, type Flash } from "@/lib/flash";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { useWorkspace } from "@/lib/use-workspace";
@@ -3403,7 +3403,7 @@ export default function WardApp() {
                   {role === "医師" && (
                     <TakeStatus
                       inDrawer
-                      rows={allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k)))}
+                      rows={allTakeRows.filter((r) => r.patientId === patient.id && (r.keys.some((k) => sessionKeys.has(k)) || takeRowOnDay(r, 0, entryOfRow(r, people))))}
                       taken={taken}
                       isTaken={isRowTaken}
                       holds={takeHolds}
