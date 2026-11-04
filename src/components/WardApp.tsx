@@ -3280,6 +3280,7 @@ export default function WardApp() {
               {panel === "opd-booking" && (
                 <Drawer title="外来予約" onClose={closePanel} locked={deny("order")}>
                   <OpdBookingPanel
+                    today={today}
                     entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                     defaultDept={patient.department}
                     newId={newId}

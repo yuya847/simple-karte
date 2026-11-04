@@ -1,5 +1,7 @@
 "use client";
 
+import { MonthPicker } from "../MonthPicker";
+import type { CalendarDate } from "@/lib/dates";
 import { useState } from "react";
 import { type Draft } from "@/lib/drafts";
 import { OPD_BOOKING_RULES, OPD_CLINICS, OPD_PURPOSES, OPD_SLOTS, bookableDays, newOpdBookingDraft, opdBookingText, opdBookingsOf, opdDoctorsOf, type OpdSlot } from "@/lib/opd-booking";
@@ -13,7 +15,7 @@ import { TabChoice } from "../TabChoice";
  * the other drafts under the note, where it is checked and confirmed. Used for the first visit after discharge
  * of an inpatient and for the next visit of an outpatient (the strip's 再診予約 opens this panel).
  */
-export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd }: { entries: OrderEntry[]; defaultDept?: string; newId: () => string; fmtDay: (d: number) => string; onAdd: (d: Draft) => void }) {
+export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, today }: { today?: CalendarDate; entries: OrderEntry[]; defaultDept?: string; newId: () => string; fmtDay: (d: number) => string; onAdd: (d: Draft) => void }) {
   const deny = useDeny()("order");
   const [dept, setDept] = useState<string | null>(() => (defaultDept && OPD_CLINICS.some((c) => c.name === defaultDept) ? defaultDept : null));
   const [doctor, setDoctor] = useState<string>("");
@@ -80,6 +82,17 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd }: 
           value={day !== null && [7, 14, 28, 56].includes(day) ? day : null}
           onChange={setDay}
         />
+        {today && (
+          <MonthPicker
+            today={today}
+            value={day}
+            min={OPD_BOOKING_RULES.minDays}
+            max={OPD_BOOKING_RULES.maxDays}
+            onChange={setDay}
+            marks={Object.fromEntries(Object.entries(entries.reduce<Record<number, number>>((acc, e) => { if (e.order.type === "procedure" && e.order.opd && e.status !== "中止") acc[e.order.opd.day] = (acc[e.order.opd.day] ?? 0) + 1; return acc; }, {})).map(([d, n]) => [d, `予約${n}`]))}
+            label="日付をカレンダーで選ぶ"
+          />
+        )}
         <select value={day ?? ""} onChange={(e) => setDay(e.target.value === "" ? null : Number(e.target.value))} aria-label="日付（明日〜90日先）" className="nums rounded border border-rule bg-paper px-1.5 py-0.5">
           <option value="">日を選ぶ</option>
           {bookableDays().map((d) => (
