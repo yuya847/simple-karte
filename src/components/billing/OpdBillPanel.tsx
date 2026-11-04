@@ -20,6 +20,7 @@ import type { RxLine } from "@/lib/national/rx-lines";
 import type { OpdPatient } from "@/lib/opd";
 import { birthDateOf } from "@/lib/patient-contacts";
 import type { OrderEntry } from "@/lib/types";
+import { BigChoice } from "../BigChoice";
 import { Fictional, Sources, usePrintSheet } from "../DeskParts";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 
@@ -322,17 +323,7 @@ export function OpdBillPanel({ visit, visitKey, entries, rx, records = [], today
                 {!settlement && (
                   <>
                     {/* お支払いの方法: the whole label is the button (36px or taller), coloured when chosen. */}
-                    <span role="radiogroup" aria-label="お支払いの方法" className="ml-auto flex items-center gap-1.5 text-[13px]">
-                      {PAY_METHODS.map((m) => (
-                        <label
-                          key={m}
-                          className={`flex min-h-9 cursor-pointer select-none items-center gap-1.5 rounded-md border px-3 ${method === m ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule bg-paper hover:border-ai"} ${denySettle ? "cursor-not-allowed opacity-60" : ""}`}
-                        >
-                          <input type="radio" name="opd-pay-method" checked={method === m} onChange={() => setMethod(m)} disabled={!!denySettle} className="accent-ai" />
-                          {m}
-                        </label>
-                      ))}
-                    </span>
+                    <BigChoice label="お支払いの方法" name="opd-pay-method" value={method} onChange={setMethod} disabled={!!denySettle} className="ml-auto" options={PAY_METHODS.map((m) => ({ value: m, label: m }))} />
                     <button type="button" onClick={settle} disabled={!!denySettle || !method || !onSettle} className="rounded-md bg-ai px-3 py-1 text-sm font-bold text-white disabled:opacity-40">
                       入金（{yen(share.patientYen)}）
                     </button>

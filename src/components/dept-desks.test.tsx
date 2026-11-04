@@ -69,12 +69,20 @@ describe("外来の受付", () => {
     expect(html).toContain("呼出");
     expect(html).toContain("循環器内科 森（架空）");
     expect(html).toContain("再来受付機（模擬）を開く");
+    // The whole 氏名 cell (カナ・氏名・年齢性別) is one button that opens the patient's tab; the 受付票 print is separate.
+    expect(html).toContain('aria-label="石田 正男 のタブを開く"');
+    expect(html).toMatch(/<button[^>]*aria-label="石田 正男 のタブを開く"[^>]*class="block min-h-8 w-full[^"]*"><span[^>]*>イシダ マサオ<\/span>/);
+    expect(html).toContain('aria-label="石田 正男 の受付票を印刷"');
   });
   it("the 受付 form: 「受け付ける」 with what is still missing beside it, the insurance block, and no print until received", () => {
     const html = as("医事課", <Reception cards={CARDS} patients={opd} insuranceBook={INITIAL_INSURANCE_BOOK} today={today} nowTime="09:30" locked={null} onReceive={() => {}} />);
     expect(html).toContain(">受け付ける</button>");
     expect(html).not.toContain("受け付けて受付票を印刷");
     expect(html).toContain("まだ入れるもの：区分（初診・再診）");
+    // 初診／再診: big buttons (36px or taller, the whole label) as the 会計's 現金／カード.
+    expect(html).toContain('aria-label="区分（初診・再診）"');
+    expect(html.match(/<label class="flex min-h-9 cursor-pointer/g)?.length).toBe(2);
+    expect(html.match(/name="kind"/g)?.length).toBe(2);
     expect(html).not.toContain("受付票を印刷</button>");
     expect(html).not.toContain("受け付けました");
     // Before a 区分 is chosen the insurance block is not shown; the component itself renders the window's fields.

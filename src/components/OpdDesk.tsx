@@ -36,6 +36,7 @@ import {
   type Booking,
   type Card,
 } from "@/lib/opd-desk";
+import { BigChoice } from "./BigChoice";
 import { Fictional, SubTabs, usePrintSheet } from "./DeskParts";
 import { KioskScreen, WaitingDisplay } from "./OpdScreens";
 import { OpdBoard } from "./OpdBoard";
@@ -389,15 +390,19 @@ export function Reception({
         </div>
       )}
       <div className="grid max-w-3xl gap-2 rounded-lg border border-rule bg-sheet p-3 sm:grid-cols-2">
-        <label className="flex items-center gap-2 sm:col-span-2">
+        <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
           区分
-          {(["初診", "再診"] as const).map((k) => (
-            <label key={k} className="flex items-center gap-1">
-              <input type="radio" name="kind" checked={kind === k} onChange={() => setKind(k)} />
-              {k === "初診" ? "初診（診察券を作る）" : "再診（予約外。診察券で探す）"}
-            </label>
-          ))}
-        </label>
+          <BigChoice
+            label="区分（初診・再診）"
+            name="kind"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: "初診", label: "初診（診察券を作る）" },
+              { value: "再診", label: "再診（予約外。診察券で探す）" },
+            ]}
+          />
+        </div>
         {kind === "初診" && (
           <>
             <label className="flex items-center gap-2">
