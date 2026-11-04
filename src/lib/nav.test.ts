@@ -38,6 +38,7 @@ describe("① places by role", () => {
 describe("② inside 病棟", () => {
   it("offers the patient lists to everyone and the ward's work by role", () => {
     expect(wardTabsFor("医師")).toEqual(["all", "map", "mine", "recent", "floor", "handoff", "admit", "beds", "support", "cosign"]);
+    expect(wardTabsFor("医師")).toEqual(["all", "map", "mine", "floor", "handoff", "admit", "beds", "support", "cosign", "summaries"]);
     // 研修医の記録の確認: doctors, and 医事課 (診療録の管理) to read; not nurses.
     expect(wardTabsFor("医事課")).toContain("cosign");
     expect(wardTabsFor("看護師")).not.toContain("cosign");

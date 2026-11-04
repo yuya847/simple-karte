@@ -12,6 +12,7 @@ import {
   ClipboardX,
   Droplet,
   Droplets,
+  FileClock,
   FileSearch,
   FlaskConical,
   Handshake,
@@ -87,4 +88,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   io: GlassWater,
   narcotic: KeyRound,
   undone: ClipboardX,
+  summaries: FileClock,
 };

@@ -55,7 +55,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "druginfo", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone";
+export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "undone" | "summaries";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -86,6 +86,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "journal", label: "看護日誌", hint: "選んだ階の今日の数（コードで数える）と所感", group: "work", needs: "sheet" },
   { key: "iji", label: "医事課の仕事", hint: "患者ごとに、保険の未登録・退院して会計がまだ・算定の要確認・未コード化の病名", group: "work", needs: "iji" },
   { key: "cosign", label: "研修医の記録の確認", hint: "研修医の記事とオーダで、指導医か上級医の確認がまだのもの（確かめた人と時刻も）", group: "work", needs: "audit" },
+  { key: "summaries", label: "退院サマリの一覧", hint: "退院した患者の退院時サマリー：未作成・作成中・差し戻し・承認待ち・承認済と、退院日の翌日から14日の期限（診療録管理体制加算の施設基準）、前月の期限内の割合", group: "work", needs: "audit" },
   { key: "roster", label: "勤務表と様式9", hint: "看護師長が月の勤務を入れ、夜勤時間・月平均72時間・10対1・夜勤の組み合わせをコードで確かめる（5階東）", group: "work", needs: "sheet" },
 ];
 

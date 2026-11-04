@@ -1,7 +1,9 @@
 "use client";
 
 import { Mic, Printer, Square } from "lucide-react";
-import { DenyNote, useDeny } from "../RoleContext";
+import { DenyNote, useDeny, useMe } from "../RoleContext";
+import { SummaryApproval } from "../SummaryList";
+import { confirmSummary, summaryState } from "@/lib/summary-approval";
 import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { HOSPITAL } from "@/lib/billing/facility";
@@ -26,12 +28,17 @@ interface Props {
   onSave: (d: DischargeDraft) => void;
   onConfirm: (d: DischargeDraft) => void;
   onIssueLetter: (d: DischargeDraft) => void;
+  /** The patient's attending doctor (whose team approves), and the approver's 承認・差し戻し. */
+  attending?: string;
+  onApprove?: (d: DischargeDraft) => void;
+  onReturn?: (d: DischargeDraft) => void;
 }
 
 const noSubscribe = () => () => {};
 
 /** 退院時サマリー and 診療情報提供書: facts by code, the doctor's account placed by Claude, signed by the doctor. */
-export function DischargePanel({ patient, today, nowTime, doctor, entries, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter }: Props) {
+export function DischargePanel({ patient, today, nowTime, doctor, entries, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter, attending = patient.attending, onApprove, onReturn }: Props) {
+  const me = useMe();
   const [tab, setTab] = useState<"summary" | "letter">("summary");
   const [d, setD] = useState<DischargeDraft>(
     draft ?? { patientId: patient.id, dischargeDay: 2, destination: "自宅", outcome: "1", route: "1", sections: emptySections(), status: "作成中", letter: { to: "", dept: "", doctor: "", purpose: "", attach: true } },
@@ -118,11 +125,30 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
             ))}
           </select>
         </label>
-        <span className={`rounded px-1.5 text-[11px] font-bold ${d.status === "確定" ? "bg-wakatake-soft text-wakatake" : "bg-yamabuki-soft text-yamabuki"}`}>{d.status}</span>
+        <span className={`rounded px-1.5 text-[11px] font-bold ${summaryState(d) === "承認済" ? "bg-wakatake-soft text-wakatake" : summaryState(d) === "差し戻し" ? "bg-shu-soft text-shu" : "bg-yamabuki-soft text-yamabuki"}`}>{summaryState(d)}</span>
         <span className="text-[11px] text-ink-faint" title={SUMMARY_DEADLINE_SOURCE}>
           作成の期限：退院日の翌日から{SUMMARY_DEADLINE_DAYS}日以内（{formatShort(addDays(today, d.dischargeDay + SUMMARY_DEADLINE_DAYS))}まで。診療録管理体制加算１の要件）
         </span>
       </div>
+
+      {(d.status === "確定" || d.returned) && (
+        <SummaryApproval
+          record={d}
+          attending={attending}
+          fmtDay={(n) => formatShort(addDays(today, n))}
+          onApprove={(x) => {
+            const next = { ...d, ...x };
+            setD(next);
+            onApprove?.(next);
+          }}
+          onReturn={(x) => {
+            const next = { ...d, ...x };
+            setD(next);
+            onReturn?.(next);
+          }}
+          nowTime={nowTime}
+        />
+      )}
 
       {checks.length > 0 && (
         <div className="rounded border border-yamabuki/50 bg-yamabuki-soft/50 p-2 text-xs">
@@ -199,13 +225,13 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
             type="button"
             disabled={!d.sections.course.trim()}
             onClick={() => {
-              const x: DischargeDraft = { ...d, status: "確定", confirmedAt: { day: 0, time: nowTime }, confirmedBy: doctor };
+              const x: DischargeDraft = confirmSummary(d, me.name, { day: 0, time: nowTime });
               setD(x);
               onConfirm(x);
             }}
             className="rounded bg-wakatake px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
           >
-            内容を確かめて確定（{doctor}）
+            内容を確かめて確定（{me.name}）
           </button>
         )}
         {tab === "letter" && (

@@ -86,6 +86,8 @@ import { chosenStops, endedStanding, remainingGroups, type StopGroupKey } from "
 import { DischargeStops } from "./DischargeStops";
 import { billingGaps, undoneRows } from "@/lib/undone";
 import { UndoneView } from "./UndoneView";
+import { PAST_SUMMARIES, approveDeny, summaryRows } from "@/lib/summary-approval";
+import { SummaryList } from "./SummaryList";
 import { bagsOf } from "@/lib/discharge-rx";
 import { GuideRecordPanel, type GuidanceInput } from "./panels/GuideRecordPanel";
 import { guidanceNoteText, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord } from "@/lib/guidance";
@@ -1570,6 +1572,12 @@ export default function WardApp() {
   const gapsNow = billingGaps(people, mar, abs(0, nowTime));
   if (role === "看護師" && undoneNow.length) todos.push({ key: "undone", label: "実施の記録がないまま時刻を過ぎたもの", detail: "未実施の一覧で確かめる", count: undoneNow.length, tone: "shu", go: () => goWard("undone") });
   if (role === "医事課" && undoneNow.length + gapsNow.length) todos.push({ key: "undone", label: "未実施・算定と記録の食い違い", detail: `実施の記録なし ${undoneNow.length}件・食い違い ${gapsNow.length}件`, count: undoneNow.length + gapsNow.length, tone: "yamabuki", go: () => goWard("undone") });
+  // 退院サマリ: summaries this doctor may approve, and the team's discharged patients without one yet (charts only).
+  const summaryNow = summaryRows(allPatients, discharges, PAST_SUMMARIES);
+  const toApprove = role === "医師" ? summaryNow.filter((r) => r.chart && r.state === "承認待ち" && !approveDeny(me.name, r.record, r.attending)) : [];
+  const toWrite = role === "医師" ? summaryNow.filter((r) => r.chart && ["未作成", "作成中", "差し戻し"].includes(r.state) && onTeamOf(me.name, r.attending)) : [];
+  if (toApprove.length) todos.push({ key: "summary-approve", label: "退院サマリの承認待ち", detail: toApprove.map((r) => `${r.name}さん`).join("、"), count: toApprove.length, tone: "ai", go: () => goWard("summaries") });
+  if (toWrite.length) todos.push({ key: "summary-write", label: "退院サマリがまだ（退院した患者）", detail: toWrite.map((r) => `${r.name}さん ${r.state}${r.left !== null && r.left < 0 ? "・期限切れ" : `・あと${r.left}日`}`).join("、"), count: toWrite.length, tone: toWrite.some((r) => r.late) ? "shu" : "yamabuki", go: () => goWard("summaries") });
   const takeWaiting = Object.values(waiting).reduce((a, b) => a + b, 0);
   // 指示受け rows of the ward (for the doctor's view, the handoff and the todo).
   const allTakeRows = takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today);
@@ -1703,7 +1711,7 @@ export default function WardApp() {
   };
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
-  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue, cosign: toCosign.length };
+  const wardBadges: Partial<Record<WardTab, number>> = { mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";
@@ -1792,6 +1800,8 @@ export default function WardApp() {
         />
       ) : screen === "narcotic" ? (
         <NarcoticSlips people={people} records={mar} book={narcBook} onBook={setNarcBook} today={today} nowTime={nowTime} newId={newId} />
+      ) : screen === "summaries" ? (
+        <SummaryList rows={summaryNow} today={today} onOpen={(id) => (openPatient(id), setPanel("discharge"))} />
       ) : screen === "io" ? (
         <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standing[pid]?.at(-1)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
       ) : screen === "undone" ? (
@@ -2927,6 +2937,14 @@ export default function WardApp() {
                       setDischarges((all) => ({ ...all, [patient.id]: d }));
                       auditLog({ role: me.role, actor: me.name, action: "確定（診療情報提供書）", patient: patient.name, detail: `${d.letter.to} ${d.letter.dept}：${d.letter.purpose}` });
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・診療情報提供書：${d.letter.to} ${d.letter.dept} ${d.letter.doctor ? `${d.letter.doctor}先生` : ""}（${d.letter.purpose}）\n` }));
+                    }}
+                    onApprove={(d) => {
+                      setDischarges((all) => ({ ...all, [patient.id]: d }));
+                      auditLog({ role: me.role, actor: me.name, action: "確定（退院時サマリーの承認）", patient: patient.name, detail: `確定 ${d.confirmedBy ?? ""}${d.approval?.comment ? `　コメント：${d.approval.comment}` : ""}` });
+                    }}
+                    onReturn={(d) => {
+                      setDischarges((all) => ({ ...all, [patient.id]: d }));
+                      auditLog({ role: me.role, actor: me.name, action: "退院時サマリーを差し戻した", patient: patient.name, detail: d.returned?.comment });
                     }}
                   />
                 </Drawer>
