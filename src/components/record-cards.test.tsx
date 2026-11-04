@@ -173,6 +173,26 @@ describe("同時に出した処方のまとまり", () => {
       expect(html).toContain(`data-order-id="${id}" draggable="true"`);
     }
   });
+  it("2つのRpの共通の服用開始チップは見出しに1回だけ出し、メニューは用量の横に置く", () => {
+    const entries = [rx("a"), rx("b")];
+    for (const entry of entries) {
+      entry.day = -1;
+    }
+    const html = render(entries);
+    expect(html.match(/data-exec-mark/g)).toHaveLength(1);
+    expect(html.match(/服用開始(?:予定)? /g)).toHaveLength(1);
+    expect(html.match(/服用開始日：/g)).toHaveLength(1);
+    expect(html.indexOf("data-exec-mark")).toBeLessThan(html.indexOf('data-order-id="a"'));
+    expect(html.match(/1回1錠<\/span><button[^>]*aria-label="オーダのメニュー"/g)).toHaveLength(2);
+  });
+  it("服用開始が異なると共通チップを見出しに出さず各行に残す", () => {
+    const first = rx("a", { day: -1 });
+    const second = rx("b", { day: -1 });
+    if (second.order.type === "prescription") second.order.start = { day: 1, timing: "朝" };
+    const html = render([first, second]);
+    expect(html.match(/data-exec-mark/g)).toHaveLength(2);
+    expect(html.indexOf("data-exec-mark")).toBeGreaterThan(html.indexOf('data-order-id="a"'));
+  });
   it("状態と開始日が異なれば各行に示す", () => {
     const second = rx("b", { status: "中止", stoppedOn: 0 });
     if (second.order.type === "prescription") second.order.start = { day: 1 };

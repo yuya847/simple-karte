@@ -972,12 +972,27 @@ function Tag({ children }: { children: React.ReactNode }) {
   return <span className="text-[11px] text-ai">【{children}】</span>;
 }
 
-function OrderRow({ grouped = false, hideStatus = false, hideStart = false, entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { grouped?: boolean; hideStatus?: boolean; hideStart?: boolean; entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
+/** Compare only what the chip displays, independent of drug and order id. */
+const executionMarkKey = (p: ReturnType<typeof executionMarks>[number]) => JSON.stringify([p.verb, p.day, p.time]);
+
+function ExecutionTags({ marks, today, now }: { marks: ReturnType<typeof executionMarks>; today: CalendarDate; now: number | null }) {
+  return marks.length > 0 && (
+    <span className="flex min-w-0 shrink-0 flex-wrap items-center gap-1">
+      {marks.map((p, i) => (
+        <span key={i} data-exec-mark className={`nums whitespace-nowrap rounded border px-1 text-[10px] ${isAhead(p, now) ? "border-mizu/60 text-mizu" : "border-rule text-ink-faint"}`}>
+          {planVerb(p, now)} {whenText(today, p.day, p.time)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function OrderRow({ sharedMarkKeys = [], grouped = false, hideStatus = false, hideStart = false, entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { sharedMarkKeys?: string[]; grouped?: boolean; hideStatus?: boolean; hideStart?: boolean; entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
   const o = entry.order;
   const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
   // 依頼日と実施日: when the order is carried out on another day (or is still ahead), say so in the heading.
-  const marks = executionMarks(entry, now);
+  const marks = executionMarks(entry, now).filter((p) => !sharedMarkKeys.includes(executionMarkKey(p)));
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const doPayload: DoPayload = { kind: "order", entryId: entry.id };
   const canDo = !!onDo && ["prescription", "injection", "lab"].includes(o.type);
@@ -992,6 +1007,19 @@ function OrderRow({ grouped = false, hideStatus = false, hideStart = false, entr
   const tone = stopped ? STOPPED_TONE : o.type === "procedure" && o.opd ? PLACE_COLORS.opd : ORDER_TONE;
   const strike = stopped ? "line-through" : "";
   const right = "shrink-0 whitespace-nowrap font-bold";
+  const menuButton = hasMenu && (
+    <button
+      type="button"
+      aria-label="オーダのメニュー"
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setMenu({ x: r.left - 180, y: r.bottom + 4 });
+      }}
+      className="rounded px-1 opacity-60 hover:bg-sheet hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100"
+    >
+      <MoreHorizontal size={13} />
+    </button>
+  );
   const body =
     o.type === "prescription" ? (
       <div className="nums space-y-0.5">
@@ -1002,6 +1030,7 @@ function OrderRow({ grouped = false, hideStatus = false, hideStart = false, entr
             1回{o.amount}
             {o.unit}
           </span>
+          {grouped && menuButton}
         </div>
         <div className="flex flex-wrap items-baseline justify-end gap-x-3 text-ink-soft">
           <span className="rounded bg-paper px-1 text-[11px]">{o.category}</span>
@@ -1032,6 +1061,7 @@ function OrderRow({ grouped = false, hideStatus = false, hideStart = false, entr
               {it.amount}
               {it.unit}
             </span>
+            {grouped && i === 0 && menuButton}
           </div>
         ))}
         <div className="flex flex-wrap items-baseline justify-end gap-x-3 text-ink-soft">
@@ -1087,17 +1117,7 @@ function OrderRow({ grouped = false, hideStatus = false, hideStart = false, entr
       folded={folded}
       onFold={onFold}
       dragHandle={canDo}
-      tag={
-        marks.length > 0 && (
-          <span className="flex min-w-0 shrink-0 flex-wrap items-center gap-1">
-            {marks.map((p, i) => (
-              <span key={i} data-exec-mark className={`nums whitespace-nowrap rounded border px-1 text-[10px] ${isAhead(p, now) ? "border-mizu/60 text-mizu" : "border-rule text-ink-faint"}`}>
-                {planVerb(p, now)} {whenText(today, p.day, p.time)}
-              </span>
-            ))}
-          </span>
-        )
-      }
+      tag={<ExecutionTags marks={marks} today={today} now={now} />}
       article={{
         ...longPress,
         "data-order-id": entry.id,
@@ -1130,19 +1150,7 @@ function OrderRow({ grouped = false, hideStatus = false, hideStart = false, entr
             {entry.status}
             {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
           </span>}
-          {hasMenu && (
-            <button
-              type="button"
-              aria-label="オーダのメニュー"
-              onClick={(e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                setMenu({ x: r.left - 180, y: r.bottom + 4 });
-              }}
-              className="rounded px-1 opacity-60 hover:bg-sheet hover:text-ink group-hover:opacity-100 pointer-coarse:px-2 pointer-coarse:opacity-100"
-            >
-              <MoreHorizontal size={13} />
-            </button>
-          )}
+          {!grouped && menuButton}
         </>
       }
     >
@@ -1160,14 +1168,18 @@ function RxCard({ entries, rpNo, takeBadgeOf, ...props }: {
   const first = entries[0];
   const sameStatus = entries.every((e) => e.status === first.status && (e.status !== "中止" || e.stoppedOn === first.stoppedOn));
   const sameStart = entries.every((e) => rxStartKey(e) === rxStartKey(first));
+  const markLists = entries.map((entry) => executionMarks(entry, props.now));
+  const sharedMarks = markLists[0].filter((p) => markLists.every((marks) => marks.some((other) => executionMarkKey(other) === executionMarkKey(p))));
+  const sharedMarkKeys = sharedMarks.map(executionMarkKey);
   const o = first.order;
   return (
     <Card mark={orderMark(o)} when={whenText(props.today, first.day, first.time)} place={props.place}
       tone={entries.every((e) => e.status === "中止") ? STOPPED_TONE : ORDER_TONE}
       folded={props.folded} onFold={props.onFold} dragHandle={!!props.onDo}
+      tag={<ExecutionTags marks={sharedMarks} today={props.today} now={props.now} />}
       meta={<><span>第1版：{whenText(props.today, first.day, first.time)}</span><span className="font-bold text-ink">{first.author}</span>
         {sameStatus && <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[first.status]}`}>{first.status}{first.status === "中止" && first.stoppedOn === 0 ? "（今日）" : ""}</span>}</>}>
-      {entries.map((entry) => <OrderRow key={entry.id} {...props} entry={entry} rpNo={rpNo.get(entry.id)} grouped hideStatus={sameStatus} hideStart={sameStart} takeBadge={takeBadgeOf?.(entry.id)} />)}
+      {entries.map((entry) => <OrderRow key={entry.id} {...props} entry={entry} rpNo={rpNo.get(entry.id)} grouped sharedMarkKeys={sharedMarkKeys} hideStatus={sameStatus} hideStart={sameStart} takeBadge={takeBadgeOf?.(entry.id)} />)}
       {sameStart && <div className="text-right"><Tag>{o.type === "prescription" ? `服用開始日：${whenText(props.today, o.start.day)}${o.start.timing ? ` ${o.start.timing}` : ""}` : o.type === "injection" ? `開始：${whenText(props.today, o.start.day, o.start.time)}` : ""}</Tag></div>}
     </Card>
   );
