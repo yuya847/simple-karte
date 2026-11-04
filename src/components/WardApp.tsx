@@ -4423,11 +4423,6 @@ export default function WardApp() {
         />
       )}
       {presence.merged && <MergedNotice by={presence.merged.by} where={presence.merged.where} at={presence.merged.at} onClose={presence.dismiss} />}
-      {Number(nowTime.slice(0, 2)) >= 24 && (
-        <p role="status" className="fixed bottom-10 right-2 z-40 max-w-xs rounded-md border border-yamabuki bg-sheet px-3 py-1.5 text-[11px] text-ink shadow print:hidden">
-          日付が変わりました。この画面は {formatShort(today)} を「今日」として続けているので、{nowTime.slice(0, 2)}:{nowTime.slice(3)}（翌{Number(nowTime.slice(0, 2)) - 24}:{nowTime.slice(3)}）のように時刻を付けます。
-        </p>
-      )}
 
       {dischargeAsk &&
         (() => {
