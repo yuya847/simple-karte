@@ -36,6 +36,7 @@ import { Fictional, SubTabs, usePrintSheet } from "./DeskParts";
 import { KioskScreen, WaitingDisplay } from "./OpdScreens";
 import { OpdBoard } from "./OpdBoard";
 import { useDeny, useMe } from "./RoleContext";
+import { OnshiCheck } from "./national/OnshiCheck";
 
 /** What the 受付 keeps (in this browser): bookings on later days and the 診察券 issued today. */
 export interface OpdDeskBook {
@@ -166,6 +167,7 @@ export function OpdDesk({
       {tab === "reception" && (
         <Reception
           cards={cards}
+          today={today}
           nowTime={nowTime}
           locked={deny("reception")}
           onReceive={(x) => {
@@ -264,11 +266,13 @@ function Slip({ p, ticket, room, date }: { p: OpdPatient; ticket?: number; room?
 
 function Reception({
   cards,
+  today,
   nowTime,
   locked,
   onReceive,
 }: {
   cards: Card[];
+  today: CalendarDate;
   nowTime: string;
   locked: string | null;
   onReceive: (x: { card: Card; newCard: boolean; kind: "初診" | "再診"; dept: string; doctor: string; reason: string; referral?: { facilityId: string; facilityName: string } }) => void;
@@ -381,6 +385,16 @@ function Reception({
               <input type="checkbox" checked={f.insured} onChange={(e) => set({ insured: e.target.checked })} />
               保険証（資格確認書）かマイナ保険証で資格を確かめた（番号の登録は医事課の「保険」で行います）
             </label>
+            <div className="sm:col-span-2">
+              <OnshiCheck
+                compact
+                person={kind === "初診" ? (f.name.trim() && f.kana.trim() && f.sex && f.age !== "" ? { name: f.name.trim(), kana: f.kana.trim(), sex: f.sex, age: Number(f.age) } : null) : card ? { name: card.name, kana: card.kana, sex: card.sex, age: card.age } : null}
+                today={today}
+                nowTime={nowTime}
+                locked={locked}
+                onChecked={(r) => r.status === "有効" && set({ insured: true })}
+              />
+            </div>
           </>
         )}
         <div className="sm:col-span-2">

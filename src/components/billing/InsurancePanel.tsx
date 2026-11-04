@@ -23,6 +23,7 @@ import {
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { Patient } from "@/lib/types";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
+import { OnshiCheck } from "../national/OnshiCheck";
 
 const CHECK_STYLE: Record<FormCheck["level"], { label: string; cls: string; icon: typeof Info }> = {
   error: { label: "直す", cls: "border-shu/40 bg-shu-soft text-shu", icon: Ban },
@@ -221,6 +222,19 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
       </section>
 
       <div className="space-y-3">
+        <OnshiCheck
+          person={{ id: patient.id, name: patient.name, kana: patient.kana, sex: patient.sex === "男" ? "男" : "女", age: patient.age }}
+          today={today}
+          nowTime={nowTime}
+          card={{ insurerNumber: form.insurerNumber, symbol: form.symbol, number: form.number, branch: form.branch, birthDate: form.birthDate }}
+          body={{ heightCm: patient.heightCm, weightKg: patient.weightKg }}
+          locked={locked}
+          current={form}
+          onCopy={(c) => {
+            setForm(c.form);
+            setAck(false);
+          }}
+        />
         <section aria-label="確かめ" className="rounded-md border border-rule bg-sheet p-3">
           <h3 className="mb-2 text-xs font-bold text-ink-soft">コードの確かめ（根拠つき）</h3>
           {checks.length === 0 ? (
