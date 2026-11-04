@@ -86,6 +86,8 @@ export function planItemsOf(e: OrderEntry): PlanItem[] {
     return out;
   }
   if (o.type === "prescription") {
+    // 退院時処方 is taken at home: its start and last day are not days of the ward's record.
+    if (o.category === "退院時") return [];
     const label = `${oralName(o.drugCode)}　1回${o.amount}${o.unit}`;
     const stop = stopOf(e, "内服", label);
     if (stop && stop.item.day < o.start.day) return [stop.item];
@@ -184,4 +186,9 @@ export function executionMarks(e: OrderEntry, nowAbs: number | null): PlanItem[]
 /** "予定 2" for the tree, or the one kind when a day has a single item. */
 export function planDayLabel(items: PlanItem[]): string {
   return items.length === 1 ? items[0].kind : `予定 ${items.length}`;
+}
+
+/** The kinds planned on a day, each once ("検体検査・画像"), for the heading of the folded days ahead. */
+export function planKindsLabel(items: PlanItem[]): string {
+  return [...new Set(items.map((p) => p.kind))].join("・");
 }

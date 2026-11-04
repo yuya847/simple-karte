@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { executionMarks, isAhead, planDayLabel, planItemsOf, planVerb, plannedDaysAhead, plannedItems, plansOn, type PlanItem } from "./schedule-days";
+import { executionMarks, isAhead, planDayLabel, planItemsOf, planKindsLabel, planVerb, plannedDaysAhead, plannedItems, plansOn, type PlanItem } from "./schedule-days";
 import type { InjectionOrder, OrderEntry, PrescriptionOrder } from "./types";
 
 const e = (id: string, day: number, time: string, order: OrderEntry["order"], status: OrderEntry["status"] = "有効", stop?: { on: number; time?: string }): OrderEntry => ({ kind: "order", id, day, time, author: "x", status, order, stoppedOn: stop?.on, stoppedTime: stop?.time });
@@ -34,6 +34,17 @@ describe("依頼日と実施日：オーダから日ごとの予定を作る", (
     const rx = { type: "prescription", category: "定期", drugCode: "ORAL-AMLO5", amount: 1, unit: "錠", timings: ["朝"], start: { day: 1, timing: "朝" }, days: 14 } satisfies PrescriptionOrder;
     expect(planItemsOf(e("rx", 0, "10:00", rx)).map(brief)).toEqual(["1 08:00 内服 服用開始", "14 内服 最終日"]);
     expect(planItemsOf(e("prn", 0, "10:00", { ...rx, timings: [], prn: "疼痛時", start: { day: 0 }, days: undefined })).map(brief)).toEqual(["0 内服 頓用の開始"]);
+  });
+  it("a 退院時処方 is taken at home: nothing is planned on the ward's days (no 服用開始, no 最終日, no mark on its card)", () => {
+    const home = e("home", 0, "10:00", { type: "prescription", category: "退院時", drugCode: "ORAL-AMLO5", amount: 1, unit: "錠", timings: ["朝"], start: { day: 2, timing: "朝" }, days: 14 } satisfies PrescriptionOrder);
+    expect(planItemsOf(home)).toEqual([]);
+    expect(executionMarks(home, 600)).toEqual([]);
+    expect(plannedDaysAhead(plannedItems([home]))).toEqual([]);
+  });
+  it("the kinds of a day, each once, for the heading of the folded days ahead", () => {
+    const p = (kind: PlanItem["kind"]): PlanItem => ({ kind, day: 1, verb: "x", label: "x", orderId: kind, orderedOn: 0 });
+    expect(planKindsLabel([p("検体検査")])).toBe("検体検査");
+    expect(planKindsLabel([p("検体検査"), p("画像"), p("検体検査")])).toBe("検体検査・画像");
   });
   it("外来予約, 退院・外泊 (with the return), 移動 and 透析 are planned on their day", () => {
     expect(planItemsOf(e("opd", 0, "10:00", { type: "procedure", code: "PROC-OPD", opd: { dept: "総合診療科", doctor: "山本", day: 14, slot: "午前", purpose: "再診" }, schedule: { kind: "once" }, start: { day: 14 } })).map(brief)).toEqual(["14 外来予約 受診"]);
