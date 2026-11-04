@@ -227,7 +227,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
             <label>
               速度 <input value={f.tube?.ratePerH || ""} onChange={(e) => set({ tube: { product: f.tube?.product ?? "", mlPerMeal: f.tube?.mlPerMeal ?? 0, ratePerH: Number(e.target.value) || undefined } })} className="w-14 rounded border border-rule bg-sheet px-1" /> mL/時
             </label>
-            {f.tube?.product && f.tube.mlPerMeal > 0 && <span className="text-ink-soft">1日 {Math.round(f.tube.mlPerMeal * 3 * (TUBE_PRODUCTS.find((x) => x.code === f.tube!.product)?.kcalPerMl ?? 1))} kcal（3回、コードで計算）</span>}
+            {f.tube?.product && f.tube.mlPerMeal > 0 && <span className="text-ink-soft">1日 {Math.round(f.tube.mlPerMeal * 3 * (TUBE_PRODUCTS.find((x) => x.code === f.tube!.product)?.kcalPerMl ?? 1))} kcal（3回<span className="hint">、コードで計算</span>）</span>}
           </div>
         )}
         {f.kind === "絶食" && (

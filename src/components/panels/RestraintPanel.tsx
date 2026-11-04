@@ -32,7 +32,7 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
           </h3>
           {(() => {
             const due = reviewDue(active, nowAbs);
-            return due ? <p className={`nums font-bold ${due.late ? "text-shu" : "text-ink-soft"}`}>{due.text}（{REVIEW_HOURS}時間ごと＝勤務帯ごと、架空の病院の取り決め）</p> : null;
+            return due ? <p className={`nums font-bold ${due.late ? "text-shu" : "text-ink-soft"}`}>{due.text}（{REVIEW_HOURS}時間ごと＝勤務帯ごと<span className="hint">、架空の病院の取り決め</span>）</p> : null;
           })()}
           <dl className="grid grid-cols-[7rem_1fr] gap-y-1 text-[12px]">
             <dt className="text-ink-faint">開始</dt>
@@ -169,7 +169,7 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
           </ul>
         </section>
       )}
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         出典：{RESTRAINT_SOURCES.rule.label}／{RESTRAINT_SOURCES.guide.label}。精神病床での身体的拘束は精神保健及び精神障害者福祉に関する法律によります（この記録の対象外。{RESTRAINT_SOURCES.qa.label}）。
       </p>
     </div>

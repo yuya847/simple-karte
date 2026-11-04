@@ -500,7 +500,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
         </button>
       </div>
       {unfinished.length > 0 && <p className="text-[12px] text-yamabuki">{unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未選択`).join("　")}</p>}
-      <p className="text-[11px] text-ink-faint">点滴の速度（mL/時）は量と時間からコードで計算し、下書きに式を出します。経路・重複・時刻の確認も下書きに出ます。</p>
+      <p className="hint text-[11px] text-ink-faint">点滴の速度（mL/時）は量と時間からコードで計算し、下書きに式を出します。経路・重複・時刻の確認も下書きに出ます。</p>
     </div>
   );
 }
@@ -552,7 +552,7 @@ function DripCalc({ rp }: { rp: InjRp }) {
       : rate > 0
         ? `1回 ${vol}mL ÷ ${rate}mL/時 = ${minutesLabel(Math.round((vol / rate) * 60))}`
         : null;
-  return text ? <span className="nums text-[11px] text-ai">{text}（コードで計算）</span> : null;
+  return text ? <span className="nums text-[11px] text-ai">{text}<span className="hint">（コードで計算）</span></span> : null;
 }
 
 /** A decided Rp as one line: only what was chosen (drugs, route, frequency, drip, start, days, comment). */
@@ -606,7 +606,7 @@ export function AddProcedurePanel({ onAdd, newId }: { onAdd: (d: Draft) => void;
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[11px] text-ink-faint">処置の項目と院内の取り決めは架空の病院のものです。算定のコードと点数は公式の医科診療行為マスターから読みます。</p>
+      <p className="hint mt-3 text-[11px] text-ink-faint">処置の項目と院内の取り決めは架空の病院のものです。算定のコードと点数は公式の医科診療行為マスターから読みます。</p>
     </div>
   );
 }
@@ -802,7 +802,7 @@ export function AddRxPanel({
                         {timings && timings.length > 0 && per > 0 && (
                           <span className="block text-[11px] text-ink-faint">
                             1日{Math.round(per * timings.length * 100) / 100}
-                            {m.unit}（コードで計算）
+                            {m.unit}<span className="hint">（コードで計算）</span>
                           </span>
                         )}
                       </td>
@@ -948,7 +948,7 @@ export function AddImagingPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; n
       >
         下書きにする
       </button>
-      <p className="text-[11px] text-ink-faint">撮影の方向・単純か造影か・日時・移動は、右の下書きで選びます。造影なら腎機能（eGFR はコードで計算）・造影剤アレルギー、MRI なら体内金属の確認が出ます。部位と検査の組み合わせは架空の病院のものです。</p>
+      <p className="hint text-[11px] text-ink-faint">撮影の方向・単純か造影か・日時・移動は、右の下書きで選びます。造影なら腎機能（eGFR はコードで計算）・造影剤アレルギー、MRI なら体内金属の確認が出ます。部位と検査の組み合わせは架空の病院のものです。</p>
     </div>
   );
 }
@@ -1135,7 +1135,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
       )}
       {rate ? (
         <p className={`nums pl-[5.5rem] text-[11px] ${rate.rate > HD_UF_RATE.max ? "font-bold text-shu" : "text-ai"}`}>
-          除水速度 {rate.formula}（コードで計算。体重はカルテの値）{rate.rate > HD_UF_RATE.max ? `　目安の ${HD_UF_RATE.max}mL/kg/時 を超えます` : ""}
+          除水速度 {rate.formula}<span className="hint">（コードで計算。体重はカルテの値）</span>{rate.rate > HD_UF_RATE.max ? `　目安の ${HD_UF_RATE.max}mL/kg/時 を超えます` : ""}
         </p>
       ) : uf > 0 && !weightKg ? (
         <p className="pl-[5.5rem] text-[11px] text-ink-faint">体重がカルテにないため、除水速度は計算しません。</p>
@@ -1232,7 +1232,11 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
           {effect && (
             <div>
               {effect.text}
-              {effect.formula && `（${effect.formula}、コードで計算）`}
+              {effect.formula && (
+                <>
+                  （{effect.formula}<span className="hint">、コードで計算</span>）
+                </>
+              )}
               <div className="text-[11px] text-ink-soft">{effect.basis}</div>
             </div>
           )}
@@ -1250,7 +1254,7 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
         </button>
         {missing.length > 0 && <p className="mt-1 text-yamabuki">未入力：{missing.join("・")}</p>}
       </div>
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         根拠：
         <a href={TX_GUIDE.url} target="_blank" rel="noreferrer" className="text-ai underline">
           {TX_GUIDE.label}

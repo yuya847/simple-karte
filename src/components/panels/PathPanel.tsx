@@ -92,7 +92,7 @@ export function PathPanel({ patient, book, onBook, entries, today, nowTime, newI
           ))}
         </section>
       )}
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         出典（機能）：
         <a href={PATH_SOURCES.spec.url} target="_blank" rel="noreferrer" className="underline">
           {PATH_SOURCES.spec.label}

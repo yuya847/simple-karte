@@ -79,7 +79,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
 
   return (
     <div className="nums space-y-3 text-sm">
-      <p className="rounded-md border border-ai/30 bg-ai-soft px-3 py-2 text-xs leading-relaxed text-ink">
+      <p className="hint rounded-md border border-ai/30 bg-ai-soft px-3 py-2 text-xs leading-relaxed text-ink">
         <b>DPC（診断群分類別包括評価）の試算</b>
         ：診断群分類（DPC コード）は、主治医が退院のときに決め（留意事項 第2の1(1)・(7)）、医事課が確かめます。この画面は、記録された病名・年齢・手術と処置から、厚生労働省の表どおりにコードで候補を出すだけです（AI は使っていません）。病院は架空で、医療機関別係数も架空の値です。
       </p>
@@ -224,7 +224,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
           {r.pkg && (
             <section aria-label="この月の包括" className="rounded-md border border-rule bg-sheet p-3">
               <h3 className="mb-1 text-xs font-bold">
-                {mm}月の包括：点数 × 医療機関別係数 {coef.toFixed(4)}（告示第96号 別表 1）
+                {mm}月の包括：点数 × 医療機関別係数 {coef.toFixed(4)}<span className="hint">（告示第96号 別表 1）</span>
               </h3>
               <table className="w-full border-collapse text-xs">
                 <tbody>
@@ -253,7 +253,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
           <section aria-label="出来高に残る部分" className="rounded-md border border-rule bg-sheet p-3">
             <h3 className="mb-1 text-xs font-bold">
               出来高で算定する部分
-              <span className="ml-2 font-normal text-ink-soft">包括に含まれない・包括から除かれるもの（告示第96号 別表 2・3）</span>
+              <span className="ml-2 font-normal text-ink-soft">包括に含まれない・包括から除かれるもの<span className="hint">（告示第96号 別表 2・3）</span></span>
             </h3>
             {r.outside.length === 0 ? (
               <p className="text-xs text-ink-soft">この月はありません。</p>
@@ -328,7 +328,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
       )}
 
       {r && (
-        <div className="space-y-0.5 text-[10px] text-ink-faint">
+        <div className="hint space-y-0.5 text-[10px] text-ink-faint">
           {r.sources.map((s) => (
             <p key={s.url}>
               出典：

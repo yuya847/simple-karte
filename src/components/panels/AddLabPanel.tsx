@@ -157,7 +157,7 @@ export function AddLabPanel({
 
       {current.key === "sets" ? (
         <section>
-          <h3 className="mb-1 text-xs font-bold text-ink-soft">院内セット（架空の病院の取り決め）</h3>
+          <h3 className="mb-1 text-xs font-bold text-ink-soft">院内セット<span className="hint">（架空の病院の取り決め）</span></h3>
           <div className="flex flex-wrap gap-1.5">
             {setPickables(tests).map((s) => {
               const on = picked.includes(s.code);
@@ -269,7 +269,7 @@ export function AddLabPanel({
         </button>
       </div>
 
-      <footer className="space-y-1 text-[11px] text-ink-faint">
+      <footer className="hint space-y-1 text-[11px] text-ink-faint">
         <p>
           項目の分け方・略語・材料・容器（SRL の容器記号）・所要日数の参考：
           {LAB_SOURCES.map((s, i) => (

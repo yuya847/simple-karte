@@ -235,7 +235,7 @@ export function DiagnosisPanel({ diagnoses, admittedOn, today, onChange, newId }
             </button>
           </div>
         </div>
-        <p className="mt-2 text-[10px] text-ink-faint">病名と修飾語は、厚生労働省の傷病名マスター・修飾語マスターの名称とコードをそのまま使います。</p>
+        <p className="hint mt-2 text-[10px] text-ink-faint">病名と修飾語は、厚生労働省の傷病名マスター・修飾語マスターの名称とコードをそのまま使います。</p>
       </section>
     </div>
   );

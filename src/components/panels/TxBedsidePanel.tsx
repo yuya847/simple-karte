@@ -72,7 +72,7 @@ export function TxBedsidePanel(p: Props) {
           </section>
         );
       })}
-      <div className="rounded-md border border-rule bg-sheet p-2 text-[11px] text-ink-soft">
+      <div className="hint rounded-md border border-rule bg-sheet p-2 text-[11px] text-ink-soft">
         <p>{BLOOD_RULES.bedside}</p>
         <p className="mt-1">{BLOOD_RULES.observe}</p>
         <p className="mt-1">{BLOOD_RULES.before}</p>
@@ -347,7 +347,7 @@ function Observe({ admin, put, nowTime, patient, unit, onIo, blood }: BagProps &
             <button type="button" disabled={disabled || (ending && !recheck) || (newReaction && !action.trim())} onClick={() => record(next)} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
               {next === "終了時" ? "終了を記録" : ending ? "中止を記録" : "記録"}
             </button>
-            {next === "開始前" && <span className="text-ink-soft">開始前のバイタルを記録したあとで「開始」を押します（この架空の病院の取り決め）。</span>}
+            {next === "開始前" && <span className="text-ink-soft">開始前のバイタルを記録したあとで「開始」を押します<span className="hint">（この架空の病院の取り決め）</span>。</span>}
             {newReaction && !action.trim() && <span className="text-ink-soft">対応を書くと記録できます。</span>}
           </div>
         </div>

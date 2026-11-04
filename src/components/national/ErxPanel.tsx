@@ -111,7 +111,7 @@ export function ErxPanel({
         <span className="text-[11px] font-normal text-ink-faint">（{mode === "外来" ? "外来処方" : "退院時処方"}）</span>
       </h3>
       <MockNote>
-        電子処方箋管理サービスにはつないでいません。処方の中身を、公開されている厚生労働省標準規格 HS036「処方情報 HL7 FHIR 記述仕様」の FHIR で示します（HS036 は電子処方箋のファイルそのものではなく、本物の登録は記録条件仕様の CSV を XML に入れて送ります）。チェックの相手・引換番号はすべて架空です。
+        電子処方箋管理サービスにはつないでいません。<span className="hint">処方の中身を、公開されている厚生労働省標準規格 HS036「処方情報 HL7 FHIR 記述仕様」の FHIR で示します（HS036 は電子処方箋のファイルそのものではなく、本物の登録は記録条件仕様の CSV を XML に入れて送ります）。</span>チェックの相手・引換番号はすべて架空です。
       </MockNote>
       {done.filter((r) => r.kind === "電子処方箋").length > 0 && (
         <ul className="space-y-0.5 rounded border border-rule bg-paper p-1.5 text-[11px]">
@@ -191,7 +191,7 @@ export function ErxPanel({
                         </div>
                         <div>{f.text}</div>
                         {f.sources.map((s) => (
-                          <div key={s.label} className="text-[10px] text-ink-faint">
+                          <div key={s.label} className="hint text-[10px] text-ink-faint">
                             根拠：{s.label}{" "}
                             <a href={s.url} target="_blank" rel="noreferrer" className="break-all text-ai underline">
                               {s.url}

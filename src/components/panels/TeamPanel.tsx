@@ -102,7 +102,7 @@ export function TeamPanel({ patientId, patientName, desk, onDesk, today, nowTime
         ))}
         <DenyNote action="team.decide" />
       </section>
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         {TEAM_HOUSE_RULES.request}不採用は理由を書いて記録します（この架空の病院の取り決め）。チームの回診の記録は場所の「チーム医療」で書きます。
       </p>
     </div>

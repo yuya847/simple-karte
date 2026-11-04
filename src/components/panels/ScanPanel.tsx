@@ -302,7 +302,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
             ))}
           </ul>
         )}
-        <p className="mt-1 text-[11px] text-ink-faint">取り消しても、取り込んだことと理由は残ります（画像は保存しません）。取り込んだあとも紙の原本は保管し、取り込んだものは参照用として扱います（架空の病院の取り決め。安全管理ガイドライン システム運用編 16.2）。</p>
+        <p className="mt-1 text-[11px] text-ink-faint">取り消しても、取り込んだことと理由は残ります（画像は保存しません）。<span className="hint">取り込んだあとも紙の原本は保管し、取り込んだものは参照用として扱います（架空の病院の取り決め。安全管理ガイドライン システム運用編 16.2）。</span></p>
       </section>
       <Sources items={SCAN_SOURCES} />
     </div>

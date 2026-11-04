@@ -159,7 +159,7 @@ export function AnamnesisPanel({ patient, record, care, fmtDay, onSave }: { pati
         </section>
       )}
 
-      <p className="text-[10px] text-ink-faint">
+      <p className="hint text-[10px] text-ink-faint">
         聞く項目の並びと選択肢は架空の病院の様式です。項目の根拠：
         {ANAMNESIS_SOURCES.map((s, i) => (
           <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">

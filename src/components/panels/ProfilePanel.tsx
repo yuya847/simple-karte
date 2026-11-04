@@ -78,7 +78,7 @@ export function ProfilePanel({ base, log, fmtDay, onChange }: { base: Patient; l
         )}
       </section>
 
-      <p className="text-[10px] text-ink-faint">
+      <p className="hint text-[10px] text-ink-faint">
         誰が何を登録・変更するか、身長・体重の範囲と「前回との差が大きい」の目安、介助の選択肢は架空の病院の取り決めです。項目の根拠：
         {PROFILE_SOURCES.map((s, i) => (
           <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
@@ -339,7 +339,7 @@ function BodySection({ now, last, when, onChange, denied }: { now: Patient; last
             </label>
           )}
           <span className="w-full text-[10px] text-ink-faint">
-            範囲：身長 {BODY_LIMITS.heightCm.join("〜")}cm・体重 {BODY_LIMITS.weightKg.join("〜")}kg。前回から身長 {BODY_JUMP.heightCm}cm・体重 {BODY_JUMP.weightRatio * 100}% を超えて違うときは確かめる（架空の病院の取り決め）
+            範囲：身長 {BODY_LIMITS.heightCm.join("〜")}cm・体重 {BODY_LIMITS.weightKg.join("〜")}kg。前回から身長 {BODY_JUMP.heightCm}cm・体重 {BODY_JUMP.weightRatio * 100}% を超えて違うときは確かめる<span className="hint">（架空の病院の取り決め）</span>
           </span>
         </div>
       )}

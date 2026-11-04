@@ -236,7 +236,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           }}
         />
         <section aria-label="確かめ" className="rounded-md border border-rule bg-sheet p-3">
-          <h3 className="mb-2 text-xs font-bold text-ink-soft">コードの確かめ（根拠つき）</h3>
+          <h3 className="mb-2 text-xs font-bold text-ink-soft">コードの確かめ<span className="hint">（根拠つき）</span></h3>
           {checks.length === 0 ? (
             <p className="text-xs text-ink-faint">—</p>
           ) : (
@@ -253,7 +253,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
                         <span className="shrink-0 font-bold">{s.label}</span>
                         <span className="nums text-ink">{c.text}</span>
                       </div>
-                      <div className="mt-0.5 pl-5 text-[10px] text-ink-faint">根拠：{c.basis}</div>
+                      <div className="hint mt-0.5 pl-5 text-[10px] text-ink-faint">根拠：{c.basis}</div>
                     </li>
                   );
                 })}

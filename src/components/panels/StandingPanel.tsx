@@ -166,7 +166,7 @@ export function StandingPanel({
                 {issues[i].map((x, k) => (
                   <p key={k} className={`nums pl-[5.5rem] ${x.level === "stop" ? "font-bold text-shu" : x.level === "ask" ? "text-yamabuki" : "text-ai"}`}>
                     {x.message}
-                    {x.formula && <span className="ml-1">（{x.formula}、コードで計算）</span>}
+                    {x.formula && <span className="ml-1">（{x.formula}<span className="hint">、コードで計算</span>）</span>}
                   </p>
                 ))}
                 <button type="button" onClick={() => set({ prn: edit.prn.filter((_, j) => j !== i) })} className="pl-[5.5rem] text-[11px] text-ink-faint hover:text-shu">

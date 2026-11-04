@@ -233,7 +233,7 @@ function CarePart({ orders, records, plans, patientId, nowTime, sessionStart, fm
           </ul>
         </details>
       )}
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         よく使う項目と既定の時刻、時刻の1時間前から記録できること・1時間過ぎて記録がないと遅れとして出すことは、架空の病院の取り決めです。記録の出典：
         <a href={CARE_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline">
           {CARE_SOURCES.record.label}
@@ -534,7 +534,7 @@ function PlanPart({ orders, plans, patientId, nowTime, fmtDay, newId, onPlans }:
           </div>
         </details>
       )}
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         評価予定日の既定（立案日・前の評価日から{EVAL_INTERVAL_DAYS}日後）は架空の病院の取り決めで、看護師が変えられます。標準計画は架空の病院の例です。出典：
         <a href={PLAN_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline">
           {PLAN_SOURCES.record.label}
@@ -635,7 +635,7 @@ function DueSelect({ value, today, fmtDay, onChange, label }: { value: number; t
           </option>
         ))}
       </select>
-      <span className="text-[11px] text-ink-faint">既定は{EVAL_INTERVAL_DAYS}日後（架空の病院の取り決め）</span>
+      <span className="text-[11px] text-ink-faint">既定は{EVAL_INTERVAL_DAYS}日後<span className="hint">（架空の病院の取り決め）</span></span>
     </label>
   );
 }

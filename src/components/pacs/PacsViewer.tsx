@@ -509,7 +509,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
   const measurePanel = (
     <div>
       <h4 className="text-sm font-bold">計測</h4>
-      <p className="text-[11px] text-ink-faint">コードで計算した値と式です。所見の判定はしません。画像ごとに覚え、画像を変えると別になります（保存はしません）。</p>
+      <p className="hint text-[11px] text-ink-faint">コードで計算した値と式です。所見の判定はしません。画像ごとに覚え、画像を変えると別になります（保存はしません）。</p>
       {resolved.map((p, i) => {
         const k = keyOf(p);
         const list = measures[k] ?? [];
