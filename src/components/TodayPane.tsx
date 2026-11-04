@@ -1,8 +1,8 @@
 "use client";
 
 import { VERBAL_RULE } from "@/lib/verbal";
-import { Loader2, Mic, MicOff, Sparkles } from "lucide-react";
-import { useRef } from "react";
+import { LayoutTemplate, Loader2, Mic, MicOff, Sparkles } from "lucide-react";
+import { useRef, useState } from "react";
 import { formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { isReady, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import type { Patient } from "@/lib/types";
@@ -11,6 +11,8 @@ import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { isBlankNote } from "@/lib/notes";
 import { rpNumbers } from "@/lib/rp";
+import { placeBlock, type Placed } from "@/lib/note-insert";
+import { TemplatePanel } from "./NoteTemplates";
 
 export interface DraftMeta {
   model: string;
@@ -54,6 +56,8 @@ const SHOW_DICTATION = false;
 /** Today's writing: the note on top, then the order drafts collecting under it. */
 export function TodayPane(p: Props) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const noteBox = useRef<HTMLTextAreaElement>(null);
+  const [tool, setTool] = useState<"template" | null>(null);
   const me = useMe();
   const noteLocked = !!useDeny()("note");
   const speech = useSpeech(p.onAppendInstruction);
@@ -61,6 +65,27 @@ export function TodayPane(p: Props) {
   const readyCount = p.drafts.filter((d) => isReady(p.issues[d.id] ?? [])).length;
   const pending = p.drafts.length - readyCount;
   const canConfirm = p.drafts.length > 0 && pending === 0;
+  // Text put into the note at the cursor (or in place of the empty frame); the cursor goes after it.
+  const put = (make: (note: string, start: number, end: number) => Placed) => {
+    const el = noteBox.current;
+    const r = make(p.note, el?.selectionStart ?? p.note.length, el?.selectionEnd ?? p.note.length);
+    p.onNoteChange(r.text);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(r.caret, r.caret);
+    });
+  };
+  const toolButton = (key: NonNullable<typeof tool>, label: string, Icon: typeof LayoutTemplate) => (
+    <button
+      type="button"
+      aria-pressed={tool === key}
+      onClick={() => setTool(tool === key ? null : key)}
+      className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs pointer-coarse:py-1.5 ${tool === key ? "border-ai bg-ai text-white" : "border-rule bg-sheet text-ink-soft hover:text-ink"}`}
+    >
+      <Icon size={13} />
+      {label}
+    </button>
+  );
 
   return (
     <section aria-label="今日の記事" className="flex min-h-0 flex-1 flex-col bg-sheet">
@@ -73,7 +98,18 @@ export function TodayPane(p: Props) {
 
       <div className="scroll-thin min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
         <div>
+          {!noteLocked && (
+            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+              {toolButton("template", "テンプレート", LayoutTemplate)}
+            </div>
+          )}
+          {!noteLocked && tool === "template" && (
+            <div className="mb-2">
+              <TemplatePanel key={me.name} patient={p.patient} today={p.today} onInsert={(text) => (put((n, s, e) => placeBlock(n, s, e, text)), setTool(null))} onClose={() => setTool(null)} />
+            </div>
+          )}
           <textarea
+            ref={noteBox}
             value={p.note}
             onChange={(e) => p.onNoteChange(e.target.value)}
             readOnly={noteLocked}
