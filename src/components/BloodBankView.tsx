@@ -75,7 +75,7 @@ const GUIDE: Record<Tab, string> = {
 export const bbCard = "rounded-lg border border-rule bg-sheet";
 export const bbField = "rounded border border-rule bg-paper px-1.5 py-0.5 outline-none focus:border-ai";
 export const SourceNote = ({ rules }: { rules: string[] }) => (
-  <div className="mt-4 rounded-md border border-rule bg-sheet p-3 text-[11px] text-ink-soft">
+  <div className="hint mt-4 rounded-md border border-rule bg-sheet p-3 text-[11px] text-ink-soft">
     {rules.map((r) => (
       <p key={r} className="mb-1">
         {r}

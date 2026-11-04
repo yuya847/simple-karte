@@ -201,7 +201,7 @@ export function CosignList({ items, meName, patientOf, onConfirm, onOpen }: { it
 /** The sources, and what this fictional hospital decided where they say nothing. */
 export function CosignBasis() {
   return (
-    <section className="mt-5 space-y-1 border-t border-rule pt-3 text-[11px] text-ink-soft">
+    <section className="hint mt-5 space-y-1 border-t border-rule pt-3 text-[11px] text-ink-soft">
       <h2 className="font-bold text-ink">根拠</h2>
       <ul className="list-disc space-y-0.5 pl-5">
         {Object.values(COSIGN_SOURCES).map((s) => (

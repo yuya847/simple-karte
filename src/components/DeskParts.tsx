@@ -71,10 +71,10 @@ export function Fictional({ text = "架空" }: { text?: string }) {
   return <span className="ml-1 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">{text}</span>;
 }
 
-/** Sources (name and URL), always shown. */
+/** Sources (name and URL). Shown only with 「使い方」 (class "hint"). */
 export function Sources({ items }: { items: { label: string; url: string }[] }) {
   return (
-    <ul className="space-y-0.5 text-[11px] text-ink-faint">
+    <ul className="hint space-y-0.5 text-[11px] text-ink-faint">
       {items.map((s) => (
         <li key={s.url + s.label}>
           出典：{s.label}{" "}

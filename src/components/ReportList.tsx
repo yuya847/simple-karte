@@ -69,10 +69,10 @@ export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey 
   );
 }
 
-/** The sources the headings and the 確認 follow, and what this fictional hospital decided. Not hidden. */
+/** The sources the headings and the 確認 follow, and what this fictional hospital decided. Shown with 「使い方」. */
 export function ReportNotes() {
   return (
-    <div className="space-y-1 text-[11px] text-ink-soft">
+    <div className="hint space-y-1 text-[11px] text-ink-soft">
       <p>
         出典：
         <a href={REPORT_SOURCES.items.url} target="_blank" rel="noreferrer" className="underline">

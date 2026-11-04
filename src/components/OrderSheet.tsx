@@ -171,10 +171,10 @@ export function SheetBlock({ check, title, tag, when, flags = [], stamps, fields
   );
 }
 
-/** The notes under both screens: how the form follows the catalog, what is this hospital's own, and the sources. */
+/** The notes under both screens: how the form follows the catalog, what is this hospital's own, and the sources. Shown with 「使い方」. */
 export function SheetNotes({ children }: { children?: ReactNode }) {
   return (
-    <div className="space-y-1 text-[11px] text-ink-faint">
+    <div className="hint space-y-1 text-[11px] text-ink-faint">
       {children}
       <p>画面の形（上の日付の移動と種類のチェック、患者の帯、指示ごとの見出しと右の「指示開始・実施・指示受け」の日時と者、「項目名：値」の本文）は、富士通 HOPE/EGMAIN-GX のカタログの「指示受け」「実施入力」の画面に合わせています。種類の分け方（処置・検査／注射・輸血／処方／看護指示／食事／その他）と日付の範囲（昨日〜明日）は架空の病院の取り決めです。オーダからコードで並べています（AI は使っていません）。</p>
       <Sources items={SHEET_SOURCES} />

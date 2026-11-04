@@ -46,7 +46,7 @@ function SourceLink({ s }: { s: Source }) {
 function Sources({ list }: { list: Source[] }) {
   if (!list.length) return null;
   return (
-    <span className="text-[11px] text-ink-faint">
+    <span className="hint text-[11px] text-ink-faint">
       出典：
       {list.map((s, i) => (
         <span key={s.url}>
@@ -170,15 +170,15 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
         )}
         {bsa && (
           <p className="nums text-ai">
-            体表面積（{BSA_RULE.name}）{bsa.formula}（コードで計算）
+            体表面積（{BSA_RULE.name}）{bsa.formula}<span className="hint">（コードで計算）</span>
           </p>
         )}
         {gfr && (
           <p className="nums text-ai">
-            CCr（Cockcroft-Gault）{gfr.formula}（コードで計算）{gfr.capped && <b className="ml-1 text-yamabuki">→ GFR は上限の {GFR_RULE.capMlMin}mL/分で計算</b>}
+            CCr（Cockcroft-Gault）{gfr.formula}<span className="hint">（コードで計算）</span>{gfr.capped && <b className="ml-1 text-yamabuki">→ GFR は上限の {GFR_RULE.capMlMin}mL/分で計算</b>}
           </p>
         )}
-        <p className="text-[11px] text-ink-faint">
+        <p className="hint text-[11px] text-ink-faint">
           {BSA_RULE.text}（四捨五入は{BSA_RULE.rounding}）：<SourceLink s={BSA_RULE.source} />。{GFR_RULE.text}：<SourceLink s={GFR_RULE.source} />。{GFR_RULE.capText}：<SourceLink s={GFR_RULE.capSource} />。
         </p>
       </section>
@@ -276,7 +276,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
                       {rp.route}
                       {rp.minutes ? `　${minutesText(rp.minutes)}` : ""}
                     </span>
-                    {rate && <span className="text-[11px] text-ai">{rate}（コードで計算）</span>}
+                    {rate && <span className="text-[11px] text-ai">{rate}<span className="hint">（コードで計算）</span></span>}
                   </div>
                   {plan.checks
                     .filter((c) => c.rpKey === rp.key)
@@ -366,7 +366,7 @@ function DoseRow({ l, value, onReduce }: { l: DoseLine; value: number | null; on
       <tr className="border-b border-rule-soft">
         <td colSpan={6} className="pb-1.5">
           {/* A fixed dose with no rounding has nothing to work out. */}
-          {l.steps.length > 0 && (l.drug.basis !== "固定" || l.drug.roundMg > 0) && <p className="text-[11px] text-ai">{l.steps.join("　→　")}（コードで計算）</p>}
+          {l.steps.length > 0 && (l.drug.basis !== "固定" || l.drug.roundMg > 0) && <p className="text-[11px] text-ai">{l.steps.join("　→　")}<span className="hint">（コードで計算）</span></p>}
           {l.drug.roundMg > 0 && <p className="text-[11px] text-ink-faint">まるめ：{l.drug.roundNote}</p>}
           {l.drug.note && <p className="text-[11px] text-ink-soft">{l.drug.note}</p>}
           {l.warnings.map((w) => (

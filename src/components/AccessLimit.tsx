@@ -9,7 +9,7 @@ import { GLASS_REASONS, LIMIT_KINDS, LIMIT_RULES, LIMIT_SOURCES, glassProblem, g
 
 function Sources() {
   return (
-    <ul className="list-disc space-y-0.5 pl-5 text-[11px] text-ink-soft">
+    <ul className="hint list-disc space-y-0.5 pl-5 text-[11px] text-ink-soft">
       {Object.values(LIMIT_SOURCES).map((s) => (
         <li key={s.label}>
           <a href={s.url} target="_blank" rel="noreferrer" className="text-ai underline-offset-2 hover:underline">
