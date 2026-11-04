@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Only this page's own script runs; the saved sheet is shown as text and tables (no script, no handler). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <title>障害時の参照（Simple Karte）</title>
+    <style>
+      body { margin: 0; background: #f5f1e6; color: #26221c; font-family: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", sans-serif; }
+      .bar { background: #fffdf7; border-bottom: 1px solid #d9cfba; padding: 10px 16px; }
+      .bar h1 { font-size: 16px; margin: 0 6px 4px 0; display: inline-block; }
+      .bar p { margin: 2px 0; font-size: 13px; }
+      .bar .sub { color: #5f584b; font-size: 12px; }
+      .bar button { font: inherit; font-size: 14px; font-weight: bold; color: #fff; background: #2b4a7e; border: 0; border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+      .wrap { padding: 12px 16px; }
+      .sheet-box { background: #fff; border: 1px solid #d9cfba; border-radius: 8px; padding: 16px; max-width: 900px; margin: 0 auto; }
+      @page { size: A4 portrait; margin: 10mm; }
+      @media print {
+        body { background: #fff; }
+        .bar { display: none; }
+        .wrap { padding: 0; }
+        .sheet-box { border: 0; padding: 0; max-width: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <h1>Simple Karte　障害時の参照</h1>
+      <button id="print" type="button" hidden>印刷する</button>
+      <p id="status">読み込んでいます…</p>
+      <p id="online" class="sub"></p>
+      <p class="sub">架空総合病院（架空の患者のデータ）。この画面は、電子カルテの「障害時の参照」を一度開いた端末なら、ネットワークがなくても開けます（参照はこの端末のブラウザに保存されています）。</p>
+    </div>
+    <div class="wrap">
+      <div class="sheet-box"><div id="sheet" class="dt-sheet"></div></div>
+    </div>
+    <script src="/downtime/view.js"></script>
+  </body>
+</html>
