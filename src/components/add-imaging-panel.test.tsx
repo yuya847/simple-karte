@@ -1,0 +1,25 @@
+// The imaging order screen renders on the server (no browser): the modalities, the groups of the body,
+// the regions of the first group, the search box, and the notes (hint). Nothing is suggested.
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { AddImagingPanel } from "./panels/AddImagingPanel";
+
+const newId = () => "d1";
+
+describe("画像検査のオーダ画面", () => {
+  it("種類・部位の区分・体幹の部位・検索の欄・使い方（hint）が出る", () => {
+    const html = renderToStaticMarkup(<AddImagingPanel onAdd={() => {}} newId={newId} />);
+    for (const m of ["X線", "ポータブルX線", "CT", "MRI"]) expect(html).toContain(`>${m}</button>`);
+    for (const g of ["頭頸部", "体幹", "脊椎", "上肢", "下肢"]) expect(html).toContain(g);
+    for (const r of ["胸部", "肋骨", "腹部", "骨盤"]) expect(html).toContain(r);
+    // 上肢の部位は体幹のタブでは出ない（タブを押すと出る）
+    expect(html).not.toContain("手関節</button>");
+    expect(html).toContain("部位を検索");
+    expect(html).toContain("目的（臨床診断・知りたいこと）");
+    expect(html).toContain("部位を選ぶ）");
+    expect(html).toMatch(/class="hint[^"]*"[^>]*>部位を選ぶと、マスターの標準の方向と体位が入ります/);
+    expect(html).toContain("一般撮影で広く使われる呼称");
+    expect(html).not.toContain("おすすめ");
+    expect(html).not.toContain("推奨");
+  });
+});
