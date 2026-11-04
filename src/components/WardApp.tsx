@@ -22,6 +22,7 @@ import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
 import { FLOORS, WARD_NAME, WARD_PLANS, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
 import { BEDS_WITH_CHARTS, OTHER_FLOOR_BEDS_WITH_CHARTS, WARD_CHART_DIETS, WARD_CHART_PATIENTS, withChartDiagnoses, withChartDiets } from "@/lib/ward-charts";
+import { admissionPlans, bedsAsOf, dayRange, dischargePlans, type WardAsOf } from "@/lib/ward-asof";
 import { currentEntries, ordersOf } from "@/lib/record";
 import { withExamRecords } from "@/lib/ris";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
@@ -152,6 +153,7 @@ import { RightTabs, type RightTab } from "./RightTabs";
 import { Dockable, defaultWin, type Win } from "./Dockable";
 import { InjectionCalendar } from "./Calendars";
 import { WardMap, type ChartSummary, type Pick } from "./WardMap";
+import type { DayNavProps } from "./DayNav";
 import { Worksheet } from "./Worksheet";
 import { PharmacyView, type HomeRxRecord, type ShidoRecord } from "./PharmacyView";
 import type { OralRecord } from "@/lib/oral-dispense";
@@ -462,8 +464,9 @@ export default function WardApp() {
   const [patientTabs, setPatientTabs] = useState<PatientTab[]>([]);
   const [front, setFront] = useState<Partial<Record<Owner, string>>>({});
   const [newTabFor, setNewTabFor] = useState<Owner | null>(null);
-  // The floor shown on 病棟マップ and ◯階.
+  // The floor shown on 病棟マップ and ◯階, and the day they show (0 = today; not saved).
   const [floor, setFloor] = useState(WARD_NAME);
+  const [asOfDay, setAsOfDay] = useState(0);
   const [recentByPerson, setRecentByPerson] = useState<Record<string, RecentOpen[]>>({});
   // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
   const [myTeam, setMyTeam] = useState("");
@@ -824,11 +827,13 @@ export default function WardApp() {
   // 医事課 and the receipt file stay the team's: the claim APIs take up to 60 patients in one request.
   const teamPatients = useMemo(() => allPatients.filter((p) => teamIds.has(p.id)), [allPatients, teamIds]);
   // 5階東 (and anyone moved from it or admitted today), and every floor's beds.
-  const { ward, allBeds } = useMemo(() => {
+  const { ward, allBeds, everBeds } = useMemo(() => {
     // A patient whose discharge was carried out leaves the bed (the chart stays open where it is).
-    const placed = (beds: BedAssignment[]) => beds.filter((b) => !(b.patientId && discharged[b.patientId])).map((b) => (b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b));
+    const moved = (beds: BedAssignment[]) => beds.map((b) => (b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b));
+    const placed = (beds: BedAssignment[]) => moved(beds.filter((b) => !(b.patientId && discharged[b.patientId])));
     const here = placed([...BEDS_WITH_CHARTS, ...newBeds]);
-    return { ward: { beds: here, patient: findPatient } as WardState, allBeds: [...here, ...placed(OTHER_FLOOR_BEDS_WITH_CHARTS)] };
+    // everBeds keeps the discharged too: the map and list of a past day find them by their last bed.
+    return { ward: { beds: here, patient: findPatient } as WardState, allBeds: [...here, ...placed(OTHER_FLOOR_BEDS_WITH_CHARTS)], everBeds: moved([...BEDS_WITH_CHARTS, ...newBeds, ...OTHER_FLOOR_BEDS_WITH_CHARTS]) };
   }, [newBeds, findPatient, moves, discharged]);
 
   // What is in front: the ② tab (and its ③), and in it a chart, 新しいタブ, or its own screen.
@@ -1517,6 +1522,14 @@ export default function WardApp() {
     return x ?? (p && b ? { patient: p, room: `${b.room}${b.bed}`, entries: withRedraws(currentEntries(p, sessionChanges[pid]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, pid) } : undefined);
   };
   const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
+  // 病棟マップ・◯階 on the day chosen (ward-asof.ts): today as it stands, a later day from the plans, a past day from the record.
+  const asOfPlans = { admissions: admissionPlans(WARD_PLANS, requests), discharges: dischargePlans(everBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id])) };
+  const asOfOn = (name: string): WardAsOf => {
+    const floors = name === ALL_WARDS ? FLOORS : FLOORS.filter((f) => f.name === name);
+    return bedsAsOf(asOfDay, { beds: everBeds.filter((b) => floors.some((f) => f.name === floorOf(b.room))), rooms: floors.flatMap((f) => f.rooms), floors: floors.map((f) => f.name), patient: findPatient, ...asOfPlans });
+  };
+  const dayNavFor = (asOf: WardAsOf): DayNavProps => ({ day: asOfDay, ...dayRange(asOf), onChange: setAsOfDay, fmtDay: (d) => formatShort(addDays(today, d)), counts: { admit: asOf.counts.admit, discharge: asOf.counts.discharge } });
+  const mapAsOf = asOfOn(oneFloor);
   // Every patient of the floor shown, by room (状態の一括登録・業務分担・バイタルの一括入力).
   const floorPeople = bedsOn(oneFloor)
     .flatMap((b) => {
@@ -1559,6 +1572,9 @@ export default function WardApp() {
     all: { beds: allBeds, title: "入院患者一覧", group: "floor" },
   };
   const listKey = LIST_TABS.find((k) => k === screen);
+  // A list of one ward moves over the days like the map (全病棟 and the team's lists stay on today).
+  const listFloor = listKey ? lists[listKey].floor : undefined;
+  const listAsOf = listFloor && listFloor.name !== ALL_WARDS ? asOfOn(listFloor.name) : null;
   // 水分出納: typed IN/OUT (who and when are added by code), and taking one back with a reason (it stays).
   const addIo = (es: IoEntry[]) => {
     for (const e of es) auditLog({ role: me.role, actor: me.name, action: "確定（水分出納）", patient: findPatient(e.patientId)?.name, detail: `${e.side} ${e.kind} ${e.ml}mL（${clockText(e.at)}）${e.note ? `　${e.note}` : ""}` });
@@ -2206,16 +2222,19 @@ export default function WardApp() {
         />
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <WardRequests floor={oneFloor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />
+          {asOfDay === 0 && <WardRequests floor={oneFloor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />}
           <WardMap
-            ward={{ beds: bedsOn(oneFloor), patient: findPatient }}
+            ward={{ beds: mapAsOf.beds, patient: findPatient }}
             rooms={floorInfo.rooms}
             title="病棟マップ"
             pick={floorPick}
+            dayNav={dayNavFor(mapAsOf)}
+            asOf={mapAsOf}
             summaries={summaries}
             mine={isMine}
             onOpen={openPatient}
-            onMove={deny("bed.move") ? undefined : (patientId, to) => setMoving({ patientId, to })}
+            // 転棟・転床 is today's work: another day is for looking only.
+            onMove={asOfDay !== 0 || deny("bed.move") ? undefined : (patientId, to) => setMoving({ patientId, to })}
             roomNote={oneFloor === WARD_NAME ? (r) => roomNurses(planNow, r.no, r.beds, rosterNow!.nurses).map((n) => n.replace(/^(看護師長|准看護師|看護師) /, "")).join("・") || undefined : undefined}
           />
         </div>
@@ -2529,13 +2548,14 @@ export default function WardApp() {
         <PatientList
           // A new list when 全病棟 is chosen or left, so it starts grouped by ward (or by room).
           key={listKey === "floor" && allWards ? "floor-all" : listKey}
-          ward={{ beds: lists[listKey].beds, patient: findPatient }}
+          ward={{ beds: listAsOf ? listAsOf.beds : lists[listKey].beds, patient: findPatient }}
           title={lists[listKey].title}
           pick={lists[listKey].pick}
           doctorsOf={doctorsFor}
           viewer={role === "医師" ? me.name : undefined}
           defaultGroup={lists[listKey].group}
-          floor={lists[listKey].floor}
+          dayNav={listAsOf ? dayNavFor(listAsOf) : undefined}
+          asOf={listAsOf ?? undefined}
           nowTime={nowTime}
           changes={sessionChanges}
           summaries={summaries}

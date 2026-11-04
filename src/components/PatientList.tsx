@@ -5,11 +5,13 @@ import { ArrowDown, ArrowUp, Search, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { upcomingToday } from "@/lib/calendar";
 import { abs } from "@/lib/flowsheet";
-import { hospitalDay } from "@/lib/dates";
+import { addDays, formatShort, hospitalDay } from "@/lib/dates";
 import { currentEntries, ordersOf, type SessionChanges } from "@/lib/record";
 import { flagsFor, type Flag, type FlagTone } from "@/lib/patient-flags";
 import type { Patient } from "@/lib/types";
-import { WARD_PLANS, doctorFor, emptyBeds, floorOf, nurseFor, type BedAssignment, type Floor, type WardPlan, type WardState } from "@/lib/ward";
+import { WARD_PLANS, doctorFor, floorOf, nurseFor, type BedAssignment, type WardPlan, type WardState } from "@/lib/ward";
+import { expectedOf, isUnknownBed, markOf, markText, type Expected, type WardAsOf } from "@/lib/ward-asof";
+import { AsOfBand, DayNav, type DayNavProps } from "./DayNav";
 import { PickSelect, type ChartSummary, type Pick } from "./WardMap";
 import { ageSex } from "@/lib/person";
 import { periodNote, rangesText } from "@/lib/dpc-brief";
@@ -29,8 +31,10 @@ interface Props {
   pick?: Pick;
   /** How the rows are grouped at first. */
   defaultGroup?: GroupBy;
-  /** The floor listed: its empty beds and today's and tomorrow's admissions and discharges. */
-  floor?: Floor;
+  /** 日付の移動 in the header (a floor's list). */
+  dayNav?: DayNavProps;
+  /** The day shown, when `ward.beds` came from bedsAsOf (its marks are shown; another day gets a band). */
+  asOf?: WardAsOf;
   nowTime: string;
   changes: Record<string, SessionChanges>;
   summaries: Record<string, ChartSummary>;
@@ -97,6 +101,10 @@ interface Row {
   day: number | null;
   /** The viewer's own team. */
   mine: boolean;
+  /** The plan's mark on the bed（入院予定 14:00・退院予定 10:00・空く予定）, as text. */
+  mark?: string;
+  /** Someone expected on the bed who has no chart yet. */
+  expected?: Expected;
 }
 
 /** What a row shows from the record, worked out once per change of the record (not on each keystroke). */
@@ -115,7 +123,7 @@ const everyone = () => true;
  * Ward patient list. Every patient opens on click or Enter. With 「受け持ちを目立たせる」 (the default) the
  * viewer's team gets the full row and the others a short gray one; without it, everyone gets the full row.
  */
-export function PatientList({ ward, title, pick, defaultGroup = "room", floor, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen }: Props) {
+export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen }: Props) {
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [cond, setCond] = useState<ListFilter>(EMPTY_FILTER);
@@ -124,14 +132,29 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "room", asc: true });
   const [cursor, setCursor] = useState(0);
   const nowAbs = abs(0, nowTime);
+  // The day listed (0 = today): 入院◯日目 and 新入院 are counted for it.
+  const viewDay = asOf?.day ?? 0;
+  const fmtDay = useMemo(() => dayNav?.fmtDay ?? ((d: number) => (today ? formatShort(addDays(today, d)) : `${d}日後`)), [dayNav, today]);
 
   const all: Row[] = useMemo(
     () =>
-      ward.beds.map((b) => {
-        const patient = b.patientId ? ward.patient(b.patientId) : undefined;
-        return { bed: b, patient, kana: patient?.kana ?? b.other?.name ?? "", day: patient ? hospitalDay(patient.admittedOn, 0) : null, mine: !!patient && mineOf(patient.id) };
-      }),
-    [ward, mineOf],
+      ward.beds
+        .filter((b) => !isUnknownBed(b))
+        .map((b) => {
+          const patient = b.patientId ? ward.patient(b.patientId) : undefined;
+          const mark = markOf(b);
+          const expected = expectedOf(b);
+          return {
+            bed: b,
+            patient,
+            kana: patient?.kana ?? b.other?.name ?? expected?.name ?? "",
+            day: patient ? hospitalDay(patient.admittedOn, viewDay) : null,
+            mine: !!patient && mineOf(patient.id),
+            mark: mark ? markText(mark, viewDay, fmtDay) : undefined,
+            expected,
+          };
+        }),
+    [ward, mineOf, viewDay, fmtDay],
   );
   const full = (r: Row) => !!r.patient && (!emphasize || r.mine);
   // The DPC column is fetched for the full rows only (the gray rows show none).
@@ -165,8 +188,8 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
         const w = p ? work.get(p.id) : undefined;
         return {
           floor: floorOf(r.bed.room),
-          department: p?.department ?? r.bed.other?.department ?? "",
-          doctor: p?.attending ?? doctorFor(r.bed.other?.department ?? ""),
+          department: p?.department ?? r.bed.other?.department ?? r.expected?.department ?? "",
+          doctor: p?.attending ?? doctorFor(r.bed.other?.department ?? r.expected?.department ?? ""),
           others: w?.doctors?.others.map((d) => d.name),
           nurse: nurseFor(r.bed.room),
           day: r.day,
@@ -185,7 +208,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
       if (!matches(facts[i], cond)) return false;
       const s = q.trim();
       if (!s) return true;
-      const fields = [r.bed.room, r.patient?.name, r.patient?.kana, r.patient?.admissionDiagnosis, r.patient?.id, r.bed.other?.name, r.bed.other?.department];
+      const fields = [r.bed.room, r.patient?.name, r.patient?.kana, r.patient?.admissionDiagnosis, r.patient?.id, r.bed.other?.name, r.bed.other?.department, r.expected?.name, r.expected?.department];
       return fields.some((f) => f?.includes(s));
     });
     const dir = sort.asc ? 1 : -1;
@@ -199,10 +222,10 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
   // 主治医別: a patient is listed under each of their doctors (主治医・担当医・コンサルト医), so none is missed.
   const groupsOf = (r: Row): string[] => {
     if (groupBy === "floor") return [floorOf(r.bed.room)];
-    if (groupBy === "department") return [r.patient?.department ?? r.bed.other?.department ?? ""];
+    if (groupBy === "department") return [r.patient?.department ?? r.bed.other?.department ?? r.expected?.department ?? ""];
     if (groupBy === "doctor") {
       const pd = r.patient ? work.get(r.patient.id)?.doctors : undefined;
-      return pd ? doctorNames(pd) : [r.patient?.attending ?? doctorFor(r.bed.other?.department ?? "")];
+      return pd ? doctorNames(pd) : [r.patient?.attending ?? doctorFor(r.bed.other?.department ?? r.expected?.department ?? "")];
     }
     if (groupBy === "nurse") return [nurseFor(r.bed.room)];
     return [""];
@@ -222,12 +245,10 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
   const ordered = grouped.flatMap((g) => g.rows);
   // A row listed under two doctors is one patient (↑↓ and Enter step through each once).
   const openable = ordered.filter((r, i) => r.patient && ordered.indexOf(r) === i);
-  const planFor = (b: BedAssignment) => WARD_PLANS.filter((p) => p.kind === "退院" && p.room === b.room && p.bed === b.bed);
-  const inFloor = (room: string) => !!floor && floor.rooms.some((r) => r.no === room);
-  const admittedToday = ward.beds.filter((b) => b.patientId && ward.patient(b.patientId)?.admittedOn === 0 && inFloor(b.room));
-  const plansHere = WARD_PLANS.filter((p) => inFloor(p.room));
-  const empties = floor ? emptyBeds(ward.beds, floor.rooms) : [];
-  const reserved = plansHere.filter((p) => p.kind === "入院" && empties.some((e) => e.room.no === p.room && e.bed === p.bed));
+  // The ward's fixed 退院 plans, shown on today's rows (on another day the bed's mark says it).
+  const planFor = (b: BedAssignment) => (viewDay === 0 ? WARD_PLANS.filter((p) => p.kind === "退院" && p.room === b.room && p.bed === b.bed) : []);
+  // Rows that are people (a bed that is 空く予定 is a row too, but not a person).
+  const people = (rs: Row[]) => rs.filter((r) => r.patient || r.bed.other || r.expected).length;
   const at = Math.min(cursor, Math.max(openable.length - 1, 0));
 
   const header = (key: SortKey, label: string) => (
@@ -248,9 +269,10 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
         <h1 className="text-lg font-bold">
           {title}
           <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
-          <span className="nums ml-2 text-sm font-normal text-ink-soft">{rows.length === all.length ? `${rows.length}人` : `${rows.length}人（全${all.length}人）`}</span>
+          <span className="nums ml-2 text-sm font-normal text-ink-soft">{rows.length === all.length ? `${people(rows)}人` : `${people(rows)}人（全${people(all)}人）`}</span>
         </h1>
         {pick && <PickSelect pick={pick} />}
+        {dayNav && <DayNav {...dayNav} />}
         <div role="radiogroup" aria-label="まとめ方" className="flex rounded-md border border-rule p-0.5 text-sm">
           {GROUPS.map((g) => (
             <button
@@ -304,35 +326,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
         <CondBar cond={cond} choices={choices} onChange={(c) => (setCond(c), setCursor(0))} />
       )}
 
-      <div className={`flex flex-wrap gap-x-6 gap-y-1 border-b border-rule bg-sheet px-5 py-2 text-[12px] ${floor ? "" : "hidden"}`}>
-        {([0, 1] as const).map((d) => {
-          const plans = plansHere.filter((p) => p.day === d);
-          const viaEr = d === 0 ? admittedToday : [];
-          return (
-            <div key={d} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-              <b className="text-ink-soft">{d === 0 ? "今日" : "明日"}</b>
-              <span>
-                入院 {plans.filter((p) => p.kind === "入院").length + viaEr.length}　退院 {plans.filter((p) => p.kind === "退院").length}
-              </span>
-              {plans.map((p) => (
-                <span key={p.name} className={p.kind === "入院" ? "text-ai" : "text-wakatake"}>
-                  {p.time} {p.kind} {p.room}
-                  {p.bed && `-${p.bed}`} {p.name}
-                </span>
-              ))}
-              {viaEr.map((b) => (
-                <span key={b.patientId} className="text-ai">
-                  救急から入院 {b.room}
-                  {b.bed && `-${b.bed}`} {ward.patient(b.patientId!)?.name}
-                </span>
-              ))}
-            </div>
-          );
-        })}
-        <span className="ml-auto text-ink-soft">
-          空床 {empties.length}（うち入院予定 {reserved.length}）
-        </span>
-      </div>
+      {asOf && <AsOfBand asOf={asOf} fmtDay={fmtDay} />}
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto">
         <table className="nums w-full min-w-[1180px] border-collapse text-[13px]">
@@ -372,11 +366,44 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                     flags={work.get(r.patient.id)?.flags ?? []}
                     dpc={dpc[r.patient.id]}
                     plans={planFor(r.bed)}
+                    mark={r.mark}
+                    day={viewDay}
                     summary={summaries[r.patient.id]}
                     doctors={work.get(r.patient.id)?.doctors}
                     viewer={viewer}
                     onOpen={() => onOpen(r.patient!.id)}
                   />
+                ) : r.expected ? (
+                  // 入院予定: no chart yet, so a dotted row with what the plan says.
+                  <tr key={roomKey(r.bed)} className="border-b border-dashed border-ai/50 text-ai" title="入院予定（予定から）。カルテは入院を受けたときにできます">
+                    <td className="px-3 py-1.5">
+                      {r.bed.room}
+                      {r.bed.bed && `-${r.bed.bed}`}
+                    </td>
+                    <td className="px-3 py-1.5">{r.expected.name}</td>
+                    <td className="px-3 py-1.5">{ageSex(r.expected)}</td>
+                    <td className="px-3 py-1.5 font-bold">{r.mark}</td>
+                    <td className="px-3 py-1.5">—</td>
+                    <td className="px-3 py-1.5 text-[11px]">
+                      <div className="font-bold">{r.expected.department}</div>
+                      <div>{doctorFor(r.expected.department)}</div>
+                      <div>{nurseFor(r.bed.room)}</div>
+                    </td>
+                    <td className="px-3 py-1.5" colSpan={5}>
+                      {r.expected.note}
+                    </td>
+                  </tr>
+                ) : !r.patient && !r.bed.other ? (
+                  // 空く予定: the bed a patient leaves before the day shown.
+                  <tr key={roomKey(r.bed)} className="border-b border-dashed border-wakatake/50 text-wakatake">
+                    <td className="px-3 py-1.5">
+                      {r.bed.room}
+                      {r.bed.bed && `-${r.bed.bed}`}
+                    </td>
+                    <td className="px-3 py-1.5 font-bold" colSpan={10}>
+                      {r.mark ?? "空床"}
+                    </td>
+                  </tr>
                 ) : (
                   <tr
                     key={`${g.key}|${roomKey(r.bed)}`}
@@ -410,7 +437,10 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                     <td className="px-3 py-1.5">
                       {r.patient ? ageSex(r.patient) : r.bed.other ? ageSex(r.bed.other) : ""}
                     </td>
-                    <td className="px-3 py-1.5">{r.day ? `${r.day}日目` : "—"}</td>
+                    <td className="px-3 py-1.5">
+                      {r.day ? `${r.day}日目` : "—"}
+                      {r.patient && r.patient.admittedOn === viewDay && <span className="ml-1 text-[10px] font-bold text-ai">新入院</span>}
+                    </td>
                     <td className="px-3 py-1.5">—</td>
                     <td className="px-3 py-1.5 text-[11px]">
                       <div className="font-bold">{r.patient?.department ?? r.bed.other?.department}</div>
@@ -418,29 +448,13 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                       <div>{nurseFor(r.bed.room)}</div>
                     </td>
                     <td className="px-3 py-1.5" colSpan={5}>
-                      {[...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && !(x === "明日退院" && planFor(r.bed).length)).join("　")}
+                      {r.mark && <span className="mr-2 font-bold text-wakatake">{r.mark}</span>}
+                      {[...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && !(x === "明日退院" && (planFor(r.bed).length || r.mark))).join("　")}
                     </td>
                   </tr>
                 ),
               ),
             ])}
-            {!q.trim() && !nCond &&
-              reserved.map((p) => (
-                <tr key={`plan-${p.name}`} className="border-b border-dashed border-rule text-ai">
-                  <td className="px-3 py-1.5">
-                    {p.room}
-                    {p.bed && `-${p.bed}`}
-                  </td>
-                  <td className="px-3 py-1.5">{p.name}</td>
-                  <td className="px-3 py-1.5">
-                    {ageSex(p)}
-                  </td>
-                  <td className="px-3 py-1.5 font-bold">{planText(p)}</td>
-                  <td className="px-3 py-1.5" colSpan={7}>
-                    {p.department}　{p.note}
-                  </td>
-                </tr>
-              ))}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={11} className="px-3 py-6 text-center text-ink-faint">
@@ -462,6 +476,8 @@ function MyRow({
   upcoming,
   flags,
   plans,
+  mark,
+  day,
   summary,
   dpc,
   doctors,
@@ -475,20 +491,24 @@ function MyRow({
   flags: Flag[];
   dpc?: DpcBriefs[string];
   plans: WardPlan[];
+  /** The bed's mark on the day shown（退院予定 10:00）. */
+  mark?: string;
+  /** The day shown (0 = today). On another day, today's vitals, results and plans for today are not shown. */
+  day: number;
   summary?: ChartSummary;
   doctors?: PatientDoctors;
   viewer?: string;
   onOpen: () => void;
 }) {
-  const latest = p.vitals.at(-1);
-  const newResults = [
-    ...p.cultures.filter((c) => c.reportedOn === 0).map((c) => `${c.specimen}培養`),
-    ...(p.labs.some((l) => l.day === 0) ? ["採血"] : []),
-  ];
+  const today = day === 0;
+  const latest = today ? p.vitals.at(-1) : undefined;
+  const newResults = today
+    ? [...p.cultures.filter((c) => c.reportedOn === 0).map((c) => `${c.specimen}培養`), ...(p.labs.some((l) => l.day === 0) ? ["採血"] : [])]
+    : [];
   return (
     <tr
       onClick={onOpen}
-      className={`cursor-pointer border-b border-rule-soft bg-sheet align-top hover:bg-ai-soft/40 ${focused ? "outline outline-2 -outline-offset-2 outline-ai" : ""}`}
+      className={`cursor-pointer border-b border-rule-soft bg-sheet align-top hover:bg-ai-soft/40 ${focused ? "outline outline-2 -outline-offset-2 outline-ai" : ""} ${mark?.startsWith("退院予定") ? "opacity-70" : ""}`}
     >
       <td className="px-3 py-2 font-bold">
         {row.bed.room}
@@ -520,7 +540,7 @@ function MyRow({
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         <b>{row.day}日目</b>
-        {p.admittedOn === 0 && <div className="text-[10px] font-bold text-ai">新入院</div>}
+        {p.admittedOn === day && <div className="text-[10px] font-bold text-ai">新入院</div>}
       </td>
       <td className="px-3 py-2 text-[12px]">
         <DpcCell b={dpc} />
@@ -531,10 +551,11 @@ function MyRow({
         <div>{nurseFor(row.bed.room)}</div>
       </td>
       <td className="px-3 py-2">
-        {/* The ward's plan and the 退院 order say the same thing: shown once. */}
-        <Flags flags={[...plans.map((x) => ({ label: planText(x), tone: "wakatake" as const })), ...flags].filter((f, i, xs) => xs.findIndex((y) => y.label === f.label) === i)} />
+        {/* The ward's plan and the 退院 order say the same thing: shown once. On another day the bed's mark comes first and the marks of today's record are left out. */}
+        <Flags flags={[...(mark ? [{ label: mark, tone: "wakatake" as const }] : []), ...plans.map((x) => ({ label: planText(x), tone: "wakatake" as const })), ...(today ? flags : [])].filter((f, i, xs) => xs.findIndex((y) => y.label === f.label) === i)} />
       </td>
       <td className="whitespace-nowrap px-3 py-2 text-[12px]">
+        {!today && <span className="text-ink-faint">—</span>}
         {latest && (
           <>
             <div>
@@ -547,7 +568,7 @@ function MyRow({
         )}
       </td>
       <td className="px-3 py-2 text-[12px]">
-        {upcoming.length === 0 ? (
+        {upcoming.length === 0 || !today ? (
           <span className="text-ink-faint">—</span>
         ) : (
           <ul>
@@ -564,9 +585,9 @@ function MyRow({
         {newResults.length ? newResults.map((r) => <div key={r} className="font-bold text-ai">{r}（今日）</div>) : <span className="text-ink-faint">—</span>}
       </td>
       <td className="whitespace-nowrap px-3 py-2 text-[12px]">
-        {summary?.drafts ? <div className="font-bold text-yamabuki">下書き {summary.drafts}件</div> : null}
-        {summary?.confirmedToday ? <div className="text-wakatake">今日確定 {summary.confirmedToday}件</div> : null}
-        {!summary?.drafts && !summary?.confirmedToday && <span className="text-ink-faint">—</span>}
+        {today && summary?.drafts ? <div className="font-bold text-yamabuki">下書き {summary.drafts}件</div> : null}
+        {today && summary?.confirmedToday ? <div className="text-wakatake">今日確定 {summary.confirmedToday}件</div> : null}
+        {(!today || (!summary?.drafts && !summary?.confirmedToday)) && <span className="text-ink-faint">—</span>}
       </td>
     </tr>
   );
