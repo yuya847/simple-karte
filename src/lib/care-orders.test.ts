@@ -22,6 +22,7 @@ import {
   scheduleLabel,
   shortSchedule,
   stopCare,
+  voidCare,
   type CareOrder,
   type CareRecord,
 } from "./care-orders";
@@ -108,6 +109,10 @@ describe("看護ケア指示：実施の記録", () => {
     const rs = [rec("c1", at(0, "08:30"), { voided: { by: "看護師 佐藤", at: "10:05", reason: "時刻を間違えた" } })];
     expect(recordOf(rs, k)).toBeUndefined();
     expect(recordOf([...rs, rec("c1", at(0, "08:30"), { doneAt: "08:40" })], k)?.doneAt).toBe("08:40");
+    const again = voidCare([rec("c1", at(0, "08:30"))], k, "看護師 田中", "10:10", "別の患者・別の回に記録した");
+    expect(again).toHaveLength(1);
+    expect(again[0].voided?.by).toBe("看護師 田中");
+    expect(recordOf(again, k)).toBeUndefined();
   });
 
   it("an observation needs what was seen; 未実施 needs a reason; the time done cannot be later than now", () => {

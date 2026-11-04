@@ -83,7 +83,7 @@ import { stayDays, type DocKind, type DocRecord } from "@/lib/documents";
 import { diagnosisLabel } from "@/lib/diagnoses";
 import { summaryFacts } from "@/lib/summary";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
-import { INITIAL_CARE_ORDERS, initialCareRecords, type CareOrder, type CareRecord } from "@/lib/care-orders";
+import { INITIAL_CARE_ORDERS, initialCareRecords, voidCare, type CareOrder, type CareRecord } from "@/lib/care-orders";
 import { INITIAL_PLANS, type NursingProblem } from "@/lib/nursing-plan";
 import { NursingPanel } from "./panels/NursingPanel";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
@@ -1674,6 +1674,20 @@ export default function WardApp() {
           today={today}
           nowTime={nowTime}
           others={others}
+          care={{
+            orders: careOrders,
+            records: careRecords,
+            plans: nursingPlans,
+            onRecord: (r) => {
+              const o = careOrders.find((x) => x.id === r.orderId);
+              auditLog({ role: me.role, actor: me.name, action: r.status === "実施" ? "確定（看護ケアの実施）" : "確定（看護ケアの未実施）", patient: findPatient(r.patientId)?.name, detail: `${o?.item ?? r.orderId}　${r.doneAt}${r.value ? `　${r.value}${o?.unit ?? ""}` : ""}${r.reason ? `　${r.reason}` : ""}` });
+              setCareRecords((all) => [...all, r]);
+            },
+            onVoid: (r, reason) => {
+              auditLog({ role: me.role, actor: me.name, action: `看護ケアの${r.status}の記録を取り消した`, patient: findPatient(r.patientId)?.name, detail: `${careOrders.find((x) => x.id === r.orderId)?.item ?? r.orderId}　${r.doneAt} ${r.by} の記録　理由：${reason}` });
+              setCareRecords((all) => voidCare(all, r.key, me.name, nowTime, reason));
+            },
+          }}
           queried={Object.fromEntries(queries.filter((q) => queryOpen(q, people.find((x) => x.patient.id === q.patientId)?.entries ?? [])).map((q) => [q.orderId, q.question]))}
           // 指示簿の頓用: the latest version a nurse has taken (指示受け); a newer one waits for 指示受け.
           standingPrn={people.flatMap((x) => {

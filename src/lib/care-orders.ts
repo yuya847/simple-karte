@@ -219,6 +219,12 @@ export function recordOf(records: CareRecord[], key: string): CareRecord | undef
   return undefined;
 }
 
+/** 記録を取り消す: the record in force for the key is marked as taken back (it stays in the list). */
+export function voidCare(records: CareRecord[], key: string, by: string, at: string, reason: string): CareRecord[] {
+  const r = recordOf(records, key);
+  return r ? records.map((x) => (x === r ? { ...x, voided: { by, at, reason } } : x)) : records;
+}
+
 export type CareState = "実施" | "未実施" | "記録済み" | "未入力" | "予定";
 
 /**

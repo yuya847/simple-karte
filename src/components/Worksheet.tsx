@@ -12,6 +12,9 @@ import { findOralDrug } from "@/lib/master";
 import { dripRate, dripText } from "@/lib/drip";
 import { MarCell, VoidControl } from "./MarCell";
 import { TakeTable } from "./TakeTable";
+import { CareSheet } from "./CareSheet";
+import type { CareOrder, CareRecord } from "@/lib/care-orders";
+import type { NursingProblem } from "@/lib/nursing-plan";
 import { sortRows, takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
@@ -44,6 +47,8 @@ interface Props {
   queried?: Record<string, string>;
   /** 指示簿の頓用 of each patient (given from the standing orders, not from an order). */
   standingPrn?: { patientId: string; room: string; name: string; rule: PrnRule }[];
+  /** 看護ケア指示 (care and observation tasks with their 実施) and the nursing problems due for evaluation. */
+  care?: { orders: CareOrder[]; records: CareRecord[]; plans: NursingProblem[]; onRecord: (r: CareRecord) => void; onVoid: (r: CareRecord, reason: string) => void };
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -61,7 +66,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [] }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -90,7 +95,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   // まとめて受ける: only rows that may be taken in bulk (not one-at-a-time ones, not held).
   const bulk = rows.filter((r) => !isRowTaken(r) && r.mustOne.length === 0 && !(holds[r.key] && !holds[r.key].answer));
 
-  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people };
+  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -197,11 +202,12 @@ interface SheetProps {
   standingPrn: { patientId: string; room: string; name: string; rule: PrnRule }[];
   queried: Record<string, string>;
   people: WorkPatient[];
+  care?: Props["care"];
 }
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people }: SheetProps) {
+function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people, care }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   const maxOf = (orderId: string) => {
@@ -337,6 +343,8 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
           </table>
         )}
       </Section>
+
+      {care && <CareSheet {...care} people={people} {...shiftWindow(shift, day)} day={day} today={today} nowTime={nowTime} sessionStart={sessionStart} interactive={interactive} />}
 
       <Section title="時刻の決まっていないもの（必要時・1日N回）">
         {untimed.length === 0 ? (
