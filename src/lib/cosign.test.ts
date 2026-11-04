@@ -112,3 +112,12 @@ describe("研修医が確定できないオーダ（架空の病院の取り決�
     expect(residentBlock({ type: "lab" } as unknown as Order)).toBeNull();
   });
 });
+
+it("指示簿の頓用にも研修医の麻薬・抗がん薬の制限を使う", async () => {
+  const { emptyStanding } = await import("./standing");
+  const base = emptyStanding("研修医 田中", { day: 0, time: "10:00" });
+  const rule = (code: string) => ({ id: "r", when: "疼痛時" as const, detail: "", drug: { code, amount: 1, unit: "mg" }, intervalH: 6, maxPerDay: 3 });
+  expect(residentBlock({ ...base, prn: [rule("INJ-PTX")] })).toBe("抗がん薬（レジメン）");
+  expect(residentBlock({ ...base, prn: [rule("test")] }, new Set(["test"]))).toBe("麻薬");
+  expect(residentBlock(base)).toBeNull();
+});

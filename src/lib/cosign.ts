@@ -5,6 +5,7 @@
 import { doctorOf, teamOf, type Doctor } from "./doctors";
 import { NARCOTICS } from "./drug-class";
 import { findDrug } from "./master";
+import type { StandingOrders } from "./standing";
 import type { DayOffset, Order } from "./types";
 
 export const COSIGN_SOURCES = {
@@ -24,7 +25,7 @@ export const COSIGN_SOURCES = {
 
 /** What the sources above do not say; this fictional hospital's choices. */
 export const COSIGN_RULES = {
-  effect: "研修医のオーダは確定するとすぐ有効になり、指示受け・実施へ進みます。指導医か上級医があとで確かめます（架空の病院の取り決め。ガイドラインと施行通知には、確認の前にオーダを有効にするかの定めはありません）。",
+  effect: "研修医のオーダと指示簿は確定するとすぐ有効になり、指示受け・実施へ進みます。指導医か上級医があとで確かめます（架空の病院の取り決め。ガイドラインと施行通知には、確認の前にオーダを有効にするかの定めはありません）。",
   blocked: "抗がん薬（レジメン）と麻薬は、研修医は確定できません。指導医か上級医が確定します（架空の病院の取り決め）。",
   who: "確かめるのは同じチームの指導医か上級医です。書いた本人は確かめられません（架空の病院の取り決め）。",
 };
@@ -32,7 +33,7 @@ export const COSIGN_RULES = {
 /** 麻薬 by drug code: the master items whose 電子添文 marks them 麻薬 (drug-class.ts). A 研修医 does not confirm them. */
 export const NARCOTIC_CODES: ReadonlySet<string> = NARCOTICS;
 
-export type CosignKind = "記事" | "記事の修正" | "オーダ" | "中止" | "延長";
+export type CosignKind = "記事" | "記事の修正" | "オーダ" | "中止" | "延長" | "指示簿";
 
 export interface When {
   day: DayOffset;
@@ -130,9 +131,9 @@ export function confirmItems(items: CosignItem[], ids: string[], name: string, a
 export const byRef = (items: CosignItem[]): Record<string, CosignItem> => Object.fromEntries(items.map((i) => [i.ref, i]));
 
 /** Why a 研修医 cannot confirm this order (抗がん薬・麻薬), or null. */
-export function residentBlock(order: Order, narcotics: ReadonlySet<string> = NARCOTIC_CODES): string | null {
-  const codes = order.type === "injection" ? order.items.map((i) => i.drugCode) : order.type === "prescription" ? [order.drugCode] : [];
+export function residentBlock(order: Order | StandingOrders, narcotics: ReadonlySet<string> = NARCOTIC_CODES): string | null {
+  const codes = !("type" in order) ? order.prn.map((r) => r.drug.code) : order.type === "injection" ? order.items.map((i) => i.drugCode) : order.type === "prescription" ? [order.drugCode] : [];
   if (codes.some((c) => narcotics.has(c))) return "麻薬";
-  if (order.type === "injection" && order.items.some((i) => findDrug(i.drugCode)?.chemo)) return "抗がん薬（レジメン）";
+  if (!("type" in order) ? codes.some((c) => findDrug(c)?.chemo) : order.type === "injection" && order.items.some((i) => findDrug(i.drugCode)?.chemo)) return "抗がん薬（レジメン）";
   return null;
 }

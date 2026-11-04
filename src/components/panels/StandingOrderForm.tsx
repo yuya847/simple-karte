@@ -6,9 +6,12 @@ import { useState } from "react";
 import { HOSPITAL_LINE_TEMPLATES, LINE_CATS, currentLines, calendarRows, linesFromFields, loadMyTemplates, saveMyTemplates, templateProblems, type LineCat, type LineTemplate, type StandingLine } from "@/lib/standing-lines";
 import { CATEGORY_LABELS, STANDING_CHOICES, STANDING_SOURCES, composeStandingText, splitStandingText } from "@/lib/standing-form";
 import type { StandingOrders } from "@/lib/standing";
+import { CosignMark } from "../Cosign";
+import { standingLineRef } from "@/lib/standing-cosign";
 import { useDeny, useMe } from "../RoleContext";
 
-export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onAdd, onStop, onEditFields, fieldEditor, today }: {
+export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onAdd, onStop, onEditFields, fieldEditor, today, patientId }: {
+  patientId?: string;
   lines: StandingLine[]; versions: StandingOrders[]; nowTime: string; fmtDay: (d: number) => string;
   fieldEditor?: React.ReactNode; today?: CalendarDate;
   newId: () => string; onAdd: (l: StandingLine) => void; onStop: (id: string, reason: string) => void; onEditFields: () => void;
@@ -51,6 +54,8 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
             <div className={`whitespace-pre-wrap ${live ? "" : "text-ink-faint line-through"}`}>{l.text}</div>
             <div className="text-[11px] text-ink-soft">{periodText(l, fmtDay)}</div>
             <div className="mt-1 text-[11px] text-ink-soft">{l.by}　{fmtDay(l.at.day)} {l.at.time}　{live ? l.start.day > 0 ? "予定" : "有効" : l.stop ? "中止" : "終了"}</div>
+            {patientId && <CosignMark refId={standingLineRef(patientId, l.id)} />}
+            {patientId && l.stop && <CosignMark refId={standingLineRef(patientId, l.id, true)} />}
             {l.stop && <div className="text-[11px] text-ink-faint">中止：{l.stop.by} {fmtDay(l.stop.day)} {l.stop.time} {l.stop.reason}</div>}
           </button>;
         })}

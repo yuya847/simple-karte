@@ -206,3 +206,8 @@ export function initialStanding(): Record<string, StandingOrders[]> {
 }
 
 export const standingEffective = (s: StandingOrders | undefined, day = 0): StandingOrders | undefined => s && s.at.day <= day && (s.until === undefined || day <= s.until) ? s : undefined;
+
+/** A new version belongs to the person confirming it, never to the previous author. */
+export function confirmStanding(draft: StandingOrders, by: string, at: StandingOrders["at"]): StandingOrders {
+  return { ...draft, by, at, taken: undefined };
+}

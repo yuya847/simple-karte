@@ -87,7 +87,7 @@ export interface TakeRow {
   /** 変更: the order before, and what changed. */
   before?: { main: string; detail: string };
   diff?: DiffLine[];
-  flags: { urgent?: string; offHours?: string; highRisk?: string; verbal?: string; changed?: string };
+  flags: { resident?: string; urgent?: string; offHours?: string; highRisk?: string; verbal?: string; changed?: string };
   /** Related orders shown with it (e.g. a meal stop next to glucose-lowering drugs). */
   related: string[];
   /** Why it must be taken one at a time (not with まとめて受ける). Empty = may be taken in bulk. */

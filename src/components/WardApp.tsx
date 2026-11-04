@@ -1,4 +1,9 @@
 "use client";
+
+import { workspaceOn } from "@/lib/workspace";
+import { useDisplayState } from "@/lib/use-display-state";
+import { useStandingCosign } from "@/lib/use-standing-cosign";
+import { markStandingTake } from "@/lib/standing-cosign";
 import { focusDraftLine } from "@/lib/order-windows";
 
 import { pendingDraftCount, transferEmergencyOrders } from "@/lib/billing/emergency-visit";
@@ -140,7 +145,7 @@ import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/prof
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { worksheetPrnLines } from "@/lib/standing-form";
-import { callHits, initialStanding, standingEffective, type StandingOrders } from "@/lib/standing";
+import { callHits, confirmStanding, initialStanding, standingEffective, type StandingOrders } from "@/lib/standing";
 import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
 import { INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/standing-lines";
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
@@ -888,6 +893,8 @@ export default function WardApp() {
   );
   // ~80 charts: looked up by number, not by searching the list.
   const patientById = useMemo(() => new Map([...allPatients, ...visitPatientsAll.map((x) => x.patient)].map((p) => [p.id, p])), [allPatients, visitPatientsAll]);
+  useDisplayState(role, me.name, setRole, setDoctorName, { area, wardTabs, wardTab, patientTabs, front }, { area: setArea, wardTabs: setWardTabs, wardTab: setWardTab, patientTabs: setPatientTabs, front: setFront }, new Set(patientById.keys()), !!todayKey && workspace.status !== "loading" && (workspace.status !== "off" || !workspaceOn()), defaultsOf(wardDefaults, role));
+  useStandingCosign(standing, standingLines, setCosign);
   const findPatient = useCallback((id: string) => patientById.get(id), [patientById]);
   // The 山本チーム's patients (and today's admissions): the worksheet, やること and the boards are theirs.
   // A doctor's 受け持ち also has every patient they are 主治医 (team), 担当医 or コンサルト医 of, so none is missed.
@@ -1814,7 +1821,8 @@ export default function WardApp() {
       if (n) todos.push({ key: `dc-stop-${x.patient.id}`, label: `退院した患者に有効な指示が残っている：${x.patient.name}さん`, detail: stopGroupsOf(x.patient.id).map((g) => g.key).join("・"), count: n, tone: "yamabuki", go: () => (openPatient(x.patient.id), setPanel("discharge-stop")) });
     }
   // 指示簿の行: a new line, or a stop (the line stays as history). Both wait for a nurse's 指示受け.
-  const addStandingLine = (pid: string, l: StandingLine) => {
+  const addStandingLine = (pid: string, draft: StandingLine) => {
+    const l = { ...draft, by: me.name };
     auditLog({ role: me.role, actor: me.name, action: "確定（指示簿の行）", patient: findPatient(pid)?.name, detail: lineLabel(l) });
     setStandingLines((all) => ({ ...all, [pid]: [...(all[pid] ?? []), l] }));
     updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿に行を足した：${lineLabel(l)}\n` }));
@@ -1880,7 +1888,7 @@ export default function WardApp() {
   if (toApprove.length) todos.push({ key: "summary-approve", label: "退院サマリの承認待ち", detail: toApprove.map((r) => `${r.name}さん`).join("、"), count: toApprove.length, tone: "ai", go: () => goWard("summaries") });
   if (toWrite.length) todos.push({ key: "summary-write", label: "退院サマリがまだ（退院した患者）", detail: toWrite.map((r) => `${r.name}さん ${r.state}${r.left !== null && r.left < 0 ? "・期限切れ" : `・あと${r.left}日`}`).join("、"), count: toWrite.length, tone: toWrite.some((r) => r.late) ? "shu" : "yamabuki", go: () => goWard("summaries") });
   // 指示受け rows of the ward (for the doctor's view, the handoff and the todo).
-  const allTakeRows = takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today);
+  const allTakeRows = markStandingTake(takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today), cosign);
   const isRowTaken = (r: TakeRow) => r.keys.every((k) => !sessionKeys.has(k) || !!taken[k]);
   // The tab's badge and 「やること」 count today's untaken rows, as the 指示受け screen lists them (other days: 「ほかの日に N件」).
   const takeWaitingRows = waitingToday(allTakeRows, people, isRowTaken);
@@ -4176,7 +4184,8 @@ export default function WardApp() {
                       setStandingLines((all) => ({ ...all, [patient.id]: draft.ids.reduce((ls, id) => stopLine(ls, id, { day: draft.day, time: draft.day === 0 ? nowTime : "00:00", by: me.name, reason: draft.reason }), all[patient.id] ?? []) }));
                       auditLog({ role: me.role, actor: me.name, action: "確定（指示簿の一括中止）", patient: patient.name, detail: `${draft.ids.length}件　中止日：${formatShort(addDays(today, draft.day))}　${draft.reason}` });
                     }, onAdd: (l) => addStandingLine(patient.id, l), onStop: (id, reason) => stopStandingLine(patient.id, id, reason) }}
-                    onSave={(st) => {
+                    onSave={(draft) => {
+                      const st = confirmStanding(draft, me.name, { day: 0, time: nowTime });
                       auditLog({ role: me.role, actor: me.name, action: "確定（指示簿）", patient: patient.name, detail: `第${(standing[patient.id]?.length ?? 0) + 1}版` });
                       setStanding((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }));
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿を変更（第${(standing[patient.id]?.length ?? 0) + 1}版）\n` }));

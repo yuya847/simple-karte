@@ -1,5 +1,9 @@
 "use client";
 
+import { CosignMark } from "../Cosign";
+import { isResident } from "@/lib/doctors";
+import { residentBlock, COSIGN_RULES } from "@/lib/cosign";
+import { standingRef } from "@/lib/standing-cosign";
 import { StandingCalendar } from "../StandingCalendar";
 import { linesFromFields } from "@/lib/standing-lines";
 import type { StandingStopDraft } from "@/lib/standing-calendar";
@@ -18,6 +22,7 @@ import {
   callText,
   checkPrn,
   emptyStanding,
+  confirmStanding,
   prnText,
   type CallKey,
   type PrnRule,
@@ -84,7 +89,8 @@ export function StandingPanel({
   if (edit) {
     const set = (x: Partial<StandingOrders>) => setEdit((e) => (e ? { ...e, ...x } : e));
     const issues = edit.prn.map((r) => (r.drug.code && r.drug.amount > 0 && r.intervalH && r.maxPerDay ? checkPrn(r, allergies) : []));
-    const stop = issues.some((x) => x.some((i) => i.level === "stop"));
+    const blocked = isResident(me.name) ? residentBlock(edit) : null;
+    const stop = !!blocked || issues.some((x) => x.some((i) => i.level === "stop"));
     const ask = issues.some((x) => x.some((i) => i.level === "ask"));
     const missing = [
       edit.until !== undefined && edit.until < 0 && "終了日（今日以降）",
@@ -209,7 +215,7 @@ export function StandingPanel({
             type="button"
             disabled={missing.length > 0 || stop || (ask && !acked) || !!deny("order")}
             onClick={() => {
-              onSave({ ...edit, by: me.name, at: { day: 0, time: nowTime }, taken: undefined });
+              onSave(confirmStanding(edit, me.name, { day: 0, time: nowTime }));
               setEdit(null);
               setAcked(false);
             }}
@@ -221,12 +227,12 @@ export function StandingPanel({
             やめる
           </button>
           {missing.length > 0 && <span className="text-yamabuki">未選択：{missing.join("・")}</span>}
-          {stop && <span className="font-bold text-shu">アレルギーに当たる頓用があります</span>}
+          {blocked ? <span className="font-bold text-shu">{blocked}：{COSIGN_RULES.blocked}</span> : stop && <span className="font-bold text-shu">アレルギーに当たる頓用があります</span>}
           <DenyNote action="order" />
         </div>
       </div>
     );
-    return lines ? <StandingOrderForm today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
+    return lines ? <StandingOrderForm patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
   }
 
   return (
@@ -237,7 +243,7 @@ export function StandingPanel({
       {lines && view === "カレンダー" && <StandingCalendar patient={lines.patient} lines={[...lines.lines, ...linesFromFields(versions)]} today={lines.today} nowTime={nowTime} onBulkStop={lines.onBulkStop} onOpenPanel={() => setView("一覧")} />}
       {lines && view === "一覧" && (
         <>
-          <StandingOrderForm today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
+          <StandingOrderForm patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
           <h3 className="hint border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
           <p className="hint text-[11px] text-ink-faint">ワークシートの頓用、水分出納の確認、医師を呼ぶ基準の判定はこの項目から出ます。上の行と合わせて指示簿カレンダーに出ます。</p>
         </>
@@ -250,6 +256,7 @@ export function StandingPanel({
             <span className="nums text-ink-soft">
               有効：{fmtDay(cur.at.day)} 〜 {cur.until === undefined ? "変えるまで続く" : fmtDay(cur.until)}　{cur.at.time}　{cur.by}（第{versions.length}版）
             </span>
+            {lines && <CosignMark pendingLabel="研修医の指示（確認待ち）" refId={standingRef(lines.patient.id, versions.length)} />}
             {cur.taken ? (
               <span className="rounded bg-wakatake-soft px-1.5 text-wakatake">
                 指示受け済：{cur.taken.by} {cur.taken.time}

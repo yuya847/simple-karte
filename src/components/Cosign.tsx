@@ -12,7 +12,7 @@ const CosignCtx = createContext<Record<string, CosignItem>>({});
 export const CosignRefs = CosignCtx.Provider;
 
 /** 「指導医の確認待ち」 or 「確認 指導医 高橋 10:30」 next to a record a 研修医 wrote. */
-export function CosignMark({ refId }: { refId?: string }) {
+export function CosignMark({ refId, pendingLabel }: { refId?: string; pendingLabel?: string }) {
   const item = useContext(CosignCtx)[refId ?? ""];
   if (!refId || !item) return null;
   const c = item.confirmed;
@@ -21,7 +21,7 @@ export function CosignMark({ refId }: { refId?: string }) {
       title={c ? `${item.by}（${item.at.time}）の${item.kind}。${signerLabel(c.by, c.as)}が ${c.at.time} に確認${c.comment ? `：${c.comment}` : ""}` : `${item.by}（${item.at.time}）の${item.kind}。同じチームの指導医か上級医の確認がまだです`}
       className={`rounded px-1 text-[10px] ${c ? "border border-wakatake/50 text-wakatake" : "bg-yamabuki-soft font-bold text-yamabuki"}`}
     >
-      {cosignLabel(item)}
+      {!c && pendingLabel ? pendingLabel : cosignLabel(item)}
     </span>
   );
 }
@@ -43,7 +43,7 @@ export function CosignStrip({ items, meName, onConfirm }: { items: CosignItem[];
       <div className="flex flex-wrap items-center gap-2">
         <UserCheck size={14} className="text-yamabuki" />
         <b className="text-yamabuki">指導医の確認待ち {list.length}件</b>
-        <span className="text-ink-soft">{mine.length ? "研修医が書いた記事・オーダです。内容を読んでから確かめてください。" : "研修医が書いた記事・オーダです。同じチームの指導医か上級医が確かめます。"}</span>
+        <span className="text-ink-soft">{mine.length ? "研修医が書いた記事・オーダ・指示簿です。内容を読んでから確かめてください。" : "研修医が書いた記事・オーダ・指示簿です。同じチームの指導医か上級医が確かめます。"}</span>
         {mine.length > 1 && (
           <button type="button" onClick={() => go(mine.map((i) => i.id))} className="ml-auto rounded bg-yamabuki px-2 py-0.5 text-xs font-bold text-white">
             表示中の{mine.length}件をまとめて確認
@@ -107,7 +107,7 @@ export function CosignPanel({ items, meName, onConfirm }: { items: CosignItem[];
           </ul>
         </section>
       )}
-      <p className="hint text-[11px] text-ink-faint">研修医が書いた記事・オーダは、同じチームの指導医か上級医が内容を読んで「確認」します。件数は右端ツール「文書」のアイコンの赤い数字に出ます。</p>
+      <p className="hint text-[11px] text-ink-faint">研修医が書いた記事・オーダ・指示簿は、同じチームの指導医か上級医が内容を読んで「確認」します。件数は右端ツール「文書」のアイコンの赤い数字に出ます。</p>
     </div>
   );
 }
@@ -150,7 +150,7 @@ export function CosignList({ items, meName, patientOf, onConfirm, onOpen }: { it
         </div>
       </header>
       <p className="mb-3 text-[12px] text-ink-soft">
-        研修医が確定した記事とオーダ（新規・中止・延長）を1件ずつ並べます。確かめるのは同じチームの指導医か上級医で、確かめた人と時刻が記録とこの一覧に残ります。どれを直すか・指導するかは確かめる医師が決めます。
+        研修医が確定した記事とオーダ（新規・中止・延長）・指示簿（追加・修正・中止）を1件ずつ並べます。確かめるのは同じチームの指導医か上級医で、確かめた人と時刻が記録とこの一覧に残ります。どれを直すか・指導するかは確かめる医師が決めます。
       </p>
       {can.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-rule bg-sheet px-3 py-2">
@@ -165,7 +165,7 @@ export function CosignList({ items, meName, patientOf, onConfirm, onOpen }: { it
       )}
       {!can.length && waiting > 0 && show !== "done" && items.find((i) => !i.confirmed) && <p className="mb-2 text-[12px] text-ink-soft">{confirmDeny(meName, items.find((i) => !i.confirmed)!)}</p>}
       {shown.length === 0 ? (
-        <p className="text-ink-faint">{show === "pending" ? "確認待ちはありません。研修医 田中で入って記事かオーダを確定すると、ここに並びます。" : "まだありません。"}</p>
+        <p className="text-ink-faint">{show === "pending" ? "確認待ちはありません。研修医 田中で入って記事・オーダ・指示簿を確定すると、ここに並びます。" : "まだありません。"}</p>
       ) : (
         <table className="w-full border-collapse">
           <thead>

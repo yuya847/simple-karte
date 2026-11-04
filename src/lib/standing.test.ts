@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callHits, callText, checkPrn, initialStanding, prnText, type PrnRule } from "./standing";
+import { confirmStanding, callHits, callText, checkPrn, initialStanding, prnText, type PrnRule } from "./standing";
 
 const apap = (over: Partial<PrnRule> = {}): PrnRule => ({ id: "x", when: "発熱時", detail: "38.5℃以上", drug: { code: "ORAL-APAP500", amount: 1, unit: "錠" }, intervalH: 6, maxPerDay: 3, ...over });
 
@@ -30,4 +30,14 @@ describe("指示簿", () => {
     const loxo = apap({ drug: { code: "ORAL-LOX60", amount: 1, unit: "錠" } });
     expect(checkPrn(loxo, ["NSAIDs（喘息発作）"]).find((i) => i.level === "stop")!.message).toBe("アレルギー「NSAIDs（喘息発作）」に当たります。");
   });
+});
+
+it("指示を変更すると確定した人の新しい版になり、以前の指示受けを持ち越さない", () => {
+  const original = initialStanding()["90010231"][0];
+  const at = { day: 0, time: "11:00" };
+  const revised = confirmStanding(original, "研修医 田中", at);
+  expect(revised.by).toBe("研修医 田中");
+  expect(revised.at).toEqual(at);
+  expect(revised.taken).toBeUndefined();
+  expect(original.taken).toBeDefined();
 });

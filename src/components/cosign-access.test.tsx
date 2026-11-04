@@ -92,3 +92,15 @@ describe("右端ツール「文書」の「研修医の記録の確認」の引�
     expect(html).toContain("確認済み 1件");
   });
 });
+
+it("研修医の指示簿も確認一覧に並び、確認後は確認者と時刻を残す", () => {
+  const standing = newItems({ patientId: "90010231", by: "研修医 田中", at: { day: 0, time: "11:00" } }, [{ ref: "standing:90010231:2", kind: "指示簿", text: "安静度：室内" }], () => "standing-review");
+  const pending = renderToStaticMarkup(<CosignPanel items={standing} meName="指導医 高橋" onConfirm={() => {}} />);
+  expect(pending).toContain("指示簿");
+  expect(pending).toContain("安静度：室内");
+  expect(pending).toContain("指導医の確認待ち 1件");
+  const confirmed = confirmItems(standing, [standing[0].id], "指導医 高橋", { day: 0, time: "11:30" }).items;
+  const html = renderToStaticMarkup(<CosignPanel items={confirmed} meName="指導医 高橋" onConfirm={() => {}} />);
+  expect(html).toContain("確認 指導医 高橋 11:30");
+  expect(html).not.toContain("指導医の確認待ち 1件");
+});
