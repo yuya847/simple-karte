@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronDown, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
+import { matchesRecordFacets, recordFacetOptions } from "@/lib/record";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS, findSet } from "@/lib/master";
 import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
@@ -68,7 +69,7 @@ interface Props {
   /** What the other tabs show (the flow sheet, the calendars, the results table). */
   views?: LeftViewProps;
   /** A 記録 mark of the flow sheet: show that kind of note only (n renews the list each time). */
-  focus?: { kind: string; n: number };
+  focus?: { kind: string; n: number; noteId?: string };
   /** 外来の受診 before this admission (or an outpatient's past visits), shown under the stay with the clinic's mark. */
   visits?: OpdVisit[];
   /**
@@ -166,7 +167,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} noteId={focus?.noteId} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
       )}
     </section>
   );
@@ -193,6 +194,7 @@ const textOf = (e: HistoryEntry, today: CalendarDate) => (e.kind === "note" ? `$
 
 function RecordList({
   kindInit = "all",
+  noteId,
   patient,
   entries,
   visits = [],
@@ -211,6 +213,7 @@ function RecordList({
   onShown,
 }: {
   kindInit?: string;
+  noteId?: string;
   patient: Patient;
   entries: HistoryEntry[];
   visits?: OpdVisit[];
@@ -236,10 +239,17 @@ function RecordList({
     return patient.labs.some((l) => l.day === c.day && l.time === c.time) ? { day: c.day, time: c.time } : null;
   };
   const [on, setOn] = useState<string[]>(() => catsFor(kindInit));
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
+  const options = recordFacetOptions([
+    ...entries.map((entry) => ({ entry, department: patient.department })),
+    ...visits.flatMap((v) => v.entries.map((entry) => ({ entry, department: v.dept }))),
+  ]);
+  const facetActive = departments.length > 0 || roles.length > 0;
   const [q, setQ] = useState("");
   const toggle = (k: string) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
   // Folding: each card by its key, and 「すべてたたむ」 for the ones not opened by hand since.
-  const [folded, setFolded] = useState<{ all: boolean; each: Record<string, boolean> }>({ all: false, each: {} });
+  const [folded, setFolded] = useState<{ all: boolean; each: Record<string, boolean> }>({ all: false, each: noteId ? { [noteId]: false } : {} });
   // 絞り込みと検索はふだん畳んである（アイコンで開く）。
   const [tools, setTools] = useState<"none" | "filter" | "search">("none");
   // 記録は全部開いた状態が基本。長い記事（12行か600字を超える）だけは畳んでおき、▸ で個別に開く（ユーザーの決め）。
@@ -269,6 +279,11 @@ function RecordList({
     scrolledFor.current = selectedDay;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedDay, aheadOpen]);
+  useEffect(() => {
+    if (!noteId) return;
+    const card = [...(root.current?.querySelectorAll<HTMLElement>("[data-note-key]") ?? [])].find((el) => el.dataset.noteKey === noteId);
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [noteId]);
   // 「依頼 11/4」 on a plan: open the order's card (on the day it was written) and scroll to it.
   const jumpToOrder = (id: string) => {
     const group = sections.flatMap((s) => groupRx(s.entries)).find((g) => g.some((e) => e.kind === "order" && e.id === id));
@@ -283,10 +298,10 @@ function RecordList({
 
   const keep = (e: HistoryEntry) => showStopped || e.kind !== "order" || e.status !== "中止";
   const key = searchKey(q.trim());
-  const pick = (e: HistoryEntry) => CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key));
+  const pick = (e: HistoryEntry, department = patient.department) => matchesRecordFacets(e, department, departments, roles) && CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key));
   const visible = [...entries, ...visits.flatMap((v) => v.entries)].filter(keep);
-  const shown = entries.filter(keep).filter(pick);
-  const narrowed = on.length !== ALL_CATS.length || !!key;
+  const shown = entries.filter(keep).filter((e) => pick(e));
+  const narrowed = on.length !== ALL_CATS.length || !!key || facetActive;
   // The filters apply to the visits before the admission as they do to the stay, and to the plans (through their
   // order; an operation of the OR list has no order and stays).
   const shownIds = new Set(shown.filter((e) => e.kind === "order").map((e) => e.id));
@@ -294,7 +309,7 @@ function RecordList({
   const sections = daySections(
     patient.admittedOn,
     shown,
-    visits.map((v) => ({ ...v, entries: v.entries.filter(keep).filter(pick) })),
+    visits.map((v) => ({ ...v, entries: v.entries.filter(keep).filter((e) => pick(e, v.dept)) })),
     planned,
     narrowed,
     keepPlan,
@@ -331,9 +346,9 @@ function RecordList({
       <div className="space-y-1.5 border-b border-rule-soft px-4 py-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
           <span role="group" aria-label="絞り込みと検索" className="flex items-center gap-1">
-            <button type="button" onClick={() => setTools((t) => (t === "filter" ? "none" : "filter"))} aria-pressed={tools === "filter"} aria-label="絞り込み" title="職種・オーダの種類で絞る" className={`relative rounded p-1 ${tools === "filter" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
+            <button type="button" onClick={() => setTools((t) => (t === "filter" ? "none" : "filter"))} aria-pressed={tools === "filter"} aria-label="絞り込み" title="種類・診療科・部署（職種）で絞る" className={`relative rounded p-1 ${tools === "filter" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
               <Filter size={14} />
-              {on.length !== ALL_CATS.length && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
+              {(on.length !== ALL_CATS.length || facetActive) && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
             </button>
             <button type="button" onClick={() => setTools((t) => (t === "search" ? "none" : "search"))} aria-pressed={tools === "search"} aria-label="記録の中を探す" title="記録の中を探す（ひらがな可）" className={`relative rounded p-1 ${tools === "search" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
               <Search size={14} />
@@ -365,6 +380,17 @@ function RecordList({
               ))}
             </span>
           ))}
+          {tools === "filter" && ([
+            { label: "診療科", values: options.departments, selected: departments, set: setDepartments },
+            { label: "部署（職種）", values: options.roles, selected: roles, set: setRoles },
+          ]).map(({ label, values, selected, set }) => (
+            <span key={label} role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
+              <span className="text-ink-faint">{label}</span>
+              {values.map((value) => <label key={value} className="flex cursor-pointer items-center gap-0.5">
+                <input type="checkbox" checked={selected.includes(value)} className="accent-ai" onChange={() => set((cur) => cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value])} />{value}
+              </label>)}
+            </span>
+          ))}
           {tools === "search" && (
           <label className="flex min-w-40 flex-1 items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
             <Search size={13} className="shrink-0 text-ink-faint" />
@@ -381,13 +407,15 @@ function RecordList({
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
               {on.length !== ALL_CATS.length ? `${CATS.filter((c) => on.includes(c.key)).map((c) => c.label).join("・") || "なし"}` : ""}
-              {key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shownCount}件
+              {[...departments, ...roles].join("・")}{key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shownCount}件
             </b>
             <button
               type="button"
               onClick={() => {
                 setOn(ALL_CATS);
                 setQ("");
+                setDepartments([]);
+                setRoles([]);
               }}
               className="ml-auto underline"
             >
@@ -451,7 +479,7 @@ function RecordList({
               const e = group[0];
               const k = e.kind === "note" ? noteKey(e) : e.id;
               return (
-                <li key={`${d}-${i}`}>
+                <li key={`${d}-${i}`} data-note-key={e.kind === "note" ? k : undefined}>
                   {e.kind === "note" ? (
                     <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
                   ) : group.length > 1 ? (

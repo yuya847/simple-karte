@@ -322,7 +322,7 @@ interface ChartState {
   /** The left tab (経過・経過表・内服歴・注射歴・検査結果). */
   leftView: LeftView;
   /** A 記録 mark of the flow sheet: the left record shows that kind of note only (n renews it each time). */
-  recordFocus?: { kind: string; n: number };
+  recordFocus?: { kind: string; n: number; noteId?: string };
   /** The flow sheet's zoom, shared by the left tab and its own window. */
   flowScale?: FlowScale;
   /** The right side: writing the note, or entering injections / oral drugs by Rp. */
@@ -2058,7 +2058,7 @@ export default function WardApp() {
         ? {
             scale: chart.flowScale ?? "all",
             onScale: (s) => update({ flowScale: s }),
-            onOpenRecord: (day, kind) => update((c) => ({ leftView: "record", selectedDay: day, recordFocus: { kind, n: (c.recordFocus?.n ?? 0) + 1 } })),
+            onOpenRecord: (day, kind, noteId) => update((c) => ({ leftView: "record", selectedDay: day, recordFocus: { kind, noteId, n: (c.recordFocus?.n ?? 0) + 1 } })),
             pendingLabs: pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime)),
             mar: { records: mar, sessionStart: sessionStart ?? abs(0, nowTime) },
             // セルから入力: the same entries as the worksheet and the tools (the drawer checks the role again).

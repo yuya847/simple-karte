@@ -45,6 +45,9 @@ describe("救急外来・外来の患者のカルテの言葉", () => {
   it("the date tree starts with 今回の受診 and the date (no 〜), and the day says 今日", () => {
     const tree = renderToStaticMarkup(<DateTree patient={nagai} entries={nagai.history} today={today} selectedDay={null} onSelect={() => {}} />);
     expect(tree).toContain("今回の受診");
+    expect(tree).not.toMatch(/記事 <!-- -->|オーダ <!-- -->/);
+    expect(tree).toContain("shrink-0 whitespace-nowrap text-[11px]");
+    expect(tree).toContain("whitespace-nowrap text-[13px]");
     expect(tree).toContain("11/4（水）");
     expect(tree).not.toContain("〜");
     expect(tree).not.toContain("入院");

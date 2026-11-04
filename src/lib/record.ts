@@ -1,6 +1,7 @@
 // The record as it stands now: the stored history, with today's stops applied and
 // today's confirmed orders added.
 
+import { STAFF } from "./roles";
 import { noteKey } from "./notes";
 import type { HistoryEntry, NoteEntry, OrderEntry, Patient } from "./types";
 
@@ -31,3 +32,20 @@ export function currentEntries(patient: Patient, changes?: SessionChanges): Hist
 }
 
 export const ordersOf = (entries: HistoryEntry[]) => entries.filter((e): e is OrderEntry => e.kind === "order");
+
+/** 記事に科の項目がないため、記録の属する受診・入院の科を使う。 */
+export function recordFacets(e: HistoryEntry, department: string) {
+  const staff = Object.values(STAFF).find((s) => s.name === e.author);
+  return { department, role: e.kind === "note" ? e.role : staff?.role ?? "医師" };
+}
+
+/** 同じ項目内は複数選択のいずれか、科と職種の間は両方を満たす。空は制限なし。 */
+export function matchesRecordFacets(e: HistoryEntry, department: string, departments: string[], roles: string[]): boolean {
+  const f = recordFacets(e, department);
+  return (!departments.length || departments.includes(f.department)) && (!roles.length || roles.includes(f.role));
+}
+
+export function recordFacetOptions(records: { entry: HistoryEntry; department: string }[]) {
+  const facets = records.map(({ entry, department }) => recordFacets(entry, department));
+  return { departments: [...new Set(facets.map((f) => f.department))].sort(), roles: [...new Set(facets.map((f) => f.role))].sort() };
+}

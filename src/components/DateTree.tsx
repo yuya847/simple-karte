@@ -44,11 +44,6 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
     months.set(key, [...(months.get(key) ?? []), d]);
   }
 
-  const counts = (d: DayOffset) => ({
-    notes: entries.filter((e) => e.day === d && e.kind === "note").length,
-    orders: entries.filter((e) => e.day === d && e.kind === "order").length,
-  });
-
   const admissionKey = "admission";
   const kind = stayKindOf(patient);
   const top = stayTitle(kind);
@@ -69,12 +64,11 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
         [...months.entries()].map(([month, ds]) => (
           <div key={month}>
             <TreeToggle open={!closed[month]} onClick={() => toggle(month)} depth={1}>
-              <span className="nums text-ink-soft">{month}</span>
+              <span className="nums whitespace-nowrap text-[13px] text-ink-soft">{month}</span>
             </TreeToggle>
             {!closed[month] && (
               <ul>
                 {ds.map((d) => {
-                  const c = counts(d);
                   const selected = d === selectedDay;
                   return (
                     <li key={d}>
@@ -82,21 +76,15 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
                         type="button"
                         onClick={() => onSelect(d)}
                         aria-current={selected ? "date" : undefined}
-                        className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-left ${
+                        className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-[13px] text-left ${
                           selected ? "bg-ai text-white" : "hover:bg-sheet"
                         }`}
                       >
-                        <span className={d === 0 ? "font-bold" : ""}>{formatShort(addDays(today, d))}</span>
-                        <span className={`ml-auto text-[11px] ${selected ? "text-white/80" : "text-ink-faint"}`}>
+                        <span className={`whitespace-nowrap ${d === 0 ? "font-bold" : ""}`}>{formatShort(addDays(today, d))}</span>
+                        <span className={`ml-auto shrink-0 whitespace-nowrap text-[11px] ${selected ? "text-white/80" : "text-ink-faint"}`}>
                           {treeDayTag(kind, patient.admittedOn, d)}
                         </span>
                       </button>
-                      {(c.notes > 0 || c.orders > 0) && (
-                        <div className={`nums pb-1 pl-9 text-[10px] ${selected ? "bg-ai text-white/80" : "text-ink-faint"}`}>
-                          {c.notes > 0 && <span className="mr-2">記事 {c.notes}</span>}
-                          {c.orders > 0 && <span>オーダ {c.orders}</span>}
-                        </div>
-                      )}
                     </li>
                   );
                 })}
@@ -124,9 +112,9 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
                       onClick={() => onSelect(day)}
                       aria-current={selected ? "date" : undefined}
                       title={items.map((p) => `${p.time ?? ""} ${p.kind} ${p.verb} ${p.label}`.trim()).join("\n")}
-                      className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}
+                      className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-[13px] text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}
                     >
-                      <span>{formatShort(addDays(today, day))}</span>
+                      <span className="whitespace-nowrap">{formatShort(addDays(today, day))}</span>
                       <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{planDayLabel(items)}</span>
                     </button>
                   </li>
@@ -150,8 +138,8 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
                   const selected = v.day === selectedDay;
                   return (
                     <li key={v.day}>
-                      <button type="button" onClick={() => onSelect(v.day)} aria-current={selected ? "date" : undefined} className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}>
-                        <span>{formatShort(addDays(today, v.day))}</span>
+                      <button type="button" onClick={() => onSelect(v.day)} aria-current={selected ? "date" : undefined} className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-[13px] text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}>
+                        <span className="whitespace-nowrap">{formatShort(addDays(today, v.day))}</span>
                         <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{v.dept}</span>
                       </button>
                     </li>

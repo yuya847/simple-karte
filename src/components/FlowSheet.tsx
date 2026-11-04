@@ -34,7 +34,7 @@ import { FlowStickyLane } from "./FlowStickyLane";
 import { notesIn, type GraphNote } from "@/lib/flow-stickies";
 import { FlowGlucoseRows, FlowOralRows, type FlowMar } from "./FlowMedRows";
 import { glucosePoints, insulinOrders, isGlucoseCare } from "@/lib/flow-meds";
-import type { NoteGroupKey } from "@/lib/flow-notes";
+import { nursingNotesByTime, type NoteGroupKey } from "@/lib/flow-notes";
 import { FlowNoteRows, WriteNoteButton } from "./FlowNoteRows";
 import { FlowGroup, FlowLayoutPanel } from "./FlowLayoutPanel";
 import { FLOW_GROUPS, careShown, groupOrder, groupShown, type FlowGroupKey, type FlowLayout } from "@/lib/flow-layout";
@@ -90,7 +90,7 @@ export interface FlowSheetProps {
   /** 与薬の記録 (MAR) for the 内服 and insulin rows (else those of the IN/OUT). */
   mar?: FlowMar;
   /** Open a day of 経過 with one kind of note (the 記録 marks), and start a note on the right. */
-  onOpenRecord?: (day: DayOffset, kind: NoteGroupKey) => void;
+  onOpenRecord?: (day: DayOffset, kind: NoteGroupKey, noteId?: string) => void;
   onWriteNote?: () => void;
   /** The scale to open on (入院から when not given). */
   initialScale?: FlowScale;
@@ -364,6 +364,18 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
               }}
             />
           )}
+
+          {show("vitals.nursing") && <div className="flex border-b border-rule-soft">
+            <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: LABEL_W }}>看護記録</div>
+            <div className="relative flex-1" style={{ minHeight: 28 }}>
+              {days.flatMap((d) => nursingNotesByTime(entries, d)).filter((n) => inWin(abs(n.day, n.time))).map((n, i) => (
+                <button key={n.key} type="button" disabled={!onOpenRecord} title={n.full} aria-label={`${n.time} ${n.summary}を経過で開く`}
+                  onClick={() => onOpenRecord?.(n.day, "nurse", n.key)}
+                  className="relative block truncate rounded border border-wakatake/40 bg-sheet px-1 text-left text-[10px] text-wakatake hover:bg-paper"
+                  style={{ marginLeft: Math.max(0, x(n.day, n.time)), maxWidth: Math.max(40, plotW - Math.max(0, x(n.day, n.time))) }} data-nursing-note={i}>{n.summary || "看護記録"}</button>
+              ))}
+            </div>
+          </div>}
 
           {hovered && <Tooltip v={hovered} left={LABEL_W + x(hovered.day, hovered.time)} plotW={plotW} today={today} />}
         </div>

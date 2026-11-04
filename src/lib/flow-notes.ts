@@ -1,6 +1,7 @@
 // 記録 on the flow sheet (経過表): how many notes each day has, by who wrote them (医師・看護師・ほかの職種),
 // so that the day's record can be opened from the sheet. Code only counts.
 
+import { noteKey, noteText } from "./notes";
 import { minutesOf } from "./dates";
 import type { DayOffset, HistoryEntry, NoteEntry } from "./types";
 
@@ -37,4 +38,15 @@ export function noteTimes(entries: HistoryEntry[]): { at: number; group: NoteGro
     const g = NOTE_GROUPS.find((x) => x.test(e))!;
     return [{ at: e.day * 1440 + minutesOf(e.time), group: g.key, line: `${e.time} ${e.role} ${e.author}`, day: e.day }];
   });
+}
+
+/** 看護師の現在の本文を記録時刻順に返す。同じ時刻の記事も残す。 */
+export function nursingNotesByTime(entries: HistoryEntry[], day: DayOffset) {
+  return entries.filter((e): e is NoteEntry => e.kind === "note" && e.role === "看護師" && e.day === day)
+    .sort((a, b) => minutesOf(a.time) - minutesOf(b.time))
+    .map((e) => {
+      const full = noteText(e);
+      const first = (e.soap?.s?.trim() || e.soap?.o?.trim() || e.timeline?.[0]?.text?.trim() || e.focus?.[0]?.d?.trim() || full).split("\n")[0];
+      return { key: noteKey(e), day, time: e.time, full, summary: Array.from(first).slice(0, 40).join("") };
+    });
 }
