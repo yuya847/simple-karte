@@ -1320,8 +1320,8 @@ export default function WardApp() {
       rightTab: injWin ? c.rightTab : "injection",
       flash: from ? "同じ内容を注射のタブに写しました（Do）。開始日を確かめ、下書きにしてください。" : "開始の日時を注射のタブに入れました。薬を選んで下書きにし、記事の下で確定してください。",
     }));
+    // The 注射 tab itself puts the focus on the Rp that took the start (the first box would be the wrong Rp when Rp1 is filled).
     if (injWin) toFront("injection");
-    focusRightTab("injection");
   };
   const pendingNewInj = chart.drafts.filter((d): d is InjectionDraft => d.kind === "injection");
   // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
