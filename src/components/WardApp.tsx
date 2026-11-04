@@ -109,7 +109,8 @@ import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/prof
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
-import { ackLine, condHits, openHits, type CondAck, INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/cond-orders";
+import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
+import { INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/standing-lines";
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
