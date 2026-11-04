@@ -118,7 +118,8 @@ import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
 import { INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/standing-lines";
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
-import { HistoryPane, type LeftView } from "./HistoryPane";
+import { HistoryPane } from "./HistoryPane";
+import { RefWindow, REF_TABS, isRefTab, type RefWindowProps } from "./RefWindows";
 import { PatientBar } from "./PatientBar";
 import { PatientPicker } from "./PatientPicker";
 import { PatientList, type GroupBy } from "./PatientList";
@@ -152,7 +153,7 @@ import {
 import { verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
-import { RightTabs, type RightTab } from "./RightTabs";
+import { RIGHT_TABS, RightTabs, WINDOW_TABS, type RightTab } from "./RightTabs";
 import { Dockable, defaultWin, type Win } from "./Dockable";
 import { InjectionCalendar } from "./Calendars";
 import { WardMap, type ChartSummary, type Pick } from "./WardMap";
@@ -298,7 +299,8 @@ const DOCTOR = STAFF.医師.name;
 interface ChartState {
   selectedDay: DayOffset | null;
   showStopped: boolean;
-  leftView: LeftView;
+  /** A 記録 mark of the flow sheet: the left record shows that kind of note only (n renews it each time). */
+  recordFocus?: { kind: string; n: number };
   /** The right side: writing the note, or entering injections / oral drugs by Rp. */
   rightTab: RightTab;
   /** Tabs open on the right besides 記事作成 (opened from the tools, closed with ×). */
@@ -354,7 +356,6 @@ function applyChart(all: Record<string, ChartState>, id: string, role: string, p
 const newChart = (): ChartState => ({
   selectedDay: null,
   showStopped: false,
-  leftView: "record",
   rightTab: "note",
   // 注射 and 内服 are there from the start; each closes with × and opens again from the tools.
   openTabs: ["injection", "rx"],
@@ -1345,9 +1346,9 @@ export default function WardApp() {
   const pendingExtends: Record<string, number> = Object.fromEntries(chart.drafts.flatMap((d) => (d.kind === "extend" ? [[d.targetOrderId, d.addDays]] : [])));
   const toFront = (t: RightTab) => setZOrder((z) => [...z.filter((x) => x !== t), t]);
   const openRight = (t: RightTab) => {
-    // The injection calendar opens in its own large window (where this browser last had it), not in the right column.
-    const win = t === "injcal" && !floating.injcal && !chart.openTabs.includes("injcal") ? (keptWin("injcal", window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight)) : undefined;
-    if (win) setFloating((f) => ({ ...f, injcal: win }));
+    // The injection calendar and the reading tabs open in their own large window (where this browser last had it), not in the right column.
+    const win = WINDOW_TABS.has(t) && !floating[t] && !chart.openTabs.includes(t) ? (keptWin(t, window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight)) : undefined;
+    if (win) setFloating((f) => ({ ...f, [t]: win }));
     const away = !!floating[t] || !!win;
     update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: away ? c.rightTab : t }));
     if (away) toFront(t);
@@ -1882,7 +1883,6 @@ export default function WardApp() {
       .filter(([k]) => !k.includes("|"))
       .map(([id, c]) => [id, { drafts: charts[deskKeyOf(id, desk)]?.drafts.length ?? 0, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
   );
-  const wideLeft = chart.leftView !== "record";
 
   // 新しいタブ (＋ on ③, or on ② in 救急外来・外来): find a patient and open the chart under that tab.
   const openNewTab = (o: Owner) => {
@@ -2710,12 +2710,8 @@ export default function WardApp() {
           <DrawerDefaults.Provider value={{ panel, windowed: WINDOW_PANELS }}>
           <div
             data-drawer-bounds
-            className={`grid min-h-0 flex-1 ${
-              // Narrow screens (iPad held upright) drop the date column; the record still scrolls by day.
-              wideLeft
-                ? "grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto] lg:grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_auto]"
-                : "grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] lg:grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_auto]"
-            }`}
+            // Narrow screens (iPad held upright) drop the date column; the record still scrolls by day.
+            className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] lg:grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_auto]"
           >
             <div className="hidden min-h-0 lg:block">
               <DateTree patient={patient} entries={entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} />
@@ -2755,92 +2751,12 @@ export default function WardApp() {
               coedit={presence.coedit}
               entries={entries}
               today={today}
-              nowTime={nowTime}
               selectedDay={chart.selectedDay}
-              onSelectDay={(d) => update({ selectedDay: d })}
               showStopped={chart.showStopped}
               onToggleStopped={() => update({ showStopped: !chart.showStopped })}
-              view={chart.leftView}
-              onView={(v) => update({ leftView: v })}
-              onStopDraft={addStopDraft}
-              onExtendDraft={extendDraft}
-              pendingExtends={pendingExtends}
-              marOf={(id, at) => mar[`${id}|${at}`]}
-              io={{ typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null }}
-              onModify={modifyOrder}
-              onNewInjection={!deny("order") ? newInjection : undefined}
-              pendingNew={pendingNewInj}
-              care={{ orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) }}
-              standingCal={{ lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason) => stopStandingLine(patient.id, id, reason), onOpenPanel: () => setPanel("standing") }}
-              takeBadgeOf={(id) => orderTakeBadge(id, allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k))), takeCtx)}
-              flowDays={{
-                surgeries: surgeries.filter((x) => x.patientId === patient.id),
-                events: flowEvents.filter((x) => x.patientId === patient.id),
-                meName: me.name,
-                onAddEvent: deny("vitals")
-                  ? undefined
-                  : (ev) => {
-                      auditLog({ role: me.role, actor: me.name, action: "経過表に数える日を足した", patient: patient.name, detail: `${ev.label}（${formatShort(addDays(today, ev.day))}）` });
-                      setFlowEvents((all) => [...all, { ...ev, id: newId(), patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }]);
-                    },
-                onRemoveEvent: (id) => setFlowEvents((all) => all.filter((x) => x.id !== id || x.by !== me.name)),
-              }}
-              flow={
-                chart.leftView === "flowsheet"
-                  ? {
-                      pendingLabs: pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime)),
-                      mar: { records: mar, sessionStart: sessionStart ?? abs(0, nowTime) },
-                      // セルから入力: the same entries as the worksheet and the tools (the drawer checks the role again).
-                      onEntry: (req) => {
-                        setFlowReq(req);
-                        setPanel(req.kind === "vitals" ? "vitals" : req.kind === "io" ? "io" : "flow-entry");
-                      },
-                      onPrint: () => auditLog({ role: me.role, actor: me.name, action: "経過表（温度板）を印刷", patient: patient.name }),
-                      graphNotes: graphNotes.filter((n) => n.patientId === patient.id),
-                      onAddNote: deny("note")
-                        ? undefined
-                        : (n) => {
-                            auditLog({ role: me.role, actor: me.name, action: "経過表に付箋を貼った", patient: patient.name, detail: n.text });
-                            setGraphNotes((all) => [...all, { ...n, id: newId(), patientId: patient.id, by: me.name, role: me.role, written: { day: 0, time: nowTime } }]);
-                          },
-                      onRemoveNote: (id) => {
-                        const n = graphNotes.find((x) => x.id === id);
-                        if (!n || n.by !== me.name) return;
-                        auditLog({ role: me.role, actor: me.name, action: "経過表の付箋をはがした", patient: patient.name, detail: n.text });
-                        setGraphNotes((all) => all.filter((x) => x.id !== id));
-                      },
-                      untaken: untakenOf(allTakeRows.filter((r) => r.patientId === patient.id && !isRowTaken(r) && r.keys.some((k) => sessionKeys.has(k))).flatMap((r) => r.keys)),
-                      onWriteNote: deny("note")
-                        ? undefined
-                        : () => {
-                            update((c) => ({ rightTab: floating.note ? c.rightTab : "note" }));
-                            requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="記事"]')?.focus());
-                          },
-                    }
-                  : undefined
-              }
-              draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
-              onInsertVitals={(text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" }))}
+              focus={chart.recordFocus}
               onDo={doFromHistory}
-              diets={diets}
-              onOpenDiet={() => setPanel("diet")}
-              moves={moveEventsOf(patient.id)}
-              onBook={(day: number, what: BookWhat) => {
-                // A discharged patient has no bed to move from.
-                if (patient.dischargedAt) return update({ flash: "この患者は退院済みです。移動や退院の予約はできません。" });
-                if (what === "move" || what === "dept") setBooking({ day, what });
-                else if (what === "退院" || what === "外泊") {
-                  setLeavePreset(day);
-                  setPanel(what === "退院" ? "add-discharge" : "add-leave");
-                }
-              }}
-              onDoMove={deny("bed.move") ? undefined : doMove}
-              bookings={bookingsOf(
-                entries.filter((e): e is OrderEntry => e.kind === "order"),
-                surgeries.filter((x) => x.patientId === patient.id),
-                today,
-                abs(0, nowTime),
-              )}
+              takeBadgeOf={(id) => orderTakeBadge(id, allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k))), takeCtx)}
               onOpenImage={(id) => {
                 setImageFocus(id);
                 setPanel("imaging");
@@ -2975,8 +2891,8 @@ export default function WardApp() {
                     dockedClass={dockedClass}
                     onMove={(w) => {
                       setFloating((f) => ({ ...f, [t]: w }));
-                      // The calendar's window is remembered in this browser only (this device).
-                      if (t === "injcal") keepWin("injcal", w);
+                      // A calendar's window is remembered in this browser only (this device).
+                      if (WINDOW_TABS.has(t)) keepWin(t, w);
                     }}
                     onDock={() => {
                       setFloating((f) => ({ ...f, [t]: undefined }));
@@ -2988,6 +2904,90 @@ export default function WardApp() {
                   </Dockable>
                 );
                 const pane = "scroll-thin min-h-0 flex-1 overflow-y-auto bg-sheet px-4 py-3";
+                // The reading windows (経過表・内服・処置・移動・食事・指示簿・予約): what each shows and does.
+                const refProps: RefWindowProps = {
+                  patient,
+                  entries,
+                  today,
+                  nowTime,
+                  selectedDay: chart.selectedDay,
+                  onSelectDay: (d) => update({ selectedDay: d }),
+                  onStopDraft: addStopDraft,
+                  onExtendDraft: extendDraft,
+                  pendingExtends: pendingExtends,
+                  marOf: (id, at) => mar[`${id}|${at}`],
+                  io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null },
+                  onModify: modifyOrder,
+                  care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) },
+                  standingCal: { lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason) => stopStandingLine(patient.id, id, reason), onOpenPanel: () => setPanel("standing") },
+                  flowDays: {
+                    surgeries: surgeries.filter((x) => x.patientId === patient.id),
+                    events: flowEvents.filter((x) => x.patientId === patient.id),
+                    meName: me.name,
+                    onAddEvent: deny("vitals")
+                      ? undefined
+                      : (ev) => {
+                          auditLog({ role: me.role, actor: me.name, action: "経過表に数える日を足した", patient: patient.name, detail: `${ev.label}（${formatShort(addDays(today, ev.day))}）` });
+                          setFlowEvents((all) => [...all, { ...ev, id: newId(), patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }]);
+                        },
+                    onRemoveEvent: (id) => setFlowEvents((all) => all.filter((x) => x.id !== id || x.by !== me.name)),
+                  },
+                  flow:
+                    chart.openTabs.includes("flowsheet")
+                      ? {
+                          onOpenRecord: (day, kind) => update((c) => ({ selectedDay: day, recordFocus: { kind, n: (c.recordFocus?.n ?? 0) + 1 } })),
+                          pendingLabs: pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime)),
+                          mar: { records: mar, sessionStart: sessionStart ?? abs(0, nowTime) },
+                          // セルから入力: the same entries as the worksheet and the tools (the drawer checks the role again).
+                          onEntry: (req) => {
+                            setFlowReq(req);
+                            setPanel(req.kind === "vitals" ? "vitals" : req.kind === "io" ? "io" : "flow-entry");
+                          },
+                          onPrint: () => auditLog({ role: me.role, actor: me.name, action: "経過表（温度板）を印刷", patient: patient.name }),
+                          graphNotes: graphNotes.filter((n) => n.patientId === patient.id),
+                          onAddNote: deny("note")
+                            ? undefined
+                            : (n) => {
+                                auditLog({ role: me.role, actor: me.name, action: "経過表に付箋を貼った", patient: patient.name, detail: n.text });
+                                setGraphNotes((all) => [...all, { ...n, id: newId(), patientId: patient.id, by: me.name, role: me.role, written: { day: 0, time: nowTime } }]);
+                              },
+                          onRemoveNote: (id) => {
+                            const n = graphNotes.find((x) => x.id === id);
+                            if (!n || n.by !== me.name) return;
+                            auditLog({ role: me.role, actor: me.name, action: "経過表の付箋をはがした", patient: patient.name, detail: n.text });
+                            setGraphNotes((all) => all.filter((x) => x.id !== id));
+                          },
+                          untaken: untakenOf(allTakeRows.filter((r) => r.patientId === patient.id && !isRowTaken(r) && r.keys.some((k) => sessionKeys.has(k))).flatMap((r) => r.keys)),
+                          onWriteNote: deny("note")
+                            ? undefined
+                            : () => {
+                                update((c) => ({ rightTab: floating.note ? c.rightTab : "note" }));
+                                requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="記事"]')?.focus());
+                              },
+                        }
+                      : undefined,
+                  draftedStops: chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : [])),
+                  onInsertVitals: (text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" })),
+                  diets: diets,
+                  onOpenDiet: () => setPanel("diet"),
+                  moves: moveEventsOf(patient.id),
+                  onBook: (day: number, what: BookWhat) => {
+                    // A discharged patient has no bed to move from.
+                    if (patient.dischargedAt) return update({ flash: "この患者は退院済みです。移動や退院の予約はできません。" });
+                    if (what === "move" || what === "dept") setBooking({ day, what });
+                    else if (what === "退院" || what === "外泊") {
+                      setLeavePreset(day);
+                      setPanel(what === "退院" ? "add-discharge" : "add-leave");
+                    }
+                  },
+                  onDoMove: deny("bed.move") ? undefined : doMove,
+                  bookings: bookingsOf(
+                    entries.filter((e): e is OrderEntry => e.kind === "order"),
+                    surgeries.filter((x) => x.patientId === patient.id),
+                    today,
+                    abs(0, nowTime),
+                  ),
+                };
                 return (
                   <>
                     {docked === null && <p className="flex-1 bg-sheet p-6 text-sm text-ink-faint">右の欄のタブは、すべて別ウインドウで表示しています。ウインドウの「右の欄に戻す」で戻せます。</p>}
@@ -3096,6 +3096,7 @@ export default function WardApp() {
                           pendingNew={pendingNewInj}
                         />,
                       )}
+                    {chart.openTabs.filter(isRefTab).map((t) => dock(t, RIGHT_TABS[t].label, "flex min-h-0 flex-1 flex-col bg-sheet", <RefWindow tab={t} {...refProps} />))}
                   </>
                 );
               })()}
@@ -3944,6 +3945,7 @@ export default function WardApp() {
               }}
               blocked={blocked}
               injectionCalendar={{ on: chart.openTabs.includes("injcal") && (chart.rightTab === "injcal" || !!floating.injcal), open: () => openRight("injcal") }}
+              calendars={REF_TABS.map((t) => ({ key: t, label: RIGHT_TABS[t].label, title: RIGHT_TABS[t].title, icon: RIGHT_TABS[t].icon, on: chart.openTabs.includes(t) && (chart.rightTab === t || !!floating[t]), open: () => openRight(t) }))}
             />
           </div>
           </DrawerDefaults.Provider>

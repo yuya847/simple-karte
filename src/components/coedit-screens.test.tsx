@@ -26,7 +26,7 @@ const coedit = (editors: NoteEditor[]): Coedit => ({ myTab: "tab-a", editors: (k
 
 describe("記事の同時編集の画面", () => {
   it("shows the other person's text as they type it, with their caret, in place of the note", () => {
-    const html = as("医師", <HistoryPane patient={sakura} coedit={coedit([editor])} onReviseNote={() => {}} entries={[...sakura.history, note]} today={today} nowTime="10:00" selectedDay={null} onSelectDay={() => {}} showStopped={false} onToggleStopped={() => {}} view="record" onView={() => {}} onStopDraft={() => {}} draftedStops={[]} />);
+    const html = as("医師", <HistoryPane patient={sakura} coedit={coedit([editor])} onReviseNote={() => {}} entries={[...sakura.history, note]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />);
     expect(html).toContain("さんが編集中");
     expect(html).toContain("S) 熱はない。咳が少し");
     expect(html).toContain('aria-label="看護師 佐藤のカーソル"');
@@ -36,10 +36,10 @@ describe("記事の同時編集の画面", () => {
   });
 
   it("without someone correcting, the note is shown as before; a reader who may not correct sees no 一緒に直す", () => {
-    const plain = as("医師", <HistoryPane patient={sakura} coedit={coedit([])} entries={[...sakura.history, note]} today={today} nowTime="10:00" selectedDay={null} onSelectDay={() => {}} showStopped={false} onToggleStopped={() => {}} view="record" onView={() => {}} onStopDraft={() => {}} draftedStops={[]} />);
+    const plain = as("医師", <HistoryPane patient={sakura} coedit={coedit([])} entries={[...sakura.history, note]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />);
     expect(plain).not.toContain("さんが編集中");
     expect(plain).toContain("熱はない");
-    const reader = as("医事課", <HistoryPane patient={sakura} coedit={coedit([editor])} entries={[...sakura.history, note]} today={today} nowTime="10:00" selectedDay={null} onSelectDay={() => {}} showStopped={false} onToggleStopped={() => {}} view="record" onView={() => {}} onStopDraft={() => {}} draftedStops={[]} />);
+    const reader = as("医事課", <HistoryPane patient={sakura} coedit={coedit([editor])} entries={[...sakura.history, note]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />);
     expect(reader).toContain("さんが編集中");
     expect(reader).not.toContain("一緒に直す");
   });

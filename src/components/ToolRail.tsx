@@ -18,8 +18,8 @@ type GroupKey = "order" | "nurse" | "docs" | "ref" | "billing";
 
 /**
  * The tools, each group with the ones used most on top and the rest under 「その他」. 注射 and 内服 are not
- * here: they are the tabs on the right (記事作成・注射・内服). The calendars and the flow sheet are the tabs
- * over the left pane.
+ * here: they are the tabs on the right (記事作成・注射・内服). The calendars and the flow sheet are under 参照
+ * (the `injectionCalendar` and `calendars` props): each opens in its own large window.
  */
 const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
   {
@@ -115,6 +115,8 @@ interface Props {
   blocked?: Partial<Record<PanelKind, string>>;
   /** The injection calendar opens in its own large window (it is for making and changing orders, not only reading). */
   injectionCalendar?: { on: boolean; open: () => void };
+  /** The other reading windows (経過表・内服・処置・移動・食事・指示簿・予約), shown after the injection calendar under 参照. */
+  calendars?: { key: string; label: string; title?: string; icon: LucideIcon; on: boolean; open: () => void }[];
   /** Counts shown as a red circle on a tool's icon (e.g. 未確認の結果 on 検査結果); urgent = a panic value among them. */
   badges?: Partial<Record<PanelKind, { n: number; urgent?: boolean }>>;
 }
@@ -150,7 +152,7 @@ function saveRail(person: string, v: { mode: RailMode; pins: PanelKind[] }) {
  * tab in three columns of icons (or a list with names), and above them an お気に入り bar with the tools
  * this person pinned (★). The pins and the look are kept per person in this browser.
  */
-export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, badges = {} }: Props) {
+export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, calendars = [], badges = {} }: Props) {
   const me = useMe();
   const groups = orderFor(me.role).map((k) => GROUPS.find((g) => g.key === k)!);
   const [tab, setTab] = useState<GroupKey>(groups[0].key);
@@ -241,6 +243,16 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, badges
             注射カレンダー
           </button>
         )}
+        {group.key === "ref" &&
+          calendars.map((c) => {
+            const Icon = c.icon;
+            return (
+              <button key={c.key} type="button" title={`${c.title ?? c.label}（大きな別ウインドウで開きます。「右の欄に戻す」で右のタブにできます）`} onClick={c.open} aria-pressed={c.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${c.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, c.on)}>
+                <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
+                <span className={list ? "truncate" : ""}>{c.label}</span>
+              </button>
+            );
+          })}
         {[...group.main, ...group.more].map((t) => tile(t, "tab"))}
       </div>
     </aside>

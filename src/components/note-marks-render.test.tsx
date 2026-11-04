@@ -37,7 +37,7 @@ describe("記事の太字・見出しの表示", () => {
     const revised = reviseNote(note, "S) 痛みなし\nA)\n＃1 尿路感染症\n  CRP **改善**\n＃2 高血圧\nP) CTRX 継続", "山本（専攻医）", { day: 0, time: "09:30" }, "追記");
     const html = as(
       "医師",
-      <HistoryPane patient={sakura} entries={[...sakura.history, revised]} today={today} nowTime="10:00" selectedDay={null} onSelectDay={() => {}} showStopped={false} onToggleStopped={() => {}} view="record" onView={() => {}} onStopDraft={() => {}} draftedStops={[]} />,
+      <HistoryPane patient={sakura} entries={[...sakura.history, revised]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />,
     );
     expect(html).toContain('<b class="text-ink">＃1 尿路感染症</b>');
     expect(html).toContain("<b>改善</b>");

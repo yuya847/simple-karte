@@ -73,7 +73,7 @@ describe("左の経過", () => {
   const revised = reviseNote(late, "# 転倒\nD) ベッドの横に座り込んでいた\nAct) 当直医へ報告\nR) 痛みの訴えなし。朝まで良眠", "看護師 佐藤", { day: 0, time: "09:00" }, "追記");
   const html = as(
     "看護師",
-    <HistoryPane patient={sakura} entries={[...sakura.history, revised]} today={today} nowTime="10:00" selectedDay={null} onSelectDay={() => {}} showStopped={false} onToggleStopped={() => {}} view="record" onView={() => {}} onStopDraft={() => {}} draftedStops={[]} />,
+    <HistoryPane patient={sakura} entries={[...sakura.history, revised]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />,
   );
 
   it("shows the focus with D・Act・R, and the part buttons", () => {

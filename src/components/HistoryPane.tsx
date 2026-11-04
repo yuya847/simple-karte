@@ -17,95 +17,32 @@ import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
-import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar, type CalendarProps } from "./Calendars";
-import { FlowSheet, type FlowSheetProps } from "./FlowSheet";
-import type { FlowIo } from "./IoFlowRows";
-import type { FlowDays } from "./FlowDayRows";
-import { DietCalendar, type BookWhat, type MoveEvent } from "./DietCalendar";
-import { BookingList } from "./BookingList";
-import type { Booking } from "@/lib/bookings";
-import type { DietOrder } from "@/lib/diet";
-import type { CareOrder, CareRecord } from "@/lib/care-orders";
-import type { StandingLine } from "@/lib/standing-lines";
-import { StandingCalendar } from "./StandingCalendar";
 import type { TakeBadge } from "@/lib/order-confirm";
 import { TakeBadgeMark } from "./TakeConfirm";
 import { OrderReportMark } from "./ReportMark";
-
-/** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00). */
-type CalendarMar = (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
-
-export type LeftView = "record" | "flowsheet" | "injection-cal" | "rx-cal" | "proc-cal" | "diet-cal" | "standing-cal" | "bookings";
-
-export const LEFT_VIEWS: { key: LeftView; label: string; title?: string }[] = [
-  { key: "record", label: "経過" },
-  { key: "flowsheet", label: "経過表" },
-  { key: "injection-cal", label: "注射", title: "注射カレンダー" },
-  { key: "rx-cal", label: "内服", title: "内服カレンダー" },
-  { key: "proc-cal", label: "処置", title: "処置カレンダー" },
-  { key: "diet-cal", label: "移動・食事", title: "移動・食事カレンダー（日付を押すと転床・転棟・転科・退院を予約）" },
-  { key: "standing-cal", label: "指示簿", title: "指示簿カレンダー（指示の行ごとに、続く期間を帯で）" },
-  { key: "bookings", label: "予約", title: "予約の一覧（検査・透析・リハビリ・手術など）" },
-];
 
 interface Props {
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
-  nowTime: string;
   selectedDay: DayOffset | null;
-  onSelectDay: (d: DayOffset) => void;
   showStopped: boolean;
   onToggleStopped: () => void;
-  view: LeftView;
-  onView: (v: LeftView) => void;
-  onStopDraft: (entry: OrderEntry) => void;
-  draftedStops: string[];
-  /** 延長 (add days) and 修正 (stop and copy into the 注射 tab) from the injection calendar. */
-  onExtendDraft?: (entry: OrderEntry, days: number) => void;
-  onModify?: (entry: OrderEntry) => void;
-  pendingExtends?: Record<string, number>;
-  marOf?: CalendarMar;
-  /** 新規 from the injection calendar (a day and time band, or Do of an order), and the injection drafts not confirmed yet. */
-  onNewInjection?: CalendarProps["onNewInjection"];
-  pendingNew?: CalendarProps["pendingNew"];
+  /** A 記録 mark of the flow sheet: show that kind of note only (n renews the list each time). */
+  focus?: { kind: string; n: number };
   /** Correct a confirmed note (a new version; the earlier ones are kept). `by` names the people who corrected it together. */
   onReviseNote?: (e: NoteEntry, text: string, reason: string, by?: string) => void;
   /** 記事の同時編集: who else is correcting which note, and telling them what this page types. */
   coedit?: Coedit;
-  /** Put vital-sign lines copied from the flow sheet into O) of today's note. */
-  onInsertVitals?: (text: string) => void;
   /** Do: copy a past note or order to the right (dragged there, or from the menu). */
   onDo?: (p: DoPayload) => void;
-  /** Diet orders, for the 食事 calendar; pressing a meal opens the diet panel. */
-  diets?: DietOrder[];
-  onOpenDiet?: () => void;
   /** Open an imaging order's pictures in the PACS viewer. */
   onOpenImage?: (entryId: string) => void;
   /** 検体検査: open the results table at this draw (day and time of the collection). */
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
-  /** The patient's bookings (予約の一覧). */
-  bookings?: Booking[];
-  /** 移動 row of the 移動・食事 calendar, booking from a date, and carrying out a booked move. */
-  moves?: MoveEvent[];
-  onBook?: (day: number, what: BookWhat) => void;
-  onDoMove?: (entryId: string) => void;
-  /** 看護ケア指示 and their records, for the flow sheet. */
-  care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
-  /** 水分出納 rows of the flow sheet. */
-  io?: FlowIo;
-  /** 術後日数 and the counted days on the flow sheet's dates. */
-  flowDays?: FlowDays;
-  /** The rest of what the flow sheet shows and does (lab draws waiting, entries from its cells …). */
-  flow?: FlowExtra;
-  /** 指示簿カレンダー: the lines (free text and from the fields), stopping one, and opening the 指示簿 panel. */
-  standingCal?: { lines: StandingLine[]; onStop?: (id: string, reason: string) => void; onOpenPanel?: () => void };
   /** 指示受けの状態 of an order (未指示受け／受け ◯◯ hh:mm／確認済み／医師に確認中), shown on each order; null when nothing waits. */
   takeBadgeOf?: (entryId: string) => TakeBadge | null;
 }
-
-/** Flow sheet props that the chart passes through this pane as they are. */
-export type FlowExtra = Partial<Omit<FlowSheetProps, "patient" | "entries" | "today" | "nowTime" | "selectedDay" | "onSelectDay" | "onInsertVitals" | "care" | "io" | "diets" | "moves" | "dayInfo">>;
 
 /** What is copied to the right (Do): a past note's text, or a past order to write again. */
 export type DoPayload = { kind: "note"; text: string; label: string } | { kind: "order"; entryId: string };
@@ -124,59 +61,23 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
   e.dataTransfer.effectAllowed = "copy";
 };
 
-/** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
+/**
+ * Left pane: the record (経過) to read while writing on the right. The flow sheet and the calendars are not
+ * here: they open from the tools on the far right (参照) in their own window.
+ */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, coedit, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onNewInjection, pendingNew, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal, takeBadgeOf } = props;
-  const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, onNewInjection, pendingNew };
-  // A 記録 mark of the flow sheet opens 経過 on that day with only that kind of note (n renews the list).
-  const [recordKind, setRecordKind] = useState<{ kind: string; n: number }>({ kind: "all", n: 0 });
-  const openRecord = (day: DayOffset, kind: string) => {
-    setRecordKind((k) => ({ kind, n: k.n + 1 }));
-    onSelectDay(day);
-    onView("record");
-  };
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, focus, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf } = props;
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft px-4 py-1.5">
-        <div role="tablist" aria-label="左の表示" className="scroll-thin flex min-w-0 max-w-full overflow-x-auto rounded-md border border-rule p-0.5 text-sm">
-          {LEFT_VIEWS.map(({ key: v, label, title }) => (
-            <button
-              key={v}
-              type="button"
-              role="tab"
-              title={title}
-              aria-selected={view === v}
-              onClick={() => onView(v)}
-              className={`whitespace-nowrap rounded px-2.5 py-0.5 ${view === v ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {view === "record" && (
-          <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-faint">
-            <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
-            中止したオーダも表示
-          </label>
-        )}
+        <h2 className="text-sm font-bold">経過</h2>
+        <span className="hint text-[10px] text-ink-faint">経過表・カレンダー・予約の一覧は、右端のツールの「参照」から別ウインドウで開きます。</span>
+        <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-faint">
+          <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
+          中止したオーダも表示
+        </label>
       </div>
-      {view === "flowsheet" ? (
-        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} onOpenRecord={openRecord} {...flow} />
-      ) : view === "injection-cal" ? (
-        <InjectionCalendar {...calendarProps} />
-      ) : view === "rx-cal" ? (
-        <PrescriptionCalendar {...calendarProps} />
-      ) : view === "proc-cal" ? (
-        <ProcedureCalendar {...calendarProps} />
-      ) : view === "bookings" ? (
-        <BookingList bookings={bookings ?? []} today={today} />
-      ) : view === "diet-cal" ? (
-        <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} moves={moves} onBook={onBook} onDoMove={onDoMove} />
-      ) : view === "standing-cal" ? (
-        <StandingCalendar patient={patient} lines={standingCal?.lines ?? []} today={today} nowTime={nowTime} onStop={standingCal?.onStop} onOpenPanel={standingCal?.onOpenPanel} />
-      ) : (
-        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
-      )}
+      <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
     </section>
   );
 }
