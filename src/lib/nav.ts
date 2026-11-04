@@ -1,7 +1,7 @@
 // How the screens are organised:
 // - the top row: the place pulldown (病棟・救急外来・外来・手術室・透析室… and the shared places), then the
 //   screens of the place. 病棟: the screens chosen from its menu (入院患者一覧・病棟マップ・受け持ち患者・
-//   ◯階・科別・主治医別, and the ward's work). 救急外来・外来: the list. The other places open as they are.
+//   ◯階, and the ward's work; 科別・主治医別 are the conditions and grouping of 入院患者一覧). 救急外来・外来: the list. The other places open as they are.
 // - the second row: every open chart in one row, wherever it was opened from; each chart remembers the
 //   screen it was opened from (its owner), shown as a breadcrumb over the chart.
 
@@ -48,7 +48,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io";
+export type WardTab = "map" | "floor" | "mine" | "all" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -61,12 +61,10 @@ export interface WardTabInfo {
 }
 
 export const WARD_TABS: WardTabInfo[] = [
-  { key: "all", label: "入院患者一覧", hint: "全病棟の入院患者。病棟・診療科・主治医・担当看護師・入院日数・DPC の期間・印で絞れます", group: "patients", needs: "list" },
+  { key: "all", label: "入院患者一覧", hint: "全病棟の入院患者。病棟・診療科・主治医・担当看護師・入院日数・DPC の期間・印で絞り、病棟・診療科・主治医・担当看護師ごとにまとめられます", group: "patients", needs: "list" },
   { key: "map", label: "病棟マップ", hint: "部屋とベッドの見取り図と入院申込。階を選べます", group: "patients", needs: "map" },
   { key: "mine", label: "受け持ち患者", hint: "自分のチームの患者", group: "patients", needs: "list" },
   { key: "floor", label: "◯階の患者一覧", hint: "選んだ階の患者と、今日・明日の入退院と空床", group: "patients", needs: "list" },
-  { key: "dept", label: "科別", hint: "診療科ごとにまとめた一覧", group: "patients", needs: "list" },
-  { key: "doctor", label: "主治医別", hint: "主治医ごとにまとめた一覧", group: "patients", needs: "list" },
   { key: "sheet", label: "ワークシート", hint: "今日の与薬・処置と指示受け", group: "work", needs: "sheet" },
   { key: "io", label: "水分出納", hint: "受け持ち患者の IN/OUT を勤務の終わりにまとめて入れ、勤務ごと・24時間の合計と IN − OUT を見る", group: "work", needs: "sheet" },
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },

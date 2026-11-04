@@ -18,7 +18,7 @@ import { IjiBoard } from "./IjiBoard";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
 import { PATIENTS } from "@/lib/patients";
-import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, WARD_PLANS, doctorFor, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
+import { BEDS, FLOORS, OTHER_FLOOR_BEDS, WARD_NAME, WARD_PLANS, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
 import { currentEntries } from "@/lib/record";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
 import { DateTree } from "./DateTree";
@@ -300,7 +300,7 @@ function planLine(entry: OrderEntry, today: CalendarDate): string {
 type Screen = WardTab | AreaKey | "chart" | "new" | "wardmenu" | "visit";
 /** front[owner] when the tab shows 新しいタブ. */
 const NEW_TAB = "__new__";
-const LIST_TABS = ["floor", "mine", "dept", "all", "doctor"] as const;
+const LIST_TABS = ["floor", "mine", "all"] as const;
 
 // 病棟's screens to open first (最初に開く), per role. A convenience kept in this browser only.
 // v2 (2026-11-04): the menu is shown first unless the user checks a screen again (older saved choices are not read).
@@ -348,10 +348,8 @@ export default function WardApp() {
   const [patientTabs, setPatientTabs] = useState<PatientTab[]>([]);
   const [front, setFront] = useState<Partial<Record<Owner, string>>>({});
   const [newTabFor, setNewTabFor] = useState<Owner | null>(null);
-  // The floor shown on 病棟マップ and ◯階, and the department and doctor chosen on 科別 and 主治医別.
+  // The floor shown on 病棟マップ and ◯階.
   const [floor, setFloor] = useState(WARD_NAME);
-  const [deptPick, setDeptPick] = useState("");
-  const [doctorPick, setDoctorPick] = useState("");
   // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
   const [myTeam, setMyTeam] = useState("");
   const me = useMemo(() => (role === "医師" ? { role, name: doctorName } : STAFF[role]), [role, doctorName]);
@@ -669,7 +667,7 @@ export default function WardApp() {
   // Opened from a place without patient tabs (やること, ⌘K on 手術室 …): under the first patient list of 病棟.
   const listOwner = (): Owner => {
     const open = wardTabs.find((t) => wardTabInfo(t).group === "patients");
-    const any = (["mine", "all", "floor", "dept", "doctor", "map"] as WardTab[]).find((t) => myWardTabs.includes(t));
+    const any = (["mine", "all", "floor", "map"] as WardTab[]).find((t) => myWardTabs.includes(t));
     return wardOwner(open ?? any ?? myWardTabs[0] ?? "mine");
   };
   // A chart opens where it is already open, else under the tab in front.
@@ -1205,9 +1203,6 @@ export default function WardApp() {
   const floorInfo: Floor = FLOORS.find((f) => f.name === floor) ?? FLOORS[0];
   const allBeds = [...ward.beds, ...OTHER_FLOOR_BEDS];
   const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
-  const deptOf = (b: BedAssignment) => (b.patientId ? findPatient(b.patientId)?.department : b.other?.department) ?? "";
-  const doctorOf = (b: BedAssignment) => (b.patientId ? (findPatient(b.patientId)?.attending ?? "") : doctorFor(b.other?.department ?? ""));
-  const choices = (xs: string[], all: string) => [{ value: "", label: all }, ...[...new Set(xs)].filter(Boolean).sort((a, b) => a.localeCompare(b, "ja")).map((x) => ({ value: x, label: x }))];
   const floorPick: Pick = { label: "階", value: floor, options: FLOORS.map((f) => ({ value: f.name, label: f.name })), onChange: setFloor };
   const lists: Record<(typeof LIST_TABS)[number], { beds: BedAssignment[]; title: string; pick?: Pick; group: GroupBy; floor?: Floor }> = {
     floor: { beds: bedsOn(floor), title: "患者一覧", pick: floorPick, group: "room", floor: floorInfo },
@@ -1233,19 +1228,7 @@ export default function WardApp() {
               },
             }
           : { beds: ward.beds.filter((b) => b.patientId), title: "受け持ち患者", group: "room" },
-    dept: {
-      beds: deptPick ? allBeds.filter((b) => deptOf(b) === deptPick) : allBeds,
-      title: "科別",
-      pick: { label: "科", value: deptPick, options: choices(allBeds.map(deptOf), "すべての科"), onChange: setDeptPick },
-      group: "department",
-    },
     all: { beds: allBeds, title: "入院患者一覧", group: "floor" },
-    doctor: {
-      beds: doctorPick ? allBeds.filter((b) => doctorOf(b) === doctorPick) : allBeds,
-      title: "主治医別",
-      pick: { label: "主治医", value: doctorPick, options: choices(allBeds.map(doctorOf), "すべての主治医"), onChange: setDoctorPick },
-      group: "doctor",
-    },
   };
   const listKey = LIST_TABS.find((k) => k === screen);
   // 水分出納: typed IN/OUT (who and when are added by code), and taking one back with a reason (it stays).

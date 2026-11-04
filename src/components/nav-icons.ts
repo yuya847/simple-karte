@@ -3,7 +3,6 @@ import {
   ArrowRightLeft,
   BedDouble,
   BookOpen,
-  BriefcaseMedical,
   Building2,
   CalendarDays,
   ClipboardCheck,
@@ -28,7 +27,6 @@ import {
   TriangleAlert,
   UserCheck,
   UserRound,
-  Users,
   Utensils,
 } from "lucide-react";
 import type { AreaKey, WardTab } from "@/lib/nav";
@@ -56,9 +54,7 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   map: LayoutGrid,
   floor: Building2,
   mine: UserRound,
-  dept: Users,
   all: List,
-  doctor: BriefcaseMedical,
   sheet: Printer,
   handoff: ArrowRightLeft,
   admit: ClipboardList,

@@ -22,7 +22,7 @@ const GROUPS: { key: "patients" | "work"; title: string }[] = [
 ];
 
 /**
- * 病棟's menu: what to open as a tab (病棟マップ・◯階の患者一覧・受け持ち患者・科別・患者一覧・主治医別,
+ * 病棟's menu: what to open as a tab (入院患者一覧・病棟マップ・受け持ち患者・◯階の患者一覧,
  * and the ward's work). A check marks the screens to open first whenever 病棟 is opened (既定).
  * Keyboard: Tab between the screens and their checks, Enter opens, Space checks.
  */
