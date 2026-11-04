@@ -1,7 +1,7 @@
 "use client";
 
 import { VERBAL_RULE } from "@/lib/verbal";
-import { LayoutTemplate, Loader2, Mic, MicOff, Sparkles } from "lucide-react";
+import { LayoutTemplate, Loader2, Mic, MicOff, Sparkles, TextQuote } from "lucide-react";
 import { useRef, useState } from "react";
 import { formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { isReady, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
@@ -11,8 +11,10 @@ import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { isBlankNote } from "@/lib/notes";
 import { rpNumbers } from "@/lib/rp";
-import { placeBlock, type Placed } from "@/lib/note-insert";
+import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
+import { expandAt, loadPhrases, type Phrase } from "@/lib/phrases";
 import { TemplatePanel } from "./NoteTemplates";
+import { PhrasePanel } from "./NotePhrases";
 
 export interface DraftMeta {
   model: string;
@@ -57,8 +59,12 @@ const SHOW_DICTATION = false;
 export function TodayPane(p: Props) {
   const box = useRef<HTMLTextAreaElement>(null);
   const noteBox = useRef<HTMLTextAreaElement>(null);
-  const [tool, setTool] = useState<"template" | null>(null);
+  const [tool, setTool] = useState<"template" | "phrase" | null>(null);
   const me = useMe();
+  // 定型文 of the person writing (kept per person in this browser), and the text selected in the note.
+  const [ph, setPh] = useState<{ user: string; list: Phrase[] }>(() => ({ user: me.name, list: loadPhrases(me.name) }));
+  if (ph.user !== me.name) setPh({ user: me.name, list: loadPhrases(me.name) });
+  const [selected, setSelected] = useState("");
   const noteLocked = !!useDeny()("note");
   const speech = useSpeech(p.onAppendInstruction);
 
@@ -101,6 +107,7 @@ export function TodayPane(p: Props) {
           {!noteLocked && (
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
               {toolButton("template", "テンプレート", LayoutTemplate)}
+              {toolButton("phrase", "定型文", TextQuote)}
             </div>
           )}
           {!noteLocked && tool === "template" && (
@@ -108,10 +115,26 @@ export function TodayPane(p: Props) {
               <TemplatePanel key={me.name} patient={p.patient} today={p.today} onInsert={(text) => (put((n, s, e) => placeBlock(n, s, e, text)), setTool(null))} onClose={() => setTool(null)} />
             </div>
           )}
+          {!noteLocked && tool === "phrase" && (
+            <div className="mb-2">
+              <PhrasePanel phrases={ph.list} onPhrases={(list) => setPh({ user: me.name, list })} selected={selected} onInsert={(text) => put((n, s, e) => insertAt(n, s, e, text))} onClose={() => setTool(null)} />
+            </div>
+          )}
           <textarea
             ref={noteBox}
             value={p.note}
             onChange={(e) => p.onNoteChange(e.target.value)}
+            onSelect={(e) => setSelected(e.currentTarget.value.slice(e.currentTarget.selectionStart, e.currentTarget.selectionEnd))}
+            onKeyDown={(e) => {
+              // 単語登録: 「;読み」 then Tab puts the phrase in its place.
+              if (e.key !== "Tab" || e.shiftKey || noteLocked || e.nativeEvent.isComposing) return;
+              const el = e.currentTarget;
+              if (el.selectionStart !== el.selectionEnd) return;
+              const r = expandAt(p.note, el.selectionStart, ph.list);
+              if (!r) return;
+              e.preventDefault();
+              put(() => r);
+            }}
             readOnly={noteLocked}
             aria-label="記事"
             rows={7}
