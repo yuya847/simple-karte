@@ -327,7 +327,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
           <thead>
             <tr className="border-b border-rule text-left text-ink-soft">
               <th className="py-1 pr-2 font-normal">時刻</th>
-              <th className="py-1 pr-2 font-normal">患者</th>
+              <th className="min-w-[9rem] whitespace-nowrap py-1 pr-2 font-normal">患者</th>
               <th className="py-1 pr-2 font-normal">種類</th>
               <th className="py-1 font-normal">内容</th>
             </tr>
@@ -338,7 +338,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
               return (
                 <tr key={i.key} className="border-b border-rule-soft align-top">
                   <td className="nums py-1 pr-2">{when(i)}</td>
-                  <td className="py-1 pr-2">
+                  <td className="min-w-[9rem] whitespace-nowrap py-1 pr-2">
                     <PlaceMark place={placeOf(i.patientId)} room={w?.room ?? ""} /> {w?.patient.name}
                   </td>
                   <td className="py-1 pr-2">{i.title}</td>
