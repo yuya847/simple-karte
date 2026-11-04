@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { getFrame, valueRange } from "@/lib/pacs/frames";
+import { PUBLIC_IMAGE_NOTE } from "@/lib/image-credits";
+import { frameLoading, getFrame, valueRange } from "@/lib/pacs/frames";
 import { angle, distance, finishMeasurement, roiStats, type MeasureKind, type Measurement, type Pt } from "@/lib/pacs/measure";
+import { photoVersion, subscribePhotos } from "@/lib/pacs/photos";
 import { positionLabel } from "@/lib/pacs/studies";
 import type { PacsStudy, SeriesSpec } from "@/lib/pacs/types";
 import { applyMatrix, invertMatrix, orientationLabels, stepSlice, viewMatrix, zoomAt, type ViewState } from "@/lib/pacs/viewport";
@@ -32,6 +34,24 @@ interface Drag {
 }
 
 const FONT = "12px ui-sans-serif, system-ui, 'Hiragino Sans', 'Yu Gothic UI', sans-serif";
+
+const noVersion = () => 0;
+
+/** 2 本の指の位置（ピンチで拡大縮小するため）。 */
+interface Pinch {
+  dist: number;
+  mid: { x: number; y: number };
+  view: ViewState;
+}
+
+/**
+ * 公開画像は画素の大きさ（mm）が分からないので、計測は画素の数（px）で出す（spacing は 1 にしてある）。
+ * 式の「mm」を「px」に置き換え、理由を 1 行足す。
+ */
+export function pxOnly(m: Measurement): Measurement {
+  const px = (s: string) => s.replace(/mm²/g, "px²").replace(/mm/g, "px");
+  return { ...m, value: px(m.value), formula: [...m.formula.map(px), "公開データの画像は画素の大きさ（mm）が分からないので、1 画素＝1 として画素の数で示します"] };
+}
 
 /** 1 枚の表示枠。canvas に画像・計測・四隅の文字を描き、マウスで操作する。 */
 export function Viewport({
@@ -72,11 +92,21 @@ export function Viewport({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offRef = useRef<HTMLCanvasElement | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<Pinch | null>(null);
   const wheelRef = useRef(0);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  // 公開画像が読めたら描き直す
+  const photoV = useSyncExternalStore(subscribePhotos, photoVersion, noVersion);
+  const photo = series?.gen.kind === "photo";
 
   const range = useMemo<[number, number]>(() => (series ? valueRange(series) : [0, 1]), [series]);
-  const frame = useMemo(() => (series ? getFrame(series, view.slice) : null), [series, view.slice]);
+  // photoV が進んだら（公開画像が読めたら）画素を取り直す
+  const frame = useMemo(() => {
+    void photoV;
+    return series ? getFrame(series, view.slice) : null;
+  }, [series, view.slice, photoV]);
+  const loading = !!series && frameLoading(series, view.slice);
   const lut = useMemo(() => buildLut(range[0], range[1], view.ww, view.wl, view.invert), [range, view.ww, view.wl, view.invert]);
   const m = useMemo(() => (series ? viewMatrix(view, series.width, series.height, size.w, size.h) : null), [series, view, size]);
 
@@ -124,11 +154,14 @@ export function Viewport({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.font = FONT;
 
+    if (loading) text(ctx, "画像を読み込んでいます…", size.w / 2, size.h / 2, OVERLAY, "center");
+
     // 計測
     for (const mm of measurements) drawMeasurement(ctx, m, mm.kind, mm.points, mm.kind === "roi" ? mm.value.split("（")[0] : mm.value);
     if (draft) {
       const pts = draft.hover ? [...draft.points, draft.hover] : draft.points;
-      drawMeasurement(ctx, m, draft.kind, pts, liveLabel(draft.kind, pts, series, frame), MEASURE);
+      const live = liveLabel(draft.kind, pts, series, frame);
+      drawMeasurement(ctx, m, draft.kind, pts, live && photo ? live.replace(/mm/g, "px") : live, MEASURE);
     }
 
     // 四隅の文字（DICOM ビューアの四隅表示の考え方）
@@ -146,43 +179,53 @@ export function Viewport({
     const n = series.positions.length;
     corner(
       ctx,
-      n > 1
-        ? [`スライス ${view.slice + 1} / ${n}`, `${positionLabel(series, view.slice)}　厚さ ${series.thickness ?? "-"} mm`, `画素 ${series.spacing.toFixed(2)} mm`]
-        : [`画像 1 / 1`, `画素 ${series.spacing.toFixed(2)} mm`],
+      photo
+        ? [n > 1 ? `画像 ${view.slice + 1} / ${n}` : "画像 1 / 1", `${series.width}×${series.height} 画素（大きさ不明）`]
+        : n > 1
+          ? [`スライス ${view.slice + 1} / ${n}`, `${positionLabel(series, view.slice)}　厚さ ${series.thickness ?? "-"} mm`, `画素 ${series.spacing.toFixed(2)} mm`]
+          : [`画像 1 / 1`, `画素 ${series.spacing.toFixed(2)} mm`],
       "br",
       size.w,
       size.h,
     );
-    // 架空の合成画像であることを、画像の上に必ず出す
-    text(ctx, "架空の合成画像（実在の患者の画像ではありません）", size.w / 2, 18, FICTION, "center");
+    // 架空の合成画像か、公開データの画像かを、画像の上に必ず出す（実在の患者の画像と誤解させないため）
+    if (photo) {
+      ctx.font = "11px ui-sans-serif, system-ui, 'Hiragino Sans', 'Yu Gothic UI', sans-serif";
+      text(ctx, PUBLIC_IMAGE_NOTE, size.w / 2, 18, FICTION, "center");
+      ctx.font = FONT;
+    } else text(ctx, "架空の合成画像（実在の患者の画像ではありません）", size.w / 2, 18, FICTION, "center");
 
-    // 向きの文字（画面の上下左右が患者のどちら向きか）
-    const o = orientationLabels(series.orient, view);
-    text(ctx, o.left, 10, size.h / 2 + 4, OVERLAY);
-    text(ctx, o.right, size.w - 10, size.h / 2 + 4, OVERLAY, "right");
-    text(ctx, o.top, size.w / 2, 36, OVERLAY, "center");
-    text(ctx, o.bottom, size.w / 2, size.h - 26, OVERLAY, "center");
+    // 向きの文字（画面の上下左右が患者のどちら向きか）。公開画像の超音波は向きが決まらないので出さない
+    if (!(photo && s.modality === "超音波")) {
+      const o = orientationLabels(series.orient, view);
+      text(ctx, o.left, 10, size.h / 2 + 4, OVERLAY);
+      text(ctx, o.right, size.w - 10, size.h / 2 + 4, OVERLAY, "right");
+      text(ctx, o.top, size.w / 2, 36, OVERLAY, "center");
+      text(ctx, o.bottom, size.w / 2, size.h - 26, OVERLAY, "center");
+    }
 
-    // 物差し
-    const bar = scaleBar(series.spacing / scale);
-    const bx = size.w / 2 - bar.px / 2;
-    const by = size.h - 12;
-    ctx.strokeStyle = OVERLAY;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(bx, by - 4);
-    ctx.lineTo(bx, by);
-    ctx.lineTo(bx + bar.px, by);
-    ctx.lineTo(bx + bar.px, by - 4);
-    ctx.stroke();
-    text(ctx, bar.mm >= 10 ? `${bar.mm / 10} cm` : `${bar.mm} mm`, bx + bar.px + 6, by + 3, OVERLAY);
+    // 物差し（公開画像は画素の大きさが分からないので出さない）
+    if (!photo) {
+      const bar = scaleBar(series.spacing / scale);
+      const bx = size.w / 2 - bar.px / 2;
+      const by = size.h - 12;
+      ctx.strokeStyle = OVERLAY;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(bx, by - 4);
+      ctx.lineTo(bx, by);
+      ctx.lineTo(bx + bar.px, by);
+      ctx.lineTo(bx + bar.px, by - 4);
+      ctx.stroke();
+      text(ctx, bar.mm >= 10 ? `${bar.mm / 10} cm` : `${bar.mm} mm`, bx + bar.px + 6, by + 3, OVERLAY);
+    }
 
     if (active) {
       ctx.strokeStyle = "rgba(242,193,78,0.7)";
       ctx.lineWidth = 2;
       ctx.strokeRect(1, 1, size.w - 2, size.h - 2);
     }
-  }, [size, pacs, series, frame, lut, m, range, measurements, draft, patient, today, view, tag, active]);
+  }, [size, pacs, series, frame, lut, m, range, measurements, draft, patient, today, view, tag, active, photo, loading]);
 
   const locate = (clientX: number, clientY: number) => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -195,12 +238,36 @@ export function Viewport({
   const finish = (kind: MeasureKind, points: Pt[]) => {
     if (!series || !frame) return;
     const done = finishMeasurement(newId(), kind, points, { spacing: series.spacing, pixels: frame, width: series.width, height: series.height, unit: series.unit });
-    if (done) onMeasure(done);
+    if (done) onMeasure(photo ? pxOnly(done) : done);
+  };
+
+  // ピンチ（2 本の指）：指の間の距離の比で拡大縮小し、指の真ん中の動きで移動する
+  const pinchOf = (): { dist: number; mid: { x: number; y: number } } | null => {
+    const pts = [...pointersRef.current.values()];
+    if (pts.length < 2) return null;
+    const rect = canvasRef.current!.getBoundingClientRect();
+    return { dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y), mid: { x: (pts[0].x + pts[1].x) / 2 - rect.left, y: (pts[0].y + pts[1].y) / 2 - rect.top } };
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     onActivate();
     if (!series || !m) return;
+    if (e.pointerType === "touch") {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const pinch = pinchOf();
+      if (pinch) {
+        // 2 本目の指が触れたら、描きかけの計測やドラッグはやめてピンチにする
+        pinchRef.current = { ...pinch, view };
+        dragRef.current = null;
+        onDraft(null);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // ポインタが取れなくてもピンチは続けられる
+        }
+        return;
+      }
+    }
     const { sx, sy, p } = locate(e.clientX, e.clientY);
     const mode: Drag["mode"] | Tool = e.button === 1 || e.shiftKey ? "pan" : e.button === 2 || e.ctrlKey || e.metaKey ? "zoom" : tool;
     if (mode === "angle") {
@@ -226,6 +293,18 @@ export function Viewport({
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!series) return;
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const start = pinchRef.current;
+      const now = pinchOf();
+      if (start && now) {
+        if (start.dist > 0) {
+          const z = zoomAt(start.view, now.dist / start.dist, start.mid.x, start.mid.y, size.w, size.h);
+          onView({ ...z, panX: z.panX + (now.mid.x - start.mid.x), panY: z.panY + (now.mid.y - start.mid.y) });
+        }
+        return;
+      }
+    }
     const { sx, sy, p } = locate(e.clientX, e.clientY);
     const d = dragRef.current;
     if (d?.mode === "measure" && d.start && d.kind) {
@@ -241,7 +320,15 @@ export function Viewport({
     else onView(zoomAt(d.view, Math.exp(-dy * 0.01), d.sx, d.sy, size.w, size.h));
   };
 
+  const liftFinger = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+  };
+
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const wasPinch = !!pinchRef.current;
+    liftFinger(e);
+    if (wasPinch) return;
     const d = dragRef.current;
     dragRef.current = null;
     if (d?.mode === "measure" && d.start && d.kind) {
@@ -295,12 +382,13 @@ export function Viewport({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => {
+        onPointerCancel={(e) => {
+          liftFinger(e);
           dragRef.current = null;
         }}
         onContextMenu={(e) => e.preventDefault()}
         role="img"
-        aria-label={pacs ? `${pacs.study.modality} ${pacs.study.region}（架空の合成画像）` : "画像なし"}
+        aria-label={pacs ? `${pacs.study.modality} ${pacs.study.region}（${photo ? "公開データの教材用の画像。この患者のものではありません" : "架空の合成画像"}）` : "画像なし"}
       />
     </div>
   );

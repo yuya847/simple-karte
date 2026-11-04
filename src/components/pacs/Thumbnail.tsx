@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { getFrame, valueRange } from "@/lib/pacs/frames";
+import { photoVersion, subscribePhotos } from "@/lib/pacs/photos";
 import type { SeriesSpec } from "@/lib/pacs/types";
 import { autoWindow, buildLut } from "@/lib/pacs/window";
 import { FICTION, paintPixels, text } from "./draw";
 
 const SIZE = 76;
+const noVersion = () => 0;
 
-/** シリーズの代表の 1 枚（真ん中のスライス）を小さく描く。 */
+/** シリーズの代表の 1 枚（真ん中のスライス）を小さく描く。公開画像は読めたら描き直す。 */
 export function Thumbnail({ series, selected, onSelect }: { series: SeriesSpec; selected: boolean; onSelect: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const photo = series.gen.kind === "photo";
+  const photoV = useSyncExternalStore(subscribePhotos, photoVersion, noVersion);
 
   useEffect(() => {
     const c = ref.current;
@@ -33,15 +37,16 @@ export function Thumbnail({ series, selected, onSelect }: { series: SeriesSpec; 
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(off, (SIZE - series.width * s) / 2, (SIZE - series.height * s) / 2, series.width * s, series.height * s);
     ctx.font = "10px ui-sans-serif, system-ui, 'Hiragino Sans', sans-serif";
-    text(ctx, "架空", 4, 12, FICTION);
-  }, [series]);
+    text(ctx, photo ? "公開データ" : "架空", 4, 12, FICTION);
+    // photoV が進んだら（公開画像が読めたら）描き直す
+  }, [series, photo, photoV]);
 
   const n = series.positions.length;
   return (
     <button
       type="button"
       onClick={onSelect}
-      title={`Se ${series.number}：${series.description}（${n > 1 ? `${n} 枚` : "1 枚"}）`}
+      title={`Se ${series.number}：${series.description}（${n > 1 ? `${n} 枚` : "1 枚"}${photo ? "・公開データの教材用の画像" : ""}）`}
       className={`shrink-0 rounded-md border p-1 text-left ${selected ? "border-ai bg-ai-soft" : "border-rule bg-sheet hover:bg-paper"}`}
     >
       <canvas ref={ref} style={{ width: SIZE, height: SIZE }} className="block rounded-sm" aria-hidden />

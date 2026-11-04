@@ -28,8 +28,10 @@ import {
 import { useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { getFrame } from "@/lib/pacs/frames";
+import { creditLine, PUBLIC_IMAGE_NOTE } from "@/lib/image-credits";
+import { getFrame, valueRange } from "@/lib/pacs/frames";
 import { distance, ratio, type Measurement } from "@/lib/pacs/measure";
+import { creditsOf } from "@/lib/pacs/photos";
 import { buildPacsStudies, findPrior, positionLabel } from "@/lib/pacs/studies";
 import type { PacsStudy, SeriesSpec } from "@/lib/pacs/types";
 import { cineNext, clampZoom, nearestSlice, rotate, stepSlice, type ViewState } from "@/lib/pacs/viewport";
@@ -115,6 +117,8 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
   const view = cur?.view ?? BASE_VIEW;
   const series = cur?.series ?? null;
   const count = series?.positions.length ?? 0;
+  const photo = series?.gen.kind === "photo";
+  const [lo, hi] = series ? valueRange(series) : [0, 1];
   const keyOf = (p: (typeof resolved)[number]) => (p.series ? `${p.series.uid}#${p.view.slice}` : "");
 
   useEffect(() => {
@@ -243,10 +247,13 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
           patch({ slice: Math.max(0, count - 1) });
           return true;
         case "ArrowLeft":
-          nextSeries(-1);
+          // シリーズが 1 つだけなら、← → でも画像を送る（公開画像の複数枚など）
+          if ((cur?.pacs?.series.length ?? 0) <= 1 && count > 1) step(-1);
+          else nextSeries(-1);
           return true;
         case "ArrowRight":
-          nextSeries(1);
+          if ((cur?.pacs?.series.length ?? 0) <= 1 && count > 1) step(1);
+          else nextSeries(1);
           return true;
         case " ":
           if (count > 1) setCine((c) => !c);
@@ -485,16 +492,34 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
 
   const sliceBar = series && count > 1 && (
     <div className="flex items-center gap-2 text-[12px]">
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)} className="rounded px-1.5 text-ink-soft hover:bg-paper" aria-label="前のスライス">
-        ↑
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)} className="rounded px-1.5 text-ink-soft hover:bg-paper" aria-label={photo ? "前の画像" : "前のスライス"}>
+        {photo ? "←" : "↑"}
       </button>
-      <input type="range" min={0} max={count - 1} value={view.slice} onChange={(e) => patch({ slice: Number(e.target.value) })} className="flex-1 accent-ai" aria-label="スライス" />
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} className="rounded px-1.5 text-ink-soft hover:bg-paper" aria-label="次のスライス">
-        ↓
+      <input type="range" min={0} max={count - 1} value={view.slice} onChange={(e) => patch({ slice: Number(e.target.value) })} className="flex-1 accent-ai" aria-label={photo ? "画像" : "スライス"} />
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)} className="rounded px-1.5 text-ink-soft hover:bg-paper" aria-label={photo ? "次の画像" : "次のスライス"}>
+        {photo ? "→" : "↓"}
       </button>
       <span className="nums w-[11em] text-right text-ink-soft">
         {view.slice + 1} / {count}　{positionLabel(series, view.slice)}
       </span>
+    </div>
+  );
+
+  // 明るさ・コントラスト（WW/WL と同じもの。右へ動かすほど明るく・くっきり）
+  const levelBar = series && (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-soft">
+      <label className="flex min-w-[12em] flex-1 items-center gap-2">
+        <span className="shrink-0">明るさ</span>
+        <input type="range" min={lo} max={hi} value={lo + hi - view.wl} onChange={(e) => patch({ wl: lo + hi - Number(e.target.value) })} className="flex-1 accent-ai" aria-label="明るさ（WL）" />
+      </label>
+      <label className="flex min-w-[12em] flex-1 items-center gap-2">
+        <span className="shrink-0">コントラスト</span>
+        <input type="range" min={1} max={hi - lo} value={hi - lo + 1 - view.ww} onChange={(e) => patch({ ww: hi - lo + 1 - Number(e.target.value) })} className="flex-1 accent-ai" aria-label="コントラスト（WW）" />
+      </label>
+      <span className="nums">
+        WW {view.ww} / WL {view.wl}
+      </span>
+      <p className="hint basis-full">明るさは WL（ウィンドウレベル）、コントラストは WW（ウィンドウ幅）を動かします。ドラッグ（W）やプリセットと同じ値です。「元に戻す」（0）で開いたときの値に戻ります。</p>
     </div>
   );
 
@@ -574,6 +599,22 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
             </h4>
             <p className="mt-1 text-[13px] leading-relaxed">{p.pacs.study.report}</p>
             <p className="mt-1 text-[11px] text-ink-faint">{p.pacs.study.reader}</p>
+            {creditsOf(p.pacs.series.flatMap((s) => (s.gen.kind === "photo" ? s.gen.images : []))).map((c) => (
+              <p key={c.id} className="hint mt-1 text-[11px]">
+                画像の出典：{creditLine(c)}　{c.what}
+                <a href={c.page} target="_blank" rel="noreferrer" className="underline">
+                  出典のページ
+                </a>
+                {c.licenseUrl && (
+                  <>
+                    ・
+                    <a href={c.licenseUrl} target="_blank" rel="noreferrer" className="underline">
+                      ライセンス
+                    </a>
+                  </>
+                )}
+              </p>
+            ))}
           </div>
         ) : null,
       )}
@@ -591,7 +632,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
       {full && (
         <div className="flex items-center justify-between">
           <h2 className="font-bold">
-            放射線画像<span className="ml-2 text-sm font-normal text-ink-soft">{patient.name}（ID {patient.id}）　画像はすべて架空の合成画像です</span>
+            放射線画像<span className="ml-2 text-sm font-normal text-ink-soft">{patient.name}（ID {patient.id}）　画像は架空の合成画像か、公開データの教材用の画像です（この患者のものではありません）</span>
           </h2>
           <button type="button" onClick={() => setFull(false)} aria-label="全画面を閉じる" className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
             <X size={18} />
@@ -609,6 +650,8 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
         <section className={full ? "flex min-h-0 flex-col gap-2" : "min-w-0 space-y-2"}>
           <div className={`grid gap-1.5 ${comparing ? "grid-cols-2" : "grid-cols-1"} ${full ? "min-h-0 flex-1" : "h-[460px]"}`}>{paneViews}</div>
           {sliceBar}
+          {levelBar}
+          {resolved.some((p) => p.series?.gen.kind === "photo") && <p className="text-[11px] text-ink-faint">{PUBLIC_IMAGE_NOTE}</p>}
           {seriesStrip}
         </section>
         {full && (
