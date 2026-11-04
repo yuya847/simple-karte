@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PATIENTS } from "./patients";
+import { INITIAL_ANAMNESIS } from "./anamnesis-initial";
 import { ageAt, birthDateOf, contactsChanges, contactsProblems, emptyContactsFields, eraYear, familyLabel, formatAddress, formatBirth, INITIAL_CONTACTS, keyPersons, otherContacts, primaryContact, saveContacts } from "./patient-contacts";
 import { WARD_CHART_PATIENTS } from "./ward-charts";
 
@@ -114,5 +115,15 @@ describe("患者基本情報：編集", () => {
     expect(r.contacts).toEqual([{ relation: "長男", name: "架空 太郎", phone: "090-0000-0001", when: "", primary: true }]);
     expect(r.family).toEqual([]);
     expect(r.insurance.publicAid).toEqual(["指定難病"]);
+  });
+});
+
+describe("入院前の情報収集の初期データ（架空）", () => {
+  it("agrees with the contacts: the key person and the care level", () => {
+    const oura = INITIAL_ANAMNESIS["90010244"];
+    expect(oura.fields.keyPerson).toContain(primaryContact(INITIAL_CONTACTS["90010244"])!.name);
+    expect(oura.fields.careInsurance).toBe(INITIAL_CONTACTS["90010244"].care.careLevel);
+    expect(oura.earlier).toBeUndefined();
+    expect(INITIAL_ANAMNESIS["90010231"].fields.keyPerson).toContain("佐倉 春江");
   });
 });

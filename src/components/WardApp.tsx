@@ -220,6 +220,7 @@ import { addDoctor, consultDoctors, doctorsOf, INITIAL_DOCTOR_BOOK, involved, re
 import { DoctorsPanel } from "./panels/DoctorsPanel";
 import { PatientInfoPanel, patientInfoTitle } from "./panels/PatientInfoPanel";
 import { INITIAL_CONTACTS, type ContactsBook } from "@/lib/patient-contacts";
+import { INITIAL_ANAMNESIS } from "@/lib/anamnesis-initial";
 import { COSIGN_RULES, byRef, confirmDeny, confirmItems, newItems, noteRevised, pendingOf, residentBlock, type CosignItem } from "@/lib/cosign";
 import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
@@ -644,7 +645,7 @@ export default function WardApp() {
   // 患者プロファイルの変更（アレルギー・感染症・禁忌・血液型・身長体重・介助）, every change kept.
   const [profileLog, setProfileLog] = useState<ProfileChange[]>([]);
   // 入院時の情報収集（アナムネーシス）, by patient id (earlier versions inside).
-  const [anamnesis, setAnamnesis] = useState<Record<string, AnamnesisRecord>>({});
+  const [anamnesis, setAnamnesis] = useState<Record<string, AnamnesisRecord>>(INITIAL_ANAMNESIS);
   // Notes confirmed in this session, and corrected notes (by key, earlier versions inside).
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
