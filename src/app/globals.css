@@ -55,6 +55,35 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Icons react to the pointer: on buttons, tabs and links the icon lifts a little on hover and settles on
+ * press. Only with a mouse (hover: hover) and when the viewer has not asked for less motion.
+ */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  button svg.lucide,
+  a svg.lucide,
+  [role="tab"] svg.lucide {
+    transition: transform 0.16s ease-out;
+  }
+  button:not(:disabled):hover svg.lucide,
+  a:hover svg.lucide,
+  [role="tab"]:hover svg.lucide {
+    transform: translateY(-1px) scale(1.14);
+  }
+  button:not(:disabled):active svg.lucide,
+  [role="tab"]:active svg.lucide {
+    transform: scale(0.94);
+    transition-duration: 0.06s;
+  }
+  /* The tools on the far right: the whole tile lifts slightly too. */
+  aside[aria-label="ツール"] button:not(:disabled) {
+    transition: transform 0.16s ease-out, background-color 0.16s;
+  }
+  aside[aria-label="ツール"] button:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+}
+
 /* No native pull-to-refresh: 引っ張って更新 (PullToRefresh) saves the records before it reloads. */
 html,
 body {
