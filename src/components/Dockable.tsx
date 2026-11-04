@@ -19,6 +19,51 @@ export function defaultWin(i = 0): Win {
   return { x: Math.max(20, Math.round((vw - w) / 2) + i * 28), y: 64 + i * 28, w, h };
 }
 
+/** A window of about 80% of the screen, centred (for panels that open as a window first). */
+export function bigWin(): Win {
+  const vw = typeof window === "undefined" ? 1200 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  const w = Math.max(320, Math.round(vw * 0.8));
+  const h = Math.max(200, Math.round(vh * 0.8));
+  return { x: Math.round((vw - w) / 2), y: Math.round((vh - h) / 2), w, h };
+}
+
+/** Keep the whole window on screen, so its title bar and resize corner can always be reached. */
+export function clampWin(w: Win): Win {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const width = Math.max(320, Math.min(w.w, vw - 8));
+  const height = Math.max(200, Math.min(w.h, vh - 8));
+  return { w: width, h: height, x: Math.max(0, Math.min(w.x, vw - width)), y: Math.max(0, Math.min(w.y, vh - height)) };
+}
+
+/**
+ * Pointer handlers that move a window by its title bar or resize it from a corner (finger or mouse).
+ * Shared by the right-side tabs (Dockable) and the panels (Drawer) so both behave the same.
+ */
+export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void, onFront?: () => void) {
+  const start = useRef<{ px: number; py: number; win: Win; mode: "move" | "size" } | null>(null);
+  const down = (mode: "move" | "size") => (e: React.PointerEvent) => {
+    if (!win) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    start.current = { px: e.clientX, py: e.clientY, win, mode };
+    onFront?.();
+  };
+  const move = (e: React.PointerEvent) => {
+    const s = start.current;
+    if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const dx = e.clientX - s.px;
+    const dy = e.clientY - s.py;
+    onMove(clampWin(s.mode === "move" ? { ...s.win, x: s.win.x + dx, y: s.win.y + dy } : { ...s.win, w: s.win.w + dx, h: s.win.h + dy }));
+  };
+  const up = (e: React.PointerEvent) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    start.current = null;
+  };
+  return { down, move, up };
+}
+
 /**
  * A right-side tab that can be shown in its own window (別ウインドウ) over the chart and docked back.
  * The same element stays in the page either way, so what is being written in it is kept.
@@ -47,33 +92,7 @@ export function Dockable({
   onFront: () => void;
   children: React.ReactNode;
 }) {
-  const start = useRef<{ px: number; py: number; win: Win; mode: "move" | "size" } | null>(null);
-  const clamp = (w: Win): Win => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const width = Math.max(320, Math.min(w.w, vw - 8));
-    const height = Math.max(200, Math.min(w.h, vh - 8));
-    // Keep the whole window on screen, so its title bar and resize corner can always be reached.
-    return { w: width, h: height, x: Math.max(0, Math.min(w.x, vw - width)), y: Math.max(0, Math.min(w.y, vh - height)) };
-  };
-  const down = (mode: "move" | "size") => (e: React.PointerEvent) => {
-    if (!win) return;
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    start.current = { px: e.clientX, py: e.clientY, win, mode };
-    onFront();
-  };
-  const move = (e: React.PointerEvent) => {
-    const s = start.current;
-    if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const dx = e.clientX - s.px;
-    const dy = e.clientY - s.py;
-    onMove(clamp(s.mode === "move" ? { ...s.win, x: s.win.x + dx, y: s.win.y + dy } : { ...s.win, w: s.win.w + dx, h: s.win.h + dy }));
-  };
-  const up = (e: React.PointerEvent) => {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
-    start.current = null;
-  };
+  const { down, move, up } = useWinDrag(win, onMove, onFront);
 
   const floating = !!win;
   return (

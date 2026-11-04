@@ -220,8 +220,16 @@ import { narcoticBlock } from "@/lib/narcotics";
 import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
 import { NarcoticSlips } from "./NarcoticSlips";
 import { FormularyView } from "./FormularyView";
-import { Drawer } from "./panels/Drawer";
+import { Drawer, DrawerDefaults } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
+
+/**
+ * Panels that open in their own window first (about 80% of the screen; moved by the title bar,
+ * resized from the corner, put back into the drawer with a button). Every other panel opens as the
+ * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
+ * window's place are remembered per panel on this device only.
+ */
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-lab", "discharge", "summary", "consents"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -2651,6 +2659,7 @@ export default function WardApp() {
           />
           {limitNow && <LimitStrip limit={limitNow} inTeam={inTeamNow} grant={grantNow} fmtDay={(d) => formatShort(addDays(today, d))} />}
           <PresenceStrip peers={presence.on(patient.id)} editors={presence.editorsOn(patient.id)} />
+          <DrawerDefaults.Provider value={{ panel, windowed: WINDOW_PANELS }}>
           <div
             data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
@@ -3878,6 +3887,7 @@ export default function WardApp() {
               injectionCalendar={{ on: chart.openTabs.includes("injcal") && (chart.rightTab === "injcal" || !!floating.injcal), open: () => openRight("injcal") }}
             />
           </div>
+          </DrawerDefaults.Provider>
         </>
       ) : (
         <div className="grid flex-1 place-items-center">
