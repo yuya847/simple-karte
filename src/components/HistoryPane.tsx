@@ -15,6 +15,7 @@ import { NoteText } from "./NoteText";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
+import { groupRx, rxStartKey } from "@/lib/order-groups";
 import { dayHeading, stayKindOf } from "@/lib/stay-labels";
 import { ORDER_TYPE_LABEL, drugName, durationText, oralName, orderLines, scheduleTextFor, timingText } from "@/lib/format";
 import { executionMarks, isAhead, planVerb, type PlanItem } from "@/lib/schedule-days";
@@ -270,9 +271,14 @@ function RecordList({
   }, [selectedDay, aheadOpen]);
   // 「依頼 11/4」 on a plan: open the order's card (on the day it was written) and scroll to it.
   const jumpToOrder = (id: string) => {
-    setFolded((f) => ({ ...f, each: { ...f.each, [id]: false } }));
-    const card = [...(root.current?.querySelectorAll<HTMLElement>("[data-order-id]") ?? [])].find((el) => el.dataset.orderId === id);
-    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const group = sections.flatMap((s) => groupRx(s.entries)).find((g) => g.some((e) => e.kind === "order" && e.id === id));
+    const first = group?.[0];
+    const cardId = first?.kind === "order" ? first.id : id;
+    setFolded((f) => ({ ...f, each: { ...f.each, [cardId]: false } }));
+    requestAnimationFrame(() => {
+      const card = [...(root.current?.querySelectorAll<HTMLElement>("[data-order-id]") ?? [])].find((el) => el.dataset.orderId === id);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   };
 
   const keep = (e: HistoryEntry) => showStopped || e.kind !== "order" || e.status !== "中止";
@@ -451,12 +457,15 @@ function RecordList({
         {s.plans.length > 0 && <PlanList day={d} plans={s.plans} today={today} nowAbs={nowAbs} onJump={jumpToOrder} />}
         {s.entries.length === 0 ? null : (
           <ol className="space-y-2">
-            {s.entries.map((e, i) => {
+            {groupRx(s.entries).map((group, i) => {
+              const e = group[0];
               const k = e.kind === "note" ? noteKey(e) : e.id;
               return (
                 <li key={`${d}-${i}`}>
                   {e.kind === "note" ? (
                     <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
+                  ) : group.length > 1 ? (
+                    <RxCard entries={group as OrderEntry[]} today={today} now={nowAbs} place={place} rpNo={rpNo} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} takeBadgeOf={takeBadgeOf} patient={patient} execute={execute} />
                   ) : (
                     <OrderRow entry={e} today={today} now={nowAbs} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
                   )}
@@ -515,7 +524,13 @@ function PlanList({ day, plans, today, nowAbs, onJump }: { day: DayOffset; plans
  * One record as a card: the heading row (【種類】 date and time in bold, the department and place small on the
  * right, ▸ to fold), a faint line with the version, the times and the writer, then the body.
  */
-function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag }: { mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string }; tag?: React.ReactNode }) {
+function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag, row = false }: { row?: boolean; mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string }; tag?: React.ReactNode }) {
+  if (row) return (
+    <div {...article} className={`border-t border-rule-soft py-1 ${article?.className ?? ""}`}>
+      <div className="nums flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">{meta}{tag}</div>
+      {children}
+    </div>
+  );
   return (
     <article {...article} data-folded={folded || undefined} className={`group rounded-md border border-rule-soft border-l-[3px] bg-sheet text-[13px] leading-relaxed ${tone.edge} ${article?.className ?? ""}`}>
       <div className={`flex items-center gap-1.5 rounded-tr-md px-2 py-1 ${tone.bg}`}>
@@ -957,7 +972,7 @@ function Tag({ children }: { children: React.ReactNode }) {
   return <span className="text-[11px] text-ai">【{children}】</span>;
 }
 
-function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
+function OrderRow({ grouped = false, hideStatus = false, hideStart = false, entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { grouped?: boolean; hideStatus?: boolean; hideStart?: boolean; entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
   const o = entry.order;
   const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
@@ -994,10 +1009,10 @@ function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo,
           <span className="font-bold text-ink">{o.days ? `${o.days}日分` : "継続"}</span>
         </div>
         <div className="text-right">
-          <Tag>
+          {!hideStart && <Tag>
             服用開始日：{whenText(today, o.start.day)}
             {o.start.timing ? ` ${o.start.timing}` : ""}
-          </Tag>
+          </Tag>}
           {o.dailyAmount && (
             <Tag>
               1日量：{o.dailyAmount}
@@ -1027,7 +1042,7 @@ function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo,
           <span className="font-bold text-ink">{o.days ? `${o.days}日間` : "継続"}</span>
         </div>
         <div className="text-right">
-          <Tag>開始：{whenText(today, o.start.day, o.start.time)}</Tag>
+          {!hideStart && <Tag>開始：{whenText(today, o.start.day, o.start.time)}</Tag>}
         </div>
         {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
       </div>
@@ -1064,6 +1079,7 @@ function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo,
     );
   return (
     <Card
+      row={grouped}
       mark={orderMark(o)}
       when={whenText(today, entry.day, entry.time)}
       place={place}
@@ -1099,8 +1115,8 @@ function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo,
         <>
           {menu && canExec && todays && <ExecuteMenu at={menu} onClose={() => setMenu(null)} title={main} occurrences={occurrenceStates(todays.timed, execute!.records, execute!.sessionStart, nowAbs)} untimed={todays.untimed} day={0} execute={execute} extra={extra} />}
           {menu && !canExec && <Menu at={menu} onClose={() => setMenu(null)} items={extra} />}
-          <span>第1版：{whenText(today, entry.day, entry.time)}</span>
-          <span className="font-bold text-ink">{entry.author}</span>
+          {!grouped && <><span>第1版：{whenText(today, entry.day, entry.time)}</span>
+          <span className="font-bold text-ink">{entry.author}</span></>}
           {entry.verbal && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">口頭指示 {entry.verbal.doctor} → 受け {entry.verbal.takenBy}</span>}
           <CosignMark refId={entry.id} />
           {takeBadge && <TakeBadgeMark badge={takeBadge} />}
@@ -1110,10 +1126,10 @@ function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo,
             </span>
           )}
         <OrderReportMark orderId={entry.id} />
-          <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
+          {!hideStatus && <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
             {entry.status}
             {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
-          </span>
+          </span>}
           {hasMenu && (
             <button
               type="button"
@@ -1131,6 +1147,28 @@ function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo,
       }
     >
       {body}
+    </Card>
+  );
+}
+
+/** One heading per order batch; each child still owns its menu, drag payload and execution marks. */
+function RxCard({ entries, rpNo, takeBadgeOf, ...props }: {
+  entries: OrderEntry[]; rpNo: Map<string, number>; takeBadgeOf?: Props["takeBadgeOf"];
+  today: CalendarDate; now: number | null; place: string; folded: boolean; onFold: () => void;
+  onDo?: Props["onDo"]; patient: Patient; execute?: ExecuteProps;
+}) {
+  const first = entries[0];
+  const sameStatus = entries.every((e) => e.status === first.status && (e.status !== "中止" || e.stoppedOn === first.stoppedOn));
+  const sameStart = entries.every((e) => rxStartKey(e) === rxStartKey(first));
+  const o = first.order;
+  return (
+    <Card mark={orderMark(o)} when={whenText(props.today, first.day, first.time)} place={props.place}
+      tone={entries.every((e) => e.status === "中止") ? STOPPED_TONE : ORDER_TONE}
+      folded={props.folded} onFold={props.onFold} dragHandle={!!props.onDo}
+      meta={<><span>第1版：{whenText(props.today, first.day, first.time)}</span><span className="font-bold text-ink">{first.author}</span>
+        {sameStatus && <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[first.status]}`}>{first.status}{first.status === "中止" && first.stoppedOn === 0 ? "（今日）" : ""}</span>}</>}>
+      {entries.map((entry) => <OrderRow key={entry.id} {...props} entry={entry} rpNo={rpNo.get(entry.id)} grouped hideStatus={sameStatus} hideStart={sameStart} takeBadge={takeBadgeOf?.(entry.id)} />)}
+      {sameStart && <div className="text-right"><Tag>{o.type === "prescription" ? `服用開始日：${whenText(props.today, o.start.day)}${o.start.timing ? ` ${o.start.timing}` : ""}` : o.type === "injection" ? `開始：${whenText(props.today, o.start.day, o.start.time)}` : ""}</Tag></div>}
     </Card>
   );
 }

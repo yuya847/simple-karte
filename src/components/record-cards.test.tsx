@@ -152,3 +152,40 @@ describe("依頼日と実施日", () => {
     expect(chosen).toContain('aria-current="date"');
   });
 });
+
+describe("同時に出した処方のまとまり", () => {
+  const rx = (id: string, changes: Partial<OrderEntry> = {}): OrderEntry => ({
+    kind: "order", id, day: 0, time: "16:00", author: "山本（専攻医）", status: "有効",
+    order: { type: "prescription", category: "定期", drugCode: "RX-AMLO", amount: 1, unit: "錠", timings: ["朝"], start: { day: 0, timing: "朝" }, rp: id },
+    ...changes,
+  });
+  const render = (entries: OrderEntry[], patient = sakura) => as("医師", <HistoryPane {...base} showStopped patient={patient} entries={entries} onDo={() => {}} />);
+  it("見出し・版・状態・共通開始日は1回、RpとDo・メニューは各行に残す", () => {
+    const html = render([rx("a"), rx("b"), rx("c")]);
+    expect(html.match(/【処方】/g)).toHaveLength(1);
+    expect(html.match(/第1版：/g)).toHaveLength(1);
+    expect(html.match(/服用開始日：/g)).toHaveLength(1);
+    expect(html.match(/>有効</g)).toHaveLength(1);
+    expect(html.match(/aria-label="処方をたたむ"/g)).toHaveLength(1);
+    expect(html.match(/aria-label="オーダのメニュー"/g)).toHaveLength(3);
+    for (const [i, id] of ["a", "b", "c"].entries()) {
+      expect(html).toContain(`>Rp${i + 1}<`);
+      expect(html).toContain(`data-order-id="${id}" draggable="true"`);
+    }
+  });
+  it("状態と開始日が異なれば各行に示す", () => {
+    const second = rx("b", { status: "中止", stoppedOn: 0 });
+    if (second.order.type === "prescription") second.order.start = { day: 1 };
+    const html = render([rx("a"), second]);
+    expect(html.match(/【処方】/g)).toHaveLength(1);
+    expect(html.match(/服用開始日：/g)).toHaveLength(2);
+    expect(html).toContain(">有効<");
+    expect(html).toContain("中止（今日）");
+    expect(html).toContain("line-through");
+  });
+  it("退院時・外来でも同じカード表示になる", () => {
+    const entries = [rx("a"), rx("b")].map((e) => ({ ...e, order: { ...e.order, category: "退院時" as const } }));
+    expect(render(entries).match(/【処方】/g)).toHaveLength(1);
+    expect(render(entries, { ...sakura, id: "opd:test", ward: "外来" }).match(/【処方】/g)).toHaveLength(1);
+  });
+});
