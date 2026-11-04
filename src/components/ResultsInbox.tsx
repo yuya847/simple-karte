@@ -69,21 +69,22 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
                   {(call.attempts?.length ?? 1) > 1 && `（${call.attempts!.length}回目の連絡で報告）`}
                 </span>
               )}
+              {/* The 対応 of a panic value on its own line, the field taking the whole width (it goes into the note). */}
               {i.panic.length > 0 ? (
-                <span className="flex w-full items-center gap-1 pl-10">
+                <span className="mt-0.5 flex w-full flex-wrap items-center gap-1.5">
                   <input
                     value={resp[i.key] ?? ""}
                     onChange={(e) => setResp({ ...resp, [i.key]: e.target.value })}
                     disabled={locked}
-                    placeholder="対応（記事に入ります）例：血培2セット再検、抗菌薬を追加"
+                    placeholder="対応（例：主治医に報告・指示変更）"
                     aria-label="パニック値への対応"
-                    className="flex-1 rounded border border-shu/40 bg-sheet px-1.5 py-0.5 text-[12px]"
+                    className="min-w-0 flex-1 basis-48 rounded border border-shu/40 bg-sheet px-2 py-1 text-[12px]"
                   />
                   <button
                     type="button"
                     disabled={locked || !(resp[i.key] ?? "").trim()}
                     onClick={() => onSeen([i.key], resp[i.key].trim())}
-                    className="rounded bg-shu px-2 py-0.5 text-[11px] font-bold text-white disabled:opacity-40"
+                    className="shrink-0 rounded bg-shu px-2 py-1 text-[11px] font-bold text-white disabled:opacity-40"
                   >
                     対応を記録して確認
                   </button>
