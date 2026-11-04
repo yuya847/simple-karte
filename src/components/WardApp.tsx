@@ -83,6 +83,9 @@ import { stayDays, type DocKind, type DocRecord } from "@/lib/documents";
 import { diagnosisLabel } from "@/lib/diagnoses";
 import { summaryFacts } from "@/lib/summary";
 import { INITIAL_RESTRAINTS, activeOf, durationText, minutesOf, reviewDue, type Restraint } from "@/lib/restraint";
+import { INITIAL_CARE_ORDERS, initialCareRecords, type CareOrder, type CareRecord } from "@/lib/care-orders";
+import { INITIAL_PLANS, type NursingProblem } from "@/lib/nursing-plan";
+import { NursingPanel } from "./panels/NursingPanel";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
 import type { Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
@@ -443,6 +446,10 @@ export default function WardApp() {
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
   // 身体的拘束 records (start, reviews each shift, end).
   const [restraints, setRestraints] = useState<Restraint[]>(INITIAL_RESTRAINTS);
+  // 看護ケア指示 (care and observation orders by nurses), their 実施 records, and the 看護計画.
+  const [careOrders, setCareOrders] = useState<CareOrder[]>(INITIAL_CARE_ORDERS);
+  const [careRecords, setCareRecords] = useState<CareRecord[]>(initialCareRecords);
+  const [nursingPlans, setNursingPlans] = useState<NursingProblem[]>(INITIAL_PLANS);
   // 指示簿 per patient, every version kept (the last one is in force).
   const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(initialStanding);
 
@@ -532,6 +539,9 @@ export default function WardApp() {
       pregnancy: [pregnancy, setPregnancy],
       stickies: [stickies, setStickies],
       restraints: [restraints, setRestraints],
+      careOrders: [careOrders, setCareOrders],
+      careRecords: [careRecords, setCareRecords],
+      nursingPlans: [nursingPlans, setNursingPlans],
       standing: [standing, setStanding],
       extraVitals: [extraVitals, setExtraVitals],
       mar: [mar, setMar],
@@ -2739,6 +2749,24 @@ export default function WardApp() {
                       setRestraints((all) => all.map((r) => (r.id !== id ? r : { ...r, reviews: [...r.reviews, { at: { day: 0, time: nowTime }, by: me.name, decision, note }], ...(decision === "やめる" ? { end: { at: { day: 0, time: nowTime }, by: me.name, note } } : {}) })));
                       if (decision === "やめる") update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・身体的拘束を解除（${nowTime}）：${note}\n` }));
                     }}
+                  />
+                </Drawer>
+              )}
+              {(panel === "care-orders" || panel === "nursing-plan") && (
+                <Drawer title="看護ケア指示・看護計画" onClose={closePanel} wide>
+                  <NursingPanel
+                    key={`${patient.id}-${panel}`}
+                    start={panel === "care-orders" ? "care" : "plan"}
+                    patientId={patient.id}
+                    orders={careOrders.filter((o) => o.patientId === patient.id)}
+                    records={careRecords.filter((r) => r.patientId === patient.id)}
+                    plans={nursingPlans.filter((p) => p.patientId === patient.id)}
+                    nowTime={nowTime}
+                    sessionStart={sessionStart ?? abs(0, nowTime)}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    newId={newId}
+                    onOrders={(f, what) => (auditLog({ role: me.role, actor: me.name, action: "確定（看護ケア指示）", patient: patient.name, detail: what }), setCareOrders(f))}
+                    onPlans={(f, what) => (auditLog({ role: me.role, actor: me.name, action: "確定（看護計画）", patient: patient.name, detail: what }), setNursingPlans(f))}
                   />
                 </Drawer>
               )}

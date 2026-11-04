@@ -79,7 +79,8 @@ export type Action =
   | "er.admit"
   | "bed.assign"
   | "bed.move"
-  | "restraint";
+  | "restraint"
+  | "nursing.plan";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
   order: { label: "オーダの確定", who: ["医師"] },
@@ -112,6 +113,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "bed.assign": { label: "ベッドを決めて入院を受けること", who: ["看護師", "医師"] },
   "bed.move": { label: "転棟・転床", who: ["医師", "看護師"] },
   restraint: { label: "身体的拘束の記録", who: ["医師", "看護師"] },
+  "nursing.plan": { label: "看護計画と看護ケア指示の記録", who: ["看護師"] },
 };
 
 export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);
