@@ -48,7 +48,7 @@ const EVERYONE: AreaKey[] = ["phs", "board", "manual", "incident"];
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign";
+export type WardTab = "map" | "floor" | "mine" | "dept" | "all" | "doctor" | "sheet" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -68,6 +68,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "dept", label: "科別", hint: "診療科ごとにまとめた一覧", group: "patients", needs: "list" },
   { key: "doctor", label: "主治医別", hint: "主治医ごとにまとめた一覧", group: "patients", needs: "list" },
   { key: "sheet", label: "ワークシート", hint: "今日の与薬・処置と指示受け", group: "work", needs: "sheet" },
+  { key: "io", label: "水分出納", hint: "受け持ち患者の IN/OUT を勤務の終わりにまとめて入れ、勤務ごと・24時間の合計と IN − OUT を見る", group: "work", needs: "sheet" },
   { key: "handoff", label: "申し送り", hint: "I-PASS の形で次の勤務へ", group: "work", needs: "handoff" },
   { key: "admit", label: "入院時の評価", hint: "期限のある評価（褥瘡・栄養・退院支援など）", group: "work", needs: "admit" },
   { key: "beds", label: "ベッドコントロール", hint: "全病棟の空床（性別・個室）、今日と明日の入退院、明日の朝の空床の見込み、入院申込に合うベッド", group: "work", needs: "map" },

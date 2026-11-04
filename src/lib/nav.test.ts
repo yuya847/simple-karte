@@ -49,6 +49,11 @@ describe("② inside 病棟", () => {
     expect(wardTabsFor("医師")).not.toContain("roster");
     expect(wardTabsFor("薬剤師")).not.toContain("roster");
   });
+  it("水分出納 (several patients at once): for nurses, next to the worksheet", () => {
+    expect(wardTabsFor("看護師")).toContain("io");
+    expect(wardTabsFor("看護師").indexOf("io")).toBe(wardTabsFor("看護師").indexOf("sheet") + 1);
+    expect(wardTabsFor("医師")).not.toContain("io");
+  });
   it("keeps only allowed screens from saved defaults, once each and in order", () => {
     expect(allowedWardTabs("医師", ["mine", "sheet", "map", "mine", "x" as never])).toEqual(["mine", "map"]);
   });

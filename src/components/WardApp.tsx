@@ -72,7 +72,7 @@ import { transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
-import { initialIo, withIoUrine, type IoEntry } from "@/lib/io-balance";
+import { initialIo, ioMissing, windowText, withIoUrine, type IoEntry } from "@/lib/io-balance";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
 import { bagsOf } from "@/lib/discharge-rx";
@@ -140,6 +140,7 @@ import { latestValue } from "@/lib/clinical";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
 import { IoPanel } from "./IoPanel";
+import { IoBoard } from "./IoBoard";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
 import { DietPanel } from "./panels/DietPanel";
@@ -1370,6 +1371,7 @@ export default function WardApp() {
     // 看護計画: evaluations due today or late (the day after midnight counts as the next day).
     const planDay = Math.floor(abs(0, nowTime) / 1440);
     if (role === "看護師") for (const np of dueEvaluations(nursingPlans, [pid], planDay)) todos.push({ key: `nplan-${np.id}`, label: `看護計画の評価：${x.patient.name}さん ${problemTitle(np)}`, detail: evalStatus(np, planDay)?.text, count: 1, tone: evalStatus(np, planDay)?.late ? "shu" : "yamabuki", go: () => (openPatient(pid), setPanel("nursing-plan")) });
+    for (const m of role === "看護師" ? ioMissing([{ id: pid, io: standingNow(pid)?.io }], io, abs(0, nowTime)) : []) todos.push({ key: `io-${pid}`, label: `水分出納の記録がまだ：${x.patient.name}さん`, detail: `指示簿「${standingNow(pid)?.io}」・${windowText(m.shift)}に入れた IN/OUT がありません`, count: 1, tone: "yamabuki", go: () => goWard("io") });
   }
   // 看護ケア・観察: tasks more than an hour past their time without a record.
   const careLateN = role === "看護師" && sessionStart !== null ? lateCare(careOrders, careRecords, people.map((x) => x.patient.id), sessionStart, abs(0, nowTime)).length : 0;
@@ -1634,6 +1636,8 @@ export default function WardApp() {
           onConfirm={confirmCosign}
           onOpen={openPatient}
         />
+      ) : screen === "io" ? (
+        <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standing[pid]?.at(-1)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
       ) : screen === "roster" ? (
         <RosterView book={rosterBook} today={today} nowTime={nowTime} onChange={setRosterBook} />
       ) : screen === "extract" ? (

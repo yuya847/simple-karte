@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Droplets,
   FlaskConical,
+  GlassWater,
   LayoutGrid,
   List,
   Megaphone,
@@ -69,4 +70,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   iji: ReceiptJapaneseYen,
   roster: CalendarDays,
   cosign: UserCheck,
+  io: GlassWater,
 };
