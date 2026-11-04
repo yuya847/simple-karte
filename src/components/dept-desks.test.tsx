@@ -11,6 +11,8 @@ import { EMPTY_OPD_DESK, OpdDesk } from "./OpdDesk";
 import { KioskScreen, WaitingDisplay } from "./OpdScreens";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { StatsView } from "./StatsView";
+import { ReceiptDesk } from "./ReceiptDesk";
+import { EMPTY_RETURNS } from "@/lib/billing/returns";
 import { STAFF, type Role } from "@/lib/roles";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -46,6 +48,15 @@ describe("統計・日報", () => {
     expect(html).toContain("5階東病棟");
     expect(html).toContain("全病棟");
     expect(html).toContain("CSV で保存");
+  });
+});
+
+describe("レセプト点検・返戻", () => {
+  it("shows the 点検 tab first, and says オンライン請求 is not connected", () => {
+    const html = as("医事課", <ReceiptDesk patients={PATIENTS} diagnoses={{}} today={today} nowTime="10:00" payload={() => []} onOpen={() => {}} desk={EMPTY_RETURNS} onDesk={() => {}} />);
+    expect(html).toContain("点検の一覧");
+    expect(html).toContain("オンライン請求にはつないでいません（模擬）");
+    expect(html).toContain("新しい決まりは足していません");
   });
 });
 

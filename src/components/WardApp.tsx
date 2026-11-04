@@ -204,6 +204,8 @@ import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
 import { LiaisonView } from "./LiaisonView";
 import { StatsView } from "./StatsView";
+import { ReceiptDesk } from "./ReceiptDesk";
+import { EMPTY_RETURNS, type ReturnDesk } from "@/lib/billing/returns";
 import { EMPTY_LIAISON, type LiaisonBook } from "@/lib/liaison";
 
 const NOTE_TEMPLATE = "S)\nO)\nA)\nP)\n";
@@ -544,6 +546,8 @@ export default function WardApp() {
   const dept = useDepartments();
   // 地域医療連携: the 連携室's entries, 返書 sent/received and facilities chosen.
   const [liaison, setLiaison] = useState<LiaisonBook>(EMPTY_LIAISON);
+  // レセプト点検・返戻: the 返戻・査定 files read in and the 再請求 decided.
+  const [returns, setReturns] = useState<ReturnDesk>(EMPTY_RETURNS);
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
   const workspace = useWorkspace(
     {
@@ -624,6 +628,7 @@ export default function WardApp() {
       calls: [calls, setCalls],
       labDesk: [labDesk, setLabDesk],
       liaison: [liaison, setLiaison],
+      returns: [returns, setReturns],
       iji: [iji, setIji],
       takeHolds: [takeHolds, setTakeHolds],
       oralRx: [oralRx, setOralRx],
@@ -1938,6 +1943,8 @@ export default function WardApp() {
           voided={marVoided}
           onVoid={voidMar}
         />
+      ) : screen === "receipt" ? (
+        <ReceiptDesk patients={allPatients} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => allPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(where))} desk={returns} onDesk={setReturns} />
       ) : screen === "stats" ? (
         <StatsView today={today} nowTime={nowTime} floors={FLOORS} beds={[...BEDS, ...newBeds, ...OTHER_FLOOR_BEDS]} moves={moves} patient={findPatient} opd={opd} er={er} />
       ) : screen === "liaison" ? (
