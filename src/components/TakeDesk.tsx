@@ -4,6 +4,7 @@ import { ExternalLink, Printer } from "lucide-react";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
+import { TAKE_SOURCES } from "@/lib/order-take";
 import { CONFIRM_SOURCES, TAKE_SORTS, elapsedLabel, groupByPatient, slipLines, sortTakeList, takeLate, takenInSession, unconfirmed, type Confirms, type TakeSort } from "@/lib/order-confirm";
 import type { TakeHold, TakeRow } from "@/lib/order-take";
 import { WARD_NAME } from "@/lib/ward";
@@ -127,7 +128,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                         </button>
                       </div>
                       <div className="px-2 pb-1 text-[12px]">
-                        <TakeTable rows={g.rows} taken={taken} isTaken={isTaken} holds={holds} interactive day={0} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} showPatient={false} />
+                        <TakeTable rows={g.rows} taken={taken} isTaken={isTaken} holds={holds} interactive day={0} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} showPatient={false} notes={false} />
                       </div>
                     </div>
                   );
@@ -160,7 +161,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                       </button>
                     </div>
                     <div className="px-2 pb-1 text-[12px]">
-                      <TakeTable rows={g.rows} taken={taken} isTaken={isTaken} holds={holds} interactive day={0} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} showPatient={false} />
+                      <TakeTable rows={g.rows} taken={taken} isTaken={isTaken} holds={holds} interactive day={0} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} showPatient={false} notes={false} />
                     </div>
                   </div>
                 ))}
@@ -170,6 +171,9 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
 
           <div className="space-y-1 text-[11px] text-ink-faint">
             <p>
+              【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。高リスク薬の一覧と時間外の区切りは架空の病院の取り決めです。
+            </p>
+            <p className="text-[11px] text-ink-faint">
               指示受け → 指示確認 → 実施入力の流れと、未指示受けの一覧・患者ごとのまとめ・並べ替え・指示票は、公開されている電子カルテのカタログと病院の調達仕様の要件に合わせています。遅れの目安（至急 15分・ほかは 60分）、「自分の受け持ち」の決め方（その勤務帯の業務分担、なければ病棟の固定チーム）、今日と明日の予定を見ることは架空の病院の取り決めです。オーダからコードで集めています（AI は使っていません）。
             </p>
             <Sources items={CONFIRM_SOURCES} />

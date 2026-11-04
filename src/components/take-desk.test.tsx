@@ -61,7 +61,7 @@ describe("指示受けの画面", () => {
   });
 
   it("moves taken changes to 今日の指示受け済み with who and when, and asks for 指示確認 until the schedule is looked at", () => {
-    const taken = { "a|新規": "11:00 看護師 佐藤" };
+    const taken: Record<string, string> = { "a|新規": "11:00 看護師 佐藤" };
     const html = renderToStaticMarkup(
       <RoleProvider value="看護師">
         <TakeDesk {...base} taken={taken} isTaken={(r) => r.keys.every((k) => !!taken[k])} confirms={{}} isMine={() => false} />
@@ -93,7 +93,7 @@ describe("指示受けの画面", () => {
   });
 
   it("the worksheet's take table marks a taken row whose schedule was not confirmed, also when printed", () => {
-    const taken = { "a|新規": "11:00 看護師 佐藤" };
+    const taken: Record<string, string> = { "a|新規": "11:00 看護師 佐藤" };
     const printed = renderToStaticMarkup(
       <RoleProvider value="看護師">
         <TakeTable rows={rows} taken={taken} isTaken={(r) => r.keys.every((k) => !!taken[k])} holds={{}} interactive={false} day={0} today={TODAY} nurses={[]} onTake={noop} onHold={noop} confirm={{ confirms: {}, onConfirm: noop, people: [p1, p2], nowAbs: 730 }} />
@@ -104,7 +104,7 @@ describe("指示受けの画面", () => {
   });
 
   it("the doctor sees each change's status and can print the 指示票; the slip carries 指示受け and 指示確認", () => {
-    const taken = { "a|新規": "11:00 看護師 佐藤" };
+    const taken: Record<string, string> = { "a|新規": "11:00 看護師 佐藤" };
     const ctx = { taken, isTaken: (r: { keys: string[] }) => r.keys.every((k) => !!taken[k]), holds: {}, confirms: { "a|新規": "11:05 看護師 佐藤" } };
     const strip = renderToStaticMarkup(<TakeStatus rows={rows} {...ctx} nowAbs={730} onAnswer={noop} slip={{ patient: { id: "p1", name: "佐倉 修", room: "512" }, today: TODAY, nowTime: "12:10", by: "山本（専攻医）" }} />);
     expect(strip).toContain("まだ 1件");
