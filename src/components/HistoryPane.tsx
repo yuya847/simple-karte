@@ -132,8 +132,8 @@ export function HistoryPane(props: Props) {
   };
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
-      <div className="flex items-center gap-3 border-b border-rule-soft px-4 py-1.5">
-        <div role="tablist" aria-label="左の表示" className="flex rounded-md border border-rule p-0.5 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft px-4 py-1.5">
+        <div role="tablist" aria-label="左の表示" className="scroll-thin flex min-w-0 max-w-full overflow-x-auto rounded-md border border-rule p-0.5 text-sm">
           {LEFT_VIEWS.map(({ key: v, label, title }) => (
             <button
               key={v}
@@ -149,7 +149,7 @@ export function HistoryPane(props: Props) {
           ))}
         </div>
         {view === "record" && (
-          <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-ink-faint">
+          <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-faint">
             <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
             中止したオーダも表示
           </label>
@@ -494,7 +494,7 @@ function Note({ entry, patientId, today, part = "全", onRevise, coedit, onDo }:
           onClose={() => setMenu(null)}
           items={[
             { label: "右の記事へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload), disabled: onDo ? undefined : "写せません" },
-            { label: "修正する", icon: PencilLine, onClick: startEdit, disabled: mine ? undefined : "自分が書いた記事だけ直せます" },
+            { label: "修正する", icon: PencilLine, onClick: startEdit, disabled: mine ? undefined : "検査室の記事は直せません" },
             { label: versions.length > 1 ? `修正の履歴を見る（第${versions.length}版まで）` : "修正の履歴を見る（修正なし）", icon: History, onClick: () => setShowHistory(true), disabled: versions.length > 1 ? undefined : "修正はありません" },
           ]}
         />

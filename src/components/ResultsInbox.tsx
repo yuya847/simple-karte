@@ -13,7 +13,8 @@ interface Props {
   calls: Record<string, PanicCall>;
   /** Mark as seen; for a panic value, with what the doctor did (it goes into the note). */
   onSeen: (keys: string[], response?: string) => void;
-  onOpenResults: () => void;
+  /** Opens the 検査結果 panel; left out when the inbox is already inside it. */
+  onOpenResults?: () => void;
 }
 
 /** In the chart: results not seen yet, with panic values (and the phone call) first. */
@@ -32,9 +33,11 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
           未確認の結果 {items.length}件{panic.length ? `（パニック値 ${panic.length}件）` : ""}
         </b>
         <span className="hint text-ink-soft">開いただけでは既読になりません。見たら「確認した」を押します（誰がいつ）。パニック値は対応も残します。</span>
-        <button type="button" onClick={onOpenResults} className="ml-auto rounded border border-rule bg-sheet px-2 py-0.5 text-ink-soft hover:text-ink">
-          検査結果を開く
-        </button>
+        {onOpenResults && (
+          <button type="button" onClick={onOpenResults} className="ml-auto rounded border border-rule bg-sheet px-2 py-0.5 text-ink-soft hover:text-ink">
+            検査結果を開く
+          </button>
+        )}
         {plain.length > 0 && (
           <button type="button" disabled={locked} onClick={() => onSeen(plain.map((i) => i.key))} className="rounded bg-ai px-2 py-0.5 font-bold text-white disabled:opacity-40">
             {panic.length ? "パニック値以外をすべて確認した" : "すべて確認した"}

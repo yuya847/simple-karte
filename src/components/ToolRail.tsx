@@ -114,10 +114,15 @@ interface Props {
   blocked?: Partial<Record<PanelKind, string>>;
   /** The injection calendar opens as a tab on the right (it is for changing orders, not only reading). */
   injectionCalendar?: { on: boolean; open: () => void };
+  /** Counts shown as a red circle on a tool's icon (e.g. 未確認の結果 on 検査結果); urgent = a panic value among them. */
+  badges?: Partial<Record<PanelKind, { n: number; urgent?: boolean }>>;
 }
 
 const toolClass = (off: boolean, active: boolean) =>
   `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
+
+/** The red circle with a count on a tool (shu for a panic value, ai otherwise). */
+const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ${urgent ? "bg-shu" : "bg-ai"}`;
 
 type RailMode = "icons" | "list";
 const RAIL_KEY = "simple-karte:tool-rail";
@@ -144,7 +149,7 @@ function saveRail(person: string, v: { mode: RailMode; pins: PanelKind[] }) {
  * tab in three columns of icons (or a list with names), and above them an お気に入り bar with the tools
  * this person pinned (★). The pins and the look are kept per person in this browser.
  */
-export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar }: Props) {
+export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar, badges = {} }: Props) {
   const me = useMe();
   const groups = orderFor(me.role).map((k) => GROUPS.find((g) => g.key === k)!);
   const [tab, setTab] = useState<GroupKey>(groups[0].key);
@@ -168,6 +173,7 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar }: Prop
     const why = blocked[t.key];
     const off = t.disabled || !!why;
     const isPin = rail.pins.includes(t.key);
+    const badge = badges[t.key];
     const base = list
       ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`
       : toolClass(off, active);
@@ -176,7 +182,13 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar }: Prop
         <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && onOpen(active ? null : t.key)} aria-pressed={active} className={base}>
           <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
           <span className={list ? "truncate" : ""}>{t.label}</span>
+          {list && badge && badge.n > 0 && <span className={`${badgeClass(badge.urgent)} ml-auto`}>{badge.n}</span>}
         </button>
+        {!list && !editPins && badge && badge.n > 0 && (
+          <span aria-label={`${t.label}：未確認 ${badge.n}件`} className={`${badgeClass(badge.urgent)} pointer-events-none absolute right-1 top-0`}>
+            {badge.n}
+          </span>
+        )}
         {editPins && (
           <button
             type="button"
@@ -215,8 +227,9 @@ export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar }: Prop
       </section>
       <div role="tablist" aria-label="道具の種類" className="mb-1 flex flex-wrap gap-0.5 border-b border-rule pb-1">
         {groups.map((g) => (
-          <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => setTab(g.key)} className={`rounded px-1.5 py-0.5 text-[11px] ${shownTab === g.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
+          <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => setTab(g.key)} data-badged={[...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0) || undefined} className={`rounded px-1.5 py-0.5 text-[11px] ${shownTab === g.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
             {g.title}
+            {[...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0) && <span aria-hidden className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-shu align-middle" />}
           </button>
         ))}
       </div>

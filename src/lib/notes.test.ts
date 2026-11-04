@@ -31,9 +31,12 @@ describe("notes", () => {
     expect(versionsOf(v3)).toHaveLength(3);
   });
 
-  it("only the author corrects a note", () => {
+  it("anyone with a name corrects a note; the 検査室 notes are not corrected by hand", () => {
     expect(canRevise(note, "山本（専攻医）")).toBe(true);
-    expect(canRevise(note, "看護師 佐藤")).toBe(false);
+    // Others may correct it too (every version keeps who, when and why); a name is needed.
+    expect(canRevise(note, "看護師 佐藤")).toBe(true);
+    expect(canRevise(note, "")).toBe(false);
+    expect(canRevise({ ...note, role: "検査室" }, "山本（専攻医）")).toBe(false);
   });
 
   it("shows removed and added lines", () => {

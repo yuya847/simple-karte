@@ -125,7 +125,7 @@ import { loadRecent, pushRecent, saveRecent, type RecentOpen } from "@/lib/recen
 import { NewTabPage } from "./NewTabPage";
 import { WardMenu } from "./WardMenu";
 import { AREA_ICON, WARD_ICON } from "./nav-icons";
-import { Eye, LayoutList, Plus, X } from "lucide-react";
+import { LayoutList, Plus } from "lucide-react";
 import {
   AREAS,
   allowedWardTabs,
@@ -426,7 +426,6 @@ export default function WardApp() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
   // 未確認の結果の窓: shown for a chart with unseen results until closed (per patient, this page).
-  const [resultsWin, setResultsWin] = useState<Record<string, boolean>>({});
   // 結果を表示 from a lab order in the record: the draw to show in the results table.
   const [resultFocus, setResultFocus] = useState<{ day: number; time: string } | null>(null);
   // What a pressed cell of the flow sheet asked for (the time for バイタル・水分出納, the rows for the others).
@@ -2539,12 +2538,6 @@ export default function WardApp() {
             onOpenProfile={() => setPanel("profile")}
             actions={
               <>
-                {unseenHere.length > 0 && (
-                  <button type="button" onClick={() => setResultsWin((w) => ({ ...w, [patient.id]: true }))} className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold ${unseenHere.some((i) => i.panic.length) ? "border-shu bg-shu-soft text-shu" : "border-ai bg-ai-soft text-ai"}`} title="未確認の結果を窓で出す">
-                    <Eye size={14} />
-                    未確認の結果 {unseenHere.length}
-                  </button>
-                )}
                 {orderMode !== "none" && (
                   <button type="button" disabled={!ordersReady} onClick={() => presence.guard(patient.id, "オーダの確定", confirm)} title={ordersReady ? "貯めたオーダだけを飛ばす（記事はそのまま）" : "飛ばせる下書きがありません（確認が残っているか、下書きがない）"} className={`rounded-md border px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${orderMode === "verbal" ? "border-yamabuki text-yamabuki" : "border-ink text-ink hover:bg-paper"}`}>
                     {orderMode === "verbal" ? "口頭指示で" : ""}オーダーのみ{chart.drafts.length ? ` ${chart.drafts.length}` : ""}
@@ -2778,17 +2771,6 @@ export default function WardApp() {
               }}
             >
               {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
-              {unseenHere.length > 0 && (resultsWin[patient.id] ?? true) && (
-                <div role="dialog" aria-label="未確認の結果" className="fixed right-4 top-28 z-40 max-h-[70vh] w-[min(680px,92vw)] overflow-y-auto rounded-lg border border-rule bg-sheet shadow-[0_16px_40px_-12px_rgba(38,34,28,0.45)]">
-                  <div className="flex items-center justify-between border-b border-rule px-3 py-1.5 text-sm">
-                    <b>未確認の結果（窓）</b>
-                    <button type="button" onClick={() => setResultsWin((w) => ({ ...w, [patient.id]: false }))} aria-label="窓を閉じる" className="rounded p-1 text-ink-faint hover:bg-paper hover:text-ink">
-                      <X size={16} />
-                    </button>
-                  </div>
-                  <ResultsInbox today={today} items={unseenHere} calls={calls} onSeen={(keys, response) => markSeen(patient.id, keys, response)} onOpenResults={() => setPanel("results")} />
-                </div>
-              )}
               <VerbalInbox
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                 today={today}
@@ -3116,6 +3098,11 @@ export default function WardApp() {
               )}
               {panel === "results" && (
                 <Drawer title="検査結果" onClose={closePanel} wide expandable>
+                  {unseenHere.length > 0 && (
+                    <div className="mb-3 rounded-lg border border-rule bg-paper">
+                      <ResultsInbox today={today} items={unseenHere} calls={calls} onSeen={(keys, response) => markSeen(patient.id, keys, response)} />
+                    </div>
+                  )}
                   <ResultsPanel
                     patient={patient}
                     today={today}
@@ -3801,6 +3788,7 @@ export default function WardApp() {
             )}
             <ToolRail
               open={panel ?? (chart.rightTab === "injection" ? "add-injection" : chart.rightTab === "rx" ? "add-rx" : null)}
+              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) } }}
               onOpen={(p) => {
                 // 注射 and 内服 are tabs on the right, not panels.
                 if (p === "add-injection" || p === "add-rx") {

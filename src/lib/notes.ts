@@ -243,8 +243,12 @@ export function noteTimes(e: NoteEntry): { event: Moment; written: Moment; updat
   return { event: { day: e.day, time: e.time }, written, updated: vs.length > 1 ? { day: last.day, time: last.time } : null, late };
 }
 
-/** Only the person who wrote a note corrects it; others write a new note. */
-export const canRevise = (e: NoteEntry, me: string) => e.author === me;
+/**
+ * Anyone with a name may correct a confirmed note (ユーザーの決め、2026-11-04: 木下さんの記事を山本が直せるように).
+ * Every version is kept with who corrected it, when and why, so the record stays traceable. Notes the
+ * 検査室 writes from results are not corrected by hand.
+ */
+export const canRevise = (e: NoteEntry, me: string) => !!me && e.role !== "検査室";
 
 /** A corrected note: same place in the record, new content, every earlier version kept. */
 export function reviseNote(e: NoteEntry, raw: string, by: string, at: { day: DayOffset; time: string }, reason: string): NoteEntry {
