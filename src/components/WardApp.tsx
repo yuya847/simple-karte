@@ -207,6 +207,8 @@ import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { DEFAULT_DOCTOR, DOCTORS, isResident, onTeamOf } from "@/lib/doctors";
+import { addDoctor, consultDoctors, doctorsOf, INITIAL_DOCTOR_BOOK, involved, removeDoctor, type DoctorBook } from "@/lib/patient-doctors";
+import { DoctorsPanel } from "./panels/DoctorsPanel";
 import { COSIGN_RULES, byRef, confirmDeny, confirmItems, newItems, noteRevised, pendingOf, residentBlock, type CosignItem } from "@/lib/cosign";
 import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
@@ -563,6 +565,9 @@ export default function WardApp() {
   const [rosterBook, setRosterBook] = useState<RosterBook | null>(null);
   // 妊娠中の印 and 付箋, per patient.
   const [pregnancy, setPregnancy] = useState<Record<string, { weeks: number | null } | null>>({});
+  // 担当医・コンサルト医 per patient (the attending is in the record); the list opens from the patient bar.
+  const [doctorBook, setDoctorBook] = useState<DoctorBook>(INITIAL_DOCTOR_BOOK);
+  const [doctorsOpen, setDoctorsOpen] = useState(false);
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
   // 経過表: the days a nurse or doctor chose to count from (イベント日数).
   const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
@@ -693,6 +698,7 @@ export default function WardApp() {
       consultReplies: [consultReplies, setConsultReplies],
       journal: [journal, setJournal],
       pregnancy: [pregnancy, setPregnancy],
+      doctorBook: [doctorBook, setDoctorBook],
       stickies: [stickies, setStickies],
       flowEvents: [flowEvents, setFlowEvents],
       graphNotes: [graphNotes, setGraphNotes],
@@ -800,7 +806,12 @@ export default function WardApp() {
   const patientById = useMemo(() => new Map([...allPatients, ...visitPatientsAll.map((x) => x.patient)].map((p) => [p.id, p])), [allPatients, visitPatientsAll]);
   const findPatient = useCallback((id: string) => patientById.get(id), [patientById]);
   // The 山本チーム's patients (and today's admissions): the worksheet, やること and the boards are theirs.
-  const teamIds = useMemo(() => new Set([...PATIENTS, ...admitted].map((p) => p.id)), [admitted]);
+  // A doctor's 受け持ち also has every patient they are 主治医 (team), 担当医 or コンサルト医 of, so none is missed.
+  const teamIds = useMemo(() => {
+    const ids = new Set([...PATIENTS, ...admitted].map((p) => p.id));
+    if (role === "医師") for (const p of allPatients) if (!ids.has(p.id) && involved(me.name, doctorsOf(p.attending, doctorBook[p.id]))) ids.add(p.id);
+    return ids;
+  }, [admitted, role, me.name, allPatients, doctorBook]);
   // 医事課 and the receipt file stay the team's: the claim APIs take up to 60 patients in one request.
   const teamPatients = useMemo(() => allPatients.filter((p) => teamIds.has(p.id)), [allPatients, teamIds]);
   // 5階東 (and anyone moved from it or admitted today), and every floor's beds.
@@ -1485,8 +1496,10 @@ export default function WardApp() {
   // 「全病棟」 is chosen only on the patient list (◯階); the map and the journal show one floor (5階東 then).
   const oneFloor = floor === ALL_WARDS ? WARD_NAME : floor;
   const floorInfo: Floor = FLOORS.find((f) => f.name === oneFloor) ?? FLOORS[0];
-  // 受け持ち (it stands out on the list and the map): a doctor's own patients (主治医のチーム), else the team's.
-  const isMine = (pid: string) => (role === "医師" ? onTeamOf(me.name, findPatient(pid)?.attending ?? "") : teamIds.has(pid));
+  // 受け持ち (it stands out on the list and the map): a doctor's own patients (主治医のチーム・担当医・コンサルト医), else the team's.
+  const isMine = (pid: string) => (role === "医師" ? involved(me.name, doctorsOf(findPatient(pid)?.attending ?? "", doctorBook[pid])) : teamIds.has(pid));
+  // 主治医・担当医・コンサルト医 of a patient as the record stands (a consult order not yet answered adds the asked doctor as 依頼中).
+  const doctorsFor = (pid: string, es: HistoryEntry[]) => doctorsOf(findPatient(pid)?.attending ?? "", doctorBook[pid], consultDoctors(es, consultReplies));
   // Any patient on a bed with the record as it stands (the team's from `people`; another team's opened from a list).
   const workOf = (pid: string): WorkPatient | undefined => {
     const x = people.find((y) => y.patient.id === pid);
@@ -1515,7 +1528,7 @@ export default function WardApp() {
     // 受け持ち: a doctor's own patients (主治医); a nurse's team for this shift; others the whole ward.
     mine:
       role === "医師"
-        ? { beds: ward.beds.filter((b) => b.patientId && onTeamOf(me.name, findPatient(b.patientId)?.attending ?? "")), title: "受け持ち患者（主治医のチーム）", group: "room" }
+        ? { beds: ward.beds.filter((b) => b.patientId && isMine(b.patientId)), title: "受け持ち患者（主治医・担当医・コンサルト医）", group: "room" }
         : role === "看護師"
           ? {
               // Teams are 5階東's: a patient moved to another floor is in neither team (shown under すべて).
@@ -1873,7 +1886,7 @@ export default function WardApp() {
   };
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
-  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "医師" ? unseenResults.filter((i) => onTeamOf(me.name, findPatient(i.patientId)?.attending ?? "")).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length };
+  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "医師" ? unseenResults.filter((i) => isMine(i.patientId)).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabLabel(w, floor) : o === "er" ? "救急外来" : "外来";
@@ -2510,6 +2523,8 @@ export default function WardApp() {
           ward={{ beds: lists[listKey].beds, patient: findPatient }}
           title={lists[listKey].title}
           pick={lists[listKey].pick}
+          doctorsOf={doctorsFor}
+          viewer={role === "医師" ? me.name : undefined}
           defaultGroup={lists[listKey].group}
           floor={lists[listKey].floor}
           nowTime={nowTime}
@@ -2564,6 +2579,8 @@ export default function WardApp() {
             onOpenDirective={() => setPanel("directive")}
             onOpenDiet={() => setPanel("diet")}
             onOpenProfile={() => setPanel("profile")}
+            doctors={doctorsFor(patient.id, entries)}
+            onOpenDoctors={() => setDoctorsOpen(true)}
             actions={
               <>
                 {orderMode !== "none" && (
@@ -3437,6 +3454,9 @@ export default function WardApp() {
                       const dept = e && e.kind === "order" && e.order.type === "procedure" ? e.order.consult?.dept : "";
                       auditLog({ role: "医師", actor: by, action: "確定（他科依頼の返書）", patient: patient.name, detail: `${dept}　${text.slice(0, 80)}` });
                       setConsultReplies((all) => ({ ...all, [entryId]: { text, by, at: nowTime } }));
+                      // The doctor who answered is the patient's コンサルト医 from now on (the 依頼中 placeholder goes).
+                      auditLog({ role: "医師", actor: by, action: "確定（コンサルト医の登録：他科依頼の返書）", patient: patient.name, detail: `${dept} ${by}` });
+                      setDoctorBook((all) => ({ ...all, [patient.id]: addDoctor(all[patient.id] ?? [], { name: by, role: "コンサルト医", department: dept, since: { day: 0, time: nowTime }, by, note: "他科依頼の返書" }) }));
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${dept}から返書（${by}）：${text}\n` }));
                     }}
                     onAdd={(d) => {
@@ -3745,6 +3765,24 @@ export default function WardApp() {
               {panel === "national" && (
                 <Drawer title="国のサービス（模擬）：電子処方箋・電子カルテ情報共有サービス" onClose={closePanel} wide>
                   <NationalPanel patient={patient} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} diagnoses={diagnoses[patient.id] ?? []} draft={discharges[patient.id]} book={iji.insurance} today={today} nowTime={nowTime} log={national} onRecord={(r) => setNational((all) => [...all, r])} />
+                </Drawer>
+              )}
+              {doctorsOpen && (
+                <Drawer title="主治医・担当医・コンサルト医" onClose={() => setDoctorsOpen(false)}>
+                  <DoctorsPanel
+                    doctors={doctorsFor(patient.id, entries)}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    onAdd={(d) => {
+                      if (deny("profile.doctors")) return;
+                      auditLog({ role: me.role, actor: me.name, action: `確定（${d.role}の登録）`, patient: patient.name, detail: `${d.name}${d.department ? `（${d.department}）` : ""}${d.note ? `　${d.note}` : ""}` });
+                      setDoctorBook((all) => ({ ...all, [patient.id]: addDoctor(all[patient.id] ?? [], { ...d, since: { day: 0, time: nowTime }, by: me.name }) }));
+                    }}
+                    onRemove={(name, r) => {
+                      if (deny("profile.doctors")) return;
+                      auditLog({ role: me.role, actor: me.name, action: `${r}を外した`, patient: patient.name, detail: name });
+                      setDoctorBook((all) => ({ ...all, [patient.id]: removeDoctor(all[patient.id] ?? [], name, r) }));
+                    }}
+                  />
                 </Drawer>
               )}
               {panel === "profile" && (
