@@ -1,5 +1,6 @@
 "use client";
 
+import { coverageOf, rateLabel, type Insurance } from "@/lib/billing/insurance";
 import { useState } from "react";
 
 import { bmi, cockcroftGault, latestValue } from "@/lib/clinical";
@@ -32,6 +33,8 @@ interface Props {
   onOpenDoctors?: () => void;
   /** 患者基本情報 (住所・連絡先・家族・保険・入院前の情報収集 …): opened by double-clicking the name (iPad: a long press). */
   onOpenInfo?: () => void;
+  /** The insurance 医事課 (or a doctor/nurse) registered: shown as a tag; null = not registered yet. */
+  insurance?: Insurance | null;
   /** 保存・オーダーのみ・未確認の結果: the chart's actions, on the right of the bar. */
   actions?: React.ReactNode;
 }
@@ -43,7 +46,7 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, onOpenInfo, actions }: Props) {
+export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, onOpenInfo, insurance, actions }: Props) {
   const [pregEdit, setPregEdit] = useState(false);
   const longPress = useLongPress<HTMLDivElement>(onOpenInfo);
   const [weeks, setWeeks] = useState("");
@@ -135,6 +138,9 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         <button type="button" onClick={onOpenProfile} title="患者プロファイルを開く（アレルギー・感染症・禁忌）">
           <Badge tone="shu" label="アレルギー" values={p.allergies.length ? p.allergies : ["なし"]} quiet={!p.allergies.length} />
         </button>
+        <button type="button" onClick={onOpenInfo} title={insurance ? "患者基本情報の「保険・制度」を開く" : "保険が未登録です（名前をダブルクリックして登録）"}>
+          <Badge tone="ai" label="保険" values={[insurance ? insuranceTag(insurance) : "未登録"]} quiet={!insurance} />
+        </button>
         {p.infections.length > 0 && (
           <button type="button" onClick={onOpenProfile} title="患者プロファイルを開く">
             <Badge tone="fuji" label="感染症" values={p.infections} />
@@ -197,8 +203,16 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
   );
 }
 
-function Badge({ tone, label, values, quiet }: { tone: "shu" | "fuji" | "yamabuki"; label: string; values: string[]; quiet?: boolean }) {
+/** 「後期高齢者 2割」「協会けんぽ 本人 3割」「生活保護」「自費」のように短く。 */
+function insuranceTag(i: Insurance): string {
+  const cov = coverageOf(i);
+  if (cov !== "医保") return cov === "公費のみ" && i.kohi?.length ? `公費 ${i.kohi[0].name ?? ""}`.trim() : cov;
+  return `${i.kind}${i.relation === "家族" ? " 家族" : ""} ${rateLabel(i.rate)}${i.kohi?.length ? "＋公費" : ""}`;
+}
+
+function Badge({ tone, label, values, quiet }: { tone: "shu" | "fuji" | "yamabuki" | "ai"; label: string; values: string[]; quiet?: boolean }) {
   const styles = {
+    ai: "border-ai/40 bg-ai-soft text-ai",
     shu: "border-shu/40 bg-shu-soft text-shu",
     fuji: "border-fuji/40 bg-fuji-soft text-fuji",
     yamabuki: "border-yamabuki/40 bg-yamabuki-soft text-yamabuki",

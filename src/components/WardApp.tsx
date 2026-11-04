@@ -2790,6 +2790,7 @@ export default function WardApp() {
             doctors={doctorsFor(patient.id, entries)}
             onOpenDoctors={() => setDoctorsOpen(true)}
             onOpenInfo={() => setPanel("patient-info")}
+            insurance={iji.insurance[patient.id]?.at(-1)?.insurance ?? null}
             actions={
               <>
                 {orderMode !== "none" && (

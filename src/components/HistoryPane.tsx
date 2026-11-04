@@ -233,8 +233,14 @@ function RecordList({
   const [folded, setFolded] = useState<{ all: boolean; each: Record<string, boolean> }>({ all: false, each: {} });
   // 絞り込みと検索はふだん畳んである（アイコンで開く）。
   const [tools, setTools] = useState<"none" | "filter" | "search">("none");
-  const isFolded = (k: string) => folded.each[k] ?? folded.all;
-  const fold = (k: string) => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !isFolded(k) } }));
+  // 記録は全部開いた状態が基本。長い記事（12行か600字を超える）だけは畳んでおき、▸ で個別に開く（ユーザーの決め）。
+  const isLong = (e: HistoryEntry) => {
+    if (e.kind !== "note") return false;
+    const t = noteText(e);
+    return t.length > 600 || t.split("\n").length > 12;
+  };
+  const isFolded = (k: string, e: HistoryEntry) => folded.each[k] ?? (folded.all || isLong(e));
+  const fold = (k: string, e: HistoryEntry) => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !isFolded(k, e) } }));
 
   useEffect(() => {
     if (selectedDay === null) return;
@@ -404,9 +410,9 @@ function RecordList({
                     return (
                       <li key={`${d}-${i}`}>
                         {e.kind === "note" ? (
-                          <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k)} onFold={() => fold(k)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
+                          <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
                         ) : (
-                          <OrderRow entry={e} today={today} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k)} onFold={() => fold(k)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
+                          <OrderRow entry={e} today={today} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
                         )}
                       </li>
                     );
