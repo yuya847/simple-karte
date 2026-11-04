@@ -5,8 +5,8 @@
 import { ANALYTES, rangeFor } from "./master";
 import type { CultureResult, DayOffset, LabResult, Patient } from "./types";
 
-/** 生理・病理: reports from the physiological laboratory and pathology (physio-desk.ts, pathology.ts). */
-export type ResultKind = "検査" | "画像" | "培養" | "生理" | "病理";
+/** 生理・病理・内視鏡: reports from the physiological laboratory, pathology and the endoscopy room (physio-desk.ts, pathology.ts, endoscopy.ts). */
+export type ResultKind = "検査" | "画像" | "培養" | "生理" | "病理" | "内視鏡";
 
 export interface ResultItem {
   key: string;
