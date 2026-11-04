@@ -4,6 +4,7 @@ import { Check, MessageCircleQuestion } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { confirmPlan, type Confirms } from "@/lib/order-confirm";
+import { momentLabel } from "@/lib/order-sheet";
 import { HOLD_REASONS, TAKE_SOURCES, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { useMe } from "./RoleContext";
@@ -150,6 +151,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                     <TakeOnePanel
                       row={r}
                       nurses={nurses}
+                      today={today}
                       onTake={(second) => {
                         take(r, second);
                         close();
@@ -205,13 +207,67 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
  * 1件ずつ受ける: the nurse ticks that she looked at the order with her own eyes (and, for a high-risk
  * drug, names the second nurse) before taking it. Shared by the worksheet's table and the 指示受け screen.
  */
-export function TakeOnePanel({ row, nurses, onTake, onClose }: { row: TakeRow; nurses: string[]; onTake: (second?: string) => void; onClose: () => void }) {
+export function TakeOnePanel({ row, nurses, onTake, onClose, today }: { row: TakeRow; nurses: string[]; onTake: (second?: string) => void; onClose: () => void; /** To write the order's moment in the opened contents (left out: the time alone). */ today?: CalendarDate }) {
   const me = useMe();
   const [checked, setChecked] = useState(false);
   const [second, setSecond] = useState("");
+  const m = ((row.at % 1440) + 1440) % 1440;
+  const when = today ? momentLabel(row.at, today, row.timeKnown) : row.timeKnown ? `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}` : "時刻なし";
   return (
     <>
       <p className="font-bold">1件ずつ受ける理由：{row.mustOne.join("・")}</p>
+      {/* The contents, opened before taking: what, how much, when, and why it stands out. The nurse reads, then takes. */}
+      <dl aria-label="受ける前に見る指示の内容" className="nums mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0 rounded border border-rule bg-sheet px-2 py-1">
+        <dt className="text-ink-soft">指示</dt>
+        <dd>
+          <span className="mr-1 text-ink-faint">{row.type}</span>
+          <b className={row.kind === "中止" ? "text-shu" : row.kind === "変更" ? "text-yamabuki" : ""}>{row.kind === "変更" ? "【変】" : row.kind}</b> <span className={row.kind === "中止" ? "line-through" : "font-bold"}>{row.main}</span>
+        </dd>
+        <dt className="text-ink-soft">量・方法</dt>
+        <dd>{row.detail || "—"}</dd>
+        {row.before && (
+          <>
+            <dt className="text-ink-soft">前</dt>
+            <dd className="line-through text-ink-faint">
+              {row.before.main}　{row.before.detail}
+            </dd>
+          </>
+        )}
+        {row.diff && row.diff.length > 0 && (
+          <>
+            <dt className="text-ink-soft">変わった点</dt>
+            <dd>{row.diff.map((d) => `${d.label}：${d.before} → ${d.after}`).join("／")}</dd>
+          </>
+        )}
+        <dt className="text-ink-soft">指示の時刻</dt>
+        <dd>{when}</dd>
+        <dt className="text-ink-soft">指示した人</dt>
+        <dd>{row.author}</dd>
+        {row.flags.urgent && (
+          <>
+            <dt className="font-bold text-shu">至急</dt>
+            <dd className="font-bold text-shu">{row.flags.urgent}</dd>
+          </>
+        )}
+        {row.flags.highRisk && (
+          <>
+            <dt className="text-shu">高リスク薬</dt>
+            <dd className="text-shu">{row.flags.highRisk}</dd>
+          </>
+        )}
+        {row.flags.verbal && (
+          <>
+            <dt className="text-fuji">口頭指示</dt>
+            <dd className="text-fuji">{row.flags.verbal}</dd>
+          </>
+        )}
+        {row.related.length > 0 && (
+          <>
+            <dt className="text-shu">関連</dt>
+            <dd className="text-shu">{row.related.join("／")}</dd>
+          </>
+        )}
+      </dl>
       <label className="mt-1 flex items-center gap-1.5">
         <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="accent-ai" />
         指示の内容（薬・量・単位・速さ・経路・時刻{row.kind === "変更" ? "、前と後で変わったところ" : ""}）を自分の目で確かめた
@@ -232,7 +288,7 @@ export function TakeOnePanel({ row, nurses, onTake, onClose }: { row: TakeRow; n
       )}
       <div className="mt-1.5 flex gap-2">
         <button type="button" disabled={!checked || (!!row.flags.highRisk && !second)} onClick={() => onTake(second || undefined)} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
-          受ける
+          この指示を受ける
         </button>
         <button type="button" onClick={onClose} className="text-ink-soft underline">
           やめる

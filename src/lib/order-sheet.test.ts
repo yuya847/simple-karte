@@ -1,7 +1,8 @@
 // The 「項目名：値」 lines of each kind of order, the categories ticked at the top, the days the screens move
 // through, and the 実施 record typed with a time and a name — all by code.
 import { describe, expect, it } from "vitest";
-import { categoryOfOrder, categoryOfTake, categoryOfWork, clampDay, doneStampOf, executeRecord, EXECUTE_DAYS, EXECUTE_NOTE, momentLabel, orderFields, parseHHMM, sheetTitle, splitStamp, startLabel, takeFields, takeRowOnDay, takeStampOf, TAKE_DAYS, timeOfAbs, workTitle } from "./order-sheet";
+import { categoryOfOrder, categoryOfTake, categoryOfWork, clampDay, DONE_BAND_MS, doneBandText, doneStampOf, executeRecord, EXECUTE_DAYS, EXECUTE_NOTE, momentLabel, orderFields, parseHHMM, sheetTitle, splitStamp, startLabel, takeFields, takeRowOnDay, takeStampOf, TAKE_DAYS, timeOfAbs, waitingToday, workTitle } from "./order-sheet";
+import type { TakeRow } from "./order-take";
 import type { ImagingOrder, InjectionOrder, LabOrder, OrderEntry, PhysioOrder, PrescriptionOrder, ProcedureOrder } from "./types";
 
 const TODAY = { y: 2026, m: 11, d: 4 };
@@ -202,5 +203,25 @@ describe("実施入力の記録", () => {
     expect(timeOfAbs(840)).toBe("14:00");
     expect(timeOfAbs(1440 + 125)).toBe("02:05");
     expect(timeOfAbs(-60)).toBe("23:00");
+  });
+});
+
+describe("今日の未指示受け（タブのバッジと「やること」の数）", () => {
+  const row = (key: string, at: number, patientId = "p1"): TakeRow => ({ key, keys: [key], kind: "新規", at, timeKnown: true, patientId, room: "512", name: "佐倉 修", type: "注射", main: "x", detail: "", author: "山本", flags: {}, related: [], mustOne: [] });
+  const entry = (id: string, startDay: number): OrderEntry => ({ kind: "order", id, day: -1, time: "17:00", author: "山本", status: "有効", order: { ...inj, start: { day: startDay, time: "14:00" } } });
+  const people = [{ patient: { id: "p1" }, entries: [entry("today", 0), entry("yday", -1), entry("tomorrow", 1)] }];
+  it("counts the untaken rows given today or starting today — what the 指示受け screen lists on 今日 — and not the rows of other days", () => {
+    const rows = [row("today|新規", 600), row("yday|新規", -300), row("tomorrow|新規", -200), row("gone|新規", 630)];
+    const taken: Record<string, string> = { "gone|新規": "11:00 看護師 佐藤" };
+    const w = waitingToday(rows, people, (r) => r.keys.every((k) => !!taken[k]));
+    // yday: given yesterday for an order that started yesterday → 「ほかの日に 1件」, not in the badge.
+    expect(w.map((r) => r.key)).toEqual(["today|新規"]);
+    // A change given yesterday for an order starting today counts (the screen shows it on 今日).
+    expect(waitingToday([row("today|新規", -300)], people, () => false).length).toBe(1);
+  });
+  it("the band after taking or confirming names what was done, when and by whom, and stays about three seconds", () => {
+    expect(doneBandText("take", "12:10", "看護師 佐藤")).toBe("受けました（12:10 看護師 佐藤）");
+    expect(doneBandText("confirm", "12:12", "看護師 佐藤")).toBe("確認しました（12:12 看護師 佐藤）");
+    expect(DONE_BAND_MS).toBe(3000);
   });
 });

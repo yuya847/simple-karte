@@ -1,13 +1,13 @@
 "use client";
 
-import { ExternalLink, MessageCircleQuestion, Printer } from "lucide-react";
-import { useState } from "react";
+import { Check, ExternalLink, MessageCircleQuestion, Printer } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import type { AdminRecord } from "@/lib/mar";
 import { TAKE_SOURCES } from "@/lib/order-take";
 import { CONFIRM_SOURCES, TAKE_SORTS, confirmPlan, elapsedLabel, groupByPatient, slipLines, sortTakeList, takeLate, unconfirmed, type Confirms, type TakeSort } from "@/lib/order-confirm";
-import { EMPTY_STAMP, SHEET_CATEGORIES, TAKE_DAYS, categoryOfTake, doneStampOf, entryOfRow, momentLabel, sheetTitle, splitStamp, startLabel, takeFields, takeRowOnDay, type SheetCategory, type Stamp } from "@/lib/order-sheet";
+import { DONE_BAND_MS, EMPTY_STAMP, SHEET_CATEGORIES, TAKE_DAYS, categoryOfTake, doneBandText, doneStampOf, entryOfRow, momentLabel, sheetTitle, splitStamp, startLabel, takeFields, takeRowOnDay, type SheetCategory, type Stamp } from "@/lib/order-sheet";
 import type { TakeHold, TakeRow } from "@/lib/order-take";
 import { WARD_NAME } from "@/lib/ward";
 import type { WorkPatient } from "@/lib/worksheet";
@@ -67,6 +67,24 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
   const [mineOnly, setMineOnly] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
   const [open, setOpen] = useState<{ key: string; what: "one" | "ask" | "confirm" } | null>(null);
+  // 手応え: the row just taken or confirmed keeps a green band 「受けました／確認しました（hh:mm 誰）」 for a few
+  // seconds (a confirmed row stays in the list that long, then folds away into 指示受け済み).
+  const [done, setDone] = useState<Record<string, string>>({});
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  const mark = (keys: string[], what: "take" | "confirm") => {
+    const text = doneBandText(what, nowTime, me.name);
+    setDone((d) => ({ ...d, ...Object.fromEntries(keys.map((k) => [k, text])) }));
+    timers.current.push(
+      setTimeout(() => {
+        setDone((d) => {
+          const n = { ...d };
+          for (const k of keys) delete n[k];
+          return n;
+        });
+      }, DONE_BAND_MS),
+    );
+  };
   const [print, printSheet] = usePrintSheet();
   const nowAbs = abs(0, nowTime);
   const ctx = { taken, isTaken, holds, confirms };
@@ -80,8 +98,10 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
   const waiting = sortTakeList(shown.filter((r) => !isTaken(r)), sort);
   const takenShown = shown.filter((r) => isTaken(r));
   const notConfirmed = unconfirmed(shown, ctx);
-  // Taken in this session but the schedule not looked at yet stays in the list until confirmed.
-  const list = [...sortTakeList(showTaken ? shown : [...waiting, ...notConfirmed], sort)].sort((a, b) => Number(isTaken(a)) - Number(isTaken(b)));
+  // Taken in this session but the schedule not looked at yet stays in the list until confirmed; a row confirmed
+  // a moment ago stays while its band shows.
+  const justDone = shown.filter((r) => done[r.key] && isTaken(r) && !!confirms[r.key]);
+  const list = [...sortTakeList(showTaken ? shown : [...waiting, ...notConfirmed, ...justDone], sort)].sort((a, b) => Number(isTaken(a)) - Number(isTaken(b)));
   const held = waiting.filter(holding);
   const late = waiting.filter((r) => takeLate(r, nowAbs) && !holding(r));
   const otherDays = rows.filter((r) => !isTaken(r) && !takeRowOnDay(r, day, entryOf(r))).length;
@@ -90,6 +110,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
   const bulk = bulkable.filter((r) => checked.has(r.key));
   const take = (r: TakeRow, second?: string) => {
     onTake(r.keys, second);
+    mark([r.key], "take");
     setChecked((s) => {
       const n = new Set(s);
       n.delete(r.key);
@@ -99,6 +120,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
   };
   const takeBulk = () => {
     onTake(bulk.flatMap((r) => r.keys));
+    mark(bulk.map((r) => r.key), "take");
     setChecked(new Set());
     setOpen(null);
   };
@@ -166,7 +188,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px] space-y-5">
           <p className="hint text-[11px] text-ink-soft">
-            新しい指示・変更・中止は、まずここで「指示を受ける」（誰が・いつ）。左の○にチェックして「一括受け」でまとめて受けられます（「全チェック」で受けられるものを全部）。受けると、その指示が今日と明日に作る予定（時刻・回数・量）が下に開くので、見てから「予定を確認した」を押します。それから実施入力に進みます。至急・高リスク薬・口頭指示・変更は1件ずつ、まとめて受けられません。気になるときは「医師に確認」で受けないまま医師に送れます。◀ ▶ で前後の日の指示（その日に出た指示と、その日から始まる指示）を見られます。
+            新しい指示・変更・中止は、まずここで「指示を受ける」（誰が・いつ）。左の○にチェックして「一括受け」でまとめて受けられます（「全チェック」で受けられるものを全部）。受けると、その指示が今日と明日に作る予定（時刻・回数・量）が下に開くので、見てから「予定を確認した」を押します。それから実施入力に進みます。至急・高リスク薬・口頭指示・変更は1件ずつ、まとめて受けられません：「開いて受ける」で中身（薬・量・時刻・至急の理由）を広げて見てから「この指示を受ける」を押します。受けた・確認したときは、その行に緑の帯が数秒出ます。気になるときは「医師に確認」で受けないまま医師に送れます。◀ ▶ で前後の日の指示（その日に出た指示と、その日から始まる指示）を見られます。
           </p>
 
           {list.length === 0 ? (
@@ -254,6 +276,13 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                             ) : null
                           }
                         >
+                          {done[r.key] && (
+                            <div role="status" className="mt-1 ml-3 flex items-center gap-1 rounded bg-wakatake-soft px-2 py-1 text-[11px] font-bold text-wakatake">
+                              <Check size={12} />
+                              {done[r.key]}
+                              {confirms[r.key] && <span className="font-normal text-ink-soft">　「指示受け済みも表示する」に移ります</span>}
+                            </div>
+                          )}
                           {r.before && <div className="pl-3 text-[11px] text-ink-faint line-through">前：{r.before.main}　{r.before.detail}</div>}
                           {r.diff && r.diff.length > 0 && (
                             <div className="mt-0.5 flex flex-wrap gap-1 pl-3">
@@ -295,7 +324,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                           )}
                           {mine === "one" && !ok && (
                             <div className="mt-1 ml-3 rounded bg-paper px-3 py-2">
-                              <TakeOnePanel row={r} nurses={nurses} onTake={(second) => take(r, second)} onClose={() => setOpen(null)} />
+                              <TakeOnePanel row={r} nurses={nurses} today={today} onTake={(second) => take(r, second)} onClose={() => setOpen(null)} />
                             </div>
                           )}
                           {mine === "ask" && !ok && (
@@ -317,6 +346,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                                 interactive
                                 onConfirm={() => {
                                   onConfirm(r.key);
+                                  mark([r.key], "confirm");
                                   setOpen(null);
                                 }}
                                 onClose={() => setOpen(null)}

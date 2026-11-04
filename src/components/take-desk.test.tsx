@@ -12,7 +12,7 @@ import { RoleProvider } from "./RoleContext";
 import { TakeConfirm } from "./TakeConfirm";
 import { TakeDesk } from "./TakeDesk";
 import { TakeStatus } from "./TakeStatus";
-import { TakeTable } from "./TakeTable";
+import { TakeOnePanel, TakeTable } from "./TakeTable";
 
 const TODAY = { y: 2026, m: 11, d: 4 };
 const noop = () => {};
@@ -162,5 +162,46 @@ describe("指示受けの画面", () => {
     expect(slip).toContain("11:05 看護師 佐藤");
     expect(slip).toContain("架空の患者");
     expect(slip).not.toContain("大浦");
+  });
+});
+
+describe("1件ずつ受けるものは2段階（開いて中身を見てから「この指示を受ける」）", () => {
+  const kcl = rows.find((r) => r.patientId === "p2")!;
+  it("the screen offers 「開いて受ける」 for a one-at-a-time row and nothing that takes it in one click; no green band before anything was done", () => {
+    const html = renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <TakeDesk {...base} taken={{}} isTaken={() => false} confirms={{}} isMine={() => false} />
+      </RoleProvider>,
+    );
+    expect(kcl.mustOne.length).toBeGreaterThan(0);
+    expect(html).toContain(">開いて受ける<");
+    expect(html).not.toContain(">この指示を受ける<");
+    expect(html).not.toContain("受ける前に見る指示の内容");
+    expect(html).not.toContain('role="status"');
+    expect(html).not.toContain("受けました（");
+  });
+  it("opened, the panel shows the contents (what, how much, when, who, why one at a time) and 「この指示を受ける」 stays disabled until the nurse ticks that she looked", () => {
+    const html = renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <TakeOnePanel row={kcl} nurses={base.nurses} today={TODAY} onTake={noop} onClose={noop} />
+      </RoleProvider>,
+    );
+    expect(html).toContain("1件ずつ受ける理由：高リスク薬（カリウム注）");
+    expect(html).toContain('aria-label="受ける前に見る指示の内容"');
+    expect(html).toContain("KCL注"); // the drug
+    expect(html).toContain("量・方法");
+    expect(html).toContain("指示の時刻</dt><dd>11/4（水） 11:00");
+    expect(html).toContain("指示した人</dt><dd>山本（専攻医）");
+    expect(html).toContain("高リスク薬</dt>");
+    expect(html).toContain("2人目の確認者");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>この指示を受ける<\/button>/);
+  });
+  it("the hint tells the two steps", () => {
+    const html = renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <TakeDesk {...base} taken={{}} isTaken={() => false} confirms={{}} isMine={() => false} />
+      </RoleProvider>,
+    );
+    expect(html).toContain("「開いて受ける」で中身（薬・量・時刻・至急の理由）を広げて見てから「この指示を受ける」を押します");
   });
 });

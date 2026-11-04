@@ -192,6 +192,20 @@ export function entryOfRow(r: Pick<TakeRow, "keys" | "patientId">, people: { pat
   return people.find((x) => x.patient.id === r.patientId)?.entries.find((e) => e.id === id);
 }
 
+/**
+ * 今日の未指示受け: the rows not yet taken that the 指示受け screen lists on its 今日 page (given today or starting
+ * today). The tab's badge and 「やること」 count these — the rows of other days are only 「ほかの日に N件」.
+ */
+export function waitingToday(rows: TakeRow[], people: { patient: { id: string }; entries: OrderEntry[] }[], isTaken: (r: TakeRow) => boolean): TakeRow[] {
+  return rows.filter((r) => !isTaken(r) && takeRowOnDay(r, 0, entryOfRow(r, people)));
+}
+
+/** The short green band under a row just acted on: 「受けました（12:10 看護師 佐藤）」／「確認しました（…）」. */
+export const DONE_BAND_MS = 3000;
+export function doneBandText(what: "take" | "confirm", at: string, by: string): string {
+  return `${what === "take" ? "受けました" : "確認しました"}（${at} ${by}）`;
+}
+
 // ---------------------------------------------------------------------------
 // The three 「日時／者」 pairs on the right
 // ---------------------------------------------------------------------------
