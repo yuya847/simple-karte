@@ -4,6 +4,7 @@
 // and the gray row (the others), so 「表示」 can turn a column off in all three at once. 病室 and 氏名 are
 // always shown; the rest are the ListColumn keys of list-prefs.ts.
 
+import { IdCard } from "lucide-react";
 import type { ReactNode } from "react";
 import { PatientAvatar } from "./PatientAvatar";
 import { StarButton } from "./StarButton";
@@ -125,6 +126,8 @@ export interface FullCell {
   starred: boolean;
   onStar: () => void;
   onOpen: () => void;
+  /** Opens the chart with 患者基本情報 (住所・連絡先・家族 …) on top. */
+  onInfo?: () => void;
 }
 
 /** What a gray row's cells get (another team's patient, or a bed whose patient this prototype has no chart of). */
@@ -137,6 +140,26 @@ export interface GrayCell {
   starred: boolean;
   onStar: () => void;
   onOpen: () => void;
+  onInfo?: () => void;
+}
+
+/** The small card icon after a name: opens 患者基本情報 (the chart opens under it). */
+function InfoButton({ name, onInfo }: { name: string; onInfo?: () => void }) {
+  if (!onInfo) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onInfo();
+      }}
+      aria-label={`${name}の患者基本情報を開く`}
+      title="患者基本情報（住所・連絡先・家族・保険・入院前の情報収集）を開く"
+      className="rounded p-0.5 text-ink-faint hover:bg-paper hover:text-ai pointer-coarse:p-1.5"
+    >
+      <IdCard size={14} />
+    </button>
+  );
 }
 
 export interface Column {
@@ -177,7 +200,7 @@ export const COLUMNS: Column[] = [
     key: "name",
     label: "氏名",
     sort: "name",
-    full: ({ patient: p, compact, doctors, viewer, starred, onStar, onOpen }) => (
+    full: ({ patient: p, compact, doctors, viewer, starred, onStar, onOpen, onInfo }) => (
       <div className="flex items-center gap-2">
         {!compact && <PatientAvatar sex={p.sex} age={p.age} size={30} className="rounded-full" />}
         <div>
@@ -196,9 +219,10 @@ export const COLUMNS: Column[] = [
           <RelationMark viewer={viewer} doctors={doctors ?? { attending: p.attending, others: [] }} />
         </div>
         <StarButton on={starred} name={p.name} onToggle={onStar} />
+        <InfoButton name={p.name} onInfo={onInfo} />
       </div>
     ),
-    gray: ({ row, doctors, viewer, starred, onStar, onOpen }) =>
+    gray: ({ row, doctors, viewer, starred, onStar, onOpen, onInfo }) =>
       row.patient ? (
         <span className="inline-flex items-center gap-1">
           <button
@@ -213,6 +237,7 @@ export const COLUMNS: Column[] = [
           </button>
           <RelationMark viewer={viewer} doctors={doctors ?? { attending: row.patient.attending, others: [] }} />
           <StarButton on={starred} name={row.patient.name} onToggle={onStar} />
+          <InfoButton name={row.patient.name} onInfo={onInfo} />
         </span>
       ) : (
         row.bed.other?.name

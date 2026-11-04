@@ -59,6 +59,8 @@ interface Props {
   /** The viewer's name when a doctor: each row shows how they relate to the patient (主治医／担当／コンサルト). */
   viewer?: string;
   onOpen: (patientId: string) => void;
+  /** Opens the chart with 患者基本情報 on top (the card icon after the name). */
+  onInfo?: (patientId: string) => void;
 }
 
 /** What this person chose in this browser: the columns and row height (「表示」) and the starred patients (☆). */
@@ -102,7 +104,7 @@ export function PatientList(props: Props) {
 }
 
 /** The list with its choices given (PatientList reads them for the person; tests pass them). */
-export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
+export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [cond, setCond] = useState<ListFilter>(EMPTY_FILTER);
@@ -386,6 +388,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                           starred: starred(r.patient!.id),
                           onStar: () => onToggleFavorite(r.patient!.id),
                           onOpen: () => onOpen(r.patient!.id),
+                          onInfo: onInfo && (() => onInfo(r.patient!.id)),
                         })}
                       </td>
                     ))}
@@ -458,6 +461,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                             starred: !!r.patient && starred(r.patient.id),
                             onStar: () => r.patient && onToggleFavorite(r.patient.id),
                             onOpen: () => r.patient && onOpen(r.patient.id),
+                            onInfo: onInfo && r.patient ? () => onInfo(r.patient!.id) : undefined,
                           })}
                         </td>
                       ) : null,

@@ -2721,6 +2721,7 @@ export default function WardApp() {
             }),
           )}
           onOpen={openPatient}
+          onInfo={(id) => (openPatient(id), setPanel("patient-info"))}
         />
         </div>
       ) : patient && limitNow && !inTeamNow && !grantNow ? (
@@ -4325,7 +4326,7 @@ export default function WardApp() {
           }}
         />
       )}
-      {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onInfo={(id) => (openPatient(id), setPanel("patient-info"))} onClose={() => setPickerOpen(false)} />}
     </div>
     </CosignRefs>
     </MeProvider>

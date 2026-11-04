@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { IdCard, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hospitalDay } from "@/lib/dates";
 import type { Patient } from "@/lib/types";
@@ -10,11 +10,13 @@ interface Props {
   patients: Patient[];
   openIds: string[];
   onOpen: (id: string) => void;
+  /** Opens the chart with 患者基本情報 (住所・連絡先・家族 …) on top. */
+  onInfo?: (id: string) => void;
   onClose: () => void;
 }
 
 /** Ward patient list. Type to filter, ↑↓ to move, Enter to open in a tab. */
-export function PatientPicker({ patients, openIds, onOpen, onClose }: Props) {
+export function PatientPicker({ patients, openIds, onOpen, onInfo, onClose }: Props) {
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -66,12 +68,12 @@ export function PatientPicker({ patients, openIds, onOpen, onClose }: Props) {
         </div>
         <ul className="max-h-[50vh] overflow-y-auto py-1">
           {list.map((p, i) => (
-            <li key={p.id}>
+            <li key={p.id} className={`flex items-center ${i === at ? "bg-ai-soft" : ""}`}>
               <button
                 type="button"
                 onMouseEnter={() => setCursor(i)}
                 onClick={() => onOpen(p.id)}
-                className={`nums grid w-full grid-cols-[3.5rem_7rem_4.5rem_1fr_auto] items-center gap-3 px-4 py-2 text-left text-sm ${i === at ? "bg-ai-soft" : ""}`}
+                className="nums grid min-w-0 flex-1 grid-cols-[3.5rem_7rem_4.5rem_1fr_auto] items-center gap-3 px-4 py-2 text-left text-sm"
               >
                 <span className="text-ink-soft">{p.room}</span>
                 <span className="font-bold">{p.name}</span>
@@ -83,6 +85,11 @@ export function PatientPicker({ patients, openIds, onOpen, onClose }: Props) {
                 </span>
                 <span className="text-[11px] text-ink-faint">{openIds.includes(p.id) ? "開いている" : ""}</span>
               </button>
+              {onInfo && (
+                <button type="button" onClick={() => onInfo(p.id)} aria-label={`${p.name}の患者基本情報を開く`} title="患者基本情報（住所・連絡先・家族・保険・入院前の情報収集）を開く" className="mr-2 rounded p-1 text-ink-faint hover:bg-paper hover:text-ai pointer-coarse:p-2">
+                  <IdCard size={15} />
+                </button>
+              )}
             </li>
           ))}
           {list.length === 0 && <li className="px-4 py-3 text-sm text-ink-faint">見つかりません</li>}
