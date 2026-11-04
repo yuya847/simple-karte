@@ -105,6 +105,7 @@ export type Action =
   | "profile.care"
   | "profile.blood"
   | "profile.doctors"
+  | "profile.contacts"
   | "anamnesis"
   | "liaison"
   | "receipt"
@@ -181,6 +182,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "profile.care": { label: "介助（移動・食事・排泄・入浴）の登録", who: ["看護師", "医師"] },
   "profile.blood": { label: "血液型の登録", who: ["医師", "臨床検査技師"] },
   "profile.doctors": { label: "担当医・コンサルト医の登録・変更", who: ["医師"] },
+  "profile.contacts": { label: "患者基本情報（住所・連絡先・家族・公費・介護保険・かかりつけ）の登録・変更", who: ["医事課", "看護師", "医師"] },
   anamnesis: { label: "入院時の情報収集（アナムネーシス）", who: ["看護師"] },
   liaison: { label: "紹介・逆紹介の台帳と返書の記録", who: ["MSW", "医事課"] },
   receipt: { label: "返戻・査定の取り込みと再請求の記録", who: ["医事課"] },
