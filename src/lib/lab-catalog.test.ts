@@ -1,10 +1,11 @@
 // The order screen's logic: a set covers its single items (no double draw), the day and time choices
 // become a draft that the same checks accept or stop (a past time), and a level is timed to a dose.
 import { describe, expect, it } from "vitest";
-import { checkDraft, type CheckContext } from "./drafts";
-import { collectOf, coveredBy, dayOptions, defaultDraw, drawProblem, drawText, isHHMM, labDraftOf, labelOf, levelDrugsFrom, pickedSummary, titleOf, togglePick } from "./lab-catalog";
-import { anyDrugName } from "./master";
-import type { OrderEntry } from "./types";
+import { checkDraft, toOrder, urgentItemsOf, type CheckContext } from "./drafts";
+import { labLines } from "./format";
+import { FREQUENT_CODES, LAB_TABS, collectOf, coveredBy, dayOptions, dedupePicks, defaultDraw, drawProblem, drawText, duplicatePicks, isHHMM, isRapid, labDraftOf, labelOf, levelDrugsFrom, pickedSummary, searchKey, searchLabs, tabOf, tabSections, titleOf, togglePick } from "./lab-catalog";
+import { LAB_TESTS, anyDrugName, findLab } from "./master";
+import type { LabOrder, OrderEntry } from "./types";
 
 const today = { y: 2026, m: 11, d: 4 };
 const ctx = (over: Partial<CheckContext> = {}): CheckContext => ({ activeOrders: [], labOrders: [], drafts: [], nowTime: "08:30", fmtDay: (d) => `D${d}`, describe: (o) => o.id, ...over });
@@ -40,6 +41,114 @@ describe("セットと単項目の重なり", () => {
     expect(s.notes.some((n) => n.startsWith("動脈血ガス："))).toBe(true);
     expect(labelOf("SET-ADMIT")).toBe("入院時採血セット");
     expect(titleOf("LAB-APTT")).toContain("活性化部分トロンボプラスチン時間");
+  });
+
+  it("重複削除 takes out an item another pick reports (WBC next to 血算, the later of PT and PT-INR) and nothing else", () => {
+    expect(duplicatePicks(["LAB-WBC", "LAB-CBC", "LAB-CRP"])).toEqual(["LAB-WBC"]);
+    expect(dedupePicks(["LAB-WBC", "LAB-CBC", "LAB-CRP"])).toEqual(["LAB-CBC", "LAB-CRP"]);
+    expect(dedupePicks(["LAB-PT", "LAB-PTINR"])).toEqual(["LAB-PT"]);
+    expect(dedupePicks(["LAB-PTINR", "LAB-PT"])).toEqual(["LAB-PTINR"]);
+    expect(dedupePicks(["LAB-CBC", "LAB-CRP", "LAB-K"])).toEqual(["LAB-CBC", "LAB-CRP", "LAB-K"]);
+    expect(duplicatePicks(["LAB-CBC", "LAB-CRP"])).toEqual([]);
+  });
+});
+
+describe("タブと頻用", () => {
+  it("頻用 lists the ward's everyday items in its own order: 血算・分画・CRP first, 動脈血ガス last, every one offered", () => {
+    const freq = tabSections(LAB_TABS[0], LAB_TESTS);
+    expect(LAB_TABS[0].label).toBe("頻用");
+    expect(freq).toHaveLength(1);
+    expect(freq[0].items.map((t) => t.code)).toEqual([...FREQUENT_CODES]);
+    expect(FREQUENT_CODES.slice(0, 3)).toEqual(["LAB-CBC", "LAB-DIFF", "LAB-CRP"]);
+    expect(FREQUENT_CODES[FREQUENT_CODES.length - 1]).toBe("LAB-BGA");
+    for (const c of ["LAB-TP", "LAB-ALB", "LAB-AST", "LAB-ALT", "LAB-LD", "LAB-ALP", "LAB-GGT", "LAB-TBIL", "LAB-BUN", "LAB-CRE", "LAB-URIC", "LAB-NA", "LAB-K", "LAB-CL", "LAB-CA", "LAB-GLU", "LAB-HBA1C", "LAB-PT", "LAB-APTT", "LAB-DD", "LAB-BNP", "LAB-UA", "LAB-BCX"]) expect(FREQUENT_CODES).toContain(c);
+    for (const c of FREQUENT_CODES) expect(findLab(c)?.hidden, c).toBeUndefined();
+    expect(new Set(FREQUENT_CODES).size).toBe(FREQUENT_CODES.length);
+  });
+
+  it("the tabs follow the order of the manual's screen; special chemistry is 生化学Ⅱ, CRP sits with the routine chemistry, allergy is its own tab", () => {
+    expect(LAB_TABS.map((t) => t.label)).toEqual(["頻用", "生化学Ⅰ", "生化学Ⅱ", "血液学・凝固系", "血清学・免疫", "尿・髄液・便", "微生物", "輸血関連", "薬物濃度", "腫瘍マーカー", "内分泌", "感染症（ウイルスを含む）", "アレルギー", "その他"]);
+    expect(tabOf(findLab("LAB-CRP")!)).toBe("chem1");
+    expect(tabOf(findLab("LAB-TNT")!)).toBe("chem1");
+    expect(tabOf(findLab("LAB-VB12")!)).toBe("chem2");
+    expect(tabOf(findLab("LAB-FERRITIN")!)).toBe("chem2");
+    expect(tabOf(findLab("LAB-PT")!)).toBe("heme");
+    expect(tabOf(findLab("LAB-ANA")!)).toBe("sero");
+    expect(tabOf(findLab("LAB-SIGE")!)).toBe("allergy");
+    expect(tabOf(findLab("LAB-HBSAG")!)).toBe("infect");
+    expect(tabOf(findLab("LAB-BGA")!)).toBe("other");
+    expect(tabOf(findLab("LAB-CHEM")!)).toBeNull();
+    const heme = tabSections(LAB_TABS.find((t) => t.key === "heme")!, LAB_TESTS).map((s) => s.head);
+    expect(heme).toEqual(["血算", "血液像", "そのほか", "凝固・線溶"]);
+  });
+
+  it("迅速対応 is an item run in house the same day", () => {
+    expect(isRapid("LAB-CBC")).toBe(true);
+    expect(isRapid("LAB-BGA")).toBe(true);
+    expect(isRapid("LAB-TSH")).toBe(false);
+    expect(isRapid("LAB-BCX")).toBe(false);
+  });
+
+  it("項目検索 finds by abbreviation, name, alias, hiragana and full width; sets are not searched", () => {
+    expect(searchKey("だいまー")).toBe("ダイマー");
+    expect(searchKey("Ｄダイマー")).toBe(searchKey("dダイマー"));
+    expect(searchLabs("だいまー", LAB_TESTS).map((t) => t.code)).toEqual(["LAB-DD"]);
+    expect(searchLabs("bnp", LAB_TESTS).map((t) => t.code)).toContain("LAB-BNP");
+    expect(searchLabs("肝炎", LAB_TESTS).map((t) => t.code)).toContain("LAB-HBSAG");
+    expect(searchLabs("定期採血", LAB_TESTS)).toEqual([]);
+    expect(searchLabs("  ", LAB_TESTS)).toEqual([]);
+  });
+});
+
+describe("項目ごとの至急・採血場所・目的", () => {
+  it("some items 至急: the draft keeps it per item, the checks name them, the order carries urgentCodes, site and purpose", () => {
+    const d = labDraftOf("l5", ["LAB-CBC", "LAB-K", "LAB-NA"], defaultDraw(), { urgent: ["LAB-K", "LAB-NA"], site: "病棟採血", comment: "ヘパリンロックから採取", purpose: "低K の経過" });
+    expect(d.tests).toEqual([
+      { code: "LAB-CBC", said: "血算" },
+      { code: "LAB-K", said: "K", urgent: true },
+      { code: "LAB-NA", said: "Na", urgent: true },
+    ]);
+    expect(d.priority).toBe("定時");
+    expect(d.site).toBe("病棟採血");
+    expect(d.comment).toBe("ヘパリンロックから採取");
+    expect(urgentItemsOf(d)).toEqual(["LAB-K", "LAB-NA"]);
+    const issues = checkDraft(d, ctx());
+    expect(issues.filter((i) => i.level === "stop" || i.level === "ask")).toEqual([]);
+    expect(issues.find((i) => i.key === "urgent-items")?.message).toBe("K・Na（ほかの項目は定時）");
+    expect(issues.find((i) => i.key === "lab-extras")?.message).toBe("採血場所：病棟採血　検査目的：低K の経過");
+    const { order } = toOrder(d, ctx());
+    expect(order).toMatchObject({ type: "lab", codes: ["LAB-CBC", "LAB-K", "LAB-NA"], priority: "定時", urgentCodes: ["LAB-K", "LAB-NA"], site: "病棟採血", purpose: "低K の経過", comment: "ヘパリンロックから採取" });
+    const lines = labLines(order as LabOrder, today);
+    expect(lines.main).toContain("カリウム");
+    expect(lines.main).toMatch(/カリウム[^、]*（至急）/);
+    expect(lines.main).not.toMatch(/血算[^、]*（至急）/);
+    expect(lines.detail).toContain("定時");
+    expect(lines.detail).toContain("病棟採血");
+    expect(lines.detail).toContain("目的：低K の経過");
+  });
+
+  it("every item 至急 is the whole order 至急, with no urgentCodes", () => {
+    const d = labDraftOf("l6", ["LAB-K", "LAB-NA"], defaultDraw(), { urgent: ["LAB-NA", "LAB-K"] });
+    expect(d.priority).toBe("至急");
+    expect(urgentItemsOf(d)).toEqual([]);
+    const { order } = toOrder(d, ctx());
+    expect(order).toMatchObject({ type: "lab", priority: "至急" });
+    expect((order as LabOrder).urgentCodes).toBeUndefined();
+    // Marked per item after the fact (an AI draft the doctor edited): the resolved priority follows.
+    const edited = { ...labDraftOf("l7", ["LAB-K"], defaultDraw()), tests: [{ code: "LAB-K", said: "K", urgent: true }] };
+    expect(checkDraft(edited, ctx()).find((i) => i.key === "collect")?.message).toContain("至急");
+  });
+
+  it("without the extras the draft is as before: no site, no purpose, no urgent marks", () => {
+    const d = labDraftOf("l8", ["LAB-CBC"], defaultDraw());
+    expect(d.tests).toEqual([{ code: "LAB-CBC", said: "血算" }]);
+    expect(d.site).toBeNull();
+    expect(d.purpose).toBeNull();
+    expect(d.comment).toBeNull();
+    const { order } = toOrder(d, ctx()) as { order: LabOrder };
+    expect(order.urgentCodes).toBeUndefined();
+    expect(order.site).toBeUndefined();
+    expect(order.purpose).toBeUndefined();
   });
 });
 

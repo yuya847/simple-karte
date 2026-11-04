@@ -3,7 +3,7 @@
 // and every offered item has a billing code and sits in exactly one tab.
 import { describe, expect, it } from "vitest";
 import { LAB_CODES } from "./billing/codes";
-import { LAB_TABS, offeredTests, setPickables, subheadOf, tabSections } from "./lab-catalog";
+import { LAB_TABS, offeredTests, setPickables, subheadOf, tabOf, tabSections } from "./lab-catalog";
 import { LAB_SOURCES, MORE_LAB_INFO, MORE_LAB_TESTS } from "./lab-master-more";
 import { LAB_INFO, LAB_TESTS, ORDER_SETS, findLab, labInfo } from "./master";
 
@@ -58,23 +58,40 @@ describe("検体検査のマスタ", () => {
     expect(findLab("LAB-APTT")!.name).toContain("活性化部分トロンボプラスチン時間");
   });
 
-  it("every offered item has a billing entry, and sits in exactly one tab (sets on the 院内セット tab)", () => {
+  it("every offered item has a billing entry, and sits in exactly one tab (the panels are sets on the left, not on a tab)", () => {
+    const seen = new Map<string, string>();
     for (const t of offeredTests()) {
       expect(LAB_CODES[t.code], `${t.code} in LAB_CODES`).toBeDefined();
-      const tabs = LAB_TABS.filter((tab) => t.group && tab.groups.includes(t.group));
-      expect(tabs.length, `${t.code} (${t.group})`).toBe(1);
+      const tab = tabOf(t);
+      if (t.group === "セット") expect(tab, t.code).toBeNull();
+      else {
+        expect(tab, `${t.code} (${t.group})`).not.toBeNull();
+        expect(LAB_TABS.some((x) => x.key === tab), `${t.code}: ${tab}`).toBe(true);
+        seen.set(t.code, tab!);
+      }
     }
-    const setTab = setPickables(LAB_TESTS).map((p) => p.code);
-    expect(setTab).toContain("SET-ADMIT");
-    expect(setTab).toContain("LAB-CHEM");
-    for (const tab of LAB_TABS.filter((x) => x.key !== "sets")) expect(tabSections(tab, LAB_TESTS).length, tab.label).toBeGreaterThan(0);
+    // Each item is listed on its tab once, and on no other tab (頻用 lists some of them again on purpose).
+    for (const tab of LAB_TABS.filter((x) => x.key !== "freq")) {
+      const codes = tabSections(tab, LAB_TESTS).flatMap((s) => s.items.map((i) => i.code));
+      expect(new Set(codes).size, tab.label).toBe(codes.length);
+      for (const c of codes) expect(seen.get(c), `${c} on ${tab.label}`).toBe(tab.key);
+      expect(codes.length, tab.label).toBeGreaterThan(0);
+    }
+    const sets = setPickables(LAB_TESTS).map((p) => p.code);
+    expect(sets).toContain("SET-ADMIT");
+    expect(sets).toContain("LAB-CHEM");
   });
 
-  it("the tabs are in the order the ward reads them, with sub-headings where a tab is long", () => {
-    expect(LAB_TABS.map((t) => t.label)).toEqual(["院内セット", "血算・血液像", "凝固・線溶", "生化学", "炎症・感染症", "心筋・心不全", "内分泌", "腫瘍マーカー", "免疫・アレルギー", "血液ガス", "尿・便", "微生物", "薬物濃度", "輸血検査"]);
-    const chem = tabSections(LAB_TABS.find((t) => t.key === "chem")!, LAB_TESTS).map((s) => s.head);
+  it("the tabs are in the order of the manual's screen, 頻用 first, with sub-headings where a tab is long", () => {
+    expect(LAB_TABS.map((t) => t.label)).toEqual(["頻用", "生化学Ⅰ", "生化学Ⅱ", "血液学・凝固系", "血清学・免疫", "尿・髄液・便", "微生物", "輸血関連", "薬物濃度", "腫瘍マーカー", "内分泌", "感染症（ウイルスを含む）", "アレルギー", "その他"]);
+    const chem = tabSections(LAB_TABS.find((t) => t.key === "chem1")!, LAB_TESTS).map((s) => s.head);
     expect(chem.slice(0, 4)).toEqual(["蛋白", "肝・胆道", "腎", "電解質・微量元素"]);
     expect(chem).toContain("鉄");
+    expect(chem).toContain("炎症マーカー");
+    expect(chem).toContain("心筋");
+    const chem2 = tabSections(LAB_TABS.find((t) => t.key === "chem2")!, LAB_TESTS).map((s) => s.head);
+    expect(chem2).toContain("ビタミン");
+    expect(chem2).not.toContain("肝・胆道");
     expect(subheadOf(findLab("LAB-HBA1C")!)).toBe("糖代謝");
     const micro = tabSections(LAB_TABS.find((t) => t.key === "micro")!, LAB_TESTS).map((s) => s.head);
     expect(micro).toEqual(["培養", "塗抹・遺伝子・抗原"]);
