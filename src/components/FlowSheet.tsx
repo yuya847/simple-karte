@@ -9,11 +9,14 @@ import { abs, doseTimes, fluidByDay, orderInterval } from "@/lib/flowsheet";
 import { durationText, labName, scheduleTextFor } from "@/lib/format";
 import { findDrug } from "@/lib/master";
 import { news2 } from "@/lib/news2";
-import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, VitalSign } from "@/lib/types";
+import type { DayOffset, HistoryEntry, ImagingOrder, InjectionOrder, OrderEntry, Patient, PhysioOrder, VitalSign } from "@/lib/types";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import { CareFlowRows } from "./CareFlowRows";
 import { ioLines } from "@/lib/io-balance";
 import { IoFlowRows, type FlowIo } from "./IoFlowRows";
+import type { DietOrder } from "@/lib/diet";
+import { examAt } from "@/lib/exams";
+import { dietDayCell, mealDiets } from "@/lib/flow-diet";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -39,7 +42,11 @@ interface Props {
   care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
   /** 水分出納 (IN/OUT) rows. */
   io?: FlowIo;
+  /** 食事オーダー, for the 食種 row. */
+  diets?: DietOrder[];
 }
+
+const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
 
 function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
@@ -63,7 +70,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io }: Props) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [] }: Props) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const [range, setRange] = useState<VitalRange>("latest");
   const [copied, setCopied] = useState<string | null>(null);
@@ -84,6 +91,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const injections = orders.filter((o) => o.order.type === "injection");
   const labs = orders.filter((o) => o.order.type === "lab" && o.status !== "中止");
   const fluid = fluidByDay(orders, days, nowAbs);
+  const meals = mealDiets(diets, orders, p.id, days, examTime);
   const ioRows = io ? ioLines({ patientId: p.id, entries: orders, typed: io.typed, records: io.records, sessionStart: io.sessionStart, nowAbs, from: t0 - 1440 }) : null;
 
   const hovered = hover === null ? null : vitals[hover];
@@ -234,6 +242,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
 
           {/* Daily nursing record */}
           <Section title="観察・記録" />
+          <DietRow days={days} colW={colW} cell={(d) => dietDayCell(meals, d)} />
           <DayRow label="食事（割）" days={days} colW={colW} value={(d) => {
             const r = p.daily.find((x) => x.day === d);
             if (!r?.meals) return "";
@@ -286,7 +295,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             </div>
           </Row>
           <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
-            ● 採取済み　○ 予定（印に触れると項目が出ます）。点滴量はオーダから計算した概算で、実測ではありません。
+            ● 採取済み　○ 予定（印に触れると項目が出ます）。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
           </p>
         </div>
       )}
@@ -403,6 +412,30 @@ function DayRow({ label, sub, days, colW, value }: { label: string; sub?: string
             {value(d)}
           </span>
         ))}
+      </div>
+    </Row>
+  );
+}
+
+/** 食種: the diet of each day from the diet orders; a change in the day is marked, the meals are on touch. */
+function DietRow({ days, colW, cell }: { days: DayOffset[]; colW: number; cell: (d: DayOffset) => ReturnType<typeof dietDayCell> }) {
+  return (
+    <Row label="食種" sub="食事オーダー">
+      <div className="relative h-6">
+        {days.map((d, i) => {
+          const c = cell(d);
+          if (c.empty) return null;
+          return (
+            <span
+              key={d}
+              title={c.title}
+              className={`absolute top-0.5 truncate rounded-sm px-0.5 text-center leading-5 ${c.held ? "bg-yamabuki-soft text-yamabuki" : c.text.startsWith("絶食") ? "text-yamabuki" : d > 0 ? "text-ink-faint" : "text-ink"} ${c.changed ? "font-bold ring-1 ring-inset ring-ai/50" : ""}`}
+              style={{ left: i * colW + 1, width: colW - 2 }}
+            >
+              {c.text}
+            </span>
+          );
+        })}
       </div>
     </Row>
   );

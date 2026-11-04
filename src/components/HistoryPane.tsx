@@ -123,7 +123,7 @@ export function HistoryPane(props: Props) {
         )}
       </div>
       {view === "flowsheet" ? (
-        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} />
+        <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} />
       ) : view === "injection-cal" ? (
         <InjectionCalendar {...calendarProps} />
       ) : view === "rx-cal" ? (
