@@ -190,6 +190,9 @@ import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
 import { BloodBankView } from "./BloodBankView";
+import { PathologyView } from "./PathologyView";
+import { PathRequestPanel } from "./panels/PathRequestPanel";
+import { DeptReportsPanel } from "./panels/DeptReportsPanel";
 import { bloodOf } from "@/lib/blood-bank";
 import { useDepartments } from "@/lib/use-departments";
 
@@ -1167,7 +1170,8 @@ export default function WardApp() {
   }
 
   // Results per patient on the ward: what the doctor has not seen, and panic values not yet phoned in.
-  const wardResults = people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS));
+  // 病理・生理 reports are read and marked like the other results.
+  const wardResults = [...people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS)), ...dept.results.filter((i) => people.some((x) => x.patient.id === i.patientId))];
   // 救急外来・外来 visits with lab orders: the laboratory takes in and results their samples too.
   const labVisits = visitPeople(er, opd, visitLabs, labDesk);
   const labItems = [...wardResults, ...labVisits.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS))];
@@ -1531,6 +1535,7 @@ export default function WardApp() {
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
     ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
+    ...(deny("order") ? { "add-pathology": deny("order")! } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
     ...(resident ? { regimen: COSIGN_RULES.blocked } : {}),
   };
@@ -1936,6 +1941,8 @@ export default function WardApp() {
         />
       ) : screen === "blood" ? (
         <BloodBankView people={people} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood} nowTime={nowTime} today={today} onIssued={(id, rec) => setTxIssued((all) => Object.fromEntries([...Object.entries(all).filter(([k]) => k !== id), ...(rec ? [[id, rec] as const] : [])]))} />
+      ) : screen === "path" ? (
+        <PathologyView people={people} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
         <HandoffView
           people={people}
@@ -2314,7 +2321,7 @@ export default function WardApp() {
               {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
               <ResultsInbox
                 today={today}
-                items={unseen(resultsOf(patient, PANIC_LIMITS), acks)}
+                items={unseen([...resultsOf(patient, PANIC_LIMITS), ...dept.results.filter((i) => i.patientId === patient.id)], acks)}
                 calls={calls}
                 onSeen={(keys, response) => markSeen(patient.id, keys, response)}
                 onOpenResults={() => setPanel("results")}
@@ -2560,6 +2567,16 @@ export default function WardApp() {
                     newId={newId}
                     onChange={(next) => setDiagnoses((all) => ({ ...all, [patient.id]: next }))}
                   />
+                </Drawer>
+              )}
+              {panel === "add-pathology" && (
+                <Drawer title="病理の依頼" onClose={closePanel} locked={deny("order")}>
+                  <PathRequestPanel patientId={patient.id} patientName={patient.name} cases={dept.pathology} onAdd={(c) => dept.setPathology((cs) => [...cs, c])} nowTime={nowTime} />
+                </Drawer>
+              )}
+              {panel === "reports" && (
+                <Drawer title="病理・生理検査の報告" onClose={closePanel} wide>
+                  <DeptReportsPanel patientId={patient.id} pathology={dept.pathology} acks={acks} today={today} onSeen={(keys) => markSeen(patient.id, keys)} />
                 </Drawer>
               )}
               {panel === "results" && (

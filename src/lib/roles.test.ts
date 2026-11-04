@@ -36,6 +36,13 @@ describe("roles", () => {
     expect(can("臨床検査技師", "tx.bedside")).toBe(false);
   });
 
+  it("病理: technologists take in and process; only a doctor (the pathologist) writes the report", () => {
+    expect(can("臨床検査技師", "path.process")).toBe(true);
+    expect(can("看護師", "path.process")).toBe(false);
+    expect(can("医師", "path.report")).toBe(true);
+    expect(denyReason("臨床検査技師", "path.report")).toBe("病理診断の報告書（病理医）は医師が行います（いまは臨床検査技師で入っています）。");
+  });
+
   it("医事課 does not write clinical notes", () => {
     expect(can("医事課", "note")).toBe(false);
     expect(can("MSW", "note")).toBe(true);

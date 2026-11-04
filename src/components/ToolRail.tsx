@@ -1,11 +1,11 @@
 "use client";
 
-import { Bandage, Barcode, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils } from "lucide-react";
+import { Bandage, Barcode, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports";
 
 interface Tool {
   key: PanelKind;
@@ -39,6 +39,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
       { key: "add-rehab", label: "リハビリ", icon: Footprints },
       { key: "add-consult", label: "他科依頼", icon: Send },
       { key: "add-transfusion", label: "輸血", icon: Droplet },
+      { key: "add-pathology", label: "病理", icon: Microscope },
       { key: "add-dialysis", label: "透析", icon: Droplets },
       { key: "regimen", label: "レジメン", icon: FlaskRound },
       { key: "restraint", label: "身体的拘束", icon: Hand },
@@ -85,6 +86,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     title: "参照",
     main: [
       { key: "results", label: "検査結果", icon: FlaskConical },
+      { key: "reports", label: "病理・生理", icon: FileSearch },
       { key: "imaging", label: "放射線画像", icon: ScanLine },
       { key: "active-orders", label: "有効オーダ", icon: ListChecks },
     ],

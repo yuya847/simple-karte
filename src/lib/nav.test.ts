@@ -17,6 +17,12 @@ describe("① places by role", () => {
     expect(areasFor("臨床検査技師").map((a) => a.key)).toEqual(expect.arrayContaining(["lab", "blood"]));
     expect(areasFor("医師").map((a) => a.key)).not.toContain("blood");
   });
+  it("病理 is the laboratory's and the pathologist's (a doctor), not the nurses'", () => {
+    expect(areasFor("臨床検査技師").map((a) => a.key)).toContain("path");
+    expect(areasFor("医師").map((a) => a.key)).toContain("path");
+    expect(areasFor("看護師").map((a) => a.key)).not.toContain("path");
+    expect(homeArea("臨床検査技師")).toBe("lab");
+  });
   it("each role starts at its own place", () => {
     expect(homeArea("医師")).toBe("ward");
     expect(homeArea("看護師")).toBe("ward");
