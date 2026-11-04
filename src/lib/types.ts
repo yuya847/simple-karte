@@ -144,6 +144,16 @@ export interface OrderEntry {
   order: Order;
   /** 口頭指示: a nurse entered it on the doctor's spoken order; the doctor signs afterwards. */
   verbal?: { takenBy: string; doctor: string; at: { day: DayOffset; time: string }; signedAt?: { day: DayOffset; time: string } };
+  /** 画像検査: what 放射線部 recorded (ris.ts), for the claim. Without it a study counts as done once its time passed. */
+  exam?: ExamRecord;
+}
+
+/** 放射線部's record of one imaging order, as the claim reads it: done (when), not done, and the contrast medium used. */
+export interface ExamRecord {
+  done?: { day: DayOffset; time: string };
+  notDone?: true;
+  /** 医薬品マスターのコード, the name and how many (本・筒). */
+  contrast?: { code: string; name: string; count: number };
 }
 
 // ---------- Orders ----------

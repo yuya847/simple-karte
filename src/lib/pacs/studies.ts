@@ -2,6 +2,7 @@
 // 既存の架空の検査（patient.imaging）と、このアプリで出した画像検査オーダー（時刻を過ぎたもの）の両方に画像を付ける。
 
 import { examAt, findRegion, REGIONS } from "../exams";
+import { studyStateOf, type RisDesk } from "../ris";
 import type { HistoryEntry, ImagingOrder, ImagingStudy, Patient } from "../types";
 import { seedFrom } from "./random";
 import type { BodyPart, Dir, Generator, PacsStudy, PhantomHint, SeriesSpec, WindowPreset, XrayView } from "./types";
@@ -11,13 +12,17 @@ import { CT_PRESETS } from "./window";
 // 検査を集める
 // ---------------------------------------------------------------------------
 
-/** 患者の検査（架空の記録＋オーダーから）を新しい順に並べる。 */
-export function collectStudies(patient: Patient, entries: HistoryEntry[], nowAbs: number): ImagingStudy[] {
+/**
+ * 患者の検査（架空の記録＋オーダーから）を新しい順に並べる。
+ * 放射線部の記録（ris）を渡すと、画像は「画像を送った」あとに出て、読影レポートも放射線部のものになる。渡さないときは時刻を過ぎたら撮影済みとみなす。
+ */
+export function collectStudies(patient: Patient, entries: HistoryEntry[], nowAbs: number, ris?: RisDesk): ImagingStudy[] {
   const ordered: ImagingStudy[] = entries.flatMap((e) => {
     if (e.kind !== "order" || e.order.type !== "imaging" || e.status === "中止") return [];
     const o = e.order as ImagingOrder;
-    const at = examAt(o, e.day * 1440 + Number(e.time.slice(0, 2)) * 60 + Number(e.time.slice(3)));
-    const done = at <= nowAbs;
+    const state = ris ? studyStateOf(o, ris[e.id]) : null;
+    const at = state?.at ? state.at.day * 1440 + Number(state.at.time.slice(0, 2)) * 60 + Number(state.at.time.slice(3)) : examAt(o, e.day * 1440 + Number(e.time.slice(0, 2)) * 60 + Number(e.time.slice(3)));
+    const done = state ? !state.pending : at <= nowAbs;
     const minute = ((at % 1440) + 1440) % 1440;
     return [
       {
@@ -25,8 +30,8 @@ export function collectStudies(patient: Patient, entries: HistoryEntry[], nowAbs
         day: Math.floor(at / 1440),
         modality: o.modality === "ポータブルX線" ? "X線" : o.modality,
         region: `${findRegion(o.region)?.name ?? o.region}${o.contrast ? `（${o.contrast}）` : ""}`,
-        report: done ? "撮影済み。読影をお待ちください（この試作では読影レポートは架空の記録だけです）。" : `予約：${o.when.priority === "至急" ? "至急" : `${o.when.time ?? ""}`}　目的：${o.purpose}`,
-        reader: done ? "（読影待ち）" : "（未実施）",
+        report: state ? state.report : done ? "撮影済み。読影をお待ちください（この試作では読影レポートは架空の記録だけです）。" : `予約：${o.when.priority === "至急" ? "至急" : `${o.when.time ?? ""}`}　目的：${o.purpose}`,
+        reader: state ? state.reader : done ? "（読影待ち）" : "（未実施）",
         regionCode: o.region,
         views: o.views,
         contrast: o.contrast,

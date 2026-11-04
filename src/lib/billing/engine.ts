@@ -459,10 +459,11 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
   }
 
   // ===== 70 画像診断・60 生理検査 =====
-  // A study counts as done once its time has passed (no 実施 record in this prototype).
+  // A study counts as done once its time has passed, unless 放射線部 keeps a record of it (e.exam, ris.ts):
+  // then it counts on the day it was done, and not at all while it is not done.
   const studies = orders
-    .filter((e) => (e.order.type === "imaging" || e.order.type === "physio") && e.status !== "中止")
-    .map((e) => ({ e, at: examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time)) }))
+    .filter((e) => (e.order.type === "imaging" || e.order.type === "physio") && e.status !== "中止" && !e.exam?.notDone)
+    .map((e) => ({ e, at: e.exam ? (e.exam.done ? abs(e.exam.done.day, e.exam.done.time) : Infinity) : examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time)) }))
     .filter(({ at }) => at <= nowAbs && inMonth.has(Math.floor(at / DAY)))
     .sort((a, b) => a.at - b.at);
   let ctMriCount = 0;
@@ -498,7 +499,9 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     ctMriCount++;
     const ct = o.modality === "CT";
     const base = ct ? IC.CT : IC.MRI;
-    const contrast = o.contrast && o.contrast !== "単純" ? (ct ? IC.CT造影 : IC.MRI造影) : null;
+    // 造影剤使用加算: as ordered, or — when 放射線部 recorded the study — only if a contrast medium was used.
+    const used = e.exam ? !!e.exam.contrast : !!o.contrast && o.contrast !== "単純";
+    const contrast = used ? (ct ? IC.CT造影 : IC.MRI造影) : null;
     const second = ctMriCount >= 2;
     const shootLines = [si(base), ...(second ? [si(IC.CTMRI2回目減算)] : []), ...(contrast ? [si(contrast)] : [])];
     // 通則2: 同一月の2回目以降は撮影の所定点数の100分の80（造影剤使用加算は減算に含めない扱い。下の確かめるを参照）
@@ -515,7 +518,15 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     // E203 コンピューター断層診断: 種類・回数にかかわらず月1回
     if (!second) add({ day: d, shikibetsu: "70", parts: [{ lines: [si(IC.断層診断)], points: pts(IC.断層診断) }], basis: "E203 コンピューター断層診断（CT・MRI の種類・回数にかかわらず月1回）" });
     if (second && contrast) issues.push({ level: "review", text: "同一月2回目以降のCT・MRIの減算（100分の80）を、造影剤使用加算にも掛けるかを確かめてください（この試作は撮影料だけに掛けています）。" });
-    if (contrast) issues.push({ level: "review", text: "造影剤（薬剤料）はこの試作では入っていません。使った造影剤を足してください。" });
+    const agent = e.exam?.contrast;
+    if (agent) {
+      // E300 薬剤: the contrast medium 放射線部 recorded, priced from the 医薬品マスター (15円以下は算定しない).
+      const line = iyLine(agent.code, agent.count);
+      const yen = line.yen ?? 0;
+      if (!iyakuItem(agent.code)) issues.push({ level: "review", text: `造影剤 ${agent.name}（${agent.code}）が医薬品マスターにありません。確かめてください。` });
+      else if (procDrugPoints(yen) > 0)
+        add({ day: d, shikibetsu: "70", parts: [{ lines: [line], points: procDrugPoints(yen) }], basis: `E300 薬剤（造影剤）：${agent.name} ${agent.count}（薬価 ${yen.toLocaleString("ja-JP")}円 → (${yen} − 15) ÷ 10 の切り上げ ＋ 1 = ${procDrugPoints(yen)}点）。放射線部の記録から` });
+    } else if (contrast) issues.push({ level: "review", text: "造影剤（薬剤料）はこの試作では入っていません。使った造影剤を足してください。" });
   }
 
   // ===== 60 検体検査 =====
