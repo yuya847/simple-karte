@@ -22,8 +22,20 @@ describe("同意書が要るオーダー", () => {
     expect(isReady(checkDraft(ready, ctx()))).toBe(true);
     expect(toOrder(ready, ctx()).consents).toEqual(["CONSENT-CVC"]);
   });
-  it("numbers come with a source (造影CT・中心静脈カテーテル)", () => {
-    for (const code of ["CONSENT-CT-CONTRAST", "CONSENT-CVC"]) {
+  it("the transfusion form follows 輸血療法実践ガイド Ⅰ-1-3)a and lists the notice that abolished the old guidelines", () => {
+    const t = CONSENT_TEMPLATES.find((x) => x.code === "CONSENT-TRANSFUSION")!;
+    expect(t.sources.map((s) => s.url)).toEqual([
+      "https://yuketsu.jstmct.or.jp/wp-content/uploads/2026/02/c94fb40adf823eac4fe9feb13f6d6c60.pdf",
+      "https://www.mhlw.go.jp/content/11120000/001680857.pdf",
+    ]);
+    const facts = t.sections.flatMap((s) => s.facts ?? []);
+    expect(facts.every((f) => f.source.includes("輸血療法実践ガイド") && /Ⅰ|Ⅱ|Ⅲ/.test(f.source))).toBe(true);
+    // The guide's item that the old form did not have: irradiation against 輸血後 GVHD.
+    expect(facts.map((f) => f.text)).toContain("説明する項目：リスク軽減策（輸血後 GVHD 予防のため FFP を除く全ての製剤に放射線照射）");
+    expect(JSON.stringify(t.sections)).not.toMatch(/輸血療法の実施に関する指針|血液製剤の使用指針|70mL\/kg/);
+  });
+  it("numbers come with a source (造影CT・中心静脈カテーテル・輸血)", () => {
+    for (const code of ["CONSENT-CT-CONTRAST", "CONSENT-CVC", "CONSENT-TRANSFUSION"]) {
       const t = CONSENT_TEMPLATES.find((x) => x.code === code)!;
       const facts = t.sections.flatMap((s) => s.facts ?? []);
       expect(facts.length, code).toBeGreaterThan(2);

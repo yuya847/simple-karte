@@ -2,6 +2,7 @@
 // (see `facts`). Wording is the fictional hospital's own; it is not copied from any real hospital.
 
 import type { ConsentCode, ConsentTemplate } from "./consent";
+import { TX_GUIDE, TX_NOTICE } from "./procedures";
 
 const COMMON_END = [
   {
@@ -28,8 +29,9 @@ const SRC = {
   cvGuide: { label: "日本麻酔科学会「安全な中心静脈カテーテル挿入・管理のためのプラクティカルガイド2017」", url: "https://anesth.or.jp/files/pdf/JSA_CV_practical_guide_2017.pdf" },
   portGuide: { label: "日本IVR学会「中心静脈ポート留置術と管理に関するガイドライン2019」", url: "https://www.jsir.or.jp/wp-content/uploads/2020/01/CVP20200107.pdf" },
   medsafe17: { label: "日本医療安全調査機構「医療事故の再発防止に向けた提言 第17号」2023年3月", url: "https://www.medsafe.or.jp/uploads/uploads/files/teigen17_setsumeidouisho.pdf" },
-  txDo: { label: "厚生労働省「輸血療法の実施に関する指針」（令和2年3月改正）", url: "https://www.mhlw.go.jp/new-info/kobetu/iyaku/kenketsugo/dl/5tekisei3a.pdf" },
-  txUse: { label: "厚生労働省「血液製剤の使用指針」", url: "https://www.mhlw.go.jp/new-info/kobetu/iyaku/kenketsugo/5tekisei3b01.html" },
+  // The Ministry's two transfusion guidelines were abolished on 2026-03-24; the guide reorganises them.
+  txGuide: TX_GUIDE,
+  txNotice: TX_NOTICE,
   restraint: { label: "大阪大学医学部附属病院「身体的拘束最小化に関する本院の指針」2025年5月", url: "https://www.hosp.med.osaka-u.ac.jp/admission/files/saishouka_20250501.pdf" },
 };
 
@@ -255,49 +257,55 @@ export const CONSENT_TEMPLATES: ConsentTemplate[] = [
     sections: [
       {
         heading: "輸血が必要な理由",
-        lines: ["いまの病状と検査の値から、輸血が必要と担当医が判断した理由を説明します。輸血をしなかった場合に予想されることも説明します。"],
-        facts: [{ text: "説明する項目：輸血療法の必要性", source: SRC.txDo.label }],
+        lines: ["いまの病状と検査の値から、輸血が必要と担当医が判断した理由と、輸血でよくなると見込む症状を説明します。輸血をしなかった場合に予想されることも説明します。"],
+        facts: [{ text: "説明する項目：輸血療法の必要性と期待される効果、輸血を行わない場合について", source: `${SRC.txGuide.label} Ⅰ-1-3)a` }],
       },
       {
         heading: "使う血液製剤と量",
-        lines: ["使う製剤の種類（赤血球・血漿・血小板）と量、輸血の予定を説明します。量は、体重と検査の値から計算した見込み（上がる値の予測）と合わせて決めます。"],
+        lines: ["使う製剤の種類（赤血球・血漿・血小板）と量（単位数）、輸血の予定を説明します。量は、体重と検査の値から計算した見込み（上がる値の予測）と合わせて決めます。"],
         facts: [
-          { text: "説明する項目：使用する血液製剤の種類と使用量", source: SRC.txDo.label },
-          { text: "予測上昇 Hb 値（g/dL）＝ 輸血 Hb 量（g）÷ 循環血液量（dL）、循環血液量 70mL/kg", source: SRC.txUse.label },
+          { text: "説明する項目：使用する血液製剤の種類と量（単位数や予測使用量）", source: `${SRC.txGuide.label} Ⅰ-1-3)a` },
+          { text: "予測上昇 Hb 値（g/dL）＝ 投与 Hb 量（g）÷ 循環血液量（dL）", source: `${SRC.txGuide.label} Ⅲ-1-4)` },
         ],
       },
       {
-        heading: "起こりうる副作用",
+        heading: "起こりうる副反応",
         lines: [
           "発熱、じんましんなどのアレルギー、まれに息苦しさや血圧の低下が起こることがあります。輸血のあいだと終わったあとは、看護師がそばで様子を見ます。",
           "検査をした血液を使いますが、感染症がうつる危険を完全になくすことはできません。",
+          "輸血後 GVHD（移植片対宿主病：輸血した血液のリンパ球が体に根づいて体を攻撃する、まれで重い病気）を防ぐため、血漿（新鮮凍結血漿）を除く製剤には放射線をあててあります。",
         ],
-        facts: [{ text: "説明する項目：輸血に伴うリスク", source: SRC.txDo.label }],
+        facts: [
+          { text: "説明する項目：輸血に伴うリスクと副反応の詳細", source: `${SRC.txGuide.label} Ⅰ-1-3)a` },
+          { text: "説明する項目：リスク軽減策（輸血後 GVHD 予防のため FFP を除く全ての製剤に放射線照射）", source: `${SRC.txGuide.label} Ⅰ-1-3)a` },
+        ],
       },
       {
-        heading: "副作用や感染症が起きたときの救済制度",
-        lines: ["適正に使った血液製剤で健康被害が起きたときは、公的な救済制度（生物由来製品感染等被害救済制度など）があります。給付の条件も説明します。"],
-        facts: [{ text: "説明する項目：副作用・感染症救済制度と給付の条件", source: SRC.txDo.label }],
+        heading: "健康被害が起きたときの救済制度",
+        lines: ["適正に使った血液製剤で健康被害が起きたときは、公的な救済制度（生物由来製品感染等被害救済制度など）があります。制度のあらましを説明します。"],
+        facts: [{ text: "説明する項目：救済制度（生物由来製品感染等被害救済制度の概要）", source: `${SRC.txGuide.label} Ⅰ-1-3)a` }],
       },
       {
         heading: "ほかの方法",
-        lines: ["手術の前などで時間があるときは、自分の血液をためておいて使う方法（自己血輸血）を選べる場合があります。"],
-        facts: [{ text: "説明する項目：自己血輸血の選択肢", source: SRC.txDo.label }],
+        lines: ["手術の前などで時間があるときは、輸血をしない代わりに、自分の血液をためておいて使う方法（自己血輸血）を選べる場合があります。"],
+        facts: [{ text: "説明する項目：輸血を行わない代替療法の選択肢（自己血輸血）", source: `${SRC.txGuide.label} Ⅰ-1-3)a` }],
       },
       {
         heading: "検査と記録",
         lines: [
-          "輸血の前後に感染症の検査をし、輸血の前の血液（検体）を一定の期間保管します。",
-          "使った血液製剤の記録を保管し、あとで血液製剤に問題がわかったときの調べ（遡及調査）に使うことがあります。",
+          "輸血の前に、血液型、不規則抗体（輸血や妊娠でできることがある抗体）、交差適合試験（患者さんの血液と製剤が合うかどうか）を調べます。",
+          "輸血の前の血液（検体）を保管します。輸血のあとで感染が疑われるときは、B型肝炎・C型肝炎・HIV（ヒト免疫不全ウイルス）の検査をします。",
+          "使った血液製剤の記録を20年間保管し、あとで血液製剤に問題がわかったときの調べ（遡及調査）に使うことがあります。",
         ],
         facts: [
-          { text: "説明する項目：感染症検査と検体保管", source: SRC.txDo.label },
-          { text: "説明する項目：投与記録の保管と遡及調査時の使用", source: SRC.txDo.label },
+          { text: "説明する項目：必要な輸血検査（血液型・不規則抗体検査・交差適合試験）、感染症検査と検体保管", source: `${SRC.txGuide.label} Ⅰ-1-3)a` },
+          { text: "輸血前の患者血液は全例で保管し、-20℃以下で2年間を目安に保存。感染が疑われる場合に HBV・HCV・HIV の輸血後感染症検査", source: `${SRC.txGuide.label} Ⅱ-2-7)・Ⅱ-3-3)d` },
+          { text: "説明する項目：輸血記録が20年間保存され、遡及調査に使用されること", source: `${SRC.txGuide.label} Ⅰ-1-3)a` },
         ],
       },
       ...COMMON_END,
     ],
-    sources: [SRC.txDo, SRC.txUse],
+    sources: [SRC.txGuide, SRC.txNotice],
   },
 ];
 
