@@ -1324,13 +1324,6 @@ export default function WardApp() {
     if (injWin) toFront("injection");
   };
   const pendingNewInj = chart.drafts.filter((d): d is InjectionDraft => d.kind === "injection");
-  // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
-  const injMemory = patient
-    ? {
-        patterns: injPatternsOf([...PAST_INJ, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
-        previous: injPreviousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
-      }
-    : undefined;
 
   // Do: a past note or order copied to the right (dragged from the left, or from its menu).
   const doFromHistory = (p: DoPayload) => {
@@ -1367,6 +1360,13 @@ export default function WardApp() {
     });
 
   const sessionChanges = Object.fromEntries(Object.entries(charts).filter(([k]) => !k.includes("|")).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
+  // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
+  const injMemory = patient
+    ? {
+        patterns: injPatternsOf([...PAST_INJ, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
+        previous: injPreviousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
+      }
+    : undefined;
   // Our patients with their bed and the record as it stands now (for the worksheet and the list).
   // Patients discharged in this session, with the bed they had (for 退院時の薬 and the 退院支援の一覧).
   const dischargedPeople: WorkPatient[] = allPatients.flatMap((p) => {
