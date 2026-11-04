@@ -161,6 +161,13 @@ interface Tile {
   go: () => void;
 }
 
+/**
+ * The group tabs (オーダ・看護・文書・参照・医事): tall enough to press (28px and up), 12px letters, room on
+ * the sides; the chosen one black with white letters. The red dot (something unseen inside) sits on
+ * the top-right corner.
+ */
+export const GROUP_TAB_CLASS = "relative inline-flex min-h-7 items-center rounded-md px-2.5 py-1 text-[12px] leading-none";
+
 const toolClass = (off: boolean, active: boolean) =>
   `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
 
@@ -263,13 +270,16 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
         </div>
         {pinned.length === 0 ? <p className="px-0.5 pb-0.5 text-[10px] text-ink-faint">★ でよく使う道具をここに（テンプレートの ★ でも）</p> : <div className={grid}>{pinned.map((t) => tile(t, "pins"))}</div>}
       </section>
-      <div role="tablist" aria-label="道具の種類" className="mb-1 flex flex-wrap gap-0.5 border-b border-rule pb-1">
-        {groups.map((g) => (
-          <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => setTab(g.key)} data-badged={[...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0) || undefined} className={`rounded px-1.5 py-0.5 text-[11px] ${shownTab === g.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
-            {g.title}
-            {[...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0) && <span aria-hidden className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-shu align-middle" />}
-          </button>
-        ))}
+      <div role="tablist" aria-label="道具の種類" className="mb-1 flex flex-wrap gap-1 border-b border-rule pb-1">
+        {groups.map((g) => {
+          const badged = [...g.main, ...g.more].some((t) => (badges[t.key]?.n ?? 0) > 0);
+          return (
+            <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => setTab(g.key)} data-badged={badged || undefined} className={`${GROUP_TAB_CLASS} ${shownTab === g.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
+              {g.title}
+              {badged && <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-block h-2.5 w-2.5 rounded-full border border-paper bg-shu" />}
+            </button>
+          );
+        })}
       </div>
       <div className={grid}>
         {group.key === "ref" && !short && injectionCalendar && (
