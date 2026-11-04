@@ -8,6 +8,8 @@ export const WORKSPACE_VERSION = 1;
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 export const workspaceOn = () => !!URL_ && !!KEY;
+/** The project's address and publishable key (for the realtime channel), or null when not configured. */
+export const supabaseEnv = () => (workspaceOn() ? { url: URL_, key: KEY } : null);
 
 const rpc = async <T>(fn: string, body: Record<string, unknown>): Promise<T> => {
   const res = await fetch(`${URL_}/rest/v1/rpc/${fn}`, {
@@ -43,10 +45,15 @@ export function workspaceId(): string {
   }
 }
 
-export async function loadWorkspace(id: string, day: string): Promise<Record<string, unknown> | null> {
-  const rows = await rpc<{ version: number; day: string; data: Record<string, unknown> }[]>("load_workspace", { p_id: id });
+/** The saved records of the day with when they were saved (null: nothing of this day and version). */
+export async function loadWorkspaceRow(id: string, day: string): Promise<{ data: Record<string, unknown>; updatedAt: string | null } | null> {
+  const rows = await rpc<{ version: number; day: string; data: Record<string, unknown>; updated_at?: string }[]>("load_workspace", { p_id: id });
   const r = rows?.[0];
-  return r && r.version === WORKSPACE_VERSION && r.day === day ? r.data : null;
+  return r && r.version === WORKSPACE_VERSION && r.day === day ? { data: r.data, updatedAt: r.updated_at ?? null } : null;
+}
+
+export async function loadWorkspace(id: string, day: string): Promise<Record<string, unknown> | null> {
+  return (await loadWorkspaceRow(id, day))?.data ?? null;
 }
 
 export const saveWorkspace = (id: string, day: string, data: Record<string, unknown>) => rpc<null>("save_workspace", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: data });

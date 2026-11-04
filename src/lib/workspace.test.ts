@@ -20,11 +20,14 @@ describe("記録の保存（Supabase）", () => {
       "fetch",
       vi.fn(async (url: string, init: RequestInit) => {
         calls.push({ url, body: JSON.parse(String(init.body)), key: new Headers(init.headers).get("apikey") });
-        return new Response(JSON.stringify([{ version: 1, day: "2026-11-04", data: { mar: { a: 1 } } }]), { status: 200 });
+        return new Response(JSON.stringify([{ version: 1, day: "2026-11-04", data: { mar: { a: 1 } }, updated_at: "2026-11-04T01:02:03+00:00" }]), { status: 200 });
       }),
     );
-    const { loadWorkspace, saveWorkspace, workspaceOn } = await import("./workspace");
+    const { loadWorkspace, loadWorkspaceRow, saveWorkspace, supabaseEnv, workspaceOn } = await import("./workspace");
     expect(workspaceOn()).toBe(true);
+    expect(supabaseEnv()).toEqual({ url: "https://example.supabase.co", key: "sb_publishable_test" });
+    expect(await loadWorkspaceRow("00000000-0000-4000-8000-000000000000", "2026-11-04")).toEqual({ data: { mar: { a: 1 } }, updatedAt: "2026-11-04T01:02:03+00:00" });
+    calls.length = 0;
     expect(await loadWorkspace("00000000-0000-4000-8000-000000000000", "2026-11-04")).toEqual({ mar: { a: 1 } });
     expect(await loadWorkspace("00000000-0000-4000-8000-000000000000", "2026-11-05")).toBeNull();
     await saveWorkspace("00000000-0000-4000-8000-000000000000", "2026-11-04", { mar: {} });
