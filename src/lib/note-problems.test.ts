@@ -13,11 +13,19 @@ describe("# のプロブレムの番号", () => {
     expect(renumberProblems("#2 高血圧\n#2 糖尿病\n#  7 貧血").text).toBe("#1 高血圧\n#2 糖尿病\n#3 貧血");
     expect(renumberProblems("# 1回目の転倒").text).toBe("#1 1回目の転倒");
     expect(renumberProblems("#2型糖尿病").text).toBe("#1 2型糖尿病");
-    expect(renumberProblems("#1. 心不全\n＃2） 腎不全").text).toBe("#1 心不全\n#2 腎不全");
+    expect(renumberProblems("#1. 心不全\n#2） 腎不全").text).toBe("#1 心不全\n#2 腎不全");
   });
 
-  it("leaves lines that are not at the start, indented lines and text without '#' alone", () => {
-    expect(renumberProblems("S) 痛みなし\n  #memo\nA) #不要", 0)).toEqual({ text: "S) 痛みなし\n  #memo\nA) #不要", caret: 0 });
+  it("an indented '#' line is a problem too, keeping its indent", () => {
+    expect(renumberProblems("A)\n  #高血圧\n\u3000#貧血").text).toBe("A)\n  #1 高血圧\n\u3000#2 貧血");
+  });
+
+  it("leaves a '#' inside a line (冠動脈・歯の番号) and a full-width '＃' at the start alone", () => {
+    const text = "S) 痛みなし\nLAD #7 90%狭窄\nRCA #2 完全閉塞\n＃7 に90%狭窄\nA) #不要";
+    expect(renumberProblems(text, 0)).toEqual({ text, caret: 0 });
+    expect(problemBlocks(text)).toEqual([]);
+    // Inside a problem's body, a coronary segment number stays as written.
+    expect(renumberProblems("#2 虚血性心疾患\n  LAD #7 90%狭窄\n#5 高血圧").text).toBe("#1 虚血性心疾患\n  LAD #7 90%狭窄\n#2 高血圧");
   });
 
   it("a caret on a line below moves with the lines above", () => {

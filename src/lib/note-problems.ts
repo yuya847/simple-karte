@@ -1,20 +1,22 @@
-// プロブレム（#）: a line starting with "#" names a problem (or a nurse's focus); the lines under it, up to the
-// next "#" line or a SOAP mark (S) O) A) P)), are its body. The numbers ("#1 尿路感染症") are given by code,
-// from the top, so whatever a person types or moves ends up numbered 1, 2, 3 … The note stays one string
-// (nothing changes in how it is stored); the doctor names the problems, nothing is suggested.
+// プロブレム（#）: a line starting with a half-width "#" (after any indent) names a problem (or a nurse's
+// focus); the lines under it, up to the next "#" line or a SOAP mark (S) O) A) P)), are its body. The numbers
+// ("#1 尿路感染症") are given by code, from the top, so whatever a person types or moves ends up numbered
+// 1, 2, 3 … A "#" inside a line (LAD #7 90%狭窄, a tooth number) and a full-width "＃" at the start of a line
+// (＃7 に90%狭窄) are not problems and are left as written. The note stays one string (nothing changes in
+// how it is stored); the doctor names the problems, nothing is suggested.
 
-/** "#", an optional number (only when a space or the end follows it), then the title. */
-const PROBLEM = /^[#＃][ \t]*(?:(\d+)[.．)）:：]?(?=[ \t]|$))?[ \t]*(.*)$/;
+/** Indent, "#", an optional number (only when a space or the end follows it), then the title. */
+const PROBLEM = /^([ \t\u3000]*)#[ \t]*(?:(\d+)[.．)）:：]?(?=[ \t]|$))?[ \t]*(.*)$/;
 /** A SOAP mark line ends a problem's body (P) does not move with the problem written under A)). */
 const SECTION = /^[SOAP]\)/i;
 
-export const isProblemLine = (line: string) => /^[#＃]/.test(line);
+export const isProblemLine = (line: string) => /^[ \t\u3000]*#/.test(line);
 
-/** The line as "#n title" (the title as written; an empty title keeps a space after the number). */
+/** The line as "#n title" (the indent and the title as written; an empty title keeps a space after the number). */
 function numbered(line: string, n: number): { text: string; prefix: number } {
   const m = line.match(PROBLEM)!;
-  const title = m[2];
-  return { text: `#${n} ${title}`, prefix: `#${n} `.length };
+  const text = `${m[1]}#${n} ${m[3]}`;
+  return { text, prefix: text.length - m[3].length };
 }
 
 export interface Renumbered {
@@ -42,7 +44,7 @@ export function renumberProblems(text: string, caret = text.length): Renumbered 
     }
     n++;
     const r = numbered(line, n);
-    const oldPrefix = line.length - line.match(PROBLEM)![2].length;
+    const oldPrefix = line.length - line.match(PROBLEM)![3].length;
     if (inLine) newCaret = start + shift + (caret - start <= oldPrefix ? r.prefix : r.prefix + (caret - start - oldPrefix));
     shift += r.text.length - line.length;
     return r.text;
@@ -85,7 +87,7 @@ export function problemBlocks(text: string): ProblemBlock[] {
     if (isProblemLine(line)) {
       close(i);
       const m = line.match(PROBLEM)!;
-      open = { number: out.length + 1, title: m[2].trim(), from: i, to: i, segment };
+      open = { number: out.length + 1, title: m[3].trim(), from: i, to: i, segment };
     }
   });
   close(lines.length);

@@ -20,6 +20,8 @@ describe("記事の描き方（太字・斜体・見出し）", () => {
     expect(lines.map((l) => l.heading)).toEqual([false, true, false]);
     expect(lines[1].parts).toEqual([{ kind: "text", text: "#1 尿路感染症" }]);
     expect(lines[2].parts[1]).toEqual({ kind: "b", text: "改善" });
+    // A full-width ＃ at the start (a coronary segment) and a # inside a line are not headings.
+    expect(markLines("＃7 に90%狭窄\nLAD #7 90%狭窄").map((l) => l.heading)).toEqual([false, false]);
   });
 
   it("knows when there is nothing to draw differently", () => {

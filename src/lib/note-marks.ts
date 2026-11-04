@@ -40,4 +40,4 @@ export function markLines(text: string): MarkLine[] {
 }
 
 /** Whether the text has anything to draw differently (no marks: the plain string is drawn as it is). */
-export const hasMarks = (text: string) => /\*[^*\n]+\*/.test(text) || /^[#＃]/m.test(text);
+export const hasMarks = (text: string) => /\*[^*\n]+\*/.test(text) || /^[ \t\u3000]*#/m.test(text);
