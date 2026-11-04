@@ -57,20 +57,18 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     const mode = r?.mode ?? (windowedFirst ? "window" : "drawer");
     return mode === "window" ? clampWin(r?.win ?? bigWin()) : null;
   });
-  const toWindow = () => {
-    const w = clampWin(loadRemembered(key)?.win ?? bigWin());
-    setWin(w);
-    saveRemembered(key, { mode: "window", win: w });
-  };
+  const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? bigWin()));
   const toDrawer = () => {
     saveRemembered(key, { mode: "drawer", win: win ?? loadRemembered(key)?.win });
     setWin(null);
   };
-  const moved = (w: Win) => {
-    setWin(w);
-    saveRemembered(key, { mode: "window", win: w });
-  };
-  const { down, move, up } = useWinDrag(win, moved);
+  const { down, move, up } = useWinDrag(win, setWin);
+  // Remember the window's place a moment after it stops moving (not on every pointer move).
+  useEffect(() => {
+    if (!win) return;
+    const t = window.setTimeout(() => saveRemembered(key, { mode: "window", win }), 300);
+    return () => window.clearTimeout(t);
+  }, [win, key]);
 
   // 横いっぱい: cover the whole chart (the area marked data-drawer-bounds), keeping the patient bar in view.
   const [full, setFull] = useState<DOMRect | null>(null);
