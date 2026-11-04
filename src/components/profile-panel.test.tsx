@@ -25,7 +25,7 @@ const as = (role: Role, el: React.ReactElement) =>
 
 describe("患者プロファイル", () => {
   it("the tool is on the right rail", () => {
-    expect(as("看護師", <ToolRail open={null} onOpen={() => {}} />)).toContain("プロファイル");
+    expect(as("看護師", <ToolRail open="profile" onOpen={() => {}} />)).toContain("プロファイル");
   });
 
   it("the band shows 禁忌 and the help needed, and opens the profile", () => {

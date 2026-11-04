@@ -1,6 +1,6 @@
 "use client";
 
-import { Bandage, Barcode, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
+import { Bandage, Barcode, CalendarDays, LayoutGrid, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "./RoleContext";
@@ -118,48 +118,116 @@ interface Props {
 const toolClass = (off: boolean, active: boolean) =>
   `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
 
-/** Fixed column of tools on the far right: order types, nursing, documents, then things to look at. */
+type RailMode = "icons" | "list";
+const RAIL_KEY = "simple-karte:tool-rail";
+
+/** How the rail is shown and which tools are pinned, per person in this browser (a convenience only). */
+function loadRail(person: string): { mode: RailMode; pins: PanelKind[] } {
+  try {
+    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { mode?: RailMode; pins?: PanelKind[] } | null;
+    return { mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins! : [] };
+  } catch {
+    return { mode: "icons", pins: [] };
+  }
+}
+function saveRail(person: string, v: { mode: RailMode; pins: PanelKind[] }) {
+  try {
+    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify(v));
+  } catch {
+    // Storage blocked: the choice lasts until the page is closed.
+  }
+}
+
+/**
+ * The column of tools on the far right: tabs by kind (オーダ・看護・文書・参照・医事), the tools of the chosen
+ * tab in three columns of icons (or a list with names), and above them an お気に入り bar with the tools
+ * this person pinned (★). The pins and the look are kept per person in this browser.
+ */
 export function ToolRail({ open, onOpen, blocked = {}, injectionCalendar }: Props) {
   const me = useMe();
-  const [shown, setShown] = useState<Partial<Record<GroupKey, boolean>>>({});
   const groups = orderFor(me.role).map((k) => GROUPS.find((g) => g.key === k)!);
-  const button = (t: Tool) => {
+  const [tab, setTab] = useState<GroupKey>(groups[0].key);
+  const [rail, setRail] = useState<{ mode: RailMode; pins: PanelKind[] }>(() => (typeof window === "undefined" ? { mode: "icons", pins: [] } : loadRail(me.name)));
+  const [editPins, setEditPins] = useState(false);
+  const put = (v: { mode: RailMode; pins: PanelKind[] }) => {
+    setRail(v);
+    saveRail(me.name, v);
+  };
+  const all = groups.flatMap((g) => [...g.main, ...g.more]);
+  const pinned = rail.pins.map((k) => all.find((t) => t.key === k)).filter((t): t is Tool => !!t);
+  // The tab of the open tool, so the highlighted one is in view.
+  const openIn = groups.find((g) => [...g.main, ...g.more].some((t) => t.key === open))?.key;
+  const shownTab = openIn && !pinned.some((t) => t.key === open) ? openIn : tab;
+  const group = groups.find((g) => g.key === shownTab)!;
+  const list = rail.mode === "list";
+
+  const tile = (t: Tool, where: "pins" | "tab") => {
     const Icon = t.icon;
     const active = open === t.key;
     const why = blocked[t.key];
     const off = t.disabled || !!why;
+    const isPin = rail.pins.includes(t.key);
+    const base = list
+      ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`
+      : toolClass(off, active);
     return (
-      <button key={t.key} type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && onOpen(active ? null : t.key)} aria-pressed={active} className={toolClass(off, active)}>
-        <Icon size={18} strokeWidth={1.8} />
-        {t.label}
-      </button>
+      <div key={`${where}-${t.key}`} className="relative">
+        <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && onOpen(active ? null : t.key)} aria-pressed={active} className={base}>
+          <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
+          <span className={list ? "truncate" : ""}>{t.label}</span>
+        </button>
+        {editPins && (
+          <button
+            type="button"
+            aria-label={isPin ? `${t.label}をお気に入りから外す` : `${t.label}をお気に入りに入れる`}
+            aria-pressed={isPin}
+            onClick={() => put({ ...rail, pins: isPin ? rail.pins.filter((k) => k !== t.key) : [...rail.pins, t.key] })}
+            className={`absolute -right-0.5 -top-0.5 rounded-full border bg-sheet p-0.5 ${isPin ? "border-yamabuki text-yamabuki" : "border-rule text-ink-faint hover:text-yamabuki"}`}
+          >
+            <Star size={11} fill={isPin ? "currentColor" : "none"} />
+          </button>
+        )}
+      </div>
     );
   };
+  const grid = list ? "flex flex-col gap-0.5" : "grid grid-cols-3 gap-0.5";
+
   return (
-    <aside aria-label="ツール" className="scroll-thin flex min-h-0 flex-col items-stretch gap-1 overflow-y-auto border-l border-rule bg-paper px-1 py-2">
-      {groups.map((g, gi) => {
-        // A tool open from 「その他」 keeps the group open, so the highlighted one is in view.
-        const more = shown[g.key] || g.more.some((t) => t.key === open);
-        return (
-          <div key={g.key} className={gi > 0 ? "mt-2 border-t border-rule pt-2" : ""}>
-            <div className="mb-1 text-center text-[10px] text-ink-faint">{g.title}</div>
-            {g.key === "ref" && injectionCalendar && (
-              <button type="button" title="注射カレンダー（右の欄のタブで開きます。延長・修正もここで）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={toolClass(false, injectionCalendar.on)}>
-                <CalendarDays size={18} strokeWidth={1.8} />
-                注射カレンダー
-              </button>
-            )}
-            {g.main.map(button)}
-            {more && g.more.map(button)}
-            {g.more.length > 0 && (
-              <button type="button" onClick={() => setShown((s) => ({ ...s, [g.key]: !more }))} aria-expanded={more} className="flex w-full flex-col items-center rounded-md px-1 py-1 text-[10px] leading-tight text-ink-faint hover:bg-sheet hover:text-ink">
-                {more ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {more ? "たたむ" : `その他 ${g.more.length}`}
-              </button>
-            )}
-          </div>
-        );
-      })}
+    <aside aria-label="ツール" className={`scroll-thin flex min-h-0 flex-col overflow-y-auto border-l border-rule bg-paper px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
+      <div className="mb-1 flex items-center justify-between px-0.5">
+        <span className="text-[10px] text-ink-faint">オーダと道具</span>
+        <span className="flex items-center gap-0.5">
+          <button type="button" onClick={() => setEditPins((v) => !v)} aria-pressed={editPins} title="お気に入りを選ぶ（★を押して出し入れ）" className={`rounded p-1 ${editPins ? "bg-yamabuki-soft text-yamabuki" : "text-ink-faint hover:bg-sheet hover:text-ink"}`}>
+            <Star size={13} />
+          </button>
+          <button type="button" onClick={() => put({ ...rail, mode: list ? "icons" : "list" })} title={list ? "アイコンで並べる（3列）" : "名前の一覧で並べる"} className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
+            {list ? <LayoutGrid size={13} /> : <List size={13} />}
+          </button>
+        </span>
+      </div>
+      <section aria-label="お気に入り" className="mb-1.5 rounded-md border border-dashed border-yamabuki/50 bg-yamabuki-soft/30 p-1">
+        <div className="mb-0.5 flex items-center gap-1 px-0.5 text-[10px] text-yamabuki">
+          <Star size={10} fill="currentColor" />
+          お気に入り
+        </div>
+        {pinned.length === 0 ? <p className="px-0.5 pb-0.5 text-[10px] text-ink-faint">★ でよく使う道具をここに</p> : <div className={grid}>{pinned.map((t) => tile(t, "pins"))}</div>}
+      </section>
+      <div role="tablist" aria-label="道具の種類" className="mb-1 flex flex-wrap gap-0.5 border-b border-rule pb-1">
+        {groups.map((g) => (
+          <button key={g.key} type="button" role="tab" aria-selected={shownTab === g.key} onClick={() => setTab(g.key)} className={`rounded px-1.5 py-0.5 text-[11px] ${shownTab === g.key ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
+            {g.title}
+          </button>
+        ))}
+      </div>
+      <div className={grid}>
+        {group.key === "ref" && injectionCalendar && (
+          <button type="button" title="注射カレンダー（右の欄のタブで開きます。延長・修正もここで）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
+            <CalendarDays size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
+            注射カレンダー
+          </button>
+        )}
+        {[...group.main, ...group.more].map((t) => tile(t, "tab"))}
+      </div>
     </aside>
   );
 }

@@ -205,10 +205,8 @@ import { COSIGN_RULES, byRef, confirmDeny, confirmItems, newItems, noteRevised, 
 import { CosignList, CosignRefs, CosignStrip } from "./Cosign";
 import { INITIAL_LIMITS, currentLimit, grantOf, inCareTeam, limitDeny, openEvent, type AccessLimit, type GlassEntry } from "@/lib/access-limit";
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
-import { STAFF, TABS, denyReason, type Role } from "@/lib/roles";
 import { eventTimeProblem, isBlankNote, nextFrame, noteKey, noteText, parseNote, reviseNote } from "@/lib/notes";
 import { ROLES, STAFF, TABS, denyReason, type Role } from "@/lib/roles";
-import { nextFrame, noteKey, parseNote, reviseNote } from "@/lib/notes";
 import { insertIntoO } from "@/lib/vitals-text";
 import { narcoticBlock } from "@/lib/narcotics";
 import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
@@ -2555,8 +2553,8 @@ export default function WardApp() {
             className={`grid min-h-0 flex-1 ${
               // Narrow screens (iPad held upright) drop the date column; the record still scrolls by day.
               wideLeft
-                ? "grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_60px] lg:grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_68px]"
-                : "grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_60px] lg:grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_68px]"
+                ? "grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto] lg:grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)_auto]"
+                : "grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] lg:grid-cols-[150px_minmax(0,1fr)_minmax(0,1.2fr)_auto]"
             }`}
           >
             <div className="hidden min-h-0 lg:block">
