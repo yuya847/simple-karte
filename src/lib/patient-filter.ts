@@ -31,7 +31,10 @@ export const EMPTY_FILTER: ListFilter = { floor: "", department: "", doctor: "",
 export interface FilterFacts {
   floor: string;
   department: string;
+  /** 主治医. */
   doctor: string;
+  /** 担当医・コンサルト医 (the 主治医 pulldown finds the patient under them too). */
+  others?: string[];
   nurse: string;
   /** 入院◯日目; null for a bed whose patient this prototype has no chart of. */
   day: number | null;
@@ -51,7 +54,7 @@ export const flagKey = (label: string) => label.replace(/(\s+\d[^\s]*)+$/, "").t
 export function matches(f: FilterFacts, c: ListFilter): boolean {
   if (c.floor && f.floor !== c.floor) return false;
   if (c.department && f.department !== c.department) return false;
-  if (c.doctor && f.doctor !== c.doctor) return false;
+  if (c.doctor && f.doctor !== c.doctor && !(f.others ?? []).includes(c.doctor)) return false;
   if (c.nurse && f.nurse !== c.nurse) return false;
   if (c.days) {
     const b = DAY_BUCKETS.find((x) => x.key === c.days)!;
@@ -72,7 +75,7 @@ export function choicesOf(rows: FilterFacts[]): { floors: string[]; departments:
   return {
     floors: uniq(rows.map((r) => r.floor)),
     departments: uniq(rows.map((r) => r.department)),
-    doctors: uniq(rows.map((r) => r.doctor)),
+    doctors: uniq(rows.flatMap((r) => [r.doctor, ...(r.others ?? [])])),
     nurses: uniq(rows.map((r) => r.nurse)),
     flags: uniq(rows.flatMap((r) => r.flags)),
   };

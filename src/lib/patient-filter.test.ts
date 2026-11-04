@@ -15,6 +15,15 @@ describe("入院患者一覧の条件", () => {
     expect(matches(row({ day: null }), { ...EMPTY_FILTER, days: "31" })).toBe(false);
   });
 
+  it("the 主治医 pulldown finds a patient under their 担当医 and コンサルト医 too", () => {
+    const r = row({ others: ["研修医 田中", "中川（循環器内科）"] });
+    expect(matches(r, { ...EMPTY_FILTER, doctor: "研修医 田中" })).toBe(true);
+    expect(matches(r, { ...EMPTY_FILTER, doctor: "中川（循環器内科）" })).toBe(true);
+    expect(matches(r, { ...EMPTY_FILTER, doctor: "木下（総合診療科 B）" })).toBe(false);
+    expect(matches(row(), { ...EMPTY_FILTER, doctor: "研修医 田中" })).toBe(false);
+    expect(choicesOf([row(), r]).doctors).toEqual(["研修医 田中", "山本（専攻医）", "中川（循環器内科）"]);
+  });
+
   it("DPC なし picks the rows without a period", () => {
     expect(matches(row({ dpc: null }), { ...EMPTY_FILTER, dpc: "なし" })).toBe(true);
     expect(matches(row(), { ...EMPTY_FILTER, dpc: "なし" })).toBe(false);
