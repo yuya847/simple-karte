@@ -1,11 +1,11 @@
 "use client";
 
-import { Bandage, Barcode, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen } from "lucide-react";
+import { Bandage, Barcode, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "visit-revisit";
+export type PanelKind = "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "visit-revisit" | "national";
 
 interface Tool {
   key: PanelKind;
@@ -80,6 +80,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
       { key: "schema", label: "シェーマ", icon: PenTool },
       { key: "access-limit", label: "閲覧制限", icon: LockKeyhole },
       { key: "chat", label: "チャット", icon: MessagesSquare },
+      { key: "national", label: "国のサービス（模擬）", icon: Landmark },
     ],
   },
   {

@@ -53,8 +53,8 @@ describe("記事作成", () => {
     const html = as("医師", pane("S)\nO)\nA)\nP)\n", null));
     expect(html).toContain("テンプレート");
     expect(html).toContain("定型文");
-    expect(html).toContain("確定した時刻（いま 10:00）");
-    expect(html).toContain("記録時刻の根拠");
+    expect(html).toContain("記録時刻を変更する");
+    expect(html).not.toContain("記録時刻の根拠");
     // The record forms are for nurses.
     expect(html).not.toContain("フォーカス（DAR）");
   });
@@ -64,7 +64,7 @@ describe("記事作成", () => {
     expect(html).toMatch(/aria-pressed="true"[^>]*>経時記録</);
     expect(html).toContain("＋今の時刻（10:00）");
     expect(html).toContain("これから先の時刻にはできません。");
-    expect(html).toContain("書いた時刻（確定の時刻）も変えずに残ります。");
+    expect(html).toContain("保存の時刻にもどす");
   });
 });
 

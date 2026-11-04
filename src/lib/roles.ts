@@ -96,7 +96,9 @@ export type Action =
   | "liaison"
   | "receipt"
   | "reception"
-  | "opd.call";
+  | "opd.call"
+  | "erx"
+  | "clins";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
   order: { label: "オーダの確定", who: ["医師"] },
@@ -147,6 +149,9 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   receipt: { label: "返戻・査定の取り込みと再請求の記録", who: ["医事課"] },
   reception: { label: "外来の受付", who: ["医事課", "看護師"] },
   "opd.call": { label: "診察の呼出", who: ["医師", "看護師"] },
+  // 国のサービス（模擬）: the prescriber signs and registers; the doctor sends the documents and 臨床情報.
+  erx: { label: "電子処方箋の重複投薬等チェック・署名・登録（模擬）", who: ["医師"] },
+  clins: { label: "電子カルテ情報共有サービスへの送信と他院の情報の閲覧（模擬）", who: ["医師"] },
 };
 
 export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);

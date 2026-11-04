@@ -25,6 +25,8 @@ export const DRUG_MASTER_SOURCE = { name: "医薬品マスター（基本マス�
 /** Our oral drugs (master.ts codes) → the official codes. */
 export const ORAL_DRUG_CODES: Record<string, DrugCodes> = {
   "ORAL-AMLO5": { receipt: "620007860", yakka: "2171022F2017", name: "アムロジピン錠５ｍｇ「ＮＳ」", unit: "錠" },
+  // 麻薬 (the pharmacy's 2 narcotics): from the same 医薬品マスター row (y_20261013).
+  "ORAL-OXC5": { receipt: "622576301", yakka: "8119002G5020", name: "オキシコンチンＴＲ錠５ｍｇ", unit: "錠" },
   "ORAL-LPZ15": { receipt: "620009451", yakka: "2329023F1012", name: "ランソプラゾールＯＤ錠１５ｍｇ「トーワ」", generic: { code: "2329023F1ZZZ", name: "【般】ランソプラゾール口腔内崩壊錠１５ｍｇ" }, unit: "錠" },
   "ORAL-APAP500": { receipt: "622381201", yakka: "1141007F3023", name: "カロナール錠５００　５００ｍｇ", generic: { code: "1141007F3ZZZ", name: "【般】アセトアミノフェン錠５００ｍｇ" }, unit: "錠" },
   "ORAL-DNP5": { receipt: "622092001", yakka: "1190012F4017", name: "ドネペジル塩酸塩ＯＤ錠５ｍｇ「アメル」", generic: { code: "1190012F4ZZZ", name: "【般】ドネペジル塩酸塩口腔内崩壊錠５ｍｇ" }, unit: "錠" },

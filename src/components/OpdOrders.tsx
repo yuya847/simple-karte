@@ -9,9 +9,12 @@ import { DenyNote, useDeny } from "./RoleContext";
 import { TabChoice } from "./TabChoice";
 import { AddRxPanel } from "./panels/AddPanels";
 import type { RxPattern } from "@/lib/rx-memory";
+import { linesFromDrafts, type RxLine } from "@/lib/national/rx-lines";
 
 export interface OpdRx {
   lines: string[];
+  /** The same prescription line by line (drug, 1回量, 用法, 日数), for the 電子処方箋（模擬）. */
+  items?: RxLine[];
   by: string;
   at: string;
 }
@@ -27,7 +30,7 @@ export interface Revisit {
  * (allergy, the day's maximum…); the doctor answers what is asked and confirms. Next visit: day,
  * time and what it is for, chosen by the doctor.
  */
-export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory }: { allergies: string[]; nowTime: string; newId: () => string; fmtDay: (d: number) => string; rx: OpdRx[]; onRx: (lines: string[]) => void; memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string } }) {
+export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory }: { allergies: string[]; nowTime: string; newId: () => string; fmtDay: (d: number) => string; rx: OpdRx[]; onRx: (lines: string[], items: RxLine[]) => void; memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string } }) {
   const deny = useDeny()("order");
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [writing, setWriting] = useState(false);
@@ -79,7 +82,10 @@ export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory
             type="button"
             disabled={!ready || !!deny}
             onClick={() => {
-              onRx(drafts.map((d, i) => `Rp${i + 1}　${rpLine(d)}`));
+              onRx(
+                drafts.map((d, i) => `Rp${i + 1}　${rpLine(d)}`),
+                linesFromDrafts(drafts),
+              );
               setDrafts([]);
             }}
             className="mb-2 rounded-md bg-ai px-4 py-1.5 text-sm font-bold text-white disabled:opacity-40"

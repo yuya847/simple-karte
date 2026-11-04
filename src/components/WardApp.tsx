@@ -32,6 +32,11 @@ import { OTHER_DEPT_TODAY } from "@/lib/opd-desk";
 import { RequestForm, type Visit, type VisitNote } from "./VisitChart";
 import { VisitStrip } from "./VisitStrip";
 import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders";
+import { insuranceFor, NationalPanel } from "./national/NationalPanel";
+import { ErxPanel } from "./national/ErxPanel";
+import { nextSerial, recordsOf, type NationalRecord } from "@/lib/national/log";
+import { joinLines } from "@/lib/national/rx-lines";
+import { birthDateOf } from "@/lib/national/fictional";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
 import { DeptMoveDialog } from "./DeptMoveDialog";
@@ -563,6 +568,8 @@ export default function WardApp() {
   const [liaison, setLiaison] = useState<LiaisonBook>(EMPTY_LIAISON);
   // レセプト点検・返戻: the 返戻・査定 files read in and the 再請求 decided.
   const [returns, setReturns] = useState<ReturnDesk>(EMPTY_RETURNS);
+  // 国のサービス（模擬）: what was registered with or sent to the simulated services.
+  const [national, setNational] = useState<NationalRecord[]>([]);
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
   const workspace = useWorkspace(
     {
@@ -645,6 +652,7 @@ export default function WardApp() {
       labDesk: [labDesk, setLabDesk],
       liaison: [liaison, setLiaison],
       returns: [returns, setReturns],
+      national: [national, setNational],
       iji: [iji, setIji],
       takeHolds: [takeHolds, setTakeHolds],
       oralRx: [oralRx, setOralRx],
@@ -2721,13 +2729,26 @@ export default function WardApp() {
                     newId={newId}
                     fmtDay={(d) => formatShort(addDays(today, d))}
                     rx={opdRx[patient.id.slice(4)] ?? []}
-                    onRx={(lines) => {
+                    onRx={(lines, items) => {
                       const oid = patient.id.slice(4);
                       auditLog({ role: me.role, actor: me.name, action: "確定（外来処方・院外処方せん）", patient: patient.name, detail: lines.join("／").slice(0, 160) });
-                      setOpdRx((all) => ({ ...all, [oid]: [...(all[oid] ?? []), { lines, by: me.name, at: nowTime }] }));
+                      setOpdRx((all) => ({ ...all, [oid]: [...(all[oid] ?? []), { lines, items, by: me.name, at: nowTime }] }));
                       setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text: `処方（院外）：\n${lines.join("\n")}` }] }));
                     }}
                   />
+                  {(() => {
+                    // 電子処方箋（模擬）of the visit's confirmed prescriptions.
+                    const v = visitOf(patient.id);
+                    if (!v || v.kind !== "opd") return null;
+                    const op = v.op;
+                    const items = joinLines((opdRx[op.id] ?? []).map((r) => r.items ?? []));
+                    const { insurance, assumed } = insuranceFor(iji.insurance, op, today);
+                    return (
+                      <div className="mt-4">
+                        <ErxPanel key={JSON.stringify(items)} patient={{ id: op.id, name: op.name, kana: op.kana, sex: op.sex, birthDate: birthDateOf(op, today) }} patientKey={op.id} department={op.department} insurance={insurance} insuranceAssumed={assumed} lines={items} today={today} nowTime={nowTime} mode="外来" serial={nextSerial(national, today.y)} done={recordsOf(national, op.id)} onRegistered={(r) => setNational((all) => [...all, r])} />
+                      </div>
+                    );
+                  })()}
                 </Drawer>
               )}
               {panel === "visit-revisit" && visitOf(patient.id)?.kind === "opd" && (
@@ -3268,6 +3289,11 @@ export default function WardApp() {
                       auditLog({ role: me.role, actor: me.name, action: prev ? "確定（入院時の情報収集の更新）" : "確定（入院時の情報収集）", patient: patient.name, detail: reason.trim() || undefined });
                     }}
                   />
+                </Drawer>
+              )}
+              {panel === "national" && (
+                <Drawer title="国のサービス（模擬）：電子処方箋・電子カルテ情報共有サービス" onClose={closePanel} wide>
+                  <NationalPanel patient={patient} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} diagnoses={diagnoses[patient.id] ?? []} draft={discharges[patient.id]} book={iji.insurance} today={today} nowTime={nowTime} log={national} onRecord={(r) => setNational((all) => [...all, r])} />
                 </Drawer>
               )}
               {panel === "profile" && (

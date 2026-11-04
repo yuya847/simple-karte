@@ -4,7 +4,7 @@
 // takes an XML with the prescription as CSV (記録条件仕様, published only to vendors), so this Bundle shows
 // what the prescription holds, and the 登録 is SIMULATED (adapter.ts). Everything is FICTIONAL.
 
-import { addDays, isoDate, type CalendarDate } from "../dates";
+import { isoDate, type CalendarDate } from "../dates";
 import { HOSPITAL } from "../billing/facility";
 import type { Insurance } from "../billing/insurance";
 import { findOralDrug } from "../master";
@@ -368,6 +368,3 @@ export async function mockSign(build: ErxBuild, when: string): Promise<{ bundle:
     signature,
   };
 }
-
-/** The day the 院外処方箋 can be used until when no period is given: the issue day and 3 more days (4 days). */
-export const usableUntil = (today: CalendarDate) => addDays(today, 3);

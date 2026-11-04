@@ -40,6 +40,17 @@ export function linesFromDrafts(drafts: Draft[]): RxLine[] {
   return out;
 }
 
+/** Several confirmed prescriptions of one visit as one, the Rp numbers counted on. */
+export function joinLines(groups: RxLine[][]): RxLine[] {
+  let base = 0;
+  return groups.flatMap((g) => {
+    const top = Math.max(0, ...g.map((l) => l.rp));
+    const out = g.map((l) => ({ ...l, rp: l.rp + base }));
+    base += top;
+    return out;
+  });
+}
+
 /** The lines of the active 退院時処方 (one Rp per 薬袋). */
 export function linesFromHomeRx(entries: OrderEntry[]): RxLine[] {
   return bagsOf(entries).flatMap((b, i) => {

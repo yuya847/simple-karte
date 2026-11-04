@@ -9,7 +9,7 @@ import type { Patient } from "@/lib/types";
 import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
-import { NOTE_FORMS, NOTE_FORM_SOURCES, NOTE_TIME_SOURCES, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
+import { NOTE_FORMS, NOTE_FORM_SOURCES, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
 import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
 import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
@@ -180,10 +180,10 @@ export function TodayPane(p: Props) {
             rows={7}
             className="nums w-full resize-y rounded-md border border-rule bg-sheet px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-ai read-only:bg-paper"
           />
-          {!noteLocked && (
-            <p className="mt-0.5 text-[10px] text-ink-faint">
-              {me.role === "看護師" ? "記録の形式（SOAP・フォーカス・経時記録）と記録時刻の根拠：" : "記録時刻の根拠："}
-              {[...(me.role === "看護師" ? NOTE_FORM_SOURCES : []), ...NOTE_TIME_SOURCES].map((x, i) => (
+          {!noteLocked && me.role === "看護師" && (
+            <p className="hint mt-0.5 text-[10px] text-ink-faint">
+              記録の形式（SOAP・フォーカス・経時記録）の根拠：
+              {NOTE_FORM_SOURCES.map((x, i) => (
                 <a key={x.name} href={x.url} target="_blank" rel="noreferrer" className="underline">
                   {i > 0 ? "、" : ""}
                   {x.name}
@@ -193,10 +193,10 @@ export function TodayPane(p: Props) {
           )}
           {!noteLocked && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-soft">
-              <Clock3 size={12} className="shrink-0" />
-              <span className="font-bold">記録時刻</span>
               {p.noteAt ? (
                 <>
+                  <Clock3 size={12} className="shrink-0" />
+                  <span className="font-bold">記録時刻</span>
                   <select value={p.noteAt.day} onChange={(e) => p.onNoteAt({ ...p.noteAt!, day: Number(e.target.value) })} aria-label="記録の日" className="rounded border border-rule bg-sheet px-1 py-0.5">
                     {eventDays({ day: 0, time: p.nowTime }, p.patient.admittedOn).map((d) => (
                       <option key={d} value={d}>
@@ -207,18 +207,15 @@ export function TodayPane(p: Props) {
                   </select>
                   <input type="time" value={p.noteAt.time} onChange={(e) => p.onNoteAt({ ...p.noteAt!, time: e.target.value })} aria-label="記録の時刻" className="nums rounded border border-rule bg-sheet px-1 py-0.5" />
                   <button type="button" onClick={() => p.onNoteAt(null)} className="rounded border border-rule px-1.5 py-0.5 hover:text-ink">
-                    確定の時刻にもどす
+                    保存の時刻にもどす
                   </button>
-                  <span className="text-ink-faint">書いた時刻（確定の時刻）も変えずに残ります。</span>
                   {timeProblem && <span className="w-full font-bold text-shu">{timeProblem}</span>}
                 </>
               ) : (
-                <>
-                  <span>確定した時刻（いま {p.nowTime}）</span>
-                  <button type="button" onClick={() => p.onNoteAt(normalMoment({ day: 0, time: p.nowTime }))} className="rounded border border-dashed border-rule px-1.5 py-0.5 hover:text-ink">
-                    出来事の時刻を入れる（遅れて書くとき）
-                  </button>
-                </>
+                <button type="button" onClick={() => p.onNoteAt(normalMoment({ day: 0, time: p.nowTime }))} className="inline-flex items-center gap-1 rounded border border-dashed border-rule px-1.5 py-0.5 hover:text-ink" title="出来事の時刻が保存の時刻と違うとき（遅れて書くとき）">
+                  <Clock3 size={12} />
+                  記録時刻を変更する
+                </button>
               )}
             </div>
           )}
