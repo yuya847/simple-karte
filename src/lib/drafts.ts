@@ -19,9 +19,12 @@ import {
   areaClassOf,
   HD_UF_RATE,
   GUIDE_TO,
-  TX_DO,
+  TX_CITE,
+  TX_GUIDE,
+  TX_NOTICE,
+  TX_PACE,
   TX_PRODUCTS,
-  TX_USE,
+  TX_TRIGGER,
   findProc,
   findProcDrug,
   hdText,
@@ -1209,34 +1212,32 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
     else issues.push({ key: "guide", level: "info", title: "指導の依頼", message: `確定すると${GUIDE_TO[d.guide.kind]}のやることに入ります。` });
   }
 
-  // 輸血: the blood type (2 samples), the antibody screen for red cells, the expected effect and the pace.
+  // 輸血: the blood type (2 samples), the antibody screen for red cells, the expected effect and the pace,
+  // each with its section of 輸血療法実践ガイド (the Ministry's guidelines were abolished on 2026-03-24).
   if (m.needs.includes("tx")) {
     if (!d.tx) {
       issues.push({ key: "tx", level: "stop", title: "輸血", message: "製剤と量は、右の「輸血」の欄で入れてください。" });
     } else {
       const t = d.tx;
       const b = ctx.txFacts?.blood;
-      issues.push({ key: "tx", level: "info", title: "製剤", message: txText(t) });
-      if (!b) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `血液型が検査されていません。血液型は、別の時点に採った2つの検体で確かめます（${TX_DO.label}）。` });
-      else if (b.checks < 2) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `血液型（${b.abo}型 Rh${b.rh}）の確認が${b.checks}回です。別の時点に採った検体で2回目を確かめてから出します（${TX_DO.label}）。` });
+      issues.push({ key: "tx", level: "info", title: "製剤", message: `${txText(t)}。根拠（厚生労働省の旧指針は令和8年3月24日に廃止）：`, sources: [TX_GUIDE, TX_NOTICE] });
+      const typing = `${TX_CITE} Ⅰ-3-5)・Ⅱ-2-3)a`;
+      if (!b) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `血液型が検査されていません。血液型は、異なる時点に採った2つの検体で確かめ、結果が一致したときに確定します（${typing}）。` });
+      else if (b.checks < 2) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `血液型（${b.abo}型 Rh${b.rh}）の確認が${b.checks}回です。別の時点に採った検体で2回目を確かめてから出します（${typing}）。` });
       else if (b.abo !== t.abo || b.rh !== t.rh) issues.push({ key: "tx-abo", level: "stop", title: "血液型", message: `カルテの血液型（${b.abo}型 Rh${b.rh}）と製剤の型が違います。` });
       if (t.product === "RBC") {
-        if (!b?.antibody) issues.push({ key: "tx-ab", level: "stop", title: "不規則抗体", message: `赤血球の輸血の前に、不規則抗体のスクリーニングが要ります（${TX_DO.label}）。` });
-        else if (b.antibody === "陽性") issues.push({ key: "tx-ab", level: "ask", title: "不規則抗体", message: "不規則抗体が陽性です。抗原のない血液を用意するのに時間がかかることがあります。検査室と相談してください。", choices: [{ label: "検査室と相談した", apply: (x) => ({ ...(x as ProcedureDraft), comment: [(x as ProcedureDraft).comment, "不規則抗体陽性：検査室と相談済み"].filter(Boolean).join("　") }) }] });
-        issues.push({ key: "tx-cross", level: "info", title: "交差適合試験", message: "確定すると、検査室が交差適合試験をします（この試作では結果の入力はありません）。" });
+        if (!b?.antibody) issues.push({ key: "tx-ab", level: "stop", title: "不規則抗体", message: `赤血球の輸血の前に、不規則抗体のスクリーニング（間接抗グロブリン試験を含む）が要ります（${TX_CITE} Ⅰ-3-7)・Ⅱ-3-2)）。` });
+        else if (b.antibody === "陽性") issues.push({ key: "tx-ab", level: "ask", title: "不規則抗体", message: `不規則抗体が陽性です。臨床的意義のある抗体では、対応する抗原のない血液を選びます（${TX_CITE} Ⅰ-3-8)）。用意に時間がかかることがあります。検査室と相談してください。`, choices: [{ label: "検査室と相談した", apply: (x) => ({ ...(x as ProcedureDraft), comment: [(x as ProcedureDraft).comment, "不規則抗体陽性：検査室と相談済み"].filter(Boolean).join("　") }) }] });
+        issues.push({ key: "tx-cross", level: "info", title: "交差適合試験", message: `確定すると、輸血部門が交差適合試験（またはコンピュータクロスマッチの条件の確認）をしてから製剤を払い出します。検体は輸血日を含め3日以内に採ったものを使います（${TX_CITE} Ⅰ-3-10)・Ⅱ-1-2)c・Ⅱ-3-2)a）。` });
       }
       const lab = TX_PRODUCTS[t.product].lab;
       const last = ctx.txFacts?.latest[lab];
-      const guide = t.product === "RBC" ? "慢性貧血では Hb 7g/dL が目安の一つ（病態で判断する）" : t.product === "PC" ? "予防の輸血は 1〜2万/µL が目安の一つ" : "PT-INR 2.0 以上（または活性 30%以下）が目安の一つ";
-      issues.push({ key: "tx-lab", level: "info", title: "検査値", message: `${TX_PRODUCTS[t.product].labLabel} ${last ? `${last.value}（${ctx.fmtDay(last.day)}）` : "の値がカルテにありません"}。${guide}（${TX_USE.label}、参考）。` });
-      const w = ctx.patientFacts?.weightKg;
-      if (w) {
-        const e = txEffect(t, w);
-        issues.push({ key: "tx-effect", level: "info", title: "予測", message: `${e.text}（${TX_USE.label}の式。体重はカルテの値）`, formula: e.formula });
-      }
+      issues.push({ key: "tx-lab", level: "info", title: "検査値", message: `${TX_PRODUCTS[t.product].labLabel} ${last ? `${last.value}（${ctx.fmtDay(last.day)}）` : "の値がカルテにありません"}。参考：${TX_TRIGGER[t.product]}。` });
+      const e = txEffect(t, ctx.patientFacts?.weightKg);
+      if (e) issues.push({ key: "tx-effect", level: "info", title: "予測", message: `${e.text}。根拠：${e.basis}${e.formula ? "。体重はカルテの値" : ""}。`, formula: e.formula });
       const ml = txVolume(t);
       const run = txMinutes(ml);
-      issues.push({ key: "tx-rate", level: "info", title: "速さ", message: `最初の10〜15分は1mL/分ほど、その後は5mL/分ほど（${TX_DO.label}）。約${ml}mL で約${run.minutes}分。開始後5分間と15分後に、そばで様子を見ます。`, formula: run.formula });
+      issues.push({ key: "tx-rate", level: "info", title: "速さ", message: `${TX_PACE}。約${ml}mL で約${run.minutes}分。`, formula: run.formula });
     }
   }
 

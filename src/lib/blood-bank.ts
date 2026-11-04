@@ -11,7 +11,7 @@
 
 import { addDays, type CalendarDate } from "./dates";
 import { abs } from "./flowsheet";
-import { TX_PRODUCTS } from "./procedures";
+import { TX_GUIDE, TX_NOTICE, TX_PRODUCTS } from "./procedures";
 import type { DayOffset, OrderEntry, Patient, TxOrder } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -19,14 +19,8 @@ import type { DayOffset, OrderEntry, Patient, TxOrder } from "./types";
 // ---------------------------------------------------------------------------
 
 export const BLOOD_SOURCES = {
-  guide: {
-    label: "日本輸血・細胞治療学会「輸血療法実践ガイド」（令和8年2月）",
-    url: "https://yuketsu.jstmct.or.jp/wp-content/uploads/2026/02/c94fb40adf823eac4fe9feb13f6d6c60.pdf",
-  },
-  notice: {
-    label: "厚生労働省 医薬発0324第2号（令和8年3月24日）：「血液製剤の使用指針」「輸血療法の実施に関する指針」「血液製剤保管管理マニュアル」を廃止し、「輸血療法実践ガイド」を周知",
-    url: "https://www.mhlw.go.jp/content/11120000/001680857.pdf",
-  },
+  guide: TX_GUIDE,
+  notice: TX_NOTICE,
   oldGuideline: {
     label: "厚生労働省「輸血療法の実施に関する指針」（平成17年9月改定版。令和8年3月24日に廃止）",
     url: "https://www.mhlw.go.jp/new-info/kobetu/iyaku/kenketsugo/dl/5tekisei3a.pdf",

@@ -85,6 +85,10 @@ export function TxBedsidePanel(p: Props) {
           <a href={BLOOD_SOURCES.symptoms.url} target="_blank" rel="noreferrer" className="text-ai underline">
             {BLOOD_SOURCES.symptoms.label}
           </a>
+          ／旧指針の廃止：
+          <a href={BLOOD_SOURCES.notice.url} target="_blank" rel="noreferrer" className="text-ai underline">
+            {BLOOD_SOURCES.notice.label}
+          </a>
         </p>
       </div>
     </div>
@@ -267,7 +271,7 @@ function Observe({ admin, put, nowTime, patient, unit, onIo, blood }: BagProps &
       </table>
       {admin.start && (
         <p className="text-ink-soft">
-          開始 {admin.start.time} {admin.start.by}。速さの目安：最初の15分は 1mL/分ほど、副反応がなければ 5mL/分ほど（{pace.formula}）。
+          開始 {admin.start.time} {admin.start.by}。速さの目安：1mL/分ほどで始め、開始10〜15分で副反応の症状がなければ 5mL/分ほど（{pace.formula}。輸血療法実践ガイド Ⅱ-3-3)b）。
         </p>
       )}
       {admin.reaction && (

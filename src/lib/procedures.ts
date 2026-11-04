@@ -288,11 +288,23 @@ export function hdText(h: HdOrder): string {
 
 // ---------------------------------------------------------------------------
 // 輸血（PROC-TX）: blood products of the Japanese Red Cross as the fictional hospital stocks them, and
-// the expected effect worked out in code with the formulas of the Ministry's guideline.
+// the expected effect worked out in code with the formulas of 輸血療法実践ガイド (read 2026-11-04).
+// The Ministry's 「血液製剤の使用指針」 and 「輸血療法の実施に関する指針」 were abolished on 2026-03-24
+// (医薬発0324第2号); notices that cite them are to be read as the guide.
 // ---------------------------------------------------------------------------
 
-export const TX_USE = { label: "厚生労働省「血液製剤の使用指針」", url: "https://www.mhlw.go.jp/new-info/kobetu/iyaku/kenketsugo/5tekisei3b01.html" };
-export const TX_DO = { label: "厚生労働省「輸血療法の実施に関する指針」（令和2年3月改正）", url: "https://www.mhlw.go.jp/new-info/kobetu/iyaku/kenketsugo/dl/5tekisei3a.pdf" };
+export const TX_GUIDE = {
+  label: "日本輸血・細胞治療学会「輸血療法実践ガイド」（令和8年2月）",
+  url: "https://yuketsu.jstmct.or.jp/wp-content/uploads/2026/02/c94fb40adf823eac4fe9feb13f6d6c60.pdf",
+};
+export const TX_NOTICE = {
+  label: "厚生労働省 医薬発0324第2号（令和8年3月24日）：「血液製剤の使用指針」「輸血療法の実施に関する指針」「血液製剤保管管理マニュアル」を廃止し、「輸血療法実践ガイド」を周知",
+  url: "https://www.mhlw.go.jp/content/11120000/001680857.pdf",
+};
+/** Written after a section number of the guide, e.g. `${TX_CITE} Ⅱ-3-3)b`. */
+export const TX_CITE = "輸血療法実践ガイド";
+/** The pace and the observation at the start (実践ガイド Ⅱ-3-3)b). */
+export const TX_PACE = `1分間に1mLほどの緩やかな速さで始め、開始後5分間はベッドサイドで観察する。15分たったら再び観察し、開始10〜15分で副反応の症状がなければ1分間に5mLほどに速めてよい（${TX_CITE} Ⅱ-3-3)b）`;
 
 export const TX_PRODUCTS: Record<TxOrder["product"], { name: string; short: string; units: { units: number; label: string; ml: number }[]; lab: string; labLabel: string }> = {
   RBC: {
@@ -330,30 +342,63 @@ export const TX_PRODUCTS: Record<TxOrder["product"], { name: string; short: stri
   },
 };
 
+/** The trigger values the guide gives for each product, shown with the latest value for reference (the doctor decides). */
+export const TX_TRIGGER: Record<TxOrder["product"], string> = {
+  RBC: `一般的な目安は Hb 7〜8g/dL。病態ごとの値は${TX_CITE} Ⅲ-1-3) 表1。急性出血では Hb 値だけでなく血圧・脈拍などの臨床症状も見る（Ⅲ-1-2)）`,
+  PC: `予防の輸血は 1万/µL が目安（固形癌化学療法・造血器腫瘍・造血幹細胞移植）。DIC・感染・抗凝固療法の併用時は 2万/µL。処置・手術・出血・慢性の造血不全は別の値（${TX_CITE} Ⅲ-2-3) 表1）`,
+  FFP: `PT・APTT に明確なトリガー値はない（${TX_CITE} Ⅲ-3-3)a・b）。ワルファリンの効果の緊急の是正には PCC（プロトロンビン複合体製剤）が推奨され、FFP は PCC が使えないときに限る（Ⅲ-3-3)c ii）`,
+};
+
 export const txVolume = (o: Pick<TxOrder, "product" | "units">) => TX_PRODUCTS[o.product].units.find((u) => u.units === o.units)?.ml ?? 0;
 
-/** The expected effect, with the sum written out (循環血液量 70mL/kg). */
-export function txEffect(o: Pick<TxOrder, "product" | "units">, weightKg: number): { text: string; formula: string } {
-  const bloodMl = weightKg * 70;
-  if (o.product === "RBC") {
-    // 1単位 (200mL 献血由来) は Hb 14〜15g/dL × 2dL ≒ 29g の Hb を含む（指針の例：2単位で 56〜60g）。
-    const hb = o.units * 29;
-    const rise = Math.round((hb / (bloodMl / 100)) * 10) / 10;
-    return { text: `予測上昇 Hb 約 +${rise}g/dL`, formula: `${o.units}単位 × 約29g = 約${hb}g ÷ 循環血液量 ${weightKg}kg × 70mL/kg = ${(bloodMl / 100).toFixed(1)}dL = +${rise}g/dL` };
-  }
-  if (o.product === "PC") {
-    // 10単位あたり 2.0×10¹¹ 個以上。予測血小板増加数(/µL) = 輸血血小板総数 ÷ (循環血液量(mL) × 10³) × 2/3
-    const count = (o.units / 10) * 2.0e11;
-    const rise = Math.round((count / (bloodMl * 1000)) * (2 / 3));
-    return { text: `予測血小板増加数 約 +${(rise / 10000).toFixed(1)}万/µL`, formula: `${(count / 1e11).toFixed(1)}×10¹¹個 ÷ (${bloodMl.toLocaleString("ja-JP")}mL × 10³) × 2/3 = ${rise.toLocaleString("ja-JP")}/µL` };
-  }
-  const ml = txVolume(o);
-  const lo = Math.round(weightKg * 8);
-  const hi = Math.round(weightKg * 12);
-  return { text: `${ml}mL（${(ml / weightKg).toFixed(1)}mL/kg）。凝固因子を20〜30%上げる量の目安は ${lo}〜${hi}mL`, formula: `${weightKg}kg × 8〜12mL/kg = ${lo}〜${hi}mL` };
+export interface TxEffect {
+  text: string;
+  /** The sum worked out in code; none when the guide gives no formula to work out for this patient. */
+  formula?: string;
+  /** Where the formula and each value come from, in the words shown on the screen. */
+  basis: string;
 }
 
-/** How long it runs at the guideline's pace: about 1mL/分 for the first 15 minutes, then about 5mL/分. */
+/** 血中回収率 used for 新鮮凍結血漿: the guide's example (フィブリノゲン 50%, 実践ガイド Ⅲ-3-4)). */
+export const FFP_RECOVERY = 50;
+
+/**
+ * The expected effect of the chosen product and amount, with the sum written out and where each part comes
+ * from. Null when the sum needs the weight and there is none (the platelet reference needs no weight).
+ */
+export function txEffect(o: Pick<TxOrder, "product" | "units">, weightKg?: number): TxEffect | null {
+  if (o.product === "PC") {
+    // The guide gives one reference point, not a formula for the patient's weight (the old ×2/3 formula is not in it).
+    return {
+      text: "目安：10単位（血小板 2.0×10¹¹個以上）で、体重50kgなら血小板数が約4万/µL上がる。体重ごとの予測の式は実践ガイドにないため、計算しない",
+      basis: `${TX_CITE} Ⅲ-2-4)。効果は輸血後16〜24時間の血小板数で CCI（補正血小板増加数）を出し、5,000未満なら不応を疑う。CCI＝血小板増加数(/µL)×体表面積(m²)÷輸血血小板総数(×10¹¹)（Ⅲ-2-5)）`,
+    };
+  }
+  if (!weightKg) return null;
+  if (o.product === "RBC") {
+    // 予測上昇 Hb 値 = 投与 Hb 量 ÷ 循環血液量 (実践ガイド Ⅲ-1-4)). The guide gives neither value: 1単位 ≒ 29g
+    // (Hb 14〜15g/dL × 2dL) and 70mL/kg are the example of the abolished 使用指針 (2単位で 56〜60g, 循環血液量 70mL/kg).
+    const bloodDl = (weightKg * 70) / 100;
+    const hb = o.units * 29;
+    const rise = Math.round((hb / bloodDl) * 10) / 10;
+    return {
+      text: `予測上昇 Hb 約 +${rise}g/dL`,
+      formula: `${o.units}単位 × 約29g = 約${hb}g ÷ 循環血液量 ${weightKg}kg × 70mL/kg = ${bloodDl.toFixed(1)}dL = +${rise}g/dL`,
+      basis: `式は${TX_CITE} Ⅲ-1-4)（予測上昇 Hb 値＝投与 Hb 量÷循環血液量）。1単位の Hb 量 約29g と循環血液量 70mL/kg は、廃止された旧指針（平成17年の「血液製剤の使用指針」）の例の値で、実践ガイドにはこの値がない`,
+    };
+  }
+  // 予測上昇凝固因子活性値(%) = 投与量(mL) × 血中回収率(%) ÷ 循環血漿量(mL), 循環血漿量 = 体重 × 40mL (実践ガイド Ⅲ-3-5)).
+  const ml = txVolume(o);
+  const plasma = weightKg * 40;
+  const rise = Math.round(((ml * FFP_RECOVERY) / plasma) * 10) / 10;
+  return {
+    text: `${ml}mL（${(ml / weightKg).toFixed(1)}mL/kg）。予測上昇凝固因子活性値 約 +${rise}%（血中回収率 ${FFP_RECOVERY}% のとき）`,
+    formula: `${ml}mL × ${FFP_RECOVERY}% ÷ 循環血漿量（${weightKg}kg × 40mL = ${plasma.toLocaleString("ja-JP")}mL）= +${rise}%`,
+    basis: `式と循環血漿量（体重×40mL）は${TX_CITE} Ⅲ-3-5)。回収率 ${FFP_RECOVERY}% は、実践ガイドが例に挙げるフィブリノゲンの値（Ⅲ-3-4)）`,
+  };
+}
+
+/** How long it runs at the guide's pace (Ⅱ-3-3)b): about 1mL/分 for the first 15 minutes (10〜15分 in the guide), then about 5mL/分. */
 export function txMinutes(ml: number): { minutes: number; formula: string } {
   const after = Math.max(0, ml - 15);
   const minutes = 15 + Math.ceil(after / 5);

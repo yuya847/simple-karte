@@ -14,7 +14,7 @@ import { matchInj, type InjPattern } from "@/lib/inj-memory";
 import { scheduleLabel } from "@/lib/format";
 import { MODALITIES, PHYSIO, REGIONS, emptyImaging, emptyPhysio, type Modality } from "@/lib/exams";
 import { CONSULT_DEPTS, GUIDE_TO, REHAB_FIELDS, consultText } from "@/lib/procedures";
-import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_DO, TX_PRODUCTS, TX_USE, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
+import { HD_ACCESS, HD_ANTICOAG, HD_MEMBRANES, HD_METHODS, HD_MINUTES, HD_PURPOSES, HD_QB, HD_UF, HD_UF_RATE, PROCEDURES, TX_GUIDE, TX_NOTICE, TX_PACE, TX_PRODUCTS, findProc, findProcDrug, hdUfRate, procScheduleText, txEffect, txMinutes, txVolume } from "@/lib/procedures";
 
 const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
   { label: "1回だけ", value: { kind: "once" } },
@@ -1203,7 +1203,8 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
 
 /**
  * 輸血: the product and the amount chosen by the doctor, with the blood type on the chart, the latest
- * value, and the expected effect and pace worked out in code (血液製剤の使用指針・輸血療法の実施に関する指針).
+ * value, and the expected effect and pace worked out in code (輸血療法実践ガイド; the Ministry's
+ * 血液製剤の使用指針・輸血療法の実施に関する指針 were abolished on 2026-03-24).
  */
 export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: { onAdd: (d: Draft) => void; newId: () => string; blood?: Patient["blood"]; weightKg?: number; latest: Record<string, { value: number; day: number } | undefined> }) {
   const [product, setProduct] = useState<TxOrder["product"] | null>(null);
@@ -1213,7 +1214,7 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
   const [reason, setReason] = useState("");
   const p = product ? TX_PRODUCTS[product] : null;
   const missing = [!product && "製剤", !units && "量", !reason.trim() && "輸血の理由"].filter((x): x is string => !!x);
-  const effect = product && units && weightKg ? txEffect({ product, units }, weightKg) : null;
+  const effect = product && units ? txEffect({ product, units }, weightKg) : null;
   const run = product && units ? txMinutes(txVolume({ product, units })) : null;
   const submit = () => {
     if (missing.length || !blood || !product || !units) return;
@@ -1271,12 +1272,15 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
           </div>
           {effect && (
             <div>
-              {effect.text}（{effect.formula}、コードで計算）
+              {effect.text}
+              {effect.formula && `（${effect.formula}、コードで計算）`}
+              <div className="text-[11px] text-ink-soft">{effect.basis}</div>
             </div>
           )}
           {run && (
             <div>
               時間の見込み：約{run.minutes}分（{run.formula}）
+              <div className="text-[11px] text-ink-soft">{TX_PACE}</div>
             </div>
           )}
         </div>
@@ -1288,7 +1292,15 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
         {missing.length > 0 && <p className="mt-1 text-yamabuki">未入力：{missing.join("・")}</p>}
       </div>
       <p className="text-[11px] text-ink-faint">
-        予測の式：{TX_USE.label}。血液型・不規則抗体・速さ：{TX_DO.label}。下書きで血液型・抗体・同意書をコードが確かめます。
+        根拠：
+        <a href={TX_GUIDE.url} target="_blank" rel="noreferrer" className="text-ai underline">
+          {TX_GUIDE.label}
+        </a>
+        。厚生労働省の旧指針の廃止：
+        <a href={TX_NOTICE.url} target="_blank" rel="noreferrer" className="text-ai underline">
+          {TX_NOTICE.label}
+        </a>
+        。下書きで血液型・抗体・同意書をコードが確かめます。
       </p>
     </div>
   );
