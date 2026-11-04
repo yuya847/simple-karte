@@ -15,18 +15,17 @@ describe("記事の描き方（太字・斜体・見出し）", () => {
     expect(markParts("")).toEqual([]);
   });
 
-  it("a '#1 …' line is a heading; other lines are not", () => {
-    const lines = markLines("A)\n#1 尿路感染症\n  CRP **改善**");
+  it("a '＃1 …' line is a heading; a half-width number sign (#7) is not", () => {
+    const lines = markLines("A)\n＃1 尿路感染症\n  CRP **改善**");
     expect(lines.map((l) => l.heading)).toEqual([false, true, false]);
-    expect(lines[1].parts).toEqual([{ kind: "text", text: "#1 尿路感染症" }]);
+    expect(lines[1].parts).toEqual([{ kind: "text", text: "＃1 尿路感染症" }]);
     expect(lines[2].parts[1]).toEqual({ kind: "b", text: "改善" });
-    // A full-width ＃ at the start (a coronary segment) and a # inside a line are not headings.
-    expect(markLines("＃7 に90%狭窄\nLAD #7 90%狭窄").map((l) => l.heading)).toEqual([false, false]);
+    expect(markLines("#7 90%狭窄\nLAD #7 90%狭窄\n#尿路感染症").map((l) => l.heading)).toEqual([false, false, true]);
   });
 
   it("knows when there is nothing to draw differently", () => {
     expect(hasMarks("S) 痛みなし")).toBe(false);
     expect(hasMarks("S) **痛みなし**")).toBe(true);
-    expect(hasMarks("A)\n#1 心不全")).toBe(true);
+    expect(hasMarks("A)\n＃1 心不全")).toBe(true);
   });
 });

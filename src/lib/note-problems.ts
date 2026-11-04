@@ -1,21 +1,26 @@
-// プロブレム（#）: a line starting with a half-width "#" (after any indent) names a problem (or a nurse's
-// focus); the lines under it, up to the next "#" line or a SOAP mark (S) O) A) P)), are its body. The numbers
-// ("#1 尿路感染症") are given by code, from the top, so whatever a person types or moves ends up numbered
-// 1, 2, 3 … A "#" inside a line (LAD #7 90%狭窄, a tooth number) and a full-width "＃" at the start of a line
-// (＃7 に90%狭窄) are not problems and are left as written. The note stays one string (nothing changes in
-// how it is stored); the doctor names the problems, nothing is suggested.
+// プロブレム（＃）: a line starting with a full-width "＃" (after any indent) names a problem (or a nurse's
+// focus), the way Japanese charts write them; the lines under it, up to the next "＃" line or a SOAP mark
+// (S) O) A) P)), are its body. The numbers ("＃1 尿路感染症") are given by code, from the top, so whatever a
+// person types or moves ends up numbered 1, 2, 3 … The half-width "#" is the number sign (LAD #7 90%狭窄, a
+// tooth number) and is never touched, at the start of a line or inside it — except "#尿路感染症" typed with
+// the half-width key (no digit after the #), which becomes "＃1 尿路感染症". The note stays one string
+// (nothing changes in how it is stored); the doctor names the problems, nothing is suggested.
 
-/** Indent, "#", an optional number (only when a space or the end follows it), then the title. */
-const PROBLEM = /^([ \t\u3000]*)#[ \t]*(?:(\d+)[.．)）:：]?(?=[ \t]|$))?[ \t]*(.*)$/;
+/** Indent, "＃", an optional number (only when a space or the end follows it), then the title. */
+const FULL = /^([ \t　]*)＃[ \t]*(?:(\d+)[.．)）:：]?(?=[ \t]|$))?[ \t]*(.*)$/;
+/** "#尿路感染症" / "# 尿路感染症": a problem typed with the half-width key (something follows that is not a digit). */
+const HALF = /^([ \t　]*)#[ \t]*(?=[^\d\s])()(.*)$/;
 /** A SOAP mark line ends a problem's body (P) does not move with the problem written under A)). */
 const SECTION = /^[SOAP]\)/i;
 
-export const isProblemLine = (line: string) => /^[ \t\u3000]*#/.test(line);
+const problemMatch = (line: string) => line.match(FULL) ?? line.match(HALF);
 
-/** The line as "#n title" (the indent and the title as written; an empty title keeps a space after the number). */
+export const isProblemLine = (line: string) => problemMatch(line) !== null;
+
+/** The line as "＃n title" (the indent and the title as written; an empty title keeps a space after the number). */
 function numbered(line: string, n: number): { text: string; prefix: number } {
-  const m = line.match(PROBLEM)!;
-  const text = `${m[1]}#${n} ${m[3]}`;
+  const m = problemMatch(line)!;
+  const text = `${m[1]}＃${n} ${m[3]}`;
   return { text, prefix: text.length - m[3].length };
 }
 
@@ -25,8 +30,8 @@ export interface Renumbered {
 }
 
 /**
- * Every "#" line numbered from the top (1, 2, 3 …), the caret kept on the same place of its line. A caret
- * inside the "#2 " part lands just after the new "#n ".
+ * Every "＃" line numbered from the top (1, 2, 3 …), the caret kept on the same place of its line. A caret
+ * inside the "＃2 " part lands just after the new "＃n ".
  */
 export function renumberProblems(text: string, caret = text.length): Renumbered {
   const lines = text.split("\n");
@@ -44,7 +49,7 @@ export function renumberProblems(text: string, caret = text.length): Renumbered 
     }
     n++;
     const r = numbered(line, n);
-    const oldPrefix = line.length - line.match(PROBLEM)![3].length;
+    const oldPrefix = line.length - problemMatch(line)![3].length;
     if (inLine) newCaret = start + shift + (caret - start <= oldPrefix ? r.prefix : r.prefix + (caret - start - oldPrefix));
     shift += r.text.length - line.length;
     return r.text;
@@ -57,7 +62,7 @@ export interface ProblemBlock {
   /** 1, 2, 3 … from the top. */
   number: number;
   title: string;
-  /** First and last line (inclusive) of the block: the "#" line and its body, without blank lines after it. */
+  /** First and last line (inclusive) of the block: the "＃" line and its body, without blank lines after it. */
   from: number;
   to: number;
   /** Problems between the same SOAP marks can change places with each other. */
@@ -86,8 +91,7 @@ export function problemBlocks(text: string): ProblemBlock[] {
     }
     if (isProblemLine(line)) {
       close(i);
-      const m = line.match(PROBLEM)!;
-      open = { number: out.length + 1, title: m[3].trim(), from: i, to: i, segment };
+      open = { number: out.length + 1, title: problemMatch(line)![3].trim(), from: i, to: i, segment };
     }
   });
   close(lines.length);
