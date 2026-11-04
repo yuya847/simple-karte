@@ -240,7 +240,7 @@ function MyBed({ patient: p, bed, summary, onOpen, onMove }: { patient: Patient;
 function OtherBed({ other, bed, faded }: { other: OtherPatient; bed: string; faded: boolean }) {
   return (
     <div
-      title="他チームの患者（架空）。この試作ではカルテを開けません。"
+      title="受け持ち以外の患者（架空）。この試作ではカルテを開けません。"
       className={`nums flex h-full flex-col gap-0.5 rounded-md bg-paper px-2 py-1.5 text-[11px] text-ink-faint ${faded ? "opacity-30" : ""}`}
     >
       <div className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
@@ -275,7 +275,7 @@ function Legend() {
       </span>
       <span className="flex items-center gap-1">
         <span className="h-3 w-4 rounded-sm bg-paper ring-1 ring-rule" />
-        他チーム
+        受け持ち以外
       </span>
       <span className="flex items-center gap-1">
         <span className="h-3 w-4 rounded-sm border border-dashed border-rule" />

@@ -293,7 +293,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
               <th className="px-3 py-2 font-normal">{header("day", "入院")}</th>
               <th className="px-3 py-2 font-normal" title="DPC の入院期間（算定の DPC と同じ計算。医療資源病名を主治医が選ぶまでは仮）">DPC</th>
               <th className="px-3 py-2 font-normal">病名</th>
-              <th className="px-3 py-2 font-normal">担当</th>
+              <th className="px-3 py-2 font-normal">診療科・担当</th>
               <th className="px-3 py-2 font-normal">印（記録から）</th>
               <th className="px-3 py-2 font-normal">最新バイタル</th>
               <th className="px-3 py-2 font-normal">このあと（今日）</th>
@@ -326,7 +326,7 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                     onOpen={() => onOpen(r.patient!.id)}
                   />
                 ) : (
-                  <tr key={roomKey(r.bed)} className="border-b border-rule-soft text-ink-faint" title="他チームの患者（架空）。この試作ではカルテを開けません。">
+                  <tr key={roomKey(r.bed)} className="border-b border-rule-soft text-ink-faint" title="受け持ち以外の患者（架空）。この試作ではカルテを開けません。">
                     <td className="px-3 py-1.5">
                       {r.bed.room}
                       {r.bed.bed && `-${r.bed.bed}`}
@@ -337,8 +337,9 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", floor, n
                     </td>
                     <td className="px-3 py-1.5">—</td>
                     <td className="px-3 py-1.5">—</td>
-                    <td className="px-3 py-1.5">他チーム：{r.bed.other?.department}</td>
+                    <td className="px-3 py-1.5">—</td>
                     <td className="px-3 py-1.5 text-[11px]">
+                      <div className="font-bold">{r.bed.other?.department}</div>
                       <div>{doctorFor(r.bed.other?.department ?? "")}</div>
                       <div>{nurseFor(r.bed.room)}</div>
                     </td>
@@ -438,6 +439,7 @@ function MyRow({
       </td>
       <td className="px-3 py-2">{p.admissionDiagnosis}</td>
       <td className="whitespace-nowrap px-3 py-2 text-[11px] text-ink-soft">
+        <div className="font-bold text-ink">{p.department}</div>
         <div>{p.attending}</div>
         <div>{nurseFor(row.bed.room)}</div>
       </td>
