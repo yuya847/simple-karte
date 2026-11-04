@@ -1,18 +1,19 @@
 "use client";
 
-import { Check, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { ORDER_TYPE_LABEL, orderLines } from "@/lib/format";
 import { WARD_NAME } from "@/lib/ward";
 import { marState, prnToday, standingPrnId, standingPrnState, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
 import { drugLabel, type PrnRule } from "@/lib/standing";
 import { findOralDrug } from "@/lib/master";
 import { dripRate, dripText } from "@/lib/drip";
 import { MarCell, VoidControl } from "./MarCell";
-import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OrderChange, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
+import { TakeTable } from "./TakeTable";
+import { sortRows, takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
+import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
 interface Props {
   people: WorkPatient[];
@@ -22,8 +23,13 @@ interface Props {
   taken: Record<string, string>;
   /** Changes made before this session count as taken. */
   sessionKeys: Set<string>;
-  /** Take one or several changes (指示受け). */
-  onTake: (keys: string[]) => void;
+  /** Take one or several changes (指示受け), with the second nurse for a high-risk drug. */
+  onTake: (keys: string[], second?: string) => void;
+  /** 医師に確認: changes held to ask the doctor first (by row key), and holding one. */
+  holds?: Record<string, TakeHold>;
+  onHold?: (key: string, reason: TakeHold["reason"], note: string) => void;
+  /** Nurses who can be the second checker. */
+  nurses?: string[];
   /** 与薬・実施の記録. */
   records: Record<string, AdminRecord>;
   /** Items due before this time count as recorded by the (fictional) earlier shift. */
@@ -55,7 +61,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [] }: Props) {
+export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [] }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -77,9 +83,14 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   // ＋ 延長 and 食事 changes (kept outside the orders), in time order.
   const changes = useMemo(() => [...orderChanges(people, -1440, nowAbs), ...others].sort((a, b) => a.at - b.at || a.room.localeCompare(b.room)), [people, nowAbs, others]);
   const isTaken = (c: { key: string }) => !sessionKeys.has(c.key) || !!taken[c.key];
-  const waiting = changes.filter((c) => !isTaken(c)).length;
+  // 指示受け rows: a 修正 as one 変更 row, flags, related orders; urgent and not yet taken first.
+  const isRowTaken = (r: TakeRow) => r.keys.every((k) => isTaken({ key: k }));
+  const rows = sortRows(takeRows(changes, people, today), isRowTaken);
+  const waiting = rows.filter((r) => !isRowTaken(r)).length;
+  // まとめて受ける: only rows that may be taken in bulk (not one-at-a-time ones, not held).
+  const bulk = rows.filter((r) => !isRowTaken(r) && r.mustOne.length === 0 && !(holds[r.key] && !holds[r.key].answer));
 
-  const props = { sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people };
+  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -109,10 +120,12 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
             <span className="rounded bg-yamabuki-soft px-2 py-0.5 text-xs font-bold text-yamabuki">指示受けがまだ {waiting}件</span>
             <button
               type="button"
-              onClick={() => onTake(changes.filter((c) => !isTaken(c)).map((c) => c.key))}
-              className="rounded border border-yamabuki px-2 py-0.5 text-xs font-bold text-yamabuki hover:bg-yamabuki hover:text-white"
+              disabled={!bulk.length}
+              onClick={() => onTake(bulk.flatMap((r) => r.keys))}
+              title="至急・高リスク薬・口頭指示・変更などは除いて、1件ずつ受けます"
+              className="rounded border border-yamabuki px-2 py-0.5 text-xs font-bold text-yamabuki hover:bg-yamabuki hover:text-white disabled:opacity-40"
             >
-              まとめて受ける
+              まとめて受ける（{bulk.length}件{waiting - bulk.length > 0 ? `・1件ずつのもの ${waiting - bulk.length}件は除く` : ""}）
             </button>
           </>
         )}
@@ -161,7 +174,11 @@ function Segmented<T extends string | number>({ label, value, options, onChange 
 
 interface SheetProps {
   sheet: ReturnType<typeof buildWorksheet>;
-  changes: (OrderChange | OtherChange)[];
+  rows: TakeRow[];
+  isRowTaken: (r: TakeRow) => boolean;
+  holds: Record<string, TakeHold>;
+  onHold: (key: string, reason: TakeHold["reason"], note: string) => void;
+  nurses: string[];
   kinds: WorkKind[];
   today: CalendarDate;
   day: DayOffsetLike;
@@ -170,7 +187,7 @@ interface SheetProps {
   isTaken: (c: { key: string }) => boolean;
   taken: Record<string, string>;
   sessionKeys: Set<string>;
-  onTake: (keys: string[]) => void;
+  onTake: (keys: string[], second?: string) => void;
   interactive: boolean;
   records: Record<string, AdminRecord>;
   sessionStart: number;
@@ -184,7 +201,7 @@ interface SheetProps {
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people }: SheetProps) {
+function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, queried, people }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   const maxOf = (orderId: string) => {
@@ -240,61 +257,8 @@ function Sheet({ sheet, changes, kinds, today, day, shift, nowTime, isTaken, tak
         </span>
       </header>
 
-      <Section title={`指示の変更（昨日と今日）　指示受けがまだ ${changes.filter((c) => !isTaken(c)).length}件`}>
-        {changes.length === 0 ? (
-          <Empty>変更はありません</Empty>
-        ) : (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className={`${th} w-24`}>指示受け</th>
-                <th className={`${th} w-24`}>時刻</th>
-                <th className={`${th} w-28`}>部屋・患者</th>
-                <th className={`${th} w-14`}>種別</th>
-                <th className={th}>内容</th>
-                <th className={`${th} w-28`}>指示</th>
-              </tr>
-            </thead>
-            <tbody>
-              {changes.map((c) => {
-                const isOrder = "entry" in c;
-                const { main, detail } = isOrder ? orderLines(c.entry.order, today) : c.text;
-                const ok = isTaken(c);
-                return (
-                  <tr key={c.key} className={c.kind === "中止" ? "text-ink-soft" : ""}>
-                    <td className={td}>
-                      {!sessionKeys.has(c.key) ? (
-                        <span className="text-ink-faint">受け済</span>
-                      ) : ok ? (
-                        <span className="flex items-center gap-0.5 text-wakatake">
-                          <Check size={12} />
-                          {taken[c.key]}
-                        </span>
-                      ) : interactive ? (
-                        <button type="button" onClick={() => onTake([c.key])} className="rounded border border-yamabuki px-1.5 py-0.5 text-[11px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
-                          指示を受ける
-                        </button>
-                      ) : (
-                        <span>□ まだ</span>
-                      )}
-                    </td>
-                    <td className={td}>{c.timeKnown ? timeLabel(c.at, day, today) : `${formatShort(addDays(today, Math.floor(c.at / 1440))).replace(/（.）/, "")}（時刻なし）`}</td>
-                    <td className={td}>
-                      {c.room}　{c.name}
-                    </td>
-                    <td className={`${td} font-bold ${c.kind === "中止" ? "text-shu" : ""}`}>{c.kind}</td>
-                    <td className={td}>
-                      <span className="mr-1 text-ink-faint">{isOrder ? ORDER_TYPE_LABEL[c.entry.order.type] : c.text.type}</span>
-                      <span className={c.kind === "中止" ? "line-through" : "font-bold"}>{main}</span>
-                      <div className="text-ink-soft">{detail}</div>
-                    </td>
-                    <td className={td}>{isOrder ? c.entry.author : c.text.author}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+      <Section title={`指示の変更（昨日と今日）　指示受けがまだ ${rows.filter((r) => !isRowTaken(r)).length}件`}>
+        {rows.length === 0 ? <Empty>変更はありません</Empty> : <TakeTable rows={rows} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} />}
       </Section>
 
       <Section title="勤務のあいだ続くもの（点滴・酸素・留置）">
