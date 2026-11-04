@@ -32,6 +32,10 @@ export interface DischargeDraft {
   status: "作成中" | "確定";
   confirmedAt?: { day: number; time: string };
   confirmedBy?: string;
+  /** 承認 by the team's 指導医 (or 上級医 for a 研修医's), summary-approval.ts. */
+  approval?: { by: string; at: { day: number; time: string }; comment?: string };
+  /** 差し戻し: sent back to the writer with a comment (status goes back to 作成中). */
+  returned?: { by: string; at: { day: number; time: string }; comment: string };
   /** 診療情報提供書. */
   letter: { to: string; dept: string; doctor: string; purpose: string; issuedAt?: { day: number; time: string }; /** 退院後の治療計画・検査結果・画像を添付（B009 注8）. */ attach?: boolean };
 }
@@ -124,6 +128,7 @@ export function dischargeChecks(p: Patient, entries: OrderEntry[], consentsPendi
 }
 
 /** Deadline for the summary: 診療録管理体制加算１ asks that 9 in 10 of last month's discharges have one made within
- * 14 days counted from the day after discharge (保医発0305第7号 p.95〜96). */
+ * 14 days counted from the day after discharge (保医発0305第7号 別添3 第4の1(8), p.95〜96; checked 2026-11-04). */
 export const SUMMARY_DEADLINE_DAYS = 14;
-export const SUMMARY_DEADLINE_SOURCE = "診療録管理体制加算１の要件（退院日の翌日から起算して14日以内の作成が毎月9割以上。令和8年度）";
+export const SUMMARY_DEADLINE_SOURCE = "診療録管理体制加算１の要件（保医発0305第7号 別添3 第4の1(8)：前月に退院した患者のうち、退院日の翌日から起算して14日以内に退院時要約が作成されて中央病歴管理室に提出された者が毎月9割以上。令和8年度）";
+export const SUMMARY_DEADLINE_URL = "https://www.mhlw.go.jp/content/12400000/001757361.pdf";
