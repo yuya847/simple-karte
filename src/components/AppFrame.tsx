@@ -5,6 +5,7 @@ import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, LockKeyhole, LogOut
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Area, AreaKey } from "@/lib/nav";
+import { placeLabel, placeMenuRows } from "@/lib/place-menu";
 import { ROLES, ROLE_LONG, STAFF, type Role } from "@/lib/roles";
 import type { Sex } from "@/lib/types";
 import { AREA_ICON, type Icon } from "./nav-icons";
@@ -84,6 +85,8 @@ interface Props {
   /** The place chosen (病棟・救急外来・外来・手術室…), from the pulldown at the start of the top row. */
   area: AreaKey;
   onArea: (k: AreaKey) => void;
+  /** 病棟 in the pulldown: back to the ward's menu (the screens to choose from); without it, 病棟 opens as it was. */
+  onWardMenu?: () => void;
   /** The top row: the screens of the place (病棟: the screens chosen from its menu; 救急外来・外来: the list). */
   screens: TabRow;
   /** The second row: every open chart, wherever it was opened from, in groups by place (null: none open). */
@@ -312,12 +315,10 @@ export function Row({ row, small, start, end }: { row: TabRow; small: boolean; s
 const barButton = "mb-1 flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2";
 
 /** 場所: the pulldown at the start of the top row (部署, then the hospital's shared places). */
-function PlaceButton({ areas, area, onArea, badges }: { areas: Area[]; area: AreaKey; onArea: (k: AreaKey) => void; badges: Partial<Record<AreaKey, number>> }) {
+function PlaceButton({ areas, area, onArea, onWardMenu, badges }: { areas: Area[]; area: AreaKey; onArea: (k: AreaKey) => void; onWardMenu?: () => void; badges: Partial<Record<AreaKey, number>> }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
-  const places = areas.filter((a) => !a.tool || a.key === "chat");
-  const depts = places.filter((a) => a.kind !== "page" || ["or", "dialysis", "pharmacy", "lab", "liaison", "receipt"].includes(a.key));
-  const shared = places.filter((a) => !depts.includes(a));
+  const { depts, shared } = placeMenuRows(areas);
   const now = AREAS_LABEL(areas, area);
   const Icon = AREA_ICON[area];
   const elsewhere = places.some((a) => a.key !== area && (badges[a.key] ?? 0) > 0);
@@ -331,12 +332,13 @@ function PlaceButton({ areas, area, onArea, badges }: { areas: Area[]; area: Are
           aria-current={a.key === area ? "page" : undefined}
           onClick={() => {
             setOpen(false);
-            onArea(a.key);
+            if (a.key === "ward" && onWardMenu) onWardMenu();
+            else onArea(a.key);
           }}
           className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper disabled:text-ink-faint/50 pointer-coarse:py-2.5 ${a.key === area ? "font-bold text-ai" : ""}`}
         >
           <I size={15} className="shrink-0" />
-          {a.label}
+          {placeLabel(a)}
           {a.soon && <span className="text-[11px] text-ink-faint">（準備中）</span>}
           <span className="ml-auto">
             <Badge n={badges[a.key] ?? 0} />
@@ -533,7 +535,7 @@ export function AppFrame(p: Props) {
             <span className="mb-2 hidden xl:block">
               <Image src="/simple-karte-logo-small.svg" alt="SimpleKarte" width={96} height={17} priority />
             </span>
-            <PlaceButton areas={p.areas} area={p.area} onArea={p.onArea} badges={p.areaBadges} />
+            <PlaceButton areas={p.areas} area={p.area} onArea={p.onArea} onWardMenu={p.onWardMenu} badges={p.areaBadges} />
           </div>
         }
         end={

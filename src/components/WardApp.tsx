@@ -161,6 +161,7 @@ import {
   type PatientTab,
   type WardTab,
 } from "@/lib/nav";
+import { WARD_MENU_OPTION, WARD_SCREENS_PLUS } from "@/lib/place-menu";
 import { verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
@@ -4260,10 +4261,12 @@ export default function WardApp() {
                 options: [
                   ...patientViews.map((v) => ({ key: v, label: wardTabInfo(v).label, icon: WARD_ICON[v] })),
                   ...(patientViews.includes("all") ? FLOORS.map((f) => ({ key: `ward:${f.name}`, label: f.name, icon: Building2, group: "病棟ごとの入院患者一覧" })) : []),
+                  { ...WARD_MENU_OPTION, icon: LayoutList },
                 ],
                 current: t === "all" && !allWards ? `ward:${listWard}` : t,
                 onPick: (k: string) => {
-                  if (k.startsWith("ward:")) {
+                  if (k === WARD_MENU_OPTION.key) setWardTab("menu");
+                  else if (k.startsWith("ward:")) {
                     setListWard(k.slice(5));
                     if (t !== "all") swapWardView(t, "all");
                     else show(wardOwner("all"), undefined);
@@ -4278,7 +4281,7 @@ export default function WardApp() {
       }));
       if (wardTab === "menu" || !wardTabs.length)
         items.push({ key: "menu", label: "画面を選ぶ", icon: LayoutList, menu: true, active: wardTab === "menu", onSelect: () => setWardTab("menu"), onClose: wardTabs.length ? () => setWardTab(wardTabs[wardTabs.length - 1]) : undefined, closeLabel: "画面を選ぶメニューを閉じる" });
-      return { screens: { label: "病棟の画面", items, plus: { label: "画面を開く", title: "病棟の画面を開く（入院患者一覧・病棟マップ・受け持ち患者・ワークシート…）", onClick: () => setWardTab("menu") } }, patients, crumbs };
+      return { screens: { label: "病棟の画面", items, plus: { ...WARD_SCREENS_PLUS, onClick: () => setWardTab("menu") } }, patients, crumbs };
     }
     if (area === "er" || area === "opd") {
       const o: Owner = area;
@@ -4322,6 +4325,10 @@ export default function WardApp() {
         areas={areas}
         area={area}
         onArea={openArea}
+        onWardMenu={() => {
+          openArea("ward");
+          setWardTab("menu");
+        }}
         screens={rows.screens}
         patients={rows.patients}
         crumbs={rows.crumbs}
