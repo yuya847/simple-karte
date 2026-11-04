@@ -35,7 +35,7 @@ type Cell = { top: string; sub?: string; title: string };
 export function IoHeading({ byTime, standingIo }: { byTime: boolean; standingIo: string | null }) {
   return (
     <span className="font-normal text-ink-faint">
-      mL　{byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}（架空の病院の取り決め）　指示簿：{standingIo ?? "なし"}
+      mL　{byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}<span className="hint">（架空の病院の取り決め）</span>　指示簿：{standingIo ?? "なし"}
     </span>
   );
 }

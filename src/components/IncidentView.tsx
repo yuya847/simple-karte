@@ -167,7 +167,7 @@ export function IncidentView({ reports, patients, today, nowTime, onSubmit, onSt
               </li>
             ))}
           </ul>
-          <p className="border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">架空の病院の報告です。足りない項目と時刻の確かめ、レベルごとの次にすることはコードで出します。影響度レベルは報告する人が選びます。AI は使っていません。試作なので、報告はこのブラウザの中だけにあります。</p>
+          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">架空の病院の報告です。足りない項目と時刻の確かめ、レベルごとの次にすることはコードで出します。影響度レベルは報告する人が選びます。AI は使っていません。試作なので、報告はこのブラウザの中だけにあります。</p>
         </nav>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
@@ -423,7 +423,7 @@ function IncidentForm({
             </label>
           ))}
         </fieldset>
-        <p className="text-[10px] text-ink-faint">出典：{LEVEL_SOURCE}</p>
+        <p className="hint text-[10px] text-ink-faint">出典：{LEVEL_SOURCE}</p>
         {d.level && (
           <div className="pt-1">
             <h4 className="mb-1 text-[12px] font-bold text-ink-soft">レベル {d.level} で次にすること</h4>

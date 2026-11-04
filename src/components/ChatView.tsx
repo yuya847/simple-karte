@@ -166,7 +166,7 @@ export function ChatView({ patients, today, nowTime, onChart }: Props) {
           <h2 className="mb-1 text-xs font-bold text-ink-soft">患者別</h2>
           <ul>{patientChannels.map(item)}</ul>
         </div>
-        <p className="text-[10px] text-ink-faint">架空の病院のチャットです。試作なので、このブラウザの中だけで共有されます（同じブラウザの別のタブにも出ます）。AI は使っていません。</p>
+        <p className="hint text-[10px] text-ink-faint">架空の病院のチャットです。試作なので、このブラウザの中だけで共有されます（同じブラウザの別のタブにも出ます）。AI は使っていません。</p>
       </nav>
       <section className="flex min-h-0 flex-col rounded-lg border border-rule bg-paper p-3">
         <header className="mb-1 border-b border-rule pb-1">

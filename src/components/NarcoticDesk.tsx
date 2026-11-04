@@ -273,12 +273,14 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
       <Accidents book={book} onBook={onBook} today={today} now={now} newId={newId} log={log} print={print} />
 
       <div className="text-[11px] text-ink-faint">
-        <p>出典：{Object.values(NARCOTIC_SOURCES).map((s) => (
+        <p className="hint">出典：{Object.values(NARCOTIC_SOURCES).map((s) => (
           <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="mr-2 underline">
             {s.label}
           </a>
         ))}</p>
-        <p className="mt-1">架空の病院の取り決め：{NARCOTIC_RULES.prn}{NARCOTIC_RULES.outpatient}立会者の候補・廃棄の方法の選択肢・卸売業者と製品番号は架空です。届はどこにも送りません（模擬）。</p>
+        <p className="mt-1">
+          <span className="hint">架空の病院の取り決め：{NARCOTIC_RULES.prn}{NARCOTIC_RULES.outpatient}立会者の候補・廃棄の方法の選択肢・卸売業者と製品番号は架空です。</span>届はどこにも送りません（模擬）。
+        </p>
       </div>
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[10mm] print:block">{printing}</div>, document.body)}
     </section>

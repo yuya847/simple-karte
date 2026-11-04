@@ -176,7 +176,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
             {can(me.role, "pharmacy") ? <DiPost today={today} nowTime={nowTime} onPost={onPost} /> : <p className="hint text-xs text-ink-soft">DI のお知らせは薬剤師が書き、掲示板に「薬剤部」の掲示として出ます。病棟では掲示板か、この画面で読みます。</p>}
           </div>
 
-          <div className="text-[11px] text-ink-faint">
+          <div className="hint text-[11px] text-ink-faint">
             <p>
               出典：
               {[DRUG_CLASS_SOURCES.pmda, DRUG_CLASS_SOURCES.law, DRUG_CLASS_SOURCES.narcoticLaw, DRUG_CLASS_SOURCES.b008].map((s) => (
@@ -226,7 +226,7 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
       {open && (
         <tr className="bg-ai-soft/20">
           <td colSpan={8} className="px-3 py-2 text-[12px]">
-            <p className="text-ink-soft">採用区分：{x.adoption}（{ADOPTION_NOTE[x.adoption]}。架空の病院の取り決め）{x.cls.b008 ? `　ハイリスク薬：${x.cls.b008.group}（${x.cls.b008.why}）` : ""}</p>
+            <p className="text-ink-soft">採用区分：{x.adoption}（{ADOPTION_NOTE[x.adoption]}<span className="hint">。架空の病院の取り決め</span>）{x.cls.b008 ? `　ハイリスク薬：${x.cls.b008.group}（${x.cls.b008.why}）` : ""}</p>
             {n.length === 0 && <p className="text-ink-faint">この薬の DI のお知らせはありません。</p>}
             {n.map((y) => (
               <div key={y.id} className="mt-1">

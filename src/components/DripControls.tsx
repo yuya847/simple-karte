@@ -92,7 +92,7 @@ export function DripEndForm({ volumeMl, start, nowAbs, nowTime, onEnd, label = "
           やめる
         </button>
       </div>
-      <p className="text-[10px] text-ink-faint">入った量は 1本の量 − 残量 で、水分出納の IN（点滴）に終了の時刻で入ります。終わった理由の選択肢は架空の病院の取り決めです。</p>
+      <p className="hint text-[10px] text-ink-faint">入った量は 1本の量 − 残量 で、水分出納の IN（点滴）に終了の時刻で入ります。終わった理由の選択肢は架空の病院の取り決めです。</p>
     </div>
   );
 }

@@ -149,7 +149,7 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
           ))}
         </ul>
       )}
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         出典：
         <a href={SHIDO_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
           {SHIDO_SOURCE.label}

@@ -138,7 +138,7 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
           </table>
         )}
       </section>
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         出典：
         <a href={UNDONE_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
           {UNDONE_SOURCE.label}

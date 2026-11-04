@@ -462,7 +462,7 @@ function StartBandMenu({ label, onPick, onClose, alignRight }: { label: string; 
           {b.time && <span className="text-ink-faint">{b.time}</span>}
         </button>
       ))}
-      <p className="px-1 pt-1 text-[10px] text-ink-faint">時刻帯の時刻は架空の病院の取り決めです。注射のタブで時刻を打ち直せます。</p>
+      <p className="hint px-1 pt-1 text-[10px] text-ink-faint">時刻帯の時刻は架空の病院の取り決めです。注射のタブで時刻を打ち直せます。</p>
     </div>
   );
 }

@@ -57,7 +57,7 @@ export function DischargeStops({ groups, today, canStop, why, onStop }: { groups
         ) : (
           <p className="text-ink-soft">{why ?? "中止は医師が確定します。"}</p>
         ))}
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         出典：
         <a href={DISCHARGE_STOP_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
           {DISCHARGE_STOP_SOURCE.label}

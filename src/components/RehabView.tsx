@@ -229,7 +229,7 @@ function Work({ desk, onDesk, rxs, bookings, nowTime, today }: Props & { rxs: Re
           const rx = rxs.find((r) => r.orderId === b.orderId);
           return rx ? <SessionForm key={b.id} b={b} rx={rx} desk={desk} onDesk={onDesk} nowTime={nowTime} today={today} /> : null;
         })}
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         {UNIT_RULE} 実施した時刻（開始と終了）と訓練の内容の要点を記録します（同 通則3）。患者1人1日6単位まで（別に厚生労働大臣が定める患者は9単位。告示 第7部 通則4・通知 通則7）。
       </p>
     </section>

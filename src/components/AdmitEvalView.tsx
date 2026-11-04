@@ -77,7 +77,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
           <ClipboardList size={17} />
           入院時の評価（令和8年度の要件）
         </h2>
-        <span className="text-xs text-ink-soft">期限は入院日を1日目として、コードで数えます。書くのは各職種、AI は使いません。</span>
+        <span className="hint text-xs text-ink-soft">期限は入院日を1日目として、コードで数えます。書くのは各職種、AI は使いません。</span>
       </header>
       <table className="w-full border-collapse text-[12px]">
         <thead>
@@ -158,7 +158,7 @@ function Detail({ w, ev, item, today, nowTime, onSave, hints }: { w: WorkPatient
       <h3 className="mb-1 font-bold">
         {w.room} {w.patient.name}さん：{due.label}
       </h3>
-      <p className="mb-2 text-[11px] text-ink-faint">根拠：{due.source}</p>
+      <p className="hint mb-2 text-[11px] text-ink-faint">根拠：{due.source}</p>
       {due.note && <p className="mb-2 text-xs text-yamabuki">{due.note}</p>}
       <DenyNote action={col.action} className="mb-2" />
       <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
@@ -275,7 +275,7 @@ function NutritionForm({ w, ev, today, nowTime, onSave, start }: { w: WorkPatien
   return (
     <div className="space-y-2 text-xs text-ink-soft">
       <p className="nums">
-        身長 {p.heightCm} cm・体重 {p.weightKg} kg・BMI {bmi.toFixed(1)}（コードで計算）　{p.dietNow ? `いまの食事：${p.dietNow}` : ""}
+        身長 {p.heightCm} cm・体重 {p.weightKg} kg・BMI {bmi.toFixed(1)}<span className="hint">（コードで計算）</span>　{p.dietNow ? `いまの食事：${p.dietNow}` : ""}
       </p>
       {cur && (
         <p className="nums text-ink">
@@ -512,7 +512,7 @@ function ChecklistForm({ kind, ev, nowTime, onSave, suggested, why = {} }: { kin
       )}
       {kind === "fall" && checked.length > 0 && (
         <label className="block text-ink-soft">
-          対策（院内の取り決めで、危険度の点数は付けません）
+          対策<span className="hint">（院内の取り決めで、危険度の点数は付けません）</span>
           <textarea value={plan} onChange={(e) => setPlan(e.target.value)} rows={2} className={`mt-0.5 w-full ${input} text-[13px]`} />
         </label>
       )}

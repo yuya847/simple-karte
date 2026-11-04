@@ -84,7 +84,7 @@ export function IjiBoard({
         <ReceiptJapaneseYen size={18} />
         医事課の仕事
       </h1>
-      <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+      <p className="hint mb-3 text-xs leading-relaxed text-ink-soft">
         患者ごとに、保険の未登録・退院して会計がまだ・算定の要確認（{Number(month.slice(5))}月分。算定の画面と同じ計算をサーバーで通した「確かめる」「人が選ぶ」）・未コード化の病名を、記録からコードで並べます（AI は使いません）。押すとその患者の算定（保険・会計）か病名が開きます。病名をマスターの名前にするのは医師です。
       </p>
 

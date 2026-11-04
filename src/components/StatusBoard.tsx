@@ -223,7 +223,7 @@ export function StatusBoard({ pick, patients, book, nowTime, canType, onRegister
       </header>
       <p className="hint mb-2 text-xs text-ink-soft">勤務帯ごとに、階の全員の状態を1つの表で入れて登録します。左の□で患者を選ぶと、同じ値をまとめて入れられます。前の勤務帯の登録を写してから直すこともできます。救護区分は院内連絡のベッドの情報にも入ります。</p>
       <Table key={`${shiftKey(cur.day, cur.shift)}|${pick.value}|${book[shiftKey(cur.day, cur.shift)]?.length ?? 0}`} patients={patients} book={book} day={cur.day} shift={cur.shift} nowTime={nowTime} canType={canType} onRegister={(sheet, changed) => onRegister(cur.day, cur.shift, sheet, changed)} />
-      <ul className="mt-3 space-y-0.5 text-[11px] text-ink-faint">
+      <ul className="hint mt-3 space-y-0.5 text-[11px] text-ink-faint">
         <li>
           <a href={STATUS_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
             {STATUS_SOURCES.record.label}

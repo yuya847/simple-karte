@@ -100,7 +100,7 @@ export function ManualView({ manuals = MANUALS, openId, onOpen }: Props) {
               </div>
             ))}
           </div>
-          <p className="border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">架空の病院のマニュアルです。手順は公的な資料（各マニュアルの出典）に沿った例で、薬の量や診療の判断は書いていません（判断は医師が行います）。検索と並べ方はコードで行い、AI は使っていません。</p>
+          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">架空の病院のマニュアルです。手順は公的な資料（各マニュアルの出典）に沿った例で、薬の量や診療の判断は書いていません（判断は医師が行います）。検索と並べ方はコードで行い、AI は使っていません。</p>
         </nav>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">

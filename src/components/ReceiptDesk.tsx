@@ -99,7 +99,7 @@ export function ReceiptDesk({
         {tab === "inspect" && <Inspect patients={patients} diagnoses={diagnoses} today={today} nowTime={nowTime} month={month} payload={payload} onOpen={onOpen} />}
         {tab === "import" && <Import files={files} month={month} nowTime={nowTime} onDesk={onDesk} />}
         {tab === "resubmit" && <Resubmit files={files} desk={desk} nowTime={nowTime} onDesk={onDesk} />}
-        <p className="text-[11px] text-ink-faint">患者・保険・ファイルはすべて架空です。取り込んだファイルと再請求の記録は、このブラウザの中にあり、監査ログに残ります。計算と点検はコードで行い、AI は使いません。</p>
+        <p className="hint text-[11px] text-ink-faint">患者・保険・ファイルはすべて架空です。取り込んだファイルと再請求の記録は、このブラウザの中にあり、監査ログに残ります。計算と点検はコードで行い、AI は使いません。</p>
       </div>
     </section>
   );
@@ -137,7 +137,7 @@ function Inspect({ patients, diagnoses, today, nowTime, month, payload, onOpen }
   const counts = inspectCounts(rows);
   return (
     <>
-      <p className="text-[12px] text-ink-soft">
+      <p className="hint text-[12px] text-ink-soft">
         {Number(month.slice(5))}月分のレセプトを、算定の画面と同じ計算（告示・通知・マスター）と、レセプトのファイル（RECEIPTC.UKE）と同じ点検（記録条件仕様）に通し、出てきた点検を患者ごとに並べます。新しい決まりは足していません。直すかどうか・どれを選ぶかは人が決めます。
       </p>
       <div className="flex flex-wrap items-center gap-2 text-xs">

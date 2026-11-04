@@ -173,7 +173,7 @@ export function PhsView(p: Props) {
                 <button type="button" disabled={!ringBed} onClick={() => p.onRing(ringBed, ringKind)} className="rounded border border-shu px-2 py-0.5 font-bold text-shu disabled:opacity-40">
                   鳴らす
                 </button>
-                <span className="w-full text-ink-faint">担当の看護師へ。{PASS_ON_SECONDS}秒ごとに応答がなければ、同じチーム → 病棟リーダー → 全員の順に回します（呼出スライド。架空の病院の取り決め）。センサーは「ベッドの情報」で付けたベッドだけが鳴ります。</span>
+                <span className="w-full text-ink-faint">担当の看護師へ。{PASS_ON_SECONDS}秒ごとに応答がなければ、同じチーム → 病棟リーダー → 全員の順に回します（呼出スライド<span className="hint">。架空の病院の取り決め</span>）。センサーは「ベッドの情報」で付けたベッドだけが鳴ります。</span>
               </div>
               {p.calls.length === 0 && <p className="text-sm text-ink-faint">いま鳴っているナースコールはありません。</p>}
               {[...p.calls].reverse().map((c) => {

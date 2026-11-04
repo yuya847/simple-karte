@@ -113,9 +113,9 @@ export function PathList({ book, patientOf, fmt, onOpen }: { book: PathBook; pat
             </tbody>
           </table>
         )}
-        <p className="text-[11px] text-ink-faint">{PATH_RULES.variance}</p>
+        <p className="hint text-[11px] text-ink-faint">{PATH_RULES.variance}</p>
       </section>
-      <p className="text-[11px] text-ink-faint">
+      <p className="hint text-[11px] text-ink-faint">
         出典（機能）：
         <a href={PATH_SOURCES.spec.url} target="_blank" rel="noreferrer" className="underline">
           {PATH_SOURCES.spec.label}

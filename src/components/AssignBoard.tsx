@@ -215,7 +215,7 @@ export function AssignBoard({ pick, hasRoster, rooms, beds, nurses, crewOf, shee
       ) : (
         <p className="rounded-lg border border-rule bg-sheet p-4 text-sm text-ink-soft">このデモで勤務表があるのは5階東だけです（架空）。5階東を選んでください。</p>
       )}
-      <ul className="mt-3 space-y-0.5 text-[11px] text-ink-faint">
+      <ul className="hint mt-3 space-y-0.5 text-[11px] text-ink-faint">
         {Object.values(ASSIGN_SOURCES).map((s) => (
           <li key={s.label}>
             <a href={s.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">

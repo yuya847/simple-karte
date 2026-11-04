@@ -493,7 +493,7 @@ function Unanswered({ rows, waiting, day, locked, onReply }: { rows: LedgerRow[]
       </section>
       <section>
         <h2 className="mb-1 font-bold">逆紹介で、紹介先からの返書が30日以上ないもの {waiting.length}件</h2>
-        <p className="mb-2 text-[11px] text-ink-soft">30日は、問い合わせるかを考える目安として出しています（架空の病院の取り決め）。</p>
+        <p className="hint mb-2 text-[11px] text-ink-soft">30日は、問い合わせるかを考える目安として出しています（架空の病院の取り決め）。</p>
         {table(waiting, "ありません。")}
       </section>
     </>

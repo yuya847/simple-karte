@@ -144,7 +144,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
           </div>
           {VCM_TARGET.auc24 && (
             <p className="text-xs text-ink-soft">
-              ガイドラインの目標：AUC24 {VCM_TARGET.auc24[0]}〜{VCM_TARGET.auc24[1]} μg·h/mL（{VCM_TARGET.source}）
+              ガイドラインの目標：AUC24 {VCM_TARGET.auc24[0]}〜{VCM_TARGET.auc24[1]} μg·h/mL<span className="hint">（{VCM_TARGET.source}）</span>
             </p>
           )}
           <details className="text-xs text-ink-soft">
@@ -154,7 +154,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
                 <li key={s}>{s}</li>
               ))}
             </ol>
-            <p className="mt-1">参考：台形と指数の和で求めた AUC24 は {f1(ok.aucTrapezoid24, 0)}。</p>
+            <p className="hint mt-1">参考：台形と指数の和で求めた AUC24 は {f1(ok.aucTrapezoid24, 0)}。</p>
           </details>
 
           <div>
@@ -236,7 +236,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
           </ul>
         </section>
       )}
-      <p className="text-[10px] text-ink-faint">計算はコードで行い、式を出しています。投与量を決めるのは医師、提案するのは薬剤師です。AI は使っていません。</p>
+      <p className="hint text-[10px] text-ink-faint">計算はコードで行い、式を出しています。投与量を決めるのは医師、提案するのは薬剤師です。AI は使っていません。</p>
     </div>
   );
 }

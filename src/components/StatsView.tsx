@@ -136,7 +136,7 @@ export function StatsView({
         )}
         {tab === "alos" && <AlosTab stays={stays} floors={floors} today={today} />}
         {tab === "dept" && <DeptTab stays={stays} visits={visits} period={periods[month]} label={periods[month].label} />}
-        <p className="text-[11px] text-ink-faint">
+        <p className="hint text-[11px] text-ink-faint">
           病棟・患者・件数はすべて架空です。今日の数は、カルテのある患者・今日の入院・実施した退院・病棟の移動・ほかのチームの患者（ベッドの表示）から数えます。今日より前の入退院は、今日のベッドの様子から日をさかのぼって作った架空の記録で、外来の数は地域医療連携の画面と同じ架空の外来の日計です。計算はすべてコードで行い、AI は使いません。
         </p>
       </div>

@@ -332,7 +332,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                 </tr>
               </tbody>
             </table>
-            <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[11px] text-ink-soft">
+            <ul className="hint mt-2 list-disc space-y-0.5 pl-5 text-[11px] text-ink-soft">
               <li>月平均夜勤時間数は、本来は同じ入院基本料（{WARD_BASE.name}）を届け出ている病棟全体で計算します（別添2 第2 4 (3)オ）。ここは{WARD_NAME}の分だけの試算です。72時間は平均の基準で、1人ずつの上限ではありません。</li>
               <li>勤務時間には通常の休憩時間を入れ、申し送りの時間は除いていません（除くかは病棟全体で月単位で選ぶ。別添2 第2 4 (3)カ(ホ)、別紙5 の 2．）。年休は入れません。</li>
               <li>1日に勤務する数は24時間の範囲で傾斜配置でき（別添2 第2 4 (4)イ）、② は月平均で見ます。表の下の「時間÷8」は日ごとの参考です。</li>
@@ -383,7 +383,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
 
             <section className={`${card} p-4 text-[13px]`}>
               <h2 className="mb-1 font-bold">同じ夜勤に入れない組み合わせ</h2>
-              <p className="mb-2 text-[11px] text-ink-soft">架空の病院の取り決めとして、看護師長が登録します。理由はここには書きません。</p>
+              <p className="mb-2 text-[11px] text-ink-soft">看護師長が登録します。理由はここには書きません。<span className="hint">（架空の病院の取り決め）</span></p>
               <ul className="mb-2 space-y-1">
                 {book.ngPairs.map(([a, b], i) => (
                   <li key={`${a}-${b}`} className="flex items-center gap-2">

@@ -155,7 +155,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
         <div className="mx-auto max-w-[1100px] rounded-lg border border-rule bg-sheet p-5 shadow-sm">
           <Sheet {...props} onTake={onTake} interactive />
         </div>
-        <p className="mx-auto mt-2 max-w-[1100px] text-[11px] text-ink-faint">
+        <p className="hint mx-auto mt-2 max-w-[1100px] text-[11px] text-ink-faint">
           オーダからコードで集めています（AI は使っていません）。「照合」でリストバンドと薬・検体のラベルを読み（バーコードリーダーはキーボードと同じに入力されます）、患者・薬・時刻をコードが確かめてから実施を記録します。この画面を開く前の分は、前の勤務帯が記録したものとして扱います（架空）。点滴のつなぎ替えの時刻は、開始時刻と1日の本数から計算した目安です。
         </p>
       </div>

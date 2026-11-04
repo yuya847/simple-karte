@@ -77,7 +77,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
             );
           })}
         </ul>
-        <p className="mt-4 text-[10px] text-ink-faint">出典：{IPASS_SOURCE}</p>
+        <p className="hint mt-4 text-[10px] text-ink-faint">出典：{IPASS_SOURCE}</p>
       </aside>
       {w ? (
         <Card
@@ -174,7 +174,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
       )}
 
       <div className="mb-3 rounded-lg border border-rule bg-sheet p-3">
-        <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから（コードで集めた事実。AI は使っていません）</h4>
+        <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから<span className="hint">（コードで集めた事実。AI は使っていません）</span></h4>
         <ul className="list-disc space-y-0.5 pl-5">
           {(sent ? h.facts : facts).map((f, i) => (
             <li key={i} className="nums">

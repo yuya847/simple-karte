@@ -219,7 +219,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
                                   <button type="button" onClick={() => setOpen(null)} className="text-ink-soft underline">
                                     やめる
                                   </button>
-                                  <span className="w-full text-[10px] text-ink-faint">{EXECUTE_NOTE}。予定の時刻と60分より離れていると、ずれを記録に残します（病棟の取り決め）。</span>
+                                  <span className="w-full text-[10px] text-ink-faint">{EXECUTE_NOTE}。予定の時刻と60分より離れていると、ずれを記録に残します<span className="hint">（病棟の取り決め）</span>。</span>
                                 </div>
                               ) : (
                                 <button type="button" onClick={() => openFor(i)} className="rounded border border-ai px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai hover:text-white">

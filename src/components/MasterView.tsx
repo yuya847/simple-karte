@@ -110,7 +110,7 @@ export function MasterView({ nowTime, newId }: { nowTime: string; newId: () => s
       <p className="hint text-[12px] text-ink-soft">
         「変える」で採用・院内名・表示順・中止を変え、理由を書いて保存します。中止と非採用の品目はオーダの一覧から外れ、下書きにあると確定できません。院内名と表示順はオーダの一覧に出ます（もう出したオーダは、出したときの名前のまま）。表示順は小さいほど上で、初めは 10・20・30… なので、間に入れられます。
       </p>
-      <p className="text-[12px] text-ink-soft">
+      <p className="hint text-[12px] text-ink-soft">
         変えたことは、元のマスタのファイルを書き換えずに、その日の記録（記録の保存が設定されているときは Supabase）に履歴として残ります。誰がどのマスタを変えるか（注射薬・内服薬は薬剤師、検体検査は臨床検査技師、処置は医事課）は架空の病院の取り決めです。
         <Fictional text="架空の病院の取り決め" />
       </p>

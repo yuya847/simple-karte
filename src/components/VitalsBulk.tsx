@@ -153,7 +153,7 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
           {!timeOk(time) && <span className="text-shu">測った時刻は「14:20」のように、いまより前にしてください</span>}
         </div>
       )}
-      <ul className="mt-3 space-y-0.5 text-[11px] text-ink-faint">
+      <ul className="hint mt-3 space-y-0.5 text-[11px] text-ink-faint">
         <li>知らせの根拠：{BULK_SOURCES.calls}。</li>
         <li>{BULK_SOURCES.news2}。どう動くかは病棟の取り決めと医師の判断です。</li>
         <li>数のほかに確かめるのは、SpO2 が100より上・血圧の下が上より高い・片方だけ・時刻の形（打ち間違いを拾うためで、医学の基準ではありません）。</li>

@@ -64,7 +64,7 @@ export function TemplatePanel({ patient, today, onInsert, onClose }: { patient: 
         <div className="space-y-2">
           <p className="hint text-[11px] text-ink-soft">選ぶと入力の欄が出ます。選択肢を押し、数値を入れると、検査値・バイタルはカルテから、計算はコードが式どおりに入れます。「記事に入れる」で下の記事に入ります（確定は記事の「記事を確定」で）。</p>
           <div>
-            <div className="mb-1 text-[11px] text-ink-faint">ひな形（架空の病院の取り決め）</div>
+            <div className="mb-1 text-[11px] text-ink-faint">ひな形<span className="hint">（架空の病院の取り決め）</span></div>
             {offered.builtIn.length === 0 ? (
               <p className="text-xs text-ink-faint">この職種のひな形はありません。</p>
             ) : (
@@ -105,7 +105,7 @@ export function TemplatePanel({ patient, today, onInsert, onClose }: { patient: 
             </div>
             {saved === false && <p className="mt-1 text-[11px] text-yamabuki">この端末に保存できませんでした（ブラウザの設定）。ページを閉じるまでは使えます。</p>}
           </div>
-          <p className="text-[10px] text-ink-faint">
+          <p className="hint text-[10px] text-ink-faint">
             根拠：
             {TEMPLATE_SOURCES.map((s) => (
               <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
@@ -191,7 +191,7 @@ function FieldInput({ f, values, set, facts, fields }: { f: TemplateField; value
             <span className="ml-2 text-[11px] text-ink-soft">
               計算：{fm.expr}
               {r.used.length > 0 && `（${r.used.map((u) => `${u.label} ${u.value}${u.unit}${u.from === "カルテ" ? "＝カルテ" : ""}`).join("、")}）`}
-              {fm.source && `　出典：${fm.source}`}
+              {fm.source && <span className="hint">　出典：{fm.source}</span>}
             </span>
             {r.missing.length > 0 && <div className="text-[11px] text-yamabuki">{r.missing.join("・")}がありません</div>}
           </div>

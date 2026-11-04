@@ -140,7 +140,7 @@ export function BoardView({ notices, reads, today, nowTime, onRead, onPost, staf
               );
             })}
           </ul>
-          <p className="border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">
+          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">
             架空の病院の掲示板です。並べ方（重要で未読 → 未読 → 既読、それぞれ新しい順）と期限切れを隠すのはコードで行います。AI は使っていません。試作なので、掲示と既読はこのブラウザの中だけにあります。
           </p>
         </nav>

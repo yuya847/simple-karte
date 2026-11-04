@@ -99,7 +99,11 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
                 </div>
                 <div className="text-xs text-ink-soft">
                   {r.diagnosis}（{r.department}・{r.attending}）
-                  {NEEDS_PRIVATE.includes(r.isolation) && "　→ 個室が要る（架空の病院の取り決め）"}
+                  {NEEDS_PRIVATE.includes(r.isolation) && (
+                    <>
+                      　→ 個室が要る<span className="hint">（架空の病院の取り決め）</span>
+                    </>
+                  )}
                 </div>
                 <button type="button" onClick={() => setOpen(open === r.id ? null : r.id)} className="mt-1 rounded border border-ai px-2 py-0.5 text-xs text-ai">
                   合うベッド（{fits.length}）を見る

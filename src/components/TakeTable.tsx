@@ -193,7 +193,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
         </tbody>
       </table>
       {notes && (
-      <p className="mt-1 text-[10px] text-ink-faint">
+      <p className="hint mt-1 text-[10px] text-ink-faint">
         【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。高リスク薬の一覧と時間外の区切りは架空の病院の取り決めです。
       </p>
       )}

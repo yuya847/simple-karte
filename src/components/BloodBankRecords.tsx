@@ -182,7 +182,7 @@ export function BloodRecords({ bank, people, today }: BloodBankProps) {
           ))}
         </tbody>
       </table>
-      <div className="rounded-md border border-rule bg-sheet p-3 text-[11px] text-ink-soft">
+      <div className="hint rounded-md border border-rule bg-sheet p-3 text-[11px] text-ink-soft">
         <p>{BLOOD_RULES.records}</p>
         <p className="mt-1">
           出典：

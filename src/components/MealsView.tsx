@@ -196,13 +196,13 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
                 </li>
               ))}
             </ul>
-            <p className="mt-1 text-[11px] text-ink-soft">献立と盛り付けに間に合うかは、厨房と確かめてください（締切は架空の病院の取り決め）。</p>
+            <p className="mt-1 text-[11px] text-ink-soft">献立と盛り付けに間に合うかは、厨房と確かめてください<span className="hint">（締切は架空の病院の取り決め）</span>。</p>
           </section>
         )}
 
         {tables}
 
-        <ul className="space-y-0.5 text-[11px] text-ink-faint">
+        <ul className="hint space-y-0.5 text-[11px] text-ink-faint">
           <li>締切は、朝食が前日 {MEAL_DEADLINE.朝.time}、昼食が当日 {MEAL_DEADLINE.昼.time}、夕食が当日 {MEAL_DEADLINE.夕.time}（架空の病院の取り決め）。締切のあとに入った食事の指示・食止め・食止めの取り消しに印を付けます。</li>
           <li>検査で止めるのは、架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</li>
           <li>アレルギーはカルテの記載のまま（薬のアレルギーを含む）。禁止・注意は食事の指示の注意の欄と、カルテの注意のうち食事・水分に関わるもの。</li>

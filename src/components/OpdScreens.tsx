@@ -161,7 +161,7 @@ export function KioskScreen({ onRead, samples, onSlip, onClose }: { onRead: (car
             </button>
           </div>
         )}
-        <p className="text-xs text-white/60">この画面は再来受付機の模擬です。本物の受付機や診察券の読み取りにはつないでいません。予約のある再診の患者だけを受け付けます（初診と予約外は窓口。架空の病院の取り決め）。</p>
+        <p className="text-xs text-white/60">この画面は再来受付機の模擬です。本物の受付機や診察券の読み取りにはつないでいません。予約のある再診の患者だけを受け付けます（初診と予約外は窓口<span className="hint">。架空の病院の取り決め</span>）。</p>
       </div>
     </FullScreen>
   );

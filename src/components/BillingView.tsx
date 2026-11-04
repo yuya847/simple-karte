@@ -184,7 +184,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           ))}
         </div>
         {loading && <Loader2 size={14} className="animate-spin text-ink-faint" aria-label="計算中" />}
-        <p className="ml-auto text-[11px] text-ink-faint">
+        <p className="hint ml-auto text-[11px] text-ink-faint">
           点数は厚生労働省のマスターと支払基金の電子点数表からコードで計算しています（AI は使っていません）。
         </p>
       </div>
@@ -426,7 +426,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
               施設基準は架空の病院（届出は実在の一般病院の公開情報にならった想定）。入院日 {formatShort(firstDayOfMonth(patient.admittedOn))}。
             </p>
             {result.sources.map((s) => (
-              <p key={s}>出典：{s}</p>
+              <p key={s} className="hint">出典：{s}</p>
             ))}
           </div>
         )}

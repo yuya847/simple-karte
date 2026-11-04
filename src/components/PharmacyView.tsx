@@ -600,7 +600,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
             </button>
           ))}
         </span>
-        {which === "tomorrow" ? `明日（${formatShort(addDays(today, dayNow + 1))}）` : `今日（${formatShort(addDays(today, dayNow))}、時刻の過ぎた回も）`}の注射を、患者ごと・1回ごとに並べます（オーダからコードで計算。持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
+        {which === "tomorrow" ? `明日（${formatShort(addDays(today, dayNow + 1))}）` : `今日（${formatShort(addDays(today, dayNow))}、時刻の過ぎた回も）`}の注射を、患者ごと・1回ごとに並べます（<span className="hint">オーダからコードで計算。</span>持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
       </p>
       <div className={`${card} flex flex-wrap items-center gap-2 p-3 text-[13px]`}>
         <b>鑑査</b>

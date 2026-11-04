@@ -71,10 +71,13 @@ export function AccessLog() {
         </button>
       </div>
       <p className="mb-2 text-[11px] text-ink-faint">
-        カルテと受診の画面を開いた記録だけを並べます。閲覧制限の患者は薄い紫、担当チームのほかの人が理由を残して開いたものは太字です。書き出したことも監査ログに残ります。根拠：
-        <a href={LIMIT_SOURCES.log.url} target="_blank" rel="noreferrer" className="text-ai underline-offset-2 hover:underline">
-          {LIMIT_SOURCES.log.label}
-        </a>
+        カルテと受診の画面を開いた記録だけを並べます。閲覧制限の患者は薄い紫、担当チームのほかの人が理由を残して開いたものは太字です。書き出したことも監査ログに残ります。
+        <span className="hint">
+          根拠：
+          <a href={LIMIT_SOURCES.log.url} target="_blank" rel="noreferrer" className="text-ai underline-offset-2 hover:underline">
+            {LIMIT_SOURCES.log.label}
+          </a>
+        </span>
       </p>
       {rows.length === 0 ? (
         <p className="text-ink-faint">当てはまる記録はありません。患者のカルテを開くと、ここに残ります。</p>

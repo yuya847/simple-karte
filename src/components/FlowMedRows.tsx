@@ -70,7 +70,8 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom, onC
       ))}
       {timings.length > 0 && (
         <p className="pl-[76px] pt-0.5 text-[10px] text-ink-faint">
-          与薬の記録から：済＝実施、不可＝未実施、未＝時刻を過ぎて記録がまだ、・＝予定、中止＝その日に中止したオーダ。この画面を開く前の分は前の勤務帯が記録したものとして扱います（架空）。時刻は朝 {WARD_RULES.medTimes.朝}・昼 {WARD_RULES.medTimes.昼}・夕 {WARD_RULES.medTimes.夕}・眠前 {WARD_RULES.medTimes.眠前}（架空の病院の取り決め）。
+          与薬の記録から：済＝実施、不可＝未実施、未＝時刻を過ぎて記録がまだ、・＝予定、中止＝その日に中止したオーダ。
+          <span className="hint">この画面を開く前の分は前の勤務帯が記録したものとして扱います（架空）。時刻は朝 {WARD_RULES.medTimes.朝}・昼 {WARD_RULES.medTimes.昼}・夕 {WARD_RULES.medTimes.夕}・眠前 {WARD_RULES.medTimes.眠前}（架空の病院の取り決め）。</span>
         </p>
       )}
     </>

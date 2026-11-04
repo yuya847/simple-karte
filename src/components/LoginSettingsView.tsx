@@ -38,7 +38,9 @@ export function LoginSettingsView({ settings, onChange, users }: { settings: Log
           <li>パスワードは人ごとに、この端末で初めてログインするときに決めます（{PASSWORD_RULE.min}文字以上、英字と数字を混ぜる。二要素認証がないため）。リポジトリにも保存先（Supabase）にもパスワードは入らず、この端末のブラウザに元に戻せない形（ソルトつきの PBKDF2-SHA256 のハッシュ）でだけ残ります。</li>
           <li>
             {LOCK_RULE.tries}回続けて違うと{LOCK_RULE.minutes}分ログインできません。ログイン・失敗・ログアウト・画面ロックは監査ログに残ります。
-            <Fictional text="回数と分は架空の病院の取り決め" />
+            <span className="hint">
+              <Fictional text="回数と分は架空の病院の取り決め" />
+            </span>
           </li>
           <li>二要素認証（パスワードともう一つ）はありません。実際の電子カルテでは、令和9年度に向けて二要素認証が求められます（ガイドライン システム運用編 14 ⑤）。</li>
           <li>実際の運用でサーバーの認証（Supabase Auth など）につなぐときの手順は README の「ログインの仕組み」にあります（この試作では切ったままです）。</li>

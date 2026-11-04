@@ -243,7 +243,7 @@ function Form({
           </tbody>
         </table>
         {plan.other.length > 0 && <p className="mt-1 text-[11px] text-ink-faint">この画面で入れない項目：{plan.other.map((o) => `${o.name}（${o.why}）`).join("、")}</p>}
-        <p className="mt-1 text-[11px] text-ink-faint">H／L は基準範囲（JCCLS 共用基準範囲 2022・SRL 総合検査案内）との比較、パニック値はこの架空の病院の値で、どちらもコードが判定します。前回値は見比べるために並べるだけです。</p>
+        <p className="hint mt-1 text-[11px] text-ink-faint">H／L は基準範囲（JCCLS 共用基準範囲 2022・SRL 総合検査案内）との比較、パニック値はこの架空の病院の値で、どちらもコードが判定します。前回値は見比べるために並べるだけです。</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {check.panic.length > 0 && <b className="text-shu">パニック値：{panicLine}。確定すると「結果とパニック値」で医師への連絡に進みます。</b>}
           <span className="ml-auto text-ink-soft">

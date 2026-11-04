@@ -75,7 +75,7 @@ export function NarcoticSlips({ people, records, book, onBook, today, nowTime, n
           ))}
         </div>
 
-        <p className="text-[11px] text-ink-faint">
+        <p className="hint text-[11px] text-ink-faint">
           出典：
           <a href={NARCOTIC_SOURCES.manual.url} target="_blank" rel="noreferrer" className="underline">
             {NARCOTIC_SOURCES.manual.label}

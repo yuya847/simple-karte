@@ -101,7 +101,7 @@ export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }:
         </div>
       )}
       {saved === false && <p className="mt-1 text-[11px] text-yamabuki">この端末に保存できませんでした（ブラウザの設定）。ページを閉じるまでは使えます。</p>}
-      <p className="mt-2 text-[10px] text-ink-faint">
+      <p className="hint mt-2 text-[10px] text-ink-faint">
         根拠：
         {PHRASE_SOURCES.map((s) => (
           <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
