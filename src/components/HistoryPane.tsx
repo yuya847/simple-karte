@@ -22,6 +22,8 @@ import type { DietOrder } from "@/lib/diet";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import type { StandingLine } from "@/lib/standing-lines";
 import { StandingCalendar } from "./StandingCalendar";
+import type { TakeBadge } from "@/lib/order-confirm";
+import { TakeBadgeMark } from "./TakeConfirm";
 
 /** The ward's 実施・未実施 record of a dose (order id, minutes from today 00:00). */
 type CalendarMar = (orderId: string, at: number) => { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } | undefined;
@@ -86,6 +88,8 @@ interface Props {
   flow?: FlowExtra;
   /** 指示簿カレンダー: the lines (free text and from the fields), stopping one, and opening the 指示簿 panel. */
   standingCal?: { lines: StandingLine[]; onStop?: (id: string, reason: string) => void; onOpenPanel?: () => void };
+  /** 指示受けの状態 of an order (未指示受け／受け ◯◯ hh:mm／確認済み／医師に確認中), shown on each order; null when nothing waits. */
+  takeBadgeOf?: (entryId: string) => TakeBadge | null;
 }
 
 /** Flow sheet props that the chart passes through this pane as they are. */
@@ -110,7 +114,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
 
 /** Left pane: what to read while writing on the right — the past record, flow sheet, or the calendars. */
 export function HistoryPane(props: Props) {
-  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal } = props;
+  const { patient, today, nowTime, selectedDay, onSelectDay, view, onView, showStopped, onToggleStopped, entries, onStopDraft, draftedStops, onReviseNote, onInsertVitals, onExtendDraft, onModify, pendingExtends, marOf, onDo, diets, onOpenDiet, onOpenImage, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, onOpenResult, standingCal, takeBadgeOf } = props;
   const calendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf };
   // A 記録 mark of the flow sheet opens 経過 on that day with only that kind of note (n renews the list).
   const [recordKind, setRecordKind] = useState<{ kind: string; n: number }>({ kind: "all", n: 0 });
@@ -159,7 +163,7 @@ export function HistoryPane(props: Props) {
       ) : view === "standing-cal" ? (
         <StandingCalendar patient={patient} lines={standingCal?.lines ?? []} today={today} nowTime={nowTime} onStop={standingCal?.onStop} onOpenPanel={standingCal?.onOpenPanel} />
       ) : (
-        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} />
+        <RecordList key={recordKind.n} kindInit={recordKind.kind} patient={patient} entries={entries} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} />
       )}
     </section>
   );
@@ -194,6 +198,7 @@ function RecordList({
   onDo,
   onOpenImage,
   onOpenResult,
+  takeBadgeOf,
 }: {
   kindInit?: string;
   patient: Patient;
@@ -205,6 +210,7 @@ function RecordList({
   onDo?: (p: DoPayload) => void;
   onOpenImage?: (entryId: string) => void;
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
+  takeBadgeOf?: Props["takeBadgeOf"];
 }) {
   const root = useRef<HTMLDivElement>(null);
   // A draw's result is filed under the collection time (the same as the printed label).
@@ -309,7 +315,7 @@ function RecordList({
               {items.length === 0 ? null : (
                 <ol className="space-y-2">
                   {items.map((e, i) => (
-                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} />}</li>
+                    <li key={`${d}-${i}`}>{e.kind === "note" ? <Note entry={e} today={today} onRevise={onReviseNote} onDo={onDo} /> : <OrderRow entry={e} today={today} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} />}</li>
                   ))}
                 </ol>
               )}
@@ -612,7 +618,7 @@ function labItems(codes: string[]): string[] {
   });
 }
 
-function OrderRow({ entry, today, onDo, onOpenImage, onOpenResult }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void }) {
+function OrderRow({ entry, today, onDo, onOpenImage, onOpenResult, takeBadge }: { entry: OrderEntry; today: CalendarDate; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null }) {
   const { main, detail } = orderLines(entry.order, today);
   const stopped = entry.status === "中止";
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -636,6 +642,7 @@ function OrderRow({ entry, today, onDo, onOpenImage, onOpenResult }: { entry: Or
         <span>{entry.time}</span>
         <span className="font-bold text-ink-soft">{ORDER_TYPE_LABEL[entry.order.type]}</span>
         <CosignMark refId={entry.id} />
+        {takeBadge && <TakeBadgeMark badge={takeBadge} />}
         <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
           {entry.status}
           {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
