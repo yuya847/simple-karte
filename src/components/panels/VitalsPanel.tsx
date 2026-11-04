@@ -1,5 +1,6 @@
 "use client";
 
+import { focusNextOnEnter } from "@/lib/next-field";
 import { Mic, Square } from "lucide-react";
 import { useState } from "react";
 import { ACVPU_LABEL, news2, type Acvpu } from "@/lib/news2";
@@ -152,7 +153,7 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
   const input = "w-16 rounded border border-rule bg-paper px-1.5 py-1 text-right text-[13px] outline-none focus:border-ai";
   const filled = Object.values({ ...f, o2: "" }).some((x) => x !== "");
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="space-y-3 text-[13px]" onKeyDown={focusNextOnEnter}>
       <div className="flex gap-2">
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="例：38度2分、脈104、98の60、呼吸24、93%、鼻カニュラ2L、清明" className="flex-1 rounded border border-rule bg-paper px-2 py-1.5 outline-none focus:border-ai" />
         {speech.supported && (
@@ -178,7 +179,7 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
         ).map(([k, l]) => (
           <label key={k} className="flex flex-col gap-0.5">
             {l}
-            <input value={f[k]} onChange={set(k)} inputMode="decimal" className={input} />
+            <input value={f[k]} onChange={set(k)} inputMode="decimal" enterKeyHint="next" className={input} />
           </label>
         ))}
         <label className="col-span-2 flex flex-col gap-0.5">

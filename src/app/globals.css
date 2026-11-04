@@ -139,6 +139,15 @@ html:not([data-hints="on"]) .hint {
 .standalone-edge {
   display: none;
 }
+/* iPad・iPhone: Safari が 16px 未満の入力欄にフォーカスすると画面を拡大して欄を中央に寄せるので、指で使う端末では入力欄の文字を 16px にする。 */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @media (display-mode: standalone) {
   .standalone-edge {
     display: block;
