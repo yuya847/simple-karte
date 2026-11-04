@@ -228,7 +228,7 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
             <th className="py-1 pr-2 font-normal">容器</th>
             <th className="py-1 pr-2 font-normal">ラベル</th>
             <th className="py-1 pr-2 font-normal">状態</th>
-            <th className="py-1 font-normal" />
+            <th className="w-14 py-1 font-normal" />
           </tr>
         </thead>
         <tbody>
@@ -259,9 +259,9 @@ function Receive({ rows, people, nowAbs, onDesk }: { rows: DrawRow[]; people: Wo
                 {r.status}
                 <span className="block text-[10px] font-normal text-ink-soft">{statusNote(r, nowAbs)}</span>
               </td>
-              <td className="py-1 text-right">
+              <td className="whitespace-nowrap py-1 text-right">
                 {!deny && (r.status === "採取済み" || r.status === "未採取") && (
-                  <button type="button" onClick={() => read(r.code)} className="rounded border border-ai px-1.5 text-[11px] text-ai hover:bg-ai hover:text-white" title="デモ：この検体のラベルを読む">
+                  <button type="button" onClick={() => read(r.code)} className="whitespace-nowrap rounded border border-ai px-1.5 text-[11px] text-ai hover:bg-ai hover:text-white" title="デモ：この検体のラベルを読む">
                     読む
                   </button>
                 )}
