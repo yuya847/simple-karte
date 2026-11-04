@@ -131,6 +131,7 @@ import { DialysisView } from "./DialysisView";
 import { SurgeryView } from "./SurgeryView";
 import { initialSurgeries, type Surgery } from "@/lib/surgery";
 import type { FlowEvent } from "@/lib/flow-days";
+import { dayTime, ioTimeFor, untakenOf, type FlowEntry } from "@/lib/flow-entry";
 import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
 import { b008Check, draftsFromReport, queryOpen, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, otherChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
@@ -141,6 +142,7 @@ import { latestValue } from "@/lib/clinical";
 import { ConsentPanel } from "./panels/ConsentPanel";
 import { VitalsPanel } from "./panels/VitalsPanel";
 import { IoPanel } from "./IoPanel";
+import { FlowEntryPanel } from "./FlowEntryPanel";
 import { IoBoard } from "./IoBoard";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
@@ -167,7 +169,7 @@ import { handoffKey, type Handoff } from "@/lib/handoff";
 import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
-import { overdue, type AdminRecord, type VoidedRecord } from "@/lib/mar";
+import { overdue, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
 import { clockText, dripAction, endText } from "@/lib/drip-course";
 import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
@@ -332,6 +334,8 @@ export default function WardApp() {
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [panel, setPanel] = useState<PanelKind | null>(null);
+  // What a pressed cell of the flow sheet asked for (the time for バイタル・水分出納, the rows for the others).
+  const [flowReq, setFlowReq] = useState<FlowEntry | null>(null);
   // Who is using the chart. The demo picks a role instead of logging in.
   const [role, setRole] = useState<Role>("医師");
   // Inside 医師, the person too (研修医・専攻医・指導医・ほかのチームの医師; all fictional).
@@ -608,7 +612,8 @@ export default function WardApp() {
         const diet = dietAt(diets, p.id, next.day, next.meal);
         return {
           ...p,
-          vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])],
+          // In time order: a measurement may be entered later with its own time (from the flow sheet).
+          vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
           history: [...p.history, ...(demoLabs[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
@@ -742,7 +747,10 @@ export default function WardApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const closePanel = useCallback(() => setPanel(null), []);
+  const closePanel = useCallback(() => {
+    setPanel(null);
+    setFlowReq(null);
+  }, []);
   // Put the cursor in the first drug search of 注射 / 内服 when that tab is shown (keyboard use).
   const focusRightTab = (t: string) =>
     requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-right-tab="${t}"] input[role=combobox]`)?.focus());
@@ -1394,6 +1402,53 @@ export default function WardApp() {
   // 指示受け rows of the ward (for the doctor's view, the handoff and the todo).
   const allTakeRows = takeRows([...orderChanges(people, -1440, abs(0, nowTime)), ...others], people, today);
   const isRowTaken = (r: TakeRow) => r.keys.every((k) => !sessionKeys.has(k) || !!taken[k]);
+  // 看護ケアの記録・与薬の記録・指示受け: the worksheet and the cells of the flow sheet record through these.
+  const recordCare = (r: CareRecord) => {
+    const o = careOrders.find((x) => x.id === r.orderId);
+    auditLog({ role: me.role, actor: me.name, action: r.status === "実施" ? "確定（看護ケアの実施）" : "確定（看護ケアの未実施）", patient: findPatient(r.patientId)?.name, detail: `${o?.item ?? r.orderId}　${r.doneAt}${r.value ? `　${r.value}${o?.unit ?? ""}` : ""}${r.reason ? `　${r.reason}` : ""}` });
+    setCareRecords((all) => [...all, r]);
+  };
+  const voidCareRecord = (r: CareRecord, reason: string) => {
+    auditLog({ role: me.role, actor: me.name, action: `看護ケアの${r.status}の記録を取り消した`, patient: findPatient(r.patientId)?.name, detail: `${careOrders.find((x) => x.id === r.orderId)?.item ?? r.orderId}　${r.doneAt} ${r.by} の記録　理由：${reason}` });
+    setCareRecords((all) => voidCare(all, r.key, me.name, nowTime, reason));
+  };
+  const takeOrders = (keys: string[], second?: string) => {
+    // Who took which change, and when (shown on the worksheet and in the audit log).
+    const what = [...orderChanges(people, -1440, abs(0, nowTime)), ...others]
+      .filter((c) => keys.includes(c.key))
+      .map((c) => `${c.name}：${c.kind} ${"entry" in c ? orderLines(c.entry.order, today).main : c.text.main}`);
+    auditLog({ role: me.role, actor: me.name, action: second ? "指示受け（2人で確認）" : "指示受け", detail: `${keys.length}件　${what.join("／")}${second ? `　2人目：${second}` : ""}`.slice(0, 400) });
+    setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, `${nowTime} ${me.name}${second ? `・確認 ${second}` : ""}`])) }));
+  };
+  const holdOrder = (key: string, reason: TakeHold["reason"], note: string) => {
+    const r = allTakeRows.find((x) => x.key === key);
+    auditLog({ role: me.role, actor: me.name, action: "指示受けを保留して医師に確認", patient: r?.name, detail: `${r?.main ?? key}　${reason}${note ? `：${note}` : ""}` });
+    setTakeHolds((all) => ({ ...all, [key]: { by: me.name, at: nowTime, reason, note } }));
+  };
+  const recordMar = (r: AdminRecord) => {
+    const who = findPatient(r.patientId);
+    const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
+    // 点滴 (2回実施): the 開始, the 終了 with what went in, or the 終了 taken back.
+    const drip = dripAction(r, mar[r.key]);
+    auditLog({
+      role: "看護師",
+      actor: drip ? me.name : r.by,
+      action: drip ?? (r.status === "実施" ? "確定（実施）" : "確定（未実施）"),
+      patient: who?.name,
+      detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.status === "実施" ? `リストバンド${r.checked.patient ? "一致" : "—"}${r.checked.label === null ? "" : `・ラベル${r.checked.label ? "一致" : "—"}`}${r.offBy !== undefined ? `・予定より${Math.abs(r.offBy)}分${r.offBy > 0 ? "遅れ" : "早め"}` : ""}` : r.reason}${r.end ? `　${endText(r)}` : ""}`,
+    });
+    setMar((all) => ({ ...all, [r.key]: r }));
+  };
+  const voidMar = (r: AdminRecord, reason: VoidReason) => {
+    const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
+    auditLog({ role: me.role, actor: me.name, action: `${r.status}の記録を取り消した`, patient: findPatient(r.patientId)?.name, detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.doneAt} ${r.by} の記録　理由：${reason}` });
+    setMarVoided((all) => ({ ...all, [r.key]: [...(all[r.key] ?? []), { record: r, by: me.name, at: nowTime, reason }] }));
+    setMar((all) => {
+      const next = { ...all };
+      delete next[r.key];
+      return next;
+    });
+  };
   // A nurse's question answered by the doctor: back to the nurse to take it.
   if (role === "看護師")
     for (const r of allTakeRows) {
@@ -1802,15 +1857,8 @@ export default function WardApp() {
             orders: careOrders,
             records: careRecords,
             plans: nursingPlans,
-            onRecord: (r) => {
-              const o = careOrders.find((x) => x.id === r.orderId);
-              auditLog({ role: me.role, actor: me.name, action: r.status === "実施" ? "確定（看護ケアの実施）" : "確定（看護ケアの未実施）", patient: findPatient(r.patientId)?.name, detail: `${o?.item ?? r.orderId}　${r.doneAt}${r.value ? `　${r.value}${o?.unit ?? ""}` : ""}${r.reason ? `　${r.reason}` : ""}` });
-              setCareRecords((all) => [...all, r]);
-            },
-            onVoid: (r, reason) => {
-              auditLog({ role: me.role, actor: me.name, action: `看護ケアの${r.status}の記録を取り消した`, patient: findPatient(r.patientId)?.name, detail: `${careOrders.find((x) => x.id === r.orderId)?.item ?? r.orderId}　${r.doneAt} ${r.by} の記録　理由：${reason}` });
-              setCareRecords((all) => voidCare(all, r.key, me.name, nowTime, reason));
-            },
+            onRecord: recordCare,
+            onVoid: voidCareRecord,
           }}
           queried={Object.fromEntries(queries.filter((q) => queryOpen(q, people.find((x) => x.patient.id === q.patientId)?.entries ?? [])).map((q) => [q.orderId, q.question]))}
           // 指示簿の頓用: the latest version a nurse has taken (指示受け); a newer one waits for 指示受け.
@@ -1820,48 +1868,15 @@ export default function WardApp() {
           })}
           taken={taken}
           sessionKeys={sessionKeys}
-          onTake={(keys, second) => {
-            // Who took which change, and when (shown on the worksheet and in the audit log).
-            const what = [...orderChanges(people, -1440, abs(0, nowTime)), ...others]
-              .filter((c) => keys.includes(c.key))
-              .map((c) => `${c.name}：${c.kind} ${"entry" in c ? orderLines(c.entry.order, today).main : c.text.main}`);
-            auditLog({ role: me.role, actor: me.name, action: second ? "指示受け（2人で確認）" : "指示受け", detail: `${keys.length}件　${what.join("／")}${second ? `　2人目：${second}` : ""}`.slice(0, 400) });
-            setTaken((t) => ({ ...t, ...Object.fromEntries(keys.map((k) => [k, `${nowTime} ${me.name}${second ? `・確認 ${second}` : ""}`])) }));
-          }}
+          onTake={takeOrders}
           holds={takeHolds}
-          onHold={(key, reason, note) => {
-            const r = allTakeRows.find((x) => x.key === key);
-            auditLog({ role: me.role, actor: me.name, action: "指示受けを保留して医師に確認", patient: r?.name, detail: `${r?.main ?? key}　${reason}${note ? `：${note}` : ""}` });
-            setTakeHolds((all) => ({ ...all, [key]: { by: me.name, at: nowTime, reason, note } }));
-          }}
+          onHold={holdOrder}
           nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]}
           records={mar}
           sessionStart={sessionStart ?? abs(0, nowTime)}
-          onRecord={(r) => {
-            const who = findPatient(r.patientId);
-            const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
-            // 点滴 (2回実施): the 開始, the 終了 with what went in, or the 終了 taken back.
-            const drip = dripAction(r, mar[r.key]);
-            auditLog({
-              role: "看護師",
-              actor: drip ? me.name : r.by,
-              action: drip ?? (r.status === "実施" ? "確定（実施）" : "確定（未実施）"),
-              patient: who?.name,
-              detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.status === "実施" ? `リストバンド${r.checked.patient ? "一致" : "—"}${r.checked.label === null ? "" : `・ラベル${r.checked.label ? "一致" : "—"}`}${r.offBy !== undefined ? `・予定より${Math.abs(r.offBy)}分${r.offBy > 0 ? "遅れ" : "早め"}` : ""}` : r.reason}${r.end ? `　${endText(r)}` : ""}`,
-            });
-            setMar((all) => ({ ...all, [r.key]: r }));
-          }}
+          onRecord={recordMar}
           voided={marVoided}
-          onVoid={(r, reason) => {
-            const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
-            auditLog({ role: me.role, actor: me.name, action: `${r.status}の記録を取り消した`, patient: findPatient(r.patientId)?.name, detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.doneAt} ${r.by} の記録　理由：${reason}` });
-            setMarVoided((all) => ({ ...all, [r.key]: [...(all[r.key] ?? []), { record: r, by: me.name, at: nowTime, reason }] }));
-            setMar((all) => {
-              const next = { ...all };
-              delete next[r.key];
-              return next;
-            });
-          }}
+          onVoid={voidMar}
         />
       ) : screen === "audit" ? (
         <AuditView />
@@ -2204,6 +2219,12 @@ export default function WardApp() {
                   ? {
                       pendingLabs: pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime)),
                       mar: { records: mar, sessionStart: sessionStart ?? abs(0, nowTime) },
+                      // セルから入力: the same entries as the worksheet and the tools (the drawer checks the role again).
+                      onEntry: (req) => {
+                        setFlowReq(req);
+                        setPanel(req.kind === "vitals" ? "vitals" : req.kind === "io" ? "io" : "flow-entry");
+                      },
+                      untaken: untakenOf(allTakeRows.filter((r) => r.patientId === patient.id && !isRowTaken(r) && r.keys.some((k) => sessionKeys.has(k))).flatMap((r) => r.keys)),
                       onWriteNote: deny("note")
                         ? undefined
                         : () => {
@@ -2539,6 +2560,9 @@ export default function WardApp() {
               {panel === "vitals" && (
                 <Drawer title="バイタル（看護師が入れる）" onClose={closePanel} locked={deny("vitals")}>
                   <VitalsPanel
+                    key={flowReq?.kind === "vitals" ? flowReq.at : "now"}
+                    defaultAt={flowReq?.kind === "vitals" ? dayTime(flowReq.at) : undefined}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
                     nowTime={nowTime}
                     last={patient.vitals.at(-1)}
                     today={patient.daily.find((d) => d.day === 0)}
@@ -2559,6 +2583,8 @@ export default function WardApp() {
               {panel === "io" && (
                 <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
                   <IoPanel
+                    key={flowReq?.kind === "io" ? flowReq.at : "now"}
+                    defaultTime={flowReq?.kind === "io" ? ioTimeFor(flowReq.at, abs(0, nowTime)) : undefined}
                     patientId={patient.id}
                     entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                     typed={io.filter((e) => e.patientId === patient.id)}
@@ -2571,6 +2597,29 @@ export default function WardApp() {
                     onAdd={addIo}
                     onVoid={voidIo}
                     newId={newId}
+                  />
+                </Drawer>
+              )}
+              {panel === "flow-entry" && flowReq && flowReq.kind !== "vitals" && flowReq.kind !== "io" && (
+                <Drawer title={flowReq.kind === "care" ? "看護ケア・観察の記録" : flowReq.kind === "mar" ? "与薬・実施の記録" : "指示受け"} onClose={closePanel} wide locked={deny("mar")}>
+                  <FlowEntryPanel
+                    req={flowReq}
+                    person={people.find((x) => x.patient.id === patient.id) ?? { patient, room: patient.room, entries: entries.filter((e): e is OrderEntry => e.kind === "order") }}
+                    today={today}
+                    nowTime={nowTime}
+                    sessionStart={sessionStart ?? abs(0, nowTime)}
+                    interactive={!deny("mar")}
+                    care={{ orders: careOrders, records: careRecords, plans: nursingPlans, onRecord: recordCare, onVoid: voidCareRecord }}
+                    mar={{ records: mar, voided: marVoided, queried: Object.fromEntries(queries.filter((q) => q.patientId === patient.id && queryOpen(q, entries.filter((e): e is OrderEntry => e.kind === "order"))).map((q) => [q.orderId, q.question])), onRecord: recordMar, onVoid: voidMar }}
+                    take={{
+                      rows: allTakeRows.filter((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k))),
+                      taken,
+                      isTaken: isRowTaken,
+                      holds: takeHolds,
+                      nurses: [...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])],
+                      onTake: takeOrders,
+                      onHold: holdOrder,
+                    }}
                   />
                 </Drawer>
               )}
@@ -3049,6 +3098,7 @@ export default function WardApp() {
                 } else if (p === null && !panel) update({ rightTab: "note" });
                 else {
                   if (p === "imaging") setImageFocus(null);
+                  setFlowReq(null);
                   setPanel(p);
                 }
               }}

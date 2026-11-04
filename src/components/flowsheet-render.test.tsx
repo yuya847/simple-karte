@@ -7,6 +7,9 @@ import { PATIENTS } from "@/lib/patients";
 import { DEFAULT_LAYOUT, saveSet, toggleCollapsed } from "@/lib/flow-layout";
 import { FlowGroup, FlowLayoutPanel } from "./FlowLayoutPanel";
 import { FlowSheet } from "./FlowSheet";
+import { FlowEntryPanel } from "./FlowEntryPanel";
+import { VitalsPanel } from "./panels/VitalsPanel";
+import type { OrderEntry } from "@/lib/types";
 
 const today = { y: 2026, m: 11, d: 4 };
 const render = (id: string, extra: Partial<Parameters<typeof FlowSheet>[0]> = {}) => {
@@ -82,6 +85,40 @@ describe("経過表の画面", () => {
     );
     expect(folded).toContain("たたんでいます");
     expect(folded).not.toContain("中身");
+  });
+
+  it("cells open entries: pressable cells and 未受 for orders not yet taken", () => {
+    const care = { orders: INITIAL_CARE_ORDERS.filter((o) => o.patientId === "90010231"), records: initialCareRecords(), sessionStart: 540 };
+    const sakura = PATIENTS.find((x) => x.id === "90010231")!;
+    const inj = sakura.history.find((e) => e.kind === "order" && e.order.type === "injection")!;
+    const html = render("90010231", { care, onEntry: () => {}, untaken: [inj.kind === "order" ? inj.id : ""], mar: { records: {}, sessionStart: 540 } });
+    expect(html).toContain("未受");
+    expect(html).toContain("指示受けがまだのオーダ 1件");
+    expect(html).toContain("指示受けを開く");
+    expect(html).toMatch(/<button[^>]*>済<\/button>/);
+    // Without onEntry the cells are only read.
+    expect(render("90010231", { care })).not.toMatch(/<button[^>]*>済<\/button>/);
+  });
+
+  it("the entry drawer: the care record, the doses with the check, 指示受け", () => {
+    const sakura = PATIENTS.find((x) => x.id === "90010231")!;
+    const person = { patient: sakura, room: "512A", entries: sakura.history.filter((e): e is OrderEntry => e.kind === "order") };
+    const base = { person, today, nowTime: "10:00", sessionStart: 300, interactive: true, care: { orders: INITIAL_CARE_ORDERS, records: initialCareRecords(), plans: [], onRecord: () => {}, onVoid: () => {} }, mar: { records: {}, voided: {}, queried: {}, onRecord: () => {}, onVoid: () => {} }, take: { rows: [], taken: {}, isTaken: () => false, holds: {}, nurses: [], onTake: () => {}, onHold: () => {} } };
+    const careHtml = renderToStaticMarkup(<FlowEntryPanel {...base} req={{ kind: "care", item: "清拭", lo: -1440, hi: 0 }} />);
+    expect(careHtml).toContain("清拭");
+    const amlo = person.entries.find((e) => e.id === "sakura-amlo")!;
+    const marHtml = renderToStaticMarkup(<FlowEntryPanel {...base} req={{ kind: "mar", orderIds: [amlo.id], lo: 480, hi: 481, label: "今日 朝（08:00）の内服" }} />);
+    expect(marHtml).toContain("今日 朝（08:00）の内服");
+    expect(marHtml).toContain("アムロジピン");
+    expect(renderToStaticMarkup(<FlowEntryPanel {...base} req={{ kind: "take", orderIds: [] }} />)).toContain("受けていない指示はありません");
+  });
+
+  it("the vitals entry opens with the cell's time; without one it is now", () => {
+    const at = renderToStaticMarkup(<VitalsPanel nowTime="10:00" onSave={() => {}} defaultAt={{ day: -1, time: "14:20" }} fmtDay={() => "11/3（火）"} />);
+    expect(at).toContain("測った時刻");
+    expect(at).toContain("14:20");
+    expect(at).toContain("確定（11/3（火） 14:20）");
+    expect(renderToStaticMarkup(<VitalsPanel nowTime="10:00" onSave={() => {}} />)).toContain("確定（10:00）");
   });
 
   it("dates: 病日, 術後日数, 移動 and a counted day", () => {

@@ -23,7 +23,8 @@ export interface FlowZoom {
  * 不可, 未) or what was seen; days ahead show a dot with how many times. A line marks now. Zoomed in, each
  * task sits at its time instead.
  */
-export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs, sessionStart, zoom, shown = () => true }: { orders: CareOrder[]; records: CareRecord[]; days: DayOffset[]; box: DayBox; labelW: number; nowX: number | null; nowAbs: number; sessionStart: number; zoom?: FlowZoom; shown?: (item: string) => boolean }) {
+export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs, sessionStart, zoom, shown = () => true, onCell }: { orders: CareOrder[]; records: CareRecord[]; days: DayOffset[]; box: DayBox; labelW: number; nowX: number | null; nowAbs: number; sessionStart: number; zoom?: FlowZoom; shown?: (item: string) => boolean; onCell?: (e: React.MouseEvent, item: string, day: DayOffset, at: number | null) => void }) {
+  const Cell = onCell ? "button" : "span";
   const rows = (zoom ? careFlowMarks(orders, records, zoom.lo, zoom.hi, nowAbs, sessionStart) : careFlowRows(orders, records, days, nowAbs, sessionStart)).filter((r) => shown(r.label));
   return (
     <>
@@ -43,9 +44,9 @@ export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs,
             {nowX !== null && <span className="absolute inset-y-0 w-px bg-ink-faint/60" style={{ left: nowX }} aria-hidden />}
             {"marks" in r && zoom
               ? r.marks.map((m) => (
-                  <span key={`${m.orderId}-${m.at}`} title={m.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${TONE[m.tone]}`} style={{ left: zoom.xAbs(m.at) }}>
+                  <Cell key={`${m.orderId}-${m.at}`} type={onCell ? "button" : undefined} onClick={onCell ? (e: React.MouseEvent) => onCell(e, r.label, Math.floor(m.at / 1440), m.at) : undefined} title={m.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[m.tone]}`} style={{ left: zoom.xAbs(m.at) }}>
                     {m.text}
-                  </span>
+                  </Cell>
                 ))
               : "cells" in r &&
                 days.map((d) => {
@@ -53,9 +54,9 @@ export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs,
                   if (!c) return null;
                   const b = box(d);
                   return (
-                    <span key={d} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
+                    <Cell key={d} type={onCell ? "button" : undefined} onClick={onCell ? (e: React.MouseEvent) => onCell(e, r.label, d, null) : undefined} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
                       {c.text}
-                    </span>
+                    </Cell>
                   );
                 })}
           </div>

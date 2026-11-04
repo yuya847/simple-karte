@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ACVPU_LABEL, news2, type Acvpu } from "@/lib/news2";
 import { useSpeech } from "@/lib/use-speech";
 import type { DailyRecord, VitalSign } from "@/lib/types";
+import { minutesOf } from "@/lib/dates";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { useMe } from "../RoleContext";
 
@@ -29,6 +30,10 @@ interface Props {
   onDaily?: (d: DailyInput) => void;
   /** Open 水分出納, where urine and the other IN/OUT are typed with their time. */
   onOpenIo?: () => void;
+  /** The time the measurement was taken, when opened from a cell of the flow sheet (else now). */
+  defaultAt?: { day: number; time: string };
+  /** "11/3（火）" for a day offset. */
+  fmtDay?: (d: number) => string;
 }
 
 const MEAL_SLOTS = ["朝", "昼", "夕"] as const;
@@ -113,9 +118,13 @@ const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 const RISK_STYLE = { 低: "bg-wakatake-soft text-wakatake", "低〜中": "bg-yamabuki-soft text-yamabuki", 中: "bg-yamabuki-soft text-yamabuki", 高: "bg-shu-soft text-shu" } as const;
 
 /** Vital signs entry (typed or spoken). Claude copies the numbers; NEWS2 is code; the nurse confirms. */
-export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo }: Props) {
+export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo, defaultAt, fmtDay }: Props) {
   const me = useMe();
   const [f, setF] = useState<Form>(empty);
+  // 測った時刻: now, or the time of the flow sheet's cell (it can be changed, not later than now).
+  const [when, setWhen] = useState<{ day: number; time: string } | null>(defaultAt ?? null);
+  const whenOk = !when || (/^([01]\d|2[0-3]):[0-5]\d$/.test(when.time) && when.day * 1440 + minutesOf(when.time) <= minutesOf(nowTime));
+  const at = when && whenOk ? when : { day: 0, time: nowTime };
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,17 +220,29 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
           前回 {last.time}：BT {last.bt} HR {last.hr} BP {last.sbp}/{last.dbp} RR {last.rr} SpO2 {last.spo2}%（{last.o2}）
         </p>
       )}
+      {when && (
+        <div className="nums flex flex-wrap items-center gap-2 rounded-md border border-ai/40 bg-ai-soft/40 px-2 py-1 text-xs text-ink-soft">
+          測った時刻
+          <span className="font-bold text-ink">{fmtDay ? fmtDay(when.day) : when.day === 0 ? "今日" : `${when.day}日`}</span>
+          <input value={when.time} onChange={(e) => setWhen({ ...when, time: e.target.value })} inputMode="numeric" aria-label="測った時刻" className="w-16 rounded border border-rule bg-paper px-1.5 py-0.5 text-right text-[13px]" />
+          <button type="button" onClick={() => setWhen(null)} className="rounded border border-rule px-1.5 py-0.5">
+            いまにする
+          </button>
+          {!whenOk && <span className="text-shu">「14:20」のように、いまより前の時刻を入れてください。</span>}
+        </div>
+      )}
       <button
         type="button"
-        disabled={!filled}
+        disabled={!filled || !whenOk}
         onClick={() => {
-          onSave({ day: 0, time: nowTime, ...v, by: me.name });
+          onSave({ day: at.day, time: at.time, ...v, by: me.name });
           setF(empty);
           setText("");
         }}
         className="w-full rounded-md bg-ai px-3 py-2 font-bold text-white disabled:opacity-40"
       >
-        確定（{nowTime}）
+        確定（{at.day === 0 ? "" : fmtDay ? `${fmtDay(at.day)} ` : ""}
+        {at.time}）
       </button>
       {onDaily && <DailyForm today={today} prevWeight={prevWeight} onDaily={onDaily} onOpenIo={onOpenIo} />}
     </div>

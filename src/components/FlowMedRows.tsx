@@ -4,7 +4,7 @@ import { WARD_RULES, findDrug } from "@/lib/master";
 import { abs } from "@/lib/flowsheet";
 import { glucoseDayCell, insulinDoses, medCell, oralSlots, timingsOf, type GlucosePoint, type MedCell } from "@/lib/flow-meds";
 import type { AdminRecord } from "@/lib/mar";
-import type { DayOffset, OrderEntry } from "@/lib/types";
+import type { DayOffset, DoseTiming, OrderEntry } from "@/lib/types";
 import type { FlowZoom } from "./CareFlowRows";
 import type { DayBox } from "./FlowDayRows";
 
@@ -15,14 +15,16 @@ export interface FlowMar {
   sessionStart: number;
 }
 
-function Line({ label, sub, labelW, children }: { label: string; sub?: string; labelW: number; children: React.ReactNode }) {
+function Line({ label, sub, labelW, children, onPlot }: { label: string; sub?: string; labelW: number; children: React.ReactNode; onPlot?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
   return (
     <div className="flex border-b border-rule-soft">
       <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: labelW }}>
         {label}
         {sub && <div className="text-[9px] text-ink-faint">{sub}</div>}
       </div>
-      <div className="relative min-h-6 flex-1">{children}</div>
+      <div className={`relative min-h-6 flex-1 ${onPlot ? "cursor-pointer hover:bg-ai-soft/30" : ""}`} onClick={onPlot}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -34,7 +36,9 @@ const inZoom = (z: FlowZoom, t: number) => t >= z.lo && t < z.hi;
  * 内服（定時の分）: one row per timing (朝・昼・夕・眠前), each day 済 / 不可 / 未 / 中止 from the 与薬の記録,
  * the drugs and who gave them on touch. Zoomed in, each timing sits at its clock time.
  */
-export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom }: { orders: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; zoom?: FlowZoom }) {
+export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom, onCell }: { orders: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; zoom?: FlowZoom; onCell?: (e: React.MouseEvent, timing: DoseTiming, day: DayOffset, at: number) => void }) {
+  const Cell = onCell ? "button" : "span";
+  const press = (t: DoseTiming, d: DayOffset, time: number) => (onCell ? { type: "button" as const, onClick: (e: React.MouseEvent) => onCell(e, t, d, time) } : {});
   const timings = timingsOf(orders);
   return (
     <>
@@ -53,13 +57,13 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom }: {
             if (!c) return null;
             const b = box(d);
             return zoom ? (
-              <span key={d} title={c.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${TONE[c.tone]}`} style={at(zoom.xAbs(time))}>
+              <Cell key={d} {...press(t, d, time)} title={c.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[c.tone]}`} style={at(zoom.xAbs(time))}>
                 {c.text}
-              </span>
+              </Cell>
             ) : (
-              <span key={d} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
+              <Cell key={d} {...press(t, d, time)} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
                 {c.text}
-              </span>
+              </Cell>
             );
           })}
         </Line>
@@ -74,11 +78,11 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom }: {
 }
 
 /** 血糖 (the values of each day, or each at its time when zoomed in) and one row per insulin order with its doses. */
-export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi, zoom }: { points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number; zoom?: FlowZoom }) {
+export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi, zoom, onGlucose }: { points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number; zoom?: FlowZoom; onGlucose?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
   if (!points.length && !insulin.length) return null;
   return (
     <>
-      <Line label="血糖" sub="mg/dL" labelW={labelW}>
+      <Line label="血糖" sub="mg/dL" labelW={labelW} onPlot={onGlucose}>
         {zoom
           ? points
               .filter((p) => inZoom(zoom, p.at))

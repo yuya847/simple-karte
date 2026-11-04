@@ -47,6 +47,8 @@ interface Props {
   legacyUrineMl?: number;
   onAdd: (e: IoEntry[]) => void;
   onVoid: (id: string, reason: string) => void;
+  /** The time to start the entry with ("HH:MM", from a cell of the flow sheet); now when not given. */
+  defaultTime?: string;
   newId: () => string;
 }
 
@@ -105,13 +107,13 @@ export function IoTotals({ lines, days, nowAbs, today }: { lines: IoLine[]; days
 const OPTIONS: Record<IoSide, readonly (InKind | OutKind)[]> = { IN: IN_TYPED, OUT: OUT_KINDS };
 
 /** Type one IN or OUT: the kind, mL, the time (now unless typed) and a note. Who is added by code. */
-export function IoEntryForm({ patientId, nowTime, onAdd, newId }: { patientId: string; nowTime: string; onAdd: (e: IoEntry[]) => void; newId: () => string }) {
+export function IoEntryForm({ patientId, nowTime, onAdd, newId, defaultTime }: { patientId: string; nowTime: string; onAdd: (e: IoEntry[]) => void; newId: () => string; defaultTime?: string }) {
   const me = useMe();
   const nowAbs = abs(0, nowTime);
   const [side, setSide] = useState<IoSide>("OUT");
   const [kind, setKind] = useState<InKind | OutKind>("尿");
   const [ml, setMl] = useState("");
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState(defaultTime ?? "");
   const [note, setNote] = useState("");
   const at = time.trim() ? pastTime(time, nowAbs) : nowAbs;
   const problems = ioProblems({ ml, at, nowAbs });
@@ -175,7 +177,7 @@ export function IoEntryForm({ patientId, nowTime, onAdd, newId }: { patientId: s
 }
 
 /** One patient's 水分出納: the totals, typing IN/OUT, the lines of a period, and the drips still running. */
-export function IoPanel({ patientId, entries, typed, records, sessionStart, nowTime, today, standingIo, legacyUrineMl, onAdd, onVoid, newId }: Props) {
+export function IoPanel({ patientId, entries, typed, records, sessionStart, nowTime, today, standingIo, legacyUrineMl, onAdd, onVoid, newId, defaultTime }: Props) {
   const nowAbs = abs(0, nowTime);
   const d = ioDayOf(nowAbs);
   const [day, setDay] = useState(d);
@@ -194,7 +196,7 @@ export function IoPanel({ patientId, entries, typed, records, sessionStart, nowT
       <p className="text-[11px] text-ink-faint">
         {IO_RULES.label}。{IO_NOT_INCLUDED}点滴は終了の記録（1本 − 残量）の時刻に入れ、続いている点滴はまだ入れていません。
       </p>
-      <IoEntryForm patientId={patientId} nowTime={nowTime} onAdd={onAdd} newId={newId} />
+      <IoEntryForm patientId={patientId} nowTime={nowTime} onAdd={onAdd} newId={newId} defaultTime={defaultTime} />
       {legacyUrineMl ? <p className="text-[11px] text-yamabuki">時刻のない尿量 {n(legacyUrineMl)}mL（前の画面の「尿量を足す」で入れた分）は、今日の尿量（経過表の「尿量」）には入っていますが、勤務ごとの合計には入れていません。</p> : null}
 
       <section>

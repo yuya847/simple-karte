@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight, Copy, ClipboardPaste, Rows3 } from "lucide-react";
 import { TabChoice } from "./TabChoice";
 import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, formatShort, minutesOf, type CalendarDate } from "@/lib/dates";
 import { abs, doseTimes, fluidByDay, orderInterval } from "@/lib/flowsheet";
 import { durationText, labName, scheduleTextFor } from "@/lib/format";
@@ -25,7 +25,10 @@ import { FlowDayRows, type DayBox, type FlowDays } from "./FlowDayRows";
 import { FlowLabRows } from "./FlowLabRows";
 import type { PendingDraw } from "@/lib/lab-table";
 import { useFlowPrefs } from "@/lib/flow-prefs";
-import { useMe } from "./RoleContext";
+import { useDeny, useMe } from "./RoleContext";
+import { ENTRY_ACTION, ENTRY_LABEL, cellWindow, timeAtX, type FlowEntry } from "@/lib/flow-entry";
+import { timedOral } from "@/lib/flow-meds";
+import { FlowCellMenu } from "./FlowCellMenu";
 import { FlowGlucoseRows, FlowOralRows, type FlowMar } from "./FlowMedRows";
 import { glucosePoints, insulinOrders, isGlucoseCare } from "@/lib/flow-meds";
 import type { NoteGroupKey } from "@/lib/flow-notes";
@@ -86,6 +89,10 @@ export interface FlowSheetProps {
   onWriteNote?: () => void;
   /** The scale to open on (入院から when not given). */
   initialScale?: FlowScale;
+  /** Open the chart's own entry for a pressed cell (バイタル・看護ケア・水分出納・与薬・指示受け). */
+  onEntry?: (req: FlowEntry) => void;
+  /** Orders of this patient a nurse has not taken yet (指示受け). */
+  untaken?: string[];
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -112,7 +119,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all" }: FlowSheetProps) {
+export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", onEntry, untaken = [] }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -125,6 +132,10 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const [scale, setScale] = useState<FlowScale>(initialScale);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
+  // A pressed cell with more than one entry (or one this person may not make) shows its choices.
+  const deny = useDeny();
+  const [menu, setMenu] = useState<{ x: number; y: number; title: string; reqs: FlowEntry[] } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const win = flowWindow(scale, anchor ?? nowAbs, p.admittedOn);
   const { lo: t0, hi: t1 } = win;
 
@@ -184,6 +195,24 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const crosshair = hovered && <line x1={x(hovered.day, hovered.time)} x2={x(hovered.day, hovered.time)} y1={0} y2="100%" stroke="#26221c" strokeWidth={1} opacity={0.5} />;
 
   // 行の設定 (kept per user in this browser): groups, hidden rows, folded groups, sets of care rows.
+  // セルから入力: the chart's own entries, opened with the row and the time of the cell.
+  const fmtAt = (a: number) => `${formatShort(addDays(today, Math.floor(a / 1440)))} ${clock(a)}`;
+  // `direct`: one choice this person may make opens at once (the graph always asks first: a touch there also shows values).
+  const press = (e: React.MouseEvent, title: string, reqs: FlowEntry[], direct = true) => {
+    if (!onEntry || !reqs.length) return;
+    e.stopPropagation();
+    if (direct && reqs.length === 1 && !deny(ENTRY_ACTION[reqs[0].kind])) return onEntry(reqs[0]);
+    setMenu({ x: e.clientX, y: e.clientY, title, reqs });
+  };
+  /** The time under the pointer on the axis (not cut to now). */
+  const timeOf = (e: React.MouseEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return t0 + ((e.clientX - r.left) / plotW) * (t1 - t0);
+  };
+  const untakenSet = new Set(untaken);
+  const takeReq = (ids: string[]): FlowEntry => ({ kind: "take", orderIds: ids });
+  const glucoseItem = care?.orders.find(isGlucoseCare)?.item;
+
   const layout = prefs.layout;
   const setLayout = (l: FlowLayout) => setPrefs((x) => ({ ...x, layout: l }));
   const show = (k: string) => !layout.hidden.includes(k);
@@ -205,6 +234,13 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             if (px >= 0) pickNearest(px);
           }}
           onPointerLeave={() => setHover(null)}
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            const px = e.clientX - r.left - LABEL_W;
+            if (px < 0 || !onEntry) return;
+            const at = timeAtX(px, plotW, t0, t1, nowAbs);
+            press(e, `${fmtAt(at)} のバイタル`, [{ kind: "vitals", at }], false);
+          }}
           onKeyDown={(e) => {
             if (!vitals.length) return;
             if (e.key === "ArrowRight") setHover((h) => Math.min((h ?? -1) + 1, vitals.length - 1));
@@ -310,16 +346,78 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
       show: !!care,
       extra: layout.activeSet ? <span className="font-normal text-ai">セット「{layout.activeSet}」の行だけ</span> : undefined,
       // 血糖測定 has its own row with the values (血糖・インスリン), so it is not repeated with the care rows.
-      body: care && <CareFlowRows {...care} orders={careOrders} days={days} box={dayBox} labelW={LABEL_W} nowX={nowIn ? xAbs(nowAbs) : null} nowAbs={nowAbs} zoom={zoom} shown={(item) => careShown(layout, item)} />,
+      body: care && <CareFlowRows {...care} orders={careOrders} days={days} box={dayBox} labelW={LABEL_W} nowX={nowIn ? xAbs(nowAbs) : null} nowAbs={nowAbs} zoom={zoom} shown={(item) => careShown(layout, item)} onCell={onEntry ? (e, item, d, at) => press(e, `${item}（${at === null ? formatShort(addDays(today, d)) : fmtAt(at)}）`, [{ kind: "care", item, ...cellWindow(d, at) }]) : undefined} />,
     },
     io: {
       show: !!(io && ioRows),
       extra: io ? <IoHeading byTime={!win.byDay} standingIo={io.standingIo} /> : undefined,
       // 水分出納: recorded and planned kept apart, one cell per 24 hours from the close.
-      body: io && ioRows && <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={t1} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} byTime={!win.byDay} />,
+      body: io && ioRows && (
+        <div
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            const px = e.clientX - r.left - LABEL_W;
+            if (px < 0 || !onEntry) return;
+            const at = timeAtX(px, plotW, t0, t1, nowAbs);
+            press(e, `${fmtAt(at)} の水分出納`, [{ kind: "io", at }]);
+          }}
+          className={onEntry ? "cursor-pointer" : ""}
+        >
+          <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={t1} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} byTime={!win.byDay} />
+        </div>
+      ),
     },
-    oral: { show: true, extra: <span className="font-normal text-ink-faint">定期・持参薬など、時刻の決まった分</span>, body: <FlowOralRows orders={orders} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} zoom={zoom} /> },
-    glucose: { show: glucose.length > 0 || insulin.length > 0, body: <FlowGlucoseRows points={glucose} insulin={insulin} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} xAbs={xAbs} lo={t0} hi={t1} zoom={zoom} /> },
+    oral: { show: true, extra: <span className="font-normal text-ink-faint">定期・持参薬など、時刻の決まった分</span>, body: (
+        <FlowOralRows
+          orders={orders}
+          mar={marRecs}
+          nowAbs={nowAbs}
+          days={days}
+          box={dayBox}
+          labelW={LABEL_W}
+          zoom={zoom}
+          onCell={
+            onEntry
+              ? (e, timing, d, at) => {
+                  const ids = timedOral(orders)
+                    .filter((x) => x.order.type === "prescription" && x.order.timings.includes(timing))
+                    .map((x) => x.id);
+                  const title = `${formatShort(addDays(today, d))} ${timing}（${clock(at)}）の内服`;
+                  const waiting = ids.filter((id) => untakenSet.has(id));
+                  press(e, title, [{ kind: "mar", orderIds: ids, lo: at, hi: at + 1, label: title }, ...(waiting.length ? [takeReq(waiting)] : [])]);
+                }
+              : undefined
+          }
+        />
+      ),
+    },
+    glucose: {
+      show: glucose.length > 0 || insulin.length > 0,
+      body: (
+        <FlowGlucoseRows
+          points={glucose}
+          insulin={insulin}
+          mar={marRecs}
+          nowAbs={nowAbs}
+          days={days}
+          box={dayBox}
+          labelW={LABEL_W}
+          xAbs={xAbs}
+          lo={t0}
+          hi={t1}
+          zoom={zoom}
+          onGlucose={
+            onEntry && glucoseItem
+              ? (e) => {
+                  const at = timeOf(e);
+                  const d = Math.floor(at / 1440);
+                  press(e, `${glucoseItem}（${win.byDay ? formatShort(addDays(today, d)) : fmtAt(at)}）`, [{ kind: "care", item: glucoseItem, ...cellWindow(d, win.byDay ? null : at) }]);
+                }
+              : undefined
+          }
+        />
+      ),
+    },
     inj: {
       show: true,
       // Injections as bars over time.
@@ -331,7 +429,28 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             </Row>
           )}
           {injections.map((e) => (
-            <InjectionBar key={e.id} entry={e} xAbs={xAbs} plotW={plotW} nowAbs={nowAbs} endAbs={t1} startAbs={t0} />
+            <InjectionBar
+              key={e.id}
+              entry={e}
+              xAbs={xAbs}
+              plotW={plotW}
+              nowAbs={nowAbs}
+              endAbs={t1}
+              startAbs={t0}
+              untaken={untakenSet.has(e.id)}
+              onTake={onEntry ? (ev) => press(ev, `${shortDrug((e.order as InjectionOrder).items[0].drugCode)} の指示受け`, [takeReq([e.id])]) : undefined}
+              onPress={
+                onEntry
+                  ? (ev) => {
+                      const at = timeOf(ev);
+                      const d = Math.floor(at / 1440);
+                      const w = cellWindow(d, win.byDay ? null : at);
+                      const title = `${shortDrug((e.order as InjectionOrder).items[0].drugCode)}（${win.byDay ? formatShort(addDays(today, d)) : fmtAt(at)}）`;
+                      press(ev, title, [{ kind: "mar", orderIds: [e.id], ...w, label: `${title}の実施` }, ...(untakenSet.has(e.id) ? [takeReq([e.id])] : [])]);
+                    }
+                  : undefined
+              }
+            />
           ))}
         </>
       ),
@@ -421,6 +540,23 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
         </div>
       )}
       {!showTable && configOpen && <FlowLayoutPanel layout={layout} onLayout={setLayout} careItems={careItems} onClose={() => setConfigOpen(false)} />}
+      {!showTable && untaken.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-yamabuki/50 bg-yamabuki-soft/40 px-2 py-1 text-[11px]">
+          <b className="text-yamabuki">指示受けがまだのオーダ {untaken.length}件</b>
+          <span className="text-ink-soft">（注射の行に「未受」）</span>
+          {onEntry && (
+            <button type="button" onClick={(e) => press(e, "指示受け", [takeReq([])])} className="rounded border border-yamabuki px-2 py-0.5 font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
+              指示受けを開く
+            </button>
+          )}
+        </div>
+      )}
+      {!showTable && onEntry && (
+        <p className="hint mb-2 text-[11px] text-ink-faint">
+          セルを押すと、その行とその時刻の入力が開きます：グラフはバイタル、看護ケア・観察と血糖はその記録、水分出納は IN/OUT、内服と注射は実施（与薬の記録）、「未受」は指示受け。入れたものはワークシートや右のツールで入れたものと同じところに残ります。
+        </p>
+      )}
+      {menu && <FlowCellMenu at={menu} title={menu.title} actions={menu.reqs.map((r) => ({ label: ENTRY_LABEL[r.kind], disabled: deny(ENTRY_ACTION[r.kind]), onClick: () => onEntry?.(r) }))} onClose={closeMenu} />}
       {showTable ? (
         <VitalTable vitals={p.vitals} today={today} />
       ) : (
@@ -635,7 +771,7 @@ function DietRow({ days, box, cell, meals, zoom }: { days: DayOffset[]; box: Day
   );
 }
 
-function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs }: { entry: OrderEntry; xAbs: (a: number) => number; plotW: number; nowAbs: number; startAbs: number; endAbs: number }) {
+function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs, untaken, onTake, onPress }: { entry: OrderEntry; xAbs: (a: number) => number; plotW: number; nowAbs: number; startAbs: number; endAbs: number; untaken?: boolean; onTake?: (e: React.MouseEvent) => void; onPress?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
   const o = entry.order as InjectionOrder;
   const { from, to } = orderInterval(entry, nowAbs);
   const x1 = Math.max(0, xAbs(Math.max(from, startAbs)));
@@ -649,8 +785,16 @@ function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs }: { entry:
     o.minutesPerDose ? ` 1回${durationText(o.minutesPerDose)}` : ""
   }${o.rateMlPerH ? ` ${o.rateMlPerH}mL/時` : ""}${stopped ? "（中止）" : ""}`;
   return (
-    <Row label={shortDrug(main.drugCode)}>
-      <div className="relative h-6" title={title}>
+    <div className="flex border-b border-rule-soft">
+      <div className="flex shrink-0 items-start justify-end gap-1 py-1 pr-2 text-right text-ink-soft" style={{ width: LABEL_W }}>
+        {untaken && (
+          <button type="button" disabled={!onTake} onClick={onTake} title="指示受けがまだのオーダ" className="rounded bg-yamabuki-soft px-0.5 text-[9px] font-bold leading-4 text-yamabuki">
+            未受
+          </button>
+        )}
+        <span className="min-w-0 truncate">{shortDrug(main.drugCode)}</span>
+      </div>
+      <div className={`relative h-6 flex-1 ${onPress ? "cursor-pointer hover:bg-ai-soft/30" : ""}`} title={title} onClick={onPress}>
         {shown && (
           <span
             className="absolute top-2.5 h-1 rounded-full"
@@ -671,7 +815,7 @@ function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs }: { entry:
           </span>
         )}
       </div>
-    </Row>
+    </div>
   );
 }
 
