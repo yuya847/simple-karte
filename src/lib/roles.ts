@@ -98,7 +98,14 @@ export type Action =
   | "reception"
   | "opd.call"
   | "erx"
-  | "clins";
+  | "clins"
+  | "kitchen"
+  | "kitchen.kenshoku"
+  | "endo.desk"
+  | "endo.doctor"
+  | "team.request"
+  | "team.round"
+  | "team.decide";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
   order: { label: "オーダの確定", who: ["医師"] },
@@ -152,6 +159,14 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   // 国のサービス（模擬）: the prescriber signs and registers; the doctor sends the documents and 臨床情報.
   erx: { label: "電子処方箋の重複投薬等チェック・署名・登録（模擬）", who: ["医師"] },
   clins: { label: "電子カルテ情報共有サービスへの送信と他院の情報の閲覧（模擬）", who: ["医師"] },
+  // 給食・内視鏡室・チーム医療: who records what is the fictional hospital's rule (架空の病院の取り決め).
+  kitchen: { label: "給食の記録（禁止食品・代わりの料理・発注・在庫）", who: ["管理栄養士"] },
+  "kitchen.kenshoku": { label: "検食簿の記入", who: ["医師", "管理栄養士"] },
+  "endo.desk": { label: "内視鏡室の予約・受付・前処置・鎮静中の観察・洗浄消毒の記録", who: ["看護師", "医師"] },
+  "endo.doctor": { label: "内視鏡の実施記録・監視解除・レポート・病理への提出", who: ["医師"] },
+  "team.request": { label: "チーム医療への依頼", who: ["医師"] },
+  "team.round": { label: "チームの依頼の受付・回診の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "管理栄養士", "MSW"] },
+  "team.decide": { label: "チームの提案の採用・不採用", who: ["医師"] },
 };
 
 export const can = (role: Role, a: Action): boolean => RULES[a].who.includes(role);
