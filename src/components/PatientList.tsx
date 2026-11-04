@@ -1,25 +1,26 @@
 "use client";
 
-import { PatientAvatar } from "./PatientAvatar";
-import { ArrowDown, ArrowUp, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Columns3, Search, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { upcomingToday } from "@/lib/calendar";
 import { abs } from "@/lib/flowsheet";
 import { addDays, formatShort, hospitalDay } from "@/lib/dates";
 import { currentEntries, ordersOf, type SessionChanges } from "@/lib/record";
-import { flagsFor, type Flag, type FlagTone } from "@/lib/patient-flags";
-import type { Patient } from "@/lib/types";
-import { WARD_PLANS, doctorFor, floorOf, nurseFor, type BedAssignment, type WardPlan, type WardState } from "@/lib/ward";
-import { expectedOf, isUnknownBed, markOf, markText, type Expected, type WardAsOf } from "@/lib/ward-asof";
+import { flagsFor, type Flag } from "@/lib/patient-flags";
+import { WARD_PLANS, doctorFor, floorOf, nurseFor, type BedAssignment, type WardState } from "@/lib/ward";
+import { expectedOf, isUnknownBed, markOf, markText, type WardAsOf } from "@/lib/ward-asof";
 import { AsOfBand, DayNav, type DayNavProps } from "./DayNav";
 import { PickSelect, type ChartSummary, type Pick } from "./WardMap";
 import { ageSex } from "@/lib/person";
-import { periodNote, rangesText } from "@/lib/dpc-brief";
 import { activeCount, choicesOf, DAY_BUCKETS, DPC_CHOICES, EMPTY_FILTER, flagKey, matches, type FilterFacts, type ListFilter } from "@/lib/patient-filter";
-import { doctorNames, relationMark, relationOf, type PatientDoctors, type Relation } from "@/lib/patient-doctors";
-import { useDpcBriefs, type DpcBriefs } from "@/lib/use-dpc-briefs";
+import { doctorNames, type PatientDoctors } from "@/lib/patient-doctors";
+import { useDpcBriefs } from "@/lib/use-dpc-briefs";
 import { useEmphasizeTeam } from "@/lib/use-emphasis";
 import { EmphasisToggle } from "./EmphasisToggle";
+import { LIST_COLUMNS, showsColumn, toggleColumn, type ListPrefs } from "@/lib/list-prefs";
+import { useListPrefs } from "@/lib/use-list-prefs";
+import { useFavorites } from "@/lib/use-favorites";
+import { planText, roomKey, visibleColumns, type Row, type SortKey } from "./patient-columns";
 import type { CalendarDate } from "@/lib/dates";
 import type { OrderEntry } from "@/lib/types";
 
@@ -60,52 +61,23 @@ interface Props {
   onOpen: (patientId: string) => void;
 }
 
-export type GroupBy = "room" | "floor" | "department" | "doctor" | "nurse";
+/** What this person chose in this browser: the columns and row height (「表示」) and the starred patients (☆). */
+interface Prefs {
+  prefs: ListPrefs;
+  onPrefs: (p: ListPrefs) => void;
+  favorites: string[];
+  onToggleFavorite: (id: string) => void;
+}
+
+export type GroupBy = "room" | "floor" | "department" | "doctor" | "nurse" | "favorite";
 const GROUPS: { key: GroupBy; label: string }[] = [
   { key: "room", label: "部屋順" },
   { key: "floor", label: "病棟" },
   { key: "department", label: "診療科" },
   { key: "doctor", label: "主治医" },
   { key: "nurse", label: "担当看護師" },
+  { key: "favorite", label: "お気に入り順" },
 ];
-
-const TONE: Record<FlagTone, string> = {
-  shu: "bg-shu-soft text-shu",
-  fuji: "bg-fuji-soft text-fuji",
-  ai: "bg-ai-soft text-ai",
-  yamabuki: "bg-yamabuki-soft text-yamabuki",
-  wakatake: "bg-wakatake-soft text-wakatake",
-  ink: "bg-tab text-ink-soft",
-};
-
-function Flags({ flags }: { flags: Flag[] }) {
-  return (
-    <div className="flex max-w-60 flex-wrap gap-1 text-[10px] font-bold">
-      {flags.map((f) => (
-        <span key={f.label} title={f.title} className={`whitespace-nowrap rounded px-1 ${TONE[f.tone]}`}>
-          {f.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-const planText = (p: WardPlan) => `${p.day === 0 ? "今日" : "明日"} ${p.time} ${p.kind}`;
-
-type SortKey = "room" | "name" | "day";
-
-interface Row {
-  bed: BedAssignment;
-  patient?: Patient;
-  kana: string;
-  day: number | null;
-  /** The viewer's own team. */
-  mine: boolean;
-  /** The plan's mark on the bed（入院予定 14:00・退院予定 10:00・空く予定）, as text. */
-  mark?: string;
-  /** Someone expected on the bed who has no chart yet. */
-  expected?: Expected;
-}
 
 /** What a row shows from the record, worked out once per change of the record (not on each keystroke). */
 interface RowWork {
@@ -116,18 +88,26 @@ interface RowWork {
   doctors?: PatientDoctors;
 }
 
-const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
 const everyone = () => true;
 
 /**
  * Ward patient list. Every patient opens on click or Enter. With 「受け持ちを目立たせる」 (the default) the
  * viewer's team gets the full row and the others a short gray one; without it, everyone gets the full row.
+ * The columns, the row height and the stars are this person's, kept in this browser (list-prefs, favorites).
  */
-export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen }: Props) {
+export function PatientList(props: Props) {
+  const [prefs, onPrefs] = useListPrefs();
+  const [favorites, onToggleFavorite] = useFavorites();
+  return <PatientListView {...props} prefs={prefs} onPrefs={onPrefs} favorites={favorites} onToggleFavorite={onToggleFavorite} />;
+}
+
+/** The list with its choices given (PatientList reads them for the person; tests pass them). */
+export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [cond, setCond] = useState<ListFilter>(EMPTY_FILTER);
   const [showCond, setShowCond] = useState(false);
+  const [showView, setShowView] = useState(false);
   const [emphasize, setEmphasize] = useEmphasizeTeam();
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "room", asc: true });
   const [cursor, setCursor] = useState(0);
@@ -135,6 +115,9 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
   // The day listed (0 = today): 入院◯日目 and 新入院 are counted for it.
   const viewDay = asOf?.day ?? 0;
   const fmtDay = useMemo(() => dayNav?.fmtDay ?? ((d: number) => (today ? formatShort(addDays(today, d)) : `${d}日後`)), [dayNav, today]);
+  const columns = visibleColumns(prefs.hidden);
+  const compact = prefs.density === "compact";
+  const starred = (id: string) => favorites.includes(id);
 
   const all: Row[] = useMemo(
     () =>
@@ -157,14 +140,14 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
     [ward, mineOf, viewDay, fmtDay],
   );
   const full = (r: Row) => !!r.patient && (!emphasize || r.mine);
-  // The DPC column is fetched for the full rows only (the gray rows show none).
+  // The DPC column is fetched for the full rows only (the gray rows show none), and not while it is turned off.
   const payloadOf = useMemo(() => dpcPayload ?? (() => null), [dpcPayload]);
   const dpc = useDpcBriefs(
     all.flatMap((r) => (r.patient && full(r) ? [r.patient.id] : [])),
     payloadOf,
     today ?? null,
     nowTime,
-    !!dpcPayload && !!today,
+    !!dpcPayload && !!today && showsColumn(prefs, "dpc"),
   );
   const work: Map<string, RowWork> = useMemo(
     () =>
@@ -197,9 +180,10 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
           flags: w ? [...new Set(w.flags.map((f) => flagKey(f.label)))] : [],
           mine: r.mine,
           discharge: !!w?.leaving || WARD_PLANS.some((x) => x.kind === "退院" && x.room === r.bed.room && x.bed === r.bed.bed),
+          favorite: !!p && favorites.includes(p.id),
         };
       }),
-    [all, dpc, work],
+    [all, dpc, work, favorites],
   );
   const choices = choicesOf(facts);
   const nCond = activeCount(cond);
@@ -232,7 +216,13 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
   };
   const grouped: { key: string; rows: Row[] }[] = [];
   if (groupBy === "room") grouped.push({ key: "", rows });
-  else {
+  else if (groupBy === "favorite") {
+    // ☆ first, then everyone else (each part in the sort chosen).
+    const fav = rows.filter((r) => r.patient && starred(r.patient.id));
+    const rest = rows.filter((r) => !(r.patient && starred(r.patient.id)));
+    grouped.push({ key: "お気に入り", rows: fav });
+    if (rest.length) grouped.push({ key: "そのほか", rows: rest });
+  } else {
     for (const r of rows) {
       for (const k of groupsOf(r)) {
         const g = grouped.find((x) => x.key === k);
@@ -262,6 +252,14 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
       {sort.key === key && (sort.asc ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
     </button>
   );
+
+  // The cells' padding follows 行の高さ; the gray rows are a little tighter, as before.
+  const padFull = compact ? "px-3 py-0.5" : "px-3 py-2";
+  const padGray = compact ? "px-3 py-0.5" : "px-3 py-1.5";
+  // A gray row's note (the bed's mark, the ward's plan, the bed's note) and an 入院予定 row's note span the
+  // columns that have no gray cell of their own (印 … 指示).
+  const tail = columns.filter((c) => !c.gray).length;
+  const nHidden = LIST_COLUMNS.filter((c) => !showsColumn(prefs, c.key)).length;
 
   return (
     <section aria-label="患者一覧" className="flex min-h-0 flex-1 flex-col bg-paper">
@@ -296,6 +294,20 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
           <SlidersHorizontal size={14} />
           条件で絞る{nCond ? `（${nCond}）` : ""}
         </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowView((v) => !v)}
+            aria-expanded={showView}
+            aria-haspopup="dialog"
+            title="表示する列と行の高さ"
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm ${nHidden || compact ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule text-ink-soft hover:text-ink"}`}
+          >
+            <Columns3 size={14} />
+            表示{nHidden ? `（${LIST_COLUMNS.length - nHidden}/${LIST_COLUMNS.length}列）` : ""}
+          </button>
+          {showView && <ViewMenu prefs={prefs} onChange={onPrefs} onClose={() => setShowView(false)} />}
+        </div>
         <EmphasisToggle on={emphasize} onChange={setEmphasize} />
         <label className="flex items-center gap-2 rounded-md border border-rule bg-sheet px-2 py-1">
           <Search size={14} className="text-ink-faint" />
@@ -329,27 +341,21 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
       {asOf && <AsOfBand asOf={asOf} fmtDay={fmtDay} />}
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto">
-        <table className="nums w-full min-w-[1180px] border-collapse text-[13px]">
+        <table className={`nums w-full border-collapse text-[13px] ${nHidden ? "" : "min-w-[1180px]"}`}>
           <thead className="sticky top-0 z-10 bg-paper text-left text-[11px] text-ink-faint shadow-[0_1px_0_var(--color-rule)]">
             <tr>
-              <th className="px-3 py-2 font-normal">{header("room", "病室")}</th>
-              <th className="px-3 py-2 font-normal">{header("name", "氏名")}</th>
-              <th className="px-3 py-2 font-normal">年齢性別・ID</th>
-              <th className="px-3 py-2 font-normal">{header("day", "入院")}</th>
-              <th className="px-3 py-2 font-normal" title="DPC（診断群分類）：カルテの病名と記録から、算定の DPC と同じ計算で出す分類と入院期間。医療資源を最も投入した傷病名を主治医が選ぶまでは仮">DPC</th>
-              <th className="px-3 py-2 font-normal">診療科・担当</th>
-              <th className="px-3 py-2 font-normal">印（記録から）</th>
-              <th className="px-3 py-2 font-normal">最新バイタル</th>
-              <th className="px-3 py-2 font-normal">このあと（今日）</th>
-              <th className="px-3 py-2 font-normal">新しい結果</th>
-              <th className="px-3 py-2 font-normal">指示</th>
+              {columns.map((c) => (
+                <th key={c.key} className="px-3 py-2 font-normal" title={c.title}>
+                  {c.sort ? header(c.sort, c.label) : c.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {grouped.map((g) => [
               g.key ? (
                 <tr key={`g-${g.key}`}>
-                  <td colSpan={11} className="sticky left-0 border-b border-rule bg-tab/60 px-3 py-1 text-[12px] font-bold text-ink-soft">
+                  <td colSpan={columns.length} className="sticky left-0 border-b border-rule bg-tab/60 px-3 py-1 text-[12px] font-bold text-ink-soft">
                     {g.key}
                     <span className="ml-2 font-normal">{g.rows.length}人</span>
                   </td>
@@ -357,50 +363,80 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
               ) : null,
               ...g.rows.map((r) =>
                 r.patient && full(r) ? (
-                  <MyRow
+                  <tr
                     key={`${g.key}|${roomKey(r.bed)}`}
-                    row={r}
-                    patient={r.patient}
-                    focused={openable[at] === r}
-                    upcoming={work.get(r.patient.id)?.upcoming ?? []}
-                    flags={work.get(r.patient.id)?.flags ?? []}
-                    dpc={dpc[r.patient.id]}
-                    plans={planFor(r.bed)}
-                    mark={r.mark}
-                    day={viewDay}
-                    summary={summaries[r.patient.id]}
-                    doctors={work.get(r.patient.id)?.doctors}
-                    viewer={viewer}
-                    onOpen={() => onOpen(r.patient!.id)}
-                  />
+                    onClick={() => onOpen(r.patient!.id)}
+                    className={`cursor-pointer border-b border-rule-soft bg-sheet align-top hover:bg-ai-soft/40 ${openable[at] === r ? "outline outline-2 -outline-offset-2 outline-ai" : ""} ${r.mark?.startsWith("退院予定") ? "opacity-70" : ""}`}
+                  >
+                    {columns.map((c) => (
+                      <td key={c.key} className={`${padFull} ${c.fullClass ?? ""}`}>
+                        {c.full({
+                          row: r,
+                          patient: r.patient!,
+                          upcoming: work.get(r.patient!.id)?.upcoming ?? [],
+                          flags: work.get(r.patient!.id)?.flags ?? [],
+                          dpc: dpc[r.patient!.id],
+                          plans: planFor(r.bed),
+                          mark: r.mark,
+                          day: viewDay,
+                          summary: summaries[r.patient!.id],
+                          doctors: work.get(r.patient!.id)?.doctors,
+                          viewer,
+                          compact,
+                          starred: starred(r.patient!.id),
+                          onStar: () => onToggleFavorite(r.patient!.id),
+                          onOpen: () => onOpen(r.patient!.id),
+                        })}
+                      </td>
+                    ))}
+                  </tr>
                 ) : r.expected ? (
                   // 入院予定: no chart yet, so a dotted row with what the plan says.
                   <tr key={roomKey(r.bed)} className="border-b border-dashed border-ai/50 text-ai" title="入院予定（予定から）。カルテは入院を受けたときにできます">
-                    <td className="px-3 py-1.5">
-                      {r.bed.room}
-                      {r.bed.bed && `-${r.bed.bed}`}
-                    </td>
-                    <td className="px-3 py-1.5">{r.expected.name}</td>
-                    <td className="px-3 py-1.5">{ageSex(r.expected)}</td>
-                    <td className="px-3 py-1.5 font-bold">{r.mark}</td>
-                    <td className="px-3 py-1.5">—</td>
-                    <td className="px-3 py-1.5 text-[11px]">
-                      <div className="font-bold">{r.expected.department}</div>
-                      <div>{doctorFor(r.expected.department)}</div>
-                      <div>{nurseFor(r.bed.room)}</div>
-                    </td>
-                    <td className="px-3 py-1.5" colSpan={5}>
-                      {r.expected.note}
-                    </td>
+                    {columns.map((c) =>
+                      c.key === "room" ? (
+                        <td key={c.key} className={padGray}>
+                          {r.bed.room}
+                          {r.bed.bed && `-${r.bed.bed}`}
+                        </td>
+                      ) : c.key === "name" ? (
+                        <td key={c.key} className={padGray}>
+                          {r.expected!.name}
+                        </td>
+                      ) : c.key === "ageId" ? (
+                        <td key={c.key} className={padGray}>
+                          {ageSex(r.expected!)}
+                        </td>
+                      ) : c.key === "day" ? (
+                        <td key={c.key} className={`${padGray} font-bold`}>
+                          {r.mark}
+                        </td>
+                      ) : c.key === "dpc" ? (
+                        <td key={c.key} className={padGray}>
+                          —
+                        </td>
+                      ) : c.key === "team" ? (
+                        <td key={c.key} className={`${padGray} text-[11px]`}>
+                          <div className="font-bold">{r.expected!.department}</div>
+                          <div>{doctorFor(r.expected!.department)}</div>
+                          <div>{nurseFor(r.bed.room)}</div>
+                        </td>
+                      ) : null,
+                    )}
+                    {tail > 0 && (
+                      <td className={padGray} colSpan={tail}>
+                        {r.expected.note}
+                      </td>
+                    )}
                   </tr>
                 ) : !r.patient && !r.bed.other && r.mark ? (
                   // 空く予定: the bed a patient leaves before the day shown.
                   <tr key={roomKey(r.bed)} className="border-b border-dashed border-wakatake/50 text-wakatake">
-                    <td className="px-3 py-1.5">
+                    <td className={padGray}>
                       {r.bed.room}
                       {r.bed.bed && `-${r.bed.bed}`}
                     </td>
-                    <td className="px-3 py-1.5 font-bold" colSpan={10}>
+                    <td className={`${padGray} font-bold`} colSpan={columns.length - 1}>
                       {r.mark ?? "空床"}
                     </td>
                   </tr>
@@ -411,53 +447,34 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
                     className={`border-b border-rule-soft text-ink-faint ${r.patient ? "cursor-pointer hover:bg-ai-soft/30" : ""} ${openable[at] === r ? "outline outline-2 -outline-offset-2 outline-ai" : ""}`}
                     title={r.patient ? "受け持ち以外の患者（架空）。押すとカルテが開きます（開いた記録は監査ログに残ります）" : "受け持ち以外の患者（架空）"}
                   >
-                    <td className="px-3 py-1.5">
-                      {r.bed.room}
-                      {r.bed.bed && `-${r.bed.bed}`}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {r.patient ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpen(r.patient!.id);
-                            }}
-                            className="text-ink-soft hover:text-ai hover:underline"
-                          >
-                            {r.patient.name}
-                          </button>
-                          <RelationMark viewer={viewer} doctors={work.get(r.patient.id)?.doctors ?? { attending: r.patient.attending, others: [] }} />
-                        </>
-                      ) : (
-                        r.bed.other?.name
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {r.patient ? ageSex(r.patient) : r.bed.other ? ageSex(r.bed.other) : ""}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {r.day ? `${r.day}日目` : "—"}
-                      {r.patient && r.patient.admittedOn === viewDay && <span className="ml-1 text-[10px] font-bold text-ai">新入院</span>}
-                    </td>
-                    <td className="px-3 py-1.5">—</td>
-                    <td className="px-3 py-1.5 text-[11px]">
-                      <div className="font-bold">{r.patient?.department ?? r.bed.other?.department}</div>
-                      <DoctorLines attending={r.patient?.attending ?? doctorFor(r.bed.other?.department ?? "")} doctors={r.patient ? work.get(r.patient.id)?.doctors : undefined} />
-                      <div>{nurseFor(r.bed.room)}</div>
-                    </td>
-                    <td className="px-3 py-1.5" colSpan={5}>
-                      {r.mark && <span className="mr-2 font-bold text-wakatake">{r.mark}</span>}
-                      {[...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && !(x === "明日退院" && (planFor(r.bed).length || r.mark))).join("　")}
-                    </td>
+                    {columns.map((c) =>
+                      c.gray ? (
+                        <td key={c.key} className={`${padGray} ${c.grayClass ?? ""}`}>
+                          {c.gray({
+                            row: r,
+                            day: viewDay,
+                            doctors: r.patient ? work.get(r.patient.id)?.doctors : undefined,
+                            viewer,
+                            starred: !!r.patient && starred(r.patient.id),
+                            onStar: () => r.patient && onToggleFavorite(r.patient.id),
+                            onOpen: () => r.patient && onOpen(r.patient.id),
+                          })}
+                        </td>
+                      ) : null,
+                    )}
+                    {tail > 0 && (
+                      <td className={padGray} colSpan={tail}>
+                        {r.mark && <span className="mr-2 font-bold text-wakatake">{r.mark}</span>}
+                        {[...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && !(x === "明日退院" && (planFor(r.bed).length || r.mark))).join("　")}
+                      </td>
+                    )}
                   </tr>
                 ),
               ),
             ])}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-3 py-6 text-center text-ink-faint">
+                <td colSpan={columns.length} className="px-3 py-6 text-center text-ink-faint">
                   {nCond ? "条件に合う患者はいません" : "見つかりません"}
                 </td>
               </tr>
@@ -469,175 +486,53 @@ export function PatientList({ ward, title, pick, defaultGroup = "room", dayNav, 
   );
 }
 
-function MyRow({
-  row,
-  patient: p,
-  focused,
-  upcoming,
-  flags,
-  plans,
-  mark,
-  day,
-  summary,
-  dpc,
-  doctors,
-  viewer,
-  onOpen,
-}: {
-  row: Row;
-  patient: Patient;
-  focused: boolean;
-  upcoming: string[];
-  flags: Flag[];
-  dpc?: DpcBriefs[string];
-  plans: WardPlan[];
-  /** The bed's mark on the day shown（退院予定 10:00）. */
-  mark?: string;
-  /** The day shown (0 = today). On another day, today's vitals, results and plans for today are not shown. */
-  day: number;
-  summary?: ChartSummary;
-  doctors?: PatientDoctors;
-  viewer?: string;
-  onOpen: () => void;
-}) {
-  const today = day === 0;
-  const latest = today ? p.vitals.at(-1) : undefined;
-  const newResults = today
-    ? [...p.cultures.filter((c) => c.reportedOn === 0).map((c) => `${c.specimen}培養`), ...(p.labs.some((l) => l.day === 0) ? ["採血"] : [])]
-    : [];
-  return (
-    <tr
-      onClick={onOpen}
-      className={`cursor-pointer border-b border-rule-soft bg-sheet align-top hover:bg-ai-soft/40 ${focused ? "outline outline-2 -outline-offset-2 outline-ai" : ""} ${mark?.startsWith("退院予定") ? "opacity-70" : ""}`}
-    >
-      <td className="px-3 py-2 font-bold">
-        {row.bed.room}
-        {row.bed.bed && <span className="text-ink-faint">-{row.bed.bed}</span>}
-      </td>
-      <td className="px-3 py-2">
-        <div className="flex items-center gap-2">
-          <PatientAvatar sex={p.sex} age={p.age} size={30} className="rounded-full" />
-          <div>
-            <div className="text-[10px] text-ink-faint">{p.kana}</div>
-            <button
-              type="button"
-              onClick={(e) => {
-                // The row opens it too: once is enough (each opening is written to the audit log).
-                e.stopPropagation();
-                onOpen();
-              }}
-              className="font-bold text-ai hover:underline"
-            >
-              {p.name}
-            </button>
-            <RelationMark viewer={viewer} doctors={doctors ?? { attending: p.attending, others: [] }} />
-          </div>
-        </div>
-      </td>
-      <td className="whitespace-nowrap px-3 py-2">
-        <div>{ageSex(p)}</div>
-        <div className="nums text-[11px] text-ink-faint">{p.id}</div>
-      </td>
-      <td className="whitespace-nowrap px-3 py-2">
-        <b>{row.day}日目</b>
-        {p.admittedOn === day && <div className="text-[10px] font-bold text-ai">新入院</div>}
-      </td>
-      <td className="px-3 py-2 text-[12px]">
-        <DpcCell b={dpc} />
-      </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[11px] text-ink-soft">
-        <div className="font-bold text-ink">{p.department}</div>
-        <DoctorLines attending={p.attending} doctors={doctors} />
-        <div>{nurseFor(row.bed.room)}</div>
-      </td>
-      <td className="px-3 py-2">
-        {/* The ward's plan and the 退院 order say the same thing: shown once. On another day the bed's mark comes first and the marks of today's record are left out. */}
-        <Flags flags={[...(mark ? [{ label: mark, tone: "wakatake" as const }] : []), ...plans.map((x) => ({ label: planText(x), tone: "wakatake" as const })), ...(today ? flags : [])].filter((f, i, xs) => xs.findIndex((y) => y.label === f.label) === i)} />
-      </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[12px]">
-        {!today && <span className="text-ink-faint">—</span>}
-        {latest && (
-          <>
-            <div>
-              BT {latest.bt?.toFixed(1)}　HR {latest.hr}　BP {latest.sbp}/{latest.dbp}
-            </div>
-            <div className="text-ink-soft">
-              SpO2 {latest.spo2}%（{latest.o2}）<span className="ml-1 text-ink-faint">{latest.time}</span>
-            </div>
-          </>
-        )}
-      </td>
-      <td className="px-3 py-2 text-[12px]">
-        {upcoming.length === 0 || !today ? (
-          <span className="text-ink-faint">—</span>
-        ) : (
-          <ul>
-            {upcoming.slice(0, 4).map((u) => (
-              <li key={u} className="whitespace-nowrap">
-                {u}
-              </li>
-            ))}
-            {upcoming.length > 4 && <li className="text-ink-faint">ほか {upcoming.length - 4}件</li>}
-          </ul>
-        )}
-      </td>
-      <td className="px-3 py-2 text-[12px]">
-        {newResults.length ? newResults.map((r) => <div key={r} className="font-bold text-ai">{r}（今日）</div>) : <span className="text-ink-faint">—</span>}
-      </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[12px]">
-        {today && summary?.drafts ? <div className="font-bold text-yamabuki">下書き {summary.drafts}件</div> : null}
-        {today && summary?.confirmedToday ? <div className="text-wakatake">今日確定 {summary.confirmedToday}件</div> : null}
-        {(!today || (!summary?.drafts && !summary?.confirmedToday)) && <span className="text-ink-faint">—</span>}
-      </td>
-    </tr>
-  );
-}
-
-/** The attending, then each 担当医・コンサルト医 on its own line (依頼中 in yellow). */
-function DoctorLines({ attending, doctors }: { attending: string; doctors?: PatientDoctors }) {
+/** 「表示」: the columns to show and the row height, for this person in this browser. */
+function ViewMenu({ prefs, onChange, onClose }: { prefs: ListPrefs; onChange: (p: ListPrefs) => void; onClose: () => void }) {
   return (
     <>
-      <div>{attending}</div>
-      {doctors?.others.map((d) => (
-        <div key={`${d.role}:${d.name}`} className={d.pending ? "text-yamabuki" : "text-ink-faint"}>
-          {relationMark(d.role)} {d.name}
-          {d.pending ? "（依頼中）" : ""}
+      <div className="fixed inset-0 z-10" onClick={onClose} aria-hidden="true" />
+      <div role="dialog" aria-label="表示" className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border border-rule bg-sheet p-3 text-[12px] shadow-lg">
+        <div className="mb-1 flex items-baseline justify-between">
+          <b className="text-ink-soft">列</b>
+          {prefs.hidden.length > 0 && (
+            <button type="button" onClick={() => onChange({ ...prefs, hidden: [] })} className="text-ink-faint hover:text-ink">
+              すべて出す
+            </button>
+          )}
         </div>
-      ))}
+        <p className="mb-1 text-[11px] text-ink-faint">病室・氏名はいつも出ます。</p>
+        <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
+          {LIST_COLUMNS.map((c) => (
+            <li key={c.key}>
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={showsColumn(prefs, c.key)} onChange={() => onChange(toggleColumn(prefs, c.key))} />
+                {c.label}
+              </label>
+            </li>
+          ))}
+        </ul>
+        <div role="radiogroup" aria-label="行の高さ" className="mt-3 flex items-center gap-2">
+          <b className="text-ink-soft">行の高さ</b>
+          <div className="flex rounded-md border border-rule p-0.5">
+            {(["normal", "compact"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                role="radio"
+                aria-checked={prefs.density === d}
+                onClick={() => onChange({ ...prefs, density: d })}
+                className={`rounded px-2 py-0.5 ${prefs.density === d ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}
+              >
+                {d === "normal" ? "ふつう" : "つめる"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] text-ink-faint">
+          <span className="hint">列を外しても記録は変わりません。外した列の印や結果はカルテで見られます。</span>この選択は自分の名前で、この端末のみに保存されます。
+        </p>
+      </div>
     </>
-  );
-}
-
-const RELATION_TONE: Record<Relation, string> = { 主治医: "bg-ai-soft text-ai", 担当医: "bg-wakatake-soft text-wakatake", コンサルト医: "bg-fuji-soft text-fuji" };
-
-/** How the viewer (a doctor) relates to the patient: 主治医／担当／コンサルト. Nothing for other roles or no relation. */
-function RelationMark({ viewer, doctors }: { viewer?: string; doctors: PatientDoctors }) {
-  const r = viewer ? relationOf(viewer, doctors) : null;
-  if (!r) return null;
-  return (
-    <span className={`ml-1 rounded px-1 text-[10px] font-bold ${RELATION_TONE[r]}`} title={`あなたはこの患者の${r}です`}>
-      {relationMark(r)}
-    </span>
-  );
-}
-
-function DpcCell({ b }: { b?: DpcBriefs[string] }) {
-  if (!b) return <span className="text-ink-faint">—</span>;
-  if (b === "loading") return <span className="text-ink-faint">計算中</span>;
-  if (!b.ok) return <span className="text-[11px] text-ink-faint" title={b.reason}>コードなし</span>;
-  const tip = `${b.code} ${b.name}${b.days ? `\n${rangesText(b.days)}` : ""}${b.provisional ? "\n医療資源を最も投入した傷病名を主治医がまだ選んでいないため、仮のコードで数えています" : ""}`;
-  return (
-    <div title={tip} className="max-w-56 whitespace-normal">
-      <div className="font-bold text-ink">
-        {b.name}
-        {b.provisional && <span className="ml-1 rounded border border-dashed border-ink-faint px-0.5 text-[10px] font-normal text-ink-soft">仮</span>}
-      </div>
-      <div className="nums text-[10px] text-ink-faint">{b.code}</div>
-      <div className="text-[11px]">
-        <b className={b.period === "Ⅲ" || b.period === "超え" ? "text-shu" : ""}>{b.hokatsu && b.period ? (b.period === "超え" ? "期間超え" : `期間${b.period}`) : "包括の対象外"}</b>
-        <span className="ml-1 text-ink-soft">{b.hokatsu ? periodNote(b) : ""}</span>
-      </div>
-    </div>
   );
 }
 
@@ -674,6 +569,10 @@ function CondBar({ cond, choices, onChange }: { cond: ListFilter; choices: Retur
       <label className="flex items-center gap-1 text-ink-soft">
         <input type="checkbox" checked={cond.discharge} onChange={(e) => set({ discharge: e.target.checked })} />
         今日・明日に退院
+      </label>
+      <label className="flex items-center gap-1 text-ink-soft" title="氏名の横の☆で登録した患者（この端末のみに保存）">
+        <input type="checkbox" checked={cond.favorite} onChange={(e) => set({ favorite: e.target.checked })} />
+        お気に入りだけ
       </label>
       {activeCount(cond) > 0 && (
         <button type="button" onClick={() => onChange(EMPTY_FILTER)} className="ml-auto inline-flex items-center gap-0.5 text-ink-faint hover:text-ink">

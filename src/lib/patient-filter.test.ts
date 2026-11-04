@@ -36,6 +36,13 @@ describe("入院患者一覧の条件", () => {
     expect(matches(row({ discharge: true }), { ...EMPTY_FILTER, discharge: true })).toBe(true);
   });
 
+  it("お気に入りだけ: the starred patients; a row that says nothing is not starred", () => {
+    expect(matches(row({ favorite: true }), { ...EMPTY_FILTER, favorite: true })).toBe(true);
+    expect(matches(row({ favorite: false }), { ...EMPTY_FILTER, favorite: true })).toBe(false);
+    expect(matches(row(), { ...EMPTY_FILTER, favorite: true })).toBe(false);
+    expect(activeCount({ ...EMPTY_FILTER, favorite: true })).toBe(1);
+  });
+
   it("drops counts from mark labels so they can be chosen as one", () => {
     expect(flagKey("未確認の結果 2")).toBe("未確認の結果");
     expect(flagKey("指示受けがまだ 3")).toBe("指示受けがまだ");

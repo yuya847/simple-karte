@@ -23,9 +23,11 @@ export interface ListFilter {
   flag: string;
   mine: boolean;
   discharge: boolean;
+  /** お気に入りだけ (the patients this person starred, this browser only). */
+  favorite: boolean;
 }
 
-export const EMPTY_FILTER: ListFilter = { floor: "", department: "", doctor: "", nurse: "", days: "", dpc: "", flag: "", mine: false, discharge: false };
+export const EMPTY_FILTER: ListFilter = { floor: "", department: "", doctor: "", nurse: "", days: "", dpc: "", flag: "", mine: false, discharge: false, favorite: false };
 
 /** What a row offers to the filter. */
 export interface FilterFacts {
@@ -46,6 +48,8 @@ export interface FilterFacts {
   mine: boolean;
   /** 退院の予定（今日・明日）. */
   discharge: boolean;
+  /** Starred by this person (☆). */
+  favorite?: boolean;
 }
 
 /** 「未確認の結果 2」→「未確認の結果」、「身体的拘束中 12時間40分」→「身体的拘束中」: marks with counts or times are chosen as one. */
@@ -64,6 +68,7 @@ export function matches(f: FilterFacts, c: ListFilter): boolean {
   if (c.flag && !f.flags.includes(c.flag)) return false;
   if (c.mine && !f.mine) return false;
   if (c.discharge && !f.discharge) return false;
+  if (c.favorite && !f.favorite) return false;
   return true;
 }
 
