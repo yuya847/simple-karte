@@ -8,8 +8,8 @@ import { abs } from "./flowsheet";
 import { startCultures, worksOfCode, type CultureWork } from "./lab-culture";
 import { labelFor, marState, type AdminRecord } from "./mar";
 import { ANALYTES, findLab, findSet, labInfo, rangeFor, WARD_RULES, type Analyte } from "./master";
-import { panicOf, placeOf, type ContactAttempt, type PanicHit, type PanicLimit, type Place } from "./results";
-import type { DayOffset, LabOrder, LabResult, OrderEntry, Patient, Sex } from "./types";
+import { panicOf, placeOf, type ContactAttempt, type PanicHit, type PanicLimit, type Place, type ReportedLabResult } from "./results";
+import type { DayOffset, LabOrder, OrderEntry, Patient, Sex } from "./types";
 import { SHIFTS, buildWorksheet, changeKey, type WorkPatient } from "./worksheet";
 
 /** A sample taken in at the laboratory (the label was read). */
@@ -44,6 +44,10 @@ export interface LabReport extends ReportVersion {
   at: number;
   /** Earlier versions, oldest first: a correction never overwrites what it replaced. */
   earlier?: ReportVersion[];
+  /** Each addition keeps its author and time separately from corrections. */
+  additions?: ReportVersion[];
+  expected?: string[];
+  correction?: NonNullable<ReportedLabResult["corrected"]>;
 }
 
 export const REJECT_REASONS = ["溶血", "量不足", "凝固", "ラベル不一致", "その他"] as const;
@@ -187,7 +191,7 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
       ...(started ? { cultureStarted: true } : {}),
     };
     const report = desk.reports[code];
-    if (report) return { ...base, status: "報告済み" as const, report, reception: desk.received[code] };
+    if (report) return { ...base, status: remainingAnalytes(entryPlan(codes), report.values).length ? "受付済み" as const : "報告済み" as const, report, reception: desk.received[code] };
     const rejection = desk.rejected[code];
     if (rejection) return { ...base, status: "再採血" as const, rejection, reception: desk.received[code] };
     if (person?.patient.labs.some((l) => !l.id && abs(l.day, l.time) === at)) return { ...base, status: "報告済み" as const, fromRecord: true };
@@ -280,7 +284,7 @@ export const redrawCode = (r: Pick<Rejection, "redrawId" | "day" | "time">) => l
 
 /** Why a sample cannot be sent back now (null when it can): only a sample taken in and not reported. */
 export function rejectBlock(row: DrawRow): string | null {
-  if (row.status === "報告済み") return "結果を報告した検体は、再採血ではなく「訂正」で直します。";
+  if (row.report || row.status === "報告済み") return "結果を報告した検体は、再採血ではなく「訂正」で直します。";
   if (row.status === "再採血") return "再採血を依頼済みです。";
   if (row.status !== "受付済み") return "受け付けた検体だけ再採血にできます。";
   if (row.cultureStarted) return "培養の報告を始めた検体は再採血にできません。";
@@ -410,7 +414,7 @@ export function parseValue(raw: string): { value: number | null; error?: string 
   const s = raw.normalize("NFKC").replace(/,/g, "").trim();
   if (!s) return { value: null };
   if (!/^\d+(\.\d+)?$/.test(s)) return { value: null, error: "数で入れてください" };
-  return { value: Number(s) };
+  return Number.isFinite(Number(s)) ? { value: Number(s) } : { value: null, error: "数で入れてください" };
 }
 
 export interface ValueRow {
@@ -463,15 +467,28 @@ export function checkEntry(plan: EntryPlan, raw: Record<string, string>, patient
 /** Samples received and waiting for their result (those with values to type). */
 export const toEnter = (rows: DrawRow[]) => rows.filter((r) => r.status === "受付済み");
 
-/** 確定: who and when are kept; a sample is reported once. */
+/** The ordered analytes still waiting for a report. */
+export const remainingAnalytes = (plan: EntryPlan, values: Record<string, number>) => plan.analytes.filter((a) => !(a.code in values));
+
+/** Build an addition using only valid, ordered and not yet reported values. */
+export function reportAddition(plan: EntryPlan, before: Record<string, number>, values: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(remainingAnalytes(plan, before).filter((a) => Number.isFinite(values[a.code]) && values[a.code] >= 0).map((a) => [a.code, values[a.code]]));
+}
+
+/** Report entered items; previously reported values can only be changed by correction. */
 export function confirmReport(desk: LabDesk, row: DrawRow, values: Record<string, number>, by: string, nowAbs: number): LabDesk {
-  if (desk.reports[row.code] || !desk.received[row.code]) return desk;
-  const r: LabReport = { code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, values, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) } };
+  if (!desk.received[row.code] || desk.rejected[row.code]) return desk;
+  const before = desk.reports[row.code];
+  const plan = entryPlan(row.codes);
+  const added = reportAddition(plan, before?.values ?? {}, values);
+  if (!Object.keys(added).length) return desk;
+  const addition: ReportVersion = { values: added, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) } };
+  const r: LabReport = { ...before, code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, values: { ...before?.values, ...added }, by, reported: addition.reported, expected: plan.analytes.map((a) => a.code), additions: [...(before?.additions ?? []), addition] };
   return { ...desk, reports: { ...desk.reports, [row.code]: r } };
 }
 
 /** The confirmed results of a patient, as rows of the result table (filed at the draw time). */
-export function deskLabs(desk: LabDesk, patientId: string): LabResult[] {
+export function deskLabs(desk: LabDesk, patientId: string): ReportedLabResult[] {
   return Object.values(desk.reports)
     .filter((r) => r.patientId === patientId)
     .sort((a, b) => a.at - b.at)
@@ -484,7 +501,8 @@ export function deskLabs(desk: LabDesk, patientId: string): LabResult[] {
         id: r.code,
         reportedBy: r.by,
         reportedAt: r.reported,
-        ...(prev ? { corrected: { version: versionOf(r), reason: r.reason ?? "", by: r.by, at: r.reported, before: prev.values } } : {}),
+        ...(r.expected && (r.additions?.length ?? 0) > 0 ? { progress: { expected: r.expected, sequence: r.additions!.length } } : {}),
+        ...(r.correction ? { corrected: r.correction } : prev ? { corrected: { version: versionOf(r), reason: r.reason ?? "", by: r.by, at: r.reported, before: prev.values } } : {}),
       };
     });
 }
@@ -536,11 +554,14 @@ export interface CorrectionCheck {
 
 /** 訂正 needs every value valid, at least one value changed, and a reason. */
 export function checkCorrection(report: LabReport, entry: EntryCheck, reason: string, limits: PanicLimit[]): CorrectionCheck {
-  const changes = entry.errors || entry.missing ? [] : changesOf(report.values, entry.values);
+  const rows = entry.rows.filter((r) => r.analyte.code in report.values);
+  const errors = rows.filter((r) => r.error).length;
+  const missingValues = rows.filter((r) => r.value === null && !r.error).length;
+  const changes = errors || missingValues ? [] : changesOf(report.values, entry.values);
   const missing = [
-    entry.errors ? "数でない値" : "",
-    entry.missing ? `空の項目 ${entry.missing}` : "",
-    !entry.errors && !entry.missing && changes.length === 0 ? "変えた値" : "",
+    errors ? "数でない値" : "",
+    missingValues ? `空の項目 ${missingValues}` : "",
+    !errors && !missingValues && changes.length === 0 ? "変えた値" : "",
     !reason.trim() ? "訂正の理由" : "",
   ].filter(Boolean);
   return { changes, missing, panicBefore: panicOf(report.values, limits), panicAfter: entry.panic, ready: missing.length === 0 };
@@ -554,7 +575,9 @@ export function correctReport(desk: LabDesk, code: string, values: Record<string
   const r = desk.reports[code];
   if (!r || !reason.trim() || changesOf(r.values, values).length === 0) return desk;
   const before: ReportVersion = { values: r.values, by: r.by, reported: r.reported, ...(r.reason ? { reason: r.reason } : {}) };
-  const next: LabReport = { ...r, values, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, reason: reason.trim(), earlier: [...(r.earlier ?? []), before] };
+  if (Object.keys(r.values).some((c) => !Number.isFinite(values[c]) || values[c] < 0)) return desk;
+  const correctedValues = Object.fromEntries(Object.keys(r.values).map((c) => [c, values[c]]));
+  const next: LabReport = { ...r, values: correctedValues, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, reason: reason.trim(), correction: { version: versionOf(r) + 1, reason: reason.trim(), by, at: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, before: r.values }, earlier: [...(r.earlier ?? []), before] };
   return { ...desk, reports: { ...desk.reports, [code]: next } };
 }
 

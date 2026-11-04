@@ -11,7 +11,7 @@ import { abs } from "@/lib/flowsheet";
 import { cultureQueue } from "@/lib/lab-culture";
 import { PLACE_NAME, drawRows, entryPlan, receive, redrawCode, rejectText, scanSpecimen, statusCounts, versionOf, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
 import type { AdminRecord } from "@/lib/mar";
-import { callScript, hitLine, labBoard, placeOf, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
+import { callScript, hitLine, labBoard, partialReportLabel, placeOf, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -259,7 +259,7 @@ function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; p
               <td className="py-1 pr-2 text-ink-soft">{r.container}</td>
               <td className="nums py-1 pr-2 font-mono text-[11px] text-ink-soft">{r.code}</td>
               <td className={`py-1 pr-2 ${STATUS_STYLE[r.status]}`}>
-                {r.status}
+                {r.report ? partialReportLabel({ day: 0, time: "", values: r.report.values, progress: { expected: r.report.expected ?? entryPlan(r.codes).analytes.map((a) => a.code), sequence: r.report.additions?.length ?? 1 } }) || r.status : r.status}
                 <ExecutionHistory records={history?.filter((c) => (c.record.reception as { code?: string } | undefined)?.code === r.code)} />
                 {r.reception && <ExecutionUndo action="lab.receive" patient={r.name} detail={`検体受付 ${r.code}`} onUndo={(by, at, reason) => onDesk((d) => cancelReception(d, r.code, r.patientId, by, at, reason))} />}
                 <span className="block text-[10px] font-normal text-ink-soft">{statusNote(r, nowAbs)}</span>

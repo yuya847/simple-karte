@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PANIC_LIMITS, PANIC_REACH_RULE, bloodCulturePanic, callLine, callScript, canReport, cultureArrivals, hitLine, labBoard, mergeCultures, panicOf, reachList, reachState, reportCall, resultsOf, uncalled, unseen, type ContactAttempt } from "./results";
+import { PANIC_LIMITS, PANIC_REACH_RULE, labKey, partialReportLabel, bloodCulturePanic, callLine, callScript, canReport, cultureArrivals, hitLine, labBoard, mergeCultures, panicOf, reachList, reachState, reportCall, resultsOf, uncalled, unseen, type ContactAttempt } from "./results";
 import { PATIENTS } from "./patients";
 
 describe("results", () => {
@@ -92,5 +92,23 @@ describe("パニック値の連絡：かけ直しと復唱", () => {
 
   it("says tomorrow's draw in words on the phone", () => {
     expect(callScript({ ...item, kind: "検査", day: 1, time: "06:00" }, p, "515B")[3]).toBe("③ 採取 明日 06:00");
+  });
+});
+
+
+describe("部分報告の結果", () => {
+  it("shows progress until complete and renews the unread key for each addition", () => {
+    const first = { day: 0, time: "10:00", id: "partial", values: { K: 7.4 }, progress: { expected: ["K", "Na"], sequence: 1 } };
+    const next = { ...first, values: { K: 7.4, Na: 140 }, progress: { ...first.progress, sequence: 2 } };
+    expect(partialReportLabel(first)).toBe("一部報告（1/2）");
+    expect(partialReportLabel(next)).toBe("");
+    const patient = { ...PATIENTS[0], labs: [first], imaging: [], cultures: [] };
+    expect(resultsOf(patient, PANIC_LIMITS)[0].title).toContain("一部報告（1/2）");
+    const key = labKey(patient.id, first);
+    const acks = { [key]: { by: "医師", at: { day: 0, time: "10:01" } } };
+    expect(unseen(resultsOf(patient, PANIC_LIMITS), acks)).toHaveLength(0);
+    const completed = resultsOf({ ...patient, labs: [next] }, PANIC_LIMITS);
+    expect(unseen(completed, acks)).toHaveLength(1);
+    expect(completed[0].title).not.toContain("一部報告");
   });
 });

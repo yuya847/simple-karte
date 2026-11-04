@@ -36,7 +36,8 @@ export function LabCorrect({
   const [note, setNote] = useState("");
   if (!person) return null;
   const p = person.patient;
-  const plan = entryPlan(row.codes);
+  const fullPlan = entryPlan(row.codes);
+  const plan = { ...fullPlan, analytes: fullPlan.analytes.filter((a) => a.code in report.values) };
   const entry = checkEntry(plan, raw, p, limits, row.at);
   const reason = correctionReason(kind, note);
   const check = checkCorrection(report, entry, reason, limits);

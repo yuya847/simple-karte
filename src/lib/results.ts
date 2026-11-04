@@ -9,6 +9,19 @@ import type { CultureResult, DayOffset, LabResult, Patient } from "./types";
 /** 生理・病理・内視鏡: reports from the physiological laboratory, pathology and the endoscopy room (physio-desk.ts, pathology.ts, endoscopy.ts). */
 export type ResultKind = "検査" | "画像" | "培養" | "生理" | "病理" | "内視鏡";
 
+/** Reporting progress carried by session laboratory results. */
+export interface LabProgress {
+  expected: string[];
+  sequence: number;
+}
+export type ReportedLabResult = LabResult & { progress?: LabProgress };
+
+export function partialReportLabel(l: ReportedLabResult): string {
+  const expected = l.progress?.expected ?? [];
+  const count = expected.filter((c) => c in l.values).length;
+  return expected.length && count < expected.length ? `一部報告（${count}/${expected.length}）` : "";
+}
+
 export interface ResultItem {
   key: string;
   patientId: string;
@@ -78,7 +91,7 @@ const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(
  * draw time). A corrected result carries its version, so the doctor sees it again as not yet seen and
  * a panic value in it is phoned in again.
  */
-export const labKey = (pid: string, l: LabResult) => `lab|${pid}|${l.day}|${l.time}${l.id ? `|${l.id}` : ""}${l.corrected ? `|v${l.corrected.version}` : ""}`;
+export const labKey = (pid: string, l: ReportedLabResult) => `lab|${pid}|${l.day}|${l.time}${l.id ? `|${l.id}` : ""}${l.corrected ? `|v${l.corrected.version}` : ""}${l.progress && l.progress.sequence > 1 ? `|r${l.progress.sequence}` : ""}`;
 
 /**
  * The key of a culture report. Each step is a new result for the doctor: the Gram stain (中間報告),
@@ -141,7 +154,7 @@ export function resultsOf(p: Patient, limits: PanicLimit[]): ResultItem[] {
       kind: "検査",
       day: l.day,
       time: l.time,
-      title: `検体検査 ${Object.keys(l.values).length}項目${l.corrected ? "（訂正）" : ""}`,
+      title: `検体検査 ${Object.keys(l.values).length}項目${l.corrected ? "（訂正）" : ""}${partialReportLabel(l)}`,
       detail: abnormal.length ? `基準範囲の外：${abnormal.join("、")}` : "すべて基準範囲の中",
       panic: panicOf(l.values, limits),
       ...(l.corrected ? { corrected: correctedLine(l, limits) } : {}),

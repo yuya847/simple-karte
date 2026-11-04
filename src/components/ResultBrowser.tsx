@@ -7,7 +7,7 @@ import { ANALYTES } from "@/lib/master";
 import { flagOf } from "@/lib/lab-desk";
 import { rangeText } from "@/lib/lab-table";
 import { previousResult, resultVisits } from "@/lib/result-visits";
-import { PANIC_LIMITS, cultureKeyOf, type ResultItem } from "@/lib/results";
+import { PANIC_LIMITS, partialReportLabel, cultureKeyOf, type ResultItem } from "@/lib/results";
 import { ResultsInbox } from "./ResultsInbox";
 import { ResultsPanel } from "./panels/ResultsPanel";
 
@@ -45,6 +45,6 @@ export function ResultBrowser({ items, calls, onSeen, extra, onTimeline, ...prop
     <div className="flex flex-wrap items-center gap-3"><h2 className="font-bold">検査結果一覧</h2><button type="button" className={`${button} inline-flex items-center gap-1`} onClick={onTimeline}><TrendingUp size={16} />時系列で表示</button></div>
     <ResultsInbox today={today} items={items} calls={calls} onSeen={onSeen} />
     <label className="text-sm">種類で絞る <select className="rounded border border-rule bg-sheet p-1" value={kind} onChange={(e) => setKind(e.target.value)}><option value="">すべて</option>{[...new Set(visits.map((v) => v.kind))].map((k) => <option key={k}>{k}</option>)}</select></label>
-    <div className="divide-y divide-rule rounded border border-rule">{visits.filter((v) => !kind || v.kind === kind).map((v) => <button key={v.key} type="button" onClick={() => select(v.key)} className="flex w-full flex-wrap items-center gap-3 px-3 py-3 text-left text-sm hover:bg-sheet"><span className="nums">{when(v.day, v.time)}</span><b>{v.kind}</b><span>{v.summary}</span>{v.unseen && <span className="rounded bg-shu-soft px-2 text-shu">未確認</span>}</button>)}{visits.length === 0 && <p className="p-3 text-sm text-ink-soft">検査結果はありません。</p>}</div>
+    <div className="divide-y divide-rule rounded border border-rule">{visits.filter((v) => !kind || v.kind === kind).map((v) => <button key={v.key} type="button" onClick={() => select(v.key)} className="flex w-full flex-wrap items-center gap-3 px-3 py-3 text-left text-sm hover:bg-sheet"><span className="nums">{when(v.day, v.time)}</span><b>{v.kind}</b><span>{v.summary}</span>{v.lab && partialReportLabel(v.lab) && <span className="rounded bg-yamabuki-soft px-2 text-yamabuki">{partialReportLabel(v.lab)}</span>}{v.unseen && <span className="rounded bg-shu-soft px-2 text-shu">未確認</span>}</button>)}{visits.length === 0 && <p className="p-3 text-sm text-ink-soft">検査結果はありません。</p>}</div>
   </section>;
 }

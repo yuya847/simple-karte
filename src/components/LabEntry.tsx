@@ -4,7 +4,7 @@ import { Check, ClipboardPen } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { culturesIn } from "@/lib/lab-culture";
-import { changeLine, checkEntry, confirmReport, correctReport, entryPlan, rangeText, rejectSpecimen, rejectText, toEnter, versionOf, whenText, type DrawRow, type LabDesk } from "@/lib/lab-desk";
+import { changeLine, checkEntry, confirmReport, correctReport, entryPlan, rangeText, remainingAnalytes, rejectSpecimen, rejectText, toEnter, versionOf, whenText, type DrawRow, type LabDesk } from "@/lib/lab-desk";
 import { ageSex } from "@/lib/person";
 import { hitLine, labKey, type PanicCall, type PanicLimit } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
@@ -37,8 +37,9 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
   const withItems = received.filter((r) => entryPlan(r.codes).analytes.length > 0);
   const without = received.filter((r) => entryPlan(r.codes).analytes.length === 0);
   // Results confirmed in this session (the fictional record before it is not corrected here).
-  const reported = rows.filter((r) => r.status === "報告済み" && r.report);
-  const fixing = reported.find((r) => r.code === sel);
+  const reported = rows.filter((r) => r.report);
+  const [correcting, setCorrecting] = useState(false);
+  const fixing = correcting ? reported.find((r) => r.code === sel) : undefined;
   const row = fixing ? undefined : (received.find((r) => r.code === sel) ?? withItems[0] ?? without[0]);
   const [sentBack, setSentBack] = useState("");
   const fixPerson = fixing && people.find((x) => x.patient.id === fixing.patientId);
@@ -46,7 +47,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
   const pick = (r: DrawRow, on: boolean, tone: "ai" | "yamabuki") => (
     <button
       type="button"
-      onClick={() => setSel(r.code)}
+      onClick={() => { setSel(r.code); setCorrecting(tone === "yamabuki"); }}
       className={`w-full rounded border px-2 py-1 text-left text-[12px] ${on ? (tone === "ai" ? "border-ai bg-ai-soft" : "border-yamabuki bg-yamabuki-soft") : "border-rule bg-sheet hover:border-ai"}`}
     >
       <span className="nums block text-ink-soft">
@@ -109,7 +110,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
           {row && (
             <div className="min-w-0 flex-1 space-y-2">
               {entryPlan(row.codes).analytes.length > 0 ? (
-                <Form
+                <LabEntryForm
                   key={row.code}
                   row={row}
                   person={people.find((x) => x.patient.id === row.patientId)}
@@ -121,6 +122,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
                     onDesk((d) => confirmReport(d, row, values, me.name, nowAbs));
                     auditLog({ role: me.role, actor: me.name, action: "確定（検査結果）", patient: row.name, detail: `${whenText(row.at)} ${n}項目${panicLine ? `　パニック値：${panicLine}` : ""}` });
                     setSel(null);
+                    setCorrecting(false);
                     if (panicLine) onPanic(`${row.room} ${row.name}さん ${panicLine}`);
                   }}
                 />
@@ -138,6 +140,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
                   const why = rejectText({ reason, note: note.trim() || undefined });
                   auditLog({ role: me.role, actor: me.name, action: "確定（再採血の依頼）", patient: row.name, detail: `${whenText(row.at)} ${row.tests}　理由：${why}　ラベル ${row.code} は受け付けない` });
                   setSel(null);
+                  setCorrecting(false);
                   setSentBack(`再採血を依頼しました：${row.room} ${row.name}さん ${row.tests}（${why}）。新しいラベルの採血が受付の一覧に「再採血」で並びます。`);
                 }}
               />
@@ -149,7 +152,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
   );
 }
 
-function Form({
+export function LabEntryForm({
   row,
   person,
   raw,
@@ -169,7 +172,10 @@ function Form({
   if (!person) return null;
   const p = person.patient;
   const plan = entryPlan(row.codes);
-  const check = checkEntry(plan, raw, p, limits, row.at);
+  const before = row.report?.values ?? {};
+  const remaining = remainingAnalytes(plan, before);
+  const check = checkEntry({ ...plan, analytes: remaining }, raw, p, limits, row.at);
+  const entered = Object.keys(check.values).length;
   const panicLine = check.panic.map(hitLine).join("、");
   return (
     <form
@@ -178,7 +184,7 @@ function Form({
         // A barcode reader or a person presses Enter after each value: go to the next box.
         if (e.key !== "Enter" || !(e.target instanceof HTMLInputElement)) return;
         e.preventDefault();
-        const boxes = [...e.currentTarget.querySelectorAll<HTMLInputElement>("input[data-value]")];
+        const boxes = [...e.currentTarget.querySelectorAll<HTMLInputElement>("input[data-value]:not(:disabled)")];
         boxes[boxes.indexOf(e.target) + 1]?.focus();
       }}
       className="min-w-0 flex-1 rounded-lg border border-rule bg-sheet p-3"
@@ -207,6 +213,11 @@ function Form({
             </tr>
           </thead>
           <tbody>
+            {plan.analytes.filter((a) => a.code in before).map((a) => (
+              <tr key={a.code} className="border-b border-rule-soft text-ink-soft">
+                <td className="py-0.5 pr-2 font-bold">{a.name}</td><td className="nums py-0.5 pr-2">{fmt(before[a.code])}（報告済み）</td><td>{a.unit}</td><td>{rangeText(a, p.sex)}</td><td colSpan={2}>変更は「訂正」から</td>
+              </tr>
+            ))}
             {check.rows.map((r, n) => (
               <tr key={r.analyte.code} className={`border-b border-rule-soft ${r.panic ? "bg-shu-soft" : ""}`}>
                 <td className="py-0.5 pr-2 font-bold">{r.analyte.name}</td>
@@ -214,6 +225,7 @@ function Form({
                   <input
                     data-value
                     autoFocus={n === 0}
+                    placeholder="未報告"
                     inputMode="decimal"
                     value={r.raw}
                     onChange={(e) => onRaw({ ...raw, [r.analyte.code]: e.target.value })}
@@ -244,6 +256,7 @@ function Form({
         </table>
         {plan.other.length > 0 && <p className="mt-1 text-[11px] text-ink-faint">この画面で入れない項目：{plan.other.map((o) => `${o.name}（${o.why}）`).join("、")}</p>}
         <p className="hint mt-1 text-[11px] text-ink-faint">H／L は基準範囲（JCCLS 共用基準範囲 2022・SRL 総合検査案内）との比較、パニック値はこの架空の病院の値で、どちらもコードが判定します。前回値は見比べるために並べるだけです。</p>
+        <p className="hint mt-1 text-[11px] text-ink-faint">入力した項目だけ報告します。空欄は未報告として残り、あとで追記できます。報告済みの値は「訂正」から直します。</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {check.panic.length > 0 && <b className="text-shu">パニック値：{panicLine}。確定すると「結果とパニック値」で医師への連絡に進みます。</b>}
           <span className="ml-auto text-ink-soft">
@@ -252,12 +265,12 @@ function Form({
           </span>
           <button
             type="button"
-            disabled={!check.ready}
-            onClick={() => onConfirm(check.values, panicLine, plan.analytes.length)}
+            disabled={check.errors > 0 || entered === 0}
+            onClick={() => onConfirm(check.values, panicLine, entered)}
             className="flex items-center gap-1 rounded bg-wakatake px-3 py-1 font-bold text-white disabled:opacity-40"
           >
             <Check size={13} />
-            確定（{plan.analytes.length}項目）
+            {row.report ? "残りを報告" : `入力済みの ${entered} 項目を先に報告`}
           </button>
         </div>
       </fieldset>

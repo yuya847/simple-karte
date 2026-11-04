@@ -19,6 +19,8 @@ import {
   parseValue,
   rangeText,
   receive,
+  remainingAnalytes,
+  reportAddition,
   redrawChangeKeys,
   redrawCode,
   rejectBlock,
@@ -231,7 +233,7 @@ describe("結果の入力", () => {
     expect(confirmReport(done, row, { VCM: 99 }, "x", T20 + 50)).toBe(done);
     expect(drawRows(people, recs, done, 9 * 60, T20 + 40).find((r) => r.orderId === "ord-t2")!.status).toBe("報告済み");
     const labs = deskLabs(done, sakura.id);
-    expect(labs).toEqual([{ day: 0, time: "20:00", values: { VCM: 12 }, id: row.code, reportedBy: "検査技師 中村", reportedAt: { day: 0, time: "20:40" } }]);
+    expect(labs).toEqual([{ day: 0, time: "20:00", values: { VCM: 12 }, id: row.code, reportedBy: "検査技師 中村", reportedAt: { day: 0, time: "20:40" }, progress: { expected: ["VCM"], sequence: 1 } }]);
     expect(labKey(sakura.id, labs[0])).toBe(`lab|${sakura.id}|0|20:00|${row.code}`);
     expect(labKey(sakura.id, { day: 0, time: "06:00", values: {} })).toBe(`lab|${sakura.id}|0|06:00`);
   });
@@ -412,5 +414,33 @@ describe("結果の訂正", () => {
     const waiting = uncalled(resultsOf(at(becomes), PANIC_LIMITS), {});
     expect(waiting.map((i) => i.panic.map((h) => h.code))).toEqual([["Na"]]);
     expect(waiting[0].key.endsWith("|v3")).toBe(true);
+  });
+});
+
+
+describe("部分報告", () => {
+  it("adds only ordered, finite, nonnegative values and never overwrites a report", () => {
+    const plan = entryPlan(["SET-LYTES"]);
+    expect(reportAddition(plan, { K: 7.2 }, { K: 4, Na: 140, Cl: Infinity, unknown: 1 })).toEqual({ Na: 140 });
+    expect(remainingAnalytes(plan, { K: 7.2 }).map((a) => a.code)).toEqual(["Na", "Cl"]);
+    expect(reportAddition(plan, {}, { Na: -1, K: NaN, Cl: 0 })).toEqual({ Cl: 0 });
+  });
+  it("keeps partial samples available and preserves each addition separately from corrections", () => {
+    const row = drawRows(people, {}, EMPTY_DESK, 9 * 60, T6).find((r) => r.orderId === "ord-t1")!;
+    const received = receive(EMPTY_DESK, row, "受付", T6);
+    expect(confirmReport(received, row, {}, "技師", T6)).toBe(received);
+    const first = confirmReport(received, row, { K: 7.4 }, "技師1", T6 + 5);
+    const partial = drawRows(people, {}, first, 9 * 60, T6 + 5).find((r) => r.code === row.code)!;
+    expect(toEnter([partial])).toHaveLength(1);
+    expect(rejectBlock(partial)).toContain("訂正");
+    const fixed = correctReport(first, row.code, { K: 7.3 }, "入力の誤り", "技師2", T6 + 6);
+    const rest = Object.fromEntries(entryPlan(row.codes).analytes.map((a) => [a.code, 1]));
+    const final = confirmReport(fixed, row, rest, "技師3", T6 + 10);
+    expect(final.reports[row.code].values.K).toBe(7.3);
+    expect(final.reports[row.code].additions).toHaveLength(2);
+    expect(versionOf(final.reports[row.code])).toBe(2);
+    expect(deskLabs(final, row.patientId)[0].corrected).toMatchObject({ by: "技師2", at: { time: "06:06" } });
+    expect(drawRows(people, {}, final, 9 * 60, T6 + 10).find((r) => r.code === row.code)?.status).toBe("報告済み");
+    expect(confirmReport(final, row, rest, "技師", T6 + 11)).toBe(final);
   });
 });

@@ -2992,7 +2992,7 @@ export default function WardApp() {
               </div>
             ) : (
               <>
-            <ConsultContext.Provider value={consultReplies}><ReportContext.Provider value={{ reports: reportsHere, acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
+            <ConsultContext.Provider value={consultReplies}><ReportContext.Provider value={{ reports: reportsHere, labs: deskLabs(labDesk, patient.id).map((lab) => ({ lab, orderId: labDesk.reports[lab.id!].orderId })), acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
             <HistoryPane
               onShown={setShownEntries}
               patient={patient}

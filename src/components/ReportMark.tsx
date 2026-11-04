@@ -9,11 +9,12 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CalendarDate } from "@/lib/dates";
 import { readStateOf, reportsForOrder, type Report } from "@/lib/reports";
-import type { Ack } from "@/lib/results";
+import { partialReportLabel, type ReportedLabResult, type Ack } from "@/lib/results";
 import { ReportPanel } from "./panels/ReportPanel";
 
 export interface ReportCtx {
   reports: Report[];
+  labs?: { orderId: string; lab: ReportedLabResult }[];
   acks: Record<string, Ack>;
   today: CalendarDate;
   onSeen?: (keys: string[]) => void;
@@ -61,10 +62,12 @@ export function OrderReportMark({ orderId }: { orderId: string }) {
   const [open, setOpen] = useState<{ key: string; x: number; y: number } | null>(null);
   if (!ctx) return null;
   const reports = reportsForOrder(ctx.reports, orderId);
-  if (reports.length === 0) return null;
+  const partials = (ctx.labs ?? []).filter((r) => r.orderId === orderId).map((r) => partialReportLabel(r.lab)).filter(Boolean);
+  if (reports.length === 0 && partials.length === 0) return null;
   const shown = open ? reports.find((r) => r.key === open.key) : undefined;
   return (
     <>
+      {partials.map((label, i) => <span key={i} className="rounded bg-yamabuki-soft px-1 text-[11px] font-bold text-yamabuki">{label}</span>)}
       {reports.map((r) => {
         const s = readStateOf(r, ctx.acks);
         const unread = s.state === "未読";
