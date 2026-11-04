@@ -3,6 +3,7 @@ import { ConsultStatus } from "./ConsultContext";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { VerbalReview } from "./VerbalControls";
 import { CalendarDays, ChevronDown, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { matchesRecordFacets, recordFacetOptions } from "@/lib/record";
 import { searchKey } from "@/lib/kana";
@@ -1156,6 +1157,7 @@ function OrderRow({ sharedMarkKeys = [], grouped = false, hideStatus = false, hi
           {menu && !canExec && <Menu at={menu} onClose={() => setMenu(null)} items={extra} />}
           {!grouped && <><span>第1版：{whenText(today, entry.day, entry.time)}</span>
           <span className="font-bold text-ink">{entry.author}</span></>}
+          {entry.verbal && <VerbalReview entry={entry} />}
           {entry.verbal && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">口頭指示 {entry.verbal.doctor} → 受け {entry.verbal.takenBy}</span>}
           <CosignMark refId={entry.id} />
           {takeBadge && <TakeBadgeMark badge={takeBadge} />}

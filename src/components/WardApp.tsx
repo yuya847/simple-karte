@@ -186,7 +186,8 @@ import {
   type WardTab,
 } from "@/lib/nav";
 import { WARD_MENU_OPTION, WARD_SCREENS_PLUS } from "@/lib/place-menu";
-import { verbalUnsigned } from "@/lib/verbal";
+import { useVerbalConfirmation, VerbalReviewProvider } from "./VerbalControls";
+import { canReviewVerbal, verbalConfirmationProblems, type VerbalConfirmation, verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
 import { RIGHT_TABS, RightTabs, WINDOW_TABS, type RightTab } from "./RightTabs";
@@ -683,6 +684,7 @@ export default function WardApp() {
   const [io, setIo] = useState<IoEntry[]>(() => (typeof window === "undefined" ? [] : initialIo(abs(0, nowTimeInTokyo()))));
   // A nurse confirming orders is always entering a doctor's spoken order (口頭指示).
   const verbalMode = role === "看護師";
+  const verbalConfirmation = useVerbalConfirmation();
   const [sessionStart, setSessionStart] = useState<number | null>(null);
   if (sessionStart === null && nowTime) setSessionStart(abs(0, nowTime));
   // Advance directives (history kept) and warnings added on the band.
@@ -1127,8 +1129,10 @@ export default function WardApp() {
   };
 
   // Confirms the given drafts (the chart's, or those plus one just saved from a panel). The caller checks readiness.
-  const confirmDrafts = (drafts: Draft[]) => {
+  const confirmDrafts = (drafts: Draft[], verbal?: VerbalConfirmation) => {
     if (!ctx) return;
+    if (verbalMode && !verbal) { verbalConfirmation.request((v) => confirmDrafts(drafts, v), nowTime, [patient!.attending, ...doctorsOf(patient!.attending, doctorBook[patient!.id]).others.map((d) => d.name)]); return; }
+    if (verbal && verbalConfirmationProblems(verbal).length) return;
     const added: OrderEntry[] = [];
     const completed: OrderEntry[] = [];
     const stops: string[] = [];
@@ -1137,7 +1141,7 @@ export default function WardApp() {
     const dietsAdded: DietOrder[] = [];
     for (const d of drafts) {
       if (d.kind === "diet") {
-        dietsAdded.push({ ...d.diet, id: newId(), patientId: patient!.id, by: verbalMode ? DOCTOR : me.name, at: { day: 0, time: nowTime } });
+        dietsAdded.push({ ...d.diet, id: newId(), patientId: patient!.id, by: verbal?.doctor ?? me.name, at: { day: 0, time: nowTime } });
         continue;
       }
       const r = toOrder(d, ctx);
@@ -1147,7 +1151,7 @@ export default function WardApp() {
       for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) {
         const id = newId();
         ids.push(id);
-        added.push({ kind: "order", id, day: 0, time: nowTime, author: verbalMode ? DOCTOR : me.name, status: "有効", order: o, ...(verbalMode ? { verbal: { takenBy: me.name, doctor: DOCTOR, at: { day: 0, time: nowTime } } } : {}) });
+        added.push({ kind: "order", id, day: 0, time: nowTime, author: verbal?.doctor ?? me.name, status: "有効", order: o, ...(verbal ? { verbal: { takenBy: me.name, doctor: verbal.doctor, readBack: verbal.readBack, at: { day: 0, time: verbal.time } } } : {}) });
       }
       if ("alreadyDone" in d && d.alreadyDone) completed.push(...added.filter((e) => ids.includes(e.id)));
       // A consent form to prepare with the order (説明前): the doctor explains before it is done.
@@ -1157,9 +1161,9 @@ export default function WardApp() {
     const notMine = resident ? [...new Set(added.flatMap((e) => residentBlock(e.order) ?? []))] : [];
     if (notMine.length) return update({ flash: `確定していません（${notMine.join("・")}が入っています）。${COSIGN_RULES.blocked}` });
     // 麻薬: only a 麻薬施用者 with a valid licence (麻薬及び向精神薬取締法 第27条第1項).
-    const narc = narcoticBlock(added.map((e) => e.order), verbalMode ? DOCTOR : me.name, today);
+    const narc = narcoticBlock(added.map((e) => e.order), verbal?.doctor ?? me.name, today);
     if (narc) return update({ flash: narc });
-    for (const r of recordsForCompletedOrders(completed, patient!, nowTime, verbalMode ? DOCTOR : me.name)) recordMar(r);
+    for (const r of recordsForCompletedOrders(completed, patient!, nowTime, verbal?.doctor ?? me.name)) recordMar(r);
     if (dietsAdded.length) {
       setDiets((all) => [...all, ...dietsAdded]);
       for (const d of dietsAdded) auditLog({ role: me.role, actor: me.name, action: "確定（食事）", patient: patient?.name, detail: `${dietLabel(d)}（${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から）` });
@@ -1203,7 +1207,7 @@ export default function WardApp() {
     // 延長 goes to the nurses' 指示受け like a new order.
     const extLog = Object.entries(extended).flatMap(([id, days]) => {
       const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === id);
-      return e ? [{ orderId: id, patientId: patient!.id, days, at: abs(0, nowTime), by: verbalMode ? DOCTOR : me.name, text: orderLines(e.order, today).main }] : [];
+      return e ? [{ orderId: id, patientId: patient!.id, days, at: abs(0, nowTime), by: verbal?.doctor ?? me.name, text: orderLines(e.order, today).main }] : [];
     });
     if (extLog.length) setExtendLog((all) => [...all, ...extLog]);
     auditLog(
@@ -1712,7 +1716,7 @@ export default function WardApp() {
     const r = resultState[pid];
     if (!deny("result.ack") && r?.panic) todos.push({ key: `panic-${pid}`, label: `パニック値：${x.patient.name}さん`, detail: "対応を書いて確認する", count: r.panic, tone: "shu", go: () => openPatient(pid) });
     if (!deny("result.ack") && r && r.unseen > r.panic) todos.push({ key: `unseen-${pid}`, label: `未確認の結果：${x.patient.name}さん`, count: r.unseen - r.panic, tone: "ai", go: () => openPatient(pid) });
-    const v = verbalUnsigned(x.entries).length;
+    const v = verbalUnsigned(x.entries).filter((e) => canReviewVerbal(e, me)).length;
     if (!deny("order.sign") && v) todos.push({ key: `verbal-${pid}`, label: `口頭指示の承認待ち：${x.patient.name}さん`, count: v, tone: "yamabuki", go: () => openPatient(pid) });
   }
   // 指示簿: the latest vitals against the call criteria, and versions no nurse has taken yet.
@@ -3425,13 +3429,6 @@ export default function WardApp() {
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                 today={today}
                 nowAbs={abs(0, nowTime)}
-                onSign={(ids) => {
-                  auditLog({ role: me.role, actor: me.name, action: "確定（口頭指示を承認）", patient: patient.name, detail: `${ids.length}件` });
-                  update((c) => ({
-                    added: c.added.map((e) => (ids.includes(e.id) && e.verbal ? { ...e, verbal: { ...e.verbal, signedAt: { day: 0, time: nowTime } } } : e)),
-                    flash: `口頭指示 ${ids.length}件を承認しました。`,
-                  }));
-                }}
               />
                     </div>
                   )}
@@ -4357,6 +4354,8 @@ export default function WardApp() {
   return (
     <RoleProvider value={role}>
     <MeProvider value={me}>
+    <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
+    {verbalConfirmation.dialog}
     <CosignRefs value={byRef(cosign)}>
     <div className="flex h-screen flex-col print:hidden">
       <div aria-hidden className="standalone-edge" />
@@ -4557,6 +4556,7 @@ export default function WardApp() {
       {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onInfo={(id) => (openPatient(id), setPanel("patient-info"))} onClose={() => setPickerOpen(false)} />}
     </div>
     </CosignRefs>
+    </VerbalReviewProvider>
     </MeProvider>
     </RoleProvider>
   );

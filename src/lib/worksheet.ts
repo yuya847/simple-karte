@@ -129,6 +129,11 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         const rx = o as PrescriptionOrder;
         if (rx.category === "退院時") continue;
         const main = `${oralName(rx.drugCode)} 1回${rx.amount}${rx.unit}`;
+        if (rx.once) {
+          const t = abs(rx.once.day, rx.once.time);
+          if (e.status === "有効" && t >= lo && t < hi) timed.push({ ...base, at: t, kind: "内服", main, detail: "1回だけ・今すぐ", orderId: e.id, state: state(t) });
+          continue;
+        }
         if (rx.timings.length === 0) {
           if (e.status === "有効") untimed.push({ ...base, at: null, kind: "内服", main, detail: `頓用 ${rx.prn ?? ""}${rx.maxPerDay ? `（1日${rx.maxPerDay}回まで）` : ""}`, orderId: e.id, state: null });
           continue;

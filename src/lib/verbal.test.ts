@@ -22,3 +22,22 @@ describe("口頭指示", () => {
     expect(verbalOverdue(e(true), 3000)).toBe(false);
   });
 });
+
+import { canReviewVerbal, reviewVerbal, verbalConfirmationProblems } from "./verbal";
+it("医師・復唱・有効な時刻が揃うまで確定できない", () => {
+  expect(verbalConfirmationProblems({ doctor: " ", readBack: false, time: "24:00" })).toHaveLength(3);
+  expect(verbalConfirmationProblems({ doctor: "当直医", readBack: true, time: "00:00" })).toEqual([]);
+});
+it("指示医と指導医だけが承認・理由付き取り消しを行い、承認待ちから消える", () => {
+  const doctor = { role: "医師" as const, name: "当直医" };
+  expect(canReviewVerbal(e(), { ...doctor, name: "別の医師" })).toBe(false);
+  expect(canReviewVerbal(e(), { role: "看護師", name: "当直医" })).toBe(false);
+  expect(canReviewVerbal(e(), { ...doctor, name: "指導医 高橋" })).toBe(true);
+  const signed = reviewVerbal(e(), doctor, "08:00");
+  expect(signed.verbal).toMatchObject({ signedBy: "当直医", signedAt: { day: 0, time: "08:00" } });
+  expect(verbalUnsigned([signed])).toEqual([]);
+  expect(reviewVerbal(e(), doctor, "08:00", " ")).toEqual(e());
+  const cancelled = reviewVerbal(e(), doctor, "08:00", "指示を訂正");
+  expect(cancelled.verbal?.cancelled?.reason).toBe("指示を訂正");
+  expect(verbalUnsigned([cancelled])).toEqual([]);
+});

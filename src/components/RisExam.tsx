@@ -220,6 +220,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
           >
             撮影済みにする（手入力）
           </button>
+          {(deny || blockDone.length > 0) && <span className="text-xs text-ink-soft">{deny ?? blockDone.join("　")}</span>}
           <input value={stopReason} onChange={(e) => setStopReason(e.target.value)} placeholder="撮影できなかった理由" aria-label="撮影できなかった理由" disabled={!!deny} className={`${field} ml-auto w-56`} />
           <button
             type="button"
@@ -274,7 +275,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
             </p>
           ) : (
             <>
-              {w.done && recProblems.length > 0 && (
+              {recProblems.length > 0 && (
                 <ul className="mt-1 list-disc pl-5 text-ink-soft">
                   {recProblems.map((x) => (
                     <li key={x}>{x}</li>
@@ -292,6 +293,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
               >
                 照射録を確定
               </button>
+              {(deny || !w.done || recProblems.length > 0) && <span className="ml-2 text-xs text-ink-soft">{deny ?? (!w.done ? "撮影済みの記録がまだです。" : recProblems.join("　"))}</span>}
               <span className="hint ml-2 text-[11px] text-ink-faint">撮影した記録を入れてから確定します。確定すると、指示をした医師に署名を頼みます（カルテの放射線画像にも出ます）。</span>
             </>
           )}

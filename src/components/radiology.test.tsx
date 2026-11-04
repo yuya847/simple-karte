@@ -58,3 +58,12 @@ describe("放射線部", () => {
     expect(other).toContain("指示をした医師（山本（専攻医））が署名します。");
   });
 });
+
+it("照射録の不足理由を未撮影でもボタンのそばに表示する", () => {
+  const row = risRows(people, {}).find((r) => r.orderId === "o-ris-demo3")!;
+  const html = as("診療放射線技師", <ExamForm r={row} onDesk={() => {}} nowTime="10:00" today={today} />);
+  expect(html).toContain("指示受け（受付）がまだです。");
+  expect(html).toContain("撮影条件の記録がまだです。");
+  expect(html).toContain("管電圧（kV）が入っていません。");
+  expect(html).toContain("管電流時間積（mAs）が入っていません。");
+});

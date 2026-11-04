@@ -84,6 +84,7 @@ export function oralName(code: string): string {
 
 /** "1日2回 朝・夕" or "頓用 発熱時（38.5℃以上） 1日3回まで" */
 export function timingText(o: PrescriptionOrder): string {
+  if (o.once) return `1回だけ・今すぐ（${o.once.time}）`;
   if (o.timings.length === 0) return `頓用 ${o.prn ?? ""}${o.maxPerDay ? ` 1日${o.maxPerDay}回まで` : ""}`.trim();
   return `1日${o.timings.length}回 ${timingName(o.timings)}`;
 }
@@ -92,7 +93,7 @@ export function prescriptionLines(order: PrescriptionOrder, today: CalendarDate)
   const main = `${oralName(order.drugCode)}　1回${order.amount}${order.unit}${order.dailyAmount ? `（1日${order.dailyAmount}${order.unit}）` : ""}`;
   const parts: string[] = [order.category, timingText(order)];
   parts.push(`開始 ${formatShort(addDays(today, order.start.day))}${order.start.timing ? ` ${order.start.timing}` : ""}`);
-  parts.push(order.days ? `${order.days}日分` : "継続");
+  if (!order.once) parts.push(order.days ? `${order.days}日分` : "継続");
   if (order.comment) parts.push(order.comment);
   return { main, detail: parts.join("　") };
 }

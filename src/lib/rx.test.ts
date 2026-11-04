@@ -106,3 +106,10 @@ it("内服の重複承知を選び、再判定すると確定できる", () => {
   expect(isReady(checkDraft(next, c))).toBe(true);
   expect(toOrder(next, c).orders![0]).toMatchObject({ acks: ["重複承知"] });
 });
+
+it("口頭指示の単回処方は食後や頓用の予定にせず、確定時刻を記録する", () => {
+  const d = rx({ once: true, category: "臨時", timings: [], prn: "今すぐ1回だけ", maxPerDay: 1, days: null, items: [{ drugCode: "ORAL-REBA100", said: "", daily: null, perDose: 1 }] });
+  const o = toOrder(d, ctx()).orders![0];
+  expect(o).toMatchObject({ type: "prescription", once: { day: 0, time: "10:00" }, amount: 1 });
+  expect(o).not.toHaveProperty("prn");
+});

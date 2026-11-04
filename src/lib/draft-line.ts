@@ -58,5 +58,6 @@ export function draftSourceText(source: string): string | null {
 }
 
 export function prescriptionUsage(d: Extract<Draft, { kind: "prescription" }>): string {
+  if (d.once) return "1回だけ・今すぐ";
   return [d.timings === null ? "用法？" : d.timings.length ? `1日${d.timings.length}回 ${timingName(d.timings)}` : `頓用 ${d.prn ?? "条件？"}${d.maxPerDay ? `（1日${d.maxPerDay}回まで）` : ""}`, d.days ? `${d.days}日分` : null].filter(Boolean).join("　");
 }

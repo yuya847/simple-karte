@@ -32,7 +32,7 @@ export function rpLine(d: Draft): string {
         return `${it.drugCode ? oralName(it.drugCode) : it.said} 1回${per ?? "？"}${it.drugCode ? (findOralDrug(it.drugCode)?.unit ?? "") : ""}`;
       })
       .join("、");
-    return `${drugs}　${howText(d.timings, d.prn, d.maxPerDay)}${d.days ? `　${d.days}日分` : ""}${d.category ? `　${d.category}` : ""}${d.comment ? `　${d.comment}` : ""}${d.onePack ? "　一包化" : ""}`;
+    return `${drugs}　${d.once ? "1回だけ・今すぐ" : howText(d.timings, d.prn, d.maxPerDay)}${!d.once && d.days ? `　${d.days}日分` : ""}${d.category ? `　${d.category}` : ""}${d.comment ? `　${d.comment}` : ""}${d.onePack ? "　一包化" : ""}`;
   }
   return "";
 }

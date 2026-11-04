@@ -56,7 +56,7 @@ describe("放射線部の一覧と状態", () => {
   it("asks for the contrast medium before a contrast CT is recorded as done", () => {
     const r = rowOf(desk, "o-ris-demo2");
     const w = { ...r, work: undefined };
-    expect(doneProblems(w as RisRow, { orderId: r.orderId, patientId: r.patientId, label: r.label })).toEqual(["受付がまだです。", "撮影室・装置を割り当ててください。", expect.stringContaining("使った造影剤を記録")]);
+    expect(doneProblems(w as RisRow, { orderId: r.orderId, patientId: r.patientId, label: r.label })).toEqual(["指示受け（受付）がまだです。", "撮影室・装置を割り当ててください。", expect.stringContaining("使った造影剤を記録")]);
   });
 });
 
@@ -160,4 +160,16 @@ describe("会計への連携（算定は放射線部の記録から）", () => {
     const stopped = putWork(desk, r, (w) => ({ ...w, notDone: { day: 0, time: "15:00", by: "技師", via: "手入力", reason: "患者の希望で延期" } }));
     expect(codes(claim(withExamRecords(ctEntry, stopped) as OrderEntry[]))).not.toContain("170011810");
   });
+});
+
+it("手入力で撮影条件を保存し、撮影済みを経て照射録を確定できる", () => {
+  const r = rowOf({}, "o-ris-demo3");
+  expect(recordProblems(r, fmt).join(" ")).toContain("管電圧");
+  expect(recordProblems(r, fmt).join(" ")).toContain("管電流時間積");
+  const saved = putWork({}, r, (w) => ({ ...w, arrived: { day: 0, time: "10:00", by: "技師" }, room: "XR1", exposure: { kv: 120, mas: 3, distanceCm: 180, films: 1 }, dose: { esak: 0.2 } }));
+  const ready = rowOf(saved, r.orderId);
+  expect(doneProblems(ready, ready.work!)).toEqual([]);
+  expect(recordProblems(ready, fmt).join(" ")).toContain("撮影の記録");
+  const done = putWork(saved, r, (w) => ({ ...w, done: { day: 0, time: "10:05", by: "技師", via: "手入力" } }));
+  expect(recordProblems(rowOf(done, r.orderId), fmt)).toEqual([]);
 });

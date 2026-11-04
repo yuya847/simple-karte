@@ -458,7 +458,7 @@ export function doseGroups(rows: RisRow[]): DoseGroup[] {
 /** What stops the study from being recorded as done (撮影済み). */
 export function doneProblems(r: RisRow, w: RisWork): string[] {
   const out: string[] = [];
-  if (!w.arrived) out.push("受付がまだです。");
+  if (!w.arrived) out.push("指示受け（受付）がまだです。");
   if (!w.room) out.push("撮影室・装置を割り当ててください。");
   const usesContrast = r.order.contrast && r.order.contrast !== "単純";
   if (r.order.contrast === "造影" || r.order.contrast === "単純＋造影") {
@@ -474,7 +474,7 @@ export function doneProblems(r: RisRow, w: RisWork): string[] {
 export function recordProblems(r: RisRow, fmtDay: (d: DayOffset) => string): string[] {
   if (!irradiates(r.order.modality)) return ["MRI は放射線を照射しないので、照射録の対象ではありません。"];
   const s = shoshaRoku(r, fmtDay);
-  return [...s.items.flatMap((i) => i.missing.map((m) => `${i.label.slice(0, 1)}：${m}が入っていません。`)), ...s.doseMissing.map((m) => `線量：${m}が入っていません（CT は線量の記録が要ります）。`)];
+  return [...(!r.work?.exposure ? ["撮影条件の記録がまだです。"] : []), ...s.items.flatMap((i) => i.missing.map((m) => `${i.label.slice(0, 1)}：${m}が入っていません。`)), ...s.doseMissing.map((m) => `線量：${m}が入っていません（CT は線量の記録が要ります）。`)];
 }
 
 /** What stops a reading report from being confirmed. */

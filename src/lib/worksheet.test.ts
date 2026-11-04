@@ -96,3 +96,11 @@ describe("延長と食事の変更も指示受けに", () => {
     expect(new Set(out.map((c) => c.key)).size).toBe(2);
   });
 });
+
+it("単回処方は今すぐの時刻に1件だけ出て翌日に繰り返さない", () => {
+  const entry: OrderEntry = { kind: "order", id: "once-rx", day: 0, time: "10:00", author: "医師", status: "有効", order: { type: "prescription", category: "臨時", drugCode: "ORAL-REBA100", amount: 1, unit: "錠", timings: [], start: { day: 0 }, once: { day: 0, time: "10:00" } } };
+  const p = [{ patient: PATIENTS[0], room: "512", entries: [entry] }];
+  expect(buildWorksheet(p, 0, 1440, 600).timed).toMatchObject([{ orderId: "once-rx", at: 600 }]);
+  expect(buildWorksheet(p, 1440, 2880, 1500).timed).toEqual([]);
+  expect(buildWorksheet(p, 0, 1440, 600).untimed).toEqual([]);
+});

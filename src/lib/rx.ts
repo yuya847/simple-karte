@@ -19,6 +19,7 @@ export interface RxItem {
 }
 
 export interface PrescriptionDraft {
+  once?: boolean;
   alreadyDone?: boolean;
   id: string;
   origin: "ai" | "manual";
@@ -227,7 +228,8 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
       amount: per,
       unit: m.unit,
       timings: d.timings!,
-      ...(prn ? { prn: d.prn ?? "必要時", maxPerDay: d.maxPerDay ?? undefined } : {}),
+      ...(d.once ? { once: { day: 0, time: nowTime } } : {}),
+      ...(prn && !d.once ? { prn: d.prn ?? "必要時", maxPerDay: d.maxPerDay ?? undefined } : {}),
       start,
       days: prn ? undefined : (d.days ?? undefined),
       comment: [d.comment, d.onePack ? "一包化" : null].filter(Boolean).join("　") || undefined,

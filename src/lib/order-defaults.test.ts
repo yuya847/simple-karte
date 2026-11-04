@@ -20,3 +20,7 @@ import { onceInfusionMinutes } from "./order-defaults";
 it("1回だけの輸液の量から時間を選ぶ（架空）", () => {
   expect([500, 250, 100, 200, 0].map(onceInfusionMinutes)).toEqual([60, 30, 30, null, null]);
 });
+
+it("口頭指示は病棟の定期でも1回だけ・今すぐ", () => {
+  expect(orderDefaults("90010231", "定期", "23:59", "verbal")).toMatchObject({ schedule: { kind: "once" }, start: { day: 0, time: "23:59" } });
+});

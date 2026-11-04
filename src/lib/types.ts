@@ -144,7 +144,7 @@ export interface OrderEntry {
   stoppedTime?: string;
   order: Order;
   /** 口頭指示: a nurse entered it on the doctor's spoken order; the doctor signs afterwards. */
-  verbal?: { takenBy: string; doctor: string; at: { day: DayOffset; time: string }; signedAt?: { day: DayOffset; time: string } };
+  verbal?: { takenBy: string; doctor: string; at: { day: DayOffset; time: string }; readBack?: boolean; signedBy?: string; cancelled?: { by: string; at: { day: DayOffset; time: string }; reason: string }; signedAt?: { day: DayOffset; time: string } };
   /** 画像検査: what 放射線部 recorded (ris.ts), for the claim. Without it a study counts as done once its time passed. */
   exam?: ExamRecord;
 }
@@ -226,6 +226,7 @@ export interface LabOrder {
 export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
 
 export interface PrescriptionOrder {
+  once?: { day: DayOffset; time: string };
   onePack?: boolean;
   type: "prescription";
   /** 定期 = regular, 臨時 = one-off/short, 持参薬 = the patient's own drugs brought from home,
