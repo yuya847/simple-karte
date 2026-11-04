@@ -41,6 +41,7 @@ export interface RefWindowProps {
   /** Diet orders, for the 食事 calendar and the flow sheet; pressing a meal opens the diet panel. */
   diets?: DietOrder[];
   onOpenDiet?: () => void;
+  dietEdit?: Parameters<typeof DietCalendar>[0]["dietEdit"];
   /** The patient's bookings (予約の一覧). */
   bookings?: Booking[];
   /** 移動 row of the 移動・食事 calendar, booking from a date, and carrying out a booked move. */
@@ -63,7 +64,7 @@ export interface RefWindowProps {
  * What a reading tab on the right shows (経過表・内服カレンダー・処置カレンダー・移動・食事・指示簿・予約). Each opens
  * from the tools on the far right in its own large window, like the injection calendar, and can be docked back.
  */
-export function RefWindow({ tab, patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute, onInsertVitals, diets, onOpenDiet, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, standingCal }: RefWindowProps & { tab: RefTab }) {
+export function RefWindow({ tab, patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute, onInsertVitals, diets, onOpenDiet, dietEdit, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, standingCal }: RefWindowProps & { tab: RefTab }) {
   const calendarProps: CalendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute };
   switch (tab) {
     case "flowsheet":
@@ -73,7 +74,7 @@ export function RefWindow({ tab, patient, entries, today, nowTime, selectedDay, 
     case "proccal":
       return <ProcedureCalendar {...calendarProps} />;
     case "dietcal":
-      return <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} moves={moves} onBook={onBook} onDoMove={onDoMove} />;
+      return <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} dietEdit={dietEdit} moves={moves} onBook={onBook} onDoMove={onDoMove} />;
     case "standingcal":
       return <StandingCalendar patient={patient} lines={standingCal?.lines ?? []} today={today} nowTime={nowTime} onStop={standingCal?.onStop} onOpenPanel={standingCal?.onOpenPanel} />;
     case "bookings":

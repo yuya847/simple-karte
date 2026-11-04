@@ -4,10 +4,13 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { LEAVE_HOLD_RULE, MEALS, MEAL_TIMES, dietAt, dietLabel, holdTitle, mealHolds, type DietOrder } from "@/lib/diet";
+import { LEAVE_HOLD_RULE, MEALS, MEAL_TIMES, dietAt, dietLabel, holdTitle, mealHolds, type DietOrder, type Meal } from "@/lib/diet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
 import { abs } from "@/lib/flowsheet";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
+
+import { DietPanel } from "./panels/DietPanel";
+import { calendarDietOrders, type DietScope } from "@/lib/diet-calendar-edit";
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
 
@@ -48,7 +51,10 @@ const EVENT_TONE: Record<MoveEvent["tone"], string> = {
  * diet marked, and the meals held for an exam. Worked out from the diet orders by code; pressing a
  * meal opens the diet panel to change it.
  */
-export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDiet, moves = [], onBook, onDoMove }: { patient: Patient; entries: HistoryEntry[]; diets: DietOrder[]; today: CalendarDate; nowTime: string; onOpenDiet?: () => void; moves?: MoveEvent[]; onBook?: (day: number, what: BookWhat) => void; onDoMove?: (entryId: string) => void }) {
+export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDiet, dietEdit, moves = [], onBook, onDoMove }: { patient: Patient; entries: HistoryEntry[]; diets: DietOrder[]; today: CalendarDate; nowTime: string; onOpenDiet?: () => void; dietEdit?: { denied: string | null; doctor: string; onDraft: (orders: DietOrder[]) => void }; moves?: MoveEvent[]; onBook?: (day: number, what: BookWhat) => void; onDoMove?: (entryId: string) => void }) {
+  const [editing, setEditing] = useState<{ day: number; meal: Meal } | null>(null);
+  const [scope, setScope] = useState<DietScope>("from");
+  const [error, setError] = useState("");
   const [menu, setMenu] = useState<{ day: number; x: number; y: number } | null>(null);
   const first = Math.max(patient.admittedOn, -6);
   const days: number[] = [];
@@ -125,9 +131,10 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
                   <td key={d} className="p-0.5">
                     <button
                       type="button"
-                      onClick={onOpenDiet}
-                      title={`${formatShort(addDays(today, d))} ${m}：${c.held.length ? `${holdTitle(c.holds)}（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`}
-                      className={`block min-h-12 w-full rounded px-1.5 py-1 text-left ${tone} ${c.served ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${d === 0 ? "outline outline-1 outline-ai/30" : ""}`}
+                      disabled={!dietEdit || !!dietEdit.denied || c.served}
+                      onClick={() => { setEditing({ day: d, meal: m }); setScope("from"); setError(""); }}
+                      title={`${dietEdit?.denied ?? (c.served ? "配膳済みの食事は変更できません" : "押して変える")}：${formatShort(addDays(today, d))} ${m}：${c.held.length ? `${holdTitle(c.holds)}（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`}
+                      className={`block min-h-12 w-full rounded enabled:hover:bg-ai-soft enabled:hover:text-ai px-1.5 py-1 text-left ${tone} ${c.served ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${d === 0 ? "outline outline-1 outline-ai/30" : ""}`}
                     >
                       {c.changed && <span className="mb-0.5 block text-[9px] font-bold text-ai">ここから変更</span>}
                       {c.held.length ? (
@@ -146,6 +153,21 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
           ))}
         </tbody>
       </table>
+      {editing && dietEdit && !dietEdit.denied && createPortal(
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-ink/20" onKeyDown={(e) => { if (e.key === "Escape") setEditing(null); }}>
+          <div role="dialog" aria-modal="true" aria-label="食事を変える" className="scroll-thin max-h-[85vh] w-[min(28rem,95vw)] overflow-auto rounded-lg border border-rule bg-sheet p-3 shadow-xl">
+            <button type="button" autoFocus onClick={() => setEditing(null)} className="mb-2 rounded border border-rule px-2 py-1">閉じる</button>
+            <label className="mb-2 block text-xs">変更する期間 <select value={scope} onChange={(e) => setScope(e.target.value as DietScope)} className="rounded border border-rule bg-sheet p-1">
+              <option value="from">この食事から（次の指示まで）</option><option value="day">この日だけ（選んだ食事から夕食まで）</option>
+            </select></label>
+            {mealHolds(orders, editing.day, editing.meal, examTime).map((h) => <p key={h.orderId} className="text-xs text-yamabuki">食止め継続：{h.label}</p>)}
+            <p className="hint text-xs">検査・外泊・退院による食止めは、この変更では解除されません。禁止食品・アレルギーは注意欄に記入できます。患者情報のアレルギーは別に管理します。</p>
+            {error && <p role="alert" className="text-xs text-shu">{error}</p>}
+            <DietPanel compact patient={patient} today={today} nowTime={nowTime} doctor={dietEdit.doctor} diets={diets} entries={orders}
+              initial={{ ...(dietAt(diets, patient.id, editing.day, editing.meal) ?? { kind: "常食", staple: "米飯", side: "常菜" }), from: editing }}
+              onSave={(d) => { try { dietEdit.onDraft(calendarDietOrders(diets, d, scope)); setEditing(null); } catch (e) { setError((e as Error).message); } }} />
+          </div>
+        </div>, document.body)}
       {menu &&
         createPortal(
           <div role="menu" style={{ position: "fixed", left: Math.min(menu.x, window.innerWidth - 240), top: menu.y, zIndex: 1000 }} className="w-56 rounded-lg border border-rule bg-sheet p-1 text-[13px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
@@ -179,7 +201,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
           </div>,
           document.body,
         )}
-      <p className="hint mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。押すと右に食事の欄が開きます。検査で止めるのは架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
+      <p className="hint mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。食事を押すとその場で編集でき、下書きに入れてから「オーダーのみ」か「保存」で確定します。検査で止めるのは架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
     </div>
   );
 }

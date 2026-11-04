@@ -42,6 +42,8 @@ interface Props {
   diets: DietOrder[];
   entries: OrderEntry[];
   onSave: (d: DietOrder) => void;
+  initial?: Form;
+  compact?: boolean;
 }
 
 type Form = Omit<DietOrder, "id" | "patientId" | "by" | "at">;
@@ -49,10 +51,10 @@ type Form = Omit<DietOrder, "id" | "patientId" | "by" | "at">;
 const DAY_LABEL = ["今日", "明日", "明後日"];
 
 /** Diet order: a 3-day meal grid (what is served, meals held for tests) and a new order (chosen on the form). */
-export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onSave }: Props) {
+export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onSave, initial, compact }: Props) {
   const nowAbs = abs(0, nowTime);
   const first = nextOrderableMeal(nowAbs);
-  const [f, setF] = useState<Form>({ from: { day: first.day, meal: first.meal }, kind: "常食", staple: "米飯", side: "常菜" });
+  const [f, setF] = useState<Form>(initial ?? { from: { day: first.day, meal: first.meal }, kind: "常食", staple: "米飯", side: "常菜" });
   const set = (patch: Partial<Form>) => setF((cur) => ({ ...cur, ...patch }));
 
 
@@ -79,7 +81,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
   const sel = "rounded border border-rule bg-sheet px-1 py-0.5";
   return (
     <div className="space-y-4 text-[13px]">
-      <section>
+      {!compact && <section>
         <h3 className="mb-1 text-xs font-bold text-ink-soft">3日分の食事（コードが出しています）</h3>
         <table className="nums w-full border-collapse text-[12px]">
           <thead>
@@ -114,11 +116,12 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
           </tbody>
         </table>
         <p className="mt-1 text-[10px] text-ink-faint">検査で止めるのは、架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。締切は朝食が前日17:00、昼食が当日10:00、夕食が当日15:00（架空）。</p>
-      </section>
+      </section>}
 
       <section className="space-y-2 rounded-md border border-rule bg-paper p-3">
         <h3 className="font-bold">食事を変える</h3>
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          {compact ? <span>{formatShort(addDays(today, f.from.day))} {f.from.meal}食から</span> : <>
           <span className="text-ink-soft">いつから</span>
           <select value={f.from.day} onChange={(e) => set({ from: { ...f.from, day: Number(e.target.value) } })} className={sel} aria-label="日">
             {[0, 1, 2].map((d) => (
@@ -132,7 +135,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
               <option key={m}>{m}</option>
             ))}
           </select>
-          <span className="text-ink-faint">食から</span>
+          <span className="text-ink-faint">食から</span></>}
         </div>
         <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="食事の種類">
           {DIET_KINDS.map((k) => (
@@ -233,10 +236,10 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
         {f.kind === "絶食" && (
           <input value={f.npoReason ?? ""} onChange={(e) => set({ npoReason: e.target.value || undefined })} placeholder="絶食の理由（例：嚥下の評価まで）" className="w-full rounded border border-rule bg-sheet px-2 py-1 text-xs" />
         )}
-        <input value={f.comment ?? ""} onChange={(e) => set({ comment: e.target.value || undefined })} placeholder="注意（禁止食品・水分制限など）" className="w-full rounded border border-rule bg-sheet px-2 py-1 text-xs" />
+        <input value={f.comment ?? ""} onChange={(e) => set({ comment: e.target.value || undefined })} aria-label="注意（禁止食品・アレルギー・水分制限など）" placeholder="注意（禁止食品・アレルギー・水分制限など）" className="w-full rounded border border-rule bg-sheet px-2 py-1 text-xs" />
         <div className="rounded bg-sheet p-2 text-xs">
           <b>{dietLabel({ ...f, id: "", patientId: "", by: "", at: { day: 0, time: "" } })}</b>
-          <span className="text-ink-soft">　{DAY_LABEL[f.from.day]}の{f.from.meal}食から</span>
+          <span className="text-ink-soft">　{DAY_LABEL[f.from.day] ?? formatShort(addDays(today, f.from.day))}の{f.from.meal}食から</span>
           {errors.map((m) => (
             <p key={m} className="text-shu">
               {m}

@@ -1,4 +1,6 @@
 "use client";
+
+import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
 import { recordsForCompletedOrders } from "@/lib/completed-orders";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -2097,6 +2099,7 @@ export default function WardApp() {
     draftedStops: chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : [])),
     onInsertVitals: (text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" })),
     diets: diets,
+    dietEdit: { denied: deny("diet"), doctor: me.name, onDraft: (orders) => { if (!deny("diet")) update((c) => ({ drafts: [...c.drafts, ...calendarDietDrafts(orders, newId)], flash: "食事の変更を下書きにしました。「オーダーのみ」か「保存」で確定します。" })); } },
     onOpenDiet: () => setPanel("diet"),
     moves: moveEventsOf(patient.id),
     onBook: (day: number, what: BookWhat) => {
