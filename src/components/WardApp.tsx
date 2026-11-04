@@ -31,7 +31,8 @@ import { EMPTY_OPD_DESK, OpdDesk, type OpdDeskBook } from "./OpdDesk";
 import { OTHER_DEPT_TODAY } from "@/lib/opd-desk";
 import { VisitChart, type Visit, type VisitNote } from "./VisitChart";
 import { OpdRxPanel, RevisitPanel, type OpdRx, type Revisit } from "./OpdOrders";
-import { CalendarPlus, FlaskConical, Pill as PillIcon } from "lucide-react";
+import { CalendarPlus, ClipboardList, FlaskConical, Pill as PillIcon, ScanLine } from "lucide-react";
+import { VisitOrders } from "./VisitOrders";
 import { WardRequests } from "./WardRequests";
 import { BedMoveDialog } from "./BedMoveDialog";
 import { DeptMoveDialog } from "./DeptMoveDialog";
@@ -469,6 +470,8 @@ export default function WardApp() {
   const [opd, setOpd] = useState<OpdPatient[]>(() => [...OPD_PATIENTS, ...OTHER_DEPT_TODAY]);
   // 外来の受付: bookings on later days and the 診察券 issued today.
   const [opdDesk, setOpdDesk] = useState<OpdDeskBook>(EMPTY_OPD_DESK);
+  // Orders confirmed on a visit's screen (救急外来・外来) in this session, by visit key; merged with the demo's.
+  const [visitOrders, setVisitOrders] = useState<Record<string, OrderEntry[]>>({});
   const [visitNotes, setVisitNotes] = useState<Record<string, VisitNote[]>>({});
   const [requests, setRequests] = useState<AdmissionRequest[]>(INITIAL_REQUESTS);
   // 外来処方（院外処方せん）と再診予約, per outpatient.
@@ -594,6 +597,7 @@ export default function WardApp() {
       opd: [opd, setOpd],
       opdDesk: [opdDesk, setOpdDesk],
       visitNotes: [visitNotes, setVisitNotes],
+      visitOrders: [visitOrders, setVisitOrders],
       requests: [requests, setRequests],
       opdRx: [opdRx, setOpdRx],
       revisits: [revisits, setRevisits],
@@ -653,6 +657,11 @@ export default function WardApp() {
   const [demoLabs] = useState(() => (typeof window === "undefined" ? {} : demoLabOrders(abs(0, nowTimeInTokyo()))));
   // Lab orders of today's 救急外来・外来 visits (fictional), by visit key "er:◯" / "opd:◯".
   const [visitLabs] = useState(() => (typeof window === "undefined" ? {} : visitLabOrders(abs(0, nowTimeInTokyo()))));
+  const visitEntries = useMemo(() => {
+    const all: Record<string, OrderEntry[]> = { ...visitLabs };
+    for (const [k, v] of Object.entries(visitOrders)) all[k] = [...(all[k] ?? []), ...v];
+    return all;
+  }, [visitLabs, visitOrders]);
   const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
     () =>
@@ -1226,7 +1235,7 @@ export default function WardApp() {
   // 病理・生理 reports are read and marked like the other results.
   const wardResults = [...people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS)), ...dept.results.filter((i) => people.some((x) => x.patient.id === i.patientId))];
   // 救急外来・外来 visits with lab orders: the laboratory takes in and results their samples too.
-  const labVisits = visitPeople(er, opd, visitLabs, labDesk);
+  const labVisits = visitPeople(er, opd, visitEntries, labDesk);
   const labItems = [...wardResults, ...labVisits.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS))];
   const unseenResults = unseen(wardResults, acks);
   const resultState = Object.fromEntries(
@@ -1680,13 +1689,47 @@ export default function WardApp() {
                 <p className="text-[12px] text-ink-faint">この受診の検体検査はありません。</p>
               ),
             };
-            if (v.kind !== "opd") return [labTool];
+            const vName = v.kind === "er" ? v.er.name : v.op.name;
+            const vOrders = visitEntries[visitKey] ?? [];
+            const ordersTool = {
+              key: "orders",
+              label: "オーダ・検査歴",
+              icon: ClipboardList,
+              wide: true,
+              summary: vOrders.length ? <p className="text-[12px]">オーダ {vOrders.length}件（{["lab", "imaging", "physio"].map((t) => vOrders.filter((e) => e.order.type === t).length).map((n, i) => `${["検体", "画像", "生理"][i]} ${n}`).join("・")}）　右の「オーダ・検査歴」で出す・見る</p> : undefined,
+              panel: vp ? (
+                <VisitOrders
+                  patient={vp.patient}
+                  orders={vOrders}
+                  today={today}
+                  nowTime={nowTime}
+                  newId={newId}
+                  me={me.name}
+                  onConfirm={(added) => {
+                    auditLog({ role: me.role, actor: me.name, action: "オーダの確定（受診）", patient: vName, detail: added.map((e) => orderLines(e.order, today).main).join("／").slice(0, 160) });
+                    setVisitOrders((all) => ({ ...all, [visitKey]: [...(all[visitKey] ?? []), ...added] }));
+                  }}
+                />
+              ) : (
+                <p className="text-[12px] text-ink-faint">この受診の記録を読み込めませんでした。</p>
+              ),
+            };
+            const imagingTool = {
+              key: "imaging",
+              label: "放射線画像",
+              icon: ScanLine,
+              wide: true,
+              panel: vp ? <ImagingPanel patient={vp.patient} today={today} entries={vOrders} nowAbs={nowAbs} /> : <p className="text-[12px] text-ink-faint">画像はありません。</p>,
+            };
+            if (v.kind !== "opd") return [ordersTool, labTool, imagingTool];
             const op = v.op;
             const fmt = (d: number) => formatShort(addDays(today, d));
             const rxDone = opdRx[op.id] ?? [];
             const rv = revisits[op.id];
             return [
+              ordersTool,
               labTool,
+              imagingTool,
               {
                 key: "rx",
                 label: "外来処方",
