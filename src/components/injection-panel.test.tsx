@@ -84,5 +84,5 @@ it("新規の注射に区分があり、既定の開始をカレンダー由来�
 });
 it("輸液も1回だけを選べる", () => {
   const html = render({ ...ctrx, items: [{ drugCode: "INJ-SOL3A500", amount: 1, unit: "本" }], schedule: { kind: "once" } });
-  expect(group(html, "Rp1 の回数")).toMatch(/aria-checked="true"[^>]*>1回だけ<\/button>/);
+  expect(group(html, "Rp1 の回数")).toMatch(/aria-checked="true"[^>]*>(?:<span[^>]*>[^<]*<\/span>)?1回だけ<\/button>/); // 番号付きの選択肢（1 1回だけ）
 });
