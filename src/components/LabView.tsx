@@ -115,7 +115,7 @@ export function LabView(p: Props) {
             使い方：{TABS.find((t) => t.key === tab)?.label}
           </p>
           <p className="text-ink">{GUIDE[tab]}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">臨床検査技師として操作するには、左下の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。採取の記録は看護師でワークシートの「照合」から、結果の確認と対応は医師でカルテの右上から行います。</p>
+          <p className="mt-1 text-[11px] text-ink-soft">臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。採取の記録は看護師でワークシートの「照合」から、結果の確認と対応は医師でカルテの右上から行います。</p>
         </div>
       )}
       {flash && (

@@ -128,7 +128,7 @@ export function PharmacyView(p: Props) {
             使い方：{TABS.find((t) => t.key === tab)?.label}
           </p>
           <p className="text-ink">{GUIDE.find((g) => g.tab === tab)?.steps}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">薬剤師として操作するには、左下の「自分」で「薬剤師」を選びます（デモではログインの代わり）。医師の側（疑義照会の回答・持参薬の指示・TDM の報告）は、医師でカルテを開くと右上に出ます。</p>
+          <p className="mt-1 text-[11px] text-ink-soft">薬剤師として操作するには、右上の「自分」で「薬剤師」を選びます（デモではログインの代わり）。医師の側（疑義照会の回答・持参薬の指示・TDM の報告）は、医師でカルテを開くと右上に出ます。</p>
         </div>
       )}
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
