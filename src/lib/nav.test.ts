@@ -13,6 +13,10 @@ describe("① places by role", () => {
     expect(areasFor("薬剤師").map((a) => a.key)).not.toContain("opd");
     expect(areasFor("薬剤師").map((a) => a.key)).toContain("pharmacy");
   });
+  it("輸血部門 is the laboratory's", () => {
+    expect(areasFor("臨床検査技師").map((a) => a.key)).toEqual(expect.arrayContaining(["lab", "blood"]));
+    expect(areasFor("医師").map((a) => a.key)).not.toContain("blood");
+  });
   it("each role starts at its own place", () => {
     expect(homeArea("医師")).toBe("ward");
     expect(homeArea("看護師")).toBe("ward");

@@ -46,9 +46,8 @@ interface Props {
   shido: Record<string, ShidoRecord[]>;
   onShido: (patientId: string, rec: Omit<ShidoRecord, "at" | "day">) => void;
   dispensed: Record<string, string>;
-  /** 血液製剤の払出 (by transfusion order id): lot number, time, who. */
+  /** 血液製剤の払出 by 輸血部門 (by transfusion order id): lot numbers, time, who. */
   txIssued: Record<string, { lot: string; at: string; by: string }>;
-  onTxIssue: (entryId: string, lot: string) => void;
   /** 病棟薬剤業務日誌: the pharmacist's own words today. */
   journal: { text: string; at: string }[];
   onJournal: (text: string) => void;
@@ -86,7 +85,7 @@ const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
   { tab: "oral", steps: "病棟で飲む内服（定期・臨時）を、患者ごと・Rp ごとに並べます。「定期」は明日から選んだ日数分、「臨時（今日の新規）」は今日出た臨時の全日数と、今日出た定期の今日の分です。量は「1回量 × 服用回数」をオーダの開始・日数・中止からコードで数え、式を出します。Rp ごとに ①調剤 → ②鑑査（できれば別の薬剤師。同じ人なら印が付く）→ ③払出 を記録し、誰がいつかが残ります。疑義照会の回答待ち・まだ監査していないオーダは止まり、調剤のあとで処方が変わると調剤し直しになります。「配薬ラベル」で1回分（日付と朝・昼・夕・眠前）ごとのラベルを印刷できます（一包化の袋に貼る形）。持参薬と退院時処方は入りません（退院時は「退院時の薬」タブ）。頓用は回数が決まらないので数えません。" },
   { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
-  { tab: "blood", steps: "医師が確定した輸血のオーダが並びます。製剤の製造番号（ロット）を入れて払い出すと、払出の記録になり、今日の日報に入ります。" },
+  { tab: "blood", steps: "医師が確定した輸血のオーダと、検査室の輸血部門が払い出した製剤の製造番号（ロット）が並び、今日の日報に入ります。血液製剤の入庫・割付・交差適合試験・払出は輸血部門が一括して行います（この架空の病院の取り決め）。" },
   { tab: "tdm", steps: "バンコマイシンの血中濃度から、コードが AUC を計算します（式つき）。薬剤師が提案を書いて医師へ報告します。" },
   { tab: "journal", steps: "今日の監査・疑義照会・持参薬鑑別・服薬指導・払出（注射・内服）・TDM の件数をコードが数えます。所感を書き残せます。" },
 ];
@@ -884,9 +883,8 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
 // 血液製剤: transfusion orders confirmed by doctors, issued with the product's lot number (日報).
 // ---------------------------------------------------------------------------
 
-function Blood({ people, today, txIssued, onTxIssue }: Props) {
+function Blood({ people, today, txIssued }: Props) {
   const orders = people.flatMap((x) => x.entries.filter((e): e is OrderEntry => e.status === "有効" && e.order.type === "procedure" && !!e.order.tx).map((e) => ({ x, e })));
-  const [lot, setLot] = useState<Record<string, string>>({});
   const issuedToday = orders.filter(({ e }) => txIssued[e.id]);
   return (
     <section className="space-y-3">
@@ -908,12 +906,7 @@ function Blood({ people, today, txIssued, onTxIssue }: Props) {
                 払出 {done.at}　製造番号 {done.lot}（{done.by}）
               </span>
             ) : (
-              <span className="ml-auto flex items-center gap-1.5">
-                <input value={lot[e.id] ?? ""} onChange={(ev) => setLot((m) => ({ ...m, [e.id]: ev.target.value }))} placeholder="製造番号（ロット）" aria-label="製造番号" className="nums w-36 rounded border border-rule bg-paper px-2 py-0.5 font-mono" />
-                <button type="button" disabled={!(lot[e.id] ?? "").trim()} onClick={() => onTxIssue(e.id, lot[e.id].trim())} className="rounded border border-ai px-2 py-0.5 text-xs text-ai hover:bg-ai hover:text-white disabled:opacity-40">
-                  払い出した
-                </button>
-              </span>
+              <span className="ml-auto text-xs text-ink-soft">まだ払い出していません（払出は検査室の輸血部門が、割付と交差適合試験のあとに行います）</span>
             )}
           </article>
         );

@@ -188,6 +188,9 @@ import { insertIntoO } from "@/lib/vitals-text";
 import { Drawer } from "./panels/Drawer";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { ResultsPanel } from "./panels/ResultsPanel";
+import { BloodBankView } from "./BloodBankView";
+import { bloodOf } from "@/lib/blood-bank";
+import { useDepartments } from "@/lib/use-departments";
 
 const NOTE_TEMPLATE = "S)\nO)\nA)\nP)\n";
 /** The attending doctor of the four ward patients (fictional). */
@@ -519,6 +522,8 @@ export default function WardApp() {
   const [calls, setCalls] = useState<Record<string, PanicCall>>({});
   // 検査室: samples taken in, results confirmed (merged into each patient's labs), tries to reach a doctor.
   const [labDesk, setLabDesk] = useState<LabDesk>(EMPTY_DESK);
+  // 輸血部門 (and the records of the other laboratory departments).
+  const dept = useDepartments();
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
   const workspace = useWorkspace(
     {
@@ -601,6 +606,7 @@ export default function WardApp() {
       cosign: [cosign, setCosign],
       limits: [limits, setLimits],
       glass: [glass, setGlass],
+      ...dept.states,
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
   );
@@ -631,10 +637,13 @@ export default function WardApp() {
           ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
+          blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io],
+    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank],
   );
+  /** The blood type in the record before this session (輸血部門 adds its typings to it). */
+  const recordBlood = (id: string) => [...PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
   const findPatient = useCallback((id: string) => allPatients.find((p) => p.id === id), [allPatients]);
   const ward: WardState = useMemo(
     () => ({
@@ -1924,6 +1933,8 @@ export default function WardApp() {
           desk={labDesk}
           onDesk={setLabDesk}
         />
+      ) : screen === "blood" ? (
+        <BloodBankView people={people} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood} nowTime={nowTime} today={today} onIssued={(id, rec) => setTxIssued((all) => Object.fromEntries([...Object.entries(all).filter(([k]) => k !== id), ...(rec ? [[id, rec] as const] : [])]))} />
       ) : screen === "handoff" ? (
         <HandoffView
           people={people}
@@ -2052,11 +2063,6 @@ export default function WardApp() {
           oralRx={oralRx}
           onOralRx={(key, rec) => setOralRx((all) => ({ ...all, [key]: rec }))}
           txIssued={txIssued}
-          onTxIssue={(entryId, lot) => {
-            const who = people.find((x) => x.entries.some((e) => e.id === entryId))?.patient.name;
-            auditLog({ role: me.role, actor: me.name, action: "確定（血液製剤の払出）", patient: who, detail: `製造番号 ${lot}` });
-            setTxIssued((all) => ({ ...all, [entryId]: { lot, at: nowTime, by: me.name } }));
-          }}
           homeRx={homeRx}
           onHomeRx={(id, patch) => setHomeRx((all) => ({ ...all, [id]: { ...all[id], ...patch } }))}
           journal={pharmJournal}

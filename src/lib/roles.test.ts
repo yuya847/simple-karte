@@ -29,6 +29,13 @@ describe("roles", () => {
     expect(denyReason("看護師", "lab.result")).toBe("検査結果の入力と確定は臨床検査技師が行います（いまは看護師で入っています）。");
   });
 
+  it("the blood bank is the laboratory's; the bedside check is the ward's", () => {
+    expect(can("臨床検査技師", "blood.bank")).toBe(true);
+    expect(can("看護師", "blood.bank")).toBe(false);
+    expect(can("看護師", "tx.bedside")).toBe(true);
+    expect(can("臨床検査技師", "tx.bedside")).toBe(false);
+  });
+
   it("医事課 does not write clinical notes", () => {
     expect(can("医事課", "note")).toBe(false);
     expect(can("MSW", "note")).toBe(true);

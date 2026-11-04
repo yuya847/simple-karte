@@ -70,6 +70,8 @@ export type Action =
   | "panic.call"
   | "lab.receive"
   | "lab.result"
+  | "blood.bank"
+  | "tx.bedside"
   | "handoff"
   | "plan"
   | "assess.nursing"
@@ -103,6 +105,8 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "panic.call": { label: "パニック値の連絡", who: ["臨床検査技師"] },
   "lab.receive": { label: "検体の受付", who: ["臨床検査技師"] },
   "lab.result": { label: "検査結果の入力と確定", who: ["臨床検査技師"] },
+  "blood.bank": { label: "輸血部門の業務（血液型・交差適合試験・入庫・割付・払出・返却・廃棄）", who: ["臨床検査技師"] },
+  "tx.bedside": { label: "輸血の照合・観察・副反応の記録", who: ["看護師", "医師"] },
   handoff: { label: "申し送り", who: ["看護師", "医師"] },
   plan: { label: "入院診療計画書の確定", who: ["医師"] },
   "assess.nursing": { label: "看護の評価（褥瘡・転倒転落・せん妄）", who: ["看護師"] },
