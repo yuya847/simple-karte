@@ -42,6 +42,7 @@ import {
   ScrollText,
   Stethoscope,
   Table2,
+  Thermometer,
   TriangleAlert,
   UserCheck,
   UserRound,
@@ -107,4 +108,5 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   assign: Users,
   summaries: FileCheck,
   falls: Footprints,
+  vitals: Thermometer,
 };

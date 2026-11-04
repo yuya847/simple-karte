@@ -237,7 +237,8 @@ import { AssignBoard } from "./AssignBoard";
 import { SummaryApprovals } from "./SummaryApprovals";
 import { FallBoard } from "./FallBoard";
 import { fallTriggers } from "@/lib/fall-reassess";
-import { assignKey, crewOn, planLines, roomNurses } from "@/lib/assignments";
+import { assignKey, crewOn, nurseOfBed, planLines, roomNurses } from "@/lib/assignments";
+import { VitalsBulk } from "./VitalsBulk";
 import { initialRosterBook } from "@/lib/roster";
 import { PressurePanel } from "./panels/PressurePanel";
 import { LiaisonView } from "./LiaisonView";
@@ -1839,6 +1840,19 @@ export default function WardApp() {
           onChange={(d, s, sheet, what) => {
             auditLog({ role: me.role, actor: me.name, action: "業務分担", detail: `${oneFloor} ${shiftKey(d, s)}　${what}` });
             nm.setAssignBook((all) => ({ ...all, [assignKey(oneFloor, d, s)]: sheet }));
+          }}
+        />
+      ) : screen === "vitals" ? (
+        <VitalsBulk
+          pick={floorPick}
+          patients={floorPeople.map((x) => ({ id: x.id, name: x.name, room: x.room, last: x.patient.vitals.at(-1), standing: standingNow(x.id) }))}
+          mine={oneFloor === WARD_NAME ? floorPeople.filter((x) => nurseOfBed(planNow, x.room, rosterNow!.nurses) === me.name).map((x) => x.id) : []}
+          team={floorPeople.filter((x) => teamIds.has(x.id)).map((x) => x.id)}
+          nowTime={nowTime}
+          canType={!deny("vitals")}
+          onSave={(list) => {
+            for (const { patientId, vital: v } of list) auditLog({ role: me.role, actor: me.name, action: "確定（バイタル・一括入力）", patient: findPatient(patientId)?.name, detail: `${v.time} BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
+            setExtraVitals((all) => list.reduce((acc, { patientId, vital }) => ({ ...acc, [patientId]: [...(acc[patientId] ?? []), vital] }), all));
           }}
         />
       ) : screen === "falls" ? (

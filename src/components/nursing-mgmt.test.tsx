@@ -10,6 +10,7 @@ import { BEDS_WITH_CHARTS, WARD_CHART_PATIENTS } from "@/lib/ward-charts";
 import { initialEvals } from "@/lib/admit-eval";
 import { initialSummaries } from "@/lib/nursing-summary";
 import { FallBoard } from "./FallBoard";
+import { VitalsBulk } from "./VitalsBulk";
 import { AssignBoard } from "./AssignBoard";
 import { PressurePanel } from "./panels/PressurePanel";
 import { SummaryPanel } from "./panels/SummaryPanel";
@@ -26,6 +27,25 @@ const where = (pid: string) => {
 };
 const pick = { label: "階", value: "5階東病棟", options: [{ value: "5階東病棟", label: "5階東病棟" }], onChange: () => {} };
 const fmtDay = (d: number) => `D${d}`;
+
+describe("バイタルの一括入力", () => {
+  const patients = PATIENTS.map((p) => ({ id: p.id, name: p.name, room: p.room, last: p.vitals.at(-1) }));
+  it("starts on 自分の受け持ち when the plan gives some, with the last values and the sources of the warnings", () => {
+    const html = renderToStaticMarkup(<VitalsBulk pick={pick} patients={patients} mine={[patients[0].id]} team={patients.map((p) => p.id)} nowTime="10:00" canType onSave={() => {}} />);
+    expect(html).toMatch(/aria-checked="true"[^>]*>業務分担で自分の受け持ち（1人）/);
+    expect(html.match(/の体温"/g)?.length).toBe(1);
+    expect(html).toContain("入れた 0人分を確定");
+    expect(html).toContain("Royal College of Physicians");
+    expect(html).toContain("指示簿");
+  });
+
+  it("without a plan it starts on the team; a viewer who may not record cannot type", () => {
+    const html = renderToStaticMarkup(<VitalsBulk pick={pick} patients={patients} mine={[]} team={patients.map((p) => p.id)} nowTime="10:00" canType={false} onSave={() => {}} />);
+    expect(html).toMatch(/aria-checked="true"[^>]*>受け持ちのチーム（4人）/);
+    expect(html).toMatch(/disabled=""[^>]*>業務分担で自分の受け持ち（0人）/);
+    expect(html).not.toContain("人分を確定");
+  });
+});
 
 describe("転倒・転落の再評価", () => {
   it("lists the team's patients due first, with the reasons and the sources; no score", () => {
