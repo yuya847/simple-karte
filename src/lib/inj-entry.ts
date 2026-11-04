@@ -30,9 +30,26 @@ export function injectionFieldIndex(index: number, key: string, count: number): 
 /** 最終投与の開始＋1回の時間。終了指定がないときの表示用。 */
 export function automaticInjectionEnd(startDay: number, start: string, days: number, times: string[] | undefined, duration: number): { day: number; time: string } | null {
   const clocks = times?.filter(validDoseTime).map(clockMinutes) ?? [];
-  if ((!clocks.length && !validDoseTime(start)) || duration <= 0 || !Number.isFinite(duration)) return null;
+  if ((!clocks.length && !validDoseTime(start)) || duration < 0 || !Number.isFinite(duration)) return null;
   const last = clocks.length ? Math.max(...clocks) : clockMinutes(start);
   const at = (startDay + Math.max(1, days) - 1) * 1440 + last + Math.round(duration);
   const minute = ((at % 1440) + 1440) % 1440;
   return { day: Math.floor(at / 1440), time: `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}` };
+}
+
+export type InjStep = "drug" | "dose" | "route" | "schedule" | "times" | "duration" | "start" | "days" | "done";
+/** 処方と同じく、確定すると次の欄、Esc は前の欄へ戻る。 */
+export function injEntryStep(step: InjStep, key: string, drip: boolean, valid = true): InjStep {
+  const steps: InjStep[] = ["drug", "dose", "route", "schedule", "times", ...(drip ? ["duration" as const] : []), "start", "days", "done"];
+  const at = steps.indexOf(step);
+  if (key === "Escape") return steps[Math.max(0, at - 1)];
+  if (valid && ["Enter", "Tab", "ArrowRight"].includes(key)) return steps[Math.min(steps.length - 1, at + 1)];
+  if (key === "ArrowLeft") return steps[Math.max(0, at - 1)];
+  return step;
+}
+/** 今日の未到来の投与時刻。今日の枠がなければ翌日の最初の枠。 */
+export function nextInjectionStart(times: string[], now: string): { day: number; time: string } {
+  const sorted = times.filter(validDoseTime).sort();
+  const next = sorted.find((t) => clockMinutes(t) >= clockMinutes(now));
+  return { day: next || !sorted.length ? 0 : 1, time: next ?? sorted[0] ?? now };
 }

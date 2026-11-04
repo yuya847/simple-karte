@@ -5,6 +5,7 @@ import { todayInTokyo } from "@/lib/dates";
 import { nextRegularDay, regularDayOffset, REGULAR_RX_DAYS } from "@/lib/rx-schedule";
 import { History } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { InjectionEntryRow } from "./InjectionEntryRow";
 import { TabChoice } from "../TabChoice";
 import { decideHint } from "@/lib/decide-hint";
 import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft } from "@/lib/drafts";
@@ -12,7 +13,7 @@ import type { InjSeed } from "@/lib/inj-calendar";
 import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { DoseTimesEntry, LineEntry, RpDrugSearch } from "../LineEntry";
-import { automaticInjectionEnd, defaultDoseTimes, parseDuration, validateInjectionEnd, injectionFieldIndex } from "@/lib/inj-entry";
+import { automaticInjectionEnd, defaultDoseTimes, parseDuration, validateInjectionEnd, injEntryStep, nextInjectionStart, type InjStep } from "@/lib/inj-entry";
 import { DRUGS, ORAL_DRUGS, findOralDrug } from "@/lib/master";
 import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
@@ -61,6 +62,7 @@ const routeOk = (rows: InjRow[], tab: (typeof ROUTE_TABS)[number]) =>
   rows.length > 0 && (tab.lock ? rows.every((r) => masterOf(r.drugCode)?.lock) : rows.every((r) => masterOf(r.drugCode)?.routes.includes(tab.route)));
 
 interface InjRp {
+  step?: InjStep;
   rows: InjRow[];
   /** The route tab chosen (ROUTE_TABS key), "" until chosen. */
   route: string;
@@ -80,7 +82,7 @@ interface InjRp {
   endDay?: number;
   endTime?: string;
 }
-const newInjRp = (): InjRp => ({ rows: [], route: "", sched: -1, minutes: 0, rateMode: null, rate: "", startDay: 0, startTime: "", days: "", comment: "", done: false });
+const newInjRp = (): InjRp => ({ rows: [], route: "", sched: -1, minutes: 0, rateMode: null, rate: "", startDay: 0, startTime: "", days: "1", comment: "", done: false, step: "drug" });
 const rowFor = (code: string): InjRow => {
   const d = DRUGS.find((x) => x.code === code)!;
   return {
@@ -138,7 +140,7 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  * becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
  */
 export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
-  const [rps, setRps] = useState<InjRp[]>([newInjRp(), newInjRp()]);
+  const [rps, setRps] = useState<InjRp[]>([newInjRp()]);
   // For the visible headings (label) of the 開始・日数・コメント fields of each Rp.
   const uid = useId();
   // 注射の記憶 / Do: the order copied into the first empty Rp.
@@ -172,7 +174,10 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
       r.map((x, j) => {
         if (j !== i) return x;
         const next = { ...x, ...patch };
-        if (patch.sched !== undefined && patch.sched >= 0) next.doseTimes = defaultDoseTimes(schedulesOf(next)[patch.sched]?.value);
+        if (patch.sched !== undefined && patch.sched >= 0) {
+          next.doseTimes = defaultDoseTimes(schedulesOf(next)[patch.sched]?.value);
+          if (schedulesOf(next)[patch.sched]?.value.kind === "once") next.doseTimes = [next.startTime || new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date())];
+        }
         // Keep the route valid for every drug; choose it when only one is left.
         const open = routeTabsFor(next.rows);
         if (next.route && !open.some((t) => t.key === next.route)) next.route = "";
@@ -181,6 +186,13 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
         return next;
       }),
     );
+  const focus = (i: number, step: InjStep) => {
+    upd(i, { step });
+    requestAnimationFrame(() => {
+      const row = panelRoot.current?.querySelector<HTMLElement>(`[data-rp="${i}"] [data-step="${step}"]`);
+      (row?.querySelector<HTMLElement>('input, select, button[tabindex="0"]:not(:disabled)') ?? row?.querySelector<HTMLElement>('button:not(:disabled)'))?.focus();
+    });
+  };
   const fluids = DRUGS.filter((d) => d.kind === "輸液");
   // 抗がん薬 are ordered from the regimen panel only. マスタ管理: 採用 and not 中止, in 表示順, with the 院内名.
   const ml = useMasterLocal();
@@ -206,8 +218,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
     requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${at}"] input[role=combobox]`)?.focus());
   };
   const reopen = (i: number) => {
-    setRps((r) => r.map((x, j) => (j === i ? { ...x, done: false } : x)));
-    requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLElement>(`[data-rp="${i}"] [role=radio][tabindex="0"]`)?.focus());
+    setRps((r) => r.map((x, j) => (j === i ? { ...x, done: false, step: "dose" } : x)));
+    requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLElement>(`[data-rp="${i}"] input[inputmode=decimal]`)?.focus());
   };
   // Moving into another Rp decides the finished ones (they fold to one line).
   const foldOthers = (i: number) =>
@@ -248,7 +260,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
   const submit = () => {
     if (!ready.length) return;
     onAdd(ready.map(toDraft));
-    setRps([newInjRp(), newInjRp()]);
+    setRps([newInjRp()]);
   };
   const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
   useEffect(() => {
@@ -261,7 +273,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
-      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ。選び終えたら「決める」（コメントの欄で Enter）で1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
+      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
 
       <LineEntry>
       {rps.map((rp, i) => {
@@ -289,14 +301,37 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
           );
         return (
           <section key={i} data-rp={i} onFocusCapture={() => foldOthers(i)} onKeyDown={(e) => {
-            if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey || e.shiftKey || e.defaultPrevented) return;
+            if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
+            if (e.shiftKey && e.key === "Enter" && rp.rows.length) { e.preventDefault(); focus(i, "drug"); return; }
             const target = e.target as HTMLElement;
-            if (target.getAttribute("role") === "combobox" || target.getAttribute("aria-label") === `Rp${first + i} のコメント`) return;
-            if (!["Enter", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
-            if (e.key === "Enter" && target.tagName === "BUTTON" && target.getAttribute("role") !== "radio") return;
-            const fields = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('input, select, button[tabindex="0"], button:not([tabindex])')).filter((x) => !x.hasAttribute("disabled"));
-            const at = fields.indexOf(target);
-            if (at >= 0) { e.preventDefault(); if (e.key === "Enter" && (target.getAttribute("role") === "radio" || target.getAttribute("type") === "checkbox")) target.click(); fields[injectionFieldIndex(at, e.key, fields.length)]?.focus(); }
+            if (target.getAttribute("role") === "combobox") return;
+            const current = target.closest<HTMLElement>("[data-step]")?.dataset.step as InjStep | undefined;
+            if (!current) return;
+            const group = target.closest('[role="radiogroup"]');
+            if (group && /^[1-9]$/.test(e.key)) {
+              const buttons = group.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
+              const button = buttons[Number(e.key) - 1];
+              if (button) { e.preventDefault(); button.click(); button.focus(); } return;
+            }
+            if (!["Enter", "Tab", "Escape", "ArrowLeft", "ArrowRight"].includes(e.key) || e.shiftKey) return;
+            if (group && e.key.startsWith("Arrow")) return;
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Tab") {
+              const fields = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(`[data-step="${current}"] input, [data-step="${current}"] select, [data-step="${current}"] button[tabindex="0"]`)).filter((el) => !el.closest("[hidden]") && !el.hasAttribute("disabled"));
+              const at = fields.indexOf(target);
+              const next = fields[at + (e.key === "ArrowLeft" ? -1 : 1)];
+              if (next) { e.preventDefault(); next.focus(); return; }
+            }
+            e.preventDefault();
+            const backwards = e.key === "Escape" || e.key === "ArrowLeft";
+            if (!backwards && current === "route" && !rp.route) { upd(i, { route: open[0]?.key ?? "" }); focus(i, "schedule"); return; }
+            if (!backwards && current === "schedule" && rp.sched < 0) { upd(i, { sched: 0 }); focus(i, "times"); return; }
+            const valid = current === "dose" ? rp.rows.every((r) => Number(r.amount) > 0) : current === "duration" ? modeOf(rp) === "time" ? rp.minutes > 0 : Number(rp.rate) > 0 : current === "days" ? Number.isInteger(Number(rp.days)) && Number(rp.days) > 0 : current === "times" ? !validateInjectionEnd(rp.startDay, rp.startTime, 1, undefined, undefined, 0, rp.doseTimes).length : true;
+            if (!backwards && current === "times" && valid) {
+              const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
+              if (!rp.startTime) { const start = nextInjectionStart(rp.doseTimes ?? [], now); upd(i, { startDay: rp.startDay || start.day, startTime: start.time }); }
+            }
+            const next = injEntryStep(current, e.key, route === "点滴静注", valid);
+            if (next === "done") decide(i); else focus(i, next);
           }} className="space-y-1.5 py-2">
             <div className="flex items-baseline gap-2">
               <b className="text-ai">Rp{first + i}</b>
@@ -312,7 +347,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                 </button>
               )}
             </div>
-            <table className="w-full">
+            <table data-step="dose" className="w-full">
               <tbody>
                 {rp.rows.map((r, k) => {
                   const m = masterOf(r.drugCode)!;
@@ -352,13 +387,13 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                 })}
               </tbody>
             </table>
-            <div className="flex items-start gap-1.5">
+            <div data-step="drug" hidden={rp.rows.length > 0 && rp.step !== "drug"} style={{ display: (rp.rows.length > 0 && rp.step !== "drug") ? "none" : undefined }} className="flex items-start gap-1.5">
               <div className="min-w-0 flex-1">
-                <RpDrugSearch options={options} onEmptyEnter={() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] input[inputmode=decimal]`)?.focus()} onPick={(c) => { upd(i, { rows: [...rp.rows, rowFor(c)] }); requestAnimationFrame(() => { const fields = panelRoot.current?.querySelectorAll<HTMLInputElement>(`[data-rp="${i}"] input[inputmode=decimal]`); fields?.[rp.rows.length]?.focus(); }); }} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称・ひらがな可）` : `Rp${first + i} に薬を入れる（名前・略称・ひらがな可）`} />
+                <RpDrugSearch options={options} onEmptyEnter={() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] input[inputmode=decimal]`)?.focus()} onBack={() => focus(i, "dose")} onPick={(c) => { upd(i, { rows: [...rp.rows, rowFor(c)], step: "dose" }); requestAnimationFrame(() => { const fields = panelRoot.current?.querySelectorAll<HTMLInputElement>(`[data-rp="${i}"] input[inputmode=decimal]`); fields?.[rp.rows.length]?.focus(); fields?.[rp.rows.length]?.select(); }); }} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称・ひらがな可）` : `Rp${first + i} に薬を入れる（名前・略称・ひらがな可）`} />
               </div>
               {memory && i === memoryAt && <InjMemory memory={memory} onPut={putOrder} />}
             </div>
-            {rp.rows.length > 0 && !isFluidRp(rp) && open.some((t) => t.route === "点滴静注") && !rp.rows.some((r) => masterOf(r.drugCode)?.kind === "輸液") && (
+            {rp.step === "drug" && rp.rows.length > 0 && !isFluidRp(rp) && open.some((t) => t.route === "点滴静注") && !rp.rows.some((r) => masterOf(r.drugCode)?.kind === "輸液") && (
               <select value="" onChange={(e) => e.target.value && upd(i, { rows: [...rp.rows, { ...rowFor(e.target.value), amount: "1", unit: "本" }] })} className={`${field} text-[12px]`} aria-label="溶媒">
                 <option value="">＋ 溶媒（輸液）を選ぶ</option>
                 {fluids.map((f) => (
@@ -370,23 +405,24 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
             )}
             {rp.rows.length > 0 && (
               <div className="space-y-1 text-[12px]">
-                <div className="flex flex-wrap items-center gap-1.5">
+                <button type="button" className="text-ai" onClick={() => focus(i, "drug")}>＋混注</button>
+                <InjectionEntryRow step="route" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">経路</span>
                   <TabChoice
                     label={`Rp${first + i} の経路`}
                     size="lg"
-                    options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.key, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
+                    options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.lock ? t.key : t.route, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
                     value={rp.route || null}
                     onChange={(v) => upd(i, { route: v, minutes: ROUTE_TABS.find((t) => t.key === v)?.route === "点滴静注" ? rp.minutes : 0 })}
                   />
                   {open.length === 0 && <span className="text-shu">同じ経路で使えない薬が混ざっています</span>}
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
+                </InjectionEntryRow>
+                <InjectionEntryRow step="schedule" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">回数</span>
                   <TabChoice label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
-                </div>
+                </InjectionEntryRow>
                 {route === "点滴静注" && (
-                  <>
+                  <InjectionEntryRow step="duration" active={rp.step}>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="w-16 text-ink-soft">落とし方</span>
                       <TabChoice
@@ -415,9 +451,9 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                         <DripCalc rp={rp} />
                       </div>
                     )}
-                  </>
+                  </InjectionEntryRow>
                 )}
-                <div className="flex flex-wrap items-center gap-1.5">
+                <InjectionEntryRow step="start" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <label htmlFor={`${uid}-${i}-start`} className="w-16 text-ink-soft">
                     開始
                   </label>
@@ -435,21 +471,28 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                   />
                   <input id={`${uid}-${i}-start`} type="time" value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={`${field} min-h-[30px]`} aria-label={`Rp${first + i} の開始時刻`} />
                   <span className="hint text-[11px] text-ink-faint">空なら指示受け後すぐ</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
+                </InjectionEntryRow>
+                <InjectionEntryRow step="days" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <label htmlFor={`${uid}-${i}-days`} className="w-16 text-ink-soft">
                     日数
                   </label>
                   <input id={`${uid}-${i}-days`} value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" placeholder="—" aria-label={`Rp${first + i} の日数`} className={`${field} min-h-[30px] w-14 text-right`} />
                   <span>日間</span>
                   <span className="hint text-[11px] text-ink-faint">空なら日数を決めません（1回だけ、または止めるまで）</span>
-                </div>
+                </InjectionEntryRow>
+                <InjectionEntryRow step="times" active={rp.step}>
                 <DoseTimesEntry label={`Rp${first + i} の投与時刻`} times={rp.doseTimes ?? []} onChange={(doseTimes) => upd(i, { doseTimes })} />
+                </InjectionEntryRow>
                 <p className="hint">投与時刻は架空の病院の取り決めです。1回ずつ書き替え、＋時刻・×で追加・削除できます。24:00 は翌日0時です。</p>
+                <InjectionEntryRow step="start" active={rp.step}>
+                <label className="block">開始日付 <input type="date" aria-label={`Rp${first + i} の開始日付`} value={(() => { const t = todayInTokyo(); return new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay)).toISOString().slice(0, 10); })()} onChange={(e) => { const t = todayInTokyo(); if (e.target.value) upd(i, { startDay: Math.round((Date.parse(e.target.value) - Date.UTC(t.y, t.m - 1, t.d)) / 86400000) }); }} className={field} /></label>
                 <label className="block">開始日（今日からの日数） <input type="number" value={rp.startDay} onChange={(e) => upd(i, { startDay: Number(e.target.value) })} className={`${field} w-16`} /></label>
+                </InjectionEntryRow>
+                <InjectionEntryRow step="days" active={rp.step}>
                 <label className="block">終了 <input aria-label={`Rp${first + i} の終了日`} type="number" placeholder="今日からの日数" value={rp.endDay ?? ""} onChange={(e) => upd(i, { endDay: e.target.value ? Number(e.target.value) : undefined })} className={`${field} w-16`} /> <input type="time" aria-label={`Rp${first + i} の終了時刻`} value={rp.endTime ?? ""} onChange={(e) => upd(i, { endTime: e.target.value })} className={field} /></label>
-                {!rp.endTime && autoEnd && <p className="text-xs">1回の終了予定：{autoEnd.day === 0 ? "今日" : `${autoEnd.day}日後`} {autoEnd.time}（量と時間から計算）</p>}
+                {!rp.endTime && autoEnd && <p className="text-xs">最終投与の終了予定：{autoEnd.day === 0 ? "今日" : `${autoEnd.day}日後`} {autoEnd.time}（量と時間から計算）</p>}
                 {validateInjectionEnd(rp.startDay, rp.startTime, Number(rp.days), rp.endDay, rp.endTime, rp.minutes, rp.doseTimes).map((m) => <p key={m} className="text-shu">{m}</p>)}
+                </InjectionEntryRow>
                 <label><input type="checkbox" checked={!!rp.alreadyDone} onChange={(e) => upd(i, { alreadyDone: e.target.checked })} /> 実施済み</label>
                 <div className="flex items-center gap-1.5">
                   <label htmlFor={`${uid}-${i}-comment`} className="w-16 shrink-0 text-ink-soft">
@@ -514,7 +557,7 @@ function rpFromOrder(o: InjectionOrder): InjRp {
   const rows = o.items.map((it) => ({ drugCode: it.drugCode, amount: String(it.amount), unit: it.unit }));
   const lock = !!o.comment?.startsWith("ロック");
   const tab = ROUTE_TABS.find((t) => t.route === o.route && !!t.lock === lock) ?? ROUTE_TABS.find((t) => t.route === o.route);
-  const rp: InjRp = { ...newInjRp(), rows, route: tab?.key ?? "" };
+  const rp: InjRp = { ...newInjRp(), step: "dose", rows, route: tab?.key ?? "" };
   const same = (a: InjectionSchedule, b: InjectionSchedule) => a.kind === b.kind && (a.kind !== "per_day" || (b.kind === "per_day" && a.count === b.count)) && (a.kind !== "every_hours" || (b.kind === "every_hours" && a.hours === b.hours));
   rp.sched = schedulesOf(rp).findIndex((x) => same(x.value, o.schedule));
   rp.minutes = o.minutesPerDose ?? 0;
@@ -569,8 +612,10 @@ function RpSummary({ rp }: { rp: InjRp }) {
     return `${m.name}（${m.package}）${r.amount}${r.unit}`;
   });
   const drip = routeOf(rp) === "点滴静注" ? (modeOf(rp) === "time" ? `1回${minutesLabel(rp.minutes)}` : `${rp.rate}mL/時`) : null;
-  const start = `${rp.startDay === 0 ? "今日" : "明日"}${rp.startTime ? ` ${rp.startTime}` : ""}から`;
-  const parts = [rp.route, schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
+  const t = todayInTokyo();
+  const date = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay));
+  const start = `${date.getUTCMonth() + 1}/${date.getUTCDate()}${rp.startTime ? ` ${rp.startTime}` : ""}から`;
+  const parts = [routeOf(rp), schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
   return (
     <>
       <b>{drugs.join(" ＋ ")}</b>

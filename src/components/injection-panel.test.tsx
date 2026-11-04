@@ -55,3 +55,22 @@ describe("注射の Rp：チップと見出し", () => {
     expect(odd).not.toContain("あと：");
   });
 });
+
+describe("注射の罫線入力の表示", () => {
+  it("薬の量の段では混注検索・経路以降の段を閉じ、混注は明示的に足す", () => {
+    const html = render(ctrx);
+    for (const step of ["drug", "route", "schedule", "times", "duration", "start", "days"]) {
+      expect(html).toMatch(new RegExp(`data-step="${step}" hidden="" style="display:none"`));
+    }
+    expect(html).toContain("＋混注");
+    expect(html).toContain("Shift+Enter");
+    expect(html).toContain("実施済み");
+    expect(html).toContain("1回の時間");
+  });
+  it("新規入力では Rp1 の薬から始まり、日数の初期値は1", () => {
+    const html = renderToStaticMarkup(<AddInjectionPanel onAdd={() => {}} newId={() => "d1"} drafts={[]} />);
+    expect(html).toContain("Rp1 に薬を入れる");
+    expect(html).not.toContain("Rp2 に薬を入れる");
+    expect(html).not.toContain("に混注する薬を足す");
+  });
+});
