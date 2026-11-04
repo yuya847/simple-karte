@@ -149,7 +149,7 @@ export function dripCourses(patientId: string, entries: OrderEntry[], records: R
 }
 
 /** Minutes past the expected end of a running drip (0 or less = not past). */
-export const pastEnd = (c: Pick<DripCourse, "expectedEnd" | "end">, nowAbs: number) => (c.end || c.expectedEnd === null ? 0 : nowAbs - c.expectedEnd);
+export const pastEnd = (c: { expectedEnd: number | null; end?: unknown }, nowAbs: number) => (c.end || c.expectedEnd === null ? 0 : nowAbs - c.expectedEnd);
 
 /** What the nurse enters at 終了, checked: 全量, or 残量 (0 … the bag), and why when some is left. */
 export function dripEndOf(

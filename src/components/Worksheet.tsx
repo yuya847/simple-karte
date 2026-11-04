@@ -11,6 +11,7 @@ import { drugLabel, type PrnRule } from "@/lib/standing";
 import { findOralDrug } from "@/lib/master";
 import { dripRate, dripText } from "@/lib/drip";
 import { MarCell, VoidControl } from "./MarCell";
+import { RunningDrips } from "./DripControls";
 import { TakeTable } from "./TakeTable";
 import { CareSheet } from "./CareSheet";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
@@ -291,6 +292,7 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
             </tbody>
           </table>
         )}
+        <RunningDrips people={people} records={records} sessionStart={sessionStart} nowTime={nowTime} onRecord={onRecord} interactive={interactive} />
       </Section>
 
       <Section title="時刻の決まっているもの">

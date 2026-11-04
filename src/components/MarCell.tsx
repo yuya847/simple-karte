@@ -4,6 +4,8 @@ import { ScanLine } from "lucide-react";
 import { useState } from "react";
 import { NOT_DONE_REASONS, VOID_REASONS, checkScan, labelFor, marKey, needsLabel, type AdminRecord, type MarState, type NotDoneReason, type VoidReason } from "@/lib/mar";
 import type { WorkItem } from "@/lib/worksheet";
+import { clockText } from "@/lib/drip-course";
+import { DripRecordCell } from "./DripControls";
 import { useMe } from "./RoleContext";
 
 interface Props {
@@ -61,6 +63,8 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
       checked: { patient: result.patient === "ok", label: labelNeeded ? result.label === "ok" : null },
       offBy: status === "実施" ? result.offBy : undefined,
       note: status === "実施" && offWindow ? "時刻のずれを承知して実施" : undefined,
+      // 点滴: this is the 開始; the 終了 is recorded later with what was left (2回実施).
+      ...(status === "実施" && item.drip ? { drip: { volumeMl: item.drip.volumeMl, mlPerH: item.drip.mlPerH, minutes: item.drip.minutes, startAt: nowAbs } } : {}),
     });
     setTimeAck(false);
     setOpen(false);
@@ -69,6 +73,14 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
     setReason("");
   };
 
+  if (record && item.at !== null && record.drip && record.status === "実施") {
+    return (
+      <span className="block">
+        <DripRecordCell record={record} nowAbs={nowAbs} nowTime={nowTime} onRecord={onRecord} />
+        {onVoid && !record.end && <VoidControl record={record} onVoid={onVoid} />}
+      </span>
+    );
+  }
   if (record && item.at !== null) {
     return (
       <span className={STATE_STYLE[record.status]} title={record.status === "実施" ? `リストバンド ${record.checked.patient ? "一致" : "—"}${record.checked.label === null ? "" : `／ラベル ${record.checked.label ? "一致" : "—"}`}` : undefined}>
@@ -137,6 +149,11 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
           )}
           {prn?.limit ? <p className="font-bold text-shu">{prn.limit}医師に確かめてください。</p> : prn?.over && <p className="font-bold text-shu">今日はもう上限の回数を使っています。医師に確かめてください。</p>}
           {prn?.wait && <p className="font-bold text-shu">{prn.wait}</p>}
+          {item.drip && (
+            <p className="nums text-ink-soft">
+              点滴は開始と終了の2回記録します。いま開始すると終了予定 {item.drip.minutes === null ? "—（速さの指示なし）" : `${clockText(nowAbs + item.drip.minutes)}（${item.drip.volumeMl}mL ÷ ${item.drip.mlPerH}mL/時）`}
+            </p>
+          )}
           {queried && (
             <label className="flex items-start gap-1 font-bold text-shu">
               <input type="checkbox" checked={queryAck} onChange={(e) => setQueryAck(e.target.checked)} className="mt-0.5 accent-shu" />
@@ -147,7 +164,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
           )}
           <div className="flex flex-wrap items-center gap-1 pt-0.5">
             <button type="button" disabled={!ok || prn?.over || !!prn?.wait || (!!queried && !queryAck)} onClick={() => save("実施")} className="rounded bg-wakatake px-2 py-0.5 font-bold text-white disabled:opacity-40">
-              実施を記録
+              {item.drip ? "開始を記録" : "実施を記録"}
             </button>
             {item.at !== null && (
               <>

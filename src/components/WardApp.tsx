@@ -164,6 +164,7 @@ import { FICTIONAL_AMBULANCE, INITIAL_B, type BRecord } from "@/lib/acuity";
 import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { overdue, type AdminRecord, type VoidedRecord } from "@/lib/mar";
+import { dripAction, endText } from "@/lib/drip-course";
 import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
@@ -1806,12 +1807,14 @@ export default function WardApp() {
           onRecord={(r) => {
             const who = findPatient(r.patientId);
             const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
+            // 点滴 (2回実施): the 開始, the 終了 with what went in, or the 終了 taken back.
+            const drip = dripAction(r, mar[r.key]);
             auditLog({
               role: "看護師",
-              actor: r.by,
-              action: r.status === "実施" ? "確定（実施）" : "確定（未実施）",
+              actor: drip ? me.name : r.by,
+              action: drip ?? (r.status === "実施" ? "確定（実施）" : "確定（未実施）"),
               patient: who?.name,
-              detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.status === "実施" ? `リストバンド${r.checked.patient ? "一致" : "—"}${r.checked.label === null ? "" : `・ラベル${r.checked.label ? "一致" : "—"}`}${r.offBy !== undefined ? `・予定より${Math.abs(r.offBy)}分${r.offBy > 0 ? "遅れ" : "早め"}` : ""}` : r.reason}`,
+              detail: `${item ? orderLines(item.order, today).main : r.orderId}　${r.status === "実施" ? `リストバンド${r.checked.patient ? "一致" : "—"}${r.checked.label === null ? "" : `・ラベル${r.checked.label ? "一致" : "—"}`}${r.offBy !== undefined ? `・予定より${Math.abs(r.offBy)}分${r.offBy > 0 ? "遅れ" : "早め"}` : ""}` : r.reason}${r.end ? `　${endText(r)}` : ""}`,
             });
             setMar((all) => ({ ...all, [r.key]: r }));
           }}
