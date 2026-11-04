@@ -1,6 +1,6 @@
 // Layout of the FICTIONAL ward "5階東". Room numbers skip 4 and 9, as many Japanese
-// hospitals do. Patients of other teams are fictional placeholders: they fill the map so
-// the ward reads as a ward, but their charts are not part of this prototype.
+// hospitals do. Patients of other teams are fictional too: each bed below gives the name, sex,
+// age, department and a note, and ward-charts.ts makes a small chart for each from them.
 
 import type { Patient, Sex } from "./types";
 
@@ -103,10 +103,11 @@ export function roomSex(ward: WardState, roomNo: string): Sex | null {
   return null;
 }
 
-/** Isolation shown on the map for our patients (by infection). Display only. */
+/** Isolation shown on the map (by infection, or the precaution the record names). Display only. */
 export function isolationFor(infections: string[]): string | null {
   if (infections.some((i) => i.includes("MRSA"))) return "接触予防策";
-  return null;
+  // The record says which precaution is taken, e.g. 「インフルエンザ A 型（飛沫予防策）」.
+  return infections.map((i) => i.match(/(接触|飛沫|空気)予防策/)?.[0]).find((x) => !!x) ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,9 +176,8 @@ export const WARD_PLANS: WardPlan[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// The other wards of the fictional hospital. Only 5階東 has charts in this prototype; the people on
-// 5階南 and 6階東 are fictional placeholders so that the floor list and the all-ward list read as a
-// hospital. Their charts cannot be opened.
+// The other wards of the fictional hospital. The people on 5階南 and 6階東 are fictional, so that the
+// floor list and the all-ward list read as a hospital; ward-charts.ts makes a small chart for each.
 // ---------------------------------------------------------------------------
 
 export interface Floor {
