@@ -1,9 +1,10 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { History, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
 import { doseVolumeMl, newProcedureDraft, type Draft, type InjectionDraft, type LabDraft } from "@/lib/drafts";
+import type { InjSeed } from "@/lib/inj-calendar";
 import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { kanaMatch } from "@/lib/kana";
@@ -180,7 +181,7 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  * drug, drugs mixed in, and the fluid), then the route, frequency, drip time and start. Each Rp
  * becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
  */
-export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: { key: string; order: InjectionOrder }; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
+export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
   const [rps, setRps] = useState<InjRp[]>([newInjRp(), newInjRp()]);
   // 注射の記憶 / Do: the order copied into the first empty Rp.
   const putOrder = (o: InjectionOrder) =>
@@ -190,15 +191,22 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
       const out = i < 0 ? [...r, rp] : r.map((x, j) => (j === i ? rp : x));
       return out.some((x) => x.rows.length === 0) ? out : [...out, newInjRp()];
     });
-  // 修正 from the calendar: the order is copied into the first empty Rp, to be changed and drafted again.
+  // 修正 from the calendar (the order, to be changed and drafted again), Do (the order and its new start), or
+  // a new injection from a day of the calendar (only the start): put into the first empty Rp.
   const [seeded, setSeeded] = useState<string | null>(null);
+  const [focusRp, setFocusRp] = useState<{ key: string; at: number } | null>(null);
   if (seed && seed.key !== seeded) {
     setSeeded(seed.key);
-    const rp = rpFromOrder(seed.order);
+    const rp = rpFromSeed(seed);
     setRps((r) => {
       const i = r.findIndex((x) => x.rows.length === 0);
       return i < 0 ? [...r, rp] : r.map((x, j) => (j === i ? rp : x));
     });
+    // Only the start came: the doctor picks the drug next, so the search box of that Rp takes the focus.
+    if (!seed.order) {
+      const at = rps.findIndex((x) => x.rows.length === 0);
+      setFocusRp({ key: seed.key, at: at < 0 ? rps.length : at });
+    }
   }
   const first = drafts.filter((d) => d.kind === "injection").length + 1;
   const upd = (i: number, patch: Partial<InjRp>) =>
@@ -279,13 +287,17 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
     setRps([newInjRp(), newInjRp()]);
   };
   const { root: panelRoot, onKeyDown: panelKeys } = usePanelKeys(submit);
+  useEffect(() => {
+    if (focusRp) panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${focusRp.at}"] input[role=combobox]`)?.focus();
+  }, [focusRp, panelRoot]);
 
   const field = "rounded border border-rule bg-paper px-1 py-0.5 outline-none focus:border-ai";
+  // The 注射の記憶 icon sits by the search box of the Rp a remembered injection would go into.
+  const memoryAt = rps.findIndex((x) => x.rows.length === 0);
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
-      {memory && <InjMemory memory={memory} onPut={putOrder} />}
-      <p className="text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ。選び終えたら「決める」（コメントの欄で Enter）で1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。量を空にして Backspace でその薬を外します。</p>
+      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数・時間は ← → で選ぶ。選び終えたら「決める」（コメントの欄で Enter）で1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
 
       {rps.map((rp, i) => {
         const open = routeTabsFor(rp.rows);
@@ -311,6 +323,11 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
             <div className="flex items-baseline gap-2">
               <b className="text-ai">Rp{first + i}</b>
               {rp.rows.length === 0 && <span className="text-[11px] text-ink-faint">最初に選んだ薬が主薬。続けて選ぶと混注（輸液を最初に選ぶと「1日◯本」で数えます）</span>}
+              {rp.rows.length === 0 && (rp.startDay !== 0 || rp.startTime) && (
+                <span className="nums text-[11px] text-ai" data-start={`${rp.startDay}|${rp.startTime}`}>
+                  開始：{rp.startDay === 0 ? "今日" : rp.startDay === 1 ? "明日" : `${rp.startDay}日後`} {rp.startTime || "時刻なし"}（カレンダーから。薬を選ぶと直せます）
+                </span>
+              )}
               {rps.length > 1 && (
                 <button type="button" tabIndex={-1} onClick={() => setRps((r) => r.filter((_, j) => j !== i))} className="ml-auto text-[11px] text-ink-faint hover:text-shu">
                   この Rp を消す
@@ -357,7 +374,12 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                 })}
               </tbody>
             </table>
-            <RpDrugSearch options={options} onPick={(c) => upd(i, { rows: [...rp.rows, rowFor(c)] })} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称・ひらがな可）` : `Rp${first + i} に薬を入れる（名前・略称・ひらがな可）`} />
+            <div className="flex items-start gap-1.5">
+              <div className="min-w-0 flex-1">
+                <RpDrugSearch options={options} onPick={(c) => upd(i, { rows: [...rp.rows, rowFor(c)] })} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称・ひらがな可）` : `Rp${first + i} に薬を入れる（名前・略称・ひらがな可）`} />
+              </div>
+              {memory && i === memoryAt && <InjMemory memory={memory} onPut={putOrder} />}
+            </div>
             {rp.rows.length > 0 && !isFluidRp(rp) && open.some((t) => t.route === "点滴静注") && !rp.rows.some((r) => masterOf(r.drugCode)?.kind === "輸液") && (
               <select value="" onChange={(e) => e.target.value && upd(i, { rows: [...rp.rows, { ...rowFor(e.target.value), amount: "1", unit: "本" }] })} className={`${field} text-[12px]`} aria-label="溶媒">
                 <option value="">＋ 溶媒（輸液）を選ぶ</option>
@@ -422,6 +444,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory }: { onAd
                     options={[
                       { value: 0, label: "今日" },
                       { value: 1, label: "明日" },
+                      // A later day chosen on the calendar stays as a third choice.
+                      ...(rp.startDay > 1 ? [{ value: rp.startDay, label: `${rp.startDay}日後` }] : []),
                     ]}
                     value={rp.startDay}
                     onChange={(v) => upd(i, { startDay: v })}
@@ -499,6 +523,16 @@ function rpFromOrder(o: InjectionOrder): InjRp {
   rp.days = left > 0 ? String(left) : "";
   rp.comment = (lock ? o.comment!.replace(/^ロック\s*/, "") : (o.comment ?? "")).trim();
   return rp;
+}
+
+/**
+ * What the calendar handed over as an Rp: 修正 (the order, starting today with the days left), Do (the order
+ * with its own 日数, from the start given) or a new injection (only the start: day and time band; the drug is chosen next).
+ */
+function rpFromSeed(seed: InjSeed): InjRp {
+  const rp = seed.order ? rpFromOrder(seed.order) : newInjRp();
+  if (!seed.start) return rp;
+  return { ...rp, startDay: seed.start.day, startTime: seed.start.time ?? "", days: seed.order?.days ? String(seed.order.days) : rp.days };
 }
 
 /** How the drip is given: as chosen, else by rate for a bag (fluid first) and by time for a drug. */
@@ -798,9 +832,8 @@ export function AddRxPanel({
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="prescription" />
-      {memory && <RxMemory memory={memory} rps={rps} onPut={(ps) => putIn(ps.map(rpFromPattern))} newId={newId} />}
       <div className="flex items-start gap-2">
-        <p className="flex-1 text-[11px] text-ink-faint">「1回1錠　1日3回　毎食後」の順に入れます。キーボードだけで：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、回数・用法・定期臨時は ← → で選ぶ、⌘Enter（Ctrl+Enter）で下書きにする。1回量を空にして Backspace でその薬を外します。</p>
+        <p className="hint flex-1 text-[11px] text-ink-faint">「1回1錠　1日3回　毎食後」の順に入れます。キーボードだけで：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、回数・用法・定期臨時は ← → で選ぶ、⌘Enter（Ctrl+Enter）で下書きにする。1回量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「処方の記憶」（前回処方・よく出す処方・セット）です。</p>
         <div role="radiogroup" aria-label="薬の検索" className="flex shrink-0 rounded-md border border-rule p-0.5 text-[11px]">
           {[
             [true, "前方一致"],
@@ -871,7 +904,12 @@ export function AddRxPanel({
                 })}
               </tbody>
             </table>
-            <RpDrugSearch options={options} prefix={prefix} onPick={(c) => upd(i, { rows: [...rp.rows, { drugCode: c, per: "1" }] })} placeholder={rp.rows.length ? `${label} に同じ飲み方の薬を足す（名前・略称・ひらがな可）` : `${label} に薬を入れる（名前・略称・ひらがな可）`} />
+            <div className="flex items-start gap-1.5">
+              <div className="min-w-0 flex-1">
+                <RpDrugSearch options={options} prefix={prefix} onPick={(c) => upd(i, { rows: [...rp.rows, { drugCode: c, per: "1" }] })} placeholder={rp.rows.length ? `${label} に同じ飲み方の薬を足す（名前・略称・ひらがな可）` : `${label} に薬を入れる（名前・略称・ひらがな可）`} />
+              </div>
+              {memory && i === rps.findIndex((x) => x.rows.length === 0) && <RxMemory memory={memory} rps={rps} onPut={(ps) => putIn(ps.map(rpFromPattern))} newId={newId} />}
+            </div>
             {rp.rows.length > 0 && (
               <div className="space-y-1 text-[12px]">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -1316,12 +1354,62 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
 }
 
 /**
+ * The 記憶 (remembered Rps) behind a small clock icon by the drug search: pressing it opens the list over the
+ * panel; Esc, a press outside, or copying one closes it. It stays out of the way until wanted.
+ */
+function MemoryPopover({ label, summary, children }: { label: string; summary: string; children: (close: () => void) => React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (e.target instanceof Node && !root.current?.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return (
+    <div ref={root} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label={label}
+        title={`${label}：${summary}`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-[30px] w-[30px] items-center justify-center rounded border pointer-coarse:h-9 pointer-coarse:w-9 ${open ? "border-ai bg-ai-soft text-ai" : "border-dashed border-rule text-ink-faint hover:border-ai hover:text-ai"}`}
+      >
+        <History size={14} />
+      </button>
+      {open && (
+        <div role="dialog" aria-label={label} className="absolute right-0 top-full z-20 mt-1 w-[min(28rem,calc(100vw-2rem))] rounded-md border border-rule bg-sheet p-2 text-[12px] shadow-lg">
+          <div className="mb-1.5 flex items-center gap-2 font-bold text-ink-soft">
+            {label}
+            <span className="font-normal text-ink-faint">{summary}</span>
+            <button type="button" onClick={() => setOpen(false)} aria-label={`${label}を閉じる`} className="ml-auto rounded px-1 text-ink-faint hover:text-ink">
+              ×
+            </button>
+          </div>
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * 処方の記憶: the doctor's own patterns (most used first), this patient's previous prescriptions (Do),
  * and named sets. Choosing one copies it into an Rp to check and change; nothing is drafted by itself.
  */
 function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern[]; previous: RxPattern[]; me: string }; rps: Rp[]; onPut: (ps: Omit<RxPattern, "count" | "lastDay" | "patients" | "key">[]) => void; newId: () => string }) {
   const [tab, setTab] = useState<"often" | "prev" | "sets">("often");
-  const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [sets, setSets] = useState<RxSet[]>(() => loadSets());
   const [name, setName] = useState("");
@@ -1345,14 +1433,9 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
   };
   const ago = (d: number) => (d === 0 ? "今日" : `${-d}日前`);
   return (
-    <section className="rounded-md border border-rule bg-paper p-2 text-[12px]">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left font-bold text-ink-soft">
-        処方の記憶
-        <span className="font-normal text-ink-faint">よく出す処方 {memory.patterns.length}・前回処方 {memory.previous.length}・セット {mySets.length}</span>
-        <span className="ml-auto text-ai">{open ? "たたむ" : "開く"}</span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
+    <MemoryPopover label="処方の記憶" summary={`よく出す処方 ${memory.patterns.length}・前回処方 ${memory.previous.length}・セット ${mySets.length}`}>
+      {(close) => (
+        <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <TabChoice
               label="処方の記憶"
@@ -1380,7 +1463,14 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
                         </div>
                       ))}
                     </div>
-                    <button type="button" onClick={() => onPut(s.rps)} className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPut(s.rps);
+                        close();
+                      }}
+                      className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white"
+                    >
                       写す
                     </button>
                     <button
@@ -1414,7 +1504,14 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
                     <div>{patternLine(p)}</div>
                     <div className="text-[11px] text-ink-faint">{tab === "often" ? `${p.count}回・${p.patients}人・最後は${ago(p.lastDay)}` : `${ago(p.lastDay)}の処方`}</div>
                   </div>
-                  <button type="button" onClick={() => onPut([p])} className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPut([p]);
+                      close();
+                    }}
+                    className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white"
+                  >
                     写す
                   </button>
                 </li>
@@ -1424,7 +1521,7 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
           <p className="text-[11px] text-ink-faint">よく出す処方は、自分が過去に出した処方（架空のデータを含む）を Rp ごとにまとめ、回数と新しさの順に並べたものです。写したあと、量・日数を確かめてから下書きにします。</p>
         </div>
       )}
-    </section>
+    </MemoryPopover>
   );
 }
 
@@ -1560,20 +1657,14 @@ const injLine = (o: InjectionOrder) =>
 
 /** 注射の記憶: the doctor's injections (most used first) and this patient's previous ones (Do). */
 function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previous: InjPattern[] }; onPut: (o: InjectionOrder) => void }) {
-  const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"often" | "prev">("often");
   const [q, setQ] = useState("");
   const list = (tab === "often" ? memory.patterns : memory.previous).filter((p) => matchInj(p, q));
   const ago = (d: number) => (d === 0 ? "今日" : `${-d}日前`);
   return (
-    <section className="rounded-md border border-rule bg-paper p-2 text-[12px]">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left font-bold text-ink-soft">
-        注射の記憶
-        <span className="font-normal text-ink-faint">よく出す注射 {memory.patterns.length}・前回の注射 {memory.previous.length}</span>
-        <span className="ml-auto text-ai">{open ? "たたむ" : "開く"}</span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
+    <MemoryPopover label="注射の記憶" summary={`よく出す注射 ${memory.patterns.length}・前回の注射 ${memory.previous.length}`}>
+      {(close) => (
+        <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <TabChoice
               label="注射の記憶"
@@ -1594,7 +1685,14 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
                   <div>{injLine(p.order)}</div>
                   <div className="text-[11px] text-ink-faint">{tab === "often" ? `${p.count}回・${p.patients}人・最後は${ago(p.lastDay)}` : `${ago(p.lastDay)}のオーダ`}</div>
                 </div>
-                <button type="button" onClick={() => onPut(p.order)} className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPut(p.order);
+                    close();
+                  }}
+                  className="shrink-0 rounded bg-ai px-2 py-0.5 font-bold text-white"
+                >
                   写す
                 </button>
               </li>
@@ -1603,7 +1701,7 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
           <p className="text-[11px] text-ink-faint">自分が過去に出した注射（架空のデータを含む）を、同じ薬・経路・回数・落とし方ごとにまとめています。抗がん薬は出しません（レジメンの欄から）。写したあと、開始と日数を確かめて下書きにします。</p>
         </div>
       )}
-    </section>
+    </MemoryPopover>
   );
 }
 
