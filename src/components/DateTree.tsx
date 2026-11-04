@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatMonth, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
+import { planDayLabel, plannedDaysAhead, type PlanItem } from "@/lib/schedule-days";
 import type { DayOffset, HistoryEntry, Patient } from "@/lib/types";
 
 interface Props {
@@ -15,16 +16,23 @@ interface Props {
   visits?: { day: DayOffset; dept: string }[];
   /** Hide the days with no record or order (today and the chosen day stay). On by default. */
   hideEmpty?: boolean;
+  /**
+   * What the orders plan (schedule-days.ts): the days after today with something planned (採取・撮影・受診 …) are listed
+   * under 予定. Only the plans of orders in `entries` count (so the record's filter applies here too); an operation
+   * of the OR list has no order and always counts.
+   */
+  planned?: PlanItem[];
 }
 
-/** Tree of hospital days: this admission → month → day. Clicking a day jumps the past record to it. */
-export function DateTree({ patient, entries, today, selectedDay, onSelect, visits = [], hideEmpty = true }: Props) {
+/** Tree of hospital days: this admission → month → day, then the days ahead with plans. Clicking a day jumps the past record to it. */
+export function DateTree({ patient, entries, today, selectedDay, onSelect, visits = [], hideEmpty = true, planned = [] }: Props) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setClosed((c) => ({ ...c, [key]: !c[key] }));
 
   const days: DayOffset[] = [];
   const has = (d: DayOffset) => entries.some((e) => e.day === d);
   for (let d = 0; d >= patient.admittedOn; d--) if (!hideEmpty || d === 0 || d === selectedDay || has(d)) days.push(d);
+  const ahead = plannedDaysAhead(planned, (p) => p.orderedOn === null || entries.some((e) => e.kind === "order" && e.id === p.orderId));
 
   const months = new Map<string, DayOffset[]>();
   for (const d of days) {
@@ -84,6 +92,38 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
             )}
           </div>
         ))}
+      {ahead.length > 0 && (
+        <>
+          <TreeToggle open={!closed.ahead} onClick={() => toggle("ahead")} depth={0}>
+            <span className="flex items-center gap-1 font-bold text-mizu">
+              <CalendarDays size={13} />
+              予定
+            </span>
+            <span className="nums ml-1 text-xs text-ink-faint">{ahead.length}日</span>
+          </TreeToggle>
+          {!closed.ahead && (
+            <ul aria-label="予定のある日">
+              {ahead.map(({ day, items }) => {
+                const selected = day === selectedDay;
+                return (
+                  <li key={day}>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(day)}
+                      aria-current={selected ? "date" : undefined}
+                      title={items.map((p) => `${p.time ?? ""} ${p.kind} ${p.verb} ${p.label}`.trim()).join("\n")}
+                      className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}
+                    >
+                      <span>{formatShort(addDays(today, day))}</span>
+                      <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{planDayLabel(items)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
       {visits.length > 0 && (
         <>
           <TreeToggle open={!closed.visits} onClick={() => toggle("visits")} depth={0}>
