@@ -87,7 +87,7 @@ describe("注射カレンダー：各回の共通表示", () => {
   it("時刻のない旧オーダも10:00・22:00が縦に並び、回数のチップにならない", () => {
     const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", order)]} execute={execute()} />));
     expect(html).toContain("flex flex-col items-start");
-    expect(html).toMatch(/>10:00<\/button>[\s\S]*>22:00<\/button>/);
+    expect(html).toMatch(/>(?:✓ )?10:00<\/button>[\s\S]*>(?:✓ )?22:00<\/button>/); // 過去の回は「✓ 10:00」（記録のない過去の分は架空の実施済み）
     expect(html).toContain('data-exec-at="600"');
     expect(html).toContain('data-exec-at="1320"');
     expect(html).not.toContain("2回");
@@ -95,10 +95,10 @@ describe("注射カレンダー：各回の共通表示", () => {
   it("Rpに指定された時刻を優先し、1日1回なら1つだけ出す", () => {
     const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", { ...order, doseTimes: ["09:00", "21:00"] })]} />));
     expect(html).toMatch(/>09:00<\/button>[\s\S]*>21:00<\/button>/);
-    expect(html).not.toContain(">10:00<");
+    expect(html).not.toMatch(/>(?:✓ )?10:00</);
     const once = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", ctrx)]} />));
-    expect(once).toContain(">10:00<");
-    expect(once).not.toContain(">22:00<");
+    expect(once).toMatch(/>(?:✓ )?10:00</);
+    expect(once).not.toMatch(/>(?:✓ )?22:00</);
   });
   it("実施記録のある回だけ✓、消した回は薄い取り消し線と担当者・時刻", () => {
     const html = todayCell(renderToStaticMarkup(<InjectionCalendar {...base} entries={[entry("o1", order)]} execute={execute({ "o1|600": record(600, "実施"), "o1|1320": record(1320, "未実施") })} />));
