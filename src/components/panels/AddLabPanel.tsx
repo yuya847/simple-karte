@@ -263,6 +263,15 @@ export function AddLabPanel({
       </section>
 
       <div className="sticky bottom-0 flex items-center gap-2 border-t border-rule bg-sheet pt-3">
+        <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm font-bold ${draw.priority === "至急" ? "border-shu bg-shu-soft text-shu" : "border-rule text-ink-soft"}`} title="至急で出す（検査室の受付で先に、採取は今すぐ）">
+          <input
+            type="checkbox"
+            checked={draw.priority === "至急"}
+            onChange={(e) => setDraw((d) => (e.target.checked ? { ...d, priority: "至急", mode: d.mode === "routine" ? "now" : d.mode } : { ...d, priority: "定時", mode: d.mode === "now" ? "routine" : d.mode }))}
+            className="accent-shu"
+          />
+          至急
+        </label>
         {problem && picked.length > 0 && <span className="text-xs text-shu">{problem}</span>}
         <button type="button" disabled={!canAdd} onClick={() => onAdd(labDraftOf(newId(), picked, draw))} className="ml-auto rounded-md bg-ai px-4 py-2 text-sm font-bold text-white disabled:opacity-40">
           下書きにする（{summary.labCodes.length}項目・{drawText(draw, today)}）
