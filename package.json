@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "check": "tsc --noEmit -p . && vitest run && eslint src",
+    "verify": "npm run check && next build",
     "data": "node scripts/masters/build.mjs",
     "prebuild": "npm run data",
     "predev": "npm run data",
