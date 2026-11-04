@@ -2822,7 +2822,7 @@ export default function WardApp() {
         />
       ) : patient && ctx ? (
         <>
-          <PatientSwitchFlash patient={{ id: patient.id, name: patient.name, kana: patient.kana, age: patient.age, sex: patient.sex, room: patient.room, ward: patient.ward }} />
+          <PatientSwitchFlash patient={{ id: patient.id }} />
           <PatientBar
             patient={patient}
             today={today}

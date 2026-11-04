@@ -188,3 +188,17 @@ html:not([data-hints="on"]) .hint {
     animation: none;
   }
 }
+
+/* 患者切替: the chart's tab pulses (ring + slight grow) instead of a card over the chart. */
+@keyframes karte-tab-flash {
+  0% { box-shadow: 0 0 0 0 var(--color-ai); transform: scale(1); }
+  30% { box-shadow: 0 0 0 4px var(--color-ai); transform: scale(1.06); }
+  100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+}
+.karte-tab-flash {
+  animation: karte-tab-flash 1.6s ease-out both;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .karte-tab-flash { animation: none; box-shadow: 0 0 0 3px var(--color-ai); }
+}
