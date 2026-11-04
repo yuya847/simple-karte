@@ -152,7 +152,8 @@ import { AdmitEvalView } from "./AdmitEvalView";
 import { deliriumBillable, dischargeSupportMet, duesOf, initialEvals, type AdmitEval } from "@/lib/admit-eval";
 import { ResultsInbox } from "./ResultsInbox";
 import { PANIC_LIMITS, PANIC_SOURCE, callLine, cultureArrivals, hitLine, mergeCultures, resultsOf, uncalled, unseen, type Ack, type PanicCall } from "@/lib/results";
-import { EMPTY_DESK, demoLabOrders, deskLabs, redrawChangeKeys, withRedraws, type LabDesk } from "@/lib/lab-desk";
+import { EMPTY_DESK, demoLabOrders, deskLabs, drawRows, redrawChangeKeys, withRedraws, type LabDesk } from "@/lib/lab-desk";
+import { pendingDraws } from "@/lib/lab-table";
 import { visitLabOrders, visitPeople } from "@/lib/lab-visits";
 import { deskCultures } from "@/lib/lab-culture";
 import { handoffKey, type Handoff } from "@/lib/handoff";
@@ -2301,7 +2302,12 @@ export default function WardApp() {
               )}
               {panel === "results" && (
                 <Drawer title="検査結果" onClose={closePanel} wide>
-                  <ResultsPanel patient={patient} today={today} />
+                  <ResultsPanel
+                    patient={patient}
+                    today={today}
+                    pending={pendingDraws(drawRows(people, mar, labDesk, sessionStart ?? abs(0, nowTime), abs(0, nowTime)), patient.id, abs(0, nowTime))}
+                    onExport={(what, n) => auditLog({ role: me.role, actor: me.name, action: `検査結果の${what}`, patient: patient.name, detail: `${n}回分` })}
+                  />
                 </Drawer>
               )}
               {panel === "imaging" && (
