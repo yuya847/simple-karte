@@ -1,20 +1,22 @@
 "use client";
 
-// 放射線部（RIS）: 受付・撮影室と装置の割り当て → 撮影（照射録・線量・造影剤）→ 読影 → 一覧、線量の一覧、
-// and the simulated modality. The orders come from the doctors' charts (画像検査); the claim reads what is
+// 放射線部（RIS）: 指示受け（受付・撮影室と装置の割り当て・造影と MRI の指示確認）→ 当日の予定（装置ごとのワークリスト）
+// と病棟のポータブル回り → 撮影（照射録・線量・造影剤）→ 読影 → 一覧、線量の一覧, and the simulated modality. The orders come from the doctors' charts (画像検査); the claim reads what is
 // recorded here (ris.ts withExamRecords). Patients, devices and numbers are fictional.
 
-import { Activity, ClipboardList, FilePen, ListChecks, MonitorCog, Radiation, ScanLine } from "lucide-react";
+import { Activity, CalendarClock, ClipboardCheck, FilePen, ListChecks, MonitorCog, Radiation, Route, ScanLine } from "lucide-react";
 import { useState } from "react";
-import { auditLog } from "@/lib/audit";
+import type { ConsentRecord } from "@/lib/consent";
 import type { CalendarDate } from "@/lib/dates";
 import type { Ack } from "@/lib/results";
-import { DRL_NOTE, doseGroups, doseText, drlFor, findRoom, needsReading, putWork, RIS_RULES, RIS_SOURCES, risResultItems, risRows, roomsFor, unsignedRecords, type RisDesk, type RisRow, type RoomKey } from "@/lib/ris";
+import { DRL_NOTE, doseGroups, doseText, drlFor, needsReading, RIS_RULES, RIS_SOURCES, risResultItems, risRows, unsignedRecords, type RisDesk, type RisRow } from "@/lib/ris";
+import { portableRound, risTodo } from "@/lib/ris-take";
 import type { WorkPatient } from "@/lib/worksheet";
 import { Fictional, Sources, SubTabs } from "./DeskParts";
 import { ModalitySim } from "./ModalitySim";
-import { DenyNote, useDeny, useMe } from "./RoleContext";
-import { card, ExamForm, field, ReadingForm, RowHead, SignButton, STATUS_TONE, whenText, type OnDesk } from "./RisExam";
+import { PortableRound, RadiologyTake, Worklist } from "./RadiologyTake";
+import { DenyNote } from "./RoleContext";
+import { card, ExamForm, ReadingForm, SignButton, STATUS_TONE, whenText, type OnDesk } from "./RisExam";
 
 interface Props {
   people: WorkPatient[];
@@ -24,17 +26,22 @@ interface Props {
   acks: Record<string, Ack>;
   nowTime: string;
   today: CalendarDate;
+  /** The ward's consent forms (同意 of a contrast study in 指示受け・指示確認). */
+  consents?: ConsentRecord[];
 }
 
-type Tab = "work" | "exam" | "modality" | "reading" | "dose" | "list";
+type Tab = "take" | "worklist" | "portable" | "exam" | "modality" | "reading" | "dose" | "list";
 
-/** 放射線部. */
+/** 放射線部. The technologist starts at 指示受け. */
 export function RadiologyView(p: Props) {
-  const [tab, setTab] = useState<Tab>("work");
+  const [tab, setTab] = useState<Tab>("take");
   const rows = risRows(p.people, p.desk);
   const toRead = rows.filter((r) => r.work?.images && needsReading(r.order) && !r.work.report && !r.work.notDone);
+  const todo = risTodo(rows);
   const badge = {
-    work: rows.filter((r) => r.status === "依頼").length,
+    take: todo.untaken + todo.unconfirmed,
+    worklist: Math.max(0, todo.notDoneToday - todo.untaken),
+    portable: portableRound(rows).length,
     exam: rows.filter((r) => r.status === "受付済み" || r.status === "撮影中" || (r.status !== "中止" && r.work?.done && !r.work.record && r.order.modality !== "MRI")).length,
     reading: toRead.length,
     list: unsignedRecords(rows).length,
@@ -52,7 +59,9 @@ export function RadiologyView(p: Props) {
           value={tab}
           onChange={setTab}
           tabs={[
-            { key: "work", label: "受付・割り当て", icon: ClipboardList, badge: badge.work },
+            { key: "take", label: "指示受け", icon: ClipboardCheck, badge: badge.take },
+            { key: "worklist", label: "当日の予定", icon: CalendarClock, badge: badge.worklist },
+            { key: "portable", label: "ポータブル回り", icon: Route, badge: badge.portable },
             { key: "exam", label: "撮影・照射録", icon: ScanLine, badge: badge.exam },
             { key: "modality", label: "撮影装置（模擬）", icon: MonitorCog },
             { key: "reading", label: "読影", icon: FilePen, badge: badge.reading },
@@ -63,9 +72,11 @@ export function RadiologyView(p: Props) {
       </header>
       <div className="mx-auto max-w-[1150px] space-y-3 px-5 py-4 text-[13px]">
         <p className="hint text-[12px] text-ink-soft">
-          医師がカルテの「オーダ › 画像検査」で出した X線・CT・MRI が並びます。診療放射線技師は「受付・割り当て」で受付して撮影室と装置を決め、「撮影装置（模擬）」か「撮影・照射録」で撮影を記録し、照射録を確定します。放射線科医は「読影」でレポートを書き、オーダした医師は「一覧・署名」かカルテの「放射線画像」で照射録に署名し、レポートを確認します。右上の「自分」で職種を選びます（デモではログインの代わり）。
+          医師がカルテの「オーダ › 画像検査」で出した X線・CT・MRI が並びます。診療放射線技師は「指示受け」で指示を受けて（受付）撮影室と装置を決め、造影・MRI は「確認する」で同意・腎機能・体内金属などを確かめ、「当日の予定」で呼出・来室・撮影の時刻を押し、「撮影装置（模擬）」か「撮影・照射録」で撮影条件と線量を記録し、照射録を確定します。放射線科医は「読影」でレポートを書き、オーダした医師は「一覧・署名」かカルテの「放射線画像」で照射録に署名し、レポートを確認します。右上の「自分」で職種を選びます（デモではログインの代わり）。
         </p>
-        {tab === "work" && <Work {...p} rows={rows} />}
+        {tab === "take" && <RadiologyTake people={p.people} rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} consents={p.consents} />}
+        {tab === "worklist" && <Worklist rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} />}
+        {tab === "portable" && <PortableRound rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} />}
         {tab === "exam" && <Exam {...p} rows={rows} />}
         {tab === "modality" && (
           <>
@@ -78,99 +89,6 @@ export function RadiologyView(p: Props) {
         {tab === "list" && <List {...p} rows={rows} />}
         <p className="text-[11px] text-ink-faint">{RIS_RULES.rooms} 患者・オーダ・撮影条件・線量・画像はすべて架空です。読影の所見はコードが書くことはありません。</p>
       </div>
-    </section>
-  );
-}
-
-function Work({ rows, onDesk, nowTime }: Props & { rows: RisRow[] }) {
-  const me = useMe();
-  const deny = useDeny()("ris.exam");
-  const [reason, setReason] = useState<Record<string, string>>({});
-  const [slot, setSlot] = useState<Record<string, string>>({});
-  const open = rows.filter((r) => r.status === "依頼" || r.status === "受付済み");
-  const at = { day: 0, time: nowTime };
-  const log = (r: RisRow, what: string, detail = "") => auditLog({ role: me.role, actor: me.name, action: `確定（放射線部：${what}）`, patient: r.name, detail: `${r.label}${detail}` });
-  return (
-    <section className="space-y-2">
-      <DenyNote action="ris.exam" />
-      {open.length === 0 && <p className={`${card} px-4 py-3 text-ink-soft`}>受付・割り当てを待っている検査はありません。</p>}
-      {open.map((r) => {
-        const rooms = roomsFor(r.order.modality);
-        const roomKey: RoomKey = r.work?.room ?? rooms[0].key;
-        const time = slot[r.orderId] ?? r.work?.slot?.time ?? (r.order.when.time || nowTime);
-        return (
-          <article key={r.orderId} className={`${card} space-y-1 p-3 text-[12px]`}>
-            <RowHead r={r} />
-            {r.order.comment && <p className="text-ink-soft">コメント：{r.order.comment}</p>}
-            <div className="flex flex-wrap items-center gap-2">
-              {r.status === "依頼" ? (
-                <button
-                  type="button"
-                  disabled={!!deny}
-                  onClick={() => {
-                    onDesk((d) => putWork(d, r, (w) => ({ ...w, arrived: { ...at, by: me.name } })));
-                    log(r, "受付");
-                  }}
-                  className="rounded bg-ai px-2.5 py-0.5 font-bold text-white disabled:opacity-40"
-                >
-                  {r.order.modality === "ポータブルX線" ? "受付（病室へ向かう）" : "受付（来室した）"}
-                </button>
-              ) : (
-                <span className="text-ink-soft">
-                  受付 {r.work?.arrived?.time} {r.work?.arrived?.by}
-                </span>
-              )}
-              <span className="text-ink-soft">撮影室・装置</span>
-              <select
-                value={roomKey}
-                disabled={!!deny || r.status === "依頼"}
-                aria-label="撮影室・装置"
-                onChange={(e) => {
-                  onDesk((d) => putWork(d, r, (w) => ({ ...w, room: e.target.value as RoomKey, slot: { day: r.order.when.day, time }, assignedBy: me.name })));
-                  log(r, "装置を割り当て", `　${findRoom(e.target.value as RoomKey)?.room}`);
-                }}
-                className={field}
-              >
-                {rooms.map((x) => (
-                  <option key={x.key} value={x.key}>
-                    {x.room}（{x.ae}）
-                  </option>
-                ))}
-              </select>
-              <input type="time" value={time} onChange={(e) => setSlot({ ...slot, [r.orderId]: e.target.value })} aria-label="撮影の予定時刻" disabled={!!deny || r.status === "依頼"} className={`${field} nums`} />
-              <button
-                type="button"
-                disabled={!!deny || r.status === "依頼"}
-                onClick={() => {
-                  onDesk((d) => putWork(d, r, (w) => ({ ...w, room: roomKey, slot: { day: r.order.when.day, time }, assignedBy: me.name })));
-                  log(r, "装置を割り当て", `　${findRoom(roomKey)?.room} ${time}`);
-                }}
-                className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40"
-              >
-                {r.work?.room ? "予定を変える" : "割り当てる"}
-              </button>
-              {r.work?.room && (
-                <span className="text-wakatake">
-                  {findRoom(r.work.room)?.room} {r.work.slot?.time}（{r.work.assignedBy}）
-                </span>
-              )}
-              <input value={reason[r.orderId] ?? ""} onChange={(e) => setReason({ ...reason, [r.orderId]: e.target.value })} placeholder="撮影できない理由（例：検査を延期）" aria-label="撮影できない理由" disabled={!!deny} className={`${field} ml-auto w-56`} />
-              <button
-                type="button"
-                disabled={!!deny || !(reason[r.orderId] ?? "").trim()}
-                onClick={() => {
-                  onDesk((d) => putWork(d, r, (w) => ({ ...w, notDone: { ...at, by: me.name, via: "手入力", reason: reason[r.orderId].trim() } })));
-                  log(r, "中止（撮影できなかった）", `　${reason[r.orderId].trim()}`);
-                }}
-                className="rounded border border-shu px-2 py-0.5 text-shu disabled:opacity-40"
-              >
-                撮影できなかった
-              </button>
-            </div>
-          </article>
-        );
-      })}
-      <p className="hint text-[11px] text-ink-faint">受付すると、撮影室・装置と予定の時刻を決められます。装置を割り当てると、その装置のワークリスト（撮影装置（模擬））に出ます。</p>
     </section>
   );
 }

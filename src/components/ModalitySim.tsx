@@ -98,7 +98,7 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
       {asked === ae && (
         <div className={`${card} p-3 text-[12px]`}>
           <h4 className="mb-1 font-bold">ワークリスト（{ae}・今日・受付済み） {list.length}件</h4>
-          {list.length === 0 && <p className="text-ink-faint">この装置に割り当てた受付済みの検査はありません。放射線部の「受付・割り当て」で受付し、この装置を選びます。</p>}
+          {list.length === 0 && <p className="text-ink-faint">この装置に割り当てた受付済みの検査はありません。放射線部の「指示受け」で指示を受け、この装置を選びます。</p>}
           <ul className="flex flex-wrap gap-2">
             {list.map((r) => (
               <li key={r.orderId}>

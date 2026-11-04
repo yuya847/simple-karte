@@ -25,7 +25,9 @@ const as = (role: Role, node: React.ReactNode, name = STAFF[role].name) =>
 describe("放射線部", () => {
   it("lists the requests to take in, and locks the work for a nurse", () => {
     const html = as("看護師", <RadiologyView people={people} desk={desk} onDesk={() => {}} acks={{}} nowTime="10:00" today={today} />);
-    expect(html).toContain("受付・割り当て");
+    expect(html).toContain("指示受け");
+    expect(html).toContain("当日の予定");
+    expect(html).toContain("ポータブル回り");
     expect(html).toContain("大浦 トメ");
     expect(html).toContain("撮影の受付・実施・照射録・線量と造影剤の記録は診療放射線技師が行います");
   });
