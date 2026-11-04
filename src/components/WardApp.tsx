@@ -61,6 +61,7 @@ import { MealsView } from "./MealsView";
 import { journalLines, staffing } from "@/lib/journal";
 import { GUIDE_TO } from "@/lib/procedures";
 import { bookingsOf } from "@/lib/bookings";
+import { plannedItems } from "@/lib/schedule-days";
 import { visitsFromOpd, visitsOf } from "@/lib/opd-history";
 import { runExtract } from "@/lib/extract";
 import { ManualView } from "./ManualView";
@@ -2874,7 +2875,7 @@ export default function WardApp() {
             }`}
           >
             <div className="hidden min-h-0 lg:block">
-              <DateTree patient={patient} entries={shownEntries ?? entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} visits={opdVisitsOf(patient)} />
+              <DateTree patient={patient} entries={shownEntries ?? entries} today={today} selectedDay={chart.selectedDay} onSelect={(d) => update({ selectedDay: d })} visits={opdVisitsOf(patient)} planned={plannedItems(entries, surgeries.filter((x) => x.patientId === patient.id))} />
             </div>
             {panel === "billing" ? (
               <div className="col-span-2 flex min-h-0 flex-col">
@@ -2917,12 +2918,8 @@ export default function WardApp() {
               onToggleStopped={() => update({ showStopped: !chart.showStopped })}
               focus={chart.recordFocus}
               visits={opdVisitsOf(patient)}
-              todayBookings={bookingsOf(
-                entries.filter((e): e is OrderEntry => e.kind === "order"),
-                surgeries.filter((x) => x.patientId === patient.id),
-                today,
-                abs(0, nowTime),
-              ).filter((b) => b.day === 0)}
+              planned={plannedItems(entries, surgeries.filter((x) => x.patientId === patient.id))}
+              nowTime={nowTime}
               view={chart.leftView}
               onView={(v) => update({ leftView: v })}
               onFloat={(v) => (v === "results" ? setPanel("results") : openRight(v === "flowsheet" ? "flowsheet" : v === "rx-history" ? "rxcal" : "injcal"))}

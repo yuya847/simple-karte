@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS, findSet } from "@/lib/master";
 import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
@@ -16,7 +16,7 @@ import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { ORDER_TYPE_LABEL, drugName, durationText, oralName, orderLines, scheduleTextFor, timingText } from "@/lib/format";
-import type { Booking } from "@/lib/bookings";
+import { executionMarks, isAhead, planVerb, type PlanItem } from "@/lib/schedule-days";
 import { daySections, placeLabel, type OpdVisit } from "@/lib/opd-history";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
 import type { TakeBadge } from "@/lib/order-confirm";
@@ -69,8 +69,13 @@ interface Props {
   focus?: { kind: string; n: number };
   /** 外来の受診 before this admission (or an outpatient's past visits), shown under the stay with the clinic's mark. */
   visits?: OpdVisit[];
-  /** Today's bookings (検査・画像・外来予約 …), listed under today's heading. */
-  todayBookings?: Booking[];
+  /**
+   * What the orders plan on each day (schedule-days.ts: 採取・撮影・開始・終了・受診 …). Each is listed under the day it
+   * happens, apart from the order's card on the day it was written; the days ahead get their own sections.
+   */
+  planned?: PlanItem[];
+  /** The clock now ("HH:MM"), to tell a plan still ahead (「採取予定」) from one past (「採取」). */
+  nowTime?: string;
   /** Correct a confirmed note (a new version; the earlier ones are kept). `by` names the people who corrected it together. */
   onReviseNote?: (e: NoteEntry, text: string, reason: string, by?: string) => void;
   /** 記事の同時編集: who else is correcting which note, and telling them what this page types. */
@@ -112,7 +117,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
  * calendars of 処置・移動・食事・指示簿 and the 予約 list open from the tools on the far right (参照).
  */
 export function HistoryPane(props: Props) {
-  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, todayBookings, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown } = props;
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, planned, nowTime, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown } = props;
   const view = asLeftView(props.view);
   const v = views;
   const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew, execute } : null;
@@ -159,7 +164,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} todayBookings={todayBookings} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
       )}
     </section>
   );
@@ -189,7 +194,8 @@ function RecordList({
   patient,
   entries,
   visits = [],
-  todayBookings = [],
+  planned = [],
+  nowTime,
   today,
   selectedDay,
   showStopped,
@@ -206,7 +212,8 @@ function RecordList({
   patient: Patient;
   entries: HistoryEntry[];
   visits?: OpdVisit[];
-  todayBookings?: Booking[];
+  planned?: PlanItem[];
+  nowTime?: string;
   today: CalendarDate;
   selectedDay: DayOffset | null;
   showStopped: boolean;
@@ -241,11 +248,18 @@ function RecordList({
   };
   const isFolded = (k: string, e: HistoryEntry) => folded.each[k] ?? (folded.all || isLong(e));
   const fold = (k: string, e: HistoryEntry) => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !isFolded(k, e) } }));
+  const nowAbs = nowTime ? abs(0, nowTime) : null;
 
   useEffect(() => {
     if (selectedDay === null) return;
     root.current?.querySelector(`[data-day="${selectedDay}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selectedDay]);
+  // 「依頼 11/4」 on a plan: open the order's card (on the day it was written) and scroll to it.
+  const jumpToOrder = (id: string) => {
+    setFolded((f) => ({ ...f, each: { ...f.each, [id]: false } }));
+    const card = [...(root.current?.querySelectorAll<HTMLElement>("[data-order-id]") ?? [])].find((el) => el.dataset.orderId === id);
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const keep = (e: HistoryEntry) => showStopped || e.kind !== "order" || e.status !== "中止";
   const key = searchKey(q.trim());
@@ -253,15 +267,19 @@ function RecordList({
   const visible = [...entries, ...visits.flatMap((v) => v.entries)].filter(keep);
   const shown = entries.filter(keep).filter(pick);
   const narrowed = on.length !== ALL_CATS.length || !!key;
-  // The filters apply to the visits before the admission as they do to the stay.
+  // The filters apply to the visits before the admission as they do to the stay, and to the plans (through their
+  // order; an operation of the OR list has no order and stays).
+  const shownIds = new Set(shown.filter((e) => e.kind === "order").map((e) => e.id));
+  const keepPlan = (p: PlanItem) => p.orderedOn === null || shownIds.has(p.orderId);
   const sections = daySections(
     patient.admittedOn,
     shown,
     visits.map((v) => ({ ...v, entries: v.entries.filter(keep).filter(pick) })),
-    todayBookings,
+    planned,
     narrowed,
+    keepPlan,
   );
-  const shownCount = sections.reduce((n, s) => n + s.entries.length, 0);
+  const shownCount = sections.reduce((n, s) => n + s.entries.length + s.plans.length, 0);
   // Tell the date tree which records are left (only while narrowed), so days with nothing are not listed.
   const shownKey = narrowed ? shown.map((e) => `${e.kind}:${e.day}:${e.time}:${e.kind === "order" ? e.id : e.author}`).join("|") : "";
   useEffect(() => {
@@ -367,6 +385,7 @@ function RecordList({
           </p>
         )}
         {onDo && <p className="hint text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。見出しの ▸ で記録をたたみます。入院前の外来の受診は、入院の記録の下に科と医師の印つきで続きます。</p>}
+        <p className="hint text-[10px] text-ink-faint">オーダは依頼した日のカードに出し、採取・撮影・開始・受診など実施の日が別なら見出しに「採取予定 11/11（水）」のように添えます。実施の日の節にも「その日の予定」として薄く並び、「依頼 11/4」を押すと依頼日のカードへ移ります。今日より先に予定のある日は左の日付ツリーの「予定」に出ます。</p>
       </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
         {sections.map((s) => {
@@ -378,31 +397,26 @@ function RecordList({
               key={`${s.place ? "v" : "d"}${d}`}
               data-day={d}
               data-place={s.place ? "opd" : undefined}
-              className={`scroll-mt-2 border-b border-rule-soft py-3 ${selectedDay === d ? "rounded-md bg-ai-soft/50 ring-1 ring-ai/30 -mx-2 px-2" : ""}`}
+              data-future={s.future || undefined}
+              className={`scroll-mt-2 border-b border-rule-soft ${s.future ? "py-2" : "py-3"} ${selectedDay === d ? "rounded-md bg-ai-soft/50 ring-1 ring-ai/30 -mx-2 px-2" : ""}`}
             >
-              <h3 className="nums mb-2 flex flex-wrap items-baseline gap-2 text-sm">
+              <h3 className={`nums flex flex-wrap items-baseline gap-2 text-sm ${s.future ? "mb-1" : "mb-2"}`}>
                 {s.place && (
                   <span className={`flex items-center gap-1 rounded px-1.5 text-[11px] font-bold leading-5 ${PLACE_COLORS.opd.chip}`}>
                     <Stethoscope size={11} />
                     {placeLabel(s.place)}
                   </span>
                 )}
-                <span className="font-bold">{formatShort(addDays(today, d))}</span>
-                <span className="text-xs text-ink-faint">{s.place ? `入院の${patient.admittedOn - d}日前` : `入院${hospitalDay(patient.admittedOn, d)}日目${d === 0 ? "（今日）" : ""}`}</span>
+                {s.future && (
+                  <span className="flex items-center gap-1 rounded border border-mizu/60 px-1.5 text-[11px] font-bold leading-5 text-mizu">
+                    <CalendarDays size={11} />
+                    予定
+                  </span>
+                )}
+                <span className={`font-bold ${s.future ? "text-ink-soft" : ""}`}>{formatShort(addDays(today, d))}</span>
+                <span className="text-xs text-ink-faint">{s.place ? `入院の${patient.admittedOn - d}日前` : `入院${hospitalDay(patient.admittedOn, d)}日目${d === 0 ? "（今日）" : s.future ? "（予定）" : ""}`}</span>
               </h3>
-              {s.bookings.length > 0 && (
-                <ul aria-label="今日の予定" className="nums mb-2 space-y-0.5 rounded-md border border-dashed border-mizu/50 bg-mizu-soft/40 px-2.5 py-1.5 text-[12px]">
-                  <li className="text-[10px] font-bold text-mizu">今日の予定（予約のオーダ）</li>
-                  {s.bookings.map((b, i) => (
-                    <li key={i} className={`flex items-baseline gap-2 ${b.done ? "opacity-50" : ""}`}>
-                      <span className="w-12 shrink-0 font-bold">{b.time ?? "時刻未定"}</span>
-                      <span className="shrink-0 rounded bg-sheet px-1 text-[10px] text-ink-soft">{b.kind}</span>
-                      <span className="min-w-0">{b.label}</span>
-                      {b.done && <span className="ml-auto shrink-0 text-[10px] text-ink-faint">済み</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {s.plans.length > 0 && <PlanList day={d} plans={s.plans} today={today} nowAbs={nowAbs} onJump={jumpToOrder} />}
               {s.entries.length === 0 ? null : (
                 <ol className="space-y-2">
                   {s.entries.map((e, i) => {
@@ -412,7 +426,7 @@ function RecordList({
                         {e.kind === "note" ? (
                           <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
                         ) : (
-                          <OrderRow entry={e} today={today} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
+                          <OrderRow entry={e} today={today} now={nowAbs} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
                         )}
                       </li>
                     );
@@ -434,10 +448,46 @@ export const PLACE_COLORS = {
 };
 
 /**
+ * What is planned on a day by orders written on another day (and the operations booked): a faint list under the
+ * day's heading — the time, the kind, 採取予定／採取 and the order's line, with 「依頼 11/4」 to go to the order's card.
+ */
+function PlanList({ day, plans, today, nowAbs, onJump }: { day: DayOffset; plans: PlanItem[]; today: CalendarDate; nowAbs: number | null; onJump: (orderId: string) => void }) {
+  const title = day === 0 ? "今日の予定" : `${formatShort(addDays(today, day))}の予定`;
+  return (
+    <ul aria-label={title} className="nums mb-2 space-y-0.5 rounded-md border border-dashed border-mizu/50 bg-mizu-soft/40 px-2.5 py-1.5 text-[12px]">
+      <li className="text-[10px] font-bold text-mizu">
+        {title}
+        <span className="ml-1 font-normal text-ink-faint">（別の日に依頼したオーダ）</span>
+      </li>
+      {plans.map((p, i) => {
+        const ahead = isAhead(p, nowAbs);
+        return (
+          <li key={`${p.orderId}-${p.verb}-${i}`} data-plan-kind={p.kind} className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${ahead ? "" : "opacity-60"}`}>
+            <span className="w-12 shrink-0 font-bold">{p.time ?? "時刻未定"}</span>
+            <span className="shrink-0 rounded bg-sheet px-1 text-[10px] text-ink-soft">{p.kind}</span>
+            <span className={`shrink-0 text-[11px] font-bold ${ahead ? "text-mizu" : "text-ink-faint"}`}>{planVerb(p, nowAbs)}</span>
+            <span className="min-w-0 flex-1 truncate" title={p.label}>
+              {p.label}
+            </span>
+            {p.orderedOn !== null ? (
+              <button type="button" onClick={() => onJump(p.orderId)} title="依頼した日のカードへ" className="shrink-0 rounded border border-rule px-1 text-[10px] text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1">
+                依頼 {formatShort(addDays(today, p.orderedOn))}
+              </button>
+            ) : (
+              <span className="shrink-0 text-[10px] text-ink-faint">手術の予定表から</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
  * One record as a card: the heading row (【種類】 date and time in bold, the department and place small on the
  * right, ▸ to fold), a faint line with the version, the times and the writer, then the body.
  */
-function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article }: { mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean } }) {
+function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag }: { mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string }; tag?: React.ReactNode }) {
   return (
     <article {...article} data-folded={folded || undefined} className={`group rounded-md border border-rule-soft border-l-[3px] bg-sheet text-[13px] leading-relaxed ${tone.edge} ${article?.className ?? ""}`}>
       <div className={`flex items-center gap-1.5 rounded-tr-md px-2 py-1 ${tone.bg}`}>
@@ -448,6 +498,7 @@ function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHan
         <span className="nums truncate text-[13px] font-bold">
           【{mark}】 {when}
         </span>
+        {tag}
         <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] text-ink-faint">{place}</span>
       </div>
       <div className="nums flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2.5 py-0.5 text-[11px] text-ink-faint">{meta}</div>
@@ -878,10 +929,12 @@ function Tag({ children }: { children: React.ReactNode }) {
   return <span className="text-[11px] text-ai">【{children}】</span>;
 }
 
-function OrderRow({ entry, today, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { entry: OrderEntry; today: CalendarDate; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
+function OrderRow({ entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
   const o = entry.order;
   const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
+  // 依頼日と実施日: when the order is carried out on another day (or is still ahead), say so in the heading.
+  const marks = executionMarks(entry, now);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const doPayload: DoPayload = { kind: "order", entryId: entry.id };
   const canDo = !!onDo && ["prescription", "injection", "lab"].includes(o.type);
@@ -990,8 +1043,20 @@ function OrderRow({ entry, today, place, rpNo, folded, onFold, onDo, onOpenImage
       folded={folded}
       onFold={onFold}
       dragHandle={canDo}
+      tag={
+        marks.length > 0 && (
+          <span className="flex min-w-0 shrink-0 flex-wrap items-center gap-1">
+            {marks.map((p, i) => (
+              <span key={i} data-exec-mark className={`nums whitespace-nowrap rounded border px-1 text-[10px] ${isAhead(p, now) ? "border-mizu/60 text-mizu" : "border-rule text-ink-faint"}`}>
+                {planVerb(p, now)} {whenText(today, p.day, p.time)}
+              </span>
+            ))}
+          </span>
+        )
+      }
       article={{
         ...longPress,
+        "data-order-id": entry.id,
         draggable: canDo,
         onDragStart: canDo ? dragDo(doPayload) : undefined,
         onContextMenu: (e: React.MouseEvent) => {
