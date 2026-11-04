@@ -11,6 +11,7 @@ import { visitPerson } from "@/lib/lab-visits";
 import { OPD_PATIENTS } from "@/lib/opd";
 import { STAFF, type Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
+import { InsurancePanel } from "./billing/InsurancePanel";
 import { OpdBillPanel, sections } from "./billing/OpdBillPanel";
 import { InsuranceSection } from "./panels/InsuranceSection";
 import { PatientInfoPanel } from "./panels/PatientInfoPanel";
@@ -65,6 +66,22 @@ describe("患者基本情報の保険・制度", () => {
     expect(html).toContain("受給者番号 0000321");
     expect(html).toContain("患者負担 0%");
     expect(html).not.toContain("保険者番号・記号番号");
+  });
+  it("a fresh registration opens without the red 「直す」 rows: they come with the fields touched or when 登録 is pressed", () => {
+    // 患者基本情報: no record, the form open (「保険を登録する」).
+    const fresh = as("医事課", <InsuranceSection patient={patientOf({ ...nakatani, id: "opd-99" })} today={today} fmtDay={fmtDay} nowTime="10:00" records={[]} onRegister={() => {}} defaultEdit />);
+    expect(fresh).not.toContain("保険の種類を入れてください");
+    expect(fresh).not.toContain("「直す」があるうちは登録できません");
+    expect(fresh).toMatch(/<button type="button" class="rounded bg-ink[^"]*">登録<\/button>/);
+    expect(fresh).toContain('id="pi-insurance"');
+    // 医事課の算定: the same for its 保険の登録.
+    const panel = as("医事課", <InsurancePanel patient={patientOf({ ...nakatani, id: "opd-99" })} records={[]} today={today} nowTime="10:00" onRegister={() => {}} />);
+    expect(panel).not.toContain("保険の種類を入れてください");
+    expect(panel).not.toContain("「直す」があるうちは登録できません");
+    expect(panel).toContain("未登録：算定は年齢からの仮の保険です");
+    // Editing an existing record shows every check at once (the test below relies on it).
+    const existing = as("医事課", <InsurancePanel patient={patientOf(nakatani)} records={[{ ...INITIAL_INSURANCE_BOOK["opd:opd-6"][0], form: { ...INITIAL_INSURANCE_BOOK["opd:opd-6"][0].form, insurerNumber: "" } }]} today={today} nowTime="10:00" onRegister={() => {}} />);
+    expect(existing).toContain("保険者番号を入れてください");
   });
   it("the form warns when the 負担割合 does not fit the age and 区分, and names the law", () => {
     // 71歳・国保・一般 with 3割 typed: the law says 2割 (健康保険法74条).

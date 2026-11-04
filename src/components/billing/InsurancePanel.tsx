@@ -3,6 +3,7 @@
 import { AlertTriangle, Ban, CheckCircle2, Info, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
+import { touchedBy, visibleChecks } from "@/lib/billing/check-visibility";
 import type { IncomeClass } from "@/lib/billing/insurance";
 import {
   checkInsurance,
@@ -44,20 +45,28 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
   const current = records[records.length - 1];
   const [form, setForm] = useState<InsuranceForm>(() => normalizeForm(current?.form ?? EMPTY_FORM));
   const [ack, setAck] = useState(false);
-  const checks = useMemo(() => checkInsurance(form, { age: patient.age, on: today }), [form, patient.age, today]);
-  const errors = hasErrors(checks);
-  const warns = checks.filter((c) => c.level === "warn");
+  // A fresh registration shows a check only for the fields touched, until 登録する is pressed (check-visibility.ts).
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const [revealAll, setRevealAll] = useState(false);
+  const reveal = !!current || revealAll;
+  const allChecks = useMemo(() => checkInsurance(form, { age: patient.age, on: today }), [form, patient.age, today]);
+  const checks = visibleChecks(allChecks, { fresh: !current, revealAll, touched });
+  const errors = hasErrors(allChecks);
+  const warns = allChecks.filter((c) => c.level === "warn");
   const changed = !current || JSON.stringify(normalizeForm(current.form)) !== JSON.stringify(form);
   const action: InsuranceRecord["action"] = !current ? "登録" : changed ? "変更" : "確認";
   const preview = errors ? null : toInsurance(form);
   const fieldTone = (k: keyof InsuranceForm) => (checks.some((c) => c.field === k && c.level === "error") ? "border-shu" : checks.some((c) => c.field === k && c.level === "warn") ? "border-yamabuki" : "border-rule");
   const set = (patch: Partial<InsuranceForm>) => {
     setForm((f) => ({ ...f, ...patch }));
+    setTouched((t) => touchedBy(t, patch));
     setAck(false);
   };
   const day = (d: number) => formatShort(addDays(today, d));
 
   const register = () => {
+    // First press on a fresh form: show every check; register only when none stops it.
+    if (!reveal) setRevealAll(true);
     if (locked || errors || (warns.length > 0 && !ack)) return;
     const insurance = toInsurance(form);
     const r: InsuranceRecord = { form, insurance, action, by: me.name, at: { day: 0, time: nowTime } };
@@ -196,17 +205,18 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
         </fieldset>
 
         <div className="mt-4 space-y-2">
-          {warns.length > 0 && !errors && !locked && (
+          {reveal && warns.length > 0 && !errors && !locked && (
             <label className="flex items-center gap-1.5 text-xs text-yamabuki">
               <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
               「確かめる」の{warns.length}件を保険証で確かめた
             </label>
           )}
           <div className="flex flex-wrap items-center gap-2">
+            {/* On a fresh form the button stays live so that pressing it shows what is still to fill. */}
             <button
               type="button"
               onClick={register}
-              disabled={!!locked || errors || (warns.length > 0 && !ack)}
+              disabled={!!locked || (reveal && (errors || (warns.length > 0 && !ack)))}
               className="rounded-md bg-ai px-3 py-1.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               {action === "登録" ? "登録する" : action === "変更" ? "変更を登録する" : "変わりがないことを確かめた"}
@@ -216,7 +226,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
                 登録済みの内容に戻す
               </button>
             )}
-            {errors && <span className="text-[11px] text-shu">「直す」があるうちは登録できません。</span>}
+            {reveal && errors && <span className="text-[11px] text-shu">「直す」があるうちは登録できません。</span>}
           </div>
           <DenyNote action="insurance" />
         </div>
@@ -234,6 +244,8 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           onCopy={(c) => {
             setForm(c.form);
             setAck(false);
+            // The answer filled the form: show what the code finds in it.
+            setRevealAll(true);
           }}
         />
         <section aria-label="確かめ" className="rounded-md border border-rule bg-sheet p-3">

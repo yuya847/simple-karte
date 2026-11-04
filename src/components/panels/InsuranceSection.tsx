@@ -6,8 +6,9 @@
 // when and why (監査ログも). 医事課・医師・看護師 may change it (roles.ts "insurance"; 架空の病院の取り決め).
 
 import { AlertTriangle, Ban, CheckCircle2, Info, Pencil, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
+import { touchedBy, visibleChecks } from "@/lib/billing/check-visibility";
 import { FUTAN_SOURCES, KOHI_KINDS } from "@/lib/billing/futan";
 import { rateLabel, VERIFY_METHODS, type IncomeClass, type VerifyMethod } from "@/lib/billing/insurance";
 import {
@@ -68,10 +69,16 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
   const [form, setForm] = useState<InsuranceForm>(() => normalizeForm(current?.form));
   const [reason, setReason] = useState("");
   const [ack, setAck] = useState(false);
+  // A fresh registration shows a check only for the fields touched, until 登録 is pressed (check-visibility.ts).
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const [revealAll, setRevealAll] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
   const when = (at: { day: number; time: string }) => `${at.day === 0 ? "今日" : fmtDay(at.day)} ${at.time}`;
-  const checks = useMemo(() => (edit ? checkInsurance(form, { age: p.age, on: today }) : []), [edit, form, p.age, today]);
-  const errors = hasErrors(checks);
-  const warns = checks.filter((c) => c.level === "warn");
+  const allChecks = useMemo(() => (edit ? checkInsurance(form, { age: p.age, on: today }) : []), [edit, form, p.age, today]);
+  const reveal = !!current || revealAll;
+  const checks = visibleChecks(allChecks, { fresh: !current, revealAll, touched });
+  const errors = hasErrors(allChecks);
+  const warns = allChecks.filter((c) => c.level === "warn");
   const changed = !current || JSON.stringify(normalizeForm(current.form)) !== JSON.stringify(form);
   const action: InsuranceRecord["action"] = !current ? "登録" : changed ? "変更" : "確認";
   const needReason = action === "変更" && !reason.trim();
@@ -80,17 +87,27 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
   const tone = (k: keyof InsuranceForm) => (checks.some((c) => c.field === k && c.level === "error") ? "border-shu" : checks.some((c) => c.field === k && c.level === "warn") ? "border-yamabuki" : "border-rule");
   const set = (patch: Partial<InsuranceForm>) => {
     setForm((f) => ({ ...f, ...patch }));
+    setTouched((t) => touchedBy(t, patch));
     setAck(false);
   };
   const setKohi = (i: number, patch: Partial<KohiForm>) => set({ kohi: form.kohi.map((k, j) => (j === i ? { ...k, ...patch } : k)) });
+
+  // The form opens below the registered values: bring it into view (the window does not scroll by itself).
+  useEffect(() => {
+    if (edit) sectionRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  }, [edit]);
 
   const startEdit = () => {
     setForm(normalizeForm(current?.form));
     setReason("");
     setAck(false);
+    setTouched(new Set());
+    setRevealAll(false);
     setEdit(true);
   };
   const save = () => {
+    // First press on a fresh form: show every check; save only when none stops it.
+    if (!reveal) setRevealAll(true);
     if (denied || !onRegister || errors || needReason || (warns.length > 0 && !ack)) return;
     const insurance = toInsurance(form);
     const r: InsuranceRecord = { form, insurance, action, by: me.name, at: { day: 0, time: nowTime }, ...(reason.trim() ? { reason: reason.trim() } : {}) };
@@ -104,7 +121,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
   const kindLabel = ins ? (kindOptionOf({ coverage: ins.coverage ?? "医保", kind: ins.kind })?.label ?? ins.kind) : "";
 
   return (
-    <section id="pi-insurance" aria-labelledby="pi-insurance-h" className="rounded-lg border border-rule bg-paper/50 p-3">
+    <section ref={sectionRef} id="pi-insurance" aria-labelledby="pi-insurance-h" className="rounded-lg border border-rule bg-paper/50 p-3">
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <h3 id="pi-insurance-h" className="text-sm font-bold">
           保険・制度
@@ -393,6 +410,8 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
               onCopy={(c) => {
                 setForm(normalizeForm(c.form));
                 setAck(false);
+                // The answer filled the form: show what the code finds in it.
+                setRevealAll(true);
               }}
             />
           )}
@@ -436,20 +455,21 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
               <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：保険が協会けんぽから国保に変わった（資格確認書を確認）" className={input} />
             </label>
           )}
-          {warns.length > 0 && !errors && (
+          {reveal && warns.length > 0 && !errors && (
             <label className="flex items-center gap-1.5 text-xs text-yamabuki">
               <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
               「確かめる」の{warns.length}件を証で確かめた
             </label>
           )}
           <div className="flex items-center gap-2">
-            <button type="button" disabled={errors || needReason || (warns.length > 0 && !ack)} onClick={save} className="rounded bg-ink px-3 py-1 text-sm font-bold text-white disabled:opacity-40">
+            {/* On a fresh form the button stays live so that pressing it shows what is still to fill. */}
+            <button type="button" disabled={reveal && (errors || needReason || (warns.length > 0 && !ack))} onClick={save} className="rounded bg-ink px-3 py-1 text-sm font-bold text-white disabled:opacity-40">
               {action === "登録" ? "登録" : action === "変更" ? "変更を保存" : "変わりがないことを確かめた"}
             </button>
             <button type="button" onClick={() => setEdit(false)} className="text-xs text-ink-faint hover:text-ink">
               やめる
             </button>
-            {errors && <span className="text-[11px] text-shu">「直す」があるうちは登録できません。</span>}
+            {reveal && errors && <span className="text-[11px] text-shu">「直す」があるうちは登録できません。</span>}
             {!errors && needReason && <span className="text-[11px] text-yamabuki">変更の理由を入れてください。</span>}
             <span className="nums ml-auto text-[11px] text-ink-faint">
               {me.name}　今日 {nowTime}
