@@ -32,30 +32,31 @@ export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: num
   return out;
 }
 
+/** Infused volume (mL) in [lo, hi) from injection orders (not rounded). An estimate from the orders, not a measurement. */
+export function fluidInWindow(entries: OrderEntry[], lo: number, hi: number, nowAbs: number): number {
+  let total = 0;
+  for (const e of entries) {
+    if (e.order.type !== "injection") continue;
+    const o = e.order;
+    const vol = doseVolumeMl(o.items);
+    if (vol === 0) continue;
+    if (o.schedule.kind === "every_hours") {
+      total += doseTimes(e, nowAbs, lo, hi).length * vol;
+    } else if (o.schedule.kind === "per_day") {
+      const { from, to } = orderInterval(e, nowAbs);
+      const overlap = Math.max(0, Math.min(hi, to ?? Infinity) - Math.max(lo, from));
+      total += ((vol * o.schedule.count) / 1440) * overlap;
+    } else {
+      const t = abs(o.start.day, o.start.time ?? e.time);
+      if (t >= lo && t < hi) total += vol;
+    }
+  }
+  return total;
+}
+
 /** Infused volume (mL) per day from injection orders. An estimate from the orders, not a measurement. */
 export function fluidByDay(entries: OrderEntry[], days: DayOffset[], nowAbs: number): Record<number, number> {
   const out: Record<number, number> = {};
-  for (const d of days) {
-    const lo = d * 1440;
-    const hi = lo + 1440;
-    let total = 0;
-    for (const e of entries) {
-      if (e.order.type !== "injection") continue;
-      const o = e.order;
-      const vol = doseVolumeMl(o.items);
-      if (vol === 0) continue;
-      if (o.schedule.kind === "every_hours") {
-        total += doseTimes(e, nowAbs, lo, hi).length * vol;
-      } else if (o.schedule.kind === "per_day") {
-        const { from, to } = orderInterval(e, nowAbs);
-        const overlap = Math.max(0, Math.min(hi, to ?? Infinity) - Math.max(lo, from));
-        total += ((vol * o.schedule.count) / 1440) * overlap;
-      } else {
-        const t = abs(o.start.day, o.start.time ?? e.time);
-        if (t >= lo && t < hi) total += vol;
-      }
-    }
-    out[d] = Math.round(total / 10) * 10;
-  }
+  for (const d of days) out[d] = Math.round(fluidInWindow(entries, d * 1440, d * 1440 + 1440, nowAbs) / 10) * 10;
   return out;
 }

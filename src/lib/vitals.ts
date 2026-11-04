@@ -73,7 +73,8 @@ export const DAILY: Record<string, DailyRecord[]> = {
     { day: -4, meals: [7, 8, 8], urineMl: 2100, stools: 1, weightKg: 66.1 },
     { day: -3, meals: [8, 8, 8], urineMl: 2300, stools: 1, weightKg: 65.0 },
     { day: -2, meals: [8, 9, 8], urineMl: 1900, stools: 0, weightKg: 64.0 },
-    { day: -1, meals: [9, 9, 10], urineMl: 1700, stools: 1, weightKg: 63.0 },
+    // 尿量 450mL is 0:00–9:00; from 9:00 the urine is in the 水分出納 records (io-balance.ts initialIo), 1,700mL for the day.
+    { day: -1, meals: [9, 9, 10], urineMl: 450, stools: 1, weightKg: 63.0 },
     { day: 0, meals: [9, null, null], weightKg: 62.8 },
   ],
   "90010260": [
