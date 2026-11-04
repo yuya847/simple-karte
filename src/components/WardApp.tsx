@@ -149,6 +149,7 @@ import {
   allowedWardTabs,
   areasFor,
   homeArea,
+  homeScreen,
   ownerFor,
   readWardTab,
   rehome,
@@ -1978,11 +1979,13 @@ export default function WardApp() {
     setRole(r);
     // Charts stay open; those under a screen the role cannot open move to its first patient list.
     const moved = rehome(patientTabs, wardTabsFor(r));
-    const keep = allowedWardTabs(r, [...defaultsOf(wardDefaults, r), ...wardTabs, ...moved.flatMap((t) => wardTabOf(t.owner) ?? [])]);
+    // The role's own first screen (看護師 → ワークシート, 医事課 → 医事課の仕事 …) opens first; 医師 keeps the ward's 最初に開く.
+    const home = homeScreen(r);
+    const keep = allowedWardTabs(r, [...(home.wardTab ? [home.wardTab] : []), ...defaultsOf(wardDefaults, r), ...wardTabs, ...moved.flatMap((t) => wardTabOf(t.owner) ?? [])]);
     setPatientTabs(moved);
     setWardTabs(keep);
-    setWardTab(keep[0] ?? "menu");
-    setArea(homeArea(r));
+    setWardTab(home.wardTab ?? keep[0] ?? "menu");
+    setArea(home.area);
     setFront({});
     setNewTabFor(null);
     setPanel(null);

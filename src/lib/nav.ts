@@ -156,6 +156,20 @@ export function homeArea(role: Role): AreaKey {
   return (Object.entries(NEEDS).find(([, v]) => v === first)?.[0] as AreaKey | undefined) ?? "ward";
 }
 
+/**
+ * The screen a role lands on when chosen (the role's first view in roles.ts): its own place (薬剤師 → 薬剤部,
+ * 管理栄養士 → 給食 …), or inside 病棟 the work screen of that view (看護師 → ワークシート, 医事課 → 医事課の仕事,
+ * MSW → 入院時の評価). A role whose first view is a patient list (医師) keeps the ward's 最初に開く screens (wardTab null).
+ */
+export function homeScreen(role: Role): { area: AreaKey; wardTab: WardTab | null } {
+  if (role === "管理栄養士") return { area: "kitchen", wardTab: null };
+  const area = homeArea(role);
+  if (area !== "ward") return { area, wardTab: null };
+  const first = TABS[role][0];
+  const tab = WARD_TABS.find((t) => t.key === first && t.group === "work");
+  return { area, wardTab: tab?.key ?? null };
+}
+
 /** Keep only the screens the role may open (for defaults saved earlier, or after a role change); saved keys of renamed screens are read as the screen they became. */
 export const allowedWardTabs = (role: Role, tabs: readonly string[]): WardTab[] => {
   const ok = wardTabsFor(role);

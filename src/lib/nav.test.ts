@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedWardTabs, areasFor, homeArea, nextAfterClose, ownerFor, readWardTab, rehome, WARD_TABS, wardOwner, wardTabInfo, wardTabsFor, type PatientTab } from "./nav";
+import { allowedWardTabs, areasFor, homeArea, homeScreen, nextAfterClose, ownerFor, readWardTab, rehome, WARD_TABS, wardOwner, wardTabInfo, wardTabsFor, type PatientTab } from "./nav";
 import { TABS } from "./roles";
 
 describe("① places by role", () => {
@@ -46,6 +46,19 @@ describe("① places by role", () => {
     expect(homeArea("看護師")).toBe("ward");
     expect(homeArea("薬剤師")).toBe("pharmacy");
     expect(homeArea("臨床検査技師")).toBe("lab");
+  });
+  it("choosing a role opens that role's first screen: its place, or the work screen inside 病棟", () => {
+    expect(homeScreen("医師")).toEqual({ area: "ward", wardTab: null });
+    expect(homeScreen("看護師")).toEqual({ area: "ward", wardTab: "sheet" });
+    expect(homeScreen("医事課")).toEqual({ area: "ward", wardTab: "iji" });
+    expect(homeScreen("MSW")).toEqual({ area: "ward", wardTab: "admit" });
+    expect(homeScreen("薬剤師")).toEqual({ area: "pharmacy", wardTab: null });
+    expect(homeScreen("臨床検査技師")).toEqual({ area: "lab", wardTab: null });
+    expect(homeScreen("診療放射線技師")).toEqual({ area: "radiology", wardTab: null });
+    expect(homeScreen("療法士")).toEqual({ area: "rehab", wardTab: null });
+    expect(homeScreen("管理栄養士")).toEqual({ area: "kitchen", wardTab: null });
+    // The screen it opens is one the role may open.
+    for (const r of ["看護師", "医事課", "MSW"] as const) expect(wardTabsFor(r)).toContain(homeScreen(r).wardTab);
   });
 });
 
