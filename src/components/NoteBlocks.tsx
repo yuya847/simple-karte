@@ -2,7 +2,7 @@
 
 import { GripVertical } from "lucide-react";
 import { useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
+import { isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited, isProblemLine } from "@/lib/note-blocks";
 import { indentLines, toggleMark } from "@/lib/note-edit";
 import { renumberProblems } from "@/lib/note-problems";
 import { expandAt, type Phrase } from "@/lib/phrases";
@@ -256,7 +256,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     <div
       role="group"
       aria-label="記事"
-      className={`rounded-md border border-rule py-1.5 pr-2 focus-within:border-ai ${readOnly ? "bg-paper" : "bg-sheet"}`}
+      // No box around the whole editor (an empty note is just a blank line); a problem line (＃) gets its own box below.
+      className={`rounded-md py-1.5 pr-2 ${readOnly ? "bg-paper" : ""}`}
       onClick={(e) => {
         // A click on the margin under the last line puts the caret at its end.
         if (e.target === e.currentTarget) focusLine(lines.length - 1, Infinity);
@@ -353,7 +354,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                   const r = renumberProblems(latest.current);
                   if (r.text !== latest.current) onChange(r.text);
                 }}
-                className={`${TEXT} resize-none overflow-hidden rounded bg-transparent outline-none focus:bg-ai-soft/30 [grid-area:1/1/2/2] ${heading ? "font-bold text-ink" : ""}`}
+                className={`${TEXT} resize-none overflow-hidden rounded bg-transparent outline-none focus:bg-ai-soft/30 [grid-area:1/1/2/2] ${isProblemLine(line) ? "border border-ai/40 bg-sheet font-bold text-ink" : heading ? "font-bold text-ink" : ""}`}
               />
             </div>
           </div>
