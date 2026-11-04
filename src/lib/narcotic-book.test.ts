@@ -17,6 +17,7 @@ import {
   receiveSlip,
   receiveStock,
   recordAccident,
+  recordBrought,
   returnFromWard,
   slipProblems,
   slipsDue,
@@ -131,6 +132,15 @@ describe("内服（麻薬処方箋で調剤）", () => {
     const d = disposeReturned(b, r.id, MGR, "薬剤師 吉田", "粉砕", NOW);
     expect(d.ledger.at(-1)?.notice).toEqual({ dueDay: 30 });
     expect(fileNotice(d, r.id, 2).ledger.at(-1)?.notice?.filedOn).toBe(2);
+  });
+});
+
+describe("持参した麻薬（転入院時）", () => {
+  it("is written in （ ）, not added to the 残高, once per report", () => {
+    const b = recordBrought(INITIAL_BOOK, "ORAL-OXC5", 6, MGR, NOW, "佐倉 修", "rep-1", id);
+    expect(b.ledger.at(-1)).toMatchObject({ kind: "持参", qty: 0, paren: 6 });
+    expect(balance(b.ledger, "ORAL-OXC5")).toBe(40);
+    expect(recordBrought(b, "ORAL-OXC5", 6, MGR, NOW, "佐倉 修", "rep-1", id)).toBe(b);
   });
 });
 

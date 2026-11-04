@@ -103,6 +103,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
               <ScanText size={14} />
               持参薬の鑑別報告（{r.at} {r.by}）：薬ごとに選んでください
             </div>
+            {r.comment && <p className="text-ink-soft">薬剤師の所見：{r.comment}</p>}
             <ul className="mt-1 space-y-1">
               {rows.map((x, i) => (
                 <li key={i} className="flex flex-wrap items-center gap-1.5">
@@ -110,6 +111,13 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
                     <b>{x.said}</b> {x.strength}　1回{x.amount ?? "？"}
                     {x.unit} {x.timings.length ? x.timings.join("・") : `頓用 ${x.prn ?? ""}`}
                     {x.match ? <span className="text-ink-soft">（院内：{oralName(x.match)}）</span> : <span className="text-shu">（院内にない）</span>}
+                    {x.counted !== null && x.counted !== undefined && (
+                      <span className="text-ink-soft">
+                        　実物の残り {x.counted}
+                        {x.unit}
+                      </span>
+                    )}
+                    {x.note && <span className="text-ink-soft">　{x.note}</span>}
                   </span>
                   {x.amount === null && x.decision && x.decision !== "中止" && (
                     <label className="flex items-center gap-1 text-shu">

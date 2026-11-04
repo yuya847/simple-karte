@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { INITIAL_BOOK, receiveSlip, type NarcoticBook } from "@/lib/narcotic-book";
 import { PATIENTS } from "@/lib/patients";
 import type { OrderEntry } from "@/lib/types";
+import { BroughtReportSheet } from "./BroughtReportSheet";
 import { DrugMarks } from "./DrugMarks";
 import { NarcoticDesk } from "./NarcoticDesk";
 import { NarcoticSlips } from "./NarcoticSlips";
@@ -55,6 +56,22 @@ describe("麻薬の画面", () => {
     expect(before).toContain("受け取った（空アンプル・残液を確かめた）");
     const after = renderToStaticMarkup(<NarcoticDesk people={people} today={TODAY} nowTime="11:00" book={receiveSlip(book, "s1", "薬剤師 小林", { day: 0, time: "11:00" }, "佐倉", id)} onBook={noop} newId={id} />);
     expect(after).toContain("立会いの下に廃棄した");
+  });
+
+  it("持参薬鑑別報告書: the count, the days it lasts, the 規制区分 and the doctor's choice", () => {
+    const html = renderToStaticMarkup(
+      <BroughtReportSheet
+        r={{ id: "r1", patientId: sakura.id, by: "薬剤師 小林", at: "09:30", status: "指示済", comment: "自己管理できている", rows: [{ said: "オキシコンチンTR錠", strength: "5mg", amount: 1, unit: "錠", timings: ["朝", "夕"], daysLeft: 14, prn: null, match: "ORAL-OXC5", checked: true, decision: "持参薬で継続", counted: 9, note: "残数は手帳より少ない" }] }}
+        patient={sakura}
+        room="512"
+        date="11/4（水）"
+      />,
+    );
+    expect(html).toContain("持参薬鑑別報告書");
+    expect(html).toContain("9錠 ÷（1回1錠 × 2回）＝ 4日分");
+    expect(html).toContain("劇薬・麻薬・処方箋医薬品");
+    expect(html).toContain("持参薬で継続");
+    expect(html).toContain("自己管理できている");
   });
 
   it("the ward's 施用票: a 麻薬 dose recorded 実施 asks for the amounts", () => {

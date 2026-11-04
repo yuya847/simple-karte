@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PATIENTS } from "./patients";
-import { alreadyOrdered, auditItems, b008Check, draftsFromReport, matchOral, nextTiming, ordersFromReport, queryOpen, type BroughtReport, type Query } from "./pharmacy";
+import { alreadyOrdered, auditItems, b008Check, daysOfCount, draftsFromReport, matchOral, nextTiming, ordersFromReport, queryOpen, type BroughtReport, type Query } from "./pharmacy";
 import type { OrderEntry } from "./types";
 
 const people = PATIENTS.map((p, i) => ({ patient: p, room: ["512", "515B", "508A", "511"][i], entries: p.history.filter((e): e is OrderEntry => e.kind === "order") }));
@@ -112,5 +112,17 @@ describe("薬剤管理指導料（B008）の回数", () => {
   });
   it("four times a month", () => {
     expect(b008Check([-21, -14, -7, 7], 14, dow, month)).toContain("月4回");
+  });
+});
+
+describe("持参薬鑑別報告書：実物の残数から日数", () => {
+  const row = { counted: 9, amount: 2, timings: ["朝", "夕"] as ("朝" | "夕")[], unit: "錠" };
+  it("残数 ÷（1回量 × 回数）, rounded down", () => {
+    expect(daysOfCount(row)).toEqual({ days: 2, formula: "9錠 ÷（1回2錠 × 2回）＝ 2日分" });
+  });
+  it("none for 頓用, or when not counted", () => {
+    expect(daysOfCount({ ...row, timings: [] })).toBeNull();
+    expect(daysOfCount({ ...row, counted: null })).toBeNull();
+    expect(daysOfCount({ ...row, amount: null })).toBeNull();
   });
 });

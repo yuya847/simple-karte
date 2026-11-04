@@ -123,6 +123,10 @@ export interface BroughtRow {
   checked: boolean;
   /** The doctor's choice. */
   decision: "持参薬で継続" | "院内の薬に切替" | "中止" | null;
+  /** 実物で数えた残りの数 (the pharmacist counts the drug brought in; the お薬手帳 only says what was prescribed). */
+  counted?: number | null;
+  /** 薬剤師の備考 for this drug (服薬状況・識別・気をつけること). */
+  note?: string;
 }
 
 export interface BroughtReport {
@@ -133,6 +137,19 @@ export interface BroughtReport {
   at: string;
   /** 指示の下書き: the doctor chose, the drafts wait for 確定 (back to 医師へ報告 if they are all removed). */
   status: "鑑別中" | "医師へ報告" | "指示の下書き" | "指示済";
+  /** 鑑別の所見 the pharmacist writes for the whole report (服薬の状況・管理の方法など). */
+  comment?: string;
+}
+
+/**
+ * How many days the counted drug lasts at the written usage: 残数 ÷ (1回量 × 1日の回数), rounded down
+ * (code). Null for 頓用 or when it was not counted or the 1回量 is unknown.
+ */
+export function daysOfCount(row: Pick<BroughtRow, "counted" | "amount" | "timings" | "unit">): { days: number; formula: string } | null {
+  if (row.counted === null || row.counted === undefined || row.amount === null || !(row.amount > 0) || row.timings.length === 0) return null;
+  const perDay = row.amount * row.timings.length;
+  const days = Math.floor(row.counted / perDay + 1e-9);
+  return { days, formula: `${row.counted}${row.unit} ÷（1回${row.amount}${row.unit} × ${row.timings.length}回）＝ ${days}日分` };
 }
 
 const norm = (s: string) => s.normalize("NFKC").replace(/\s/g, "").toLowerCase();

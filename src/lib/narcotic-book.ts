@@ -23,7 +23,7 @@ export interface When {
   time: string;
 }
 
-export type LedgerKind = "繰越" | "受入" | "払出" | "返納" | "事故" | "照合";
+export type LedgerKind = "繰越" | "受入" | "払出" | "返納" | "持参" | "事故" | "照合";
 
 export interface LedgerEntry {
   id: string;
@@ -246,6 +246,15 @@ export function dispenseOral(book: NarcoticBook, entry: OrderEntry, patientId: s
 export function returnFromWard(book: NarcoticBook, code: string, qty: number, by: string, now: When, patientLabel: string, orderId: string | undefined, newId: () => string): NarcoticBook {
   if (!(qty > 0)) return book;
   return { ...book, ledger: [...book.ledger, { id: newId(), code, at: now, kind: "返納", qty: 0, paren: qty, note: `${patientLabel}より返納`, by, orderId }] };
+}
+
+/**
+ * A 麻薬 the patient brought in (転入院時の持参) and goes on taking: written in （ ） in 受入, not added to the 残高
+ * (マニュアル 第4(11)). `refId` is the 持参薬鑑別 report.
+ */
+export function recordBrought(book: NarcoticBook, code: string, qty: number, by: string, now: When, patientLabel: string, refId: string, newId: () => string): NarcoticBook {
+  if (!(qty > 0) || book.ledger.some((e) => e.kind === "持参" && e.orderId === refId && e.code === code)) return book;
+  return { ...book, ledger: [...book.ledger, { id: newId(), code, at: now, kind: "持参", qty: 0, paren: qty, note: `${patientLabel} 転入院時持参・継続施用（持参薬鑑別より）`, by, orderId: refId }] };
 }
 
 /** 廃棄 of what a ward returned, with a witness; the 調剤済麻薬廃棄届 is due within 30 days (法 第35条第2項). */

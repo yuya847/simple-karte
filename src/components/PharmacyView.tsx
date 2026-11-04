@@ -14,6 +14,9 @@ import type { OrderEntry } from "@/lib/types";
 import { TdmView } from "./TdmView";
 import { DrugMarks } from "./DrugMarks";
 import { NarcoticDesk } from "./NarcoticDesk";
+import { BroughtReportSheet } from "./BroughtReportSheet";
+import { isNarcotic } from "@/lib/drug-class";
+import { recordBrought } from "@/lib/narcotic-book";
 import type { NarcoticBook } from "@/lib/narcotic-book";
 import { drugCodesOf } from "@/lib/drug-class";
 import { SourceLinks } from "./DraftCard";
@@ -23,7 +26,7 @@ import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { orderLines, oralName } from "@/lib/format";
-import { alreadyOrdered, auditItems, b008Check, dispenseBlock, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
+import { alreadyOrdered, auditItems, b008Check, daysOfCount, dispenseBlock, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
 import type { DayOffset } from "@/lib/types";
 import { buildWorksheet, shiftWindow, timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { CLAUDE, auditLog } from "@/lib/audit";
@@ -89,7 +92,7 @@ const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
 /** How to use each tab (the pharmacist's day), shown at the top (can be folded). */
 const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "audit", steps: "医師が出した注射・内服が新しい順に並びます。重複と、電子添文にある併用禁忌・併用注意・配合（同じ Rp の中）はコードが調べ、電子添文へのリンクと、医師が理由を入れた場合はその理由を出します。量・飲み合わせ・腎機能を確かめて「監査済み」。疑問があれば「疑義照会」を書くと、医師のカルテの右上に届き、医師が答えるか処方を直します。" },
-  { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ確かめて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。" },
+  { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ実物と照らし、実物の残数（何日分かはコードが数える）と備考・所見を書いて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。「報告した鑑別」から持参薬鑑別報告書を印刷できます。続ける麻薬は麻薬帳簿に（ ）で記載します。" },
   { tab: "shido", steps: "患者を選んで指導の内容を記録します。服薬指導の算定の回数（週1回・月4回まで）はコードが数え、超えると知らせます。" },
   { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
   { tab: "oral", steps: "病棟で飲む内服（定期・臨時）を、患者ごと・Rp ごとに並べます。「定期」は明日から選んだ日数分、「臨時（今日の新規）」は今日出た臨時の全日数と、今日出た定期の今日の分です。量は「1回量 × 服用回数」をオーダの開始・日数・中止からコードで数え、式を出します。Rp ごとに ①調剤 → ②鑑査（できれば別の薬剤師。同じ人なら印が付く）→ ③払出 を記録し、誰がいつかが残ります。疑義照会の回答待ち・まだ監査していないオーダは止まり、調剤のあとで処方が変わると調剤し直しになります。「配薬ラベル」で1回分（日付と朝・昼・夕・眠前）ごとのラベルを印刷できます（一包化の袋に貼る形）。持参薬と退院時処方は入りません（退院時は「退院時の薬」タブ）。頓用は回数が決まらないので数えません。" },
@@ -318,10 +321,24 @@ Rp2　ラシックス錠20mg　1回1錠　1日1回　朝食後　28日分
 Rp3　マグミット錠330mg　1回2錠　1日2回　朝夕食後　28日分
 Rp4　カロナール錠500　1回1錠　頓用　疼痛時　10回分`;
 
-function Brought({ people, nowTime, reports, onReport }: Props) {
+function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBook, newId }: Props) {
   const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
   const [text, setText] = useState("");
   const [rows, setRows] = useState<BroughtRow[] | null>(null);
+  const [comment, setComment] = useState("");
+  const [printing, setPrinting] = useState<React.ReactNode | null>(null);
+  const setRow = (i: number, patch: Partial<BroughtRow>) => setRows((rs) => rs!.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const printReport = (r: BroughtReport) => {
+    const x = people.find((y) => y.patient.id === r.patientId);
+    flushSync(() => setPrinting(<BroughtReportSheet r={r} patient={x?.patient} room={x?.room ?? ""} date={formatShort(today)} />));
+    const done = () => {
+      setPrinting(null);
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+    auditLog({ role: "薬剤師", actor: PHARMACIST, action: "持参薬鑑別報告書を印刷した", patient: x?.patient.name, detail: `${r.rows.length}剤` });
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const person = people.find((x) => x.patient.id === patientId);
@@ -389,6 +406,8 @@ function Brought({ people, nowTime, reports, onReport }: Props) {
                 <th className="py-1 font-normal">手帳の記載</th>
                 <th className="py-1 font-normal">用法</th>
                 <th className="py-1 font-normal">院内の同じ成分・規格（コードで照合）</th>
+                <th className="py-1 font-normal">実物の残数</th>
+                <th className="py-1 font-normal">備考</th>
                 <th className="py-1 font-normal">実物と確認</th>
               </tr>
             </thead>
@@ -409,11 +428,27 @@ function Brought({ people, nowTime, reports, onReport }: Props) {
                       {r.match ? (
                         <>
                           {oralName(r.match)}
+                          <DrugMarks codes={[r.match]} />
                           {already.length > 0 && <div className="text-xs font-bold text-yamabuki">同じ成分がもう登録されています（{already.map((e) => (e.order.type === "prescription" ? e.order.category : "")).join("・")}）</div>}
+                          {isNarcotic(r.match) && <div className="text-[11px] text-shu">持参した麻薬：続けるときは麻薬帳簿の受入欄に（ ）で書き、残高に加えません（麻薬管理マニュアル 第4(11)）。報告のあと「報告した鑑別」から記載できます。</div>}
                         </>
                       ) : (
                         <span className="text-shu">院内のマスターにありません</span>
                       )}
+                    </td>
+                    <td className="py-1.5 text-xs">
+                      <input
+                        value={r.counted ?? ""}
+                        onChange={(e) => setRow(i, { counted: e.target.value === "" ? null : Number(e.target.value.replace(/[^\d.]/g, "")) })}
+                        inputMode="decimal"
+                        aria-label={`${r.said} の実物の残数`}
+                        className="w-14 rounded border border-rule bg-paper px-1 py-0.5 text-right"
+                      />
+                      {r.unit}
+                      {daysOfCount(r) && <div className="text-[10px] text-ink-soft">{daysOfCount(r)!.formula}</div>}
+                    </td>
+                    <td className="py-1.5">
+                      <input value={r.note ?? ""} onChange={(e) => setRow(i, { note: e.target.value })} placeholder="服薬状況・識別など" aria-label={`${r.said} の備考`} className="w-40 rounded border border-rule bg-paper px-1 py-0.5 text-xs" />
                     </td>
                     <td className="py-1.5">
                       <label className="flex cursor-pointer items-center gap-1 text-xs">
@@ -426,14 +461,16 @@ function Brought({ people, nowTime, reports, onReport }: Props) {
               })}
             </tbody>
           </table>
+          <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="所見：服薬の状況、自己管理か看護師管理か、手帳と実物の違いなど（報告書に載る）" aria-label="鑑別の所見" className="mt-2 w-full rounded border border-rule bg-paper px-2 py-1 text-[12px] outline-none" />
           <div className="mt-3 flex items-center gap-3">
             <button
               type="button"
               disabled={!rows.length || !rows.every((r) => r.checked)}
               onClick={() => {
-                onReport({ patientId, rows });
+                onReport({ patientId, rows, ...(comment.trim() ? { comment: comment.trim() } : {}) });
                 setRows(null);
                 setText("");
+                setComment("");
               }}
               className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40"
             >
@@ -451,9 +488,34 @@ function Brought({ people, nowTime, reports, onReport }: Props) {
             {reports.map((r) => {
               const pt = people.find((x) => x.patient.id === r.patientId);
               return (
-                <li key={r.id}>
-                  {r.at}　{pt?.room} {pt?.patient.name}　{r.rows.length}剤　<b className={r.status === "指示済" ? "text-wakatake" : "text-yamabuki"}>{r.status}</b>
+                <li key={r.id} className="flex flex-wrap items-center gap-x-2">
+                  <span>
+                    {r.at}　{pt?.room} {pt?.patient.name}　{r.rows.length}剤　<b className={r.status === "指示済" ? "text-wakatake" : "text-yamabuki"}>{r.status}</b>
+                  </span>
                   {(r.status === "指示済" || r.status === "指示の下書き") && <span className="text-ink-soft">（{r.rows.map((x) => `${x.said}：${x.decision ?? "—"}`).join("、")}）</span>}
+                  <button type="button" onClick={() => printReport(r)} className="flex items-center gap-1 rounded border border-rule px-1.5 py-0.5 text-xs hover:border-ai hover:text-ai">
+                    <Printer size={12} />
+                    持参薬鑑別報告書
+                  </button>
+                  {r.rows
+                    .filter((x) => x.match && isNarcotic(x.match) && x.decision === "持参薬で継続" && x.counted)
+                    .map((x) =>
+                      narcBook.ledger.some((l) => l.kind === "持参" && l.orderId === r.id && l.code === x.match) ? (
+                        <span key={x.said} className="text-xs text-wakatake">麻薬帳簿に（{x.counted}）で記載済み</span>
+                      ) : (
+                        <button
+                          key={x.said}
+                          type="button"
+                          onClick={() => {
+                            onNarcBook((b) => recordBrought(b, x.match!, x.counted!, PHARMACIST, { day: 0, time: nowTime }, `${pt?.patient.name ?? ""}（ID ${r.patientId}）`, r.id, newId));
+                            auditLog({ role: "薬剤師", actor: PHARMACIST, action: "持参した麻薬を麻薬帳簿に（ ）で記載した", patient: pt?.patient.name, detail: `${x.said} ${x.counted}${x.unit}` });
+                          }}
+                          className="rounded border border-shu px-1.5 py-0.5 text-xs text-shu hover:bg-shu-soft"
+                        >
+                          持参の麻薬を帳簿に（{x.counted}）で記載
+                        </button>
+                      ),
+                    )}
                 </li>
               );
             })}
@@ -461,6 +523,7 @@ function Brought({ people, nowTime, reports, onReport }: Props) {
         </div>
       )}
       <p className="text-[11px] text-ink-faint">今の時刻 {nowTime}。架空の病院・架空の患者です。</p>
+      {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[8mm] print:block">{printing}</div>, document.body)}
     </section>
   );
 }
