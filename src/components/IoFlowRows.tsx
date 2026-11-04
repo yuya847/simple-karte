@@ -31,6 +31,15 @@ interface Props {
 
 type Cell = { top: string; sub?: string; title: string };
 
+/** What the heading of the 水分出納 group says: the unit, how the cells are cut, and the 指示簿. */
+export function IoHeading({ byTime, standingIo }: { byTime: boolean; standingIo: string | null }) {
+  return (
+    <span className="font-normal text-ink-faint">
+      mL　{byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}（架空の病院の取り決め）　指示簿：{standingIo ?? "なし"}
+    </span>
+  );
+}
+
 const r = (x: number) => String(Math.round(x));
 
 /**
@@ -38,7 +47,7 @@ const r = (x: number) => String(Math.round(x));
  * as the vitals. Recorded amounts and what the orders plan are kept apart: the plan is in ( ). Each drip
  * has its own row (this period / its total since it began), then IN合計, each OUT, OUT合計 and IN − OUT.
  */
-export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, labelW, standingIo, byTime = false }: Props) {
+export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, labelW, byTime = false }: Props) {
   const days: number[] = [];
   for (let d = ioDayOf(t0 + 1); ioDay(d).lo < endAbs; d++) days.push(d);
   const wins = byTime ? days.flatMap((d) => ioShifts(d)).filter((w) => w.hi > t0 && w.lo < endAbs) : days.map((d) => ioDay(d));
@@ -138,12 +147,6 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
 
   return (
     <>
-      <div className="mt-3 flex items-baseline gap-2 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">
-        水分出納（IN/OUT） mL
-        <span className="font-normal text-ink-faint">
-          {byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}（架空の病院の取り決め）　指示簿：{standingIo ?? "なし"}
-        </span>
-      </div>
       <div className="relative">
         {byTime
           ? drips.map((e) => lineRow(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　終了時` : undefined, lines.filter((l) => l.orderId === e.id)))

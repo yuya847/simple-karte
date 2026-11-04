@@ -12,19 +12,20 @@ const MARK_STYLE: Record<NoteGroupKey, string> = { doctor: "border-ai/50 text-ai
  * 記録: each day, how many notes the doctors (医), nurses (看) and the other staff (他) wrote. Pressing a mark
  * opens that day in 経過 with only those notes; 「記事を書く」 opens the note on the right.
  */
-export function FlowNoteRows({ entries, days, box, labelW, onOpen, onWrite, zoom }: { entries: HistoryEntry[]; days: DayOffset[]; box: DayBox; labelW: number; onOpen?: (day: DayOffset, kind: NoteGroupKey) => void; onWrite?: () => void; zoom?: FlowZoom }) {
+/** 「記事を書く」 in the heading of the 記録 group. */
+export function WriteNoteButton({ onWrite }: { onWrite: () => void }) {
+  return (
+    <button type="button" onClick={onWrite} className="ml-auto flex items-center gap-1 rounded border border-ai/50 px-1.5 py-0.5 text-[10px] font-bold text-ai hover:bg-ai-soft">
+      <PencilLine size={11} />
+      記事を書く
+    </button>
+  );
+}
+
+export function FlowNoteRows({ entries, days, box, labelW, onOpen, zoom }: { entries: HistoryEntry[]; days: DayOffset[]; box: DayBox; labelW: number; onOpen?: (day: DayOffset, kind: NoteGroupKey) => void; zoom?: FlowZoom }) {
   const mark = Object.fromEntries(NOTE_GROUPS.map((g) => [g.key, g]));
   return (
     <>
-      <div className="mt-3 flex items-center gap-2 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">
-        記録
-        {onWrite && (
-          <button type="button" onClick={onWrite} className="ml-auto flex items-center gap-1 rounded border border-ai/50 px-1.5 py-0.5 text-[10px] font-bold text-ai hover:bg-ai-soft">
-            <PencilLine size={11} />
-            記事を書く
-          </button>
-        )}
-      </div>
       <div className="flex border-b border-rule-soft">
         <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: labelW }}>
           記事

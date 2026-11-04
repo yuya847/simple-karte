@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Copy, ClipboardPaste } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, ClipboardPaste, Rows3 } from "lucide-react";
 import { TabChoice } from "./TabChoice";
 import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import type { DayOffset, HistoryEntry, ImagingOrder, InjectionOrder, OrderEntry,
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import { CareFlowRows } from "./CareFlowRows";
 import { ioLines } from "@/lib/io-balance";
-import { IoFlowRows, type FlowIo } from "./IoFlowRows";
+import { IoFlowRows, IoHeading, type FlowIo } from "./IoFlowRows";
 import type { DietOrder } from "@/lib/diet";
 import { examAt } from "@/lib/exams";
 import { dietDayCell, mealDiets, mealText, type MealDiet } from "@/lib/flow-diet";
@@ -29,7 +29,9 @@ import { useMe } from "./RoleContext";
 import { FlowGlucoseRows, FlowOralRows, type FlowMar } from "./FlowMedRows";
 import { glucosePoints, insulinOrders, isGlucoseCare } from "@/lib/flow-meds";
 import type { NoteGroupKey } from "@/lib/flow-notes";
-import { FlowNoteRows } from "./FlowNoteRows";
+import { FlowNoteRows, WriteNoteButton } from "./FlowNoteRows";
+import { FlowGroup, FlowLayoutPanel } from "./FlowLayoutPanel";
+import { FLOW_GROUPS, careShown, groupOrder, groupShown, type FlowGroupKey, type FlowLayout } from "@/lib/flow-layout";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
 // temperature blue and pulse red follow the paper temperature-chart convention.
@@ -122,6 +124,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   // 表示期間: 入院から (one column a day) unless a person chooses another; `anchor` null follows now.
   const [scale, setScale] = useState<FlowScale>(initialScale);
   const [anchor, setAnchor] = useState<number | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
   const win = flowWindow(scale, anchor ?? nowAbs, p.admittedOn);
   const { lo: t0, hi: t1 } = win;
 
@@ -180,6 +183,189 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const nowLine = nowIn ? <line x1={xAbs(nowAbs)} x2={xAbs(nowAbs)} y1={0} y2="100%" stroke="#8c8473" strokeWidth={1} /> : null;
   const crosshair = hovered && <line x1={x(hovered.day, hovered.time)} x2={x(hovered.day, hovered.time)} y1={0} y2="100%" stroke="#26221c" strokeWidth={1} opacity={0.5} />;
 
+  // 行の設定 (kept per user in this browser): groups, hidden rows, folded groups, sets of care rows.
+  const layout = prefs.layout;
+  const setLayout = (l: FlowLayout) => setPrefs((x) => ({ ...x, layout: l }));
+  const show = (k: string) => !layout.hidden.includes(k);
+  const careOrders = care ? care.orders.filter((o) => !isGlucoseCare(o)) : [];
+  const careItems = [...new Set(careOrders.map((o) => o.item))];
+
+  const groups: Record<FlowGroupKey, { show: boolean; extra?: React.ReactNode; body: React.ReactNode }> = {
+    vitals: {
+      show: true,
+      body: (
+        /* Vital strips with one shared crosshair */
+        <div
+          className="relative outline-none"
+          tabIndex={0}
+          aria-label="バイタルのグラフ。左右の矢印キーで測定時刻を移動"
+          onPointerMove={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            const px = e.clientX - r.left - LABEL_W;
+            if (px >= 0) pickNearest(px);
+          }}
+          onPointerLeave={() => setHover(null)}
+          onKeyDown={(e) => {
+            if (!vitals.length) return;
+            if (e.key === "ArrowRight") setHover((h) => Math.min((h ?? -1) + 1, vitals.length - 1));
+            if (e.key === "ArrowLeft") setHover((h) => Math.max((h ?? vitals.length) - 1, 0));
+            if (e.key === "Escape") setHover(null);
+          }}
+        >
+          {show("vitals.bt") && (
+            <Strip label="体温" unit="℃" color={C_BT} height={96} domain={[35, 41]} ticks={[36, 37, 38, 39, 40]} plotW={plotW}>
+              {(y) => (
+                <>
+                  {dayBands}
+                  {nowLine}
+                  {crosshair}
+                  <Series points={vitals.filter((v) => v.bt !== undefined).map((v) => [x(v.day, v.time), y(v.bt!)])} color={C_BT} />
+                  <EndLabel vitals={vitals} pick={(v) => v.bt?.toFixed(1)} x={x} y={(v) => y(v.bt!)} />
+                </>
+              )}
+            </Strip>
+          )}
+          {show("vitals.hr") && (
+            <Strip label="脈拍" unit="/分" color={C_HR} height={72} domain={[40, 160]} ticks={[60, 80, 100, 120, 140]} plotW={plotW}>
+              {(y) => (
+                <>
+                  {dayBands}
+                  {nowLine}
+                  {crosshair}
+                  <Series points={vitals.filter((v) => v.hr !== undefined).map((v) => [x(v.day, v.time), y(v.hr!)])} color={C_HR} />
+                  <EndLabel vitals={vitals} pick={(v) => String(v.hr)} x={x} y={(v) => y(v.hr!)} />
+                </>
+              )}
+            </Strip>
+          )}
+          {show("vitals.bp") && (
+            <Strip label="血圧" unit="mmHg" color={C_BP} height={84} domain={[60, 180]} ticks={[80, 100, 120, 140, 160]} plotW={plotW}>
+              {(y) => (
+                <>
+                  {dayBands}
+                  {nowLine}
+                  {crosshair}
+                  {vitals
+                    .filter((v) => v.sbp !== undefined && v.dbp !== undefined)
+                    .map((v, i) => {
+                      const cx = x(v.day, v.time);
+                      return (
+                        <g key={i} stroke={C_BP} strokeWidth={2} strokeLinecap="round">
+                          <line x1={cx} x2={cx} y1={y(v.sbp!)} y2={y(v.dbp!)} />
+                          <line x1={cx - 4} x2={cx + 4} y1={y(v.sbp!)} y2={y(v.sbp!)} />
+                          <line x1={cx - 4} x2={cx + 4} y1={y(v.dbp!)} y2={y(v.dbp!)} />
+                        </g>
+                      );
+                    })}
+                </>
+              )}
+            </Strip>
+          )}
+
+          {/* Values at each measurement */}
+          {show("vitals.rr") && <PointRow label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />}
+          {show("vitals.spo2") && <PointRow label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />}
+          {show("vitals.o2") && <PointRow label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />}
+
+          {hovered && <Tooltip v={hovered} left={LABEL_W + x(hovered.day, hovered.time)} plotW={plotW} today={today} />}
+        </div>
+      ),
+    },
+    obs: {
+      show: true,
+      body: (
+        <>
+          {show("obs.diet") && <DietRow days={days} box={dayBox} cell={(d) => dietDayCell(meals, d)} meals={meals} zoom={zoom} />}
+          {show("obs.meals") && (
+            <DayRow
+              label="食事（割）"
+              days={days}
+              box={dayBox}
+              value={(d) => {
+                const r = p.daily.find((x) => x.day === d);
+                if (!r?.meals) return "";
+                if (r.meals === "絶食") return "絶食";
+                return r.meals.map((m) => (m === null ? "−" : m)).join("/");
+              }}
+            />
+          )}
+          {show("obs.urine") && <DayRow label="尿量 mL" sub="0〜24時" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />}
+          {show("obs.stools") && (
+            <DayRow
+              label="便 回"
+              days={days}
+              box={dayBox}
+              value={(d) => {
+                const s = p.daily.find((x) => x.day === d)?.stools;
+                return s === undefined ? "" : String(s);
+              }}
+            />
+          )}
+          {show("obs.weight") && <DayRow label="体重 kg" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.weightKg?.toFixed(1) ?? ""} />}
+          {show("obs.fluid") && <DayRow label="点滴量 mL" sub="オーダから計算" days={days} box={dayBox} value={(d) => (fluid[d] ? `${d > 0 ? "（" : ""}${fluid[d].toLocaleString("ja-JP")}${d > 0 ? "）" : ""}` : "")} />}
+        </>
+      ),
+    },
+    care: {
+      show: !!care,
+      extra: layout.activeSet ? <span className="font-normal text-ai">セット「{layout.activeSet}」の行だけ</span> : undefined,
+      // 血糖測定 has its own row with the values (血糖・インスリン), so it is not repeated with the care rows.
+      body: care && <CareFlowRows {...care} orders={careOrders} days={days} box={dayBox} labelW={LABEL_W} nowX={nowIn ? xAbs(nowAbs) : null} nowAbs={nowAbs} zoom={zoom} shown={(item) => careShown(layout, item)} />,
+    },
+    io: {
+      show: !!(io && ioRows),
+      extra: io ? <IoHeading byTime={!win.byDay} standingIo={io.standingIo} /> : undefined,
+      // 水分出納: recorded and planned kept apart, one cell per 24 hours from the close.
+      body: io && ioRows && <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={t1} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} byTime={!win.byDay} />,
+    },
+    oral: { show: true, extra: <span className="font-normal text-ink-faint">定期・持参薬など、時刻の決まった分</span>, body: <FlowOralRows orders={orders} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} zoom={zoom} /> },
+    glucose: { show: glucose.length > 0 || insulin.length > 0, body: <FlowGlucoseRows points={glucose} insulin={insulin} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} xAbs={xAbs} lo={t0} hi={t1} zoom={zoom} /> },
+    inj: {
+      show: true,
+      // Injections as bars over time.
+      body: (
+        <>
+          {injections.length === 0 && (
+            <Row label="">
+              <div className="h-6 text-ink-faint">なし</div>
+            </Row>
+          )}
+          {injections.map((e) => (
+            <InjectionBar key={e.id} entry={e} xAbs={xAbs} plotW={plotW} nowAbs={nowAbs} endAbs={t1} startAbs={t0} />
+          ))}
+        </>
+      ),
+    },
+    lab: {
+      show: true,
+      body: (
+        <>
+          <Row label="採血・採取">
+            <div className="relative h-7">
+              {labs.map((e) => {
+                const o = e.order;
+                if (o.type !== "lab") return null;
+                const a = abs(o.collect.day, o.collect.time);
+                if (!inWin(a)) return null;
+                const done = a <= nowAbs;
+                return (
+                  <span
+                    key={e.id}
+                    title={`${formatShort(addDays(today, o.collect.day))} ${o.collect.time}　${o.codes.map(labName).join("、")}${done ? "" : "（予定）"}`}
+                    className="absolute top-1.5 h-3 w-3 -translate-x-1/2 rounded-full border-2"
+                    style={{ left: xAbs(a), borderColor: "#5f584b", background: done ? "#5f584b" : SURFACE, boxShadow: `0 0 0 2px ${SURFACE}` }}
+                  />
+                );
+              })}
+            </div>
+          </Row>
+          <FlowLabRows patient={p} pending={pendingLabs} orders={orders} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} analytes={prefs.analytes} onAnalytes={(codes) => setPrefs((x) => ({ ...x, analytes: codes }))} zoom={zoom} />
+        </>
+      ),
+    },
+    notes: { show: true, extra: onWriteNote ? <WriteNoteButton onWrite={onWriteNote} /> : undefined, body: <FlowNoteRows entries={entries} days={days} box={dayBox} labelW={LABEL_W} onOpen={onOpenRecord} zoom={zoom} /> },
+  };
+
   return (
     <div ref={wrap} className="scroll-thin min-h-0 flex-1 overflow-auto px-3 pb-24 pt-2">
       <div className="mb-2 flex items-center gap-3 text-[11px] text-ink-faint">
@@ -228,8 +414,13 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
             </>
           )}
           <span className="nums text-ink-soft">{windowLabel(win, today)}</span>
+          <button type="button" onClick={() => setConfigOpen((v) => !v)} aria-expanded={configOpen} className={`ml-auto flex items-center gap-1 rounded border px-2 py-0.5 ${configOpen ? "border-ai text-ai" : "border-rule text-ink-soft hover:text-ink"}`}>
+            <Rows3 size={12} />
+            行の設定
+          </button>
         </div>
       )}
+      {!showTable && configOpen && <FlowLayoutPanel layout={layout} onLayout={setLayout} careItems={careItems} onClose={() => setConfigOpen(false)} />}
       {showTable ? (
         <VitalTable vitals={p.vitals} today={today} />
       ) : (
@@ -271,137 +462,15 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
           </Row>
           <FlowDayRows days={days} box={dayBox} entries={orders} moves={moves} info={dayInfo} labelW={LABEL_W} today={today} admittedOn={p.admittedOn} />
 
-          {/* Vital strips with one shared crosshair */}
-          <div
-            className="relative outline-none"
-            tabIndex={0}
-            aria-label="バイタルのグラフ。左右の矢印キーで測定時刻を移動"
-            onPointerMove={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              const px = e.clientX - r.left - LABEL_W;
-              if (px >= 0) pickNearest(px);
-            }}
-            onPointerLeave={() => setHover(null)}
-            onKeyDown={(e) => {
-              if (!vitals.length) return;
-              if (e.key === "ArrowRight") setHover((h) => Math.min((h ?? -1) + 1, vitals.length - 1));
-              if (e.key === "ArrowLeft") setHover((h) => Math.max((h ?? vitals.length) - 1, 0));
-              if (e.key === "Escape") setHover(null);
-            }}
-          >
-            <Strip label="体温" unit="℃" color={C_BT} height={96} domain={[35, 41]} ticks={[36, 37, 38, 39, 40]} plotW={plotW}>
-              {(y) => (
-                <>
-                  {dayBands}
-                  {nowLine}
-                  {crosshair}
-                  <Series points={vitals.filter((v) => v.bt !== undefined).map((v) => [x(v.day, v.time), y(v.bt!)])} color={C_BT} />
-                  <EndLabel vitals={vitals} pick={(v) => v.bt?.toFixed(1)} x={x} y={(v) => y(v.bt!)} />
-                </>
-              )}
-            </Strip>
-            <Strip label="脈拍" unit="/分" color={C_HR} height={72} domain={[40, 160]} ticks={[60, 80, 100, 120, 140]} plotW={plotW}>
-              {(y) => (
-                <>
-                  {dayBands}
-                  {nowLine}
-                  {crosshair}
-                  <Series points={vitals.filter((v) => v.hr !== undefined).map((v) => [x(v.day, v.time), y(v.hr!)])} color={C_HR} />
-                  <EndLabel vitals={vitals} pick={(v) => String(v.hr)} x={x} y={(v) => y(v.hr!)} />
-                </>
-              )}
-            </Strip>
-            <Strip label="血圧" unit="mmHg" color={C_BP} height={84} domain={[60, 180]} ticks={[80, 100, 120, 140, 160]} plotW={plotW}>
-              {(y) => (
-                <>
-                  {dayBands}
-                  {nowLine}
-                  {crosshair}
-                  {vitals
-                    .filter((v) => v.sbp !== undefined && v.dbp !== undefined)
-                    .map((v, i) => {
-                      const cx = x(v.day, v.time);
-                      return (
-                        <g key={i} stroke={C_BP} strokeWidth={2} strokeLinecap="round">
-                          <line x1={cx} x2={cx} y1={y(v.sbp!)} y2={y(v.dbp!)} />
-                          <line x1={cx - 4} x2={cx + 4} y1={y(v.sbp!)} y2={y(v.sbp!)} />
-                          <line x1={cx - 4} x2={cx + 4} y1={y(v.dbp!)} y2={y(v.dbp!)} />
-                        </g>
-                      );
-                    })}
-                </>
-              )}
-            </Strip>
+          {/* The groups in the order the person chose (行の設定), each can be folded. */}
+          {groupOrder(layout.order)
+            .filter((k) => groupShown(layout, k) && groups[k].show)
+            .map((k) => (
+              <FlowGroup key={k} id={k} title={FLOW_GROUPS.find((g) => g.key === k)!.title} layout={layout} onLayout={setLayout} extra={groups[k].extra}>
+                {groups[k].body}
+              </FlowGroup>
+            ))}
 
-            {/* Values at each measurement */}
-            <PointRow label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />
-            <PointRow label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />
-            <PointRow label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />
-
-            {hovered && <Tooltip v={hovered} left={LABEL_W + x(hovered.day, hovered.time)} plotW={plotW} today={today} />}
-          </div>
-
-          {/* Daily nursing record */}
-          <Section title="観察・記録" />
-          <DietRow days={days} box={dayBox} cell={(d) => dietDayCell(meals, d)} meals={meals} zoom={zoom} />
-          <DayRow label="食事（割）" days={days} box={dayBox} value={(d) => {
-            const r = p.daily.find((x) => x.day === d);
-            if (!r?.meals) return "";
-            if (r.meals === "絶食") return "絶食";
-            return r.meals.map((m) => (m === null ? "−" : m)).join("/");
-          }} />
-          <DayRow label="尿量 mL" sub="0〜24時" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />
-          <DayRow label="便 回" days={days} box={dayBox} value={(d) => {
-            const s = p.daily.find((x) => x.day === d)?.stools;
-            return s === undefined ? "" : String(s);
-          }} />
-          <DayRow label="体重 kg" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.weightKg?.toFixed(1) ?? ""} />
-          <DayRow
-            label="点滴量 mL"
-            sub="オーダから計算"
-            days={days}
-            box={dayBox}
-            value={(d) => (fluid[d] ? `${d > 0 ? "（" : ""}${fluid[d].toLocaleString("ja-JP")}${d > 0 ? "）" : ""}` : "")}
-          />
-
-          {/* 血糖測定 has its own row with the values (below), so it is not repeated with the care rows. */}
-          {care && <CareFlowRows {...care} orders={care.orders.filter((o) => !isGlucoseCare(o))} days={days} box={dayBox} labelW={LABEL_W} nowX={nowIn ? xAbs(nowAbs) : null} nowAbs={nowAbs} zoom={zoom} />}
-          {/* 水分出納: recorded and planned kept apart, one cell per 24 hours from the close */}
-          {io && ioRows && <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={t1} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} byTime={!win.byDay} />}
-
-          {/* Injections as bars over time */}
-          <FlowOralRows orders={orders} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} zoom={zoom} />
-          <FlowGlucoseRows points={glucose} insulin={insulin} mar={marRecs} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} xAbs={xAbs} lo={t0} hi={t1} zoom={zoom} />
-
-          <Section title="注射" />
-          {injections.length === 0 && <Row label=""><div className="h-6 text-ink-faint">なし</div></Row>}
-          {injections.map((e) => (
-            <InjectionBar key={e.id} entry={e} xAbs={xAbs} plotW={plotW} nowAbs={nowAbs} endAbs={t1} startAbs={t0} />
-          ))}
-
-          {/* Blood draws */}
-          <Section title="検体検査" />
-          <Row label="採血・採取">
-            <div className="relative h-7">
-              {labs.map((e) => {
-                const o = e.order;
-                if (o.type !== "lab") return null;
-                const a = abs(o.collect.day, o.collect.time);
-                if (!inWin(a)) return null;
-                const done = a <= nowAbs;
-                return (
-                  <span
-                    key={e.id}
-                    title={`${formatShort(addDays(today, o.collect.day))} ${o.collect.time}　${o.codes.map(labName).join("、")}${done ? "" : "（予定）"}`}
-                    className="absolute top-1.5 h-3 w-3 -translate-x-1/2 rounded-full border-2"
-                    style={{ left: xAbs(a), borderColor: "#5f584b", background: done ? "#5f584b" : SURFACE, boxShadow: `0 0 0 2px ${SURFACE}` }}
-                  />
-                );
-              })}
-            </div>
-          </Row>
-          <FlowLabRows patient={p} pending={pendingLabs} orders={orders} nowAbs={nowAbs} days={days} box={dayBox} labelW={LABEL_W} analytes={prefs.analytes} onAnalytes={(codes) => setPrefs((x) => ({ ...x, analytes: codes }))} zoom={zoom} />
-          <FlowNoteRows entries={entries} days={days} box={dayBox} labelW={LABEL_W} onOpen={onOpenRecord} onWrite={onWriteNote} zoom={zoom} />
           <p className="hint pl-[76px] pt-0.5 text-[10px] text-ink-faint">記録の印（医＝医師、看＝看護師、他＝ほかの職種の記事の数）を押すと、左の「経過」でその日のその記事だけを開きます。</p>
           <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
             ● 採取済み　○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
@@ -422,10 +491,6 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
       <div className="relative flex-1">{children}</div>
     </div>
   );
-}
-
-function Section({ title }: { title: string }) {
-  return <div className="mt-3 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">{title}</div>;
 }
 
 function Strip({

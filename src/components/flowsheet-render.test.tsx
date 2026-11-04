@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { INITIAL_CARE_ORDERS, initialCareRecords } from "@/lib/care-orders";
 import { INITIAL_DIETS } from "@/lib/diet";
 import { PATIENTS } from "@/lib/patients";
+import { DEFAULT_LAYOUT, saveSet, toggleCollapsed } from "@/lib/flow-layout";
+import { FlowGroup, FlowLayoutPanel } from "./FlowLayoutPanel";
 import { FlowSheet } from "./FlowSheet";
 
 const today = { y: 2026, m: 11, d: 4 };
@@ -34,7 +36,7 @@ describe("経過表の画面", () => {
 
   it("内服 by timing, and 血糖 from the 血糖測定 observations", () => {
     const kita = render("90010198", { mar: { records: {}, sessionStart: 540 } });
-    expect(kita).toContain("内服（定期・持参薬など、時刻の決まった分）");
+    expect(kita).toContain("定期・持参薬など、時刻の決まった分");
     expect(kita).toContain("済");
     expect(kita).not.toContain("血糖・インスリン");
     const sakura = render("90010231", { care: { orders: INITIAL_CARE_ORDERS.filter((o) => o.patientId === "90010231"), records: initialCareRecords(), sessionStart: 540 } });
@@ -63,6 +65,23 @@ describe("経過表の画面", () => {
     expect(day).toContain("前");
     expect(render("90010244", { initialScale: "1h" })).toContain("10:30");
     expect(render("90010244", { initialScale: "shift" })).toContain("日勤 8:30〜17:00");
+  });
+
+  it("groups with headings that fold, and the 行の設定 panel", () => {
+    const html = render("90010244", { care: { orders: INITIAL_CARE_ORDERS.filter((o) => o.patientId === "90010244"), records: initialCareRecords(), sessionStart: 540 } });
+    for (const t of ["バイタル", "観察・記録", "看護ケア・観察（看護師の指示）", "内服", "注射", "検体検査", "記録", "行の設定"]) expect(html).toContain(t);
+    const layout = saveSet(toggleCollapsed(DEFAULT_LAYOUT, "inj"), "呼吸", ["痰の量"]);
+    const panel = renderToStaticMarkup(<FlowLayoutPanel layout={layout} onLayout={() => {}} careItems={["口腔ケア", "痰の量"]} onClose={() => {}} />);
+    expect(panel).toContain("観察項目のセット");
+    expect(panel).toContain("呼吸（1行）");
+    expect(panel).toContain("いま出している看護ケア・観察の行（1行）をセットに残す");
+    const folded = renderToStaticMarkup(
+      <FlowGroup id="inj" title="注射" layout={layout} onLayout={() => {}}>
+        <p>中身</p>
+      </FlowGroup>,
+    );
+    expect(folded).toContain("たたんでいます");
+    expect(folded).not.toContain("中身");
   });
 
   it("dates: 病日, 術後日数, 移動 and a counted day", () => {

@@ -23,11 +23,10 @@ export interface FlowZoom {
  * 不可, 未) or what was seen; days ahead show a dot with how many times. A line marks now. Zoomed in, each
  * task sits at its time instead.
  */
-export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs, sessionStart, zoom }: { orders: CareOrder[]; records: CareRecord[]; days: DayOffset[]; box: DayBox; labelW: number; nowX: number | null; nowAbs: number; sessionStart: number; zoom?: FlowZoom }) {
-  const rows = zoom ? careFlowMarks(orders, records, zoom.lo, zoom.hi, nowAbs, sessionStart) : careFlowRows(orders, records, days, nowAbs, sessionStart);
+export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs, sessionStart, zoom, shown = () => true }: { orders: CareOrder[]; records: CareRecord[]; days: DayOffset[]; box: DayBox; labelW: number; nowX: number | null; nowAbs: number; sessionStart: number; zoom?: FlowZoom; shown?: (item: string) => boolean }) {
+  const rows = (zoom ? careFlowMarks(orders, records, zoom.lo, zoom.hi, nowAbs, sessionStart) : careFlowRows(orders, records, days, nowAbs, sessionStart)).filter((r) => shown(r.label));
   return (
     <>
-      <div className="mt-3 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">看護ケア・観察（看護師の指示）</div>
       {rows.length === 0 && (
         <div className="flex border-b border-rule-soft">
           <div className="shrink-0" style={{ width: labelW }} />

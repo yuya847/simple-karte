@@ -6,13 +6,16 @@
 
 import { useSyncExternalStore } from "react";
 import { DEFAULT_FLOW_ANALYTES } from "./flow-labs";
+import { DEFAULT_LAYOUT, parseLayout, type FlowLayout } from "./flow-layout";
 
 export interface FlowPrefs {
   /** Analyte codes of the lab rows, in order. */
   analytes: string[];
+  /** Groups, hidden and folded rows, and the sets of care rows. */
+  layout: FlowLayout;
 }
 
-export const DEFAULT_FLOW_PREFS: FlowPrefs = { analytes: DEFAULT_FLOW_ANALYTES };
+export const DEFAULT_FLOW_PREFS: FlowPrefs = { analytes: DEFAULT_FLOW_ANALYTES, layout: DEFAULT_LAYOUT };
 
 const strings = (v: unknown): string[] | undefined => (Array.isArray(v) && v.every((x) => typeof x === "string") ? (v as string[]) : undefined);
 
@@ -21,7 +24,7 @@ export function parseFlowPrefs(raw: string | null): FlowPrefs {
   if (!raw) return DEFAULT_FLOW_PREFS;
   try {
     const v = JSON.parse(raw) as Record<string, unknown>;
-    return { analytes: strings(v.analytes) ?? DEFAULT_FLOW_PREFS.analytes };
+    return { analytes: strings(v.analytes) ?? DEFAULT_FLOW_PREFS.analytes, layout: parseLayout(v.layout) };
   } catch {
     return DEFAULT_FLOW_PREFS;
   }

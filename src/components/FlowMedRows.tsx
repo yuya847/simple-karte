@@ -38,7 +38,6 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom }: {
   const timings = timingsOf(orders);
   return (
     <>
-      <div className="mt-3 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">内服（定期・持参薬など、時刻の決まった分）</div>
       {timings.length === 0 && (
         <Line label="" labelW={labelW}>
           <span className="absolute top-1 text-ink-faint">なし</span>
@@ -79,7 +78,6 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
   if (!points.length && !insulin.length) return null;
   return (
     <>
-      <div className="mt-3 border-b border-rule py-1 text-[11px] font-bold text-ink-soft">血糖・インスリン</div>
       <Line label="血糖" sub="mg/dL" labelW={labelW}>
         {zoom
           ? points
