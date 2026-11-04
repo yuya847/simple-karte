@@ -14,23 +14,26 @@ import type { Patient } from "@/lib/types";
 import { DayNav } from "./DayNav";
 import { Sources } from "./DeskParts";
 
-export interface SheetBandProps {
+export interface SheetBandProps<C extends string = SheetCategory> {
   day: number;
   range: { min: number; max: number };
   onDay: (d: number) => void;
   today: CalendarDate;
   /** 「指示受け済みも表示する」／「実施済みも表示する」 with how many it would add. */
   also: { label: string; checked: boolean; count: number; onChange: (v: boolean) => void };
-  cats: SheetCategory[];
-  onCats: (c: SheetCategory[]) => void;
+  cats: C[];
+  onCats: (c: C[]) => void;
+  /** The kinds to tick (the ward's SHEET_CATEGORIES unless the screen has its own, e.g. the radiology's X線・CT・MRI…). */
+  categories?: readonly C[];
   /** 全チェック・全チェック解除・the bulk button (一括受け／一括実施). */
   check: { all: () => void; none: () => void; bulk: { label: string; count: number; disabled?: boolean; title?: string; onClick: () => void } };
   children?: ReactNode;
 }
 
 /** The band at the top: date, what else to show, the kinds, and the checks. */
-export function SheetBand({ day, range, onDay, today, also, cats, onCats, check, children }: SheetBandProps) {
+export function SheetBand<C extends string = SheetCategory>({ day, range, onDay, today, also, cats, onCats, categories, check, children }: SheetBandProps<C>) {
   const fmtDay = (d: number) => formatShort(addDays(today, d));
+  const kinds = (categories ?? SHEET_CATEGORIES) as readonly C[];
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-rule bg-sheet px-5 py-2 text-sm">
       <DayNav day={day} min={range.min} max={range.max} onChange={onDay} fmtDay={fmtDay} />
@@ -41,7 +44,7 @@ export function SheetBand({ day, range, onDay, today, also, cats, onCats, check,
       </label>
       <fieldset className="flex flex-wrap items-center gap-2">
         <legend className="sr-only">出す種類</legend>
-        {SHEET_CATEGORIES.map((c) => (
+        {kinds.map((c) => (
           <label key={c} className="flex cursor-pointer items-center gap-1 text-xs">
             <input type="checkbox" className="accent-ai" checked={cats.includes(c)} onChange={() => onCats(cats.includes(c) ? cats.filter((x) => x !== c) : [...cats, c])} />
             {c}
@@ -110,7 +113,11 @@ export interface SheetBlockProps {
   children?: ReactNode;
   /** Beside the title, to the right of the stamps (status words). */
   status?: ReactNode;
+  /** The names of the three pairs when the screen's are not 指示開始・実施・指示受け (the radiology's 指示・予定・指示受け). */
+  labels?: { start: readonly [string, string]; done: readonly [string, string]; take: readonly [string, string] };
 }
+
+const WARD_LABELS = { start: ["指示開始日時", "指示者"], done: ["実施日時", "実施者"], take: ["指示受け日時", "指示受け者"] } as const;
 
 const TAG_CLASS = { ai: "bg-ai-soft text-ai", shu: "bg-shu text-white", yamabuki: "bg-yamabuki-soft text-yamabuki", wakatake: "bg-wakatake-soft text-wakatake", ink: "bg-tab text-ink" } as const;
 
@@ -128,7 +135,7 @@ const StampLine = ({ a, b, at, by }: { a: string; b: string; at: string; by: str
 );
 
 /** One order in the catalog's form. */
-export function SheetBlock({ check, title, tag, when, flags = [], stamps, fields, struck, children, status }: SheetBlockProps) {
+export function SheetBlock({ check, title, tag, when, flags = [], stamps, fields, struck, children, status, labels = WARD_LABELS }: SheetBlockProps) {
   return (
     <div className={`flex gap-2 border-b border-rule-soft px-1 py-1.5 text-[12px] ${struck ? "text-ink-soft" : ""}`}>
       <div className="w-7 shrink-0 pt-0.5 text-center">
@@ -152,9 +159,9 @@ export function SheetBlock({ check, title, tag, when, flags = [], stamps, fields
             {status}
           </div>
           <div className="ml-auto flex flex-col gap-px text-[11px]">
-            <StampLine a="指示開始日時" b="指示者" at={stamps.start.at} by={stamps.start.by} />
-            <StampLine a="実施日時" b="実施者" at={stamps.done.at} by={stamps.done.by} />
-            <StampLine a="指示受け日時" b="指示受け者" at={stamps.take.at} by={stamps.take.by} />
+            <StampLine a={labels.start[0]} b={labels.start[1]} at={stamps.start.at} by={stamps.start.by} />
+            <StampLine a={labels.done[0]} b={labels.done[1]} at={stamps.done.at} by={stamps.done.by} />
+            <StampLine a={labels.take[0]} b={labels.take[1]} at={stamps.take.at} by={stamps.take.by} />
           </div>
         </div>
         <dl className={`mt-0.5 grid grid-cols-[auto_1fr] gap-x-1 gap-y-0 pl-3 ${struck ? "line-through" : ""}`}>
