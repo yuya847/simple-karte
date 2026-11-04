@@ -11,6 +11,7 @@ import { mapCursor, merge3Text } from "@/lib/diff3";
 import { coAuthors } from "@/lib/presence";
 import type { Coedit } from "@/lib/use-presence";
 import { LiveNote } from "./LiveNote";
+import { NoteText } from "./NoteText";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
@@ -599,16 +600,24 @@ function Note({ entry, patientId, today, part = "全", onRevise, coedit, onDo }:
                 {v.reason ? `　理由：${v.reason}` : i === 0 ? "　（最初の記録）" : ""}
               </div>
               {i === 0 ? (
-                <div className="whitespace-pre-wrap text-ink-soft">{noteText(v)}</div>
+                <div className="whitespace-pre-wrap text-ink-soft">
+                  <NoteText text={noteText(v)} />
+                </div>
               ) : (
                 <div className="whitespace-pre-wrap">
                   {diffLines(noteText(versions[i - 1]), noteText(v)).map((l, j) =>
                     l.kind === "same" ? (
-                      <div key={j} className="text-ink-soft">{l.text || " "}</div>
+                      <div key={j} className="text-ink-soft">
+                        <NoteText text={l.text || " "} />
+                      </div>
                     ) : l.kind === "removed" ? (
-                      <div key={j} className="text-shu line-through" aria-label="消した行">{l.text || " "}</div>
+                      <div key={j} className="text-shu line-through" aria-label="消した行">
+                        <NoteText text={l.text || " "} />
+                      </div>
                     ) : (
-                      <div key={j} className="bg-wakatake-soft text-wakatake" aria-label="足した行">{l.text || " "}</div>
+                      <div key={j} className="bg-wakatake-soft text-wakatake" aria-label="足した行">
+                        <NoteText text={l.text || " "} />
+                      </div>
                     ),
                   )}
                 </div>
@@ -641,7 +650,9 @@ function NoteBody({ n, part = "全" }: { n: Pick<NoteEntry, "soap" | "text" | "f
                     f[k] && (part === "全" || part === label) ? (
                       <div key={k} className="contents">
                         <dt className="font-bold text-ink-faint">{label})</dt>
-                        <dd className="whitespace-pre-wrap">{f[k]}</dd>
+                        <dd className="whitespace-pre-wrap">
+                          <NoteText text={f[k]!} />
+                        </dd>
                       </div>
                     ) : null,
                   )}
@@ -660,7 +671,9 @@ function NoteBody({ n, part = "全" }: { n: Pick<NoteEntry, "soap" | "text" | "f
           {n.timeline.map((x, i) => (
             <div key={i} className="contents">
               <dt className="font-bold text-ink-soft">{x.time || "—"}</dt>
-              <dd className="whitespace-pre-wrap">{x.text}</dd>
+              <dd className="whitespace-pre-wrap">
+                <NoteText text={x.text} />
+              </dd>
             </div>
           ))}
         </dl>
@@ -673,13 +686,17 @@ function NoteBody({ n, part = "全" }: { n: Pick<NoteEntry, "soap" | "text" | "f
         n.soap?.[k] && (part === "全" || part === k.toUpperCase()) ? (
           <div key={k} className="contents">
             <dt className="font-bold text-ink-faint">{k.toUpperCase()})</dt>
-            <dd className="whitespace-pre-wrap">{n.soap[k]}</dd>
+            <dd className="whitespace-pre-wrap">
+              <NoteText text={n.soap[k]!} />
+            </dd>
           </div>
         ) : null,
       )}
     </dl>
   ) : (
-    <p className="whitespace-pre-wrap">{n.text}</p>
+    <p className="whitespace-pre-wrap">
+      <NoteText text={n.text ?? ""} />
+    </p>
   );
 }
 
