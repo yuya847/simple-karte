@@ -109,7 +109,7 @@ import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/prof
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { callHits, initialStanding, type StandingOrders } from "@/lib/standing";
-import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
+import { ackLine, condHits, openHits, type CondAck, INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/cond-orders";
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import { PatientBar } from "./PatientBar";
@@ -573,6 +573,8 @@ export default function WardApp() {
   const [condAcks, setCondAcks] = useState<Record<string, CondAck>>({});
   // クリティカルパス: paths applied to patients, the outcome evaluations and the variances.
   const [paths, setPaths] = useState<PathBook>(EMPTY_PATHS);
+  // 指示簿の行 (free-text lines) per patient; a stopped line stays as history.
+  const [standingLines, setStandingLines] = useState<Record<string, StandingLine[]>>(initialLines);
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
@@ -695,6 +697,7 @@ export default function WardApp() {
       standing: [standing, setStanding],
       condAcks: [condAcks, setCondAcks],
       paths: [paths, setPaths],
+      standingLines: [standingLines, setStandingLines],
       extraVitals: [extraVitals, setExtraVitals],
       mar: [mar, setMar],
       marVoided: [marVoided, setMarVoided],
@@ -1351,16 +1354,19 @@ export default function WardApp() {
   });
 
   // 指示受けがまだ: this session's new orders and stops that no nurse has taken yet.
-  // 延長 and 食事 changes made in this session wait for 指示受け too.
-  const others = otherChanges(
+  // 延長, 食事 and 指示簿の行 changes made in this session wait for 指示受け too.
+  const others = [
+    ...otherChanges(
     people,
     extendLog,
     diets
       .filter((d) => !initialDietIds.has(d.id))
       .map((d) => ({ id: d.id, patientId: d.patientId, at: d.at, by: d.by, label: dietLabel(d), from: `${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から` })),
-    -1440,
-    abs(0, nowTime),
-  );
+      -1440,
+      abs(0, nowTime),
+    ),
+    ...lineChanges(people, standingLines, INITIAL_LINE_IDS, -1440, abs(0, nowTime), (d) => formatShort(addDays(today, d))),
+  ].sort((a, b) => a.at - b.at || a.room.localeCompare(b.room));
   const sessionKeys = new Set([...sessionChangeKeys(sessionChanges), ...others.map((c) => c.key), ...redrawChangeKeys(labDesk)]);
   const waiting: Record<string, number> = {};
   for (const c of [...orderChanges(people, -1440, abs(0, nowTime)), ...others]) {
@@ -1628,6 +1634,19 @@ export default function WardApp() {
       const n = stopGroupsOf(x.patient.id).length;
       if (n) todos.push({ key: `dc-stop-${x.patient.id}`, label: `退院した患者に有効な指示が残っている：${x.patient.name}さん`, detail: stopGroupsOf(x.patient.id).map((g) => g.key).join("・"), count: n, tone: "yamabuki", go: () => (openPatient(x.patient.id), setPanel("discharge-stop")) });
     }
+  // 指示簿の行: a new line, or a stop (the line stays as history). Both wait for a nurse's 指示受け.
+  const addStandingLine = (pid: string, l: StandingLine) => {
+    auditLog({ role: me.role, actor: me.name, action: "確定（指示簿の行）", patient: findPatient(pid)?.name, detail: lineLabel(l) });
+    setStandingLines((all) => ({ ...all, [pid]: [...(all[pid] ?? []), l] }));
+    updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿に行を足した：${lineLabel(l)}\n` }));
+  };
+  const stopStandingLine = (pid: string, id: string, reason: string) => {
+    const l = standingLines[pid]?.find((x) => x.id === id);
+    if (!l || l.stop) return;
+    auditLog({ role: me.role, actor: me.name, action: "中止（指示簿の行）", patient: findPatient(pid)?.name, detail: `${lineLabel(l)}${reason.trim() ? `　理由：${reason.trim()}` : ""}` });
+    setStandingLines((all) => ({ ...all, [pid]: stopLine(all[pid] ?? [], id, { day: 0, time: nowTime, by: me.name, reason }) }));
+    updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿の行を中止：${lineLabel(l)}${reason.trim() ? `（${reason.trim()}）` : ""}\n` }));
+  };
   for (const x of people) {
     const pid = x.patient.id;
     if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
@@ -2620,6 +2639,7 @@ export default function WardApp() {
               io={{ typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null }}
               onModify={modifyOrder}
               care={{ orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) }}
+              standingCal={{ lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason) => stopStandingLine(patient.id, id, reason), onOpenPanel: () => setPanel("standing") }}
               flowDays={{
                 surgeries: surgeries.filter((x) => x.patientId === patient.id),
                 events: flowEvents.filter((x) => x.patientId === patient.id),
@@ -3699,6 +3719,7 @@ export default function WardApp() {
                       setCondAcks((all) => ({ ...all, [h.key]: { key: h.key, by: me.name, at: { day: 0, time: nowTime }, note } }));
                       chartNote(patient.id, ackLine(h, note, nowTime));
                     }}
+                    lines={{ patient, lines: standingLines[patient.id] ?? [], today, onAdd: (l) => addStandingLine(patient.id, l), onStop: (id, reason) => stopStandingLine(patient.id, id, reason) }}
                     onSave={(st) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（指示簿）", patient: patient.name, detail: `第${(standing[patient.id]?.length ?? 0) + 1}版` });
                       setStanding((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }));
