@@ -63,7 +63,7 @@ const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysi
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "map" | "mine" | "all" | "sheet" | "take" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals";
+export type WardTab = "map" | "mine" | "all" | "sheet" | "take" | "execute" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -82,6 +82,7 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "recent", label: "最近開いた患者", hint: "自分が最近カルテを開いた患者を新しい順に（この端末のみに保存）", group: "patients", needs: "list" },
   { key: "favorites", label: "お気に入りの患者", hint: "氏名の横の☆で登録した患者を全病棟から（この端末のみに保存）", group: "patients", needs: "list" },
   { key: "take", label: "指示受け", hint: "病棟の患者の、まだ受けていない指示（新規・変更・中止・指示簿・食事）を患者ごとに、時刻の順か急ぐ順で。受けたら、その指示が今日と明日に作る予定を見て確認する（指示受け → 指示確認 → 実施入力）。今日受けたものと指示票の印刷も", group: "work", needs: "sheet" },
+  { key: "execute", label: "実施入力", hint: "その日の予定（注射・内服・処置・採血・検査）を患者ごとに指示票の形で並べ、「実施した」で時刻と実施者を入れて記録する（ワークシートと同じ記録。照合はしない）", group: "work", needs: "sheet" },
   { key: "sheet", label: "ワークシート", hint: "今日の与薬・処置と指示受け", group: "work", needs: "sheet" },
   { key: "io", label: "水分出納", hint: "受け持ち患者の IN/OUT を勤務の終わりにまとめて入れ、勤務ごと・24時間の合計と IN − OUT を見る", group: "work", needs: "sheet" },
   { key: "narcotic", label: "麻薬の施用票", hint: "麻薬の注射を実施したら施用票（施用量・残量 mL）を書き、残液・空アンプルを薬剤部へ返納する。残った内服の麻薬の返納も", group: "work", needs: "sheet" },

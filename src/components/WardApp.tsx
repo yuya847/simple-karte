@@ -73,6 +73,7 @@ import { LabelsPanel } from "./panels/LabelsPanel";
 import { PhsView } from "./PhsView";
 import { TakeStatus } from "./TakeStatus";
 import { TakeDesk } from "./TakeDesk";
+import { ExecuteDesk } from "./ExecuteDesk";
 import { orderTakeBadge, unconfirmed, type Confirms } from "@/lib/order-confirm";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { useWorkspace } from "@/lib/use-workspace";
@@ -2292,7 +2293,11 @@ export default function WardApp() {
           isMine={(room) => (planNow ? nurseOfBed(planNow, room, rosterNow!.nurses) === me.name : nurseFor(room.replace(/[A-Z]$/, "")) === me.name)}
           onOpen={openPatient}
           onSheet={() => goWard("sheet")}
+          onExecute={() => goWard("execute")}
+          records={mar}
         />
+      ) : screen === "execute" ? (
+        <ExecuteDesk people={people} today={today} nowTime={nowTime} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} onRecord={recordMar} taken={taken} sessionKeys={sessionKeys} nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]} onOpen={openPatient} onSheet={() => goWard("sheet")} onTakeDesk={() => goWard("take")} />
       ) : screen === "sheet" ? (
         <Worksheet
           people={people}
