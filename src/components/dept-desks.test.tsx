@@ -3,12 +3,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EMPTY_LIAISON } from "@/lib/liaison";
 import { OPD_PATIENTS } from "@/lib/opd";
-import { displayBoard, OTHER_DEPT_TODAY } from "@/lib/opd-desk";
+import { CARDS, displayBoard, OTHER_DEPT_TODAY } from "@/lib/opd-desk";
+import { EMPTY_FORM, INITIAL_INSURANCE_BOOK } from "@/lib/billing/registration";
 import { PATIENTS } from "@/lib/patients";
 import { BEDS, FLOORS, OTHER_FLOOR_BEDS } from "@/lib/ward";
 import { LiaisonView } from "./LiaisonView";
-import { EMPTY_OPD_DESK, OpdDesk } from "./OpdDesk";
+import { EMPTY_OPD_DESK, OpdDesk, Reception } from "./OpdDesk";
 import { KioskScreen, WaitingDisplay } from "./OpdScreens";
+import { ReceptionInsurance } from "./ReceptionInsurance";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { StatsView } from "./StatsView";
 import { ReceiptDesk } from "./ReceiptDesk";
@@ -67,6 +69,38 @@ describe("外来の受付", () => {
     expect(html).toContain("呼出");
     expect(html).toContain("循環器内科 森（架空）");
     expect(html).toContain("再来受付機（模擬）を開く");
+  });
+  it("the 受付 form: 「受け付ける」 with what is still missing beside it, the insurance block, and no print until received", () => {
+    const html = as("医事課", <Reception cards={CARDS} patients={opd} insuranceBook={INITIAL_INSURANCE_BOOK} today={today} nowTime="09:30" locked={null} onReceive={() => {}} />);
+    expect(html).toContain(">受け付ける</button>");
+    expect(html).not.toContain("受け付けて受付票を印刷");
+    expect(html).toContain("まだ入れるもの：区分（初診・再診）");
+    expect(html).not.toContain("受付票を印刷</button>");
+    expect(html).not.toContain("受け付けました");
+    // Before a 区分 is chosen the insurance block is not shown; the component itself renders the window's fields.
+    const ins = as("医事課", <ReceptionInsurance form={EMPTY_FORM} onChange={() => {}} today={today} checks={[]} />);
+    expect(ins).toContain("保険の種類");
+    expect(ins).toContain("資格確認の方法");
+    expect(ins).not.toContain("負担割合");
+    expect(ins).not.toContain("生活保護（医療扶助のみ）</option>");
+    expect(ins).not.toContain("を入れてください");
+    // A 医保 kind chosen: the card's numbers, 本人・家族, 負担割合 and the 区分 appear.
+    const kokuho = as("医事課", <ReceptionInsurance form={{ ...EMPTY_FORM, kind: "国保", coverage: "医保" }} onChange={() => {}} today={today} checks={[]} />);
+    expect(kokuho).toContain("保険者番号");
+    expect(kokuho).toContain("本人・家族");
+    expect(kokuho).toContain("負担割合");
+    expect(kokuho).toContain("所得区分");
+    // 再診 with an earlier registration: shown, not edited.
+    const found = as("医事課", <ReceptionInsurance form={EMPTY_FORM} onChange={() => {}} today={today} checks={[]} existing={INITIAL_INSURANCE_BOOK["opd:opd-1"][0]} />);
+    expect(found).toContain("保険（登録あり）");
+    expect(found).toContain("「確認」として引き継ぎます");
+  });
+  it("after receiving, the form shows the 受付番号 and the 受付票を印刷 button (no dialog by itself)", () => {
+    const html = as("医事課", <Reception cards={CARDS} today={today} nowTime="09:30" locked={null} done={{ name: "架空 太郎", ticket: 12, onPrint: () => {}, onList: () => {} }} onReceive={() => {}} />);
+    expect(html).toContain("受け付けました：<b>架空 太郎</b>さん");
+    expect(html).toContain("012");
+    expect(html).toContain("受付票を印刷");
+    expect(html).toContain("受付一覧へ");
   });
   it("shows numbers only on the waiting-room display", () => {
     const html = renderToStaticMarkup(<WaitingDisplay board={displayBoard(opd, 3)} nowTime="09:30" onClose={() => {}} />);

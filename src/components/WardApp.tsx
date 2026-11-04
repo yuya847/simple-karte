@@ -2427,6 +2427,8 @@ export default function WardApp() {
           onOpen={(id) => openVisit("opd", id)}
           onOpenChart={openPatient}
           newId={newId}
+          insuranceBook={iji.insurance}
+          onInsurance={(key, r) => setIji((d) => withInsurance(d, key, r))}
         />
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">

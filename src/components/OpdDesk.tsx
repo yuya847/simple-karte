@@ -1,12 +1,16 @@
 "use client";
 
-import { CalendarClock, Keyboard, List, MonitorPlay, UserPlus } from "lucide-react";
+import { CalendarClock, CheckCircle2, Keyboard, List, MonitorPlay, Printer, UserPlus } from "lucide-react";
 import { useState } from "react";
 import type { AdmissionRequest } from "@/lib/admission";
 import { auditLog } from "@/lib/audit";
+import { touchedBy, visibleChecks } from "@/lib/billing/check-visibility";
+import { checkInsurance, currentRecord, EMPTY_FORM, insuranceSummary, normalizeForm, type InsuranceBook, type InsuranceForm, type InsuranceRecord } from "@/lib/billing/registration";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { FACILITIES } from "@/lib/liaison";
+import { formFromQualification, type CopiedForm } from "@/lib/national/onshi";
 import type { OpdPatient, OpdStatus } from "@/lib/opd";
+import { carriedInsurance, EMPTY_RECEPTION, insuranceStarted, receptionInsuranceRecord, receptionMissing, visitInsuranceKey, type ReceptionFields } from "@/lib/opd-reception";
 import {
   arrive,
   bookToday,
@@ -35,6 +39,7 @@ import {
 import { Fictional, SubTabs, usePrintSheet } from "./DeskParts";
 import { KioskScreen, WaitingDisplay } from "./OpdScreens";
 import { OpdBoard } from "./OpdBoard";
+import { ReceptionInsurance } from "./ReceptionInsurance";
 import { useDeny, useMe } from "./RoleContext";
 import { OnshiCheck } from "./national/OnshiCheck";
 
@@ -68,6 +73,8 @@ export function OpdDesk({
   onOpen,
   onOpenChart,
   newId,
+  insuranceBook,
+  onInsurance,
 }: {
   patients: OpdPatient[];
   onPatients: (f: (list: OpdPatient[]) => OpdPatient[]) => void;
@@ -81,12 +88,17 @@ export function OpdDesk({
   onOpen: (id: string) => void;
   onOpenChart: (patientId: string) => void;
   newId: () => string;
+  /** 保険の登録 (iji.insurance, keyed "opd:" + id): read for a 再診, written when the window registers at reception. */
+  insuranceBook?: InsuranceBook;
+  onInsurance?: (key: string, r: InsuranceRecord) => void;
 }) {
   const me = useMe();
   const deny = useDeny();
   const [tab, setTab] = useState<Tab>("list");
   const [dept, setDept] = useState("");
   const [screen, setScreen] = useState<"display" | "kiosk" | null>(null);
+  // The patient just received at the window (its 受付番号 is shown; `n` starts a fresh form).
+  const [received, setReceived] = useState<{ id: string; n: number } | null>(null);
   const [print, sheet] = usePrintSheet();
   const cards = [...CARDS, ...desk.cards];
   const t = tickets(patients);
@@ -166,19 +178,30 @@ export function OpdDesk({
       )}
       {tab === "reception" && (
         <Reception
+          key={received?.n ?? 0}
           cards={cards}
+          patients={patients}
+          insuranceBook={insuranceBook}
           today={today}
           nowTime={nowTime}
           locked={deny("reception")}
+          done={(() => {
+            const p = received ? byId(received.id) : undefined;
+            return p ? { name: p.name, ticket: t.get(p.id), onPrint: () => slip(p.id), onList: () => setTab("list") } : null;
+          })()}
           onReceive={(x) => {
             const id = `opd-${newId()}`;
             const next = receive(patients, { ...x, id }, nowTime);
             onPatients(() => next);
             if (x.newCard) onDesk((d) => ({ ...d, cards: [...d.cards, x.card] }));
+            // The insurance typed (or carried from an earlier visit) goes to the same 保険の登録 as 医事課's.
+            if (x.insurance && onInsurance) {
+              onInsurance(visitInsuranceKey(id), x.insurance);
+              log(x.insurance.action === "確認" ? "前の受診の保険の登録を今日の受診に引き継いだ（受付）" : "保険を登録した（受付）", undefined, `${x.card.name}・${insuranceSummary(x.insurance.insurance)}`);
+            }
             log(`外来の受付をした（${x.kind}）`, undefined, `${x.card.name}・${x.dept}・${x.doctor}${x.referral ? `・紹介状（${x.referral.facilityName}）` : ""}`);
-            setTab("list");
-            // The 受付票 of the new patient (after the list has the number).
-            setTimeout(() => slip(id, next), 0);
+            // The 受付番号 is shown on the form; the 受付票 is printed with its own button (no dialog by itself).
+            setReceived((r) => ({ id, n: (r?.n ?? 0) + 1 }));
           }}
         />
       )}
@@ -264,32 +287,82 @@ function Slip({ p, ticket, room, date }: { p: OpdPatient; ticket?: number; room?
   );
 }
 
-function Reception({
+/** What the window hands over when it receives. */
+export interface Received {
+  card: Card;
+  newCard: boolean;
+  kind: "初診" | "再診";
+  dept: string;
+  doctor: string;
+  reason: string;
+  referral?: { facilityId: string; facilityName: string };
+  /** The insurance to register with today's visit (typed, filled from the 資格確認, or carried from an earlier visit). */
+  insurance?: InsuranceRecord;
+}
+
+/** The patient just received: shown on the form with the 受付票 button (exported for tests). */
+export interface ReceptionDone {
+  name: string;
+  ticket: number | undefined;
+  onPrint: () => void;
+  onList: () => void;
+}
+
+export function Reception({
   cards,
+  patients = [],
+  insuranceBook,
   today,
   nowTime,
   locked,
+  done = null,
   onReceive,
 }: {
   cards: Card[];
+  patients?: OpdPatient[];
+  insuranceBook?: InsuranceBook;
   today: CalendarDate;
   nowTime: string;
   locked: string | null;
-  onReceive: (x: { card: Card; newCard: boolean; kind: "初診" | "再診"; dept: string; doctor: string; reason: string; referral?: { facilityId: string; facilityName: string } }) => void;
+  done?: ReceptionDone | null;
+  onReceive: (x: Received) => void;
 }) {
+  const me = useMe();
   const [kind, setKind] = useState<"初診" | "再診" | "">("");
-  const [f, setF] = useState({ name: "", kana: "", sex: "" as "男" | "女" | "", age: "", cardNo: "", dept: "", doctor: "", reason: "", referral: "", insured: false });
-  const set = (x: Partial<typeof f>) => setF((c) => ({ ...c, ...x }));
+  const [f, setF] = useState<ReceptionFields>(EMPTY_RECEPTION);
+  const set = (x: Partial<ReceptionFields>) => setF((c) => ({ ...c, ...x }));
+  // The insurance block (registration.ts form); its checks show for the fields touched, or all after the 資格確認 or a press on 受け付ける.
+  const [ins, setIns] = useState<InsuranceForm>(EMPTY_FORM);
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const [revealAll, setRevealAll] = useState(false);
+  const [derived, setDerived] = useState<CopiedForm["derived"]>([]);
+  const setInsurance = (patch: Partial<InsuranceForm>) => {
+    setIns((c) => ({ ...c, ...patch }));
+    setTouched((t) => touchedBy(t, patch));
+  };
   const card = kind === "再診" ? cards.find((c) => c.cardNo === f.cardNo || (f.cardNo.length >= 2 && (c.name.includes(f.cardNo) || c.kana.includes(f.cardNo)))) : undefined;
   const doctors = CLINICS.filter((c) => c.dept === f.dept);
-  const ok =
-    !locked &&
-    kind &&
-    f.dept &&
-    f.doctor &&
-    f.reason.trim() &&
-    f.insured &&
-    (kind === "初診" ? f.name.trim() && f.kana.trim() && f.sex && Number(f.age) >= 0 && f.age !== "" : !!card);
+  const age = kind === "初診" ? (f.age !== "" ? Number(f.age) : null) : (card?.age ?? null);
+  // 再診: the registration of an earlier visit with the same 診察券 (shown; carried to today's visit).
+  const existing = kind === "再診" && card && insuranceBook ? patients.filter((p) => cardOf(p) === card.cardNo).map((p) => currentRecord(insuranceBook, visitInsuranceKey(p.id))).find((r) => !!r) : undefined;
+  const insChecks = !existing && insuranceStarted(ins) && age !== null ? checkInsurance(ins, { age, on: today }) : [];
+  const insErrors = insChecks.filter((c) => c.level === "error").length;
+  const shownChecks = visibleChecks(insChecks, { fresh: true, revealAll, touched });
+  const missing = receptionMissing(kind, f, card, insErrors);
+  // The hidden 「直す」 of the insurance are the only thing left: the button stays live so that pressing it shows them.
+  const onlyInsurance = missing.length === 1 && missing[0].startsWith("保険の入力") && !revealAll;
+  const canPress = !locked && (missing.length === 0 || onlyInsurance);
+  const receiveNow = () => {
+    if (locked) return;
+    if (missing.length) {
+      setRevealAll(true);
+      return;
+    }
+    const fac = FACILITIES.find((x) => x.id === f.referral);
+    const c: Card = kind === "初診" ? { cardNo: newCardNo(cards), name: f.name.trim(), kana: f.kana.trim(), sex: f.sex as "男" | "女", age: Number(f.age) } : card!;
+    const insurance = existing ? carriedInsurance(existing, me.name, nowTime) : (receptionInsuranceRecord(ins, { age: c.age, today, by: me.name, time: nowTime }) ?? undefined);
+    onReceive({ card: c, newCard: kind === "初診", kind: kind as "初診" | "再診", dept: f.dept, doctor: f.doctor, reason: f.reason.trim(), ...(kind === "初診" && fac ? { referral: { facilityId: fac.id, facilityName: fac.name } } : {}), ...(insurance ? { insurance } : {}) });
+  };
   const input = "rounded border border-rule bg-sheet px-1.5 py-1";
   return (
     <div className="scroll-thin min-h-0 flex-1 overflow-auto px-5 py-4 text-[13px]">
@@ -297,8 +370,24 @@ function Reception({
         受付（初診・予約外の再診）
         <Fictional />
       </h2>
-      <p className="mb-3 text-[12px] text-ink-soft">予約のある患者は、受付一覧の「受付する」か再来受付機（模擬）で受け付けます。受け付けると受付番号が付き、受付票を印刷します。{nowTime} 受付。</p>
+      <p className="mb-3 text-[12px] text-ink-soft">予約のある患者は、受付一覧の「受付する」か再来受付機（模擬）で受け付けます。受け付けると受付番号が付き、「受付票を印刷」で印刷します。{nowTime} 受付。</p>
       {locked && <p className="mb-2 text-[12px] text-ink-soft">{locked}</p>}
+      {done && (
+        <div role="status" className="mb-3 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-wakatake/50 bg-wakatake-soft px-4 py-2">
+          <CheckCircle2 size={16} className="shrink-0 text-wakatake" />
+          <span>
+            受け付けました：<b>{done.name}</b>さん　受付番号 <b className="nums text-xl">{ticketLabel(done.ticket)}</b>
+          </span>
+          <button type="button" onClick={done.onPrint} className="inline-flex min-h-9 items-center gap-1 rounded-md border border-rule bg-sheet px-3 text-[13px] font-bold hover:border-ai hover:text-ai">
+            <Printer size={14} />
+            受付票を印刷
+          </button>
+          <button type="button" onClick={done.onList} className="inline-flex min-h-9 items-center rounded-md border border-rule bg-sheet px-3 text-[13px] hover:border-ai hover:text-ai">
+            受付一覧へ
+          </button>
+          <span className="text-[11px] text-ink-soft">続けて次の人を受け付けられます。</span>
+        </div>
+      )}
       <div className="grid max-w-3xl gap-2 rounded-lg border border-rule bg-sheet p-3 sm:grid-cols-2">
         <label className="flex items-center gap-2 sm:col-span-2">
           区分
@@ -383,7 +472,7 @@ function Reception({
             </label>
             <label className="flex items-center gap-1 sm:col-span-2">
               <input type="checkbox" checked={f.insured} onChange={(e) => set({ insured: e.target.checked })} />
-              保険証（資格確認書）かマイナ保険証で資格を確かめた（番号の登録は医事課の「保険」で行います）
+              保険証（資格確認書）かマイナ保険証で資格を確かめた
             </label>
             <div className="sm:col-span-2">
               <OnshiCheck
@@ -392,25 +481,38 @@ function Reception({
                 today={today}
                 nowTime={nowTime}
                 locked={locked}
-                onChecked={(r) => r.status === "有効" && set({ insured: true })}
+                card={{ insurerNumber: ins.insurerNumber, symbol: ins.symbol, number: ins.number, branch: ins.branch, birthDate: ins.birthDate }}
+                current={ins}
+                onChecked={(r) => {
+                  if (r.status !== "有効") return;
+                  set({ insured: true });
+                  // A valid answer fills the insurance block below (the person checks it and receives).
+                  if (r.info && !existing) {
+                    const c = formFromQualification(r.info, today, ins);
+                    setIns(normalizeForm(c.form));
+                    setDerived(c.derived);
+                    setRevealAll(true);
+                  }
+                }}
               />
+            </div>
+            <div className="sm:col-span-2">
+              <ReceptionInsurance form={ins} onChange={setInsurance} today={today} checks={shownChecks} derived={derived} existing={existing} disabled={!!locked} />
             </div>
           </>
         )}
-        <div className="sm:col-span-2">
-          <button
-            type="button"
-            disabled={!ok}
-            onClick={() => {
-              const fac = FACILITIES.find((x) => x.id === f.referral);
-              const c: Card = kind === "初診" ? { cardNo: newCardNo(cards), name: f.name.trim(), kana: f.kana.trim(), sex: f.sex as "男" | "女", age: Number(f.age) } : card!;
-              onReceive({ card: c, newCard: kind === "初診", kind: kind as "初診" | "再診", dept: f.dept, doctor: f.doctor, reason: f.reason.trim(), ...(kind === "初診" && fac ? { referral: { facilityId: fac.id, facilityName: fac.name } } : {}) });
-            }}
-            className="rounded-md bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40"
-          >
-            受け付けて受付票を印刷
+        <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+          <button type="button" disabled={!canPress} onClick={receiveNow} className="min-h-9 rounded-md bg-ai px-4 font-bold text-white disabled:opacity-40">
+            受け付ける
           </button>
-          <span className="ml-2 text-[11px] text-ink-faint">最初から選ばれている項目はありません。紹介状のある初診は、地域医療連携の台帳に入ります。</span>
+          {missing.length > 0 ? (
+            <span role="status" className="text-[12px] text-yamabuki">
+              まだ入れるもの：{missing.join("・")}
+            </span>
+          ) : (
+            <span className="text-[11px] text-ink-faint">受け付けると受付番号が出ます。受付票はそのあと「受付票を印刷」で。</span>
+          )}
+          <span className="hint text-[11px] text-ink-faint">最初から選ばれている項目はありません。紹介状のある初診は、地域医療連携の台帳に入ります。</span>
         </div>
       </div>
     </div>
