@@ -14,7 +14,8 @@ import { LiveNote } from "./LiveNote";
 import { NoteText } from "./NoteText";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
-import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
+import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
+import { dayHeading, stayKindOf } from "@/lib/stay-labels";
 import { ORDER_TYPE_LABEL, drugName, durationText, oralName, orderLines, scheduleTextFor, timingText } from "@/lib/format";
 import { executionMarks, isAhead, planVerb, type PlanItem } from "@/lib/schedule-days";
 import { aheadSummary, daySections, placeLabel, type DaySection, type OpdVisit } from "@/lib/opd-history";
@@ -445,7 +446,7 @@ function RecordList({
             </span>
           )}
           <span className={`font-bold ${s.future ? "text-ink-soft" : ""}`}>{formatShort(addDays(today, d))}</span>
-          <span className="text-xs text-ink-faint">{s.place ? `入院の${patient.admittedOn - d}日前` : `入院${hospitalDay(patient.admittedOn, d)}日目${d === 0 ? "（今日）" : s.future ? "（予定）" : ""}`}</span>
+          <span className="text-xs text-ink-faint">{dayHeading(stayKindOf(patient), patient.admittedOn, d, { earlier: !!s.place, future: !!s.future })}</span>
         </h3>
         {s.plans.length > 0 && <PlanList day={d} plans={s.plans} today={today} nowAbs={nowAbs} onJump={jumpToOrder} />}
         {s.entries.length === 0 ? null : (

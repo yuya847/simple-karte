@@ -2,8 +2,9 @@
 
 import { CalendarDays, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { addDays, formatMonth, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
+import { addDays, formatMonth, formatShort, type CalendarDate } from "@/lib/dates";
 import { planDayLabel, plannedDaysAhead, type PlanItem } from "@/lib/schedule-days";
+import { earlierVisitsTitle, stayKindOf, stayTitle, treeDayTag } from "@/lib/stay-labels";
 import type { DayOffset, HistoryEntry, Patient } from "@/lib/types";
 
 interface Props {
@@ -24,7 +25,10 @@ interface Props {
   planned?: PlanItem[];
 }
 
-/** Tree of hospital days: this admission → month → day, then the days ahead with plans. Clicking a day jumps the past record to it. */
+/**
+ * Tree of hospital days: this admission → month → day, then the days ahead with plans. Clicking a day jumps the past
+ * record to it. The chart of a 救急外来・外来 visit says 受診 (「今回の受診」) instead of 入院 (stay-labels.ts).
+ */
 export function DateTree({ patient, entries, today, selectedDay, onSelect, visits = [], hideEmpty = true, planned = [] }: Props) {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setClosed((c) => ({ ...c, [key]: !c[key] }));
@@ -46,12 +50,17 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
   });
 
   const admissionKey = "admission";
+  const kind = stayKindOf(patient);
+  const top = stayTitle(kind);
 
   return (
     <nav aria-label="日付" className="scroll-thin h-full overflow-y-auto border-r border-rule bg-paper py-2 text-sm">
       <TreeToggle open={!closed[admissionKey]} onClick={() => toggle(admissionKey)} depth={0}>
-        <span className="font-bold">今回入院</span>
-        <span className="nums ml-1 text-xs text-ink-faint">{formatShort(addDays(today, patient.admittedOn))}〜</span>
+        <span className="font-bold">{top.title}</span>
+        <span className="nums ml-1 text-xs text-ink-faint">
+          {formatShort(addDays(today, patient.admittedOn))}
+          {top.dateSuffix}
+        </span>
       </TreeToggle>
       {!closed[admissionKey] &&
         [...months.entries()].map(([month, ds]) => (
@@ -76,7 +85,7 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
                       >
                         <span className={d === 0 ? "font-bold" : ""}>{formatShort(addDays(today, d))}</span>
                         <span className={`ml-auto text-[11px] ${selected ? "text-white/80" : "text-ink-faint"}`}>
-                          {d === 0 ? "今日" : `${hospitalDay(patient.admittedOn, d)}日目`}
+                          {treeDayTag(kind, patient.admittedOn, d)}
                         </span>
                       </button>
                       {(c.notes > 0 || c.orders > 0) && (
@@ -127,7 +136,7 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
       {visits.length > 0 && (
         <>
           <TreeToggle open={!closed.visits} onClick={() => toggle("visits")} depth={0}>
-            <span className="font-bold text-mizu">入院前の外来</span>
+            <span className="font-bold text-mizu">{earlierVisitsTitle(kind)}</span>
             <span className="nums ml-1 text-xs text-ink-faint">{visits.length}回</span>
           </TreeToggle>
           {!closed.visits && (
