@@ -96,8 +96,8 @@ export function mwlItem(r: RisRow, today: CalendarDate, extra: { wardRoom?: stri
   const room = findRoom(r.work?.room);
   const when = r.work?.slot ?? { day: r.order.when.day, time: r.order.when.time ?? "" };
   const pn = personName(r.name, r.kana);
-  const region = findRegion(r.order.region)?.name ?? r.order.region;
-  const description = `${r.order.modality} ${region}${r.order.contrast ? ` ${r.order.contrast}` : ""}${r.order.views ? ` ${r.order.views.join("+")}` : ""}`;
+  const region = `${r.order.side ?? ""}${findRegion(r.order.region)?.name ?? r.order.region}`;
+  const description = `${r.order.modality} ${region}${r.order.contrast ? ` ${r.order.contrast}` : ""}${r.order.views ? ` ${r.order.views.join("+")}` : ""}${r.order.position ? ` ${r.order.position}` : ""}`;
   const acc = accessionOf(r.orderId);
   return [
     attr("0008,0005", "SpecificCharacterSet", "Specific Character Set", "CS", "ISO_IR 192"),

@@ -14,6 +14,7 @@ import {
   findRoom,
   irradiates,
   needsReading,
+  orderConsentText,
   putWork,
   recordProblems,
   reportProblems,
@@ -27,6 +28,7 @@ import {
   type RisRow,
   type RisWork,
 } from "@/lib/ris";
+import { imagingMethodText } from "@/lib/format";
 import { useDeny, useMe } from "./RoleContext";
 
 export const card = "rounded-lg border border-rule bg-sheet";
@@ -57,7 +59,8 @@ export function RowHead({ r }: { r: RisRow }) {
         {r.room}　{r.name}
       </b>
       <span className="font-bold">{r.label}</span>
-      {r.order.views && <span>{r.order.views.join("＋")}</span>}
+      {imagingMethodText(r.order) && <span>{imagingMethodText(r.order)}</span>}
+      {orderConsentText(r.order) && <span className={r.order.consent?.state === "取得済み" ? "text-wakatake" : "font-bold text-shu"}>{orderConsentText(r.order)}</span>}
       <span className="text-ink-soft">
         {r.order.transport}　目的：{r.order.purpose}　{r.orderedBy}
         {room ? `　${room.room}（${room.ae}）` : ""}

@@ -5,8 +5,8 @@
 // Code arranges what the orders say; nurses and doctors decide. Nothing here calls AI.
 
 import { addDays, formatShort, type CalendarDate } from "./dates";
-import { findPhysio } from "./exams";
-import { drugName, durationText, imagingTitle, labName, oralName, procedureTitle, scheduleTextFor, timingText } from "./format";
+import { consentText, findPhysio, usesContrast } from "./exams";
+import { drugName, durationText, imagingMethodText, imagingTitle, labName, oralName, procedureTitle, scheduleTextFor, timingText } from "./format";
 import { WARD_RULES } from "./master";
 import { marKey, type AdminRecord, type NotDoneReason } from "./mar";
 import { CONFIRM_SOURCES } from "./order-confirm";
@@ -145,7 +145,11 @@ export function orderFields(o: Order, today: CalendarDate, place: string): Sheet
     put("コメント", o.comment);
   } else if (o.type === "imaging") {
     put("検査", imagingTitle(o));
-    put("撮影", o.views?.join("＋"));
+    put("左右", o.side);
+    put("撮影", imagingMethodText({ ...o, position: undefined, note: undefined }));
+    put("体位", o.position ? (o.modality === "ポータブルX線" ? `病室で${o.position}` : o.position) : undefined);
+    put("条件の備考", o.note);
+    put("同意", usesContrast(o) ? consentText(o.consent) || "同意：未取得" : undefined);
     put("読影", o.reading);
     put("予定", o.when.priority === "至急" ? "至急" : `${dayText(today, o.when.day, o.when.time)} 予約`);
     put("搬送", o.transport);

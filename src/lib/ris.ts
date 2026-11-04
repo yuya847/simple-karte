@@ -7,8 +7,8 @@
 // in this app is a simulation (模擬, ris-modality.ts / dicom-mwl.ts).
 
 import { abs } from "./flowsheet";
-import { examAt, findRegion, type ImagingOrder, type Modality } from "./exams";
-import { imagingTitle } from "./format";
+import { consentText, examAt, regionLabel, usesContrast, viewsText, type ImagingOrder, type Modality } from "./exams";
+import { imagingMethodText, imagingTitle } from "./format";
 import type { ResultItem } from "./results";
 import type { DayOffset, ExamRecord, HistoryEntry, OrderEntry, Patient, Sex } from "./types";
 
@@ -286,12 +286,13 @@ const n = (v: number | undefined, unit: string) => (v === undefined ? null : `${
 export function exposureText(o: ImagingOrder, w: RisWork | undefined): { text: string; missing: string[] } {
   const e = w?.exposure ?? {};
   const room = findRoom(w?.room);
-  const region = findRegion(o.region)?.name ?? o.region;
+  const region = regionLabel(o.region, o.side);
   const missing: string[] = [];
   const parts: string[] = [room ? room.device : "（装置が未割り当て）", `${o.modality} ${region}`];
   if (!room) missing.push("装置");
+  if (o.position) parts.push(o.modality === "ポータブルX線" ? `病室で${o.position}` : o.position);
   if (o.modality === "X線" || o.modality === "ポータブルX線") {
-    parts.push(o.views?.join("＋") ?? "");
+    parts.push(viewsText(o.views));
     const cond = [n(e.kv, "kV"), n(e.mas, "mAs"), n(e.distanceCm, "cm")].filter(Boolean);
     if (e.kv === undefined) missing.push("管電圧（kV）");
     if (e.mas === undefined) missing.push("管電流時間積（mAs）");
@@ -308,15 +309,21 @@ export function exposureText(o: ImagingOrder, w: RisWork | undefined): { text: s
     if (cond.length) parts.push(cond.join("・"));
     if (e.range) parts.push(`範囲：${e.range}`);
     parts.push(o.contrast ?? "");
+    if (o.ct) parts.push(imagingMethodText({ modality: o.modality, region: o.region, ct: o.ct }));
   } else {
+    if (o.mri?.sequences.length) parts.push(`オーダ：${o.mri.sequences.join("・")}`);
     if (e.sequences) parts.push(e.sequences);
   }
+  if (o.note) parts.push(o.note);
   if (w?.contrast) parts.push(`造影剤：${w.contrast.name} ${w.contrast.count}${contrastUnit(w.contrast.code)}（${w.contrast.route}）`);
   if (e.note) parts.push(e.note);
   return { text: parts.filter(Boolean).join("　"), missing };
 }
 
 const contrastUnit = (code: string) => CONTRAST_PRODUCTS.find((c) => c.code === code)?.unit ?? "";
+
+/** 造影剤使用の説明と同意, as the department sees it on the order: 「同意済（…）」「同意：未取得」, nothing for a plain study. */
+export const orderConsentText = (o: ImagingOrder): string => (usesContrast(o) ? consentText(o.consent) || "同意：未取得" : "");
 
 /** What the dose record still lacks: CT needs CTDIvol and DLP (全身用X線CT診断装置 is a 管理・記録対象医療機器). */
 export function doseMissing(o: ImagingOrder, d: RisDose | undefined): string[] {
@@ -343,7 +350,7 @@ export function shoshaRoku(r: RisRow, fmtDay: (d: DayOffset) => string): { items
     { label: "三　照射の方法（具体的にかつ精細に）", value: how.text, missing: how.missing },
     {
       label: "四　指示を受けた医師の氏名及びその指示の内容",
-      value: `${r.orderedBy}（${fmtDay(r.orderedAt.day)} ${r.orderedAt.time} のオーダ）：${r.label}${r.order.views ? `　${r.order.views.join("＋")}` : ""}　目的：${r.order.purpose}`,
+      value: `${r.orderedBy}（${fmtDay(r.orderedAt.day)} ${r.orderedAt.time} のオーダ）：${r.label}${imagingMethodText(r.order) ? `　${imagingMethodText(r.order)}` : ""}　目的：${r.order.purpose}${orderConsentText(r.order) ? `　${orderConsentText(r.order)}` : ""}`,
       missing: [],
     },
   ];
@@ -449,6 +456,7 @@ export function doneProblems(r: RisRow, w: RisWork): string[] {
     if (!w.contrast) out.push("造影のオーダです。使った造影剤を記録してください（使わなかったときは、医師に確かめてオーダを直します）。");
   }
   if (w.contrast && !usesContrast) out.push("単純のオーダに造影剤の記録があります。医師の指示を確かめてください。");
+  if (usesContrast && r.order.consent?.state === "同意しない") out.push("造影剤の使用に同意が得られていないオーダです。医師に確かめてください。");
   if (w.contrast && w.contrast.reaction === "あり" && !w.contrast.reactionNote?.trim()) out.push("造影剤の副作用の内容を書いてください。");
   return out;
 }
