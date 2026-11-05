@@ -1491,7 +1491,8 @@ export default function WardApp() {
   const toFront = (t: RightTab) => setZOrder((z) => [...z.filter((x) => x !== t), t]);
   const openRight = (t: RightTab) => {
     // The injection calendar and the reading tabs open in their own large window (where this browser last had it), not in the right column.
-    const win = WINDOW_TABS.has(t) && !floating[t] && !chart.openTabs.includes(t) ? (keptWin(t, window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight)) : undefined;
+    // Always as a window, even when this browser docked it to the right column before (ユーザー 2026-11-06：「指示簿は基本新しいウインドウで」).
+    const win = WINDOW_TABS.has(t) && !floating[t] ? (keptWin(t, window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight)) : undefined;
     if (win) setFloating((f) => ({ ...f, [t]: win }));
     const away = !!floating[t] || !!win;
     update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: away ? c.rightTab : t }));
