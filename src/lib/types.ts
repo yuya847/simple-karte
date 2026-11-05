@@ -85,7 +85,7 @@ export type HistoryEntry = NoteEntry | OrderEntry;
 
 export interface NoteEntry {
   kind: "note";
-  category?: "コンサルト返書";
+  category?: "コンサルト返書" | "リハビリ実施" | "リハビリ";
   day: DayOffset;
   time: string; // "HH:MM"
   author: string;

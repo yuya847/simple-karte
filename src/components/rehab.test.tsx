@@ -7,6 +7,7 @@ import { STAFF, type Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
 import { RehabProgressPanel } from "./panels/RehabProgressPanel";
 import { RehabPlanForm } from "./RehabPlanForm";
+import { RehabVitals } from "./RehabVitals";
 import { RehabView } from "./RehabView";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
@@ -36,6 +37,19 @@ describe("リハビリテーション部", () => {
     // A nurse: the button is locked for the role, and the list of what is missing is not shown (the lock is explained by DenyNote).
     const nurse = as("看護師", <RehabView people={people} desk={desk} onDesk={() => {}} nowTime="09:00" today={today} initialTab="work" />);
     expect(nurse).not.toContain("記録するには：");
+  });
+  it("今日の最新だけを表示し、注意文の該当値だけを赤く太字にする", () => {
+    const html = renderToStaticMarkup(<RehabVitals caution="HR 120/分以上・SBP 90mmHg未満で中止" vitals={[
+      { day: 0, time: "11:00", bt: 37, hr: 120, sbp: 90, dbp: 60, spo2: 98 },
+      { day: -1, time: "23:00", hr: 140 },
+      { day: 0, time: "07:00", hr: 80 },
+    ]} />);
+    expect(html).toContain("11:00");
+    expect(html).not.toContain("07:00");
+    expect(html).toContain('class="mr-2 font-bold text-shu">HR 120/分');
+    expect(html).toContain('class="mr-2">BP 90/60mmHg');
+    expect(html).toContain("判断は療法士");
+    expect(renderToStaticMarkup(<RehabVitals caution="" vitals={[{ day: -1, time: "23:00", hr: 140 }]} />)).toContain("今日のバイタル：測定記録なし");
   });
   it("the 実施計画書 has the items of 別紙様式21 and is made by a doctor", () => {
     const kita = rehabPrescriptions(people).find((r) => r.patientId === "90010198")!;

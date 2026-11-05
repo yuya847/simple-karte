@@ -1,5 +1,8 @@
 "use client";
 
+import { sessionNote } from "@/lib/rehab-record";
+import type { NoteEntry, VitalSign } from "@/lib/types";
+import { RehabVitals } from "./RehabVitals";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
 
@@ -45,6 +48,7 @@ import { RehabPlanForm } from "./RehabPlanForm";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 interface Props {
+  onNote?: (patientId: string, note: NoteEntry) => void;
   people: WorkPatient[];
   desk: RehabDesk;
   onDesk: (f: (d: RehabDesk) => RehabDesk) => void;
@@ -66,6 +70,7 @@ const plus = (t: string, m: number) => {
 /** リハビリテーション部. */
 export function RehabView(p: Props) {
   const [tab, setTab] = useState<Tab>(p.initialTab ?? "schedule");
+  const [receipt, setReceipt] = useState<{ bookingId: string; text: string } | null>(null);
   const rxs = rehabPrescriptions(p.people);
   const fmt = (d: number) => formatShort(addDays(p.today, d));
   const todays = p.desk.bookings.filter((b) => b.day === 0 && !p.desk.sessions.some((s) => s.bookingId === b.id && (s.recordedAt || s.notDone)));
@@ -80,7 +85,7 @@ export function RehabView(p: Props) {
         <SubTabs
           label="リハビリテーション部の画面"
           value={tab}
-          onChange={setTab}
+          onChange={(next) => { setReceipt(null); setTab(next); }}
           tabs={[
             { key: "schedule", label: "予定表", icon: CalendarDays },
             { key: "work", label: "受付・実施", icon: ClipboardList, badge: todays.length },
@@ -95,7 +100,7 @@ export function RehabView(p: Props) {
           医師がカルテの「オーダ › その他 › リハビリ」で出したリハビリ処方の患者が並びます。療法士は「予定表」で予約し、「受付・実施」で開始・終了の時刻と訓練の内容を記録します（単位はコードが数えます）。ADL は Barthel Index で評価します。実施計画書は医師が作り、医師か療法士・看護師が説明します。右上の「自分」で「療法士」を選びます（デモではログインの代わり）。
         </p>
         {tab === "schedule" && <Schedule {...p} rxs={rxs} />}
-        {tab === "work" && <Work {...p} rxs={rxs} bookings={todays} />}
+        {tab === "work" && <Work {...p} rxs={rxs} bookings={p.desk.bookings.filter((b) => todays.includes(b) || b.id === receipt?.bookingId)} receipt={receipt} onReceipt={setReceipt} />}
         {tab === "bi" && <Bi {...p} rxs={rxs} fmt={fmt} />}
         {tab === "plan" && <Plans {...p} rxs={rxs} fmt={fmt} />}
         {tab === "list" && <List {...p} rxs={rxs} fmt={fmt} />}
@@ -224,16 +229,28 @@ function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[]
   );
 }
 
-function Work({ desk, onDesk, rxs, bookings, nowTime, today }: Props & { rxs: RehabRx[]; bookings: RehabBooking[] }) {
+function Work({ desk, onDesk, onNote, people, rxs, bookings, nowTime, today, receipt, onReceipt }: Props & { rxs: RehabRx[]; bookings: RehabBooking[]; receipt: { bookingId: string; text: string } | null; onReceipt: (r: { bookingId: string; text: string } | null) => void }) {
   return (
-    <section className="space-y-2">
+    <section className="space-y-2" onClickCapture={() => onReceipt(null)} onChangeCapture={() => onReceipt(null)}>
       <DenyNote action="rehab.therapy" />
       {bookings.length === 0 && <p className={`${card} px-4 py-3 text-ink-soft`}>今日の予約で、まだ記録していないものはありません。</p>}
       {[...bookings]
         .sort((a, b) => a.start.localeCompare(b.start))
         .map((b) => {
           const rx = rxs.find((r) => r.orderId === b.orderId);
-          return rx ? <SessionForm key={b.id} b={b} rx={rx} desk={desk} onDesk={onDesk} nowTime={nowTime} today={today} /> : null;
+          if (receipt?.bookingId === b.id) return <p key={b.id} role="status" className={`${card} px-3 py-2 text-ink-soft`}>{receipt.text}</p>;
+          if (!rx) return null;
+          return <SessionForm
+            key={b.id} b={b} rx={rx} desk={desk} onDesk={onDesk} nowTime={nowTime} today={today}
+            vitals={people.find((x) => x.patient.id === b.patientId)?.patient.vitals ?? []}
+            onRecorded={(session) => {
+              onNote?.(session.patientId, sessionNote(session, rx, session.notDone?.by ?? session.recordedAt!.by));
+              const detail = session.notDone
+                ? `実施せず ${session.start ?? session.notDone.time}`
+                : `${session.start}〜${session.end} ${unitsOf(session.start, session.end).units}単位`;
+              onReceipt({ bookingId: b.id, text: `記録しました（${rx.name} ${detail}）→ カルテの経過と一覧・単位に出ます` });
+            }}
+          />;
         })}
       <p className="hint text-[11px] text-ink-faint">
         {UNIT_RULE} 実施した時刻（開始と終了）と訓練の内容の要点を記録します（同 通則3）。患者1人1日6単位まで（別に厚生労働大臣が定める患者は9単位。告示 第7部 通則4・通知 通則7）。
@@ -242,7 +259,7 @@ function Work({ desk, onDesk, rxs, bookings, nowTime, today }: Props & { rxs: Re
   );
 }
 
-function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking; rx: RehabRx; desk: RehabDesk; onDesk: Props["onDesk"]; nowTime: string; today: CalendarDate }) {
+function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRecorded }: { vitals: VitalSign[]; onRecorded: (s: RehabSession) => void; b: RehabBooking; rx: RehabRx; desk: RehabDesk; onDesk: Props["onDesk"]; nowTime: string; today: CalendarDate }) {
   const me = useMe();
   const deny = useDeny()("rehab.therapy");
   const cur = desk.sessions.find((s) => s.bookingId === b.id);
@@ -259,7 +276,10 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking;
   const holiday = isRehabHoliday(today) && 0 <= holidayUntil(rx.order, treatmentStart(desk, rx.orderId, 0));
   const cat = categoryOf(rx.order.field);
   const base: RehabSession = cur ?? { id: `rs-${b.id}`, bookingId: b.id, orderId: b.orderId, patientId: b.patientId, therapist: b.therapist, discipline: b.discipline, day: 0, place: b.place };
-  const put = (s: RehabSession) => onDesk((d) => ({ ...d, sessions: [...d.sessions.filter((x) => x.id !== s.id), s] }));
+  const put = (s: RehabSession) => {
+    onDesk((d) => ({ ...d, sessions: [...d.sessions.filter((x) => x.id !== s.id), s] }));
+    if (s.recordedAt || s.notDone) onRecorded(s);
+  };
   const problems = sessionProblems({ arrived: !!cur?.arrived, start, end, content });
   return (
     <article className={`${card} space-y-1 p-3 text-[12px]`}>
@@ -280,6 +300,7 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking;
           {rx.order.cautions && `　注意：${rx.order.cautions}`}
         </span>
       </header>
+      <RehabVitals vitals={vitals} caution={rx.order.cautions ?? ""} />
       <div className="flex flex-wrap items-center gap-2">
         {cur?.arrived ? (
           <span className="text-ink-soft">
@@ -348,7 +369,7 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today }: { b: RehabBooking;
           type="button"
           disabled={!!deny || !reason.trim()}
           onClick={() => {
-            put({ ...base, notDone: { day: 0, time: nowTime, by: me.name, reason: reason.trim() } });
+            put({ ...base, start, notDone: { day: 0, time: nowTime, by: me.name, reason: reason.trim() } });
             auditLog({ role: me.role, actor: me.name, action: "確定（リハビリを実施できなかった）", patient: rx.name, detail: reason.trim() });
           }}
           className="rounded border border-shu px-2 py-0.5 text-shu disabled:opacity-40"

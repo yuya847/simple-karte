@@ -1,4 +1,5 @@
 "use client";
+import { upsertSessionNote } from "@/lib/rehab-record";
 
 import { workspaceOn } from "@/lib/workspace";
 import { patientPlace } from "@/lib/patient-place";
@@ -2665,7 +2666,7 @@ export default function WardApp() {
       ) : screen === "radiology" ? (
         <RadiologyView people={people} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} consents={consents} />
       ) : screen === "rehab" ? (
-        <RehabView people={people} desk={dept.rehab} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
+        <RehabView onNote={(pid, note) => setNotes((all) => ({ ...all, [pid]: upsertSessionNote(all[pid] ?? [], note) }))} people={people} desk={dept.rehab} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
       ) : screen === "path" ? (
         <PathologyView people={everyone} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
