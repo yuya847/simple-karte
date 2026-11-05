@@ -24,3 +24,8 @@ it("1回だけの輸液の量から時間を選ぶ（架空）", () => {
 it("口頭指示は病棟の定期でも1回だけ・今すぐ", () => {
   expect(orderDefaults("90010231", "定期", "23:59", "verbal")).toMatchObject({ schedule: { kind: "once" }, start: { day: 0, time: "23:59" } });
 });
+
+it("口頭指示の今すぐは過去時刻の注射確認をせず、採血も今すぐ", () => {
+  expect(orderDefaults("90010231", "定期", "08:03", "verbal")).toMatchObject({ startNow: true, drawMode: "now" });
+  expect(orderDefaults("90010231", "定期", "08:03").startNow).toBe(false);
+});

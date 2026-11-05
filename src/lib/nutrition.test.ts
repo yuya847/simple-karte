@@ -30,3 +30,8 @@ it("食種の既定量と計算量を比べ、指示なしは比較しない", (
   expect(compareDietNutrition(undefined, { kcal: 2000, protein: 72.5 }).energyDifference).toBeNull();
   expect(compareDietNutrition(INITIAL_DIETS[0], null).proteinDifference).toBeNull();
 });
+
+it("管理栄養士の食事タイルを無効にしない", async () => {
+  const { nutritionTileBlocks } = await import("./nutrition-access");
+  expect(nutritionTileBlocks("管理栄養士").diet).toBeUndefined();
+});

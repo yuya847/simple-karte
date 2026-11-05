@@ -15,6 +15,8 @@ import { useKitchenAllergies } from "@/lib/use-kitchen-allergies";
 
 import { useNoticeFocus } from "./useNoticeFocus";
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
+import { usePatientWindows } from "@/lib/use-patient-windows";
+import { WindowEntryContext, type WindowEntries } from "@/lib/window-entry";
 import { normalizeRightState, orderWindows, showOrderWindow } from "@/lib/order-windows";
 import { ConsultContext } from "./ConsultContext";
 import { ConsultPanel, ConsultBanner, ConsultInboxView } from "./ConsultPanel";
@@ -497,6 +499,7 @@ const defaultsOf = (all: Record<string, WardTab[]>, role: Role): WardTab[] => (A
 export default function WardApp() {
   const todayKey = useSyncExternalStore(noSubscribe, clientToday, serverNull);
   const nowTime = useSyncExternalStore(everyFifteenSeconds, clientNow, serverNull);
+  const [windowEntries, setWindowEntries] = useState<WindowEntries>({});
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [orderWins, setOrderWins] = useState<string[]>([]);
@@ -736,6 +739,7 @@ export default function WardApp() {
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
   const workspace = useWorkspace(
     {
+      windowEntries: [windowEntries, setWindowEntries],
       charts: [charts, setCharts],
       admitted: [admitted, setAdmitted],
       newBeds: [newBeds, setNewBeds],
@@ -841,7 +845,7 @@ export default function WardApp() {
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
     // Records saved elsewhere are merged in: this role's desk (note, drafts) stays; the audit log's setter merges itself.
-    { onSaved: () => onSaved.current?.(), merge: { local: chartDeskOf(me.role), theirs: ["audit"], mine: ["__writer"] } },
+    { onSaved: () => onSaved.current?.(), merge: { local: chartDeskOf(me.role, desk), theirs: ["audit"], mine: ["__writer"] } },
   );
   const [demoLabs] = useState(() => (typeof window === "undefined" ? {} : demoLabOrders(abs(0, nowTimeInTokyo()))));
   // Lab orders of today's 救急外来・外来 visits (fictional), by visit key "er:◯" / "opd:◯".
@@ -1036,6 +1040,7 @@ export default function WardApp() {
     setFlowReq(null);
   }, []);
 
+  usePatientWindows(activeId, [...orderWins, ...(panel ? [panel] : []), ...Object.keys(floating)], () => { setOrderWins([]); setPanel(null); setFloating({}); setZOrder([]); });
   const patient = activeId ? findPatient(activeId) : undefined;
   const chart = activeId ? mergedChart(charts, activeId, desk) : newChart();
   const today = useMemo(() => (todayKey ? parseIso(todayKey) : null), [todayKey]);
@@ -2950,7 +2955,7 @@ export default function WardApp() {
           />
           {limitNow && <LimitStrip limit={limitNow} inTeam={inTeamNow} grant={grantNow} fmtDay={(d) => formatShort(addDays(today, d))} />}
           <PresenceStrip peers={presence.on(patient.id)} editors={presence.editorsOn(patient.id)} />
-          <ImagingConsentProvider patient={patient} today={today} records={consents}><DrawerDefaults.Provider value={{ panel, windowed: WINDOW_PANELS }}>
+          <ImagingConsentProvider patient={patient} today={today} records={consents}><WindowEntryContext.Provider key={`${patient.id}:${desk}`} value={{ scope: `${patient.id}:${desk}`, entries: windowEntries, setEntries: setWindowEntries }}><DrawerDefaults.Provider value={{ panel, windowed: WINDOW_PANELS }}>
           <div
             data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
@@ -4248,7 +4253,7 @@ export default function WardApp() {
               calendars={REF_TABS.map((t) => ({ key: t, label: RIGHT_TABS[t].label, title: RIGHT_TABS[t].title, icon: RIGHT_TABS[t].icon, on: chart.openTabs.includes(t) && (chart.rightTab === t || !!floating[t]), open: () => openRight(t) }))}
             />
           </div>
-          </DrawerDefaults.Provider></ImagingConsentProvider>
+          </DrawerDefaults.Provider></WindowEntryContext.Provider></ImagingConsentProvider>
         </>
       ) : (
         <div className="grid flex-1 place-items-center">

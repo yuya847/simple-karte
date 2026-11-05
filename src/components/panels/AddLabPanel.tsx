@@ -1,5 +1,6 @@
 "use client";
 
+import { useMe } from "../RoleContext";
 import { orderDefaults } from "@/lib/order-defaults";
 import { Search, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
@@ -52,13 +53,14 @@ export function AddLabPanel({
   levelDrugs?: { code: string; name: string }[];
   initialTab?: string;
 }) {
+  const mode = useMe().role === "看護師" ? "verbal" : "doctor";
   const tabId = useId();
   const [picked, setPicked] = useState<string[]>([]);
   const [urgent, setUrgent] = useState<string[]>([]);
   const [checked, setChecked] = useState<string[]>([]);
   const [tab, setTab] = useState(initialTab);
   const [query, setQuery] = useState("");
-  const [draw, setDraw] = useState<DrawChoice>(() => ({ ...defaultDraw(), ...(orderDefaults(patientId, "定期", "").drawMode === "now" ? { mode: "now", day: 0, priority: "至急" } : {}) }));
+  const [draw, setDraw] = useState<DrawChoice>(() => ({ ...defaultDraw(), ...(orderDefaults(patientId, "定期", "", mode).drawMode === "now" ? { mode: "now", day: 0, priority: "至急" } : {}) }));
   const [site, setSite] = useState<LabSite>("病棟採血");
   const [comment, setComment] = useState("");
   const [purpose, setPurpose] = useState("");

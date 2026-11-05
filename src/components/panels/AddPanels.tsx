@@ -1,5 +1,6 @@
 "use client";
 
+import { useWindowEntry } from "@/lib/window-entry";
 import { useMe } from "../RoleContext";
 
 import { injectionDrugLabel } from "@/lib/injection-drug-label";
@@ -146,13 +147,13 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  */
 export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientId = "" }: { patientId?: string; onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
   const mode = useMe().role === "看護師" ? "verbal" : "doctor";
-  const [category, setCategory] = useState<"定期" | "臨時">("定期");
+  const [category, setCategory] = useWindowEntry<"定期" | "臨時">("injection.category", "定期");
   const freshRp = (kind = category): InjRp => {
     const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
     const defaults = orderDefaults(patientId, kind, now, mode);
-    return { ...newInjRp(), sched: SCHEDULES.findIndex((s) => s.value.kind === defaults.schedule.kind), startNow: defaults.imagingTime !== null || kind === "臨時", startTime: defaults.start.time, doseTimes: [defaults.start.time] };
+    return { ...newInjRp(), sched: SCHEDULES.findIndex((s) => s.value.kind === defaults.schedule.kind), startNow: defaults.startNow, startTime: defaults.start.time, doseTimes: [defaults.start.time] };
   };
-  const [rps, setRps] = useState<InjRp[]>(() => [freshRp()]);
+  const [rps, setRps, clearEntry] = useWindowEntry<InjRp[]>("injection.入れかけ", () => [freshRp()]);
   // For the visible headings (label) of the 開始・日数・コメント fields of each Rp.
   const uid = useId();
   // 注射の記憶 / Do: the order copied into the first empty Rp.
@@ -165,7 +166,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
     });
   // 修正 from the calendar (the order, to be changed and drafted again), Do (the order and its new start), or
   // a new injection from a day of the calendar (only the start): put into the first empty Rp.
-  const [seeded, setSeeded] = useState<string | null>(null);
+  const [seeded, setSeeded] = useWindowEntry<string | null>("injection.seeded", null);
   const [focusRp, setFocusRp] = useState<{ key: string; at: number } | null>(null);
   if (seed && seed.key !== seeded) {
     setSeeded(seed.key);
@@ -283,6 +284,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
   };
   const submit = () => {
     if (!ready.length) return;
+    clearEntry();
     onAdd(ready.map(toDraft));
     setRps([freshRp()]);
   };
@@ -297,6 +299,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
+      <p className="hint">入れかけの入力は、この患者の下書きに残ります。</p>
       <TabChoice label="注射の区分" options={["定期", "臨時"].map((v) => ({ value: v as "定期" | "臨時", label: v }))} value={category} onChange={(v) => { setCategory(v); setRps((rs) => rs.map((r) => { const d = freshRp(v); return { ...r, sched: schedulesOf(r).findIndex((s) => s.value.kind === SCHEDULES[d.sched].value.kind), startDay: 0, startNow: d.startNow, startTime: d.startTime, doseTimes: d.doseTimes }; })); }} />
       <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
 
@@ -768,8 +771,8 @@ export function AddRxPanel({
   const verbal = orderDefaults("", "定期", "", useMe().role === "看護師" ? "verbal" : "doctor").schedule.kind === "once";
   const freshRx = (): Rp => verbal ? { ...newRp(), once: true, times: "頓用", prn: "今すぐ1回だけ", maxPerDay: "1", days: "1", category: "臨時" } : newRp();
   const first = drafts.filter((d) => d.kind === "prescription").length + 1;
-  const [rps, setRps] = useState<Rp[]>([freshRx()]);
-  const [category, setCategory] = useState<Rp["category"]>("定期");
+  const [rps, setRps, clearEntry] = useWindowEntry<Rp[]>("rx.入れかけ", () => [freshRx()]);
+  const [category, setCategory] = useWindowEntry<Rp["category"]>("rx.category", "定期");
   const tokyo = todayInTokyo();
   const today = new Date(tokyo.y, tokyo.m - 1, tokyo.d);
   const nextDay = nextRegularDay(ward, today);
@@ -786,7 +789,7 @@ export function AddRxPanel({
       return out.some((y) => y.rows.length === 0) ? out : [...out, freshRx()];
     });
   };
-  const [seeded, setSeeded] = useState<string | null>(null);
+  const [seeded, setSeeded] = useWindowEntry<string | null>("rx.seeded", null);
   if (seed && seed.key !== seeded) {
     setSeeded(seed.key);
     putIn([rpFromPattern(seed.pattern)]);
@@ -846,6 +849,7 @@ export function AddRxPanel({
   };
   const submit = () => {
     if (!ready.length) return;
+    clearEntry();
     const trailing = rps.filter((r) => !r.rows.length).map((r) => r.comment?.trim()).filter(Boolean).join("　");
     onAdd(ready.map((rp, i) => toDraft(i === ready.length - 1 && trailing ? { ...rp, comment: [rp.comment, trailing].filter(Boolean).join("　") } : rp)));
     setRps([{ ...freshRx(), days: category === "臨時" ? "3" : "7" }]);
@@ -866,6 +870,7 @@ export function AddRxPanel({
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[13px]">
       <CollectedRps drafts={drafts} kind="prescription" />
+      <p className="hint">入れかけの入力は、この患者の下書きに残ります。</p>
       <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />
       {category === "定期" && <p className="text-xs">{nextDay ? `この病棟の定期処方日：${"日月火水木金土"[REGULAR_RX_DAYS[ward.replace(/病棟$/, "")]]}曜。次は ${nextDay.getMonth() + 1}/${nextDay.getDate()}（${"日月火水木金土"[nextDay.getDay()]}）から` : "この病棟の定期処方日は未設定です。"}</p>}
       <p className="hint text-xs"><a href={ORAL_MASTER_SOURCE.url} target="_blank" rel="noreferrer" className="text-ai underline">{ORAL_MASTER_SOURCE.label}</a>。品目ごとの出典は院内医薬品集で確認できます。</p>

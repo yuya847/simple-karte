@@ -86,3 +86,10 @@ describe("同時に開いたときの記録のマージ", () => {
     expect(mergeWorkspace(same, JSON.parse(JSON.stringify(same)), same).changed).toEqual([]);
   });
 });
+
+it("患者の入れかけの Rp は、この職種が入力中の内容を保って保存する", () => {
+  const key = JSON.stringify(["90010231:看護師", "injection.入れかけ"]);
+  const mine = { windowEntries: { [key]: [{ rows: [{ drugCode: "demo", amount: "2" }] }] } };
+  const theirs = { windowEntries: { [key]: [{ rows: [{ drugCode: "demo", amount: "1" }] }] } };
+  expect(mergeWorkspace(mine, theirs, null, { local: chartDeskOf("看護師") }).data).toEqual(mine);
+});

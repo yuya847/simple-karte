@@ -206,3 +206,12 @@ it("管理栄養士の介入は食事を含み、拘束・一括中止・パス�
   expect(can("管理栄養士", "order")).toBe(false);
   expect(tools).toContain("active-orders");
 });
+
+it("管理栄養士の介入に食事タイルを押せる状態で表示する", async () => {
+  const { nutritionTileBlocks } = await import("@/lib/nutrition-access");
+  const data = new Map<string, string>();
+  vi.stubGlobal("window", { localStorage: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
+  saveRail(STAFF["管理栄養士"].name, { mode: "icons", group: "intervention", pins: [], showAll: false });
+  const html = as("管理栄養士", <ToolRail open={null} onOpen={() => {}} blocked={nutritionTileBlocks("管理栄養士")} />);
+  expect(html).toMatch(/<button(?![^>]*disabled)[^>]*title="食事"/);
+});

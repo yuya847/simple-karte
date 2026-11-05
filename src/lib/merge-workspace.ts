@@ -147,4 +147,13 @@ export function mergeWorkspace(mine: Record<string, unknown>, theirs: Record<str
 }
 
 /** For `charts`: what one role is writing (its desk "patient|role") stays on this page. */
-export const chartDeskOf = (role: string) => (k: string, sub: string) => k === "charts" && sub.endsWith(`|${role}`);
+export const chartDeskOf = (role: string, desk = role) => (k: string, sub: string) => {
+  if (k === "charts") return sub.endsWith(`|${role}`);
+  if (k === "windowEntries") {
+    try {
+      const [scope] = JSON.parse(sub) as [string, string];
+      return typeof scope === "string" && scope.endsWith(`:${desk}`);
+    } catch { return false; }
+  }
+  return false;
+};
