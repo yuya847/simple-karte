@@ -86,12 +86,20 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
         </span>
       </header>
 
+      {draft.kind === "lab" && blocking.length > 0 && (
+        <ul className="space-y-2 px-3 pb-2">
+          {blocking.map((i) => (
+            <IssueRow key={i.key} issue={i} draft={draft} onApply={onApply} onRemove={onRemove} canRedo={!!onRedo} />
+          ))}
+        </ul>
+      )}
+
       <div className="nums px-3 py-2">
         <Summary draft={draft} ctx={ctx} />
       </div>
 
       {draft.kind === "imaging" && <ImagingDraftEditor draft={draft} onApply={onApply} />}
-      {blocking.length > 0 && (
+      {draft.kind !== "lab" && blocking.length > 0 && (
         <ul className="space-y-2 px-3 pb-2">
           {blocking.map((i) => (
             <IssueRow key={i.key} issue={i} draft={draft} onApply={onApply} onRemove={onRemove} canRedo={!!onRedo} />

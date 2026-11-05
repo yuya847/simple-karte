@@ -1,7 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import { DraftCard } from "./DraftCard";
-import type { CheckContext, Draft } from "@/lib/drafts";
+import { applyChoice, checkDraft, isReady, type CheckContext, type Draft } from "@/lib/drafts";
+import { defaultDraw, labDraftOf } from "@/lib/lab-catalog";
+import { DEPT_SETS } from "@/lib/lab-sets";
+import { visitLabOrders } from "@/lib/lab-visits";
+import { masterIssues, NO_OVERRIDES } from "@/lib/master-local";
 const ctx: CheckContext = { activeOrders: [], labOrders: [], drafts: [], nowTime: "10:00", fmtDay: () => "今日", describe: () => "" };
 const draft: Draft = { id: "u", kind: "unclear", origin: "manual", sourceText: "検査", reason: "名前を確認", comment: null };
 it("shows a borderless line; with something to answer the details are open from the start, with nothing to answer they are collapsed", () => {
@@ -25,4 +29,34 @@ it("内服の仮の見出しを隠し、1回量・回数・日数の後ろに薄
   expect(html).toContain('text-ink-faint">（1日1錠）');
   expect(html.indexOf('class="ml-2">1日1回 朝食後　7日分')).toBeLessThan(html.indexOf('text-ink-faint">（1日1錠）'));
   expect(html).toContain('id="draft-line-rx"');
+});
+
+const heartFailure = () => {
+  const set = DEPT_SETS.flatMap((d) => d.sets).find((s) => s.code === "DSET-CARD-HF")!;
+  expect(set.codes).toHaveLength(19);
+  return labDraftOf("er-hf", set.codes, { ...defaultDraw(), mode: "now", priority: "至急" }, { site: "自科採血" });
+};
+
+it("救急の心不全セットは至急・今すぐだけでは確認を残さない", () => {
+  const d = heartFailure();
+  const issues = [...checkDraft(d, ctx), ...masterIssues(d, NO_OVERRIDES)];
+  expect(issues.filter((i) => i.level !== "info")).toEqual([]);
+  expect(isReady(issues)).toBe(true);
+});
+
+it("救急の既存採血との重複理由と選択肢を、詳細の検査一覧より先に出す", () => {
+  const d = heartFailure();
+  const c: CheckContext = { ...ctx, nowTime: "07:56", labOrders: visitLabOrders(7 * 60 + 56)["er:er-3"], describe: () => "本日の血算・生化学・BNP" };
+  const issues = checkDraft(d, c);
+  const blocking = issues.filter((i) => i.level !== "info");
+  expect(blocking.map((i) => i.key)).toEqual(["duplicate"]);
+  expect(isReady(issues)).toBe(false);
+  const html = renderToStaticMarkup(<DraftCard draft={d} ctx={c} issues={issues} onApply={() => {}} onRemove={() => {}} />);
+  expect(html).toContain(blocking[0].message);
+  expect(html).toContain(">重ねて出す</button>");
+  expect(html).toContain(">この下書きを消す</button>");
+  const detail = html.slice(html.indexOf("<header"));
+  expect(detail.indexOf(blocking[0].message)).toBeLessThan(detail.indexOf('class="nums px-3 py-2"'));
+  const accepted = applyChoice(d, blocking[0].choices![0]);
+  expect(isReady(checkDraft(accepted, c))).toBe(true);
 });
