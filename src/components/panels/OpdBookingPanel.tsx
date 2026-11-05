@@ -11,7 +11,7 @@ import { TabChoice } from "../TabChoice";
 
 /**
  * 外来予約: the doctor chooses the clinic, the doctor (optional), the day (tomorrow to 90 days ahead, with the
- * weekday), the slot (午前・午後 or a clock time), what the visit is for, and a note; 「下書きにする」 puts it with
+ * weekday), the slot (午前・午後 or a clock time), what the visit is for, and a note; 「保存する」 puts it with
  * the other drafts under the note, where it is checked and confirmed. Used for the first visit after discharge
  * of an inpatient and for the next visit of an outpatient (the strip's 再診予約 opens this panel).
  */
@@ -59,7 +59,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
           </ul>
         </section>
       )}
-      <p className="hint text-[11px] text-ink-faint">科・日付・時間枠・目的を選んで「下書きにする」。記事の下の下書きで確かめて確定すると、左の経過にオーダとして残り、「予約」のウインドウに出ます。決めるのは医師で、AI は使いません。</p>
+      <p className="hint text-[11px] text-ink-faint">科・日付・時間枠・目的を選んで「保存する」。記事の下の下書きで確かめて確定すると、左の経過にオーダとして残り、「予約」のウインドウに出ます。決めるのは医師で、AI は使いません。</p>
       <div data-booking-field="診療科" className={row}>
         <span className={label}>診療科</span>
         <TabChoice label="診療科" options={OPD_CLINICS.map((c) => ({ value: c.name, label: c.name }))} value={dept} onChange={(v) => (setDept(v), setDoctor(""))} />
@@ -119,7 +119,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
       <DenyNote action="order" />
       <div className="flex flex-wrap items-center gap-2">
       <button type="button" disabled={missing.length > 0 || !!deny} onClick={submit} className="rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-        下書きにする
+        保存する
       </button>
       {missing.length > 0 && <span className="text-yamabuki">未入力：{missing.map((name) => <button key={name} type="button" onClick={() => focusMissing(name)} className="mx-1 underline">{name}</button>)}</span>}
       </div>

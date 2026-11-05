@@ -144,7 +144,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
               ))}
             </ul>
             <button type="button" disabled={!ready} onClick={() => onDecide(r, rows)} className="mt-1.5 rounded bg-ai px-3 py-1 font-bold text-white disabled:opacity-40">
-              選んだとおりに下書きにする
+              選んだとおりに保存する
             </button>
             <span className="ml-2 text-ink-faint">開始は、それぞれの次の服用時刻（病棟の約束）からです。</span>
           </div>

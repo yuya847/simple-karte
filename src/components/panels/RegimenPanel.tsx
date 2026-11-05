@@ -321,7 +321,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
 
       <div className="sticky bottom-0 border-t border-rule bg-sheet pt-3">
         <button type="button" disabled={!ready} onClick={submit} title="⌘Enter（Ctrl+Enter）でも押せます" className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40 pointer-coarse:py-3">
-          下書きにする{ready && plan ? `（${plan.rps.length} 本）` : ""}
+          保存する{ready && plan ? `（${plan.rps.length} 本）` : ""}
           <kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
         </button>
         {choices.length > 0 && <p className="mt-1 text-[12px] text-yamabuki">未選択：{choices.join("・")}</p>}

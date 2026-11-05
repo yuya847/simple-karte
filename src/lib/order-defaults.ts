@@ -8,7 +8,7 @@ export function orderDefaults(patientId: string, category: "定期" | "臨時", 
     startNow: immediate,
     schedule: (immediate ? { kind: "once" } : { kind: "per_day", count: 1 }) as InjectionSchedule,
     start: { day: 0, time: immediate ? now : "10:00" },
-    drawMode: mode === "verbal" || patientPlace(patientId) === "er" ? "now" as const : "routine" as const,
+    drawMode: mode === "verbal" || patientPlace(patientId) === "er" ? "now" as const : "time" as const,
     imagingTime: patientPlace(patientId) === "er" ? now : null,
   };
 }

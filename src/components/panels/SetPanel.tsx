@@ -41,7 +41,7 @@ export function SetPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newId:
             </label>
           ))}
           <button type="button" disabled={!keep.some(Boolean)} onClick={() => onAdd(expandSet(set, keep, newId))} className="mt-1 w-full rounded-md bg-ai px-3 py-2 font-bold text-white disabled:opacity-40">
-            {keep.filter(Boolean).length}件を下書きにする
+            {keep.filter(Boolean).length}件を保存する
           </button>
         </section>
       )}

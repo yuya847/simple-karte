@@ -15,11 +15,12 @@ import { LAB_TESTS, WARD_RULES, labInfo } from "@/lib/master";
 import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
 import { LAB_SITES, type LabSite } from "@/lib/types";
 
+/** The select's value for "write your own" (the comment then holds the text). */
+const FREE = "__free__";
 const MODES: { value: DrawMode; label: string; title: string }[] = [
   { value: "now", label: "今すぐ（至急）", title: "確定時の時刻で、至急として出す" },
   { value: "routine", label: "朝の定時", title: `病棟の定時採血（${WARD_RULES.routineDrawTime}）。日は右で選ぶ` },
   { value: "time", label: "日時を選ぶ", title: "日と時刻を選ぶ（定時の候補か、HH:MM を入れる）" },
-  { value: "before_dose", label: "◯回目の投与前", title: `薬物濃度：時間ごとの注射の N 回目の投与の${WARD_RULES.minutesBeforeDoseForLevel}分前（病棟の決まり）` },
 ];
 
 /** The layout of a published operating manual's lab order screen was the reference for the columns and the tab order (sets left, items in the middle, the picks right). */
@@ -355,12 +356,19 @@ export function AddLabPanel({
           </label>
           <label className="inline-flex min-w-0 items-center gap-1 text-xs text-ink-soft" title="依頼コメント：候補から選ぶか、自由に書きます">
             コメント
-            <input list="lab-comment-options" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="候補から／自由に" aria-label="依頼コメント" className="w-44 rounded border border-rule bg-sheet px-1.5 py-1 text-[12px] text-ink" />
-            <datalist id="lab-comment-options">
+            {/* A combo box: the ward's usual comments to pick (採取の時刻の指定もここ), or 自由に書く for anything else. */}
+            <select value={LAB_COMMENT_OPTIONS.includes(comment) ? comment : comment ? FREE : ""} onChange={(e) => setComment(e.target.value === FREE ? " " : e.target.value)} aria-label="依頼コメント（候補）" className="max-w-56 rounded border border-rule bg-sheet px-1.5 py-1 text-[12px] text-ink">
+              <option value="">なし</option>
               {LAB_COMMENT_OPTIONS.map((o) => (
-                <option key={o} value={o} />
+                <option key={o} value={o}>
+                  {o}
+                </option>
               ))}
-            </datalist>
+              <option value={FREE}>自由に書く…</option>
+            </select>
+            {comment && !LAB_COMMENT_OPTIONS.includes(comment) && (
+              <input value={comment.trim()} onChange={(e) => setComment(e.target.value || " ")} placeholder="コメントを書く" aria-label="依頼コメント" autoFocus className="w-44 rounded border border-rule bg-sheet px-1.5 py-1 text-[12px] text-ink" />
+            )}
           </label>
           {problem && picked.length > 0 && <span className="text-xs text-shu">{problem}</span>}
           <button type="button" disabled={!canAdd} onClick={save} className="ml-auto rounded-md bg-ai px-4 py-2 text-sm font-bold text-white disabled:opacity-40">

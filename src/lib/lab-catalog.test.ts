@@ -171,7 +171,7 @@ describe("採取の日時", () => {
   });
 
   it("becomes the draft's collect in the existing shape, and the checks accept it", () => {
-    const routine = labDraftOf("l1", ["LAB-CBC", "LAB-CRP"], defaultDraw());
+    const routine = labDraftOf("l1", ["LAB-CBC", "LAB-CRP"], { ...defaultDraw(), mode: "routine" });
     expect(routine.collect).toEqual({ day: 1, when: "morning_routine", time: null, beforeDose: null });
     expect(routine.priority).toBe("定時");
     expect(routine.tests).toEqual([
@@ -218,6 +218,7 @@ describe("採取の日時", () => {
     // 3rd dose at D1 10:00 → drawn 30 minutes before.
     expect(issues.find((i) => i.key === "collect")?.message).toContain("D1 09:30");
     expect(drawText({ mode: "before_dose", day: 0, time: "", priority: "定時", beforeDose: { n: 3, drugCode: "INJ-VCM05" } }, today)).toBe("3回目の投与の30分前（定時）");
-    expect(drawText(defaultDraw(), today)).toBe("11/5（木） 定時採血 06:00（定時）");
+    expect(drawText(defaultDraw(), today)).toBe("11/5（木） 06:00（定時）");
+    expect(drawText({ ...defaultDraw(), mode: "routine" }, today)).toBe("11/5（木） 定時採血 06:00（定時）");
   });
 });

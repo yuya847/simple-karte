@@ -301,7 +301,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
       <CollectedRps drafts={drafts} kind="injection" />
       <p className="hint">入れかけの入力は、この患者の下書きに残ります。</p>
       <TabChoice label="注射の区分" options={["定期", "臨時"].map((v) => ({ value: v as "定期" | "臨時", label: v }))} value={category} onChange={(v) => { setCategory(v); setRps((rs) => rs.map((r) => { const d = freshRp(v); return { ...r, sched: schedulesOf(r).findIndex((s) => s.value.kind === SCHEDULES[d.sched].value.kind), startDay: 0, startNow: d.startNow, startTime: d.startTime, doseTimes: d.doseTimes }; })); }} />
-      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で下書きにする。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
+      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で保存する。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
 
       <LineEntry>
       {rps.map((rp, i) => {
@@ -585,7 +585,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
           onClick={submit}
           className="flex-1 rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
         >
-          下書きにする（{ready.length} Rp）<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
+          保存する（{ready.length} Rp）<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
         </button>
       </div>
       {unfinished.length > 0 && <p className="text-[12px] text-yamabuki">{unfinished.map((x) => `Rp${first + x.i}：${x.miss.join("・")}が未選択`).join("　")}</p>}
@@ -938,7 +938,7 @@ export function AddRxPanel({
         </section>;
       })}
       </LineEntry>
-      <button type="button" disabled={!ready.length} onClick={submit} className="w-full rounded bg-ai p-2 font-bold text-white disabled:opacity-40">決める・下書きにする（{ready.length} Rp）</button>
+      <button type="button" disabled={!ready.length} onClick={submit} className="w-full rounded bg-ai p-2 font-bold text-white disabled:opacity-40">決める・保存する（{ready.length} Rp）</button>
     </div>
   );
 }
@@ -972,7 +972,7 @@ export function AddPhysioPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; ne
         onClick={() => onAdd({ ...emptyPhysio(newId(), test), purpose: purpose.trim() || null })}
         className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
       >
-        下書きにする
+        保存する
       </button>
     </div>
   );
@@ -1144,7 +1144,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
       <input value={f.comment} onChange={(e) => set({ comment: e.target.value })} placeholder="コメント（任意：補液、透析中の採血、輸血など）" aria-label="透析のコメント" className={`${field} w-full`} />
       <div className="sticky bottom-0 border-t border-rule bg-sheet pt-3">
         <button type="button" disabled={missing.length > 0} onClick={submit} title="⌘Enter（Ctrl+Enter）でも押せます" className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-          下書きにする<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
+          保存する<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
         </button>
         {missing.length > 0 && <p className="mt-1 text-[12px] text-yamabuki">未選択：{missing.join("・")}</p>}
       </div>
@@ -1243,7 +1243,7 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
       )}
       <div className="sticky bottom-0 border-t border-rule bg-sheet pt-3">
         <button type="button" disabled={missing.length > 0 || !blood} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-          下書きにする<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
+          保存する<kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
         </button>
         {missing.length > 0 && <p className="mt-1 text-yamabuki">未入力：{missing.join("・")}</p>}
       </div>
@@ -1481,7 +1481,7 @@ export function AddRehabPanel({ onAdd, newId, admittedOn, rest }: { onAdd: (d: D
       <input value={cautions} onChange={(e) => setCautions(e.target.value)} placeholder="注意・中止の基準（例：SpO2 90%未満で中止、右下肢は荷重可）" aria-label="リハビリの注意" className={input} />
       {rest && <p className="text-[11px] text-ink-soft">指示簿の安静度：{rest}（リハビリと合っているか確かめてください）</p>}
       <button type="button" disabled={missing.length > 0} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-        下書きにする（明日から）
+        保存する（明日から）
       </button>
       {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}
     </div>
@@ -1553,7 +1553,7 @@ export function AddConsultPanel({ onAdd, newId, consults, replies, onReply }: { 
         </div>
         <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} placeholder="聞きたいこと（例：心房細動の抗凝固療法について、ご高診をお願いします）" aria-label="聞きたいこと" className={input} />
         <button type="button" disabled={missing.length > 0} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-          下書きにする
+          保存する
         </button>
         {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}
       </section>
@@ -1665,7 +1665,7 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
       {row("行き先", <input value={dest} onChange={(e) => setDest(e.target.value)} placeholder={kind === "退院" ? "例：自宅（長女と同居）・施設・転院先" : "例：自宅"} className="flex-1 rounded border border-rule bg-paper px-2 py-1" />)}
       <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="申し送り（例：介護タクシー、退院処方は7日分）" aria-label="退院・外泊の申し送り" className="w-full rounded border border-rule bg-paper px-2 py-1" />
       <button type="button" disabled={missing.length > 0} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-        下書きにする
+        保存する
       </button>
       {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}
     </div>
@@ -1686,7 +1686,7 @@ export function AddGuidePanel({ onAdd, newId }: { onAdd: (d: Draft) => void; new
         onClick={() => kind && onAdd({ ...newProcedureDraft("PROC-GUIDE", newId()), sourceText: "（指導の依頼の欄から）", guide: { kind, note: note.trim() }, schedule: { kind: "once" }, start: { day: 0, time: null } })}
         className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
       >
-        下書きにする
+        保存する
       </button>
     </div>
   );

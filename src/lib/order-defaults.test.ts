@@ -9,7 +9,7 @@ describe("場所と区分の既定（架空の病院の取り決め）", () => {
         const d = orderDefaults(id, category, "23:58");
         expect(d.schedule).toEqual(er || category === "臨時" ? { kind: "once" } : { kind: "per_day", count: 1 });
         expect(d.start).toEqual({ day: 0, time: er || category === "臨時" ? "23:58" : "10:00" });
-        expect(d.drawMode).toBe(er ? "now" : "routine");
+        expect(d.drawMode).toBe(er ? "now" : "time");
         expect(d.imagingTime).toBe(er ? "23:58" : null);
       });
     }

@@ -285,7 +285,8 @@ export interface DrawChoice {
   beforeDose: { n: number; drugCode: string } | null;
 }
 
-export const defaultDraw = (): DrawChoice => ({ mode: "routine", day: 1, time: WARD_RULES.routineDrawTime, priority: "定時", beforeDose: null });
+/** 既定は「日時を選ぶ」（明日の定時採血の時刻。ユーザー 2026-11-05）。投与前の採血などの時刻の指定はコメントで。 */
+export const defaultDraw = (): DrawChoice => ({ mode: "time", day: 1, time: WARD_RULES.routineDrawTime, priority: "定時", beforeDose: null });
 
 /** The draw as the draft's `collect` and `priority` (checkDraft resolves and checks it, e.g. a past time). */
 export function collectOf(c: DrawChoice): Pick<LabDraft, "collect" | "priority"> {
@@ -312,7 +313,7 @@ export function drawText(c: DrawChoice, today: CalendarDate): string {
 }
 
 /** Comments the ward writes often (the combo box offers them; anything else can be typed). The fictional hospital's list. */
-export const LAB_COMMENT_OPTIONS: readonly string[] = ["至急でお願いします", "採血困難（細い針で）", "ヘパリンロックから採取", "輸液と反対側から採取", "食後採血", "絶食で採取", "動脈ラインから採取", "結果が出たら電話連絡"];
+export const LAB_COMMENT_OPTIONS: readonly string[] = ["薬剤投与の30分前に採取（トラフ）", "薬剤投与の直前に採取", "薬剤投与の1時間後に採取（ピーク）", "食前に採取", "食後2時間で採取", "絶食で採取", "至急でお願いします", "採血困難（細い針で）", "ヘパリンロックから採取", "輸液と反対側から採取", "動脈ラインから採取", "結果が出たら電話連絡"];
 
 /** What the right column adds to the picks: the items 至急 on their own, where to draw, the comment and the purpose. */
 export interface LabExtras {

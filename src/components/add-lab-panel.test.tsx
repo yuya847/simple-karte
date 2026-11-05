@@ -59,18 +59,22 @@ describe("検体検査のオーダ画面", () => {
     for (const s of ["中央採血室", "自科採血", "病棟採血"]) expect(html).toContain(`value="${s}"`);
     expect(html).toMatch(/checked="" value="病棟採血"/);
     expect(html).toContain("検査目的");
-    expect(html).toContain('list="lab-comment-options"');
-    expect(html).toContain('<datalist id="lab-comment-options">');
+    // A select of the ward's usual comments (採取の時刻の指定もここ) plus 自由に書く.
+    expect(html).toContain('aria-label="依頼コメント（候補）"');
+    expect(html).toContain('value="薬剤投与の30分前に採取（トラフ）"');
     expect(html).toContain('value="ヘパリンロックから採取"');
+    expect(html).toContain("自由に書く…");
   });
 
-  it("the band at the bottom: when to draw, 至急, the comment, then 保存 (not 下書きにする)", () => {
+  it("the band at the bottom: when to draw, 至急, the comment, then 保存 (not 保存する)", () => {
     const band = html.slice(html.indexOf("sticky bottom-0"));
-    for (const s of ["今すぐ（至急）", "朝の定時", "日時を選ぶ", "◯回目の投与前", "明日 11/5（木）", "11/11（水）", "06:00", "至急", "コメント", "保存（0項目・採取 11/5（木） 定時採血 06:00（定時））"]) expect(band).toContain(s);
+    // 日時を選ぶ is the default (tomorrow at the routine time); 投与前 is written as a comment, not a mode.
+    for (const s of ["今すぐ（至急）", "朝の定時", "日時を選ぶ", "明日 11/5（木）", "11/11（水）", "06:00", "至急", "コメント", "保存（0項目・採取 11/5（木） 06:00（定時））"]) expect(band).toContain(s);
+    expect(band).not.toContain("◯回目の投与前");
     expect(band.indexOf("朝の定時")).toBeLessThan(band.indexOf('type="checkbox"'));
-    expect(band.indexOf('type="checkbox"')).toBeLessThan(band.indexOf("lab-comment-options"));
-    expect(band.indexOf("lab-comment-options")).toBeLessThan(band.indexOf("保存（"));
-    expect(html).not.toContain("下書きにする");
+    expect(band.indexOf('type="checkbox"')).toBeLessThan(band.indexOf("依頼コメント（候補）"));
+    expect(band.indexOf("依頼コメント（候補）")).toBeLessThan(band.indexOf("保存（"));
+    expect(html).not.toContain("保存する");
   });
 
   it("names the sources and the fictional-hospital rules as hints, and suggests nothing", () => {

@@ -305,7 +305,7 @@ export function TodayPane(p: Props) {
               className="ml-auto flex items-center gap-1.5 rounded-md bg-ai px-3 py-1.5 text-xs font-bold text-white hover:bg-ai/90 disabled:bg-ai/40"
             >
               {p.drafting && <Loader2 size={14} className="animate-spin" />}
-              {p.drafting ? "下書き中…" : "下書きにする"}
+              {p.drafting ? "下書き中…" : "保存する"}
               {!p.drafting && <kbd className="rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>}
             </button>
           </div>

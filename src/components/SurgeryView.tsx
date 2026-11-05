@@ -332,7 +332,7 @@ function RequestDialog({ people, all, nowAbs, onCancel, onSave }: { people: Work
                 例文
               </button>
               <button type="button" disabled={!text.trim() || busy} onClick={read} className="rounded bg-ai px-2 py-1 text-[12px] font-bold text-white disabled:opacity-40">
-                {busy ? "読み取り中…" : "下書きにする"}
+                {busy ? "読み取り中…" : "保存する"}
               </button>
             </div>
           </div>

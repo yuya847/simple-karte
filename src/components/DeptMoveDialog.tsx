@@ -77,7 +77,7 @@ export function DeptMoveDialog({ patient, dayLabel, onCancel, onBook }: { patien
             やめる
           </button>
           <button type="button" disabled={!dept || !doctor || !time || !reason.trim()} onClick={() => onBook({ toDept: dept, toDoctor: doctor, time, reason: reason.trim() })} className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40">
-            転科の予約を下書きにする
+            転科の予約を保存する
           </button>
         </div>
       </div>

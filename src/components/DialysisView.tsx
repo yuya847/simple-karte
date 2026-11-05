@@ -211,7 +211,7 @@ function Conditions({ p, nowTime, onPatient }: { p: HdPatient; today: CalendarDa
             className="flex-1 rounded border border-rule bg-paper px-2 py-1.5 outline-none focus:border-ai"
           />
           <button type="button" disabled={!text.trim() || busy} onClick={read} className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40">
-            {busy ? "読み取り中…" : "下書きにする"}
+            {busy ? "読み取り中…" : "保存する"}
           </button>
         </div>
         {error && <p className="mt-1 text-shu">{error}</p>}

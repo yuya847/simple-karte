@@ -170,7 +170,7 @@ function Apply({ patient, fmt, onApply }: { patient: Patient; fmt: (d: number) =
               ))}
           </ul>
           <button type="button" onClick={() => onApply(path, start, keys)} className="w-full rounded-md bg-ai px-3 py-2 font-bold text-white">
-            パスを適用し、選んだ {keys.length}件を下書きにする
+            パスを適用し、選んだ {keys.length}件を保存する
           </button>
         </section>
       )}
@@ -412,7 +412,7 @@ function Active({ app, path, book, onBook, entries, fmt, at, newId, onDrafts, on
             }}
             className="rounded-md bg-ai px-3 py-1 font-bold text-white disabled:opacity-40"
           >
-            選んだ {left.length}件を下書きにする
+            選んだ {left.length}件を保存する
           </button>
         </section>
       )}

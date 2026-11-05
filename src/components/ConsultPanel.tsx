@@ -76,7 +76,7 @@ export function ConsultPanel({ patient, entries, consults, replies, newId, onAdd
         </label>
         <p>依頼者：{me.name}</p>
         <button className="rounded bg-ai p-2 text-white disabled:opacity-40" disabled={!question.trim() || (external && !to.trim())} onClick={submit}>
-          {external ? "診療情報提供書の下書きへ" : "オーダの下書きにする"}
+          {external ? "診療情報提供書の下書きへ" : "オーダを保存する"}
         </button>
       </fieldset>
       {consults.map(e => {

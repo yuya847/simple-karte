@@ -112,7 +112,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
             onClick={() => to && onMove({ patientId: patient.id, from, to, kind, reason: reason.trim(), ...(reserve ? { time } : {}) })}
             className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40"
           >
-            {reserve ? `${kind}の予約を下書きにする` : `${kind}を確定`}
+            {reserve ? `${kind}の予約を保存する` : `${kind}を確定`}
           </button>
         </div>
       </div>

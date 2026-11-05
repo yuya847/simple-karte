@@ -406,7 +406,7 @@ export function AddImagingPanel({
         </p>
       )}
       <button type="button" disabled={missing.length > 0} onClick={() => onAdd({ ...d, id: newId(), modality, purpose: d.purpose?.trim() || null, note: d.note?.trim() || null })} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-        下書きにする{missing.length > 0 && `（${missing.join("・")}を選ぶ）`}
+        保存する{missing.length > 0 && `（${missing.join("・")}を選ぶ）`}
       </button>
       <p className="hint text-[11px] text-ink-faint">
         部位を選ぶと、マスターの標準の方向と体位が入ります。変えるときは押し直します。日時はここでも選べます。移動・読影は右の下書きで選びます。造影なら腎機能・造影剤アレルギー・喘息・ビグアナイド・同意、MRI なら体内金属の確認が下書きに出ます。{EXAM_SOURCES.naming}
