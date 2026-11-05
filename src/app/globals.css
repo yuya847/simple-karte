@@ -69,9 +69,17 @@ textarea::selection,
   scrollbar-color: var(--color-rule) transparent;
 }
 
-:focus-visible {
+/* The keyboard focus ring stays on buttons, tabs and links. Text fields show the caret instead
+   (ユーザー 2026-11-05：「入力欄の青い囲いはいらない」). */
+:focus-visible:not(input):not(textarea):not(select):not([contenteditable="true"]) {
   outline: 2px solid var(--color-ai);
   outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable="true"]:focus-visible {
+  outline: none;
 }
 
 /*

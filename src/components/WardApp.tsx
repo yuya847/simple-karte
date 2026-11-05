@@ -290,7 +290,9 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  * drawer on the right. Each Drawer has a 別ウインドウ button either way; the last choice and the
  * window's place are remembered per panel on this device only.
  */
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["nutrition", ...orderWindows, "add-consult", "standing", "add-lab", "add-imaging", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline"]);
+// 参照系（検査結果・レポート・画像・有効オーダ・プロファイル・モニター…）は独立したウインドウで開く（ユーザー 2026-11-05：
+// 「参照系は独立ウインドウで」。点滴・内服・処置などのオーダの入力は今までどおり）。
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["nutrition", ...orderWindows, "add-consult", "standing", "add-lab", "add-imaging", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline", "reports", "report-list", "rehab-progress", "active-orders", "profile"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
