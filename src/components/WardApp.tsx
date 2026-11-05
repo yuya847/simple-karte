@@ -32,6 +32,7 @@ import type { InjSeed, InjStart } from "@/lib/inj-calendar";
 import { bigWin, keepWin, keptWin } from "@/lib/win-prefs";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
+import { standingFromRequest, standingTakeLines, admissionMissingNow } from "@/lib/admission-orders";
 import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
 import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
@@ -1338,6 +1339,8 @@ export default function WardApp() {
     const { patient: p, bed: b } = built;
     if (r.from.kind === "er") p.history = transferEmergencyOrders(p.history, withExamRecords(currentEntries(findPatient(vkey)!, charts[vkey]), dept.ris));
     auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `-${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
+    p.infections = r.isolation === "なし" ? p.infections : [...p.infections, r.isolation];
+    setStanding((all) => ({ ...all, [id]: [...(all[id] ?? []), standingFromRequest(r, r.by, { day: 0, time: nowTime })] }));
     setAdmitted((a) => [...a, p]);
     // 緊急入院 counts as emergency (退院困難な要因 イ, 栄養管理計画は7日以内).
     setEvals((all) => ({ ...all, [id]: { patientId: id, emergency: r.urgency === "緊急" } }));
@@ -1547,7 +1550,7 @@ export default function WardApp() {
       -1440,
       abs(0, nowTime),
     ),
-    ...lineChanges(people, standingLines, INITIAL_LINE_IDS, -1440, abs(0, nowTime), (d) => formatShort(addDays(today, d))),
+    ...lineChanges(people, standingTakeLines(standing, standingLines), INITIAL_LINE_IDS, -1440, abs(0, nowTime), (d) => formatShort(addDays(today, d))),
   ].sort((a, b) => a.at - b.at || a.room.localeCompare(b.room));
   const sessionKeys = new Set([...sessionChangeKeys(sessionChanges), ...others.map((c) => c.key), ...redrawChangeKeys(labDesk)]);
   const waiting: Record<string, number> = {};
@@ -2873,6 +2876,8 @@ export default function WardApp() {
           <PatientSwitchFlash patient={{ id: patient.id }} />
           <ConsultBanner entries={entries} replies={consultReplies} onOpen={() => setPanel("add-consult")} />
           <PatientBar
+            admissionMissing={requests.some((r) => r.status === "入院済" && r.admittedAs === patient.id) ? admissionMissingNow(standing[patient.id] ?? [], standingLines[patient.id] ?? [], diets.filter((d) => d.patientId === patient.id), nowTime) : []}
+            onOpenStanding={role === "医師" ? () => setPanel("standing") : undefined}
             patient={patient}
             today={today}
             diagnoses={diagnoses[patient.id] ?? []}

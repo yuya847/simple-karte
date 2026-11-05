@@ -8,6 +8,12 @@ import type { TakeRow } from "./order-take";
 const at = { day: 0, time: "10:00" };
 const line: StandingLine = { id: "l1", cat: "安静", text: "室内", start: at, at, by: "研修医 田中" };
 describe("指示簿の確認待ち", () => {
+  it("項目から作った入院時の行にも研修医の確認待ちを表示する", () => {
+    const items = syncStandingCosign([], { p: [{ ...emptyStanding(line.by, at), rest: "ベッド上" }] }, {});
+    const row = { kind: "指示簿", patientId: "p", keys: [changeKey("standing:p:fld-0-rest", "新規")], flags: {}, mustOne: [] } as unknown as TakeRow;
+    expect(markStandingTake([row], items)[0].flags.resident).toBe("研修医の指示（確認待ち）");
+    expect(markStandingTake([{ ...row, patientId: "q", keys: [changeKey("standing:q:fld-0-rest", "新規")] }], items)[0].flags.resident).toBeUndefined();
+  });
   it("追加・修正・中止と項目の各版を、書いた研修医で登録し再確認できる", () => {
     const fields = { p: [emptyStanding("山本（専攻医）", at), emptyStanding(line.by, at)] };
     const ls = { p: stopLine([line], line.id, { ...at, by: line.by, reason: "修正" }) };

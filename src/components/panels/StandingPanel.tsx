@@ -38,6 +38,7 @@ import { TabChoice } from "../TabChoice";
 import { usePrintSheet } from "../DeskParts";
 import { StandingPrintSheet } from "./StandingLines";
 import { currentLines } from "@/lib/standing-lines";
+import { ADMISSION_TEMPLATE } from "@/lib/standing-form";
 import { StandingOrderForm } from "./StandingOrderForm";
 
 // 麻薬 are not offered here (NARCOTIC_RULES.prn): each use is ordered, so that the 麻薬施用者 check applies.
@@ -232,7 +233,7 @@ export function StandingPanel({
         </div>
       </div>
     );
-    return lines ? <StandingOrderForm patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
+    return lines ? <StandingOrderForm onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
   }
 
   return (
@@ -243,7 +244,7 @@ export function StandingPanel({
       {lines && view === "カレンダー" && <StandingCalendar patient={lines.patient} lines={[...lines.lines, ...linesFromFields(versions)]} today={lines.today} nowTime={nowTime} onBulkStop={lines.onBulkStop} onOpenPanel={() => setView("一覧")} />}
       {lines && view === "一覧" && (
         <>
-          <StandingOrderForm patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
+          <StandingOrderForm onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
           <h3 className="hint border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
           <p className="hint text-[11px] text-ink-faint">ワークシートの頓用、水分出納の確認、医師を呼ぶ基準の判定はこの項目から出ます。上の行と合わせて指示簿カレンダーに出ます。</p>
         </>

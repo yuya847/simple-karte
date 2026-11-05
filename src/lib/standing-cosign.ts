@@ -31,5 +31,9 @@ export function markStandingTake(rows: TakeRow[], items: CosignItem[]): TakeRow[
     const id = i.ref.slice(prefix.length);
     return `${i.patientId}|${changeKey(id.endsWith(":stop") ? id.slice(0, -5) : id, id.endsWith(":stop") ? "中止" : "新規")}`;
   }));
-  return rows.map((r) => r.kind === "指示簿" && r.keys.some((k) => keys.has(`${r.patientId}|${k}`)) ? { ...r, flags: { ...r.flags, resident: "研修医の指示（確認待ち）" } } : r);
+  const fieldPrefixes = items.filter((i) => i.kind === "指示簿" && !i.confirmed && i.ref.startsWith(`standing:${i.patientId}:`)).map((i) => {
+    const version = Number(i.ref.slice(`standing:${i.patientId}:`.length));
+    return `standing:${i.patientId}:fld-${version - 1}-`;
+  });
+  return rows.map((r) => r.kind === "指示簿" && r.keys.some((k) => keys.has(`${r.patientId}|${k}`) || fieldPrefixes.some((prefix) => k.startsWith(prefix))) ? { ...r, flags: { ...r.flags, resident: "研修医の指示（確認待ち）" } } : r);
 }

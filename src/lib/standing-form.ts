@@ -30,3 +30,20 @@ export function worksheetPrnLines(lines: StandingLine[], person: WorkPatient, no
   const time = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
   return lines.filter((l) => lineEffective(l, day, time) && l.cat === "頓用" && (!sessionKeys.has(changeKey(l.id, "新規")) || !!taken[changeKey(l.id, "新規")])).map((l) => ({ id: l.id, patientId: person.patient.id, room: person.room, name: person.patient.name, text: l.text }));
 }
+
+/** One hospital template; the doctor reviews the draft before confirming. */
+export const ADMISSION_TEMPLATE = {
+  label: "入院時指示（一般）",
+  hint: "架空の病院の取り決め：安静度・清潔・測定・頓用・Dr.call の例です。医師が患者の状態に合わせて直し、確定します。食事は食事オーダで別に出します。不眠時は医師に連絡し、睡眠薬はオーダで出します。",
+  draft: (base: import("./standing").StandingOrders): import("./standing").StandingOrders => ({
+    ...base, until: undefined, taken: undefined,
+    rest: base.rest ?? "病棟内歩行", bath: "清拭", vitals: "1日3回", weight: "毎朝",
+    calls: [{ key: "sbpHigh", value: 180 }, { key: "sbpLow", value: 90 }, { key: "hrHigh", value: 120 }, { key: "hrLow", value: 40 }, { key: "spo2", value: 92 }],
+    callConscious: true,
+    prn: [
+      { id: "admission-fever", when: "発熱時", detail: "38℃以上", drug: { code: "ORAL-APAP500", amount: 1, unit: "錠" }, intervalH: 6, maxPerDay: 2 },
+      { id: "admission-pain", when: "疼痛時", detail: "発熱時と同じ薬。併用時は医師に確認", drug: { code: "ORAL-APAP500", amount: 1, unit: "錠" }, intervalH: 6, maxPerDay: 3 },
+    ],
+    other: [base.other, "不眠時：医師に連絡（睡眠薬はオーダで出す）", "体温38.5℃以上が頓用で下がらないとき、または排尿が6時間以上ないとき医師を呼ぶ"].filter(Boolean).join("\n"),
+  }),
+};

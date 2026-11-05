@@ -15,6 +15,7 @@ export interface Flag {
   label: string;
   tone: FlagTone;
   title?: string;
+  action?: "standing";
 }
 
 const running = (from: number, to: number | null, nowAbs: number) => from <= nowAbs && (to === null || to > nowAbs);
@@ -29,8 +30,12 @@ export function leaveFlags(entries: OrderEntry[]): Flag[] {
   });
 }
 
-export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0, results?: { unseen: number; panic: number }): Flag[] {
-  const out: Flag[] = [];
+export function admissionOrderFlags(missing: string[]): Flag[] {
+  return missing.length ? [{ label: `入院時指示がまだ（${missing.join("・")}）`, tone: "yamabuki", action: "standing", title: "指示簿を開く" }] : [];
+}
+
+export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0, results?: { unseen: number; panic: number }, admissionMissing: string[] = []): Flag[] {
+  const out: Flag[] = admissionOrderFlags(admissionMissing);
   if (results?.panic) out.push({ label: `パニック値 ${results.panic}`, tone: "shu", title: "パニック値の結果を、医師がまだ確認していません" });
   if (results?.unseen) out.push({ label: `未確認の結果 ${results.unseen}`, tone: "ai", title: "今日の検査・画像・培養の結果を、医師がまだ確認していません" });
   const unsigned = verbalUnsigned(entries);

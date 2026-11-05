@@ -4,13 +4,14 @@ import { addDays, daysFrom, isoDate, type CalendarDate } from "@/lib/dates";
 import { periodText } from "@/lib/standing-calendar";
 import { useState } from "react";
 import { HOSPITAL_LINE_TEMPLATES, LINE_CATS, currentLines, calendarRows, linesFromFields, loadMyTemplates, saveMyTemplates, templateProblems, type LineCat, type LineTemplate, type StandingLine } from "@/lib/standing-lines";
-import { CATEGORY_LABELS, STANDING_CHOICES, STANDING_SOURCES, composeStandingText, splitStandingText } from "@/lib/standing-form";
+import { ADMISSION_TEMPLATE, CATEGORY_LABELS, STANDING_CHOICES, STANDING_SOURCES, composeStandingText, splitStandingText } from "@/lib/standing-form";
 import type { StandingOrders } from "@/lib/standing";
 import { CosignMark } from "../Cosign";
 import { standingLineRef } from "@/lib/standing-cosign";
 import { useDeny, useMe } from "../RoleContext";
 
-export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onAdd, onStop, onEditFields, fieldEditor, today, patientId }: {
+export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onAdd, onStop, onEditFields, fieldEditor, today, patientId, onAdmissionTemplate }: {
+  onAdmissionTemplate?: () => void;
   patientId?: string;
   lines: StandingLine[]; versions: StandingOrders[]; nowTime: string; fmtDay: (d: number) => string;
   fieldEditor?: React.ReactNode; today?: CalendarDate;
@@ -82,6 +83,8 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
       <button type="button" aria-expanded={templates} onClick={() => setTemplates(!templates)} className="rounded border border-rule px-3 py-2">テンプレート</button>
       {templates && <div className="space-y-2 rounded border border-rule p-2">
         <p className="hint text-ink-faint">架空の病院の取り決め。自分のテンプレートは記事と同じく、利用者ごとにこの端末のみに保存されます。</p>
+        <button type="button" disabled={!canOrder} onClick={onAdmissionTemplate} className="block p-1 text-ai">{ADMISSION_TEMPLATE.label}</button>
+        <p className="hint text-ink-faint">{ADMISSION_TEMPLATE.hint}</p>
         <div className="max-h-72 space-y-1 overflow-y-auto">{[...mine, ...HOSPITAL_LINE_TEMPLATES].map((t) => <button key={t.id} type="button" disabled={!canOrder || !!selected?.fromFields} onClick={() => { pick(t.cat, t.text); setTemplates(false); }} className="block w-full border-b border-rule-soft p-1 text-left hover:bg-ai-soft"><span className="text-ink-faint">{CATEGORY_LABELS[t.cat] ?? t.cat}：</span>{t.text}</button>)}</div>
         {STANDING_SOURCES.map((s) => <p key={s.url} className="hint"><a href={s.url} target="_blank" rel="noreferrer" className="underline">{s.label}</a></p>)}
       </div>}
