@@ -214,7 +214,12 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
           if (minutes) next.minutes = minutes;
         }
         if (next.sliding && !isInsulin({items:next.rows.map(r=>({...r,amount:Number(r.amount)}))})) next.sliding = undefined;
-        if (next.sliding) { next.doseTimes = [...next.sliding.times]; next.sched = Math.max(0, schedulesOf(next).findIndex(s=>s.value.kind === "per_day" && s.value.count === next.sliding!.times.length)); }
+        if (next.sliding) {
+          next.doseTimes = [...next.sliding.times];
+          next.sched = Math.max(0, schedulesOf(next).findIndex(s=>s.value.kind === "per_day" && s.value.count === next.sliding!.times.length));
+          // A scale runs until the doctor changes it: 14 days (架空の病院の取り決め) instead of the one-day default.
+          if (!x.sliding && next.days === "1") next.days = "14";
+        }
         return next;
       }),
     );
