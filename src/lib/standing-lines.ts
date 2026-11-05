@@ -31,8 +31,11 @@ export interface StandingLine {
   /** When it was written. */
   at: { day: DayOffset; time: string };
   /** 中止: the line stays as history; the bar ends here. */
-  stop?: { day: DayOffset; time: string; by: string; reason?: string };
+  stop?: { day: DayOffset; time: string; by: string; reason?: string; kind?: "終了" };
   /** Derived from the 項目で選ぶ fields (安静度・清潔…): read-only on the calendar, stopped through those fields. */
+  changed?: { day: number; time: string; by: string; toId: string; reason?: string };
+  changedFrom?: string;
+  changeReason?: string;
   fromFields?: true;
 }
 
@@ -52,10 +55,10 @@ export function lineOn(l: StandingLine, day: DayOffset): boolean {
 }
 
 /** Lines in force or planned (not stopped, not past their end) — what is printed and what the nurse reads. */
-export const currentLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => (!l.stop || l.stop.day > today) && (l.end === undefined || l.end.day >= today));
+export const currentLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => (!l.changed || l.changed.day > today) && (!l.stop || l.stop.day > today) && (l.end === undefined || l.end.day >= today));
 
 /** Lines kept as history: stopped, or past their end. */
-export const pastLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => (!!l.stop && l.stop.day <= today) || (l.end !== undefined && l.end.day < today));
+export const pastLines = (lines: StandingLine[], today: DayOffset = 0): StandingLine[] => lines.filter((l) => (!!l.changed && l.changed.day <= today) || (!!l.stop && l.stop.day <= today) || (l.end !== undefined && l.end.day < today));
 
 /** Why a line cannot be confirmed yet (empty when it can). */
 export function lineProblems(l: { text: string; start: When; end?: When }): string[] {
@@ -72,8 +75,25 @@ export const lineLabel = (l: Pick<StandingLine, "cat" | "text">) => (l.text.star
 export const whenText = (w: When, fmtDay: (d: DayOffset) => string) => `${fmtDay(w.day)}${w.time ? ` ${w.time}` : ""}`;
 
 /** 中止: the line stays; only the stop is written on it. A line already stopped, or derived from the fields, is left as it is. */
-export function stopLine(lines: StandingLine[], id: string, stop: { day: DayOffset; time: string; by: string; reason?: string }): StandingLine[] {
-  return lines.map((l) => (l.id === id && !l.stop && !l.fromFields ? { ...l, stop: { ...stop, reason: stop.reason?.trim() || undefined } } : l));
+export function stopLine(lines: StandingLine[], id: string, stop: { day: DayOffset; time: string; by: string; reason?: string; kind?: "終了" }): StandingLine[] {
+  return lines.map((l) => (l.id === id && !l.stop && !l.changed && !l.fromFields && stop.day >= l.start.day && (lineEndDay(l) === null || stop.day <= lineEndDay(l)!) ? { ...l, stop: { ...stop, reason: stop.reason?.trim() || undefined } } : l));
+}
+
+/** Replace a free line while preserving the original and its link to the successor. */
+export function changeLine(lines: StandingLine[], id: string, next: { text: string; start: When; end?: When }, who: string, at: { day: number; time: string }, reason?: string): { lines: StandingLine[]; newId: string } {
+  const start = { ...next.start, time: next.start.time ?? (next.start.day === at.day ? at.time : undefined) };
+  const old = lines.find((l) => l.id === id);
+  if (!old || old.fromFields || old.stop || old.changed || lineProblems(next).length || !lineOn(old, at.day) || abs(old.start.day, old.start.time ?? "00:00") > abs(at.day, at.time) || (old.end && abs(old.end.day, old.end.time ?? "23:59") < abs(at.day, at.time)) || abs(start.day, start.time ?? "00:00") !== abs(at.day, at.time)) return { lines, newId: "" };
+  let newId = `${id}-change-${at.day}-${at.time}`;
+  while (lines.some((l) => l.id === newId)) newId += "-1";
+  return { newId, lines: [...lines.map((l) => l.id === id ? { ...l, end: { ...at }, changed: { ...at, by: who, toId: newId, reason: reason?.trim() || undefined } } : l), { id: newId, cat: old.cat, start, end: next.end ? { ...next.end } : undefined, text: next.text.trim(), by: who, at: { ...at }, changedFrom: id, changeReason: reason?.trim() || undefined }] };
+}
+
+export function barMark(l: StandingLine, day: number, lastDay: number): "start" | "mid" | "end" | "arrow" | "stop" | "changed" | null {
+  if (!lineOn(l, day)) return null;
+  if (lineEndDay(l) === day) return l.changed ? "changed" : l.stop ? l.stop.kind === "終了" ? "end" : "stop" : "end";
+  if (day === lastDay) return "arrow";
+  return day === l.start.day ? "start" : "mid";
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +142,7 @@ export function barCell(l: StandingLine, day: DayOffset, lastDay: DayOffset): Ba
   const last = on && end !== null && day === end;
   const bits: string[] = [];
   if (first && l.start.time) bits.push(l.start.time);
-  if (last) bits.push(l.stop ? `中止 ${l.stop.time}` : l.end?.time ? `〜${l.end.time}` : "〜終了");
+  if (last) bits.push(l.changed ? `変更前 ${l.changed.time}` : l.stop ? `${l.stop.kind ?? "中止"} ${l.stop.time}` : l.end?.time ? `〜${l.end.time}` : "〜終了");
   return { on, first, last, continues: on && day === lastDay && (end === null || end > lastDay), label: bits.join(" ") };
 }
 
@@ -158,15 +178,23 @@ export function linesFromFields(versions: StandingOrders[]): StandingLine[] {
     for (const f of now) {
       seen.add(f.key);
       const cur = open.get(f.key);
-      if (cur && cur.text === f.text && cur.line.end?.day === v.until) continue;
+      const ending = v.fieldEnds?.[f.key];
+      if (cur && (!cur.line.stop || !!ending) && cur.text === f.text && (cur.line.end?.day === v.until || !!ending)) {
+        if (ending) cur.line.stop = { ...ending };
+        continue;
+      }
       if (cur && (cur.line.end === undefined || cur.line.end.day >= v.at.day)) cur.line.end = { day: v.at.day, time: v.at.time };
-      const line: StandingLine = { id: `fld-${i}-${f.key}`, cat: f.cat, text: f.text, start: { day: v.at.day, time: v.at.time }, end: v.until === undefined ? undefined : { day: v.until }, by: v.by, at: { ...v.at }, fromFields: true };
+      const line: StandingLine = { id: `fld-${i}-${f.key}`, cat: f.cat, text: f.text, start: { day: v.at.day, time: v.at.time }, end: v.until === undefined ? undefined : { day: v.until }, by: v.by, at: { ...v.at }, stop: ending ? { ...ending } : undefined, fromFields: true };
+      if (cur && !cur.line.stop && cur.line.end?.day === v.at.day) { cur.line.changed = { ...v.at, by: v.by, toId: line.id, reason: v.reason }; line.changedFrom = cur.line.id; line.changeReason = v.reason; }
       out.push(line);
       open.set(f.key, { line, text: f.text });
     }
     for (const [k, cur] of open) {
       if (seen.has(k)) continue;
-      if (cur.line.end === undefined || cur.line.end.day >= v.at.day) cur.line.end = { day: v.at.day, time: v.at.time };
+      if (!cur.line.stop && (cur.line.end === undefined || cur.line.end.day >= v.at.day)) {
+        cur.line.end = { day: v.at.day, time: v.at.time };
+        cur.line.stop = { ...v.at, by: v.by, reason: v.reason };
+      }
       open.delete(k);
     }
   });
@@ -184,11 +212,11 @@ export function lineChanges(people: WorkPatient[], lines: Record<string, Standin
       const at = abs(l.at.day, l.at.time);
       if (!initialIds.has(l.id) && at >= since && at <= nowAbs && abs(l.start.day, l.start.time ?? "00:00") <= nowAbs && (!l.end || abs(l.end.day, l.end.time ?? "23:59") >= nowAbs)) {
         const span = `${whenText(l.start, fmtDay)}から${l.end ? ` ${whenText(l.end, fmtDay)}まで` : "（変えるまで）"}`;
-        out.push({ kind: "指示簿", at, text: { type: "指示簿", main: lineLabel(l), detail: span, author: l.by }, patientId: p.id, room, name: p.name, key: changeKey(l.id, "新規"), timeKnown: true });
+        out.push({ kind: "指示簿", at, text: { type: "指示簿", main: l.changedFrom ? `【変】指示を変更：${lineLabel((lines[p.id] ?? []).find((x) => x.id === l.changedFrom) ?? l)} → ${l.text}` : lineLabel(l), detail: `${span}${l.changeReason ? ` 理由：${l.changeReason}` : ""}`, author: l.by }, patientId: p.id, room, name: p.name, key: changeKey(l.id, "新規"), timeKnown: true });
       }
       if (l.stop) {
         const st = abs(l.stop.day, l.stop.time);
-        if (st >= since && st <= nowAbs) out.push({ kind: "指示簿", at: st, text: { type: "指示簿", main: `中止：${lineLabel(l)}`, detail: `${whenText({ day: l.stop.day, time: l.stop.time }, fmtDay)} 中止${l.stop.reason ? `　理由：${l.stop.reason}` : ""}`, author: l.stop.by }, patientId: p.id, room, name: p.name, key: changeKey(l.id, "中止"), timeKnown: true });
+        if (st >= since && st <= nowAbs) out.push({ kind: "指示簿", at: st, text: { type: "指示簿", main: `${l.stop.kind ?? "中止"}：${lineLabel(l)}`, detail: `${whenText({ day: l.stop.day, time: l.stop.time }, fmtDay)} ${l.stop.kind ?? "中止"}${l.stop.reason ? `　理由：${l.stop.reason}` : ""}`, author: l.stop.by }, patientId: p.id, room, name: p.name, key: changeKey(l.id, "中止"), timeKnown: true });
       }
     }
   }

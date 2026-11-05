@@ -87,7 +87,7 @@ export interface NoteEntry {
   templateId?: string;
   templateName?: string;
   kind: "note";
-  category?: "コンサルト返書" | "リハビリ実施" | "リハビリ";
+  category?: "指示簿" | "コンサルト返書" | "リハビリ実施" | "リハビリ";
   day: DayOffset;
   time: string; // "HH:MM"
   author: string;

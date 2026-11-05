@@ -1,5 +1,6 @@
 "use client";
 
+import { endStandingField } from "@/lib/standing-field-end";
 import { CosignMark } from "../Cosign";
 import { isResident } from "@/lib/doctors";
 import { residentBlock, COSIGN_RULES } from "@/lib/cosign";
@@ -53,6 +54,8 @@ const PRN_DRUGS = [
  * insert, whether the interval fits in a day, and allergies.
  */
 export function StandingPanel({
+  initialEnd,
+  initialSelection,
   versions,
   allergies,
   nowTime,
@@ -65,6 +68,8 @@ export function StandingPanel({
   onCondRecord,
   lines,
 }: {
+  initialEnd?: boolean;
+  initialSelection?: StandingLine;
   versions: StandingOrders[];
   allergies: string[];
   nowTime: string;
@@ -77,18 +82,27 @@ export function StandingPanel({
   condAcks?: Record<string, CondAck>;
   onCondRecord?: (h: CondHit, note: string) => void;
   /** The free-text lines (指示の行): the main part of the 指示簿; the fields below stay for the worksheet. */
-  lines?: { patient: Patient; lines: StandingLine[]; today: CalendarDate; onAdd: (l: StandingLine) => void; onStop: (id: string, reason: string) => void; onBulkStop?: (draft: StandingStopDraft) => void };
+  lines?: { patient: Patient; lines: StandingLine[]; today: CalendarDate; onAdd: (l: StandingLine) => void; onStop: (id: string, reason: string, day?: number, kind?: "終了") => void; onBulkStop?: (draft: StandingStopDraft) => void };
 }) {
+  const [endingField, setEndingField] = useState<StandingLine | null>(initialEnd ? initialSelection ?? null : null);
+  const [endDay, setEndDay] = useState(0);
+  const [endReason, setEndReason] = useState("");
+  const [editingLine, setEditingLine] = useState<StandingLine | undefined>(initialSelection);
   const [view, setView] = useState<"一覧" | "カレンダー">("一覧");
   const [print, sheet] = usePrintSheet();
   const me = useMe();
   const deny = useDeny();
   const cur = versions.at(-1);
-  const [edit, setEdit] = useState<StandingOrders | null>(null);
+  const [edit, setEdit] = useState<StandingOrders | null>(initialSelection?.fromFields && !initialEnd ? versions.at(-1) ?? null : null);
   const [acked, setAcked] = useState(false);
 
   if (edit) {
-    const set = (x: Partial<StandingOrders>) => setEdit((e) => (e ? { ...e, ...x } : e));
+    const set = (x: Partial<StandingOrders>) => setEdit((e) => {
+      if (!e) return e;
+      const fieldEnds = { ...e.fieldEnds };
+      for (const key of Object.keys(x)) for (const field of Object.keys(fieldEnds)) if (field === key || (key === "callConscious" && field === "calls") || (key === "prn" && field.startsWith("prn:")) || (key === "conds" && field.startsWith("cond:"))) delete fieldEnds[field];
+      return { ...e, ...x, fieldEnds };
+    });
     const issues = edit.prn.map((r) => (r.drug.code && r.drug.amount > 0 && r.intervalH && r.maxPerDay ? checkPrn(r, allergies) : []));
     const blocked = isResident(me.name) ? residentBlock(edit) : null;
     const stop = !!blocked || issues.some((x) => x.some((i) => i.level === "stop"));
@@ -108,6 +122,7 @@ export function StandingPanel({
     const setPrn = (i: number, x: Partial<PrnRule>) => set({ prn: edit.prn.map((r, j) => (j === i ? { ...r, ...x } : r)) });
     const fieldEditor = (
       <div className="space-y-3 text-[12px]">
+        <h3 className="font-bold">変更：{editingLine ? `元の指示 ${editingLine.text}` : "項目で選ぶ指示"}</h3>
         <p className="hint text-[11px] text-ink-faint">項目は医師が選びます（最初から選ばれているものはありません）。確定すると新しい版になり、看護師が指示受けします。</p>
         {row("安静度", <select aria-label="安静度" value={edit.rest ?? ""} onChange={(e) => set({ rest: (e.target.value || null) as StandingOrders["rest"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{RESTS.map((x) => <option key={x}>{x}</option>)}</select>)}
         {row("清潔", <select aria-label="清潔" value={edit.bath ?? ""} onChange={(e) => set({ bath: (e.target.value || null) as StandingOrders["bath"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{BATHS.map((x) => <option key={x}>{x}</option>)}</select>)}
@@ -204,7 +219,7 @@ export function StandingPanel({
         <label className="block">終了日（今日からの日数・空欄は変えるまで）<input type="number" aria-label="項目で選ぶ指示の終了日" min={0} value={edit.until ?? ""} onChange={(e) => set({ until: e.target.value === "" ? undefined : Number(e.target.value) })} className="ml-2 w-24 rounded border border-rule p-1" />{edit.until === undefined ? "変えるまで続く" : fmtDay(edit.until)}</label>
         <CondEditor conds={edit.conds ?? []} onChange={(conds) => set({ conds })} newId={newId} />
 
-        <textarea value={edit.other} onChange={(e) => set({ other: e.target.value })} rows={2} placeholder="その他の指示（任意）" aria-label="その他の指示" className="w-full rounded border border-rule bg-paper px-2 py-1" />
+        <label>変更の理由（任意）<input aria-label="項目の変更理由" value={edit.reason ?? ""} onChange={(e) => set({ reason: e.target.value })} /></label><textarea value={edit.other} onChange={(e) => set({ other: e.target.value })} rows={2} placeholder="その他の指示（任意）" aria-label="その他の指示" className="w-full rounded border border-rule bg-paper px-2 py-1" />
         {ask && !stop && (
           <label className="flex items-center gap-1.5 text-yamabuki">
             <input type="checkbox" checked={acked} onChange={() => setAcked(!acked)} className="accent-yamabuki" />
@@ -233,18 +248,26 @@ export function StandingPanel({
         </div>
       </div>
     );
-    return lines ? <StandingOrderForm onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
+    return lines ? <StandingOrderForm onEndFields={(l) => { setEdit(null); setEndingField(l); setEndDay(0); setEndReason(""); }} key={editingLine?.id ?? "new"} initialSelection={editingLine} onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => {}} fieldEditor={fieldEditor} /> : fieldEditor;
   }
 
   return (
     <div className="space-y-3 text-[13px]">
       {sheet}
+      {endingField && cur && <section aria-label="項目の終了" className="space-y-2 rounded border border-rule p-3">
+        <h3 className="font-bold">終了：{endingField.text}</h3>
+        <label>終了日（今日からの日数）<input type="number" aria-label="項目を終了する日" min={Math.max(0, endingField.start.day)} max={endingField.end?.day} value={endDay} onChange={(e) => setEndDay(Number(e.target.value))} /> {fmtDay(endDay)}</label>
+        <label>理由（任意）<input aria-label="項目の終了理由" value={endReason} onChange={(e) => setEndReason(e.target.value)} /></label>
+        <button type="button" disabled={!!deny("order") || endDay < Math.max(0, endingField.start.day) || (endingField.end !== undefined && endDay > endingField.end.day)} onClick={() => { onSave(confirmStanding(endStandingField(cur, endingField, endDay, endReason, me.name, nowTime), me.name, { day: 0, time: nowTime })); setEndingField(null); }}>終了を確定</button>
+        <button type="button" onClick={() => setEndingField(null)}>やめる</button>
+        <p className="hint">選んだ項目だけを終了します。終了日は今日以降を指定します。ほかの項目はそのままです。</p>
+      </section>}
       {lines && <button type="button" onClick={() => print(<StandingPrintSheet patient={lines.patient} lines={currentLines(lines.lines)} fields={cur} today={lines.today} nowTime={nowTime} by={me.name} />, { portrait: true })} className="rounded border border-rule px-2 py-1 text-[12px] text-ai">指示簿を印刷（A4 縦）</button>}
       {lines && <div className="flex gap-2" role="group" aria-label="指示簿の表示">{(["一覧", "カレンダー"] as const).map((v) => <button type="button" key={v} aria-pressed={view === v} onClick={() => setView(v)} className={`rounded border border-rule px-3 py-1 ${view === v ? "bg-ai-soft text-ai" : ""}`}>{v}</button>)}</div>}
-      {lines && view === "カレンダー" && <StandingCalendar patient={lines.patient} lines={[...lines.lines, ...linesFromFields(versions)]} today={lines.today} nowTime={nowTime} onBulkStop={lines.onBulkStop} onOpenPanel={() => setView("一覧")} />}
+      {lines && view === "カレンダー" && <StandingCalendar patient={lines.patient} lines={[...lines.lines, ...linesFromFields(versions)]} today={lines.today} nowTime={nowTime} onStop={lines.onStop} onEndField={(l) => { setEdit(null); setEndingField(l); setEndDay(0); setEndReason(""); }} onEdit={(l) => { setEditingLine(l); setView("一覧"); if (l.fromFields) setEdit(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })); }} onBulkStop={lines.onBulkStop} onOpenPanel={() => setView("一覧")} />}
       {lines && view === "一覧" && (
         <>
-          <StandingOrderForm onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={() => setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime }))} />
+          <StandingOrderForm onEndFields={(l) => { setEdit(null); setEndingField(l); setEndDay(0); setEndReason(""); }} key={editingLine?.id ?? "new"} initialSelection={editingLine} onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={(l) => { setEditingLine(l); setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime })); }} />
           <h3 className="hint border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
           <p className="hint text-[11px] text-ink-faint">ワークシートの頓用、水分出納の確認、医師を呼ぶ基準の判定はこの項目から出ます。上の行と合わせて指示簿カレンダーに出ます。</p>
         </>

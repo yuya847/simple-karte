@@ -255,10 +255,10 @@ export function StandingLines({ patient, lines, fields, today, nowTime, onAdd, o
             {past.map((l) => (
               <li key={l.id} className="flex flex-wrap items-start gap-x-2">
                 <CatChip cat={l.cat} small />
-                <span className="line-through">{l.text}</span>
+                <span className={l.changed || l.stop?.kind === "終了" ? "" : "line-through"}>{l.text}</span>
                 <span className="nums text-[11px] text-ink-faint">
                   {whenText(l.start, fmtDay)}から　{l.by}
-                  {l.stop ? `　中止 ${fmtDay(l.stop.day)} ${l.stop.time} ${l.stop.by}${l.stop.reason ? `（${l.stop.reason}）` : ""}` : l.end ? `　${whenText(l.end, fmtDay)}まで` : ""}
+                  {l.changed ? `　変更前 ${fmtDay(l.changed.day)} ${l.changed.time} ${l.changed.by}` : l.stop ? `　${l.stop.kind ?? "中止"} ${fmtDay(l.stop.day)} ${l.stop.time} ${l.stop.by}${l.stop.reason ? `（${l.stop.reason}）` : ""}` : l.end ? `　${whenText(l.end, fmtDay)}まで` : ""}
                 </span>
               </li>
             ))}

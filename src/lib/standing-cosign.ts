@@ -1,8 +1,8 @@
+import { fieldChangeText } from "./standing-history";
 import { newItems, type CosignItem } from "./cosign";
 import { isResident } from "./doctors";
-import { lineLabel, type StandingLine } from "./standing-lines";
-import { callText, prnText, type StandingOrders } from "./standing";
-import { ruleText } from "./cond-orders";
+import { lineLabel, linesFromFields, type StandingLine } from "./standing-lines";
+import type { StandingOrders } from "./standing";
 import type { TakeRow } from "./order-take";
 import { changeKey } from "./worksheet";
 export const standingRef = (pid: string, version: number) => `standing:${pid}:${version}`;
@@ -16,10 +16,11 @@ export function syncStandingCosign(items: CosignItem[], fields: Record<string, S
     refs.add(ref);
     added.push(...newItems({ patientId, by, at }, [{ ref, kind: "指示簿", text }], () => ref));
   };
-  for (const [pid, versions] of Object.entries(fields)) versions.forEach((s, i) => add(pid, standingRef(pid, i + 1), s.by, s.at, `第${i + 1}版：${[s.rest, s.bath, s.vitals, s.weight, s.io, ...s.calls.map(callText), s.callConscious && "意識レベル低下時に連絡", ...s.prn.map(prnText), ...(s.conds ?? []).map(ruleText), s.other].filter(Boolean).join("／") || "指示なし（中止）"}`));
+  for (const [pid, versions] of Object.entries(fields)) versions.forEach((s, i) => add(pid, standingRef(pid, i + 1), s.by, s.at, `第${i + 1}版：${fieldChangeText(versions.slice(0, i), s)}`));
+  for (const [pid, versions] of Object.entries(fields)) for (const l of linesFromFields(versions)) if (l.stop) add(pid, standingLineRef(pid, `standing:${pid}:${l.id}`, true), l.stop.by, l.stop, `${l.stop.kind ?? "中止"}：${lineLabel(l)}`);
   for (const [pid, ls] of Object.entries(lines)) for (const l of ls) {
-    add(pid, standingLineRef(pid, l.id), l.by, l.at, lineLabel(l));
-    if (l.stop) add(pid, standingLineRef(pid, l.id, true), l.stop.by, l.stop, `中止：${lineLabel(l)}${l.stop.reason ? `（${l.stop.reason}）` : ""}`);
+    add(pid, standingLineRef(pid, l.id), l.by, l.at, `${l.changedFrom ? "【変】変更：" : ""}${lineLabel(l)}`);
+    if (l.stop) add(pid, standingLineRef(pid, l.id, true), l.stop.by, l.stop, `${l.stop.kind ?? "中止"}：${lineLabel(l)}${l.stop.reason ? `（${l.stop.reason}）` : ""}`);
   }
   return added.length ? [...items, ...added] : items;
 }
@@ -35,5 +36,5 @@ export function markStandingTake(rows: TakeRow[], items: CosignItem[]): TakeRow[
     const version = Number(i.ref.slice(`standing:${i.patientId}:`.length));
     return `standing:${i.patientId}:fld-${version - 1}-`;
   });
-  return rows.map((r) => r.kind === "指示簿" && r.keys.some((k) => keys.has(`${r.patientId}|${k}`) || fieldPrefixes.some((prefix) => k.startsWith(prefix))) ? { ...r, flags: { ...r.flags, resident: "研修医の指示（確認待ち）" } } : r);
+  return rows.map((r) => (r.kind === "指示簿" || r.type === "指示簿") && r.keys.some((k) => keys.has(`${r.patientId}|${k}`) || fieldPrefixes.some((prefix) => k.startsWith(prefix))) ? { ...r, flags: { ...r.flags, resident: "研修医の指示（確認待ち）" } } : r);
 }

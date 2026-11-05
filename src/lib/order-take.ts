@@ -114,7 +114,7 @@ export function takeRows(changes: (OrderChange | OtherChange)[], people: WorkPat
             .filter((e) => e.status === "有効" && ((e.order.type === "prescription" && GLUCOSE_LOWERING.includes(e.order.drugCode)) || (e.order.type === "injection" && e.order.items.some((it) => /インスリン/.test(anyDrugName(it.drugCode))))))
             .map((e) => `有効：${orderLines(e.order, today).main}（このオーダは変わっていません）`)
         : [];
-      rows.push({ key: c.key, keys: [c.key], kind: c.kind, at: c.at, timeKnown: c.timeKnown, patientId: c.patientId, room: c.room, name: c.name, type: c.text.type, main: c.text.main, detail: c.text.detail, author: c.text.author, flags: {}, related, mustOne: related.length ? ["食事の変更（血糖を下げる薬が有効）"] : [] });
+      rows.push({ key: c.key, keys: [c.key], kind: c.text.main.startsWith("【変】") ? "変更" : c.kind, at: c.at, timeKnown: c.timeKnown, patientId: c.patientId, room: c.room, name: c.name, type: c.text.type, main: c.text.main, detail: c.text.detail, author: c.text.author, flags: c.text.main.startsWith("【変】") ? { changed: "変更（前と後を確かめる）" } : {}, related, mustOne: c.text.main.startsWith("【変】") ? ["指示簿の変更"] : related.length ? ["食事の変更（血糖を下げる薬が有効）"] : [] });
       continue;
     }
     let kind: TakeRow["kind"] = c.kind;

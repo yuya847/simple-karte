@@ -32,3 +32,16 @@ describe("指示カレンダーの操作と期間表示", () => {
     expect(html).toContain("2026-11-05");
   });
 });
+
+it("変更のフォームに元の文を入れ、変更・終了ボタンと矢印を示す", () => {
+  const original = { ...lines[1], text: "ベッド上\n移動は介助", cat: "安静" as const };
+  const html = renderToStaticMarkup(<RoleProvider value="医師"><StandingOrderForm initialSelection={original} today={today} lines={[original]} versions={[]} nowTime="13:20" fmtDay={(d) => `11/${5 + d}`} newId={() => "new"} onAdd={noop} onStop={noop} onEditFields={noop} /></RoleProvider>);
+  expect(html).toContain("変更：元の指示 ベッド上");
+  expect(html).toContain("指示を変更");
+  expect(html).toContain("指示を終了");
+  expect(html).toContain("移動は介助");
+  expect(html).toContain("変更を確定");
+  const cal = renderToStaticMarkup(<RoleProvider value="医師"><StandingCalendar patient={patient} lines={[original, { ...original, id: "dated", end: { day: 3 } }]} today={today} nowTime="13:20" /></RoleProvider>);
+  expect(cal).toContain('aria-label="右へ続く"');
+  expect(cal).toContain("〜11/8");
+});

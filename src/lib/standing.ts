@@ -3,6 +3,7 @@
 // every item; the code checks the arithmetic (1日量・間隔) and compares the latest vitals with the
 // call criteria. Each change is a new version that a nurse takes (指示受け). All data is fictional.
 
+import { effectiveFields } from "./standing-field-end";
 import type { CondRule } from "./cond-orders";
 import { DRUGS, ORAL_DRUGS, findOralDrug } from "./master";
 import type { VitalSign } from "./types";
@@ -40,6 +41,8 @@ export interface PrnRule {
 }
 
 export interface StandingOrders {
+  reason?: string;
+  fieldEnds?: Record<string, { day: number; time: string; by: string; reason?: string; kind: "終了" }>;
   /** Last valid day (inclusive). Absent = continues until changed. */
   until?: number;
   rest: (typeof RESTS)[number] | null;
@@ -205,7 +208,7 @@ export function initialStanding(): Record<string, StandingOrders[]> {
   };
 }
 
-export const standingEffective = (s: StandingOrders | undefined, day = 0): StandingOrders | undefined => s && s.at.day <= day && (s.until === undefined || day <= s.until) ? s : undefined;
+export const standingEffective = (s: StandingOrders | undefined, day = 0): StandingOrders | undefined => s && s.at.day <= day && (s.until === undefined || day <= s.until) ? effectiveFields(s, day) : undefined;
 
 /** A new version belongs to the person confirming it, never to the previous author. */
 export function confirmStanding(draft: StandingOrders, by: string, at: StandingOrders["at"]): StandingOrders {

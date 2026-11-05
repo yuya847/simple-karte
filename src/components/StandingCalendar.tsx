@@ -4,7 +4,7 @@ import { StandingBulkStop } from "./StandingBulkStop";
 import type { StandingStopDraft } from "@/lib/standing-calendar";
 import { useState } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
-import { LINE_RULES, barCell, calendarRows, lineCalendarDays, whenText, type StandingLine } from "@/lib/standing-lines";
+import { LINE_RULES, barMark, barCell, calendarRows, lineCalendarDays, whenText, type StandingLine } from "@/lib/standing-lines";
 import type { Patient } from "@/lib/types";
 import { CatChip } from "./panels/StandingLines";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -18,9 +18,9 @@ const COL_W = 84;
  * a stopped line ends where it was stopped. Press a bar for the full text, who and when; a doctor can stop
  * the line here (with a confirmation). Lines derived from the 項目で選ぶ fields are shown but stopped there.
  */
-export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpenPanel, onBulkStop }: { patient: Patient; lines: StandingLine[]; today: CalendarDate; nowTime: string; onStop?: (id: string, reason: string) => void; onOpenPanel?: () => void; onBulkStop?: (draft: StandingStopDraft) => void }) {
+export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpenPanel, onBulkStop, onEdit, onEndField }: { patient: Patient; lines: StandingLine[]; today: CalendarDate; nowTime: string; onStop?: (id: string, reason: string, day?: number, kind?: "終了") => void; onOpenPanel?: () => void; onEdit?: (l: StandingLine) => void; onEndField?: (l: StandingLine) => void; onBulkStop?: (draft: StandingStopDraft) => void }) {
   const [selected, setSelected] = useState<string[]>([]);
-  const selectable = lines.filter((l) => !l.stop && !l.fromFields);
+  const selectable = lines.filter((l) => !l.stop && !l.changed && !l.fromFields);
   const deny = useDeny();
   const canSelect = !!onBulkStop && !deny("order");
   const toggle = (ids: string[]) => setSelected((prev) => ids.every((id) => prev.includes(id)) ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]);
@@ -29,6 +29,8 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
   const last = days[days.length - 1];
   const groups = calendarRows(lines);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [finish, setFinish] = useState(false);
+  const [endDay, setEndDay] = useState(0);
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const open = lines.find((l) => l.id === openId) ?? null;
@@ -72,13 +74,13 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
               </tr>
             )}
             {groups.map((g) => (
-              <GroupRows key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} nowPct={nowPct} selected={selected} onToggle={canSelect ? toggle : undefined} />
+              <GroupRows key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} today={today} nowPct={nowPct} selected={selected} onToggle={canSelect ? toggle : undefined} />
             ))}
           </tbody>
         </table>
         <p className="hint mt-2 px-3 text-[10px] text-ink-faint">
           {LINE_RULES.cats}
-          <span className="hint"> 色の帯が指示の続く期間です。右端で切れずに続く帯は終了日なし（変えるまで）。「中止」と書かれた所で止まった帯は中止した行（履歴として残ります）。帯を押すと全文・書いた人・時刻が下に出ます。薄い帯は「項目で選ぶ」指示簿の版から出した行で、変えるときはその指示簿を変えます。今日の列の赤い線がいまの時刻。</span>
+          <span className="hint"> 色の帯が指示の続く期間です。右端の「→」は表示期間の先まで指示が続く印です。終了日のある帯は「〜日付」で閉じます。変更前の帯は薄く残ります。「中止」と書かれた所で止まった帯は中止した行（履歴として残ります）。帯を押すと全文・書いた人・時刻が下に出ます。薄い帯は「項目で選ぶ」指示簿の版から出した行で、変えるときはその指示簿を変えます。今日の列の赤い線がいまの時刻。</span>
         </p>
       </div>
       {open && (
@@ -86,14 +88,15 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
           <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
             <CatChip cat={open.cat} />
             <div className="min-w-0 flex-1">
-              <div className={`whitespace-pre-wrap ${open.stop ? "line-through text-ink-soft" : ""}`}>{open.text}</div>
+              <div className={`whitespace-pre-wrap ${open.stop && open.stop.kind !== "終了" ? "line-through text-ink-soft" : ""}`}>{open.text}</div>
               <div className="nums text-[11px] text-ink-soft">
                 {whenText(open.start, fmtDay)}から{open.end ? ` ${whenText(open.end, fmtDay)}まで` : "（変えるまで）"}　書いた人 {open.by}（{fmtDay(open.at.day)} {open.at.time}）
                 {open.fromFields && "　項目で選ぶ指示簿から"}
               </div>
+              {open.changed && <div className="text-ink-faint">変更前 {fmtDay(open.changed.day)} {open.changed.time} {open.changed.by} {open.changed.reason}</div>}
               {open.stop && (
                 <div className="nums text-[11px] font-bold text-shu">
-                  中止 {fmtDay(open.stop.day)} {open.stop.time}　{open.stop.by}
+                  {open.stop.kind ?? "中止"} {fmtDay(open.stop.day)} {open.stop.time}　{open.stop.by}
                   {open.stop.reason ? `　理由：${open.stop.reason}` : ""}
                 </div>
               )}
@@ -102,28 +105,29 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
               閉じる
             </button>
           </div>
-          {!open.stop && !open.fromFields && onStop && (
+          {!open.stop && !open.changed && !deny("order") && <div className="flex gap-3"><button type="button" disabled={open.start.day > 0} onClick={() => onEdit ? onEdit(open) : onOpenPanel?.()}>指示を変更</button>{(open.fromFields ? !!onEndField : !!onStop) && <button type="button" onClick={() => { if (open.fromFields) { onEndField?.(open); return; } setFinish(true); setEndDay(0); setConfirming(true); }}>指示を終了</button>}</div>}
+          {!open.stop && !open.changed && !open.fromFields && onStop && (
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {confirming ? (
                 <>
-                  <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="中止の理由（任意）" aria-label="中止の理由" className="min-w-48 flex-1 rounded border border-rule bg-sheet px-1.5 py-0.5" />
+                  {finish && <label>終了日（今日からの日数）<input type="number" aria-label="指示を終了する日" min={open.start.day} max={open.end?.day} value={endDay} onChange={(e) => setEndDay(Number(e.target.value))} /></label>}<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={`${finish ? "終了" : "中止"}の理由（任意）`} aria-label={`${finish ? "終了" : "中止"}の理由`} className="min-w-48 flex-1 rounded border border-rule bg-sheet px-1.5 py-0.5" />
                   <button
                     type="button"
-                    disabled={!!deny("order")}
+                    disabled={!!deny("order") || (finish && (endDay < open.start.day || (open.end !== undefined && endDay > open.end.day)))}
                     onClick={() => {
-                      onStop(open.id, reason);
+                      onStop(open.id, reason, finish ? endDay : 0, finish ? "終了" : undefined);
                       choose(open.id);
                     }}
                     className="rounded bg-shu px-2 py-0.5 font-bold text-white disabled:opacity-40"
                   >
-                    この行を中止する（{me.name} {nowTime}）
+                    {finish ? "この行を終了する" : "この行を中止する"}（{me.name} {nowTime}）
                   </button>
                   <button type="button" onClick={() => setConfirming(false)} className="rounded border border-rule px-2 py-0.5 text-ink-soft">
                     やめる
                   </button>
                 </>
               ) : (
-                <button type="button" disabled={!!deny("order")} onClick={() => setConfirming(true)} className="rounded border border-rule px-2 py-0.5 text-ink-soft hover:border-shu hover:text-shu disabled:opacity-40 pointer-coarse:py-1.5">
+                <button type="button" disabled={!!deny("order")} onClick={() => { setFinish(false); setConfirming(true); }} className="rounded border border-rule px-2 py-0.5 text-ink-soft hover:border-shu hover:text-shu disabled:opacity-40 pointer-coarse:py-1.5">
                   中止…
                 </button>
               )}
@@ -141,31 +145,32 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
   );
 }
 
-function GroupRows({ cat, lines, days, last, openId, onChoose, nowPct, selected, onToggle }: { cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number; selected: string[]; onToggle?: (ids: string[]) => void }) {
+function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, selected, onToggle }: { today: CalendarDate; cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number; selected: string[]; onToggle?: (ids: string[]) => void }) {
   return (
     <>
       <tr>
         <td colSpan={days.length + 1} className="sticky left-0 border-b border-rule bg-paper px-3 pb-0.5 pt-2 text-[11px] font-bold text-ink-soft">
-          {onToggle && <input type="checkbox" aria-label={`${cat}を全選択`} checked={lines.some((l) => !l.stop && !l.fromFields) && lines.filter((l) => !l.stop && !l.fromFields).every((l) => selected.includes(l.id))} onChange={() => onToggle(lines.filter((l) => !l.stop && !l.fromFields).map((l) => l.id))} />} <CatChip cat={cat} small /> {cat}
+          {onToggle && <input type="checkbox" aria-label={`${cat}を全選択`} checked={lines.some((l) => !l.stop && !l.changed && !l.fromFields) && lines.filter((l) => !l.stop && !l.changed && !l.fromFields).every((l) => selected.includes(l.id))} onChange={() => onToggle(lines.filter((l) => !l.stop && !l.changed && !l.fromFields).map((l) => l.id))} />} <CatChip cat={cat} small /> {cat}
         </td>
       </tr>
       {lines.map((l) => {
         const chosen = openId === l.id;
-        const tone = l.stop ? "bg-shu-soft/40 text-ink-faint line-through" : l.fromFields ? "bg-tab text-ink-soft" : l.start.day > 0 ? "border border-dashed border-ai/60 bg-sheet text-ai" : "bg-ai-soft text-ai";
+        const tone = l.changed ? "bg-tab text-ink-faint" : l.stop?.kind === "終了" ? "bg-tab text-ink-faint" : l.stop ? "bg-shu-soft/40 text-ink-faint line-through" : l.fromFields ? "bg-tab text-ink-soft" : l.start.day > 0 ? "border border-dashed border-ai/60 bg-sheet text-ai" : "bg-ai-soft text-ai";
         return (
           <tr key={l.id} className={chosen ? "bg-yamabuki-soft/30" : ""}>
             <th scope="row" className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1 text-left align-top font-normal">
-              {onToggle && !l.stop && !l.fromFields && <input type="checkbox" aria-label={`${l.text}を選択`} checked={selected.includes(l.id)} onChange={() => onToggle([l.id])} />}
-              <button type="button" onClick={() => onChoose(l.id)} aria-expanded={chosen} className={`block w-full truncate text-left hover:text-ai ${l.stop ? "text-ink-faint line-through" : ""}`} title={l.text}>
+              {onToggle && !l.stop && !l.changed && !l.fromFields && <input type="checkbox" aria-label={`${l.text}を選択`} checked={selected.includes(l.id)} onChange={() => onToggle([l.id])} />}
+              <button type="button" onClick={() => onChoose(l.id)} aria-expanded={chosen} className={`block w-full truncate text-left hover:text-ai ${l.stop && l.stop.kind !== "終了" ? "text-ink-faint line-through" : ""}`} title={l.text}>
                 {l.text}
               </button>
               <div className="text-[10px] text-ink-faint">
                 {l.by}
-                {l.stop ? "　中止" : l.end ? "　終了日あり" : ""}
+                {l.changed ? "　変更前" : l.stop ? `　${l.stop.kind ?? "中止"}` : l.end ? "　終了日あり" : ""}
               </div>
             </th>
             {days.map((d) => {
               const c = barCell(l, d, last);
+              const mark = barMark(l, d, last);
               return (
                 <td key={d} className={`relative border-b border-l border-rule-soft p-0 align-middle ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""}`}>
                   {c.on && (
@@ -173,10 +178,10 @@ function GroupRows({ cat, lines, days, last, openId, onChoose, nowPct, selected,
                       type="button"
                       onClick={() => onChoose(l.id)}
                       aria-label={`${l.text}　${c.label || (c.first ? "開始" : c.continues ? "続く" : "")}`}
-                      className={`my-1.5 block h-5 w-full truncate px-1 text-left text-[10px] leading-5 ${tone} ${c.first ? "rounded-l" : ""} ${c.last ? "rounded-r" : ""}`}
+                      className={`relative my-1.5 block h-5 w-full truncate px-1 text-left text-[10px] leading-5 ${tone} ${c.first ? "rounded-l" : ""} ${c.last ? "rounded-r" : ""}`}
                     >
                       {c.first || d === days[0] ? `${l.text}　${c.label}` : c.label}
-                      {c.continues && !c.label ? "→" : ""}
+                      {mark === "arrow" && <span className="absolute right-0 top-0 bg-ai-soft px-1 text-xl font-bold leading-5" aria-label="右へ続く">→</span>}{mark === "end" && !l.stop && <span className="absolute right-0 top-0 bg-ai-soft text-[10px]">〜{formatShort(addDays(today, d))}</span>}
                     </button>
                   )}
                   {d === 0 && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-shu" style={{ left: `${nowPct}%` }} />}

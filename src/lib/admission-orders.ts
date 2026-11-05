@@ -24,7 +24,7 @@ export function admissionOrdersMissing(standing: StandingOrders | StandingLine[]
 export function standingTakeLines(fields: Record<string, StandingOrders[]>, lines: Record<string, StandingLine[]>): Record<string, StandingLine[]> {
   const out = { ...lines };
   for (const [pid, versions] of Object.entries(fields)) {
-    out[pid] = [...(lines[pid] ?? []), ...linesFromFields(versions).filter((l) => l.at.day >= 0).map((l) => ({ ...l, id: `standing:${pid}:${l.id}` }))];
+    out[pid] = [...(lines[pid] ?? []), ...linesFromFields(versions).filter((l) => l.at.day >= 0 || (l.stop && l.stop.day >= 0) || (l.changed && l.changed.day >= 0)).map((l) => ({ ...l, id: `standing:${pid}:${l.id}`, changedFrom: l.changedFrom ? `standing:${pid}:${l.changedFrom}` : undefined, changed: l.changed ? { ...l.changed, toId: `standing:${pid}:${l.changed.toId}` } : undefined }))];
   }
   return out;
 }

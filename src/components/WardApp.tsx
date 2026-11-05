@@ -159,7 +159,9 @@ import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@
 import { worksheetPrnLines } from "@/lib/standing-form";
 import { callHits, confirmStanding, initialStanding, standingEffective, type StandingOrders } from "@/lib/standing";
 import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
-import { INITIAL_LINE_IDS, initialLines, lineChanges, lineLabel, linesFromFields, stopLine, type StandingLine } from "@/lib/standing-lines";
+import { standingLineActions } from "@/lib/standing-actions";
+import { fieldChangeText } from "@/lib/standing-history";
+import { INITIAL_LINE_IDS, initialLines, lineChanges, linesFromFields, type StandingLine } from "@/lib/standing-lines";
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import type { FlowScale } from "@/lib/flow-scale";
@@ -715,6 +717,7 @@ export default function WardApp() {
   // 入院時の情報収集（アナムネーシス）, by patient id (earlier versions inside).
   const [anamnesis, setAnamnesis] = useState<Record<string, AnamnesisRecord>>(INITIAL_ANAMNESIS);
   // Notes confirmed in this session, and corrected notes (by key, earlier versions inside).
+  const [standingEdit, setStandingEdit] = useState<(StandingLine & { endSelected?: boolean; patientId: string }) | undefined>();
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
   const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
@@ -1406,7 +1409,7 @@ export default function WardApp() {
     if (!p) return [];
     return [...p.cautions, ...p.infections.map((i) => `隔離：${i}`), ...(p.allergies.length ? [`アレルギー：${p.allergies.join("、")}`] : []), ...(activeOf(restraints, pid) ? ["身体的拘束中"] : []), ...(p.codeStatus ? [p.codeStatus] : [])];
   };
-  const chartNote = (pid: string, text: string) => setNotes((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text } as NoteEntry] }));
+  const chartNote = (pid: string, text: string, category?: NoteEntry["category"]) => setNotes((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { kind: "note", id: newId(), day: 0, time: nowTime, author: me.name, role: me.role, text, category } as NoteEntry] }));
   const updateCall = (id: string, patch: (c: NurseCall) => Partial<NurseCall>) => setNurseCalls((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch(c) } : c)));
   const answerCall = (id: string) => updateCall(id, (c) => (c.answered ? {} : { answered: { at: nowTime, by: me.name } }));
   // 予定一覧 (院内連絡): today's and tomorrow's admissions and discharges, moves and leave, exams and operations.
@@ -1866,20 +1869,7 @@ export default function WardApp() {
       const n = stopGroupsOf(x.patient.id).length;
       if (n) todos.push({ key: `dc-stop-${x.patient.id}`, label: `退院した患者に有効な指示が残っている：${x.patient.name}さん`, detail: stopGroupsOf(x.patient.id).map((g) => g.key).join("・"), count: n, tone: "yamabuki", go: () => (openPatient(x.patient.id), setPanel("discharge-stop")) });
     }
-  // 指示簿の行: a new line, or a stop (the line stays as history). Both wait for a nurse's 指示受け.
-  const addStandingLine = (pid: string, draft: StandingLine) => {
-    const l = { ...draft, by: me.name };
-    auditLog({ role: me.role, actor: me.name, action: "確定（指示簿の行）", patient: findPatient(pid)?.name, detail: lineLabel(l) });
-    setStandingLines((all) => ({ ...all, [pid]: [...(all[pid] ?? []), l] }));
-    updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿に行を足した：${lineLabel(l)}\n` }));
-  };
-  const stopStandingLine = (pid: string, id: string, reason: string) => {
-    const l = standingLines[pid]?.find((x) => x.id === id);
-    if (!l || l.stop) return;
-    auditLog({ role: me.role, actor: me.name, action: "中止（指示簿の行）", patient: findPatient(pid)?.name, detail: `${lineLabel(l)}${reason.trim() ? `　理由：${reason.trim()}` : ""}` });
-    setStandingLines((all) => ({ ...all, [pid]: stopLine(all[pid] ?? [], id, { day: 0, time: nowTime, by: me.name, reason }) }));
-    updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿の行を中止：${lineLabel(l)}${reason.trim() ? `（${reason.trim()}）` : ""}\n` }));
-  };
+  const { addStandingLine, stopStandingLine, bulkStopStandingLines } = standingLineActions({ lines: standingLines, setLines: setStandingLines, me, nowTime, fmtDay: (d) => formatShort(addDays(today, d)), patientName: (pid) => findPatient(pid)?.name, chartNote, blocked: !!deny("order"), draftNote: (pid, text) => updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${text}\n` })) });
   for (const x of people) {
     const pid = x.patient.id;
     if (callsMet[pid].length && (role === "看護師" || role === "医師")) todos.push({ key: `call-${pid}`, label: `医師を呼ぶ基準に当たる：${x.patient.name}さん`, detail: callsMet[pid].join("、"), count: callsMet[pid].length, tone: "shu", go: () => openStanding(pid) });
@@ -2119,7 +2109,7 @@ export default function WardApp() {
     io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null },
     onModify: modifyOrder,
     care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) },
-    standingCal: { lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason) => stopStandingLine(patient.id, id, reason), onOpenPanel: () => setPanel("standing") },
+    standingCal: { lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason, day, kind) => stopStandingLine(patient.id, id, reason, day, kind), onEndField: (l) => { setStandingEdit({ ...l, patientId: patient.id, endSelected: true }); setPanel("standing"); }, onEdit: (l) => { setStandingEdit({ ...l, patientId: patient.id }); setPanel("standing"); }, onOpenPanel: () => { setStandingEdit(undefined); setPanel("standing"); } },
     flowDays: {
       surgeries: surgeries.filter((x) => x.patientId === patient.id),
       events: flowEvents.filter((x) => x.patientId === patient.id),
@@ -4220,8 +4210,7 @@ export default function WardApp() {
               )}
               {panel === "standing" && (
                 <Drawer title="指示簿（約束指示）" onClose={closePanel} wide initialWidth={1100}>
-                  <StandingPanel
-                    key={patient.id}
+                  <StandingPanel initialEnd={standingEdit?.endSelected} key={`${patient.id}:${standingEdit?.id ?? "new"}:${standingEdit?.endSelected ?? false}`} initialSelection={standingEdit?.patientId === patient.id ? standingEdit : undefined}
                     versions={standing[patient.id] ?? []}
                     allergies={patient.allergies}
                     nowTime={nowTime}
@@ -4234,14 +4223,11 @@ export default function WardApp() {
                       setCondAcks((all) => ({ ...all, [h.key]: { key: h.key, by: me.name, at: { day: 0, time: nowTime }, note } }));
                       chartNote(patient.id, ackLine(h, note, nowTime));
                     }}
-                    lines={{ patient, lines: standingLines[patient.id] ?? [], today, onBulkStop: (draft) => {
-                      if (deny("order")) return;
-                      setStandingLines((all) => ({ ...all, [patient.id]: draft.ids.reduce((ls, id) => stopLine(ls, id, { day: draft.day, time: draft.day === 0 ? nowTime : "00:00", by: me.name, reason: draft.reason }), all[patient.id] ?? []) }));
-                      auditLog({ role: me.role, actor: me.name, action: "確定（指示簿の一括中止）", patient: patient.name, detail: `${draft.ids.length}件　中止日：${formatShort(addDays(today, draft.day))}　${draft.reason}` });
-                    }, onAdd: (l) => addStandingLine(patient.id, l), onStop: (id, reason) => stopStandingLine(patient.id, id, reason) }}
+                    lines={{ patient, lines: standingLines[patient.id] ?? [], today, onBulkStop: (draft) => bulkStopStandingLines(patient.id, draft), onAdd: (l) => addStandingLine(patient.id, l), onStop: (id, reason, day, kind) => stopStandingLine(patient.id, id, reason, day, kind) }}
                     onSave={(draft) => {
                       const st = confirmStanding(draft, me.name, { day: 0, time: nowTime });
                       auditLog({ role: me.role, actor: me.name, action: "確定（指示簿）", patient: patient.name, detail: `第${(standing[patient.id]?.length ?? 0) + 1}版` });
+                      chartNote(patient.id, `【指示簿】${fieldChangeText(standing[patient.id] ?? [], st, (d) => formatShort(addDays(today, d)))} ${me.name} ${formatShort(today)} ${nowTime}`, "指示簿");
                       setStanding((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }));
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・指示簿を変更（第${(standing[patient.id]?.length ?? 0) + 1}版）\n` }));
                     }}

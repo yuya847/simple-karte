@@ -8,14 +8,15 @@ export function lineEffective(l: StandingLine, day: number, time = "12:00"): boo
   const now = abs(day, time);
   return abs(l.start.day, l.start.time ?? "00:00") <= now &&
     (!l.end || now <= abs(l.end.day, l.end.time ?? "23:59")) &&
+    (!l.changed || now < abs(l.changed.day, l.changed.time)) &&
     (!l.stop || now < abs(l.stop.day, l.stop.time));
 }
 
-export interface StandingStopDraft { ids: string[]; day: number; reason: string }
+export interface StandingStopDraft { ids: string[]; day: number; reason: string; kind?: "終了" }
 /** Only editable, un-stopped lines which have started by the chosen stop day. */
 export function standingStopDraft(lines: StandingLine[], ids: string[], day: number, reason: string): StandingStopDraft {
   const selected = new Set(ids);
-  return { ids: lines.filter((l) => selected.has(l.id) && !l.fromFields && !l.stop && l.start.day <= day && (lineEndDay(l) === null || lineEndDay(l)! >= day)).map((l) => l.id), day, reason: reason.trim() };
+  return { ids: lines.filter((l) => selected.has(l.id) && !l.fromFields && !l.stop && !l.changed && l.start.day <= day && (lineEndDay(l) === null || lineEndDay(l)! >= day)).map((l) => l.id), day, reason: reason.trim() };
 }
 
 export function periodText(l: StandingLine, fmt: (d: number) => string): string {
