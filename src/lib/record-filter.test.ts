@@ -10,7 +10,8 @@ describe("テンプレートの印と古い記事", () => {
   });
   it("古い記事は先頭の見出しだけを照合し、本文中の引用や似た名前は拾わない", () => {
     expect(templateOfNote(note("【ICの記録】\n説明"), templates)).toEqual(templates[0]);
-    expect(templateOfNote(note("引用\n【ICの記録】"), templates)).toBeNull();
+    expect(templateOfNote(note("引用として【ICの記録】を書いた"), templates)).toBeNull();
+    expect(templateOfNote(note("S)\nP) 【ICの記録】\n説明"), templates)).toEqual(templates[0]);
     expect(templateOfNote(note("【ICの記録】の引用"), templates)).toBeNull();
     expect(templateOfNote(note("【自分用】\n本文"), templates)).toEqual(templates[1]);
     expect(templateStamp(note("【自分用】\n本文"), templates)).toEqual({ templateId: "own", templateName: "自分用" });
@@ -49,4 +50,13 @@ it("記事に挿入したテンプレートは前に記載があっても印を�
   const stamp = { templateId: "own", templateName: "自分用" };
   expect(templateStamp(note("前の記載\n【自分用】\n説明"), templates, stamp)).toEqual(stamp);
   expect(templateStamp(note("すべて書き直した"), templates, stamp)).toEqual({});
+});
+
+describe("templateOfNote：SOAP の枠のあとに見出しがあっても拾う", () => {
+  it("finds the heading inside P)", () => {
+    const t = [{ id: "rec-icu-admit", name: "ICU 入室時の記録" }];
+    const note = { kind: "note" as const, day: 0, time: "12:00", author: "a", role: "医師" as const, soap: { p: "【ICU 入室時の記録】\n入室の理由：x" } };
+    expect(templateOfNote(note, t)?.id).toBe("rec-icu-admit");
+    expect(templateStamp(note, t, { templateId: "rec-icu-admit", templateName: "ICU 入室時の記録" })).toEqual({ templateId: "rec-icu-admit", templateName: "ICU 入室時の記録" });
+  });
 });

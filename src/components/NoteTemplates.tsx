@@ -34,7 +34,7 @@ import { useMe } from "./RoleContext";
 
 type View = { kind: "list" } | { kind: "fill"; t: NoteTemplate } | { kind: "edit"; t: NoteTemplate | null; seed: string; name: string };
 
-export function TemplatePanel({ patient, today, onInsert, onClose }: { patient: Patient; today: CalendarDate; onInsert: (text: string) => void; onClose: () => void }) {
+export function TemplatePanel({ patient, today, onInsert, onClose, onOpenRecords }: { patient: Patient; today: CalendarDate; onInsert: (text: string) => void; onClose: () => void; onOpenRecords?: () => void }) {
   const me = useMe();
   const [mine, setMine] = useState<NoteTemplate[]>(() => loadMyTemplates(me.name));
   const [saved, setSaved] = useState<boolean | null>(null);
@@ -63,6 +63,12 @@ export function TemplatePanel({ patient, today, onInsert, onClose }: { patient: 
       {view.kind === "list" && (
         <div className="space-y-2">
           <p className="hint text-[11px] text-ink-soft">選ぶと入力の欄が出ます。選択肢を押し、数値を入れると、検査値・バイタルはカルテから、計算はコードが式どおりに入れます。「記事に入れる」で下の記事に入ります（確定は記事の「記事を確定」で）。</p>
+          {onOpenRecords && (
+            <div className="rounded-md border border-rule bg-paper px-2 py-1.5 text-xs">
+              <button type="button" onClick={onOpenRecords} className="font-bold text-ai underline">型のある記録（IC・救急医療管理加算の根拠・ICU 入室時・急変時・転倒 …）</button>
+              <span className="ml-1 text-ink-soft">選択肢と数値で書き、左の絞り込みの「テンプレート」で引けます。</span>
+            </div>
+          )}
           <div>
             <div className="mb-1 text-[11px] text-ink-faint">ひな形<span className="hint">（架空の病院の取り決め）</span></div>
             {offered.builtIn.length === 0 ? (

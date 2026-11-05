@@ -10,8 +10,10 @@ export function templateOfNote(note: NoteEntry, templates: readonly TemplateIden
     const name = note.templateName || known?.name;
     return name ? { id: note.templateId, name } : null;
   }
-  const heading = noteText(note).trimStart().split("\n")[0].trimEnd();
-  const found = templates.find((t) => heading === `【${t.name}】`);
+  // The heading may follow an empty SOAP frame ("P) 【名前】") or other lines: a line that is the heading (after the
+  // S)/O)/A)/P)/D)/Act)/R) mark) counts; a mention inside a sentence does not.
+  const lines = noteText(note).split("\n").map((l) => l.replace(/^(?:[SOAP]\)|D\)|Act\)|R\)|#)\s*/i, "").trim());
+  const found = templates.find((t) => lines.includes(`【${t.name}】`));
   return found ? { id: found.id, name: found.name } : null;
 }
 
@@ -31,7 +33,7 @@ export function matchesTemplate(e: HistoryEntry, templates: readonly TemplateIde
 }
 
 export function templateStamp(note: NoteEntry, templates: readonly TemplateIdentity[], inserted?: { templateId: string; templateName: string } | null) {
-  if (inserted && noteText(note).split("\n").some((line) => line.trim() === `【${inserted.templateName}】`)) return inserted;
+  if (inserted && noteText(note).split("\n").some((l) => l.replace(/^(?:[SOAP]\)|D\)|Act\)|R\)|#)\s*/i, "").trim() === `【${inserted.templateName}】`)) return inserted;
   const t = templateOfNote(note, templates);
   return t ? { templateId: t.id, templateName: t.name } : {};
 }

@@ -44,6 +44,8 @@ interface Props {
   meta: DraftMeta | null;
   flash: Flash | null;
   onContactDoctor?: () => void;
+  /** Opens the 型のある記録 (IC・救急加算・ICU 入室 …) tool from the note's template popup. */
+  onOpenRecordTemplates?: () => void;
   onDraft: () => void;
   onApply: (d: Draft) => void;
   onRemove: (id: string) => void;
@@ -165,7 +167,7 @@ export function TodayPane(p: Props) {
           )}
           {!noteLocked && tool === "template" && (
             <div className="mb-2">
-              <TemplatePanel key={me.name} patient={p.patient} today={p.today} onInsert={(text) => (put((n, s, e) => placeBlock(n, s, e, text)), setTool(null))} onClose={() => setTool(null)} />
+              <TemplatePanel key={me.name} patient={p.patient} today={p.today} onOpenRecords={p.onOpenRecordTemplates ? () => { setTool(null); p.onOpenRecordTemplates!(); } : undefined} onInsert={(text) => (put((n, s, e) => placeBlock(n, s, e, text)), setTool(null))} onClose={() => setTool(null)} />
             </div>
           )}
           {!noteLocked && tool === "phrase" && (

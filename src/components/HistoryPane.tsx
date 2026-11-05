@@ -740,7 +740,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
   };
   return (
     <Card
-      mark={entry.category ?? "記事"}
+      mark={entry.category ?? entry.templateName ?? "記事"}
       when={whenText(today, times.event.day, times.event.time)}
       place={place}
       tone={tone}

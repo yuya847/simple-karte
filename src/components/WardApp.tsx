@@ -3186,6 +3186,7 @@ export default function WardApp() {
                       "記事作成",
                       "flex min-h-0 flex-1 flex-col",
                       <TodayPane
+                        onOpenRecordTemplates={() => setPanel("templates")}
                         patient={patient}
                         today={today}
                         nowTime={nowTime}
@@ -3923,7 +3924,7 @@ export default function WardApp() {
                     key={templateFocus ?? "list"}
                     initialId={templateFocus}
                     facts={{ patient, today, nowTime, restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed) }}
-                    onInsert={(text, noteTemplate) => update((c) => ({ noteTemplate, note: `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note" }))}
+                    onInsert={(text, noteTemplate) => update((c) => ({ noteTemplate, note: isBlankNote(c.note) ? `${text}\n` : `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note" }))}
                     onConfirm={confirmRecord}
                     onOpenPanel={(p) => setPanel(p)}
                   />
