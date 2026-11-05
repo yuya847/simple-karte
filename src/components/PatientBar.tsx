@@ -105,7 +105,7 @@ export function PatientBar({ patient: p, today, diagnoses, directive, onOpenDiag
         <dt className="text-ink-faint">主病名</dt>
         <dd className="text-ink">
           <button type="button" onClick={onOpenDiagnoses} className="text-left hover:underline" title="病名の一覧を開く">
-            {mains.length ? mains.map(diagnosisLabel).join("、") : <span className="text-yamabuki">未登録（入院時：{p.admissionDiagnosis}）</span>}
+            {mains.length ? mains.map(diagnosisLabel).join("、") : <span className="text-yamabuki">未登録（{visit ? "受診の目的" : "入院時"}：{p.admissionDiagnosis}）</span>}
           </button>
         </dd>
       </dl>

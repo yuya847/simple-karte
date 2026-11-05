@@ -1,6 +1,7 @@
 "use client";
 
 import { workspaceOn } from "@/lib/workspace";
+import { patientPlace } from "@/lib/patient-place";
 import { useDisplayState } from "@/lib/use-display-state";
 import { useStandingCosign } from "@/lib/use-standing-cosign";
 import { markStandingTake } from "@/lib/standing-cosign";
@@ -1196,8 +1197,9 @@ export default function WardApp() {
     // 持参薬 reports answered by these drafts are now 指示済.
     const answered = new Set(drafts.flatMap((d) => ((d as { reportId?: string }).reportId ? [(d as { reportId?: string }).reportId!] : [])));
     if (answered.size) setReports((rs) => rs.map((x) => (answered.has(x.id) ? { ...x, status: "指示済" } : x)));
-    // オーダーアラート: a doctor's changes go to the nurses' phones of the patient's team.
-    if (role === "医師" && (added.length || stops.length || Object.keys(extended).length))
+    // オーダーアラート: a doctor's changes go to the nurses' phones of the patient's team. Only for a ward patient:
+    // the 救急外来・外来 nurse works from that desk's own list, and the ward's phones have nothing to do there.
+    if (role === "医師" && patientPlace(patient!.id) === "ward" && (added.length || stops.length || Object.keys(extended).length))
       setPhsNotices((ns) => [
         ...ns,
         {
@@ -4286,7 +4288,10 @@ export default function WardApp() {
       }
       const p = findPatient(t.id);
       if (!p) return [];
-      return [{ key: t.id, label: p.name, patient: { sex: p.sex, age: p.age, room: p.room, infections: p.infections }, title: `${from}から開いた`, active: inFront === t.id, onSelect: () => show(t.owner, t.id), onClose: () => closePatient(t.id), closeLabel: `${p.name} のカルテを閉じる` }];
+      // A ward chart opened from the 救急外来・外来 list shows in 病棟 (the place of the patient), so the breadcrumb and the
+      // area pulldown say 病棟, not the list it was opened from.
+      const ownerToShow = wardTabOf(t.owner) ? t.owner : listOwner();
+      return [{ key: t.id, label: p.name, patient: { sex: p.sex, age: p.age, room: p.room, infections: p.infections }, title: `${from}から開いた`, active: inFront === t.id, onSelect: () => show(ownerToShow, t.id), onClose: () => closePatient(t.id), closeLabel: `${p.name} のカルテを閉じる` }];
     };
     // An ED patient admitted today has a ward chart of its own (病棟); the visit's tab stays 救急外来's.
     const placeOfTab = (t: PatientTab): Place => visitOf(t.id)?.kind ?? "ward";

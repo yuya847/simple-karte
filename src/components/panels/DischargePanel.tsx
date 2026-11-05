@@ -274,8 +274,8 @@ function Rows({ title, items }: { title: string; items: string[] }) {
       <h3 className="font-bold">■ {title}</h3>
       {items.length ? (
         <ul className="pl-4">
-          {items.map((x) => (
-            <li key={x}>・{x}</li>
+          {items.map((x, i) => (
+            <li key={`${i}-${x}`}>・{x}</li>
           ))}
         </ul>
       ) : (

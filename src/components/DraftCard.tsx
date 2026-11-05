@@ -48,8 +48,8 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
 
   return (
     <article className="text-[13px] leading-relaxed pointer-coarse:text-[16px]">
-      <div className="flex items-start gap-1 pl-8 pr-2 py-0.5 pointer-coarse:pl-10">
-        <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className="nums min-w-0 flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
+      <div className="flex flex-wrap items-start gap-1 pl-8 pr-2 py-0.5 pointer-coarse:pl-10">
+        <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className="nums min-w-[10rem] flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
           {draftLine(draft, ctx, rp)}
         </button>
         <button type="button" aria-label={ready ? "確定できます・詳細を開く" : `確認 ${blocking.length}件・理由を開く`} aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className={`shrink-0 p-1 ${ready ? "text-wakatake" : "text-yamabuki"}`}>
