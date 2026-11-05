@@ -15,9 +15,9 @@ const phy = (id: string, test: string, day = 0, time: string | undefined = "14:0
 const people = (entries: OrderEntry[]) => [{ patient: { id: "p1", name: "架空 花子" }, room: "511A", entries }];
 
 describe("生理検査：一覧", () => {
-  it("lists physiological tests of yesterday to tomorrow, not endoscopy or stopped ones", () => {
+  it("lists physiological tests including future bookings, not endoscopy or stopped ones", () => {
     const rows = physioRows(people([phy("a", "PHY-ECG", 0, undefined), phy("b", "PHY-UCG"), phy("c", "PHY-EGD"), phy("d", "PHY-SPIRO", 0, "10:00", "中止"), phy("e", "PHY-ABI", 3)]), {});
-    expect(rows.map((r) => r.orderId)).toEqual(["a", "b"]);
+    expect(rows.map((r) => r.orderId)).toEqual(["a", "b", "e"]);
     expect(rows[1]).toMatchObject({ testName: "心エコー（経胸壁）", status: "予約", at: 14 * 60 });
   });
   it("keeps an older test until it is reported", () => {

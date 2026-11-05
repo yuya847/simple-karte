@@ -26,6 +26,15 @@ describe("画像検査のオーダ画面", () => {
 
 it("救急外来では今すぐ（至急）を先頭に出し既定にする", () => {
   const html = renderToStaticMarkup(<AddImagingPanel patientId="er-1" onAdd={() => {}} newId={newId} />);
-  expect(html.indexOf("今すぐ（至急）")).toBeLessThan(html.indexOf("明日 09:30 の枠"));
+  expect(html.indexOf("今すぐ（至急）")).toBeLessThan(html.indexOf("日時を選ぶ"));
   expect(html).toMatch(/aria-checked="true"[^>]*>今すぐ（至急）/);
+});
+
+ it("予約はカレンダーと空き枠を表示する", () => {
+  const html = renderToStaticMarkup(<AddImagingPanel today={{ y: 2026, m: 11, d: 5 }} onAdd={() => {}} newId={newId} />);
+  expect(html).toContain("2026年11月");
+  expect(html).toContain("08:30 空き");
+  expect(html).toContain("架空の病院の取り決め");
+  expect(html).toContain("ほかの患者の名前は予約の調整のために出しています");
+  expect(html).toMatch(/aria-checked="true"[^>]*>日時を選ぶ/);
 });

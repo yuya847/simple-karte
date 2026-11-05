@@ -237,7 +237,7 @@ export interface RisRow {
 
 type Person = { patient: Pick<Patient, "id" | "name" | "kana" | "sex" | "age" | "weightKg" | "allergies">; room: string; entries: OrderEntry[] };
 
-/** The studies the department looks at: due yesterday to tomorrow, and older ones not finished. Stopped orders are left out. */
+/** The studies the department looks at: including future bookings, and older ones not finished. Stopped orders are left out. */
 export function risRows(people: Person[], desk: RisDesk): RisRow[] {
   const rows: RisRow[] = [];
   for (const x of people) {
@@ -248,7 +248,6 @@ export function risRows(people: Person[], desk: RisDesk): RisRow[] {
       const status = risStatus(w);
       const finished = status === "中止" || status === "読影済み" || (status === "撮影済み" && (!needsReading(o) || !!w?.report));
       if (o.when.day < -1 && finished) continue;
-      if (o.when.day > 1) continue;
       rows.push({
         orderId: e.id,
         patientId: x.patient.id,

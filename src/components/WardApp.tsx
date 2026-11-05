@@ -1,4 +1,5 @@
 "use client";
+import { examReservationProblem } from "@/lib/exam-slots";
 import { upsertSessionNote } from "@/lib/rehab-record";
 
 import { workspaceOn } from "@/lib/workspace";
@@ -1162,6 +1163,8 @@ export default function WardApp() {
     if (!ctx) return;
     if (verbalMode && !verbal) { verbalConfirmation.request((v) => confirmDrafts(drafts, v), nowTime, [patient!.attending, ...doctorsOf(patient!.attending, doctorBook[patient!.id]).others.map((d) => d.name)]); return; }
     if (verbal && verbalConfirmationProblems(verbal).length) return;
+    const examProblem = examReservationProblem(drafts, examPeople, dept.ris);
+    if (examProblem) return update({ flash: examProblem });
     const added: OrderEntry[] = [];
     const completed: OrderEntry[] = [];
     const stops: string[] = [];
@@ -1535,6 +1538,7 @@ export default function WardApp() {
     });
 
   const sessionChanges = Object.fromEntries(Object.entries(charts).filter(([k]) => !k.includes("|")).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
+  const examPeople = [...patientById.values()].map((p) => ({ patient: p, room: p.room, entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }));
   // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
   const injMemory = patient
     ? {
@@ -2685,9 +2689,9 @@ export default function WardApp() {
       ) : screen === "blood" ? (
         <BloodBankView people={people} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood} nowTime={nowTime} today={today} onIssued={(id, rec) => setTxIssued((all) => Object.fromEntries([...Object.entries(all).filter(([k]) => k !== id), ...(rec ? [[id, rec] as const] : [])]))} />
       ) : screen === "physio" ? (
-        <PhysioView people={people} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
+        <PhysioView people={examPeople} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
       ) : screen === "radiology" ? (
-        <RadiologyView people={people} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} consents={consents} />
+        <RadiologyView people={examPeople} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} consents={consents} />
       ) : screen === "rehab" ? (
         <RehabView onNote={(pid, note) => setNotes((all) => ({ ...all, [pid]: upsertSessionNote(all[pid] ?? [], note) }))} people={people} desk={dept.rehab} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
       ) : screen === "path" ? (
@@ -3746,12 +3750,12 @@ export default function WardApp() {
               )}
               {panel === "add-imaging" && (
                 <Drawer title="画像検査" onClose={closePanel} locked={orderBlock}>
-                  <AddImagingPanel patientId={patient.id} onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                  <AddImagingPanel today={today} examPeople={examPeople} ris={dept.ris} patientId={patient.id} onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-physio" && (
                 <Drawer title="生理検査・内視鏡" onClose={closePanel} locked={orderBlock}>
-                  <AddPhysioPanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                  <AddPhysioPanel patientId={patient.id} today={today} examPeople={examPeople} onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-procedure" && (

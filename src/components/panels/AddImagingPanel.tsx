@@ -1,5 +1,9 @@
 "use client";
 
+import { ExamCalendar } from "../ExamCalendar";
+import { todayInTokyo, type CalendarDate } from "@/lib/dates";
+import { firstExamSlot, takenExams, examSlotAvailable, type ExamPerson } from "@/lib/exam-slots";
+import { defaultRoom, roomsFor, type RisDesk } from "@/lib/ris";
 import { useMe } from "../RoleContext";
 import { DoctorField, ImagingConsentPrint } from "../ImagingConsent";
 import { consentDefaults } from "@/lib/imaging-consent";
@@ -66,6 +70,9 @@ import { orderDefaults } from "@/lib/order-defaults";
 
 export function AddImagingPanel({
   patientId = "",
+  today = todayInTokyo(),
+  examPeople = [],
+  ris = {},
   onAdd,
   newId,
   facts = null,
@@ -74,6 +81,9 @@ export function AddImagingPanel({
   doctor,
 }: {
   patientId?: string;
+  today?: CalendarDate;
+  examPeople?: ExamPerson[];
+  ris?: RisDesk;
   onAdd: (d: Draft) => void;
   newId: () => string;
   facts?: ExamPatientFacts | null;
@@ -85,13 +95,15 @@ export function AddImagingPanel({
   const me = useMe();
   const explainingDoctor = doctor || me.name;
   const [modality, setModality] = useState<Modality>("X線");
+  const [room, setRoom] = useState(defaultRoom("X線"));
+  const taken = takenExams(examPeople, room, ris);
   const [group, setGroup] = useState<RegionGroup>("体幹");
   const [query, setQuery] = useState("");
   const [d, setD] = useState<ImagingDraft>(() => {
     const draft = emptyImaging("preview", "X線");
     const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
     const time = orderDefaults(patientId, "定期", now).imagingTime;
-    return time ? { ...draft, when: { day: 0, time: null, priority: "至急" } } : draft;
+    return time ? { ...draft, when: { day: 0, time: null, priority: "至急" } } : { ...draft, when: firstExamSlot("XR1", takenExams(examPeople, "XR1", ris), today) };
   });
   const patch = (p: Partial<ImagingDraft>) => setD((x) => ({ ...x, ...p }));
 
@@ -106,8 +118,10 @@ export function AddImagingPanel({
 
   const pickModality = (m: Modality) => {
     setModality(m);
+    const nextRoom = defaultRoom(m);
+    setRoom(nextRoom);
     setQuery("");
-    setD({ ...emptyImaging("preview", m), purpose: d.purpose, comment: d.comment, when: d.when });
+    setD({ ...emptyImaging("preview", m), purpose: d.purpose, comment: d.comment, when: d.when.priority === "至急" ? d.when : firstExamSlot(nextRoom, takenExams(examPeople, nextRoom, ris), today) });
     if (!regionsFor(m).some((r) => r.group === group)) setGroup(REGION_GROUPS.find((g) => regionsFor(m).some((r) => r.group === g))!);
   };
   const pickRegion = (code: string) => {
@@ -130,7 +144,7 @@ export function AddImagingPanel({
     patch({ ct, contrast: c, consent: c && c !== "単純" ? (d.consent ?? emptyConsent()) : d.consent });
   };
 
-  const missing = [!d.region && "部位", region?.sided && !d.side && "左右", xray && d.region && !d.views?.length && "方向（1つ以上）", tomo && d.region && !d.contrast && "単純か造影か"].filter(Boolean) as string[];
+  const missing = [!examSlotAvailable(room, d.when, taken, today) && "空き枠", !d.region && "部位", region?.sided && !d.side && "左右", xray && d.region && !d.views?.length && "方向（1つ以上）", tomo && d.region && !d.contrast && "単純か造影か"].filter(Boolean) as string[];
   const preview = d.region ? imagingDraftText({ ...d, modality }) : "";
 
   return (
@@ -384,16 +398,8 @@ export function AddImagingPanel({
         </section>
       )}
 
-      <TabChoice
-        label="いつ行うか"
-        options={[
-          { value: "now", label: "今すぐ（至急）" },
-          { value: "morning", label: "明日 09:30 の枠" },
-          { value: "afternoon", label: "明日 14:00 の枠" },
-        ]}
-        value={d.when.priority === "至急" ? "now" : d.when.day === 1 && d.when.time === "09:30" ? "morning" : d.when.day === 1 && d.when.time === "14:00" ? "afternoon" : ""}
-        onChange={(value) => patch({ when: value === "now" ? { day: 0, time: null, priority: "至急" } : { day: 1, time: value === "morning" ? "09:30" : "14:00", priority: "予約" } })}
-      />
+      {roomsFor(modality).length > 1 ? <label>撮影室<select value={room} onChange={(e) => { const r = roomsFor(modality).find((r) => r.key === e.target.value)!; setRoom(r.key); patch({ when: firstExamSlot(r.key, takenExams(examPeople, r.key, ris), today) }); }}>{roomsFor(modality).map((r) => <option key={r.key} value={r.key}>{r.room}</option>)}</select></label> : <p>{roomsFor(modality)[0].room}</p>}
+      <ExamCalendar key={room} kind={room} today={today} taken={taken} value={d.when} onChange={(when) => patch({ when })} />
 
       <label className="flex flex-col gap-1 text-xs text-ink-soft">
         目的（臨床診断・知りたいこと）
@@ -405,7 +411,7 @@ export function AddImagingPanel({
           {preview}
         </p>
       )}
-      <button type="button" disabled={missing.length > 0} onClick={() => onAdd({ ...d, id: newId(), modality, purpose: d.purpose?.trim() || null, note: d.note?.trim() || null })} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+      <button type="button" disabled={missing.length > 0} onClick={() => { if (missing.length) return; onAdd({ ...d, id: newId(), modality, purpose: d.purpose?.trim() || null, note: d.note?.trim() || null }); }} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
         保存する{missing.length > 0 && `（${missing.join("・")}を選ぶ）`}
       </button>
       <p className="hint text-[11px] text-ink-faint">

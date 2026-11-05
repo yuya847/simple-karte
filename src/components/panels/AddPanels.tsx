@@ -1,5 +1,9 @@
 "use client";
 
+import { ExamCalendar } from "../ExamCalendar";
+import { firstExamSlot, takenExams, examSlotAvailable, type ExamPerson, type ExamKind } from "@/lib/exam-slots";
+import type { CalendarDate } from "@/lib/dates";
+import type { PhysioDraft } from "@/lib/exams";
 import { useWindowEntry } from "@/lib/window-entry";
 import { useMe } from "../RoleContext";
 
@@ -947,29 +951,34 @@ export function AddRxPanel({
 export { AddImagingPanel } from "./AddImagingPanel";
 
 /** Physiological tests: pick the test and say why; place, date and transport are asked on the draft. */
-export function AddPhysioPanel({ onAdd, newId }: { onAdd: (d: Draft) => void; newId: () => string }) {
+export function AddPhysioPanel({ onAdd, newId, patientId = "", today = todayInTokyo(), examPeople = [] }: { onAdd: (d: Draft) => void; newId: () => string; patientId?: string; today?: CalendarDate; examPeople?: ExamPerson[] }) {
   const [test, setTest] = useState<string | null>(null);
   const [purpose, setPurpose] = useState("");
+  const [when, setWhen] = useState<PhysioDraft["when"]>(() => patientId.startsWith("er") ? { day: 0, time: null, priority: "至急" } : firstExamSlot("PHY-ECG", takenExams(examPeople, "PHY-ECG"), today));
+  const kind = (test ?? "PHY-ECG") as ExamKind;
+  const taken = takenExams(examPeople, kind);
+  const available = examSlotAvailable(kind, when, taken, today);
   return (
     <div className="space-y-3 text-[13px]">
       <ul className="divide-y divide-rule-soft rounded border border-rule-soft">
         {PHYSIO.map((p) => (
           <li key={p.code}>
-            <button type="button" onClick={() => setTest(p.code)} className={`flex w-full items-baseline gap-2 px-2 py-2 text-left ${test === p.code ? "bg-ai-soft font-bold text-ai" : "hover:bg-paper"}`}>
+            <button type="button" onClick={() => { setTest(p.code); if (when.priority !== "至急") setWhen(firstExamSlot(p.code as ExamKind, takenExams(examPeople, p.code as ExamKind), today)); }} className={`flex w-full items-baseline gap-2 px-2 py-2 text-left ${test === p.code ? "bg-ai-soft font-bold text-ai" : "hover:bg-paper"}`}>
               {p.name}
               <span className="ml-auto text-[11px] font-normal text-ink-faint">{p.bedside ? "ベッドサイド可" : "検査室"}</span>
             </button>
           </li>
         ))}
       </ul>
+      {test && <ExamCalendar key={test} kind={kind} today={today} taken={taken} value={when} onChange={setWhen} />}
       <label className="flex flex-col gap-1 text-xs text-ink-soft">
         目的
         <input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="例：心機能評価" className="rounded-md border border-rule bg-paper px-2 py-1.5 text-[13px] text-ink outline-none focus:border-ai" />
       </label>
       <button
         type="button"
-        disabled={!test}
-        onClick={() => onAdd({ ...emptyPhysio(newId(), test), purpose: purpose.trim() || null })}
+        disabled={!test || !available}
+        onClick={() => { if (test && available) onAdd({ ...emptyPhysio(newId(), test), when, purpose: purpose.trim() || null }); }}
         className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40"
       >
         保存する

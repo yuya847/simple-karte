@@ -35,13 +35,17 @@ const desk = initialRisDesk(NOW);
 const rowOf = (d: RisDesk, id: string) => risRows(people, d).find((r) => r.orderId === id)!;
 
 describe("放射線部の一覧と状態", () => {
-  it("lists the imaging orders of today and tomorrow, the urgent ones first, and reads the state from the record", () => {
+  it("lists the imaging orders including future bookings, the urgent ones first, and reads the state from the record", () => {
     const rows = risRows(people, desk);
     expect(rows.map((r) => r.orderId).sort()).toEqual(["o-ris-demo1", "o-ris-demo2", "o-ris-demo3", "o-ris-demo4"]);
     expect(rowOf(desk, "o-ris-demo1").status).toBe("読影済み");
     expect(rowOf(desk, "o-ris-demo3").status).toBe("依頼");
     // 至急 before the booked one among the requests
     expect(rows[0].orderId).toBe("o-ris-demo3");
+  });
+  it("shows bookings beyond tomorrow in the existing department list", () => {
+    const future = people.map((p) => ({ ...p, entries: p.entries.map((e) => e.order.type === "imaging" ? { ...e, order: { ...e.order, when: { ...e.order.when, day: 30 } } } : e) }));
+    expect(risRows(future, {}).some((r) => r.order.when.day === 30)).toBe(true);
   });
   it("goes 依頼 → 受付済み → 撮影中 → 撮影済み, and 中止 stays 中止", () => {
     const r = rowOf(desk, "o-ris-demo2");

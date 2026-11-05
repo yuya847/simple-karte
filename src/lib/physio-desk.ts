@@ -130,7 +130,7 @@ export function statusOf(w: PhysioWork | undefined): PhysioStatus {
 }
 
 /**
- * The tests the laboratory looks at: ordered for yesterday to tomorrow, and older ones not reported yet.
+ * The tests the laboratory looks at: including future bookings, and older ones not reported yet.
  * Stopped orders and endoscopy are left out.
  */
 export function physioRows(people: { patient: Pick<Patient, "id" | "name">; room: string; entries: OrderEntry[] }[], desk: PhysioDesk): PhysioRow[] {
@@ -142,7 +142,6 @@ export function physioRows(people: { patient: Pick<Patient, "id" | "name">; room
       const w = desk[e.id];
       const status = statusOf(w);
       if (o.when.day < -1 && (status === "報告済み" || status === "実施できなかった")) continue;
-      if (o.when.day > 1) continue;
       rows.push({
         orderId: e.id,
         patientId: x.patient.id,
