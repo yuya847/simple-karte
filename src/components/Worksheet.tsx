@@ -1,5 +1,7 @@
 "use client";
 
+import { RemeasureRows, type RemeasureProps } from "./RemeasureRows";
+
 import { Printer } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -22,7 +24,7 @@ import type { NursingProblem } from "@/lib/nursing-plan";
 import { sortRows, takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
-interface Props {
+interface Props extends RemeasureProps {
   people: WorkPatient[];
   today: CalendarDate;
   nowTime: string;
@@ -75,7 +77,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], standingFreePrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
+export function Worksheet({ remeasureVitals, onMeasure, people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], standingFreePrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -108,7 +110,7 @@ export function Worksheet({ people, today, nowTime, taken, sessionKeys, onTake, 
   // 指示確認: taken in this session but the schedule not yet looked at (marked on the sheet).
   const confirmProps: ConfirmProps | undefined = confirm ? { ...confirm, people, nowAbs } : undefined;
   const notConfirmed = confirm ? unconfirmed(rows, { taken, isTaken: isRowTaken, holds, confirms: confirm.confirms }).length : 0;
-  const props = { sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm: confirmProps, notConfirmed };
+  const props = { remeasureVitals, onMeasure, sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, isTaken, taken, sessionKeys, records, sessionStart, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm: confirmProps, notConfirmed };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
@@ -190,7 +192,7 @@ function Segmented<T extends string | number>({ label, value, options, onChange 
   );
 }
 
-interface SheetProps {
+interface SheetProps extends RemeasureProps {
   sheet: ReturnType<typeof buildWorksheet>;
   rows: TakeRow[];
   isRowTaken: (r: TakeRow) => boolean;
@@ -226,7 +228,7 @@ interface SheetProps {
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
+function Sheet({ remeasureVitals, onMeasure, sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
   const nowAbs = abs(0, nowTime);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   // 麻・毒・劇・ハイリスク of the order's drugs (drug-class.ts).
@@ -321,8 +323,9 @@ function Sheet({ sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, d
       </Section>
 
       <Section title="時刻の決まっているもの">
+        <RemeasureRows {...{ people, remeasureVitals, onMeasure, day, shift, today, interactive }} />
         {timed.length === 0 ? (
-          <Empty>ありません</Empty>
+          <Empty>オーダーの予定はありません</Empty>
         ) : (
           <table className="w-full border-collapse">
             <thead>

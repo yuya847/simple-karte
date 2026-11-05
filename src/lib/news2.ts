@@ -30,6 +30,8 @@ const band = (v: number, rules: [number, number, number][]) => rules.find(([lo, 
 
 export const onOxygen = (o2?: string) => !!o2 && o2 !== "室内気" && !/^室内/.test(o2);
 
+export const news2Risk = (total: number, red = false): News2["risk"] => total >= 7 ? "高" : total >= 5 ? "中" : red ? "低〜中" : "低";
+
 export function news2(v: Pick<VitalSign, "rr" | "spo2" | "o2" | "sbp" | "hr" | "bt"> & { avpu?: Acvpu }): News2 {
   const parts: News2Part[] = [];
   const missing: string[] = [];
@@ -47,7 +49,7 @@ export function news2(v: Pick<VitalSign, "rr" | "spo2" | "o2" | "sbp" | "hr" | "
   add("体温", v.bt, (x) => (x <= 35.0 ? 3 : x <= 36.0 ? 1 : x <= 38.0 ? 0 : x <= 39.0 ? 1 : 2), "℃");
   const total = parts.reduce((s, p) => s + p.score, 0);
   const red = parts.some((p) => p.score === 3);
-  const risk = total >= 7 ? "高" : total >= 5 ? "中" : red ? "低〜中" : "低";
+  const risk = news2Risk(total, red);
   const monitoring = total >= 7 ? "連続モニタリング" : total >= 5 || red ? "少なくとも1時間ごと" : total >= 1 ? "少なくとも4〜6時間ごと" : "少なくとも12時間ごと";
   return { total, parts, red, risk, monitoring, missing };
 }

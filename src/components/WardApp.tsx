@@ -111,7 +111,8 @@ import { TakeDesk } from "./TakeDesk";
 import { ExecuteDesk } from "./ExecuteDesk";
 import { orderTakeBadge, unconfirmed, type Confirms } from "@/lib/order-confirm";
 import { entryOfRow, takeRowOnDay, waitingToday } from "@/lib/order-sheet";
-import { vitalsContact, vitalsContactTodos } from "@/lib/vitals-contact";
+import { markRemeasured, type RecordedVital } from "@/lib/take-desk-remeasure";
+import { contactDraft, vitalsContact, vitalsContactTodos } from "@/lib/vitals-contact";
 import { vitalsFlash, type Flash } from "@/lib/flash";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { useWorkspace } from "@/lib/use-workspace";
@@ -350,6 +351,7 @@ const DOCTOR = STAFF.医師.name;
 
 /** Per-patient working state. Kept while the tab is open, so switching tabs loses nothing. */
 interface ChartState {
+  contactVital?: VitalSign;
   selectedDay: DayOffset | null;
   showStopped: boolean;
   /** The left tab (経過・経過表・内服歴・注射歴・検査結果). */
@@ -681,7 +683,7 @@ export default function WardApp() {
   const [standingLines, setStandingLines] = useState<Record<string, StandingLine[]>>(initialLines);
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
-  const [extraVitals, setExtraVitals] = useState<Record<string, VitalSign[]>>({});
+  const [extraVitals, setExtraVitals] = useState<Record<string, RecordedVital[]>>({});
   // 患者モニター（模擬）: put on or taken off by hand by the nurses (the rule's choice is code; lib/monitor.ts).
   const [monitorManual, setMonitorManual] = useState<MonitorManual>(EMPTY_MANUAL);
   // 与薬・実施の記録 (eMAR). Items due before this session are taken as recorded by the earlier shift.
@@ -1722,7 +1724,7 @@ export default function WardApp() {
   const inbox = consultInbox(consultPeople, me.name, consultReplies);
   const kitchenPending = kitchenWaiting(diets, care.kitchen);
   const todos: Todo[] = [];
-  if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) openPatient(n.patientId); } })));
+  if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) { openPatient(n.patientId); updateFor(n.patientId, () => ({ leftView: "flowsheet", flowScale: "all" })); } } })));
   if (role === "管理栄養士" && kitchenPending) todos.push({ key: "kitchen", label: "給食の変更が未受け", count: kitchenPending, tone: "shu", go: () => openArea("kitchen") });
   if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
   for (const x of people) {
@@ -2263,7 +2265,7 @@ export default function WardApp() {
           canType={!deny("vitals")}
           onSave={(list) => {
             for (const { patientId, vital: v } of list) auditLog({ role: me.role, actor: me.name, action: "確定（バイタル・一括入力）", patient: findPatient(patientId)?.name, detail: `${v.time} BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
-            setExtraVitals((all) => list.reduce((acc, { patientId, vital }) => ({ ...acc, [patientId]: [...(acc[patientId] ?? []), vital] }), all));
+            setExtraVitals((all) => list.reduce((acc, { patientId, vital }) => ({ ...acc, [patientId]: [...(acc[patientId] ?? []), { ...vital, recordedTime: nowTime }] }), all));
           }}
         />
       ) : screen === "falls" ? (
@@ -2549,6 +2551,8 @@ export default function WardApp() {
         <ExecuteDesk onVoid={voidMar} people={people} today={today} nowTime={nowTime} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} onRecord={recordMar} taken={taken} sessionKeys={sessionKeys} nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]} onOpen={openPatient} onSheet={() => goWard("sheet")} onTakeDesk={() => goWard("take")} />
       ) : screen === "sheet" ? (
         <Worksheet
+          remeasureVitals={extraVitals}
+          onMeasure={(id) => setExtraVitals((all) => ({ ...all, [id]: markRemeasured(all[id] ?? []) }))}
           people={people}
           today={today}
           nowTime={nowTime}
@@ -3194,12 +3198,13 @@ export default function WardApp() {
                         meta={chart.meta}
                         flash={chart.flash}
                         onContactDoctor={() => {
-                          const n = vitalsContact(chart.flash, patient, me.name, nowTime, newId());
+                          if (!chart.contactVital) return;
+                          const n = vitalsContact(chart.flash, patient, me.name, nowTime, newId(), chart.contactVital);
                           if (!n) return;
                           setCallNotes((all) => [...all, n]);
                           auditLog({ role: me.role, actor: me.name, action: "主治医へ連絡（模擬）", patient: patient.name, detail: n.text });
                           chartNote(patient.id, `【通話・模擬】${n.from} → ${n.to}：${n.text}`);
-                          update({ flash: "主治医への連絡を記録しました（模擬）。" });
+                          update({ note: contactDraft(chart.note, chart.contactVital, news2(chart.contactVital).total, patient.attending), rightTab: "note", flash: "主治医への連絡を記録しました（模擬）。記事の下書きを確かめて保存してください。" });
                         }}
                         onDraft={requestDrafts}
                         onApply={(next) => update((c) => ({ drafts: c.drafts.map((d) => (d.id === next.id ? next : d)), flash: null }))}
@@ -3463,7 +3468,7 @@ export default function WardApp() {
                     nowTime={nowTime}
                     lockedWhy={deny("vitals")}
                     fmtDay={(d) => formatShort(addDays(today, d))}
-                    onRecord={(v) => setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }))}
+                    onRecord={(v) => setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), { ...v, recordedTime: nowTime }] }))}
                   />
                 </Drawer>
               )}
@@ -3529,9 +3534,9 @@ export default function WardApp() {
                     }}
                     onSave={(v) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（バイタル）", patient: patient.name, detail: `BT ${v.bt ?? "—"} HR ${v.hr ?? "—"} BP ${v.sbp ?? "—"}/${v.dbp ?? "—"} RR ${v.rr ?? "—"} SpO2 ${v.spo2 ?? "—"}　NEWS2 ${news2(v).total}` });
-                      setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), v] }));
+                      setExtraVitals((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), { ...v, recordedTime: nowTime }] }));
                       // 手応え: what was recorded (and NEWS2 in 朱 when 5 or more) at the foot of the right pane; the row is in 経過表.
-                      update({ flash: vitalsFlash(v, v.day === 0 ? undefined : formatShort(addDays(today, v.day)), standingNow(patient.id)) });
+                      update({ contactVital: v, flash: vitalsFlash(v, v.day === 0 ? undefined : formatShort(addDays(today, v.day)), standingNow(patient.id)) });
                       closePanel();
                     }}
                   />

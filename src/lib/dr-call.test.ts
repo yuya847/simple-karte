@@ -36,8 +36,8 @@ describe("職種別の記事形式", () => {
 });
 
 it("連絡先は主治医で、同じ通話メモから医師のやることを作る", () => {
-  const n = vitalsContact({ text: "記録しました", contact: { score: 8, reasons: ["NEWS2 8点"] } }, { id: "p", name: "佐倉 修", attending: "主治医" }, "看護師", "10:00", "c1")!;
+  const n = vitalsContact({ text: "記録しました", contact: { score: 8, reasons: ["NEWS2 8点"] } }, { id: "p", name: "佐倉 修", attending: "主治医" }, "看護師", "10:00", "c1", base)!;
   expect(n.to).toBe("主治医");
-  expect(vitalsContactTodos([n])[0].label).toBe("看護師から連絡：佐倉 修 NEWS2 8");
-  expect(vitalsContact(null, { id: "p", name: "佐倉 修", attending: "主治医" }, "看護師", "10:00", "c2")).toBeNull();
+  expect(vitalsContactTodos([n])[0].label).toBe("看護師から連絡：佐倉 修 NEWS2 8点");
+  expect(vitalsContact(null, { id: "p", name: "佐倉 修", attending: "主治医" }, "看護師", "10:00", "c2", base)).toBeNull();
 });
