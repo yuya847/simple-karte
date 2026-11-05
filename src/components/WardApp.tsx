@@ -1007,7 +1007,18 @@ export default function WardApp() {
   };
 
   // Closing a chart's tab shows the tab next to it in the one row of charts, else the screen it came from.
+  // Closing a chart whose note is half written asks first (ユーザー 2026-11-05): the tab to close, or null.
+  const [closeAsk, setCloseAsk] = useState<string | null>(null);
   const closePatient = (id: string) => {
+    const half = id === activeId ? chart.note : (charts[id]?.note ?? "");
+    if (!isBlankNote(half)) {
+      setCloseAsk(id);
+      return;
+    }
+    closePatientNow(id);
+  };
+  const closePatientNow = (id: string) => {
+    setCloseAsk(null);
     const i = patientTabs.findIndex((x) => x.id === id);
     if (i < 0) return;
     const t = patientTabs[i];
@@ -4459,6 +4470,23 @@ export default function WardApp() {
         </div>
       )}
       {/* A nurse call rings on the nurses' screens (as on their phones): bottom right, above the save status, off the screen's content. */}
+      {closeAsk && (
+        <div role="dialog" aria-modal="true" aria-label="記事の入力が途中です" className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 print:hidden" onClick={() => setCloseAsk(null)}>
+          <div className="w-full max-w-md rounded-lg border border-rule bg-sheet p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-1 font-bold">記事の入力が途中です</h2>
+            <p className="mb-3 text-sm text-ink-soft">{(() => { const v = visitOf(closeAsk); return findPatient(closeAsk)?.name ?? (v ? (v.kind === "er" ? v.er.name : v.op.name) : ""); })()}さんの記事を保存しますか？保存しないで閉じても、書きかけはこのカルテを次に開いたときに残っています。</p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setCloseAsk(null)} className="rounded border border-rule px-3 py-1.5 text-sm">やめる</button>
+              <button type="button" onClick={() => closePatientNow(closeAsk)} className="rounded border border-rule px-3 py-1.5 text-sm">保存しないで閉じる</button>
+              {closeAsk === activeId ? (
+                <button type="button" disabled={!noteReady} title={noteReady ? undefined : "記事を保存できる状態ではありません（記録時刻や権限を確かめてください）"} onClick={() => { confirmNote(); closePatientNow(closeAsk); }} className="rounded bg-ai px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40">保存して閉じる</button>
+              ) : (
+                <button type="button" onClick={() => { const t = patientTabs.find((x) => x.id === closeAsk); setCloseAsk(null); if (t) show(t.owner, t.id); }} className="rounded bg-ai px-3 py-1.5 text-sm font-bold text-white">開いて確かめる</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {role === "看護師" && (
         <div className="fixed bottom-10 right-2 z-40 flex flex-col items-end gap-1.5 print:hidden">
           {phsNotices
