@@ -65,7 +65,7 @@ import type {
   OrderEntry,
   ProcedureOrder,
 } from "./types";
-import { checkPrescription, toPrescriptionOrders, type PrescriptionDraft } from "./rx";
+import { checkPrescription, dischargeStartDay, toPrescriptionOrders, type PrescriptionDraft } from "./rx";
 import { interactionIssues, reasonsToKeep } from "./interactions";
 import { consentFor, findConsent, type ConsentCode } from "./consent";
 import { PHYSIO, REGIONS, checkImaging, checkPhysio, emptyImaging, emptyPhysio, toImagingOrder, toPhysioOrder, type ExamPatientFacts, type ImagingDraft, type Modality, type PhysioDraft, type Side } from "./exams";
@@ -1576,7 +1576,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
   }
   if (d.kind === "prescription") {
     // The doctor's reasons for 併用禁忌 go on the order of the drug they are about.
-    const orders = toPrescriptionOrders(d, ctx.nowTime, d.id).map((o) => {
+    const orders = toPrescriptionOrders(d, ctx.nowTime, d.id, dischargeStartDay(d, ctx)).map((o) => {
       const interactionReasons = reasonsToKeep(d, ctx, stoppingIds(ctx), [o.drugCode]);
       return interactionReasons ? { ...o, interactionReasons } : o;
     });

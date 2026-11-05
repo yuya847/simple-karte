@@ -1,7 +1,7 @@
 import { effectiveRoute, ratePlan, resolvedCollect, type CheckContext, type Draft } from "./drafts";
 import { drugName, durationText, imagingDraftText, labName, oralName, procName, scheduleLabel } from "./format";
 import { anyDrugName, findOralDrug } from "./master";
-import { perDoseOf, timingName } from "./rx";
+import { perDoseOf, timingName, dischargeStartDay } from "./rx";
 import { opdPurposeOf } from "./opd-booking";
 import { dietLabel } from "./diet";
 import { findPhysio } from "./exams";
@@ -23,7 +23,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
     }
     case "prescription": {
       const n = d.timings?.length || 1;
-      text = [d.items.map(i => `${i.drugCode ? oralName(i.drugCode) : `${i.said}（？）`} 1回${d.timings === null ? "？" : perDoseOf(i, n) ?? "？"}${i.drugCode ? findOralDrug(i.drugCode)?.unit ?? "" : ""}`).join(" ＋ "), d.timings === null ? "用法？" : d.timings.length ? `1日${n}回 ${timingName(d.timings)}` : `頓用 ${d.prn ?? "条件？"}${d.maxPerDay ? `（1日${d.maxPerDay}回まで）` : ""}`, d.days ? `${d.days}日分` : null, d.category, `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.timing ?? ""}から`].filter(Boolean).join("　");
+      text = [d.items.map(i => `${i.drugCode ? oralName(i.drugCode) : `${i.said}（？）`} 1回${d.timings === null ? "？" : perDoseOf(i, n) ?? "？"}${i.drugCode ? findOralDrug(i.drugCode)?.unit ?? "" : ""}`).join(" ＋ "), d.timings === null ? "用法？" : d.timings.length ? `1日${n}回 ${timingName(d.timings)}` : `頓用 ${d.prn ?? "条件？"}${d.maxPerDay ? `（1日${d.maxPerDay}回まで）` : ""}`, d.days ? `${d.days}日分` : null, d.category, d.category === "退院時" ? (dischargeStartDay(d, ctx) === null ? "退院日から" : `${ctx.fmtDay(dischargeStartDay(d, ctx)!)}から`) : `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.timing ?? ""}から`].filter(Boolean).join("　");
       break;
     }
     case "lab": {
@@ -39,6 +39,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
     case "imaging": text = `${imagingDraftText(d)}　${d.when.priority === "至急" ? "至急" : `${ctx.fmtDay(d.when.day ?? 0)} ${d.when.time ?? "日時？"}`}`; break;
     case "physio": text = `${d.test ? findPhysio(d.test)?.name ?? d.test : d.said}　${d.when.priority === "至急" ? "至急" : `${ctx.fmtDay(d.when.day ?? 0)} ${d.when.time ?? "日時？"}`}`; break;
     case "procedure": {
+      if (d.leave) return leaveText({ ...d.leave, note: "" }, ctx.fmtDay).replace(/\s+/g, " ").trim();
       const s = procSchedule(d);
       text = [d.code ? procName(d.code) : `${d.said}（？）`, d.site, d.hd ? hdText(d.hd) : null, d.tx ? txText(d.tx) : null, d.rehab ? rehabText(d.rehab) : null, d.consult ? consultText(d.consult) : null, d.leave ? leaveText(d.leave, ctx.fmtDay) : null, d.guide ? guideText(d.guide) : null, d.move ? moveText(d.move) : null, d.o2.device ? `${d.o2.device} ${d.o2.lpm ?? "？"}L/分` : null, s ? procScheduleText(s) : "回数？", `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.days ? `${d.days}日間` : null].filter(Boolean).join("　"); break;
     }

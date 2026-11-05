@@ -8,14 +8,20 @@ import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { HOSPITAL } from "@/lib/billing/facility";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { OUTCOMES, ROUTES, SECTIONS, SUMMARY_DEADLINE_DAYS, SUMMARY_DEADLINE_SOURCE, labelOf, collectFacts, dischargeChecks, emptySections, type DischargeDraft, type Facts, type SectionKey } from "@/lib/discharge";
+import { OUTCOMES, ROUTES, SECTIONS, SUMMARY_DEADLINE_DAYS, SUMMARY_DEADLINE_SOURCE, labelOf, collectFacts, dischargeChecks, createDischargeDraft, type DischargeDraft, type Facts, type SectionKey } from "@/lib/discharge";
 import type { Diagnosis } from "@/lib/diagnoses";
 import { useSpeech } from "@/lib/use-speech";
-import type { OrderEntry, Patient } from "@/lib/types";
+import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { ageSex } from "@/lib/person";
 
+import type { Draft } from "@/lib/drafts";
+import type { AdmissionRequest } from "@/lib/admission";
+
 interface Props {
+  history?: HistoryEntry[];
+  orderDrafts?: Draft[];
+  admissionRequest?: AdmissionRequest;
   patient: Patient;
   today: CalendarDate;
   nowTime: string;
@@ -37,11 +43,11 @@ interface Props {
 const noSubscribe = () => () => {};
 
 /** 退院時サマリー and 診療情報提供書: facts by code, the doctor's account placed by Claude, signed by the doctor. */
-export function DischargePanel({ patient, today, nowTime, doctor, entries, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter, attending = patient.attending, onApprove, onReturn }: Props) {
+export function DischargePanel({ patient, today, nowTime, doctor, entries, history, orderDrafts = [], admissionRequest, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter, attending = patient.attending, onApprove, onReturn }: Props) {
   const me = useMe();
   const [tab, setTab] = useState<"summary" | "letter">(draft?.letter.to ? "letter" : "summary");
   const [d, setD] = useState<DischargeDraft>(
-    draft ?? { patientId: patient.id, dischargeDay: 2, destination: "自宅", outcome: "1", route: "1", sections: emptySections(), status: "作成中", letter: { to: "", dept: "", doctor: "", purpose: "", attach: true } },
+    () => draft ?? createDischargeDraft(patient, history ?? patient.history, orderDrafts, today, admissionRequest),
   );
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -182,6 +188,7 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, diagn
           {SECTIONS.map(({ key, label }) => (
             <label key={key} className="block text-xs text-ink-soft">
               {label}
+              {d.sources?.[key] && <span className="hint ml-2 text-ink-faint">コピー元：{d.sources[key]}</span>}
               <textarea value={d.sections[key]} onChange={(e) => setSection(key, e.target.value)} rows={key === "course" ? 4 : 2} className="mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] text-ink" />
             </label>
           ))}
@@ -351,7 +358,7 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
         <Prose key={s.key} title={s.label} text={d.sections[s.key]} />
       ))}
       {directive && <Rows title="事前指示" items={[directive]} />}
-      <p className="mt-3 text-[10px] text-ink-faint">病名・検査・処方・処置・培養・画像はカルテからコードで集めたもの。経過の文は医師の口述（Claude は欄に分けただけ）。架空の病院・架空の患者。</p>
+      <p className="mt-3 text-[10px] text-ink-faint">病名・検査・処方・処置・培養・画像はカルテからコードで集めたもの。初期の文は記事・入院申込・退院オーダからコピーし、医師が確認・編集するもの。架空の病院・架空の患者。</p>
     </article>
   );
 }
@@ -390,7 +397,7 @@ function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: Discharg
       {d.letter.attach && <Rows title="添付" items={["退院後の治療計画", "検査結果（上の推移）", "画像の所見（上の一覧）"]} />}
       <Prose title="今後の方針" text={d.sections.plan} />
       <p className="mt-3">ご高診のほど、よろしくお願い申し上げます。</p>
-      <p className="mt-3 text-[10px] text-ink-faint">架空の病院・架空の患者。事実はカルテからコードで集め、経過は医師の口述です。</p>
+      <p className="mt-3 text-[10px] text-ink-faint">架空の病院・架空の患者。事実はカルテから集め、文は医師が確認・編集したものです。</p>
     </article>
   );
 }

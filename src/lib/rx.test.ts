@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyChoice, checkDraft, isReady, toOrder, type CheckContext, type Draft } from "./drafts";
+import { applyChoice, checkDraft, isReady, newProcedureDraft, toOrder, type CheckContext, type Draft } from "./drafts";
 import { PATIENTS } from "./patients";
 import { firstDose, perDoseOf, type PrescriptionDraft } from "./rx";
 import type { OrderEntry } from "./types";
@@ -112,4 +112,19 @@ it("口頭指示の単回処方は食後や頓用の予定にせず、確定時�
   const o = toOrder(d, ctx()).orders![0];
   expect(o).toMatchObject({ type: "prescription", once: { day: 0, time: "10:00" }, amount: 1 });
   expect(o).not.toHaveProperty("prn");
+});
+
+it("退院時処方は退院日がなければ確定前に日を尋ね、同患者の退院下書きから補う", async () => {
+  const { draftLine } = await import("./draft-line");
+  const d = rx({ category: "退院時" });
+  expect(draftLine(d, ctx())).toContain("退院日から");
+  expect(checkDraft(d, ctx()).some((i) => i.key === "discharge-day")).toBe(true);
+  const leave = { ...newProcedureDraft("PROC-LEAVE", "leave"), leave: { kind: "退院" as const, from: { day: 3, time: "10:00" }, destination: "自宅", note: "" } };
+  const context = ctx({ drafts: [leave], activeOrders: [] });
+  expect(draftLine(d, context)).toContain("D3から");
+  expect(toOrder(d, context).orders?.[0]).toMatchObject({ category: "退院時", start: { day: 3, timing: "朝" } });
+  const prn = rx({ category: "退院時", timings: [], prn: "疼痛時" });
+  expect(toOrder(prn, context).orders?.[0]).toMatchObject({ start: { day: 3 } });
+  const confirmed: OrderEntry = { kind: "order", id: "l", day: 0, time: "10:00", status: "有効", author: "医師", order: { type: "procedure", code: "PROC-LEAVE", schedule: { kind: "once" }, start: { day: 2 }, leave: { ...leave.leave, from: { day: 2, time: "10:00" } } } };
+  expect(draftLine(d, ctx({ activeOrders: [confirmed] }))).toContain("D2から");
 });

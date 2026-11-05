@@ -3572,6 +3572,9 @@ export default function WardApp() {
               {panel === "discharge" && (
                 <Drawer title="退院時サマリー・診療情報提供書" onClose={closePanel} wide>
                   <DischargePanel
+                    history={entries}
+                    orderDrafts={chart.drafts}
+                    admissionRequest={requests.find((r) => r.admittedAs === patient.id)}
                     patient={patient}
                     today={today}
                     nowTime={nowTime}

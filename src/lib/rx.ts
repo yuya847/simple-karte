@@ -111,6 +111,20 @@ function candidates(said: string) {
   return ORAL_DRUGS.filter((d) => [d.name, ...d.aliases].some((a) => s && (a.includes(s) || s.includes(a)))).slice(0, 4);
 }
 
+/** The latest leave draft takes precedence over confirmed active orders of this patient. */
+export function dischargeLeave(ctx: Pick<CheckContext, "drafts" | "activeOrders">) {
+  const draft = ctx.drafts.findLast((d) => d.kind === "procedure" && d.leave?.kind === "退院");
+  if (draft?.kind === "procedure" && draft.leave) return draft.leave;
+  const entry = [...ctx.activeOrders].sort((a, b) => b.day - a.day || b.time.localeCompare(a.time)).find((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院");
+  return entry?.order.type === "procedure" ? entry.order.leave : undefined;
+}
+
+export function dischargeStartDay(d: PrescriptionDraft, ctx: Pick<CheckContext, "drafts" | "activeOrders">): number | null {
+  if (d.start.day !== null) return d.start.day;
+  const leave = dischargeLeave(ctx);
+  return leave?.from.day ?? null;
+}
+
 export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, allergies: string[] = []): Issue[] {
   const issues: Issue[] = [];
   const set = (patch: Partial<PrescriptionDraft>) => (x: Draft) => ({ ...(x as PrescriptionDraft), ...patch });
@@ -120,6 +134,9 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
   const prn = d.timings !== null && d.timings.length === 0;
   const times = d.timings?.length ?? 0;
 
+  if (d.category === "退院時" && dischargeStartDay(d, ctx) === null) {
+    issues.push({ key: "discharge-day", level: "ask", title: "退院日", message: "退院オーダを入力するか、退院日を指定してください。", choices: [0, 1, 2, 3, 4, 5, 6, 7].map((day) => ({ label: ctx.fmtDay(day), apply: set({ start: { day, timing: d.timings?.[0] ?? null } }) })) });
+  }
   // 区分・用法・日数
   if (!d.category && !prn) {
     issues.push({ key: "category", level: "ask", title: "区分", message: "定期か臨時かが抜けています。", choices: (["定期", "臨時"] as const).map((c) => ({ label: c, apply: set({ category: c }) })) });
@@ -215,9 +232,10 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
 }
 
 /** One order per drug, all sharing the Rp. Only call when the checks are all info. */
-export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId: string): PrescriptionOrder[] {
+export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId: string, dischargeDay?: number | null): PrescriptionOrder[] {
   const prn = d.timings!.length === 0;
-  const start = prn ? { day: 0 } : d.start.day !== null && d.start.timing ? { day: d.start.day, timing: d.start.timing } : firstDose(d.timings!, nowTime);
+  if (d.category === "退院時" && d.start.day === null && dischargeDay == null) throw new Error("退院日を指定してください。");
+  const start = d.category === "退院時" ? { day: d.start.day ?? dischargeDay ?? 0, ...(!prn ? { timing: d.start.timing ?? d.timings![0] } : {}) } : prn ? { day: 0 } : d.start.day !== null && d.start.timing ? { day: d.start.day, timing: d.start.timing } : firstDose(d.timings!, nowTime);
   return d.items.map((it) => {
     const m = findOralDrug(it.drugCode!)!;
     const per = perDoseOf(it, prn ? 1 : d.timings!.length)!;

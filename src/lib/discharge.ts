@@ -7,7 +7,11 @@ import { addDays, formatShort, type CalendarDate } from "./dates";
 import { diagnosisLabel, type Diagnosis } from "./diagnoses";
 import { orderLines } from "./format";
 import { ANALYTES, anyDrugName } from "./master";
-import type { InjectionOrder, OrderEntry, Patient } from "./types";
+import type { HistoryEntry, NoteEntry, InjectionOrder, OrderEntry, Patient } from "./types";
+import type { Draft } from "./drafts";
+import type { AdmissionRequest } from "./admission";
+import { dischargeLeave } from "./rx";
+import { rpLine } from "./rp";
 import { verbalUnsigned } from "./verbal";
 
 export const SECTIONS = [
@@ -29,6 +33,7 @@ export interface DischargeDraft {
   outcome: string;
   route: string;
   sections: Record<SectionKey, string>;
+  sources?: Partial<Record<SectionKey, string>>;
   status: "作成中" | "確定";
   confirmedAt?: { day: number; time: string };
   confirmedBy?: string;
@@ -41,6 +46,32 @@ export interface DischargeDraft {
 }
 
 export const emptySections = (): Record<SectionKey, string> => ({ complaint: "", reason: "", present: "", course: "", status: "", plan: "" });
+
+/** Copy chart text verbatim; never infer a course or clinical conclusion. Inputs belong to one patient. */
+export function createDischargeDraft(patient: Patient, entries: HistoryEntry[], drafts: Draft[], today: CalendarDate, request?: Pick<AdmissionRequest, "diagnosis" | "purpose">): DischargeDraft {
+  const notes = entries.filter((e): e is NoteEntry => e.kind === "note" && e.day >= patient.admittedOn && !!e.soap).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
+  const first = notes[0];
+  const last = notes.at(-1);
+  const orders = entries.filter((e): e is OrderEntry => e.kind === "order");
+  const leave = dischargeLeave({ drafts, activeOrders: orders });
+  const sections = emptySections();
+  const sources: DischargeDraft["sources"] = {};
+  const stamp = (n: NoteEntry | undefined) => n ? `記事 ${formatShort(addDays(today, n.day))} ${n.time}` : "";
+  sections.complaint = first?.soap?.s ?? "";
+  sections.present = [first?.soap?.s, first?.soap?.o].filter(Boolean).join("\n");
+  sections.reason = request ? [request.diagnosis, request.purpose].filter(Boolean).join("\n") : patient.admissionDiagnosis;
+  sections.status = last?.soap?.a ?? "";
+  const prescriptions = [
+    ...orders.filter((e) => e.status === "有効" && e.order.type === "prescription" && e.order.category === "退院時").map((e) => { const line = orderLines(e.order, today); return [line.main, line.detail].filter(Boolean).join("　"); }),
+    ...drafts.filter((d) => d.kind === "prescription" && d.category === "退院時").map(rpLine),
+  ];
+  sections.plan = [last?.soap?.p, leave ? `${formatShort(addDays(today, leave.from.day))} ${leave.from.time} 退院先：${leave.destination}` : null, prescriptions.length ? `退院時処方\n${prescriptions.join("\n")}` : null].filter(Boolean).join("\n");
+  sources.complaint = sources.present = stamp(first);
+  sources.reason = request ? "入院申込の病名・目的" : "患者情報の入院時病名";
+  sources.status = stamp(last);
+  sources.plan = [stamp(last), leave ? "退院オーダ" : "", prescriptions.length ? "退院時処方（下書きを含む）" : ""].filter(Boolean).join("／");
+  return { patientId: patient.id, dischargeDay: leave?.from.day ?? 0, destination: leave?.destination ?? "", outcome: "1", route: "1", sections, sources, status: "作成中", letter: { to: "", dept: "", doctor: "", purpose: "", attach: true } };
+}
 
 /** 退院時転帰 and 入院経路 — codes of JP-CLINS v1.13.0 (HS039 退院時サマリー HL7 FHIR 記述仕様で必須). */
 export const OUTCOMES = [

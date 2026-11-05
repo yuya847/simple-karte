@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PATIENTS } from "./patients";
-import { collectFacts, dischargeChecks, labTrend } from "./discharge";
+import { collectFacts, createDischargeDraft, dischargeChecks, labTrend } from "./discharge";
 import type { OrderEntry } from "./types";
 
 const today = { y: 2026, m: 11, d: 3 };
@@ -19,4 +19,37 @@ describe("退院時サマリーの事実はカルテからコードで集める"
     const c = dischargeChecks(sakura, entries, ["造影CT"]);
     expect(c.at(-1)).toBe("説明前の同意書：造影CT");
   });
+});
+
+it("記事の原文、申込、退院先・日付、退院処方をコピーし、入力を変えない", async () => {
+  const { newProcedureDraft } = await import("./drafts");
+  const history = [
+    { kind: "note" as const, day: 0, time: "09:00", author: "医師", role: "医師" as const, soap: { s: "息苦しい", o: "浮腫あり", a: "入院時評価", p: "入院時方針" } },
+    { kind: "note" as const, day: 1, time: "15:00", author: "医師", role: "医師" as const, soap: { a: "浮腫は軽減", p: "外来で再診" } },
+  ];
+  const drafts = [{ ...newProcedureDraft("PROC-LEAVE", "leave"), leave: { kind: "退院" as const, from: { day: 3, time: "10:00" }, destination: "自宅（長女と同居）", note: "介護タクシー" } }];
+  const prescription: OrderEntry = { kind: "order", id: "rx", day: 1, time: "10:00", author: "医師", status: "有効", order: { type: "prescription", category: "退院時", drugCode: "ORAL-REBA100", amount: 1, unit: "錠", timings: ["朝"], start: { day: 3, timing: "朝" }, days: 7 } };
+  const before = JSON.stringify({ history, drafts });
+  const d = createDischargeDraft(sakura, [...history, prescription], drafts, today, { diagnosis: "心不全", purpose: "利尿薬で治療" });
+  expect(d.sections.complaint).toBe("息苦しい");
+  expect(d.sections.present).toBe("息苦しい\n浮腫あり");
+  expect(d.sections.reason).toBe("心不全\n利尿薬で治療");
+  expect(d.sections.status).toBe("浮腫は軽減");
+  expect(d.sections.plan).toContain("外来で再診");
+  expect(d.sections.plan).toContain("レバミピド");
+  expect(d.sections.plan).toContain("7日分");
+  expect(d.destination).toBe("自宅（長女と同居）");
+  expect(d.dischargeDay).toBe(3);
+  expect(d.sources?.status).toContain("11/4（水） 15:00");
+  expect(d.sections.course).toBe("");
+  expect(JSON.stringify({ history, drafts })).toBe(before);
+  d.sections.present = "編集";
+  expect(history[0].soap.s).toBe("息苦しい");
+});
+
+it("記事のない患者の内容を推測しない", () => {
+  const d = createDischargeDraft(sakura, [], [], today);
+  expect(d.sections.complaint).toBe("");
+  expect(d.sections.status).toBe("");
+  expect(d.destination).toBe("");
 });

@@ -1613,7 +1613,7 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
 export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外出"], initialDay = null }: { onAdd: (d: Draft) => void; newId: () => string; kinds?: LeaveOrder["kind"][]; initialDay?: number | null }) {
   const [kind, setKind] = useState<LeaveOrder["kind"] | null>(kinds.length === 1 ? kinds[0] : null);
   const [day, setDay] = useState<number | null>(initialDay);
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState(kinds.length === 1 && kinds[0] === "退院" ? "10:00" : "09:00");
   const [backDay, setBackDay] = useState<number | null>(null);
   const [backTime, setBackTime] = useState("");
   const [dest, setDest] = useState("");
@@ -1639,8 +1639,9 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
     </div>
   );
   return (
-    <div className="space-y-2 text-[12px]">
-      {kinds.length > 1 && row("種類", <TabChoice label="退院・外泊・外出" options={kinds.map((x) => ({ value: x, label: x }))} value={kind} onChange={setKind} />)}
+    <div onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && (!(e.target instanceof HTMLButtonElement) || missing.length === 0)) { e.preventDefault(); submit(); } }} className="space-y-2 text-[12px]">
+      <p className="hint">架空の病院の取り決め：退院は10:00、外泊・外出は9:00を初期値にします。変更できます。日・行き先を入力後、Enterで下書きにします。</p>
+      {kinds.length > 1 && row("種類", <TabChoice label="退院・外泊・外出" options={kinds.map((x) => ({ value: x, label: x }))} value={kind} onChange={(v) => { setKind(v); setTime(v === "退院" ? "10:00" : "09:00"); }} />)}
       {row(
         kind === "退院" ? "退院" : "出る",
         <>
