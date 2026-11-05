@@ -103,7 +103,8 @@ describe("処方・注射の入口", () => {
       const buttons = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
       for (const label of ["処方", "注射"]) {
         const button = buttons.find((b) => b.includes(`<span class="">${label}</span>`))!;
-        if (!allowed) expect(button).toBeUndefined();
+        // Every tile stays visible; one a role cannot use is greyed (disabled) with the reason.
+        if (!allowed) { expect(button).toBeTruthy(); expect(button.includes('disabled=""')).toBe(true); }
         else { expect(button).toBeTruthy(); expect(button.includes('disabled=""')).toBe(false); }
       }
     }
@@ -186,15 +187,11 @@ it("前に保存された事務の群があっても、新しく開くカルテ�
   expect(html).toContain("注射");
 });
 
-it("使えないタイルは既定で隠し、すべて表示の保存時は灰色で出す", () => {
+it("使えないタイルは常に灰色で出す（理由を title に。すべて表示の切り替えはない）", () => {
   const blocked = { "add-rx": "処方は医師が行います" };
-  expect(as("管理栄養士", <ToolRail open="add-rx" onOpen={() => {}} blocked={blocked} />)).not.toContain('title="処方は医師が行います"');
-  const data = new Map<string, string>();
-  vi.stubGlobal("window", { localStorage: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
-  saveRail(STAFF["管理栄養士"].name, { mode: "icons", group: "intervention", pins: [], showAll: true });
   const html = as("管理栄養士", <ToolRail open="add-rx" onOpen={() => {}} blocked={blocked} />);
   expect(html).toMatch(/disabled="" title="処方は医師が行います"[^>]*text-ink-faint/);
-  expect(html).toContain("すべて表示：入");
+  expect(html).not.toContain("すべて表示");
 });
 
 it("管理栄養士の介入は食事を含み、拘束・一括中止・パス・指示簿は含まない", () => {

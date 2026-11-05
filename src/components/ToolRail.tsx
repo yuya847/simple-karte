@@ -210,7 +210,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
   const all = groups.flatMap((g) => [...g.main, ...g.more]);
-  const showAll = rail.showAll ?? false;
+  // Every tile stays visible (ユーザー 2026-11-05：「すべて表示は常時オン」); the ones a role cannot use are greyed with the reason.
+  const showAll = true;
   const list = rail.mode === "list";
 
   const toolTile = (t: Tool): Tile => ({ pin: t.key, label: t.label, icon: t.icon, active: open === t.key, why: blocked[t.key], disabled: t.disabled, badge: badges[t.key], go: () => onOpen(open === t.key ? null : t.key) });
@@ -304,7 +305,6 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
             );
           })}
         </div>
-        <button type="button" aria-pressed={showAll} onClick={() => put({ ...rail, showAll: !showAll })} className="shrink-0 rounded border border-rule px-1 py-1 text-[10px] text-ink-soft">すべて表示{showAll ? "：入" : "：切"}</button>
         </div>
         <div className={grid}>
           {group.key === "reference" && !short && injectionCalendar && (
