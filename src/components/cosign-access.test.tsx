@@ -1,7 +1,7 @@
 // The new screens render (on the server, without a browser) with what they are given.
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { INITIAL_LIMITS } from "@/lib/access-limit";
+import { EXAMPLE_LIMIT } from "@/lib/access-limit";
 import { confirmItems, newItems } from "@/lib/cosign";
 import { PATIENTS } from "@/lib/patients";
 import { GlassStep, LimitPanel, LimitStrip } from "./AccessLimit";
@@ -57,10 +57,10 @@ describe("閲覧制限の画面", () => {
   });
 
   it("the strip and the panel", () => {
-    const strip = renderToStaticMarkup(<LimitStrip limit={INITIAL_LIMITS[0]} inTeam fmtDay={(d) => `${d}日`} />);
+    const strip = renderToStaticMarkup(<LimitStrip limit={EXAMPLE_LIMIT} inTeam fmtDay={(d) => `${d}日`} />);
     expect(strip).toContain("閲覧制限（職員）");
     expect(strip).toContain("担当チームとして開いています");
-    const panel = renderToStaticMarkup(<LimitPanel history={INITIAL_LIMITS} current={INITIAL_LIMITS[0]} fmtDay={(d) => `${d}日`} onSave={() => {}} />);
+    const panel = renderToStaticMarkup(<LimitPanel history={[EXAMPLE_LIMIT]} current={EXAMPLE_LIMIT} fmtDay={(d) => `${d}日`} onSave={() => {}} />);
     expect(panel).toContain("閲覧制限を外す");
     expect(panel).toContain("設定（職員）");
   });

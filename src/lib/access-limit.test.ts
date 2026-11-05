@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_LIMITS, careTeam, currentLimit, glassProblem, glassText, grantOf, inCareTeam, limitDeny, limitProblem, openEvent, type AccessLimit, type GlassEntry } from "./access-limit";
+import { EXAMPLE_LIMIT, INITIAL_LIMITS, careTeam, currentLimit, glassProblem, glassText, grantOf, inCareTeam, limitDeny, limitProblem, openEvent, type AccessLimit, type GlassEntry } from "./access-limit";
 import { PATIENTS } from "./patients";
 
 const mori = PATIENTS.find((p) => p.id === "90010260")!;
 
 describe("閲覧制限（架空の職員の患者）", () => {
   it("森 久美子 is limited as 職員 from the start; the others are not", () => {
-    expect(currentLimit(INITIAL_LIMITS, mori.id)).toMatchObject({ kind: "職員", by: "山本（専攻医）" });
+    expect(INITIAL_LIMITS).toEqual([]);
+    expect(currentLimit([EXAMPLE_LIMIT], mori.id)).toMatchObject({ kind: "職員", by: "山本（専攻医）" });
     for (const p of PATIENTS.filter((x) => x.id !== mori.id)) expect(currentLimit(INITIAL_LIMITS, p.id)).toBeNull();
   });
 
   it("the last setting is in force; a removal ends it, and every one is kept", () => {
     const off: AccessLimit = { id: "x", patientId: mori.id, on: false, reason: "本人が退職した", by: "山本（専攻医）", at: { day: 0, time: "10:00" } };
-    expect(currentLimit([...INITIAL_LIMITS, off], mori.id)).toBeNull();
+    expect(currentLimit([EXAMPLE_LIMIT, off], mori.id)).toBeNull();
     const again: AccessLimit = { ...off, id: "y", on: true, kind: "その他", reason: "家族の希望" };
-    expect(currentLimit([...INITIAL_LIMITS, off, again], mori.id)?.id).toBe("y");
+    expect(currentLimit([EXAMPLE_LIMIT, off, again], mori.id)?.id).toBe("y");
   });
 
   it("setting needs a kind and a reason; removing needs a reason; only a doctor does it", () => {
@@ -66,7 +67,7 @@ describe("理由を残して開く", () => {
   });
 
   it("what goes to the audit log when the chart is opened", () => {
-    const limit = currentLimit(INITIAL_LIMITS, mori.id);
+    const limit = currentLimit([EXAMPLE_LIMIT], mori.id);
     expect(openEvent(null, false, undefined)).toEqual({ action: "カルテを開いた" });
     expect(openEvent(limit, true, undefined)).toEqual({ action: "カルテを開いた", detail: "閲覧制限の患者（担当チームとして）", restricted: true });
     expect(openEvent(limit, false, undefined)).toEqual({ action: "閲覧制限の患者を選んだ（理由の入力へ）", restricted: true });
