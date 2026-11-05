@@ -41,6 +41,21 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
   font-feature-settings: "palt" 1;
+  /* 青のアクセント：チェック・ラジオの色と、入力中の日本語の変換候補（iPad の外付けキーボードでスペースを押した
+     ときの選択中の文節）の色。紙色の画面だと選択の色が薄くて見えないので、はっきりした青にする。 */
+  accent-color: #1a66ff;
+  caret-color: #1a66ff;
+}
+
+::selection {
+  background: #1a66ff;
+  color: #fff;
+}
+input::selection,
+textarea::selection,
+[contenteditable]::selection {
+  background: #1a66ff;
+  color: #fff;
 }
 
 /* Numbers line up in tables and order lines. */
