@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardList } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ADL_RANKS,
   DELIRIUM_MEASURES,
@@ -35,6 +35,7 @@ import { PatientAvatar } from "./PatientAvatar";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 interface Props {
+  initialSelection?: { pid: string; key: ItemKey };
   people: WorkPatient[];
   evals: Record<string, AdmitEval>;
   today: CalendarDate;
@@ -65,9 +66,12 @@ const STATE_STYLE: Record<Due["state"], string> = {
 };
 
 /** 入院時の評価: what each patient still needs after admission, with the deadline, by job. */
-export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {} }: Props) {
+export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {}, initialSelection }: Props) {
   const deny = useDeny();
-  const [sel, setSel] = useState<{ pid: string; key: ItemKey } | null>(null);
+  const [sel, setSel] = useState<{ pid: string; key: ItemKey } | null>(initialSelection ?? null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (sel) formRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }); }, [sel]);
   const day = (d: number) => formatShort(addDays(today, d)).replace(/（.）/, "");
   const selected = sel ? people.find((x) => x.patient.id === sel.pid) : undefined;
   return (
@@ -79,7 +83,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
         </h2>
         <span className="hint text-xs text-ink-soft">期限は入院日を1日目として、コードで数えます。書くのは各職種、AI は使いません。</span>
       </header>
-      <table className="w-full border-collapse text-[12px]">
+      <table ref={tableRef} className="w-full border-collapse text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="py-1 pr-2 font-normal">患者</th>
@@ -133,7 +137,8 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
       </table>
 
       {sel && selected && (
-        <Detail
+        <div ref={formRef} className="scroll-mt-4"><Detail
+          onBack={() => tableRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })}
           key={`${sel.pid}-${sel.key}`}
           w={selected}
           ev={evals[sel.pid] ?? { patientId: sel.pid }}
@@ -142,14 +147,14 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
           nowTime={nowTime}
           onSave={onSave}
           hints={hints[sel.pid]}
-        />
+        /></div>
       )}
       {!sel && <p className="hint mt-3 text-xs text-ink-faint">表の枠を押すと、その項目を書く欄が出ます。太字の列が、いまの職種が書く項目です。</p>}
     </div>
   );
 }
 
-function Detail({ w, ev, item, today, nowTime, onSave, hints }: { w: WorkPatient; ev: AdmitEval; item: ItemKey; today: CalendarDate; nowTime: string; onSave: (e: AdmitEval, what: string) => void; hints?: EvalHints }) {
+function Detail({ w, ev, item, today, nowTime, onSave, hints, onBack }: { onBack: () => void; w: WorkPatient; ev: AdmitEval; item: ItemKey; today: CalendarDate; nowTime: string; onSave: (e: AdmitEval, what: string) => void; hints?: EvalHints }) {
   const col = COLUMNS.find((c) => c.key === item)!;
   const due = duesOf(ev, w.patient.admittedOn).find((d) => d.key === item)!;
   const locked = !!useDeny()(col.action);
@@ -157,6 +162,7 @@ function Detail({ w, ev, item, today, nowTime, onSave, hints }: { w: WorkPatient
     <section className="mt-4 rounded-lg border border-rule bg-sheet p-4">
       <h3 className="mb-1 font-bold">
         {w.room} {w.patient.name}さん：{due.label}
+        <button type="button" onClick={onBack} className="ml-3 rounded border border-rule px-2 py-0.5 text-xs font-normal text-ai">表に戻る</button>
       </h3>
       <p className="hint mb-2 text-[11px] text-ink-faint">根拠：{due.source}</p>
       {due.note && <p className="mb-2 text-xs text-yamabuki">{due.note}</p>}

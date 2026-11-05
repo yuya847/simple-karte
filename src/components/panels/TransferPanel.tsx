@@ -42,6 +42,7 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
           ))}
         </ul>
       </div>
+      <p className="hint text-xs text-ink-faint">打診は模擬です。外部には送信しません。キーパーソンは続柄のみ、記録のない項目は「（記録なし）」と表示します。</p>
       {decided && (
         <p className="rounded-md bg-ai-soft px-2 py-1 font-bold text-ai">
           決定：{decided.facility}（{decided.log.at(-1)?.note}）

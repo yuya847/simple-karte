@@ -12,11 +12,11 @@ import { DenyNote, useDeny, useMe } from "../RoleContext";
  * 書類作成: choose a form; what the chart says is filled in (カルテから), the doctor writes the rest,
  * confirms (kept in the record) and prints. 紹介状 is written in the 退院サマリ panel.
  */
-export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral, initial }: { patient: Patient; auto: (k: DocKind) => Record<string, string>; saved: DocRecord[]; today: string; onSave: (kind: DocKind, values: Record<string, string>) => void; onOpenReferral: () => void; initial?: (k: DocKind) => Record<string, string> }) {
+export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral, initial, initialKind }: { initialKind?: DocKind; patient: Patient; auto: (k: DocKind) => Record<string, string>; saved: DocRecord[]; today: string; onSave: (kind: DocKind, values: Record<string, string>) => void; onOpenReferral: () => void; initial?: (k: DocKind) => Record<string, string> }) {
   const me = useMe();
   const deny = useDeny();
-  const [kind, setKind] = useState<DocKind | null>(null);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [kind, setKind] = useState<DocKind | null>(initialKind ?? null);
+  const [values, setValues] = useState<Record<string, string>>(() => initialKind ? initial?.(initialKind) ?? {} : {});
   const [printing, setPrinting] = useState<DocRecord | null>(null);
   // 退院支援計画書 is written by the discharge support staff (MSW・看護師), 褥瘡対策の計画書 by the team's doctor and nurse; the others by doctors.
   const action = (k: DocKind) => (k === "入院診療計画書" ? "plan" : k === "退院支援計画書" ? "assess.discharge" : k === "褥瘡対策に関する診療計画書" ? "pressure" : "discharge") as "plan" | "discharge" | "assess.discharge" | "pressure";

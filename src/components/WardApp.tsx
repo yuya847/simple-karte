@@ -120,7 +120,7 @@ import { TransferPanel } from "./panels/TransferPanel";
 import { BedsidePanel } from "./panels/BedsidePanel";
 import { SupportBoard } from "./SupportBoard";
 import { BedControlView } from "./BedControlView";
-import { transferSummary, type TransferAsk } from "@/lib/transfer";
+import { transferAdl, transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
@@ -718,6 +718,8 @@ export default function WardApp() {
   const [imageFocus, setImageFocus] = useState<string | null>(null);
   const [zOrder, setZOrder] = useState<RightTab[]>([]);
   // 入院時の評価（計画書・栄養・褥瘡・転倒転落・せん妄・退院支援）.
+  const [supportDoc, setSupportDoc] = useState(false);
+  const [admitSelection, setAdmitSelection] = useState<{ pid: string; key: import("@/lib/admit-eval").ItemKey }>();
   const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
   // Results the doctor marked as seen, and panic values phoned in by the laboratory.
   const [acks, setAcks] = useState<Record<string, Ack>>({});
@@ -2210,7 +2212,7 @@ export default function WardApp() {
       ) : screen === "iji" ? (
         <IjiBoard outpatient={{ visits: opd.map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`opd:${patient.id}`)!, sessionChanges[`opd:${patient.id}`]), dept.ris)), rx: opdRx[patient.id] ?? [], drafts: pendingDraftCount(charts, `opd:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) { setOpdBills((all) => ({ ...all, [s.visitId]: s })); setOpd((all) => all.map((p) => `opd:${p.id}` === s.visitId ? { ...p, status: "終了" } : p)); } } }} charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(id.startsWith("er:") || id.startsWith("opd:") ? "patient-info" : where))} />
       ) : screen === "support" ? (
-        <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
+        <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} onStep={(pid, step) => { if (step === "docs" || step === "transfer" || step === "add-discharge") { if (step === "add-discharge" && role !== "医師") return; setSupportDoc(step === "docs"); openPatient(pid); setPanel(step); } else { setAdmitSelection({ pid, key: step }); goWard("admit"); } }} />
       ) : screen === "ulcers" ? (
         <UlcerBoard
           pick={floorPick}
@@ -2621,6 +2623,7 @@ export default function WardApp() {
         <AuditView />
       ) : screen === "admit" ? (
         <AdmitEvalView
+          key={JSON.stringify(admitSelection)} initialSelection={admitSelection}
           people={people}
           evals={evals}
           today={today}
@@ -3844,7 +3847,7 @@ export default function WardApp() {
               {panel === "transfer" && (
                 <Drawer title="転院・施設の調整" onClose={closePanel} wide>
                   <TransferPanel
-                    summary={transferSummary(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), { dietNow: patient.dietNow, restrained: !!activeOf(restraints, patient.id) })}
+                    summary={transferSummary(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), { dietNow: patient.dietNow, restrained: !!activeOf(restraints, patient.id), adl: transferAdl(dept.rehab.bi, patient.id), rest: standingNow(patient.id)?.rest, anamnesis: anamnesis[patient.id]?.fields })}
                     asks={transferAsks.filter((a) => a.patientId === patient.id)}
                     onAsk={(fs) => {
                       auditLog({ role: me.role, actor: me.name, action: "転院・施設に打診した", patient: patient.name, detail: fs.map((f) => f.name).join("、") });
@@ -3918,8 +3921,9 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "docs" && (
-                <Drawer title="書類作成" onClose={closePanel} wide>
+                <Drawer title="書類作成" onClose={() => { setSupportDoc(false); closePanel(); }} wide>
                   <DocsPanel
+                    initialKind={supportDoc ? "退院支援計画書" : undefined}
                     patient={patient}
                     today={formatShort(today)}
                     saved={documents.filter((d) => d.patientId === patient.id)}
