@@ -110,7 +110,7 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
             {insulinDoses(e, lo, hi, mar.records, mar.sessionStart, nowAbs).map((x) => (
               <span
                 key={x.at}
-                title={`${x.state}${x.record ? ` ${x.record.doneAt} ${x.record.by}` : ""}`}
+                title={`${x.state}${x.record ? ` ${x.record.doneAt} ${x.record.by}${x.record.insulin ? `・${x.record.insulin.units}単位` : ""}` : ""}`}
                 className={`absolute top-1 h-4 w-1 -translate-x-1/2 rounded ${x.state === "未実施" ? "bg-shu" : x.state === "未入力" ? "bg-yamabuki" : x.state === "予定" ? "bg-rule" : "bg-ink-soft"}`}
                 style={{ left: xAbs(x.at) }}
               />
@@ -118,7 +118,7 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
           </Line>
         );
       })}
-      <p className="pl-[76px] pt-0.5 text-[10px] text-ink-faint">血糖は看護ケア・観察の「血糖測定」に入れた値（簡易血糖）と検体検査の Glu を、測った順に並べています。インスリンは注射オーダと与薬の記録から。</p>
+      <p className="pl-[76px] pt-0.5 text-[10px] text-ink-faint">血糖は看護ケア・観察の「血糖測定」とインスリン実施時に入れた値（簡易血糖）、検体検査の Glu を、測った順に並べています。インスリンは注射オーダと与薬の記録から。</p>
     </>
   );
 }

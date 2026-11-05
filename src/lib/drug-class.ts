@@ -225,5 +225,5 @@ export function drugCodesOf(o: { type: string; items?: { drugCode: string }[]; d
 
 /** Master items with no class entry (should be none; a test keeps it so). */
 export function unclassified(): string[] {
-  return [...DRUGS.map((d) => d.code), ...ORAL_DRUGS.map((d) => d.code)].filter((c) => !DRUG_CLASSES[c]);
+  return [...DRUGS.filter(d => !d.fictional).map((d) => d.code), ...ORAL_DRUGS.map((d) => d.code)].filter((c) => !DRUG_CLASSES[c]);
 }

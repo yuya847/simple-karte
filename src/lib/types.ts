@@ -176,7 +176,15 @@ export type InjectionSchedule =
   | { kind: "every_hours"; hours: number } // e.g. 12時間ごと
   | { kind: "once" };
 
+export interface SlidingScale {
+  times: string[];
+  rows: { from: number; to: number | null; units: number }[];
+  callAbove?: number;
+}
+
 export interface InjectionOrder {
+  sliding?: SlidingScale;
+  replaces?: string;
   doseTimes?: string[];
   end?: { day: number; time: string };
   type: "injection";

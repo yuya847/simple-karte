@@ -27,7 +27,7 @@ export function scheduleLabel(s: InjectionSchedule, mainDrugCode?: string | null
 }
 
 export function scheduleTextFor(order: InjectionOrder): string {
-  return scheduleLabel(order.schedule, order.items[0]?.drugCode);
+  return order.sliding ? `スライディングスケール（${order.sliding.times.join("・")}）` : scheduleLabel(order.schedule, order.items[0]?.drugCode);
 }
 
 /** "30分", "1時間", "10時間", "1時間30分" */
@@ -50,7 +50,7 @@ export function labName(code: string): string {
 }
 
 export function injectionLines(order: InjectionOrder, today: CalendarDate): { main: string; detail: string } {
-  const main = order.items.map((it) => `${drugName(it.drugCode)}　${it.amount}${it.unit}`).join(" ＋ ");
+  const main = order.items.map((it) => `${drugName(it.drugCode)}　${order.sliding ? "" : `${it.amount}${it.unit}`}`).join(" ＋ ");
   const parts = [order.route, scheduleTextFor(order)];
   if (order.minutesPerDose) parts.push(`1回${durationText(order.minutesPerDose)}`);
   if (order.rateMlPerH) parts.push(`${order.rateMlPerH}mL/時`);

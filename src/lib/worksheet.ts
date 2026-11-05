@@ -41,6 +41,8 @@ export interface WorkPatient {
 }
 
 export interface WorkItem {
+  sliding?: import("./types").SlidingScale;
+  insulinUnits?: number;
   /** Minutes from today 00:00, or null for items without a clock time (必要時, 1日N回). */
   at: number | null;
   kind: WorkKind;
@@ -103,16 +105,16 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
       const o = e.order;
       if (o.type === "injection") {
         if (!live(e, lo, hi, nowAbs, orderInterval)) continue;
-        const main = o.items.map((it) => `${drugName(it.drugCode)} ${it.amount}${it.unit}`).join(" ＋ ");
+        const main = o.items.map((it) => `${drugName(it.drugCode)} ${o.sliding ? "" : `${it.amount}${it.unit}`}`).join(" ＋ ");
         const parts = [o.route, scheduleTextFor(o)];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);
         const detail = parts.join("　");
         if (o.doseTimes?.length || o.schedule.kind === "every_hours" || (o.schedule.kind === "per_day" && !isFluid(o))) {
-          for (const t of doseTimes(e, nowAbs, lo, hi)) timed.push({ ...base, at: t, kind: "注射", main, detail, orderId: e.id, state: state(t) });
+          for (const t of doseTimes(e, nowAbs, lo, hi)) timed.push({ ...base, at: t, kind: "注射", sliding:o.sliding, insulinUnits:findDrug(o.items[0]?.drugCode)?.category === "インスリン" ? o.items[0].amount : undefined, main, detail, orderId: e.id, state: state(t) });
         } else if (o.schedule.kind === "once") {
           const { from } = orderInterval(e, nowAbs);
-          if (from >= lo && from < hi) timed.push({ ...base, at: from, kind: "注射", main, detail, orderId: e.id, state: state(from) });
+          if (from >= lo && from < hi) timed.push({ ...base, at: from, kind: "注射", sliding:o.sliding, insulinUnits:findDrug(o.items[0]?.drugCode)?.category === "インスリン" ? o.items[0].amount : undefined, main, detail, orderId: e.id, state: state(from) });
         } else if (isFluid(o)) {
           // Bag changes use the same prescribed or default times as the calendar.
           const vol = doseVolumeMl(o.items);

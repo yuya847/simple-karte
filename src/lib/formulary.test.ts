@@ -7,7 +7,7 @@ const items = formulary();
 
 describe("院内医薬品集", () => {
   it("has every master drug once, each with a PMDA link", () => {
-    expect(items.length).toBe(DRUGS.length + ORAL_DRUGS.length);
+    expect(items.length).toBe(DRUGS.filter(d => !d.fictional).length + ORAL_DRUGS.length);
     expect(new Set(items.map((x) => x.code)).size).toBe(items.length);
     expect(items.every((x) => x.url.startsWith("https://www.pmda.go.jp/PmdaSearch/iyakuDetail/"))).toBe(true);
   });

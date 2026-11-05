@@ -2,6 +2,7 @@
 
 import { ScanLine } from "lucide-react";
 import { useState } from "react";
+import { slidingUnits } from "@/lib/insulin";
 import { NOT_DONE_REASONS, checkScan, labelFor, marKey, needsLabel, type AdminRecord, type MarState, type NotDoneReason, type VoidReason } from "@/lib/mar";
 import type { WorkItem } from "@/lib/worksheet";
 import { clockText } from "@/lib/drip-course";
@@ -40,6 +41,8 @@ const STATE_STYLE: Record<MarState, string> = {
 export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord, onVoid, voided = [], queried }: Props) {
   const cancellation = record?.cancellation;
   if (cancellation) record = undefined;
+  const [glucose, setGlucose] = useState("");
+  const units = item.sliding ? slidingUnits(item.sliding.rows, glucose === "" ? NaN : Number(glucose)) : item.insulinUnits;
   const [queryAck, setQueryAck] = useState(false);
   const me = useMe();
   const [open, setOpen] = useState(false);
@@ -55,6 +58,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
   const ok = item.at === null ? result.patient === "ok" : result.ok && (!offWindow || timeAck);
   const save = (status: AdminRecord["status"]) => {
     onRecord({
+      ...(status === "実施" && units != null ? {insulin:{units, ...(glucose ? {glucose:Number(glucose)} : {})}} : {}),
       key: marKey(item.orderId, at),
       orderId: item.orderId,
       patientId: item.patientId,
@@ -88,6 +92,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
     return (
       <span className={STATE_STYLE[record.status]} title={record.status === "実施" ? `リストバンド ${record.checked.patient ? "一致" : "—"}${record.checked.label === null ? "" : `／ラベル ${record.checked.label ? "一致" : "—"}`}` : undefined}>
         {record.status} {record.doneAt}
+        {record.insulin && <span className="block">{record.insulin.glucose != null ? `血糖 ${record.insulin.glucose} mg/dL・` : ""}{record.insulin.units}単位</span>}
         {record.reason && <span className="block text-[10px]">{record.reason}</span>}
         {record.offBy !== undefined && <span className="block text-[10px] text-yamabuki">予定より{Math.abs(record.offBy)}分{record.offBy > 0 ? "遅れ" : "早め"}</span>}
         {onVoid && <VoidControl record={record} onVoid={onVoid} />}
@@ -118,6 +123,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
       </div>
       {open && (
         <div className="w-64 space-y-1 rounded border border-rule bg-paper p-1.5 text-[11px]">
+          {item.sliding && <label className="block">血糖 mg/dL<input type="number" min="0" value={glucose} onChange={e=>setGlucose(e.target.value)} className="w-20 border border-rule"/>{units !== null && ` → ${units}単位`}{item.sliding.callAbove !== undefined && Number(glucose)>=item.sliding.callAbove && <b className="block text-shu">医師へ連絡してください</b>}</label>}
           <label className="flex items-center gap-1">
             <span className="w-16">リストバンド</span>
             <input autoFocus value={wb} onChange={(e) => setWb(e.target.value)} placeholder="読み取る" className="w-24 rounded border border-rule bg-sheet px-1" />
@@ -166,7 +172,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
             </label>
           )}
           <div className="flex flex-wrap items-center gap-1 pt-0.5">
-            <button type="button" disabled={!ok || prn?.over || !!prn?.wait || (!!queried && !queryAck)} onClick={() => save("実施")} className="rounded bg-wakatake px-2 py-0.5 font-bold text-white disabled:opacity-40">
+            <button type="button" disabled={!ok || (item.sliding && units == null) || prn?.over || !!prn?.wait || (!!queried && !queryAck)} onClick={() => save("実施")} className="rounded bg-wakatake px-2 py-0.5 font-bold text-white disabled:opacity-40">
               {item.drip ? "開始を記録" : "実施を記録"}
             </button>
             {item.at !== null && (

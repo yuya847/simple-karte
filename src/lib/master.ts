@@ -6,6 +6,8 @@ import type { InjectionRoute } from "./types";
 import { MORE_LAB_INFO, MORE_LAB_TESTS } from "./lab-master-more";
 
 export interface DrugMaster {
+  /** Demo-only item: no official code, price or electronic package insert. */
+  fictional?: boolean;
   code: string;
   name: string;
   /** 一般名・分類は商品名と分けて補足と検索に使う。 */
@@ -30,6 +32,7 @@ export interface DrugMaster {
 }
 
 export const DRUGS: DrugMaster[] = [
+  ...[ ["HUMAN", "ヒト（速効型）注 100単位/mL"], ["ASPART", "アスパルト注"], ["LISPRO", "リスプロ注"], ["GLARGINE", "グラルギン注"], ["DEGLUDEC", "デグルデク注"] ].map(([code, name]): DrugMaster => ({ fictional: true, code: `DEMO-INS-${code}`, name: `インスリン ${name}`, generic: `インスリン ${name}`, category: "インスリン", package: "架空の品目（薬価なし）", kind: "その他", units: ["単位"], routes: ["皮下注"], aliases: ["インスリン", name] })),
   {
     code: "INJ-NS500",
     name: "大塚生食注 500mLソフトバッグ",

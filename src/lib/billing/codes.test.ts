@@ -13,7 +13,7 @@ const iyaku = new Map(y.rows.map((r) => [r[yIdx(3)], r]));
 
 describe("the fictional hospital's codes exist in the official masters and are in force", () => {
   it("every drug of the hospital master has a 医薬品マスター code", () => {
-    for (const d of [...DRUGS, ...ORAL_DRUGS]) expect(DRUG_CODES[d.code], d.code).toBeTruthy();
+    for (const d of [...DRUGS.filter(d => !d.fictional), ...ORAL_DRUGS]) expect(DRUG_CODES[d.code], d.code).toBeTruthy();
   });
 
   for (const [ours, code] of Object.entries(DRUG_CODES)) {

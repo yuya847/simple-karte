@@ -10,7 +10,7 @@ import { usePrintSheet } from "./DeskParts";
 import { useDeny, useMe } from "./RoleContext";
 
 const field = "rounded border border-rule bg-paper px-2 py-1";
-export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, onSave }: { patient: Patient; evaluation?: AdmitEval; diets: DietOrder[]; today: CalendarDate; nowTime: string; onSave: (e: AdmitEval, text: string) => void }) {
+export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, onSave, onPlan }: { onPlan?: () => void; patient: Patient; evaluation?: AdmitEval; diets: DietOrder[]; today: CalendarDate; nowTime: string; onSave: (e: AdmitEval, text: string) => void }) {
   const me = useMe(); const deny = useDeny(); const [print, sheet] = usePrintSheet();
   const n = evaluation?.nutrition;
   const [goal, setGoal] = useState(n?.goal ?? "");
@@ -53,7 +53,7 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
       <button type="button" disabled={!result} className={field} onClick={() => { if(result) {setEnergy(result.kcal);setProteinG(result.protein);} }}>計算値を計画に入れる</button>
       <p className="hint">活動・ストレス係数と蛋白量の初期値は、教科書的な一般値を参考にした架空の病院の取り決めです。疾患別の推奨ではありません。Harris-Benedict（原式）：男 66.473＋13.7516W＋5.0033H−6.755A、女 655.0955＋9.5634W＋1.8496H−4.6756A（W kg、H cm、A 歳）。<a href="https://nutritionalassessment.mumc.nl/en/calculating-energy-expenditure" target="_blank" rel="noreferrer">出典：Maastricht University Medical Center 栄養評価</a>。実測値と病態を確認し、人が必要量を決めます。</p>
     </section>
-    <section className="space-y-2"><h3 className="font-bold">栄養管理計画書</h3>
+    <section className="space-y-2"><h3 className="font-bold">栄養管理計画書</h3>{onPlan && <button type="button" className={field} onClick={onPlan}>計画書を作る</button>}
       <label className="block">目標<textarea className={`${field} w-full`} value={goal} onChange={e => setGoal(e.target.value)} /></label>
       <label>必要量 kcal/日<input className={field} type="number" value={energy} onChange={e => setEnergy(Number(e.target.value))} /></label>
       <label>蛋白 g/日<input className={field} type="number" value={proteinG} onChange={e => setProteinG(Number(e.target.value))} /></label>

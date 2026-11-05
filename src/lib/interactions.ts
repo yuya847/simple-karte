@@ -118,7 +118,7 @@ const lasix = (section: string, as: string): SourceRef[] => [
 ];
 /** Fluids: 生理食塩液 and 5%ブドウ糖 (the two the タキソール 電子添文 allows). */
 const SALINE_GLUCOSE = ["INJ-NS500", "INJ-NS100", "INJ-NSSY10", "INJ-GLU5-500", "INJ-GLU5-250"];
-const allInjectionsBut = (...but: string[]) => DRUGS.map((d) => d.code).filter((c) => !but.includes(c));
+const allInjectionsBut = (...but: string[]) => DRUGS.filter(d => !d.fictional).map((d) => d.code).filter((c) => !but.includes(c));
 
 const BP_UP = "降圧作用が強まることがある（作用の相加）。血圧を見る。";
 

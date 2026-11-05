@@ -1,5 +1,6 @@
 "use client";
 
+import { NUTRITION_PLAN_SOURCE, nutritionPlanProblems } from "@/lib/nutrition-plan";
 import { Printer } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -19,7 +20,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
   const [values, setValues] = useState<Record<string, string>>(() => initialKind ? initial?.(initialKind) ?? {} : {});
   const [printing, setPrinting] = useState<DocRecord | null>(null);
   // 退院支援計画書 is written by the discharge support staff (MSW・看護師), 褥瘡対策の計画書 by the team's doctor and nurse; the others by doctors.
-  const action = (k: DocKind) => (k === "入院診療計画書" ? "plan" : k === "退院支援計画書" ? "assess.discharge" : k === "褥瘡対策に関する診療計画書" ? "pressure" : "discharge") as "plan" | "discharge" | "assess.discharge" | "pressure";
+  const action = (k: DocKind) => (k === "栄養管理計画書" ? "assess.nutrition" : k === "入院診療計画書" ? "plan" : k === "退院支援計画書" ? "assess.discharge" : k === "褥瘡対策に関する診療計画書" ? "pressure" : "discharge") as "assess.nutrition" | "plan" | "discharge" | "assess.discharge" | "pressure";
   const sheet = (k: DocKind, v: Record<string, string>, by: string, at: string) => (
     <article className="space-y-1.5 text-[12px] leading-relaxed print:text-[10.5pt]">
       <h2 className="border-b border-rule pb-1 text-base font-bold">{k}</h2>
@@ -49,7 +50,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
     window.print();
   };
   const merged = kind ? { ...auto(kind), ...values } : {};
-  const missing = kind ? docMissing(kind, merged) : [];
+  const missing = kind ? [...docMissing(kind, merged), ...(kind === "栄養管理計画書" ? nutritionPlanProblems(merged) : [])] : [];
   return (
     <div className="space-y-3 text-[13px]">
       <div className="flex flex-wrap gap-1.5">
@@ -73,7 +74,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
       </div>
       {kind && (
         <section className="space-y-2 rounded-md border border-rule bg-paper p-3 text-[12px]">
-          <p className="text-ink-soft">{DOC_DEFS[kind].purpose}</p>
+          <p className="text-ink-soft">{DOC_DEFS[kind].purpose}</p>{kind === "栄養管理計画書" && <p className="hint">厚生労働省 保医発0305第7号 別添6 別紙23に準じた模擬様式。項目を補って表示します。GLIM（国際的な低栄養診断基準）による評価を行っていない場合は「非対応」と記入します。<a href={NUTRITION_PLAN_SOURCE} target="_blank" rel="noreferrer">出典</a>。空欄は記録がありません。確認して入力してください。</p>}
           {DOC_DEFS[kind].fields.map((f) =>
             f.auto ? (
               <div key={f.key} className="flex gap-2">

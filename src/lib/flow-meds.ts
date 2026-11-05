@@ -90,8 +90,12 @@ const hhmm = (min: number) => {
 };
 
 /** Glucose values in time order: the ward's 血糖測定 records (a number) and the laboratory's Glu. */
-export function glucosePoints(orders: CareOrder[], records: CareRecord[], labs: LabResult[]): GlucosePoint[] {
+export function glucosePoints(orders: CareOrder[], records: CareRecord[], labs: LabResult[], mar: AdminRecord[] = []): GlucosePoint[] {
   const ids = new Set(orders.filter(isGlucoseCare).map((o) => o.id));
+  // The observation belongs to the administration record, so cancelling it also withdraws the glucose.
+  const observed = mar.filter(r=>r.status === "実施" && !r.cancellation && r.insulin?.glucose != null).map(r=>({key:`insulin:${r.key}`,orderId:`insulin:${r.orderId}`,patientId:r.patientId,at:r.at,status:"実施" as const,value:String(r.insulin!.glucose),doneAt:r.doneAt,writtenAt:r.doneAt,by:r.by}));
+  observed.forEach(r=>ids.add(r.orderId));
+  records = [...records,...observed];
   const out: GlucosePoint[] = [];
   for (const r of records) {
     if (!ids.has(r.orderId) || r.voided || r.status !== "実施" || recordOf(records, r.key) !== r) continue;
@@ -120,6 +124,6 @@ export const insulinOrders = (entries: OrderEntry[]) =>
 /** The doses of an insulin order in [lo, hi) with what the MAR says (scheduled doses only). */
 export function insulinDoses(e: OrderEntry, lo: number, hi: number, records: Record<string, AdminRecord>, sessionStart: number, nowAbs: number): { at: number; state: MarState; record?: AdminRecord }[] {
   if (e.order.type !== "injection") return [];
-  const times = e.order.schedule.kind === "every_hours" ? doseTimes(e, nowAbs, lo, hi) : e.order.schedule.kind === "once" ? [orderInterval(e, nowAbs).from].filter((t) => t >= lo && t < hi) : [];
+  const times = e.order.sliding || e.order.doseTimes?.length || e.order.schedule.kind === "per_day" || e.order.schedule.kind === "every_hours" ? doseTimes(e, nowAbs, lo, hi) : e.order.schedule.kind === "once" ? [orderInterval(e, nowAbs).from].filter((t) => t >= lo && t < hi) : [];
   return times.map((at) => ({ at, state: marState({ orderId: e.id, at }, records, sessionStart, nowAbs), record: records[marKey(e.id, at)] }));
 }

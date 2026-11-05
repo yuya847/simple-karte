@@ -24,7 +24,9 @@ export function currentEntries(patient: Patient, changes?: SessionChanges): Hist
   const stopOf = (e: OrderEntry): OrderEntry => ({ ...e, status: "中止", stoppedOn: 0, stoppedTime: changes.stopTimes?.[e.id] });
   const revised = changes.revised ?? {};
   const extended = changes.extended ?? {};
-  const ext = (e: OrderEntry): OrderEntry => (extended[e.id] !== undefined ? ({ ...e, order: { ...e.order, days: extended[e.id] } } as OrderEntry) : e);
+  const endings = new Map([...patient.history.filter((e):e is OrderEntry=>e.kind === "order"),...changes.added].flatMap(e => e.order.type === "injection" && e.order.replaces ? [[e.order.replaces, e.order.start.day] as const] : []));
+  const truncate = (e: OrderEntry): OrderEntry => { const boundary=endings.get(e.id); return boundary !== undefined && e.order.type === "injection" ? {...e,order:{...e.order,end:{day:boundary-1,time:"24:00"},days:boundary-e.order.start.day}} : e; };
+  const ext = (original: OrderEntry): OrderEntry => { const e=truncate(original); return (extended[e.id] !== undefined && !endings.has(e.id) ? ({ ...e, order: { ...e.order, days: extended[e.id] } } as OrderEntry) : e); };
   const note = (e: NoteEntry) => revised[noteKey(e)] ?? e;
   const base = patient.history.map((e) => (e.kind === "order" ? (stopped.has(e.id) ? stopOf(ext(e)) : ext(e)) : e.kind === "note" ? note(e) : e));
   // An order confirmed earlier today can be stopped (or extended) later today too.

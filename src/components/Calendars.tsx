@@ -9,6 +9,8 @@ import { durationText, oralName, procedureLines, scheduleLabel, scheduleTextFor,
 import { findProc } from "@/lib/procedures";
 import { WARD_RULES, findDrug } from "@/lib/master";
 import { ordersOf } from "@/lib/record";
+import { InsulinAdjustment } from "./InsulinAdjustment";
+import { isInsulin, type InsulinChange } from "@/lib/insulin";
 import { InjectionDoseToggle } from "./InjectionDoseToggle";
 import { ExecuteTarget, type ExecuteProps } from "./ExecuteMenu";
 import { orderEndDay, type InjectionDraft } from "@/lib/drafts";
@@ -16,6 +18,7 @@ import { START_BANDS, doStartOf, draftSpan, startAt, type InjStart } from "@/lib
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "@/lib/types";
 
 export interface CalendarProps {
+  onAdjustInsulin?: (entry: OrderEntry, change: InsulinChange) => void;
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
@@ -235,7 +238,7 @@ const INJ_GROUPS: { title: string; test: (o: InjectionOrder) => boolean }[] = [
   { title: "その他", test: (o) => findDrug(o.items[0]?.drugCode)?.kind === "その他" },
 ];
 
-export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, onNewInjection, pendingNew = [], execute }: CalendarProps) {
+export function InjectionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends = {}, onNewInjection, pendingNew = [], execute, onAdjustInsulin }: CalendarProps) {
   const days = calendarDays(patient, INJ_AHEAD);
   // The end being dragged (or moved with ← →) on one order, before it becomes a draft.
   const [drag, setDrag] = useState<{ id: string; to: DayOffset } | null>(null);
@@ -299,6 +302,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                       title={extendable ? `ここまで延長（〜${fmt(d)}、${d - end!}日）` : redoable ? `${fmt(d)}から同じ内容で新規（Do）` : undefined}
                       className={`group/ext relative border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""} ${extendable || redoable ? "cursor-pointer hover:bg-ai-soft/70" : ""}`}
                     >
+                      {d === days[days.length-1] && isInsulin(o) && e.status === "有効" && onAdjustInsulin && <InsulinAdjustment order={o} onSave={change=>onAdjustInsulin(e,change)}/>}
                       <div className="flex flex-col items-start gap-1">
                         {inPreview && <span className="whitespace-nowrap rounded border border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
                         {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
@@ -307,6 +311,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                           const at = d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5));
                           return (
                             <ExecuteTarget key={x.time} execute={execute} patient={patient} entry={e} at={at} title={lines[0]} className="inline-flex items-center gap-0.5">
+                              {isInsulin(o) && execute?.records[`${e.id}|${at}`]?.insulin && <small className="block text-[10px]">{execute.records[`${e.id}|${at}`].insulin!.glucose != null ? `血糖 ${execute.records[`${e.id}|${at}`].insulin!.glucose}・` : ""}{execute.records[`${e.id}|${at}`].insulin!.units}単位</small>}
                               <InjectionDoseToggle execute={execute} patientId={patient.id} orderId={e.id} at={at} time={x.time} record={execute?.records[`${e.id}|${at}`]} />
                             </ExecuteTarget>
                           );

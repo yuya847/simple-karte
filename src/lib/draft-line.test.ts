@@ -1,3 +1,4 @@
+import { defaultSliding } from "./insulin";
 import { describe, expect, it } from "vitest";
 import { labDraftOf, defaultDraw } from "./lab-catalog";
 import { DEPT_SETS } from "./lab-sets";
@@ -6,6 +7,12 @@ import type { CheckContext, InjectionDraft, LabDraft } from "./drafts";
 const ctx: CheckContext = { activeOrders: [], labOrders: [], drafts: [], nowTime: "10:00", fmtDay: () => "11/5（木）", describe: () => "" };
 export const injection: InjectionDraft = { id: "d1", origin: "manual", sourceText: "（マスターから選択）", comment: null, kind: "injection", items: [{ drugCode: null, said: "輸液", amount: 1, unit: "本" }], route: "点滴静注", schedule: { kind: "per_day", count: 1 }, infusionMinutes: 300, infusionScope: "per_dose", rateMlPerH: null, prefer: null, start: { day: 0, time: "10:00" }, days: 1, duplicate: null };
 describe("draftLine", () => {
+  it("スケールの指示は仮の固定量を表示せず、測定時刻を変えたら文も変える", () => {
+    const d:InjectionDraft={...injection,items:[{drugCode:"DEMO-INS-ASPART",said:"",amount:0,unit:"単位"}],route:"皮下注",sliding:defaultSliding(),infusionMinutes:null};
+    expect(draftLine(d,ctx)).toContain("インスリン アスパルト注 皮下注 スライディングスケール（毎食前・眠前）");
+    expect(draftLine(d,ctx)).not.toContain("0単位");
+    expect(draftLine({...d,sliding:{...defaultSliding(),times:["08:00"]}},ctx)).toContain("スライディングスケール（08:00）");
+  });
   it("uses current values and shared duration formatting without changing the draft", () => {
     const before = JSON.stringify(injection);
     const line = draftLine(injection, ctx, 2);

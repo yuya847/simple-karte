@@ -1,4 +1,6 @@
 "use client";
+import { defaultSliding, isInsulin, slidingProblems } from "@/lib/insulin";
+import { SlidingScaleEditor } from "../SlidingScaleEditor";
 
 import { ExamCalendar } from "../ExamCalendar";
 import { firstExamSlot, takenExams, examSlotAvailable, type ExamPerson, type ExamKind } from "@/lib/exam-slots";
@@ -88,6 +90,7 @@ interface InjRp {
   /** Decided (決める): shown as one line of what was chosen, the choice buttons put away until 直す. */
   done: boolean;
   alreadyDone?: boolean;
+  sliding?: import("@/lib/types").SlidingScale;
   doseTimes?: string[];
   endDay?: number;
   endTime?: string;
@@ -210,6 +213,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
           const minutes = onceInfusionMinutes(doseVolumeMl(next.rows.map((r) => ({ drugCode: r.drugCode, amount: Number(r.amount) || null, unit: r.unit }))) ?? 0);
           if (minutes) next.minutes = minutes;
         }
+        if (next.sliding && !isInsulin({items:next.rows.map(r=>({...r,amount:Number(r.amount)}))})) next.sliding = undefined;
+        if (next.sliding) { next.doseTimes = [...next.sliding.times]; next.sched = Math.max(0, schedulesOf(next).findIndex(s=>s.value.kind === "per_day" && s.value.count === next.sliding!.times.length)); }
         return next;
       }),
     );
@@ -226,9 +231,9 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
   const ml = useMasterLocal();
   const options = pickable("注射薬", DRUGS.filter((d) => !d.chemo), ml).map((d) => ({ code: d.code, name: d.name, sub: injectionDrugLabel(d).supplement, aliases: [d.name, d.generic ?? "", d.category ?? "", nameIn(ml, "注射薬", d.code, ""), ...d.aliases] }));
   const missingOf = (rp: InjRp) => [
-    ...(rp.rows.every((r) => Number(r.amount) > 0 && r.unit) ? [] : ["量"]),
+    ...(rp.sliding ? slidingProblems(rp.sliding) : rp.rows.every((r) => Number(r.amount) > 0 && r.unit) ? [] : ["量"]),
     ...validateInjectionEnd(rp.startDay, rp.startTime, Number(rp.days), rp.endDay, rp.endTime, rp.minutes, rp.doseTimes),
-    ...(rp.doseTimes?.length && rp.sched >= 0 && schedulesOf(rp)[rp.sched].value.kind !== "once" && rp.doseTimes.length !== defaultDoseTimes(schedulesOf(rp)[rp.sched].value).length ? ["回数と投与時刻の数が一致していません"] : []),
+    ...(!rp.sliding && rp.doseTimes?.length && rp.sched >= 0 && schedulesOf(rp)[rp.sched].value.kind !== "once" && rp.doseTimes.length !== defaultDoseTimes(schedulesOf(rp)[rp.sched].value).length ? ["回数と投与時刻の数が一致していません"] : []),
     ...(rp.route ? [] : ["経路"]),
     ...(rp.sched >= 0 ? [] : ["回数"]),
     ...(routeOf(rp) === "点滴静注" && (modeOf(rp) === "time" ? !rp.minutes : !(Number(rp.rate) > 0)) ? [modeOf(rp) === "time" ? "1回の時間" : "速度"] : []),
@@ -267,16 +272,17 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
       sourceText: rp.rows.length > 1 ? "（マスターから選択・混注）" : "（マスターから選択）",
       comment: comment || null,
       kind: "injection",
-      alreadyDone: rp.alreadyDone,
+      alreadyDone: rp.sliding ? false : rp.alreadyDone,
       startNow: rp.startNow,
-      doseTimes: rp.doseTimes,
+      sliding: rp.sliding,
+      doseTimes: rp.sliding?.times ?? rp.doseTimes,
       end: rp.endTime ? { day: rp.endDay ?? rp.startDay, time: rp.endTime } : schedulesOf(rp)[rp.sched].value.kind === "once" && rp.minutes && rp.startTime ? automaticInjectionEnd(rp.startDay, rp.startTime, 1, [], rp.minutes) ?? undefined : undefined,
       items: rp.rows.map((r) => {
         const d = masterOf(r.drugCode)!;
         return { drugCode: r.drugCode, said: d.name, amount: Number(r.amount), unit: r.unit };
       }),
       route,
-      schedule: schedulesOf(rp)[rp.sched].value,
+      schedule: rp.sliding ? {kind:"per_day",count:rp.sliding.times.length} : schedulesOf(rp)[rp.sched].value,
       infusionMinutes: route === "点滴静注" && modeOf(rp) === "time" ? rp.minutes : null,
       infusionScope: route === "点滴静注" ? "per_dose" : null,
       rateMlPerH: route === "点滴静注" && modeOf(rp) === "rate" ? Number(rp.rate) : null,
@@ -362,7 +368,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
             const backwards = e.key === "Escape" || e.key === "ArrowUp" || e.key === "ArrowLeft";
             if (!backwards && current === "route" && !rp.route) { upd(i, { route: open[0]?.key ?? "" }); focus(i, "schedule"); return; }
             if (!backwards && current === "schedule" && rp.sched < 0) { upd(i, { sched: 0 }); focus(i, "times"); return; }
-            const valid = current === "dose" ? rp.rows.every((r) => Number(r.amount) > 0) : current === "duration" ? modeOf(rp) === "time" ? rp.minutes > 0 : Number(rp.rate) > 0 : current === "days" ? Number.isInteger(Number(rp.days)) && Number(rp.days) > 0 : current === "times" ? !validateInjectionEnd(rp.startDay, rp.startTime, 1, undefined, undefined, 0, rp.doseTimes).length : true;
+            const valid = current === "dose" ? !!rp.sliding || rp.rows.every((r) => Number(r.amount) > 0) : current === "duration" ? modeOf(rp) === "time" ? rp.minutes > 0 : Number(rp.rate) > 0 : current === "days" ? Number.isInteger(Number(rp.days)) && Number(rp.days) > 0 : current === "times" ? !validateInjectionEnd(rp.startDay, rp.startTime, 1, undefined, undefined, 0, rp.doseTimes).length : true;
             if (!backwards && current === "times" && valid) {
               const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
               if (!rp.startTime) { const start = nextInjectionStart(rp.doseTimes ?? [], now); upd(i, { startDay: rp.startDay || start.day, startTime: start.time }); }
@@ -395,7 +401,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                         <b>{m.name}</b> <span className="text-xs text-ink-soft">{injectionDrugLabel(m).supplement}</span>
                       </td>
                       <td className="whitespace-nowrap py-0.5 text-right">
-                        {rp.step !== "dose" ? <button type="button" onClick={() => focus(i, "dose")}>{r.amount}{r.unit}</button> : <><input
+                        {rp.sliding ? <span>スケールで決める</span> : rp.step !== "dose" ? <button type="button" onClick={() => focus(i, "dose")}>{r.amount}{r.unit}</button> : <><input
                           value={r.amount}
                           onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, amount: e.target.value } : x)) })}
                           onKeyDown={(e) => {
@@ -462,7 +468,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   />
                   {open.length === 0 && <span className="text-shu">同じ経路で使えない薬が混ざっています</span>}
                 </InjectionEntryRow>
-                <InjectionEntryRow step="schedule" active={rp.step} className="flex flex-wrap items-center gap-1.5">
+                {isInsulin({items:rp.rows.map(r=>({...r,amount:Number(r.amount)}))}) && <div className="space-y-2"><label><input type="checkbox" checked={!!rp.sliding} onChange={e=>{const sliding=e.target.checked?defaultSliding():undefined; upd(i,{sliding,...(sliding?{sched:schedules.findIndex(s=>s.value.kind==="per_day" && s.value.count===4),doseTimes:sliding.times,rows:rp.rows.map(r=>({...r,amount:"0"}))}:{rows:rp.rows.map(r=>({...r,amount:"1"}))})});}}/>スケール</label>{rp.sliding && <SlidingScaleEditor value={rp.sliding} onChange={sliding=>upd(i,{sliding,doseTimes:sliding.times,sched:schedules.findIndex(s=>s.value.kind==="per_day" && s.value.count===sliding.times.length)})}/>}</div>}
+                <InjectionEntryRow step="schedule" active={rp.sliding ? undefined : rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">回数</span>
                   <TabChoice numbered label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
                 </InjectionEntryRow>
@@ -527,7 +534,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   <span className="hint text-[11px] text-ink-faint">空なら日数を決めません（1回だけ、または止めるまで）</span>
                 </InjectionEntryRow>
                 <InjectionEntryRow step="times" active={rp.step}>
-                <DoseTimesEntry label={`Rp${first + i} の投与時刻`} times={rp.doseTimes ?? []} onChange={(doseTimes) => upd(i, { doseTimes })} />
+                <DoseTimesEntry label={`Rp${first + i} の投与時刻`} times={rp.doseTimes ?? []} onChange={(doseTimes) => upd(i, { doseTimes, ...(rp.sliding ? {sliding:{...rp.sliding,times:doseTimes}} : {}) })} />
                 </InjectionEntryRow>
                 <p className="hint">投与時刻は架空の病院の取り決めです。1回ずつ書き替え、＋時刻・×で追加・削除できます。24:00 は翌日0時です。</p>
                 <InjectionEntryRow step="start" active={rp.step}>
@@ -539,7 +546,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                 {!rp.endTime && autoEnd && <p className="text-xs">最終投与の終了予定：{autoEnd.day === 0 ? "今日" : `${autoEnd.day}日後`} {autoEnd.time}（量と時間から計算）</p>}
                 {validateInjectionEnd(rp.startDay, rp.startTime, Number(rp.days), rp.endDay, rp.endTime, rp.minutes, rp.doseTimes).map((m) => <p key={m} className="text-shu">{m}</p>)}
                 </InjectionEntryRow>
-                <label><input type="checkbox" checked={!!rp.alreadyDone} onChange={(e) => upd(i, { alreadyDone: e.target.checked })} /> 実施済み</label>
+                <label><input type="checkbox" disabled={!!rp.sliding} checked={!rp.sliding && !!rp.alreadyDone} onChange={(e) => upd(i, { alreadyDone: e.target.checked })} /> 実施済み</label>
                 <div className="flex items-center gap-1.5">
                   <label htmlFor={`${uid}-${i}-comment`} className="w-16 shrink-0 text-ink-soft">
                     コメント
@@ -607,6 +614,7 @@ function rpFromOrder(o: InjectionOrder): InjRp {
   const same = (a: InjectionSchedule, b: InjectionSchedule) => a.kind === b.kind && (a.kind !== "per_day" || (b.kind === "per_day" && a.count === b.count)) && (a.kind !== "every_hours" || (b.kind === "every_hours" && a.hours === b.hours));
   rp.sched = schedulesOf(rp).findIndex((x) => same(x.value, o.schedule));
   rp.minutes = o.minutesPerDose ?? 0;
+  rp.sliding = o.sliding;
   rp.doseTimes = o.doseTimes ?? defaultDoseTimes(o.schedule);
   rp.endDay = o.end?.day;
   rp.endTime = o.end?.time;
@@ -655,13 +663,13 @@ function DripCalc({ rp }: { rp: InjRp }) {
 function RpSummary({ rp }: { rp: InjRp }) {
   const drugs = rp.rows.map((r) => {
     const m = masterOf(r.drugCode)!;
-    return `${m.name}（${m.package}）${r.amount}${r.unit}`;
+    return `${m.name}（${m.package}）${rp.sliding ? "" : `${r.amount}${r.unit}`}`;
   });
   const drip = routeOf(rp) === "点滴静注" ? (modeOf(rp) === "time" ? `1回${minutesLabel(rp.minutes)}` : `${rp.rate}mL/時`) : null;
   const t = todayInTokyo();
   const date = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay));
   const start = `${date.getUTCMonth() + 1}/${date.getUTCDate()}${rp.startTime ? ` ${rp.startTime}` : ""}から`;
-  const parts = [routeOf(rp), schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, schedulesOf(rp)[rp.sched]?.value.kind !== "once" && Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
+  const parts = [routeOf(rp), rp.sliding ? "スライディングスケール" : schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, schedulesOf(rp)[rp.sched]?.value.kind !== "once" && Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
   return (
     <>
       <b>{drugs.join(" ＋ ")}</b>

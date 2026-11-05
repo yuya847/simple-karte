@@ -1,6 +1,7 @@
+import { defaultSliding } from "./insulin";
 import { effectiveRoute, ratePlan, resolvedCollect, type CheckContext, type Draft } from "./drafts";
 import { drugName, durationText, imagingDraftText, labName, oralName, procName, scheduleLabel } from "./format";
-import { anyDrugName, findOralDrug } from "./master";
+import { anyDrugName, findDrug, findOralDrug } from "./master";
 import { perDoseOf, timingName, dischargeStartDay } from "./rx";
 import { opdPurposeOf } from "./opd-booking";
 import { dietLabel } from "./diet";
@@ -18,7 +19,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
   switch (d.kind) {
     case "injection": {
       const p = ratePlan(d);
-      text = [d.items.map(i => `${i.drugCode ? drugName(i.drugCode) : `${i.said}（？）`} ${i.amount ?? "？"}${i.unit ?? ""}`).join(" ＋ "), effectiveRoute(d) ?? "経路？", d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？", p.minutesPerDose !== null ? `1回${durationText(p.minutesPerDose)}` : null, p.rateMlPerH !== null ? `${p.rateMlPerH}mL/時` : null, `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.schedule?.kind === "once" ? null : d.days ? `${d.days}日間` : "日数？"].filter(Boolean).join("　");
+      text = [d.items.map(i => `${i.drugCode ? d.sliding ? findDrug(i.drugCode)?.name ?? i.drugCode : drugName(i.drugCode) : `${i.said}（？）`} ${d.sliding ? "" : i.amount ?? "？"}${d.sliding ? "" : i.unit ?? ""}`).join(" ＋ "), effectiveRoute(d) ?? "経路？", d.sliding ? `スライディングスケール（${d.sliding.times.join() === defaultSliding().times.join() ? "毎食前・眠前" : d.sliding.times.join("・")}）` : d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？", p.minutesPerDose !== null ? `1回${durationText(p.minutesPerDose)}` : null, p.rateMlPerH !== null ? `${p.rateMlPerH}mL/時` : null, `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.schedule?.kind === "once" ? null : d.days ? `${d.days}日間` : "日数？"].filter(Boolean).join("　");
       break;
     }
     case "prescription": {

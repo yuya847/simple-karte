@@ -25,7 +25,7 @@ export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number
 /** Prescribed times, per-day defaults, or every-N-hours occurrences inside [lo, hi). */
 export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: number): number[] {
   const o = entry.order as InjectionOrder;
-  const times = o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" ? defaultDoseTimes(o.schedule) : [];
+  const times = o.sliding ? o.sliding.times : o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" ? defaultDoseTimes(o.schedule) : [];
   if (times.length) {
     const { from, to } = orderInterval(entry, nowAbs);
     const out: number[] = [];

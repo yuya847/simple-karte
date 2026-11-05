@@ -37,6 +37,7 @@ export interface DiffLine {
 
 const injFields = (o: InjectionOrder): [string, string][] => [
   ["薬と量", o.items.map((it) => `${anyDrugName(it.drugCode)} ${it.amount}${it.unit}`).join("＋")],
+  ["スケール", o.sliding ? o.sliding.rows.map(r=>`${r.from}〜${r.to ?? "上限なし"}：${r.units}単位`).join("／") + `・連絡 ${o.sliding.callAbove ?? "指定なし"}` : "固定量"],
   ["経路", o.route],
   ["回数・時刻", scheduleTextFor(o)],
   ["1回の時間", o.minutesPerDose ? `${o.minutesPerDose}分` : "—"],
@@ -133,6 +134,10 @@ export function takeRows(changes: (OrderChange | OtherChange)[], people: WorkPat
       entry = added.entry;
       before = orderLines(stopped.entry.order, today);
       diff = diffOrders(stopped.entry.order, added.entry.order, today);
+    }
+    if (entry.order.type === "injection" && entry.order.replaces) {
+      const previous = people.find(p=>p.patient.id === c.patientId)?.entries.find(e=>e.id === (entry.order as InjectionOrder).replaces);
+      if(previous) { kind="変更"; before=orderLines(previous.order,today); diff=diffOrders(previous.order,entry.order,today); }
     }
     const { main, detail } = orderLines(entry.order, today);
     const o = entry.order;

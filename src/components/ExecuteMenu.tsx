@@ -5,6 +5,7 @@
 // more than one), then 実施した（いま）, 実施した（時刻を選ぶ）, 未実施（理由を選ぶ）, or takes a record back.
 // The record is the same 与薬・実施の記録 the worksheet writes; the wristband and label are not read here.
 
+import { slidingUnits } from "@/lib/insulin";
 import { Ban, Check, ChevronLeft, Clock, Undo2, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -62,12 +63,13 @@ const STATE_TONE: Record<Occurrence["state"], string> = { 実施: "text-wakatake
 export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, extra = [], onDone }: { title: string; occurrences: Occurrence[]; untimed?: ExecItem | null; day: number; execute?: ExecuteProps; extra?: MenuExtra[]; onDone: () => void }) {
   const me = useMe();
   const [step, setStep] = useState<Step>({ kind: "root" });
+  const [glucose, setGlucose] = useState("");
   const [time, setTime] = useState<string | null>(null);
   const deny = executeDeny(me.role);
   const dayLabel = day === 0 ? "今日" : day === -1 ? "昨日" : day === 1 ? "明日" : `${Math.abs(day)}日${day < 0 ? "前" : "後"}`;
 
   const write = (item: ExecItem, x: { status: "実施" | "未実施"; time: string; reason?: NotDoneReason }) => {
-    const r = menuRecord(item, { ...x, day, by: me.name });
+    const r = menuRecord(item, { ...x, day, by: me.name, glucose:glucose ? Number(glucose) : undefined });
     if (!r || !execute) return;
     execute.onRecord(r);
     onDone();
@@ -78,13 +80,16 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
       {dayLabel} <span className="nums font-bold text-ink">{o.time}</span> の回　<span className={STATE_TONE[o.state]}>{stateText(o)}</span>
     </div>
   );
+  const glucoseEntry = (item: ExecItem) => item.sliding && <label className="block px-2 text-xs">血糖 mg/dL<input aria-label="血糖 mg/dL" type="number" min="0" className="w-20 border border-rule" value={glucose} onChange={e=>setGlucose(e.target.value)}/><span> → {slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) ?? "—"}単位</span>{item.sliding.callAbove != null && glucose && Number(glucose)>=item.sliding.callAbove && <b className="block text-shu">医師へ連絡してください</b>}</label>;
+  const glucoseMissing = (item: ExecItem) => !!item.sliding && slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) === null;
   const actions = (o: Occurrence, i: number) => {
     const a = actionsFor(o);
     if (a.kind === "locked") return <Item icon={Ban} label="実施・未実施を記録" disabled={a.why} />;
     if (a.kind === "void") return <Item icon={Undo2} label="未実施に戻す…" sub={`${a.record.by} の記録。理由は任意です`} onClick={() => setStep({ kind: "void", i })} />;
     return (
       <>
-        <Item icon={Check} label={`実施した（いま ${execute?.nowTime ?? ""}）`} sub={`${me.name} が実施したとして記録`} onClick={() => write(o.item, { status: "実施", time: execute?.nowTime ?? "" })} />
+        {glucoseEntry(o.item)}
+        <Item disabled={glucoseMissing(o.item) ? "血糖を入力してください" : undefined} icon={Check} label={`実施した（いま ${execute?.nowTime ?? ""}）`} sub={`${me.name} が実施したとして記録`} onClick={() => write(o.item, { status: "実施", time: execute?.nowTime ?? "" })} />
         <Item icon={Clock} label="実施した（時刻を選ぶ）…" onClick={() => setStep({ kind: "time", i })} />
         <Item icon={Ban} label="未実施（理由を選ぶ）…" onClick={() => setStep({ kind: "reason", i })} />
       </>
@@ -133,12 +138,13 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
       <>
         {back}
         {occLine(o)}
+        {glucoseEntry(o.item)}
         <div className="flex items-center gap-2 px-2 py-1">
           <label className="flex items-center gap-1 text-[12px]">
             実施した時刻
             <input value={value} onChange={(e) => setTime(e.target.value)} aria-label="実施した時刻" placeholder="HH:MM" className="nums w-16 rounded border border-rule bg-sheet px-1 py-0.5" />
           </label>
-          <button type="button" disabled={!ok} onClick={() => write(o.item, { status: "実施", time: value })} className="rounded bg-ai px-3 py-0.5 text-[12px] font-bold text-white disabled:opacity-40">
+          <button type="button" disabled={!ok || glucoseMissing(o.item)} onClick={() => write(o.item, { status: "実施", time: value })} className="rounded bg-ai px-3 py-0.5 text-[12px] font-bold text-white disabled:opacity-40">
             記録する
           </button>
         </div>

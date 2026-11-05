@@ -1,3 +1,4 @@
+import { isInsulin, slidingProblems } from "./insulin";
 import { defaultDoseTimes, validateInjectionEnd } from "./inj-entry";
 // Order drafts and the rule-based checks that run on them.
 //
@@ -127,6 +128,7 @@ export interface DraftItem {
 }
 
 export interface InjectionDraft extends DraftBase {
+  sliding?: import("./types").SlidingScale;
   /** Resolve the start at confirmation, rather than when the panel opened. */
   startNow?: boolean;
   doseTimes?: string[];
@@ -667,8 +669,9 @@ export function resolvedStopTarget(d: StopDraft, ctx: CheckContext): string | nu
 
 function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
   const issues: Issue[] = [];
+  if (d.sliding && (!isInsulin({items:d.items.map(i=>({drugCode:i.drugCode ?? "",amount:i.amount ?? 0,unit:i.unit ?? ""}))}) || slidingProblems(d.sliding).length)) issues.push({key:"sliding",level:"stop",title:"スケール",message:"インスリン1品目と、血糖範囲・単位・時刻を確認してください。"});
   const timingErrors = validateInjectionEnd(d.start.day ?? 0, d.start.time ?? "", d.days ?? 0, d.end?.day, d.end?.time, ratePlan(d).minutesPerDose ?? 0, d.doseTimes);
-  if (d.doseTimes?.length && d.schedule && d.schedule.kind !== "once" && d.doseTimes.length !== defaultDoseTimes(d.schedule).length) timingErrors.push("回数と投与時刻の数が一致していません。");
+  if (!d.sliding && d.doseTimes?.length && d.schedule && d.schedule.kind !== "once" && d.doseTimes.length !== defaultDoseTimes(d.schedule).length) timingErrors.push("回数と投与時刻の数が一致していません。");
   for (const [i, message] of timingErrors.entries()) issues.push({ key: `injection-timing-${i}`, level: "stop", title: "投与日時", message });
   if (d.items.length === 0) {
     issues.push({ key: "drug", level: "stop", title: "薬", message: "薬が読み取れませんでした。言い直してください。" });
@@ -703,7 +706,7 @@ function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
         message: `${master.name}（${master.package}）に「${it.unit}」は使えません。使える単位：${master.units.join("・")}`,
       });
     }
-    if (it.amount === null) {
+    if (it.amount === null && !d.sliding) {
       issues.push({
         key: `amount-${i}`,
         level: "ask",
@@ -1622,7 +1625,8 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       items: d.items.map((it) => ({ drugCode: it.drugCode!, amount: it.amount!, unit: it.unit ?? "" })),
       route: effectiveRoute(d)!,
       schedule: d.schedule!,
-      doseTimes: d.doseTimes,
+      sliding: d.sliding,
+      doseTimes: d.sliding?.times ?? d.doseTimes,
       end: d.end,
       minutesPerDose: effectiveRoute(d) === "点滴静注" && plan.minutesPerDose !== null ? Math.round(plan.minutesPerDose) : undefined,
       rateMlPerH: plan.rateMlPerH ?? undefined,

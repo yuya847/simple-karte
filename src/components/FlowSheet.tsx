@@ -196,7 +196,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
   const fluid = fluidByDay(orders, days, nowAbs);
   const meals = mealDiets(diets, orders, p.id, days, examTime);
   const marRecs: FlowMar = mar ?? { records: io?.records ?? {}, sessionStart: io?.sessionStart ?? care?.sessionStart ?? nowAbs };
-  const glucose = care ? glucosePoints(care.orders, care.records, p.labs) : glucosePoints([], [], p.labs);
+  const glucose = glucosePoints(care?.orders ?? [], care?.records ?? [], p.labs, Object.values(marRecs.records).filter(r=>r.patientId === p.id));
   const insulin = insulinOrders(orders);
   const ioRows = io ? ioLines({ patientId: p.id, entries: orders, typed: io.typed, records: io.records, sessionStart: io.sessionStart, nowAbs, from: t0 - 1440 }) : null;
 

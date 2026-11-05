@@ -21,6 +21,7 @@ export { REF_TABS, isRefTab, type RefTab } from "./RightTabs";
 export type FlowExtra = Partial<Omit<FlowSheetProps, "patient" | "entries" | "today" | "nowTime" | "selectedDay" | "onSelectDay" | "onInsertVitals" | "care" | "io" | "diets" | "moves" | "dayInfo">>;
 
 export interface RefWindowProps {
+  onAdjustInsulin?: CalendarProps["onAdjustInsulin"];
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
@@ -64,8 +65,8 @@ export interface RefWindowProps {
  * What a reading tab on the right shows (経過表・内服カレンダー・処置カレンダー・移動・食事・指示簿・予約). Each opens
  * from the tools on the far right in its own large window, like the injection calendar, and can be docked back.
  */
-export function RefWindow({ tab, patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute, onInsertVitals, diets, onOpenDiet, dietEdit, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, standingCal }: RefWindowProps & { tab: RefTab }) {
-  const calendarProps: CalendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute };
+export function RefWindow({ tab, patient, entries, today, nowTime, selectedDay, onSelectDay, onAdjustInsulin, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute, onInsertVitals, diets, onOpenDiet, dietEdit, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, standingCal }: RefWindowProps & { tab: RefTab }) {
+  const calendarProps: CalendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onAdjustInsulin, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute };
   switch (tab) {
     case "flowsheet":
       return <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} {...flow} />;

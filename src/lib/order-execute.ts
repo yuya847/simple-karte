@@ -1,3 +1,4 @@
+import { slidingUnits } from "./insulin";
 // 実施・未実施 from the order itself: the order row of the record (right click, ⋯, or a long press on an iPad)
 // and the dose cells of the calendars. Code lists the day's occurrences of the order (the same ones the
 // worksheet lists), the person picks one and says what happened, and the record written is the same
@@ -15,7 +16,7 @@ import { buildWorksheet, type WorkItem } from "./worksheet";
 export const MENU_NOTE = "経過・カレンダーのメニューから（リストバンド・ラベルの照合なし）";
 
 /** One occurrence of an order (a dose, a draw, a procedure, an exam): what the worksheet lists. */
-export type ExecItem = Pick<WorkItem, "orderId" | "patientId" | "at" | "kind" | "main" | "detail" | "drip">;
+export type ExecItem = Pick<WorkItem, "orderId" | "patientId" | "at" | "kind" | "main" | "detail" | "drip" | "sliding" | "insulinUnits">;
 
 /** Who may record 実施・未実施 (the same rule as the worksheet): null when allowed, else why not. */
 export const executeDeny = (role: Role): string | null => denyReason(role, "mar");
@@ -79,9 +80,11 @@ export function actionsFor(occ: Occurrence): OccurrenceActions {
  * using the chart. An untimed (必要時) item is recorded at the time given. Null when the time is not a time
  * or 未実施 has no reason.
  */
-export function menuRecord(item: ExecItem, x: { status: "実施" | "未実施"; day: number; time: string; by: string; reason?: NotDoneReason }): AdminRecord | null {
+export function menuRecord(item: ExecItem, x: { status: "実施" | "未実施"; day: number; time: string; by: string; reason?: NotDoneReason; glucose?: number }): AdminRecord | null {
+  const units = item.sliding ? slidingUnits(item.sliding.rows, x.glucose ?? NaN) : item.insulinUnits;
+  if (x.status === "実施" && item.sliding && units == null) return null;
   const r = executeRecord(item, x);
-  return r ? { ...r, note: MENU_NOTE } : null;
+  return r ? { ...r, ...(x.status === "実施" && units != null ? {insulin:{units,...(x.glucose != null ? {glucose:x.glucose} : {})}} : {}), note: MENU_NOTE } : null;
 }
 
 /** "実施 08:05 看護師 佐藤" / "未実施（患者が拒否） 08:10 看護師 佐藤". */

@@ -1,9 +1,10 @@
+import { NUTRITION_PLAN_FIELDS } from "./nutrition-plan";
 // 書類作成: the fictional hospital's forms — 入院診療計画書, 退院証明書, 診断書, 退院療養計画書. What the
 // chart already says (name, ward, diagnoses, dates, drugs) is filled in by code; what needs judgement
 // is written by the doctor. Nothing is written by AI.
 
-export type DocKind = "入院診療計画書" | "退院証明書" | "診断書" | "退院療養計画書" | "退院支援計画書" | "褥瘡対策に関する診療計画書";
-export const DOC_KINDS: DocKind[] = ["入院診療計画書", "退院証明書", "診断書", "退院療養計画書", "退院支援計画書", "褥瘡対策に関する診療計画書"];
+export type DocKind = "栄養管理計画書" | "入院診療計画書" | "退院証明書" | "診断書" | "退院療養計画書" | "退院支援計画書" | "褥瘡対策に関する診療計画書";
+export const DOC_KINDS: DocKind[] = ["栄養管理計画書","入院診療計画書", "退院証明書", "診断書", "退院療養計画書", "退院支援計画書", "褥瘡対策に関する診療計画書"];
 
 /** What a 退院支援計画 must contain (A246 入退院支援加算 (4) ア〜キ) and that it is explained and handed over in writing ((6)). */
 export const DISCHARGE_PLAN_SOURCE = {
@@ -23,6 +24,7 @@ export interface DocField {
 }
 
 export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> = {
+  栄養管理計画書: {purpose:"栄養状態と管理の計画を記録して説明する書類（模擬）",fields:NUTRITION_PLAN_FIELDS},
   入院診療計画書: {
     purpose: "入院した日から7日以内に、患者と家族に説明して渡す計画（架空の病院の様式）",
     fields: [

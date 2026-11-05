@@ -13,6 +13,8 @@ import { attendingDesk, dietProposal, dietProposalCount } from "@/lib/diet-workf
 import { focusDraftLine } from "@/lib/order-windows";
 
 import { emergencyRegistrationSection, pendingDraftCount, transferEmergencyOrders } from "@/lib/billing/emergency-visit";
+import { insulinAdjustmentEntries } from "@/lib/insulin";
+import { nutritionPlanDraft, nutritionPressure, saveNutritionPlan } from "@/lib/nutrition-plan";
 import { nutritionTileBlocks } from "@/lib/nutrition-access";
 import { NutritionPanel } from "./NutritionPanel";
 import { kitchenWaiting } from "@/lib/kitchen";
@@ -731,6 +733,7 @@ export default function WardApp() {
   const [imageFocus, setImageFocus] = useState<string | null>(null);
   const [zOrder, setZOrder] = useState<RightTab[]>([]);
   // 入院時の評価（計画書・栄養・褥瘡・転倒転落・せん妄・退院支援）.
+  const [nutritionDoc, setNutritionDoc] = useState(false);
   const [supportDoc, setSupportDoc] = useState(false);
   const [admitSelection, setAdmitSelection] = useState<{ pid: string; key: import("@/lib/admit-eval").ItemKey }>();
   const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
@@ -2104,6 +2107,7 @@ export default function WardApp() {
     nowTime,
     selectedDay: chart.selectedDay,
     onSelectDay: (d) => update({ selectedDay: d }),
+    onAdjustInsulin: !deny("order") ? (e, change) => { const next = insulinAdjustmentEntries(e, change, 0, newId(), me.name, nowTime); update(c => ({ added: [...c.added, next], flash: "明日からのインスリンを保存しました。看護師の指示受けに変更として出ます。" })); auditLog({role:me.role,actor:me.name,action:"確定（インスリンを調整）",patient:patient.name,detail:orderLines(next.order,today).main}); chartNote(patient.id, `インスリンを調整：${orderLines(next.order,today).main}（元の指示は今日まで、明日から）`); } : undefined,
     onStopDraft: addStopDraft,
     onExtendDraft: extendDraft,
     pendingExtends: pendingExtends,
@@ -3294,6 +3298,7 @@ export default function WardApp() {
                           nowTime={nowTime}
                           selectedDay={chart.selectedDay}
                           onSelectDay={(d) => update({ selectedDay: d })}
+                          onAdjustInsulin={refProps.onAdjustInsulin}
                           onStopDraft={addStopDraft}
                           draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
                           onExtendDraft={!deny("order") ? extendDraft : undefined}
@@ -3655,7 +3660,7 @@ export default function WardApp() {
                   />
                 </Drawer>
               )}
-              {panel === "nutrition" && <Drawer title="栄養管理" onClose={closePanel} wide locked={deny("assess.nutrition")}><NutritionPanel key={patient.id} patient={patient} evaluation={evals[patient.id]} diets={diets} today={today} nowTime={nowTime} onSave={(e, text) => { setEvals(all => ({ ...all, [e.patientId]: e })); chartNote(patient.id, text); }} /></Drawer>}
+              {panel === "nutrition" && <Drawer title="栄養管理" onClose={closePanel} wide locked={deny("assess.nutrition")}><NutritionPanel onPlan={() => { setNutritionDoc(true); setPanel("docs"); }} key={patient.id} patient={patient} evaluation={evals[patient.id]} diets={diets} today={today} nowTime={nowTime} onSave={(e, text) => { setEvals(all => ({ ...all, [e.patientId]: e })); chartNote(patient.id, text); }} /></Drawer>}
               {panel === "diet" && (
                 <Drawer title="食事" onClose={closePanel} wide locked={deny("diet")}>
                   <DietPanel
@@ -3946,14 +3951,15 @@ export default function WardApp() {
                 </Drawer>
               )}
               {panel === "docs" && (
-                <Drawer title="書類作成" onClose={() => { setSupportDoc(false); closePanel(); }} wide>
+                <Drawer title="書類作成" onClose={() => { setSupportDoc(false); setNutritionDoc(false); closePanel(); }} wide>
                   <DocsPanel
-                    initialKind={supportDoc ? "退院支援計画書" : undefined}
+                    initialKind={nutritionDoc ? "栄養管理計画書" : supportDoc ? "退院支援計画書" : undefined}
                     patient={patient}
                     today={formatShort(today)}
                     saved={documents.filter((d) => d.patientId === patient.id)}
                     onOpenReferral={() => setPanel("discharge")}
                     initial={(k: DocKind): Record<string, string> => {
+                      if (k === "栄養管理計画書") return { ...nutritionPlanDraft(patient, patient.labs, dietAt(diets, patient.id, 0, "夕"), evals[patient.id]?.nutrition, me), ...nutritionPressure(nm.ulcers, patient.id) };
                       const pl = evals[patient.id]?.plan;
                       if (k === "褥瘡対策に関する診療計画書") return { ulcerPast: nm.ulcers.some((u) => u.patientId === patient.id && u.healed) ? "あり（この入院で治癒）" : "", nurse: me.role === "看護師" ? me.name : "", doctor: me.role === "医師" ? me.name : "" };
                       return k === "入院診療計画書" && pl ? { symptoms: pl.symptoms, treatment: pl.treatment, tests: pl.tests, surgery: pl.surgery, days: String(pl.days), nutrition: pl.nutritionNeeded, other: pl.other, explainedTo: pl.explainedTo } : {};
@@ -3965,6 +3971,7 @@ export default function WardApp() {
                       const dDay = leave && leave.order.type === "procedure" ? leave.order.leave!.from.day : null;
                       const drugs = entries.filter((e): e is OrderEntry => e.kind === "order" && e.status === "有効" && e.order.type === "prescription").map((e) => orderLines(e.order, today).main).join("、");
                       const base = { name: `${patient.name}（${ageSex(patient)}）`, diagnosis: dx, admitted: fmt(patient.admittedOn) };
+                      if (k === "栄養管理計画書") return { ...base, madeAt: fmt(0), ward: `${patient.ward} ${patient.room}号室` };
                       if (k === "入院診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, attending: patient.attending, staff: `${nurseFor(patient.room)}（看護）` };
                       if (k === "褥瘡対策に関する診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, ...pressurePlanAuto({ ulcers: nm.ulcers.filter((u) => u.patientId === patient.id), risk: riskFromEval(evals[patient.id]?.pressure), fmt }) };
                       if (k === "退院証明書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", stay: dDay !== null ? `${stayDays(patient.admittedOn, dDay)}日` : "—", fee: "急性期一般入院料４（架空の病院の届出）" };
@@ -3979,6 +3986,7 @@ export default function WardApp() {
                       auditLog({ role: me.role, actor: me.name, action: `確定（${k}を作成）`, patient: patient.name });
                       setDocuments((all) => [...all, { id: newId(), patientId: patient.id, kind: k, values: v, by: me.name, at: { day: 0, time: nowTime } }]);
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${k}を作成（${me.name}）\n` }));
+                      if (k === "栄養管理計画書") setEvals(all => ({ ...all, [patient.id]: saveNutritionPlan(all[patient.id], patient.id, v, me.name, nowTime) }));
                       if (k === "入院診療計画書")
                         setEvals((all) => ({
                           ...all,
