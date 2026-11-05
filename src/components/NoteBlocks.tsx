@@ -210,6 +210,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       return;
     }
     if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      // Only a problem (＃) block moves; other lines stay where they are.
+      if (!isProblemLine(lines[i] ?? "")) return;
       e.preventDefault();
       commit(nudgeLine(text, i, s, e.key === "ArrowUp" ? -1 : 1));
       return;
@@ -286,7 +288,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
             }}
             className={`group relative pl-6 pointer-coarse:pl-8 ${unit ? "opacity-40" : ""}`}
             onPointerDown={(e) => {
-              if (readOnly || e.pointerType !== "touch") return;
+              if (readOnly || e.pointerType !== "touch" || !isProblemLine(line)) return;
               cancelPress();
               press.current = setTimeout(() => setShown(i), LONG_PRESS_MS);
             }}
@@ -296,7 +298,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
           >
             {drag && drag.at === i && <span aria-hidden className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 -translate-y-px rounded bg-ai" />}
             {drag && drag.at === lines.length && i === lines.length - 1 && <span aria-hidden className="pointer-events-none absolute inset-x-1 bottom-0 z-10 h-0.5 translate-y-px rounded bg-ai" />}
-            {!readOnly && (
+            {/* The grip (and the drag) is for reordering problems (＃ blocks) only; other lines stay where they are. */}
+            {!readOnly && u.problem && isProblemLine(line) && (
               <button
                 type="button"
                 tabIndex={-1}

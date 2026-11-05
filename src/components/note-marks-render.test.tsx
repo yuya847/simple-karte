@@ -75,10 +75,10 @@ describe("記事の太字・見出しの表示", () => {
     const html = as("医師", pane("A)\n＃1 尿路感染症\n  CRP 改善\n＃2 高血圧\n"));
     expect(html).toContain('aria-label="記事"');
     expect(html).not.toContain('aria-label="プロブレムの順番"');
-    // Five lines (the trailing line break is an empty fifth line), each a one-row box with a grip.
+    // Five lines (the trailing line break is an empty fifth line), each a one-row box; only the ＃ line has a grip.
     expect(html.match(/<textarea /g)?.length).toBe(5);
     expect(html).toContain("＃1 尿路感染症 のブロック（見出しと本文）を動かす（ドラッグか Alt+↑↓）");
-    expect(html).toContain("3行目を動かす（ドラッグか Alt+↑↓）");
+    expect(html).not.toContain("3行目を動かす（ドラッグか Alt+↑↓）");
     expect(html).toContain("⌘B / Ctrl+B");
     expect(html).toContain("半角 # は冠動脈などの番号にそのまま使えます");
     expect(html).toContain("つまみ（⋮⋮）をドラッグ");
@@ -118,7 +118,9 @@ it("draws rules only above section labels after the first, retaining editable di
   expect(html.match(/role="separator"/g)?.length).toBe(1);
   expect(html).toContain('data-divider="true"');
   expect(html).toContain("text-transparent caret-transparent");
-  expect(html).toContain("6行目を動かす");
+  // Only the problem line (＃1 肺炎) gets a grip; a divider or plain line does not.
+  expect(html).not.toContain("6行目を動かす");
+  expect(html).toContain("＃1 肺炎 のブロック（見出しと本文）を動かす");
   const first = renderToStaticMarkup(<NoteBlocks value="前文\n【経時記録】\n09:30 訪室" onChange={() => {}} />);
   expect(first).not.toContain("relative grid border-t");
 });
