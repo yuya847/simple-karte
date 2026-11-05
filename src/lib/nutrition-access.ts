@@ -5,6 +5,8 @@ const ACTIONS: Partial<Record<PanelKind, Action>> = {
   nutrition: "assess.nutrition", diet: "diet", diagnoses: "diagnosis", take: "mar", vitals: "vitals",
   "care-orders": "nursing.plan", "nursing-plan": "nursing.plan", anamnesis: "anamnesis",
   directive: "directive", "opd-booking": "order", "tx-bedside": "tx.bedside", pressure: "pressure", bedside: "bedside", io: "io",
+  // 転院・施設の調整 is the MSW's (and nurses') work: hidden for the other roles.
+  transfer: "assess.discharge",
 };
 export function nutritionTileBlocks(role: Role): Partial<Record<PanelKind, string>> {
   if (role === "医師") return {};
