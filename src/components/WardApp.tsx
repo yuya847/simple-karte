@@ -979,7 +979,8 @@ export default function WardApp() {
     // A limited chart (閲覧制限): on the care team, with a reason given, or the reason step next.
     const p = findPatient(id);
     auditLog({ role: me.role, actor: me.name, patient: p?.name ?? id, ...openEvent(currentLimit(limits, id), !!p && inCareTeam(me, p, myTeam), grantOf(glass, id, me.name)) });
-    const o = ownerFor(patientTabs, id, owner, listOwner());
+    // A ward chart opens under 病棟 even from the 救急外来・外来 area (a patient admitted from there, ⌘K there).
+    const o = ownerFor(patientTabs, id, owner && wardTabOf(owner) ? owner : null, listOwner());
     // Checked inside the update: a press on a name in a list row can open the same chart twice at once.
     setPatientTabs((ts) => (ts.some((t) => t.id === id) ? ts : [...ts, { id, owner: o }]));
     if (newTabFor === o) setNewTabFor(null);
