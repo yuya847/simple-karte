@@ -69,7 +69,10 @@ describe("割り当て", () => {
   it("森さん：入院時の単純 CT は腎盂腎炎の単純 CT。今日の造影 CT はまだなので画像なし", () => {
     const built = buildPacsStudies(mori, collectStudies(mori, demoRisOrders(600)["90010260"], 600, {}));
     const byId = Object.fromEntries(built.map((s) => [s.study.id, s]));
-    expect(imagesOf(byId["img-mori-1"])).toEqual([["abdomen-ct-pyelonephritis-plain"]]);
+    // The single public picture first, then the synthesized slices (scrolled with the wheel).
+    expect(imagesOf(byId["img-mori-1"])[0]).toEqual(["abdomen-ct-pyelonephritis-plain"]);
+    expect(byId["img-mori-1"].series.length).toBeGreaterThan(1);
+    expect(byId["img-mori-1"].series[1].positions.length).toBeGreaterThan(1);
     expect(byId["o-ris-demo2"].status).toBe("未実施");
     expect(byId["o-ris-demo2"].series).toEqual([]);
     expect(PHOTO_ASSIGNMENTS["o-ris-demo2"][0].images).toEqual(["abdomen-ct-pyelonephritis-contrast"]);

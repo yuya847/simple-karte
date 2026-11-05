@@ -218,9 +218,12 @@ export function buildPacsStudy(patient: Patient, study: ImagingStudy, all: Imagi
 
   // 公開データの本物の画像が割り当ててあれば、それを出す（レポートの所見に合うものだけ。photos.ts）
   const photos = opts.photos === false ? null : photoSeriesFor(study, regionKey, part, study.modality === "X線" ? xrayViews(study, part) : []);
-  if (photos) {
-    return { study, regionKey, status, series: photos.map((p, i) => photoSpec(base(i + 1, p.description, { kind: "photo", images: p.images }), p, study.modality)) };
-  }
+  const photoSeries = photos ? photos.map((p, i) => photoSpec(base(i + 1, p.description, { kind: "photo", images: p.images }), p, study.modality)) : [];
+  // X線・超音波 are one picture each. A CT or MRI is read by scrolling through the slices, so when the public
+  // picture is a single slice, the synthesized volume (many slices, the mouse wheel steps through them) is
+  // offered as well, after the picture (ユーザー 2026-11-05：「CT 画像はスクロールでスライスの高さを変えられるように」).
+  const photosEnough = photoSeries.length > 0 && (study.modality === "X線" || study.modality === "超音波" || photoSeries.every((p) => p.positions.length > 1));
+  if (photosEnough) return { study, regionKey, status, series: photoSeries };
 
   if (study.modality === "X線") {
     const [w, h, sp] = XRAY_SIZE[part];
@@ -280,7 +283,9 @@ export function buildPacsStudy(patient: Patient, study: ImagingStudy, all: Imagi
   } else {
     series.push({ ...base(1, "Bモード", { kind: "us", part }), width: 320, height: 280, spacing: 0.55, positions: [0], unit: "画素値", window: "auto", presets: [], orient: { right: "L", down: "P" } });
   }
-  return { study, regionKey, status, series };
+  // The picture first, then the synthesized slices, numbered on from it (the uid carries the number).
+  const after = photoSeries.length;
+  return { study, regionKey, status, series: [...photoSeries, ...series.map((x, i) => (after ? { ...x, uid: `${study.id}/${after + i + 1}`, number: after + i + 1, description: `${x.description}（合成）` } : x))] };
 }
 
 /** 患者の全部の検査を、シリーズ付きで。 */
