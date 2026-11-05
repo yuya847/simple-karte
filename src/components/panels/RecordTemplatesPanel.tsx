@@ -20,9 +20,9 @@ interface Props {
   /** Open straight into this template's form (from a pinned tile on the rail). */
   initialId?: string | null;
   /** Puts the text into the note box (confirmed later with the note). */
-  onInsert: (text: string) => void;
+  onInsert: (text: string, template: { templateId: string; templateName: string }) => void;
   /** Confirms the text as a note of its own now. */
-  onConfirm: (text: string, name: string) => void;
+  onConfirm: (text: string, name: string, templateId: string) => void;
   /** Opens the record a template goes with (身体的拘束・褥瘡の経過). */
   onOpenPanel: (p: LinkedPanel) => void;
 }
@@ -131,12 +131,12 @@ export function RecordTemplatesPanel({ facts: given, initialId = null, onInsert,
           star={star(view.t)}
           onOpenPanel={onOpenPanel}
           onInsert={(text) => {
-            onInsert(text);
+            onInsert(text, { templateId: view.t.id, templateName: view.t.name });
             setDone(`「${view.t.name}」を右の記事に入れました。直してから記事を確定してください。`);
             setView({ kind: "list" });
           }}
           onConfirm={(text) => {
-            onConfirm(text, view.t.name);
+            onConfirm(text, view.t.name, view.t.id);
             setDone(`「${view.t.name}」を記事として確定しました。左の経過に入りました。`);
             setView({ kind: "list" });
           }}
@@ -180,6 +180,7 @@ function RecordForm({ t, facts, star, onInsert, onConfirm, onOpenPanel }: { t: N
         )}
       </div>
       {rec?.about && <p className="text-[12px] text-ink-soft">{rec.about}</p>}
+      {rec?.hint && <p className="hint text-[11px] text-ink-soft">{rec.hint}</p>}
       {rec?.rule && <p className="hint text-[11px] text-ink-soft">{rec.rule}</p>}
       <div className="divide-y divide-rule-soft rounded-md border border-rule bg-paper/60 px-2 py-1">
         {parsed.fields.map((f) => (

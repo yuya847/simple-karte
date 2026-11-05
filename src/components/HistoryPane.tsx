@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { VerbalReview } from "./VerbalControls";
 import { CalendarDays, ChevronDown, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
+import { matchesTemplate, templateOptions } from "@/lib/record-filter";
+import { BUILTIN_RECORD_TEMPLATES, loadMyRecordTemplates } from "@/lib/record-templates";
+import { TemplateFilter } from "./TemplateFilter";
 import { matchesRecordFacets, recordFacetOptions } from "@/lib/record";
 import { searchKey } from "@/lib/kana";
 import { LAB_TESTS, findSet } from "@/lib/master";
@@ -240,6 +243,11 @@ function RecordList({
     const c = e.order.collect;
     return patient.labs.some((l) => l.day === c.day && l.time === c.time) ? { day: c.day, time: c.time } : null;
   };
+  const me = useMe();
+  const templates = [...BUILTIN_RECORD_TEMPLATES, ...loadMyRecordTemplates(me.name)];
+  const [templateIds, setTemplateIds] = useState<string[]>([]);
+  const [onlyTemplates, setOnlyTemplates] = useState(false);
+  const templateActive = onlyTemplates || templateIds.length > 0;
   const [on, setOn] = useState<string[]>(() => catsFor(kindInit));
   const [departments, setDepartments] = useState<string[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
@@ -300,14 +308,14 @@ function RecordList({
 
   const keep = (e: HistoryEntry) => showStopped || e.kind !== "order" || e.status !== "中止";
   const key = searchKey(q.trim());
-  const pick = (e: HistoryEntry, department = patient.department) => matchesRecordFacets(e, department, departments, roles) && CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key));
+  const pick = (e: HistoryEntry, department = patient.department) => matchesTemplate(e, templates, templateIds, onlyTemplates) && matchesRecordFacets(e, department, departments, roles) && CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key));
   const visible = [...entries, ...visits.flatMap((v) => v.entries)].filter(keep);
   const shown = entries.filter(keep).filter((e) => pick(e));
-  const narrowed = on.length !== ALL_CATS.length || !!key || facetActive;
+  const narrowed = on.length !== ALL_CATS.length || !!key || facetActive || templateActive;
   // The filters apply to the visits before the admission as they do to the stay, and to the plans (through their
   // order; an operation of the OR list has no order and stays).
   const shownIds = new Set(shown.filter((e) => e.kind === "order").map((e) => e.id));
-  const keepPlan = (p: PlanItem) => p.orderedOn === null || shownIds.has(p.orderId);
+  const keepPlan = (p: PlanItem) => (!templateActive && p.orderedOn === null) || shownIds.has(p.orderId);
   const sections = daySections(
     patient.admittedOn,
     shown,
@@ -350,7 +358,7 @@ function RecordList({
           <span role="group" aria-label="絞り込みと検索" className="flex items-center gap-1">
             <button type="button" onClick={() => setTools((t) => (t === "filter" ? "none" : "filter"))} aria-pressed={tools === "filter"} aria-label="絞り込み" title="種類・診療科・部署（職種）で絞る" className={`relative rounded p-1 ${tools === "filter" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
               <Filter size={14} />
-              {(on.length !== ALL_CATS.length || facetActive) && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
+              {(on.length !== ALL_CATS.length || facetActive || templateActive) && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
             </button>
             <button type="button" onClick={() => setTools((t) => (t === "search" ? "none" : "search"))} aria-pressed={tools === "search"} aria-label="記録の中を探す" title="記録の中を探す（ひらがな可）" className={`relative rounded p-1 ${tools === "search" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
               <Search size={14} />
@@ -360,11 +368,12 @@ function RecordList({
           {tools === "filter" && (
           <span role="group" aria-label="早く絞る" className="flex rounded-md border border-rule p-0.5">
             {([
-              ["all", "すべて", on.length === ALL_CATS.length],
-              ["notes", "記載だけ", onlyOf("note")],
-              ["orders", "オーダだけ", onlyOf("order")],
+              ["all", "すべて", on.length === ALL_CATS.length && !templateActive],
+              ["notes", "記載だけ", onlyOf("note") && !templateActive],
+              ["orders", "オーダだけ", onlyOf("order") && !templateActive],
+              ["templates", "テンプレートの記事", onlyTemplates && templateIds.length === 0],
             ] as const).map(([k, label, active]) => (
-              <button key={k} type="button" aria-pressed={active} onClick={() => setOn(catsFor(k))} className={`rounded px-2 py-0.5 ${active ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}>
+              <button key={k} type="button" aria-pressed={active} onClick={() => { setOn(catsFor(k)); setTemplateIds([]); setOnlyTemplates(k === "templates"); }} className={`rounded px-2 py-0.5 ${active ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`}>
                 {label}
               </button>
             ))}
@@ -382,6 +391,7 @@ function RecordList({
               ))}
             </span>
           ))}
+          {tools === "filter" && <TemplateFilter options={templateOptions(visible, templates)} selected={templateIds} onChange={setTemplateIds} />}
           {tools === "filter" && ([
             { label: "診療科", values: options.departments, selected: departments, set: setDepartments },
             { label: "部署（職種）", values: options.roles, selected: roles, set: setRoles },
@@ -409,6 +419,7 @@ function RecordList({
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
               {on.length !== ALL_CATS.length ? `${CATS.filter((c) => on.includes(c.key)).map((c) => c.label).join("・") || "なし"}` : ""}
+              {templateActive ? (templateIds.length ? templateOptions(visible, templates).filter((t) => templateIds.includes(t.id)).map((t) => t.name).join("・") : "テンプレートの記事") : ""}
               {[...departments, ...roles].join("・")}{key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shownCount}件
             </b>
             <button
@@ -418,6 +429,8 @@ function RecordList({
                 setQ("");
                 setDepartments([]);
                 setRoles([]);
+                setTemplateIds([]);
+                setOnlyTemplates(false);
               }}
               className="ml-auto underline"
             >

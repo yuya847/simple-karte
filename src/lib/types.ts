@@ -84,6 +84,8 @@ export interface DailyRecord {
 export type HistoryEntry = NoteEntry | OrderEntry;
 
 export interface NoteEntry {
+  templateId?: string;
+  templateName?: string;
   kind: "note";
   category?: "コンサルト返書" | "リハビリ実施" | "リハビリ";
   day: DayOffset;

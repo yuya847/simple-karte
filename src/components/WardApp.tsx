@@ -97,6 +97,8 @@ import { IncidentView } from "./IncidentView";
 import { INITIAL_NOTICES, INITIAL_READS, markRead, unreadCount, type Notice, type Reads } from "@/lib/board";
 import { INITIAL_INCIDENTS, applyStatus, emptyDraft, type IncidentDraft, type IncidentReport } from "@/lib/incident";
 import { StandingPanel } from "./panels/StandingPanel";
+import { templateStamp } from "@/lib/record-filter";
+import { BUILTIN_RECORD_TEMPLATES, loadMyRecordTemplates } from "@/lib/record-templates";
 import { RecordTemplatesPanel } from "./panels/RecordTemplatesPanel";
 import { RestraintPanel } from "./panels/RestraintPanel";
 import { RegimenPanel } from "./panels/RegimenPanel";
@@ -365,6 +367,7 @@ interface ChartState {
   /** Tabs open on the right besides 記事作成 (opened from the tools, closed with ×). */
   openTabs: RightTab[];
   note: string;
+  noteTemplate?: { templateId: string; templateName: string } | null;
   instruction: string;
   drafts: Draft[];
   /** Orders confirmed today in this session. */
@@ -1279,16 +1282,17 @@ export default function WardApp() {
                           // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
                           const at = chart.noteAt ?? { day: 0, time: nowTime };
                           const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
+                          Object.assign(n, templateStamp(n, [...BUILTIN_RECORD_TEMPLATES, ...loadMyRecordTemplates(me.name)], chart.noteTemplate));
                           setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
                           auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: `${chart.noteAt ? `記録時刻 ${formatShort(addDays(today, at.day))} ${at.time}　` : ""}${chart.note.replace(/\s+/g, " ").slice(0, 120)}` });
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
-                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
+                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, noteTemplate: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
                           };
 
   // A record template's text, confirmed as a note of its own (【テンプレート名】 heading; the wording was put together by code).
-  const confirmRecord = (text: string, label: string) => {
+  const confirmRecord = (text: string, label: string, templateId: string) => {
     if (!patient) return;
-    const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(text) };
+    const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(text), templateId, templateName: label };
     setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
     auditLog({ role: me.role, actor: me.name, action: `確定（記事：${label}）`, patient: patient.name, detail: text.replace(/\s+/g, " ").slice(0, 120) });
     if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: text.trim() }], newId)]);
@@ -3919,7 +3923,7 @@ export default function WardApp() {
                     key={templateFocus ?? "list"}
                     initialId={templateFocus}
                     facts={{ patient, today, nowTime, restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed) }}
-                    onInsert={(text) => update((c) => ({ note: `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note" }))}
+                    onInsert={(text, noteTemplate) => update((c) => ({ noteTemplate, note: `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note" }))}
                     onConfirm={confirmRecord}
                     onOpenPanel={(p) => setPanel(p)}
                   />

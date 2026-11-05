@@ -31,7 +31,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("テンプレートの引き出し", () => {
   it("lists the doctor's templates with what each is for, a ★ to put it on the rail, and a way to make one's own", () => {
     const html = as("医師", <RecordTemplatesPanel facts={facts} onInsert={noop} onConfirm={noop} onOpenPanel={noop} />);
-    for (const n of ["身体的拘束の記録", "救急医療管理加算の根拠", "ICの記録", "死亡時の記録", "口頭指示の記録"]) expect(html).toContain(n);
+    for (const n of ["身体的拘束の記録", "救急医療管理加算の根拠", "ICの記録", "ICU 入室時の記録", "死亡時の記録", "口頭指示の記録"]) expect(html).toContain(n);
     expect(html).toContain("救急医療管理加算の根拠を右の道具に出す");
     expect(html).toContain("自分のテンプレートを作る");
     expect(html).toContain("記事の「テンプレート」と同じもの");
@@ -40,6 +40,7 @@ describe("テンプレートの引き出し", () => {
   it("a nurse does not see the doctor-only 救急医療管理加算 but does see 転倒 and 褥瘡", () => {
     const html = as("看護師", <RecordTemplatesPanel facts={facts} onInsert={noop} onConfirm={noop} onOpenPanel={noop} />);
     expect(html).not.toContain("救急医療管理加算の根拠");
+    expect(html).toContain("ICU 入室時の記録");
     expect(html).toContain("転倒・転落時の記録");
     expect(html).toContain("褥瘡の記録");
   });
@@ -112,4 +113,15 @@ describe("右端ツールのテンプレート", () => {
     expect(fav).toContain(">術後の観察<");
     expect(fav).not.toContain("gone");
   });
+});
+
+it("ICU のフォームと右端のお気に入りを開ける", () => {
+  fakeStorage();
+  saveRail(STAFF["医師"].name, { mode: "icons", pins: [pinOfTemplate("rec-icu-admit")] });
+  const html = as("医師", <RecordTemplatesPanel facts={facts} initialId="rec-icu-admit" onInsert={noop} onConfirm={noop} onOpenPanel={noop} />);
+  expect(html).toContain("ICU 入室時の記録を右の道具から外す");
+  expect(html).toContain("SOFA 合計：未計算");
+  const rail = as("医師", <ToolRail open="templates" openTemplate="rec-icu-admit" onOpen={noop} />);
+  expect(rail).toContain(">ICU入室<");
+  expect(html).toContain("架空の病院の取り決め");
 });

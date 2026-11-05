@@ -6,6 +6,7 @@
 // together by code; whether a requirement (an 加算, a restraint) is met is the doctor's decision. Nothing is
 // written or summarised by AI. Data is fictional.
 
+import { emergencyPrefill, icuPrefill, SOFA_ITEMS, SOFA_SOURCE, sofaTotal } from "./record-sofa";
 import { DELIRIUM_MEASURES, DELIRIUM_RISKS } from "./admit-eval";
 import { BLOOD_SOURCES } from "./blood-bank";
 import { DISCHARGE_PLAN_SOURCE } from "./documents";
@@ -46,6 +47,7 @@ export interface RecordTemplate extends NoteTemplate {
   about: string;
   /** Free-text fields (文) that must not stay empty. Choices, numbers and times are always required. */
   required?: string[];
+  hint?: string;
   /** The record this goes with: opened from the form so nothing is recorded twice. */
   link?: { panel: LinkedPanel; label: string };
   sources?: { label: string; url: string }[];
@@ -113,7 +115,8 @@ export const BUILTIN_RECORD_TEMPLATES: RecordTemplate[] = [
     about: "入院時の状態の区分（ア〜シ）・根拠となる所見と数値・行った診療・判断した医師",
     roles: ["医師"],
     sources: [{ label: `${RECORD_SOURCES.ryuui.label} A205 救急医療管理加算`, url: RECORD_SOURCES.ryuui.url }],
-    rule: "加算の要件を満たすかは医師が判断します。この記事は根拠を残すもので、算定の入力は「算定」で人が行います（文はコードで組みます）。",
+    hint: "数値・所見の例：ア Hb・脱水の所見、イ JCS/GCS、ウ P/F・SpO2・BNP、エ 原因薬物・摂取量・血中濃度、オ 収縮期血圧・乳酸、カ 血糖・pH・Cre、キ 熱傷の範囲・部位、ク 損傷部位・出血量、ケ 緊急治療の内容と時刻、コ 処置の内容と所見、サ 蘇生の内容と時刻、シ 重症と判断した所見。算定の閾値ではありません。引用した最新値が入院時の値か確認し、必要な数値を残してください。",
+    rule: "留意事項の「入院時に」の趣旨に沿い、入院時の状態を入院から3日以内に記録します（期限は架空の病院の取り決め）。加算の要件を満たすかは医師・医事課が判断します。この記事は根拠を残すもので、算定の入力は「算定」で人が行います（文はコードで組みます）。",
     required: ["根拠となる所見"],
     body: [
       `入院時の状態（区分）：{{選択:区分:${KYUKYU_STATES.join("|")}}}`,
@@ -123,7 +126,38 @@ export const BUILTIN_RECORD_TEMPLATES: RecordTemplate[] = [
       "加算：{{選択:加算:１（重篤な状態）|２（重篤な状態に準ずる）}}",
       "判断した医師：{{文:判断した医師}}",
     ].join("\n"),
-    prefill: (f) => ({ "文:判断した医師": doctorName(f) }),
+    prefill: (f) => ({ "文:判断した医師": doctorName(f), "文:根拠となる数値": emergencyPrefill(f) }),
+  },
+  {
+    id: "rec-icu-admit",
+    name: "ICU 入室時の記録",
+    short: "ICU入室",
+    about: "入室の理由・状態・SOFA スコア・デバイス・指示・家族への説明",
+    roles: ["医師", "看護師"],
+    sources: [SOFA_SOURCE],
+    rule: "入室後24時間以内に記録します（架空の病院の取り決め）。算定は医師・医事課が判断します。外への報告は行わない模擬の記録です。",
+    hint: "SOFA は臓器ごとの状態を点数で残します。合計は6項目を選ぶとコードで計算します。血小板とビリルビンは引用した最新値からの仮の点です。血小板は出典の表にある境界（15・10・5・2万/μL以下）で計算します。ビリルビンが12.0の場合は出典の表で境界が明記されていないため、人が点を確認します。入室時の値・測定日を確かめて直してください。呼吸補助・昇圧薬・GCS・尿量は人が確認します。令和6年度の入室日・退室日の報告要件の通知の出典は人が確かめる必要があります。退室日の評価は別に残してください。",
+    required: ["入室の理由"],
+    body: [
+      "入室日時：{{日付}} {{時刻:入室時刻}}　入室元：{{選択:入室元:救急外来|病棟|手術室|他院}}",
+      "入室の理由：{{文:入室の理由}}",
+      "主病名と入室時の問題：{{文:主病名と入室時の問題}}",
+      "意識：GCS E {{選択:GCS E:1|2|3|4}} / V {{選択:GCS V:1|2|3|4|5|評価できない}} / M {{選択:GCS M:1|2|3|4|5|6}}",
+      "呼吸：{{選択:呼吸:自発呼吸|酸素|NPPV/HFNC|人工呼吸}}　FiO2：{{文:FiO2}}　PaO2 または SpO2：{{文:PaO2 または SpO2}}",
+      "循環：{{文:血圧}}　昇圧薬の有無・薬名・量：{{文:昇圧薬}}",
+      "腎：{{文:Cre}}　尿量（測定期間も記載）：{{文:尿量}}",
+      "肝：{{文:T-Bil}}　凝固：{{文:Plt}}",
+      ...SOFA_ITEMS.map((item) => `SOFA ${item}：{{選択:SOFA ${item}:0|1|2|3|4}}`),
+      "デバイス：{{複数:デバイス:気管チューブ|人工呼吸器|中心静脈カテーテル|動脈ライン|尿道カテーテル|胃管|ドレーン|なし}}",
+      "持続薬：{{文:持続薬}}",
+      "入室時の指示：鎮静目標 RASS {{選択:RASS:-5|-4|-3|-2|-1|0|+1|+2|+3|+4}}",
+      "血糖の目標：{{文:血糖の目標}}　体位：{{文:体位}}",
+      "DVT 予防：{{文:DVT 予防}}　ストレス潰瘍予防：{{文:ストレス潰瘍予防}}　栄養の開始：{{文:栄養の開始}}",
+      "DNAR／事前指示：{{選択:DNAR／事前指示:確認した：あり|確認した：なし|未確認}}",
+      "家族への説明（誰に・いつ・内容）：{{文:家族への説明}}",
+      "担当医：{{文:担当医}}",
+    ].join("\n"),
+    prefill: (f) => ({ ...icuPrefill(f), "文:担当医": doctorName(f) }),
   },
   {
     id: "rec-plan",
@@ -164,11 +198,21 @@ export const BUILTIN_RECORD_TEMPLATES: RecordTemplate[] = [
     about: "説明者・同席者・説明の内容・質問と答え・結果（同意）",
     roles: ["医師", "看護師"],
     sources: [RECORD_SOURCES.iryoho],
-    required: ["説明の内容"],
+    required: ["病名・病状", "提案する治療・検査"],
     body: [
       "日時：{{日付}} {{時刻:時刻}}　説明者：{{文:説明者}}　同席者：{{文:同席者}}",
       "説明の相手：{{複数:相手:本人|家族|代理人}}　{{文:相手の名前・続柄}}",
-      "説明の内容（病状・提案する治療・ほかの選択肢・利益と危険・行わない場合）：{{文:説明の内容}}",
+      "病名・病状：{{文:病名・病状}}",
+      "提案する治療・検査：{{文:提案する治療・検査}}",
+      "ほかの選択肢：{{文:ほかの選択肢}}",
+      "期待される利益：{{文:期待される利益}}",
+      "起こりうる合併症・危険と頻度：{{文:起こりうる合併症・危険と頻度}}",
+      "行わない場合に予想されること：{{文:行わない場合に予想されること}}",
+      "費用・期間など：{{文:費用・期間など}}",
+      "説明の内容（補足）：{{文:説明の内容}}",
+      "理解の確認：{{選択:理解の確認:説明を自分の言葉で言い直せた|質問があった|理解が難しく再説明が必要}}",
+      "本人の意思決定の支援：{{複数:本人の意思決定の支援:本人|家族|代理人|通訳|医療チーム}}",
+      "同意の撤回ができること：{{選択:同意の撤回:伝えた|伝えていない}}",
       "用いた資料：{{複数:資料:説明文書|同意書|画像|検査結果|なし}}",
       "質問と答え：{{文:質問と答え}}",
       "結果：{{選択:結果:同意を得た|同意しなかった|考える時間を希望|後日あらためて説明}}",
@@ -348,7 +392,8 @@ export function startRecordValues(t: NoteTemplate, facts: RecordFacts): Template
 
 /** The note: the heading, then the template with every field filled in (blank 文 lines stay as their label). */
 export function buildRecord(t: NoteTemplate, values: TemplateValues, facts: RecordFacts): string {
-  return `${recordHeading(t)}\n${fillTemplate(parseTemplate(t.body), values, facts)}`.replace(/\s+$/, "");
+  const total = t.id === "rec-icu-admit" ? `\nSOFA 合計：${sofaTotal(values) === null ? "未計算（6項目を選んでください）" : `${sofaTotal(values)}点`}` : "";
+  return `${recordHeading(t)}\n${fillTemplate(parseTemplate(t.body), values, facts)}${total}`.replace(/\s+$/, "");
 }
 
 /** Why the record cannot be confirmed yet: choices, numbers and times not entered, and required 文 left empty. */
