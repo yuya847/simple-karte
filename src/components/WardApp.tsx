@@ -3924,7 +3924,7 @@ export default function WardApp() {
                     key={templateFocus ?? "list"}
                     initialId={templateFocus}
                     facts={{ patient, today, nowTime, restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed) }}
-                    onInsert={(text, noteTemplate) => update((c) => ({ noteTemplate, note: isBlankNote(c.note) ? `${text}\n` : `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note" }))}
+                    onInsert={(text, noteTemplate) => { update((c) => ({ noteTemplate, note: isBlankNote(c.note) ? `${text}\n` : `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note", flash: `「${noteTemplate.templateName}」を記事に入れました。直してから保存してください。` })); /* the template window would hide the note it just filled */ setPanel(null); }}
                     onConfirm={confirmRecord}
                     onOpenPanel={(p) => setPanel(p)}
                   />
