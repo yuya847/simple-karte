@@ -10,11 +10,11 @@ export const OR_ROOMS = ["手術室1", "手術室2", "手術室3"] as const;
 export type OrRoom = (typeof OR_ROOMS)[number];
 export type Side = "右" | "左" | "両側" | "なし";
 export type Position = "仰臥位" | "側臥位" | "伏臥位" | "砕石位" | "坐位";
-export type Anesthesia = "全身麻酔" | "脊椎麻酔" | "局所麻酔";
+export type Anesthesia = "全身麻酔" | "脊椎麻酔" | "硬膜外麻酔" | "局所麻酔" | "伝達麻酔";
 export type RequestKind = "予定" | "締切後" | "緊急";
 
 export const POSITIONS: Position[] = ["仰臥位", "側臥位", "伏臥位", "砕石位", "坐位"];
-export const ANESTHESIAS: Anesthesia[] = ["全身麻酔", "脊椎麻酔", "局所麻酔"];
+export const ANESTHESIAS: Anesthesia[] = ["全身麻酔", "脊椎麻酔", "硬膜外麻酔", "局所麻酔", "伝達麻酔"];
 export const SIDES: Side[] = ["右", "左", "両側", "なし"];
 
 /** Ward rules of the fictional hospital. */
@@ -64,6 +64,11 @@ export interface Surgery {
   weightKg?: number;
   status: "申込" | "受付済" | "入室" | "退室";
   requestedAt: number;
+  surgeon?: string;
+  assistant?: string;
+  preop?: { consent: string; anticoagulant: string; fasting: string; bloodType: string };
+  bloodUnits?: number;
+  special?: string;
   record?: AnesRecord;
   /** 麻酔が困難な患者（告示の別表）: the anaesthesiologist marks it. */
   difficult?: boolean;

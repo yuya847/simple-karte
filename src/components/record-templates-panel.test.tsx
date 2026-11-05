@@ -125,3 +125,17 @@ it("ICU のフォームと右端のお気に入りを開ける", () => {
   expect(rail).toContain(">ICU入室<");
   expect(html).toContain("架空の病院の取り決め");
 });
+
+
+describe("VTE のテンプレート", () => {
+  it("医師と看護師の一覧と入力画面に出て、出典と未計算の見本を示す", () => {
+    for (const role of ["医師", "看護師"] as const) {
+      expect(as(role, <RecordTemplatesPanel facts={facts} onInsert={noop} onConfirm={noop} onOpenPanel={noop} />)).toContain("VTE（静脈血栓塞栓症）リスク評価");
+      const html = as(role, <RecordTemplatesPanel facts={facts} initialId="rec-vte" onInsert={noop} onConfirm={noop} onOpenPanel={noop} />);
+      expect(html).toContain("Padua 合計：未計算");
+      expect(html).toContain("決めるのは医師");
+      expect(html).toContain("04044.x");
+      expect(html).toContain("JCS2017_ito_h.pdf");
+    }
+  });
+});

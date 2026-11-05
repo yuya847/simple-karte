@@ -212,3 +212,13 @@ it("管理栄養士の介入に食事タイルを押せる状態で表示する"
   const html = as("管理栄養士", <ToolRail open={null} onOpen={() => {}} blocked={nutritionTileBlocks("管理栄養士")} />);
   expect(html).toMatch(/<button(?![^>]*disabled)[^>]*title="食事"/);
 });
+
+
+describe("手術申込の入口", () => {
+  it("医師の介入にタイルがあり、他職種には出さない", () => {
+    const intervention = groupsFor("医師").find((g) => g.key === "intervention")!;
+    expect(intervention.main.some((t) => t.key === "add-surgery")).toBe(true);
+    for (const role of ROLES.filter((r) => r !== "医師")) expect(groupsFor(role).flatMap((g) => [...g.main, ...g.more]).some((t) => t.key === "add-surgery")).toBe(false);
+    expect(as("医師", <ToolRail open="add-surgery" onOpen={() => {}} />)).toContain("手術申込");
+  });
+});

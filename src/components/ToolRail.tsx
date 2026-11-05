@@ -8,7 +8,7 @@ import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type Rai
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
+export type PanelKind = "add-surgery" | "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
 
 interface Tool {
   key: PanelKind;
@@ -32,6 +32,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
       { key: "add-rx", label: "処方", icon: Pill },
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "add-procedure", label: "処置", icon: Bandage },
+      { key: "add-surgery", label: "手術申込", icon: ClipboardPen },
       { key: "diet", label: "食事", icon: Utensils },
       { key: "standing", label: "指示簿", icon: ClipboardList },
       { key: "sets", label: "セット", icon: Layers },
@@ -139,7 +140,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
 const ONLY: Partial<Record<string, PanelKind[]>> = { 診療放射線技師: ["imaging", "report-list", "monitor"] };
 
 /** Tools only a doctor has (the others do not see them): 研修医の記録の確認 is done by the 指導医・上級医. */
-const DOCTOR_ONLY: ReadonlySet<PanelKind> = new Set<PanelKind>(["cosign"]);
+const DOCTOR_ONLY: ReadonlySet<PanelKind> = new Set<PanelKind>(["cosign", "add-surgery"]);
 
 /** The groups a role sees, with only its tools when the role has a short list. */
 export function groupsFor(role: string): { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] {

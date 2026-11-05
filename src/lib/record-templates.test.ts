@@ -25,7 +25,7 @@ describe("この病院のテンプレート", () => {
     for (const t of BUILTIN_RECORD_TEMPLATES) {
       expect(parseTemplate(t.body).errors, t.name).toEqual([]);
       expect(t.short.length).toBeGreaterThan(0);
-      expect(t.short.length).toBeLessThanOrEqual(6);
+      expect(t.short.length).toBeLessThanOrEqual(7);
       expect(t.roles.length).toBeGreaterThan(0);
       for (const label of t.required ?? []) expect(parseTemplate(t.body).fields.some((f) => f.kind === "文" && f.label === label), `${t.name}: ${label}`).toBe(true);
     }

@@ -1,4 +1,6 @@
 "use client";
+
+import { AddSurgeryPanel } from "./panels/AddSurgeryPanel";
 import { examReservationProblem } from "@/lib/exam-slots";
 import { upsertSessionNote } from "@/lib/rehab-record";
 
@@ -294,7 +296,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  */
 // 参照系（検査結果・レポート・画像・有効オーダ・プロファイル・モニター…）は独立したウインドウで開く（ユーザー 2026-11-05：
 // 「参照系は独立ウインドウで」。点滴・内服・処置などのオーダの入力は今までどおり）。
-const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["nutrition", ...orderWindows, "add-consult", "standing", "add-lab", "add-imaging", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline", "reports", "report-list", "rehab-progress", "active-orders", "profile"]);
+const WINDOW_PANELS: ReadonlySet<PanelKind> = new Set<PanelKind>(["add-surgery", "nutrition", ...orderWindows, "add-consult", "standing", "add-lab", "add-imaging", "discharge", "summary", "consents", "imaging", "patient-info", "monitor", "take", "results", "results-timeline", "reports", "report-list", "rehab-progress", "active-orders", "profile"]);
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { TxBedsidePanel } from "./panels/TxBedsidePanel";
@@ -2074,7 +2076,7 @@ export default function WardApp() {
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
   const blocked: Partial<Record<PanelKind, string>> = {
     ...nutritionTileBlocks(role),
-    ...(orderBlock ? { "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
+    ...(orderBlock ? { "add-surgery": orderBlock, "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
     ...(deny("order") ? { "add-pathology": deny("order")! } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
     ...(resident ? { regimen: COSIGN_RULES.blocked } : {}),
@@ -3751,6 +3753,11 @@ export default function WardApp() {
                   <AddPhysioPanel patientId={patient.id} today={today} examPeople={examPeople} onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
                 </Drawer>
               )}
+              {panel === "add-surgery" && (
+                <Drawer title="手術申込" onClose={closePanel} locked={orderBlock} wide>
+                  <AddSurgeryPanel key={patient.id} patient={patient} today={today} nowTime={nowTime} surgeries={surgeries} onSave={(s, text) => { if (deny("order")) return; setSurgeries((all) => [...all, s]); confirmRecord(text, "手術申込", "add-surgery"); closePanel(); }} />
+                </Drawer>
+              )}
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
                   <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
@@ -3931,7 +3938,7 @@ export default function WardApp() {
                   <RecordTemplatesPanel
                     key={templateFocus ?? "list"}
                     initialId={templateFocus}
-                    facts={{ patient, today, nowTime, restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed) }}
+                    facts={{ patient, today, nowTime, standing: standingNow(patient.id), restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed) }}
                     onInsert={(text, noteTemplate) => { update((c) => ({ noteTemplate, note: isBlankNote(c.note) ? `${text}\n` : `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note", flash: `「${noteTemplate.templateName}」を記事に入れました。直してから保存してください。` })); /* the template window would hide the note it just filled */ setPanel(null); }}
                     onConfirm={confirmRecord}
                     onOpenPanel={(p) => setPanel(p)}

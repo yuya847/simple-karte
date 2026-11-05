@@ -6,6 +6,8 @@
 // together by code; whether a requirement (an 加算, a restraint) is met is the doctor's decision. Nothing is
 // written or summarised by AI. Data is fictional.
 
+import { PADUA_ITEMS, VTE_SOURCES, paduaText, vtePrefill } from "./record-vte";
+import type { StandingOrders } from "./standing";
 import { emergencyPrefill, icuPrefill, SOFA_ITEMS, SOFA_SOURCE, sofaTotal } from "./record-sofa";
 import { DELIRIUM_MEASURES, DELIRIUM_RISKS } from "./admit-eval";
 import { BLOOD_SOURCES } from "./blood-bank";
@@ -31,9 +33,10 @@ export type LinkedPanel = "restraint" | "pressure";
 
 /** What a template may read from the chart to start its form (code fills; the writer can change anything). */
 export interface RecordFacts extends TemplateFacts {
-  patient: TemplateFacts["patient"] & Pick<Patient, "name" | "attending">;
+  patient: TemplateFacts["patient"] & Pick<Patient, "name" | "attending"> & Partial<Pick<Patient, "admissionDiagnosis">>;
   me: { name: string; role: Role };
   nowTime: string;
+  standing?: StandingOrders;
   /** The restraint in force, if any. */
   restraint?: Restraint | null;
   /** The pressure ulcers not yet healed. */
@@ -78,6 +81,26 @@ const doctorName = (f: RecordFacts) => (f.me.role === "医師" ? f.me.name : f.p
 
 /** The fictional hospital's record templates (架空の病院の取り決め). */
 export const BUILTIN_RECORD_TEMPLATES: RecordTemplate[] = [
+  {
+    id: "rec-vte", name: "VTE（静脈血栓塞栓症）リスク評価", short: "VTE リスク",
+    about: "内科入院患者の Padua 合計・日本のリスクレベル・予防の実施状況",
+    roles: ["医師", "看護師"], sources: VTE_SOURCES,
+    hint: "Padua Prediction Score は内科入院患者の評価です。Barbar S et al. J Thromb Haemost 2010;8:2450–2457 の閾値は4点以上＝高リスク。合計は11項目を選ぶとコードで計算します。年齢・BMI・入院病名を仮入力します。ベッド上の指示だけでは3日以上か分からないため、期間を確認して臥床を選んでください。配点と定義は公的資料 AHRQ Appendix B.12 と照合しました。原著本文はこの環境では取得できていないため、人が出典を確かめてください。活動性癌・血栓性素因などの定義も確認します。日本のリスクレベルは Padua から変換しません。推奨される予防法の表は出典 URL（2017年改訂版 第V章 予防・表39〜41、p.70）で人が確かめる必要があります。アプリは予防法を勧めません。決めるのは医師。",
+    rule: "記録の欄と再評価の選択肢は架空の病院の取り決めです。模擬の記録です。",
+    body: [
+      "評価日：{{日付}}　評価者：{{文:評価者}}",
+      "カルテからの引用（確認して直す）：{{文:引用した情報}}",
+      "臥床の期間の確認：{{文:臥床の確認}}",
+      ...PADUA_ITEMS.map(([label, points]) => `Padua ${label}（${points}点）：{{選択:Padua ${label}:あり|なし}}`),
+      "日本のガイドラインのリスクレベル：{{選択:リスクレベル:低|中|高|最高}}",
+      "付加的な危険因子：{{選択:付加的な危険因子:あり（詳細を記載）|なし|未確認}}　{{文:付加的な危険因子の詳細}}",
+      "リスクレベルの判断の根拠：{{文:判断の根拠}}",
+      "予防の実施状況：{{複数:予防の実施状況:早期離床|弾性ストッキング|間欠的空気圧迫法|抗凝固薬|なし}}",
+      "再評価の予定：{{選択:再評価の予定:翌日|状態が変わったとき|手術の前後|別に日付を指定}}　{{文:再評価日・補足}}",
+      "医師の判断・指示：{{文:医師の判断・指示}}",
+    ].join("\n"), prefill: vtePrefill,
+  },
+
   {
     id: "rec-restraint",
     name: "身体的拘束の記録",
@@ -393,7 +416,7 @@ export function startRecordValues(t: NoteTemplate, facts: RecordFacts): Template
 /** The note: the heading, then the template with every field filled in (blank 文 lines stay as their label). */
 export function buildRecord(t: NoteTemplate, values: TemplateValues, facts: RecordFacts): string {
   const total = t.id === "rec-icu-admit" ? `\nSOFA 合計：${sofaTotal(values) === null ? "未計算（6項目を選んでください）" : `${sofaTotal(values)}点`}` : "";
-  return `${recordHeading(t)}\n${fillTemplate(parseTemplate(t.body), values, facts)}${total}`.replace(/\s+$/, "");
+  return `${recordHeading(t)}\n${fillTemplate(parseTemplate(t.body), values, facts)}${total}${t.id === "rec-vte" ? `\n${paduaText(values)}` : ""}`.replace(/\s+$/, "");
 }
 
 /** Why the record cannot be confirmed yet: choices, numbers and times not entered, and required 文 left empty. */

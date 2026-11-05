@@ -41,3 +41,9 @@ describe("L008 全身麻酔（令和8年度）", () => {
     expect(l008Fee(req({ anesthesia: "脊椎麻酔", record: { anesStart: 0, anesEnd: 100 } }))).toBeNull();
   });
 });
+
+
+it("手術申込の麻酔に硬膜外と伝達も残せる", async () => {
+  const { ANESTHESIAS } = await import("./surgery");
+  expect(ANESTHESIAS).toEqual(["全身麻酔", "脊椎麻酔", "硬膜外麻酔", "局所麻酔", "伝達麻酔"]);
+});
