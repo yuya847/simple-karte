@@ -80,6 +80,8 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
   const [claim, setClaim] = useState<OpdClaim | null>(initial ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [outpatientManagement, setOutpatientManagement] = useState(settlement?.choices?.outpatientManagement ?? false);
+  const [specificDisease, setSpecificDisease] = useState(settlement?.choices?.specificDisease ?? false);
   const [runs, setRuns] = useState(0);
   const [method, setMethod] = useState<PayMethod | "">("");
   const [print, sheet] = usePrintSheet();
@@ -89,7 +91,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
   const assumed = !registered;
   const birth = birthDateOf({ id: visitKey, age: visit.age }, today, registered?.birthDate);
   const rxItems = useMemo(() => rx.map((r) => ({ items: r.items ?? [] })), [rx]);
-  const bodyJson = JSON.stringify({ emergency, today: isoDate(today), nowTime, visit: { id: visit.id, name: visit.name, age: visit.age, kind: visit.kind, department: visit.department }, entries, rx: rxItems });
+  const bodyJson = JSON.stringify({ emergency, today: isoDate(today), nowTime, visit: { id: visit.id, name: visit.name, age: visit.age, kind: visit.kind, department: visit.department }, entries, rx: rxItems, specificDisease, outpatientManagement });
   const request = useEffectEvent(() => bodyJson);
   useEffect(() => {
     const ctl = new AbortController();
@@ -100,6 +102,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
         const res = await fetch("/api/opd-claim", { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal, body: request() });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
+        if (!JSON.parse(request()).emergency?.admittedAs && (!Array.isArray(json.acts) || !json.acts.some((a: ClaimAct) => a.shikibetsu === "11" || a.shikibetsu === "12") || !(json.totalPoints > 0))) throw new Error("初診料・再診料を算定できませんでした。受診の区分と算定結果を確認してください。");
         setClaim(json as OpdClaim);
       } catch (e) {
         if (ctl.signal.aborted) return;
@@ -125,7 +128,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
 
   const settle = () => {
     if (emergency?.admittedAs || busy || error || denySettle || !onSettle || !claim || !share || !method) return;
-    const s: OpdSettlement = { visitKind: visit.kind, visitId: visitKey, receiptNo: nextReceiptNo(book, today), points: claim.totalPoints, yen: share.patientYen, coverage: coverageOf(insurance), rateLabel: rateLabel(share.rate), method, by: me.name, at: { day: 0, time: nowTime } };
+    const s: OpdSettlement = { choices: { outpatientManagement, specificDisease }, visitKind: visit.kind, visitId: visitKey, receiptNo: nextReceiptNo(book, today), points: claim.totalPoints, yen: share.patientYen, coverage: coverageOf(insurance), rateLabel: rateLabel(share.rate), method, by: me.name, at: { day: 0, time: nowTime } };
     auditLog({ role: me.role, actor: me.name, action: "確定（外来の会計・入金）", patient: visit.name, detail: `${s.receiptNo}　${pts(s.points)}　${kindLabel} ${s.rateLabel}　お支払い ${yen(s.yen)}（${s.method}）` });
     onSettle(s);
   };
@@ -339,6 +342,8 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
         </div>
       )}
 
+      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={outpatientManagement} disabled={!!settlement} onChange={(e) => setOutpatientManagement(e.target.checked)} />外来管理加算の候補（人が選ぶ：計画的な医学管理・併算定できない診療がないことを確認）</label>
+      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={specificDisease} disabled={!!settlement} onChange={(e) => setSpecificDisease(e.target.checked)} />特定疾患処方管理加算（人が選ぶ：対象の主病・28日以上の処方・当月未算定を確認）</label>
       {/* 未収の一覧 */}
       <section aria-label="今日の外来の未収" className="rounded-lg border border-rule bg-paper/50 p-3">
         <h3 className="mb-1 flex flex-wrap items-center gap-2 text-xs font-bold text-ink-soft">

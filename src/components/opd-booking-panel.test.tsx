@@ -41,6 +41,10 @@ describe("外来予約の引き出し", () => {
     expect(html).toContain("この患者の外来予約");
     expect(html).toContain("D14 午前");
     expect(html).toContain("下書きにする");
+    expect(html).toMatch(/下書きにする<\/button><span[^>]*>未入力：<button[^>]*>日付<\/button>/);
+    expect(html).toContain('data-booking-field="日付"');
+    expect(html).toContain('data-booking-field="時間枠"');
+    expect(html).toContain('data-booking-field="目的"');
     // The patient's own department is chosen from the start.
     expect(html).toMatch(/aria-checked="true"[^>]*>総合診療科</);
   });

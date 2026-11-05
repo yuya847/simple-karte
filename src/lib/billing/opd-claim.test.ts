@@ -10,7 +10,7 @@ const lab = (codes: string[], time = "09:10"): OrderEntry => order({ type: "lab"
 const rxLine = (drug: string, timings: RxLine["timings"] = ["朝"]): RxLine => ({ rp: 1, drug, perDose: 1, unit: "錠", timings, prn: null, maxPerDay: null, days: 28 });
 
 function claim(over: Partial<OpdClaimInput> = {}) {
-  return calculateOpdClaim({ today: "2026-11-04", nowTime: "10:30", visit: { id: "opd-6", name: "中谷 修", age: 71, kind: "再診", department: "総合診療科" }, entries: [], rx: [], ...over });
+  return calculateOpdClaim({ today: "2026-11-04", nowTime: "10:30", visit: { id: "opd-6", name: "中谷 修", age: 71, kind: "再診", department: "総合診療科" }, entries: [], rx: [], outpatientManagement: true, ...over });
 }
 const codes = (r: ReturnType<typeof claim>) => r.acts.flatMap((a) => a.parts.flatMap((p) => p.lines.map((l) => l.code)));
 const points = (r: ReturnType<typeof claim>, code: string) => r.acts.filter((a) => a.parts.some((p) => p.lines.some((l) => l.code === code))).reduce((s, a) => s + a.parts.reduce((t, p) => t + p.points, 0) * a.count, 0);

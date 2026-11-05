@@ -39,6 +39,8 @@ import { patientMonthPayload } from "@/lib/billing/payload";
 import { currentInsurance } from "@/lib/billing/registration";
 import { INITIAL_DESK, withInitialInsurance, withInsurance, withSettlement, type IjiDesk } from "@/lib/billing/worklist";
 import { unpaidVisits, type OpdSettleBook } from "@/lib/billing/opd-settle";
+import { visitPrescriptions } from "@/lib/billing/opd-visit";
+import { OpdRxAfter } from "./OpdRxAfter";
 import { OpdBillPanel } from "./billing/OpdBillPanel";
 import { BillingView } from "./BillingView";
 import { IjiBoard } from "./IjiBoard";
@@ -2199,7 +2201,7 @@ export default function WardApp() {
           onAccept={acceptRequest}
         />
       ) : screen === "iji" ? (
-        <IjiBoard charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(id.startsWith("er:") ? "patient-info" : where))} />
+        <IjiBoard outpatient={{ visits: opd.map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`opd:${patient.id}`)!, sessionChanges[`opd:${patient.id}`]), dept.ris)), rx: opdRx[patient.id] ?? [], drafts: pendingDraftCount(charts, `opd:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) { setOpdBills((all) => ({ ...all, [s.visitId]: s })); setOpd((all) => all.map((p) => `opd:${p.id}` === s.visitId ? { ...p, status: "終了" } : p)); } } }} charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(id.startsWith("er:") || id.startsWith("opd:") ? "patient-info" : where))} />
       ) : screen === "support" ? (
         <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} />
       ) : screen === "ulcers" ? (
@@ -2926,7 +2928,7 @@ export default function WardApp() {
                 visit={v}
                 request={requests.find((r) => `${r.from.kind}:${r.from.id}` === patient.id && r.status !== "取消")}
                 revisit={v.kind === "opd" ? revisits[v.op.id] : undefined}
-                rxCount={v.kind === "opd" ? (opdRx[v.op.id] ?? []).length : 0}
+                rxCount={v.kind === "opd" ? visitPrescriptions(ordersOf(entries), opdRx[v.op.id] ?? []).length : 0}
                 paid={opdBills[patient.id] ? { yen: opdBills[patient.id].yen, time: opdBills[patient.id].at.time } : undefined}
                 onOpenBill={v.kind === "opd" ? () => setPanel("opd-bill") : undefined}
                 fmtDay={(d) => formatShort(addDays(today, d))}
@@ -2941,7 +2943,7 @@ export default function WardApp() {
                   setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status: "取消" } : r)));
                 }}
                 onOpenChart={openPatient}
-                onOpenRx={() => setPanel("visit-rx")}
+                onOpenRx={() => openOrder("add-rx")}
                 onOpenRevisit={() => setPanel("opd-booking")}
               />
             );
@@ -3231,6 +3233,7 @@ export default function WardApp() {
                       <Drawer key={`rx:${patient.id}:${desk}`} title={`内服：${patient.name}さん`} windowKey="add-rx" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-rx"))}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddRxPanel
+                              outpatient={visitOf(patient.id)?.kind === "opd"}
                               ward={patient.ward}
                               key={patient.id}
                               newId={newId}
@@ -3241,9 +3244,10 @@ export default function WardApp() {
                                 previous: previousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
                                 me: me.name,
                               }}
-                              onAdd={(ds) => { setOrderWins((v) => v.filter((k) => k !== "add-rx")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
+                              onAdd={(ds) => { if (visitOf(patient.id)?.kind !== "opd") setOrderWins((v) => v.filter((k) => k !== "add-rx")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
                             />
                           </fieldset>
+                          {(() => { const v = visitOf(patient.id); return v?.kind === "opd" ? <OpdRxAfter op={v.op} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} legacy={opdRx[v.op.id] ?? []} insuranceBook={iji.insurance} today={today} nowTime={nowTime} national={national} onRegistered={(r) => setNational((all) => [...all, r])} /> : null; })()}
                       </Drawer>
                     )}
                     {chart.openTabs.includes("injcal") &&
@@ -4248,7 +4252,7 @@ export default function WardApp() {
                 else {
                   if (p === "imaging") setImageFocus(null);
                   setFlowReq(null);
-                  setPanel(p);
+                  setPanel(p === "billing" && visitOf(patient.id)?.kind === "opd" ? "opd-bill" : p);
                 }
               }}
               blocked={blocked}

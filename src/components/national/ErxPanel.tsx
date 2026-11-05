@@ -75,8 +75,18 @@ export function ErxPanel({
   };
   const allAcked = !!findings && findings.every((_, i) => acked[i]);
   const canSign = !!build && !build.problems.length && kind === "院外" && allAcked && !signed && !locked;
-  const canRegister = !!build && !build.problems.length && allAcked && !receipt && !locked && (kind === "院内" || !!signed);
+  const canRegister = !insuranceAssumed && !!build && !build.problems.length && allAcked && !receipt && !locked && (kind === "院内" || !!signed);
 
+  const registerReasons = [
+    locked,
+    busy && "処理中です",
+    !lines.length && "確定した院外処方が必要です",
+    insuranceAssumed && "保険の登録が必要です",
+    ...(build?.problems ?? []),
+    !findings && "重複投薬等チェック（模擬）を行ってください",
+    findings && !allAcked && "所見をすべて確かめてください",
+    kind === "院外" && !signed && "模擬の署名が必要です",
+  ].filter((x): x is string => typeof x === "string" && !!x);
   const check = async () => {
     if (!build || locked) return;
     setBusy(true);
@@ -126,7 +136,10 @@ export function ErxPanel({
         </ul>
       )}
       {lines.length === 0 ? (
-        <p className="text-ink-faint">{mode === "外来" ? "確定した外来処方がありません。上の「処方を書く」で書いて確定すると、ここで電子処方箋にできます。" : "有効な退院時処方がありません。内服を「退院時」の区分で書くと、ここで扱えます。"}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-ink-faint">{mode === "外来" ? "確定した院外処方がありません。処方を記事の下で確定してください。" : "有効な退院時処方がありません。内服を「退院時」の区分で書くと、ここで扱えます。"}</p>
+          {mode === "外来" && <><button type="button" disabled className="rounded-md bg-ai px-3 py-1.5 text-sm font-bold text-white opacity-40">電子処方箋を登録（模擬）</button><span role="status" className="text-[11px] text-yamabuki">登録できない理由：{registerReasons.join("・")}</span></>}
+        </div>
       ) : (
         <>
           <ul className="nums space-y-0.5">
@@ -224,10 +237,11 @@ export function ErxPanel({
               )}
 
               <div className="flex flex-wrap items-center gap-2">
-                <button type="button" onClick={register} disabled={!canRegister || busy} className="rounded-md bg-ai px-3 py-1.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
+                <button type="button" onClick={register} disabled={!canRegister || busy || insuranceAssumed} className="rounded-md bg-ai px-3 py-1.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
                   {kind === "院内" ? "院内処方の情報を登録（模擬）" : "電子処方箋を登録（模擬）"}
                 </button>
                 {!findings && <span className="text-[11px] text-ink-faint">先に重複投薬等チェックをします。</span>}
+                {!receipt && registerReasons.length > 0 && <span role="status" className="text-[11px] text-yamabuki">登録できない理由：{registerReasons.join("・")}</span>}
                 {findings && !allAcked && <span className="text-[11px] text-yamabuki">所見をすべて確かめると登録できます。</span>}
               </div>
               {receipt && (

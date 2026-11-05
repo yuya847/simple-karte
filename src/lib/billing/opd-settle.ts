@@ -9,6 +9,7 @@ export type PayMethod = "現金" | "カード";
 export const PAY_METHODS: PayMethod[] = ["現金", "カード"];
 
 export interface OpdSettlement {
+  choices?: { outpatientManagement: boolean; specificDisease: boolean };
   visitKind?: "初診" | "再診";
   /** The visit's chart id ("opd:" + id). */
   visitId: string;

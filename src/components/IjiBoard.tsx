@@ -1,5 +1,6 @@
 "use client";
 
+import { OutpatientDesk, type OutpatientDeskProps } from "./billing/OutpatientDesk";
 import { EmergencyDesk, type EmergencyDeskProps } from "./billing/EmergencyDesk";
 import { pendingDraftCount } from "@/lib/billing/emergency-visit";
 import { Loader2, ReceiptJapaneseYen, RefreshCw } from "lucide-react";
@@ -26,6 +27,7 @@ const KIND_TONE: Record<IjiKind, string> = {
 export function IjiBoard({
   patients,
   emergency,
+  outpatient,
   charts = {},
   desk,
   diagnoses,
@@ -36,6 +38,7 @@ export function IjiBoard({
 }: {
   patients: Patient[];
   emergency?: EmergencyDeskProps;
+  outpatient?: OutpatientDeskProps;
   charts?: Record<string, { drafts: unknown[] }>;
   desk: IjiDesk;
   diagnoses: Record<string, Diagnosis[]>;
@@ -112,6 +115,7 @@ export function IjiBoard({
       {error && <p className="mb-3 rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
 
       <p className="hint mb-2 text-xs text-ink-soft">下書きは医師の確定待ちです。確定するまで算定に入りません。</p>
+      {outpatient && <OutpatientDesk {...outpatient} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
       {emergency && <EmergencyDesk {...emergency} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>

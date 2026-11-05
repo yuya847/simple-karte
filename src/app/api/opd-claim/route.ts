@@ -11,6 +11,8 @@ import type { RxLine } from "@/lib/national/rx-lines";
 const Day = z.number().int().min(-400).max(400);
 
 const Body = z.object({
+  outpatientManagement: z.boolean().optional(),
+  specificDisease: z.boolean().optional(),
   emergency: z.object({ arrivedAbs: z.number().int().min(-576000).max(1440), admittedAs: z.string().max(40).optional() }).optional(),
   today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   nowTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -29,8 +31,8 @@ export async function POST(request: Request) {
   const body = Body.safeParse(await request.json().catch(() => null));
   if (!body.success) return Response.json({ error: "会計に必要な情報が足りません。" }, { status: 400 });
   try {
-    const { today, nowTime, visit, entries, rx, emergency } = body.data;
-    const input = { today, nowTime, visit, entries: entries as unknown as HistoryEntry[], rx: rx as { items: RxLine[] }[] };
+    const { today, nowTime, visit, entries, rx, emergency, specificDisease, outpatientManagement } = body.data;
+    const input = { today, nowTime, visit, entries: entries as unknown as HistoryEntry[], rx: rx as { items: RxLine[] }[], specificDisease, outpatientManagement };
     return Response.json(emergency ? calculateEmergencyClaim(input, emergency) : calculateOpdClaim(input));
   } catch (e) {
     console.error("opd-claim failed", e);

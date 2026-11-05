@@ -226,6 +226,7 @@ export interface LabOrder {
 export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
 
 export interface PrescriptionOrder {
+  dispensing?: "院内" | "院外";
   once?: { day: DayOffset; time: string };
   onePack?: boolean;
   type: "prescription";

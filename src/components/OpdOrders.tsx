@@ -34,7 +34,6 @@ export interface Revisit {
 export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory }: { allergies: string[]; nowTime: string; newId: () => string; fmtDay: (d: number) => string; rx: OpdRx[]; onRx: (lines: string[], items: RxLine[]) => void; memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string } }) {
   const deny = useDeny()("order");
   const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [writing, setWriting] = useState(false);
   const ctx: CheckContext = { activeOrders: [], labOrders: [], drafts, nowTime, fmtDay, describe: (o) => o.id, allergies };
   // マスタ管理: an item made 中止 or 非採用 there cannot be prescribed.
   const ml = useMasterLocal();
@@ -99,21 +98,7 @@ export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory
         )}
         {narcotic && <p className="mb-2 text-[12px] font-bold text-shu">{NARCOTIC_RULES.outpatient}麻薬の Rp を消してください。</p>}
         <DenyNote action="order" />
-        {writing ? (
-          <AddRxPanel
-            newId={newId}
-            drafts={drafts}
-            memory={memory}
-            onAdd={(ds) => {
-              setDrafts((x) => [...x, ...ds]);
-              setWriting(false);
-            }}
-          />
-        ) : (
-          <button type="button" disabled={!!deny} onClick={() => setWriting(true)} className="rounded-md border border-ai px-3 py-1 text-[12px] font-bold text-ai hover:bg-ai-soft disabled:opacity-40">
-            処方を書く
-          </button>
-        )}
+        <AddRxPanel newId={newId} drafts={drafts} memory={memory} onAdd={(ds) => setDrafts((x) => [...x, ...ds])} />
       </section>
     </div>
   );

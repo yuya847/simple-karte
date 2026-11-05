@@ -19,6 +19,7 @@ export interface RxItem {
 }
 
 export interface PrescriptionDraft {
+  dispensing?: "院内" | "院外";
   once?: boolean;
   alreadyDone?: boolean;
   id: string;
@@ -241,6 +242,7 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
     const per = perDoseOf(it, prn ? 1 : d.timings!.length)!;
     return {
       type: "prescription",
+      dispensing: d.dispensing,
       category: d.category === "退院時" || d.category === "持参薬" ? d.category : prn ? "臨時" : d.category!,
       drugCode: m.code,
       amount: per,
@@ -249,7 +251,7 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
       ...(d.once ? { once: { day: 0, time: nowTime } } : {}),
       ...(prn && !d.once ? { prn: d.prn ?? "必要時", maxPerDay: d.maxPerDay ?? undefined } : {}),
       start,
-      days: prn ? undefined : (d.days ?? undefined),
+      days: prn && !d.dispensing ? undefined : (d.days ?? undefined),
       comment: [d.comment, d.onePack ? "一包化" : null].filter(Boolean).join("　") || undefined,
       onePack: !!d.onePack,
       rp: rpId,

@@ -758,8 +758,10 @@ export function AddRxPanel({
   seed,
   memory,
   ward = "",
+  outpatient = false,
 }: {
   ward?: string;
+  outpatient?: boolean;
   onAdd: (d: Draft[]) => void;
   newId: () => string;
   drafts?: Draft[];
@@ -768,6 +770,7 @@ export function AddRxPanel({
   /** 処方の記憶: the doctor's patterns, this patient's previous prescriptions, and who is writing. */
   memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string };
 }) {
+  const [dispensing, setDispensing] = useState<"院内" | "院外">("院外");
   const verbal = orderDefaults("", "定期", "", useMe().role === "看護師" ? "verbal" : "doctor").schedule.kind === "once";
   const freshRx = (): Rp => verbal ? { ...newRp(), once: true, times: "頓用", prn: "今すぐ1回だけ", maxPerDay: "1", days: "1", category: "臨時" } : newRp();
   const first = drafts.filter((d) => d.kind === "prescription").length + 1;
@@ -834,6 +837,7 @@ export function AddRxPanel({
       onePack: !!rp.onePack,
       alreadyDone: rp.alreadyDone,
       kind: "prescription",
+      ...(outpatient ? { dispensing } : {}),
       once: rp.once,
       category: rp.once ? "臨時" : category,
       items: rp.rows.map((r) => ({ drugCode: r.drugCode, said: findOralDrug(r.drugCode)?.name ?? r.drugCode, daily: null, perDose: Number(r.per) || null })),
@@ -869,6 +873,7 @@ export function AddRxPanel({
   };
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[13px]">
+      {outpatient && <TabChoice label="院内／院外" options={["院内", "院外"].map((value) => ({ value, label: value }))} value={dispensing} onChange={(v) => setDispensing(v as "院内" | "院外")} />}
       <CollectedRps drafts={drafts} kind="prescription" />
       <p className="hint">入れかけの入力は、この患者の下書きに残ります。</p>
       <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />

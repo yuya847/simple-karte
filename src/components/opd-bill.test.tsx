@@ -112,13 +112,23 @@ describe("患者基本情報の保険・制度", () => {
 });
 
 describe("外来の会計", () => {
+  it("石田さんの再診・院外7日処方は、登録済みの後期高齢者2割で270円", () => {
+    const entry: OrderEntry = { kind: "order", id: "rx-ishida", day: 0, time: "09:30", author: "医師", status: "有効", order: { type: "prescription", dispensing: "院外", category: "臨時", drugCode: "ORAL-FRS20", amount: 1, unit: "錠", timings: ["朝"], start: { day: 0 }, days: 7 } };
+    const result = calculateOpdClaim({ today: "2026-11-04", nowTime: "10:30", visit: ishida, entries: [entry], rx: [] });
+    const html = as("医事課", <OpdBillPanel visit={ishida} visitKey="opd:opd-1" entries={[entry]} rx={[]} records={INITIAL_INSURANCE_BOOK["opd:opd-1"]} today={today} nowTime="10:30" book={{}} unpaid={[]} initial={result} />);
+    expect(result.totalPoints).toBe(136);
+    expect(html).toContain("再診料");
+    expect(html).toContain("処方箋料");
+    expect(html).toContain("270円");
+    expect(html).toContain("2割");
+  });
   const labs: OrderEntry[] = [{ kind: "order", id: "o1", day: 0, time: "09:10", author: "山本", status: "有効", order: { type: "lab", codes: ["SET-LYTES", "LAB-BUN", "LAB-CRE", "LAB-BNP"], collect: { day: 0, time: "09:15" }, priority: "至急" } }];
   const claim = calculateOpdClaim({ today: "2026-11-04", nowTime: "10:30", visit: { id: "opd-6", name: nakatani.name, age: nakatani.age, kind: "再診", department: nakatani.department }, entries: labs, rx: [{ items: [{ rp: 1, drug: "ORAL-X", perDose: 1, unit: "錠", timings: ["朝"], prn: null, maxPerDay: null, days: 28 }] }] });
 
   it("groups the points into the 領収証's columns", () => {
     const secs = sections(claim.acts);
     expect(secs.map((s) => s.name)).toEqual(["初・再診料", "投薬", "検査"]);
-    expect(secs.find((s) => s.name === "初・再診料")?.points).toBe(128);
+    expect(secs.find((s) => s.name === "初・再診料")?.points).toBe(76);
     expect(secs.find((s) => s.name === "投薬")?.points).toBe(60);
   });
 

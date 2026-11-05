@@ -5,7 +5,8 @@
 // Nothing about the patient is assumed: 加算 that depend on the situation (時間外・乳幼児・一般名処方 など)
 // are left out and named.
 
-import { findDrug } from "../master";
+import { buildOpdVisit, OPD_CODES } from "./opd-visit";
+import { findOralDrug, findDrug } from "../master";
 import { examAt, findPhysio, findRegion, type ImagingOrder, type PhysioOrder } from "../exams";
 import type { RxLine } from "../national/rx-lines";
 import { AREA_LABEL, findProc, findProcDrug, isSevereUlcer } from "../procedures";
@@ -19,19 +20,7 @@ import type { ClaimAct, ClaimIssue, ClaimLine, ClaimPart, Shikibetsu } from "./m
 import { masterMeta } from "../masters/server";
 
 /** 診療行為コード of the outpatient items (医科診療行為マスター 2026-11-02 版; the points are read from it). */
-export const OPD_CODES = {
-  初診料: "111000110",
-  再診料: "112007410",
-  外来管理加算: "112011010",
-  処方箋料その他: "120002910",
-  処方箋料7種類以上: "120002710",
-  血液採取静脈: "160095710",
-  検体検査管理加算1: "160170170",
-  皮内皮下筋肉内注射: "130000510",
-  静脈内注射: "130003510",
-  点滴注射入院外500未満: "130009310",
-  点滴注射500以上: "130003810",
-} as const;
+export { OPD_CODES } from "./opd-visit";
 
 export { OPD_CLAIM_SOURCES } from "./opd-claim-sources";
 
@@ -44,6 +33,8 @@ export interface OpdClaimInput {
   entries: HistoryEntry[];
   /** 院外処方せん issued at this visit (confirmed), line by line. */
   rx: { items: RxLine[] }[];
+  specificDisease?: boolean;
+  outpatientManagement?: boolean;
 }
 
 export interface OpdClaim {
@@ -77,8 +68,8 @@ function iyLine(officialCode: string, quantity: number): ClaimLine {
 export const OPD_NOT_CLAIMED = [
   "時間外・休日・深夜加算、乳幼児加算（受診の時刻と年齢で決まる加算）",
   "医学管理料（特定疾患療養管理料・生活習慣病管理料・診療情報提供料など）",
-  "一般名処方加算・特定疾患処方管理加算（処方箋料の加算）",
-  "院内処方の投薬料（この外来は院外処方せん）",
+  "一般名処方加算（この試作では自動算定しない）",
+  "院内処方の外用薬・調剤技術基本料（施設・当月の算定歴の確認が必要）",
   "リハビリテーション・手術・麻酔・輸血・透析・内視鏡・在宅医療",
   "画像診断の造影剤の薬剤料（放射線部の記録がないとき）、酸素の加算",
   "同じ月のほかの受診との重なり（判断料・管理加算・CT の2回目減算は月単位の決まり）",
@@ -280,23 +271,50 @@ export function calculateOpdClaim(input: OpdClaimInput): OpdClaim {
     one("60", [OPD_CODES.血液採取静脈], "D400 血液採取 1 静脈（1日につき。入院中の患者以外）");
   }
 
+  const plan = buildOpdVisit({ kind: input.visit.kind, entries: orders, legacy: input.rx, managementExcluded: done.length > 0 || anyProc, outpatientManagement: input.outpatientManagement });
+  const { prescriptions, outside, inside } = plan;
   // ===== 処方箋料 (院外処方せん) =====
-  if (input.rx.length) {
+  if (outside.length) {
     const orals = new Set<string>();
-    for (const r of input.rx) for (const it of r.items) if (it.timings.length) orals.add(it.drug);
+    for (const r of outside) for (const it of r.items) if (it.timings.length) orals.add(it.drug);
     const many = orals.size >= 7;
     const code = many ? OPD_CODES.処方箋料7種類以上 : OPD_CODES.処方箋料その他;
-    one("80", [code], `F400 処方箋料 ${many ? "1（7種類以上の内服薬）" : "3（その他）"}（交付1回につき。${input.rx.length}枚は同じ受診なので1回）。一般名処方加算はこの試作では入れていない`);
-    if (input.rx.length > 1) issues.push({ level: "review", text: `処方せんを${input.rx.length}回に分けて出しています。同じ受診の処方せんは1回分の処方箋料です（まとめて1枚にしたか確かめる）。` });
+    one("80", [code], `F400 処方箋料 ${many ? "1（7種類以上の内服薬）" : "3（その他）"}（交付1回につき。${outside.length}枚は同じ受診なので1回）。一般名処方加算はこの試作では入れていない`);
+    if (outside.length > 1) issues.push({ level: "review", text: `処方せんを${outside.length}回に分けて出しています。同じ受診の処方せんは1回分の処方箋料です（まとめて1枚にしたか確かめる）。` });
+  }
+
+  if (inside.length) {
+    const items = inside.flatMap((r) => r.items);
+    one("80", [new Set(items.filter((i) => i.timings.length).map((i) => i.drug)).size >= 7 ? OPD_CODES.処方料7種類以上 : OPD_CODES.処方料その他], "F100 処方料（院内）");
+    one("24", [OPD_CODES.調剤料外来], "F000 調剤料（入院外・内服薬・屯服薬、1処方につき）");
+    for (const r of inside) {
+      const lines: ClaimLine[] = [];
+      let days: number | null = null;
+      for (const it of r.items) {
+        const m = findOralDrug(it.drug);
+        const q = m && it.perDose !== null ? masterQuantity(it.drug, it.perDose * (it.timings.length || 1), it.unit) : null;
+        const code = officialDrugCode(it.drug);
+        if (!code || q === null || !it.days) { issues.push({ level: "review", text: "院内処方の薬剤・量・日数を確認してください。薬剤料に含めていません。" }); continue; }
+        days = it.days;
+        lines.push(iyLine(code, q));
+      }
+      if (lines.length && days) add(r.items[0].timings.length ? "21" : "22", [{ lines, points: drugPoints(lines.reduce((sum, l) => sum + (l.yen ?? 0), 0)) }], "F200 薬剤料（同じ用法の1日量／屯服1回量の薬価から算出し日数／回数を乗じる）", days);
+    }
+  }
+  if (prescriptions.length) {
+    const long = plan.longPrescription;
+    issues.push({ level: "choose", text: "特定疾患処方管理加算は、対象の主病・28日以上の処方・当月未算定を人が確認して選びます。7日分のみの処方は対象外です。" });
+    if (input.specificDisease && long) one("80", [outside.length ? OPD_CODES.特定疾患院外 : OPD_CODES.特定疾患院内], "F100・F400 特定疾患処方管理加算（月1回。対象主病・処方期間・当月未算定を人が確認）");
+    else if (input.specificDisease) issues.push({ level: "review", text: "28日以上の処方がないため、特定疾患処方管理加算は算定しません。" });
   }
 
   // ===== 11・12 初診料・再診料 =====
-  if (input.visit.kind === "初診") one("11", [OPD_CODES.初診料], "A000 初診料");
+  if (input.visit.kind === "初診") one("11", plan.basicCodes, "A000 初診料");
   else {
-    const codes: string[] = [OPD_CODES.再診料];
+    const codes = plan.basicCodes;
     const noKasan = done.length > 0 || anyProc;
-    if (!noKasan) codes.push(OPD_CODES.外来管理加算);
-    one("12", codes, `A001 再診料（許可病床200床未満の病院）${noKasan ? "。外来管理加算は、処置・画像診断・生体検査を行った日は算定しない（A001 注8）" : "＋注8 外来管理加算（処置・画像診断・生体検査がない日）"}`);
+    if (!noKasan) issues.push({ level: "choose", text: "外来管理加算の候補：計画的な医学管理を行い、併算定できない診療がないことを人が確認して選びます。" });
+    one("12", codes, `A001 再診料（許可病床200床未満の病院）${noKasan ? "。外来管理加算は、処置・画像診断・生体検査を行った日は算定しない（A001 注8）" : input.outpatientManagement ? "＋注8 外来管理加算（人が確認して選択）" : "。外来管理加算は未選択"}`);
   }
   if (age < 6) issues.push({ level: "review", text: "6歳未満の乳幼児加算（初診・再診・処方箋料・注射など）はこの試作では入れていません。" });
 
