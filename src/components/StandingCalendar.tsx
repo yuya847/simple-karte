@@ -45,7 +45,7 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
     <div className="flex min-h-0 flex-1 flex-col">
       {canSelect && <StandingBulkStop lines={lines} ids={selected} today={today} onConfirm={onBulkStop!} onClear={() => setSelected([])} />}
       <div className="scroll-thin min-h-0 flex-1 overflow-auto pb-4">
-        <table className="nums border-separate border-spacing-0 text-[12px]" style={{ width: HEAD_W + days.length * COL_W }}>
+        <table className="nums table-fixed border-separate border-spacing-0 text-[12px]" style={{ width: HEAD_W + days.length * COL_W }}>
           <colgroup>
             <col style={{ width: HEAD_W }} />
             {days.map((d) => (
