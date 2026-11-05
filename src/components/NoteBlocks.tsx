@@ -4,7 +4,6 @@ import { GripVertical } from "lucide-react";
 import { useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
 import { indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
 import { isProblemLine } from "@/lib/note-problems";
-import { isLabPasteLine } from "@/lib/lab-paste";
 import { toggleMark } from "@/lib/note-edit";
 import { renumberProblems } from "@/lib/note-problems";
 import { expandAt, type Phrase } from "@/lib/phrases";
@@ -28,8 +27,8 @@ interface Props {
   readOnly?: boolean;
   /** The text selected in a line (for the 定型文 panel's "register the selection"). */
   onSelectedText?: (text: string) => void;
-  /** 「LD」 then Tab or Enter: the latest blood test in the case-presentation form (lab-paste.ts); null when none. */
-  labPaste?: () => string | null;
+  /** 「LD」「ばいたる」 then Tab or Enter: the latest blood test or vital signs replace the line (lab-paste.ts); null when none. */
+  pastes?: { test: (line: string) => boolean; text: () => string | null }[];
 }
 
 /** Typography shared by each line's box and the hidden copy that gives it its height. */
@@ -44,7 +43,7 @@ const LONG_PRESS_MS = 450;
  * "＃" lines are numbered from the top after every change (renumberProblems). The text stays one string:
  * what the pane gets back is always the lines joined with "\n".
  */
-export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, labPaste }: Props) {
+export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [] }: Props) {
   const lines = toLines(value);
   const rows = useRef<(HTMLTextAreaElement | null)[]>([]);
   const mirrors = useRef<(HTMLDivElement | null)[]>([]);
@@ -177,8 +176,9 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       return;
     }
     // 「LD」 on its own line, then Tab or Enter: the latest blood test (学会発表の書式) replaces the line.
-    if ((e.key === "Tab" || e.key === "Enter") && !e.shiftKey && !mod && labPaste && isLabPasteLine(line)) {
-      const pasted = labPaste();
+    const paste = (e.key === "Tab" || e.key === "Enter") && !e.shiftKey && !mod ? pastes.find((x) => x.test(line)) : undefined;
+    if (paste) {
+      const pasted = paste.text();
       if (pasted) {
         e.preventDefault();
         commit(replaceLine(text, i, pasted));

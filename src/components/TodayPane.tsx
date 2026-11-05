@@ -10,7 +10,7 @@ import type { Patient } from "@/lib/types";
 import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
-import { labPasteText } from "@/lib/lab-paste";
+import { isLabPasteLine, isVitalsPasteLine, labPasteText, vitalsPasteText } from "@/lib/lab-paste";
 import { preferredNoteForm, rememberNoteForm, NOTE_FORMS, NOTE_FORM_SOURCES, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
 import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
@@ -176,7 +176,7 @@ export function TodayPane(p: Props) {
               <PhrasePanel phrases={ph.list} onPhrases={(list) => setPh({ user: me.name, list })} selected={selected} onInsert={(text) => put((n, s, e) => insertAt(n, s, e, text))} onClose={() => setTool(null)} />
             </div>
           )}
-          <NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} labPaste={() => labPasteText(p.patient, p.today)} />
+          <NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} />
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き">
               {p.drafts.map((d) => (
@@ -242,7 +242,7 @@ export function TodayPane(p: Props) {
                   <br />
                   1行が1つのブロックです。＃の行（プロブレム）の左に出るつまみ（⋮⋮）をドラッグすると、見出しと下の本文をまとめて青い線の場所へ動かせます（Alt+↑↓ でも）。番号は動かしたあと振り直されます。iPad では＃の行を長押しするとつまみが出ます。ほかの行は動かしません。
                   <br />
-                  Enter で次の行（＃の下は字下げ）、行頭で Backspace で前の行につなぐ、↑↓ で行の間を移る、Tab で字下げ（Shift+Tab で戻す）、⌘B / Ctrl+B で **太字**、⌘I / Ctrl+I で *斜体*、「;読み」→ Tab で定型文、「LD」→ Tab で直近の血液検査（学会発表の書式）。
+                  Enter で次の行（＃の下は字下げ）、行頭で Backspace で前の行につなぐ、↑↓ で行の間を移る、Tab で字下げ（Shift+Tab で戻す）、⌘B / Ctrl+B で **太字**、⌘I / Ctrl+I で *斜体*、「;読み」→ Tab で定型文、「LD」→ Tab で直近の血液検査（学会発表の書式）、「ばいたる」→ Tab で直近のバイタル。
                 </span>
                 <span className="ml-auto text-[11px] text-ink-faint">{isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します"}</span>
               </>

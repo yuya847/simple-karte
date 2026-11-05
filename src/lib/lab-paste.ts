@@ -3,7 +3,7 @@
 // 血算・凝固・生化学・炎症・心・血液ガス の順（症例提示の慣習。架空の病院の取り決め）。値は直近 1 回分だけ。
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { ANALYTES, rangeFor } from "./master";
-import type { LabResult, Patient } from "./types";
+import type { LabResult, Patient, VitalSign } from "./types";
 
 /** What a person types to call this up (the whole line, with or without the 定型文 の「;」). */
 export const LAB_PASTE_KEYS = /^[;；]?(?:LD|ld|Ｌ[Ｄｄ]|ｌｄ)$/;
@@ -46,4 +46,33 @@ export function labPasteText(p: Pick<Patient, "labs" | "sex">, today: CalendarDa
   const rest = Object.keys(r.values).filter((c) => !used.has(c)).map((c) => labItemText(c, r.values[c], p.sex));
   if (rest.length) lines.push(`その他：${rest.join("、")}`);
   return [`血液検査（${formatShort(addDays(today, r.day))} ${r.time}）`, ...lines].join("\n");
+}
+
+// ---------- 「ばいたる」で直近のバイタル ----------
+
+/** 「ばいたる」「バイタル」「VS」 on its own line (with or without the 定型文 の「;」). */
+export const VITALS_PASTE_KEYS = /^[;；]?(?:ばいたる|バイタル|ﾊﾞｲﾀﾙ|VS|vs|ＶＳ|ｖｓ)$/;
+export const isVitalsPasteLine = (line: string) => VITALS_PASTE_KEYS.test(line.trim());
+
+const AVPU_JA: Record<string, string> = { A: "清明（A）", C: "新たな錯乱（C）", V: "声に反応（V）", P: "痛みに反応（P）", U: "反応なし（U）" };
+
+/** The latest vital signs (the newest day, then the latest time). */
+export function latestVital(vitals: VitalSign[]): VitalSign | null {
+  return vitals.length ? [...vitals].sort((x, y) => y.day - x.day || y.time.localeCompare(x.time))[0] : null;
+}
+
+/** 「バイタル（11/5（木） 11:32）：JCS …、BT 38.2℃、BP 92/54 mmHg、HR 118 /分、RR 26 /分、SpO2 90%（室内気）」 */
+export function vitalsPasteText(p: Pick<Patient, "vitals">, today: CalendarDate): string | null {
+  const v = latestVital(p.vitals);
+  if (!v) return null;
+  const items = [
+    v.avpu && `意識 ${AVPU_JA[v.avpu] ?? v.avpu}`,
+    v.bt !== undefined && `BT ${v.bt}℃`,
+    v.sbp !== undefined && `BP ${v.sbp}${v.dbp !== undefined ? `/${v.dbp}` : ""} mmHg`,
+    v.hr !== undefined && `HR ${v.hr} /分`,
+    v.rr !== undefined && `RR ${v.rr} /分`,
+    v.spo2 !== undefined && `SpO2 ${v.spo2}%（${v.o2 || "室内気"}）`,
+  ].filter(Boolean) as string[];
+  if (!items.length) return null;
+  return `バイタル（${formatShort(addDays(today, v.day))} ${v.time}）：${items.join("、")}`;
 }

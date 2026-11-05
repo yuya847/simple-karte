@@ -5,7 +5,7 @@ import { AddPhysioPanel } from "./panels/AddPanels";
 const today = { y: 2026, m: 11, d: 5 };
 it("予約済みは患者名と検査名を表示して押せない", () => {
   const html = renderToStaticMarkup(<ExamCalendar kind="CT1" today={today} value={{ day: 1, time: "09:00", priority: "予約" }} taken={[{ day: 1, time: "08:30", label: "北村 博・胸部 CT" }]} onChange={() => {}} />);
-  expect(html).toMatch(/disabled=""[^>]*>08:30 予約あり（北村 博・胸部 CT）/);
+  expect(html).toMatch(/disabled=""[^>]*title="08:30 予約あり（北村 博・胸部 CT）"[^>]*>08:30 北村 博・胸部 CT/);
   expect(html).toContain("09:00 空き");
   expect(html).toContain("次の月");
   expect(html).toContain("前の月");

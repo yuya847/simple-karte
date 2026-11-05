@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLabPasteLine, labItemText, labPasteText, latestLab } from "./lab-paste";
+import { isLabPasteLine, isVitalsPasteLine, labItemText, labPasteText, latestLab, vitalsPasteText } from "./lab-paste";
 import type { LabResult } from "./types";
 
 const today = { y: 2026, m: 11, d: 5 };
@@ -34,5 +34,22 @@ describe("LD で直近の血液検査を貼る", () => {
   });
   it("結果が無ければ null", () => {
     expect(labPasteText({ labs: [], sex: "女" }, today)).toBeNull();
+  });
+});
+
+describe("ばいたる で直近のバイタルを貼る", () => {
+  it("ばいたる・バイタル・VS の行だけに反応する", () => {
+    expect(isVitalsPasteLine("ばいたる")).toBe(true);
+    expect(isVitalsPasteLine(";バイタル")).toBe(true);
+    expect(isVitalsPasteLine("VS")).toBe(true);
+    expect(isVitalsPasteLine("バイタル測定")).toBe(false);
+  });
+  it("直近の 1 回を JCS/意識・BT・BP・HR・RR・SpO2（酸素）の順に", () => {
+    const vitals = [
+      { day: -1, time: "18:00", bt: 37.0, hr: 80, sbp: 120, dbp: 70, rr: 16, spo2: 97 },
+      { day: 0, time: "11:32", bt: 38.2, hr: 118, sbp: 92, dbp: 54, rr: 26, spo2: 90, o2: "鼻カニュラ 2L", avpu: "V" as const },
+    ];
+    expect(vitalsPasteText({ vitals }, today)).toBe("バイタル（11/5（木） 11:32）：意識 声に反応（V）、BT 38.2℃、BP 92/54 mmHg、HR 118 /分、RR 26 /分、SpO2 90%（鼻カニュラ 2L）");
+    expect(vitalsPasteText({ vitals: [] }, today)).toBeNull();
   });
 });
