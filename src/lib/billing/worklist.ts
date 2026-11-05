@@ -78,6 +78,14 @@ export function ijiRows(
   return rows.map((r, i) => ({ r, i })).sort((a, b) => b.r.todo.length - a.r.todo.length || a.i - b.i).map((x) => x.r);
 }
 
-export function ijiCounts(rows: IjiRow[]): Record<IjiKind, number> {
-  return Object.fromEntries(IJI_KINDS.map((k) => [k, rows.filter((r) => r.todo.includes(k)).length])) as Record<IjiKind, number>;
+export function ijiCounts(rows: IjiRow[], visits: { unpaid: number; uninsured: number } = { unpaid: 0, uninsured: 0 }): Record<IjiKind, number> {
+  const base = Object.fromEntries(IJI_KINDS.map((k) => [k, rows.filter((r) => r.todo.includes(k)).length])) as Record<IjiKind, number>;
+  // The 救急外来・外来 visits (their own sections) count in the chips too, so the chips match what is listed below.
+  return { ...base, 会計がまだ: base.会計がまだ + visits.unpaid, 保険の未登録: base.保険の未登録 + visits.uninsured };
+}
+/** What the visit sections still have to do: a visit not yet paid (not admitted), and one without insurance. */
+export function visitCounts(opd: { status: string; paid: boolean }[], er: { admitted: boolean; paid: boolean; insured: boolean }[], opdInsured: boolean[]): { unpaid: number; uninsured: number } {
+  const unpaid = opd.filter((v) => (v.status === "会計待ち" || v.status === "終了") && !v.paid).length + er.filter((v) => !v.admitted && !v.paid).length;
+  const uninsured = opdInsured.filter((x) => !x).length + er.filter((v) => !v.insured).length;
+  return { unpaid, uninsured };
 }

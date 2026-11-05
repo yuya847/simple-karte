@@ -8,7 +8,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import type { ClaimIssue } from "@/lib/billing/model";
 import type { PatientMonthPayload } from "@/lib/billing/payload";
 import { insuranceSummary } from "@/lib/billing/registration";
-import { IJI_KINDS, ijiCounts, ijiRows, type IjiDesk, type IjiKind } from "@/lib/billing/worklist";
+import { IJI_KINDS, ijiCounts, ijiRows, visitCounts, type IjiDesk, type IjiKind } from "@/lib/billing/worklist";
 import { addDays, formatShort, isoDate, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import type { Patient } from "@/lib/types";
@@ -81,7 +81,14 @@ export function IjiBoard({
   }, [runs]);
 
   const rows = useMemo(() => ijiRows(patients, desk, diagnoses, checks), [patients, desk, diagnoses, checks]);
-  const counts = ijiCounts(rows);
+  const counts = ijiCounts(
+    rows,
+    visitCounts(
+      (outpatient?.visits ?? []).map(({ patient: p }) => ({ status: p.status, paid: !!outpatient?.book[`opd:${p.id}`] })),
+      (emergency?.visits ?? []).map(({ patient: p }) => ({ admitted: !!p.admittedAs, paid: !!emergency?.book[`er:${p.id}`], insured: !!desk.insurance[`er:${p.id}`]?.length })),
+      (outpatient?.visits ?? []).map(({ patient: p }) => !!desk.insurance[`opd:${p.id}`]?.length),
+    ),
+  );
   const shown = onlyTodo ? rows.filter((r) => r.todo.length) : rows;
   const byId = new Map(patients.map((p) => [p.id, p]));
   const day = (d: number) => formatShort(addDays(today, d));

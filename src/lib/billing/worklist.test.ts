@@ -6,7 +6,7 @@ import { DEFAULT_OPTIONS, type ClaimIssue } from "./model";
 import { claimChecks, type PatientMonthInput } from "./month";
 import { patientMonthPayload } from "./payload";
 import { DEMO_FORMS, type InsuranceBook } from "./registration";
-import { ijiCounts, ijiRows, INITIAL_DESK, reviewIssues, withInitialInsurance, withInsurance, withSettlement } from "./worklist";
+import { ijiCounts, ijiRows, visitCounts, INITIAL_DESK, reviewIssues, withInitialInsurance, withInsurance, withSettlement } from "./worklist";
 
 // A patient admitted from the ED in this session (fictional): no insurance yet, the admission diagnosis typed by hand.
 const NEW = "90020001";
@@ -85,5 +85,17 @@ describe("算定の確かめ（サーバーで同じ算定を通す）", () => {
       expect(o.issues.every((i) => i.level === "review" || i.level === "choose")).toBe(true);
       expect(o.issues.some((i) => i.text === ASSUMED_INSURANCE_ISSUE)).toBe(false);
     }
+  });
+});
+
+describe("visitCounts（外来・救急外来の会計がまだ・保険の未登録）", () => {
+  it("counts unpaid visits and uninsured ones, skipping admitted ER visits", () => {
+    const v = visitCounts(
+      [{ status: "会計待ち", paid: false }, { status: "診察中", paid: false }, { status: "終了", paid: true }],
+      [{ admitted: false, paid: false, insured: false }, { admitted: true, paid: false, insured: false }],
+      [true, false, true],
+    );
+    expect(v).toEqual({ unpaid: 2, uninsured: 3 });
+    expect(ijiCounts([], v)["会計がまだ"]).toBe(2);
   });
 });
