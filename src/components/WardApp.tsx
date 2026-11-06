@@ -83,7 +83,7 @@ import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
 import { patientMonthPayload } from "@/lib/billing/payload";
-import { currentInsurance } from "@/lib/billing/registration";
+import { currentInsurance, insuranceRecords, linkInsurance } from "@/lib/billing/registration";
 import { INITIAL_DESK, withInitialInsurance, withInsurance, withSettlement, type IjiDesk } from "@/lib/billing/worklist";
 import { unpaidVisits, type OpdSettleBook } from "@/lib/billing/opd-settle";
 import { visitPrescriptions } from "@/lib/billing/opd-visit";
@@ -1470,6 +1470,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       built = admitFromEr(e, { diagnosis: r.diagnosis, department: r.department, heightCm: r.heightCm, weightKg: r.weightKg, allergies: r.allergies, room: bed.room, bed: bed.bed }, id, nowTime);
       built.patient.history.splice(1, 0, ...said.map((t) => ({ kind: "note" as const, day: 0, time: nowTime, author: r.attending, role: "医師" as const, text: `救急外来：${t}` })));
       setEr((list) => list.map((x) => (x.id === e.id ? { ...x, status: "入院済", admittedAs: id } : x)));
+      setIji(d => ({...d, insurance: linkInsurance(d.insurance, `er:${e.id}`, id)}));
     } else {
       const o = opd.find((x) => x.id === r.from.id);
       if (!o) return;
@@ -1544,7 +1545,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // What the billing APIs get for one patient: the record as it stands, with the insurance 医事課 registered.
   const claimPayloadOf = (p: Patient) => {
     const c = charts[p.id];
-    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, stopDays: c.stopDays, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insulinGiven: insulinGivenForBilling(mar, p.id), insurance: currentInsurance(iji.insurance, p.id) });
+    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, stopDays: c.stopDays, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insulinGiven: insulinGivenForBilling(mar, p.id), insuranceHistory: insuranceRecords(iji.insurance, p.id).map(r => r.insurance), insurance: currentInsurance(iji.insurance, p.id) });
   };
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
   // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.
@@ -3072,7 +3073,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             doctors={doctorsFor(patient.id, entries)}
             onOpenDoctors={() => setDoctorsOpen(true)}
             onOpenInfo={() => setPanel("patient-info")}
-            insurance={iji.insurance[patient.id]?.at(-1)?.insurance ?? null}
+            insurance={insuranceRecords(iji.insurance, patient.id).at(-1)?.insurance ?? null}
             actions={
               <>
                 {orderMode !== "none" && (
@@ -3186,7 +3187,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     setBilling((all) => ({ ...all, [patient.id]: next }));
                   }}
                   wardPayload={() => teamPatients.map(claimPayloadOf)}
-                  insurance={iji.insurance[patient.id]}
+                  insurance={insuranceRecords(iji.insurance, patient.id)}
                   onRegister={(r) => setIji((d) => withInsurance(d, patient.id, r))}
                   settlement={iji.settled[patient.id]}
                   onSettle={(s) => setIji((d) => withSettlement(d, patient.id, s))}
@@ -3594,7 +3595,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                         visitKey={patient.id}
                         entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
                         rx={opdRx[v.op.id] ?? []}
-                        records={iji.insurance[patient.id]}
+                        records={insuranceRecords(iji.insurance, patient.id)}
                         today={today}
                         nowTime={nowTime}
                         settlement={opdBills[patient.id]}
@@ -4349,7 +4350,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     nowTime={nowTime}
                     fmtDay={(d) => formatShort(addDays(today, d))}
                     contacts={contactsBook[patient.id]}
-                    insurance={iji.insurance[patient.id]}
+                    insurance={insuranceRecords(iji.insurance, patient.id)}
                     onRegisterInsurance={(r) => {
                       if (deny("insurance")) return;
                       setIji((d) => withInsurance(d, patient.id, r));

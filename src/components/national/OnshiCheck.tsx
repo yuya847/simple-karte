@@ -8,6 +8,8 @@
 import { displayText } from "@/lib/display-text";
 import { IdCard } from "lucide-react";
 import { useState } from "react";
+import { isoDate } from "@/lib/dates";
+import { birthDateOf } from "@/lib/patient-contacts";
 import { auditLog } from "@/lib/audit";
 import type { InsuranceForm } from "@/lib/billing/registration";
 import type { CalendarDate } from "@/lib/dates";
@@ -46,6 +48,7 @@ export function OnshiCheck({
   const [how, setHow] = useState<OnshiResult["how"] | "">("");
   const [consent, setConsent] = useState({ drugs: false, checkups: false, limit: false });
   const [result, setResult] = useState<OnshiResult | null>(null);
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const ready = !!person && !!how && !locked && !busy;
 
@@ -55,11 +58,13 @@ export function OnshiCheck({
     const r = await nationalServices.checkQualification({ person, consent, how, card, body, today, time: nowTime });
     setBusy(false);
     setResult(r);
+    setIdentityConfirmed(false);
     auditLog({ role: me.role, actor: me.name, action: "オンライン資格確認（模擬）", patient: person.name, detail: `${how}・${r.status}${r.drugs ? "・薬剤情報" : ""}${r.checkups ? "・特定健診情報" : ""}` });
     onChecked?.(r);
   };
 
   const info = result?.info;
+  const mismatch = !!info && !!person && (info.birthDate !== (person.birthDate || isoDate(birthDateOf({ id: person.id ?? person.name, age: person.age }, today))) || info.name !== person.name || info.sex !== person.sex);
   const copied = info && onCopy ? formFromQualification(info, today, current) : null;
   const limitLabel = (code: string) => LIMIT_CLASS_CODES.find((x) => x.code === code)?.label ?? code;
   const ymd = (s: string) => s || "—";
@@ -233,9 +238,9 @@ export function OnshiCheck({
 
           {copied && (
             <div className="space-y-1 border-t border-rule pt-2">
-              <button type="button" onClick={() => onCopy?.(copied)} disabled={!!locked} className="rounded-md border border-ai px-2.5 py-1 font-bold text-ai hover:bg-ai-soft disabled:opacity-40">
+              <>{mismatch && <label className="block text-yamabuki"><input type="checkbox" checked={identityConfirmed} onChange={e => setIdentityConfirmed(e.target.checked)} /> 生年月日などがカルテと違います。本人・証を確かめた</label>}<button type="button" onClick={() => { if (!mismatch || identityConfirmed) onCopy?.(copied); }} disabled={!!locked || (mismatch && !identityConfirmed)} className="rounded-md border border-ai px-2.5 py-1 font-bold text-ai hover:bg-ai-soft disabled:opacity-40">
                 保険の登録の欄に写す
-              </button>
+              </button></>
 
             </div>
           )}

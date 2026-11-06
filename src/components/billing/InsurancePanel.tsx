@@ -2,6 +2,8 @@
 
 import { IsoDayInput } from "../DayInput";
 
+import { birthDateOf } from "@/lib/patient-contacts";
+import { isoDate } from "@/lib/dates";
 import { displayText } from "@/lib/display-text";
 import { BigChoice } from "@/components/BigChoice";
 import { ConfirmCheck } from "@/components/ConfirmCheck";
@@ -95,6 +97,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           )}
         </h3>
 
+        {current && <p className="mb-2 text-xs text-ink-soft">救急・病棟で同じ保険履歴を使用</p>}
         <fieldset disabled={!!locked} className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
           <label className="col-span-2 sm:col-span-1">
             <span className="mb-0.5 block text-ink-soft">保険の種類</span>
@@ -133,6 +136,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
             <span className="mb-0.5 block text-ink-soft">本人・家族</span>
             <BigChoice label="本人・家族" name="relation" options={[{ value: "本人", label: "本人（国保は世帯主）" }, { value: "家族", label: "家族（国保はその他）" }]} value={form.relation} onChange={(v) => set({ relation: v })} />
           </div>
+<label className="text-xs text-ink-soft">適用開始日<IsoDayInput value={form.validFrom ?? ""} onChange={e => set({validFrom: e.target.value})} className={`nums ${input}`} /></label>
           <label>
             <span className="mb-0.5 block text-ink-soft">生年月日（カルテは{patient.age}歳）</span>
             <IsoDayInput value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className={`nums ${input} ${fieldTone("birthDate")}`} />
@@ -215,7 +219,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
 
       <div className="space-y-3">
         <OnshiCheck
-          person={{ id: patient.id, name: patient.name, kana: patient.kana, sex: patient.sex === "男" ? "男" : "女", age: patient.age }}
+          person={{ id: patient.id, name: patient.name, kana: patient.kana, sex: patient.sex === "男" ? "男" : "女", age: patient.age, birthDate: isoDate(birthDateOf(patient, today, current?.insurance.birthDate)) }}
           today={today}
           nowTime={nowTime}
           card={{ insurerNumber: form.insurerNumber, symbol: form.symbol, number: form.number, branch: form.branch, birthDate: form.birthDate }}

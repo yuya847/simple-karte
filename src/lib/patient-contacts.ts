@@ -165,7 +165,7 @@ export function birthDateOf(p: { id: string; age: number }, today: CalendarDate,
   const k = known ? parseIsoDate(known) : null;
   if (k) return k;
   let h = 0;
-  for (const ch of p.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  for (const ch of p.id.replace(/^er:/, "")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const m = (h % 12) + 1;
   const d = (Math.floor(h / 12) % 28) + 1;
   const notYet = m > today.m || (m === today.m && d > today.d);

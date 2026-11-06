@@ -1,5 +1,7 @@
 // One patient's month, end to end: insurance → 算定 → 会計 → レセプト. Server only (reads the masters).
 
+import { birthDateOf } from "../patient-contacts";
+import { isoDate } from "../dates";
 import { diagnosisClaimable, type Diagnosis } from "../diagnoses";
 import { calculateClaim } from "./engine";
 import { ageOn, ASSUMED_INSURANCE_ISSUE, assumedInsurance, INSURANCE, type Insurance } from "./insurance";
@@ -21,6 +23,7 @@ export interface PatientMonthInput {
   letters?: ClaimInput["letters"];
   /** The insurance 医事課 registered (保険の登録). Without it: the demo's own, else assumed from age. */
   insurance?: Insurance;
+  insuranceHistory?: Insurance[];
 }
 
 export interface PatientMonth {
@@ -62,7 +65,8 @@ export function receiptDiagnoses(diagnoses: Diagnosis[], today: string, month: s
 
 export function patientMonth(input: PatientMonthInput, today: string, nowTime: string, month: string): PatientMonth {
   const t = parse(today);
-  const insurance = input.insurance ?? INSURANCE[input.patient.id] ?? assumedInsurance(input.patient.age, t);
+  const historyInsurance = input.insuranceHistory ? [...input.insuranceHistory].reverse().find(i => (!i.validFrom || i.validFrom.slice(0, 7) <= month) && (!i.validUntil || i.validUntil.slice(0, 7) >= month)) : input.insurance;
+  const insurance = historyInsurance ?? INSURANCE[input.patient.id] ?? { ...assumedInsurance(input.patient.age, t), birthDate: isoDate(birthDateOf(input.patient, t)) };
   const claim = calculateClaim({
     today,
     nowTime,

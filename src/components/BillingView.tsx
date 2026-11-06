@@ -1,5 +1,6 @@
 "use client";
 
+import { admissionMonths, canSettleDischarge } from "@/lib/billing/admission-accounting";
 import { checkDiseases } from "@/lib/billing/disease-check";
 import { DiseaseCandidates, type DiseaseRequestProps } from "./billing/DiseaseCandidates";
 import { displayText } from "@/lib/display-text";
@@ -13,7 +14,7 @@ import type { ReceiptSheetData } from "@/lib/billing/receipt-sheet";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
-import type { Insurance } from "@/lib/billing/insurance";
+import { coverageOf, type Insurance } from "@/lib/billing/insurance";
 import { FICTIONAL_COEFFICIENT } from "@/lib/billing/dpc";
 import type { DpcMonthView } from "@/lib/billing/dpc-claim";
 import { inpatientBill } from "@/lib/billing/inpatient-bill";
@@ -62,17 +63,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "dpc", label: "DPC" },
 ];
 
-/** Months of this admission up to this month, as "YYYY-MM". */
-function admissionMonths(today: CalendarDate, admittedOn: number): string[] {
-  const out: string[] = [];
-  for (let d = admittedOn; d <= 0; d++) {
-    const c = addDays(today, d);
-    const key = `${c.y}-${String(c.m).padStart(2, "0")}`;
-    if (!out.includes(key)) out.push(key);
-  }
-  return out;
-}
-
 const daysInMonth = (month: string) => {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -119,18 +109,18 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   const [insurance, setInsurance] = useState<(Insurance & { assumed?: boolean }) | null>(null);
   const [receiptSheet, setReceiptSheet] = useState<ReceiptSheetData | null>(null);
   const [receiptLines, setReceiptLines] = useState<string[]>([]);
-  const months = useMemo(() => admissionMonths(today, patient.admittedOn), [today, patient.admittedOn]);
+  const months = useMemo(() => admissionMonths(today, patient.admittedOn, patient.dischargedAt?.day), [today, patient.admittedOn, patient.dischargedAt?.day]);
   const [month, setMonth] = useState(months[months.length - 1]);
   const [result, setResult] = useState<ClaimResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Diets, letters and the registered insurance by value, so a new array with the same content does not re-run the claim.
-  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insulinGiven: insulinGiven ?? [], insurance: registered?.insurance });
+  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insulinGiven: insulinGiven ?? [], insurance: registered?.insurance, insuranceHistory: records.map(r => r.insurance) });
   useEffect(() => {
     if (!coefOk) return;
     const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[]; insulinGiven: { key: string; units: number }[]; insurance?: Insurance };
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[]; insulinGiven: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[] };
     const run = async () => {
       setLoading(true);
       setError(null);
@@ -166,6 +156,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   }, [month, options, entries, diagnoses, patient, today, nowTime, extraJson, mainId, transfer, coef, coefOk]);
 
   const accounting = result && insurance && dpc ? inpatientBill(result, insurance, dpc) : null;
+  const settlementAllowed = canSettleDischarge(month, today, patient.dischargedAt?.day, result?.days ?? 0);
   const ready = !loading && !error && coefOk;
   const bill = ready ? accounting?.bill ?? null : null;
   const displayedReceipt = receiptSheet && dpc && bill ? dpcReceiptSheet(receiptSheet, dpc, bill, diagnoses, patient.admittedOn) : receiptSheet;
@@ -238,9 +229,9 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                 </span>
                 <button
                   type="button"
-                  disabled={!!deny("settle") || !bill || loading}
+                  disabled={!!deny("settle") || !bill || loading || !settlementAllowed}
                   onClick={() => {
-                    if (!bill) return;
+                    if (!bill || !settlementAllowed || loading || deny("settle")) return;
                     const s: Settlement = { month, yen: bill.totalYen, by: me.name, at: { day: 0, time: nowTime } };
                     auditLog({ role: me.role, actor: me.name, action: "退院時の会計を記録した", patient: patient.name, detail: `${Number(month.slice(5))}月分 ${yen(bill.totalYen)}` });
                     onSettle?.(s);
@@ -265,7 +256,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
           <BillPanel claim={result} bill={bill} insurance={insurance} month={month} />
         </>}
         {tab === "receipt" && result && (
-          <ReceiptPanel data={displayedReceipt} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
+          <ReceiptPanel selfPay={!!insurance && coverageOf(insurance) === "自費"} data={displayedReceipt} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
         {tab === "dpc" && <DpcPanel month={month} mainId={mainId} setMainId={(value) => { if (value !== mainId) { setLoading(true); setMainId(value); } }} transfer={transfer} setTransfer={(value) => { if (value !== transfer) { setLoading(true); setTransfer(value); } }} coefText={coefText} setCoefText={(value) => { if (Number(value) !== coef) setLoading(true); setCoefText(value); }} r={ready ? dpc : null} error={error} loading={loading} />}
         {tab === "claim" && surgeries.map(s => <section key={s.id} className="rounded border border-rule p-3"><h3>麻酔 {s.procedure}</h3><AnesthesiaBilling surgery={s}/></section>)}
@@ -295,7 +286,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
           <div className="nums mb-3 flex flex-wrap items-end gap-x-8 gap-y-2">
             <Stat label="入院日数（この月）" value={`${result.days}日`} sub={result.from ? `${mm}/${result.from}〜${mm}/${result.to}` : "なし"} />
             <Stat label="合計点数" value={`${result.totalPoints.toLocaleString("ja-JP")}点`} sub={`医療費 ${yen(result.totalPoints * 10)}（1点10円）`} strong />
-            <Stat label="入院時食事療養" value={yen(result.meals.ryoyoYen)} sub={`うち標準負担額 ${yen(result.meals.futanYen)}`} />
+            <Stat label="入院時食事療養" value={yen(result.meals.ryoyoYen)} sub={insurance && coverageOf(insurance) === "自費" ? `全額自費 ${yen(bill?.mealFutanYen ?? result.meals.ryoyoYen)}` : `うち標準負担額 ${yen(result.meals.futanYen)}`} />
           </div>
         )}
 
@@ -450,7 +441,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                             {a.parts.length > 1 && <div className="text-right text-[10px] text-ink-faint">{p.yen ? yen(p.points) : `${p.points}点`}</div>}
                           </div>
                         ))}
-                        <div className="mt-0.5 text-[10px] leading-snug text-ink-faint">{a.basis}</div>
+                        <details className="mt-0.5 text-[10px] leading-snug text-ink-faint"><summary className="cursor-pointer">算定の根拠</summary>{a.basis}</details>
                       </td>
                       <td className="py-1 text-right font-bold">
                         {isYen ? yen(a.parts.reduce((s, p) => s + p.points, 0)) : a.parts.reduce((s, p) => s + p.points, 0).toLocaleString("ja-JP")}

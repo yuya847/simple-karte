@@ -139,6 +139,7 @@ function Inspect({ patients, diagnoses, today, nowTime, month, payload, onOpen }
   return (
     <>
 
+      <p className="text-xs">請求内容の未解決 {checks ? checks.reduce((n, p) => n + p.unresolved, 0) : "…"}件・ファイル形式とは別に点検</p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {INSPECT_KINDS.map((k) => (
           <button key={k} type="button" onClick={() => setOnly(only === k ? "" : k)} aria-pressed={only === k} className={`nums rounded-md border px-2 py-1 ${counts[k] ? KIND_TONE[k] : "border-rule bg-sheet text-ink-faint"} ${only === k ? "ring-2 ring-ai" : ""}`}>

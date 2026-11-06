@@ -83,7 +83,7 @@ export function PatientPicker({ beds, patients, openIds, onOpen, onInfo, onClose
                   {ageSex(p)}
                 </span>
                 <span className="truncate text-xs text-ink-soft">
-                  {p.admissionDiagnosis}　入院{hospitalDay(p.admittedOn, 0)}日目
+                  {p.admissionDiagnosis}　入院{hospitalDay(p.admittedOn, p.dischargedAt?.day ?? 0)}日目
                 </span>
                 <span className="text-[11px] text-ink-faint">{openIds.includes(p.id) ? "開いている" : ""}</span>
               </button>

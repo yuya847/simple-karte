@@ -1,7 +1,8 @@
 // Small helpers for the FICTIONAL answers of the simulated national services (模擬): the same patient
 // always gets the same answer, so a demo and a test see the same thing. Nothing here is real data.
 
-import { addDays, isoDate, type CalendarDate } from "../dates";
+import { isoDate, type CalendarDate } from "../dates";
+import { birthDateOf as patientBirthDate } from "../patient-contacts";
 import { INSURANCE } from "../billing/insurance";
 
 /** FNV-1a (32 bit) of a text: a stable number to pick fictional values with. */
@@ -24,10 +25,7 @@ export const pick = <T,>(list: readonly T[], seed: number, salt = 0): T => list[
 export function birthDateOf(p: { id: string; age: number }, today: CalendarDate): string {
   const known = INSURANCE[p.id]?.birthDate;
   if (known) return known;
-  // A day 1〜360 days before the last birthday, so the age today is p.age.
-  const back = (seedOf(p.id) % 360) + 1;
-  const d = addDays(today, -back);
-  return isoDate({ y: d.y - p.age, m: d.m, d: Math.min(d.d, 28) });
+  return isoDate(patientBirthDate(p, today));
 }
 
 /** "2026-11-04" + "10:30" → "2026-11-04T10:30:00+09:00" (the chart works in Japan time). */

@@ -15,7 +15,7 @@ describe("点検の分け方", () => {
     expect(classify({ level: "choose", text: "A と B は同じ加算識別で、どちらか一方しか算定できません。" })).toBe("人が選ぶ");
     expect(classify({ level: "excluded", text: "X は施設基準の届出がないため算定しません。" })).toBe("算定から外したもの");
     expect(classify({ level: "info", text: "持参薬（2件）は患者が持ってきた薬なので、薬剤料・調剤料を算定しません。" })).toBeNull();
-    expect(classify({ level: "review", text: ASSUMED_INSURANCE_ISSUE })).toBeNull();
+    expect(classify({ level: "review", text: ASSUMED_INSURANCE_ISSUE })).toBe("確かめる");
   });
   it("adds the receipt's checks and 未コード化の病名 once", () => {
     const d = { id: "d", name: "かぜ", code: UNCODED } as never;
@@ -46,5 +46,20 @@ describe("the server's 点検 of the demo patients", () => {
     const json = await res.json();
     expect(json.patients[0].id).toBe(PATIENTS[0].id);
     expect((await POST(new Request("http://x", { method: "POST", body: "{}" }))).status).toBe(400);
+  });
+});
+
+describe("形式と請求内容の点検を分ける", () => {
+  it("一括作成と点検一覧の未解決件数が一致する", async () => {
+    const { POST } = await import("@/app/api/receipt/route");
+    const patients = [patientMonthPayload({...PATIENTS[0], id: "unregistered-trial"}, PATIENTS[0].history, [], DEFAULT_OPTIONS)];
+    const inspections = receiptInspection(patients as unknown as PatientMonthInput[], "2026-11-04", "10:00", "2026-11");
+    expect(inspections[0].issues.some(i => i.text === ASSUMED_INSURANCE_ISSUE)).toBe(true);
+    expect(inspections[0].unresolved).toBeGreaterThan(0);
+    const response = await POST(new Request("http://x", {method: "POST", body: JSON.stringify({today: "2026-11-04", nowTime: "10:00", month: "2026-11", patients})}));
+    const result = await response.json();
+    expect(response.status).toBe(200);
+    expect(result.unresolved).toBe(inspections[0].unresolved);
+    expect(result.target).toMatchObject({total: 1, included: 1, excluded: 0});
   });
 });

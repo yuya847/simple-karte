@@ -10,8 +10,8 @@ import { Loader2, ReceiptJapaneseYen, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 import type { ClaimIssue } from "@/lib/billing/model";
 import type { PatientMonthPayload } from "@/lib/billing/payload";
-import { insuranceSummary } from "@/lib/billing/registration";
-import { IJI_KINDS, ijiCounts, ijiRows, visitCounts, type IjiDesk, type IjiKind } from "@/lib/billing/worklist";
+import { insuranceRecords, insuranceSummary } from "@/lib/billing/registration";
+import { reviewIssues, IJI_KINDS, ijiCounts, ijiRows, visitCounts, type IjiDesk, type IjiKind } from "@/lib/billing/worklist";
 import { addDays, formatShort, isoDate, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import type { Patient } from "@/lib/types";
@@ -59,6 +59,7 @@ export function IjiBoard({
 }) {
   const month = `${today.y}-${String(today.m).padStart(2, "0")}`;
   const [checks, setChecks] = useState<Record<string, ClaimIssue[]> | null>(null);
+  const [unresolved, setUnresolved] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [onlyTodo, setOnlyTodo] = useState(false);
@@ -74,10 +75,11 @@ export function IjiBoard({
       setBusy(true);
       setError(null);
       try {
-        const res = await fetch("/api/claim-check", { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal, body: JSON.stringify(body) });
+        const res = await fetch("/api/receipt-check", { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal, body: JSON.stringify(body) });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
-        setChecks(Object.fromEntries((json.patients as { id: string; issues: ClaimIssue[] }[]).map((p) => [p.id, p.issues])));
+        setUnresolved((json.patients as {unresolved: number}[]).reduce((n, p) => n + p.unresolved, 0));
+        setChecks(Object.fromEntries((json.patients as { id: string; issues: ClaimIssue[] }[]).map((p) => [p.id, reviewIssues(p.issues)])));
       } catch (e) {
         if (ctl.signal.aborted) return;
         setError(e instanceof Error ? e.message : "算定の確かめができませんでした。");
@@ -95,7 +97,7 @@ export function IjiBoard({
     rows,
     visitCounts(
       (outpatient?.visits ?? []).map(({ patient: p }) => ({ status: p.status, paid: !!outpatient?.book[`opd:${p.id}`] })),
-      (emergency?.visits ?? []).map(({ patient: p }) => ({ admitted: !!p.admittedAs, paid: !!emergency?.book[`er:${p.id}`], insured: !!desk.insurance[`er:${p.id}`]?.length })),
+      (emergency?.visits ?? []).map(({ patient: p }) => ({ admitted: !!p.admittedAs, paid: !!emergency?.book[`er:${p.id}`], insured: !!insuranceRecords(desk.insurance, `er:${p.id}`).length })),
       (outpatient?.visits ?? []).map(({ patient: p }) => !!desk.insurance[`opd:${p.id}`]?.length),
     ),
   );
@@ -112,6 +114,7 @@ export function IjiBoard({
       </h1>
 
 
+      <p className="mb-2 text-xs">請求内容の未解決 {unresolved ?? "…"}件（今月分）</p>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
         {IJI_KINDS.map((k) => (
           <span key={k} className={`nums rounded-md border px-2 py-1 ${counts[k] ? KIND_TONE[k] : "border-rule bg-sheet text-ink-faint"}`}>
@@ -130,7 +133,7 @@ export function IjiBoard({
       {error && <p className="mb-3 rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
 
       {outpatient && <OutpatientDesk {...outpatient} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
-      {emergency && <EmergencyDesk {...emergency} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
+
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -234,6 +237,7 @@ export function IjiBoard({
           })}
         </tbody>
       </table>
+      {emergency && <EmergencyDesk {...emergency} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
       {shown.length === 0 && <p className="mt-3 text-xs text-ink-faint">やることがある患者はいません。</p>}
     </section>
   );

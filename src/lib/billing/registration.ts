@@ -72,6 +72,7 @@ export interface InsuranceForm {
   /** 受給者証 (公費), in the order shown. */
   kohi: KohiForm[];
   /** 有効期限 "YYYY-MM-DD" of the 資格確認書・受給者証; empty when none is written. */
+  validFrom?: string;
   validUntil: string;
   /** 資格確認の方法 and the day it was done. */
   verify: VerifyMethod | "";
@@ -104,6 +105,7 @@ export const normalizeForm = (f: Partial<InsuranceForm> | undefined): InsuranceF
 export const isMedical = (f: Pick<InsuranceForm, "coverage">) => !f.coverage || f.coverage === "医保";
 
 export interface InsuranceRecord {
+  patientId?: string;
   form: InsuranceForm;
   /** What the claim uses, worked out from the form when it was registered. */
   insurance: Insurance;
@@ -117,13 +119,28 @@ export interface InsuranceRecord {
 /** Every registration per patient; the last one is in force. */
 export type InsuranceBook = Record<string, InsuranceRecord[]>;
 
-export const currentRecord = (book: InsuranceBook, id: string): InsuranceRecord | undefined => {
-  const all = book[id] ?? [];
-  return all[all.length - 1];
-};
-export const currentInsurance = (book: InsuranceBook, id: string): Insurance | undefined => currentRecord(book, id)?.insurance;
+/** 救急のカルテ番号でも同じ患者の履歴を読む。外来の受診番号は別。 */
+export const insurancePatientId = (id: string) => id.replace(/^er:/, "");
+export function insuranceRecords(book: InsuranceBook, id: string): InsuranceRecord[] {
+  const key = book[id]?.at(-1)?.patientId ?? insurancePatientId(id);
+  const ward = book[key] ?? [];
+  const er = book[`er:${key}`] ?? [];
+  if (!ward.length) return er;
+  if (!er.length || ward === er || JSON.stringify(ward) === JSON.stringify(er)) return ward;
+  const unique = new Map([...ward, ...er].map(r => [JSON.stringify(r), r]));
+  return [...unique.values()].sort((a, b) => a.at.day - b.at.day || a.at.time.localeCompare(b.at.time));
+}
+export const currentRecord = (book: InsuranceBook, id: string, on?: string): InsuranceRecord | undefined =>
+  [...insuranceRecords(book, id)].reverse().find(r => !on || ((!r.form.validFrom || r.form.validFrom <= on) && (!r.form.validUntil || r.form.validUntil >= on)));
+export const currentInsurance = (book: InsuranceBook, id: string, on?: string): Insurance | undefined => currentRecord(book, id, on)?.insurance;
 
-export const withRecord = (book: InsuranceBook, id: string, r: InsuranceRecord): InsuranceBook => ({ ...book, [id]: [...(book[id] ?? []), r] });
+export const withRecord = (book: InsuranceBook, id: string, r: InsuranceRecord): InsuranceBook => {
+  const key = book[id]?.at(-1)?.patientId ?? insurancePatientId(id);
+  const records = [...insuranceRecords(book, id), { ...r, patientId: key }];
+  const next = { ...book, [key]: records, [`er:${key}`]: records };
+  for (const alias of Object.keys(book)) if (book[alias]?.at(-1)?.patientId === key) next[alias] = records;
+  return next;
+};
 
 // ---------------------------------------------------------------------------
 // Sources
@@ -288,6 +305,7 @@ export function toInsurance(f: InsuranceForm): Insurance {
   const branch = f.branch.trim();
   const extra: Partial<Insurance> = {
     ...(f.kohi.length ? { kohi: f.kohi.map(toKohi) } : {}),
+    ...(f.validFrom ? { validFrom: f.validFrom } : {}),
     ...(f.validUntil ? { validUntil: f.validUntil } : {}),
     ...(f.verify ? { verify: { method: f.verify, on: f.verifiedOn } } : {}),
   };
@@ -440,6 +458,7 @@ const REQUIRED: [keyof InsuranceForm, string][] = [
  */
 export function checkInsurance(f: InsuranceForm, ctx: { age: number; on: Ymd }): FormCheck[] {
   const out: FormCheck[] = [];
+  if (f.validFrom && (!validDate(f.validFrom) || (f.validUntil && f.validFrom > f.validUntil))) out.push({level: "error", field: "validFrom", text: "適用開始日と有効期限を確かめてください。", basis: FORMAT_SRC});
   if (!isMedical(f)) {
     // No 医保: the birth date, the 受給者証 (for 生活保護・公費のみ) and how the 資格 was checked.
     if (!f.birthDate) out.push({ level: "error", field: "birthDate", text: "生年月日を入れてください。", basis: FORMAT_SRC });
@@ -590,3 +609,9 @@ export const INITIAL_INSURANCE_BOOK: InsuranceBook = Object.fromEntries([
   ]),
   ...Object.entries(OPD_DEMO_FORMS).map(([id, form]) => [id, [{ form, insurance: toInsurance(form), action: "登録" as const, by: "医事課 渡辺", at: { day: 0, time: "08:30" } }]]),
 ]);
+
+/** 入院でカルテ番号が変わっても、以後の変更を同じ患者の履歴に残す。 */
+export function linkInsurance(book: InsuranceBook, from: string, to: string): InsuranceBook {
+  const records = insuranceRecords(book, from).map(r => ({...r, patientId: to}));
+  return records.length ? {...book, [from]: records, [to]: records} : book;
+}

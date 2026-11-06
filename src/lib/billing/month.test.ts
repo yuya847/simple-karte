@@ -61,3 +61,15 @@ describe("病棟の記録から算定まで", () => {
     expect(all.claim.acts.some((a) => a.parts.some((x) => x.lines.some((l) => l.code === "190192310")))).toBe(true); // 入退院支援加算１ on the discharge day
   });
 });
+
+describe("保険の適用期間", () => {
+  it("現在の保険より請求月の履歴を優先し、期間外は未登録として知らせる", () => {
+    const p = {...PATIENTS[0], id: "period-trial"};
+    const old = {...INSURANCE["90010260"], validFrom: "2026-10-01", validUntil: "2026-10-31"};
+    const next = {...old, kind: "共済" as const, validFrom: "2026-11-01", validUntil: "2027-10-31"};
+    const input = patientMonthPayload(p, [], [], DEFAULT_OPTIONS, {insurance: next, insuranceHistory: [old, next]}) as unknown as PatientMonthInput;
+    expect(patientMonth(input, "2026-11-07", "10:00", "2026-10").insurance).toEqual(old);
+    expect(patientMonth(input, "2026-11-07", "10:00", "2026-11").insurance).toEqual(next);
+    expect(patientMonth(input, "2026-11-07", "10:00", "2026-09").insurance.assumed).toBe(true);
+  });
+});

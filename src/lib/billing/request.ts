@@ -35,6 +35,7 @@ export const InsuranceSchema = z
     daysLast12Months: z.number().int().min(0).max(366).optional(),
     coverage: z.enum(["医保", "生活保護", "自費", "労災", "公費のみ"]).optional(),
     kohi: z.array(KohiSchema).max(4).optional(),
+    validFrom: IsoDate.optional(),
     validUntil: IsoDate.optional(),
     verify: z.object({ method: z.enum(["オンライン資格確認（模擬）", "保険証", "資格確認書"]), on: z.string().max(10) }).optional(),
   })
@@ -43,6 +44,7 @@ export const InsuranceSchema = z
 
 export const PatientMonthSchema = z.object({
   patient: z.object({
+    ward: z.string().max(60).optional(),
     id: z.string().max(40),
     name: z.string().max(60),
     kana: z.string().max(80),
@@ -91,6 +93,7 @@ export const PatientMonthSchema = z.object({
     eiyoShido: z.array(z.object({ day: Day })).max(10).optional(),
   }),
   insurance: InsuranceSchema.optional(),
+  insuranceHistory: z.array(InsuranceSchema).max(200).optional(),
 });
 
 export const ClaimRequest = PatientMonthSchema.extend({ today: IsoDate, nowTime: z.string().regex(/^\d{2}:\d{2}$/), month: Month });

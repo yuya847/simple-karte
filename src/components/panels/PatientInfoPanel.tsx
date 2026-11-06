@@ -192,7 +192,7 @@ export function PatientInfoPanel({ roomLabel, initialSection, patient: p, today,
           <Row label={visit ? "受診日" : "入院日"} by={base}>
             <span className="nums">
               {fmtDay(p.admittedOn)}
-              {!visit && `　入院${hospitalDay(p.admittedOn, 0)}日目`}
+              {!visit && `　入院${hospitalDay(p.admittedOn, p.dischargedAt?.day ?? 0)}日目`}
             </span>
           </Row>
           <Row label="入院時診断" by={base}>

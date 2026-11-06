@@ -43,7 +43,9 @@ export function ReceiptPanel({
   today,
   nowTime,
   wardPayload,
+  selfPay = false,
 }: {
+  selfPay?: boolean;
   lines: string[];
   data: ReceiptSheetData | null;
   month: string;
@@ -55,6 +57,7 @@ export function ReceiptPanel({
   const [records, setRecords] = useState(false);
   const [print, printSheet] = usePrintSheet();
   const [files, setFiles] = useState<UkeResult[] | null>(null);
+  const [inspection, setInspection] = useState<{unresolved: number; target: {wards: string[]; total: number; included: number; excluded: number}} | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const m = Number(month.slice(5));
@@ -71,6 +74,7 @@ export function ReceiptPanel({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
       setFiles(json.files as UkeResult[]);
+      setInspection(json);
     } catch (e) {
       setError(e instanceof Error ? e.message : "レセプトを作れませんでした。");
     } finally {
@@ -95,10 +99,11 @@ export function ReceiptPanel({
       <section aria-label="この患者のレセプト">
         <div className="mb-2 flex gap-2 text-xs">
           <button type="button" aria-pressed={records} onClick={() => setRecords(!records)} className="rounded border border-rule px-3 py-1.5">{records ? "明細書を見る" : "記録（UKE）を見る"}</button>
-          <button type="button" disabled={!data} onClick={() => data && print(<ReceiptSheet data={data} />, { portrait: true })} className="rounded border border-rule px-3 py-1.5 disabled:opacity-40">印刷（A4 縦）</button>
+          <button type="button" disabled={!data || selfPay} onClick={() => data && print(<ReceiptSheet data={data} />, { portrait: true })} className="rounded border border-rule px-3 py-1.5 disabled:opacity-40">印刷（A4 縦）</button>
         </div>
-        {!records && data && <div className="overflow-x-auto rounded border border-rule"><div className="min-w-[900px] print:min-w-0"><ReceiptSheet data={data} /></div></div>}
-        {records && <>
+        {selfPay && <p className="text-xs">自費のため、保険請求のレセプトは作りません。金額は「会計」で確認できます。</p>}
+        {!selfPay && !records && data && <div className="overflow-x-auto rounded border border-rule"><div className="min-w-[900px] print:min-w-0"><ReceiptSheet data={data} /></div></div>}
+        {!selfPay && records && <>
         <h3 className="mb-1 flex items-center gap-1.5 text-sm font-bold">
           <FileText size={14} />
           この患者の{m}月分のレコード（記録条件仕様・医科{data?.dpc ? "・出来高" : ""}）
@@ -125,7 +130,7 @@ export function ReceiptPanel({
       <section aria-label="病棟のレセプトファイル" className="rounded-md border border-rule bg-sheet p-3">
         {data?.dpc && <p className="mb-2 text-xs text-ink-soft">DPC は明細書の表示・印刷に対応しています。UKE ファイルは出来高の点数で出力します。</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-sm font-bold">{m}月分のレセプトファイル（病棟の全員）</h3>
+          <h3 className="text-sm font-bold">{m}月分のレセプトファイル（選択中の病棟）</h3>
           <button
             type="button"
             onClick={build}
@@ -138,6 +143,7 @@ export function ReceiptPanel({
           <span className="text-[11px] text-ink-faint">社保と、国保・後期は別のファイル（RECEIPTC.UKE、シフトJIS）になります。</span>
         </div>
         {error && <p className="mt-2 text-sm text-shu">{error}</p>}
+        {inspection && <p className="mt-2 text-xs">{inspection.target.wards.join("・")}：対象 {inspection.target.included}人・除外 {inspection.target.excluded}人（入院日なし・自費）／請求内容の未解決 {inspection.unresolved}件</p>}
         {files && (
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {files.map((f) => (
@@ -149,7 +155,7 @@ export function ReceiptPanel({
                 {f.problems.length === 0 ? (
                   <p className="mb-2 flex items-center gap-1 text-wakatake">
                     <CheckCircle2 size={13} />
-                    点検で問題は見つかりませんでした
+                    ファイル形式：問題なし
                   </p>
                 ) : (
                   <ul className="mb-2 space-y-0.5">

@@ -24,7 +24,7 @@ const MISSING = /足してください|入っていません|まだ組んでい�
 
 /** Sort one of the claim's checks. 参考 (info) lines are kept only when they say something may be missing. */
 export function classify(i: ClaimIssue): InspectKind | null {
-  if (i.text === ASSUMED_INSURANCE_ISSUE) return null;
+  if (i.text === ASSUMED_INSURANCE_ISSUE) return "確かめる";
   if (DISEASE.test(i.text) && i.level !== "excluded") return "病名と算定の不一致";
   if (MISSING.test(i.text)) return "算定漏れの候補";
   if (i.level === "choose") return "人が選ぶ";

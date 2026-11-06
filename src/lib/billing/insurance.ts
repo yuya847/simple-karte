@@ -80,6 +80,7 @@ export interface Insurance {
   /** 公費負担医療 the patient has (併用 with 医保, or alone when coverage is 生活保護・公費のみ). */
   kohi?: Kohi[];
   /** 有効期限 of the 資格確認書・受給者証 "YYYY-MM-DD", when written on it. */
+  validFrom?: string;
   validUntil?: string;
   /** How and when the window checked the 資格. */
   verify?: { method: VerifyMethod; on: string };

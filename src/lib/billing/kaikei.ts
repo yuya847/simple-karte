@@ -144,7 +144,9 @@ export function calculateBill(claim: ClaimResult, ins: Insurance, opts: { tasuu?
   const notes: string[] = [];
   const medicalCostYen = claim.totalPoints * 10;
   const medical = coverageOf(ins) === "医保";
-  const ichibuYen = round10((medicalCostYen * ins.rate) / 100);
+  const selfPay = coverageOf(ins) === "自費";
+  const ichibuYen = selfPay ? medicalCostYen : round10((medicalCostYen * ins.rate) / 100);
+  const mealFutanYen = selfPay ? claim.meals.ryoyoYen : claim.meals.futanYen;
   const limit = medical && ins.limitKnown && claim.days > 0 ? limitFor(ins, medicalCostYen, claim.month, !!opts.tasuu) : null;
   if (!medical) notes.push(NON_MEDICAL_NOTE[coverageOf(ins)]);
   else if (!ins.limitKnown)
@@ -164,14 +166,14 @@ export function calculateBill(claim: ClaimResult, ins: Insurance, opts: { tasuu?
   return {
     totalPoints: claim.totalPoints,
     medicalCostYen,
-    rate: ins.rate,
+    rate: selfPay ? 100 : ins.rate,
     ichibuYen,
     limit,
     medicalYen,
     kogaku,
     kogakuYen: kogaku ? ichibuYen - medicalYen : 0,
-    mealFutanYen: claim.meals.futanYen,
-    totalYen: medicalYen + claim.meals.futanYen,
+    mealFutanYen,
+    totalYen: medicalYen + mealFutanYen,
     sections: SECTION_ORDER.filter((n) => sections.has(n)).map((name) => ({ name, points: sections.get(name)! })),
     notes,
   };

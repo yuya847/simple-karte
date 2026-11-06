@@ -143,7 +143,7 @@ export function TodayPane(p: Props) {
       <div className="nums flex items-baseline gap-2 border-b border-rule-soft px-4 py-2">
         <h2 className="text-sm font-bold">今日の記事</h2>
         <span className="text-xs text-ink-faint">
-          {formatShort(p.today)}　入院{hospitalDay(p.patient.admittedOn, 0)}日目
+          {formatShort(p.today)}　入院{hospitalDay(p.patient.admittedOn, p.patient.dischargedAt?.day ?? 0)}日目
         </span>
         {!noteLocked && !p.noteAt && (
           <button type="button" onClick={() => p.onNoteAt(normalMoment({ day: 0, time: p.nowTime }))} className="inline-flex items-center gap-1 ml-auto shrink-0 px-1.5 py-0.5 text-[11px] text-ink-soft hover:text-ink" title="出来事の時刻が保存の時刻と違うとき（遅れて書くとき）">

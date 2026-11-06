@@ -7,6 +7,7 @@ import { IsoDayInput } from "../DayInput";
 // 有効期限…) and works out what follows; a person registers. Each save keeps the earlier version with who,
 // when and why (監査ログも). 医事課・医師・看護師 may change it (roles.ts "insurance"; 架空の病院の取り決め).
 
+import { birthDateOf } from "@/lib/patient-contacts";
 import { displayText } from "@/lib/display-text";
 import { BigChoice } from "@/components/BigChoice";
 import { ConfirmCheck } from "@/components/ConfirmCheck";
@@ -146,6 +147,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
           )}
         </span>
       </div>
+      {current && <p className="mb-1 text-xs text-ink-soft">救急・病棟で同じ保険履歴を使用</p>}
       <DenyNote action="insurance" className="mb-1" />
 
       {!edit && (
@@ -222,7 +224,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
           {medical && (
             <OnshiCheck
               compact
-              person={{ id: p.id, name: p.name, kana: p.kana, sex: p.sex === "男" ? "男" : "女", age: p.age }}
+              person={{ id: p.id, name: p.name, kana: p.kana, sex: p.sex === "男" ? "男" : "女", age: p.age, birthDate: isoDate(birthDateOf(p, today, current?.insurance.birthDate)) }}
               today={today}
               nowTime={nowTime}
               card={{ insurerNumber: form.insurerNumber, symbol: form.symbol, number: form.number, branch: form.branch, birthDate: form.birthDate }}
@@ -261,6 +263,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
               生年月日（カルテは{p.age}歳）
               <IsoDayInput value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className={`nums ${input} ${tone("birthDate")}`} />
             </label>
+<label className="text-xs text-ink-soft">適用開始日<IsoDayInput value={form.validFrom ?? ""} onChange={e => set({validFrom: e.target.value})} className={`nums ${input}`} /></label>
             <label className="text-[11px] text-ink-soft">
               有効期限（証に書いてあれば）
               <IsoDayInput value={form.validUntil} onChange={(e) => set({ validUntil: e.target.value })} className={`nums ${input} ${tone("validUntil")}`} />

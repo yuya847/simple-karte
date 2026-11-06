@@ -108,7 +108,7 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">
         <dt className="text-ink-faint">{visit ? "受診" : "入院"}</dt>
         <dd>
-          {formatShort(admitted)}　{visit ? <b className="text-ink">今日の受診</b> : <b className="text-ink">入院{hospitalDay(p.admittedOn, 0)}日目</b>}
+          {formatShort(admitted)}　{visit ? <b className="text-ink">今日の受診</b> : <b className="text-ink">入院{hospitalDay(p.admittedOn, p.dischargedAt?.day ?? 0)}日目</b>}
         </dd>
         <dt className="text-ink-faint">主病名</dt>
         <dd className="text-ink">
@@ -162,7 +162,7 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
             <Badge tone="shu" label="禁忌" values={p.contraindications!} />
           </button>
         )}
-        {p.dischargedAt && <Badge tone="fuji" label="退院済み" values={[`${p.dischargedAt.day === 0 ? "" : `${p.dischargedAt.day}日 `}${p.dischargedAt.time}`]} />}
+        {p.dischargedAt && <Badge tone="fuji" label="退院済み" values={[`${formatShort(addDays(today, p.dischargedAt.day))} ${p.dischargedAt.time}`]} />}
         {p.pregnancy ? (
           <button type="button" onClick={() => onPregnancy?.(null)} title="押すと妊娠中の印を外します">
             <Badge tone="shu" label="妊娠中" values={[p.pregnancy.weeks ? `${p.pregnancy.weeks}週` : "週数不明"]} />
