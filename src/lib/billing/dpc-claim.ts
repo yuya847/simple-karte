@@ -6,7 +6,7 @@
 // out of them again. Anything not contained (手術・麻酔・リハビリ・在宅・評価料 …) is billed by the 点数表.
 
 import { z } from "zod";
-import { diagnosisLabel, isSuspected, type Diagnosis } from "../diagnoses";
+import { diagnosisClaimable, diagnosisLabel, isSuspected, type Diagnosis } from "../diagnoses";
 import { loadMaster } from "../masters/server";
 import type { OrderEntry, ProcedureOrder } from "../types";
 import { deriveDpc, packagePoints, periodOf, type DpcAct, type DpcDerivation, type DpcIssue, type DpcOutcome, type DpcPackageLine, type DpcPeriod } from "./dpc";
@@ -267,6 +267,7 @@ export function dpcMonth(input: Omit<ClaimInput, "month">, month: string, opts: 
   const issues: DpcIssue[] = [];
   const acts = recordedActs(claims, input.entries);
 
+  input = { ...input, diagnoses: input.diagnoses.filter(d => diagnosisClaimable(d, month)) };
   const choice = chooseDiagnosis(input.diagnoses, opts.mainDiagnosisId);
   const outcome: DpcOutcome | null = choice
     ? deriveDpc({

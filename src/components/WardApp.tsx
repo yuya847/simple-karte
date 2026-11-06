@@ -267,6 +267,7 @@ import { clockText, dripAction, endText } from "@/lib/drip-course";
 import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
+import { resolveNoteDiagnoses } from "@/lib/auto-diagnoses";
 import { DiagnosisPanel } from "./panels/DiagnosisPanel";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { DEFAULT_DOCTOR, DOCTORS, isResident, onTeamOf } from "@/lib/doctors";
@@ -610,6 +611,7 @@ export default function WardApp() {
   const [deptChanges, setDeptChanges] = useState<Record<string, { dept: string; doctor: string }>>({});
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
   // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
+  const [diagnosisUnmatched, setDiagnosisUnmatched] = useState<Record<string, string[]>>({});
   const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(() => withChartDiagnoses(INITIAL_DIAGNOSES));
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
   const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
@@ -781,6 +783,7 @@ export default function WardApp() {
       deptChanges: [deptChanges, setDeptChanges],
       moveLog: [moveLog, setMoveLog],
       // A save from before every inpatient had a chart gets those charts' diagnoses, diets and consent back.
+      diagnosisUnmatched: [diagnosisUnmatched, setDiagnosisUnmatched],
       diagnoses: [diagnoses, (v: Record<string, Diagnosis[]>) => setDiagnoses(withChartDiagnoses(v))],
       billing: [billing, setBilling],
       consents: [consents, (v: ConsentRecord[]) => setConsents([...v, ...admissionConsents().filter((c) => !v.some((x) => x.id === c.id))])],
@@ -1308,6 +1311,11 @@ export default function WardApp() {
                           const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
                           Object.assign(n, templateStamp(n, [...BUILTIN_RECORD_TEMPLATES, ...loadMyRecordTemplates(me.name)], chart.noteTemplate));
                           setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
+                          void resolveNoteDiagnoses(chart.note, patient.admissionDiagnosis, diagnoses[patient.id] ?? [], { day: n.day, noteId: n.id, at: new Date().toISOString() }).then(result => {
+                            setDiagnoses(all => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), ...result.add.filter(d => !(all[patient.id] ?? []).some(x => x.code === d.code))] }));
+                            setDiagnosisUnmatched(all => ({ ...all, [patient.id]: result.unmatched }));
+                          }).catch(() => updateFor(patient.id, () => ({ flash: "病名の自動登録ができませんでした" })));
+
                           auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: `${chart.noteAt ? `記録時刻 ${formatShort(addDays(today, at.day))} ${at.time}　` : ""}${chart.note.replace(/\s+/g, " ").slice(0, 120)}` });
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
                           update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, noteTemplate: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
@@ -3318,6 +3326,9 @@ export default function WardApp() {
                 <Drawer title="病名" onClose={closePanel} wide locked={deny("diagnosis")}>
                   <DiagnosisPanel
                     diagnoses={diagnoses[patient.id] ?? []}
+                    department={patient.department}
+                    canConfirm={me.role === "医師"}
+                    unmatched={diagnosisUnmatched[patient.id] ?? []}
                     admittedOn={patient.admittedOn}
                     today={today}
                     newId={newId}

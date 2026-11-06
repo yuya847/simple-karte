@@ -1,6 +1,6 @@
 // One patient's month, end to end: insurance → 算定 → 会計 → レセプト. Server only (reads the masters).
 
-import type { Diagnosis } from "../diagnoses";
+import { diagnosisClaimable, type Diagnosis } from "../diagnoses";
 import { calculateClaim } from "./engine";
 import { ageOn, ASSUMED_INSURANCE_ISSUE, assumedInsurance, INSURANCE, type Insurance } from "./insurance";
 import { calculateBill, type Bill } from "./kaikei";
@@ -47,6 +47,7 @@ export function receiptDiagnoses(diagnoses: Diagnosis[], today: string, month: s
   const [y, m] = month.split("-").map(Number);
   const last = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
   return diagnoses.flatMap((d) => {
+    if (!diagnosisClaimable(d, month)) return [];
     const startDate = dateOf(today, d.start);
     if (startDate > last) return [];
     if (d.outcome !== "継続") {

@@ -11,7 +11,7 @@ export interface Modifier {
   name: string;
 }
 
-export type Outcome = "継続" | "治癒" | "死亡" | "中止";
+export type Outcome = "継続" | "治癒" | "死亡" | "中止" | "移行";
 
 export interface Diagnosis {
   id: string;
@@ -24,6 +24,18 @@ export interface Diagnosis {
   start: DayOffset;
   outcome: Outcome;
   outcomeDay?: DayOffset;
+  department?: string;
+  encounter?: "入院" | "外来" | "共通";
+  insurance?: "全保険共通" | "主保険" | "公費";
+  onsetDay?: DayOffset;
+  surgeryDay?: DayOffset;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  comment?: string;
+  hideCommentOnClaim?: boolean;
+  notClaimable?: boolean;
+  auto?: { from: "記事" | "入院申込"; noteId?: string; at: string };
+
 }
 
 export function diagnosisLabel(d: Pick<Diagnosis, "name" | "prefixes" | "suffixes">): string {
@@ -73,3 +85,24 @@ export const INITIAL_DIAGNOSES: Record<string, Diagnosis[]> = {
     dx("d-mori-2", "8844446", "脂質異常症", "E785", -2),
   ],
 };
+
+/** 確認前・保険請求外・移行病名は算定対象にしない。
+ * 移行の根拠: https://orcamanual.orca.med.or.jp/gairai/chapter/2-7-1/
+ * 有効年月の両端を含む扱いは架空の病院の取り決め。
+ */
+export function diagnosisClaimable(d: Diagnosis, month?: string): boolean {
+  return !d.auto && !d.notClaimable && d.outcome !== "移行" &&
+    (!month || ((!d.effectiveFrom || d.effectiveFrom <= month) && (!d.effectiveTo || month <= d.effectiveTo)));
+}
+
+export function diagnosisProblems(d: Diagnosis): string[] {
+  const problems: string[] = [];
+  if (!d.name.trim() || !d.code) problems.push("病名を選んでください");
+  if (d.outcomeDay !== undefined && d.outcomeDay < d.start) problems.push("転帰日が開始日より前です");
+  if (d.outcome !== "継続" && d.outcomeDay === undefined) problems.push("転帰日を入れてください");
+  if (d.outcome === "継続" && d.outcomeDay !== undefined) problems.push("継続の病名に転帰日は入れられません");
+  if (d.effectiveFrom && d.effectiveTo && d.effectiveFrom > d.effectiveTo) problems.push("有効年月の終了が開始より前です");
+  if (!d.hideCommentOnClaim && d.comment && /[,\r\n]/.test(d.comment)) problems.push("レセプトに出すコメントに半角カンマや改行は入れられません");
+  if (!d.hideCommentOnClaim && d.comment && [...d.comment].reduce((n, c) => n + (/^[\x20-\x7e\uff61-\uff9f]$/.test(c) ? 1 : 2), 0) > 40) problems.push("レセプトに出すコメントは全角20文字（半角40文字）以内にしてください");
+  return problems;
+}

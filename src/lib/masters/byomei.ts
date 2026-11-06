@@ -1,6 +1,7 @@
 // Search over the official 傷病名マスター and 修飾語マスター (server side).
 // Names and codes are used exactly as the master has them.
 
+import { diagnosisNameParts } from "../auto-diagnoses";
 import { loadMaster, normalizeForSearch } from "./server";
 
 // Column positions in the generated files (see COLS.b / COLS.z in scripts/masters/build.mjs).
@@ -99,4 +100,32 @@ export function diseaseKeysOf(codes: string[]): Record<string, { keyNumber: stri
   const out: Record<string, { keyNumber: string; exCode: string }> = {};
   for (const r of loadMaster("b").rows) if (want.has(r[B.code]) && r[B.end] === ACTIVE) out[r[B.code]] = { keyNumber: r[B.keyNumber], exCode: r[B.exCode] };
   return out;
+}
+
+/** Exact disease first; only then strip official master modifiers. */
+export function exactDisease(text: string) {
+  const byName = new Map(diseases().map(d => [d.hit.name, d.hit]));
+  const direct = byName.get(text);
+  if (direct) return { disease: direct, prefixes: [], suffixes: [] };
+  const start = diagnosisNameParts(text);
+  let candidates = [start];
+  const seen = new Set<string>();
+  for (let depth = 0; depth <= 4; depth++) {
+    const next: typeof candidates = [];
+    // Prefer retaining the longest complete disease name over stripping part of it.
+    for (const parts of candidates.sort((a,b) => b.name.length - a.name.length)) {
+      const disease = byName.get(parts.name);
+      if (disease) return { disease, prefixes: parts.prefixes, suffixes: parts.suffixes };
+      if (seen.has(parts.name)) continue;
+      seen.add(parts.name);
+      for (const { hit: m } of modifiers()) {
+        if (!m.name || m.code === "8002" || parts.name.length <= m.name.length) continue;
+        if (m.position === "prefix" && parts.name.startsWith(m.name)) next.push({ ...parts, name: parts.name.slice(m.name.length), prefixes: [...parts.prefixes, { code: m.code, name: m.name }] });
+        if (m.position === "suffix" && parts.name.endsWith(m.name)) next.push({ ...parts, name: parts.name.slice(0, -m.name.length), suffixes: [{ code: m.code, name: m.name }, ...parts.suffixes] });
+      }
+    }
+    candidates = next;
+    if (!candidates.length) break;
+  }
+  return { disease: null, prefixes: [], suffixes: [] };
 }

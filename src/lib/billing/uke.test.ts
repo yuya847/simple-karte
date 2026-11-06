@@ -185,3 +185,17 @@ describe("処置の特定器材（TO）", () => {
     expect(f.problems.filter((p) => /行目/.test(p))).toEqual([]);
   });
 });
+
+describe("病名の補足コメントと確認", () => {
+  it("出さないチェックで補足コメントだけを伏せる", () => {
+    const d = { ...receipt.diagnoses[0], comment:"経過を確認" };
+    const visible = receiptRecords({...receipt,diagnoses:[d]},1,"2026-10").find(s=>s.startsWith("SY,"))!;
+    const hidden = receiptRecords({...receipt,diagnoses:[{...d,hideCommentOnClaim:true}]},1,"2026-10").find(s=>s.startsWith("SY,"))!;
+    expect(visible.split(",")[7]).toBe("経過を確認");
+    expect(hidden.split(",")[7]).toBe("");
+  });
+  it("確認前の病名を直接渡されても SY に出さない", () => {
+    const records = receiptRecords({...receipt,diagnoses:receipt.diagnoses.map(d=>({...d,auto:{from:"記事" as const,at:"now"}}))},1,"2026-10");
+    expect(records.some(s=>s.startsWith("SY,"))).toBe(false);
+  });
+});

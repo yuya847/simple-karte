@@ -3,7 +3,7 @@
 // One file goes to one 審査支払機関: 社会保険 (1) or 国民健康保険団体連合会 (2, also 後期高齢者).
 
 import type { Diagnosis, Outcome } from "../diagnoses";
-import { UNCODED } from "../diagnoses";
+import { diagnosisClaimable, UNCODED } from "../diagnoses";
 import { HOSPITAL } from "./facility";
 import { futanKubun, type Insurance, receiptType, tokkiCode } from "./insurance";
 import { shinryoItem } from "./master-items";
@@ -72,7 +72,7 @@ export function toZenkaku(s: string): string {
 
 const katakana = (s: string) => s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60)).replace(/[\s　]/g, "");
 
-const OUTCOME: Record<Outcome, string> = { 継続: "1", 治癒: "2", 死亡: "3", 中止: "4" };
+const OUTCOME: Record<Outcome, string> = { 継続: "1", 治癒: "2", 死亡: "3", 中止: "4", 移行: "" };
 
 const days31 = (days: Record<number, number>) => Array.from({ length: 31 }, (_, i) => (days[i + 1] ? String(days[i + 1]) : ""));
 
@@ -129,7 +129,7 @@ export function receiptRecords(r: Receipt, no: number, month: string): string[] 
   out.push(record("JD", ["JD", 1, ...days31(inDays)]));
   out.push(record("MF", ["MF", r.window.kogaku ? (r.window.tasuu ? "02" : "01") : "00"]));
 
-  for (const d of [...r.diagnoses].sort((a, b) => a.startDate.localeCompare(b.startDate))) {
+  for (const d of r.diagnoses.filter(d => diagnosisClaimable(d, month)).sort((a, b) => a.startDate.localeCompare(b.startDate))) {
     const uncoded = d.code === UNCODED;
     out.push(
       record("SY", [
@@ -140,7 +140,8 @@ export function receiptRecords(r: Receipt, no: number, month: string): string[] 
         uncoded ? null : [...d.prefixes, ...d.suffixes].map((m) => m.code).join("") || null,
         uncoded ? d.name : null,
         d.main ? "01" : null,
-        null,
+        // 補足コメント (SY 項目8): https://www.ssk.or.jp/seikyushiharai/iryokikan/iryokikan_02.files/jiki_i01.pdf
+        d.hideCommentOnClaim ? null : d.comment || null,
       ]),
     );
   }
@@ -241,6 +242,7 @@ export function checkUke(lines: string[], receipts: Receipt[]): string[] {
       const sum = cells.slice(kind === "TO" ? 17 : 13).reduce((s, v) => s + (v ? Number(v) : 0), 0);
       if (count !== sum) problems.push(`${i + 1}行目 ${kind}：回数 ${count} と算定日の合計 ${sum} が合いません`);
     }
+    if (kind === "SY" && sjisLength(cells[7] ?? "") > 40) problems.push(`${i + 1}行目 SY：補足コメントが40バイトを超えます`);
     if (kind === "RE" && sjisLength(cells[4]) > 40) problems.push(`${i + 1}行目 RE：氏名が40バイトを超えます`);
   }
   for (const r of receipts) {

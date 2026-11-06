@@ -136,3 +136,16 @@ describe("デモの患者の月：包括 + 出来高に残る部分 と 出来�
     expect(r.outcome?.ok && r.outcome.d.code).toBe("110310xx97xxxx");
   });
 });
+
+describe("確認前の自動病名を算定から除く", () => {
+  it("主病名に指定されても選択肢・分類から除外する", () => {
+    const data = input("90010231");
+    const pending = { ...data.diagnoses[0], auto: {from: "記事" as const, at: "now"} };
+    const r = dpcMonth({ ...data, diagnoses: [pending] }, "2026-11", {...opts,mainDiagnosisId:pending.id});
+    expect(r.chosen).toBeNull();
+    expect(r.diagnoses).toEqual([]);
+    expect(r.outcome).toBeNull();
+    const confirmed = dpcMonth({ ...data, diagnoses: [{...pending,auto:undefined}] }, "2026-11", opts);
+    expect(confirmed.chosen?.id).toBe(pending.id);
+  });
+});
