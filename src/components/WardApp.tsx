@@ -5,6 +5,7 @@ import { examReservationProblem } from "@/lib/exam-slots";
 import { upsertSessionNote } from "@/lib/rehab-record";
 
 import { workspaceOn } from "@/lib/workspace";
+import { migrateStandingLines, migrateStandingVersions } from "@/lib/standing-seeds";
 import { patientPlace } from "@/lib/patient-place";
 import { useDisplayState } from "@/lib/use-display-state";
 import { useStandingCosign } from "@/lib/use-standing-cosign";
@@ -827,10 +828,11 @@ export default function WardApp() {
       careOrders: [careOrders, setCareOrders],
       careRecords: [careRecords, setCareRecords],
       nursingPlans: [nursingPlans, setNursingPlans],
-      standing: [standing, setStanding],
+      // Records saved before the standing orders became blocks are moved into the blocks as they are read back.
+      standing: [standing, (v: Record<string, StandingOrders[]>) => setStanding(migrateStandingVersions(v))],
       condAcks: [condAcks, setCondAcks],
       paths: [paths, setPaths],
-      standingLines: [standingLines, setStandingLines],
+      standingLines: [standingLines, (v: Record<string, StandingLine[]>) => setStandingLines(migrateStandingLines(v))],
       extraVitals: [extraVitals, setExtraVitals],
       monitorManual: [monitorManual, setMonitorManual],
       mar: [mar, setMar],

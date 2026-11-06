@@ -231,3 +231,31 @@ SpO2 94%未満
     },
   ],
 };
+
+// ---------- 保存された古い指示を、かたまりの指示に移す（読み込みのたびに通す） ----------
+
+/** The ids of the old one-line seed orders (before the blocks). */
+const OLD_SEED_LINE_IDS = new Set(["sl-231-1", "sl-231-2", "sl-231-3", "sl-198-1", "sl-198-2", "sl-198-3", "sl-198-4", "sl-260-1", "sl-260-2", "sl-244-1", "sl-244-2", "sl-244-3"]);
+
+/**
+ * Saved standing lines from before the blocks: the old seed lines are replaced by the seed blocks (same id → the
+ * block's text; old ids not used by the blocks → dropped), and seed blocks missing from the save are added. Lines
+ * someone wrote (any other id) stay as they are.
+ */
+export function migrateStandingLines(saved: Record<string, StandingLine[]>, seeds: Record<string, StandingLine[]> = standingSeeds): Record<string, StandingLine[]> {
+  const out: Record<string, StandingLine[]> = {};
+  for (const pid of new Set([...Object.keys(saved), ...Object.keys(seeds)])) {
+    const seed = seeds[pid] ?? [];
+    const seedIds = new Set(seed.map((l) => l.id));
+    const kept = (saved[pid] ?? []).filter((l) => !(OLD_SEED_LINE_IDS.has(l.id) && !seedIds.has(l.id)));
+    const fromSeed = kept.map((l) => (seedIds.has(l.id) && !l.text.includes("\n") ? seed.find((s) => s.id === l.id)! : l));
+    const missing = seed.filter((s) => !fromSeed.some((l) => l.id === s.id));
+    out[pid] = [...missing, ...fromSeed];
+  }
+  return out;
+}
+
+/** Saved field-based orders: the old seed versions (山本（専攻医）, 3 days ago 10:00) now live in the blocks and are dropped. */
+export function migrateStandingVersions<T extends { by: string; at: { day: number; time: string } }>(saved: Record<string, T[]>): Record<string, T[]> {
+  return Object.fromEntries(Object.entries(saved).map(([pid, vs]) => [pid, vs.filter((v) => !(v.by === "山本（専攻医）" && v.at.day === -3 && v.at.time === "10:00"))]));
+}
