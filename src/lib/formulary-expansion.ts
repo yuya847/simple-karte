@@ -52,8 +52,8 @@ export const MORE_DRUGS: DrugMaster[] = ADOPTED_INJECTIONS.map((r) => {
   const volume = r[7] || Number([...n.matchAll(/(\d+(?:\.\d+)?)mL/g)].at(-1)?.[1] ?? 0);
   const electrolyte = n.match(/(\d+(?:\.\d+)?)mEq\/mL/);
   const strength: DrugMaster["strength"] = packageUnit && electrolyte && volume ? { amount: Number(electrolyte[1]) * volume, unit: "mEq", per: packageUnit } : packageUnit && mass ? { amount: Number(mass[1]), unit: mass[2] as "mg" | "g", per: packageUnit } : undefined;
-  return { code: r[0], name: r[1], generic: r[5].replace("【般】", ""), category: isInsulin(r) ? "インスリン" : undefined,
-    package: `${r[1]}／${r[2]}`, kind: /^(611|612|613|614|615|616|624|641)/.test(r[4]) ? "抗菌薬" : /^(323|325|331)/.test(r[4]) ? "輸液" : "その他",
+  return { code: r[0], name: n.trim(), generic: r[5].replace("【般】", ""), category: isInsulin(r) ? "インスリン" : undefined,
+    package: mass ? `${mass[1]}${mass[2]}/${packageUnit ?? u}` : volume > 0 ? `${volume}mL/${packageUnit ?? u}` : `1${u}`, kind: /^(611|612|613|614|615|616|624|641)/.test(r[4]) ? "抗菌薬" : /^(323|325|331)/.test(r[4]) ? "輸液" : "その他",
     routes: routesOf(r), units: isInsulin(r) ? ["単位"] : [...(packageUnit ? [packageUnit] : [u]), ...(strength ? [strength.unit, ...(strength.unit === "g" ? ["mg"] : [])] : []), ...(volume > 0 && (packageUnit || u === "筒") ? ["mL"] : [])],
     ...(strength ? { strength } : {}), ...(volume > 0 && (packageUnit || u === "筒") ? { volumeMl: volume } : {}),
     // Amount of insulin per official billing unit (mL or one pen/cartridge).
@@ -62,10 +62,10 @@ export const MORE_DRUGS: DrugMaster[] = ADOPTED_INJECTIONS.map((r) => {
 });
 // Oral cytotoxic/immunomodulatory cancer drugs remain in the formulary only until an oral regimen workflow exists.
 export const MORE_ORAL_DRUGS: OralDrugMaster[] = ADOPTED_ORAL.filter((r) => !isChemo(r)).map((r) => ({
-  code: r[0], name: r[1], strength: normal(r[1]).match(/\d+(?:\.\d+)?(?:mg|μg|%)/)?.[0] ?? r[2],
+  code: r[0], name: normal(r[1]).trim(), strength: normal(r[1]).match(/\d+(?:\.\d+)?(?:mg|μg|%)/)?.[0] ?? r[2],
   unit: r[0] === "620008047" ? "g" : unitOf(r) as OralDrugMaster["unit"],
   ...(r[0] === "620008047" ? { billingUnitsPerDoseUnit: 2 } : {}),
   scored: false, aliases: adoptedAliases(r),
 }));
-export const TOPICAL_DRUGS = ADOPTED_TOPICAL.map((r) => ({ code: r[0], name: r[1], spec: r[2], aliases: adoptedAliases(r) }));
-export const FORMULARY_ONLY_ORAL = ADOPTED_ORAL.filter(isChemo).map((r) => ({ code: r[0], name: r[1], spec: r[2], aliases: adoptedAliases(r) }));
+export const TOPICAL_DRUGS = ADOPTED_TOPICAL.map((r) => ({ code: r[0], name: normal(r[1]).trim(), spec: r[2], aliases: adoptedAliases(r) }));
+export const FORMULARY_ONLY_ORAL = ADOPTED_ORAL.filter(isChemo).map((r) => ({ code: r[0], name: normal(r[1]).trim(), spec: r[2], aliases: adoptedAliases(r) }));
