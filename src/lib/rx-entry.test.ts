@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidateIndex, doseStep, rxChoiceIndex, rxEntryStep, validDose, type RxStep } from "./rx-entry";
+import { candidateIndex, doseStep, halfWidthNumber, rxChoiceIndex, rxEntryStep, validDose, type RxStep } from "./rx-entry";
 
 describe("罫線の処方入力", () => {
   it.each(["Enter", "Tab"])("%sで薬から確定まで進み、Escで一つ戻る", (key) => {
@@ -32,5 +32,14 @@ describe("罫線の処方入力", () => {
     expect(rxChoiceIndex(0, "ArrowLeft", 5)).toBe(4);
     expect(rxChoiceIndex(0, "3", 5)).toBe(2);
     expect(rxChoiceIndex(4, "ArrowDown", 5)).toBe(0);
+  });
+});
+
+describe("全角の数字", () => {
+  it("日本語入力の「１」「０．５」も量として読む", () => {
+    expect(halfWidthNumber("１")).toBe("1");
+    expect(halfWidthNumber("０．５")).toBe("0.5");
+    expect(validDose("１", { unit: "錠", scored: true })).toBe(true);
+    expect(validDose("０．２５", { unit: "錠", scored: true })).toBe(false);
   });
 });

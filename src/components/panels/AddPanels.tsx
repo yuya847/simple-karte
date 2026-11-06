@@ -10,7 +10,7 @@ import { useWindowEntry } from "@/lib/window-entry";
 import { useMe } from "../RoleContext";
 
 import { injectionDrugLabel } from "@/lib/injection-drug-label";
-import { rxEntryLines, rxEntryStep, validDose, type RxStep } from "@/lib/rx-entry";
+import { doseStep, halfWidthNumber, rxEntryLines, rxEntryStep, validDose, type RxStep } from "@/lib/rx-entry";
 import { todayInTokyo } from "@/lib/dates";
 import { orderDefaults, onceInfusionMinutes, ONCE_INFUSION_HINT } from "@/lib/order-defaults";
 import { nextRegularDay, regularDayOffset, REGULAR_RX_DAYS } from "@/lib/rx-schedule";
@@ -408,7 +408,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                       <td className="whitespace-nowrap py-0.5 text-right">
                         {rp.sliding ? <span>スケールで決める</span> : rp.step !== "dose" ? <button type="button" onClick={() => focus(i, "dose")}>{r.amount}{r.unit}</button> : <><input
                           value={r.amount}
-                          onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, amount: e.target.value } : x)) })}
+                          onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => (j === k ? { ...x, amount: halfWidthNumber(e.target.value) } : x)) })}
                           onKeyDown={(e) => {
                             if (e.key === "Backspace" && r.amount === "") {
                               e.preventDefault();
@@ -502,7 +502,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                     ) : (
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="w-16 text-ink-soft">速度</span>
-                        <input value={rp.rate} onChange={(e) => upd(i, { rate: e.target.value })} inputMode="decimal" aria-label={`Rp${first + i} の速度（mL/時）`} className={`${field} w-16 text-right`} />
+                        <input value={rp.rate} onChange={(e) => upd(i, { rate: halfWidthNumber(e.target.value) })} inputMode="decimal" aria-label={`Rp${first + i} の速度（mL/時）`} className={`${field} w-16 text-right`} />
                         mL/時
                         <TabChoice label={`Rp${first + i} のよく使う速度`} options={DRIP_RATES.map((r) => ({ value: r, label: String(r) }))} value={Number(rp.rate) || null} onChange={(v) => upd(i, { rate: String(v) })} />
                         <DripCalc rp={rp} /><span className="hint">{ONCE_INFUSION_HINT}</span>
@@ -534,7 +534,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   <label htmlFor={`${uid}-${i}-days`} className="w-16 text-ink-soft">
                     日数
                   </label>
-                  <input id={`${uid}-${i}-days`} value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} inputMode="numeric" placeholder="—" aria-label={`Rp${first + i} の日数`} className={`${field} min-h-[30px] w-14 text-right`} />
+                  <input id={`${uid}-${i}-days`} value={rp.days} onChange={(e) => upd(i, { days: halfWidthNumber(e.target.value) })} inputMode="numeric" placeholder="—" aria-label={`Rp${first + i} の日数`} className={`${field} min-h-[30px] w-14 text-right`} />
                   <span>日間</span>
                   <span className="hint text-[11px] text-ink-faint">空なら日数を決めません（1回だけ、または止めるまで）</span>
                 </InjectionEntryRow>
@@ -927,7 +927,7 @@ export function AddRxPanel({
           {rp.once && <p className="text-yamabuki">1回だけ・今すぐ<span className="hint">（用法を変えると通常の処方になります）</span></p>}
           <div className="flex items-baseline gap-2">{!rp.rows.length && <><b>{label}</b><div data-step="drug" className="min-w-0 flex-1">{drugSearch}</div></>}<button type="button" aria-label={`${label} を消す`} className="ml-auto text-xs text-ink-faint" onClick={() => setRps((rs) => rs.length === 1 ? [freshRx()] : rs.filter((_, j) => j !== i))}>×</button><button type="button" className="text-xs text-ink-soft" onClick={() => { upd(i, { comment: rp.comment ?? "" }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }}>＋コメント</button></div>
           {rp.rows.map((r, k) => { const m = findOralDrug(r.drugCode)!; return <div key={k} data-step="dose" className="flex items-center justify-between border-b border-rule-soft py-1" onKeyDown={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") advance(e, "dose", validDose(r.per, m)); }}>
-            <span>{k === 0 && <b className="mr-2">{label}</b>}{m.name} {m.strength}</span>{step !== "dose" ? <button type="button" onClick={() => focus(i, "dose")}>1回 {r.per}{m.unit}</button> : <label>1回 <input onKeyDown={(e) => { if (e.key === "Backspace" && !r.per) { e.preventDefault(); const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); } }} aria-label={`${m.name}の1回量`} className={`${field} w-14`} inputMode="decimal" value={r.per} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => j === k ? { ...x, per: e.target.value } : x) })} /> {m.unit}</label>}<button type="button" aria-label={`${m.name}を外す`} onClick={() => { const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); }}>×</button>
+            <span>{k === 0 && <b className="mr-2">{label}</b>}{m.name} {m.strength}</span>{step !== "dose" ? <button type="button" onClick={() => focus(i, "dose")}>1回 {r.per}{m.unit}</button> : <label>1回 <input onKeyDown={(e) => { if (e.key === "Backspace" && !r.per) { e.preventDefault(); const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); } }} aria-label={`${m.name}の1回量`} className={`${field} w-14`} inputMode="decimal" value={r.per} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => j === k ? { ...x, per: halfWidthNumber(e.target.value) } : x) })} /> {m.unit}</label>}<button type="button" aria-label={`${m.name}を外す`} onClick={() => { const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); }}>×</button>
           </div>; })}
           <div data-step="drug">
             {rp.rows.length > 0 && step === "drug" && drugSearch}
@@ -939,7 +939,7 @@ export function AddRxPanel({
             {["times", "usage", "days"].includes(step) && <div className="border-b border-rule py-2" data-step={step} onKeyDown={(e) => advance(e, step, step === "times" ? rp.times !== null : step === "usage" ? prn ? !!rp.prn.trim() : !!rp.timing : Number(rp.days) > 0)}>
               {step === "times" && <TabChoice numbered autoFocus label={`${label} の回数`} options={[...(verbal ? [{ value: "once" as const, label: "1回だけ・今すぐ" }] : []), ...TIMES]} value={rp.once ? "once" : rp.times} onChange={(v) => upd(i, v === "once" ? { once: true, times: "頓用", prn: "今すぐ1回だけ", maxPerDay: "1", days: "1" } : { times: v })} />}
               {step === "usage" && (rp.once ? <span>今すぐ1回だけ</span> : prn ? <><input autoFocus aria-label={`${label} の頓用の条件`} placeholder="疼痛時など" value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} /><label>1日 <input className="w-10" aria-label={`${label} の1日の上限回数`} value={rp.maxPerDay} onChange={(e) => upd(i, { maxPerDay: e.target.value })} />回まで</label></> : <TabChoice numbered autoFocus label={`${label} の用法`} options={choices.map((c) => ({ value: c.label, label: c.label }))} value={rp.timing} onChange={(v) => upd(i, { timing: v })} />)}
-              {step === "days" && !rp.once && <label>日数 <input autoFocus aria-label={`${label} の日数`} inputMode="numeric" className={`${field} w-14`} value={rp.days} onChange={(e) => upd(i, { days: e.target.value })} /> 日分</label>}
+              {step === "days" && !rp.once && <label>日数 <input autoFocus aria-label={`${label} の日数`} inputMode="numeric" className={`${field} w-14`} value={rp.days} onChange={(e) => upd(i, { days: halfWidthNumber(e.target.value) })} /> 日分</label>}
             </div>}
             {step !== "days" && step !== "drug" && <button type="button" className="ml-2 rounded border border-rule px-2 text-xs" onClick={() => {
               if (step === "dose" && rp.rows.every((r) => validDose(r.per, findOralDrug(r.drugCode)!))) focus(i, "times");
@@ -949,7 +949,7 @@ export function AddRxPanel({
             <label className="ml-2 text-xs"><input type="checkbox" checked={!!rp.alreadyDone} onChange={(e) => upd(i, { alreadyDone: e.target.checked })} /> 実施済み</label>
             <label className="ml-2 text-xs"><input type="checkbox" checked={!!rp.onePack} onChange={(e) => upd(i, { onePack: e.target.checked })} /> 一包化</label>
             <button type="button" className="ml-2 text-xs text-ai" disabled={!!missingOf(rp).length} onClick={() => decide(i)}>{label} を決める</button>
-            {rp.rows.some((r) => r.per !== "" && !validDose(r.per, findOralDrug(r.drugCode)!)) && <p className="text-xs text-shu">1回量の刻みを確認してください。</p>}
+            {rp.rows.some((r) => r.per !== "" && !validDose(r.per, findOralDrug(r.drugCode)!)) && <p className="text-xs text-shu">1回量は {rp.rows.filter((r) => r.per !== "" && !validDose(r.per, findOralDrug(r.drugCode)!)).map((r) => { const m = findOralDrug(r.drugCode)!; const st = doseStep(m); return `${m.name} ${st < 1 ? `${st}${m.unit}` : `1${m.unit}`}単位`; }).join("、")} で入れてください。</p>}
           </>}
           </>}
         </section>;
@@ -1100,7 +1100,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
           <TabChoice label="透析の回数" options={master.schedules.map((x, i) => ({ value: i, label: procScheduleText(x) }))} value={f.sched} onChange={(v) => set({ sched: v })} />
           {f.sched !== null && master.schedules[f.sched].kind !== "once" && (
             <>
-              <input value={f.days} onChange={(e) => set({ days: e.target.value })} inputMode="numeric" placeholder="—" aria-label="透析の日数" className={`${field} w-10 text-right`} />
+              <input value={f.days} onChange={(e) => set({ days: halfWidthNumber(e.target.value) })} inputMode="numeric" placeholder="—" aria-label="透析の日数" className={`${field} w-10 text-right`} />
               日間
             </>
           )}
