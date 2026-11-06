@@ -1,4 +1,9 @@
 "use client";
+import { RxExpiryInbox } from "./RxExpiryInbox";
+import { expiryInbox, expiryCounts, receivesExpiry, expiryExtension } from "@/lib/rx-expiry-workflow";
+import { RxExpiryNotice } from "./RxExpiryNotice";
+import { RxExpiryStrip } from "./RxExpiryStrip";
+import { rxExpiries, visibleExpiryStickies } from "@/lib/rx-expiry";
 import { standingPending } from "@/lib/standing-pending";
 import { roomLabel } from "@/lib/place-label";
 import { scenarioHandoffs } from "@/lib/scenarios/handoffs";
@@ -727,6 +732,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 患者基本情報 (住所・連絡先・家族・公費・介護・かかりつけ), per patient id (patient-contacts.ts).
   const [contactsBook, setContactsBook] = useState<ContactsBook>(INITIAL_CONTACTS);
   const [doctorsOpen, setDoctorsOpen] = useState(false);
+  const [expiryOpen, setExpiryOpen] = useState(false);
   const [stickies, setStickies] = useState<Record<string, Sticky[]>>({ "90010231": [{ id: "st-1", text: "明日の血液培養の結果を家族に説明する", by: "山本（専攻医）", at: "17:40", shared: true }] });
   // 経過表: the days a nurse or doctor chose to count from (イベント日数).
   const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
@@ -1545,7 +1551,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   };
   // 延長 and 修正 from the injection calendar (left view or the right tab).
   const extendDraft = (e: OrderEntry, n: number) => {
-    const draft: ExtendDraft = { id: newId(), origin: "manual", sourceText: "（カレンダーから延長）", comment: null, kind: "extend", targetOrderId: e.id, addDays: n };
+    const draft: ExtendDraft = expiryExtension(e, n, newId());
     update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], flash: `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
   };
   const modifyOrder = (e: OrderEntry) => {
@@ -1821,7 +1827,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const inbox = consultInbox(consultPeople, me.name, consultReplies);
   const kitchenPending = kitchenWaiting(diets, care.kitchen);
   const requestDisease = (pid: string, c: DiseaseCandidate) => { const p = findPatient(pid); if (!p || deny("billing")) return; setStickies(all => ({ ...all, [pid]: withDiseaseRequest(all[pid] ?? [], c, p.attending, me.name, nowTime, isoDate(today)) })); };
+  const expiryNotice = <RxExpiryNotice people={people} today={today} sender={me.name.includes(role) ? me.name : `${role} ${me.name}`} stickies={stickies} onSend={(pid, st) => setStickies(all => ({ ...all, [pid]: [...(all[pid] ?? []).filter(s => s.id !== st.id), st] }))} />;
   const todos: Todo[] = [];
+  const expiryPatients = expiryInbox(consultPeople, today, stickies, (p, es) => receivesExpiry(me.name, doctorsFor(p.id, es)));
+  const expiryN = expiryCounts(expiryPatients);
+  if (role === "医師" && expiryN.total) todos.push({ key: "rx-expiry", label: `処方切れ（今日 ${expiryN.today}・明日 ${expiryN.tomorrow}）`, detail: expiryPatients.flatMap(x => x.messages).join("、"), count: expiryN.total, tone: expiryN.today ? "shu" : "yamabuki", go: () => setExpiryOpen(true) });
   if (role === "医師") todos.push(...diseaseRequestTodos(allPatients, stickies, me.name, id => diseaseRequestInput(claimPayloadOf(findPatient(id)!), isoDate(today), nowTime), id => { openPatient(id); setTimeout(() => setPanel("diagnoses"), 0); }));
   if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) { openPatient(n.patientId); updateFor(n.patientId, () => ({ leftView: "flowsheet", flowScale: "all" })); } } })));
   if (role === "管理栄養士" && kitchenPending) todos.push({ key: "kitchen", label: "給食の変更が未受け", count: kitchenPending, tone: "shu", go: () => openArea("kitchen") });
@@ -2643,7 +2653,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "execute" ? (
         <ExecuteDesk onVoid={voidMar} people={people} today={today} nowTime={nowTime} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} onRecord={recordMar} taken={taken} sessionKeys={sessionKeys} nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]} onOpen={openPatient} onSheet={() => goWard("sheet")} onTakeDesk={() => goWard("take")} />
       ) : screen === "sheet" ? (
-        <Worksheet
+        <Worksheet expiryNotice={expiryNotice}
           standingMeasurements={Object.fromEntries(people.map(x => [x.patient.id, { lines: standingLines[x.patient.id] ?? [], fields: standing[x.patient.id]?.at(-1) }]))}
           remeasureVitals={extraVitals}
           onMeasure={(id) => setExtraVitals((all) => ({ ...all, [id]: markRemeasured(all[id] ?? []) }))}
@@ -2857,7 +2867,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           onOpenChart={openPatient}
         />
       ) : screen === "pharmacy" || pharmacyFocus ? (
-        <PharmacyView key={pharmacyFocus ? `${pharmacyFocus.patientId}:${pharmacyFocus.tab}` : "department"} initialTab={pharmacyFocus?.tab} patientId={pharmacyFocus?.patientId} onClose={pharmacyFocus ? () => setPharmacyFocus(null) : undefined}
+        <PharmacyView expiryNotice={expiryNotice} key={pharmacyFocus ? `${pharmacyFocus.patientId}:${pharmacyFocus.tab}` : "department"} initialTab={pharmacyFocus?.tab} patientId={pharmacyFocus?.patientId} onClose={pharmacyFocus ? () => setPharmacyFocus(null) : undefined}
           people={people}
           dischargedPeople={dischargedPeople}
           today={today}
@@ -2944,6 +2954,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           waiting={waiting}
           resultState={resultState}
           extraFlags={listFlags}
+          expiryDone={stickies}
           mine={isMine}
           today={today}
           dpcPayload={(id) => {
@@ -3067,8 +3078,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             );
           })()}
           <PatientWindowProvider key={`${patient.id}:${desk}`} focusKey={panel ? `panel:${panel}` : null} focusVersion={panelActivation} focusTabs={zOrder}><WindowTray />
+          {(role === "医師" || role === "薬剤師" || role === "看護師") && <RxExpiryStrip key={patient.id} patient={patient} entries={ordersOf(entries)} today={today} doctor={role === "医師" && !deny("order")} sender={me.name.includes(role) ? me.name : `${role} ${me.name}`} stickies={stickies[patient.id] ?? []} pending={pendingExtends} onExtend={extendDraft} onSticky={st => setStickies(all => ({ ...all, [patient.id]: [...(all[patient.id] ?? []).filter(s => s.id !== st.id), st] }))} onRemove={id => setStickies(all => ({ ...all, [patient.id]: (all[patient.id] ?? []).filter(s => s.id !== id) }))} />}
           <StickyStrip
-            stickies={visibleDiseaseStickies(stickies[patient.id] ?? [], diseaseRequestInput(claimPayloadOf(patient), isoDate(today), nowTime))}
+            stickies={visibleDiseaseStickies(visibleExpiryStickies(stickies[patient.id] ?? [], rxExpiries(patient, ordersOf(entries), today)), diseaseRequestInput(claimPayloadOf(patient), isoDate(today), nowTime))}
             onDiagnoses={() => setPanel("diagnoses")}
             nowTime={nowTime}
             newId={newId}
@@ -4544,6 +4556,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         session={login.settings.on && login.session ? { onLogout: login.logout, onLock: login.lock } : undefined}
       >
         {content}
+      {expiryOpen && role === "医師" && <RxExpiryInbox inbox={expiryPatients} onOpen={openPatient} onClose={() => setExpiryOpen(false)} />}
       </AppFrame>
       {/* 緊急通報 on every screen until it is closed. */}
       {emergencies.some((e) => !e.closed) && (

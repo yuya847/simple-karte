@@ -1,4 +1,5 @@
 "use client";
+import { expiryFlags, expiryKey, rxExpiries } from "@/lib/rx-expiry";
 import { roomLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
@@ -27,6 +28,7 @@ import type { CalendarDate } from "@/lib/dates";
 import type { OrderEntry } from "@/lib/types";
 
 interface Props {
+  expiryDone?: Record<string, { id: string }[]>;
   /** The beds to list (a floor, 受け持ち, a department, all wards …) and the patient lookup. */
   ward: WardState;
   title: string;
@@ -106,7 +108,7 @@ export function PatientList(props: Props) {
 }
 
 /** The list with its choices given (PatientList reads them for the person; tests pass them). */
-export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
+export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, expiryDone = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [cond, setCond] = useState<ListFilter>(EMPTY_FILTER);
@@ -161,11 +163,13 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
           if (!p) return [];
           const entries = ordersOf(currentEntries(p, changes[p.id]));
           const flags = [...(extraFlags[p.id] ?? []), ...flagsFor(p, entries, nowAbs, waiting[p.id] ?? 0, consentState[p.id], marPending[p.id] ?? 0, resultState[p.id])];
+          const expiry = rxExpiries(p, entries, today).filter(r => !(expiryDone[p.id] ?? []).some(s => s.id === `${expiryKey(r)}:done`));
+          const visibleFlags = [...flags.filter(f => !f.label.startsWith("処方切れ")), ...expiryFlags(expiry)];
           const leaving = entries.some((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院" && e.order.leave.from.day >= 0 && e.order.leave.from.day <= 1);
-          return [[p.id, { entries, flags, upcoming: upcomingToday(entries, nowAbs), leaving, doctors: doctorsOf?.(p.id, entries) }]];
+          return [[p.id, { entries, flags: visibleFlags, upcoming: upcomingToday(entries, nowAbs), leaving, doctors: doctorsOf?.(p.id, entries) }]];
         }),
       ),
-    [all, changes, extraFlags, nowAbs, waiting, consentState, marPending, resultState, doctorsOf],
+    [all, changes, extraFlags, expiryDone, today, nowAbs, waiting, consentState, marPending, resultState, doctorsOf],
   );
   const facts: FilterFacts[] = useMemo(
     () =>

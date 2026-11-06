@@ -28,6 +28,7 @@ import { sortRows, takeRows, type TakeHold, type TakeRow } from "@/lib/order-tak
 import { SHIFTS, buildWorksheet, orderChanges, shiftWindow, timeLabel, type OtherChange, type Shift, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 
 interface Props extends RemeasureProps {
+  expiryNotice?: import("react").ReactNode;
   standingMeasurements?: Record<string, StandingMeasurementSource>;
   people: WorkPatient[];
   today: CalendarDate;
@@ -81,7 +82,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ standingMeasurements, remeasureVitals, onMeasure, people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], standingFreePrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
+export function Worksheet({ expiryNotice, standingMeasurements, remeasureVitals, onMeasure, people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], standingFreePrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -116,6 +117,7 @@ export function Worksheet({ standingMeasurements, remeasureVitals, onMeasure, pe
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2 text-sm">
         <h1 className="text-base font-bold">ワークシート</h1>
+        {expiryNotice}
         <Segmented
           label="日付"
           value={day}

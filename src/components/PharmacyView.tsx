@@ -41,6 +41,7 @@ import { STAFF } from "@/lib/roles";
 export type ShidoRecord = ShidoEntry;
 
 export interface PharmacyProps {
+  expiryNotice?: import("react").ReactNode;
   onClose?: () => void;
   initialTab?: Tab;
   patientId?: string;
@@ -106,6 +107,7 @@ export function PharmacyView(props: PharmacyProps) {
     <div role={p.onClose ? "dialog" : undefined} aria-label={p.onClose ? "患者の薬剤業務" : undefined} data-help-section={`department:pharmacy:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="text-base font-bold">薬剤部（病棟）</h1>
+        {(tab === "audit" || tab === "oral") && p.expiryNotice}
         {p.onClose && <button type="button" onClick={p.onClose} className="rounded border border-rule px-3 py-1 text-sm">カルテに戻る</button>}
         <div role="tablist" className="flex flex-wrap rounded-md border border-rule p-0.5 text-sm">
           {TABS.map(({ key, label, icon: Icon }) => (

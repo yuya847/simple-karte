@@ -28,7 +28,7 @@ const screens: HelpSection[] = [
 ];
 // Detailed sections are shown once; screen entries already contain their own component help.
 const attached = new Set(screens.flatMap((s) => helpRoutes[s.id] ?? []));
-const uniqueSections: HelpSection[] = [...departmentHelp, ...screens, ...content.filter((s) => !attached.has(s.id)),
+const uniqueSections: HelpSection[] = [{ id: "rx-expiry", title: "処方切れ", bullets: ["内服は投与日数、注射は指定期間内の最後の投与日を数えます。今日・明日・明後日と、次の定期処方日までの終了を表示します。", "定期処方の曜日は架空の病院の取り決めです。中止・退院時・頓用・1回のみ・退院予定日より後の終了は除きます。", "延長は同じ処方の延長下書きに入り、医師が保存して確定します。終了にする操作は処方を変更せず知らせを閉じます。", "薬剤師・看護師はカルテから共有付箋で医師へ伝えます。主治医・担当チームの医師と指導医のやることに表示します。"] },...departmentHelp, ...screens, ...content.filter((s) => !attached.has(s.id)),
   { id: "keyboard", title: "キーボード", bullets: [...keyboard] }];
 const ownerOf = new Map<string, string>();
 export const helpSections: HelpSection[] = uniqueSections.map((s) => {

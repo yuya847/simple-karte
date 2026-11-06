@@ -1,3 +1,4 @@
+import { addRxExpiryCases } from "./rx-expiry";
 import { addScenarioAnesthesia } from "./anesthesia";
 import { replacementBoundaries } from "../order-revisions";
 import { nursingState } from "./nursing";
@@ -129,6 +130,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     }
     if (stage === "救急") patient.history = patient.history.map((e) => e.kind === "order" && e.order.type === "lab" && e.order.collect?.day === patient.admittedOn ? { ...e, order: { ...e.order, collect: { ...e.order.collect, time: scenarioTime(490 + Math.floor(i / 10) * 13) } } } : e);
     addPharmacyOrders(patient, i, stage);
+    addRxExpiryCases(patient, i, stage);
     replacementBoundaries(patient.history.filter((e): e is import("../types").OrderEntry => e.kind === "order"));
     patient.history.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
 

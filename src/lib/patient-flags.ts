@@ -1,3 +1,4 @@
+import { expiryFlags, rxExpiries } from "./rx-expiry";
 // Marks on the patient list, worked out by code from the record. Facts only: no "要注意" judgement.
 
 import { procInterval } from "./proc-timing";
@@ -35,7 +36,7 @@ export function admissionOrderFlags(missing: string[]): Flag[] {
 }
 
 export function flagsFor(p: Patient, entries: OrderEntry[], nowAbs: number, waitingTake = 0, consent?: { admission: boolean; pending: string[] }, marPending = 0, results?: { unseen: number; panic: number }, admissionMissing: string[] = []): Flag[] {
-  const out: Flag[] = admissionOrderFlags(admissionMissing);
+  const out: Flag[] = [...admissionOrderFlags(admissionMissing), ...expiryFlags(rxExpiries(p, entries))];
   if (results?.panic) out.push({ label: `パニック値 ${results.panic}`, tone: "shu", title: "パニック値の結果を、医師がまだ確認していません" });
   if (results?.unseen) out.push({ label: `未確認の結果 ${results.unseen}`, tone: "ai", title: "今日の検査・画像・培養の結果を、医師がまだ確認していません" });
   const unsigned = verbalUnsigned(entries);
