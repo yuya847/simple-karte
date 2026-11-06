@@ -9,8 +9,8 @@ import type { Patient } from "@/lib/types";
 import { CatChip } from "./panels/StandingLines";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
-const HEAD_W = 250;
-const COL_W = 84;
+const HEAD_W = 150;
+const COL_W = 44;
 
 /**
  * 指示簿カレンダー: one row per line of the 指示簿 (grouped by category), one column per day from admission to
@@ -161,7 +161,7 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
             <th scope="row" className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1 text-left align-top font-normal">
               {onToggle && !l.stop && !l.changed && !l.fromFields && <input type="checkbox" aria-label={`${l.text}を選択`} checked={selected.includes(l.id)} onChange={() => onToggle([l.id])} />}
               <button type="button" onClick={() => onChoose(l.id)} aria-expanded={chosen} className={`block w-full truncate text-left hover:text-ai ${l.stop && l.stop.kind !== "終了" ? "text-ink-faint line-through" : ""}`} title={l.text}>
-                {l.text}
+                {l.text.split("\n")[0]}
               </button>
               <div className="text-[10px] text-ink-faint">
                 {l.by}
@@ -180,7 +180,7 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
                       aria-label={`${l.text}　${c.label || (c.first ? "開始" : c.continues ? "続く" : "")}`}
                       className={`relative my-1.5 block h-5 w-full truncate px-1 text-left text-[10px] leading-5 ${tone} ${c.first ? "rounded-l" : ""} ${c.last ? "rounded-r" : ""}`}
                     >
-                      {c.first || d === days[0] ? `${l.text}　${c.label}` : c.label}
+                      {c.first || d === days[0] ? `${l.text.split("\n")[0]}　${c.label}` : c.label}
                       {mark === "arrow" && <span className="absolute right-0 top-0 bg-ai-soft px-1 text-xl font-bold leading-5" aria-label="右へ続く">→</span>}{mark === "end" && !l.stop && <span className="absolute right-0 top-0 bg-ai-soft text-[10px]">〜{formatShort(addDays(today, d))}</span>}
                     </button>
                   )}
