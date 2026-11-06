@@ -142,7 +142,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
                       className={`block min-h-10 w-full enabled:hover:bg-ai-soft enabled:hover:text-ai px-1.5 py-1 text-left ${tone} ${c.served ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${d === 0 ? "outline outline-1 outline-ai/30" : ""}`}
                     >
                       {offset === 0 && c.changed && <span className="mb-0.5 block text-[9px] font-bold text-ai">ここから変更</span>}
-                      {offset === 0 ? (c.held.length ? <b>{holdTitle(c.holds)}</b> : c.o?.kind ?? "未指示") : <span aria-hidden="true">─</span>}
+                      {offset === 0 ? (c.held.length ? <b>{holdTitle(c.holds)}</b> : c.o?.kind ?? "未指示") : null}
                     </button>)}
                     </div>
                   </td>
