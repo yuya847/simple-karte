@@ -27,6 +27,7 @@ const KIND_TONE: Record<IjiKind, string> = {
  */
 export function IjiBoard({
   patients,
+  dischargePlanOf,
   emergency,
   outpatient,
   charts = {},
@@ -38,6 +39,8 @@ export function IjiBoard({
   onOpen,
 }: {
   patients: Patient[];
+  /** The 退院 planned by a valid 退院 order (day from today and time), for the 会計 to prepare. */
+  dischargePlanOf?: (patientId: string) => { day: number; time: string } | null;
   emergency?: EmergencyDeskProps;
   outpatient?: OutpatientDeskProps;
   charts?: Record<string, { drafts: unknown[] }>;
@@ -167,7 +170,7 @@ export function IjiBoard({
                 </td>
                 <td className="nums px-2 py-1.5">
                   {!r.discharge ? (
-                    <span className="text-ink-faint">入院中</span>
+                    (() => { const plan = dischargePlanOf?.(p.id); return plan ? <span className="font-bold text-yamabuki">退院予定 {day(plan.day)} {plan.time}</span> : <span className="text-ink-faint">入院中</span>; })()
                   ) : r.settled ? (
                     <span className="text-wakatake">
                       退院 {day(r.discharge.day)}・会計済み（{r.settled.at.time} {displayText(r.settled.by)}）

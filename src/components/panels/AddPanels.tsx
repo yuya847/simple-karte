@@ -1673,7 +1673,6 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
   );
   return (
     <div onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && (!(e.target instanceof HTMLButtonElement) || missing.length === 0)) { e.preventDefault(); submit(); } }} className="max-w-[640px] space-y-2 text-[12px]">
-      <p className="hint">退院は10:00、外泊・外出は9:00を初期値にします。変更できます。日・行き先を入力後、Enterで下書きにします。</p>
       {kinds.length > 1 && row("種類", <TabChoice label="退院・外泊・外出" options={kinds.map((x) => ({ value: x, label: x }))} value={kind} onChange={(v) => { setKind(v); setTime(v === "退院" ? "10:00" : "09:00"); }} />)}
       {row(
         kind === "退院" ? "退院" : "出る",

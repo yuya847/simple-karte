@@ -31,7 +31,7 @@ export function TimeInput({ value, onChange, options = [], includeDefaultOptions
   const choices = [...new Set([...options, ...(includeDefaultOptions ? HALF_HOUR_TIMES : []), ...(allow24 ? ["24:00"] : [])])].filter((t) => normalizeTime(t, { allow24 }) !== null);
   return <span className="inline-flex flex-col align-middle">
     <input {...props} type="text" inputMode="numeric" size={6} list={`${id}-times`} value={draft}
-      className={`${className} ${error ? "border-shu outline outline-1 outline-shu" : ""}`}
+      className={`min-w-[5.5rem] ${className} ${error ? "border-shu outline outline-1 outline-shu" : ""}`}
       aria-invalid={error || props["aria-invalid"]} aria-describedby={[props["aria-describedby"], error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined}
       onChange={(e) => { setDraft(e.target.value); if (!(e.nativeEvent as InputEvent).isComposing) publish(e.target.value); }}
       onCompositionEnd={(e) => { publish(e.currentTarget.value); onCompositionEnd?.(e); }}
