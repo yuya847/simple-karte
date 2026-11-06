@@ -67,12 +67,12 @@ describe("検体の識別と旧workspace", () => {
 
 it("100人の生理検査は主病名に合う検査で、受付・実施・報告の各段階がある", () => {
   const rows = physioRows(SCENARIOS.patients.map((p) => ({ patient: p, room: p.room, entries: p.history.filter((e) => e.kind === "order") })), SCENARIOS.physioDesk);
-  expect(rows).toHaveLength(12);
-  for (const status of ["予約", "実施済み", "報告済み"]) expect(rows.filter((r) => r.status === status)).toHaveLength(4);
+  expect(rows.length).toBeGreaterThan(100);
+  for (const status of ["予約", "実施済み", "下書き（技師）", "報告済み"]) expect(rows.filter((r) => r.status === status).length).toBeGreaterThan(3);
   for (const r of rows) {
     const p = SCENARIOS.patients.find((p) => p.id === r.patientId)!;
-    if (r.test === "PHY-SPIRO") expect(p.admissionDiagnosis).toMatch(/喘息|閉塞性肺疾患/);
-    if (/腎盂腎炎/.test(p.admissionDiagnosis)) expect(r.test).toBe("PHY-ABDUS");
+    if (r.test === "PHY-SPIRO") expect(r.purpose).toMatch(/喘息|閉塞性肺疾患|間質性肺炎|術前/);
+    if (/腎盂腎炎/.test(p.admissionDiagnosis)) expect(["PHY-ABDUS", "PHY-ECG"]).toContain(r.test);
   }
 });
 

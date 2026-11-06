@@ -149,6 +149,7 @@ export function areasFor(role: Role): Area[] {
     if (a.key === "radiology" && role === "医師") return true;
     // リハビリテーション部: the therapists' work; doctors (実施計画書・経過) and nurses (予定) look at it too.
     if (a.key === "rehab" && (role === "医師" || role === "看護師")) return true;
+    if (a.key === "physio" && role === "医師") return true;
     const need = NEEDS[a.key];
     return !!need && mine.includes(need);
   });

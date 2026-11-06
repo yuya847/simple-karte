@@ -100,6 +100,7 @@ export type Action =
   | "path.process"
   | "path.report"
   | "physio.exam"
+  | "physio.interpret"
   | "ris.exam"
   | "ris.report"
   | "ris.sign"
@@ -179,6 +180,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   "path.process": { label: "病理の受付と標本作製の記録", who: ["臨床検査技師"] },
   "path.report": { label: "病理診断の報告書（病理医）", who: ["医師"] },
   "physio.exam": { label: "生理検査の受付・実施・レポート", who: ["臨床検査技師"] },
+  "physio.interpret": { label: "生理検査の判読の確定", who: ["医師"] },
   // 放射線部・リハビリテーション部: who does what is the fictional hospital's rule (架空の病院の取り決め), except
   // the 照射録's signature, which is the ordering doctor's (診療放射線技師法 第28条), and the 実施計画書, which the
   // doctor makes and the doctor or the nurse/therapist the doctor asks explains (留意事項通知 第7部 通則4).

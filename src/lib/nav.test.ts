@@ -24,9 +24,9 @@ describe("① places by role", () => {
     expect(areasFor("看護師").map((a) => a.key)).not.toContain("path");
     expect(homeArea("臨床検査技師")).toBe("lab");
   });
-  it("生理検査室 is the laboratory's", () => {
+  it("生理検査室は技師の所見作成と医師の判読で開く", () => {
     expect(areasFor("臨床検査技師").map((a) => a.key)).toContain("physio");
-    expect(areasFor("医師").map((a) => a.key)).not.toContain("physio");
+    expect(areasFor("医師").map((a) => a.key)).toContain("physio");
   });
   it("放射線部 is the technologists' and the doctors' (読影・照射録の署名); the technologist starts there", () => {
     expect(areasFor("診療放射線技師").map((a) => a.key)).toContain("radiology");

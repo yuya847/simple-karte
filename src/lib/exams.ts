@@ -240,7 +240,7 @@ export const PHYSIO: PhysioMaster[] = [
   { code: "PHY-THYROID", name: "甲状腺エコー", codes: ["160165010"], bedside: false, aliases: ["甲状腺エコー", "甲状腺超音波"] },
   { code: "PHY-BREAST", name: "乳腺エコー", codes: ["160165010"], bedside: false, aliases: ["乳腺エコー", "乳房エコー", "乳腺超音波"] },
   { code: "PHY-SOFTUS", name: "軟部エコー（皮下・筋・関節）", codes: ["160165010"], bedside: true, aliases: ["軟部エコー", "表在エコー", "皮下エコー", "関節エコー"] },
-  { code: "PHY-SPIRO", name: "呼吸機能（肺気量分画・フローボリューム）", codes: ["160062610", "160062710"], bedside: false, aliases: ["呼吸機能", "スパイロ", "肺機能", "PFT"] },
+  { code: "PHY-SPIRO", name: "呼吸機能（肺気量分画・フローボリューム）", codes: ["160062610", "160062710"], bedside: false, aliases: ["呼吸機能", "スパイロ", "スパイロメトリー", "フローボリューム", "肺機能", "PFT"] },
   { code: "PHY-ABI", name: "ABI（血管伸展性検査）", codes: ["160071750"], bedside: false, aliases: ["ABI", "PWV", "血管伸展性"] },
   { code: "PHY-HOLTER", name: "ホルター心電図（24時間）", codes: ["160069610"], bedside: true, aliases: ["ホルター", "24時間心電図"] },
   { code: "PHY-EEG", name: "脳波", codes: ["160075310"], bedside: false, aliases: ["脳波", "EEG"] },

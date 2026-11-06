@@ -823,7 +823,7 @@ export const screenHelp = [
     "title": "生理検査室",
     "bullets": [
       "QTc は Bazett（QT/√RR）と Fridericia（QT/∛RR）を併記。RR=60/心拍数（秒）。ESC: https://www.escardio.org/communities/councils/genomics/scientific-documents-and-publications/cardiogenomics-insights/volume-9/how-to-measure-the-qt-interval",
-      "FS=(LVDd−LVDs)/LVDd×100。Teichholz は径Dをcmに直し、V=7D³/(2.4+D)、LVEF=(拡張末期容積−収縮末期容積)/拡張末期容積×100。DICOM: https://dicom.nema.org/medical/dicom/final/cp756_ft2.pdf。計算値は手で訂正でき、空欄に戻すと再計算します。",
+      "FS=(LVDd−LVDs)/LVDd×100。Teichholz は径Dをcmに直し、V=7D³/(2.4+D)、LVEF=(拡張末期容積−収縮末期容積)/拡張末期容積×100。DICOM: https://dicom.nema.org/medical/dicom/final/cp756_ft2.pdf。計算は入力値の変更に合わせて更新します。",
 
       "臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）",
       "オーダは医師がカルテの「生理・内視鏡」から出し、レポートは医師がカルテの右端「参照 › 病理・生理」で読みます",
@@ -831,7 +831,7 @@ export const screenHelp = [
       "来室したら（ベッドサイドは向かうとき）「受付」、終わったら「実施した」",
       "できなかったときは理由を書いて残します",
       "内視鏡は内視鏡室で行うので、ここには出ません",
-      "実施した検査の主な数値と、所見・まとめを入れて確定します",
+      "計測・所見の札から下書きを作り、技師が編集して保存します。医師は生理検査室で見直して判読を確定します",
       "1秒率（FEV1/FVC）と ABI はコードが式つきで計算します",
       "打ち間違いと思われる値（入力できる範囲の外）は止まります",
       "確定すると、オーダした医師のカルテの「未確認の結果」に出ます",

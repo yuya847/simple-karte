@@ -1,31 +1,83 @@
 import type { Patient } from "../types";
 import type { PhysioDesk } from "../physio-desk";
 
-/** Orders and department work are generated together so every result has an owning order. */
+import { echoCalculated, physioCalculated, physioDraft, spiroCalculated, spiroPredicted, type PhysioSelections } from "../physio-calculations";
+
+/** Authored secondary histories fill the physiology cases without changing admission/billing diagnoses. */
+const BACKGROUNDS = ["気管支喘息の経過観察", "間質性肺炎の経過観察", "陳旧性心筋梗塞の経過観察", "大動脈弁狭窄症の経過観察", "慢性閉塞性肺疾患の経過観察", "術前評価", "術前評価", "術前評価"];
+
+/** Orders, findings and signed reports for the existing 100-patient cohort, including prior studies. */
 export function addScenarioPhysiology(patients: Patient[]): PhysioDesk {
   const desk: PhysioDesk = {};
   const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-  patients.filter((p) => p.age >= 18 && !p.dischargedAt && p.admittedOn < 0).slice(0, 12).forEach((p, i) => {
-    const indication = physiologyIndication(p.admissionDiagnosis);
-    const { test, purpose } = indication;
-    const scheduled = 540 + i * 15;
-    const orderId = `${p.id}-physio`;
-    p.history.push({ kind: "order", id: orderId, day: -1, time: "15:00", author: p.attending, status: "有効", order: { type: "physio", test, purpose, when: { day: 0, time: hhmm(scheduled), priority: "予約" }, place: "検査室", transport: "車椅子" } });
-    const phase = Math.floor(i / 4);
-    if (phase === 0) return;
-    desk[orderId] = { orderId, patientId: p.id, test, arrived: { day: 0, time: hhmm(scheduled - 10), by: "検査技師 中村" }, done: { day: 0, time: hhmm(scheduled), by: "検査技師 中村" } };
-    if (phase === 2) {
-      const values = test === "PHY-ECG" ? { HR: 74, PR: 160, QRS: 90, QT: 380, QTc: 422, AXIS: 45 } : test === "PHY-UCG" ? { LVDd: 47, LVDs: 30, IVSd: 9, LVPWd: 9, LAD: 34, LVEF: 64, Ee: 8, TRPG: 22, IVC: 14 } : test === "PHY-SPIRO" ? { VC: 3.1, pVC: 94, FVC: 3, FEV1: 2.4, pFEV1: 91 } : {};
-      desk[orderId].report = { day: 0, time: hhmm(scheduled + 30), by: "検査技師 中村", values: values as Record<string, number>, findings: test === "PHY-ABDUS" ? "肝実質の輝度は均一。胆嚢結石・水腎症を認めない。" : test === "PHY-ECG" ? "洞調律。明らかなST変化を認めない。" : test === "PHY-UCG" ? "左室壁運動に明らかな局所異常を認めない。" : "再現性のある呼気曲線を取得。", conclusion: "検査を実施し所見を報告" };
-    }
+  patients.forEach((p, i) => {
+    const isAdult = p.age >= 18;
+    const background = isAdult && !/心不全|喘息|閉塞性肺疾患|間質性肺炎|術前|腎盂腎炎|尿路感染/.test(p.admissionDiagnosis) ? BACKGROUNDS[i % BACKGROUNDS.length] : "";
+    // Existing diagnosis stays the primary indication; secondary history is explicitly authored in the chart.
+    if (background) p.history.push({ kind: "note", id: `${p.id}-physiology-history`, day: p.dischargedAt?.day ?? Math.min(-1, p.admittedOn), time: "08:00", author: p.attending, role: "医師", text: `生理検査依頼時の病歴：${background}。` });
+    const context = background || p.admissionDiagnosis;
+    const indication = physiologyIndication(context);
+    const tests = isAdult ? [...new Set([indication.test, "PHY-ECG", ...(/術前/.test(context) ? ["PHY-UCG", "PHY-SPIRO"] : [])])] : ["PHY-ECG"];
+    const day = p.dischargedAt?.day ?? 0;
+    tests.forEach((test, j) => {
+      const scheduled = 540 + ((i + j) % 12) * 15;
+      const orderId = `${p.id}-physio-${test}`;
+      const purpose = test === indication.test ? indication.purpose : `${context}の${test === "PHY-ECG" ? "心拍・心調律" : test === "PHY-UCG" ? "心機能" : "呼吸機能"}の評価`;
+      p.history.push({ kind: "order", id: orderId, day: day - 1, time: "15:00", author: p.attending, status: p.dischargedAt ? "終了" : "有効", order: { type: "physio", test, purpose, when: { day, time: hhmm(scheduled), priority: "予約" }, place: "検査室", transport: "車椅子" } });
+      const phase = p.dischargedAt ? 3 : (Math.floor(i / 8) + i + j) % 4;
+      const { values, selections } = scenarioPhysioValues(test, context, p);
+      const findings = physioDraft(test, values, selections, p) || "肝実質の輝度は均一。水腎症を認めない。";
+      const report = { day, time: hhmm(scheduled + 30), by: "検査技師 中村", values, selections, facts: { age: p.age, sex: p.sex, heightCm: p.heightCm, weightKg: p.weightKg }, findings, conclusion: findings };
+      if (phase > 0) {
+        desk[orderId] = { orderId, patientId: p.id, test, arrived: { day, time: hhmm(scheduled - 10), by: "検査技師 中村" }, done: { day, time: hhmm(scheduled), by: "検査技師 中村" }, ...(phase === 2 ? { draft: report } : phase === 3 ? { report: { ...report, by: p.attending, technologist: { day, time: report.time, by: report.by } } } : {}) };
+      }
+      if (test === "PHY-UCG") {
+        const priorId = `${orderId}-prior`, priorDay = day - 30;
+        const priorRaw = { ...values, LVDs: values.LVDs + (/心不全/.test(context) ? 3 : 0), E: values.E + 5 };
+        const priorValues = { ...priorRaw, ...echoCalculated(priorRaw, p) };
+        p.history.push({ kind: "order", id: priorId, day: priorDay, time: "08:00", author: p.attending, status: "実施済", order: { type: "physio", test, purpose: `${context}の前回評価`, when: { day: priorDay, time: "09:00", priority: "予約" }, place: "検査室" } });
+        desk[priorId] = { orderId: priorId, patientId: p.id, test, done: { day: priorDay, time: "09:00", by: "検査技師 中村" }, report: { ...report, day: priorDay, time: "10:00", by: p.attending, values: priorValues, findings: physioDraft(test, priorValues, selections, p), conclusion: "前回の心機能評価", technologist: { day: priorDay, time: "09:30", by: "検査技師 中村" } } };
+      }
+    });
   });
   return desk;
 }
 
+/** Clinical fixture values are scaled to the patient's reference volumes, never generated by AI at runtime. */
+export function scenarioPhysioValues(test: string, diagnosis: string, p: Patient): { values: Record<string, number>; selections: PhysioSelections } {
+  let values: Record<string, number> = {};
+  const selections: PhysioSelections = {};
+  const round = (v: number) => Math.round(v * 100) / 100;
+  if (test === "PHY-SPIRO") {
+    const pred = spiroPredicted(p);
+    const vc = pred?.VC?.predicted ?? 3, fvc = pred?.FVC?.predicted ?? 3;
+    const copd = /閉塞性肺疾患|COPD/.test(diagnosis), asthma = /喘息/.test(diagnosis), ild = /間質/.test(diagnosis);
+    values = { VC: round(vc * (ild ? .62 : .94)), FVC: round(fvc * (ild ? .60 : .92)), PEF: copd ? 3.2 : asthma ? 3.8 : 6, V50: copd ? 1.1 : asthma ? 1.5 : 3.5, V25: copd ? .3 : asthma ? .5 : 1.6, attempts: 3 };
+    values.FEV1 = round(values.FVC * (copd ? .48 : asthma ? .61 : .86));
+    values.FEV1Post = round(values.FEV1 + (asthma ? .38 : copd ? .08 : .04));
+    values.FVCPost = round(values.FVC + (asthma ? .15 : .02)); values.VCPost = values.VC;
+    Object.assign(values, { PEFPost: values.PEF + (asthma ? 1.5 : .1), V50Post: values.V50 + (asthma ? 1 : .1), V25Post: values.V25 + (asthma ? .5 : .05), attemptsPost: 3, FVCSecond: round(values.FVC - .06), FEV1Second: round(values.FEV1 - .04), FVCSecondPost: round(values.FVCPost - .05), FEV1SecondPost: round(values.FEV1Post - .03) });
+    Object.assign(values, spiroCalculated(values, p));
+    selections.qualityChecked = true; selections.qualityPostChecked = true;
+  } else if (test === "PHY-UCG") {
+    const hf = /心不全/.test(diagnosis), mi = /心筋梗塞/.test(diagnosis), valve = /弁狭窄|弁膜/.test(diagnosis);
+    values = { LVDd: hf ? 62 : mi ? 57 : 48, LVDs: hf ? 50 : mi ? 43 : 31, IVSd: valve ? 13 : 9, LVPWd: valve ? 12 : 9, LAD: hf ? 47 : 34, AoD: 30, EDV: hf ? 180 : mi ? 150 : 100, ESV: hf ? 120 : mi ? 85 : 36, E: hf ? 105 : 65, A: 70, DcT: hf ? 140 : 200, eSeptal: hf ? 4 : 8, eLateral: hf ? 5 : 11, TAPSE: hf ? 15 : 22, TRV: hf ? 3.2 : 2.2, IVC: hf ? 24 : 15, IVCCollapse: hf ? 30 : 65, ...(valve ? { ASV: 4.2, ASMean: 44, AVA: .8 } : {}) };
+    Object.assign(values, echoCalculated(values, p));
+    selections.motion = Object.fromEntries(Array.from({ length: 17 }, (_, i) => [i + 1, mi && [1, 7, 13, 17].includes(i + 1) ? "無収縮" : hf ? "低収縮" : "正常"]));
+    selections.valves = Object.fromEntries(["大動脈弁", "僧帽弁", "三尖弁", "肺動脈弁"].map((v) => [v, { stenosis: valve && v === "大動脈弁" ? "高度" : "なし", regurgitation: hf && v === "僧帽弁" ? "中等度" : "なし" }]));
+  } else if (test === "PHY-ECG") {
+    values = { HR: p.age < 1 ? 140 : p.age < 18 ? 95 : /心不全/.test(diagnosis) ? 96 : 74, PR: 160, QRS: /心不全/.test(diagnosis) ? 128 : 90, QT: 380, AXIS: /心不全/.test(diagnosis) ? -35 : 45 };
+    Object.assign(values, physioCalculated(test, values));
+    selections.ecg = /心房細動/.test(diagnosis) ? ["心房細動"] : /心筋梗塞/.test(diagnosis) ? ["洞調律", "異常Q波"] : /心不全/.test(diagnosis) ? ["洞調律", "左脚ブロック"] : ["洞調律"];
+    if (selections.ecg.includes("心房細動")) delete values.PR;
+  }
+  return { values, selections };
+}
+
 /** Authored fixture indications, not recommendations for newly entered diagnoses. */
 export function physiologyIndication(diagnosis: string) {
-  if (/心不全|心房細動/.test(diagnosis)) return { test: "PHY-UCG", purpose: `${diagnosis}の心機能・壁運動の評価` };
-  if (/喘息|閉塞性肺疾患/.test(diagnosis)) return { test: "PHY-SPIRO", purpose: `${diagnosis}の気流制限の評価` };
+  if (/心不全|心房細動|心筋梗塞|弁狭窄|弁膜/.test(diagnosis)) return { test: "PHY-UCG", purpose: `${diagnosis}の心機能・壁運動の評価` };
+  if (/喘息|閉塞性肺疾患|間質性肺炎|術前/.test(diagnosis)) return { test: "PHY-SPIRO", purpose: `${diagnosis}の気流制限の評価` };
   if (/腎盂腎炎|尿路感染/.test(diagnosis)) return { test: "PHY-ABDUS", purpose: `${diagnosis}に伴う尿路閉塞・水腎症の確認` };
   if (/切迫早産/.test(diagnosis)) return { test: "PHY-ECG", purpose: `${diagnosis}の治療中の心拍・心調律の確認` };
   if (/腸炎|イレウス|膵炎|肝硬変/.test(diagnosis)) return { test: "PHY-ABDUS", purpose: `${diagnosis}の腹部所見の確認` };

@@ -1,4 +1,6 @@
 "use client";
+import { PhysioMeasurements } from "./PhysioMeasurements";
+import { echoCalculated, ECHO_FORMULAS, physioDraft, spiroCalculated, type PhysioSelections } from "@/lib/physio-calculations";
 import { physioWithCalculated } from "@/lib/physio-calculations";
 import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
@@ -8,7 +10,7 @@ import { ClipboardList, FilePen, HeartPulse, HelpCircle, ListChecks } from "luci
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { openHelp } from "@/lib/help/events";
-import { derivedValues, fieldsOf, physioResultItems, physioRows, reportProblems, valuesLine, versionOf, type PhysioDesk, type PhysioRow, type PhysioStatus, type PhysioWork } from "@/lib/physio-desk";
+import { derivedValues, previousPhysio, savePhysioReport, physioResultItems, physioRows, reportProblems, valuesLine, versionOf, type PhysioDesk, type PhysioRow, type PhysioStatus, type PhysioWork } from "@/lib/physio-desk";
 import type { Ack } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -31,7 +33,7 @@ const TABS: { key: Tab; label: string; icon: typeof HeartPulse }[] = [
 
 
 
-const STATUS_STYLE: Record<PhysioStatus, string> = { 予約: "text-ink-soft", 受付済み: "font-bold text-ai", 実施済み: "font-bold text-yamabuki", 報告済み: "text-wakatake", 実施できなかった: "font-bold text-shu" };
+const STATUS_STYLE: Record<PhysioStatus, string> = { 予約: "text-ink-soft", 受付済み: "font-bold text-ai", 実施済み: "font-bold text-yamabuki", "下書き（技師）": "text-yamabuki", 報告済み: "text-wakatake", 実施できなかった: "font-bold text-shu" };
 const card = "rounded-lg border border-rule bg-sheet";
 const field = "rounded border border-rule bg-paper px-1.5 py-0.5 outline-none focus:border-ai";
 const whenText = (a: number) => {
@@ -45,7 +47,7 @@ const whenText = (a: number) => {
 export function PhysioView(p: Props) {
   const [tab, setTab] = useState<Tab>("work");
   const rows = physioRows(p.people, p.desk);
-  const badge: Partial<Record<Tab, number>> = { work: rows.filter((r) => r.status === "予約" || r.status === "受付済み").length, report: rows.filter((r) => r.status === "実施済み").length };
+  const badge: Partial<Record<Tab, number>> = { work: rows.filter((r) => r.status === "予約" || r.status === "受付済み").length, report: rows.filter((r) => (r.status === "実施済み" || r.status === "下書き（技師）")).length };
   return (
     <div data-help-section={`department:physio:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
@@ -77,7 +79,7 @@ export function PhysioView(p: Props) {
 
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
         <div className="mx-auto max-w-[1100px] space-y-3">
-          <DenyNote action="physio.exam" />
+          {tab === "work" && <DenyNote action="physio.exam" />}
           {tab === "work" && <Work {...p} rows={rows} />}
           {tab === "report" && <Report {...p} rows={rows} />}
           {tab === "list" && <List {...p} rows={rows} />}
@@ -124,7 +126,7 @@ function Work({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
         <article key={r.orderId} className={`${card} p-3 text-[12px]`}>
           <Head r={r} />
       <ExecutionHistory records={r.work?.cancellations} />
-          {(r.work?.arrived || r.work?.done) && <ExecutionUndo action="physio.exam" patient={r.name} detail={r.testName} onUndo={(by, at, reason) => put(onDesk, r, (w) => cancelExecution(w, ["arrived", "done", "report"], by, at, reason))} />}
+          {!r.work?.report && (r.work?.arrived || r.work?.done) && <ExecutionUndo action="physio.exam" patient={r.name} detail={r.testName} onUndo={(by, at, reason) => put(onDesk, r, (w) => cancelExecution(w, ["arrived", "done", "draft", "report"], by, at, reason))} />}
           {r.comment && <p className="text-ink-soft">コメント：{r.comment}</p>}
           <p className="mt-1 flex flex-wrap items-center gap-2">
             {r.status === "予約" ? (
@@ -176,10 +178,10 @@ function Work({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
   );
 }
 
-function Report({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
-  const ready = rows.filter((r) => r.status === "実施済み" || r.status === "報告済み");
+function Report({ rows, onDesk, nowTime, people, desk }: Props & { rows: PhysioRow[] }) {
+  const ready = rows.filter((r) => r.status === "実施済み" || r.status === "下書き（技師）" || r.status === "報告済み");
   const [pick, setPick] = useState<string | null>(null);
-  const target = ready.find((r) => r.orderId === pick) ?? ready.find((r) => r.status === "実施済み") ?? null;
+  const target = ready.find((r) => r.orderId === pick) ?? ready.find((r) => r.status === "下書き（技師）" || r.status === "実施済み") ?? ready[0] ?? null;
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-[12px]">
@@ -191,56 +193,49 @@ function Report({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
           </button>
         ))}
       </div>
-      {target && <ReportForm key={target.orderId} r={target} onDesk={onDesk} nowTime={nowTime} />}
+      {target && <ReportForm key={target.orderId} r={target} onDesk={onDesk} nowTime={nowTime} people={people} desk={desk} />}
     </section>
   );
 }
 
-function ReportForm({ r, onDesk, nowTime }: { r: PhysioRow; onDesk: Props["onDesk"]; nowTime: string }) {
+function ReportForm({ r, onDesk, nowTime, people, desk }: Pick<Props, "onDesk" | "nowTime" | "people" | "desk"> & { r: PhysioRow }) {
   const me = useMe();
-  const deny = useDeny()("physio.exam");
-  const prev = r.work?.report;
+  const deny = useDeny()(me.role === "医師" ? "physio.interpret" : "physio.exam");
+  const prev = r.work?.draft ?? r.work?.report;
+  const facts = people.find((p) => p.patient.id === r.patientId)?.patient;
+  const previous = previousPhysio(desk, r)?.report;
+  const [selections, setSelections] = useState<PhysioSelections>(prev?.selections ?? {});
   const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(prev?.values ?? {}).map(([k, v]) => [k, String(v)])));
   const [manual, setManual] = useState<Set<string>>(() => new Set(prev?.manualValues ?? Object.keys(prev?.values ?? {})));
-  const effective = physioWithCalculated(r.test, vals, manual);
+  const effective = physioWithCalculated(r.test === "PHY-UCG" ? "" : r.test, vals, r.test === "PHY-ECG" ? new Set() : manual);
   const [findings, setFindings] = useState(prev?.findings ?? "");
   const [conclusion, setConclusion] = useState(prev?.conclusion ?? "");
-  const [reason, setReason] = useState("");
-  const values = Object.fromEntries(Object.entries(effective).filter(([, v]) => v.trim() !== "").map(([k, v]) => [k, Number(v)]));
-  const problems = reportProblems(r.test, { values, findings, conclusion, reason }, !!prev);
+  const [reason, setReason] = useState(r.work?.draft?.reason ?? "");
+  const measured = Object.fromEntries(Object.entries(effective).filter(([k, v]) => v.trim() !== "" && !(r.test === "PHY-UCG" && k in ECHO_FORMULAS) && !(r.test === "PHY-SPIRO" && /^(pred|lln|pVC|pFVC|pFEV1|ratio|response)/.test(k))).map(([k, v]) => [k, Number(v)]));
+  const values = { ...measured, ...(r.test === "PHY-UCG" ? echoCalculated(measured, facts) : r.test === "PHY-SPIRO" && facts ? spiroCalculated(measured, facts) : {}) };
+  const problems = reportProblems(r.test, { values, findings, conclusion, reason }, !!r.work?.report);
   const derived = derivedValues(r.test, values);
-  const confirm = () => {
-    if (problems.length) return;
-    const rep = { day: 0, time: nowTime, values, manualValues: [...manual], findings: findings.trim(), conclusion: conclusion.trim(), by: me.name, ...(prev ? { reason: reason.trim() } : {}) };
-    put(onDesk, r, (w) => ({ ...w, report: rep, ...(w.report ? { earlier: [...(w.earlier ?? []), w.report] } : {}) }));
-    auditLog({ role: me.role, actor: me.name, action: prev ? "確定（生理検査のレポートを訂正）" : "確定（生理検査のレポート）", patient: r.name, detail: `${r.testName}　${conclusion.trim().slice(0, 60)}` });
+  const save = (finalize: boolean) => {
+    if (deny || problems.length || (finalize && me.role !== "医師")) return;
+    const rep = { day: 0, time: nowTime, values, selections, technologist: prev?.technologist, facts: facts ? { age: facts.age, sex: facts.sex, heightCm: facts.heightCm, weightKg: facts.weightKg } : undefined, manualValues: [...manual], findings: findings.trim(), conclusion: conclusion.trim(), by: me.name, ...(r.work?.report ? { reason: reason.trim() } : {}) };
+    put(onDesk, r, (w) => savePhysioReport(w, rep, me.role, finalize));
+    auditLog({ role: me.role, actor: me.name, action: finalize ? "確定（生理検査の判読）" : "保存（生理検査の技師所見）", patient: r.name, detail: `${r.testName}　${conclusion.trim().slice(0, 60)}` });
   };
   return (
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <Head r={r} />
       {prev && (
         <p className="text-ink-soft">
-          いまの版：第{versionOf(r.work!)}版（{prev.time} {displayText(prev.by)}）
+          {r.work?.report ? `確定済み：第${versionOf(r.work)}版` : "技師の所見"}（{prev.time} {displayText(prev.by)}）
         </p>
       )}
-      {fieldsOf(r.test).length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-x-3 gap-y-1">
-          {fieldsOf(r.test).map((f) => (
-            <label key={f.key} className="flex items-center justify-between gap-1">
-              <span>{f.label}</span>
-              <span className="flex items-center gap-0.5">
-                <input inputMode="decimal" value={effective[f.key] ?? ""} onChange={(e) => {
-                  const value = e.target.value;
-                  setManual((current) => { const next = new Set(current); if (value.trim()) next.add(f.key); else next.delete(f.key); return next; });
-                  setVals({ ...vals, [f.key]: value });
-                }} aria-label={f.label} className={`${field} nums w-20 text-right`} disabled={!!deny} />
-                <span className="w-10 text-ink-soft">{f.unit}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      )}
-      {derived.length > 0 && (
+      {r.work?.draft && <p className="text-yamabuki">下書き（技師）　{r.work.draft.by}　{r.work.draft.time}</p>}
+      <PhysioMeasurements test={r.test} raw={effective} values={values} onValue={(key, value) => {
+        setVals({ ...vals, [key]: value });
+        setManual((current) => { const next = new Set(current); if (value.trim()) next.add(key); else next.delete(key); return next; });
+      }} facts={facts} selections={selections} onSelections={setSelections} disabled={!!deny} previous={previous} />
+      <button type="button" disabled={!!deny} className="rounded border border-ai px-2 text-ai" onClick={() => setFindings(physioDraft(r.test, values, selections, facts))}>所見の下書きを作る</button>
+      {derived.length > 0 && r.test !== "PHY-UCG" && r.test !== "PHY-SPIRO" && (
         <p className="nums text-ai">
           {derived.map((d) => (
             <span key={d.label} className="mr-3 block">
@@ -255,10 +250,10 @@ function ReportForm({ r, onDesk, nowTime }: { r: PhysioRow; onDesk: Props["onDes
         <textarea value={findings} onChange={(e) => setFindings(e.target.value)} rows={3} className={`${field} block w-full`} disabled={!!deny} />
       </label>
       <label className="block">
-        まとめ（一言で。医師の「未確認の結果」に出る）
+        まとめ
         <input value={conclusion} onChange={(e) => setConclusion(e.target.value)} className={`${field} block w-full`} disabled={!!deny} />
       </label>
-      {prev && <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="訂正の理由" aria-label="訂正の理由" className={`${field} w-full`} disabled={!!deny} />}
+      {r.work?.report && <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="訂正の理由" aria-label="訂正の理由" className={`${field} w-full`} disabled={!!deny} />}
       {problems.length > 0 && (
         <ul className="list-disc pl-5 text-ink-soft">
           {problems.map((x) => (
@@ -266,9 +261,10 @@ function ReportForm({ r, onDesk, nowTime }: { r: PhysioRow; onDesk: Props["onDes
           ))}
         </ul>
       )}
-      <button type="button" disabled={!!deny || problems.length > 0} onClick={confirm} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
-        {prev ? "訂正を確定" : "レポートを確定"}
-      </button>
+      <div className="flex gap-2">
+        {me.role === "臨床検査技師" && <button type="button" disabled={!!deny || problems.length > 0} onClick={() => save(false)} className="rounded border border-ai px-3 py-0.5 text-ai disabled:opacity-40">技師の所見として保存</button>}
+        {me.role === "医師" && <button type="button" disabled={!!deny || problems.length > 0} onClick={() => save(true)} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">{r.work?.report ? "訂正を確定" : "医師の判読を確定"}</button>}
+      </div>
     </article>
   );
 }
@@ -298,7 +294,7 @@ function List({ rows, desk, acks }: Props & { rows: PhysioRow[] }) {
         {[...rows].sort((a, b) => a.at - b.at).map((r) => {
           const item = items.find((i) => i.key.startsWith(`phy|${r.orderId}|`));
           const ack = item ? acks[item.key] : undefined;
-          const rep = r.work?.report;
+          const rep = r.work?.draft ?? r.work?.report;
           return (
             <tr key={r.orderId} className="border-b border-rule-soft align-top">
               <td className="nums px-2 py-1">{displayText(whenText(r.at))}</td>
@@ -320,7 +316,7 @@ function List({ rows, desk, acks }: Props & { rows: PhysioRow[] }) {
                   "—"
                 )}
               </td>
-              <td className={`px-2 py-1 ${rep && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(rep ? (ack ? `${ack.at.time} ${ack.by}` : rep.day < 0 ? "前の記録" : "まだ") : "—")}</td>
+              <td className={`px-2 py-1 ${rep && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(r.work?.draft ? "判読待ち" : rep ? (ack ? `${ack.at.time} ${ack.by}` : rep.day < 0 ? "前の記録" : "まだ") : "—")}</td>
             </tr>
           );
         })}
