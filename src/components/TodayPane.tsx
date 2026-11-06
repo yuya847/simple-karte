@@ -239,16 +239,16 @@ export function TodayPane(p: Props) {
             <DenyNote action="note" />
             {!noteLocked && (
               <>
-                <span className="hint text-[11px] text-ink-faint">
-                  確定すると左の経過に残ります。確定のあとで直すと、前の版も残ります。
-                  {me.role === "看護師" && "フォーカスは「＃ 見出し」の下に D)（データ）・Act)（行為）・R)（反応）、経時記録は1行ずつ時刻から書きます。"}
-                  <br />
-                  行頭の＃（全角）は問題の番号（＃尿路感染症 → ＃1 尿路感染症）。半角 # は冠動脈などの番号にそのまま使えます。
-                  <br />
-                  1行が1つのブロックです。＃の行（プロブレム）の左に出るつまみ（⋮⋮）をドラッグすると、見出しと下の本文をまとめて青い線の場所へ動かせます（Alt+↑↓ でも）。番号は動かしたあと振り直されます。iPad では＃の行を長押しするとつまみが出ます。ほかの行は動かしません。
-                  <br />
-                  Enter で次の行（＃の下は字下げ）、行頭で Backspace で前の行につなぐ、↑↓ で行の間を移る、Tab で字下げ（Shift+Tab で戻す）、⌘B / Ctrl+B で **太字**、⌘I / Ctrl+I で *斜体*、「;読み」→ Tab で定型文、「LD」→ Tab で直近の血液検査（学会発表の書式）、「ばいたる」→ Tab で直近のバイタル。
-                </span>
+                {/* The keys, folded: the note area stays a writing area. */}
+                <details className="hint text-[11px] text-ink-faint">
+                  <summary className="cursor-pointer select-none">書き方のこつ</summary>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {me.role === "看護師" && <li>フォーカスは「＃ 見出し」の下に D)・Act)・R)、経時記録は1行ずつ時刻から。</li>}
+                    <li>行頭の＃（全角）で問題の番号。Enter で次の＃、空の＃で Enter で本文へ。＃の行は Alt+↑↓・つまみで動かせます。</li>
+                    <li>S) O) A) P) と打つと区切りが出ます。--- だけの行は仕切り。</li>
+                    <li>「LD」→ Tab で直近の血液検査、「ばいたる」→ Tab で直近のバイタル、「;読み」→ Tab で定型文。⌘B 太字・⌘I 斜体。</li>
+                  </ul>
+                </details>
                 <span className="ml-auto text-[11px] text-ink-faint">{displayText(isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します")}</span>
               </>
             )}

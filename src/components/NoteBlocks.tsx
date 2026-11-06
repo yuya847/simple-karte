@@ -296,7 +296,6 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
         if (e.target === e.currentTarget) focusLine(lines.length - 1, Infinity);
       }}
     >
-      <p className="hint text-[11px] text-ink-faint">行に --- または ――― だけを入力すると仕切りになります。仕切りの行で Backspace を押すと消せます。</p>
       {lines.map((line, i) => {
         const heading = isHeadingLine(line);
         const divider = isDividerLine(line);
