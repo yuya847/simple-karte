@@ -28,6 +28,7 @@ import { admissionState } from "./admission";
 import { assignRooms } from "./occupancy";
 
 export type Stage = "救急" | "入院" | "退院" | "外来";
+const scenarioTime = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 export const SCENARIO_SEED = 20261106;
 
 /** Shift only temporal offsets, never duration/count/age fields. Rewrite all fixture-local IDs. */
@@ -119,11 +120,12 @@ export function generateScenarios(seed = SCENARIO_SEED) {
       note(dischargeDay, "看護師", destination === "死亡退院" ? "家族へ経過を説明し、死後のケアと手続きを支援。" : `退院先：${destination}。${clinical.name}について、${clinical.plan[2]}。本人・家族に${clinical.complaint}が再び現れた場合の連絡先を伝達。`);
       if (stage === "外来" && destination !== "死亡退院") {
         note(0, "医師", `外来再診 SOAP\nS：${clinical.symptoms[2]}。退院後の服薬忘れなし。\nO：${clinical.findings[2]}。体温36.7℃、血圧122/72mmHg、脈拍76/分。\nA：${clinical.assessment[2]}。\nP：${clinical.plan[2]}。次回2週間後。`);
-        patient.labs.push({ ...patient.labs.at(-1)!, day: 0, time: "09:10" });
+        patient.labs.push({ ...patient.labs.at(-1)!, day: 0, time: scenarioTime(550 + i % 9 * 7) });
         patient.vitals.push({ day: 0, time: "09:00", bt: 36.7, sbp: 122, dbp: 72, hr: 76, spo2: 98, o2: "室内気", rr: 16, avpu: "A" });
-        patient.history.push({ kind: "order", id: `${id}-opd-lab`, day: 0, time: "09:00", author: patient.attending, status: "実施済", order: { type: "lab", codes: ["LAB-CBC", "LAB-CRP"], collect: { day: 0, time: "09:10" }, priority: "定時" } });
+        patient.history.push({ kind: "order", id: `${id}-opd-lab`, day: 0, time: "09:00", author: patient.attending, status: "実施済", order: { type: "lab", codes: ["LAB-CBC", "LAB-CRP"], collect: { day: 0, time: scenarioTime(550 + i % 9 * 7) }, priority: "定時" } });
       }
     }
+    if (stage === "救急") patient.history = patient.history.map((e) => e.kind === "order" && e.order.type === "lab" && e.order.collect?.day === patient.admittedOn ? { ...e, order: { ...e.order, collect: { ...e.order.collect, time: scenarioTime(490 + Math.floor(i / 10) * 13) } } } : e);
     addPharmacyOrders(patient, i, stage);
     patient.history.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
 

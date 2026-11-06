@@ -488,6 +488,8 @@ export const screenHelp = [
     "id": "LabCulture",
     "title": "培養検査",
     "bullets": [
+      "MRSA と βラクタム薬（この画面の ABPC・MPIPC・CEZ・CTRX・MEPM）の S／I が矛盾する場合は確定できません。CDC: https://www.cdc.gov/mrsa/php/laboratories/index.html",
+
       "順番（塗抹 → 中間報告 → 最終報告。陰性はそのまま最終報告）と、各報告に要るものはコードが確かめます",
       "所見・菌名・S／I／R は検査室が読んで判定したものを入れ、この画面は判定しません",
       "薬剤の略号は日本化学療法学会の抗菌薬略号",
@@ -820,6 +822,9 @@ export const screenHelp = [
     "id": "PhysioView",
     "title": "生理検査室",
     "bullets": [
+      "QTc は Bazett（QT/√RR）と Fridericia（QT/∛RR）を併記。RR=60/心拍数（秒）。ESC: https://www.escardio.org/communities/councils/genomics/scientific-documents-and-publications/cardiogenomics-insights/volume-9/how-to-measure-the-qt-interval",
+      "FS=(LVDd−LVDs)/LVDd×100。Teichholz は径Dをcmに直し、V=7D³/(2.4+D)、LVEF=(拡張末期容積−収縮末期容積)/拡張末期容積×100。DICOM: https://dicom.nema.org/medical/dicom/final/cp756_ft2.pdf。計算値は手で訂正でき、空欄に戻すと再計算します。",
+
       "臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）",
       "オーダは医師がカルテの「生理・内視鏡」から出し、レポートは医師がカルテの右端「参照 › 病理・生理」で読みます",
       "医師が出した生理検査（心電図・心エコー・呼吸機能・ABI・ホルター・エコー・脳波）が、至急・予約の時刻の順に並びます",
@@ -1693,6 +1698,8 @@ export const screenHelp = [
     "id": "ResultsPanel",
     "title": "検査結果",
     "bullets": [
+      "H／L は一般的な成人の基準範囲との比較。共用は JCCLS 共用基準範囲（2022）、SRL は SRL 総合検査案内。",
+
       "項目名を押すと経過のグラフ",
       "「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの"
     ]

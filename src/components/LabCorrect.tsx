@@ -1,4 +1,5 @@
 "use client";
+import { labNumber } from "@/lib/lab-number";
 
 import { displayText } from "@/lib/display-text";
 import { History, PencilLine } from "lucide-react";
@@ -9,7 +10,7 @@ import { hitLine, type PanicCall, type PanicLimit } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
 import { TabChoice } from "./TabChoice";
 
-const fmt = (n: number) => n.toLocaleString("ja-JP", { maximumFractionDigits: 3 });
+
 
 /**
  * 結果の訂正: a confirmed result is changed with a reason. The version it replaces stays (who, when,
@@ -76,7 +77,7 @@ export function LabCorrect({
                 <tr key={r.analyte.code} className={`border-b border-rule-soft ${changed.has(r.analyte.code) ? "bg-yamabuki-soft/60" : ""}`}>
                   <td className="py-0.5 pr-2 font-bold">{r.analyte.name}</td>
                   <td className="nums py-0.5 pr-2 text-ink-soft">
-                    {now === undefined ? "—" : fmt(now)}
+                    {now === undefined ? "—" : labNumber(r.analyte.code, now)}
                     {flagNow && <span className="ml-0.5 text-[10px]">{flagNow}</span>}
                   </td>
                   <td className="py-0.5 pr-2">

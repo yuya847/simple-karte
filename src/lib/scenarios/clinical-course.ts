@@ -51,6 +51,10 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
       const noise = Math.sin(i * 11 + after * 3 + key.length);
       if (key === "WBC") values[key] = Math.round((values[key] + noise * 120) / 10) * 10;
       else if (["Hb", "Plt", "Alb"].includes(key)) values[key] = round(values[key] + noise * 0.12);
+      else if (key === "Cre") values[key] = round(values[key] + noise * 0.04, 2);
+      else if (key === "BUN") values[key] = round(values[key] + noise * 1.2);
+      else if (key === "Na") values[key] = Math.round(values[key] + noise * 2);
+      else if (key === "K") values[key] = round(values[key] + noise * 0.15);
       else if (["AST", "ALT"].includes(key)) values[key] = Math.round(values[key] + noise * 2);
     }
     // Perioperative inflammation peaks after surgery, rather than vanishing on the operation day.

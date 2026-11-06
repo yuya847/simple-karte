@@ -222,6 +222,8 @@ export function checkStep(stage: CultureStage, c: CultureResult, input: StepInpu
   }
   const organism = input.organism.trim();
   if (!organism) missing.push("菌名");
+  if (positiveBlood(c) && /発育なし|^陰性(?:[（(]|$)/.test(organism)) missing.push("陽性の血液培養です。菌名を確認してください");
+  if (Object.entries(input.sir).some(([drug, result]) => mrsaConflict(organism, drug, result))) missing.push("MRSA と βラクタム薬の感受性が矛盾しています");
   if (stage === "中間報告") {
     if (organism === NO_GROWTH) missing.push("発育なしは最終報告で");
     if (missing.length) return { missing };
@@ -240,3 +242,12 @@ export function addCultureStep(desk: LabDesk, item: Pick<CultureItem, "key" | "p
   const s: CultureStep = { ...step, by, day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) };
   return { ...desk, cultures: { ...desk.cultures, [item.key]: { ...w, steps: [...w.steps, s] } } };
 }
+
+/** Candidates are ranked by the observed Gram stain; free text remains available. */
+export function organismCandidates(gram?: string) {
+  const favored = gram?.includes("ブドウ状") ? /ブドウ|MRSA/ : gram?.includes("連鎖状") ? /肺炎球菌|腸球菌/ : gram?.includes("陰性桿菌") ? /大腸菌|肺炎桿菌|緑膿菌/ : gram?.includes("真菌") ? /カンジダ/ : /$^/;
+  return [...ORGANISMS].sort((a, b) => Number(favored.test(b)) - Number(favored.test(a)));
+}
+export const positiveBlood = (c: CultureResult) => c.specimen === "血液" && (bloodCulturePanic(c).length > 0 || /陽性/.test(c.sets ?? "") || !!(c.gram && c.gram !== NO_ORGANISM_SEEN));
+// CDC: https://www.cdc.gov/mrsa/php/laboratories/index.html
+export const mrsaConflict = (organism: string, drug: string, result: Sir | null) => /MRSA|メチシリン耐性/.test(organism) && ["ABPC", "MPIPC", "CEZ", "CTRX", "MEPM"].includes(drug) && !!result && result !== "R";

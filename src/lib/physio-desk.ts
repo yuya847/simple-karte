@@ -31,14 +31,15 @@ const f = (key: string, label: string, unit: string, min: number, max: number): 
 
 /** The main values entered for each test (as the instrument or the technologist measures them). */
 export const PHYSIO_FIELDS: Record<string, PhysioField[]> = {
-  "PHY-ECG": [f("HR", "心拍数", "/分", 10, 300), f("PR", "PR 間隔", "ms", 40, 600), f("QRS", "QRS 幅", "ms", 40, 300), f("QT", "QT 間隔", "ms", 150, 800), f("QTc", "QTc", "ms", 150, 800), f("AXIS", "電気軸", "°", -180, 180)],
+  "PHY-ECG": [f("HR", "心拍数", "/分", 10, 300), f("PR", "PR 間隔", "ms", 40, 600), f("QRS", "QRS 幅", "ms", 40, 300), f("QT", "QT 間隔", "ms", 150, 800), f("QTc", "QTc（Bazett）", "ms", 150, 800), f("QTcF", "QTc（Fridericia）", "ms", 150, 800), f("AXIS", "電気軸", "°", -180, 180)],
   "PHY-UCG": [
     f("LVDd", "左室拡張末期径（LVDd）", "mm", 10, 100),
     f("LVDs", "左室収縮末期径（LVDs）", "mm", 5, 90),
     f("IVSd", "心室中隔厚（IVSd）", "mm", 2, 40),
     f("LVPWd", "左室後壁厚（LVPWd）", "mm", 2, 40),
     f("LAD", "左房径（LAD）", "mm", 10, 100),
-    f("LVEF", "左室駆出率（LVEF）", "%", 1, 95),
+    f("LVEF", "左室駆出率（LVEF・Teichholz）", "%", 1, 95),
+    f("FS", "左室内径短縮率（FS）", "%", 0, 100),
     f("Ee", "E/e′", "", 1, 50),
     f("TRPG", "三尖弁逆流の圧較差（TRPG）", "mmHg", 0, 150),
     f("IVC", "下大静脈径（IVC）", "mm", 1, 50),
@@ -74,6 +75,7 @@ export function derivedValues(test: string, v: Record<string, number>): { label:
 }
 
 export interface PhysioReport extends Moment {
+  manualValues?: string[];
   values: Record<string, number>;
   /** 所見（技師が見たこと）. */
   findings: string;

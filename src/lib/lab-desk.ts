@@ -37,6 +37,7 @@ export interface ReportVersion {
 
 /** A result the laboratory confirmed (values by analyte code). The fields of ReportVersion are the version in force. */
 export interface LabReport extends ReportVersion {
+  updatedAt?: string;
   id?: string;
   code: string;
   orderId: string;
@@ -492,7 +493,7 @@ export function checkEntry(plan: EntryPlan, raw: Record<string, string>, patient
 }
 
 /** Samples received and waiting for their result (those with values to type). */
-export const toEnter = (rows: DrawRow[]) => rows.filter((r) => r.status === "受付済み");
+export const toEnter = (rows: DrawRow[]) => rows.filter((r) => r.status === "受付済み").sort((a, b) => Number(b.urgent) - Number(a.urgent) || Number(b.place === "救急") - Number(a.place === "救急") || a.at - b.at);
 
 /** The ordered analytes still waiting for a report. */
 export const remainingAnalytes = (plan: EntryPlan, values: Record<string, number>) => plan.analytes.filter((a) => !(a.code in values));
@@ -510,7 +511,7 @@ export function confirmReport(desk: LabDesk, row: DrawRow, values: Record<string
   const added = reportAddition(plan, before?.values ?? {}, values);
   if (!Object.keys(added).length) return desk;
   const addition: ReportVersion = { values: added, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) } };
-  const r: LabReport = { ...before, id: before ? (before.id ?? before.code) : specimenId(row), code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, values: { ...before?.values, ...added }, by, reported: addition.reported, expected: plan.analytes.map((a) => a.code), additions: [...(before?.additions ?? []), addition] };
+  const r: LabReport = { ...before, updatedAt: new Date().toISOString(), id: before ? (before.id ?? before.code) : specimenId(row), code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, values: { ...before?.values, ...added }, by, reported: addition.reported, expected: plan.analytes.map((a) => a.code), additions: [...(before?.additions ?? []), addition] };
   return { ...desk, reports: storeSpecimen(desk.reports, r) };
 }
 
@@ -604,7 +605,7 @@ export function correctReport(desk: LabDesk, code: string, values: Record<string
   const before: ReportVersion = { values: r.values, by: r.by, reported: r.reported, ...(r.reason ? { reason: r.reason } : {}) };
   if (Object.keys(r.values).some((c) => !Number.isFinite(values[c]) || values[c] < 0)) return desk;
   const correctedValues = Object.fromEntries(Object.keys(r.values).map((c) => [c, values[c]]));
-  const next: LabReport = { ...r, values: correctedValues, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, reason: reason.trim(), correction: { version: versionOf(r) + 1, reason: reason.trim(), by, at: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, before: r.values }, earlier: [...(r.earlier ?? []), before] };
+  const next: LabReport = { ...r, updatedAt: new Date().toISOString(), values: correctedValues, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, reason: reason.trim(), correction: { version: versionOf(r) + 1, reason: reason.trim(), by, at: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, before: r.values }, earlier: [...(r.earlier ?? []), before] };
   return { ...desk, reports: storeSpecimen(desk.reports, next) };
 }
 

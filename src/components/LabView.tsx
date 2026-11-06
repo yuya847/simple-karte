@@ -123,7 +123,7 @@ export function LabView(p: Props) {
             onPanic={onPanic}
           />
         )}
-        {tab === "culture" && <LabCulture people={people} desk={desk} calls={calls} nowAbs={nowAbs} dayLabel={dayLabel} onDesk={p.onDesk} onPanic={onPanic} />}
+        {tab === "culture" && <LabCulture onReportPanic={() => setTab("results")} people={people} desk={desk} calls={calls} nowAbs={nowAbs} dayLabel={dayLabel} onDesk={p.onDesk} onPanic={onPanic} />}
         {tab === "results" && <Results {...p} items={labBoard(items, calls)} onReported={() => setFlash("")} />}
       </div>
     </div>
@@ -153,7 +153,7 @@ function Receive({ onOpen, rows, people, nowAbs, onDesk, history }: { onOpen?: (
   const [scan, setScan] = useState<SpecimenScan | null>(null);
   const counts = statusCounts(rows);
   const [showReported, setShowReported] = useState(false);
-  const visible = rows.filter((r) => showReported || r.status !== "報告済み").sort((a, b) => (["未採取", "採取済み", "受付済み", "再採血", "採取しなかった", "報告済み"].indexOf(a.status) - ["未採取", "採取済み", "受付済み", "再採血", "採取しなかった", "報告済み"].indexOf(b.status)) || a.at - b.at);
+  const visible = rows.filter((r) => showReported || r.status !== "報告済み").sort((a, b) => Number(b.urgent) - Number(a.urgent) || Number(b.place === "救急") - Number(a.place === "救急") || (["未採取", "採取済み", "受付済み", "再採血", "採取しなかった", "報告済み"].indexOf(a.status) - ["未採取", "採取済み", "受付済み", "再採血", "採取しなかった", "報告済み"].indexOf(b.status)) || a.at - b.at);
   const read = (input: string) => {
     const s = scanSpecimen(input, rows, people, nowAbs);
     setCode("");

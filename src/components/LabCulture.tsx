@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { Check, Microscope } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
-import { AST_DRUGS, EMPTY_STEP, GRAM_RESULTS, NO_GROWTH, ORGANISMS, STAGE_LABEL, addCultureStep, checkStep, cultureOf, cultureQueue, setsDrawn, stepText, type CultureItem, type Sir, type StepInput } from "@/lib/lab-culture";
+import { AST_DRUGS, EMPTY_STEP, GRAM_RESULTS, NO_GROWTH, organismCandidates, positiveBlood, mrsaConflict, STAGE_LABEL, addCultureStep, checkStep, cultureOf, cultureQueue, setsDrawn, stepText, type CultureItem, type Sir, type StepInput } from "@/lib/lab-culture";
 import type { LabDesk } from "@/lib/lab-desk";
 import { bloodCulturePanic, hitLine, type PanicCall } from "@/lib/results";
 import type { CultureStage } from "@/lib/types";
@@ -22,10 +22,11 @@ interface Props {
   onDesk: (f: (d: LabDesk) => LabDesk) => void;
   /** A step made a panic value (a positive blood culture): one line for the banner. */
   onPanic: (line: string) => void;
+  onReportPanic: () => void;
 }
 
 /** 培養（細菌検査）: each culture reported in steps — 塗抹, 中間報告, 最終報告 — with who and when. */
-export function LabCulture({ people, desk, calls, nowAbs, dayLabel, onDesk, onPanic }: Props) {
+export function LabCulture({ people, desk, calls, nowAbs, dayLabel, onDesk, onPanic, onReportPanic }: Props) {
   const me = useMe();
   const deny = useDeny()("lab.result");
   const queue = cultureQueue(people, desk, calls);
@@ -58,7 +59,7 @@ export function LabCulture({ people, desk, calls, nowAbs, dayLabel, onDesk, onPa
             </li>
           ))}
         </ul>
-        {item && <Detail key={`${item.key}-${item.culture.log?.length ?? 0}`} item={item} locked={!!deny} dayLabel={dayLabel} onStep={(step) => {
+        {item && <Detail key={`${item.key}-${item.culture.log?.length ?? 0}`} item={item} onReportPanic={onReportPanic} locked={!!deny} dayLabel={dayLabel} onStep={(step) => {
           const before = item.culture;
           onDesk((d) => addCultureStep(d, item, step, me.name, nowAbs));
           const after = cultureOf({ key: item.key, patientId: item.patientId, base: before, steps: [{ ...step, by: me.name, day: 0, time: "" }] });
@@ -72,7 +73,7 @@ export function LabCulture({ people, desk, calls, nowAbs, dayLabel, onDesk, onPa
   );
 }
 
-function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked: boolean; dayLabel: (d: number) => string; onStep: (s: NonNullable<ReturnType<typeof checkStep>["step"]>) => void }) {
+function Detail({ item, locked, dayLabel, onStep, onReportPanic }: { onReportPanic: () => void; item: CultureItem; locked: boolean; dayLabel: (d: number) => string; onStep: (s: NonNullable<ReturnType<typeof checkStep>["step"]>) => void }) {
   const c = item.culture;
   const [stage, setStage] = useState<CultureStage | null>(item.next[0] ?? null);
   const [input, setInput] = useState<StepInput>({ ...EMPTY_STEP, organism: c.organism ?? "" });
@@ -113,14 +114,14 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
           ))}
         </ol>
       )}
-      {item.waits && <p className="font-bold text-shu">{item.waits}「結果とパニック値」で報告を記録します。</p>}
+      {item.waits && <button type="button" onClick={onReportPanic} className="rounded bg-shu px-3 py-1 font-bold text-white">パニック値を報告する</button>}
       {item.next.length === 0 && !item.waits && <p className="font-bold text-wakatake">最終報告まで済みました。</p>}
 
       {item.next.length > 0 && (
         <fieldset disabled={locked} className="m-0 min-w-0 space-y-2 border-0 border-t border-rule-soft p-0 pt-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold">次の報告</span>
-            {blood && item.next.includes("最終報告") && c.collectedOn <= -5 && <button type="button" className="rounded border border-ai px-2 text-ai" onClick={() => { setStage("最終報告"); set({ organism: NO_GROWTH, note: "5日間で発育なし" }); }}>陰性の最終報告（5日間）</button>}
+            {blood && !positiveBlood(c) && item.next.includes("最終報告") && c.collectedOn <= -5 && <button type="button" className="rounded border border-ai px-2 text-ai" onClick={() => { setStage("最終報告"); set({ organism: NO_GROWTH, note: "5日間で発育なし" }); }}>陰性の最終報告（5日間）</button>}
             <TabChoice label="次の報告" options={item.next.map((s) => ({ value: s, label: STAGE_LABEL[s] }))} value={stage} onChange={setStage} />
           </div>
           {stage === "塗抹" && (
@@ -149,13 +150,13 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
                 <span className="w-20 shrink-0 text-ink-soft">菌名</span>
                 <input value={input.organism} onChange={(e) => set({ organism: e.target.value })} list={`org-${item.key}`} placeholder="選ぶか書く" aria-label="菌名" className="w-80 rounded border border-rule bg-paper px-1.5 py-0.5" />
                 <datalist id={`org-${item.key}`}>
-                  {[...ORGANISMS, ...(stage === "最終報告" ? [NO_GROWTH] : [])].map((o) => (
+                  {[...organismCandidates(c.gram ?? input.gram ?? undefined), ...(stage === "最終報告" && !positiveBlood(c) ? [NO_GROWTH] : [])].map((o) => (
                     <option key={o} value={o} />
                   ))}
                 </datalist>
               </div>
               <div className="flex flex-wrap gap-1 pl-[5.5rem]">
-                {[...ORGANISMS, ...(stage === "最終報告" ? [NO_GROWTH] : [])].map((o) => (
+                {[...organismCandidates(c.gram ?? input.gram ?? undefined), ...(stage === "最終報告" && !positiveBlood(c) ? [NO_GROWTH] : [])].map((o) => (
                   <button key={o} type="button" onClick={() => set({ organism: o })} className={`rounded border px-1.5 text-[11px] ${input.organism === o ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule text-ink-soft hover:border-ai"}`}>
                     {o}
                   </button>
@@ -186,6 +187,7 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
                             type="button"
                             role="radio"
                             aria-checked={(input.sir[d.code] ?? null) === v}
+                            disabled={mrsaConflict(input.organism, d.code, v)}
                             onClick={() => set({ sir: { ...input.sir, [d.code]: v } })}
                             className={`rounded border px-1.5 text-[11px] ${(input.sir[d.code] ?? null) === v ? (v === "R" ? "border-shu bg-shu text-white" : v ? "border-ai bg-ai text-white" : "border-ink-soft bg-ink-soft text-white") : "border-rule text-ink-soft"}`}
                           >

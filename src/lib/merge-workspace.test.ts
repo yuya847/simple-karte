@@ -17,14 +17,14 @@ describe("同時に開いたときの記録のマージ", () => {
     expect(mergeWorkspace(theirs, theirs, base).kept).toEqual([]);
   });
 
-  it("keeps every version when the same note was corrected on both pages (the saved text is the last)", () => {
+  it("keeps every version when the same note was corrected on both pages (the unsaved local text is retained)", () => {
     const v1 = { text: "体温 36.8", author: "医師 山本" };
     const base = { revised: { p1: { n1: note("n1", "体温 36.8", [v1]) } } };
     const mine = { revised: { p1: { n1: note("n1", "体温 37.2", [v1, { text: "体温 37.2", author: "医師 山本" }]) } } };
     const theirs = { revised: { p1: { n1: note("n1", "体温 36.8、SpO2 97%", [v1, { text: "体温 36.8、SpO2 97%", author: "看護師 佐藤" }]) } } };
     const n = (mergeWorkspace(mine, theirs, base).data.revised as Record<string, Record<string, { text: string; versions: { text: string }[] }>>).p1.n1;
     expect(n.versions.map((v) => v.text)).toEqual(["体温 36.8", "体温 37.2", "体温 36.8、SpO2 97%"]);
-    expect(n.text).toBe("体温 36.8、SpO2 97%");
+    expect(n.text).toBe("体温 37.2");
   });
 
   it("merges maps key by key and lists without ids as a union", () => {
@@ -56,19 +56,19 @@ describe("同時に開いたときの記録のマージ", () => {
     expect(mergeWorkspace({ charts: { p1: shared([], [], {}), "p1|医師": desk("S) 書きかけ", []) } }, { charts: { p1: shared([], [], {}) } }, null, { local: chartDeskOf("医師") }).kept).toEqual([]);
   });
 
-  it("lets a removal through when the base is known, and removes nothing without it", () => {
+  it("retains id records as a union while allowing map deletions", () => {
     const base = { boardReminders: [{ id: "r1" }, { id: "r2" }], flags: { a: true, b: true } };
     const mine = { boardReminders: [{ id: "r1" }, { id: "r2" }], flags: { a: true, b: true } };
     const theirs = { boardReminders: [{ id: "r1" }], flags: { a: true } };
-    expect(mergeWorkspace(mine, theirs, base).data).toEqual({ boardReminders: [{ id: "r1" }], flags: { a: true } });
+    expect(mergeWorkspace(mine, theirs, base).data).toEqual({ boardReminders: [{ id: "r1" }, { id: "r2" }], flags: { a: true } });
     expect(mergeWorkspace(mine, theirs, null).data).toEqual({ boardReminders: [{ id: "r1" }, { id: "r2" }], flags: { a: true, b: true } });
   });
 
-  it("takes the saved value where a single value differs, unless only this page changed it", () => {
+  it("keeps local input on a simultaneous scalar edit", () => {
     expect(merge3("a", "b", "a")).toBe("b");
     expect(merge3("b", "a", "a")).toBe("b");
-    expect(merge3("b", "c", "a")).toBe("c");
-    expect(merge3("b", "c", undefined)).toBe("c");
+    expect(merge3("b", "c", "a")).toBe("b");
+    expect(merge3("b", "c", undefined)).toBe("b");
     expect(merge3({ x: 1, y: 2 }, { x: 1, z: 3 }, { x: 1 })).toEqual({ x: 1, y: 2, z: 3 });
   });
 
@@ -92,4 +92,28 @@ it("患者の入れかけの Rp は、この職種が入力中の内容を保っ
   const mine = { windowEntries: { [key]: [{ rows: [{ drugCode: "demo", amount: "2" }] }] } };
   const theirs = { windowEntries: { [key]: [{ rows: [{ drugCode: "demo", amount: "1" }] }] } };
   expect(mergeWorkspace(mine, theirs, null, { local: chartDeskOf("看護師") }).data).toEqual(mine);
+});
+
+it("同じidは更新時刻が新しい記録を採り、同時の値の衝突を知らせる", () => {
+  const old = { id: "a", value: "old", updatedAt: "2026-11-06T01:00:00Z" };
+  const recent = { id: "a", value: "new", updatedAt: "2026-11-06T01:01:00Z" };
+  expect(merge3([recent], [old], undefined)).toEqual([recent]);
+  expect(merge3([old], [recent], undefined)).toEqual([recent]);
+  const conflict = mergeWorkspace({ calls: { a: { to: "医師A" } } }, { calls: { a: { to: "医師B" } } }, { calls: { a: { to: "医師C" } } });
+  expect(conflict.data).toEqual({ calls: { a: { to: "医師A" } } });
+  expect(conflict.conflicts).toEqual(["calls.a.to"]);
+});
+it("パニック値の連絡と薬剤師の別記録を双方保持する", () => {
+  const base = { calls: {}, notes: [] };
+  const mine = { calls: { blood: { to: "主治医", readBack: true } }, notes: [] };
+  const theirs = { calls: {}, notes: [{ id: "pharmacist", text: "薬剤師の記録" }] };
+  const result = mergeWorkspace(mine, theirs, base);
+  expect(result.data.calls).toEqual(mine.calls);
+  expect(result.data.notes).toEqual(theirs.notes);
+  expect(result.conflicts).toEqual([]);
+});
+
+it("前の保存に連絡がなくても、いったん記録したパニック値の連絡を消さない", () => {
+  const mine = { calls: { blood: { to: "主治医", readBack: true } } };
+  expect(mergeWorkspace(mine, { calls: {} }, mine).data).toEqual(mine);
 });

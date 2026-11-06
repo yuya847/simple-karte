@@ -98,7 +98,7 @@ export function addPharmacyOrders(p: Patient, i: number, stage: string) {
       if (e.kind === "note" && e.role === "看護師" && e.day === 0 && e.focus) return { ...e, focus: e.focus.map((f) => ({ ...f, title: "感染治療中の経過観察", d: "呼びかけに返答あり。悪寒の訴えなし。点滴刺入部に発赤・腫脹なし。食事摂取量と排尿回数を確認した。", act: "体温と意識、点滴部位を観察し、変化時は主治医へ連絡する。投与時刻と採血予定を照合した。" })) };
       return e;
     });
-    p.labs.push({ day: 0, time: "11:30", values: { ...p.labs.at(-1)?.values, VCM: 14.2 } });
+    p.labs.push({ day: 0, time: "11:30", values: { VCM: 14.2, Cre: Math.round(((p.labs.at(-1)?.values.Cre ?? 0.9) + 0.03) * 100) / 100 } });
   }
 }
 

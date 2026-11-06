@@ -1,3 +1,4 @@
+import { mergeWorkspace, type MergeOptions } from "./merge-workspace";
 import { scenarioMode, scenarioStorageKey } from "./scenarios/mode";
 // 記録の保存 (Supabase): the page's records, kept per workspace and per day. Without the two
 // NEXT_PUBLIC_SUPABASE_* variables nothing is saved (as before). Records are fictional test patients only.
@@ -28,7 +29,7 @@ const isId = (s: string | null): s is string => !!s && /^[0-9a-f-]{36}$/i.test(s
 
 /** This browser's workspace: ?ws=<id> in the address (to open the same records elsewhere), else the one kept here. */
 export function workspaceId(): string {
-  const fromUrl = scenarioMode() ? null : new URLSearchParams(window.location.search).get("ws");
+  const fromUrl = new URLSearchParams(window.location.search).get(scenarioMode() ? "scenarioWs" : "ws");
   const store = scenarioStorageKey(STORE);
   if (isId(fromUrl)) {
     try {
@@ -58,7 +59,7 @@ export async function loadWorkspace(id: string, day: string): Promise<Record<str
   return (await loadWorkspaceRow(id, day))?.data ?? null;
 }
 
-export const saveWorkspace = (id: string, day: string, data: Record<string, unknown>) => rpc<null>("save_workspace", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: data });
+export const saveWorkspace = async (id: string, day: string, data: Record<string, unknown>) => { await saveMergedWorkspace(id, day, data, null); };
 export const resetWorkspace = (id: string) => rpc<null>("reset_workspace", { p_id: id });
 
 /** One row of touch_presence: another tab of the workspace seen in the last 30 seconds (or nulls), and the workspace's last save. */
@@ -79,3 +80,23 @@ export interface PresenceRow {
  */
 export const touchPresence = (ws: string, me: { tab: string; who: string; role: string; patient: string | null; editing: boolean }) =>
   rpc<PresenceRow[]>("touch_presence", { p_ws: ws, p_tab: me.tab, p_who: me.who, p_role: me.role, p_patient: me.patient, p_editing: me.editing });
+
+/** Compare-and-swap retries merge against the latest row while the database serializes writers. */
+export async function saveMergedWorkspace(id: string, day: string, mine: Record<string, unknown>, base: Record<string, unknown> | null, opts: MergeOptions = {}) {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const row = await loadWorkspaceRow(id, day);
+    const merged = mergeWorkspace(mine, row?.data ?? {}, base, opts);
+    let saved: boolean | null;
+    try {
+      saved = await rpc<boolean>("save_workspace_checked", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: merged.data, p_expected: row?.updatedAt ?? null });
+    } catch (e) {
+      // A database without the checked save (supabase/schema.sql not yet applied): the merged records go
+      // through the old save, so nothing stops saving while the schema is updated.
+      if (!(e instanceof Error && /応答 404/.test(e.message))) throw e;
+      await rpc<null>("save_workspace", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: merged.data });
+      return merged;
+    }
+    if (saved === true) return merged;
+  }
+  throw new Error("同時更新が続いているため保存できません。変更を保持しています。");
+}

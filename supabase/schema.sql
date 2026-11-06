@@ -101,3 +101,30 @@ grant execute on function public.touch_presence(uuid, text, text, text, text, bo
 -- stored. In the project's settings (Project Settings › Realtime) "Enable Realtime service" and "Allow public
 -- access to channels" must be on (both are the defaults). The records themselves are saved through the
 -- functions above; when another tab or device saved, the page reads them and merges them (src/lib/merge-workspace.ts).
+
+-- Atomic optimistic save. Install together with the client; a missing RPC leaves edits unsaved locally.
+create or replace function public.save_workspace_checked(p_id uuid, p_version integer, p_day date, p_data jsonb, p_expected timestamptz)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_expected is null then
+    insert into public.workspaces(id, version, day, data, updated_at)
+    values(p_id, p_version, p_day, p_data, clock_timestamp()) on conflict do nothing;
+    if found then return true; end if;
+    update public.workspaces set version = p_version, day = p_day, data = p_data, updated_at = clock_timestamp()
+      where id = p_id and (day <> p_day or version <> p_version);
+  else
+    update public.workspaces set version = p_version, day = p_day, data = p_data, updated_at = clock_timestamp()
+      where id = p_id and updated_at = p_expected and day = p_day and version = p_version;
+  end if;
+  return found;
+end;
+$$;
+revoke all on function public.save_workspace_checked(uuid, integer, date, jsonb, timestamptz) from public;
+grant execute on function public.save_workspace_checked(uuid, integer, date, jsonb, timestamptz) to anon, authenticated;
+
+-- The old save_workspace stays callable: a client falls back to it (with the merged records) when this
+-- checked save is not installed yet.

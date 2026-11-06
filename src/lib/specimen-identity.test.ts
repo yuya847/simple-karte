@@ -65,10 +65,14 @@ describe("検体の識別と旧workspace", () => {
   });
 });
 
-it("100人の生理検査は4種類それぞれ予約・実施済み・報告済みがある", () => {
+it("100人の生理検査は主病名に合う検査で、受付・実施・報告の各段階がある", () => {
   const rows = physioRows(SCENARIOS.patients.map((p) => ({ patient: p, room: p.room, entries: p.history.filter((e) => e.kind === "order") })), SCENARIOS.physioDesk);
-  for (const test of ["PHY-ECG", "PHY-UCG", "PHY-SPIRO", "PHY-ABDUS"]) {
-    expect(rows.filter((r) => r.test === test).map((r) => r.status).sort()).toEqual(["予約", "実施済み", "報告済み"].sort());
+  expect(rows).toHaveLength(12);
+  for (const status of ["予約", "実施済み", "報告済み"]) expect(rows.filter((r) => r.status === status)).toHaveLength(4);
+  for (const r of rows) {
+    const p = SCENARIOS.patients.find((p) => p.id === r.patientId)!;
+    if (r.test === "PHY-SPIRO") expect(p.admissionDiagnosis).toMatch(/喘息|閉塞性肺疾患/);
+    if (/腎盂腎炎/.test(p.admissionDiagnosis)) expect(r.test).toBe("PHY-ABDUS");
   }
 });
 

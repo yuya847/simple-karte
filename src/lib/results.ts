@@ -64,6 +64,7 @@ export interface ContactAttempt {
 
 /** A panic value phoned to the ward (who called, who took it, whether it was read back). */
 export interface PanicCall {
+  updatedAt?: string;
   key: string;
   patientId: string;
   hits: PanicHit[];
@@ -246,7 +247,7 @@ export function callScript(item: ResultItem, p: { name: string; id: string; ward
   return [
     "「パニック値の報告です」",
     { 病棟: `① 入院（${p.ward ?? "病棟"} ${room}）`, 救急: "① 救急外来", 外来: "① 外来" }[placeOf(item.patientId)],
-    `② ${p.name}さん（ID ${p.id}）`,
+    `② ${p.name}さん（ID ${p.id.replace(/^(opd|er):/, "")}）`,
     `③ ${item.kind === "培養" ? "報告" : "採取"} ${dayWord(item.day)} ${item.time || "—"}`,
     `④ ${item.panic.map(hitLine).join("、")}`,
     "「復唱をお願いします」",
@@ -298,7 +299,7 @@ export function reportCall(
   const to = r.to.trim();
   const last: ContactAttempt = { at: r.at, by: r.by, to, means: r.means, result: "伝えた" };
   const reason = r.readBack ? undefined : r.noReadBack?.trim() || undefined;
-  return { key: item.key, patientId: item.patientId, hits: item.panic, by: r.by, to, means: r.means, readBack: r.readBack, at: r.at, ...(reason ? { noReadBack: reason } : {}), attempts: [...tries, last] };
+  return { updatedAt: new Date().toISOString(), key: item.key, patientId: item.patientId, hits: item.panic, by: r.by, to, means: r.means, readBack: r.readBack, at: r.at, ...(reason ? { noReadBack: reason } : {}), attempts: [...tries, last] };
 }
 
 /** One line for the audit log and the doctor's inbox. */

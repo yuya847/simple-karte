@@ -14,13 +14,13 @@ export function ExecutionUndo({ action, patient, detail, onUndo }: { action: Act
   const [reason, setReason] = useState("");
   if (!can(me.role, action)) return null;
   return <span className="inline-flex flex-wrap items-center gap-1 text-[11px]">
-    <button type="button" className="text-shu underline" onClick={() => {
+    <button type="button" className={action === "lab.receive" ? "text-ink-soft underline" : "text-shu underline"} onClick={() => {
       if (!open) { setOpen(true); return; }
       const at = new Date().toISOString();
       onUndo(me.name, at, reason);
       auditLog({ role: me.role, actor: me.name, action: "未実施に戻した", patient, detail: `${detail}　理由：${reason.trim() || "なし"}` });
       setOpen(false); setReason("");
-    }}>未実施に戻す</button>
+    }}>{action === "lab.receive" ? "受付を取り消す" : "未実施に戻す"}</button>
     {open && <><input aria-label="戻す理由（任意）" placeholder="理由（任意）" value={reason} onChange={(e) => setReason(e.target.value)} className="rounded border border-rule bg-paper px-1" /><button type="button" onClick={() => setOpen(false)}>やめる</button></>}
   </span>;
 }

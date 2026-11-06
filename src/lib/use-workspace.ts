@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { mergeWorkspace, type MergeOptions } from "./merge-workspace";
 import { thisTab } from "./presence";
-import { loadWorkspaceRow, resetWorkspace, saveWorkspace, workspaceId, workspaceOn } from "./workspace";
+import { loadWorkspaceRow, resetWorkspace, saveMergedWorkspace, workspaceId, workspaceOn } from "./workspace";
 
 export type WorkspaceStatus = "off" | "loading" | "saved" | "saving" | "error";
 
@@ -21,8 +21,6 @@ export interface Pulled {
   changed: string[];
 }
 
-/** How long after the records are read back their own echo is not saved again (they did not change). */
-const ECHO_MS = 1500;
 /** A save goes out this long after the last change. */
 const SAVE_MS = 1000;
 
@@ -37,7 +35,7 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
   const [id, setId] = useState<string | null>(null);
   const loaded = useRef(false);
   // Just read back: putting the records into the states is not a change to save (nor to tell the other tabs).
-  const echo = useRef(false);
+  const echo = useRef<Record<string, unknown> | null>(null);
   // Something changed here since the last save.
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,31 +59,53 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
     idRef.current = id;
   });
 
+  const warnConflicts = (paths: string[]) => {
+    const labels: Record<string, string> = { calls: "パニック値の連絡", acks: "結果の確認", notes: "記事", revised: "記事の訂正", labDesk: "検査記録", charts: "カルテ" };
+    const message = [...new Set(paths.map((p) => labels[p.split(".")[0]] ?? "記録"))].join("、");
+    if (message) {
+      window.alert(`同じ項目が別の端末でも変更されました。この端末の入力を保持しました。記録を確認してください。\n${message}`);
+    }
+  };
   const snapshot = () => ({ ...Object.fromEntries(Object.entries(statesRef.current).map(([k, [v]]) => [k, v])), ...(putting.current ?? {}) });
   const putBack = (data: Record<string, unknown>) => {
-    echo.current = true;
-    setTimeout(() => (echo.current = false), ECHO_MS);
+    echo.current = data;
     putting.current = data;
     for (const [k, v] of Object.entries(data)) statesRef.current[k]?.[1](v as never);
   };
 
-  const save = async () => {
+  const saving = useRef<Promise<void> | null>(null);
+  const saveAgain = useRef(false);
+  const performSave = async () => {
     const ws = idRef.current;
     const d = dayRef.current;
     if (!ws || !d || !loaded.current) return;
     // Newer records are being read: they go into the states first, so that the save carries them too.
     if (pulling.current) await pulling.current.catch(() => null);
     dirty.current = false;
+    saveAgain.current = false;
     const data = snapshot();
     try {
-      await saveWorkspace(ws, d, data);
-      base.current = data;
-      setStatus("saved");
+      const saved = await saveMergedWorkspace(ws, d, data, base.current, optsRef.current.merge);
+      // Include edits made while the request was in flight.
+      const latest = mergeWorkspace(snapshot(), saved.data, data, optsRef.current.merge);
+      warnConflicts(saved.conflicts);
+      putBack(latest.data);
+      base.current = saved.data;
+      if (latest.kept.length) { dirty.current = true; saveAgain.current = true; }
+      setStatus(dirty.current ? "saving" : "saved");
       optsRef.current.onSaved?.();
     } catch {
       dirty.current = true;
       setStatus("error");
     }
+  };
+  const save = (): Promise<void> => {
+    if (saving.current) return saving.current;
+    saving.current = performSave().finally(() => {
+      saving.current = null;
+      if (dirty.current && saveAgain.current) schedule();
+    });
+    return saving.current;
   };
   const schedule = () => {
     if (timer.current) return;
@@ -102,20 +122,26 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
     const ws = workspaceId();
     setId(ws);
     setStatus("loading");
+    const initial = snapshot();
     loadWorkspaceRow(ws, day)
       .then((row) => {
         if (row) {
-          putBack(row.data);
+          const merged = mergeWorkspace(snapshot(), row.data, initial, optsRef.current.merge);
+          putBack(merged.data);
+          dirty.current = merged.kept.length > 0;
           base.current = row.data;
           seenAt.current = row.updatedAt;
         }
         loaded.current = true;
         setStatus("saved");
+        if (dirty.current) schedule();
       })
       .catch(() => {
         loaded.current = true;
         setStatus("error");
       });
+    // One initial read per day; scheduling reads the current values from refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day]);
 
   // Save a second after a change.
@@ -123,7 +149,11 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
   useEffect(() => {
     if (!day || !id || !loaded.current) return;
     // The records just read back (and what follows from them in the same moment) are not saved again.
-    if (echo.current) return;
+    if (echo.current) {
+      const incoming = echo.current;
+      echo.current = null;
+      if (JSON.stringify(snapshot()) === JSON.stringify(incoming)) return;
+    }
     dirty.current = true;
     mergeSaves.current = 0;
     schedule();
@@ -155,6 +185,7 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
    * nothing newer is saved, or the last save was this page's own. Runs once at a time.
    */
   const pull = (): Promise<Pulled | null> => {
+    if (saving.current) return Promise.resolve(null);
     if (pulling.current) return pulling.current;
     const ws = idRef.current;
     const d = dayRef.current;
@@ -166,8 +197,9 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
       const writer = (row.data.__writer ?? null) as { tab?: string; by?: string; role?: string } | null;
       if (writer?.tab === thisTab()) return null;
       const r = mergeWorkspace(snapshot(), row.data, base.current, optsRef.current.merge);
+      warnConflicts(r.conflicts);
       if (r.changed.length) putBack(r.data);
-      base.current = r.data;
+      base.current = row.data;
       // This page holds records the saved side lacks (it saved before hearing of them): the merged records go out.
       if (r.kept.length && !dirty.current && mergeSaves.current < 3) {
         mergeSaves.current++;

@@ -96,7 +96,7 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1">
               相手
-              <input value={to} onChange={(e) => setTo(e.target.value)} list={listId} className="w-64 rounded border border-rule bg-sheet px-1.5 py-0.5" />
+              <input value={to} onChange={(e) => setTo(e.target.value)} list={listId} className="w-[26rem] max-w-full rounded border border-rule bg-sheet px-1.5 py-0.5" />
               <datalist id={listId}>
                 {targets.map((t) => (
                   <option key={t} value={t} />
@@ -140,7 +140,6 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
               </label>
             )}
             <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
-              {blocker && <span className="text-[11px] font-bold text-yamabuki">{blocker}</span>}
               <button
                 type="button"
                 disabled={!canReport(to, readBack, noReadBack)}

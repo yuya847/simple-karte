@@ -33,9 +33,9 @@ const item: ResultItem = { key: "lab:x", patientId: sakura.id, kind: "検査", d
 const card = (call?: PanicCall) => as("臨床検査技師", <PanicCard item={item} who={`512 ${sakura.name}さん`} name={sakura.name} when="今日 09:40" script={["K 6.8"]} call={call} tries={[]} nowTime="10:05" attending="山本（専攻医）" onCall={noop} onDesk={noop} />);
 
 describe("パニック値の連絡の記録", () => {
-  it("before the read-back is checked, the button is disabled and the reason stands beside it", () => {
+  it("before read-back, the button is disabled and its title explains why", () => {
     const html = card();
-    expect(html).toContain("「相手が値を復唱した」にチェックするか、復唱できなかった理由を書くと記録できます");
+    expect(html).not.toMatch(/<span[^>]*>「相手が値を復唱した」にチェックするか/);
     expect(html).toMatch(/<button type="button" disabled="" title="「相手が値を復唱した」にチェックするか[^"]*"[^>]*>.*報告した（10:05）/);
     expect(reportBlocker("主治医", false, "")).toContain("復唱");
     expect(reportBlocker("", true, "")).toBe("相手を入れると記録できます");
@@ -83,7 +83,8 @@ describe("一部報告の画面", () => {
   const partial = confirmReport(received, row, { K: 4 }, "技師", 601);
   const form = (raw: Record<string, string>, report = false) => renderToStaticMarkup(<LabEntryForm row={{ ...row, ...(report ? { report: partial.reports[specimenId(row)] } : {}) }} person={people[0]} raw={raw} onRaw={noop} limits={PANIC_LIMITS} locked={false} onConfirm={noop} />);
   it("空欄では報告できず、一つ入れると報告でき、数でない入力は止める", () => {
-    expect(form({})).toMatch(/<button type="button" disabled=""[^>]*>.*入力済みの 0 項目を先に報告/);
+    expect(form({})).toMatch(/<button type="button" disabled=""[^>]*>.*報告（確定）/);
+    expect(form({})).not.toContain("入力済みの 0 項目");
     expect(form({ K: "4" })).toMatch(/<button type="button" class="[^"]*">.*入力済みの 1 項目を先に報告/);
     expect(form({ K: "4", Na: "abc" })).toMatch(/<button type="button" disabled=""/);
   });
@@ -93,7 +94,7 @@ describe("一部報告の画面", () => {
   });
   it("報告済みの値を固定し、残りだけを報告する", () => {
     const html = form({ K: "99", Na: "140" }, true);
-    expect(html).toContain("4（報告済み）");
+    expect(html).toContain("4.0（報告済み）");
     expect(html).not.toContain('aria-label="K"');
     expect(html).toContain('placeholder="未報告"');
     const correction = renderToStaticMarkup(<LabCorrect row={{ ...row, report: partial.reports[specimenId(row)] }} person={people[0]} limits={PANIC_LIMITS} locked={false} onConfirm={noop} />);

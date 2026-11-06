@@ -1,4 +1,5 @@
 "use client";
+import { labNumber } from "@/lib/lab-number";
 
 import { specimenId } from "@/lib/lab-desk";
 import { displayText } from "@/lib/display-text";
@@ -27,7 +28,7 @@ interface Props {
   onPanic: (line: string) => void;
 }
 
-const fmt = (n: number) => n.toLocaleString("ja-JP", { maximumFractionDigits: 3 });
+
 
 /** 結果の入力: the values of each received sample, checked by code as they are typed, then 確定. A confirmed result can be corrected. */
 export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic }: Props) {
@@ -217,7 +218,7 @@ export function LabEntryForm({
           <tbody>
             {plan.analytes.filter((a) => a.code in before).map((a) => (
               <tr key={a.code} className="border-b border-rule-soft text-ink-soft">
-                <td className="py-0.5 pr-2 font-bold">{a.name}</td><td className="nums py-0.5 pr-2">{fmt(before[a.code])}（報告済み）</td><td>{a.unit}</td><td>{displayText(rangeText(a, p.sex))}</td><td colSpan={2}>変更は「訂正」から</td>
+                <td className="py-0.5 pr-2 font-bold">{a.name}</td><td className="nums py-0.5 pr-2">{labNumber(a.code, before[a.code])}（報告済み）</td><td>{a.unit}</td><td>{displayText(rangeText(a, p.sex))}</td><td colSpan={2}>変更は「訂正」から</td>
               </tr>
             ))}
             {check.rows.map((r, n) => (
@@ -251,7 +252,7 @@ export function LabEntryForm({
                     <span className="text-ink-faint">範囲内</span>
                   ) : null}
                 </td>
-                <td className="nums py-0.5 text-ink-soft">{r.prev ? `${fmt(r.prev.value)}（${r.prev.when}）` : "—"}</td>
+                <td className="nums py-0.5 text-ink-soft">{r.prev ? `${labNumber(r.analyte.code, r.prev.value)}（${r.prev.when}）` : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -259,7 +260,7 @@ export function LabEntryForm({
 
 
 
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="sticky bottom-0 mt-2 flex min-h-12 flex-wrap items-center gap-2 border-t border-rule bg-sheet py-2">
           {check.panic.length > 0 && <b className="text-shu">パニック値：{panicLine}。確定すると「結果とパニック値」で医師への連絡に進みます。</b>}
           <span className="ml-auto text-ink-soft">
             {check.errors ? `数でない値が ${check.errors}件　` : ""}
@@ -272,7 +273,7 @@ export function LabEntryForm({
             className="flex items-center gap-1 rounded bg-wakatake px-3 py-1 font-bold text-white disabled:opacity-40"
           >
             <Check size={13} />
-            {entered === remaining.length ? "報告（確定）" : row.report ? "残りを報告" : `入力済みの ${entered} 項目を先に報告`}
+            {entered === 0 ? "報告（確定）" : entered === remaining.length ? "報告（確定）" : row.report ? "残りを報告" : `入力済みの ${entered} 項目を先に報告`}
           </button>
         </div>
       </fieldset>

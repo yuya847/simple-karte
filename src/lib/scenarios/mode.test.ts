@@ -27,3 +27,14 @@ describe("試験用と元の病棟の保存を分ける", () => {
     expect(scenarioMode()).toBe(false);
   });
 });
+
+it("試験専用の共有IDを2端末で指定でき、通常の保存先を変更しない", () => {
+  const shared = "33333333-3333-4333-8333-333333333333";
+  for (let device = 0; device < 2; device++) {
+    const data = new Map([["simple-karte:workspace", "11111111-1111-4111-8111-111111111111"]]);
+    vi.stubGlobal("window", { location: { search: `?scenarios=100&scenarioWs=${shared}` }, localStorage: { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } });
+    expect(workspaceId()).toBe(shared);
+    expect(data.get("simple-karte:workspace")).toBe("11111111-1111-4111-8111-111111111111");
+    expect(data.get(scenarioStorageKey("simple-karte:workspace"))).toBe(shared);
+  }
+});

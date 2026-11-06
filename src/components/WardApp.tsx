@@ -947,7 +947,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ...(discharged[p.id] ? { dischargedAt: discharged[p.id] } : {}),
           daily: withIoUrine(withToday(p.daily, extraDaily[p.id]), io.filter((e) => e.patientId === p.id)),
-          ward: moves[p.id] ? floorOf(moves[p.id].room).replace("病棟", "") : p.ward,
+          ward: floorOf(moves[p.id]?.room ?? p.room),
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
@@ -1604,7 +1604,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     });
 
   const sessionChanges = Object.fromEntries(Object.entries(charts).filter(([k]) => !k.includes("|")).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
-  const examPeople = [...patientById.values()].map((p) => ({ patient: p, room: p.room, entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }));
+  const examPeople = [...patientById.values()].map((p) => ({ patient: p, room: (() => { const b = allBeds.find((b) => b.patientId === p.id); return b ? `${b.room}${b.bed}` : p.room; })(), entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }));
   // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
   const injMemory = patient
     ? {

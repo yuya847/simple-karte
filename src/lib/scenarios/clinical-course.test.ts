@@ -39,7 +39,7 @@ describe("病名と経過がつながる100人の臨床記録", () => {
       if (p.admittedOn < -2) expect(p.cultures.some((c) => c.susceptibility?.length)).toBe(true);
       else expect(p.cultures.every((c) => c.status === "培養中" && !c.organism && !c.susceptibility)).toBe(true);
       expect(p.labs.some((l) => l.values.Cre > 0 && l.values.Lac > 0)).toBe(true);
-      if (p.admittedOn < 0) expect(p.labs.at(-1)!.values.CRP).toBeLessThan(p.labs[0].values.CRP);
+      if (p.admittedOn < 0) expect(p.labs.filter((l) => l.values.CRP !== undefined).at(-1)!.values.CRP).toBeLessThan(p.labs[0].values.CRP);
       const expected = p.infections.includes("MRSA") ? "INJ-VCM05" : "INJ-CTRX1";
       expect(ordersOf(p.history).some((e) => e.order.type === "injection" && e.order.items.some((d) => d.drugCode === expected))).toBe(true);
     }

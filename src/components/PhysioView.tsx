@@ -1,4 +1,5 @@
 "use client";
+import { physioWithCalculated } from "@/lib/physio-calculations";
 import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
@@ -200,15 +201,17 @@ function ReportForm({ r, onDesk, nowTime }: { r: PhysioRow; onDesk: Props["onDes
   const deny = useDeny()("physio.exam");
   const prev = r.work?.report;
   const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(prev?.values ?? {}).map(([k, v]) => [k, String(v)])));
+  const [manual, setManual] = useState<Set<string>>(() => new Set(prev?.manualValues ?? Object.keys(prev?.values ?? {})));
+  const effective = physioWithCalculated(r.test, vals, manual);
   const [findings, setFindings] = useState(prev?.findings ?? "");
   const [conclusion, setConclusion] = useState(prev?.conclusion ?? "");
   const [reason, setReason] = useState("");
-  const values = Object.fromEntries(Object.entries(vals).filter(([, v]) => v.trim() !== "").map(([k, v]) => [k, Number(v)]));
+  const values = Object.fromEntries(Object.entries(effective).filter(([, v]) => v.trim() !== "").map(([k, v]) => [k, Number(v)]));
   const problems = reportProblems(r.test, { values, findings, conclusion, reason }, !!prev);
   const derived = derivedValues(r.test, values);
   const confirm = () => {
     if (problems.length) return;
-    const rep = { day: 0, time: nowTime, values, findings: findings.trim(), conclusion: conclusion.trim(), by: me.name, ...(prev ? { reason: reason.trim() } : {}) };
+    const rep = { day: 0, time: nowTime, values, manualValues: [...manual], findings: findings.trim(), conclusion: conclusion.trim(), by: me.name, ...(prev ? { reason: reason.trim() } : {}) };
     put(onDesk, r, (w) => ({ ...w, report: rep, ...(w.report ? { earlier: [...(w.earlier ?? []), w.report] } : {}) }));
     auditLog({ role: me.role, actor: me.name, action: prev ? "確定（生理検査のレポートを訂正）" : "確定（生理検査のレポート）", patient: r.name, detail: `${r.testName}　${conclusion.trim().slice(0, 60)}` });
   };
@@ -226,7 +229,11 @@ function ReportForm({ r, onDesk, nowTime }: { r: PhysioRow; onDesk: Props["onDes
             <label key={f.key} className="flex items-center justify-between gap-1">
               <span>{f.label}</span>
               <span className="flex items-center gap-0.5">
-                <input inputMode="decimal" value={vals[f.key] ?? ""} onChange={(e) => setVals({ ...vals, [f.key]: e.target.value })} aria-label={f.label} className={`${field} nums w-20 text-right`} disabled={!!deny} />
+                <input inputMode="decimal" value={effective[f.key] ?? ""} onChange={(e) => {
+                  const value = e.target.value;
+                  setManual((current) => { const next = new Set(current); if (value.trim()) next.add(f.key); else next.delete(f.key); return next; });
+                  setVals({ ...vals, [f.key]: value });
+                }} aria-label={f.label} className={`${field} nums w-20 text-right`} disabled={!!deny} />
                 <span className="w-10 text-ink-soft">{f.unit}</span>
               </span>
             </label>

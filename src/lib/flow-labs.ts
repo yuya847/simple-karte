@@ -1,3 +1,4 @@
+import { labNumber } from "./lab-number";
 // Lab values on the flow sheet (経過表): the analytes a person chose, each value at the time of its draw,
 // marked H or L against the reference range in the master (共用基準範囲・SRL), and the draws without a
 // result yet (採取待ち・検査中) or still ahead (予定). A result the laboratory confirms appears by itself,
@@ -22,7 +23,7 @@ const hhmm = (min: number) => {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 };
 
-export const labValueText = (a: Analyte, v: number) => (a.code === "WBC" ? Math.round(v).toLocaleString("ja-JP") : String(v));
+export const labValueText = (a: Analyte, v: number) => labNumber(a.code, v);
 
 /**
  * Every mark of one analyte: its values, the draws waiting for a result, and the draws ordered for later

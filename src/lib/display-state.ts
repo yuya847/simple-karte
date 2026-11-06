@@ -36,5 +36,5 @@ export function readDisplay(raw: string | null, role: Role, ids: ReadonlySet<str
   if (object(saved.front)) for (const [o, id] of Object.entries(saved.front)) {
     if (validOwner(o) && typeof id === "string" && (id === "__new__" || patientTabs.some((t) => t.id === id && t.owner === o))) front[o] = id;
   }
-  return { area: areasFor(role).some((a) => a.key === saved.area && !a.soon) ? saved.area as AreaKey : home.area, wardTabs, wardTab: saved.wardTab === "menu" || wardTabs.includes(saved.wardTab as WardTab) ? saved.wardTab as WardTab | "menu" : wardTabs[0] ?? "menu", patientTabs, front };
+  return { area: role === "臨床検査技師" ? home.area : areasFor(role).some((a) => a.key === saved.area && !a.soon) ? saved.area as AreaKey : home.area, wardTabs, wardTab: saved.wardTab === "menu" || wardTabs.includes(saved.wardTab as WardTab) ? saved.wardTab as WardTab | "menu" : wardTabs[0] ?? "menu", patientTabs, front };
 }

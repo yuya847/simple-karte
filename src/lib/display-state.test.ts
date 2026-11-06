@@ -19,3 +19,7 @@ describe("端末の利用者と表示", () => {
     expect(readDisplay("{", "看護師", new Set()).wardTab).toBe("sheet");
   });
 });
+
+it("臨床検査技師は前回が生理検査室でも検査室から始める", () => {
+  expect(readDisplay(JSON.stringify({ area: "physio" }), "臨床検査技師", new Set()).area).toBe("lab");
+});

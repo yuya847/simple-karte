@@ -1,3 +1,4 @@
+import { labNumber } from "./lab-number";
 // 検査結果の時系列表: the columns (one per draw, results and draws not yet reported), the rows (one per
 // analyte), and the same table as text to paste into a note or as CSV (comma-separated values) for a
 // spreadsheet. Values are shown and marked H/L against the reference range; nothing is judged.
@@ -69,7 +70,7 @@ export function rangeText(a: Analyte, sex: Sex): string {
   return rg.low !== undefined && rg.high !== undefined ? `${rg.low}〜${rg.high}` : rg.high !== undefined ? `${rg.high}以下` : rg.low !== undefined ? `${rg.low}以上` : "—";
 }
 
-const num = (v: number) => v.toLocaleString("ja-JP");
+
 const dateOf = (today: CalendarDate, day: DayOffset) => {
   const d = addDays(today, day);
   return `${d.m}/${d.d}`;
@@ -86,7 +87,7 @@ export function copyText(cols: LabColumn[], rows: Analyte[], sex: Sex, today: Ca
     .map((c) => {
       const parts = rows.flatMap((a) => {
         const cell = cellOf(c, a, sex);
-        return cell.kind === "value" ? [`${a.name} ${num(cell.value)}${cell.flag}`] : [];
+        return cell.kind === "value" ? [`${a.name} ${labNumber(a.code, cell.value)}${cell.flag}`] : [];
       });
       return parts.length ? `${dateOf(today, c.day)} ${c.time} ${parts.join(" ")}` : "";
     })

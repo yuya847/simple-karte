@@ -1,4 +1,5 @@
 "use client";
+import { labNumber } from "@/lib/lab-number";
 
 import { displayText } from "@/lib/display-text";
 import { ArrowDownUp, ChartLine, Copy, FileDown, Printer, X } from "lucide-react";
@@ -116,7 +117,6 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
                 <LabTable cols={cols} rows={rows} patient={patient} today={today} focusAt={focusAt} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
               </div>
             )}
-            <p className="mt-1 text-[11px] text-ink-faint">H／L は一般的な成人の基準範囲との比較。</p>
           </>
         )}
       </section>
@@ -248,7 +248,7 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, 
             <td className="py-1 pr-3 text-xs text-ink-faint">{a.unit}</td>
             <td className="py-1 pr-3 text-[11px] text-ink-faint" title={a.judgment ? `判断値：${a.judgment}` : undefined}>
               {displayText(rangeText(a, patient.sex))}
-              {displayText(a.source ? `（${a.source === "共用基準範囲" ? "共用" : "SRL"}）` : "")}
+
               {a.judgment ? " ＊" : ""}
             </td>
             {cols.map((c) => {
@@ -257,7 +257,7 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, 
                 <td key={c.key} className={`py-1 pl-3 text-right ${isFocus(c) ? "bg-ai-soft/60" : ""} ${x.kind === "value" && x.flag === "H" ? "text-shu" : x.kind === "value" && x.flag === "L" ? "text-ai" : ""}`}>
                   {x.kind === "value" ? (
                     <>
-                      {x.value.toLocaleString("ja-JP")}
+                      {labNumber(a.code, x.value)}
                       <span className="inline-block w-3 text-[10px]">{x.flag}</span>
                     </>
                   ) : x.kind === "pending" ? (

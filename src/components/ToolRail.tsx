@@ -227,7 +227,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const showAll = true;
   const list = rail.mode === "list";
 
-  const toolTile = (t: Tool): Tile => ({ pin: t.key, label: t.label, icon: t.icon, active: open === t.key, why: blocked[t.key], disabled: t.disabled, badge: badges[t.key], go: () => onOpen(open === t.key ? null : t.key) });
+  const toolTile = (t: Tool): Tile => ({ pin: t.key, label: t.label, icon: t.icon, active: open === t.key, why: blocked[t.key] ?? (me.role === "臨床検査技師" && ["standing", "path", "discharge-stop", "directive", "diet", "discharge"].includes(t.key) ? "医師・病棟担当者が操作します" : undefined), disabled: t.disabled, badge: badges[t.key], go: () => onOpen(open === t.key ? null : t.key) });
   // A pinned template's name comes from the hospital's list or the person's own templates (this browser).
   const mine = rail.pins.some(isTemplatePin) ? loadMyTemplates(me.name) : [];
   const templateTile = (pin: RailPin): Tile | null => {
