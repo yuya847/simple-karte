@@ -188,6 +188,18 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     },
     [],
   );
+  // Reloading or closing the page while records are not yet saved: the browser asks first (a 申し送り sent just
+  // before a reload was lost while the save was still on its way).
+  useEffect(() => {
+    const ask = (e: BeforeUnloadEvent) => {
+      if (!dirty.current && !saving.current && !timer.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+    window.addEventListener("beforeunload", ask);
+    return () => window.removeEventListener("beforeunload", ask);
+  }, []);
 
   const reset = async () => {
     if (id) await resetWorkspace(id).catch(() => undefined);
