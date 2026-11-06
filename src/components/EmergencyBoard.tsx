@@ -227,9 +227,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
             })}
           </tbody>
         </table>
-        <p className="px-5 py-3 text-[11px] text-ink-faint">
-          受付で入れた内容はこのブラウザの中だけにあり、サーバーには送りません。保険証の確認などの事務の手続きは、この試作では扱いません。トリアージの段階（JTAS）は看護師が判定して入れるもので、アプリは判定しません。アプリは前の判定からの時間を数え、再評価の目安（緊急15分・準緊急30分・低緊急60分・非緊急120分）を過ぎたら赤で出します。救急外来医学管理料の欄は、来院の仕方と時刻からコードで出した目安です（外来の算定はこの試作では行いません）。
-        </p>
+
       </div>
 
       {registering && (
@@ -476,7 +474,7 @@ function HotlineDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel:
   const v = call?.vitals;
   return (
     <Dialog title="救急隊からの受入要請" onClose={onCancel}>
-      <p className="mb-2 text-[12px] text-ink-soft">電話で聞いたことを打つか話して、Claude で項目に分けます。Claude は言われたことを写すだけで、緊急度は決めません（トリアージは到着後に看護師が入れます）。氏名は入れないでください。</p>
+
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} className={`${input} w-full`} placeholder="例：80代男性、呼吸苦。血圧160の90、脈110、SpO2 88…あと10分" />
       <div className="mt-2 flex items-center gap-2">
         <button type="button" onClick={() => setText(SAMPLE_CALL)} className="rounded border border-rule px-2 py-1 text-[12px] text-ink-soft">
@@ -526,3 +524,10 @@ function HotlineDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel:
     </Dialog>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          受付で入れた内容はこのブラウザの中だけにあり、サーバーには送りません。保険証の確認などの事務の手続きは、この試作では扱いません。トリアージの段階（JTAS）は看護師が判定して入れるもので、アプリは判定しません。アプリは前の判定からの時間を数え、再評価の目安（緊急15分・準緊急30分・低緊急60分・非緊急120分）を過ぎたら赤で出します。救急外来医学管理料の欄は、来院の仕方と時刻からコードで出した目安です（外来の算定はこの試作では行いません）。
+        </p>
+<p >電話で聞いたことを打つか話して、Claude で項目に分けます。Claude は言われたことを写すだけで、緊急度は決めません（トリアージは到着後に看護師が入れます）。氏名は入れないでください。</p>
+*/

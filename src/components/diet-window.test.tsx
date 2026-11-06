@@ -16,7 +16,7 @@ describe("食事ウインドウ", () => {
       expect(html).toContain("全粥");
       expect(html).toContain("一口大");
       expect(html).toContain("禁止：卵");
-      expect(html).toContain("食事を押すと、その回から変えられます");
+      expect(html).not.toContain("食事を押すと、その回から変えられます");
       const disabled = html.match(/disabled=""/g)?.length ?? 0;
       expect(disabled).toBe(role === "看護師" ? 22 : 0);
     });

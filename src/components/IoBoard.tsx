@@ -6,7 +6,7 @@ import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { pastTime } from "@/lib/drip-course";
 import { abs } from "@/lib/flowsheet";
-import { IO_NOT_INCLUDED, IO_RULES, inWindow, ioDay, ioDayOf, ioLines, ioProblems, ioShiftAt, ioShifts, ioTotal, signed, windowText, type InKind, type IoEntry, type IoSide, type OutKind } from "@/lib/io-balance";
+import { IO_RULES, inWindow, ioDay, ioDayOf, ioLines, ioProblems, ioShiftAt, ioShifts, ioTotal, signed, windowText, type InKind, type IoEntry, type IoSide, type OutKind } from "@/lib/io-balance";
 import type { AdminRecord } from "@/lib/mar";
 import { IO } from "@/lib/standing";
 import type { WorkPatient } from "@/lib/worksheet";
@@ -197,11 +197,13 @@ export function IoBoard({ people, typed, records, sessionStart, nowTime, today, 
           {at === null && <p className="text-xs text-shu">時刻は 17:00 の形で入れてください。</p>}
           {bad.length > 0 && <p className="text-xs text-shu">{bad[0].problems[0]}</p>}
           {canType && outside && pending.length > 0 && <p className="text-xs text-yamabuki">この時刻は表示中の勤務（{displayText(windowText(w))}）の外です。記録は入れた時刻の勤務に入ります。</p>}
-          <p className="text-[11px] text-ink-faint">
-            合計と IN − OUT はコードが足し算しています（式はマウスを重ねると出ます）。点滴は注射の記録（終了の 1本 − 残量）から入り、ここでは入れません。IN か OUT の記録がない時間は差を出しません。{IO_NOT_INCLUDED}1人ずつの記録と取り消しは、カルテの「水分出納」で行います。
-          </p>
+
         </div>
       </div>
     </div>
   );
 }
+
+/* ヘルプへ移動した説明:
+合計と IN − OUT はコードが足し算しています（式はマウスを重ねると出ます）。点滴は注射の記録（終了の 1本 − 残量）から入り、ここでは入れません。IN か OUT の記録がない時間は差を出しません。 1人ずつの記録と取り消しは、カルテの「水分出納」で行います。
+*/

@@ -35,8 +35,8 @@ describe("バイタルの一括入力", () => {
     expect(html).toMatch(/aria-checked="true"[^>]*>業務分担で自分の受け持ち（1人）/);
     expect(html.match(/の体温"/g)?.length).toBe(1);
     expect(html).toContain("入れた 0人分を確定");
-    expect(html).toContain("Royal College of Physicians");
-    expect(html).toContain("指示簿");
+    expect(html).not.toContain("Royal College of Physicians");
+    expect(html).not.toContain("指示簿");
   });
 
   it("without a plan it starts on the team; a viewer who may not record cannot type", () => {
@@ -128,7 +128,7 @@ describe("業務分担", () => {
     expect(html).toContain("分担を確定 08:45 看護師 佐藤");
     expect(html).toContain("入院の受け入れ");
     expect(html).toContain("変える理由");
-    expect(html).toContain("受け持ち患者割当");
+    expect(html).not.toContain("受け持ち患者割当");
   });
 
   it("the map shows each room's nurses of the shift now", () => {
@@ -149,7 +149,7 @@ describe("状態の一括登録", () => {
     expect(html).toContain("2人を登録する");
     expect(html).toContain("まだ登録していません");
     expect(html).toMatch(/aria-pressed="true"[^>]*>接触</);
-    expect(html).toContain("医政地発1219第1号");
+    expect(html).not.toContain("医政地発1219第1号");
     expect(html).not.toContain("架空の病院の取り決め");
     // 甲 has nothing chosen yet; 乙's 救護区分 comes from the bed.
     expect(html).toContain("未入力：重症度・観察の程度・生活の自由度・救護区分");
@@ -175,7 +175,7 @@ describe("褥瘡のある患者・褥瘡の経過", () => {
     expect(html).toContain("D3-e3s6i1g3N3p0");
     expect(html).toContain("▼3点");
     expect(html).toContain("見本（図形）");
-    expect(html).toContain("保医発0305第7号");
+    expect(html).not.toContain("保医発0305第7号");
     expect(html).not.toContain("架空の病院の取り決め");
   });
 
@@ -186,7 +186,7 @@ describe("褥瘡のある患者・褥瘡の経過", () => {
     expect(html).toContain("D3-e3s8i1G4N3p0");
     expect(html).toContain("<b>19</b>");
     expect(html).toContain("評価を記録");
-    expect(html).toContain("日本褥瘡学会");
+    expect(html).not.toContain("日本褥瘡学会");
     // A viewer who may not record sees the course only.
     const ro = renderToStaticMarkup(<PressurePanel patientId="90035151" ulcers={initialUlcers()} nowTime="10:00" fmtDay={fmtDay} newId={() => "x"} canRecord={false} onChange={() => {}} />);
     expect(ro).not.toContain("＋ 褥瘡を登録");

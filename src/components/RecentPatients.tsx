@@ -20,7 +20,7 @@ export function RecentPatients({ list, patient, onOpen, onClear }: { list: Recen
           最近開いた患者
           <span className="nums ml-1 text-sm font-normal text-ink-soft">{rows.length}人</span>
         </h1>
-        <p className="text-[12px] text-ink-soft">自分がカルテを開いた患者を、新しい順に並べます（最大20人、この端末のみに保存）。誰がいつ開いたかの正式な記録は監査ログにあります。</p>
+
         {rows.length > 0 && (
           <button type="button" onClick={onClear} className="ml-auto rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ink">
             この一覧を空にする
@@ -52,3 +52,7 @@ export function RecentPatients({ list, patient, onOpen, onClear }: { list: Recen
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >自分がカルテを開いた患者を、新しい順に並べます（最大20人、この端末のみに保存）。誰がいつ開いたかの正式な記録は監査ログにあります。</p>
+*/

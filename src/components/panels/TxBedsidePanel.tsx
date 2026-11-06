@@ -7,8 +7,6 @@ import { cancelExecution } from "@/lib/mar";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import {
-  BLOOD_RULES,
-  BLOOD_SOURCES,
   SEVERE,
   SYMPTOMS,
   bagLabel,
@@ -77,25 +75,7 @@ export function TxBedsidePanel(p: Props) {
           </section>
         );
       })}
-      <div className="hint rounded-md border border-rule bg-sheet p-2 text-[11px] text-ink-soft">
-        <p>{BLOOD_RULES.bedside}</p>
-        <p className="mt-1">{BLOOD_RULES.observe}</p>
-        <p className="mt-1">{BLOOD_RULES.before}</p>
-        <p className="mt-1">
-          出典：
-          <a href={BLOOD_SOURCES.guide.url} target="_blank" rel="noreferrer" className="text-ai underline">
-            {BLOOD_SOURCES.guide.label}
-          </a>
-          ／症状の項目と定義：
-          <a href={BLOOD_SOURCES.symptoms.url} target="_blank" rel="noreferrer" className="text-ai underline">
-            {BLOOD_SOURCES.symptoms.label}
-          </a>
-          ／旧指針の廃止：
-          <a href={BLOOD_SOURCES.notice.url} target="_blank" rel="noreferrer" className="text-ai underline">
-            {BLOOD_SOURCES.notice.label}
-          </a>
-        </p>
-      </div>
+
     </div>
   );
 }
@@ -362,3 +342,25 @@ function Observe({ admin, put, nowTime, patient, unit, onIo, blood }: BagProps &
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<div >
+        <p>{BLOOD_RULES.bedside}</p>
+        <p >{BLOOD_RULES.observe}</p>
+        <p >{BLOOD_RULES.before}</p>
+        <p >
+          出典：
+          <a href={BLOOD_SOURCES.guide.url} target="_blank" rel="noreferrer" >
+            {BLOOD_SOURCES.guide.label}
+          </a>
+          ／症状の項目と定義：
+          <a href={BLOOD_SOURCES.symptoms.url} target="_blank" rel="noreferrer" >
+            {BLOOD_SOURCES.symptoms.label}
+          </a>
+          ／旧指針の廃止：
+          <a href={BLOOD_SOURCES.notice.url} target="_blank" rel="noreferrer" >
+            {BLOOD_SOURCES.notice.label}
+          </a>
+        </p>
+      </div>
+*/

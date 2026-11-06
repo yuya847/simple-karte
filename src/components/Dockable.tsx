@@ -101,6 +101,7 @@ export function Dockable({
   return (
     <div
       data-dock={tab}
+      data-help-section={`panel:${tab}`}
       role={floating ? "dialog" : undefined}
       aria-label={floating ? `${title}（別ウインドウ）` : undefined}
       onPointerDownCapture={floating ? front : undefined}

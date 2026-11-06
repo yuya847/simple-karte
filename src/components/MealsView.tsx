@@ -5,7 +5,7 @@ import { Printer, Utensils } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { LEAVE_HOLD_RULE, MEAL_DEADLINE, holdTitle, type DietOrder } from "@/lib/diet";
+import { holdTitle, type DietOrder } from "@/lib/diet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
 import { abs } from "@/lib/flowsheet";
 import type { OrderEntry } from "@/lib/types";
@@ -203,12 +203,7 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
 
         {tables}
 
-        <ul className="hint space-y-0.5 text-[11px] text-ink-faint">
-          <li>締切は、朝食が前日 {MEAL_DEADLINE.朝.time}、昼食が当日 {MEAL_DEADLINE.昼.time}、夕食が当日 {MEAL_DEADLINE.夕.time}。締切のあとに入った食事の指示・食止め・食止めの取り消しに印を付けます。</li>
-          <li>検査で止めるのは、院内の取り決め（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</li>
-          <li>アレルギーはカルテの記載のまま（薬のアレルギーを含む）。禁止・注意は食事の指示の注意の欄と、カルテの注意のうち食事・水分に関わるもの。</li>
-          <li>食事を決めるのは医師です（カルテの右の「食事」）。この画面は見るだけで、AI は使いません。</li>
-        </ul>
+
       </div>
       {printing &&
         createPortal(
@@ -262,3 +257,12 @@ function Cell({ c }: { c: MealCell }) {
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<ul >
+          <li>締切は、朝食が前日 {MEAL_DEADLINE.朝.time}、昼食が当日 {MEAL_DEADLINE.昼.time}、夕食が当日 {MEAL_DEADLINE.夕.time}。締切のあとに入った食事の指示・食止め・食止めの取り消しに印を付けます。</li>
+          <li>検査で止めるのは、院内の取り決め（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</li>
+          <li>アレルギーはカルテの記載のまま（薬のアレルギーを含む）。禁止・注意は食事の指示の注意の欄と、カルテの注意のうち食事・水分に関わるもの。</li>
+          <li>食事を決めるのは医師です（カルテの右の「食事」）。この画面は見るだけで、AI は使いません。</li>
+        </ul>
+*/

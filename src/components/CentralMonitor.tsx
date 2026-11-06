@@ -74,7 +74,7 @@ export function CentralMonitor({ candidates, manual, lockedWhy, onToggle, onOpen
           {MONITOR_NOTES.silent}
         </span>
       </div>
-      <p className="hint text-xs text-ink-soft">枠を押すとその患者のカルテと患者モニターのウインドウが開きます。装着の付け外しは下の表で（看護師）。</p>
+
 
       {list.length === 0 ? (
         <p className="rounded-md border border-dashed border-rule p-6 text-center text-ink-soft">モニターを付けている患者はいません。下の表で付けられます。</p>
@@ -192,3 +192,7 @@ export function CentralMonitor({ candidates, manual, lockedWhy, onToggle, onOpen
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >枠を押すとその患者のカルテと患者モニターのウインドウが開きます。装着の付け外しは下の表で（看護師）。</p>
+*/

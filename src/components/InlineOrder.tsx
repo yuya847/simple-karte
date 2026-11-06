@@ -1,5 +1,6 @@
 "use client";
 
+import { inlineHelpSection } from "@/lib/help";
 import { X } from "lucide-react";
 
 /**
@@ -8,7 +9,7 @@ import { X } from "lucide-react";
  */
 export function InlineOrder({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="my-2 rounded-md border border-ai/40 bg-sheet">
+    <section data-help-section={inlineHelpSection(title)} aria-label={title} className="my-2 rounded-md border border-ai/40 bg-sheet">
       <div className="flex items-center gap-2 border-b border-rule bg-ai-soft/50 px-3 py-1 text-sm">
         <h2 className="font-bold">{title}</h2>
         <button type="button" onClick={onClose} aria-label="閉じる" className="ml-auto rounded p-0.5 text-ink-faint hover:text-ink">

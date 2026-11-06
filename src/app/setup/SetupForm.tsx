@@ -30,7 +30,7 @@ export function SetupForm({ defaultUrl }: { defaultUrl: string }) {
   return (
     <main className="mx-auto max-w-xl space-y-4 p-8 text-[14px] text-ink">
       <h1 className="text-lg font-bold">記録の保存先（Supabase）の設定</h1>
-      <p className="text-[13px] text-ink-soft">手元の開発用の画面です。入れた値は、このパソコンの .env.local と、選べば Vercel の本番の環境変数に入ります。画面にもログにも残しません。</p>
+
       <label className="block space-y-1">
         <span className="font-bold">Project URL</span>
         <input value={url} onChange={(e) => setUrl(e.target.value)} className={field} spellCheck={false} />
@@ -54,7 +54,12 @@ export function SetupForm({ defaultUrl }: { defaultUrl: string }) {
           ))}
         </ul>
       )}
-      <p className="text-[12px] text-ink-faint">入れたあと：手元は開発用のサーバーを立ち上げ直すと読み込みます。本番は次のデプロイ（main への push か Vercel の Redeploy）から使われます。</p>
+
     </main>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >手元の開発用の画面です。入れた値は、このパソコンの .env.local と、選べば Vercel の本番の環境変数に入ります。画面にもログにも残しません。</p>
+<p >入れたあと：手元は開発用のサーバーを立ち上げ直すと読み込みます。本番は次のデプロイ（main への push か Vercel の Redeploy）から使われます。</p>
+*/

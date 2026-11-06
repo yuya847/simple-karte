@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { ClipboardX } from "lucide-react";
 import { useState } from "react";
-import { UNDONE_SOURCE, UNDONE_WINDOW, lateText, type GapRow, type UndoneRow } from "@/lib/undone";
+import { UNDONE_WINDOW, lateText, type GapRow, type UndoneRow } from "@/lib/undone";
 import type { WorkKind } from "@/lib/worksheet";
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -46,9 +46,9 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
           )}
         </div>
         <p className="text-[11px] text-ink-faint">
-          {UNDONE_WINDOW}。<span className="hint">実施か未実施（理由つき）をワークシートの「照合」で記録すると消えます。</span>
+          {UNDONE_WINDOW}。
         </p>
-        {forBilling && <p className="text-[11px] text-yamabuki">算定の計算は、時刻を過ぎた注射・処置を実施として数えます（未実施と記録された注射の回は数えません）。ここにある注射・処置は、記録のないまま算定に入っています。</p>}
+        {forBilling && <p className="text-[11px] text-yamabuki">記録のないまま算定に入っています。実施記録を確認してください。</p>}
         {shown.length === 0 ? (
           <p className="rounded-md border border-rule bg-paper px-3 py-2 text-wakatake">記録がないまま時刻を過ぎたものはありません。</p>
         ) : (
@@ -93,7 +93,7 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
           <h3 className="font-bold">算定と実施の記録が合わないもの（算定漏れの候補）</h3>
           <span className="rounded bg-yamabuki-soft px-1.5 text-xs font-bold text-yamabuki">{gaps.length}件</span>
         </div>
-        <p className="text-[11px] text-ink-faint">病棟の処置（創傷処置・褥瘡処置・喀痰吸引・摘便・浣腸）の実施・未実施の記録と、算定の計算が数える回をコードで比べました。直すかどうかは医事課と病棟で決めます。</p>
+
         {gaps.length === 0 ? (
           <p className="rounded-md border border-rule bg-paper px-3 py-2 text-wakatake">食い違いはありません。</p>
         ) : (
@@ -139,12 +139,19 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
           </table>
         )}
       </section>
-      <p className="hint text-[11px] text-ink-faint">
-        出典：
-        <a href={UNDONE_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
-          {UNDONE_SOURCE.label}
-        </a>
-      </p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >実施か未実施（理由つき）をワークシートの「照合」で記録すると消えます。</span>
+<p >算定の計算は、時刻を過ぎた注射・処置を実施として数えます（未実施と記録された注射の回は数えません）。ここにある注射・処置は、記録のないまま算定に入っています。</p>
+<p >病棟の処置（創傷処置・褥瘡処置・喀痰吸引・摘便・浣腸）の実施・未実施の記録と、算定の計算が数える回をコードで比べました。直すかどうかは医事課と病棟で決めます。</p>
+<p >
+        出典：
+        <a href={UNDONE_SOURCE.url} target="_blank" rel="noreferrer" >
+          {UNDONE_SOURCE.label}
+        </a>
+      </p>
+*/

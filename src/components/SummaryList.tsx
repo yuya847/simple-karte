@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { FileClock } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { SUMMARY_RULES, SUMMARY_SOURCES, SUMMARY_STATES, approve, approveDeny, lastMonthRate, sendBack, summaryState, type SummaryRecord, type SummaryRow, type SummaryState } from "@/lib/summary-approval";
+import { SUMMARY_RULES, SUMMARY_STATES, approve, approveDeny, lastMonthRate, sendBack, summaryState, type SummaryRecord, type SummaryRow, type SummaryState } from "@/lib/summary-approval";
 import { useMe } from "./RoleContext";
 
 const TONE: Record<SummaryState, string> = {
@@ -16,16 +16,7 @@ const TONE: Record<SummaryState, string> = {
 };
 
 const Sources = () => (
-  <p className="hint text-[11px] text-ink-faint">
-    出典：
-    <a href={SUMMARY_SOURCES.deadline.url} target="_blank" rel="noreferrer" className="underline">
-      {SUMMARY_SOURCES.deadline.label}
-    </a>
-    ／
-    <a href={SUMMARY_SOURCES.spec.url} target="_blank" rel="noreferrer" className="underline">
-      {SUMMARY_SOURCES.spec.label}
-    </a>
-  </p>
+  null
 );
 
 /** 承認・差し戻し of one summary, in the chart's 退院サマリ (the approver reads it there first). */
@@ -101,7 +92,7 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
             （期限を過ぎた {rate.late}人・期限がまだの {rate.open}人。施設基準は毎月9割以上）
           </span>
         </div>
-        <p className="hint text-[11px] text-ink-faint">割合 ＝ 期限内に承認まで済んだ人数 ÷ 前月に退院した人数 × 100（コードで計算）。{SUMMARY_RULES.submit}</p>
+
       </section>
 
       <div role="tablist" className="flex flex-wrap rounded-md border border-rule p-0.5 text-xs">
@@ -182,3 +173,17 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+    出典：
+    <a href={SUMMARY_SOURCES.deadline.url} target="_blank" rel="noreferrer" >
+      {SUMMARY_SOURCES.deadline.label}
+    </a>
+    ／
+    <a href={SUMMARY_SOURCES.spec.url} target="_blank" rel="noreferrer" >
+      {SUMMARY_SOURCES.spec.label}
+    </a>
+  </p>
+<p >割合 ＝ 期限内に承認まで済んだ人数 ÷ 前月に退院した人数 × 100（コードで計算）。{SUMMARY_RULES.submit}</p>
+*/

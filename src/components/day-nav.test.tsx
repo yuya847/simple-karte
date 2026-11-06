@@ -40,8 +40,8 @@ describe("AsOfBand", () => {
     const ahead = renderToStaticMarkup(<AsOfBand asOf={{ day: 1, known: true }} fmtDay={fmt} />);
     expect(ahead).toContain("11/5（水）の見込み（予定から計算）");
     expect(ahead).not.toContain("架空の病院の取り決め");
-    expect(ahead).toMatch(/class="hint[^"]*"[^>]*>空床 ＝ いまの空床 ＋/);
-    expect(ahead).toContain("いまの空床 ＋ 今日の退院 − 今日の入院");
+    expect(ahead).not.toMatch(/class="hint[^"]*"[^>]*>空床 ＝ いまの空床 ＋/);
+    expect(ahead).not.toContain("いまの空床 ＋ 今日の退院 − 今日の入院");
     const back = renderToStaticMarkup(<AsOfBand asOf={{ day: -2, known: true }} fmtDay={fmt} />);
     expect(back).toContain("11/2（水）の記録から");
     expect(renderToStaticMarkup(<AsOfBand asOf={{ day: -9, known: false }} fmtDay={fmt} />)).toContain("この日の記録はありません");

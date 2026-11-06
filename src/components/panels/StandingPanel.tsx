@@ -124,7 +124,7 @@ export function StandingPanel({
     const fieldEditor = (
       <div className="space-y-3 text-[12px]">
         <h3 className="font-bold">変更：{displayText(editingLine ? `元の指示 ${editingLine.text}` : "項目で選ぶ指示")}</h3>
-        <p className="hint text-[11px] text-ink-faint">項目は医師が選びます（最初から選ばれているものはありません）。確定すると新しい版になり、看護師が指示受けします。</p>
+
         {row("安静度", <select aria-label="安静度" value={edit.rest ?? ""} onChange={(e) => set({ rest: (e.target.value || null) as StandingOrders["rest"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{RESTS.map((x) => <option key={x}>{x}</option>)}</select>)}
         {row("清潔", <select aria-label="清潔" value={edit.bath ?? ""} onChange={(e) => set({ bath: (e.target.value || null) as StandingOrders["bath"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{BATHS.map((x) => <option key={x}>{x}</option>)}</select>)}
         {row("バイタル", <select aria-label="バイタル測定" value={edit.vitals ?? ""} onChange={(e) => set({ vitals: (e.target.value || null) as StandingOrders["vitals"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{VITAL_FREQS.map((x) => <option key={x}>{x}</option>)}</select>)}
@@ -193,7 +193,7 @@ export function StandingPanel({
                 {issues[i].map((x, k) => (
                   <p key={k} className={`nums pl-[5.5rem] ${x.level === "stop" ? "font-bold text-shu" : x.level === "ask" ? "text-yamabuki" : "text-ai"}`}>
                     {x.message}
-                    {x.formula && <span className="ml-1">（{x.formula}<span className="hint">、コードで計算</span>）</span>}
+                    {x.formula && <span className="ml-1">（{x.formula}）</span>}
                   </p>
                 ))}
                 <button type="button" onClick={() => set({ prn: edit.prn.filter((_, j) => j !== i) })} className="pl-[5.5rem] text-[11px] text-ink-faint hover:text-shu">
@@ -261,7 +261,7 @@ export function StandingPanel({
         <label>理由（任意）<input aria-label="項目の終了理由" value={endReason} onChange={(e) => setEndReason(e.target.value)} /></label>
         <button type="button" disabled={!!deny("order") || endDay < Math.max(0, endingField.start.day) || (endingField.end !== undefined && endDay > endingField.end.day)} onClick={() => { onSave(confirmStanding(endStandingField(cur, endingField, endDay, endReason, me.name, nowTime), me.name, { day: 0, time: nowTime })); setEndingField(null); }}>終了を確定</button>
         <button type="button" onClick={() => setEndingField(null)}>やめる</button>
-        <p className="hint">選んだ項目だけを終了します。終了日は今日以降を指定します。ほかの項目はそのままです。</p>
+
       </section>}
       {lines && <button type="button" onClick={() => print(<StandingPrintSheet patient={lines.patient} lines={currentLines(lines.lines)} fields={cur} today={lines.today} nowTime={nowTime} by={me.name} />, { portrait: true })} className="rounded border border-rule px-2 py-1 text-[12px] text-ai">指示簿を印刷（A4 縦）</button>}
       {lines && <div className="flex gap-2" role="group" aria-label="指示簿の表示">{(["一覧", "カレンダー"] as const).map((v) => <button type="button" key={v} aria-pressed={view === v} onClick={() => setView(v)} className={`rounded border border-rule px-3 py-1 ${view === v ? "bg-ai-soft text-ai" : ""}`}>{v}</button>)}</div>}
@@ -269,8 +269,8 @@ export function StandingPanel({
       {lines && view === "一覧" && (
         <>
           <StandingOrderForm onEndFields={(l) => { setEdit(null); setEndingField(l); setEndDay(0); setEndReason(""); }} key={editingLine?.id ?? "new"} initialSelection={editingLine} onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={(l) => { setEditingLine(l); setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime })); }} />
-          <h3 className="hint border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
-          <p className="hint text-[11px] text-ink-faint">測定・水分出納・医師を呼ぶ基準は、上の指示のかたまりを先に読み、足りない項目はここから読みます。頓用は本文もワークシートに出ます。</p>
+
+
         </>
       )}
       <CondHits hits={condHits} acks={condAcks} fmtDay={fmtDay} canRecord={!!onCondRecord && (me.role === "看護師" || me.role === "医師")} onRecord={(h, note) => onCondRecord?.(h, note)} />
@@ -374,3 +374,11 @@ export function StandingView({ s }: { s: StandingOrders }) {
     </dl>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >項目は医師が選びます（最初から選ばれているものはありません）。確定すると新しい版になり、看護師が指示受けします。</p>
+<span >、コードで計算</span>
+<p >選んだ項目だけを終了します。終了日は今日以降を指定します。ほかの項目はそのままです。</p>
+<h3 >項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
+<p >測定・水分出納・医師を呼ぶ基準は、上の指示のかたまりを先に読み、足りない項目はここから読みます。頓用は本文もワークシートに出ます。</p>
+*/

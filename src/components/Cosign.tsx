@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { UserCheck } from "lucide-react";
 import { createContext, useContext, useState } from "react";
-import { COSIGN_RULES, COSIGN_SOURCES, confirmDeny, cosignLabel, pendingOf, signerLabel, type CosignItem } from "@/lib/cosign";
+import { COSIGN_RULES, confirmDeny, cosignLabel, pendingOf, signerLabel, type CosignItem } from "@/lib/cosign";
 
 // 研修医の記録の確認: the mark on each record, the strip in the chart, and the ward's list.
 
@@ -108,7 +108,7 @@ export function CosignPanel({ items, meName, onConfirm }: { items: CosignItem[];
           </ul>
         </section>
       )}
-      <p className="hint text-[11px] text-ink-faint">研修医が書いた記事・オーダ・指示簿は、同じチームの指導医か上級医が内容を読んで「確認」します。件数は右端ツール「文書」のアイコンの赤い数字に出ます。</p>
+
     </div>
   );
 }
@@ -150,9 +150,7 @@ export function CosignList({ items, meName, patientOf, onConfirm, onOpen }: { it
           ))}
         </div>
       </header>
-      <p className="mb-3 text-[12px] text-ink-soft">
-        研修医が確定した記事とオーダ（新規・中止・延長）・指示簿（追加・修正・中止）を1件ずつ並べます。確かめるのは同じチームの指導医か上級医で、確かめた人と時刻が記録とこの一覧に残ります。どれを直すか・指導するかは確かめる医師が決めます。
-      </p>
+
       {can.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-rule bg-sheet px-3 py-2">
           <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="指導の内容・コメント（任意。確認に添えて残ります）" aria-label="指導の内容・コメント" className="min-w-0 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5" />
@@ -233,23 +231,31 @@ export function CosignList({ items, meName, patientOf, onConfirm, onOpen }: { it
 /** The sources, and what this fictional hospital decided where they say nothing. */
 export function CosignBasis() {
   return (
-    <section className="hint mt-5 space-y-1 border-t border-rule pt-3 text-[11px] text-ink-soft">
-      <h2 className="font-bold text-ink">根拠</h2>
-      <ul className="list-disc space-y-0.5 pl-5">
+    null
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >研修医が書いた記事・オーダ・指示簿は、同じチームの指導医か上級医が内容を読んで「確認」します。件数は右端ツール「文書」のアイコンの赤い数字に出ます。</p>
+<p >
+        研修医が確定した記事とオーダ（新規・中止・延長）・指示簿（追加・修正・中止）を1件ずつ並べます。確かめるのは同じチームの指導医か上級医で、確かめた人と時刻が記録とこの一覧に残ります。どれを直すか・指導するかは確かめる医師が決めます。
+      </p>
+<section >
+      <h2 >根拠</h2>
+      <ul >
         {Object.values(COSIGN_SOURCES).map((s) => (
           <li key={s.url + s.label}>
-            <a href={s.url} target="_blank" rel="noreferrer" className="text-ai underline-offset-2 hover:underline">
+            <a href={s.url} target="_blank" rel="noreferrer" >
               {s.label}
             </a>
           </li>
         ))}
       </ul>
-      <h2 className="pt-1 font-bold text-ink">院内の取り決め</h2>
-      <ul className="list-disc space-y-0.5 pl-5">
+      <h2 >院内の取り決め</h2>
+      <ul >
         {Object.values(COSIGN_RULES).map((t) => (
           <li key={t}>{t}</li>
         ))}
       </ul>
     </section>
-  );
-}
+*/

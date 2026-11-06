@@ -15,7 +15,7 @@ import { auditLog } from "@/lib/audit";
 import type { ConsentRecord } from "@/lib/consent";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { findRoom, putWork, RIS_RULES, roomsFor, type RisRow, type RisWork, type RoomKey } from "@/lib/ris";
+import { findRoom, putWork, roomsFor, type RisRow, type RisWork, type RoomKey } from "@/lib/ris";
 import {
   callHow,
   confirmPending,
@@ -29,7 +29,6 @@ import {
   RIS_STAMP_LABELS,
   RIS_TAKE_DAYS,
   RIS_TAKE_KINDS,
-  RIS_TAKE_RULES,
   RIS_TAKE_SOURCES,
   risConfirmItems,
   risStamps,
@@ -150,9 +149,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
       </SheetBand>
       <div className="space-y-4">
         <DenyNote action="ris.exam" />
-        <p className="hint text-[11px] text-ink-soft">
-          医師が出した画像検査の指示は、まずここで「指示を受ける」（誰が・いつ）。受けると受付済みになり、撮影室・装置と予定の時刻を決める欄が下に開きます。左の○にチェックして「一括受け」でまとめて受けられます（「全チェック」で受けられるものを全部）。{RIS_TAKE_RULES.one}造影・MRI は受けたあと「確認する」で同意・腎機能・アレルギー・内服（造影）や体内金属・ペースメーカー・閉所（MRI）を一覧で見て「確認した」を押します。◀ ▶ で前後の日の指示（その日に出た指示と、その日に予定の指示）を見られます。
-        </p>
+
         {groups.length === 0 ? (
           <p className="rounded-lg border border-rule bg-sheet px-4 py-3 text-[12px] text-ink-faint">{waiting.length === 0 && takenShown.length > 0 ? "この日の指示はすべて受けています。「指示受け済みも表示する」で見られます。" : "この日に受ける画像検査の指示はありません。"}</p>
         ) : (
@@ -266,12 +263,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
           })
         )}
         <SheetNotes>
-          <p>
-            {RIS_TAKE_RULES.one}
-            {RIS_TAKE_RULES.late}
-            {RIS_TAKE_RULES.pregnancy}
-            {RIS_RULES.rooms}造影の確認の項目（同意・腎機能 eGFR 30・ヨードのアレルギー・ビグアナイド系の休薬）は、医師のオーダの確認と同じ指針に基づきます。これらは院内の取り決めで、コードが並べるだけです（AI は使っていません）。
-          </p>
+
           <Sources items={RIS_TAKE_SOURCES} />
         </SheetNotes>
       </div>
@@ -397,7 +389,7 @@ export function RisConfirmPanel({ r, items, onConfirm, onClose }: { r: RisRow; i
           あとで
         </button>
       </div>
-      <p className="hint mt-1 text-[10px] text-ink-faint">指示受けのあと、撮影の前に確かめます（指示受け → 指示確認 → 撮影）。値はカルテの記録とオーダから並べるだけで、判断は技師と医師がします。赤はカルテに気になる記録があるもの、黄は記録がなく本人か医師に聞くものです。</p>
+
     </div>
   );
 }
@@ -492,10 +484,10 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
           {dayName}（{formatShort(addDays(today, day))}）の受付済みの検査を、装置ごとに予定の時刻の順に並べます。
         </span>
       </div>
-      <p className="hint text-[11px] text-ink-soft">「呼出」は外来・救急の患者なら待合の表示に、病棟の患者なら病棟へ搬送を依頼した記録です。来室・撮影開始・撮影終了・画像送信を押した時刻で記録します（撮影条件と線量は「撮影・照射録」か「撮影装置（模擬）」で入れます。模擬装置で始めた検査もここに出ます）。予定から 15分を過ぎて始まっていないものを遅れとします。</p>
+
       {lanes.map((l) => lane(`${l.room.room}　${l.room.device}`, l.rows))}
       {unassigned.length > 0 && lane("装置がまだ決まっていない", unassigned, "指示受けの画面で撮影室・装置を割り当てます")}
-      <p className="hint text-[11px] text-ink-faint">{RIS_TAKE_RULES.rooms}</p>
+
     </section>
   );
 }
@@ -514,7 +506,7 @@ export function PortableRound({ rows, onDesk, nowTime }: { rows: RisRow[]; onDes
         <h3 className="mb-1 font-bold">
           病棟のポータブル回り <span className="nums font-normal text-ink-soft">{round.length}件</span>
         </h3>
-        <p className="hint text-ink-soft">受けたポータブルX線を病室の番号の順に並べます。この順に回り、病室に着いたら「病室に着いた」、撮ったら「撮影終了」を押します。撮影条件は「撮影・照射録」で入れます。</p>
+
         {round.length === 0 ? (
           <p className="text-ink-faint">回るポータブルの指示はありません（受けていないポータブルは指示受けの画面に出ます）。</p>
         ) : (
@@ -565,3 +557,17 @@ export function PortableRound({ rows, onDesk, nowTime }: { rows: RisRow[]; onDes
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          医師が出した画像検査の指示は、まずここで「指示を受ける」（誰が・いつ）。受けると受付済みになり、撮影室・装置と予定の時刻を決める欄が下に開きます。左の○にチェックして「一括受け」でまとめて受けられます（「全チェック」で受けられるものを全部）。{RIS_TAKE_RULES.one}造影・MRI は受けたあと「確認する」で同意・腎機能・アレルギー・内服（造影）や体内金属・ペースメーカー・閉所（MRI）を一覧で見て「確認した」を押します。◀ ▶ で前後の日の指示（その日に出た指示と、その日に予定の指示）を見られます。
+        </p>
+<p >指示受けのあと、撮影の前に確かめます（指示受け → 指示確認 → 撮影）。値はカルテの記録とオーダから並べるだけで、判断は技師と医師がします。赤はカルテに気になる記録があるもの、黄は記録がなく本人か医師に聞くものです。</p>
+<p >「呼出」は外来・救急の患者なら待合の表示に、病棟の患者なら病棟へ搬送を依頼した記録です。来室・撮影開始・撮影終了・画像送信を押した時刻で記録します（撮影条件と線量は「撮影・照射録」か「撮影装置（模擬）」で入れます。模擬装置で始めた検査もここに出ます）。予定から 15分を過ぎて始まっていないものを遅れとします。</p>
+<p >{RIS_TAKE_RULES.rooms}</p>
+<p >受けたポータブルX線を病室の番号の順に並べます。この順に回り、病室に着いたら「病室に着いた」、撮ったら「撮影終了」を押します。撮影条件は「撮影・照射録」で入れます。</p>
+*/
+
+/* ヘルプへ移動した説明:
+    造影の確認の項目（同意・腎機能 eGFR 30・ヨードのアレルギー・ビグアナイド系の休薬）は、医師のオーダの確認と同じ指針に基づきます。これらは院内の取り決めで、コードが並べるだけです（AI は使っていません）。
+*/

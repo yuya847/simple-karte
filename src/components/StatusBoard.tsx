@@ -11,8 +11,6 @@ import {
   RESCUE_NOTE,
   SEVERITY,
   SHIFT_LABEL,
-  STATUS_RULES,
-  STATUS_SOURCES,
   applyToMany,
   changedRows,
   currentShift,
@@ -222,16 +220,23 @@ export function StatusBoard({ pick, patients, book, nowTime, canType, onRegister
           ))}
         </div>
       </header>
-      <p className="hint mb-2 text-xs text-ink-soft">勤務帯ごとに、階の全員の状態を1つの表で入れて登録します。左の□で患者を選ぶと、同じ値をまとめて入れられます。前の勤務帯の登録を写してから直すこともできます。救護区分は院内連絡のベッドの情報にも入ります。</p>
+
       <Table key={`${shiftKey(cur.day, cur.shift)}|${pick.value}|${book[shiftKey(cur.day, cur.shift)]?.length ?? 0}`} patients={patients} book={book} day={cur.day} shift={cur.shift} nowTime={nowTime} canType={canType} onRegister={(sheet, changed) => onRegister(cur.day, cur.shift, sheet, changed)} />
-      <ul className="hint mt-3 space-y-0.5 text-[11px] text-ink-faint">
+
+    </section>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >勤務帯ごとに、階の全員の状態を1つの表で入れて登録します。左の□で患者を選ぶと、同じ値をまとめて入れられます。前の勤務帯の登録を写してから直すこともできます。救護区分は院内連絡のベッドの情報にも入ります。</p>
+<ul >
         <li>
-          <a href={STATUS_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+          <a href={STATUS_SOURCES.record.url} target="_blank" rel="noreferrer" >
             {STATUS_SOURCES.record.label}
           </a>
         </li>
         <li>
-          <a href={STATUS_SOURCES.precautions.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+          <a href={STATUS_SOURCES.precautions.url} target="_blank" rel="noreferrer" >
             {STATUS_SOURCES.precautions.label}
           </a>
         </li>
@@ -243,6 +248,4 @@ export function StatusBoard({ pick, patients, book, nowTime, canType, onRegister
           {displayText([...FIELDS.slice(0, 3)].map((f) => `${f.label} ${f.options.map((o) => `${o.key}＝${o.note}`).join("、")}`).join("／"))}／救護区分 {RESCUE_KINDS.map((k) => `${k}＝${RESCUE_NOTE[k]}`).join("、")}
         </li>
       </ul>
-    </section>
-  );
-}
+*/

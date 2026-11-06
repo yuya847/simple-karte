@@ -2,7 +2,7 @@
 
 import { displayText } from "@/lib/display-text";
 import { fluidInWindow } from "@/lib/flowsheet";
-import { IN_KINDS, IO_NOT_INCLUDED, IO_RULES, OUT_KINDS, inWindow, ioDay, ioDayOf, ioShifts, ioTotal, signed, type IoEntry, type IoLine, type IoWindow } from "@/lib/io-balance";
+import { IN_KINDS, IO_RULES, OUT_KINDS, inWindow, ioDay, ioDayOf, ioShifts, ioTotal, signed, type IoEntry, type IoLine, type IoWindow } from "@/lib/io-balance";
 import type { AdminRecord } from "@/lib/mar";
 import { findDrug } from "@/lib/master";
 import type { OrderEntry } from "@/lib/types";
@@ -159,9 +159,11 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
         {row("bal", "IN − OUT", undefined, balanceCell, true)}
         {nowAbs > t0 && nowAbs < endAbs && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-[#8c8473]" style={{ left: labelW + xAbs(nowAbs) }} />}
       </div>
-      <p className="mt-1 pl-[76px] text-[10px] text-ink-faint">
-        縦の線がいま。左は記録した量、（ ）はオーダから計算した点滴の予定量で、記録とは分けています（IN合計の（ ）は、点滴を予定どおりに入れたときの見込み）。点滴の行は「この期間／その注射の開始からの合計」。点滴は終了の記録（1本 − 残量）の時刻に入ります。IN か OUT の記録がない期間は差を出しません。{IO_NOT_INCLUDED}セルに触れると勤務ごとの式が出ます。
-      </p>
+
     </>
   );
 }
+
+/* ヘルプへ移動した説明:
+縦の線がいま。左は記録した量、（ ）はオーダから計算した点滴の予定量で、記録とは分けています（IN合計の（ ）は、点滴を予定どおりに入れたときの見込み）。点滴の行は「この期間／その注射の開始からの合計」。点滴は終了の記録（1本 − 残量）の時刻に入ります。IN か OUT の記録がない期間は差を出しません。 セルに触れると勤務ごとの式が出ます。
+*/

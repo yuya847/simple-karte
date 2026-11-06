@@ -25,7 +25,7 @@ function ReviewForm({ last, nowTime, onSave, onCancel }: { last?: ChecklistRecor
   const ch = fallChanges(last, { checked });
   return (
     <div className="space-y-1.5 rounded-md border border-ai/40 bg-paper p-2 text-[12px]">
-      <p className="hint text-ink-soft">前回の評価が入っています。いまの状態に合わせて直してください。</p>
+
       <div className="flex flex-wrap gap-1">
         {FALL_RISKS.map((x) => (
           <label key={x} className={`flex cursor-pointer items-center gap-1 rounded border px-1.5 py-0.5 ${checked.includes(x) ? "border-ink bg-ink text-white" : "border-rule bg-sheet"}`}>
@@ -75,7 +75,7 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
           {patients.length}人{due > 0 && <b className="ml-2 text-shu">期限が今日まで・過ぎた {due}人</b>}
         </span>
       </header>
-      <p className="hint mb-2 text-xs text-ink-soft">入院時の評価と同じ、受け持ちのチームの患者です。「再評価する」で危険因子を確かめ直し、対策を書きます。名前を押すとカルテが開きます。</p>
+
       <table className="nums w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -159,3 +159,8 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >前回の評価が入っています。いまの状態に合わせて直してください。</p>
+<p >入院時の評価と同じ、受け持ちのチームの患者です。「再評価する」で危険因子を確かめ直し、対策を書きます。名前を押すとカルテが開きます。</p>
+*/

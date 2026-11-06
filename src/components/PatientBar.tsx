@@ -197,7 +197,7 @@ export function PatientBar({ rest, patient: p, today, diagnoses, directive, onOp
           ))
         )}
         {flagsFor(p, [], 0, 0, undefined, 0, undefined, admissionMissing).filter((f) => f.action === "standing").map((f) => <button key={f.label} type="button" disabled={!onOpenStanding} onClick={onOpenStanding} title={f.title} className={onOpenStanding ? "rounded border border-yamabuki/40 bg-yamabuki-soft px-1.5 py-0.5 text-yamabuki" : "rounded border border-rule px-1.5 py-0.5 text-ink-faint"}>{f.label}</button>)}
-        {!!admissionMissing.length && <span className="hint text-ink-faint">入院後、食事とバイタル測定の指示がそろうまで表示します。</span>}
+
         {rest && <span className="rounded border border-rule px-1.5 py-0.5 text-ink-soft">安静度：{rest}</span>}
         {p.cautions.map((c) => (
           <Badge key={c} tone="yamabuki" label="注意" values={[c]} />
@@ -236,3 +236,7 @@ function Badge({ tone, label, values, quiet }: { tone: "shu" | "fuji" | "yamabuk
     </span>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >入院後、食事とバイタル測定の指示がそろうまで表示します。</span>
+*/

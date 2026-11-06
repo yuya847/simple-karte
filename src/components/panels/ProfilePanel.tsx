@@ -15,7 +15,6 @@ import {
   CARE_KEYS,
   LIST_LABEL,
   PROFILE_ACTION,
-  PROFILE_SOURCES,
   allergyText,
   applyProfile,
   bloodChanged,
@@ -51,7 +50,7 @@ export function ProfilePanel({ base, log, fmtDay, onChange }: { base: Patient; l
 
   return (
     <div className="space-y-4 text-[13px]">
-      <p className="hint text-xs text-ink-soft">ここで登録・変更すると、患者の帯・病棟マップ・ラベル・食事の一覧と、オーダの確認（アレルギー）にすぐ反映されます。変更は消えずに下の「変更の履歴」に残ります。</p>
+
 
       <ListSection kind="allergy" base={base} log={log} when={when} onChange={onChange} denied={deny(PROFILE_ACTION.allergy)} />
       <ListSection kind="infection" base={base} log={log} when={when} onChange={onChange} denied={deny(PROFILE_ACTION.infection)} />
@@ -79,15 +78,7 @@ export function ProfilePanel({ base, log, fmtDay, onChange }: { base: Patient; l
         )}
       </section>
 
-      <p className="hint text-[10px] text-ink-faint">
-        項目の根拠：
-        {PROFILE_SOURCES.map((s, i) => (
-          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
-            {i > 0 ? "、" : ""}
-            {s.name}
-          </a>
-        ))}
-      </p>
+
     </div>
   );
 }
@@ -195,7 +186,7 @@ function ListSection({ kind, base, log, when, onChange, denied }: { kind: ListKi
           </button>
           {text && <span className="w-full text-[11px] text-ink-soft">登録される文：{kind === "contra" ? `禁忌 ${text}` : text}{kind !== "infection" && `　${reach.length ? `→ オーダの確認に使われます：${reach.join("、")}` : "→ オーダの確認に当たる言葉がありません"}`}</span>}
           {text && problems.length > 0 && <span className="w-full text-[11px] text-yamabuki">{problems.join(" ")}</span>}
-          {kind === "allergy" && <span className="hint w-full text-[11px] text-ink-faint">薬は分類名（NSAIDs・解熱鎮痛薬など）で書くと、内服のオーダで確認が出ます。造影剤は「造影剤」を含めると造影の画像検査で確認が出ます。</span>}
+
           <datalist id={`profile-${kind}-what`}>
             {(kind === "allergy" ? ALLERGENS : kind === "infection" ? INFECTIONS : ["NSAIDs", "ヨード造影剤", "ガドリニウム造影剤", "MRI"]).map((x) => (
               <option key={x} value={x} />
@@ -235,7 +226,7 @@ function BloodSection({ now, last, when, onChange, denied }: { now: Patient; las
           </button>
         )}
       </div>
-      <p className="hint text-[11px] text-ink-faint">輸血のオーダは、ここの血液型と「確認した検体の数」（別々に採った検体で2回）を確かめます。</p>
+
       {open && !denied && (
         <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-md border border-dashed border-rule px-2 py-1.5">
           <select value={abo} onChange={(e) => setAbo(e.target.value as typeof abo)} aria-label="ABO" className={input}>
@@ -308,7 +299,7 @@ function BodySection({ now, last, when, onChange, denied }: { now: Patient; last
         </b>
         <span className="nums text-[11px] text-ink-faint">{displayText(last ? `${when(last.at)} ${last.by}` : "前からの記録")}</span>
       </div>
-      <p className="hint text-[11px] text-ink-faint">帯の BMI・推定CCr、注射の体重あたりの量、テンプレートの計算はこの値を使います。</p>
+
       {!denied && (
         <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-md border border-dashed border-rule px-2 py-1.5">
           <label className="flex items-center gap-1">
@@ -353,7 +344,7 @@ function CareSection({ log, patientId, when, onChange, denied }: { log: ProfileC
   return (
     <section>
       <Head title="介助（移動・食事・排泄・入浴）" denied={denied} action={PROFILE_ACTION.care} />
-      <p className="hint mb-1 text-[11px] text-ink-faint">押すとすぐ登録されます。「自立」以外は帯の注意に出ます。入院時の情報収集（アナムネ）で答えた内容もここに入ります。</p>
+
       <div className="space-y-1">
         {CARE_KEYS.map((k) => (
           <div key={k} className="flex flex-wrap items-center gap-1.5">
@@ -383,3 +374,20 @@ function CareSection({ log, patientId, when, onChange, denied }: { log: ProfileC
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >ここで登録・変更すると、患者の帯・病棟マップ・ラベル・食事の一覧と、オーダの確認（アレルギー）にすぐ反映されます。変更は消えずに下の「変更の履歴」に残ります。</p>
+<p >
+        項目の根拠：
+        {PROFILE_SOURCES.map((s, i) => (
+          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" >
+            {i > 0 ? "、" : ""}
+            {s.name}
+          </a>
+        ))}
+      </p>
+<span >薬は分類名（NSAIDs・解熱鎮痛薬など）で書くと、内服のオーダで確認が出ます。造影剤は「造影剤」を含めると造影の画像検査で確認が出ます。</span>
+<p >輸血のオーダは、ここの血液型と「確認した検体の数」（別々に採った検体で2回）を確かめます。</p>
+<p >帯の BMI・推定CCr、注射の体重あたりの量、テンプレートの計算はこの値を使います。</p>
+<p >押すとすぐ登録されます。「自立」以外は帯の注意に出ます。入院時の情報収集（アナムネ）で答えた内容もここに入ります。</p>
+*/

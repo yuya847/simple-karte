@@ -8,7 +8,7 @@ import { newProcedureDraft, type Draft } from "@/lib/drafts";
 import { addressedTo, consultDepartments, consultOrders, consultState, doctorsIn, type ConsultReplies, type consultInbox } from "@/lib/consult";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 import type { CalendarDate } from "@/lib/dates";
-import { CONSULT_TEMPLATE_SOURCES, templatesFor } from "@/lib/consult-templates";
+import { templatesFor } from "@/lib/consult-templates";
 import { labPasteText, vitalsPasteText } from "@/lib/lab-paste";
 
 const REPLY_TEMPLATE = "所見：\n診断：\n提案：\nフォロー：";
@@ -48,7 +48,7 @@ export function ConsultPanel({ patient, today, consults, replies, newId, onAdd, 
   return (
     <div className="space-y-3 text-sm">
       <p>他科依頼・紹介</p>
-      <p className="hint">科の当番宛は同じ科の医師が受けます。引用は既存の記録のコピーです。内容は医師が確認します。</p>
+
       <div className="flex gap-2">
         {["院内へ相談", "院外へ紹介"].map(t => <button key={t} onClick={() => setTab(t)} aria-pressed={tab === t} className="rounded border border-rule p-2">{t}</button>)}
       </div>
@@ -79,7 +79,7 @@ export function ConsultPanel({ patient, today, consults, replies, newId, onAdd, 
           }} className="rounded border border-rule px-2 py-0.5 hover:border-ai hover:text-ai">{t.label}</button>)}
           {before !== null && <button type="button" onClick={() => { setQuestion(before); setBefore(null); }} className="ml-1 text-ai underline">ひな形を入れる前に戻す</button>}
         </div>
-        <p className="hint text-[10px] text-ink-faint">ひな形は依頼状に書く項目（主病名・経過・所見と検査・依頼内容）と S-BAR の順に沿った例です。直近の検査とバイタルはカルテから入ります。<a href={CONSULT_TEMPLATE_SOURCES[0].url} target="_blank" rel="noreferrer" className="underline">{CONSULT_TEMPLATE_SOURCES[0].label}</a></p>
+
         <label className="block">本文
           <textarea rows={14} className={input} value={question} onChange={e => setQuestion(e.target.value)} placeholder={external ? "紹介の目的と経過" : "相談したいこと（質問・経過）"} />
         </label>
@@ -138,3 +138,8 @@ export function ConsultInboxView({ rows, onOpen }: { rows: ReturnType<typeof con
     })}
   </div>;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >科の当番宛は同じ科の医師が受けます。引用は既存の記録のコピーです。内容は医師が確認します。</p>
+<p >ひな形は依頼状に書く項目（主病名・経過・所見と検査・依頼内容）と S-BAR の順に沿った例です。直近の検査とバイタルはカルテから入ります。<a href={CONSULT_TEMPLATE_SOURCES[0].url} target="_blank" rel="noreferrer" >{CONSULT_TEMPLATE_SOURCES[0].label}</a></p>
+*/

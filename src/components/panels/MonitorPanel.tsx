@@ -226,7 +226,7 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
             記録しました：{recorded.time} {displayText(recorded.by)}　{recorded.what}
           </p>
         )}
-        <p className="hint text-ink-soft">「NIBP 測定」で模擬のカフが {NIBP_SECONDS} 秒後に血圧を出し、「この血圧を経過表に入れる」で経過表のバイタルに記録します。「記録する」はいま表示している HR・SpO2・RR を記録します（誰が・いつも残ります）。記録はカルテのバイタルと同じ権限です。</p>
+
       </div>
 
       <div className="space-y-0.5 text-[11px] text-ink-soft">
@@ -236,3 +236,7 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >「NIBP 測定」で模擬のカフが {NIBP_SECONDS} 秒後に血圧を出し、「この血圧を経過表に入れる」で経過表のバイタルに記録します。「記録する」はいま表示している HR・SpO2・RR を記録します（誰が・いつも残ります）。記録はカルテのバイタルと同じ権限です。</p>
+*/

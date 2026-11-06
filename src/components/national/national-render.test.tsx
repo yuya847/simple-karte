@@ -54,7 +54,7 @@ describe("電子処方箋（模擬）と電子カルテ情報共有サービス�
     expect(html).toContain("Rp2 酸化マグネシウム錠330mg 1回1錠 1日2回 朝夕食後 14日分");
     expect(html).toContain("院内処方（薬剤部が調剤し、患者が持ち帰る）");
     expect(html).not.toContain("checked");
-    expect(html).toContain("HS036");
+    expect(html).not.toContain("HS036");
   });
 
   it("for an outpatient prescription builds the HS036 JSON at once, and locks the steps for a nurse", () => {

@@ -33,7 +33,7 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
         <b className={panic.length ? "text-shu" : "text-ai"}>
           未確認の結果 {items.length}件{panic.length ? `（パニック値 ${panic.length}件）` : ""}
         </b>
-        <span className="hint text-ink-soft">開いただけでは既読になりません。見たら「確認した」を押します（誰がいつ）。パニック値は対応も残します。</span>
+
         {onOpenResults && (
           <button type="button" onClick={onOpenResults} className="ml-auto rounded border border-rule bg-sheet px-2 py-0.5 text-ink-soft hover:text-ink">
             検査結果を開く
@@ -107,3 +107,7 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >開いただけでは既読になりません。見たら「確認した」を押します（誰がいつ）。パニック値は対応も残します。</span>
+*/

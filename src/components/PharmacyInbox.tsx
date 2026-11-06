@@ -47,7 +47,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
             薬剤部から TDM の報告（{r.at} {displayText(r.by)}）
           </div>
           <div className="nums text-ink-soft">
-            {r.drug} {r.regimen.dose}mg {r.regimen.tau}時間ごと（点滴{r.regimen.tinf}時間）：AUC24 <b className="text-ink">{Math.round(r.auc24)}</b> μg·h/mL、Cmin {r.cmin.toFixed(1)}（2点採血<span className="hint">・コードで計算</span>）
+            {r.drug} {r.regimen.dose}mg {r.regimen.tau}時間ごと（点滴{r.regimen.tinf}時間）：AUC24 <b className="text-ink">{Math.round(r.auc24)}</b> μg·h/mL、Cmin {r.cmin.toFixed(1)}（2点採血）
           </div>
           <div className="my-0.5 text-ink">「{r.proposal}」</div>
           <button type="button" onClick={() => onTdmSeen?.(r)} className="rounded border border-rule bg-sheet px-2 py-0.5 text-ink-soft hover:text-ink">
@@ -155,3 +155,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >・コードで計算</span>
+*/

@@ -3,7 +3,6 @@
 import { displayText } from "@/lib/display-text";
 import { Download, LockKeyhole } from "lucide-react";
 import { useState } from "react";
-import { LIMIT_SOURCES } from "@/lib/access-limit";
 import { accessChoices, accessCsv, accessRows, emptyAccessQuery, isBreakGlass, isRestricted, type AccessQuery } from "@/lib/access-log";
 import { auditLog, useAudit } from "@/lib/audit";
 import { useMe } from "./RoleContext";
@@ -71,15 +70,7 @@ export function AccessLog() {
           CSV（comma-separated values、カンマ区切りの表）で書き出す
         </button>
       </div>
-      <p className="mb-2 text-[11px] text-ink-faint">
-        カルテと受診の画面を開いた記録だけを並べます。閲覧制限の患者は薄い紫、担当チームのほかの人が理由を残して開いたものは太字です。書き出したことも監査ログに残ります。
-        <span className="hint">
-          根拠：
-          <a href={LIMIT_SOURCES.log.url} target="_blank" rel="noreferrer" className="text-ai underline-offset-2 hover:underline">
-            {LIMIT_SOURCES.log.label}
-          </a>
-        </span>
-      </p>
+
       {rows.length === 0 ? (
         <p className="text-ink-faint">当てはまる記録はありません。患者のカルテを開くと、ここに残ります。</p>
       ) : (
@@ -122,3 +113,16 @@ export function AccessLog() {
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >
+          根拠：
+          <a href={LIMIT_SOURCES.log.url} target="_blank" rel="noreferrer" >
+            {LIMIT_SOURCES.log.label}
+          </a>
+        </span>
+*/
+
+/* ヘルプへ移動した説明:
+カルテと受診の画面を開いた記録だけを並べます。閲覧制限の患者は薄い紫、担当チームのほかの人が理由を残して開いたものは太字です。書き出したことも監査ログに残ります。
+*/

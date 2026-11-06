@@ -72,9 +72,7 @@ export function RadiologyView(p: Props) {
         />
       </header>
       <div className="mx-auto max-w-[1150px] space-y-3 px-5 py-4 text-[13px]">
-        <p className="hint text-[12px] text-ink-soft">
-          医師がカルテの「オーダ › 画像検査」で出した X線・CT・MRI が並びます。診療放射線技師は「指示受け」で指示を受けて（受付）撮影室と装置を決め、造影・MRI は「確認する」で同意・腎機能・体内金属などを確かめ、「当日の予定」で呼出・来室・撮影の時刻を押し、「撮影装置（模擬）」か「撮影・照射録」で撮影条件と線量を記録し、照射録を確定します。放射線科医は「読影」でレポートを書き、オーダした医師は「一覧・署名」かカルテの「放射線画像」で照射録に署名し、レポートを確認します。右上の「自分」で職種を選びます（デモではログインの代わり）。
-        </p>
+
         {tab === "take" && <RadiologyTake people={p.people} rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} consents={p.consents} />}
         {tab === "worklist" && <Worklist rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} />}
         {tab === "portable" && <PortableRound rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} />}
@@ -245,3 +243,9 @@ function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] })
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          医師がカルテの「オーダ › 画像検査」で出した X線・CT・MRI が並びます。診療放射線技師は「指示受け」で指示を受けて（受付）撮影室と装置を決め、造影・MRI は「確認する」で同意・腎機能・体内金属などを確かめ、「当日の予定」で呼出・来室・撮影の時刻を押し、「撮影装置（模擬）」か「撮影・照射録」で撮影条件と線量を記録し、照射録を確定します。放射線科医は「読影」でレポートを書き、オーダした医師は「一覧・署名」かカルテの「放射線画像」で照射録に署名し、レポートを確認します。右上の「自分」で職種を選びます（デモではログインの代わり）。
+        </p>
+*/

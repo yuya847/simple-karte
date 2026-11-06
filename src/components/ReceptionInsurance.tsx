@@ -49,17 +49,14 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
             {displayText(existing.by)}が{existing.action}（第{existing.at.day === 0 ? "今日" : `${existing.at.day}日`} {existing.at.time}）
           </span>
         </p>
-        <p className="mt-0.5 text-[11px] text-ink-soft">受け付けると、この登録を今日の受診にも「確認」として引き継ぎます。変わっていれば、受け付けたあと患者基本情報の「保険・制度」で変更します。</p>
+
       </section>
     );
   }
   return (
     <fieldset disabled={disabled} aria-label="保険" className="rounded-md border border-rule bg-paper px-3 py-2 text-[12px]">
       <legend className="px-1 text-[13px] font-bold">保険</legend>
-      <p className="mb-1.5 text-[11px] text-ink-soft">
-        上の「資格を確認（模擬）」が有効なら、答えからここが埋まります。保険証（資格確認書）を見て手で入れることもできます。種類を選ばなければ、保険は登録せずに受け付けられます（あとで医事課か患者基本情報で登録）。
-        <span className="hint">生活保護・労災・公費は患者基本情報の「保険・制度」で入れます。</span>
-      </p>
+
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         <label className="text-[11px] text-ink-soft">
           保険の種類
@@ -192,3 +189,12 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
     </fieldset>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >受け付けると、この登録を今日の受診にも「確認」として引き継ぎます。変わっていれば、受け付けたあと患者基本情報の「保険・制度」で変更します。</p>
+<span >生活保護・労災・公費は患者基本情報の「保険・制度」で入れます。</span>
+*/
+
+/* ヘルプへ移動した説明:
+上の「資格を確認（模擬）」が有効なら、答えからここが埋まります。保険証（資格確認書）を見て手で入れることもできます。種類を選ばなければ、保険は登録せずに受け付けられます（あとで医事課か患者基本情報で登録）。
+*/

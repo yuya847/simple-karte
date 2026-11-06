@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
+import { TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { specialistRoles } from "@/lib/specialist";
@@ -280,7 +280,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   return (
     <aside aria-label="ツール" className="flex min-h-0 overflow-hidden border-l border-rule bg-paper">
       <section aria-label="お気に入り" className="scroll-thin flex w-14 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule bg-yamabuki-soft/30 px-1 py-1.5">
-        {pinned.length === 0 ? <p className="hint text-center text-[10px] text-ink-faint">★ をここに</p> : pinned.map((t) => tile(t, "pins"))}
+        {pinned.length === 0 ? null : pinned.map((t) => tile(t, "pins"))}
       </section>
       <div className={`scroll-thin flex min-h-0 shrink-0 flex-col overflow-y-auto px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
         <div className="mb-1 flex items-center justify-between px-0.5">
@@ -331,3 +331,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
     </aside>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >★ をここに</p>
+*/

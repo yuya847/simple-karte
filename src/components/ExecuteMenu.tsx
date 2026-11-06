@@ -14,7 +14,7 @@ import { createPortal } from "react-dom";
 import { VoidControl } from "./MarCell";
 import { abs } from "@/lib/flowsheet";
 import { NOT_DONE_REASONS, type AdminRecord, type NotDoneReason, type VoidReason } from "@/lib/mar";
-import { MENU_NOTE, actionsFor, executeDeny, menuRecord, occurrenceAt, occurrenceStates, recordText, type ExecItem, type Occurrence } from "@/lib/order-execute";
+import { actionsFor, executeDeny, menuRecord, occurrenceAt, occurrenceStates, recordText, type ExecItem, type Occurrence } from "@/lib/order-execute";
 import { parseHHMM } from "@/lib/order-sheet";
 import type { OrderEntry, Patient } from "@/lib/types";
 import { useLongPress } from "@/lib/use-long-press";
@@ -197,7 +197,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
         ))}
       {step.kind === "root" && extra.length > 0 && execute && <div className="my-1 border-t border-rule-soft" />}
       {body}
-      {execute && !deny && <p className="hint px-2 pb-1 pt-1 text-[10px] text-ink-faint">{MENU_NOTE}。ワークシート・経過表・実施入力と同じ与薬・実施の記録に書きます。</p>}
+
     </>
   );
 }
@@ -260,3 +260,7 @@ export function ExecuteTarget({ execute, patient, entry, at, title, className = 
     </span>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >{MENU_NOTE}。ワークシート・経過表・実施入力と同じ与薬・実施の記録に書きます。</p>
+*/

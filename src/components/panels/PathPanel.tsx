@@ -9,7 +9,6 @@ import type { Draft } from "@/lib/drafts";
 import {
   PATHWAYS,
   PATH_RULES,
-  PATH_SOURCES,
   VARIANCE_CATEGORIES,
   VARIANCE_HINTS,
   activePath,
@@ -93,12 +92,7 @@ export function PathPanel({ patient, book, onBook, entries, today, nowTime, newI
           ))}
         </section>
       )}
-      <p className="hint text-[11px] text-ink-faint">
-        出典（機能）：
-        <a href={PATH_SOURCES.spec.url} target="_blank" rel="noreferrer" className="underline">
-          {PATH_SOURCES.spec.label}
-        </a>
-      </p>
+
     </div>
   );
 }
@@ -148,7 +142,7 @@ function Apply({ patient, fmt, onApply }: { patient: Patient; fmt: (d: number) =
             ))}
             <span className="text-ink-faint">今日は {pathDayOf({ startDay: start }, 0)}日目</span>
           </div>
-          <p className="hint text-[11px] text-ink-faint">今日より前の日のオーダは、はじめはチェックを外しています。要らないものはチェックを外してから下書きにします。採る時刻・撮り方などは、下書きの確かめで選びます。</p>
+
           <ul className="space-y-1">
             {path.days
               .filter((d) => d.orders.length)
@@ -468,3 +462,13 @@ function Active({ app, path, book, onBook, entries, fmt, at, newId, onDrafts, on
     </>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        出典（機能）：
+        <a href={PATH_SOURCES.spec.url} target="_blank" rel="noreferrer" >
+          {PATH_SOURCES.spec.label}
+        </a>
+      </p>
+<p >今日より前の日のオーダは、はじめはチェックを外しています。要らないものはチェックを外してから下書きにします。採る時刻・撮り方などは、下書きの確かめで選びます。</p>
+*/

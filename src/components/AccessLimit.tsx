@@ -3,25 +3,14 @@
 import { displayText } from "@/lib/display-text";
 import { LockKeyhole } from "lucide-react";
 import { useState } from "react";
-import { GLASS_REASONS, LIMIT_KINDS, LIMIT_RULES, LIMIT_SOURCES, glassProblem, glassText, limitProblem, type AccessLimit, type GlassEntry, type GlassReason, type LimitKind, careTeam } from "@/lib/access-limit";
+import { GLASS_REASONS, LIMIT_KINDS, glassProblem, glassText, limitProblem, type AccessLimit, type GlassEntry, type GlassReason, type LimitKind, careTeam } from "@/lib/access-limit";
 
 // 閲覧制限: the step that asks for a reason before a limited chart opens, the line on the chart, and the
 // panel where a doctor sets or removes the limit.
 
 function Sources() {
   return (
-    <ul className="hint list-disc space-y-0.5 pl-5 text-[11px] text-ink-soft">
-      {Object.values(LIMIT_SOURCES).map((s) => (
-        <li key={s.label}>
-          <a href={s.url} target="_blank" rel="noreferrer" className="text-ai underline-offset-2 hover:underline">
-            {s.label}
-          </a>
-        </li>
-      ))}
-      {Object.values(LIMIT_RULES).map((t) => (
-        <li key={t}>{t}</li>
-      ))}
-    </ul>
+    null
   );
 }
 
@@ -38,12 +27,8 @@ export function GlassStep({ patient, me, onOpen, onBack }: { patient: { name: st
           <LockKeyhole size={18} />
           閲覧制限の患者です
         </h1>
-        <p className="mb-3 text-ink-soft">
-          <b className="text-ink">
-            {patient.room} {patient.name}
-          </b>
-          さんのカルテは、担当チームのほかの人は理由を残してから開きます。開いたことは監査ログに残り、あとで確かめます。
-        </p>
+        <p className="mb-3">{patient.room} {displayText(patient.name)}</p>
+
         <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded bg-fuji-soft/60 px-3 py-2 text-[12px]">
           <dt className="text-ink-faint">担当チーム</dt>
           <dd>
@@ -109,9 +94,7 @@ export function LimitPanel({ history, current, fmtDay, onSave }: { history: Acce
   const problem = limitProblem(on, kind, reason);
   return (
     <div className="space-y-3 text-[13px]">
-      <p className="text-ink-soft">
-        閲覧制限にした患者のカルテは、担当チームのほかの人が開くとき、理由を残してから開きます（一覧には「閲覧制限」の印が付きます）。開いた記録は監査ログの「カルテを開いた記録」で、患者・人・日付で絞って CSV（comma-separated values、カンマ区切りの表）に書き出せます。
-      </p>
+
       <p className={`rounded px-2 py-1 ${current ? "bg-fuji-soft text-fuji" : "bg-paper text-ink-soft"}`}>
         いま：{displayText(current ? `閲覧制限（${current.kind ?? "その他"}）　${current.by} ${fmtDay(current.at.day)} ${current.at.time}` : "閲覧制限なし")}
       </p>
@@ -168,3 +151,25 @@ export function LimitPanel({ history, current, fmtDay, onSave }: { history: Acce
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<ul >
+      {Object.values(LIMIT_SOURCES).map((s) => (
+        <li key={s.label}>
+          <a href={s.url} target="_blank" rel="noreferrer" >
+            {s.label}
+          </a>
+        </li>
+      ))}
+      {Object.values(LIMIT_RULES).map((t) => (
+        <li key={t}>{t}</li>
+      ))}
+    </ul>
+<p >
+        閲覧制限にした患者のカルテは、担当チームのほかの人が開くとき、理由を残してから開きます（一覧には「閲覧制限」の印が付きます）。開いた記録は監査ログの「カルテを開いた記録」で、患者・人・日付で絞って CSV（comma-separated values、カンマ区切りの表）に書き出せます。
+      </p>
+*/
+
+/* ヘルプへ移動した説明:
+ さんのカルテは、担当チームのほかの人は理由を残してから開きます。開いたことは監査ログに残り、あとで確かめます。
+*/

@@ -162,7 +162,7 @@ describe("アイコン列の左のお気に入り", () => {
     expect(html).toMatch(/<aside[^>]*class="flex min-h-0 overflow-hidden/);
     const fav = html.match(/<section aria-label="お気に入り"[\s\S]*?<\/section>/)![0];
     expect(fav).toContain("w-14 shrink-0");
-    expect(fav).toMatch(/<p class="hint [^"]*">★ をここに<\/p>/);
+    expect(fav).not.toMatch(/<p class="hint [^"]*">★ をここに<\/p>/);
     expect(fav).not.toContain("<button");
     expect(html.indexOf(fav)).toBeLessThan(html.indexOf("オーダと道具"));
   });

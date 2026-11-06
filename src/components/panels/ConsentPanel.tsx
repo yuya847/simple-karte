@@ -67,7 +67,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
             </button>
           ))}
         </fieldset>
-        <p className="hint text-[10px] text-ink-faint">雛形の文を AI が作ったり書き換えたりすることはありません。患者の情報だけが入ります。署名は PC のマウスやタブレットの指・ペンでもらうか、印刷した紙にもらいます。</p>
+
       </aside>
       {r ? (
         <div>
@@ -252,7 +252,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
           ))}
           {s.facts?.map((f) => (
             <p key={f.text} className="pl-3 text-[11px] text-ink-soft">
-              {displayText(f.text)}<span className="hint">（出典：{displayText(f.source)}）</span>
+              {displayText(f.text)}
             </p>
           ))}
         </section>
@@ -303,8 +303,15 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
         </div>
         <p className="mt-3 text-[11px] text-ink-soft">同意の撤回：　　年　月　日　本人／代諾者署名＿＿＿＿＿＿＿＿</p>
       </section>}
-      {t.sources.length > 0 && <p className="hint mt-3 text-[10px] text-ink-faint">出典：{t.sources.map((s) => s.label).join("／")}</p>}
-      <p className="hint mt-2 text-[10px] text-ink-faint">一般的な説明文です。実際の説明・同意には使えません。</p>
+
+
     </article>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >雛形の文を AI が作ったり書き換えたりすることはありません。患者の情報だけが入ります。署名は PC のマウスやタブレットの指・ペンでもらうか、印刷した紙にもらいます。</p>
+<span >（出典：{displayText(f.source)}）</span>
+<p >出典：{t.sources.map((s) => s.label).join("／")}</p>
+<p >一般的な説明文です。実際の説明・同意には使えません。</p>
+*/

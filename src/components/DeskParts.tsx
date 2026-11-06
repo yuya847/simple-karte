@@ -74,17 +74,22 @@ export function Fictional({ text = "" }: { text?: string }) {
 }
 
 /** Sources (name and URL). Shown only with 「使い方」 (class "hint"). */
-export function Sources({ items }: { items: { label: string; url: string }[] }) {
+export function Sources(props: { items: { label: string; url: string }[] }) {
+  void props;
   return (
-    <ul className="hint space-y-0.5 text-[11px] text-ink-faint">
+    null
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<ul >
       {items.map((s) => (
         <li key={s.url + s.label}>
           出典：{s.label}{" "}
-          <a href={s.url} target="_blank" rel="noreferrer" className="break-all text-ai underline">
+          <a href={s.url} target="_blank" rel="noreferrer" >
             {s.url}
           </a>
         </li>
       ))}
     </ul>
-  );
-}
+*/

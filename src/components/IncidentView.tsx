@@ -11,7 +11,6 @@ import {
   FACTORS,
   KINDS,
   LEVELS,
-  LEVEL_SOURCE,
   PLACES,
   PURPOSE_NOTE,
   PURPOSE_SOURCE,
@@ -169,7 +168,7 @@ export function IncidentView({ reports, patients, today, nowTime, onSubmit, onSt
               </li>
             ))}
           </ul>
-          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">足りない項目と時刻の確かめ、レベルごとの次にすることはコードで出します。影響度レベルは報告する人が選びます。AI は使っていません。試作なので、報告はこのブラウザの中だけにあります。</p>
+
         </nav>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
@@ -425,7 +424,7 @@ function IncidentForm({
             </label>
           ))}
         </fieldset>
-        <p className="hint text-[10px] text-ink-faint">出典：{LEVEL_SOURCE}</p>
+
         {d.level && (
           <div className="pt-1">
             <h4 className="mb-1 text-[12px] font-bold text-ink-soft">レベル {d.level} で次にすること</h4>
@@ -471,3 +470,8 @@ function IncidentForm({
     </form>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >足りない項目と時刻の確かめ、レベルごとの次にすることはコードで出します。影響度レベルは報告する人が選びます。AI は使っていません。試作なので、報告はこのブラウザの中だけにあります。</p>
+<p >出典：{LEVEL_SOURCE}</p>
+*/

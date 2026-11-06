@@ -213,7 +213,11 @@ export function RehabPlanForm({ rx, desk, onDesk, nowTime, fmtDay, today = 0 }: 
         )}
       </div>
       <p className="text-[11px] text-ink-faint">{PLAN_NOTE}</p>
-      <p className="text-[11px] text-ink-faint">別紙様式21 の栄養・口腔の欄は、回復期リハビリテーション病棟入院料などを算定する場合に必ず記入する欄です。この病棟（急性期一般入院料）では載せていません。廃用症候群リハビリテーション料の「廃用症候群に係る評価表」（別紙様式22）は、この試作にはありません。</p>
+
     </article>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >別紙様式21 の栄養・口腔の欄は、回復期リハビリテーション病棟入院料などを算定する場合に必ず記入する欄です。この病棟（急性期一般入院料）では載せていません。廃用症候群リハビリテーション料の「廃用症候群に係る評価表」（別紙様式22）は、この試作にはありません。</p>
+*/

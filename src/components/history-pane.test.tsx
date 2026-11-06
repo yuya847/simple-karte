@@ -9,5 +9,5 @@ it("保存した札の一致状態と端末保存の説明を示す", () => {
   expect(render("熱")).toContain('aria-pressed="false"');
   expect(render("")).toContain("＋いまの条件を保存");
   expect(render("")).toContain("医師の記事だけのメニュー");
-  expect(render("")).toContain("この端末のみに保存します");
+  expect(render("")).not.toContain("この端末のみに保存します");
 });

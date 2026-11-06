@@ -72,7 +72,7 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
           撮影装置（模擬）
           <Fictional text="模擬：本物の装置にはつないでいません" />
         </h3>
-        <p className="hint text-ink-soft">装置を選んで「ワークリストを問い合わせる」を押すと、その装置に割り当てた受付済みの検査が、DICOM のワークリストの形で届きます（C-FIND の応答の模擬）。検査を始める・終える・中止すると MPPS（実施済み手続きの通知）の模擬が放射線部に届き、撮影済みと照射録の撮影条件・線量が入ります。「画像を送る」で合成画像が PACS（カルテの放射線画像）に出ます。</p>
+
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-ink-soft">装置</span>
           {RIS_ROOMS.map((r) => (
@@ -167,7 +167,7 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
       <LocalOrthanc target={target} today={today} />
       <p className="text-[11px] text-ink-faint">{MPPS_DOSE_NOTE}</p>
       <Sources items={[DICOM_SOURCES.mwl, DICOM_SOURCES.mpps, DICOM_SOURCES.registry, DICOM_SOURCES.dose, DICOM_SOURCES.pregnancy]} />
-      <p className="text-[11px] text-ink-faint">撮影条件・線量・画像の数は、模擬の装置がコードで作る値です（同じオーダなら毎回同じ）。受付番号・Study Instance UID もオーダから作り、生年月日は年齢から作った日付です。</p>
+
     </section>
   );
 }
@@ -331,7 +331,13 @@ function LocalOrthanc({ target, today }: { target: RisRow | null; today: Calenda
           {msg && <p>{msg}</p>}
         </>
       )}
-      <p className="text-[11px] text-ink-faint">手元のコンピュータで Orthanc を動かして試す方法は、リポジトリの docs/dicom-local.md にあります。Vercel の本番ではつなぎません。</p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >装置を選んで「ワークリストを問い合わせる」を押すと、その装置に割り当てた受付済みの検査が、DICOM のワークリストの形で届きます（C-FIND の応答の模擬）。検査を始める・終える・中止すると MPPS（実施済み手続きの通知）の模擬が放射線部に届き、撮影済みと照射録の撮影条件・線量が入ります。「画像を送る」で合成画像が PACS（カルテの放射線画像）に出ます。</p>
+<p >撮影条件・線量・画像の数は、模擬の装置がコードで作る値です（同じオーダなら毎回同じ）。受付番号・Study Instance UID もオーダから作り、生年月日は年齢から作った日付です。</p>
+<p >手元のコンピュータで Orthanc を動かして試す方法は、リポジトリの docs/dicom-local.md にあります。Vercel の本番ではつなぎません。</p>
+*/

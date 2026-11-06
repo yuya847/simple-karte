@@ -67,9 +67,7 @@ export function AcuityView({ people, today, nowTime, records, ambulance, fasting
           <div className="text-[11px] text-ink-faint">割合指数（基準 {WARD_STANDARD.threshold * 100}% 以上）</div>
           <b className={`text-lg ${rate + coef >= WARD_STANDARD.threshold ? "text-wakatake" : "text-shu"}`}>{((rate + coef) * 100).toFixed(1)}%</b>
         </div>
-        <p className="w-full text-[10px] text-ink-faint">
-          この試作では受け持ちの患者だけで数えています（本当は病棟の全員の延べ日数。退院日は延べ患者数に入れない）。基準の割合は直近3か月で見ます。A・C項目はオーダから、B項目は看護師の入力から、コードで判定します。
-        </p>
+
       </div>
       <div className="overflow-x-auto">
         <table className="nums border-collapse text-[11px]">
@@ -118,7 +116,7 @@ export function AcuityView({ people, today, nowTime, records, ambulance, fasting
           </tbody>
         </table>
       </div>
-      <p className="mt-1 text-[10px] text-ink-faint">● 該当　! B の測定が要る日（入院1〜4日目は毎日、その後は7日ごとに1回以上。令和8年度）。測定しない日は直近の評価を使います。</p>
+
 
       {person && cur && (
         <Detail
@@ -215,3 +213,10 @@ function Detail({ person, today, e, record, fasting, onSave }: { person: WorkPat
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          この試作では受け持ちの患者だけで数えています（本当は病棟の全員の延べ日数。退院日は延べ患者数に入れない）。基準の割合は直近3か月で見ます。A・C項目はオーダから、B項目は看護師の入力から、コードで判定します。
+        </p>
+<p >● 該当　! B の測定が要る日（入院1〜4日目は毎日、その後は7日ごとに1回以上。令和8年度）。測定しない日は直近の評価を使います。</p>
+*/

@@ -459,7 +459,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
               {me.name}　今日 {nowTime}
             </span>
           </div>
-          <p className="hint text-[11px] text-ink-faint">保存すると前の版が残り、誰が・いつ・なぜ変えたかが下の履歴と監査ログに出ます。実在の人の番号は入れないでください。</p>
+
         </fieldset>
       )}
 
@@ -488,3 +488,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
 
 /** For the window's unchanged state: the form the section edits (exported for tests). */
 export const insuranceFormOf = (r?: InsuranceRecord) => normalizeForm(r?.form ?? EMPTY_FORM);
+
+/* Help migration source (references and dynamic wording):
+<p >保存すると前の版が残り、誰が・いつ・なぜ変えたかが下の履歴と監査ログに出ます。実在の人の番号は入れないでください。</p>
+*/

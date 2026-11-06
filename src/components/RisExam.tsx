@@ -145,7 +145,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <RowHead r={r} />
       {(w.done || w.started || w.arrived) && <ExecutionUndo action="ris.exam" patient={r.name} detail={r.label} onUndo={(by, at, reason) => put((x) => cancelExecution(x, ["arrived", "confirmed", "called", "inRoom", "started", "done", "images", "record", "signed", "report", "contrast", "dose", "exposure"], by, at, reason))} />}
-      {w.cancellations?.map((c, i) => <span key={i} className="hint" title={displayText(`${c.at} ${c.by} ${c.reason}`)}>撮影・受付の取り消し {c.at} {displayText(c.by)} {displayText(c.reason)}</span>)}
+      {w.cancellations?.map((c, i) => <span key={i} className="text-xs text-ink-soft">撮影・受付の取り消し {c.at} {displayText(c.by)} {displayText(c.reason)}</span>)}
       {(r.order.acks?.length || r.order.answers) && (
         <p className="text-ink-soft">
           オーダの確認：{[...(r.order.acks ?? []), r.order.answers?.metal && `体内金属 ${r.order.answers.metal}`, r.order.answers?.pregnancy && `妊娠 ${r.order.answers.pregnancy}`].filter(Boolean).join("・")}
@@ -295,7 +295,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
                 照射録を確定
               </button>
               {(deny || !w.done || recProblems.length > 0) && <span className="ml-2 text-xs text-ink-soft">{deny ?? (!w.done ? "撮影済みの記録がまだです。" : recProblems.join("　"))}</span>}
-              <span className="hint ml-2 text-[11px] text-ink-faint">撮影した記録を入れてから確定します。確定すると、指示をした医師に署名を頼みます（カルテの放射線画像にも出ます）。</span>
+
             </>
           )}
         </section>
@@ -372,7 +372,13 @@ export function ReadingForm({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDesk;
       <button type="button" disabled={!!deny || problems.length > 0} onClick={confirm} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
         {prev ? "訂正を確定" : "読影レポートを確定"}
       </button>
-      <span className="hint ml-2 text-[11px] text-ink-faint">画像はカルテの「放射線画像」（PACS ビューア）で見られます。所見と診断は放射線科医が書きます。コードは所見を書きません。</span>
+
     </article>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span key={i}  title={displayText(`${c.at} ${c.by} ${c.reason}`)}>撮影・受付の取り消し {c.at} {displayText(c.by)} {displayText(c.reason)}</span>
+<span >撮影した記録を入れてから確定します。確定すると、指示をした医師に署名を頼みます（カルテの放射線画像にも出ます）。</span>
+<span >画像はカルテの「放射線画像」（PACS ビューア）で見られます。所見と診断は放射線科医が書きます。コードは所見を書きません。</span>
+*/

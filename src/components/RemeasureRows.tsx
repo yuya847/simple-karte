@@ -1,7 +1,7 @@
 "use client";
 
 import { abs } from "@/lib/flowsheet";
-import { pendingRemeasure, REMEASURE_HINT, REMEASURE_SOURCE, type RecordedVital } from "@/lib/take-desk-remeasure";
+import { pendingRemeasure, type RecordedVital } from "@/lib/take-desk-remeasure";
 import { shiftWindow, timeLabel, type Shift, type WorkPatient } from "@/lib/worksheet";
 import type { CalendarDate } from "@/lib/dates";
 
@@ -28,6 +28,10 @@ export function RemeasureRows({ people, remeasureVitals = {}, onMeasure, day, sh
         <td className="px-2 py-2">{interactive && onMeasure && <button type="button" onClick={() => onMeasure(patient.id)} className="text-ai underline">測った</button>}</td>
       </tr>
     ))}</tbody></table>}
-    <p className="hint text-xs text-ink-soft">{REMEASURE_HINT} <a href={REMEASURE_SOURCE} target="_blank" rel="noreferrer" className="underline">RCP NEWS2（Chart 4）</a></p>
+
   </>;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >{REMEASURE_HINT} <a href={REMEASURE_SOURCE} target="_blank" rel="noreferrer" >RCP NEWS2（Chart 4）</a></p>
+*/

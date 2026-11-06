@@ -34,7 +34,7 @@ describe("退院時の一括中止", () => {
     expect(html).toContain('type="checkbox"');
     expect(html).not.toContain("checked");
     expect(html).toContain("選んだグループを中止する");
-    expect(html).toContain("退院一括削除");
+    expect(html).not.toContain("退院一括削除");
   });
 
   it("shows others the list only", () => {

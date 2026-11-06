@@ -122,7 +122,7 @@ export function ErxPanel({
         <span className="text-[11px] font-normal text-ink-faint">（{mode === "外来" ? "外来処方" : "退院時処方"}）</span>
       </h3>
       <MockNote>
-        電子処方箋管理サービスにはつないでいません。<span className="hint">処方の中身を、公開されている厚生労働省標準規格 HS036「処方情報 HL7 FHIR 記述仕様」の FHIR で示します（HS036 は電子処方箋のファイルそのものではなく、本物の登録は記録条件仕様の CSV を XML に入れて送ります）。</span>
+        電子処方箋管理サービスにはつないでいません。
       </MockNote>
       {done.filter((r) => r.kind === "電子処方箋").length > 0 && (
         <ul className="space-y-0.5 rounded border border-rule bg-paper p-1.5 text-[11px]">
@@ -204,14 +204,7 @@ export function ErxPanel({
                           )}
                         </div>
                         <div>{displayText(f.text)}</div>
-                        {f.sources.map((s) => (
-                          <div key={s.label} className="hint text-[10px] text-ink-faint">
-                            根拠：{s.label}{" "}
-                            <a href={s.url} target="_blank" rel="noreferrer" className="break-all text-ai underline">
-                              {s.url}
-                            </a>
-                          </div>
-                        ))}
+
                         <label className="mt-0.5 flex items-center gap-1">
                           <input type="checkbox" checked={!!acked[i]} disabled={!!locked || !!receipt} onChange={(e) => setAcked((a) => ({ ...a, [i]: e.target.checked }))} />
                           確かめた（このまま出すと医師が決めた。直すときは処方を書き直す）
@@ -229,7 +222,7 @@ export function ErxPanel({
                     電子署名
                     <MockMark />
                   </div>
-                  <p className="text-[11px] text-ink-soft">本物の電子処方箋は、医師が HPKI カード（ローカル署名）か HPKI セカンド電子証明書（リモート署名）で署名し、サービスがタイムスタンプを付けます。ここでは Bundle のハッシュ値（SHA-256）を入れるだけで、署名にはなりません。</p>
+
                   <button type="button" onClick={sign} disabled={!canSign} className="rounded-md border border-ai px-2.5 py-1 font-bold text-ai hover:bg-ai-soft disabled:opacity-40">
                     署名する（模擬）
                   </button>
@@ -254,7 +247,7 @@ export function ErxPanel({
                       引換番号（・6桁）：<b className="text-base">{receipt.exchangeNo}</b>　患者に控えを渡し、薬局で被保険者の記号・番号などとあわせて示してもらいます。
                     </p>
                   ) : (
-                    <p>院内処方の情報は処方箋ではないので、署名と引換番号はありません。ほかの医療機関・薬局の重複投薬等チェックの対象になります。</p>
+                    null
                   )}
                 </div>
               )}
@@ -267,3 +260,18 @@ export function ErxPanel({
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >処方の中身を、公開されている厚生労働省標準規格 HS036「処方情報 HL7 FHIR 記述仕様」の FHIR で示します（HS036 は電子処方箋のファイルそのものではなく、本物の登録は記録条件仕様の CSV を XML に入れて送ります）。</span>
+<div key={s.label} >
+                            根拠：{s.label}{" "}
+                            <a href={s.url} target="_blank" rel="noreferrer" >
+                              {s.url}
+                            </a>
+                          </div>
+<p >本物の電子処方箋は、医師が HPKI カード（ローカル署名）か HPKI セカンド電子証明書（リモート署名）で署名し、サービスがタイムスタンプを付けます。ここでは Bundle のハッシュ値（SHA-256）を入れるだけで、署名にはなりません。</p>
+*/
+
+/* ヘルプへ移動した説明:
+院内処方の情報は処方箋ではないので、署名と引換番号はありません。ほかの医療機関・薬局の重複投薬等チェックの対象になります。
+*/

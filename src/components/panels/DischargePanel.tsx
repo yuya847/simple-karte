@@ -190,7 +190,7 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, histo
           {SECTIONS.map(({ key, label }) => (
             <label key={key} className="block text-xs text-ink-soft">
               {label}
-              {d.sources?.[key] && <span className="hint ml-2 text-ink-faint">コピー元：{d.sources[key]}</span>}
+
               <textarea value={d.sections[key]} onChange={(e) => setSection(key, e.target.value)} rows={key === "course" ? 4 : 2} className="mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] text-ink" />
             </label>
           ))}
@@ -360,7 +360,7 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
         <Prose key={s.key} title={s.label} text={d.sections[s.key]} />
       ))}
       {directive && <Rows title="事前指示" items={[directive]} />}
-      <p className="mt-3 text-[10px] text-ink-faint">病名・検査・処方・処置・培養・画像はカルテからコードで集めたもの。初期の文は記事・入院申込・退院オーダからコピーし、医師が確認・編集するもの。</p>
+
     </article>
   );
 }
@@ -403,3 +403,8 @@ function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: Discharg
     </article>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >コピー元：{d.sources[key]}</span>
+<p >病名・検査・処方・処置・培養・画像はカルテからコードで集めたもの。初期の文は記事・入院申込・退院オーダからコピーし、医師が確認・編集するもの。</p>
+*/

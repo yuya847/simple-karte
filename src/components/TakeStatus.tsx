@@ -72,9 +72,13 @@ export function TakeStatus({ rows, taken, isTaken, holds, confirms = {}, nowAbs,
             指示票を印刷（今日・A4）
           </button>
         )}
-        <p className="text-[10px] text-ink-faint">指示を直すときは、答えるだけでなく、オーダを直して確定してください（直した指示はもう一度、看護師の指示受けに出ます）。「受け」は看護師が受けた時刻と名前、「確認済み」はその指示が作る予定を看護師が見た時刻です。</p>
+
       </div>
       {printSheet}
     </details>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >指示を直すときは、答えるだけでなく、オーダを直して確定してください（直した指示はもう一度、看護師の指示受けに出ます）。「受け」は看護師が受けた時刻と名前、「確認済み」はその指示が作る予定を看護師が見た時刻です。</p>
+*/

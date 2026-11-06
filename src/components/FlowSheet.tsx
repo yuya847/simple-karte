@@ -36,7 +36,7 @@ import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
 import { FlowStickyLane } from "./FlowStickyLane";
 import { notesIn, type GraphNote } from "@/lib/flow-stickies";
 import { FlowGlucoseRows, FlowOralRows, type FlowMar } from "./FlowMedRows";
-import { glucosePoints, insulinOrders, isGlucoseCare } from "@/lib/flow-meds";
+import { glucosePoints,insulinOrders,isGlucoseCare } from "@/lib/flow-meds";
 import { nursingNotesByTime, type NoteGroupKey } from "@/lib/flow-notes";
 import { FlowNoteRows, WriteNoteButton } from "./FlowNoteRows";
 import { FlowGroup, FlowLayoutPanel } from "./FlowLayoutPanel";
@@ -614,10 +614,8 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
           </FlowGroup>
         ))}
 
-      <p className="hint pl-[76px] pt-0.5 text-[10px] text-ink-faint">記録の印（医＝医師、看＝看護師、他＝ほかの職種の記事の数）を押すと、左の「経過」でその日のその記事だけを開きます。</p>
-      <p className="mt-2 pl-[76px] text-[10px] text-ink-faint">
-        ● 採取済み　○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。<span className="hint">食種に触れると朝・昼・夕が出ます。</span>
-      </p>
+
+      <p className="text-xs text-ink-faint">点滴量は概算です。</p>
     </div>
   );
 
@@ -692,11 +690,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
           )}
         </div>
       )}
-      {!showTable && onEntry && (
-        <p className="hint mb-2 text-[11px] text-ink-faint">
-          セルを押すと、その行とその時刻の入力が開きます：グラフはバイタルか付箋（付箋の行を押しても貼れます）、看護ケア・観察と血糖はその記録、水分出納は IN/OUT、内服と注射は実施（与薬の記録）、「未受」は指示受け。入れたものはワークシートや右のツールで入れたものと同じところに残ります。
-        </p>
-      )}
+
       {menu && <FlowCellMenu at={menu} title={menu.title} actions={[...menu.reqs.map((r) => ({ label: ENTRY_LABEL[r.kind], disabled: deny(ENTRY_ACTION[r.kind]), onClick: () => onEntry?.(r) })), ...(menu.extra ?? [])]} onClose={closeMenu} />}
       {showTable ? <VitalTable vitals={p.vitals} today={today} /> : sheet}
       {printing &&
@@ -1069,3 +1063,15 @@ function copyText(text: string): boolean {
   back?.focus();
   return ok;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >記録の印（医＝医師、看＝看護師、他＝ほかの職種の記事の数）を押すと、左の「経過」でその日のその記事だけを開きます。</p>
+<span >食種に触れると朝・昼・夕が出ます。</span>
+<p >
+          セルを押すと、その行とその時刻の入力が開きます：グラフはバイタルか付箋（付箋の行を押しても貼れます）、看護ケア・観察と血糖はその記録、水分出納は IN/OUT、内服と注射は実施（与薬の記録）、「未受」は指示受け。入れたものはワークシートや右のツールで入れたものと同じところに残ります。
+        </p>
+*/
+
+/* ヘルプへ移動した説明:
+● 採取済み ○ 予定（印に触れると項目が出ます）。検査値はその日の最後の値で、H（赤）・L（青）はマスターの基準範囲（共用基準範囲・SRL）との比べです。「採取待ち」「検査中」は結果がまだの採血、○ は予定の採血。結果が確定すると自動で入ります。点滴量はオーダから計算した概算で、実測ではありません。食種は食事オーダーから読んでいます（青い枠はその日に食種が変わった日、黄色は検査・外泊などで止めた食事がある日）。
+*/

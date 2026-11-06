@@ -2,12 +2,11 @@
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
-import { BookOpenText, ClipboardList, Droplet, FileClock, HelpCircle, Package, TestTubes, TriangleAlert, Undo2 } from "lucide-react";
+import { ClipboardList, Droplet, FileClock, HelpCircle, Package, TestTubes, TriangleAlert, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import {
   BLOOD_RULES,
-  BLOOD_SOURCES,
   bagLabel,
   candidates,
   computerConditions,
@@ -29,7 +28,7 @@ import {
 } from "@/lib/blood-bank";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { useHints } from "@/lib/hints";
+import { openHelp } from "@/lib/help/events";
 import { txText } from "@/lib/procedures";
 import type { Patient } from "@/lib/types";
 import type { WorkPatient } from "@/lib/worksheet";
@@ -59,50 +58,18 @@ const TABS: { key: Tab; label: string; icon: typeof Droplet }[] = [
   { key: "records", label: "使用記録（20年）", icon: FileClock },
 ];
 
-const GUIDE: Record<Tab, string> = {
-  orders:
-    "医師が確定した輸血のオーダ（カルテの「輸血」）が、輸血の時刻の順に並びます。患者の血液型（2回の確認）と不規則抗体をコードが確かめます。在庫から、患者と同じ型で輸血の時刻まで有効な製剤を、有効期限の近い順に出すので、選んで「割り付ける」。赤血球は交差適合試験（間接抗グロブリン試験、またはコンピュータクロスマッチ）の結果を入れます。血漿・血小板は省略できます。止まる理由がなくなったら、受け取りに来た人の名前を入れて1バッグずつ払い出します。",
-  typing:
-    "検体ごとに、ABO（オモテ・ウラ）と RhD、できれば不規則抗体スクリーニングの結果を入れます。同じ検体を2人目の技師が確かめた名前が要ります。異なる時刻に採った2つの検体で一致すると血液型が確定し、カルテの血液型（確認の回数）が増え、医師が輸血を出せるようになります。一致しないときは確定しません。",
-  stock:
-    "血液センターから届いた製剤を、納品伝票と製剤本体で照合して入庫します（製造番号・製剤・単位・血液型・有効期限・照射）。期限を過ぎた製剤はコードが印を付けるので、廃棄の記録をします。赤血球をコンピュータクロスマッチで使うときは、入庫後に製剤の ABO をオモテ検査で確かめて「確認した」を押します。",
-  return:
-    "払い出したが使わなかった製剤を、戻った時刻と外観で記録します。在庫に戻すか廃棄かは、払出からの時間と製剤の種類からコードが決めます。",
-  reactions:
-    "病棟が記録した輸血の副反応が届きます。症状（学会の17項目）・始まった時刻・対応を確かめて「受けた」を押します。血液センターへの報告は模擬です（つながりません）。下の表は学会の報告書と同じく、バッグごとの件数です。",
-  records:
-    "輸血したバッグごとの記録です（氏名・住所・製剤の名称と製造番号・使用した日）。保存の期限（使用した日から20年）はコードが出します。足りない項目があれば印が付きます。",
-};
+
 
 export const bbCard = "rounded-lg border border-rule bg-sheet";
 export const bbField = "rounded border border-rule bg-paper px-1.5 py-0.5 outline-none focus:border-ai";
-export const SourceNote = ({ rules }: { rules: string[] }) => (
-  <div className="hint mt-4 rounded-md border border-rule bg-sheet p-3 text-[11px] text-ink-soft">
-    {rules.map((r) => (
-      <p key={r} className="mb-1">
-        {r}
-      </p>
-    ))}
-    <p className="mt-1">
-      出典：
-      {[BLOOD_SOURCES.guide, BLOOD_SOURCES.notice].map((s, i) => (
-        <span key={s.url}>
-          {i > 0 && "／"}
-          <a href={s.url} target="_blank" rel="noreferrer" className="text-ai underline">
-            {s.label}
-          </a>
-        </span>
-      ))}
-    </p>
-  </div>
-);
+export function SourceNote(props: { rules: string[] }) {
+  void props;
+  return null;
+}
 
 /** 輸血部門: what the blood bank does between the doctor's order and the bag at the bedside. */
 export function BloodBankView(p: BloodBankProps) {
   const [tab, setTab] = useState<Tab>("orders");
-  const [hintsOn] = useHints();
-  const [guideSet, setGuide] = useState<boolean | null>(null);
-  const guide = guideSet ?? hintsOn;
   const nowAbs = abs(0, p.nowTime);
   const reqs = txRequests(p.people);
   const stateOf = (pid: string) => bloodState(p.recordBlood(pid), p.bank.typings.filter((t) => t.patientId === pid));
@@ -112,7 +79,7 @@ export function BloodBankView(p: BloodBankProps) {
   const expired = p.bank.units.filter((u) => unitState(u, p.bank.admins, nowAbs) === "期限切れ").length;
   const badge: Partial<Record<Tab, number>> = { orders: waiting, stock: expired, return: toReturn, reactions };
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div data-help-section={`department:blood:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <Droplet size={17} />
@@ -134,21 +101,12 @@ export function BloodBankView(p: BloodBankProps) {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => openHelp(`department:blood:${tab}`)} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>
       </div>
-      {guide && (
-        <div className="border-b border-rule bg-ai-soft/40 px-5 py-2 text-[12px]">
-          <p className="mb-1 flex items-center gap-1 font-bold text-ai">
-            <BookOpenText size={14} />
-            使い方：{TABS.find((t) => t.key === tab)?.label}
-          </p>
-          <p className="text-ink">{GUIDE[tab]}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。輸血のオーダは医師がカルテの「輸血」から、ベッドサイドの照合と観察は看護師がカルテの「輸血の実施」から行います。</p>
-        </div>
-      )}
+
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
         <div className="mx-auto max-w-[1100px]">
           <DenyNote action="blood.bank" className="mb-2" />
@@ -172,7 +130,7 @@ function Orders(p: BloodBankProps & { reqs: TxRequest[]; stateOf: (pid: string) 
   const { reqs, stateOf, nowAbs } = p;
   return (
     <section className="space-y-3">
-      {reqs.length === 0 && <p className={`${bbCard} px-4 py-3 text-ink-soft`}>輸血のオーダはありません。<span className="hint">医師がカルテの右端「オーダ › その他 › 輸血」から出すと、ここに並びます。</span></p>}
+      {reqs.length === 0 && <p className={`${bbCard} px-4 py-3 text-ink-soft`}>輸血のオーダはありません。</p>}
       {reqs.map((r) => (
         <OrderCard key={r.entry.id} {...p} req={r} blood={stateOf(r.patientId)} nowAbs={nowAbs} />
       ))}
@@ -428,3 +386,26 @@ function BagRow({ unit, req, blood, bank, nowAbs, nowTime, set, onIssued }: { un
     </li>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<div >
+    {rules.map((r) => (
+      <p key={r} >
+        {r}
+      </p>
+    ))}
+    <p >
+      出典：
+      {[BLOOD_SOURCES.guide, BLOOD_SOURCES.notice].map((s, i) => (
+        <span key={s.url}>
+          {i > 0 && "／"}
+          <a href={s.url} target="_blank" rel="noreferrer" >
+            {s.label}
+          </a>
+        </span>
+      ))}
+    </p>
+  </div>
+<p >臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。輸血のオーダは医師がカルテの「輸血」から、ベッドサイドの照合と観察は看護師がカルテの「輸血の実施」から行います。</p>
+<span >医師がカルテの右端「オーダ › その他 › 輸血」から出すと、ここに並びます。</span>
+*/

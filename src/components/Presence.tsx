@@ -23,7 +23,7 @@ export function PresenceStrip({ peers, editors = [] }: { peers: Peer[]; editors?
           <span>{editors.map(editorLine).join("、")}</span>
         </>
       )}
-      <span className="hint text-ink-soft">同じ患者を何人で開いても、それぞれの記事やオーダはあとから合わせて保存されます。同じ記事を同時に直すと、お互いの文字が入って見え、確定すると一つの版に二人の名前が付きます。</span>
+
     </div>
   );
 }
@@ -35,7 +35,7 @@ export function MergedNotice({ by, where, at, onClose }: { by: string; where: Wh
       <div className="flex items-center gap-2 rounded-full border border-wakatake bg-wakatake-soft px-3 py-1 text-[12px] text-ink shadow">
         <GitMerge size={13} className="text-wakatake" />
         <span>{displayText(mergedText(by, where, at))}</span>
-        <span className="hint text-ink-soft">この画面の記録と合わせました。書いている記事と下書きはそのままです。</span>
+
         <button type="button" onClick={onClose} aria-label="閉じる" className="rounded p-0.5 text-ink-soft hover:bg-sheet">
           <X size={12} />
         </button>
@@ -48,3 +48,8 @@ export function MergedNotice({ by, where, at, onClose }: { by: string; where: Wh
 export function liveLabel(live: "unknown" | "on" | "off"): string {
   return live === "on" ? "ほかの端末の変更はすぐ届きます" : live === "off" ? "ほかの端末の変更は30秒ごとに確かめます" : "";
 }
+
+/* Help migration source (references and dynamic wording):
+<span >同じ患者を何人で開いても、それぞれの記事やオーダはあとから合わせて保存されます。同じ記事を同時に直すと、お互いの文字が入って見え、確定すると一つの版に二人の名前が付きます。</span>
+<span >この画面の記録と合わせました。書いている記事と下書きはそのままです。</span>
+*/

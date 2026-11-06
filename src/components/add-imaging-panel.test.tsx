@@ -17,8 +17,8 @@ describe("画像検査のオーダ画面", () => {
     expect(html).toContain("部位を検索");
     expect(html).toContain("目的（臨床診断・知りたいこと）");
     expect(html).toContain("部位を選ぶ）");
-    expect(html).toMatch(/class="hint[^"]*"[^>]*>部位を選ぶと、マスターの標準の方向と体位が入ります/);
-    expect(html).toContain("一般撮影で広く使われる呼称");
+    expect(html).not.toMatch(/class="hint[^"]*"[^>]*>部位を選ぶと、マスターの標準の方向と体位が入ります/);
+    expect(html).not.toContain("一般撮影で広く使われる呼称");
     expect(html).not.toContain("おすすめ");
     expect(html).not.toContain("推奨");
   });
@@ -35,6 +35,6 @@ it("救急外来では今すぐ（至急）を先頭に出し既定にする", (
   expect(html).toContain("2026年11月");
   expect(html).toContain("08:30 空き");
   expect(html).not.toContain("架空の病院の取り決め");
-  expect(html).toContain("ほかの患者の名前は予約の調整のために出しています");
+  expect(html).not.toContain("ほかの患者の名前は予約の調整のために出しています");
   expect(html).toMatch(/aria-checked="true"[^>]*>日時を選ぶ/);
 });

@@ -40,7 +40,7 @@ describe("障害時の参照の画面", () => {
     expect(html).toContain("直近のバイタル");
     expect(html).toContain("実施（手書き）");
     expect(html).toContain("この端末のブラウザには保存されていません");
-    expect(html).toContain("001716295.pdf");
+    expect(html).not.toContain("001716295.pdf");
     expect(html).toContain(DOWNTIME_PAGE);
   });
 
@@ -86,7 +86,7 @@ describe("スキャン取込", () => {
     expect(html).toContain("同意書</b>　文書の日付 2026-11-02");
     expect(html).toContain("取込 09:10 医事課 渡辺");
     expect(html).toContain("取り消し 09:30 医事課 渡辺：別の患者の紙");
-    expect(html).toContain("項番168");
+    expect(html).not.toContain("項番168");
     expect(html).toContain("取り込んだ文書（2件）");
   });
 });
@@ -97,13 +97,13 @@ describe("電子署名（模擬）", () => {
   it("lets a doctor sign the confirmed summary (not the letter not yet issued), shows the signatures and says what it is not", () => {
     const html = as("医師", <SignBox patientId="p1" draft={draft} records={[rec]} onSigned={() => {}} newId={() => "x"} />);
     expect(html).toContain("模擬");
-    expect(html).toContain("HPKI（保健医療福祉分野の公開鍵基盤）");
-    expect(html).toContain("法的な署名にはなりません");
+    expect(html).not.toContain("HPKI（保健医療福祉分野の公開鍵基盤）");
+    expect(html).not.toContain("法的な署名にはなりません");
     expect(html).toContain("確定済み");
     expect(html).toContain("まだ発行していません");
     expect(html).toContain("署名 2026-11-04 10:32:05");
     expect(html).toContain("鍵の指紋 3fa23fa2…");
-    expect(html).toContain("企画管理編」14");
+    expect(html).not.toContain("企画管理編」14");
     expect(html).not.toContain("医師が行います");
   });
   it("is locked for a nurse", () => {
@@ -122,8 +122,8 @@ describe("ログインの仕組み（既定はオフ）", () => {
     expect(html).not.toContain("checked");
     expect(html).toContain("この端末のみに適用されます");
     expect(html).toContain("13文字以上");
-    expect(html).toContain("項番171〜173");
-    expect(html).toContain("12.3.2");
+    expect(html).not.toContain("項番171〜173");
+    expect(html).not.toContain("12.3.2");
   });
   it("asks who uses it, without showing the chart, and keeps a way out for the demo", () => {
     const html = renderToStaticMarkup(<LoginGate users={users} locked={null} current={null} onLogin={() => {}} onTurnOff={() => {}} />);
@@ -131,7 +131,7 @@ describe("ログインの仕組み（既定はオフ）", () => {
     expect(html).toContain("看護師 佐藤");
     expect(html).toContain("（この端末では初めて）");
     expect(html).toContain("ログインの仕組みを切る（この端末・デモ用）");
-    expect(html).toContain("二要素認証はありません");
+    expect(html).not.toContain("二要素認証はありません");
     const locked = renderToStaticMarkup(<LoginGate users={users} locked={{ at: "10:45", minutes: 15 }} current={users[1]} onLogin={() => {}} onTurnOff={() => {}} />);
     expect(locked).toContain("15分操作がなかったので、10:45 に画面をロックしました");
     expect(locked).toContain("パスワードを決めてログイン");

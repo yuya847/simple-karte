@@ -25,7 +25,7 @@ describe("未実施の一覧", () => {
     expect(html).toContain("ワークシートで記録する");
     expect(html).toContain("算定漏れの候補");
     expect(html).toContain("実施したが算定に入らない");
-    expect(html).toContain("未実施患者一覧");
+    expect(html).not.toContain("未実施患者一覧");
   });
 
   it("tells 医事課 that unrecorded items are in the claim, and opens the claim", () => {

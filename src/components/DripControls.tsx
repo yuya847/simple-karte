@@ -94,7 +94,7 @@ export function DripEndForm({ volumeMl, start, nowAbs, nowTime, onEnd, label = "
           やめる
         </button>
       </div>
-      <p className="hint text-[10px] text-ink-faint">入った量は 1本の量 − 残量 で、水分出納の IN（点滴）に終了の時刻で入ります。</p>
+
     </div>
   );
 }
@@ -204,3 +204,7 @@ export function RunningDrips({ people, records, sessionStart, nowTime, onRecord,
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >入った量は 1本の量 − 残量 で、水分出納の IN（点滴）に終了の時刻で入ります。</p>
+*/

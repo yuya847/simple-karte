@@ -6,7 +6,6 @@ import { useState } from "react";
 import { minutesOf } from "@/lib/dates";
 import {
   CARE_ITEMS,
-  CARE_SOURCES,
   EVERY_HOURS,
   careActive,
   careSlots,
@@ -29,7 +28,6 @@ import {
   EVAL_INTERVAL_DAYS,
   EVAL_RESULTS,
   PLAN_LISTS,
-  PLAN_SOURCES,
   PLAN_TEMPLATES,
   addProblem,
   defaultEvalDue,
@@ -118,9 +116,7 @@ function CarePart({ orders, records, plans, patientId, nowTime, sessionStart, fm
 
   return (
     <>
-      <p className="rounded-md bg-paper px-2 py-1.5 text-[12px] text-ink-soft">
-        看護師が出すケア（して印をつける）と観察（見たことを選ぶか書く）の指示です。ワークシートに時刻ごとに出て、行ったら実施を記録します。経過表にも出ます。
-      </p>
+
 
       <section>
         <h3 className="mb-1 font-bold">指示中（{live.length}件）</h3>
@@ -235,12 +231,7 @@ function CarePart({ orders, records, plans, patientId, nowTime, sessionStart, fm
           </ul>
         </details>
       )}
-      <p className="hint text-[11px] text-ink-faint">
-        既定の時刻の1時間前から記録でき、1時間過ぎて記録がなければ遅れとして出します。記録の出典：
-        <a href={CARE_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline">
-          {CARE_SOURCES.record.label}
-        </a>
-      </p>
+
     </>
   );
 }
@@ -436,9 +427,7 @@ function PlanPart({ orders, plans, patientId, nowTime, fmtDay, newId, onPlans }:
 
   return (
     <>
-      <p className="rounded-md bg-paper px-2 py-1.5 text-[12px] text-ink-soft">
-        患者ごとの看護の目標、具体的な看護の方法（観察・ケア・指導）と評価を記録します。評価予定日が今日か過ぎた問題は、看護師のやることに出ます。
-      </p>
+
       {open.length === 0 && <p className="text-ink-faint">いま続いている看護問題はありません。</p>}
       {open.map((p) => (
         <ProblemCard key={p.id} p={p} orders={live} fmtDay={fmtDay} today={today}>
@@ -524,13 +513,7 @@ function PlanPart({ orders, plans, patientId, nowTime, fmtDay, newId, onPlans }:
           </div>
         </details>
       )}
-      <p className="hint text-[11px] text-ink-faint">
-        評価予定日の既定（立案日・前の評価日から{EVAL_INTERVAL_DAYS}日後）は看護師が変えられます。標準計画は例です。出典：
-        <a href={PLAN_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline">
-          {PLAN_SOURCES.record.label}
-        </a>
-        ／{PLAN_SOURCES.ward.label}
-      </p>
+
     </>
   );
 }
@@ -666,3 +649,25 @@ function EvalForm({ p, today, fmtDay, nowTime, onCancel, onSave }: { p: NursingP
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        看護師が出すケア（して印をつける）と観察（見たことを選ぶか書く）の指示です。ワークシートに時刻ごとに出て、行ったら実施を記録します。経過表にも出ます。
+      </p>
+<p >
+        既定の時刻の1時間前から記録でき、1時間過ぎて記録がなければ遅れとして出します。記録の出典：
+        <a href={CARE_SOURCES.record.url} target="_blank" rel="noreferrer" >
+          {CARE_SOURCES.record.label}
+        </a>
+      </p>
+<p >
+        患者ごとの看護の目標、具体的な看護の方法（観察・ケア・指導）と評価を記録します。評価予定日が今日か過ぎた問題は、看護師のやることに出ます。
+      </p>
+<p >
+        評価予定日の既定（立案日・前の評価日から{EVAL_INTERVAL_DAYS}日後）は看護師が変えられます。標準計画は例です。出典：
+        <a href={PLAN_SOURCES.record.url} target="_blank" rel="noreferrer" >
+          {PLAN_SOURCES.record.label}
+        </a>
+        ／{PLAN_SOURCES.ward.label}
+      </p>
+*/

@@ -111,7 +111,7 @@ export function SummaryApprovals({ pick, patients, summaries, canReview, onAppro
         <PickSelect pick={pick} />
         <span className="text-xs text-ink-faint">{SUMMARY_RULES.demo}</span>
       </header>
-      <p className="hint text-xs text-ink-soft">看護師はカルテの「連携サマリ」（看護では看護サマリ）で種類を選んで提出します。ここで中身を見て承認するか、直してほしいところを書いて差し戻します。名前を押すとカルテのサマリが開きます。</p>
+
       {list("承認待ち", "承認待ち")}
       {list("差し戻し", "差し戻し中")}
       <section>
@@ -155,3 +155,7 @@ export function SummaryApprovals({ pick, patients, summaries, canReview, onAppro
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >看護師はカルテの「連携サマリ」（看護では看護サマリ）で種類を選んで提出します。ここで中身を見て承認するか、直してほしいところを書いて差し戻します。名前を押すとカルテのサマリが開きます。</p>
+*/

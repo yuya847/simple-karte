@@ -57,7 +57,7 @@ describe("実施入力の画面", () => {
     expect(html).toContain("薬品</dt><dd class=\"nums\">メトホルミン");
     expect(html).toContain("実施した");
     expect(html).toContain("照合なし");
-    expect(html).toContain("denshi_gx.pdf");
+    expect(html).not.toContain("denshi_gx.pdf");
     expect(html).not.toContain("架空の病院の取り決め");
   });
 

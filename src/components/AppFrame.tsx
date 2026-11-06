@@ -12,7 +12,8 @@ import { ROLES, ROLE_LONG, STAFF, type Role } from "@/lib/roles";
 import type { Sex } from "@/lib/types";
 import { AREA_ICON, type Icon } from "./nav-icons";
 import { PatientAvatar } from "./PatientAvatar";
-import { useHints } from "@/lib/hints";
+import { openHelp } from "@/lib/help/events";
+import { HelpPanel } from "./HelpPanel";
 
 export interface Todo {
   key: string;
@@ -75,6 +76,8 @@ export interface Crumb {
 }
 
 interface Props {
+  helpScreen: string;
+  helpPanel?: string | null;
   role: Role;
   onRole: (r: Role) => void;
   /** The name of the person now (when the role has more than one to choose from). */
@@ -535,7 +538,6 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
  */
 export function AppFrame(p: Props) {
   const boardOn = p.areas.some((a) => a.key === "board");
-  const [hints, toggleHints] = useHints();
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <Row
@@ -564,7 +566,7 @@ export function AppFrame(p: Props) {
               <span className="hidden xl:inline">患者を開く</span>
               <kbd className="hidden rounded border border-rule px-1 text-[10px] xl:inline">⌘K</kbd>
             </button>
-            <button type="button" onClick={toggleHints} aria-pressed={hints} title={hints ? "使い方の説明を隠す" : "画面ごとの使い方の説明を出す"} className={`${barButton} ${hints ? "bg-ai-soft font-bold text-ai" : ""}`}>
+            <button type="button" onClick={() => openHelp()} aria-haspopup="dialog" aria-label="ヘルプを開く" title="ヘルプを開く" className={barButton}>
               <CircleHelp size={16} />
               <span className="hidden lg:inline">使い方</span>
             </button>
@@ -598,6 +600,7 @@ export function AppFrame(p: Props) {
         </nav>
       )}
       {p.children}
+      <HelpPanel screen={p.helpScreen} panel={p.helpPanel} />
     </div>
   );
 }

@@ -30,7 +30,7 @@ describe("患者モニター（模擬）のウインドウ", () => {
     expect(html).toContain("NIBP 測定");
     expect(html).toContain("記録する（HR・SpO2・RR）");
     expect(html).toContain("<canvas");
-    expect(html).toContain('class="hint');
+    expect(html).not.toContain('class="hint');
     expect(html).not.toContain("role=\"alert\"");
   });
 
@@ -86,7 +86,7 @@ describe("セントラルモニター", () => {
     expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("音は鳴りません");
     expect(html).toContain(MONITOR_NOTES.simulated);
-    expect(html).toContain('class="hint');
+    expect(html).not.toContain('class="hint');
   });
 
   it("put on by hand: the quiet patient gets a cell; taken off: the sick one loses it", () => {

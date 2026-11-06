@@ -61,7 +61,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
           </ul>
         </section>
       )}
-      <p className="hint text-[11px] text-ink-faint">科・日付・時間枠・目的を選んで「保存する」。記事の下の下書きで確かめて確定すると、左の経過にオーダとして残り、「予約」のウインドウに出ます。決めるのは医師で、AI は使いません。</p>
+
       <div data-booking-field="診療科" className={row}>
         <span className={label}>診療科</span>
         <TabChoice label="診療科" options={OPD_CLINICS.map((c) => ({ value: c.name, label: c.name }))} value={dept} onChange={(v) => (setDept(v), setDoctor(""))} />
@@ -129,3 +129,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >科・日付・時間枠・目的を選んで「保存する」。記事の下の下書きで確かめて確定すると、左の経過にオーダとして残り、「予約」のウインドウに出ます。決めるのは医師で、AI は使いません。</p>
+*/

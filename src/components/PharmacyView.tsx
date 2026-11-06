@@ -1,8 +1,8 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
-import { Activity, BookOpenText, Check, Droplet, KeyRound, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
-import { useHints } from "@/lib/hints";
+import { Activity, Check, Droplet, KeyRound, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
+import { openHelp } from "@/lib/help/events";
 import { createPortal, flushSync } from "react-dom";
 import { DrugLabel } from "./Labels";
 import { DrugInfoSheet, MedBagFace, NotebookSticker } from "./HomeRxPrint";
@@ -87,30 +87,15 @@ const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
 ];
 
 /** How to use each tab (the pharmacist's day), shown at the top (can be folded). */
-const GUIDE: { tab: Tab; steps: string }[] = [
-  { tab: "audit", steps: "医師が出した注射・内服が新しい順に並びます。重複と、電子添文にある併用禁忌・併用注意・配合（同じ Rp の中）はコードが調べ、電子添文へのリンクと、医師が理由を入れた場合はその理由を出します。量・飲み合わせ・腎機能を確かめて「監査済み」。疑問があれば「疑義照会」を書くと、医師のカルテの右上に届き、医師が答えるか処方を直します。" },
-  { tab: "brought", steps: "患者を選び、お薬手帳の文を貼って「読み取る」。Claude は表に写すだけで、院内の薬との照合（同じ成分・規格）はコードが行います。薬剤師が1行ずつ実物と照らし、実物の残数（何日分かはコードが数える）と備考・所見を書いて「医師へ報告」すると、医師がカルテで続ける・止めるを決めます。「報告した鑑別」から持参薬鑑別報告書を印刷できます。続ける麻薬は麻薬帳簿に（ ）で記載します。" },
-  { tab: "shido", steps: "患者を選び、医師の同意・副作用歴・薬学的管理指導の内容・指導と相談事項を書きます（薬剤管理指導記録の項目）。氏名・入院日・投薬と注射・アレルギーはカルテから入ります。「1」の対象の薬と麻薬が投与されているかはコードが示し、麻薬の指導をしたら麻薬管理指導加算の欄（ア・イ）も書きます。回数（週1回・月4回まで）はコードが数えます。" },
-  { tab: "dispense", steps: "明日分（毎日の払出）と、今日（臨時・追加のオーダ、まだ払い出していない回）を切り替えられます。注射が患者ごと・1回ごとに並びます。「ラベルを印刷」で点滴に貼るラベルを出し、取りそろえた薬のラベルのバーコードを「鑑査」の欄で読むと、その回と合っていれば払出の印が付きます（違う回・払出済みなら止まる）。" },
-  { tab: "oral", steps: "病棟で飲む内服（定期・臨時）を、患者ごと・Rp ごとに並べます。「定期」は明日から選んだ日数分、「臨時（今日の新規）」は今日出た臨時の全日数と、今日出た定期の今日の分です。量は「1回量 × 服用回数」をオーダの開始・日数・中止からコードで数え、式を出します。Rp ごとに ①調剤 → ②鑑査（できれば別の薬剤師。同じ人なら印が付く）→ ③払出 を記録し、誰がいつかが残ります。疑義照会の回答待ち・まだ監査していないオーダは止まり、調剤のあとで処方が変わると調剤し直しになります。「配薬ラベル」で1回分（日付と朝・昼・夕・眠前）ごとのラベルを印刷できます（一包化の袋に貼る形）。持参薬と退院時処方は入りません（退院時は「退院時の薬」タブ）。頓用は回数が決まらないので数えません。" },
-  { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
-  { tab: "narcotic", steps: "麻薬の処方箋・注射せんごとに、法と施行規則の記載事項（免許番号・日数など）が並びます。印刷した処方箋の署名を確かめ、内服は払い出すと受払簿に入ります。注射は病棟が施用票を書いて残液・空アンプルを返したら受け取り、施用の日の払出として帳簿に入ります。残液と病棟から返った薬は立会者を選んで廃棄し、返納分の調剤済麻薬廃棄届の期限（30日）を出します。受入・在庫との照合・事故（事故届の文面、模擬）もここで書きます。" },
-  { tab: "blood", steps: "医師が確定した輸血のオーダと、検査室の輸血部門が払い出した製剤の製造番号（ロット）が並び、今日の日報に入ります。血液製剤の入庫・割付・交差適合試験・払出は輸血部門が一括して行います。" },
-  { tab: "tdm", steps: "バンコマイシンの血中濃度から、コードが AUC を計算します（式つき）。薬剤師が提案を書いて医師へ報告します。" },
-  { tab: "journal", steps: "今日の監査・疑義照会・持参薬鑑別・服薬指導・払出（注射・内服）・TDM の件数をコードが数えます。所感を書き残せます。" },
-];
+
 
 const PHARMACIST = STAFF.薬剤師.name;
 
 /** The pharmacy's ward work. Checks are code; Claude only reads the お薬手帳 lines; the doctor decides. */
 export function PharmacyView(p: Props) {
   const [tab, setTab] = useState<Tab>("audit");
-  // The guide follows 「使い方」 on the top row until it is opened or closed here.
-  const [hintsOn] = useHints();
-  const [guideSet, setGuide] = useState<boolean | null>(null);
-  const guide = guideSet ?? hintsOn;
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div data-help-section={`department:pharmacy:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="text-base font-bold">薬剤部（病棟）</h1>
         <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
@@ -129,20 +114,12 @@ export function PharmacyView(p: Props) {
           ))}
         </div>
         <span className="ml-auto text-xs text-ink-faint">{displayText(PHARMACIST)}として操作します</span>
-        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => openHelp(`department:pharmacy:${tab}`)} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>
       </div>
-      {guide && (
-        <div className="border-b border-rule bg-ai-soft/40 px-5 py-2 text-[12px]">
-          <p className="mb-1 flex items-center gap-1 font-bold text-ai">
-            <BookOpenText size={14} />
-            使い方：{TABS.find((t) => t.key === tab)?.label}
-          </p>
-          <p className="text-ink">{GUIDE.find((g) => g.tab === tab)?.steps}</p>
-        </div>
-      )}
+
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px]">
           {tab === "audit" && <Audit {...p} />}
@@ -411,7 +388,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
           <button type="button" disabled={!text.trim() || busy} onClick={read} className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40">
             {busy ? "読み取り中…" : "Claude で表にする"}
           </button>
-          <span className="text-xs text-ink-faint">Claude は書いてあることを写すだけです。院内の薬との照合と登録済みかの確認はコードが行い、薬剤師が実物と照らして確かめます。</span>
+
         </div>
         {error && <p className="text-sm text-shu">{error}</p>}
       </div>
@@ -497,7 +474,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
             >
               医師へ報告する
             </button>
-            <span className="text-xs text-ink-faint">すべての行を実物と確認すると押せます。医師はカルテの右上で、薬ごとに「持参薬で継続・院内の薬に切替・中止」を選びます。</span>
+            <p className="text-xs text-ink-soft">全行を実物と確認すると報告できます。</p>
           </div>
         </div>
       )}
@@ -612,8 +589,8 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
   };
   return (
     <section className="space-y-3">
-      <p className="text-xs text-ink-soft">
-        <span className="mr-2 inline-flex rounded-md border border-rule p-0.5 align-middle">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
+<span className="mr-2 inline-flex rounded-md border border-rule p-0.5 align-middle">
           {(
             [
               ["tomorrow", "明日分"],
@@ -625,8 +602,9 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
             </button>
           ))}
         </span>
-        {which === "tomorrow" ? `明日（${formatShort(addDays(today, dayNow + 1))}）` : `今日（${formatShort(addDays(today, dayNow))}、時刻の過ぎた回も）`}の注射を、患者ごと・1回ごとに並べます（<span className="hint">オーダからコードで計算。</span>持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
-      </p>
+{which === "tomorrow" ? `明日（${formatShort(addDays(today, dayNow + 1))}）` : `今日（${formatShort(addDays(today, dayNow))}、時刻の過ぎた回も）`}
+      </div>
+
       <div className={`${card} flex flex-wrap items-center gap-2 p-3 text-[13px]`}>
         <b>鑑査</b>
         <input
@@ -772,8 +750,8 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
   };
   return (
     <section className="space-y-3">
-      <p className="text-xs text-ink-soft">
-        <span className="mr-2 inline-flex rounded-md border border-rule p-0.5 align-middle">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
+<span className="mr-2 inline-flex rounded-md border border-rule p-0.5 align-middle">
           {(
             [
               ["定期", "定期"],
@@ -785,7 +763,7 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
             </button>
           ))}
         </span>
-        {mode === "定期" ? (
+{mode === "定期" ? (
           <>
             明日（{day(1)}）から
             <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="定期の日数" className="mx-1 rounded border border-rule bg-paper px-1 py-0.5">
@@ -795,13 +773,13 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
                 </option>
               ))}
             </select>
-            日分の定期処方です。
+            日分
           </>
         ) : (
-          "今日出た臨時処方（全日数）と、今日出た定期処方の今日の分（明日からは定期に入る）です。"
+          "今日の臨時（全日数）＋定期の今日の分"
         )}
-        量はオーダの開始・日数・中止から服用の回数をコードで数え、1回量を掛けます。持参薬と退院時処方は入りません。頓用は回数が決まらないので数えません。
-      </p>
+      </div>
+
       <div className={`${card} flex flex-wrap items-center gap-3 p-3 text-[13px]`}>
         <label className="flex items-center gap-2">
           鑑査する人
@@ -1188,3 +1166,14 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >オーダからコードで計算。</span>
+*/
+
+/* ヘルプへ移動した説明:
+Claude は書いてあることを写すだけです。院内の薬との照合と登録済みかの確認はコードが行い、薬剤師が実物と照らして確かめます。
+すべての行を実物と確認すると押せます。医師はカルテの右上で、薬ごとに「持参薬で継続・院内の薬に切替・中止」を選びます。
+  の注射を、患者ごと・1回ごとに並べます（持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
+  量はオーダの開始・日数・中止から服用の回数をコードで数え、1回量を掛けます。持参薬と退院時処方は入りません。頓用は回数が決まらないので数えません。
+*/

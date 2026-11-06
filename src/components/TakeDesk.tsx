@@ -8,10 +8,9 @@ import { useEffect, useRef, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import type { AdminRecord } from "@/lib/mar";
-import { TAKE_SOURCES } from "@/lib/order-take";
 import { CONFIRM_SOURCES, TAKE_SORTS, confirmPlan, elapsedLabel, groupByPatient, slipLines, sortTakeList, takeLate, unconfirmed, type Confirms, type TakeSort } from "@/lib/order-confirm";
 import { DONE_BAND_MS, EMPTY_STAMP, SHEET_CATEGORIES, TAKE_DAYS, categoryOfTake, doneBandText, doneStampOf, entryOfRow, momentLabel, sheetTitle, splitStamp, startLabel, takeFields, takeRowOnDay, type SheetCategory, type Stamp } from "@/lib/order-sheet";
-import type { TakeHold, TakeRow } from "@/lib/order-take";
+import type { TakeHold,TakeRow } from "@/lib/order-take";
 import { WARD_NAME } from "@/lib/ward";
 import type { WorkPatient } from "@/lib/worksheet";
 import { Sources, usePrintSheet } from "./DeskParts";
@@ -191,9 +190,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
       </SheetBand>
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px] space-y-5">
-          <p className="hint text-[11px] text-ink-soft">
-            新しい指示・変更・中止は、まずここで「指示を受ける」（誰が・いつ）。左の○にチェックして「一括受け」でまとめて受けられます（「全チェック」で受けられるものを全部）。受けると、その指示が今日と明日に作る予定（時刻・回数・量）が下に開くので、見てから「予定を確認した」を押します。それから実施入力に進みます。至急・高リスク薬・口頭指示・変更は1件ずつ、まとめて受けられません：「開いて受ける」で中身（薬・量・時刻・至急の理由）を広げて見てから「この指示を受ける」を押します。受けた・確認したときは、その行に緑の帯が数秒出ます。気になるときは「医師に確認」で受けないまま医師に送れます。◀ ▶ で前後の日の指示（その日に出た指示と、その日から始まる指示）を見られます。
-          </p>
+
 
           {list.length === 0 ? (
             <p className="rounded-lg border border-rule bg-sheet px-4 py-3 text-[12px] text-ink-faint">{waiting.length === 0 && takenShown.length > 0 ? "この日の指示はすべて受けています。「指示受け済みも表示する」で見られます。" : "この日に受ける指示はありません。"}</p>
@@ -368,12 +365,8 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
           )}
 
           <SheetNotes>
-            <p>
-              【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。
-            </p>
-            <p>
-              指示受け → 指示確認 → 実施入力の流れと、未指示受けの一覧・患者ごとのまとめ・並べ替え・指示票は、公開されている電子カルテのカタログと病院の調達仕様の要件に合わせています。
-            </p>
+
+
             <Sources items={CONFIRM_SOURCES.slice(1)} />
           </SheetNotes>
         </div>
@@ -382,3 +375,16 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+            新しい指示・変更・中止は、まずここで「指示を受ける」（誰が・いつ）。左の○にチェックして「一括受け」でまとめて受けられます（「全チェック」で受けられるものを全部）。受けると、その指示が今日と明日に作る予定（時刻・回数・量）が下に開くので、見てから「予定を確認した」を押します。それから実施入力に進みます。至急・高リスク薬・口頭指示・変更は1件ずつ、まとめて受けられません：「開いて受ける」で中身（薬・量・時刻・至急の理由）を広げて見てから「この指示を受ける」を押します。受けた・確認したときは、その行に緑の帯が数秒出ます。気になるときは「医師に確認」で受けないまま医師に送れます。◀ ▶ で前後の日の指示（その日に出た指示と、その日から始まる指示）を見られます。
+          </p>
+<p>
+              指示受け → 指示確認 → 実施入力の流れと、未指示受けの一覧・患者ごとのまとめ・並べ替え・指示票は、公開されている電子カルテのカタログと病院の調達仕様の要件に合わせています。
+            </p>
+*/
+
+/* ヘルプへ移動した説明:
+【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考： 。
+*/

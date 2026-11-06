@@ -173,7 +173,7 @@ export function DpcPanel({ month, mainId, setMainId, transfer, setTransfer, coef
           {r.pkg && (
             <section aria-label="この月の包括" className="rounded-md border border-rule bg-sheet p-3">
               <h3 className="mb-1 text-xs font-bold">
-                {mm}月の包括：点数 × 医療機関別係数 {coef.toFixed(4)}<span className="hint">（告示第96号 別表 1）</span>
+                {mm}月の包括：点数 × 医療機関別係数 {coef.toFixed(4)}
               </h3>
               <table className="w-full border-collapse text-xs">
                 <tbody>
@@ -202,7 +202,7 @@ export function DpcPanel({ month, mainId, setMainId, transfer, setTransfer, coef
           <section aria-label="出来高に残る部分" className="rounded-md border border-rule bg-sheet p-3">
             <h3 className="mb-1 text-xs font-bold">
               出来高で算定する部分
-              <span className="ml-2 font-normal text-ink-soft">包括に含まれない・包括から除かれるもの<span className="hint">（告示第96号 別表 2・3）</span></span>
+              <span className="ml-2 font-normal text-ink-soft">包括に含まれない・包括から除かれるもの</span>
             </h3>
             {r.outside.length === 0 ? (
               <p className="text-xs text-ink-soft">この月はありません。</p>
@@ -283,19 +283,7 @@ export function DpcPanel({ month, mainId, setMainId, transfer, setTransfer, coef
         );
       })()}
 
-      {r && (
-        <div className="hint space-y-0.5 text-[10px] text-ink-faint">
-          {r.sources.map((s) => (
-            <p key={s.url}>
-              出典：
-              <a href={s.url} target="_blank" rel="noreferrer" className="underline decoration-rule hover:text-ink">
-                {s.label}
-              </a>
-            </p>
-          ))}
-          <p>この試作の DPC の表は、デモの患者の病名の分類（080010・040081・050130・110310・180010）だけを載せています。</p>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -309,3 +297,19 @@ function Stat({ label, value, sub, strong }: { label: string; value: string; sub
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >（告示第96号 別表 1）</span>
+<span >（告示第96号 別表 2・3）</span>
+<div >
+          {r.sources.map((s) => (
+            <p key={s.url}>
+              出典：
+              <a href={s.url} target="_blank" rel="noreferrer" >
+                {s.label}
+              </a>
+            </p>
+          ))}
+          <p>この試作の DPC の表は、デモの患者の病名の分類（080010・040081・050130・110310・180010）だけを載せています。</p>
+        </div>
+*/

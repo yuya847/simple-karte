@@ -426,7 +426,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                 {displayText(me.name)}　今日 {nowTime}
               </span>
             </div>
-            <p className="hint text-[11px] text-ink-faint">保存すると前の版が残り、誰が・いつ・なぜ変えたかが履歴に出ます。実在の人の名前・住所・電話は入れないでください。</p>
+
           </div>
         )}
       </section>
@@ -576,3 +576,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
 
 /** For the window's title bar: 「患者基本情報　佐倉 修」 */
 export const patientInfoTitle = (p: Patient) => `患者基本情報　${p.name}`;
+
+/* Help migration source (references and dynamic wording):
+<p >保存すると前の版が残り、誰が・いつ・なぜ変えたかが履歴に出ます。実在の人の名前・住所・電話は入れないでください。</p>
+*/

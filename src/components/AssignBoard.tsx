@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { Users } from "lucide-react";
 import { useState } from "react";
-import { ASSIGN_RULES, ASSIGN_SOURCES, assign, assignIssues, copyPlan, emptySheet, loads, maxLoad, type AssignSheet, type Bed } from "@/lib/assignments";
+import { ASSIGN_RULES, assign, assignIssues, copyPlan, emptySheet, loads, maxLoad, type AssignSheet, type Bed } from "@/lib/assignments";
 import type { RosterNurse } from "@/lib/roster";
 import type { Room } from "@/lib/ward";
 import { currentShift, shiftKey, type ShiftName } from "@/lib/ward-status";
@@ -87,7 +87,7 @@ function Plan({ rooms, beds, nurses, crew, sheet, prev, prevLabel, nowTime, canE
         </label>
       )}
       {warn && <p className="text-[12px] text-shu">{warn}</p>}
-      <p className="hint text-[11px] text-ink-soft">上で看護師を選んでから、部屋の番号（部屋の全員）かベッド（1人）を押すと、その看護師の受け持ちになります。</p>
+
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
         {rooms.map((r) => {
           const inRoom = r.beds.map((b) => ({ letter: b, bed: beds.find((x) => x.key === `${r.no}${b}`) }));
@@ -216,16 +216,21 @@ export function AssignBoard({ pick, hasRoster, rooms, beds, nurses, crewOf, shee
       ) : (
         <p className="rounded-lg border border-rule bg-sheet p-4 text-sm text-ink-soft">このデモで勤務表があるのは5階東だけです。5階東を選んでください。</p>
       )}
-      <ul className="hint mt-3 space-y-0.5 text-[11px] text-ink-faint">
+
+    </section>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >上で看護師を選んでから、部屋の番号（部屋の全員）かベッド（1人）を押すと、その看護師の受け持ちになります。</p>
+<ul >
         {Object.values(ASSIGN_SOURCES).map((s) => (
           <li key={s.label}>
-            <a href={s.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+            <a href={s.url} target="_blank" rel="noreferrer" >
               {s.label}
             </a>
           </li>
         ))}
         <li>看護師は「勤務表と様式9」の勤務（日勤・夜勤）から出しています。分担を決めるのは人で、コードは数えて確かめるだけです（AI は使っていません）。</li>
       </ul>
-    </section>
-  );
-}
+*/

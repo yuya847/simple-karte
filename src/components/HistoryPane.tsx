@@ -465,8 +465,8 @@ function RecordList({
             </button>
           </p>
         )}
-        {onDo && <p className="hint text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。見出しの ▸ で記録をたたみます。入院前の外来の受診は、入院の記録の下に科と医師の印つきで続きます。</p>}
-        <p className="hint text-[10px] text-ink-faint">オーダは予定日の節に表示します。複数日にわたるものは開始日に表示します。絞り込みの「オーダを出す日」で依頼日に切り替えられます。見出しの「依頼」を押すと依頼日の節へ移ります。今日より先の日は「予定 N日」を開くか、左の日付ツリーの「予定」から開けます。</p>
+
+
       </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
         {ahead.days.length > 0 && (
@@ -1212,3 +1212,8 @@ function RxCard({ entries, rpNo, takeBadgeOf, ...props }: {
     </Card>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。見出しの ▸ で記録をたたみます。入院前の外来の受診は、入院の記録の下に科と医師の印つきで続きます。</p>
+<p >オーダは予定日の節に表示します。複数日にわたるものは開始日に表示します。絞り込みの「オーダを出す日」で依頼日に切り替えられます。見出しの「依頼」を押すと依頼日の節へ移ります。今日より先の日は「予定 N日」を開くか、左の日付ツリーの「予定」から開けます。</p>
+*/

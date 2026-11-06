@@ -105,9 +105,7 @@ export function DrugInfoSheet({ p, bags, care, date, pharmacist }: { p: HomeRxPa
           )}
         </tbody>
       </table>
-      <p className="mt-2 text-[8.5pt]">
-        ほかの病院や薬局でもらった薬、市販の薬やサプリメントを使うときは、この説明書とお薬手帳を見せてください。体調の変化があれば、自分の判断で止めずに連絡してください。
-      </p>
+
       <p className="mt-1 text-[8pt] text-ink-soft">
         説明した薬剤師：{pharmacist}　／　文面は添付文書（{DRUG_INFO_SOURCE.label}）をもとにした要約です。
       </p>
@@ -146,3 +144,9 @@ export function NotebookSticker({ p, bags, date, doctor }: { p: HomeRxPatient; b
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        ほかの病院や薬局でもらった薬、市販の薬やサプリメントを使うときは、この説明書とお薬手帳を見せてください。体調の変化があれば、自分の判断で止めずに連絡してください。
+      </p>
+*/

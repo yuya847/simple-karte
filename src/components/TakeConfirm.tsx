@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
-import { CONFIRM_SOURCES, type ConfirmPlan, type TakeBadge } from "@/lib/order-confirm";
+import { type ConfirmPlan, type TakeBadge } from "@/lib/order-confirm";
 import type { TakeRow } from "@/lib/order-take";
 import { timeLabel } from "@/lib/worksheet";
 
@@ -85,7 +85,11 @@ export function TakeConfirm({ row, plan, today, interactive, onConfirm, onClose 
           </button>
         </div>
       )}
-      <p className="hint mt-1 text-[10px] text-ink-faint">指示受けのあとに、指示が作る予定を見てから実施に入ります（指示受け → 指示確認 → 実施入力）。予定はワークシートと同じコードで広げています。参考：{CONFIRM_SOURCES.map((s) => s.label.split("（")[0]).join("／")}。</p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >指示受けのあとに、指示が作る予定を見てから実施に入ります（指示受け → 指示確認 → 実施入力）。予定はワークシートと同じコードで広げています。参考：{CONFIRM_SOURCES.map((s) => s.label.split("（")[0]).join("／")}。</p>
+*/

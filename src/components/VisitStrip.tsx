@@ -97,7 +97,11 @@ export function VisitStrip({ visit, request, revisit, rxCount, paid, fmtDay, can
           </>
         )}
       </span>
-      <p className="hint w-full text-[11px] text-ink-faint">受診の患者も病棟と同じカルテです。記事・注射・内服は右の欄、検査や画像のオーダは右端のツールから。「会計」でこの受診の点数と患者負担、領収書・入金。入院したら、病棟のカルテに引き継がれます。</p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >受診の患者も病棟と同じカルテです。記事・注射・内服は右の欄、検査や画像のオーダは右端のツールから。「会計」でこの受診の点数と患者負担、領収書・入金。入院したら、病棟のカルテに引き継がれます。</p>
+*/

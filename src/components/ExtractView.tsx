@@ -32,7 +32,7 @@ export function ExtractView({ run, onExport }: { run: (q: ExtractQuery) => Extra
           データ抽出
 
         </h1>
-        <p className="text-[12px] text-ink-soft">条件をかけ合わせて患者を探し、表で見て CSV で保存します（例：肺炎で、抗菌薬を使っていて、CRP 10 以上）。空の条件は使いません。</p>
+
       </header>
       <div className="grid gap-2 border-b border-rule bg-sheet px-5 py-3 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
         <label className="flex items-center gap-2">
@@ -139,3 +139,7 @@ export function ExtractView({ run, onExport }: { run: (q: ExtractQuery) => Extra
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >条件をかけ合わせて患者を探し、表で見て CSV で保存します（例：肺炎で、抗菌薬を使っていて、CRP 10 以上）。空の条件は使いません。</p>
+*/

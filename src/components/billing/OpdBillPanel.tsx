@@ -453,7 +453,7 @@ function ReceiptSheet({ visit, date, sections: secs, share, insuranceLabel, assu
       <p className="mt-4 text-right text-[9pt]">
         {time}　担当 {displayText(by)}
       </p>
-      <p className="mt-3 text-[8pt]">この領収書は医療費控除の申告に使えます（再発行はしません）。点数は診療報酬点数表、負担割合は健康保険法・高齢者医療確保法によります。</p>
+
     </div>
   );
 }
@@ -510,3 +510,7 @@ function DetailSheet({ visit, date, acts, total }: { visit: OpdPatient; date: st
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >この領収書は医療費控除の申告に使えます（再発行はしません）。点数は診療報酬点数表、負担割合は健康保険法・高齢者医療確保法によります。</p>
+*/

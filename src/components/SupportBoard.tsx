@@ -24,7 +24,7 @@ export function SupportBoard({ people, evals, documents, asks, today, discharged
         <Hotel size={18} />
         退院支援の一覧
       </h1>
-      <p className="hint mb-3 text-xs text-ink-soft">入院時の評価・書類作成・転院・施設の調整・退院のオーダから、患者ごとの進み具合をコードで並べます。名前を押すとカルテが開きます。</p>
+
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -82,3 +82,7 @@ export function SupportBoard({ people, evals, documents, asks, today, discharged
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >入院時の評価・書類作成・転院・施設の調整・退院のオーダから、患者ごとの進み具合をコードで並べます。名前を押すとカルテが開きます。</p>
+*/

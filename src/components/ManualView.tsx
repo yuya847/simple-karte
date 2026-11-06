@@ -101,7 +101,7 @@ export function ManualView({ manuals = MANUALS, openId, onOpen }: Props) {
               </div>
             ))}
           </div>
-          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">手順は公的な資料（各マニュアルの出典）に沿った例で、薬の量や診療の判断は書いていません（判断は医師が行います）。検索と並べ方はコードで行い、AI は使いません。</p>
+
         </nav>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
@@ -179,3 +179,7 @@ function ManualSheet({ manual: m, matched, printed }: { manual: Manual; matched:
     </article>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >手順は公的な資料（各マニュアルの出典）に沿った例で、薬の量や診療の判断は書いていません（判断は医師が行います）。検索と並べ方はコードで行い、AI は使いません。</p>
+*/

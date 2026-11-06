@@ -24,7 +24,7 @@ describe("マスタ管理の画面", () => {
     expect(doctor).toContain("大塚生食注 500mLソフトバッグ");
     expect(doctor).toContain("薬剤師が行います");
     expect(doctor).not.toContain("架空の病院の取り決め");
-    expect(doctor).toContain("別紙様式1 項番161〜165");
+    expect(doctor).not.toContain("別紙様式1 項番161〜165");
     const pharmacist = as("薬剤師", <MasterView nowTime="10:00" newId={newId} />);
     expect(pharmacist).not.toContain("薬剤師が行います");
     expect(pharmacist).toContain("変えた品目はありません");

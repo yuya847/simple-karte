@@ -127,7 +127,7 @@ export function ClinsPanel({
       />
       {tab === "send" ? (
         <div className="space-y-2">
-          {insuranceAssumed && <p className="text-yamabuki">保険が登録されていません：被保険者個人識別子は年齢からの仮の保険で作ります（医事課の「保険の登録」が要ります）。</p>}
+          {insuranceAssumed && <p className="text-yamabuki">保険が未登録です。仮の保険で作成します。</p>}
           {keysNote && <p className="text-yamabuki">{keysNote}</p>}
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={consent} disabled={!!locked} onChange={(e) => setConsent(e.target.checked)} />
@@ -193,7 +193,7 @@ export function ClinsPanel({
               {done.map((d) => (d.kind === "電子カルテ情報共有" ? `${d.at} ${d.what}（${d.receipt.receiptNo}）` : "")).filter(Boolean).join("、")}
             </p>
           )}
-          <p className="text-[11px] text-ink-soft">健康診断結果報告書（3文書の1つ）は、この試作に健診の記録がないので作りません。処方は技術解説書 v2.1.0 で臨床情報から外れたため、文書の中（退院時投薬指示・投薬指示）にだけ入れます。</p>
+
         </div>
       ) : (
         <div className="space-y-2">
@@ -230,7 +230,7 @@ export function ClinsPanel({
                 </tbody>
               </table>
             ))}
-          <p className="text-[11px] text-ink-faint">本物では、患者の同意のあと資格確認の結果とともに取得できるようになり、傷病名・アレルギー・感染症は5年、検査は1年または直近3回分が保存されます（技術解説書 v2.1.0）。</p>
+
         </div>
       )}
       <DenyNote action="clins" />
@@ -238,3 +238,8 @@ export function ClinsPanel({
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >健康診断結果報告書（3文書の1つ）は、この試作に健診の記録がないので作りません。処方は技術解説書 v2.1.0 で臨床情報から外れたため、文書の中（退院時投薬指示・投薬指示）にだけ入れます。</p>
+<p >本物では、患者の同意のあと資格確認の結果とともに取得できるようになり、傷病名・アレルギー・感染症は5年、検査は1年または直近3回分が保存されます（技術解説書 v2.1.0）。</p>
+*/

@@ -125,8 +125,8 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* 使い方の説明 (class "hint"): hidden unless the viewer turns them on from 「使い方」 on the top row. */
-html:not([data-hints="on"]) .hint {
+/* Temporary: hide hints in files being edited separately (AddPanels and medication calendars). */
+.hint {
   display: none !important;
 }
 

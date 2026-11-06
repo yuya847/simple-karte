@@ -158,7 +158,7 @@ function List({ rows, onDesk, nowTime }: Props & { rows: EndoRow[] }) {
   const open = rows.filter((r) => r.status !== "報告済み" && r.status !== "中止");
   return (
     <section className="space-y-2">
-      <p className="hint text-[11px] text-ink-soft">医師が出した内視鏡（胃カメラ・大腸・気管支鏡）が並びます。部屋と時刻の枠を決めて予約し、来室したら「受付」。できなかったときは理由を書いて中止にします。</p>
+
       <DenyNote action="endo.desk" />
       {open.length === 0 && <p className={`${card} px-4 py-3 text-ink-soft`}>予約・受付を待っている内視鏡はありません。</p>}
       {open.map((r) => {
@@ -237,7 +237,7 @@ function Exam(p: Props & { rows: EndoRow[] }) {
   const target = ready.find((r) => r.orderId === pick) ?? ready[0] ?? null;
   return (
     <section className="space-y-3">
-      <p className="hint text-[11px] text-ink-soft">受付した患者の前処置、鎮静の薬と観察（意識・脈拍・血圧・SpO2）、実施記録（使ったスコープ・生検）を記録します。洗浄・消毒が済んでいないスコープは選べません。鎮静した患者は、医師が評価して監視を解除（退室）します。</p>
+
       <div className="flex flex-wrap gap-1 text-[12px]">
         {ready.length === 0 && <span className="text-ink-faint">受付した患者はいません。</span>}
         {ready.map((r) => (
@@ -513,7 +513,7 @@ function Scopes({ desk, onDesk, people, today, nowTime }: Props) {
   const HEAD = ["年月日", "時刻", "患者氏名（ID）", "内視鏡番号", "洗浄担当者", "洗浄消毒機番号（消毒薬）", "消毒薬濃度", "状態"];
   return (
     <section className="space-y-3">
-      <p className="hint text-[11px] text-ink-soft">スコープは使うたびに、ベッドサイド洗浄 → 漏水テスト → 用手洗浄 → 自動洗浄・消毒装置 → 保管 の順に記録します。保管まで済んだスコープだけが次の患者に選べます。装置は、その日の消毒薬の濃度を確かめてから使えます。</p>
+
       <ul className="space-y-0.5 text-[11px] text-ink-soft">
         <li>{ENDO_RULES.steps}</li>
         <li>{ENDO_RULES.agents}</li>
@@ -692,7 +692,7 @@ function Reports(p: Props & { rows: EndoRow[] }) {
   const target = ready.find((r) => r.orderId === pick) ?? ready.find((r) => r.status === "実施済み") ?? ready[0] ?? null;
   return (
     <section className="space-y-3">
-      <p className="hint text-[11px] text-ink-soft">実施した内視鏡の所見と診断を医師が書いて確定します。確定すると、オーダした医師のカルテの「未確認の結果」に出ます。生検をしたら、病理への依頼をここから出せます（病理の画面の受付に並びます）。</p>
+
       <div className="flex flex-wrap gap-1 text-[12px]">
         {ready.length === 0 && <span className="text-ink-faint">実施した内視鏡はありません。</span>}
         {ready.map((r) => (
@@ -861,3 +861,10 @@ function Read({ rows, desk, acks }: Props & { rows: EndoRow[] }) {
     </table>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >医師が出した内視鏡（胃カメラ・大腸・気管支鏡）が並びます。部屋と時刻の枠を決めて予約し、来室したら「受付」。できなかったときは理由を書いて中止にします。</p>
+<p >受付した患者の前処置、鎮静の薬と観察（意識・脈拍・血圧・SpO2）、実施記録（使ったスコープ・生検）を記録します。洗浄・消毒が済んでいないスコープは選べません。鎮静した患者は、医師が評価して監視を解除（退室）します。</p>
+<p >スコープは使うたびに、ベッドサイド洗浄 → 漏水テスト → 用手洗浄 → 自動洗浄・消毒装置 → 保管 の順に記録します。保管まで済んだスコープだけが次の患者に選べます。装置は、その日の消毒薬の濃度を確かめてから使えます。</p>
+<p >実施した内視鏡の所見と診断を医師が書いて確定します。確定すると、オーダした医師のカルテの「未確認の結果」に出ます。生検をしたら、病理への依頼をここから出せます（病理の画面の受付に並びます）。</p>
+*/

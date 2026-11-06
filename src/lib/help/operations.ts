@@ -1,0 +1,29 @@
+// Short operational help for tools whose inline text is owned by another worktree,
+// or whose screen did not previously contain a hint.
+export const operationHelp: Record<string, string[]> = {
+  "panel:add-rx": ["薬・用量・用法・開始日を入力し、内容を確認して確定します。"],
+  "panel:add-injection": ["薬・量・投与方法・日時を入力し、内容を確認して確定します。"],
+  "panel:add-procedure": ["処置と実施する日時を選び、内容を確認して確定します。"],
+  "panel:sets": ["セットを選び、含まれるオーダを確認してから確定します。"],
+  "panel:add-rehab": ["依頼するリハビリの種類と内容を入力します。"],
+  "panel:add-transfusion": ["製剤・単位数・日時を選び、患者の血液型と確認事項を確かめます。"],
+  "panel:add-dialysis": ["透析の条件と日程を入力し、医師が内容を確認して確定します。"],
+  "panel:add-discharge": ["退院予定日と退院先を入力し、予定を確認します。"],
+  "panel:add-leave": ["外泊・外出の期間を入力します。"],
+  "panel:add-guide": ["指導の種類と依頼内容を入力します。"],
+  "panel:add-physio": ["検査の種類と日時を選び、必要な確認事項を入力します。"],
+  "panel:directive": ["本人・家族と確認した意向を記録します。"],
+  "panel:schema": ["部位と記号を選び、所見を記録します。"],
+  "screen:audit": ["患者・操作した人・日付を指定して記録を絞り込みます。"],
+  "screen:er": ["患者の行を押すとカルテが開きます。"],
+  "panel:vitals": ["測定時刻と測定値を入力し、内容を確認して保存します。"],
+  "panel:note": ["記事の内容を確認し、「記事を確定」で保存します。"],
+  "panel:injcal": ["注射の予定と実施記録を日ごとに確認します。"],
+  "panel:rxcal": ["内服の予定と実施記録を日ごとに確認します。"],
+  "panel:proccal": ["処置の予定と実施記録を日ごとに確認します。"],
+  "panel:bookings": ["患者の検査・手術・透析・リハビリ・外来の予約を確認します。"],
+};
+export const referenceHelpLabels: Record<string, string> = {
+  note: "記事作成", injcal: "注射カレンダー", rxcal: "内服カレンダー", proccal: "処置カレンダー",
+  flowsheet: "経過表", dietcal: "移動・食事", standingcal: "指示簿カレンダー", bookings: "予約",
+};

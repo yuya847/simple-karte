@@ -13,7 +13,7 @@ import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { isLabPasteLine, isVitalsPasteLine, labPasteText, vitalsPasteText } from "@/lib/lab-paste";
-import { preferredNoteForm, rememberNoteForm, NOTE_FORMS, NOTE_FORM_SOURCES, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
+import { preferredNoteForm, rememberNoteForm, NOTE_FORMS, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
 import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
 import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
@@ -205,17 +205,7 @@ export function TodayPane(p: Props) {
               ))}
             </div>
           )}
-          {!noteLocked && me.role === "看護師" && (
-            <p className="hint mt-0.5 text-[10px] text-ink-faint">
-              記録の形式（SOAP・フォーカス・経時記録）の根拠：
-              {NOTE_FORM_SOURCES.map((x, i) => (
-                <a key={x.name} href={x.url} target="_blank" rel="noreferrer" className="underline">
-                  {i > 0 ? "、" : ""}
-                  {x.name}
-                </a>
-              ))}
-            </p>
-          )}
+
           {!noteLocked && p.noteAt && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-soft">
               <Clock3 size={12} className="shrink-0" />
@@ -240,15 +230,7 @@ export function TodayPane(p: Props) {
             {!noteLocked && (
               <>
                 {/* The keys, folded: the note area stays a writing area. */}
-                <details className="hint text-[11px] text-ink-faint">
-                  <summary className="cursor-pointer select-none">書き方のこつ</summary>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                    {me.role === "看護師" && <li>フォーカスは「＃ 見出し」の下に D)・Act)・R)、経時記録は1行ずつ時刻から。</li>}
-                    <li>行頭の＃（全角）で問題の番号。Enter で次の＃、空の＃で Enter で本文へ。＃の行は Alt+↑↓・つまみで動かせます。</li>
-                    <li>S) O) A) P) と打つと区切りが出ます。--- だけの行は仕切り。</li>
-                    <li>「LD」→ Tab で直近の血液検査、「ばいたる」→ Tab で直近のバイタル、「;読み」→ Tab で定型文。⌘B 太字・⌘I 斜体。</li>
-                  </ul>
-                </details>
+
                 <span className="ml-auto text-[11px] text-ink-faint">{displayText(isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します")}</span>
               </>
             )}
@@ -318,13 +300,7 @@ export function TodayPane(p: Props) {
         </div>
         )}
 
-        {p.orderMode !== "none" && !SHOW_DICTATION && (
-          <div className={`hint rounded-lg border border-dashed px-3 py-2 text-xs ${p.orderMode === "verbal" ? "border-yamabuki/60 text-yamabuki" : "border-rule text-ink-soft"}`}>
-            {p.orderMode === "verbal" ? <b>口頭指示を受けて入力（看護師）：</b> : <b>オーダ：</b>}
-            上のタブ「注射」「内服」で Rp を入れるか、右のツール（検体検査・画像検査・生理検査・処置）から選ぶと、ここに下書きが貯まります。確認に答えて、下の「確定」でまとめて確定します。
-            {p.orderMode === "verbal" && ` 確定すると医師の承認待ちになります。${VERBAL_RULE}`}
-          </div>
-        )}
+
 
 
       </div>
@@ -337,7 +313,7 @@ export function TodayPane(p: Props) {
               {typeof p.flash !== "string" && p.flash.warn && <b className="ml-2 rounded bg-shu px-1.5 text-white">{p.flash.warn}</b>}
               {typeof p.flash !== "string" && p.flash.contact && <div>
                 {p.flash.contact.reasons.map((reason) => <p key={reason}>{reason}</p>)}
-                <p className="hint">NEWS2 7点以上は医師へ連絡。院内連絡は模擬です。</p>
+
                 <button type="button" disabled={!p.onContactDoctor} onClick={p.onContactDoctor} className="rounded bg-shu px-2 py-1 text-white">医師に連絡する</button>
               </div>}
             </div>
@@ -356,3 +332,30 @@ export function TodayPane(p: Props) {
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+              記録の形式（SOAP・フォーカス・経時記録）の根拠：
+              {NOTE_FORM_SOURCES.map((x, i) => (
+                <a key={x.name} href={x.url} target="_blank" rel="noreferrer" >
+                  {i > 0 ? "、" : ""}
+                  {x.name}
+                </a>
+              ))}
+            </p>
+<details >
+                  <summary >書き方のこつ</summary>
+                  <ul >
+                    {me.role === "看護師" && <li>フォーカスは「＃ 見出し」の下に D)・Act)・R)、経時記録は1行ずつ時刻から。</li>}
+                    <li>行頭の＃（全角）で問題の番号。Enter で次の＃、空の＃で Enter で本文へ。＃の行は Alt+↑↓・つまみで動かせます。</li>
+                    <li>S) O) A) P) と打つと区切りが出ます。--- だけの行は仕切り。</li>
+                    <li>「LD」→ Tab で直近の血液検査、「ばいたる」→ Tab で直近のバイタル、「;読み」→ Tab で定型文。⌘B 太字・⌘I 斜体。</li>
+                  </ul>
+                </details>
+<div `}>
+            {p.orderMode === "verbal" ? <b>口頭指示を受けて入力（看護師）：</b> : <b>オーダ：</b>}
+            上のタブ「注射」「内服」で Rp を入れるか、右のツール（検体検査・画像検査・生理検査・処置）から選ぶと、ここに下書きが貯まります。確認に答えて、下の「確定」でまとめて確定します。
+            {p.orderMode === "verbal" && ` 確定すると医師の承認待ちになります。${VERBAL_RULE}`}
+          </div>
+<p >NEWS2 7点以上は医師へ連絡。院内連絡は模擬です。</p>
+*/

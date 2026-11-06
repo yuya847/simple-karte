@@ -7,7 +7,7 @@
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { DISCHARGE_FACTORS } from "@/lib/admit-eval";
-import { ANAMNESIS_SECTIONS, ANAMNESIS_SOURCES, anamnesisChanges, anamnesisProblems, anamnesisVersions, answered, careToProfile, emptyAnamnesis, evalHints, type AnamnesisField, type AnamnesisFields, type AnamnesisRecord } from "@/lib/anamnesis";
+import { ANAMNESIS_SECTIONS, anamnesisChanges, anamnesisProblems, anamnesisVersions, answered, careToProfile, emptyAnamnesis, evalHints, type AnamnesisField, type AnamnesisFields, type AnamnesisRecord } from "@/lib/anamnesis";
 import { CARE_CHOICES, CARE_KEYS, type CareKey } from "@/lib/profile";
 import type { Patient } from "@/lib/types";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
@@ -82,7 +82,7 @@ export function AnamnesisPanel({ patient, record, care, fmtDay, onSave }: { pati
           答えた項目 {count.done}／{count.all}
         </span>
       </div>
-      <p className="hint text-xs text-ink-soft">入院のときに本人・家族から聞いて書きます。保存すると、介助は患者プロファイルに、当てはまりそうな項目は「入院時の評価」の候補に、生活の様子は看護サマリに入ります（もう一度打たなくてよいように）。</p>
+
       <p className="text-xs text-ink-soft">
         アレルギー・感染症・禁忌は患者プロファイルで登録します（いま：アレルギー {patient.allergies.join("、") || "なし"}・感染症 {patient.infections.join("、") || "なし"}
         {patient.contraindications?.length ? `・禁忌 ${patient.contraindications.join("、")}` : ""}）。
@@ -160,16 +160,21 @@ export function AnamnesisPanel({ patient, record, care, fmtDay, onSave }: { pati
         </section>
       )}
 
-      <p className="hint text-[10px] text-ink-faint">
+
+    </div>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >入院のときに本人・家族から聞いて書きます。保存すると、介助は患者プロファイルに、当てはまりそうな項目は「入院時の評価」の候補に、生活の様子は看護サマリに入ります（もう一度打たなくてよいように）。</p>
+<p >
         項目の根拠：
         {ANAMNESIS_SOURCES.map((s, i) => (
-          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
+          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" >
             {i > 0 ? "、" : ""}
             {s.name}
           </a>
         ))}
         。障害高齢者の日常生活自立度と、転倒・転落・せん妄・退院困難な要因の項目は「入院時の評価」と同じもの（出典はそちら）。
       </p>
-    </div>
-  );
-}
+*/

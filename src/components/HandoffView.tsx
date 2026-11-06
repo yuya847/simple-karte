@@ -6,7 +6,7 @@ import { useState } from "react";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { FIELDS, IPASS_SOURCE, SEVERITIES, emptyHandoff, handoffFacts, handoffKey, nextShift, previousHandoff, sendProblems, statusOf, type Handoff, type Severity } from "@/lib/handoff";
+import { FIELDS, SEVERITIES, emptyHandoff, handoffFacts, handoffKey, nextShift, previousHandoff, sendProblems, statusOf, type Handoff, type Severity } from "@/lib/handoff";
 import { useSpeech } from "@/lib/use-speech";
 import type { WorkPatient } from "@/lib/worksheet";
 import { PatientAvatar } from "./PatientAvatar";
@@ -51,7 +51,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
           <ArrowRightLeft size={16} />
           申し送り（{ns.label}）
         </h2>
-        <p className="mb-3 text-[11px] text-ink-soft">I-PASS の順に送ります。カルテの事実はコードで集め、話した言葉は Claude が欄に分けるだけです。重症度は送る人が選びます。</p>
+
         <ul className="space-y-1">
           {people.map((x) => {
             const h = handoffs[handoffKey(x.patient.id, ns.lo, me.role)];
@@ -78,7 +78,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
             );
           })}
         </ul>
-        <p className="hint mt-4 text-[10px] text-ink-faint">出典：{IPASS_SOURCE}</p>
+
       </aside>
       {w ? (
         <Card
@@ -175,7 +175,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
       )}
 
       <div className="mb-3 rounded-lg border border-rule bg-sheet p-3">
-        <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから<span className="hint">（コードで集めた事実。AI は使っていません）</span></h4>
+        <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから</h4>
         <ul className="list-disc space-y-0.5 pl-5">
           {(sent ? h.facts : facts).map((f, i) => (
             <li key={i} className="nums">
@@ -361,3 +361,9 @@ function Field({ letter, label, en, children }: { letter: string; label: string;
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >I-PASS の順に送ります。カルテの事実はコードで集め、話した言葉は Claude が欄に分けるだけです。重症度は送る人が選びます。</p>
+<p >出典：{IPASS_SOURCE}</p>
+<span >（コードで集めた事実。AI は使っていません）</span>
+*/

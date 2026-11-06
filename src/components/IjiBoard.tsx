@@ -110,9 +110,7 @@ export function IjiBoard({
         <ReceiptJapaneseYen size={18} />
         医事課の仕事
       </h1>
-      <p className="hint mb-3 text-xs leading-relaxed text-ink-soft">
-        保険の未登録・会計がまだ・算定の要確認・病名の未コード化がある患者を並べます。押すとその患者の算定か病名が開きます。
-      </p>
+
 
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
         {IJI_KINDS.map((k) => (
@@ -240,3 +238,9 @@ export function IjiBoard({
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        保険の未登録・会計がまだ・算定の要確認・病名の未コード化がある患者を並べます。押すとその患者の算定か病名が開きます。
+      </p>
+*/

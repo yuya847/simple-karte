@@ -22,9 +22,7 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
 
   return (
     <div className="space-y-3 text-[13px]">
-      <p className="rounded-md bg-paper px-2 py-1.5 text-[12px] text-ink-soft">
-        患者やほかの患者などの生命・身体を守るため、緊急やむを得ない場合を除いて、身体的拘束はしません。行うときは、用具と時間・心身の状況・やむを得ない理由を記録します（{RESTRAINT_SOURCES.rule.label}）。
-      </p>
+
 
       {active ? (
         <section className="space-y-2 rounded-md border border-shu/40 bg-shu-soft/30 p-3">
@@ -33,7 +31,7 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
           </h3>
           {(() => {
             const due = reviewDue(active, nowAbs);
-            return due ? <p className={`nums font-bold ${due.late ? "text-shu" : "text-ink-soft"}`}>{displayText(due.text)}（{REVIEW_HOURS}時間ごと＝勤務帯ごと<span className="hint">、院内の取り決め</span>）</p> : null;
+            return due ? <p className={`nums font-bold ${due.late ? "text-shu" : "text-ink-soft"}`}>{displayText(due.text)}（{REVIEW_HOURS}時間ごと＝勤務帯ごと）</p> : null;
           })()}
           <dl className="grid grid-cols-[7rem_1fr] gap-y-1 text-[12px]">
             <dt className="text-ink-faint">開始</dt>
@@ -170,9 +168,18 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
           </ul>
         </section>
       )}
-      <p className="hint text-[11px] text-ink-faint">
-        出典：{RESTRAINT_SOURCES.rule.label}／{RESTRAINT_SOURCES.guide.label}。精神病床での身体的拘束は精神保健及び精神障害者福祉に関する法律によります（この記録の対象外。{RESTRAINT_SOURCES.qa.label}）。
-      </p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >、院内の取り決め</span>
+<p >
+        出典：{RESTRAINT_SOURCES.rule.label}／{RESTRAINT_SOURCES.guide.label}。精神病床での身体的拘束は精神保健及び精神障害者福祉に関する法律によります（この記録の対象外。{RESTRAINT_SOURCES.qa.label}）。
+      </p>
+*/
+
+/* ヘルプへ移動した説明:
+患者やほかの患者などの生命・身体を守るため、緊急やむを得ない場合を除いて、身体的拘束はしません。行うときは、用具と時間・心身の状況・やむを得ない理由を記録します（ ）。
+*/

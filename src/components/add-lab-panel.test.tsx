@@ -78,12 +78,12 @@ describe("検体検査のオーダ画面", () => {
   });
 
   it("names the sources and the fictional-hospital rules as hints, and suggests nothing", () => {
-    expect(html).toContain("SRL 総合検査案内");
-    expect(html).toContain("医科診療行為マスター");
-    expect(html).toContain("公開されている操作マニュアルの画面を参考");
-    expect(html).toContain("https://www.med.miyazaki-u.ac.jp/");
+    expect(html).not.toContain("SRL 総合検査案内");
+    expect(html).not.toContain("医科診療行為マスター");
+    expect(html).not.toContain("公開されている操作マニュアルの画面を参考");
+    expect(html).not.toContain("https://www.med.miyazaki-u.ac.jp/");
     expect(html).not.toContain("架空の病院の取り決め");
-    expect(html).toContain('class="hint');
+    expect(html).not.toContain('class="hint');
     expect(html).not.toContain("おすすめ");
     expect(html).not.toContain("推奨");
   });

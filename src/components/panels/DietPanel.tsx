@@ -4,40 +4,39 @@ import { displayText } from "@/lib/display-text";
 import { DayInput } from "../DayInput";
 import { dietNeedsProposal, dietAdjustment } from "@/lib/diet-workflow";
 import { useMe } from "../RoleContext";
-import { DIET_ADJUSTMENT_HINT } from "@/lib/diet";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import {
-  DIET_KINDS,
-  DYSPHAGIA_CODES,
-  MEALS,
-  MEAL_DEADLINE,
-  MEAL_TIMES,
-  SIDE_FORMS,
-  STAPLES,
-  THERAPEUTICS,
-  THICKNESS,
-  TUBE_PRODUCTS,
-  dietAt,
-  dietLabel,
-  findTherapeutic,
-  holdTitle,
-  LEAVE_HOLD_RULE,
-  mealHolds,
-  nextOrderableMeal,
-  pastDeadline,
-  type DietOrder,
-  type DysphagiaCode,
-  type Meal,
-  type SideForm,
-  type Staple,
-  type Thickness,
+DIET_KINDS,
+DYSPHAGIA_CODES,
+MEALS,
+MEAL_DEADLINE,
+MEAL_TIMES,
+SIDE_FORMS,
+STAPLES,
+THERAPEUTICS,
+THICKNESS,
+TUBE_PRODUCTS,
+dietAt,
+dietLabel,
+findTherapeutic,
+holdTitle,
+LEAVE_HOLD_RULE,
+mealHolds,
+nextOrderableMeal,
+pastDeadline,
+type DietOrder,
+type DysphagiaCode,
+type Meal,
+type SideForm,
+type Staple,
+type Thickness,
 } from "@/lib/diet";
 import { abs } from "@/lib/flowsheet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
+import type { OrderEntry, Patient } from "@/lib/types";
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
-import type { OrderEntry, Patient } from "@/lib/types";
 
 interface Props {
   patient: Patient;
@@ -241,7 +240,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
             <label>
               速度 <input value={f.tube?.ratePerH || ""} onChange={(e) => set({ tube: { product: f.tube?.product ?? "", mlPerMeal: f.tube?.mlPerMeal ?? 0, ratePerH: Number(e.target.value) || undefined } })} className="w-14 rounded border border-rule bg-sheet px-1" /> mL/時
             </label>
-            {f.tube?.product && f.tube.mlPerMeal > 0 && <span className="text-ink-soft">1日 {Math.round(f.tube.mlPerMeal * 3 * (TUBE_PRODUCTS.find((x) => x.code === f.tube!.product)?.kcalPerMl ?? 1))} kcal（3回<span className="hint">、コードで計算</span>）</span>}
+            {f.tube?.product && f.tube.mlPerMeal > 0 && <span className="text-ink-soft">1日 {Math.round(f.tube.mlPerMeal * 3 * (TUBE_PRODUCTS.find((x) => x.code === f.tube!.product)?.kcalPerMl ?? 1))} kcal（3回）</span>}
           </div>
         )}
         {f.kind === "絶食" && (
@@ -275,9 +274,15 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
         >
           {me.role === "管理栄養士" ? direct ? "食事の調整を反映する" : "医師への提案を主治医の下書きに入れる" : "食事の変更をオーダの下書きに入れる"}
         </button>
-        <p className="hint text-[11px] text-ink-faint">{DIET_ADJUSTMENT_HINT}</p>
-        <p className="hint text-[11px] text-ink-faint">右の欄の下書きに入ります。上の「オーダーのみ」か「保存」で、ほかのオーダと一緒に飛びます。</p>
+
+
       </section>
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >、コードで計算</span>
+<p >{DIET_ADJUSTMENT_HINT}</p>
+<p >右の欄の下書きに入ります。上の「オーダーのみ」か「保存」で、ほかのオーダと一緒に飛びます。</p>
+*/

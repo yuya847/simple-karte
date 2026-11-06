@@ -120,6 +120,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
       <div
         ref={ref}
         role="dialog"
+      data-help-section={`panel:${key}`}
         aria-label={`${title}（別ウインドウ）`}
         data-drawer-window={key}
         className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-rule bg-sheet shadow-[0_12px_40px_-8px_rgba(38,34,28,0.45)]"
@@ -168,6 +169,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     <div
       ref={ref}
       role="dialog"
+      data-help-section={`panel:${key}`}
       aria-label={title}
       style={full ? { position: "fixed", left: full.left, top: full.top, width: full.width, height: full.height } : undefined}
       className={`absolute inset-y-0 right-0 z-30 flex flex-col border-l border-rule bg-sheet shadow-[-8px_0_24px_-12px_rgba(38,34,28,0.35)] ${

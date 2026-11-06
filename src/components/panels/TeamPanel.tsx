@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
-import { TEAMS, TEAM_HOUSE_RULES, openRequest, requestProblems, requestStatus, teamOf, type TeamDesk, type TeamKey } from "@/lib/teams";
+import { TEAMS, openRequest, requestProblems, requestStatus, teamOf, type TeamDesk, type TeamKey } from "@/lib/teams";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { AddonBox, RoundCard, STATUS_TONE } from "../TeamsView";
 
@@ -103,9 +103,13 @@ export function TeamPanel({ patientId, patientName, desk, onDesk, today, nowTime
         ))}
         <DenyNote action="team.decide" />
       </section>
-      <p className="hint text-[11px] text-ink-faint">
-        {TEAM_HOUSE_RULES.request}不採用は理由を書いて記録します。チームの回診の記録は場所の「チーム医療」で書きます。
-      </p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        {TEAM_HOUSE_RULES.request}不採用は理由を書いて記録します。チームの回診の記録は場所の「チーム医療」で書きます。
+      </p>
+*/

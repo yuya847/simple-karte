@@ -140,7 +140,7 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
                   />
                 </div>
               )}
-              {blood && <p className="text-[11px] text-shu">血液培養の塗抹（陽性のボトル）はパニック値として医師に電話で連絡します（確定すると「結果とパニック値」に出ます）。</p>}
+              {blood && <p className="text-[11px] text-shu">血液培養の塗抹陽性は医師へ電話連絡してください。</p>}
             </>
           )}
           {(stage === "中間報告" || stage === "最終報告") && (
@@ -212,11 +212,15 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
               </button>
             </div>
           )}
-          <p className="text-[11px] text-ink-faint">
-            順番（塗抹 → 中間報告 → 最終報告。陰性はそのまま最終報告）と、各報告に要るものはコードが確かめます。所見・菌名・S／I／R は検査室が読んで判定したものを入れ、この画面は判定しません。薬剤の略号は日本化学療法学会の抗菌薬略号。報告は医師のカルテの「未確認の結果」と検査結果の細菌検査に出ます。
-          </p>
+
         </fieldset>
       )}
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+            順番（塗抹 → 中間報告 → 最終報告。陰性はそのまま最終報告）と、各報告に要るものはコードが確かめます。所見・菌名・S／I／R は検査室が読んで判定したものを入れ、この画面は判定しません。薬剤の略号は日本化学療法学会の抗菌薬略号。報告は医師のカルテの「未確認の結果」と検査結果の細菌検査に出ます。
+          </p>
+*/

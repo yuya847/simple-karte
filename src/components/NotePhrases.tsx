@@ -6,7 +6,7 @@
 import { displayText } from "@/lib/display-text";
 import { Plus, Search, Trash2, X } from "lucide-react";
 import { useState } from "react";
-import { PHRASE_SOURCES, findPhrases, phraseProblems, savePhrases, type Phrase } from "@/lib/phrases";
+import { findPhrases, phraseProblems, savePhrases, type Phrase } from "@/lib/phrases";
 import { useMe } from "./RoleContext";
 
 export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }: { phrases: Phrase[]; onPhrases: (list: Phrase[]) => void; selected: string; onInsert: (text: string) => void; onClose: () => void }) {
@@ -33,7 +33,7 @@ export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }:
           <X size={15} />
         </button>
       </div>
-      <p className="hint mb-2 text-[11px] text-ink-soft">押すと記事のカーソルの位置に入ります。記事の中で「;読み」と打って Tab を押しても入ります（例：;ふくぶ → Tab）。</p>
+
       <label className="mb-2 flex items-center gap-1.5 rounded-md border border-rule bg-sheet px-2 py-1 focus-within:border-ai">
         <Search size={13} className="shrink-0 text-ink-faint" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="読み・文で探す（ひらがな可）" aria-label="定型文を探す" className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
@@ -102,14 +102,19 @@ export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }:
         </div>
       )}
       {saved === false && <p className="mt-1 text-[11px] text-yamabuki">この端末に保存できませんでした（ブラウザの設定）。ページを閉じるまでは使えます。</p>}
-      <p className="hint mt-2 text-[10px] text-ink-faint">
+
+    </div>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >押すと記事のカーソルの位置に入ります。記事の中で「;読み」と打って Tab を押しても入ります（例：;ふくぶ → Tab）。</p>
+<p >
         根拠：
         {PHRASE_SOURCES.map((s) => (
-          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
+          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" >
             {s.name}
           </a>
         ))}
       </p>
-    </div>
-  );
-}
+*/

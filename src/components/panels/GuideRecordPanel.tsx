@@ -33,7 +33,7 @@ export function GuideRecordPanel({ role, entries, records, today, onSave }: { ro
       : [];
   const problems = [...guidanceProblems({ text, minutes: mins }), ...(heard ? [] : ["相手"]), ...(kind === "栄養食事指導" && !eligible ? ["算定の対象"] : [])];
   const field = "rounded border border-rule bg-paper px-2 py-1";
-  if (!kind) return <p className="text-[13px] text-ink-soft">指導の記録は、栄養食事指導を管理栄養士、服薬指導を薬剤師（薬剤部の「服薬指導」）、退院時の生活指導を看護師が書きます。依頼は医師が「指導の依頼」から出します。</p>;
+  if (!kind) return null;
   return (
     <div className="space-y-3 text-[13px]">
       <p className="font-bold">{kind}</p>
@@ -112,3 +112,7 @@ export function GuideRecordPanel({ role, entries, records, today, onSave }: { ro
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >指導の記録は、栄養食事指導を管理栄養士、服薬指導を薬剤師（薬剤部の「服薬指導」）、退院時の生活指導を看護師が書きます。依頼は医師が「指導の依頼」から出します。</p>
+*/

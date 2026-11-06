@@ -133,9 +133,7 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
           <RoomRow ward={ward} rooms={southAfterNs} summaries={summaries} onOpen={onOpen} onMove={onMove} look={look} scope={scope} inline />
         </div>
       </div>
-      <p className="mt-3 text-[11px] text-ink-faint">
-        部屋番号は 4 と 9 を飛ばしています。受け持ち以外の患者には、入院時の記事・病名・バイタル数回・採血1回・食事・オーダ数件の記録があります。押すと開き、開いた記録は監査ログに残ります。
-      </p>
+
     </section>
   );
 }
@@ -374,7 +372,7 @@ function Legend({ emphasize, day }: { emphasize: boolean; day: number }) {
           受け持ち以外
         </span>
       )}
-      <span className="hint">押すとカルテが開きます</span>
+
       {day >= 0 && (
         <span className="flex items-center gap-1">
           <span className="h-3 w-4 rounded-sm border border-dashed border-rule" />
@@ -403,3 +401,10 @@ function Legend({ emphasize, day }: { emphasize: boolean; day: number }) {
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        部屋番号は 4 と 9 を飛ばしています。受け持ち以外の患者には、入院時の記事・病名・バイタル数回・採血1回・食事・オーダ数件の記録があります。押すと開き、開いた記録は監査ログに残ります。
+      </p>
+<span >押すとカルテが開きます</span>
+*/

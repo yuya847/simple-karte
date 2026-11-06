@@ -35,7 +35,6 @@ import {
   therapistLoad,
   THERAPISTS,
   treatmentStart,
-  UNIT_RULE,
   unitsOf,
   type Discipline,
   type RehabBooking,
@@ -98,9 +97,7 @@ export function RehabView(p: Props) {
         />
       </header>
       <div className="mx-auto max-w-[1150px] space-y-3 px-5 py-4 text-[13px]">
-        <p className="hint text-[12px] text-ink-soft">
-          医師がカルテの「オーダ › その他 › リハビリ」で出したリハビリ処方の患者が並びます。療法士は「予定表」で予約し、「受付・実施」で開始・終了の時刻と訓練の内容を記録します（単位はコードが数えます）。ADL は Barthel Index で評価します。実施計画書は医師が作り、医師か療法士・看護師が説明します。右上の「自分」で「療法士」を選びます（デモではログインの代わり）。
-        </p>
+
         {tab === "schedule" && <Schedule {...p} rxs={rxs} />}
         {tab === "work" && <Work {...p} rxs={rxs} bookings={p.desk.bookings.filter((b) => todays.includes(b) || b.id === receipt?.bookingId)} receipt={receipt} onReceipt={setReceipt} />}
         {tab === "bi" && <Bi {...p} rxs={rxs} fmt={fmt} />}
@@ -225,7 +222,7 @@ function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[]
         <p className="text-ink-soft">
           {therapist.name}のこの日：{load.day}単位（記録した実施・ほかの予約・この予約）、週 {load.week}単位
         </p>
-        <p className="hint text-[11px] text-ink-faint">{REHAB_RULES.booking} 従事者1人の実施単位数は1日18単位を標準、週108単位まで、1日24単位が上限です（留意事項通知 第7部 通則5の2）。</p>
+
       </div>
     </section>
   );
@@ -254,9 +251,7 @@ function Work({ desk, onDesk, onNote, people, rxs, bookings, nowTime, today, rec
             }}
           />;
         })}
-      <p className="hint text-[11px] text-ink-faint">
-        {UNIT_RULE} 実施した時刻（開始と終了）と訓練の内容の要点を記録します（同 通則3）。患者1人1日6単位まで（別に厚生労働大臣が定める患者は9単位。告示 第7部 通則4・通知 通則7）。
-      </p>
+
     </section>
   );
 }
@@ -563,3 +558,13 @@ function List({ desk, rxs, fmt, today }: Props & { rxs: RehabRx[]; fmt: (d: numb
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          医師がカルテの「オーダ › その他 › リハビリ」で出したリハビリ処方の患者が並びます。療法士は「予定表」で予約し、「受付・実施」で開始・終了の時刻と訓練の内容を記録します（単位はコードが数えます）。ADL は Barthel Index で評価します。実施計画書は医師が作り、医師か療法士・看護師が説明します。右上の「自分」で「療法士」を選びます（デモではログインの代わり）。
+        </p>
+<p >{REHAB_RULES.booking} 従事者1人の実施単位数は1日18単位を標準、週108単位まで、1日24単位が上限です（留意事項通知 第7部 通則5の2）。</p>
+<p >
+        {UNIT_RULE} 実施した時刻（開始と終了）と訓練の内容の要点を記録します（同 通則3）。患者1人1日6単位まで（別に厚生労働大臣が定める患者は9単位。告示 第7部 通則4・通知 通則7）。
+      </p>
+*/

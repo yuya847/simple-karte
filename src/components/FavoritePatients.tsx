@@ -54,10 +54,7 @@ export function FavoriteList({ ids, onToggle, patient, nowTime, changes, waiting
           お気に入りの患者
           <span className="nums ml-1 text-sm font-normal text-ink-soft">{rows.length}人</span>
         </h1>
-        <p className="text-[12px] text-ink-soft">
-          氏名の横の☆で登録した患者を、全病棟から新しい順に並べます。お気に入りはこの端末のみに自分の名前で保存されます。
-          <span className="hint">患者一覧の氏名の横、カルテの患者バーの名前の横の☆で登録・解除できます。ここの☆を押すと外れます。印は記録からコードで出したもので、判断ではありません。</span>
-        </p>
+
         {gone > 0 && <span className="text-[12px] text-ink-faint">退院などでいまの患者にいない {gone}人は出していません。</span>}
       </header>
       {rows.length === 0 ? (
@@ -91,3 +88,11 @@ export function FavoriteList({ ids, onToggle, patient, nowTime, changes, waiting
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >患者一覧の氏名の横、カルテの患者バーの名前の横の☆で登録・解除できます。ここの☆を押すと外れます。印は記録からコードで出したもので、判断ではありません。</span>
+*/
+
+/* ヘルプへ移動した説明:
+氏名の横の☆で登録した患者を、全病棟から新しい順に並べます。お気に入りはこの端末のみに自分の名前で保存されます。
+*/

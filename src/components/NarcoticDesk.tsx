@@ -31,7 +31,7 @@ import {
   type NarcoticBook,
   type When,
 } from "@/lib/narcotic-book";
-import { LICENCES, NARCOTIC_MANAGER, NARCOTIC_RULES, NARCOTIC_SOURCES, licenceOf, narcoticOrders, rxComplete, rxItems, usageText, type RxItem } from "@/lib/narcotics";
+import { LICENCES, NARCOTIC_MANAGER, NARCOTIC_RULES, licenceOf, narcoticOrders, rxComplete, rxItems, usageText, type RxItem } from "@/lib/narcotics";
 import { STAFF } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
 import type { WorkPatient } from "@/lib/worksheet";
@@ -90,9 +90,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
 
   return (
     <section className="space-y-4 text-[13px]">
-      <p className="hint text-xs text-ink-soft">
-        麻薬処方箋の記載事項はコードが法と施行規則の項目で並べ、薬剤師が印刷した処方箋の署名を確かめて払い出します。注射の麻薬は、病棟が施用票を書いて残液・空アンプルを返納し、薬剤部が受け取った時に施用の日の払出として帳簿に入ります。残液と返納された薬は、立会いの職員を選んで廃棄を記録します。残高と照合の差はコードが数えます。
-      </p>
+
       <p className="text-[11px] text-ink-faint">
         麻薬管理者：{displayText(NARCOTIC_MANAGER)}（{displayText(manager.ok ? manager.licence.no : manager.why)}）。{NARCOTIC_RULES.licences}
       </p>
@@ -274,13 +272,9 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
       <Accidents book={book} onBook={onBook} today={today} now={now} newId={newId} log={log} print={print} />
 
       <div className="text-[11px] text-ink-faint">
-        <p className="hint">出典：{Object.values(NARCOTIC_SOURCES).map((s) => (
-          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="mr-2 underline">
-            {s.label}
-          </a>
-        ))}</p>
+
         <p className="mt-1">
-          <span className="hint">{NARCOTIC_RULES.prn}{NARCOTIC_RULES.outpatient}</span>届はどこにも送りません（模擬）。
+          届はどこにも送りません（模擬）。
         </p>
       </div>
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[10mm] print:block">{printing}</div>, document.body)}
@@ -424,9 +418,7 @@ function Ledger({ book, onBook, today, now, newId, log }: Sub) {
           照合を記載
         </button>
       </div>
-      <p className="mt-2 text-[11px] text-ink-faint">
-        注射剤は A 単位で、払出は施用の日に書きます。返納は（ ）で書き残高に加えません。帳簿は最終の記載から2年間保存します（法 第39条）。（{c?.product}：{c?.kisei.join("・")}）
-      </p>
+
     </div>
   );
 }
@@ -472,7 +464,7 @@ function Accidents({ book, onBook, today, now, newId, log, print }: Sub & { prin
           事故を記録
         </button>
       </div>
-      <p className="mt-1 text-[11px] text-ink-faint">記録すると帳簿の残高から減り、備考に書きます。麻薬事故届はすみやかに都道府県知事へ（法 第35条第1項）。盗取は警察署にも（マニュアル 第8）。ここからは送りません（模擬）。</p>
+
       {book.accidents.map((a) => {
         const t = accidentText(a, classOf(a.code)?.product ?? anyDrugName(a.code), NARCOTIC_MANAGER, lic.ok ? lic.licence.no : "（免許番号なし）", date);
         return (
@@ -552,3 +544,20 @@ function RxSheet({ entry, items, patient, room, today }: { entry: OrderEntry; it
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        麻薬処方箋の記載事項はコードが法と施行規則の項目で並べ、薬剤師が印刷した処方箋の署名を確かめて払い出します。注射の麻薬は、病棟が施用票を書いて残液・空アンプルを返納し、薬剤部が受け取った時に施用の日の払出として帳簿に入ります。残液と返納された薬は、立会いの職員を選んで廃棄を記録します。残高と照合の差はコードが数えます。
+      </p>
+<p >出典：{Object.values(NARCOTIC_SOURCES).map((s) => (
+          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" >
+            {s.label}
+          </a>
+        ))}</p>
+<span >{NARCOTIC_RULES.prn}{NARCOTIC_RULES.outpatient}</span>
+<p >記録すると帳簿の残高から減り、備考に書きます。麻薬事故届はすみやかに都道府県知事へ（法 第35条第1項）。盗取は警察署にも（マニュアル 第8）。ここからは送りません（模擬）。</p>
+*/
+
+/* ヘルプへ移動した説明:
+注射剤は A 単位で、払出は施用の日に書きます。返納は（ ）で書き残高に加えません。帳簿は最終の記載から2年間保存します（法 第39条）。（ ： ）
+*/

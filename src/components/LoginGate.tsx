@@ -106,7 +106,7 @@ export function LoginGate({ users, locked, current, onLogin, onTurnOff }: Props)
               {who.name}
               <span className="ml-2 text-[12px] font-normal text-ink-soft">{ROLE_LONG[who.role]}</span>
             </h1>
-            {first && <p className="text-ink-soft">この端末では初めてです。パスワードを決めてください（{PASSWORD_RULE.min}文字以上、英字と数字を混ぜる。推測されやすい言葉や名前は使えません）。この端末のブラウザに、元に戻せない形（ハッシュ）でだけ残ります。</p>}
+            {first && <p className="text-ink-soft">{PASSWORD_RULE.min}文字以上の英字と数字で設定してください。</p>}
             <label className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-ink-soft">パスワード</span>
               <input type="password" autoComplete={first ? "new-password" : "current-password"} value={pw} onChange={(e) => setPw(e.target.value)} className="min-w-0 flex-1 rounded border border-rule bg-paper px-2 py-1" />
@@ -130,7 +130,7 @@ export function LoginGate({ users, locked, current, onLogin, onTurnOff }: Props)
           </form>
         )}
         <div className="space-y-1 border-t border-rule-soft pt-2 text-[11px] text-ink-faint">
-          <p>この病院の職員だけです。パスワードは本物のものを使わないでください。二要素認証はありません（実際の電子カルテには要ります）。</p>
+          <p>模擬：本物のパスワードは使わないでください。</p>
           <p className="flex flex-wrap gap-x-3">
             <button type="button" onClick={onTurnOff} className="underline hover:text-ai">
               ログインの仕組みを切る（この端末・デモ用）

@@ -113,8 +113,12 @@ export function RehabProgressPanel({ patient, entries, desk, onDesk, today, nowT
             1日9単位の対象と判断する（医師）
           </button>
         )}
-        <span className="hint text-[11px] text-ink-faint">1日9単位まで算定できる患者は、告示（特掲診療料の施設基準等 別表第九の三）に決まっています。当たるかは医師が判断します。</span>
+
       </p>
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >1日9単位まで算定できる患者は、告示（特掲診療料の施設基準等 別表第九の三）に決まっています。当たるかは医師が判断します。</span>
+*/

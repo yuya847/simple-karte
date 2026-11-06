@@ -103,7 +103,7 @@ export function ReceiptPanel({
           <FileText size={14} />
           この患者の{m}月分のレコード（記録条件仕様・医科{data?.dpc ? "・出来高" : ""}）
         </h3>
-        <p className="hint mb-2 text-[11px] text-ink-faint">点数は「点数・回数算定単位」の最後のレコードだけに入ります。右の31個の欄は1日〜31日の回数です。</p>
+
         <div className="scroll-thin max-h-[46vh] overflow-auto rounded-md border border-rule bg-paper p-2">
           <table className="w-full border-collapse font-mono text-[11px] leading-snug">
             <tbody>
@@ -179,3 +179,7 @@ export function ReceiptPanel({
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >点数は「点数・回数算定単位」の最後のレコードだけに入ります。右の31個の欄は1日〜31日の回数です。</p>
+*/

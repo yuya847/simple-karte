@@ -74,7 +74,7 @@ describe("放射線部の指示受けの画面", () => {
     expect(html).toContain("1件ずつ受けます：造影（同意・腎機能・アレルギーを確かめる）");
     expect(html).toContain("1件ずつ受けます：MRI（体内金属の確認）");
     expect(html).not.toContain(">指示を受ける<");
-    expect(html).toContain("denshi_gx.pdf");
+    expect(html).not.toContain("denshi_gx.pdf");
     expect(html).not.toContain("架空の病院の取り決め");
   });
 
@@ -106,7 +106,7 @@ describe("放射線部の指示受けの画面", () => {
     expect(html).toContain("ヨードのアレルギー</dt>");
     expect(html).toContain("メトホルミン（ビグアナイド系）</dt>");
     expect(html).toContain("確認した");
-    expect(html).toContain("指示受け → 指示確認 → 撮影");
+    expect(html).not.toContain("指示受け → 指示確認 → 撮影");
   });
 
   it("the worklist lays the taken studies on the rooms' lanes with the next step, and marks the late one", () => {

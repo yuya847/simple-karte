@@ -15,7 +15,7 @@ export function DischargeDialog({ name, items, onDo, onClose, children }: { name
           <DoorOpen size={18} />
           {displayText(name)}さんの退院を実施する
         </h2>
-        <p className="mb-2 text-xs text-ink-soft">カルテから集めた退院の準備です（コードで集めた事実）。済んでいないものがあっても、実施するかどうかは押す人が決めます。</p>
+
         <ul className="mb-3 divide-y divide-rule-soft rounded-md border border-rule">
           {items.map((i) => (
             <li key={i.label} className="flex items-start gap-2 px-3 py-1.5">
@@ -39,3 +39,7 @@ export function DischargeDialog({ name, items, onDo, onClose, children }: { name
     document.body,
   );
 }
+
+/* ヘルプへ移動した説明:
+カルテから集めた退院の準備です（コードで集めた事実）。済んでいないものがあっても、実施するかどうかは押す人が決めます。
+*/

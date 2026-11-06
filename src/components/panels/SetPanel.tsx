@@ -11,7 +11,7 @@ export function SetPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newId:
   const set = CROSS_SETS.find((s) => s.code === code);
   return (
     <div className="space-y-3 text-[13px]">
-      <p className="text-[12px] text-ink-soft">セットを選び、要らない項目のチェックを外してから下書きにします。採る時刻・撮り方などは、下書きの確かめで選びます。</p>
+
       <ul className="space-y-1.5">
         {CROSS_SETS.map((s) => (
           <li key={s.code}>
@@ -48,3 +48,7 @@ export function SetPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newId:
     </div>
   );
 }
+
+/* ヘルプへ移動した説明:
+セットを選び、要らない項目のチェックを外してから下書きにします。採る時刻・撮り方などは、下書きの確かめで選びます。
+*/

@@ -58,7 +58,7 @@ describe("レセプト点検・返戻", () => {
     const html = as("医事課", <ReceiptDesk patients={PATIENTS} diagnoses={{}} today={today} nowTime="10:00" payload={() => []} onOpen={() => {}} desk={EMPTY_RETURNS} onDesk={() => {}} />);
     expect(html).toContain("点検の一覧");
     expect(html).toContain("オンライン請求にはつないでいません（模擬）");
-    expect(html).toContain("新しい決まりは足していません");
+    expect(html).not.toContain("新しい決まりは足していません");
   });
 });
 
@@ -101,7 +101,7 @@ describe("外来の受付", () => {
     // 再診 with an earlier registration: shown, not edited.
     const found = as("医事課", <ReceptionInsurance form={EMPTY_FORM} onChange={() => {}} today={today} checks={[]} existing={INITIAL_INSURANCE_BOOK["opd:opd-1"][0]} />);
     expect(found).toContain("保険（登録あり）");
-    expect(found).toContain("「確認」として引き継ぎます");
+    expect(found).not.toContain("「確認」として引き継ぎます");
   });
   it("after receiving, the form shows the 受付番号 and the 受付票を印刷 button (no dialog by itself)", () => {
     const html = as("医事課", <Reception cards={CARDS} today={today} nowTime="09:30" locked={null} done={{ name: "架空 太郎", ticket: 12, onPrint: () => {}, onList: () => {} }} onReceive={() => {}} />);

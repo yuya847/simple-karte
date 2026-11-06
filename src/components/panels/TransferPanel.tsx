@@ -43,7 +43,7 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
           ))}
         </ul>
       </div>
-      <p className="hint text-xs text-ink-faint">打診は模擬です。外部には送信しません。キーパーソンは続柄のみ、記録のない項目は「（記録なし）」と表示します。</p>
+
       {decided && (
         <p className="rounded-md bg-ai-soft px-2 py-1 font-bold text-ai">
           決定：{displayText(decided.facility)}（{displayText(decided.log.at(-1)?.note)}）
@@ -120,7 +120,15 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
           </article>
         );
       })}
-      <p className="text-[11px] text-ink-faint">送り先を決めるのは本人・家族と医師です。「決定」には誰が決めたかを書きます。実際に送る機能はありません（試作）。</p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >打診は模擬です。外部には送信しません。キーパーソンは続柄のみ、記録のない項目は「（記録なし）」と表示します。</p>
+*/
+
+/* ヘルプへ移動した説明:
+送り先を決めるのは本人・家族と医師です。「決定」には誰が決めたかを書きます。実際に送る機能はありません（試作）。
+*/

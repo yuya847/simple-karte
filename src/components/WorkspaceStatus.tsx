@@ -37,7 +37,7 @@ export function WorkspaceStatus({ status, id, onReset, live }: { status: Status;
     <div className="fixed bottom-2 right-2 z-30 flex flex-wrap items-center gap-2 rounded-md border border-rule bg-sheet px-2.5 py-1 text-[11px] text-ink-soft shadow print:hidden">
       {icon}
       <span className={status === "error" ? "text-shu" : ""}>{LABEL[status]}（今日の記録）</span>
-      {live && <span className="hint">{live}</span>}
+      {live && <span>{live}</span>}
       {link && (
         <button
           type="button"
@@ -70,3 +70,7 @@ export function WorkspaceStatus({ status, id, onReset, live }: { status: Status;
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >{live}</span>
+*/

@@ -534,7 +534,7 @@ function ViewMenu({ prefs, onChange, onClose }: { prefs: ListPrefs; onChange: (p
           </div>
         </div>
         <p className="mt-2 text-[11px] text-ink-faint">
-          <span className="hint">列を外しても記録は変わりません。外した列の印や結果はカルテで見られます。</span>この選択は自分の名前で、この端末のみに保存されます。
+          この選択は自分の名前で、この端末のみに保存されます。
         </p>
       </div>
     </>
@@ -588,3 +588,7 @@ function CondBar({ cond, choices, onChange }: { cond: ListFilter; choices: Retur
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >列を外しても記録は変わりません。外した列の印や結果はカルテで見られます。</span>
+*/

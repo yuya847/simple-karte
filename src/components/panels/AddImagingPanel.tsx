@@ -10,7 +10,7 @@ import { consentDefaults } from "@/lib/imaging-consent";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { TabChoice } from "../TabChoice";
-import { consentFor as consentCodeFor, findConsent } from "@/lib/consent";
+import { consentFor as consentCodeFor } from "@/lib/consent";
 import type { Draft } from "@/lib/drafts";
 import {
   CONSENT_FORMS,
@@ -21,7 +21,6 @@ import {
   CT_PHASES,
   CT_RECONS,
   CT_SLICES_MM,
-  EXAM_SOURCES,
   MODALITIES,
   MRI_SEQUENCES,
   REGION_GROUPS,
@@ -352,9 +351,7 @@ export function AddImagingPanel({
                 {facts && facts.sex === "女" && facts.age >= 12 && facts.age <= 55 && <li>妊娠の可能性：下書きの確認で答えます</li>}
                 {!facts && <li className="text-ink-faint">患者の値が渡されていないときは、下書きの確認で出ます。</li>}
               </ul>
-              <p className="hint mt-1 text-[11px] text-ink-faint">
-                eGFR はコードで計算（日本腎臓学会の推算式）。閾値 {CONTRAST_RULES.egfrAsk}  は院内の確認基準です。指針（ヨード：{EXAM_SOURCES.iodine.label}、ガドリニウム：{EXAM_SOURCES.gadolinium.label}）は eGFR {CONTRAST_RULES.egfrGuideline} 未満を特に注意としています。ビグアナイドの案内の出典：{EXAM_SOURCES.biguanide.label}。
-              </p>
+
             </div>
           )}
 
@@ -386,7 +383,7 @@ export function AddImagingPanel({
                 </div>
               )}
               {d.consent?.state === "同意しない" && <input value={d.consent.reason ?? ""} onChange={(e) => patch({ consent: { ...d.consent!, reason: e.target.value || null } })} placeholder="同意しない理由" aria-label="同意しない理由" className={`${field} mt-1 w-full`} />}
-              {(d.consent?.state ?? "未取得") === "未取得" && <p className="mt-1 text-ink-soft">未取得のままでも下書きにできます。確定の前の確認で「同意書を用意する」を選ぶと、様式「{findConsent(consentCode).title}」の下書きが同意書の一覧（右端ツール「同意書」）にできます。</p>}
+
               {d.consent?.state === "同意しない" && <p className="mt-1 font-bold text-shu">同意がないと造影のオーダは確定できません。単純に変えるか、下書きを消します。</p>}
             </div>
           )}
@@ -414,10 +411,21 @@ export function AddImagingPanel({
       <button type="button" disabled={missing.length > 0} onClick={() => { if (missing.length) return; onAdd({ ...d, id: newId(), modality, purpose: d.purpose?.trim() || null, note: d.note?.trim() || null }); }} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
         保存する{missing.length > 0 && `（${missing.join("・")}を選ぶ）`}
       </button>
-      <p className="hint text-[11px] text-ink-faint">
-        部位を選ぶと、マスターの標準の方向と体位が入ります。変えるときは押し直します。日時はここでも選べます。移動・読影は右の下書きで選びます。造影なら腎機能・造影剤アレルギー・喘息・ビグアナイド・同意、MRI なら体内金属の確認が下書きに出ます。{EXAM_SOURCES.naming}
-        造影剤の一般名と量は院内の採用品から選び、製品と本数は放射線部が記録します。
-      </p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+                eGFR はコードで計算（日本腎臓学会の推算式）。閾値 {CONTRAST_RULES.egfrAsk}  は院内の確認基準です。指針（ヨード：{EXAM_SOURCES.iodine.label}、ガドリニウム：{EXAM_SOURCES.gadolinium.label}）は eGFR {CONTRAST_RULES.egfrGuideline} 未満を特に注意としています。ビグアナイドの案内の出典：{EXAM_SOURCES.biguanide.label}。
+              </p>
+<p >
+        部位を選ぶと、マスターの標準の方向と体位が入ります。変えるときは押し直します。日時はここでも選べます。移動・読影は右の下書きで選びます。造影なら腎機能・造影剤アレルギー・喘息・ビグアナイド・同意、MRI なら体内金属の確認が下書きに出ます。{EXAM_SOURCES.naming}
+        造影剤の一般名と量は院内の採用品から選び、製品と本数は放射線部が記録します。
+      </p>
+*/
+
+/* ヘルプへ移動した説明:
+未取得のままでも下書きにできます。確定の前の確認で「同意書を用意する」を選ぶと、様式「 」の下書きが同意書の一覧（右端ツール「同意書」）にできます。
+*/

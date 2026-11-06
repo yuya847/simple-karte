@@ -5,7 +5,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { LEAVE_HOLD_RULE, MEALS, MEAL_TIMES, dietAt, dietLabel, holdTitle, mealHolds, type DietOrder, type Meal } from "@/lib/diet";
+import { MEALS, MEAL_TIMES, dietAt, dietLabel, holdTitle, mealHolds, type DietOrder, type Meal } from "@/lib/diet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
 import { abs } from "@/lib/flowsheet";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
@@ -162,7 +162,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
               <option value="from">この食事から（次の指示まで）</option><option value="day">この日だけ（選んだ食事から夕食まで）</option>
             </select></label>
             {mealHolds(orders, editing.day, editing.meal, examTime).map((h) => <p key={h.orderId} className="text-xs text-yamabuki">食止め継続：{h.label}</p>)}
-            <p className="hint text-xs">検査・外泊・退院による食止めは、この変更では解除されません。禁止食品・アレルギーは注意欄に記入できます。患者情報のアレルギーは別に管理します。</p>
+
             {error && <p role="alert" className="text-xs text-shu">{error}</p>}
             <DietPanel compact patient={patient} today={today} nowTime={nowTime} doctor={dietEdit.doctor} diets={diets} entries={orders}
               initial={{ ...(dietAt(diets, patient.id, editing.day, editing.meal) ?? { kind: "常食", staple: "米飯", side: "常菜" }), from: editing }}
@@ -203,7 +203,12 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
           </div>,
           document.body,
         )}
-      <p className="hint mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。食事を押すとその場で編集でき、下書きに入れてから「オーダーのみ」か「保存」で確定します。検査で止めるのは院内の取り決め（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >検査・外泊・退院による食止めは、この変更では解除されません。禁止食品・アレルギーは注意欄に記入できます。患者情報のアレルギーは別に管理します。</p>
+<p >日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。食事を押すとその場で編集でき、下書きに入れてから「オーダーのみ」か「保存」で確定します。検査で止めるのは院内の取り決め（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
+*/

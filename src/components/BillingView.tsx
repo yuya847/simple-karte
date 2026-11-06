@@ -211,9 +211,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           ))}
         </div>
         {loading && <Loader2 size={14} className="animate-spin text-ink-faint" aria-label="計算中" />}
-        <p className="hint ml-auto text-[11px] text-ink-faint">
-          点数は厚生労働省のマスターと支払基金の電子点数表からコードで計算しています（AI は使っていません）。
-        </p>
+
       </div>
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto px-4 py-3">
@@ -469,11 +467,9 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           <div className="mt-3 space-y-0.5 text-[10px] text-ink-faint">
             <p className="flex items-center gap-1">
               <ListChecks size={11} />
-              施設基準はこの病院（届出は実在の一般病院の公開情報にならった想定）。入院日 {formatShort(firstDayOfMonth(patient.admittedOn))}。
+              施設基準・入院日 {formatShort(firstDayOfMonth(patient.admittedOn))}。
             </p>
-            {result.sources.map((s) => (
-              <p key={s} className="hint">出典：{s}</p>
-            ))}
+
           </div>
         )}
           </>
@@ -501,3 +497,10 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
     </label>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          点数は厚生労働省のマスターと支払基金の電子点数表からコードで計算しています（AI は使っていません）。
+        </p>
+<p key={s} >出典：{s}</p>
+*/

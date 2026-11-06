@@ -88,7 +88,7 @@ describe("主治医・担当医・コンサルト医の一覧", () => {
     expect(html).toContain('<option value="中川（循環器内科）"');
     // The registered ones can be removed; the provisional one follows the order and cannot.
     expect(html.match(/外す<\/button>/g)?.length).toBe(2);
-    expect(html).toContain("誰を足すかは医師が決めます");
+    expect(html).not.toContain("誰を足すかは医師が決めます");
   });
 
   it("a nurse sees the list but not the form", () => {

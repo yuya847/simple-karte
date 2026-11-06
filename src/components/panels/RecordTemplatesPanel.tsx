@@ -73,7 +73,7 @@ export function RecordTemplatesPanel({ facts: given, initialId = null, onInsert,
 
       {view.kind === "list" && (
         <>
-          <p className="hint text-[12px] text-ink-soft">決まった型の記録です。選ぶと項目（チェック・選択・数値・時刻・自由記載）が出て、埋めると決まった形の文になります。「記事に入れる」で右の記事に入り、「記事として確定」でそのまま経過に残ります。★ を押すと右端の道具のお気に入りに並び、1回で開けます。文はコードが組み、AI は使いません。</p>
+
           <section>
             <div className="mb-1 text-[11px] text-ink-faint">
               この病院のテンプレート
@@ -181,8 +181,8 @@ function RecordForm({ t, facts, star, onInsert, onConfirm, onOpenPanel }: { t: N
         )}
       </div>
       {rec?.about && <p className="text-[12px] text-ink-soft">{rec.about}</p>}
-      {rec?.hint && <p className="hint text-[11px] text-ink-soft">{rec.hint}</p>}
-      {rec?.rule && <p className="hint text-[11px] text-ink-soft">{rec.rule}</p>}
+
+
       <div className="divide-y divide-rule-soft rounded-md border border-rule bg-paper/60 px-2 py-1">
         {parsed.fields.map((f) => (
           <FieldInput key={fieldKey(f)} f={f} values={values} set={(k, v) => setValues((s) => ({ ...s, [k]: v }))} facts={facts} fields={parsed.fields} />
@@ -209,19 +209,24 @@ function RecordForm({ t, facts, star, onInsert, onConfirm, onOpenPanel }: { t: N
           記事として確定
         </button>
       </div>
-      {rec?.sources && rec.sources.length > 0 && (
-        <p className="hint text-[10px] text-ink-faint">
+
+    </div>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >決まった型の記録です。選ぶと項目（チェック・選択・数値・時刻・自由記載）が出て、埋めると決まった形の文になります。「記事に入れる」で右の記事に入り、「記事として確定」でそのまま経過に残ります。★ を押すと右端の道具のお気に入りに並び、1回で開けます。文はコードが組み、AI は使いません。</p>
+<p >{rec.hint}</p>
+<p >{rec.rule}</p>
+<p >
           出典：
           {rec.sources.map((s, i) => (
             <span key={s.url + i}>
               {i > 0 && "／"}
-              <a href={s.url} target="_blank" rel="noreferrer" className="underline">
+              <a href={s.url} target="_blank" rel="noreferrer" >
                 {s.label}
               </a>
             </span>
           ))}
         </p>
-      )}
-    </div>
-  );
-}
+*/

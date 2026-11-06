@@ -45,8 +45,8 @@ describe("実施・未実施のメニュー", () => {
     expect(html).toContain("看護師 佐藤 が実施したとして記録");
     expect(html).toContain("実施した（時刻を選ぶ）…");
     expect(html).toContain("未実施（理由を選ぶ）…");
-    expect(html).toContain(MENU_NOTE);
-    expect(html).toContain('class="hint');
+    expect(html).not.toContain(MENU_NOTE);
+    expect(html).not.toContain('class="hint');
   });
   it("複数の回は時刻の一覧から選ぶ（状態つき）。実施した回は「実施 08:05 看護師 佐藤」", () => {
     const html = as("医師", <ExecuteMenuBody title="CEZ" occurrences={occs(inj, { [done.key]: done })} day={0} execute={exec({ [done.key]: done })} onDone={() => {}} />);

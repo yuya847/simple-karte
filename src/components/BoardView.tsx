@@ -141,9 +141,7 @@ export function BoardView({ notices, reads, today, nowTime, onRead, onPost, staf
               );
             })}
           </ul>
-          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">
-            並べ方（重要で未読 → 未読 → 既読、それぞれ新しい順）と期限切れを隠すのはコードで行います。AI は使っていません。試作なので、掲示と既読はこのブラウザの中だけにあります。
-          </p>
+
         </nav>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
@@ -303,3 +301,9 @@ function PostForm({ dept, onCancel, onPost }: { dept: Dept; onCancel: () => void
     </form>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+            並べ方（重要で未読 → 未読 → 既読、それぞれ新しい順）と期限切れを隠すのはコードで行います。AI は使っていません。試作なので、掲示と既読はこのブラウザの中だけにあります。
+          </p>
+*/

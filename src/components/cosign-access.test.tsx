@@ -42,7 +42,7 @@ describe("研修医の記録の確認の画面", () => {
     expect(list).toContain("研修医の記録の確認");
     expect(list).toContain("512 佐倉 修");
     expect(list).not.toContain("架空の病院の取り決め");
-    expect(list).toContain("https://www.mhlw.go.jp/content/001364766.pdf");
+    expect(list).not.toContain("https://www.mhlw.go.jp/content/001364766.pdf");
   });
 });
 

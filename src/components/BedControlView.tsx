@@ -34,7 +34,7 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
         <BedDouble size={18} />
         ベッドコントロール
       </h1>
-      <p className="mb-3 text-xs text-ink-soft">全病棟のベッド。空床と、今日・明日の入院と退院の予定から、明日の朝の空床の見込みをコードで数えます。入院申込には、合うベッド（性別・個室の希望・感染対策）を理由つきで並べます。決めるのは人です。</p>
+
 
       <table className="nums mb-4 w-full rounded-lg bg-sheet">
         <thead>
@@ -159,3 +159,7 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >全病棟のベッド。空床と、今日・明日の入院と退院の予定から、明日の朝の空床の見込みをコードで数えます。入院申込には、合うベッド（性別・個室の希望・感染対策）を理由つきで並べます。決めるのは人です。</p>
+*/

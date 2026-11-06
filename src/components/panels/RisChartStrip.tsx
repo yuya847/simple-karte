@@ -4,7 +4,7 @@
 // ordering doctor signs (診療放射線技師法 第28条), and the reading report the doctor marks as read.
 
 import { displayText } from "@/lib/display-text";
-import { RIS_RULES, risResultItems, risRows, type RisDesk } from "@/lib/ris";
+import { risResultItems, risRows, type RisDesk } from "@/lib/ris";
 import type { Ack } from "@/lib/results";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 import { useDeny } from "../RoleContext";
@@ -62,7 +62,11 @@ export function RisChartStrip({ patient, entries, desk, onDesk, acks, nowTime, o
           );
         })}
       </ul>
-      <p className="hint mt-1 text-[11px] text-ink-faint">{RIS_RULES.sign} 読影レポートの全文と画像は下の PACS ビューアで見られます。</p>
+
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >{RIS_RULES.sign} 読影レポートの全文と画像は下の PACS ビューアで見られます。</p>
+*/

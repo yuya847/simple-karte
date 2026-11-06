@@ -59,7 +59,7 @@ describe("テンプレートの引き出し", () => {
     // The confirm button waits for the form; the insert button does not.
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>記事として確定<\/button>/);
     expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>記事に入れる<\/button>/);
-    expect(html).toContain("A205 救急医療管理加算");
+    expect(html).not.toContain("A205 救急医療管理加算");
   });
 
   it("the restraint form starts from the restraint in force and offers the existing record instead of a second one", () => {
@@ -68,7 +68,7 @@ describe("テンプレートの引き出し", () => {
     expect(html).toContain("身体的拘束の記録（開始・見直し・解除）を開く");
     expect(html).toContain(`開始：${r.start.time}`);
     expect(html).toContain(`指示医：${r.doctor}`);
-    expect(html).toContain("二重に記録しません");
+    expect(html).not.toContain("二重に記録しません");
   });
 
   it("a time field is a clock input", () => {
@@ -134,8 +134,8 @@ describe("VTE のテンプレート", () => {
       const html = as(role, <RecordTemplatesPanel facts={facts} initialId="rec-vte" onInsert={noop} onConfirm={noop} onOpenPanel={noop} />);
       expect(html).toContain("Padua 合計：未計算");
       expect(html).toContain("決めるのは医師");
-      expect(html).toContain("04044.x");
-      expect(html).toContain("JCS2017_ito_h.pdf");
+      expect(html).not.toContain("04044.x");
+      expect(html).not.toContain("JCS2017_ito_h.pdf");
     }
   });
 });

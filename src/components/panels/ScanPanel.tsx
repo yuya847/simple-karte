@@ -184,9 +184,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
           </button>
           {busy && <span className="text-ink-soft">小さくしています…</span>}
         </div>
-        <p className="hint text-[12px] text-ink-soft">
-          スキャナで PDF か画像にした紙や、タブレットで撮った写真を選びます。画像は長い辺 1,600 画素までの JPEG に小さくして保存します（入らなければさらに小さく）。PDF はそのまま保存するので {kb(SCAN_LIMITS.perFile)} までです。種類と文書の日付を選んで「取り込む」を押します。
-        </p>
+
         {ready && (
           <div className="flex flex-wrap items-start gap-3 rounded border border-rule-soft bg-sheet p-2">
             {ready.mime === "image/jpeg" ? (
@@ -303,9 +301,16 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
             ))}
           </ul>
         )}
-        <p className="mt-1 text-[11px] text-ink-faint">取り消しても、取り込んだことと理由は残ります（画像は保存しません）。<span className="hint">取り込んだあとも紙の原本は保管し、取り込んだものは参照用として扱います（安全管理ガイドライン システム運用編 16.2）。</span></p>
+        <p className="mt-1 text-[11px] text-ink-faint">取り消しても、取り込んだことと理由は残ります（画像は保存しません）。</p>
       </section>
       <Sources items={SCAN_SOURCES} />
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          スキャナで PDF か画像にした紙や、タブレットで撮った写真を選びます。画像は長い辺 1,600 画素までの JPEG に小さくして保存します（入らなければさらに小さく）。PDF はそのまま保存するので {kb(SCAN_LIMITS.perFile)} までです。種類と文書の日付を選んで「取り込む」を押します。
+        </p>
+<span >取り込んだあとも紙の原本は保管し、取り込んだものは参照用として扱います（安全管理ガイドライン システム運用編 16.2）。</span>
+*/

@@ -173,7 +173,7 @@ export function IoEntryForm({ patientId, nowTime, onAdd, newId, defaultTime }: {
         </button>
       </div>
       {ml.trim() !== "" && problems.map((p) => <p key={p} className="text-shu">{p}</p>)}
-      <p className="text-[11px] text-ink-faint">点滴は注射の記録（開始と終了）から入るので、ここでは入れません。食事の摂取量（割）はバイタルの「今日の記録」で入れます。時刻を空にすると、いまの時刻で記録します。</p>
+
     </div>
   );
 }
@@ -306,3 +306,7 @@ function LineRow({ line: l, onVoid }: { line: IoLine; onVoid: (id: string, reaso
     </tr>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >点滴は注射の記録（開始と終了）から入るので、ここでは入れません。食事の摂取量（割）はバイタルの「今日の記録」で入れます。時刻を空にすると、いまの時刻で記録します。</p>
+*/

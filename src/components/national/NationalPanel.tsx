@@ -41,7 +41,7 @@ export function NationalPanel({ patient, entries, diagnoses, draft, book, today,
         value={tab}
         onChange={setTab}
       />
-      <p className="hint text-[11px] text-ink-soft">オンライン資格確認（模擬）は、医事課の「保険の登録」と外来の受付にあります。</p>
+
       {tab === "erx" ? (
         <ErxPanel
           key={JSON.stringify(lines)}
@@ -64,3 +64,7 @@ export function NationalPanel({ patient, entries, diagnoses, draft, book, today,
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >オンライン資格確認（模擬）は、医事課の「保険の登録」と外来の受付にあります。</p>
+*/

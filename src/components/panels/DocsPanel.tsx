@@ -1,7 +1,7 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
-import { NUTRITION_PLAN_SOURCE, nutritionPlanProblems } from "@/lib/nutrition-plan";
+import { nutritionPlanProblems } from "@/lib/nutrition-plan";
 import { Printer } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -75,7 +75,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
       </div>
       {kind && (
         <section className="space-y-2 rounded-md border border-rule bg-paper p-3 text-[12px]">
-          <p className="text-ink-soft">{DOC_DEFS[kind].purpose}</p>{kind === "栄養管理計画書" && <p className="hint">厚生労働省 保医発0305第7号 別添6 別紙23に準じた模擬様式。項目を補って表示します。GLIM（国際的な低栄養診断基準）による評価を行っていない場合は「非対応」と記入します。<a href={NUTRITION_PLAN_SOURCE} target="_blank" rel="noreferrer">出典</a>。空欄は記録がありません。確認して入力してください。</p>}
+          <p className="text-ink-soft">{DOC_DEFS[kind].purpose}</p>
           {DOC_DEFS[kind].fields.map((f) =>
             f.auto ? (
               <div key={f.key} className="flex gap-2">
@@ -149,3 +149,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >厚生労働省 保医発0305第7号 別添6 別紙23に準じた模擬様式。項目を補って表示します。GLIM（国際的な低栄養診断基準）による評価を行っていない場合は「非対応」と記入します。<a href={NUTRITION_PLAN_SOURCE} target="_blank" rel="noreferrer">出典</a>。空欄は記録がありません。確認して入力してください。</p>
+*/

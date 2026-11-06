@@ -100,7 +100,7 @@ export function ReceiptDesk({
         {tab === "inspect" && <Inspect patients={patients} diagnoses={diagnoses} today={today} nowTime={nowTime} month={month} payload={payload} onOpen={onOpen} />}
         {tab === "import" && <Import files={files} month={month} nowTime={nowTime} onDesk={onDesk} />}
         {tab === "resubmit" && <Resubmit files={files} desk={desk} nowTime={nowTime} onDesk={onDesk} />}
-        <p className="hint text-[11px] text-ink-faint">取り込んだファイルと再請求の記録は、このブラウザの中にあり、監査ログに残ります。計算と点検はコードで行い、AI は使いません。</p>
+
       </div>
     </section>
   );
@@ -138,9 +138,7 @@ function Inspect({ patients, diagnoses, today, nowTime, month, payload, onOpen }
   const counts = inspectCounts(rows);
   return (
     <>
-      <p className="hint text-[12px] text-ink-soft">
-        {Number(month.slice(5))}月分のレセプトを、算定の画面と同じ計算（告示・通知・マスター）と、レセプトのファイル（RECEIPTC.UKE）と同じ点検（記録条件仕様）に通し、出てきた点検を患者ごとに並べます。新しい決まりは足していません。直すかどうか・どれを選ぶかは人が決めます。
-      </p>
+
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {INSPECT_KINDS.map((k) => (
           <button key={k} type="button" onClick={() => setOnly(only === k ? "" : k)} aria-pressed={only === k} className={`nums rounded-md border px-2 py-1 ${counts[k] ? KIND_TONE[k] : "border-rule bg-sheet text-ink-faint"} ${only === k ? "ring-2 ring-ai" : ""}`}>
@@ -249,9 +247,7 @@ function Import({ files, month, nowTime, onDesk }: { files: Parsed[]; month: str
     <>
       <div className="rounded-lg border border-rule bg-sheet p-3">
         <h2 className="font-bold">ファイルを取り込む</h2>
-        <p className="mt-1 text-[12px] text-ink-soft">
-          オンライン請求から受け取る増減点連絡書（{"RIzogn…csv"}）と返戻内訳書（{"RIhenr…csv"}）の CSV を、公開されている記録の形のとおりに読みます（Shift_JIS）。この試作はオンライン請求につないでいないので、模擬のファイル（{Number(claim.slice(5))}月診療分・外来の患者）を作って試せます。
-        </p>
+
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <label className={`flex items-center gap-1 rounded-md border border-rule px-2 py-1 ${locked ? "opacity-40" : "cursor-pointer hover:border-ai hover:text-ai"}`}>
             <FileInput size={14} />
@@ -451,7 +447,7 @@ function Resubmit({ files, desk, nowTime, onDesk }: { files: Parsed[]; desk: Ret
   if (!items.length) return <p className="text-ink-faint">取り込んだ返戻・査定はまだありません。「返戻・査定の取り込み」で取り込みます。</p>;
   return (
     <>
-      <p className="text-[12px] text-ink-soft">返戻は直して再請求するか、査定は再審査を請求するかを、医事課が決めて記録します（医学的な判断が要るものは医師と相談）。再請求のファイル（RECEIPTC.UKE の再請求分）を作ること、オンライン請求で送ることは、この試作ではしません（模擬）。</p>
+
       {locked && <p className="text-[11px] text-ink-soft">{locked}</p>}
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
@@ -517,3 +513,15 @@ function Decide({ choices, locked, onDecide }: { choices: ResubmitKind[]; locked
     </span>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >取り込んだファイルと再請求の記録は、このブラウザの中にあり、監査ログに残ります。計算と点検はコードで行い、AI は使いません。</p>
+<p >
+        {Number(month.slice(5))}月分のレセプトを、算定の画面と同じ計算（告示・通知・マスター）と、レセプトのファイル（RECEIPTC.UKE）と同じ点検（記録条件仕様）に通し、出てきた点検を患者ごとに並べます。新しい決まりは足していません。直すかどうか・どれを選ぶかは人が決めます。
+      </p>
+<p >返戻は直して再請求するか、査定は再審査を請求するかを、医事課が決めて記録します（医学的な判断が要るものは医師と相談）。再請求のファイル（RECEIPTC.UKE の再請求分）を作ること、オンライン請求で送ることは、この試作ではしません（模擬）。</p>
+*/
+
+/* ヘルプへ移動した説明:
+オンライン請求から受け取る増減点連絡書（ ）と返戻内訳書（ ）の CSV を、公開されている記録の形のとおりに読みます（Shift_JIS）。この試作はオンライン請求につないでいないので、模擬のファイル（ 月診療分・外来の患者）を作って試せます。
+*/

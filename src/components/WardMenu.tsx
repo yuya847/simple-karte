@@ -35,7 +35,7 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
       <div className="mx-auto max-w-4xl space-y-5 px-6 py-6 text-sm">
         <header>
           <h1 className="text-lg font-bold">病棟で開く画面を選ぶ</h1>
-          <p className="hint mt-1 text-[12px] text-ink-soft">押すと上のタブに開きます。「最初に開く」にチェックした画面は、次から病棟を開いたときに最初から開きます（チェックした順に並び、1つ目を表示）。</p>
+
         </header>
         {GROUPS.map((g) => {
           const items = WARD_TABS.filter((t) => t.group === g.key && options.includes(t.key));
@@ -81,3 +81,7 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >押すと上のタブに開きます。「最初に開く」にチェックした画面は、次から病棟を開いたときに最初から開きます（チェックした順に並び、1つ目を表示）。</p>
+*/

@@ -3,7 +3,7 @@ import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { bmi, requirements, weightLoss, compareDietNutrition } from "@/lib/nutrition";
 import { nutritionVersions, type AdmitEval, type NutritionRecord } from "@/lib/admit-eval";
-import { dietAt, dietLabel, DIET_NUTRIENT_HINT, type DietOrder } from "@/lib/diet";
+import { dietAt, dietLabel, type DietOrder } from "@/lib/diet";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { Patient } from "@/lib/types";
 import { auditLog } from "@/lib/audit";
@@ -41,18 +41,18 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
 
       <label>SGA（主観的包括的栄養評価）<select className={field} value={sga} onChange={e => setSga(e.target.value)}><option value="">選択してください</option>{["A", "B", "C"].map(v => <option key={v}>{v}</option>)}</select></label>
       <label className="block">評価<textarea className={`${field} w-full`} value={assessment} onChange={e => setAssessment(e.target.value)} /></label>
-      <p className="hint">判定は人が選びます。体重減少率＝（比較時の体重−現在の体重）÷比較時の体重×100。比較日以前の最新記録を使い、記録がなければ空欄です。浮腫などの影響は評価に記載してください。</p>
+
     </section>
     <section className="space-y-2"><h3 className="font-bold">必要量の計算（成人）</h3>
       <label>活動係数<select className={field} value={activity} onChange={e => setActivity(Number(e.target.value))}>{[[1.2,"ベッド上"],[1.3,"病棟内"],[1.5,"歩行あり"]].map(([v,l]) => <option key={v} value={v}>{l}：{v}</option>)}</select></label>
       <label>ストレス係数<select className={field} value={stress} onChange={e => setStress(Number(e.target.value))}>{[1,1.1,1.2,1.3,1.5].map(v => <option key={v}>{v}</option>)}</select></label>
       <label>蛋白 g/kg<input className={field} type="number" min="0.1" step="0.1" value={protein} onChange={e => setProtein(Number(e.target.value))} /></label>
       <p>{result ? `基礎代謝 ${result.basal} × ${activity} × ${stress} ＝ ${result.kcal}kcal、蛋白${result.protein}g/日` : "成人の有効な測定値を確認してください。"}</p>
-      <p className="hint">{DIET_NUTRIENT_HINT}</p>
+
       <p>現在の食事：{dietLabel(diet)}／{prescribed.energyKcal ?? "未指定"}kcal・蛋白{prescribed.proteinG ?? "未指定"}g</p>
       <p>計算量 − 指示量：{energyDifference != null ? `${energyDifference}kcal` : "比較不可"}／{proteinDifference != null ? `${proteinDifference.toFixed(1)}g` : "比較不可"}</p>
       <button type="button" disabled={!result} className={field} onClick={() => { if(result) {setEnergy(result.kcal);setProteinG(result.protein);} }}>計算値を計画に入れる</button>
-      <p className="hint">活動・ストレス係数と蛋白量の初期値は、教科書的な一般値を参考にしています。疾患別の推奨ではありません。Harris-Benedict（原式）：男 66.473＋13.7516W＋5.0033H−6.755A、女 655.0955＋9.5634W＋1.8496H−4.6756A（W kg、H cm、A 歳）。<a href="https://nutritionalassessment.mumc.nl/en/calculating-energy-expenditure" target="_blank" rel="noreferrer">出典：Maastricht University Medical Center 栄養評価</a>。実測値と病態を確認し、人が必要量を決めます。</p>
+
     </section>
     <section className="space-y-2"><h3 className="font-bold">栄養管理計画書</h3>{onPlan && <button type="button" className={field} onClick={onPlan}>計画書を作る</button>}
       <label className="block">目標<textarea className={`${field} w-full`} value={goal} onChange={e => setGoal(e.target.value)} /></label>
@@ -71,3 +71,9 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
     </section>
   </div>;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >判定は人が選びます。体重減少率＝（比較時の体重−現在の体重）÷比較時の体重×100。比較日以前の最新記録を使い、記録がなければ空欄です。浮腫などの影響は評価に記載してください。</p>
+<p >{DIET_NUTRIENT_HINT}</p>
+<p >活動・ストレス係数と蛋白量の初期値は、教科書的な一般値を参考にしています。疾患別の推奨ではありません。Harris-Benedict（原式）：男 66.473＋13.7516W＋5.0033H−6.755A、女 655.0955＋9.5634W＋1.8496H−4.6756A（W kg、H cm、A 歳）。<a href="https://nutritionalassessment.mumc.nl/en/calculating-energy-expenditure" target="_blank" rel="noreferrer">出典：Maastricht University Medical Center 栄養評価</a>。実測値と病態を確認し、人が必要量を決めます。</p>
+*/

@@ -2,8 +2,8 @@
 
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
-import { useHints } from "@/lib/hints";
-import { BookOpenText, Check, HelpCircle, X } from "lucide-react";
+import { openHelp } from "@/lib/help/events";
+import { Check, HelpCircle, X } from "lucide-react";
 import { useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
 import { formatShort, type CalendarDate } from "@/lib/dates";
@@ -70,10 +70,6 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
   const me = useMe();
   const [which, setWhich] = useState<"this" | "next">("this");
   const [paint, setPaint] = useState<ShiftCode>("夜");
-  // The guide follows 「使い方」 on the top row until it is opened or closed here.
-  const [hintsOn] = useHints();
-  const [guideSet, setGuide] = useState<boolean | null>(null);
-  const guide = guideSet ?? hintsOn;
   const [ng, setNg] = useState<[string, string]>(["", ""]);
   const book = saved ?? initialRosterBook(today.y, today.m);
   const thisKey = monthKey(today.y, today.m);
@@ -134,23 +130,12 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
           届出：{WARD_BASE.name}（看護職員 {WARD_BASE.ratio}対1・看護師7割以上・夜勤は看護師1人を含む2人以上・月平均夜勤時間数 72時間以下）
         </span>
         <span className="ml-auto text-xs text-ink-faint">看護師長の画面です（デモでは看護師で開けます。{me.name}として記録）</span>
-        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => openHelp("screen:roster")} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>
       </header>
-      {guide && (
-        <div className="border-b border-rule bg-ai-soft/40 px-5 py-2 text-[12px]">
-          <p className="mb-1 flex items-center gap-1 font-bold text-ai">
-            <BookOpenText size={14} />
-            使い方：勤務表と様式9
-          </p>
-          <p>
-            看護師長が月の勤務を入れる画面です。「入れる勤務」を選んでからマスを押すと、その勤務が入ります（夜勤のあとの休みは「明」と出ます。夜勤は翌9:00まで）。入れるたびに、1人ずつの夜勤の回数と夜勤時間帯の時間、様式9の月平均夜勤時間数・看護職員の配置・看護師の比率を、通知の数え方でコードが数えます。夜勤の人数と看護師がいるか、1年目だけの夜勤、登録した組み合わせ、明けの日の勤務は日ごとに確かめ、マスに赤い枠が付きます。
-          </p>
-          <p className="mt-1 text-[11px] text-ink-soft">勤務表はコードも AI も作りません。今月はデモの下書きが入っていて、確認の例が2つ残っています。決めるのは看護師長で、確認が残っていても確定できます。</p>
-        </div>
-      )}
+
 
       <div className="space-y-4 px-5 py-4">
         <div className={`${card} flex flex-wrap items-center gap-2 p-3 text-[13px]`}>
@@ -333,14 +318,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                 </tr>
               </tbody>
             </table>
-            <ul className="hint mt-2 list-disc space-y-0.5 pl-5 text-[11px] text-ink-soft">
-              <li>月平均夜勤時間数は、本来は同じ入院基本料（{WARD_BASE.name}）を届け出ている病棟全体で計算します（別添2 第2 4 (3)オ）。ここは{WARD_NAME}の分だけの試算です。72時間は平均の基準で、1人ずつの上限ではありません。</li>
-              <li>勤務時間には通常の休憩時間を入れ、申し送りの時間は除いていません（除くかは病棟全体で月単位で選ぶ。別添2 第2 4 (3)カ(ホ)、別紙5 の 2．）。年休は入れません。</li>
-              <li>1日に勤務する数は24時間の範囲で傾斜配置でき（別添2 第2 4 (4)イ）、② は月平均で見ます。表の下の「時間÷8」は日ごとの参考です。</li>
-              <li>
-                出典：告示「基本診療料の施設基準等」第五 一 (6)(7)・第五 二 (1) ロ ① 1・2（令和8年厚生労働省告示第70号）、通知「基本診療料の施設基準等及びその届出に関する手続きの取扱いについて」（令和8年3月5日 保医発0305第7号）別添2 第2 4 (2)(3)(4)、別添6 別紙5、別添7 様式9 の記載上の注意。
-              </li>
-            </ul>
+
           </section>
 
           <div className="space-y-4">
@@ -428,3 +406,18 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p>
+            看護師長が月の勤務を入れる画面です。「入れる勤務」を選んでからマスを押すと、その勤務が入ります（夜勤のあとの休みは「明」と出ます。夜勤は翌9:00まで）。入れるたびに、1人ずつの夜勤の回数と夜勤時間帯の時間、様式9の月平均夜勤時間数・看護職員の配置・看護師の比率を、通知の数え方でコードが数えます。夜勤の人数と看護師がいるか、1年目だけの夜勤、登録した組み合わせ、明けの日の勤務は日ごとに確かめ、マスに赤い枠が付きます。
+          </p>
+<p >勤務表はコードも AI も作りません。今月はデモの下書きが入っていて、確認の例が2つ残っています。決めるのは看護師長で、確認が残っていても確定できます。</p>
+<ul >
+              <li>月平均夜勤時間数は、本来は同じ入院基本料（{WARD_BASE.name}）を届け出ている病棟全体で計算します（別添2 第2 4 (3)オ）。ここは{WARD_NAME}の分だけの試算です。72時間は平均の基準で、1人ずつの上限ではありません。</li>
+              <li>勤務時間には通常の休憩時間を入れ、申し送りの時間は除いていません（除くかは病棟全体で月単位で選ぶ。別添2 第2 4 (3)カ(ホ)、別紙5 の 2．）。年休は入れません。</li>
+              <li>1日に勤務する数は24時間の範囲で傾斜配置でき（別添2 第2 4 (4)イ）、② は月平均で見ます。表の下の「時間÷8」は日ごとの参考です。</li>
+              <li>
+                出典：告示「基本診療料の施設基準等」第五 一 (6)(7)・第五 二 (1) ロ ① 1・2（令和8年厚生労働省告示第70号）、通知「基本診療料の施設基準等及びその届出に関する手続きの取扱いについて」（令和8年3月5日 保医発0305第7号）別添2 第2 4 (2)(3)(4)、別添6 別紙5、別添7 様式9 の記載上の注意。
+              </li>
+            </ul>
+*/

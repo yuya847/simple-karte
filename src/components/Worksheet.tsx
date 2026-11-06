@@ -162,9 +162,7 @@ export function Worksheet({ standingMeasurements, remeasureVitals, onMeasure, pe
         <div className="mx-auto max-w-[1100px] rounded-lg border border-rule bg-sheet p-5 shadow-sm">
           <Sheet {...props} onTake={onTake} interactive />
         </div>
-        <p className="hint mx-auto mt-2 max-w-[1100px] text-[11px] text-ink-faint">
-          オーダからコードで集めています（AI は使っていません）。「照合」でリストバンドと薬・検体のラベルを読み（バーコードリーダーはキーボードと同じに入力されます）、患者・薬・時刻をコードが確かめてから実施を記録します。この画面を開く前の分は、前の勤務帯が記録したものとして扱います。点滴のつなぎ替えの時刻は、開始時刻と1日の本数から計算した目安です。
-        </p>
+
       </div>
       {mounted &&
         createPortal(
@@ -385,7 +383,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
 
       <Section title="指示簿の頓用（自由文）">
         {standingFreePrn.length ? <table className="w-full border-collapse"><tbody>{standingFreePrn.map((l) => <tr key={`${l.patientId}-${l.id}`}><td className={`${td} w-28`}>{l.room}　{l.name}</td><td className={`${td} whitespace-pre-wrap`}>{displayText(l.text)}</td></tr>)}</tbody></table> : <Empty>ありません</Empty>}
-        <p className="hint text-ink-faint">指示受け済みの有効な指示です。自由文から薬の量や投与間隔は判定しません。与薬の記録は処方・注射のオーダで行います。</p>
+
       </Section>
       <Section title="時刻の決まっていないもの（必要時・1日N回）">
         {untimed.length === 0 ? (
@@ -456,3 +454,10 @@ function Empty({ children }: { children: React.ReactNode }) {
 function Kind({ kind }: { kind: WorkKind }) {
   return <span className={`rounded px-1 py-px text-[11px] font-bold print:border print:border-ink/40 print:bg-transparent ${KIND_STYLE[kind]}`}>{kind}</span>;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          オーダからコードで集めています（AI は使っていません）。「照合」でリストバンドと薬・検体のラベルを読み（バーコードリーダーはキーボードと同じに入力されます）、患者・薬・時刻をコードが確かめてから実施を記録します。この画面を開く前の分は、前の勤務帯が記録したものとして扱います。点滴のつなぎ替えの時刻は、開始時刻と1日の本数から計算した目安です。
+        </p>
+<p >指示受け済みの有効な指示です。自由文から薬の量や投与間隔は判定しません。与薬の記録は処方・注射のオーダで行います。</p>
+*/

@@ -28,7 +28,6 @@ export function OnshiCheck({
   current,
   onCopy,
   onChecked,
-  compact: _compact,
 }: {
   person: OnshiPerson | null;
   today: CalendarDate;
@@ -97,7 +96,7 @@ export function OnshiCheck({
       )}
       {how === "資格確認書" && (
         <div className="space-y-1">
-          <p className="nums text-ink-soft">照会する番号：保険者番号 {card?.insurerNumber || "—"}・記号 {card?.symbol || "—"}・番号 {card?.number || "—"}・枝番 {card?.branch || "（なし）"}・生年月日 {card?.birthDate || "—"}<span className="hint">（保険の登録の欄に入れた値で照会します）</span></p>
+          <p className="nums text-ink-soft">照会する番号：保険者番号 {card?.insurerNumber || "—"}・記号 {card?.symbol || "—"}・番号 {card?.number || "—"}・枝番 {card?.branch || "（なし）"}・生年月日 {card?.birthDate || "—"}</p>
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={consent.limit} onChange={(e) => setConsent((c) => ({ ...c, limit: e.target.checked }))} disabled={!!locked} />
             限度額の情報の提供に、患者が同意した
@@ -190,7 +189,7 @@ export function OnshiCheck({
                   </tbody>
                 </table>
               )}
-              <p className="mt-0.5 text-[10px] text-ink-faint">レセプトからの情報は診療から10〜40日ほどあとに見られるようになります。電子処方箋の調剤情報は調剤した日から見られます。</p>
+
             </div>
           )}
 
@@ -237,7 +236,7 @@ export function OnshiCheck({
               <button type="button" onClick={() => onCopy?.(copied)} disabled={!!locked} className="rounded-md border border-ai px-2.5 py-1 font-bold text-ai hover:bg-ai-soft disabled:opacity-40">
                 保険の登録の欄に写す
               </button>
-              <span className="hint ml-2 text-[11px] text-ink-soft">写したあと、下の欄を見て「登録」を押します。</span>
+
             </div>
           )}
         </div>
@@ -245,3 +244,12 @@ export function OnshiCheck({
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >（保険の登録の欄に入れた値で照会します）</span>
+<span >写したあと、下の欄を見て「登録」を押します。</span>
+*/
+
+/* ヘルプへ移動した説明:
+レセプトからの情報は診療から10〜40日ほどあとに見られるようになります。電子処方箋の調剤情報は調剤した日から見られます。
+*/

@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { b008Check } from "@/lib/pharmacy";
-import { EMPTY_FORM, SHIDO_SOURCE, kindNotes, shidoFacts, shidoProblems, shidoText, type ShidoForm } from "@/lib/shido";
+import { EMPTY_FORM, kindNotes, shidoFacts, shidoProblems, shidoText, type ShidoForm } from "@/lib/shido";
 import type { DayOffset } from "@/lib/types";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DrugMarks } from "./DrugMarks";
@@ -134,7 +134,7 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
           記録する
         </button>
         {problems.length > 0 && <span className="text-xs text-ink-soft">まだ：{problems.join("・")}</span>}
-        <span className="hint text-xs text-ink-faint">記録はカルテに薬剤師の記事として入り（医師が要点を読める）、その日の薬剤管理指導料（週1回・月4回まで。週は日曜〜土曜）と、麻薬管理指導加算を選んだときはその加算が算定の画面に入ります。</span>
+
       </div>
       {recs.length > 0 && (
         <ul className="space-y-1.5 border-t border-rule-soft pt-2 text-xs">
@@ -150,13 +150,18 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
           ))}
         </ul>
       )}
-      <p className="hint text-[11px] text-ink-faint">
+
+    </section>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<span >記録はカルテに薬剤師の記事として入り（医師が要点を読める）、その日の薬剤管理指導料（週1回・月4回まで。週は日曜〜土曜）と、麻薬管理指導加算を選んだときはその加算が算定の画面に入ります。</span>
+<p >
         出典：
-        <a href={SHIDO_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
+        <a href={SHIDO_SOURCE.url} target="_blank" rel="noreferrer" >
           {SHIDO_SOURCE.label}
         </a>
         。「1」の対象の薬は、電子添文の薬効分類で当てはめたもの。
       </p>
-    </section>
-  );
-}
+*/

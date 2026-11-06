@@ -62,9 +62,13 @@ export function OrderSlipPrint({ ward, patient, day, today, nowTime, by, lines }
           </tbody>
         </table>
       )}
-      <p className="mt-2 text-[8pt]">
-        【修】は同じ薬の中止と新規が同時に出た変更、【止】は中止。指示受け・指示確認の欄は画面で記録した人と時刻（空欄は手で書く）。実施は与薬・実施の記録（ワークシート・経過表）に残します。Simple Karte の試作。
-      </p>
+
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        【修】は同じ薬の中止と新規が同時に出た変更、【止】は中止。指示受け・指示確認の欄は画面で記録した人と時刻（空欄は手で書く）。実施は与薬・実施の記録（ワークシート・経過表）に残します。Simple Karte の試作。
+      </p>
+*/

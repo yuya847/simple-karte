@@ -33,7 +33,7 @@ export function UlcerBoard({ pick, ulcers, where, fmtDay, onOpen }: { pick: Pick
           治癒したものも出す
         </label>
       </header>
-      <p className="hint mb-2 text-xs text-ink-soft">各患者の「褥瘡の経過」（カルテの右端の看護）の記録から、コードで並べています。名前を押すとカルテの褥瘡の経過が開きます。</p>
+
       {rows.length === 0 ? (
         <p className="rounded-lg border border-rule bg-sheet p-4 text-sm text-ink-soft">この階に褥瘡のある患者はいません（記録の上で）。</p>
       ) : (
@@ -82,10 +82,15 @@ export function UlcerBoard({ pick, ulcers, where, fmtDay, onOpen }: { pick: Pick
           </tbody>
         </table>
       )}
-      <p className="mt-2 text-[11px] text-ink-faint">合計点は深さを除いた6項目の点数の和で、小さいほど軽い状態です。写真は記録に入れた縮小画像で、このデモの写真は図形で描いた見本です。</p>
+
       <div className="mt-2">
         <Sources />
       </div>
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >各患者の「褥瘡の経過」（カルテの右端の看護）の記録から、コードで並べています。名前を押すとカルテの褥瘡の経過が開きます。</p>
+<p >合計点は深さを除いた6項目の点数の和で、小さいほど軽い状態です。写真は記録に入れた縮小画像で、このデモの写真は図形で描いた見本です。</p>
+*/

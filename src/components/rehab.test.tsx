@@ -48,7 +48,7 @@ describe("リハビリテーション部", () => {
     expect(html).not.toContain("07:00");
     expect(html).toContain('class="mr-2 font-bold text-shu">HR 120/分');
     expect(html).toContain('class="mr-2">BP 90/60mmHg');
-    expect(html).toContain("判断は療法士");
+    expect(html).not.toContain("判断は療法士");
     expect(renderToStaticMarkup(<RehabVitals caution="" vitals={[{ day: -1, time: "23:00", hr: 140 }]} />)).toContain("今日のバイタル：測定記録なし");
   });
   it("the 実施計画書 has the items of 別紙様式21 and is made by a doctor", () => {

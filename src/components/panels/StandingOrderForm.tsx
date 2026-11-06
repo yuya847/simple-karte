@@ -5,7 +5,7 @@ import { addDays, daysFrom, isoDate, type CalendarDate } from "@/lib/dates";
 import { periodText } from "@/lib/standing-calendar";
 import { useState } from "react";
 import { HOSPITAL_LINE_TEMPLATES, LINE_CATS, currentLines, categoryFromTitle, standingTitle, newestLines, linesFromFields, loadMyTemplates, saveMyTemplates, templateProblems, type LineCat, type LineTemplate, type StandingLine } from "@/lib/standing-lines";
-import { CATEGORY_LABELS, STANDING_SOURCES } from "@/lib/standing-form";
+import { CATEGORY_LABELS } from "@/lib/standing-form";
 import type { StandingOrders } from "@/lib/standing";
 import { CosignMark } from "../Cosign";
 import { standingLineRef } from "@/lib/standing-cosign";
@@ -81,12 +81,12 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
         <div className="flex flex-wrap gap-2"><button type="button" onClick={reset}>クリア</button>{ending && <label>終了日<input aria-label="終了する日" type={today ? "date" : "number"} value={dateValue(endDay)} onChange={(e) => e.target.value && setEndDay(parseDay(e.target.value))} /></label>}{ending && selected ? <button type="button" disabled={!canOrder || endDay < selected.start.day || (selected.end !== undefined && endDay > selected.end.day)} onClick={() => { onStop(selected.id, reason, endDay, "終了"); reset(); }}>終了を確定</button> : <button type="button" disabled={!canOrder || !text.trim() || (until !== undefined && until < startDay) || (!!selected && (selected.start.day > 0 || !currentLines(lines).some((l) => l.id === selected.id)))} onClick={save} className="rounded bg-ai px-4 py-2 font-bold text-white disabled:opacity-40">{selected ? "変更を確定" : "保存する"}</button>}
         {selected && <button type="button" disabled={!canOrder || (!active && !currentLines(lines).some((l) => l.id === selected.id))} onClick={() => { onStop(selected.id, reason); reset(); }} className="rounded border border-shu px-3 py-2 text-shu disabled:opacity-40">中止</button>}</div>
       </>}
-      <p className="hint text-ink-faint">医師が直して確定します。スライディングスケールは注射オーダのスケールと合わせてください。変更前の行は変更履歴に残ります。終了日と理由を確認して確定してください。自由文の薬の量・間隔・アレルギーは自動で確認しません。Dr.call は医師への連絡です。</p>
+
       <button type="button" aria-expanded={templates} onClick={() => setTemplates(!templates)} className="rounded border border-rule px-3 py-2">テンプレート</button>
       {templates && <div className="space-y-2 rounded border border-rule p-2">
-        <p className="hint text-ink-faint">自分のテンプレートは、利用者ごとにこの端末のみに保存されます。</p>
+
         <div className="max-h-72 space-y-1 overflow-y-auto">{[...mine, ...HOSPITAL_LINE_TEMPLATES].filter((t) => !selected || t.cat === selected.cat).map((t) => <button key={t.id} type="button" disabled={!canOrder || !!selected?.fromFields} onClick={() => { pick(t.cat, t.text); setTemplates(false); }} className="block w-full border-b border-rule-soft p-1 text-left hover:bg-ai-soft"><span className="text-ink-faint">{CATEGORY_LABELS[t.cat] ?? t.cat}：</span>{displayText(standingTitle(t.text))}</button>)}</div>
-        {STANDING_SOURCES.map((s) => <p key={s.url} className="hint"><a href={s.url} target="_blank" rel="noreferrer" className="underline">{s.label}</a></p>)}
+
       </div>}
       <button type="button" disabled={!canOrder || !text} onClick={() => { const errors = templateProblems(cat, text, mine); if (errors.length) return setNotice(errors.join(" ")); const next = [...mine, { id: newId(), cat, text }]; setMine(next); setNotice(saveMyTemplates(me.name, next) ? "自分のテンプレートに保存しました。" : "端末に保存できません。ページを閉じるまで使えます。"); }} className="block text-ai disabled:opacity-40">この文を自分のテンプレートに保存</button>
       {notice && <p role="status">{notice}</p>}
@@ -94,3 +94,9 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
     </section>
   </div>;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >医師が直して確定します。スライディングスケールは注射オーダのスケールと合わせてください。変更前の行は変更履歴に残ります。終了日と理由を確認して確定してください。自由文の薬の量・間隔・アレルギーは自動で確認しません。Dr.call は医師への連絡です。</p>
+<p >自分のテンプレートは、利用者ごとにこの端末のみに保存されます。</p>
+<p key={s.url} ><a href={s.url} target="_blank" rel="noreferrer" >{s.label}</a></p>
+*/

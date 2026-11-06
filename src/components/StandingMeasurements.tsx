@@ -7,5 +7,9 @@ export function StandingMeasurements({ source, day, label, from = '00:00', to = 
   if (!source) return null;
   const times = standingMeasurementPlan(source.lines, source.fields, day).filter(t => t >= from && t <= to);
   if (!times.length) return null;
-  return <div className="my-1 text-xs text-ink-soft">{label && `${label}　`}バイタル測定予定：{times.join('・')}<span className="hint">1日1回は10時、1日3回は6・14・22時、2時間・4時間ごとは0時から数えます。実施済みの印ではありません。</span></div>;
+  return <div className="my-1 text-xs text-ink-soft">{label && `${label}　`}バイタル測定予定：{times.join('・')}</div>;
 }
+
+/* Help migration source (references and dynamic wording):
+<span >1日1回は10時、1日3回は6・14・22時、2時間・4時間ごとは0時から数えます。実施済みの印ではありません。</span>
+*/

@@ -113,10 +113,12 @@ export function BillPanel({ claim, bill, insurance, month }: { claim: ClaimResul
             食事療養費 {yen(meals.ryoyoYen)}（病院が受け取る額）のうち、患者の負担は標準負担額 {yen(meals.futanYen)}。残りは保険から払われます。
           </p>
         </div>
-        <p className="text-[11px] text-ink-faint">
-          計算は医療機関の窓口の分だけです（同じ月の他の医療機関や世帯の合算、月をまたぐ多数回該当は、あとで保険者が払い戻します）。
-        </p>
+
       </section>
     </div>
   );
 }
+
+/* ヘルプへ移動した説明:
+計算は医療機関の窓口の分だけです（同じ月の他の医療機関や世帯の合算、月をまたぐ多数回該当は、あとで保険者が払い戻します）。
+*/

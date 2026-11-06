@@ -1,12 +1,12 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
-import { BookOpenText, ClipboardList, FilePen, HelpCircle, ListChecks, Microscope } from "lucide-react";
+import { ClipboardList, FilePen, HelpCircle, ListChecks, Microscope } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { useHints } from "@/lib/hints";
+import { openHelp } from "@/lib/help/events";
 import { PATH_RULES, PATH_STEPS, caseTitle, daysIn, nextNumber, nextStep, pathResultItems, pathStatus, reportProblems, versionOf, type PathCase, type PathStatus } from "@/lib/pathology";
 import type { Ack } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
@@ -29,11 +29,7 @@ const TABS: { key: Tab; label: string; icon: typeof Microscope }[] = [
   { key: "list", label: "結果の一覧", icon: ListChecks },
 ];
 
-const GUIDE: Record<Tab, string> = {
-  work: "医師がカルテの「病理」から出した依頼が並びます。検体が届いたら「受付」で受付番号をコードが付けます。そのあとは、種類ごとの工程（組織診：切り出し → 標本作製 → 鏡検、細胞診：標本作製 → 鏡検、術中迅速：凍結切片作製 → 鏡検）を、終わるたびに記録します（誰がいつ）。",
-  report: "鏡検まで済んだ検体の報告書を、病理医（医師）が書きます。病理診断・所見・コメントを書いて確定すると、主治医のカルテの「未確認の結果」に出ます。術中迅速と「重要な所見」は、術者・主治医に直接伝えた相手と時刻も残します。確定した報告書は、理由を書いて訂正・追加報告できます（前の版は残ります）。",
-  list: "すべての依頼と、報告書を主治医が読んだか（誰がいつ）が並びます。受付からの日数はコードが数えます。",
-};
+
 
 const STATUS_STYLE: Record<PathStatus, string> = { 受付待ち: "text-ink-soft", 工程中: "font-bold text-ai", 報告待ち: "font-bold text-yamabuki", 報告済み: "text-wakatake" };
 const card = "rounded-lg border border-rule bg-sheet";
@@ -42,14 +38,11 @@ const field = "rounded border border-rule bg-paper px-1.5 py-0.5 outline-none fo
 /** 病理: the requests, the technologists' steps, the pathologist's report, and who read it. */
 export function PathologyView(p: Props) {
   const [tab, setTab] = useState<Tab>("work");
-  const [hintsOn] = useHints();
-  const [guideSet, setGuide] = useState<boolean | null>(null);
-  const guide = guideSet ?? hintsOn;
   const waiting = p.cases.filter((c) => pathStatus(c) === "受付待ち" || pathStatus(c) === "工程中").length;
   const toReport = p.cases.filter((c) => pathStatus(c) === "報告待ち").length;
   const badge: Partial<Record<Tab, number>> = { work: waiting, report: toReport };
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div data-help-section={`department:path:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <Microscope size={17} />
@@ -71,21 +64,12 @@ export function PathologyView(p: Props) {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => openHelp(`department:path:${tab}`)} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>
       </div>
-      {guide && (
-        <div className="border-b border-rule bg-ai-soft/40 px-5 py-2 text-[12px]">
-          <p className="mb-1 flex items-center gap-1 font-bold text-ai">
-            <BookOpenText size={14} />
-            使い方：{TABS.find((t) => t.key === tab)?.label}
-          </p>
-          <p className="text-ink">{GUIDE[tab]}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">受付と工程は「臨床検査技師」で、報告書は「医師」（病理医として）で操作します（右上の「自分」。デモではログインの代わり）。依頼はカルテの右端「オーダ › その他 › 病理」から出します。</p>
-        </div>
-      )}
+
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
         <div className="mx-auto max-w-[1100px] space-y-3">
           {tab === "work" && <Work {...p} />}
@@ -335,3 +319,7 @@ function List({ people, cases, acks, nowTime }: Props) {
     </table>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >受付と工程は「臨床検査技師」で、報告書は「医師」（病理医として）で操作します（右上の「自分」。デモではログインの代わり）。依頼はカルテの右端「オーダ › その他 › 病理」から出します。</p>
+*/

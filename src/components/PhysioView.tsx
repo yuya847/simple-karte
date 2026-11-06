@@ -3,10 +3,10 @@ import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
 
-import { BookOpenText, ClipboardList, FilePen, HeartPulse, HelpCircle, ListChecks } from "lucide-react";
+import { ClipboardList, FilePen, HeartPulse, HelpCircle, ListChecks } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
-import { useHints } from "@/lib/hints";
+import { openHelp } from "@/lib/help/events";
 import { ENDOSCOPY, derivedValues, fieldsOf, physioResultItems, physioRows, reportProblems, valuesLine, versionOf, type PhysioDesk, type PhysioRow, type PhysioStatus, type PhysioWork } from "@/lib/physio-desk";
 import type { Ack } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
@@ -28,11 +28,7 @@ const TABS: { key: Tab; label: string; icon: typeof HeartPulse }[] = [
   { key: "list", label: "結果の一覧", icon: ListChecks },
 ];
 
-const GUIDE: Record<Tab, string> = {
-  work: "医師が出した生理検査（心電図・心エコー・呼吸機能・ABI・ホルター・エコー・脳波）が、至急・予約の時刻の順に並びます。来室したら（ベッドサイドは向かうとき）「受付」、終わったら「実施した」。できなかったときは理由を書いて残します。内視鏡は内視鏡室で行うので、ここには出ません。",
-  report: "実施した検査の主な数値と、所見・まとめを入れて確定します。1秒率（FEV1/FVC）と ABI はコードが式つきで計算します。打ち間違いと思われる値（入力できる範囲の外）は止まります。確定すると、オーダした医師のカルテの「未確認の結果」に出ます。確定したレポートは理由を書いて訂正でき、前の版は残ります。",
-  list: "今日の前後の生理検査と、レポートを医師が読んだか（誰がいつ）が並びます。",
-};
+
 
 const STATUS_STYLE: Record<PhysioStatus, string> = { 予約: "text-ink-soft", 受付済み: "font-bold text-ai", 実施済み: "font-bold text-yamabuki", 報告済み: "text-wakatake", 実施できなかった: "font-bold text-shu" };
 const card = "rounded-lg border border-rule bg-sheet";
@@ -47,13 +43,10 @@ const whenText = (a: number) => {
 /** 生理検査室: taking in, doing and reporting the physiological tests doctors ordered. */
 export function PhysioView(p: Props) {
   const [tab, setTab] = useState<Tab>("work");
-  const [hintsOn] = useHints();
-  const [guideSet, setGuide] = useState<boolean | null>(null);
-  const guide = guideSet ?? hintsOn;
   const rows = physioRows(p.people, p.desk);
   const badge: Partial<Record<Tab, number>> = { work: rows.filter((r) => r.status === "予約" || r.status === "受付済み").length, report: rows.filter((r) => r.status === "実施済み").length };
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div data-help-section={`department:physio:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <HeartPulse size={17} />
@@ -75,21 +68,12 @@ export function PhysioView(p: Props) {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => openHelp(`department:physio:${tab}`)} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>
       </div>
-      {guide && (
-        <div className="border-b border-rule bg-ai-soft/40 px-5 py-2 text-[12px]">
-          <p className="mb-1 flex items-center gap-1 font-bold text-ai">
-            <BookOpenText size={14} />
-            使い方：{TABS.find((t) => t.key === tab)?.label}
-          </p>
-          <p className="text-ink">{GUIDE[tab]}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。オーダは医師がカルテの「生理・内視鏡」から出し、レポートは医師がカルテの右端「参照 › 病理・生理」で読みます。</p>
-        </div>
-      )}
+
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
         <div className="mx-auto max-w-[1100px] space-y-3">
           <DenyNote action="physio.exam" />
@@ -338,3 +322,7 @@ function List({ rows, desk, acks }: Props & { rows: PhysioRow[] }) {
     </table>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。オーダは医師がカルテの「生理・内視鏡」から出し、レポートは医師がカルテの右端「参照 › 病理・生理」で読みます。</p>
+*/

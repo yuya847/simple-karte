@@ -82,7 +82,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
           <ClipboardList size={17} />
           入院時の評価（令和8年度の要件）
         </h2>
-        <span className="hint text-xs text-ink-soft">期限は入院日を1日目として、コードで数えます。書くのは各職種、AI は使いません。</span>
+
       </header>
       <table ref={tableRef} className="w-full border-collapse text-[12px]">
         <thead>
@@ -150,7 +150,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
           hints={hints[sel.pid]}
         /></div>
       )}
-      {!sel && <p className="hint mt-3 text-xs text-ink-faint">表の枠を押すと、その項目を書く欄が出ます。太字の列が、いまの職種が書く項目です。</p>}
+
     </div>
   );
 }
@@ -165,7 +165,7 @@ function Detail({ w, ev, item, today, nowTime, onSave, hints, onBack }: { onBack
         {w.room} {w.patient.name}さん：{due.label}
         <button type="button" onClick={onBack} className="ml-3 rounded border border-rule px-2 py-0.5 text-xs font-normal text-ai">表に戻る</button>
       </h3>
-      <p className="hint mb-2 text-[11px] text-ink-faint">根拠：{displayText(due.source)}</p>
+
       {due.note && <p className="mb-2 text-xs text-yamabuki">{displayText(due.note)}</p>}
       <DenyNote action={col.action} className="mb-2" />
       <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
@@ -175,7 +175,7 @@ function Detail({ w, ev, item, today, nowTime, onSave, hints, onBack }: { onBack
         {item === "fall" && <ChecklistForm kind="fall" ev={ev} nowTime={nowTime} onSave={onSave} suggested={hints?.fall ?? []} why={hints?.why} />}
         {item === "delirium" && <ChecklistForm kind="delirium" ev={ev} nowTime={nowTime} onSave={onSave} suggested={[...new Set([...suggestions(w.patient, !!ev.emergency).delirium, ...(hints?.delirium ?? [])])]} why={hints?.why} />}
         {(item === "discharge" || item === "talk" || item === "conference") && <DischargeForm w={w} ev={ev} nowTime={nowTime} today={today} onSave={onSave} hints={hints} />}
-        {!hints && (item === "pressure" || item === "fall" || item === "delirium" || item === "discharge") && <p className="hint mt-2 text-[11px] text-ink-faint">入院時の情報収集（右端のツール「情報収集」）を書くと、答えから当てはまりそうな項目がここに候補として入ります。</p>}
+
       </fieldset>
     </section>
   );
@@ -282,7 +282,7 @@ function NutritionForm({ w, ev, today, nowTime, onSave, start }: { w: WorkPatien
   return (
     <div className="space-y-2 text-xs text-ink-soft">
       <p className="nums">
-        身長 {p.heightCm} cm・体重 {p.weightKg} kg・BMI {bmi.toFixed(1)}<span className="hint">（コードで計算）</span>　{p.dietNow ? `いまの食事：${p.dietNow}` : ""}
+        身長 {p.heightCm} cm・体重 {p.weightKg} kg・BMI {bmi.toFixed(1)}　{p.dietNow ? `いまの食事：${p.dietNow}` : ""}
       </p>
       {cur && (
         <p className="nums text-ink">
@@ -519,7 +519,7 @@ function ChecklistForm({ kind, ev, nowTime, onSave, suggested, why = {} }: { kin
       )}
       {kind === "fall" && checked.length > 0 && (
         <label className="block text-ink-soft">
-          対策<span className="hint">（院内の取り決めで、危険度の点数は付けません）</span>
+          対策
           <textarea value={plan} onChange={(e) => setPlan(e.target.value)} rows={2} className={`mt-0.5 w-full ${input} text-[13px]`} />
         </label>
       )}
@@ -613,3 +613,12 @@ function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatien
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >期限は入院日を1日目として、コードで数えます。書くのは各職種、AI は使いません。</span>
+<p >表の枠を押すと、その項目を書く欄が出ます。太字の列が、いまの職種が書く項目です。</p>
+<p >根拠：{displayText(due.source)}</p>
+<p >入院時の情報収集（右端のツール「情報収集」）を書くと、答えから当てはまりそうな項目がここに候補として入ります。</p>
+<span >（コードで計算）</span>
+<span >（院内の取り決めで、危険度の点数は付けません）</span>
+*/

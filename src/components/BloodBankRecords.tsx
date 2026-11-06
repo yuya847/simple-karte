@@ -183,21 +183,25 @@ export function BloodRecords({ bank, people, today }: BloodBankProps) {
           ))}
         </tbody>
       </table>
-      <div className="hint rounded-md border border-rule bg-sheet p-3 text-[11px] text-ink-soft">
+
+    </section>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<div >
         <p>{BLOOD_RULES.records}</p>
-        <p className="mt-1">
+        <p >
           出典：
           {[BLOOD_SOURCES.law, BLOOD_SOURCES.rule, BLOOD_SOURCES.guide].map((s, i) => (
             <span key={s.url}>
               {i > 0 && "／"}
-              <a href={s.url} target="_blank" rel="noreferrer" className="text-ai underline">
+              <a href={s.url} target="_blank" rel="noreferrer" >
                 {s.label}
               </a>
             </span>
           ))}
         </p>
-        <p className="mt-1">この試作の記録はこのブラウザ（設定すれば記録の保存先）にあり、20年の保存はしていません。保存の期限はコードが使用した日から数えて出します。</p>
+        <p >この試作の記録はこのブラウザ（設定すれば記録の保存先）にあり、20年の保存はしていません。保存の期限はコードが使用した日から数えて出します。</p>
       </div>
-    </section>
-  );
-}
+*/

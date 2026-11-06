@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { NOTICE_FOCUS_EVENT } from "@/lib/notice-focus";
 import { BellRing, CalendarClock, History, Megaphone, Phone, PhoneCall, Siren, StickyNote, Tags } from "lucide-react";
 import { useEffect, useState } from "react";
-import { CALL_KINDS, CALL_REASONS, EMERGENCY_KINDS, PASS_ON_SECONDS, RESCUE, SENSORS, callCounts, callState, callTarget, evacuation, teamOf, type BedInfo, type CallKind, type CallNote, type Contact, type Emergency, type NurseCall, type PhsNotice, type Rescue, type Sensor } from "@/lib/phs";
+import { CALL_KINDS, CALL_REASONS, EMERGENCY_KINDS, RESCUE, SENSORS, callCounts, callState, callTarget, evacuation, teamOf, type BedInfo, type CallKind, type CallNote, type Contact, type Emergency, type NurseCall, type PhsNotice, type Rescue, type Sensor } from "@/lib/phs";
 import type { WorkPatient } from "@/lib/worksheet";
 import { useMe } from "./RoleContext";
 
@@ -182,7 +182,7 @@ export function PhsView(p: Props) {
                 <button type="button" disabled={!ringBed} onClick={() => p.onRing(ringBed, ringKind)} className="rounded border border-shu px-2 py-0.5 font-bold text-shu disabled:opacity-40">
                   鳴らす
                 </button>
-                <span className="w-full text-ink-faint">担当の看護師へ。{PASS_ON_SECONDS}秒ごとに応答がなければ、同じチーム → 病棟リーダー → 全員の順に回します（呼出スライド<span className="hint">。院内の取り決め</span>）。センサーは「ベッドの情報」で付けたベッドだけが鳴ります。</span>
+
               </div>
               {p.calls.length === 0 && <p className="text-sm text-ink-faint">いま鳴っているナースコールはありません。</p>}
               {[...p.calls].reverse().map((c) => {
@@ -297,7 +297,7 @@ export function PhsView(p: Props) {
 
           {tab === "beds" && (
             <div className="space-y-2 text-[13px]">
-              <p className="text-xs text-ink-soft">患者情報管理：看護師がベッドごとに救護区分（火災のときの避難の仕方）とつないだセンサーを登録します。呼出や火災のときの一覧に使います。</p>
+
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-rule text-left text-ink-soft">
@@ -413,7 +413,7 @@ export function PhsView(p: Props) {
               {p.calls.length === 0 && <p className="text-ink-faint">まだ呼出はありません。</p>}
             </div>
           )}
-          <p className="text-[11px] text-ink-faint">ナースコールと院内連絡は補助の手段です。モニタなど医療機器の警報は機器そのものを主に使い、通知だけで判断せず、患者を直接確かめます。患者の注意（転倒・隔離・アレルギー・身体的拘束・DNAR など）はカルテからコードで集めています。機器とはつながっていません（試作）。</p>
+
         </section>
 
         {/* 緊急通報 */}
@@ -510,3 +510,13 @@ export function PhsView(p: Props) {
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >。院内の取り決め</span>
+<p >患者情報管理：看護師がベッドごとに救護区分（火災のときの避難の仕方）とつないだセンサーを登録します。呼出や火災のときの一覧に使います。</p>
+<p >ナースコールと院内連絡は補助の手段です。モニタなど医療機器の警報は機器そのものを主に使い、通知だけで判断せず、患者を直接確かめます。患者の注意（転倒・隔離・アレルギー・身体的拘束・DNAR など）はカルテからコードで集めています。機器とはつながっていません（試作）。</p>
+*/
+
+/* ヘルプへ移動した説明:
+担当の看護師へ。 秒ごとに応答がなければ、同じチーム → 病棟リーダー → 全員の順に回します（呼出スライド）。センサーは「ベッドの情報」で付けたベッドだけが鳴ります。
+*/

@@ -8,7 +8,7 @@ import { ExternalLink } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { NOT_DONE_REASONS, marKey, type AdminRecord, type NotDoneReason } from "@/lib/mar";
+import { NOT_DONE_REASONS,marKey,type AdminRecord,type NotDoneReason } from "@/lib/mar";
 import { EMPTY_STAMP, EXECUTE_DAYS, EXECUTE_NOTE, canExecuteOn, categoryOfWork, dayWindow, executeRecord, executeState, momentLabel, orderFields, SHEET_CATEGORIES, startLabel, takeStampOf, timeOfAbs, workTitle, type SheetCategory, type SheetField, type Stamp } from "@/lib/order-sheet";
 import { WARD_NAME } from "@/lib/ward";
 import { buildWorksheet, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
@@ -150,9 +150,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
       </SheetBand>
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px] space-y-5">
-          <p className="hint text-[11px] text-ink-soft">
-            その日の予定（注射・内服・処置・採血・検査）を患者ごとに、時刻の順に出します。実施したら「実施した」を押し、時刻（最初はいま。打ち直せます）と実施者を入れて記録します。左の○にチェックして「一括実施」で、いまの時刻でまとめて記録できます（今日の分だけ）。この画面ではリストバンドとラベルを読みません。読んで実施するときはワークシートの「照合」を使います。◀ ▶ で前後の日に動けます（実施を入れられるのは今日と昨日、明日は見るだけ）。
-          </p>
+
 
           {list.length === 0 ? (
             <p className="rounded-lg border border-rule bg-sheet px-4 py-3 text-[12px] text-ink-faint">{items.length ? "この日の予定はすべて記録しています。「実施済みも表示する」で見られます。" : "この日に時刻の決まった予定はありません。"}</p>
@@ -225,7 +223,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
                                   <button type="button" onClick={() => setOpen(null)} className="text-ink-soft underline">
                                     やめる
                                   </button>
-                                  <span className="w-full text-[10px] text-ink-faint">{EXECUTE_NOTE}。予定の時刻と60分より離れていると、ずれを記録に残します<span className="hint">（病棟の取り決め）</span>。</span>
+                                  <span className="w-full text-[10px] text-ink-faint">{EXECUTE_NOTE}。予定の時刻と60分より離れていると、ずれを記録に残します。</span>
                                 </div>
                               ) : (
                                 <button type="button" onClick={() => openFor(i)} className="rounded border border-ai px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai hover:text-white">
@@ -244,7 +242,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
           )}
 
           <SheetNotes>
-            <p>実施の記録はワークシート・経過表と同じもの（与薬・実施の記録）に書きます。この画面から入れた記録には「{EXECUTE_NOTE}」と残り、監査ログにはリストバンド・ラベルの一致が「—」と出ます。点滴は開始として記録し、終了（残量）はワークシートで入れます。実施を入れられるのは今日と昨日の分だけで、この画面を開く前の時刻の予定は前の勤務帯が記録したものとして扱います。</p>
+
           </SheetNotes>
         </div>
       </div>
@@ -261,3 +259,14 @@ function groupBy(items: WorkItem[]): { patientId: string; room: string; name: st
   }
   return out.sort((a, b) => a.room.localeCompare(b.room));
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+            その日の予定（注射・内服・処置・採血・検査）を患者ごとに、時刻の順に出します。実施したら「実施した」を押し、時刻（最初はいま。打ち直せます）と実施者を入れて記録します。左の○にチェックして「一括実施」で、いまの時刻でまとめて記録できます（今日の分だけ）。この画面ではリストバンドとラベルを読みません。読んで実施するときはワークシートの「照合」を使います。◀ ▶ で前後の日に動けます（実施を入れられるのは今日と昨日、明日は見るだけ）。
+          </p>
+<span >（病棟の取り決め）</span>
+*/
+
+/* ヘルプへ移動した説明:
+実施の記録はワークシート・経過表と同じもの（与薬・実施の記録）に書きます。この画面から入れた記録には「 」と残り、監査ログにはリストバンド・ラベルの一致が「—」と出ます。点滴は開始として記録し、終了（残量）はワークシートで入れます。実施を入れられるのは今日と昨日の分だけで、この画面を開く前の時刻の予定は前の勤務帯が記録したものとして扱います。
+*/

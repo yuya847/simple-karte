@@ -99,8 +99,12 @@ export function BedsidePanel({ b }: { b: BedsideInfo }) {
         <Printer size={14} />
         印刷する（ベッドの横の掲示に）
       </button>
-      <p className="text-[11px] text-ink-faint">カルテからコードで作っています。ベッドの横は面会の人も見るので、病名・蘇生の方針（DNAR など）・感染症の名前は出しません。端末につなぐ機能はありません（試作）。</p>
+
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[10mm] print:block"><Board b={b} /></div>, document.body)}
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >カルテからコードで作っています。ベッドの横は面会の人も見るので、病名・蘇生の方針（DNAR など）・感染症の名前は出しません。端末につなぐ機能はありません（試作）。</p>
+*/

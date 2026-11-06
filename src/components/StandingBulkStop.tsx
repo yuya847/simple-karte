@@ -24,7 +24,11 @@ export function StandingBulkStop({ lines, ids, today, onConfirm, onClear }: { li
       <button type="button" onClick={() => { const next = standingStopDraft(lines, draft.ids, draft.day, draft.reason); if (next.ids.length) onConfirm({ ...next, kind: draft.kind }); setDraft(null); onClear(); }} className="mt-2 rounded bg-shu px-3 py-1 text-white">{kind}を確定</button>
       <button type="button" onClick={() => setDraft(null)} className="ml-2">下書きを取り消す</button>
     </div>}
-    <p className="hint w-full text-ink-faint">選択した行の終了日と理由を確認して確定します。項目で選ぶ指示は、各行の「指示を終了」から1件ずつ終了します。</p>
+
     {!!ids.length && eligible.ids.length !== ids.length && <p className="w-full text-yamabuki">{kind}日が有効期間内の指示だけを{kind}します（{eligible.ids.length}件）。</p>}
   </div>;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >選択した行の終了日と理由を確認して確定します。項目で選ぶ指示は、各行の「指示を終了」から1件ずつ終了します。</p>
+*/

@@ -23,7 +23,7 @@ import {
   type MasterKind,
 } from "@/lib/master-local";
 import type { Action } from "@/lib/roles";
-import { Fictional, Sources, SubTabs } from "./DeskParts";
+import { Sources, SubTabs } from "./DeskParts";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 const ACTION: Record<MasterKind, Action> = { 注射薬: "master.drug", 内服薬: "master.drug", 検体検査: "master.lab", 処置: "master.proc" };
@@ -108,13 +108,8 @@ export function MasterView({ nowTime, newId }: { nowTime: string; newId: () => s
         </label>
         <span className="text-[12px] text-ink-soft">{changedCount ? `院内で変えた品目 ${changedCount}件` : "変えた品目はありません（初めの状態）"}</span>
       </div>
-      <p className="hint text-[12px] text-ink-soft">
-        「変える」で採用・院内名・表示順・中止を変え、理由を書いて保存します。中止と非採用の品目はオーダの一覧から外れ、下書きにあると確定できません。院内名と表示順はオーダの一覧に出ます（もう出したオーダは、出したときの名前のまま）。表示順は小さいほど上で、初めは 10・20・30… なので、間に入れられます。
-      </p>
-      <p className="hint text-[12px] text-ink-soft">
-        変えたことは、元のマスタのファイルを書き換えずに、その日の記録（記録の保存が設定されているときは Supabase）に履歴として残ります。
-        <Fictional text="院内の取り決め" />
-      </p>
+
+
       <DenyNote action={action} />
 
       <table className="w-full border-collapse bg-sheet text-[12px]">
@@ -246,3 +241,13 @@ function EditForm({ form, onForm, problem, onSave, onReset, onCancel }: { form: 
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        「変える」で採用・院内名・表示順・中止を変え、理由を書いて保存します。中止と非採用の品目はオーダの一覧から外れ、下書きにあると確定できません。院内名と表示順はオーダの一覧に出ます（もう出したオーダは、出したときの名前のまま）。表示順は小さいほど上で、初めは 10・20・30… なので、間に入れられます。
+      </p>
+<p >
+        変えたことは、元のマスタのファイルを書き換えずに、その日の記録（記録の保存が設定されているときは Supabase）に履歴として残ります。
+        <Fictional text="院内の取り決め" />
+      </p>
+*/

@@ -131,9 +131,7 @@ export function LiaisonView({
         {tab === "unanswered" && <Unanswered rows={late} waiting={rows.filter((r) => r.state === "先方の返書待ち" && (r.days ?? 0) >= 30)} day={day} locked={locked} onReply={sendReply} />}
         {tab === "rate" && <Rates periods={periods} visits={visits} rows={rows} />}
         {tab === "master" && <Master rows={rows} period={periods[0]} />}
-        <p className="text-[11px] text-ink-faint">
-          今日より前の台帳と外来の数は日付から作った記録（同じ日付なら毎回同じ）で、今日の分は外来・救急外来の受付と、カルテの退院サマリで発行した紹介状から入ります。連携室が記録した返書・選んだ医療機関・足した行は、このブラウザの中にあり、監査ログに残ります。返書の文を書くのは担当医です。
-        </p>
+
       </div>
     </section>
   );
@@ -269,9 +267,7 @@ function Ledger({
           }}
         />
       )}
-      <p className="hint text-[11px] text-ink-soft">
-        紹介を受けた患者は、受診してから返書（受診の報告）の期限を数えます。返書を送ったら「方法を選ぶ」→「返書を送った」。逆紹介は、紹介先からの返書を受け取ったら記録します。マスタにない医療機関は「マスタから選ぶ」で選ぶと、紹介割合・逆紹介割合に数えられます。
-      </p>
+
       <table className="w-full min-w-[980px] border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -494,7 +490,7 @@ function Unanswered({ rows, waiting, day, locked, onReply }: { rows: LedgerRow[]
       </section>
       <section>
         <h2 className="mb-1 font-bold">逆紹介で、紹介先からの返書が30日以上ないもの {waiting.length}件</h2>
-        <p className="hint mb-2 text-[11px] text-ink-soft">30日は、問い合わせるかを考える目安として出しています。</p>
+
         {table(waiting, "ありません。")}
       </section>
     </>
@@ -587,7 +583,7 @@ function Rates({ periods, visits, rows }: { periods: Period[]; visits: Parameter
             </li>
           ))}
         </ul>
-        <p className="mt-1 text-ink-soft">架空総合病院は一般病床134床（200床未満）なので、どちらの対象でもありません。ここでは参考として計算しています。基準に当たるかを判断するのは人です。</p>
+
       </div>
       <Sources items={REFERRAL_RATE_SOURCES} />
     </>
@@ -598,7 +594,7 @@ function Master({ rows, period }: { rows: LedgerRow[]; period: Period }) {
   const inMonth = rows.filter((r) => (r.ref.visitDay ?? r.ref.letterDay) >= period.from && (r.ref.visitDay ?? r.ref.letterDay) <= period.to);
   return (
     <>
-      <p className="text-[12px] text-ink-soft">連携先の医療機関（電話・FAX は 000 の番号です）。「特別の関係」の医療機関からの紹介とそこへの逆紹介は、紹介割合・逆紹介割合に数えません。</p>
+
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -633,3 +629,15 @@ function Master({ rows, period }: { rows: LedgerRow[]; period: Period }) {
     </>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          今日より前の台帳と外来の数は日付から作った記録（同じ日付なら毎回同じ）で、今日の分は外来・救急外来の受付と、カルテの退院サマリで発行した紹介状から入ります。連携室が記録した返書・選んだ医療機関・足した行は、このブラウザの中にあり、監査ログに残ります。返書の文を書くのは担当医です。
+        </p>
+<p >
+        紹介を受けた患者は、受診してから返書（受診の報告）の期限を数えます。返書を送ったら「方法を選ぶ」→「返書を送った」。逆紹介は、紹介先からの返書を受け取ったら記録します。マスタにない医療機関は「マスタから選ぶ」で選ぶと、紹介割合・逆紹介割合に数えられます。
+      </p>
+<p >30日は、問い合わせるかを考える目安として出しています。</p>
+<p >架空総合病院は一般病床134床（200床未満）なので、どちらの対象でもありません。ここでは参考として計算しています。基準に当たるかを判断するのは人です。</p>
+<p >連携先の医療機関（電話・FAX は 000 の番号です）。「特別の関係」の医療機関からの紹介とそこへの逆紹介は、紹介割合・逆紹介割合に数えません。</p>
+*/

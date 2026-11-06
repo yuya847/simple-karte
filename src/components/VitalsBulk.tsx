@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ACVPU_LABEL, type Acvpu } from "@/lib/news2";
 import type { StandingOrders } from "@/lib/standing";
 import type { VitalSign } from "@/lib/types";
-import { BULK_FIELDS, BULK_SOURCES, parseRow, rowWarnings, rowsWithErrors, toSave, type BulkRow } from "@/lib/vitals-bulk";
+import { BULK_FIELDS, parseRow, rowWarnings, rowsWithErrors, toSave, type BulkRow } from "@/lib/vitals-bulk";
 import { useMe } from "./RoleContext";
 import { PickSelect, type Pick } from "./WardMap";
 
@@ -70,7 +70,7 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
           <TimeInput value={time} onChange={(e) => setTime(e.target.value)} inputMode="numeric" aria-label="測った時刻" className="w-16 rounded border border-rule bg-sheet px-1.5 py-0.5 text-right text-[13px] text-ink" />
         </label>
       </header>
-      <p className="hint mb-2 text-xs text-ink-soft">測った患者の行だけ入れます（空の行は記録しません）。時刻が違う患者は、行の右の時刻に入れます。確定すると、カルテのバイタルと同じ記録に入ります。</p>
+
       <table className="nums w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -155,11 +155,16 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
           {!timeOk(time) && <span className="text-shu">測った時刻は「14:20」のように、いまより前にしてください</span>}
         </div>
       )}
-      <ul className="hint mt-3 space-y-0.5 text-[11px] text-ink-faint">
+
+    </section>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >測った患者の行だけ入れます（空の行は記録しません）。時刻が違う患者は、行の右の時刻に入れます。確定すると、カルテのバイタルと同じ記録に入ります。</p>
+<ul >
         <li>知らせの根拠：{BULK_SOURCES.calls}。</li>
         <li>{BULK_SOURCES.news2}。どう動くかは病棟の取り決めと医師の判断です。</li>
         <li>数のほかに確かめるのは、SpO2 が100より上・血圧の下が上より高い・片方だけ・時刻の形（打ち間違いを拾うためで、医学の基準ではありません）。</li>
       </ul>
-    </section>
-  );
-}
+*/

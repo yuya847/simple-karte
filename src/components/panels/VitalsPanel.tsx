@@ -107,7 +107,7 @@ function DailyForm({ today, prevWeight, onDaily, onOpenIo }: { today?: DailyReco
           記録する
         </button>
       </div>
-      {w !== undefined && prevWeight && <p className="nums text-ink-soft">前回の体重 {prevWeight.kg}kg（{prevWeight.day === -1 ? "昨日" : `${-prevWeight.day}日前`}）から {w - prevWeight.kg >= 0 ? "+" : ""}{Math.round((w - prevWeight.kg) * 10) / 10}kg<span className="hint">（コードで計算）</span></p>}
+      {w !== undefined && prevWeight && <p className="nums text-ink-soft">前回の体重 {prevWeight.kg}kg（{prevWeight.day === -1 ? "昨日" : `${-prevWeight.day}日前`}）から {w - prevWeight.kg >= 0 ? "+" : ""}{Math.round((w - prevWeight.kg) * 10) / 10}kg</p>}
       {bad && <p className="text-shu">数で入れてください（食事は 0〜10 割で、朝・昼・夕を選ぶ）。</p>}
     </div>
   );
@@ -230,3 +230,7 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >（コードで計算）</span>
+*/

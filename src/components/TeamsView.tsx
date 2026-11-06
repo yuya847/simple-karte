@@ -99,7 +99,7 @@ function Overview({ desk, people, onTeam, onOpen, today }: Props & { onTeam: (k:
   const nameOf = (pid: string) => people.find((x) => x.patient.id === pid);
   return (
     <section className="space-y-3">
-      <p className="hint text-[11px] text-ink-soft">依頼は医師がカルテの右端「オーダ › その他 › チーム依頼」から出します。チームは依頼を受けて回診を記録し、提案を書きます。提案を採用するかは主治医がカルテで決めます。</p>
+
       <table className={`${card} w-full border-collapse text-[12px]`}>
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -404,3 +404,7 @@ function RequestCard({
     </article>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >依頼は医師がカルテの右端「オーダ › その他 › チーム依頼」から出します。チームは依頼を受けて回診を記録し、提案を書きます。提案を採用するかは主治医がカルテで決めます。</p>
+*/

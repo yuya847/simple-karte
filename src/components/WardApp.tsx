@@ -4497,6 +4497,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         doctors={DOCTORS}
         onDoctor={switchDoctor}
         areas={areas}
+        helpScreen={screen}
+        helpPanel={panel ?? chart.rightTab}
         area={area}
         onArea={openArea}
         onWardMenu={() => {

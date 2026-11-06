@@ -3,7 +3,7 @@
 import { BadgeCheck, KeyRound, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import type { DischargeDraft } from "@/lib/discharge";
-import { ALG, browserKeys, ESIGN_SOURCES, nowStamp, signDoc, signedContent, verificationText, verifyDoc, type KeyStore, type SignedKind, type SignRecord } from "@/lib/esign";
+import { browserKeys, ESIGN_SOURCES, nowStamp, signDoc, signedContent, verificationText, verifyDoc, type KeyStore, type SignedKind, type SignRecord } from "@/lib/esign";
 import { Sources } from "../DeskParts";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 
@@ -48,10 +48,8 @@ export function SignBox({ patientId, draft, records, onSigned, newId }: { patien
         電子署名
         <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">模擬</span>
       </h3>
-      <p className="text-ink-soft">
-        模擬の電子署名です。鍵はこの端末のブラウザの中で作り（{ALG}）、秘密鍵は取り出せない形でこのブラウザに置いたまま、外へは出しません。記録に残すのは署名と文書のハッシュと鍵の指紋だけです。法令で医師の記名・押印が求められる文書を電子署名で代えるには、HPKI（保健医療福祉分野の公開鍵基盤）の認証局が発行する電子証明書などで署名し、長く確かめられるように認定事業者のタイムスタンプを付けます。この署名はそのどちらでもなく、時刻はこの端末の時計なので、法的な署名にはなりません。
-      </p>
-      <p className="hint text-ink-soft">確定した退院時サマリーと、発行した診療情報提供書に署名できます。「確かめる」で、いまの文書が署名したときと同じか、署名がこの端末の鍵と合うかを調べます。</p>
+
+
       {KINDS.map((kind) => {
         const ready = !!signedContent(kind, draft);
         const mine = records.filter((r) => r.patientId === patientId && r.kind === kind);
@@ -95,3 +93,11 @@ export function SignBox({ patientId, draft, records, onSigned, newId }: { patien
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >確定した退院時サマリーと、発行した診療情報提供書に署名できます。「確かめる」で、いまの文書が署名したときと同じか、署名がこの端末の鍵と合うかを調べます。</p>
+*/
+
+/* ヘルプへ移動した説明:
+模擬の電子署名です。鍵はこの端末のブラウザの中で作り（ ）、秘密鍵は取り出せない形でこのブラウザに置いたまま、外へは出しません。記録に残すのは署名と文書のハッシュと鍵の指紋だけです。法令で医師の記名・押印が求められる文書を電子署名で代えるには、HPKI（保健医療福祉分野の公開鍵基盤）の認証局が発行する電子証明書などで署名し、長く確かめられるように認定事業者のタイムスタンプを付けます。この署名はそのどちらでもなく、時刻はこの端末の時計なので、法的な署名にはなりません。
+*/

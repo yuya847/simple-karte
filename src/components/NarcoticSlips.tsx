@@ -7,7 +7,7 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { isNarcotic } from "@/lib/drug-class";
 import { anyDrugName } from "@/lib/master";
 import { doseOf, mlPerAmpoule, returnFromWard, slipProblems, slipsDue, unitOf, type NarcoticBook, type SlipDue } from "@/lib/narcotic-book";
-import { LICENCES, NARCOTIC_SOURCES } from "@/lib/narcotics";
+import { LICENCES } from "@/lib/narcotics";
 import type { AdminRecord } from "@/lib/mar";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DrugMarks } from "./DrugMarks";
@@ -35,9 +35,7 @@ export function NarcoticSlips({ people, records, book, onBook, today, nowTime, n
     <section className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5 text-[13px]">
       <div className="mx-auto max-w-[1000px] space-y-4">
         <h1 className="text-base font-bold">麻薬の施用票と返納（病棟）</h1>
-        <p className="hint text-xs text-ink-soft">
-          麻薬の注射を与薬の欄で「実施」にすると、ここに施用票の行が出ます。施用した量と残った量（mL）を入れ、残液の入ったアンプルと空アンプルを添えて薬剤部へ返します。量の足し算が払い出した数に合うかはコードが確かめます。使わなかった内服の麻薬は、数を入れて返納します。
-        </p>
+
         <DenyNote action="mar" />
 
         <div className="rounded-lg border border-rule bg-sheet p-4">
@@ -76,13 +74,7 @@ export function NarcoticSlips({ people, records, book, onBook, today, nowTime, n
           ))}
         </div>
 
-        <p className="hint text-[11px] text-ink-faint">
-          出典：
-          <a href={NARCOTIC_SOURCES.manual.url} target="_blank" rel="noreferrer" className="underline">
-            {NARCOTIC_SOURCES.manual.label}
-          </a>
-          （第4(6)：施用残液のあるアンプルと空アンプルは麻薬管理者に返納。第5(6)：施用量を確かめられる複写式の施用票）。診療録には実際に施用した量を mL で書きます（第6 1(2)①）。
-        </p>
+
       </div>
     </section>
   );
@@ -181,3 +173,16 @@ function OralReturn({ label, code, returned, disabled, onReturn }: { label: stri
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          麻薬の注射を与薬の欄で「実施」にすると、ここに施用票の行が出ます。施用した量と残った量（mL）を入れ、残液の入ったアンプルと空アンプルを添えて薬剤部へ返します。量の足し算が払い出した数に合うかはコードが確かめます。使わなかった内服の麻薬は、数を入れて返納します。
+        </p>
+<p >
+          出典：
+          <a href={NARCOTIC_SOURCES.manual.url} target="_blank" rel="noreferrer" >
+            {NARCOTIC_SOURCES.manual.label}
+          </a>
+          （第4(6)：施用残液のあるアンプルと空アンプルは麻薬管理者に返納。第5(6)：施用量を確かめられる複写式の施用票）。診療録には実際に施用した量を mL で書きます（第6 1(2)①）。
+        </p>
+*/

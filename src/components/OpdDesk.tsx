@@ -136,7 +136,7 @@ export function OpdDesk({
           <Keyboard size={14} />
           再来受付機（模擬）を開く
         </button>
-        <span className="hint text-[11px] text-ink-soft">待合の表示と再来受付機は、モニタや iPad に全画面で出す画面です（この端末の中の模擬）。</span>
+
       </div>
       {tab === "list" && (
         <OpdBoard
@@ -371,7 +371,7 @@ export function Reception({
         受付（初診・予約外の再診）
 
       </h2>
-      <p className="mb-3 text-[12px] text-ink-soft">予約のある患者は、受付一覧の「受付する」か再来受付機（模擬）で受け付けます。受け付けると受付番号が付き、「受付票を印刷」で印刷します。{nowTime} 受付。</p>
+
       {locked && <p className="mb-2 text-[12px] text-ink-soft">{locked}</p>}
       {done && (
         <div role="status" className="mb-3 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-wakatake/50 bg-wakatake-soft px-4 py-2">
@@ -517,7 +517,7 @@ export function Reception({
           ) : (
             <span className="text-[11px] text-ink-faint">受け付けると受付番号が出ます。受付票はそのあと「受付票を印刷」で。</span>
           )}
-          <span className="hint text-[11px] text-ink-faint">最初から選ばれている項目はありません。紹介状のある初診は、地域医療連携の台帳に入ります。</span>
+
         </div>
       </div>
     </div>
@@ -664,3 +664,12 @@ function Slots({
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >待合の表示と再来受付機は、モニタや iPad に全画面で出す画面です（この端末の中の模擬）。</span>
+<span >最初から選ばれている項目はありません。紹介状のある初診は、地域医療連携の台帳に入ります。</span>
+*/
+
+/* ヘルプへ移動した説明:
+予約のある患者は、受付一覧の「受付する」か再来受付機（模擬）で受け付けます。受け付けると受付番号が付き、「受付票を印刷」で印刷します。 受付。
+*/

@@ -83,8 +83,12 @@ export function LabelsPanel({ p, specimens, drugs, onPrint }: { p: LabelPatient;
         <span className="text-[11px] text-ink-faint">ラベルプリンタがない場合は、ふつうのプリンタで切って使えます。</span>
       </div>
       <div className="flex flex-wrap gap-2 overflow-x-auto rounded-md border border-rule bg-paper p-2">{sheet}</div>
-      <p className="text-[11px] text-ink-faint">検体・薬剤ラベルのバーコードは、ワークシートの「照合」で読む番号と同じです（オーダと回ごとに1つ）。リストバンドと患者ラベルは ID です。</p>
+
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[5mm] print:block">{printing}</div>, document.body)}
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >検体・薬剤ラベルのバーコードは、ワークシートの「照合」で読む番号と同じです（オーダと回ごとに1つ）。リストバンドと患者ラベルは ID です。</p>
+*/

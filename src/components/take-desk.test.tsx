@@ -85,7 +85,7 @@ describe("指示受けの画面", () => {
     expect(html).toContain('title="1件ずつ受けます：高リスク薬（カリウム注）"');
     expect(html).toContain("指示を受ける");
     expect(html).toContain("指示票（今日・A4）");
-    expect(html).toContain("denshi_gx.pdf");
+    expect(html).not.toContain("denshi_gx.pdf");
     expect(html).not.toContain("架空の病院の取り決め");
   });
 
@@ -131,7 +131,7 @@ describe("指示受けの画面", () => {
     expect(html).toContain("14:00");
     expect(html).toContain("02:00");
     expect(html).toContain("予定を確認した");
-    expect(html).toContain("指示受け → 指示確認 → 実施入力");
+    expect(html).not.toContain("指示受け → 指示確認 → 実施入力");
   });
 
   it("the worksheet's take table marks a taken row whose schedule was not confirmed, also when printed", () => {
@@ -202,7 +202,7 @@ describe("1件ずつ受けるものは2段階（開いて中身を見てから�
         <TakeDesk {...base} taken={{}} isTaken={() => false} confirms={{}} isMine={() => false} />
       </RoleProvider>,
     );
-    expect(html).toContain("「開いて受ける」で中身（薬・量・時刻・至急の理由）を広げて見てから「この指示を受ける」を押します");
+    expect(html).not.toContain("「開いて受ける」で中身（薬・量・時刻・至急の理由）を広げて見てから「この指示を受ける」を押します");
   });
 });
 

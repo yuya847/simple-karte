@@ -6,7 +6,7 @@ import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { confirmPlan, type Confirms } from "@/lib/order-confirm";
 import { momentLabel } from "@/lib/order-sheet";
-import { HOLD_REASONS, TAKE_SOURCES, type TakeHold, type TakeRow } from "@/lib/order-take";
+import { HOLD_REASONS, type TakeHold, type TakeRow } from "@/lib/order-take";
 import { timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { ConfirmCheck, WAITING_BUTTON, Waits } from "./ConfirmCheck";
 import { useMe } from "./RoleContext";
@@ -29,7 +29,7 @@ export const FLAG_STYLE = { resident: "bg-yamabuki-soft text-yamabuki", urgent: 
  * after, and orders related to it. Some must be taken one at a time with a check, high-risk ones with a
  * second nurse; any can be held to ask the doctor first.
  */
-export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today, nurses, onTake, onHold, confirm, showPatient = true, notes = true }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; interactive: boolean; day: number; today: CalendarDate; nurses: string[]; onTake: (keys: string[], second?: string) => void; onHold: (key: string, reason: TakeHold["reason"], note: string) => void; confirm?: ConfirmProps; showPatient?: boolean; notes?: boolean }) {
+export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today, nurses, onTake, onHold, confirm, showPatient = true }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; interactive: boolean; day: number; today: CalendarDate; nurses: string[]; onTake: (keys: string[], second?: string) => void; onHold: (key: string, reason: TakeHold["reason"], note: string) => void; confirm?: ConfirmProps; showPatient?: boolean; notes?: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
@@ -196,11 +196,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
           })}
         </tbody>
       </table>
-      {notes && (
-      <p className="hint mt-1 text-[10px] text-ink-faint">
-        【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。
-      </p>
-      )}
+
     </>
   );
 }
@@ -335,3 +331,9 @@ export function AskDoctorPanel({ onHold }: { onHold: (reason: TakeHold["reason"]
     </>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。
+      </p>
+*/

@@ -1,15 +1,13 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
-import { Camera, ExternalLink } from "lucide-react";
+import { Camera } from "lucide-react";
 import { useState } from "react";
 import {
   DEPTHS,
   DEPTH_LABEL,
   DESIGN_ITEMS,
   PHOTO_MAX,
-  PRESSURE_RULES,
-  PRESSURE_SOURCES,
   SITES,
   areaOf,
   courseOf,
@@ -56,17 +54,7 @@ const STATE_STYLE = { 期限切れ: "bg-shu-soft text-shu", 今日まで: "bg-ya
 
 export function Sources() {
   return (
-    <ul className="hint space-y-0.5 text-[10px] text-ink-faint">
-      {[PRESSURE_SOURCES.form, PRESSURE_SOURCES.rule, PRESSURE_SOURCES.scale].map((s) => (
-        <li key={s.url + s.label}>
-          <a href={s.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
-            {s.label}
-          </a>
-        </li>
-      ))}
-      <li>{PRESSURE_RULES.interval}</li>
-      <li>{PRESSURE_RULES.photo}</li>
-    </ul>
+    null
   );
 }
 
@@ -127,7 +115,7 @@ function AssessForm({ nowTime, onSave, onCancel }: { nowTime: string; onSave: (a
         {size && (
           <span className="pb-1">
             面積 {areaOf(size)}cm² → {sizeCodeOf(areaOf(size))}
-            {pocket && `　ポケット ${Math.round((areaOf(pocket) - areaOf(size)) * 10) / 10}cm² → ${pocketCodeOf(areaOf(pocket), areaOf(size))}`}<span className="hint">（コードで計算）</span>
+            {pocket && `　ポケット ${Math.round((areaOf(pocket) - areaOf(size)) * 10) / 10}cm² → ${pocketCodeOf(areaOf(pocket), areaOf(size))}`}
           </span>
         )}
       </div>
@@ -195,7 +183,7 @@ function AssessForm({ nowTime, onSave, onCancel }: { nowTime: string; onSave: (a
         )}
       </div>
       <p className="text-[11px] font-bold text-shu">このデモは患者です。実在の患者の写真は入れないでください。</p>
-      <p className="hint text-[11px] text-ink-soft">写真は端末の中で長い辺 {PHOTO_MAX}px の JPEG に縮小してから記録に入れます（元のファイルとその撮影情報は記録に残りません）。</p>
+
       {err && <p className="text-shu">{err}</p>}
       <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="観察したこと（色・におい・周りの皮膚など）" aria-label="観察したこと" className="w-full rounded border border-rule bg-sheet px-2 py-1" />
       {problems.map((p) => (
@@ -380,12 +368,30 @@ export function PressurePanel({ patientId, ulcers, nowTime, fmtDay, newId, canRe
           </button>
         )
       )}
-      <p className="hint text-[11px] text-ink-soft">深さと6つの項目は看護師・医師が選びます。コードは合計点（深さを除く）を足し、測った大きさと選んだ点数が合わないときに知らせ、次の評価の日を出します。</p>
-      <a href={PRESSURE_SOURCES.scale.url} target="_blank" rel="noreferrer" className="hint flex items-center gap-1 text-[12px] text-ai underline-offset-2 hover:underline">
-        <ExternalLink size={12} />
-        各項目の定義は日本褥瘡学会の「DESIGN-R®2020 褥瘡経過評価用」を見る
-      </a>
+
+
       <Sources />
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<ul >
+      {[PRESSURE_SOURCES.form, PRESSURE_SOURCES.rule, PRESSURE_SOURCES.scale].map((s) => (
+        <li key={s.url + s.label}>
+          <a href={s.url} target="_blank" rel="noreferrer" >
+            {s.label}
+          </a>
+        </li>
+      ))}
+      <li>{PRESSURE_RULES.interval}</li>
+      <li>{PRESSURE_RULES.photo}</li>
+    </ul>
+<span >（コードで計算）</span>
+<p >写真は端末の中で長い辺 {PHOTO_MAX}px の JPEG に縮小してから記録に入れます（元のファイルとその撮影情報は記録に残りません）。</p>
+<p >深さと6つの項目は看護師・医師が選びます。コードは合計点（深さを除く）を足し、測った大きさと選んだ点数が合わないときに知らせ、次の評価の日を出します。</p>
+<a href={PRESSURE_SOURCES.scale.url} target="_blank" rel="noreferrer" >
+        <ExternalLink size={12} />
+        各項目の定義は日本褥瘡学会の「DESIGN-R®2020 褥瘡経過評価用」を見る
+      </a>
+*/

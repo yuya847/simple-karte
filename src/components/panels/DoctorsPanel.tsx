@@ -61,9 +61,7 @@ export function DoctorsPanel({
 
   return (
     <div className="flex flex-col gap-4 text-sm">
-      <p className="hint text-xs text-ink-soft">
-        担当医（チームで一緒に見る医師）とコンサルト医（他科依頼で意見を求めた医師）を登録すると、その医師の「受け持ち患者」・やること・入院患者一覧の「自分の患者」にこの患者が出ます。主治医は転科で変わります。他科依頼のオーダを確定すると、返書が来るまで依頼先の科の医師が「依頼中」として仮に載り、返書を書いた医師がコンサルト医になります。
-      </p>
+
 
       <section>
         <h3 className="mb-1 text-xs font-bold text-ink-soft">いまの医師</h3>
@@ -138,8 +136,15 @@ export function DoctorsPanel({
             {dup && <span className="text-xs text-yamabuki">同じ医師が同じ立場で登録済みです。</span>}
           </div>
         )}
-        <p className="hint mt-1 text-[11px] text-ink-faint">誰が・いつ足したかが残り、監査ログにも書かれます。誰を足すかは医師が決めます。</p>
+
       </section>
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+        担当医（チームで一緒に見る医師）とコンサルト医（他科依頼で意見を求めた医師）を登録すると、その医師の「受け持ち患者」・やること・入院患者一覧の「自分の患者」にこの患者が出ます。主治医は転科で変わります。他科依頼のオーダを確定すると、返書が来るまで依頼先の科の医師が「依頼中」として仮に載り、返書を書いた医師がコンサルト医になります。
+      </p>
+<p >誰が・いつ足したかが残り、監査ログにも書かれます。誰を足すかは医師が決めます。</p>
+*/

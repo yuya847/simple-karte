@@ -7,7 +7,6 @@ import { createPortal, flushSync } from "react-dom";
 import { auditLog } from "@/lib/audit";
 import { UNTIL_CHOICES, fillDates, isRead, type Notice, type Reads } from "@/lib/board";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { DRUG_CLASS_SOURCES } from "@/lib/drug-class";
 import { ADOPTION_NOTE, EMPTY_QUERY, diNotices, diProblems, formulary, formularyCsv, kiseiText, readers, searchFormulary, type FormularyItem, type FormularyQuery, type KiseiFilter } from "@/lib/formulary";
 import { can } from "@/lib/roles";
 import { DrugMarks } from "./DrugMarks";
@@ -96,7 +95,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
       </header>
       <div className="scroll-thin min-h-0 flex-1 overflow-auto p-5">
         <div className="mx-auto max-w-[1200px] space-y-4">
-          <p className="hint text-xs text-ink-soft">行を押すと、その薬の DI のお知らせと採用区分の説明が開きます。分類の出典は各行に表示します。医薬品マスターのみの品目は、劇薬・処方箋医薬品・生物由来の区分を未確認です。</p>
+
           <div className="overflow-x-auto rounded-lg border border-rule bg-sheet">
             <table className="w-full text-[12.5px]">
               <thead className="bg-tab/60 text-left text-[11px] text-ink-soft">
@@ -175,22 +174,10 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
                 })}
               </ul>
             </div>
-            {can(me.role, "pharmacy") ? <DiPost today={today} nowTime={nowTime} onPost={onPost} /> : <p className="hint text-xs text-ink-soft">DI のお知らせは薬剤師が書き、掲示板に「薬剤部」の掲示として出ます。病棟では掲示板か、この画面で読みます。</p>}
+            {can(me.role, "pharmacy") ? <DiPost today={today} nowTime={nowTime} onPost={onPost} /> : null}
           </div>
 
-          <div className="hint text-[11px] text-ink-faint">
-            <p>
-              出典：
-              {[DRUG_CLASS_SOURCES.pmda, DRUG_CLASS_SOURCES.law, DRUG_CLASS_SOURCES.narcoticLaw, DRUG_CLASS_SOURCES.b008].map((s) => (
-                <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="mr-2 underline">
-                  {s.label}
-                </a>
-              ))}
-            </p>
-            <p className="mt-1">
-              採用区分（{Object.entries(ADOPTION_NOTE).map(([k, v]) => `${k}＝${v}`).join("、")}）。ハイリスク薬は、薬剤管理指導料「1」の対象の分類（通知 B008 (2)）に、電子添文の薬効分類名と有効成分で当てはめたもので、厚生労働省の対象薬剤一覧とはまだ照らしていません。電子添文の製品は規制区分を読んだ製品で、算定に使う医薬品マスターの品目と製造販売業者が違うものがあります。電子添文の改訂の中身はここでは読み取っていません（リンク先で確かめる）。
-            </p>
-          </div>
+
         </div>
       </div>
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[8mm] print:block">{printing}</div>, document.body)}
@@ -228,7 +215,7 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
       {open && (
         <tr className="bg-ai-soft/20">
           <td colSpan={8} className="px-3 py-2 text-[12px]">
-            <p className="text-ink-soft">採用区分：{x.adoption}（{ADOPTION_NOTE[x.adoption]}<span className="hint">。院内の取り決め</span>）{x.cls.b008 ? `　ハイリスク薬：${x.cls.b008.group}（${x.cls.b008.why}）` : ""}</p>
+            <p className="text-ink-soft">採用区分：{x.adoption}（{ADOPTION_NOTE[x.adoption]}）{x.cls.b008 ? `　ハイリスク薬：${x.cls.b008.group}（${x.cls.b008.why}）` : ""}</p>
             {n.length === 0 && <p className="text-ink-faint">この薬の DI のお知らせはありません。</p>}
             {n.map((y) => (
               <div key={y.id} className="mt-1">
@@ -349,3 +336,22 @@ function FormularySheet({ items, today, sort }: { items: FormularyItem[]; today:
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >行を押すと、その薬の DI のお知らせと採用区分の説明が開きます。規制区分・薬効分類・一般的名称は、各薬の電子添文（PMDA）から写したものです。</p>
+<p >DI のお知らせは薬剤師が書き、掲示板に「薬剤部」の掲示として出ます。病棟では掲示板か、この画面で読みます。</p>
+<div >
+            <p>
+              出典：
+              {[DRUG_CLASS_SOURCES.pmda, DRUG_CLASS_SOURCES.law, DRUG_CLASS_SOURCES.narcoticLaw, DRUG_CLASS_SOURCES.b008].map((s) => (
+                <a key={s.url} href={s.url} target="_blank" rel="noreferrer" >
+                  {s.label}
+                </a>
+              ))}
+            </p>
+            <p >
+              採用区分（{Object.entries(ADOPTION_NOTE).map(([k, v]) => `${k}＝${v}`).join("、")}）。ハイリスク薬は、薬剤管理指導料「1」の対象の分類（通知 B008 (2)）に、電子添文の薬効分類名と有効成分で当てはめたもので、厚生労働省の対象薬剤一覧とはまだ照らしていません。電子添文の製品は規制区分を読んだ製品で、算定に使う医薬品マスターの品目と製造販売業者が違うものがあります。電子添文の改訂の中身はここでは読み取っていません（リンク先で確かめる）。
+            </p>
+          </div>
+<span >。院内の取り決め</span>
+*/

@@ -29,10 +29,9 @@ import {
 import { useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { creditLine, PUBLIC_IMAGE_NOTE } from "@/lib/image-credits";
+import { PUBLIC_IMAGE_NOTE } from "@/lib/image-credits";
 import { getFrame, valueRange } from "@/lib/pacs/frames";
 import { distance, ratio, type Measurement } from "@/lib/pacs/measure";
-import { creditsOf } from "@/lib/pacs/photos";
 import { buildPacsStudies, findPrior, positionLabel } from "@/lib/pacs/studies";
 import type { PacsStudy, SeriesSpec } from "@/lib/pacs/types";
 import { cineNext, clampZoom, nearestSlice, rotate, stepSlice, type ViewState } from "@/lib/pacs/viewport";
@@ -520,7 +519,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
       <span className="nums">
         WW {view.ww} / WL {view.wl}
       </span>
-      <p className="hint basis-full">明るさは WL（ウィンドウレベル）、コントラストは WW（ウィンドウ幅）を動かします。ドラッグ（W）やプリセットと同じ値です。「元に戻す」（0）で開いたときの値に戻ります。</p>
+
     </div>
   );
 
@@ -535,7 +534,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
   const measurePanel = (
     <div>
       <h4 className="text-sm font-bold">計測</h4>
-      <p className="hint text-[11px] text-ink-faint">コードで計算した値と式です。所見の判定はしません。画像ごとに覚え、画像を変えると別になります（保存はしません）。</p>
+
       {resolved.map((p, i) => {
         const k = keyOf(p);
         const list = measures[k] ?? [];
@@ -600,22 +599,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
             </h4>
             <p className="mt-1 text-[13px] leading-relaxed">{p.pacs.study.report}</p>
             <p className="mt-1 text-[11px] text-ink-faint">{displayText(p.pacs.study.reader)}</p>
-            {creditsOf(p.pacs.series.flatMap((s) => (s.gen.kind === "photo" ? s.gen.images : []))).map((c) => (
-              <p key={c.id} className="hint mt-1 text-[11px]">
-                画像の出典：{creditLine(c)}　{c.what}
-                <a href={c.page} target="_blank" rel="noreferrer" className="underline">
-                  出典のページ
-                </a>
-                {c.licenseUrl && (
-                  <>
-                    ・
-                    <a href={c.licenseUrl} target="_blank" rel="noreferrer" className="underline">
-                      ライセンス
-                    </a>
-                  </>
-                )}
-              </p>
-            ))}
+
           </div>
         ) : null,
       )}
@@ -699,3 +683,22 @@ function Btn({ children, label, on, onClick, disabled, text }: { children: React
     </button>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >明るさは WL（ウィンドウレベル）、コントラストは WW（ウィンドウ幅）を動かします。ドラッグ（W）やプリセットと同じ値です。「元に戻す」（0）で開いたときの値に戻ります。</p>
+<p >コードで計算した値と式です。所見の判定はしません。画像ごとに覚え、画像を変えると別になります（保存はしません）。</p>
+<p key={c.id} >
+                画像の出典：{creditLine(c)}　{c.what}
+                <a href={c.page} target="_blank" rel="noreferrer" >
+                  出典のページ
+                </a>
+                {c.licenseUrl && (
+                  <>
+                    ・
+                    <a href={c.licenseUrl} target="_blank" rel="noreferrer" >
+                      ライセンス
+                    </a>
+                  </>
+                )}
+              </p>
+*/

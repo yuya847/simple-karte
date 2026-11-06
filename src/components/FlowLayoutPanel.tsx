@@ -105,8 +105,12 @@ export function FlowLayoutPanel({ layout, onLayout, careItems, onClose }: { layo
             いま出している看護ケア・観察の行（{shownCare.length}行）をセットに残す
           </button>
         </form>
-        <p className="hint text-ink-faint">セットは項目の名前で覚えるので、ほかの患者にも使えます。セットを選ぶと、その項目の行だけが出ます。</p>
+
       </div>
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >セットは項目の名前で覚えるので、ほかの患者にも使えます。セットを選ぶと、その項目の行だけが出ます。</p>
+*/

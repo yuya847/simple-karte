@@ -9,7 +9,7 @@ import { displayText } from "@/lib/display-text";
 import { ChevronDown, ChevronRight, FileText, UserRound } from "lucide-react";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
-import { readStateOf, REPORT_RULES, REPORT_SOURCES, summaryOf, unreadReports, type Report, type WardReportRow } from "@/lib/reports";
+import { readStateOf, summaryOf, unreadReports, type Report, type WardReportRow } from "@/lib/reports";
 import type { Ack } from "@/lib/results";
 import { dayText, KIND_CHIP, ReportPanel } from "./panels/ReportPanel";
 
@@ -73,23 +73,7 @@ export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey 
 /** The sources the headings and the 確認 follow, and what this fictional hospital decided. Shown with 「使い方」. */
 export function ReportNotes() {
   return (
-    <div className="hint space-y-1 text-[11px] text-ink-soft">
-      <p>
-        出典：
-        <a href={REPORT_SOURCES.items.url} target="_blank" rel="noreferrer" className="underline">
-          {REPORT_SOURCES.items.label}
-        </a>
-      </p>
-      <p>
-        出典：
-        <a href={REPORT_SOURCES.check.url} target="_blank" rel="noreferrer" className="underline">
-          {REPORT_SOURCES.check.label}
-        </a>
-      </p>
-      <p>{REPORT_RULES.headings}</p>
-      <p>{REPORT_RULES.unread}</p>
-      <p>{REPORT_RULES.summary}</p>
-    </div>
+    null
   );
 }
 
@@ -123,7 +107,7 @@ export function ReportList({ reports, acks, today, onSeen, onOpenImage }: ListPr
           </button>
         )}
       </div>
-      <p className="hint text-[11px] text-ink-faint">読影・病理・内視鏡・生理検査のレポートを新しい順に。行を押すと本文が開き、「確認した」で誰がいつ読んだかが残ります。「画像を開く」で PACS の画像へ。一言は本文の1行目です。</p>
+
       <div className="rounded-md border border-rule bg-sheet">
         <ReportRows reports={shown} acks={acks} today={today} onSeen={onSeen} onOpenImage={onOpenImage} />
       </div>
@@ -168,7 +152,7 @@ export function WardReportList({ rows, mine, acks, today, onSeen, onOpen }: Ward
             未読だけ
           </label>
         </header>
-        <p className="hint text-[12px] text-ink-soft">読影・病理・内視鏡・生理検査のレポートを患者ごとに、未読の多い順に並べます。行を押すと本文が読め、医師は「確認した」で既読にします（看護師は読むだけ）。「カルテを開く」でその患者のカルテへ。</p>
+
         {shown.length === 0 && <p className="rounded-md border border-rule bg-sheet px-3 py-4 text-center text-[12px] text-ink-faint">{onlyUnread ? "未読のレポートはありません。" : "レポートはありません。"}</p>}
         {shown.map((r) => (
           <section key={r.patientId} className="rounded-md border border-rule bg-sheet">
@@ -190,3 +174,25 @@ export function WardReportList({ rows, mine, acks, today, onSeen, onOpen }: Ward
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<div >
+      <p>
+        出典：
+        <a href={REPORT_SOURCES.items.url} target="_blank" rel="noreferrer" >
+          {REPORT_SOURCES.items.label}
+        </a>
+      </p>
+      <p>
+        出典：
+        <a href={REPORT_SOURCES.check.url} target="_blank" rel="noreferrer" >
+          {REPORT_SOURCES.check.label}
+        </a>
+      </p>
+      <p>{REPORT_RULES.headings}</p>
+      <p>{REPORT_RULES.unread}</p>
+      <p>{REPORT_RULES.summary}</p>
+    </div>
+<p >読影・病理・内視鏡・生理検査のレポートを新しい順に。行を押すと本文が開き、「確認した」で誰がいつ読んだかが残ります。「画像を開く」で PACS の画像へ。一言は本文の1行目です。</p>
+<p >読影・病理・内視鏡・生理検査のレポートを患者ごとに、未読の多い順に並べます。行を押すと本文が読め、医師は「確認した」で既読にします（看護師は読むだけ）。「カルテを開く」でその患者のカルテへ。</p>
+*/

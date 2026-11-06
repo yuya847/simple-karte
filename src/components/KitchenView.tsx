@@ -244,7 +244,7 @@ function Counts({ cellsOf, today, dowOf }: Props & { cellsOf: CellsOf; dowOf: (d
           <Printer size={13} />
           食数表を印刷
         </button>
-        <span className="hint text-[11px] text-ink-soft">全病棟の入院患者の食事の指示と、検査・外泊・退院の食止めから、食種ごとにコードで数えます。病棟ごとの患者の一覧は「病棟 › 病棟の食事」にあります。</span>
+
       </div>
       <div className={`${card} scroll-thin overflow-x-auto`}>{table}</div>
       <p className="text-[11px] text-ink-soft">配膳の前の数です（食事の指示と食止めから数えた予定）。{KITCHEN_RULES.count}</p>
@@ -412,7 +412,7 @@ function Tickets(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) 
           食札を印刷（{shown.length}枚）
         </button>
       </div>
-      <p className="hint text-[11px] text-ink-soft">食札は食事の指示からコードで作ります。献立にアレルギー（カルテのプロファイル）や禁止食品に当たる料理があれば印が付きます。代わりの料理と禁止食品は管理栄養士が記録します。</p>
+
       <DenyNote action="kitchen" />
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
         {shown.map((t) => (
@@ -581,7 +581,7 @@ function Checks(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
           合わないものだけ（{rows.filter(off).length}人）
         </label>
       </div>
-      <p className="hint text-[11px] text-ink-soft">患者ごとに、その日の3食の献立（食種の約束食事箋で展開し、主食の量を合わせたもの）の合計を、医師の食事の指示と比べます。常食の患者は日本人の食事摂取基準（2025年版）の値と比べます。合わないときに献立を直すかは管理栄養士が、指示を変えるかは医師が決めます。</p>
+
       <ul className="space-y-0.5 text-[11px] text-ink-soft">
         <li>{KITCHEN_HOUSE_RULES.tolerance}</li>
         <li>{KITCHEN_RULES.saltSpecial}</li>
@@ -783,3 +783,9 @@ function KenshokuBook({ desk, onDesk, nowTime, today, missing }: Props & { missi
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >全病棟の入院患者の食事の指示と、検査・外泊・退院の食止めから、食種ごとにコードで数えます。病棟ごとの患者の一覧は「病棟 › 病棟の食事」にあります。</span>
+<p >食札は食事の指示からコードで作ります。献立にアレルギー（カルテのプロファイル）や禁止食品に当たる料理があれば印が付きます。代わりの料理と禁止食品は管理栄養士が記録します。</p>
+<p >患者ごとに、その日の3食の献立（食種の約束食事箋で展開し、主食の量を合わせたもの）の合計を、医師の食事の指示と比べます。常食の患者は日本人の食事摂取基準（2025年版）の値と比べます。合わないときに献立を直すかは管理栄養士が、指示を変えるかは医師が決めます。</p>
+*/

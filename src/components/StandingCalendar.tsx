@@ -5,7 +5,7 @@ import { StandingBulkStop } from "./StandingBulkStop";
 import { dragEnd, type StandingStopDraft } from "@/lib/standing-calendar";
 import { useRef, useState } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
-import { LINE_RULES, barMark, barCell, calendarRows, lineCalendarDays, whenText, type StandingLine } from "@/lib/standing-lines";
+import { barMark, barCell, calendarRows, lineCalendarDays, whenText, type StandingLine } from "@/lib/standing-lines";
 import type { Patient } from "@/lib/types";
 import { CatChip } from "./panels/StandingLines";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -82,10 +82,7 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
             ))}
           </tbody>
         </table>
-        <p className="hint mt-2 px-3 text-[10px] text-ink-faint">
-          {LINE_RULES.cats} 帯の右端をドラッグすると終わりの日を変えられます（延ばす・縮める）
-          <span className="hint"> 色の帯が指示の続く期間です。右端の「→」は表示期間の先まで指示が続く印です。終了日のある帯は「〜日付」で閉じます。変更前の帯は薄く残ります。「中止」と書かれた所で止まった帯は中止した行（履歴として残ります）。帯を押すと全文・書いた人・時刻が下に出ます。薄い帯は「項目で選ぶ」指示簿の版から出した行で、変えるときはその指示簿を変えます。今日の列の赤い線がいまの時刻。</span>
-        </p>
+
       </div>
       {pending && <div role="dialog" aria-label="終了日の変更" className="border-t border-rule bg-paper p-3 text-[12px]">
         <p>{displayText(pending.line.text.split("\n")[0])} を {pending.end === null ? "変えるまで続けます" : `${fmtDay(pending.end)}までにします`}</p>
@@ -221,3 +218,10 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
     </>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          {LINE_RULES.cats} 帯の右端をドラッグすると終わりの日を変えられます（延ばす・縮める）
+          <span > 色の帯が指示の続く期間です。右端の「→」は表示期間の先まで指示が続く印です。終了日のある帯は「〜日付」で閉じます。変更前の帯は薄く残ります。「中止」と書かれた所で止まった帯は中止した行（履歴として残ります）。帯を押すと全文・書いた人・時刻が下に出ます。薄い帯は「項目で選ぶ」指示簿の版から出した行で、変えるときはその指示簿を変えます。今日の列の赤い線がいまの時刻。</span>
+        </p>
+*/

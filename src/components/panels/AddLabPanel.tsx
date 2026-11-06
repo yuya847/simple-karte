@@ -11,7 +11,6 @@ import type { LabPoints } from "@/lib/billing/lab-points";
 import { todayInTokyo, type CalendarDate } from "@/lib/dates";
 import type { Draft, LabDraft } from "@/lib/drafts";
 import { DRAW_TIMES, LAB_COMMENT_OPTIONS, LAB_TABS, coveredBy, dayOptions, defaultDraw, drawProblem, drawText, duplicatePicks, dedupePicks, isRapid, labDraftOf, labelOf, pickedSummary, searchLabs, tabSections, titleOf, togglePick, type DrawChoice, type DrawMode } from "@/lib/lab-catalog";
-import { LAB_SOURCES } from "@/lib/lab-master-more";
 import { BASIC_SETS, DEPT_SETS, setPicked as isSetPicked, toggleSet, type LabSet } from "@/lib/lab-sets";
 import { LAB_TESTS, WARD_RULES, labInfo } from "@/lib/master";
 import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
@@ -26,7 +25,7 @@ const MODES: { value: DrawMode; label: string; title: string }[] = [
 ];
 
 /** The layout of a published operating manual's lab order screen was the reference for the columns and the tab order (sets left, items in the middle, the picks right). */
-const SCREEN_SOURCE = { name: "検体検査オーダー画面の並び：公開されている操作マニュアルの画面を参考（宮崎大学医学部附属病院）", url: "https://www.med.miyazaki-u.ac.jp/" };
+// 出典（ヘルプへ移動）: const SCREEN_SOURCE = { name: "検体検査オーダー画面の並び：公開されている操作マニュアルの画面を参考（宮崎大学医学部附属病院）", url: "https://www.med.miyazaki-u.ac.jp/" };
 
 const tabClass = (on: boolean) => `shrink-0 rounded px-2 py-0.5 text-[12px] whitespace-nowrap ${on ? "bg-ink font-bold text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
 
@@ -163,7 +162,7 @@ export function AddLabPanel({
 
   return (
     <div className="@container space-y-3 text-[13px]">
-      <p className="hint text-xs text-ink-soft">左のセットを押すと、その中の項目が一つずつ選ばれます（もう一度押すと外れます）。中央はタブで分類を選び、項目を押して選びます。赤い名前は迅速対応（院内・当日）の項目です。右に選んだ項目が並び、項目ごとに至急を付けられます。下の帯で採取の日時・至急・コメントを決め、「保存」で確定します（確かめることがあれば下書きの確認に回ります）。</p>
+
 
       <div className="grid gap-3 @3xl:grid-cols-[10rem_minmax(0,1fr)_18rem]">
         {/* Left: sets */}
@@ -208,7 +207,7 @@ export function AddLabPanel({
             </section>
           ))}
           </div>
-          <p className="hint text-[11px] text-ink-faint">札は院内か外注かと所要日数。セットに含まれる項目は薄くなり、別には出せません。</p>
+
         </section>
 
         {/* Right: the picks */}
@@ -377,28 +376,35 @@ export function AddLabPanel({
             保存（{summary.labCodes.length}項目・採取 {displayText(drawText(draw, today))}）
           </button>
         </div>
-        <p className="hint mt-1 text-[11px] text-ink-soft">過ぎた日時は確認で止まります。「今すぐ」は至急として扱います。全部の項目に至急を付けたときも、オーダ全体が至急になります。</p>
+
       </div>
 
-      <footer className="hint space-y-1 text-[11px] text-ink-faint">
+
+    </div>
+  );
+}
+
+/* Help migration source (references and dynamic wording):
+<p >左のセットを押すと、その中の項目が一つずつ選ばれます（もう一度押すと外れます）。中央はタブで分類を選び、項目を押して選びます。赤い名前は迅速対応（院内・当日）の項目です。右に選んだ項目が並び、項目ごとに至急を付けられます。下の帯で採取の日時・至急・コメントを決め、「保存」で確定します（確かめることがあれば下書きの確認に回ります）。</p>
+<p >札は院内か外注かと所要日数。セットに含まれる項目は薄くなり、別には出せません。</p>
+<p >過ぎた日時は確認で止まります。「今すぐ」は至急として扱います。全部の項目に至急を付けたときも、オーダ全体が至急になります。</p>
+<footer >
         <p>
           項目の分け方・略語・材料・容器（SRL の容器記号）・所要日数の参考：
           {LAB_SOURCES.map((s, i) => (
             <span key={s.url}>
               {i > 0 && "、"}
-              <a href={s.url} target="_blank" rel="noreferrer" className="underline">
+              <a href={s.url} target="_blank" rel="noreferrer" >
                 {s.name}
               </a>
             </span>
           ))}
           。
-          <a href={SCREEN_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
+          <a href={SCREEN_SOURCE.url} target="_blank" rel="noreferrer" >
             {SCREEN_SOURCE.name}
           </a>
           。
         </p>
         <p>院内か外注か・所要日数・定時採血の時刻（{WARD_RULES.routineDrawTime}）と採取時刻の候補・頻用の項目・セットの中身・採血場所の区分を表示します。実施料は医科診療行為マスターの点数で、判断料・採血料・加算は会計で算定します。結果の基準範囲は JCCLS 共用基準範囲（なければ SRL の値）です。</p>
       </footer>
-    </div>
-  );
-}
+*/

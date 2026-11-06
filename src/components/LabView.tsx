@@ -4,13 +4,13 @@ import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelReception } from "@/lib/lab-desk";
 
-import { BookOpenText, ClipboardPen, FlaskConical, HelpCircle, Microscope, PhoneCall, ScanLine } from "lucide-react";
-import { useHints } from "@/lib/hints";
+import { ClipboardPen, FlaskConical, HelpCircle, Microscope, PhoneCall, ScanLine } from "lucide-react";
+import { openHelp } from "@/lib/help/events";
 import { useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { abs } from "@/lib/flowsheet";
 import { cultureQueue } from "@/lib/lab-culture";
-import { PLACE_NAME, drawRows, entryPlan, receive, redrawCode, rejectText, scanSpecimen, statusCounts, versionOf, whenText, type DrawRow, type DrawStatus, type LabDesk, type SpecimenScan } from "@/lib/lab-desk";
+import { PLACE_NAME,drawRows,entryPlan,receive,redrawCode,rejectText,scanSpecimen,statusCounts,versionOf,whenText,type DrawRow,type DrawStatus,type LabDesk,type SpecimenScan } from "@/lib/lab-desk";
 import type { AdminRecord } from "@/lib/mar";
 import { callScript, hitLine, labBoard, partialReportLabel, placeOf, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
@@ -51,16 +51,7 @@ const TABS: { key: Tab; label: string; icon: typeof ScanLine }[] = [
 ];
 
 /** How to use each tab (the technologist's day), shown at the top (can be folded). */
-const GUIDE: Record<Tab, string> = {
-  receive:
-    "今日と明日の朝（夜勤の終わる 9:00 まで）の病棟の採血・採尿と、今日の救急外来・外来の検体（「救急」「外来」の印）が時刻の順に並びます。病棟がワークシートの「照合」で採取を記録すると「採取済み」になります。届いた検体のラベルをバーコードリーダーで読むと（番号のあとに Enter が入ります）、コードがどの採血かを探して「受付済み」にし、時刻と受けた人を残します。一覧にない番号・中止の検査・受付済み・病棟が未実施と記録した採血・時刻より前で採取の記録もない採血・再採血を依頼した検体の古いラベルは止めます。デモでは行の「読む」で読めます。",
-  enter:
-    "受け付けた検体が並びます。オーダの項目ごとに値を入れると（Enter で次の項目へ）、基準範囲との H／L とパニック値をコードが判定し、前回値を並べます（基準範囲は JCCLS 共用基準範囲・SRL）。全部の項目を入れて「確定」すると、誰がいつ確定したかが残り、医師のカルテの「未確認の結果」と検査結果の表に出ます。パニック値があれば「結果とパニック値」に出ます。測れない検体（溶血・量不足・凝固・ラベル不一致・その他）は「再採血を依頼する」で理由を選ぶと、同じオーダの採血が新しいラベルで病棟のワークシートに「再採血」として戻ります。確定した結果は下の「確定した結果」から訂正でき、理由が要ります。前の版（誰・いつ・なぜ）は残り、医師には「訂正」の印でもう一度未確認として出ます。訂正でパニック値になれば連絡に進み、パニック値でなくなれば連絡の一覧から外れます。",
-  culture:
-    "血液培養・尿培養の検体を受け付けると「培養中」で並びます（記録にある培養中・中間報告の培養も）。塗抹（グラム染色）→ 中間報告（菌名）→ 最終報告（菌名と薬剤感受性 S／I／R）の順に、所見を選んで確定すると、誰がいつ報告したかが残り、医師のカルテの「未確認の結果」と細菌検査に出ます。陰性はそのまま最終報告にできます。血液培養の塗抹（陽性のボトル）はパニック値で、医師に連絡して記録するまで次の報告に進めません。S／I／R は検査室の判定を入れ、この画面は判定しません。",
-  results:
-    "コードが判定したパニック値は、報告するまで日付に関係なく残ります。オーダーした医師に電話か対面で直接伝え、最後に値を復唱してもらいます（提言第20号）。つながらなければ「記録してかけ直す」で回ごとに残します（時刻・手段・相手・誰）。「報告した」は、復唱を確かめたか、復唱できなかった理由を書くと押せます。下の表は今日からの結果です。",
-};
+
 
 /** A day in words (今日・明日・昨日・◯日前). */
 const dayLabel = (d: number) => (d === 0 ? "今日" : d === 1 ? "明日" : d === -1 ? "昨日" : d < 0 ? `${-d}日前` : `${d}日後`);
@@ -71,10 +62,6 @@ export function LabView(p: Props) {
   const nowAbs = abs(0, nowTime);
   const waiting = uncalled(items, calls);
   const [tab, setTab] = useState<Tab>(() => (waiting.length ? "results" : "receive"));
-  // The guide follows 「使い方」 on the top row until it is opened or closed here.
-  const [hintsOn] = useHints();
-  const [guideSet, setGuide] = useState<boolean | null>(null);
-  const guide = guideSet ?? hintsOn;
   const [flash, setFlash] = useState("");
   const rows = drawRows(people, records, desk, sessionStart, nowAbs);
   // A sample with only cultures is reported in 培養, not counted here.
@@ -86,7 +73,7 @@ export function LabView(p: Props) {
     setTab("results");
   };
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div data-help-section={`department:lab:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <FlaskConical size={17} />
@@ -111,21 +98,12 @@ export function LabView(p: Props) {
         <span className={`text-xs font-bold ${waiting.length ? "text-shu" : "text-wakatake"}`}>
           {waiting.length ? `パニック値の連絡がまだ ${waiting.length}件` : "パニック値はすべて報告済み"}
         </span>
-        <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => openHelp(`department:lab:${tab}`)} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>
       </div>
-      {guide && (
-        <div className="border-b border-rule bg-ai-soft/40 px-5 py-2 text-[12px]">
-          <p className="mb-1 flex items-center gap-1 font-bold text-ai">
-            <BookOpenText size={14} />
-            使い方：{TABS.find((t) => t.key === tab)?.label}
-          </p>
-          <p className="text-ink">{GUIDE[tab]}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。採取の記録は看護師でワークシートの「照合」から、結果の確認と対応は医師でカルテの右上から行います。</p>
-        </div>
-      )}
+
       {flash && (
         <p role="status" className="border-b border-shu/40 bg-shu-soft px-5 py-1.5 text-[12px] font-bold text-shu">
           {flash}
@@ -374,3 +352,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >臨床検査技師として操作するには、右上の「自分」で「臨床検査技師」を選びます（デモではログインの代わり）。採取の記録は看護師でワークシートの「照合」から、結果の確認と対応は医師でカルテの右上から行います。</p>
+*/

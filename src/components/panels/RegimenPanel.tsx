@@ -50,15 +50,7 @@ function SourceLink({ s }: { s: Source }) {
 function Sources({ list }: { list: Source[] }) {
   if (!list.length) return null;
   return (
-    <span className="hint text-[11px] text-ink-faint">
-      出典：
-      {list.map((s, i) => (
-        <span key={s.url}>
-          {i > 0 && "／"}
-          <SourceLink s={s} />
-        </span>
-      ))}
-    </span>
+    null
   );
 }
 
@@ -156,9 +148,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
 
   return (
     <div ref={root} onKeyDown={onKeyDown} className="space-y-3 text-[12px]">
-      <p className="text-[11px] text-ink-faint">
-        レジメン・コース・day・開始・減量率は医師が選びます（最初から選ばれているものはありません）。量・溶媒・時刻はコードが式つきで計算します。← → で選び、Tab で次の項目へ、⌘Enter（Ctrl+Enter）で下書きにします。
-      </p>
+
 
       <section className="space-y-0.5 rounded-md border border-rule bg-paper p-2">
         <h3 className="text-[11px] font-bold text-ink-soft">カルテの値</h3>
@@ -174,17 +164,15 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
         )}
         {bsa && (
           <p className="nums text-ai">
-            体表面積（{BSA_RULE.name}）{bsa.formula}<span className="hint">（コードで計算）</span>
+            体表面積（{BSA_RULE.name}）{bsa.formula}
           </p>
         )}
         {gfr && (
           <p className="nums text-ai">
-            CCr（Cockcroft-Gault）{gfr.formula}<span className="hint">（コードで計算）</span>{gfr.capped && <b className="ml-1 text-yamabuki">→ GFR は上限の {GFR_RULE.capMlMin}mL/分で計算</b>}
+            CCr（Cockcroft-Gault）{gfr.formula}{gfr.capped && <b className="ml-1 text-yamabuki">→ GFR は上限の {GFR_RULE.capMlMin}mL/分で計算</b>}
           </p>
         )}
-        <p className="hint text-[11px] text-ink-faint">
-          {displayText(BSA_RULE.text)}（四捨五入は{BSA_RULE.rounding}）：<SourceLink s={BSA_RULE.source} />。{displayText(GFR_RULE.text)}：<SourceLink s={GFR_RULE.source} />。{GFR_RULE.capText}：<SourceLink s={GFR_RULE.capSource} />。
-        </p>
+
       </section>
 
       <section className="space-y-1.5">
@@ -280,7 +268,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
                       {rp.route}
                       {displayText(rp.minutes ? `　${minutesText(rp.minutes)}` : "")}
                     </span>
-                    {rate && <span className="text-[11px] text-ai">{rate}<span className="hint">（コードで計算）</span></span>}
+                    {rate && <span className="text-[11px] text-ai">{rate}</span>}
                   </div>
                   {plan.checks
                     .filter((c) => c.rpKey === rp.key)
@@ -340,7 +328,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
         )}
         {made && <p className="mt-1 text-[12px] text-wakatake">{made}</p>}
       </div>
-      <p className="text-[11px] text-ink-faint">下書きは1本ずつ、ほかの注射と同じ確認（経路・単位・速度・時刻・重複）を通ります。G-CSF・内服薬・補液はこの欄では出しません。</p>
+
     </div>
   );
 }
@@ -370,7 +358,7 @@ function DoseRow({ l, value, onReduce }: { l: DoseLine; value: number | null; on
       <tr className="border-b border-rule-soft">
         <td colSpan={6} className="pb-1.5">
           {/* A fixed dose with no rounding has nothing to work out. */}
-          {l.steps.length > 0 && (l.drug.basis !== "固定" || l.drug.roundMg > 0) && <p className="text-[11px] text-ai">{l.steps.join("　→　")}<span className="hint">（コードで計算）</span></p>}
+          {l.steps.length > 0 && (l.drug.basis !== "固定" || l.drug.roundMg > 0) && <p className="text-[11px] text-ai">{l.steps.join("　→　")}</p>}
           {l.drug.roundMg > 0 && <p className="text-[11px] text-ink-faint">まるめ：{l.drug.roundNote}</p>}
           {l.drug.note && <p className="text-[11px] text-ink-soft">{displayText(l.drug.note)}</p>}
           {l.warnings.map((w) => (
@@ -382,3 +370,26 @@ function DoseRow({ l, value, onReduce }: { l: DoseLine; value: number | null; on
     </>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<span >
+      出典：
+      {list.map((s, i) => (
+        <span key={s.url}>
+          {i > 0 && "／"}
+          <SourceLink s={s} />
+        </span>
+      ))}
+    </span>
+<p >
+        レジメン・コース・day・開始・減量率は医師が選びます（最初から選ばれているものはありません）。量・溶媒・時刻はコードが式つきで計算します。← → で選び、Tab で次の項目へ、⌘Enter（Ctrl+Enter）で下書きにします。
+      </p>
+<span >（コードで計算）</span>
+<span >（コードで計算）</span>
+<p >
+          {displayText(BSA_RULE.text)}（四捨五入は{BSA_RULE.rounding}）：<SourceLink s={BSA_RULE.source} />。{displayText(GFR_RULE.text)}：<SourceLink s={GFR_RULE.source} />。{GFR_RULE.capText}：<SourceLink s={GFR_RULE.capSource} />。
+        </p>
+<span >（コードで計算）</span>
+<p >下書きは1本ずつ、ほかの注射と同じ確認（経路・単位・速度・時刻・重複）を通ります。G-CSF・内服薬・補液はこの欄では出しません。</p>
+<span >（コードで計算）</span>
+*/

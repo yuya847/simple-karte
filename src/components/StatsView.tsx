@@ -137,9 +137,7 @@ export function StatsView({
         )}
         {tab === "alos" && <AlosTab stays={stays} floors={floors} today={today} />}
         {tab === "dept" && <DeptTab stays={stays} visits={visits} period={periods[month]} label={periods[month].label} />}
-        <p className="hint text-[11px] text-ink-faint">
-          今日の数は、カルテのある患者・今日の入院・実施した退院・病棟の移動・ほかのチームの患者（ベッドの表示）から数えます。今日より前の入退院は、今日のベッドの様子から日をさかのぼって作った記録で、外来の数は地域医療連携の画面と同じ外来の日計です。計算はすべてコードで行い、AI は使いません。
-        </p>
+
       </div>
       {sheet}
     </section>
@@ -365,7 +363,7 @@ function AlosTab({ stays, floors, today }: { stays: ReturnType<typeof censusStay
           })}
         </tbody>
       </table>
-      <p className="text-[11px] text-ink-soft">病棟ごとの値は、それぞれの病棟を1つとして同じ決まりで数えた参考です（病棟の間の移動は、その病棟の入棟・退棟になります）。基準に合っているかを判断するのは人です。</p>
+
       <ul className="list-disc space-y-0.5 pl-5 text-[12px]">
         {BASIC_ALOS_RULES.map((t) => (
           <li key={t}>{t}</li>
@@ -405,7 +403,7 @@ function DeptTab({ stays, visits, period, label }: { stays: ReturnType<typeof ce
       </table>
       <h2 className="font-bold">外来の診療科別（{label}）</h2>
       <OpdTable rows={opdCounts(visits, period)} perDay />
-      <p className="text-[11px] text-ink-soft">月は「月報」のタブで選んだ月です。入院の診療科は、病棟を移っても入院したときの診療科で数えます（転科は数えていません）。</p>
+
     </>
   );
 }
@@ -421,3 +419,14 @@ function Sheet({ title, children }: { title: string; children: ReactNode }) {
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >
+          今日の数は、カルテのある患者・今日の入院・実施した退院・病棟の移動・ほかのチームの患者（ベッドの表示）から数えます。今日より前の入退院は、今日のベッドの様子から日をさかのぼって作った記録で、外来の数は地域医療連携の画面と同じ外来の日計です。計算はすべてコードで行い、AI は使いません。
+        </p>
+<p >病棟ごとの値は、それぞれの病棟を1つとして同じ決まりで数えた参考です（病棟の間の移動は、その病棟の入棟・退棟になります）。基準に合っているかを判断するのは人です。</p>
+*/
+
+/* ヘルプへ移動した説明:
+月は「月報」のタブで選んだ月です。入院の診療科は、病棟を移っても入院したときの診療科で数えます（転科は数えていません）。
+*/

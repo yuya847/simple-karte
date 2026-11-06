@@ -14,7 +14,7 @@ export function CondEditor({ conds, onChange, newId }: { conds: CondRule[]; onCh
   return (
     <section className="space-y-2 rounded-md border border-rule p-2">
       <h3 className="font-bold text-ink-soft">条件付き指示（検査値・バイタルが条件に当たったら）</h3>
-      <p className="hint text-[11px] text-ink-faint">条件と、当たったときにすることを医師が書きます。最新の値が条件に当たると、看護師の画面と「やること」に出ます。薬を出したり、オーダを作ったりはしません。</p>
+
       {conds.map((r, i) => {
         const missing = condMissing(r);
         const unit = r.source === "lab" ? (ANALYTES.find((a) => a.code === r.item)?.unit ?? "") : (COND_VITALS.find((v) => v.key === r.item)?.unit ?? "");
@@ -115,3 +115,7 @@ export function CondHits({ hits, acks, fmtDay, canRecord, onRecord }: { hits: Co
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >条件と、当たったときにすることを医師が書きます。最新の値が条件に当たると、看護師の画面と「やること」に出ます。薬を出したり、オーダを作ったりはしません。</p>
+*/

@@ -4,7 +4,7 @@ import { TimeInput } from "@/components/TimeInput";
 import { useState } from "react";
 import { addDays, daysFrom, isoDate, minutesOf, type CalendarDate } from "@/lib/dates";
 import { fitsOrSlot, orSlots } from "@/lib/or-slots";
-import { ANESTHESIAS, OR_ROOMS, OR_RULES, POSITIONS, SIDES, type Surgery } from "@/lib/surgery";
+import { ANESTHESIAS, OR_ROOMS, POSITIONS, SIDES, type Surgery } from "@/lib/surgery";
 import { requestKind, startSurgeryRequest, surgeryRequestText } from "@/lib/surgery-request";
 import type { Patient } from "@/lib/types";
 import { useDeny } from "../RoleContext";
@@ -24,7 +24,7 @@ export function AddSurgeryPanel({ patient, today, nowTime, surgeries, onSave }: 
   const text = (label: string, value: string, change: (v: string) => void) => <label className="block">{label}<input aria-label={label} className={input} value={value} onChange={(e) => change(e.target.value)} /></label>;
   return <form className="space-y-3 text-sm" onSubmit={(e) => { e.preventDefault(); if (deny || !valid) return; onSave({ ...request, id: crypto.randomUUID() }, surgeryRequestText(request, today)); }}>
     <p className="font-bold">{patient.name}（{patient.sex}・{patient.age}歳）／{patient.ward}／{patient.department}</p>
-    <p className="hint text-xs text-ink-soft">模擬の手術申込です。AI は使いません。登録済みの患者情報を引用しています。術前の確認は医師が確かめてください。申込も枠を使います。開室 {OR_RULES.open}〜{OR_RULES.close}、手術の間に片付け {OR_RULES.turnover}分、前日 {OR_RULES.deadline}締切です。空き枠は所要時間で選び、保存時にも確認します。</p>
+
     <label className="block">術式<textarea aria-label="術式" className={input} value={draft.procedure} onChange={(e) => set("procedure", e.target.value)} /></label>
     <div className="grid grid-cols-2 gap-2">{text("部位", draft.site, (v) => set("site", v))}{select("左右", draft.side ?? "", SIDES, (v) => set("side", v as Surgery["side"]))}{select("体位", draft.position ?? "", POSITIONS, (v) => set("position", v as Surgery["position"]))}{select("麻酔", draft.anesthesia ?? "", ANESTHESIAS, (v) => set("anesthesia", v as Surgery["anesthesia"]))}</div>
     <label className="block">予定日<input aria-label="予定日" type="date" className={input} min={isoDate(today)} value={isoDate(addDays(today, draft.day))} onChange={(e) => { if (!e.target.value) return; const [y, m, d] = e.target.value.split("-").map(Number); setDraft((s) => ({ ...s, day: daysFrom(today, { y, m, d }), start: null })); }} /></label>
@@ -47,3 +47,7 @@ export function AddSurgeryPanel({ patient, today, nowTime, surgeries, onSave }: 
     {deny && <p>{deny}</p>}<button type="submit" disabled={!!deny || !valid} className="rounded bg-ai px-3 py-2 text-white disabled:opacity-40">保存する</button>
   </form>;
 }
+
+/* Help migration source (references and dynamic wording):
+<p >模擬の手術申込です。AI は使いません。登録済みの患者情報を引用しています。術前の確認は医師が確かめてください。申込も枠を使います。開室 {OR_RULES.open}〜{OR_RULES.close}、手術の間に片付け {OR_RULES.turnover}分、前日 {OR_RULES.deadline}締切です。空き枠は所要時間で選び、保存時にも確認します。</p>
+*/

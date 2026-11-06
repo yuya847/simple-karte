@@ -79,9 +79,9 @@ describe("記事の太字・見出しの表示", () => {
     expect(html.match(/<textarea /g)?.length).toBe(5);
     expect(html).toContain("＃1 尿路感染症 のブロック（見出しと本文）を動かす（ドラッグか Alt+↑↓）");
     expect(html).not.toContain("3行目を動かす（ドラッグか Alt+↑↓）");
-    expect(html).toContain("⌘B 太字");
-    expect(html).toContain("書き方のこつ");
-    expect(html).toContain("つまみで動かせます");
+    expect(html).not.toContain("⌘B 太字");
+    expect(html).not.toContain("書き方のこつ");
+    expect(html).not.toContain("つまみで動かせます");
     // A locked note (a role that cannot write) has no grips.
     const locked = as("医事課", pane("A)\n＃1 尿路感染症\n"));
     expect(locked).not.toContain("を動かす（ドラッグか");

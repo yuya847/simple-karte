@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { ListX } from "lucide-react";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
-import { DISCHARGE_STOP_SOURCE, type StopGroup, type StopGroupKey } from "@/lib/discharge-stop";
+import { type StopGroup, type StopGroupKey } from "@/lib/discharge-stop";
 import { orderLines } from "@/lib/format";
 
 /**
@@ -21,7 +21,7 @@ export function DischargeStops({ groups, today, canStop, why, onStop }: { groups
         <ListX size={14} />
         退院のあとも残る指示
       </h3>
-      <p className="hint text-[11px] text-ink-faint">カルテから有効なオーダと指示簿をコードで集めました。中止するグループを医師が1つずつ選んで確定します。退院時処方と退院のオーダは含めません。</p>
+
       {groups.length === 0 ? (
         <p className="text-wakatake">退院のあとも残る指示はありません。</p>
       ) : (
@@ -58,12 +58,17 @@ export function DischargeStops({ groups, today, canStop, why, onStop }: { groups
         ) : (
           <p className="text-ink-soft">{why ?? "中止は医師が確定します。"}</p>
         ))}
-      <p className="hint text-[11px] text-ink-faint">
-        出典：
-        <a href={DISCHARGE_STOP_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
-          {DISCHARGE_STOP_SOURCE.label}
-        </a>
-      </p>
+
     </section>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >カルテから有効なオーダと指示簿をコードで集めました。中止するグループを医師が1つずつ選んで確定します。退院時処方と退院のオーダは含めません。</p>
+<p >
+        出典：
+        <a href={DISCHARGE_STOP_SOURCE.url} target="_blank" rel="noreferrer" >
+          {DISCHARGE_STOP_SOURCE.label}
+        </a>
+      </p>
+*/

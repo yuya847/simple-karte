@@ -12,7 +12,6 @@ import type { CalendarDate } from "@/lib/dates";
 import { ANALYTES } from "@/lib/master";
 import {
   FORMULAS,
-  TEMPLATE_SOURCES,
   calcFormula,
   fieldKey,
   fieldText,
@@ -64,7 +63,7 @@ export function TemplatePanel({ patient, today, onInsert, onClose, onOpenRecords
 
       {view.kind === "list" && (
         <div className="space-y-2">
-          <p className="hint text-[11px] text-ink-soft">選ぶと入力の欄が出ます。選択肢を押し、数値を入れると、検査値・バイタルはカルテから、計算はコードが式どおりに入れます。「記事に入れる」で下の記事に入ります（確定は記事の「記事を確定」で）。</p>
+
           {onOpenRecords && (
             <div className="rounded-md border border-rule bg-paper px-2 py-1.5 text-xs">
               <button type="button" onClick={onOpenRecords} className="font-bold text-ai underline">型のある記録（IC・救急医療管理加算の根拠・ICU 入室時・急変時・転倒 …）</button>
@@ -113,14 +112,7 @@ export function TemplatePanel({ patient, today, onInsert, onClose, onOpenRecords
             </div>
             {saved === false && <p className="mt-1 text-[11px] text-yamabuki">この端末に保存できませんでした（ブラウザの設定）。ページを閉じるまでは使えます。</p>}
           </div>
-          <p className="hint text-[10px] text-ink-faint">
-            根拠：
-            {TEMPLATE_SOURCES.map((s) => (
-              <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
-                {s.name}
-              </a>
-            ))}
-          </p>
+
         </div>
       )}
 
@@ -205,7 +197,7 @@ export function FieldInput({ f, values, set, facts, fields }: { f: TemplateField
             <span className="ml-2 text-[11px] text-ink-soft">
               計算：{fm.expr}
               {r.used.length > 0 && `（${r.used.map((u) => `${u.label} ${u.value}${u.unit}${u.from === "カルテ" ? "＝カルテ" : ""}`).join("、")}）`}
-              {fm.source && <span className="hint">　出典：{displayText(fm.source)}</span>}
+
             </span>
             {r.missing.length > 0 && <div className="text-[11px] text-yamabuki">{r.missing.join("・")}がありません</div>}
           </div>
@@ -396,3 +388,16 @@ export function TemplateEditor({ start, others, onSave }: { start: { name: strin
     </div>
   );
 }
+
+/* Help migration source (references and dynamic wording):
+<p >選ぶと入力の欄が出ます。選択肢を押し、数値を入れると、検査値・バイタルはカルテから、計算はコードが式どおりに入れます。「記事に入れる」で下の記事に入ります（確定は記事の「記事を確定」で）。</p>
+<p >
+            根拠：
+            {TEMPLATE_SOURCES.map((s) => (
+              <a key={s.url} href={s.url} target="_blank" rel="noreferrer" >
+                {s.name}
+              </a>
+            ))}
+          </p>
+<span >　出典：{displayText(fm.source)}</span>
+*/
