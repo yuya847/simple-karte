@@ -1,11 +1,13 @@
 "use client";
 
+import { checkDiseases } from "@/lib/billing/disease-check";
+import { DiseaseCandidates, type DiseaseRequestProps } from "./billing/DiseaseCandidates";
 import { displayText } from "@/lib/display-text";
 import { OutpatientDesk, type OutpatientDeskProps } from "./billing/OutpatientDesk";
 import { EmergencyDesk, type EmergencyDeskProps } from "./billing/EmergencyDesk";
 import { pendingDraftCount } from "@/lib/billing/emergency-visit";
 import { Loader2, ReceiptJapaneseYen, RefreshCw } from "lucide-react";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import type { ClaimIssue } from "@/lib/billing/model";
 import type { PatientMonthPayload } from "@/lib/billing/payload";
 import { insuranceSummary } from "@/lib/billing/registration";
@@ -18,6 +20,7 @@ const KIND_TONE: Record<IjiKind, string> = {
   保険の未登録: "border-shu/40 bg-shu-soft text-shu",
   会計がまだ: "border-yamabuki/40 bg-yamabuki-soft text-yamabuki",
   算定の要確認: "border-yamabuki/40 bg-yamabuki-soft text-yamabuki",
+  病名漏れの候補: "border-yamabuki/40 bg-yamabuki-soft text-yamabuki",
   病名の未コード化: "border-fuji/40 bg-fuji-soft text-fuji",
 };
 
@@ -37,7 +40,9 @@ export function IjiBoard({
   nowTime,
   payload,
   onOpen,
-}: {
+  diseaseRequests,
+  onDiseaseRequest,
+}: DiseaseRequestProps & {
   patients: Patient[];
   /** The 退院 planned by a valid 退院 order (day from today and time), for the 会計 to prepare. */
   dischargePlanOf?: (patientId: string) => { day: number; time: string } | null;
@@ -84,7 +89,8 @@ export function IjiBoard({
     return () => ctl.abort();
   }, [runs]);
 
-  const rows = useMemo(() => ijiRows(patients, desk, diagnoses, checks), [patients, desk, diagnoses, checks]);
+  const diseaseCandidates = Object.fromEntries(payload().map(p => [p.patient.id, checkDiseases({ ...p, diagnoses: diagnoses[p.patient.id] ?? p.diagnoses, today: isoDate(today), nowTime, month, admittedOn: p.patient.admittedOn, dischargedOn: p.patient.dischargedOn })]));
+  const rows = ijiRows(patients, desk, diagnoses, checks, diseaseCandidates);
   const counts = ijiCounts(
     rows,
     visitCounts(
@@ -208,6 +214,7 @@ export function IjiBoard({
                   )}
                 </td>
                 <td className="px-2 py-1.5">
+                  {r.diseaseCandidates.length > 0 && <details className="mb-2"><summary className="cursor-pointer font-bold text-yamabuki">病名漏れの候補 {r.diseaseCandidates.length}件</summary><DiseaseCandidates candidates={r.diseaseCandidates} patientId={p.id} diseaseRequests={diseaseRequests} onDiseaseRequest={onDiseaseRequest} /></details>}
                   {r.uncoded.length === 0 ? (
                     <span className="text-ink-faint">{(diagnoses[p.id] ?? []).length ? "すべてコードあり" : "病名なし"}</span>
                   ) : (

@@ -58,7 +58,7 @@ describe("医事課の仕事", () => {
     const rows = ijiRows(patients, INITIAL_DESK, diagnoses, checks);
     expect(rows.find((r) => r.patientId === "90010231")!.todo).toEqual(["算定の要確認"]);
     expect(rows.find((r) => r.patientId === "90010244")!.review).toBeNull();
-    expect(ijiCounts(rows)).toEqual({ 保険の未登録: 1, 会計がまだ: 0, 算定の要確認: 1, 病名の未コード化: 1 });
+    expect(ijiCounts(rows)).toEqual({ 保険の未登録: 1, 会計がまだ: 0, 算定の要確認: 1, 病名の未コード化: 1, 病名漏れの候補: 0 });
   });
   it("only 確かめる and 人が選ぶ count, and the insurance note is left to its own item", () => {
     const issues: ClaimIssue[] = [

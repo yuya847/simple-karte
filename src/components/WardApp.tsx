@@ -89,6 +89,8 @@ import { DeptMoveDialog } from "./DeptMoveDialog";
 import type { BookWhat, MoveEvent } from "./DietCalendar";
 import { moveText } from "@/lib/procedures";
 import { bedProblem } from "@/lib/admission";
+import { withDiseaseRequest, visibleDiseaseStickies, diseaseRequestInput, diseaseRequestTodos } from "@/lib/billing/disease-request";
+import type { DiseaseCandidate } from "@/lib/billing/disease-check";
 import { StickyStrip, type Sticky } from "./StickyStrip";
 import { BoardView } from "./BoardView";
 import { ExtractView } from "./ExtractView";
@@ -1785,7 +1787,9 @@ export default function WardApp() {
   const consultPeople = bedPeople(allBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id]));
   const inbox = consultInbox(consultPeople, me.name, consultReplies);
   const kitchenPending = kitchenWaiting(diets, care.kitchen);
+  const requestDisease = (pid: string, c: DiseaseCandidate) => { const p = findPatient(pid); if (!p || deny("billing")) return; setStickies(all => ({ ...all, [pid]: withDiseaseRequest(all[pid] ?? [], c, p.attending, me.name, nowTime, isoDate(today)) })); };
   const todos: Todo[] = [];
+  if (role === "医師") todos.push(...diseaseRequestTodos(allPatients, stickies, me.name, id => diseaseRequestInput(claimPayloadOf(findPatient(id)!), isoDate(today), nowTime), id => { openPatient(id); setTimeout(() => setPanel("diagnoses"), 0); }));
   if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) { openPatient(n.patientId); updateFor(n.patientId, () => ({ leftView: "flowsheet", flowScale: "all" })); } } })));
   if (role === "管理栄養士" && kitchenPending) todos.push({ key: "kitchen", label: "給食の変更が未受け", count: kitchenPending, tone: "shu", go: () => openArea("kitchen") });
   if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
@@ -2264,7 +2268,7 @@ export default function WardApp() {
           onAccept={acceptRequest}
         />
       ) : screen === "iji" ? (
-        <IjiBoard outpatient={{ visits: opd.map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`opd:${patient.id}`)!, sessionChanges[`opd:${patient.id}`]), dept.ris)), rx: opdRx[patient.id] ?? [], drafts: pendingDraftCount(charts, `opd:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) { setOpdBills((all) => ({ ...all, [s.visitId]: s })); setOpd((all) => all.map((p) => `opd:${p.id}` === s.visitId ? { ...p, status: "終了" } : p)); } } }} charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} dischargePlanOf={(id) => { const x = findPatient(id); if (!x) return null; const o = ordersOf(currentEntries(x, sessionChanges[id])).find((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院"); return o && o.order.type === "procedure" && o.order.leave ? o.order.leave.from : null; }} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => { openPatient(id); /* after the switch render (it closes the previous patient's windows) */ setTimeout(() => setPanel(id.startsWith("er:") || id.startsWith("opd:") ? "patient-info" : where), 0); }} />
+        <IjiBoard diseaseRequests={stickies} onDiseaseRequest={requestDisease} outpatient={{ visits: opd.map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`opd:${patient.id}`)!, sessionChanges[`opd:${patient.id}`]), dept.ris)), rx: opdRx[patient.id] ?? [], drafts: pendingDraftCount(charts, `opd:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) { setOpdBills((all) => ({ ...all, [s.visitId]: s })); setOpd((all) => all.map((p) => `opd:${p.id}` === s.visitId ? { ...p, status: "終了" } : p)); } } }} charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} dischargePlanOf={(id) => { const x = findPatient(id); if (!x) return null; const o = ordersOf(currentEntries(x, sessionChanges[id])).find((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院"); return o && o.order.type === "procedure" && o.order.leave ? o.order.leave.from : null; }} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => { openPatient(id); /* after the switch render (it closes the previous patient's windows) */ setTimeout(() => setPanel(id.startsWith("er:") || id.startsWith("opd:") ? "patient-info" : where), 0); }} />
       ) : screen === "support" ? (
         <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} onStep={(pid, step) => { if (step === "docs" || step === "transfer" || step === "add-discharge") { if (step === "add-discharge" && role !== "医師") return; setSupportDoc(step === "docs"); openPatient(pid); /* after the switch: windows of the previous patient close on the switch render */ setTimeout(() => { if (step === "add-discharge") openOrder(step); else setPanel(step); }, 0); } else { setAdmitSelection({ pid, key: step }); goWard("admit"); } }} />
       ) : screen === "ulcers" ? (
@@ -3020,7 +3024,8 @@ export default function WardApp() {
           })()}
           <PatientWindowProvider key={`${patient.id}:${desk}`} focusKey={panel ? `panel:${panel}` : null} focusVersion={panelActivation} focusTabs={zOrder}><WindowTray />
           <StickyStrip
-            stickies={stickies[patient.id] ?? []}
+            stickies={visibleDiseaseStickies(stickies[patient.id] ?? [], diseaseRequestInput(claimPayloadOf(patient), isoDate(today), nowTime))}
+            onDiagnoses={() => setPanel("diagnoses")}
             nowTime={nowTime}
             newId={newId}
             onAdd={(st) => setStickies((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), st] }))}
@@ -3043,7 +3048,7 @@ export default function WardApp() {
             </div>
             {panel === "billing" ? (
               <div className="col-span-2 flex min-h-0 flex-col">
-                <BillingView
+                <BillingView diseaseRequests={stickies} onDiseaseRequest={requestDisease}
                   key={patient.id}
                   patient={patient}
                   entries={billedEntries}

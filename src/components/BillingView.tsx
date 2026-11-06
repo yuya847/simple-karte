@@ -1,5 +1,7 @@
 "use client";
 
+import { checkDiseases } from "@/lib/billing/disease-check";
+import { DiseaseCandidates, type DiseaseRequestProps } from "./billing/DiseaseCandidates";
 import { displayText } from "@/lib/display-text";
 import type { DietOrder } from "@/lib/diet";
 import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "lucide-react";
@@ -23,7 +25,7 @@ import type { Diagnosis } from "@/lib/diagnoses";
 import { type BillingOptions, type ClaimAct, type ClaimIssue, type ClaimResult, SHIKIBETSU_NAME, type Shikibetsu } from "@/lib/billing/model";
 import type { HistoryEntry, Patient } from "@/lib/types";
 
-interface Props {
+interface Props extends DiseaseRequestProps {
   patient: Patient;
   entries: HistoryEntry[];
   diagnoses: Diagnosis[];
@@ -96,7 +98,7 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insurance: records = [], onRegister, settlement, onSettle }: Props) {
+export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insurance: records = [], onRegister, settlement, onSettle, diseaseRequests, onDiseaseRequest }: Props) {
   const me = useMe();
   const deny = useDeny();
   const registered = records[records.length - 1];
@@ -167,6 +169,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
     return [...g.entries()];
   }, [result]);
 
+  const diseaseCandidates = checkDiseases({ entries, diagnoses, today: isoDate(today), nowTime, month, admittedOn: patient.admittedOn, dischargedOn: patient.dischargedAt?.day, notGiven });
   const nDays = daysInMonth(month);
   const [, mm] = month.split("-").map(Number);
   const set = (patch: Partial<BillingOptions>) => onOptions({ ...options, ...patch });
@@ -346,6 +349,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           </div>
         </fieldset>
 
+        <DiseaseCandidates candidates={diseaseCandidates} patientId={patient.id} diseaseRequests={diseaseRequests} onDiseaseRequest={onDiseaseRequest} />
         {result && result.issues.length > 0 && (() => {
           const row = (i: (typeof result.issues)[number]) => {
             const s = ISSUE_STYLE[i.level];

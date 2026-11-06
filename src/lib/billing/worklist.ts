@@ -1,3 +1,4 @@
+import type { DiseaseCandidate } from "./disease-check";
 // 医事課の仕事: per patient, what the 医事課 still has to do — 保険の未登録, 退院して会計がまだ,
 // 算定で人が確かめること（今月分）, 未コード化の病名. Collected from the records by code; nothing is decided here.
 
@@ -41,8 +42,8 @@ export const withSettlement = (desk: IjiDesk, id: string, s: Settlement): IjiDes
 /** The claim's issues a person must look at (確かめる・人が選ぶ). The insurance note is its own item. */
 export const reviewIssues = (issues: ClaimIssue[]): ClaimIssue[] => issues.filter((i) => (i.level === "review" || i.level === "choose") && i.text !== ASSUMED_INSURANCE_ISSUE);
 
-export type IjiKind = "保険の未登録" | "会計がまだ" | "算定の要確認" | "病名の未コード化";
-export const IJI_KINDS: IjiKind[] = ["保険の未登録", "会計がまだ", "算定の要確認", "病名の未コード化"];
+export type IjiKind = "保険の未登録" | "会計がまだ" | "算定の要確認" | "病名の未コード化" | "病名漏れの候補";
+export const IJI_KINDS: IjiKind[] = ["保険の未登録", "会計がまだ", "算定の要確認", "病名の未コード化", "病名漏れの候補"];
 
 export interface IjiRow {
   patientId: string;
@@ -52,6 +53,7 @@ export interface IjiRow {
   /** The claim's issues for a person (今月分); null while not computed. */
   review: ClaimIssue[] | null;
   uncoded: Diagnosis[];
+  diseaseCandidates: DiseaseCandidate[];
   todo: IjiKind[];
 }
 
@@ -60,6 +62,7 @@ export function ijiRows(
   desk: IjiDesk,
   diagnoses: Record<string, Diagnosis[]>,
   checks: Record<string, ClaimIssue[]> | null,
+  candidates: Record<string, DiseaseCandidate[]> = {},
 ): IjiRow[] {
   const rows = patients.map((p): IjiRow => {
     const insurance = currentRecord(desk.insurance, p.id) ?? null;
@@ -67,12 +70,14 @@ export function ijiRows(
     const settled = desk.settled[p.id] ?? null;
     const review = checks ? (checks[p.id] ?? null) : null;
     const uncoded = (diagnoses[p.id] ?? []).filter((d) => d.code === UNCODED);
+    const diseaseCandidates = candidates[p.id] ?? [];
     const todo: IjiKind[] = [];
     if (!insurance) todo.push("保険の未登録");
     if (discharge && !settled) todo.push("会計がまだ");
     if (review?.length) todo.push("算定の要確認");
     if (uncoded.length) todo.push("病名の未コード化");
-    return { patientId: p.id, insurance, discharge, settled, review, uncoded, todo };
+    if (diseaseCandidates.length) todo.push("病名漏れの候補");
+    return { patientId: p.id, insurance, discharge, settled, review, uncoded, diseaseCandidates, todo };
   });
   // Patients with something to do first (most first); otherwise in the order given.
   return rows.map((r, i) => ({ r, i })).sort((a, b) => b.r.todo.length - a.r.todo.length || a.i - b.i).map((x) => x.r);
@@ -81,7 +86,7 @@ export function ijiRows(
 export function ijiCounts(rows: IjiRow[], visits: { unpaid: number; uninsured: number } = { unpaid: 0, uninsured: 0 }): Record<IjiKind, number> {
   const base = Object.fromEntries(IJI_KINDS.map((k) => [k, rows.filter((r) => r.todo.includes(k)).length])) as Record<IjiKind, number>;
   // The 救急外来・外来 visits (their own sections) count in the chips too, so the chips match what is listed below.
-  return { ...base, 会計がまだ: base.会計がまだ + visits.unpaid, 保険の未登録: base.保険の未登録 + visits.uninsured };
+  return { ...base, 病名漏れの候補: rows.reduce((n, r) => n + r.diseaseCandidates.length, 0), 会計がまだ: base.会計がまだ + visits.unpaid, 保険の未登録: base.保険の未登録 + visits.uninsured };
 }
 /** What the visit sections still have to do: a visit not yet paid (not admitted), and one without insurance. */
 export function visitCounts(opd: { status: string; paid: boolean }[], er: { admitted: boolean; paid: boolean; insured: boolean }[], opdInsured: boolean[]): { unpaid: number; uninsured: number } {

@@ -1,5 +1,6 @@
 "use client";
 
+import type { DiseaseRequest } from "@/lib/billing/disease-request";
 import { displayText } from "@/lib/display-text";
 import { Plus, StickyNote, X } from "lucide-react";
 import { useState } from "react";
@@ -12,13 +13,14 @@ export interface Sticky {
   at: string;
   /** Seen by everyone, or only by the person who wrote it. */
   shared: boolean;
+  diseaseRequest?: DiseaseRequest;
 }
 
 /**
  * 付箋: short reminders stuck on the chart (「明日の CT の前に同意書」…), shown under the patient band.
  * Not part of the record: they can be taken off when done. Only the writer sees a private one.
  */
-export function StickyStrip({ stickies, onAdd, onRemove, newId, nowTime }: { stickies: Sticky[]; onAdd: (s: Sticky) => void; onRemove: (id: string) => void; newId: () => string; nowTime: string }) {
+export function StickyStrip({ stickies, onAdd, onRemove, newId, nowTime, onDiagnoses }: { onDiagnoses?: () => void; stickies: Sticky[]; onAdd: (s: Sticky) => void; onRemove: (id: string) => void; newId: () => string; nowTime: string }) {
   const me = useMe();
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
@@ -46,6 +48,7 @@ export function StickyStrip({ stickies, onAdd, onRemove, newId, nowTime }: { sti
       {mine.map((s) => (
         <span key={s.id} title={displayText(`${s.at} ${s.by}${s.shared ? "（みんなに）" : "（自分だけ）"}`)} className="flex items-center gap-1 rounded bg-yamabuki-soft px-2 py-0.5 text-ink shadow-sm">
           {displayText(s.text)}
+          {s.diseaseRequest && onDiagnoses && me.role === "医師" && <button type="button" onClick={onDiagnoses} className="rounded border border-rule px-1 text-ai">病名を足す</button>}
           <span className="text-[10px] text-ink-faint">{displayText(s.shared ? s.by : "自分だけ")}</span>
           <button type="button" onClick={() => onRemove(s.id)} aria-label={displayText(`付箋「${s.text}」をはがす`)} className="text-ink-faint hover:text-shu">
             <X size={12} />
