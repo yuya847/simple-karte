@@ -137,7 +137,7 @@ export function initialSummaries(): NurseSummary[] {
   return [
     submit("ns-sugawara-mid1", "90035153", "中間", {
       sections: [
-        { heading: "病名", lines: ["（架空）消化器内科の入院"] },
+        { heading: "病名", lines: ["消化器内科の入院"] },
         { heading: "経過（入院15日目まで）", lines: ["絶食と補液ののち、5日前から食事を再開。腹痛なし。", "病棟内は独歩。夜間の排泄は自立。"] },
         { heading: "看護問題", lines: ["#1 食事の再開に伴う腹部症状の観察（継続）"] },
       ],

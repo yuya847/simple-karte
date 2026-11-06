@@ -64,7 +64,7 @@ export interface IoLine {
   at: number;
   by: string;
   what: string;
-  from: "入力" | "点滴の記録" | "注射の記録" | "前の勤務（架空）";
+  from: "入力" | "点滴の記録" | "注射の記録" | "前の勤務";
   formula?: string;
   orderId?: string;
   entryId?: string;
@@ -111,7 +111,7 @@ export function ioLines(p: { patientId: string; entries: OrderEntry[]; typed: Io
   }
   for (const c of dripCourses(p.patientId, p.entries, p.records, p.sessionStart, p.nowAbs, p.from)) {
     if (!c.end) continue;
-    out.push({ side: "IN", kind: "点滴", ml: c.end.givenMl, at: c.end.at, by: c.end.by, what: `${c.label}${c.bag ? `（${c.bag}本目）` : ""}`, from: c.source === "前の勤務" ? "前の勤務（架空）" : "点滴の記録", formula: c.end.formula, orderId: c.orderId });
+    out.push({ side: "IN", kind: "点滴", ml: c.end.givenMl, at: c.end.at, by: c.end.by, what: `${c.label}${c.bag ? `（${c.bag}本目）` : ""}`, from: c.source === "前の勤務" ? "前の勤務" : "点滴の記録", formula: c.end.formula, orderId: c.orderId });
   }
   // One-shot injections (静注 and the like) with a volume in mL: one record, counted when given.
   for (const e of p.entries) {
@@ -125,7 +125,7 @@ export function ioLines(p: { patientId: string; entries: OrderEntry[]; typed: Io
       if (at >= p.from) out.push({ side: "IN", kind: "点滴", ml: vol, at, by: r.by, what, from: "注射の記録", formula: `${vol}mL（1回量）`, orderId: e.id });
     }
     for (const { at } of doseStarts(e, p.from, Math.min(p.sessionStart, p.nowAbs + 1), p.nowAbs)) {
-      if (!p.records[`${e.id}|${at}`]) out.push({ side: "IN", kind: "点滴", ml: vol, at, by: EARLIER_SHIFT, what, from: "前の勤務（架空）", formula: `${vol}mL（1回量）`, orderId: e.id });
+      if (!p.records[`${e.id}|${at}`]) out.push({ side: "IN", kind: "点滴", ml: vol, at, by: EARLIER_SHIFT, what, from: "前の勤務", formula: `${vol}mL（1回量）`, orderId: e.id });
     }
   }
   return out.sort((a, b) => a.at - b.at);

@@ -228,7 +228,7 @@ export function takeStampOf(orderId: string, taken: Record<string, string>, sess
   for (const kind of ["中止", "新規"] as const) {
     const k = changeKey(orderId, kind);
     if (taken[k]) return splitStamp(taken[k]);
-    if (!sessionKeys.has(k) && kind === "新規") return { at: "", by: "前の勤務帯（架空）" };
+    if (!sessionKeys.has(k) && kind === "新規") return { at: "", by: "前の勤務帯" };
   }
   return EMPTY_STAMP;
 }

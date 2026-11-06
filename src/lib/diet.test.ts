@@ -13,7 +13,7 @@ describe("食事オーダー", () => {
     expect(dietLabel(dietAt(all, "90010198", 0, "昼"))).toBe("減塩食（心臓疾患）・塩分6g未満・米飯");
     expect(dietAt(all, "90010231", -4, "夕")).toBeUndefined();
   });
-  it("kitchen deadlines: 朝は前日17:00、昼は当日10:00、夕は当日15:00（架空）", () => {
+  it("kitchen deadlines: 朝は前日17:00、昼は当日10:00、夕は当日15:00", () => {
     const now = 9 * 60 + 30; // today 09:30
     expect(pastDeadline(0, "昼", now)).toBe(false);
     expect(pastDeadline(1, "朝", now)).toBe(false);

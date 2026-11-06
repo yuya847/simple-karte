@@ -10,7 +10,7 @@ describe("重複投薬等チェック of the simulated 電子処方箋管理サ�
     const f = erxChecks(["ORAL-SPL25"], otherRxOf("opd-1"), today);
     expect(f).toHaveLength(1);
     expect(f[0].kind).toBe("併用禁忌");
-    expect(f[0].other?.institution).toBe("あおば内科（架空）");
+    expect(f[0].other?.institution).toBe("あおば内科");
     expect(f[0].other?.drugName).toBe("セララ錠２５ｍｇ");
     expect(f[0].sources[0].label).toContain("アルダクトンA");
     expect(f[0].sources[0].label).toContain("10.1");

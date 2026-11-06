@@ -492,7 +492,7 @@ const anamnesisVersionsCount = (r?: AnamnesisRecord) => (r ? (r.earlier?.length 
 const admissionConsents = (): ConsentRecord[] =>
   [...DEMO_PATIENTS, ...DEMO_WARD_CHART_PATIENTS].map((p) => {
     const at = DEMO_PATIENTS.includes(p) ? ["15:00", "15:30"] : [p.history[0]?.time ?? "15:00", p.history[0]?.time ?? "15:30"];
-    return { id: `consent-adm-${p.id}`, patientId: p.id, code: "CONSENT-ADMISSION", status: "同意", createdAt: { day: p.admittedOn, time: at[0] }, explainedAt: { day: p.admittedOn, time: at[1] }, explainedBy: p.attending, witness: "看護師（架空）", answers: {} };
+    return { id: `consent-adm-${p.id}`, patientId: p.id, code: "CONSENT-ADMISSION", status: "同意", createdAt: { day: p.admittedOn, time: at[0] }, explainedAt: { day: p.admittedOn, time: at[1] }, explainedBy: p.attending, witness: "看護師", answers: {} };
   });
 
 /** Short line for the P) section of today's note, written by code from the confirmed order. */

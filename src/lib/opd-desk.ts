@@ -7,7 +7,7 @@ import type { OpdPatient } from "./opd";
 import type { DayOffset, Sex } from "./types";
 
 // ---------------------------------------------------------------------------
-// 診察室と予約の枠（架空の病院の取り決め）
+// 診察室と予約の枠
 // ---------------------------------------------------------------------------
 
 export interface Clinic {
@@ -26,9 +26,9 @@ export interface Clinic {
 export const CLINICS: Clinic[] = [
   { dept: "総合診療科", doctor: "山本（専攻医）", room: "診察室1", days: [1, 2, 3, 4, 5], sessions: [["09:00", "12:00"], ["14:00", "16:00"]], minutes: 15, capacity: 2 },
   { dept: "総合診療科", doctor: "木下（総合診療科 B）", room: "診察室2", days: [1, 3, 5], sessions: [["09:00", "12:00"]], minutes: 15, capacity: 2 },
-  { dept: "循環器内科", doctor: "循環器内科 森（架空）", room: "診察室5", days: [1, 2, 3, 4], sessions: [["09:00", "12:00"]], minutes: 15, capacity: 3 },
-  { dept: "消化器内科", doctor: "消化器内科 石川（架空）", room: "診察室6", days: [2, 3, 5], sessions: [["09:00", "12:00"]], minutes: 20, capacity: 2 },
-  { dept: "整形外科", doctor: "整形外科 長谷川（架空）", room: "診察室8", days: [1, 2, 3, 4, 5], sessions: [["09:00", "12:00"], ["14:00", "16:30"]], minutes: 15, capacity: 3 },
+  { dept: "循環器内科", doctor: "循環器内科 森", room: "診察室5", days: [1, 2, 3, 4], sessions: [["09:00", "12:00"]], minutes: 15, capacity: 3 },
+  { dept: "消化器内科", doctor: "消化器内科 石川", room: "診察室6", days: [2, 3, 5], sessions: [["09:00", "12:00"]], minutes: 20, capacity: 2 },
+  { dept: "整形外科", doctor: "整形外科 長谷川", room: "診察室8", days: [1, 2, 3, 4, 5], sessions: [["09:00", "12:00"], ["14:00", "16:30"]], minutes: 15, capacity: 3 },
 ];
 
 export const CLINIC_NOTE = "";
@@ -47,7 +47,7 @@ export function slotTimes(c: Clinic): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// 診察券（架空）
+// 診察券
 // ---------------------------------------------------------------------------
 
 export interface Card {
@@ -87,10 +87,10 @@ export function newCardNo(cards: Card[]): string {
 
 /** Today's patients of the other departments (fictional), with 予約. */
 export const OTHER_DEPT_TODAY: OpdPatient[] = [
-  { id: "opd-7", name: "大西 文雄", kana: "オオニシ フミオ", sex: "男", age: 74, department: "循環器内科", doctor: "循環器内科 森（架空）", slot: "09:30", arrived: "09:10", status: "診察待ち", kind: "再診", reason: "定期受診（心房細動・抗凝固薬）", allergies: [], problems: ["心房細動"], meds: ["アピキサバン錠5mg 1回1錠 1日2回 朝夕食後"], visits: [{ day: -56, text: "脈は整。処方継続。" }] },
-  { id: "opd-8", name: "三浦 和子", kana: "ミウラ カズコ", sex: "女", age: 69, department: "循環器内科", doctor: "循環器内科 森（架空）", slot: "10:15", status: "予約", kind: "再診", reason: "ホルター心電図の結果説明", allergies: [], problems: ["動悸"], meds: [], visits: [{ day: -14, text: "ホルター心電図を装着。" }] },
-  { id: "opd-9", name: "松井 健太", kana: "マツイ ケンタ", sex: "男", age: 45, department: "整形外科", doctor: "整形外科 長谷川（架空）", slot: "09:15", arrived: "08:55", status: "診察中", kind: "再診", reason: "腰痛の経過", allergies: [], problems: ["腰部脊柱管狭窄症"], meds: [], visits: [{ day: -28, text: "リハビリ継続。" }] },
-  { id: "opd-10", name: "菅野 礼子", kana: "カンノ レイコ", sex: "女", age: 81, department: "整形外科", doctor: "整形外科 長谷川（架空）", slot: "10:30", status: "予約", kind: "再診", reason: "骨粗鬆症の注射", allergies: [], problems: ["骨粗鬆症"], meds: [], visits: [{ day: -28, text: "骨密度 YAM 68%。" }] },
+  { id: "opd-7", name: "大西 文雄", kana: "オオニシ フミオ", sex: "男", age: 74, department: "循環器内科", doctor: "循環器内科 森", slot: "09:30", arrived: "09:10", status: "診察待ち", kind: "再診", reason: "定期受診（心房細動・抗凝固薬）", allergies: [], problems: ["心房細動"], meds: ["アピキサバン錠5mg 1回1錠 1日2回 朝夕食後"], visits: [{ day: -56, text: "脈は整。処方継続。" }] },
+  { id: "opd-8", name: "三浦 和子", kana: "ミウラ カズコ", sex: "女", age: 69, department: "循環器内科", doctor: "循環器内科 森", slot: "10:15", status: "予約", kind: "再診", reason: "ホルター心電図の結果説明", allergies: [], problems: ["動悸"], meds: [], visits: [{ day: -14, text: "ホルター心電図を装着。" }] },
+  { id: "opd-9", name: "松井 健太", kana: "マツイ ケンタ", sex: "男", age: 45, department: "整形外科", doctor: "整形外科 長谷川", slot: "09:15", arrived: "08:55", status: "診察中", kind: "再診", reason: "腰痛の経過", allergies: [], problems: ["腰部脊柱管狭窄症"], meds: [], visits: [{ day: -28, text: "リハビリ継続。" }] },
+  { id: "opd-10", name: "菅野 礼子", kana: "カンノ レイコ", sex: "女", age: 81, department: "整形外科", doctor: "整形外科 長谷川", slot: "10:30", status: "予約", kind: "再診", reason: "骨粗鬆症の注射", allergies: [], problems: ["骨粗鬆症"], meds: [], visits: [{ day: -28, text: "骨密度 YAM 68%。" }] },
 ];
 
 // ---------------------------------------------------------------------------

@@ -95,7 +95,7 @@ describe("看護サマリの提出と承認", () => {
     const nursing = { summaries: [s], onSubmit: () => {} };
     const html = renderToStaticMarkup(
       <RoleProvider value="看護師">
-        <SummaryPanel patient={sugawara} facts={[{ heading: "病名", lines: ["（架空）"] }]} today="11/4" nowTime="10:00" onSave={() => {}} nursing={nursing} />
+        <SummaryPanel patient={sugawara} facts={[{ heading: "病名", lines: [""] }]} today="11/4" nowTime="10:00" onSave={() => {}} nursing={nursing} />
       </RoleProvider>,
     );
     expect(html).toContain("中間サマリ");

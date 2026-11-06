@@ -65,7 +65,7 @@ const base = (o: Partial<HdConditions>): HdConditions => ({
   method: "HD",
   minutes: 240,
   qb: 200,
-  dialyzer: "PES-15（架空の規格）",
+  dialyzer: "PES-15",
   dw: 50,
   dialysate: "重炭酸透析液",
   heparin: { initial: 1000, hourly: 500 },
@@ -118,7 +118,7 @@ export const HD_PATIENTS: HdPatient[] = [
     bed: 3,
     startedOn: -900,
     doneThisMonth: 0,
-    conditions: base({ method: "オンラインHDF", minutes: 270, dw: 66.0, qb: 250, dialyzer: "ABH-21（架空の規格）" }),
+    conditions: base({ method: "オンラインHDF", minutes: 270, dw: 66.0, qb: 250, dialyzer: "ABH-21" }),
     history: [],
   },
   {

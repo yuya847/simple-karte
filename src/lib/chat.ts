@@ -45,14 +45,14 @@ export const patientChannel = (patientId: string) => `patient-${patientId}`;
 
 /** FICTIONAL starting messages. */
 export const SEED: ChatMessage[] = [
-  { id: "s1", channel: "hospital", at: { day: 0, time: "07:45" }, author: "医療安全管理室（架空）", role: "管理者", text: "本日 17:30〜 医療安全研修（中心静脈カテーテル挿入時の確認）。対象の医師は参加してください。" },
-  { id: "s2", channel: "hospital", at: { day: 0, time: "08:02" }, author: "情報システム課（架空）", role: "管理者", text: "今夜 23:00〜24:00 は電子カルテの定期保守です。紙運用の手順は各部署のファイルを見てください。" },
-  { id: "s3", channel: "nursing", at: { day: 0, time: "07:30" }, author: "看護部長（架空）", role: "看護師", text: "インフルエンザの院内発生が1件ありました。各病棟で面会制限の掲示をお願いします。" },
-  { id: "s4", channel: "nursing", at: { day: 0, time: "08:10" }, author: "5階東 師長（架空）", role: "看護師", text: "5階東、日勤は1名欠員のため、10時から応援1名が入ります。" },
-  { id: "s5", channel: "ward-5e", at: { day: 0, time: "08:30" }, author: "看護師 渡辺（架空）", role: "看護師", text: "515B 大浦さん、昨夜から痰が多く吸引3回。朝の SpO2 は 95%（鼻カニュラ 1L）です。" },
-  { id: "s6", channel: patientChannel("90010231"), at: { day: -1, time: "22:10" }, author: "看護師 佐々木（架空）", role: "看護師", text: "佐倉さん、夜間に右下腿の痛みの訴えがありました。痛み止めの頓用の指示をお願いできますか。" },
-  { id: "s7", channel: patientChannel("90010231"), at: { day: 0, time: "07:05" }, author: "看護師 佐々木（架空）", role: "看護師", text: "右下腿の発赤はマーキングの内側で縮小しています。写真を撮りました。" },
-  { id: "s8", channel: patientChannel("90010244"), at: { day: 0, time: "06:40" }, author: "看護師 渡辺（架空）", role: "看護師", text: "大浦さんの長女さんから、今日の午後に面会と病状説明を希望と電話がありました。何時ごろがよいですか。", urgent: false },
+  { id: "s1", channel: "hospital", at: { day: 0, time: "07:45" }, author: "医療安全管理室", role: "管理者", text: "本日 17:30〜 医療安全研修（中心静脈カテーテル挿入時の確認）。対象の医師は参加してください。" },
+  { id: "s2", channel: "hospital", at: { day: 0, time: "08:02" }, author: "情報システム課", role: "管理者", text: "今夜 23:00〜24:00 は電子カルテの定期保守です。紙運用の手順は各部署のファイルを見てください。" },
+  { id: "s3", channel: "nursing", at: { day: 0, time: "07:30" }, author: "看護部長", role: "看護師", text: "インフルエンザの院内発生が1件ありました。各病棟で面会制限の掲示をお願いします。" },
+  { id: "s4", channel: "nursing", at: { day: 0, time: "08:10" }, author: "5階東 師長", role: "看護師", text: "5階東、日勤は1名欠員のため、10時から応援1名が入ります。" },
+  { id: "s5", channel: "ward-5e", at: { day: 0, time: "08:30" }, author: "看護師 渡辺", role: "看護師", text: "515B 大浦さん、昨夜から痰が多く吸引3回。朝の SpO2 は 95%（鼻カニュラ 1L）です。" },
+  { id: "s6", channel: patientChannel("90010231"), at: { day: -1, time: "22:10" }, author: "看護師 佐々木", role: "看護師", text: "佐倉さん、夜間に右下腿の痛みの訴えがありました。痛み止めの頓用の指示をお願いできますか。" },
+  { id: "s7", channel: patientChannel("90010231"), at: { day: 0, time: "07:05" }, author: "看護師 佐々木", role: "看護師", text: "右下腿の発赤はマーキングの内側で縮小しています。写真を撮りました。" },
+  { id: "s8", channel: patientChannel("90010244"), at: { day: 0, time: "06:40" }, author: "看護師 渡辺", role: "看護師", text: "大浦さんの長女さんから、今日の午後に面会と病状説明を希望と電話がありました。何時ごろがよいですか。", urgent: false },
 ];
 
 // ---- store (append and mark only) ----

@@ -115,7 +115,7 @@ describe("periods", () => {
 
 describe("entries from the other records", () => {
   it("makes a 紹介 of an outpatient with a letter, seen once arrived", () => {
-    const [r] = fromOpd([{ id: "opd-4", name: "坂本 ヨシ", kana: "サカモト ヨシ", department: "総合診療科", doctor: "山本", kind: "初診", referral: "〇〇内科クリニック（架空）より。…", reason: "紹介" }]);
+    const [r] = fromOpd([{ id: "opd-4", name: "坂本 ヨシ", kana: "サカモト ヨシ", department: "総合診療科", doctor: "山本", kind: "初診", referral: "〇〇内科クリニックより。…", reason: "紹介" }]);
     expect(r.facilityId).toBe("f01");
     expect(r.visitDay).toBeNull();
     expect(fromOpd([{ id: "x", name: "a", kana: "a", department: "d", doctor: "x", kind: "初診", arrived: "09:00", referral: "どこか医院より", reason: "" }])[0]).toMatchObject({ visitDay: 0, facilityId: null, facilityText: "どこか医院" });

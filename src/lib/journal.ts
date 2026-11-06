@@ -45,7 +45,7 @@ export function journalLines(i: JournalInput): JournalLine[] {
   ];
 }
 
-/** 日勤の担当（架空）: nurse → rooms of this floor. */
+/** 日勤の担当: nurse → rooms of this floor. */
 export function staffing(floor: Floor): { nurse: string; rooms: string[] }[] {
   const out = new Map<string, string[]>();
   for (const r of floor.rooms) out.set(nurseFor(r.no), [...(out.get(nurseFor(r.no)) ?? []), r.no]);

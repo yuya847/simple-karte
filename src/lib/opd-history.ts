@@ -21,7 +21,7 @@ export interface OpdVisit {
 }
 
 const DR_GEN = "山本（専攻医）";
-const DR_CARD = "循環器内科 森（架空）";
+const DR_CARD = "循環器内科 森";
 
 /** FICTIONAL visits before the admission, for the ward patients that have charts. */
 export const OPD_VISITS: OpdVisit[] = [
@@ -165,5 +165,5 @@ export function aheadSummary(sections: DaySection[], today: CalendarDate): { day
   return { days, next, heading };
 }
 
-/** "外来・循環器内科 森（架空）" — the heading mark of a visit. */
+/** "外来・循環器内科 森" — the heading mark of a visit. */
 export const placeLabel = (p: { dept: string; doctor: string }) => `外来・${p.dept} ${p.doctor}`;

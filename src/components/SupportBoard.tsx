@@ -66,7 +66,7 @@ export function SupportBoard({ people, evals, documents, asks, today, discharged
                   ) : mine.length ? (
                     mine.map((a) => (
                       <div key={a.id}>
-                        {displayText(a.facility.replace(/（架空）/, ""))}：{a.state}
+                        {displayText(a.facility)}：{a.state}
                       </div>
                     ))
                   ) : (

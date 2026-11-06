@@ -129,7 +129,7 @@ export const OPD_PATIENTS: OpdPatient[] = [
     problems: [],
     meds: ["ランソプラゾール錠15mg 1回1錠 1日1回 朝食後"],
     visits: [],
-    referral: "〇〇内科クリニック（架空）より。2週間前から食欲低下、体重 −3kg。採血で Alb 3.0。精査をお願いします。",
+    referral: "〇〇内科クリニックより。2週間前から食欲低下、体重 −3kg。採血で Alb 3.0。精査をお願いします。",
   },
   {
     id: "opd-5",

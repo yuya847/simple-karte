@@ -9,12 +9,12 @@ import { findDrug, findOralDrug } from "./master";
 import type { OrderEntry, Patient } from "./types";
 
 export const FACILITIES = [
-  { name: "みどり台リハビリテーション病院（架空）", kind: "回復期リハビリテーション病棟" },
-  { name: "さくら坂病院（架空）", kind: "医療療養病棟" },
-  { name: "かえで地域包括ケア病院（架空）", kind: "地域包括ケア病棟" },
-  { name: "介護老人保健施設 ひだまり（架空）", kind: "介護老人保健施設" },
-  { name: "特別養護老人ホーム あおば（架空）", kind: "特別養護老人ホーム" },
-  { name: "サービス付き高齢者向け住宅 こもれび（架空）", kind: "サービス付き高齢者向け住宅" },
+  { name: "みどり台リハビリテーション病院", kind: "回復期リハビリテーション病棟" },
+  { name: "さくら坂病院", kind: "医療療養病棟" },
+  { name: "かえで地域包括ケア病院", kind: "地域包括ケア病棟" },
+  { name: "介護老人保健施設 ひだまり", kind: "介護老人保健施設" },
+  { name: "特別養護老人ホーム あおば", kind: "特別養護老人ホーム" },
+  { name: "サービス付き高齢者向け住宅 こもれび", kind: "サービス付き高齢者向け住宅" },
 ] as const;
 
 export const ASK_STATES = ["打診中", "受け入れ可", "受け入れ不可", "面談・見学の予定", "決定", "取り下げ"] as const;

@@ -91,7 +91,7 @@ export interface DripCourse {
   record?: AdminRecord;
 }
 
-export const EARLIER_SHIFT = "前の勤務（架空）";
+export const EARLIER_SHIFT = "前の勤務";
 
 const labelOf = (o: InjectionOrder) => o.items.map((it) => `${drugName(it.drugCode)} ${it.amount}${it.unit}`).join(" ＋ ");
 
@@ -129,7 +129,7 @@ export function dripCourses(patientId: string, entries: OrderEntry[], records: R
         startBy: EARLIER_SHIFT,
         source: "前の勤務",
         expectedEnd,
-        end: ended ? { at: expectedEnd ?? at, by: EARLIER_SHIFT, givenMl: info.volumeMl, leftMl: 0, full: true, formula: `全量 ${info.volumeMl}mL（前の勤務の記録・架空）` } : undefined,
+        end: ended ? { at: expectedEnd ?? at, by: EARLIER_SHIFT, givenMl: info.volumeMl, leftMl: 0, full: true, formula: `全量 ${info.volumeMl}mL（前の勤務の記録）` } : undefined,
       });
     }
     const bags = new Map(doseStarts(e, -Infinity, nowAbs + 1, nowAbs).map((x) => [x.at, x.bag]));
@@ -182,7 +182,7 @@ export function startRecordOf(c: DripCourse): AdminRecord {
       doneAt: hm(c.start),
       by: c.startBy,
       checked: { patient: false, label: null },
-      note: "開始は前の勤務の記録（架空）",
+      note: "開始は前の勤務の記録",
       drip: { volumeMl: c.volumeMl, mlPerH: c.mlPerH, minutes: c.minutes, startAt: c.start },
     }
   );

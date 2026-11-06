@@ -46,7 +46,7 @@ export interface AccessLimit {
 }
 
 /** The example limit (森 久美子, a member of this fictional hospital's staff): kept for the tests and for turning on by hand. */
-export const EXAMPLE_LIMIT: AccessLimit = { id: "limit-90010260-1", patientId: "90010260", on: true, kind: "職員", reason: "当院の職員（架空）。本人の希望により、担当チームのほかは理由を残して開く", by: "山本（専攻医）", at: { day: -2, time: "21:10" } };
+export const EXAMPLE_LIMIT: AccessLimit = { id: "limit-90010260-1", patientId: "90010260", on: true, kind: "職員", reason: "当院の職員。本人の希望により、担当チームのほかは理由を残して開く", by: "山本（専攻医）", at: { day: -2, time: "21:10" } };
 /** No chart is limited at the start (ユーザー 2026-11-05：「閲覧制限はオフでいい、一旦」). Turn one on from the chart's 閲覧制限 tool. */
 export const INITIAL_LIMITS: AccessLimit[] = [];
 

@@ -173,7 +173,7 @@ const B = (patientId: string, day: number, s: number[], as: (0 | 1)[]): BRecord 
   day,
   state: { b8: s[0], b9: s[1], b10: s[2], b11: s[3], b12: s[4], b13: s[5], b14: s[6] },
   assist: { b9: as[0], b10: as[1], b11: as[2], b12: as[3] },
-  by: "看護師（架空）",
+  by: "看護師",
 });
 export const INITIAL_B: BRecord[] = [
   // 佐倉：右下腿の痛みで移乗に一部介助

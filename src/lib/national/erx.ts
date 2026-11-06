@@ -50,7 +50,7 @@ export const OID = {
 /** 医療機関コード 10桁: 都道府県番号2・点数表番号1（医科）・医療機関コード7. */
 export const INSTITUTION_10 = `${HOSPITAL.prefecture}1${HOSPITAL.code}`;
 /** The fictional hospital's address (HOSPITAL has none; the issuer needs one). */
-export const HOSPITAL_ADDRESS = "神奈川県架空市中央1-1（架空の住所）";
+export const HOSPITAL_ADDRESS = "神奈川県架空市中央1-1";
 
 /** 医薬品単位略号 for the units of the master. */
 const UNIT_CODE: Record<string, string> = { 錠: "TAB", カプセル: "CAP", 包: "PCK" };

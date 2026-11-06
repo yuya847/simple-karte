@@ -586,7 +586,7 @@ export const OPD_DEMO_FORMS: Record<string, InsuranceForm> = {
 export const INITIAL_INSURANCE_BOOK: InsuranceBook = Object.fromEntries([
   ...Object.entries(DEMO_FORMS).map(([id, form]) => [
     id,
-    [{ form, insurance: toInsurance(form), action: "登録" as const, by: "医事課（架空）", at: { day: PATIENTS.find((p) => p.id === id)?.admittedOn ?? 0, time: "16:00" } }],
+    [{ form, insurance: toInsurance(form), action: "登録" as const, by: "医事課", at: { day: PATIENTS.find((p) => p.id === id)?.admittedOn ?? 0, time: "16:00" } }],
   ]),
   ...Object.entries(OPD_DEMO_FORMS).map(([id, form]) => [id, [{ form, insurance: toInsurance(form), action: "登録" as const, by: "医事課 渡辺", at: { day: 0, time: "08:30" } }]]),
 ]);

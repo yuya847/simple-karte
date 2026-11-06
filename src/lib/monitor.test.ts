@@ -106,7 +106,7 @@ describe("患者モニター（模擬）: 数値の揺らぎ", () => {
   });
 });
 
-describe("患者モニター（模擬）: アラームの判定（架空の病院の取り決め）", () => {
+describe("患者モニター（模擬）: アラームの判定", () => {
   it("values inside the limits give no alarm", () => {
     expect(alarmsOf({ hr: 72, spo2: 97, rr: 16, sbp: 120 })).toEqual([]);
     expect(alarmsOf({ hr: 50, spo2: 90, rr: 8, sbp: 90 })).toEqual([]);
@@ -129,7 +129,7 @@ describe("患者モニター（模擬）: アラームの判定（架空の病�
   });
 });
 
-describe("セントラルモニター: 誰にモニターを付けるか（架空の病院の取り決め）", () => {
+describe("セントラルモニター: 誰にモニターを付けるか", () => {
   const p = (id: string, over: Partial<MonitorCandidate> = {}): MonitorCandidate => ({ id, name: id, room: `50${id.slice(-1)}A`, admittedOn: -10, latest: { day: 0, time: "08:00", hr: 72, spo2: 97, rr: 16, o2: "室内気" }, ...over });
 
   it("oxygen, HR ≥ 100, SpO2 < 95 and admission within 2 days each put a patient on; a quiet patient is off", () => {

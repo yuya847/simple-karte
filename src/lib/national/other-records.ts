@@ -13,11 +13,11 @@ export interface OtherInstitution {
 }
 
 export const OTHER_INSTITUTIONS = {
-  minato: { code: "1419900028", name: "みなと循環器クリニック（架空）", kind: "医科" },
-  aoba: { code: "1419900036", name: "あおば内科（架空）", kind: "医科" },
-  kaede: { code: "1419900044", name: "かえで内科医院（架空）", kind: "医科" },
-  sakuraPh: { code: "1449900011", name: "さくら調剤薬局（架空）", kind: "薬局" },
-  umiPh: { code: "1449900029", name: "うみかぜ薬局（架空）", kind: "薬局" },
+  minato: { code: "1419900028", name: "みなと循環器クリニック", kind: "医科" },
+  aoba: { code: "1419900036", name: "あおば内科", kind: "医科" },
+  kaede: { code: "1419900044", name: "かえで内科医院", kind: "医科" },
+  sakuraPh: { code: "1449900011", name: "さくら調剤薬局", kind: "薬局" },
+  umiPh: { code: "1449900029", name: "うみかぜ薬局", kind: "薬局" },
 } satisfies Record<string, OtherInstitution>;
 export type InstitutionKey = keyof typeof OTHER_INSTITUTIONS;
 

@@ -256,7 +256,7 @@ describe("CT・MRI の方法と造影の確認", () => {
     expect(isReady(checkDraft(chosen, ctx()))).toBe(true);
     expect((toOrder(chosen, ctx()).order as ImagingOrder).ct?.phases).toEqual(["動脈相", "門脈相"]);
   });
-  it("eGFR 45 未満（架空の取り決め）は確認を求め、30 未満は指針の名前を添える", () => {
+  it("eGFR 45 未満は確認を求め、30 未満は指針の名前を添える", () => {
     const d = { ...emptyImaging("c", "CT"), region: "R-CHEST", contrast: "造影" as const, ...base };
     const low = ctx(sakura, { patientFacts: { sex: "男", age: 80, allergies: [], cre: { value: 1.6, day: 0 } } });
     const e = checkDraft(d, low).find((i) => i.key === "egfr")!;

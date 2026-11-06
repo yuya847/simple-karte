@@ -35,7 +35,7 @@ describe("地域医療連携", () => {
     expect(html).toContain("MSW・医事課が行います");
   });
   it("lets the 連携室 record", () => {
-    const html = as("MSW", <LiaisonView today={today} nowTime="10:00" book={EMPTY_LIAISON} onBook={() => {}} opd={opd} er={[]} letters={[{ patientId: "p", name: "架空 次郎", kana: "カクウ ジロウ", department: "総合診療科", doctor: "山本", to: "さくら坂病院（架空）", purpose: "療養", issuedDay: 0 }]} />);
+    const html = as("MSW", <LiaisonView today={today} nowTime="10:00" book={EMPTY_LIAISON} onBook={() => {}} opd={opd} er={[]} letters={[{ patientId: "p", name: "架空 次郎", kana: "カクウ ジロウ", department: "総合診療科", doctor: "山本", to: "さくら坂病院", purpose: "療養", issuedDay: 0 }]} />);
     expect(html).not.toContain("MSW・医事課が行います");
     expect(html).toContain("架空 次郎");
     expect(html).toContain("退院サマリの紹介状");

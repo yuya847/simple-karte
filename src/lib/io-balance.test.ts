@@ -10,7 +10,7 @@ import type { OrderEntry } from "./types";
 const ordersOf = (id: string) => currentEntries(PATIENTS.find((p) => p.id === id)!, undefined).filter((e): e is OrderEntry => e.kind === "order");
 const typed = (x: Partial<IoEntry> & Pick<IoEntry, "side" | "kind" | "ml" | "at">): IoEntry => ({ id: `t-${x.side}-${x.kind}-${x.at}`, patientId: "P1", by: "看護師 高橋", recordedAt: "10:00", ...x });
 
-describe("締めの時刻（架空の病院の取り決め）", () => {
+describe("締めの時刻", () => {
   it("1日は 9:00〜翌9:00、日勤 9:00〜17:00、夜勤 17:00〜翌9:00", () => {
     expect(ioDay(0)).toMatchObject({ lo: 540, hi: 1980 });
     expect(ioShifts(0).map((w) => [w.label, w.lo, w.hi])).toEqual([
@@ -76,7 +76,7 @@ describe("点滴は注射の記録から（打ち直さない）", () => {
     const abxId = oura.find((e) => e.order.type === "injection" && e.order.items[0].drugCode === "INJ-SBTABPC3")!.id;
     const abx = ioLines({ patientId: "90010244", entries: oura, typed: [], records: {}, sessionStart: 600, nowAbs: 1010, from: 0 }).filter((x) => x.orderId === abxId);
     expect(abx.length).toBeGreaterThan(0);
-    expect(abx.every((x) => x.ml === 100 && x.from === "前の勤務（架空）")).toBe(true);
+    expect(abx.every((x) => x.ml === 100 && x.from === "前の勤務")).toBe(true);
   });
   it("what the orders plan for a period is an estimate, kept apart", () => {
     // 500mL × 2 a day by the hour + 100mL every 6 hours: 24 hours from 09:00.

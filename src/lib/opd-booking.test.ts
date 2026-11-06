@@ -8,14 +8,14 @@ import type { OrderEntry, ProcedureOrder } from "./types";
 const today = { y: 2026, m: 11, d: 4 };
 const fmtDay = (d: number) => `D${d}`;
 const ctx = (drafts: Draft[] = [], activeOrders: OrderEntry[] = []): CheckContext => ({ activeOrders, labOrders: [], drafts, nowTime: "10:00", fmtDay, describe: (o) => o.id });
-const full = (id = "b1") => newOpdBookingDraft(id, { dept: "循環器内科", doctor: "循環器内科 森（架空）", day: 14, slot: "午前", purpose: "退院後の初回", purposeNote: "体重と BNP を確かめる" });
+const full = (id = "b1") => newOpdBookingDraft(id, { dept: "循環器内科", doctor: "循環器内科 森", day: 14, slot: "午前", purpose: "退院後の初回", purposeNote: "体重と BNP を確かめる" });
 const booked = (id: string, day: number, dept = "循環器内科"): OrderEntry => ({ kind: "order", id, day: 0, time: "09:00", author: "山本（専攻医）", status: "有効", order: { type: "procedure", code: "PROC-OPD", opd: { dept, day, slot: "午後", purpose: "再診" }, schedule: { kind: "once" }, start: { day } } });
 
 describe("外来予約の下書き", () => {
   it("the clinics are the fictional hospital's outpatient departments, each with a doctor; the range is tomorrow to 90 days ahead", () => {
     expect(OPD_CLINICS.map((c) => c.name)).toContain("総合診療科");
     expect(opdDoctorsOf("総合診療科")).toContain("山本（専攻医）");
-    expect(opdDoctorsOf("循環器内科")).toEqual(["循環器内科 森（架空）", "井上（循環器内科）"]);
+    expect(opdDoctorsOf("循環器内科")).toEqual(["循環器内科 森", "井上（循環器内科）"]);
     expect(bookableDays()[0]).toBe(1);
     expect(bookableDays().at(-1)).toBe(OPD_BOOKING_RULES.maxDays);
     expect(OPD_BOOKING_RULES.note).not.toContain("架空の病院の取り決め");
@@ -40,7 +40,7 @@ describe("外来予約の下書き", () => {
   it("a complete draft is ready, with one info line that reads back the booking", () => {
     const issues = checkDraft(full(), ctx());
     expect(isReady(issues)).toBe(true);
-    expect(issues[0].message).toBe("循環器内科（循環器内科 森（架空））　D14 午前（9:00〜12:00）　退院後の初回　体重と BNP を確かめる");
+    expect(issues[0].message).toBe("循環器内科（循環器内科 森）　D14 午前（9:00〜12:00）　退院後の初回　体重と BNP を確かめる");
   });
   it("a second booking on the same day at the same clinic asks (confirmed order or another draft); 重ねて予約する goes on", () => {
     const dup = checkDraft(full(), ctx([], [booked("o1", 14)])).find((i) => i.key === "opd-dup");
@@ -57,11 +57,11 @@ describe("外来予約の下書き", () => {
     const r = toOrder(full(), ctx());
     const o = r.order as ProcedureOrder;
     expect(o).toMatchObject({ type: "procedure", code: "PROC-OPD", schedule: { kind: "once" }, start: { day: 14 } });
-    expect(o.opd).toEqual({ dept: "循環器内科", doctor: "循環器内科 森（架空）", day: 14, slot: "午前", time: undefined, purpose: "退院後の初回　体重と BNP を確かめる", note: undefined });
+    expect(o.opd).toEqual({ dept: "循環器内科", doctor: "循環器内科 森", day: 14, slot: "午前", time: undefined, purpose: "退院後の初回　体重と BNP を確かめる", note: undefined });
     expect(orderLines(o, today).main).toBe("外来予約　循環器内科");
     expect(orderLines(o, today).detail).toContain("11/18（水） 午前（9:00〜12:00）");
     expect(opdBookingText({ ...o.opd!, slot: "時刻", time: "10:30" }, fmtDay)).toContain("D14 10:30");
     const list = bookingsOf([{ kind: "order", id: "x", day: 0, time: "10:00", author: "a", status: "有効", order: o }], [], today, 600);
-    expect(list).toEqual([{ day: 14, time: null, kind: "外来予約", label: "循環器内科（循環器内科 森（架空））　午前　退院後の初回　体重と BNP を確かめる", done: false }]);
+    expect(list).toEqual([{ day: 14, time: null, kind: "外来予約", label: "循環器内科（循環器内科 森）　午前　退院後の初回　体重と BNP を確かめる", done: false }]);
   });
 });

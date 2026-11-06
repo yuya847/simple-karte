@@ -8,7 +8,7 @@ import { makeRng, seedFrom, type Rng } from "./pacs/random";
 import type { DayOffset } from "./types";
 
 // ---------------------------------------------------------------------------
-// 連携先の医療機関マスタ（架空）
+// 連携先の医療機関マスタ
 // ---------------------------------------------------------------------------
 
 export interface Facility {
@@ -29,26 +29,26 @@ export interface Facility {
 
 /** 架空の医療機関. Phone numbers are 000 numbers (not real). */
 export const FACILITIES: Facility[] = [
-  { id: "f01", name: "〇〇内科クリニック（架空）", kind: "診療所", what: "内科", town: "架空市中央", tel: "045-000-1101", fax: "045-000-1102" },
-  { id: "f02", name: "あおい台内科医院（架空）", kind: "診療所", what: "内科・循環器内科", town: "架空市あおい台", tel: "045-000-1201", fax: "045-000-1202" },
-  { id: "f03", name: "みなと整形外科クリニック（架空）", kind: "診療所", what: "整形外科・リハビリテーション科", town: "架空市港町", tel: "045-000-1301", fax: "045-000-1302" },
-  { id: "f04", name: "ひかり消化器内科（架空）", kind: "診療所", what: "消化器内科・内視鏡", town: "架空市光町", tel: "045-000-1401", fax: "045-000-1402" },
-  { id: "f05", name: "つばさ呼吸器クリニック（架空）", kind: "診療所", what: "呼吸器内科", town: "架空市翼町", tel: "045-000-1501", fax: "045-000-1502" },
-  { id: "f06", name: "ゆりのき在宅クリニック（架空）", kind: "診療所", what: "在宅医療（訪問診療）", town: "架空市百合木", tel: "045-000-1601", fax: "045-000-1602" },
-  { id: "f07", name: "まちなか眼科・皮膚科（架空）", kind: "診療所", what: "眼科・皮膚科", town: "架空市本町", tel: "045-000-1701", fax: "045-000-1702" },
-  { id: "f08", name: "架空総合病院 附属診療所（架空）", kind: "診療所", what: "内科（当院と同じ開設者）", town: "架空市中央", tel: "045-000-1801", fax: "045-000-1802", related: true },
-  { id: "f09", name: "架空大学病院（架空）", kind: "病院", what: "特定機能病院", town: "架空市大学町", tel: "045-000-1901", fax: "045-000-1902" },
-  { id: "f10", name: "みどり台リハビリテーション病院（架空）", kind: "病院", what: "回復期リハビリテーション病棟", town: "架空市みどり台", tel: "045-000-2001", fax: "045-000-2002" },
-  { id: "f11", name: "さくら坂病院（架空）", kind: "病院", what: "医療療養病棟", town: "架空市桜坂", tel: "045-000-2101", fax: "045-000-2102" },
-  { id: "f12", name: "かえで地域包括ケア病院（架空）", kind: "病院", what: "地域包括ケア病棟", town: "架空市楓町", tel: "045-000-2201", fax: "045-000-2202" },
-  { id: "f13", name: "介護老人保健施設 ひだまり（架空）", kind: "介護施設", what: "介護老人保健施設", town: "架空市日溜", tel: "045-000-2301", fax: "045-000-2302" },
+  { id: "f01", name: "〇〇内科クリニック", kind: "診療所", what: "内科", town: "架空市中央", tel: "045-000-1101", fax: "045-000-1102" },
+  { id: "f02", name: "あおい台内科医院", kind: "診療所", what: "内科・循環器内科", town: "架空市あおい台", tel: "045-000-1201", fax: "045-000-1202" },
+  { id: "f03", name: "みなと整形外科クリニック", kind: "診療所", what: "整形外科・リハビリテーション科", town: "架空市港町", tel: "045-000-1301", fax: "045-000-1302" },
+  { id: "f04", name: "ひかり消化器内科", kind: "診療所", what: "消化器内科・内視鏡", town: "架空市光町", tel: "045-000-1401", fax: "045-000-1402" },
+  { id: "f05", name: "つばさ呼吸器クリニック", kind: "診療所", what: "呼吸器内科", town: "架空市翼町", tel: "045-000-1501", fax: "045-000-1502" },
+  { id: "f06", name: "ゆりのき在宅クリニック", kind: "診療所", what: "在宅医療（訪問診療）", town: "架空市百合木", tel: "045-000-1601", fax: "045-000-1602" },
+  { id: "f07", name: "まちなか眼科・皮膚科", kind: "診療所", what: "眼科・皮膚科", town: "架空市本町", tel: "045-000-1701", fax: "045-000-1702" },
+  { id: "f08", name: "架空総合病院 附属診療所", kind: "診療所", what: "内科（当院と同じ開設者）", town: "架空市中央", tel: "045-000-1801", fax: "045-000-1802", related: true },
+  { id: "f09", name: "架空大学病院", kind: "病院", what: "特定機能病院", town: "架空市大学町", tel: "045-000-1901", fax: "045-000-1902" },
+  { id: "f10", name: "みどり台リハビリテーション病院", kind: "病院", what: "回復期リハビリテーション病棟", town: "架空市みどり台", tel: "045-000-2001", fax: "045-000-2002" },
+  { id: "f11", name: "さくら坂病院", kind: "病院", what: "医療療養病棟", town: "架空市桜坂", tel: "045-000-2101", fax: "045-000-2102" },
+  { id: "f12", name: "かえで地域包括ケア病院", kind: "病院", what: "地域包括ケア病棟", town: "架空市楓町", tel: "045-000-2201", fax: "045-000-2202" },
+  { id: "f13", name: "介護老人保健施設 ひだまり", kind: "介護施設", what: "介護老人保健施設", town: "架空市日溜", tel: "045-000-2301", fax: "045-000-2302" },
 ];
 
 export const facilityById = (id: string | null | undefined, list: Facility[] = FACILITIES): Facility | undefined => (id ? list.find((f) => f.id === id) : undefined);
 
-/** The master entry whose name is written the same (spaces and （架空） ignored), for a letter written by hand. */
+/** The master entry whose name is written the same (spaces ignored), for a letter written by hand. */
 export function facilityByName(text: string, list: Facility[] = FACILITIES): Facility | undefined {
-  const norm = (s: string) => s.replace(/[\s　]/g, "").replace(/（架空）/g, "");
+  const norm = (s: string) => s.replace(/[\s　]/g, "");
   const t = norm(text);
   if (!t) return undefined;
   return list.find((f) => norm(f.name) === t) ?? list.find((f) => t.includes(norm(f.name)));
@@ -61,7 +61,7 @@ export function facilityByName(text: string, list: Facility[] = FACILITIES): Fac
 /** 紹介 = 他の医療機関から当院へ, 逆紹介 = 当院から他の医療機関へ. */
 export type Direction = "紹介" | "逆紹介";
 
-export type ReferralSource = "記録（架空）" | "外来の受付" | "救急外来" | "退院サマリの紹介状" | "台帳に記録";
+export type ReferralSource = "記録" | "外来の受付" | "救急外来" | "退院サマリの紹介状" | "台帳に記録";
 
 export interface Referral {
   id: string;
@@ -393,10 +393,10 @@ export function todayVisits(opd: { department: string; kind: "初診" | "再診"
 /** 外来の診療科 of the fictional hospital, with a day's typical 初診・再診 (架空). */
 export const OPD_DEPTS: { name: string; first: number; revisit: number; doctor: string }[] = [
   { name: "総合診療科", first: 7, revisit: 26, doctor: "山本（専攻医）" },
-  { name: "循環器内科", first: 3, revisit: 30, doctor: "循環器内科 森（架空）" },
-  { name: "消化器内科", first: 4, revisit: 28, doctor: "消化器内科 石川（架空）" },
-  { name: "呼吸器内科", first: 3, revisit: 18, doctor: "呼吸器内科 岡田（架空）" },
-  { name: "整形外科", first: 5, revisit: 24, doctor: "整形外科 長谷川（架空）" },
+  { name: "循環器内科", first: 3, revisit: 30, doctor: "循環器内科 森" },
+  { name: "消化器内科", first: 4, revisit: 28, doctor: "消化器内科 石川" },
+  { name: "呼吸器内科", first: 3, revisit: 18, doctor: "呼吸器内科 岡田" },
+  { name: "整形外科", first: 5, revisit: 24, doctor: "整形外科 長谷川" },
 ];
 
 const SURNAMES = ["佐々木", "山田", "井上", "木村", "林", "清水", "山崎", "森", "阿部", "池田", "橋本", "石川", "前田", "藤原", "後藤", "岡田", "長谷川", "村上", "近藤", "斎藤", "遠藤", "青木", "坂本", "福田", "太田", "西村", "藤井", "岡本", "松田", "中川"];
@@ -481,12 +481,12 @@ export function liaisonHistory(today: CalendarDate, days: number): LiaisonHistor
           firstVisit: true,
           ambulance: false,
           reason: pick(r, REASONS[d.name]),
-          source: "記録（架空）",
+          source: "記録",
         });
         // 返書: most within the deadline; some of the last weeks' not yet.
         const late = r();
         const wait = 2 + Math.floor(r() * 10);
-        if (day + wait < 0 && (day < -REPLY_DAYS - 7 ? late < 0.995 : late < 0.6)) replies[id] = { day: day + wait, time: "16:00", by: "連携室（架空）", how: pick(r, ["郵送", "FAX"] as ReplyHow[]) };
+        if (day + wait < 0 && (day < -REPLY_DAYS - 7 ? late < 0.995 : late < 0.6)) replies[id] = { day: day + wait, time: "16:00", by: "連携室", how: pick(r, ["郵送", "FAX"] as ReplyHow[]) };
       }
       const back = Math.round((first + revisit) * (0.03 + r() * 0.04));
       for (let i = 0; i < back; i++) {
@@ -506,10 +506,10 @@ export function liaisonHistory(today: CalendarDate, days: number): LiaisonHistor
           firstVisit: false,
           ambulance: false,
           reason: pick(r, BACK_REASONS),
-          source: "記録（架空）",
+          source: "記録",
         });
         const wait = 5 + Math.floor(r() * 20);
-        if (day + wait < 0 && r() < 0.8) received[id] = { day: day + wait, time: "11:00", by: "連携室（架空）", how: "FAX" };
+        if (day + wait < 0 && r() < 0.8) received[id] = { day: day + wait, time: "11:00", by: "連携室", how: "FAX" };
       }
     }
   }

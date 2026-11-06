@@ -97,14 +97,14 @@ export interface NarcoticBook {
 }
 
 /** The fictional wholesaler and product numbers of the first stock. */
-export const WHOLESALER = "みどり薬品（架空の麻薬卸売業者）";
+export const WHOLESALER = "みどり薬品";
 
 export const INITIAL_BOOK: NarcoticBook = {
   ledger: [
     { id: "nl-1", code: "INJ-MOR10", at: { day: -4, time: "08:30" }, kind: "繰越", qty: 5, note: "前帳簿から繰越し", by: NARCOTIC_MANAGER },
-    { id: "nl-2", code: "INJ-MOR10", at: { day: -4, time: "10:00" }, kind: "受入", qty: 10, note: `${WHOLESALER}から購入 製品番号 M2611A（架空）`, by: NARCOTIC_MANAGER },
+    { id: "nl-2", code: "INJ-MOR10", at: { day: -4, time: "10:00" }, kind: "受入", qty: 10, note: `${WHOLESALER}から購入 製品番号 M2611A`, by: NARCOTIC_MANAGER },
     { id: "nl-3", code: "ORAL-OXC5", at: { day: -4, time: "08:30" }, kind: "繰越", qty: 20, note: "前帳簿から繰越し", by: NARCOTIC_MANAGER },
-    { id: "nl-4", code: "ORAL-OXC5", at: { day: -4, time: "10:00" }, kind: "受入", qty: 20, note: `${WHOLESALER}から購入 製品番号 X2610B（架空）`, by: NARCOTIC_MANAGER },
+    { id: "nl-4", code: "ORAL-OXC5", at: { day: -4, time: "10:00" }, kind: "受入", qty: 20, note: `${WHOLESALER}から購入 製品番号 X2610B`, by: NARCOTIC_MANAGER },
     { id: "nl-5", code: "INJ-MOR10", at: { day: -1, time: "17:00" }, kind: "照合", qty: 0, note: "帳簿残高 15A・在庫 15A（一致）", by: NARCOTIC_MANAGER },
     { id: "nl-6", code: "ORAL-OXC5", at: { day: -1, time: "17:00" }, kind: "照合", qty: 0, note: "帳簿残高 40錠・在庫 40錠（一致）", by: NARCOTIC_MANAGER },
   ],

@@ -245,7 +245,7 @@ export const MANUALS: Manual[] = [
     id: "m-transfusion",
     chapter: "輸血",
     title: "輸血の照合と観察",
-    dept: "輸血部（架空）",
+    dept: "輸血部",
     version: "第7版",
     revised: { y: 2026, m: 11, d: 4 },
     steps: [

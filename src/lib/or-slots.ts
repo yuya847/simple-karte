@@ -3,7 +3,7 @@ import { OR_RULES, type OrRoom, type Surgery } from "./surgery";
 
 export interface OrSlot { start: string; minutes: number }
 const clock = (m: number) => `${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`;
-/** 空き区間。申込も枠を使い、手術の前後の片付け時間を確保する（架空の病院）。 */
+/** 空き区間。申込も枠を使い、手術の前後の片付け時間を確保する。 */
 export function orSlots(day: number, room: OrRoom, surgeries: Surgery[]): OrSlot[] {
   const open = minutesOf(OR_RULES.open), close = minutesOf(OR_RULES.close);
   const busy = surgeries.filter((s) => s.day === day && s.room === room && s.start && s.minutes && s.minutes > 0)

@@ -172,7 +172,7 @@ export function checkedBy(text: string): string[] {
 /** What the order checks read: the allergies, and the contraindications marked 「禁忌：」. */
 export const checkList = (p: Pick<Patient, "allergies" | "contraindications">) => [...p.allergies, ...(p.contraindications ?? []).map((c) => `禁忌：${c}`)];
 
-/** 身長・体重の上限・下限（架空の病院の取り決め）. */
+/** 身長・体重の上限・下限. */
 export const BODY_LIMITS = { heightCm: [30, 230], weightKg: [1, 300] } as const;
 /** A change from the last value this large asks the person to confirm (架空の病院の取り決め). */
 export const BODY_JUMP = { heightCm: 5, weightRatio: 0.1 } as const;

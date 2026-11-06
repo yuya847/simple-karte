@@ -99,7 +99,7 @@ describe("項目名：値の行（オーダの種類ごと）", () => {
   });
 });
 
-describe("種類のチェック（架空の病院の取り決め）", () => {
+describe("種類のチェック", () => {
   it("注射 and 輸血 are 注射・輸血, 内服 is 処方, the rest 処置・検査; 指示簿・食事・延長 have their own", () => {
     expect(categoryOfOrder(inj)).toBe("注射・輸血");
     expect(categoryOfOrder(tx)).toBe("注射・輸血");
@@ -151,7 +151,7 @@ describe("日時／者の欄", () => {
     const taken = { "a|新規": "11:00 看護師 佐藤" };
     expect(takeStampOf("a", taken, new Set(["a|新規"]))).toEqual({ at: "11:00", by: "看護師 佐藤" });
     expect(takeStampOf("b", {}, new Set(["b|新規"]))).toEqual({ at: "", by: "" });
-    expect(takeStampOf("c", {}, new Set())).toEqual({ at: "", by: "前の勤務帯（架空）" });
+    expect(takeStampOf("c", {}, new Set())).toEqual({ at: "", by: "前の勤務帯" });
   });
 
   it("the latest 実施 of an order fills 実施日時／実施者", () => {

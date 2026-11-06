@@ -64,11 +64,11 @@ export const TEAMS: Team[] = [
     long: "栄養サポートチーム（NST：Nutrition Support Team）",
     what: "低栄養・経管栄養・静脈栄養の患者の栄養の評価と計画",
     members: [
-      { name: "内科 吉田（架空）", job: "医師" },
-      { name: "看護師 斎藤（架空）", job: "看護師" },
+      { name: "内科 吉田", job: "医師" },
+      { name: "看護師 斎藤", job: "看護師" },
       { name: "薬剤師 小林", job: "薬剤師" },
       { name: "管理栄養士 高橋", job: "管理栄養士" },
-      { name: "言語聴覚士 森田（架空）", job: "言語聴覚士" },
+      { name: "言語聴覚士 森田", job: "言語聴覚士" },
     ],
     addon: {
       code: "A233-2",
@@ -96,8 +96,8 @@ export const TEAMS: Team[] = [
     long: "感染制御チーム（ICT：Infection Control Team）",
     what: "耐性菌・感染症の患者の感染対策と抗菌薬の相談",
     members: [
-      { name: "感染症内科 中島（架空）", job: "医師" },
-      { name: "感染管理認定看護師 松本（架空）", job: "看護師" },
+      { name: "感染症内科 中島", job: "医師" },
+      { name: "感染管理認定看護師 松本", job: "看護師" },
       { name: "薬剤師 小林", job: "薬剤師" },
       { name: "検査技師 中村", job: "臨床検査技師" },
     ],
@@ -109,9 +109,9 @@ export const TEAMS: Team[] = [
     long: "緩和ケアチーム",
     what: "痛み・息苦しさなどの症状と、不安・抑うつなどのつらさ",
     members: [
-      { name: "緩和ケア内科 西村（架空）", job: "医師（身体症状）" },
-      { name: "精神科 原田（架空）", job: "医師（精神症状）" },
-      { name: "緩和ケア認定看護師 前田（架空）", job: "看護師" },
+      { name: "緩和ケア内科 西村", job: "医師（身体症状）" },
+      { name: "精神科 原田", job: "医師（精神症状）" },
+      { name: "緩和ケア認定看護師 前田", job: "看護師" },
       { name: "薬剤師 小林", job: "薬剤師" },
     ],
     addon: {
@@ -133,8 +133,8 @@ export const TEAMS: Team[] = [
     long: "褥瘡対策チーム",
     what: "褥瘡の予防と治療が難しい患者の計画とケア",
     members: [
-      { name: "皮膚科 岡本（架空）", job: "医師" },
-      { name: "皮膚・排泄ケア認定看護師 村上（架空）", job: "看護師（専従の褥瘡管理者）" },
+      { name: "皮膚科 岡本", job: "医師" },
+      { name: "皮膚・排泄ケア認定看護師 村上", job: "看護師（専従の褥瘡管理者）" },
       { name: "管理栄養士 高橋", job: "管理栄養士" },
     ],
     addon: {
@@ -156,10 +156,10 @@ export const TEAMS: Team[] = [
     long: "呼吸ケアチーム（RST：Respiration Support Team）",
     what: "人工呼吸器からの離脱",
     members: [
-      { name: "集中治療科 藤井（架空）", job: "医師" },
-      { name: "看護師 清水（架空）", job: "看護師" },
-      { name: "臨床工学技士 山崎（架空）", job: "臨床工学技士" },
-      { name: "理学療法士 池田（架空）", job: "理学療法士" },
+      { name: "集中治療科 藤井", job: "医師" },
+      { name: "看護師 清水", job: "看護師" },
+      { name: "臨床工学技士 山崎", job: "臨床工学技士" },
+      { name: "理学療法士 池田", job: "理学療法士" },
     ],
     addon: {
       code: "A242",
@@ -176,8 +176,8 @@ export const TEAMS: Team[] = [
     long: "認知症ケアチーム",
     what: "認知症の行動・心理症状や意思疎通の難しさが治療に影響する患者のケア",
     members: [
-      { name: "脳神経内科 長谷川（架空）", job: "医師" },
-      { name: "認知症看護認定看護師 石井（架空）", job: "看護師" },
+      { name: "脳神経内科 長谷川", job: "医師" },
+      { name: "認知症看護認定看護師 石井", job: "看護師" },
       { name: "MSW 伊藤", job: "社会福祉士" },
     ],
     addon: {
@@ -195,10 +195,10 @@ export const TEAMS: Team[] = [
     long: "精神科リエゾンチーム",
     what: "せん妄・抑うつ・精神疾患・自殺企図で入院した患者の精神症状",
     members: [
-      { name: "精神科 原田（架空）", job: "医師" },
-      { name: "精神看護専門看護師 桑原（架空）", job: "看護師" },
-      { name: "公認心理師 宮本（架空）", job: "公認心理師" },
-      { name: "精神保健福祉士 遠藤（架空）", job: "精神保健福祉士" },
+      { name: "精神科 原田", job: "医師" },
+      { name: "精神看護専門看護師 桑原", job: "看護師" },
+      { name: "公認心理師 宮本", job: "公認心理師" },
+      { name: "精神保健福祉士 遠藤", job: "精神保健福祉士" },
     ],
     addon: {
       code: "A230-4",
@@ -419,7 +419,7 @@ export function initialTeams(): TeamDesk {
         patientId: "90010244",
         at: { day: -1, time: "16:00" },
         by: "管理栄養士 高橋",
-        members: ["内科 吉田（架空）", "看護師 斎藤（架空）", "薬剤師 小林", "管理栄養士 高橋"],
+        members: ["内科 吉田", "看護師 斎藤", "薬剤師 小林", "管理栄養士 高橋"],
         assessment: "入院1日目。絶食で、末梢からの輸液のみ。身長145cm・体重41kg（BMI 19.5）。嚥下の評価は主治医が依頼済み。",
         recs: [
           { id: "rec-demo-1", text: "体重を週1回測って記録する", decision: { adopt: true, by: DR, at: { day: -1, time: "17:00" } } },

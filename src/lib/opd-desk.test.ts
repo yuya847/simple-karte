@@ -36,7 +36,7 @@ describe("受付番号", () => {
   it("receives a new 初診 with a new 診察券 and the 紹介元 from the master", () => {
     const card = { cardNo: newCardNo(CARDS), name: "架空 花子", kana: "カクウ ハナコ", sex: "女" as const, age: 40 };
     expect(card.cardNo).toBe("1000113");
-    const list = receive(OPD_PATIENTS, { id: "n1", card, kind: "初診", dept: "総合診療科", doctor: yamamoto.doctor, reason: "咳", referral: { facilityId: "f01", facilityName: "〇〇内科クリニック（架空）" } }, "10:05");
+    const list = receive(OPD_PATIENTS, { id: "n1", card, kind: "初診", dept: "総合診療科", doctor: yamamoto.doctor, reason: "咳", referral: { facilityId: "f01", facilityName: "〇〇内科クリニック" } }, "10:05");
     expect(list.at(-1)).toMatchObject({ kind: "初診", slot: null, status: "受付済", ticket: 5, referralFrom: "f01", cardNo: "1000113" });
     expect(isCardNo("1000113")).toBe(true);
     expect(isCardNo("100011")).toBe(false);

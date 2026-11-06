@@ -7,11 +7,11 @@ let n = 0;
 const id = () => `c${++n}`;
 const base = { patientId: "90010231", by: "研修医 田中", at: { day: 0, time: "09:00" } };
 
-describe("医師の役で選ぶ人（架空）", () => {
+describe("医師の役で選ぶ人", () => {
   it("has 山本（専攻医） first, a 研修医, a 指導医 of the same team, a doctor of another team and the radiologist", () => {
     expect(DEFAULT_DOCTOR).toBe("山本（専攻医）");
     expect(DOCTORS.map((d) => d.rank)).toEqual(["専攻医", "研修医", "指導医", "医師", "医師", "医師"]);
-    expect(teamOf("放射線科 石田（架空）")).toBe("放射線科");
+    expect(teamOf("放射線科 石田")).toBe("放射線科");
     expect(isResident("研修医 田中")).toBe(true);
     expect(isResident("山本（専攻医）")).toBe(false);
     expect(teamOf("指導医 高橋")).toBe(teamOf("研修医 田中"));
@@ -96,7 +96,7 @@ describe("研修医の記録の確認（カウンターサイン）", () => {
   });
 });
 
-describe("研修医が確定できないオーダ（架空の病院の取り決め）", () => {
+describe("研修医が確定できないオーダ", () => {
   const inj = (codes: string[]): Order => ({ type: "injection", items: codes.map((drugCode) => ({ drugCode, amount: 1, unit: "V" })), route: "点滴静注", schedule: { kind: "once" }, start: { day: 0, time: "10:00" }, days: null } as unknown as Order);
 
   it("抗がん薬 (the master's chemo mark) is blocked; an antibiotic is not", () => {

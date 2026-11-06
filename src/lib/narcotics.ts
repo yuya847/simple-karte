@@ -48,9 +48,9 @@ export interface Licence {
 
 /** Licences on record, by the name used in the record (all fictional). 研修医 田中 and 木下 have none. */
 export const LICENCES: Record<string, Licence[]> = {
-  [STAFF.医師.name]: [{ kind: "麻薬施用者", no: "第 1-04127 号（架空）", until: "2027-12-31" }],
-  "指導医 高橋": [{ kind: "麻薬施用者", no: "第 1-02388 号（架空）", until: "2026-12-31" }],
-  [STAFF.薬剤師.name]: [{ kind: "麻薬管理者", no: "第 2-00316 号（架空）", until: "2027-12-31" }],
+  [STAFF.医師.name]: [{ kind: "麻薬施用者", no: "第 1-04127 号", until: "2027-12-31" }],
+  "指導医 高橋": [{ kind: "麻薬施用者", no: "第 1-02388 号", until: "2026-12-31" }],
+  [STAFF.薬剤師.name]: [{ kind: "麻薬管理者", no: "第 2-00316 号", until: "2027-12-31" }],
 };
 
 /** The hospital's 麻薬管理者 (第33条: one is needed where two or more 麻薬施用者 work). */

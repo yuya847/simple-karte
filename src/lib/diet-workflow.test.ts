@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { INITIAL_DIETS, dietAt, dietNutrients, type DietOrder } from "./diet";
 import { attendingDesk, dietAdjustment, dietNeedsProposal, dietProposal, dietProposalCount } from "./diet-workflow";
 const current = INITIAL_DIETS[0];
-describe("管理栄養士の食事の調整と提案（架空）", () => {
+describe("管理栄養士の食事の調整と提案", () => {
   it("主食・禁止・補食・アレルギーだけは直接反映できる", () => {
     const next = { ...current, id: "new", staple: "全粥", prohibited: "卵", supplement: "ゼリー", allergyNote: "卵", from: { day: 1, meal: "昼" }, by: "管理栄養士" } as DietOrder;
     expect(dietNeedsProposal(current, next)).toBe(false);

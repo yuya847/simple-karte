@@ -100,7 +100,7 @@ describe("セントラルモニター", () => {
   });
 
   it("a doctor sees the table but cannot change it", () => {
-    const html = renderToStaticMarkup(<CentralMonitor candidates={cands} manual={{ on: [], off: [] }} lockedWhy="モニターの付け外しは看護師が行います（架空の病院の取り決め）。" onToggle={() => {}} onOpen={() => {}} nowTime="10:15" />);
+    const html = renderToStaticMarkup(<CentralMonitor candidates={cands} manual={{ on: [], off: [] }} lockedWhy="モニターの付け外しは看護師が行います。" onToggle={() => {}} onOpen={() => {}} nowTime="10:15" />);
     expect(html).toContain("モニターの付け外しは看護師が行います");
     expect(html).toMatch(/<input type="checkbox"[^>]*disabled=""/);
   });

@@ -13,27 +13,27 @@ import { otherRxOf } from "./other-records";
 /** The other hospitals' 6情報 the service holds (FICTIONAL). By chart id. */
 const OTHER_SIX: Record<string, { kind: OtherHospitalInfo["items"][number]["kind"]; text: string; from: string; day: number }[]> = {
   "90010231": [
-    { kind: "傷病名", text: "高血圧症", from: "かえで内科医院（架空）", day: -400 },
-    { kind: "傷病名", text: "逆流性食道炎", from: "かえで内科医院（架空）", day: -300 },
-    { kind: "その他アレルギー等", text: "そば（じんましん）", from: "かえで内科医院（架空）", day: -700 },
-    { kind: "検査", text: "HbA1c 6.1%（2回前の受診）", from: "かえで内科医院（架空）", day: -20 },
+    { kind: "傷病名", text: "高血圧症", from: "かえで内科医院", day: -400 },
+    { kind: "傷病名", text: "逆流性食道炎", from: "かえで内科医院", day: -300 },
+    { kind: "その他アレルギー等", text: "そば（じんましん）", from: "かえで内科医院", day: -700 },
+    { kind: "検査", text: "HbA1c 6.1%（2回前の受診）", from: "かえで内科医院", day: -20 },
   ],
   "90010244": [
-    { kind: "傷病名", text: "アルツハイマー型認知症", from: "あおば内科（架空）", day: -900 },
-    { kind: "傷病名", text: "骨粗鬆症", from: "あおば内科（架空）", day: -500 },
-    { kind: "検査", text: "Cre 0.92 mg/dL", from: "あおば内科（架空）", day: -15 },
+    { kind: "傷病名", text: "アルツハイマー型認知症", from: "あおば内科", day: -900 },
+    { kind: "傷病名", text: "骨粗鬆症", from: "あおば内科", day: -500 },
+    { kind: "検査", text: "Cre 0.92 mg/dL", from: "あおば内科", day: -15 },
   ],
   "90010198": [
-    { kind: "傷病名", text: "慢性心不全", from: "みなと循環器クリニック（架空）", day: -800 },
-    { kind: "傷病名", text: "発作性心房細動の疑い", from: "みなと循環器クリニック（架空）", day: -60 },
-    { kind: "薬剤アレルギー等", text: "ロキソプロフェン（喘息発作）", from: "みなと循環器クリニック（架空）", day: -1200 },
-    { kind: "検査", text: "BNP 286 pg/mL", from: "みなと循環器クリニック（架空）", day: -26 },
-    { kind: "検査", text: "K 4.9 mmol/L", from: "みなと循環器クリニック（架空）", day: -26 },
+    { kind: "傷病名", text: "慢性心不全", from: "みなと循環器クリニック", day: -800 },
+    { kind: "傷病名", text: "発作性心房細動の疑い", from: "みなと循環器クリニック", day: -60 },
+    { kind: "薬剤アレルギー等", text: "ロキソプロフェン（喘息発作）", from: "みなと循環器クリニック", day: -1200 },
+    { kind: "検査", text: "BNP 286 pg/mL", from: "みなと循環器クリニック", day: -26 },
+    { kind: "検査", text: "K 4.9 mmol/L", from: "みなと循環器クリニック", day: -26 },
   ],
   "90010260": [
-    { kind: "傷病名", text: "脂質異常症", from: "かえで内科医院（架空）", day: -365 },
-    { kind: "感染症", text: "HBs抗原 陰性", from: "かえで内科医院（架空）", day: -365 },
-    { kind: "検査", text: "LDL-C 162 mg/dL", from: "かえで内科医院（架空）", day: -12 },
+    { kind: "傷病名", text: "脂質異常症", from: "かえで内科医院", day: -365 },
+    { kind: "感染症", text: "HBs抗原 陰性", from: "かえで内科医院", day: -365 },
+    { kind: "検査", text: "LDL-C 162 mg/dL", from: "かえで内科医院", day: -12 },
   ],
 };
 

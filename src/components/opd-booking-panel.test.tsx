@@ -23,7 +23,7 @@ const as = (role: Role, el: React.ReactElement) =>
       <MeProvider value={STAFF[role]}>{el}</MeProvider>
     </RoleProvider>,
   );
-const booked: OrderEntry = { kind: "order", id: "ob1", day: 0, time: "09:30", author: "山本（専攻医）", status: "有効", order: { type: "procedure", code: "PROC-OPD", opd: { dept: "循環器内科", doctor: "循環器内科 森（架空）", day: 14, slot: "午前", purpose: "退院後の初回" }, schedule: { kind: "once" }, start: { day: 14 } } };
+const booked: OrderEntry = { kind: "order", id: "ob1", day: 0, time: "09:30", author: "山本（専攻医）", status: "有効", order: { type: "procedure", code: "PROC-OPD", opd: { dept: "循環器内科", doctor: "循環器内科 森", day: 14, slot: "午前", purpose: "退院後の初回" }, schedule: { kind: "once" }, start: { day: 14 } } };
 
 describe("外来予約の引き出し", () => {
   it("offers the clinics, the slots and the purposes, says the rule is the fictional hospital's, and lists the bookings made", () => {

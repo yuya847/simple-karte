@@ -8,7 +8,7 @@ import { onOxygen } from "./news2";
 import type { DayOffset, VitalSign } from "./types";
 
 // ---------------------------------------------------------------------------
-// Alarm limits（架空の病院の取り決め）
+// Alarm limits
 // ---------------------------------------------------------------------------
 
 export type MonitorKey = "hr" | "spo2" | "rr" | "sbp";
@@ -198,7 +198,7 @@ export function traceSeries(kind: TraceKind, rate: number, n: number, stepMs: nu
 }
 
 // ---------------------------------------------------------------------------
-// Who is on a monitor（架空の病院の取り決め）
+// Who is on a monitor
 // ---------------------------------------------------------------------------
 
 export interface MonitorCandidate {

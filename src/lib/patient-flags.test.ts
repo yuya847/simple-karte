@@ -25,7 +25,7 @@ describe("患者一覧の印（記録からコードで）", () => {
   });
 });
 
-describe("病棟の予定（架空）", () => {
+describe("病棟の予定", () => {
   it("planned admissions go to beds that are empty now", () => {
     const empty = new Set(emptyBeds(BEDS).map((b) => `${b.room.no}${b.bed}`));
     for (const p of WARD_PLANS.filter((x) => x.kind === "入院")) expect(empty.has(`${p.room}${p.bed}`), p.name).toBe(true);

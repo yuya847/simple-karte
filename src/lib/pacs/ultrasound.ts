@@ -1,4 +1,4 @@
-// 超音波の合成画像（架空）。扇形の中に、組織の明るさ × スペックル（粒状の模様）を描く。実在の患者の画像ではない。
+// 超音波の合成画像。扇形の中に、組織の明るさ × スペックル（粒状の模様）を描く。実在の患者の画像ではない。
 
 import { between, gaussian, makeRng } from "./random";
 import { blur, Raster, smoothstep } from "./raster";

@@ -118,7 +118,7 @@ describe("患者基本情報：編集", () => {
   });
 });
 
-describe("入院前の情報収集の初期データ（架空）", () => {
+describe("入院前の情報収集の初期データ", () => {
   it("agrees with the contacts: the key person and the care level", () => {
     const oura = INITIAL_ANAMNESIS["90010244"];
     expect(oura.fields.keyPerson).toContain(primaryContact(INITIAL_CONTACTS["90010244"])!.name);

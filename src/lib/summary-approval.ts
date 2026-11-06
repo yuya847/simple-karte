@@ -153,10 +153,10 @@ export const PAST_SUMMARIES: PastSummary[] = (() => {
     { id: "past-3", name: "林 和子", department: gen, attending: yam, dischargeDay: -12, record: { status: "確定", confirmedBy: res, confirmedAt: at(-4) } },
     { id: "past-4", name: "竹内 茂", department: gen, attending: yam, dischargeDay: -16 },
     { id: "past-5", name: "石田 フミ", department: gen, attending: yam, dischargeDay: -19, record: { status: "作成中", returned: { by: sup, at: at(-8), comment: "退院時処方と退院後の方針を書き足してください" } } },
-    { id: "past-6", name: "村上 進", department: gen, attending: kino, dischargeDay: -20, record: ok(kino, -12, "指導医 斎藤（架空）", -11) },
+    { id: "past-6", name: "村上 進", department: gen, attending: kino, dischargeDay: -20, record: ok(kino, -12, "指導医 斎藤", -11) },
     { id: "past-7", name: "藤井 春江", department: gen, attending: yam, dischargeDay: -24, record: ok(res, -16, yam, -15) },
     { id: "past-8", name: "松本 良雄", department: gen, attending: yam, dischargeDay: -27, record: ok(yam, -20, sup, -19) },
-    { id: "past-9", name: "井上 キヨ", department: gen, attending: kino, dischargeDay: -31, record: ok(kino, -14, "指導医 斎藤（架空）", -12) },
+    { id: "past-9", name: "井上 キヨ", department: gen, attending: kino, dischargeDay: -31, record: ok(kino, -14, "指導医 斎藤", -12) },
     { id: "past-10", name: "木村 達也", department: gen, attending: yam, dischargeDay: -34, record: ok(yam, -27, sup, -26) },
     { id: "past-11", name: "清水 冬子", department: gen, attending: yam, dischargeDay: -38, record: ok(res, -30, sup, -29) },
   ];

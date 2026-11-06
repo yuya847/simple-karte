@@ -373,7 +373,7 @@ export function demoEndoPatients(patients: Pick4[]): string[] {
 
 /** Endoscopies ordered for the demo patients (merged into their records like the demo physiological tests). */
 export function demoEndoOrders(ids: string[], nowAbs: number): Record<string, OrderEntry[]> {
-  const DR = "消化器内科 石川（架空）";
+  const DR = "消化器内科 石川";
   const plan: { test: string; back: number; purpose: string; transport: "独歩" | "車椅子" }[] = [
     { test: "PHY-EGD", back: 180, purpose: "黒色便とHbの低下。上部消化管出血の有無。", transport: "車椅子" },
     { test: "PHY-EGD", back: 75, purpose: "心窩部痛が続く。潰瘍・腫瘍の有無。", transport: "独歩" },
@@ -393,8 +393,8 @@ export function demoEndoOrders(ids: string[], nowAbs: number): Record<string, Or
 /** Where the demo starts: the first exam reported (not read), the second done with biopsies, the third taken in. */
 export function initialEndo(ids: string[], nowAbs: number): EndoDesk {
   const at = (back: number): Moment => ({ day: 0, time: hhmm(nowAbs - back) });
-  const NS = "看護師 小川（架空）";
-  const DR = "消化器内科 石川（架空）";
+  const NS = "看護師 小川";
+  const DR = "消化器内科 石川";
   const works: Record<string, EndoWork> = {};
   const reprocess: Reprocess[] = [];
   const t = (back: number) => hhmm(nowAbs - back);
@@ -443,7 +443,7 @@ export function initialEndo(ids: string[], nowAbs: number): EndoDesk {
       ...newWork("o-endo-demo3", ids[2], "PHY-CF"),
       arrived: { ...at(60), by: NS },
       prep: [
-        { what: "腸管洗浄剤 2L を内服（6時〜8時）", time: "08:00", by: "病棟 看護師（架空）" },
+        { what: "腸管洗浄剤 2L を内服（6時〜8時）", time: "08:00", by: "病棟 看護師" },
         { what: "排便の状態：黄色の透明な水様", time: t(45), by: NS },
       ],
       watch: [],

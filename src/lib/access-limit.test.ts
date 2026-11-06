@@ -4,7 +4,7 @@ import { PATIENTS } from "./patients";
 
 const mori = PATIENTS.find((p) => p.id === "90010260")!;
 
-describe("閲覧制限（架空の職員の患者）", () => {
+describe("閲覧制限", () => {
   it("森 久美子 is limited as 職員 from the start; the others are not", () => {
     expect(INITIAL_LIMITS).toEqual([]);
     expect(currentLimit([EXAMPLE_LIMIT], mori.id)).toMatchObject({ kind: "職員", by: "山本（専攻医）" });

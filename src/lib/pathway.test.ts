@@ -28,7 +28,7 @@ let n = 0;
 const newId = () => `d${++n}`;
 const app: PathApplication = { id: "a1", patientId: "90010244", code: "PATH-ASPN", startDay: -1, by: "山本（専攻医）", at: { day: -1, time: "15:00" }, expanded: [] };
 
-describe("クリティカルパスのマスタ（架空の病院の取り決め）", () => {
+describe("クリティカルパスのマスタ", () => {
   it("has the three paths with one column per day up to the standard length", () => {
     expect(PATHWAYS.map((p) => p.name)).toEqual(["誤嚥性肺炎", "心不全（急性増悪）", "蜂窩織炎（下肢）"]);
     for (const p of PATHWAYS) {

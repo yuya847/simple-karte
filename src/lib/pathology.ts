@@ -190,13 +190,13 @@ export function initialPathology(nowAbs: number): PathCase[] {
       received: { day: -1, time: "14:30", by: TECH, number: "C26-0311" },
       steps: [
         { step: "標本作製", day: -1, time: "15:40", by: TECH, note: "パパニコロウ染色" },
-        { step: "鏡検", ...today(150), by: "細胞検査士 中村（架空）" },
+        { step: "鏡検", ...today(150), by: "細胞検査士 中村" },
       ],
       report: {
         ...today(40),
         diagnosis: "悪性細胞を認めない。",
         findings: "好中球と細菌の塊が多数みられ、炎症性の背景。扁平上皮細胞と組織球を少数認める。異型細胞はみられない。",
-        by: "病理医 岡田（架空）",
+        by: "病理医 岡田",
         important: false,
       },
     },
@@ -213,7 +213,7 @@ export function initialPathology(nowAbs: number): PathCase[] {
       ordered: { day: -1, time: "15:50", by: DR },
       received: { day: -1, time: "16:45", by: TECH, number: "S26-1024" },
       steps: [
-        { step: "切り出し", day: 0, time: hhmm(Math.max(0, Math.min(nowAbs - 120, 9 * 60))), by: "病理医 岡田（架空）" },
+        { step: "切り出し", day: 0, time: hhmm(Math.max(0, Math.min(nowAbs - 120, 9 * 60))), by: "病理医 岡田" },
         { step: "標本作製", ...today(30), by: TECH, note: "HE 染色" },
       ],
     },

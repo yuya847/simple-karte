@@ -300,7 +300,7 @@ export const INITIAL_CONTACTS: ContactsBook = {
       { relation: "長男", name: "大浦 一郎", age: 63, cohabiting: false, keyPerson: false, phone: mobile("0246"), note: "遠方に住む" },
     ],
     insurance: { publicAid: [], note: "限度額適用・標準負担額減額認定証（低所得Ⅱ）を受付で確認" },
-    care: { careLevel: "要介護2", careManager: "鈴木（架空）", careOffice: "架空市ケアプランセンター松が丘", familyDoctor: "架空市立松が丘診療所", pharmacy: "松が丘薬局（架空）" },
+    care: { careLevel: "要介護2", careManager: "鈴木", careOffice: "架空市ケアプランセンター松が丘", familyDoctor: "架空市立松が丘診療所", pharmacy: "松が丘薬局" },
   }),
   // 北村 博（79歳男性）: 妻と二人暮らし。要支援1。循環器のかかりつけがある。
   "90010198": record("90010198", -5, "11:05", {
@@ -316,7 +316,7 @@ export const INITIAL_CONTACTS: ContactsBook = {
       { relation: "次女", name: "山下 恵", age: 48, cohabiting: false, keyPerson: false, phone: mobile("0199"), note: "市内在住。説明の場には同席を希望" },
     ],
     insurance: { publicAid: [], note: "" },
-    care: { careLevel: "要支援1", careManager: "高木（架空）", careOffice: "架空市地域包括支援センター川向", familyDoctor: "架空ハートクリニック（循環器内科）", pharmacy: "川向調剤薬局（架空）" },
+    care: { careLevel: "要支援1", careManager: "高木", careOffice: "架空市地域包括支援センター川向", familyDoctor: "架空ハートクリニック（循環器内科）", pharmacy: "川向調剤薬局" },
   }),
   // 森 久美子（64歳女性）: 夫と二人暮らし。息子は別居。
   "90010260": record("90010260", -2, "09:50", {
@@ -332,7 +332,7 @@ export const INITIAL_CONTACTS: ContactsBook = {
       { relation: "長男", name: "森 大輔", age: 35, cohabiting: false, keyPerson: false, phone: mobile("0262"), note: "都市部に単身で住む" },
     ],
     insurance: { publicAid: [], note: "被扶養者（夫の協会けんぽ）。マイナ保険証で適用区分の情報あり" },
-    care: { careLevel: "なし（申請していない）", careManager: "", careOffice: "", familyDoctor: "緑が丘内科クリニック（架空）", pharmacy: "" },
+    care: { careLevel: "なし（申請していない）", careManager: "", careOffice: "", familyDoctor: "緑が丘内科クリニック", pharmacy: "" },
   }),
   // 505-D 小池 隆（73歳男性、循環器内科）
   "90035054": record("90035054", admittedOf("90035054"), "14:10", {
@@ -342,7 +342,7 @@ export const INITIAL_CONTACTS: ContactsBook = {
     contacts: [{ relation: "妻", name: "小池 良子", phone: mobile("5055"), when: "いつでも", primary: true }],
     family: [{ relation: "妻", name: "小池 良子", age: 71, cohabiting: true, keyPerson: true, phone: mobile("5055"), note: "" }],
     insurance: { publicAid: [], note: "" },
-    care: { careLevel: "なし（申請していない）", careManager: "", careOffice: "", familyDoctor: "南町クリニック（架空）", pharmacy: "" },
+    care: { careLevel: "なし（申請していない）", careManager: "", careOffice: "", familyDoctor: "南町クリニック", pharmacy: "" },
   }),
   // 503 村井 和子（77歳女性、消化器内科）
   "90035030": record("90035030", admittedOf("90035030"), "10:15", {
@@ -358,7 +358,7 @@ export const INITIAL_CONTACTS: ContactsBook = {
       { relation: "長男の妻", name: "村井 由紀", age: 48, cohabiting: true, keyPerson: false, phone: mobile("5032"), note: "日中は家にいることが多い" },
     ],
     insurance: { publicAid: [], note: "" },
-    care: { careLevel: "要支援2", careManager: "佐々木（架空）", careOffice: "架空市地域包括支援センター北町", familyDoctor: "北町医院（架空）", pharmacy: "北町薬局（架空）" },
+    care: { careLevel: "要支援2", careManager: "佐々木", careOffice: "架空市地域包括支援センター北町", familyDoctor: "北町医院", pharmacy: "北町薬局" },
   }),
   // 501 岡部 正二（81歳男性、呼吸器内科、酸素投与中）
   "90035010": record("90035010", admittedOf("90035010"), "16:30", {
@@ -371,7 +371,7 @@ export const INITIAL_CONTACTS: ContactsBook = {
       { relation: "長女", name: "岡部 真理", age: 52, cohabiting: false, keyPerson: false, phone: mobile("5011"), note: "県外在住" },
     ],
     insurance: { publicAid: [], note: "" },
-    care: { careLevel: "要介護1", careManager: "中島（架空）", careOffice: "架空ケアサポート山手", familyDoctor: "山手呼吸器クリニック（架空）", pharmacy: "山手薬局（架空）" },
+    care: { careLevel: "要介護1", careManager: "中島", careOffice: "架空ケアサポート山手", familyDoctor: "山手呼吸器クリニック", pharmacy: "山手薬局" },
   }),
   // 506-B 吉川 ミツ（90歳女性、総合診療科 B チーム、転倒注意）: 施設から入院。
   "90035062": record("90035062", admittedOf("90035062"), "13:45", {
@@ -384,7 +384,7 @@ export const INITIAL_CONTACTS: ContactsBook = {
     ],
     family: [{ relation: "長男", name: "吉川 正男", age: 65, cohabiting: false, keyPerson: true, phone: mobile("5063"), note: "施設と連絡を取り合っている" }],
     insurance: { publicAid: [], note: "" },
-    care: { careLevel: "要介護4", careManager: "施設のケアマネジャー 林（架空）", careOffice: "特別養護老人ホーム 架空の家", familyDoctor: "架空の家 嘱託医", pharmacy: "" },
+    care: { careLevel: "要介護4", careManager: "施設のケアマネジャー 林", careOffice: "特別養護老人ホーム 架空の家", familyDoctor: "架空の家 嘱託医", pharmacy: "" },
   }),
   // 505-A 堀 誠（68歳男性、消化器内科、明日退院）
   "90035051": record("90035051", admittedOf("90035051"), "09:30", {
@@ -394,6 +394,6 @@ export const INITIAL_CONTACTS: ContactsBook = {
     contacts: [{ relation: "妻", name: "堀 美佐", phone: mobile("5052"), when: "日中は携帯に", primary: true }],
     family: [{ relation: "妻", name: "堀 美佐", age: 66, cohabiting: true, keyPerson: true, phone: mobile("5052"), note: "" }],
     insurance: { publicAid: [], note: "" },
-    care: { careLevel: "なし（申請していない）", careManager: "", careOffice: "", familyDoctor: "", pharmacy: "東町薬局（架空）" },
+    care: { careLevel: "なし（申請していない）", careManager: "", careOffice: "", familyDoctor: "", pharmacy: "東町薬局" },
   }),
 };

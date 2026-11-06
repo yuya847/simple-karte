@@ -258,7 +258,7 @@ export const countByStatus = (reports: IncidentReport[]): Record<IncidentStatus,
   Object.fromEntries(STATUSES.map((s) => [s, reports.filter((r) => r.status === s).length])) as Record<IncidentStatus, number>;
 
 const nurse = { role: STAFF.看護師.role, name: STAFF.看護師.name };
-const SAFETY = "医療安全管理者（架空）";
+const SAFETY = "医療安全管理者";
 
 /** Past reports of the fictional hospital, shown when the screen opens. */
 export const INITIAL_INCIDENTS: IncidentReport[] = [

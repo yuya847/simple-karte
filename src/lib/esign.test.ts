@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { canonical, keyFor, memoryKeys, nowStamp, signDoc, validSignatures, verificationText, verifyDoc } from "./esign";
 
-const summary = { dischargeDay: 2, destination: "自宅", sections: { course: "抗菌薬で改善した（架空）", plan: "外来で経過をみる" }, confirmedBy: "山本（専攻医）" };
+const summary = { dischargeDay: 2, destination: "自宅", sections: { course: "抗菌薬で改善した", plan: "外来で経過をみる" }, confirmedBy: "山本（専攻医）" };
 const at = { date: "2026-11-04", time: "10:32:05" };
 
 describe("電子署名（模擬）", () => {

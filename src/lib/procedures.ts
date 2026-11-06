@@ -130,7 +130,7 @@ export const PROC_DRUGS: { code: string; name: string; unit: string; aliases: st
 ];
 
 /** The urinary catheter the fictional hospital stocks (a 特定保険医療材料). */
-export const CATHETER = { code: "MAT-FOLEY16", name: "2管バルーンカテーテル 16Fr（架空の院内採用品）" };
+export const CATHETER = { code: "MAT-FOLEY16", name: "2管バルーンカテーテル 16Fr" };
 
 export const PROCEDURES: ProcMaster[] = [
   {

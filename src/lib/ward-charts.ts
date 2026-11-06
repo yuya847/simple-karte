@@ -529,7 +529,7 @@ function chartFor(b: BedAssignment, nth: number): WardChart | null {
   });
   if (opDay !== null && c.op) notes.push({ kind: "note", day: opDay, time: "14:30", author: attending, role: "医師", text: `${c.op}を行った。出血は少量、術中の合併症なし。術後の指示はオーダのとおり。` });
   if (facts.homeTomorrow) notes.push({ kind: "note", day: -1, time: "11:00", author: attending, role: "医師", text: "本人と家族に経過と退院後の生活を説明し、明日の退院で了承を得た。" });
-  if (facts.falls) notes.push({ kind: "note", day: admittedOn, time: later(admTime, 40), author: "看護師（架空）", role: "看護師", text: "転倒転落のリスク評価：高。ベッドは低床、センサーマットを使う。" });
+  if (facts.falls) notes.push({ kind: "note", day: admittedOn, time: later(admTime, 40), author: "看護師", role: "看護師", text: "転倒転落のリスク評価：高。ベッドは低床、センサーマットを使う。" });
   const history = [...notes, ...orders].sort((a, b2) => a.day - b2.day || a.time.localeCompare(b2.time));
 
   // Problems: 主病名 and the rest, all from the admission day.

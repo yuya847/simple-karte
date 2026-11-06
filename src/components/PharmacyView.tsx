@@ -336,7 +336,7 @@ function AuditInteractions({ entry, entries, canAsk, onAsk, skip }: { entry: Ord
   );
 }
 
-const SAMPLE = `2026年10月20日　あおば内科クリニック（架空）
+const SAMPLE = `2026年10月20日　あおば内科クリニック
 Rp1　ノルバスク錠5mg　1回1錠　1日1回　朝食後　28日分
 Rp2　ラシックス錠20mg　1回1錠　1日1回　朝食後　28日分
 Rp3　マグミット錠330mg　1回2錠　1日2回　朝夕食後　28日分

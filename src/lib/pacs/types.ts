@@ -23,7 +23,7 @@ export type Generator =
   | { kind: "photo"; images: string[] };
 
 /**
- * 架空の読影レポートに合わせた合成画像の形（架空）。所見を判定するものではなく、
+ * 架空の読影レポートに合わせた合成画像の形。所見を判定するものではなく、
  * 「この架空の検査の画像はこう描く」という描き方の指定。
  */
 export interface PhantomHint {

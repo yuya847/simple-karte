@@ -25,7 +25,7 @@ export interface Stamp extends Moment {
 export type Via = "模擬装置" | "手入力";
 
 // ---------------------------------------------------------------------------
-// 撮影室と装置（架空の病院の取り決め）
+// 撮影室と装置
 // ---------------------------------------------------------------------------
 
 export type RoomKey = "XR1" | "PORT" | "CT1" | "MR1";
@@ -47,10 +47,10 @@ export interface RisRoom {
 
 /** The rooms and devices of the fictional hospital (架空). The CT and MRI match the facility's billing (16列以上64列未満・1.5テスラ以上3テスラ未満). */
 export const RIS_ROOMS: RisRoom[] = [
-  { key: "XR1", room: "一般撮影室1", device: "一般撮影装置（FPD）1号機（架空）", ae: "SK_DR1", station: "DR1", dicom: "DX", handles: ["X線"], location: "RAD-XR1" },
-  { key: "PORT", room: "病棟（回診用）", device: "回診用X線撮影装置（架空）", ae: "SK_PORTA", station: "PORTA", dicom: "DX", handles: ["ポータブルX線"], location: "WARD" },
-  { key: "CT1", room: "CT室", device: "マルチスライスCT（32列・架空）", ae: "SK_CT1", station: "CT1", dicom: "CT", handles: ["CT"], location: "RAD-CT1" },
-  { key: "MR1", room: "MRI室", device: "MRI装置（1.5テスラ・架空）", ae: "SK_MR1", station: "MR1", dicom: "MR", handles: ["MRI"], location: "RAD-MR1" },
+  { key: "XR1", room: "一般撮影室1", device: "一般撮影装置（FPD）1号機", ae: "SK_DR1", station: "DR1", dicom: "DX", handles: ["X線"], location: "RAD-XR1" },
+  { key: "PORT", room: "病棟（回診用）", device: "回診用X線撮影装置", ae: "SK_PORTA", station: "PORTA", dicom: "DX", handles: ["ポータブルX線"], location: "WARD" },
+  { key: "CT1", room: "CT室", device: "マルチスライスCT（32列）", ae: "SK_CT1", station: "CT1", dicom: "CT", handles: ["CT"], location: "RAD-CT1" },
+  { key: "MR1", room: "MRI室", device: "MRI装置（1.5テスラ）", ae: "SK_MR1", station: "MR1", dicom: "MR", handles: ["MRI"], location: "RAD-MR1" },
 ];
 
 export const findRoom = (k: RoomKey | undefined) => RIS_ROOMS.find((r) => r.key === k);
@@ -547,7 +547,7 @@ export function studyStateOf(o: ImagingOrder, w: RisWork | undefined): { pending
 // Fictional orders and work of this demo
 // ---------------------------------------------------------------------------
 
-export const RADIOLOGIST = "放射線科 石田（架空）";
+export const RADIOLOGIST = "放射線科 石田";
 
 const hhmm = (a: number) => {
   const m = ((a % 1440) + 1440) % 1440;

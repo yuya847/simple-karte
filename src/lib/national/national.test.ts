@@ -37,7 +37,7 @@ describe("オンライン資格確認（模擬）", () => {
   it("gives 薬剤情報 and 特定健診情報 only with the マイナ保険証 and consent", () => {
     const yes = fictionalQualification({ person: person(kitamura), consent: allConsent, how: "マイナ保険証" }, today, "10:00");
     expect(yes.drugs!.map((d) => d.drug)).toContain("スピロノラクトン錠２５ｍｇ「トーワ」");
-    expect(yes.drugs![0].institution).toBe("みなと循環器クリニック（架空）");
+    expect(yes.drugs![0].institution).toBe("みなと循環器クリニック");
     expect(yes.checkups).toHaveLength(2);
     expect(yes.checkups![0].kind).toBe("後期高齢者健診");
     const no = fictionalQualification({ person: person(kitamura), consent: { drugs: false, checkups: false, limit: false }, how: "マイナ保険証" }, today, "10:00");
@@ -147,7 +147,7 @@ describe("電子カルテ情報共有サービス（模擬）: JP-CLINS", () => 
   });
 
   it("makes the 退院時サマリー, and the 診療情報提供書 once the letter is issued, with the same document id", () => {
-    const draft: DischargeDraft = { patientId: kitamura.id, dischargeDay: 1, destination: "自宅", outcome: "1", route: "1", sections: { ...emptySections(), complaint: "息切れ", course: "利尿薬で改善" }, status: "確定", letter: { to: "みなと循環器クリニック（架空）", dept: "循環器内科", doctor: "", purpose: "退院後の経過観察", issuedAt: { day: 0, time: "11:00" } } };
+    const draft: DischargeDraft = { patientId: kitamura.id, dischargeDay: 1, destination: "自宅", outcome: "1", route: "1", sections: { ...emptySections(), complaint: "息切れ", course: "利尿薬で改善" }, status: "確定", letter: { to: "みなと循環器クリニック", dept: "循環器内科", doctor: "", purpose: "退院後の経過観察", issuedAt: { day: 0, time: "11:00" } } };
     const lines = linesFromHomeRx(kitamura.history.filter((e): e is OrderEntry => e.kind === "order"));
     const docs = buildDocuments(ctx, { draft, admittedOn: kitamura.admittedOn, lines, allergies: [{ text: "NSAIDs（喘息発作）", from: "アレルギー", send: true, category: "medication" }] });
     const s = docs.summary as { identifier: { value: string }; entry: { resource: Res }[] };

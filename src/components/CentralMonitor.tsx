@@ -10,7 +10,7 @@ interface Props {
   candidates: MonitorCandidate[];
   /** Put on or taken off by hand (a ward record, shared). */
   manual: MonitorManual;
-  /** Who may change the manual list: the nurses（架空の病院の取り決め）. Null when allowed, else why not. */
+  /** Who may change the manual list: the nurses. Null when allowed, else why not. */
   lockedWhy: string | null;
   onToggle: (id: string, on: boolean) => void;
   /** Open the patient's chart with the monitor window. */
