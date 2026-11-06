@@ -206,7 +206,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const groups = groupsFor(me.role);
   const short = railIsShort(me.role);
   const [rail, put] = useRail(me.name);
-  const [selectedGroup, setSelectedGroup] = useState<GroupKey>("intervention");
+  const [selectedGroup, setSelectedGroup] = useState<GroupKey>(me.role === "医事課" ? "admin" : "intervention");
   const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
   const all = groups.flatMap((g) => [...g.main, ...g.more]);

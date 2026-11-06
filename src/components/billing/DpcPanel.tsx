@@ -80,11 +80,6 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
 
   return (
     <div className="nums space-y-3 text-sm">
-      <p className="hint rounded-md border border-ai/30 bg-ai-soft px-3 py-2 text-xs leading-relaxed text-ink">
-        <b>DPC（診断群分類別包括評価）の試算</b>
-        ：診断群分類（DPC コード）は、主治医が退院のときに決め（留意事項 第2の1(1)・(7)）、医事課が確かめます。この画面は、記録された病名・年齢・手術と処置から、厚生労働省の表どおりにコードで候補を出すだけです（AI は使っていません）。
-      </p>
-
       <fieldset className="rounded-md border border-rule bg-paper px-3 py-2">
         <legend className="px-1 text-xs font-bold text-ink-soft">医師・医事課が選ぶもの</legend>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
@@ -310,23 +305,30 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
         </>
       )}
 
-      {issues.length > 0 && (
-        <ul className="space-y-1">
-          {issues.map((i) => {
-            const Icon = i.level === "review" ? AlertTriangle : Info;
-            return (
-              <li
-                key={i.text}
-                className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs ${i.level === "review" ? "border-yamabuki/40 bg-yamabuki-soft text-yamabuki" : "border-rule bg-paper text-ink-soft"}`}
-              >
-                <Icon size={13} className="mt-0.5 shrink-0" />
-                <span className="shrink-0 font-bold">{i.level === "review" ? "確かめる" : "決まり"}</span>
-                <span className="text-ink">{displayText(i.text)}</span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {issues.length > 0 && (() => {
+        const row = (i: (typeof issues)[number]) => {
+          const Icon = i.level === "review" ? AlertTriangle : Info;
+          return (
+            <li key={i.text} className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs ${i.level === "review" ? "border-yamabuki/40 bg-yamabuki-soft text-yamabuki" : "border-rule bg-paper text-ink-soft"}`}>
+              <Icon size={13} className="mt-0.5 shrink-0" />
+              <span className="shrink-0 font-bold">{i.level === "review" ? "確かめる" : "決まり"}</span>
+              <span className="text-ink">{displayText(i.text)}</span>
+            </li>
+          );
+        };
+        const rules = issues.filter((i) => i.level !== "review");
+        return (
+          <div className="space-y-1">
+            <ul className="space-y-1">{issues.filter((i) => i.level === "review").map(row)}</ul>
+            {rules.length > 0 && (
+              <details className="text-xs text-ink-soft">
+                <summary className="cursor-pointer select-none">DPC の決まり（{rules.length}件）</summary>
+                <ul className="mt-1 space-y-1">{rules.map(row)}</ul>
+              </details>
+            )}
+          </div>
+        );
+      })()}
 
       {r && (
         <div className="hint space-y-0.5 text-[10px] text-ink-faint">

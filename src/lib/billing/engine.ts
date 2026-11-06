@@ -293,6 +293,10 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
       for (const it of ord.items) {
         const q = masterQuantity(it.drugCode, it.amount, it.unit);
         const official = officialDrugCode(it.drugCode);
+        if (ord.sliding && it.amount === 0) {
+          issues.push({ level: "review", text: `${findDrug(it.drugCode)?.name ?? it.drugCode}（スライディングスケール）：打った単位は回ごとに違います。実施の記録で単位数を確かめてください。` });
+          continue;
+        }
         if (q === null || !official) {
           issues.push({ level: "review", text: `${findDrug(it.drugCode)?.name ?? it.drugCode} の量（${it.amount}${it.unit}）を医薬品マスターの単位に直せませんでした。` });
           continue;

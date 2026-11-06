@@ -316,23 +316,33 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           </div>
         </fieldset>
 
-        {result && result.issues.length > 0 && (
-          <ul className="mb-3 space-y-1">
-            {[...result.issues]
-              .sort((a, b) => Object.keys(ISSUE_STYLE).indexOf(a.level) - Object.keys(ISSUE_STYLE).indexOf(b.level))
-              .map((i) => {
-                const s = ISSUE_STYLE[i.level];
-                const Icon = s.icon;
-                return (
-                  <li key={i.level + i.text} className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs ${s.cls}`}>
-                    <Icon size={13} className="mt-0.5 shrink-0" />
-                    <span className="shrink-0 font-bold">{s.label}</span>
-                    <span className="text-ink">{displayText(i.text)}</span>
-                  </li>
-                );
-              })}
-          </ul>
-        )}
+        {result && result.issues.length > 0 && (() => {
+          const row = (i: (typeof result.issues)[number]) => {
+            const s = ISSUE_STYLE[i.level];
+            const Icon = s.icon;
+            return (
+              <li key={i.level + i.text} className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs ${s.cls}`}>
+                <Icon size={13} className="mt-0.5 shrink-0" />
+                <span className="shrink-0 font-bold">{s.label}</span>
+                <span className="text-ink">{displayText(i.text)}</span>
+              </li>
+            );
+          };
+          const sorted = [...result.issues].sort((a, b) => Object.keys(ISSUE_STYLE).indexOf(a.level) - Object.keys(ISSUE_STYLE).indexOf(b.level));
+          // Only what someone must check stays open; the rules applied (決まり) fold into one line.
+          const rules = sorted.filter((i) => i.level === "info");
+          return (
+            <div className="mb-3 space-y-1">
+              <ul className="space-y-1">{sorted.filter((i) => i.level !== "info").map(row)}</ul>
+              {rules.length > 0 && (
+                <details className="text-xs text-ink-soft">
+                  <summary className="cursor-pointer select-none">算定の決まりで外したもの・分けたもの（{rules.length}件）</summary>
+                  <ul className="mt-1 space-y-1">{rules.map(row)}</ul>
+                </details>
+              )}
+            </div>
+          );
+        })()}
 
         {result && (
           <table className="nums w-full border-collapse text-xs">
