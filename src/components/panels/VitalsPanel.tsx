@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { focusNextOnEnter } from "@/lib/next-field";
 import { Mic, Square } from "lucide-react";
@@ -205,7 +206,7 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
         <div className="nums flex flex-wrap items-center gap-2 rounded-md border border-ai/40 bg-ai-soft/40 px-2 py-1 text-xs text-ink-soft">
           測った時刻
           <span className="font-bold text-ink">{fmtDay ? fmtDay(when.day) : when.day === 0 ? "今日" : `${when.day}日`}</span>
-          <input value={when.time} onChange={(e) => setWhen({ ...when, time: e.target.value })} inputMode="numeric" aria-label="測った時刻" className="w-16 rounded border border-rule bg-paper px-1.5 py-0.5 text-right text-[13px]" />
+          <TimeInput value={when.time} onChange={(e) => setWhen({ ...when, time: e.target.value })} inputMode="numeric" aria-label="測った時刻" className="w-16 rounded border border-rule bg-paper px-1.5 py-0.5 text-right text-[13px]" />
           <button type="button" onClick={() => setWhen(null)} className="rounded border border-rule px-1.5 py-0.5">
             いまにする
           </button>

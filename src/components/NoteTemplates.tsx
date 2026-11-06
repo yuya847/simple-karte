@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 // テンプレート: pick a template, fill in the form (choices, numbers, text; results and calculations come
 // from the chart and code), and put the text into today's note. Own templates are kept per person in
@@ -184,7 +185,7 @@ export function FieldInput({ f, values, set, facts, fields }: { f: TemplateField
     case "時刻":
       return (
         <Row label={f.label}>
-          <input type="time" value={typeof v === "string" ? v : ""} onChange={(e) => set(k, e.target.value)} aria-label={f.label} className="nums w-28 rounded border border-rule bg-sheet px-1.5 py-0.5 outline-none focus:border-ai" />
+          <TimeInput value={typeof v === "string" ? v : ""} onChange={(e) => set(k, e.target.value)} aria-label={f.label} className="nums w-28 rounded border border-rule bg-sheet px-1.5 py-0.5 outline-none focus:border-ai" />
         </Row>
       );
     case "文":

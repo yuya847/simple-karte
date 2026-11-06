@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 // 実施・未実施 from an order: the menu that opens on an order row of the record (right click, ⋯, or a long
 // press on an iPad) and on a dose cell of the calendars. The person picks the occurrence (when the day has
@@ -142,7 +143,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
         <div className="flex items-center gap-2 px-2 py-1">
           <label className="flex items-center gap-1 text-[12px]">
             実施した時刻
-            <input value={value} onChange={(e) => setTime(e.target.value)} aria-label="実施した時刻" placeholder="HH:MM" className="nums w-16 rounded border border-rule bg-sheet px-1 py-0.5" />
+            <TimeInput value={value} onChange={(e) => setTime(e.target.value)} aria-label="実施した時刻" placeholder="HH:MM" className="nums w-16 rounded border border-rule bg-sheet px-1 py-0.5" />
           </label>
           <button type="button" disabled={!ok || glucoseMissing(o.item)} onClick={() => write(o.item, { status: "実施", time: value })} className="rounded bg-ai px-3 py-0.5 text-[12px] font-bold text-white disabled:opacity-40">
             記録する

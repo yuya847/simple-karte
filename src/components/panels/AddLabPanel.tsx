@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useMe } from "../RoleContext";
 import { orderDefaults } from "@/lib/order-defaults";
@@ -318,7 +319,7 @@ export function AddLabPanel({
                     </button>
                   ))}
                 </span>
-                <input value={draw.time} onChange={(e) => setDraw((d) => ({ ...d, time: e.target.value.trim() }))} placeholder="HH:MM" inputMode="numeric" aria-label="時刻（HH:MM）" className="nums w-20 rounded border border-rule bg-sheet px-1.5 py-1 text-[12px]" />
+                <TimeInput options={DRAW_TIMES} value={draw.time} onChange={(e) => setDraw((d) => ({ ...d, time: e.target.value.trim() }))} placeholder="HH:MM" inputMode="numeric" aria-label="時刻（HH:MM）" className="nums w-20 rounded border border-rule bg-sheet px-1.5 py-1 text-[12px]" />
               </>
             )}
             {draw.mode === "before_dose" &&

@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { MonthPicker } from "../MonthPicker";
 import type { CalendarDate } from "@/lib/dates";
@@ -108,7 +109,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
       <div data-booking-field="時間枠" className={row}>
         <span className={label}>時間枠</span>
         <TabChoice label="時間枠" options={OPD_SLOTS.map((s) => ({ value: s, label: s === "時刻" ? "時刻を指定" : `${s}（${OPD_BOOKING_RULES.slots[s]}）` }))} value={slot} onChange={setSlot} />
-        {slot === "時刻" && <input data-booking-field="時刻" type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="予約の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />}
+        {slot === "時刻" && <TimeInput data-booking-field="時刻" value={time} onChange={(e) => setTime(e.target.value)} aria-label="予約の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />}
       </div>
       <div data-booking-field="目的" className={row}>
         <span className={label}>目的</span>

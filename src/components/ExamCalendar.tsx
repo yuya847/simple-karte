@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
 import { addDays, daysFrom, formatMonth, formatShort, type CalendarDate } from "@/lib/dates";
@@ -31,7 +32,7 @@ export function ExamCalendar({ kind, today, taken, value, onChange }: {
     </div>
     <div className="min-w-0">
     <p className="mb-1 text-xs text-ink-soft">{formatShort(addDays(today, day))}の枠{selected && value.time ? `（選択：${formatShort(addDays(today, value.day ?? day))} ${value.time}）` : ""}</p>
-    {kind === "PORT" ? <label>時刻（枠なし）<input aria-label="時刻" type="time" value={value.time ?? ""} onChange={(e) => onChange({ day, time: e.target.value || null, priority: "予約" })} /></label> : <div className="flex max-h-56 flex-wrap gap-1 overflow-y-auto">
+    {kind === "PORT" ? <label>時刻（枠なし）<TimeInput aria-label="時刻" value={value.time ?? ""} onChange={(e) => onChange({ day, time: e.target.value || null, priority: "予約" })} /></label> : <div className="flex max-h-56 flex-wrap gap-1 overflow-y-auto">
       {slotsFor(kind, day, taken, today).map((s) => <button key={s.time} type="button" disabled={s.status !== "空き"} aria-pressed={selected && value.day === day && value.time === s.time} onClick={() => onChange({ day, time: s.time, priority: "予約" })} title={`${s.time} ${s.status}${s.label ? `（${s.label}）` : ""}`} className={`nums rounded border px-1.5 py-0.5 text-xs disabled:opacity-50 ${selected && value.day === day && value.time === s.time ? "border-ai bg-ai text-white" : s.status === "空き" ? "border-rule bg-sheet" : "border-rule-soft bg-paper text-ink-faint line-through"}`}>{s.time}{s.status !== "空き" && ` ${s.label ? s.label : s.status}`}</button>)}
     </div>}
     </div>

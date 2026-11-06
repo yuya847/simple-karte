@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 // 放射線部の指示受け (診療放射線技師), in the ward's 指示受け form (OrderSheet.tsx): the date to move through, the
 // kinds (X線・CT・MRI・エコー・ポータブル), 至急だけ, 「指示受け済みも表示する」, 全チェック・一括受け, a band per
@@ -331,7 +332,7 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
           </option>
         ))}
       </select>
-      <input type="time" value={time} onChange={(e) => setSlot(e.target.value)} aria-label="撮影の予定時刻" disabled={!!deny} className={`${field} nums`} />
+      <TimeInput value={time} onChange={(e) => setSlot(e.target.value)} aria-label="撮影の予定時刻" disabled={!!deny} className={`${field} nums`} />
       <button type="button" disabled={!!deny} onClick={() => assign(roomKey)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
         {r.work?.room ? "予定を変える" : "割り当てる"}
       </button>

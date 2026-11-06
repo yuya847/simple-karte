@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { BedDouble, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
@@ -381,7 +382,7 @@ export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { v
             value={f.day}
             onChange={(v) => set({ day: v })}
           />
-          <input type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} aria-label="入院予定の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+          <TimeInput value={f.time} onChange={(e) => set({ time: e.target.value })} aria-label="入院予定の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
         </>,
       )}
       {row("病棟", <TabChoice label="希望の病棟" options={REQUEST_WARDS.map((w) => ({ value: w, label: w }))} value={f.ward} onChange={(v) => set({ ward: v })} />)}

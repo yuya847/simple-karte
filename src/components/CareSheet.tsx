@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { ClipboardCheck } from "lucide-react";
 import { useState } from "react";
@@ -235,7 +236,7 @@ function RecordForm({ order, at, label, nowTime, onSave, onClose }: { order: Car
         ))}
       <span className="flex items-center gap-1">
         <span className="w-16">実施した時刻</span>
-        <input value={doneAt} onChange={(e) => setDoneAt(e.target.value)} aria-label="実施した時刻" className="nums w-14 rounded border border-rule bg-sheet px-1" />
+        <TimeInput value={doneAt} onChange={(e) => setDoneAt(e.target.value)} aria-label="実施した時刻" className="nums w-14 rounded border border-rule bg-sheet px-1" />
         <span className="text-ink-faint">記録 {nowTime}</span>
       </span>
       <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="メモ（任意）" aria-label="メモ" className="w-full rounded border border-rule bg-sheet px-1" />

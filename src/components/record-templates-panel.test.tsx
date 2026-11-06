@@ -73,7 +73,7 @@ describe("テンプレートの引き出し", () => {
 
   it("a time field is a clock input", () => {
     const html = as("看護師", <RecordTemplatesPanel facts={facts} initialId="rec-fall" onInsert={noop} onConfirm={noop} onOpenPanel={noop} />);
-    expect(html).toContain('type="time"');
+    expect(html).toContain('type="text"');
     expect(html).toContain('aria-label="発見時刻"');
   });
 

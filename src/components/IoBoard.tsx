@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -174,7 +175,7 @@ export function IoBoard({ people, typed, records, sessionStart, nowTime, today, 
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <label className="flex items-center gap-1">
                 測った時刻
-                <input value={time} onChange={(e) => setTime(e.target.value)} placeholder={nowTime} aria-label="測った時刻" className="w-16 rounded border border-rule bg-paper px-1 py-0.5" />
+                <TimeInput value={time} onChange={(e) => setTime(e.target.value)} placeholder={nowTime} aria-label="測った時刻" className="w-16 rounded border border-rule bg-paper px-1 py-0.5" />
               </label>
               <span className="text-ink-faint">空ならいま。全員に同じ時刻で入ります。</span>
               <button

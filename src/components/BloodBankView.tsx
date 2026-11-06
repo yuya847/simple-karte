@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { BookOpenText, ClipboardList, Droplet, FileClock, HelpCircle, Package, TestTubes, TriangleAlert, Undo2 } from "lucide-react";
 import { useState } from "react";
@@ -194,7 +195,7 @@ export function SampleInput({ value, onChange, label = "検体の採血" }: { va
           </option>
         ))}
       </select>
-      <input type="time" value={value.time} onChange={(e) => onChange({ ...value, time: e.target.value })} aria-label={`${label}の時刻`} className={`${bbField} nums`} />
+      <TimeInput value={value.time} onChange={(e) => onChange({ ...value, time: e.target.value })} aria-label={`${label}の時刻`} className={`${bbField} nums`} />
     </span>
   );
 }

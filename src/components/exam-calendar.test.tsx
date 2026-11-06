@@ -12,7 +12,7 @@ it("予約済みは患者名と検査名を表示して押せない", () => {
 });
 it("ポータブルは時刻の直接入力", () => {
   const html = renderToStaticMarkup(<ExamCalendar kind="PORT" today={today} value={{ day: 1, time: "09:12", priority: "予約" }} taken={[]} onChange={() => {}} />);
-  expect(html).toContain('type="time"');
+  expect(html).toContain('type="text"');
   expect(html).toContain("09:12");
   expect(html).toContain("枠なし");
 });

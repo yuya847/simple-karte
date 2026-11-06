@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { sessionNote } from "@/lib/rehab-record";
 import type { NoteEntry, VitalSign } from "@/lib/types";
@@ -321,11 +322,11 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRecorded }
         )}
         <label className="flex items-center gap-1">
           開始
-          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} disabled={!!deny} className={`${field} nums`} />
+          <TimeInput value={start} onChange={(e) => setStart(e.target.value)} disabled={!!deny} className={`${field} nums`} />
         </label>
         <label className="flex items-center gap-1">
           終了
-          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} disabled={!!deny} className={`${field} nums`} />
+          <TimeInput value={end} onChange={(e) => setEnd(e.target.value)} disabled={!!deny} className={`${field} nums`} />
         </label>
         <select value={place} onChange={(e) => setPlace(e.target.value as RehabPlace)} aria-label="場所" disabled={!!deny} className={field}>
           {(["訓練室", "病棟（ベッドサイド）"] as RehabPlace[]).map((x) => (

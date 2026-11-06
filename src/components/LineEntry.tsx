@@ -1,4 +1,6 @@
 "use client";
+import { INJECTION_TIME_OPTIONS } from "@/lib/inj-entry";
+import { TimeInput } from "@/components/TimeInput";
 import { useId, useState } from "react";
 import { Search } from "lucide-react";
 import { kanaMatch } from "@/lib/kana";
@@ -65,7 +67,7 @@ export function RpDrugSearch({ options, onPick, placeholder, prefix = false, onE
 export function LineEntry({ children }: { children: React.ReactNode }) { return <div className="divide-y divide-rule border-y border-rule">{children}</div>; }
 
 export function DoseTimesEntry({ label, times, onChange }: { label: string; times: string[]; onChange: (times: string[]) => void }) {
-  return <div className="flex flex-wrap items-center gap-1" aria-label={label}><span>投与時刻</span>{times.map((time, i) => <label key={i} className="inline-flex items-center gap-1"><input aria-label={`${label} ${i + 1}回目`} value={time} placeholder="HH:MM" className="w-16 border-b border-rule bg-transparent" onChange={(e) => onChange(times.map((t, k) => k === i ? e.target.value : t))} /><button type="button" aria-label={`${label} ${i + 1}回目を消す`} onClick={() => onChange(times.filter((_, k) => k !== i))}>×</button></label>)}<button type="button" onClick={() => onChange([...times, ""])}>＋時刻</button></div>;
+  return <div className="flex flex-wrap items-center gap-1" aria-label={label}><span>投与時刻</span>{times.map((time, i) => <label key={i} className="inline-flex items-center gap-1"><TimeInput allow24 options={[...times, ...INJECTION_TIME_OPTIONS]} aria-label={`${label} ${i + 1}回目`} value={time} placeholder="HH:MM" className="w-16 border-b border-rule bg-transparent" onChange={(e) => onChange(times.map((t, k) => k === i ? e.target.value : t))} /><button type="button" aria-label={`${label} ${i + 1}回目を消す`} onClick={() => onChange(times.filter((_, k) => k !== i))}>×</button></label>)}<button type="button" onClick={() => onChange([...times, ""])}>＋時刻</button></div>;
 }
 
 /** 確定済みの段は罫線の一行。押すとその段へ戻る。 */

@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { VoidControl } from "./MarCell";
 import type { VoidReason } from "@/lib/mar";
@@ -191,7 +192,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
                                   <label className="flex items-center gap-1">
                                     実施日時
                                     <span className="nums text-ink-soft">{momentLabel(day * 1440, today).split(" ")[0]}</span>
-                                    <input value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} aria-label="実施した時刻" placeholder="HH:MM" className="nums w-16 rounded border border-rule bg-sheet px-1 py-0.5" />
+                                    <TimeInput value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} aria-label="実施した時刻" placeholder="HH:MM" className="nums w-16 rounded border border-rule bg-sheet px-1 py-0.5" />
                                   </label>
                                   <label className="flex items-center gap-1">
                                     実施者

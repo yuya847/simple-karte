@@ -4,6 +4,8 @@ export function defaultDoseTimes(schedule?: InjectionSchedule): string[] {
   const count = schedule?.kind === "per_day" ? schedule.count : schedule?.kind === "every_hours" ? 24 / schedule.hours : 0;
   return [...({ 1: ["10:00"], 2: ["10:00", "22:00"], 3: ["06:00", "14:00", "22:00"], 4: ["06:00", "12:00", "18:00", "24:00"] }[count] ?? [])];
 }
+/** 既存の回数別の投与時刻を、入力候補にまとめる。 */
+export const INJECTION_TIME_OPTIONS = [...new Set([1, 3, 4, 2].flatMap((count) => defaultDoseTimes({ kind: "per_day", count })))];
 export function parseDuration(text: string): number | null {
   const m = text.trim().match(/^(?:(\d+)時間)?(?:(\d+)分?)?$/);
   const n = m ? Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0) : 0;

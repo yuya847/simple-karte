@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput, TimeInputs } from "@/components/TimeInput";
 
 import { useState } from "react";
 import { minutesOf } from "@/lib/dates";
@@ -334,16 +335,10 @@ function CareEditor({ draft, onDraft, plans, fmtDay, nowTime, change, onCancel, 
           </div>
           {s.kind === "times" && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <input
-                value={timesText}
-                onChange={(e) => {
-                  setTimesText(e.target.value);
-                  set({ schedule: { kind: "times", times: parseTimes(e.target.value) } });
-                }}
-                placeholder="例：08:30、12:30、18:30"
-                aria-label="時刻"
-                className={`${small} nums w-52`}
-              />
+              <TimeInputs label="時刻" times={s.times} onChange={(times) => {
+                setTimesText(times.join("、"));
+                set({ schedule: { kind: "times", times } });
+              }} />
               <select value={draft.everyDays} onChange={(e) => set({ everyDays: Number(e.target.value) })} aria-label="何日ごと" className={small}>
                 <option value={1}>毎日</option>
                 <option value={2}>隔日</option>
@@ -361,13 +356,7 @@ function CareEditor({ draft, onDraft, plans, fmtDay, nowTime, change, onCancel, 
                   </option>
                 ))}
               </select>
-              <select value={s.from} onChange={(e) => set({ schedule: { ...s, from: e.target.value } })} aria-label="起点の時刻" className={small}>
-                {Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`).map((t) => (
-                  <option key={t} value={t}>
-                    {Number(t.slice(0, 2))}時から
-                  </option>
-                ))}
-              </select>
+              <TimeInput value={s.from} onChange={(e) => set({ schedule: { ...s, from: e.target.value } })} aria-label="起点の時刻" className={small} />
             </div>
           )}
         </div>
@@ -380,7 +369,7 @@ function CareEditor({ draft, onDraft, plans, fmtDay, nowTime, change, onCancel, 
               </option>
             ))}
           </select>
-          <input value={draft.startTime} onChange={(e) => set({ startTime: e.target.value })} aria-label="開始の時刻" className={`${small} nums w-16`} />
+          <TimeInput value={draft.startTime} onChange={(e) => set({ startTime: e.target.value })} aria-label="開始の時刻" className={`${small} nums w-16`} />
           から
           <select value={draft.endDay ?? ""} onChange={(e) => set({ endDay: e.target.value === "" ? undefined : Number(e.target.value) })} aria-label="終了日" className={small}>
             <option value="">終わりを決めない</option>

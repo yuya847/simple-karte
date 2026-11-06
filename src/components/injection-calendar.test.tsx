@@ -31,7 +31,7 @@ describe("注射のタブ：カレンダーから渡された開始", () => {
     const html = renderToStaticMarkup(<AddInjectionPanel onAdd={() => {}} newId={() => "d1"} drafts={[]} seed={{ key: "s3", order: ctrx, start: { day: 3, time: "10:00" } }} />);
     expect(html).toContain("ロセフィン静注用1g");
     expect(html).toMatch(/aria-checked="true"[^>]*>3日後</);
-    expect(html).toMatch(/type="time"[^>]*value="10:00"/);
+    expect(html).toMatch(/type="text"[^>]*value="10:00"/);
     expect(html).toMatch(/aria-label="Rp1 の日数"[^>]*value="5"/);
   });
 });

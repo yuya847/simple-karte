@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -149,7 +150,7 @@ export function IoEntryForm({ patientId, nowTime, onAdd, newId, defaultTime }: {
         </label>
         <label className="flex flex-col gap-0.5">
           時刻
-          <input value={time} onChange={(e) => setTime(e.target.value)} placeholder={nowTime} aria-label="測った時刻" className={`${box} w-20`} />
+          <TimeInput value={time} onChange={(e) => setTime(e.target.value)} placeholder={nowTime} aria-label="測った時刻" className={`${box} w-20`} />
         </label>
         <label className="flex flex-1 flex-col gap-0.5">
           メモ（ドレーンの場所・飲んだもの など）

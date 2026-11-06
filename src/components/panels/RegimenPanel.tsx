@@ -1,4 +1,6 @@
 "use client";
+import { INJECTION_TIME_OPTIONS } from "@/lib/inj-entry";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useEffect, useRef, useState } from "react";
 import { TabChoice } from "../TabChoice";
@@ -221,7 +223,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
               value={startDay}
               onChange={(v) => setStartDay(v)}
             />
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="開始時刻（最初の Rp）" className={field} />
+            <TimeInput options={INJECTION_TIME_OPTIONS} value={time} onChange={(e) => setTime(e.target.value)} aria-label="開始時刻（最初の Rp）" className={field} />
             <span className="text-[11px] text-ink-faint">最初の Rp の時刻。ほかの Rp の時刻はここから計算します</span>
           </>,
         )}

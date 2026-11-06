@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { VERBAL_RULE } from "@/lib/verbal";
 import { Clock3, LayoutTemplate, Loader2, Mic, MicOff, Sparkles, TextQuote } from "lucide-react";
@@ -226,7 +227,7 @@ export function TodayPane(p: Props) {
                   </option>
                 ))}
               </select>
-              <input type="time" value={p.noteAt.time} onChange={(e) => p.onNoteAt({ ...p.noteAt!, time: e.target.value })} aria-label="記録の時刻" className="nums rounded border border-rule bg-sheet px-1 py-0.5" />
+              <TimeInput value={p.noteAt.time} onChange={(e) => p.onNoteAt({ ...p.noteAt!, time: e.target.value })} aria-label="記録の時刻" className="nums rounded border border-rule bg-sheet px-1 py-0.5" />
               <button type="button" onClick={() => p.onNoteAt(null)} className="rounded border border-rule px-1.5 py-0.5 hover:text-ink">
                 保存の時刻にもどす
               </button>

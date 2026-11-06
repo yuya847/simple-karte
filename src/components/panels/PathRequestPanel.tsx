@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -82,7 +83,7 @@ export function PathRequestPanel({ patientId, patientName, cases, onAdd, nowTime
           <>
             <span>固定を始めた</span>
             <span className="flex items-center gap-1">
-              今日 <input type="time" value={fixed} onChange={(e) => setFixed(e.target.value)} aria-label="ホルマリン固定を始めた時刻" className={`${field} nums`} />
+              今日 <TimeInput value={fixed} onChange={(e) => setFixed(e.target.value)} aria-label="ホルマリン固定を始めた時刻" className={`${field} nums`} />
               <span className="text-ink-soft">（ホルマリン。わかれば）</span>
             </span>
           </>
@@ -92,7 +93,7 @@ export function PathRequestPanel({ patientId, patientName, cases, onAdd, nowTime
             <span>手術室・時刻</span>
             <span className="flex items-center gap-1">
               <input value={room} onChange={(e) => setRoom(e.target.value)} placeholder="例：手術室2" aria-label="手術室" className={`${field} w-28`} />
-              今日 <input type="time" value={frozenAt} onChange={(e) => setFrozenAt(e.target.value)} aria-label="検体が出る予定の時刻" className={`${field} nums`} />
+              今日 <TimeInput value={frozenAt} onChange={(e) => setFrozenAt(e.target.value)} aria-label="検体が出る予定の時刻" className={`${field} nums`} />
               ごろ
             </span>
             <span>結果の連絡先</span>

@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { Plus, StickyNote, Trash2, X } from "lucide-react";
 import { useState } from "react";
@@ -124,7 +125,7 @@ export function FlowStickyLane({ notes, xAbs, lo, hi, plotW, labelW, meName, fmt
           }}
         >
           <span className="text-ink-soft">{fmtAt(draftAt).replace(/ \d\d:\d\d$/, "")}</span>
-          <input value={draftTime ?? ""} onChange={(e) => draftAt !== null && setTime({ for: draftAt, v: e.target.value })} aria-label="付箋の時刻" className="w-14 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
+          <TimeInput value={draftTime ?? ""} onChange={(e) => draftAt !== null && setTime({ for: draftAt, v: e.target.value })} aria-label="付箋の時刻" className="w-14 rounded border border-rule bg-paper px-1 py-0.5 text-right" />
           <input autoFocus value={text} onChange={(e) => setText(e.target.value)} maxLength={GRAPH_NOTE_MAX} placeholder="例：解熱剤のあと再検" aria-label="付箋に書くこと" className="min-w-40 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5" />
           <button type="submit" disabled={!cleanNote(text) || draftAbs === null} className="rounded bg-yamabuki px-2 py-0.5 font-bold text-white disabled:opacity-40">
             貼る（{meName}）

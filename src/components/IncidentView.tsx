@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { ArrowRight, Clock, FilePlus2, ShieldAlert, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
@@ -309,7 +310,7 @@ function DayTime({ label, day, time, onDay, onTime, extra }: { label: string; da
     <div className="flex flex-wrap items-center gap-2">
       <span className="w-16 text-[12px] text-ink-soft">{label}</span>
       <TabChoice label={`${label}の日`} options={DAY_CHOICES} value={day} onChange={onDay} />
-      <input type="time" value={time} onChange={(e) => onTime(e.target.value)} aria-label={`${label}の時刻`} className={`${input} nums w-28`} />
+      <TimeInput value={time} onChange={(e) => onTime(e.target.value)} aria-label={`${label}の時刻`} className={`${input} nums w-28`} />
       {extra}
     </div>
   );

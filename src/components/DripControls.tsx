@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
 import { clockText, dripCourses, dripEndOf, endText, pastEnd, pastTime, startRecordOf } from "@/lib/drip-course";
@@ -45,7 +46,7 @@ export function DripEndForm({ volumeMl, start, nowAbs, nowTime, onEnd, label = "
     <div className="w-64 space-y-1 rounded border border-rule bg-paper p-1.5 text-[11px]">
       <label className="flex items-center gap-1">
         <span className="w-10">時刻</span>
-        <input value={time} onChange={(e) => setTime(e.target.value)} placeholder={nowTime} aria-label="終了の時刻" className="w-16 rounded border border-rule bg-sheet px-1" />
+        <TimeInput value={time} onChange={(e) => setTime(e.target.value)} placeholder={nowTime} aria-label="終了の時刻" className="w-16 rounded border border-rule bg-sheet px-1" />
         <span className="text-ink-faint">空ならいま</span>
       </label>
       <div className="flex flex-wrap items-center gap-2">

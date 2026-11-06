@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { AlertOctagon, HelpCircle, Info, Plus, Scissors, X } from "lucide-react";
 import { useState } from "react";
@@ -386,7 +387,7 @@ function RequestDialog({ people, all, nowAbs, onCancel, onSave }: { people: Work
                 ))}
               </select>,
             )}
-            {field("開始", <input value={x.start ?? ""} onChange={(e) => setX({ ...x, start: /^\d{2}:\d{2}$/.test(e.target.value) ? e.target.value : e.target.value || null })} placeholder="13:30" className={sel} />)}
+            {field("開始", <TimeInput value={x.start ?? ""} onChange={(e) => setX({ ...x, start: /^\d{2}:\d{2}$/.test(e.target.value) ? e.target.value : e.target.value || null })} placeholder="13:30" className={sel} />)}
             {field("予定時間（分）", <input value={x.minutes ?? ""} onChange={(e) => setX({ ...x, minutes: Number(e.target.value) || null })} inputMode="numeric" className={sel} />)}
             {field(
               "申込区分",

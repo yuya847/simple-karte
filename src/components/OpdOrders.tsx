@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
 import { checkDraft, isReady, type CheckContext, type Draft } from "@/lib/drafts";
@@ -132,7 +133,7 @@ export function RevisitPanel({ fmtDay, revisit, onRevisit }: { fmtDay: (d: numbe
               onChange={setDay}
             />
             <div className="flex items-center gap-1.5">
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="予約の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+              <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="予約の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
               <input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="何のため（例：採血の結果と体重を確かめる）" aria-label="予約の目的" className="flex-1 rounded border border-rule bg-paper px-2 py-0.5" />
             </div>
             <button type="button" disabled={day === null || !time || !purpose.trim() || !!deny} onClick={() => onRevisit({ day: day!, time, purpose: purpose.trim() })} className="rounded-md bg-ai px-3 py-1 font-bold text-white disabled:opacity-40">

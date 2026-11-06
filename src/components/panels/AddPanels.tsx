@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 import { defaultSliding, isInsulin, slidingProblems } from "@/lib/insulin";
 import { SlidingScaleEditor } from "../SlidingScaleEditor";
 
@@ -24,7 +25,7 @@ import type { InjSeed } from "@/lib/inj-calendar";
 import type { ConsultOrder, GuideOrder, LeaveOrder, HdOrder, InjectionOrder, InjectionRoute, InjectionSchedule, OrderEntry, Patient, RehabOrder, TxOrder } from "@/lib/types";
 import { rpLine, rpNumbers } from "@/lib/rp";
 import { DecidedEntryLines, DoseTimesEntry, LineEntry, RpDrugSearch } from "../LineEntry";
-import { injectionEntryLines, automaticInjectionEnd, defaultDoseTimes, parseDuration, validateInjectionEnd, injEntryStep, nextInjectionStart, type InjStep } from "@/lib/inj-entry";
+import { INJECTION_TIME_OPTIONS, injectionEntryLines, automaticInjectionEnd, defaultDoseTimes, parseDuration, validateInjectionEnd, injEntryStep, nextInjectionStart, type InjStep } from "@/lib/inj-entry";
 import { DRUGS, ORAL_DRUGS, ORAL_MASTER_SOURCE, findOralDrug } from "@/lib/master";
 import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
 import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
@@ -527,7 +528,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                     value={rp.startDay}
                     onChange={(v) => upd(i, { startDay: v })}
                   />
-                  <input id={`${uid}-${i}-start`} type="time" value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={`${field} min-h-[30px]`} aria-label={`Rp${first + i} の開始時刻`} />
+                  <TimeInput options={[...(rp.doseTimes ?? []), ...INJECTION_TIME_OPTIONS]} id={`${uid}-${i}-start`} value={rp.startTime} onChange={(e) => upd(i, { startTime: e.target.value })} className={`${field} min-h-[30px]`} aria-label={`Rp${first + i} の開始時刻`} />
                   <span className="hint text-[11px] text-ink-faint">空なら指示受け後すぐ</span>
                 </InjectionEntryRow>
                 <InjectionEntryRow step="days" active={rp.step} className="flex flex-wrap items-center gap-1.5">
@@ -549,7 +550,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                 <label className="block">開始日（今日からの日数） <input type="number" value={rp.startDay} onChange={(e) => upd(i, { startDay: Number(e.target.value) })} className={`${field} w-16`} /></label>
                 </InjectionEntryRow>
                 <InjectionEntryRow step="days" active={rp.step} className="basis-full">
-                <label className="block">終了 <input aria-label={`Rp${first + i} の終了日`} type="number" placeholder="今日からの日数" value={rp.endDay ?? ""} onChange={(e) => upd(i, { endDay: e.target.value ? Number(e.target.value) : undefined })} className={`${field} w-16`} /> <input type="time" aria-label={`Rp${first + i} の終了時刻`} value={rp.endTime ?? ""} onChange={(e) => upd(i, { endTime: e.target.value })} className={field} /></label>
+                <label className="block">終了 <input aria-label={`Rp${first + i} の終了日`} type="number" placeholder="今日からの日数" value={rp.endDay ?? ""} onChange={(e) => upd(i, { endDay: e.target.value ? Number(e.target.value) : undefined })} className={`${field} w-16`} /> <TimeInput allow24 options={[...(rp.doseTimes ?? []), ...INJECTION_TIME_OPTIONS]} aria-label={`Rp${first + i} の終了時刻`} value={rp.endTime ?? ""} onChange={(e) => upd(i, { endTime: e.target.value })} className={field} /></label>
                 {!rp.endTime && autoEnd && <p className="text-xs">最終投与の終了予定：{autoEnd.day === 0 ? "今日" : `${autoEnd.day}日後`} {autoEnd.time}（量と時間から計算）</p>}
                 {validateInjectionEnd(rp.startDay, rp.startTime, Number(rp.days), rp.endDay, rp.endTime, rp.minutes, rp.doseTimes).map((m) => <p key={m} className="text-shu">{m}</p>)}
                 </InjectionEntryRow>
@@ -1093,7 +1094,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
             value={f.startDay}
             onChange={(v) => set({ startDay: v })}
           />
-          <input type="time" value={f.startTime} onChange={(e) => set({ startTime: e.target.value })} aria-label="透析の開始時刻" className={field} />
+          <TimeInput value={f.startTime} onChange={(e) => set({ startTime: e.target.value })} aria-label="透析の開始時刻" className={field} />
           <span className="text-[11px] text-ink-faint">空なら透析室と調整</span>
         </>,
       )}
@@ -1237,7 +1238,7 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
             value={day}
             onChange={setDay}
           />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="輸血の開始時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+          <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="輸血の開始時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
           <span className="text-[11px] text-ink-faint">空なら準備ができしだい</span>
         </>,
       )}
@@ -1676,7 +1677,7 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
         kind === "退院" ? "退院" : "出る",
         <>
           <TabChoice label="出る日" options={days} value={day} onChange={setDay} />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="出る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+          <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="出る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
         </>,
       )}
       {away &&
@@ -1684,7 +1685,7 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
           "戻る",
           <>
             <TabChoice label="戻る日" options={days} value={backDay} onChange={setBackDay} />
-            <input type="time" value={backTime} onChange={(e) => setBackTime(e.target.value)} aria-label="戻る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+            <TimeInput value={backTime} onChange={(e) => setBackTime(e.target.value)} aria-label="戻る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
           </>,
         )}
       {row("行き先", <input value={dest} onChange={(e) => setDest(e.target.value)} placeholder={kind === "退院" ? "例：自宅（長女と同居）・施設・転院先" : "例：自宅"} className="flex-1 rounded border border-rule bg-paper px-2 py-1" />)}

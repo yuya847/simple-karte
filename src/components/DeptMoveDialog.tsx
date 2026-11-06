@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { X } from "lucide-react";
 import { useState } from "react";
@@ -69,7 +70,7 @@ export function DeptMoveDialog({ patient, dayLabel, onCancel, onBook }: { patien
         )}
         <label className="flex items-center gap-2">
           時刻
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={input} />
+          <TimeInput value={time} onChange={(e) => setTime(e.target.value)} className={input} />
         </label>
         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="理由（例：心房細動の治療のため、循環器内科と相談済み）" aria-label="転科の理由" className={`${input} w-full`} />
         <div className="flex justify-end gap-2">

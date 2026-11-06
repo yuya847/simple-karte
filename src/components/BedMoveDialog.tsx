@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { ArrowRight, X } from "lucide-react";
 import { useState } from "react";
@@ -91,7 +92,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
         {reserve && (
           <label className="mt-2 flex items-center gap-1.5">
             時刻
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="移動の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
+            <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="移動の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
             <span className="text-[11px] text-ink-faint">予約は下書きになり、確定したあと当日に病棟で「実施」します。</span>
           </label>
         )}

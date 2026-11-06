@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { Thermometer } from "lucide-react";
 import { useState } from "react";
@@ -65,7 +66,7 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
         </div>
         <label className="nums flex items-center gap-1 text-xs text-ink-soft">
           測った時刻
-          <input value={time} onChange={(e) => setTime(e.target.value)} inputMode="numeric" aria-label="測った時刻" className="w-16 rounded border border-rule bg-sheet px-1.5 py-0.5 text-right text-[13px] text-ink" />
+          <TimeInput value={time} onChange={(e) => setTime(e.target.value)} inputMode="numeric" aria-label="測った時刻" className="w-16 rounded border border-rule bg-sheet px-1.5 py-0.5 text-right text-[13px] text-ink" />
         </label>
       </header>
       <p className="hint mb-2 text-xs text-ink-soft">測った患者の行だけ入れます（空の行は記録しません）。時刻が違う患者は、行の右の時刻に入れます。確定すると、カルテのバイタルと同じ記録に入ります。</p>
@@ -116,7 +117,7 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
                   </select>
                 </td>
                 <td className="px-1 py-1">
-                  <input value={r.time ?? ""} disabled={!canType} onChange={(e) => set(p, { time: e.target.value })} placeholder={time} inputMode="numeric" aria-label={`${p.name}の測った時刻`} className="w-14 rounded border border-rule bg-paper px-1 py-0.5 text-right text-[12px]" />
+                  <TimeInput value={r.time ?? ""} disabled={!canType} onChange={(e) => set(p, { time: e.target.value })} placeholder={time} inputMode="numeric" aria-label={`${p.name}の測った時刻`} className="w-14 rounded border border-rule bg-paper px-1 py-0.5 text-right text-[12px]" />
                 </td>
                 <td className="px-1.5 py-1 text-[11px]">
                   {parsed.errors.map((x) => (

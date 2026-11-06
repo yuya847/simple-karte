@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { Cable, ClipboardList, Download, FilePen, ListChecks, Microscope, ShowerHead, Stethoscope } from "lucide-react";
 import { useState } from "react";
@@ -177,7 +178,7 @@ function List({ rows, onDesk, nowTime }: Props & { rows: EndoRow[] }) {
                     <option key={x}>{x}</option>
                   ))}
                 </select>
-                <input type="time" step={1800} value={s.time} onChange={(e) => setSlot({ ...slot, [r.orderId]: { ...s, time: e.target.value } })} aria-label="予約の時刻" className={field} disabled={locked} />
+                <TimeInput step={1800} value={s.time} onChange={(e) => setSlot({ ...slot, [r.orderId]: { ...s, time: e.target.value } })} aria-label="予約の時刻" className={field} disabled={locked} />
                 <button
                   type="button"
                   disabled={locked || !/^\d{2}:\d{2}$/.test(s.time)}
@@ -282,7 +283,7 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
         </ul>
         {!w.done && (
           <p className="mt-1 flex flex-wrap gap-1">
-            <input type="time" value={prep.time} onChange={(e) => setPrep({ ...prep, time: e.target.value })} aria-label="前処置の時刻" className={field} disabled={nurseLock} />
+            <TimeInput value={prep.time} onChange={(e) => setPrep({ ...prep, time: e.target.value })} aria-label="前処置の時刻" className={field} disabled={nurseLock} />
             <input value={prep.what} onChange={(e) => setPrep({ ...prep, what: e.target.value })} placeholder="例：消泡剤を内服、咽頭麻酔、腸管洗浄剤、排便の状態" aria-label="前処置" className={`${field} min-w-0 flex-1`} disabled={nurseLock} />
             <button
               type="button"
@@ -319,7 +320,7 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
         {!w.done && (
           <div className="mt-1 space-y-1">
             <p className="flex flex-wrap gap-1">
-              <input type="time" value={drug.time} onChange={(e) => setDrug({ ...drug, time: e.target.value })} aria-label="投与の時刻" className={field} disabled={nurseLock} />
+              <TimeInput value={drug.time} onChange={(e) => setDrug({ ...drug, time: e.target.value })} aria-label="投与の時刻" className={field} disabled={nurseLock} />
               <input value={drug.name} onChange={(e) => setDrug({ ...drug, name: e.target.value })} placeholder="鎮静薬の名前" aria-label="鎮静薬の名前" className={`${field} w-36`} disabled={nurseLock} />
               <input value={drug.dose} onChange={(e) => setDrug({ ...drug, dose: e.target.value })} placeholder="量（例：2mg）" aria-label="投与量" className={`${field} w-24`} disabled={nurseLock} />
               <select value={drug.route} onChange={(e) => setDrug({ ...drug, route: e.target.value })} aria-label="投与経路" className={field} disabled={nurseLock}>
@@ -371,7 +372,7 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
         {gaps.length > 0 && <p className="font-bold text-yamabuki">検査中の観察の間隔が5分を超えています：{gaps.map((g) => `${g.from}〜${g.to}（${g.minutes}分）`).join("、")}</p>}
         {!w.release && (
           <p className="mt-1 flex flex-wrap gap-1">
-            <input type="time" value={obs.time} onChange={(e) => setObs({ ...obs, time: e.target.value })} aria-label="観察の時刻" className={field} disabled={nurseLock} />
+            <TimeInput value={obs.time} onChange={(e) => setObs({ ...obs, time: e.target.value })} aria-label="観察の時刻" className={field} disabled={nurseLock} />
             <select value={obs.consciousness} onChange={(e) => setObs({ ...obs, consciousness: e.target.value as Consciousness })} aria-label="意識" className={field} disabled={nurseLock}>
               {CONSCIOUSNESS.map((x) => (
                 <option key={x}>{x}</option>
@@ -405,8 +406,8 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
         ) : (
           <div className="space-y-1">
             <p className="flex flex-wrap items-center gap-1">
-              <input type="time" value={done.start} onChange={(e) => setDone({ ...done, start: e.target.value })} aria-label="開始" className={field} disabled={docLock} />〜
-              <input type="time" value={done.end} onChange={(e) => setDone({ ...done, end: e.target.value })} aria-label="終了" className={field} disabled={docLock} />
+              <TimeInput value={done.start} onChange={(e) => setDone({ ...done, start: e.target.value })} aria-label="開始" className={field} disabled={docLock} />〜
+              <TimeInput value={done.end} onChange={(e) => setDone({ ...done, end: e.target.value })} aria-label="終了" className={field} disabled={docLock} />
               <select value={done.scope} onChange={(e) => setDone({ ...done, scope: e.target.value })} aria-label="使ったスコープ" className={field} disabled={docLock}>
                 <option value="">スコープを選ぶ</option>
                 {SCOPES.filter((s) => s.kind === kind).map((s) => (

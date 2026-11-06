@@ -1,4 +1,5 @@
 "use client";
+import { TimeInput } from "@/components/TimeInput";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { DOCTORS } from "@/lib/doctors";
@@ -46,7 +47,7 @@ function VerbalConfirmForm({ now, doctors, onConfirm, onCancel }: { now: string;
     <label className="block">指示した医師（必須）<input list="verbal-doctors" value={value.doctor} onChange={(e) => setValue({ ...value, doctor: e.target.value })} className="ml-2 rounded border border-rule bg-paper" /></label>
     <datalist id="verbal-doctors">{Array.from(new Set([...doctors, ...DOCTORS.map((d) => d.name)])).map((name) => <option key={name} value={name} />)}</datalist>
     <label className="block"><input type="checkbox" checked={value.readBack} onChange={(e) => setValue({ ...value, readBack: e.target.checked })} /> 復唱した（必須）</label>
-    <label className="block">指示の時刻 <input type="time" value={value.time} onChange={(e) => setValue({ ...value, time: e.target.value })} /></label>
+    <label className="block">指示の時刻 <TimeInput value={value.time} onChange={(e) => setValue({ ...value, time: e.target.value })} /></label>
     {problems.map((p) => <p key={p} className="text-xs text-shu">{p}</p>)}
     <div className="flex gap-3"><button type="button" onClick={onCancel}>戻る</button><button type="button" disabled={problems.length > 0} className="rounded bg-yamabuki px-3 py-1 text-white disabled:opacity-40" onClick={() => onConfirm({ ...value, doctor: value.doctor.trim() })}>口頭指示を確定</button></div>
   </section></div>;
