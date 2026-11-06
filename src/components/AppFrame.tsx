@@ -163,10 +163,13 @@ function Popover({ open, onClose, anchor, place, width, children }: { open: bool
   );
 }
 
+// Chrome-like: the chosen tab is the page's own color with no line under it (the page goes on from it), with
+// small inward curves at its foot (globals.css .tab-on); the others have no frame, a thin divider between them
+// (.tab-off) and a soft hover.
 const tabShape = (active: boolean, small: boolean, menu?: boolean) =>
-  `group relative flex shrink-0 cursor-pointer items-center gap-1.5 border border-b-0 ${small ? "h-8 rounded-t-md px-2.5 text-[13px] pointer-coarse:h-10" : "h-9 rounded-t-lg px-3 text-sm pointer-coarse:h-11"} ${
-    active ? `z-10 -mb-px border-rule ${small ? "bg-paper" : "bg-sheet"} font-bold text-ink` : `${menu ? "border-dashed border-rule" : "border-transparent"} text-ink-soft ${small ? "hover:bg-paper/60" : "hover:bg-sheet/60"}`
-  } ${menu && active ? "border-dashed" : ""}`;
+  `group relative flex shrink-0 cursor-pointer items-center gap-1.5 ${small ? "h-8 rounded-t-lg px-3 text-[13px] pointer-coarse:h-10" : "h-9 rounded-t-xl px-3.5 text-sm pointer-coarse:h-11"} ${
+    active ? `tab-on z-10 bg-sheet font-bold text-ink` : `tab-off text-ink-soft ${small ? "hover:bg-sheet/60" : "hover:bg-sheet/50"}`
+  } ${menu ? "outline-1 -outline-offset-4 outline-dashed outline-rule" : ""}`;
 
 function CloseX({ label, onClose }: { label: string; onClose: () => void }) {
   return (
@@ -279,11 +282,11 @@ export function Row({ row, small, start, end }: { row: TabRow; small: boolean; s
   const groups = row.groups ?? [];
   const headed = groups.length > 1;
   return (
-    <div className={`flex items-end gap-1 border-b border-rule ${small ? "bg-sheet px-3 pt-1" : "bg-tab px-2 pt-1.5"}`}>
+    <div className={`flex items-end gap-1 ${small ? "bg-paper px-3 pt-1" : "bg-tab px-2 pt-1.5"}`}>
       {start}
-      <div role="tablist" aria-label={row.label} className="scroll-thin flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
+      <div role="tablist" aria-label={row.label} className="scroll-thin flex min-w-0 flex-1 items-end gap-0 overflow-x-auto px-2">
         {groups.map((g, i) => (
-          <div key={g.key} role="group" aria-label={g.label} className={`flex shrink-0 items-end gap-1 ${i > 0 ? "ml-2 border-l border-rule pl-3" : ""}`}>
+          <div key={g.key} role="group" aria-label={g.label} className={`flex shrink-0 items-end gap-0 ${i > 0 ? "ml-2 border-l border-rule pl-3" : ""}`}>
             {headed &&
               (g.onSelect ? (
                 <button type="button" onClick={g.onSelect} title={`${g.label}の一覧へ`} className="mb-1.5 shrink-0 whitespace-nowrap rounded px-1 text-[11px] font-bold text-ink-faint hover:bg-paper hover:text-ink pointer-coarse:py-1">
