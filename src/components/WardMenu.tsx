@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { WARD_TABS, wardTabInfo, type WardTab } from "@/lib/nav";
+import { WARD_TABS, type WardTab } from "@/lib/nav";
 import { WARD_ICON } from "./nav-icons";
 
 interface Props {
@@ -58,7 +58,7 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
                             {!!badges[t.key] && <span className="nums rounded-full bg-shu px-1.5 text-[10px] leading-4 text-white">{badges[t.key]}</span>}
                             {isOpen && <span className="ml-auto text-[11px] font-normal text-ink-faint">開いています</span>}
                           </span>
-                          <span className="mt-0.5 block text-[12px] text-ink-soft">{t.hint}</span>
+                          <span className="mt-0.5 block truncate text-[12px] text-ink-soft">{t.hint.split(/[。：（(]/)[0]}</span>
                         </span>
                       </button>
                       <label className="flex cursor-pointer items-center gap-2 border-t border-rule-soft px-3 py-1.5 text-[12px] text-ink-soft pointer-coarse:py-2.5">
@@ -73,10 +73,7 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
             </section>
           );
         })}
-        <p className="text-[11px] text-ink-faint">
-          「最初に開く」は職種ごとに、このブラウザに保存します（この端末のみに適用されます）。
-          {defaults.length > 0 && <> いまの設定：{defaults.map((t) => wardTabInfo(t).label).join(" → ")}</>}
-        </p>
+
       </div>
     </div>
   );

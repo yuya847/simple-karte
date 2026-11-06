@@ -23,6 +23,7 @@ interface Props {
   admissionMissing?: string[];
   onOpenStanding?: () => void;
   patient: Patient;
+  roomLabel?: string;
   today: CalendarDate;
   diagnoses: Diagnosis[];
   directive?: AdvanceDirective;
@@ -52,7 +53,7 @@ function dayLabel(day: number): string {
 }
 
 /** The patient band. Always visible so the chart is never mistaken for another patient's. */
-export function PatientBar({ rest, patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, onOpenInfo, insurance, actions, admissionMissing = [], onOpenStanding }: Props) {
+export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, directive, onOpenDiagnoses, onOpenDirective, onOpenDiet, onOpenProfile, onPregnancy, doctors, onOpenDoctors, onOpenInfo, insurance, actions, admissionMissing = [], onOpenStanding }: Props) {
   const [pregEdit, setPregEdit] = useState(false);
   const longPress = useLongPress<HTMLDivElement>(onOpenInfo);
   const [weeks, setWeeks] = useState("");
@@ -100,7 +101,7 @@ export function PatientBar({ rest, patient: p, today, diagnoses, directive, onOp
         <dt className="text-ink-faint">ID</dt>
         <dd>{visit ? p.id.replace(/^(er|opd):/, "") : p.id}</dd>
         <dt className="text-ink-faint">{visit ? "場所" : "病棟"}</dt>
-        <dd>{visit ? p.ward : `${p.ward} ${p.room}号室`}</dd>
+        <dd>{visit ? p.ward : `${p.ward} ${roomLabel ?? p.room}`}</dd>
       </dl>
 
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">

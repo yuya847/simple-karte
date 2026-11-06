@@ -1,4 +1,5 @@
 "use client";
+import { nursingShiftStart } from "@/lib/nursing-shift";
 import { SpecialistBoard } from "./SpecialistBoard";
 import { specialistTileBlocks } from "@/lib/specialist-tools";
 
@@ -728,7 +729,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 看護ケア指示 (care and observation orders by nurses), their 実施 records, and the 看護計画.
   const [careOrders, setCareOrders] = useState<CareOrder[]>(INITIAL_CARE_ORDERS);
   const [careRecords, setCareRecords] = useState<CareRecord[]>(initialCareRecords);
-  const [nursingPlans, setNursingPlans] = useState<NursingProblem[]>(INITIAL_PLANS);
+  const [nursingPlans, setNursingPlans] = useState<NursingProblem[]>(() => scenario ? SCENARIOS.nursing.nursingPlans : INITIAL_PLANS);
   // 指示簿 per patient, every version kept (the last one is in force).
   const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(() => scenario ? SCENARIOS.standing : initialStanding());
   // 条件付き指示 (指示簿): what a nurse did for each value that met one, by hit key.
@@ -752,7 +753,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const verbalMode = role === "看護師";
   const verbalConfirmation = useVerbalConfirmation();
   const [sessionStart, setSessionStart] = useState<number | null>(null);
-  if (sessionStart === null && nowTime) setSessionStart(abs(0, nowTime));
+  if (sessionStart === null && nowTime) setSessionStart(nursingShiftStart(nowTime));
   // Advance directives (history kept) and warnings added on the band.
   const [directives, setDirectives] = useState<AdvanceDirective[]>(() => scenario ? SCENARIOS.directives : INITIAL_DIRECTIVES);
   const [diets, setDiets] = useState<DietOrder[]>(() => scenario ? SCENARIOS.diets : [...INITIAL_DIETS, ...WARD_CHART_DIETS]);
@@ -791,7 +792,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 給食・内視鏡室・チーム医療.
   const care = useCareDepts();
   // 看護管理（褥瘡の経過 …）: kept in its own hook, saved with the rest.
-  const nm = useNursingMgmt();
+  const nm = useNursingMgmt(scenario ? SCENARIOS.nursing : undefined);
   const infra = useInfra();
   // 地域医療連携: the 連携室's entries, 返書 sent/received and facilities chosen.
   const [liaison, setLiaison] = useState<LiaisonBook>(EMPTY_LIAISON);
@@ -1426,7 +1427,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     }
     const { patient: p, bed: b } = built;
     if (r.from.kind === "er") p.history = transferEmergencyOrders(p.history, withExamRecords(currentEntries(findPatient(vkey)!, charts[vkey]), dept.ris));
-    auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `-${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
+    auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
     p.infections = r.isolation === "なし" ? p.infections : [...p.infections, r.isolation];
     setStanding((all) => ({ ...all, [id]: [...(all[id] ?? []), standingFromRequest(r, r.by, { day: 0, time: nowTime })] }));
     setAdmitted((a) => [...a, p]);
@@ -1642,7 +1643,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     ),
     ...lineChanges(people, standingTakeLines(standing, standingLines), INITIAL_LINE_IDS, -1440, abs(0, nowTime), (d) => formatShort(addDays(today, d))),
   ].sort((a, b) => a.at - b.at || a.room.localeCompare(b.room));
-  const sessionKeys = new Set([...sessionChangeKeys(sessionChanges), ...others.map((c) => c.key), ...redrawChangeKeys(labDesk)]);
+  const sessionKeys = new Set([...sessionChangeKeys(sessionChanges), ...others.map((c) => c.key), ...redrawChangeKeys(labDesk), ...(scenario ? SCENARIOS.nursing.pendingKeys : [])]);
   const waiting: Record<string, number> = {};
   for (const c of [...orderChanges(people, -1440, abs(0, nowTime)), ...others]) {
     if (sessionKeys.has(c.key) && !taken[c.key]) waiting[c.patientId] = (waiting[c.patientId] ?? 0) + 1;
@@ -2968,6 +2969,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           <PatientSwitchFlash patient={{ id: patient.id }} />
           <ConsultBanner entries={entries} replies={consultReplies} onOpen={() => setPanel("add-consult")} />
           <PatientBar
+            roomLabel={workOf(patient.id)?.room}
             rest={standingNow(patient.id)?.rest}
             admissionMissing={requests.some((r) => r.status === "入院済" && r.admittedAs === patient.id) ? admissionMissingNow(standing[patient.id] ?? [], standingLines[patient.id] ?? [], diets.filter((d) => d.patientId === patient.id), nowTime) : []}
             onOpenStanding={role === "医師" ? () => setPanel("standing") : undefined}
@@ -4221,6 +4223,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "patient-info" && (
                 <Drawer title={patientInfoTitle(patient)} onClose={closePanel} wide>
                   <PatientInfoPanel
+                    roomLabel={workOf(patient.id)?.room}
                     initialSection={emergencyRegistrationSection(role, patient.id)}
                     key={patient.id}
                     patient={patient}
@@ -4654,10 +4657,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           onCancel={() => setMoving(null)}
           onMove={(m) => {
             const who = findPatient(m.patientId)!;
-            const at = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `-${b.bed}` : ""}`;
+            const at = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `${b.bed}` : ""}`;
             auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}）`, patient: who.name, detail: `${at(m.from)} → ${at(m.to)}　理由：${m.reason}` });
             setMoves((all) => ({ ...all, [m.patientId]: m.to }));
-            setMoveLog((l) => [...l, { patientId: m.patientId, label: `${m.kind} ${m.from.room}→${m.to.room}${m.to.bed ? `-${m.to.bed}` : ""}`, time: nowTime }]);
+            setMoveLog((l) => [...l, { patientId: m.patientId, label: `${m.kind} ${m.from.room}→${m.to.room}${m.to.bed ? `${m.to.bed}` : ""}`, time: nowTime }]);
             updateFor(m.patientId, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${m.kind}：${at(m.from)} → ${at(m.to)}（${m.reason}）\n` }));
             setMoving(null);
           }}

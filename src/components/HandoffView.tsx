@@ -2,6 +2,8 @@
 
 import { displayText } from "@/lib/display-text";
 import { ArrowRightLeft, Check, Loader2, Mic, Plus, Sparkles, Square, X } from "lucide-react";
+import { nursingShift } from "@/lib/nursing-shift";
+import { shiftWindow } from "@/lib/worksheet";
 import { useState } from "react";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
@@ -41,7 +43,9 @@ const STATUS_STYLE: Record<string, string> = {
 export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {}, onSave, onSend, onReceive }: Props) {
   const me = useMe();
   const nowAbs = abs(0, nowTime);
-  const ns = nextShift(nowAbs);
+  const [receiving, setReceiving] = useState(true);
+  const current = nursingShift(nowAbs);
+  const ns = receiving ? { label: current.shift === "night" ? "日勤→夜勤" : "夜勤→日勤", ...shiftWindow(current.shift, current.day) } : nextShift(nowAbs);
   const [sel, setSel] = useState(people[0]?.patient.id ?? "");
   const w = people.find((x) => x.patient.id === sel);
   return (
@@ -52,6 +56,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
           申し送り（{ns.label}）
         </h2>
 
+        <div className="mb-3 flex gap-2 text-xs"><button type="button" aria-pressed={receiving} onClick={() => setReceiving(true)} className="rounded border border-rule px-2 py-1">{current.shift === "night" ? "日勤から受ける" : "夜勤から受ける"}</button><button type="button" aria-pressed={!receiving} onClick={() => setReceiving(false)} className="rounded border border-rule px-2 py-1">次の勤務へ送る</button></div>
         <ul className="space-y-1">
           {people.map((x) => {
             const h = handoffs[handoffKey(x.patient.id, ns.lo, me.role)];
@@ -83,6 +88,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
       {w ? (
         <Card
           key={handoffKey(w.patient.id, ns.lo, me.role)}
+          receiving={receiving}
           shiftLo={ns.lo}
           prev={previousHandoff(handoffs, w.patient.id, ns.lo, me.role)}
           w={w}
@@ -102,7 +108,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
   );
 }
 
-function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
+function Card({ receiving, w, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { receiving: boolean; w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
   const me = useMe();
   const deny = useDeny()("handoff");
   const [h, setH] = useState<Handoff>(() => saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo, role: me.role });
@@ -111,7 +117,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
   const [error, setError] = useState<string | null>(null);
   const [unplaced, setUnplaced] = useState("");
   const [newAction, setNewAction] = useState("");
-  const [to, setTo] = useState(saved?.to ?? (me.role === "医師" ? "当直医 松本" : `看護師 田中（${shift.split("→")[1]}）`));
+  const [to, setTo] = useState(receiving ? me.name : saved?.to ?? (me.role === "医師" ? "当直医 松本" : `看護師 田中（${shift.split("→")[1]}）`));
   const [synthesis, setSynthesis] = useState(saved?.synthesis ?? "");
   const speech = useSpeech((t) => setText((cur) => (cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${t}` : t)));
   const sent = !!h.sentAt;
@@ -156,6 +162,62 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
         <span className={`ml-auto text-xs font-bold ${STATUS_STYLE[statusOf(saved)]}`}>{statusOf(saved)}</span>
       </header>
       <DenyNote action="handoff" className="mb-2" />
+      {receiving && sent && <div className="mb-3 rounded border border-rule bg-sheet p-3"><h4 className="font-bold">受けた申し送り</h4><p className="whitespace-pre-wrap">{h.summary}</p><ul>{h.actions.map((a, i) => <li key={i}>{a.text}</li>)}</ul><p>{h.contingency}</p></div>}
+      {!sent && !receiving ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {problems.length > 0 && <span className="text-xs text-yamabuki">{problems.join("・")}</span>}
+          <button type="button" disabled={!!deny} onClick={() => onSave({ ...h, from: me.name })} className="ml-auto rounded border border-rule px-3 py-1 text-xs disabled:opacity-40">
+            途中まで残す
+          </button>
+          <button
+            type="button"
+            disabled={!!deny || problems.length > 0}
+            onClick={() => {
+              const x: Handoff = { ...h, from: me.name, facts, sentAt: { day: 0, time: nowTime } };
+              setH(x);
+              onSend(x);
+            }}
+            className="rounded-md bg-ink px-5 py-1.5 text-sm font-bold text-white disabled:opacity-30"
+          >
+            送る（{me.name}）
+          </button>
+        </div>
+      ) : sent ? (
+        <div className="mt-3 rounded-lg border border-wakatake/40 bg-wakatake-soft/40 p-3">
+          <Field letter="S" label={FIELDS[4].label} en={FIELDS[4].en}>
+            <p className="mb-1 text-[11px] text-ink-soft">
+              {h.sentAt!.time} に {displayText(h.from)} が送りました。受けた人は、聞いた要点を自分の言葉で言い直して（復唱して）残します。
+            </p>
+            <fieldset disabled={received || !!deny} className="m-0 min-w-0 space-y-1 border-0 p-0">
+              <label className="flex items-center gap-1 text-xs text-ink-soft">
+                受けた人
+                <input value={displayText(to)} onChange={(e) => setTo(e.target.value)} className="w-56 rounded border border-rule bg-sheet px-1.5 py-0.5 text-ink" />
+              </label>
+              <textarea value={synthesis} onChange={(e) => setSynthesis(e.target.value)} rows={2} aria-label="受けた人の復唱" placeholder="例：22時 VCM、朝の採血。38.5度超えで血培2セットと当直へ連絡。" className="w-full rounded border border-rule bg-sheet px-2 py-1 outline-none" />
+            </fieldset>
+            {received ? (
+              <p className="mt-1 flex items-center gap-1 text-xs font-bold text-wakatake">
+                <Check size={13} />
+                {h.receivedAt!.time} に {h.to} が受けました
+              </p>
+            ) : (
+              <button
+                type="button"
+                disabled={!!deny || !synthesis.trim() || !to.trim()}
+                onClick={() => {
+                  const x: Handoff = { ...h, to: to.trim(), synthesis: synthesis.trim(), receivedAt: { day: 0, time: nowTime } };
+                  setH(x);
+                  onReceive(x);
+                }}
+                className="mt-1 rounded-md bg-wakatake px-4 py-1 text-xs font-bold text-white disabled:opacity-40"
+              >
+                復唱して受けた
+              </button>
+            )}
+          </Field>
+        </div>
+      ) : <p>この勤務への申し送りはまだ届いていません。</p>}
+
       {prev && (
         <details className="mb-3 rounded-lg border border-rule-soft bg-paper p-3">
           <summary className="cursor-pointer text-xs font-bold text-ink-soft">
@@ -187,7 +249,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
         {sent && <p className="mt-1 text-[11px] text-ink-faint">送った時点（{h.sentAt!.time}）の内容です。</p>}
       </div>
 
-      {!locked && (
+      {!locked && !receiving && (
         <div className="mb-3 rounded-lg border border-ai/30 bg-ai-soft/40 p-3">
           <div className="mb-1 flex items-center gap-1.5 text-sm font-bold text-ai">
             <Sparkles size={14} />
@@ -224,7 +286,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
         </div>
       )}
 
-      <fieldset disabled={locked} className="m-0 min-w-0 space-y-3 border-0 p-0">
+      <fieldset hidden={receiving} disabled={locked} className="m-0 min-w-0 space-y-3 border-0 p-0">
         <Field letter="I" label={FIELDS[0].label} en={FIELDS[0].en}>
           <div className="flex flex-wrap items-center gap-1.5">
             {SEVERITIES.map((s) => (
@@ -238,7 +300,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
                 {s.key}（{s.en}）
               </button>
             ))}
-            <span className="text-[11px] text-ink-faint">送る人が選びます。NEWS2 は上の事実を見てください。</span>
+
           </div>
         </Field>
         <Field letter="P" label={FIELDS[1].label} en={FIELDS[1].en}>
@@ -287,61 +349,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
         </Field>
       </fieldset>
 
-      {!sent ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {problems.length > 0 && <span className="text-xs text-yamabuki">{problems.join("・")}</span>}
-          <button type="button" disabled={!!deny} onClick={() => onSave({ ...h, from: me.name })} className="ml-auto rounded border border-rule px-3 py-1 text-xs disabled:opacity-40">
-            途中まで残す
-          </button>
-          <button
-            type="button"
-            disabled={!!deny || problems.length > 0}
-            onClick={() => {
-              const x: Handoff = { ...h, from: me.name, facts, sentAt: { day: 0, time: nowTime } };
-              setH(x);
-              onSend(x);
-            }}
-            className="rounded-md bg-ink px-5 py-1.5 text-sm font-bold text-white disabled:opacity-30"
-          >
-            送る（{me.name}）
-          </button>
-        </div>
-      ) : (
-        <div className="mt-3 rounded-lg border border-wakatake/40 bg-wakatake-soft/40 p-3">
-          <Field letter="S" label={FIELDS[4].label} en={FIELDS[4].en}>
-            <p className="mb-1 text-[11px] text-ink-soft">
-              {h.sentAt!.time} に {displayText(h.from)} が送りました。受けた人は、聞いた要点を自分の言葉で言い直して（復唱して）残します。
-            </p>
-            <fieldset disabled={received || !!deny} className="m-0 min-w-0 space-y-1 border-0 p-0">
-              <label className="flex items-center gap-1 text-xs text-ink-soft">
-                受けた人
-                <input value={displayText(to)} onChange={(e) => setTo(e.target.value)} className="w-56 rounded border border-rule bg-sheet px-1.5 py-0.5 text-ink" />
-              </label>
-              <textarea value={synthesis} onChange={(e) => setSynthesis(e.target.value)} rows={2} aria-label="受けた人の復唱" placeholder="例：22時 VCM、朝の採血。38.5度超えで血培2セットと当直へ連絡。" className="w-full rounded border border-rule bg-sheet px-2 py-1 outline-none" />
-            </fieldset>
-            {received ? (
-              <p className="mt-1 flex items-center gap-1 text-xs font-bold text-wakatake">
-                <Check size={13} />
-                {h.receivedAt!.time} に {h.to} が受けました
-              </p>
-            ) : (
-              <button
-                type="button"
-                disabled={!!deny || !synthesis.trim() || !to.trim()}
-                onClick={() => {
-                  const x: Handoff = { ...h, to: to.trim(), synthesis: synthesis.trim(), receivedAt: { day: 0, time: nowTime } };
-                  setH(x);
-                  onReceive(x);
-                }}
-                className="mt-1 rounded-md bg-wakatake px-4 py-1 text-xs font-bold text-white disabled:opacity-40"
-              >
-                復唱して受けた
-              </button>
-            )}
-          </Field>
-        </div>
-      )}
-      <p className="mt-3 text-[10px] text-ink-faint">{today.m}/{today.d} の申し送りは、この端末のブラウザの中だけに残ります（デモ）。</p>
+
     </section>
   );
 }

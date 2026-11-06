@@ -57,8 +57,8 @@ describe("転倒・転落の再評価", () => {
     expect(html).toContain("入院時の評価がまだです");
     expect(html).toContain("転棟・転床のあと（転床 512→515-C）");
     expect(html).toContain("再評価する");
-    expect(html).toContain("提言7");
-    expect(html).toContain("点数の票は使いません");
+    expect(html).not.toContain("提言7");
+    expect(html).not.toContain("点数の票は使いません");
     expect(html).not.toMatch(/危険度Ⅰ|合計点/);
   });
 });

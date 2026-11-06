@@ -3,8 +3,8 @@
 import { displayText } from "@/lib/display-text";
 import { Footprints } from "lucide-react";
 import { useState } from "react";
-import { FALL_RISKS, R8, type ChecklistRecord } from "@/lib/admit-eval";
-import { FALL_RULES, FALL_SOURCES, fallChanges, fallDueList, fallSteps, type FallTrigger } from "@/lib/fall-reassess";
+import { FALL_RISKS, type ChecklistRecord } from "@/lib/admit-eval";
+import { fallChanges, fallDueList, fallSteps, type FallTrigger } from "@/lib/fall-reassess";
 import { useMe } from "./RoleContext";
 
 export interface FallPatient {
@@ -76,15 +76,15 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
         </span>
       </header>
 
-      <table className="nums w-full border-collapse rounded-lg bg-sheet text-[12px]">
+      <table className="nums w-full table-auto border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="px-2 py-1.5">患者</th>
-            <th className="px-2">前回の評価</th>
+            <th className="w-44 whitespace-nowrap px-2">前回の評価</th>
             <th className="px-2">危険因子</th>
-            <th className="px-2">次の評価</th>
-            <th className="px-2">理由</th>
-            <th className="px-2" />
+            <th className="w-44 whitespace-nowrap px-2">次の評価</th>
+            <th className="w-40 px-2">理由</th>
+            <th className="w-32 px-2" />
           </tr>
         </thead>
         <tbody>
@@ -145,17 +145,7 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
           })}
         </tbody>
       </table>
-      <ul className="mt-3 space-y-0.5 text-[11px] text-ink-faint">
-        <li>
-          <a href={FALL_SOURCES.teigen.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
-            {FALL_SOURCES.teigen.label}
-          </a>
-        </li>
-        <li>危険因子の項目：{R8.fall}</li>
-        <li>{FALL_RULES.interval}</li>
-        <li>{FALL_RULES.surgery}</li>
-        <li>{FALL_RULES.noScore}</li>
-      </ul>
+
     </section>
   );
 }

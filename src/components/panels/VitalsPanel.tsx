@@ -1,4 +1,7 @@
 "use client";
+import { OxygenInput } from "../OxygenInput";
+import { news2 } from "@/lib/news2";
+import { oxygenParts } from "@/lib/oxygen-input";
 import { TimeInput } from "@/components/TimeInput";
 
 import { focusNextOnEnter } from "@/lib/next-field";
@@ -149,7 +152,10 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
       setBusy(false);
     }
   };
-  const input = "w-16 rounded border border-rule bg-paper px-1.5 py-1 text-right text-[13px] outline-none focus:border-ai";
+  const score = news2(v);
+  const oxygen = oxygenParts(f.o2);
+  const oxygenOk = oxygen.device === "室内気" || Number(oxygen.flow) > 0;
+  const input = "w-full rounded border border-rule bg-paper px-1.5 py-1 text-right text-[13px] outline-none focus:border-ai";
   const filled = Object.values({ ...f, o2: "" }).some((x) => x !== "");
   return (
     <div className="space-y-3 text-[13px]" onKeyDown={focusNextOnEnter}>
@@ -165,7 +171,7 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
         </button>
       </div>
       {error && <p className="text-shu">{error}</p>}
-      <div className="nums grid grid-cols-4 gap-2 text-xs text-ink-soft">
+      <div className="nums grid grid-cols-2 gap-2 text-xs text-ink-soft">
         {(
           [
             ["bt", "体温 ℃"],
@@ -183,7 +189,7 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
         ))}
         <label className="col-span-2 flex flex-col gap-0.5">
           酸素
-          <input value={f.o2} onChange={set("o2")} className="rounded border border-rule bg-paper px-1.5 py-1 text-[13px]" />
+          <OxygenInput value={f.o2} onChange={(o2) => setF({ ...f, o2 })} />
         </label>
         <label className="col-span-2 flex flex-col gap-0.5">
           意識（ACVPU）
@@ -213,9 +219,10 @@ export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily,
           {!whenOk && <span className="text-shu">「14:20」のように、いまより前の時刻を入れてください。</span>}
         </div>
       )}
+      {filled && <p className="nums rounded border border-rule bg-paper px-2 py-1" aria-live="polite">NEWS2 {score.total}{score.missing.length > 0 ? `（未入力：${score.missing.join("・")}）` : ""}</p>}
       <button
         type="button"
-        disabled={!filled || !whenOk}
+        disabled={!filled || !whenOk || !oxygenOk}
         onClick={() => {
           onSave({ day: at.day, time: at.time, ...v, by: me.name });
           setF(empty);

@@ -48,7 +48,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
   const iso = isolationFor(patient.infections);
   const askIso = !!iso && room?.kind === "4床室";
   const kind: BedMove["kind"] = to && floorOf(to.room) !== floorOf(from.room) ? "転棟" : "転床";
-  const label = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `-${b.bed}` : ""}`;
+  const label = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `${b.bed}` : ""}`;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" role="dialog" aria-label="転棟・転床">
       <div className="w-full max-w-2xl rounded-lg border border-rule bg-sheet p-4 text-[13px] shadow-xl">

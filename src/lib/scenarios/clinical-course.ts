@@ -1,3 +1,4 @@
+import { nursingOxygen, nursingVitalVariation } from "./nursing";
 import { rxLastDay } from "../day-pattern";
 import type { ClinicalProfile } from "./clinical-profiles";
 import type { Patient, NoteEntry, Order } from "../types";
@@ -82,6 +83,8 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
   if (i === 6 && duration >= 6) { p.labs.push({ day: first + 6, time: "11:30", values: { VCM: 14.6, Cre: 0.9 } }); labOrder(6, ["LAB-VCM", "LAB-CRE"]); }
   if (c.image) p.imaging.push({ id: `${p.id}-admission-image`, day: first, modality: c.image[0], region: c.image[1], report: c.image[2], reader: "放射線科担当医" });
   const infection = !!c.antibiotic || i === 6 || i === 7;
+  if (/肺炎|心不全/.test(c.name)) order(0, { type: "procedure", code: "PROC-O2", start: { day: first, time: "09:00" }, schedule: { kind: "continuous" }, days: 3, o2: { device: "鼻カニュラ", lpm: 2 } });
+  if (i === 15) order(0, { type: "procedure", code: "PROC-O2", start: { day: first, time: "08:00" }, schedule: { kind: "continuous" }, days: 3, o2: { device: "鼻カニュラ", lpm: 1 } });
   for (let day = first; day <= last; day++) {
     const after = day - first;
     const progress = Math.min(1, after / 7);
@@ -92,7 +95,15 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
     if (i === 12) { vital.o2 = after <= 3 ? "人工呼吸器 FiO2 0.4" : after < 5 ? "鼻カニュラ 2L/分" : "室内気"; vital.spo2 = 96; }
     if (i === 15 && after < 3) { vital.o2 = "鼻カニュラ 1L/分"; vital.spo2 = 91; }
     if (i === 28 && day === last) { vital.bt = 36.2; vital.hr = 108; vital.sbp = 82; vital.dbp = 48; vital.rr = 12; vital.spo2 = 90; }
-    p.vitals.push(vital);
+    if (i !== 12 || after > 3) vital.o2 = nursingOxygen(p, day, vital.time);
+    if (!pediatric && i !== 28) {
+      const variation = nursingVitalVariation(i, after);
+      vital.bt = round(vital.bt + variation.temperature);
+      vital.sbp += variation.systolic;
+      vital.dbp += variation.diastolic;
+    }
+
+    p.vitals.push({ ...vital, avpu: "A" });
     p.daily.push({ day, meals: /イレウス|膵炎|胃潰瘍|憩室出血/.test(c.name) && after < 2 ? "絶食" : i === 12 && after < 4 ? "絶食" : [phase === 0 ? 3 : 8, phase === 0 ? 4 : 8, phase === 0 ? 4 : 9], urineMl: p.age === 0 ? 210 : p.age === 5 ? 650 : i === 14 ? 350 : after < 2 ? 1000 : 1500, stools: i === 11 ? after < 2 ? 8 : after < 4 ? 4 : 1 : 1, weightKg: round(p.weightKg - (/心不全|肝硬変/.test(c.name) ? 2.8 * progress : 0)) });
     const sample = p.labs.filter((l) => l.day <= day && l.values.CRP !== undefined).sort((a, b) => b.day - a.day)[0];
     const numbers = `体温${vital.bt}℃、脈拍${vital.hr}/分、血圧${vital.sbp}/${vital.dbp}mmHg、呼吸数${vital.rr}/分、SpO2 ${vital.spo2}%（${vital.o2}）、体重${p.daily.at(-1)!.weightKg}kg。`;
@@ -115,7 +126,6 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
     if (specimen !== "血液") p.cultures.push({ collectedOn: first, ...(duration >= 2 ? { reportedOn: first + 2, status: "最終報告" as const, organism, ...(specimen === "尿" ? { susceptibility: [{ drug: "CEZ", mic: "1", result: "S" as const }, { drug: "CTRX", mic: "0.25", result: "S" as const }] } : {}) } : { status: "培養中" as const }), specimen });
     if (specimen !== "血液") labOrder(0, [specimen === "尿" ? "LAB-UCX" : "LAB-SPCX"]);
   }
-  if (/肺炎|心不全/.test(c.name)) order(0, { type: "procedure", code: "PROC-O2", start: { day: first, time: "09:00" }, schedule: { kind: "continuous" }, days: 3, o2: { device: "鼻カニュラ", lpm: 2 } });
   if (i === 6) order(0, { type: "procedure", code: "PROC-WOUND", site: "右前腕膿瘍", start: { day: first, time: "13:00" }, schedule: { kind: "per_day", count: 1 }, days: 7, comment: "切開排膿後、洗浄と被覆" });
   if (/心不全/.test(c.name)) { injection(0, "INJ-FRS20", 20, "mg", 1, 3, "静注"); oral(3, "ORAL-FRS20", 1, "錠", Math.max(1, duration - 2)); }
   if (/膵炎|イレウス|腎障害|低ナトリウム|ディフィシル|敗血症/.test(c.name)) injection(0, "INJ-NS500", 500, "mL", i === 27 ? 1 : 2, 2);

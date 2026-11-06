@@ -4,5 +4,5 @@ export function scenarioMode(): boolean {
 }
 // New fixture revision gets its own saved workspace; previous test edits remain stored.
 export function scenarioStorageKey(key: string): string {
-  return scenarioMode() ? `${key}:scenarios-100:v2` : key;
+  return scenarioMode() ? `${key}:scenarios-100:v3` : key;
 }

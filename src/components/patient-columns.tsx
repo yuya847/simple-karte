@@ -35,7 +35,7 @@ export interface Row {
   expected?: Expected;
 }
 
-export const roomKey = (b: BedAssignment) => `${b.room}-${b.bed}`;
+export const roomKey = (b: BedAssignment) => `${b.room}${b.bed}`;
 export const planText = (p: WardPlan) => `${p.day === 0 ? "今日" : "明日"} ${p.time} ${p.kind}`;
 
 const TONE: Record<FlagTone, string> = {

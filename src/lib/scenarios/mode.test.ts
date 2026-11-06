@@ -16,7 +16,7 @@ describe("試験用と元の病棟の保存を分ける", () => {
     expect(workspaceId()).toBe(test);
     expect(data.get("simple-karte:workspace")).toBe(normal);
     expect(data.get("simple-karte:workspace:scenarios-100")).toBe(shared);
-    expect(scenarioStorageKey("display")).toBe("display:scenarios-100:v2");
+    expect(scenarioStorageKey("display")).toBe("display:scenarios-100:v3");
     location.search = "";
     expect(workspaceId()).toBe(normal);
     expect(scenarioStorageKey("display")).toBe("display");

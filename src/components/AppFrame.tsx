@@ -1,5 +1,6 @@
 "use client";
 
+import { visibleTabKeys } from "@/lib/tab-overflow";
 import { displayText } from "@/lib/display-text";
 import Image from "next/image";
 import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, LockKeyhole, LogOut, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X, ArrowLeft, RotateCw } from "lucide-react";
@@ -254,7 +255,7 @@ function Tab({ t, small }: { t: TabItem; small: boolean }) {
       onClick={t.onSelect}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && t.onSelect()}
       onAuxClick={(e) => e.button === 1 && t.onClose?.()}
-      className={`${tabShape(t.active, small, t.menu)} ${t.patient ? "min-w-36 max-w-60" : ""}`}
+      className={`${tabShape(t.active, small, t.menu)} ${t.patient ? "min-w-36 max-w-60" : "max-w-[190px]"}`}
     >
       {t.patient ? (
         <>
@@ -266,7 +267,7 @@ function Tab({ t, small }: { t: TabItem; small: boolean }) {
       ) : (
         <>
           {Icon && <Icon size={small ? 14 : 15} className="shrink-0" />}
-          <span className="whitespace-nowrap">{t.label}</span>
+          <span className="truncate">{t.label}</span>
         </>
       )}
       <Badge n={t.badge ?? 0} />
@@ -284,11 +285,25 @@ function Tab({ t, small }: { t: TabItem; small: boolean }) {
 export function Row({ row, small, start, end }: { row: TabRow; small: boolean; start?: React.ReactNode; end?: React.ReactNode }) {
   const groups = row.groups ?? [];
   const headed = groups.length > 1;
+  const container = useRef<HTMLDivElement>(null);
+  const [limit, setLimit] = useState(5);
+  const [more, setMore] = useState(false);
+  const moreButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const el = container.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setLimit(Math.max(1, Math.floor((el.clientWidth - 90 - groups.length * 75) / (small ? 240 : 190)))));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [small, groups.length]);
+  const all = [...groups.flatMap((g) => g.items), ...row.items];
+  const visible = visibleTabKeys(all, limit);
+  const hidden = all.filter((t) => !visible.has(t.key));
   return (
     <div className={`flex items-end gap-1 ${small ? "bg-paper px-3 pt-1" : "bg-tab px-2 pt-1.5"}`}>
       {start}
-      <div role="tablist" aria-label={row.label} className="scroll-thin flex min-w-0 flex-1 items-end gap-0 overflow-x-auto px-2">
-        {groups.map((g, i) => (
+      <div ref={container} role="tablist" aria-label={row.label} className="flex min-w-0 flex-1 items-end gap-0 overflow-hidden px-2">
+        {groups.filter((g) => g.items.some((t) => visible.has(t.key))).map((g, i) => (
           <div key={g.key} role="group" aria-label={g.label} className={`flex shrink-0 items-end gap-0 ${i > 0 ? "ml-2 border-l border-rule pl-3" : ""}`}>
             {headed &&
               (g.onSelect ? (
@@ -298,12 +313,12 @@ export function Row({ row, small, start, end }: { row: TabRow; small: boolean; s
               ) : (
                 <span className="mb-1.5 shrink-0 whitespace-nowrap px-1 text-[11px] font-bold text-ink-faint">{g.label}</span>
               ))}
-            {g.items.map((t) => (
+            {g.items.filter((t) => visible.has(t.key)).map((t) => (
               <Tab key={t.key} t={t} small={small} />
             ))}
           </div>
         ))}
-        {row.items.map((t) => (
+        {row.items.filter((t) => visible.has(t.key)).map((t) => (
           <Tab key={t.key} t={t} small={small} />
         ))}
         {row.plus && (
@@ -319,6 +334,12 @@ export function Row({ row, small, start, end }: { row: TabRow; small: boolean; s
           </button>
         )}
       </div>
+      {hidden.length > 0 && <div className="relative mb-1 shrink-0">
+        <button ref={moreButton} type="button" aria-haspopup="menu" aria-label="ほかのタブ" aria-expanded={more} onClick={() => setMore(!more)} className="rounded px-3 py-1 font-bold hover:bg-sheet">…</button>
+        <Popover open={more} onClose={() => setMore(false)} anchor={moreButton} place="below-right" width={288}><div role="menu">
+          {hidden.map((t) => <div key={t.key} className="flex items-center"><button role="menuitem" type="button" onClick={() => { t.onSelect(); setMore(false); }} className="min-w-0 flex-1 truncate px-3 py-2 text-left text-sm hover:bg-paper">{t.label}{t.patient?.room ? ` ${t.patient.room}` : ""}</button>{t.onClose && <CloseX label={`${t.label}のタブを閉じる`} onClose={t.onClose} />}</div>)}
+        </div></Popover>
+      </div>}
       {end}
     </div>
   );
@@ -435,8 +456,7 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
       <button ref={btn} type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} title="職種の切り替え（デモではログインの代わり）・データ抽出・監査ログ" className={`${barButton} border border-rule bg-sheet`}>
         <UserRound size={16} className="shrink-0 text-ink-soft" />
         <span className="max-w-48 truncate">
-          {role}
-          <span className="hidden lg:inline">：{meName ?? STAFF[role].name}</span>
+          {role === "医師" ? `医師 ${meName ?? STAFF[role].name}` : meName ?? STAFF[role].name}
         </span>
         <ChevronDown size={13} className="shrink-0 text-ink-faint" />
       </button>

@@ -10,7 +10,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
-import { WARD_NAME } from "@/lib/ward";
+import { nursingShift } from "@/lib/nursing-shift";
 import { marState, prnToday, standingPrnId, standingPrnState, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
 import { drugLabel, type PrnRule } from "@/lib/standing";
 import { findOralDrug } from "@/lib/master";
@@ -85,10 +85,7 @@ export function Worksheet({ standingMeasurements, remeasureVitals, onMeasure, pe
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
-    const n = abs(0, nowTime);
-    const m = n % 1440;
-    const d = Math.floor(n / 1440);
-    const [dd, sh]: [number, Shift] = m < 510 ? [d - 1, "night"] : m < 1020 ? [d, "day"] : [d, "night"];
+    const { day: dd, shift: sh } = nursingShift(abs(0, nowTime));
     return { day: Math.max(-1, Math.min(1, dd)) as DayOffsetLike, shift: sh };
   })();
   const [day, setDay] = useState<DayOffsetLike>(start.day);
@@ -231,8 +228,9 @@ interface SheetProps extends RemeasureProps {
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
+function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart: openedAt, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
   const nowAbs = abs(0, nowTime);
+  const sessionStart = Math.min(openedAt, shiftWindow(shift, day).lo);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   // 麻・毒・劇・ハイリスク of the order's drugs (drug-class.ts).
   const codesOf = (orderId: string) => drugCodesOf(people.flatMap((x) => x.entries).find((e) => e.id === orderId)?.order);
@@ -279,13 +277,13 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
   return (
     <div className="nums text-[12px] leading-snug text-ink print:text-[10px]">
       <header className="mb-3 flex items-baseline gap-3 border-b-2 border-ink pb-1">
-        <h2 className="text-lg font-bold print:text-base">{WARD_NAME} ワークシート</h2>
+        <h2 className="text-lg font-bold print:text-base">{[...new Set(people.map((x) => x.patient.ward))].join("・")} ワークシート</h2>
         <span className="font-bold">
           {formatShort(addDays(today, day))} {s.label} {displayText(s.from)}〜{s.nextDay ? "翌" : ""}
           {s.to}
         </span>
         <span className="ml-auto text-ink-soft">
-          受け持ち {new Set([...timed, ...untimed, ...running].map((x) => x.patientId)).size}人　作成 {formatShort(today)} {nowTime}
+          病棟 {people.length}人　作成 {formatShort(today)} {nowTime}
         </span>
       </header>
       {assignLines && (
@@ -327,7 +325,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
       </Section>
 
       <Section title="時刻の決まっているもの">
-        {people.flatMap(x => (shift === 'night' ? [day, day + 1] : [day]).map(d => <StandingMeasurements key={`${x.patient.id}:${d}`} label={`${x.room} ${x.patient.name}`} source={standingMeasurements?.[x.patient.id]} day={d} from={shift === 'all' ? '00:00' : d === day ? (shift === 'day' ? '08:30' : '17:00') : '00:00'} to={d === day ? (shift === 'day' ? '16:59' : '23:59') : '08:29'} />))}
+        {people.flatMap(x => (shift === 'night' ? [day, day + 1] : [day]).map(d => <StandingMeasurements key={`${x.patient.id}:${d}`} label={`${x.room} ${x.patient.name}`} source={standingMeasurements?.[x.patient.id]} day={d} from={shift === 'all' ? '00:00' : d === day ? (shift === 'day' ? '08:30' : '16:30') : '00:00'} to={d === day ? (shift === 'day' ? '16:59' : '23:59') : '08:29'} />))}
         <RemeasureRows {...{ people, remeasureVitals, onMeasure, day, shift, today, interactive }} />
         {timed.length === 0 ? (
           <Empty>オーダーの予定はありません</Empty>

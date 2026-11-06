@@ -50,6 +50,7 @@ export type InfoLink = "anamnesis" | "profile" | "directive" | "doctors" | "bill
 
 interface Props {
   patient: Patient;
+  roomLabel?: string;
   initialSection?: string;
   today: CalendarDate;
   fmtDay: (d: number) => string;
@@ -83,7 +84,7 @@ function answerText(f: AnamnesisFields, key: keyof AnamnesisFields): string {
   return v;
 }
 
-export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, nowTime, contacts, insurance: insuranceRecords, doctors, anamnesis, directive, onOpen, onSave, onRegisterInsurance }: Props) {
+export function PatientInfoPanel({ roomLabel, initialSection, patient: p, today, fmtDay, nowTime, contacts, insurance: insuranceRecords, doctors, anamnesis, directive, onOpen, onSave, onRegisterInsurance }: Props) {
   useEffect(() => { if (initialSection) document.getElementById(initialSection)?.scrollIntoView({ block: "start" }); }, [initialSection]);
   const insurance = insuranceRecords?.[insuranceRecords.length - 1];
   const me = useMe();
@@ -185,7 +186,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
             </div>
           </Row>
           <Row label={visit ? "場所" : "病棟・部屋"} by={base}>
-            {visit ? p.ward : `${p.ward} ${p.room}号室`}
+            {visit ? p.ward : `${p.ward} ${roomLabel ?? p.room}`}
           </Row>
           <Row label={visit ? "受診日" : "入院日"} by={base}>
             <span className="nums">
