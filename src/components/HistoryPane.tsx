@@ -8,7 +8,7 @@ import { ConsultStatus } from "./ConsultContext";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { VerbalReview } from "./VerbalControls";
-import { CalendarDays, ChevronDown, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
+import { CalendarDays, ChevronDown, FlaskConical, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { matchesTemplate, templateOptions } from "@/lib/record-filter";
 import { BUILTIN_RECORD_TEMPLATES, loadMyRecordTemplates } from "@/lib/record-templates";
 import { loadFilters, saveFilters, sameFilter, type SavedFilter } from "@/lib/history-filters";
@@ -1141,7 +1141,8 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
         {onOpenResult && !stopped && (
           <div className="flex justify-end">
-            <button type="button" onClick={onOpenResult} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+            <button type="button" onClick={onOpenResult} className="mt-1 inline-flex items-center gap-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+              <FlaskConical size={12} aria-hidden />
               結果を表示
             </button>
           </div>
