@@ -2297,7 +2297,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     draftedStops: chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : [])),
     onInsertVitals: (text) => update((c) => ({ note: insertIntoO(c.note, text), rightTab: "note" })),
     diets: diets,
-    dietEdit: { denied: deny("diet"), doctor: me.name, onAdjust: role === "管理栄養士" ? (orders) => { setDiets(all => [...all, ...orders]); chartNote(patient!.id, `食事の調整：${orders.map(dietLabel).join("、")}`); } : undefined, onDraft: (orders) => { if (role === "管理栄養士") { setCharts(all => applyChart(all, patient!.id, attendingDesk(patient!.attending), c => ({ drafts: [...c.drafts, ...orders.map(d => dietProposal(d, newId()))] }))); return; } if (!deny("diet")) update((c) => ({ drafts: [...c.drafts, ...calendarDietDrafts(orders, newId)], flash: "食事の変更を下書きにしました。「オーダーのみ」か「保存」で確定します。" })); } },
+    dietEdit: { denied: deny("diet"), doctor: me.name, onAdjust: role === "管理栄養士" ? (orders) => { setDiets(all => [...all, ...orders]); chartNote(patient!.id, `食事の調整：${orders.map(dietLabel).join("、")}`); } : undefined, onDraft: (orders) => { if (role === "管理栄養士") { setCharts(all => applyChart(all, patient!.id, attendingDesk(patient!.attending), c => ({ drafts: [...c.drafts, ...orders.map(d => dietProposal(d, newId()))] }))); return; } if (!deny("diet")) update((c) => ({ drafts: [...c.drafts, ...calendarDietDrafts(orders, newId)], flash: "食事の変更を下書きにしました。「オーダー」か「保存して閉じる」で確定します。" })); } },
     onOpenDiet: () => setPanel("diet"),
     moves: moveEventsOf(patient.id),
     onBook: (day: number, what: BookWhat) => {
@@ -3062,26 +3062,27 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             actions={
               <>
                 {orderMode !== "none" && (
-                  <button type="button" disabled={!ordersReady} onClick={() => presence.guard(patient.id, "オーダの確定", confirm)} title={ordersReady ? "貯めたオーダだけを飛ばす（記事はそのまま）" : "飛ばせる下書きがありません（確認が残っているか、下書きがない）"} className={`rounded-md border px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${orderMode === "verbal" ? "border-yamabuki text-yamabuki" : "border-ink text-ink hover:bg-paper"}`}>
+                  <button type="button" disabled={!ordersReady && !noteReady} onClick={() => presence.guard(patient.id, "オーダの確定", () => { if (noteReady && !deny("note")) confirmNote(); if (ordersReady) confirm(); })} title="貯めたオーダを飛ばし、記事も保存する（カルテは開いたまま）" className={`rounded-md border px-3 py-1.5 text-sm font-bold disabled:opacity-40 ${orderMode === "verbal" ? "border-yamabuki text-yamabuki" : "border-ink text-ink hover:bg-paper"}`}>
                     <Send size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />
-                    {orderMode === "verbal" ? "口頭指示で" : ""}オーダーのみ{chart.drafts.length ? ` ${chart.drafts.length}` : ""}
+                    {orderMode === "verbal" ? "口頭指示で" : ""}オーダー{chart.drafts.length ? ` ${chart.drafts.length}` : ""}
                   </button>
                 )}
                 {!deny("note") && (
                   <button
                     type="button"
-                    disabled={!noteReady && !ordersReady}
                     onClick={() =>
                       presence.guard(patient.id, "保存", () => {
                         if (noteReady) confirmNote();
                         if (ordersReady) confirm();
+                        // A draft with checks left stays in this chart's drafts; the chart is closed either way.
+                        closePatientNow(patient.id);
                       })
                     }
-                    title="記事を確定し、貯めたオーダも一緒に飛ばす"
+                    title="記事とオーダを保存して、このカルテを閉じる"
                     className="rounded-md bg-ink px-4 py-1.5 text-sm font-bold text-white hover:bg-ink/90 disabled:opacity-40"
                   >
                     <Save size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />
-                    保存
+                    保存して閉じる
                   </button>
                 )}
               </>

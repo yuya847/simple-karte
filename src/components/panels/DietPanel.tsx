@@ -284,5 +284,5 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
 /* Help migration source (references and dynamic wording):
 <span >、コードで計算</span>
 <p >{DIET_ADJUSTMENT_HINT}</p>
-<p >右の欄の下書きに入ります。上の「オーダーのみ」か「保存」で、ほかのオーダと一緒に飛びます。</p>
+<p >右の欄の下書きに入ります。上の「オーダー」か「保存して閉じる」で、ほかのオーダと一緒に飛びます。</p>
 */

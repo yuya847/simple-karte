@@ -43,7 +43,7 @@ interface Props {
   onOpenInfo?: () => void;
   /** The insurance 医事課 (or a doctor/nurse) registered: shown as a tag; null = not registered yet. */
   insurance?: Insurance | null;
-  /** 保存・オーダーのみ・未確認の結果: the chart's actions, on the right of the bar. */
+  /** 保存して閉じる・オーダー・未確認の結果: the chart's actions, on the right of the bar. */
   actions?: React.ReactNode;
 }
 

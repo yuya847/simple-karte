@@ -374,7 +374,7 @@ export function TodayPane(p: Props) {
             `${readyCount}件すべて確定できます`
           )}
         </div>
-        {p.orderMode !== "none" && canConfirm && <span className="ml-auto text-[11px] text-ink-faint">上の「オーダーのみ」か「保存」で飛びます</span>}
+        {p.orderMode !== "none" && canConfirm && <span className="ml-auto text-[11px] text-ink-faint">上の「オーダー」か「保存して閉じる」で飛びます</span>}
       </div>
     </section>
   );
