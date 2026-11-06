@@ -1232,7 +1232,10 @@ export default function WardApp() {
     for (const r of recordsForCompletedOrders(completed, patient!, nowTime, verbal?.doctor ?? me.name)) recordMar(r);
     if (dietsAdded.length) {
       setDiets((all) => [...all, ...dietsAdded]);
-      for (const d of dietsAdded) auditLog({ role: me.role, actor: me.name, action: "確定（食事）", patient: patient?.name, detail: `${dietLabel(d)}（${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から）` });
+      const fromText = (d: DietOrder) => `${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : d.from.day === 2 ? "明後日" : formatShort(addDays(today!, d.from.day))}の${d.from.meal}食から`;
+      for (const d of dietsAdded) auditLog({ role: me.role, actor: me.name, action: "確定（食事）", patient: patient?.name, detail: `${dietLabel(d)}（${fromText(d)}）` });
+      // The left 経過 shows the change too (the diet book alone is not in the record).
+      chartNote(patient!.id, ["【食事】", ...dietsAdded.map((d) => `${dietLabel(d)}（${fromText(d)}）${d.comment ? `　${d.comment}` : ""}`)].join("\n"));
     }
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
