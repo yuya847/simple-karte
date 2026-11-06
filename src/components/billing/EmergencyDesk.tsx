@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ErPatient } from "@/lib/er";
 import type { CalendarDate } from "@/lib/dates";
 import type { OrderEntry } from "@/lib/types";
-import { emergencyAsOpd, ER_RULE_HINT, ER_SOURCE } from "@/lib/billing/emergency-visit";
+import { emergencyAsOpd } from "@/lib/billing/emergency-visit";
 import type { IjiDesk } from "@/lib/billing/worklist";
 import type { OpdSettleBook, OpdSettlement } from "@/lib/billing/opd-settle";
 import { OpdBillPanel } from "./OpdBillPanel";
@@ -17,14 +17,13 @@ export interface EmergencyDeskProps {
 export function EmergencyDesk({ visits, book, onSettle, desk, today, nowTime, onOpen }: EmergencyDeskProps & { desk: IjiDesk; today: CalendarDate; nowTime: string; onOpen: (id: string, where: "billing" | "diagnoses") => void }) {
   const [open, setOpen] = useState<string | null>(null);
   const [kinds, setKinds] = useState<Record<string, "初診" | "再診">>({});
-  return <section aria-label="救急外来の受診" className="mb-4 space-y-2">
+  return <section aria-label="救急外来の受診" className="mb-4 space-y-1">
     <h2 className="font-bold">救急外来の受診</h2>
-    <p className="hint text-xs text-ink-soft">{ER_RULE_HINT} 救急医療管理加算１・２は入院先の算定で、人が入院時の状態を確かめて選びます。<a href={ER_SOURCE.url} target="_blank" rel="noreferrer" className="text-ai underline">{ER_SOURCE.label}</a></p>
     {visits.map(({ patient: p, entries, drafts }) => {
       const key = `er:${p.id}`;
       const paid = book[key];
       const kind = paid?.visitKind ?? kinds[key] ?? "初診";
-      return <div key={key} className="rounded border border-rule bg-sheet p-3">
+      return <div key={key} className="rounded border border-rule bg-sheet px-3 py-1.5">
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <b>{p.name}（救急外来）</b><span>{p.status}</span>
           {drafts > 0 && <span>下書き {drafts}（医師の確定待ち）</span>}
@@ -32,7 +31,7 @@ export function EmergencyDesk({ visits, book, onSettle, desk, today, nowTime, on
           {!desk.insurance[key]?.length && <button type="button" className="text-ai underline" onClick={() => onOpen(key, "billing")}>保険を登録する</button>}
           {p.admittedAs ? <button type="button" className="text-ai underline" onClick={() => onOpen(p.admittedAs!, "billing")}>入院の算定へ（{p.admittedAs} に引き継ぎ・救急の会計なし）</button> : <>
             <span className={paid ? "text-wakatake" : "text-yamabuki"}>{paid ? `会計済み（${paid.method}）` : "会計がまだ"}</span>
-            <button type="button" className="rounded border border-rule px-2 py-1 text-ai" onClick={() => setOpen(open === key ? null : key)}>{open === key ? "閉じる" : "算定・会計へ"}</button>
+            <button type="button" className="rounded border border-rule px-2 py-0.5 text-ai" onClick={() => setOpen(open === key ? null : key)}>{open === key ? "閉じる" : "算定・会計へ"}</button>
           </>}
         </div>
         {open === key && !p.admittedAs && <div className="mt-3">

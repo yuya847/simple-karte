@@ -11,7 +11,6 @@ it("医事課の救急の行に患者名・下書き・会計への入口を出�
   expect(html).toContain("永井 茂（救急外来）");
   expect(html).toContain("下書き 2（医師の確定待ち）");
   expect(html).toContain("算定・会計へ");
-  expect(html).toContain("下書きは算定に入りません");
 });
 it("入院済みは救急の会計を出さず入院先へ案内する", () => {
   const html = renderToStaticMarkup(<EmergencyDesk {...props} visits={[{ patient: { ...nagai, status: "入院済", admittedAs: "ward1" }, entries: [], drafts: 0 }]} />);

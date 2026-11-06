@@ -102,7 +102,7 @@ export function IjiBoard({
         医事課の仕事
       </h1>
       <p className="hint mb-3 text-xs leading-relaxed text-ink-soft">
-        患者ごとに、保険の未登録・退院して会計がまだ・算定の要確認（{Number(month.slice(5))}月分。算定の画面と同じ計算をサーバーで通した「確かめる」「人が選ぶ」）・未コード化の病名を、記録からコードで並べます（AI は使いません）。押すとその患者の算定（保険・会計）か病名が開きます。病名をマスターの名前にするのは医師です。
+        保険の未登録・会計がまだ・算定の要確認・病名の未コード化がある患者を並べます。押すとその患者の算定か病名が開きます。
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
@@ -122,7 +122,6 @@ export function IjiBoard({
       </div>
       {error && <p className="mb-3 rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
 
-      <p className="hint mb-2 text-xs text-ink-soft">下書きは医師の確定待ちです。確定するまで算定に入りません。</p>
       {outpatient && <OutpatientDesk {...outpatient} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
       {emergency && <EmergencyDesk {...emergency} desk={desk} today={today} nowTime={nowTime} onOpen={onOpen} />}
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
@@ -228,7 +227,6 @@ export function IjiBoard({
         </tbody>
       </table>
       {shown.length === 0 && <p className="mt-3 text-xs text-ink-faint">やることがある患者はいません。</p>}
-      <p className="mt-3 text-[11px] text-ink-faint">登録と会計の記録はこのブラウザの中だけにあり、監査ログに残ります。</p>
     </section>
   );
 }
