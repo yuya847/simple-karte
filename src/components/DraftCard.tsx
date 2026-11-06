@@ -33,7 +33,7 @@ interface Props {
 const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", extend: "延長", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず", diet: "食事", "opd-booking": "外来予約" };
 
 /** One order draft: what was understood, then the checks with choices for the doctor. */
-export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }: Props) {
+export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp, bare }: Props & { bare?: boolean }) {
   // Open from the start when something still has to be filled in (目的・同意書…), so the fields are right there.
   const [open, setOpen] = useState(() => issues.some((i) => i.level !== "info"));
   const issueKey = `${draft.id}:${issues.filter((i) => i.level !== "info").map((i) => i.key).join(",")}`;
@@ -49,7 +49,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
 
   return (
     // An order below the note is boxed, so it never reads as text of the note (ユーザー 2026-11-06).
-    <article className="my-1 rounded-md border border-ai/40 bg-ai-soft/20 text-[13px] leading-relaxed pointer-coarse:text-[16px]">
+    <article className={`text-[13px] leading-relaxed pointer-coarse:text-[16px] ${bare ? "border-t border-ai/15 first:border-t-0" : "my-1 rounded-md border border-ai/40 bg-ai-soft/20"}`}>
       <div className="flex flex-wrap items-start gap-1 px-2 py-1">
         <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className="nums min-w-[10rem] flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
           {draftLine(draft, ctx, rp)}

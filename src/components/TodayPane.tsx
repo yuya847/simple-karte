@@ -54,6 +54,8 @@ interface Props {
   onDraft: () => void;
   onApply: (d: Draft) => void;
   onRemove: (id: string) => void;
+  /** New order of the drafts (by id): 用法ごとに並べる. */
+  onReorder?: (ids: string[]) => void;
   onRedo: (id: string) => void;
   onConfirm: () => void;
   /** Who is writing orders: the doctor, a nurse taking a spoken order (口頭指示), or nobody (other roles). */
@@ -183,26 +185,43 @@ export function TodayPane(p: Props) {
           <NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} />
           {p.orderSlot}
           {p.drafts.length > 0 && (
-            <div aria-label="オーダの下書き">
-              {p.drafts.map((d) => (
-                <DraftCard
-                  key={d.id}
-                  rp={rpNumbers(p.drafts)[d.id]}
-                  draft={d}
-                  issues={p.issues[d.id] ?? []}
-                  ctx={p.ctx}
-                  onApply={p.onApply}
-                  onRemove={() => p.onRemove(d.id)}
-                  onRedo={
-                    SHOW_DICTATION
-                      ? () => {
-                          p.onRedo(d.id);
-                          box.current?.focus();
+            <div aria-label="オーダの下書き" className="space-y-1">
+              {/* One box per kind of order (内服・注射…), its Rp as rows inside (ユーザー 2026-11-06：内服毎に四角で分かれない). */}
+              {draftGroups(p.drafts).map((group) => {
+                const rx = group[0].kind === "prescription";
+                return (
+                  <section key={group[0].id} aria-label={`${GROUP_LABEL[group[0].kind] ?? "オーダ"}の下書き`} className="my-1 rounded-md border border-ai/40 bg-ai-soft/20">
+                    <div className="flex items-center gap-2 border-b border-ai/20 px-2 py-0.5 text-[11px] font-bold text-ai">
+                      {GROUP_LABEL[group[0].kind] ?? "オーダ"}
+                      {rx && group.length > 1 && p.onReorder && (
+                        <button type="button" onClick={() => p.onReorder!(sortByUsage(p.drafts, group.map((d) => d.id)))} className="ml-auto rounded px-1.5 py-0.5 font-normal text-ai hover:bg-ai-soft">
+                          用法ごとに並べる
+                        </button>
+                      )}
+                    </div>
+                    {group.map((d) => (
+                      <DraftCard
+                        key={d.id}
+                        bare
+                        rp={rpNumbers(p.drafts)[d.id]}
+                        draft={d}
+                        issues={p.issues[d.id] ?? []}
+                        ctx={p.ctx}
+                        onApply={p.onApply}
+                        onRemove={() => p.onRemove(d.id)}
+                        onRedo={
+                          SHOW_DICTATION
+                            ? () => {
+                                p.onRedo(d.id);
+                                box.current?.focus();
+                              }
+                            : undefined
                         }
-                      : undefined
-                  }
-                />
-              ))}
+                      />
+                    ))}
+                  </section>
+                );
+              })}
             </div>
           )}
 
@@ -359,3 +378,26 @@ export function TodayPane(p: Props) {
           </div>
 <p >NEWS2 7点以上は医師へ連絡。院内連絡は模擬です。</p>
 */
+
+const GROUP_LABEL: Partial<Record<Draft["kind"], string>> = { prescription: "処方オーダ", injection: "注射オーダ", lab: "検体検査", imaging: "画像検査", physio: "生理検査", procedure: "処置", stop: "中止", extend: "延長", diet: "食事", "opd-booking": "外来予約" };
+
+/** Consecutive drafts of the same kind (and, for 内服, the same 区分) make one box. */
+function draftGroups(drafts: Draft[]): Draft[][] {
+  const key = (d: Draft) => d.kind === "prescription" ? `rx:${d.category}` : d.kind;
+  const out: Draft[][] = [];
+  for (const d of drafts) {
+    const last = out[out.length - 1];
+    if (last && key(last[0]) === key(d)) last.push(d);
+    else out.push([d]);
+  }
+  return out;
+}
+
+/** The 内服 of one box sorted by 用法 (same timings together, then 頓用), the rest left where they are. */
+function sortByUsage(drafts: Draft[], ids: string[]): string[] {
+  const usage = (d: Draft) => d.kind !== "prescription" ? "" : d.timings === null ? "~" : d.timings.length ? `${String(9 - d.timings.length)}${d.timings.join("・")}` : `z${d.prn ?? ""}`;
+  const inGroup = drafts.filter((d) => ids.includes(d.id));
+  const sorted = [...inGroup].sort((a, b) => usage(a).localeCompare(usage(b), "ja"));
+  let k = 0;
+  return drafts.map((d) => (ids.includes(d.id) ? sorted[k++].id : d.id));
+}

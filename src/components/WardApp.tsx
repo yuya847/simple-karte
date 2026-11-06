@@ -3356,6 +3356,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                         }}
                         onDraft={requestDrafts}
                         onApply={(next) => update((c) => ({ drafts: c.drafts.map((d) => (d.id === next.id ? next : d)), flash: null }))}
+                        onReorder={(ids) => update((c) => ({ drafts: ids.map((id) => c.drafts.find((d) => d.id === id)!).filter(Boolean) }))}
                         onRemove={(id) => {
                           auditLog({ role: me.role, actor: me.name, action: "下書きを消した", patient: patient.name, detail: chart.drafts.find((d) => d.id === id)?.sourceText });
                           update((c) => ({ drafts: c.drafts.filter((d) => d.id !== id) }));
