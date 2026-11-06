@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useMe } from "./RoleContext";
 import { can } from "@/lib/roles";
 import { newProcedureDraft, type Draft } from "@/lib/drafts";
-import { addressedTo, consultDepartments, consultOrders, consultState, doctorsIn, quoteConsultSummary, type ConsultReplies, type consultInbox } from "@/lib/consult";
+import { addressedTo, consultDepartments, consultOrders, consultState, doctorsIn, type ConsultReplies, type consultInbox } from "@/lib/consult";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 
 const REPLY_TEMPLATE = "所見：\n診断：\n提案：\nフォロー：";
 const input = "w-full rounded border border-rule bg-paper p-2";
+const field = "rounded border border-rule bg-paper px-2 py-1";
 interface Props {
   patient: Patient;
   entries: HistoryEntry[];
@@ -21,58 +22,49 @@ interface Props {
   onRefer: (to: string, dept: string, purpose: string, summary: string) => void;
 }
 
-export function ConsultPanel({ patient, entries, consults, replies, newId, onAdd, onReply, onCloseConsult, onRefer }: Props) {
+export function ConsultPanel({ consults, replies, newId, onAdd, onReply, onCloseConsult, onRefer }: Props) {
   const me = useMe();
   const allowed = can(me.role, "consult");
   const [tab, setTab] = useState("院内へ相談");
   const [dept, setDept] = useState("循環器内科");
   const [doctor, setDoctor] = useState("");
-  const [urgency, setUrgency] = useState<"本日中" | "数日以内" | "定期">("数日以内");
   const [question, setQuestion] = useState("");
-  const [summary, setSummary] = useState(() => quoteConsultSummary(patient, entries));
   const [to, setTo] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const external = tab === "院外へ紹介";
   const submit = () => {
     if (!allowed || !question.trim() || (external && !to.trim())) return;
-    if (external) return onRefer(to.trim(), dept, question.trim(), summary);
-    onAdd({ ...newProcedureDraft("PROC-CONSULT", newId()), consult: { dept, doctor, urgency, question: question.trim(), summary }, schedule: { kind: "once" }, start: { day: 0, time: null } });
+    // The body only (ユーザー 2026-11-06：緊急度と経過の要約はいらない). The fields stay in the data for older records.
+    if (external) return onRefer(to.trim(), dept, question.trim(), "");
+    onAdd({ ...newProcedureDraft("PROC-CONSULT", newId()), consult: { dept, doctor, urgency: "数日以内", question: question.trim(), summary: "" }, schedule: { kind: "once" }, start: { day: 0, time: null } });
   };
   return (
     <div className="space-y-3 text-sm">
       <p>他科依頼・紹介</p>
-      <p className="hint">模擬：架空のスタッフ・紹介先です。科の当番宛は同じ科の医師が受けます。引用は既存の記録のコピーです。内容と緊急度は医師が確認します。</p>
+      <p className="hint">模擬：架空のスタッフ・紹介先です。科の当番宛は同じ科の医師が受けます。引用は既存の記録のコピーです。内容は医師が確認します。</p>
       <div className="flex gap-2">
         {["院内へ相談", "院外へ紹介"].map(t => <button key={t} onClick={() => setTab(t)} aria-pressed={tab === t} className="rounded border border-rule p-2">{t}</button>)}
       </div>
       <fieldset disabled={!allowed} className="space-y-2">
-        {external && <label className="block">紹介先の医療機関
-          <input className={input} value={to} onChange={e => setTo(e.target.value)} list="consult-facilities" />
-          <datalist id="consult-facilities"><option>架空みどり病院</option><option>架空さくら診療所</option></datalist>
-        </label>}
-        <label className="block">依頼先の診療科
-          <select className={input} value={dept} onChange={e => { setDept(e.target.value); setDoctor(""); }}>
-            {consultDepartments.map(d => <option key={d}>{d}</option>)}
-          </select>
-        </label>
-        {!external && <>
-          <label className="block">医師
-            <select className={input} value={doctor} onChange={e => setDoctor(e.target.value)}>
+        <div className="flex flex-wrap items-end gap-3">
+          {external && <label className="block">紹介先の医療機関
+            <input className={`${field} block w-56`} value={to} onChange={e => setTo(e.target.value)} list="consult-facilities" />
+            <datalist id="consult-facilities"><option>架空みどり病院</option><option>架空さくら診療所</option></datalist>
+          </label>}
+          <label className="block">依頼先の診療科
+            <select className={`${field} block w-40`} value={dept} onChange={e => { setDept(e.target.value); setDoctor(""); }}>
+              {consultDepartments.map(d => <option key={d}>{d}</option>)}
+            </select>
+          </label>
+          {!external && <label className="block">医師
+            <select className={`${field} block w-36`} value={doctor} onChange={e => setDoctor(e.target.value)}>
               <option value="">科の当番</option>
               {doctorsIn(dept).map(d => <option key={d.name}>{d.name}</option>)}
             </select>
-          </label>
-          <label className="block">緊急度
-            <select className={input} value={urgency} onChange={e => setUrgency(e.target.value as typeof urgency)}>
-              {["本日中", "数日以内", "定期"].map(u => <option key={u}>{u}</option>)}
-            </select>
-          </label>
-        </>}
-        <label className="block">{external ? "紹介の目的" : "相談の内容（質問・知りたいこと）"}
-          <textarea className={input} value={question} onChange={e => setQuestion(e.target.value)} />
-        </label>
-        <label className="block">経過の要約（引用・編集可）
-          <textarea rows={8} className={input} value={summary} onChange={e => setSummary(e.target.value)} />
+          </label>}
+        </div>
+        <label className="block">本文
+          <textarea rows={8} className={input} value={question} onChange={e => setQuestion(e.target.value)} placeholder={external ? "紹介の目的と経過" : "相談したいこと（質問・経過）"} />
         </label>
         <p>依頼者：{me.name}</p>
         <button className="rounded bg-ai p-2 text-white disabled:opacity-40" disabled={!question.trim() || (external && !to.trim())} onClick={submit}>
