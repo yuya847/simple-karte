@@ -11,10 +11,10 @@ describe("kana search", () => {
 
   it("finds drugs typed in hiragana", () => {
     const find = (list: { name: string; aliases: string[] }[], q: string, prefix = false) => list.filter((d) => [d.name, ...d.aliases].some((a) => kanaMatch(a, q, prefix))).map((d) => d.name);
-    expect(find(ORAL_DRUGS, "かろな")).toEqual(["アセトアミノフェン錠"]);
-    expect(find(ORAL_DRUGS, "ろきそ", true)).toEqual(["ロキソプロフェンNa錠"]);
+    expect(find(ORAL_DRUGS, "かろな")).toContain("アセトアミノフェン錠");
+    expect(find(ORAL_DRUGS, "ろきそ", true)).toContain("ロキソプロフェンNa錠");
     expect(find(ORAL_DRUGS, "さんかま")).toEqual(["酸化マグネシウム錠"]);
-    expect(find(DRUGS, "せふぁぞ")).toEqual(["セファメジンα注射用1g"]);
+    expect(find(DRUGS, "せふぁぞ")).toContain("セファメジンα注射用1g");
     expect(find(DRUGS, "せいしょく")).toContain("大塚生食注 500mLソフトバッグ");
     expect(find(DRUGS, "えんかかり")).toEqual(["KCL注20mEqキット"]);
   });

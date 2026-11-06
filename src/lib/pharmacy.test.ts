@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { findOralDrug } from "./master";
 import { PATIENTS } from "./patients";
 import { alreadyOrdered, auditItems, b008Check, daysOfCount, draftsFromReport, matchOral, nextTiming, ordersFromReport, queryOpen, type BroughtReport, type Query } from "./pharmacy";
 import type { OrderEntry } from "./types";
@@ -44,10 +45,16 @@ describe("持参薬鑑別（照合はコード）", () => {
     ["ラシックス錠", "20mg", "ORAL-FRS20"],
     ["マグミット錠", "330mg", "ORAL-MGO330"],
     ["カロナール錠", "500", "ORAL-APAP500"],
-    ["アムロジピン錠", "2.5mg", null],
+
     ["ワーファリン錠", "1mg", "ORAL-WAR1"],
   ])("%s %s → %s", (said, strength, code) => {
     expect(matchOral(said, strength)).toBe(code);
+  });
+
+  it("追加された2.5mgの持参薬も同じ規格に照合する", () => {
+    const code = matchOral("アムロジピン錠", "2.5mg");
+    expect(code).not.toBeNull();
+    expect(findOralDrug(code!)?.strength).toBe("2.5mg");
   });
 
   it("already registered: the same ingredient running", () => {

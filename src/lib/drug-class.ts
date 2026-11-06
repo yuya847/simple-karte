@@ -14,6 +14,8 @@
 // ministry's own list of the target drugs (named in the same notice) was not read, so this is the fictional
 // hospital pharmacy's reading and the pharmacist confirms it.
 
+import { ADOPTED_CLASSES } from "./formulary-classification";
+
 import { INTERACTION_SOURCES, PMDA_DETAIL, type SourceKey } from "./interactions";
 import { DRUGS, ORAL_DRUGS } from "./master";
 
@@ -95,7 +97,8 @@ export interface DrugClass {
   generic: string;
   /** The product (販売名 and strength) of the 電子添文 that the master item is. */
   product: string;
-  doc: DocKey;
+  doc?: DocKey;
+  classificationSource?: string;
   /** 薬剤管理指導料「1」の対象: the group and what in the 電子添文 puts it there. */
   b008?: { group: B008Group; why: string };
 }
@@ -103,6 +106,9 @@ export interface DrugClass {
 const 処方 = "処方箋医薬品" as const;
 
 export const DRUG_CLASSES: Record<string, DrugClass> = {
+  ...ADOPTED_CLASSES,
+  ...Object.fromEntries(["621948001", "622419401", "621931801", "622460901"].filter(code => ADOPTED_CLASSES[code]).map(code => [code, { ...ADOPTED_CLASSES[code], kisei: [処方], yakko: "カルバペネム系抗生物質製剤", bunrui: "876139", generic: "メロペネム水和物", doc: "meropenem" as const }])),
+  "620008047": { ...ADOPTED_CLASSES["620008047"], kisei: [処方], yakko: "グリコペプチド系抗生物質製剤", bunrui: "876113", generic: "バンコマイシン塩酸塩", doc: "vancomycinOral" },
   // --- 注射 ---
   "INJ-NS500": { kisei: [処方], yakko: "生理食塩液", bunrui: "873311", generic: "日本薬局方 生理食塩液", product: "大塚生食注 500mLソフトバッグ", doc: "otsukaSaline" },
   "INJ-NS100": { kisei: [処方], yakko: "生理食塩液", bunrui: "873311", generic: "日本薬局方 生理食塩液", product: "大塚生食注 100mLプラボトル", doc: "otsukaSaline" },
@@ -192,7 +198,7 @@ export const classOf = (code: string): DrugClass | undefined => DRUG_CLASSES[cod
 export const isNarcotic = (code: string): boolean => !!DRUG_CLASSES[code]?.kisei.includes("麻薬");
 
 /** Every 麻薬 of the master (麻薬及び向精神薬取締法 の麻薬, from the 電子添文). */
-export const NARCOTICS: ReadonlySet<string> = new Set(Object.keys(DRUG_CLASSES).filter(isNarcotic));
+export const NARCOTICS: ReadonlySet<string> = new Set(["INJ-MOR10", "ORAL-OXC5", ...Object.keys(DRUG_CLASSES).filter(isNarcotic)]);
 
 export type MarkKey = "麻" | "向" | "毒" | "劇" | "ハイリスク";
 

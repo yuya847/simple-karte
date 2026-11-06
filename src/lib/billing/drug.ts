@@ -41,9 +41,12 @@ export function oxygenYen(unitYenPerL: number, liters: number): number {
 export function masterQuantity(drugCode: string, amount: number, unit: string): number | null {
   const inj = findDrug(drugCode);
   if (inj) {
+    if (unit === "単位" && inj.insulinUnitsPerBillingUnit) return amount / inj.insulinUnitsPerBillingUnit;
+    if (/^6\d{8}$/.test(drugCode) && inj.units[0] === unit && !["g", "mg", "mL", "単位"].includes(unit)) return amount;
+    if (/^6\d{8}$/.test(drugCode) && unit === "mL" && inj.units[0] === "mL") return amount;
     if (unit === "本" || unit === "袋" || unit === "V" || unit === "A" || unit === "キット") return amount;
     if (unit === "mEq" && inj.strength?.unit === "mEq") return amount / inj.strength.amount;
-    if (unit === "mL" && inj.strength?.unit === "mEq") return amount / inj.strength.amount; // 1 mEq/mL
+    if (unit === "mL" && inj.strength?.unit === "mEq") return amount / (inj.volumeMl ?? inj.strength.amount); // existing KCL: 1 mEq/mL
     if (unit === "mL") {
       if (inj.volumeMl) return amount / inj.volumeMl; // fluids: bags
       return null;
@@ -56,7 +59,7 @@ export function masterQuantity(drugCode: string, amount: number, unit: string): 
     return null;
   }
   const oral = findOralDrug(drugCode);
-  if (oral) return unit === oral.unit ? amount : null;
+  if (oral) return unit === oral.unit ? amount * (oral.billingUnitsPerDoseUnit ?? 1) : null;
   const top = findProcDrug(drugCode);
   if (top) return unit === top.unit ? amount : null;
   return null;

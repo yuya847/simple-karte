@@ -5,6 +5,8 @@
 // The other institutions' drugs (OTHER_DRUGS) are drugs of the same master used in the FICTIONAL records of
 // other hospitals and pharmacies (薬剤情報・他院の処方).
 
+import { ADOPTED_ORAL, ADOPTED_GENERIC_CODES } from "../formulary-items";
+
 import { DRUG_CODES } from "../billing/codes";
 
 export interface DrugCodes {
@@ -24,6 +26,7 @@ export const DRUG_MASTER_SOURCE = { name: "医薬品マスター（基本マス�
 
 /** Our oral drugs (master.ts codes) → the official codes. */
 export const ORAL_DRUG_CODES: Record<string, DrugCodes> = {
+  ...Object.fromEntries(ADOPTED_ORAL.map((r) => [r[0], { receipt: r[0], yakka: r[4], name: r[1], unit: r[2], ...(ADOPTED_GENERIC_CODES[r[0]] ? { generic: ADOPTED_GENERIC_CODES[r[0]] } : {}) }])),
   "ORAL-AMPC250": {"receipt": "616130132", "yakka": "6131001F2026", "name": "サワシリン錠２５０　２５０ｍｇ", "unit": "錠"},
   "ORAL-AMCL250": {"receipt": "621116301", "yakka": "6139100F2044", "name": "オーグメンチン配合錠２５０ＲＳ　（３７５ｍｇ）", "unit": "錠"},
   "ORAL-LVFX500": {"receipt": "621925801", "yakka": "6241013F3027", "name": "クラビット錠５００ｍｇ　（レボフロキサシンとして）", "unit": "錠", "generic": {"code": "6241013F3ZZZ", "name": "【般】レボフロキサシン錠５００ｍｇ"}},

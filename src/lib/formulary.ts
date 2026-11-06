@@ -3,6 +3,8 @@
 // are 掲示板 posts from 薬剤部 naming the drugs (board.ts). Code searches, sorts and counts who has read a
 // notice; the pharmacist writes the notices. Nothing here is written by AI.
 
+import { TOPICAL_DRUGS, FORMULARY_ONLY_ORAL, ADOPTION_SOURCE } from "./formulary-expansion";
+
 import { DRUG_CLASSES, docOf, docUrl, marksOf, type DrugClass } from "./drug-class";
 import { csvOf } from "./extract";
 import { kanaMatch } from "./kana";
@@ -13,14 +15,14 @@ import { isExpired, type Notice, type Reads } from "./board";
 export type Adoption = "採用" | "採用（レジメン限定）" | "採用（麻薬）";
 
 export const ADOPTION_NOTE: Record<Adoption, string> = {
-  採用: "院内で処方・注射できる",
+  採用: "院内の採用品目（外用は医薬品集の表示のみ）",
   "採用（レジメン限定）": "抗がん薬：院内登録レジメンの欄からだけオーダする",
   "採用（麻薬）": "麻薬：麻薬施用者だけが処方し、麻薬帳簿で受払いを管理する",
 };
 
 export interface FormularyItem {
   code: string;
-  route: "注射" | "内服";
+  route: "注射" | "内服" | "外用";
   /** The master's name and strength or package. */
   name: string;
   spec: string;
@@ -37,12 +39,18 @@ export function formulary(): FormularyItem[] {
   for (const d of DRUGS) {
     const cls = DRUG_CLASSES[d.code];
     if (!cls) continue;
-    out.push({ code: d.code, route: "注射", name: d.name, spec: d.package, aliases: d.aliases, cls, adoption: d.chemo ? "採用（レジメン限定）" : cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: docUrl(cls.doc), revision: docOf(cls.doc).revision });
+    out.push({ code: d.code, route: "注射", name: d.name, spec: d.package, aliases: d.aliases, cls, adoption: d.chemo ? "採用（レジメン限定）" : cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: cls.doc ? docUrl(cls.doc) : ADOPTION_SOURCE.url, revision: cls.doc ? docOf(cls.doc).revision : cls.classificationSource ?? "医薬品マスター" });
   }
   for (const d of ORAL_DRUGS) {
     const cls = DRUG_CLASSES[d.code];
     if (!cls) continue;
-    out.push({ code: d.code, route: "内服", name: d.name, spec: `${d.strength}／${d.unit}`, aliases: d.aliases, cls, adoption: cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: docUrl(cls.doc), revision: docOf(cls.doc).revision });
+    out.push({ code: d.code, route: "内服", name: d.name, spec: `${d.strength}／${d.unit}`, aliases: d.aliases, cls, adoption: cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: cls.doc ? docUrl(cls.doc) : ADOPTION_SOURCE.url, revision: cls.doc ? docOf(cls.doc).revision : cls.classificationSource ?? "医薬品マスター" });
+  }
+  for (const [route, drugs] of [["外用", TOPICAL_DRUGS], ["内服", FORMULARY_ONLY_ORAL]] as const) {
+    for (const d of drugs) {
+      const cls = DRUG_CLASSES[d.code];
+      out.push({ ...d, route, cls, adoption: route === "内服" ? "採用（レジメン限定）" : cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: ADOPTION_SOURCE.url, revision: cls.classificationSource ?? "医薬品マスター" });
+    }
   }
   return out;
 }
@@ -51,7 +59,7 @@ export type KiseiFilter = "" | "麻薬" | "毒薬" | "劇薬" | "ハイリスク
 
 export interface FormularyQuery {
   q: string;
-  route: "" | "注射" | "内服";
+  route: "" | "注射" | "内服" | "外用";
   kisei: KiseiFilter;
   sort: "読み" | "薬効";
 }
@@ -65,7 +73,7 @@ export function searchFormulary(items: FormularyItem[], f: FormularyQuery): Form
   const hit = items.filter((x) => {
     if (f.route && x.route !== f.route) return false;
     if (f.kisei === "ハイリスク" && !x.cls.b008) return false;
-    if (f.kisei === "処方箋医薬品以外" && x.cls.kisei.includes("処方箋医薬品")) return false;
+    if (f.kisei === "処方箋医薬品以外" && (!x.cls.doc || x.cls.kisei.includes("処方箋医薬品"))) return false;
     if ((f.kisei === "麻薬" || f.kisei === "毒薬" || f.kisei === "劇薬") && !x.cls.kisei.includes(f.kisei)) return false;
     return !f.q.trim() || words(x).some((w) => kanaMatch(w, f.q));
   });
@@ -76,7 +84,7 @@ export function searchFormulary(items: FormularyItem[], f: FormularyQuery): Form
 
 /** 規制区分 in words (e.g. "劇薬・麻薬・処方箋医薬品"), with the ハイリスク group. */
 export const kiseiText = (x: FormularyItem): string =>
-  [...x.cls.kisei, ...(x.cls.b008 ? [`ハイリスク（${x.cls.b008.group}）`] : [])].join("・") || "（記載なし）";
+  [...x.cls.kisei, ...(x.cls.b008 ? [`ハイリスク（${x.cls.b008.group}）`] : [])].join("・") || (x.cls.doc ? "（記載なし）" : "（未確認）");
 
 /** 院内医薬品集 as CSV (for Excel). */
 export function formularyCsv(items: FormularyItem[]): string {

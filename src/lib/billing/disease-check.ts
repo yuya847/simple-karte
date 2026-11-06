@@ -2,6 +2,7 @@ import { patternDay, rxLastDay } from "../day-pattern";
 // 病名漏れの「候補」。適応・査定の確定や病名の自動登録は行わない。
 // ICD は病名の探索範囲。薬ごとの用量・菌種・併用条件までは判定しない。
 // 疑い可否・対象日ごとの照合・同じ品目の月内集約は、この画面の点検方針。
+import { ADOPTED_INJECTIONS, ADOPTED_ORAL } from "../formulary-items";
 import { diagnosisClaimable, diagnosisLabel, isSuspected, type Diagnosis } from "../diagnoses";
 import { classOf, docUrl } from "../drug-class";
 import { DRUGS, ORAL_DRUGS, LAB_TESTS, findDrug, findLab, findSet, WARD_RULES } from "../master";
@@ -40,7 +41,7 @@ export const DISEASE_RULES: DiseaseRule[] = [
   { id: "loop", kind: "drug", codes: ["INJ-FRS20", "ORAL-FRS20"], label: "ループ利尿薬", example: "心不全・浮腫・高血圧症", suspected: false, any: [{ icd: ["I10-I15", "I50", "R60", "N04", "N20-N23"], words: ["浮腫", "心不全", "高血圧", "ネフローゼ", "月経前緊張症"] }], source: "https://www.pmda.go.jp/files/000211666.pdf" },
   // セファメジン等の適応症・手引き第四版 医科入院編。菌種や個別適応の審査はしない。
   // 周術期・ST合剤の予防は別の文脈が必要なので、曖昧な自由記載から自動免除しない。
-  { id: "antibiotic", kind: "drug", codes: ["INJ-VCM05", "INJ-CEZ1", "INJ-SBTABPC3", "INJ-CTRX1", "ORAL-AMPC250", "ORAL-AMCL250", "ORAL-LVFX500", "ORAL-CFPN100", "ORAL-AZM250", "ORAL-ST"], label: "抗菌薬", example: "感染症（肺炎・尿路感染症など）", suspected: false, any: [infection], source: "https://www.mhlw.go.jp/content/10906000/001582921.pdf" },
+  { id: "antibiotic", kind: "drug", codes: [...[...ADOPTED_INJECTIONS, ...ADOPTED_ORAL].filter(r => /^(611|612|613|614|615|616|624|641)/.test(r[4])).map(r => r[0]),"INJ-VCM05", "INJ-CEZ1", "INJ-SBTABPC3", "INJ-CTRX1", "ORAL-AMPC250", "ORAL-AMCL250", "ORAL-LVFX500", "ORAL-CFPN100", "ORAL-AZM250", "ORAL-ST"], label: "抗菌薬", example: "感染症（肺炎・尿路感染症など）", suspected: false, any: [infection], source: "https://www.mhlw.go.jp/content/10906000/001582921.pdf" },
   // 4・5節: 再発抑制は潰瘍の既往＋NSAIDs/低用量アスピリン。抗血小板薬全般には広げない。
   { id: "ppi", kind: "drug", codes: ["ORAL-ESOM20", "ORAL-LPZ15"], label: "PPI（胃酸を抑える薬）", example: "胃潰瘍・逆流性食道炎・潰瘍の再発抑制", suspected: false, any: [{ icd: ["K21", "K25-K28", "E164"], words: ["逆流性食道炎", "胃食道逆流", "胃潰瘍", "十二指腸潰瘍", "吻合部潰瘍", "Zollinger", "ゾリンジャー", "ピロリ", "胃MALTリンパ腫", "特発性血小板減少性紫斑病", "内視鏡的治療後胃"] }], ulcerPrevention: true, source: docUrl("nexium") },
   { id: "apixaban", kind: "drug", codes: ["ORAL-API25"], label: "抗凝固薬", example: "心房細動・深部静脈血栓症・肺血栓塞栓症", suspected: false, any: [{ icd: ["I48", "I26", "I80-I82"], words: ["心房細動", "深部静脈血栓", "肺血栓", "肺塞栓", "静脈血栓塞栓"] }], source: docUrl("eliquis") },
@@ -75,6 +76,7 @@ export const DISEASE_RULES: DiseaseRule[] = [
  * マスター追加時はテストで未整理を検知する。
  */
 export const DISEASE_CHECK_EXCLUSIONS: { kind: "drug" | "lab"; codes: string[]; reason: string }[] = [
+  { kind: "drug", codes: [...ADOPTED_INJECTIONS, ...ADOPTED_ORAL].filter(r => (DRUGS.some(d => d.code === r[0]) || ORAL_DRUGS.some(d => d.code === r[0])) && !DISEASE_RULES.some(rule => rule.kind === "drug" && rule.codes.includes(r[0]))).map(r => r[0]), reason: "追加採用品目：個別の効能・予防・併用条件は未照合のため点検対象外（病名不要という意味ではない）" },
   { kind: "drug", codes: ["INJ-NS500", "INJ-NS100", "INJ-VEENF500", "INJ-SOL3A500", "INJ-GLU5-500", "INJ-GLU5-250", "INJ-NSSY10", "INJ-HEPLOCK10"], reason: "補液・溶解・ルート維持等の用途があり特定の病名を求めない" },
   { kind: "drug", codes: ["INJ-APAP1000", "INJ-KCL20", "INJ-VITAMEDIN", "INJ-PTX", "INJ-CBDCA", "INJ-ETP", "INJ-PALO", "INJ-FAPR", "INJ-DEX66", "INJ-FAMO20", "INJ-MOR10", "ORAL-CELE100", "ORAL-TRAM25", "ORAL-FAMO20", "ORAL-CAND8", "ORAL-TRAZ25", "ORAL-PICO25", "ORAL-CARB500", "ORAL-DEXT15", "ORAL-PRED5", "ORAL-MECO500", "ORAL-FOL5", "ORAL-APAP500", "ORAL-DNP5", "ORAL-ENA5", "ORAL-BISO25", "ORAL-SPL25", "ORAL-MGO330", "ORAL-LOX60", "ORAL-REBA100", "ORAL-SENNA12", "ORAL-OXC5"], reason: "個別の効能・予防・併用条件を確認後にルールを追加する（今回は点検対象外）" },
   { kind: "lab", codes: ["LAB-CBC", "LAB-DIFF", "LAB-CHEM", "LAB-CRP", "LAB-COAG", "LAB-UA", "LAB-WBC", "LAB-HB", "LAB-PLT", "LAB-PT", "LAB-APTT", "LAB-TP", "LAB-ALB", "LAB-AST", "LAB-ALT", "LAB-LD", "LAB-ALP", "LAB-GGT", "LAB-TBIL", "LAB-BUN", "LAB-CRE", "LAB-URIC", "LAB-NA", "LAB-CL", "LAB-K", "LAB-CA", "LAB-IP", "LAB-MG", "LAB-GLU", "LAB-TG", "LAB-TCHO", "LAB-HDL", "LAB-LDL", "LAB-RBC", "LAB-HT", "LAB-ESR", "LAB-BGA", "LAB-VBG", "LAB-ABO", "LAB-IRRAB", "LAB-XMATCH", "LAB-MRSASCR"], reason: "一般的な検査・輸血準備・スクリーニングは特定の病名に限定しない（CRPを含む）" },

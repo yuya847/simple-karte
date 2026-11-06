@@ -1,3 +1,4 @@
+import { ADOPTED_TOPICAL } from "./formulary-items";
 // 麻薬の管理: 麻薬帳簿（受払簿）, 施用票, 施用残液・空アンプルの返納と立会いの廃棄, 病棟からの返納と調剤済麻薬の廃棄,
 // 事故届の入口, 在庫との照合. Code keeps the book and does the arithmetic (残高, 施用量＋残量＝払い出した量, the
 // 30-day limit of the 廃棄届); people count, witness and sign. How each entry is written follows the ministry's
@@ -115,12 +116,12 @@ export const INITIAL_BOOK: NarcoticBook = {
 
 const at = (w: When) => w.day * 1440 + Number(w.time.slice(0, 2)) * 60 + Number(w.time.slice(3, 5));
 
-export const unitOf = (code: string): string => (findDrug(code) ? "A" : (findOralDrug(code)?.unit ?? ""));
+export const unitOf = (code: string): string => findDrug(code)?.strength?.per ?? findDrug(code)?.units[0] ?? findOralDrug(code)?.unit ?? ADOPTED_TOPICAL.find(r => r[0] === code)?.[2].normalize("NFKC") ?? "";
 
 /** mL in one ampoule (the master's package "10mg/1mL/A" → 1). */
 export function mlPerAmpoule(code: string): number | null {
   const m = findDrug(code)?.package.match(/\/([\d.]+)mL\/A$/);
-  return m ? Number(m[1]) : null;
+  return m ? Number(m[1]) : findDrug(code)?.volumeMl ?? null;
 }
 
 /** 残高 of an account: every entry's qty; （ ） 返納 are not added (マニュアル 第6 2 ※3). */
@@ -147,7 +148,7 @@ export function doseOf(item: InjectionItem): { ampoules: number; ml: number } | 
   const per = mlPerAmpoule(item.drugCode);
   if (!d?.strength || per === null) return null;
   const mgPerMl = d.strength.amount / per;
-  const ml = item.unit === "mL" ? item.amount : item.unit === "A" ? item.amount * per : item.unit === d.strength.unit ? item.amount / mgPerMl : NaN;
+  const ml = item.unit === "mL" ? item.amount : (item.unit === "A" || item.unit === d.strength.per) ? item.amount * per : item.unit === d.strength.unit ? item.amount / mgPerMl : NaN;
   if (!Number.isFinite(ml) || ml <= 0) return null;
   return { ampoules: Math.ceil(ml / per - 1e-9), ml: Math.round(ml * 100) / 100 };
 }

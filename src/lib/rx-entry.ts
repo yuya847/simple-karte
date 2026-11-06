@@ -18,6 +18,9 @@ export function doseStep(drug: { unit: string; scored?: boolean }): number {
 }
 /** The usual 1回量 to choose from (the combo box): steps of the drug's smallest division, up to 4 tablets/capsules. */
 export function doseOptions(drug: { unit: string; scored?: boolean }): string[] {
+  if (drug.unit === "g") return ["0.125", "0.25", "0.5", "1", "2", "3"];
+  if (drug.unit === "mL") return ["1", "2", "5", "10", "15", "20"];
+  if (["包", "瓶", "個"].includes(drug.unit)) return ["1", "2", "3", "4"];
   const step = doseStep(drug);
   if (step < 0.25) return [];
   const out: string[] = [];

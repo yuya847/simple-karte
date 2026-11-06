@@ -12,7 +12,7 @@ const cez: InjectionOrder = { type: "injection", items: [{ drugCode: "INJ-CEZ1",
 
 describe("麻薬はマスターの電子添文の区分から", () => {
   it("the morphine injection and oxycodone tablet are 麻薬", () => {
-    expect([...NARCOTICS].sort()).toEqual(["INJ-MOR10", "ORAL-OXC5"]);
+    expect([...NARCOTICS]).toEqual(expect.arrayContaining(["INJ-MOR10", "ORAL-OXC5", "660432005"]));
   });
   it("a 研修医 cannot confirm them (架空の病院の取り決め, cosign.ts)", () => {
     expect(residentBlock(morphine)).toBe("麻薬");

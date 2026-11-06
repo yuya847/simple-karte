@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { DRUG_CLASSES, NARCOTICS, docOf, docUrl, drugCodesOf, marksOf, unclassified } from "./drug-class";
+import { TOPICAL_DRUGS, FORMULARY_ONLY_ORAL } from "./formulary-expansion";
 import { DRUGS, ORAL_DRUGS } from "./master";
 
 describe("規制区分（電子添文から）", () => {
   it("every master drug has a class, and every class is a master drug", () => {
     expect(unclassified()).toEqual([]);
-    const master = new Set([...DRUGS.map((d) => d.code), ...ORAL_DRUGS.map((d) => d.code)]);
+    const master = new Set([...DRUGS.map((d) => d.code), ...ORAL_DRUGS.map((d) => d.code), ...TOPICAL_DRUGS.map(d => d.code), ...FORMULARY_ONLY_ORAL.map(d => d.code)]);
     expect(Object.keys(DRUG_CLASSES).filter((c) => !master.has(c))).toEqual([]);
   });
 
   it("each class points at a PMDA 電子添文 whose codes include the item", () => {
     for (const [code, c] of Object.entries(DRUG_CLASSES)) {
+      if (!c.doc) { expect(c.classificationSource).toContain("医薬品マスター"); continue; }
       expect(docUrl(c.doc).startsWith("https://www.pmda.go.jp/PmdaSearch/iyakuDetail/")).toBe(true);
       expect((docOf(c.doc) as { codes?: readonly string[] }).codes ?? []).toContain(code);
     }

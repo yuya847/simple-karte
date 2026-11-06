@@ -12,7 +12,10 @@ export interface DrugInfo {
   care: string[];
 }
 
+import { MORE_ORAL_DRUGS } from "./formulary-expansion";
+
 export const DRUG_INFO: Record<string, DrugInfo> = {
+  ...Object.fromEntries(MORE_ORAL_DRUGS.map(d => [d.code, { what: "処方の目的と、この薬の使い方を薬剤師に確認してください。", care: ["指示された量・回数を守ってください。気になる症状や、ほかに使用中の薬は医師・薬剤師に伝えてください。"] }])),
   "ORAL-AMPC250": {"what": "細菌による感染症の治療に使う薬です。", "care": ["決められた量と時間を守ってください。", "ほかの薬を使っている場合は医師・薬剤師に伝えてください。"]},
   "ORAL-AMCL250": {"what": "細菌による感染症の治療に使う薬です。", "care": ["決められた量と時間を守ってください。", "ほかの薬を使っている場合は医師・薬剤師に伝えてください。"]},
   "ORAL-LVFX500": {"what": "細菌による感染症の治療に使う薬です。", "care": ["決められた量と時間を守ってください。", "ほかの薬を使っている場合は医師・薬剤師に伝えてください。"]},

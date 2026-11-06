@@ -64,9 +64,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     const base = (required ? templates.find((t) => t.patient.admissionDiagnosis === required) : undefined) ?? templates[(i + (seed >>> 0) % PATIENTS.length) % PATIENTS.length];
     const stage: Stage = i % 10 === 0 ? "救急" : i % 10 === 8 ? "退院" : i % 10 === 9 ? "外来" : "入院";
     const drawnDuration = 1 + next() % 35;
-    // ESBL/CD workups remain on admission day: their directed drugs are not in the formulary.
-    // Do not fabricate a completed treatment or introduce unregistered drug codes.
-    const duration = i === 7 || i === 11 ? 1 : i === 1 ? 105 : i === 12 ? 8 : [6, 14, 17, 18].includes(i) ? Math.max(i === 6 ? 21 : 8, drawnDuration) : drawnDuration;
+    const duration = i === 7 || i === 11 ? Math.max(14, drawnDuration) : i === 1 ? 105 : i === 12 ? 8 : [6, 14, 17, 18].includes(i) ? Math.max(i === 6 ? 21 : 8, drawnDuration) : drawnDuration;
     const admittedOn = stage === "救急" ? 0 : stage === "外来" || stage === "退院" ? -duration - 7 : 1 - duration;
     const dischargeDay = stage === "退院" || stage === "外来" ? -7 : undefined;
     const shift = admittedOn - base.patient.admittedOn;
@@ -100,7 +98,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     if (patient.dischargedAt) { patient.dischargedAt.by = patient.attending; if (destination === "死亡退院") patient.dischargedAt.time = "14:20"; }
     const note = (day: number, role: "医師" | "看護師" | "MSW", text: string) => patient.history.push({ kind: "note", id: `${id}-story-${patient.history.length}`, day, time: day === dischargeDay ? destination === "死亡退院" ? "14:20" : "10:00" : "10:00", author: role === "医師" ? patient.attending : role === "看護師" ? nurseFor(patient.room) : role, role, text });
     const diagnoses = clinicalDiagnoses;
-    if (i === 11) diagnoses[0].suffixes = [{ code: "8002", name: "の疑い" }];
+
     const workflow = addWorkflow(patient, diagnoses, dischargeDay ?? 0, i);
     const clinicalDiets = addClinicalCourse(patient, clinical, dischargeDay ?? 0, i, destination, stage);
     if (dischargeDay !== undefined) {

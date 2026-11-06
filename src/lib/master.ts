@@ -2,10 +2,14 @@
 // Drug names and package sizes are public facts; the selection, aliases, set contents
 // and ward rules below are made up for this prototype and are not any real hospital's.
 
+import { ADOPTED_ORAL, LEGACY_INGREDIENTS, ADOPTED_INGREDIENT_ALIASES } from "./formulary-items";
+import { MORE_DRUGS, MORE_ORAL_DRUGS } from "./formulary-expansion";
+
 import type { InjectionRoute } from "./types";
 import { MORE_LAB_INFO, MORE_LAB_TESTS } from "./lab-master-more";
 
 export interface DrugMaster {
+  insulinUnitsPerBillingUnit?: number;
   /** Demo-only item: no official code, price or electronic package insert. */
   fictional?: boolean;
   code: string;
@@ -32,6 +36,7 @@ export interface DrugMaster {
 }
 
 export const DRUGS: DrugMaster[] = [
+  ...MORE_DRUGS,
   ...[ ["HUMAN", "ヒト（速効型）注 100単位/mL"], ["ASPART", "アスパルト注"], ["LISPRO", "リスプロ注"], ["GLARGINE", "グラルギン注"], ["DEGLUDEC", "デグルデク注"] ].map(([code, name]): DrugMaster => ({ fictional: true, code: `DEMO-INS-${code}`, name: `インスリン ${name}`, generic: `インスリン ${name}`, category: "インスリン", package: "架空の品目（薬価なし）", kind: "その他", units: ["単位"], routes: ["皮下注"], aliases: ["インスリン", name] })),
   {
     code: "INJ-NS500",
@@ -317,7 +322,8 @@ export interface OralDrugMaster {
   code: string;
   name: string;
   strength: string;
-  unit: "錠" | "カプセル" | "包";
+  unit: "錠" | "カプセル" | "包" | "g" | "mL" | "瓶" | "個";
+  billingUnitsPerDoseUnit?: number;
   aliases: string[];
   /** Strength of one unit in mg (for the daily-amount check). */
   mg?: number;
@@ -373,23 +379,27 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   { code: "ORAL-MET250", name: "メトホルミン塩酸塩錠", strength: "250mg", unit: "錠", aliases: ["メトホルミン", "メトグルコ"], mg: 250, classes: ["ビグアナイド系"] },
   // 麻薬: オキシコンチンTR錠5mg の電子添文（1日量を2回に分けて12時間ごと。割ったり砕いたりしない：8.1）。
   { code: "ORAL-OXC5", name: "オキシコドン塩酸塩徐放錠", strength: "5mg", unit: "錠", aliases: ["オキシコンチン", "オキシコンチンTR", "オキシコドン徐放", "オキシコドン"], mg: 5, classes: ["オピオイド"] },
+  ...MORE_ORAL_DRUGS,
 ];
 
 /** The active ingredient of an oral drug of the master (its name without the dosage form). */
 export function ingredientOf(code: string): string | null {
-  const d = ORAL_DRUGS.find((x) => x.code === code);
-  return d ? d.name.replace(/(OD)?錠$|カプセル$|散$/, "") : null;
+  const d = oralByCode.get(code);
+  if (!d) return null;
+  const key = oralIngredientKeys.get(code);
+  const representative = key && legacyIngredientNames.get(key);
+  return representative || (key && ADOPTED_INGREDIENT_ALIASES[key]?.[0]) || d.name.replace(/(OD)?錠$|カプセル$|散$/, "");
 }
 
 export function findOralDrug(code: string): OralDrugMaster | undefined {
-  return ORAL_DRUGS.find((d) => d.code === code);
+  return oralByCode.get(code);
 }
 
 /** Name of an injection or oral drug, for messages. */
 export function anyDrugName(code: string): string {
-  const inj = DRUGS.find((d) => d.code === code);
+  const inj = injectionByCode.get(code);
   if (inj) return inj.name;
-  return ORAL_DRUGS.find((d) => d.code === code)?.name ?? code;
+  return oralByCode.get(code)?.name ?? code;
 }
 
 export type LabGroup =
@@ -742,7 +752,7 @@ export const WARD_RULES = {
 } as const;
 
 export function findDrug(code: string): DrugMaster | undefined {
-  return DRUGS.find((d) => d.code === code);
+  return injectionByCode.get(code);
 }
 
 export function findLab(code: string): LabMaster | undefined {
@@ -755,4 +765,20 @@ export function findSet(code: string): OrderSet | undefined {
 
 export function drugLabel(d: DrugMaster): string {
   return `${d.name} ${d.package}`;
+}
+
+const injectionByCode = new Map(DRUGS.map(d => [d.code, d]));
+const oralByCode = new Map(ORAL_DRUGS.map(d => [d.code, d]));
+
+// 医薬品マスターの成分コードで規格違いをまとめ、既存薬の重複・アレルギー点検を引き継ぐ。
+const oralIngredientKeys = new Map([...Object.entries(LEGACY_INGREDIENTS), ...ADOPTED_ORAL.map(r => [r[0], r[4].slice(0, 7)] as [string, string])]);
+const legacyIngredientNames = new Map(ORAL_DRUGS.filter(d => LEGACY_INGREDIENTS[d.code]).map(d => [LEGACY_INGREDIENTS[d.code], d.name.replace(/(OD)?錠$|カプセル$|散$/, "")]));
+for (const d of MORE_ORAL_DRUGS) {
+  const reference = ORAL_DRUGS.find(other => LEGACY_INGREDIENTS[other.code] && LEGACY_INGREDIENTS[other.code] === oralIngredientKeys.get(d.code));
+  if (!reference) continue;
+  d.classes = reference.classes;
+  if ((d.unit === "錠" || d.unit === "カプセル") && /^\d+(?:\.\d+)?mg$/.test(d.strength) && reference.mg) {
+    d.mg = Number(d.strength.replace("mg", ""));
+    d.maxDailyMg = reference.maxDailyMg;
+  }
 }

@@ -16,7 +16,7 @@ const entry:OrderEntry = {kind:"order",id:"old",day:-2,time:"09:00",author:"医�
 const p = {...PATIENTS[0],history:[entry]};
 describe("インスリンのスケールと調整",()=>{
  it("架空の5品目は単位・皮下注で薬価を持たない",()=>{
-  const all=DRUGS.filter(d=>d.category === "インスリン"); expect(all).toHaveLength(5);
+  const all=DRUGS.filter(d=>d.category === "インスリン" && d.fictional); expect(all).toHaveLength(5);
   expect(INTERACTIONS.some(pair=>[...pair.a,...pair.b].some(code=>all.some(d=>d.code === code)))).toBe(false);
   for(const d of all){expect(d.units).toEqual(["単位"]);expect(d.routes).toEqual(["皮下注"]);expect(d.package).toContain("架空");expect(d).not.toHaveProperty("price");}
  });

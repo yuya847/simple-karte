@@ -353,7 +353,7 @@ function Ledger({ book, onBook, today, now, newId, log }: Sub) {
         <span className="text-xs text-ink-soft">
           単位 {u}　残高 <b className="nums text-ink">{balance(book.ledger, code)}{u}</b>
         </span>
-        {c && (
+        {c?.doc && (
           <a href={docUrl(c.doc)} target="_blank" rel="noreferrer" className="text-[11px] text-ai underline">
             電子添文
           </a>

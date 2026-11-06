@@ -11,6 +11,8 @@
 // The same-line question (側管 into a running main line) is not checked: an injection Rp here has no
 // line field, so 配合 is checked only between drugs of the same Rp.
 
+import { ADOPTED_INJECTIONS, ADOPTED_ORAL, LEGACY_INGREDIENTS } from "./formulary-items";
+
 import type { CheckContext, Draft, InjectionDraft, Issue } from "./drafts";
 import type { PrescriptionDraft } from "./rx";
 import { DRUGS, findDrug, findOralDrug } from "./master";
@@ -35,6 +37,8 @@ export interface InteractionSource {
 export const PMDA_DETAIL = "https://www.pmda.go.jp/PmdaSearch/iyakuDetail/";
 
 export const INTERACTION_SOURCES = {
+  meropenem: { product: "メロペネム点滴静注用「明治」", maker: "Meiji Seika ファルマ", revision: "2025年9月改訂（第3版）", docId: "780009_6139400D1114_1_19", codes: ADOPTED_INJECTIONS.filter(r => r[1].includes("メロペネム") && r[1].includes("明治")).map(r => r[0]) },
+  vancomycinOral: { product: "バンコマイシン塩酸塩散0.5g「サワイ」", maker: "沢井製薬", revision: "2025年11月改訂（第2版）", docId: "300119_6113001B1097_1_09", codes: ["620008047"] },
   norvasc: { product: "ノルバスク錠・OD錠", maker: "ヴィアトリス製薬", revision: "2026年5月改訂（第8版）", docId: "671450_2171022F1029_4_07", codes: ["ORAL-AMLO5"] },
   takepronOD: { product: "タケプロンOD錠15・30", maker: "T's製薬（販売：武田薬品工業）", revision: "2026年10月改訂（第9版）", docId: "400061_2329023F1020_2_10", codes: ["ORAL-LPZ15"] },
   calonal: { product: "カロナール錠200・300・500", maker: "あゆみ製薬", revision: "2026年8月改訂（第5版）", docId: "172190_1141007F1063_5_07", codes: ["ORAL-APAP500"] },
@@ -123,6 +127,7 @@ const allInjectionsBut = (...but: string[]) => DRUGS.filter(d => !d.fictional).m
 const BP_UP = "降圧作用が強まることがある（作用の相加）。血圧を見る。";
 
 export const INTERACTIONS: InteractionPair[] = [
+  { id: "meropenem-valproate", level: "併用禁忌", a: ADOPTED_INJECTIONS.filter(r => r[1].includes("メロペネム")).map(r => r[0]), b: ADOPTED_ORAL.filter(r => r[1].includes("バルプロ酸")).map(r => r[0]), text: "メロペネムとの併用でバルプロ酸の血中濃度が低下し、発作が再発するおそれがある。", refs: [{ doc: "meropenem", section: "10.1", as: "バルプロ酸ナトリウム" }] },
   // --- 降圧作用の増強（併用注意） ---
   { id: "amlo-ena", level: "併用注意", a: [AMLO], b: [ENA], text: BP_UP, refs: [{ doc: "norvasc", section: "10.2", as: "降圧作用を有する薬剤" }] },
   {
@@ -548,15 +553,22 @@ export function interactionName(code: string): string {
   return findDrug(code)?.name ?? code;
 }
 
+const ingredientKeys = new Map([...Object.entries(LEGACY_INGREDIENTS), ...[...ADOPTED_INJECTIONS, ...ADOPTED_ORAL].map(r => [r[0], r[4].slice(0, 7)] as [string, string])]);
+const sameIngredient = (x: string, y: string) => x === y || (!!ingredientKeys.get(x) && ingredientKeys.get(x) === ingredientKeys.get(y));
+export const interactionSourceApplies = (doc: SourceKey, x: string, y: string) => INTERACTION_SOURCES[doc].codes.some(c => sameIngredient(c, x) || sameIngredient(c, y));
+
 const sourcesFor = (p: InteractionPair, x: string, y: string) =>
   p.refs
-    .filter((r) => INTERACTION_SOURCES[r.doc].codes.some((c) => c === x || c === y))
+    .filter((r) => interactionSourceApplies(r.doc, x, y))
     .map((r) => {
       const s = INTERACTION_SOURCES[r.doc];
       return { label: `${s.product} 電子添文 ${r.section}（${s.revision}）`, url: sourceUrl(r.doc), section: r.section, as: r.as };
     });
 
-const matches = (p: InteractionPair, x: string, y: string) => x !== y && ((p.a.includes(x) && p.b.includes(y)) || (p.a.includes(y) && p.b.includes(x)));
+const matches = (p: InteractionPair, x: string, y: string) => {
+  const has = (codes: string[], code: string) => p.level === "配合" ? codes.includes(code) : codes.some(c => sameIngredient(c, code));
+  return x !== y && ((has(p.a, x) && has(p.b, y)) || (has(p.a, y) && has(p.b, x)));
+};
 
 /**
  * Pairs between the drugs of one Rp, and between them and the targets. 配合 is looked for only between drugs of

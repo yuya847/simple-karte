@@ -42,16 +42,16 @@ export function addWorkflow(p: Patient, diagnoses: Diagnosis[], end: number, i: 
       order(3, { type: "lab", codes: ["LAB-VCM"], collect: { day: day(3), time: "11:30" }, priority: "定時" });
       note(3, "薬剤師", "抗MRSA薬TDM：12時投与前11:30の濃度14.2μg/mL、Cre0.98mg/dL。投与履歴と採血時刻を照合し医師へ報告。現用量を継続し3日後に腎機能と濃度を再確認。");
     } else if (i === 7) {
-      // Admission-day empiric treatment. No organism or susceptibility is known yet.
-      p.cultures.push({ collectedOn: p.admittedOn, specimen: "尿", status: "培養中" });
-      p.cultures.push({ collectedOn: p.admittedOn, specimen: "血液", sets: "2セット", status: "培養中" });
+      // Report the isolate on day 2; keep earlier charts free of future results.
+      p.cultures.push({ collectedOn: p.admittedOn, specimen: "尿", reportedOn: day(2), status: "最終報告", organism: "ESBL産生 Escherichia coli", susceptibility: [{ drug: "CTRX", mic: ">4", result: "R" }, { drug: "MEPM", mic: "0.25", result: "S" }] });
+      p.cultures.push({ collectedOn: p.admittedOn, specimen: "血液", sets: "2セット", reportedOn: day(2), status: "最終報告", organism: "ESBL産生 Escherichia coli", susceptibility: [{ drug: "CTRX", mic: ">4", result: "R" }, { drug: "MEPM", mic: "0.25", result: "S" }] });
       order(0, { type: "lab", codes: ["LAB-UCX"], collect: { day: p.admittedOn, time: "09:00" }, priority: "至急" });
-      order(0, { type: "injection", items: [{ drugCode: "INJ-CTRX1", amount: 2, unit: "g" }], route: "点滴静注", schedule: { kind: "per_day", count: 1 }, start: { day: p.admittedOn, time: "12:00" }, days: 1, end: { day: p.admittedOn, time: "23:59" }, comment: "初期治療。培養速報時に薬剤を再評価" });
+      order(0, { type: "injection", items: [{ drugCode: "INJ-CTRX1", amount: 2, unit: "g" }], route: "点滴静注", schedule: { kind: "per_day", count: 1 }, start: { day: p.admittedOn, time: "12:00" }, days: 2, end: { day: day(1), time: "23:59" }, comment: "初期治療。培養速報時に薬剤を再評価" });
     }
 
   }
   if (/糖尿病/.test(name)) {
-    order(0, { type: "injection", items: [{ drugCode: "DEMO-INS-HUMAN", amount: 1, unit: "単位" }], route: "皮下注", schedule: { kind: "per_day", count: 3 }, start: { day: p.admittedOn, time: "11:30" }, sliding: { times: ["07:00", "11:30", "17:30"], rows: [{ from: 0, to: 199, units: 0 }, { from: 200, to: 249, units: 2 }, { from: 250, to: null, units: 4 }], callAbove: 300 } });
+    order(0, { type: "injection", items: [{ drugCode: "620008909", amount: 1, unit: "単位" }], route: "皮下注", schedule: { kind: "per_day", count: 3 }, start: { day: p.admittedOn, time: "11:30" }, sliding: { times: ["07:00", "11:30", "17:30"], rows: [{ from: 0, to: 199, units: 0 }, { from: 200, to: 249, units: 2 }, { from: 250, to: null, units: 4 }], callAbove: 300 } });
     note(1, "管理栄養士", "食事摂取量・生活背景を確認。食事療法と低血糖時の対応について本人に説明。");
   }
   if (/認知症|脳梗塞|脳塞栓/.test(name) && p.admittedOn < end - 3) {

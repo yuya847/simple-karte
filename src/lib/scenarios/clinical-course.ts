@@ -57,6 +57,16 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
     if (duration >= 8) p.cultures.push({ collectedOn: first + 3, reportedOn: first + 8, specimen: "血液", sets: "2セット", status: "最終報告", organism: "発育なし（5日間）" });
   }
   if (i === 11) labOrder(0, ["LAB-CDIFF"]);
+  if (i === 7) {
+    injection(2, "621948001", 1, "g", 3, 7);
+    if (duration >= 2) { p.infections = ["ESBL"]; addNote(first + 2, "医師", { text: "血液・尿培養でESBL産生大腸菌、CTRX耐性・MEPM感性。CTRXを終了しMEPM 1回1g、1日3回、60分で点滴へ変更。腎機能と投与間隔を薬剤師と照合。" }); }
+    if (duration >= 8) addNote(first + 8, "医師", { text: "MEPM 7日間を完了。解熱・循環安定、排尿時痛消失、Cre改善。抗菌薬を終了し再燃を観察。" });
+  }
+  if (i === 11) {
+    order(1, { type: "prescription", category: "定期", drugCode: "620008047", amount: 0.125, unit: "g", timings: ["朝", "昼", "夕", "眠前"], start: { day: first + 1, timing: "朝" }, days: 10, comment: "CD腸炎。経口バンコマイシン125mgを1日4回。0.5g瓶の1/4量を1回量として調製" });
+    if (duration >= 1) addNote(first + 1, "医師", { text: "便毒素陽性。経口バンコマイシン125mgを1日4回、10日間開始。接触予防策・補液を継続。" });
+    if (duration >= 10) addNote(first + 10, "医師", { text: "経口バンコマイシン10日間を完了。水様便消失、食事摂取・脱水改善。終了後の再発徴候と連絡先を説明。" });
+  }
   if (i === 12 || i === 15) {
     p.labs.push({ day: first, time: "09:00", values: i === 12 ? { pH: 7.32, PaO2: 58, PaCO2: 44, HCO3: 22 } : { pH: 7.35, PaO2: 61, PaCO2: 52, HCO3: 28 } });
     labOrder(0, ["LAB-BGA"]);

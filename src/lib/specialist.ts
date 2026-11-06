@@ -55,7 +55,7 @@ export function antibioticsOf(entries: OrderEntry[]) {
       const cls = classOf(code);
       const drug = findDrug(code) ?? findOralDrug(code);
       const name = cls?.generic || (drug && "generic" in drug ? drug.generic : "") || drug?.name || code;
-      const rule = ANTIBIOTIC_RULES.find(r => r.match.test(name));
+      const rule = ANTIBIOTIC_RULES.find(r => r.match.test([name, ...(drug?.aliases ?? [])].join(" ")));
       const antibacterial = /^(87)?6[12]/.test(cls?.bunrui ?? "") || /抗生物質|抗菌/.test(cls?.yakko ?? "") || /セファゾリン|セフトリアキソン|アンピシリン|アモキシシリン|セフカペン|アジスロマイシン|レボフロキサシン|スルファメトキサゾール|メトロニダゾール/.test(name);
       return (rule || antibacterial) && "start" in o ? [{ id: e.id, code, names: name, kind: rule?.kind ?? "", days: 1 - o.start.day, startDay: o.start.day }] : [];
     });

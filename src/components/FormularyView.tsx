@@ -65,9 +65,10 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
           <input value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="一般名・販売名・よみ（かなでも）" aria-label="薬を探す" className={`${input} w-64`} />
         </label>
         <select value={f.route} onChange={(e) => set({ route: e.target.value as FormularyQuery["route"] })} aria-label="注射・内服" className={input}>
-          <option value="">注射と内服</option>
+          <option value="">すべての剤形</option>
           <option value="注射">注射</option>
           <option value="内服">内服</option>
+          <option value="外用">外用</option>
         </select>
         <select value={f.kisei} onChange={(e) => set({ kisei: e.target.value as KiseiFilter })} aria-label="規制区分" className={input}>
           <option value="">規制区分：すべて</option>
@@ -95,18 +96,18 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
       </header>
       <div className="scroll-thin min-h-0 flex-1 overflow-auto p-5">
         <div className="mx-auto max-w-[1200px] space-y-4">
-          <p className="hint text-xs text-ink-soft">行を押すと、その薬の DI のお知らせと採用区分の説明が開きます。規制区分・薬効分類・一般的名称は、各薬の電子添文（PMDA）から写したものです。</p>
+          <p className="hint text-xs text-ink-soft">行を押すと、その薬の DI のお知らせと採用区分の説明が開きます。分類の出典は各行に表示します。医薬品マスターのみの品目は、劇薬・処方箋医薬品・生物由来の区分を未確認です。</p>
           <div className="overflow-x-auto rounded-lg border border-rule bg-sheet">
             <table className="w-full text-[12.5px]">
               <thead className="bg-tab/60 text-left text-[11px] text-ink-soft">
                 <tr>
                   <th className="px-2 py-1.5 font-normal">院内の名前・規格</th>
                   <th className="px-2 py-1.5 font-normal">一般的名称</th>
-                  <th className="px-2 py-1.5 font-normal">電子添文の製品（販売名）</th>
+                  <th className="px-2 py-1.5 font-normal">販売名・参照製品</th>
                   <th className="px-2 py-1.5 font-normal">規制区分</th>
                   <th className="px-2 py-1.5 font-normal">薬効分類</th>
                   <th className="px-2 py-1.5 font-normal">採用区分</th>
-                  <th className="px-2 py-1.5 font-normal">電子添文</th>
+                  <th className="px-2 py-1.5 font-normal">出典</th>
                   <th className="px-2 py-1.5 font-normal">DI</th>
                 </tr>
               </thead>
@@ -217,10 +218,10 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
         <td className="px-2 py-1.5">{x.adoption}</td>
         <td className="px-2 py-1.5">
           <a href={x.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-0.5 text-ai underline">
-            PMDA
+            {x.cls.doc ? "PMDA" : "医薬品マスター"}
             <ExternalLink size={11} />
           </a>
-          <span className="block text-[10px] text-ink-faint">{x.revision}</span>
+          <span className="hint block text-[10px] text-ink-faint">{x.revision}</span>
         </td>
         <td className="px-2 py-1.5">{n.length > 0 && <span className={`rounded px-1.5 text-[11px] font-bold ${unread ? "bg-yamabuki-soft text-yamabuki" : "bg-tab text-ink-soft"}`}>{unread ? `未読 ${unread}` : `${n.length}件`}</span>}</td>
       </tr>
@@ -314,14 +315,14 @@ function DiPost({ today, nowTime, onPost }: { today: CalendarDate; nowTime: stri
 function FormularySheet({ items, today, sort }: { items: FormularyItem[]; today: CalendarDate; sort: FormularyQuery["sort"] }) {
   return (
     <div className="text-[8.5pt] text-black">
-      <h1 className="mb-1 text-[13pt] font-bold">院内医薬品集（架空総合病院・{sort === "薬効" ? "薬効順" : "読み順"}）</h1>
-      <p className="mb-2 text-[8pt]">{formatShort(today)} 現在。規制区分・薬効分類・一般的名称は PMDA の電子添文（2026-11-04 に読んだ版）から。</p>
+      <h1 className="mb-1 text-[13pt] font-bold">院内医薬品集（{sort === "薬効" ? "薬効順" : "読み順"}）</h1>
+      <p className="mb-2 text-[8pt]">{formatShort(today)} 現在。分類は電子添文または医薬品マスターから。各行の出典を確認。</p>
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-black text-left">
             <th className="py-0.5">院内の名前・規格</th>
             <th>一般的名称</th>
-            <th>電子添文の製品</th>
+            <th>販売名・参照製品</th>
             <th>規制区分</th>
             <th>薬効分類（番号）</th>
             <th>採用区分</th>

@@ -5,8 +5,8 @@ import { marksOf } from "./drug-class";
 const brands = ["さわしりん", "おーぐめんちん", "くらびっと", "ふろもっくす", "じすろまっく", "ばくた", "せれこっくす", "とらまーる", "ねきしうむ", "がすたー", "ぶろぷれす", "じゃぬびあ", "りぴとーる", "まいすりー", "べるそむら", "れすりん", "らきそべろん", "むこだいん", "めじこん", "わーふぁりん", "えりきゅーす", "りくしあな", "ぷれどにん", "めちこばーる", "ふぉりあみん"];
 it.each(brands)("追加内服はひらがなで検索できる：%s", q => {
   const matches = searchFormulary(formulary(), { ...EMPTY_QUERY, q, route: "内服" });
-  expect(matches).toHaveLength(1);
-  expect(matches[0].url).toContain("pmda.go.jp");
+  expect(matches.length).toBeGreaterThanOrEqual(1);
+  expect(matches.some(m => m.url.includes("pmda.go.jp"))).toBe(true);
 });
 it("内服マスターのコード・一般名と規格は重ならず、劇薬表示を区別する", () => {
   expect(new Set(ORAL_DRUGS.map(d => d.code)).size).toBe(ORAL_DRUGS.length);

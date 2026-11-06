@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkDraft, isReady, toOrder, type CheckContext, type Draft, type InjectionDraft } from "./drafts";
 import {
   INTERACTIONS,
+  interactionSourceApplies,
   INTERACTION_SOURCES,
   IODINE_CONTRAST,
   draftInteractions,
@@ -84,7 +85,7 @@ describe("相互作用の表（電子添文から）", () => {
     for (const p of INTERACTIONS) {
       for (const x of p.a)
         for (const y of p.b) {
-          const backed = p.refs.some((r) => INTERACTION_SOURCES[r.doc].codes.some((c) => c === x || c === y));
+          const backed = p.refs.some((r) => interactionSourceApplies(r.doc, x, y));
           expect(backed, `${p.id}: ${x} × ${y}`).toBe(true);
         }
     }
@@ -98,9 +99,9 @@ describe("相互作用の表（電子添文から）", () => {
     }
   });
 
-  it("配合 pairs are injections only; no pair of the master is 併用禁忌 (none was found in the 電子添文)", () => {
-    for (const p of INTERACTIONS.filter((x) => x.level === "配合")) for (const c of [...p.a, ...p.b]) expect(c.startsWith("INJ-"), `${p.id}: ${c}`).toBe(true);
-    expect(INTERACTIONS.filter((p) => p.level === "併用禁忌")).toEqual([]);
+  it("配合は注射のみ、MEPMとバルプロ酸は電子添文10.1に基づく併用禁忌", () => {
+    for (const p of INTERACTIONS.filter((x) => x.level === "配合")) for (const c of [...p.a, ...p.b]) expect(DRUGS.some(d => d.code === c), `${p.id}: ${c}`).toBe(true);
+    expect(INTERACTIONS.filter((p) => p.level === "併用禁忌").map(p => p.id)).toEqual(["meropenem-valproate"]);
   });
 });
 

@@ -6,8 +6,14 @@ export function toKatakana(s: string): string {
   return s.replace(/[ぁ-ゖゝゞ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
 }
 
+const normalised = new Map<string, string>();
 export function searchKey(s: string): string {
-  return toKatakana(s.normalize("NFKC").toLowerCase()).replace(/\s+/g, "");
+  const cached = normalised.get(s);
+  if (cached !== undefined) return cached;
+  const key = toKatakana(s.normalize("NFKC").toLowerCase()).replace(/\s+/g, "");
+  if (normalised.size >= 16384) normalised.clear();
+  normalised.set(s, key);
+  return key;
 }
 
 /** Whether a word matches what was typed (from the start, or anywhere). */

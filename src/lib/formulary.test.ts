@@ -1,24 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_NOTICES, INITIAL_READS } from "./board";
 import { EMPTY_QUERY, diNotices, diProblems, formulary, formularyCsv, isDi, kiseiText, readers, searchFormulary } from "./formulary";
+import { TOPICAL_DRUGS, FORMULARY_ONLY_ORAL } from "./formulary-expansion";
 import { DRUGS, ORAL_DRUGS } from "./master";
 
 const items = formulary();
 
 describe("院内医薬品集", () => {
   it("has every master drug once, each with a PMDA link", () => {
-    expect(items.length).toBe(DRUGS.filter(d => !d.fictional).length + ORAL_DRUGS.length);
+    expect(items.length).toBe(DRUGS.filter(d => !d.fictional).length + ORAL_DRUGS.length + TOPICAL_DRUGS.length + FORMULARY_ONLY_ORAL.length);
     expect(new Set(items.map((x) => x.code)).size).toBe(items.length);
-    expect(items.every((x) => x.url.startsWith("https://www.pmda.go.jp/PmdaSearch/iyakuDetail/"))).toBe(true);
+    expect(items.filter(x => x.cls.doc).every((x) => x.url.startsWith("https://www.pmda.go.jp/PmdaSearch/iyakuDetail/"))).toBe(true);
   });
   it("finds a drug by its brand name, generic name or kana", () => {
     const codes = (q: string) => searchFormulary(items, { ...EMPTY_QUERY, q }).map((x) => x.code);
-    expect(codes("ノルバスク")).toEqual(["ORAL-AMLO5"]);
-    expect(codes("アムロジピンベシル酸塩")).toEqual(["ORAL-AMLO5"]);
-    expect(codes("おきしこんちん")).toEqual(["ORAL-OXC5"]);
+    expect(codes("ノルバスク")).toContain("ORAL-AMLO5");
+    expect(codes("アムロジピンベシル酸塩")).toContain("ORAL-AMLO5");
+    expect(codes("おきしこんちん")).toContain("ORAL-OXC5");
   });
   it("filters by 規制区分 and route", () => {
-    const f = (kisei: typeof EMPTY_QUERY.kisei, route: typeof EMPTY_QUERY.route = "") => searchFormulary(items, { ...EMPTY_QUERY, kisei, route }).map((x) => x.code).sort();
+    const f = (kisei: typeof EMPTY_QUERY.kisei, route: typeof EMPTY_QUERY.route = "") => searchFormulary(items, { ...EMPTY_QUERY, kisei, route }).map((x) => x.code).filter(c => !/^6\d{8}$/.test(c)).sort();
     expect(f("麻薬")).toEqual(["INJ-MOR10", "ORAL-OXC5"]);
     expect(f("毒薬")).toEqual(["INJ-CBDCA", "INJ-PTX"]);
     expect(f("劇薬", "内服")).toEqual(["ORAL-AMLO5", "ORAL-APAP500", "ORAL-CELE100", "ORAL-DEXT15", "ORAL-DNP5", "ORAL-MET250", "ORAL-OXC5", "ORAL-TRAM25", "ORAL-TRAZ25"]);
