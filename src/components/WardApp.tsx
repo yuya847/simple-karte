@@ -670,7 +670,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [dispensed, setDispensed] = useState<Record<string, string>>({});
   const [oralRx, setOralRx] = useState<Record<string, OralRecord>>({});
   // 麻薬の管理（受払簿・施用票・返納・廃棄・事故）: narcotic-book.ts.
-  const [narcBook, setNarcBook] = useState<NarcoticBook>(INITIAL_BOOK);
+  const [narcBook, setNarcBook] = useState<NarcoticBook>(() => scenario ? SCENARIOS.narcBook : INITIAL_BOOK);
+  const [pharmacyFocus, setPharmacyFocus] = useState<{ tab: import("./PharmacyView").Tab; patientId: string } | null>(null);
   // Dialysis unit (fictional; kept in this browser only).
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
   const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(() => (typeof window === "undefined" ? {} : initialHdSessions(nowTimeInTokyo())));
@@ -697,7 +698,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
   const [incidentDraft, setIncidentDraft] = useState<IncidentDraft>(emptyDraft);
   // 薬剤部：血液製剤の払出（製造番号）と病棟薬剤業務日誌.
-  const [txIssued, setTxIssued] = useState<Record<string, { lot: string; at: string; by: string }>>({});
+  const [txIssued, setTxIssued] = useState<Record<string, { lot: string; at: string; by: string }>>(() => scenario ? SCENARIOS.txIssued : {});
   const [pharmJournal, setPharmJournal] = useState<{ text: string; at: string }[]>([]);
   const [homeRx, setHomeRx] = useState<Record<string, HomeRxRecord>>({});
   // 指導の記録 (栄養食事指導・服薬指導・退院時の生活指導): each answers the 指導の依頼 and goes into the chart.
@@ -1682,6 +1683,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   /** A ② screen of 病棟, shown on its own (from やること, its menu …). */
   const goWard = (t: WardTab) => show(wardOwner(t), undefined);
   const openArea = (k: AreaKey) => {
+    setPharmacyFocus(null);
     const a = areas.find((x) => x.key === k);
     if (!a || a.soon) return;
     setPanel(null);
@@ -2840,8 +2842,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           )}
           onOpenChart={openPatient}
         />
-      ) : screen === "pharmacy" ? (
-        <PharmacyView
+      ) : screen === "pharmacy" || pharmacyFocus ? (
+        <PharmacyView key={pharmacyFocus ? `${pharmacyFocus.patientId}:${pharmacyFocus.tab}` : "department"} initialTab={pharmacyFocus?.tab} patientId={pharmacyFocus?.patientId} onClose={pharmacyFocus ? () => setPharmacyFocus(null) : undefined}
           people={people}
           dischargedPeople={dischargedPeople}
           today={today}
@@ -4342,6 +4344,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
               openTemplate={panel === "templates" ? templateFocus : null}
               onOpen={(p, o) => {
+                if (p?.startsWith("pharmacy-")) { setPharmacyFocus({ tab: p.slice(9) as import("./PharmacyView").Tab, patientId: patient.id }); return; }
                 setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);
                 if (p === "add-injection" || p === "add-rx" || p === "add-discharge") openOrder(p);
                 else {

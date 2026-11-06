@@ -1,0 +1,39 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { ShidoPanel } from "./ShidoPanel";
+import { PharmacyView, type PharmacyProps } from "./PharmacyView";
+import { SCENARIOS } from "@/lib/scenarios";
+import { ordersOf } from "@/lib/record";
+import { ADOPTED_ORAL } from "@/lib/formulary-items";
+import { rxItems } from "@/lib/narcotics";
+import { anyDrugName } from "@/lib/master";
+const today = { y: 2026, m: 11, d: 6 };
+const people = SCENARIOS.cases.filter((c) => c.stage === "入院").slice(0, 2).map(({ patient }) => ({ patient, room: patient.room, entries: ordersOf(patient.history) }));
+const noop = () => {};
+const props: PharmacyProps = { people, today, nowTime: "20:59", audited: {}, onAudit: noop, queries: [], onAsk: noop, reports: [], onReport: noop, shido: {}, onShido: noop, dispensed: {}, onDispense: noop, txIssued: {}, journal: [], onJournal: noop, homeRx: {}, onHomeRx: noop, oralRx: {}, onOralRx: noop, tdm: [], onTdm: noop, narcBook: SCENARIOS.narcBook, onNarcBook: noop, newId: () => "test" };
+
+describe("薬剤師点検の画面", () => {
+  it("今日の指導記録があれば保存済みを表示し、未入力の案内を繰り返さない", () => {
+    const html = renderToStaticMarkup(<ShidoPanel people={people} today={today} records={{ [people[0].patient.id]: [{ day: 0, kind: "2", text: "服用方法を確認した", at: "09:00" }] }} onRecord={noop} />);
+    expect(html).toContain("記録しました");
+    expect(html).not.toContain("まだ：");
+    expect(html).not.toContain("生年月日・退院年月日は");
+  });
+  it("カルテから開いた業務はその患者を選択し、戻る入口を持つ", () => {
+    const html = renderToStaticMarkup(<PharmacyView {...props} initialTab="shido" patientId={people[1].patient.id} onClose={noop} />);
+    expect(html).toContain("カルテに戻る");
+    expect(html).toContain(people[1].patient.name);
+    expect(html).not.toContain(people[0].patient.name);
+    expect(html).not.toContain("として操作します");
+    expect(html).not.toContain("使い方");
+  });
+  it("麻薬品名はNFKCで表示する", () => {
+    const row = ADOPTED_ORAL.find((r) => r[1].includes("ＭＳコンチン"))!;
+    expect(row).toBeDefined();
+    const name = anyDrugName(row[0]);
+    expect(name).toContain("MSコンチン");
+    expect(name).toBe(name.normalize("NFKC"));
+    const entry = { ...people[0].entries[0], order: { type: "prescription" as const, category: "定期" as const, drugCode: row[0], amount: 1, unit: "錠", timings: ["朝" as const], start: { day: 0 }, days: 3 } };
+    expect(rxItems(entry, people[0].patient, today).find((r) => r.item === "麻薬の品名")!.value).toContain("MSコンチン");
+  });
+});

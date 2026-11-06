@@ -1,8 +1,7 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
-import { Activity, Check, Droplet, KeyRound, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
-import { openHelp } from "@/lib/help/events";
+import { Activity, Check, Droplet, KeyRound, Package, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
 import { createPortal, flushSync } from "react-dom";
 import { DrugLabel } from "./Labels";
 import { DrugInfoSheet, MedBagFace, NotebookSticker } from "./HomeRxPrint";
@@ -24,6 +23,8 @@ import { drugCodesOf } from "@/lib/drug-class";
 import { SourceLinks } from "./DraftCard";
 import { type InteractionFinding, orderInteractions } from "@/lib/interactions";
 import type { TdmReport } from "@/lib/tdm";
+import { isExtraInjection } from "@/lib/pharmacy-work";
+import { readNotebook } from "@/lib/notebook";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
@@ -31,13 +32,16 @@ import { orderLines, oralName } from "@/lib/format";
 import { alreadyOrdered, auditItems, daysOfCount, dispenseBlock, matchOral, queryOpen, type BroughtReport, type BroughtRow, type Query } from "@/lib/pharmacy";
 import type { DayOffset } from "@/lib/types";
 import { buildWorksheet, shiftWindow, timeLabel, type WorkPatient } from "@/lib/worksheet";
-import { CLAUDE, auditLog } from "@/lib/audit";
+import { auditLog } from "@/lib/audit";
 import { STEP_LABEL, TIMING_LABEL, oralKey, oralToDispense, packetsOf, qtyFormula, qtyText, recordStep, sameHands, slotRange, stepBlock, type OralPatient, type OralRecord, type OralRp, type OralStepName, type Packet } from "@/lib/oral-dispense";
 import { STAFF } from "@/lib/roles";
 
 export type ShidoRecord = ShidoEntry;
 
-interface Props {
+export interface PharmacyProps {
+  onClose?: () => void;
+  initialTab?: Tab;
+  patientId?: string;
   people: WorkPatient[];
   today: CalendarDate;
   nowTime: string;
@@ -72,7 +76,7 @@ interface Props {
   newId: () => string;
 }
 
-type Tab = "audit" | "brought" | "shido" | "dispense" | "oral" | "home" | "narcotic" | "blood" | "tdm" | "journal";
+export type Tab = "audit" | "brought" | "shido" | "dispense" | "oral" | "home" | "narcotic" | "blood" | "tdm" | "journal";
 const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
   { key: "audit", label: "処方監査・疑義照会", icon: MessageSquareWarning },
   { key: "brought", label: "持参薬鑑別", icon: ScanText },
@@ -91,14 +95,16 @@ const TABS: { key: Tab; label: string; icon: typeof Pill }[] = [
 
 const PHARMACIST = STAFF.薬剤師.name;
 
-/** The pharmacy's ward work. Checks are code; Claude only reads the お薬手帳 lines; the doctor decides. */
-export function PharmacyView(p: Props) {
-  const [tab, setTab] = useState<Tab>("audit");
+/** Pharmacy ward workflows; authored records and deterministic checks. */
+export function PharmacyView(props: PharmacyProps) {
+  const p = props.patientId ? { ...props, people: props.people.filter((x) => x.patient.id === props.patientId), reports: props.reports.filter((r) => r.patientId === props.patientId), tdm: props.tdm.filter((r) => r.patientId === props.patientId) } : props;
+  const [tab, setTab] = useState<Tab>(p.initialTab ?? "audit");
   return (
-    <div data-help-section={`department:pharmacy:${tab}`} className="flex min-h-0 flex-1 flex-col">
+    <div role={p.onClose ? "dialog" : undefined} aria-label={p.onClose ? "患者の薬剤業務" : undefined} data-help-section={`department:pharmacy:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="text-base font-bold">薬剤部（病棟）</h1>
-        <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
+        {p.onClose && <button type="button" onClick={p.onClose} className="rounded border border-rule px-3 py-1 text-sm">カルテに戻る</button>}
+        <div role="tablist" className="flex flex-wrap rounded-md border border-rule p-0.5 text-sm">
           {TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -113,24 +119,19 @@ export function PharmacyView(p: Props) {
             </button>
           ))}
         </div>
-        <span className="ml-auto text-xs text-ink-faint">{displayText(PHARMACIST)}として操作します</span>
-        <button type="button" onClick={() => openHelp(`department:pharmacy:${tab}`)} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
-          <HelpCircle size={13} />
-          使い方
-        </button>
       </div>
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px]">
           {tab === "audit" && <Audit {...p} />}
-          {tab === "brought" && <Brought {...p} />}
+          {tab === "brought" && <Brought {...p} people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} />}
           {tab === "shido" && <Shido {...p} />}
           {tab === "dispense" && <Dispense {...p} />}
           {tab === "oral" && <Oral {...p} />}
           {tab === "home" && <Home {...p} />}
-          {tab === "narcotic" && <NarcoticDesk people={p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} blockOf={(id) => dispenseBlock(id, p.people, p.queries, p.audited)} />}
+          {tab === "narcotic" && <NarcoticDesk people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} blockOf={(id) => dispenseBlock(id, p.people, p.queries, p.audited)} />}
           {tab === "blood" && <Blood {...p} />}
-          {tab === "tdm" && <TdmView people={p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
+          {tab === "tdm" && <TdmView people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
           {tab === "journal" && <Journal {...p} />}
         </div>
       </div>
@@ -142,7 +143,7 @@ const card = "rounded-lg border border-rule bg-sheet";
 
 // ---------------------------------------------------------------------------
 
-function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Props) {
+function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: PharmacyProps) {
   const nowAbs = abs(0, nowTime);
   const items = auditItems(people, -1440, nowAbs);
   const [asking, setAsking] = useState<string | null>(null);
@@ -319,7 +320,7 @@ Rp2　ラシックス錠20mg　1回1錠　1日1回　朝食後　28日分
 Rp3　マグミット錠330mg　1回2錠　1日2回　朝夕食後　28日分
 Rp4　カロナール錠500　1回1錠　頓用　疼痛時　10回分`;
 
-function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBook, newId }: Props) {
+function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBook, newId }: PharmacyProps) {
   const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
   const [text, setText] = useState("");
   const [rows, setRows] = useState<BroughtRow[] | null>(null);
@@ -345,10 +346,8 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/mochikomi", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
-      auditLog({ role: "AI", actor: CLAUDE, action: "お薬手帳を表に写した", patient: person?.patient.name, detail: `${json.rows.length}剤` });
+      const json = { rows: readNotebook(text) };
+      if (!json.rows.length) throw new Error("薬名と1回量のある行を確認してください。");
       setRows(
         (json.rows as Omit<BroughtRow, "match" | "checked" | "decision">[]).map((r) => ({ ...r, match: matchOral(r.said, r.strength), checked: false, decision: null })),
       );
@@ -381,12 +380,12 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
           value={displayText(text)}
           onChange={(e) => setText(e.target.value)}
           rows={6}
-          placeholder="お薬手帳の薬の行を打つか貼り付けます。氏名・生年月日・ID は入れないでください（Claude に送るのは、この欄の文だけです）。"
+          placeholder="お薬手帳の薬の行を打つか貼り付けます。氏名・生年月日・ID は入れないでください。"
           className="w-full rounded border border-rule bg-paper px-2 py-1.5 font-mono text-[12px] outline-none"
         />
         <div className="flex items-center gap-3">
           <button type="button" disabled={!text.trim() || busy} onClick={read} className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40">
-            {busy ? "読み取り中…" : "Claude で表にする"}
+            {busy ? "読み取り中…" : "表にする"}
           </button>
 
         </div>
@@ -419,7 +418,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
                     </td>
                     <td className="py-1.5">
                       1回{r.amount ?? "？"}
-                      {r.unit}　{r.timings.length ? `1日${r.timings.length}回 ${r.timings.join("・")}` : `頓用 ${r.prn ?? ""}`}
+                      {r.unit}　{r.usage ?? (r.timings.length ? `1日${r.timings.length}回 ${r.timings.join("・")}` : `頓用 ${r.prn ?? ""}`)}
                       {r.daysLeft ? `　${r.daysLeft}日分` : ""}
                     </td>
                     <td className="py-1.5">
@@ -528,13 +527,13 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
 
 // ---------------------------------------------------------------------------
 
-function Shido({ people, today, shido, onShido }: Props) {
-  return <ShidoPanel people={people} today={today} records={shido} onRecord={onShido} />;
+function Shido({ people, today, shido, onShido, reports, patientId }: PharmacyProps) {
+  return <ShidoPanel people={patientId ? people.filter((x) => x.patient.id === patientId) : people} reports={reports} today={today} records={shido} onRecord={onShido} />;
 }
 
 // ---------------------------------------------------------------------------
 
-function Dispense({ people, today, nowTime, dispensed, onDispense, audited, queries }: Props) {
+function Dispense({ people, today, nowTime, dispensed, onDispense, audited, queries }: PharmacyProps) {
   // Before dispensing: no open 疑義照会, and audited when written since yesterday (pharmacy.ts dispenseBlock).
   const blockOf = (orderId: string): string | null => dispenseBlock(orderId, people, queries, audited);
   // 明日分 (the usual daily dispensing) or 今日 (臨時・追加: every dose of today, past ones included, so that
@@ -545,7 +544,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
   const dayNow = Math.floor(nowAbs / 1440);
   const { lo, hi } = which === "tomorrow" ? shiftWindow("all", dayNow + 1) : { lo: dayNow * 1440, hi: (dayNow + 1) * 1440 };
   const sheet = buildWorksheet(people, lo, hi, nowAbs);
-  const doses = sheet.timed.filter((i) => i.kind === "注射" && i.at !== null);
+  const doses = sheet.timed.filter((i) => i.kind === "注射" && i.at !== null && (which === "tomorrow" || people.some((p) => p.entries.some((e) => e.id === i.orderId && isExtraInjection(e, dayNow)))));
   const byPatient = people.map((x) => ({ ...x, doses: doses.filter((d) => d.patientId === x.patient.id) })).filter((x) => x.doses.length);
   const [scan, setScan] = useState("");
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -590,19 +589,19 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
-<span className="mr-2 inline-flex rounded-md border border-rule p-0.5 align-middle">
+<span className="mr-2 flex flex-wrap rounded-md border border-rule p-0.5 align-middle">
           {(
             [
               ["tomorrow", "明日分"],
               ["today", "今日（臨時・追加）"],
             ] as const
           ).map(([k, l]) => (
-            <button key={k} type="button" aria-pressed={which === k} onClick={() => setWhich(k)} className={`rounded px-2 py-0.5 ${which === k ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
+            <button key={k} type="button" aria-pressed={which === k} onClick={() => { setWhich(k); setScan(""); setResult(null); }} className={`rounded px-2 py-0.5 ${which === k ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
               {l}
             </button>
           ))}
         </span>
-{which === "tomorrow" ? `明日（${formatShort(addDays(today, dayNow + 1))}）` : `今日（${formatShort(addDays(today, dayNow))}、時刻の過ぎた回も）`}
+<span>{formatShort(addDays(today, which === "tomorrow" ? dayNow + 1 : dayNow))}</span>
       </div>
 
       <div className={`${card} flex flex-wrap items-center gap-2 p-3 text-[13px]`}>
@@ -712,7 +711,7 @@ function PacketLabel({ x, pack, date }: { x: OralPatient; pack: Packet; date: st
   );
 }
 
-function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Props) {
+function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: PharmacyProps) {
   const [mode, setMode] = useState<"定期" | "臨時">("定期");
   const [days, setDays] = useState(7);
   const [checker, setChecker] = useState(PHARMACIST);
@@ -751,7 +750,7 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
-<span className="mr-2 inline-flex rounded-md border border-rule p-0.5 align-middle">
+<span className="mr-2 flex flex-wrap rounded-md border border-rule p-0.5 align-middle">
           {(
             [
               ["定期", "定期"],
@@ -889,7 +888,6 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
       })}
       {list.length === 0 && <p className="text-ink-faint">{mode === "定期" ? "定期の内服はありません。" : "今日出た臨時・定期の内服はありません（医師がカルテの「内服」から出すと、ここに入ります）。"}</p>}
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[5mm] print:block">{printing}</div>, document.body)}
-      <p className="text-[11px] text-ink-faint">鑑査は、調剤した人とは別の薬剤師が行うのが望ましいため、同僚を選べます（同じ人のときは印が付きます）。</p>
     </section>
   );
 }
@@ -898,7 +896,7 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
 // 血液製剤: transfusion orders confirmed by doctors, issued with the product's lot number (日報).
 // ---------------------------------------------------------------------------
 
-function Blood({ people, today, txIssued }: Props) {
+function Blood({ people, today, txIssued }: PharmacyProps) {
   const orders = people.flatMap((x) => x.entries.filter((e): e is OrderEntry => e.status === "有効" && e.order.type === "procedure" && !!e.order.tx).map((e) => ({ x, e })));
   const issuedToday = orders.filter(({ e }) => txIssued[e.id]);
   return (
@@ -943,7 +941,6 @@ function Blood({ people, today, txIssued }: Props) {
           </table>
         </div>
       )}
-      <p className="text-[11px] text-ink-faint">製造番号は、あとで製剤に問題がわかったときに使った患者をたどるため（遡及調査）に残します。</p>
     </section>
   );
 }
@@ -952,7 +949,7 @@ function Blood({ people, today, txIssued }: Props) {
 // 病棟薬剤業務日誌: today's work counted by code, with the pharmacist's words.
 // ---------------------------------------------------------------------------
 
-function Journal({ people, nowTime, audited, queries, reports, shido, dispensed, oralRx, txIssued, tdm, journal, onJournal, homeRx }: Props) {
+function Journal({ people, nowTime, audited, queries, reports, shido, dispensed, oralRx, txIssued, tdm, journal, onJournal, homeRx }: PharmacyProps) {
   const [text, setText] = useState("");
   const shidoToday = Object.values(shido).flat().filter((r) => r.day === 0).length;
   const lines: [string, number][] = [
@@ -1000,7 +997,6 @@ function Journal({ people, nowTime, audited, queries, reports, shido, dispensed,
         >
           書き残す
         </button>
-        <p className="text-[11px] text-ink-faint">件数はこの画面での記録からコードで数えています。</p>
       </div>
     </section>
   );
@@ -1019,7 +1015,7 @@ export interface HomeRxRecord {
   care?: Record<string, string[]>;
 }
 
-function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx }: Props) {
+function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx }: PharmacyProps) {
   const [printing, setPrinting] = useState<React.ReactNode | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
   const date = formatShort(today).replace(/（.）/, "");
@@ -1172,7 +1168,7 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
 */
 
 /* ヘルプへ移動した説明:
-Claude は書いてあることを写すだけです。院内の薬との照合と登録済みかの確認はコードが行い、薬剤師が実物と照らして確かめます。
+手帳の記載と院内の薬との照合はコードで表にし、薬剤師が実物と照らして確かめます。
 すべての行を実物と確認すると押せます。医師はカルテの右上で、薬ごとに「持参薬で継続・院内の薬に切替・中止」を選びます。
   の注射を、患者ごと・1回ごとに並べます（持続の点滴は1本ごと）。ラベルを印刷し、取りそろえた薬のラベルを読んで鑑査すると払出の印が付きます。
   量はオーダの開始・日数・中止から服用の回数をコードで数え、1回量を掛けます。持参薬と退院時処方は入りません。頓用は回数が決まらないので数えません。

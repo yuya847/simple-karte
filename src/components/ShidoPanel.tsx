@@ -3,6 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
+import type { BroughtReport } from "@/lib/pharmacy";
 import { b008Check } from "@/lib/pharmacy";
 import { EMPTY_FORM, kindNotes, shidoFacts, shidoProblems, shidoText, type ShidoForm } from "@/lib/shido";
 import type { DayOffset } from "@/lib/types";
@@ -21,7 +22,7 @@ export interface ShidoEntry {
 const area = "w-full rounded border border-rule bg-paper px-2 py-1.5 text-[13px] outline-none focus:border-ai";
 
 /** 服薬指導（薬剤管理指導記録）: the items of the notice, what the chart has, and the 回数 (週1回・月4回) by code. */
-export function ShidoPanel({ people, today, records, onRecord }: { people: WorkPatient[]; today: CalendarDate; records: Record<string, ShidoEntry[]>; onRecord: (patientId: string, rec: Omit<ShidoEntry, "at" | "day">) => void }) {
+export function ShidoPanel({ people, today, records, onRecord, reports = [] }: { reports?: BroughtReport[]; people: WorkPatient[]; today: CalendarDate; records: Record<string, ShidoEntry[]>; onRecord: (patientId: string, rec: Omit<ShidoEntry, "at" | "day">) => void }) {
   const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
   const [form, setForm] = useState<ShidoForm>(EMPTY_FORM);
   const set = (x: Partial<ShidoForm>) => setForm((f) => ({ ...f, ...x }));
@@ -35,7 +36,7 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
     return `${t.getUTCFullYear()}-${t.getUTCMonth() + 1}`;
   };
   const warn = b008Check(recs.map((r) => r.day), 0, dow, month);
-  const facts = person ? shidoFacts(person.patient, person.entries) : null;
+  const facts = person ? shidoFacts(person.patient, person.entries, reports) : null;
   const notes = facts ? kindNotes(form, facts) : [];
   const problems = shidoProblems(form);
   return (
@@ -93,7 +94,6 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
                   </span>
                 ))}
           </p>
-          <p className="text-[11px] text-ink-faint">生年月日・退院年月日はこの試作のカルテにないため、記録に入りません。</p>
         </div>
       )}
 
@@ -133,7 +133,8 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
         >
           記録する
         </button>
-        {problems.length > 0 && <span className="text-xs text-ink-soft">まだ：{problems.join("・")}</span>}
+        {recs.some((r) => r.day === 0) && <span role="status" className="text-xs text-wakatake">記録しました</span>}
+        {!recs.some((r) => r.day === 0) && problems.length > 0 && <span className="text-xs text-ink-soft">まだ：{problems.join("・")}</span>}
 
       </div>
       {recs.length > 0 && (

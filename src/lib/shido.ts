@@ -10,6 +10,7 @@
 // - (6)(8) 麻薬管理指導加算：麻薬が投与されている患者に、麻薬の服用の注意事項等を指導した場合。記録に
 //   ア 麻薬に係る薬学的管理指導の内容（服薬状況・疼痛緩和の状況等）イ 麻薬に係る患者への指導と相談事項 ウ その他
 
+import type { BroughtReport } from "./pharmacy";
 import { classOf, isNarcotic } from "./drug-class";
 import { anyDrugName } from "./master";
 import type { DayOffset, OrderEntry, Patient } from "./types";
@@ -54,9 +55,16 @@ export interface ShidoFacts {
 const running = (entries: OrderEntry[]) => entries.filter((e) => e.status === "有効" && (e.order.type === "injection" || e.order.type === "prescription"));
 const codesOf = (e: OrderEntry) => (e.order.type === "injection" ? e.order.items.map((i) => i.drugCode) : e.order.type === "prescription" ? [e.order.drugCode] : []);
 
-export function shidoFacts(p: Pick<Patient, "name" | "sex" | "age" | "id" | "admittedOn" | "allergies">, entries: OrderEntry[]): ShidoFacts {
+export function shidoFacts(p: Pick<Patient, "name" | "sex" | "age" | "id" | "admittedOn" | "allergies">, entries: OrderEntry[], reports: BroughtReport[] = []): ShidoFacts {
   const rs = running(entries);
-  const codes = [...new Set(rs.flatMap(codesOf))];
+  const latestReport = reports.filter((r) => r.patientId === p.id).at(-1);
+  const brought = (latestReport?.rows ?? []).filter((r) => r.decision !== "中止");
+  const codes = [...new Set([...rs.flatMap(codesOf), ...brought.flatMap((r) => r.match ? [r.match] : [])])];
+  const drugs = rs.map((e) => ({ code: codesOf(e)[0], text: `${codesOf(e).map(anyDrugName).join("＋")}（${e.order.type === "prescription" ? `内服・${e.order.category}` : `注射・${e.order.type === "injection" ? e.order.route : ""}`}）` }));
+  for (const row of brought) {
+    if (row.match && drugs.some((d) => d.code === row.match)) continue;
+    drugs.push({ code: row.match ?? "", text: `${row.said} ${row.strength}（持参薬・${row.usage ?? row.timings.join("・")}）` });
+  }
   return {
     name: p.name,
     sex: p.sex,
@@ -64,7 +72,7 @@ export function shidoFacts(p: Pick<Patient, "name" | "sex" | "age" | "id" | "adm
     id: p.id,
     admittedOn: p.admittedOn,
     allergies: p.allergies,
-    drugs: rs.map((e) => ({ code: codesOf(e)[0], text: `${codesOf(e).map(anyDrugName).join("＋")}（${e.order.type === "prescription" ? `内服・${e.order.category}` : `注射・${e.order.type === "injection" ? e.order.route : ""}`}）` })),
+    drugs,
     special: codes.flatMap((c) => (classOf(c)?.b008 ? [{ code: c, group: classOf(c)!.b008!.group }] : [])),
     narcotics: codes.filter(isNarcotic),
   };

@@ -98,7 +98,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
       {/* --- 麻薬処方箋・麻薬注射せん --- */}
       <div className={`${card} p-4`}>
         <h3 className="mb-2 font-bold">麻薬処方箋・麻薬注射せん（昨日と今日）</h3>
-        {orders.length === 0 && <p className="text-ink-faint">麻薬のオーダはありません。医師がモルヒネ塩酸塩注射液やオキシコドン塩酸塩徐放錠をオーダすると、ここに並びます。</p>}
+        {orders.length === 0 && <p className="text-ink-faint">麻薬のオーダはありません。</p>}
         <div className="space-y-3">
           {orders.map(({ x, e }) => {
             const items = rxItems(e, x.patient, today);

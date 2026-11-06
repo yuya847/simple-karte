@@ -106,7 +106,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
       const o = e.order;
       if (o.type === "injection") {
         if (!live(e, lo, hi, nowAbs, orderInterval)) continue;
-        const main = o.items.map((it) => `${drugName(it.drugCode)} ${o.sliding ? "" : `${it.amount}${it.unit}`}`).join(" ＋ ");
+        const main = o.items.map((it) => `${drugName(it.drugCode)} ${o.sliding ? "スケール" : `${it.amount}${it.unit}`}`).join(" ＋ ");
         const parts = [o.route, scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);

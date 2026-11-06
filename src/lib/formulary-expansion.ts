@@ -53,7 +53,7 @@ export const MORE_DRUGS: DrugMaster[] = ADOPTED_INJECTIONS.map((r) => {
   const electrolyte = n.match(/(\d+(?:\.\d+)?)mEq\/mL/);
   const strength: DrugMaster["strength"] = packageUnit && electrolyte && volume ? { amount: Number(electrolyte[1]) * volume, unit: "mEq", per: packageUnit } : packageUnit && mass ? { amount: Number(mass[1]), unit: mass[2] as "mg" | "g", per: packageUnit } : undefined;
   return { code: r[0], name: n.trim(), generic: r[5].replace("【般】", ""), category: isInsulin(r) ? "インスリン" : undefined,
-    package: mass ? `${mass[1]}${mass[2]}/${packageUnit ?? u}` : volume > 0 ? `${volume}mL/${packageUnit ?? u}` : `1${u}`, kind: /^(611|612|613|614|615|616|624|641)/.test(r[4]) ? "抗菌薬" : /^(323|325|331)/.test(r[4]) ? "輸液" : "その他",
+    package: isInsulin(r) && u.includes("mL") ? "10mL バイアル" : mass ? `${mass[1]}${mass[2]}/${packageUnit ?? u}` : volume > 0 ? `${volume}mL/${packageUnit ?? u}` : `1${u}`, kind: /^(611|612|613|614|615|616|624|641)/.test(r[4]) ? "抗菌薬" : /^(323|325|331)/.test(r[4]) ? "輸液" : "その他",
     routes: routesOf(r), units: isInsulin(r) ? ["単位"] : [...(packageUnit ? [packageUnit] : [u]), ...(strength ? [strength.unit, ...(strength.unit === "g" ? ["mg"] : [])] : []), ...(volume > 0 && (packageUnit || u === "筒") ? ["mL"] : [])],
     ...(strength ? { strength } : {}), ...(volume > 0 && (packageUnit || u === "筒") ? { volumeMl: volume } : {}),
     // Amount of insulin per official billing unit (mL or one pen/cartridge).

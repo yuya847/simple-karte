@@ -2,7 +2,7 @@
 // Drug names and package sizes are public facts; the selection, aliases, set contents
 // and ward rules below are made up for this prototype and are not any real hospital's.
 
-import { ADOPTED_ORAL, LEGACY_INGREDIENTS, ADOPTED_INGREDIENT_ALIASES } from "./formulary-items";
+import { ADOPTED_TOPICAL, ADOPTED_ORAL, LEGACY_INGREDIENTS, ADOPTED_INGREDIENT_ALIASES } from "./formulary-items";
 import { MORE_DRUGS, MORE_ORAL_DRUGS } from "./formulary-expansion";
 
 import type { InjectionRoute } from "./types";
@@ -398,8 +398,8 @@ export function findOralDrug(code: string): OralDrugMaster | undefined {
 /** Name of an injection or oral drug, for messages. */
 export function anyDrugName(code: string): string {
   const inj = injectionByCode.get(code);
-  if (inj) return inj.name;
-  return oralByCode.get(code)?.name ?? code;
+  if (inj) return inj.name.normalize("NFKC");
+  return (oralByCode.get(code)?.name ?? ADOPTED_TOPICAL.find((r) => r[0] === code)?.[1] ?? code).normalize("NFKC");
 }
 
 export type LabGroup =

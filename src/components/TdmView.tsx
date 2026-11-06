@@ -21,14 +21,14 @@ const n = (s: string) => (s.trim() === "" ? NaN : Number(s));
 const f1 = (x: number, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : "—");
 
 /** The pharmacist's TDM screen (vancomycin): levels → k, Vd, CL, AUC24 by code; candidate regimens; report. */
-export function TdmView({ people, nowTime, reports, onReport }: Props) {
+export function TdmView({ people, reports, onReport }: Props) {
   const withVcm = people.filter((x) => x.entries.some((e) => e.status === "有効" && e.order.type === "injection" && (e.order as InjectionOrder).items.some((i) => i.drugCode.startsWith("INJ-VCM"))));
   const [pid, setPid] = useState(withVcm[0]?.patient.id ?? people[0]?.patient.id ?? "");
   const person = people.find((x) => x.patient.id === pid);
   const order = person?.entries.find((e) => e.status === "有効" && e.order.type === "injection" && (e.order as InjectionOrder).items.some((i) => i.drugCode.startsWith("INJ-VCM")));
   const fromOrder = order ? regimenFromOrder(order.order as InjectionOrder) : {};
   const [reg, setReg] = useState({ dose: String(fromOrder.dose ?? ""), tau: String(fromOrder.tau ?? ""), tinf: String(fromOrder.tinf ?? "") });
-  const [lv, setLv] = useState({ pt: "", pc: "", tb: "0", tc: "" });
+  const [lv, setLv] = useState({ pt: "", pc: "", tb: "0", tc: String(person?.patient.labs.filter((l) => l.values.VCM !== undefined).at(-1)?.values.VCM ?? "") });
   const [cands, setCands] = useState<{ dose: string; tau: string; tinf: string }[]>([]);
   const [proposal, setProposal] = useState("");
   const regimen: Regimen = { dose: n(reg.dose), tau: n(reg.tau), tinf: n(reg.tinf) };
@@ -44,8 +44,9 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
     const o = p?.entries.find((e) => e.status === "有効" && e.order.type === "injection" && (e.order as InjectionOrder).items.some((i) => i.drugCode.startsWith("INJ-VCM")));
     const r = o ? regimenFromOrder(o.order as InjectionOrder) : {};
     setReg({ dose: String(r.dose ?? ""), tau: String(r.tau ?? ""), tinf: String(r.tinf ?? "") });
-    setLv({ pt: "", pc: "", tb: "0", tc: "" });
+    setLv({ pt: "", pc: "", tb: "0", tc: String(p?.patient.labs.filter((l) => l.values.VCM !== undefined).at(-1)?.values.VCM ?? "") });
     setCands([]);
+    setProposal("");
   };
   return (
     <div className="space-y-4 text-[13px]">
@@ -116,7 +117,6 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
           >
             例を入れる
           </button>
-          <p className="text-[11px] text-ink-faint">トラフ1点だけでは AUC は計算しません（集団の値を使うベイズ推定のソフトが要ります）。</p>
           <details className="text-[11px] text-ink-soft">
             <summary className="cursor-pointer">ガイドラインの採血と腎機能の目安</summary>
             <ul className="mt-0.5 list-disc pl-4">
@@ -159,9 +159,9 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
           </details>
 
           <div>
-            <h4 className="text-xs font-bold">ほかの投与にしたときの予測（この患者の k と CL で計算）</h4>
+            {cands.length > 0 && <h4 className="text-xs font-bold">ほかの投与にしたときの予測（この患者の k と CL で計算）</h4>}
             <table className="nums mt-1 text-xs">
-              <thead>
+              {cands.length > 0 && <thead>
                 <tr className="text-ink-faint">
                   <th className="pr-2 text-left font-normal">1回 mg</th>
                   <th className="pr-2 text-left font-normal">間隔 時間</th>
@@ -171,7 +171,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
                   <th className="pr-2 text-right font-normal">Cmax</th>
                   <th />
                 </tr>
-              </thead>
+              </thead>}
               <tbody>
                 {cands.map((c, i) => {
                   const p = predict(ok, { dose: n(c.dose), tau: n(c.tau), tinf: n(c.tinf) });
@@ -220,7 +220,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
             className="flex items-center gap-1 rounded bg-ai px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
           >
             <Send size={12} />
-            医師に報告（{nowTime}）
+            医師に報告する
           </button>
         </section>
       )}

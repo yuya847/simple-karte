@@ -52,7 +52,7 @@ export function labName(code: string): string {
 }
 
 export function injectionLines(order: InjectionOrder, today: CalendarDate): { main: string; detail: string } {
-  const main = order.items.map((it) => `${drugName(it.drugCode)}　${order.sliding ? "" : `${it.amount}${it.unit}`}`).join(" ＋ ");
+  const main = order.items.map((it) => `${drugName(it.drugCode)}　${order.sliding ? "スケール" : `${it.amount}${it.unit}`}`).join(" ＋ ");
   const parts = [order.route, scheduleTextFor(order)];
   if (order.minutesPerDose) parts.push(`1回${durationText(order.minutesPerDose)}`);
   if (order.rateMlPerH) parts.push(`${order.rateMlPerH}mL/時`);

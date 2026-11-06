@@ -63,7 +63,7 @@ export function BroughtReportSheet({ r, patient, room, date }: { r: BroughtRepor
                 </td>
                 <td>
                   1回{x.amount ?? "？"}
-                  {x.unit} {x.timings.length ? `1日${x.timings.length}回（${x.timings.join("・")}）` : `頓用 ${x.prn ?? ""}`}
+                  {x.unit} {x.usage ?? (x.timings.length ? `1日${x.timings.length}回（${x.timings.join("・")}）` : `頓用 ${x.prn ?? ""}`)}
                   {x.daysLeft ? ` ${x.daysLeft}日分（手帳）` : ""}
                 </td>
                 <td>

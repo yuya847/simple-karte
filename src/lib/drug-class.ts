@@ -215,8 +215,8 @@ export function marksOf(code: string): Mark[] {
   const out: Mark[] = [];
   if (c.kisei.includes("麻薬")) out.push({ key: "麻", title: "麻薬（麻薬及び向精神薬取締法）：麻薬施用者が処方し、施用・残液・返納を記録する" });
   if (c.kisei.includes("向精神薬")) out.push({ key: "向", title: "向精神薬（麻薬及び向精神薬取締法）" });
-  if (c.kisei.includes("毒薬")) out.push({ key: "毒", title: "毒薬（医薬品医療機器等法 第44条）：かぎのかかる場所に区別して保管" });
-  if (c.kisei.includes("劇薬")) out.push({ key: "劇", title: "劇薬（医薬品医療機器等法 第44条）：他の物と区別して保管" });
+  if (c.kisei.includes("毒薬")) out.push({ key: "毒", title: "毒薬" });
+  if (c.kisei.includes("劇薬")) out.push({ key: "劇", title: "劇薬" });
   if (c.b008) out.push({ key: "ハイリスク", title: `ハイリスク薬（薬剤管理指導料「1」の対象：${c.b008.group}）` });
   return out;
 }

@@ -109,6 +109,8 @@ export function dispenseBlock(orderId: string, people: { entries: OrderEntry[] }
 
 /** One drug read from the お薬手帳 text (by Claude), matched to the master (by code). */
 export interface BroughtRow {
+  /** Original notebook usage, kept separately from normalized administration slots. */
+  usage?: string;
   said: string;
   strength: string;
   amount: number | null;
