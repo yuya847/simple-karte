@@ -51,11 +51,11 @@ describe("入院申込と入院時指示", () => {
   });
 });
 
-it("基本指示は安静度と食事の記入が必要で、終了後・開始前は数えない", () => {
+it("基本指示は記入した食事を数え、安静度と食事がそろえば入院時指示として扱う。終了後・開始前は数えない", () => {
   const line = { id: "basic", cat: "その他" as const, text: "基本指示\n安静度：自由\nADL：\n食事：常食\n清潔：\n排泄：\nモニター：なし", start: at, at, by: request.by };
   expect(admissionMissingNow([], [line], [], "10:01")).toEqual([]);
   expect(admissionMissingNow([], [{ ...line, text: line.text.replace("食事：常食", "食事：") }], [], "10:01")).toEqual(["食事", "バイタル"]);
-  expect(admissionMissingNow([], [{ ...line, text: line.text.replace("安静度：自由", "安静度：") }], [], "10:01")).toEqual(["食事", "バイタル"]);
+  expect(admissionMissingNow([], [{ ...line, text: line.text.replace("安静度：自由", "安静度：") }], [], "10:01")).toEqual(["バイタル"]);
   expect(admissionMissingNow([], [line], [], "09:59")).toEqual(["食事", "バイタル"]);
   expect(admissionMissingNow([], [{ ...line, end: { day: -1 } }], [], "10:01")).toEqual(["食事", "バイタル"]);
 });

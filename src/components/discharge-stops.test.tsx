@@ -5,14 +5,15 @@ import { remainingGroups } from "@/lib/discharge-stop";
 import { PATIENTS } from "@/lib/patients";
 import { ordersOf } from "@/lib/record";
 import { STAFF } from "@/lib/roles";
-import { initialStanding } from "@/lib/standing";
+import { initialLines } from "@/lib/standing-lines";
+import { standingFromBlocks } from "@/lib/standing-blocks";
 import { DischargeStops } from "./DischargeStops";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { ToolRail } from "./ToolRail";
 
 const today = { y: 2026, m: 11, d: 4 };
 const sakura = PATIENTS.find((p) => p.id === "90010231")!;
-const groups = remainingGroups(ordersOf(sakura.history), 12 * 60, initialStanding()[sakura.id][0]);
+const groups = remainingGroups(ordersOf(sakura.history), 12 * 60, standingFromBlocks(initialLines()[sakura.id]));
 
 describe("退院時の一括中止", () => {
   it("is a tool on the right rail", () => {

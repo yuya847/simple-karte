@@ -14,7 +14,7 @@ describe("指示カレンダーの操作と期間表示", () => {
   it("医師は全体・カテゴリ・行を選べ、中止済みの行は選べない", () => {
     const html = renderToStaticMarkup(<RoleProvider value="医師"><StandingCalendar patient={patient} lines={lines} today={today} nowTime="10:00" onBulkStop={noop} /></RoleProvider>);
     expect(html).toContain('aria-label="指示を全選択"');
-    expect(html).toContain('aria-label="安静を全選択"');
+    expect(html).toContain('aria-label="その他を全選択"');
     expect(html).toContain('aria-label="一括中止の日"');
     expect(html).toContain("選んだ指示を中止");
     expect(html).not.toContain(`aria-label="${lines[0].text}を選択"`);

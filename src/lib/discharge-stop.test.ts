@@ -1,8 +1,9 @@
+import { initialLines } from "./standing-lines";
+import { standingFromBlocks } from "./standing-blocks";
 import { describe, expect, it } from "vitest";
 import { chosenStops, endedStanding, remainingGroup, remainingGroups, standingInForce } from "./discharge-stop";
 import { PATIENTS } from "./patients";
 import { ordersOf } from "./record";
-import { initialStanding } from "./standing";
 import type { Order, OrderEntry } from "./types";
 
 const at = (h: number) => h * 60;
@@ -40,14 +41,14 @@ describe("退院時の一括中止", () => {
   });
 
   it("lists only the groups with something, in a fixed order, with the 指示簿 when it is in force", () => {
-    const s = initialStanding()["90010231"][0];
+    const s = standingFromBlocks(initialLines()["90010231"])!;
     const groups = remainingGroups([labLater, o2, iv, rx, home, leave], now, s);
     expect(groups.map((g) => g.key)).toEqual(["注射", "内服", "処置", "検査", "指示簿"]);
     expect(groups.find((g) => g.key === "処置")!.entries.map((e) => e.id)).toEqual(["o2"]);
   });
 
   it("stops only the groups the doctor confirmed", () => {
-    const groups = remainingGroups([iv, rx, o2], now, initialStanding()["90010231"][0]);
+    const groups = remainingGroups([iv, rx, o2], now, standingFromBlocks(initialLines()["90010231"])!);
     expect(chosenStops(groups, ["注射", "処置"])).toMatchObject({ ids: ["iv", "o2"], standing: false });
     expect(chosenStops(groups, ["指示簿"])).toMatchObject({ ids: [], standing: true });
   });
@@ -55,14 +56,14 @@ describe("退院時の一括中止", () => {
   it("ends the 指示簿 with a version that asks for nothing", () => {
     const end = endedStanding("山本（専攻医）", { day: 0, time: "10:00" });
     expect(standingInForce(end)).toBe(false);
-    expect(standingInForce(initialStanding()["90010231"][0])).toBe(true);
+    expect(standingInForce(standingFromBlocks(initialLines()["90010231"])!)).toBe(true);
     expect(end.other).toBe("退院のため指示簿を終了（10:00 山本（専攻医））");
     expect(remainingGroups([], now, end)).toEqual([]);
   });
 
   it("finds what is still running for 佐倉さん (fictional record)", () => {
     const p = PATIENTS.find((x) => x.id === "90010231")!;
-    const groups = remainingGroups(ordersOf(p.history), at(12), initialStanding()[p.id][0]);
+    const groups = remainingGroups(ordersOf(p.history), at(12), standingFromBlocks(initialLines()[p.id])!);
     expect(groups.length).toBeGreaterThan(0);
     expect(groups.every((g) => g.key === "指示簿" || g.entries.length > 0)).toBe(true);
   });

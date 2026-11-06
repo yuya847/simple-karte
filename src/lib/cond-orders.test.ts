@@ -1,7 +1,8 @@
+import { initialLines } from "./standing-lines";
+import { standingFromBlocks } from "./standing-blocks";
 import { describe, expect, it } from "vitest";
 import { ackLine, condHits, condMissing, condText, emptyCond, hitKey, latestOf, openHits, ruleText, type CondRule } from "./cond-orders";
 import { PATIENTS } from "./patients";
-import { initialStanding } from "./standing";
 import type { Patient } from "./types";
 
 const k4: CondRule = { id: "c1", source: "lab", item: "K", op: "<", value: 4, action: "補うかは医師が決める", callDoctor: true };
@@ -65,9 +66,9 @@ describe("条件付き指示", () => {
 
   it("finds the fictional rules of 北村さん against his record", () => {
     const kita = PATIENTS.find((p) => p.id === "90010198")!;
-    const s = initialStanding()["90010198"][0];
+    const s = standingFromBlocks(initialLines()["90010198"])!;
     const hits = condHits(kita.id, s.conds, kita);
-    expect(hits.map((h) => h.rule.id)).toContain("c1");
-    expect(hits.find((h) => h.rule.id === "c1")!.value).toBe(3.6);
+    expect(hits.map((h) => h.rule.id)).toContain("call-90010198:block-cond-0");
+    expect(hits.find((h) => h.rule.id === "call-90010198:block-cond-0")!.value).toBe(3.6);
   });
 });

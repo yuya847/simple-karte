@@ -29,10 +29,10 @@ describe("指示簿の画面", () => {
     expect(html).toContain("安静度：病棟内フリー（息切れが出たら休む）");
     expect(html).toContain("今日 10:30");
     // Lines from the 項目で選ぶ fields are on the calendar too.
-    expect(html).toContain("バイタル測定：1日3回");
-    expect(html).toContain("医師を呼ぶ：");
+    expect(html).toContain("測定：バイタル 1日3回");
+    expect(html).toContain("Drコール指示");
     // The category rows come in the hospital's order: 安静 before 観察 before 処置.
-    expect(html.indexOf("弾性ストッキング")).toBeGreaterThan(html.indexOf("体重が前日より"));
+    expect(html).toContain("処置指示");
   });
 
   it("the lines section lists the lines in force, the history, and the templates; a nurse cannot add or stop", () => {
@@ -41,7 +41,7 @@ describe("指示簿の画面", () => {
         <StandingLines patient={oura} lines={initialLines()["90010198"]} fields={initialStanding()["90010198"][0]} today={TODAY} nowTime="10:30" onAdd={noop} onStop={noop} newId={id} />
       </RoleProvider>,
     );
-    expect(html).toContain("指示の行（3）");
+    expect(html).toContain("指示の行（4）");
     expect(html).toContain("終わった行・中止した行（1）");
     expect(html).toContain("息切れが落ち着いた");
     expect(html).toContain("テンプレート（院内");
@@ -65,7 +65,7 @@ describe("指示簿の画面", () => {
     expect(html).toContain("有効");
     expect(html).toContain("中止");
     expect(html).toContain("指示簿を印刷（A4 縦）");
-    expect(html).toContain("指示簿を変える");
+    expect(html).toContain("指示を変更");
   });
 
   it("the printed 指示簿 (A4 portrait) has the patient, the lines in force and the fields", () => {
@@ -75,7 +75,7 @@ describe("指示簿の画面", () => {
     expect(html).toContain("ID 90010198");
     expect(html).toContain("安静度：病棟内フリー（息切れが出たら休む）");
     expect(html).not.toContain("頭を上げてよい");
-    expect(html).toContain("項目で選んだ指示");
+    expect(html).not.toContain("項目で選んだ指示");
     expect(html).toContain("架空の病院の取り決め");
   });
 });

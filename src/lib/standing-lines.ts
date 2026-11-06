@@ -1,3 +1,4 @@
+import { standingSeeds } from "./standing-seeds";
 // 指示簿の行（フリーコメント）: each line of the 指示簿 is a sentence the doctor writes (or picks from a
 // template and edits), with a category, a start, an optional end, who wrote it, and — when stopped — the
 // stop (time, who, why). A stopped line stays as history. The calendar draws each line as a bar from its
@@ -69,7 +70,7 @@ export function lineProblems(l: { text: string; start: When; end?: When }): stri
 }
 
 /** The text with its category: 「安静：病棟内フリー」. A text that already starts with the category is left alone. */
-export const lineLabel = (l: Pick<StandingLine, "cat" | "text">) => (l.text.startsWith(l.cat) ? l.text : `${l.cat}：${l.text}`);
+export const lineLabel = (l: Pick<StandingLine, "cat" | "text">) => (l.text.includes("\n") || l.text.startsWith(l.cat) ? l.text : `${l.cat}：${l.text}`);
 
 /** 「11/4 10:00」 or 「11/4」, with the given day formatter. */
 export const whenText = (w: When, fmtDay: (d: DayOffset) => string) => `${fmtDay(w.day)}${w.time ? ` ${w.time}` : ""}`;
@@ -294,30 +295,7 @@ export function saveMyTemplates(user: string, list: LineTemplate[]): boolean {
 // ---------------------------------------------------------------------------
 
 export function initialLines(): Record<string, StandingLine[]> {
-  const doc = "山本（専攻医）";
-  const at = (day: DayOffset, time: string) => ({ day, time });
-  return {
-    "90010231": [
-      { id: "sl-231-1", cat: "排泄", text: "トイレまで歩いてよい", start: at(-3, "10:00"), by: doc, at: at(-3, "10:00") },
-      { id: "sl-231-2", cat: "観察", text: "咳と痰の性状を勤務ごとに記録", start: at(-3, "10:00"), by: doc, at: at(-3, "10:00") },
-      { id: "sl-231-3", cat: "その他", text: "転倒に注意（ベッド柵・離床センサー）", start: { day: -3, time: "10:00" }, end: { day: -1 }, by: doc, at: { day: -3, time: "10:00" }, stop: { day: -2, time: "15:30", by: doc, reason: "歩行が安定した" } },
-    ],
-    "90010198": [
-      { id: "sl-198-1", cat: "安静", text: "安静度：ベッド上、頭を上げてよい", start: at(-3, "10:00"), by: doc, at: at(-3, "10:00"), stop: { day: -1, time: "09:00", by: doc, reason: "息切れが落ち着いた" } },
-      { id: "sl-198-2", cat: "安静", text: "安静度：病棟内フリー（息切れが出たら休む）", start: at(-1, "09:00"), by: doc, at: at(-1, "09:00") },
-      { id: "sl-198-3", cat: "観察", text: "体重が前日より1kg以上増えたら報告", start: at(-3, "10:00"), by: doc, at: at(-3, "10:00") },
-      { id: "sl-198-4", cat: "処置", text: "弾性ストッキングを着ける", start: at(-3, "10:00"), by: doc, at: at(-3, "10:00") },
-    ],
-    "90010260": [
-      { id: "sl-260-1", cat: "排泄", text: "排尿のたびに尿量を記録、6時間以上ないときは報告", start: { day: -2, time: "11:00" }, end: { day: 0 }, by: doc, at: { day: -2, time: "11:00" } },
-      { id: "sl-260-2", cat: "呼出基準", text: "腰背部痛が頓用で治まらないとき医師を呼ぶ", start: at(-2, "11:00"), by: doc, at: at(-2, "11:00") },
-    ],
-    "90010244": [
-      { id: "sl-244-1", cat: "食事", text: "絶食（水分はよい）", start: at(-1, "09:30"), by: doc, at: at(-1, "09:30") },
-      { id: "sl-244-2", cat: "処置", text: "吸引は必要時", start: at(-1, "09:30"), by: doc, at: at(-1, "09:30") },
-      { id: "sl-244-3", cat: "観察", text: "SpO2 を持続モニターで見る", start: at(-1, "09:30"), by: doc, at: at(-1, "09:30") },
-    ],
-  };
+  return structuredClone(standingSeeds);
 }
 
 export const INITIAL_LINE_IDS: Set<string> = new Set(Object.values(initialLines()).flat().map((l) => l.id));

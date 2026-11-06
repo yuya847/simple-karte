@@ -161,7 +161,8 @@ import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/prof
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { worksheetPrnLines } from "@/lib/standing-form";
-import { callHits, confirmStanding, initialStanding, standingEffective, type StandingOrders } from "@/lib/standing";
+import { endStandingBlocks, standingFromBlocks } from "@/lib/standing-blocks";
+import { callHits, confirmStanding, initialStanding, type StandingOrders } from "@/lib/standing";
 import { ackLine, condHits, openHits, type CondAck } from "@/lib/cond-orders";
 import { standingLineActions } from "@/lib/standing-actions";
 import { fieldChangeText } from "@/lib/standing-history";
@@ -1777,7 +1778,7 @@ export default function WardApp() {
     if (!deny("order.sign") && v) todos.push({ key: `verbal-${pid}`, label: `口頭指示の承認待ち：${x.patient.name}さん`, count: v, tone: "yamabuki", go: () => openPatient(pid) });
   }
   // 指示簿: the latest vitals against the call criteria, and versions no nurse has taken yet.
-  const standingNow = (pid: string) => standingEffective(standing[pid]?.at(-1));
+  const standingNow = (pid: string) => standingFromBlocks(standingLines[pid] ?? [], standing[pid]?.at(-1), 0, nowTime);
   const callsMet: Record<string, string[]> = Object.fromEntries(people.map((x) => [x.patient.id, callHits(standingNow(x.patient.id), x.patient.vitals.at(-1))]));
   // 条件付き指示: the latest lab and vital values against the doctor's conditions (code compares only).
   const condsAll = (pid: string) => condHits(pid, standingNow(pid)?.conds, findPatient(pid) ?? { labs: [], vitals: [] });
@@ -1870,6 +1871,7 @@ export default function WardApp() {
     const r = chosenStops(stopGroupsOf(pid), keys);
     const what = (g: (typeof r.groups)[number]) => (g.key === "指示簿" ? "指示簿を終了" : g.entries.map((e) => orderLines(e.order, today).main).join("、"));
     for (const g of r.groups) auditLog({ role: me.role, actor: me.name, action: "確定（退院時の一括中止）", patient: findPatient(pid)?.name, detail: `${g.key}：${what(g)}`.slice(0, 200) });
+    if (r.standing) setStandingLines(all => ({ ...all, [pid]: endStandingBlocks(all[pid] ?? [], me.name, 0, nowTime) }));
     if (r.standing) setStanding((all) => ({ ...all, [pid]: [...(all[pid] ?? []), endedStanding(me.name, { day: 0, time: nowTime })] }));
     if (resident) setCosign((all) => [...all, ...newItems({ patientId: pid, by: me.name, at: { day: 0, time: nowTime } }, r.groups.flatMap((g) => g.entries.map((e) => ({ ref: `stop:${e.id}`, kind: "中止" as const, text: `${orderLines(e.order, today).main} 中止（退院時の一括中止）` }))), newId)]);
     updateFor(pid, (c) => ({
@@ -2122,7 +2124,7 @@ export default function WardApp() {
     pendingExtends: pendingExtends,
     marOf: (id, at) => mar[`${id}|${at}`],
     execute: executeProps,
-    io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standing[patient.id]?.at(-1)?.io ?? null },
+    io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standingNow(patient.id)?.io ?? null },
     onModify: modifyOrder,
     care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) },
     standingCal: { lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason, day, kind) => stopStandingLine(patient.id, id, reason, day, kind), onEndField: (l) => { setStandingEdit({ ...l, patientId: patient.id, endSelected: true }); setPanel("standing"); }, onEdit: (l) => { setStandingEdit({ ...l, patientId: patient.id }); setPanel("standing"); }, onOpenPanel: () => { setStandingEdit(undefined); setPanel("standing"); } },
@@ -2141,6 +2143,7 @@ export default function WardApp() {
     flow:
       chart.leftView === "flowsheet" || chart.openTabs.includes("flowsheet")
         ? {
+            standingMeasurements: { lines: standingLines[patient.id] ?? [], fields: standing[patient.id]?.at(-1) },
             scale: chart.flowScale ?? "all",
             onScale: (s) => update({ flowScale: s }),
             onOpenRecord: (day, kind, noteId) => update((c) => ({ leftView: "record", selectedDay: day, recordFocus: { kind, noteId, n: (c.recordFocus?.n ?? 0) + 1 } })),
@@ -2389,7 +2392,7 @@ export default function WardApp() {
       ) : screen === "summaries" ? (
         <SummaryList rows={summaryNow} today={today} onOpen={(id) => (openPatient(id), setPanel("discharge"))} />
       ) : screen === "io" ? (
-        <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standing[pid]?.at(-1)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
+        <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standingNow(pid)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
       ) : screen === "consults" ? (
         <ConsultInboxView rows={inbox} onOpen={(id) => { openPatient(id); setPanel("add-consult"); }} />
       ) : screen === "reports" ? (
@@ -2578,6 +2581,7 @@ export default function WardApp() {
         <ExecuteDesk onVoid={voidMar} people={people} today={today} nowTime={nowTime} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} onRecord={recordMar} taken={taken} sessionKeys={sessionKeys} nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]} onOpen={openPatient} onSheet={() => goWard("sheet")} onTakeDesk={() => goWard("take")} />
       ) : screen === "sheet" ? (
         <Worksheet
+          standingMeasurements={Object.fromEntries(people.map(x => [x.patient.id, { lines: standingLines[x.patient.id] ?? [], fields: standing[x.patient.id]?.at(-1) }]))}
           remeasureVitals={extraVitals}
           onMeasure={(id) => setExtraVitals((all) => ({ ...all, [id]: markRemeasured(all[id] ?? []) }))}
           people={people}
@@ -2595,7 +2599,7 @@ export default function WardApp() {
           // 指示簿の頓用: the latest version a nurse has taken (指示受け); a newer one waits for 指示受け.
           standingFreePrn={people.flatMap((x) => worksheetPrnLines(standingLines[x.patient.id] ?? [], x, abs(0, nowTime), taken, sessionKeys))}
           standingPrn={people.flatMap((x) => {
-            const s = standingEffective([...(standing[x.patient.id] ?? [])].reverse().find((v) => v.taken));
+            const s = standingFromBlocks(standingLines[x.patient.id] ?? [], [...(standing[x.patient.id] ?? [])].reverse().find((v) => v.taken), 0, nowTime);
             return s ? s.prn.map((rule) => ({ patientId: x.patient.id, room: x.room, name: x.patient.name, rule })) : [];
           })}
           taken={taken}
@@ -2912,6 +2916,7 @@ export default function WardApp() {
           <PatientSwitchFlash patient={{ id: patient.id }} />
           <ConsultBanner entries={entries} replies={consultReplies} onOpen={() => setPanel("add-consult")} />
           <PatientBar
+            rest={standingNow(patient.id)?.rest}
             admissionMissing={requests.some((r) => r.status === "入院済" && r.admittedAs === patient.id) ? admissionMissingNow(standing[patient.id] ?? [], standingLines[patient.id] ?? [], diets.filter((d) => d.patientId === patient.id), nowTime) : []}
             onOpenStanding={role === "医師" ? () => setPanel("standing") : undefined}
             patient={patient}
@@ -3591,7 +3596,7 @@ export default function WardApp() {
                     sessionStart={sessionStart ?? abs(0, nowTime)}
                     nowTime={nowTime}
                     today={today}
-                    standingIo={standing[patient.id]?.at(-1)?.io ?? null}
+                    standingIo={standingNow(patient.id)?.io ?? null}
                     legacyUrineMl={extraDaily[patient.id]?.urineMl}
                     onAdd={addIo}
                     onVoid={voidIo}
@@ -3808,7 +3813,7 @@ export default function WardApp() {
                   <AddRehabPanel
                     newId={newId}
                     admittedOn={patient.admittedOn}
-                    rest={standing[patient.id]?.at(-1)?.rest ?? null}
+                    rest={standingNow(patient.id)?.rest ?? null}
                     onAdd={(d) => {
                       addManualLab(d);
                       closePanel();
@@ -4053,7 +4058,7 @@ export default function WardApp() {
                     patient={patient}
                     today={formatShort(today)}
                     nowTime={nowTime}
-                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standing[patient.id]?.at(-1), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
+                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standingNow(patient.id), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
                     onSave={(to, words) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・連携サマリを作成（宛先：${to}）${words ? `。申し送り：${words}` : ""}\n` }));

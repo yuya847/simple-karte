@@ -1,3 +1,4 @@
+import { parseBasicBlock } from "./standing-blocks";
 import { lineEffective } from "./standing-calendar";
 import type { AdmissionRequest } from "./admission";
 import type { DietOrder } from "./diet";
@@ -13,9 +14,9 @@ export function standingFromRequest(request: AdmissionRequest, by: string, at: S
 export function admissionOrdersMissing(standing: StandingOrders | StandingLine[] | undefined, dietOrders: DietOrder[]): string[] {
   const lines = Array.isArray(standing) ? standing : [];
   const basic = lines.some((l) => /^基本指示\s*$/m.test(l.text) && /^安静度[：:][ \t]*\S.*$/m.test(l.text) && /^食事[：:][ \t]*\S.*$/m.test(l.text));
-  const diet = basic || dietOrders.length > 0 || lines.some((l) => l.cat === "食事" && l.text.trim());
+  const diet = basic || lines.some((l) => !!parseBasicBlock(l.text).diet) || dietOrders.length > 0 || lines.some((l) => l.cat === "食事" && l.text.trim());
   const vitals = Array.isArray(standing)
-    ? lines.some((l) => l.cat === "バイタル" && l.text.trim() && !l.text.startsWith("体重"))
+    ? lines.some((l) => !!parseBasicBlock(l.text).vitals) || lines.some((l) => l.cat === "バイタル" && l.text.trim() && !l.text.startsWith("体重"))
     : !!standing?.vitals;
   return [...(!diet ? ["食事"] : []), ...(!vitals && !basic ? ["バイタル"] : [])];
 }

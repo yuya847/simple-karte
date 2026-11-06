@@ -269,9 +269,10 @@ export function StandingPanel({
         <>
           <StandingOrderForm onEndFields={(l) => { setEdit(null); setEndingField(l); setEndDay(0); setEndReason(""); }} key={editingLine?.id ?? "new"} initialSelection={editingLine} onAdmissionTemplate={() => setEdit(ADMISSION_TEMPLATE.draft(cur ?? emptyStanding(me.name, { day: 0, time: nowTime })))} patientId={lines.patient.id} today={lines.today} lines={lines.lines} versions={versions} nowTime={nowTime} fmtDay={fmtDay} newId={newId} onAdd={lines.onAdd} onStop={lines.onStop} onEditFields={(l) => { setEditingLine(l); setEdit(cur ? { ...cur, prn: cur.prn.map((r) => ({ ...r })), conds: (cur.conds ?? []).map((r) => ({ ...r })) } : emptyStanding(me.name, { day: 0, time: nowTime })); }} />
           <h3 className="hint border-t border-rule pt-3 text-[12px] font-bold text-ink-soft">項目で選ぶ指示（安静度・清潔・バイタル・体重・水分出納・呼出基準・頓用）</h3>
-          <p className="hint text-[11px] text-ink-faint">ワークシートの頓用、水分出納の確認、医師を呼ぶ基準の判定はこの項目から出ます。上の行と合わせて指示簿カレンダーに出ます。</p>
+          <p className="hint text-[11px] text-ink-faint">測定・水分出納・医師を呼ぶ基準は、上の指示のかたまりを先に読み、足りない項目はここから読みます。頓用は本文もワークシートに出ます。</p>
         </>
       )}
+      <CondHits hits={condHits} acks={condAcks} fmtDay={fmtDay} canRecord={!!onCondRecord && (me.role === "看護師" || me.role === "医師")} onRecord={(h, note) => onCondRecord?.(h, note)} />
       <details>
       <summary className="cursor-pointer text-ink-soft">項目で入力（任意）</summary>
       {cur ? (
@@ -294,11 +295,11 @@ export function StandingPanel({
               </button>
             )}
           </div>
-          <CondHits hits={condHits} acks={condAcks} fmtDay={fmtDay} canRecord={!!onCondRecord && (me.role === "看護師" || me.role === "医師")} onRecord={(h, note) => onCondRecord?.(h, note)} />
+
           <StandingView s={cur} />
         </>
       ) : (
-        <p className="text-ink-faint">この患者の指示簿はまだありません。</p>
+        <p className="text-ink-faint">項目で入力した指示はまだありません。</p>
       )}
       <div className="flex items-center gap-2">
         <button

@@ -41,6 +41,9 @@ export interface PrnRule {
 }
 
 export interface StandingOrders {
+  /** Read-only text carried from active blocks for summaries; never inferred as drug doses. */
+  blockCallTexts?: string[];
+  blockPrnTexts?: string[];
   reason?: string;
   fieldEnds?: Record<string, { day: number; time: string; by: string; reason?: string; kind: "終了" }>;
   /** Last valid day (inclusive). Absent = continues until changed. */
@@ -119,93 +122,9 @@ export function checkPrn(r: PrnRule, allergies: string[]): PrnIssue[] {
   return out;
 }
 
-/** The fictional standing orders of the four patients with charts. */
+/** Initial orders live in title/body blocks; optional field entry starts empty. */
 export function initialStanding(): Record<string, StandingOrders[]> {
-  const doc = "山本（専攻医）";
-  const at = { day: -3, time: "10:00" };
-  const apap = (id: string, detail: string): PrnRule => ({ id, when: "発熱時", detail, drug: { code: "ORAL-APAP500", amount: 1, unit: "錠" }, intervalH: 6, maxPerDay: 3 });
-  return {
-    "90010231": [
-      {
-        ...emptyStanding(doc, at),
-        rest: "病棟内歩行",
-        bath: "シャワー浴",
-        vitals: "1日3回",
-        weight: "なし",
-        io: "測らない",
-        calls: [
-          { key: "sbpLow", value: 90 },
-          { key: "hrHigh", value: 130 },
-          { key: "bt", value: 39 },
-          { key: "spo2", value: 92 },
-        ],
-        callConscious: true,
-        prn: [apap("p1", "38.5℃以上"), { id: "p2", when: "便秘時", detail: "3日排便なし", drug: { code: "ORAL-SENNA12", amount: 2, unit: "錠" }, intervalH: 24, maxPerDay: 1 }],
-        taken: { by: "看護師 伊藤", time: "10:20" },
-      },
-    ],
-    "90010198": [
-      {
-        ...emptyStanding(doc, at),
-        rest: "病棟内歩行",
-        bath: "シャワー浴",
-        vitals: "1日3回",
-        weight: "毎朝",
-        io: "水分出納（IN/OUT）を測る",
-        calls: [
-          { key: "sbpHigh", value: 180 },
-          { key: "sbpLow", value: 90 },
-          { key: "hrHigh", value: 120 },
-          { key: "spo2", value: 92 },
-        ],
-        callConscious: true,
-        prn: [{ ...apap("p1", "38.0℃以上・NSAIDs は使わない"), id: "p1" }],
-        conds: [
-          { id: "c1", source: "lab", item: "K", op: "<", value: 4, action: "カリウムを補うかは医師が決める（看護師は投与しない）", callDoctor: true },
-          { id: "c2", source: "vital", item: "sbp", op: "<", value: 95, action: "次のフロセミドの静注は見合わせ、医師の指示を受ける", callDoctor: true },
-        ],
-        other: "体重が前日より1kg以上増えたら報告。",
-        taken: { by: "看護師 高橋", time: "10:30" },
-      },
-    ],
-    "90010260": [
-      {
-        ...emptyStanding(doc, { day: -2, time: "11:00" }),
-        rest: "病棟内歩行",
-        bath: "シャワー浴",
-        vitals: "1日3回",
-        weight: "なし",
-        io: "尿量だけ測る",
-        calls: [
-          { key: "sbpLow", value: 90 },
-          { key: "bt", value: 39 },
-          { key: "spo2", value: 94 },
-        ],
-        callConscious: true,
-        prn: [apap("p1", "38.5℃以上"), { id: "p2", when: "疼痛時", detail: "腰背部痛", drug: { code: "ORAL-APAP500", amount: 1, unit: "錠" }, intervalH: 6, maxPerDay: 3 }],
-        taken: { by: "看護師 伊藤", time: "11:15" },
-      },
-    ],
-    "90010244": [
-      {
-        ...emptyStanding(doc, { day: -1, time: "09:30" }),
-        rest: "ベッド上（頭を上げてよい）",
-        bath: "清拭",
-        vitals: "4時間ごと",
-        weight: "なし",
-        io: "水分出納（IN/OUT）を測る",
-        calls: [
-          { key: "sbpLow", value: 90 },
-          { key: "rr", value: 25 },
-          { key: "spo2", value: 90 },
-        ],
-        callConscious: true,
-        prn: [{ id: "p1", when: "発熱時", detail: "38.5℃以上・絶食中", drug: { code: "INJ-APAP1000", amount: 500, unit: "mg" }, intervalH: 6, maxPerDay: 2 }],
-        other: "吸引は必要時。食事の再開は医師が指示する。",
-        taken: { by: "看護師 渡辺", time: "09:50" },
-      },
-    ],
-  };
+  return { "90010231": [], "90010198": [], "90010260": [], "90010244": [] };
 }
 
 export const standingEffective = (s: StandingOrders | undefined, day = 0): StandingOrders | undefined => s && s.at.day <= day && (s.until === undefined || day <= s.until) ? effectiveFields(s, day) : undefined;

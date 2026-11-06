@@ -1,5 +1,7 @@
 "use client";
 
+import { StandingMeasurements, type StandingMeasurementSource } from "./StandingMeasurements";
+
 import { ChevronLeft, ChevronRight, Copy, ClipboardPaste, Printer, Rows3 } from "lucide-react";
 import { TabChoice } from "./TabChoice";
 import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
@@ -67,6 +69,7 @@ function windowLabel(w: FlowWindow, today: CalendarDate): string {
 }
 
 export interface FlowSheetProps {
+  standingMeasurements?: StandingMeasurementSource;
   patient: Patient;
   entries: HistoryEntry[];
   today: CalendarDate;
@@ -133,7 +136,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
+export function FlowSheet({ standingMeasurements, patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -625,6 +628,7 @@ export function FlowSheet({ patient: p, entries, today, nowTime, selectedDay, on
           {showTable ? "グラフで見る" : "表で見る"}
         </button>
       </div>
+      <StandingMeasurements source={standingMeasurements} day={selectedDay ?? 0} />
       <VitalCopy
         vitals={vitalsIn(p.vitals, range, nowAbs, selectedDay)}
         today={today}

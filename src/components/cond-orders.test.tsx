@@ -5,12 +5,14 @@ import { condHits } from "@/lib/cond-orders";
 import { PATIENTS } from "@/lib/patients";
 import { STAFF, type Role } from "@/lib/roles";
 import { initialStanding } from "@/lib/standing";
+import { initialLines } from "@/lib/standing-lines";
+import { standingFromBlocks } from "@/lib/standing-blocks";
 import { StandingPanel } from "./panels/StandingPanel";
 import { MeProvider, RoleProvider } from "./RoleContext";
 
 const kita = PATIENTS.find((p) => p.id === "90010198")!;
 const versions = initialStanding()[kita.id];
-const hits = condHits(kita.id, versions[0].conds, kita);
+const hits = condHits(kita.id, standingFromBlocks(initialLines()[kita.id])?.conds, kita);
 const as = (role: Role, el: React.ReactElement) =>
   renderToStaticMarkup(
     <RoleProvider value={role}>
@@ -18,7 +20,7 @@ const as = (role: Role, el: React.ReactElement) =>
     </RoleProvider>,
   );
 const panel = (role: Role, acks = {}) =>
-  as(role, <StandingPanel versions={versions} allergies={[]} nowTime="10:00" fmtDay={(d) => `${d}日`} onSave={() => {}} onTake={() => {}} newId={() => "n"} condHits={hits} condAcks={acks} onCondRecord={() => {}} />);
+  as(role, <StandingPanel versions={versions} allergies={[]} nowTime="10:00" fmtDay={(d) => `${d}日`} onSave={() => {}} onTake={() => {}} newId={() => "n"} lines={{patient:kita,lines:initialLines()[kita.id],today:{y:2026,m:11,d:4},onAdd:()=>{},onStop:()=>{}}} condHits={hits} condAcks={acks} onCondRecord={() => {}} />);
 
 describe("条件付き指示（指示簿）", () => {
   it("shows the rules in the 指示簿 in the doctor's words", () => {

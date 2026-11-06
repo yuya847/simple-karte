@@ -69,7 +69,7 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
     { heading: "処置", lines: lines("procedure") },
     { heading: "検査データ（最新）", lines: labs },
     { heading: "バイタル（最新）", lines: v ? [`${v.day === 0 ? "今日" : `${-v.day}日前`} ${v.time}　BT ${v.bt ?? "—"}　HR ${v.hr ?? "—"}　BP ${v.sbp ?? "—"}/${v.dbp ?? "—"}　RR ${v.rr ?? "—"}　SpO2 ${v.spo2 ?? "—"}%（${v.o2 ?? "室内気"}）`] : [] },
-    { heading: "医師への連絡の基準・頓用（指示簿）", lines: s ? [...s.calls.map(callText), ...s.prn.map(prnText)] : [] },
+    { heading: "医師への連絡の基準・頓用（指示簿）", lines: s ? [...new Set([...s.calls.map(callText), ...(s.blockCallTexts ?? []), ...s.prn.map(prnText), ...(s.blockPrnTexts ?? [])])] : [] },
     { heading: "退院支援", lines: ev?.discharge ? [`退院困難な要因：${ev.discharge.factors.join("、") || "なし"}`, ev.discharge.note].filter(Boolean) : [] },
   ];
   return out.map((x) => ({ ...x, lines: x.lines.length ? x.lines : ["記録なし"] }));
