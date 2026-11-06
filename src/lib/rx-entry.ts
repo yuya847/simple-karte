@@ -16,6 +16,15 @@ export const halfWidthNumber = (value: string) => value.replace(/[０-９]/g, (c
 export function doseStep(drug: { unit: string; scored?: boolean }): number {
   return drug.unit === "錠" ? drug.scored === undefined ? 0.25 : drug.scored ? 0.5 : 1 : drug.unit === "カプセル" ? 1 : 0.001;
 }
+/** The usual 1回量 to choose from (the combo box): steps of the drug's smallest division, up to 4 tablets/capsules. */
+export function doseOptions(drug: { unit: string; scored?: boolean }): string[] {
+  const step = doseStep(drug);
+  if (step < 0.25) return [];
+  const out: string[] = [];
+  for (let v = step; v <= 4 + 1e-9; v += step) out.push(String(Math.round(v * 100) / 100));
+  return out.filter((v, i, all) => Number(v) <= 2 || Number.isInteger(Number(v)) || i === all.length - 1).slice(0, 10);
+}
+
 export function validDose(value: string, drug: { unit: string; scored?: boolean }): boolean {
   const n = Number(halfWidthNumber(value)), step = doseStep(drug);
   return Number.isFinite(n) && n > 0 && Math.abs(n / step - Math.round(n / step)) < 1e-7;

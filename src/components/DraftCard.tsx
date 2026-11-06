@@ -47,8 +47,9 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
   const infos = issues.filter((i) => i.level === "info");
 
   return (
-    <article className="text-[13px] leading-relaxed pointer-coarse:text-[16px]">
-      <div className="flex flex-wrap items-start gap-1 pl-8 pr-2 py-0.5 pointer-coarse:pl-10">
+    // An order below the note is boxed, so it never reads as text of the note (ユーザー 2026-11-06).
+    <article className="my-1 rounded-md border border-ai/40 bg-ai-soft/20 text-[13px] leading-relaxed pointer-coarse:text-[16px]">
+      <div className="flex flex-wrap items-start gap-1 px-2 py-1">
         <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className="nums min-w-[10rem] flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
           {draftLine(draft, ctx, rp)}
         </button>
@@ -57,7 +58,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
         </button>
         <button type="button" onClick={onRemove} aria-label="この下書きを消す" title="この下書きを消す" className="shrink-0 p-1 text-ink-faint hover:text-shu"><Trash2 size={14} /></button>
       </div>
-      {open && <div id={detailId} className="ml-8 pointer-coarse:ml-10">
+      {open && <div id={detailId} className="mx-2 mb-1 border-t border-ai/20 pt-1">
       <header className="flex items-center gap-2 px-3 py-1.5">
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${draft.kind === "stop" ? "bg-shu-soft text-shu" : "bg-ai-soft text-ai"}`}>
           {KIND_LABEL[draft.kind]}

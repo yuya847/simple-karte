@@ -8,7 +8,7 @@ import { visitLabOrders } from "@/lib/lab-visits";
 import { masterIssues, NO_OVERRIDES } from "@/lib/master-local";
 const ctx: CheckContext = { activeOrders: [], labOrders: [], drafts: [], nowTime: "10:00", fmtDay: () => "今日", describe: () => "" };
 const draft: Draft = { id: "u", kind: "unclear", origin: "manual", sourceText: "検査", reason: "名前を確認", comment: null };
-it("shows a borderless line; with something to answer the details are open from the start, with nothing to answer they are collapsed", () => {
+it("shows the order boxed (so it is not read as note text); with something to answer the details are open from the start, with nothing to answer they are collapsed", () => {
   const html = renderToStaticMarkup(<DraftCard draft={draft} ctx={ctx} issues={[{ key: "q", level: "ask", title: "詳細だけの理由", message: "確認してください" }]} onApply={() => {}} onRemove={() => {}} />);
   expect(html).toContain('aria-expanded="true"');
   expect(html).toContain('aria-label="確認 1件・理由を開く"');
@@ -16,7 +16,7 @@ it("shows a borderless line; with something to answer the details are open from 
   expect(html).toContain("詳細だけの理由");
   expect(html).toContain("件・理由を開く</button>");
   expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(2);
-  expect(html).not.toContain("border");
+  expect(html).toMatch(/<article class="[^"]*rounded-md border border-ai\/40/);
   const ok = renderToStaticMarkup(<DraftCard draft={draft} ctx={ctx} issues={[]} onApply={() => {}} onRemove={() => {}} />);
   expect(ok).toContain('aria-expanded="false"');
 });

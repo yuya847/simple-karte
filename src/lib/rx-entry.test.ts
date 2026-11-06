@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidateIndex, doseStep, halfWidthNumber, rxChoiceIndex, rxEntryStep, validDose, type RxStep } from "./rx-entry";
+import { candidateIndex, doseOptions, doseStep, halfWidthNumber, rxChoiceIndex, rxEntryStep, validDose, type RxStep } from "./rx-entry";
 
 describe("罫線の処方入力", () => {
   it.each(["Enter", "Tab"])("%sで薬から確定まで進み、Escで一つ戻る", (key) => {
@@ -41,5 +41,13 @@ describe("全角の数字", () => {
     expect(halfWidthNumber("０．５")).toBe("0.5");
     expect(validDose("１", { unit: "錠", scored: true })).toBe(true);
     expect(validDose("０．２５", { unit: "錠", scored: true })).toBe(false);
+  });
+});
+
+describe("1回量の候補", () => {
+  it("割線のある錠は 0.5 刻み、カプセルは 1 刻み、量で決める薬は候補なし", () => {
+    expect(doseOptions({ unit: "錠", scored: true }).slice(0, 4)).toEqual(["0.5", "1", "1.5", "2"]);
+    expect(doseOptions({ unit: "カプセル" })).toEqual(["1", "2", "3", "4"]);
+    expect(doseOptions({ unit: "mg" })).toEqual([]);
   });
 });

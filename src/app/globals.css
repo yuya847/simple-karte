@@ -69,6 +69,9 @@ textarea::selection,
   scrollbar-color: var(--color-rule) transparent;
 }
 
+/* The draft line under the note is focused by code after an order is saved: no ring (the box marks it). */
+[id^="draft-line-"]:focus-visible { outline: none; }
+
 /* The keyboard focus ring stays on buttons, tabs and links. Text fields show the caret instead
    (ユーザー 2026-11-05：「入力欄の青い囲いはいらない」). */
 :focus-visible:not(input):not(textarea):not(select):not([contenteditable="true"]) {
