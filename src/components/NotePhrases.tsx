@@ -5,7 +5,9 @@
 
 import { displayText } from "@/lib/display-text";
 import { Plus, Search, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { SyntaxChips } from "./TemplateEditor";
+import { parseTemplate } from "@/lib/note-templates";
+import { useRef, useState } from "react";
 import { findPhrases, phraseProblems, savePhrases, type Phrase } from "@/lib/phrases";
 import { useMe } from "./RoleContext";
 
@@ -15,9 +17,11 @@ export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }:
   const [adding, setAdding] = useState(false);
   const [key, setKey] = useState("");
   const [text, setText] = useState("");
+  const box = useRef<HTMLTextAreaElement>(null);
+  const syntax = parseTemplate(text);
   const [saved, setSaved] = useState<boolean | null>(null);
   const shown = findPhrases(phrases, q);
-  const problems = phraseProblems(key, text, phrases);
+  const problems = [...phraseProblems(key, text, phrases), ...syntax.errors.filter(p => !p.includes("不明な予約語"))];
   const store = (list: Phrase[]) => {
     onPhrases(list);
     setSaved(savePhrases(me.name, list));
@@ -58,7 +62,9 @@ export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }:
             <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="読み（例：ふくぶ）" aria-label="読み" className={`${input} w-32`} />
             <span className="text-[11px] text-ink-faint">記事で「;{key || "読み"}」→ Tab</span>
           </div>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="文（例：腹部平坦・軟、圧痛なし。）" aria-label="定型文" className={`${input} w-full resize-y`} />
+          <SyntaxChips insert={token => { const el = box.current; const s = el?.selectionStart ?? text.length, e = el?.selectionEnd ?? text.length; setText(text.slice(0, s) + token + text.slice(e)); requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(s + token.length, s + token.length); }); }} />
+          <textarea ref={box} value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="文（例：腹部平坦・軟、圧痛なし。）" aria-label="定型文" className={`${input} w-full resize-y`} />
+          {syntax.errors.filter(p => p.includes("不明な予約語")).map((p, i) => <p key={i} className="text-xs text-yamabuki">{p}</p>)}
           {(key || text) && problems.length > 0 && <p className="text-[11px] text-yamabuki">{problems.join(" ")}</p>}
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setAdding(false)} className="ml-auto rounded border border-rule px-2 py-0.5 text-[11px]">

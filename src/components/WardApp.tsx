@@ -1,6 +1,7 @@
 "use client";
 import { LabPasteReceiver, requestLabPaste } from "./LabPasteReceiver";
 import { LAB_RESULT_MIME, readLabTransfer } from "@/lib/lab-transfer";
+import type { NoteTemplate } from "@/lib/note-templates";
 import { RxExpiryInbox } from "./RxExpiryInbox";
 import { expiryInbox, expiryCounts, receivesExpiry, expiryExtension } from "@/lib/rx-expiry-workflow";
 import { RxExpiryNotice } from "./RxExpiryNotice";
@@ -826,8 +827,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // Who saved the records last (this tab), for the other devices.
   const writer = useMemo(() => ({ tab: thisTab(), by: me.name, role: me.role }), [me]);
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
+  const [sharedNoteTemplates, setSharedNoteTemplates] = useState<NoteTemplate[]>([]);
   const workspace = useWorkspace(
     {
+      sharedNoteTemplates: [sharedNoteTemplates, setSharedNoteTemplates],
       windowEntries: [windowEntries, setWindowEntries],
       charts: [charts, setCharts],
       admitted: [admitted, setAdmitted],
@@ -3357,6 +3360,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                       </fieldset>
                     </InlineOrder>}
                         </>}
+                        sharedNoteTemplates={sharedNoteTemplates} onSharedNoteTemplates={setSharedNoteTemplates}
                         onOpenRecordTemplates={() => setPanel("templates")}
                         patient={patient}
                         today={today}

@@ -60,7 +60,11 @@ export function workspaceId(): string {
 export async function loadWorkspaceRow(id: string, day: string): Promise<{ data: Record<string, unknown>; updatedAt: string | null } | null> {
   const rows = await rpc<{ version: number; day: string; data: Record<string, unknown>; updated_at?: string }[]>("load_workspace", { p_id: id });
   const r = rows?.[0];
-  return r && r.version === WORKSPACE_VERSION && r.day === day ? { data: seed ? decodeWorkspace(r.data, seed) : r.data, updatedAt: r.updated_at ?? null } : null;
+  if (!r || r.version !== WORKSPACE_VERSION) return null;
+  const data = seed ? decodeWorkspace(r.data, seed) : r.data;
+  // Template definitions are settings, so carry only these across the chart's daily reset.
+  if (r.day !== day) return Array.isArray(data.sharedNoteTemplates) ? { data: { sharedNoteTemplates: data.sharedNoteTemplates }, updatedAt: r.updated_at ?? null } : null;
+  return { data, updatedAt: r.updated_at ?? null };
 }
 
 export async function loadWorkspace(id: string, day: string): Promise<Record<string, unknown> | null> {

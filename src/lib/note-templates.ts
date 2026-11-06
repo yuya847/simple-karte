@@ -1,3 +1,6 @@
+import { RESERVED_WORDS, SYNTAX_TOKENS, readMarkup, type MarkupField, type ReservedField } from "./template-syntax";
+import { labPasteText, vitalsPasteText } from "./lab-paste";
+import { birthDateOf } from "./patient-contacts";
 // テンプレート（記載のひな形）: a note written by filling a form. The form is read from the template's
 // text: {{選択:疼痛:なし|あり}} is a choice, {{数値:尿量:mL}} a number, {{時刻:発見時刻}} a clock time, {{検査:CRP}} the latest result,
 // {{計算:BMI}} a value worked out by code from the numbers (the formula is shown with the result).
@@ -7,7 +10,7 @@
 // written or chosen by AI: the person picks, code fills in and calculates, the person confirms the note.
 
 import { cockcroftGault } from "./clinical";
-import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "./dates";
+import { addDays, formatShort, isoDate, hospitalDay, minutesOf, type CalendarDate } from "./dates";
 import { ANALYTES } from "./master";
 import type { Role } from "./roles";
 import type { Patient } from "./types";
@@ -19,6 +22,8 @@ export type FormulaKey = "BMI" | "CCr" | "PF比" | "尿量" | "IN-OUT";
 
 /** One place in a template: something the writer fills in, a value quoted from the chart, or a calculation. */
 export type TemplateField =
+  | MarkupField
+  | ReservedField
   | { kind: "選択"; label: string; options: string[] }
   | { kind: "複数"; label: string; options: string[] }
   | { kind: "数値"; label: string; unit: string }
@@ -32,12 +37,14 @@ export type TemplateField =
   | { kind: "日付" }
   | { kind: "入院日数" };
 
-export type InputField = Extract<TemplateField, { kind: "選択" | "複数" | "数値" | "時刻" | "文" }>;
-export const isInput = (f: TemplateField): f is InputField => f.kind === "選択" || f.kind === "複数" || f.kind === "数値" || f.kind === "時刻" || f.kind === "文";
+export type InputField = Extract<TemplateField, { kind: "選択" | "複数" | "数値" | "時刻" | "文" | "部品" }>;
+export const isInput = (f: TemplateField): f is InputField => f.kind === "部品" || f.kind === "選択" || f.kind === "複数" || f.kind === "数値" || f.kind === "時刻" || f.kind === "文";
 
 /** The same field written twice in one template is one field (one answer). */
 export function fieldKey(f: TemplateField): string {
   switch (f.kind) {
+    case "部品": return `部品:${f.id}`;
+    case "予約語": return `予約語:${f.name}`;
     case "選択":
     case "複数":
     case "数値":
@@ -56,6 +63,11 @@ export function fieldKey(f: TemplateField): string {
 /** The token that stands for a field in a template's text. */
 export function tokenOf(f: TemplateField): string {
   switch (f.kind) {
+    case "部品": {
+      const attrs = `label="${f.label}"${f.multiple ? " multiple" : ""}${f.unit ? ` unit="${f.unit}"` : ""}${f.defaultValue ? ` default="${f.defaultValue}"` : ""}${f.required ? " required" : ""}`;
+      return f.options.length ? `<${f.type} ${attrs}>${f.options.join("|")}</${f.type}>` : `<${f.type} ${attrs}/>`;
+    }
+    case "予約語": return `{${f.name}}`;
     case "選択":
     case "複数":
       return `{{${f.kind}:${f.label}:${f.options.join("|")}}}`;
@@ -110,7 +122,7 @@ function readToken(inner: string): TemplateField | string {
       return { kind, code: a.code };
     }
     case "計算":
-      if (!(label in FORMULAS)) return `{{${inner}}}：計算は ${Object.keys(FORMULAS).join("・")} から選びます`;
+      if (!Object.prototype.hasOwnProperty.call(FORMULAS, label)) return `{{${inner}}}：計算は ${Object.keys(FORMULAS).join("・")} から選びます`;
       return { kind, formula: label as FormulaKey };
     default:
       if ((NO_ARGS as readonly string[]).includes(kind) && rest.length === 0) return { kind } as TemplateField;
@@ -125,11 +137,15 @@ export function parseTemplate(body: string): ParsedTemplate {
   const seen = new Set<string>();
   const errors: string[] = [];
   let last = 0;
-  for (const m of body.matchAll(/\{\{([^{}]*)\}\}/g)) {
+  for (const m of body.matchAll(SYNTAX_TOKENS)) {
     if (m.index! > last) parts.push(body.slice(last, m.index));
-    const f = readToken(m[1]);
+    const raw = m[0];
+    const f: TemplateField | string = raw.startsWith("{{") ? readToken(raw.slice(2, -2))
+      : raw.startsWith("{") ? ((RESERVED_WORDS as readonly string[]).includes(raw.slice(1, -1)) || /^検査:.+/.test(raw.slice(1, -1)) && typeof readToken(raw.slice(1, -1)) !== "string" ? { kind: "予約語", name: raw.slice(1, -1) } : `${raw}：不明な予約語です`)
+      : raw.startsWith("[]") ? { kind: "部品", type: "check", label: raw.slice(2).trim() || "チェック", options: [], multiple: false, unit: "", defaultValue: "", required: false, id: String(m.index) }
+      : readMarkup(raw, m.index!);
     if (typeof f === "string") {
-      errors.push(f);
+      errors.push(`${body.slice(0, m.index).split("\n").length}行目：${f}`);
       parts.push(m[0]);
     } else {
       parts.push(f);
@@ -142,13 +158,22 @@ export function parseTemplate(body: string): ParsedTemplate {
     last = m.index! + m[0].length;
   }
   if (last < body.length) parts.push(body.slice(last));
+  const remainder = body.replace(SYNTAX_TOKENS, raw => raw.replace(/[^\n]/g, " "));
+  for (const m of remainder.matchAll(/\{\{|\}\}|<\/?(?:combo|list|radio|check|number|time|date|text)\b[^>]*$/gm)) {
+    errors.push(`${body.slice(0, m.index).split("\n").length}行目：閉じていない差し込みを確かめてください`);
+  }
   return { parts, fields, errors };
 }
 
 /** What a template may quote from the chart. */
 export interface TemplateFacts {
-  patient: Pick<Patient, "age" | "sex" | "heightCm" | "weightKg" | "allergies" | "infections" | "labs" | "vitals" | "admittedOn">;
+  patient: Pick<Patient, "age" | "sex" | "heightCm" | "weightKg" | "allergies" | "infections" | "labs" | "vitals" | "admittedOn"> & Partial<Patient>;
   today: CalendarDate;
+  author?: string;
+  role?: string;
+  now?: string;
+  medications?: string;
+  birthDate?: string;
 }
 
 /** Answers by field key: one choice or a typed value as text, several choices as a list. */
@@ -262,8 +287,8 @@ export function calcFormula(key: FormulaKey, values: TemplateValues, facts: Temp
   const used: CalcResult["used"] = [];
   const missing: string[] = [];
   for (const inp of f.inputs) {
-    const inTemplate = fields.some((x) => x.kind === "数値" && x.label === inp.label);
-    const typed = inTemplate ? num(values[`数値:${inp.label}`]) : undefined;
+    const input = fields.find(x => (x.kind === "数値" || x.kind === "部品" && x.type === "number") && x.label === inp.label);
+    const typed = input ? num(values[fieldKey(input)]) : undefined;
     const chart = typed === undefined ? inp.chart?.(facts) : undefined;
     const v = typed ?? chart;
     if (v === undefined || (inp.label !== "IN" && inp.label !== "OUT" && v <= 0)) missing.push(inp.label);
@@ -294,6 +319,13 @@ export function vitalsQuote(facts: TemplateFacts): string {
 export function fieldText(f: TemplateField, values: TemplateValues, facts: TemplateFacts, fields: TemplateField[]): string {
   const v = values[fieldKey(f)];
   switch (f.kind) {
+    case "予約語": return reservedText(f.name, facts);
+    case "部品": {
+      const answer = v ?? (f.multiple ? f.defaultValue.split("|").filter(Boolean) : f.defaultValue);
+      if (f.type === "check") return answer === "true" ? f.label : "";
+      const text = Array.isArray(answer) ? f.options.filter(o => answer.includes(o)).join("、") : answer.trim();
+      return text ? text + f.unit : "";
+    }
     case "選択":
       return typeof v === "string" && v ? v : "（未選択）";
     case "複数":
@@ -335,6 +367,11 @@ export function fillTemplate(t: ParsedTemplate, values: TemplateValues, facts: T
 export function startValues(t: ParsedTemplate, facts: TemplateFacts): TemplateValues {
   const out: TemplateValues = {};
   for (const f of t.fields) {
+    if (f.kind === "部品") {
+      const chart = f.type === "number" && !f.defaultValue ? f.label === "身長" ? facts.patient.heightCm : f.label === "体重" ? facts.patient.weightKg : undefined : undefined;
+      out[fieldKey(f)] = f.multiple ? f.defaultValue.split("|").filter(Boolean) : chart ? String(chart) : f.defaultValue;
+      continue;
+    }
     if (f.kind !== "数値") continue;
     if (f.label === "身長" && facts.patient.heightCm) out[fieldKey(f)] = String(facts.patient.heightCm);
     if (f.label === "体重" && facts.patient.weightKg) out[fieldKey(f)] = String(facts.patient.weightKg);
@@ -345,6 +382,10 @@ export function startValues(t: ParsedTemplate, facts: TemplateFacts): TemplateVa
 /** The fields still empty (choices not chosen, numbers or times not entered). Free text may stay empty. */
 export function unanswered(t: ParsedTemplate, values: TemplateValues): string[] {
   return t.fields.flatMap((f) => {
+    if (f.kind === "部品") {
+      const v = values[fieldKey(f)] ?? f.defaultValue;
+      return f.required && (f.type === "check" ? v !== "true" : Array.isArray(v) ? !v.length : !v.trim()) ? [f.label] : [];
+    }
     if (f.kind !== "選択" && f.kind !== "複数" && f.kind !== "数値" && f.kind !== "時刻") return [];
     const v = values[fieldKey(f)];
     const empty = f.kind === "数値" ? num(v) === undefined : Array.isArray(v) ? v.length === 0 : typeof v !== "string" || !v.trim();
@@ -362,6 +403,9 @@ export interface NoteTemplate {
   body: string;
   /** The person who made it (own templates). */
   by?: string;
+  scope?: "private" | "role" | "ward";
+  ward?: string;
+  deleted?: boolean;
 }
 
 /** The fictional hospital's templates (架空の病院のひな形). */
@@ -469,4 +513,24 @@ export function saveMyTemplates(user: string, list: NoteTemplate[]): boolean {
     // Storage blocked (private window): the templates last until the page is closed.
     return false;
   }
+}
+
+export function reservedText(name: string, facts: TemplateFacts): string {
+  const p = facts.patient;
+  const text = (v: unknown) => v === undefined || v === null || v === "" ? "（記録なし）" : String(v);
+  if (name.startsWith("検査:")) {
+    const label = name.slice(3);
+    return labQuote(ANALYTES.find(a => a.code === label || a.name === label)?.code ?? label, facts);
+  }
+  const map: Record<string, () => string> = {
+    患者ID: () => text(p.id), 氏名: () => text(p.name), カナ: () => text(p.kana), 年齢: () => String(p.age), 性別: () => p.sex,
+    生年月日: () => facts.birthDate ?? (p.id ? isoDate(birthDateOf({ id: p.id, age: p.age }, facts.today)) : "（記録なし）"),
+    病棟: () => text(p.ward), 部屋: () => text(p.room), 主治医: () => text(p.attending), 主病名: () => text(p.admissionDiagnosis),
+    入院日: () => isoDate(addDays(facts.today, p.admittedOn)), 入院日数: () => String(hospitalDay(p.admittedOn, 0)),
+    今日: () => formatShort(facts.today), 今: () => text(facts.now), 記載者: () => text(facts.author), 職種: () => text(facts.role),
+    身長: () => text(p.heightCm), 体重: () => text(p.weightKg), BMI: () => p.heightCm > 0 && p.weightKg > 0 ? (p.weightKg / (p.heightCm / 100) ** 2).toFixed(1) : "（記録なし）",
+    アレルギー: () => p.allergies.join("、") || "なし", 直近の血液検査: () => labPasteText(p, facts.today) ?? "血液検査の記録なし",
+    直近のバイタル: () => vitalsPasteText(p, facts.today) ?? "バイタルの記録なし", 内服: () => facts.medications ?? "（記録なし）",
+  };
+  return map[name]?.() ?? `{${name}}`;
 }

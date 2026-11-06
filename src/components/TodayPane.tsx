@@ -17,9 +17,12 @@ import { isLabPasteLine, isVitalsPasteLine, labPasteText, vitalsPasteText } from
 import { preferredNoteForm, rememberNoteForm, NOTE_FORMS, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
 import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
-import { insertAt, placeBlock, type Placed } from "@/lib/note-insert";
+import { placeBlock, type Placed } from "@/lib/note-insert";
 import { loadPhrases, type Phrase } from "@/lib/phrases";
-import { TemplatePanel } from "./NoteTemplates";
+import { type NoteTemplate, type TemplateFacts } from "@/lib/note-templates";
+import { rxLastDay } from "@/lib/day-pattern";
+import { preparePhrase } from "@/lib/template-expansion";
+import { TemplatePanel, TemplateForm } from "./NoteTemplates";
 import { PhrasePanel } from "./NotePhrases";
 import { NoteBlocks, type NoteBlocksHandle } from "./NoteBlocks";
 
@@ -30,6 +33,8 @@ export interface DraftMeta {
 }
 
 interface Props {
+  sharedNoteTemplates?: NoteTemplate[];
+  onSharedNoteTemplates?: (list: NoteTemplate[]) => void;
   patient: Patient;
   today: CalendarDate;
   /** Now ("HH:MM"), for a line of a 経時記録. */
@@ -84,12 +89,25 @@ export function TodayPane(p: Props) {
   const [ph, setPh] = useState<{ user: string; list: Phrase[] }>(() => ({ user: me.name, list: loadPhrases(me.name) }));
   if (ph.user !== me.name) setPh({ user: me.name, list: loadPhrases(me.name) });
   const [selected, setSelected] = useState("");
-  useEffect(() => {
-    if (isBlankNote(p.note)) {
-      const form = preferredNoteForm(me.role);
-      if (noteFormOf(p.note) !== form) p.onNoteChange(formFrame(form, p.nowTime));
+  const [phraseForm, setPhraseForm] = useState<{ body: string; note: string; start: number; end: number; patientId: string; author: string } | null>(null);
+  const facts: TemplateFacts = { patient: p.patient, today: p.today, now: p.nowTime, author: me.name, role: me.role, medications: p.ctx.activeOrders.filter(e => e.order.type === "prescription" && e.order.start.day <= 0 && (rxLastDay(e.order, p.today) ?? 0) >= 0).map(e => p.ctx.describe(e)).join("\n") || "なし" };
+  const expandPhrase = (body: string, start: number, end: number) => {
+    const prepared = preparePhrase(body, facts);
+    if (prepared.needsForm) {
+      setPhraseForm({ body, note: p.note, start, end, patientId: p.patient.id, author: me.name });
+    } else {
+      const text = prepared.text;
+      p.onNoteChange(p.note.slice(0, start) + text + p.note.slice(end));
+      noteBox.current?.select(start + text.length);
     }
-  }, [me.role, p.note, p.nowTime, p.onNoteChange]);
+  };
+  const { note, nowTime, onNoteChange } = p;
+  useEffect(() => {
+    if (isBlankNote(note)) {
+      const form = preferredNoteForm(me.role);
+      if (noteFormOf(note) !== form) onNoteChange(formFrame(form, nowTime));
+    }
+  }, [me.role, note, nowTime, onNoteChange]);
   const noteLocked = !!useDeny()("note");
   const speech = useSpeech(p.onAppendInstruction);
 
@@ -175,15 +193,19 @@ export function TodayPane(p: Props) {
           )}
           {!noteLocked && tool === "template" && (
             <div className="mb-2">
-              <TemplatePanel key={me.name} patient={p.patient} today={p.today} onOpenRecords={p.onOpenRecordTemplates ? () => { setTool(null); p.onOpenRecordTemplates!(); } : undefined} onInsert={(text) => (put((n, s, e) => placeBlock(n, s, e, text)), setTool(null))} onClose={() => setTool(null)} />
+              <TemplatePanel shared={p.sharedNoteTemplates} onShared={p.onSharedNoteTemplates} extraFacts={facts} key={`${me.name}:${p.patient.id}`} patient={p.patient} today={p.today} onOpenRecords={p.onOpenRecordTemplates ? () => { setTool(null); p.onOpenRecordTemplates!(); } : undefined} onInsert={(text) => (put((n, s, e) => placeBlock(n, s, e, text)), setTool(null))} onClose={() => setTool(null)} />
             </div>
           )}
           {!noteLocked && tool === "phrase" && (
             <div className="mb-2">
-              <PhrasePanel phrases={ph.list} onPhrases={(list) => setPh({ user: me.name, list })} selected={selected} onInsert={(text) => put((n, s, e) => insertAt(n, s, e, text))} onClose={() => setTool(null)} />
+              <PhrasePanel phrases={ph.list} onPhrases={(list) => setPh({ user: me.name, list })} selected={selected} onInsert={(text) => { const range = noteBox.current?.selection ?? { start: p.note.length, end: p.note.length }; expandPhrase(text, range.start, range.end); }} onClose={() => setTool(null)} />
             </div>
           )}
-          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
+          {phraseForm && <div role="dialog" aria-label="定型文の入力" className="rounded border border-ai bg-sheet p-3">
+            <button type="button" onClick={() => setPhraseForm(null)} className="text-xs underline">閉じる</button>
+            {phraseForm.note !== p.note || phraseForm.patientId !== p.patient.id || phraseForm.author !== me.name || noteLocked ? <p>記事や記載者が変わりました。閉じて定型文を呼び直してください。</p> : <TemplateForm key={phraseForm.body} t={{ id: "phrase", name: "定型文", roles: [], body: phraseForm.body }} facts={facts} onInsert={text => { p.onNoteChange(p.note.slice(0, phraseForm.start) + text + p.note.slice(phraseForm.end)); noteBox.current?.select(phraseForm.start + text.length); setPhraseForm(null); }} />}
+          </div>}
+          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
           {p.orderSlot}
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き" className="space-y-1">

@@ -26,6 +26,7 @@ interface Props {
   /** 定型文 for 「;読み」 then Tab. */
   phrases?: Phrase[];
   readOnly?: boolean;
+  onPhrase?: (text: string, start: number, end: number) => void;
   /** The text selected in a line (for the 定型文 panel's "register the selection"). */
   onSelectedText?: (text: string) => void;
   /** 「LD」「ばいたる」 then Tab or Enter: the latest blood test or vital signs replace the line (lab-paste.ts); null when none. */
@@ -44,7 +45,7 @@ const LONG_PRESS_MS = 450;
  * "＃" lines are numbered from the top after every change (renumberProblems). The text stays one string:
  * what the pane gets back is always the lines joined with "\n".
  */
-export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [] }: Props) {
+export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [], onPhrase }: Props) {
   const [whole, setWhole] = useState(false);
   const wholeRef = useRef<HTMLTextAreaElement | null>(null);
   const wholeRange = useRef({ start: 0, end: 0 });
@@ -210,7 +211,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       if (!e.shiftKey && s === en) {
         const r = expandAt(text, base + s, phrases);
         if (r) {
-          commit(r);
+          if (onPhrase) onPhrase(r.phrase.text, base + s - (text.length - r.text.length + r.phrase.text.length), base + s);
+          else commit(r);
           return;
         }
       }
@@ -366,6 +368,16 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     >
       {whole && <textarea ref={wholeRef} aria-label="記事の全行" value={value} readOnly={readOnly}
         className={`${TEXT} absolute left-6 top-1.5 z-20 w-[calc(100%-2rem)] h-[calc(100%-0.75rem)] min-h-20 resize-none bg-sheet outline-none`}
+        onKeyDown={e => {
+          if (readOnly || e.nativeEvent.isComposing || e.key !== "Tab" || e.shiftKey) return;
+          const caret = e.currentTarget.selectionStart;
+          if (caret !== e.currentTarget.selectionEnd) return;
+          const r = expandAt(value, caret, phrases);
+          if (!r) return;
+          e.preventDefault();
+          if (onPhrase) onPhrase(r.phrase.text, caret - (value.length - r.text.length + r.phrase.text.length), caret);
+          else commit(r);
+        }}
         onChange={e => { wholeRange.current = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; onChange(e.currentTarget.value); }}
         onSelect={e => { wholeRange.current = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; onSelectedText?.(value.slice(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)); }}
         onBlur={() => { if (pointerAnchor.current === null && wholeRange.current.start === wholeRange.current.end) { const p = posOf(value, wholeRange.current.start); sel.current = { line: p.line, start: p.col, end: p.col }; setWhole(false); } }}
