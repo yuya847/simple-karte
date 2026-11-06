@@ -241,7 +241,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     const o = ctx.activeOrders.find((x) => x.id === draft.targetOrderId);
     return (
       <p>
-        <b>{draft.addDays}日延長</b>
+        <b>{draft.addDays > 0 ? `${draft.addDays}日延長` : `${-draft.addDays}日短縮`}</b>
         {o && <span className="block text-xs text-ink-soft">{ctx.describe(o)}</span>}
       </p>
     );
@@ -252,7 +252,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     const o = target ? ctx.activeOrders.find((x) => x.id === target) : undefined;
     return (
       <p>
-        <b>{draft.procCode ? procName(draft.procCode) : draft.drugCode ? anyDrugName(draft.drugCode) : draft.said}</b> を中止
+        <b>{draft.procCode ? procName(draft.procCode) : draft.drugCode ? anyDrugName(draft.drugCode) : draft.said}</b> を中止{draft.effectiveDay !== undefined && `（${draft.effectiveDay === 0 ? "今日" : `${draft.effectiveDay}日後`}から）`}
         {o && <span className="block text-xs text-ink-soft">{ctx.describe(o)}</span>}
       </p>
     );

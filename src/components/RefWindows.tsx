@@ -22,6 +22,8 @@ export { REF_TABS, isRefTab, type RefTab } from "./RightTabs";
 export type FlowExtra = Partial<Omit<FlowSheetProps, "patient" | "entries" | "today" | "nowTime" | "selectedDay" | "onSelectDay" | "onInsertVitals" | "care" | "io" | "diets" | "moves" | "dayInfo">>;
 
 export interface RefWindowProps {
+  onNewPrescription?: CalendarProps["onNewPrescription"];
+  onPrescriptionStop?: CalendarProps["onPrescriptionStop"];
   onNewOrder?: (tab: "rxcal" | "proccal") => void;
   onAdjustInsulin?: CalendarProps["onAdjustInsulin"];
   patient: Patient;
@@ -67,9 +69,9 @@ export interface RefWindowProps {
  * What a reading tab on the right shows (経過表・内服カレンダー・処置カレンダー・移動・食事・指示簿・予約). Each opens
  * from the tools on the far right in its own large window, like the injection calendar, and can be docked back.
  */
-export function RefWindow({ tab, onNewOrder, patient, entries, today, nowTime, selectedDay, onSelectDay, onAdjustInsulin, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute, onInsertVitals, diets, onOpenDiet, dietEdit, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, standingCal }: RefWindowProps & { tab: RefTab }) {
-  const calendarProps: CalendarProps = { patient, entries, today, nowTime, selectedDay, onSelectDay, onAdjustInsulin, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute };
-  if ((tab === "rxcal" || tab === "proccal") && emptyCalendar(tab, entries)) return <div className="space-y-4 p-4 text-sm">
+export function RefWindow({ tab, onNewPrescription, onPrescriptionStop, onNewOrder, patient, entries, today, nowTime, selectedDay, onSelectDay, onAdjustInsulin, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute, onInsertVitals, diets, onOpenDiet, dietEdit, bookings, moves, onBook, onDoMove, care, io, flowDays, flow, standingCal }: RefWindowProps & { tab: RefTab }) {
+  const calendarProps: CalendarProps = { onNewPrescription, onPrescriptionStop, patient, entries, today, nowTime, selectedDay, onSelectDay, onAdjustInsulin, onStopDraft, draftedStops, onExtendDraft, onModify, pendingExtends, marOf, execute };
+  if ((tab === "proccal" || (tab === "rxcal" && !onNewPrescription)) && emptyCalendar(tab, entries)) return <div className="space-y-4 p-4 text-sm">
     <p>{tab === "rxcal" ? "処方" : "処置"}はまだありません。</p>
     {onNewOrder && <button type="button" className="rounded border border-rule px-3 py-2 text-ai" onClick={() => onNewOrder(tab)}>＋ {tab === "rxcal" ? "処方" : "処置"}を出す</button>}
   </div>;

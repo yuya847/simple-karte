@@ -1,4 +1,5 @@
 "use client";
+import { calendarGroup } from "@/lib/prescription-calendar";
 
 import { MessageSquareWarning, TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -334,9 +335,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
               注射カレンダー
             </button>
           )}
-          {group.key === "reference" &&
-            !short &&
-            calendars.map((c) => {
+          {!short &&
+            calendars.filter(c => group.key === calendarGroup(c.key)).map((c) => {
               const Icon = c.icon;
               return (
                 <button key={c.key} type="button" title={`${c.title ?? c.label}（大きな別ウインドウで開きます。「右の欄に戻す」で右のタブにできます）`} onClick={c.open} aria-pressed={c.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${c.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, c.on)}>

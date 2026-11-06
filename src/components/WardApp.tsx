@@ -97,7 +97,8 @@ import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Pa
 import { ResizableChart } from "./ResizableChart";
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
-import { PAST_RX, patternsOf, previousOf, type RxPattern } from "@/lib/rx-memory";
+import { prescriptionCalendarSeed, type PrescriptionSeed } from "@/lib/prescription-calendar";
+import { PAST_RX, patternsOf, previousOf } from "@/lib/rx-memory";
 import { PAST_INJ, injPatternsOf, injPreviousOf } from "@/lib/inj-memory";
 import { EmergencyBoard } from "./EmergencyBoard";
 import { EMPTY_OPD_DESK, OpdDesk, type OpdDeskBook } from "./OpdDesk";
@@ -425,6 +426,7 @@ interface ChartState {
   stopped: string[];
   /** When each of them was stopped ("HH:MM"). */
   stopTimes: Record<string, string>;
+  stopDays?: Record<string, number>;
   /** 延長 confirmed today: order id → its new 日数. */
   extended: Record<string, number>;
   /** What the calendar hands to the 注射 tab: an order for 修正 (the old one gets a stop draft) or Do, or only the start of a new injection. */
@@ -434,7 +436,7 @@ interface ChartState {
   /** 記録時刻 of today's note when it is written late (null/absent = the time it is confirmed). */
   noteAt?: { day: DayOffset; time: string } | null;
   /** Do of a past prescription (or one picked from 処方の記憶): copied into the 内服 tab. */
-  rxSeed?: { key: string; pattern: RxPattern };
+  rxSeed?: PrescriptionSeed;
   drafting: boolean;
   error: string | null;
   meta: DraftMeta | null;
@@ -446,14 +448,14 @@ interface ChartState {
  * patient id; what one person is writing (the note, the instruction, drafts, what is on screen) under
  * "id|role", so that a nurse never confirms a doctor's half-written note or drafts as their own.
  */
-const SHARED_KEYS = ["added", "stopped", "stopTimes", "extended"] as const;
+const SHARED_KEYS = ["added", "stopped", "stopTimes", "stopDays", "extended"] as const;
 type SharedKey = (typeof SHARED_KEYS)[number];
 const isShared = (k: string): k is SharedKey => (SHARED_KEYS as readonly string[]).includes(k);
 const deskKeyOf = (id: string, role: string) => `${id}|${role}`;
 function mergedChart(all: Record<string, ChartState>, id: string, role: string): ChartState {
   const base = all[id] ?? newChart();
   const desk = all[deskKeyOf(id, role)] ?? newChart();
-  return { ...desk, ...normalizeRightState(desk), added: base.added, stopped: base.stopped, stopTimes: base.stopTimes, extended: base.extended };
+  return { ...desk, ...normalizeRightState(desk), added: base.added, stopped: base.stopped, stopTimes: base.stopTimes, stopDays: base.stopDays, extended: base.extended };
 }
 function applyChart(all: Record<string, ChartState>, id: string, role: string, patch: (c: ChartState) => Partial<ChartState>): Record<string, ChartState> {
   const p = patch(mergedChart(all, id, role));
@@ -1160,8 +1162,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   // The record as it stands now: history, with today's stops applied, plus today's confirmed orders.
   const entries: HistoryEntry[] = useMemo(
-    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes, extended: chart.extended, notes: notes[patient.id], revised: revised[patient.id] }) : []),
-    [patient, chart.stopped, chart.stopTimes, chart.extended, chart.added, notes, revised],
+    () => (patient ? currentEntries(patient, { added: chart.added, stopped: chart.stopped, stopTimes: chart.stopTimes, stopDays: chart.stopDays, extended: chart.extended, notes: notes[patient.id], revised: revised[patient.id] }) : []),
+    [patient, chart.stopped, chart.stopDays, chart.stopTimes, chart.extended, chart.added, notes, revised],
   );
   // For the claim: the team's imaging as 放射線部 recorded it (ris.ts withExamRecords).
   const billedEntries = useMemo(() => (patient && teamIds.has(patient.id) ? withExamRecords(entries, dept.ris) : entries), [patient, teamIds, entries, dept.ris]);
@@ -1297,7 +1299,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         const o = e.order;
         const name =
           o.type === "injection" ? anyDrugName(o.items[0].drugCode) : o.type === "prescription" ? anyDrugName(o.drugCode) : o.type === "procedure" ? procedureTitle(o) : "";
-        return `・${name} 中止`;
+        const stop = chart.drafts.find(d => d.kind === "stop" && d.targetOrderId === e.id);
+        return `・${name} 中止${stop?.kind === "stop" && stop.effectiveDay ? `（${formatShort(addDays(today, stop.effectiveDay))}から）` : ""}`;
       }),
       ...Object.entries(extended).flatMap(([id, days]) => {
         const e = entries.find((x): x is OrderEntry => x.kind === "order" && x.id === id);
@@ -1360,6 +1363,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
       stopTimes: { ...c.stopTimes, ...Object.fromEntries(stops.map((id) => [id, nowTime])) },
+      stopDays: { ...c.stopDays, ...Object.fromEntries(chart.drafts.flatMap(d => d.kind === "stop" && d.targetOrderId ? [[d.targetOrderId, d.effectiveDay ?? 0]] : [])) },
       extended: { ...c.extended, ...extended },
       drafts: [],
       // The orders stay in the left 経過 only; they are not written into the note (ユーザー 2026-11-06：わかりづらい).
@@ -1525,7 +1529,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // What the billing APIs get for one patient: the record as it stands, with the insurance 医事課 registered.
   const claimPayloadOf = (p: Patient) => {
     const c = charts[p.id];
-    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insulinGiven: insulinGivenForBilling(mar, p.id), insurance: currentInsurance(iji.insurance, p.id) });
+    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, stopDays: c.stopDays, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insulinGiven: insulinGivenForBilling(mar, p.id), insurance: currentInsurance(iji.insurance, p.id) });
   };
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
   // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.
@@ -1546,7 +1550,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (!fromPharmacy) auditLog({ role: me.role, actor: me.name, action: `確定（${r.kind}の記録）`, patient: findPatient(pid)?.name, detail: `${r.heard}・${r.minutes ?? "？"}分${r.answers.length ? `・依頼 ${r.answers.length}件を済みに` : ""}` });
   };
 
-  const addStopDraft = (entry: OrderEntry, source = "（カレンダーから）") => {
+  const addStopDraft = (entry: OrderEntry, source = "（カレンダーから）", day = 0) => {
     const o = entry.order;
     const drugCode = o.type === "injection" ? o.items[0].drugCode : o.type === "prescription" ? o.drugCode : null;
     const procCode = o.type === "procedure" ? o.code : null;
@@ -1557,17 +1561,18 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       sourceText: source,
       comment: null,
       kind: "stop",
+      effectiveDay: day,
       drugCode,
       ...(procCode ? { procCode } : {}),
       said: o.type === "procedure" ? procedureTitle(o) : anyDrugName(drugCode!),
       targetOrderId: entry.id,
     };
-    update((c) => (c.drafts.some((d) => d.kind === "stop" && d.targetOrderId === entry.id) ? {} : { drafts: [...c.drafts, draft], flash: null }));
+    update((c) => (c.drafts.some((d) => d.kind === "stop" && d.targetOrderId === entry.id) ? {} : { drafts: [...c.drafts, draft], flash: "記事の下の処方オーダの下書きに入りました" }));
   };
   // 延長 and 修正 from the injection calendar (left view or the right tab).
   const extendDraft = (e: OrderEntry, n: number) => {
     const draft: ExtendDraft = expiryExtension(e, n, newId());
-    update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], flash: `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
+    update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], flash: e.order.type === "prescription" ? "記事の下の処方オーダの下書きに入りました" : `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
   };
   const modifyOrder = (e: OrderEntry) => {
     if (e.order.type !== "injection") return;
@@ -1635,7 +1640,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       return { instruction: cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${text}` : text };
     });
 
-  const sessionChanges = Object.fromEntries(Object.entries(charts).filter(([k]) => !k.includes("|")).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
+  const sessionChanges = Object.fromEntries(Object.entries(charts).filter(([k]) => !k.includes("|")).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, stopDays: c.stopDays, extended: c.extended, notes: notes[id], revised: revised[id] }]));
   const examPeople = [...patientById.values()].map((p) => ({ patient: p, room: (() => { const b = allBeds.find((b) => b.patientId === p.id); return b ? roomLabel(b.room, b.bed) : p.room; })(), entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }));
   // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
   const injMemory = patient
@@ -2198,6 +2203,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   };
   /** What the left tabs (経過表・内服歴・注射歴) and the reading windows show and do, for the chart in front. */
   const refPropsOf = (patient: Patient): RefWindowProps => ({
+    onNewPrescription: deny("order") ? undefined : (day, from) => { update({ rxSeed: prescriptionCalendarSeed(newId(), day, patient.id, from) }); openOrder("add-rx"); },
+    onPrescriptionStop: deny("order") ? undefined : (entry, day) => addStopDraft(entry, "（内服カレンダーから）", day),
     onNewOrder: deny("order") ? undefined : (tab) => { if (tab === "rxcal") openOrder("add-rx"); else setPanel("add-procedure"); },
     patient,
     entries,
@@ -2207,7 +2214,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     onSelectDay: (d) => update({ selectedDay: d }),
     onAdjustInsulin: !deny("order") ? (e, change) => { const next = insulinAdjustmentEntries(e, change, 0, newId(), me.name, nowTime); update(c => ({ added: [...c.added, next], flash: "明日からのインスリンを保存しました。看護師の指示受けに変更として出ます。" })); auditLog({role:me.role,actor:me.name,action:"確定（インスリンを調整）",patient:patient.name,detail:orderLines(next.order,today).main}); chartNote(patient.id, `インスリンを調整：${orderLines(next.order,today).main}（元の指示は今日まで、明日から）`); } : undefined,
     onStopDraft: addStopDraft,
-    onExtendDraft: extendDraft,
+    onExtendDraft: deny("order") ? undefined : extendDraft,
     pendingExtends: pendingExtends,
     marOf: (id, at) => mar[`${id}|${at}`],
     execute: executeProps,
@@ -3352,7 +3359,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                                 previous: previousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
                                 me: me.name,
                               }}
-                              onAdd={(ds) => { if (visitOf(patient.id)?.kind !== "opd") setOrderWins((v) => v.filter((k) => k !== "add-rx")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
+                              onAdd={(ds) => { if (visitOf(patient.id)?.kind !== "opd") setOrderWins((v) => v.filter((k) => k !== "add-rx")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: "記事の下の処方オーダの下書きに入りました" })); if (ds[0]) focusDraftLine(ds[0].id); }}
                             />
                           </fieldset>
                           {(() => { const v = visitOf(patient.id); return v?.kind === "opd" ? <OpdRxAfter op={v.op} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} legacy={opdRx[v.op.id] ?? []} insuranceBook={iji.insurance} today={today} nowTime={nowTime} national={national} onRegistered={(r) => setNational((all) => [...all, r])} /> : null; })()}

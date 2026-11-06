@@ -135,7 +135,7 @@ export function HistoryPane(props: Props) {
   const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, planned, nowTime, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown } = props;
   const view = asLeftView(props.view);
   const v = views;
-  const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew, execute } : null;
+  const calendarProps: CalendarProps | null = v ? { patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewPrescription: v.onNewPrescription, onPrescriptionStop: v.onPrescriptionStop, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew, execute } : null;
   return (
     <section aria-label="経過" className="flex min-h-0 flex-col border-r border-rule bg-sheet">
       <div className="flex flex-nowrap items-center gap-x-3 border-b border-rule-soft px-4 py-1.5">

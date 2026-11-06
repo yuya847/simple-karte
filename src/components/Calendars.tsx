@@ -1,4 +1,6 @@
 "use client";
+import { resizedPrescriptionDays } from "@/lib/prescription-calendar";
+import { PrescriptionCalendarMenu } from "./PrescriptionCalendarMenu";
 import { insulinDoseText } from "@/lib/insulin-doses";
 import { patternCourse } from "@/lib/day-pattern";
 
@@ -21,6 +23,8 @@ import { START_BANDS, doStartOf, draftSpan, startAt, type InjStart } from "@/lib
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "@/lib/types";
 
 export interface CalendarProps {
+  onNewPrescription?: (day: number, from?: OrderEntry) => void;
+  onPrescriptionStop?: (entry: OrderEntry, day: number) => void;
   onAdjustInsulin?: (entry: OrderEntry, change: InsulinChange) => void;
   patient: Patient;
   entries: HistoryEntry[];
@@ -80,7 +84,9 @@ function Frame({
   selectedDay,
   onSelectDay,
   children,
+  allowFuture = false,
 }: {
+  allowFuture?: boolean;
   days: DayOffset[];
   today: CalendarDate;
   patient: Patient;
@@ -104,7 +110,7 @@ function Frame({
               <th key={d} className={`sticky top-0 z-10 border-b border-l border-rule bg-sheet p-0 font-normal ${d === 0 ? "bg-ai-soft" : ""}`}>
                 <button
                   type="button"
-                  disabled={d > 0}
+                  disabled={d > 0 && !allowFuture}
                   onClick={() => onSelectDay(d)}
                   className={`flex w-full flex-col items-center py-1 ${d === selectedDay ? "bg-ai text-white" : d > 0 ? "text-ink-faint" : "hover:bg-paper"}`}
                 >
@@ -144,7 +150,9 @@ function RowHead({
   onModify,
   onDo,
   endLabel,
+  rxOptions,
 }: {
+  rxOptions?: CalendarProps;
   entry: OrderEntry;
   title: string;
   lines: string[];
@@ -159,9 +167,9 @@ function RowHead({
 }) {
   const stopped = entry.status === "中止";
   const active = entry.status === "有効";
-  return (
-    <th className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1.5 text-left align-top font-normal">
+  const content = <>
       <div className={`font-bold ${stopped ? "text-ink-faint line-through" : "text-ink"}`}>{title}</div>
+      {rxOptions?.pendingExtends?.[entry.id] && <div className="text-xs text-ai">日数変更の下書き：{rxOptions.pendingExtends[entry.id] > 0 ? "+" : ""}{rxOptions.pendingExtends[entry.id]}日</div>}
       {lines.map((l) => (
         <div key={l} className="text-[11px] text-ink-soft">
           {l}
@@ -211,8 +219,8 @@ function RowHead({
           </button>
         )}
       </div>
-    </th>
-  );
+    </>;
+  return <th className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1.5 text-left align-top font-normal">{rxOptions ? <PrescriptionCalendarMenu entry={entry} day={rxOptions.selectedDay ?? 0} options={rxOptions}>{content}</PrescriptionCalendarMenu> : content}</th>;
 }
 
 function Cell({ day, children }: { day: DayOffset; children?: React.ReactNode }) {
@@ -532,19 +540,24 @@ function ExtendHandle({ label, end, max, value, fmt, onMove, onDone }: { label: 
 
 const RX_GROUPS: PrescriptionOrder["category"][] = ["定期", "臨時", "持参薬", "退院時"];
 
-export function PrescriptionCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute }: CalendarProps) {
-  const days = calendarDays(patient);
+export function PrescriptionCalendar(options: CalendarProps) {
+  const { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute, onNewPrescription, onExtendDraft } = options;
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "prescription");
+  const days = calendarDays(patient, Math.max(7, ...orders.map(e => orderEndDay(e.order) ?? 0)));
 
   return (
+    <>
+    {onNewPrescription && <button type="button" onClick={() => onNewPrescription(0)} className="px-3 py-2 text-ai">＋ 処方</button>}
     <Frame
       days={days}
       today={today}
       patient={patient}
       selectedDay={selectedDay}
-      onSelectDay={onSelectDay}
+      onSelectDay={onNewPrescription ?? onSelectDay}
+      allowFuture={!!onNewPrescription}
     >
+      <tr><th className="sticky left-0 bg-sheet">新規処方</th>{days.map(d => <td key={d} className="border border-rule"><button className="w-full py-2 text-ai" disabled={!onNewPrescription} onClick={() => onNewPrescription?.(d)}>＋ 処方</button></td>)}</tr>
       <tr>
         <th className="sticky left-0 z-[5] border-b border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">食事（主食・割）</th>
         {days.map((d) => {
@@ -567,6 +580,7 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
             return (
               <tr key={e.id}>
                 <RowHead
+                  rxOptions={options}
                   entry={e}
                   title={oralName(o.drugCode)}
                   lines={[`${o.administration ? "総量" : "1回"}${o.amount}${o.unit}　${timingText(o)}${o.dayPattern ? `　${patternCourse(o.dayPattern, o.start.day, o.days, true, today)}` : o.days ? `　${o.days}日分` : ""}`, ...(o.comment ? [o.comment] : [])]}
@@ -577,7 +591,7 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
                   const c = prescriptionCell(e, d, nowAbs);
                   return (
                     <Cell key={d} day={d}>
-                      <div className="flex flex-wrap gap-1">
+                      <PrescriptionCalendarMenu entry={e} day={d} options={options}><div className="flex flex-wrap gap-1">
                         {c.slots.map((s) =>
                           s.state ? (
                             (() => {
@@ -603,6 +617,8 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
                         ))}
                         {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止</span>}
                       </div>
+                      {e.status === "有効" && orderEndDay(o) === d && onExtendDraft && <button aria-label="処方の終了日を動かす" className="cursor-ew-resize touch-none text-ai" onPointerDown={event => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); event.currentTarget.dataset.startX = String(event.clientX); }} onPointerUp={event => { const delta = resizedPrescriptionDays(o.days ?? 0, event.clientX - Number(event.currentTarget.dataset.startX), COL_W, o, today); if (delta) onExtendDraft(e, delta); }}>↔</button>}
+                      </PrescriptionCalendarMenu>
                     </Cell>
                   );
                 })}
@@ -619,6 +635,7 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
         </tr>
       )}
     </Frame>
+    </>
   );
 }
 

@@ -1,4 +1,5 @@
 "use client";
+import type { PrescriptionSeed } from "@/lib/prescription-calendar";
 import { diluentChoices, chooseDiluent } from "@/lib/inj-diluent";
 import { InjectionDiluentChoice } from "./InjectionDiluentChoice";
 import { PrescriptionCommentInput } from "../PrescriptionCommentInput";
@@ -762,6 +763,7 @@ interface RpRow {
   per: string;
 }
 interface Rp {
+  startDay?: number;
   administration?: PrescriptionUse;
   dayPattern?: import("@/lib/types").DayPattern;
   once?: boolean;
@@ -821,7 +823,7 @@ export function AddRxPanel({
   newId: () => string;
   drafts?: Draft[];
   /** Do: a past prescription to copy in. */
-  seed?: { key: string; pattern: RxPattern };
+  seed?: PrescriptionSeed;
   /** 処方の記憶: the doctor's patterns, this patient's previous prescriptions, and who is writing. */
   memory?: { patterns: RxPattern[]; previous: RxPattern[]; me: string };
 }) {
@@ -850,7 +852,7 @@ export function AddRxPanel({
   const [seeded, setSeeded] = useWindowEntry<string | null>("rx.seeded", null);
   if (seed && seed.key !== seeded) {
     setSeeded(seed.key);
-    putIn([rpFromPattern(seed.pattern)]);
+    putIn([{ ...(seed.pattern ? rpFromPattern(seed.pattern) : freshRx()), startDay: seed.day }]);
   }
   // マスタ管理: 採用 and not 中止, in 表示順, with the 院内名.
   const ml = useMasterLocal();
@@ -909,7 +911,7 @@ export function AddRxPanel({
       prn: prn ? rp.prn.trim() || null : null,
       maxPerDay: prn ? Number(rp.maxPerDay) || null : null,
       days: rp.administration || prn ? null : Number(rp.days) || null,
-      start: category === "定期" && !prn && nextDay
+      start: rp.startDay !== undefined ? { day: rp.startDay, timing: null } : category === "定期" && !prn && nextDay
         ? { day: regularDayOffset(ward, today), timing: timingsOf(rp)?.[0] ?? null }
         : { day: null, timing: null },
       acks: [],
@@ -938,6 +940,7 @@ export function AddRxPanel({
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[13px]">
       {outpatient && <TabChoice label="院内／院外" options={["院内", "院外"].map((value) => ({ value, label: value }))} value={dispensing} onChange={(v) => setDispensing(v as "院内" | "院外")} />}
+      {seed?.day !== undefined && <p className="text-xs text-ai" data-start-day={seed.day}>開始：{seed.day === 0 ? "今日" : `${seed.day}日後`}</p>}
       <CollectedRps drafts={drafts} kind="prescription" />
 
       <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />
@@ -971,6 +974,7 @@ export function AddRxPanel({
           if (rp.rows.length && kind !== rp.administration?.kind) { putIn([{ ...freshRx(), rows: [{ drugCode: c, per: "" }], administration: kind ? { kind, usage: "" } : undefined, step: "dose" }]); return; }
           upd(i, { rows: [...rp.rows, { drugCode: c, per: "" }], administration: kind ? { kind, usage: rp.administration?.usage ?? "" } : undefined, step: "dose" }); requestAnimationFrame(() => { const fields = panelRoot.current?.querySelectorAll<HTMLInputElement>(`[data-rp="${i}"] [data-step=dose] input`); fields?.[fields.length - 1]?.focus(); }); }} placeholder={`${label} に薬を入れる（名前・略称・ひらがな可）`} />;
         return <section key={i} data-rp={i} className="py-2">
+          {rp.startDay !== undefined && <DayInput label={`${label} の開始日`} value={rp.startDay} onChange={v => upd(i, { startDay: v ?? undefined })} />}
           {rp.comment !== undefined && <div className="border-b border-rule py-1"><PrescriptionCommentInput value={rp.comment} label={`${label} のコメント`} onChange={comment => upd(i, { comment })} onEnter={() => focus(i, "drug")} /></div>}
           {step === "done" ? <button className="w-full py-1 text-left" onClick={() => focus(i, "dose")}><b>{label}</b>　{summary}　{displayText(rp.administration?.usage ?? (rp.once ? "1回だけ・今すぐ" : howText(timingsOf(rp), rp.prn, Number(rp.maxPerDay) || null)))}　{rp.once || rp.administration ? "" : courseOf(rp)}{rp.onePack ? "　一包化" : ""}{rp.alreadyDone ? "　実施済み" : ""}</button> : <>
           {rp.once && <p className="text-yamabuki">1回だけ・今すぐ</p>}

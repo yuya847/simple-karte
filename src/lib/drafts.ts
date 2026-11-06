@@ -218,6 +218,7 @@ export interface ProcedureDraft extends DraftBase {
 }
 
 export interface StopDraft extends DraftBase {
+  effectiveDay?: number;
   kind: "stop";
   drugCode: string | null;
   /** Set instead of drugCode when a procedure (酸素, 留置カテーテル …) is stopped. */
@@ -1076,6 +1077,7 @@ function checkLab(d: LabDraft, ctx: CheckContext): Issue[] {
 }
 
 function checkStop(d: StopDraft, ctx: CheckContext): Issue[] {
+  if (d.effectiveDay !== undefined && !Number.isInteger(d.effectiveDay)) return [{ key: "stop-day", level: "stop", title: "中止日", message: "中止日を選んでください。" }];
   if (d.procCode !== undefined && d.procCode !== null) {
     const name = findProc(d.procCode)!.name;
     const targets = targetsOf(d, ctx);
@@ -1555,6 +1557,7 @@ function checkExtend(d: ExtendDraft, ctx: CheckContext): Issue[] {
   if (ctx.drafts.some((x) => x.kind === "stop" && resolvedStopTarget(x, ctx) === target.id))
     return [{ key: "extend-stop", level: "stop", title: "延長", message: "同じオーダの中止の下書きがあります。どちらかを消してください。" }];
   const days = (target.order as { days: number }).days;
+  if (!Number.isInteger(d.addDays) || days + d.addDays < 1) return [{ key: "extend-days", level: "stop", title: "日数", message: "変更後の日数は1日以上にしてください。" }];
   const nextEnd = orderEndDay({ ...target.order, days: days + d.addDays } as Order)!;
   const unit = target.order.type === "prescription" && target.order.dayPattern ? "投与日分" : "日間";
   return [

@@ -11,6 +11,7 @@ export interface SessionChanges {
   stopped: string[];
   /** Clock time each of today's stops was confirmed ("HH:MM"). */
   stopTimes?: Record<string, string>;
+  stopDays?: Record<string, number>;
   /** Notes confirmed in this session. */
   notes?: NoteEntry[];
   /** Corrected notes by their key; they replace the note in place (earlier versions inside). */
@@ -22,7 +23,7 @@ export interface SessionChanges {
 export function currentEntries(patient: Patient, changes?: SessionChanges): HistoryEntry[] {
   changes ??= { added: [], stopped: [] };
   const stopped = new Set(changes.stopped);
-  const stopOf = (e: OrderEntry): OrderEntry => ({ ...e, status: "中止", stoppedOn: 0, stoppedTime: changes.stopTimes?.[e.id] });
+  const stopOf = (e: OrderEntry): OrderEntry => ({ ...e, status: "中止", stoppedOn: changes.stopDays?.[e.id] ?? 0, stoppedTime: changes.stopDays?.[e.id] ? "00:00" : changes.stopTimes?.[e.id] });
   const revised = changes.revised ?? {};
   const extended = changes.extended ?? {};
   const all = [...patient.history.filter((e): e is OrderEntry => e.kind === "order"), ...changes.added];
