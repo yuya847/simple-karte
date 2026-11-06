@@ -208,7 +208,6 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
             {x.cls.doc ? "PMDA" : "医薬品マスター"}
             <ExternalLink size={11} />
           </a>
-          <span className="hint block text-[10px] text-ink-faint">{x.revision}</span>
         </td>
         <td className="px-2 py-1.5">{n.length > 0 && <span className={`rounded px-1.5 text-[11px] font-bold ${unread ? "bg-yamabuki-soft text-yamabuki" : "bg-tab text-ink-soft"}`}>{unread ? `未読 ${unread}` : `${n.length}件`}</span>}</td>
       </tr>
