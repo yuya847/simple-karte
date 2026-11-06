@@ -3021,7 +3021,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     className="rounded-md bg-ink px-4 py-1.5 text-sm font-bold text-white hover:bg-ink/90 disabled:opacity-40"
                   >
                     <Save size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />
-                    保存{noteReady && ordersReady ? "（記事＋オーダ）" : noteReady ? "（記事）" : ordersReady ? "（オーダ）" : ""}
+                    保存
                   </button>
                 )}
               </>
