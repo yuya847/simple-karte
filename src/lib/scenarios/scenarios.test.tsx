@@ -98,6 +98,12 @@ describe("100人の再現可能な時系列", () => {
     expect(transferSummary(p, orders, { restrained: false })).toBeInstanceOf(Array);
   });
 
+  it("入院患者の7割以上で、記録のオーダを含むDPC算定からコードが出る", () => {
+    const admitted = SCENARIOS.cases.flatMap((c, i) => c.stage === "入院" ? [inputs[i]] : []);
+    const coded = admitted.filter((input) => dpcMonth({ ...input, today: iso, nowTime: "12:00" }, "2026-11", { coefficient: FICTIONAL_COEFFICIENT, transfer: null }).outcome?.ok);
+    expect(coded.length / admitted.length).toBeGreaterThanOrEqual(0.7);
+  });
+
   it("100人で主要なカルテ画面をサーバーレンダリングできる", () => {
     for (const p of SCENARIOS.patients) {
       const common = { patient: p, entries: p.history, today, nowTime: "12:00", selectedDay: null, onSelectDay: noop, onStopDraft: noop, draftedStops: [] };

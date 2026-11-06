@@ -658,7 +658,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 医事課: the insurance registered per patient (every version) and 退院時の会計. Kept in this browser only.
   const [iji, setIji] = useState<IjiDesk>(() => scenario ? { insurance: SCENARIOS.insurance, settled: {} } : INITIAL_DESK);
   // Consent forms (fictional). Every inpatient gave the admission consent on their admission day.
-  const [consents, setConsents] = useState<ConsentRecord[]>(admissionConsents);
+  const [consents, setConsents] = useState<ConsentRecord[]>(() => scenario ? SCENARIOS.consents : admissionConsents());
   // 指示受け by a nurse: change key → time. Kept in this browser only.
   const [taken, setTaken] = useState<Record<string, string>>({});
   // Pharmacy work (all kept in this browser only).
@@ -778,7 +778,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [nutritionDoc, setNutritionDoc] = useState(false);
   const [supportDoc, setSupportDoc] = useState(false);
   const [admitSelection, setAdmitSelection] = useState<{ pid: string; key: import("@/lib/admit-eval").ItemKey }>();
-  const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
+  const [evals, setEvals] = useState<Record<string, AdmitEval>>(() => scenario ? SCENARIOS.evals : Object.fromEntries(initialEvals().map((e) => [e.patientId, e])));
   // Results the doctor marked as seen, and panic values phoned in by the laboratory.
   const [acks, setAcks] = useState<Record<string, Ack>>({});
   const [calls, setCalls] = useState<Record<string, PanicCall>>({});
@@ -973,10 +973,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // The 山本チーム's patients (and today's admissions): the worksheet, やること and the boards are theirs.
   // A doctor's 受け持ち also has every patient they are 主治医 (team), 担当医 or コンサルト医 of, so none is missed.
   const teamIds = useMemo(() => {
-    const ids = new Set([...PATIENTS, ...admitted].map((p) => p.id));
+    const ids = new Set([...PATIENTS, ...admitted].filter((p) => !scenario || involved(role === "医師" ? me.name : STAFF.医師.name, doctorsOf(p.attending, doctorBook[p.id]))).map((p) => p.id));
     if (role === "医師") for (const p of allPatients) if (!ids.has(p.id) && involved(me.name, doctorsOf(p.attending, doctorBook[p.id]))) ids.add(p.id);
     return ids;
-  }, [PATIENTS, admitted, role, me.name, allPatients, doctorBook]);
+  }, [PATIENTS, admitted, role, me.name, allPatients, doctorBook, scenario]);
   // 医事課 and the receipt file stay the team's: the claim APIs take up to 100 patients in one request.
   const teamPatients = useMemo(() => allPatients.filter((p) => teamIds.has(p.id)), [allPatients, teamIds]);
   // 5階東 (and anyone moved from it or admitted today), and every floor's beds.
