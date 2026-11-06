@@ -201,9 +201,10 @@ export const COLUMNS: Column[] = [
     label: "氏名",
     sort: "name",
     full: ({ patient: p, compact, doctors, viewer, starred, onStar, onOpen, onInfo }) => (
-      <div className="flex items-center gap-2">
+      // The name never wraps (ユーザー 2026-11-06): the column keeps the width the longest name needs.
+      <div className="flex items-center gap-2 whitespace-nowrap">
         {!compact && <PatientAvatar sex={p.sex} age={p.age} size={30} className="rounded-full" />}
-        <div>
+        <div className="whitespace-nowrap">
           {!compact && <div className="text-[10px] text-ink-faint">{p.kana}</div>}
           <button
             type="button"
