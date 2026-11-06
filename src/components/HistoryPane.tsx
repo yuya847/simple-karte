@@ -437,7 +437,7 @@ function RecordList({
           </label>
           )}
         </div>
-        {(
+        {(matchedFilter || on.length !== ALL_CATS.length || templateActive || departments.length > 0 || roles.length > 0 || !!key || orderDay !== "予定日" || showStopped) && (
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
               {matchedFilter ? <>{matchedFilter.name}（保存した絞り込み）</> : <>

@@ -75,11 +75,16 @@ textarea::selection,
   outline: 2px solid var(--color-ai);
   outline-offset: 2px;
 }
+input:focus,
 input:focus-visible,
+textarea:focus,
 textarea:focus-visible,
+select:focus,
 select:focus-visible,
+[contenteditable="true"]:focus,
 [contenteditable="true"]:focus-visible {
-  outline: none;
+  /* Safari (iPad) draws its own ring on :focus; both are turned off for text fields. */
+  outline: none !important;
 }
 
 /*
