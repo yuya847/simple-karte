@@ -118,7 +118,8 @@ begin
       where id = p_id and (day <> p_day or version <> p_version);
   else
     update public.workspaces set version = p_version, day = p_day, data = p_data, updated_at = clock_timestamp()
-      where id = p_id and updated_at = p_expected and day = p_day and version = p_version;
+      -- Only "nobody saved since I read it": the day may have rolled over since (the row then still holds yesterday).
+      where id = p_id and updated_at = p_expected;
   end if;
   return found;
 end;
