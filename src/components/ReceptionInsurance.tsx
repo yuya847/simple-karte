@@ -1,5 +1,7 @@
 "use client";
 
+import { IsoDayInput } from "./DayInput";
+
 // 保険 at the 外来の受付: the card's numbers as the window types them, or filled from the answer of オンライン
 // 資格確認（模擬）. The same form as 保険の登録 (registration.ts), with the fields a reception needs; 公費・生活
 // 保護・労災 are registered in the 患者基本情報 window. Code checks the entries; the person receives.
@@ -78,7 +80,7 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
         </label>
         <label className="text-[11px] text-ink-soft">
           生年月日
-          <input type="date" value={form.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} className={`nums ${input} ${tone("birthDate")}`} />
+          <IsoDayInput value={form.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} className={`nums ${input} ${tone("birthDate")}`} />
         </label>
         {medical && (
           <>
@@ -162,7 +164,7 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
             </label>
             <label className="text-[11px] text-ink-soft">
               確認日
-              <input type="date" value={form.verifiedOn} onChange={(e) => onChange({ verifiedOn: e.target.value })} className={`nums ${input} ${tone("verifiedOn")}`} />
+              <IsoDayInput value={form.verifiedOn} onChange={(e) => onChange({ verifiedOn: e.target.value })} className={`nums ${input} ${tone("verifiedOn")}`} />
             </label>
           </>
         )}

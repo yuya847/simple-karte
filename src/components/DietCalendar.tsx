@@ -1,5 +1,6 @@
 "use client";
 
+import { calendarBands } from "@/lib/calendar-bands";
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -125,28 +126,25 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
           {MEALS.map((m) => (
             <tr key={m} className="align-top">
               <th className="pr-1 pt-1 text-left font-normal text-ink-soft">{m}</th>
-              {days.map((d) => {
-                const c = cells.find((x) => x.day === d && x.m === m)!;
+              {calendarBands(cells.filter(x => x.m === m), c => JSON.stringify([c.o?.id, c.label, c.held, c.served])).map(({ first: c, count }) => {
+                const d = c.day;
                 const tone = c.held.length ? "bg-yamabuki-soft text-yamabuki" : TONE[c.o?.kind ?? ""] ?? "bg-paper text-ink-faint";
                 return (
-                  <td key={d} className="p-0.5">
-                    <button
+                  <td key={d} colSpan={count} className="p-0.5">
+                    <div className={`grid overflow-hidden rounded ${tone}`} style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
+                    {Array.from({ length: count }, (_, offset) => <button
+                      key={offset}
                       type="button"
+                      aria-label={`${formatShort(addDays(today, d + offset))} ${m}：${c.held.length ? holdTitle(c.holds) : c.o?.kind ?? "未指示"}`}
                       disabled={!dietEdit || !!dietEdit.denied || c.served}
-                      onClick={() => { setEditing({ day: d, meal: m }); setScope("from"); setError(""); }}
-                      title={displayText(`${dietEdit?.denied ?? (c.served ? "配膳済みの食事は変更できません" : "押して変える")}：${formatShort(addDays(today, d))} ${m}：${c.held.length ? `${holdTitle(c.holds)}（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`)}
-                      className={`block min-h-12 w-full rounded enabled:hover:bg-ai-soft enabled:hover:text-ai px-1.5 py-1 text-left ${tone} ${c.served ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${d === 0 ? "outline outline-1 outline-ai/30" : ""}`}
+                      onClick={() => { setEditing({ day: d + offset, meal: m }); setScope("from"); setError(""); }}
+                      title={displayText(`${dietEdit?.denied ?? (c.served ? "配膳済みの食事は変更できません" : "押して変える")}：${formatShort(addDays(today, d + offset))} ${m}：${c.held.length ? `${holdTitle(c.holds)}（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`)}
+                      className={`block min-h-10 w-full enabled:hover:bg-ai-soft enabled:hover:text-ai px-1.5 py-1 text-left ${tone} ${c.served ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${d === 0 ? "outline outline-1 outline-ai/30" : ""}`}
                     >
-                      {c.changed && <span className="mb-0.5 block text-[9px] font-bold text-ai">ここから変更</span>}
-                      {c.held.length ? (
-                        <>
-                          <b>{holdTitle(c.holds)}</b>
-                          <span className="block text-[10px]">{c.held.join("、")}</span>
-                        </>
-                      ) : (
-                        c.label
-                      )}
-                    </button>
+                      {offset === 0 && c.changed && <span className="mb-0.5 block text-[9px] font-bold text-ai">ここから変更</span>}
+                      {offset === 0 ? (c.held.length ? <b>{holdTitle(c.holds)}</b> : c.o?.kind ?? "未指示") : <span aria-hidden="true">─</span>}
+                    </button>)}
+                    </div>
                   </td>
                 );
               })}

@@ -49,7 +49,6 @@ export interface CalendarProps {
 }
 
 /** The note under a calendar about recording from its cells, when that is possible. */
-const EXEC_NOTE = (execute: ExecuteProps | undefined) => (execute ? "時刻の札を右クリック（iPad は長押し）すると、その回を実施・未実施にできます（ワークシートと同じ与薬・実施の記録。照合なし）。" : "");
 
 /** 実施 / 未実施 as the nurse recorded it, next to a dose. */
 function MarMark({ r }: { r?: { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } }) {
@@ -80,7 +79,6 @@ function Frame({
   selectedDay,
   onSelectDay,
   children,
-  note,
 }: {
   days: DayOffset[];
   today: CalendarDate;
@@ -88,7 +86,6 @@ function Frame({
   selectedDay: DayOffset | null;
   onSelectDay: (d: DayOffset) => void;
   children: React.ReactNode;
-  note: string;
 }) {
   return (
     <div className="scroll-thin min-h-0 flex-1 overflow-auto pb-24">
@@ -121,7 +118,7 @@ function Frame({
         </thead>
         <tbody>{children}</tbody>
       </table>
-      <p className="hint mt-2 px-3 text-[10px] text-ink-faint">{displayText(note)}</p>
+
     </div>
   );
 }
@@ -259,7 +256,6 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`✓ は与薬・実施の記録がある投与です。時刻を押すとその回をスキップ、もう一度押すと復活します（実施済みの回は「未実施に戻す」で取り消し）。枠だけのものはこれからの予定。${EXEC_NOTE(execute)}点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
     >
       {INJ_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as InjectionOrder));
@@ -397,7 +393,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
               <Plus size={13} />
               新しい注射
             </button>
-            <div className="hint mt-0.5 text-[10px] text-ink-faint">右の日付の欄を押すと、その日と時刻帯から。薬は注射のタブで選びます。</div>
+
           </th>
           {days.map((d) => (
             <td key={d} data-new-pick className={`relative border-b border-l border-t border-rule px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""}`}>
@@ -472,7 +468,7 @@ function StartBandMenu({ label, onPick, onClose, alignRight }: { label: string; 
           {b.time && <span className="text-ink-faint">{b.time}</span>}
         </button>
       ))}
-      <p className="hint px-1 pt-1 text-[10px] text-ink-faint">注射のタブで時刻を打ち直せます。</p>
+
     </div>
   );
 }
@@ -547,7 +543,6 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`✓ は服用の時刻を過ぎたもの、済・未実施は与薬の記録から。服用の時刻は病棟の約束（朝 8:00・昼 12:00・夕 18:00・眠前 21:00）。頓用は使った時刻を出します。${EXEC_NOTE(execute)}`}
     >
       <tr>
         <th className="sticky left-0 z-[5] border-b border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">食事（主食・割）</th>
@@ -646,7 +641,6 @@ export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`決まった時刻の処置は、時刻を過ぎたものを ✓ に、済・未実施は実施の記録から。時刻は病棟の約束（1日1回 10:00、1日2回 10:00・18:00、1日3回 6:00・14:00・22:00）。必要時の処置は、実施した時刻を出します。${EXEC_NOTE(execute)}`}
     >
       {PROC_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as ProcedureOrder));

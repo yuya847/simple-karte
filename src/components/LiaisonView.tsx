@@ -1,5 +1,7 @@
 "use client";
 
+import { IsoDayInput } from "./DayInput";
+
 import { displayText } from "@/lib/display-text";
 import { Building2, Calculator, Handshake, MailWarning, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -401,12 +403,12 @@ function AddForm({ today, onAdd }: { today: CalendarDate; onAdd: (r: Referral) =
       </label>
       <label className="flex items-center gap-2">
         紹介状の日付
-        <input type="date" value={f.letter} onChange={(e) => set({ letter: e.target.value })} className={input} required />
+        <IsoDayInput value={f.letter} onChange={(e) => set({ letter: e.target.value })} className={input} required />
       </label>
       {f.direction === "紹介" && (
         <label className="flex items-center gap-2">
           当院の受診日
-          <input type="date" value={f.visit} onChange={(e) => set({ visit: e.target.value })} className={input} />
+          <IsoDayInput value={f.visit} onChange={(e) => set({ visit: e.target.value })} className={input} />
           <span className="text-[11px] text-ink-faint">空なら受診予定</span>
         </label>
       )}

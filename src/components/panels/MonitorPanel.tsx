@@ -151,7 +151,7 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
       <div className="flex flex-col gap-3 md:flex-row">
         <div className="min-w-0 flex-1">
           <MonitorCanvas traces={traces} height={270} />
-          <p className="mt-1 text-[11px] text-ink-soft">波形は模擬（実際の装置につないでいません）。{MONITOR_NOTES.shapes}</p>
+
         </div>
         <div className="grid w-full shrink-0 grid-cols-2 gap-2 md:w-56 md:grid-cols-1">
           {tile("hr", "HR", "/分", COLORS.ecg, live.hr)}
@@ -229,10 +229,7 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
 
       </div>
 
-      <div className="space-y-0.5 text-[11px] text-ink-soft">
-        <p>{MONITOR_NOTES.simulated}</p>
-        <p>{MONITOR_NOTES.limits}</p>
-      </div>
+
     </div>
   );
 }

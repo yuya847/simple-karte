@@ -182,6 +182,7 @@ import { INITIAL_LINE_IDS, initialLines, lineChanges, linesFromFields, type Stan
 import { leaveFlags, type Flag } from "@/lib/patient-flags";
 import { HistoryPane, type LeftView } from "./HistoryPane";
 import type { FlowScale } from "@/lib/flow-scale";
+import { emptyCalendar } from "@/lib/active-orders";
 import { RefWindow, REF_TABS, isRefTab, type RefWindowProps } from "./RefWindows";
 import { PatientBar } from "./PatientBar";
 import { PatientSwitchFlash } from "./PatientSwitchFlash";
@@ -2157,6 +2158,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   };
   /** What the left tabs (経過表・内服歴・注射歴) and the reading windows show and do, for the chart in front. */
   const refPropsOf = (patient: Patient): RefWindowProps => ({
+    onNewOrder: deny("order") ? undefined : (tab) => { if (tab === "rxcal") openOrder("add-rx"); else setPanel("add-procedure"); },
     patient,
     entries,
     today,
@@ -3235,6 +3237,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     tab={t}
                     title={`${title}：${patient.name}さん`}
                     active={docked === t}
+                    compact={emptyCalendar(t, entries)}
                     win={floating[t]}
                     z={Math.max(0, zOrder.indexOf(t))}
                     dockedClass={dockedClass}
@@ -3554,11 +3557,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               />
                     </div>
                   )}
-                  <ActiveOrdersPanel entries={entries} today={today} />
+                  <ActiveOrdersPanel entries={entries} today={today} lines={refPropsOf(patient).standingCal?.lines} />
                 </Drawer>
               )}
               {panel === "monitor" && (
-                <Drawer title="患者モニター（模擬）" onClose={closePanel}>
+                <Drawer title="患者モニター" onClose={closePanel}>
                   <MonitorPanel
                     patient={patient}
                     nowTime={nowTime}

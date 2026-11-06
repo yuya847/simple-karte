@@ -1,3 +1,4 @@
+import { helpSections } from "@/lib/help";
 // 患者モニター（模擬）とセントラルモニター, rendered on the server: no canvas is drawn there, but the numbers from
 // the latest recorded vital signs, the alarms and the 模擬 notes are in the markup.
 import { renderToStaticMarkup } from "react-dom/server";
@@ -24,8 +25,10 @@ describe("患者モニター（模擬）のウインドウ", () => {
     expect(html).toContain("36.8");
     expect(html).toContain("アラームなし");
     expect(html).toContain("音は鳴りません");
-    expect(html).toContain("波形は模擬（実際の装置につないでいません）");
-    expect(html).toContain(MONITOR_NOTES.limits);
+    expect(html.match(/>模擬</g)).toHaveLength(1);
+    expect(html).not.toContain("波形は模擬（実際の装置につないでいません）");
+    expect(html).not.toContain(MONITOR_NOTES.limits);
+    expect(JSON.stringify(helpSections)).toContain(MONITOR_NOTES.limits);
     expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("NIBP 測定");
     expect(html).toContain("記録する（HR・SpO2・RR）");

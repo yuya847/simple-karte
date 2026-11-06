@@ -1,4 +1,6 @@
 "use client";
+
+import { IsoDayInput } from "../DayInput";
 import { useEffect, useState } from "react";
 import { addDays, daysFrom, isoDate, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, diagnosisProblems, type Diagnosis, type Modifier, type Outcome } from "@/lib/diagnoses";
@@ -35,7 +37,7 @@ export function DiagnosisDetail({ initial, today, department, query, onSave, onC
   const patch = (p: Partial<Diagnosis>) => setD(prev => ({ ...prev, ...p }));
   const put = (side: "prefixes" | "suffixes", index: number, m?: Modifier) => { const ms = [...d[side]]; if (m) ms[index] = { code: m.code, name: m.name }; else ms.splice(index, 1); patch({ [side]: ms.filter(Boolean) }); };
   const problems = diagnosisProblems(d);
-  const date = (label: string, key: "start" | "onsetDay" | "surgeryDay" | "outcomeDay") => <label>{label}<input type="date" className={field} value={d[key] === undefined ? "" : isoDate(addDays(today, d[key]!))} onChange={e => { const [y,m,day] = e.target.value.split("-").map(Number); patch({ [key]: e.target.value ? daysFrom(today, { y, m, d: day }) : key === "start" ? 0 : undefined }); }} /></label>;
+  const date = (label: string, key: "start" | "onsetDay" | "surgeryDay" | "outcomeDay") => <label>{label}<IsoDayInput className={field} value={d[key] === undefined ? "" : isoDate(addDays(today, d[key]!))} onChange={e => { const [y,m,day] = e.target.value.split("-").map(Number); patch({ [key]: e.target.value ? daysFrom(today, { y, m, d: day }) : key === "start" ? 0 : undefined }); }} /></label>;
   return <section className="space-y-4"><h3 className="font-bold">病名の詳細設定</h3>
     <MasterSearch initial={query} onPick={h => { if ("icd10" in h) patch({ code: h.code, name: h.name, icd10: h.icd10, notClaimable: h.notClaimable }); }} />
     <p className="rounded bg-paper p-2 font-bold">{d.name ? diagnosisLabel(d) : "病名を選んでください"}<span className="block text-xs font-normal">コード {d.code || "—"}　ICD-10 {d.icd10 || "—"}</span></p>

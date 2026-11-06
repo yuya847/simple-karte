@@ -1,5 +1,7 @@
 "use client";
 
+import { IsoDayInput } from "./DayInput";
+
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -252,7 +254,7 @@ export function BloodStock({ bank, onBank, nowAbs, today, people }: BloodBankPro
         </select>
         <label className="flex items-center gap-1">
           有効期限
-          <input type="date" value={expires} min={isoDate(today)} onChange={(e) => setExpires(e.target.value)} className={`${bbField} nums`} disabled={!!deny} />
+          <IsoDayInput value={expires} min={isoDate(today)} onChange={(e) => setExpires(e.target.value)} className={`${bbField} nums`} disabled={!!deny} />
         </label>
         {product !== "FFP" && (
           <label className="flex items-center gap-1">

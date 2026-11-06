@@ -1,5 +1,7 @@
 "use client";
 
+import { IsoDayInput } from "./DayInput";
+
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { addDays, daysFrom, isoDate, type CalendarDate } from "@/lib/dates";
@@ -14,7 +16,7 @@ export function StandingBulkStop({ lines, ids, today, onConfirm, onClear }: { li
   const eligible = { ...standingStopDraft(lines, ids, day, reason), ...(kind === "終了" ? { kind } : {}) };
   return <div className="flex flex-wrap items-center gap-2 border-b border-rule bg-paper p-2 text-[12px]">
     <select aria-label="終了か中止" value={kind} onChange={(e) => { setKind(e.target.value as "終了" | "中止"); setDraft(null); }}><option>中止</option><option>終了</option></select><span>{ids.length}件を選択</span>
-    <label>{kind}日 <input type="date" aria-label={`一括${kind}の日`} value={isoDate(addDays(today, day))} onChange={(e) => { if (e.target.value) { const [y, m, d] = e.target.value.split("-").map(Number); setDay(daysFrom(today, { y, m, d })); setDraft(null); } }} /></label>
+    <label>{kind}日 <IsoDayInput aria-label={`一括${kind}の日`} value={isoDate(addDays(today, day))} onChange={(e) => { if (e.target.value) { const [y, m, d] = e.target.value.split("-").map(Number); setDay(daysFrom(today, { y, m, d })); setDraft(null); } }} /></label>
     <input aria-label={`一括${kind}の理由`} placeholder="理由（任意）" value={reason} onChange={(e) => { setReason(e.target.value); setDraft(null); }} className="rounded border border-rule px-2 py-1" />
     <button type="button" disabled={!eligible.ids.length} onClick={() => setDraft(eligible)} className="rounded border border-shu px-2 py-1 text-shu disabled:opacity-40">選んだ指示を{kind}</button>
     {draft && <div role="region" aria-label={`${kind}の下書き`} className="w-full rounded border border-rule p-2">

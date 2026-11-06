@@ -60,7 +60,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     const r = loadRemembered(key);
     // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
     const mode = windowedFirst ? "window" : "drawer";
-    return mode === "window" ? clampWin(r?.win ?? initialWin()) : null;
+    return mode === "window" ? clampWin((key === "templates" ? initialWin() : r?.win ?? initialWin())) : null;
   });
   const [sized, setSized] = useState(() => typeof window !== "undefined" && !!loadRemembered(key)?.sized);
   const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? initialWin()));
@@ -125,7 +125,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
         data-drawer-window={key}
         className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-rule bg-sheet shadow-[0_12px_40px_-8px_rgba(38,34,28,0.45)]"
         onPointerDownCapture={tray.front}
-        style={{ left: win.x, top: win.y, width: win.w, height: sized ? win.h : "auto", maxHeight: sized ? undefined : "85vh", display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
+        style={{ left: win.x, top: win.y, width: win.w, height: sized ? win.h : "auto", minHeight: "min(240px, 85vh)", maxHeight: sized ? undefined : "85vh", display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
       >
         <div
           className="flex shrink-0 cursor-move select-none items-center gap-2 border-b border-rule bg-tab px-3 py-1.5 text-sm"

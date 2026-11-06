@@ -53,7 +53,7 @@ export function RightTabs({
 }) {
   // 記事作成 are always there; the others open from
   // the tools on the far right and close with ×.
-  const shown: RightTab[] = ["note", ...open.filter((t) => CLOSABLE.has(t))];
+  const shown: RightTab[] = ["note", ...open.filter((t) => CLOSABLE.has(t) && !floating.includes(t))];
   // ⌥1 記事作成・⌥4 注射カレンダー・⌥5〜⌥0 the reading tabs (Alt on Windows), from anywhere
   // in the chart. e.code, so the characters ⌥ types on a Mac do not matter.
   useEffect(() => {

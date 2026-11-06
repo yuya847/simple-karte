@@ -1,5 +1,7 @@
 "use client";
 
+import { IsoDayInput } from "../DayInput";
+
 // 保険・制度 of the 患者基本情報 window: the one registration the window and 医事課 share (iji.insurance),
 // shown and changed here. Code checks every entry (負担割合と年齢の整合、保険者番号・負担者番号の検証番号、
 // 有効期限…) and works out what follows; a person registers. Each save keeps the earlier version with who,
@@ -257,11 +259,11 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
             </label>
             <label className="text-[11px] text-ink-soft">
               生年月日（カルテは{p.age}歳）
-              <input type="date" value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className={`nums ${input} ${tone("birthDate")}`} />
+              <IsoDayInput value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className={`nums ${input} ${tone("birthDate")}`} />
             </label>
             <label className="text-[11px] text-ink-soft">
               有効期限（証に書いてあれば）
-              <input type="date" value={form.validUntil} onChange={(e) => set({ validUntil: e.target.value })} className={`nums ${input} ${tone("validUntil")}`} />
+              <IsoDayInput value={form.validUntil} onChange={(e) => set({ validUntil: e.target.value })} className={`nums ${input} ${tone("validUntil")}`} />
             </label>
           </div>
 
@@ -397,7 +399,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
               </label>
               <label className="text-[11px] text-ink-soft">
                 確認日
-                <input type="date" value={form.verifiedOn} onChange={(e) => set({ verifiedOn: e.target.value })} className={`nums ${input} ${tone("verifiedOn")}`} />
+                <IsoDayInput value={form.verifiedOn} onChange={(e) => set({ verifiedOn: e.target.value })} className={`nums ${input} ${tone("verifiedOn")}`} />
               </label>
             </div>
           )}

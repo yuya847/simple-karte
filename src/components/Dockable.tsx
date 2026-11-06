@@ -72,6 +72,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
  */
 export function Dockable({
   tab,
+  compact = false,
   title,
   active,
   win,
@@ -83,6 +84,7 @@ export function Dockable({
   children,
 }: {
   tab: string;
+  compact?: boolean;
   title: string;
   active: boolean;
   win?: Win;
@@ -112,7 +114,7 @@ export function Dockable({
             ? dockedClass
             : "hidden"
       }
-      style={floating ? { left: win.x, top: win.y, width: win.w, height: win.h, zIndex: tray.z ?? 40 + z, display: tray.minimized ? "none" : undefined } : undefined}
+      style={floating ? { left: compact ? Math.max(8, ((typeof window === "undefined" ? 1200 : window.innerWidth) - Math.min(480, win.w)) / 2) : win.x, top: win.y, width: compact ? Math.min(480, win.w) : win.w, height: compact ? 240 : win.h, zIndex: tray.z ?? 40 + z, display: tray.minimized ? "none" : undefined } : undefined}
     >
       {/* Always rendered (hidden when docked) so the content below keeps its place and its state. */}
       <div

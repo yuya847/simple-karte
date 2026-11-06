@@ -34,6 +34,8 @@ export function HelpWindow({ selected, query, onQuery, onSelect, onClose }: {
   onSelect: (section: string) => void; onClose: () => void;
 }) {
   const search = useRef<HTMLInputElement>(null);
+  const contents = useRef<HTMLElement>(null);
+  useEffect(() => { contents.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [selected, query]);
   useEffect(() => { search.current?.focus(); }, []);
   const results = searchHelp(query);
   const section = results.find((s) => s.id === selected) ?? results[0];
@@ -56,7 +58,7 @@ export function HelpWindow({ selected, query, onQuery, onSelect, onClose }: {
         <button type="button" onClick={dismiss} className="rounded border border-rule px-3 py-2">閉じる</button>
       </header>
       <div className="flex min-h-0 flex-1">
-        <nav aria-label="ヘルプの目次" className="w-2/5 overflow-y-auto border-r border-rule p-3">
+        <nav ref={contents} aria-label="ヘルプの目次" className="w-2/5 overflow-y-auto border-r border-rule p-3">
           {results.map((s) => <button key={s.id} type="button" aria-current={s.id === section?.id ? "page" : undefined} onClick={() => onSelect(s.id)} className={`block w-full rounded px-2 py-2 text-left text-sm ${s.id === section?.id ? "bg-ai-soft font-bold text-ai" : "hover:bg-paper"}`}>{s.title}</button>)}
         </nav>
         <article key={section?.id} className="min-w-0 flex-1 overflow-y-auto p-5">

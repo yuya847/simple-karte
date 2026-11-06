@@ -33,7 +33,13 @@ export function GuideRecordPanel({ role, entries, records, today, onSave }: { ro
       : [];
   const problems = [...guidanceProblems({ text, minutes: mins }), ...(heard ? [] : ["相手"]), ...(kind === "栄養食事指導" && !eligible ? ["算定の対象"] : [])];
   const field = "rounded border border-rule bg-paper px-2 py-1";
-  if (!kind) return null;
+  if (!kind) return <ul className="space-y-3 text-sm">
+    {!records.length && <li className="text-ink-faint">この患者の指導の記録はまだありません。</li>}
+    {[...records].sort((a, b) => b.at.day - a.at.day || b.at.time.localeCompare(a.at.time)).map(r => <li key={r.id} className="border-l-2 border-ai/40 pl-2">
+      <div className="text-xs text-ink-soft">{formatShort(addDays(today, r.at.day))} {r.at.time}　{displayText(r.by)}　{r.kind}</div>
+      <p className="whitespace-pre-wrap">{displayText(r.text)}</p>
+    </li>)}
+  </ul>;
   return (
     <div className="space-y-3 text-[13px]">
       <p className="font-bold">{kind}</p>

@@ -1,4 +1,6 @@
 "use client";
+
+import { IsoDayInput } from "../DayInput";
 import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
@@ -27,7 +29,7 @@ export function AddSurgeryPanel({ patient, today, nowTime, surgeries, onSave }: 
 
     <label className="block">術式<textarea aria-label="術式" className={input} value={draft.procedure} onChange={(e) => set("procedure", e.target.value)} /></label>
     <div className="grid grid-cols-2 gap-2">{text("部位", draft.site, (v) => set("site", v))}{select("左右", draft.side ?? "", SIDES, (v) => set("side", v as Surgery["side"]))}{select("体位", draft.position ?? "", POSITIONS, (v) => set("position", v as Surgery["position"]))}{select("麻酔", draft.anesthesia ?? "", ANESTHESIAS, (v) => set("anesthesia", v as Surgery["anesthesia"]))}</div>
-    <label className="block">予定日<input aria-label="予定日" type="date" className={input} min={isoDate(today)} value={isoDate(addDays(today, draft.day))} onChange={(e) => { if (!e.target.value) return; const [y, m, d] = e.target.value.split("-").map(Number); setDraft((s) => ({ ...s, day: daysFrom(today, { y, m, d }), start: null })); }} /></label>
+    <label className="block">予定日<IsoDayInput aria-label="予定日"  className={input} min={isoDate(today)} value={isoDate(addDays(today, draft.day))} onChange={(e) => { if (!e.target.value) return; const [y, m, d] = e.target.value.split("-").map(Number); setDraft((s) => ({ ...s, day: daysFrom(today, { y, m, d }), start: null })); }} /></label>
     <div className="grid grid-cols-2 gap-2"><label>希望の開始時刻<TimeInput aria-label="希望の開始時刻" className={input} value={draft.start ?? ""} onChange={(e) => set("start", e.target.value || null)} /></label><label>所要時間（分）<input aria-label="所要時間（分）" className={input} type="number" min={1} step={1} value={draft.minutes ?? ""} onChange={(e) => set("minutes", Number(e.target.value))} /></label></div>
     <fieldset className="space-y-2 rounded border border-rule p-2"><legend>手術室ごとの空き</legend>{OR_ROOMS.map((room) => <div key={room}><button type="button" className="font-bold underline" aria-pressed={draft.room === room} onClick={() => set("room", room)}>{room}{draft.room === room ? "（選択中）" : ""}</button><div className="flex flex-wrap gap-1">{orSlots(draft.day, room, surgeries).map((slot) => <button type="button" key={slot.start} disabled={slot.minutes < (draft.minutes ?? 0)} onClick={() => setDraft((s) => ({ ...s, room, start: slot.start }))} className="rounded border border-rule px-2 py-1 disabled:opacity-40">{slot.start}から {slot.minutes}分</button>)}{orSlots(draft.day, room, surgeries).length === 0 && <span>空きなし</span>}</div></div>)}</fieldset>
     <p>申込区分：{request.kind}</p>

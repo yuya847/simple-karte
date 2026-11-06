@@ -101,14 +101,7 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, histo
         </div>
         <label className="text-xs text-ink-soft">
           退院日{" "}
-          <select disabled={locked} value={d.dischargeDay} onChange={(e) => setD({ ...d, dischargeDay: Number(e.target.value) })} className="rounded border border-rule bg-sheet px-1">
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((n) => (
-              <option key={n} value={n}>
-                {formatShort(addDays(today, n))}
-                {n === 0 ? "（今日）" : ""}
-              </option>
-            ))}
-          </select><DayInput label="サマリの退院日付" disabled={locked} today={today} value={d.dischargeDay} onChange={dischargeDay => setD({ ...d, dischargeDay })} />
+          <DayInput label="サマリの退院日付" disabled={locked} today={today} value={d.dischargeDay} onChange={dischargeDay => setD({ ...d, dischargeDay })} />
         </label>
         <label className="text-xs text-ink-soft">
           退院先 <input disabled={locked} value={d.destination} onChange={(e) => setD({ ...d, destination: e.target.value })} className="w-28 rounded border border-rule bg-sheet px-1" />

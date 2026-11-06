@@ -1,5 +1,7 @@
 "use client";
 
+import { IsoDayInput } from "../DayInput";
+
 import { displayText } from "@/lib/display-text";
 import { BigChoice } from "@/components/BigChoice";
 import { ConfirmCheck } from "@/components/ConfirmCheck";
@@ -133,7 +135,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           </div>
           <label>
             <span className="mb-0.5 block text-ink-soft">生年月日（カルテは{patient.age}歳）</span>
-            <input type="date" value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className={`nums ${input} ${fieldTone("birthDate")}`} />
+            <IsoDayInput value={form.birthDate} onChange={(e) => set({ birthDate: e.target.value })} className={`nums ${input} ${fieldTone("birthDate")}`} />
           </label>
           <div>
             <span className="mb-0.5 block text-ink-soft">負担割合</span>

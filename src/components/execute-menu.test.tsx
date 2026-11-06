@@ -1,3 +1,4 @@
+import { helpSections } from "@/lib/help";
 // 実施・未実施 from the order: the menu's items by state and by role, the small mark on the order row, and the
 // calendars' dose cells that take a right click (server render).
 import { renderToStaticMarkup } from "react-dom/server";
@@ -114,7 +115,8 @@ describe("カレンダーのセル", () => {
     const html = as("看護師", <InjectionCalendar {...base} entries={[cez]} execute={exec()} />);
     expect(html).toContain('data-exec-at="480"');
     expect(html).toContain('data-exec-at="1200"');
-    expect(html).toContain("右クリック（iPad は長押し）すると、その回を実施・未実施にできます");
+    expect(html).not.toContain("右クリック（iPad は長押し）すると、その回を実施・未実施にできます");
+    expect(JSON.stringify(helpSections)).toContain("右クリック（iPad は長押し）すると、その回を実施・未実施にできます");
     const plain = as("看護師", <InjectionCalendar {...base} entries={[cez]} />);
     expect(plain).not.toContain("data-exec-at");
     expect(plain).not.toContain("iPad は長押し");

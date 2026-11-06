@@ -125,11 +125,6 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* Temporary: hide hints in files being edited separately (AddPanels and medication calendars). */
-.hint {
-  display: none !important;
-}
-
 /* Printing: only the sheet (rendered into <body> by the worksheet) goes on paper. */
 @media print {
   /* Worksheets print landscape, consent forms portrait (CSS named pages). */

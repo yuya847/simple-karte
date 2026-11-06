@@ -1,3 +1,4 @@
+import { helpSections } from "@/lib/help";
 // The injection tab's Rp renders on the server: big chips for 経路・回数 (the chosen one 藍 with white letters),
 // visible headings for 開始・日数・コメント, and the reason a 「決める」 button is off written next to it.
 import { renderToStaticMarkup } from "react-dom/server";
@@ -45,7 +46,8 @@ describe("注射の Rp：チップと見出し", () => {
 
   it("a complete Rp: the button is on and the Enter hint shows", () => {
     expect(html).toMatch(/<button type="button"[^>]*title="選んだ結果だけを1行で出し[^"]*"[^>]*>Rp1 を決める<\/button>/);
-    expect(html).toContain("コメントの欄で Enter でも決められます");
+    expect(html).not.toContain("コメントの欄で Enter でも決められます");
+    expect(JSON.stringify(helpSections)).toContain("コメントの欄で Enter でも決められます");
   });
 
   it("an incomplete Rp: the missing things are written next to the button (not only in the title)", () => {
@@ -63,7 +65,8 @@ describe("注射の罫線入力の表示", () => {
       expect(html).toMatch(new RegExp(`data-step="${step}" hidden="" style="display:none"`));
     }
     expect(html).toContain("＋混注");
-    expect(html).toContain("Shift+Enter");
+    expect(html).not.toContain("Shift+Enter");
+    expect(JSON.stringify(helpSections)).toContain("Shift+Enter");
     expect(html).toContain("実施済み");
     expect(html).toContain("1回の時間");
   });

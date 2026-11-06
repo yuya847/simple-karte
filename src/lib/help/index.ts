@@ -1,3 +1,4 @@
+import { remainingHints } from "./remaining-hints";
 import { AREAS, WARD_TABS } from "../nav";
 import { departmentHelp } from "./departments";
 import { screenHelp } from "./content";
@@ -7,7 +8,7 @@ import { toolHelpLabels } from "./tool-labels";
 
 export interface HelpSection { id: string; title: string; bullets: string[]; related?: string[] }
 const keyboard = new Set<string>(["⌘K：患者を開く。", "Esc：ヘルプを閉じる。"]);
-const content = screenHelp.map((s) => ({ ...s, bullets: s.bullets.filter((b) => {
+const content = [...screenHelp, ...remainingHints].map((s) => ({ ...s, bullets: s.bullets.filter((b) => {
   if (/⌘|Ctrl|Tab|Enter|Alt[+＋]|Escape|Esc|キーボード|ショートカット|矢印キー/.test(b)) { keyboard.add(b); return false; }
   return true;
 }) }));

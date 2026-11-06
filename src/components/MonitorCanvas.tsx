@@ -59,6 +59,19 @@ export function MonitorCanvas({ traces, height = 240, speed = 100, className = "
       ctx.fillStyle = BG;
       ctx.fillRect(0, 0, width, height);
       x = 0;
+      // 開いた直後・幅を変えた直後にも、全幅に直近の周期を表示する。
+      const ts = tracesRef.current;
+      ts.forEach((t, i) => {
+        ctx.strokeStyle = t.color;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let px = 0; px <= width; px++) {
+          const phase = (px - width) / speed * 1000 / cycleMs(t.kind, t.rate);
+          const y = laneY(i, ts.length, t.kind, sampleOf(t.kind, phase - Math.floor(phase)));
+          if (px === 0) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+        }
+        ctx.stroke();
+      });
     };
 
     const laneY = (i: number, n: number, kind: TraceKind, v: number) => {

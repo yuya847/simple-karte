@@ -1,5 +1,7 @@
 "use client";
 
+import { IsoDayInput } from "../DayInput";
+
 import { displayText } from "@/lib/display-text";
 import { ExternalLink, FileText, ImagePlus, Sparkles, Undo2 } from "lucide-react";
 import { useState } from "react";
@@ -217,7 +219,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
           </label>
           <label className="flex items-center gap-1">
             文書の日付
-            <input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} className="rounded border border-rule bg-sheet px-1.5 py-0.5" />
+            <IsoDayInput value={docDate} onChange={(e) => setDocDate(e.target.value)} className="rounded border border-rule bg-sheet px-1.5 py-0.5" />
           </label>
           <label className="flex min-w-48 flex-1 items-center gap-1">
             メモ
