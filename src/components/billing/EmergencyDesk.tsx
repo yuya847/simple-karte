@@ -30,7 +30,7 @@ export function EmergencyDesk({ visits, book, onSettle, desk, today, nowTime, on
           <span>{desk.insurance[key]?.length ? "保険登録あり" : "保険の未登録"}</span>
           {!desk.insurance[key]?.length && <button type="button" className="text-ai underline" onClick={() => onOpen(key, "billing")}>保険を登録する</button>}
           {p.admittedAs ? <button type="button" className="text-ai underline" onClick={() => onOpen(p.admittedAs!, "billing")}>入院の算定へ（{p.admittedAs} に引き継ぎ・救急の会計なし）</button> : <>
-            <span className={paid ? "text-wakatake" : "text-yamabuki"}>{paid ? `会計済み（${paid.method}）` : "会計がまだ"}</span>
+            <span className={paid ? "text-wakatake" : p.status === "入院依頼" ? "text-ink-soft" : "text-yamabuki"}>{paid ? `会計済み（${paid.method}）` : p.status === "入院依頼" ? "入院へ引き継ぐ（会計なし）" : "会計がまだ"}</span>
             <button type="button" className="rounded border border-rule px-2 py-0.5 text-ai" onClick={() => setOpen(open === key ? null : key)}>{open === key ? "閉じる" : "算定・会計へ"}</button>
           </>}
         </div>

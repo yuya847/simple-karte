@@ -283,7 +283,6 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
                       <th className="py-0.5 text-left font-normal text-ink-soft">
                         自己負担限度額（外来）
                         <div className="text-[11px] text-ink-faint">{share.limit.formula}</div>
-                        <div className="hint text-[10px] text-ink-faint">{displayText(share.limit.source)}</div>
                       </th>
                       <td className="nums py-0.5 text-right">{yen(share.limit.yen)}</td>
                     </tr>

@@ -83,12 +83,12 @@ describe("患者基本情報の保険・制度", () => {
     const existing = as("医事課", <InsurancePanel patient={patientOf(nakatani)} records={[{ ...INITIAL_INSURANCE_BOOK["opd:opd-6"][0], form: { ...INITIAL_INSURANCE_BOOK["opd:opd-6"][0].form, insurerNumber: "" } }]} today={today} nowTime="10:00" onRegister={() => {}} />);
     expect(existing).toContain("保険者番号を入れてください");
   });
-  it("the form warns when the 負担割合 does not fit the age and 区分, and names the law", () => {
+  it("the form warns when the 負担割合 does not fit the age and 区分 (without the law line)", () => {
     // 71歳・国保・一般 with 3割 typed: the law says 2割 (健康保険法74条).
     const wrong: InsuranceRecord = { ...INITIAL_INSURANCE_BOOK["opd:opd-6"][0], form: { ...INITIAL_INSURANCE_BOOK["opd:opd-6"][0].form, rate: "30" } };
     const html = as("医事課", <InsuranceSection patient={patientOf(nakatani)} today={today} fmtDay={fmtDay} nowTime="10:00" records={[wrong]} onRegister={() => {}} defaultEdit />);
     expect(html).toContain("負担割合は2割です（入力は3割）");
-    expect(html).toContain("健康保険法74条1項");
+    expect(html).not.toContain("健康保険法74条1項");
     expect(html).toContain("「確かめる」の");
     expect(html).toContain("変更の理由（変えるときは必ず）");
     expect(html).toContain("公費を足す");

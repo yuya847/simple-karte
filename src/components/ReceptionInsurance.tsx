@@ -184,7 +184,6 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
                     <span className="shrink-0 font-bold">{s.label}</span>
                     <span className="nums text-ink">{displayText(c.text)}</span>
                   </div>
-                  <div className="hint mt-0.5 pl-5 text-[10px] text-ink-faint">根拠：{c.basis}</div>
                 </li>
               );
             })}

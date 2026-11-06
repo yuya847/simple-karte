@@ -14,12 +14,14 @@ const render = (child: React.ReactNode) => renderToStaticMarkup(<RoleProvider va
 
 describe("医事課・外来の受診", () => {
   const board = (paid: boolean) => render(<IjiBoard patients={[]} desk={INITIAL_DESK} diagnoses={{}} today={today} nowTime="10:30" payload={() => []} onOpen={() => {}} outpatient={{ visits: [{ patient: p, entries: [], rx: [], drafts: 1 }], book: paid ? { [`opd:${p.id}`]: { visitId: `opd:${p.id}`, receiptNo: "R1", points: 136, yen: 270, coverage: "医保", rateLabel: "2割", method: "現金", by: "医事課", at: { day: 0, time: "10:30" } } } : {}, onSettle: () => {} }} />);
-  it("会計待ちの受診を算定・会計へつなぎ、入金済みは除く", () => {
+  it("会計待ちの受診を算定・会計へつなぎ、入金済みは会計済みとして残す（領収書を出せる）", () => {
     expect(board(false)).toContain('aria-label="外来の受診"');
     expect(board(false)).toContain("算定・会計へ");
     expect(board(false)).toContain(p.name);
     expect(board(false)).toContain("下書き 1");
-    expect(board(true)).not.toContain(p.name);
+    expect(board(true)).toContain(p.name);
+    expect(board(true)).toContain("会計済み");
+    expect(board(true)).toContain("領収書・明細");
   });
 });
 describe("患者バーの外来処方と共通ウインドウ", () => {
