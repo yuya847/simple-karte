@@ -66,6 +66,18 @@ export function splitLine(text: string, line: number, col: number): Edited {
     const out = fromLines([...lines.slice(0, line), head.replace(/[ \t　]+$/, ""), marker + tail.replace(/^[ \t　]*/, ""), ...lines.slice(line + 1)]);
     return { text: out, caret: offsetOf(out, { line: line + 1, col: marker.length }) };
   }
+  // A check box list goes on like a bulleted list: Enter makes the next box; Enter on an empty box ends it.
+  const box = checkAt(cur);
+  if (box !== null && c > box) {
+    if (!cur.slice(box + 1).trim()) {
+      const plain = leadingSpace(cur);
+      const out = fromLines([...lines.slice(0, line), plain, ...lines.slice(line + 1)]);
+      return { text: out, caret: offsetOf(out, { line, col: plain.length }) };
+    }
+    const marker = `${leadingSpace(cur)}☐ `;
+    const out = fromLines([...lines.slice(0, line), head.replace(/[ \t　]+$/, ""), marker + tail.replace(/^[ \t　]*/, ""), ...lines.slice(line + 1)]);
+    return { text: out, caret: offsetOf(out, { line: line + 1, col: marker.length }) };
+  }
   let indent: string;
   if (!head.trim() && !tail.trim()) indent = "";
   else if (isProblemLine(head)) indent = leadingSpace(head) + INDENT;
@@ -96,7 +108,7 @@ export const joinWithNext = (text: string, line: number): Edited => {
 /** The line replaced by what was typed into it (a pasted "\n" makes more lines); the caret after it. */
 export function replaceLine(text: string, line: number, value: string, caretInLine = value.length): Edited {
   const lines = toLines(text);
-  const next = [...lines.slice(0, line), ...value.split("\n").map((line) => isDividerLine(line) ? "---" : soapMark(line)), ...lines.slice(line + 1)];
+  const next = [...lines.slice(0, line), ...value.split("\n").map((line) => isDividerLine(line) ? "---" : checkMark(soapMark(line))), ...lines.slice(line + 1)];
   const out = fromLines(next);
   const before = value.slice(0, caretInLine);
   const added = before.split("\n");
@@ -175,6 +187,23 @@ export function nudgeLine(text: string, line: number, col: number, dir: -1 | 1):
 /** "Ｓ）" "S）" typed with the Japanese input become "S)" (the mark that draws the section and its rule). */
 export const soapMark = (line: string): string =>
   line.replace(/^([ \t　]*)([SOAPＳＯＡＰ])[)）]/, (_, lead: string, c: string) => `${lead}${String.fromCharCode(c.charCodeAt(0) > 0xff ? c.charCodeAt(0) - 0xfee0 : c.charCodeAt(0))})`);
+
+/** "[]" "[ ]" "［］" at the start of a line become a check box "☐ " ("[x]" a checked "☑ "). */
+export const checkMark = (line: string): string =>
+  line.replace(/^([ \t　]*)[\[［][ 　]?[\]］][ 　]?/, "$1☐ ").replace(/^([ \t　]*)[\[［][xXｘＸ✓][\]］][ 　]?/, "$1☑ ");
+
+/** Where a check box line's box is (its column), or null. */
+export const checkAt = (line: string): number | null => {
+  const m = line.match(/^([ \t　]*)[☐☑]/);
+  return m ? m[1].length : null;
+};
+
+/** The line with its box ticked or unticked. */
+export const toggleCheck = (line: string): string => {
+  const at = checkAt(line);
+  if (at === null) return line;
+  return line.slice(0, at) + (line[at] === "☐" ? "☑" : "☐") + line.slice(at + 1);
+};
 
 /** A whole line of three hyphens or horizontal bars, allowing indentation. */
 export const isDividerLine = (line: string): boolean => /^(---|―――)$/.test(line.trim());

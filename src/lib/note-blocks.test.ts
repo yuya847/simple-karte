@@ -152,3 +152,17 @@ describe("soapMark", () => {
     expect(replaceLine("x", 0, "Ｐ）経過観察").text).toBe("P)経過観察");
   });
 });
+
+describe("check boxes", () => {
+  it("[] becomes a box, Enter goes on, an empty box ends the list, a click ticks it", async () => {
+    const { checkMark, splitLine, toggleCheck, replaceLine } = await import("./note-blocks");
+    expect(checkMark("[] 採血")).toBe("☐ 採血");
+    expect(checkMark("［］採血")).toBe("☐ 採血");
+    expect(checkMark("  [x] 済")).toBe("  ☑ 済");
+    expect(replaceLine("a", 0, "[]").text).toBe("☐ ");
+    expect(splitLine("☐ 採血", 0, 4).text).toBe("☐ 採血\n☐ ");
+    expect(splitLine("☐ ", 0, 2).text).toBe("");
+    expect(toggleCheck("☐ 採血")).toBe("☑ 採血");
+    expect(toggleCheck("☑ 採血")).toBe("☐ 採血");
+  });
+});

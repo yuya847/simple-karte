@@ -2,7 +2,7 @@
 
 import { GripVertical } from "lucide-react";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
+import { checkAt, toggleCheck, indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
 import { isProblemLine, problemMarkerEnd, stripProblemMarker } from "@/lib/note-problems";
 const leadingSpace = (l: string) => l.match(/^[ \t　]*/)![0];
 import { toggleMark } from "@/lib/note-edit";
@@ -456,6 +456,13 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                   typed(i, e.currentTarget, false);
                 }}
                 onKeyDown={(e) => keyDown(i, e)}
+                onClick={(e) => {
+                  // A click on the box ticks it (the caret lands just before or after the ☐).
+                  const at = checkAt(line);
+                  const caret = e.currentTarget.selectionStart;
+                  if (readOnly || at === null || e.currentTarget.selectionEnd !== caret || (caret !== at && caret !== at + 1)) return;
+                  commit(replaceLine(latest.current, i, toggleCheck(line), at + 2));
+                }}
                 onSelect={(e) => remember(i, e.currentTarget)}
                 onKeyUp={(e) => remember(i, e.currentTarget)}
                 onFocus={(e) => {
