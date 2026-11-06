@@ -4,7 +4,8 @@
 
 import { patientMonth, type PatientMonthInput } from "@/lib/billing/month";
 import { ClaimRequest } from "@/lib/billing/request";
-import { receiptRecords } from "@/lib/billing/uke";
+import { receiptSheet } from "@/lib/billing/receipt-sheet";
+import { checkUke, receiptRecords } from "@/lib/billing/uke";
 
 export async function POST(request: Request) {
   const body = ClaimRequest.safeParse(await request.json().catch(() => null));
@@ -12,11 +13,12 @@ export async function POST(request: Request) {
   const { today, nowTime, month, ...rest } = body.data;
   try {
     const pm = patientMonth(rest as unknown as PatientMonthInput, today, nowTime, month);
+    const lines = receiptRecords(pm.receipt, 1, month);
     return Response.json({
       result: pm.claim,
       bill: pm.bill,
       insurance: pm.insurance,
-      receipt: { lines: receiptRecords(pm.receipt, 1, month), diagnoses: pm.receipt.diagnoses.length },
+      receipt: { lines, sheet: receiptSheet(pm.receipt, lines, checkUke(lines, [pm.receipt])), diagnoses: pm.receipt.diagnoses.length },
     });
   } catch (e) {
     console.error("claim failed", e);

@@ -2,6 +2,9 @@
 
 import { AlertTriangle, CheckCircle2, Download, FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
+import type { ReceiptSheetData } from "@/lib/billing/receipt-sheet";
+import { ReceiptSheet } from "./ReceiptSheet";
+import { usePrintSheet } from "../DeskParts";
 import { auditLog } from "@/lib/audit";
 import { useMe } from "../RoleContext";
 import type { PatientMonthPayload } from "@/lib/billing/payload";
@@ -35,18 +38,22 @@ const RECORD_NAME: Record<string, string> = {
 /** This patient's receipt records, and the ward's receipt files for the month. */
 export function ReceiptPanel({
   lines,
+  data,
   month,
   today,
   nowTime,
   wardPayload,
 }: {
   lines: string[];
+  data: ReceiptSheetData | null;
   month: string;
   today: string;
   nowTime: string;
   wardPayload: () => PatientMonthPayload[];
 }) {
   const me = useMe();
+  const [records, setRecords] = useState(false);
+  const [print, printSheet] = usePrintSheet();
   const [files, setFiles] = useState<UkeResult[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,12 +91,19 @@ export function ReceiptPanel({
 
   return (
     <div className="space-y-4">
+      {printSheet}
       <section aria-label="この患者のレセプト">
+        <div className="mb-2 flex gap-2 text-xs">
+          <button type="button" aria-pressed={records} onClick={() => setRecords(!records)} className="rounded border border-rule px-3 py-1.5">{records ? "明細書を見る" : "記録（UKE）を見る"}</button>
+          <button type="button" disabled={!data} onClick={() => data && print(<ReceiptSheet data={data} />, { portrait: true })} className="rounded border border-rule px-3 py-1.5 disabled:opacity-40">印刷（A4 縦）</button>
+        </div>
+        {!records && data && <div className="overflow-x-auto rounded border border-rule"><div className="min-w-[900px] print:min-w-0"><ReceiptSheet data={data} /></div></div>}
+        {records && <>
         <h3 className="mb-1 flex items-center gap-1.5 text-sm font-bold">
           <FileText size={14} />
           この患者の{m}月分のレコード（記録条件仕様・医科）
         </h3>
-        <p className="mb-2 text-[11px] text-ink-faint">点数は「点数・回数算定単位」の最後のレコードだけに入ります。右の31個の欄は1日〜31日の回数です。</p>
+        <p className="hint mb-2 text-[11px] text-ink-faint">点数は「点数・回数算定単位」の最後のレコードだけに入ります。右の31個の欄は1日〜31日の回数です。</p>
         <div className="scroll-thin max-h-[46vh] overflow-auto rounded-md border border-rule bg-paper p-2">
           <table className="w-full border-collapse font-mono text-[11px] leading-snug">
             <tbody>
@@ -105,6 +119,7 @@ export function ReceiptPanel({
             </tbody>
           </table>
         </div>
+        </>}
       </section>
 
       <section aria-label="病棟のレセプトファイル" className="rounded-md border border-rule bg-sheet p-3">

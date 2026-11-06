@@ -6,6 +6,7 @@ import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "luc
 import { BillPanel } from "./billing/BillPanel";
 import { InsurancePanel } from "./billing/InsurancePanel";
 import { DpcPanel, type Transfer } from "./billing/DpcPanel";
+import type { ReceiptSheetData } from "@/lib/billing/receipt-sheet";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
@@ -108,6 +109,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   const coefOk = Number.isFinite(coef) && coef >= 0.5 && coef <= 3;
   const [dpc, setDpc] = useState<DpcMonthView | null>(null);
   const [insurance, setInsurance] = useState<(Insurance & { assumed?: boolean }) | null>(null);
+  const [receiptSheet, setReceiptSheet] = useState<ReceiptSheetData | null>(null);
   const [receiptLines, setReceiptLines] = useState<string[]>([]);
   const months = useMemo(() => admissionMonths(today, patient.admittedOn), [today, patient.admittedOn]);
   const [month, setMonth] = useState(months[months.length - 1]);
@@ -143,6 +145,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
         setResult(json.result as ClaimResult);
         setInsurance(json.insurance);
         setReceiptLines(json.receipt.lines as string[]);
+        setReceiptSheet(json.receipt.sheet as ReceiptSheetData);
       } catch (e) {
         if (ctl.signal.aborted) return;
         setError(e instanceof Error ? e.message : "算定できませんでした。");
@@ -255,7 +258,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           <BillPanel claim={result} bill={bill} insurance={insurance} month={month} />
         </>}
         {tab === "receipt" && result && (
-          <ReceiptPanel lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
+          <ReceiptPanel data={receiptSheet} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
         {tab === "dpc" && <DpcPanel month={month} mainId={mainId} setMainId={(value) => { if (value !== mainId) { setLoading(true); setMainId(value); } }} transfer={transfer} setTransfer={(value) => { if (value !== transfer) { setLoading(true); setTransfer(value); } }} coefText={coefText} setCoefText={(value) => { if (Number(value) !== coef) setLoading(true); setCoefText(value); }} r={ready ? dpc : null} error={error} loading={loading} />}
         {tab === "claim" && (

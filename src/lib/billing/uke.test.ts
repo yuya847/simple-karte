@@ -1,3 +1,7 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import { ReceiptSheet } from "../../components/billing/ReceiptSheet";
+import { receiptSheet } from "./receipt-sheet";
 import { describe, expect, it } from "vitest";
 import type { LabOrder, OrderEntry, ProcedureOrder } from "../types";
 import { calculateClaim } from "./engine";
@@ -197,5 +201,27 @@ describe("病名の補足コメントと確認", () => {
   it("確認前の病名を直接渡されても SY に出さない", () => {
     const records = receiptRecords({...receipt,diagnoses:receipt.diagnoses.map(d=>({...d,auto:{from:"記事" as const,at:"now"}}))},1,"2026-10");
     expect(records.some(s=>s.startsWith("SY,"))).toBe(false);
+  });
+});
+
+
+describe("紙の明細書", () => {
+  it("主要欄、病名、数量と算定日が読め、合計と食数はUKEと一致する", () => {
+    const lines = receiptRecords(receipt, 1, claim.month);
+    const d = receiptSheet(receipt, lines);
+    const ho = lines.find(l => l.startsWith("HO,"))!.split(",");
+    expect(d.totalPoints).toBe(Number(ho[5]));
+    expect(d.meals).toBe(Number(ho[7]));
+    expect(d.rows.filter(r => r.group !== "97").reduce((s,r) => s + (r.points ?? 0) * r.count, 0)).toBe(d.totalPoints);
+    expect(d.rows.every(r => r.days.reduce<number>((s,v) => s + (v ?? 0), 0) === r.count)).toBe(true);
+    const html = renderToStaticMarkup(createElement(ReceiptSheet, { data: d }));
+    for (const field of ["請求月", "医療機関", "保険者番号", "本人・家族", "給付割合", "氏名", "性別", "生年月日", "公費", "特記事項", "開始日", "転帰", "品名・規格", "数量", "点数×回数", "算定日", "合計点数", "一部負担金", "標準負担額", "◎", "急性腎盂腎炎"]) expect(html).toContain(field);
+  });
+  it("既存点検のコードがある行だけに印を付ける", () => {
+    const code = claim.acts[0].parts[0].lines[0].code;
+    const r = { ...receipt, claim: { ...claim, issues: [{ level: "review" as const, text: "既存の上限回数の指摘", codes: [code] }] } };
+    const d = receiptSheet(r, receiptRecords(r, 1, claim.month));
+    expect(d.rows.filter(r => r.checks.length).every(r => r.code === code)).toBe(true);
+    expect(d.rows.some(r => r.checks.includes("既存の上限回数の指摘"))).toBe(true);
   });
 });
