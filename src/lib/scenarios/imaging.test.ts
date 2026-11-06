@@ -34,3 +34,36 @@ describe("試験患者の画像検査", () => {
     expect(merged.ris[w.orderId].assignedBy).toBe("別の技師");
   });
 });
+
+it("今日の試験検査は16件以内、9〜16時に分散し、過去の検査には撮影・画像・署名がある", () => {
+  const data = generateScenarios();
+  const orders = data.patients.flatMap((p) => p.history.filter((e) => e.kind === "order" && e.order.type === "imaging"));
+  const today = orders.filter((e) => e.kind === "order" && e.order.type === "imaging" && e.order.when.day === 0);
+  expect(today.length).toBeGreaterThanOrEqual(10);
+  expect(today.length).toBeLessThanOrEqual(20);
+  const times = today.map((e) => e.kind === "order" && e.order.type === "imaging" ? e.order.when.time! : "");
+  expect(new Set(times).size).toBe(today.length);
+  expect(times.every((t) => t >= "09:00" && t <= "16:00")).toBe(true);
+  for (const e of orders) {
+    if (e.kind !== "order" || e.order.type !== "imaging" || e.order.when.day >= 0) continue;
+    const w = data.ris[e.id];
+    expect(w?.done, e.id).toBeDefined();
+    expect(w?.images, e.id).toBeDefined();
+    expect(w?.report, e.id).toBeDefined();
+    if (e.order.modality !== "MRI") {
+      expect(w?.record, e.id).toBeDefined();
+      expect(w?.signed?.by, e.id).toBe(e.author);
+    }
+  }
+});
+
+it("妊娠中の胸部検査の目的を切迫早産の評価にしない", () => {
+  const data = generateScenarios();
+  const pregnant = data.patients.find((p) => p.pregnancy)!;
+  const orders = pregnant.history.filter((e) => e.kind === "order" && e.order.type === "imaging");
+  expect(orders.length).toBeGreaterThan(0);
+  for (const e of orders) if (e.kind === "order" && e.order.type === "imaging") {
+    expect(e.order.purpose).not.toContain("切迫早産");
+    expect(e.order.purpose).toContain("呼吸状態");
+  }
+});

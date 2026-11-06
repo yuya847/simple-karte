@@ -50,8 +50,9 @@ describe("確かめたのチェック", () => {
     const ct = risRows(people, initialRisDesk(600)).find((r) => r.orderId === "o-ris-demo2")!;
     const mori = PATIENTS.find((p) => p.id === ct.patientId)!;
     const html = as("診療放射線技師", <RisConfirmPanel r={ct} items={risConfirmItems(ct, mori, orders[mori.id], undefined, { y: 2026, m: 11, d: 4 })} onConfirm={noop} onClose={noop} />);
-    expect(html).toContain("同意・腎機能・アレルギー・内服を自分の目で確かめた</span></label>");
-    expect(html).toContain(`<button type="button" disabled="" class="${WAITING_BUTTON}">確認した</button><span class="text-[11px] font-bold text-yamabuki">確かめたにチェックすると「確認した」を押せます</span>`);
+    for (const label of ["腎機能を確かめた", "アレルギーを確かめた", "同意書あり"]) expect(html).toContain(label);
+    expect(html).not.toContain("自分の目で");
+    expect(html).toContain(`<button type="button" disabled="" class="${WAITING_BUTTON}">確認した</button>`);
     // A nurse cannot confirm: locked, without the words (the lock is explained elsewhere).
     const nurse = as("看護師", <RisConfirmPanel r={ct} items={[]} onConfirm={noop} onClose={noop} />);
     expect(nurse).not.toContain("確かめたにチェックすると");

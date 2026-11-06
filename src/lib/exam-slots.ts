@@ -45,10 +45,10 @@ export function takenExams(people: ExamPerson[], kind: ExamKind, desk: RisDesk =
   }
   return out;
 }
-export function firstExamSlot(kind: ExamKind, taken: TakenExam[], today: CalendarDate, startDay = 1): { day: number; time: string | null; priority: "予約" } {
-  if (kind === "PORT") return { day: startDay, time: "08:30", priority: "予約" };
+export function firstExamSlot(kind: ExamKind, taken: TakenExam[], today: CalendarDate, startDay = 1, nowTime?: string): { day: number; time: string | null; priority: "予約" } {
+  if (kind === "PORT") return { day: startDay, time: startDay === 0 && nowTime ? hhmm(Math.min(1439, Number(nowTime.slice(0, 2)) * 60 + Number(nowTime.slice(3)) + 1)) : "08:30", priority: "予約" };
   for (let day = startDay; day <= 56; day++) {
-    const slot = slotsFor(kind, day, taken, today).find((s) => s.status === "空き");
+    const slot = slotsFor(kind, day, taken, today).find((s) => s.status === "空き" && (day !== 0 || !nowTime || s.time > nowTime));
     if (slot) return { day, time: slot.time, priority: "予約" };
   }
   return { day: startDay, time: null, priority: "予約" };

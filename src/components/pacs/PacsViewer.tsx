@@ -29,7 +29,6 @@ import {
 import { useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { PUBLIC_IMAGE_NOTE } from "@/lib/image-credits";
 import { getFrame, valueRange } from "@/lib/pacs/frames";
 import { distance, ratio, type Measurement } from "@/lib/pacs/measure";
 import { buildPacsStudies, findPrior, positionLabel } from "@/lib/pacs/studies";
@@ -622,7 +621,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
       {full && (
         <div className="flex items-center justify-between">
           <h2 className="font-bold">
-            放射線画像<span className="ml-2 text-sm font-normal text-ink-soft">{patient.name}（ID {patient.id}）　画像は合成画像か、公開データの教材用の画像です（この患者のものではありません）</span>
+            放射線画像<span className="ml-2 text-sm font-normal text-ink-soft">{patient.name}（ID {patient.id}）</span>
           </h2>
           <button type="button" onClick={() => setFull(false)} aria-label="全画面を閉じる" className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
             <X size={18} />
@@ -641,7 +640,6 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
           <div className={`grid gap-1.5 ${comparing ? "grid-cols-2" : "grid-cols-1"} ${full ? "min-h-0 flex-1" : cur?.pacs?.study.pending ? "h-[180px]" : "h-[460px]"}`}>{paneViews}</div>
           {sliceBar}
           {levelBar}
-          {resolved.some((p) => p.series?.gen.kind === "photo") && <p className="text-[11px] text-ink-faint">{PUBLIC_IMAGE_NOTE}</p>}
           {seriesStrip}
         </section>
         {full && (

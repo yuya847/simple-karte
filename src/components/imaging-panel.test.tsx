@@ -1,6 +1,7 @@
-// 放射線画像の引き出しがサーバーで描け、公開データの画像には注記（常に出す）と出典（hint）が付く。
+// 画像の注記・出典は共通ヘルプに集約し、画像の上には重ねない。
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { screenHelp } from "@/lib/help/content";
 import { PUBLIC_IMAGE_NOTE } from "@/lib/image-credits";
 import { PATIENTS } from "@/lib/patients";
 import { demoRisOrders, initialRisDesk } from "@/lib/ris";
@@ -11,12 +12,13 @@ const kitamura = PATIENTS.find((p) => p.id === "90010198")!;
 const today = { y: 2026, m: 11, d: 4 };
 
 describe("放射線画像の引き出し", () => {
-  it("佐倉さん：検査の一覧・サムネイル（公開データ）・注記・出典（hint）", () => {
+  it("佐倉さん：検査の一覧・サムネイル（公開データ）・注記と出典はヘルプ", () => {
     const html = renderToStaticMarkup(<ImagingPanel patient={sakura} today={today} focus="img-sakura-1" />);
     expect(html).toContain("検査の一覧");
     expect(html).toContain("X線 胸部正面");
     expect(html).toContain("超音波 右下肢静脈");
-    expect(html).toContain(PUBLIC_IMAGE_NOTE);
+    expect(html).not.toContain(PUBLIC_IMAGE_NOTE);
+    expect(screenHelp.find((s) => s.id === "PacsViewer")?.bullets).toContain(PUBLIC_IMAGE_NOTE);
     expect(html).toContain("公開データの教材用の画像");
     expect(html).not.toMatch(/class="hint[^"]*"[^>]*>画像の出典：Wikimedia Commons「File:Normal posteroanterior \(PA\) chest radiograph \(X-ray\)\.jpg」Mikael Häggström, M\.D\.（CC0 1\.0）/);
     expect(html).not.toContain('href="https://commons.wikimedia.org/wiki/File:Normal_posteroanterior_(PA)_chest_radiograph_(X-ray).jpg"');
@@ -35,7 +37,8 @@ describe("放射線画像の引き出し", () => {
     const html = renderToStaticMarkup(<ImagingPanel patient={kitamura} today={today} entries={demoRisOrders(600)["90010198"]} nowAbs={600} ris={initialRisDesk(600)} focus="o-ris-demo1" />);
     expect(html).toContain("読影済み");
     expect(html).toContain("臥位正面（AP）");
-    expect(html).toContain(PUBLIC_IMAGE_NOTE);
+    expect(html).not.toContain(PUBLIC_IMAGE_NOTE);
+    expect(screenHelp.find((s) => s.id === "PacsViewer")?.bullets).toContain(PUBLIC_IMAGE_NOTE);
     expect(html).not.toContain("Kerley B lines");
     expect(html).not.toContain('aria-label="画像"');
   });

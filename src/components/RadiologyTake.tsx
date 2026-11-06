@@ -1,4 +1,5 @@
 "use client";
+import { IdentityCheck } from "./RisIdentity";
 import { risScheduleText } from "@/lib/ris";
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
@@ -38,6 +39,7 @@ import {
   risTakeOnDay,
   risTakeTitle,
   consentTextOf,
+  consentReady,
   rowFlags,
   usesContrast,
   worklist,
@@ -47,7 +49,7 @@ import {
   type RisTakeKind,
 } from "@/lib/ris-take";
 import type { WorkPatient } from "@/lib/worksheet";
-import { ConfirmCheck, WAITING_BUTTON, Waits } from "./ConfirmCheck";
+import { ConfirmCheck, WAITING_BUTTON } from "./ConfirmCheck";
 import { Sources } from "./DeskParts";
 import { PatientBand, SheetBand, SheetBlock, SheetNotes } from "./OrderSheet";
 import { card, field, type OnDesk } from "./RisExam";
@@ -93,7 +95,10 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
 
   const log = (r: RisRow, what: string, detail = "") => auditLog({ role: me.role, actor: me.name, action: `確定（放射線部：${what}）`, patient: r.name, detail: `${r.label}${detail}` });
   const take = (r: RisRow) => {
-    onDesk((d) => putWork(d, r, (w) => ({ ...w, arrived: { ...at, by: me.name } })));
+    const person = people.find((p) => p.patient.id === r.patientId);
+    const items = person ? risConfirmItems(r, person.patient, person.entries, consents, today) : [];
+    if (usesContrast(r.order) && !consentReady(r, consents)) return;
+    onDesk((d) => putWork(d, r, (w) => ({ ...w, arrived: { ...at, by: me.name }, ...(usesContrast(r.order) && r.order.modality !== "MRI" ? { confirmed: { ...at, by: me.name, items: items.map((i) => `${i.label}：${i.value}`) } } : {}), ...(r.order.when.priority === "至急" && !w.room ? { room: roomsFor(r.order.modality)[0].key, slot: r.orderedAt, assignedBy: me.name } : {}) })));
     log(r, "指示受け（受付）");
     setChecked((s) => {
       const n = new Set(s);
@@ -236,7 +241,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
                             )}
                           </div>
                         )}
-                        {mine === "one" && !ok && <TakeOne r={r} reasons={one} onTake={() => take(r)} onClose={() => setOpen(null)} />}
+                        {mine === "one" && !ok && <TakeOne r={r} items={person ? risConfirmItems(r, person.patient, person.entries, consents, today) : []} consentOk={consentReady(r, consents)} reasons={one} onTake={() => take(r)} onClose={() => setOpen(null)} />}
                         {ok && (
                           <div className="mt-1 pl-3">
                             <AssignControls r={r} onDesk={onDesk} nowTime={nowTime} />
@@ -274,22 +279,26 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
 }
 
 /** Taking one order at a time: the reasons, a check that the technologist read it, and the button. */
-function TakeOne({ r, reasons, onTake, onClose }: { r: RisRow; reasons: string[]; onTake: () => void; onClose: () => void }) {
+export function TakeOne({ r, reasons, items, consentOk, onTake, onClose }: { r: RisRow; items: ConfirmItem[]; consentOk: boolean; reasons: string[]; onTake: () => void; onClose: () => void }) {
   const [read, setRead] = useState(false);
+  const [checks, setChecks] = useState<string[]>([]);
+  const labels = usesContrast(r.order) ? ["腎機能を確かめた", "アレルギーを確かめた", "同意書あり"] : [];
+  const ready = read && labels.every((label) => checks.includes(label)) && (!usesContrast(r.order) || consentOk);
   return (
     <div className="mt-1 ml-3 rounded bg-paper px-3 py-2 text-[12px]">
       <p className="font-bold">1件ずつ受ける：{reasons.join("・")}</p>
       <p className="text-ink-soft">
         {r.label}　{r.order.views?.join("＋")}　目的：{r.order.purpose}　{displayText(r.orderedBy)}
       </p>
+      {usesContrast(r.order) && <><dl>{items.map((item) => <div key={item.label}><dt className="inline">{item.label}：</dt><dd className="inline">{item.value}</dd></div>)}</dl>{labels.map((label) => <ConfirmCheck key={label} checked={checks.includes(label)} onChange={(v) => setChecks((xs) => v ? [...xs, label] : xs.filter((x) => x !== label))} disabled={label === "同意書あり" && !consentOk}>{label}</ConfirmCheck>)}{!consentOk && <p className="text-shu">同意書がないため受けられません。</p>}</>}
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <ConfirmCheck checked={read} onChange={setRead}>
-          部位・{r.order.contrast && r.order.contrast !== "単純" ? "造影・" : ""}予定・目的を自分の目で確かめた
+          部位・{r.order.contrast && r.order.contrast !== "単純" ? "造影・" : ""}予定・目的を確かめた
         </ConfirmCheck>
-        <button type="button" disabled={!read} onClick={onTake} className={WAITING_BUTTON}>
+        <button type="button" disabled={!ready} onClick={onTake} className={WAITING_BUTTON}>
           指示を受ける
         </button>
-        <Waits on={!read} />
+
         <button type="button" onClick={onClose} className="text-ink-soft underline">
           あとで
         </button>
@@ -316,11 +325,9 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
   if (r.work?.notDone) return <p className="text-[11px] text-shu">撮影できなかった：{displayText(r.work.notDone.reason)}</p>;
   return (
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
-      <span className="text-ink-soft">
-        受付 {r.work?.arrived?.time} {displayText(r.work?.arrived?.by)}
-      </span>
+
       <span className="text-ink-soft">撮影室・装置</span>
-      <select value={roomKey} disabled={!!deny} aria-label="撮影室・装置" onChange={(e) => assign(e.target.value as RoomKey)} className={field}>
+      <select value={roomKey} disabled={!!deny || !!r.work?.done || !!r.work?.record} aria-label="撮影室・装置" onChange={(e) => assign(e.target.value as RoomKey)} className={field}>
         {rooms.map((x) => (
           <option key={x.key} value={x.key}>
             {x.room}（{x.ae}）
@@ -328,7 +335,7 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
         ))}
       </select>
       {r.order.when.priority === "至急" ? <span className="nums">{risScheduleText(r)}</span> : <TimeInput value={time} onChange={(e) => setSlot(e.target.value)} aria-label="撮影の予定時刻" disabled={!!deny} className={`${field} nums`} />}
-      <button type="button" disabled={!!deny} onClick={() => assign(roomKey)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
+      <button type="button" disabled={!!deny || !!r.work?.done || !!r.work?.record} onClick={() => assign(roomKey)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
         {r.work?.room ? "予定を変える" : "割り当てる"}
       </button>
       {r.work?.room && (
@@ -361,6 +368,10 @@ const ITEM_CLASS: Record<ConfirmItem["tone"], string> = { ok: "text-ink", warn: 
 /** 指示確認 of a contrast or MRI study: the items in a list, a check that the technologist looked, and 「確認した」. */
 export function RisConfirmPanel({ r, items, onConfirm, onClose }: { r: RisRow; items: ConfirmItem[]; onConfirm: (items: string[]) => void; onClose: () => void }) {
   const [looked, setLooked] = useState(false);
+  const [checkedItems, setCheckedItems] = useState<string[]>([]);
+  const contrastLabels = usesContrast(r.order) ? ["腎機能を確かめた", "アレルギーを確かめた", "同意書あり"] : [];
+  const consentOk = !usesContrast(r.order) || items.some((i) => i.label === "同意" && i.tone === "ok");
+  const ready = ((usesContrast(r.order) && r.order.modality !== "MRI") || looked) && consentOk && contrastLabels.every((label) => checkedItems.includes(label));
   const deny = useDeny()("ris.exam");
   return (
     <div className="rounded-md border border-ai/40 bg-sheet px-3 py-2 text-[12px]">
@@ -379,14 +390,16 @@ export function RisConfirmPanel({ r, items, onConfirm, onClose }: { r: RisRow; i
           </div>
         ))}
       </dl>
+      {contrastLabels.map((label) => <ConfirmCheck key={label} checked={checkedItems.includes(label)} onChange={(v) => setCheckedItems((xs) => v ? [...xs, label] : xs.filter((x) => x !== label))} disabled={!!deny || (label === "同意書あり" && !consentOk)}>{label}</ConfirmCheck>)}
+      {!consentOk && <p className="text-shu">同意書がありません。</p>}
       <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-rule-soft pt-1.5">
-        <ConfirmCheck checked={looked} onChange={setLooked} disabled={!!deny}>
-          {r.order.modality === "MRI" && !usesContrast(r.order) ? "体内金属・ペースメーカー・閉所を自分の目で確かめた（本人にも聞く）" : "同意・腎機能・アレルギー・内服を自分の目で確かめた"}
-        </ConfirmCheck>
-        <button type="button" disabled={!looked || !!deny} onClick={() => onConfirm(items.map((i) => `${i.label}：${i.value}`))} className={WAITING_BUTTON}>
+        {(!usesContrast(r.order) || r.order.modality === "MRI") && <ConfirmCheck checked={looked} onChange={setLooked} disabled={!!deny}>
+          {r.order.modality === "MRI" ? "体内金属・ペースメーカー・閉所を確かめた（本人にも聞く）" : "同意・腎機能・アレルギー・内服を確かめた"}
+        </ConfirmCheck>}
+        <button type="button" disabled={!ready || !!deny} onClick={() => onConfirm(items.map((i) => `${i.label}：${i.value}`))} className={WAITING_BUTTON}>
           確認した
         </button>
-        <Waits on={!looked && !deny} text="確かめたにチェックすると「確認した」を押せます" />
+
         <button type="button" onClick={onClose} className="text-ink-soft underline">
           あとで
         </button>
@@ -460,8 +473,9 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
                 {pend && <span className="rounded bg-yamabuki-soft px-1 text-[10px] font-bold text-yamabuki">確認がまだ</span>}
                 {r.work?.notDone && <span className="text-shu">中止：{displayText(r.work.notDone.reason)}</span>}
                 <span className="text-ink-soft">{times(r)}</span>
+                {(s === "撮影開始" || s === "撮影終了") && <IdentityCheck r={r} onDesk={onDesk} nowTime={nowTime} today={today} />}
                 {s !== "済" && !r.work?.notDone && (
-                  <button type="button" disabled={!!deny || (s === "撮影開始" && pend)} title={s === "撮影開始" && pend ? "指示確認がまだです（指示受けの画面で「確認する」）" : s === "呼出" ? `呼出：${callHow(r.room)}を記録します` : undefined} onClick={() => step(r)} className={`ml-auto rounded px-2 py-0.5 font-bold text-white disabled:opacity-40 ${s === "撮影終了" ? "bg-wakatake" : "bg-ai"}`}>
+                  <button type="button" disabled={!!deny || ((s === "撮影開始" || s === "撮影終了") && (pend || !r.work?.identityChecked))} title={s === "撮影開始" && pend ? "指示確認がまだです（指示受けの画面で「確認する」）" : s === "呼出" ? `呼出：${callHow(r.room)}を記録します` : undefined} onClick={() => step(r)} className={`ml-auto rounded px-2 py-0.5 font-bold text-white disabled:opacity-40 ${s === "撮影終了" ? "bg-wakatake" : "bg-ai"}`}>
                     {STEP_LABEL[s]}
                   </button>
                 )}

@@ -195,3 +195,15 @@ describe("当日の予定（ワークリスト）とポータブル回り", () =
     expect(risTodo(risRows(people, d))).toEqual({ untaken: 2, unconfirmed: 1, notDoneToday: 2 });
   });
 });
+
+it("妊娠中の画像検査は一括受けに含めない", () => {
+  expect(mustTakeOne({ order: { modality: "X線", when: { day: 0, time: "14:00", priority: "予約" } }, pregnancy: { weeks: 30 } } as Parameters<typeof mustTakeOne>[0])).toContain("妊娠中");
+});
+
+it("造影同意は取得済みだけを許可し、別紙の未同意・撤回を優先する", async () => {
+  const { consentReady } = await import("./ris-take");
+  const r = { orderId: "contrast", order: { consent: { state: "取得済み" } } } as Parameters<typeof consentReady>[0];
+  expect(consentReady(r)).toBe(true);
+  expect(consentReady({ ...r, order: { ...r.order, consent: undefined } })).toBe(false);
+  expect(consentReady(r, [{ orderId: r.orderId, status: "撤回" }])).toBe(false);
+});

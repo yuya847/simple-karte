@@ -14,6 +14,7 @@ import { partialReportLabel, type ReportedLabResult, type Ack } from "@/lib/resu
 import { ReportPanel } from "./panels/ReportPanel";
 
 export interface ReportCtx {
+  ris?: import("@/lib/ris").RisDesk;
   reports: Report[];
   labs?: { orderId: string; lab: ReportedLabResult }[];
   acks: Record<string, Ack>;

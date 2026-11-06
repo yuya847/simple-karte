@@ -70,3 +70,9 @@ it("画像検査は今日から予約枠を探せる", () => {
   expect(firstExamSlot("XR1", [], date, 0)).toMatchObject({ day: 0, time: "08:30" });
   expect(firstExamSlot("PORT", [], date, 0).day).toBe(0);
 });
+
+it("今日の過ぎた時刻を飛ばし、次の空き枠を初期選択する", () => {
+  const today = { y: 2026, m: 11, d: 6 };
+  expect(firstExamSlot("XR1", [{ day: 0, time: "14:15", label: "予約" }], today, 0, "14:05")).toMatchObject({ day: 0, time: "14:30" });
+  expect(firstExamSlot("XR1", [], today, 0, "23:00").day).toBeGreaterThan(0);
+});

@@ -26,7 +26,7 @@ export const RIS_TAKE_SOURCES = [
 
 /** What this fictional hospital decided for its radiology 指示受け (架空の病院の取り決め). */
 export const RIS_TAKE_RULES = {
-  one: "至急・造影・MRI の指示は、まとめて受けずに1件ずつ受けます（造影は同意・腎機能・アレルギー、MRI は体内金属を確かめるため）。",
+  one: "至急・造影・MRI・妊娠中の指示は、まとめて受けずに1件ずつ受けます（造影は同意・腎機能・アレルギー、MRI は体内金属を確かめるため）。",
   late: "遅れの目安は、至急 15分・ほかは 60分（指示から）、または予定の時刻を過ぎたもの。ワークリストは予定から 15分を過ぎて始まっていないものを遅れとします。",
   rooms: "装置は一般撮影室1・CT室・MRI室・回診用（ポータブル）の4つ。X線室は1室です。",
   pregnancy: "12〜55歳の女性の X線・CT では妊娠の可能性を確かめます（医師のオーダの確認と同じ範囲）。",
@@ -59,8 +59,9 @@ export const isTakenRis = (r: Pick<RisRow, "work">) => !!r.work?.arrived;
 export const usesContrast = (o: Pick<ImagingOrder, "contrast">) => !!o.contrast && o.contrast !== "単純";
 
 /** Why the row must be taken one at a time (empty = may be taken in bulk). 架空の病院の取り決め. */
-export function mustTakeOne(r: Pick<RisRow, "order">): string[] {
+export function mustTakeOne(r: Pick<RisRow, "order" | "pregnancy">): string[] {
   const out: string[] = [];
+  if (r.pregnancy) out.push("妊娠中");
   if (r.order.when.priority === "至急") out.push("至急");
   if (usesContrast(r.order)) out.push("造影（同意・腎機能・アレルギーを確かめる）");
   if (r.order.modality === "MRI") out.push("MRI（体内金属の確認）");
@@ -140,7 +141,7 @@ export function risTakeFields(r: Pick<RisRow, "order" | "orderedAt" | "at">, tod
     if (value) f.push({ label, value });
   };
   put("部位", findRegion(o.region)?.name ?? o.region);
-  put("体位・方向", o.views?.join("＋"));
+  put("体位・方向", [o.position, o.views?.join("＋")].filter(Boolean).join("・"));
   put("造影", o.contrast);
   put("読影", o.reading);
   put("予定", o.when.priority === "至急" ? risScheduleText(r) : `${dayText(today, o.when.day, o.when.time)} 予約`);
@@ -204,8 +205,9 @@ export function risConfirmItems(r: Pick<RisRow, "orderId" | "order">, patient: P
   if (usesContrast(o)) {
     const gd = o.modality === "MRI";
     const consent = consentTextOf(r.orderId, consents, today);
-    const consented = consents?.find((c) => c.orderId === r.orderId)?.status === "同意";
-    items.push(consent ? { label: "同意", value: consent, tone: consented ? "ok" : "ask" } : { label: "同意", value: gd ? "MRI の造影には同意書の様式がありません。医師の説明を確かめる" : "同意書の記録がありません。医師に確かめる", tone: "ask" });
+    const form = consents?.find((c) => c.orderId === r.orderId);
+    const consented = form ? form.status === "同意" : o.consent?.state === "取得済み";
+    items.push(consented ? { label: "同意", value: consent || "同意書取得済み", tone: "ok" } : consent ? { label: "同意", value: consent, tone: consented ? "ok" : "ask" } : { label: "同意", value: gd ? "MRI の造影には同意書の様式がありません。医師の説明を確かめる" : "同意書の記録がありません。医師に確かめる", tone: "ask" });
     const cre = latestCre(patient);
     if (cre) {
       const e = egfr(cre.value, patient.age, patient.sex);
@@ -309,4 +311,10 @@ export function risTodo(rows: RisRow[]): RisTodo {
     unconfirmed: rows.filter(confirmPending).length,
     notDoneToday: rows.filter((r) => dayOfRow(r) === 0 && !r.work?.done && !r.work?.notDone).length,
   };
+}
+
+/** A registered form takes precedence over the order snapshot. */
+export function consentReady(r: Pick<RisRow, "orderId" | "order">, consents?: Pick<ConsentRecord, "orderId" | "status">[]): boolean {
+  const form = consents?.find((c) => c.orderId === r.orderId);
+  return form ? form.status === "同意" : r.order.consent?.state === "取得済み";
 }

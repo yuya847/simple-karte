@@ -60,7 +60,7 @@ describe("放射線部の一覧と状態", () => {
   it("asks for the contrast medium before a contrast CT is recorded as done", () => {
     const r = rowOf(desk, "o-ris-demo2");
     const w = { ...r, work: undefined };
-    expect(doneProblems(w as RisRow, { orderId: r.orderId, patientId: r.patientId, label: r.label })).toEqual(["指示受け（受付）がまだです。", "撮影室・装置を割り当ててください。", expect.stringContaining("使った造影剤を記録")]);
+    expect(doneProblems(w as RisRow, { orderId: r.orderId, patientId: r.patientId, label: r.label })).toEqual(["氏名・生年月日・リストバンドを確認してください。", "指示受け（受付）がまだです。", "撮影室・装置を割り当ててください。", expect.stringContaining("使った造影剤を記録")]);
   });
 });
 
@@ -170,10 +170,25 @@ it("手入力で撮影条件を保存し、撮影済みを経て照射録を確�
   const r = rowOf({}, "o-ris-demo3");
   expect(recordProblems(r, fmt).join(" ")).toContain("管電圧");
   expect(recordProblems(r, fmt).join(" ")).toContain("管電流時間積");
-  const saved = putWork({}, r, (w) => ({ ...w, arrived: { day: 0, time: "10:00", by: "技師" }, room: "XR1", exposure: { kv: 120, mas: 3, distanceCm: 180, films: 1 }, dose: { esak: 0.2 } }));
+  const saved = putWork({}, r, (w) => ({ ...w, arrived: { day: 0, time: "10:00", by: "技師" }, identityChecked: { day: 0, time: "10:00", by: "技師" }, room: "XR1", exposure: { kv: 120, mas: 3, distanceCm: 180, films: 1 }, dose: { esak: 0.2 } }));
   const ready = rowOf(saved, r.orderId);
   expect(doneProblems(ready, ready.work!)).toEqual([]);
   expect(recordProblems(ready, fmt).join(" ")).toContain("撮影の記録");
   const done = putWork(saved, r, (w) => ({ ...w, done: { day: 0, time: "10:05", by: "技師", via: "手入力" } }));
   expect(recordProblems(rowOf(done, r.orderId), fmt)).toEqual([]);
+});
+
+it("撮影完了には本人確認が必要で、確認を取り消すと再び止まる", () => {
+  const r = rowOf({}, "o-ris-demo3");
+  const work = { orderId: r.orderId, patientId: r.patientId, label: r.label, room: "XR1" as const, arrived: { day: 0, time: "10:00", by: "技師" } };
+  expect(doneProblems(r, work)).toContain("氏名・生年月日・リストバンドを確認してください。");
+  expect(doneProblems(r, { ...work, identityChecked: work.arrived })).toEqual([]);
+});
+
+it("一覧の検査予定は実日付で表示し、至急は指示時刻を保つ", async () => {
+  const { risScheduleText } = await import("./ris");
+  const row = rowOf({}, "o-ris-demo3");
+  const today = { y: 2026, m: 11, d: 6 };
+  expect(risScheduleText({ ...row, at: 600, order: { ...row.order, when: { day: 0, time: "10:00", priority: "予約" } } }, today)).toBe("11/6（金） 10:00");
+  expect(risScheduleText(row, today)).toBe(`至急（${row.orderedAt.time} 指示）`);
 });

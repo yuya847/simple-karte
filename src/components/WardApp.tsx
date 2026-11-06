@@ -3041,6 +3041,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : patient && ctx ? (
         <>
           <PatientSwitchFlash patient={{ id: patient.id }} />
+          {me.role === "診療放射線技師" && <button type="button" onClick={() => openArea("radiology")} className="self-start px-4 py-1 text-sm text-ai underline">放射線部へ戻る</button>}
           <ConsultBanner entries={entries} replies={consultReplies} onOpen={() => setPanel("add-consult")} />
           <PatientBar
             roomLabel={workOf(patient.id)?.room}
@@ -3180,7 +3181,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               </div>
             ) : (
               <>
-            <ConsultContext.Provider value={consultReplies}><ReportContext.Provider value={{ reports: reportsHere, labs: deskLabs(labDesk, patient.id).map((lab) => ({ lab, orderId: labDesk.reports[lab.id!].orderId })), acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
+            <ConsultContext.Provider value={consultReplies}><ReportContext.Provider value={{ ris: dept.ris, reports: reportsHere, labs: deskLabs(labDesk, patient.id).map((lab) => ({ lab, orderId: labDesk.reports[lab.id!].orderId })), acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
             <HistoryPane
               onShown={setShownEntries}
               patient={patient}

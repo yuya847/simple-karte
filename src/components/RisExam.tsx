@@ -1,4 +1,6 @@
 "use client";
+import { AssignControls } from "./RadiologyTake";
+import { IdentityCheck } from "./RisIdentity";
 import { risScheduleText } from "@/lib/ris";
 
 import { displayText } from "@/lib/display-text";
@@ -144,7 +146,9 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
   return (
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <RowHead r={r} />
-      {(w.done || w.started || w.arrived) && <ExecutionUndo action="ris.exam" patient={r.name} detail={r.label} onUndo={(by, at, reason) => put((x) => cancelExecution(x, ["arrived", "confirmed", "called", "inRoom", "identityChecked", "started", "done", "images", "record", "signed", "report", "contrast", "dose", "exposure"], by, at, reason))} />}
+      {!w.done && <AssignControls r={r} onDesk={onDesk} nowTime={nowTime} />}
+      {!w.done && <IdentityCheck r={r} onDesk={onDesk} nowTime={nowTime} today={today} />}
+      {w.done && <ExecutionUndo action="ris.exam" patient={r.name} detail={r.label} onUndo={(by, at, reason) => put((x) => cancelExecution(x, ["arrived", "confirmed", "called", "inRoom", "identityChecked", "started", "done", "images", "record", "signed", "report", "contrast", "dose", "exposure"], by, at, reason))} />}
       {w.cancellations?.map((c, i) => <span key={i} className="text-xs text-ink-soft">撮影・受付の取り消し {c.at} {displayText(c.by)} {displayText(c.reason)}</span>)}
       {(r.order.acks?.length || r.order.answers) && (
         <p className="text-ink-soft">
@@ -163,7 +167,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="font-bold">線量</span>
             {isCt ? [input("ctdiVol", "CTDIvol", "mGy"), input("dlp", "DLP", "mGy・cm")] : input("esak", "正面1枚の入射表面空気カーマ", "mGy")}
-            <span className="text-ink-soft">{drl ? `DRL（${drl.protocol}）：${drl.ctdiVol !== undefined ? `CTDIvol ${drl.ctdiVol} mGy・DLP ${drl.dlp} mGy・cm` : `${drl.esak} mGy`}` : why}</span>
+            <span className="text-ink-soft">{drl ? `DRL（${drl.protocol}）：${drl.ctdiVol !== undefined ? `CTDIvol ${drl.ctdiVol} mGy・DLP ${drl.dlp} mGy・cm` : `${drl.esak} mGy`}` : why?.startsWith("管電圧を入れると") ? null : why}</span>
           </div>
         )}
         <button type="button" disabled={!!deny || !!w.record} onClick={saveConditions} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
@@ -234,13 +238,6 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
           >
             撮影できなかった
           </button>
-          {blockDone.length > 0 && (
-            <ul className="w-full list-disc pl-5 text-ink-soft">
-              {blockDone.map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-            </ul>
-          )}
         </div>
       )}
       {w.done && (
@@ -277,13 +274,6 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
             </p>
           ) : (
             <>
-              {recProblems.length > 0 && (
-                <ul className="mt-1 list-disc pl-5 text-ink-soft">
-                  {recProblems.map((x) => (
-                    <li key={x}>{x}</li>
-                  ))}
-                </ul>
-              )}
               <button
                 type="button"
                 disabled={!!deny || !w.done || recProblems.length > 0}

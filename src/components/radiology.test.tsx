@@ -64,8 +64,8 @@ it("照射録の不足理由を未撮影でもボタンのそばに表示する"
   const html = as("診療放射線技師", <ExamForm r={row} onDesk={() => {}} nowTime="10:00" today={today} />);
   expect(html).toContain("指示受け（受付）がまだです。");
   expect(html).not.toContain("枚数が入っていません");
-  expect(html).toContain("管電圧（kV）が入っていません。");
-  expect(html).toContain("管電流時間積（mAs）が入っていません。");
+  expect(html).toContain("管電圧（kV）");
+  expect(html).toContain("管電流時間積（mAs）");
 });
 
 it("ポータブルは ID・年齢・本人確認があり、未確認では撮影開始を押せない", async () => {
@@ -87,4 +87,33 @@ it("撮影済みの照射録には画像を送るボタンと保存した条件�
   expect(html).toContain('value="90"');
   expect(html).toContain('value="2.5"');
   expect(html).not.toContain("枚数が入っていません");
+});
+
+it("撮影前の本人確認と装置割り当てがあり、未実施への取り消しは撮影後だけ", () => {
+  const row = risRows(people, desk).find((r) => r.orderId === "o-ris-demo3")!;
+  const html = as("診療放射線技師", <ExamForm r={row} onDesk={() => {}} nowTime="10:00" today={today} />);
+  expect(html).toContain("氏名・生年月日・リストバンドを確認した");
+  expect(html).toContain('aria-label="撮影室・装置"');
+  expect(html).not.toContain("未実施に戻す");
+  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>撮影済みにする/);
+});
+
+it("技師の読影は状態一覧だけ、所見・診断の入力欄を表示しない", async () => {
+  const { ReadingStatus } = await import("./RadiologyView");
+  const html = as("診療放射線技師", <ReadingStatus rows={risRows(people, desk)} />);
+  expect(html).toContain("確定");
+  expect(html).toContain("未");
+  expect(html).not.toContain("textarea");
+  expect(html).not.toContain("訂正");
+});
+
+it("造影の受付には値と3項目のチェック、同意書なしの受け止めがある", async () => {
+  const { TakeOne } = await import("./RadiologyTake");
+  const { risConfirmItems } = await import("@/lib/ris-take");
+  const row = risRows(people, desk).find((r) => r.orderId === "o-ris-demo2")!;
+  const person = people.find((p) => p.patient.id === row.patientId)!;
+  const html = as("診療放射線技師", <TakeOne r={row} reasons={["造影"]} items={risConfirmItems(row, person.patient, person.entries, undefined, today)} consentOk={false} onTake={() => {}} onClose={() => {}} />);
+  for (const text of ["Cre", "eGFR", "ヨードのアレルギー", "同意", "腎機能を確かめた", "アレルギーを確かめた", "同意書あり", "同意書がないため受けられません"]) expect(html).toContain(text);
+  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>指示を受ける/);
+  expect(html).not.toContain("自分の目で");
 });

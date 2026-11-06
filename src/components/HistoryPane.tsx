@@ -5,7 +5,7 @@ import { patternCourse } from "@/lib/day-pattern";
 import { displayText } from "@/lib/display-text";
 import { ConsultStatus } from "./ConsultContext";
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { VerbalReview } from "./VerbalControls";
 import { CalendarDays, ChevronDown, FlaskConical, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
@@ -36,7 +36,7 @@ import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/
 import type { TakeBadge } from "@/lib/order-confirm";
 import type { PendingDraw } from "@/lib/lab-table";
 import { TakeBadgeMark } from "./TakeConfirm";
-import { OrderReportMark } from "./ReportMark";
+import { ReportContext, OrderReportMark } from "./ReportMark";
 import { InjectionCalendar, PrescriptionCalendar, type CalendarProps } from "./Calendars";
 import { ExecuteMenu, type ExecuteProps, type MenuExtra } from "./ExecuteMenu";
 import { abs } from "@/lib/flowsheet";
@@ -1023,6 +1023,8 @@ function ExecutionTags({ marks, today, now }: { marks: ReturnType<typeof executi
 function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grouped = false, hideStatus = false, hideStart = false, entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { orderDay?: OrderDayMode; onJumpDay?: (day: DayOffset) => void; sharedMarkKeys?: string[]; grouped?: boolean; hideStatus?: boolean; hideStart?: boolean; entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
   const actions = useOrderHistoryActions();
   const [copyStatus, setCopyStatus] = useState("");
+  const imagingWork = useContext(ReportContext)?.ris?.[entry.id];
+  const imagingStatus = imagingWork?.report ? "読影済" : imagingWork?.done ? "撮影済" : null;
   const o = entry.order;
   const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
@@ -1152,7 +1154,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
       <div className="nums">
         <div className={strike}>{o.type === "procedure" && o.consult ? "コンサルト" : main}{o.type === "procedure" && o.consult && <ConsultStatus id={entry.id} />}</div>
         <div className="text-xs text-ink-soft">{displayText(detail)}</div>
-        {o.type === "imaging" && onOpenImage && !stopped && (
+        {o.type === "imaging" && onOpenImage && !!imagingWork?.images && !stopped && (
           <button type="button" onClick={() => onOpenImage(entry.id)} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
             画像を開く（PACS）
           </button>
@@ -1201,7 +1203,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
           )}
         <OrderReportMark orderId={entry.id} />
           {!hideStatus && <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[entry.status]}`}>
-            {entry.status}
+            {o.type === "imaging" && imagingStatus && !stopped ? imagingStatus : entry.status}
             {stopped && entry.stoppedOn === 0 ? "（今日）" : ""}
           </span>}
           {!grouped && menuButton}

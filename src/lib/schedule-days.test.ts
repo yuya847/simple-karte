@@ -18,7 +18,7 @@ describe("依頼日と実施日：オーダから日ごとの予定を作る", (
     const xr = e("xr", 0, "09:10", { type: "imaging", modality: "X線", region: "R-CHEST", purpose: "x", when: { day: 1, priority: "予約" }, transport: "車椅子" });
     expect(planItemsOf(xr).map(brief)).toEqual(["1 画像 撮影"]);
     const stat = e("stat", 0, "09:10", { type: "imaging", modality: "X線", region: "R-CHEST", purpose: "x", when: { day: 0, priority: "至急" }, transport: "車椅子" });
-    expect(planItemsOf(stat).map(brief)).toEqual(["0 09:40 画像 撮影"]);
+    expect(planItemsOf(stat).map(brief)).toEqual(["0 09:10 画像 撮影"]);
     const ecg = e("ecg", 0, "09:10", { type: "physio", test: "PHY-ECG", purpose: "x", when: { day: 2, time: "15:00", priority: "予約" }, place: "検査室" });
     expect(planItemsOf(ecg).map(brief)).toEqual(["2 15:00 予約 検査"]);
   });

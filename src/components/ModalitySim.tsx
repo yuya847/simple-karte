@@ -8,10 +8,11 @@
 
 import { displayText } from "@/lib/display-text";
 import { MonitorCog } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
 import { ctDoseConcepts, mppsCreate, mppsSet, mwlItem, simulatedAcquisition, toDicomJson, toOrthancTags, worklistFor, type DicomAttr } from "@/lib/dicom-mwl";
+import { IdentityCheck } from "./RisIdentity";
 import { doneProblems, doseText, putWork, RIS_ROOMS, type RisRow, type RisWork } from "@/lib/ris";
 import { Fictional } from "./DeskParts";
 import { useDeny, useMe } from "./RoleContext";
@@ -46,7 +47,6 @@ function AttrTable({ attrs, depth = 0 }: { attrs: DicomAttr[]; depth?: number })
   );
 }
 
-type Local = { enabled: boolean; why?: string; system?: { name: string; version: string }; error?: string };
 
 /** 撮影装置（模擬）. */
 export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onDesk: OnDesk; nowTime: string; today: CalendarDate }) {
@@ -113,11 +113,12 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
       )}
       {asked === ae && target && (
         <Item key={target.orderId} r={target} view={view} setView={setView} today={today}>
+          <IdentityCheck r={target} onDesk={onDesk} nowTime={nowTime} today={today} />
           <div className="flex flex-wrap items-center gap-2">
             {target.status === "受付済み" && (
               <button
                 type="button"
-                disabled={!!deny}
+                disabled={!!deny || !target.work?.identityChecked}
                 onClick={() => {
                   put(target, (w) => ({ ...w, started: { ...at, by: me.name, via: "模擬装置" }, mpps: [...(w.mpps ?? []), { ...at, kind: "N-CREATE", status: "IN PROGRESS", ae }] }));
                   setSent({ kind: "MPPS N-CREATE（IN PROGRESS）", attrs: mppsCreate(target, today, at) });
@@ -164,7 +165,6 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
         </div>
       )}
       <Stored rows={rows.filter((r) => r.work?.done && !r.work.images && r.work.room && RIS_ROOMS.find((x) => x.key === r.work!.room)?.ae === ae)} onDesk={onDesk} nowTime={nowTime} ae={ae} />
-      <LocalOrthanc target={target} today={today} />
 
 
 
@@ -275,63 +275,6 @@ function Stored({ rows, onDesk, nowTime, ae }: { rows: RisRow[]; onDesk: OnDesk;
           </p>
         );
       })}
-    </div>
-  );
-}
-
-/** 手元の Orthanc（任意。LOCAL_ORTHANC_URL を設定した開発サーバーだけ）. */
-function LocalOrthanc({ target, today }: { target: RisRow | null; today: CalendarDate }) {
-  const [local, setLocal] = useState<Local | null>(null);
-  const [msg, setMsg] = useState("");
-  useEffect(() => {
-    let live = true;
-    fetch("/api/dicom")
-      .then((r) => r.json())
-      .then((j: Local) => live && setLocal(j))
-      .catch(() => live && setLocal({ enabled: false, why: "確かめられませんでした。" }));
-    return () => {
-      live = false;
-    };
-  }, []);
-  return (
-    <div className={`${card} space-y-1 p-3 text-[12px]`}>
-      <h4 className="font-bold">手元の Orthanc（任意）</h4>
-      {!local && <p className="text-ink-faint">確かめています…</p>}
-
-      {local?.enabled && (
-        <>
-          <p className="text-ink-soft">{displayText(local.system ? `手元の ${local.system.name} ${local.system.version} につながります。` : (local.error ?? ""))}</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={!target}
-              onClick={async () => {
-                if (!target) return;
-                const res = await fetch("/api/dicom", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ worklist: toOrthancTags(mwlItem(target, today)) }) });
-                const j = await res.json().catch(() => ({}));
-                setMsg(j.created ? `送りました（Orthanc のワークリスト ID ${j.created.id}）` : (j.error ?? j.why ?? "送れませんでした"));
-              }}
-              className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40"
-            >
-              選んだワークリストを手元の Orthanc に送る
-            </button>
-            <button
-              type="button"
-              disabled={!target}
-              onClick={async () => {
-                if (!target) return;
-                const j = await fetch(`/api/dicom?patientId=${encodeURIComponent(target.patientId)}`).then((r) => r.json());
-                setMsg(j.studies ? `手元の Orthanc にある検査：${j.studies.length}件${j.studies.map((s: { date: string; modalities: string[]; instances: number | null }) => `（${s.date} ${s.modalities.join("・")} ${s.instances ?? "?"}枚）`).join("")}` : (j.error ?? "探せませんでした"));
-              }}
-              className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40"
-            >
-              この患者の検査を手元の Orthanc で探す（QIDO-RS）
-            </button>
-          </div>
-          {msg && <p>{msg}</p>}
-        </>
-      )}
-
     </div>
   );
 }

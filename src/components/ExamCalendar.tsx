@@ -19,7 +19,7 @@ export function ExamCalendar({ kind, today, taken, value, onChange }: {
   return <section className="space-y-2 text-sm" aria-label="いつ行うか">
     <div role="radiogroup" aria-label="予約か至急" className="flex gap-2">
       <button type="button" role="radio" aria-checked={!selected} onClick={() => onChange({ day: 0, time: null, priority: "至急" })} className={`rounded border px-2 py-1 text-xs ${!selected ? "border-shu bg-shu-soft font-bold text-shu" : "border-rule text-ink-soft"}`}>今すぐ（至急）</button>
-      <button type="button" role="radio" aria-checked={selected} onClick={() => { const v = firstExamSlot(kind, taken, today, kind.startsWith("PHY-") ? 1 : 0); setDay(v.day); const d = addDays(today, v.day); setMonth({ ...d, d: 1 }); onChange(v); }} className={`rounded border px-2 py-1 text-xs ${selected ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule text-ink-soft"}`}>日時を選ぶ</button>
+      <button type="button" role="radio" aria-checked={selected} onClick={() => { const nowTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date()); const v = firstExamSlot(kind, taken, today, kind.startsWith("PHY-") ? 1 : 0, nowTime); setDay(v.day); const d = addDays(today, v.day); setMonth({ ...d, d: 1 }); onChange(v); }} className={`rounded border px-2 py-1 text-xs ${selected ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule text-ink-soft"}`}>日時を選ぶ</button>
     </div>
     {selected && <div className="grid gap-3 @md:grid-cols-[18rem_1fr]">
     <div className="rounded border border-rule p-2 text-xs">

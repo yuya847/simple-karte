@@ -17,7 +17,7 @@ import type { WorkPatient } from "@/lib/worksheet";
 import { SubTabs } from "./DeskParts";
 import { ModalitySim } from "./ModalitySim";
 import { PortableRound, RadiologyTake, Worklist } from "./RadiologyTake";
-import { DenyNote } from "./RoleContext";
+import { DenyNote, useMe } from "./RoleContext";
 import { card, ExamForm, ReadingForm, SignButton, STATUS_TONE, type OnDesk } from "./RisExam";
 
 interface Props {
@@ -36,6 +36,7 @@ type Tab = "take" | "worklist" | "portable" | "exam" | "modality" | "reading" | 
 
 /** 放射線部. The technologist starts at 指示受け. */
 export function RadiologyView(p: Props) {
+  const me = useMe();
   const [examId, setExamId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("take");
   const rows = risRows(p.people, p.desk);
@@ -46,7 +47,6 @@ export function RadiologyView(p: Props) {
     worklist: Math.max(0, todo.notDoneToday - todo.untaken),
     portable: portableRound(rows).length,
     exam: rows.filter((r) => r.status === "受付済み" || r.status === "撮影中" || (r.status !== "中止" && r.work?.done && !r.work.record && r.order.modality !== "MRI")).length,
-    reading: toRead.length,
     list: unsignedRecords(rows).length,
   };
   return (
@@ -67,7 +67,7 @@ export function RadiologyView(p: Props) {
             { key: "portable", label: "ポータブル回り", icon: Route, badge: badge.portable },
             { key: "exam", label: "撮影・照射録", icon: ScanLine, badge: badge.exam },
             { key: "modality", label: "撮影装置（模擬）", icon: MonitorCog },
-            { key: "reading", label: "読影", icon: FilePen, badge: badge.reading },
+            { key: "reading", label: "読影", icon: FilePen },
             { key: "dose", label: "線量", icon: Activity },
             { key: "list", label: "一覧・署名", icon: ListChecks, badge: badge.list },
           ]}
@@ -85,7 +85,7 @@ export function RadiologyView(p: Props) {
             <ModalitySim rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} />
           </>
         )}
-        {tab === "reading" && <Reading {...p} rows={toRead} done={rows.filter((r) => r.work?.report)} />}
+        {tab === "reading" && (me.role === "診療放射線技師" ? <ReadingStatus rows={rows} /> : <Reading {...p} rows={toRead} done={rows.filter((r) => r.work?.report)} />)}
         {tab === "dose" && <Dose rows={rows} />}
         {tab === "list" && <List {...p} rows={rows} />}
       </div>
@@ -189,7 +189,7 @@ function Dose({ rows }: { rows: RisRow[] }) {
   );
 }
 
-function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] }) {
+function List({ rows, desk, acks, onDesk, nowTime, today }: Props & { rows: RisRow[] }) {
   const items = risResultItems(desk);
   return (
     <section className="space-y-2">
@@ -218,7 +218,7 @@ function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] })
             const ack = item ? acks[item.key] : undefined;
             return (
               <tr key={r.orderId} className="border-b border-rule-soft align-top">
-                <td className="nums px-2 py-1">{displayText(risScheduleText(r))}</td>
+                <td className="nums px-2 py-1">{displayText(risScheduleText(r, today))}</td>
                 <td className="px-2 py-1">
                   {r.room}　{r.name}
                 </td>
@@ -244,3 +244,7 @@ function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] })
           医師がカルテの「オーダ › 画像検査」で出した X線・CT・MRI が並びます。診療放射線技師は「指示受け」で指示を受けて（受付）撮影室と装置を決め、造影・MRI は「確認する」で同意・腎機能・体内金属などを確かめ、「当日の予定」で呼出・来室・撮影の時刻を押し、「撮影装置（模擬）」か「撮影・照射録」で撮影条件と線量を記録し、照射録を確定します。放射線科医は「読影」でレポートを書き、オーダした医師は「一覧・署名」かカルテの「放射線画像」で照射録に署名し、レポートを確認します。右上の「自分」で職種を選びます（デモではログインの代わり）。
         </p>
 */
+
+export function ReadingStatus({ rows }: { rows: RisRow[] }) {
+  return <section aria-label="読影レポートの状態">{rows.filter((r) => needsReading(r.order)).map((r) => <p key={r.orderId}>{r.name}　{r.label}　{r.work?.report ? "確定" : "未"}</p>)}</section>;
+}

@@ -2,7 +2,6 @@
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { PUBLIC_IMAGE_NOTE } from "@/lib/image-credits";
 import { frameLoading, getFrame, valueRange } from "@/lib/pacs/frames";
 import { angle, distance, finishMeasurement, roiStats, type MeasureKind, type Measurement, type Pt } from "@/lib/pacs/measure";
 import { photoVersion, subscribePhotos } from "@/lib/pacs/photos";
@@ -11,7 +10,7 @@ import type { PacsStudy, SeriesSpec } from "@/lib/pacs/types";
 import { applyMatrix, invertMatrix, orientationLabels, stepSlice, viewMatrix, zoomAt, type ViewState } from "@/lib/pacs/viewport";
 import { buildLut, dragStep, dragWindow } from "@/lib/pacs/window";
 import type { Patient } from "@/lib/types";
-import { corner, drawMeasurement, FICTION, MEASURE, OVERLAY, paintPixels, scaleBar, text } from "./draw";
+import { corner, drawMeasurement, MEASURE, OVERLAY, paintPixels, scaleBar, text } from "./draw";
 import { ageSex } from "@/lib/person";
 
 export type Tool = "window" | "pan" | "zoom" | "distance" | "angle" | "roi";
@@ -188,13 +187,6 @@ export function Viewport({
       size.w,
       size.h,
     );
-    // 架空の合成画像か、公開データの画像かを、画像の上に必ず出す（実在の患者の画像と誤解させないため）
-    if (photo) {
-      ctx.font = "11px ui-sans-serif, system-ui, 'Hiragino Sans', 'Yu Gothic UI', sans-serif";
-      text(ctx, PUBLIC_IMAGE_NOTE, size.w / 2, 18, FICTION, "center");
-      ctx.font = FONT;
-    } else text(ctx, "合成画像（実在の患者の画像ではありません）", size.w / 2, 18, FICTION, "center");
-
     // 向きの文字（画面の上下左右が患者のどちら向きか）。公開画像の超音波は向きが決まらないので出さない
     if (!(photo && s.modality === "超音波")) {
       const o = orientationLabels(series.orient, view);

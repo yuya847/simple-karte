@@ -7,6 +7,7 @@ import type { ExecutionCancellation } from "./mar";
 // the claim are code; the technologist and the doctors decide and write. No device is connected: the modality
 // in this app is a simulation (模擬, ris-modality.ts / dicom-mwl.ts).
 
+import { addDays, formatShort, type CalendarDate } from "./dates";
 import { abs } from "./flowsheet";
 import { consentText, examAt, regionLabel, usesContrast, viewsText, type ImagingOrder, type Modality } from "./exams";
 import { imagingMethodText, imagingTitle } from "./format";
@@ -224,6 +225,7 @@ export interface RisRow {
   sex: Sex;
   age: number;
   weightKg?: number;
+  pregnancy?: Patient["pregnancy"];
   allergies: string[];
   room: string;
   order: ImagingOrder;
@@ -236,7 +238,7 @@ export interface RisRow {
   work?: RisWork;
 }
 
-type Person = { patient: Pick<Patient, "id" | "name" | "kana" | "sex" | "age" | "weightKg" | "allergies">; room: string; entries: OrderEntry[] };
+type Person = { patient: Pick<Patient, "id" | "name" | "kana" | "sex" | "age" | "weightKg" | "allergies" | "pregnancy">; room: string; entries: OrderEntry[] };
 
 /** The studies the department looks at: including future bookings, and older ones not finished. Stopped orders are left out. */
 export function risRows(people: Person[], desk: RisDesk): RisRow[] {
@@ -257,6 +259,7 @@ export function risRows(people: Person[], desk: RisDesk): RisRow[] {
         sex: x.patient.sex,
         age: x.patient.age,
         weightKg: x.patient.weightKg,
+        pregnancy: x.patient.pregnancy,
         allergies: x.patient.allergies,
         room: x.room,
         order: o,
@@ -274,12 +277,12 @@ export function risRows(people: Person[], desk: RisDesk): RisRow[] {
 }
 
 /** The work record to change, made when the row has none yet. */
-export const risScheduleText = (r: Pick<RisRow, "order" | "orderedAt"> & { at?: number }) => {
+export const risScheduleText = (r: Pick<RisRow, "order" | "orderedAt"> & { at?: number }, today?: CalendarDate) => {
   if (r.order.when.priority === "至急") return `至急（${r.orderedAt.time} 指示）`;
   const at = r.at ?? 0;
   const day = Math.floor(at / 1440);
   const label = day === 0 ? "今日" : day === -1 ? "昨日" : day === 1 ? "明日" : day < 0 ? `${-day}日前` : `${day}日後`;
-  return `${label} ${hhmm(at)}`;
+  return `${today ? formatShort(addDays(today, day)) : label} ${hhmm(at)}`;
 };
 
 export const workOf = (desk: RisDesk, r: Pick<RisRow, "orderId" | "patientId" | "label">): RisWork => desk[r.orderId] ?? { orderId: r.orderId, patientId: r.patientId, label: r.label };
@@ -466,6 +469,7 @@ export function doseGroups(rows: RisRow[]): DoseGroup[] {
 /** What stops the study from being recorded as done (撮影済み). */
 export function doneProblems(r: RisRow, w: RisWork): string[] {
   const out: string[] = [];
+  if (!w.identityChecked) out.push("氏名・生年月日・リストバンドを確認してください。");
   if (!w.arrived) out.push("指示受け（受付）がまだです。");
   if (!w.room) out.push("撮影室・装置を割り当ててください。");
   const usesContrast = r.order.contrast && r.order.contrast !== "単純";

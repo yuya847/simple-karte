@@ -101,6 +101,7 @@ export interface ExecBadge {
  * (実施 08:05・未実施（患者が拒否）), and the next planned time (予定 14:00). Null when nothing is due today.
  */
 export function executionBadge(patient: Patient, entry: OrderEntry, records: Record<string, AdminRecord>, sessionStart: number, nowAbs: number): ExecBadge | null {
+  if (entry.order.type === "imaging" && entry.order.when.priority === "至急") return { text: `至急（${entry.time} 指示）`, tone: "plan", title: "画像検査の指示時刻" };
   const { timed, untimed } = occurrencesOn(patient, entry, 0, nowAbs);
   const occs = occurrenceStates(timed, records, sessionStart, nowAbs);
   const prn = untimed ? Object.values(records).filter((r) => r.orderId === entry.id && r.at >= 0 && r.at < 1440).sort((a, b) => a.at - b.at) : [];

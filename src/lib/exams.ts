@@ -652,7 +652,7 @@ export interface PhysioOrder {
 
 /** When the study counts as done (no 実施 record in this prototype): its time, or the order time when 至急. */
 export function examAt(o: ImagingOrder | PhysioOrder, orderedAbs: number): number {
-  if (o.when.priority === "至急" || !o.when.time) return o.when.priority === "至急" ? orderedAbs + 30 : o.when.day * 1440 + minutesOf(EXAM_RULES.open);
+  if (o.when.priority === "至急" || !o.when.time) return o.when.priority === "至急" ? orderedAbs + (o.type === "imaging" ? 0 : 30) : o.when.day * 1440 + minutesOf(EXAM_RULES.open);
   return o.when.day * 1440 + minutesOf(o.when.time);
 }
 
