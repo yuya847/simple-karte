@@ -1,4 +1,6 @@
 "use client";
+import { LAB_RESULT_MIME, LAB_SELECTIONS, labTransfer, selectLabSet } from "@/lib/lab-transfer";
+import { requestLabPaste } from "../LabPasteReceiver";
 import { labNumber } from "@/lib/lab-number";
 
 import { displayText } from "@/lib/display-text";
@@ -16,6 +18,8 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
   const [period, setPeriod] = useState<PeriodKey>("all");
   const [abnormalOnly, setAbnormalOnly] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
+  const [selectedCodes, setSelectedCodes] = useState<string[] | null>(null);
+  const [showSelectedTrends, setShowSelectedTrends] = useState(false);
   const [trend, setTrend] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [printing, setPrinting] = useState(false);
@@ -25,6 +29,17 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
   const rows = labRows(cols, patient.sex, abnormalOnly);
   const resultCols = cols.filter((c) => c.kind === "result");
   const chosen = picked.length ? resultCols.filter((c) => picked.includes(c.key)) : [...resultCols].sort((a, b) => b.at - a.at).slice(0, 1);
+  const chosenRows = rows.filter(a => selectedCodes === null || selectedCodes.includes(a.code));
+  const payload = labTransfer(patient, chosen.flatMap(c => c.kind === "result" ? [c.lab] : []), chosenRows.map(a => a.code), today);
+  const dragResults = (e: React.DragEvent, columns: LabColumn[] = chosen) => {
+    e.stopPropagation();
+    const data = labTransfer(patient, columns.flatMap(c => c.kind === "result" ? [c.lab] : []), chosenRows.map(a => a.code), today);
+    if (!data.text) { e.preventDefault(); return; }
+    e.dataTransfer.setData(LAB_RESULT_MIME, JSON.stringify(data));
+    e.dataTransfer.setData("text/plain", data.text);
+    e.dataTransfer.effectAllowed = "copy";
+  };
+  const trendPatient = { ...patient, labs: (picked.length ? chosen : resultCols).flatMap(c => c.kind === "result" ? [c.lab] : []) };
   const trendAnalyte = trend ? ANALYTES.find((a) => a.code === trend) : undefined;
 
   const flash = (t: string) => {
@@ -32,7 +47,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
     window.setTimeout(() => setNote(""), 2500);
   };
   const copy = async () => {
-    const text = copyText(chosen, rows, patient.sex, today);
+    const text = copyText(chosen, chosenRows, patient.sex, today);
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -104,6 +119,16 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
                 </button>
               </span>
             </div>
+            <div className="mb-2 flex flex-wrap gap-2 text-xs">
+              <button type="button" className={btn} onClick={() => setSelectedCodes(rows.map(a => a.code))}>全選択</button>
+              <button type="button" className={btn} onClick={() => setSelectedCodes([])}>全解除</button>
+              {Object.keys(LAB_SELECTIONS).map(name => <button key={name} type="button" className={btn} onClick={() => setSelectedCodes(selectLabSet(rows.map(a => a.code), name))}>{name}</button>)}
+              <button type="button" draggable={!!payload.text} onDragStart={e => dragResults(e)} disabled={!payload.text} className={btn} onClick={() => requestLabPaste(payload)}>記事に貼る</button>
+              <button type="button" className={btn} disabled={!chosenRows.length || !chosen.length} onClick={() => setShowSelectedTrends(v => !v)}>時系列で見る</button>
+              <button type="button" className={btn} onClick={() => setPicked(resultCols.map(c => c.key))}>全日付</button>
+              <button type="button" className={btn} onClick={() => setPicked([])}>日付を解除</button>
+            </div>
+            {showSelectedTrends && chosenRows.map(a => <Trend key={a.code} analyte={a} patient={trendPatient} today={today} onClose={() => setShowSelectedTrends(false)} />)}
             {note && (
               <p role="status" className="mb-2 text-[11px] text-wakatake">
                 {displayText(note)}
@@ -114,7 +139,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
               <p className="text-sm text-ink-faint">この期間の結果はありません</p>
             ) : (
               <div className="scroll-thin overflow-x-auto">
-                <LabTable cols={cols} rows={rows} patient={patient} today={today} focusAt={focusAt} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
+                <LabTable selectedCodes={chosenRows.map(a => a.code)} onCode={(code, on) => setSelectedCodes(on ? [...chosenRows.map(a => a.code), code] : chosenRows.map(a => a.code).filter(c => c !== code))} onDragColumn={(e, c) => dragResults(e, picked.includes(c.key) ? chosen : [c])} cols={cols} rows={rows} patient={patient} today={today} focusAt={focusAt} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
               </div>
             )}
           </>
@@ -190,7 +215,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
   );
 }
 
-function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, focusAt }: { cols: LabColumn[]; rows: Analyte[]; patient: Patient; today: CalendarDate; picked?: string[]; onPick?: (key: string, on: boolean) => void; trend?: string | null; onTrend?: (code: string | null) => void; focusAt?: { day: number; time: string } }) {
+function LabTable({ selectedCodes, onCode, onDragColumn, cols, rows, patient, today, picked, onPick, trend, onTrend, focusAt }: { selectedCodes?: string[]; onCode?: (code: string, on: boolean) => void; onDragColumn?: (e: React.DragEvent, c: LabColumn) => void; cols: LabColumn[]; rows: Analyte[]; patient: Patient; today: CalendarDate; picked?: string[]; onPick?: (key: string, on: boolean) => void; trend?: string | null; onTrend?: (code: string | null) => void; focusAt?: { day: number; time: string } }) {
   const isFocus = (c: LabColumn) => !!focusAt && c.kind === "result" && c.day === focusAt.day && c.time === focusAt.time;
   return (
     <table className="nums w-auto table-auto self-start whitespace-nowrap border-collapse text-[13px] print:text-[9pt]">
@@ -204,7 +229,7 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, 
           {cols.map((c) => {
             const r = c.kind === "result" ? c.lab : null;
             return (
-              <th key={c.key} ref={isFocus(c) ? (el) => el?.scrollIntoView({ inline: "center", block: "nearest" }) : undefined} className={`py-1 pl-3 text-right align-bottom font-normal ${isFocus(c) ? "rounded-t bg-ai-soft text-ai" : ""} ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={displayText(r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined)}>
+              <th draggable={!!onDragColumn && c.kind === "result"} onDragStart={e => onDragColumn?.(e, c)} key={c.key} ref={isFocus(c) ? (el) => el?.scrollIntoView({ inline: "center", block: "nearest" }) : undefined} className={`py-1 pl-3 text-right align-bottom font-normal ${isFocus(c) ? "rounded-t bg-ai-soft text-ai" : ""} ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={displayText(r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined)}>
                 {onPick && c.kind === "result" && (
                   <input type="checkbox" className="mb-0.5 print:hidden" aria-label={`${formatShort(addDays(today, c.day))} ${c.time} の結果をコピーに入れる`} checked={picked?.includes(c.key) ?? false} onChange={(e) => onPick(c.key, e.target.checked)} />
                 )}
@@ -236,6 +261,7 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, 
         {rows.map((a) => (
           <tr key={a.code} className={`border-b border-rule-soft ${trend === a.code ? "bg-ai-soft/60" : ""}`}>
             <td className="sticky left-0 z-10 bg-sheet py-1 pr-3 font-bold print:static">
+              {onCode && <input type="checkbox" aria-label={`${a.name}を選択`} checked={selectedCodes?.includes(a.code) ?? false} onChange={e => onCode(a.code, e.target.checked)} className="mr-1 print:hidden" />}
               {onTrend ? (
                 <button type="button" onClick={() => onTrend(trend === a.code ? null : a.code)} className="inline-flex items-center gap-1 hover:text-ai" title="経過のグラフ">
                   {a.name}

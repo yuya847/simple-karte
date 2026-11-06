@@ -1,4 +1,6 @@
 "use client";
+import { LabPasteReceiver, requestLabPaste } from "./LabPasteReceiver";
+import { LAB_RESULT_MIME, readLabTransfer } from "@/lib/lab-transfer";
 import { RxExpiryInbox } from "./RxExpiryInbox";
 import { expiryInbox, expiryCounts, receivesExpiry, expiryExtension } from "@/lib/rx-expiry-workflow";
 import { RxExpiryNotice } from "./RxExpiryNotice";
@@ -3189,7 +3191,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             <div
               className={`relative flex min-h-0 flex-col ${dropping ? "ring-2 ring-inset ring-ai" : ""}`}
               onDragOver={(e) => {
-                if (!e.dataTransfer.types.includes(DO_MIME)) return;
+                if (!e.dataTransfer.types.includes(DO_MIME) && !e.dataTransfer.types.includes(LAB_RESULT_MIME)) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "copy";
                 if (!dropping) setDropping(true);
@@ -3198,6 +3200,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropping(false);
               }}
               onDrop={(e) => {
+                const result = readLabTransfer(e.dataTransfer.getData(LAB_RESULT_MIME));
+                if (result) { e.preventDefault(); setDropping(false); requestLabPaste(result, e.shiftKey); return; }
                 const d = readDo(e);
                 setDropping(false);
                 if (!d) return;
@@ -3205,7 +3209,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                 doFromHistory(d);
               }}
             >
-              {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
+              <LabPasteReceiver key={patient.id} patientId={patient.id} onPaste={text => { update(c => ({ note: `${c.note.replace(/\s*$/, "")}\n${text}\n` })); openRight("note"); setPanel(null); }} />
+              {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと記事へ写します</div>}
               <PharmacyInbox
                 today={today}
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}

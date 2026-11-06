@@ -1,4 +1,5 @@
 "use client";
+import { hasLabTable } from "@/lib/lab-transfer";
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
@@ -182,7 +183,7 @@ export function TodayPane(p: Props) {
               <PhrasePanel phrases={ph.list} onPhrases={(list) => setPh({ user: me.name, list })} selected={selected} onInsert={(text) => put((n, s, e) => insertAt(n, s, e, text))} onClose={() => setTool(null)} />
             </div>
           )}
-          <NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} />
+          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
           {p.orderSlot}
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き" className="space-y-1">
