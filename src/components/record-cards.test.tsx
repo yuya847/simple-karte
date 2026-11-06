@@ -26,10 +26,10 @@ describe("経過のカード", () => {
   const html = as("医師", <HistoryPane {...base} patient={sakura} entries={sakura.history} onDo={() => {}} />);
   it("each record is a card: 【記事】【注射】【検体検査】【処方】 with the date (weekday) and time, the place small on the right, and a version line", () => {
     expect(html).toContain("【記事】 11/1（日） 14:20");
-    expect(html).toContain("【注射】 11/1（日） 14:35");
+    expect(html).toContain("【注射】 11/1（日）");
     expect(html).toContain("ヴィーンF輸液 500mL");
     expect(html).not.toContain("酢酸リンゲル液（ヴィーンF）");
-    expect(html).toContain("【検体検査】 11/1（日） 14:30");
+    expect(html).toContain("【検体検査】 11/1（日） 14:40");
     expect(html).toContain("【処方】");
     expect(html).toContain(">総合診療科 病棟<");
     expect(html).toContain("第1版：");
@@ -44,8 +44,8 @@ describe("経過のカード", () => {
     expect(html).toContain("1回1錠");
     expect(html).toContain("【服用開始日：");
     expect(html).toContain("【開始：11/1（日） 15:30】");
-    expect(html).toContain("・WBC");
-    expect(html).toContain('aria-label="検査の内訳"');
+    expect(html).toContain("WBC・RBC・Hb・Ht・Plt");
+    expect(html).not.toContain('aria-label="検査の内訳"');
   });
   it("each card's ▸ is there, and the drag handle for Do (no 「すべて展開／たたむ」 buttons)", () => {
     expect(html).not.toContain("すべて展開");
@@ -77,10 +77,10 @@ describe("入院前の外来の受診", () => {
     expect(html).toContain('data-place="opd"');
   });
   it("today's plans (ordered on another day) are listed under today's heading, with 依頼 and the day it was ordered", () => {
-    expect(html).toContain("今日の予定");
-    expect(html).toContain("CT 胸部");
+    expect(html).not.toContain("今日の予定");
+    expect(html).toMatch(/CT[　 ]胸部/);
     expect(html).toContain("依頼 11/3（火）");
-    expect(html.indexOf("今日の予定")).toBeLessThan(html.indexOf("入院1日目"));
+    expect(html).toContain('data-order-id="o-ct"');
   });
   it("the date tree lists 入院前の外来 under 今回入院", () => {
     const tree = renderToStaticMarkup(<DateTree patient={kitamura} entries={kitamura.history} today={today} selectedDay={null} onSelect={() => {}} visits={visitsOf(kitamura.id, kitamura.admittedOn).map((v) => ({ day: v.day, dept: v.dept }))} />);
@@ -98,11 +98,11 @@ describe("依頼日と実施日", () => {
   const entries = [...sakura.history, lab, mri, old];
   const planned = plannedItems(entries, [{ id: "or-9", day: 7, start: "09:00", procedure: "デブリードマン" }]);
   const html = as("医師", <HistoryPane {...base} patient={sakura} entries={entries} planned={planned} nowTime="10:00" />);
-  it("the order's card (on the day it was written) says in its heading when it is carried out: 採取予定 for a draw ahead, 採取 for one past", () => {
-    expect(html).toContain("採取予定 11/5（木） 06:00");
-    expect(html).toContain("撮影予定 11/11（水） 10:00");
-    expect(html).toContain("採取 11/3（火） 06:00");
-    expect(html).toContain('data-order-id="o-lab-next"');
+  it("予定日のカードだけを表示し、先の日の本体は既定で畳む", () => {
+    expect(html).not.toContain("採取予定 11/5（木） 06:00");
+    expect(html).not.toContain('data-order-id="o-lab-next"');
+    expect(html).toContain('data-order-id="o-lab-old"');
+    expect(html).toContain("依頼 11/1（日）");
   });
   it("the days ahead are one folded line above today by default — 「予定 N日 — 次は …」 — so today's section is the first seen", () => {
     expect(html).toContain("予定 2日 — 次は 11/5（木） 検体検査");
@@ -115,15 +115,20 @@ describe("依頼日と実施日", () => {
     const open = as("医師", <HistoryPane {...base} selectedDay={7} patient={sakura} entries={entries} planned={planned} nowTime="10:00" />);
     expect(open).toContain('aria-expanded="true"');
     expect(open).toContain("data-future");
-    expect(open).toContain('aria-label="11/11（水）の予定"');
+    expect(open).toContain('data-day="7"');
     expect(open).toContain("入院11日目（予定）");
     expect(open).toContain("依頼 11/4（水）");
     expect(open).toContain("デブリードマン");
     expect(open).toContain("手術の予定表から");
-    expect(open).toContain('aria-label="11/5（木）の予定"');
+    expect(open).toContain('data-day="1"');
     expect(open).toContain("依頼 11/3（火）");
-    expect(open.indexOf("11/11（水）の予定")).toBeLessThan(open.indexOf("11/5（木）の予定"));
-    expect(open.indexOf("11/5（木）の予定")).toBeLessThan(open.indexOf("入院4日目（今日）"));
+    const tomorrow = open.slice(open.indexOf('data-day="1"'), open.indexOf('data-day="0"'));
+    expect(tomorrow).toContain('data-order-id="o-lab-next"');
+    expect(tomorrow).toContain("WBC・RBC・Hb・Ht・Plt");
+    expect(open.match(/data-order-id="o-lab-next"/g)).toHaveLength(1);
+    expect(open).not.toContain("今日の予定");
+    expect(open.indexOf('data-day="7"')).toBeLessThan(open.indexOf('data-day="1"'));
+    expect(open.indexOf('data-day="1"')).toBeLessThan(open.indexOf("入院4日目（今日）"));
   });
   it("an order written and carried out the same day, already past, needs no mark; a past day's section carries what was planned on it", () => {
     // A draw ordered yesterday 14:30 and collected yesterday 14:40: no 採取 mark on its card.
@@ -132,7 +137,7 @@ describe("依頼日と実施日", () => {
     expect(first).toContain('data-order-id="o-same"');
     expect(first).not.toContain("data-exec-mark");
     expect(first).not.toMatch(/aria-label="[^"]*の予定"/);
-    expect(html).toContain('aria-label="11/3（火）の予定"');
+    expect(html).toContain('data-day="-1"');
     expect(html).toContain("依頼 11/1（日）");
   });
   it("the date tree lists the days ahead with plans under 予定 (not the past ones), with the kind or the count", () => {
@@ -160,7 +165,7 @@ describe("同時に出した処方のまとまり", () => {
     order: { type: "prescription", category: "定期", drugCode: "RX-AMLO", amount: 1, unit: "錠", timings: ["朝"], start: { day: 0, timing: "朝" }, rp: id },
     ...changes,
   });
-  const render = (entries: OrderEntry[], patient = sakura) => as("医師", <HistoryPane {...base} showStopped patient={patient} entries={entries} onDo={() => {}} />);
+  const render = (entries: OrderEntry[], patient = sakura) => as("医師", <HistoryPane {...base} selectedDay={1} showStopped patient={patient} entries={entries} onDo={() => {}} />);
   it("見出し・版・状態・共通開始日は1回、RpとDo・メニューは各行に残す", () => {
     const html = render([rx("a"), rx("b"), rx("c")]);
     expect(html.match(/【処方】/g)).toHaveLength(1);
@@ -180,10 +185,10 @@ describe("同時に出した処方のまとまり", () => {
       entry.day = -1;
     }
     const html = render(entries);
-    expect(html.match(/data-exec-mark/g)).toHaveLength(1);
-    expect(html.match(/服用開始(?:予定)? /g)).toHaveLength(1);
+    expect(html).not.toContain("data-exec-mark");
+    expect(html).toContain("依頼 11/3（火）");
     expect(html.match(/服用開始日：/g)).toHaveLength(1);
-    expect(html.indexOf("data-exec-mark")).toBeLessThan(html.indexOf('data-order-id="a"'));
+
     expect(html.match(/1回1錠<\/span><button[^>]*aria-label="オーダのメニュー"/g)).toHaveLength(2);
   });
   it("服用開始が異なると共通チップを見出しに出さず各行に残す", () => {
@@ -191,14 +196,15 @@ describe("同時に出した処方のまとまり", () => {
     const second = rx("b", { day: -1 });
     if (second.order.type === "prescription") second.order.start = { day: 1, timing: "朝" };
     const html = render([first, second]);
-    expect(html.match(/data-exec-mark/g)).toHaveLength(2);
-    expect(html.indexOf("data-exec-mark")).toBeGreaterThan(html.indexOf('data-order-id="a"'));
+    expect(html).not.toContain("data-exec-mark");
+    expect(html.match(/【処方】/g)).toHaveLength(2);
+
   });
   it("状態と開始日が異なれば各行に示す", () => {
     const second = rx("b", { status: "中止", stoppedOn: 0 });
     if (second.order.type === "prescription") second.order.start = { day: 1 };
     const html = render([rx("a"), second]);
-    expect(html.match(/【処方】/g)).toHaveLength(1);
+    expect(html.match(/【処方】/g)).toHaveLength(2);
     expect(html.match(/服用開始日：/g)).toHaveLength(2);
     expect(html).toContain(">有効<");
     expect(html).toContain("中止（今日）");

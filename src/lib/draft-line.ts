@@ -1,6 +1,6 @@
 import { defaultSliding } from "./insulin";
 import { effectiveRoute, ratePlan, resolvedCollect, type CheckContext, type Draft } from "./drafts";
-import { drugName, durationText, imagingDraftText, labName, oralName, procName, scheduleLabel } from "./format";
+import { drugName, durationText, imagingDraftText, labCardText, oralName, procName, scheduleLabel } from "./format";
 import { anyDrugName, findDrug, findOralDrug } from "./master";
 import { perDoseOf, timingName, dischargeStartDay } from "./rx";
 import { opdPurposeOf } from "./opd-booking";
@@ -9,7 +9,7 @@ import { findPhysio } from "./exams";
 import { procSchedule } from "./drafts";
 import { consultText, guideText, hdText, leaveText, moveText, rehabText, txText, procScheduleText } from "./procedures";
 
-import { BASIC_SETS, DEPT_SETS } from "./lab-sets";
+
 
 const LABEL: Record<Draft["kind"], string> = { injection: "注射", prescription: "内服", lab: "検体検査", procedure: "処置", imaging: "画像検査", physio: "生理検査", stop: "中止", extend: "延長", unclear: "聞き取れず", diet: "食事", "opd-booking": "外来予約" };
 
@@ -30,8 +30,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
     case "lab": {
       const r = resolvedCollect(d, ctx);
       const codes = d.tests.map((t) => t.code);
-      const set = [...BASIC_SETS, ...DEPT_SETS.flatMap((x) => x.sets)].find((x) => x.codes.length === codes.length && x.codes.every((c) => codes.includes(c)));
-      const items = set ? `${set.name} ${codes.length}項目` : d.tests.slice(0, 3).map((t) => t.code ? labName(t.code) : `${t.said}（？）`).join("・") + (codes.length > 3 ? ` ほか ${codes.length - 3} 項目` : "");
+      const items = codes.every((c): c is string => !!c) ? labCardText({ codes }, 8) : d.tests.map((t) => t.code ?? `${t.said}（？）`).join("・");
       const when = d.collect.when === "now" ? "今すぐ" : r ? `${ctx.fmtDay(r.day)} ${r.time}` : "採取日時？";
       const urgent = d.priority === "至急" || d.tests.some((t) => t.urgent);
       text = `${items}（${urgent ? "至急・" : ""}${when}）`;

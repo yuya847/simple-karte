@@ -33,13 +33,13 @@ describe("左の欄の5つのタブ", () => {
     expect(row).toContain("overflow-x-auto");
     for (const x of [">処置<", ">移動・食事<", ">指示簿<", ">予約<"]) expect(row).not.toContain(x);
     expect(html).toContain("flex-nowrap");
-    expect(html).toContain("中止したオーダも表示");
+    expect(html).not.toContain("中止したオーダも表示");
     expect(html).toContain('aria-label="絞り込み"');
   });
   it("an unknown saved tab (an older value) falls back to 経過", () => {
     const html = asDoctor(<HistoryPane {...base} view="diet-cal" />);
     expect(html).toMatch(/aria-selected="true"[^>]*>経過</);
-    expect(html).toContain("中止したオーダも表示");
+    expect(html).not.toContain("中止したオーダも表示");
   });
   it("経過表・内服歴・注射歴・検査結果 show their view with a 別ウインドウで開く button in place of the checkbox", () => {
     const flow = asDoctor(<HistoryPane {...base} view="flowsheet" views={views} onFloat={() => {}} />);

@@ -7,11 +7,13 @@ export interface SavedFilter {
   departments: string[];
   roles: string[];
   q: string;
+  orderDay?: "予定日" | "依頼日";
+  showStopped?: boolean;
 }
 export type FilterConditions = Omit<SavedFilter, "id" | "name">;
 
 export const EXAMPLE_FILTERS: SavedFilter[] = [
-  { id: "example-doctor", name: "医師の記事だけ", on: ["doctor"], templateIds: [], onlyTemplates: false, departments: [], roles: [], q: "" },
+  { id: "example-doctor", name: "医師の記事だけ", on: ["doctor"], templateIds: [], onlyTemplates: false, departments: [], roles: [], q: "", orderDay: "予定日", showStopped: false },
 ];
 
 export function filterProblems(name: string, list: SavedFilter[], exceptId?: string): string[] {
@@ -24,7 +26,7 @@ export function sameFilter(a: FilterConditions, b: FilterConditions): boolean {
     const left = new Set(x), right = new Set(y);
     return left.size === right.size && [...left].every((v) => right.has(v));
   };
-  return same(a.on, b.on) && same(a.templateIds, b.templateIds) && same(a.departments, b.departments) && same(a.roles, b.roles) && a.onlyTemplates === b.onlyTemplates && a.q === b.q;
+  return same(a.on, b.on) && same(a.templateIds, b.templateIds) && same(a.departments, b.departments) && same(a.roles, b.roles) && a.onlyTemplates === b.onlyTemplates && a.q === b.q && (a.orderDay ?? "予定日") === (b.orderDay ?? "予定日") && (a.showStopped ?? false) === (b.showStopped ?? false);
 }
 
 const storeKey = (person: string) => `simple-karte:history-filters:${person}`;
@@ -32,7 +34,7 @@ const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) =
 function valid(v: unknown): v is SavedFilter {
   if (!v || typeof v !== "object") return false;
   const f = v as SavedFilter;
-  return typeof f.id === "string" && !!f.id && typeof f.name === "string" && !!f.name.trim() && strings(f.on) && strings(f.templateIds) && typeof f.onlyTemplates === "boolean" && strings(f.departments) && strings(f.roles) && typeof f.q === "string";
+  return typeof f.id === "string" && !!f.id && typeof f.name === "string" && !!f.name.trim() && strings(f.on) && strings(f.templateIds) && typeof f.onlyTemplates === "boolean" && strings(f.departments) && strings(f.roles) && typeof f.q === "string" && (f.orderDay === undefined || f.orderDay === "予定日" || f.orderDay === "依頼日") && (f.showStopped === undefined || typeof f.showStopped === "boolean");
 }
 export function loadFilters(person: string): SavedFilter[] {
   try {
@@ -41,7 +43,7 @@ export function loadFilters(person: string): SavedFilter[] {
     const value: unknown = JSON.parse(raw);
     if (!Array.isArray(value)) return structuredClone(EXAMPLE_FILTERS);
     const list: SavedFilter[] = [];
-    for (const f of value) if (valid(f) && !list.some((p) => p.id === f.id) && !filterProblems(f.name, list).length) list.push({ ...f, name: f.name.trim() });
+    for (const f of value) if (valid(f) && !list.some((p) => p.id === f.id) && !filterProblems(f.name, list).length) list.push({ ...f, name: f.name.trim(), orderDay: f.orderDay ?? "予定日", showStopped: f.showStopped ?? false });
     return list;
   } catch {
     return structuredClone(EXAMPLE_FILTERS);

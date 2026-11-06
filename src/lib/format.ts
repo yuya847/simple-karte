@@ -1,8 +1,9 @@
 // Turn orders into the short lines shown in the chart.
 
+import { BASIC_SETS, DEPT_SETS } from "./lab-sets";
 import { timingName } from "./rx";
 import { addDays, formatShort, type CalendarDate } from "./dates";
-import { findDrug, findLab, findOralDrug, findSet } from "./master";
+import { LAB_TESTS, findDrug, findLab, findOralDrug, findSet } from "./master";
 import { AREA_LABEL, DEPTH_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "./procedures";
 import { opdBookingText } from "./opd-booking";
 import type { ImagingOrder, InjectionOrder, InjectionSchedule, LabOrder, Order, PhysioOrder, PrescriptionOrder, ProcedureOrder } from "./types";
@@ -65,6 +66,24 @@ export function injectionLines(order: InjectionOrder, today: CalendarDate): { ma
 export function labItemsText(order: Pick<LabOrder, "codes" | "urgentCodes">): string {
   const urgent = new Set(order.urgentCodes ?? []);
   return order.codes.map((c) => `${labName(c)}${urgent.has(c) ? "（至急）" : ""}`).join("、");
+}
+
+/** セットとパネルの内訳を、採血カードと下書きで共通に示す。 */
+export function labAnalytes(codes: string[]): string[] {
+  return [...new Set(codes.flatMap((code): string[] => {
+    const set = findSet(code);
+    if (set) return labAnalytes(set.labCodes);
+    const test = LAB_TESTS.find((t) => t.code === code);
+    return test?.contains?.length ? test.contains : [test?.abbr ?? labName(code)];
+  }))];
+}
+export function labCardText(order: Pick<LabOrder, "codes" | "urgentCodes">, limit?: number): string {
+  const codes = order.codes;
+  const set = [...BASIC_SETS, ...DEPT_SETS.flatMap((x) => x.sets)].find((x) => x.codes.length === codes.length && x.codes.every((c) => codes.includes(c)));
+  const items = labAnalytes(codes);
+  const text = (limit ? items.slice(0, limit) : items).join("・") + (limit && items.length > limit ? `・ほか ${items.length - limit} 項目` : "");
+  const name = set?.name ?? codes.map((c) => findSet(c)?.name).filter(Boolean).join("・");
+  return (name ? `${name}（${text}）` : text) + (order.urgentCodes?.length ? `　至急：${order.urgentCodes.map(labName).join("・")}` : "");
 }
 
 export function labLines(order: LabOrder, today: CalendarDate): { main: string; detail: string } {

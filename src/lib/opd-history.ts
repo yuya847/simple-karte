@@ -4,6 +4,7 @@
 // ahead with something planned, today … the admission day, then the visits before it, each marked with the clinic
 // and the doctor.
 
+import { entryDayFor, type OrderDayMode } from "./history-days";
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { planKindsLabel, plannedDaysAhead, plansOn, type PlanItem } from "./schedule-days";
 import type { OpdPatient } from "./opd";
@@ -116,7 +117,7 @@ export interface DaySection {
   entries: HistoryEntry[];
   /** What is planned on this day by orders written on another day (採取・撮影・開始・終了・受診 …). */
   plans: PlanItem[];
-  /** A day after today: only plans, no record yet. */
+  /** 今日より先の日。表示日に応じたオーダ本体と終了・帰院などの予定。 */
   future?: true;
 }
 
@@ -126,15 +127,20 @@ const byTime = (a: HistoryEntry, b: HistoryEntry) => a.time.localeCompare(b.time
  * The day sections of the record, newest first: the days ahead that have something planned (farthest first),
  * today down to the admission day (empty days left out, today kept), then the visits before the admission with
  * their clinic. Each day of the stay also carries what is planned on it by orders written on another day. The
- * entries and the visits' entries are given already filtered (the record's filters apply to both), and `keepPlan`
+ * entries are placed by `mode` (the record passes 予定日 by default). The entries and the visits' entries
+ * are given already filtered (the record's filters apply to both), and `keepPlan`
  * applies the same filters to the plans; a visit left with nothing is left out, except when nothing is filtered
  * (`narrowed` false), so the visit still shows where it was.
  */
-export function daySections(admittedOn: DayOffset, entries: HistoryEntry[], visits: OpdVisit[], planned: PlanItem[] = [], narrowed = false, keepPlan: (p: PlanItem) => boolean = () => true): DaySection[] {
+export function daySections(admittedOn: DayOffset, entries: HistoryEntry[], visits: OpdVisit[], planned: PlanItem[] = [], narrowed = false, keepPlan: (p: PlanItem) => boolean = () => true, mode: OrderDayMode = "依頼日"): DaySection[] {
   const out: DaySection[] = [];
-  for (const { day, items } of plannedDaysAhead(planned, keepPlan).reverse()) out.push({ day, place: null, entries: [], plans: items, future: true });
+  for (const { day, items } of plannedDaysAhead(planned, keepPlan).reverse()) out.push({ day, place: null, entries: entries.filter((e) => entryDayFor(e, mode) === day).sort(byTime), plans: items, future: true });
+  for (const day of new Set(entries.map((e) => entryDayFor(e, mode)).filter((d) => d > 0))) {
+    if (!out.some((s) => s.day === day)) out.push({ day, place: null, entries: entries.filter((e) => entryDayFor(e, mode) === day).sort(byTime), plans: [], future: true });
+  }
+  out.sort((a, b) => b.day - a.day);
   for (let d = 0; d >= admittedOn; d--) {
-    const items = entries.filter((e) => e.day === d).sort(byTime);
+    const items = entries.filter((e) => entryDayFor(e, mode) === d).sort(byTime);
     if (items.length === 0 && d !== 0) continue;
     out.push({ day: d, place: null, entries: items, plans: plansOn(planned, d, keepPlan) });
   }

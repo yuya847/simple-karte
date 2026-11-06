@@ -49,10 +49,10 @@ it("内服は1回量・1日の回数と用法・日数・区分の順で1行に�
   expect(prescriptionUsage({ ...d, timings: null })).toBe("用法？　7日分");
 });
 
-it("検体セットは名前と件数、個別選択は先頭3項目と残数を示す", () => {
+it("検体セットは名前と内訳を示し、8項目を超える内訳は残数を示す", () => {
   const set = DEPT_SETS.flatMap((d) => d.sets).find((s) => s.name === "心不全セット")!;
   const lab = labDraftOf("l", set.codes, { ...defaultDraw(), mode: "now", priority: "至急" });
-  expect(draftLine(lab, ctx)).toBe("検体検査 心不全セット 19項目（至急・今すぐ）");
-  expect(draftLine({ ...lab, tests: lab.tests.slice(0, 5) }, ctx)).toContain("ほか 2 項目");
+  expect(draftLine(lab, ctx)).toBe("検体検査 心不全セット（WBC・RBC・Hb・Ht・Plt・BNP・TnT・CK・ほか 15 項目）（至急・今すぐ）");
+  expect(draftLine({ ...lab, tests: lab.tests.slice(0, 5) }, ctx)).toContain("WBC・RBC・Hb・Ht・Plt");
   expect(lab.tests).toHaveLength(19);
 });

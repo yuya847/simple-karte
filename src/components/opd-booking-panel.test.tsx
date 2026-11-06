@@ -72,7 +72,7 @@ describe("外来予約の下書きと記録", () => {
     expect(html).toContain("lucide-calendar-clock");
   });
   it("the record shows the order as 外来予約 with its own filter, and the booking list shows it", () => {
-    const html = as("医師", <HistoryPane patient={sakura} entries={[...sakura.history, booked]} today={today} selectedDay={null} showStopped={false} onToggleStopped={() => {}} />);
+    const html = as("医師", <HistoryPane patient={sakura} entries={[...sakura.history, booked]} today={today} selectedDay={1} showStopped={false} onToggleStopped={() => {}} />);
     expect(html).toContain("外来予約　循環器内科");
     expect(html).toContain("11/18（水） 午前（9:00〜12:00）");
     expect(html).toContain("【外来予約】");

@@ -38,6 +38,12 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
   for (let d = 0; d >= patient.admittedOn; d--) if (!hideEmpty || d === 0 || d === selectedDay || has(d)) days.push(d);
   const ahead = plannedDaysAhead(planned, (p) => p.orderedOn === null || entries.some((e) => e.kind === "order" && e.id === p.orderId));
 
+  // 表示日のオーダ本体には、中止や退院時処方など予定一覧に含まれないものもある。
+  for (const day of new Set(entries.map((e) => e.day).filter((d) => d > 0))) {
+    if (!ahead.some((p) => p.day === day)) ahead.push({ day, items: [] });
+  }
+  ahead.sort((a, b) => a.day - b.day);
+
   const months = new Map<string, DayOffset[]>();
   for (const d of days) {
     const key = formatMonth(addDays(today, d));
@@ -115,7 +121,7 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
                       className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-[13px] text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}
                     >
                       <span className="whitespace-nowrap">{formatShort(addDays(today, day))}</span>
-                      <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{planDayLabel(items)}</span>
+                      <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{items.length ? planDayLabel(items) : "オーダ"}</span>
                     </button>
                   </li>
                 );

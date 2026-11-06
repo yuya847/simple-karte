@@ -12,7 +12,7 @@ import { SavedHistoryFilters } from "./SavedHistoryFilters";
 import { TemplateFilter } from "./TemplateFilter";
 import { matchesRecordFacets, recordFacetOptions } from "@/lib/record";
 import { searchKey } from "@/lib/kana";
-import { LAB_TESTS, findSet } from "@/lib/master";
+import { entryDayFor, type OrderDayMode } from "@/lib/history-days";
 import { canRevise, diffLines, noteKey, noteText, noteTimes, versionsOf, type NotePart } from "@/lib/notes";
 import { mergeTyping } from "@/lib/coedit";
 import { mapCursor, merge3Text } from "@/lib/diff3";
@@ -25,8 +25,8 @@ import { CosignMark } from "./Cosign";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { groupRx, rxStartKey } from "@/lib/order-groups";
 import { dayHeading, stayKindOf } from "@/lib/stay-labels";
-import { ORDER_TYPE_LABEL, drugName, durationText, oralName, orderLines, scheduleTextFor, timingText } from "@/lib/format";
-import { executionMarks, isAhead, planVerb, type PlanItem } from "@/lib/schedule-days";
+import { ORDER_TYPE_LABEL, labCardText, drugName, durationText, oralName, orderLines, scheduleTextFor, timingText } from "@/lib/format";
+import { executionMarks, isAhead, planItemsOf, planVerb, type PlanItem } from "@/lib/schedule-days";
 import { aheadSummary, daySections, placeLabel, type DaySection, type OpdVisit } from "@/lib/opd-history";
 import type { DayOffset, HistoryEntry, NoteEntry, OrderEntry, Patient } from "@/lib/types";
 import type { TakeBadge } from "@/lib/order-confirm";
@@ -81,7 +81,7 @@ interface Props {
   visits?: OpdVisit[];
   /**
    * What the orders plan on each day (schedule-days.ts: 採取・撮影・開始・終了・受診 …). Each is listed under the day it
-   * happens, apart from the order's card on the day it was written; the days ahead get their own sections.
+   * happens; the days ahead get their own sections, with the order cards on their scheduled start day.
    */
   planned?: PlanItem[];
   /** The clock now ("HH:MM"), to tell a plan still ahead (「採取予定」) from one past (「採取」). */
@@ -96,7 +96,7 @@ interface Props {
   onOpenImage?: (entryId: string) => void;
   /** 検体検査: open the results table at this draw (day and time of the collection). */
   onOpenResult?: (at: { day: DayOffset; time: string }) => void;
-  /** The records left after the filter and the search (null when nothing is narrowed), for the date tree. */
+  /** 日付ツリー用の表示日を持つ記録。元の依頼日時は変更しない。 */
   onShown?: (entries: HistoryEntry[] | null) => void;
   /** 指示受けの状態 of an order (未指示受け／受け ◯◯ hh:mm／確認済み／医師に確認中), shown on each order; null when nothing waits. */
   takeBadgeOf?: (entryId: string) => TakeBadge | null;
@@ -149,12 +149,7 @@ export function HistoryPane(props: Props) {
             </button>
           ))}
         </div>
-        {view === "record" ? (
-          <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-ink-faint">
-            <input type="checkbox" checked={showStopped} onChange={onToggleStopped} className="accent-ai" />
-            中止したオーダも表示
-          </label>
-        ) : (
+        {view !== "record" && (
           onFloat && (
             <button type="button" onClick={() => onFloat(view)} title={view === "results" ? "検査結果を右の引き出しで開く（引き出しは別ウインドウにもできます）" : "別ウインドウで開く（大きなウインドウ。動かせて、左の欄と並べて見られます）"} className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-rule px-1.5 py-0.5 text-[11px] text-ink-soft hover:border-ai hover:text-ink pointer-coarse:py-1.5">
               <PictureInPicture2 size={13} />
@@ -174,7 +169,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} noteId={focus?.noteId} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} noteId={focus?.noteId} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onToggleStopped={onToggleStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
       )}
     </section>
   );
@@ -210,6 +205,7 @@ function RecordList({
   today,
   selectedDay,
   showStopped,
+  onToggleStopped,
   onReviseNote,
   coedit,
   onDo,
@@ -229,6 +225,7 @@ function RecordList({
   today: CalendarDate;
   selectedDay: DayOffset | null;
   showStopped: boolean;
+  onToggleStopped: () => void;
   onReviseNote?: (e: NoteEntry, text: string, reason: string, by?: string) => void;
   coedit?: Coedit;
   onDo?: (p: DoPayload) => void;
@@ -263,9 +260,12 @@ function RecordList({
   if (savedState.person !== me.name) setSavedState({ person: me.name, list: loadFilters(me.name) });
   const saved = savedState.person === me.name ? savedState.list : loadFilters(me.name);
   const [saveError, setSaveError] = useState("");
-  const currentFilter = { on, templateIds, onlyTemplates, departments, roles, q };
+  const [orderDay, setOrderDay] = useState<OrderDayMode>("予定日");
+  const currentFilter = { on, templateIds, onlyTemplates, departments, roles, q, orderDay, showStopped };
   const matchedFilter = saved.find((f) => sameFilter(f, currentFilter));
   const applyFilter = (f: SavedFilter) => {
+    setOrderDay(f.orderDay ?? "予定日");
+    if ((f.showStopped ?? false) !== showStopped) onToggleStopped();
     setOn([...f.on]); setTemplateIds([...f.templateIds]); setOnlyTemplates(f.onlyTemplates);
     setDepartments([...f.departments]); setRoles([...f.roles]); setQ(f.q);
   };
@@ -310,16 +310,9 @@ function RecordList({
     const card = [...(root.current?.querySelectorAll<HTMLElement>("[data-note-key]") ?? [])].find((el) => el.dataset.noteKey === noteId);
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [noteId]);
-  // 「依頼 11/4」 on a plan: open the order's card (on the day it was written) and scroll to it.
-  const jumpToOrder = (id: string) => {
-    const group = sections.flatMap((s) => groupRx(s.entries)).find((g) => g.some((e) => e.kind === "order" && e.id === id));
-    const first = group?.[0];
-    const cardId = first?.kind === "order" ? first.id : id;
-    setFolded((f) => ({ ...f, each: { ...f.each, [cardId]: false } }));
-    requestAnimationFrame(() => {
-      const card = [...(root.current?.querySelectorAll<HTMLElement>("[data-order-id]") ?? [])].find((el) => el.dataset.orderId === id);
-      card?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
+  const jumpToDay = (day: DayOffset) => {
+    if (day > 0) setAheadOpen(true);
+    requestAnimationFrame(() => root.current?.querySelector(`[data-day="${day}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   const keep = (e: HistoryEntry) => showStopped || e.kind !== "order" || e.status !== "中止";
@@ -339,13 +332,18 @@ function RecordList({
     planned,
     narrowed,
     keepPlan,
+    orderDay,
   );
-  const shownCount = sections.reduce((n, s) => n + s.entries.length + s.plans.length, 0);
+  for (const e of shown) {
+    if (!sections.some((s) => s.day === e.day)) sections.push({ day: e.day, place: null, entries: [], plans: [] });
+  }
+  sections.sort((a, b) => b.day - a.day);
+  const shownCount = sections.reduce((n, s) => n + s.entries.length, 0);
   const ahead = aheadSummary(sections, today);
-  // Tell the date tree which records are left (only while narrowed), so days with nothing are not listed.
-  const shownKey = narrowed ? shown.map((e) => `${e.kind}:${e.day}:${e.time}:${e.kind === "order" ? e.id : e.author}`).join("|") : "";
+  // 日付ツリーにも表示する節の日を渡す。オーダの依頼日時は元の entries に保持する。
+  const shownKey = orderDay + showStopped + shown.map((e) => `${e.kind}:${e.day}:${e.time}:${e.kind === "order" ? e.id : e.author}`).join("|");
   useEffect(() => {
-    onShown?.(narrowed ? shown : null);
+    onShown?.(shown.map((e) => ({ ...e, day: entryDayFor(e, orderDay) })));
     // `shownKey` stands for `shown`/`narrowed`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownKey]);
@@ -374,7 +372,7 @@ function RecordList({
           <span role="group" aria-label="絞り込みと検索" className="flex items-center gap-1">
             <button type="button" onClick={() => setTools((t) => (t === "filter" ? "none" : "filter"))} aria-pressed={tools === "filter"} aria-label="絞り込み" title="種類・診療科・部署（職種）で絞る" className={`relative rounded p-1 ${tools === "filter" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
               <Filter size={14} />
-              {(on.length !== ALL_CATS.length || facetActive || templateActive) && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
+              {(on.length !== ALL_CATS.length || facetActive || templateActive || orderDay !== "予定日" || showStopped) && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-shu" />}
             </button>
             <button type="button" onClick={() => setTools((t) => (t === "search" ? "none" : "search"))} aria-pressed={tools === "search"} aria-label="記録の中を探す" title="記録の中を探す（ひらがな可）" className={`relative rounded p-1 ${tools === "search" ? "bg-ink text-white" : "text-ink-soft hover:bg-paper hover:text-ink"}`}>
               <Search size={14} />
@@ -395,6 +393,12 @@ function RecordList({
             ))}
           </span>
           )}
+          {tools === "filter" && <>
+            <span role="radiogroup" aria-label="オーダを出す日" className="flex items-center gap-2">
+              オーダを出す日：{(["予定日", "依頼日"] as const).map((mode) => <label key={mode}><input type="radio" name="order-day" checked={orderDay === mode} onChange={() => setOrderDay(mode)} />{mode}{mode === "予定日" ? "（既定）" : ""}</label>)}
+            </span>
+            <label><input type="checkbox" checked={showStopped} onChange={onToggleStopped} />中止したオーダも表示</label>
+          </>}
           {tools === "filter" && <SavedHistoryFilters key={me.name} list={saved} current={currentFilter} onApply={applyFilter} onChange={changeFilters} />}
           {saveError && <span role="alert" className="text-shu">{saveError}</span>}
           {tools === "filter" && (["note", "order"] as const).map((g) => (
@@ -433,17 +437,19 @@ function RecordList({
           </label>
           )}
         </div>
-        {(narrowed || matchedFilter) && (
+        {(
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
               {matchedFilter ? <>{matchedFilter.name}（保存した絞り込み）</> : <>
-              {on.length !== ALL_CATS.length ? `${CATS.filter((c) => on.includes(c.key)).map((c) => c.label).join("・") || "なし"}` : ""}
+              {on.length !== ALL_CATS.length ? `${CATS.filter((c) => on.includes(c.key)).map((c) => c.label).join("・") || "なし"}` : "すべての記録"}
               {templateActive ? (templateIds.length ? templateOptions(visible, templates).filter((t) => templateIds.includes(t.id)).map((t) => t.name).join("・") : "テンプレートの記事") : ""}
-              {[...departments, ...roles].join("・")}{key ? `「${q.trim()}」を含む` : ""}</>} を表示中：{shownCount}件
+              {[...departments, ...roles].join("・")}{key ? `「${q.trim()}」を含む` : ""}</>} を表示中：{shownCount}件　オーダ：{orderDay}・{showStopped ? "中止も表示" : "中止は非表示"}
             </b>
             <button
               type="button"
               onClick={() => {
+                setOrderDay("予定日");
+                if (showStopped) onToggleStopped();
                 setOn(ALL_CATS);
                 setQ("");
                 setDepartments([]);
@@ -458,7 +464,7 @@ function RecordList({
           </p>
         )}
         {onDo && <p className="hint text-[10px] text-ink-faint">記載・オーダは右へドラッグすると写せます（Do）。記載はダブルクリックで修正、右クリックか「…」でメニュー。見出しの ▸ で記録をたたみます。入院前の外来の受診は、入院の記録の下に科と医師の印つきで続きます。</p>}
-        <p className="hint text-[10px] text-ink-faint">オーダは依頼した日のカードに出し、採取・撮影・開始・受診など実施の日が別なら見出しに「採取予定 11/11（水）」のように添えます。実施の日の節にも「その日の予定」として薄く並び、「依頼 11/4」を押すと依頼日のカードへ移ります。今日より先に予定のある日は、上の「予定 N日」の1行に畳んであり（▸ で開く）、左の日付ツリーの「予定」からも開けます。退院時処方は自宅で飲むものなので予定に出しません。</p>
+        <p className="hint text-[10px] text-ink-faint">オーダは予定日の節に表示します。複数日にわたるものは開始日に表示します。絞り込みの「オーダを出す日」で依頼日に切り替えられます。見出しの「依頼」を押すと依頼日の節へ移ります。今日より先の日は「予定 N日」を開くか、左の日付ツリーの「予定」から開けます。</p>
       </div>
       <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
         {ahead.days.length > 0 && (
@@ -482,6 +488,11 @@ function RecordList({
     const d = s.day;
     const place = s.place ? `${s.place.dept} 外来` : herePlace;
     const rpNo = rpNoOf(s.entries);
+    // 終了・帰院・手術など、本体の開始日以外に残す予定。
+    const additionalPlans = s.plans.filter((p) => {
+      const order = shown.find((e) => e.kind === "order" && e.id === p.orderId);
+      return !order || (orderDay === "予定日" && p.day !== entryDayFor(order, orderDay));
+    });
     return (
       <div
         key={`${s.place ? "v" : "d"}${d}`}
@@ -506,7 +517,12 @@ function RecordList({
           <span className={`font-bold ${s.future ? "text-ink-soft" : ""}`}>{formatShort(addDays(today, d))}</span>
           <span className="text-xs text-ink-faint">{dayHeading(stayKindOf(patient), patient.admittedOn, d, { earlier: !!s.place, future: !!s.future })}</span>
         </h3>
-        {s.plans.length > 0 && <PlanList day={d} plans={s.plans} today={today} nowAbs={nowAbs} onJump={jumpToOrder} />}
+
+        {additionalPlans.map((p, i) => (
+          <p key={`${p.orderId}-${p.verb}-${i}`} className="text-xs text-ink-soft">
+            {p.time} {planVerb(p, nowAbs)} {p.label}{p.orderedOn === null ? "（手術の予定表から）" : ""}
+          </p>
+        ))}
         {s.entries.length === 0 ? null : (
           <ol className="space-y-2">
             {groupRx(s.entries).map((group, i) => {
@@ -517,9 +533,9 @@ function RecordList({
                   {e.kind === "note" ? (
                     <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
                   ) : group.length > 1 ? (
-                    <RxCard entries={group as OrderEntry[]} today={today} now={nowAbs} place={place} rpNo={rpNo} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} takeBadgeOf={takeBadgeOf} patient={patient} execute={execute} />
+                    <RxCard orderDay={orderDay} onJumpDay={jumpToDay} entries={group as OrderEntry[]} today={today} now={nowAbs} place={place} rpNo={rpNo} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} takeBadgeOf={takeBadgeOf} patient={patient} execute={execute} />
                   ) : (
-                    <OrderRow entry={e} today={today} now={nowAbs} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
+                    <OrderRow orderDay={orderDay} onJumpDay={jumpToDay} entry={e} today={today} now={nowAbs} place={place} rpNo={rpNo.get(e.id)} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult && resultAt(e) ? () => onOpenResult(resultAt(e)!) : undefined} takeBadge={takeBadgeOf?.(e.id) ?? null} patient={patient} execute={execute} />
                   )}
                 </li>
               );
@@ -535,42 +551,6 @@ function RecordList({
 export const PLACE_COLORS = {
   opd: { chip: "bg-mizu text-white", edge: "border-l-mizu", bg: "bg-mizu-soft/40", text: "text-mizu" },
 };
-
-/**
- * What is planned on a day by orders written on another day (and the operations booked): a faint list under the
- * day's heading — the time, the kind, 採取予定／採取 and the order's line, with 「依頼 11/4」 to go to the order's card.
- */
-function PlanList({ day, plans, today, nowAbs, onJump }: { day: DayOffset; plans: PlanItem[]; today: CalendarDate; nowAbs: number | null; onJump: (orderId: string) => void }) {
-  const title = day === 0 ? "今日の予定" : `${formatShort(addDays(today, day))}の予定`;
-  return (
-    <ul aria-label={title} className="nums mb-2 space-y-0.5 rounded-md border border-dashed border-mizu/50 bg-mizu-soft/40 px-2.5 py-1.5 text-[12px]">
-      <li className="text-[10px] font-bold text-mizu">
-        {title}
-        <span className="ml-1 font-normal text-ink-faint">（別の日に依頼したオーダ）</span>
-      </li>
-      {plans.map((p, i) => {
-        const ahead = isAhead(p, nowAbs);
-        return (
-          <li key={`${p.orderId}-${p.verb}-${i}`} data-plan-kind={p.kind} className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${ahead ? "" : "opacity-60"}`}>
-            <span className="w-12 shrink-0 font-bold">{p.time ?? "時刻未定"}</span>
-            <span className="shrink-0 rounded bg-sheet px-1 text-[10px] text-ink-soft">{p.kind}</span>
-            <span className={`shrink-0 text-[11px] font-bold ${ahead ? "text-mizu" : "text-ink-faint"}`}>{planVerb(p, nowAbs)}</span>
-            <span className="min-w-0 flex-1 truncate" title={p.label}>
-              {p.label}
-            </span>
-            {p.orderedOn !== null ? (
-              <button type="button" onClick={() => onJump(p.orderId)} title="依頼した日のカードへ" className="shrink-0 rounded border border-rule px-1 text-[10px] text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1">
-                依頼 {formatShort(addDays(today, p.orderedOn))}
-              </button>
-            ) : (
-              <span className="shrink-0 text-[10px] text-ink-faint">手術の予定表から</span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
 
 /**
  * One record as a card: the heading row (【種類】 date and time in bold, the department and place small on the
@@ -988,16 +968,6 @@ const STATUS_STYLE: Record<OrderEntry["status"], string> = {
   中止: "border-shu/40 text-shu",
 };
 
-/** The items a lab order contains (a set's tests, a test's analytes, or the test itself), as abbreviations. */
-function labItems(codes: string[]): string[] {
-  const ofTest = (c: string): string[] => {
-    const t = LAB_TESTS.find((x) => x.code === c);
-    if (!t) return [c];
-    return t.contains && t.contains.length > 1 ? t.contains : [t.abbr ?? t.name];
-  };
-  return codes.flatMap((c) => findSet(c)?.labCodes.flatMap(ofTest) ?? ofTest(c));
-}
-
 /** The mark in the card's heading: 【処方】【注射】【検体検査】【画像検査】【生理検査】【処置】【透析】【輸血】【リハビリ】【他科依頼】【外来予約】… */
 export function orderMark(o: OrderEntry["order"]): string {
   if (o.type === "prescription") return "処方";
@@ -1039,12 +1009,12 @@ function ExecutionTags({ marks, today, now }: { marks: ReturnType<typeof executi
   );
 }
 
-function OrderRow({ sharedMarkKeys = [], grouped = false, hideStatus = false, hideStart = false, entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { sharedMarkKeys?: string[]; grouped?: boolean; hideStatus?: boolean; hideStart?: boolean; entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
+function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grouped = false, hideStatus = false, hideStart = false, entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { orderDay?: OrderDayMode; onJumpDay?: (day: DayOffset) => void; sharedMarkKeys?: string[]; grouped?: boolean; hideStatus?: boolean; hideStart?: boolean; entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
   const o = entry.order;
   const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
   // 依頼日と実施日: when the order is carried out on another day (or is still ahead), say so in the heading.
-  const marks = executionMarks(entry, now).filter((p) => !sharedMarkKeys.includes(executionMarkKey(p)));
+  const marks = (orderDay === "予定日" ? [] : executionMarks(entry, now)).filter((p) => !sharedMarkKeys.includes(executionMarkKey(p)));
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const doPayload: DoPayload = { kind: "order", entryId: entry.id };
   const canDo = !!onDo && ["prescription", "injection", "lab"].includes(o.type);
@@ -1131,16 +1101,13 @@ function OrderRow({ sharedMarkKeys = [], grouped = false, hideStatus = false, hi
     ) : o.type === "lab" ? (
       <div className="nums space-y-0.5">
         <div className={`flex flex-wrap items-baseline gap-x-3 ${strike}`}>
-          <span className="min-w-0 flex-1">{main}</span>
+          <span className="min-w-0 flex-1">{labCardText(o)}</span>
           <span className="shrink-0 text-ink-soft">
-            採取 {whenText(today, o.collect.day, o.collect.time)}　{o.priority}
+            {orderDay === "予定日" ? o.collect.time : `採取 ${whenText(today, o.collect.day, o.collect.time)}`}　{o.priority}
           </span>
         </div>
-        <ul aria-label="検査の内訳" className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] text-ink-soft">
-          {labItems(o.codes).map((x, i) => (
-            <li key={`${x}-${i}`}>・{x}</li>
-          ))}
-        </ul>
+        {o.site && <div className="text-xs text-ink-soft">{o.site}</div>}
+        {o.purpose && <div className="text-xs text-ink-soft">目的：{o.purpose}</div>}
         {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
         {onOpenResult && !stopped && (
           <button type="button" onClick={onOpenResult} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
@@ -1163,13 +1130,13 @@ function OrderRow({ sharedMarkKeys = [], grouped = false, hideStatus = false, hi
     <Card
       row={grouped}
       mark={orderMark(o)}
-      when={whenText(today, entry.day, entry.time)}
+      when={whenText(today, entryDayFor(entry, orderDay), orderDay === "予定日" ? planItemsOf(entry).find((p) => p.day === entryDayFor(entry, orderDay))?.time : entry.time)}
       place={place}
       tone={tone}
       folded={folded}
       onFold={onFold}
       dragHandle={canDo}
-      tag={<ExecutionTags marks={marks} today={today} now={now} />}
+      tag={<>{orderDay === "予定日" && <button type="button" className="text-[10px] text-ink-faint underline" onClick={() => onJumpDay?.(entry.day)}>依頼 {formatShort(addDays(today, entry.day))}</button>}<ExecutionTags marks={marks} today={today} now={now} /></>}
       article={{
         ...longPress,
         "data-order-id": entry.id,
@@ -1215,21 +1182,22 @@ function OrderRow({ sharedMarkKeys = [], grouped = false, hideStatus = false, hi
 /** One heading per order batch; each child still owns its menu, drag payload and execution marks. */
 function RxCard({ entries, rpNo, takeBadgeOf, ...props }: {
   entries: OrderEntry[]; rpNo: Map<string, number>; takeBadgeOf?: Props["takeBadgeOf"];
+  orderDay?: OrderDayMode; onJumpDay?: (day: DayOffset) => void;
   today: CalendarDate; now: number | null; place: string; folded: boolean; onFold: () => void;
   onDo?: Props["onDo"]; patient: Patient; execute?: ExecuteProps;
 }) {
   const first = entries[0];
   const sameStatus = entries.every((e) => e.status === first.status && (e.status !== "中止" || e.stoppedOn === first.stoppedOn));
   const sameStart = entries.every((e) => rxStartKey(e) === rxStartKey(first));
-  const markLists = entries.map((entry) => executionMarks(entry, props.now));
+  const markLists = entries.map((entry) => props.orderDay === "予定日" ? [] : executionMarks(entry, props.now));
   const sharedMarks = markLists[0].filter((p) => markLists.every((marks) => marks.some((other) => executionMarkKey(other) === executionMarkKey(p))));
   const sharedMarkKeys = sharedMarks.map(executionMarkKey);
   const o = first.order;
   return (
-    <Card mark={orderMark(o)} when={whenText(props.today, first.day, first.time)} place={props.place}
+    <Card mark={orderMark(o)} when={whenText(props.today, entryDayFor(first, props.orderDay ?? "予定日"))} place={props.place}
       tone={entries.every((e) => e.status === "中止") ? STOPPED_TONE : ORDER_TONE}
       folded={props.folded} onFold={props.onFold} dragHandle={!!props.onDo}
-      tag={<ExecutionTags marks={sharedMarks} today={props.today} now={props.now} />}
+      tag={<><button type="button" className="text-[10px] text-ink-faint underline" onClick={() => props.onJumpDay?.(first.day)}>依頼 {formatShort(addDays(props.today, first.day))}</button><ExecutionTags marks={sharedMarks} today={props.today} now={props.now} /></>}
       meta={<><span>第1版：{whenText(props.today, first.day, first.time)}</span><span className="font-bold text-ink">{first.author}</span>
         {sameStatus && <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[first.status]}`}>{first.status}{first.status === "中止" && first.stoppedOn === 0 ? "（今日）" : ""}</span>}</>}>
       {entries.map((entry) => <OrderRow key={entry.id} {...props} entry={entry} rpNo={rpNo.get(entry.id)} grouped sharedMarkKeys={sharedMarkKeys} hideStatus={sameStatus} hideStart={sameStart} takeBadge={takeBadgeOf?.(entry.id)} />)}
