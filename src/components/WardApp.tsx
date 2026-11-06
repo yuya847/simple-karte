@@ -2,6 +2,9 @@
 import { LabPasteReceiver, requestLabPaste } from "./LabPasteReceiver";
 import { LAB_RESULT_MIME, readLabTransfer } from "@/lib/lab-transfer";
 import type { NoteTemplate } from "@/lib/note-templates";
+
+import { hasActiveCancer, hasPlannedSurgery, suggestedDocuments } from "@/lib/document-catalog";
+import { orderConsentDrafts, surgeryConsentDrafts } from "@/lib/consent-drafts";
 import { RxExpiryInbox } from "./RxExpiryInbox";
 import { expiryInbox, expiryCounts, receivesExpiry, expiryExtension } from "@/lib/rx-expiry-workflow";
 import { RxExpiryNotice } from "./RxExpiryNotice";
@@ -679,6 +682,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 医事課: the insurance registered per patient (every version) and 退院時の会計. Kept in this browser only.
   const [iji, setIji] = useState<IjiDesk>(() => scenario ? { insurance: SCENARIOS.insurance, settled: {} } : INITIAL_DESK);
   // Consent forms (fictional). Every inpatient gave the admission consent on their admission day.
+  const [consentSelection, setConsentSelection] = useState<string | null>(null);
   const [consents, setConsents] = useState<ConsentRecord[]>(() => scenario ? SCENARIOS.consents : admissionConsents());
   // 指示受け by a nurse: change key → time. Kept in this browser only.
   const [taken, setTaken] = useState<Record<string, string>>({});
@@ -1271,7 +1275,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       }
       if ("alreadyDone" in d && d.alreadyDone) completed.push(...added.filter((e) => ids.includes(e.id)));
       // A consent form to prepare with the order (説明前): the doctor explains before it is done.
-      for (const code of r.consents ?? []) newConsents.push({ id: newId(), patientId: patient!.id, code, status: "説明前", orderId: ids[0], createdAt: { day: 0, time: nowTime }, answers: {} });
+      newConsents.push(...orderConsentDrafts(added.filter(e => ids.includes(e.id)), patient!.id, nowTime, newId, r.consents));
     }
     // 抗がん薬・麻薬: a 研修医 does not confirm them (架空の病院の取り決め).
     const notMine = resident ? [...new Set(added.flatMap((e) => residentBlock(e.order) ?? []))] : [];
@@ -1420,7 +1424,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   };
 
   const createConsent = (code: ConsentCode) => {
-    if (!patient) return;
+    if (!patient || deny("consent")) return;
     setConsents((all) => [...all, { id: newId(), patientId: patient.id, code, status: "説明前", createdAt: { day: 0, time: nowTime }, answers: {} }]);
   };
   const updateConsent = (r: ConsentRecord) => {
@@ -3857,8 +3861,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     today={today}
                     nowTime={nowTime}
                     doctor={me.name}
+                    suggestions={suggestedDocuments(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), hasPlannedSurgery(surgeries, patient.id), hasActiveCancer(diagnoses[patient.id] ?? []))}
                     records={consents.filter((c) => c.patientId === patient.id)}
                     orders={entries.filter((e): e is OrderEntry => e.kind === "order")}
+                    initialRecordId={consentSelection}
+                    onOpenDirective={() => setPanel("directive")}
                     onCreate={createConsent}
                     onUpdate={updateConsent}
                   />
@@ -3876,7 +3883,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "add-surgery" && (
                 <Drawer title="手術申込" onClose={closePanel} locked={orderBlock} wide>
-                  <AddSurgeryPanel key={patient.id} patient={patient} today={today} nowTime={nowTime} surgeries={surgeries} onSave={(s, text) => { if (deny("order")) return; setSurgeries((all) => [...all, s]); confirmRecord(text, "手術申込", "add-surgery"); closePanel(); }} />
+                  <AddSurgeryPanel key={patient.id} patient={patient} today={today} nowTime={nowTime} surgeries={surgeries} onSave={(s, text) => { if (deny("order")) return; setSurgeries((all) => [...all, s]); setConsents(all => [...all, ...surgeryConsentDrafts(s, patient.id, nowTime, newId)]); confirmRecord(text, "手術申込", "add-surgery"); closePanel(); }} />
                 </Drawer>
               )}
               {panel === "add-procedure" && (
@@ -4056,6 +4063,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "docs" && (
                 <Drawer title="書類作成" onClose={() => { setSupportDoc(false); setNutritionDoc(false); closePanel(); }} wide>
                   <DocsPanel
+                    key={patient.id + me.name}
+                    consents={consents.filter(c => c.patientId === patient.id)}
+                    onOpenConsent={(code, recordId) => { setConsentSelection(recordId ?? null); if (code) createConsent(code); setPanel("consents"); }}
+                    suggestions={suggestedDocuments(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), hasPlannedSurgery(surgeries, patient.id), hasActiveCancer(diagnoses[patient.id] ?? []))}
                     initialKind={nutritionDoc ? "栄養管理計画書" : supportDoc ? "退院支援計画書" : undefined}
                     patient={patient}
                     today={formatShort(today)}

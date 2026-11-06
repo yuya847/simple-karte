@@ -1,12 +1,14 @@
 "use client";
 
+import { DocumentBrowser } from "../DocumentBrowser";
+import { DOCUMENT_CATALOG, type DocumentSuggestion } from "@/lib/document-catalog";
 import { displayText } from "@/lib/display-text";
-import { FileSignature, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { DenyNote, useDeny } from "../RoleContext";
 import { useState } from "react";
 import { usePrintSheet } from "../DeskParts";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { CONSENT_TEMPLATES, findConsent, signatureOf, type ConsentCode, type ConsentRecord, type ConsentStatus, type SignRole } from "@/lib/consent";
+import { findConsent, consentFieldsMissing, signatureOf, type ConsentCode, type ConsentRecord, type ConsentStatus, type SignRole } from "@/lib/consent";
 import { DOCTORS } from "@/lib/doctors";
 import { ConsentSign } from "../ConsentSign";
 import { orderLines } from "@/lib/format";
@@ -23,6 +25,9 @@ interface Props {
   records: ConsentRecord[];
   orders: OrderEntry[];
   onCreate: (code: ConsentCode) => void;
+  initialRecordId?: string | null;
+  suggestions?: DocumentSuggestion[];
+  onOpenDirective?: () => void;
   onUpdate: (r: ConsentRecord) => void;
 }
 
@@ -35,22 +40,24 @@ const STATUS_STYLE: Record<ConsentStatus, string> = {
 
 
 /** The patient's explanation and consent forms: list, fill in, record the answer, print on A4. */
-export function ConsentPanel({ patient, room, today, nowTime, doctor, records, orders, onCreate, onUpdate }: Props) {
-  const [selected, setSelected] = useState<string | null>(records[0]?.id ?? null);
+export function ConsentPanel({ patient, room, today, nowTime, doctor, records, orders, onCreate, onUpdate, onOpenDirective, initialRecordId, suggestions = [] }: Props) {
+  const [selected, setSelected] = useState<string | null>(initialRecordId ?? records.at(-1)?.id ?? null);
   const [signing, setSigning] = useState(false);
   const [print, sheet] = usePrintSheet();
-  const r = records.find((x) => x.id === selected) ?? records[0];
+  const r = records.find((x) => x.id === selected) ?? records.findLast(x => x.code === selected) ?? records.at(-1);
   const locked = !!useDeny()("consent");
   return (
     <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-3 text-[13px]">
       <DenyNote action="consent" className="col-span-2" />
+      <div className="col-span-2"><DocumentBrowser key={doctor} actor={doctor} disabled={locked} items={DOCUMENT_CATALOG.filter(i => i.category === "同意書・説明書")} suggestions={suggestions.filter(s => s.id.startsWith("CONSENT-") && !records.some(r => r.code === s.id && (r.status === "説明前" || r.status === "同意")))} onCreate={id => { onCreate(id as ConsentCode); setSelected(id); }} /></div>
       <aside className="space-y-3">
+        <h3 className="font-bold">この患者の下書き・作成済み</h3>
         <ul className="space-y-1">
           {records.map((x) => (
             <li key={x.id}>
               <button type="button" onClick={() => setSelected(x.id)} className={`w-full rounded-md px-2 py-1.5 text-left ${r?.id === x.id ? "bg-ai-soft" : "hover:bg-paper"}`}>
                 <div className="font-bold">{findConsent(x.code).short}</div>
-                <span className={`rounded px-1 text-[11px] font-bold ${STATUS_STYLE[x.status]}`}>{x.status}</span>
+                <span className={`rounded px-1 text-[11px] font-bold ${STATUS_STYLE[x.status]}`}>{x.status === "説明前" ? "下書き" : x.status}</span>
                 <span className="ml-1 text-[11px] text-ink-soft">{x.signatures?.length ? `署名 ${x.signatures.map((s) => s.role).join("・")}` : "電子署名なし"}</span>
                 <span className="ml-1 text-[11px] text-ink-faint">{formatShort(addDays(today, (x.explainedAt ?? x.createdAt).day))}</span>
               </button>
@@ -58,19 +65,11 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
           ))}
           {records.length === 0 && <li className="text-ink-faint">同意書はまだありません。</li>}
         </ul>
-        <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0 disabled:opacity-50">
-          <h3 className="mb-1 text-xs font-bold text-ink-soft">新しく作る</h3>
-          {CONSENT_TEMPLATES.map((t) => (
-            <button key={t.code} type="button" onClick={() => onCreate(t.code)} className="mb-1 flex w-full items-center gap-1 rounded border border-rule px-2 py-1 text-left hover:border-ai">
-              <FileSignature size={13} className="text-ai" />
-              {t.short}
-            </button>
-          ))}
-        </fieldset>
 
       </aside>
       {r ? (
         <div>
+          {r.code === "CONSENT-DNAR" && onOpenDirective && <button type="button" onClick={onOpenDirective} className="mb-2 rounded border border-rule px-3 py-1 text-ai">事前指示を開く</button>}
           <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
             <Editor key={r.id} r={r} patient={patient} today={today} nowTime={nowTime} doctor={doctor} orders={orders} onUpdate={onUpdate} onSign={() => setSigning(true)} />
           </fieldset>
@@ -88,7 +87,8 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
               }}
             />
           )}
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={() => print(<ConsentDocument r={r} patient={patient} room={room} today={today} orders={orders} print explanation />, { portrait: true })} className="rounded-md border border-rule px-3 py-1.5 text-ai">説明書を印刷（A4縦）</button>
             <button type="button" onClick={() => print(<ConsentDocument r={r} patient={patient} room={room} today={today} orders={orders} print />, { portrait: true })} className="flex items-center gap-1.5 rounded-md border border-ai px-3 py-1.5 font-bold text-ai hover:bg-ai hover:text-white">
               <Printer size={14} />
               印刷（A4縦）
@@ -113,6 +113,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
   const order = r.orderId ? orders.find((o) => o.id === r.orderId) : undefined;
   const save = (patch: Partial<ConsentRecord>) =>
     onUpdate({ ...r, extra: extra.trim() || undefined, witness: witness.trim() || undefined, proxy: proxyName.trim() ? { name: proxyName.trim(), relation: proxyRel.trim() } : undefined, ...patch });
+  const missingFields = consentFieldsMissing(t, r);
   const unanswered = (t.questions ?? []).filter((q) => !r.answers[q.id]);
   return (
     <section className="mb-3 space-y-2 rounded-md border border-rule bg-paper p-3">
@@ -122,6 +123,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
         <span className={`rounded px-1 text-[11px] font-bold ${STATUS_STYLE[r.status]}`}>{r.status}</span>
         {order && <span className="text-[11px] text-ink-soft">対象のオーダ：{orderLines(order.order, today).main}</span>}
       </div>
+      {t.fields?.map(field => <label key={field} className="block text-xs text-ink-soft">{field}<input value={r.details?.[field] ?? ""} onChange={e => save({ details: { ...r.details, [field]: e.target.value } })} className="ml-2 rounded border border-rule bg-sheet px-2 py-1 text-ink" /></label>)}
       {t.questions && (
         <div>
           <h4 className="text-xs font-bold text-ink-soft">{t.questionsTitle ?? "問診（患者に聞いて入れる）"}</h4>
@@ -163,6 +165,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
           <input value={proxyRel} onChange={(e) => setProxyRel(e.target.value)} className="ml-1 w-16 rounded border border-rule bg-sheet px-1.5 py-0.5 text-ink" />
         </label>
       </div>
+      {missingFields.length > 0 && <p className="text-xs text-yamabuki">未入力：{missingFields.join("・")}</p>}
       <div className="flex flex-wrap gap-2 pt-1">
         <button type="button" onClick={() => save({})} className="rounded border border-rule px-2 py-1 text-xs">
           書いた内容を残す
@@ -170,7 +173,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
         {r.status === "説明前" && (
           <button
             type="button"
-            disabled={unanswered.length > 0}
+            disabled={unanswered.length > 0 || missingFields.length > 0}
             title={unanswered.length ? "問診にすべて答えてから" : "患者と説明した医師がマウス・タッチで署名する"}
             onClick={() => {
               save({});
@@ -184,7 +187,7 @@ function Editor({ r, patient, today, nowTime, doctor, orders, onUpdate, onSign }
         {r.status !== "同意" && (
           <button
             type="button"
-            disabled={unanswered.length > 0}
+            disabled={unanswered.length > 0 || missingFields.length > 0}
             title={unanswered.length ? "問診にすべて答えてから" : undefined}
             onClick={() => save({ status: "同意", explainedAt: { day: 0, time: nowTime }, explainedBy: r.explainedBy || doctor })}
             className="rounded bg-wakatake px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
@@ -219,7 +222,7 @@ function Sig({ r, role, width = "w-40" }: { r: ConsentRecord; role: SignRole; wi
 }
 
 /** The printed form (A4 portrait). `reading` hides the signature block (shown on the tablet before signing). */
-export function ConsentDocument({ r, patient, room, today, orders, print, reading }: { r: ConsentRecord; patient: Patient; room: string; today: CalendarDate; orders: OrderEntry[]; print?: boolean; reading?: boolean }) {
+export function ConsentDocument({ r, patient, room, today, orders, print, reading, explanation }: { r: ConsentRecord; patient: Patient; room: string; today: CalendarDate; orders: OrderEntry[]; print?: boolean; reading?: boolean; explanation?: boolean }) {
   const t = findConsent(r.code);
   const order = r.orderId ? orders.find((o) => o.id === r.orderId) : undefined;
   const when = r.explainedAt ?? r.createdAt;
@@ -230,7 +233,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
           <span>{HOSPITAL.name}</span>
           <span>{displayText(t.version)}</span>
         </div>
-        <h2 className="mt-1 text-center text-lg font-bold">{t.title}</h2>
+        <h2 className="mt-1 text-center text-lg font-bold">{explanation ? `${t.short}の説明書` : t.title}</h2>
         <div className="mt-2 grid grid-cols-2 gap-x-4 text-[12px]">
           <span>
             患者氏名：<b>{patient.name}</b> 様（{ageSex(patient)}）
@@ -241,6 +244,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
           {order && <span className="col-span-2">対象：{orderLines(order.order, today).main}</span>}
         </div>
       </header>
+      {t.fields && <dl className="mb-3">{t.fields.map(field => <div key={field} className="flex gap-2"><dt>{field}：</dt><dd>{r.details?.[field] || "＿＿＿＿＿＿＿＿＿＿＿＿"}</dd></div>)}</dl>}
       {t.sections.map((s) => (
         <section key={s.heading} className="mb-2 break-inside-avoid">
           <h3 className="font-bold">■ {s.heading}</h3>
@@ -278,7 +282,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
           <p className="pl-3">{r.extra}</p>
         </section>
       )}
-      {!reading && <section className="mt-4 break-inside-avoid border-t border-ink pt-3">
+      {!reading && !explanation && <section className="mt-4 break-inside-avoid border-t border-ink pt-3">
         <p>
           私は、上記について説明を受け、内容を理解しました。（{r.choice ? (r.choice === "同意する" ? "■ 同意します　□ 同意しません" : "□ 同意します　■ 同意しません") : "□ 同意します　□ 同意しません"}）
         </p>

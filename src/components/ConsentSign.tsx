@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useState } from "react";
-import { findConsent, signaturesMissing, type ConsentRecord, type ConsentSignature, type SignRole } from "@/lib/consent";
+import { findConsent, consentFieldsMissing, signaturesMissing, type ConsentRecord, type ConsentSignature, type SignRole } from "@/lib/consent";
 import { SignaturePad } from "./SignaturePad";
 
 interface Props {
@@ -36,7 +36,7 @@ export function ConsentSign({ record, patientName, doctor, nowTime, document, on
     at: { day: 0, time: nowTime },
   }));
   const missing = signaturesMissing(list, byProxy);
-  const ready = choice && missing.length === 0 && (!byProxy || (proxyName.trim() && proxyRel.trim())) && unanswered.length === 0 && (!sigs["同席者"] || witness.trim());
+  const ready = consentFieldsMissing(t, record).length === 0 && choice && missing.length === 0 && (!byProxy || (proxyName.trim() && proxyRel.trim())) && unanswered.length === 0 && (!sigs["同席者"] || witness.trim());
   const set = (role: SignRole) => (url: string | null) => setSigs((s) => ({ ...s, [role]: url ?? undefined }));
   const big = "rounded-xl border-2 px-6 py-4 text-lg font-bold";
   return (

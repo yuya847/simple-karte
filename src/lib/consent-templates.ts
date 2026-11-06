@@ -1,6 +1,7 @@
 // The text of the fictional hospital's consent forms. Frequencies are added only with a source
 // (see `facts`). Wording is the fictional hospital's own; it is not copied from any real hospital.
 
+import { PROCEDURE_CONSENTS } from "./consent-procedures";
 import type { ConsentCode, ConsentTemplate } from "./consent";
 import { TX_GUIDE, TX_NOTICE } from "./procedures";
 
@@ -37,6 +38,7 @@ const SRC = {
 };
 
 export const CONSENT_TEMPLATES: ConsentTemplate[] = [
+  ...PROCEDURE_CONSENTS,
   { code: "CONSENT-ANESTHESIA", title: "麻酔の説明・同意書", short: "麻酔", version: "2026-11", sections: [
     { heading: "目的と方法", lines: ["手術や処置に伴う痛みを抑え、呼吸や循環を管理します。全身麻酔、脊髄くも膜下麻酔、硬膜外麻酔、伝達麻酔、鎮静などから、麻酔科医が手術内容と全身状態を確認して方法を決め、説明します。"] },
     { heading: "起こりうる合併症", lines: ["吐き気、喉の痛み、歯の損傷、神経障害、呼吸や循環の障害、アレルギー反応などが起こることがあります。患者さんごとの危険性、代わりの方法、術後の鎮痛について担当医が説明します。"] },

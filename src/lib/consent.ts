@@ -3,7 +3,9 @@
 // AI never writes or changes a form. Which orders need which form, and whether one is in place,
 // are checked in code. Numbers (frequencies) appear only with their source.
 
-export type ConsentCode = "CONSENT-ANESTHESIA" | "CONSENT-ADMISSION" | "CONSENT-CT-CONTRAST" | "CONSENT-MRI-CONTRAST" | "CONSENT-CVC" | "CONSENT-TRANSFUSION";
+import type { ProcedureConsentCode } from "./consent-procedures";
+
+export type ConsentCode = ProcedureConsentCode | "CONSENT-ANESTHESIA" | "CONSENT-ADMISSION" | "CONSENT-CT-CONTRAST" | "CONSENT-MRI-CONTRAST" | "CONSENT-CVC" | "CONSENT-TRANSFUSION";
 export type ConsentStatus = "説明前" | "同意" | "拒否" | "撤回";
 
 export interface ConsentSection {
@@ -21,6 +23,7 @@ export interface ConsentTemplate {
   short: string;
   version: string;
   sections: ConsentSection[];
+  fields?: string[];
   /** 問診 or risk check (yes/no) before the procedure. */
   questions?: { id: string; label: string }[];
   questionsTitle?: string;
@@ -44,6 +47,7 @@ export interface ConsentRecord {
   answers: Record<string, "はい" | "いいえ" | "わからない">;
   /** What the doctor added for this patient (typed or dictated; not written by AI). */
   extra?: string;
+  details?: Record<string, string>;
   /** Who recorded a refusal or a withdrawal, and when. */
   closedAt?: { day: number; time: string };
   /** Signed on a tablet (iPad): PNG images, kept with the record. Without them the paper form is signed. */
@@ -58,6 +62,11 @@ export interface ConsentSignature {
   name: string;
   dataUrl: string;
   at: { day: number; time: string };
+}
+
+/** Fields entered by the explaining clinician; signing never fills them automatically. */
+export function consentFieldsMissing(t: Pick<ConsentTemplate, "fields">, r: Pick<ConsentRecord, "details">): string[] {
+  return (t.fields ?? []).filter(field => !r.details?.[field]?.trim());
 }
 
 /** The signatures a tablet consent needs: the patient or the proxy, and the doctor. */
