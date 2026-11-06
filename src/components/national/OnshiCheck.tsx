@@ -14,7 +14,7 @@ import type { CalendarDate } from "@/lib/dates";
 import { nationalServices } from "@/lib/national/adapter";
 import { CHECKUP_ITEMS, formFromQualification, LIMIT_CLASS_CODES, type CardQuery, type CopiedForm, type OnshiPerson, type OnshiResult } from "@/lib/national/onshi";
 import { useMe } from "../RoleContext";
-import { MockMark, MockNote } from "./SpecParts";
+import { MockMark } from "./SpecParts";
 
 const STATUS_CLS: Record<OnshiResult["status"], string> = { 有効: "bg-wakatake-soft text-wakatake", 無効: "bg-shu-soft text-shu", 該当資格なし: "bg-yamabuki-soft text-yamabuki" };
 
@@ -72,7 +72,6 @@ export function OnshiCheck({
         オンライン資格確認
         <MockMark />
       </h3>
-      <MockNote>オンライン資格確認等システムにはつないでいません（回線・証明書・契約が要るため）。項目は公開資料にあるものです。</MockNote>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-ink-soft">受け付けたもの</span>
         {(["マイナ保険証", "資格確認書"] as const).map((h) => (
@@ -238,7 +237,7 @@ export function OnshiCheck({
               <button type="button" onClick={() => onCopy?.(copied)} disabled={!!locked} className="rounded-md border border-ai px-2.5 py-1 font-bold text-ai hover:bg-ai-soft disabled:opacity-40">
                 保険の登録の欄に写す
               </button>
-              <span className="hint ml-2 text-[11px] text-ink-soft">写したあと、左の欄とコードの確かめを見て「登録する」を押します。</span>
+              <span className="hint ml-2 text-[11px] text-ink-soft">写したあと、下の欄を見て「登録」を押します。</span>
             </div>
           )}
         </div>

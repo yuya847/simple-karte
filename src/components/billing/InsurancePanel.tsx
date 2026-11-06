@@ -92,9 +92,6 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
             <span className="rounded bg-shu-soft px-1.5 py-0.5 text-[11px] font-normal text-shu">未登録：算定は年齢からの仮の保険です</span>
           )}
         </h3>
-        <p className="mb-3 text-[11px] leading-relaxed text-ink-soft">
-          保険証（資格確認書）・高齢受給者証・限度額適用認定証か、マイナ保険証のオンライン資格確認の画面を見て入れます。最初から選ばれている項目はありません。このブラウザの中だけに保存します。公費（受給者証）・生活保護・自費・労災、有効期限、資格確認の方法は、患者基本情報の窓の「保険・制度」で入れます（同じ記録です）。
-        </p>
 
         <fieldset disabled={!!locked} className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
           <label className="col-span-2 sm:col-span-1">

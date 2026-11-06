@@ -12,7 +12,7 @@ import { AlertTriangle, Ban, CheckCircle2, Info, Pencil, Plus, Trash2 } from "lu
 import { useEffect, useMemo, useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { touchedBy, visibleChecks } from "@/lib/billing/check-visibility";
-import { FUTAN_SOURCES, KOHI_KINDS } from "@/lib/billing/futan";
+import { KOHI_KINDS } from "@/lib/billing/futan";
 import { rateLabel, VERIFY_METHODS, type IncomeClass, type VerifyMethod } from "@/lib/billing/insurance";
 import {
   checkInsurance,
@@ -145,9 +145,6 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
         </span>
       </div>
       <DenyNote action="insurance" className="mb-1" />
-      <p className="hint mb-1 text-[11px] text-ink-faint">
-        保険証（資格確認書）・高齢受給者証・限度額適用認定証・公費の受給者証を見て入れます。年齢と負担割合の整合、番号の検証番号、有効期限はコードで確かめます。医事課の「算定」の保険の登録と同じ記録で、二重には持ちません。
-      </p>
 
       {!edit && (
         <dl>
@@ -219,6 +216,26 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
 
       {edit && (
         <fieldset disabled={!!denied} className="space-y-3 rounded border border-ai/30 bg-sheet p-2.5 text-[12px]">
+          {/* First the マイナ保険証・資格確認書 (as at the window), then the fields it fills. */}
+          {medical && (
+            <OnshiCheck
+              compact
+              person={{ id: p.id, name: p.name, kana: p.kana, sex: p.sex === "男" ? "男" : "女", age: p.age }}
+              today={today}
+              nowTime={nowTime}
+              card={{ insurerNumber: form.insurerNumber, symbol: form.symbol, number: form.number, branch: form.branch, birthDate: form.birthDate }}
+              body={{ heightCm: p.heightCm, weightKg: p.weightKg }}
+              locked={denied}
+              current={form}
+              onCopy={(c) => {
+                setForm(normalizeForm(c.form));
+                setAck(false);
+                // The answer filled the form: show what the code finds in it.
+                setRevealAll(true);
+              }}
+            />
+          )}
+
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
             <label className="col-span-2 text-[11px] text-ink-soft">
               保険の種類
@@ -385,25 +402,6 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
             </div>
           )}
 
-          {medical && (
-            <OnshiCheck
-              compact
-              person={{ id: p.id, name: p.name, kana: p.kana, sex: p.sex === "男" ? "男" : "女", age: p.age }}
-              today={today}
-              nowTime={nowTime}
-              card={{ insurerNumber: form.insurerNumber, symbol: form.symbol, number: form.number, branch: form.branch, birthDate: form.birthDate }}
-              body={{ heightCm: p.heightCm, weightKg: p.weightKg }}
-              locked={denied}
-              current={form}
-              onCopy={(c) => {
-                setForm(normalizeForm(c.form));
-                setAck(false);
-                // The answer filled the form: show what the code finds in it.
-                setRevealAll(true);
-              }}
-            />
-          )}
-
           {checks.length > 0 && (
             <ul className="space-y-1">
               {[...checks]
@@ -485,17 +483,6 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
           </ol>
         </details>
       )}
-      <ul className="hint mt-2 space-y-0.5 text-[10px] text-ink-faint">
-        {FUTAN_SOURCES.slice(0, 4).map((s) => (
-          <li key={s.url}>
-            出典：{s.label}{" "}
-            <a href={s.url} target="_blank" rel="noreferrer" className="break-all underline">
-              {s.url}
-            </a>
-          </li>
-        ))}
-        <li>登録・変更できる職種は医事課・医師・看護師です。</li>
-      </ul>
     </section>
   );
 }

@@ -20,7 +20,6 @@ import { type CalendarDate, hospitalDay } from "@/lib/dates";
 import { bandLabel, type AdvanceDirective } from "@/lib/directives";
 import {
   CARE_LEVELS,
-  CONTACTS_SOURCES,
   birthDateOf,
   contactsChanges,
   contactsProblems,
@@ -141,8 +140,6 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
           ))}
         </nav>
       </div>
-      <p className="hint text-xs text-ink-soft">患者バーの名前をダブルクリック（iPad は長押し）で開きます。ここは登録された情報を並べて見るところです。連絡先・家族・介護保険・かかりつけはこの窓の「編集」で、保険・公費は「保険・制度」の「保険を編集」で（医事課の「保険の登録」と同じ記録）、入院前の情報収集は看護師の「情報収集」で、アレルギー・感染症・禁忌は「プロファイル」で変えます。</p>
-      <p className="text-xs text-shu">実在の患者の情報は入れないでください。</p>
 
       {/* 基本 */}
       <section id="pi-basic" aria-labelledby="pi-basic-h" className="rounded-lg border border-rule bg-paper/50 p-3">
@@ -573,20 +570,6 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
         )}
       </section>
 
-      <footer className="space-y-1 text-[11px] text-ink-faint">
-        <p>
-          項目の並びは病院の電子カルテの仕様書に挙がる患者基本情報・患者プロファイルの項目に沿っています（
-          {CONTACTS_SOURCES.map((s, i) => (
-            <span key={s.url}>
-              {i > 0 && "、"}
-              <a href={s.url} target="_blank" rel="noreferrer" className="underline">
-                {displayText(s.name)}
-              </a>
-            </span>
-          ))}
-          ）。生年月日は、保険の登録がない患者では年齢から作った日付です（{formatBirth(birth)} は {fmtDay(0)} 時点で {p.age}歳）。
-        </p>
-      </footer>
     </div>
   );
 }

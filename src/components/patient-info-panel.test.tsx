@@ -57,7 +57,7 @@ describe("患者基本情報の窓", () => {
     expect(html).toMatch(/介助<\/dt>[\s\S]*移動 歩行器/);
     expect(html).toContain("家に帰りたい");
     // The notes that do not hide.
-    expect(html).toContain("実在の患者の情報は入れないでください。");
+    expect(html).not.toContain("実在の患者の情報は入れないでください。");
     expect(html).not.toContain("架空の病院の取り決め");
     expect(html).not.toContain(">架空の患者</span>");
     expect(html).toContain("nanbuweb.hosp.pref.okinawa.jp");

@@ -26,7 +26,7 @@ describe("オンライン資格確認（模擬）", () => {
   it("is in 保険の登録, marked 模擬, without the list of sources and footnotes", () => {
     const html = as("医事課", <InsurancePanel patient={p} records={INITIAL_INSURANCE_BOOK[p.id]} today={today} nowTime="10:00" onRegister={() => {}} />);
     expect(html).toContain("資格を確認（模擬）");
-    expect(html).toContain("オンライン資格確認等システムにはつないでいません");
+    expect(html).not.toContain("オンライン資格確認等システムにはつないでいません");
     expect(html).not.toContain("従った仕様");
     expect(html).not.toContain("この試作では埋められない項目");
   });
