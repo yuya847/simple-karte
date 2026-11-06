@@ -1,3 +1,4 @@
+import { IN_KINDS, OUT_KINDS } from "./io-balance";
 // The rows of the flow sheet (経過表) a person wants: which groups come in which order, which rows are
 // hidden, which groups are folded, and named sets of 看護ケア・観察 rows (観察項目のセット). Kept per user in
 // this browser (flow-prefs.ts); these are the plain rules for changing them.
@@ -25,9 +26,14 @@ export const FLOW_ROWS: Partial<Record<FlowGroupKey, { key: string; label: strin
     { key: "vitals.rr", label: "呼吸数" },
     { key: "vitals.spo2", label: "SpO2" },
     { key: "vitals.o2", label: "酸素" },
+    { key: "vitals.acvpu", label: "ACVPU" },
+    { key: "vitals.jcs", label: "JCS" },
+    { key: "vitals.gcs", label: "GCS" },
     { key: "vitals.news2", label: "NEWS2（コードで計算）" },
     { key: "vitals.nursing", label: "看護記録" },
   ],
+  glucose: [{ key: "glucose.value", label: "血糖" }, { key: "glucose.graph", label: "血糖グラフ" }, { key: "glucose.insulin", label: "インスリン" }],
+  io: [...IN_KINDS.map(k => ({ key: `io:in-${k}`, label: k })), { key: "io:in", label: "IN合計" }, ...OUT_KINDS.map(k => ({ key: `io:out-${k}`, label: k })), { key: "io:out", label: "OUT合計" }, { key: "io:bal", label: "IN − OUT" }],
   obs: [
     { key: "obs.diet", label: "食種" },
     { key: "obs.meals", label: "食事（割）" },
@@ -39,6 +45,7 @@ export const FLOW_ROWS: Partial<Record<FlowGroupKey, { key: string; label: strin
 };
 
 export interface FlowLayout {
+  rowOrder?: string[];
   /** Group keys in the order shown (groups missing here keep their place from FLOW_GROUPS). */
   order: string[];
   /** Hidden rows, and hidden groups as "group:" + key. */
@@ -112,5 +119,20 @@ export function parseLayout(v: unknown): FlowLayout {
     ? o.sets.flatMap((s) => (s && typeof s === "object" && typeof (s as { name?: unknown }).name === "string" ? [{ name: (s as { name: string }).name, items: strings((s as { items?: unknown }).items) }] : []))
     : [];
   const activeSet = typeof o.activeSet === "string" && sets.some((s) => s.name === o.activeSet) ? o.activeSet : null;
-  return { order: strings(o.order), hidden: strings(o.hidden), collapsed: strings(o.collapsed), sets, activeSet };
+  return { ...(Array.isArray(o.rowOrder) ? { rowOrder: [...new Set(strings(o.rowOrder))] } : {}), order: strings(o.order), hidden: strings(o.hidden), collapsed: strings(o.collapsed), sets, activeSet };
+}
+
+export function orderedRows<T extends { key: string }>(rows: T[], layout: FlowLayout): T[] {
+  const order = layout.rowOrder ?? [];
+  return [...rows].sort((a, b) => {
+    const rank = (k: string) => order.includes(k) ? order.indexOf(k) : order.length + rows.findIndex(r => r.key === k);
+    return rank(a.key) - rank(b.key);
+  });
+}
+export function moveFlowRow(layout: FlowLayout, keys: string[], key: string, dir: -1 | 1): FlowLayout {
+  const rows = orderedRows(keys.map(key => ({ key })), layout).map(r => r.key);
+  const i = rows.indexOf(key), j = i + dir;
+  if (i < 0 || j < 0 || j >= rows.length) return layout;
+  [rows[i], rows[j]] = [rows[j], rows[i]];
+  return { ...layout, rowOrder: [...(layout.rowOrder ?? []).filter(k => !keys.includes(k)), ...rows] };
 }

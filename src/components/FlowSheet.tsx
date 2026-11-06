@@ -4,6 +4,8 @@ import { FlowInlineEntry } from "./FlowInlineEntry";
 import { FlowObservationAdder } from "./FlowObservationAdder";
 import { observationOrder } from "@/lib/flow-observation";
 import { jcsText, gcsText } from "@/lib/consciousness";
+import { FlowOrderedRows, FlowRow } from "./FlowOrderedRows";
+import { orderedRows, careRowKey } from "@/lib/flow-layout";
 import { displayText } from "@/lib/display-text";
 import { StandingMeasurements, type StandingMeasurementSource } from "./StandingMeasurements";
 
@@ -271,7 +273,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
   const layout = prefs.layout;
   const setLayout = (l: FlowLayout) => setPrefs((x) => ({ ...x, layout: l }));
   const show = (k: string) => !layout.hidden.includes(k);
-  const careOrders = care ? care.orders.filter((o) => !isGlucoseCare(o)) : [];
+  const careOrders = care ? orderedRows(care.orders.filter((o) => !isGlucoseCare(o)).map(o => ({ ...o, key: careRowKey(o.item) })), layout) : [];
   const careItems = [...new Set(careOrders.map((o) => o.item))];
 
   const groups: Record<FlowGroupKey, { show: boolean; extra?: React.ReactNode; body: React.ReactNode }> = {
@@ -280,9 +282,6 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
       body: (
         <>
         {/* 付箋 at their time, above the strips */}
-        {(graphNotes.length > 0 || onAddNote) && show("vitals.notes") && (
-          <FlowStickyLane notes={notesIn(graphNotes, t0, t1)} xAbs={xAbs} lo={t0} hi={t1} plotW={plotW} labelW={LABEL_W} meName={me.name} fmtAt={fmtAt} draftAt={noteDraft} defaultAt={Math.min(t1, Math.max(t0, nowAbs))} onDraft={setNoteDraft} onAdd={onAddNote} onRemove={onRemoveNote} />
-        )}
         {/* Vital strips with one shared crosshair */}
         <div
           className="relative outline-none"
@@ -313,7 +312,10 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
             if ((e.metaKey || e.ctrlKey) && e.key === "c" && hover !== null && vitals[hover]) void navigator.clipboard?.writeText(vitalText(vitals[hover], today));
           }}
         >
-          {show("vitals.bt") && (
+          <FlowOrderedRows layout={layout}><FlowRow key="vitals.notes" id="vitals.notes">        {(graphNotes.length > 0 || onAddNote) && show("vitals.notes") && (
+          <FlowStickyLane notes={notesIn(graphNotes, t0, t1)} xAbs={xAbs} lo={t0} hi={t1} plotW={plotW} labelW={LABEL_W} meName={me.name} fmtAt={fmtAt} draftAt={noteDraft} defaultAt={Math.min(t1, Math.max(t0, nowAbs))} onDraft={setNoteDraft} onAdd={onAddNote} onRemove={onRemoveNote} />
+        )}
+</FlowRow><FlowRow key="vitals.bt" id="vitals.bt">{show("vitals.bt") && (
             <Strip label="体温" unit="℃" color={C_BT} height={96} domain={[35, 41]} ticks={[36, 37, 38, 39, 40]} plotW={plotW}>
               {(y) => (
                 <>
@@ -325,8 +327,8 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 </>
               )}
             </Strip>
-          )}
-          {show("vitals.hr") && (
+          )}</FlowRow>
+          <FlowRow key="vitals.hr" id="vitals.hr">{show("vitals.hr") && (
             <Strip label="脈拍" unit="/分" color={C_HR} height={72} domain={[40, 160]} ticks={[60, 80, 100, 120, 140]} plotW={plotW}>
               {(y) => (
                 <>
@@ -338,8 +340,8 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 </>
               )}
             </Strip>
-          )}
-          {show("vitals.bp") && (
+          )}</FlowRow>
+          <FlowRow key="vitals.bp" id="vitals.bp">{show("vitals.bp") && (
             <Strip label="血圧" unit="mmHg" color={C_BP} height={84} domain={[60, 180]} ticks={[80, 100, 120, 140, 160]} plotW={plotW}>
               {(y) => (
                 <>
@@ -361,17 +363,17 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 </>
               )}
             </Strip>
-          )}
+          )}</FlowRow>
 
           {/* Values at each measurement */}
-          {show("vitals.rr") && <PointRow label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />}
-          {show("vitals.spo2") && <PointRow label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />}
-          {show("vitals.o2") && <PointRow label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />}
-          <PointRow label="ACVPU" vitals={vitals} x={x} value={v => v.avpu ?? ""} />
-          <PointRow label="JCS" vitals={vitals} x={x} value={jcsText} />
-          <PointRow label="GCS" vitals={vitals} x={x} value={gcsText} />
+          <FlowRow key="vitals.rr" id="vitals.rr">{show("vitals.rr") && <PointRow label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />}</FlowRow>
+          <FlowRow key="vitals.spo2" id="vitals.spo2">{show("vitals.spo2") && <PointRow label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />}</FlowRow>
+          <FlowRow key="vitals.o2" id="vitals.o2">{show("vitals.o2") && <PointRow label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />}</FlowRow>
+          <FlowRow id="vitals.acvpu">{show("vitals.acvpu") && <PointRow label="ACVPU" vitals={vitals} x={x} value={v => v.avpu ?? ""} />}</FlowRow>
+          <FlowRow id="vitals.jcs">{show("vitals.jcs") && <PointRow label="JCS" vitals={vitals} x={x} value={jcsText} />}</FlowRow>
+          <FlowRow id="vitals.gcs">{show("vitals.gcs") && <PointRow label="GCS" vitals={vitals} x={x} value={gcsText} />}</FlowRow>
           {/* NEWS2 from each set of vitals (code, RCP 2017): ＊ when a part is missing, bold red at 5 or more or a single 3. */}
-          {show("vitals.news2") && (
+          <FlowRow key="vitals.news2" id="vitals.news2">{show("vitals.news2") && (
             <PointRow
               label="NEWS2"
               vitals={vitals}
@@ -385,9 +387,9 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 return s.total >= 5 || s.red ? "font-bold text-shu" : s.total >= 1 ? "text-ink" : "";
               }}
             />
-          )}
+          )}</FlowRow>
 
-          {show("vitals.nursing") && <div className="flex border-b border-rule-soft">
+          <FlowRow key="vitals.nursing" id="vitals.nursing">{show("vitals.nursing") && <div className="flex border-b border-rule-soft">
             <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: LABEL_W }}>看護記録</div>
             <div className="relative flex-1" style={{ minHeight: 28 }}>
               {days.flatMap((d) => nursingNotesByTime(entries, d)).filter((n) => inWin(abs(n.day, n.time))).map((n, i) => (
@@ -397,8 +399,9 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                   style={{ marginLeft: Math.max(0, x(n.day, n.time)), maxWidth: Math.max(40, plotW - Math.max(0, x(n.day, n.time))) }} data-nursing-note={i}>{n.summary || "看護記録"}</button>
               ))}
             </div>
-          </div>}
+          </div>}</FlowRow>
 
+          </FlowOrderedRows>
           {hovered && <Tooltip v={hovered} left={LABEL_W + x(hovered.day, hovered.time)} plotW={plotW} today={today} />}
         </div>
         </>
@@ -408,8 +411,8 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
       show: true,
       body: (
         <>
-          {show("obs.diet") && <DietRow days={days} box={dayBox} cell={(d) => dietDayCell(meals, d)} meals={meals} zoom={zoom} />}
-          {show("obs.meals") && (
+          <FlowOrderedRows layout={layout}><FlowRow key="obs.diet" id="obs.diet">{show("obs.diet") && <DietRow days={days} box={dayBox} cell={(d) => dietDayCell(meals, d)} meals={meals} zoom={zoom} />}</FlowRow>
+          <FlowRow key="obs.meals" id="obs.meals">{show("obs.meals") && (
             <DayRow
               label="食事（割）"
               days={days}
@@ -421,9 +424,9 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 return r.meals.map((m, i) => `${m === null ? "−" : m}${r.mealSides ? `・${r.mealSides[i] ?? "−"}` : ""}`).join("/");
               }}
             />
-          )}
-          {show("obs.urine") && <DayRow label="尿量 mL" sub="0〜24時" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />}
-          {show("obs.stools") && (
+          )}</FlowRow>
+          <FlowRow key="obs.urine" id="obs.urine">{show("obs.urine") && <DayRow label="尿量 mL" sub="0〜24時" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.urineMl?.toLocaleString("ja-JP") ?? ""} />}</FlowRow>
+          <FlowRow key="obs.stools" id="obs.stools">{show("obs.stools") && (
             <DayRow
               label="便 回"
               days={days}
@@ -433,9 +436,10 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 return s === undefined ? "" : String(s);
               }}
             />
-          )}
-          {show("obs.weight") && <DayRow label="体重 kg" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.weightKg?.toFixed(1) ?? ""} />}
-          {show("obs.fluid") && <DayRow label="点滴量 mL" sub="オーダから計算" days={days} box={dayBox} value={(d) => (fluid[d] ? `${d > 0 ? "（" : ""}${fluid[d].toLocaleString("ja-JP")}${d > 0 ? "）" : ""}` : "")} />}
+          )}</FlowRow>
+          <FlowRow key="obs.weight" id="obs.weight">{show("obs.weight") && <DayRow label="体重 kg" days={days} box={dayBox} value={(d) => p.daily.find((x) => x.day === d)?.weightKg?.toFixed(1) ?? ""} />}</FlowRow>
+          <FlowRow key="obs.fluid" id="obs.fluid">{show("obs.fluid") && <DayRow label="点滴量 mL" sub="オーダから計算" days={days} box={dayBox} value={(d) => (fluid[d] ? `${d > 0 ? "（" : ""}${fluid[d].toLocaleString("ja-JP")}${d > 0 ? "）" : ""}` : "")} />}</FlowRow>
+          </FlowOrderedRows>
         </>
       ),
     },
@@ -461,7 +465,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
           }}
           className={onEntry ? "cursor-pointer" : ""}
         >
-          <IoFlowRows lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={t1} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} byTime={!win.byDay} />
+          <IoFlowRows layout={layout} lines={ioRows} orders={orders} nowAbs={nowAbs} t0={t0} endAbs={t1} xAbs={xAbs} plotW={plotW} labelW={LABEL_W} standingIo={io.standingIo} byTime={!win.byDay} />
         </div>
       ),
     },
@@ -493,6 +497,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
       show: true,
       body: (
         <FlowGlucoseRows
+          layout={layout}
           limits={care?.orders.find(isGlucoseCare)?.glucoseLimits}
           onLimits={care?.onLimits && glucoseItem && !deny("mar") ? limits => care.onLimits?.(care.orders.find(isGlucoseCare)!.id, limits) : undefined}
           onInsulin={onEntry ? (e, id) => { const at = timeOf(e); const d = Math.floor(at / 1440); press(e, "インスリンの実施", [{ kind: "mar", orderIds: [id], ...cellWindow(d, win.byDay ? null : at), label: "インスリン" }]); } : undefined}

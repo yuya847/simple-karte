@@ -1,5 +1,7 @@
 "use client";
 
+import { FlowOrderedRows, FlowRow } from "./FlowOrderedRows";
+import { DEFAULT_LAYOUT, type FlowLayout } from "@/lib/flow-layout";
 import { displayText } from "@/lib/display-text";
 import { fluidInWindow } from "@/lib/flowsheet";
 import { IN_KINDS, IO_RULES, OUT_KINDS, inWindow, ioDay, ioDayOf, ioShifts, ioTotal, signed, type IoEntry, type IoLine, type IoWindow } from "@/lib/io-balance";
@@ -17,6 +19,7 @@ export interface FlowIo {
 }
 
 interface Props {
+  layout?: FlowLayout;
   lines: IoLine[];
   orders: OrderEntry[];
   nowAbs: number;
@@ -49,7 +52,7 @@ const r = (x: number) => String(Math.round(x));
  * as the vitals. Recorded amounts and what the orders plan are kept apart: the plan is in ( ). Each drip
  * has its own row (this period / its total since it began), then IN合計, each OUT, OUT合計 and IN − OUT.
  */
-export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, labelW, byTime = false }: Props) {
+export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, labelW, byTime = false, layout = DEFAULT_LAYOUT }: Props) {
   const days: number[] = [];
   for (let d = ioDayOf(t0 + 1); ioDay(d).lo < endAbs; d++) days.push(d);
   const wins = byTime ? days.flatMap((d) => ioShifts(d)).filter((w) => w.hi > t0 && w.lo < endAbs) : days.map((d) => ioDay(d));
@@ -107,8 +110,9 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
   const row = (key: string, label: string, sub: string | undefined, cell: (w: IoWindow) => Cell, bold = false) => {
     const cells = wins.map((w) => ({ w, c: cell(w) }));
     const tall = cells.some((x) => x.c.sub);
+    if (layout.hidden.includes(`io:${key}`)) return null;
     return (
-      <div key={key} className={`flex border-b border-rule-soft ${bold ? "bg-paper font-bold" : ""}`}>
+      <FlowRow key={key} id={`io:${key}`}><div key={key} className={`flex border-b border-rule-soft ${bold ? "bg-paper font-bold" : ""}`}>
         <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: labelW }}>
           {label}
           {sub && <div className="text-[9px] font-normal text-ink-faint">{sub}</div>}
@@ -125,12 +129,13 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
             );
           })}
         </div>
-      </div>
+      </div></FlowRow>
     );
   };
 
   // Zoomed in: each recorded amount at its time (the drips at the time they ended).
-  const lineRow = (key: string, label: string, sub: string | undefined, ls: IoLine[]) => (
+  const lineRow = (key: string, label: string, sub: string | undefined, ls: IoLine[]) => layout.hidden.includes(`io:${key}`) ? null : (
+    <FlowRow key={key} id={`io:${key}`}>
     <div key={key} className="flex border-b border-rule-soft">
       <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: labelW }}>
         {label}
@@ -145,12 +150,12 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
             </span>
           ))}
       </div>
-    </div>
+    </div></FlowRow>
   );
 
   return (
     <>
-      <div className="relative">
+      <div className="relative"><FlowOrderedRows layout={layout}>
         {byTime
           ? drips.map((e) => lineRow(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　終了時` : undefined, lines.filter((l) => l.orderId === e.id)))
           : drips.map((e) => row(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　今回/計` : undefined, (w) => dripCell(e, w)))}
@@ -160,7 +165,7 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
         {row("out", "OUT合計", undefined, (w) => totalCell("OUT", w), true)}
         {lineRow("details", "食事・排泄", "回数・性状", observations.map(l => ({ ...l, measured: false })))}
         {row("bal", "IN − OUT", undefined, balanceCell, true)}
-        {nowAbs > t0 && nowAbs < endAbs && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-[#8c8473]" style={{ left: labelW + xAbs(nowAbs) }} />}
+        </FlowOrderedRows>{nowAbs > t0 && nowAbs < endAbs && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-[#8c8473]" style={{ left: labelW + xAbs(nowAbs) }} />}
       </div>
 
     </>

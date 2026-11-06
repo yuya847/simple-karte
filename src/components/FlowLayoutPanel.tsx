@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, X } from "lucide-react";
 import { useState } from "react";
-import { DEFAULT_LAYOUT, FLOW_GROUPS, FLOW_ROWS, careRowKey, careShown, chooseSet, deleteSet, groupOrder, groupShown, moveGroup, saveSet, toggleCollapsed, toggleHidden, type FlowGroupKey, type FlowLayout } from "@/lib/flow-layout";
+import { moveFlowRow, orderedRows, DEFAULT_LAYOUT, FLOW_GROUPS, FLOW_ROWS, careRowKey, careShown, chooseSet, deleteSet, groupOrder, groupShown, moveGroup, saveSet, toggleCollapsed, toggleHidden, type FlowGroupKey, type FlowLayout } from "@/lib/flow-layout";
 
 /** One group of the flow sheet with its heading; pressing the heading folds it. */
 export function FlowGroup({ id, title, layout, onLayout, extra, children }: { id: FlowGroupKey; title: string; layout: FlowLayout; onLayout: (l: FlowLayout) => void; extra?: React.ReactNode; children: React.ReactNode }) {
@@ -36,7 +36,6 @@ export function FlowLayoutPanel({ layout, onLayout, careItems, onClose }: { layo
     <div className="mb-2 space-y-2 rounded-md border border-rule bg-sheet p-2 text-[11px] shadow">
       <div className="flex items-center gap-2">
         <b className="text-[12px]">行の設定</b>
-        <span className="text-ink-faint">この端末のこの利用者のみに適用されます。</span>
         <button type="button" onClick={() => onLayout({ ...DEFAULT_LAYOUT, sets: layout.sets })} className="ml-auto rounded border border-rule px-2 py-0.5">
           並びと表示を初期に戻す
         </button>
@@ -46,7 +45,7 @@ export function FlowLayoutPanel({ layout, onLayout, careItems, onClose }: { layo
       </div>
       <ol className="space-y-1">
         {order.map((k, i) => {
-          const rows = k === "care" ? careItems.map((item) => ({ key: careRowKey(item), label: item })) : (FLOW_ROWS[k] ?? []);
+          const rows = orderedRows(k === "care" ? careItems.map((item) => ({ key: careRowKey(item), label: item })) : (FLOW_ROWS[k] ?? []), layout);
           return (
             <li key={k} className="rounded border border-rule-soft bg-paper/60 px-1.5 py-1">
               <div className="flex items-center gap-1.5">
@@ -63,11 +62,13 @@ export function FlowLayoutPanel({ layout, onLayout, careItems, onClose }: { layo
               </div>
               {rows.length > 0 && groupShown(layout, k) && (
                 <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 pl-4">
-                  {rows.map((r) => (
-                    <label key={r.key} className="flex cursor-pointer items-center gap-1">
+                  {rows.map((r, ri) => (
+                    <div key={r.key} className="flex items-center gap-1"><label className="flex cursor-pointer items-center gap-1">
                       <input type="checkbox" className={box} checked={!layout.hidden.includes(r.key)} onChange={() => onLayout(toggleHidden(layout, r.key))} />
-                      {r.label}
-                    </label>
+                      {r.label}</label>
+                      <button type="button" disabled={ri === 0} aria-label={`${r.label}を上へ`} onClick={() => onLayout(moveFlowRow(layout, rows.map(r => r.key), r.key, -1))}>↑</button>
+                      <button type="button" disabled={ri === rows.length - 1} aria-label={`${r.label}を下へ`} onClick={() => onLayout(moveFlowRow(layout, rows.map(r => r.key), r.key, 1))}>↓</button>
+                    </div>
                   ))}
                 </div>
               )}

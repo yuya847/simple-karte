@@ -100,6 +100,7 @@ import { ResizableChart } from "./ResizableChart";
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
 import { prescriptionCalendarSeed, type PrescriptionSeed } from "@/lib/prescription-calendar";
+import { calendarChange } from "@/lib/calendar-change";
 import { PAST_RX, patternsOf, previousOf } from "@/lib/rx-memory";
 import { PAST_INJ, injPatternsOf, injPreviousOf } from "@/lib/inj-memory";
 import { EmergencyBoard } from "./EmergencyBoard";
@@ -1577,7 +1578,14 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], flash: e.order.type === "prescription" ? "記事の下の処方オーダの下書きに入りました" : `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
   };
   const modifyOrder = (e: OrderEntry) => {
-    if (e.order.type !== "injection") return;
+    if (!patient || deny("order")) return;
+    if (e.order.type !== "injection") {
+      const change = calendarChange(e, patient.id, newId()); if (!change) return;
+      addStopDraft(e, "（カレンダーから変更）");
+      if (change.kind === "rx") { update({ rxSeed: { key: newId(), pattern: change.pattern } }); openOrder("add-rx"); }
+      else { addManualLab(change.draft); openRight("note"); }
+      return;
+    }
     addStopDraft(e, "（カレンダーから修正）");
     const order = e.order;
     update({

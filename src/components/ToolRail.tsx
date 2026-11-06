@@ -3,6 +3,9 @@ import { calendarGroup } from "@/lib/prescription-calendar";
 
 import { MessageSquareWarning, TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Settings2 } from "lucide-react";
+import { resolveTools } from "@/lib/tool-layout";
+import { ToolLayoutEditor } from "./ToolLayoutEditor";
 import { useState } from "react";
 import { specialistRoles } from "@/lib/specialist";
 import { loadMyTemplates } from "@/lib/note-templates";
@@ -192,6 +195,7 @@ interface Props {
 
 /** One button on the rail: a tool, or a pinned template that opens straight into its form. */
 interface Tile {
+  title?: string;
   pin: RailPin;
   label: string;
   icon: LucideIcon;
@@ -223,15 +227,22 @@ const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-cen
  */
 export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, injectionCalendar, calendars = [], badges = {}, onAnesthesia }: Props) {
   const me = useMe();
-  const groups = groupsFor(me.role);
+  const defaults = groupsFor(me.role);
   const short = railIsShort(me.role);
   const [rail, put] = useRail(me.name);
+  const [editing, setEditing] = useState(false);
+  const windows: Tile[] = short ? [] : [
+    ...(injectionCalendar ? [{ pin: "calendar:injection", label: "注射カレンダー", icon: CalendarDays, active: injectionCalendar.on, go: injectionCalendar.open }] : []),
+    ...calendars.map(c => ({ pin: `calendar:${c.key}`, label: c.label, title: c.title, icon: c.icon, active: c.on, go: c.open })),
+  ];
+  const layout = resolveTools(defaults.map(g => ({ key: g.key, title: g.title, tools: [...g.main, ...g.more].map(t => t.key).concat(windows.filter(t => calendarGroup(t.pin.slice("calendar:".length)) === g.key).map(t => t.pin) as PanelKind[]) })), rail.layout);
+  const groups = layout.groups.map(g => ({ ...g, main: defaults.flatMap(x => [...x.main, ...x.more]).filter(t => g.tools.includes(t.key)), more: [] as Tool[] }));
   const [groupRole, setGroupRole] = useState(me.role);
-  const [selectedGroup, setSelectedGroup] = useState<GroupKey>(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : specialistRoles.includes(me.role) ? "reference" : "intervention");
+  const [selectedGroup, setSelectedGroup] = useState<string>(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : specialistRoles.includes(me.role) ? "reference" : "intervention");
   if (groupRole !== me.role) { setGroupRole(me.role); setSelectedGroup(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : specialistRoles.includes(me.role) ? "reference" : "intervention"); }
   const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
-  const all = groups.flatMap((g) => [...g.main, ...g.more]);
+  const all = defaults.flatMap((g) => [...g.main, ...g.more]);
   // Every tile stays visible (ユーザー 2026-11-05：「すべて表示は常時オン」); the ones a role cannot use are greyed with the reason.
   const showAll = true;
   const list = rail.mode === "list";
@@ -248,14 +259,16 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   };
   const pinned = rail.pins
     .map((p) => {
+      if (layout.hidden.includes(p)) return null;
       if (isTemplatePin(p)) return templateTile(p);
+      const w = windows.find(t => t.pin === p); if (w) return w;
       const t = all.find((x) => x.key === p);
       return t ? toolTile(t) : null;
     })
     .filter((t): t is Tile => !!t);
   // The tab of the open tool, so the highlighted one is in view.
   const openIn = groups.find((g) => [...g.main, ...g.more].some((t) => t.key === open))?.key;
-  const shownTab = openIn && !pinned.some((t) => t.pin === open) ? openIn : tab;
+  const shownTab = !editing && openIn && !pinned.some((t) => t.pin === open) ? openIn : tab;
   const group = groups.find((g) => g.key === shownTab) ?? groups[0];
 
   const tile = (t: Tile, where: "pins" | "tab") => {
@@ -272,7 +285,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
       : toolClass(off, active);
     return (
       <div key={`${where}-${t.pin}`} className="relative">
-        <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.label)} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
+        <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.title ?? t.label)} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
           <Icon size={tileList ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
           <span className={tileList ? "truncate" : where === "pins" ? "w-full break-words text-center" : ""}>{t.label}{t.pin === "add-consult" && where !== "pins" && <small className="block text-[9px] font-normal">他科依頼・紹介</small>}</span>
           {tileList && badge && badge.n > 0 && <span className={`${badgeClass(badge.urgent)} ml-auto`}>{badge.n}</span>}
@@ -307,6 +320,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
         <div className="mb-1 flex items-center justify-between px-0.5">
           <span className="text-[10px] text-ink-faint">オーダと道具</span>
           <span className="flex items-center gap-0.5">
+            <button type="button" title="道具の配置を編集" aria-pressed={editing} onClick={() => setEditing(!editing)} className="rounded p-1"><Settings2 size={13} /></button>
             <button type="button" onClick={() => setEditPins((v) => !v)} aria-pressed={editPins} title="お気に入りを選ぶ（★を押して出し入れ）" className={`rounded p-1 ${editPins ? "bg-yamabuki-soft text-yamabuki" : "text-ink-faint hover:bg-sheet hover:text-ink"}`}>
               <Star size={13} />
             </button>
@@ -329,25 +343,14 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           })}
         </div>
         </div>
-        <div className={grid}>
-          {group.key === "reference" && !short && injectionCalendar && (
-            <button type="button" title="注射カレンダー（大きな別ウインドウで開きます。新規・延長・修正もここで。「右の欄に戻す」で右のタブにできます）" onClick={injectionCalendar.open} aria-pressed={injectionCalendar.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${injectionCalendar.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, injectionCalendar.on)}>
-              <CalendarDays size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
-              注射カレンダー
-            </button>
-          )}
-          {!short &&
-            calendars.filter(c => group.key === calendarGroup(c.key)).map((c) => {
-              const Icon = c.icon;
-              return (
-                <button key={c.key} type="button" title={`${c.title ?? c.label}（大きな別ウインドウで開きます。「右の欄に戻す」で右のタブにできます）`} onClick={c.open} aria-pressed={c.on} className={list ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${c.on ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}` : toolClass(false, c.on)}>
-                  <Icon size={list ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
-                  <span className={list ? "truncate" : ""}>{c.label}</span>
-                </button>
-              );
-            })}
-          {[...group.main, ...group.more].map((t) => tile(toolTile(t), "tab"))}
-        </div>
+        {editing ? <ToolLayoutEditor layout={layout} icons={Object.fromEntries([...all.map(toolTile), ...windows].map(t => [t.pin, t.icon]))} labels={Object.fromEntries([...all.map(toolTile), ...windows].map(t => [t.pin, t.label]))} onChange={v => put({ ...rail, layout: v })} onReset={() => put({ ...rail, layout: undefined })} /> : <div className={grid}>
+          {group.tools.filter(key => !layout.hidden.includes(key)).map(key => {
+            const w = windows.find(t => t.pin === key);
+            const t = all.find(t => t.key === key);
+            return w ? tile(w, "tab") : t ? tile(toolTile(t), "tab") : null;
+          })}
+        </div>}
+
       </div>
     </aside>
   );

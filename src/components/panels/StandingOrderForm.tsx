@@ -11,8 +11,9 @@ import { CosignMark } from "../Cosign";
 import { standingLineRef } from "@/lib/standing-cosign";
 import { useDeny, useMe } from "../RoleContext";
 
-export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onAdd, onStop, onEditFields, fieldEditor, today, patientId, initialSelection, onEndFields }: {
+export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onAdd, onStop, onEditFields, fieldEditor, today, patientId, initialCategory, initialSelection, onEndFields }: {
   onEndFields?: (line: StandingLine) => void;
+  initialCategory?: LineCat;
   initialSelection?: StandingLine;
   onAdmissionTemplate?: () => void;
   patientId?: string;
@@ -27,9 +28,9 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
   const canOrder = !deny("order");
   const [startDay, setStartDay] = useState(0);
   const [until, setUntil] = useState<number | undefined>(initialSelection?.end?.day);
-  const [cat, setCat] = useState<LineCat>(initialSelection?.cat ?? "その他");
+  const [cat, setCat] = useState<LineCat>(initialSelection?.cat ?? initialCategory ?? "その他");
   const [text, setText] = useState(initialSelection?.text ?? "");
-  const [manualCat, setManualCat] = useState(false);
+  const [manualCat, setManualCat] = useState(!!initialCategory);
   const [showCat, setShowCat] = useState(false);
   const [selected, setSelected] = useState<StandingLine | null>(initialSelection ?? null);
   const [ending, setEnding] = useState(false);

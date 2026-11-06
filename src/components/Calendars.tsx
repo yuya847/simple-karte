@@ -187,7 +187,7 @@ function RowHead({
                 中止の下書き
               </button>
               {onModify && (
-                <button type="button" onClick={onModify} title="このオーダを止め、同じ内容を注射のタブに写して直す" className="rounded border border-rule px-1.5 text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1">
+                <button type="button" onClick={onModify} title="このオーダを止め、同じ内容を入力欄に写して直す" className="rounded border border-rule px-1.5 text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1">
                   修正
                 </button>
               )}
@@ -541,7 +541,7 @@ function ExtendHandle({ label, end, max, value, fmt, onMove, onDone }: { label: 
 const RX_GROUPS: PrescriptionOrder["category"][] = ["定期", "臨時", "持参薬", "退院時"];
 
 export function PrescriptionCalendar(options: CalendarProps) {
-  const { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute, onNewPrescription, onExtendDraft } = options;
+  const { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute, onNewPrescription, onModify, onExtendDraft } = options;
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "prescription");
   const days = calendarDays(patient, Math.max(7, ...orders.map(e => orderEndDay(e.order) ?? 0)));
@@ -584,6 +584,9 @@ export function PrescriptionCalendar(options: CalendarProps) {
                   entry={e}
                   title={oralName(o.drugCode)}
                   lines={[`${o.administration ? "総量" : "1回"}${o.amount}${o.unit}　${timingText(o)}${o.dayPattern ? `　${patternCourse(o.dayPattern, o.start.day, o.days, true, today)}` : o.days ? `　${o.days}日分` : ""}`, ...(o.comment ? [o.comment] : [])]}
+                  onModify={onModify ? () => onModify(e) : undefined}
+                  onExtend={onExtendDraft ? d => onExtendDraft(e, d) : undefined}
+                  endLabel={orderEndDay(e.order) === null ? null : formatShort(addDays(today, orderEndDay(e.order)!))}
                   onStopDraft={onStopDraft}
                   drafted={draftedStops.includes(e.id)}
                 />
@@ -647,7 +650,7 @@ const PROC_GROUPS: { title: string; test: (o: ProcedureOrder) => boolean }[] = [
   { title: "必要時", test: (o) => o.schedule.kind === "prn" },
 ];
 
-export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute }: CalendarProps) {
+export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute, onModify, onExtendDraft }: CalendarProps) {
   const days = calendarDays(patient);
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "procedure");
@@ -670,7 +673,7 @@ export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDa
             const { main, detail } = procedureLines(o, today);
             return (
               <tr key={e.id}>
-                <RowHead entry={e} title={main} lines={[detail]} onStopDraft={onStopDraft} drafted={draftedStops.includes(e.id)} />
+                <RowHead onModify={onModify ? () => onModify(e) : undefined} onExtend={onExtendDraft ? d => onExtendDraft(e, d) : undefined} endLabel={orderEndDay(e.order) === null ? null : formatShort(addDays(today, orderEndDay(e.order)!))} entry={e} title={main} lines={[detail]} onStopDraft={onStopDraft} drafted={draftedStops.includes(e.id)} />
                 {days.map((d) => {
                   const c = procedureCell(e, d, nowAbs);
                   return (

@@ -1,9 +1,11 @@
 "use client";
 
+import { StandingLineMenu } from "./StandingLineMenu";
+import { StandingOrderForm } from "./panels/StandingOrderForm";
 import { displayText } from "@/lib/display-text";
 import { StandingBulkStop } from "./StandingBulkStop";
 import { dragEnd, type StandingStopDraft } from "@/lib/standing-calendar";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { barMark, barCell, calendarRows, lineCalendarDays, whenText, type StandingLine } from "@/lib/standing-lines";
 import type { Patient } from "@/lib/types";
@@ -20,6 +22,9 @@ const COL_W = 44;
  * the line here (with a confirmation). Lines derived from the 項目で選ぶ fields are shown but stopped there.
  */
 export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpenPanel, onBulkStop, onEdit, onEndField, onAdd }: { patient: Patient; lines: StandingLine[]; today: CalendarDate; nowTime: string; onStop?: (id: string, reason: string, day?: number, kind?: "終了") => void; onOpenPanel?: () => void; onEdit?: (l: StandingLine) => void; onEndField?: (l: StandingLine) => void; onBulkStop?: (draft: StandingStopDraft) => void; onAdd?: (line: StandingLine) => void }) {
+  const [context, setContext] = useState<{ line: StandingLine; x: number; y: number } | null>(null);
+  const [adding, setAdding] = useState<{ after?: StandingLine } | null>(null);
+  const showMenu = (line: StandingLine, x: number, y: number) => setContext({ line, x, y });
   const [pending, setPending] = useState<{ line: StandingLine; end: number | null } | null>(null);
   const [endReason, setEndReason] = useState("");
   const propose = (line: StandingLine, end: number | null) => { setEndReason(""); setPending({ line, end }); };
@@ -78,12 +83,27 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
               </tr>
             )}
             {groups.map((g) => (
-              <GroupRows key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} today={today} nowPct={nowPct} onEnd={onAdd && !deny("order") ? propose : undefined} selected={selected} onToggle={canSelect ? toggle : undefined} />
+              <GroupRows onMenu={showMenu} key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} today={today} nowPct={nowPct} onEnd={onAdd && !deny("order") ? propose : undefined} selected={selected} onToggle={canSelect ? toggle : undefined} />
             ))}
           </tbody>
         </table>
 
       </div>
+      {context && <div className="fixed inset-0 z-50" onClick={() => setContext(null)} onContextMenu={e => { e.preventDefault(); setContext(null); }} onKeyDown={e => { if (e.key === "Escape") setContext(null); }}>
+        <div className="fixed" style={{ left: Math.min(context.x, Math.max(0, window.innerWidth - 216)), top: Math.min(context.y, Math.max(0, window.innerHeight - 210)) }}>
+          <StandingLineMenu line={context.line} canOrder={!deny("order")} canAdd={!!onAdd} onAction={i => {
+            const l = context.line; setContext(null);
+            if (i === 0) { if (onEdit) onEdit(l); else onOpenPanel?.(); }
+            if (i === 1) { if (l.fromFields) onEndField?.(l); else { setOpenId(l.id); setFinish(true); setEndDay(Math.max(0, l.start.day)); setReason(""); setConfirming(true); } }
+            if (i === 2 || i === 3) setAdding(i === 2 ? { after: l } : {});
+            if (i === 4) void navigator.clipboard?.writeText(displayText(l.text));
+          }} />
+        </div>
+      </div>}
+      {adding && onAdd && <div role="dialog" aria-label="指示を追加" className="max-h-[65vh] overflow-auto border-t border-rule bg-paper p-3">
+        <button type="button" className="float-right" onClick={() => setAdding(null)}>閉じる</button>
+        <StandingOrderForm initialCategory={adding.after?.cat} lines={lines.filter(l => !l.fromFields)} versions={[]} nowTime={nowTime} today={today} patientId={patient.id} fmtDay={fmtDay} newId={() => `standing-${crypto.randomUUID()}`} onAdd={l => { onAdd({ ...l, insertAfter: adding.after?.id }); setAdding(null); }} onStop={onStop ?? (() => {})} onEditFields={l => { if (l) onEdit?.(l); }} />
+      </div>}
       {pending && <div role="dialog" aria-label="終了日の変更" className="border-t border-rule bg-paper p-3 text-[12px]">
         <p>{displayText(pending.line.text.split("\n")[0])} を {pending.end === null ? "変えるまで続けます" : `${fmtDay(pending.end)}までにします`}</p>
         <label>理由（任意）<input autoFocus className="mx-2 rounded border border-rule bg-sheet px-2" value={endReason} onChange={(e) => setEndReason(e.target.value)} /></label>
@@ -156,7 +176,12 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
   );
 }
 
-function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, selected, onToggle, onEnd }: { today: CalendarDate; cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number; selected: string[]; onToggle?: (ids: string[]) => void; onEnd?: (line: StandingLine, end: number) => void }) {
+function GroupRows({ onMenu, today, cat, lines, days, last, openId, onChoose, nowPct, selected, onToggle, onEnd }: { onMenu: (line: StandingLine, x: number, y: number) => void; today: CalendarDate; cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number; selected: string[]; onToggle?: (ids: string[]) => void; onEnd?: (line: StandingLine, end: number) => void }) {
+  const hold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdPoint = useRef({ x: 0, y: 0 });
+  const held = useRef(false);
+  useEffect(() => () => { if (hold.current) clearTimeout(hold.current); }, []);
+  const cancelHold = () => { if (hold.current) clearTimeout(hold.current); hold.current = null; };
   const [preview, setPreview] = useState<{ id: string; end: number } | null>(null);
   const dragging = useRef<{ id: string; pointer: number; x: number; day: number; moved: boolean } | null>(null);
   const targetDay = (l: StandingLine, x: number) => dragEnd(l, Math.min(last, dragging.current!.day + Math.round((x - dragging.current!.x) / COL_W)), 0).end!;
@@ -172,7 +197,7 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
         const tone = l.changed ? "bg-tab text-ink-faint" : l.stop?.kind === "終了" ? "bg-tab text-ink-faint" : l.stop ? "bg-shu-soft/40 text-ink-faint line-through" : l.fromFields ? "bg-tab text-ink-soft" : l.start.day > 0 ? "border border-dashed border-ai/60 bg-sheet text-ai" : "bg-ai-soft text-ai";
         return (
           <tr key={l.id} className={chosen ? "bg-yamabuki-soft/30" : ""}>
-            <th scope="row" className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1 text-left align-top font-normal">
+            <th scope="row" onContextMenu={e => { e.preventDefault(); cancelHold(); onMenu(l, e.clientX, e.clientY); }} onPointerDown={e => { if (e.pointerType === "mouse") return; cancelHold(); held.current = false; holdPoint.current = { x: e.clientX, y: e.clientY }; hold.current = setTimeout(() => { held.current = true; onMenu(l, e.clientX, e.clientY); hold.current = null; }, 550); }} onPointerUp={cancelHold} onPointerCancel={cancelHold} onPointerMove={e => { if (Math.hypot(e.clientX - holdPoint.current.x, e.clientY - holdPoint.current.y) > 10) cancelHold(); }} onClickCapture={e => { if (held.current) { e.preventDefault(); e.stopPropagation(); held.current = false; } }} className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1 text-left align-top font-normal">
               {onToggle && !l.stop && !l.changed && !l.fromFields && <input type="checkbox" aria-label={displayText(`${l.text}を選択`)} checked={selected.includes(l.id)} onChange={() => onToggle([l.id])} />}
               <button type="button" onClick={() => onChoose(l.id)} aria-expanded={chosen} className={`block w-full truncate text-left hover:text-ai ${l.stop && l.stop.kind !== "終了" ? "text-ink-faint line-through" : ""}`} title={displayText(l.text)}>
                 {displayText(l.text.split("\n")[0])}

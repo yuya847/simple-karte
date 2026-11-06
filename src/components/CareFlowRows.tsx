@@ -1,5 +1,7 @@
 "use client";
 
+import { FlowRow } from "./FlowOrderedRows";
+import { careRowKey } from "@/lib/flow-layout";
 import { displayText } from "@/lib/display-text";
 import { careFlowMarks, careFlowRows, type CareFlowCell, type CareOrder, type CareRecord } from "@/lib/care-orders";
 import type { DayOffset } from "@/lib/types";
@@ -36,7 +38,7 @@ export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs,
         </div>
       )}
       {rows.map((r) => (
-        <div key={r.key} className="flex border-b border-rule-soft">
+        <FlowRow key={r.key} id={careRowKey(r.label)}><div className="flex border-b border-rule-soft">
           <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: labelW }}>
             {r.label}
             <div className="text-[9px] text-ink-faint">{r.sub}</div>
@@ -61,7 +63,7 @@ export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs,
                   );
                 })}
           </div>
-        </div>
+        </div></FlowRow>
       ))}
     </>
   );

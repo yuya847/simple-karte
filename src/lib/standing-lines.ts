@@ -22,6 +22,7 @@ export interface When {
 }
 
 export interface StandingLine {
+  insertAfter?: string;
   id: string;
   cat: LineCat;
   text: string;
@@ -122,6 +123,13 @@ export function calendarRows(lines: StandingLine[]): LineGroup[] {
   const key = (l: StandingLine) => abs(l.start.day, l.start.time ?? "00:00") * 10 + (l.fromFields ? 0 : 1);
   return LINE_CATS.flatMap((cat) => {
     const ls = lines.filter((l) => l.cat === cat).sort((a, b) => key(a) - key(b) || abs(a.at.day, a.at.time) - abs(b.at.day, b.at.time));
+    // Insert relative additions next to their source while retaining the ordinary date order.
+    for (const l of [...ls]) {
+      if (!l.insertAfter || l.insertAfter === l.id) continue;
+      const target = ls.find(x => x.id === l.insertAfter);
+      if (!target) continue;
+      ls.splice(ls.indexOf(l), 1); ls.splice(ls.indexOf(target) + 1, 0, l);
+    }
     return ls.length ? [{ cat, lines: ls }] : [];
   });
 }

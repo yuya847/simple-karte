@@ -1,6 +1,8 @@
 "use client";
 
 import { glucoseMark } from "@/lib/flow-observation";
+import { FlowOrderedRows, FlowRow } from "./FlowOrderedRows";
+import type { FlowLayout } from "@/lib/flow-layout";
 import { useState } from "react";
 import { displayText } from "@/lib/display-text";
 import { WARD_RULES, findDrug } from "@/lib/master";
@@ -82,13 +84,13 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom, onC
 }
 
 /** 血糖 (the values of each day, or each at its time when zoomed in) and one row per insulin order with its doses. */
-export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi, zoom, onGlucose, onInsulin, limits = { low: 70, high: 300 }, onLimits }: { limits?: { low: number; high: number }; onLimits?: (v: { low: number; high: number }) => void; onInsulin?: (e: React.MouseEvent<HTMLDivElement>, id: string) => void; points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number; zoom?: FlowZoom; onGlucose?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
+export function FlowGlucoseRows({ layout, points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi, zoom, onGlucose, onInsulin, limits = { low: 70, high: 300 }, onLimits }: { layout: FlowLayout; limits?: { low: number; high: number }; onLimits?: (v: { low: number; high: number }) => void; onInsulin?: (e: React.MouseEvent<HTMLDivElement>, id: string) => void; points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number; zoom?: FlowZoom; onGlucose?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
   const [limitDraft, setLimitDraft] = useState<{ low: string; high: string } | null>(null);
   const graphMax = Math.max(400, ...points.map(p => Math.ceil(p.value / 100) * 100));
   const thresholds = limitDraft ?? { low: String(limits.low), high: String(limits.high) };
   return (
-    <>
-      <Line label="血糖" sub="mg/dL" labelW={labelW} onPlot={onGlucose}>
+    <FlowOrderedRows layout={layout}>
+      <FlowRow id="glucose.value">{!layout.hidden.includes("glucose.value") && <Line label="血糖" sub="mg/dL" labelW={labelW} onPlot={onGlucose}>
         {zoom
           ? points
               .filter((p) => inZoom(zoom, p.at))
@@ -107,11 +109,12 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
                 </span>
               );
             })}
-      </Line>
-      <Line label="血糖グラフ" labelW={labelW} onPlot={onGlucose}>
+      </Line>}</FlowRow>
+      <FlowRow id="glucose.graph">{!layout.hidden.includes("glucose.graph") && <Line label="血糖グラフ" labelW={labelW} onPlot={onGlucose}>
         <svg width="100%" height={80} role="img" aria-label="血糖 mg/dL の点グラフ"><text x={2} y={10} fontSize={9}>{graphMax}</text><text x={2} y={77} fontSize={9}>0</text>{points.filter(p => p.at >= lo && p.at < hi).map((p, i) => <circle key={i} cx={xAbs(p.at)} cy={74 - p.value / graphMax * 68} r={4} fill={glucoseMark(p.value, limits) ? "#c33c36" : "#2a78d6"}><title>{p.title}</title></circle>)}</svg>
-      </Line>
+      </Line>}</FlowRow>
       {onLimits && <details className="px-2 py-1 text-xs"><summary>血糖の印</summary><label>低値 &lt; <input aria-label="血糖の低値閾値" type="number" className="w-16 border border-rule" value={thresholds.low} onChange={e => setLimitDraft({ ...thresholds, low: e.target.value })} /></label><label> 高値 &gt; <input aria-label="血糖の高値閾値" type="number" className="w-16 border border-rule" value={thresholds.high} onChange={e => setLimitDraft({ ...thresholds, high: e.target.value })} /></label><button type="button" disabled={!thresholds.low || !thresholds.high || Number(thresholds.low) < 0 || Number(thresholds.high) <= Number(thresholds.low)} onClick={() => { onLimits({ low: Number(thresholds.low), high: Number(thresholds.high) }); setLimitDraft(null); }}>保存</button></details>}
+      <FlowRow id="glucose.insulin">{!layout.hidden.includes("glucose.insulin") && <>
       {!insulin.length && <Line label="インスリン" sub="指示なし" labelW={labelW} />}
       {insulin.map((e) => {
         const drug = e.order.type === "injection" ? findDrug(e.order.items[0].drugCode) : undefined;
@@ -129,7 +132,8 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
         );
       })}
 
-    </>
+      </>}</FlowRow>
+    </FlowOrderedRows>
   );
 }
 

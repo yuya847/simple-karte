@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LAYOUT, FLOW_GROUPS, careShown, chooseSet, deleteSet, groupOrder, groupShown, moveGroup, parseLayout, saveSet, toggleCollapsed, toggleHidden } from "./flow-layout";
+import { DEFAULT_LAYOUT, FLOW_GROUPS, FLOW_ROWS, moveFlowRow, orderedRows, careShown, chooseSet, deleteSet, groupOrder, groupShown, moveGroup, parseLayout, saveSet, toggleCollapsed, toggleHidden } from "./flow-layout";
 import { parseFlowPrefs } from "./flow-prefs";
 
 describe("経過表の行の設定", () => {
@@ -40,4 +40,16 @@ describe("経過表の行の設定", () => {
     expect(parseLayout({ order: ["care", 1], sets: [{ name: "a", items: ["x", 2] }, { bad: true }], activeSet: "b" })).toEqual({ order: ["care"], hidden: [], collapsed: [], sets: [{ name: "a", items: ["x"] }], activeSet: null });
     expect(parseFlowPrefs(JSON.stringify({ layout: { hidden: ["vitals.rr"] } })).layout.hidden).toEqual(["vitals.rr"]);
   });
+});
+
+it("mainで増えた意識・血糖の行も並びと非表示を保存する", () => {
+  for (const group of ["vitals", "glucose"] as const) {
+    const rows = FLOW_ROWS[group]!;
+    const key = group === "vitals" ? "vitals.jcs" : "glucose.insulin";
+    const moved = moveFlowRow(DEFAULT_LAYOUT, rows.map(r => r.key), key, -1);
+    const saved = parseLayout(JSON.parse(JSON.stringify(toggleHidden(moved, key))));
+    expect(orderedRows(rows, saved).findIndex(r => r.key === key)).toBe(rows.findIndex(r => r.key === key) - 1);
+    expect(saved.hidden).toContain(key);
+  }
+  expect(FLOW_ROWS.vitals!.map(r => r.key)).toEqual(expect.arrayContaining(["vitals.acvpu", "vitals.jcs", "vitals.gcs"]));
 });

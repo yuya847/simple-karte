@@ -81,9 +81,9 @@ export function RefWindow({ tab, insulinEdit, onNewPrescription, onPrescriptionS
     case "flowsheet":
       return <FlowSheet key={patient.id} patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} {...flow} />;
     case "rxcal":
-      return <PrescriptionCalendar {...calendarProps} />;
+      return <><button type="button" className="text-xs text-ai" onClick={() => onNewOrder?.("rxcal")} disabled={!onNewOrder}>＋ 処方</button><PrescriptionCalendar {...calendarProps} /></>;
     case "proccal":
-      return <ProcedureCalendar {...calendarProps} />;
+      return <><button type="button" className="text-xs text-ai" onClick={() => onNewOrder?.("proccal")} disabled={!onNewOrder}>＋ 処置</button><ProcedureCalendar {...calendarProps} /></>;
     case "dietcal":
       return <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} dietEdit={dietEdit} moves={moves} onBook={onBook} onDoMove={onDoMove} />;
     case "standingcal":

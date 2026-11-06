@@ -3,6 +3,7 @@
 // `template:<id>` for one record template (テンプレート) that opens straight into its form.
 
 import { useSyncExternalStore } from "react";
+import { parseToolLayout, type ToolLayout } from "./tool-layout";
 
 export const RAIL_GROUP_KEYS = ["intervention", "examination", "nursing", "reference", "admin", "other"] as const;
 export type RailGroupKey = (typeof RAIL_GROUP_KEYS)[number];
@@ -13,6 +14,7 @@ export type RailMode = "icons" | "list";
 export type RailPin = string;
 
 export interface RailState {
+  layout?: ToolLayout;
   showAll?: boolean;
   mode: RailMode;
   group?: RailGroupKey;
@@ -31,8 +33,8 @@ const EMPTY: RailState = { group: "intervention", mode: "icons", pins: [] };
 
 export function loadRail(person: string): RailState {
   try {
-    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { showAll?: boolean; mode?: RailMode; pins?: unknown; group?: unknown } | null;
-    return { ...(o?.showAll === true ? { showAll: true } : {}), group: "intervention", mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
+    const o = JSON.parse(window.localStorage.getItem(`${RAIL_KEY}:${person}`) ?? "null") as { layout?: unknown; showAll?: boolean; mode?: RailMode; pins?: unknown; group?: unknown } | null;
+    return { ...(parseToolLayout(o?.layout) ? { layout: parseToolLayout(o?.layout) } : {}), ...(o?.showAll === true ? { showAll: true } : {}), group: "intervention", mode: o?.mode === "list" ? "list" : "icons", pins: Array.isArray(o?.pins) ? o!.pins!.filter((p): p is string => typeof p === "string") : [] };
   } catch {
     return EMPTY;
   }
@@ -44,7 +46,7 @@ const cache = new Map<string, RailState>();
 export function saveRail(person: string, v: RailState) {
   cache.set(person, v);
   try {
-    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify({ mode: v.mode, pins: v.pins, ...(v.showAll ? { showAll: true } : {}) }));
+    window.localStorage.setItem(`${RAIL_KEY}:${person}`, JSON.stringify({ ...(v.layout ? { layout: v.layout } : {}), mode: v.mode, pins: v.pins, ...(v.showAll ? { showAll: true } : {}) }));
   } catch {
     // Storage blocked: the choice lasts until the page is closed.
   }
