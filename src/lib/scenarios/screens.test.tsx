@@ -12,6 +12,7 @@ import { RehabView } from "@/components/RehabView";
 import { MealsView } from "@/components/MealsView";
 import { SupportBoard } from "@/components/SupportBoard";
 import { IjiBoard } from "@/components/IjiBoard";
+import { SpecialistBoard } from "@/components/SpecialistBoard";
 import { EMPTY_DESK } from "../lab-desk";
 import { EMPTY_REHAB } from "../rehab";
 import { DEFAULT_OPTIONS } from "../billing/model";
@@ -32,6 +33,7 @@ function screen(role: Role, n: number) {
     case "療法士": return <RehabView {...common} desk={EMPTY_REHAB} onDesk={noop} />;
     case "管理栄養士": return <MealsView {...common} title="病棟の食事" diets={SCENARIOS.diets} />;
     case "MSW": return <SupportBoard people={list} evals={{}} documents={[]} asks={SCENARIOS.asks} today={today} discharged={SCENARIOS.discharged} onOpen={noop} onStep={noop} />;
+    case "臨床工学技士": case "ICT": case "歯科衛生士": return <SpecialistBoard screen={role === "臨床工学技士" ? "equipment" : role === "ICT" ? "infection" : "oral"} administrations={[]} standingLines={{}} nowTime="12:00" diagnoses={SCENARIOS.diagnoses} people={list} surgeryIds={[]} me={STAFF[role]} onOpen={noop} onNote={noop} onRound={noop} />;
     case "医事課": return <IjiBoard patients={[person.patient]} desk={{ insurance: SCENARIOS.insurance, settled: {} }} diagnoses={SCENARIOS.diagnoses} today={today} nowTime="12:00" payload={() => [patientMonthPayload(person.patient, person.patient.history, SCENARIOS.diagnoses[person.patient.id], DEFAULT_OPTIONS)]} onOpen={noop} />;
   }
 }
