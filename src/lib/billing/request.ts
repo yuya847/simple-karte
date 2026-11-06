@@ -98,5 +98,6 @@ export const ReceiptRequest = z.object({
   today: IsoDate,
   nowTime: z.string().regex(/^\d{2}:\d{2}$/),
   month: Month,
-  patients: z.array(PatientMonthSchema).min(1).max(60),
+  // The evaluation ward has 100 patients; retain a bounded request size.
+  patients: z.array(PatientMonthSchema).min(1).max(100),
 });

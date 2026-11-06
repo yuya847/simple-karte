@@ -9,6 +9,9 @@ import { AddSurgeryPanel } from "./panels/AddSurgeryPanel";
 import { examReservationProblem } from "@/lib/exam-slots";
 import { upsertSessionNote } from "@/lib/rehab-record";
 
+import { ScenarioSaveProvider } from "./ScenarioSwitch";
+import { SCENARIOS } from "@/lib/scenarios";
+import { scenarioMode, scenarioStorageKey } from "@/lib/scenarios/mode";
 import { workspaceOn } from "@/lib/workspace";
 import { useNavHistory } from "@/lib/use-nav-history";
 import { migrateStandingLines, migrateStandingVersions } from "@/lib/standing-seeds";
@@ -61,9 +64,9 @@ import { BillingView } from "./BillingView";
 import { IjiBoard } from "./IjiBoard";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
-import { PATIENTS } from "@/lib/patients";
+import { PATIENTS as DEMO_PATIENTS } from "@/lib/patients";
 import { FLOORS, WARD_NAME, WARD_PLANS, floorOf, nurseFor, type BedAssignment, type Floor, type WardState } from "@/lib/ward";
-import { BEDS_WITH_CHARTS, OTHER_FLOOR_BEDS_WITH_CHARTS, WARD_CHART_DIETS, WARD_CHART_PATIENTS, withChartDiagnoses, withChartDiets } from "@/lib/ward-charts";
+import { BEDS_WITH_CHARTS as DEMO_BEDS_WITH_CHARTS, OTHER_FLOOR_BEDS_WITH_CHARTS as DEMO_OTHER_FLOOR_BEDS_WITH_CHARTS, WARD_CHART_DIETS, WARD_CHART_PATIENTS as DEMO_WARD_CHART_PATIENTS, withChartDiagnoses, withChartDiets } from "@/lib/ward-charts";
 import { admissionPlans, bedsAsOf, dayRange, dischargePlans, type WardAsOf } from "@/lib/ward-asof";
 import { currentEntries, ordersOf } from "@/lib/record";
 import { risRows, withExamRecords } from "@/lib/ris";
@@ -487,8 +490,8 @@ const anamnesisVersionsCount = (r?: AnamnesisRecord) => (r ? (r.earlier?.length 
 
 /** The admission consent of the team's patients (15:00) and of the other charts (at their admission note). */
 const admissionConsents = (): ConsentRecord[] =>
-  [...PATIENTS, ...WARD_CHART_PATIENTS].map((p) => {
-    const at = PATIENTS.includes(p) ? ["15:00", "15:30"] : [p.history[0]?.time ?? "15:00", p.history[0]?.time ?? "15:30"];
+  [...DEMO_PATIENTS, ...DEMO_WARD_CHART_PATIENTS].map((p) => {
+    const at = DEMO_PATIENTS.includes(p) ? ["15:00", "15:30"] : [p.history[0]?.time ?? "15:00", p.history[0]?.time ?? "15:30"];
     return { id: `consent-adm-${p.id}`, patientId: p.id, code: "CONSENT-ADMISSION", status: "同意", createdAt: { day: p.admittedOn, time: at[0] }, explainedAt: { day: p.admittedOn, time: at[1] }, explainedBy: p.attending, witness: "看護師（架空）", answers: {} };
   });
 
@@ -511,7 +514,7 @@ const LIST_TABS = ["mine", "all"] as const;
 const WARD_DEFAULTS_KEY = "simple-karte:ward-defaults-v2";
 function loadWardDefaults(): Record<string, WardTab[]> {
   try {
-    const v = typeof window === "undefined" ? null : window.localStorage.getItem(WARD_DEFAULTS_KEY);
+    const v = typeof window === "undefined" ? null : window.localStorage.getItem(scenarioStorageKey(WARD_DEFAULTS_KEY));
     const o: unknown = v ? JSON.parse(v) : {};
     if (!o || typeof o !== "object") return {};
     return Object.fromEntries(Object.entries(o as Record<string, unknown>).map(([role, tabs]) => [role, Array.isArray(tabs) ? [...new Set(tabs.flatMap((t) => (typeof t === "string" ? readWardTab(t) ?? [] : [])))] : []]));
@@ -521,7 +524,7 @@ function loadWardDefaults(): Record<string, WardTab[]> {
 }
 function saveWardDefaults(v: Record<string, WardTab[]>) {
   try {
-    window.localStorage.setItem(WARD_DEFAULTS_KEY, JSON.stringify(v));
+    window.localStorage.setItem(scenarioStorageKey(WARD_DEFAULTS_KEY), JSON.stringify(v));
   } catch {
     // Storage blocked (private window): the check works until the page is closed.
   }
@@ -529,6 +532,19 @@ function saveWardDefaults(v: Record<string, WardTab[]>) {
 const defaultsOf = (all: Record<string, WardTab[]>, role: Role): WardTab[] => (Array.isArray(all[role]) ? all[role] : []);
 
 export default function WardApp() {
+  const scenario = useSyncExternalStore<boolean | null>(noSubscribe, scenarioMode, () => null);
+  if (scenario === null) return null;
+  return <WardAppContent key={String(scenario)} scenario={scenario} />;
+}
+
+const NO_SCENARIO_PATIENTS: Patient[] = [];
+const NO_SCENARIO_BEDS: BedAssignment[] = [];
+
+function WardAppContent({ scenario }: { scenario: boolean }) {
+  const PATIENTS = scenario ? SCENARIOS.patients : DEMO_PATIENTS;
+  const WARD_CHART_PATIENTS = scenario ? NO_SCENARIO_PATIENTS : DEMO_WARD_CHART_PATIENTS;
+  const BEDS_WITH_CHARTS = scenario ? SCENARIOS.beds : DEMO_BEDS_WITH_CHARTS;
+  const OTHER_FLOOR_BEDS_WITH_CHARTS = scenario ? NO_SCENARIO_BEDS : DEMO_OTHER_FLOOR_BEDS_WITH_CHARTS;
   const todayKey = useSyncExternalStore(noSubscribe, clientToday, serverNull);
   const nowTime = useSyncExternalStore(everyFifteenSeconds, clientNow, serverNull);
   const [windowEntries, setWindowEntries] = useState<WindowEntries>({});
@@ -604,7 +620,7 @@ export default function WardApp() {
   const [leavePreset, setLeavePreset] = useState<number | null>(null);
   const [movesDone, setMovesDone] = useState<Record<string, string>>({});
   // 退院を実施した時, and the 退院 being confirmed (the checklist dialog).
-  const [discharged, setDischarged] = useState<Record<string, { day: number; time: string; by: string }>>({});
+  const [discharged, setDischarged] = useState<Record<string, { day: number; time: string; by: string }>>(() => scenario ? SCENARIOS.discharged : {});
   // 今日の尿量・排便・食事・体重 entered on the ward (added to each patient's record of today).
   const [extraDaily, setExtraDaily] = useState<Record<string, DailyAdd>>({});
   // 延長 confirmed in this session (for 指示受け), and the diet orders there were at the start.
@@ -619,7 +635,7 @@ export default function WardApp() {
   const [phsNotices, setPhsNotices] = useState<PhsNotice[]>([]);
   const [bedInfo, setBedInfo] = useState<Record<string, BedInfo>>({});
   // 転院・施設の調整: what was asked where, and each answer.
-  const [transferAsks, setTransferAsks] = useState<TransferAsk[]>([]);
+  const [transferAsks, setTransferAsks] = useState<TransferAsk[]>(() => scenario ? SCENARIOS.asks : []);
   // 指示受け: changes a nurse held to ask the doctor (by row key), with the doctor's answer.
   const [takeHolds, setTakeHolds] = useState<Record<string, TakeHold>>({});
   // 指示確認: after taking a change, the nurse looked at the schedule it makes (row key → "HH:MM 看護師 ◯◯").
@@ -636,11 +652,11 @@ export default function WardApp() {
   const [moveLog, setMoveLog] = useState<{ patientId: string; label: string; time: string }[]>([]);
   // Registered diagnoses per patient (official 傷病名マスター codes). Kept in this browser only.
   const [diagnosisUnmatched, setDiagnosisUnmatched] = useState<Record<string, string[]>>({});
-  const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(() => withChartDiagnoses(INITIAL_DIAGNOSES));
+  const [diagnoses, setDiagnoses] = useState<Record<string, Diagnosis[]>>(() => scenario ? SCENARIOS.diagnoses : withChartDiagnoses(INITIAL_DIAGNOSES));
   // 加算 that depend on the patient's state, entered by a person on the 算定 screen. Kept in this browser only.
   const [billing, setBilling] = useState<Record<string, BillingOptions>>({});
   // 医事課: the insurance registered per patient (every version) and 退院時の会計. Kept in this browser only.
-  const [iji, setIji] = useState<IjiDesk>(INITIAL_DESK);
+  const [iji, setIji] = useState<IjiDesk>(() => scenario ? { insurance: SCENARIOS.insurance, settled: {} } : INITIAL_DESK);
   // Consent forms (fictional). Every inpatient gave the admission consent on their admission day.
   const [consents, setConsents] = useState<ConsentRecord[]>(admissionConsents);
   // 指示受け by a nurse: change key → time. Kept in this browser only.
@@ -658,15 +674,15 @@ export default function WardApp() {
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
   const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(() => (typeof window === "undefined" ? {} : initialHdSessions(nowTimeInTokyo())));
   // Operating rooms (fictional schedule relative to now; kept in this browser only).
-  const [surgeries, setSurgeries] = useState<Surgery[]>(() => (typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
-  const [er, setEr] = useState<ErPatient[]>(() => (typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
+  const [surgeries, setSurgeries] = useState<Surgery[]>(() => (scenario ? SCENARIOS.surgeries : typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
+  const [er, setEr] = useState<ErPatient[]>(() => (scenario ? SCENARIOS.er : typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
   // 外来 today, the record written in each ED/outpatient tab, and the 入院申込 waiting on the wards.
-  const [opd, setOpd] = useState<OpdPatient[]>(() => [...OPD_PATIENTS, ...OTHER_DEPT_TODAY]);
+  const [opd, setOpd] = useState<OpdPatient[]>(() => scenario ? SCENARIOS.opd : [...OPD_PATIENTS, ...OTHER_DEPT_TODAY]);
   // 外来の受付: bookings on later days and the 診察券 issued today.
   const [opdDesk, setOpdDesk] = useState<OpdDeskBook>(EMPTY_OPD_DESK);
   // Orders confirmed on a visit's screen (救急外来・外来) in this session, by visit key; merged with the demo's.
-  const [visitOrders, setVisitOrders] = useState<Record<string, OrderEntry[]>>({});
-  const [visitNotes, setVisitNotes] = useState<Record<string, VisitNote[]>>({});
+  const [visitOrders, setVisitOrders] = useState<Record<string, OrderEntry[]>>(() => scenario ? SCENARIOS.visitOrders : {});
+  const [visitNotes, setVisitNotes] = useState<Record<string, VisitNote[]>>(() => scenario ? SCENARIOS.visitNotes : {});
   const [requests, setRequests] = useState<AdmissionRequest[]>(INITIAL_REQUESTS);
   // 外来処方（院外処方せん）と再診予約, per outpatient.
   const [opdRx, setOpdRx] = useState<Record<string, OpdRx[]>>({});
@@ -706,19 +722,19 @@ export default function WardApp() {
   // 経過表のグラフの付箋 (a note at a time point; its author takes it off).
   const [graphNotes, setGraphNotes] = useState<GraphNote[]>([]);
   // 身体的拘束 records (start, reviews each shift, end).
-  const [restraints, setRestraints] = useState<Restraint[]>(INITIAL_RESTRAINTS);
+  const [restraints, setRestraints] = useState<Restraint[]>(() => scenario ? SCENARIOS.restraints : INITIAL_RESTRAINTS);
   // 看護ケア指示 (care and observation orders by nurses), their 実施 records, and the 看護計画.
   const [careOrders, setCareOrders] = useState<CareOrder[]>(INITIAL_CARE_ORDERS);
   const [careRecords, setCareRecords] = useState<CareRecord[]>(initialCareRecords);
   const [nursingPlans, setNursingPlans] = useState<NursingProblem[]>(INITIAL_PLANS);
   // 指示簿 per patient, every version kept (the last one is in force).
-  const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(initialStanding);
+  const [standing, setStanding] = useState<Record<string, StandingOrders[]>>(() => scenario ? SCENARIOS.standing : initialStanding());
   // 条件付き指示 (指示簿): what a nurse did for each value that met one, by hit key.
   const [condAcks, setCondAcks] = useState<Record<string, CondAck>>({});
   // クリティカルパス: paths applied to patients, the outcome evaluations and the variances.
   const [paths, setPaths] = useState<PathBook>(EMPTY_PATHS);
   // 指示簿の行 (free-text lines) per patient; a stopped line stays as history.
-  const [standingLines, setStandingLines] = useState<Record<string, StandingLine[]>>(initialLines);
+  const [standingLines, setStandingLines] = useState<Record<string, StandingLine[]>>(() => scenario ? SCENARIOS.standingLines : initialLines());
 
   // Vital signs entered in this session (kept in this browser only), merged into each patient.
   const [extraVitals, setExtraVitals] = useState<Record<string, RecordedVital[]>>({});
@@ -736,11 +752,11 @@ export default function WardApp() {
   const [sessionStart, setSessionStart] = useState<number | null>(null);
   if (sessionStart === null && nowTime) setSessionStart(abs(0, nowTime));
   // Advance directives (history kept) and warnings added on the band.
-  const [directives, setDirectives] = useState<AdvanceDirective[]>(INITIAL_DIRECTIVES);
-  const [diets, setDiets] = useState<DietOrder[]>(() => [...INITIAL_DIETS, ...WARD_CHART_DIETS]);
+  const [directives, setDirectives] = useState<AdvanceDirective[]>(() => scenario ? SCENARIOS.directives : INITIAL_DIRECTIVES);
+  const [diets, setDiets] = useState<DietOrder[]>(() => scenario ? SCENARIOS.diets : [...INITIAL_DIETS, ...WARD_CHART_DIETS]);
   const [tdmReports, setTdmReports] = useState<TdmReport[]>([]);
   const [bRecords, setBRecords] = useState<BRecord[]>(INITIAL_B);
-  const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>({});
+  const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>(() => scenario ? SCENARIOS.discharges : {});
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   // 患者プロファイルの変更（アレルギー・感染症・禁忌・血液型・身長体重・介助）, every change kept.
   const [profileLog, setProfileLog] = useState<ProfileChange[]>([]);
@@ -748,7 +764,7 @@ export default function WardApp() {
   const [anamnesis, setAnamnesis] = useState<Record<string, AnamnesisRecord>>(INITIAL_ANAMNESIS);
   // Notes confirmed in this session, and corrected notes (by key, earlier versions inside).
   const [standingEdit, setStandingEdit] = useState<(StandingLine & { endSelected?: boolean; patientId: string }) | undefined>();
-  const [notes, setNotes] = useState<Record<string, NoteEntry[]>>({});
+  const [notes, setNotes] = useState<Record<string, NoteEntry[]>>(() => scenario ? SCENARIOS.visitChartNotes : {});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
   const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
   // Right-side tabs shown in their own window (別ウインドウ), and which window is in front.
@@ -934,7 +950,7 @@ export default function WardApp() {
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
         };
       }),
-    [admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoOrders, profileLog, care.demoEndo],
+    [PATIENTS, WARD_CHART_PATIENTS, admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoOrders, profileLog, care.demoEndo],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
@@ -960,8 +976,8 @@ export default function WardApp() {
     const ids = new Set([...PATIENTS, ...admitted].map((p) => p.id));
     if (role === "医師") for (const p of allPatients) if (!ids.has(p.id) && involved(me.name, doctorsOf(p.attending, doctorBook[p.id]))) ids.add(p.id);
     return ids;
-  }, [admitted, role, me.name, allPatients, doctorBook]);
-  // 医事課 and the receipt file stay the team's: the claim APIs take up to 60 patients in one request.
+  }, [PATIENTS, admitted, role, me.name, allPatients, doctorBook]);
+  // 医事課 and the receipt file stay the team's: the claim APIs take up to 100 patients in one request.
   const teamPatients = useMemo(() => allPatients.filter((p) => teamIds.has(p.id)), [allPatients, teamIds]);
   // 5階東 (and anyone moved from it or admitted today), and every floor's beds.
   const { ward, allBeds, everBeds } = useMemo(() => {
@@ -971,7 +987,7 @@ export default function WardApp() {
     const here = placed([...BEDS_WITH_CHARTS, ...newBeds]);
     // everBeds keeps the discharged too: the map and list of a past day find them by their last bed.
     return { ward: { beds: here, patient: findPatient } as WardState, allBeds: [...here, ...placed(OTHER_FLOOR_BEDS_WITH_CHARTS)], everBeds: moved([...BEDS_WITH_CHARTS, ...newBeds, ...OTHER_FLOOR_BEDS_WITH_CHARTS]) };
-  }, [newBeds, findPatient, moves, discharged]);
+  }, [BEDS_WITH_CHARTS, OTHER_FLOOR_BEDS_WITH_CHARTS, newBeds, findPatient, moves, discharged]);
 
   // What is in front: the ② tab (and its ③), and in it a chart, 新しいタブ, or its own screen.
   const owner: Owner | null = area === "ward" ? (wardTab === "menu" ? null : wardOwner(wardTab)) : area === "er" || area === "opd" ? area : null;
@@ -4442,6 +4458,7 @@ export default function WardApp() {
 
 
   return (
+    <ScenarioSaveProvider value={workspace.status === "off" ? null : workspace.saveNow}>
     <RoleProvider value={role}>
     <MeProvider value={me}>
     <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
@@ -4675,5 +4692,6 @@ export default function WardApp() {
     </VerbalReviewProvider>
     </MeProvider>
     </RoleProvider>
+    </ScenarioSaveProvider>
   );
 }

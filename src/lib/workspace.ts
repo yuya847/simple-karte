@@ -1,3 +1,4 @@
+import { scenarioMode, scenarioStorageKey } from "./scenarios/mode";
 // 記録の保存 (Supabase): the page's records, kept per workspace and per day. Without the two
 // NEXT_PUBLIC_SUPABASE_* variables nothing is saved (as before). Records are fictional test patients only.
 //
@@ -27,18 +28,19 @@ const isId = (s: string | null): s is string => !!s && /^[0-9a-f-]{36}$/i.test(s
 
 /** This browser's workspace: ?ws=<id> in the address (to open the same records elsewhere), else the one kept here. */
 export function workspaceId(): string {
-  const fromUrl = new URLSearchParams(window.location.search).get("ws");
+  const fromUrl = scenarioMode() ? null : new URLSearchParams(window.location.search).get("ws");
+  const store = scenarioStorageKey(STORE);
   if (isId(fromUrl)) {
     try {
-      window.localStorage.setItem(STORE, fromUrl);
+      window.localStorage.setItem(store, fromUrl);
     } catch {}
     return fromUrl;
   }
   try {
-    const kept = window.localStorage.getItem(STORE);
+    const kept = window.localStorage.getItem(store);
     if (isId(kept)) return kept;
     const made = crypto.randomUUID();
-    window.localStorage.setItem(STORE, made);
+    window.localStorage.setItem(store, made);
     return made;
   } catch {
     return crypto.randomUUID();

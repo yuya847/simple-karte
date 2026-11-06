@@ -7,6 +7,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Area, AreaKey } from "@/lib/nav";
 import { placeLabel, placeMenuRows } from "@/lib/place-menu";
+import { ScenarioSwitch } from "./ScenarioSwitch";
 import { ROLES, ROLE_LONG, STAFF, type Role } from "@/lib/roles";
 import type { Sex } from "@/lib/types";
 import { AREA_ICON, type Icon } from "./nav-icons";
@@ -491,6 +492,7 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
         </ul>
           </>
         )}
+        <ScenarioSwitch />
         {extractOn && (
           <button
             type="button"
