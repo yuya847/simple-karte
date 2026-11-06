@@ -25,18 +25,23 @@ describe("記事の文字列と行の往復", () => {
 });
 
 describe("行の操作", () => {
-  it("Enter splits the line and keeps the indent; under a ＃ line the new line is indented one step", () => {
+  it("Enter splits the line and keeps the indent; on a ＃ line the next ＃ comes (like a numbered list)", () => {
     const r = splitLine("A)\n＃1 尿路感染症", 1, 9);
-    expect(r.text).toBe("A)\n＃1 尿路感染症\n  ");
+    expect(r.text).toBe("A)\n＃1 尿路感染症\n＃ ");
     expect(r.text.slice(r.caret)).toBe("");
+    // Enter on an empty "＃n" ends the list: the marker goes and the line is the body of the problem above.
+    const end = splitLine("＃1 尿路感染症\n＃2 ", 1, 4);
+    expect(end.text).toBe("＃1 尿路感染症\n  ");
+    // The same at a deeper level: "＃1-1" Enter → "＃" at that level.
+    expect(splitLine("＃1 a\n  ＃1-1 b", 1, 9).text).toBe("＃1 a\n  ＃1-1 b\n  ＃ ");
     const mid = splitLine("  CRP 改善 継続", 0, 8);
     expect(mid.text).toBe("  CRP 改善\n  継続");
     expect(mid.text.slice(mid.caret)).toBe("継続");
     // An indent-only line loses its indent (stepping back out of the body).
     expect(splitLine("＃1 a\n  ", 1, 2).text).toBe("＃1 a\n\n");
-    // Enter in the middle of the text of a ＃ line: the rest goes down as the body.
+    // Enter in the middle of the text of a ＃ line: the rest goes down as the next problem.
     const head = splitLine("＃1 尿路感染症 CRP", 0, 8);
-    expect(head.text).toBe("＃1 尿路感染症\n  CRP");
+    expect(head.text).toBe("＃1 尿路感染症\n＃ CRP");
   });
 
   it("Backspace at the start joins the line to the one above; Delete at the end pulls the next one up", () => {

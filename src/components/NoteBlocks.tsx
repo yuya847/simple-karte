@@ -3,7 +3,8 @@
 import { GripVertical } from "lucide-react";
 import { useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
 import { indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
-import { isProblemLine } from "@/lib/note-problems";
+import { isProblemLine, problemMarkerEnd, stripProblemMarker } from "@/lib/note-problems";
+const leadingSpace = (l: string) => l.match(/^[ \t　]*/)![0];
 import { toggleMark } from "@/lib/note-edit";
 import { renumberProblems } from "@/lib/note-problems";
 import { expandAt, type Phrase } from "@/lib/phrases";
@@ -203,6 +204,17 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       const r = splitLine(cut, i, s);
       commit(numbered(r.text, r.caret));
       return;
+    }
+    // Backspace just after a problem's "＃n " marker removes the marker (the text stays), like a list bullet.
+    if (e.key === "Backspace" && !mod && s === en) {
+      const markerEnd = problemMarkerEnd(line);
+      if (markerEnd !== null && s > 0 && s <= markerEnd) {
+        e.preventDefault();
+        const bare = stripProblemMarker(line);
+        const r = replaceLine(text, i, bare, leadingSpace(bare).length);
+        commit(numbered(r.text, r.caret));
+        return;
+      }
     }
     if (e.key === "Backspace" && isDividerLine(line) && !mod) {
       e.preventDefault();

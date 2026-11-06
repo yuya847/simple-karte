@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveProblem, problemBlocks, problemTree, renumberProblems } from "./note-problems";
+import { moveProblem, problemBlocks, problemMarkerEnd, problemTree, renumberProblems, stripProblemMarker } from "./note-problems";
 import { isBlankNote, noteText, parseNote } from "./notes";
 
 describe("＃ のプロブレムの番号", () => {
@@ -102,5 +102,14 @@ describe("枝番", () => {
     expect(tree[0].children[0].children[0].path).toBe("1-1-1");
     expect(problemBlocks("＃1 肺炎\n  ＃1-1 培養")[1].number).toBe(2);
     expect(parseNote("＃1 肺炎\nD) 観察\n  ＃1-1 培養\nD) 採取").focus?.map((f) => f.title)).toEqual(["肺炎", "培養"]);
+  });
+});
+
+describe("＃ の記号を Backspace で消す", () => {
+  it("記号の終わりの位置と、記号を外した行", () => {
+    expect(problemMarkerEnd("  ＃1-1 ")).toBe(7);
+    expect(stripProblemMarker("  ＃1-1 ")).toBe("  ");
+    expect(stripProblemMarker("＃2 肺炎")).toBe("肺炎");
+    expect(problemMarkerEnd("肺炎")).toBeNull();
   });
 });

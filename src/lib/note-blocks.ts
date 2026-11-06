@@ -5,7 +5,7 @@
 // by renumberProblems after every move (note-problems.ts).
 
 import { indentLines, INDENT } from "./note-edit";
-import { isProblemLine, moveProblem, problemBlocks, renumberProblems } from "./note-problems";
+import { isProblemLine, moveProblem, problemBlocks, problemMarkerEnd, renumberProblems } from "./note-problems";
 
 /** The lines of a note; joining them with "\n" gives the text back exactly (a trailing "\n" is a last empty line). */
 export const toLines = (text: string) => text.split("\n");
@@ -52,6 +52,20 @@ export function splitLine(text: string, line: number, col: number): Edited {
   const c = Math.max(0, Math.min(col, cur.length));
   const head = cur.slice(0, c);
   const tail = cur.slice(c);
+  // Problems behave like a numbered list in Word or Notion: Enter on a problem makes the next "＃" at the same
+  // level (renumbered afterwards); Enter on an empty "＃n" ends the list — the marker goes and the line becomes
+  // the body of the problem above.
+  const markerEnd = problemMarkerEnd(cur);
+  if (markerEnd !== null && c >= markerEnd) {
+    if (!cur.slice(markerEnd).trim()) {
+      const body = leadingSpace(cur) + INDENT;
+      const out = fromLines([...lines.slice(0, line), body, ...lines.slice(line + 1)]);
+      return { text: out, caret: offsetOf(out, { line, col: body.length }) };
+    }
+    const marker = `${leadingSpace(cur)}＃ `;
+    const out = fromLines([...lines.slice(0, line), head.replace(/[ \t　]+$/, ""), marker + tail.replace(/^[ \t　]*/, ""), ...lines.slice(line + 1)]);
+    return { text: out, caret: offsetOf(out, { line: line + 1, col: marker.length }) };
+  }
   let indent: string;
   if (!head.trim() && !tail.trim()) indent = "";
   else if (isProblemLine(head)) indent = leadingSpace(head) + INDENT;

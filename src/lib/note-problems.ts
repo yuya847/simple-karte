@@ -9,6 +9,18 @@ const problemMatch = (line: string) => line.match(FULL);
 
 export const isProblemLine = (line: string) => problemMatch(line) !== null;
 
+/** Where the "＃n " marker ends on a problem line (the title starts there), or null for other lines. */
+export function problemMarkerEnd(line: string): number | null {
+  const m = problemMatch(line);
+  return m ? line.length - m[3].length : null;
+}
+
+/** The problem line without its marker (the indent kept): Backspace on the marker, like a list bullet in Word. */
+export function stripProblemMarker(line: string): string {
+  const m = problemMatch(line);
+  return m ? `${m[1]}${m[3]}` : line;
+}
+
 /** The line as "＃n title" (the indent and the title as written; an empty title keeps a space after the number). */
 function numbered(line: string, n: string): { text: string; prefix: number } {
   const m = problemMatch(line)!;
