@@ -64,6 +64,8 @@ export const TUBE_PRODUCTS = [
 export interface DietOrder {
   id: string;
   patientId: string;
+  /** Calendar change history, retained through drafts for an explicit undo order. */
+  change?: { previous: DietOrder; range: import("./diet-change").DietChangeRange };
   /** Effective from this meal; stays until the next order. */
   from: { day: DayOffset; meal: Meal };
   kind: DietKind;

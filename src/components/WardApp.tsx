@@ -239,7 +239,7 @@ import { FlowEntryPanel } from "./FlowEntryPanel";
 import { IoBoard } from "./IoBoard";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
-import { DietPanel } from "./panels/DietPanel";
+import { DietWindow } from "./DietWindow";
 import { DischargePanel } from "./panels/DischargePanel";
 import type { DischargeDraft } from "@/lib/discharge";
 import type { TdmReport } from "@/lib/tdm";
@@ -3675,23 +3675,7 @@ export default function WardApp() {
               {panel === "nutrition" && <Drawer title="栄養管理" onClose={closePanel} wide locked={deny("assess.nutrition")}><NutritionPanel onPlan={() => { setNutritionDoc(true); setPanel("docs"); }} key={patient.id} patient={patient} evaluation={evals[patient.id]} diets={diets} today={today} nowTime={nowTime} onSave={(e, text) => { setEvals(all => ({ ...all, [e.patientId]: e })); chartNote(patient.id, text); }} /></Drawer>}
               {panel === "diet" && (
                 <Drawer title="食事" onClose={closePanel} wide locked={deny("diet")}>
-                  <DietPanel
-                    patient={patient}
-                    today={today}
-                    nowTime={nowTime}
-                    doctor={me.name}
-                    onAdjust={(d) => { setDiets(all => [...all, d]); chartNote(patient.id, `食事の調整：${dietLabel(d)}`); closePanel(); }}
-                    diets={diets}
-                    entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
-                    onSave={(d) => {
-                      if (role === "管理栄養士") { setCharts(all => applyChart(all, patient.id, attendingDesk(patient.attending), c => ({ drafts: [...c.drafts, dietProposal(d, newId())] }))); closePanel(); return; }
-                      // A draft on the right, sent with the other orders by 保存 or オーダーのみ.
-                      const diet = { prohibited: d.prohibited, supplement: d.supplement, allergyNote: d.allergyNote, patientId: d.patientId, from: d.from, kind: d.kind, staple: d.staple, side: d.side, therapeutic: d.therapeutic, energyKcal: d.energyKcal, saltG: d.saltG, proteinG: d.proteinG, dysphagia: d.dysphagia, thickness: d.thickness, tube: d.tube, npoReason: d.npoReason, comment: d.comment };
-                      const when = `${d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の${d.from.meal}食から`;
-                      update((c) => ({ drafts: [...c.drafts, { id: newId(), origin: "manual", sourceText: `食事：${dietLabel(d)}（${when}）`, comment: null, kind: "diet", diet }], flash: `食事の変更を下書きにしました（${when}）。上の「オーダーのみ」か「保存」で飛びます。` }));
-                      closePanel();
-                    }}
-                  />
+                  <DietWindow patient={patient} today={today} nowTime={nowTime} diets={diets} entries={entries} dietEdit={refPropsOf(patient).dietEdit} />
                 </Drawer>
               )}
               {panel === "chat" && (
