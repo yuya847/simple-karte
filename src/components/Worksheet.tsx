@@ -306,10 +306,11 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
         ) : (
           <table className="w-full border-collapse">
             <tbody>
-              {running.map((r) => (
+              {running.map((r, i) => (
                 <tr key={r.orderId}>
-                  <td className={`${td} w-28`}>
-                    {r.room}　{r.name}
+                  {/* The patient once, over all of their lines (the list is in room order). */}
+                  <td className={`${td} w-28 align-top`}>
+                    {i === 0 || running[i - 1].name !== r.name || running[i - 1].room !== r.room ? <>{r.room}　{r.name}</> : null}
                   </td>
                   <td className={`${td} w-14`}>
                     <Kind kind={r.kind} />
