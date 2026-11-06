@@ -1,4 +1,5 @@
 "use client";
+import { SummaryCell, TodoCell } from "./NoteOverview";
 import { roomLabel } from "@/lib/place-label";
 
 // The columns of the ward patient list: one definition draws the heading, the full row (the viewer's team)
@@ -21,7 +22,7 @@ import type { Patient } from "@/lib/types";
 import { doctorFor, nurseFor, type BedAssignment, type WardPlan } from "@/lib/ward";
 import type { Expected } from "@/lib/ward-asof";
 
-export type SortKey = "room" | "name" | "day";
+export type SortKey = "todo" | "room" | "name" | "day";
 
 export interface Row {
   bed: BedAssignment;
@@ -244,6 +245,8 @@ export const COLUMNS: Column[] = [
         row.bed.other?.name
       ),
   },
+  { key: "shortSummary", label: "サマリ", full: ({ patient, onOpen }) => <SummaryCell id={patient.id} onOpen={onOpen} />, gray: ({ row, onOpen }) => row.patient ? <SummaryCell id={row.patient.id} onOpen={onOpen} /> : "—" },
+  { key: "todo", label: "ToDo", sort: "todo", full: ({ patient }) => <TodoCell id={patient.id} />, gray: ({ row }) => row.patient ? <TodoCell id={row.patient.id} /> : "—" },
   {
     key: "ageId",
     label: "年齢性別・ID",

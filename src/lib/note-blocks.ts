@@ -206,7 +206,7 @@ export const listMark = (line: string): string =>
 
 /** A line prefix (箇条・番号・チェック・引用・コールアウト) put on or taken off (the right-click menu). */
 export function toggleLinePrefix(line: string, prefix: string): string {
-  const m = line.match(/^([ \t　]*)(☐ |☑ |[-・] |\d+\. |> |💡 |❗ )?(.*)$/u)!;
+  const m = line.match(/^([ \t　]*)(☐ |☑ |[-・] |\d+\. |> |💡 |❗ |📋 )?(.*)$/u)!;
   const [, lead, had = "", body] = m;
   const same = had === prefix || (/^\d+\. $/.test(had) && /^\d+\. $/.test(prefix)) || (had === "☑ " && prefix === "☐ ");
   return lead + (same ? "" : prefix) + body;

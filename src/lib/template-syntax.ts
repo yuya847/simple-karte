@@ -1,5 +1,5 @@
 /** Template markup is parsed as text, never as HTML. Nested fields are deliberately rejected. */
-export const RESERVED_WORDS = ["患者ID", "氏名", "カナ", "年齢", "性別", "生年月日", "病棟", "部屋", "主治医", "主病名", "入院日", "入院日数", "今日", "今", "記載者", "職種", "身長", "体重", "BMI", "アレルギー", "直近の血液検査", "直近のバイタル", "内服", "検査:CRP"] as const;
+export const RESERVED_WORDS = ["サマリ", "患者ID", "氏名", "カナ", "年齢", "性別", "生年月日", "病棟", "部屋", "主治医", "主病名", "入院日", "入院日数", "今日", "今", "記載者", "職種", "身長", "体重", "BMI", "アレルギー", "直近の血液検査", "直近のバイタル", "内服", "検査:CRP"] as const;
 export type ComponentType = "combo" | "list" | "radio" | "check" | "number" | "time" | "date" | "text";
 export interface MarkupField { kind: "部品"; type: ComponentType; label: string; options: string[]; multiple: boolean; unit: string; defaultValue: string; required: boolean; id: string }
 export interface ReservedField { kind: "予約語"; name: string }

@@ -1,4 +1,6 @@
 "use client";
+import { CarryNote, NoteOverviewContext } from "./NoteOverview";
+import type { TodoCompletions } from "@/lib/note-overview";
 import { labWindowWidth } from "@/lib/panel-size";
 import { CardiacCathPanel } from "./panels/CardiacCathPanel";
 import { toggleInjectionDose, injectionRateDraft, stopTimesOf, type InjectionChange } from "@/lib/injection-change";
@@ -581,6 +583,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const todayKey = useSyncExternalStore(noSubscribe, clientToday, serverNull);
   const nowTime = useSyncExternalStore(everyFifteenSeconds, clientNow, serverNull);
   const [windowEntries, setWindowEntries] = useState<WindowEntries>({});
+  const [noteTodoDone, setNoteTodoDone] = useState<TodoCompletions>({});
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [orderWins, setOrderWins] = useState<string[]>([]);
@@ -925,6 +928,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       extraCautions: [extraCautions, setExtraCautions],
       profileLog: [profileLog, setProfileLog],
       anamnesis: [anamnesis, setAnamnesis],
+      noteTodoDone: [noteTodoDone, setNoteTodoDone],
       notes: [notes, setNotes],
       revised: [revised, setRevised],
       handoffs: [handoffs, setHandoffs],
@@ -4584,11 +4588,13 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
 
   return (
+    <NoteOverviewContext.Provider value={{ patientId: patient?.id, entriesOf: id => { const p = findPatient(id); return p ? currentEntries(p, { ...(sessionChanges[id] ?? { added: [], stopped: [] }), notes: notes[id], revised: revised[id] }) : []; }, role, done: noteTodoDone, complete: key => setNoteTodoDone(all => ({ ...all, [key]: all[key] ?? { by: me.name, at: new Date().toISOString() } })) }}>
     <ScenarioSaveProvider value={workspace.status === "off" ? null : workspace.saveNow}>
     <OrderHistoryContext.Provider value={{ ...orderUnlocks, entries: entries.filter((e): e is OrderEntry => e.kind === "order"), canEdit: role === "医師" && !deny("order"), ...historyOrderHandlers({ entries: entries.filter((e): e is OrderEntry => e.kind === "order"), locked: orderUnlocks.locked, canEdit: role === "医師" && !deny("order"), modifyInjection: modifyOrder, stopDraft: addStopDraft, load: e => doFromHistory({ kind: "order", entryId: e.id }) }) }}>
     <RoleProvider value={role}>
     <MeProvider value={me}>
     <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
+    {patient && <CarryNote id={patient.id} value={chart.note} onChange={note => update({ note })} />}
     {verbalConfirmation.dialog}
     <CosignRefs value={byRef(cosign)}>
     <div className="flex h-screen flex-col print:hidden">
@@ -4824,5 +4830,6 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     </RoleProvider>
     </OrderHistoryContext.Provider>
     </ScenarioSaveProvider>
+    </NoteOverviewContext.Provider>
   );
 }

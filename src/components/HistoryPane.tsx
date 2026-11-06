@@ -23,6 +23,7 @@ import { mapCursor, merge3Text } from "@/lib/diff3";
 import { coAuthors } from "@/lib/presence";
 import type { Coedit } from "@/lib/use-presence";
 import { LiveNote } from "./LiveNote";
+import { CompletedNote } from "./NoteOverview";
 import { NoteText } from "./NoteText";
 import { useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
@@ -902,7 +903,8 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
   );
 }
 
-function NoteBody({ n, part = "全" }: { n: Pick<NoteEntry, "soap" | "text" | "focus" | "timeline">; part?: NotePart }) {
+function NoteBody({ n, part = "全" }: { n: NoteEntry; part?: NotePart }) {
+  if (part === "全" && /[☐☑]|📋 /.test(noteText(n))) return <CompletedNote note={n} />;
   if (n.focus?.length) {
     const rows = [
       ["d", "D"],

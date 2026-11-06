@@ -1,5 +1,6 @@
 "use client";
 
+import { useNoteOverview } from "./NoteOverview";
 import { displayText } from "@/lib/display-text";
 import { ArrowRightLeft, Check, Loader2, Mic, Plus, Sparkles, Square, X } from "lucide-react";
 import { nursingShift } from "@/lib/nursing-shift";
@@ -111,7 +112,8 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
 function Card({ receiving, w, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { receiving: boolean; w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
   const me = useMe();
   const deny = useDeny()("handoff");
-  const [h, setH] = useState<Handoff>(() => saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo, role: me.role });
+  const overview = useNoteOverview(w.patient.id);
+  const [h, setH] = useState<Handoff>(() => saved ?? { ...emptyHandoff(`ho-${w.patient.id}-${Date.now()}`, w.patient.id, shift, me.name), shiftLo, role: me.role, summary: overview.summary, actions: overview.todos.map(t => ({ text: t.text })) });
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

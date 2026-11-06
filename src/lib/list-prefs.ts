@@ -3,9 +3,11 @@
 // column by default. Nothing here decides anything about a patient.
 
 /** The columns that can be turned off (病室 and 氏名 are always shown). */
-export type ListColumn = "ageId" | "day" | "dpc" | "team" | "flags" | "vitals" | "upcoming" | "results" | "orders";
+export type ListColumn = "shortSummary" | "todo" | "ageId" | "day" | "dpc" | "team" | "flags" | "vitals" | "upcoming" | "results" | "orders";
 
 export const LIST_COLUMNS: { key: ListColumn; label: string }[] = [
+  { key: "shortSummary", label: "サマリ" },
+  { key: "todo", label: "ToDo" },
   { key: "ageId", label: "年齢性別・ID" },
   { key: "day", label: "入院日数" },
   { key: "dpc", label: "DPC" },

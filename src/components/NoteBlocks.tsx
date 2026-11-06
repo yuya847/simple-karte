@@ -486,7 +486,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               </button>
             )}
             {!readOnly && line.trim() === "/" && activeLine === i && <div role="menu" aria-label="行のコマンド" className="absolute left-6 top-full z-30 flex flex-wrap gap-1 rounded border border-rule bg-sheet p-2 shadow">
-              {[["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["コールアウト", "💡 "], ["注意", "❗ "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
+              {[["サマリ", "📋 "], ["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["コールアウト", "💡 "], ["注意", "❗ "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
             </div>}
             <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""} ${style?.kind === "quote" ? "border-l-2 border-rule" : ""} ${style?.kind === "callout" ? `${calloutClass(style.marker)} my-0.5 py-1` : ""}`}>
               {style?.kind === "check" && <input aria-label={`${i + 1}行目のチェック`} type="checkbox" checked={style.checked} disabled={readOnly} onChange={() => commit(replaceLine(value, i, toggleCheck(line), style.prefix))} className="absolute left-2 top-1.5 z-10 size-4 accent-ai" style={{ marginLeft: `${style.indent.length * .5}em` }} />}
@@ -558,13 +558,14 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
   );
 }
 
-type MenuKind = "bold" | "italic" | "cut" | "copy" | "paste" | "・ " | "1. " | "☐ " | "> " | "💡 " | "❗ ";
+type MenuKind = "📋 " | "bold" | "italic" | "cut" | "copy" | "paste" | "・ " | "1. " | "☐ " | "> " | "💡 " | "❗ ";
 const MENU_ITEMS: [string, string, MenuKind][] = [
   ["太字", "⌘B", "bold"],
   ["斜体", "⌘I", "italic"],
   ["箇条書き", "・", "・ "],
   ["番号付き", "1.", "1. "],
   ["チェック", "[]", "☐ "],
+  ["サマリ", "📋", "📋 "],
   ["引用", ">", "> "],
   ["コールアウト", "💡", "💡 "],
   ["注意", "❗", "❗ "],

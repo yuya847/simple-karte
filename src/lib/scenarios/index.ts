@@ -110,6 +110,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
 
     const workflow = addWorkflow(patient, diagnoses, dischargeDay ?? 0, i);
     const clinicalDiets = addClinicalCourse(patient, clinical, dischargeDay ?? 0, i, destination, stage);
+    note(dischargeDay ?? 0, "医師", `📋 ${patient.admissionDiagnosis}。${clinical.assessment[2]}\nP)\n☐ ${clinical.plan[2]}\n${i % 3 ? "☐" : "☑"} 家族に病状説明\n☐ ${patient.admissionDiagnosis.includes("肺炎") || patient.admissionDiagnosis.includes("腎盂腎炎") ? "明日 CRP 再検" : "明日の症状と検査結果を確認"}`);
     // Fictional test cases on either side of CCr 20; no drug is chosen here.
     if ([21, 31].includes(i) && patient.age >= 18) {
       const last = [...patient.labs].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)).at(-1);

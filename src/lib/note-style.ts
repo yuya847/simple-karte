@@ -1,8 +1,8 @@
 export function noteLineStyle(line: string) {
-  const m = line.match(/^([ \t　]*)(☐ |☑ |[-・] |\d+\. |> |💡 |❗ )(.*)$/u);
+  const m = line.match(/^([ \t　]*)(☐ |☑ |[-・] |\d+\. |> |💡 |❗ |📋 )(.*)$/u);
   if (!m) return null;
   const marker = m[2];
-  return { indent: m[1], marker, body: m[3], prefix: m[1].length + marker.length, kind: marker.startsWith('☐') || marker.startsWith('☑') ? 'check' : marker === '> ' ? 'quote' : marker === '💡 ' || marker === '❗ ' ? 'callout' : 'list', checked: marker.startsWith('☑') };
+  return { indent: m[1], marker, body: m[3], prefix: m[1].length + marker.length, kind: marker.startsWith('☐') || marker.startsWith('☑') ? 'check' : marker === '> ' ? 'quote' : marker === '📋 ' || marker === '💡 ' || marker === '❗ ' ? 'callout' : 'list', checked: marker.startsWith('☑') };
 }
 export const noteSizeKey = (name: string) => `simple-karte:note-size:${name}`;
 export function readNoteSize(name: string): number {

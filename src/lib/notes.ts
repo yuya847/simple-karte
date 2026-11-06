@@ -79,6 +79,7 @@ function parseTimeline(text: string): NonNullable<NoteEntry["timeline"]> {
  */
 export function parseNote(raw: string): NoteContent {
   const text = raw.replace(/\s+$/, "");
+  if (text.startsWith("📋 ")) return { text };
   if (isFocusText(text)) {
     const focus = parseFocus(text);
     return focus.length ? { focus } : { text: "" };

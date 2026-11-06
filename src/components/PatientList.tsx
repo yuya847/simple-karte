@@ -4,7 +4,7 @@ import { roomLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
 import { ArrowDown, ArrowUp, Columns3, Search, SlidersHorizontal, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { upcomingToday } from "@/lib/calendar";
 import { abs } from "@/lib/flowsheet";
 import { addDays, formatShort, hospitalDay } from "@/lib/dates";
@@ -26,6 +26,9 @@ import { useFavorites } from "@/lib/use-favorites";
 import { planText, roomKey, visibleColumns, type Row, type SortKey } from "./patient-columns";
 import type { CalendarDate } from "@/lib/dates";
 import type { OrderEntry } from "@/lib/types";
+
+import { NoteOverviewContext, patientTodoDone } from "./NoteOverview";
+import { noteOverview } from "@/lib/note-overview";
 
 interface Props {
   expiryDone?: Record<string, { id: string }[]>;
@@ -109,6 +112,7 @@ export function PatientList(props: Props) {
 
 /** The list with its choices given (PatientList reads them for the person; tests pass them). */
 export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, expiryDone = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
+  const overview = useContext(NoteOverviewContext);
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [cond, setCond] = useState<ListFilter>(EMPTY_FILTER);
@@ -205,11 +209,12 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
     });
     const dir = sort.asc ? 1 : -1;
     return filtered.sort((a, b) => {
+      if (sort.key === "todo") return dir * (noteOverview(overview.entriesOf(b.patient?.id ?? ""), overview.role === "看護師" ? "看護師" : "医師", patientTodoDone(overview.done, b.patient?.id ?? "")).todos.length - noteOverview(overview.entriesOf(a.patient?.id ?? ""), overview.role === "看護師" ? "看護師" : "医師", patientTodoDone(overview.done, a.patient?.id ?? "")).todos.length);
       if (sort.key === "name") return dir * a.kana.localeCompare(b.kana, "ja");
       if (sort.key === "day") return dir * ((a.day ?? -1) - (b.day ?? -1));
       return dir * roomKey(a.bed).localeCompare(roomKey(b.bed));
     });
-  }, [all, facts, q, sort, cond]);
+  }, [all, facts, q, sort, cond, overview]);
 
   // 主治医別: a patient is listed under each of their doctors (主治医・担当医・コンサルト医), so none is missed.
   const groupsOf = (r: Row): string[] => {

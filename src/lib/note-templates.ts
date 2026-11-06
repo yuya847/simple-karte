@@ -525,6 +525,7 @@ export function reservedText(name: string, facts: TemplateFacts): string {
   const map: Record<string, () => string> = {
     患者ID: () => text(p.id), 氏名: () => text(p.name), カナ: () => text(p.kana), 年齢: () => String(p.age), 性別: () => p.sex,
     生年月日: () => facts.birthDate ?? (p.id ? isoDate(birthDateOf({ id: p.id, age: p.age }, facts.today)) : "（記録なし）"),
+    サマリ: () => "📋 ",
     病棟: () => text(p.ward), 部屋: () => text(p.room), 主治医: () => text(p.attending), 主病名: () => text(p.admissionDiagnosis),
     入院日: () => isoDate(addDays(facts.today, p.admittedOn)), 入院日数: () => String(hospitalDay(p.admittedOn, 0)),
     今日: () => formatShort(facts.today), 今: () => text(facts.now), 記載者: () => text(facts.author), 職種: () => text(facts.role),

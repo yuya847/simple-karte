@@ -1,3 +1,4 @@
+import { NOTE_OVERVIEW_HELP } from "./note-overview";
 import { templateSyntaxHelp } from "./template-syntax";
 import { FALL_RULES, FALL_SOURCES } from "../fall-reassess";
 import { R8 } from "../admit-eval";
@@ -23,7 +24,7 @@ const screens: HelpSection[] = [
   ...AREAS.filter((a) => a.key !== "ward").map((a) => ({ id: `screen:${a.key}`, title: a.label, bullets: bulletsFor(`screen:${a.key}`) })),
   ...WARD_TABS.map((t) => ({ id: `screen:${t.key}`, title: `病棟 › ${t.label}`, bullets: [...new Set([t.hint, ...bulletsFor(`screen:${t.key}`), ...(t.key === "falls" ? [FALL_SOURCES.teigen.label, FALL_SOURCES.teigen.url, R8.fall, ...Object.values(FALL_RULES)] : []), ...(t.key === "handoff" ? ["申し送りはこの端末のブラウザ内に保存します。重症度は送る人が選び、NEWS2 はカルテの事実を確認します。"] : [])])] })),
   { id: "screen:wardmenu", title: "病棟 › 画面を選ぶ", bullets: ["画面名を押して開きます。☆でよく使う画面を登録します。"] },
-  { id: "screen:chart", title: "患者のカルテ", bullets: ["上段の患者タブでカルテを切り替えます。", "右端のツールからオーダ・記録・文書を開きます。", "記事は内容を確認して「記事を確定」で保存します。"] },
+  { id: "screen:chart", title: "患者のカルテ", bullets: [NOTE_OVERVIEW_HELP, "上段の患者タブでカルテを切り替えます。", "右端のツールからオーダ・記録・文書を開きます。", "記事は内容を確認して「記事を確定」で保存します。"] },
   { id: "screen:visit", title: "受診のカルテ", bullets: ["記事・内服・注射はカルテの右側から入力します。検査は右端のツールから開きます。"] },
   ...Object.entries({ ...toolHelpLabels, ...referenceHelpLabels }).map(([key, title]) => ({ id: `panel:${key}`, title: `カルテ › ${title}`, bullets: bulletsFor(`panel:${key}`) })),
 ];
