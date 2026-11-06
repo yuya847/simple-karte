@@ -1,4 +1,5 @@
 "use client";
+import { roomLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
 import { bedProblem } from "@/lib/admission";
@@ -30,8 +31,7 @@ export function BedPicker({ ward, rooms = ROOMS, sex, value, onChange }: { ward:
             }`}
           >
             <b>
-              {displayText(room.no)}
-              {bed && `-${bed}`}
+              {roomLabel(displayText(room.no), bed)}
             </b>
             <div className={`text-[10px] ${chosen ? "text-white/80" : ""}`}>{problem ?? room.kind}</div>
           </button>

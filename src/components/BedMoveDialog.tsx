@@ -1,4 +1,5 @@
 "use client";
+import { roomLabel } from "@/lib/place-label";
 import { DayInput } from "./DayInput";
 import { TimeInput } from "@/components/TimeInput";
 
@@ -48,7 +49,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
   const iso = isolationFor(patient.infections);
   const askIso = !!iso && room?.kind === "4床室";
   const kind: BedMove["kind"] = to && floorOf(to.room) !== floorOf(from.room) ? "転棟" : "転床";
-  const label = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `${b.bed}` : ""}`;
+  const label = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${roomLabel(b.room, b.bed)}`;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" role="dialog" aria-label="転棟・転床">
       <div className="w-full max-w-2xl rounded-lg border border-rule bg-sheet p-4 text-[13px] shadow-xl">
@@ -67,8 +68,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
         </p>
         {initial && dropped && (
           <p className="mb-2 rounded bg-shu-soft px-2 py-1 font-bold text-shu">
-            {initial.room}
-            {initial.bed && `-${initial.bed}`} には移せません：{dropped}。下から空いているベッドを選んでください。
+            {roomLabel(initial.room, initial.bed)} には移せません：{dropped}。下から空いているベッドを選んでください。
           </p>
         )}
         <label className="mb-2 flex items-center gap-1.5 text-ink-soft">

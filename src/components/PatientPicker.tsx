@@ -1,4 +1,5 @@
 "use client";
+import { roomLabel } from "@/lib/place-label";
 
 import { IdCard, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,7 +28,7 @@ export function PatientPicker({ beds, patients, openIds, onOpen, onInfo, onClose
   const list = useMemo(() => {
     const s = q.trim();
     if (!s) return patients;
-    return patients.filter((p) => [p.name, p.kana, p.room, p.id, p.admissionDiagnosis, ...(beds ?? []).filter((b) => b.patientId === p.id).map((b) => `${b.room}${b.bed}`)].some((f) => f.toUpperCase().includes(s.normalize("NFKC").toUpperCase())));
+    return patients.filter((p) => [p.name, p.kana, p.room, p.id, p.admissionDiagnosis, ...(beds ?? []).filter((b) => b.patientId === p.id).map((b) => roomLabel(b.room, b.bed))].some((f) => f.toUpperCase().includes(s.normalize("NFKC").toUpperCase())));
   }, [q, patients, beds]);
 
   const at = Math.min(cursor, Math.max(list.length - 1, 0));

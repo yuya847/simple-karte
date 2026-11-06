@@ -1,3 +1,4 @@
+import { replacementBoundaries } from "./order-revisions";
 // The record as it stands now: the stored history, with today's stops applied and
 // today's confirmed orders added.
 
@@ -19,18 +20,22 @@ export interface SessionChanges {
 }
 
 export function currentEntries(patient: Patient, changes?: SessionChanges): HistoryEntry[] {
-  if (!changes) return patient.history;
+  changes ??= { added: [], stopped: [] };
   const stopped = new Set(changes.stopped);
   const stopOf = (e: OrderEntry): OrderEntry => ({ ...e, status: "中止", stoppedOn: 0, stoppedTime: changes.stopTimes?.[e.id] });
   const revised = changes.revised ?? {};
   const extended = changes.extended ?? {};
-  const endings = new Map([...patient.history.filter((e):e is OrderEntry=>e.kind === "order"),...changes.added].flatMap(e => e.order.type === "injection" && e.order.replaces ? [[e.order.replaces, e.order.start.day] as const] : []));
-  const truncate = (e: OrderEntry): OrderEntry => { const boundary=endings.get(e.id); return boundary !== undefined && e.order.type === "injection" ? {...e,order:{...e.order,end:{day:boundary-1,time:"24:00"},days:boundary-e.order.start.day}} : e; };
-  const ext = (original: OrderEntry): OrderEntry => { const e=truncate(original); return (extended[e.id] !== undefined && !endings.has(e.id) ? ({ ...e, order: { ...e.order, days: extended[e.id] } } as OrderEntry) : e); };
+  const all = [...patient.history.filter((e): e is OrderEntry => e.kind === "order"), ...changes.added];
+  const endings = replacementBoundaries(all);
+  const ext = (e: OrderEntry): OrderEntry => {
+    const next = endings.get(e.id);
+    if (next) return { ...e, status: "中止", stoppedOn: next.day, stoppedTime: next.time };
+    return extended[e.id] !== undefined ? { ...e, order: { ...e.order, days: extended[e.id] } } as OrderEntry : e;
+  };
   const note = (e: NoteEntry) => revised[noteKey(e)] ?? e;
-  const base = patient.history.map((e) => (e.kind === "order" ? (stopped.has(e.id) ? stopOf(ext(e)) : ext(e)) : e.kind === "note" ? note(e) : e));
+  const base = patient.history.map((e) => (e.kind === "order" ? ext(stopped.has(e.id) ? stopOf(e) : e) : e.kind === "note" ? note(e) : e));
   // An order confirmed earlier today can be stopped (or extended) later today too.
-  return [...base, ...(changes.notes ?? []).map(note), ...changes.added.map((e) => (stopped.has(e.id) ? stopOf(ext(e)) : ext(e)))];
+  return [...base, ...(changes.notes ?? []).map(note), ...changes.added.map((e) => ext(stopped.has(e.id) ? stopOf(e) : e))];
 }
 
 export const ordersOf = (entries: HistoryEntry[]) => entries.filter((e): e is OrderEntry => e.kind === "order");

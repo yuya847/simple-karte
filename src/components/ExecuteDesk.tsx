@@ -10,7 +10,7 @@ import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { NOT_DONE_REASONS,marKey,type AdminRecord,type NotDoneReason } from "@/lib/mar";
 import { EMPTY_STAMP, EXECUTE_DAYS, EXECUTE_NOTE, canExecuteOn, categoryOfWork, dayWindow, executeRecord, executeState, momentLabel, orderFields, SHEET_CATEGORIES, startLabel, takeStampOf, timeOfAbs, workTitle, type SheetCategory, type SheetField, type Stamp } from "@/lib/order-sheet";
-import { WARD_NAME } from "@/lib/ward";
+import { wardLabel } from "@/lib/place-label";
 import { buildWorksheet, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 import { PatientBand, SheetBand, SheetBlock, SheetNotes } from "./OrderSheet";
 import { useMe } from "./RoleContext";
@@ -97,7 +97,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
   };
   const fieldsOf = (i: WorkItem): SheetField[] => {
     const e = entryOf(i);
-    return [{ label: "この回", value: `${i.main}　${i.detail}` }, ...(e ? orderFields(e.order, today, WARD_NAME) : [])];
+    return [{ label: "この回", value: `${i.main}　${i.detail}` }, ...(e ? orderFields(e.order, today, wardLabel(i.room)) : [])];
   };
   const statusOf = (i: WorkItem) => {
     const r = records[keyOf(i)];

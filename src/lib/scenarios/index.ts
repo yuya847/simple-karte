@@ -1,4 +1,5 @@
 import { addScenarioAnesthesia } from "./anesthesia";
+import { replacementBoundaries } from "../order-revisions";
 import { nursingState } from "./nursing";
 import { addScenarioImaging } from "./imaging";
 import { addScenarioPhysiology } from "./physiology";
@@ -70,7 +71,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     const base = (required ? templates.find((t) => t.patient.admissionDiagnosis === required) : undefined) ?? templates[(i + (seed >>> 0) % PATIENTS.length) % PATIENTS.length];
     const stage: Stage = i % 10 === 0 ? "救急" : i % 10 === 8 ? "退院" : i % 10 === 9 ? "外来" : "入院";
     const drawnDuration = 1 + next() % 35;
-    const duration = i === 7 || i === 11 ? Math.max(14, drawnDuration) : i === 1 ? 105 : i === 12 ? 8 : [6, 14, 17, 18].includes(i) ? Math.max(i === 6 ? 21 : 8, drawnDuration) : drawnDuration;
+    const duration = i === 7 || i === 11 ? Math.max(14, drawnDuration) : i === 1 ? 12 : i === 16 ? 105 : i === 12 ? 8 : [6, 14, 17, 18].includes(i) ? Math.max(i === 6 ? 21 : 8, drawnDuration) : drawnDuration;
     const admittedOn = stage === "救急" ? 0 : stage === "外来" || stage === "退院" ? -duration - 7 : 1 - duration;
     const dischargeDay = stage === "退院" || stage === "外来" ? -7 : undefined;
     const shift = admittedOn - base.patient.admittedOn;
@@ -128,6 +129,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     }
     if (stage === "救急") patient.history = patient.history.map((e) => e.kind === "order" && e.order.type === "lab" && e.order.collect?.day === patient.admittedOn ? { ...e, order: { ...e.order, collect: { ...e.order.collect, time: scenarioTime(490 + Math.floor(i / 10) * 13) } } } : e);
     addPharmacyOrders(patient, i, stage);
+    replacementBoundaries(patient.history.filter((e): e is import("../types").OrderEntry => e.kind === "order"));
     patient.history.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
 
     const diets = clinicalDiets;
@@ -138,6 +140,13 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     if (form) insurance[id] = [{ form, insurance: toInsurance(form), action: "登録", by: "医事課", at: { day: admittedOn, time: "09:00" } }];
     return { patient, bed: slot.bed, diagnoses, diets, stage, destination, planned: stage !== "救急" && i % 3 === 0, ...workflow };
   });
+  const own = cases.filter(c => c.stage === "入院" && c.patient.attending === STAFF.医師.name);
+  for (const c of own.filter(c => c.patient.ward !== FLOORS[0].name)) {
+    const swap = cases.find(other => other.patient.ward === FLOORS[0].name && !own.includes(other) && other.patient.sex === c.patient.sex && other.patient.age >= 18 && !other.patient.pregnancy);
+    if (!swap) throw new Error("受け持ち患者の病棟を割り当てられません");
+    swap.patient.ward = c.patient.ward;
+    c.patient.ward = FLOORS[0].name;
+  }
   assignRooms(cases);
   const patients = cases.map((c) => c.patient);
   const physioDesk = addScenarioPhysiology(patients);
@@ -156,7 +165,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     visitChartNotes[key] = entries.filter((e): e is import("../types").NoteEntry => e.kind === "note").map((e) => ({ ...e, id: `${key}-${e.id}`, day: 0 }));
     visitNotes[key] = entries.filter((e) => e.kind === "note").map((e) => ({ text: e.text ?? Object.values(e.soap ?? {}).join("\n"), at: e.time, by: e.author }));
   }
-  const asks: TransferAsk[] = cases.filter((c) => c.destination === "回復期リハビリ病院" || c.destination === "療養病院").map(({ patient: p, destination }) => { const f = FACILITIES[destination === "回復期リハビリ病院" ? 0 : 1]; return { id: `${p.id}-transfer`, patientId: p.id, facility: f.name, kind: f.kind, state: p.dischargedAt ? "決定" : "打診中", log: [{ at: "入院後", by: "MSW", state: p.dischargedAt ? "決定" : "打診中", note: "本人・家族の希望を確認。診療情報・リハビリ申し送りを共有。" }] }; });
+  const asks: TransferAsk[] = cases.filter((c) => (c.destination === "回復期リハビリ病院" || c.destination === "療養病院") && (c.patient.dischargedAt || c.patient.admittedOn <= -7)).map(({ patient: p, destination }) => { const f = FACILITIES[destination === "回復期リハビリ病院" ? 0 : 1]; return { id: `${p.id}-transfer`, patientId: p.id, facility: f.name, kind: f.kind, state: p.dischargedAt ? "決定" : "打診中", log: [{ at: "入院後", by: "MSW", state: p.dischargedAt ? "決定" : "打診中", note: "本人・家族の希望を確認。診療情報・リハビリ申し送りを共有。" }] }; });
   const discharges = Object.fromEntries(cases.filter((c) => c.patient.dischargedAt).map((c) => {
     const d = createDischargeDraft(c.patient, c.patient.history, [], { y: 2026, m: 11, d: 6 });
     const clinical = clinicalProfile(Number(c.patient.id.slice(-4)) - 1);

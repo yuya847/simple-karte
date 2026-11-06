@@ -13,14 +13,13 @@ export const abs = (day: DayOffset, time: string) => day * 1440 + minutesOf(time
 export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number; to: number | null } {
   const o = entry.order as InjectionOrder;
   const from = abs(o.start.day, o.start.time ?? entry.time);
+  let to: number | null = o.end ? abs(o.end.day, o.end.time) : null;
+  if (o.days) to = Math.min(to ?? Infinity, o.dayPattern ? (o.start.day + o.days) * 1440 : from + o.days * 1440);
   if (entry.status === "中止") {
-    // Stops made today are at "now"; earlier stops are at the end of the day they were made.
-    const to = entry.stoppedOn === 0 || entry.stoppedOn === undefined ? nowAbs : (entry.stoppedOn + 1) * 1440;
-    return { from, to: Math.max(from, to) };
+    const stopped = entry.stoppedTime ? abs(entry.stoppedOn ?? 0, entry.stoppedTime) : entry.stoppedOn === 0 || entry.stoppedOn === undefined ? nowAbs : (entry.stoppedOn + 1) * 1440;
+    to = Math.min(to ?? Infinity, Math.max(from, stopped));
   }
-  if (o.end) return { from, to: abs(o.end.day, o.end.time) };
-  if (o.days) return { from, to: o.dayPattern ? (o.start.day + o.days) * 1440 : from + o.days * 1440 };
-  return { from, to: null };
+  return { from, to };
 }
 
 /** Prescribed times, per-day defaults, or every-N-hours occurrences inside [lo, hi). */

@@ -1,4 +1,5 @@
 "use client";
+import { roomLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
 import { BedDouble } from "lucide-react";
@@ -69,7 +70,7 @@ export function WardRequests({ floor, requests, ward, rooms, fmtDay, onAccept }:
                       onAccept(r, bed);
                       setOpen(null);
                     }} className="rounded-md bg-ai px-4 py-1.5 text-sm font-bold text-white disabled:opacity-40">
-                    {bed ? `${bed.room}${bed.bed ? `${bed.bed}` : ""} で入院を受ける` : "ベッドを選んでください"}
+                    {bed ? `${roomLabel(bed.room, bed.bed)} で入院を受ける` : "ベッドを選んでください"}
                   </button>
                   <button type="button" onClick={() => setOpen(null)} className="rounded-md border border-rule px-3 py-1.5 text-ink-soft">
                     やめる

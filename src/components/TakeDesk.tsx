@@ -11,7 +11,7 @@ import type { AdminRecord } from "@/lib/mar";
 import { CONFIRM_SOURCES, TAKE_SORTS, confirmPlan, elapsedLabel, groupByPatient, slipLines, sortTakeList, takeLate, unconfirmed, type Confirms, type TakeSort } from "@/lib/order-confirm";
 import { DONE_BAND_MS, EMPTY_STAMP, SHEET_CATEGORIES, TAKE_DAYS, categoryOfTake, doneBandText, doneStampOf, entryOfRow, momentLabel, sheetTitle, splitStamp, startLabel, takeFields, takeRowOnDay, type SheetCategory, type Stamp } from "@/lib/order-sheet";
 import type { TakeHold,TakeRow } from "@/lib/order-take";
-import { WARD_NAME } from "@/lib/ward";
+import { wardLabel } from "@/lib/place-label";
 import type { WorkPatient } from "@/lib/worksheet";
 import { Sources, usePrintSheet } from "./DeskParts";
 import { OrderSlipPrint } from "./OrderSlipPrint";
@@ -127,7 +127,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
     setChecked(new Set());
     setOpen(null);
   };
-  const printSlip = (g: { patientId: string; room: string; name: string }) => print(<OrderSlipPrint ward={WARD_NAME} patient={{ id: g.patientId, name: g.name, room: g.room }} day={0} today={today} nowTime={nowTime} by={me.name} lines={slipLines(rows, g.patientId, 0, ctx)} />, { portrait: true });
+  const printSlip = (g: { patientId: string; room: string; name: string }) => print(<OrderSlipPrint ward={wardLabel(g.room)} patient={{ id: g.patientId, name: g.name, room: g.room }} day={0} today={today} nowTime={nowTime} by={me.name} lines={slipLines(rows, g.patientId, 0, ctx)} />, { portrait: true });
 
   const stampsOf = (r: TakeRow): { start: Stamp; done: Stamp; take: Stamp } => {
     const e = entryOf(r);
@@ -135,7 +135,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
     return {
       start: e ? { at: startLabel(e.order, today), by: e.author } : { at: "", by: r.author },
       done: e ? doneStampOf(e.id, records) : EMPTY_STAMP,
-      take: isTaken(r) ? (takenHere(r) ? splitStamp(taken[r.keys.at(-1)!]) : { at: "", by: "前の勤務帯" }) : hold && !hold.answer ? { at: hold.at, by: `医師に確認中（${hold.by}）` } : EMPTY_STAMP,
+      take: isTaken(r) ? (takenHere(r) ? splitStamp(taken[r.keys.at(-1)!]) : EMPTY_STAMP) : hold && !hold.answer ? { at: hold.at, by: `医師に確認中（${hold.by}）` } : EMPTY_STAMP,
     };
   };
 
@@ -206,8 +206,8 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                     <PatientBand patient={person.patient} room={g.room}>
                       {isMine(g.room) && <span className="rounded bg-ai-soft px-1 text-[10px] font-bold text-ai">受け持ち</span>}
                       <span className="text-ink-soft">
-                        {w.length ? `未指示受け ${w.length}件` : "受け済み"}
-                        {g.rows.length - w.length > 0 ? `・受け済み ${g.rows.length - w.length}件` : ""}
+                        {w.length ? `未指示受け ${w.length}件` : `受け済み ${g.rows.length}件`}
+                        {w.length > 0 && g.rows.length - w.length > 0 ? `・受け済み ${g.rows.length - w.length}件` : ""}
                       </span>
                       {oldest !== null && (
                         <span className={`nums ${gLate ? "font-bold text-shu" : "text-ink-soft"}`}>
@@ -261,7 +261,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                           when={momentLabel(r.at, today, r.timeKnown)}
                           flags={flags}
                           stamps={stampsOf(r)}
-                          fields={takeFields(r, entryOf(r), today, WARD_NAME)}
+                          fields={takeFields(r, entryOf(r), today, wardLabel(r.room))}
                           struck={r.kind === "中止"}
                           status={
                             ok && takenHere(r) ? (

@@ -1,4 +1,5 @@
 "use client";
+import { wardLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
 import { coverageOf, rateLabel, type Insurance } from "@/lib/billing/insurance";
@@ -101,7 +102,7 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
         <dt className="text-ink-faint">ID</dt>
         <dd>{visit ? p.id.replace(/^(er|opd):/, "") : p.id}</dd>
         <dt className="text-ink-faint">{visit ? "場所" : "病棟"}</dt>
-        <dd>{visit ? p.ward : `${p.ward} ${roomLabel ?? p.room}`}</dd>
+        <dd>{visit ? p.ward : `${wardLabel(roomLabel ?? p.room)} ${roomLabel ?? p.room}`}</dd>
       </dl>
 
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">

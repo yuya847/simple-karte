@@ -48,7 +48,7 @@ export function useDpcBriefs(ids: string[], payloadOf: (id: string) => object | 
       fetch("/api/dpc/batch", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        signal: ctl.signal,
+        signal: AbortSignal.any([ctl.signal, AbortSignal.timeout(30000)]),
         body: JSON.stringify({ today: isoDate(today), nowTime, month, dpc: { coefficient: FICTIONAL_COEFFICIENT, transfer: null }, patients: part.map((w) => w.payload) }),
       })
         .then(async (res) => {

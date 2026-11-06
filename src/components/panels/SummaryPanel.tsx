@@ -64,7 +64,7 @@ function Handed({ list, onRedo }: { list: NurseSummary[]; onRedo: (s: NurseSumma
  * writer's own words, on one sheet to print or hand over. Nothing is written by AI. A nurse hands the
  * 看護サマリ in to the 看護師長 (退院・転院時・転棟時・中間).
  */
-export function SummaryPanel({ patient, facts, today, nowTime, onSave, nursing }: { patient: Patient; facts: SummarySection[]; today: string; nowTime: string; onSave: (to: Destination, words: string, facts: SummarySection[]) => void; nursing?: NursingSummaries }) {
+export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nursing }: { room?: string; patient: Patient; facts: SummarySection[]; today: string; nowTime: string; onSave: (to: Destination, words: string, facts: SummarySection[]) => void; nursing?: NursingSummaries }) {
   const me = useMe();
   const [to, setTo] = useState<Destination | null>(null);
   const [words, setWords] = useState("");
@@ -86,7 +86,7 @@ export function SummaryPanel({ patient, facts, today, nowTime, onSave, nursing }
           {to && needTo && <span className="ml-2 text-sm font-normal">宛先：{to}</span>}
         </h2>
         <p className="nums text-ink-soft">
-          {patient.name}（{patient.kana}）　{ageSex(patient)}　ID {patient.id}　{patient.ward} {patient.room}号室　主治医 {patient.attending}　作成 {today} {nowTime} {me.name}
+          {patient.name}（{patient.kana}）　{ageSex(patient)}　ID {patient.id}　{patient.ward} {room ?? patient.room}　主治医 {patient.attending}　作成 {today} {nowTime} {me.name}
         </p>
       </header>
       {facts.map((s) => (

@@ -22,22 +22,24 @@ describe("薬剤部の試験用オーダ", () => {
     expect(audit.some((a) => a.checks.some((c) => c.text.includes("同じ成分")))).toBe(true);
     expect(people.some((p) => p.entries.some((e) => orderInteractions(e, p.entries).some((f) => f.level === "併用禁忌")))).toBe(true);
   });
-  it("MRSAのVCMは1g・12時間ごとで退院前に終了し、トラフと看護観察がある", () => {
+  it("MRSAのVCMは1g・12時間ごとで、治療中の明日退院を作らない", () => {
     const p = people.find((p) => /MRSA|ＭＲＳＡ/.test(p.patient.admissionDiagnosis))!;
     const e = p.entries.find((e) => e.order.type === "injection" && e.order.items.some((i) => i.drugCode.startsWith("INJ-VCM")))!;
     expect(e.status).toBe("有効");
     if (e.order.type !== "injection") throw new Error("VCM order missing");
     expect(regimenFromOrder(e.order)).toMatchObject({ dose: 1000, tau: 12 });
-    expect(e.order.end).toEqual({ day: 1, time: "10:00" });
+    expect(p.entries.some(e => e.order.type === "procedure" && e.order.leave?.kind === "退院")).toBe(false);
     const doses = buildWorksheet([p], 1440, 2880, 720).timed.filter((r) => r.orderId === e.id);
-    expect(doses.map((r) => r.at)).toEqual([1440]);
+    expect(doses.every(r => r.at! < (e.order.type === "injection" && e.order.end ? (e.order.end.day + 1) * 1440 : Infinity))).toBe(true);
     expect(p.patient.labs.some((l) => l.values.VCM > 0)).toBe(true);
     expect(p.patient.history.some((e) => e.kind === "note" && e.role === "看護師" && e.focus?.some((f) => f.d?.includes("点滴刺入部")))).toBe(true);
   });
-  it("輸血3製剤、払出、麻薬施用票と返納がある", () => {
-    const products = people.flatMap((p) => p.entries.flatMap((e) => e.order.type === "procedure" && e.order.tx ? [e.order.tx.product] : []));
-    expect(new Set(products)).toEqual(new Set(["RBC", "FFP", "PC"]));
-    expect(Object.keys(SCENARIOS.txIssued).length).toBeGreaterThan(2);
+  it("血算の根拠のない輸血を作らず、麻薬施用票と返納がある", () => {
+    for (const p of people) for (const e of p.entries) if (e.order.type === "procedure" && e.order.tx) {
+      expect(e.order.tx.product).toBe("RBC");
+      expect(p.patient.admissionDiagnosis).toMatch(/消化管出血|憩室出血/);
+      expect(p.patient.labs.at(-1)?.values.Hb).toBeLessThan(8);
+    }
     expect(SCENARIOS.narcBook.slips.length).toBeGreaterThan(2);
     expect(SCENARIOS.narcBook.ledger.filter((e) => e.kind === "返納").length).toBeGreaterThan(2);
   });

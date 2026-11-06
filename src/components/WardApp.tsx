@@ -1,4 +1,9 @@
 "use client";
+import { standingPending } from "@/lib/standing-pending";
+import { roomLabel } from "@/lib/place-label";
+import { scenarioHandoffs } from "@/lib/scenarios/handoffs";
+import { nursingOxygen } from "@/lib/scenarios/nursing";
+import { replacementConflict } from "@/lib/order-revision-drafts";
 import { RehabPatients } from "./RehabPatients";
 import { wardRehabDesk } from "@/lib/rehab-workflow";
 import { nursingShiftStart } from "@/lib/nursing-shift";
@@ -730,7 +735,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 身体的拘束 records (start, reviews each shift, end).
   const [restraints, setRestraints] = useState<Restraint[]>(() => scenario ? SCENARIOS.restraints : INITIAL_RESTRAINTS);
   // 看護ケア指示 (care and observation orders by nurses), their 実施 records, and the 看護計画.
-  const [careOrders, setCareOrders] = useState<CareOrder[]>(INITIAL_CARE_ORDERS);
+  const [careOrders, setCareOrders] = useState<CareOrder[]>(() => scenario ? SCENARIOS.nursing.careOrders : INITIAL_CARE_ORDERS);
   const [careRecords, setCareRecords] = useState<CareRecord[]>(initialCareRecords);
   const [nursingPlans, setNursingPlans] = useState<NursingProblem[]>(() => scenario ? SCENARIOS.nursing.nursingPlans : INITIAL_PLANS);
   // 指示簿 per patient, every version kept (the last one is in force).
@@ -772,7 +777,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [standingEdit, setStandingEdit] = useState<(StandingLine & { endSelected?: boolean; patientId: string }) | undefined>();
   const [notes, setNotes] = useState<Record<string, NoteEntry[]>>(() => scenario ? SCENARIOS.visitChartNotes : {});
   const [revised, setRevised] = useState<Record<string, Record<string, NoteEntry>>>({});
-  const [handoffs, setHandoffs] = useState<Record<string, Handoff>>({});
+  const [handoffs, setHandoffs] = useState<Record<string, Handoff>>(() => scenario ? scenarioHandoffs(SCENARIOS.patients) : {});
   // Right-side tabs shown in their own window (別ウインドウ), and which window is in front.
   const [floating, setFloating] = useState<Partial<Record<RightTab, Win>>>({});
   // A past note or order is being dragged over the right side (Do).
@@ -1225,6 +1230,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (verbal && verbalConfirmationProblems(verbal).length) return;
     const examProblem = examReservationProblem(drafts, examPeople, dept.ris);
     if (examProblem) return update({ flash: examProblem });
+    const conflict = replacementConflict(drafts, entries.filter((e): e is OrderEntry => e.kind === "order"));
+    if (conflict) return update({ flash: conflict });
     const added: OrderEntry[] = [];
     const completed: OrderEntry[] = [];
     const stops: string[] = [];
@@ -1486,7 +1493,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       for (const i of buildWorksheet([x], 0, 2 * 1440, nowAbs).timed.filter((t) => t.kind === "検査")) out.push({ when: when(Math.floor(i.at! / 1440), `${String(Math.floor((i.at! % 1440) / 60)).padStart(2, "0")}:${String(i.at! % 60).padStart(2, "0")}`), sort: i.at!, room: x.room, name: x.patient.name, what: `検査：${i.main}` });
     }
     for (const sx of surgeries) if (sx.patientId && sx.day >= 0 && sx.day <= 1) out.push({ when: when(sx.day, sx.start), sort: sort(sx.day, sx.start), room: findPatient(sx.patientId)?.room ?? "", name: sx.name, what: "手術" });
-    for (const w of WARD_PLANS) out.push({ when: when(w.day, w.time), sort: sort(w.day, w.time), room: `${w.room}${w.bed}`, name: w.name, what: `${w.kind}（${w.department}）${w.note ? `：${w.note}` : ""}` });
+    for (const w of WARD_PLANS) out.push({ when: when(w.day, w.time), sort: sort(w.day, w.time), room: roomLabel(w.room, w.bed), name: w.name, what: `${w.kind}（${w.department}）${w.note ? `：${w.note}` : ""}` });
     return out.sort((a, b) => a.sort - b.sort);
   };
   // Doses the ward recorded as 未実施, for the claim ("orderId|minutes").
@@ -1607,7 +1614,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     });
 
   const sessionChanges = Object.fromEntries(Object.entries(charts).filter(([k]) => !k.includes("|")).map(([id, c]) => [id, { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[id], revised: revised[id] }]));
-  const examPeople = [...patientById.values()].map((p) => ({ patient: p, room: (() => { const b = allBeds.find((b) => b.patientId === p.id); return b ? `${b.room}${b.bed}` : p.room; })(), entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }));
+  const examPeople = [...patientById.values()].map((p) => ({ patient: p, room: (() => { const b = allBeds.find((b) => b.patientId === p.id); return b ? roomLabel(b.room, b.bed) : p.room; })(), entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }));
   // 注射の記憶: the doctor's own injections across patients (most used first) and this patient's previous ones (Do).
   const injMemory = patient
     ? {
@@ -1621,7 +1628,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (!discharged[p.id] || !teamIds.has(p.id)) return [];
     const b = [...BEDS_WITH_CHARTS, ...newBeds].find((x) => x.patientId === p.id);
     const at = moves[p.id] ?? b;
-    return [{ patient: p, room: at ? `${at.room}${at.bed}` : p.room, entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }];
+    return [{ patient: p, room: at ? roomLabel(at.room, at.bed) : p.room, entries: currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order") }];
   });
   // Only the team's: the other teams' charts open from the lists, but do not fill the worksheet or やること.
   const people: WorkPatient[] = ward.beds.flatMap((b) => {
@@ -1629,7 +1636,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (!p) return [];
     const entries = currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order");
     // 再採血 sent back by the laboratory are drawn again by the ward (worksheet, labels, 照合).
-    return [{ patient: p, room: `${b.room}${b.bed}`, entries: withRedraws(entries, labDesk, p.id) }];
+    return [{ patient: p, room: roomLabel(b.room, b.bed), entries: withRedraws(entries, labDesk, p.id) }];
   });
 
   // 指示受けがまだ: this session's new orders and stops that no nurse has taken yet.
@@ -1742,7 +1749,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     const x = people.find((y) => y.patient.id === pid);
     const p = x ? undefined : findPatient(pid);
     const b = p && allBeds.find((y) => y.patientId === pid);
-    return x ?? (p && b ? { patient: p, room: `${b.room}${b.bed}`, entries: withRedraws(currentEntries(p, sessionChanges[pid]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, pid) } : undefined);
+    return x ?? (p && b ? { patient: p, room: roomLabel(b.room, b.bed), entries: withRedraws(currentEntries(p, sessionChanges[pid]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, pid) } : undefined);
   };
   const bedsOn = (name: string) => allBeds.filter((b) => floorOf(b.room) === name);
   // 病棟マップ・入院患者一覧 of one ward on the day chosen (ward-asof.ts): today as it stands, a later day from the plans, a past day from the record.
@@ -1757,7 +1764,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const floorPeople = bedsOn(floor)
     .flatMap((b) => {
       const p = b.patientId ? findPatient(b.patientId) : undefined;
-      return p ? [{ id: p.id, name: p.name, room: `${b.room}${b.bed}`, infections: p.infections, rescue: bedInfo[p.id]?.rescue, patient: p }] : [];
+      return p ? [{ id: p.id, name: p.name, room: roomLabel(b.room, b.bed), infections: p.infections, rescue: bedInfo[p.id]?.rescue, patient: p }] : [];
     })
     .sort((a, b) => a.room.localeCompare(b.room));
   // 業務分担 of the shift going on now (5階東 has the 勤務表), for the map's rooms.
@@ -1841,7 +1848,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       if (condsMet[pid].length) out.push({ label: `条件付き指示 ${condsMet[pid].length}`, tone: "shu", title: condsMet[pid].map((h) => h.text).join("、") });
       const pa = activePath(paths, pid);
       if (pa) out.push({ label: `パス ${pathDayOf(pa, 0)}日目`, tone: "ai", title: `${findPath(pa.code)?.name ?? ""}（標準 ${findPath(pa.code)?.length ?? "?"}日）` });
-      if (standingNow(pid) && !standingNow(pid)!.taken) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
+      if (standingNow(pid) && standingPending(pid, others, taken, !!standingNow(pid)!.taken)) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
       out.push(...leaveFlags(x.entries));
       const rs = activeOf(restraints, pid);
       if (rs) out.push({ label: `身体的拘束中 ${durationText(minutesOf(rs, abs(0, nowTime)))}`, tone: "shu", title: `${rs.devices.join("・")}　${reviewDue(rs, abs(0, nowTime))?.text ?? ""}` });
@@ -1971,7 +1978,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     const rsNow = activeOf(restraints, pid);
     const due = rsNow ? reviewDue(rsNow, abs(0, nowTime)) : null;
     if (due?.late && (role === "看護師" || role === "医師")) todos.push({ key: `restraint-${pid}`, label: `身体的拘束の見直し：${x.patient.name}さん`, detail: due.text, count: 1, tone: "shu", go: () => (openPatient(pid), setPanel("restraint")) });
-    if (role === "看護師" && standingNow(pid) && !standingNow(pid)!.taken) todos.push({ key: `standing-${pid}`, label: `指示簿の指示受けがまだ：${x.patient.name}さん`, count: 1, tone: "yamabuki", go: () => openStanding(pid) });
+    if (role === "看護師" && standingNow(pid) && standingPending(pid, others, taken, !!standingNow(pid)!.taken)) todos.push({ key: `standing-${pid}`, label: `指示簿の指示受けがまだ：${x.patient.name}さん`, count: 1, tone: "yamabuki", go: () => openStanding(pid) });
     // 看護計画: evaluations due today or late (the day after midnight counts as the next day).
     const planDay = Math.floor(abs(0, nowTime) / 1440);
     if (role === "看護師") for (const np of dueEvaluations(nursingPlans, [pid], planDay)) todos.push({ key: `nplan-${np.id}`, label: `看護計画の評価：${x.patient.name}さん ${problemTitle(np)}`, detail: evalStatus(np, planDay)?.text, count: 1, tone: evalStatus(np, planDay)?.late ? "shu" : "yamabuki", go: () => (openPatient(pid), setPanel("nursing-plan")) });
@@ -2308,7 +2315,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           where={(pid) => {
             const b = bedsOn(floor).find((x) => x.patientId === pid);
             const p = b && findPatient(pid);
-            return p ? { name: p.name, room: `${b.room}${b.bed}` } : undefined;
+            return p ? { name: p.name, room: roomLabel(b.room, b.bed) } : undefined;
           }}
           onOpen={(id) => (openPatient(id), setPanel("pressure"))}
         />
@@ -3631,6 +3638,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "vitals" && (
                 <Drawer title="バイタル（看護師が入れる）" onClose={closePanel} locked={deny("vitals")}>
                   <VitalsPanel
+                    initialOxygen={nursingOxygen({ ...patient, history: entries }, flowReq?.kind === "vitals" ? dayTime(flowReq.at).day : 0, flowReq?.kind === "vitals" ? dayTime(flowReq.at).time : nowTime)}
                     key={flowReq?.kind === "vitals" ? flowReq.at : "now"}
                     defaultAt={flowReq?.kind === "vitals" ? dayTime(flowReq.at) : undefined}
                     fmtDay={(d) => formatShort(addDays(today, d))}
@@ -4033,9 +4041,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                       const dDay = leave && leave.order.type === "procedure" ? leave.order.leave!.from.day : null;
                       const drugs = entries.filter((e): e is OrderEntry => e.kind === "order" && e.status === "有効" && e.order.type === "prescription").map((e) => orderLines(e.order, today).main).join("、");
                       const base = { name: `${patient.name}（${ageSex(patient)}）`, diagnosis: dx, admitted: fmt(patient.admittedOn) };
-                      if (k === "栄養管理計画書") return { ...base, madeAt: fmt(0), ward: `${patient.ward} ${patient.room}号室` };
-                      if (k === "入院診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, attending: patient.attending, staff: `${nurseFor(patient.room)}（看護）` };
-                      if (k === "褥瘡対策に関する診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, ...pressurePlanAuto({ ulcers: nm.ulcers.filter((u) => u.patientId === patient.id), risk: riskFromEval(evals[patient.id]?.pressure), fmt }) };
+                      if (k === "栄養管理計画書") return { ...base, madeAt: fmt(0), ward: `${patient.ward} ${workOf(patient.id)?.room ?? patient.room}` };
+                      if (k === "入院診療計画書") return { ...base, ward: `${patient.ward} ${workOf(patient.id)?.room ?? patient.room}`, attending: patient.attending, staff: `${nurseFor(patient.room)}（看護）` };
+                      if (k === "褥瘡対策に関する診療計画書") return { ...base, ward: `${patient.ward} ${workOf(patient.id)?.room ?? patient.room}`, ...pressurePlanAuto({ ulcers: nm.ulcers.filter((u) => u.patientId === patient.id), risk: riskFromEval(evals[patient.id]?.pressure), fmt }) };
                       if (k === "退院証明書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", stay: dDay !== null ? `${stayDays(patient.admittedOn, dDay)}日` : "—", fee: "急性期一般入院料４" };
                       if (k === "退院療養計画書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", drugs: drugs || "なし" };
                       if (k === "退院支援計画書") {
@@ -4116,6 +4124,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "summary" && (
                 <Drawer title="連携サマリ・看護サマリ" onClose={closePanel} wide>
                   <SummaryPanel
+                    room={workOf(patient.id)?.room}
                     patient={patient}
                     today={formatShort(today)}
                     nowTime={nowTime}

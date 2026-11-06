@@ -27,6 +27,7 @@ export interface DailyInput {
 
 interface Props {
   nowTime: string;
+  initialOxygen?: string;
   last?: VitalSign;
   onSave: (v: VitalSign) => void;
   /** Today's 尿量・排便・食事・体重 so far, and the last weight before today. */
@@ -122,9 +123,9 @@ const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 
 
 /** Vital signs entry (typed or spoken). Claude copies the numbers; NEWS2 is code; the nurse confirms. */
-export function VitalsPanel({ nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo, defaultAt, fmtDay }: Props) {
+export function VitalsPanel({ initialOxygen, nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo, defaultAt, fmtDay }: Props) {
   const me = useMe();
-  const [f, setF] = useState<Form>(empty);
+  const [f, setF] = useState<Form>(() => ({ ...empty, o2: initialOxygen ?? "室内気" }));
   // 測った時刻: now, or the time of the flow sheet's cell (it can be changed, not later than now).
   const [when, setWhen] = useState<{ day: number; time: string } | null>(defaultAt ?? null);
   const whenOk = !when || (/^([01]\d|2[0-3]):[0-5]\d$/.test(when.time) && when.day * 1440 + minutesOf(when.time) <= minutesOf(nowTime));

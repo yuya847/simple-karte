@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { slipLines, takeBadge, type Confirms } from "@/lib/order-confirm";
 import type { TakeHold, TakeRow } from "@/lib/order-take";
-import { WARD_NAME } from "@/lib/ward";
+import { wardLabel } from "@/lib/place-label";
 import { usePrintSheet } from "./DeskParts";
 import { OrderSlipPrint } from "./OrderSlipPrint";
 import { TakeBadgeMark } from "./TakeConfirm";
@@ -67,7 +67,7 @@ export function TakeStatus({ rows, taken, isTaken, holds, confirms = {}, nowAbs,
       </ul>
       <div className="mt-1 flex flex-wrap items-center gap-2">
         {slip && (
-          <button type="button" onClick={() => print(<OrderSlipPrint ward={WARD_NAME} patient={slip.patient} day={0} today={slip.today} nowTime={slip.nowTime} by={slip.by} lines={slipLines(rows, slip.patient.id, 0, ctx)} />, { portrait: true })} className="flex items-center gap-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft">
+          <button type="button" onClick={() => print(<OrderSlipPrint ward={wardLabel(slip.patient.room)} patient={slip.patient} day={0} today={slip.today} nowTime={slip.nowTime} by={slip.by} lines={slipLines(rows, slip.patient.id, 0, ctx)} />, { portrait: true })} className="flex items-center gap-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft">
             <Printer size={12} />
             指示票を印刷（今日・A4）
           </button>

@@ -148,7 +148,7 @@ export function takeRows(changes: (OrderChange | OtherChange)[], people: WorkPat
     const flags: TakeRow["flags"] = {};
     if (kind !== "中止" && o.type === "lab" && o.priority === "至急") flags.urgent = "至急";
     else if (kind !== "中止" && startAbs !== null && startAbs - c.at <= 60) flags.urgent = "すぐ始まる（指示から60分以内）";
-    if (offHoursAt(c.at)) flags.offHours = "時間外の指示（日勤 8:30〜17:00 以外）";
+    if (offHoursAt(c.at)) flags.offHours = "時間外";
     const hr = highRiskOf(o);
     if (hr && kind !== "中止") flags.highRisk = hr;
     if (entry.verbal) flags.verbal = `口頭指示（${entry.verbal.doctor} → ${entry.verbal.takenBy}）`;

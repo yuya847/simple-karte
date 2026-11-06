@@ -47,7 +47,6 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
                 {items.map((t) => {
                   const Icon = WARD_ICON[t.key];
                   const isOpen = open.includes(t.key);
-                  const order = defaults.indexOf(t.key);
                   return (
                     <li key={t.key} className="flex flex-col rounded-lg border border-rule bg-sheet hover:border-ai">
                       <button ref={t.key === firstKey ? first : undefined} type="button" onClick={() => onOpen(t.key)} className="flex flex-1 items-start gap-3 rounded-t-lg px-3 py-2.5 text-left pointer-coarse:py-3.5">
@@ -61,11 +60,7 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
                           <span className="mt-0.5 block truncate text-[12px] text-ink-soft">{t.hint.split(/[。：（(]/)[0]}</span>
                         </span>
                       </button>
-                      <label className="flex cursor-pointer items-center gap-2 border-t border-rule-soft px-3 py-1.5 text-[12px] text-ink-soft pointer-coarse:py-2.5">
-                        <input type="checkbox" checked={order >= 0} onChange={() => onToggleDefault(t.key)} className="h-4 w-4 accent-ai" />
-                        最初に開く
-                        {order >= 0 && <span className="nums ml-auto text-[11px] text-ai">{order + 1}番目</span>}
-                      </label>
+
                     </li>
                   );
                 })}
@@ -73,7 +68,9 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
             </section>
           );
         })}
-
+        <details><summary className="cursor-pointer text-ink-soft">最初に開く画面の設定</summary>
+          <div className="mt-2 flex flex-wrap gap-3">{WARD_TABS.filter(t => options.includes(t.key)).map(t => <label key={t.key} className="flex items-center gap-1"><input type="checkbox" checked={defaults.includes(t.key)} onChange={() => onToggleDefault(t.key)} className="accent-ai" />{t.label}</label>)}</div>
+        </details>
       </div>
     </div>
   );

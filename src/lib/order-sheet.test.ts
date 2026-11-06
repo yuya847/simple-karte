@@ -151,7 +151,7 @@ describe("日時／者の欄", () => {
     const taken = { "a|新規": "11:00 看護師 佐藤" };
     expect(takeStampOf("a", taken, new Set(["a|新規"]))).toEqual({ at: "11:00", by: "看護師 佐藤" });
     expect(takeStampOf("b", {}, new Set(["b|新規"]))).toEqual({ at: "", by: "" });
-    expect(takeStampOf("c", {}, new Set())).toEqual({ at: "", by: "前の勤務帯" });
+    expect(takeStampOf("c", {}, new Set())).toEqual({ at: "", by: "" });
   });
 
   it("the latest 実施 of an order fills 実施日時／実施者", () => {

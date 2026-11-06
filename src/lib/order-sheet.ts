@@ -129,7 +129,7 @@ export function orderFields(o: Order, today: CalendarDate, place: string): Sheet
     put("1回の時間", o.minutesPerDose ? durationText(o.minutesPerDose) : undefined);
     put("速度", o.rateMlPerH ? `${o.rateMlPerH} mL/時` : undefined);
     put("指示開始", dayText(today, o.start.day, o.start.time));
-    put("日数", o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, false, today) : o.days ? `${o.days}日間` : "継続（変更まで）");
+    put("日数", o.schedule.kind === "once" ? undefined : o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, false, today) : o.days ? `${o.days}日間` : "継続（変更まで）");
     put("実施場所", place);
     put("コメント", o.comment);
   } else if (o.type === "prescription") {
@@ -172,7 +172,7 @@ export function orderFields(o: Order, today: CalendarDate, place: string): Sheet
     put("回数", procScheduleText(o.schedule));
     put("薬品", o.drug ? `${findProcDrug(o.drug.code)?.name ?? o.drug.code} ${o.drug.amount}${findProcDrug(o.drug.code)?.unit ?? ""}` : undefined);
     put("指示開始", dayText(today, o.start.day, o.start.time));
-    put("日数", o.schedule.kind === "continuous" ? undefined : o.days ? `${o.days}日間` : "継続（変更まで）");
+    put("日数", o.schedule.kind === "continuous" || o.schedule.kind === "once" ? undefined : o.days ? `${o.days}日間` : "継続（変更まで）");
     put("実施場所", place);
     put("コメント", o.comment);
   }
@@ -229,7 +229,7 @@ export function takeStampOf(orderId: string, taken: Record<string, string>, sess
   for (const kind of ["中止", "新規"] as const) {
     const k = changeKey(orderId, kind);
     if (taken[k]) return splitStamp(taken[k]);
-    if (!sessionKeys.has(k) && kind === "新規") return { at: "", by: "前の勤務帯" };
+    if (!sessionKeys.has(k) && kind === "新規") return EMPTY_STAMP;
   }
   return EMPTY_STAMP;
 }

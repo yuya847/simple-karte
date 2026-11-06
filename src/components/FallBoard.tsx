@@ -2,7 +2,7 @@
 
 import { displayText } from "@/lib/display-text";
 import { Footprints } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { FALL_RISKS, type ChecklistRecord } from "@/lib/admit-eval";
 import { fallChanges, fallDueList, fallSteps, type FallTrigger } from "@/lib/fall-reassess";
 import { useMe } from "./RoleContext";
@@ -29,7 +29,7 @@ function ReviewForm({ last, nowTime, onSave, onCancel }: { last?: ChecklistRecor
       <div className="flex flex-wrap gap-1">
         {FALL_RISKS.map((x) => (
           <label key={x} className={`flex cursor-pointer items-center gap-1 rounded border px-1.5 py-0.5 ${checked.includes(x) ? "border-ink bg-ink text-white" : "border-rule bg-sheet"}`}>
-            <input type="checkbox" className="sr-only" checked={checked.includes(x)} onChange={() => setChecked((c) => (c.includes(x) ? c.filter((y) => y !== x) : [...c, x]))} />
+            <input type="checkbox" className="accent-ai" checked={checked.includes(x)} onChange={() => setChecked((c) => (c.includes(x) ? c.filter((y) => y !== x) : [...c, x]))} />
             {x}
           </label>
         ))}
@@ -83,7 +83,7 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
             <th className="w-44 whitespace-nowrap px-2">前回の評価</th>
             <th className="px-2">危険因子</th>
             <th className="w-44 whitespace-nowrap px-2">次の評価</th>
-            <th className="w-40 px-2">理由</th>
+            <th className="w-40 px-2">危険因子の数</th>
             <th className="w-32 px-2" />
           </tr>
         </thead>
@@ -92,7 +92,7 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
             const p = patients.find((x) => x.id === r.patientId)!;
             const steps = fallSteps(p.first, p.reviews);
             return (
-              <tr key={r.patientId} className="border-b border-rule-soft align-top">
+              <Fragment key={r.patientId}><tr className="border-b border-rule-soft align-top">
                 <td className="px-2 py-1.5">
                   <button type="button" onClick={() => onOpen(p.id)} className="text-left font-bold text-ai underline-offset-2 hover:underline">
                     {p.room} {p.name}
@@ -119,8 +119,9 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
                   <span className={`rounded px-1.5 py-0.5 font-bold ${STATE_STYLE[r.state]}`}>
                     {rel(r.dueOn)}（{r.state}）
                   </span>
+                  <div className="text-[11px] text-ink-soft">{r.reasons.join("・")}</div>
                 </td>
-                <td className="px-2 text-[11px]">{r.reasons.join("・")}</td>
+                <td className="px-2 text-[11px]">{r.last ? `${r.last.checked.length}項目` : "—"}</td>
                 <td className="px-2">
                   {canRecord && r.last && open !== p.id && (
                     <button type="button" onClick={() => setOpen(p.id)} className="rounded border border-ai px-2 py-0.5 text-ai hover:bg-ai hover:text-white">
@@ -128,7 +129,10 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
                     </button>
                   )}
                   {!r.last && <span className="text-[11px] text-ink-faint">入院時の評価で入れます</span>}
-                  {open === p.id && (
+
+                </td>
+              </tr>
+              {open === p.id && <tr><td colSpan={6} className="p-3">
                     <ReviewForm
                       last={r.last}
                       nowTime={nowTime}
@@ -138,9 +142,8 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
                         setOpen(null);
                       }}
                     />
-                  )}
-                </td>
-              </tr>
+                  </td></tr>}
+              </Fragment>
             );
           })}
         </tbody>

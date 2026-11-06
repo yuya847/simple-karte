@@ -1,4 +1,5 @@
 "use client";
+import { wardLabel } from "@/lib/place-label";
 
 // 患者基本情報: the window opened by double-clicking the patient's name (iPad: a long press). Everything
 // known about the person in one place — ID・氏名・生年月日・性別・血液型・体格・科と医師・病棟・入院, the
@@ -186,7 +187,7 @@ export function PatientInfoPanel({ roomLabel, initialSection, patient: p, today,
             </div>
           </Row>
           <Row label={visit ? "場所" : "病棟・部屋"} by={base}>
-            {visit ? p.ward : `${p.ward} ${roomLabel ?? p.room}`}
+            {visit ? p.ward : `${wardLabel(roomLabel ?? p.room)} ${roomLabel ?? p.room}`}
           </Row>
           <Row label={visit ? "受診日" : "入院日"} by={base}>
             <span className="nums">

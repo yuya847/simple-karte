@@ -888,7 +888,8 @@ function injectionDoses(e: OrderEntry, lo: number, hi: number, nowAbs: number, b
   }
   const from = abs(o.start.day, o.start.time ?? e.time);
   let to = Infinity;
-  if (e.status === "中止") to = e.stoppedOn === undefined || e.stoppedOn === 0 ? nowAbs : (e.stoppedOn + 1) * DAY;
+  if (e.status === "中止") to = e.stoppedTime ? abs(e.stoppedOn ?? 0, e.stoppedTime) : e.stoppedOn === undefined || e.stoppedOn === 0 ? nowAbs : (e.stoppedOn + 1) * DAY;
+  if (o.end) to = Math.min(to, abs(o.end.day, o.end.time));
   if (o.days) to = Math.min(to, from + o.days * DAY);
   const start = Math.max(lo, from);
   const end = Math.min(hi, to);
@@ -917,7 +918,7 @@ function scheduledTaken(e: OrderEntry, lo: number, hi: number, nowAbs: number, b
   const firstTiming = o.start.timing ?? o.timings[0];
   const from = abs(o.start.day, times[firstTiming]);
   let to = o.days ? o.dayPattern ? (rxLastDay(o, base)! + 1) * DAY : from + o.days * DAY : Infinity;
-  if (e.status === "中止") to = Math.min(to, e.stoppedOn === undefined || e.stoppedOn === 0 ? nowAbs : (e.stoppedOn + 1) * DAY);
+  if (e.status === "中止") to = Math.min(to, e.stoppedTime ? abs(e.stoppedOn ?? 0, e.stoppedTime) : e.stoppedOn === undefined || e.stoppedOn === 0 ? nowAbs : (e.stoppedOn + 1) * DAY);
   const day = Math.floor(lo / DAY);
   if (!patternDay(o.dayPattern, o.start.day, day, base)) return [];
   return o.timings.filter((t) => {

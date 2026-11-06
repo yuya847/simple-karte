@@ -1602,6 +1602,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     const size = a.formula && (d.size.lengthCm !== null || d.size.areaCm2 !== null) ? a.formula.split(" = ")[0] : null;
     const order: ProcedureOrder = {
       type: "procedure",
+      replaces: d.duplicate?.action === "replace" ? d.duplicate.orderId : undefined,
       code: m.code,
       site: d.site ?? undefined,
       area: m.needs.includes("area") ? a.area! : undefined,
@@ -1627,6 +1628,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     const plan = ratePlan(d);
     const order: InjectionOrder = {
       type: "injection",
+      replaces: d.duplicate?.action === "replace" ? d.duplicate.orderId : undefined,
       items: d.items.map((it) => ({ drugCode: it.drugCode!, amount: it.amount!, unit: it.unit ?? "" })),
       route: effectiveRoute(d)!,
       dayPattern: d.dayPattern,

@@ -52,7 +52,7 @@ describe("実施入力の画面", () => {
     expect(html).toContain("指示開始日時");
     expect(html).toContain("実施日時");
     expect(html).toContain("指示受け日時：</span><span class=\"nums\">11:00");
-    expect(html).toContain("前の勤務帯"); // the prescription was taken before this session
+    expect(html).not.toContain("前の勤務帯"); // no timestamp or receiver is invented
     expect(html).toContain("手技</dt><dd class=\"nums\">点滴静注");
     expect(html).toContain("薬品</dt><dd class=\"nums\">メトホルミン");
     expect(html).toContain("実施した");

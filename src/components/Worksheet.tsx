@@ -102,7 +102,7 @@ export function Worksheet({ standingMeasurements, remeasureVitals, onMeasure, pe
   const isTaken = (c: { key: string }) => !sessionKeys.has(c.key) || !!taken[c.key];
   // 指示受け rows: a 修正 as one 変更 row, flags, related orders; urgent and not yet taken first.
   const isRowTaken = (r: TakeRow) => r.keys.every((k) => isTaken({ key: k }));
-  const rows = sortRows(takeRows(changes, people, today), isRowTaken);
+  const rows = sortRows(takeRows(changes, people, today), isRowTaken).sort((a, b) => a.at - b.at);
   const waiting = rows.filter((r) => !isRowTaken(r)).length;
   // まとめて受ける: only rows that may be taken in bulk (not one-at-a-time ones, not held).
   const bulk = rows.filter((r) => !isRowTaken(r) && r.mustOne.length === 0 && !(holds[r.key] && !holds[r.key].answer));
@@ -293,7 +293,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
       )}
 
       <Section title={`指示の変更（昨日と今日）　指示受けがまだ ${rows.filter((r) => !isRowTaken(r)).length}件${notConfirmed ? `　受けたが予定の確認がまだ ${notConfirmed}件` : ""}`}>
-        {rows.length === 0 ? <Empty>変更はありません</Empty> : <TakeTable rows={rows} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} />}
+        {rows.length === 0 ? <Empty>変更はありません</Empty> : <><TakeTable rows={rows.filter(r => !isRowTaken(r))} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} /><details><summary className="cursor-pointer py-2">受け済み {rows.filter(isRowTaken).length}件</summary><TakeTable rows={rows.filter(isRowTaken)} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} /></details></>}
       </Section>
 
       <Section title="勤務のあいだ続くもの（点滴・酸素・留置）">

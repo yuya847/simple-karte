@@ -162,7 +162,7 @@ export function procedureLines(order: ProcedureOrder, today: CalendarDate): { ma
     parts.push(`${d?.name ?? order.drug.code} ${order.drug.amount}${d?.unit ?? ""}`);
   }
   parts.push(`開始 ${formatShort(addDays(today, order.start.day))}${order.start.time ? ` ${order.start.time}` : ""}`);
-  if (order.schedule.kind !== "continuous") parts.push(order.days ? `${order.days}日間` : "継続");
+  if (order.schedule.kind !== "continuous" && order.schedule.kind !== "once") parts.push(order.days ? `${order.days}日間` : "継続");
   if (order.comment) parts.push(order.comment);
   return { main: procedureTitle(order), detail: parts.join("　") };
 }

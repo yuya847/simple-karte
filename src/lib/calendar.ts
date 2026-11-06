@@ -69,7 +69,7 @@ function rxWindow(entry: OrderEntry, nowAbs: number): { from: number; to: number
   let to = o.days ? (o.start.day + o.days) * 1440 + (firstTiming ? abs(0, WARD_RULES.medTimes[firstTiming]) : 0) : Infinity;
   if (o.dayPattern && o.days) to = (rxLastDay(o)! + 1) * 1440;
   if (entry.status === "中止") {
-    const stop = entry.stoppedOn === undefined || entry.stoppedOn === 0 ? nowAbs : (entry.stoppedOn + 1) * 1440;
+    const stop = entry.stoppedTime ? abs(entry.stoppedOn ?? 0, entry.stoppedTime) : entry.stoppedOn === undefined || entry.stoppedOn === 0 ? nowAbs : (entry.stoppedOn + 1) * 1440;
     to = Math.min(to, stop);
   }
   return { from, to };
@@ -120,14 +120,14 @@ export function procedureCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   return cell;
 }
 
-/** Short list of what is still ahead today (and the next morning's draw), for the patient list. */
+/** Short list of what is still ahead today, for the patient list. */
 export function upcomingToday(entries: OrderEntry[], nowAbs: number): string[] {
   const out: { at: number; text: string }[] = [];
   for (const e of entries) {
     const o = e.order;
     if (o.type === "lab" && e.status !== "中止") {
       const t = abs(o.collect.day, o.collect.time);
-      if (t > nowAbs && o.collect.day <= 1) out.push({ at: t, text: `${o.collect.day === 1 ? "明日" : ""}${o.collect.time} 採血` });
+      if (t > nowAbs && o.collect.day === 0) out.push({ at: t, text: `${o.collect.time} 採血` });
     }
     if (o.type === "injection" && e.status === "有効" && o.schedule.kind === "every_hours") {
       for (const t of doseTimes(e, nowAbs, nowAbs + 1, 1440)) {

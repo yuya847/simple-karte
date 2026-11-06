@@ -239,6 +239,7 @@ export interface LabOrder {
 export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
 
 export interface PrescriptionOrder {
+  replaces?: string;
   dayPattern?: DayPattern;
   dispensing?: "院内" | "院外";
   once?: { day: DayOffset; time: string };
@@ -364,6 +365,7 @@ export interface GuideOrder {
 
 /** A ward procedure (処置). The item comes from the fictional hospital's master (procedures.ts). */
 export interface ProcedureOrder {
+  replaces?: string;
   type: "procedure";
   code: string;
   /** 部位, as said. */

@@ -18,7 +18,7 @@ export function admissionState(cases: { patient: Patient; stage: string; planned
       a.plan = { days: 14, symptoms: p.admissionDiagnosis, treatment: "診療録の治療方針に沿って経過を確認", tests: "診療録の検査予定を参照", surgery: "指示記録を参照", other: "離床・生活支援", nutritionNeeded: "有", explainedTo: p.age < 18 ? "保護者" : "本人・家族", explainedBy: p.attending, explainedAt: at };
       a.nutrition = { goal: "摂取量と体重を保つ", route: "経口", energyKcal: p.age < 18 ? 1200 : 1400 + Number(p.id) % 4 * 200, proteinG: p.age < 18 ? 25 : 50 + Number(p.id) % 3 * 10, counseling: "摂取状況を確認", reassessOn: 3 + Number(p.id) % 7, by: "管理栄養士 高橋", at };
       a.pressure = { adl: "A2", items: {}, ulcerNow: false, plan: "皮膚状態を観察", by, at };
-      a.fall = { checked: p.age >= 75 ? ["歩行時に介助が必要"] : [], measures: [], plan: "足元と移動時の安全を確認", by, at };
+      a.fall = { checked: p.age >= 75 || /脳梗塞|脳出血|骨折|パーキンソン/.test(p.admissionDiagnosis) ? ["歩行時に介助が必要"] : [], measures: [], plan: "足元と移動時の安全を確認", by, at };
       a.delirium = { checked: p.age >= 70 ? ["70歳以上"] : [], measures: ["早期離床の取組"], by, at };
       a.discharge = { factors: /脳梗塞|脳出血|骨折/.test(p.admissionDiagnosis) ? ["ク"] : p.age >= 75 ? ["ク"] : [], note: "本人・家族と退院後の生活を確認", extractedBy: by, extractedAt: at, talkedAt: at, planStartedAt: at, conferenceAt: at };
     }

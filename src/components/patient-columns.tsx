@@ -1,4 +1,5 @@
 "use client";
+import { roomLabel } from "@/lib/place-label";
 
 // The columns of the ward patient list: one definition draws the heading, the full row (the viewer's team)
 // and the gray row (the others), so 「表示」 can turn a column off in all three at once. 病室 and 氏名 are
@@ -35,7 +36,7 @@ export interface Row {
   expected?: Expected;
 }
 
-export const roomKey = (b: BedAssignment) => `${b.room}${b.bed}`;
+export const roomKey = (b: BedAssignment) => roomLabel(b.room, b.bed);
 export const planText = (p: WardPlan) => `${p.day === 0 ? "今日" : "明日"} ${p.time} ${p.kind}`;
 
 const TONE: Record<FlagTone, string> = {
@@ -186,14 +187,12 @@ export const COLUMNS: Column[] = [
     fullClass: "min-w-20 whitespace-nowrap font-bold",
     full: ({ row }) => (
       <>
-        {row.bed.room}
-        {row.bed.bed && <span className="text-ink-faint">-{row.bed.bed}</span>}
+        {roomLabel(row.bed.room, row.bed.bed)}
       </>
     ),
     gray: ({ row }) => (
       <>
-        {row.bed.room}
-        {row.bed.bed && `-${row.bed.bed}`}
+        {roomLabel(row.bed.room, row.bed.bed)}
       </>
     ),
   },

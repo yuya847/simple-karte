@@ -1,4 +1,5 @@
 "use client";
+import { roomLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
 import { ArrowDown, ArrowUp, Columns3, Search, SlidersHorizontal, X } from "lucide-react";
@@ -400,8 +401,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                     {columns.map((c) =>
                       c.key === "room" ? (
                         <td key={c.key} className={padGray}>
-                          {r.bed.room}
-                          {r.bed.bed && `-${r.bed.bed}`}
+                          {roomLabel(r.bed.room, r.bed.bed)}
                         </td>
                       ) : c.key === "name" ? (
                         <td key={c.key} className={padGray}>
@@ -437,8 +437,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                   // 空く予定: the bed a patient leaves before the day shown.
                   <tr key={roomKey(r.bed)} className="border-b border-dashed border-wakatake/50 text-wakatake">
                     <td className={padGray}>
-                      {r.bed.room}
-                      {r.bed.bed && `-${r.bed.bed}`}
+                      {roomLabel(r.bed.room, r.bed.bed)}
                     </td>
                     <td className={`${padGray} font-bold`} colSpan={columns.length - 1}>
                       {r.mark ?? "空床"}

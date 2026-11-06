@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { generateScenarios } from "./index";
+import { STAFF } from "../roles";
+import { scenarioHandoffs } from "./handoffs";
 import { fallDueList } from "../fall-reassess";
 import { nursingOxygen } from "./nursing";
 import { buildWorksheet, shiftWindow } from "../worksheet";
@@ -7,6 +9,17 @@ import type { OrderEntry } from "../types";
 
 const s = generateScenarios();
 describe("試験病棟の看護記録", () => {
+  it("受け持ちは5階東で、ケア・観察・前の勤務の申し送りがある", () => {
+    const mine = s.cases.filter(c => c.stage === "入院" && c.patient.attending === STAFF.医師.name);
+    expect(mine.length).toBeGreaterThanOrEqual(10);
+    expect(mine.every(c => c.patient.ward === "5階東病棟")).toBe(true);
+    expect(s.nursing.careOrders.some(o => o.kind === "ケア")).toBe(true);
+    expect(s.nursing.careOrders.some(o => o.kind === "観察")).toBe(true);
+    expect(s.nursing.ulcers.some(u => mine.some(c => c.patient.id === u.patientId))).toBe(true);
+    expect(Object.values(scenarioHandoffs(s.patients)).filter(h => h.sentAt && !h.receivedAt).length).toBe(4);
+    for (const c of mine) expect(c.patient.vitals.filter(v => v.day === 0).map(v => v.time)).toEqual(expect.arrayContaining(["10:00", "14:00", "18:00"]));
+  });
+
   it("入院評価と退院支援の日付は入院後0〜1日", () => {
     for (const p of s.patients) {
       const a = s.evals[p.id];

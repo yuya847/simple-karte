@@ -12,6 +12,7 @@ export function nursingState(cases: { patient: Patient; stage: string }[], evals
   const ulcers: PressureUlcer[] = [];
   const nursingPlans: NursingProblem[] = [];
   const pendingKeys: string[] = [];
+  const careOrders: import("../care-orders").CareOrder[] = [];
   for (const { patient: p, stage } of cases) {
     if (stage !== "入院") continue;
     const i = Number(p.id.slice(-4));
@@ -22,16 +23,23 @@ export function nursingState(cases: { patient: Patient; stage: string }[], evals
       const day = Math.max(p.admittedOn + 1, i % 5 === 0 ? -8 : -1 - i % 5);
       fallReviews[p.id] = [{ ...first, at: { day, time: "14:00" }, by }];
     }
-    if ((p.age >= 85 && i % 2 === 0) || (i === 22 && p.admittedOn <= -3)) {
-      const day = Math.max(i === 22 ? p.admittedOn + 3 : p.admittedOn, -2);
+    if ((p.age >= 85 && i % 2 === 0) || ((i === 22 || /脳梗塞/.test(p.admissionDiagnosis)) && p.admittedOn <= -3)) {
+      const day = Math.max(i === 22 ? p.admittedOn + 3 : p.admittedOn, -1 - i % 6);
       ulcers.push({ id: `${p.id}-ulcer`, patientId: p.id, site: "仙骨部", foundOn: i === 22 ? p.admittedOn + 3 : p.admittedOn, origin: i === 22 ? "院内発生" : "持ち込み", by,
-        assessments: [{ id: `${p.id}-ulcer-review`, at: { day, time: "14:00" }, by, score: { depth: "d2", e: "e1", s: "s3", i: "i0", g: "g0", n: "n0", p: "p0" }, size: { lengthCm: 1.5, widthCm: 1 }, note: "浅い皮膚損傷。除圧と皮膚の観察を継続。" }] });
+        assessments: [{ id: `${p.id}-ulcer-review`, at: { day, time: "14:00" }, by, score: { depth: "d2", e: i % 2 ? "e3" : "e1", s: "s3", i: "i0", g: "g0", n: "n0", p: "p0" }, size: { lengthCm: 1 + (i % 5) * 0.2, widthCm: 0.7 + (i % 3) * 0.2 }, note: "浅い皮膚損傷。除圧と皮膚の観察を継続。" }] });
       if (i !== 22 && evals[p.id]?.pressure) evals[p.id].pressure!.ulcerNow = true;
     }
+    const ulcer = ulcers.find(u => u.patientId === p.id);
+    if (ulcer && ulcer.assessments[0].at.day > ulcer.foundOn) ulcer.assessments.unshift({ ...ulcer.assessments[0], id: `${p.id}-ulcer-first`, at: { day: ulcer.foundOn, time: "14:00" }, score: { ...ulcer.assessments[0].score, e: "e3" }, size: { lengthCm: 2, widthCm: 1.5 }, note: "発見時の評価。皮膚保護と除圧を開始。" });
     nursingPlans.push({ id: `${p.id}-nursing-plan`, patientId: p.id, no: 1, plannedOn: p.admittedOn, plannedAt: "14:00", by,
       problem: p.age >= 75 ? "移動時に転倒するおそれ" : "入院に伴う生活の変化と不安", goal: p.age >= 75 ? "援助を受けて安全に移動できる" : "心配なことを伝え、療養の見通しを話せる",
       op: ["移動時のふらつき、疲労、本人の訴え"], tp: ["ナースコールを手元に置き、必要な移動を介助する"], ep: ["困ったときや移動前に看護師を呼ぶ方法を確認する"],
       evalDue: Math.max(p.admittedOn + 7, i % 5 === 0 ? -1 : 1 + i % 5), evaluations: p.admittedOn < -7 ? [{ day: Math.max(p.admittedOn + 1, -3), time: "14:00", by, result: "継続", note: "援助の必要な場面を本人と確認。目標に向けて支援を続ける。", nextDue: i % 5 === 0 ? -1 : 1 + i % 5 }] : [] });
+    if (/肺炎|脳梗塞|心不全/.test(p.admissionDiagnosis) && i % 3 === 0) {
+      const at = { day: p.admittedOn, time: "14:00" };
+      careOrders.push({ id: `${p.id}-mouth-care`, patientId: p.id, item: "口腔ケア", kind: "ケア", schedule: { kind: "times", times: ["08:30", "12:30", "18:30"] }, everyDays: 1, start: at, by, at, note: "食後の口腔内を確認し介助する" });
+      careOrders.push({ id: `${p.id}-mouth-observe`, patientId: p.id, item: "口腔内の乾燥", kind: "観察", choices: ["湿潤", "乾燥", "強い乾燥"], schedule: { kind: "times", times: ["10:00", "14:00"] }, everyDays: 1, start: at, by, at, note: "ケア前後の状態を記録する" });
+    }
     // A few current orders deliberately await the receiving nurse.
     if (i % 11 === 2) {
       const entry: OrderEntry = { kind: "order", id: `${p.id}-nursing-pending`, day: 0, time: "08:00", author: p.attending, status: "有効", order: { type: "lab", codes: ["LAB-CBC", "LAB-CRP"], collect: { day: 1, time: "06:00" }, priority: "定時" } };
@@ -40,7 +48,7 @@ export function nursingState(cases: { patient: Patient; stage: string }[], evals
       p.history.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
     }
   }
-  return { fallReviews, ulcers, nursingPlans, pendingKeys };
+  return { fallReviews, ulcers, nursingPlans, pendingKeys, careOrders };
 }
 
 /** Match each measured oxygen device to the authored order at that measurement time. */

@@ -56,10 +56,10 @@ export function addPharmacyOrders(p: Patient, i: number, stage: string) {
     const rx = p.history.find((e) => e.id === `${p.id}-pharmacy-regular`);
     if (rx?.kind === "order" && rx.order.type === "prescription" && rx.order.drugCode === "ORAL-MGO330") {
       rx.status = "中止"; rx.stoppedOn = 0; rx.stoppedTime = "08:00";
-      put("changed-oral", { ...rx.order, amount: 2, comment: "変更：便通を確認し本日から1回2錠" }, 0);
+      put("changed-oral", { ...rx.order, replaces: rx.id, amount: 2, comment: "変更：便通を確認し本日から1回2錠" }, 0);
     }
   }
-  if (i % 10 === 6 && !/脳梗塞|脳出血|脳塞栓/.test(diagnosis)) {
+  if (i % 10 === 6 && !/脳梗塞|脳出血|脳塞栓|MRSA|ＭＲＳＡ/.test(diagnosis)) {
     if (/心不全/.test(diagnosis)) oral("home", "ORAL-FRS20", "退院時", 2);
     else if (/MRSA|ＭＲＳＡ|肺炎/.test(diagnosis)) oral("home", "ORAL-CARB500", "退院時", 1, ["朝", "昼", "夕"]);
     else {
@@ -90,7 +90,7 @@ export function addPharmacyOrders(p: Patient, i: number, stage: string) {
     if (patch && i % 40 === 25) put("patch", { type: "prescription", category: "定期", drugCode: patch[0], amount: 1, unit: "枚", timings: ["朝"], start: { day: 0, timing: "朝" }, days: 3 });
     put("morphine", { type: "injection", items: [{ drugCode: "INJ-MOR10", amount: 5, unit: "mg" }], route: "皮下注", schedule: { kind: "once" }, start: { day: 0, time: "09:00" } });
   }
-  if (i % 10 === 7) put("blood", { type: "procedure", code: "PROC-TX", start: { day: 0, time: "14:00" }, schedule: { kind: "once" }, tx: { product: (["RBC", "FFP", "PC"] as const)[Math.floor(i / 10) % 3], units: Math.floor(i / 10) % 3 === 2 ? 10 : 2, abo: p.blood?.abo ?? "A", rh: p.blood?.rh ?? "+", reason: "主治医が出血・血算・凝固検査を確認し輸血を指示" } });
+  if (i % 10 === 7 && /消化管出血|憩室出血/.test(diagnosis) && (p.labs.at(-1)?.values.Hb ?? 99) < 8) put("blood", { type: "procedure", code: "PROC-TX", start: { day: 0, time: "14:00" }, schedule: { kind: "once" }, tx: { product: "RBC", units: 2, abo: p.blood?.abo ?? "A", rh: p.blood?.rh ?? "+", reason: "主治医が出血・血算・凝固検査を確認し輸血を指示" } });
   if (/MRSA|ＭＲＳＡ/.test(p.admissionDiagnosis)) {
     p.history = p.history.map((e) => {
       if (e.kind === "order" && e.order.type === "injection" && e.order.items.some((it) => it.drugCode.startsWith("INJ-VCM"))) {

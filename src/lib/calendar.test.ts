@@ -89,7 +89,7 @@ describe("upcoming today", () => {
       status: "有効",
       order: { type: "lab", codes: ["LAB-CBC"], collect: { day: 1, time: "06:00" }, priority: "定時" },
     };
-    expect(upcomingToday([order(sakura, "sakura-cez"), vcm, draw], now)).toEqual(["15:30 CEZ", "18:00 VCM", "23:30 CEZ", "明日06:00 採血"]);
+    expect(upcomingToday([order(sakura, "sakura-cez"), vcm, draw], now)).toEqual(["15:30 CEZ", "18:00 VCM", "23:30 CEZ"]);
   });
 });
 

@@ -539,3 +539,10 @@ describe("退院時診療状況添付加算（B009 注8）", () => {
     expect(a.parts[0].points).toBe(450);
   });
 });
+
+it("旧指示の算定は中止した時刻の前まで", () => {
+ const e = order(-1, { type: "injection", items: [{ drugCode: "INJ-VCM05", amount: 1, unit: "g" }], route: "点滴静注", schedule: { kind: "every_hours", hours: 6 }, start: { day: -1, time: "00:00" } }, { status: "中止", stoppedOn: -1, stoppedTime: "12:00" });
+ const r = claim("2026-11", { admittedOn: -1, entries: [e] });
+ // November 1 has only 00:00 and 06:00, each with two 0.5 g vials.
+ expect(r.acts.flatMap(a => a.parts.flatMap(p => p.lines)).filter(l => l.code === "620005694").reduce((n,l) => n + (l.quantity ?? 0), 0)).toBe(4);
+});
