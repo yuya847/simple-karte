@@ -1,3 +1,4 @@
+import { patternDay, rxLastDay } from "../day-pattern";
 // 病名漏れの「候補」。適応・査定の確定や病名の自動登録は行わない。
 // ICD は病名の探索範囲。薬ごとの用量・菌種・併用条件までは判定しない。
 // 疑い可否・対象日ごとの照合・同じ品目の月内集約は、この画面の点検方針。
@@ -124,6 +125,8 @@ function expand(codes: string[]): string[] {
 /** 対象月のオーダ日ではなく採取日/投与日を使う。未来・取消・未実施・中止後を除く。 */
 function occurrences(e: OrderEntry, input: DiseaseCheckInput, lo: number, hi: number): { code: string; day: number; kind: "drug" | "lab" }[] {
   const o = e.order;
+  const [y, m, d] = input.today.split("-").map(Number);
+  const base = { y, m, d };
   const now = minutesOf(input.nowTime ?? "23:59");
   const until = Math.min((hi + 1) * 1440, now + 1);
   if (e.verbal?.cancelled) return [];
@@ -131,14 +134,14 @@ function occurrences(e: OrderEntry, input: DiseaseCheckInput, lo: number, hi: nu
   if (o.type !== "injection" && o.type !== "prescription") return [];
   const from = o.start.day * 1440 + minutesOf(o.type === "injection" ? o.start.time ?? e.time : WARD_RULES.medTimes[o.start.timing ?? o.timings[0]] ?? "00:00");
   const stop = e.status === "中止" ? e.stoppedOn === undefined ? e.day * 1440 + minutesOf(e.time) : e.stoppedTime ? e.stoppedOn * 1440 + minutesOf(e.stoppedTime) : (e.stoppedOn + 1) * 1440 : Infinity;
-  let end = Math.min(until, stop, o.days ? from + o.days * 1440 : Infinity);
+  let end = Math.min(until, stop, o.days ? o.type === "prescription" && o.dayPattern ? (rxLastDay(o, base)! + 1) * 1440 : from + o.days * 1440 : Infinity);
   if (o.type === "injection" && o.end) end = Math.min(end, o.end.day * 1440 + minutesOf(o.end.time));
   let times: number[] = [];
   if (o.type === "injection") {
-    times = o.schedule.kind === "once" ? [from] : doseTimes({ ...e, status: "有効" }, now, lo * 1440, end);
+    times = o.schedule.kind === "once" ? [from] : doseTimes({ ...e, status: "有効" }, now, lo * 1440, end, base);
   } else if (o.once) times = [o.once.day * 1440 + minutesOf(o.once.time)];
   else if (o.prn) times = (o.prnUses ?? []).map(u => u.day * 1440 + minutesOf(u.time));
-  else for (let day = Math.max(lo, o.start.day); day <= hi; day++) for (const t of o.timings) times.push(day * 1440 + minutesOf(WARD_RULES.medTimes[t]));
+  else for (let day = Math.max(lo, o.start.day); day <= hi; day++) if (patternDay(o.dayPattern, o.start.day, day, base)) for (const t of o.timings) times.push(day * 1440 + minutesOf(WARD_RULES.medTimes[t]));
   const codes = o.type === "injection" ? o.items.filter(i => i.amount > 0).map(i => i.drugCode) : o.amount > 0 ? [o.drugCode] : [];
   return [...new Set(times.filter(t => t >= from && t >= lo * 1440 && t < end && !input.notGiven?.includes(`${e.id}|${t}`)).map(t => Math.floor(t / 1440)))].flatMap(day => codes.map(code => ({ code, day, kind: "drug" as const })));
 }

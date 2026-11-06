@@ -8,6 +8,7 @@ import { perDoseOf } from "../rx";
 import type { DoseTiming, OrderEntry } from "../types";
 
 export interface RxLine {
+  dayPattern?: import("../types").DayPattern;
   /** Rp number (1, 2 …): drugs taken with one usage share it. */
   rp: number;
   /** Our master code (ORAL-…). */
@@ -34,7 +35,7 @@ export function linesFromDrafts(drafts: Draft[]): RxLine[] {
     const times = timings.length === 0 ? 1 : timings.length;
     for (const it of d.items) {
       if (!it.drugCode) continue;
-      out.push({ rp, drug: it.drugCode, perDose: perDoseOf(it, times), unit: findOralDrug(it.drugCode)?.unit ?? "", timings, prn: timings.length === 0 ? d.prn : null, maxPerDay: d.maxPerDay, days: d.days });
+      out.push({ dayPattern: d.dayPattern, rp, drug: it.drugCode, perDose: perDoseOf(it, times), unit: findOralDrug(it.drugCode)?.unit ?? "", timings, prn: timings.length === 0 ? d.prn : null, maxPerDay: d.maxPerDay, days: d.days });
     }
   }
   return out;
@@ -56,6 +57,6 @@ export function linesFromHomeRx(entries: OrderEntry[]): RxLine[] {
   return bagsOf(entries).flatMap((b, i) => {
     const e = entries.find((x) => x.id === b.orderIds[0]);
     const o = e?.order.type === "prescription" ? e.order : null;
-    return b.drugs.map((d) => ({ rp: i + 1, drug: d.code, perDose: d.per, unit: d.unit, timings: o?.timings ?? [], prn: o && o.timings.length === 0 ? (o.prn ?? null) : null, maxPerDay: o?.maxPerDay ?? null, days: b.days }));
+    return b.drugs.map((d) => ({ dayPattern: o?.dayPattern, rp: i + 1, drug: d.code, perDose: d.per, unit: d.unit, timings: o?.timings ?? [], prn: o && o.timings.length === 0 ? (o.prn ?? null) : null, maxPerDay: o?.maxPerDay ?? null, days: b.days }));
   });
 }

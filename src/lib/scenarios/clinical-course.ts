@@ -1,3 +1,4 @@
+import { rxLastDay } from "../day-pattern";
 import type { ClinicalProfile } from "./clinical-profiles";
 import type { Patient, NoteEntry, Order } from "../types";
 import type { Diagnosis } from "../diagnoses";
@@ -29,14 +30,16 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
     p.history.push({ kind: "order", id: `${p.id}-course-${p.history.length}`, day, time: "09:30", author: p.attending, status: "有効", order: value });
   };
   const labOrder = (after: number, codes: string[]) => order(after, { type: "lab", codes, collect: { day: first + after, time: after === 0 ? "09:00" : "06:00" }, priority: after === 0 ? "至急" : "定時" });
-  const injection = (after: number, code: string, amount: number, unit: string, count: number, days: number, route: "点滴静注" | "静注" = "点滴静注") => order(after, { type: "injection", items: [{ drugCode: code, amount, unit }], route, schedule: { kind: "per_day", count }, start: { day: first + after, time: "12:00" }, days, end: { day: first + after + days - 1, time: "23:59" }, ...(route === "点滴静注" ? { minutesPerDose: 60 } : {}) });
+  const injection = (after: number, code: string, amount: number, unit: string, count: number, days: number, route: "点滴静注" | "静注" = "点滴静注", dayPattern?: import("../types").DayPattern) => order(after, { type: "injection", items: [{ drugCode: code, amount, unit }], route, dayPattern, ...(dayPattern ? { doseTimes: ["12:00"] } : {}), schedule: { kind: "per_day", count }, start: { day: first + after, time: "12:00" }, days, end: { day: first + after + days - 1, time: "23:59" }, ...(route === "点滴静注" ? { minutesPerDose: 60 } : {}) });
   const oral = (after: number, code: string, amount: number, unit: string, days: number) => order(after, { type: "prescription", category: "定期", drugCode: code, amount, unit, timings: ["朝"], start: { day: first + after, timing: "朝" }, days });
 
   // Workflow contributes event notes (surgery, ICU, TDM), while this module supplies daily SOAP.
   p.history = p.history.filter((e) => e.kind !== "note" || !e.id?.includes("-weekly-"));
   const initial = { WBC: 7200, Hb: p.sex === "女" ? 12.1 : 13.3, Plt: 22.4, CRP: 0.3, AST: 24, ALT: 21, BUN: 19, Cre: 0.85, Na: 138, K: 4.1, Alb: 3.6, ...c.initial };
   if (p.age >= 18) { initial.Hb = round(initial.Hb + (i % 5 - 2) * 0.2); initial.WBC += (i % 7 - 3) * 100; }
-  const recovered = { ...initial, ...c.recovered };
+  const renalInterval = [35, 55, 75].includes(i) && c.name === "急性腎盂腎炎";
+  if (renalInterval) { initial.Cre = 3.8; initial.BUN = 48; }
+  const recovered = { ...initial, ...c.recovered, ...(renalInterval ? { Cre: 2.6, BUN: 35 } : {}) };
   const duration = last - first;
   const samples = new Set([0, ...[1, 3, 7].filter((d) => d <= duration), duration]);
   for (let after = 14; after <= duration; after += 7) samples.add(after);
@@ -89,7 +92,8 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
     p.cultures.push({ collectedOn: first, specimen: "血液", sets: "2セット", ...(duration >= 5 ? { reportedOn: first + 5, status: "最終報告" as const, organism: "発育なし（5日間）" } : { status: "培養中" as const }) });
     const changed = c.name === "急性腎盂腎炎" && duration >= 2;
     injection(0, c.antibiotic, c.antibiotic === "INJ-SBTABPC3" ? 3 : c.antibiotic === "INJ-CTRX1" ? 2 : 1, "g", c.antibiotic === "INJ-SBTABPC3" ? 3 : c.antibiotic === "INJ-CTRX1" ? 1 : 3, changed ? 2 : 7);
-    if (changed) injection(2, "INJ-CEZ1", 1, "g", 3, 5);
+    if (changed) injection(2, "INJ-CEZ1", 1, "g", renalInterval ? 1 : 3, 5, "点滴静注", renalInterval ? { kind: "every", n: 2 } : undefined);
+    if (changed && renalInterval) addNote(first + 2, "医師", { text: "腎機能低下あり。感受性を確認してCEZに変更、隔日12時の指示。投与履歴・腎機能を再確認する。" });
     const specimen = c.name === "急性腎盂腎炎" ? "尿" : /肺炎|呼吸不全/.test(c.name) ? "喀痰" : "血液";
     const organism = specimen === "尿" ? "Escherichia coli" : specimen === "喀痰" ? "口腔内常在菌" : "発育なし";
     if (specimen !== "血液") p.cultures.push({ collectedOn: first, ...(duration >= 2 ? { reportedOn: first + 2, status: "最終報告" as const, organism, ...(specimen === "尿" ? { susceptibility: [{ drug: "CEZ", mic: "1", result: "S" as const }, { drug: "CTRX", mic: "0.25", result: "S" as const }] } : {}) } : { status: "培養中" as const }), specimen });
@@ -117,7 +121,7 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
     if (e.kind !== "order") return e;
     if (e.order.type === "lab") return { ...e, status: "実施済" };
     if (e.order.type === "injection" && e.order.end && e.order.end.day < last) return { ...e, status: "終了", stoppedOn: e.order.end.day };
-    if (e.order.type === "prescription" && e.order.days && e.order.start.day + e.order.days - 1 < last) return { ...e, status: "終了", stoppedOn: e.order.start.day + e.order.days - 1 };
+    if (e.order.type === "prescription" && e.order.days && rxLastDay(e.order)! < last) return { ...e, status: "終了", stoppedOn: rxLastDay(e.order)! };
     return e;
   });
   const diets: DietOrder[] = [{ id: `${p.id}-diet`, patientId: p.id, from: { day: first, meal: "夕" }, kind: /イレウス|膵炎|胃潰瘍|憩室出血|呼吸不全/.test(c.name) ? "絶食" : "常食", by: p.attending, at: { day: first, time: "10:00" } }];

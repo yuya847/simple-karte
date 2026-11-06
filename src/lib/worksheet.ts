@@ -1,3 +1,4 @@
+import { patternDay, patternText } from "./day-pattern";
 // The ward worksheet: what each nurse does in a shift, gathered from the orders by code.
 // Nothing here is decided by AI. Times come from the orders and the ward's rules.
 
@@ -106,7 +107,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
       if (o.type === "injection") {
         if (!live(e, lo, hi, nowAbs, orderInterval)) continue;
         const main = o.items.map((it) => `${drugName(it.drugCode)} ${o.sliding ? "" : `${it.amount}${it.unit}`}`).join(" ＋ ");
-        const parts = [o.route, scheduleTextFor(o)];
+        const parts = [o.route, scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);
         const detail = parts.join("　");
@@ -118,7 +119,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         } else if (isFluid(o)) {
           // Bag changes use the same prescribed or default times as the calendar.
           const vol = doseVolumeMl(o.items);
-          running.push({ ...base, kind: "注射", main, detail: `${detail}${vol ? `　1本 ${vol}mL` : ""}`, orderId: e.id });
+          if (Array.from({ length: Math.max(0, Math.ceil(hi / 1440) - Math.floor(lo / 1440)) }, (_, i) => Math.floor(lo / 1440) + i).some((day) => patternDay(o.dayPattern, o.start.day, day))) running.push({ ...base, kind: "注射", main, detail: `${detail}${vol ? `　1本 ${vol}mL` : ""}`, orderId: e.id });
           let n = 0;
           for (const t of doseTimes(e, nowAbs, lo, hi)) {
             n++;
@@ -145,7 +146,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
           for (const s of cell.slots) {
             if (!s.state) continue;
             const t = abs(day, WARD_RULES.medTimes[s.timing]);
-            if (t >= lo && t < hi) timed.push({ ...base, at: t, kind: "内服", main, detail: `${rx.category}　${s.timing}`, orderId: e.id, state: state(t) });
+            if (t >= lo && t < hi) timed.push({ ...base, at: t, kind: "内服", main, detail: `${rx.category}　${s.timing}${rx.dayPattern ? "　" + patternText(rx.dayPattern) : ""}`, orderId: e.id, state: state(t) });
           }
         }
       } else if (o.type === "procedure") {

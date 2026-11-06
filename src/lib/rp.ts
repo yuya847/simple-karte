@@ -1,3 +1,4 @@
+import { patternText } from "./day-pattern";
 // Injection and prescription drafts numbered like an order slip (Rp1, Rp2 …), each kind on its own.
 
 import type { Draft } from "./drafts";
@@ -21,6 +22,7 @@ export function rpLine(d: Draft): string {
     const drugs = d.items.map((it) => `${it.drugCode ? drugName(it.drugCode) : it.said} ${it.amount ?? "？"}${it.unit ?? ""}`).join(" ＋ ");
     const parts = [d.route ?? "経路？", d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？"];
     if (d.infusionMinutes) parts.push(`1回${durationText(d.infusionMinutes)}`);
+    if (d.dayPattern) parts.push(patternText(d.dayPattern));
     if (d.days && d.schedule?.kind !== "once") parts.push(`${d.days}日間`);
     return `${drugs}　${parts.join("　")}`;
   }
@@ -32,7 +34,7 @@ export function rpLine(d: Draft): string {
         return `${it.drugCode ? oralName(it.drugCode) : it.said} 1回${per ?? "？"}${it.drugCode ? (findOralDrug(it.drugCode)?.unit ?? "") : ""}`;
       })
       .join("、");
-    return `${drugs}　${d.once ? "1回だけ・今すぐ" : howText(d.timings, d.prn, d.maxPerDay)}${!d.once && d.days ? `　${d.days}日分` : ""}${d.category ? `　${d.category}` : ""}${d.category === "退院時" && d.start.day === null ? "　退院日から" : ""}${d.comment ? `　${d.comment}` : ""}${d.onePack ? "　一包化" : ""}`;
+    return `${drugs}　${d.dayPattern ? patternText(d.dayPattern) + "　" : ""}${d.once ? "1回だけ・今すぐ" : howText(d.timings, d.prn, d.maxPerDay)}${!d.once && d.days ? `　${d.days}${d.dayPattern ? "投与日分" : "日分"}` : ""}${d.category ? `　${d.category}` : ""}${d.category === "退院時" && d.start.day === null ? "　退院日から" : ""}${d.comment ? `　${d.comment}` : ""}${d.onePack ? "　一包化" : ""}`;
   }
   return "";
 }

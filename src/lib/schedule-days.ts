@@ -1,3 +1,4 @@
+import { patternLastDay, rxLastDay } from "./day-pattern";
 // 依頼日と実施日: an order is written on one day (依頼日, the entry's day) and carried out on another (実施日:
 // the draw, the exam slot, the start of a drip, the clinic visit, the move …). This file turns the orders into
 // the things planned on each day, so the record can show them on the day they happen and the date tree can list
@@ -77,7 +78,7 @@ export function planItemsOf(e: OrderEntry): PlanItem[] {
     const from = abs(o.start.day, o.start.time ?? e.time);
     const stop = stopOf(e, "注射", label);
     if (stop && stop.at <= from) return [stop.item];
-    const out: PlanItem[] = [{ ...base, kind: "注射", day: o.start.day, time: o.start.time ?? e.time, verb: o.schedule.kind === "once" ? "実施" : "開始", label }];
+    const out: PlanItem[] = [{ ...base, kind: "注射", day: o.schedule.kind === "once" ? o.start.day : patternLastDay(o.dayPattern, o.start.day, 1), time: o.start.time ?? e.time, verb: o.schedule.kind === "once" ? "実施" : "開始", label }];
     if (o.days && o.schedule.kind !== "once") {
       const to = from + o.days * 1440;
       if (!stop || stop.at >= to) out.push({ ...base, kind: "注射", day: lastDayOf(to), verb: "終了", label });
@@ -91,9 +92,9 @@ export function planItemsOf(e: OrderEntry): PlanItem[] {
     const label = `${oralName(o.drugCode)}　1回${o.amount}${o.unit}`;
     const stop = stopOf(e, "内服", label);
     if (stop && stop.item.day < o.start.day) return [stop.item];
-    const out: PlanItem[] = [{ ...base, kind: "内服", day: o.start.day, time: o.start.timing ? WARD_RULES.medTimes[o.start.timing] : undefined, verb: o.timings.length === 0 ? "頓用の開始" : "服用開始", label }];
+    const out: PlanItem[] = [{ ...base, kind: "内服", day: patternLastDay(o.dayPattern, o.start.day, 1), time: o.start.timing ? WARD_RULES.medTimes[o.start.timing] : undefined, verb: o.timings.length === 0 ? "頓用の開始" : "服用開始", label }];
     if (o.days && o.timings.length > 0) {
-      const last = o.start.day + o.days - 1;
+      const last = rxLastDay(o)!;
       if (!stop || stop.item.day > last) out.push({ ...base, kind: "内服", day: last, verb: "最終日", label });
     }
     if (stop) out.push(stop.item);

@@ -1,3 +1,4 @@
+import { rxLastDay, validDayPattern } from "./day-pattern";
 import { isInsulin, slidingProblems } from "./insulin";
 import { defaultDoseTimes, validateInjectionEnd } from "./inj-entry";
 // Order drafts and the rule-based checks that run on them.
@@ -128,6 +129,7 @@ export interface DraftItem {
 }
 
 export interface InjectionDraft extends DraftBase {
+  dayPattern?: import("./types").DayPattern;
   sliding?: import("./types").SlidingScale;
   /** Resolve the start at confirmation, rather than when the panel opened. */
   startNow?: boolean;
@@ -669,6 +671,7 @@ export function resolvedStopTarget(d: StopDraft, ctx: CheckContext): string | nu
 
 function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
   const issues: Issue[] = [];
+  if (!validDayPattern(d.dayPattern)) issues.push({ key: "day-pattern", level: "stop", title: "投与日", message: "曜日または1以上の整数の日間隔を指定してください。" });
   if (d.sliding && (!isInsulin({items:d.items.map(i=>({drugCode:i.drugCode ?? "",amount:i.amount ?? 0,unit:i.unit ?? ""}))}) || slidingProblems(d.sliding).length)) issues.push({key:"sliding",level:"stop",title:"スケール",message:"インスリン1品目と、血糖範囲・単位・時刻を確認してください。"});
   const timingErrors = validateInjectionEnd(d.start.day ?? 0, d.start.time ?? "", d.days ?? 0, d.end?.day, d.end?.time, ratePlan(d).minutesPerDose ?? 0, d.doseTimes);
   if (!d.sliding && d.doseTimes?.length && d.schedule && d.schedule.kind !== "once" && d.doseTimes.length !== defaultDoseTimes(d.schedule).length) timingErrors.push("回数と投与時刻の数が一致していません。");
@@ -1538,7 +1541,7 @@ export type ConfirmResult = {
 export function orderEndDay(o: Order): DayOffset | null {
   const start = "start" in o && o.start && typeof o.start === "object" && "day" in o.start ? (o.start.day as DayOffset) : null;
   const days = "days" in o ? (o.days as number | undefined) : undefined;
-  return start === null || !days ? null : start + days - 1;
+  return o.type === "prescription" ? rxLastDay(o) : start === null || !days ? null : start + days - 1;
 }
 
 function checkExtend(d: ExtendDraft, ctx: CheckContext): Issue[] {
@@ -1549,13 +1552,15 @@ function checkExtend(d: ExtendDraft, ctx: CheckContext): Issue[] {
   if (ctx.drafts.some((x) => x.kind === "stop" && resolvedStopTarget(x, ctx) === target.id))
     return [{ key: "extend-stop", level: "stop", title: "延長", message: "同じオーダの中止の下書きがあります。どちらかを消してください。" }];
   const days = (target.order as { days: number }).days;
+  const nextEnd = orderEndDay({ ...target.order, days: days + d.addDays } as Order)!;
+  const unit = target.order.type === "prescription" && target.order.dayPattern ? "投与日分" : "日間";
   return [
     {
       key: "extend-calc",
       level: "info",
       title: "延長",
       message: `${ctx.describe(target)}`,
-      formula: `${days}日間（〜${ctx.fmtDay(end)}） → ${days + d.addDays}日間（〜${ctx.fmtDay(end + d.addDays)}）`,
+      formula: `${days}${unit}（〜${ctx.fmtDay(end)}） → ${days + d.addDays}${unit}（〜${ctx.fmtDay(nextEnd)}）`,
     },
   ];
 }
@@ -1624,6 +1629,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       type: "injection",
       items: d.items.map((it) => ({ drugCode: it.drugCode!, amount: it.amount!, unit: it.unit ?? "" })),
       route: effectiveRoute(d)!,
+      dayPattern: d.dayPattern,
       schedule: d.schedule!,
       sliding: d.sliding,
       doseTimes: d.sliding?.times ?? d.doseTimes,

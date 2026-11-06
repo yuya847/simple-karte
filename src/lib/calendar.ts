@@ -1,3 +1,4 @@
+import { patternDay, rxLastDay } from "./day-pattern";
 // Scheduled times for calendar cells. Actual administration is read from MAR by the view.
 
 import { abs, doseTimes, orderInterval } from "./flowsheet";
@@ -30,7 +31,8 @@ export function injectionCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   const lo = day * 1440;
   const hi = lo + 1440;
   const { from, to } = orderInterval(entry, nowAbs);
-  const running = from < hi && (to === null || to > lo);
+  const scheduled = doseTimes(entry, nowAbs, lo, hi);
+  const running = scheduled.length > 0 || (patternDay(o.dayPattern, o.start.day, day) && from < hi && (to === null || to > lo));
   const cell: InjectionCell = { running, doses: [] };
 
   if (entry.status === "中止" && (entry.stoppedOn ?? 0) === day) {
@@ -39,7 +41,7 @@ export function injectionCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   if (!running) return cell;
 
   if (o.schedule.kind !== "once" || o.doseTimes?.length) {
-    cell.doses = doseTimes(entry, nowAbs, lo, hi).map((t) => ({ time: hhmm(t - lo), state: stateAt(t, nowAbs) }));
+    cell.doses = scheduled.map((t) => ({ time: hhmm(t - lo), state: stateAt(t, nowAbs) }));
   } else if (o.schedule.kind === "once") {
     if (from >= lo && from < hi) cell.doses = [{ time: hhmm(from - lo), state: stateAt(from, nowAbs) }];
   }
@@ -65,6 +67,7 @@ function rxWindow(entry: OrderEntry, nowAbs: number): { from: number; to: number
   const firstTiming = o.start.timing ?? o.timings[0];
   const from = firstTiming ? abs(o.start.day, WARD_RULES.medTimes[firstTiming]) : o.start.day * 1440;
   let to = o.days ? (o.start.day + o.days) * 1440 + (firstTiming ? abs(0, WARD_RULES.medTimes[firstTiming]) : 0) : Infinity;
+  if (o.dayPattern && o.days) to = (rxLastDay(o)! + 1) * 1440;
   if (entry.status === "中止") {
     const stop = entry.stoppedOn === undefined || entry.stoppedOn === 0 ? nowAbs : (entry.stoppedOn + 1) * 1440;
     to = Math.min(to, stop);
@@ -78,7 +81,7 @@ export function prescriptionCell(entry: OrderEntry, day: DayOffset, nowAbs: numb
   const slots = o.timings.map((timing) => {
     const t = abs(day, WARD_RULES.medTimes[timing]);
     // 退院時処方 is taken at home: nothing to give on the ward.
-    return { timing, state: o.category !== "退院時" && t >= from && t < to ? stateAt(t, nowAbs) : null };
+    return { timing, state: o.category !== "退院時" && patternDay(o.dayPattern, o.start.day, day) && t >= from && t < to ? stateAt(t, nowAbs) : null };
   });
   return {
     slots,

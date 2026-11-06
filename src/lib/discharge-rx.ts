@@ -1,3 +1,4 @@
+import { patternText } from "./day-pattern";
 // 退院時処方 → 薬袋 and 薬剤情報提供文書. One bag per Rp (drugs taken with one usage), the total
 // amount counted in code (1回量 × 回数 × 日数), and one information sheet listing every drug with what it
 // is for and what to watch for (drug-info.ts). The pharmacist dispenses, checks and hands them over.
@@ -19,6 +20,7 @@ export interface BagDrug {
 }
 
 export interface MedBag {
+  dayPattern?: import("./types").DayPattern;
   rp: string;
   kind: "内服" | "頓服";
   /** "1日2回　朝・夕食後" or the 頓服 condition. */
@@ -49,8 +51,9 @@ export function bagsOf(entries: OrderEntry[]): MedBag[] {
     const times = o.timings.length;
     return {
       rp,
+      dayPattern: o.dayPattern,
       kind: prn ? "頓服" : "内服",
-      how: prn ? `${o.prn ?? "必要時"}${o.maxPerDay ? `（1日${o.maxPerDay}回まで）` : ""}` : `1日${times}回　${timingName(o.timings)}`,
+      how: prn ? `${o.prn ?? "必要時"}${o.maxPerDay ? `（1日${o.maxPerDay}回まで）` : ""}` : `${o.dayPattern ? patternText(o.dayPattern) + "　" : ""}1日${times}回　${timingName(o.timings)}`,
       times,
       days: o.days ?? null,
       drugs: es.map((e) => {
@@ -73,7 +76,7 @@ export function bagsOf(entries: OrderEntry[]): MedBag[] {
 }
 
 /** "14日分" or "10回分" (頓服). */
-export const amountText = (b: MedBag) => (b.days ? (b.kind === "頓服" ? `${b.days}回分` : `${b.days}日分`) : "");
+export const amountText = (b: MedBag) => (b.days ? (b.kind === "頓服" ? `${b.days}回分` : `${b.days}${b.dayPattern ? "投与日分" : "日分"}`) : "");
 
 /** One line per bag, for the record and the お薬手帳 sticker. */
 export const bagLine = (b: MedBag) => `${b.drugs.map((d) => `${d.name}${d.strength} 1回${d.per}${d.unit}`).join("、")}　${b.how}　${amountText(b)}`;

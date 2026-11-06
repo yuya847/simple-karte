@@ -1,4 +1,6 @@
 "use client";
+import { DayPatternEditor } from "../DayPatternEditor";
+import { patternCourse, patternText } from "@/lib/day-pattern";
 import { displayText } from "@/lib/display-text";
 import { DayInput } from "../DayInput";
 import { TimeInput } from "@/components/TimeInput";
@@ -13,8 +15,8 @@ import { useWindowEntry } from "@/lib/window-entry";
 import { useMe } from "../RoleContext";
 
 import { injectionDrugLabel } from "@/lib/injection-drug-label";
-import { doseOptions, doseStep, halfWidthNumber, rxEntryLines, rxEntryStep, validDose, type RxStep } from "@/lib/rx-entry";
-import { todayInTokyo } from "@/lib/dates";
+import { RX_DAY_COUNT_LABEL, doseOptions, doseStep, halfWidthNumber, rxEntryLines, rxEntryStep, validDose, type RxStep } from "@/lib/rx-entry";
+import { nowTimeInTokyo, todayInTokyo } from "@/lib/dates";
 import { orderDefaults, onceInfusionMinutes, ONCE_INFUSION_HINT } from "@/lib/order-defaults";
 import { nextRegularDay, regularDayOffset, REGULAR_RX_DAYS } from "@/lib/rx-schedule";
 import { History } from "lucide-react";
@@ -30,7 +32,7 @@ import { DecidedEntryLines, DoseTimesEntry, LineEntry, RpDrugSearch } from "../L
 import { INJECTION_TIME_OPTIONS, injectionEntryLines, automaticInjectionEnd, defaultDoseTimes, parseDuration, validateInjectionEnd, injEntryStep, nextInjectionStart, type InjStep } from "@/lib/inj-entry";
 import { DRUGS, ORAL_DRUGS, ORAL_MASTER_SOURCE, findOralDrug } from "@/lib/master";
 import { nameIn, pickable, useMasterLocal } from "@/lib/master-local";
-import { TIMINGS_BY_TIMES, howText } from "@/lib/rx";
+import { firstDose, TIMINGS_BY_TIMES, howText } from "@/lib/rx";
 import { loadSets, matchPattern, patternLine, saveSets, type RxPattern, type RxSet } from "@/lib/rx-memory";
 import { matchInj, type InjPattern } from "@/lib/inj-memory";
 import { scheduleLabel } from "@/lib/format";
@@ -76,6 +78,7 @@ const routeOk = (rows: InjRow[], tab: (typeof ROUTE_TABS)[number]) =>
   rows.length > 0 && (tab.lock ? rows.every((r) => masterOf(r.drugCode)?.lock) : rows.every((r) => masterOf(r.drugCode)?.routes.includes(tab.route)));
 
 interface InjRp {
+  dayPattern?: import("@/lib/types").DayPattern;
   step?: InjStep;
   rows: InjRow[];
   /** The route tab chosen (ROUTE_TABS key), "" until chosen. */
@@ -290,6 +293,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
         return { drugCode: r.drugCode, said: d.name, amount: Number(r.amount), unit: r.unit };
       }),
       route,
+      dayPattern: schedulesOf(rp)[rp.sched]?.value.kind === "once" ? undefined : rp.dayPattern,
       schedule: rp.sliding ? {kind:"per_day",count:rp.sliding.times.length} : schedulesOf(rp)[rp.sched].value,
       infusionMinutes: route === "点滴静注" && modeOf(rp) === "time" ? rp.minutes : null,
       infusionScope: route === "点滴静注" ? "per_dose" : null,
@@ -327,7 +331,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
         const route = routeOf(rp);
         const volume = doseVolumeMl(rp.rows.map((r) => ({ drugCode: r.drugCode, amount: Number(r.amount), unit: r.unit })));
         const duration = modeOf(rp) === "time" ? rp.minutes : Number(rp.rate) > 0 ? volume * 60 / Number(rp.rate) : 0;
-        const autoEnd = automaticInjectionEnd(rp.startDay, rp.startTime, Number(rp.days) || 1, rp.doseTimes, duration);
+        const autoEnd = automaticInjectionEnd(rp.startDay, rp.startTime, Number(rp.days) || 1, rp.doseTimes, duration, rp.dayPattern);
 
         if (rp.done && complete(rp))
           return (
@@ -462,7 +466,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   times: rp.doseTimes ?? [],
                   duration: modeOf(rp) === "time" ? minutesLabel(rp.minutes) : `${rp.rate}mL/時`,
                   start: (() => { const t = todayInTokyo(); const d = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay)); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${rp.startTime || "指示受け後すぐ"}から`; })(),
-                  days: rp.days ? `${rp.days}日間` : "日数指定なし",
+                  days: patternCourse(rp.dayPattern, rp.startDay, Number(rp.days) || undefined, false),
                 }, route === "点滴静注")} onEdit={(step) => focus(i, step)} />
                 <InjectionEntryRow step="route" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">経路</span>
@@ -537,7 +541,9 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                     日数
                   </label>
                   <input id={`${uid}-${i}-days`} value={rp.days} onChange={(e) => upd(i, { days: halfWidthNumber(e.target.value) })} inputMode="numeric" placeholder="—" aria-label={`Rp${first + i} の日数`} className={`${field} min-h-[30px] w-14 text-right`} />
-                  <span>日間</span>
+                  <span>日間</span><span>（暦の日数）</span>
+                  {schedules[rp.sched]?.value.kind !== "once" && <DayPatternEditor value={rp.dayPattern} onChange={(dayPattern) => upd(i, { dayPattern })} label={`Rp${first + i} の投与日`} />}
+                  {rp.dayPattern && <span>{patternCourse(rp.dayPattern, rp.startDay, Number(rp.days) || undefined, false)}</span>}
                   <span className="hint text-[11px] text-ink-faint">空なら日数を決めません（1回だけ、または止めるまで）</span>
                 </InjectionEntryRow>
                 {/* 投与時刻・実施済み・コメント on one wrapping line (the right side of a short row was empty). */}
@@ -622,6 +628,7 @@ function rpFromOrder(o: InjectionOrder): InjRp {
   const tab = ROUTE_TABS.find((t) => t.route === o.route && !!t.lock === lock) ?? ROUTE_TABS.find((t) => t.route === o.route);
   const rp: InjRp = { ...newInjRp(), step: "dose", rows, route: tab?.key ?? "" };
   const same = (a: InjectionSchedule, b: InjectionSchedule) => a.kind === b.kind && (a.kind !== "per_day" || (b.kind === "per_day" && a.count === b.count)) && (a.kind !== "every_hours" || (b.kind === "every_hours" && a.hours === b.hours));
+  rp.dayPattern = o.dayPattern;
   rp.sched = schedulesOf(rp).findIndex((x) => same(x.value, o.schedule));
   rp.minutes = o.minutesPerDose ?? 0;
   rp.sliding = o.sliding;
@@ -679,7 +686,7 @@ function RpSummary({ rp }: { rp: InjRp }) {
   const t = todayInTokyo();
   const date = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay));
   const start = `${date.getUTCMonth() + 1}/${date.getUTCDate()}${rp.startTime ? ` ${rp.startTime}` : ""}から`;
-  const parts = [routeOf(rp), rp.sliding ? "スライディングスケール" : schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, schedulesOf(rp)[rp.sched]?.value.kind !== "once" && Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
+  const parts = [rp.dayPattern ? patternText(rp.dayPattern) : null, routeOf(rp), rp.sliding ? "スライディングスケール" : schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, schedulesOf(rp)[rp.sched]?.value.kind !== "once" && Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
   return (
     <>
       <b>{drugs.join(" ＋ ")}</b>
@@ -733,6 +740,7 @@ interface RpRow {
   per: string;
 }
 interface Rp {
+  dayPattern?: import("@/lib/types").DayPattern;
   once?: boolean;
   rows: RpRow[];
   /** 1日の回数 (1〜4), or "頓用"; null until chosen. */
@@ -763,7 +771,8 @@ const TIMES: { value: number | "頓用"; label: string }[] = [
  * draft and goes through the same checks (errors / warnings to 承知).
  */
 /** A remembered Rp (処方の記憶 or Do) as an Rp to change before drafting. */
-const rpFromPattern = (p: Pick<RxPattern, "rows" | "times" | "timing" | "days" | "category" | "prn" | "maxPerDay">): Rp => ({
+const rpFromPattern = (p: Pick<RxPattern, "rows" | "times" | "timing" | "days" | "category" | "prn" | "maxPerDay" | "dayPattern">): Rp => ({
+  dayPattern: p.dayPattern,
   rows: p.rows.map((r) => ({ drugCode: r.drugCode, per: String(r.per) })),
   times: p.times,
   timing: p.timing,
@@ -835,6 +844,12 @@ export function AddRxPanel({
       }),
     );
   const timingsOf = (rp: Rp) => (rp.times === "頓用" ? [] : typeof rp.times === "number" ? (TIMINGS_BY_TIMES[rp.times].find((c) => c.label === rp.timing)?.timings ?? null) : null);
+  const courseOf = (rp: Rp) => {
+    if (category === "退院時" && rp.dayPattern) return `${patternText(rp.dayPattern)}・${rp.days}投与日分（退院日から）`;
+    const timings = timingsOf(rp);
+    const start = category === "定期" && nextDay ? regularDayOffset(ward, today) ?? 0 : timings?.length ? firstDose(timings, nowTimeInTokyo()).day : 0;
+    return patternCourse(rp.dayPattern, start, Number(rp.days) || undefined, true, tokyo);
+  };
   const missingOf = (rp: Rp) => {
     const prn = rp.times === "頓用";
     return [
@@ -859,6 +874,7 @@ export function AddRxPanel({
       onePack: !!rp.onePack,
       alreadyDone: rp.alreadyDone,
       kind: "prescription",
+      dayPattern: prn || rp.once ? undefined : rp.dayPattern,
       ...(outpatient ? { dispensing } : {}),
       once: rp.once,
       category: rp.once ? "臨時" : category,
@@ -928,7 +944,7 @@ export function AddRxPanel({
         const drugSearch = <RpDrugSearch options={options} onEmptyEnter={() => rp.rows.length ? focus(i, "dose") : submit()} onBack={() => i > 0 ? focus(i - 1, "dose") : undefined} onComment={(text) => { upd(i, { comment: text }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }} onPick={(c) => { upd(i, { rows: [...rp.rows, { drugCode: c, per: "" }], step: "dose" }); requestAnimationFrame(() => { const fields = panelRoot.current?.querySelectorAll<HTMLInputElement>(`[data-rp="${i}"] [data-step=dose] input`); fields?.[fields.length - 1]?.focus(); }); }} placeholder={`${label} に薬を入れる（名前・略称・ひらがな可）`} />;
         return <section key={i} data-rp={i} className="py-2">
           {rp.comment !== undefined && <div className="border-b border-rule py-1"><input data-comment aria-label={`${label} のコメント`} className="w-full bg-transparent outline-none" placeholder="フリーコメント" value={rp.comment} onChange={(e) => upd(i, { comment: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); focus(i, "drug"); } }} /></div>}
-          {step === "done" ? <button className="w-full py-1 text-left" onClick={() => focus(i, "dose")}><b>{label}</b>　{summary}　{displayText(rp.once ? "1回だけ・今すぐ" : howText(timingsOf(rp), rp.prn, Number(rp.maxPerDay) || null))}　{rp.once ? "" : `${rp.days}日分`}{rp.onePack ? "　一包化" : ""}{rp.alreadyDone ? "　実施済み" : ""}</button> : <>
+          {step === "done" ? <button className="w-full py-1 text-left" onClick={() => focus(i, "dose")}><b>{label}</b>　{summary}　{displayText(rp.once ? "1回だけ・今すぐ" : howText(timingsOf(rp), rp.prn, Number(rp.maxPerDay) || null))}　{rp.once ? "" : courseOf(rp)}{rp.onePack ? "　一包化" : ""}{rp.alreadyDone ? "　実施済み" : ""}</button> : <>
           {rp.once && <p className="text-yamabuki">1回だけ・今すぐ<span className="hint">（用法を変えると通常の処方になります）</span></p>}
           <div className="flex items-baseline gap-2">{!rp.rows.length && <><b>{label}</b><div data-step="drug" className="min-w-0 flex-1">{drugSearch}</div></>}<button type="button" aria-label={`${label} を消す`} className="ml-auto text-xs text-ink-faint" onClick={() => setRps((rs) => rs.length === 1 ? [freshRx()] : rs.filter((_, j) => j !== i))}>×</button><button type="button" className="text-xs text-ink-soft" onClick={() => { upd(i, { comment: rp.comment ?? "" }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }}>＋コメント</button></div>
           {rp.rows.map((r, k) => { const m = findOralDrug(r.drugCode)!; return <div key={k} data-step="dose" className="flex items-center justify-between border-b border-rule-soft py-1" onKeyDown={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") advance(e, "dose", validDose(r.per, m)); }}>
@@ -940,11 +956,11 @@ export function AddRxPanel({
           {memory && !rp.rows.length && <RxMemory memory={memory} rps={rps} onPut={(ps) => putIn(ps.map(rpFromPattern))} newId={newId} />}
           {rp.rows.length > 0 && <>
             <button type="button" className="text-xs text-ai" onClick={() => focus(i, "drug")}>＋同じ飲み方の薬</button>
-            <DecidedEntryLines lines={rxEntryLines(step, { times: rp.once ? "1回だけ" : rp.times === "頓用" ? "頓用" : rp.times ? `1日${rp.times}回` : "", usage: rp.once ? "今すぐ" : prn ? `${rp.prn}${rp.maxPerDay ? ` 1日${rp.maxPerDay}回まで` : ""}` : rp.timing, days: rp.once ? "1回分" : `${rp.days}日分` })} onEdit={(s) => focus(i, s)} />
+            <DecidedEntryLines lines={rxEntryLines(step, { times: rp.once ? "1回だけ" : rp.times === "頓用" ? "頓用" : rp.times ? `1日${rp.times}回` : "", usage: rp.once ? "今すぐ" : prn ? `${rp.prn}${rp.maxPerDay ? ` 1日${rp.maxPerDay}回まで` : ""}` : rp.timing, days: rp.once ? "1回分" : courseOf(rp) })} onEdit={(s) => focus(i, s)} />
             {["times", "usage", "days"].includes(step) && <div className="border-b border-rule py-2" data-step={step} onKeyDown={(e) => advance(e, step, step === "times" ? rp.times !== null : step === "usage" ? prn ? !!rp.prn.trim() : !!rp.timing : Number(rp.days) > 0)}>
               {step === "times" && <TabChoice numbered autoFocus label={`${label} の回数`} options={[...(verbal ? [{ value: "once" as const, label: "1回だけ・今すぐ" }] : []), ...TIMES]} value={rp.once ? "once" : rp.times} onChange={(v) => upd(i, v === "once" ? { once: true, times: "頓用", prn: "今すぐ1回だけ", maxPerDay: "1", days: "1" } : { times: v })} />}
               {step === "usage" && (rp.once ? <span>今すぐ1回だけ</span> : prn ? <><input autoFocus aria-label={`${label} の頓用の条件`} placeholder="疼痛時など" value={rp.prn} onChange={(e) => upd(i, { prn: e.target.value })} /><label>1日 <input className="w-10" aria-label={`${label} の1日の上限回数`} value={rp.maxPerDay} onChange={(e) => upd(i, { maxPerDay: e.target.value })} />回まで</label></> : <TabChoice numbered autoFocus label={`${label} の用法`} options={choices.map((c) => ({ value: c.label, label: c.label }))} value={rp.timing} onChange={(v) => upd(i, { timing: v })} />)}
-              {step === "days" && !rp.once && <label>日数 <input autoFocus aria-label={`${label} の日数`} inputMode="numeric" className={`${field} w-14`} value={rp.days} onChange={(e) => upd(i, { days: halfWidthNumber(e.target.value) })} /> 日分</label>}
+              {step === "days" && !rp.once && <div>{!prn && <DayPatternEditor value={rp.dayPattern} onChange={(dayPattern) => upd(i, { dayPattern })} label={`${label} の投与日`} />}<label>{RX_DAY_COUNT_LABEL} <input autoFocus aria-label={`${label} の日数`} inputMode="numeric" className={`${field} w-14`} value={rp.days} onChange={(e) => upd(i, { days: halfWidthNumber(e.target.value) })} /> 投与日分</label>{rp.dayPattern && <p>{courseOf(rp)}</p>}</div>}
             </div>}
             {step !== "days" && step !== "drug" && <button type="button" className="ml-2 rounded border border-rule px-2 text-xs" onClick={() => {
               if (step === "dose" && rp.rows.every((r) => validDose(r.per, findOralDrug(r.drugCode)!))) focus(i, "times");
@@ -1360,7 +1376,7 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
         id: newId(),
         name: name.trim(),
         owner: memory.me,
-        rps: filledRps.map((r) => ({ rows: r.rows.map((x) => ({ drugCode: x.drugCode, per: Number(x.per) || 0 })), times: r.times!, timing: r.timing, days: Number(r.days) || null, category: r.category, prn: r.prn || undefined, maxPerDay: Number(r.maxPerDay) || undefined })),
+        rps: filledRps.map((r) => ({ rows: r.rows.map((x) => ({ drugCode: x.drugCode, per: Number(x.per) || 0 })), times: r.times!, timing: r.timing, days: Number(r.days) || null, category: r.category, prn: r.prn || undefined, maxPerDay: Number(r.maxPerDay) || undefined, dayPattern: r.dayPattern })),
       },
     ];
     setSets(next);
@@ -1589,7 +1605,7 @@ export function AddConsultPanel({ onAdd, newId, consults, replies, onReply }: { 
 }
 
 const injLine = (o: InjectionOrder) =>
-  `${o.items.map((i) => `${masterOf(i.drugCode)?.name ?? i.drugCode} ${i.amount}${i.unit}`).join(" ＋ ")}　${o.route}　${scheduleLabel(o.schedule, o.items[0]?.drugCode)}${o.minutesPerDose ? `　1回${minutesLabel(o.minutesPerDose)}` : ""}${o.rateMlPerH ? `　${o.rateMlPerH}mL/時` : ""}${o.days ? `　${o.days}日間` : ""}`;
+  `${o.dayPattern ? patternText(o.dayPattern) + "　" : ""}${o.items.map((i) => `${masterOf(i.drugCode)?.name ?? i.drugCode} ${i.amount}${i.unit}`).join(" ＋ ")}　${o.route}　${scheduleLabel(o.schedule, o.items[0]?.drugCode)}${o.minutesPerDose ? `　1回${minutesLabel(o.minutesPerDose)}` : ""}${o.rateMlPerH ? `　${o.rateMlPerH}mL/時` : ""}${o.days ? `　${o.days}日間` : ""}`;
 
 /** 注射の記憶: the doctor's injections (most used first) and this patient's previous ones (Do). */
 function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previous: InjPattern[] }; onPut: (o: InjectionOrder) => void }) {

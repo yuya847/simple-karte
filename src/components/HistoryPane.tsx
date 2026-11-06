@@ -1,4 +1,5 @@
 "use client";
+import { patternCourse } from "@/lib/day-pattern";
 import { displayText } from "@/lib/display-text";
 import { ConsultStatus } from "./ConsultContext";
 
@@ -1061,7 +1062,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         <div className="flex flex-wrap items-baseline justify-end gap-x-3 text-ink-soft">
           <span className="rounded bg-paper px-1 text-[11px]">{o.category}</span>
           <span>{displayText(timingText(o))}</span>
-          <span className="font-bold text-ink">{o.days ? `${o.days}日分` : "継続"}</span>
+          <span className="font-bold text-ink">{patternCourse(o.dayPattern, o.start.day, o.days, true, today)}</span>
         </div>
         <div className="text-right">
           {!hideStart && <Tag>
@@ -1095,7 +1096,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
           <span>{scheduleTextFor(o)}</span>
           {o.minutesPerDose ? <span>1回{displayText(durationText(o.minutesPerDose))}</span> : null}
           {o.rateMlPerH ? <span>{o.rateMlPerH}mL/時</span> : null}
-          <span className="font-bold text-ink">{o.days ? `${o.days}日間` : "継続"}</span>
+          <span className="font-bold text-ink">{patternCourse(o.dayPattern, o.start.day, o.days, false, today)}</span>
         </div>
         <div className="text-right">
           {!hideStart && <Tag>開始：{displayText(whenText(today, o.start.day, o.start.time))}</Tag>}

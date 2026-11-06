@@ -1,3 +1,4 @@
+import { rxLastDay, patternText } from "./day-pattern";
 // 内服の調剤 (薬剤部): the 定期 and 臨時 prescriptions to dispense for the ward, counted in code.
 // - 定期: the usual batch, from tomorrow for N days.
 // - 臨時: written today, the whole course. A 定期 written today is here only for today's doses (初回);
@@ -85,7 +86,7 @@ function rangeOf(e: Rx, batch: OralBatch): { from: DayOffset; to: DayOffset; fir
   if (o.category === "定期") return o.start.day <= 0 ? { from: 0, to: 0, first: true } : null;
   // 臨時: the whole course. The last day can be start + days (when it starts after the day's first timing).
   if (!o.days) return { from: o.start.day, to: o.start.day, unbounded: true };
-  return { from: o.start.day, to: o.start.day + o.days };
+  return { from: o.start.day, to: o.dayPattern ? rxLastDay(o)! : o.start.day + o.days };
 }
 
 /** What to dispense for each patient in this batch: Rp by Rp, the amounts counted from the orders. */
@@ -120,7 +121,7 @@ export function oralToDispense(people: WorkPatient[], batch: OralBatch, nowAbs: 
         key: k.split("|")[1],
         category: head.order.category as "定期" | "臨時",
         timings: head.order.timings,
-        how: `1日${head.order.timings.length}回　${timingName(head.order.timings)}`,
+        how: `${head.order.dayPattern ? patternText(head.order.dayPattern) + "　" : ""}1日${head.order.timings.length}回　${timingName(head.order.timings)}`,
         lines,
         orderIds: es.map(({ e }) => e.id),
         doctor: head.author,

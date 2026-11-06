@@ -37,3 +37,6 @@ export function rxChoiceIndex(index: number, key: string, count: number): number
 export function rxEntryLines(active: RxStep, values: { times: string; usage: string; days: string }): { step: RxStep; text: string }[] {
   return (["times", "usage", "days"] as const).filter((step) => STEPS.indexOf(step) < STEPS.indexOf(active) && !!values[step]).map((step) => ({ step, text: values[step] }));
 }
+
+/** 日数欄は服用する日の数。間隔を変えても数量の基準は変えない。 */
+export const RX_DAY_COUNT_LABEL = "投与日数";

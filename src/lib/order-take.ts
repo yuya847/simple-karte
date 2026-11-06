@@ -1,3 +1,4 @@
+import { patternText } from "./day-pattern";
 // 指示受け: how a nurse takes the doctor's order changes, made safer from public patient-safety material
 // and hospitals' EHR specifications — a 変更 is shown as one row with what changed before and after, some rows
 // cannot be taken in bulk (high-risk drugs, urgent, verbal, changed doses), related orders are put next to a
@@ -40,6 +41,7 @@ const injFields = (o: InjectionOrder): [string, string][] => [
   ["スケール", o.sliding ? o.sliding.rows.map(r=>`${r.from}〜${r.to ?? "上限なし"}：${r.units}単位`).join("／") + `・連絡 ${o.sliding.callAbove ?? "指定なし"}` : "固定量"],
   ["経路", o.route],
   ["回数・時刻", scheduleTextFor(o)],
+  ["投与日", patternText(o.dayPattern)],
   ["1回の時間", o.minutesPerDose ? `${o.minutesPerDose}分` : "—"],
   ["速さ", o.rateMlPerH ? `${o.rateMlPerH}mL/時` : "—"],
   ["日数", o.days ? `${o.days}日間` : "継続"],
@@ -47,8 +49,9 @@ const injFields = (o: InjectionOrder): [string, string][] => [
 const rxFields = (o: PrescriptionOrder): [string, string][] => [
   ["薬", findOralDrug(o.drugCode) ? `${findOralDrug(o.drugCode)!.name} ${findOralDrug(o.drugCode)!.strength}` : o.drugCode],
   ["1回量", `${o.amount}${o.unit}`],
+  ["投与日", patternText(o.dayPattern)],
   ["用法", o.timings.length ? o.timings.join("・") : `頓用 ${o.prn ?? ""}`],
-  ["日数", o.days ? `${o.days}日分` : "—"],
+  ["日数", o.days ? `${o.days}${o.dayPattern ? "投与日分" : "日分"}` : "—"],
   ["1日の上限", o.maxPerDay ? `${o.maxPerDay}回` : "—"],
 ];
 

@@ -1,4 +1,5 @@
 "use client";
+import { patternCourse } from "@/lib/day-pattern";
 
 import { displayText } from "@/lib/display-text";
 import { ArrowRight, Check, Plus, Square } from "lucide-react";
@@ -270,7 +271,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
             const main = findDrug(o.items[0].drugCode);
             const lines = [
               o.items.map((it) => `${findDrug(it.drugCode)?.name ?? it.drugCode} ${it.amount}${it.unit}`).join(" ＋ "),
-              [o.route, scheduleTextFor(o), o.minutesPerDose ? `1回${durationText(o.minutesPerDose)}` : null, o.rateMlPerH ? `${o.rateMlPerH}mL/時` : null]
+              [o.route, scheduleTextFor(o), o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, false, today) : null, o.minutesPerDose ? `1回${durationText(o.minutesPerDose)}` : null, o.rateMlPerH ? `${o.rateMlPerH}mL/時` : null]
                 .filter(Boolean)
                 .join("　"),
             ];
@@ -572,7 +573,7 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
                 <RowHead
                   entry={e}
                   title={oralName(o.drugCode)}
-                  lines={[`1回${o.amount}${o.unit}　${timingText(o)}${o.days ? `　${o.days}日分` : ""}`, ...(o.comment ? [o.comment] : [])]}
+                  lines={[`1回${o.amount}${o.unit}　${timingText(o)}${o.dayPattern ? `　${patternCourse(o.dayPattern, o.start.day, o.days, true, today)}` : o.days ? `　${o.days}日分` : ""}`, ...(o.comment ? [o.comment] : [])]}
                   onStopDraft={onStopDraft}
                   drafted={draftedStops.includes(e.id)}
                 />

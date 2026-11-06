@@ -14,7 +14,7 @@ export interface InjPattern {
   patients: number;
 }
 
-const keyOf = (o: InjectionOrder) => [o.items.map((i) => `${i.drugCode}:${i.amount}${i.unit}`).join("+"), o.route, JSON.stringify(o.schedule), o.minutesPerDose ?? "", o.rateMlPerH ?? "", o.days ?? ""].join("|");
+const keyOf = (o: InjectionOrder) => [o.items.map((i) => `${i.drugCode}:${i.amount}${i.unit}`).join("+"), o.route, JSON.stringify(o.schedule), JSON.stringify(o.dayPattern ?? null), o.minutesPerDose ?? "", o.rateMlPerH ?? "", o.days ?? ""].join("|");
 
 export function injPatternsOf(entries: { patientId: string; entry: OrderEntry }[]): InjPattern[] {
   const out = new Map<string, InjPattern & { who: Set<string> }>();

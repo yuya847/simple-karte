@@ -11,7 +11,7 @@ export function visitPrescriptions(entries: OrderEntry[], legacy: { items?: RxLi
     const o = e.order;
     const key = `${o.dispensing ?? "院内"}:${o.rp ?? e.id}`;
     const group = groups.get(key) ?? { dispensing: o.dispensing ?? "院内", items: [] };
-    group.items.push({ rp: 1, drug: o.drugCode, perDose: o.amount, unit: o.unit, timings: o.timings, prn: o.prn ?? null, maxPerDay: o.maxPerDay ?? null, days: o.days ?? null });
+    group.items.push({ dayPattern: o.dayPattern, rp: 1, drug: o.drugCode, perDose: o.amount, unit: o.unit, timings: o.timings, prn: o.prn ?? null, maxPerDay: o.maxPerDay ?? null, days: o.days ?? null });
     groups.set(key, group);
   }
   return [...groups.values(), ...legacy.filter((r) => r.items?.length).map((r): OpdPrescription => ({ dispensing: "院外", items: r.items! }))];

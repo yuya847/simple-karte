@@ -1,3 +1,4 @@
+import { patternCourse } from "./day-pattern";
 // Turn orders into the short lines shown in the chart.
 
 import { BASIC_SETS, DEPT_SETS } from "./lab-sets";
@@ -57,7 +58,7 @@ export function injectionLines(order: InjectionOrder, today: CalendarDate): { ma
   if (order.rateMlPerH) parts.push(`${order.rateMlPerH}mL/時`);
   const start = formatShort(addDays(today, order.start.day));
   parts.push(`開始 ${start}${order.start.time ? ` ${order.start.time}` : ""}`);
-  parts.push(order.days ? `${order.days}日間` : "継続");
+  parts.push(patternCourse(order.dayPattern, order.start.day, order.days, false, today));
   if (order.comment) parts.push(order.comment);
   return { main, detail: parts.join("　") };
 }
@@ -112,7 +113,7 @@ export function prescriptionLines(order: PrescriptionOrder, today: CalendarDate)
   const main = `${oralName(order.drugCode)}　1回${order.amount}${order.unit}${order.dailyAmount ? `（1日${order.dailyAmount}${order.unit}）` : ""}`;
   const parts: string[] = [order.category, timingText(order)];
   parts.push(`開始 ${formatShort(addDays(today, order.start.day))}${order.start.timing ? ` ${order.start.timing}` : ""}`);
-  if (!order.once) parts.push(order.days ? `${order.days}日分` : "継続");
+  if (!order.once) parts.push(patternCourse(order.dayPattern, order.start.day, order.days, true, today));
   if (order.comment) parts.push(order.comment);
   return { main, detail: parts.join("　") };
 }

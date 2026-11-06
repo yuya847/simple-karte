@@ -1,3 +1,4 @@
+import { patternCourse } from "./day-pattern";
 // 指示受け and 実施入力 in the form of the big vendors' ward screens (富士通 HOPE/EGMAIN-GX catalog): a
 // date to move through, the kinds of orders to show, a band per patient (ID・氏名・年齢・性別・部屋), and
 // one block per order — a heading with the kind and the order's date and time, three pairs of
@@ -128,7 +129,7 @@ export function orderFields(o: Order, today: CalendarDate, place: string): Sheet
     put("1回の時間", o.minutesPerDose ? durationText(o.minutesPerDose) : undefined);
     put("速度", o.rateMlPerH ? `${o.rateMlPerH} mL/時` : undefined);
     put("指示開始", dayText(today, o.start.day, o.start.time));
-    put("日数", o.days ? `${o.days}日間` : "継続（変更まで）");
+    put("日数", o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, false, today) : o.days ? `${o.days}日間` : "継続（変更まで）");
     put("実施場所", place);
     put("コメント", o.comment);
   } else if (o.type === "prescription") {
@@ -136,7 +137,7 @@ export function orderFields(o: Order, today: CalendarDate, place: string): Sheet
     put("用法", timingText(o));
     put("区分", o.category);
     put("指示開始", dayText(today, o.start.day, o.start.timing));
-    put("日数", o.days ? `${o.days}日分` : "継続（変更まで）");
+    put("日数", o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, true, today) : o.days ? `${o.days}日分` : "継続（変更まで）");
     put("コメント", o.comment);
   } else if (o.type === "lab") {
     put("検査項目", o.codes.map(labName).join("、"));

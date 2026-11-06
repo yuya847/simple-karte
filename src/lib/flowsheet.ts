@@ -1,8 +1,9 @@
+import { patternDay } from "./day-pattern";
 // Calculations behind the flow sheet (経過表). Times are "absolute minutes": day offset × 1440
 // plus minutes since midnight, so today 18:00 is 1080 and yesterday 06:00 is -1080.
 
 import { defaultDoseTimes } from "./inj-entry";
-import { minutesOf } from "./dates";
+import { type CalendarDate, minutesOf } from "./dates";
 import { doseVolumeMl } from "./drafts";
 import type { DayOffset, InjectionOrder, OrderEntry } from "./types";
 
@@ -18,19 +19,19 @@ export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number
     return { from, to: Math.max(from, to) };
   }
   if (o.end) return { from, to: abs(o.end.day, o.end.time) };
-  if (o.days) return { from, to: from + o.days * 1440 };
+  if (o.days) return { from, to: o.dayPattern ? (o.start.day + o.days) * 1440 : from + o.days * 1440 };
   return { from, to: null };
 }
 
 /** Prescribed times, per-day defaults, or every-N-hours occurrences inside [lo, hi). */
-export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: number): number[] {
+export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: number, base?: CalendarDate): number[] {
   const o = entry.order as InjectionOrder;
   const times = o.sliding ? o.sliding.times : o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" ? defaultDoseTimes(o.schedule) : [];
   if (times.length) {
     const { from, to } = orderInterval(entry, nowAbs);
     const out: number[] = [];
-    for (let day = Math.floor(lo / 1440) - 1; day <= Math.floor(hi / 1440); day++) {
-      if (day < o.start.day || (o.days && day >= o.start.day + o.days)) continue;
+    for (let day = Math.floor(Math.max(lo, from) / 1440) - 1; day <= Math.floor(hi / 1440); day++) {
+      if (!patternDay(o.dayPattern, o.start.day, day, base) || day < o.start.day || (o.days && day >= o.start.day + o.days)) continue;
       for (const time of times) {
         const at = abs(day, time);
         if (at >= from && at >= lo && at < hi && (to === null || at < to)) out.push(at);
@@ -41,9 +42,9 @@ export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: num
   if (o.schedule.kind !== "every_hours") return [];
   const { from, to } = orderInterval(entry, nowAbs);
   const step = o.schedule.hours * 60;
-  const end = Math.min(hi, to ?? Infinity);
+  const end = Math.min(hi, to ?? Infinity, o.days ? o.dayPattern ? (o.start.day + o.days) * 1440 : from + o.days * 1440 : Infinity);
   const out: number[] = [];
-  for (let t = from; t < end; t += step) if (t >= lo) out.push(t);
+  for (let t = from; t < end; t += step) if (t >= lo && patternDay(o.dayPattern, o.start.day, Math.floor(t / 1440), base)) out.push(t);
   return out;
 }
 
@@ -59,7 +60,10 @@ export function fluidInWindow(entries: OrderEntry[], lo: number, hi: number, now
       total += doseTimes(e, nowAbs, lo, hi).length * vol;
     } else if (o.schedule.kind === "per_day") {
       const { from, to } = orderInterval(e, nowAbs);
-      const overlap = Math.max(0, Math.min(hi, to ?? Infinity) - Math.max(lo, from));
+      let overlap = 0;
+      for (let day = Math.floor(lo / 1440); day < Math.ceil(hi / 1440); day++) {
+        if (patternDay(o.dayPattern, o.start.day, day)) overlap += Math.max(0, Math.min(hi, to ?? Infinity, (day + 1) * 1440) - Math.max(lo, from, day * 1440));
+      }
       total += ((vol * o.schedule.count) / 1440) * overlap;
     } else {
       const t = abs(o.start.day, o.start.time ?? e.time);

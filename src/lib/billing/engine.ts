@@ -1,3 +1,6 @@
+import { doseTimes } from "../flowsheet";
+import type { CalendarDate } from "../dates";
+import { patternDay, rxLastDay } from "../day-pattern";
 // Inpatient 出来高 claim for one patient and one month (医科, 令和8年度).
 //
 // Every point comes from the official 医科診療行為マスター / 医薬品マスター; the rule tables come
@@ -282,7 +285,7 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     const byRoute: Record<string, { lines: Map<string, number>; volume: number }> = {};
     for (const e of injections) {
       const ord = e.order as InjectionOrder;
-      const counted = injectionDoses(e, lo, hi, nowAbs);
+      const counted = injectionDoses(e, lo, hi, nowAbs, cal(0));
       const skipped = notGiven.filter((n) => n.orderId === e.id && n.at >= lo && n.at < hi).length;
       const doses = counted.bags > 0 ? { count: counted.count, bags: Math.max(0, counted.bags - skipped) } : { count: Math.max(0, counted.count - skipped), bags: 0 };
       if (skipped) issues.push({ level: "info", text: `${findDrug((e.order as InjectionOrder).items[0]?.drugCode ?? "")?.name ?? "注射"}：病棟で未実施と記録された${skipped}回は算定しません。` });
@@ -723,7 +726,7 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
       const official = officialDrugCode(ord.drugCode);
       if (!official) continue;
       if (ord.timings.length) {
-        const taken = scheduledTaken(e, lo, hi, nowAbs);
+        const taken = scheduledTaken(e, lo, hi, nowAbs, cal(0));
         if (!taken.length) continue;
         const key = taken.join("・");
         if (!byTimings.has(key)) byTimings.set(key, new Map());
@@ -877,8 +880,12 @@ function expandLab(codes: string[]): string[] {
 }
 
 /** Doses of an injection order inside [lo, hi): timed doses, or bags of a continuous fluid. */
-function injectionDoses(e: OrderEntry, lo: number, hi: number, nowAbs: number): { count: number; bags: number } {
+function injectionDoses(e: OrderEntry, lo: number, hi: number, nowAbs: number, base: CalendarDate): { count: number; bags: number } {
   const o = e.order as InjectionOrder;
+  if (o.dayPattern && o.schedule.kind !== "once") {
+    const n = doseTimes(e, nowAbs, lo, hi, base).length;
+    return { count: n, bags: 0 };
+  }
   const from = abs(o.start.day, o.start.time ?? e.time);
   let to = Infinity;
   if (e.status === "中止") to = e.stoppedOn === undefined || e.stoppedOn === 0 ? nowAbs : (e.stoppedOn + 1) * DAY;
@@ -904,14 +911,15 @@ function injectionDoses(e: OrderEntry, lo: number, hi: number, nowAbs: number): 
 }
 
 /** Scheduled oral timings taken inside [lo, hi). */
-function scheduledTaken(e: OrderEntry, lo: number, hi: number, nowAbs: number): string[] {
+function scheduledTaken(e: OrderEntry, lo: number, hi: number, nowAbs: number, base: CalendarDate): string[] {
   const o = e.order as PrescriptionOrder;
   const times: Record<string, string> = WARD_RULES.medTimes;
   const firstTiming = o.start.timing ?? o.timings[0];
   const from = abs(o.start.day, times[firstTiming]);
-  let to = o.days ? from + o.days * DAY : Infinity;
+  let to = o.days ? o.dayPattern ? (rxLastDay(o, base)! + 1) * DAY : from + o.days * DAY : Infinity;
   if (e.status === "中止") to = Math.min(to, e.stoppedOn === undefined || e.stoppedOn === 0 ? nowAbs : (e.stoppedOn + 1) * DAY);
   const day = Math.floor(lo / DAY);
+  if (!patternDay(o.dayPattern, o.start.day, day, base)) return [];
   return o.timings.filter((t) => {
     const at = abs(day, times[t]);
     return at >= from && at < to && at >= lo && at < hi;

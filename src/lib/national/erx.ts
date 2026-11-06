@@ -1,3 +1,4 @@
+import { patternText } from "../day-pattern";
 // 電子処方箋（模擬）: the prescription written as HL7 FHIR following the public 厚生労働省標準規格 HS036
 // 「処方情報 HL7 FHIR 記述仕様」 (ERX_SPECS) — its profile names, code systems and required elements, as far
 // as the app's data goes. HS036 says it is not the 電子処方箋 file itself: the real 電子処方箋管理サービス
@@ -102,7 +103,7 @@ export interface ErxReceipt {
 const lineText = (l: RxLine) => {
   const m = findOralDrug(l.drug);
   const how = l.timings.length ? `1日${l.timings.length}回 ${timingName(l.timings)}` : `頓用 ${l.prn ?? ""}${l.maxPerDay ? `（1日${l.maxPerDay}回まで）` : ""}`;
-  return `内服・経口・${how}　1回${l.perDose ?? "？"}${m?.unit ?? l.unit}　${l.days ? `${l.days}${l.timings.length ? "日分" : "回分"}` : "日数？"}`;
+  return `内服・経口・${l.dayPattern ? patternText(l.dayPattern) + "　" : ""}${how}　1回${l.perDose ?? "？"}${m?.unit ?? l.unit}　${l.days ? `${l.days}${l.timings.length ? l.dayPattern ? "投与日分" : "日分" : "回分"}` : "日数？"}`;
 };
 
 const nameParts = (name: string) => {
@@ -270,7 +271,7 @@ export function buildErxBundle(x: ErxInput): ErxBuild {
         dosageInstruction: [
           {
             text: lineText(l),
-            timing: prn ? undefined : { repeat: { boundsDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } } },
+            timing: prn || l.dayPattern ? undefined : { repeat: { boundsDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } } },
             ...(prn ? { asNeededBoolean: true } : {}),
             route: { coding: [{ system: "http://jpfhir.jp/fhir/ePrescription/CodeSystem/route-codes", code: "PO", display: "口" }] },
             method: { coding: [{ system: OID.basicUsage, code: "1", display: "内服" }] },
@@ -278,7 +279,7 @@ export function buildErxBundle(x: ErxInput): ErxBuild {
               {
                 type: { coding: [{ system: OID.strength, code: "1", display: "製剤量" }] },
                 doseQuantity: { value: per, ...unit },
-                ...(daily !== null ? { rateRatio: { numerator: { value: daily, ...unit }, denominator: { value: 1, unit: "日", system: "http://unitsofmeasure.org", code: "d" } } } : {}),
+                ...(daily !== null && !l.dayPattern ? { rateRatio: { numerator: { value: daily, ...unit }, denominator: { value: 1, unit: "日", system: "http://unitsofmeasure.org", code: "d" } } } : {}),
               },
             ],
           },
@@ -286,7 +287,7 @@ export function buildErxBundle(x: ErxInput): ErxBuild {
         dispenseRequest: {
           ...(prn ? { extension: [{ url: `${EXT}JP_MedicationRequest_DispenseRequest_ExpectedRepeatCount`, valueInteger: l.days ?? 0 }] } : {}),
           quantity: { value: Math.round(total * 100) / 100, ...unit },
-          ...(prn ? {} : { expectedSupplyDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } }),
+          ...(prn || l.dayPattern ? {} : { expectedSupplyDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } }),
         },
         substitution: { allowedCodeableConcept: { coding: [{ system: OID.substitution, code: "0", display: "変更可" }] } },
       },

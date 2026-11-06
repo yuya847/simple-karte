@@ -171,6 +171,8 @@ export interface InjectionItem {
   unit: string;
 }
 
+export type DayPattern = { kind: "every"; n: number } | { kind: "weekdays"; days: number[] };
+
 export type InjectionSchedule =
   | { kind: "per_day"; count: number } // e.g. 1日2本 / 1日2回
   | { kind: "every_hours"; hours: number } // e.g. 12時間ごと
@@ -183,6 +185,7 @@ export interface SlidingScale {
 }
 
 export interface InjectionOrder {
+  dayPattern?: DayPattern;
   sliding?: SlidingScale;
   replaces?: string;
   doseTimes?: string[];
@@ -236,6 +239,7 @@ export interface LabOrder {
 export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
 
 export interface PrescriptionOrder {
+  dayPattern?: DayPattern;
   dispensing?: "院内" | "院外";
   once?: { day: DayOffset; time: string };
   onePack?: boolean;

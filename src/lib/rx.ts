@@ -1,3 +1,4 @@
+import { validDayPattern } from "./day-pattern";
 // Oral prescriptions (処方) as an Rp: drugs that share one usage. Entered as 1回量・1日◯回・用法
 // （例：1回1錠　1日3回　毎食後）, as the MHLW report on how to write oral prescriptions (2010) makes
 // the 1回量 the basis; a spoken 1日量・分N is still read, and code works out the other and shows both. Checks are split as in Japanese EHRs: errors that stop the order, and warnings
@@ -19,6 +20,7 @@ export interface RxItem {
 }
 
 export interface PrescriptionDraft {
+  dayPattern?: import("./types").DayPattern;
   dispensing?: "院内" | "院外";
   once?: boolean;
   alreadyDone?: boolean;
@@ -128,6 +130,7 @@ export function dischargeStartDay(d: PrescriptionDraft, ctx: Pick<CheckContext, 
 
 export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, allergies: string[] = []): Issue[] {
   const issues: Issue[] = [];
+  if (!validDayPattern(d.dayPattern)) issues.push({ key: "day-pattern", level: "stop", title: "投与日", message: "曜日または1以上の整数の日間隔を指定してください。" });
   const set = (patch: Partial<PrescriptionDraft>) => (x: Draft) => ({ ...(x as PrescriptionDraft), ...patch });
   const ack = (a: string) => (x: Draft) => ({ ...(x as PrescriptionDraft), acks: [...new Set([...(x as PrescriptionDraft).acks, a])] });
   if (!d.items.length) return [{ key: "drug", level: "stop", title: "薬", message: "薬が読み取れませんでした。言い直してください。" }];
@@ -247,6 +250,7 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
       drugCode: m.code,
       amount: per,
       unit: m.unit,
+      dayPattern: d.dayPattern,
       timings: d.timings!,
       ...(d.once ? { once: { day: 0, time: nowTime } } : {}),
       ...(prn && !d.once ? { prn: d.prn ?? "必要時", maxPerDay: d.maxPerDay ?? undefined } : {}),

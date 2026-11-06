@@ -1,3 +1,4 @@
+import { patternDay } from "./day-pattern";
 // 点滴の開始と終了（2回実施）: a drip is recorded when it starts and again when it ends, with what was
 // left in the bag (残量). What went in is counted by code — the bag's volume − 残量 — and goes into the
 // 水分出納 (io-balance.ts) at the time it ended. The expected end is the start + the minutes the bag
@@ -60,7 +61,7 @@ export function doseStarts(e: OrderEntry, lo: number, hi: number, nowAbs: number
   let n = 0;
   for (let t = from; t < Math.min(hi, to ?? Infinity); t += step) {
     n++;
-    if (t >= lo) out.push({ at: t, bag: n });
+    if (t >= lo && patternDay(o.dayPattern, o.start.day, Math.floor(t / 1440))) out.push({ at: t, bag: n });
   }
   return out;
 }

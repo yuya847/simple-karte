@@ -1,3 +1,5 @@
+import { patternDay } from "./day-pattern";
+import type { DayPattern } from "./types";
 import type { InjectionSchedule } from "./types";
 /** 架空の病院の取り決め。24:00 は当日の終端。 */
 export function defaultDoseTimes(schedule?: InjectionSchedule): string[] {
@@ -30,11 +32,14 @@ export function injectionFieldIndex(index: number, key: string, count: number): 
   return Math.max(0, Math.min(count - 1, index + (key === "ArrowLeft" ? -1 : ["ArrowRight", "Enter", "Tab"].includes(key) ? 1 : 0)));
 }
 /** 最終投与の開始＋1回の時間。終了指定がないときの表示用。 */
-export function automaticInjectionEnd(startDay: number, start: string, days: number, times: string[] | undefined, duration: number): { day: number; time: string } | null {
+export function automaticInjectionEnd(startDay: number, start: string, days: number, times: string[] | undefined, duration: number, pattern?: DayPattern): { day: number; time: string } | null {
   const clocks = times?.filter(validDoseTime).map(clockMinutes) ?? [];
   if ((!clocks.length && !validDoseTime(start)) || duration < 0 || !Number.isFinite(duration)) return null;
   const last = clocks.length ? Math.max(...clocks) : clockMinutes(start);
-  const at = (startDay + Math.max(1, days) - 1) * 1440 + last + Math.round(duration);
+  let day = startDay + Math.max(1, days) - 1;
+  while (day >= startDay && !patternDay(pattern, startDay, day)) day--;
+  if (day < startDay) return null;
+  const at = day * 1440 + last + Math.round(duration);
   const minute = ((at % 1440) + 1440) % 1440;
   return { day: Math.floor(at / 1440), time: `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}` };
 }

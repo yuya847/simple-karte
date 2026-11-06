@@ -1,3 +1,4 @@
+import { rxLastDay } from "./day-pattern";
 import { lineEffective } from "./standing-calendar";
 import type { StandingLine } from "./standing-lines";
 import type { AdminRecord } from "./mar";
@@ -19,7 +20,7 @@ export function activeOrders(entries: OrderEntry[]) {
     if (e.status !== "有効") return false;
     const o = e.order;
     if (!("start" in o)) return false;
-    return o.start.day <= 0 && (!("days" in o) || o.days === undefined || o.start.day + o.days > 0) && (!("end" in o) || !o.end || o.end.day >= 0);
+    return o.start.day <= 0 && (!("days" in o) || o.days === undefined || (o.type === "prescription" ? rxLastDay(o)! >= 0 : o.start.day + o.days > 0)) && (!("end" in o) || !o.end || o.end.day >= 0);
   });
 }
 export interface Equipment { id: string; label: string; hd?: HdOrder }
