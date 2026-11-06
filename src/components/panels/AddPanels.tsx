@@ -61,6 +61,7 @@ const SCHEDULES: { label: string; value: InjectionSchedule }[] = [
   { label: "8時間ごと", value: { kind: "every_hours", hours: 8 } },
   { label: "12時間ごと", value: { kind: "every_hours", hours: 12 } },
   { label: "24時間ごと", value: { kind: "every_hours", hours: 24 } },
+  { label: "48時間ごと", value: { kind: "every_hours", hours: 48 } },
 ];
 const FLUID_SCHEDULES: { label: string; value: InjectionSchedule }[] = [...[1, 2, 3, 4].map((c) => ({ label: `1日${c}本`, value: { kind: "per_day" as const, count: c } })), { label: "1回だけ", value: { kind: "once" } }];
 const DRIP_RATES = [20, 40, 60, 80, 100, 125, 200];

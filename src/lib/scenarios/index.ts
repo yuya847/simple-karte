@@ -109,6 +109,12 @@ export function generateScenarios(seed = SCENARIO_SEED) {
 
     const workflow = addWorkflow(patient, diagnoses, dischargeDay ?? 0, i);
     const clinicalDiets = addClinicalCourse(patient, clinical, dischargeDay ?? 0, i, destination, stage);
+    // Fictional test cases on either side of CCr 20; no drug is chosen here.
+    if ([21, 31].includes(i) && patient.age >= 18) {
+      const last = [...patient.labs].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)).at(-1);
+      if (last) last.values.Cre = Number(((140 - patient.age) * patient.weightKg / (72 * (i === 21 ? 19.9 : 20.1)) * (patient.sex === "女" ? 0.85 : 1)).toFixed(3));
+      patient.cautions = [...patient.cautions, "腎機能低下（用量計算の試験用）"];
+    }
     if (dischargeDay !== undefined) {
       // Inpatient orders end at discharge; outpatient orders belong to the follow-up encounter.
       patient.history = patient.history.map((e): HistoryEntry => e.kind === "order" && e.status === "有効" ? { ...e, status: "終了", stoppedOn: dischargeDay, ...("start" in e.order ? { order: { ...e.order, days: Math.max(1, Math.min(e.order.days ?? Infinity, dischargeDay - e.order.start.day + 1)), ...(e.order.type === "injection" ? { end: { day: Math.min(e.order.end?.day ?? dischargeDay, dischargeDay), time: "10:00" } } : {}) } } : {}) } : e);

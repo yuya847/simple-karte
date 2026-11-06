@@ -280,6 +280,7 @@ import { FlowEntryPanel } from "./FlowEntryPanel";
 import { IoBoard } from "./IoBoard";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
+import { AbxRenalWindow } from "./AbxRenalWindow";
 import { DietWindow } from "./DietWindow";
 import { DischargePanel } from "./panels/DischargePanel";
 import type { DischargeDraft } from "@/lib/discharge";
@@ -3816,6 +3817,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                 </Drawer>
               )}
               {panel === "nutrition" && <Drawer title="栄養管理" onClose={closePanel} wide locked={deny("assess.nutrition")}><NutritionPanel onPlan={() => { setNutritionDoc(true); setPanel("docs"); }} key={patient.id} patient={patient} evaluation={evals[patient.id]} diets={diets} today={today} nowTime={nowTime} onSave={(e, text) => { setEvals(all => ({ ...all, [e.patientId]: e })); chartNote(patient.id, text); }} /></Drawer>}
+              {panel === "abx-renal" && (
+                <Drawer title="抗菌薬の量" onClose={closePanel} wide>
+                  <AbxRenalWindow key={patient.id} patient={patient} entries={entries} today={today} canOrder={role === "医師" && !deny("order")} onOrder={o => { if (role === "医師" && !deny("order")) { newInjection({ day: o.start.day, time: o.start.time ?? null }, o); closePanel(); } }} onTdm={() => setPharmacyFocus({ tab: "tdm", patientId: patient.id })} />
+                </Drawer>
+              )}
               {panel === "diet" && (
                 <Drawer title="食事" onClose={closePanel} wide locked={deny("diet")}>
                   <DietWindow patient={patient} today={today} nowTime={nowTime} diets={diets} entries={entries} dietEdit={refPropsOf(patient).dietEdit} />

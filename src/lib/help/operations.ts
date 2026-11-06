@@ -2,6 +2,7 @@
 // or whose screen did not previously contain a hint.
 export const operationHelp: Record<string, string[]> = {
   "panel:insulin": ["模擬。血糖と実施は経過表・与薬記録と共通です。帯は表示用で、このウインドウ内で変更できます。記録のない回は合計しません。固定とスケールの内訳は指示と実施総量の差から集計します。副食の未記録は「—」です。下書きは「保存」で確定します。採用品は架空の品目です。連続回数は実施予定の同じ時刻ごとに数えます。"],
+  "panel:abx-renal": ["医師が選んだ抗菌薬の電子添文を、成人のCCrに当てはめて表示します。薬の選択や用量の推奨は行いません。", "理想体重＝22×身長(m)²、補正体重＝理想体重＋0.4×(実体重−理想体重)。計算の体重は医師が選びます。", "透析中は通常のCCr表を適用しません。記載のない区分は補間しません。VCMの図は出典で確認し、TDM画面で調整します。", "初日量と維持量、開始日時、溶解の生食を選ぶと、記事の下の注射入力に写します。医師が修正して保存する模擬オーダです。内服は表示のみです。", "出典リンクの見出しに品目ごとの電子添文の版・節・確認日を表示します。"],
   "panel:add-rx": ["薬・用量・用法・開始日を入力し、内容を確認して確定します。"],
   "panel:add-injection": ["薬・量・投与方法・日時を入力し、内容を確認して確定します。"],
   "panel:add-procedure": ["処置と実施する日時を選び、内容を確認して確定します。"],
@@ -25,6 +26,6 @@ export const operationHelp: Record<string, string[]> = {
   "panel:bookings": ["患者の検査・手術・透析・リハビリ・外来の予約を確認します。"],
 };
 export const referenceHelpLabels: Record<string, string> = {
-  insulin: "インスリン", note: "記事作成", injcal: "注射カレンダー", rxcal: "内服カレンダー", proccal: "処置カレンダー",
+  insulin: "インスリン", "abx-renal": "抗菌薬の量", note: "記事作成", injcal: "注射カレンダー", rxcal: "内服カレンダー", proccal: "処置カレンダー",
   flowsheet: "経過表", dietcal: "移動・食事", standingcal: "指示簿カレンダー", bookings: "予約",
 };
