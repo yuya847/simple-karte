@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, Hand, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
+import { TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { loadMyTemplates } from "@/lib/note-templates";
@@ -44,7 +44,6 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
       { key: "add-transfusion", label: "輸血", icon: Droplet },
       { key: "add-dialysis", label: "透析", icon: Droplets },
       { key: "regimen", label: "レジメン", icon: FlaskRound },
-      { key: "restraint", label: "身体的拘束", icon: Hand },
       { key: "add-discharge", label: "退院", icon: DoorOpen },
       { key: "discharge-stop", label: "退院時の一括中止", icon: ListX },
       { key: "add-leave", label: "外泊・外出", icon: Luggage },

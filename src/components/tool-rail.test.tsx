@@ -138,7 +138,9 @@ it("参照に検査時系列を追加し、未確認の数字は検査結果に�
   expect(html).toContain('aria-label="検査結果：未確認 2件"');
   expect(html).not.toContain('aria-label="検査時系列：未確認');
   const src = readFileSync(fileURLToPath(new URL("./WardApp.tsx", import.meta.url)), "utf8");
-  expect(src).toMatch(/const WINDOW_PANELS[^\n]*"results-timeline"/);
+  // Every tool but 内服・注射・処置 opens as a window (WINDOW_PANELS is the complement of DRAWER_PANELS).
+  expect(src).toMatch(/const DRAWER_PANELS[^\n]*"add-rx", "add-injection", "add-procedure"/);
+  expect(src).toMatch(/const WINDOW_PANELS = \{ has: \(k: string\) => !DRAWER_PANELS\.has\(k\) \}/);
   expect(src).toContain('panel === "results-timeline"');
   expect(src).toContain("<ResultBrowser");
 });
