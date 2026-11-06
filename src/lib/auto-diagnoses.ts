@@ -31,7 +31,9 @@ export function diagnosisNameParts(text: string, modifiers: (Modifier & { positi
 
 export function autoDiagnoses(problems: string[], admissionDiagnosis: string | null, existing: Diagnosis[], lookup: (name: string) => DiseaseHit | null): { add: Diagnosis[]; unmatched: string[] } {
   const add: Diagnosis[] = [], unmatched: string[] = [];
-  for (const [text, from] of [...problems.map(p => [p, "記事"] as const), ...(admissionDiagnosis ? [[admissionDiagnosis, "入院申込"] as const] : [])]) {
+  // The admission request's wording (often "A、B") is only a candidate until the doctor has registered a main diagnosis.
+  const fromRequest = admissionDiagnosis && !existing.some((d) => d.main) ? [[admissionDiagnosis, "入院申込"] as const] : [];
+  for (const [text, from] of [...problems.map(p => [p, "記事"] as const), ...fromRequest]) {
     if (!text.trim()) continue;
     let parts = diagnosisNameParts(text);
     if ([...existing, ...add].some(d => diagnosisLabel(d) === text.trim() || d.name === parts.name)) continue;
