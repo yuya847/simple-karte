@@ -538,22 +538,24 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   <span>日間</span>
                   <span className="hint text-[11px] text-ink-faint">空なら日数を決めません（1回だけ、または止めるまで）</span>
                 </InjectionEntryRow>
+                {/* 投与時刻・実施済み・コメント on one wrapping line (the right side of a short row was empty). */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <InjectionEntryRow step="times" active={rp.step}>
                 <DoseTimesEntry label={`Rp${first + i} の投与時刻`} times={rp.doseTimes ?? []} onChange={(doseTimes) => upd(i, { doseTimes, ...(rp.sliding ? {sliding:{...rp.sliding,times:doseTimes}} : {}) })} />
                 </InjectionEntryRow>
-                <p className="hint">投与時刻は架空の病院の取り決めです。1回ずつ書き替え、＋時刻・×で追加・削除できます。24:00 は翌日0時です。</p>
-                <InjectionEntryRow step="start" active={rp.step}>
+                <p className="hint basis-full">投与時刻は架空の病院の取り決めです。1回ずつ書き替え、＋時刻・×で追加・削除できます。24:00 は翌日0時です。</p>
+                <InjectionEntryRow step="start" active={rp.step} className="basis-full">
                 <label className="block">開始日付 <input type="date" aria-label={`Rp${first + i} の開始日付`} value={(() => { const t = todayInTokyo(); return new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay)).toISOString().slice(0, 10); })()} onChange={(e) => { const t = todayInTokyo(); if (e.target.value) upd(i, { startDay: Math.round((Date.parse(e.target.value) - Date.UTC(t.y, t.m - 1, t.d)) / 86400000) }); }} className={field} /></label>
                 <label className="block">開始日（今日からの日数） <input type="number" value={rp.startDay} onChange={(e) => upd(i, { startDay: Number(e.target.value) })} className={`${field} w-16`} /></label>
                 </InjectionEntryRow>
-                <InjectionEntryRow step="days" active={rp.step}>
+                <InjectionEntryRow step="days" active={rp.step} className="basis-full">
                 <label className="block">終了 <input aria-label={`Rp${first + i} の終了日`} type="number" placeholder="今日からの日数" value={rp.endDay ?? ""} onChange={(e) => upd(i, { endDay: e.target.value ? Number(e.target.value) : undefined })} className={`${field} w-16`} /> <input type="time" aria-label={`Rp${first + i} の終了時刻`} value={rp.endTime ?? ""} onChange={(e) => upd(i, { endTime: e.target.value })} className={field} /></label>
                 {!rp.endTime && autoEnd && <p className="text-xs">最終投与の終了予定：{autoEnd.day === 0 ? "今日" : `${autoEnd.day}日後`} {autoEnd.time}（量と時間から計算）</p>}
                 {validateInjectionEnd(rp.startDay, rp.startTime, Number(rp.days), rp.endDay, rp.endTime, rp.minutes, rp.doseTimes).map((m) => <p key={m} className="text-shu">{m}</p>)}
                 </InjectionEntryRow>
-                <label><input type="checkbox" disabled={!!rp.sliding} checked={!rp.sliding && !!rp.alreadyDone} onChange={(e) => upd(i, { alreadyDone: e.target.checked })} /> 実施済み</label>
-                <div className="flex items-center gap-1.5">
-                  <label htmlFor={`${uid}-${i}-comment`} className="w-16 shrink-0 text-ink-soft">
+                <label className="whitespace-nowrap"><input type="checkbox" disabled={!!rp.sliding} checked={!rp.sliding && !!rp.alreadyDone} onChange={(e) => upd(i, { alreadyDone: e.target.checked })} /> 実施済み</label>
+                <div className="flex min-w-[14rem] flex-1 items-center gap-1.5">
+                  <label htmlFor={`${uid}-${i}-comment`} className="shrink-0 text-ink-soft">
                     コメント
                   </label>
                   <input
@@ -570,6 +572,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                     aria-label={`Rp${first + i} のコメント`}
                     className={`${field} min-h-[30px] min-w-0 flex-1`}
                   />
+                </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-0.5">
                   <button
