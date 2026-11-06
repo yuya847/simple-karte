@@ -42,7 +42,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
   const r = records.find((x) => x.id === selected) ?? records[0];
   const locked = !!useDeny()("consent");
   return (
-    <div className="grid grid-cols-[200px_1fr] gap-4 text-[13px]">
+    <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-3 text-[13px]">
       <DenyNote action="consent" className="col-span-2" />
       <aside className="space-y-3">
         <ul className="space-y-1">
@@ -224,7 +224,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
   const order = r.orderId ? orders.find((o) => o.id === r.orderId) : undefined;
   const when = r.explainedAt ?? r.createdAt;
   return (
-    <article className={`${print ? "" : "rounded-lg border border-rule bg-sheet p-6 shadow-sm"} text-[12.5px] leading-relaxed text-ink print:text-[11px]`}>
+    <article className={`${print ? "" : "rounded-lg border border-rule bg-sheet p-3 shadow-sm"} text-[12.5px] leading-relaxed text-ink print:text-[11px]`}>
       <header className="mb-3 border-b-2 border-ink pb-2">
         <div className="flex items-baseline justify-between text-[11px] text-ink-soft">
           <span>{HOSPITAL.name}</span>
@@ -282,7 +282,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
         <p>
           私は、上記について説明を受け、内容を理解しました。（{r.choice ? (r.choice === "同意する" ? "■ 同意します　□ 同意しません" : "□ 同意します　■ 同意しません") : "□ 同意します　□ 同意しません"}）
         </p>
-        <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-[12px]">
+        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 text-[12px]">
           <span>
             説明日時：{formatShort(addDays(today, when.day))} {r.explainedAt ? when.time : "　　：　　"}
           </span>

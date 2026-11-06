@@ -205,7 +205,7 @@ function Receive({ onOpen, rows, people, nowAbs, onDesk, history }: { onOpen?: (
       </form>
 
       <button type="button" className="text-xs text-ink-soft" onClick={() => setShowReported((v) => !v)}>{showReported ? "報告済みを閉じる" : `報告済み ${counts.報告済み}件を表示`}</button>
-      <table className="w-full border-collapse text-[12px]">
+      <table className="w-auto table-auto self-start border-collapse text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="py-1 pr-2 font-normal">採血の時刻</th>
@@ -311,7 +311,7 @@ function Results({ people, items, calls, acks, limits, nowTime, attending, onCal
 
       <section>
         <h3 className="mb-1 text-xs font-bold text-ink-soft">今日からの結果（{items.length}件）</h3>
-        <table className="w-full border-collapse text-[12px]">
+        <table className="w-auto table-auto self-start border-collapse text-[12px]">
           <thead>
             <tr className="border-b border-rule text-left text-ink-soft">
               <th className="py-1 pr-2 font-normal">時刻</th>

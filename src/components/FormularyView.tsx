@@ -97,7 +97,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
         <div className="mx-auto max-w-[1200px] space-y-4">
 
           <div className="overflow-x-auto rounded-lg border border-rule bg-sheet">
-            <table className="w-full text-[12.5px]">
+            <table className="w-auto table-auto self-start text-[12.5px]">
               <thead className="bg-tab/60 text-left text-[11px] text-ink-soft">
                 <tr>
                   <th className="px-2 py-1.5 font-normal">院内の名前・規格</th>
@@ -296,7 +296,7 @@ function FormularySheet({ items, today, sort }: { items: FormularyItem[]; today:
     <div className="text-[8.5pt] text-black">
       <h1 className="mb-1 text-[13pt] font-bold">院内医薬品集（{sort === "薬効" ? "薬効順" : "読み順"}）</h1>
       <p className="mb-2 text-[8pt]">{formatShort(today)} 現在</p>
-      <table className="w-full border-collapse">
+      <table className="w-auto table-auto self-start border-collapse">
         <thead>
           <tr className="border-b border-black text-left">
             <th className="py-0.5">院内の名前・規格</th>

@@ -4,7 +4,7 @@ import { useTrayWindow } from "../WindowTray";
 import { panelSize } from "@/lib/panel-size";
 import { AppWindow, GripHorizontal, Lock, Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { clampWin, useWinDrag, type Win } from "../Dockable";
+import { clampWin, useWinDrag, WindowResizeHandles, type Win } from "../Dockable";
 
 /**
  * What WardApp decides for the panels: which panel is open (its key) and which panels open in their
@@ -60,12 +60,15 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     const r = loadRemembered(key);
     // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
     const mode = windowedFirst ? "window" : "drawer";
-    return mode === "window" ? clampWin((key === "templates" ? initialWin() : r?.win ?? initialWin())) : null;
+    const remembered = r?.win ?? initialWin();
+    const position = key === "templates" ? { x: Math.max(0, (window.innerWidth - remembered.w) / 2), y: initialWin().y } : {};
+    return mode === "window" ? clampWin({ ...remembered, ...position }) : null;
   });
   const [sized, setSized] = useState(() => typeof window !== "undefined" && !!loadRemembered(key)?.sized);
   const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? initialWin()));
   const tray = useTrayWindow(`panel:${key}`, title, !!win, onClose);
-  const { down, move, up } = useWinDrag(win, setWin);
+  const drag = useWinDrag(win, setWin);
+  const { down, move, up } = drag;
   // Remember the window's place a moment after it stops moving (not on every pointer move).
   useEffect(() => {
     if (!win) return;
@@ -74,6 +77,8 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   }, [win, key, sized]);
 
   // 横いっぱい: cover the whole chart (the area marked data-drawer-bounds), keeping the patient bar in view.
+  const [drawerWidth, setDrawerWidth] = useState<number | null>(null);
+  const drawerStart = useRef<{ x: number; width: number } | null>(null);
   const [full, setFull] = useState<DOMRect | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const bounds = () => ref.current?.parentElement?.closest("[data-drawer-bounds]")?.getBoundingClientRect() ?? null;
@@ -98,7 +103,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   }, [onClose, tray.minimized, tray.frontmost, win]);
 
   const body = (
-    <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-4">
+    <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-3">
       {locked ? (
         <fieldset disabled className="m-0 min-w-0 border-0 p-0">
           {children}
@@ -125,7 +130,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
         data-drawer-window={key}
         className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-rule bg-sheet shadow-[0_12px_40px_-8px_rgba(38,34,28,0.45)]"
         onPointerDownCapture={tray.front}
-        style={{ left: win.x, top: win.y, width: win.w, height: sized ? win.h : "auto", minHeight: "min(240px, 85vh)", maxHeight: sized ? undefined : "85vh", display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
+        style={{ left: win.x, top: win.y, width: win.w, height: sized ? win.h : "auto", minHeight: sized ? "min(200px, 100vh)" : "min(240px, 85vh)", maxHeight: sized ? undefined : "85vh", display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
       >
         <div
           className="flex shrink-0 cursor-move select-none items-center gap-2 border-b border-rule bg-tab px-3 py-1.5 text-sm"
@@ -152,15 +157,11 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
         </div>
         {lockedStrip}
         {body}
-        <div
-          aria-hidden
-          className="absolute bottom-0 right-0 h-5 w-5 cursor-nwse-resize pointer-coarse:h-8 pointer-coarse:w-8"
-          style={{ touchAction: "none", background: "linear-gradient(135deg, transparent 50%, rgba(140,132,115,0.55) 50%)" }}
-          onPointerDown={(e) => { if (!ref.current) return; const box = ref.current.getBoundingClientRect(); const actual = { ...win, h: box.height }; setWin(actual); setSized(true); down("size", actual)(e); }}
-          onPointerMove={move}
-          onPointerUp={up}
-          onPointerCancel={up}
-        />
+        <WindowResizeHandles drag={drag} baseline={() => {
+          const actual = { ...win, h: ref.current?.getBoundingClientRect().height ?? win.h };
+          setSized(true);
+          return actual;
+        }} />
       </div>
     );
   }
@@ -171,11 +172,33 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
       role="dialog"
       data-help-section={`panel:${key}`}
       aria-label={title}
-      style={full ? { position: "fixed", left: full.left, top: full.top, width: full.width, height: full.height } : undefined}
+      style={full ? { position: "fixed", left: full.left, top: full.top, width: full.width, height: full.height } : drawerWidth ? { width: drawerWidth, maxWidth: "100%" } : undefined}
       className={`absolute inset-y-0 right-0 z-30 flex flex-col border-l border-rule bg-sheet shadow-[-8px_0_24px_-12px_rgba(38,34,28,0.35)] ${
         wide ? "w-[min(760px,100%)]" : "w-[min(560px,100%)]"
       }`}
     >
+      {!full && <div role="separator" aria-orientation="vertical" aria-valuenow={Math.round(drawerWidth ?? (wide ? 760 : 560))} aria-label="パネルの幅" tabIndex={0}
+        className="absolute inset-y-0 left-0 z-20 w-2 cursor-ew-resize touch-none hover:bg-ai/20"
+        onDoubleClick={() => setDrawerWidth(null)}
+        onKeyDown={e => {
+          if (e.key === "Home") setDrawerWidth(null);
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          e.preventDefault();
+          setDrawerWidth(Math.max(320, Math.min((ref.current?.getBoundingClientRect().width ?? 560) + (e.key === "ArrowLeft" ? 16 : -16), bounds()?.width ?? window.innerWidth)));
+        }}
+        onPointerDown={e => {
+          if (e.button !== 0) return;
+          e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId);
+          drawerStart.current = { x: e.clientX, width: ref.current?.getBoundingClientRect().width ?? 560 };
+        }}
+        onPointerMove={e => {
+          const s = drawerStart.current;
+          if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
+          setDrawerWidth(Math.max(320, Math.min(s.width + s.x - e.clientX, bounds()?.width ?? window.innerWidth)));
+        }}
+        onPointerUp={e => { drawerStart.current = null; if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); }}
+        onPointerCancel={() => { drawerStart.current = null; }}
+      />}
       <div className="flex items-center justify-between border-b border-rule px-4 py-2.5">
         <h2 className="font-bold">{title}</h2>
         <button

@@ -14,8 +14,8 @@ const MIN_H = 200;
 
 /** Keep the whole window on the screen (at least 320 × 200), so its title bar and resize corner can be reached. */
 export function fitWin(win: Win, vw: number, vh: number): Win {
-  const w = Math.max(MIN_W, Math.min(Math.round(win.w), vw - 8));
-  const h = Math.max(MIN_H, Math.min(Math.round(win.h), vh - 8));
+  const w = Math.min(vw, Math.max(Math.min(MIN_W, vw), Math.min(Math.round(win.w), vw - 8)));
+  const h = Math.min(vh, Math.max(Math.min(MIN_H, vh), Math.min(Math.round(win.h), vh - 8)));
   return { w, h, x: Math.max(0, Math.min(Math.round(win.x), vw - w)), y: Math.max(0, Math.min(Math.round(win.y), vh - h)) };
 }
 

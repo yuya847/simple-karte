@@ -272,7 +272,7 @@ function ReportForm({ r, onDesk, nowTime, people, desk }: Pick<Props, "onDesk" |
 function List({ rows, desk, acks }: Props & { rows: PhysioRow[] }) {
   const items = physioResultItems(desk);
   return (
-    <table className={`${card} w-full border-collapse text-[12px]`}>
+    <table className={`${card} w-auto table-auto self-start border-collapse text-[12px]`}>
       <thead>
         <tr className="border-b border-rule text-left text-ink-soft">
           <th className="px-2 py-1 font-normal">予定</th>

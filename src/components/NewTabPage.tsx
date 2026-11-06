@@ -33,7 +33,7 @@ export function NewTabPage({ patients, openIds, under, todos, onPatient }: Props
 
   return (
     <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper">
-      <div className="mx-auto max-w-4xl space-y-6 px-6 py-6 text-sm">
+      <div className="max-w-4xl space-y-3 px-3 py-3 text-sm">
         <section>
           <h2 className="mb-2 font-bold">患者のカルテを開く<span className="ml-2 text-[12px] font-normal text-ink-soft">「{under}」の下にタブで開きます（ほかの所で開いていれば、そこへ移ります）</span></h2>
           <label className="flex items-center gap-2 rounded-lg border border-rule bg-sheet px-3 py-2 focus-within:border-ai">

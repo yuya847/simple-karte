@@ -50,7 +50,7 @@ export function ConsentSign({ record, patientName, doctor, nowTime, document, on
         </button>
       </header>
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-8">
-        <div className="mx-auto max-w-3xl space-y-6">
+        <div className="mx-auto max-w-3xl space-y-3">
           <div className="text-[15px] leading-relaxed">{document}</div>
 
           {unanswered.length > 0 && <p className="rounded-lg bg-yamabuki-soft p-3 font-bold text-yamabuki">先に問診（{unanswered.length}項目）に答えてください。閉じて、同意書の画面で入れられます。</p>}

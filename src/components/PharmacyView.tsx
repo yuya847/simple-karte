@@ -404,7 +404,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
           <h3 className="mb-2 font-bold">
             鑑別　{person.room} {person.patient.name}
           </h3>
-          <table className="nums w-full border-collapse">
+          <table className="nums w-auto table-auto self-start border-collapse">
             <thead className="text-left text-[11px] text-ink-faint">
               <tr>
                 <th className="py-1 font-normal">手帳の記載</th>
@@ -938,7 +938,7 @@ function Blood({ people, today, txIssued }: PharmacyProps) {
       {issuedToday.length > 0 && (
         <div className={`${card} p-3 text-[12px]`}>
           <h3 className="mb-1 font-bold">今日の払出（日報）</h3>
-          <table className="nums w-full">
+          <table className="nums w-auto table-auto self-start">
             <tbody>
               {issuedToday.map(({ x, e }) => (
                 <tr key={e.id} className="border-t border-rule-soft">

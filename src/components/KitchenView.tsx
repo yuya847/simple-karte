@@ -173,7 +173,7 @@ function Counts({ cellsOf, today, dowOf }: Props & { cellsOf: CellsOf; dowOf: (d
     return i(a) - i(b) || a.localeCompare(b, "ja");
   });
   const table = (
-    <table className="nums w-full border-collapse text-[12px]">
+    <table className="nums w-auto table-auto self-start border-collapse text-[12px]">
       <thead>
         <tr className="border-b border-rule text-left text-ink-soft">
           <th className="px-2 py-1 font-normal">食種（献立の系）</th>
@@ -294,7 +294,7 @@ function Menus({ today, dowOf }: { today: CalendarDate; dowOf: (d: number) => nu
         {rule.fitEnergy && <span className="ml-2 text-ink-soft">主食は通常量で表示。患者ごとの量は指示のエネルギーで変わります（{KITCHEN_HOUSE_RULES.staple}）</span>}
       </p>
       <div className={`${card} scroll-thin overflow-x-auto`}>
-        <table className="w-full border-collapse text-[11px]">
+        <table className="w-auto table-auto self-start border-collapse text-[11px]">
           <thead>
             <tr className="border-b border-rule text-left text-ink-soft">
               <th className="px-2 py-1 font-normal" />
@@ -587,7 +587,7 @@ function Checks(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
         <li>{KITCHEN_RULES.saltSpecial}</li>
         <li>{KITCHEN_RULES.general}食事摂取基準の推定エネルギー必要量は体位と身体活動レベルで変わるため、ここでは比べません。</li>
       </ul>
-      <table className={`${card} w-full border-collapse text-[12px]`}>
+      <table className={`${card} w-auto table-auto self-start border-collapse text-[12px]`}>
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="px-2 py-1 font-normal">患者</th>
@@ -677,7 +677,7 @@ function Orders(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
       <p className="text-[11px] font-bold text-yamabuki">模擬：業者にはつながっていません。発注の記録と入庫は、この画面の中だけで動きます。</p>
       <DenyNote action="kitchen" />
       <div className={`${card} scroll-thin overflow-x-auto`}>
-        <table className="nums w-full border-collapse text-[12px]">
+        <table className="nums w-auto table-auto self-start border-collapse text-[12px]">
           <thead>
             <tr className="border-b border-rule text-left text-ink-soft">
               <th className="px-2 py-1 font-normal">食材</th>

@@ -21,7 +21,7 @@ export function GlassStep({ patient, me, onOpen, onBack }: { patient: { name: st
   const problem = glassProblem(reason, note);
   const team = careTeam(patient);
   return (
-    <main className="grid flex-1 place-items-start justify-center overflow-y-auto bg-paper px-4 py-8 text-[13px]">
+    <main className="grid flex-1 place-items-start justify-center overflow-y-auto bg-paper px-3 py-3 text-[13px]">
       <section role="dialog" aria-label="閲覧制限の患者を開く理由" className="w-[min(560px,100%)] rounded-lg border border-fuji/40 bg-sheet p-5 shadow-[0_12px_32px_-8px_rgba(38,34,28,0.25)]">
         <h1 className="mb-1 flex items-center gap-2 text-base font-bold text-fuji">
           <LockKeyhole size={18} />

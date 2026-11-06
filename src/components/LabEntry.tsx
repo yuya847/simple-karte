@@ -204,7 +204,7 @@ export function LabEntryForm({
           </span>
           <span className="nums font-mono text-[11px] text-ink-faint">{row.code}</span>
         </div>
-        <table className="w-full border-collapse text-[12px]">
+        <table className="w-auto table-auto self-start border-collapse text-[12px]">
           <thead>
             <tr className="border-b border-rule text-left text-ink-soft">
               <th className="py-1 pr-2 font-normal">項目</th>

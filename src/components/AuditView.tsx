@@ -70,7 +70,7 @@ export function AuditView() {
       ) : shown.length === 0 ? (
         <p className="text-ink-faint">まだ記録はありません。カルテを開いて話すか打つと、ここに残ります。</p>
       ) : (
-        <table className="w-full border-collapse">
+        <table className="w-auto table-auto self-start border-collapse">
           <thead>
             <tr className="border-b border-rule text-left text-[11px] text-ink-faint">
               <th className="py-1 pr-2 font-normal">番号</th>

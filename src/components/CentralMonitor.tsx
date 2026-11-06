@@ -77,7 +77,7 @@ export function CentralMonitor({ candidates, manual, lockedWhy, onToggle, onOpen
 
 
       {list.length === 0 ? (
-        <p className="rounded-md border border-dashed border-rule p-6 text-center text-ink-soft">モニターを付けている患者はいません。下の表で付けられます。</p>
+        <p className="rounded-md border border-dashed border-rule p-3 text-center text-ink-soft">モニターを付けている患者はいません。下の表で付けられます。</p>
       ) : (
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {shown.map(({ patient: p, reasons }) => {

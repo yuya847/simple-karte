@@ -83,6 +83,6 @@ it("テンプレートは保存された左端の位置より中央を優先す�
   vi.stubGlobal("window", { innerWidth: 1400, innerHeight: 900, localStorage: { getItem: () => JSON.stringify({ mode: "window", win: { x: 0, y: 0, w: 960, h: 500 } }) } });
   try {
     const html = renderToStaticMarkup(<DrawerDefaults.Provider value={{ panel: "templates", windowed: new Set(["templates"]) }}><Drawer title="テンプレート" wide onClose={() => {}}>一覧</Drawer></DrawerDefaults.Provider>);
-    expect(html).toContain("left:220px;top:67.5px;width:960px");
+    expect(html).toContain("left:220px;top:67.5px;width:960px;height:500px");
   } finally { vi.unstubAllGlobals(); }
 });

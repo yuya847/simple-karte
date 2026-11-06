@@ -165,7 +165,7 @@ function Detail({ item, locked, dayLabel, onStep, onReportPanic }: { onReportPan
             </div>
           )}
           {stage === "最終報告" && input.organism.trim() !== NO_GROWTH && (
-            <table className="w-full max-w-[560px] border-collapse">
+            <table className="w-auto table-auto self-start max-w-[560px] border-collapse">
               <thead>
                 <tr className="border-b border-rule text-left text-ink-soft">
                   <th className="py-0.5 pr-2 font-normal">薬剤</th>

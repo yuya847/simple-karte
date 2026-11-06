@@ -67,7 +67,7 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
         <section aria-label="食数">
           <h2 className="mb-1 text-xs font-bold text-ink-soft">食数（食種ごと。コードで数えています）</h2>
           <div className="scroll-thin overflow-x-auto rounded-lg border border-rule bg-sheet">
-            <table className="nums w-full border-collapse text-[12px]">
+            <table className="nums w-auto table-auto self-start border-collapse text-[12px]">
               <thead>{slotHead}</thead>
               <tbody>
                 {types.map((type) => (
@@ -116,7 +116,7 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
         <section aria-label="患者ごとの食事">
           <h2 className="mb-1 text-xs font-bold text-ink-soft">患者ごと（{rows.length}人）</h2>
           <div className="scroll-thin overflow-x-auto rounded-lg border border-rule bg-sheet">
-            <table className="w-full border-collapse text-[12px]">
+            <table className="w-auto table-auto self-start border-collapse text-[12px]">
               <thead>
                 <tr className="text-[11px] text-ink-soft">
                   <th className="sticky left-0 bg-sheet" />

@@ -2,7 +2,9 @@
 
 import { GripHorizontal, Minus, X } from "lucide-react";
 import { useTrayWindow } from "./WindowTray";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { fitWin, keptWin } from "@/lib/win-prefs";
+import { resizeWin, type ResizeEdge } from "@/lib/window-resize";
 
 export interface Win {
   x: number;
@@ -31,11 +33,8 @@ export function bigWin(): Win {
 
 /** Keep the whole window on screen, so its title bar and resize corner can always be reached. */
 export function clampWin(w: Win): Win {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const width = Math.max(320, Math.min(w.w, vw - 8));
-  const height = Math.max(200, Math.min(w.h, vh - 8));
-  return { w: width, h: height, x: Math.max(0, Math.min(w.x, vw - width)), y: Math.max(0, Math.min(w.y, vh - height)) };
+  const fitted = fitWin(w, window.innerWidth, window.innerHeight);
+  return { ...fitted, x: Math.max(0, Math.min(w.x, window.innerWidth - fitted.w)), y: Math.max(0, Math.min(w.y, window.innerHeight - fitted.h)) };
 }
 
 /**
@@ -43,9 +42,9 @@ export function clampWin(w: Win): Win {
  * Shared by the right-side tabs (Dockable) and the panels (Drawer) so both behave the same.
  */
 export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void, onFront?: () => void) {
-  const start = useRef<{ px: number; py: number; win: Win; mode: "move" | "size" } | null>(null);
-  const down = (mode: "move" | "size", baseline = win) => (e: React.PointerEvent) => {
-    if (!win) return;
+  const start = useRef<{ px: number; py: number; win: Win; mode: "move" | "size" | ResizeEdge } | null>(null);
+  const down = (mode: "move" | "size" | ResizeEdge, baseline = win) => (e: React.PointerEvent) => {
+    if (!win || e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     start.current = { px: e.clientX, py: e.clientY, win: baseline ?? win, mode };
@@ -56,13 +55,27 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
     if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const dx = e.clientX - s.px;
     const dy = e.clientY - s.py;
-    onMove(clampWin(s.mode === "move" ? { ...s.win, x: s.win.x + dx, y: s.win.y + dy } : { ...s.win, w: s.win.w + dx, h: s.win.h + dy }));
+    onMove(clampWin(s.mode === "move" ? { ...s.win, x: s.win.x + dx, y: s.win.y + dy } : resizeWin(s.win, s.mode === "size" ? "se" : s.mode, dx, dy, window.innerWidth, window.innerHeight)));
   };
   const up = (e: React.PointerEvent) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     start.current = null;
   };
   return { down, move, up };
+}
+
+/** Shared pointer targets for every floating window. Corners take priority over edges. */
+export function WindowResizeHandles({ drag, baseline }: { drag: ReturnType<typeof useWinDrag>; baseline?: () => Win }) {
+  const edges: [ResizeEdge, string][] = [
+    ["n", "inset-x-3 top-0 h-1.5 cursor-ns-resize pointer-coarse:h-2.5"], ["s", "inset-x-3 bottom-0 h-1.5 cursor-ns-resize pointer-coarse:h-2.5"],
+    ["w", "inset-y-3 left-0 w-1.5 cursor-ew-resize pointer-coarse:w-2.5"], ["e", "inset-y-3 right-0 w-1.5 cursor-ew-resize pointer-coarse:w-2.5"],
+    ["nw", "left-0 top-0 h-3 w-3 cursor-nwse-resize pointer-coarse:h-5 pointer-coarse:w-5"], ["ne", "right-0 top-0 h-3 w-3 cursor-nesw-resize pointer-coarse:h-5 pointer-coarse:w-5"],
+    ["sw", "left-0 bottom-0 h-3 w-3 cursor-nesw-resize pointer-coarse:h-5 pointer-coarse:w-5"], ["se", "right-0 bottom-0 h-3 w-3 cursor-nwse-resize pointer-coarse:h-5 pointer-coarse:w-5"],
+  ];
+  return edges.map(([edge, position]) => <div key={edge} aria-hidden data-resize-edge={edge}
+    className={`absolute z-20 touch-none ${position}`}
+    onPointerDown={(e) => { if (e.button === 0) drag.down(edge, baseline?.())(e); }}
+    onPointerMove={drag.move} onPointerUp={drag.up} onPointerCancel={drag.up} />);
 }
 
 /**
@@ -97,7 +110,18 @@ export function Dockable({
 }) {
   const tray = useTrayWindow(`tab:${tab}`, title.split("：")[0], !!win, onClose);
   const front = () => { onFront(); tray.front(); };
-  const { down, move, up } = useWinDrag(win, onMove, front);
+  const [adjusted, setAdjusted] = useState(() => typeof window !== "undefined" && !!keptWin(tab, window.innerWidth, window.innerHeight));
+  const shownWin = win && compact && !adjusted
+    ? { ...win, x: Math.max(0, ((typeof window === "undefined" ? 1200 : window.innerWidth) - Math.min(480, win.w)) / 2), w: Math.min(480, win.w), h: 240 }
+    : win;
+  const drag = useWinDrag(shownWin, w => { setAdjusted(true); onMove(w); }, front);
+  const { down, move, up } = drag;
+  useEffect(() => {
+    if (!win) return;
+    const fit = () => onMove(clampWin(win));
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [win, onMove]);
 
   const floating = !!win;
   return (
@@ -114,7 +138,7 @@ export function Dockable({
             ? dockedClass
             : "hidden"
       }
-      style={floating ? { left: compact ? Math.max(8, ((typeof window === "undefined" ? 1200 : window.innerWidth) - Math.min(480, win.w)) / 2) : win.x, top: win.y, width: compact ? Math.min(480, win.w) : win.w, height: compact ? 240 : win.h, zIndex: tray.z ?? 40 + z, display: tray.minimized ? "none" : undefined } : undefined}
+      style={floating ? { left: shownWin!.x, top: shownWin!.y, width: shownWin!.w, height: shownWin!.h, zIndex: tray.z ?? 40 + z, display: tray.minimized ? "none" : undefined } : undefined}
     >
       {/* Always rendered (hidden when docked) so the content below keeps its place and its state. */}
       <div
@@ -141,15 +165,7 @@ export function Dockable({
         </button>
       </div>
       {children}
-      <div
-        aria-hidden
-        className={floating ? "absolute bottom-0 right-0 h-5 w-5 cursor-nwse-resize pointer-coarse:h-8 pointer-coarse:w-8" : "hidden"}
-        style={{ touchAction: "none", background: "linear-gradient(135deg, transparent 50%, rgba(140,132,115,0.55) 50%)" }}
-        onPointerDown={down("size")}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
-      />
+      {floating && <WindowResizeHandles drag={drag} />}
     </div>
   );
 }

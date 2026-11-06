@@ -128,7 +128,7 @@ export function PatientInfoPanel({ roomLabel, initialSection, patient: p, today,
   const setFamily = (i: number, m: Partial<FamilyMember>) => setDraft({ ...draft, family: draft.family.map((x, j) => (j === i ? { ...x, ...m } : x)) });
 
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="max-w-3xl space-y-3 text-[13px]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-lg font-bold">{displayText(p.name)}</span>
         <span className="text-xs text-ink-faint">{p.kana}</span>
@@ -249,7 +249,7 @@ export function PatientInfoPanel({ roomLabel, initialSection, patient: p, today,
               ))}
               <Row label="家族" by={regBy}>
                 {contacts.family.length ? (
-                  <table className="w-full text-left text-[12px]">
+                  <table className="w-auto table-auto self-start text-left text-[12px]">
                     <thead className="text-[11px] text-ink-faint">
                       <tr>
                         <th className="pr-2 font-normal">続柄</th>

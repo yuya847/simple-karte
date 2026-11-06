@@ -66,7 +66,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
   const btn = "inline-flex items-center gap-1 rounded border border-rule bg-sheet px-2 py-0.5 text-xs hover:bg-paper disabled:opacity-40";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <section>
         <h3 className="mb-2 text-sm font-bold">検体検査</h3>
         {cols.length === 0 && patient.labs.length === 0 && pending.length === 0 ? (
@@ -193,7 +193,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
 function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, focusAt }: { cols: LabColumn[]; rows: Analyte[]; patient: Patient; today: CalendarDate; picked?: string[]; onPick?: (key: string, on: boolean) => void; trend?: string | null; onTrend?: (code: string | null) => void; focusAt?: { day: number; time: string } }) {
   const isFocus = (c: LabColumn) => !!focusAt && c.kind === "result" && c.day === focusAt.day && c.time === focusAt.time;
   return (
-    <table className="nums w-full border-collapse text-[13px] print:text-[9pt]">
+    <table className="nums w-auto table-auto self-start whitespace-nowrap border-collapse text-[13px] print:text-[9pt]">
       <thead>
         <tr className="border-b border-rule text-xs text-ink-faint">
           <th className="sticky left-0 z-10 bg-sheet py-1 pr-3 text-left font-normal print:static">項目</th>

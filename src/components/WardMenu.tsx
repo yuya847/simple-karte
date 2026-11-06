@@ -32,7 +32,7 @@ export function WardMenu({ options, open, defaults, badges, onOpen, onToggleDefa
   const firstKey = WARD_TABS.find((t) => options.includes(t.key))?.key;
   return (
     <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper">
-      <div className="mx-auto max-w-4xl space-y-5 px-6 py-6 text-sm">
+      <div className="max-w-4xl space-y-3 px-3 py-3 text-sm">
         <header>
           <h1 className="text-lg font-bold">病棟で開く画面を選ぶ</h1>
 

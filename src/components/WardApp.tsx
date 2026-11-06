@@ -85,6 +85,7 @@ import { currentEntries, ordersOf } from "@/lib/record";
 import { risRows, withExamRecords } from "@/lib/ris";
 import { risTodo } from "@/lib/ris-take";
 import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Patient, VitalSign } from "@/lib/types";
+import { ResizableChart } from "./ResizableChart";
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
 import { PAST_RX, patternsOf, previousOf, type RxPattern } from "@/lib/rx-memory";
@@ -3090,7 +3091,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           {limitNow && <LimitStrip limit={limitNow} inTeam={inTeamNow} grant={grantNow} fmtDay={(d) => formatShort(addDays(today, d))} />}
           <PresenceStrip peers={presence.on(patient.id)} editors={presence.editorsOn(patient.id)} />
           <ImagingConsentProvider patient={patient} today={today} records={consents}><WindowEntryContext.Provider key={`${patient.id}:${desk}`} value={{ scope: `${patient.id}:${desk}`, entries: windowEntries, setEntries: setWindowEntries }}><DrawerDefaults.Provider value={{ panel, windowed: WINDOW_PANELS }}>
-          <div
+          <ResizableChart
             data-drawer-bounds
             className={`grid min-h-0 flex-1 ${
               // Narrow screens (iPad held upright) drop the date column; the record still scrolls by day. The other left tabs take more width.
@@ -4392,7 +4393,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               injectionCalendar={{ on: chart.openTabs.includes("injcal") && (chart.rightTab === "injcal" || !!floating.injcal), open: () => openRight("injcal") }}
               calendars={REF_TABS.map((t) => ({ key: t, label: RIGHT_TABS[t].label, title: RIGHT_TABS[t].title, icon: RIGHT_TABS[t].icon, on: chart.openTabs.includes(t) && (chart.rightTab === t || !!floating[t]), open: () => openRight(t) }))}
             />
-          </div>
+          </ResizableChart>
           </DrawerDefaults.Provider></WindowEntryContext.Provider></ImagingConsentProvider></PatientWindowProvider>
         </>
       ) : (

@@ -139,7 +139,7 @@ function Dose({ rows }: { rows: RisRow[] }) {
   const groups = doseGroups(rows);
   return (
     <section className="space-y-3 text-[12px]">
-      <table className={`${card} w-full border-collapse`}>
+      <table className={`${card} w-auto table-auto self-start border-collapse`}>
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="px-2 py-1 font-normal">撮影</th>
@@ -193,7 +193,7 @@ function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] })
   const items = risResultItems(desk);
   return (
     <section className="space-y-2">
-      <table className={`${card} w-full border-collapse text-[12px]`}>
+      <table className={`${card} w-auto table-auto self-start border-collapse text-[12px]`}>
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="px-2 py-1 font-normal">予定</th>

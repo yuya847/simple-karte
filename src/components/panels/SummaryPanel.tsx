@@ -118,7 +118,7 @@ export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nur
     window.print();
   };
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="max-w-3xl space-y-3 text-[13px]">
       {handIn && (
         <>
           <Handed

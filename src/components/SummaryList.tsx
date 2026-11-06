@@ -109,7 +109,7 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
       {shown.length === 0 ? (
         <p className="rounded-md border border-rule bg-paper px-3 py-2 text-ink-soft">ありません。</p>
       ) : (
-        <table className="w-full border-collapse rounded-md border border-rule bg-sheet">
+        <table className="w-auto table-auto self-start border-collapse rounded-md border border-rule bg-sheet">
           <thead>
             <tr className="text-left text-[11px] text-ink-faint">
               {["退院日", "患者", "主治医", "状態", "期限", "確定・承認", ""].map((h) => (

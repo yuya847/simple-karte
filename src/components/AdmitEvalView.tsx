@@ -76,7 +76,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
   const day = (d: number) => formatShort(addDays(today, d)).replace(/（.）/, "");
   const selected = sel ? people.find((x) => x.patient.id === sel.pid) : undefined;
   return (
-    <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
+    <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-3 text-[13px]">
       <header className="mb-2 flex flex-wrap items-baseline gap-2">
         <h2 className="flex items-center gap-1.5 text-base font-bold">
           <ClipboardList size={17} />
@@ -84,7 +84,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
         </h2>
 
       </header>
-      <table ref={tableRef} className="w-full border-collapse text-[12px]">
+      <table ref={tableRef} className="w-auto table-auto self-start border-collapse text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="py-1 pr-2 font-normal">患者</th>
@@ -160,7 +160,7 @@ function Detail({ w, ev, item, today, nowTime, onSave, hints, onBack }: { onBack
   const due = duesOf(ev, w.patient.admittedOn).find((d) => d.key === item)!;
   const locked = !!useDeny()(col.action);
   return (
-    <section className="mt-4 rounded-lg border border-rule bg-sheet p-4">
+    <section className="mt-3 max-w-4xl rounded-lg border border-rule bg-sheet p-3">
       <h3 className="mb-1 font-bold">
         {w.room} {w.patient.name}さん：{due.label}
         <button type="button" onClick={onBack} className="ml-3 rounded border border-rule px-2 py-0.5 text-xs font-normal text-ai">表に戻る</button>

@@ -104,9 +104,9 @@ export function ManualView({ manuals = MANUALS, openId, onOpen }: Props) {
 
         </nav>
 
-        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-3">
           {open ? (
-            <div className="mx-auto max-w-3xl rounded-lg border border-rule bg-sheet p-6">
+            <div className="max-w-3xl rounded-lg border border-rule bg-sheet p-3">
               <ManualSheet manual={open} matched={matched} />
             </div>
           ) : (

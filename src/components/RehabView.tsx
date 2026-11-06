@@ -403,7 +403,7 @@ export function Bi({ onNote, desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: R
         <div className={`${card} p-3`}>
           {evaluationSaved && <p role="status">BIを記録しました。</p>}
           <h3 className="mb-1 font-bold">Barthel Index（{rx.name}）</h3>
-          <table className="w-full border-collapse">
+          <table className="w-auto table-auto self-start border-collapse">
             <tbody>
               {BI_ITEMS.map((i) => (
                 <tr key={i.key} className="border-b border-rule-soft align-top">
@@ -489,7 +489,7 @@ function List({ desk, rxs, fmt, today }: Props & { rxs: RehabRx[]; fmt: (d: numb
   const days = [-6, -5, -4, -3, -2, -1, 0];
   return (
     <section className="space-y-3 text-[12px]">
-      <table className={`${card} w-full border-collapse`}>
+      <table className={`${card} w-auto table-auto self-start border-collapse`}>
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
             <th className="px-2 py-1 font-normal">患者</th>
