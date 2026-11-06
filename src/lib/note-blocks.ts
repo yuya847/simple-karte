@@ -117,7 +117,7 @@ export const joinWithNext = (text: string, line: number): Edited => {
 /** The line replaced by what was typed into it (a pasted "\n" makes more lines); the caret after it. */
 export function replaceLine(text: string, line: number, value: string, caretInLine = value.length): Edited {
   const lines = toLines(text);
-  const next = [...lines.slice(0, line), ...value.split("\n").map((line) => isDividerLine(line) ? "---" : checkMark(soapMark(line))), ...lines.slice(line + 1)];
+  const next = [...lines.slice(0, line), ...value.split("\n").map((line) => isDividerLine(line) ? "---" : listMark(checkMark(soapMark(line)))), ...lines.slice(line + 1)];
   const out = fromLines(next);
   const before = value.slice(0, caretInLine);
   const added = before.split("\n");
@@ -198,6 +198,20 @@ export const soapMark = (line: string): string =>
   line.replace(/^([ \t　]*)([SOAPＳＯＡＰ])[)）]/, (_, lead: string, c: string) => `${lead}${String.fromCharCode(c.charCodeAt(0) > 0xff ? c.charCodeAt(0) - 0xfee0 : c.charCodeAt(0))})`);
 
 /** "[]" "[ ]" "［］" at the start of a line become a check box "☐ " ("[x]" a checked "☑ "). */
+/** "・あ" "１．" "1." at the start of a line become list markers ("・ " "1. "), like Notion's bullets. */
+export const listMark = (line: string): string =>
+  line
+    .replace(/^([ \t　]*)[・･](?=[^ 　・･])/, "$1・ ")
+    .replace(/^([ \t　]*)([0-9０-９]{1,3})[.．][ 　]?(?=\S)/, (_, lead: string, n: string) => `${lead}${n.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0))}. `);
+
+/** A line prefix (箇条・番号・チェック・引用・コールアウト) put on or taken off (the right-click menu). */
+export function toggleLinePrefix(line: string, prefix: string): string {
+  const m = line.match(/^([ \t　]*)(☐ |☑ |[-・] |\d+\. |> |💡 |❗ )?(.*)$/u)!;
+  const [, lead, had = "", body] = m;
+  const same = had === prefix || (/^\d+\. $/.test(had) && /^\d+\. $/.test(prefix)) || (had === "☑ " && prefix === "☐ ");
+  return lead + (same ? "" : prefix) + body;
+}
+
 export const checkMark = (line: string): string =>
   line.replace(/^([ \t　]*)[\[［][ 　]?[\]］][ 　]?/, "$1☐ ").replace(/^([ \t　]*)[\[［][xXｘＸ✓][\]］][ 　]?/, "$1☑ ");
 

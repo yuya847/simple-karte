@@ -278,7 +278,7 @@ export function TodayPane(p: Props) {
               <>
                 {/* The keys, folded: the note area stays a writing area. */}
 
-                <span className="ml-auto text-[11px] text-ink-faint">{displayText(isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します")}</span>
+                <span className="ml-auto text-[11px] text-ink-faint">{displayText(isBlankNote(p.note) ? "" : "上の「オーダー」か「保存して閉じる」で記事が確定します")}</span>
               </>
             )}
           </div>

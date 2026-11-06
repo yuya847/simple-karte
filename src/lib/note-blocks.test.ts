@@ -166,3 +166,27 @@ describe("check boxes", () => {
     expect(toggleCheck("☑ 採血")).toBe("☐ 採血");
   });
 });
+
+describe("callouts", () => {
+  it("💡 and ❗ at the start of a line are callouts", async () => {
+    const { noteLineStyle } = await import("./note-style");
+    expect(noteLineStyle("💡 抗凝固薬は術前5日で休薬")?.kind).toBe("callout");
+    expect(noteLineStyle("❗ 造影剤アレルギーあり")?.kind).toBe("callout");
+    expect(noteLineStyle("💡 x")?.body).toBe("x");
+  });
+});
+
+describe("lists and the right-click prefixes", () => {
+  it("・ and １． at the start become list markers; prefixes toggle", async () => {
+    const { listMark, toggleLinePrefix, replaceLine } = await import("./note-blocks");
+    expect(listMark("・発熱")).toBe("・ 発熱");
+    expect(listMark("１．発熱")).toBe("1. 発熱");
+    expect(listMark("2.咳")).toBe("2. 咳");
+    expect(listMark("・")).toBe("・");
+    expect(replaceLine("x", 0, "・痰").text).toBe("・ 痰");
+    expect(toggleLinePrefix("発熱", "・ ")).toBe("・ 発熱");
+    expect(toggleLinePrefix("・ 発熱", "・ ")).toBe("発熱");
+    expect(toggleLinePrefix("・ 発熱", "1. ")).toBe("1. 発熱");
+    expect(toggleLinePrefix("  発熱", "💡 ")).toBe("  💡 発熱");
+  });
+});

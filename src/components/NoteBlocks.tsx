@@ -1,10 +1,10 @@
 "use client";
 
-import { noteLineStyle, noteSizeKey, readNoteSize } from "@/lib/note-style";
+import { calloutClass, noteLineStyle, noteSizeKey, readNoteSize } from "@/lib/note-style";
 import { useMe } from "./RoleContext";
 import { GripVertical } from "lucide-react";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { toggleCheck, indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
+import { toggleCheck, toggleLinePrefix, indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
 import { isProblemLine, problemMarkerEnd, stripProblemMarker } from "@/lib/note-problems";
 const leadingSpace = (l: string) => l.match(/^[ \t　]*/)![0];
 import { toggleMark } from "@/lib/note-edit";
@@ -66,6 +66,35 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
   const latest = useRef(value);
   // The selection the person made last (line and columns), kept while the focus is elsewhere.
   const sel = useRef<{ line: number; start: number; end: number } | null>(null);
+  // Right-click menu of a line: 太字・斜体・箇条…（the line and the selection when it opened）.
+  const [menu, setMenu] = useState<{ x: number; y: number; line: number; start: number; end: number } | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest?.('[aria-label="記事の書式"]')) setMenu(null); };
+    const esc = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setMenu(null); };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", esc);
+    return () => { window.removeEventListener("mousedown", close); window.removeEventListener("keydown", esc); };
+  }, [menu]);
+  const runMenu = (kind: MenuKind) => {
+    const m = menu;
+    setMenu(null);
+    if (!m) return;
+    const text = latest.current;
+    const line = toLines(text)[m.line] ?? "";
+    const base = offsetOf(text, { line: m.line, col: 0 });
+    if (kind === "bold" || kind === "italic") {
+      const r = toggleMark(line, m.start, m.end, kind === "bold" ? "**" : "*");
+      commit({ text: replaceLine(text, m.line, r.text).text, start: base + r.start, end: base + r.end });
+    } else if (kind === "cut") {
+      void navigator.clipboard?.writeText(line.slice(m.start, m.end));
+      commit(replaceLine(text, m.line, line.slice(0, m.start) + line.slice(m.end), m.start));
+    } else if (kind === "copy") {
+      void navigator.clipboard?.writeText(m.start === m.end ? line : line.slice(m.start, m.end));
+    } else if (kind === "paste") {
+      void navigator.clipboard?.readText().then((t) => commit(replaceLine(latest.current, m.line, line.slice(0, m.start) + t + line.slice(m.end), m.start + t.length)));
+    } else commit(replaceLine(text, m.line, toggleLinePrefix(line, kind)));
+  };
   // Where the caret should go once the new text has rendered.
   const pending = useRef<{ start: number; end: number } | null>(null);
   const composing = useRef(false);
@@ -457,9 +486,9 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               </button>
             )}
             {!readOnly && line.trim() === "/" && activeLine === i && <div role="menu" aria-label="行のコマンド" className="absolute left-6 top-full z-30 flex flex-wrap gap-1 rounded border border-rule bg-sheet p-2 shadow">
-              {[["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
+              {[["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["コールアウト", "💡 "], ["注意", "❗ "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
             </div>}
-            <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""} ${style?.kind === "quote" ? "border-l-2 border-rule" : ""}`}>
+            <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""} ${style?.kind === "quote" ? "border-l-2 border-rule" : ""} ${style?.kind === "callout" ? `${calloutClass(style.marker)} my-0.5 py-1` : ""}`}>
               {style?.kind === "check" && <input aria-label={`${i + 1}行目のチェック`} type="checkbox" checked={style.checked} disabled={readOnly} onChange={() => commit(replaceLine(value, i, toggleCheck(line), style.prefix))} className="absolute left-2 top-1.5 z-10 size-4 accent-ai" style={{ marginLeft: `${style.indent.length * .5}em` }} />}
               {divider && <span role="separator" className="pointer-events-none absolute inset-x-2 top-1/2 border-t border-rule" />}
               <div
@@ -471,7 +500,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               >
                 {line + " "}
               </div>
-              {style && <span aria-hidden className={`pointer-events-none absolute left-2 top-0.5 z-[1] bg-sheet ${style.kind === "quote" ? "border-l-2 border-rule" : ""}`} style={{ marginLeft: `${style.indent.length * .5}em`, width: `${style.marker.length * .65}em`, height: "1.5em", fontSize: size }}>{style.kind === "list" ? style.marker === "- " ? "・" : style.marker : ""}</span>}
+              {style && <span aria-hidden className={`pointer-events-none absolute left-2 top-0.5 z-[1] ${style.kind === "callout" ? "bg-transparent" : "bg-sheet"} ${style.kind === "quote" ? "border-l-2 border-rule" : ""} ${style.kind === "callout" ? "invisible" : ""}`} style={{ marginLeft: `${style.indent.length * .5}em`, width: `${style.marker.length * .65}em`, height: "1.5em", fontSize: size }}>{style.kind === "list" ? style.marker === "- " ? "・" : style.marker : ""}</span>}
               <textarea
                 ref={(el) => {
                   rows.current[i] = el;
@@ -489,6 +518,12 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                   typed(i, e.currentTarget, false);
                 }}
                 onKeyDown={(e) => keyDown(i, e)}
+                onContextMenu={(e) => {
+                  if (readOnly) return;
+                  e.preventDefault();
+                  const t = e.currentTarget;
+                  setMenu({ x: e.clientX, y: e.clientY, line: i, start: t.selectionStart, end: t.selectionEnd });
+                }}
                 onSelect={(e) => remember(i, e.currentTarget)}
                 onKeyUp={(e) => remember(i, e.currentTarget)}
                 onFocus={(e) => {
@@ -509,6 +544,31 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
         );
       })}
       </div>
+      {menu && (
+        <div role="menu" aria-label="記事の書式" className="fixed z-50 min-w-[11rem] rounded-md border border-rule bg-sheet p-1 text-[13px] shadow-lg" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
+          {MENU_ITEMS.map(([label, key, kind], k) => (
+            <button key={label} type="button" role="menuitem" onMouseDown={(e) => e.preventDefault()} onClick={() => runMenu(kind)} className={`flex w-full items-center justify-between gap-4 rounded px-2 py-1 text-left hover:bg-ai-soft ${k === 2 || k === 8 ? "mt-1 border-t border-rule-soft pt-1.5" : ""}`}>
+              <span className={kind === "bold" ? "font-bold" : kind === "italic" ? "italic" : ""}>{label}</span>
+              <span className="text-[11px] text-ink-faint">{key}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+type MenuKind = "bold" | "italic" | "cut" | "copy" | "paste" | "・ " | "1. " | "☐ " | "> " | "💡 " | "❗ ";
+const MENU_ITEMS: [string, string, MenuKind][] = [
+  ["太字", "⌘B", "bold"],
+  ["斜体", "⌘I", "italic"],
+  ["箇条書き", "・", "・ "],
+  ["番号付き", "1.", "1. "],
+  ["チェック", "[]", "☐ "],
+  ["引用", ">", "> "],
+  ["コールアウト", "💡", "💡 "],
+  ["注意", "❗", "❗ "],
+  ["切り取り", "⌘X", "cut"],
+  ["コピー", "⌘C", "copy"],
+  ["貼り付け", "⌘V", "paste"],
+];
