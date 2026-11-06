@@ -294,6 +294,7 @@ import { INITIAL_BOOK, slipsDue, type NarcoticBook } from "@/lib/narcotic-book";
 import { NarcoticSlips } from "./NarcoticSlips";
 import { FormularyView } from "./FormularyView";
 import { Drawer, DrawerDefaults } from "./panels/Drawer";
+import { InlineOrder } from "./InlineOrder";
 import { levelDrugsFrom } from "@/lib/lab-catalog";
 import { ImagingPanel } from "./panels/ImagingPanel";
 
@@ -530,7 +531,12 @@ export default function WardApp() {
   const [charts, setCharts] = useState<Record<string, ChartState>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [orderWins, setOrderWins] = useState<string[]>([]);
-  const openOrder = (key: string) => setOrderWins((v) => showOrderWindow(v, key));
+  // 内服・注射 open inside 記事作成 (under the note): bring that tab to the front and show the entry.
+  const openOrder = (key: string) => {
+    setOrderWins((v) => showOrderWindow(v, key));
+    update((c) => ({ rightTab: "note", openTabs: c.openTabs }));
+    requestAnimationFrame(() => document.querySelector(`[aria-label^="${key === "add-rx" ? "内服" : "注射"}："]`)?.scrollIntoView({ block: "nearest" }));
+  };
   const { panel, setPanel, open: panelWindows, activation: panelActivation, close: closePanelWindow } = usePanelWindows<PanelKind>(DRAWER_PANELS);
   /** The record template a pinned tile on the rail asked to open (テンプレート panel). */
   const [templateFocus, setTemplateFocus] = useState<string | null>(null);
@@ -3228,6 +3234,45 @@ export default function WardApp() {
                       "記事作成",
                       "flex min-h-0 flex-1 flex-col",
                       <TodayPane
+                        orderSlot={<>
+                    {/* Other tools can open while these entry windows keep their unfinished Rp. */}
+                    {orderWins.includes("add-injection") && (
+                      <InlineOrder key={`injection:${patient.id}:${desk}`} title={`注射：${patient.name}さん`} onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-injection"))}>
+                          <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
+                            <AddInjectionPanel
+                              patientId={patient.id}
+                              key={patient.id}
+                              newId={newId}
+                              drafts={chart.drafts}
+                              seed={chart.injSeed}
+                              memory={injMemory}
+                              onAdd={(ds) => { setOrderWins((v) => v.filter((k) => k !== "add-injection")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
+                            />
+                          </fieldset>
+                      </InlineOrder>
+                    )}
+                    {orderWins.includes("add-rx") && (
+                      <InlineOrder key={`rx:${patient.id}:${desk}`} title={`内服：${patient.name}さん`} onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-rx"))}>
+                          <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
+                            <AddRxPanel
+                              outpatient={visitOf(patient.id)?.kind === "opd"}
+                              ward={patient.ward}
+                              key={patient.id}
+                              newId={newId}
+                              drafts={chart.drafts}
+                              seed={chart.rxSeed}
+                              memory={{
+                                patterns: patternsOf([...PAST_RX, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
+                                previous: previousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
+                                me: me.name,
+                              }}
+                              onAdd={(ds) => { if (visitOf(patient.id)?.kind !== "opd") setOrderWins((v) => v.filter((k) => k !== "add-rx")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
+                            />
+                          </fieldset>
+                          {(() => { const v = visitOf(patient.id); return v?.kind === "opd" ? <OpdRxAfter op={v.op} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} legacy={opdRx[v.op.id] ?? []} insuranceBook={iji.insurance} today={today} nowTime={nowTime} national={national} onRegistered={(r) => setNational((all) => [...all, r])} /> : null; })()}
+                      </InlineOrder>
+                    )}
+                        </>}
                         onOpenRecordTemplates={() => setPanel("templates")}
                         patient={patient}
                         today={today}
@@ -3276,43 +3321,6 @@ export default function WardApp() {
                         onNoteAt={(a) => update({ noteAt: a })}
                         onConfirmNote={() => presence.guard(patient.id, "記事の確定", confirmNote)}
                       />,
-                    )}
-                    {/* Other tools can open while these entry windows keep their unfinished Rp. */}
-                    {orderWins.includes("add-injection") && (
-                      <Drawer key={`injection:${patient.id}:${desk}`} title={`注射：${patient.name}さん`} windowKey="add-injection" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-injection"))}>
-                          <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
-                            <AddInjectionPanel
-                              patientId={patient.id}
-                              key={patient.id}
-                              newId={newId}
-                              drafts={chart.drafts}
-                              seed={chart.injSeed}
-                              memory={injMemory}
-                              onAdd={(ds) => { setOrderWins((v) => v.filter((k) => k !== "add-injection")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `注射 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
-                            />
-                          </fieldset>
-                      </Drawer>
-                    )}
-                    {orderWins.includes("add-rx") && (
-                      <Drawer key={`rx:${patient.id}:${desk}`} title={`内服：${patient.name}さん`} windowKey="add-rx" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-rx"))}>
-                          <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
-                            <AddRxPanel
-                              outpatient={visitOf(patient.id)?.kind === "opd"}
-                              ward={patient.ward}
-                              key={patient.id}
-                              newId={newId}
-                              drafts={chart.drafts}
-                              seed={chart.rxSeed}
-                              memory={{
-                                patterns: patternsOf([...PAST_RX, ...allPatients.flatMap((x) => currentEntries(x, sessionChanges[x.id]).flatMap((entry) => (entry.kind === "order" && entry.author === me.name ? [{ patientId: x.id, entry }] : [])))]),
-                                previous: previousOf(patient.id, entries.filter((x): x is OrderEntry => x.kind === "order")),
-                                me: me.name,
-                              }}
-                              onAdd={(ds) => { if (visitOf(patient.id)?.kind !== "opd") setOrderWins((v) => v.filter((k) => k !== "add-rx")); update((c) => ({ drafts: [...c.drafts, ...ds], rightTab: floating.note ? c.rightTab : "note", flash: `内服 ${ds.length} Rp を記事の下に入れました。確かめて確定してください。` })); if (ds[0]) focusDraftLine(ds[0].id); }}
-                            />
-                          </fieldset>
-                          {(() => { const v = visitOf(patient.id); return v?.kind === "opd" ? <OpdRxAfter op={v.op} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} legacy={opdRx[v.op.id] ?? []} insuranceBook={iji.insurance} today={today} nowTime={nowTime} national={national} onRegistered={(r) => setNational((all) => [...all, r])} /> : null; })()}
-                      </Drawer>
                     )}
                     {chart.openTabs.includes("injcal") &&
                       dock(

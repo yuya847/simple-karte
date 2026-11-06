@@ -45,6 +45,8 @@ interface Props {
   meta: DraftMeta | null;
   flash: Flash | null;
   onContactDoctor?: () => void;
+  /** 内服・注射の入力（開いているとき）：記事の下、下書きが溜まる場所の上に出す。 */
+  orderSlot?: React.ReactNode;
   /** Opens the 型のある記録 (IC・救急加算・ICU 入室 …) tool from the note's template popup. */
   onOpenRecordTemplates?: () => void;
   onDraft: () => void;
@@ -177,6 +179,7 @@ export function TodayPane(p: Props) {
             </div>
           )}
           <NoteBlocks ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} />
+          {p.orderSlot}
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き">
               {p.drafts.map((d) => (
