@@ -1110,9 +1110,11 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         {o.purpose && <div className="text-xs text-ink-soft">目的：{o.purpose}</div>}
         {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
         {onOpenResult && !stopped && (
-          <button type="button" onClick={onOpenResult} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
-            結果を表示
-          </button>
+          <div className="flex justify-end">
+            <button type="button" onClick={onOpenResult} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+              結果を表示
+            </button>
+          </div>
         )}
       </div>
     ) : (
