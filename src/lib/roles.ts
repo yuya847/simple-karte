@@ -3,9 +3,9 @@
 // The people are fictional.
 
 /** デバッグ: a test role that sees every screen and may do every action (for trying the app, not a real job). */
-export type Role = "医師" | "看護師" | "薬剤師" | "臨床検査技師" | "診療放射線技師" | "療法士" | "管理栄養士" | "MSW" | "医事課" | "デバッグ";
+export type Role = "医師" | "看護師" | "薬剤師" | "臨床検査技師" | "診療放射線技師" | "療法士" | "管理栄養士" | "MSW" | "医事課" | "臨床工学技士" | "ICT" | "歯科衛生士" | "デバッグ";
 
-export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW", "医事課", "デバッグ"];
+export const ROLES: Role[] = ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW", "医事課", "臨床工学技士", "ICT", "歯科衛生士", "デバッグ"];
 
 export interface Staff {
   role: Role;
@@ -14,6 +14,9 @@ export interface Staff {
 }
 
 export const STAFF: Record<Role, Staff> = {
+  臨床工学技士: { role: "臨床工学技士", name: "臨床工学技士 斎藤" },
+  ICT: { role: "ICT", name: "ICT 感染管理認定看護師 小川" },
+  歯科衛生士: { role: "歯科衛生士", name: "歯科衛生士 森田" },
   医師: { role: "医師", name: "山本（専攻医）" },
   看護師: { role: "看護師", name: "看護師 佐藤" },
   薬剤師: { role: "薬剤師", name: "薬剤師 小林" },
@@ -28,6 +31,9 @@ export const STAFF: Record<Role, Staff> = {
 
 /** What each role is called in full, for the first mention. */
 export const ROLE_LONG: Record<Role, string> = {
+  臨床工学技士: "臨床工学技士（CE）",
+  ICT: "ICT（感染制御チーム）",
+  歯科衛生士: "歯科衛生士",
   医師: "医師",
   看護師: "看護師",
   薬剤師: "薬剤師",
@@ -41,10 +47,13 @@ export const ROLE_LONG: Record<Role, string> = {
 };
 
 /** The ward-level tabs pinned before the patient tabs. */
-export type PinnedTab = "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "ris" | "rehab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit" | "iji";
+export type PinnedTab = "equipment" | "infection" | "oral" | "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "ris" | "rehab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit" | "iji";
 
 /** The tabs each role sees, first one is where the role starts. */
 export const TABS: Record<Role, PinnedTab[]> = {
+  臨床工学技士: ["equipment", "map", "list", "chat"],
+  ICT: ["infection", "map", "list", "chat"],
+  歯科衛生士: ["oral", "map", "list", "chat"],
   医師: ["map", "list", "handoff", "admit", "er", "or", "dialysis", "chat", "audit"],
   看護師: ["sheet", "map", "list", "handoff", "admit", "meals", "acuity", "er", "or", "dialysis", "chat"],
   薬剤師: ["pharmacy", "map", "list", "chat"],
@@ -54,12 +63,15 @@ export const TABS: Record<Role, PinnedTab[]> = {
   管理栄養士: ["meals", "admit", "map", "list", "chat"],
   MSW: ["admit", "map", "list", "chat"],
   医事課: ["iji", "list", "map", "audit"],
-  デバッグ: ["map", "list", "sheet", "handoff", "admit", "meals", "lab", "ris", "rehab", "er", "pharmacy", "dialysis", "or", "acuity", "chat", "audit", "iji"],
+  デバッグ: ["equipment", "infection", "oral", "map", "list", "sheet", "handoff", "admit", "meals", "lab", "ris", "rehab", "er", "pharmacy", "dialysis", "or", "acuity", "chat", "audit", "iji"],
 };
 
 export const home = (r: Role): PinnedTab => TABS[r][0];
 
 export type Action =
+  | "equipment.record"
+  | "infection.record"
+  | "oral.record"
   | "io"
   | "bedside"
   | "consult"
@@ -135,6 +147,10 @@ export type Action =
   | "master.proc";
 
 const RULES: Record<Action, { label: string; who: Role[] }> = {
+  // 専門職の記録権限は、このアプリ内の業務分担。オーダ確定権限は追加しない。
+  "equipment.record": { label: "医療機器の記録", who: ["臨床工学技士"] },
+  "infection.record": { label: "ICT ラウンドの記録", who: ["ICT"] },
+  "oral.record": { label: "口腔ケアの記録", who: ["歯科衛生士"] },
   io: { label: "水分出納の記録", who: ["医師", "看護師"] },
   bedside: { label: "ベッドサイド表示", who: ["医師", "看護師"] },
   consult: { label: "コンサルトの依頼・返書・終了", who: ["医師"] },
@@ -153,7 +169,7 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   billing: { label: "算定の入力", who: ["医事課", "医師"] },
   insurance: { label: "保険の登録・変更（患者基本情報の保険・制度）", who: ["医事課", "医師", "看護師"] },
   settle: { label: "会計の記録", who: ["医事課"] },
-  note: { label: "記事の記録", who: ["医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW"] },
+  note: { label: "記事の記録", who: ["臨床工学技士", "ICT", "歯科衛生士", "医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW"] },
   "result.ack": { label: "結果の確認", who: ["医師"] },
   "panic.call": { label: "パニック値の連絡", who: ["臨床検査技師"] },
   "lab.receive": { label: "検体の受付", who: ["臨床検査技師"] },

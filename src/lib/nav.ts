@@ -63,7 +63,7 @@ const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysi
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "consults" | "map" | "mine" | "all" | "sheet" | "take" | "execute" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals" | "monitor";
+export type WardTab = "equipment" | "infection" | "oral" | "consults" | "map" | "mine" | "all" | "sheet" | "take" | "execute" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals" | "monitor";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -76,6 +76,9 @@ export interface WardTabInfo {
 }
 
 export const WARD_TABS: WardTabInfo[] = [
+  { key: "equipment", label: "医療機器", hint: "機器の点検と透析の実施記録", group: "work", needs: "equipment" },
+  { key: "infection", label: "感染対策", hint: "培養・抗菌薬の確認とラウンド記録", group: "work", needs: "infection" },
+  { key: "oral", label: "口腔ケア", hint: "口腔評価とケアの実施記録", group: "work", needs: "oral" },
   { key: "all", label: "入院患者一覧", hint: "入院患者の一覧。「病棟」のプルダウンで全病棟か1つの病棟（その病棟の今日・明日の入退院と空床も出る）を選び、病棟・診療科・主治医・担当看護師・入院日数・DPC の期間・印で絞り、病棟・診療科・主治医・担当看護師ごとにまとめられます", group: "patients", needs: "list" },
   { key: "map", label: "病棟マップ", hint: "部屋とベッドの見取り図と入院申込。階を選べます", group: "patients", needs: "map" },
   { key: "mine", label: "受け持ち患者", hint: "自分のチームの患者", group: "patients", needs: "list" },

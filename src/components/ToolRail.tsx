@@ -3,6 +3,7 @@
 import { TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Send, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { specialistRoles } from "@/lib/specialist";
 import { loadMyTemplates } from "@/lib/note-templates";
 import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type RailGroupKey } from "@/lib/rail";
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
@@ -206,7 +207,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const groups = groupsFor(me.role);
   const short = railIsShort(me.role);
   const [rail, put] = useRail(me.name);
-  const [selectedGroup, setSelectedGroup] = useState<GroupKey>(me.role === "医事課" ? "admin" : "intervention");
+  const [selectedGroup, setSelectedGroup] = useState<GroupKey>(me.role === "医事課" ? "admin" : specialistRoles.includes(me.role) ? "reference" : "intervention");
   const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
   const all = groups.flatMap((g) => [...g.main, ...g.more]);

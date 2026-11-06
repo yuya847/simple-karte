@@ -14,6 +14,7 @@ export const DEPTS: Dept[] = ["医療安全管理室", "感染対策室", "看�
 
 /** Where a post comes from when someone in this role writes it. */
 export const ROLE_DEPT: Record<Role, Dept> = {
+  臨床工学技士: "医療安全管理室", ICT: "感染対策室", 歯科衛生士: "看護部",
   医師: "医局",
   看護師: "看護部",
   薬剤師: "薬剤部",

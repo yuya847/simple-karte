@@ -632,6 +632,9 @@ function Menu({ at, onClose, items }: { at: { x: number; y: number }; onClose: (
 
 /** One colour per profession: the chip with the role name, the left edge and a faint background of the note. */
 export const ROLE_COLORS: Record<NoteEntry["role"], { text: string; chip: string; edge: string; bg: string }> = {
+  臨床工学技士: { text: "text-fuji", chip: "bg-fuji text-white", edge: "border-l-fuji", bg: "bg-fuji-soft/50" },
+  ICT: { text: "text-wakatake", chip: "bg-wakatake text-white", edge: "border-l-wakatake", bg: "bg-wakatake-soft/50" },
+  歯科衛生士: { text: "text-mizu", chip: "bg-mizu text-white", edge: "border-l-mizu", bg: "bg-mizu-soft/50" },
   医師: { text: "text-ai", chip: "bg-ai text-white", edge: "border-l-ai", bg: "bg-ai-soft/40" },
   看護師: { text: "text-wakatake", chip: "bg-wakatake text-white", edge: "border-l-wakatake", bg: "bg-wakatake-soft/50" },
   薬剤師: { text: "text-yamabuki", chip: "bg-yamabuki text-white", edge: "border-l-yamabuki", bg: "bg-yamabuki-soft/50" },

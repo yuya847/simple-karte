@@ -15,6 +15,8 @@ const ROLE_STYLE: Record<AuditRole, string> = {
   療法士: "bg-wakatake-soft text-wakatake",
   管理栄養士: "bg-wakatake-soft text-wakatake",
   MSW: "bg-wakatake-soft text-wakatake",
+  ICT: "bg-wakatake-soft text-wakatake",
+  歯科衛生士: "bg-mizu-soft text-mizu",
   臨床工学技士: "bg-wakatake-soft text-wakatake",
   医事課: "bg-paper text-ink-soft",
   事務: "bg-paper text-ink-soft",
