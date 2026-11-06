@@ -2900,6 +2900,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           onDispense={(key) => setDispensed((d) => ({ ...d, [key]: nowTime }))}
           oralRx={oralRx}
           onOralRx={(key, rec) => setOralRx((all) => ({ ...all, [key]: rec }))}
+          narcoticPatientNames={Object.fromEntries(allPatients.map(p => [p.id, p.name]))}
           narcBook={narcBook}
           onNarcBook={setNarcBook}
           newId={newId}
@@ -4617,7 +4618,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             ))}
         </div>
       )}
-      <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} live={liveLabel(presence.live)} />
+      <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} onRetry={() => { void workspace.saveNow().catch(() => undefined); }} live={liveLabel(presence.live)} />
       {login.gate && (
         <LoginGate
           users={loginUsers}

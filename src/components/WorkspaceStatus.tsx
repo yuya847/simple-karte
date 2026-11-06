@@ -4,14 +4,14 @@ import { ChevronRight, Cloud, CloudOff, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import type { WorkspaceStatus as Status } from "@/lib/use-workspace";
 
-const LABEL: Record<Status, string> = { off: "", loading: "読み込み中…", saving: "保存中…", saved: "保存しました", error: "保存できませんでした" };
+const LABEL: Record<Status, string> = { off: "", loading: "読み込み中…", saving: "保存中…", saved: "保存しました", error: "保存できませんでした・再試行を待っています" };
 
 /**
  * Where the records are kept (Supabase), the link to open them on another device, and 初めの状態に戻す.
  * Folded to a small pill by default so it does not cover the bottom of the right column (the 「記録しました」
  * band after vitals, the drafts' count); the pill opens on click.
  */
-export function WorkspaceStatus({ status, id, onReset, live }: { status: Status; id: string | null; onReset: () => void; live?: string }) {
+export function WorkspaceStatus({ status, id, onReset, onRetry, live }: { status: Status; id: string | null; onReset: () => void; onRetry?: () => void; live?: string }) {
   const [open, setOpen] = useState(false);
   const [sure, setSure] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -37,6 +37,7 @@ export function WorkspaceStatus({ status, id, onReset, live }: { status: Status;
     <div className="fixed bottom-2 right-2 z-30 flex flex-wrap items-center gap-2 rounded-md border border-rule bg-sheet px-2.5 py-1 text-[11px] text-ink-soft shadow print:hidden">
       {icon}
       <span className={status === "error" ? "text-shu" : ""}>{LABEL[status]}（今日の記録）</span>
+      {status === "error" && onRetry && <button type="button" onClick={onRetry} className="underline">再試行</button>}
       {live && <span>{live}</span>}
       {link && (
         <button

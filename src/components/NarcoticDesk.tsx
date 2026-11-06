@@ -45,6 +45,7 @@ const METHODS = ["放流", "焼却", "粉砕"];
 
 interface Props {
   people: WorkPatient[];
+  patientNames?: Record<string, string>;
   today: CalendarDate;
   nowTime: string;
   book: NarcoticBook;
@@ -56,13 +57,14 @@ interface Props {
 }
 
 /** 薬剤部の麻薬の管理: 麻薬処方箋の確認と払出、施用票の受領、残液の廃棄、病棟からの返納、受払簿、照合、事故届（模擬）. */
-export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, blockOf, onAudit }: Props) {
+export function NarcoticDesk({ people, patientNames = {}, today, nowTime, book, onBook, newId, blockOf, onAudit }: Props) {
   const now: When = { day: 0, time: nowTime };
   const day = (d: number) => formatShort(addDays(today, d));
   const who = (pid: string | undefined) => people.find((x) => x.patient.id === pid);
+  const patientName = (pid: string | undefined) => who(pid)?.patient.name ?? (pid ? patientNames[pid] ?? `患者ID ${pid}` : "患者ID不明");
   const label = (pid: string | undefined) => {
     const x = who(pid);
-    return x ? `${x.patient.name}（ID ${x.patient.id}）` : (pid ?? "");
+    return x ? `${x.patient.name}（ID ${x.patient.id}）` : patientName(pid);
   };
   const orders = people.flatMap((x) => narcoticOrders(x.entries, -1).map((e) => ({ x, e })));
   const [printing, setPrinting] = useState<React.ReactNode | null>(null);
@@ -184,7 +186,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
         {toReceive.map((s) => (
           <div key={s.id} className="mb-2 flex flex-wrap items-center gap-3 rounded-md border border-rule-soft px-3 py-2">
             <span>
-              {day(s.usedAt.day)} {s.usedAt.time}　<b>{who(s.patientId)?.patient.name}</b>　{anyDrugName(s.code)}
+              {day(s.usedAt.day)} {s.usedAt.time}　<b>{patientName(s.patientId)}</b>　{anyDrugName(s.code)}
               <DrugMarks codes={[s.code]} />
             </span>
             <span className="nums text-xs">
@@ -194,7 +196,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
               type="button"
               onClick={() => {
                 onBook((b) => receiveSlip(b, s.id, ME, now, label(s.patientId), newId));
-                log("麻薬施用票と残液・空アンプルを受け取った（受払簿に払出を記載）", who(s.patientId)?.patient.name, `${anyDrugName(s.code)} ${s.issuedA - s.unusedA}A 施用 ${s.usedMl}mL 残 ${s.leftMl}mL`);
+                log("麻薬施用票と残液・空アンプルを受け取った（受払簿に払出を記載）", patientName(s.patientId), `${anyDrugName(s.code)} ${s.issuedA - s.unusedA}A 施用 ${s.usedMl}mL 残 ${s.leftMl}mL`);
               }}
               className="ml-auto rounded bg-ai px-2.5 py-0.5 text-xs font-bold text-white"
             >

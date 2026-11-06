@@ -1,3 +1,4 @@
+import { encodeWorkspace, decodeWorkspace } from "./workspace-codec";
 import { mergeWorkspace, type MergeOptions } from "./merge-workspace";
 import { scenarioMode, scenarioStorageKey } from "./scenarios/mode";
 // 記録の保存 (Supabase): the page's records, kept per workspace and per day. Without the two
@@ -12,6 +13,13 @@ const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 export const workspaceOn = () => !!URL_ && !!KEY;
 /** The project's address and publishable key (for the realtime channel), or null when not configured. */
 export const supabaseEnv = () => (workspaceOn() ? { url: URL_, key: KEY } : null);
+
+let checkedUnavailable = false;
+let seed: Record<string, unknown> | null = null;
+export const setWorkspaceSeed = (data: Record<string, unknown>) => {
+  // Clock-dependent initial records must be stored in full, even in the deterministic scenario ward.
+  seed = scenarioMode() ? Object.fromEntries(Object.entries(data).filter(([k]) => !["io", "hdSessions"].includes(k))) : null;
+};
 
 const rpc = async <T>(fn: string, body: Record<string, unknown>): Promise<T> => {
   const res = await fetch(`${URL_}/rest/v1/rpc/${fn}`, {
@@ -52,7 +60,7 @@ export function workspaceId(): string {
 export async function loadWorkspaceRow(id: string, day: string): Promise<{ data: Record<string, unknown>; updatedAt: string | null } | null> {
   const rows = await rpc<{ version: number; day: string; data: Record<string, unknown>; updated_at?: string }[]>("load_workspace", { p_id: id });
   const r = rows?.[0];
-  return r && r.version === WORKSPACE_VERSION && r.day === day ? { data: r.data, updatedAt: r.updated_at ?? null } : null;
+  return r && r.version === WORKSPACE_VERSION && r.day === day ? { data: seed ? decodeWorkspace(r.data, seed) : r.data, updatedAt: r.updated_at ?? null } : null;
 }
 
 export async function loadWorkspace(id: string, day: string): Promise<Record<string, unknown> | null> {
@@ -86,14 +94,20 @@ export async function saveMergedWorkspace(id: string, day: string, mine: Record<
   for (let attempt = 0; attempt < 8; attempt++) {
     const row = await loadWorkspaceRow(id, day);
     const merged = mergeWorkspace(mine, row?.data ?? {}, base, opts);
+    const payload = seed ? encodeWorkspace(merged.data, seed) : merged.data;
+    if (checkedUnavailable) {
+      await rpc<null>("save_workspace", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: payload });
+      return merged;
+    }
     let saved: boolean | null;
     try {
-      saved = await rpc<boolean>("save_workspace_checked", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: merged.data, p_expected: row?.updatedAt ?? null });
+      saved = await rpc<boolean>("save_workspace_checked", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: payload, p_expected: row?.updatedAt ?? null });
     } catch (e) {
       // A database without the checked save (supabase/schema.sql not yet applied): the merged records go
       // through the old save, so nothing stops saving while the schema is updated.
       if (!(e instanceof Error && /応答 404/.test(e.message))) throw e;
-      await rpc<null>("save_workspace", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: merged.data });
+      checkedUnavailable = true;
+      await rpc<null>("save_workspace", { p_id: id, p_version: WORKSPACE_VERSION, p_day: day, p_data: payload });
       return merged;
     }
     if (saved === true) return merged;

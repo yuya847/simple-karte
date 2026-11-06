@@ -2,9 +2,9 @@
 
 import { workspaceRecords } from "./workspace-records";
 import { useEffect, useRef, useState } from "react";
-import { mergeWorkspace, type MergeOptions } from "./merge-workspace";
+import { mergeWorkspace, sameJson, type MergeOptions } from "./merge-workspace";
 import { thisTab } from "./presence";
-import { loadWorkspaceRow, resetWorkspace, saveMergedWorkspace, workspaceId, workspaceOn } from "./workspace";
+import { loadWorkspaceRow, resetWorkspace, saveMergedWorkspace, workspaceId, workspaceOn, setWorkspaceSeed } from "./workspace";
 
 export type WorkspaceStatus = "off" | "loading" | "saved" | "saving" | "error";
 
@@ -45,8 +45,9 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
   const base = useRef<Record<string, unknown> | null>(null);
   const seenAt = useRef<string | null>(null);
   const pulling = useRef<Promise<Pulled | null> | null>(null);
-  // Saves made only because a merge kept something the saved side lacked, since the last change here (capped, so two pages never save back and forth).
-  const mergeSaves = useRef(0);
+  // The rendered records accepted from a load/save; receiving them alone is never a local edit.
+  const accepted = useRef<Record<string, unknown> | null>(null);
+  const failures = useRef(0);
   const statesRef = useRef(states);
   // Records just put into the states, until the page has rendered with them (a save in between takes these).
   const putting = useRef<Record<string, unknown> | null>(null);
@@ -84,6 +85,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     if (!ws || !d || !loaded.current) return;
     // Newer records are being read: they go into the states first, so that the save carries them too.
     if (pulling.current) await pulling.current.catch(() => null);
+    if (sameJson(snapshot(), accepted.current)) { dirty.current = false; setStatus("saved"); return; }
     dirty.current = false;
     saveAgain.current = false;
     const data = snapshot();
@@ -94,12 +96,16 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       warnConflicts(saved.conflicts);
       putBack(latest.data);
       base.current = saved.data;
+      accepted.current = saved.data;
+      failures.current = 0;
       if (latest.kept.length) { dirty.current = true; saveAgain.current = true; }
       setStatus(dirty.current ? "saving" : "saved");
       optsRef.current.onSaved?.();
     } catch {
       dirty.current = true;
       setStatus("error");
+      failures.current++;
+      if (!timer.current) timer.current = setTimeout(() => { timer.current = null; void save(); }, Math.min(60000, 2000 * 2 ** Math.min(failures.current - 1, 5)));
     }
   };
   const save = (): Promise<void> => {
@@ -126,15 +132,20 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     setId(ws);
     setStatus("loading");
     const initial = snapshot();
+    setWorkspaceSeed(initial);
+    accepted.current = initial;
     loadWorkspaceRow(ws, day)
       .then((row) => {
         if (row) {
           const merged = mergeWorkspace(snapshot(), row.data, initial, optsRef.current.merge);
           putBack(merged.data);
-          dirty.current = merged.kept.length > 0;
+          accepted.current = mergeWorkspace(initial, row.data, initial, optsRef.current.merge).data;
+          dirty.current = !sameJson(merged.data, accepted.current);
           base.current = row.data;
           seenAt.current = row.updatedAt;
+
         }
+        if (!row) dirty.current = !sameJson(snapshot(), accepted.current);
         loaded.current = true;
         setStatus("saved");
         if (dirty.current) schedule();
@@ -152,13 +163,13 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
   useEffect(() => {
     if (!day || !id || !loaded.current) return;
     // The records just read back (and what follows from them in the same moment) are not saved again.
+    if (sameJson(snapshot(), accepted.current)) return;
     if (echo.current) {
       const incoming = echo.current;
       echo.current = null;
-      if (JSON.stringify(snapshot()) === JSON.stringify(incoming)) return;
+      if (sameJson(snapshot(), incoming)) return;
     }
     dirty.current = true;
-    mergeSaves.current = 0;
     schedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day, id, ...values]);
@@ -180,6 +191,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       clearTimeout(timer.current);
       timer.current = null;
     }
+    setStatus("saving");
     await save();
     if (dirty.current) throw new Error("not saved");
   };
@@ -203,12 +215,8 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       warnConflicts(r.conflicts);
       if (r.changed.length) putBack(r.data);
       base.current = row.data;
-      // This page holds records the saved side lacks (it saved before hearing of them): the merged records go out.
-      if (r.kept.length && !dirty.current && mergeSaves.current < 3) {
-        mergeSaves.current++;
-        dirty.current = true;
-        schedule();
-      }
+      // Only a local edit can request a save; receiving data never starts an echo.
+      if (!dirty.current) accepted.current = r.data;
       return { by: writer?.by ?? null, role: writer?.role ?? null, changed: r.changed };
     })();
     pulling.current = p.finally(() => {

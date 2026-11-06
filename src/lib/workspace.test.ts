@@ -67,3 +67,24 @@ it("2端末が同じ行を読んで同時保存しても競合を再試行して
     vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules();
   }
 });
+
+it("404は一度だけ確認し、500でも手元の記録を変えず次に再試行できる", async () => {
+  vi.resetModules();
+  const calls: string[] = [];
+  let fail = true;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    calls.push(url);
+    if (url.endsWith("load_workspace")) return new Response("[]");
+    if (url.endsWith("save_workspace_checked")) return new Response("", { status: 404 });
+    return fail ? new Response("", { status: 500 }) : new Response(null, { status: 204 });
+  }));
+  try {
+    const { saveMergedWorkspace } = await import("./workspace");
+    const mine = { notes: [{ id: "local" }] };
+    await expect(saveMergedWorkspace("ws", "today", mine, null)).rejects.toThrow("500");
+    fail = false;
+    expect((await saveMergedWorkspace("ws", "today", mine, null)).data).toEqual(mine);
+    expect(calls.filter(url => url.endsWith("save_workspace_checked"))).toHaveLength(1);
+    expect(mine).toEqual({ notes: [{ id: "local" }] });
+  } finally { vi.unstubAllGlobals(); vi.resetModules(); }
+});

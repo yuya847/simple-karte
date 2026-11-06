@@ -117,3 +117,18 @@ it("前の保存に連絡がなくても、いったん記録したパニック�
   const mine = { calls: { blood: { to: "主治医", readBack: true } } };
   expect(mergeWorkspace(mine, { calls: {} }, mine).data).toEqual(mine);
 });
+
+it("キー順の異なるidなし記録と重複idの受払簿・施用票が増えない", () => {
+  const mine = { narcBook: { ledger: [{ id: "return", qty: 2 }, { id: "return", qty: 2 }], slips: [{ id: "slip", patientId: "p1" }, { id: "slip", patientId: "p1" }], returns: [{ code: "OXC", qty: 2 }] } };
+  const theirs = { narcBook: { ledger: [{ id: "return", qty: 2 }], slips: [{ id: "slip", patientId: "p1" }], returns: [{ qty: 2, code: "OXC" }] } };
+  const merged = mergeWorkspace(mine, theirs, null).data;
+  expect(merged).toEqual(theirs);
+  expect(mergeWorkspace(merged, theirs, null).data).toEqual(theirs);
+});
+
+it("時刻が新しい取り込みでも、保存前の変更と別の端末の変更を両方残す", () => {
+  const base = { id: "a", text: "before", received: false, updatedAt: "2026-11-06T01:00:00Z" };
+  const mine = { ...base, text: "local", updatedAt: "2026-11-06T01:01:00Z" };
+  const theirs = { ...base, received: true, updatedAt: "2026-11-06T01:02:00Z" };
+  expect(merge3(mine, theirs, base)).toMatchObject({ text: "local", received: true });
+});

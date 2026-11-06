@@ -60,6 +60,8 @@ describe("麻薬の画面", () => {
   it("a returned slip waits for the pharmacy; once received, its leftover waits for a witness", () => {
     const slip = { id: "s1", orderId: "o-mor", patientId: sakura.id, code: "INJ-MOR10", marKey: "o-mor|600", usedAt: { day: 0, time: "10:05" }, issuedA: 1, usedMl: 0.5, leftMl: 0.5, unusedA: 0, prescriber: "山本（専攻医）", by: "看護師 佐藤", returnedAt: { day: 0, time: "10:20" } };
     const book: NarcoticBook = { ...INITIAL_BOOK, slips: [slip] };
+    const outsideWard = renderToStaticMarkup(<NarcoticDesk people={[]} patientNames={{ [sakura.id]: sakura.name }} today={TODAY} nowTime="11:00" book={book} onBook={noop} newId={id} />);
+    expect(outsideWard).toContain(sakura.name);
     const before = renderToStaticMarkup(<NarcoticDesk people={people} today={TODAY} nowTime="11:00" book={book} onBook={noop} newId={id} />);
     expect(before).toContain("受け取った（空アンプル・残液を確かめた）");
     const after = renderToStaticMarkup(<NarcoticDesk people={people} today={TODAY} nowTime="11:00" book={receiveSlip(book, "s1", "薬剤師 小林", { day: 0, time: "11:00" }, "佐倉", id)} onBook={noop} newId={id} />);

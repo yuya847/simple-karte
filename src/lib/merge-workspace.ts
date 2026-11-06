@@ -28,7 +28,9 @@ type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
 const idOf = (v: unknown): string | null => (isObj(v) && typeof v.id === "string" && v.id ? v.id : null);
 const hasIds = (a: unknown[]) => a.length > 0 && a.every((v) => idOf(v) !== null);
-const key = (v: unknown) => JSON.stringify(v) ?? "undefined";
+export const stableJson = (v: unknown): string => JSON.stringify(v, (_k, value) =>
+  isObj(value) ? Object.fromEntries(Object.keys(value).sort().map(k => [k, value[k]])) : value) ?? "undefined";
+const key = stableJson;
 
 /** Deep equality by JSON (records are plain data). */
 export const sameJson = (a: unknown, b: unknown): boolean => a === b || key(a) === key(b);
@@ -40,13 +42,13 @@ function mergeIdLists(mine: unknown[], theirs: unknown[], base: unknown[] | unde
   const theirById = new Map(theirs.map((v) => [idOf(v)!, v]));
   const mineById = new Map(mine.map((v) => [idOf(v)!, v]));
   const out: unknown[] = [];
-  for (const v of mine) {
+  for (const v of new Map(mine.map(v => [idOf(v), v])).values()) {
     const id = idOf(v)!;
     const t = theirById.get(id);
     if (t !== undefined) out.push(merge3(v, t, baseById.get(id)));
     else out.push(v);
   }
-  for (const v of theirs) {
+  for (const v of new Map(theirs.map(v => [idOf(v), v])).values()) {
     const id = idOf(v)!;
     if (mineById.has(id)) continue;
 
@@ -57,20 +59,21 @@ function mergeIdLists(mine: unknown[], theirs: unknown[], base: unknown[] | unde
 
 /** Two lists without ids (strings, moments…): the union in order; something the other side removed from the base goes. */
 function mergeLists(mine: unknown[], theirs: unknown[], base: unknown[] | undefined): unknown[] {
-  const inTheirs = new Set(theirs.map(key));
-  const inMine = new Set(mine.map(key));
-  const inBase = new Set((base ?? []).map(key));
+  const identity = (v: unknown) => idOf(v) ? `id:${idOf(v)}` : key(v);
+  const inTheirs = new Set(theirs.map(identity));
+  const inMine = new Set(mine.map(identity));
+  const inBase = new Set((base ?? []).map(identity));
   const out: unknown[] = [];
   const seen = new Set<string>();
   for (const v of mine) {
-    const k = key(v);
+    const k = identity(v);
     if (seen.has(k)) continue;
     if (!inTheirs.has(k) && inBase.has(k)) continue;
     seen.add(k);
-    out.push(v);
+    out.push(idOf(v) && inTheirs.has(k) ? merge3(v, theirs.find(t => identity(t) === k), base?.find(b => identity(b) === k)) : v);
   }
   for (const v of theirs) {
-    const k = key(v);
+    const k = identity(v);
     if (seen.has(k) || inMine.has(k)) continue;
     if (inBase.has(k)) continue;
     seen.add(k);
@@ -102,14 +105,14 @@ function mergeObjects(mine: Obj, theirs: Obj, base: Obj | undefined, local?: (su
 
 /** One value of the records, three-way. */
 export function merge3(mine: unknown, theirs: unknown, base: unknown): unknown {
-  if (sameJson(mine, theirs)) return mine;
   if (Array.isArray(mine) && Array.isArray(theirs)) {
     const b = Array.isArray(base) ? base : undefined;
     if ((hasIds(mine) || !mine.length) && (hasIds(theirs) || !theirs.length)) return mergeIdLists(mine, theirs, b);
     return mergeLists(mine, theirs, b);
   }
-  if (isObj(mine) && isObj(theirs) && recordTime(mine) !== null && recordTime(theirs) !== null && recordTime(mine) !== recordTime(theirs)) return recordTime(mine)! > recordTime(theirs)! ? mine : theirs;
+  if (!isObj(base) && isObj(mine) && isObj(theirs) && recordTime(mine) !== null && recordTime(theirs) !== null && recordTime(mine) !== recordTime(theirs)) return recordTime(mine)! > recordTime(theirs)! ? mine : theirs;
   if (isObj(mine) && isObj(theirs)) return mergeObjects(mine, theirs, isObj(base) ? base : undefined);
+  if (sameJson(mine, theirs)) return mine;
   if (base !== undefined) {
     if (sameJson(mine, base)) return theirs;
     if (sameJson(theirs, base)) return mine;
@@ -171,7 +174,7 @@ function conflictPaths(mine: Obj, theirs: Obj, base: Obj, opts: MergeOptions): s
         walk(v, t.find((x) => idOf(x) === id), Array.isArray(b) ? b.find((x) => idOf(x) === id) : undefined, `${path}[${id}]`);
       }
     } else if (isObj(m) && isObj(t)) {
-      if (recordTime(m) !== null && recordTime(t) !== null && recordTime(m) !== recordTime(t)) return;
+      if (!isObj(b) && recordTime(m) !== null && recordTime(t) !== null && recordTime(m) !== recordTime(t)) return;
       for (const k of Object.keys(m)) walk(m[k], t[k], isObj(b) ? b[k] : undefined, `${path}.${k}`);
     } else out.push(path);
   };

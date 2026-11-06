@@ -73,6 +73,7 @@ export interface PharmacyProps {
   tdm: TdmReport[];
   onTdm: (r: Omit<TdmReport, "id" | "at" | "by" | "status">) => void;
   /** 麻薬の管理 (narcotic-book.ts): 受払簿・施用票・返納・廃棄・事故. */
+  narcoticPatientNames?: Record<string, string>;
   narcBook: NarcoticBook;
   onNarcBook: (f: (b: NarcoticBook) => NarcoticBook) => void;
   newId: () => string;
@@ -131,7 +132,7 @@ export function PharmacyView(props: PharmacyProps) {
           {tab === "dispense" && <Dispense {...p} />}
           {tab === "oral" && <Oral {...p} />}
           {tab === "home" && <Home {...p} />}
-          {tab === "narcotic" && <NarcoticDesk people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} onAudit={p.onAudit} blockOf={(id) => dispenseBlock(id, p.people, p.queries, p.audited)} />}
+          {tab === "narcotic" && <NarcoticDesk people={p.people} patientNames={p.narcoticPatientNames} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} onAudit={p.onAudit} blockOf={(id) => dispenseBlock(id, p.people, p.queries, p.audited)} />}
           {tab === "blood" && <Blood {...p} />}
           {tab === "tdm" && <TdmView today={p.today} people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
           {tab === "journal" && <Journal {...p} />}
