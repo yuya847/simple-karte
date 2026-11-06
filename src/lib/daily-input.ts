@@ -6,11 +6,12 @@ import type { DailyRecord } from "./types";
 export interface DailyAdd {
   urineMl?: number;
   stools?: number;
+  sideMeals?: [number | null, number | null, number | null];
   meals?: [number | null, number | null, number | null];
   weightKg?: number;
 }
 
-export function addDaily(cur: DailyAdd | undefined, d: { urineMl?: number; stools?: number; meal?: { slot: 0 | 1 | 2; tenths: number }; weightKg?: number }): DailyAdd {
+export function addDaily(cur: DailyAdd | undefined, d: { urineMl?: number; stools?: number; meal?: { slot: 0 | 1 | 2; tenths: number; sideTenths?: number }; weightKg?: number }): DailyAdd {
   const out: DailyAdd = { ...cur };
   if (d.urineMl) out.urineMl = (out.urineMl ?? 0) + d.urineMl;
   if (d.stools) out.stools = (out.stools ?? 0) + d.stools;
@@ -18,6 +19,11 @@ export function addDaily(cur: DailyAdd | undefined, d: { urineMl?: number; stool
     const m: [number | null, number | null, number | null] = [...(out.meals ?? [null, null, null])];
     m[d.meal.slot] = d.meal.tenths;
     out.meals = m;
+    if (d.meal.sideTenths !== undefined) {
+      const side: [number | null, number | null, number | null] = [...(out.sideMeals ?? [null, null, null])];
+      side[d.meal.slot] = d.meal.sideTenths;
+      out.sideMeals = side;
+    }
   }
   if (d.weightKg !== undefined) out.weightKg = d.weightKg;
   return out;
@@ -33,6 +39,7 @@ export function withToday(daily: DailyRecord[], add: DailyAdd | undefined): Dail
     ...(add.urineMl ? { urineMl: (base.urineMl ?? 0) + add.urineMl } : {}),
     ...(add.stools ? { stools: (base.stools ?? 0) + add.stools } : {}),
     ...(meals ? { meals } : {}),
+    ...(add.sideMeals ? { sideMeals: (base.sideMeals ?? [null, null, null]).map((v, i) => add.sideMeals![i] ?? v) as [number | null, number | null, number | null] } : {}),
     ...(add.weightKg !== undefined ? { weightKg: add.weightKg } : {}),
   };
   return [...daily.filter((x) => x.day !== 0), today].sort((a, b) => a.day - b.day);

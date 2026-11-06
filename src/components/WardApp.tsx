@@ -12,6 +12,8 @@ import { RxExpiryStrip } from "./RxExpiryStrip";
 import { rxExpiries, visibleExpiryStickies } from "@/lib/rx-expiry";
 import { historyOrderHandlers } from "@/lib/history-order";
 import { OrderHistoryContext, useOrderUnlocks } from "./OrderHistoryActions";
+import { glucoseEntry } from "@/lib/insulin-intervention";
+import { demoInsulinRecords } from "@/lib/insulin-demo";
 import { insulinGivenForBilling } from "@/lib/insulin-billing";
 import { standingPending } from "@/lib/standing-pending";
 import { roomLabel } from "@/lib/place-label";
@@ -772,7 +774,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 患者モニター（模擬）: put on or taken off by hand by the nurses (the rule's choice is code; lib/monitor.ts).
   const [monitorManual, setMonitorManual] = useState<MonitorManual>(EMPTY_MANUAL);
   // 与薬・実施の記録 (eMAR). Items due before this session are taken as recorded by the earlier shift.
-  const [mar, setMar] = useState<Record<string, AdminRecord>>({});
+  const [mar, setMar] = useState<Record<string, AdminRecord>>(() => scenario ? {} : demoInsulinRecords(WARD_CHART_PATIENTS));
   // 実施・未実施 records taken back (with who, when and why), by dose key.
   const [marVoided, setMarVoided] = useState<Record<string, VoidedRecord[]>>({});
   // 水分出納 (IN/OUT) typed by the nurses; 点滴 comes from the drip records. Fictional records since yesterday 09:00.
@@ -2205,6 +2207,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const refPropsOf = (patient: Patient): RefWindowProps => ({
     onNewPrescription: deny("order") ? undefined : (day, from) => { update({ rxSeed: prescriptionCalendarSeed(newId(), day, patient.id, from) }); openOrder("add-rx"); },
     onPrescriptionStop: deny("order") ? undefined : (entry, day) => addStopDraft(entry, "（内服カレンダーから）", day),
+    insulinEdit: { onDraft: deny("order") ? undefined : d => update(c => ({ drafts: [...c.drafts, d], flash: "インスリンの変更を下書きに入れました。保存で確定します。" })), onGlucose: deny("vitals") ? undefined : (day, time) => { const entry = glucoseEntry(careOrders, patient.id, day, time, me.name, newId()); if (entry.order) setCareOrders(all => [...all, entry.order!]); setFlowReq(entry.request); setPanel("flow-entry"); } },
     onNewOrder: deny("order") ? undefined : (tab) => { if (tab === "rxcal") openOrder("add-rx"); else setPanel("add-procedure"); },
     patient,
     entries,
@@ -4418,7 +4421,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               onOpen={(p, o) => {
                 if (p?.startsWith("pharmacy-")) { setPharmacyFocus({ tab: p.slice(9) as import("./PharmacyView").Tab, patientId: patient.id }); return; }
                 setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);
-                if (p === "add-injection" || p === "add-rx" || p === "add-discharge") openOrder(p);
+                if (p === "insulin") openRight("insulin");
+                else if (p === "add-injection" || p === "add-rx" || p === "add-discharge") openOrder(p);
                 else {
                   if (p === "imaging") setImageFocus(null);
                   setFlowReq(null);
@@ -4427,7 +4431,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               }}
               blocked={blocked}
               injectionCalendar={{ on: chart.openTabs.includes("injcal") && (chart.rightTab === "injcal" || !!floating.injcal), open: () => openRight("injcal") }}
-              calendars={REF_TABS.map((t) => ({ key: t, label: RIGHT_TABS[t].label, title: RIGHT_TABS[t].title, icon: RIGHT_TABS[t].icon, on: chart.openTabs.includes(t) && (chart.rightTab === t || !!floating[t]), open: () => openRight(t) }))}
+              calendars={REF_TABS.filter(t => t !== "insulin").map((t) => ({ key: t, label: RIGHT_TABS[t].label, title: RIGHT_TABS[t].title, icon: RIGHT_TABS[t].icon, on: chart.openTabs.includes(t) && (chart.rightTab === t || !!floating[t]), open: () => openRight(t) }))}
             />
           </ResizableChart>
           </DrawerDefaults.Provider></WindowEntryContext.Provider></ImagingConsentProvider></PatientWindowProvider>

@@ -11,3 +11,8 @@ describe("今日の尿量・食事・体重", () => {
     expect(prevWeightOf(days)).toEqual({ day: -1, kg: 62 });
   });
 });
+
+it("主食と副食を同じ日々の記録へ保存する", () => {
+  const add = addDaily(undefined, { meal: { slot: 1, tenths: 7, sideTenths: 4 } });
+  expect(withToday([{ day: 0, meals: [8, null, 9], sideMeals: [6, null, 8] }], add)[0]).toMatchObject({ meals: [8, 7, 9], sideMeals: [6, 4, 8] });
+});

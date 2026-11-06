@@ -1,11 +1,12 @@
 "use client";
 
-import { Activity, ArrowRightLeft, Bandage, CalendarCheck, CalendarDays, ClipboardList, NotebookPen, PictureInPicture2, Pill, PillBottle, X } from "lucide-react";
+import { Activity, ArrowRightLeft, Bandage, CalendarCheck, CalendarDays, ClipboardList, NotebookPen, PictureInPicture2, Syringe, Pill, PillBottle, X } from "lucide-react";
 import { useEffect } from "react";
 
-export type RightTab = "note" | "injcal" | "flowsheet" | "rxcal" | "proccal" | "dietcal" | "standingcal" | "bookings";
+export type RightTab = "note" | "insulin" | "injcal" | "flowsheet" | "rxcal" | "proccal" | "dietcal" | "standingcal" | "bookings";
 
 export const RIGHT_TABS: Record<RightTab, { label: string; icon: typeof Pill; key: string; title?: string }> = {
+  insulin: { label: "インスリン", icon: Syringe, key: "" },
   note: { label: "記事作成", icon: NotebookPen, key: "1" },
   injcal: { label: "注射カレンダー", icon: CalendarDays, key: "4" },
   flowsheet: { label: "経過表", icon: Activity, key: "5", title: "経過表（温度板）：バイタル・検査値・注射・食事・水分出納を日ごとに" },
@@ -18,7 +19,7 @@ export const RIGHT_TABS: Record<RightTab, { label: string; icon: typeof Pill; ke
 const BY_DIGIT: Record<string, RightTab> = { Digit1: "note", Digit4: "injcal", Digit5: "flowsheet", Digit6: "rxcal", Digit7: "proccal", Digit8: "dietcal", Digit9: "standingcal", Digit0: "bookings" };
 
 /** The reading tabs: they open from the tools on the far right (参照), in their own large window first, and close with ×. */
-export const REF_TABS = ["flowsheet", "rxcal", "proccal", "dietcal", "standingcal", "bookings"] as const;
+export const REF_TABS = ["insulin", "flowsheet", "rxcal", "proccal", "dietcal", "standingcal", "bookings"] as const;
 export type RefTab = (typeof REF_TABS)[number];
 export const isRefTab = (t: string): t is RefTab => (REF_TABS as readonly string[]).includes(t);
 /** Tabs that open in a large window of their own (where this browser last had it), not in the right column. */

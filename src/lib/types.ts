@@ -74,6 +74,8 @@ export interface VitalSign {
 
 /** Per-day nursing record. Meals are the staple eaten, in tenths (割), breakfast/lunch/dinner. */
 export interface DailyRecord {
+  /** 副食の摂取割合（割）。主食と同じ朝・昼・夕の順。 */
+  sideMeals?: [number | null, number | null, number | null];
   day: DayOffset;
   meals?: "絶食" | [number | null, number | null, number | null];
   mealSides?: [number | null, number | null, number | null];

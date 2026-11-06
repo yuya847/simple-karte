@@ -7,7 +7,7 @@ export function showOrderWindow(open: string[], key: string): string[] {
   return open.includes(key) ? open : [...open, key];
 }
 
-const tabs: readonly string[] = ["note", "injcal", "flowsheet", "rxcal", "proccal", "dietcal", "standingcal", "bookings"];
+const tabs: readonly string[] = ["note", "insulin", "injcal", "flowsheet", "rxcal", "proccal", "dietcal", "standingcal", "bookings"];
 const isTab = (t: unknown): t is RightTab => typeof t === "string" && tabs.includes(t);
 
 /** Read older saved desks without restoring the removed injection/prescription tabs. */

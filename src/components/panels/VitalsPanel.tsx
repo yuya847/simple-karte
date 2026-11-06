@@ -22,7 +22,7 @@ import { useMe } from "../RoleContext";
 export interface DailyInput {
   urineMl?: number;
   stools?: number;
-  meal?: { slot: 0 | 1 | 2; tenths: number };
+  meal?: { slot: 0 | 1 | 2; tenths: number; sideTenths?: number };
   weightKg?: number;
 }
 
@@ -51,11 +51,12 @@ function DailyForm({ today, prevWeight, onDaily, onOpenIo }: { today?: DailyReco
   const [stools, setStools] = useState("");
   const [slot, setSlot] = useState<0 | 1 | 2 | null>(null);
   const [tenths, setTenths] = useState("");
+  const [sideTenths, setSideTenths] = useState("");
   const [weight, setWeight] = useState("");
   const n = (s: string) => (s.trim() === "" ? undefined : Number(s));
   const w = n(weight);
   // Numbers only, none below zero.
-  const bad = [stools, tenths, weight].some((s) => s.trim() !== "" && (!Number.isFinite(Number(s)) || Number(s) < 0)) || (n(tenths) !== undefined && (n(tenths)! < 0 || n(tenths)! > 10)) || (n(tenths) !== undefined && slot === null);
+  const bad = (sideTenths !== "" && (!Number.isInteger(Number(sideTenths)) || Number(sideTenths) < 0 || Number(sideTenths) > 10 || tenths === "")) || [stools, tenths, weight].some((s) => s.trim() !== "" && (!Number.isFinite(Number(s)) || Number(s) < 0)) || (n(tenths) !== undefined && (n(tenths)! < 0 || n(tenths)! > 10)) || (n(tenths) !== undefined && slot === null);
   const any = [stools, weight].some((s) => s.trim()) || (slot !== null && tenths.trim() !== "");
   const box = "w-16 rounded border border-rule bg-paper px-1.5 py-1 text-right text-[13px] outline-none focus:border-ai";
   const meals = today?.meals;
@@ -84,14 +85,14 @@ function DailyForm({ today, prevWeight, onDaily, onOpenIo }: { today?: DailyReco
           <input value={stools} onChange={(e) => setStools(e.target.value)} inputMode="numeric" aria-label="排便（回）" className={box} />
         </label>
         <span className="flex flex-col gap-0.5">
-          食事（主食・割）
+          食事（主食 / 副食・割）
           <span className="flex items-center gap-1">
             {MEAL_SLOTS.map((s, i) => (
               <button key={s} type="button" onClick={() => setSlot(i as 0 | 1 | 2)} aria-pressed={slot === i} className={`rounded border px-1.5 py-0.5 ${slot === i ? "border-ai bg-ai text-white" : "border-rule"}`}>
                 {s}
               </button>
             ))}
-            <input value={tenths} onChange={(e) => setTenths(e.target.value)} inputMode="numeric" aria-label="食事の摂取量（割）" className={`${box} w-12`} />割
+            <input value={tenths} onChange={(e) => setTenths(e.target.value)} inputMode="numeric" aria-label="食事の摂取量（割）" className={`${box} w-12`} /> / <input value={sideTenths} onChange={e => setSideTenths(e.target.value)} inputMode="numeric" aria-label="副食の摂取量（割）" className={`${box} w-12`} />割
           </span>
         </span>
         <label className="flex flex-col gap-0.5">
@@ -102,9 +103,10 @@ function DailyForm({ today, prevWeight, onDaily, onOpenIo }: { today?: DailyReco
           type="button"
           disabled={!any || bad}
           onClick={() => {
-            onDaily({ stools: n(stools), meal: slot !== null && n(tenths) !== undefined ? { slot, tenths: n(tenths)! } : undefined, weightKg: w });
+            onDaily({ stools: n(stools), meal: slot !== null && n(tenths) !== undefined ? { slot, tenths: n(tenths)!, sideTenths: n(sideTenths) } : undefined, weightKg: w });
             setStools("");
             setTenths("");
+            setSideTenths("");
             setSlot(null);
             setWeight("");
           }}

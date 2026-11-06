@@ -9,6 +9,7 @@
 // this app's masters. The charts are kept small on purpose: they make the ward read as a ward, and the
 // patient list, the map and the DPC column can show everyone the same way. Nobody here is a real person.
 
+import { addInsulinDemo } from "./insulin-demo";
 import type { Diagnosis } from "./diagnoses";
 import { dietAt, type DietOrder, type Meal } from "./diet";
 import type { DoseTiming, HistoryEntry, LabResult, Order, OrderEntry, Patient, RehabOrder, Sex, VitalSign } from "./types";
@@ -589,6 +590,7 @@ function chartFor(b: BedAssignment, nth: number): WardChart | null {
     // Yesterday's meals (the staple eaten, in tenths), or 絶食.
     daily: admittedOn <= -2 ? [{ day: -1, meals: dietAt(diets, id, -1, "昼")?.kind === "絶食" ? "絶食" : [int(r, 6, 10), int(r, 5, 10), int(r, 6, 10)] }] : [],
   };
+  addInsulinDemo(patient);
   return { patient, diagnoses, diets };
 }
 
