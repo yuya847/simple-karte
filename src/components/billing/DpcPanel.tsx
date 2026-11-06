@@ -2,78 +2,31 @@
 
 import { displayText } from "@/lib/display-text";
 import { AlertTriangle, Info, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { codeParts, FICTIONAL_COEFFICIENT, periodRanges } from "@/lib/billing/dpc";
+import { codeParts, periodRanges } from "@/lib/billing/dpc";
 import type { DpcMonthView } from "@/lib/billing/dpc-claim";
-import { type BillingOptions, SHIKIBETSU_NAME } from "@/lib/billing/model";
-import { patientMonthPayload } from "@/lib/billing/payload";
-import { isoDate, type CalendarDate } from "@/lib/dates";
-import type { Diagnosis } from "@/lib/diagnoses";
-import type { DietOrder } from "@/lib/diet";
-import type { HistoryEntry, Patient } from "@/lib/types";
+import { SHIKIBETSU_NAME } from "@/lib/billing/model";
 
+export type Transfer = "unknown" | "no" | "yes";
 interface Props {
-  patient: Patient;
-  entries: HistoryEntry[];
-  diagnoses: Diagnosis[];
-  today: CalendarDate;
-  nowTime: string;
   month: string;
-  options: BillingOptions;
-  /** The diets, letters and 未実施 doses as the 算定 tab sends them (JSON). */
-  extraJson: string;
+  mainId: string | undefined;
+  setMainId: (id: string | undefined) => void;
+  transfer: Transfer;
+  setTransfer: (value: Transfer) => void;
+  coefText: string;
+  setCoefText: (value: string) => void;
+  r: DpcMonthView | null;
+  error: string | null;
+  loading: boolean;
 }
-
-type Transfer = "unknown" | "no" | "yes";
 
 const pts = (n: number) => `${n.toLocaleString("ja-JP", { maximumFractionDigits: 4 })}点`;
 const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n).toLocaleString("ja-JP")}点`;
 
 /** DPC（診断群分類別包括評価）for the month, next to the 出来高 claim. Computed by code on the server. */
-export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, options, extraJson }: Props) {
-  const [mainId, setMainId] = useState<string | undefined>(undefined);
-  const [transfer, setTransfer] = useState<Transfer>("unknown");
-  const [coefText, setCoefText] = useState(FICTIONAL_COEFFICIENT.toFixed(4));
+export function DpcPanel({ month, mainId, setMainId, transfer, setTransfer, coefText, setCoefText, r, error, loading }: Props) {
   const coef = Number(coefText);
   const coefOk = Number.isFinite(coef) && coef >= 0.5 && coef <= 3;
-  const [r, setR] = useState<DpcMonthView | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!coefOk) return;
-    const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[] };
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/dpc", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          signal: ctl.signal,
-          body: JSON.stringify({
-            today: isoDate(today),
-            nowTime,
-            month,
-            ...patientMonthPayload(patient, entries, diagnoses, options, extra),
-            dpc: { mainDiagnosisId: mainId, coefficient: coef, transfer: transfer === "unknown" ? null : transfer === "yes" },
-          }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
-        setR(json as DpcMonthView);
-      } catch (e) {
-        if (ctl.signal.aborted) return;
-        setError(e instanceof Error ? e.message : "DPC を計算できませんでした。");
-      } finally {
-        if (!ctl.signal.aborted) setLoading(false);
-      }
-    };
-    run();
-    return () => ctl.abort();
-  }, [patient, entries, diagnoses, today, nowTime, month, options, extraJson, mainId, transfer, coef, coefOk]);
-
   const d = r?.outcome?.ok ? r.outcome.d : null;
   const [, mm] = month.split("-").map(Number);
   const issues = [...(r?.outcome && !r.outcome.ok ? r.outcome.issues : []), ...(d?.issues ?? []), ...(r?.issues ?? [])].filter((x, i, all) => all.findIndex((y) => y.text === x.text) === i);

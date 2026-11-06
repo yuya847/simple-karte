@@ -5,12 +5,14 @@ import type { DietOrder } from "@/lib/diet";
 import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "lucide-react";
 import { BillPanel } from "./billing/BillPanel";
 import { InsurancePanel } from "./billing/InsurancePanel";
-import { DpcPanel } from "./billing/DpcPanel";
+import { DpcPanel, type Transfer } from "./billing/DpcPanel";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
 import type { Insurance } from "@/lib/billing/insurance";
-import type { Bill } from "@/lib/billing/kaikei";
+import { FICTIONAL_COEFFICIENT } from "@/lib/billing/dpc";
+import type { DpcMonthView } from "@/lib/billing/dpc-claim";
+import { inpatientBill } from "@/lib/billing/inpatient-bill";
 import { patientMonthPayload, type PatientMonthPayload } from "@/lib/billing/payload";
 import type { InsuranceRecord } from "@/lib/billing/registration";
 import type { Settlement } from "@/lib/billing/worklist";
@@ -99,7 +101,12 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   const registered = records[records.length - 1];
   // 医事課 starts on 保険 while the patient has none registered; everyone else on 算定.
   const [tab, setTab] = useState<Tab>(() => (!registered && !deny("insurance") ? "insurance" : "claim"));
-  const [bill, setBill] = useState<Bill | null>(null);
+  const [mainId, setMainId] = useState<string | undefined>(undefined);
+  const [transfer, setTransfer] = useState<Transfer>("unknown");
+  const [coefText, setCoefText] = useState(FICTIONAL_COEFFICIENT.toFixed(4));
+  const coef = Number(coefText);
+  const coefOk = Number.isFinite(coef) && coef >= 0.5 && coef <= 3;
+  const [dpc, setDpc] = useState<DpcMonthView | null>(null);
   const [insurance, setInsurance] = useState<(Insurance & { assumed?: boolean }) | null>(null);
   const [receiptLines, setReceiptLines] = useState<string[]>([]);
   const months = useMemo(() => admissionMonths(today, patient.admittedOn), [today, patient.admittedOn]);
@@ -111,22 +118,29 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   // Diets, letters and the registered insurance by value, so a new array with the same content does not re-run the claim.
   const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insurance: registered?.insurance });
   useEffect(() => {
+    if (!coefOk) return;
     const ctl = new AbortController();
     const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[]; insurance?: Insurance };
     const run = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/claim", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          signal: ctl.signal,
-          body: JSON.stringify({ today: isoDate(today), nowTime, month, ...patientMonthPayload(patient, entries, diagnoses, options, extra) }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
+        const payload = { today: isoDate(today), nowTime, month, ...patientMonthPayload(patient, entries, diagnoses, options, extra) };
+        const [json, dpcJson] = await Promise.all([
+          ["/api/claim", payload],
+          ["/api/dpc", { ...payload, dpc: { mainDiagnosisId: mainId, coefficient: coef, transfer: transfer === "unknown" ? null : transfer === "yes" } }],
+        ].map(async ([url, body]) => {
+          const res = await fetch(url as string, {
+            method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? `エラー（${res.status}）`);
+          return data;
+        }));
+        if (ctl.signal.aborted) return;
+        setDpc(dpcJson as DpcMonthView);
         setResult(json.result as ClaimResult);
-        setBill(json.bill as Bill);
         setInsurance(json.insurance);
         setReceiptLines(json.receipt.lines as string[]);
       } catch (e) {
@@ -138,7 +152,11 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
     };
     run();
     return () => ctl.abort();
-  }, [month, options, entries, diagnoses, patient, today, nowTime, extraJson]);
+  }, [month, options, entries, diagnoses, patient, today, nowTime, extraJson, mainId, transfer, coef, coefOk]);
+
+  const accounting = result && insurance && dpc ? inpatientBill(result, insurance, dpc) : null;
+  const ready = !loading && !error && coefOk;
+  const bill = ready ? accounting?.bill ?? null : null;
 
   const groups = useMemo(() => {
     const g = new Map<Shikibetsu, ClaimAct[]>();
@@ -169,7 +187,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
             </button>
           ))}
         </div>
-        <span className="text-xs text-ink-faint">入院・出来高</span>
+        <span className="text-xs text-ink-faint">入院</span>
         <div role="tablist" aria-label="請求する月" className="flex gap-1">
           {months.map((m) => (
             <button
@@ -177,7 +195,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
               type="button"
               role="tab"
               aria-selected={m === month}
-              onClick={() => setMonth(m)}
+              onClick={() => { if (m !== month) { setLoading(true); setMonth(m); } }}
               className={`nums rounded-md border px-2.5 py-1 text-xs ${m === month ? "border-ai bg-ai text-white" : "border-rule bg-paper text-ink-soft hover:text-ink"}`}
             >
               {Number(m.slice(0, 4))}年{Number(m.slice(5))}月
@@ -226,11 +244,20 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
             )}
           </div>
         )}
-        {tab === "bill" && result && bill && insurance && <BillPanel claim={result} bill={bill} insurance={insurance} month={month} />}
+        {tab === "bill" && !coefOk && <p className="mb-3 text-sm text-shu">DPC タブの医療機関別係数を 0.5〜3 で入力してください。</p>}
+        {tab === "bill" && result && bill && insurance && accounting && <>
+          <div className="nums mb-3 rounded-md border border-rule bg-paper px-3 py-2 text-sm">
+            <p className="font-bold">{accounting.useDpc ? "DPC（包括 ＋ 出来高）" : "出来高"}</p>
+            <p className="text-xs">包括 {(accounting.useDpc ? dpc!.pkg!.total : 0).toLocaleString("ja-JP")} 点・出来高に残る分 {(accounting.useDpc ? dpc!.outsideTotal : result.totalPoints).toLocaleString("ja-JP")} 点</p>
+            {accounting.reason && <p className="text-xs text-ink-soft">{displayText(accounting.reason)}</p>}
+            {accounting.receiptDiffers && <p className="text-xs text-yamabuki">レセプト出力は出来高の {result.totalPoints.toLocaleString("ja-JP")} 点のため、会計の点数・金額と異なります。</p>}
+          </div>
+          <BillPanel claim={result} bill={bill} insurance={insurance} month={month} />
+        </>}
         {tab === "receipt" && result && (
           <ReceiptPanel lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
-        {tab === "dpc" && <DpcPanel key={patient.id} patient={patient} entries={entries} diagnoses={diagnoses} today={today} nowTime={nowTime} month={month} options={options} extraJson={extraJson} />}
+        {tab === "dpc" && <DpcPanel month={month} mainId={mainId} setMainId={(value) => { if (value !== mainId) { setLoading(true); setMainId(value); } }} transfer={transfer} setTransfer={(value) => { if (value !== transfer) { setLoading(true); setTransfer(value); } }} coefText={coefText} setCoefText={(value) => { if (Number(value) !== coef) setLoading(true); setCoefText(value); }} r={ready ? dpc : null} error={error} loading={loading} />}
         {tab === "claim" && (
           <>
 
