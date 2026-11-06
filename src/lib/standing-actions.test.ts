@@ -40,3 +40,11 @@ describe("指示の確定と経過への記録", () => {
     expect(denied.chartNote).not.toHaveBeenCalled();
   });
 });
+
+it("終了日変更も経過に変更前後の日付と理由を記録する", () => {
+  const app = setup();
+  app.addStandingLine("p", { ...line, start: { day: 0, time: "13:20" }, at: { day: 0, time: "13:20" }, end: { day: 3 }, changedFrom: line.id, changeReason: "予定を変更" });
+  expect(app.state().p[1].end).toEqual({ day: 3 });
+  expect(app.chartNote).toHaveBeenCalledWith("p", expect.stringContaining("終了日：変えるまで → 11/8"), "指示簿");
+  expect(app.chartNote).toHaveBeenCalledWith("p", expect.stringContaining("理由：予定を変更"), "指示簿");
+});

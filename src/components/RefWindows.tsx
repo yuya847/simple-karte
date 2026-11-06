@@ -58,7 +58,7 @@ export interface RefWindowProps {
   /** The rest of what the flow sheet shows and does (lab draws waiting, entries from its cells …). */
   flow?: FlowExtra;
   /** 指示簿カレンダー: the lines (free text and from the fields), stopping one, and opening the 指示簿 panel. */
-  standingCal?: { lines: StandingLine[]; onStop?: (id: string, reason: string, day?: number, kind?: "終了") => void; onEdit?: (l: StandingLine) => void; onEndField?: (l: StandingLine) => void; onOpenPanel?: () => void };
+  standingCal?: { lines: StandingLine[]; onAdd?: (line: StandingLine) => void; onStop?: (id: string, reason: string, day?: number, kind?: "終了") => void; onEdit?: (l: StandingLine) => void; onEndField?: (l: StandingLine) => void; onOpenPanel?: () => void };
 }
 
 /**
@@ -77,7 +77,7 @@ export function RefWindow({ tab, patient, entries, today, nowTime, selectedDay, 
     case "dietcal":
       return <DietCalendar patient={patient} entries={entries} diets={diets ?? []} today={today} nowTime={nowTime} onOpenDiet={onOpenDiet} dietEdit={dietEdit} moves={moves} onBook={onBook} onDoMove={onDoMove} />;
     case "standingcal":
-      return <StandingCalendar patient={patient} lines={standingCal?.lines ?? []} today={today} nowTime={nowTime} onEndField={standingCal?.onEndField} onEdit={standingCal?.onEdit} onStop={standingCal?.onStop} onOpenPanel={standingCal?.onOpenPanel} />;
+      return <StandingCalendar patient={patient} lines={standingCal?.lines ?? []} today={today} nowTime={nowTime} onAdd={standingCal?.onAdd} onEndField={standingCal?.onEndField} onEdit={standingCal?.onEdit} onStop={standingCal?.onStop} onOpenPanel={standingCal?.onOpenPanel} />;
     case "bookings":
       return <BookingList bookings={bookings ?? []} today={today} />;
   }

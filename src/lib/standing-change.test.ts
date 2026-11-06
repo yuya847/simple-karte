@@ -109,3 +109,27 @@ it("かたまりの変更・終了でも本文と改行と指示受けの変更�
   expect(ended[1].text).toBe(text);
   expect(barMark(ended[1], 1, 3)).toBe("end");
 });
+
+it("終了日だけの延長・短縮・終了日なしへの変更を新しい版に残す", () => {
+  const old = { ...line, end: { day: 1 } };
+  for (const end of [{ day: 3 }, { day: 0 }, undefined]) {
+    const result = changeLine([old], old.id, { text: old.text, start: at, end }, line.by, at, "予定を変更");
+    expect(result.newId).toBeTruthy();
+    expect(result.lines[1].end).toEqual(end);
+    expect(lineChangeText([old], result.lines[1], String)).toContain("終了日：1 →");
+    const notice = lineChanges([person], { p: result.lines }, new Set([old.id]), 0, 801, String)[0];
+    expect(notice.text.main).toContain("【変】");
+    expect(notice.text.detail).toContain(end ? `${end.day}まで` : "変えるまで");
+    expect(syncStandingCosign([], {}, { p: result.lines }).some((c) => c.text.includes("【変】"))).toBe(true);
+  }
+});
+it("開始予定の終了日を変えても開始予定を早めず、期限切れの履歴も延長しない", () => {
+  const future = { ...line, start: { day: 2 }, end: { day: 3 } };
+  const result = changeLine([future], future.id, { text: future.text, start: future.start, end: { day: 2 } }, line.by, at);
+  expect(result.lines[1].start).toEqual(future.start);
+  expect(lineEffective(result.lines[1], 0)).toBe(false);
+  const expired = { ...line, end: { day: -1 } };
+  const resumed = changeLine([expired], expired.id, { text: expired.text, start: at, end: { day: 2 } }, line.by, at);
+  expect(resumed.newId).toBeTruthy();
+  expect(resumed.lines[0].end).toEqual(expired.end);
+});

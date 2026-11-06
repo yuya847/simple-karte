@@ -2,9 +2,9 @@ import { lineLabel, linesFromFields, type StandingLine } from "./standing-lines"
 import type { StandingOrders } from "./standing";
 
 /** Plain audit text shared by the chart and the standing order history. */
-export function lineChangeText(lines: StandingLine[], next: StandingLine): string {
+export function lineChangeText(lines: StandingLine[], next: StandingLine, fmtDay: (day: number) => string = String): string {
   const old = lines.find((l) => l.id === next.changedFrom);
-  return `指示を変更：${old ? lineLabel(old) : "元の指示"} → ${next.text}${next.changeReason?.trim() ? `（理由：${next.changeReason.trim()}）` : ""}`;
+  return `指示を変更：${old ? lineLabel(old) : "元の指示"} → ${next.text}${old?.end?.day !== next.end?.day || old?.end?.time !== next.end?.time ? `（終了日：${old?.end ? fmtDay(old.end.day) : "変えるまで"} → ${next.end ? fmtDay(next.end.day) : "変えるまで"}）` : ""}${next.changeReason?.trim() ? `（理由：${next.changeReason.trim()}）` : ""}`;
 }
 
 export function fieldChangeText(versions: StandingOrders[], next: StandingOrders, fmtDay: (day: number) => string = (day) => day === 0 ? "今日" : `今日から${day}日`): string {

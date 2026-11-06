@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectiveEnd, lineEffective, periodText, standingStopDraft } from "./standing-calendar";
+import { dragEnd, effectiveEnd, lineEffective, periodText, standingStopDraft } from "./standing-calendar";
 import { barCell, calendarRows, lineChanges, linesFromFields, stopLine, type StandingLine } from "./standing-lines";
 import { emptyStanding, standingEffective } from "./standing";
 import { worksheetPrnLines } from "./standing-form";
@@ -51,5 +51,27 @@ describe("指示の期間と一括中止", () => {
     expect(lineChanges([person], { p: [{ ...l, start: { day: 1 } }] }, new Set(), 0, 600, String)).toEqual([]);
     expect(lineChanges([person], { p: [{ ...l, end: { day: -1 } }] }, new Set(), 0, 600, String)).toEqual([]);
     expect(worksheetPrnLines([l], person, 3 * 1440, {}, new Set())).toEqual([]);
+  });
+});
+
+describe("帯の終了日ドラッグ", () => {
+  it("延長・短縮・同日を分け、元の指示は変えない", () => {
+    expect(dragEnd(l, 3, 0)).toEqual({ kind: "extend", end: 3 });
+    expect(dragEnd(l, 1, 0)).toEqual({ kind: "shorten", end: 1 });
+    expect(dragEnd(l, 2, 0)).toEqual({ kind: "none", end: 2 });
+    expect(l.end).toEqual({ day: 2 });
+  });
+  it("今日と開始日より前には縮めない", () => {
+    expect(dragEnd(l, -4, 0).end).toBe(0);
+    expect(dragEnd({ ...l, start: { day: 2 } }, -1, 0).end).toBe(2);
+    expect(dragEnd(l, 0, 1).end).toBe(1);
+  });
+  it("終了なしの帯にも終了日を置き、今日より右なら延長とする", () => {
+    expect(dragEnd({ ...l, end: undefined }, 3, 0)).toEqual({ kind: "extend", end: 3 });
+    expect(dragEnd({ ...l, end: undefined }, -3, 0)).toEqual({ kind: "shorten", end: 0 });
+  });
+  it("項目由来と履歴、不正な日付は変えない", () => {
+    for (const line of [{ ...l, fromFields: true as const }, { ...l, stop: { day: 0, time: "10:00", by: "医師" } }, { ...l, changed: { day: 0, time: "10:00", by: "医師", toId: "b" } }]) expect(dragEnd(line, 3, 0)).toMatchObject({ kind: "none", problem: expect.any(String) });
+    expect(dragEnd(l, NaN, 0).problem).toBeTruthy();
   });
 });

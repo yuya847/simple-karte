@@ -27,7 +27,7 @@ export function standingLineActions({ lines, setLines, me, nowTime, fmtDay, pati
       const result = changeLine(lines[pid] ?? [], l.changedFrom, l, me.name, l.at, l.changeReason);
       if (!result.newId) return;
       setLines((all) => ({ ...all, [pid]: changeLine(all[pid] ?? [], l.changedFrom!, l, me.name, l.at, l.changeReason).lines }));
-      record(pid, "変更", lineChangeText(lines[pid] ?? [], l));
+      record(pid, "変更", lineChangeText(lines[pid] ?? [], l, fmtDay));
       return;
     }
     setLines((all) => ({ ...all, [pid]: [...(all[pid] ?? []), l] }));

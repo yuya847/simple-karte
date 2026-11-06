@@ -1,8 +1,8 @@
 "use client";
 
 import { StandingBulkStop } from "./StandingBulkStop";
-import type { StandingStopDraft } from "@/lib/standing-calendar";
-import { useState } from "react";
+import { dragEnd, type StandingStopDraft } from "@/lib/standing-calendar";
+import { useRef, useState } from "react";
 import { addDays, formatShort, hospitalDay, minutesOf, type CalendarDate } from "@/lib/dates";
 import { LINE_RULES, barMark, barCell, calendarRows, lineCalendarDays, whenText, type StandingLine } from "@/lib/standing-lines";
 import type { Patient } from "@/lib/types";
@@ -18,7 +18,10 @@ const COL_W = 44;
  * a stopped line ends where it was stopped. Press a bar for the full text, who and when; a doctor can stop
  * the line here (with a confirmation). Lines derived from the 項目で選ぶ fields are shown but stopped there.
  */
-export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpenPanel, onBulkStop, onEdit, onEndField }: { patient: Patient; lines: StandingLine[]; today: CalendarDate; nowTime: string; onStop?: (id: string, reason: string, day?: number, kind?: "終了") => void; onOpenPanel?: () => void; onEdit?: (l: StandingLine) => void; onEndField?: (l: StandingLine) => void; onBulkStop?: (draft: StandingStopDraft) => void }) {
+export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpenPanel, onBulkStop, onEdit, onEndField, onAdd }: { patient: Patient; lines: StandingLine[]; today: CalendarDate; nowTime: string; onStop?: (id: string, reason: string, day?: number, kind?: "終了") => void; onOpenPanel?: () => void; onEdit?: (l: StandingLine) => void; onEndField?: (l: StandingLine) => void; onBulkStop?: (draft: StandingStopDraft) => void; onAdd?: (line: StandingLine) => void }) {
+  const [pending, setPending] = useState<{ line: StandingLine; end: number | null } | null>(null);
+  const [endReason, setEndReason] = useState("");
+  const propose = (line: StandingLine, end: number | null) => { setEndReason(""); setPending({ line, end }); };
   const [selected, setSelected] = useState<string[]>([]);
   const selectable = lines.filter((l) => !l.stop && !l.changed && !l.fromFields);
   const deny = useDeny();
@@ -74,15 +77,24 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
               </tr>
             )}
             {groups.map((g) => (
-              <GroupRows key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} today={today} nowPct={nowPct} selected={selected} onToggle={canSelect ? toggle : undefined} />
+              <GroupRows key={g.cat} cat={g.cat} lines={g.lines} days={days} last={last} openId={openId} onChoose={choose} today={today} nowPct={nowPct} onEnd={onAdd && !deny("order") ? propose : undefined} selected={selected} onToggle={canSelect ? toggle : undefined} />
             ))}
           </tbody>
         </table>
         <p className="hint mt-2 px-3 text-[10px] text-ink-faint">
-          {LINE_RULES.cats}
+          {LINE_RULES.cats} 帯の右端をドラッグすると終わりの日を変えられます（延ばす・縮める）
           <span className="hint"> 色の帯が指示の続く期間です。右端の「→」は表示期間の先まで指示が続く印です。終了日のある帯は「〜日付」で閉じます。変更前の帯は薄く残ります。「中止」と書かれた所で止まった帯は中止した行（履歴として残ります）。帯を押すと全文・書いた人・時刻が下に出ます。薄い帯は「項目で選ぶ」指示簿の版から出した行で、変えるときはその指示簿を変えます。今日の列の赤い線がいまの時刻。</span>
         </p>
       </div>
+      {pending && <div role="dialog" aria-label="終了日の変更" className="border-t border-rule bg-paper p-3 text-[12px]">
+        <p>{pending.line.text.split("\n")[0]} を {pending.end === null ? "変えるまで続けます" : `${fmtDay(pending.end)}までにします`}</p>
+        <label>理由（任意）<input autoFocus className="mx-2 rounded border border-rule bg-sheet px-2" value={endReason} onChange={(e) => setEndReason(e.target.value)} /></label>
+        <button type="button" className="rounded bg-ai px-3 py-1 text-white" onClick={() => {
+          const current = lines.find((l) => l.id === pending.line.id);
+          if (current && !deny("order") && !current.stop && !current.changed && !current.fromFields) onAdd?.({ ...current, id: `${current.id}-end-draft`, start: { day: Math.max(0, current.start.day), time: current.start.day > 0 ? current.start.time : nowTime }, end: pending.end === null ? undefined : { day: pending.end }, at: { day: 0, time: nowTime }, changedFrom: current.id, changeReason: endReason });
+          setPending(null);
+        }}>する</button> <button type="button" onClick={() => setPending(null)}>やめる</button>
+      </div>}
       {open && (
         <div role="region" aria-label="選んだ指示" className="border-t border-rule bg-paper px-4 py-2 text-[12px]">
           <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
@@ -134,6 +146,7 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
               <DenyNote action="order" />
             </div>
           )}
+          {!open.fromFields && !open.stop && !open.changed && open.end && onAdd && !deny("order") && <button type="button" onClick={() => propose(open, null)}>変えるまで続ける（終了日をなくす）</button>}
           {open.fromFields && onOpenPanel && (
             <button type="button" onClick={onOpenPanel} className="mt-1.5 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft">
               指示簿を開いて変える
@@ -145,7 +158,10 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
   );
 }
 
-function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, selected, onToggle }: { today: CalendarDate; cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number; selected: string[]; onToggle?: (ids: string[]) => void }) {
+function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, selected, onToggle, onEnd }: { today: CalendarDate; cat: StandingLine["cat"]; lines: StandingLine[]; days: number[]; last: number; openId: string | null; onChoose: (id: string) => void; nowPct: number; selected: string[]; onToggle?: (ids: string[]) => void; onEnd?: (line: StandingLine, end: number) => void }) {
+  const [preview, setPreview] = useState<{ id: string; end: number } | null>(null);
+  const dragging = useRef<{ id: string; pointer: number; x: number; day: number; moved: boolean } | null>(null);
+  const targetDay = (l: StandingLine, x: number) => dragEnd(l, Math.min(last, dragging.current!.day + Math.round((x - dragging.current!.x) / COL_W)), 0).end!;
   return (
     <>
       <tr>
@@ -169,8 +185,10 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
               </div>
             </th>
             {days.map((d) => {
-              const c = barCell(l, d, last);
-              const mark = barMark(l, d, last);
+              const shown = preview?.id === l.id ? { ...l, end: { day: preview.end } } : l;
+              const c = barCell(shown, d, last);
+              const mark = barMark(shown, d, last);
+              const handle = onEnd && !l.fromFields && !l.stop && !l.changed && barCell(l, d, last).on && d === Math.min(l.end?.day ?? last, last);
               return (
                 <td key={d} className={`relative border-b border-l border-rule-soft p-0 align-middle ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""}`}>
                   {c.on && (
@@ -184,6 +202,14 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
                       {mark === "arrow" && <span className="absolute right-0 top-0 bg-ai-soft px-1 text-xl font-bold leading-5" aria-label="右へ続く">→</span>}{mark === "end" && !l.stop && <span className="absolute right-0 top-0 bg-ai-soft text-[10px]">〜{formatShort(addDays(today, d))}</span>}
                     </button>
                   )}
+                  {preview?.id === l.id && d === preview.end && <span className="pointer-events-none absolute bottom-full right-0 z-30 whitespace-nowrap rounded border border-rule bg-sheet px-2 py-1 shadow">{formatShort(addDays(today, preview.end))}まで</span>}
+                  {handle && <button type="button" aria-label={`${l.text}の終了日をドラッグ`} title="終了日を変える" style={{ transform: preview?.id === l.id ? `translateX(${(preview.end - d) * COL_W}px)` : undefined }} className="group absolute -right-2 top-0 z-10 flex h-full w-6 cursor-ew-resize touch-none items-center justify-center"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => { if (!e.isPrimary || e.button !== 0) return; e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = { id: l.id, pointer: e.pointerId, x: e.clientX, day: d, moved: false }; }}
+                    onPointerMove={(e) => { const active = dragging.current; if (!active || active.id !== l.id || active.pointer !== e.pointerId) return; active.moved ||= Math.abs(e.clientX - active.x) > 3; if (active.moved) setPreview({ id: l.id, end: targetDay(l, e.clientX) }); }}
+                    onPointerUp={(e) => { const active = dragging.current; if (!active || active.id !== l.id || active.pointer !== e.pointerId) return; const result = dragEnd(l, targetDay(l, e.clientX), 0); dragging.current = null; setPreview(null); if (active.moved && result.kind !== "none" && !result.problem) onEnd(l, result.end!); }}
+                    onPointerCancel={() => { dragging.current = null; setPreview(null); }} onLostPointerCapture={() => { dragging.current = null; setPreview(null); }}
+                  ><span className="h-4 w-[6px] rounded bg-ai group-hover:w-2 group-focus-visible:w-2" /></button>}
                   {d === 0 && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-shu" style={{ left: `${nowPct}%` }} />}
                 </td>
               );

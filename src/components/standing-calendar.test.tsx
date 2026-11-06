@@ -50,3 +50,11 @@ it("変更のフォームに元の文を入れ、変更・終了ボタンと矢�
   expect(cal).toContain('aria-label="右へ続く"');
   expect(cal).toContain("〜11/8");
 });
+
+it("終了日つまみは医師の編集可能な帯だけに出す", () => {
+  const active = { ...lines[1], id: "active", end: { day: 2 }, stop: undefined, changed: undefined };
+  const rows = [active, { ...active, id: "field", fromFields: true as const }, { ...active, id: "stopped", stop: { day: 1, time: "10:00", by: "医師" } }, { ...active, id: "changed", changed: { day: 0, time: "10:00", by: "医師", toId: "next" } }];
+  const render = (role: "医師" | "看護師") => renderToStaticMarkup(<RoleProvider value={role}><StandingCalendar patient={patient} lines={rows} today={today} nowTime="10:00" onAdd={noop} /></RoleProvider>);
+  expect(render("医師").match(/の終了日をドラッグ/g)).toHaveLength(1);
+  expect(render("看護師")).not.toContain("の終了日をドラッグ");
+});

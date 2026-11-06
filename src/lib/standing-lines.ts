@@ -84,10 +84,12 @@ export function stopLine(lines: StandingLine[], id: string, stop: { day: DayOffs
 export function changeLine(lines: StandingLine[], id: string, next: { text: string; start: When; end?: When }, who: string, at: { day: number; time: string }, reason?: string): { lines: StandingLine[]; newId: string } {
   const start = { ...next.start, time: next.start.time ?? (next.start.day === at.day ? at.time : undefined) };
   const old = lines.find((l) => l.id === id);
-  if (!old || old.fromFields || old.stop || old.changed || lineProblems(next).length || !lineOn(old, at.day) || abs(old.start.day, old.start.time ?? "00:00") > abs(at.day, at.time) || (old.end && abs(old.end.day, old.end.time ?? "23:59") < abs(at.day, at.time)) || abs(start.day, start.time ?? "00:00") !== abs(at.day, at.time)) return { lines, newId: "" };
+  const endOnlyChange = !!old && next.text === old.text && (next.end?.day !== old.end?.day || next.end?.time !== old.end?.time);
+  const futureEndChange = !!old && old.start.day > at.day && next.text === old.text && next.start.day === old.start.day && next.start.time === old.start.time;
+  if (!old || old.fromFields || old.stop || old.changed || lineProblems(next).length || (!futureEndChange && ((!endOnlyChange && !lineOn(old, at.day)) || abs(old.start.day, old.start.time ?? "00:00") > abs(at.day, at.time))) || (!endOnlyChange && old.end && abs(old.end.day, old.end.time ?? "23:59") < abs(at.day, at.time)) || (!futureEndChange && abs(start.day, start.time ?? "00:00") !== abs(at.day, at.time))) return { lines, newId: "" };
   let newId = `${id}-change-${at.day}-${at.time}`;
   while (lines.some((l) => l.id === newId)) newId += "-1";
-  return { newId, lines: [...lines.map((l) => l.id === id ? { ...l, end: { ...at }, changed: { ...at, by: who, toId: newId, reason: reason?.trim() || undefined } } : l), { id: newId, cat: old.cat, start, end: next.end ? { ...next.end } : undefined, text: next.text.trim(), by: who, at: { ...at }, changedFrom: id, changeReason: reason?.trim() || undefined }] };
+  return { newId, lines: [...lines.map((l) => l.id === id ? { ...l, end: old.end && abs(old.end.day, old.end.time ?? "23:59") < abs(at.day, at.time) ? old.end : { ...at }, changed: { ...at, by: who, toId: newId, reason: reason?.trim() || undefined } } : l), { id: newId, cat: old.cat, start, end: next.end ? { ...next.end } : undefined, text: next.text.trim(), by: who, at: { ...at }, changedFrom: id, changeReason: reason?.trim() || undefined }] };
 }
 
 export function barMark(l: StandingLine, day: number, lastDay: number): "start" | "mid" | "end" | "arrow" | "stop" | "changed" | null {

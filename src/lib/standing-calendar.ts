@@ -1,4 +1,5 @@
 import { lineEndDay, type StandingLine } from "./standing-lines";
+import type { DayOffset } from "./types";
 import { abs } from "./flowsheet";
 
 /** Inclusive planned end; a stop cannot extend a shorter planned duration. */
@@ -22,4 +23,12 @@ export function standingStopDraft(lines: StandingLine[], ids: string[], day: num
 export function periodText(l: StandingLine, fmt: (d: number) => string): string {
   const end = effectiveEnd(l);
   return `有効：${fmt(l.start.day)} 〜 ${end === null ? "変えるまで続く" : fmt(end)}`;
+}
+
+/** Clamp a proposed inclusive end to today and the start; never alter historical rows. */
+export function dragEnd(line: StandingLine, toDay: DayOffset, today: DayOffset): { kind: "extend" | "shorten" | "none"; end: DayOffset | null; problem?: string } {
+  if (line.fromFields || line.stop || line.changed) return { kind: "none", end: line.end?.day ?? null, problem: "この指示の終了日は変えられません。" };
+  if (!Number.isInteger(toDay) || !Number.isInteger(today)) return { kind: "none", end: line.end?.day ?? null, problem: "日付を確かめてください。" };
+  const end = Math.max(toDay, today, line.start.day);
+  return { kind: line.end?.day === end ? "none" : line.end ? end > line.end.day ? "extend" : "shorten" : end > today ? "extend" : "shorten", end };
 }

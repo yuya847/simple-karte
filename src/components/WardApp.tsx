@@ -2129,7 +2129,7 @@ export default function WardApp() {
     io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standingNow(patient.id)?.io ?? null },
     onModify: modifyOrder,
     care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) },
-    standingCal: { lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason, day, kind) => stopStandingLine(patient.id, id, reason, day, kind), onEndField: (l) => { setStandingEdit({ ...l, patientId: patient.id, endSelected: true }); setPanel("standing"); }, onEdit: (l) => { setStandingEdit({ ...l, patientId: patient.id }); setPanel("standing"); }, onOpenPanel: () => { setStandingEdit(undefined); setPanel("standing"); } },
+    standingCal: { onAdd: (l) => addStandingLine(patient.id, l), lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason, day, kind) => stopStandingLine(patient.id, id, reason, day, kind), onEndField: (l) => { setStandingEdit({ ...l, patientId: patient.id, endSelected: true }); setPanel("standing"); }, onEdit: (l) => { setStandingEdit({ ...l, patientId: patient.id }); setPanel("standing"); }, onOpenPanel: () => { setStandingEdit(undefined); setPanel("standing"); } },
     flowDays: {
       surgeries: surgeries.filter((x) => x.patientId === patient.id),
       events: flowEvents.filter((x) => x.patientId === patient.id),
