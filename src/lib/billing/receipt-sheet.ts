@@ -1,6 +1,8 @@
 // A reading layout of the existing UKE records, not another billing calculation.
 // Field offsets follow uke.ts (記録条件仕様・医科). Names/units come from the same claim.
 import type { Receipt } from "./uke";
+import type { DpcMonthView } from "./dpc-claim";
+import type { Diagnosis } from "../diagnoses";
 import { diagnosisClaimable, diagnosisLabel } from "../diagnoses";
 import { classify } from "./inspect";
 import { HOSPITAL } from "./facility";
@@ -22,6 +24,7 @@ export function receiptSheet(receipt: Receipt, lines: string[], problems: string
   });
   const diagnoses = receipt.diagnoses.filter(d => diagnosisClaimable(d, receipt.claim.month)).sort((a,b) => a.startDate.localeCompare(b.startDate));
   return {
+    dpc: null as DpcReceiptDetails | null,
     month: receipt.claim.month, hospital: HOSPITAL.name, name: re[4], sex: re[5] === "1" ? "男" : "女", birthDate: re[6],
     insurer: ho[1].trim(), symbol: ho[2], number: ho[3], relation: receipt.patient.insurance.relation,
     benefit: 100 - receipt.patient.insurance.rate, special: re[11] || "—",
@@ -33,3 +36,40 @@ export function receiptSheet(receipt: Receipt, lines: string[], problems: string
   };
 }
 export type ReceiptSheetData = ReturnType<typeof receiptSheet>;
+
+// DPC の記録条件仕様における BU/SB/KK/GA/HH の項目位置・必須条件は未検証。
+// この変換は表示・印刷専用。医科 UKE の HO 合計や SI/IY を DPC として流用しない。
+type DpcReceiptDetails = {
+  code: string;
+  name: string;
+  periods: number[];
+  coefficient: number;
+  lines: NonNullable<DpcMonthView["pkg"]>["lines"];
+  total: number;
+  outsideTotal: number;
+  categories: string[];
+};
+
+export function dpcReceiptSheet(sheet: ReceiptSheetData, dpc: DpcMonthView, bill: { totalPoints: number; medicalYen: number }, diagnoses: Diagnosis[], admittedOn: number): ReceiptSheetData {
+  if (!dpc.outcome?.ok || !dpc.outcome.d.hokatsu || !dpc.pkg || dpc.dpcTotal === null) return sheet;
+  const registered = diagnoses.filter(d => diagnosisClaimable(d, sheet.month)).sort((a,b) => a.start - b.start);
+  return {
+    ...sheet,
+    totalPoints: bill.totalPoints,
+    medicalYen: bill.medicalYen,
+    dpc: {
+      code: dpc.outcome.d.code, name: dpc.outcome.d.cls.name,
+      periods: [...(dpc.outcome.d.row.days ?? [])], coefficient: dpc.coefficient,
+      lines: dpc.pkg.lines, total: dpc.pkg.total, outsideTotal: dpc.outsideTotal,
+      // 登録開始日は発症日ではない。入院契機の専用項目もないため、主病名から推測しない。
+      categories: registered.map(d => [
+        d.id === dpc.chosen?.id ? "医療資源を最も投入した傷病名" : "",
+        d.onsetDay !== undefined ? (d.onsetDay <= admittedOn ? "入院時併存症" : "入院後発症疾患") : "",
+      ].filter(Boolean).join("・")),
+    },
+    rows: dpc.outside.map(l => ({
+      group: l.shikibetsu, code: l.code, name: l.name, product: undefined, unit: "", quantity: "",
+      points: l.points, count: l.count, days: [], comments: [`算定日：${l.days.join("・")}日`], checks: l.review ? [l.rule] : [],
+    })),
+  };
+}

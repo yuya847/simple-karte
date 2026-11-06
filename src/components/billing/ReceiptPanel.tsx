@@ -101,7 +101,7 @@ export function ReceiptPanel({
         {records && <>
         <h3 className="mb-1 flex items-center gap-1.5 text-sm font-bold">
           <FileText size={14} />
-          この患者の{m}月分のレコード（記録条件仕様・医科）
+          この患者の{m}月分のレコード（記録条件仕様・医科{data?.dpc ? "・出来高" : ""}）
         </h3>
         <p className="hint mb-2 text-[11px] text-ink-faint">点数は「点数・回数算定単位」の最後のレコードだけに入ります。右の31個の欄は1日〜31日の回数です。</p>
         <div className="scroll-thin max-h-[46vh] overflow-auto rounded-md border border-rule bg-paper p-2">
@@ -123,6 +123,7 @@ export function ReceiptPanel({
       </section>
 
       <section aria-label="病棟のレセプトファイル" className="rounded-md border border-rule bg-sheet p-3">
+        {data?.dpc && <p className="mb-2 text-xs text-ink-soft">DPC は明細書の表示・印刷に対応しています。UKE ファイルは出来高の点数で出力します。</p>}
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="text-sm font-bold">{m}月分のレセプトファイル（病棟の全員）</h3>
           <button

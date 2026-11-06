@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { INITIAL_DIAGNOSES } from "../diagnoses";
 import { PATIENTS } from "../patients";
 import { dpcMonth, dpcView } from "./dpc-claim";
+import { receiptSheet, dpcReceiptSheet } from "./receipt-sheet";
+import { receiptRecords } from "./uke";
 import { inpatientBill } from "./inpatient-bill";
 import { calculateBill, limitFor } from "./kaikei";
 import { patientMonth, type PatientMonthInput } from "./month";
@@ -83,5 +85,27 @@ describe("患者の算定ウインドウの入院会計", () => {
     expect(inpatientBill(claim, insurance, excluded)).toMatchObject({ useDpc: false, reason: "包括の対象外のため、出来高で計算しています。", bill: calculateBill(claim, insurance) });
     const failed = { ...dpc, outcome: { ok: false as const, reason: "分類に必要な記録がありません。", issues: [] }, pkg: null, dpcTotal: null };
     expect(inpatientBill(claim, insurance, failed)).toMatchObject({ useDpc: false, reason: failed.outcome.reason, bill: calculateBill(claim, insurance) });
+  });
+});
+
+
+describe("DPC レセプト様式", () => {
+  it("佐倉さんの様式の合計・負担額が会計と一致し、包括と出来高を二重計上しない", () => {
+    const { claim, insurance, dpc, receipt, input } = fixture("90010231");
+    const bill = inpatientBill(claim, insurance, dpc).bill;
+    const base = receiptSheet(receipt, receiptRecords(receipt, 1, claim.month));
+    const sheet = dpcReceiptSheet(base, dpc, bill, input.diagnoses, input.patient.admittedOn);
+    expect(sheet.dpc?.code).toHaveLength(14);
+    expect(sheet.totalPoints).toBe(bill.totalPoints);
+    expect(sheet.medicalYen).toBe(bill.medicalYen);
+    expect(sheet.dpc!.total + sheet.rows.reduce((s,r) => s + r.points! * r.count, 0)).toBe(bill.totalPoints);
+    expect(sheet.rows.map(r => r.code)).toEqual(dpc.outside.map(l => l.code));
+    expect(sheet.dpc!.categories.filter(c => c.includes("医療資源を最も投入"))).toHaveLength(1);
+    expect(sheet.dpc!.categories.join()).not.toContain("入院時併存症");
+  });
+  it("出来高の患者は元の様式を維持する", () => {
+    const { claim, insurance, dpc, receipt, input } = fixture("90010231", "2026-11", true);
+    const base = receiptSheet(receipt, receiptRecords(receipt, 1, claim.month));
+    expect(dpcReceiptSheet(base, dpc, inpatientBill(claim, insurance, dpc).bill, input.diagnoses, input.patient.admittedOn)).toBe(base);
   });
 });

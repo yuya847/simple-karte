@@ -8,6 +8,7 @@ import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "luc
 import { BillPanel } from "./billing/BillPanel";
 import { InsurancePanel } from "./billing/InsurancePanel";
 import { DpcPanel, type Transfer } from "./billing/DpcPanel";
+import { dpcReceiptSheet } from "@/lib/billing/receipt-sheet";
 import type { ReceiptSheetData } from "@/lib/billing/receipt-sheet";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -162,6 +163,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
   const accounting = result && insurance && dpc ? inpatientBill(result, insurance, dpc) : null;
   const ready = !loading && !error && coefOk;
   const bill = ready ? accounting?.bill ?? null : null;
+  const displayedReceipt = receiptSheet && dpc && bill ? dpcReceiptSheet(receiptSheet, dpc, bill, diagnoses, patient.admittedOn) : receiptSheet;
 
   const groups = useMemo(() => {
     const g = new Map<Shikibetsu, ClaimAct[]>();
@@ -256,12 +258,11 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
             <p className="font-bold">{accounting.useDpc ? "DPC（包括 ＋ 出来高）" : "出来高"}</p>
             <p className="text-xs">包括 {(accounting.useDpc ? dpc!.pkg!.total : 0).toLocaleString("ja-JP")} 点・出来高に残る分 {(accounting.useDpc ? dpc!.outsideTotal : result.totalPoints).toLocaleString("ja-JP")} 点</p>
             {accounting.reason && <p className="text-xs text-ink-soft">{displayText(accounting.reason)}</p>}
-            {accounting.receiptDiffers && <p className="text-xs text-yamabuki">レセプト出力は出来高の {result.totalPoints.toLocaleString("ja-JP")} 点のため、会計の点数・金額と異なります。</p>}
           </div>
           <BillPanel claim={result} bill={bill} insurance={insurance} month={month} />
         </>}
         {tab === "receipt" && result && (
-          <ReceiptPanel data={receiptSheet} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
+          <ReceiptPanel data={displayedReceipt} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
         {tab === "dpc" && <DpcPanel month={month} mainId={mainId} setMainId={(value) => { if (value !== mainId) { setLoading(true); setMainId(value); } }} transfer={transfer} setTransfer={(value) => { if (value !== transfer) { setLoading(true); setTransfer(value); } }} coefText={coefText} setCoefText={(value) => { if (Number(value) !== coef) setLoading(true); setCoefText(value); }} r={ready ? dpc : null} error={error} loading={loading} />}
         {tab === "claim" && (
