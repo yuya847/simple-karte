@@ -500,7 +500,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               >
                 {line + " "}
               </div>
-              {style && <span aria-hidden className={`pointer-events-none absolute left-2 top-0.5 z-[1] ${style.kind === "callout" ? "bg-transparent" : "bg-sheet"} ${style.kind === "quote" ? "border-l-2 border-rule" : ""} ${style.kind === "callout" ? "invisible" : ""}`} style={{ marginLeft: `${style.indent.length * .5}em`, width: `${style.marker.length * .65}em`, height: "1.5em", fontSize: size }}>{style.kind === "list" ? style.marker === "- " ? "・" : style.marker : ""}</span>}
+              {style && <span aria-hidden className={`pointer-events-none absolute left-2 top-0.5 z-[1] ${style.kind === "callout" ? (style.marker === "❗ " ? "bg-shu-soft" : "bg-ai-soft") : "bg-sheet"} ${style.kind === "quote" ? "border-l-2 border-rule" : ""}`} style={{ marginLeft: `${style.indent.length * .5}em`, width: `${style.marker.length * .65}em`, height: "1.5em", fontSize: size }}>{style.kind === "list" ? style.marker === "- " ? "・" : style.marker : ""}</span>}
               <textarea
                 ref={(el) => {
                   rows.current[i] = el;
