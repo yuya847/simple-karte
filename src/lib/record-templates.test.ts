@@ -157,3 +157,12 @@ describe("自分のテンプレート", () => {
     expect(buildRecord(t, { "選択:創": "発赤", "時刻:観察時刻": "14:00" }, facts)).toBe("【術後の観察】\n創 発赤　14:00");
   });
 });
+
+it("ICは5項目だけ、簡易版も空欄から医師が反応を書く", () => {
+  const full = byId("rec-ic");
+  expect(full.body.split("\n").map(l => l.split("：")[0])).toEqual(["説明医師", "同席者", "説明を受けた人（続柄）", "説明内容", "相手の反応"]);
+  const short = byId("rec-ic-short");
+  expect(parseTemplate(short.body).errors).toEqual([]);
+  expect(short.body.split("\n")).toHaveLength(2);
+  expect(short.body).not.toContain("同意を得た");
+});

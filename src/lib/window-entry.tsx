@@ -11,11 +11,30 @@ export const entryKey = (scope: string, field: string) => JSON.stringify([scope,
 export function useWindowEntry<T>(field: string, initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>, () => void] {
   const context = useContext(WindowEntryContext);
   const key = entryKey(context?.scope ?? "", field);
-  const [value, setValue] = useState<T>(() => context && key in context.entries ? context.entries[key] as T : typeof initial === "function" ? (initial as () => T)() : initial);
+  const read = (): T => context && key in context.entries ? context.entries[key] as T : typeof initial === "function" ? (initial as () => T)() : initial;
+  const fresh = () => { const value = read(); return { key, value, source: context?.entries[key], published: value, cleared: false }; };
+  const [stored, setStored] = useState(fresh);
+  // A scope change must never write the previous patient's input under the new key.
+  const source = context?.entries[key];
+  const loaded = stored.key !== key ? fresh()
+    : !Object.is(stored.source, source) ? { ...stored, source, value: source === undefined || Object.is(source, stored.published) ? stored.value : source as T }
+    : stored;
+  // The effect publishes this render's value. Remember it before a provider echo arrives.
+  const current = Object.is(loaded.published, loaded.value) ? loaded : { ...loaded, published: loaded.value };
+  if (current !== stored) setStored(current);
+  const value = current.value;
+  const setValue: Dispatch<SetStateAction<T>> = (next) => setStored((previous) => {
+    const base = previous.key === key ? previous.value : read();
+    return { key, value: typeof next === "function" ? (next as (v: T) => T)(base) : next, source: previous.source, published: previous.published, cleared: false };
+  });
   const setEntries = context?.setEntries;
   useEffect(() => {
+    if (current.cleared) return;
     setEntries?.((all) => Object.is(all[key], value) ? all : { ...all, [key]: value });
-  }, [key, value, setEntries]);
-  const clear = () => setEntries?.((all) => { const next = { ...all }; delete next[key]; return next; });
+  }, [key, value, setEntries, current.cleared]);
+  const clear = () => {
+    setStored({ key, value, source: undefined, published: value, cleared: true });
+    setEntries?.((all) => { const next = { ...all }; delete next[key]; return next; });
+  };
   return [value, setValue, clear];
 }

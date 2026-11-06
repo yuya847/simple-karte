@@ -21,7 +21,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
   switch (d.kind) {
     case "injection": {
       const p = ratePlan(d);
-      text = [d.insulinDoses ? insulinDoseText(d.insulinDoses) : null, d.items.map(i => `${i.drugCode ? d.sliding ? findDrug(i.drugCode)?.name ?? i.drugCode : drugName(i.drugCode) : `${i.said}（？）`} ${d.sliding ? "" : i.amount ?? "？"}${d.sliding ? "" : i.unit ?? ""}`).join(" ＋ "), effectiveRoute(d) ?? "経路？", d.sliding ? `スライディングスケール（${d.sliding.times.join() === defaultSliding().times.join() ? "毎食前・眠前" : d.sliding.times.join("・")}）` : d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？", p.minutesPerDose !== null ? `1回${durationText(p.minutesPerDose)}` : null, p.rateMlPerH !== null ? `${p.rateMlPerH}mL/時` : null, `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.schedule?.kind === "once" ? null : d.days ? `${d.days}日間` : "日数？"].filter(Boolean).join("　");
+      text = [d.insulinDoses ? insulinDoseText(d.insulinDoses) : null, d.items.map(i => `${i.drugCode ? d.sliding ? findDrug(i.drugCode)?.name ?? i.drugCode : drugName(i.drugCode) : `${i.said}（？）`} ${d.sliding ? "" : i.amount ?? "？"}${d.sliding ? "" : i.unit ?? ""}`).join(" ＋ "), effectiveRoute(d) ?? "経路？", d.sliding ? `スライディングスケール（${d.sliding.times.join() === defaultSliding().times.join() ? "毎食前・眠前" : d.sliding.times.join("・")}）` : d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？", p.minutesPerDose !== null ? `1回${durationText(p.minutesPerDose)}` : null, p.rateMlPerH !== null ? `${p.rateMlPerH}mL/時` : null, d.schedule?.kind === "once" ? null : d.days ? `${d.days}日間` : "日数？", `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`].filter(Boolean).join("　");
       break;
     }
     case "prescription": {
@@ -46,7 +46,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
       const s = procSchedule(d);
       text = [d.code ? procName(d.code) : `${d.said}（？）`, d.site, d.hd ? hdText(d.hd) : null, d.tx ? txText(d.tx) : null, d.rehab ? rehabText(d.rehab) : null, d.consult ? consultText(d.consult) : null, d.leave ? leaveText(d.leave, ctx.fmtDay) : null, d.guide ? guideText(d.guide) : null, d.move ? moveText(d.move) : null, d.o2.device ? `${d.o2.device} ${d.o2.lpm ?? "？"}L/分` : null, s ? procScheduleText(s) : "回数？", `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.days ? `${d.days}日間` : null].filter(Boolean).join("　"); break;
     }
-    case "stop": text = `${d.procCode ? procName(d.procCode) : d.drugCode ? anyDrugName(d.drugCode) : d.said} を中止`; break;
+    case "stop": text = `${d.procCode ? procName(d.procCode) : d.drugCode ? anyDrugName(d.drugCode) : d.said} を中止${d.stopTime ? `（${d.stopTime}から）` : ""}`; break;
     case "extend": { const o = ctx.activeOrders.find(o => o.id === d.targetOrderId); text = `${o ? ctx.describe(o) : "対象？"} ${d.addDays}日延長`; break; }
     case "diet": text = `${dietLabel({ ...d.diet, id: "", by: "", at: { day: 0, time: "" } })}　${ctx.fmtDay(d.diet.from.day)}の${d.diet.from.meal}食から`; break;
     case "opd-booking": text = `${d.dept ?? "科？"} ${d.doctor ?? ""}　${d.day === null ? "日付？" : ctx.fmtDay(d.day)} ${d.slot === "時刻" ? d.time ?? "時刻？" : d.slot ?? "午前・午後？"}　${opdPurposeOf(d) || "目的？"}　${d.note.trim()}`; break;

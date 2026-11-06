@@ -1,3 +1,4 @@
+import { withExtendedDays } from "./order-extension";
 import { replacementBoundaries } from "./order-revisions";
 // The record as it stands now: the stored history, with today's stops applied and
 // today's confirmed orders added.
@@ -31,7 +32,7 @@ export function currentEntries(patient: Patient, changes?: SessionChanges): Hist
   const ext = (e: OrderEntry): OrderEntry => {
     const next = endings.get(e.id);
     if (next) return { ...e, status: "中止", stoppedOn: next.day, stoppedTime: next.time };
-    return extended[e.id] !== undefined ? { ...e, order: { ...e.order, days: extended[e.id] } } as OrderEntry : e;
+    return extended[e.id] !== undefined ? { ...e, order: withExtendedDays(e.order, extended[e.id]) } as OrderEntry : e;
   };
   const note = (e: NoteEntry) => revised[noteKey(e)] ?? e;
   const base = patient.history.map((e) => (e.kind === "order" ? ext(stopped.has(e.id) ? stopOf(e) : e) : e.kind === "note" ? note(e) : e));

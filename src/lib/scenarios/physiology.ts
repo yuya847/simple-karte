@@ -1,3 +1,4 @@
+import { emptyCath, cathText } from "../cardiac-cath";
 import type { Patient } from "../types";
 import type { PhysioDesk } from "../physio-desk";
 
@@ -39,6 +40,11 @@ export function addScenarioPhysiology(patients: Patient[]): PhysioDesk {
         desk[priorId] = { orderId: priorId, patientId: p.id, test, done: { day: priorDay, time: "09:00", by: "検査技師 中村" }, report: { ...report, day: priorDay, time: "10:00", by: p.attending, values: priorValues, findings: physioDraft(test, priorValues, selections, p), conclusion: "前回の心機能評価", technologist: { day: priorDay, time: "09:30", by: "検査技師 中村" } } };
       }
     });
+  });
+  // 模擬の予定。循環器の病歴がある成人2人をカテ室の別枠へ。
+  patients.filter(p => p.age >= 18 && !p.dischargedAt && /狭心症|心筋梗塞|心不全/.test(p.admissionDiagnosis)).slice(0, 2).forEach((p, i) => {
+    const cath = { ...emptyCath(), studies: ["冠動脈造影 CAG"], approach: "橈骨" as const, side: "右" as const, renalChecked: true, allergyChecked: true, metformin: "内服を照合し医師が確認", preparation: "当日の絶食・穿刺部を担当医が確認" };
+    p.history.push({ kind: "order", id: `${p.id}-cath-booked`, day: 0, time: "08:00", author: p.attending, status: "有効", order: { type: "physio", test: "PHY-CATH", cath, purpose: "冠動脈の評価", when: { day: 1, time: i ? "11:00" : "09:00", priority: "予約" }, place: "検査室", transport: "車椅子", comment: cathText(cath) } });
   });
   return desk;
 }

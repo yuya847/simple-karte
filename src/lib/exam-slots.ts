@@ -18,7 +18,7 @@ export function slotsFor(kind: ExamKind, day: number, taken: TakenExam[], today:
   const closed = day < 0 || day > 56 || dow === 0 || isHoliday(date.y, date.m, date.d);
   const endo = ["PHY-EGD", "PHY-CF", "PHY-BF"].includes(kind);
   const step = kind === "XR1" || kind === "PHY-ECG" ? 15 : 30;
-  const times = endo ? [540, 570, 600, 630, 660, 840, 870] : Array.from({ length: (1020 - 510) / step }, (_, i) => 510 + i * step);
+  const times = kind === "PHY-CATH" ? [540, 660, 840, 960] : endo ? [540, 570, 600, 630, 660, 840, 870] : Array.from({ length: (1020 - 510) / step }, (_, i) => 510 + i * step);
   return times.map((n) => {
     const time = hhmm(n);
     const labels = taken.filter((t) => t.day === day && t.time === time).map((t) => t.label);

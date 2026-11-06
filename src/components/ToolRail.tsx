@@ -13,7 +13,7 @@ import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type Rai
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "insulin" | "abx-renal" | "pharmacy-shido" | "pharmacy-brought" | "pharmacy-tdm" | "pharmacy-audit" | "add-surgery" | "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
+export type PanelKind = "insulin" | "abx-renal" | "pharmacy-shido" | "pharmacy-brought" | "pharmacy-tdm" | "pharmacy-audit" | "add-surgery" | "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-cath" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
 
 interface Tool {
   key: PanelKind;
@@ -64,6 +64,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     main: [
       { key: "add-lab", label: "検体検査", icon: TestTube },
       { key: "add-imaging", label: "画像検査", icon: Radiation },
+      { key: "add-cath", label: "心カテ", icon: HeartPulse },
       { key: "add-physio", label: "生理・内視鏡", icon: HeartPulse },
       { key: "add-pathology", label: "病理", icon: Microscope },
     ],

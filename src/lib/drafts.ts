@@ -1,3 +1,4 @@
+import { cathConsents } from "./cardiac-cath";
 import { insulinDoseProblems, insulinDoseTimes } from "./insulin-doses";
 import { rxLastDay, validDayPattern } from "./day-pattern";
 import { isInsulin, slidingProblems } from "./insulin";
@@ -219,6 +220,7 @@ export interface ProcedureDraft extends DraftBase {
 
 export interface StopDraft extends DraftBase {
   effectiveDay?: number;
+  stopTime?: string;
   kind: "stop";
   drugCode: string | null;
   /** Set instead of drugCode when a procedure (酸素, 留置カテーテル …) is stopped. */
@@ -1078,6 +1080,7 @@ function checkLab(d: LabDraft, ctx: CheckContext): Issue[] {
 
 function checkStop(d: StopDraft, ctx: CheckContext): Issue[] {
   if (d.effectiveDay !== undefined && !Number.isInteger(d.effectiveDay)) return [{ key: "stop-day", level: "stop", title: "中止日", message: "中止日を選んでください。" }];
+  if (d.stopTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(d.stopTime)) return [{ key: "stop-time", level: "stop", title: "中止時刻", message: "時刻を確認してください。" }];
   if (d.procCode !== undefined && d.procCode !== null) {
     const name = findProc(d.procCode)!.name;
     const targets = targetsOf(d, ctx);
@@ -1601,7 +1604,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     const need = consentFor(order);
     return { order, stopIds: [], consents: need && d.consentPlanned ? [need] : [] };
   }
-  if (d.kind === "physio") return { order: toPhysioOrder(d), stopIds: [] };
+  if (d.kind === "physio") return { order: toPhysioOrder(d), stopIds: [], consents: d.test === "PHY-CATH" && d.consentPlanned ? cathConsents(d.cath) : [] };
   if (d.kind === "procedure") {
     const m = findProc(d.code!)!;
     const a = procArea(d);

@@ -47,7 +47,7 @@ export function suggestedDocuments(patient: Pick<Patient, "admittedOn">, orders:
   return result;
 }
 export function orderConsentCodes(order: { type: string; code?: string; test?: string; modality?: string; contrast?: string }): ConsentCode[] {
-  if (order.type === "physio") return ({ "PHY-EGD": ["CONSENT-EGD"], "PHY-CF": ["CONSENT-COLONOSCOPY"], "PHY-BF": ["CONSENT-BRONCHOSCOPY"] } as Record<string, ConsentCode[]>)[order.test ?? ""] ?? [];
+  if (order.type === "physio") return ({ "PHY-CATH": ["CONSENT-CATH"], "PHY-EGD": ["CONSENT-EGD"], "PHY-CF": ["CONSENT-COLONOSCOPY"], "PHY-BF": ["CONSENT-BRONCHOSCOPY"] } as Record<string, ConsentCode[]>)[order.test ?? ""] ?? [];
   if (order.type === "procedure") return ({ "PROC-HD": ["CONSENT-DIALYSIS"], "PROC-CVC": ["CONSENT-CVC"], "PROC-TX": ["CONSENT-TRANSFUSION"] } as Record<string, ConsentCode[]>)[order.code ?? ""] ?? [];
   if (order.type === "imaging" && order.contrast && order.contrast !== "単純") return order.modality === "CT" ? ["CONSENT-CT-CONTRAST"] : order.modality === "MRI" ? ["CONSENT-MRI-CONTRAST"] : [];
   return [];

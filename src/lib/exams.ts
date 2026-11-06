@@ -1,3 +1,4 @@
+import { cathProblems, cathConsents, type CardiacCath } from "./cardiac-cath";
 // Imaging (画像検査) and physiological tests (生理検査) of the FICTIONAL hospital: what can be
 // ordered, the questions an order must answer, and the checks — all in code. Claude only fills
 // in what the doctor said; it never picks a study, a region, a view, a position or a contrast.
@@ -232,6 +233,7 @@ export interface PhysioMaster {
 }
 
 export const PHYSIO: PhysioMaster[] = [
+  { code: "PHY-CATH", name: "心臓カテーテル検査（カテ室）", codes: [], bedside: false, aliases: ["心カテ", "CAG", "心臓カテーテル"] },
   { code: "PHY-ECG", name: "心電図（12誘導）", codes: ["160068410"], bedside: true, aliases: ["心電図", "ECG", "12誘導", "エクグ"] },
   { code: "PHY-UCG", name: "心エコー（経胸壁）", codes: ["160072510"], bedside: true, aliases: ["心エコー", "UCG", "心臓超音波", "TTE"] },
   { code: "PHY-ABDUS", name: "腹部エコー", codes: ["160072210"], bedside: true, note: "検査の前は絶食（院内の約束）", aliases: ["腹部エコー", "腹エコー", "腹部超音波"] },
@@ -317,6 +319,8 @@ export interface ImagingDraft extends ExamBase {
 }
 
 export interface PhysioDraft extends ExamBase {
+  cath?: CardiacCath;
+  consentPlanned?: boolean;
   kind: "physio";
   test: string | null;
   said: string;
@@ -572,6 +576,14 @@ export function checkPhysio(d: PhysioDraft, ctx: CheckContext, pt: ExamPatientFa
     });
     return issues;
   }
+  if (d.test === "PHY-CATH") {
+    const missing = cathProblems(d.cath);
+    if (missing.length) issues.push({ key: "cath", level: "stop", title: "心カテ", message: `${missing.join("・")}を心カテの欄で確認してください。` });
+    for (const code of cathConsents(d.cath)) {
+      const ci = consentIssue(code, ctx, !!d.consentPlanned, x => ({ ...(x as PhysioDraft), consentPlanned: true }));
+      if (ci) issues.push({ ...ci, key: `consent-${code}` });
+    }
+  }
   if (!d.place) {
     issues.push({
       key: "place",
@@ -628,6 +640,7 @@ export interface ImagingOrder {
 }
 
 export interface PhysioOrder {
+  cath?: CardiacCath;
   type: "physio";
   test: string;
   purpose: string;
@@ -675,6 +688,7 @@ export function toPhysioOrder(d: PhysioDraft): PhysioOrder {
   return {
     type: "physio",
     test: d.test!,
+    cath: d.cath,
     purpose: d.purpose!,
     when: { day: d.when.day ?? 0, time: d.when.time ?? undefined, priority: d.when.priority! },
     place: d.place!,

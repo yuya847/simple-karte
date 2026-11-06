@@ -1034,7 +1034,7 @@ export function AddPhysioPanel({ onAdd, newId, patientId = "", today = todayInTo
   return (
     <div className="space-y-3 text-[13px]">
       <ul className="divide-y divide-rule-soft rounded border border-rule-soft">
-        {PHYSIO.map((p) => (
+        {PHYSIO.filter(p => p.code !== "PHY-CATH").map((p) => (
           <li key={p.code}>
             <button type="button" onClick={() => { setTest(p.code); if (when.priority !== "至急") setWhen(firstExamSlot(p.code as ExamKind, takenExams(examPeople, p.code as ExamKind), today)); }} className={`flex w-full items-baseline gap-2 px-2 py-2 text-left ${test === p.code ? "bg-ai-soft font-bold text-ai" : "hover:bg-paper"}`}>
               {p.name}

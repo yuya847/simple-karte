@@ -1,3 +1,4 @@
+import { scenarioFluid } from "./scenario-fluids";
 // FICTIONAL minimal charts for the inpatients outside the 山本チーム: the other teams' beds on 5階東 and the
 // patients of 5階南・6階東 (ward.ts lists each by bed with name, sex, age, department and a note).
 //
@@ -494,7 +495,10 @@ function chartFor(b: BedAssignment, nth: number): WardChart | null {
   const afterOp = opDay !== null ? { day: opDay, time: "14:40" } : { day: admittedOn, time: orderTime };
   const ivStart = { day: afterOp.day, time: opDay !== null ? "15:00" : later(admTime, 30) };
   // Fluids and antibiotics run for a few days; on a longer stay they are over (still in the record).
-  for (const k of c.iv ?? []) orders.push(entry(afterOp.day, afterOp.time, ivOrder(k, ivStart)));
+  for (const k of c.iv ?? []) {
+    const order = ivOrder(k, ivStart);
+    orders.push(entry(afterOp.day, afterOp.time, order.type === "injection" ? scenarioFluid(order, c.title) : order));
+  }
   // 持参薬 from the first dose after admission (the next day, unless admitted in the night).
   const rxDay = minutes(admTime) < minutes("07:00") ? admittedOn : admittedOn + 1;
   for (const [drugCode, amount, timings] of c.rx ?? [])

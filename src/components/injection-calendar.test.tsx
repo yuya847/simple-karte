@@ -115,3 +115,15 @@ describe("注射カレンダー：各回の共通表示", () => {
     expect(html).not.toContain("line-through");
   });
 });
+
+it("延長の未確定部分を破線、中止の未確定位置を時刻と斜線で示す", () => {
+  const props = { patient, entries: [entry("i1", { ...ctrx, days: 3 })], today, nowTime: "12:00", selectedDay: null, onSelectDay: () => {}, onStopDraft: () => {}, draftedStops: ["i1"], pendingStopTimes: { i1: "16:30" }, pendingExtends: { i1: 2 }, onExtendDraft: () => {} };
+  const html = renderToStaticMarkup(<InjectionCalendar {...props} />);
+  expect(html).toContain("border-2 border-dashed border-ai");
+  expect(html).toContain("延長（下書き）");
+  expect(html).toContain("16:30〜");
+  expect(html).toContain("repeating-linear-gradient");
+  const confirmed = renderToStaticMarkup(<InjectionCalendar {...props} entries={[entry("i1", { ...ctrx, days: 5 })]} draftedStops={[]} pendingExtends={{}} />);
+  expect(confirmed).not.toContain("延長（下書き）");
+  expect(confirmed).not.toContain("repeating-linear-gradient");
+});

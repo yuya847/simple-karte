@@ -60,7 +60,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     const r = loadRemembered(key);
     // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
     const mode = windowedFirst ? "window" : "drawer";
-    const remembered = r?.win ?? initialWin();
+    const remembered = r?.win ? { ...r.win, ...(!r.sized && initialWidth ? { w: initialWin().w } : {}) } : initialWin();
     const position = key === "templates" ? { x: Math.max(0, (window.innerWidth - remembered.w) / 2), y: initialWin().y } : {};
     return mode === "window" ? clampWin({ ...remembered, ...position }) : null;
   });

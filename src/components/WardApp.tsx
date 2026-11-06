@@ -1,4 +1,7 @@
 "use client";
+import { labWindowWidth } from "@/lib/panel-size";
+import { CardiacCathPanel } from "./panels/CardiacCathPanel";
+import { injectionRateDraft, stopTimesOf, type InjectionChange } from "@/lib/injection-change";
 import { LabPasteReceiver, requestLabPaste } from "./LabPasteReceiver";
 import { LAB_RESULT_MIME, readLabTransfer } from "@/lib/lab-transfer";
 import type { NoteTemplate } from "@/lib/note-templates";
@@ -1366,8 +1369,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     update((c) => ({
       added: [...c.added, ...added],
       stopped: [...c.stopped, ...stops],
-      stopTimes: { ...c.stopTimes, ...Object.fromEntries(stops.map((id) => [id, nowTime])) },
-      stopDays: { ...c.stopDays, ...Object.fromEntries(chart.drafts.flatMap(d => d.kind === "stop" && d.targetOrderId ? [[d.targetOrderId, d.effectiveDay ?? 0]] : [])) },
+      stopTimes: { ...c.stopTimes, ...Object.fromEntries(stops.map((id) => [id, stopTimesOf(drafts, nowTime)[id] ?? nowTime])) },
+      stopDays: { ...c.stopDays, ...Object.fromEntries(drafts.flatMap(d => d.kind === "stop" && d.targetOrderId ? [[d.targetOrderId, d.effectiveDay ?? 0]] : [])) },
       extended: { ...c.extended, ...extended },
       drafts: [],
       // The orders stay in the left 経過 only; they are not written into the note (ユーザー 2026-11-06：わかりづらい).
@@ -1554,7 +1557,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (!fromPharmacy) auditLog({ role: me.role, actor: me.name, action: `確定（${r.kind}の記録）`, patient: findPatient(pid)?.name, detail: `${r.heard}・${r.minutes ?? "？"}分${r.answers.length ? `・依頼 ${r.answers.length}件を済みに` : ""}` });
   };
 
-  const addStopDraft = (entry: OrderEntry, source = "（カレンダーから）", day = 0) => {
+  const addStopDraft = (entry: OrderEntry, source = "（カレンダーから）", day = 0, stopTime?: string) => {
     const o = entry.order;
     const drugCode = o.type === "injection" ? o.items[0].drugCode : o.type === "prescription" ? o.drugCode : null;
     const procCode = o.type === "procedure" ? o.code : null;
@@ -1566,20 +1569,26 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       comment: null,
       kind: "stop",
       effectiveDay: day,
+      stopTime,
       drugCode,
       ...(procCode ? { procCode } : {}),
       said: o.type === "procedure" ? procedureTitle(o) : anyDrugName(drugCode!),
       targetOrderId: entry.id,
     };
-    update((c) => (c.drafts.some((d) => d.kind === "stop" && d.targetOrderId === entry.id) ? {} : { drafts: [...c.drafts, draft], flash: "記事の下の処方オーダの下書きに入りました" }));
+    update((c) => ({ drafts: [...c.drafts.filter(d => !(d.kind === "stop" && d.targetOrderId === entry.id)), draft], flash: entry.order.type === "injection" ? null : "記事の下の処方オーダの下書きに入りました" }));
   };
   // 延長 and 修正 from the injection calendar (left view or the right tab).
   const extendDraft = (e: OrderEntry, n: number) => {
     const draft: ExtendDraft = expiryExtension(e, n, newId());
     update((c) => ({ drafts: [...c.drafts.filter((d) => !(d.kind === "extend" && d.targetOrderId === e.id)), draft], flash: e.order.type === "prescription" ? "記事の下の処方オーダの下書きに入りました" : `延長の下書きを作りました（${n}日）。記事の下で確かめて確定してください。` }));
   };
-  const modifyOrder = (e: OrderEntry) => {
+  const modifyOrder = (e: OrderEntry, change?: InjectionChange) => {
     if (!patient || deny("order")) return;
+    if (change) {
+      const draft = injectionRateDraft(e, change, newId());
+      update(c => ({ drafts: [...c.drafts.filter(d => !(d.kind === "injection" && d.duplicate?.orderId === e.id)), draft] }));
+      return;
+    }
     if (e.order.type !== "injection") {
       const change = calendarChange(e, patient.id, newId()); if (!change) return;
       addStopDraft(e, "（カレンダーから変更）");
@@ -2192,7 +2201,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const blocked: Partial<Record<PanelKind, string>> = {
     ...nutritionTileBlocks(role),
     ...specialistTileBlocks(role),
-    ...(orderBlock ? { "add-surgery": orderBlock, "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
+    ...(orderBlock ? { "add-surgery": orderBlock, "add-injection": orderBlock, "add-rx": orderBlock, "add-lab": orderBlock, "add-imaging": orderBlock, "add-physio": orderBlock, "add-cath": orderBlock, "add-procedure": orderBlock, "add-dialysis": orderBlock, "add-transfusion": orderBlock, regimen: orderBlock, sets: orderBlock, "add-rehab": orderBlock, "add-consult": orderBlock, "add-leave": orderBlock, "add-discharge": orderBlock, "add-guide": orderBlock } : {}),
     ...(deny("order") ? { "add-pathology": deny("order")! } : {}),
     ...(deny("billing") ? { billing: deny("billing")! } : {}),
     ...(resident ? { regimen: COSIGN_RULES.blocked } : {}),
@@ -2225,9 +2234,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     selectedDay: chart.selectedDay,
     onSelectDay: (d) => update({ selectedDay: d }),
     onAdjustInsulin: !deny("order") ? (e, change) => { const next = insulinAdjustmentEntries(e, change, 0, newId(), me.name, nowTime); update(c => ({ added: [...c.added, next], flash: "明日からのインスリンを保存しました。看護師の指示受けに変更として出ます。" })); auditLog({role:me.role,actor:me.name,action:"確定（インスリンを調整）",patient:patient.name,detail:orderLines(next.order,today).main}); chartNote(patient.id, `インスリンを調整：${orderLines(next.order,today).main}（元の指示は今日まで、明日から）`); } : undefined,
-    onStopDraft: addStopDraft,
+    onStopDraft: (e, time) => addStopDraft(e, undefined, 0, time),
     onExtendDraft: deny("order") ? undefined : extendDraft,
     pendingExtends: pendingExtends,
+    pendingStopTimes: stopTimesOf(chart.drafts, nowTime),
     marOf: (id, at) => mar[`${id}|${at}`],
     execute: executeProps,
     io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standingNow(patient.id)?.io ?? null, onAdd: deny("vitals") ? undefined : addIo },
@@ -3448,11 +3458,12 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                           selectedDay={chart.selectedDay}
                           onSelectDay={(d) => update({ selectedDay: d })}
                           onAdjustInsulin={refProps.onAdjustInsulin}
-                          onStopDraft={addStopDraft}
+                          onStopDraft={(e, time) => addStopDraft(e, undefined, 0, time)}
                           draftedStops={chart.drafts.flatMap((d) => (d.kind === "stop" && d.targetOrderId ? [d.targetOrderId] : []))}
                           onExtendDraft={!deny("order") ? extendDraft : undefined}
                           onModify={!deny("order") ? modifyOrder : undefined}
                           pendingExtends={pendingExtends}
+                          pendingStopTimes={stopTimesOf(chart.drafts, nowTime)}
                           marOf={(id, at) => mar[`${id}|${at}`]}
                           execute={executeProps}
                           onNewInjection={!deny("order") ? newInjection : undefined}
@@ -3605,7 +3616,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                 </Drawer>
               )}
               {panel === "results-timeline" && (
-                <Drawer title="検査時系列" onClose={closePanel} wide expandable>
+                <Drawer title="検査時系列" onClose={closePanel} initialWidth={labWindowWidth(patient.labs.length)} expandable>
                   <button type="button" className="mb-3 rounded border border-rule px-3 py-1 text-sm" onClick={() => setPanel("results")}>検査結果一覧へ戻る</button>
                   <ResultsPanel
                     patient={patient}
@@ -3899,6 +3910,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "add-imaging" && (
                 <Drawer title="画像検査" onClose={closePanel} locked={orderBlock}>
                   <AddImagingPanel today={today} examPeople={examPeople} ris={dept.ris} patientId={patient.id} onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                </Drawer>
+              )}
+              {panel === "add-cath" && (
+                <Drawer title="心カテ" onClose={closePanel} locked={orderBlock}>
+                  <CardiacCathPanel patient={patient} entries={entries} today={today} people={examPeople} newId={newId} onAdd={d => { addManualLab(d); closePanel(); }} />
                 </Drawer>
               )}
               {panel === "add-physio" && (

@@ -1,4 +1,5 @@
 "use client";
+import { InjectionDraftEditor } from "./InjectionDraftEditor";
 import { insulinDoseText } from "@/lib/insulin-doses";
 
 import { displayText } from "@/lib/display-text";
@@ -101,6 +102,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp, b
         <Summary draft={draft} ctx={ctx} />
       </div>
 
+      {draft.kind === "injection" && <InjectionDraftEditor draft={draft} onApply={onApply} />}
       {draft.kind === "imaging" && <ImagingDraftEditor draft={draft} onApply={onApply} />}
       {draft.kind !== "lab" && blocking.length > 0 && (
         <ul className="space-y-2 px-3 pb-2">

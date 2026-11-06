@@ -46,11 +46,13 @@ const whenText = (a: number) => {
 /** 生理検査室: taking in, doing and reporting the physiological tests doctors ordered. */
 export function PhysioView(p: Props) {
   const [tab, setTab] = useState<Tab>("work");
-  const rows = physioRows(p.people, p.desk);
+  const [cathOnly, setCathOnly] = useState(false);
+  const rows = physioRows(p.people, p.desk).filter(r => !cathOnly || r.test === "PHY-CATH");
   const badge: Partial<Record<Tab, number>> = { work: rows.filter((r) => r.status === "予約" || r.status === "受付済み").length, report: rows.filter((r) => (r.status === "実施済み" || r.status === "下書き（技師）")).length };
   return (
     <div data-help-section={`department:physio:${tab}`} className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
+        <label className="text-xs"><input type="checkbox" checked={cathOnly} onChange={e => setCathOnly(e.target.checked)} /> カテ室</label>
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <HeartPulse size={17} />
           生理検査室

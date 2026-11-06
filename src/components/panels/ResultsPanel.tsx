@@ -104,7 +104,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
                 <input type="checkbox" checked={abnormalOnly} onChange={(e) => setAbnormalOnly(e.target.checked)} />
                 H・L のある項目だけ
               </label>
-              <span className="ml-auto flex flex-wrap items-center gap-1.5">
+              <span className="flex flex-wrap items-center gap-1.5">
                 <button type="button" className={btn} onClick={copy} disabled={!resultCols.length} title="記事（O）に貼るための文字にしてコピーする。列の上の□で回を選べる">
                   <Copy size={12} />
                   {picked.length ? `選んだ${chosen.length}回をコピー` : "最新の結果をコピー"}

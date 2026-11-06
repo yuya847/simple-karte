@@ -19,6 +19,7 @@ export const toolHelpLabels: Record<string, string> = {
   "transfer": "転院・施設の調整",
   "add-lab": "検体検査",
   "add-imaging": "画像検査",
+  "add-cath": "心カテ",
   "add-physio": "生理・内視鏡",
   "add-pathology": "病理",
   "take": "指示受け",

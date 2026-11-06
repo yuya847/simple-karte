@@ -33,11 +33,12 @@ export interface RefWindowProps {
   nowTime: string;
   selectedDay: DayOffset | null;
   onSelectDay: (d: DayOffset) => void;
-  onStopDraft: (entry: OrderEntry) => void;
+  onStopDraft: (entry: OrderEntry, time?: string) => void;
   draftedStops: string[];
+  pendingStopTimes?: Record<string, string>;
   /** 延長 (add days) and 修正 (stop and copy into the 注射 tab) from a calendar. */
   onExtendDraft?: (entry: OrderEntry, days: number) => void;
-  onModify?: (entry: OrderEntry) => void;
+  onModify?: (entry: OrderEntry, change?: import("@/lib/injection-change").InjectionChange) => void;
   pendingExtends?: Record<string, number>;
   marOf?: CalendarProps["marOf"];
   /** 実施・未実施 of a dose from a calendar cell (right click, long press). */

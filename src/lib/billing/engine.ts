@@ -1,3 +1,4 @@
+import { cathCodes } from "../cardiac-cath";
 import { totalPrescriptionPart } from "./total-prescription";
 import { fixedInsulinUnits } from "../insulin-doses";
 import { doseTimes } from "../flowsheet";
@@ -485,7 +486,9 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
       const o = e.order as PhysioOrder;
       const m = findPhysio(o.test);
       if (!m) continue;
-      add({ day: d, shikibetsu: "60", parts: [{ lines: m.codes.map((c) => si(c)), points: m.codes.reduce((s, c) => s + pts(c), 0) }], basis: `${m.name}（生体検査。${o.place}）` });
+      const codes = o.test === "PHY-CATH" ? cathCodes(o.cath) : m.codes;
+      if (!codes.length) continue;
+      add({ day: d, shikibetsu: "60", parts: [{ lines: codes.map((c) => si(c)), points: codes.reduce((s, c) => s + pts(c), 0) }], basis: `${m.name}（生体検査。${o.place}）` });
       if (o.test === "PHY-SPIRO") add({ day: d, shikibetsu: "60", parts: [{ lines: [si(RESP_JUDGE)], points: pts(RESP_JUDGE) }], basis: "D205 呼吸機能検査等判断料（月1回）" });
       continue;
     }
