@@ -59,21 +59,38 @@ export function SpecialistBoard(props: Props) {
   const abxPeople = people.map(x => ({ ...x, abx: antibioticsOf(x.entries) }));
   return <section className="h-full overflow-auto bg-paper p-5"><h1 className="mb-3 text-lg font-bold">{{ equipment: "医療機器", infection: "感染対策", oral: "口腔ケア" }[props.screen]}</h1>{error && <p role="alert" className="text-shu">{error}</p>}
     {props.screen === "infection" && <p className="mb-3 text-sm">耐性菌 {people.filter(x => infectionFlags(x.patient).length).length} 人 ／ 抗MRSA薬 {abxPeople.filter(x => x.abx.some(a => a.kind.includes("抗MRSA"))).length} 人 ／ 広域 {abxPeople.filter(x => x.abx.some(a => a.kind && !a.kind.includes("抗MRSA"))).length} 人 ／ 培養未提出で抗菌薬使用中 {abxPeople.filter(x => x.abx.some(a => !antibioticMonitoring(x.patient, a.startDay).culture)).length} 人</p>}
-    <table className="w-full text-left text-sm"><thead><tr><th>部屋</th><th>氏名</th>{props.screen === "equipment" ? <><th>機器</th><th>最後の点検（日時・結果・者）</th><th>今日の点検</th></> : props.screen === "oral" ? <><th>優先の理由</th><th>最後の OHAT-J</th><th>前回比</th><th>今日のケア</th></> : <><th>耐性菌・抗菌薬</th><th>ラウンド</th></>}</tr></thead><tbody>
+    <table className="w-full text-left text-sm"><thead><tr><th>部屋</th><th>氏名</th>{props.screen === "equipment" ? <><th>機器</th><th>最後の点検（日時・結果・者）</th><th>今日の点検</th></> : props.screen === "oral" ? <><th>優先の理由</th><th>最後の OHAT-J</th><th>前回比</th><th>今日のケア</th></> : <><th>耐性菌</th><th>抗菌薬（日数・DOT）</th><th>培養</th><th>TDM</th><th>確かめる</th><th>ラウンド</th></>}</tr></thead><tbody>
       {rows.map(({ p, entries, device, history, assessments, done, key }) => <Fragment key={key}>
         <tr className="cursor-pointer border-t border-rule hover:bg-paper" onClick={() => setOpened(toggleSpecialistRow(opened, key))}>
           <td className="p-2">{p.room}</td><td><button aria-expanded={opened === key} aria-controls={`form-${key}`} onClick={e => { e.stopPropagation(); setOpened(toggleSpecialistRow(opened, key)); }} className="text-ai underline">{p.name}</button></td>
-          {props.screen === "equipment" ? <><td>{device?.label}</td><td>{history[0] ? `${history[0].at.replace("T", " ")} ${history[0].result ?? history[0].text} ${history[0].by}` : "未点検"}</td><td>{done ? "済" : "未"}</td></> : props.screen === "oral" ? <><td>{flagsOf(p, entries).priority.join("・") || "—"}</td><td>{assessments[0] ? `${ohatTotal(assessments[0].scores!)}/16（${assessments[0].at.slice(0, 10)}）` : "未評価"}</td><td>{assessments.length > 1 ? `${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!) > 0 ? "+" : ""}${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!)}` : "—"}</td><td>{done ? "済" : "未"}</td></> : <><td>{infectionFlags(p).map(f => f.text).join("・")} {antibioticsOf(entries).map(a => `${a.names}${a.kind ? `【${a.kind}】` : ""}`).join("・")}</td><td>{history[0]?.at.replace("T", " ") ?? "未記録"}</td></>}
+          {props.screen === "equipment" ? <><td>{device?.label}</td><td>{history[0] ? `${history[0].at.replace("T", " ")} ${history[0].result ?? history[0].text} ${history[0].by}` : "未点検"}</td><td>{done ? "済" : "未"}</td></> : props.screen === "oral" ? <><td>{flagsOf(p, entries).priority.join("・") || "—"}</td><td>{assessments[0] ? `${ohatTotal(assessments[0].scores!)}/16（${assessments[0].at.slice(0, 10)}）` : "未評価"}</td><td>{assessments.length > 1 ? `${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!) > 0 ? "+" : ""}${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!)}` : "—"}</td><td>{done ? "済" : "未"}</td></> : <InfectionCells patient={p} entries={entries} administrations={props.administrations} last={history[0]?.at.replace("T", " ") ?? "未記録"} />}
         </tr>
-        {props.screen === "infection" && <tr><td colSpan={4}><InfectionDetails patient={p} entries={entries} administrations={props.administrations} /></td></tr>}
-        {opened === key && <tr id={`form-${key}`}><td colSpan={props.screen === "oral" ? 6 : props.screen === "equipment" ? 5 : 4}><PatientWork key={key} {...props} patient={p} entries={entries} initialDeviceId={device?.id} records={history} save={save} /></td></tr>}
+        {opened === key && <tr id={`form-${key}`}><td colSpan={props.screen === "oral" ? 6 : props.screen === "equipment" ? 5 : 8}><PatientWork key={key} {...props} patient={p} entries={entries} initialDeviceId={device?.id} records={history} save={save} /></td></tr>}
       </Fragment>)}
     </tbody></table>{!rows.length && <p className="p-3 text-sm">対象の患者はいません。</p>}
   </section>;
 }
-function InfectionDetails({ patient: p, entries, administrations }: { patient: Patient; entries: OrderEntry[]; administrations: AdminRecord[] }) {
+/** One row per patient: the 耐性菌, every antibiotic (days from the start and DOT), culture, TDM and what to check. */
+function InfectionCells({ patient: p, entries, administrations, last }: { patient: Patient; entries: OrderEntry[]; administrations: AdminRecord[]; last: string }) {
   const antibiotics = antibioticsOf(entries);
-  return <>{infectionFlags(p).map((r, i) => <p key={i}>{r.specimen} {r.text}：{r.precaution}</p>)}{antibiotics.length > 0 && <table className="my-2 w-full text-left text-sm"><thead><tr><th>抗菌薬</th><th>区分</th><th>使用日数</th><th>使用中の培養</th><th>薬物血中濃度測定（TDM）</th></tr></thead><tbody>{antibiotics.map(a => { const monitoring = antibioticMonitoring(p, a.startDay); return <tr key={`${a.id}:${a.code}`}><td>{a.names}</td><td>{a.kind || "—"}</td><td>開始から {a.days}日目 ／ DOT {dotFor(antibiotics.filter(b => b.code === a.code).map(b => b.id), p.id, administrations)}日（実施記録）</td><td>{monitoring.culture ? "あり" : "なし"}</td><td>{monitoring.tdm ? "あり" : "結果なし"}</td></tr>; })}</tbody></table>}</>;
+  const flags = infectionFlags(p);
+  const mon = antibiotics.map((a) => antibioticMonitoring(p, a.startDay));
+  // DOT from the 実施 records; with none recorded (the fictional past is counted as given), the days since the start.
+  const dot = (a: (typeof antibiotics)[number]) => { const n = dotFor(antibiotics.filter((b) => b.code === a.code).map((b) => b.id), p.id, administrations); return n || a.days; };
+  // A resistant organism with no drug of its group in use: the team checks (no drug is suggested).
+  const checks = [
+    ...(flags.some((f) => /MRSA/.test(f.text)) && !antibiotics.some((a) => a.kind.includes("抗MRSA")) ? ["MRSA 検出・抗MRSA薬の使用なし"] : []),
+    ...(antibiotics.length && !mon.some((m) => m.culture) ? ["抗菌薬使用中・培養の提出なし"] : []),
+    ...(antibiotics.some((a) => a.kind.includes("抗MRSA")) && !mon.some((m) => m.tdm) ? ["抗MRSA薬・TDM の結果なし"] : []),
+  ];
+  return <>
+    <td className="py-1.5 align-top">{flags.length ? flags.map((f, i) => <div key={i} className="font-bold text-shu">{f.specimen} {f.text}</div>) : "—"}</td>
+    <td className="align-top">{antibiotics.length ? antibiotics.map((a) => <div key={`${a.id}:${a.code}`}>{a.names}{a.kind && <span className="ml-1 rounded bg-yamabuki-soft px-1 text-[11px] text-yamabuki">{a.kind}</span>} <span className="nums text-ink-soft">{a.days}日目・DOT {dot(a)}日</span></div>) : "—"}</td>
+    <td className="align-top">{antibiotics.length ? (mon.some((m) => m.culture) ? "提出あり" : <span className="text-yamabuki">なし</span>) : "—"}</td>
+    <td className="align-top">{mon.some((m) => m.tdm) ? "結果あり" : "—"}</td>
+    <td className="align-top">{checks.length ? checks.map((c) => <div key={c} className="text-yamabuki">{c}</div>) : "—"}</td>
+    <td className="align-top">{last}</td>
+  </>;
 }
 
 function PatientWork({ patient: p, entries, records, save, initialDeviceId, ...props }: Props & { patient: Patient; entries: OrderEntry[]; initialDeviceId?: string; records: SpecialistRecord[]; save: (r: Omit<SpecialistRecord, "id" | "by">) => void }) {
