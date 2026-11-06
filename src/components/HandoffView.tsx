@@ -111,7 +111,7 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
   const [error, setError] = useState<string | null>(null);
   const [unplaced, setUnplaced] = useState("");
   const [newAction, setNewAction] = useState("");
-  const [to, setTo] = useState(saved?.to ?? (me.role === "医師" ? "当直医 松本（架空）" : `看護師 田中（${shift.split("→")[1]}・架空）`));
+  const [to, setTo] = useState(saved?.to ?? (me.role === "医師" ? "当直医 松本" : `看護師 田中（${shift.split("→")[1]}）`));
   const [synthesis, setSynthesis] = useState(saved?.synthesis ?? "");
   const speech = useSpeech((t) => setText((cur) => (cur ? `${cur}${/[。、]$/.test(cur) ? "" : "。"}${t}` : t)));
   const sent = !!h.sentAt;
