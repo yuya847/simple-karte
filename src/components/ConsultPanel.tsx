@@ -6,12 +6,17 @@ import { can } from "@/lib/roles";
 import { newProcedureDraft, type Draft } from "@/lib/drafts";
 import { addressedTo, consultDepartments, consultOrders, consultState, doctorsIn, type ConsultReplies, type consultInbox } from "@/lib/consult";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
+import type { CalendarDate } from "@/lib/dates";
+import { CONSULT_TEMPLATE_SOURCES, templatesFor } from "@/lib/consult-templates";
+import { labPasteText, vitalsPasteText } from "@/lib/lab-paste";
 
 const REPLY_TEMPLATE = "所見：\n診断：\n提案：\nフォロー：";
 const input = "w-full rounded border border-rule bg-paper p-2";
 const field = "rounded border border-rule bg-paper px-2 py-1";
 interface Props {
   patient: Patient;
+  /** For the dates of the latest labs and vitals the templates quote. */
+  today?: CalendarDate;
   entries: HistoryEntry[];
   consults: OrderEntry[];
   replies: ConsultReplies;
@@ -22,13 +27,14 @@ interface Props {
   onRefer: (to: string, dept: string, purpose: string, summary: string) => void;
 }
 
-export function ConsultPanel({ consults, replies, newId, onAdd, onReply, onCloseConsult, onRefer }: Props) {
+export function ConsultPanel({ patient, today, consults, replies, newId, onAdd, onReply, onCloseConsult, onRefer }: Props) {
   const me = useMe();
   const allowed = can(me.role, "consult");
   const [tab, setTab] = useState("院内へ相談");
   const [dept, setDept] = useState("循環器内科");
   const [doctor, setDoctor] = useState("");
   const [question, setQuestion] = useState("");
+  const [before, setBefore] = useState<string | null>(null);
   const [to, setTo] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const external = tab === "院外へ紹介";
@@ -63,8 +69,18 @@ export function ConsultPanel({ consults, replies, newId, onAdd, onReply, onClose
             </select>
           </label>}
         </div>
+        <div className="flex flex-wrap items-center gap-1 text-xs">
+          <span className="text-ink-soft">ひな形：</span>
+          {templatesFor(external).map((t) => <button key={t.id} type="button" onClick={() => {
+            // The text written so far can be put back (no browser dialog).
+            setBefore(question.trim() ? question : null);
+            setQuestion(t.body({ diagnosis: patient.admissionDiagnosis, dept: external ? (to.trim() || "ご担当") : dept, labs: today ? labPasteText(patient, today) : null, vitals: today ? vitalsPasteText(patient, today) : null }));
+          }} className="rounded border border-rule px-2 py-0.5 hover:border-ai hover:text-ai">{t.label}</button>)}
+          {before !== null && <button type="button" onClick={() => { setQuestion(before); setBefore(null); }} className="ml-1 text-ai underline">ひな形を入れる前に戻す</button>}
+        </div>
+        <p className="hint text-[10px] text-ink-faint">ひな形は依頼状に書く項目（主病名・経過・所見と検査・依頼内容）と S-BAR の順に沿った架空の例です。直近の検査とバイタルはカルテから入ります。<a href={CONSULT_TEMPLATE_SOURCES[0].url} target="_blank" rel="noreferrer" className="underline">{CONSULT_TEMPLATE_SOURCES[0].label}</a></p>
         <label className="block">本文
-          <textarea rows={8} className={input} value={question} onChange={e => setQuestion(e.target.value)} placeholder={external ? "紹介の目的と経過" : "相談したいこと（質問・経過）"} />
+          <textarea rows={14} className={input} value={question} onChange={e => setQuestion(e.target.value)} placeholder={external ? "紹介の目的と経過" : "相談したいこと（質問・経過）"} />
         </label>
         <p>依頼者：{me.name}</p>
         <button className="rounded bg-ai p-2 text-white disabled:opacity-40" disabled={!question.trim() || (external && !to.trim())} onClick={submit}>

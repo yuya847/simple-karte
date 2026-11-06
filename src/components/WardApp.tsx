@@ -3826,6 +3826,7 @@ export default function WardApp() {
               {panel === "add-consult" && (
                 <Drawer title="コンサルト" onClose={closePanel} wide>
                   <ConsultPanel
+                    today={today}
                     patient={patient} entries={entries}
                     onCloseConsult={(id) => { if (deny("consult")) return; setConsultReplies(all => ({ ...all, [id]: closeConsult(all[id]) })); }}
                     onRefer={(to, dept, purpose, summary) => { if (deny("consult")) return; setDischarges(all => ({ ...all, [patient.id]: referralDraft(patient.id, to, dept, purpose, summary) })); setPanel("discharge"); }}
