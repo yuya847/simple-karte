@@ -12,7 +12,7 @@ it("退院も記事の下に出し、独立ウインドウを作らない", () =
   const src = readFileSync("src/components/WardApp.tsx", "utf8");
   expect(src).toMatch(/const DRAWER_PANELS[^\n]*"add-discharge"/);
   expect(src).toContain('openOrder("add-discharge")');
-  expect(src).toContain('<InlineOrder title={`退院オーダ：');
+  expect(src).toContain('<InlineOrder title="退院オーダ"');
   expect(src).not.toContain('<Drawer title="退院オーダ"');
 });
 
