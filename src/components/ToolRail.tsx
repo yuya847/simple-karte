@@ -172,6 +172,7 @@ export function groupsFor(role: string): { key: GroupKey; title: string; main: T
 export const railIsShort = (role: string) => !!ONLY[role];
 
 interface Props {
+  onAnesthesia?: (tab: string) => void;
   open: PanelKind | null;
   /** Opens a tool; a pinned テンプレート opens the templates panel with that template's id. */
   onOpen: (p: PanelKind | null, opts?: { templateId?: string }) => void;
@@ -218,7 +219,7 @@ const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-cen
  * this person pinned (★) — and the record templates pinned from the テンプレート panel, each opening straight
  * into its form. The pins and the look are kept per person in this browser (src/lib/rail.ts).
  */
-export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, injectionCalendar, calendars = [], badges = {} }: Props) {
+export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, injectionCalendar, calendars = [], badges = {}, onAnesthesia }: Props) {
   const me = useMe();
   const groups = groupsFor(me.role);
   const short = railIsShort(me.role);
@@ -312,6 +313,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
             </button>
           </span>
         </div>
+        {me.role === "医師" && me.name.startsWith("麻酔科 ") && onAnesthesia && <div className="mb-2 flex flex-col gap-1">{["術前診察", "麻酔記録", "術後回診"].map(tab => <button key={tab} className="rounded border border-rule bg-sheet px-2 py-1 text-left text-xs" onClick={() => onAnesthesia(tab)}>{tab}</button>)}</div>}
         <div className="mb-1 flex items-start gap-1">
         <div role="tablist" aria-label="道具の種類" className="mb-1 grid grid-cols-3 flex-1 gap-1 border-b border-rule pb-1">
           {groups.map((g) => {

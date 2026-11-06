@@ -3,7 +3,7 @@
 // AI never writes or changes a form. Which orders need which form, and whether one is in place,
 // are checked in code. Numbers (frequencies) appear only with their source.
 
-export type ConsentCode = "CONSENT-ADMISSION" | "CONSENT-CT-CONTRAST" | "CONSENT-MRI-CONTRAST" | "CONSENT-CVC" | "CONSENT-TRANSFUSION";
+export type ConsentCode = "CONSENT-ANESTHESIA" | "CONSENT-ADMISSION" | "CONSENT-CT-CONTRAST" | "CONSENT-MRI-CONTRAST" | "CONSENT-CVC" | "CONSENT-TRANSFUSION";
 export type ConsentStatus = "説明前" | "同意" | "拒否" | "撤回";
 
 export interface ConsentSection {

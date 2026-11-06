@@ -37,6 +37,12 @@ const SRC = {
 };
 
 export const CONSENT_TEMPLATES: ConsentTemplate[] = [
+  { code: "CONSENT-ANESTHESIA", title: "麻酔の説明・同意書", short: "麻酔", version: "2026-11", sections: [
+    { heading: "目的と方法", lines: ["手術や処置に伴う痛みを抑え、呼吸や循環を管理します。全身麻酔、脊髄くも膜下麻酔、硬膜外麻酔、伝達麻酔、鎮静などから、麻酔科医が手術内容と全身状態を確認して方法を決め、説明します。"] },
+    { heading: "起こりうる合併症", lines: ["吐き気、喉の痛み、歯の損傷、神経障害、呼吸や循環の障害、アレルギー反応などが起こることがあります。患者さんごとの危険性、代わりの方法、術後の鎮痛について担当医が説明します。"] },
+    { heading: "確認事項", lines: ["既往、内服、アレルギー、歯の状態、最終の飲食をお伝えください。休薬や絶飲食は担当医の指示を確認してください。疑問や希望は説明を受ける際にお伝えください。同意の拒否や撤回も記録できます。"] },
+    ...COMMON_END,
+  ], sources: [{ label: "厚生労働省 麻酔に関する説明書", url: "https://www.mhlw.go.jp/seisakunitsuite/bunya/kenkou_iryou/iryou/kokusai/setsumeisiryo/dl/en31.pdf" }] },
   {
     code: "CONSENT-ADMISSION",
     short: "入院時の包括同意",

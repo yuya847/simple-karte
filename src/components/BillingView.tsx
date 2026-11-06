@@ -26,7 +26,11 @@ import type { Diagnosis } from "@/lib/diagnoses";
 import { type BillingOptions, type ClaimAct, type ClaimIssue, type ClaimResult, SHIKIBETSU_NAME, type Shikibetsu } from "@/lib/billing/model";
 import type { HistoryEntry, Patient } from "@/lib/types";
 
+import { AnesthesiaBilling } from "./AnesthesiaView";
+import type { Surgery } from "@/lib/surgery";
+
 interface Props extends DiseaseRequestProps {
+  surgeries?: Surgery[];
   patient: Patient;
   entries: HistoryEntry[];
   diagnoses: Diagnosis[];
@@ -99,7 +103,7 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insurance: records = [], onRegister, settlement, onSettle, diseaseRequests, onDiseaseRequest }: Props) {
+export function BillingView({ surgeries = [], patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insurance: records = [], onRegister, settlement, onSettle, diseaseRequests, onDiseaseRequest }: Props) {
   const me = useMe();
   const deny = useDeny();
   const registered = records[records.length - 1];
@@ -263,6 +267,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           <ReceiptPanel data={displayedReceipt} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
         {tab === "dpc" && <DpcPanel month={month} mainId={mainId} setMainId={(value) => { if (value !== mainId) { setLoading(true); setMainId(value); } }} transfer={transfer} setTransfer={(value) => { if (value !== transfer) { setLoading(true); setTransfer(value); } }} coefText={coefText} setCoefText={(value) => { if (Number(value) !== coef) setLoading(true); setCoefText(value); }} r={ready ? dpc : null} error={error} loading={loading} />}
+        {tab === "claim" && surgeries.map(s => <section key={s.id} className="rounded border border-rule p-3"><h3>麻酔 {s.procedure}</h3><AnesthesiaBilling surgery={s}/></section>)}
         {tab === "claim" && (
           <>
 

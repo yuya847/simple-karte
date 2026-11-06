@@ -2,6 +2,7 @@ import { EARLY_NOTE, FACILITY_NOTE, REHAB_RULES } from "../rehab";
 // 部門のタブごとの操作。
 export const departmentHelp = [
   { id: "department:rehab:rules", title: "リハビリテーション部 › 算定・予約", bullets: [EARLY_NOTE, FACILITY_NOTE, REHAB_RULES.hours, "リハビリの経過から実施・BI・FIM・計画書を記録できます。部のカンファレンスは患者を選んで日時・参加者・目標・方針を記録します。"] },
+  { id: "department:anesthesia", title: "手術部・麻酔科 › 麻酔科", bullets: ["麻酔科で今日・明日・昨日の手術を選びます。未診察を先に表示します。", "術前診察はカルテの内服・検査を確認し、休薬の有無と日付、ASA-PS、気道、麻酔法を医師が決めて保存します。空欄は未確認です。", "絶飲食は日付と時刻を入力し、指示簿に確定します。食事オーダの自動中止はしません。", "麻酔記録はイベント・薬剤・輸液・出血・尿量を入力します。バイタルは模擬です。麻酔器接続から離脱まで、執刀から手術終了までを集計します。", "同意書は説明・同意から作成し、署名・拒否・撤回を記録します。", "算定は人が区分・困難な患者・管理料を選び、終了後にマスターの候補を確認します。時間加算の基準時間・単位・点数もマスターから読みます。特殊条件・施設基準は人が確認します。", "厚生労働省 診療報酬の算定方法 L008〜L010 https://www.mhlw.go.jp/web/t_doc?dataId=84aa9729&dataType=0&pageNo=21", "厚生労働省 麻酔に関する説明書 https://www.mhlw.go.jp/seisakunitsuite/bunya/kenkou_iryou/iryou/kokusai/setsumeisiryo/dl/en31.pdf"] },
   {
     "id": "department:pharmacy:audit",
     "title": "薬剤部 › 処方監査・疑義照会",

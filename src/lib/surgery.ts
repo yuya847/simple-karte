@@ -36,6 +36,7 @@ export interface AnesRecord {
 }
 
 export interface Surgery {
+  anesthesiaCase?: import("./anesthesia").AnesthesiaCase;
   id: string;
   /** One of our ward patients, or a fictional patient of another team. */
   patientId?: string;

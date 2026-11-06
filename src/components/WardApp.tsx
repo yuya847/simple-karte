@@ -679,6 +679,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
   const [hdSessions, setHdSessions] = useState<Record<string, HdSession>>(() => (typeof window === "undefined" ? {} : initialHdSessions(nowTimeInTokyo())));
   // Operating rooms (fictional schedule relative to now; kept in this browser only).
+  const [anesthesiaTab, setAnesthesiaTab] = useState<{tab: string; patientId: string} | undefined>(undefined);
   const [surgeries, setSurgeries] = useState<Surgery[]>(() => (scenario ? SCENARIOS.surgeries : typeof window === "undefined" ? [] : initialSurgeries(abs(0, nowTimeInTokyo()))));
   const [er, setEr] = useState<ErPatient[]>(() => (scenario ? SCENARIOS.er : typeof window === "undefined" ? [] : initialErPatients(abs(0, nowTimeInTokyo()))));
   // 外来 today, the record written in each ED/outpatient tab, and the 入院申込 waiting on the wards.
@@ -2820,8 +2821,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         <SurgeryView
           today={today}
           nowAbs={abs(0, nowTime)}
-          surgeries={surgeries}
-          people={people}
+          surgeries={surgeries} initialAnesthesiaTab={anesthesiaTab?.tab} initialAnesthesiaPatientId={anesthesiaTab?.patientId}
+          onNote={chartNote} physio={dept.physioDesk} consents={consents} onConsent={(r) => setConsents(all => all.some(c => c.id === r.id) ? all.map(c => c.id === r.id ? r : c) : [...all, r])}
+          onFasting={(pid, text) => addStandingLine(pid, { id: newId(), cat: "食事", text, start: { day: 0, time: nowTime }, by: me.name, at: { day: 0, time: nowTime } })}
+          people={examPeople}
           onSave={(x) => {
             auditLog({ role: me.role, actor: me.name, action: x.status === "申込" ? "確定（手術申込）" : "手術室の記録", patient: x.name, detail: `${x.procedure} ${x.room ?? ""} ${x.start ?? ""}` });
             setSurgeries((list) => (list.some((y) => y.id === x.id) ? list.map((y) => (y.id === x.id ? x : y)) : [...list, x]));
@@ -3080,7 +3083,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             </div>
             {panel === "billing" ? (
               <div className="col-span-2 flex min-h-0 flex-col">
-                <BillingView diseaseRequests={stickies} onDiseaseRequest={requestDisease}
+                <BillingView surgeries={surgeries.filter(s => s.patientId === patient.id)} diseaseRequests={stickies} onDiseaseRequest={requestDisease}
                   key={patient.id}
                   patient={patient}
                   entries={billedEntries}
@@ -4347,6 +4350,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               </>
             )}
             <ToolRail key={patient.id}
+              onAnesthesia={(tab) => { setAnesthesiaTab({tab, patientId: patient.id}); openArea("or"); setFront(f => ({ ...f, or: undefined })); }}
               open={panel}
               badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
               openTemplate={panel === "templates" ? templateFocus : null}

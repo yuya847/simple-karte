@@ -25,7 +25,11 @@ import { CLAUDE, auditLog } from "@/lib/audit";
 import type { WorkPatient } from "@/lib/worksheet";
 import { ageSex } from "@/lib/person";
 
-interface Props {
+import { AnesthesiaView, type AnesthesiaProps } from "./AnesthesiaView";
+
+interface Props extends Pick<AnesthesiaProps, "onNote" | "onFasting" | "consents" | "onConsent" | "physio"> {
+  initialAnesthesiaTab?: string;
+  initialAnesthesiaPatientId?: string;
   today: CalendarDate;
   nowAbs: number;
   surgeries: Surgery[];
@@ -40,7 +44,8 @@ const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${St
 const abs2hhmm = (a?: number) => (a === undefined ? "—" : hhmm(((a % 1440) + 1440) % 1440));
 
 /** 手術室: the schedule by room, requests from the wards, and the anaesthesia record. */
-export function SurgeryView({ today, nowAbs, surgeries, people, onSave }: Props) {
+export function SurgeryView({ today, nowAbs, surgeries, people, onSave, initialAnesthesiaTab, initialAnesthesiaPatientId, ...anesthesiaProps }: Props) {
+  const [service, setService] = useState(!!initialAnesthesiaTab);
   const [day, setDay] = useState(0);
   const [selected, setSelected] = useState<string | null>(surgeries.find((x) => x.day === 0)?.id ?? null);
   const [requesting, setRequesting] = useState(false);
@@ -48,14 +53,16 @@ export function SurgeryView({ today, nowAbs, surgeries, people, onSave }: Props)
   const sel = surgeries.find((x) => x.id === selected);
   const hours = Array.from({ length: Math.ceil((CLOSE - OPEN) / 60) + 1 }, (_, i) => Math.ceil(OPEN / 60) * 60 + i * 60).filter((m) => m <= CLOSE);
 
+  if (service) return <div className="flex-1 overflow-auto"><button className="m-3 rounded border border-rule px-3 py-1" onClick={() => setService(false)}>手術予定に戻る</button><AnesthesiaView initialTab={initialAnesthesiaTab} initialPatientId={initialAnesthesiaPatientId} today={today} nowAbs={nowAbs} surgeries={surgeries} people={people} onSave={onSave} {...anesthesiaProps}/></div>;
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <Scissors size={17} className="text-ai" />
-          手術室
+          手術部・麻酔科
 
         </h1>
+        <button className="rounded border border-ai px-3 py-1 text-ai" onClick={() => setService(true)}>麻酔科</button>
         <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
           {[0, 1, 2].map((d) => (
             <button key={d} type="button" role="tab" aria-selected={day === d} onClick={() => setDay(d)} className={`rounded px-2.5 py-0.5 ${day === d ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
