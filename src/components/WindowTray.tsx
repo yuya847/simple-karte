@@ -1,15 +1,19 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, useMemo, useId } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useMemo, useId, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { AppWindow, X } from "lucide-react";
 import { minimizeWindow, windowTray, trayTransform } from "@/lib/window-tray";
 
+const patientTrays = new Map<string, { minimized: string[]; order: string[] }>();
 type Entry = { key: string; title: string; close: () => void };
-function useTrayStore() {
+function useTrayStore(patientKey: string) {
   const scope = useId();
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [minimized, setMinimized] = useState<string[]>([]);
-  const [order, setOrder] = useState<string[]>([]);
+  const [minimized, setMinimized] = useState<string[]>(() => patientTrays.get(patientKey)?.minimized ?? []);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [order, setOrder] = useState<string[]>(() => patientTrays.get(patientKey)?.order ?? []);
+  useEffect(() => { patientTrays.set(patientKey, { minimized, order }); }, [patientKey, minimized, order]);
   const actions = useMemo(() => ({
     register(entry: Entry) {
       setEntries((all) => [...all.filter((e) => e.key !== entry.key), entry]);
@@ -20,20 +24,21 @@ function useTrayStore() {
         setOrder((all) => all.filter((k) => k !== entry.key));
       };
     },
-    hide(key: string) { setMinimized((all) => minimizeWindow(all, key, true)); },
+    hide(key: string) { setFlash(key); setTimeout(() => setFlash(null), 1200); setMinimized((all) => minimizeWindow(all, key, true)); },
     front(key: string) {
       setMinimized((all) => minimizeWindow(all, key, false));
       setOrder((all) => [...all.filter((k) => k !== key), key]);
     },
   }), []);
-  return { scope, entries, items: windowTray(entries.map((e) => e.key), minimized, order), ...actions };
+  return { scope, entries, flash, items: windowTray(entries.map((e) => e.key), minimized, order), ...actions };
 }
 const Context = createContext<ReturnType<typeof useTrayStore> | null>(null);
-export function PatientWindowProvider({ children, focusKey, focusVersion, focusTabs }: { children: React.ReactNode; focusKey?: string | null; focusVersion?: number; focusTabs?: readonly string[] }) {
-  const store = useTrayStore();
+export function PatientWindowProvider({ children, patientKey, focusKey, focusVersion, focusTabs }: { patientKey: string; children: React.ReactNode; focusKey?: string | null; focusVersion?: number; focusTabs?: readonly string[] }) {
+  const store = useTrayStore(patientKey);
   const front = store.front;
+  const previousTabs = useRef(focusTabs);
   useEffect(() => { if (focusKey) front(focusKey); }, [focusKey, focusVersion, front]);
-  useEffect(() => { const tab = focusTabs?.at(-1); if (tab) front(`tab:${tab}`); }, [focusTabs, front]);
+  useEffect(() => { if (previousTabs.current === focusTabs) return; previousTabs.current = focusTabs; const tab = focusTabs?.at(-1); if (tab) front(`tab:${tab}`); }, [focusTabs, front]);
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
 export function useTrayWindow(key: string, title: string, open: boolean, close: () => void) {
@@ -62,16 +67,24 @@ export function useTrayWindow(key: string, title: string, open: boolean, close: 
     } else store?.hide(key);
   }, front: () => store?.front(key) };
 }
+function subscribeTrayTarget(changed: () => void) {
+  const observer = new MutationObserver(changed);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}
+const trayTarget = () => document.getElementById("patient-window-tabs");
+const serverTrayTarget = () => null;
 export function WindowTray() {
   const store = useContext(Context);
-  if (!store?.entries.length) return null;
-  return <div id={`window-tray-${store.scope}`} aria-label="しまったウインドウ" className="flex shrink-0 gap-1 overflow-x-auto border-b border-rule bg-paper px-3 py-1">
-    {store.items.map((item) => {
+  const target = useSyncExternalStore(subscribeTrayTarget, trayTarget, serverTrayTarget);
+  if (!store?.entries.length || !target) return null;
+  return createPortal(<div id={`window-tray-${store.scope}`} aria-label="しまったウインドウ" className="flex shrink-0 gap-1">
+    {store.items.filter(item => item.minimized).map((item) => {
       const entry = store.entries.find((e) => e.key === item.key)!;
-      return <div key={item.key} data-tray-key={item.key} className={`flex shrink-0 items-center rounded border border-rule ${item.minimized ? "bg-sheet" : "bg-paper text-ink-soft"}`}>
+      return <div key={item.key} data-tray-key={item.key} className={`flex shrink-0 items-center rounded border border-rule ${store.flash === item.key ? "animate-pulse bg-ai-soft ring-2 ring-ai" : "bg-sheet"}`}>
         <button type="button" aria-label={`${entry.title}を${item.minimized ? "戻す" : "前面へ"}`} onClick={() => store.front(item.key)} className="flex items-center gap-1 px-2 py-1 text-xs"><AppWindow size={13} />{entry.title}</button>
         <button type="button" aria-label={`${entry.title}を閉じる`} onClick={entry.close} className="p-1"><X size={13} /></button>
       </div>;
     })}
-  </div>;
+  </div>, target);
 }

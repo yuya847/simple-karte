@@ -1,5 +1,6 @@
 "use client";
 
+import { UnlockRequests } from "./OrderHistoryActions";
 import { displayText } from "@/lib/display-text";
 import { Activity, Check, Droplet, KeyRound, Package, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
 import { createPortal, flushSync } from "react-dom";
@@ -128,7 +129,7 @@ export function PharmacyView(props: PharmacyProps) {
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px]">
-          {tab === "audit" && <Audit {...p} />}
+          {tab === "audit" && <><UnlockRequests /><Audit {...p} /></>}
           {tab === "brought" && <Brought {...p} people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} />}
           {tab === "shido" && <Shido {...p} />}
           {tab === "dispense" && <Dispense {...p} />}

@@ -174,9 +174,10 @@ describe("同時に出した処方のまとまり", () => {
     expect(html.match(/>有効</g)).toHaveLength(1);
     expect(html.match(/aria-label="処方をたたむ"/g)).toHaveLength(1);
     expect(html.match(/aria-label="オーダのメニュー"/g)).toHaveLength(3);
+    expect(html.match(/data-history-grip="true" draggable="true"/g)).toHaveLength(3);
     for (const [i, id] of ["a", "b", "c"].entries()) {
       expect(html).toContain(`>Rp${i + 1}<`);
-      expect(html).toContain(`data-order-id="${id}" draggable="true"`);
+      expect(html).toContain(`data-order-id="${id}" draggable="false"`);
     }
   });
   it("2つのRpの共通の服用開始チップは見出しに1回だけ出し、メニューは用量の横に置く", () => {

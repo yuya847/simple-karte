@@ -1,7 +1,7 @@
 "use client";
 
 import { GripVertical } from "lucide-react";
-import { useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
 import { indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
 import { isProblemLine, problemMarkerEnd, stripProblemMarker } from "@/lib/note-problems";
 const leadingSpace = (l: string) => l.match(/^[ \t　]*/)![0];
@@ -45,6 +45,10 @@ const LONG_PRESS_MS = 450;
  * what the pane gets back is always the lines joined with "\n".
  */
 export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [] }: Props) {
+  const [whole, setWhole] = useState(false);
+  const wholeRef = useRef<HTMLTextAreaElement | null>(null);
+  const wholeRange = useRef({ start: 0, end: 0 });
+  const pointerAnchor = useRef<number | null>(null);
   const lines = toLines(value);
   const rows = useRef<(HTMLTextAreaElement | null)[]>([]);
   const mirrors = useRef<(HTMLDivElement | null)[]>([]);
@@ -64,6 +68,12 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     if (!p) return;
     pending.current = null;
     const text = latest.current;
+    if (wholeRef.current) {
+      wholeRef.current.focus();
+      wholeRef.current.setSelectionRange(p.start, p.end);
+      wholeRange.current = p;
+      return;
+    }
     const s = posOf(text, p.start);
     const e = posOf(text, p.end);
     const el = rows.current[s.line];
@@ -76,7 +86,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
   useLayoutEffect(() => {
     latest.current = value;
     flush();
-  }, [value]);
+  }, [value, whole]);
 
   const commit = (r: Edited | { text: string; start: number; end: number }) => {
     const range = "caret" in r ? { start: r.caret, end: r.caret } : { start: r.start, end: r.end };
@@ -89,12 +99,14 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
 
   useImperativeHandle(ref, () => ({
     focus() {
+      if (wholeRef.current) { wholeRef.current.focus(); return; }
       const text = latest.current;
       const s = sel.current ?? { line: toLines(text).length - 1, start: Infinity, end: Infinity };
       pending.current = { start: offsetOf(text, { line: s.line, col: s.start }), end: offsetOf(text, { line: s.line, col: s.end }) };
       flush();
     },
     get selection() {
+      if (wholeRef.current) return wholeRange.current;
       const text = latest.current;
       const active = rows.current.findIndex((el) => el && typeof document !== "undefined" && el === document.activeElement);
       const s = active >= 0 ? { line: active, start: rows.current[active]!.selectionStart, end: rows.current[active]!.selectionEnd } : sel.current;
@@ -103,6 +115,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     },
     select(start, end = start) {
       pending.current = { start, end };
+      if (posOf(latest.current, start).line !== posOf(latest.current, end).line) setWhole(true);
       requestAnimationFrame(flush);
     },
   }));
@@ -160,6 +173,12 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
   };
 
   const keyDown = (i: number, e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      pending.current = { start: 0, end: latest.current.length };
+      setWhole(true);
+      return;
+    }
     if (readOnly) return;
     // Enter and the arrows during IME conversion belong to the IME (Safari reports it as keyCode 229 too).
     if (e.nativeEvent.isComposing || composing.current || e.keyCode === 229) return;
@@ -283,19 +302,75 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     press.current = null;
   };
 
+  // Use the rendered character rectangles so wrapping and Japanese text keep their exact offsets.
+  const pointOffset = (x: number, y: number) => {
+    let best = { distance: Infinity, offset: 0 };
+    mirrors.current.forEach((mirror, i) => {
+      const node = mirror?.firstChild;
+      if (!node) return;
+      for (let col = 0; col <= (lines[i]?.length ?? 0); col++) {
+        const range = document.createRange();
+        range.setStart(node, col);
+        range.setEnd(node, col + 1);
+        const r = range.getBoundingClientRect();
+        const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+        const dx = Math.abs(x - r.left);
+        const distance = dy * 10000 + dx;
+        if (distance < best.distance) best = { distance, offset: offsetOf(latest.current, { line: i, col }) };
+      }
+    });
+    return best.offset;
+  };
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const anchor = pointerAnchor.current;
+      if (anchor === null) return;
+      const end = pointOffset(e.clientX, e.clientY);
+      if (posOf(latest.current, anchor).line === posOf(latest.current, end).line && !wholeRef.current) return;
+      e.preventDefault();
+      const range = { start: Math.min(anchor, end), end: Math.max(anchor, end) };
+      wholeRange.current = range;
+      pending.current = range;
+      setWhole(true);
+      if (wholeRef.current) flush();
+    };
+    const up = () => { pointerAnchor.current = null; };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); };
+  });
+
   const firstSection = lines.findIndex(isSectionHeadingLine);
 
   return (
     <div
+      onPointerDownCapture={(e) => {
+        if (whole || e.button !== 0 || !(e.target instanceof HTMLTextAreaElement)) return;
+        const at = pointOffset(e.clientX, e.clientY);
+        if (e.shiftKey) {
+          e.preventDefault();
+          const anchor = sel.current ? offsetOf(value, { line: sel.current.line, col: sel.current.start }) : at;
+          pending.current = { start: Math.min(anchor, at), end: Math.max(anchor, at) };
+          setWhole(true);
+        } else pointerAnchor.current = at;
+      }}
       role="group"
       aria-label="記事"
       // No box around the whole editor (an empty note is just a blank line); a problem line (＃) gets its own box below.
-      className={`rounded-md py-1.5 pr-2 ${readOnly ? "bg-paper" : ""}`}
+      className={`relative rounded-md py-1.5 pr-2 ${readOnly ? "bg-paper" : ""}`}
       onClick={(e) => {
         // A click on the margin under the last line puts the caret at its end.
         if (e.target === e.currentTarget) focusLine(lines.length - 1, Infinity);
       }}
     >
+      {whole && <textarea ref={wholeRef} aria-label="記事の全行" value={value} readOnly={readOnly}
+        className={`${TEXT} absolute left-6 top-1.5 z-20 w-[calc(100%-2rem)] h-[calc(100%-0.75rem)] min-h-20 resize-none bg-sheet outline-none`}
+        onChange={e => { wholeRange.current = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; onChange(e.currentTarget.value); }}
+        onSelect={e => { wholeRange.current = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; onSelectedText?.(value.slice(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)); }}
+        onBlur={() => { if (pointerAnchor.current === null && wholeRange.current.start === wholeRange.current.end) { const p = posOf(value, wholeRange.current.start); sel.current = { line: p.line, start: p.col, end: p.col }; setWhole(false); } }}
+      />}
+      <div className={whole ? "invisible" : ""}>
       {lines.map((line, i) => {
         const heading = isHeadingLine(line);
         const divider = isDividerLine(line);
@@ -398,6 +473,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

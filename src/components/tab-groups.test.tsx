@@ -42,3 +42,10 @@ describe("開いているカルテの段：場所ごとのグループ", () => {
     expect(html).not.toContain('role="group"');
   });
 });
+
+ it("最小化タブの挿入先は選択中の患者タブのすぐ後ろに置く", () => {
+  const html = renderToStaticMarkup(<Row row={{ label: "開いているカルテ", items: [{ ...tab("p1", "患者1"), active: true }, tab("p2", "患者2")] }} small />);
+  expect(html.indexOf("患者1")).toBeLessThan(html.indexOf('id="patient-window-tabs"'));
+  expect(html.indexOf('id="patient-window-tabs"')).toBeLessThan(html.indexOf("患者2"));
+  expect(html.match(/id="patient-window-tabs"/g)).toHaveLength(1);
+});

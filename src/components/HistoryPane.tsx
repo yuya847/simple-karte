@@ -1,4 +1,6 @@
 "use client";
+import { prescriptionText, revisionEntries } from "@/lib/history-order";
+import { useOrderHistoryActions } from "./OrderHistoryActions";
 import { patternCourse } from "@/lib/day-pattern";
 import { displayText } from "@/lib/display-text";
 import { ConsultStatus } from "./ConsultContext";
@@ -118,6 +120,7 @@ export function readDo(e: React.DragEvent): DoPayload | null {
   }
 }
 const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
+  if (!(e.target as HTMLElement).closest("[data-history-grip]")) { e.preventDefault(); return; }
   e.dataTransfer.setData(DO_MIME, JSON.stringify(p));
   e.dataTransfer.setData("text/plain", p.kind === "note" ? p.text : "");
   e.dataTransfer.effectAllowed = "copy";
@@ -561,7 +564,7 @@ export const PLACE_COLORS = {
 function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag, row = false }: { row?: boolean; mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string }; tag?: React.ReactNode }) {
   if (row) return (
     <div {...article} className={`border-t border-rule-soft py-1 ${article?.className ?? ""}`}>
-      <div className="nums flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">{meta}{tag}</div>
+      <div className="nums flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">{dragHandle && <span data-history-grip draggable onDragStart={article?.onDragStart} className="cursor-grab select-none"><GripVertical size={11} aria-hidden /></span>}{meta}{tag}</div>
       {children}
     </div>
   );
@@ -571,7 +574,7 @@ function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHan
         <button type="button" onClick={onFold} aria-expanded={!folded} aria-label={folded ? `${mark}を開く` : `${mark}をたたむ`} className="rounded p-0.5 text-ink-faint hover:bg-sheet hover:text-ink">
           {folded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </button>
-        {dragHandle && <GripVertical size={11} className="text-ink-faint/60" aria-hidden />}
+        {dragHandle && <span data-history-grip draggable onDragStart={article?.onDragStart} className="cursor-grab select-none"><GripVertical size={11} className="text-ink-faint/60" aria-hidden /></span>}
         <span className="nums truncate text-[13px] font-bold">
           【{mark}】 {when}
         </span>
@@ -658,6 +661,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
   const me = useMe();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
   const [draft, setDraft] = useState("");
   const [reason, setReason] = useState("");
   const [showHistory, setShowHistory] = useState(false);
@@ -731,7 +735,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
   const doPayload: DoPayload = { kind: "note", text: noteText(entry), label: `${entry.time} ${entry.author}` };
   const tone = ROLE_COLORS[entry.role];
   const article = {
-    draggable: !!onDo && !editing,
+    draggable: false,
     onDragStart: onDo ? dragDo(doPayload) : undefined,
     onDoubleClick: () => (editing ? undefined : mine ? startEdit() : setShowHistory((v) => !v)),
     onContextMenu: (e: React.MouseEvent) => {
@@ -740,7 +744,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
       setMenu({ x: e.clientX, y: e.clientY });
     },
     title: mine ? "ダブルクリックで修正、右クリックでメニュー" : "ダブルクリックで履歴、右クリックでメニュー",
-    className: onDo && !editing ? "cursor-grab active:cursor-grabbing" : "",
+    className: "select-text",
   };
   return (
     <Card
@@ -759,12 +763,14 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
               at={menu}
               onClose={() => setMenu(null)}
               items={[
+                { label: "テキストとしてコピー", icon: Copy, onClick: () => { void navigator.clipboard.writeText(noteText(entry)).then(() => { setCopyStatus("コピーしました"); setTimeout(() => setCopyStatus(""), 1800); }).catch(() => setCopyStatus("コピーできませんでした")); } },
                 { label: "右の記事へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload), disabled: onDo ? undefined : "写せません" },
                 { label: "修正する", icon: PencilLine, onClick: startEdit, disabled: mine ? undefined : "検査室の記事は直せません" },
                 { label: versions.length > 1 ? `修正の履歴を見る（第${versions.length}版まで）` : "修正の履歴を見る（修正なし）", icon: History, onClick: () => setShowHistory(true), disabled: versions.length > 1 ? undefined : "修正はありません" },
               ]}
             />
           )}
+          {copyStatus && <span role="status">{copyStatus}</span>}
           <span>第{versions.length}版：</span>
           <span className="text-ink-soft" title="出来事が起きた日時（記録時刻）">
             記録 {formatShort(addDays(today, times.event.day))} {times.event.time}
@@ -1015,6 +1021,8 @@ function ExecutionTags({ marks, today, now }: { marks: ReturnType<typeof executi
 }
 
 function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grouped = false, hideStatus = false, hideStart = false, entry, today, now = null, place, rpNo, folded, onFold, onDo, onOpenImage, onOpenResult, takeBadge, patient, execute }: { orderDay?: OrderDayMode; onJumpDay?: (day: DayOffset) => void; sharedMarkKeys?: string[]; grouped?: boolean; hideStatus?: boolean; hideStart?: boolean; entry: OrderEntry; today: CalendarDate; /** The clock now (minutes from today 00:00), for 予定 or past on the marks; null when unknown. */ now?: number | null; place: string; rpNo?: number; folded: boolean; onFold: () => void; onDo?: (p: DoPayload) => void; onOpenImage?: (entryId: string) => void; onOpenResult?: () => void; takeBadge?: TakeBadge | null; patient?: Patient; execute?: ExecuteProps }) {
+  const actions = useOrderHistoryActions();
+  const [copyStatus, setCopyStatus] = useState("");
   const o = entry.order;
   const { main, detail } = orderLines(o, today);
   const stopped = entry.status === "中止";
@@ -1028,9 +1036,26 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
   const nowAbs = execute ? abs(0, execute.nowTime) : 0;
   const todays = canExec && menu ? occurrencesOn(patient!, entry, 0, nowAbs) : null;
   const badge = canExec ? executionBadge(patient!, entry, execute!.records, execute!.sessionStart, nowAbs) : null;
-  const hasMenu = canDo || canExec;
+  const hasMenu = canDo || canExec || o.type === "prescription" || o.type === "injection";
   const longPress = useLongPress<HTMLElement>(hasMenu ? setMenu : undefined);
   const extra: MenuExtra[] = canDo ? [{ label: "右へ写す（Do）", icon: Copy, onClick: () => onDo?.(doPayload) }] : [];
+  if (o.type === "prescription" || o.type === "injection") {
+    const related = revisionEntries(entry, actions?.entries ?? [entry]);
+    const locked = related.some(e => actions?.locked(e.id));
+    const disabled = !actions?.canEdit ? "医師が操作できます" : stopped ? "中止済みです" : locked ? "監査・払出済みです" : undefined;
+    extra.push(
+      { label: "修正", icon: PencilLine, disabled, onClick: () => actions?.modify(entry) },
+      { label: "削除（中止）", icon: X, disabled, onClick: () => actions?.stop(entry) },
+    );
+    if (locked && actions?.canEdit) extra.push({ label: "ロック解除を依頼する", icon: PencilLine, onClick: () => {
+      const reason = window.prompt("ロック解除の理由");
+      if (reason?.trim() && patient) related.filter(e => actions.locked(e.id)).forEach(e => actions.request({ orderId: e.id, patientId: patient.id, patientName: patient.name, reason: reason.trim().replace(/\s+/g, " ") }));
+    } });
+    extra.push({ label: "テキストとしてコピー", icon: Copy, onClick: () => {
+      const batch = actions?.entries.filter((e): e is OrderEntry => e.kind === "order" && e.day === entry.day && e.order.type === o.type && (e.status !== "中止" || e.id === entry.id)) ?? [entry];
+      void navigator.clipboard.writeText(prescriptionText(batch.length ? batch : [entry])).then(() => { setCopyStatus("コピーしました"); setTimeout(() => setCopyStatus(""), 1800); }).catch(() => setCopyStatus("コピーできませんでした"));
+    } });
+  }
   const tone = stopped ? STOPPED_TONE : o.type === "procedure" && o.opd ? PLACE_COLORS.opd : ORDER_TONE;
   const strike = stopped ? "line-through" : "";
   const right = "shrink-0 whitespace-nowrap font-bold";
@@ -1147,7 +1172,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
       article={{
         ...longPress,
         "data-order-id": entry.id,
-        draggable: canDo,
+        draggable: false,
         onDragStart: canDo ? dragDo(doPayload) : undefined,
         onContextMenu: (e: React.MouseEvent) => {
           if (!hasMenu) return;
@@ -1155,7 +1180,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
           setMenu({ x: e.clientX, y: e.clientY });
         },
         title: canDo && canExec ? "右へドラッグで同じオーダを写せます（Do）。右クリック（iPad は長押し）で Do と実施・未実施の記録" : canDo ? "右へドラッグするか右クリックで、同じオーダを写せます（Do）" : canExec ? "右クリック（iPad は長押し）か ⋯ で実施・未実施を記録" : undefined,
-        className: `${stopped ? "opacity-70" : ""} ${canDo ? "cursor-grab active:cursor-grabbing" : ""}`,
+        className: `${stopped ? "opacity-70" : ""} select-text`,
       }}
       meta={
         <>
@@ -1163,6 +1188,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
           {menu && !canExec && <Menu at={menu} onClose={() => setMenu(null)} items={extra} />}
           {!grouped && <><span>第1版：{displayText(whenText(today, entry.day, entry.time))}</span>
           <span className="font-bold text-ink">{displayText(entry.author)}</span></>}
+          {copyStatus && <span role="status">{copyStatus}</span>}
           {entry.verbal && <VerbalReview entry={entry} />}
           {entry.verbal && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">口頭指示 {displayText(entry.verbal.doctor)} → 受け {entry.verbal.takenBy}</span>}
           <CosignMark refId={entry.id} />
@@ -1203,7 +1229,7 @@ function RxCard({ entries, rpNo, takeBadgeOf, ...props }: {
   return (
     <Card mark={orderMark(o)} when={whenText(props.today, entryDayFor(first, props.orderDay ?? "予定日"))} place={props.place}
       tone={entries.every((e) => e.status === "中止") ? STOPPED_TONE : ORDER_TONE}
-      folded={props.folded} onFold={props.onFold} dragHandle={!!props.onDo}
+      folded={props.folded} onFold={props.onFold}
       tag={<><button type="button" className="text-[10px] text-ink-faint underline" onClick={() => props.onJumpDay?.(first.day)}>依頼 {formatShort(addDays(props.today, first.day))}</button><ExecutionTags marks={sharedMarks} today={props.today} now={props.now} /></>}
       meta={<><span>第1版：{displayText(whenText(props.today, first.day, first.time))}</span><span className="font-bold text-ink">{displayText(first.author)}</span>
         {sameStatus && <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[first.status]}`}>{first.status}{first.status === "中止" && first.stoppedOn === 0 ? "（今日）" : ""}</span>}</>}>

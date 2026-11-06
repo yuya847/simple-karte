@@ -4,6 +4,8 @@ import { expiryInbox, expiryCounts, receivesExpiry, expiryExtension } from "@/li
 import { RxExpiryNotice } from "./RxExpiryNotice";
 import { RxExpiryStrip } from "./RxExpiryStrip";
 import { rxExpiries, visibleExpiryStickies } from "@/lib/rx-expiry";
+import { historyOrderHandlers } from "@/lib/history-order";
+import { OrderHistoryContext, useOrderUnlocks } from "./OrderHistoryActions";
 import { standingPending } from "@/lib/standing-pending";
 import { roomLabel } from "@/lib/place-label";
 import { scenarioHandoffs } from "@/lib/scenarios/handoffs";
@@ -682,6 +684,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [reports, setReports] = useState<BroughtReport[]>([]);
   const [shido, setShido] = useState<Record<string, ShidoRecord[]>>({});
   const [dispensed, setDispensed] = useState<Record<string, string>>({});
+  const orderUnlocks = useOrderUnlocks(audited, dispensed);
   const [oralRx, setOralRx] = useState<Record<string, OralRecord>>({});
   // 麻薬の管理（受払簿・施用票・返納・廃棄・事故）: narcotic-book.ts.
   const [narcBook, setNarcBook] = useState<NarcoticBook>(() => scenario ? SCENARIOS.narcBook : INITIAL_BOOK);
@@ -847,6 +850,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       consents: [consents, (v: ConsentRecord[]) => setConsents([...v, ...admissionConsents().filter((c) => !v.some((x) => x.id === c.id))])],
       taken: [taken, setTaken],
       audited: [audited, setAudited],
+      orderUnlocks: [orderUnlocks.state, orderUnlocks.restore],
       queries: [queries, setQueries],
       reports: [reports, setReports],
       shido: [shido, setShido],
@@ -1602,7 +1606,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       openOrder("add-injection");
     } else if (o.type === "prescription") {
       const rp = o.rp;
-      const same = entries.filter((x): x is OrderEntry => x.kind === "order" && x.order.type === "prescription" && (rp ? x.order.rp === rp : x.id === e.id));
+      const same = entries.filter((x): x is OrderEntry => x.kind === "order" && x.order.type === "prescription" && (rp ? x.order.rp === rp && x.day === e.day && x.time === e.time && x.author === e.author && x.status !== "中止" : x.id === e.id));
       const [pattern] = previousOf(patient.id, same.map((x) => (x.order.type === "prescription" && x.order.category === "持参薬" ? { ...x, order: { ...x.order, category: "定期" as const } } : x)));
       if (!pattern) return;
       update({ rxSeed: { key: newId(), pattern }, flash: "同じ処方を内服のウインドウに写しました（Do）。日数などを確かめて下書きにしてください。" });
@@ -1833,6 +1837,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const expiryPatients = expiryInbox(consultPeople, today, stickies, (p, es) => receivesExpiry(me.name, doctorsFor(p.id, es)));
   const expiryN = expiryCounts(expiryPatients);
   if (role === "医師" && expiryN.total) todos.push({ key: "rx-expiry", label: `処方切れ（今日 ${expiryN.today}・明日 ${expiryN.tomorrow}）`, detail: expiryPatients.flatMap(x => x.messages).join("、"), count: expiryN.total, tone: expiryN.today ? "shu" : "yamabuki", go: () => setExpiryOpen(true) });
+  if (role === "薬剤師" && orderUnlocks.requests.length) todos.push({ key: "order-unlocks", label: "処方のロック解除の依頼", count: orderUnlocks.requests.length, tone: "yamabuki", go: () => openArea("pharmacy") });
   if (role === "医師") todos.push(...diseaseRequestTodos(allPatients, stickies, me.name, id => diseaseRequestInput(claimPayloadOf(findPatient(id)!), isoDate(today), nowTime), id => { openPatient(id); setTimeout(() => setPanel("diagnoses"), 0); }));
   if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) { openPatient(n.patientId); updateFor(n.patientId, () => ({ leftView: "flowsheet", flowScale: "all" })); } } })));
   if (role === "管理栄養士" && kitchenPending) todos.push({ key: "kitchen", label: "給食の変更が未受け", count: kitchenPending, tone: "shu", go: () => openArea("kitchen") });
@@ -2875,6 +2880,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           nowTime={nowTime}
           audited={audited}
           onAudit={(id) => {
+            orderUnlocks.relock(id);
             auditLog({ role: me.role, actor: me.name, action: "処方監査", detail: id });
             setAudited((a) => ({ ...a, [id]: nowTime }));
           }}
@@ -2909,7 +2915,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             setShido((all) => ({ ...all, [pid]: [...(all[pid] ?? []), { ...rec, day: 0, at: nowTime }] }));
           }}
           dispensed={dispensed}
-          onDispense={(key) => setDispensed((d) => ({ ...d, [key]: nowTime }))}
+          onDispense={(key) => { orderUnlocks.relock(key.split("|")[0]); setDispensed((d) => ({ ...d, [key]: nowTime })); }}
           oralRx={oralRx}
           onOralRx={(key, rec) => setOralRx((all) => ({ ...all, [key]: rec }))}
           narcoticPatientNames={Object.fromEntries(allPatients.map(p => [p.id, p.name]))}
@@ -3078,7 +3084,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               />
             );
           })()}
-          <PatientWindowProvider key={`${patient.id}:${desk}`} focusKey={panel ? `panel:${panel}` : null} focusVersion={panelActivation} focusTabs={zOrder}><WindowTray />
+          <PatientWindowProvider patientKey={`${patient.id}:${desk}`} key={`${patient.id}:${desk}`} focusKey={panel ? `panel:${panel}` : null} focusVersion={panelActivation} focusTabs={zOrder}><WindowTray />
           {(role === "医師" || role === "薬剤師" || role === "看護師") && <RxExpiryStrip key={patient.id} patient={patient} entries={ordersOf(entries)} today={today} doctor={role === "医師" && !deny("order")} sender={me.name.includes(role) ? me.name : `${role} ${me.name}`} stickies={stickies[patient.id] ?? []} pending={pendingExtends} onExtend={extendDraft} onSticky={st => setStickies(all => ({ ...all, [patient.id]: [...(all[patient.id] ?? []).filter(s => s.id !== st.id), st] }))} onRemove={id => setStickies(all => ({ ...all, [patient.id]: (all[patient.id] ?? []).filter(s => s.id !== id) }))} />}
           <StickyStrip
             stickies={visibleDiseaseStickies(visibleExpiryStickies(stickies[patient.id] ?? [], rxExpiries(patient, ordersOf(entries), today)), diseaseRequestInput(claimPayloadOf(patient), isoDate(today), nowTime))}
@@ -4502,6 +4508,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   return (
     <ScenarioSaveProvider value={workspace.status === "off" ? null : workspace.saveNow}>
+    <OrderHistoryContext.Provider value={{ ...orderUnlocks, entries: entries.filter((e): e is OrderEntry => e.kind === "order"), canEdit: role === "医師" && !deny("order"), ...historyOrderHandlers({ entries: entries.filter((e): e is OrderEntry => e.kind === "order"), locked: orderUnlocks.locked, canEdit: role === "医師" && !deny("order"), modifyInjection: modifyOrder, stopDraft: addStopDraft, load: e => doFromHistory({ kind: "order", entryId: e.id }) }) }}>
     <RoleProvider value={role}>
     <MeProvider value={me}>
     <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
@@ -4738,6 +4745,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     </VerbalReviewProvider>
     </MeProvider>
     </RoleProvider>
+    </OrderHistoryContext.Provider>
     </ScenarioSaveProvider>
   );
 }

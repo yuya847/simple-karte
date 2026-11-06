@@ -314,12 +314,12 @@ export function Row({ row, small, start, end }: { row: TabRow; small: boolean; s
                 <span className="mb-1.5 shrink-0 whitespace-nowrap px-1 text-[11px] font-bold text-ink-faint">{g.label}</span>
               ))}
             {g.items.filter((t) => visible.has(t.key)).map((t) => (
-              <Tab key={t.key} t={t} small={small} />
+              <span key={t.key} className="contents"><Tab t={t} small={small} />{small && t.active && <span id="patient-window-tabs" className="flex min-w-0 items-end gap-1 overflow-x-auto" />}</span>
             ))}
           </div>
         ))}
         {row.items.filter((t) => visible.has(t.key)).map((t) => (
-          <Tab key={t.key} t={t} small={small} />
+          <span key={t.key} className="contents"><Tab t={t} small={small} />{small && t.active && <span id="patient-window-tabs" className="flex min-w-0 items-end gap-1 overflow-x-auto" />}</span>
         ))}
         {row.plus && (
           <button

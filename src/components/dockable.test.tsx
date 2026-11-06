@@ -11,5 +11,5 @@ it("参照ウインドウには最小化と閉じるだけがあり、位置と�
   expect(html).toContain("入力途中");
 });
 it("札がない行は場所を取らない", () => {
-  expect(renderToStaticMarkup(<PatientWindowProvider><WindowTray /></PatientWindowProvider>)).toBe("");
+  expect(renderToStaticMarkup(<PatientWindowProvider patientKey="test"><WindowTray /></PatientWindowProvider>)).toBe("");
 });
