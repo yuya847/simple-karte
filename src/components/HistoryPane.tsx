@@ -7,6 +7,8 @@ import { VerbalReview } from "./VerbalControls";
 import { CalendarDays, ChevronDown, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { matchesTemplate, templateOptions } from "@/lib/record-filter";
 import { BUILTIN_RECORD_TEMPLATES, loadMyRecordTemplates } from "@/lib/record-templates";
+import { loadFilters, saveFilters, sameFilter, type SavedFilter } from "@/lib/history-filters";
+import { SavedHistoryFilters } from "./SavedHistoryFilters";
 import { TemplateFilter } from "./TemplateFilter";
 import { matchesRecordFacets, recordFacetOptions } from "@/lib/record";
 import { searchKey } from "@/lib/kana";
@@ -257,6 +259,20 @@ function RecordList({
   ]);
   const facetActive = departments.length > 0 || roles.length > 0;
   const [q, setQ] = useState("");
+  const [savedState, setSavedState] = useState(() => ({ person: me.name, list: loadFilters(me.name) }));
+  if (savedState.person !== me.name) setSavedState({ person: me.name, list: loadFilters(me.name) });
+  const saved = savedState.person === me.name ? savedState.list : loadFilters(me.name);
+  const [saveError, setSaveError] = useState("");
+  const currentFilter = { on, templateIds, onlyTemplates, departments, roles, q };
+  const matchedFilter = saved.find((f) => sameFilter(f, currentFilter));
+  const applyFilter = (f: SavedFilter) => {
+    setOn([...f.on]); setTemplateIds([...f.templateIds]); setOnlyTemplates(f.onlyTemplates);
+    setDepartments([...f.departments]); setRoles([...f.roles]); setQ(f.q);
+  };
+  const changeFilters = (list: SavedFilter[]) => {
+    setSavedState({ person: me.name, list });
+    setSaveError(saveFilters(me.name, list) ? "" : "この端末に保存できませんでした。画面を閉じるまで使えます。");
+  };
   const toggle = (k: string) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
   // Folding: each card by its key, and 「すべてたたむ」 for the ones not opened by hand since.
   const [folded, setFolded] = useState<{ all: boolean; each: Record<string, boolean> }>({ all: false, each: noteId ? { [noteId]: false } : {} });
@@ -379,6 +395,8 @@ function RecordList({
             ))}
           </span>
           )}
+          {tools === "filter" && <SavedHistoryFilters key={me.name} list={saved} current={currentFilter} onApply={applyFilter} onChange={changeFilters} />}
+          {saveError && <span role="alert" className="text-shu">{saveError}</span>}
           {tools === "filter" && (["note", "order"] as const).map((g) => (
             <span key={g} role="group" aria-label={g === "note" ? "記載を書いた職種" : "オーダの種類"} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="text-ink-faint">{g === "note" ? "記載" : "オーダ"}</span>
@@ -415,12 +433,13 @@ function RecordList({
           </label>
           )}
         </div>
-        {narrowed && (
+        {(narrowed || matchedFilter) && (
           <p className="flex items-center gap-2 rounded bg-ai-soft px-2 py-1 text-[11px] text-ai">
             <b>
+              {matchedFilter ? <>{matchedFilter.name}（保存した絞り込み）</> : <>
               {on.length !== ALL_CATS.length ? `${CATS.filter((c) => on.includes(c.key)).map((c) => c.label).join("・") || "なし"}` : ""}
               {templateActive ? (templateIds.length ? templateOptions(visible, templates).filter((t) => templateIds.includes(t.id)).map((t) => t.name).join("・") : "テンプレートの記事") : ""}
-              {[...departments, ...roles].join("・")}{key ? `「${q.trim()}」を含む` : ""}だけを表示中：{shownCount}件
+              {[...departments, ...roles].join("・")}{key ? `「${q.trim()}」を含む` : ""}</>} を表示中：{shownCount}件
             </b>
             <button
               type="button"
