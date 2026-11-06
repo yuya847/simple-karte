@@ -156,7 +156,7 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
     <div key={r.no} className={`flex flex-col rounded-lg border border-rule bg-sheet ${r.kind === "4床室" ? "flex-[2]" : "flex-1"}`}>
       <div className="nums flex items-baseline gap-2 border-b border-rule-soft px-2.5 py-1">
         <b className="text-sm">{displayText(r.no)}</b>
-        <span className="text-[10px] text-ink-faint">{r.kind}</span>
+        <span className="text-[10px] text-ink-faint">{ward.beds.find(b => b.room === r.no)?.specialty} {r.kind}</span>
         {look.roomNote?.(r) && (
           <span className="ml-auto truncate text-[10px] font-bold text-ai" title="業務分担（いまの勤務帯の受け持ち）">
             {look.roomNote(r)}

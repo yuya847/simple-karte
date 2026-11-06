@@ -1,5 +1,6 @@
 "use client";
 
+import { workspaceRecords } from "./workspace-records";
 import { useEffect, useRef, useState } from "react";
 import { mergeWorkspace, type MergeOptions } from "./merge-workspace";
 import { thisTab } from "./presence";
@@ -30,7 +31,8 @@ const SAVE_MS = 1000;
  * newer records and merges them in (several people on one chart at once), and the next save carries both.
  * `states` maps a name to [value, setter]; its keys must stay the same.
  */
-export function useWorkspace(states: Record<string, [unknown, (v: never) => void]>, day: string | null, opts: WorkspaceOptions = {}) {
+export function useWorkspace(inputStates: Record<string, [unknown, (v: never) => void]>, day: string | null, opts: WorkspaceOptions = {}) {
+  const states = workspaceRecords(inputStates);
   const [status, setStatus] = useState<WorkspaceStatus>("off");
   const [id, setId] = useState<string | null>(null);
   const loaded = useRef(false);
@@ -68,6 +70,7 @@ export function useWorkspace(states: Record<string, [unknown, (v: never) => void
   };
   const snapshot = () => ({ ...Object.fromEntries(Object.entries(statesRef.current).map(([k, [v]]) => [k, v])), ...(putting.current ?? {}) });
   const putBack = (data: Record<string, unknown>) => {
+    data = workspaceRecords(data);
     echo.current = data;
     putting.current = data;
     for (const [k, v] of Object.entries(data)) statesRef.current[k]?.[1](v as never);

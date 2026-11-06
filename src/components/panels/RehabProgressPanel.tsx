@@ -4,6 +4,10 @@
 // over time, the day counts (標準的算定日数・早期リハビリテーション加算) and the state of the 実施計画書. The doctor
 // can mark the patient as one who may have 9 units a day (別に厚生労働大臣が定める患者); code does not decide it.
 
+import { RehabFim } from "../RehabFim";
+import { Bi, Plans, SessionForm } from "../RehabView";
+import type { NoteEntry } from "@/lib/types";
+import { sessionNote } from "@/lib/rehab-record";
 import { displayText } from "@/lib/display-text";
 import { auditLog } from "@/lib/audit";
 import { BI_DROP_NOTE, biDrops } from "@/lib/barthel";
@@ -13,6 +17,7 @@ import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 import { useDeny, useMe } from "../RoleContext";
 
 interface Props {
+  onNote?: (pid: string, note: NoteEntry) => void;
   patient: Patient;
   entries: HistoryEntry[];
   desk: RehabDesk;
@@ -21,7 +26,7 @@ interface Props {
   nowTime: string;
 }
 
-export function RehabProgressPanel({ patient, entries, desk, onDesk, today, nowTime }: Props) {
+export function RehabProgressPanel({ onNote, patient, entries, desk, onDesk, today, nowTime }: Props) {
   const me = useMe();
   const deny = useDeny()("rehab.plan");
   const fmt = (d: number) => formatShort(addDays(today, d));
@@ -30,6 +35,16 @@ export function RehabProgressPanel({ patient, entries, desk, onDesk, today, nowT
   const nine = desk.nine[patient.id];
   return (
     <div className="space-y-3 text-[12px]">
+      {me.role === "療法士" && <>
+        <h3 className="font-bold">実施・評価・計画書</h3>
+        {rxs.map(rx => <SessionForm key={rx.orderId} rx={rx} desk={desk} onDesk={onDesk} today={today} nowTime={nowTime} vitals={patient.vitals}
+          b={{ id: `chart-${rx.orderId}-0-${me.name}`, patientId: patient.id, orderId: rx.orderId, therapist: me.name, discipline: rx.order.therapists[0], day: 0, start: nowTime, minutes: 40, place: "病棟（ベッドサイド）", by: me.name }}
+          onRecorded={s => onNote?.(patient.id, sessionNote(s, rx, me.name))} />)}
+        <Bi onNote={onNote} people={[]} rxs={rxs} desk={desk} onDesk={onDesk} today={today} nowTime={nowTime} fmt={fmt} />
+        <RehabFim patientId={patient.id} desk={desk} onDesk={onDesk} nowTime={nowTime} onNote={onNote} />
+        <Plans people={[]} rxs={rxs} desk={desk} onDesk={onDesk} today={today} nowTime={nowTime} fmt={fmt} />
+      </>}
+
       {rxs.map((rx) => {
         const pr = progressOf(desk, rx, 0);
         const cat = categoryOf(rx.order.field);

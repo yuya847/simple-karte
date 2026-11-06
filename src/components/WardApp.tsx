@@ -1,4 +1,6 @@
 "use client";
+import { RehabPatients } from "./RehabPatients";
+import { wardRehabDesk } from "@/lib/rehab-workflow";
 import { nursingShiftStart } from "@/lib/nursing-shift";
 import { SpecialistBoard } from "./SpecialistBoard";
 import { specialistTileBlocks } from "@/lib/specialist-tools";
@@ -1655,7 +1657,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const deptResults = [...dept.results, ...care.results];
   const wardResults = [...people.flatMap((x) => resultsOf(x.patient, PANIC_LIMITS)), ...deptResults.filter((i) => people.some((x) => x.patient.id === i.patientId))];
   // 内視鏡室・給食・チーム医療・病理 work for every inpatient (all wards), worked out only while one of them is open.
-  const everyone = screen === "endo" || screen === "kitchen" || screen === "teams" || screen === "path" ? bedPeople(allBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id])) : [];
+  const everyone = screen === "endo" || screen === "kitchen" || screen === "teams" || screen === "path" || screen === "rehab" || role === "療法士" ? bedPeople(allBeds, findPatient, (p) => currentEntries(p, sessionChanges[p.id])) : [];
   // 救急外来・外来 visits with lab orders: the laboratory takes in and results their samples too.
   const labVisits: WorkPatient[] = visitPatientsAll
     .map((x) => ({ ...x, entries: withRedraws(currentEntries(x.patient, sessionChanges[x.patient.id]).filter((e): e is OrderEntry => e.kind === "order"), labDesk, x.patient.id) }))
@@ -2758,7 +2760,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "radiology" ? (
         <RadiologyView people={examPeople} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} consents={consents} />
       ) : screen === "rehab" ? (
-        <RehabView onNote={(pid, note) => setNotes((all) => ({ ...all, [pid]: upsertSessionNote(all[pid] ?? [], note) }))} people={people} desk={dept.rehab} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
+        <RehabView onNote={(pid, note) => setNotes((all) => ({ ...all, [pid]: upsertSessionNote(all[pid] ?? [], note) }))} onOpen={openPatient} people={everyone} desk={wardRehabDesk(dept.rehab, everyone)} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
       ) : screen === "path" ? (
         <PathologyView people={everyone} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
@@ -2909,6 +2911,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         <RecentPatients list={recentList} patient={findPatient} onOpen={openPatient} onClear={() => setRecentList([])} />
       ) : screen === "favorites" ? (
         <FavoritePatients patient={findPatient} nowTime={nowTime} changes={sessionChanges} waiting={waiting} resultState={resultState} extraFlags={listFlags} diagnoses={diagnoses} onOpen={openPatient} />
+      ) : listKey === "mine" && role === "療法士" ? (
+        <RehabPatients people={everyone} desk={dept.rehab} me={me.name} onOpen={openPatient} />
       ) : listKey ? (
         <div className="flex min-h-0 flex-1 flex-col">
         <PatientList
@@ -3421,7 +3425,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "rehab-progress" && (
                 <Drawer title="リハビリの経過" onClose={closePanel} wide>
-                  <RehabProgressPanel patient={patient} entries={entries} desk={dept.rehab} onDesk={dept.setRehab} today={today} nowTime={nowTime} />
+                  <RehabProgressPanel onNote={(pid, note) => setNotes(all => ({ ...all, [pid]: upsertSessionNote(all[pid] ?? [], note) }))} patient={patient} entries={entries} desk={dept.rehab} onDesk={dept.setRehab} today={today} nowTime={nowTime} />
                 </Drawer>
               )}
               {panel === "reports" && (
@@ -4112,10 +4116,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     patient={patient}
                     today={formatShort(today)}
                     nowTime={nowTime}
-                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { diagnoses: diagnoses[patient.id] ?? [], standing: standingNow(patient.id), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
-                    onSave={(to, words) => {
+                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { rehab: dept.rehab, diagnoses: diagnoses[patient.id] ?? [], standing: standingNow(patient.id), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
+                    onSave={(to, words, facts) => {
                       auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
-                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・連携サマリを作成（宛先：${to}）${words ? `。申し送り：${words}` : ""}\n` }));
+                      chartNote(patient.id, `連携サマリ（宛先：${to}）\n${facts.map(s => `${s.heading}：${s.lines.join("、")}`).join("\n")}\n申し送り：${words}`);
                     }}
                     nursing={{
                       summaries: nm.summaries,

@@ -1,5 +1,7 @@
+import { EARLY_NOTE, FACILITY_NOTE, REHAB_RULES } from "../rehab";
 // 部門のタブごとの操作。
 export const departmentHelp = [
+  { id: "department:rehab:rules", title: "リハビリテーション部 › 算定・予約", bullets: [EARLY_NOTE, FACILITY_NOTE, REHAB_RULES.hours, "リハビリの経過から実施・BI・FIM・計画書を記録できます。部のカンファレンスは患者を選んで日時・参加者・目標・方針を記録します。"] },
   {
     "id": "department:pharmacy:audit",
     "title": "薬剤部 › 処方監査・疑義照会",

@@ -147,6 +147,12 @@ export function groupsFor(role: string): { key: GroupKey; title: string; main: T
   const only = ONLY[role];
   const forRole = (ts: Tool[]) => (role === "医師" ? ts : ts.filter((t) => !DOCTOR_ONLY.has(t.key) && !(role === "管理栄養士" && ["restraint", "discharge-stop", "path", "standing"].includes(t.key))));
   const groups = GROUPS.map((g) => ({ ...g, main: forRole(g.main), more: forRole(g.more) }));
+  if (role === "療法士") {
+    const reference = groups.find(g => g.key === "reference")!;
+    reference.title = "リハビリ";
+    reference.main = [{ key: "rehab-progress", label: "経過・実施・評価・計画書", icon: Footprints }, ...reference.main.filter(t => t.key !== "rehab-progress")];
+    groups.splice(groups.indexOf(reference), 1); groups.unshift(reference);
+  }
   if (role === "薬剤師") {
     const intervention = groups.find((g) => g.key === "intervention")!;
     intervention.main = [

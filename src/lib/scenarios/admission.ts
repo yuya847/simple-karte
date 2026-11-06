@@ -20,7 +20,7 @@ export function admissionState(cases: { patient: Patient; stage: string; planned
       a.pressure = { adl: "A2", items: {}, ulcerNow: false, plan: "皮膚状態を観察", by, at };
       a.fall = { checked: p.age >= 75 ? ["歩行時に介助が必要"] : [], measures: [], plan: "足元と移動時の安全を確認", by, at };
       a.delirium = { checked: p.age >= 70 ? ["70歳以上"] : [], measures: ["早期離床の取組"], by, at };
-      a.discharge = { factors: p.age >= 75 ? ["ク"] : [], note: "本人・家族と退院後の生活を確認", extractedBy: by, extractedAt: at, talkedAt: at, planStartedAt: at, conferenceAt: at };
+      a.discharge = { factors: /脳梗塞|脳出血|骨折/.test(p.admissionDiagnosis) ? ["ク"] : p.age >= 75 ? ["ク"] : [], note: "本人・家族と退院後の生活を確認", extractedBy: by, extractedAt: at, talkedAt: at, planStartedAt: at, conferenceAt: at };
     }
     evals[p.id] = a;
   }

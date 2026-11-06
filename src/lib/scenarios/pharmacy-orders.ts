@@ -59,10 +59,14 @@ export function addPharmacyOrders(p: Patient, i: number, stage: string) {
       put("changed-oral", { ...rx.order, amount: 2, comment: "変更：便通を確認し本日から1回2錠" }, 0);
     }
   }
-  if (i % 10 === 6) {
+  if (i % 10 === 6 && !/脳梗塞|脳出血|脳塞栓/.test(diagnosis)) {
     if (/心不全/.test(diagnosis)) oral("home", "ORAL-FRS20", "退院時", 2);
     else if (/MRSA|ＭＲＳＡ|肺炎/.test(diagnosis)) oral("home", "ORAL-CARB500", "退院時", 1, ["朝", "昼", "夕"]);
-    else oral("home", "ORAL-AMLO5", "退院時");
+    else {
+      const regular = p.history.find(e => e.kind === "order" && e.status === "有効" && e.order.type === "prescription" && e.order.category === "定期");
+      if (regular?.kind === "order" && regular.order.type === "prescription") put("home", { ...regular.order, category: "退院時", start: { day: 1, timing: regular.order.timings[0] }, days: 7 });
+      else oral("home", "ORAL-AMLO5", "退院時");
+    }
     put("discharge", { type: "procedure", code: "PROC-LEAVE", start: { day: 1, time: "10:00" }, schedule: { kind: "once" }, leave: { kind: "退院", from: { day: 1, time: "10:00" }, destination: "自宅", note: "退院時処方を薬剤師が確認" } });
   }
   if (i % 20 === 2) {

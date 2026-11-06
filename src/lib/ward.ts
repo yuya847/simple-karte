@@ -21,6 +21,7 @@ export interface OtherPatient {
 }
 
 export interface BedAssignment {
+  specialty?: "小児" | "産科";
   room: string;
   bed: string;
   patientId?: string; // one of our patients

@@ -64,10 +64,11 @@ function Handed({ list, onRedo }: { list: NurseSummary[]; onRedo: (s: NurseSumma
  * writer's own words, on one sheet to print or hand over. Nothing is written by AI. A nurse hands the
  * 看護サマリ in to the 看護師長 (退院・転院時・転棟時・中間).
  */
-export function SummaryPanel({ patient, facts, today, nowTime, onSave, nursing }: { patient: Patient; facts: SummarySection[]; today: string; nowTime: string; onSave: (to: Destination, words: string) => void; nursing?: NursingSummaries }) {
+export function SummaryPanel({ patient, facts, today, nowTime, onSave, nursing }: { patient: Patient; facts: SummarySection[]; today: string; nowTime: string; onSave: (to: Destination, words: string, facts: SummarySection[]) => void; nursing?: NursingSummaries }) {
   const me = useMe();
   const [to, setTo] = useState<Destination | null>(null);
   const [words, setWords] = useState("");
+  const [saved, setSaved] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [kind, setKind] = useState<SummaryKind | null>(null);
   const [redo, setRedo] = useState<string | null>(null);
@@ -158,7 +159,7 @@ export function SummaryPanel({ patient, facts, today, nowTime, onSave, nursing }
             {redo ? "直して看護師長に出し直す" : `${title}を看護師長に提出`}
           </button>
         ) : (
-          <button type="button" disabled={!to} onClick={() => to && onSave(to, words.trim())} className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40">
+          <button type="button" disabled={!to} onClick={() => { if (to) { onSave(to, words.trim(), facts); setSaved(true); } }} className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40">
             {title}を確定（記録に残す）
           </button>
         )}
@@ -168,6 +169,7 @@ export function SummaryPanel({ patient, facts, today, nowTime, onSave, nursing }
         </button>
         {!ready && <span className="text-[12px] text-yamabuki">{handIn && !kind ? "種類を選んでください" : "宛先を選んでください"}</span>}
       </div>
+      {saved && <p role="status">連携サマリを確定しました。カルテの経過に残しました。</p>}
       {handIn && <p className="text-[11px] text-ink-faint">{SUMMARY_RULES.approve}</p>}
       <div className="rounded-md border border-rule bg-sheet p-3">{sheet}</div>
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-6 text-ink print:block">{sheet}</div>, document.body)}

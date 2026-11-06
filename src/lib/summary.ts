@@ -2,6 +2,8 @@
 // items listed for 介護・地域連携 (既往歴・感染症・病名・生活上の注意・検査データ・バイタル・処置/処方・
 // 制限事項・ADL). The writer adds their own words; nothing here is written by AI.
 
+import { biTotal } from "./barthel";
+import type { RehabDesk } from "./rehab";
 import type { AdmitEval } from "./admit-eval";
 import { anamnesisSummary, type AnamnesisFields } from "./anamnesis";
 import { scheduleLabel, type CareOrder } from "./care-orders";
@@ -24,10 +26,10 @@ export interface SummarySection {
 
 const KEY_LABS = ["WBC", "Hb", "Plt", "Alb", "Cre", "Na", "K", "CRP"];
 
-export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] }; anamnesis?: AnamnesisFields }): SummarySection[] {
+export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { rehab?: RehabDesk; diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] }; anamnesis?: AnamnesisFields }): SummarySection[] {
   const active = entries.filter((e) => e.status === "有効");
   const lines = (type: OrderEntry["order"]["type"]) =>
-    active.filter((e) => e.order.type === type).map((e) => {
+    active.filter((e) => e.order.type === type && !(type === "procedure" && e.order.type === "procedure" && (e.order.rehab || e.order.leave))).map((e) => {
       const l = orderLines(e.order, today);
       return `${l.main}　${l.detail}`;
     });
@@ -41,6 +43,8 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
   const v = p.vitals.at(-1);
   const s = extra.standing;
   const ev = extra.evals;
+  const bi = extra.rehab?.bi.filter(e => e.patientId === p.id).sort((a,b) => a.day - b.day || a.time.localeCompare(b.time)).at(-1);
+  const fim = extra.rehab?.fim?.filter(e => e.patientId === p.id).sort((a,b) => a.day - b.day || a.time.localeCompare(b.time)).at(-1);
   const out: SummarySection[] = [
     { heading: "病名", lines: dx.length ? dx.map((d) => `${diagnosisLabel(d)}${d.main ? "（主病名）" : ""}`) : [p.admissionDiagnosis] },
     { heading: "感染症・アレルギー", lines: [`感染症：${p.infections.join("、") || "なし"}`, `アレルギー：${p.allergies.join("、") || "なし"}`] },
@@ -52,6 +56,10 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
     {
       heading: "ADL・リスク",
       lines: [
+        `BI：${bi ? biTotal(bi.scores) : "記録なし"}`,
+        `FIM：${fim ? fim.scores.reduce((a,b) => a+b,0) : "記録なし"}`,
+        `歩行：${fim?.walk || "記録なし"}`,
+        `移乗：${fim?.transfer || "記録なし"}`,
         ev?.pressure && `日常生活自立度：${ev.pressure.adl}${ev.pressure.ulcerNow ? "（褥瘡あり）" : ""}`,
         ev?.fall?.checked.length ? `転倒転落の危険因子：${ev.fall.checked.join("、")}` : null,
         ev?.delirium?.checked.length ? `せん妄の危険因子：${ev.delirium.checked.join("、")}` : null,
@@ -67,6 +75,7 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
     { heading: "処方（内服）", lines: lines("prescription") },
     { heading: "注射", lines: lines("injection") },
     { heading: "処置", lines: lines("procedure") },
+    ...["リハビリ処方", "退院・外泊"].map((heading, i) => ({ heading, lines: active.filter(e => e.order.type === "procedure" && (i === 0 ? e.order.rehab : e.order.leave)).map(e => { const l = orderLines(e.order, today); return `${l.main} ${l.detail}`; }) })),
     { heading: "検査データ（最新）", lines: labs },
     { heading: "バイタル（最新）", lines: v ? [`${v.day === 0 ? "今日" : `${-v.day}日前`} ${v.time}　BT ${v.bt ?? "—"}　HR ${v.hr ?? "—"}　BP ${v.sbp ?? "—"}/${v.dbp ?? "—"}　RR ${v.rr ?? "—"}　SpO2 ${v.spo2 ?? "—"}%（${v.o2 ?? "室内気"}）`] : [] },
     { heading: "医師への連絡の基準・頓用（指示簿）", lines: s ? [...new Set([...s.calls.map(callText), ...(s.blockCallTexts ?? []), ...s.prn.map(prnText), ...(s.blockPrnTexts ?? [])])] : [] },

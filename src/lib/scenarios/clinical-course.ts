@@ -133,6 +133,8 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
   if (i === 6) order(0, { type: "procedure", code: "PROC-WOUND", site: "右前腕膿瘍", start: { day: first, time: "13:00" }, schedule: { kind: "per_day", count: 1 }, days: 7, comment: "切開排膿後、洗浄と被覆" });
   if (/心不全/.test(c.name)) { injection(0, "INJ-FRS20", 20, "mg", 1, 3, "静注"); oral(3, "ORAL-FRS20", 1, "錠", Math.max(1, duration - 2)); }
   if (/膵炎|イレウス|腎障害|低ナトリウム|ディフィシル|敗血症/.test(c.name)) injection(0, "INJ-NS500", 500, "mL", i === 27 ? 1 : 2, 2);
+  // Authored atherothrombotic stroke fixture: antiplatelet continued once each morning.
+  if (c.name === "アテローム血栓性脳梗塞") oral(0, "610443053", 1, "錠", Math.max(14, duration + 7));
   if (/骨折/.test(c.name)) {
     oral(0, "ORAL-APAP500", 1, "錠", 7);
     addNote(first, "医師", { text: "VTE予防：下肢の間欠的空気圧迫法と足関節運動。出血・下肢腫脹を毎日観察し、離床を進める。" });

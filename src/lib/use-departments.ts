@@ -3,6 +3,8 @@
 // The records of 輸血部門・病理・生理検査室・放射線部・リハビリテーション部, with the fictional state they start from. WardApp spreads
 // `states` into useWorkspace so they are saved with the other records of the session.
 
+import { initialScenarioRehabDesk, restoreScenarioRehabDesk } from "./rehab-workflow";
+import { ordersOf } from "./record";
 import { SCENARIOS } from "./scenarios";
 import { scenarioMode } from "./scenarios/mode";
 import { useMemo, useState } from "react";
@@ -34,7 +36,7 @@ export function useDepartments() {
   const [pathology, setPathology] = useState<PathCase[]>(onClient([], initialPathology));
   const [physioDesk, setPhysioDesk] = useState<PhysioDesk>(onClient({}, (now) => scenarioMode() ? SCENARIOS.physioDesk : initialPhysioDesk(now)));
   const [ris, setRis] = useState<RisDesk>(onClient({}, (now) => scenarioMode() ? SCENARIOS.ris : initialRisDesk(now)));
-  const [rehab, setRehab] = useState<RehabDesk>(onClient(EMPTY_REHAB, initialRehabDesk));
+  const [rehab, setRehab] = useState<RehabDesk>(onClient(EMPTY_REHAB, () => scenarioMode() ? initialScenarioRehabDesk(SCENARIOS.cases.filter(c => c.stage === "入院").map(({patient}) => ({patient, room: patient.room, entries: ordersOf(patient.history)}))) : initialRehabDesk()));
   /** Physiological tests, imaging and rehabilitation ordered for the fictional ward patients (merged into their records). */
   const [demo] = useState<Record<string, OrderEntry[]>>(onClient({}, demoOrders));
   /** Reports the doctor marks as read, like the other results (生理・病理・画像). */
@@ -58,7 +60,7 @@ export function useDepartments() {
       pathology: [pathology, setPathology],
       physioDesk: [physioDesk, setPhysioDesk],
       ris: [ris, setRis],
-      rehab: [rehab, setRehab],
+      rehab: [rehab, (v: RehabDesk) => setRehab(scenarioMode() ? restoreScenarioRehabDesk(v, SCENARIOS.cases.filter(c => c.stage === "入院").map(({patient}) => ({patient, room: patient.room, entries: ordersOf(patient.history)}))) : v)],
     } as Record<string, [unknown, (v: never) => void]>,
   };
 }

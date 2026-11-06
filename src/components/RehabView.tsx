@@ -1,4 +1,5 @@
 "use client";
+import { RehabConference } from "./RehabConference";
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
@@ -14,20 +15,17 @@ import { cancelExecution } from "@/lib/mar";
 import { CalendarDays, ClipboardCheck, ClipboardList, FileText, Footprints, ListChecks } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
-import { BI_DROP_NOTE, BI_ITEMS, BI_SOURCES, biDrops, biOf, biProblems, biTotal, FIM_NOTE, type BiEval } from "@/lib/barthel";
+import { BI_DROP_NOTE, BI_ITEMS, BI_SOURCES, biDrops, biOf, biProblems, biTotal, type BiEval } from "@/lib/barthel";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import {
   bookingClashes,
   categoryOf,
   DISCIPLINE_NAME,
-  EARLY_NOTE,
   earlyAddition,
-  FACILITY_NOTE,
   holidayUntil,
   isRehabHoliday,
   patientDayUnits,
   progressOf,
-  REHAB_RULES,
   REHAB_SOURCES,
   rehabPrescriptions,
   sessionProblems,
@@ -49,6 +47,7 @@ import { RehabPlanForm } from "./RehabPlanForm";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 interface Props {
+  onOpen?: (id: string) => void;
   onNote?: (patientId: string, note: NoteEntry) => void;
   people: WorkPatient[];
   desk: RehabDesk;
@@ -59,7 +58,7 @@ interface Props {
   initialTab?: Tab;
 }
 
-type Tab = "schedule" | "work" | "bi" | "plan" | "list";
+type Tab = "conference" | "schedule" | "work" | "bi" | "plan" | "list";
 const card = "rounded-lg border border-rule bg-sheet";
 const field = "rounded border border-rule bg-paper px-1.5 py-0.5 outline-none focus:border-ai";
 const plus = (t: string, m: number) => {
@@ -92,25 +91,26 @@ export function RehabView(p: Props) {
             { key: "work", label: "受付・実施", icon: ClipboardList, badge: todays.length },
             { key: "bi", label: "ADL（BI）", icon: ClipboardCheck },
             { key: "plan", label: "実施計画書", icon: FileText },
+            { key: "conference", label: "カンファレンス", icon: ClipboardList },
             { key: "list", label: "一覧・単位", icon: ListChecks },
           ]}
         />
       </header>
       <div className="mx-auto max-w-[1150px] space-y-3 px-5 py-4 text-[13px]">
 
+        {tab === "conference" && <RehabConference today={p.today} rxs={rxs} nowTime={p.nowTime} onNote={p.onNote} />}
         {tab === "schedule" && <Schedule {...p} rxs={rxs} />}
         {tab === "work" && <Work {...p} rxs={rxs} bookings={p.desk.bookings.filter((b) => todays.includes(b) || b.id === receipt?.bookingId)} receipt={receipt} onReceipt={setReceipt} />}
         {tab === "bi" && <Bi {...p} rxs={rxs} fmt={fmt} />}
         {tab === "plan" && <Plans {...p} rxs={rxs} fmt={fmt} />}
         {tab === "list" && <List {...p} rxs={rxs} fmt={fmt} />}
-        <p className="text-[11px] text-ink-faint">{FACILITY_NOTE} </p>
         <Sources items={[REHAB_SOURCES.kokuji, REHAB_SOURCES.tsuchi, REHAB_SOURCES.form, REHAB_SOURCES.facility]} />
       </div>
     </section>
   );
 }
 
-function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[] }) {
+function Schedule({ onOpen, desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[] }) {
   const me = useMe();
   const deny = useDeny()("rehab.therapy");
   const [day, setDay] = useState(0);
@@ -131,7 +131,7 @@ function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[]
     auditLog({ role: me.role, actor: me.name, action: "確定（リハビリの予約）", patient: rx!.name, detail: `${therapist.name} ${day === 0 ? "今日" : "明日"} ${form.start} ${form.minutes}分 ${form.place}` });
   };
   const of = (t: string) => desk.bookings.filter((b) => b.day === day && b.therapist === t);
-  const name = (pid: string) => rxs.find((r) => r.patientId === pid)?.name ?? pid;
+  const name = (pid: string) => { const r = rxs.find(r => r.patientId === pid); return r ? `${r.room} ${r.name}` : ""; };
   return (
     <section className="space-y-3 text-[12px]">
       <DenyNote action="rehab.therapy" />
@@ -142,7 +142,6 @@ function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[]
             {isRehabHoliday(addDays(today, d)) ? "（休日）" : ""}
           </button>
         ))}
-        <span className="text-ink-faint">{REHAB_RULES.hours}</span>
       </div>
       <div className="scroll-thin overflow-x-auto">
         <table className={`${card} min-w-[640px] border-collapse`}>
@@ -165,7 +164,7 @@ function Schedule({ desk, onDesk, people, rxs, today }: Props & { rxs: RehabRx[]
                   const inside = of(t.name).some((x) => x.start < slot && plus(x.start, x.minutes) > slot);
                   return (
                     <td key={t.name} className={`px-2 py-0.5 ${b ? "bg-ai-soft font-bold text-ai" : inside ? "bg-ai-soft/50" : ""}`}>
-                      {b ? `${name(b.patientId)} ${b.minutes}分（${b.place === "訓練室" ? "訓練室" : "病棟"}）` : ""}
+                      {b ? <button type="button" onClick={() => onOpen?.(b.patientId)}>{name(b.patientId)} {b.minutes}分（{b.place === "訓練室" ? "訓練室" : "病棟"}）</button> : ""}
                     </td>
                   );
                 })}
@@ -256,7 +255,7 @@ function Work({ desk, onDesk, onNote, people, rxs, bookings, nowTime, today, rec
   );
 }
 
-function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRecorded }: { vitals: VitalSign[]; onRecorded: (s: RehabSession) => void; b: RehabBooking; rx: RehabRx; desk: RehabDesk; onDesk: Props["onDesk"]; nowTime: string; today: CalendarDate }) {
+export function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRecorded }: { vitals: VitalSign[]; onRecorded: (s: RehabSession) => void; b: RehabBooking; rx: RehabRx; desk: RehabDesk; onDesk: Props["onDesk"]; nowTime: string; today: CalendarDate }) {
   const me = useMe();
   const deny = useDeny()("rehab.therapy");
   const cur = desk.sessions.find((s) => s.bookingId === b.id);
@@ -329,6 +328,7 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRecorded }
             <option key={x}>{x}</option>
           ))}
         </select>
+        <label>分<input aria-label="実施の分" type="number" min={0} max={480} step={1} value={u.minutes} onChange={e => setEnd(plus(start, Number(e.target.value)))} className={`${field} w-16`} /></label>
         <b className="nums">
           {u.minutes}分 → {u.units}単位
         </b>
@@ -378,10 +378,11 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRecorded }
   );
 }
 
-function Bi({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: (d: number) => string }) {
+export function Bi({ onNote, desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: (d: number) => string }) {
   const me = useMe();
   const deny = useDeny()("rehab.therapy");
   const [pid, setPid] = useState(rxs[0]?.patientId ?? "");
+  const [evaluationSaved, setEvaluationSaved] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const evals = biOf(desk.bi, pid);
   const total = biTotal(scores);
@@ -400,6 +401,7 @@ function Bi({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: 
       </div>
       {rx && (
         <div className={`${card} p-3`}>
+          {evaluationSaved && <p role="status">BIを記録しました。</p>}
           <h3 className="mb-1 font-bold">Barthel Index（{rx.name}）</h3>
           <table className="w-full border-collapse">
             <tbody>
@@ -431,15 +433,17 @@ function Bi({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: 
               onClick={() => {
                 const e: BiEval = { id: `bi-${pid}-${desk.bi.length + 1}-${nowTime}`, patientId: pid, day: 0, time: nowTime, by: me.name, scores };
                 onDesk((d) => ({ ...d, bi: [...d.bi, e] }));
+                onNote?.(pid, { kind: "note", id: e.id, day: 0, time: nowTime, author: me.name, role: me.role, text: `Barthel Index ${total} / 100\n${BI_ITEMS.map(i => `${i.label}：${scores[i.key]}`).join("\n")}` });
+
                 auditLog({ role: me.role, actor: me.name, action: "確定（ADL の評価：Barthel Index）", patient: rx.name, detail: `${total}点` });
                 setScores({});
+                setEvaluationSaved(true);
               }}
               className="rounded bg-ai px-2.5 py-0.5 font-bold text-white disabled:opacity-40"
             >
               評価を記録
             </button>
           </p>
-          <p className="mt-1 text-[11px] text-ink-faint">{FIM_NOTE}</p>
         </div>
       )}
       <div className={`${card} p-3`}>
@@ -463,7 +467,7 @@ function Bi({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: 
   );
 }
 
-function Plans({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: (d: number) => string }) {
+export function Plans({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: (d: number) => string }) {
   const [pick, setPick] = useState(rxs[0]?.orderId ?? "");
   const rx = rxs.find((r) => r.orderId === pick) ?? rxs[0];
   return (
@@ -554,7 +558,6 @@ function List({ desk, rxs, fmt, today }: Props & { rxs: RehabRx[]; fmt: (d: numb
           })}
         </ul>
       </div>
-      <p className="text-[11px] text-ink-faint">{EARLY_NOTE}</p>
     </section>
   );
 }

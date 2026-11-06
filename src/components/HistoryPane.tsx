@@ -774,7 +774,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
             {times.late ? "（遅れて記載）" : ""}
           </span>
           <span className={`rounded px-1 font-bold leading-4 ${tone.chip}`}>{entry.role}</span>
-          <span className="font-bold text-ink">{displayText(entry.author)}</span>
+          <span className="font-bold text-ink">{displayText(entry.author === entry.role ? "" : entry.author.startsWith(`${entry.role} `) ? entry.author.slice(entry.role.length + 1) : entry.author)}</span>
           <CosignMark refId={entry.id} />
           {versions.length > 1 && (
             <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>

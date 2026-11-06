@@ -26,7 +26,7 @@ export const THERAPISTS: Therapist[] = [
   { name: "理学療法士 木村", discipline: "PT" },
   { name: "理学療法士 斎藤", discipline: "PT" },
   { name: "作業療法士 森田", discipline: "OT" },
-  { name: "言語聴覚士 林", discipline: "ST" },
+  { name: "言語聴覚士 中村", discipline: "ST" },
 ];
 
 export const REHAB_RULES = {
@@ -192,6 +192,7 @@ export interface RehabPlan {
 }
 
 export interface RehabDesk {
+  fim?: { id: string; patientId: string; day: number; time: string; by: string; scores: number[]; walk: string; transfer: string }[];
   bookings: RehabBooking[];
   sessions: RehabSession[];
   bi: BiEval[];
@@ -306,6 +307,7 @@ export interface EarlyAddition {
  * 早期リハビリテーション加算（令和8年の告示 H000〜H003 注2）: inpatients, counted from the day of admission
  * (入院した日から起算して14日を限度、4日目以降は1単位25点). A transferred patient counts from the first hospital.
  */
+// 電子点数表 s_20261102.csv: 180763870 = 60点、180763970（4日目以降）= 25点。期間は上記告示 H001 注2。
 export function earlyAddition(admittedOn: DayOffset, day: DayOffset, firstAdmission?: DayOffset): EarlyAddition {
   const from = firstAdmission ?? admittedOn;
   const dayNo = day - from + 1;
@@ -481,7 +483,7 @@ export function initialRehabDesk(): RehabDesk {
     bookings: [
       { id: "rb-demo-1", orderId: "o-rehab-demo2", patientId: "90010198", therapist: PT, discipline: "PT", day: 0, start: "11:00", minutes: 40, place: "訓練室", by: PT },
       { id: "rb-demo-2", orderId: "o-rehab-demo1", patientId: "90010244", therapist: "理学療法士 斎藤", discipline: "PT", day: 0, start: "10:00", minutes: 40, place: "病棟（ベッドサイド）", by: "理学療法士 斎藤" },
-      { id: "rb-demo-3", orderId: "o-rehab-demo1", patientId: "90010244", therapist: "言語聴覚士 林", discipline: "ST", day: 0, start: "14:00", minutes: 20, place: "病棟（ベッドサイド）", by: "言語聴覚士 林" },
+      { id: "rb-demo-3", orderId: "o-rehab-demo1", patientId: "90010244", therapist: "言語聴覚士 中村", discipline: "ST", day: 0, start: "14:00", minutes: 20, place: "病棟（ベッドサイド）", by: "言語聴覚士 中村" },
       { id: "rb-demo-4", orderId: "o-rehab-demo2", patientId: "90010198", therapist: PT, discipline: "PT", day: 1, start: "11:00", minutes: 40, place: "訓練室", by: PT },
     ],
     sessions: past,

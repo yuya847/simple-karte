@@ -81,6 +81,10 @@ const doctorName = (f: RecordFacts) => (f.me.role === "医師" ? f.me.name : f.p
 
 /** The fictional hospital's record templates (架空の病院の取り決め). */
 export const BUILTIN_RECORD_TEMPLATES: RecordTemplate[] = [
+  ...["リハビリの記録", "リハビリ初回評価", "リハビリ退院時評価"].map((name, i): RecordTemplate => ({
+    id: `rec-rehab-${i}`, name, short: ["リハ記録", "初回評価", "退院時評価"][i], about: name, roles: ["療法士"],
+    body: "訓練の内容：{{文:訓練の内容}}\n時間：{{文:時間}}\n単位：{{文:単位}}\n中止の基準：{{文:中止の基準}}\n反応：{{文:反応}}\n歩行：{{文:歩行}}\n移乗：{{文:移乗}}\n評価：{{文:評価}}",
+  })),
   {
     id: "rec-vte", name: "VTE（静脈血栓塞栓症）リスク評価", short: "VTE リスク",
     about: "内科入院患者の Padua 合計・日本のリスクレベル・予防の実施状況",

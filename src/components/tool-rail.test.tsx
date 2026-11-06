@@ -113,7 +113,7 @@ describe("処方・注射の入口", () => {
 
 
 it("職種共通の6群で、既存の道具を重複なく分類する", () => {
-  for (const role of ROLES.filter((r) => r !== "診療放射線技師")) {
+  for (const role of ROLES.filter((r) => r !== "診療放射線技師" && r !== "療法士")) {
     const groups = groupsFor(role);
     expect(groups.map((g) => g.title)).toEqual(["介入", "検査", "看護", "参照", "事務", "その他"]);
     const keys = groups.flatMap((g) => [...g.main, ...g.more].map((t) => t.key));
@@ -224,3 +224,5 @@ describe("手術申込の入口", () => {
     expect(as("医師", <ToolRail open="add-surgery" onOpen={() => {}} />)).toContain("手術申込");
   });
 });
+
+it("療法士は経過・実施・評価・計画書が先頭", () => { const g = groupsFor("療法士"); expect(g[0].title).toBe("リハビリ"); expect(g[0].main[0].key).toBe("rehab-progress"); const keys = g.flatMap(x => [...x.main, ...x.more].map(t => t.key)); expect(new Set(keys).size).toBe(keys.length); });
