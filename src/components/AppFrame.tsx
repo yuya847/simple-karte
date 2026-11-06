@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, LockKeyhole, LogOut, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X } from "lucide-react";
+import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, LockKeyhole, LogOut, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X, ArrowLeft, RotateCw } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Area, AreaKey } from "@/lib/nav";
@@ -94,6 +94,11 @@ interface Props {
   /** Where the chart in front was opened from. */
   crumbs?: Crumb[];
   onOpenPicker: () => void;
+  /** 戻る: the previous screen (absent when there is none). */
+  onBack?: () => void;
+  /** 更新: save, then reload the page. */
+  onReload?: () => void;
+  reloadNote?: string | null;
   /** Counts on the places (shown in the pulldown). */
   areaBadges: Partial<Record<AreaKey, number>>;
   todos: Todo[];
@@ -540,6 +545,14 @@ export function AppFrame(p: Props) {
         }
         end={
           <div className="flex shrink-0 items-end gap-0.5 pl-1">
+            {/* Chrome のアプリとして使うとブラウザの戻る・更新ボタンがないので、ここに置く。 */}
+            <button type="button" onClick={p.onBack} disabled={!p.onBack} title="前の画面に戻る" aria-label="戻る" className={`${barButton} disabled:opacity-30`}>
+              <ArrowLeft size={16} />
+            </button>
+            <button type="button" onClick={p.onReload} title={p.reloadNote ?? "記録を保存してから画面を読み込み直す"} aria-label="更新" className={barButton}>
+              <RotateCw size={16} />
+            </button>
+            {p.reloadNote && <span role="status" className="mb-1 max-w-64 self-center rounded bg-yamabuki-soft px-2 py-0.5 text-[11px] text-yamabuki">{p.reloadNote}</span>}
             <button type="button" onClick={p.onOpenPicker} title="患者を開く（⌘K）" className={barButton}>
               <Search size={16} />
               <span className="hidden xl:inline">患者を開く</span>

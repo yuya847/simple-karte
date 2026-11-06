@@ -8,6 +8,7 @@ import { examReservationProblem } from "@/lib/exam-slots";
 import { upsertSessionNote } from "@/lib/rehab-record";
 
 import { workspaceOn } from "@/lib/workspace";
+import { useNavHistory } from "@/lib/use-nav-history";
 import { migrateStandingLines, migrateStandingVersions } from "@/lib/standing-seeds";
 import { patientPlace } from "@/lib/patient-place";
 import { useDisplayState } from "@/lib/use-display-state";
@@ -558,6 +559,13 @@ export default function WardApp() {
   const [wardTab, setWardTab] = useState<WardTab | "menu">(boot.tabs[0] ?? "menu");
   const [patientTabs, setPatientTabs] = useState<PatientTab[]>([]);
   const [front, setFront] = useState<Partial<Record<Owner, string>>>({});
+  const [reloadNote, setReloadNote] = useState<string | null>(null);
+  // 戻る (the app installed from Chrome has no browser buttons): the place, the ward tab and what is in front.
+  const nav = useNavHistory({ area, wardTab, front }, (t) => {
+    setArea(t.area);
+    setWardTab(t.wardTab);
+    setFront(t.front);
+  });
   const [newTabFor, setNewTabFor] = useState<Owner | null>(null);
   // The floor shown on 病棟マップ (and 看護日誌) and the day it shows (0 = today; not saved), and the ward chosen on 入院患者一覧 (全病棟 or one ward).
   const [floor, setFloor] = useState(WARD_NAME);
@@ -4446,6 +4454,14 @@ export default function WardApp() {
         }
       />
       <AppFrame
+        onBack={nav.canBack ? nav.back : undefined}
+        onReload={async () => {
+          // Keep what was entered: save first; when the records are not kept, say so instead of reloading.
+          if (workspace.status === "off" || workspace.status === "error" || workspace.status === "loading") { setReloadNote("記録を保存できていないので、更新しませんでした（入力が消えないように）。"); setTimeout(() => setReloadNote(null), 5000); return; }
+          await workspace.saveNow();
+          window.location.reload();
+        }}
+        reloadNote={reloadNote}
         role={role}
         onRole={switchRole}
         meName={me.name}
