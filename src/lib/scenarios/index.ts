@@ -1,4 +1,5 @@
 import { nursingState } from "./nursing";
+import { addScenarioImaging } from "./imaging";
 import { addScenarioPhysiology } from "./physiology";
 import { addPharmacyOrders, pharmacyBook, pharmacyBloodIssues } from "./pharmacy-orders";
 import { clinicalProfile } from "./clinical-profiles";
@@ -137,6 +138,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
   assignRooms(cases);
   const patients = cases.map((c) => c.patient);
   const physioDesk = addScenarioPhysiology(patients);
+  const ris = addScenarioImaging(patients);
   const er: ErPatient[] = cases.filter((c) => !c.planned || c.stage === "救急").map(({ patient: p, stage }) => ({ id: p.id, name: p.name, kana: p.kana, age: p.age, sex: p.sex, ageMonths: p.ageMonths, arrival: "救急車", arrivedAbs: stage === "救急" ? 480 : p.admittedOn * 1440 + 480, complaint: p.admissionDiagnosis, status: stage === "救急" ? "診察中" : "入院済", ...(stage === "救急" ? {} : { admittedAs: p.id }), jtas: 3, allergies: p.allergies, note: p.history.find((e) => e.kind === "note")?.text }));
   const opd: OpdPatient[] = cases.filter((c) => c.stage === "外来" && c.destination !== "死亡退院").map(({ patient: p }) => ({ id: p.id, name: p.name, kana: p.kana, age: p.age, sex: p.sex, department: p.department, doctor: p.attending, slot: "09:00", status: "診察待ち", kind: "再診", reason: `退院後のフォロー：${p.admissionDiagnosis}`, allergies: p.allergies, problems: [p.admissionDiagnosis], meds: [], visits: p.history.filter((e) => e.kind === "note").map((e) => ({ day: e.day, text: e.text ?? e.soap?.a ?? "経過確認" })) }));
   for (const p of [...er.map((p) => `er:${p.id}`), ...opd.map((p) => `opd:${p.id}`)]) { const id = p.slice(p.indexOf(":") + 1); if (insurance[id]) insurance[p] = insurance[id]; }
@@ -161,6 +163,6 @@ export function generateScenarios(seed = SCENARIO_SEED) {
   const standingLines = Object.fromEntries(Object.entries(standing).map(([id, versions]) => [id, linesFromFields(versions).map((l, i) => ({ ...l, id: `${id}-standing-${i}` }))]));
   const admission = admissionState(cases);
   const nursing = nursingState(cases, admission.evals);
-  return { nursing, txIssued: pharmacyBloodIssues(patients), narcBook: pharmacyBook(patients), cases, patients, physioDesk, er, opd, asks, insurance, discharges, visitOrders, visitNotes, visitChartNotes, restraints: cases.flatMap((c) => c.restraints), surgeries: cases.flatMap((c) => c.surgeries), directives: cases.flatMap((c) => c.directives), diagnoses: Object.fromEntries(cases.map((c) => [c.patient.id, c.diagnoses])), diets: cases.flatMap((c) => c.diets), beds: cases.filter((c) => c.stage !== "救急").map((c) => ({ room: c.patient.room, bed: c.bed, patientId: c.patient.id })), discharged: Object.fromEntries(patients.flatMap((p) => p.dischargedAt ? [[p.id, p.dischargedAt]] : [])), standing, standingLines, ...admission };
+  return { nursing, txIssued: pharmacyBloodIssues(patients), narcBook: pharmacyBook(patients), cases, patients, physioDesk, ris, er, opd, asks, insurance, discharges, visitOrders, visitNotes, visitChartNotes, restraints: cases.flatMap((c) => c.restraints), surgeries: cases.flatMap((c) => c.surgeries), directives: cases.flatMap((c) => c.directives), diagnoses: Object.fromEntries(cases.map((c) => [c.patient.id, c.diagnoses])), diets: cases.flatMap((c) => c.diets), beds: cases.filter((c) => c.stage !== "救急").map((c) => ({ room: c.patient.room, bed: c.bed, patientId: c.patient.id })), discharged: Object.fromEntries(patients.flatMap((p) => p.dischargedAt ? [[p.id, p.dischargedAt]] : [])), standing, standingLines, ...admission };
 }
 export const SCENARIOS = generateScenarios();

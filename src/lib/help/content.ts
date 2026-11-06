@@ -1,3 +1,5 @@
+import { RIS_SOURCES, DRL_NOTE } from "../ris";
+import { MPPS_DOSE_NOTE, DICOM_SOURCES } from "../dicom-mwl";
 // 画面ごとのヘルプ。文言はここで編集します。根拠・出典は移動元のコードコメントを参照。
 export const screenHelp = [
   {
@@ -596,6 +598,9 @@ export const screenHelp = [
     "id": "ModalitySim",
     "title": "検査装置の模擬操作",
     "bullets": [
+      MPPS_DOSE_NOTE,
+      "LOCAL_ORTHANC_URL は手元の模擬接続用の設定です。",
+      ...Object.values(DICOM_SOURCES).map((s) => `${s.label}：${s.url}`),
       "装置を選んで「ワークリストを問い合わせる」を押すと、その装置に割り当てた受付済みの検査が、DICOM のワークリストの形で届きます（C-FIND の応答の模擬）",
       "「画像を送る」で合成画像が PACS（カルテの放射線画像）に出ます",
       "撮影条件・線量・画像の数は、模擬の装置がコードで作る値です（同じオーダなら毎回同じ）",
@@ -870,6 +875,10 @@ export const screenHelp = [
     "id": "RadiologyView",
     "title": "放射線部",
     "bullets": [
+      "読影の所見はコードが書くことはありません。",
+      "読影は右上の「自分」で医師・放射線科 石田を選びます。",
+      DRL_NOTE,
+      ...Object.values(RIS_SOURCES).map((s) => `${s.label}：${s.url}`),
       "医師がカルテの「オーダ › 画像検査」で出した X線・CT・MRI が並びます",
       "診療放射線技師は「指示受け」で指示を受けて（受付）撮影室と装置を決め、造影・MRI は「確認する」で同意・腎機能・体内金属などを確かめ、「当日の予定」で呼出・来室・撮影の時刻を押し、「撮影装置（模擬）」か「撮影・照射録」で撮影条件と線量を記録し、照射録を確定します",
       "放射線科医は「読影」でレポートを書き、オーダした医師は「一覧・署名」かカルテの「放射線画像」で照射録に署名し、レポートを確認します",

@@ -3,7 +3,7 @@
 
 import { examAt, findRegion, REGIONS } from "../exams";
 import { findCredit } from "../image-credits";
-import { studyStateOf, type RisDesk } from "../ris";
+import { studyStateOf, risStatus, type RisDesk } from "../ris";
 import type { HistoryEntry, ImagingOrder, ImagingStudy, Patient } from "../types";
 import { photoSeriesFor, type PhotoSeries } from "./photos";
 import { seedFrom } from "./random";
@@ -29,9 +29,10 @@ export function collectStudies(patient: Patient, entries: HistoryEntry[], nowAbs
     return [
       {
         id: e.id,
+        ...(ris ? { status: risStatus(ris[e.id]) } : {}),
         day: Math.floor(at / 1440),
         modality: o.modality === "ポータブルX線" ? "X線" : o.modality,
-        region: `${o.side ?? ""}${findRegion(o.region)?.name ?? o.region}${o.contrast ? `（${o.contrast}）` : ""}`,
+        region: `${o.modality === "ポータブルX線" ? "ポータブル " : ""}${o.side ?? ""}${findRegion(o.region)?.name ?? o.region}${o.contrast ? `（${o.contrast}）` : ""}`,
         report: state ? state.report : done ? "撮影済み。読影をお待ちください。" : `予約：${o.when.priority === "至急" ? "至急" : `${o.when.time ?? ""}`}　目的：${o.purpose}`,
         reader: state ? state.reader : done ? "（読影待ち）" : "（未実施）",
         regionCode: o.region,
@@ -199,7 +200,7 @@ export interface BuildOptions {
 /** 1 検査のシリーズを作る（画素はまだ作らない）。 */
 export function buildPacsStudy(patient: Patient, study: ImagingStudy, all: ImagingStudy[], opts: BuildOptions = {}): PacsStudy {
   const regionKey = regionKeyOf(study);
-  const status: PacsStudy["status"] = study.pending ? "未実施" : study.reader.includes("読影待ち") ? "読影待ち" : "読影済み";
+  const status: PacsStudy["status"] = study.pending ? study.status ?? "未実施" : study.reader.includes("読影待ち") ? "読影待ち" : "読影済み";
   if (study.pending) return { study, regionKey, status, series: [] };
   const part = partOf(regionKey);
   const hint = hintFor(study, all);

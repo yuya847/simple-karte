@@ -1,3 +1,4 @@
+import { risScheduleText } from "./ris";
 // 放射線部の指示受け（診療放射線技師）: the imaging orders the doctors gave (X線・CT・MRI・ポータブル), in the
 // same form as the ward's 指示受け (order-take.ts / order-sheet.ts, after the 富士通 HOPE/EGMAIN-GX catalog): the
 // untaken ones by day and kind, which must be taken one at a time, the band marks of a patient (infection,
@@ -132,7 +133,7 @@ export function risTakeTitle(r: Pick<RisRow, "order">): string {
 const dayText = (today: CalendarDate, day: number, time?: string) => `${formatShort(addDays(today, day))}${time ? ` ${time}` : ""}`;
 
 /** The 「項目名：値」 lines of an imaging order (only the items the order has). `consent` is the consent form's state when one exists. */
-export function risTakeFields(r: Pick<RisRow, "order">, today: CalendarDate, consent?: string): SheetField[] {
+export function risTakeFields(r: Pick<RisRow, "order" | "orderedAt" | "at">, today: CalendarDate, consent?: string): SheetField[] {
   const o = r.order;
   const f: SheetField[] = [];
   const put = (label: string, value: string | undefined | null | false) => {
@@ -142,7 +143,7 @@ export function risTakeFields(r: Pick<RisRow, "order">, today: CalendarDate, con
   put("体位・方向", o.views?.join("＋"));
   put("造影", o.contrast);
   put("読影", o.reading);
-  put("予定", o.when.priority === "至急" ? "至急（今から）" : `${dayText(today, o.when.day, o.when.time)} 予約`);
+  put("予定", o.when.priority === "至急" ? risScheduleText(r) : `${dayText(today, o.when.day, o.when.time)} 予約`);
   put("搬送", o.transport);
   put("同意", consent ?? (usesContrast(o) ? "同意書の記録なし" : undefined));
   put("医師の確認", o.acks?.join("・"));
@@ -164,7 +165,7 @@ export function risStamps(r: Pick<RisRow, "order" | "orderedAt" | "orderedBy" | 
   const o = r.order;
   return {
     start: { at: dayText(today, r.orderedAt.day, r.orderedAt.time), by: r.orderedBy },
-    done: { at: w?.slot ? dayText(today, w.slot.day, w.slot.time) : o.when.priority === "至急" ? "至急" : dayText(today, o.when.day, o.when.time), by: room ? `${room.room}（${room.ae}）` : "" },
+    done: { at: o.when.priority === "至急" ? risScheduleText(r) : w?.slot ? dayText(today, w.slot.day, w.slot.time) : dayText(today, o.when.day, o.when.time), by: room ? `${room.room}（${room.ae}）` : "" },
     take: w?.arrived ? { at: stampDay(today, w.arrived), by: w.arrived.by } : { at: "", by: "" },
   };
 }

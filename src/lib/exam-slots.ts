@@ -45,13 +45,13 @@ export function takenExams(people: ExamPerson[], kind: ExamKind, desk: RisDesk =
   }
   return out;
 }
-export function firstExamSlot(kind: ExamKind, taken: TakenExam[], today: CalendarDate): { day: number; time: string | null; priority: "予約" } {
-  if (kind === "PORT") return { day: 1, time: "08:30", priority: "予約" };
-  for (let day = 1; day <= 56; day++) {
+export function firstExamSlot(kind: ExamKind, taken: TakenExam[], today: CalendarDate, startDay = 1): { day: number; time: string | null; priority: "予約" } {
+  if (kind === "PORT") return { day: startDay, time: "08:30", priority: "予約" };
+  for (let day = startDay; day <= 56; day++) {
     const slot = slotsFor(kind, day, taken, today).find((s) => s.status === "空き");
     if (slot) return { day, time: slot.time, priority: "予約" };
   }
-  return { day: 1, time: null, priority: "予約" };
+  return { day: startDay, time: null, priority: "予約" };
 }
 export function examSlotAvailable(kind: ExamKind, when: { day: number | null; time?: string | null; priority: string | null }, taken: TakenExam[], today: CalendarDate): boolean {
   if (when.priority === "至急") return true;

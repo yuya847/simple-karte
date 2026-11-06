@@ -30,7 +30,7 @@ export function SubTabs<K extends string>({ label, tabs, value, onChange }: { la
         >
           {I && <I size={14} />}
           {l}
-          {!!badge && <span className={`nums rounded-full px-1.5 text-[11px] ${value === key ? "bg-white/25" : "bg-shu-soft text-shu"}`}>{badge}</span>}
+          {!!badge && <span className={`nums rounded-full px-1.5 text-[11px] ${value === key ? "bg-white/25" : "bg-ai-soft text-ai"}`}>{badge}</span>}
         </button>
       ))}
     </div>

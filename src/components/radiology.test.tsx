@@ -46,7 +46,7 @@ describe("放射線部", () => {
     expect(html).toContain("模擬：本物の装置にはつないでいません");
     expect(html).toContain("SK_CT1");
     expect(html).toContain("ワークリストを問い合わせる");
-    expect(html).toContain("Radiation Dose Module");
+    expect(html).not.toContain("Radiation Dose Module");
   });
   it("in the chart: the 照射録 waits for the ordering doctor's signature and the report for 確認", () => {
     const kitamura = PATIENTS.find((p) => p.id === "90010198")!;
@@ -63,7 +63,28 @@ it("照射録の不足理由を未撮影でもボタンのそばに表示する"
   const row = risRows(people, {}).find((r) => r.orderId === "o-ris-demo3")!;
   const html = as("診療放射線技師", <ExamForm r={row} onDesk={() => {}} nowTime="10:00" today={today} />);
   expect(html).toContain("指示受け（受付）がまだです。");
-  expect(html).toContain("撮影条件の記録がまだです。");
+  expect(html).not.toContain("枚数が入っていません");
   expect(html).toContain("管電圧（kV）が入っていません。");
   expect(html).toContain("管電流時間積（mAs）が入っていません。");
+});
+
+it("ポータブルは ID・年齢・本人確認があり、未確認では撮影開始を押せない", async () => {
+  const { PortableRound } = await import("./RadiologyTake");
+  const row = risRows(people, desk).find((r) => r.orderId === "o-ris-demo1")!;
+  const work = { ...row.work!, done: undefined, images: undefined, report: undefined, started: undefined };
+  const portable = { ...row, status: "受付済み" as const, work: { ...work, inRoom: { day: 0, time: "09:50", by: "技師" } } };
+  const html = as("診療放射線技師", <PortableRound rows={[portable]} onDesk={() => {}} nowTime="10:00" />);
+  expect(html).toContain(row.patientId);
+  expect(html).toContain(`${row.age}歳`);
+  expect(html).toContain("本人を確認した");
+  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>撮影開始/);
+});
+
+it("撮影済みの照射録には画像を送るボタンと保存した条件がある", () => {
+  const row = risRows(people, desk).find((r) => r.orderId === "o-ris-demo1")!;
+  const html = as("診療放射線技師", <ExamForm r={{ ...row, work: { ...row.work!, images: undefined } }} onDesk={() => {}} nowTime="10:00" today={today} />);
+  expect(html).toContain("画像を送る");
+  expect(html).toContain('value="90"');
+  expect(html).toContain('value="2.5"');
+  expect(html).not.toContain("枚数が入っていません");
 });

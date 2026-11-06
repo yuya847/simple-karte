@@ -174,6 +174,7 @@ export interface RisWork {
   called?: Stamp & { how: "待合の表示" | "病棟へ搬送依頼" };
   /** 来室 (for a portable: the technologist reached the bedside). */
   inRoom?: Stamp;
+  identityChecked?: Stamp;
   room?: RoomKey;
   /** 撮影の予定時刻（割り当てたとき）. */
   slot?: Moment;
@@ -260,7 +261,7 @@ export function risRows(people: Person[], desk: RisDesk): RisRow[] {
         room: x.room,
         order: o,
         label: imagingTitle(o),
-        at: w?.slot ? abs(w.slot.day, w.slot.time) : examAt(o, abs(e.day, e.time)),
+        at: o.when.priority === "至急" ? abs(e.day, e.time) : w?.slot ? abs(w.slot.day, w.slot.time) : examAt(o, abs(e.day, e.time)),
         orderedBy: e.author,
         orderedAt: { day: e.day, time: e.time },
         status,
@@ -273,6 +274,14 @@ export function risRows(people: Person[], desk: RisDesk): RisRow[] {
 }
 
 /** The work record to change, made when the row has none yet. */
+export const risScheduleText = (r: Pick<RisRow, "order" | "orderedAt"> & { at?: number }) => {
+  if (r.order.when.priority === "至急") return `至急（${r.orderedAt.time} 指示）`;
+  const at = r.at ?? 0;
+  const day = Math.floor(at / 1440);
+  const label = day === 0 ? "今日" : day === -1 ? "昨日" : day === 1 ? "明日" : day < 0 ? `${-day}日前` : `${day}日後`;
+  return `${label} ${hhmm(at)}`;
+};
+
 export const workOf = (desk: RisDesk, r: Pick<RisRow, "orderId" | "patientId" | "label">): RisWork => desk[r.orderId] ?? { orderId: r.orderId, patientId: r.patientId, label: r.label };
 
 export const putWork = (desk: RisDesk, r: Pick<RisRow, "orderId" | "patientId" | "label">, f: (w: RisWork) => RisWork): RisDesk => ({ ...desk, [r.orderId]: f(workOf(desk, r)) });
@@ -536,7 +545,8 @@ export function studyStateOf(o: ImagingOrder, w: RisWork | undefined): { pending
     return {
       pending: true,
       report: state === "中止" ? `撮影できなかった：${w?.notDone?.reason ?? ""}` : `${state === "依頼" ? "撮影の依頼" : state}：${o.when.priority === "至急" ? "至急" : (o.when.time ?? "")}　目的：${o.purpose}`,
-      reader: state === "中止" ? "（中止）" : "（未実施）",
+      reader: `（${state}${w?.done ? "・画像未送信" : ""}）`,
+      at: w?.done,
     };
   }
   if (w.report) return { pending: false, report: `${w.report.findings}\n【診断】${w.report.impression}${w.report.recommendation ? `\n【推奨】${w.report.recommendation}` : ""}`, reader: `${w.report.by}（${w.report.time}）`, at: w.done };

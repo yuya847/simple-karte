@@ -10,8 +10,8 @@ export function ExamCalendar({ kind, today, taken, value, onChange }: {
   value: { day: number | null; time?: string | null; priority: string | null };
   onChange: (v: { day: number; time: string | null; priority: "予約" | "至急" }) => void;
 }) {
-  const [month, setMonth] = useState(() => { const d = addDays(today, value.day ?? 1); return { ...d, d: 1 }; });
-  const [day, setDay] = useState(value.day ?? 1);
+  const [month, setMonth] = useState(() => { const d = addDays(today, value.day ?? 0); return { ...d, d: 1 }; });
+  const [day, setDay] = useState(value.day ?? 0);
   const start = new Date(Date.UTC(month.y, month.m - 1, 1)).getUTCDay();
   const count = new Date(Date.UTC(month.y, month.m, 0)).getUTCDate();
   const move = (n: number) => { const d = new Date(Date.UTC(month.y, month.m - 1 + n, 1)); setMonth({ y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: 1 }); };
@@ -19,9 +19,9 @@ export function ExamCalendar({ kind, today, taken, value, onChange }: {
   return <section className="space-y-2 text-sm" aria-label="いつ行うか">
     <div role="radiogroup" aria-label="予約か至急" className="flex gap-2">
       <button type="button" role="radio" aria-checked={!selected} onClick={() => onChange({ day: 0, time: null, priority: "至急" })} className={`rounded border px-2 py-1 text-xs ${!selected ? "border-shu bg-shu-soft font-bold text-shu" : "border-rule text-ink-soft"}`}>今すぐ（至急）</button>
-      <button type="button" role="radio" aria-checked={selected} onClick={() => { const v = firstExamSlot(kind, taken, today); setDay(v.day); const d = addDays(today, v.day); setMonth({ ...d, d: 1 }); onChange(v); }} className={`rounded border px-2 py-1 text-xs ${selected ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule text-ink-soft"}`}>日時を選ぶ</button>
+      <button type="button" role="radio" aria-checked={selected} onClick={() => { const v = firstExamSlot(kind, taken, today, kind.startsWith("PHY-") ? 1 : 0); setDay(v.day); const d = addDays(today, v.day); setMonth({ ...d, d: 1 }); onChange(v); }} className={`rounded border px-2 py-1 text-xs ${selected ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule text-ink-soft"}`}>日時を選ぶ</button>
     </div>
-    <div className="grid gap-3 @md:grid-cols-[18rem_1fr]">
+    {selected && <div className="grid gap-3 @md:grid-cols-[18rem_1fr]">
     <div className="rounded border border-rule p-2 text-xs">
       <div className="mb-1 flex items-center justify-between font-bold"><button type="button" aria-label="前の月" disabled={daysFrom(today, month) <= 0} onClick={() => move(-1)}>←</button><span>{formatMonth(month)}</span><button type="button" aria-label="次の月" disabled={daysFrom(today, { ...month, d: count }) >= 56} onClick={() => move(1)}>→</button></div>
       <div className="grid grid-cols-7 gap-0.5 text-center">
@@ -36,7 +36,7 @@ export function ExamCalendar({ kind, today, taken, value, onChange }: {
       {slotsFor(kind, day, taken, today).map((s) => <button key={s.time} type="button" disabled={s.status !== "空き"} aria-pressed={selected && value.day === day && value.time === s.time} onClick={() => onChange({ day, time: s.time, priority: "予約" })} title={`${s.time} ${s.status}${s.label ? `（${s.label}）` : ""}`} className={`nums rounded border px-1.5 py-0.5 text-xs disabled:opacity-50 ${selected && value.day === day && value.time === s.time ? "border-ai bg-ai text-white" : s.status === "空き" ? "border-rule bg-sheet" : "border-rule-soft bg-paper text-ink-faint line-through"}`}>{s.time}{s.status !== "空き" && ` ${s.label ? s.label : s.status}`}</button>)}
     </div>}
     </div>
-    </div>
+    </div>}
 
   </section>;
 }

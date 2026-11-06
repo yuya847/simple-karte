@@ -1,4 +1,5 @@
 "use client";
+import { risScheduleText } from "@/lib/ris";
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
@@ -49,7 +50,7 @@ import type { WorkPatient } from "@/lib/worksheet";
 import { ConfirmCheck, WAITING_BUTTON, Waits } from "./ConfirmCheck";
 import { Sources } from "./DeskParts";
 import { PatientBand, SheetBand, SheetBlock, SheetNotes } from "./OrderSheet";
-import { card, field, whenText, type OnDesk } from "./RisExam";
+import { card, field, type OnDesk } from "./RisExam";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 interface Props {
@@ -179,6 +180,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
                     const one = mustTakeOne(r);
                     const mine = open?.id === r.orderId ? open.what : null;
                     const flags = rowFlags(r).map((f) => ({ text: f.text, className: FLAG_CLASS[f.tone] }));
+                    if (!ok && one.length) flags.push({ text: `個別受け：${one.join("・")}`, className: "bg-yamabuki-soft text-ink" });
                     if (!ok && risTakeLate(r, nowAbs)) flags.push({ text: "遅れ", className: "bg-shu text-white" });
                     const consent = consentTextOf(r.orderId, consents, today);
                     const kind = kindOf(r.order.modality);
@@ -204,7 +206,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
                         }
                         title={`画像検査　${risTakeTitle(r)}`}
                         tag={{ text: kind, tone: KIND_TONE[kind] }}
-                        when={whenText(r.at)}
+                        when={risScheduleText(r)}
                         flags={flags}
                         stamps={risStamps(r, today)}
                         labels={RIS_STAMP_LABELS}
@@ -282,7 +284,7 @@ function TakeOne({ r, reasons, onTake, onClose }: { r: RisRow; reasons: string[]
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <ConfirmCheck checked={read} onChange={setRead}>
-          部位・造影・予定・目的を自分の目で確かめた
+          部位・{r.order.contrast && r.order.contrast !== "単純" ? "造影・" : ""}予定・目的を自分の目で確かめた
         </ConfirmCheck>
         <button type="button" disabled={!read} onClick={onTake} className={WAITING_BUTTON}>
           指示を受ける
@@ -304,7 +306,7 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
   const [reason, setReason] = useState("");
   const rooms = roomsFor(r.order.modality);
   const roomKey: RoomKey = r.work?.room ?? rooms[0].key;
-  const time = slot ?? r.work?.slot?.time ?? (r.order.when.time || nowTime);
+  const time = r.order.when.priority === "至急" ? r.orderedAt.time : slot ?? r.work?.slot?.time ?? (r.order.when.time || nowTime);
   const at = { day: 0, time: nowTime };
   const log = (what: string, detail = "") => auditLog({ role: me.role, actor: me.name, action: `確定（放射線部：${what}）`, patient: r.name, detail: `${r.label}${detail}` });
   const assign = (key: RoomKey) => {
@@ -325,7 +327,7 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
           </option>
         ))}
       </select>
-      <TimeInput value={time} onChange={(e) => setSlot(e.target.value)} aria-label="撮影の予定時刻" disabled={!!deny} className={`${field} nums`} />
+      {r.order.when.priority === "至急" ? <span className="nums">{risScheduleText(r)}</span> : <TimeInput value={time} onChange={(e) => setSlot(e.target.value)} aria-label="撮影の予定時刻" disabled={!!deny} className={`${field} nums`} />}
       <button type="button" disabled={!!deny} onClick={() => assign(roomKey)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
         {r.work?.room ? "予定を変える" : "割り当てる"}
       </button>
@@ -448,7 +450,7 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
             const pend = confirmPending(r);
             return (
               <li key={r.orderId} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft py-1 ${lateNow ? "bg-shu-soft/40" : ""}`}>
-                <b className="nums w-12">{displayText(r.work?.slot?.time ?? whenText(r.at).split(" ")[1])}</b>
+                <b className="nums whitespace-nowrap">{displayText(risScheduleText(r))}</b>
                 <span>
                   {r.room}　<b>{r.name}</b>
                 </span>
@@ -493,7 +495,7 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
 }
 
 /** The round of portable studies: the ward's rooms in order, one list to walk. */
-export function PortableRound({ rows, onDesk, nowTime }: { rows: RisRow[]; onDesk: OnDesk; nowTime: string }) {
+export function PortableRound({ rows, onDesk, nowTime, onExam }: { rows: RisRow[]; onDesk: OnDesk; nowTime: string; onExam?: (id: string) => void }) {
   const me = useMe();
   const deny = useDeny()("ris.exam");
   const round = portableRound(rows);
@@ -516,21 +518,22 @@ export function PortableRound({ rows, onDesk, nowTime }: { rows: RisRow[]; onDes
               return (
                 <li key={r.orderId} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft py-1">
                   <b className="nums w-6">{i + 1}</b>
-                  <b className="nums w-14">{r.room}</b>
-                  <span>{r.name}</span>
+                  <b className="nums min-w-14 whitespace-nowrap">{r.room}</b>
+                  <span>{r.name}　{r.patientId}　{r.age}歳</span>
                   <span>
                     {r.label}　{r.order.views?.join("＋")}
                   </span>
                   {r.order.when.priority === "至急" && <span className="rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
                   <span className="text-ink-soft">
-                    予定 {displayText(r.work?.slot?.time ?? whenText(r.at))}　目的：{r.order.purpose}
+                    予定 {displayText(risScheduleText(r))}　目的：{r.order.purpose}
                   </span>
                   {r.work?.inRoom && <span className="text-ink-soft">病室 {r.work.inRoom.time}</span>}
                   {r.work?.started && <span className="text-ink-soft">開始 {r.work.started.time}</span>}
+                  {s === "撮影開始" && <label className="flex items-center gap-1"><input type="checkbox" checked={!!r.work?.identityChecked} disabled={!!deny} onChange={(e) => onDesk((d) => putWork(d, r, (w) => ({ ...w, identityChecked: e.target.checked ? { ...at, by: me.name } : undefined })))} />本人を確認した</label>}
                   {(s === "来室" || s === "撮影開始" || s === "撮影終了") && (
                     <button
                       type="button"
-                      disabled={!!deny}
+                      disabled={!!deny || (s === "撮影開始" && !r.work?.identityChecked)}
                       onClick={() => {
                         if (s === "来室") {
                           onDesk((d) => putWork(d, r, (w) => ({ ...w, inRoom: { ...at, by: me.name } })));
@@ -541,6 +544,7 @@ export function PortableRound({ rows, onDesk, nowTime }: { rows: RisRow[]; onDes
                         } else {
                           onDesk((d) => putWork(d, r, (w) => ({ ...w, done: { ...at, by: me.name, via: "手入力" } })));
                           log(r, "撮影済み（手入力）");
+                          onExam?.(r.orderId);
                         }
                       }}
                       className={`ml-auto rounded px-2 py-0.5 font-bold text-white disabled:opacity-40 ${s === "撮影終了" ? "bg-wakatake" : "bg-ai"}`}

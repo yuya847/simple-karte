@@ -138,7 +138,7 @@ export function Viewport({
 
     if (!pacs || !series || !frame || !m) {
       text(ctx, pacs?.status === "未実施" ? "まだ撮影していません（予約中）。画像はありません。" : "画像がありません", size.w / 2, size.h / 2, OVERLAY, "center");
-      text(ctx, "合成画像を表示する枠です", size.w / 2, size.h / 2 + 18, FICTION, "center");
+
       return;
     }
 

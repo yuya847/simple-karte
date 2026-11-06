@@ -64,3 +64,9 @@ it("確定時にも別の患者と同時の下書きの重複を止める", () =
   expect(examReservationProblem([d], [], {})).toBeNull();
   expect(examReservationProblem([{ ...d, modality: "ポータブルX線" }, { ...d, id: "b", modality: "ポータブルX線" }], [], {})).toBeNull();
 });
+
+it("画像検査は今日から予約枠を探せる", () => {
+  const date = { y: 2026, m: 11, d: 6 };
+  expect(firstExamSlot("XR1", [], date, 0)).toMatchObject({ day: 0, time: "08:30" });
+  expect(firstExamSlot("PORT", [], date, 0).day).toBe(0);
+});

@@ -73,7 +73,7 @@ describe("割り当て", () => {
     expect(imagesOf(byId["img-mori-1"])[0]).toEqual(["abdomen-ct-pyelonephritis-plain"]);
     expect(byId["img-mori-1"].series.length).toBeGreaterThan(1);
     expect(byId["img-mori-1"].series[1].positions.length).toBeGreaterThan(1);
-    expect(byId["o-ris-demo2"].status).toBe("未実施");
+    expect(byId["o-ris-demo2"].status).toBe("依頼");
     expect(byId["o-ris-demo2"].series).toEqual([]);
     expect(PHOTO_ASSIGNMENTS["o-ris-demo2"][0].images).toEqual(["abdomen-ct-pyelonephritis-contrast"]);
   });

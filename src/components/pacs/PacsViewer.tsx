@@ -76,6 +76,11 @@ const STATUS_STYLE: Record<PacsStudy["status"], string> = {
   読影済み: "bg-wakatake-soft text-wakatake",
   読影待ち: "bg-yamabuki-soft text-yamabuki",
   未実施: "bg-paper text-ink-faint",
+  依頼: "bg-paper text-ink-faint",
+  受付済み: "bg-ai-soft text-ai",
+  撮影中: "bg-yamabuki-soft text-yamabuki",
+  撮影済み: "bg-wakatake-soft text-wakatake",
+  中止: "bg-paper text-ink-faint",
 };
 
 const noSubscribe = () => () => {};
@@ -633,7 +638,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
       <div className={full ? "grid min-h-0 flex-1 grid-cols-[200px_1fr_320px] gap-3" : "grid gap-3 @lg:grid-cols-[150px_1fr]"}>
         <aside className={full ? "scroll-thin min-h-0 overflow-y-auto" : "scroll-thin max-h-40 overflow-y-auto @lg:max-h-none"}>{studyList}</aside>
         <section className={full ? "flex min-h-0 flex-col gap-2" : "min-w-0 space-y-2"}>
-          <div className={`grid gap-1.5 ${comparing ? "grid-cols-2" : "grid-cols-1"} ${full ? "min-h-0 flex-1" : "h-[460px]"}`}>{paneViews}</div>
+          <div className={`grid gap-1.5 ${comparing ? "grid-cols-2" : "grid-cols-1"} ${full ? "min-h-0 flex-1" : cur?.pacs?.study.pending ? "h-[180px]" : "h-[460px]"}`}>{paneViews}</div>
           {sliceBar}
           {levelBar}
           {resolved.some((p) => p.series?.gen.kind === "photo") && <p className="text-[11px] text-ink-faint">{PUBLIC_IMAGE_NOTE}</p>}

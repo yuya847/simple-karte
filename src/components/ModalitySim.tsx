@@ -11,9 +11,9 @@ import { MonitorCog } from "lucide-react";
 import { useEffect, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
-import { ctDoseConcepts, DICOM_SOURCES, MPPS_DOSE_NOTE, mppsCreate, mppsSet, mwlItem, simulatedAcquisition, toDicomJson, toOrthancTags, worklistFor, type DicomAttr } from "@/lib/dicom-mwl";
+import { ctDoseConcepts, mppsCreate, mppsSet, mwlItem, simulatedAcquisition, toDicomJson, toOrthancTags, worklistFor, type DicomAttr } from "@/lib/dicom-mwl";
 import { doneProblems, doseText, putWork, RIS_ROOMS, type RisRow, type RisWork } from "@/lib/ris";
-import { Fictional, Sources } from "./DeskParts";
+import { Fictional } from "./DeskParts";
 import { useDeny, useMe } from "./RoleContext";
 import { card, field, RowHead, type OnDesk } from "./RisExam";
 
@@ -77,7 +77,7 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
           <span className="text-ink-soft">装置</span>
           {RIS_ROOMS.map((r) => (
             <button key={r.ae} type="button" onClick={() => setAe(r.ae)} aria-pressed={ae === r.ae} className={`rounded border px-2 py-0.5 ${ae === r.ae ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule"}`}>
-              {r.room}（{r.ae}・{r.dicom}）
+              {r.room} · {r.ae}・{r.dicom}
             </button>
           ))}
           <button
@@ -165,8 +165,8 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
       )}
       <Stored rows={rows.filter((r) => r.work?.done && !r.work.images && r.work.room && RIS_ROOMS.find((x) => x.key === r.work!.room)?.ae === ae)} onDesk={onDesk} nowTime={nowTime} ae={ae} />
       <LocalOrthanc target={target} today={today} />
-      <p className="text-[11px] text-ink-faint">{MPPS_DOSE_NOTE}</p>
-      <Sources items={[DICOM_SOURCES.mwl, DICOM_SOURCES.mpps, DICOM_SOURCES.registry, DICOM_SOURCES.dose, DICOM_SOURCES.pregnancy]} />
+
+
 
     </section>
   );
@@ -297,7 +297,7 @@ function LocalOrthanc({ target, today }: { target: RisRow | null; today: Calenda
     <div className={`${card} space-y-1 p-3 text-[12px]`}>
       <h4 className="font-bold">手元の Orthanc（任意）</h4>
       {!local && <p className="text-ink-faint">確かめています…</p>}
-      {local && !local.enabled && <p className="text-ink-soft">つないでいません（模擬だけ）：{local.why}</p>}
+
       {local?.enabled && (
         <>
           <p className="text-ink-soft">{displayText(local.system ? `手元の ${local.system.name} ${local.system.version} につながります。` : (local.error ?? ""))}</p>

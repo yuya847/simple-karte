@@ -3546,9 +3546,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                 </Drawer>
               )}
               {panel === "imaging" && (
-                <Drawer title="放射線画像" onClose={closePanel} wide>
+                <Drawer title="放射線画像" onClose={closePanel} wide={!!patient.imaging.length || entries.some((e) => e.kind === "order" && !!dept.ris[e.id]?.images)}>
                   {teamIds.has(patient.id) && <RisChartStrip patient={patient} entries={entries} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} onSeen={(keys) => markSeen(patient.id, keys)} />}
-                  <ImagingPanel patient={patient} today={today} entries={entries} nowAbs={abs(0, nowTime)} focus={imageFocus ?? undefined} ris={teamIds.has(patient.id) ? dept.ris : undefined} />
+                  <ImagingPanel patient={patient} today={today} entries={entries} nowAbs={abs(0, nowTime)} focus={imageFocus ?? undefined} ris={dept.ris} />
                 </Drawer>
               )}
               {panel === "active-orders" && (

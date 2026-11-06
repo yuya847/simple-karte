@@ -101,3 +101,18 @@ describe("比較表示の前回", () => {
     expect(fresh.series[0].hint).toEqual(prev.series[0].hint);
   });
 });
+
+describe("RIS の撮影と画像送信", () => {
+  it("時刻を過ぎても画像なし、送信するとポータブルの名称と実撮影時刻を使う", () => {
+    const e = order("portable-regression", { modality: "ポータブルX線" });
+    expect(collectStudies(sakura, [e], 1440, {}).find((s) => s.id === e.id)?.pending).toBe(true);
+    const stamp = { day: 0, time: "21:20", by: "技師", via: "手入力" as const };
+    const w = { orderId: e.id, patientId: sakura.id, label: "ポータブルX線 胸部", done: stamp };
+    expect(collectStudies(sakura, [e], 1440, { [e.id]: w }).find((s) => s.id === e.id)?.pending).toBe(true);
+    const study = collectStudies(sakura, [e], 1440, { [e.id]: { ...w, images: { ...stamp, time: "21:25", count: 1, series: 1 } } }).find((s) => s.id === e.id)!;
+    expect(study.pending).toBe(false);
+    expect(study.time).toBe("21:20");
+    expect(study.region).toContain("ポータブル");
+    expect(study.reader).toContain("読影待ち");
+  });
+});

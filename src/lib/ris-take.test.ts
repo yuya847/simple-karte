@@ -93,14 +93,14 @@ describe("放射線部の指示受け：帯・見出し・本文・3組の欄", 
     expect(f["依頼目的"]).toContain("腎膿瘍");
     expect(Object.fromEntries(risTakeFields(ct, TODAY, "同意（11/3（火） 16:00）").map((x) => [x.label, x.value]))["同意"]).toBe("同意（11/3（火） 16:00）");
     const xr = rowOf(desk, "o-ris-demo3");
-    expect(Object.fromEntries(risTakeFields(xr, TODAY).map((x) => [x.label, x.value]))).toMatchObject({ 部位: "胸部", "体位・方向": "立位正面（PA）", 予定: "至急（今から）", 読影: "当日中" });
+    expect(Object.fromEntries(risTakeFields(xr, TODAY).map((x) => [x.label, x.value]))).toMatchObject({ 部位: "胸部", "体位・方向": "立位正面（PA）", 予定: `至急（${xr.orderedAt.time} 指示）`, 読影: "当日中" });
   });
   it("fills 指示日時／指示医, 予定日時／撮影室・装置, 指示受け日時／受けた技師", () => {
     const ct = rowOf(desk, "o-ris-demo2");
     expect(risStamps(ct, TODAY)).toEqual({ start: { at: "11/4（水） 09:15", by: "山本（専攻医）" }, done: { at: "11/4（水） 15:00", by: "" }, take: { at: "", by: "" } });
     const taken = rowOf(putWork(desk, ct, (w) => ({ ...w, arrived: { day: 0, time: "10:00", by: "放射線技師 松本" }, room: "CT1", slot: { day: 0, time: "15:30" } })), "o-ris-demo2");
     expect(risStamps(taken, TODAY)).toEqual({ start: { at: "11/4（水） 09:15", by: "山本（専攻医）" }, done: { at: "11/4（水） 15:30", by: "CT室（SK_CT1）" }, take: { at: "10:00", by: "放射線技師 松本" } });
-    expect(risStamps(rowOf(desk, "o-ris-demo3"), TODAY).done.at).toBe("至急");
+    expect(risStamps(rowOf(desk, "o-ris-demo3"), TODAY).done.at).toBe("至急（09:40 指示）");
   });
 });
 

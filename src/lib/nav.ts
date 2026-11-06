@@ -166,6 +166,7 @@ export function homeArea(role: Role): AreaKey {
  * MSW → 入院時の評価). A role whose first view is a patient list (医師) keeps the ward's 最初に開く screens (wardTab null).
  */
 export function homeScreen(role: Role): { area: AreaKey; wardTab: WardTab | null } {
+  if (role === "診療放射線技師") return { area: "radiology", wardTab: null };
   if (role === "管理栄養士") return { area: "kitchen", wardTab: null };
   const area = homeArea(role);
   if (area !== "ward") return { area, wardTab: null };

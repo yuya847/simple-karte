@@ -83,6 +83,6 @@ export interface PacsStudy {
   study: ImagingStudy;
   /** 部位マスターのコード（例：R-CHEST）。比較表示で同じ部位を探すのに使う。 */
   regionKey: string;
-  status: "読影済み" | "読影待ち" | "未実施";
+  status: "読影済み" | "読影待ち" | "未実施" | "依頼" | "受付済み" | "撮影中" | "撮影済み" | "中止";
   series: SeriesSpec[];
 }

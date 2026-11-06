@@ -436,6 +436,8 @@ export interface CultureResult {
 }
 
 export interface ImagingStudy {
+  /** 放射線部で記録された検査の状態。画像の有無とは別。 */
+  status?: "依頼" | "受付済み" | "撮影中" | "撮影済み" | "読影済み" | "中止";
   id: string;
   day: DayOffset;
   modality: "X線" | "CT" | "MRI" | "超音波";

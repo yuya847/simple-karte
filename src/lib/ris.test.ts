@@ -129,7 +129,7 @@ describe("読影レポートとカルテ", () => {
     expect(today.report).toContain("【診断】両側胸水と肺うっ血は前回と著変なし。");
     const moriStudy = collectStudies(mori, orders[mori.id], 24 * 60, desk).find((s) => s.id === "o-ris-demo2")!;
     expect(moriStudy.pending).toBe(true);
-    expect(studyStateOf(orders[mori.id][0].order as ImagingOrder, undefined).reader).toBe("（未実施）");
+    expect(studyStateOf(orders[mori.id][0].order as ImagingOrder, undefined).reader).toBe("（依頼）");
   });
 });
 

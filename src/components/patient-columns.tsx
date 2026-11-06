@@ -183,7 +183,7 @@ export const COLUMNS: Column[] = [
     key: "room",
     label: "病室",
     sort: "room",
-    fullClass: "font-bold",
+    fullClass: "min-w-20 whitespace-nowrap font-bold",
     full: ({ row }) => (
       <>
         {row.bed.room}
@@ -337,7 +337,7 @@ export const COLUMNS: Column[] = [
   {
     key: "upcoming",
     label: "このあと（今日）",
-    fullClass: "text-[12px]",
+    fullClass: "min-w-28 whitespace-nowrap text-[12px]",
     full: ({ upcoming, day }) =>
       upcoming.length === 0 || day !== 0 ? (
         <span className="text-ink-faint">—</span>

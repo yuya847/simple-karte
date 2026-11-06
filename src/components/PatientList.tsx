@@ -348,7 +348,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
           <thead className="sticky top-0 z-10 bg-paper text-left text-[11px] text-ink-faint shadow-[0_1px_0_var(--color-rule)]">
             <tr>
               {columns.map((c) => (
-                <th key={c.key} className="px-3 py-2 font-normal" title={c.title}>
+                <th key={c.key} className="whitespace-nowrap px-3 py-2 font-normal" title={c.title}>
                   {c.sort ? header(c.sort, c.label) : c.label}
                 </th>
               ))}

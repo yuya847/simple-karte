@@ -1,4 +1,5 @@
 "use client";
+import { risScheduleText } from "@/lib/ris";
 
 import { displayText } from "@/lib/display-text";
 import { ExecutionUndo } from "./ExecutionUndo";
@@ -23,7 +24,6 @@ import {
   recordProblems,
   reportProblems,
   reportVersion,
-  RIS_RULES,
   shoshaRoku,
   type RisContrast,
   type RisDesk,
@@ -56,7 +56,7 @@ export function RowHead({ r }: { r: RisRow }) {
   return (
     <header className="flex flex-wrap items-baseline gap-x-3">
       <span className="nums">
-        {displayText(whenText(r.at))}
+        {displayText(risScheduleText(r))}
         {r.order.when.priority === "至急" && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
       </span>
       <b>
@@ -91,7 +91,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
     sliceMm: str(w.exposure?.sliceMm),
     range: w.exposure?.range ?? "",
     sequences: w.exposure?.sequences ?? "",
-    films: str(w.exposure?.films ?? (r.order.views?.length || undefined)),
+    films: str(w.exposure?.films ?? (r.order.views?.length || 1)),
     ctdiVol: str(w.dose?.ctdiVol),
     dlp: str(w.dose?.dlp),
     esak: str(w.dose?.esak),
@@ -129,7 +129,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
   };
   const preview: RisRow = { ...r, work: { ...w, exposure: clean(exposure), dose: clean(dose) } };
   const blockDone = doneProblems(r, w);
-  const recProblems = recordProblems(r, fmt);
+  const recProblems = recordProblems(preview, fmt);
   const s = irradiates(r.order.modality) ? shoshaRoku(preview, fmt) : null;
   const { drl, why } = drlFor(r.order, preview.work);
   const isXray = r.order.modality === "X線" || r.order.modality === "ポータブルX線";
@@ -144,7 +144,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
   return (
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <RowHead r={r} />
-      {(w.done || w.started || w.arrived) && <ExecutionUndo action="ris.exam" patient={r.name} detail={r.label} onUndo={(by, at, reason) => put((x) => cancelExecution(x, ["arrived", "confirmed", "called", "inRoom", "started", "done", "images", "record", "signed", "report", "contrast", "dose", "exposure"], by, at, reason))} />}
+      {(w.done || w.started || w.arrived) && <ExecutionUndo action="ris.exam" patient={r.name} detail={r.label} onUndo={(by, at, reason) => put((x) => cancelExecution(x, ["arrived", "confirmed", "called", "inRoom", "identityChecked", "started", "done", "images", "record", "signed", "report", "contrast", "dose", "exposure"], by, at, reason))} />}
       {w.cancellations?.map((c, i) => <span key={i} className="text-xs text-ink-soft">撮影・受付の取り消し {c.at} {displayText(c.by)} {displayText(c.reason)}</span>)}
       {(r.order.acks?.length || r.order.answers) && (
         <p className="text-ink-soft">
@@ -205,7 +205,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
               {w.contrast.reactionNote ? `：${w.contrast.reactionNote}` : ""}
             </p>
           )}
-          <p className="text-[11px] text-ink-faint">{RIS_RULES.contrast}</p>
+
         </fieldset>
       ) : null}
       {!w.done && !w.notDone && (
@@ -246,12 +246,13 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
       {w.done && (
         <p className="text-ink-soft">
           撮影済み {w.done.time} {displayText(w.done.by)}（{w.done.via}）
+          {!w.images && <button type="button" disabled={!!deny} className="ml-2 rounded bg-ai px-2 py-0.5 text-white disabled:opacity-40" onClick={() => { put((x) => ({ ...x, images: { ...at, by: me.name, count: x.exposure?.films ?? 1, series: 1, via: "手入力" } })); log("画像を PACS へ送った（手入力）"); }}>画像を送る</button>}
           {w.images ? `　画像 ${w.images.count}枚を PACS へ送った（${w.images.time}・${w.images.via}）` : "　画像はまだ PACS へ送っていません"}
         </p>
       )}
       {s && (
         <section className="rounded border border-rule-soft bg-paper p-2">
-          <h4 className="font-bold">照射録（診療放射線技師法施行規則 第16条の事項）</h4>
+          <h4 className="font-bold">照射録</h4>
           <dl className="grid grid-cols-[minmax(0,16rem)_1fr] gap-x-3 gap-y-0.5">
             {s.items.map((i) => (
               <div key={i.label} className="contents">
@@ -267,7 +268,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
               {displayText(doseText(r.order, preview.work?.dose))}
               {s.doseMissing.length > 0 && <span className="ml-1 text-shu">（未記入：{s.doseMissing.join("・")}）</span>}
             </dd>
-            <dt className="text-ink-soft">指示をした医師の署名（法 第28条）</dt>
+            <dt className="text-ink-soft">指示をした医師の署名</dt>
             <dd>{displayText(w.signed ? `${w.signed.by}（${fmt(w.signed.day)} ${w.signed.time}）` : "まだ")}</dd>
           </dl>
           {w.record ? (
@@ -287,7 +288,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
                 type="button"
                 disabled={!!deny || !w.done || recProblems.length > 0}
                 onClick={() => {
-                  put((x) => ({ ...x, record: { ...at, by: me.name } }));
+                  put((x) => ({ ...x, exposure: clean(exposure), dose: clean(dose), record: { ...at, by: me.name } }));
                   log("照射録を確定");
                 }}
                 className="mt-1 rounded bg-ai px-2.5 py-0.5 font-bold text-white disabled:opacity-40"

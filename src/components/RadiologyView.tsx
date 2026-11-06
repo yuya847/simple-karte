@@ -1,4 +1,5 @@
 "use client";
+import { risScheduleText } from "@/lib/ris";
 
 // 放射線部（RIS）: 指示受け（受付・撮影室と装置の割り当て・造影と MRI の指示確認）→ 当日の予定（装置ごとのワークリスト）
 // と病棟のポータブル回り → 撮影（照射録・線量・造影剤）→ 読影 → 一覧、線量の一覧, and the simulated modality. The orders come from the doctors' charts (画像検査); the claim reads what is
@@ -10,14 +11,14 @@ import { useState } from "react";
 import type { ConsentRecord } from "@/lib/consent";
 import type { CalendarDate } from "@/lib/dates";
 import type { Ack } from "@/lib/results";
-import { DRL_NOTE, doseGroups, doseText, drlFor, needsReading, RIS_RULES, RIS_SOURCES, risResultItems, risRows, unsignedRecords, type RisDesk, type RisRow } from "@/lib/ris";
+import { doseGroups, doseText, drlFor, needsReading, risResultItems, risRows, unsignedRecords, type RisDesk, type RisRow } from "@/lib/ris";
 import { portableRound, risTodo } from "@/lib/ris-take";
 import type { WorkPatient } from "@/lib/worksheet";
-import { Sources, SubTabs } from "./DeskParts";
+import { SubTabs } from "./DeskParts";
 import { ModalitySim } from "./ModalitySim";
 import { PortableRound, RadiologyTake, Worklist } from "./RadiologyTake";
 import { DenyNote } from "./RoleContext";
-import { card, ExamForm, ReadingForm, SignButton, STATUS_TONE, whenText, type OnDesk } from "./RisExam";
+import { card, ExamForm, ReadingForm, SignButton, STATUS_TONE, type OnDesk } from "./RisExam";
 
 interface Props {
   people: WorkPatient[];
@@ -35,6 +36,7 @@ type Tab = "take" | "worklist" | "portable" | "exam" | "modality" | "reading" | 
 
 /** 放射線部. The technologist starts at 指示受け. */
 export function RadiologyView(p: Props) {
+  const [examId, setExamId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("take");
   const rows = risRows(p.people, p.desk);
   const toRead = rows.filter((r) => r.work?.images && needsReading(r.order) && !r.work.report && !r.work.notDone);
@@ -75,8 +77,8 @@ export function RadiologyView(p: Props) {
 
         {tab === "take" && <RadiologyTake people={p.people} rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} consents={p.consents} />}
         {tab === "worklist" && <Worklist rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} />}
-        {tab === "portable" && <PortableRound rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} />}
-        {tab === "exam" && <Exam {...p} rows={rows} />}
+        {tab === "portable" && <PortableRound rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} onExam={(id) => { setExamId(id); setTab("exam"); }} />}
+        {tab === "exam" && <Exam key={examId} {...p} rows={rows} initialPick={examId} />}
         {tab === "modality" && (
           <>
             <DenyNote action="ris.exam" />
@@ -86,15 +88,14 @@ export function RadiologyView(p: Props) {
         {tab === "reading" && <Reading {...p} rows={toRead} done={rows.filter((r) => r.work?.report)} />}
         {tab === "dose" && <Dose rows={rows} />}
         {tab === "list" && <List {...p} rows={rows} />}
-        <p className="text-[11px] text-ink-faint">{RIS_RULES.rooms} 読影の所見はコードが書くことはありません。</p>
       </div>
     </section>
   );
 }
 
-function Exam({ rows, onDesk, nowTime, today }: Props & { rows: RisRow[] }) {
+function Exam({ rows, onDesk, nowTime, today, initialPick }: Props & { rows: RisRow[]; initialPick: string | null }) {
   const ready = rows.filter((r) => r.status !== "依頼" && r.status !== "中止" || r.work?.cancellations?.length);
-  const [pick, setPick] = useState<string | null>(null);
+  const [pick, setPick] = useState<string | null>(initialPick ?? ready[0]?.orderId ?? null);
   const target = ready.find((r) => r.orderId === pick) ?? ready[0] ?? null;
   return (
     <section className="space-y-3">
@@ -108,7 +109,6 @@ function Exam({ rows, onDesk, nowTime, today }: Props & { rows: RisRow[] }) {
         ))}
       </div>
       {target && <ExamForm key={target.orderId} r={target} onDesk={onDesk} nowTime={nowTime} today={today} />}
-      <Sources items={[RIS_SOURCES.law, RIS_SOURCES.rule, RIS_SOURCES.dose]} />
     </section>
   );
 }
@@ -120,7 +120,6 @@ function Reading({ rows, done, onDesk, nowTime }: Props & { rows: RisRow[]; done
   return (
     <section className="space-y-3">
       <DenyNote action="ris.report" />
-      <p className="text-[12px] text-ink-soft">{RIS_RULES.reading} 読影は放射線科医が行います（デモでは右上の「自分」で医師を選び、「放射線科 石田」を選びます）。</p>
       <div className="flex flex-wrap items-center gap-2 text-[12px]">
         {all.length === 0 && <span className="text-ink-faint">読影を待っている検査はありません（画像を PACS へ送ると、ここに出ます）。</span>}
         {all.map((r) => (
@@ -185,9 +184,7 @@ function Dose({ rows }: { rows: RisRow[] }) {
             </li>
           ))}
         </ul>
-        <p className="mt-1 text-[11px] text-ink-faint">{DRL_NOTE} この試作の記録は数件なので、中央値は目安になりません。</p>
       </div>
-      <Sources items={[RIS_SOURCES.drl, RIS_SOURCES.dose]} />
     </section>
   );
 }
@@ -221,7 +218,7 @@ function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] })
             const ack = item ? acks[item.key] : undefined;
             return (
               <tr key={r.orderId} className="border-b border-rule-soft align-top">
-                <td className="nums px-2 py-1">{displayText(whenText(r.at))}</td>
+                <td className="nums px-2 py-1">{displayText(risScheduleText(r))}</td>
                 <td className="px-2 py-1">
                   {r.room}　{r.name}
                 </td>
@@ -238,8 +235,6 @@ function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] })
           })}
         </tbody>
       </table>
-      <p className="text-[11px] text-ink-faint">{RIS_RULES.sign}</p>
-      <Sources items={[RIS_SOURCES.law, RIS_SOURCES.rule]} />
     </section>
   );
 }

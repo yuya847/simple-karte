@@ -102,7 +102,7 @@ export function AddImagingPanel({
     const draft = emptyImaging("preview", "X線");
     const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
     const time = orderDefaults(patientId, "定期", now).imagingTime;
-    return time ? { ...draft, when: { day: 0, time: null, priority: "至急" } } : { ...draft, when: firstExamSlot("XR1", takenExams(examPeople, "XR1", ris), today) };
+    return time ? { ...draft, when: { day: 0, time: null, priority: "至急" } } : { ...draft, when: firstExamSlot("XR1", takenExams(examPeople, "XR1", ris), today, 0) };
   });
   const patch = (p: Partial<ImagingDraft>) => setD((x) => ({ ...x, ...p }));
 
@@ -120,7 +120,7 @@ export function AddImagingPanel({
     const nextRoom = defaultRoom(m);
     setRoom(nextRoom);
     setQuery("");
-    setD({ ...emptyImaging("preview", m), purpose: d.purpose, comment: d.comment, when: d.when.priority === "至急" ? d.when : firstExamSlot(nextRoom, takenExams(examPeople, nextRoom, ris), today) });
+    setD({ ...emptyImaging("preview", m), purpose: d.purpose, comment: d.comment, when: d.when.priority === "至急" ? d.when : firstExamSlot(nextRoom, takenExams(examPeople, nextRoom, ris), today, 0) });
     if (!regionsFor(m).some((r) => r.group === group)) setGroup(REGION_GROUPS.find((g) => regionsFor(m).some((r) => r.group === g))!);
   };
   const pickRegion = (code: string) => {
@@ -395,7 +395,7 @@ export function AddImagingPanel({
         </section>
       )}
 
-      {roomsFor(modality).length > 1 ? <label>撮影室<select value={room} onChange={(e) => { const r = roomsFor(modality).find((r) => r.key === e.target.value)!; setRoom(r.key); patch({ when: firstExamSlot(r.key, takenExams(examPeople, r.key, ris), today) }); }}>{roomsFor(modality).map((r) => <option key={r.key} value={r.key}>{r.room}</option>)}</select></label> : <p>{roomsFor(modality)[0].room}</p>}
+      {roomsFor(modality).length > 1 ? <label>撮影室<select value={room} onChange={(e) => { const r = roomsFor(modality).find((r) => r.key === e.target.value)!; setRoom(r.key); patch({ when: firstExamSlot(r.key, takenExams(examPeople, r.key, ris), today, 0) }); }}>{roomsFor(modality).map((r) => <option key={r.key} value={r.key}>{r.room}</option>)}</select></label> : <p>{roomsFor(modality)[0].room}</p>}
       <ExamCalendar key={room} kind={room} today={today} taken={taken} value={d.when} onChange={(when) => patch({ when })} />
 
       <label className="flex flex-col gap-1 text-xs text-ink-soft">

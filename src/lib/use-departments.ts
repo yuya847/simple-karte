@@ -33,7 +33,7 @@ export function useDepartments() {
   const [bloodBank, setBloodBank] = useState<BloodBank>(onClient(EMPTY_BANK, initialBank));
   const [pathology, setPathology] = useState<PathCase[]>(onClient([], initialPathology));
   const [physioDesk, setPhysioDesk] = useState<PhysioDesk>(onClient({}, (now) => scenarioMode() ? SCENARIOS.physioDesk : initialPhysioDesk(now)));
-  const [ris, setRis] = useState<RisDesk>(onClient({}, initialRisDesk));
+  const [ris, setRis] = useState<RisDesk>(onClient({}, (now) => scenarioMode() ? SCENARIOS.ris : initialRisDesk(now)));
   const [rehab, setRehab] = useState<RehabDesk>(onClient(EMPTY_REHAB, initialRehabDesk));
   /** Physiological tests, imaging and rehabilitation ordered for the fictional ward patients (merged into their records). */
   const [demo] = useState<Record<string, OrderEntry[]>>(onClient({}, demoOrders));
