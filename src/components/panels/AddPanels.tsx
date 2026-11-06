@@ -590,7 +590,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
         );
       })}
       </LineEntry>
-      <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-sheet pt-3">
+      <div className="flex gap-2 border-t border-rule bg-sheet pt-3">
         <button type="button" onClick={() => setRps((r) => [...r, freshRp()])} className="rounded-md border border-rule px-3 py-2 text-sm text-ink-soft">
           Rp を足す
         </button>
