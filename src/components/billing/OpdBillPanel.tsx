@@ -9,20 +9,18 @@ import { displayText } from "@/lib/display-text";
 import { AlertTriangle, Ban, CheckCircle2, Info, Loader2, Printer, ReceiptJapaneseYen, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
-import { FUTAN_SOURCES, outpatientShare, type OutpatientShare } from "@/lib/billing/futan";
+import { outpatientShare, type OutpatientShare } from "@/lib/billing/futan";
 import { assumedInsurance, coverageOf, rateLabel, type Insurance } from "@/lib/billing/insurance";
 import type { ClaimAct, ClaimIssue, Shikibetsu } from "@/lib/billing/model";
-import { OPD_CLAIM_SOURCES } from "@/lib/billing/opd-claim-sources";
 import type { OpdClaim } from "@/lib/billing/opd-claim";
 import { nextReceiptNo, PAY_METHODS, takings, type OpdSettleBook, type OpdSettlement, type PayMethod, type UnpaidRow } from "@/lib/billing/opd-settle";
 import { ageBand, kindOptionOf, type InsuranceRecord } from "@/lib/billing/registration";
 import { formatShort, isoDate, type CalendarDate } from "@/lib/dates";
 import type { RxLine } from "@/lib/national/rx-lines";
 import type { OpdPatient } from "@/lib/opd";
-import { birthDateOf } from "@/lib/patient-contacts";
 import type { OrderEntry } from "@/lib/types";
 import { BigChoice } from "../BigChoice";
-import { Sources, usePrintSheet } from "../DeskParts";
+import { usePrintSheet } from "../DeskParts";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
@@ -90,7 +88,6 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
   const registered = records[records.length - 1]?.insurance;
   const insurance: Insurance & { assumed?: boolean } = registered ?? assumedInsurance(visit.age, today);
   const assumed = !registered;
-  const birth = birthDateOf({ id: visitKey, age: visit.age }, today, registered?.birthDate);
   const rxItems = useMemo(() => rx.map((r) => ({ items: r.items ?? [] })), [rx]);
   const bodyJson = JSON.stringify({ emergency, today: isoDate(today), nowTime, visit: { id: visit.id, name: visit.name, age: visit.age, kind: visit.kind, department: visit.department }, entries, rx: rxItems, specificDisease, outpatientManagement });
   const request = useEffectEvent(() => bodyJson);
@@ -159,9 +156,6 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
           計算し直す
         </button>
       </div>
-      <p className="hint text-[11px] text-ink-faint">
-        この受診のオーダ（検査・画像・注射・処置）と院外処方せんから点数をサーバーで出し（医科診療行為マスター）、患者基本情報の保険（負担割合・公費・限度額）から患者負担をコードで計算します。「領収書」「診療明細書」は A4 で印刷、「入金」で会計済みになります（医事課）。
-      </p>
       {error && <p className="rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
       {!claim && !error && (
         <p className="flex items-center gap-1 text-xs text-ink-soft">
@@ -199,7 +193,6 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
                           ))}
                         </div>
                       ))}
-                      <div className="hint mt-0.5 text-[10px] leading-snug text-ink-faint">{a.basis}</div>
                     </td>
                     <td className="nums text-right">
                       {a.parts.map((p, j) => (
@@ -233,6 +226,10 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
                 })}
               </ul>
             )}
+            <div className="mt-2 space-y-1">
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={outpatientManagement} disabled={!!settlement} onChange={(e) => setOutpatientManagement(e.target.checked)} />外来管理加算の候補（人が選ぶ：計画的な医学管理・併算定できない診療がないことを確認）</label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={specificDisease} disabled={!!settlement} onChange={(e) => setSpecificDisease(e.target.checked)} />特定疾患処方管理加算（人が選ぶ：対象の主病・28日以上の処方・当月未算定を確認）</label>
+            </div>
             <details className="mt-2 text-[11px] text-ink-soft">
               <summary className="cursor-pointer">この試作では算定しないもの（{claim.excluded.length}）</summary>
               <ul className="ml-4 list-disc">
@@ -241,7 +238,6 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
                 ))}
               </ul>
             </details>
-            <p className="hint mt-1 text-[10px] text-ink-faint">点数の出どころ：{claim.sources.join("、")}</p>
           </section>
 
           {/* 患者負担 */}
@@ -343,10 +339,8 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={outpatientManagement} disabled={!!settlement} onChange={(e) => setOutpatientManagement(e.target.checked)} />外来管理加算の候補（人が選ぶ：計画的な医学管理・併算定できない診療がないことを確認）</label>
-      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={specificDisease} disabled={!!settlement} onChange={(e) => setSpecificDisease(e.target.checked)} />特定疾患処方管理加算（人が選ぶ：対象の主病・28日以上の処方・当月未算定を確認）</label>
-      {/* 未収の一覧 */}
-      <section aria-label="今日の外来の未収" className="rounded-lg border border-rule bg-paper/50 p-3">
+      {/* 未収の一覧 (not in the 医事課 board, which lists them itself) */}
+      {(unpaid.length > 0 || onOpenVisit) && <section aria-label="今日の外来の未収" className="rounded-lg border border-rule bg-paper/50 p-3">
         <h3 className="mb-1 flex flex-wrap items-center gap-2 text-xs font-bold text-ink-soft">
           今日の外来の未収（診察が終わって会計がまだ）
           <span className="nums font-normal">
@@ -377,9 +371,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
             ))}
           </ul>
         )}
-      </section>
-      <Sources items={[...OPD_CLAIM_SOURCES, ...FUTAN_SOURCES]} />
-      <p className="hint text-[10px] text-ink-faint">1点10円で患者負担を出し、入金は医事課が記録します。領収書・明細書の様式は療養担当規則5条の2（領収証・明細書の交付）に沿っています。生年月日  {formatShort(birth)}  は保険の登録がなければ年齢から作った日付です。</p>
+      </section>}
       {sheet}
     </div>
   );

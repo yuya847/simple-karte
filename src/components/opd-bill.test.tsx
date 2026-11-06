@@ -137,7 +137,6 @@ describe("外来の会計", () => {
     expect(html).toContain("外来の会計");
     expect(html).toContain("再診料");
     expect(html).toContain("外来管理加算");
-    expect(html).toContain("血液採取");
     expect(html).toContain(`${claim.totalPoints.toLocaleString("ja-JP")}点`);
     const yen = Math.floor((claim.totalPoints * 10 * 0.2 + 5) / 10) * 10;
     expect(html).toContain(`お支払い`);
@@ -165,7 +164,7 @@ describe("外来の会計", () => {
     expect(done).toContain("会計済み");
     expect(done).toContain("R-20261104-001");
     expect(done).not.toContain("入金（");
-    expect(done).toContain("未収はありません");
+    expect(done).not.toContain("今日の外来の未収");
   });
 
   it("without a registered insurance it says the share is from an assumed one", () => {
