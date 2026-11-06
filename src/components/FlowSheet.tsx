@@ -3,7 +3,8 @@
 import { displayText } from "@/lib/display-text";
 import { StandingMeasurements, type StandingMeasurementSource } from "./StandingMeasurements";
 
-import { ChevronLeft, ChevronRight, Copy, ClipboardPaste, Printer, Rows3 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, ClipboardPaste, Printer, Rows3 } from "lucide-react";
+import { vitalsPasteText } from "@/lib/lab-paste";
 import { TabChoice } from "./TabChoice";
 import { VITAL_RANGES, vitalsIn, vitalsText, type VitalRange } from "@/lib/vitals-text";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -278,12 +279,15 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
           tabIndex={0}
           aria-label="バイタルのグラフ。左右の矢印キーで測定時刻を移動"
           onPointerMove={(e) => {
+            // Over the values box: keep it (so its copy button can be pressed).
+            if ((e.target as HTMLElement).closest?.("[data-vital-tip]")) return;
             const r = e.currentTarget.getBoundingClientRect();
             const px = e.clientX - r.left - LABEL_W;
             if (px >= 0) pickNearest(px);
           }}
           onPointerLeave={() => setHover(null)}
           onClick={(e) => {
+            if ((e.target as HTMLElement).closest?.("[data-vital-tip]")) return;
             const r = e.currentTarget.getBoundingClientRect();
             const px = e.clientX - r.left - LABEL_W;
             if (px < 0 || (!onEntry && !onAddNote)) return;
@@ -296,6 +300,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
             if (e.key === "ArrowRight") setHover((h) => Math.min((h ?? -1) + 1, vitals.length - 1));
             if (e.key === "ArrowLeft") setHover((h) => Math.max((h ?? vitals.length) - 1, 0));
             if (e.key === "Escape") setHover(null);
+            if ((e.metaKey || e.ctrlKey) && e.key === "c" && hover !== null && vitals[hover]) void navigator.clipboard?.writeText(vitalText(vitals[hover], today));
           }}
         >
           {show("vitals.bt") && (
@@ -917,8 +922,14 @@ function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs, untaken, o
   );
 }
 
+/** One measurement as text for a note or a letter (the same form as 「ばいたる」). */
+function vitalText(v: VitalSign, today: CalendarDate): string {
+  return vitalsPasteText({ vitals: [v] }, today) ?? "";
+}
+
 function Tooltip({ v, left, plotW, today }: { v: VitalSign; left: number; plotW: number; today: CalendarDate }) {
   const flip = left > plotW * 0.6;
+  const [copied, setCopied] = useState(false);
   const rows: [string, string, string | undefined][] = [
     [C_BT, "体温", v.bt !== undefined ? `${v.bt.toFixed(1)}℃` : undefined],
     [C_HR, "脈拍", v.hr !== undefined ? `${v.hr}/分` : undefined],
@@ -929,11 +940,24 @@ function Tooltip({ v, left, plotW, today }: { v: VitalSign; left: number; plotW:
   return (
     <div
       role="status"
-      className="pointer-events-none absolute top-2 z-10 rounded-md border border-rule bg-sheet px-2.5 py-1.5 shadow-lg"
+      data-vital-tip
+      className="absolute top-2 z-10 rounded-md border border-rule bg-sheet px-2.5 py-1.5 shadow-lg"
       style={flip ? { right: `calc(100% - ${left - 12}px)` } : { left: left + 12 }}
     >
-      <div className="mb-1 text-[10px] text-ink-faint">
+      <div className="mb-1 flex items-center gap-2 text-[10px] text-ink-faint">
         {formatShort(addDays(today, v.day))} {v.time}
+        <button
+          type="button"
+          aria-label="この測定値をコピー"
+          title={copied ? "コピーしました" : "コピー（⌘C）"}
+          onClick={(e) => {
+            e.stopPropagation();
+            void navigator.clipboard?.writeText(vitalText(v, today)).then(() => setCopied(true));
+          }}
+          className={`ml-auto rounded p-0.5 hover:bg-paper ${copied ? "text-wakatake" : "text-ink-faint hover:text-ink"}`}
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+        </button>
       </div>
       {rows.map(([color, name, val]) =>
         val ? (
