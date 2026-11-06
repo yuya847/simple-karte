@@ -3,6 +3,7 @@ import type { StandingLine } from "./standing-lines";
 import type { AdminRecord } from "./mar";
 import type { OrderEntry, Patient, HdOrder } from "./types";
 import { findDrug, findOralDrug } from "./master";
+import { classOf } from "./drug-class";
 import { findProc } from "./procedures";
 
 export type SpecialistScreen = "equipment" | "infection" | "oral";
@@ -48,10 +49,14 @@ export const ANTIBIOTIC_RULES = [
 export function antibioticsOf(entries: OrderEntry[]) {
   return activeOrders(entries).flatMap(e => {
     const o = e.order;
-    const names = o.type === "injection" ? o.items.map(i => findDrug(i.drugCode)?.generic ?? findDrug(i.drugCode)?.name ?? i.drugCode) : o.type === "prescription" ? [findOralDrug(o.drugCode)?.name ?? o.drugCode] : [];
-    return [...new Set(names)].flatMap(name => {
+    const codes = o.type === "injection" ? o.items.map(i => i.drugCode) : o.type === "prescription" ? [o.drugCode] : [];
+    return [...new Set(codes)].flatMap(code => {
+      const cls = classOf(code);
+      const drug = findDrug(code) ?? findOralDrug(code);
+      const name = cls?.generic || (drug && "generic" in drug ? drug.generic : "") || drug?.name || code;
       const rule = ANTIBIOTIC_RULES.find(r => r.match.test(name));
-      return rule && "start" in o ? [{ id: e.id, names: name, kind: rule.kind, days: 1 - o.start.day }] : [];
+      const antibacterial = /^(87)?6[12]/.test(cls?.bunrui ?? "") || /抗生物質|抗菌/.test(cls?.yakko ?? "") || /セファゾリン|セフトリアキソン|アンピシリン|アモキシシリン|セフカペン|アジスロマイシン|レボフロキサシン|スルファメトキサゾール|メトロニダゾール/.test(name);
+      return (rule || antibacterial) && "start" in o ? [{ id: e.id, code, names: name, kind: rule?.kind ?? "", days: 1 - o.start.day, startDay: o.start.day }] : [];
     });
   });
 }
@@ -67,13 +72,13 @@ export function infectionFlags(p: Patient) {
   });
 }
 export function oralFlags(p: Patient, entries: OrderEntry[], surgery: boolean, lines: StandingLine[] = [], nowTime = "23:59", diagnoses: string[] = []) {
-  const diagnosisText = [p.admissionDiagnosis, ...diagnoses].join("・");
+  const diagnosisText = diagnoses.join("・");
   const equipment = equipmentOf(entries, lines, nowTime);
   const priority = [surgery ? "手術予定" : "", /誤嚥性肺炎/.test(diagnosisText) ? "誤嚥性肺炎" : "", /絶食|食止/.test(p.dietNow ?? "") ? "絶食" : "", equipment.some(e => /人工呼吸/.test(e.label)) ? "挿管・人工呼吸" : ""].filter(Boolean);
   const management = surgery || /がん|癌|悪性/.test(diagnosisText) || activeOrders(entries).some(e => /化学療法|抗がん|レジメン/.test(JSON.stringify(e.order)) || (e.order.type === "injection" && e.order.items.some(i => findDrug(i.drugCode)?.chemo)));
   return { priority, management };
 }
-export interface SpecialistRecord { id: string; patientId: string; screen: SpecialistScreen; at: string; by: string; text: string; scores?: number[]; equipmentId?: string }
+export interface SpecialistRecord { id: string; patientId: string; screen: SpecialistScreen; at: string; by: string; text: string; scores?: number[]; equipmentId?: string; result?: string; care?: boolean }
 export function appendRecord(records: SpecialistRecord[], record: SpecialistRecord) {
   if (!record.text.trim() || !record.by.trim() || !record.at || !record.patientId) throw new Error("記録が不足しています");
   if (record.scores) ohatTotal(record.scores);
@@ -84,3 +89,18 @@ export function appendRecord(records: SpecialistRecord[], record: SpecialistReco
 export function dotFor(orderIds: string[], patientId: string, records: AdminRecord[]): number {
   return new Set(records.filter(r => r.patientId === patientId && orderIds.includes(r.orderId) && r.status === "実施" && !r.cancellation).map(r => Math.floor(r.at / 1440))).size;
 }
+
+/** 開始日以降、今日までに採取・測定された結果だけを表示する。 */
+export function antibioticMonitoring(p: Patient, startDay: number) {
+  return {
+    culture: p.cultures.some(c => c.collectedOn >= startDay && c.collectedOn <= 0),
+    tdm: p.labs.some(l => l.day >= startDay && l.day <= 0 && Object.keys(l.values).some(k => /VCM|TEIC|ABK|バンコマイシン|テイコ|血中濃度/i.test(k))),
+  };
+}
+export function infectionRank(p: Patient, entries: OrderEntry[]) {
+  return infectionFlags(p).length ? 0 : antibioticsOf(entries).some(a => a.kind) ? 1 : 2;
+}
+export function latestRecords(records: SpecialistRecord[]) {
+  return records.slice().sort((a, b) => b.at.localeCompare(a.at));
+}
+export function toggleSpecialistRow(current: string | null, key: string) { return current === key ? null : key; }
