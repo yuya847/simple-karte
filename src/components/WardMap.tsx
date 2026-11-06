@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { FlaskConical, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { hospitalDay } from "@/lib/dates";
@@ -95,7 +96,6 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
       <header className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
         <h1 className="text-lg font-bold">
           {title}
-          <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空の病棟</span>
         </h1>
         {pick && <PickSelect pick={pick} />}
         {dayNav && <DayNav {...dayNav} />}
@@ -134,7 +134,7 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
         </div>
       </div>
       <p className="mt-3 text-[11px] text-ink-faint">
-        部屋番号は 4 と 9 を飛ばしています。受け持ち以外の患者のカルテは、病棟を病棟らしく見せるための架空の小さな記録です（入院時の記事・病名・バイタル数回・採血1回・食事・オーダ数件）。押すと開き、開いた記録は監査ログに残ります。
+        部屋番号は 4 と 9 を飛ばしています。受け持ち以外の患者には、入院時の記事・病名・バイタル数回・採血1回・食事・オーダ数件の記録があります。押すと開き、開いた記録は監査ログに残ります。
       </p>
     </section>
   );
@@ -157,7 +157,7 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
   const body = rooms.map((r) => (
     <div key={r.no} className={`flex flex-col rounded-lg border border-rule bg-sheet ${r.kind === "4床室" ? "flex-[2]" : "flex-1"}`}>
       <div className="nums flex items-baseline gap-2 border-b border-rule-soft px-2.5 py-1">
-        <b className="text-sm">{r.no}</b>
+        <b className="text-sm">{displayText(r.no)}</b>
         <span className="text-[10px] text-ink-faint">{r.kind}</span>
         {look.roomNote?.(r) && (
           <span className="ml-auto truncate text-[10px] font-bold text-ai" title="業務分担（いまの勤務帯の受け持ち）">
@@ -191,7 +191,7 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
                   <span>
                     {b && <span className="mr-1">{b}</span>}空く予定
                   </span>
-                  <span className="text-[10px] text-ink-soft">{markText(mark, look.day, look.fmtDay).replace(/^空く予定/, "")}</span>
+                  <span className="text-[10px] text-ink-soft">{displayText(markText(mark, look.day, look.fmtDay).replace(/^空く予定/, ""))}</span>
                 </div>
               ) : patient && (mine || !look.emphasize) ? (
                 // 移動 is offered for the team's patients (their bed moves are the team's work).
@@ -318,16 +318,16 @@ function OtherBed({ other, patient, bed, faded, onOpen }: { other?: OtherPatient
       <div className="truncate whitespace-nowrap">
         {who ? ageSex(who) : ""}・{who?.department}
       </div>
-      {other?.note && <span className="mt-auto self-start rounded border border-rule px-1">{other.note}</span>}
+      {other?.note && <span className="mt-auto self-start rounded border border-rule px-1">{displayText(other.note)}</span>}
     </>
   );
   const cls = `nums flex h-full w-full flex-col gap-0.5 rounded-md bg-paper px-2 py-1.5 text-left text-[11px] text-ink-faint ${faded ? "opacity-30" : ""}`;
   return onOpen ? (
-    <button type="button" onClick={onOpen} title="受け持ち以外の患者（架空）。押すとカルテが開きます（開いた記録は監査ログに残ります）" className={`${cls} hover:bg-ai-soft/30 hover:ring-1 hover:ring-ai/40`}>
+    <button type="button" onClick={onOpen} title="受け持ち以外の患者。押すとカルテが開きます（開いた記録は監査ログに残ります）" className={`${cls} hover:bg-ai-soft/30 hover:ring-1 hover:ring-ai/40`}>
       {body}
     </button>
   ) : (
-    <div title="受け持ち以外の患者（架空）" className={cls}>
+    <div title="受け持ち以外の患者" className={cls}>
       {body}
     </div>
   );
@@ -344,8 +344,8 @@ function ExpectedBed({ who, bed, text, faded }: { who: Expected; bed: string; te
       <div className="text-ink-soft">
         {ageSex(who)}・{who.department}
       </div>
-      <Tag tone="ai">{text}</Tag>
-      {who.note && <div className="truncate whitespace-nowrap text-ink-soft">{who.note}</div>}
+      <Tag tone="ai">{displayText(text)}</Tag>
+      {who.note && <div className="truncate whitespace-nowrap text-ink-soft">{displayText(who.note)}</div>}
     </div>
   );
 }

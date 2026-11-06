@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { useMe } from "../RoleContext";
@@ -168,15 +169,15 @@ export function AddLabPanel({
         {/* Left: sets */}
         <aside className="space-y-3" aria-label="セット">
           <section>
-            <h3 className="mb-1 text-xs font-bold text-ink-soft">基本セット<span className="hint">（架空の病院の取り決め）</span></h3>
+            <h3 className="mb-1 text-xs font-bold text-ink-soft">基本セット</h3>
             <div className="space-y-1">{BASIC_SETS.map(setButton)}</div>
           </section>
           <section>
-            <h3 className="mb-1 text-xs font-bold text-ink-soft">科別セット<span className="hint">（架空の病院の取り決め）</span></h3>
+            <h3 className="mb-1 text-xs font-bold text-ink-soft">科別セット</h3>
             <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-0.5 @3xl:max-h-none">
               {DEPT_SETS.map((d) => (
                 <div key={d.dept}>
-                  <div className="mb-0.5 text-[11px] text-ink-soft">{d.dept}</div>
+                  <div className="mb-0.5 text-[11px] text-ink-soft">{displayText(d.dept)}</div>
                   <div className="space-y-1">{d.sets.map(setButton)}</div>
                 </div>
               ))}
@@ -207,7 +208,7 @@ export function AddLabPanel({
             </section>
           ))}
           </div>
-          <p className="hint text-[11px] text-ink-faint">札は院内か外注かと所要日数（架空の病院の取り決め）。セットに含まれる項目は薄くなり、別には出せません。</p>
+          <p className="hint text-[11px] text-ink-faint">札は院内か外注かと所要日数。セットに含まれる項目は薄くなり、別には出せません。</p>
         </section>
 
         {/* Right: the picks */}
@@ -268,7 +269,7 @@ export function AddLabPanel({
             <div className="text-[11px] text-ink-soft">
               <div>容器：{summary.containers.join("・")}</div>
               {pts?.data?.bundles.some((b) => b.points !== null) && <div>{pts.data.bundles.filter((b) => b.points !== null).map((b) => `${b.name.split("（")[0]} ${b.count}項目をまとめて${b.points}点`).join("、")}</div>}
-              {pts?.data?.lines.some((l) => l.note) && <div>{pts.data.lines.filter((l) => l.note).map((l) => `${l.label}：${l.note}`).join("　")}</div>}
+              {pts?.data?.lines.some((l) => l.note) && <div>{displayText(pts.data.lines.filter((l) => l.note).map((l) => `${l.label}：${l.note}`).join("　"))}</div>}
               {summary.notes.map((n) => (
                 <div key={n} className="text-yamabuki">{n}</div>
               ))}
@@ -277,7 +278,7 @@ export function AddLabPanel({
           <section className="rounded-md border border-rule bg-paper/60 p-2">
             <h3 className="mb-1 text-xs font-bold text-ink-soft">コメント</h3>
             <fieldset className="mb-1.5">
-              <legend className="text-[11px] text-ink-soft">採血場所指示<span className="hint">（病棟では病棟採血が既定。架空の病院の取り決め）</span></legend>
+              <legend className="text-[11px] text-ink-soft">採血場所指示</legend>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px]">
                 {LAB_SITES.map((s) => (
                   <label key={s} className="inline-flex items-center gap-1">
@@ -373,7 +374,7 @@ export function AddLabPanel({
           </label>
           {problem && picked.length > 0 && <span className="text-xs text-shu">{problem}</span>}
           <button type="button" disabled={!canAdd} onClick={save} className="ml-auto rounded-md bg-ai px-4 py-2 text-sm font-bold text-white disabled:opacity-40">
-            保存（{summary.labCodes.length}項目・採取 {drawText(draw, today)}）
+            保存（{summary.labCodes.length}項目・採取 {displayText(drawText(draw, today))}）
           </button>
         </div>
         <p className="hint mt-1 text-[11px] text-ink-soft">過ぎた日時は確認で止まります。「今すぐ」は至急として扱います。全部の項目に至急を付けたときも、オーダ全体が至急になります。</p>
@@ -396,7 +397,7 @@ export function AddLabPanel({
           </a>
           。
         </p>
-        <p>院内か外注か・所要日数・定時採血の時刻（{WARD_RULES.routineDrawTime}）と採取時刻の候補・頻用の項目・セットの中身・採血場所の区分は架空の病院の取り決めです。実施料は医科診療行為マスターの点数で、判断料・採血料・加算は会計で算定します。結果の基準範囲は JCCLS 共用基準範囲（なければ SRL の値）です。</p>
+        <p>院内か外注か・所要日数・定時採血の時刻（{WARD_RULES.routineDrawTime}）と採取時刻の候補・頻用の項目・セットの中身・採血場所の区分を表示します。実施料は医科診療行為マスターの点数で、判断料・採血料・加算は会計で算定します。結果の基準範囲は JCCLS 共用基準範囲（なければ SRL の値）です。</p>
       </footer>
     </div>
   );

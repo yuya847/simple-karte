@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Check, DoorOpen, Minus, TriangleAlert } from "lucide-react";
 import { createPortal } from "react-dom";
 import type { CheckItem } from "@/lib/discharge-check";
@@ -12,7 +13,7 @@ export function DischargeDialog({ name, items, onDo, onClose, children }: { name
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-rule bg-sheet p-4 text-[13px] shadow-lg" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-2 flex items-center gap-1.5 text-base font-bold">
           <DoorOpen size={18} />
-          {name}さんの退院を実施する
+          {displayText(name)}さんの退院を実施する
         </h2>
         <p className="mb-2 text-xs text-ink-soft">カルテから集めた退院の準備です（コードで集めた事実）。済んでいないものがあっても、実施するかどうかは押す人が決めます。</p>
         <ul className="mb-3 divide-y divide-rule-soft rounded-md border border-rule">
@@ -20,7 +21,7 @@ export function DischargeDialog({ name, items, onDo, onClose, children }: { name
             <li key={i.label} className="flex items-start gap-2 px-3 py-1.5">
               {i.state === "ok" ? <Check size={14} className="mt-0.5 text-wakatake" /> : i.state === "none" ? <Minus size={14} className="mt-0.5 text-ink-faint" /> : <TriangleAlert size={14} className="mt-0.5 text-yamabuki" />}
               <span className="w-32 shrink-0 font-bold">{i.label}</span>
-              <span className={i.state === "todo" ? "text-yamabuki" : "text-ink-soft"}>{i.detail}</span>
+              <span className={i.state === "todo" ? "text-yamabuki" : "text-ink-soft"}>{displayText(i.detail)}</span>
             </li>
           ))}
         </ul>

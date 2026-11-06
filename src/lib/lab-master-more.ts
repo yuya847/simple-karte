@@ -77,7 +77,7 @@ const ROWS: Row[] = [
   { code: "LAB-HBSAB", group: "炎症・感染", abbr: "HBs抗体", name: "HBs抗体（定量）", contains: ["HBsAb"], aliases: ["HBs抗体", "HBsAb"], info: serum(IN) },
   { code: "LAB-HBCAB", group: "炎症・感染", abbr: "HBc抗体", name: "HBc抗体（定量）", contains: ["HBcAb"], aliases: ["HBc抗体", "HBcAb"], info: serum(OUT) },
   { code: "LAB-HCVAB", group: "炎症・感染", abbr: "HCV抗体", name: "HCV抗体（C型肝炎ウイルス抗体、定性・定量）", contains: ["HCVAb"], aliases: ["HCV抗体", "HCVAb", "C型肝炎抗体"], info: serum(IN) },
-  { code: "LAB-HIV", group: "炎症・感染", abbr: "HIV", name: "HIV-1,2 抗原・抗体同時測定（定性）", contains: ["HIV"], aliases: ["HIV", "HIV抗体", "HIV抗原抗体"], info: serum(IN, "0.5", "結果の説明は医師が行う（架空の病院の取り決め）") },
+  { code: "LAB-HIV", group: "炎症・感染", abbr: "HIV", name: "HIV-1,2 抗原・抗体同時測定（定性）", contains: ["HIV"], aliases: ["HIV", "HIV抗体", "HIV抗原抗体"], info: serum(IN, "0.5", "結果の説明は医師が行う") },
   { code: "LAB-TPAB", group: "炎症・感染", abbr: "TP抗体", name: "梅毒トレポネーマ抗体（TP抗体、定量）", contains: ["TPAb"], aliases: ["TP抗体", "TPHA", "TPLA", "梅毒抗体"], info: serum(IN) },
   { code: "LAB-RPR", group: "炎症・感染", abbr: "RPR", name: "梅毒血清反応（STS・RPR 定量）", contains: ["RPR"], aliases: ["RPR", "STS", "梅毒定量"], info: serum(IN) },
   { code: "LAB-HTLV1", group: "炎症・感染", abbr: "HTLV-1抗体", name: "HTLV-1抗体", contains: ["HTLV1"], aliases: ["HTLV-1", "HTLV1抗体", "ATL抗体"], info: serum(OUT) },
@@ -168,7 +168,7 @@ const ROWS: Row[] = [
   { code: "LAB-TBPCR", group: "微生物（塗抹・遺伝子）", abbr: "結核菌群PCR", name: "結核菌群核酸検出（PCR）", specimen: "その他", contains: ["TBPCR"], aliases: ["結核PCR", "TB-PCR", "結核菌群核酸", "結核菌PCR"], info: sterile("喀痰または他の材料", OUT) },
   { code: "LAB-COVPCR", group: "微生物（塗抹・遺伝子）", abbr: "SARS-CoV-2 PCR", name: "SARS-CoV-2 核酸検出（PCR）", specimen: "その他", contains: ["CovPCR"], aliases: ["コロナPCR", "COVID PCR", "SARS-CoV-2 PCR", "新型コロナPCR"], info: swab("鼻咽頭ぬぐい液または唾液", IN) },
   { code: "LAB-COVFLUPCR", group: "微生物（塗抹・遺伝子）", abbr: "コロナ・インフル PCR", name: "SARS-CoV-2・インフルエンザ核酸同時検出", specimen: "その他", contains: ["CovPCR", "FluPCR"], aliases: ["コロナインフルPCR", "同時PCR"], info: swab("鼻咽頭ぬぐい液", IN) },
-  { code: "LAB-CDIFF", group: "微生物（塗抹・遺伝子）", abbr: "CD抗原・トキシン", name: "クロストリジオイデス・ディフィシル抗原（GDH）・トキシン（定性）", specimen: "その他", contains: ["CDtoxin"], aliases: ["CDトキシン", "CD抗原", "CDチェック", "ディフィシル", "C. difficile"], info: { material: "糞便（下痢便）", container: "滅菌容器", tat: NOW, note: "形のある便では検査しない（架空の病院の取り決め）" } },
+  { code: "LAB-CDIFF", group: "微生物（塗抹・遺伝子）", abbr: "CD抗原・トキシン", name: "クロストリジオイデス・ディフィシル抗原（GDH）・トキシン（定性）", specimen: "その他", contains: ["CDtoxin"], aliases: ["CDトキシン", "CD抗原", "CDチェック", "ディフィシル", "C. difficile"], info: { material: "糞便（下痢便）", container: "滅菌容器", tat: NOW, note: "形のある便では検査しない" } },
   // ---------- 薬物濃度（特定薬剤治療管理料で算定） ----------
   { code: "LAB-TEIC", group: "薬物濃度", abbr: "TEIC", name: "テイコプラニン血中濃度", contains: ["TEIC"], aliases: ["テイコプラニン濃度", "TEIC濃度", "タゴシッド濃度"], info: level("テイコプラニン") },
   { code: "LAB-DIG", group: "薬物濃度", abbr: "ジゴキシン", name: "ジゴキシン血中濃度", contains: ["DIG"], aliases: ["ジゴキシン濃度", "ジギタリス濃度", "ジゴシン濃度"], info: level("ジゴキシン") },

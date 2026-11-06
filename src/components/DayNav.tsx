@@ -62,7 +62,7 @@ export function AsOfBand({ asOf, fmtDay }: { asOf: Pick<WardAsOf, "day" | "known
     return (
       <div role="status" className="shrink-0 border-b border-yamabuki/40 bg-yamabuki-soft/60 px-5 py-1.5 text-[12px] text-ink">
         <b className="text-yamabuki">{fmtDay(asOf.day)}の見込み（予定から計算）</b>
-        <span className="ml-2 text-ink-soft">その日の朝のベッド。見るだけで、転棟・転床や入院申込の操作は今日の画面で行います。<span className="hint">日付を動かして見込みを出すのは架空の病院の取り決めです。</span></span>
+        <span className="ml-2 text-ink-soft">その日の朝のベッド。見るだけで、転棟・転床や入院申込の操作は今日の画面で行います。</span>
         <span className="hint ml-2 text-ink-soft">空床 ＝ いまの空床 ＋ その日より前の退院の予定 − その日より前の入院の予定（明日の朝なら、いまの空床 ＋ 今日の退院 − 今日の入院。ベッドコントロールと同じ式）。その日に入院する予定のベッドは空床のうち「入院予定」として数えます。</span>
       </div>
     );

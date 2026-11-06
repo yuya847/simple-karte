@@ -82,7 +82,7 @@ describe("検体検査のオーダ画面", () => {
     expect(html).toContain("医科診療行為マスター");
     expect(html).toContain("公開されている操作マニュアルの画面を参考");
     expect(html).toContain("https://www.med.miyazaki-u.ac.jp/");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain('class="hint');
     expect(html).not.toContain("おすすめ");
     expect(html).not.toContain("推奨");

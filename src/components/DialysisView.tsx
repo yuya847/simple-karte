@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
 
@@ -60,7 +61,7 @@ export function DialysisView({ today, nowTime, patients, sessions, onPatient, on
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <Droplets size={18} className="text-ai" />
           透析室
-          <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <span className="text-sm text-ink-soft">
           {formatShort(today)}（{["日", "月", "火", "水", "木", "金", "土"][dow]}曜{holiday ? "・休日" : ""}）　{todays.length}人
@@ -81,11 +82,11 @@ export function DialysisView({ today, nowTime, patients, sessions, onPatient, on
                       {o.hd.method}（{o.hd.purpose}）
                     </span>
                   )}
-                  {o.hd && <span>{hdText(o.hd)}</span>}
+                  {o.hd && <span>{displayText(hdText(o.hd))}</span>}
                   <span className="text-ink-soft">
-                    {procScheduleText(o.schedule)}　{formatShort(addDays(today, o.start.day))} {o.start.time ?? "（時刻は透析室と調整）"}
+                    {displayText(procScheduleText(o.schedule))}　{formatShort(addDays(today, o.start.day))} {o.start.time ?? "（時刻は透析室と調整）"}
                     {o.days ? `　${o.days}日間` : ""}
-                    {o.comment ? `　${o.comment}` : ""}　指示 {w.entry.author}
+                    {o.comment ? `　${o.comment}` : ""}　指示 {displayText(w.entry.author)}
                   </span>
                   {onOpenChart && (
                     <button type="button" onClick={() => onOpenChart(w.patientId)} className="text-ai hover:underline">
@@ -135,7 +136,7 @@ export function DialysisView({ today, nowTime, patients, sessions, onPatient, on
               </ul>
             </section>
           ))}
-          <p className="text-[10px] text-ink-faint">今日が透析日でない人（月水金）は一覧に出ません。患者・条件・記録はすべて架空です。</p>
+          <p className="text-[10px] text-ink-faint">今日が透析日でない人（月水金）は一覧に出ません。</p>
         </aside>
 
         <div className="scroll-thin min-h-0 overflow-auto p-4">
@@ -180,7 +181,7 @@ function Conditions({ p, nowTime, onPatient }: { p: HdPatient; today: CalendarDa
   const row = (k: string, v: string) => (
     <div className="flex gap-2">
       <dt className="w-28 shrink-0 text-ink-faint">{k}</dt>
-      <dd>{v}</dd>
+      <dd>{displayText(v)}</dd>
     </div>
   );
   return (
@@ -199,7 +200,7 @@ function Conditions({ p, nowTime, onPatient }: { p: HdPatient; today: CalendarDa
       </dl>
       {p.history.length > 0 && (
         <div className="mt-2 text-[11px] text-ink-soft">
-          変更の記録：{p.history.map((h) => `${h.at} ${h.text}（${h.by}）`).join("　")}
+          変更の記録：{displayText(p.history.map((h) => `${h.at} ${h.text}（${h.by}）`).join("　"))}
         </div>
       )}
       <div className="mt-3 border-t border-rule-soft pt-3">

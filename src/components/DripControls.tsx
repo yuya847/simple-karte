@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
@@ -16,10 +17,10 @@ export function ExpectedEnd({ course, nowAbs }: { course: { expectedEnd: number 
   return (
     <span className="nums">
       <span className="text-ink-soft" title="開始の時刻 ＋ 1本の量 ÷ 速さ（コードで計算）">
-        終了予定 {clockText(course.expectedEnd)}
+        終了予定 {displayText(clockText(course.expectedEnd))}
         {course.mlPerH ? `（${course.volumeMl}mL ÷ ${course.mlPerH}mL/時）` : ""}
       </span>
-      {past > 0 && <span className="ml-1 rounded bg-shu-soft px-1 font-bold text-shu">終了予定を {durationText(past)} 過ぎています</span>}
+      {past > 0 && <span className="ml-1 rounded bg-shu-soft px-1 font-bold text-shu">終了予定を {displayText(durationText(past))} 過ぎています</span>}
     </span>
   );
 }
@@ -93,7 +94,7 @@ export function DripEndForm({ volumeMl, start, nowAbs, nowTime, onEnd, label = "
           やめる
         </button>
       </div>
-      <p className="hint text-[10px] text-ink-faint">入った量は 1本の量 − 残量 で、水分出納の IN（点滴）に終了の時刻で入ります。終わった理由の選択肢は架空の病院の取り決めです。</p>
+      <p className="hint text-[10px] text-ink-faint">入った量は 1本の量 − 残量 で、水分出納の IN（点滴）に終了の時刻で入ります。</p>
     </div>
   );
 }
@@ -109,12 +110,12 @@ export function DripRecordCell({ record, nowAbs, nowTime, onRecord }: { record: 
   return (
     <span className="block space-y-0.5 text-[11px]">
       <span className="block text-wakatake" title={`リストバンド ${record.checked.patient ? "一致" : "—"}${record.checked.label === null ? "" : `／ラベル ${record.checked.label ? "一致" : "—"}`}`}>
-        開始 {clockText(start)} <span className="text-ink-soft">{record.by}</span>
+        開始 {displayText(clockText(start))} <span className="text-ink-soft">{displayText(record.by)}</span>
       </span>
       {record.end ? (
         <>
           <span className="nums block text-ink">
-            {endText(record)} <span className="text-ink-soft">{record.end.by}</span>
+            {displayText(endText(record))} <span className="text-ink-soft">{displayText(record.end.by)}</span>
           </span>
           {voiding ? (
             <span className="flex flex-wrap items-center gap-1 text-[10px]">
@@ -155,8 +156,8 @@ export function DripRecordCell({ record, nowAbs, nowTime, onRecord }: { record: 
         </>
       )}
       {(record.endVoided ?? []).map((v, i) => (
-        <span key={i} className="block text-[10px] text-ink-faint line-through decoration-ink-faint/60" title={`取り消し：${v.at} ${v.by}（${v.reason}）`}>
-          終了 {clockText(v.end.at)}（取り消し {v.at}・{v.reason}）
+        <span key={i} className="block text-[10px] text-ink-faint line-through decoration-ink-faint/60" title={displayText(`取り消し：${v.at} ${v.by}（${v.reason}）`)}>
+          終了 {displayText(clockText(v.end.at))}（取り消し {v.at}・{displayText(v.reason)}）
         </span>
       ))}
     </span>
@@ -191,7 +192,7 @@ export function RunningDrips({ people, records, sessionStart, nowTime, onRecord,
                   <b>{c.label}</b>
                   {c.bag ? `（${c.bag}本目）` : ""}
                   <div className="nums text-[11px] text-ink-soft">
-                    開始 {clockText(c.start)}（{c.startBy}）　<ExpectedEnd course={c} nowAbs={nowAbs} />
+                    開始 {displayText(clockText(c.start))}（{c.startBy}）　<ExpectedEnd course={c} nowAbs={nowAbs} />
                   </div>
                 </td>
                 <td className={`${td} w-64`}>{interactive ? <DripEndForm volumeMl={c.volumeMl} start={c.start} nowAbs={nowAbs} nowTime={nowTime} onEnd={(end) => onRecord({ ...startRecordOf(c), end })} /> : <span className="text-ink-faint">終了 □□□　残量 　　mL</span>}</td>

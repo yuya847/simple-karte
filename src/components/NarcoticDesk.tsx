@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Printer } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -93,7 +94,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
         麻薬処方箋の記載事項はコードが法と施行規則の項目で並べ、薬剤師が印刷した処方箋の署名を確かめて払い出します。注射の麻薬は、病棟が施用票を書いて残液・空アンプルを返納し、薬剤部が受け取った時に施用の日の払出として帳簿に入ります。残液と返納された薬は、立会いの職員を選んで廃棄を記録します。残高と照合の差はコードが数えます。
       </p>
       <p className="text-[11px] text-ink-faint">
-        麻薬管理者：{NARCOTIC_MANAGER}（{manager.ok ? manager.licence.no : manager.why}）。{NARCOTIC_RULES.licences}
+        麻薬管理者：{displayText(NARCOTIC_MANAGER)}（{displayText(manager.ok ? manager.licence.no : manager.why)}）。{NARCOTIC_RULES.licences}
       </p>
 
       {/* --- 麻薬処方箋・麻薬注射せん --- */}
@@ -115,14 +116,14 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
               <article key={e.id} className="rounded-md border border-rule-soft p-3">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-xs text-ink-faint">
-                    {day(e.day)} {e.time}　{e.author}
+                    {day(e.day)} {e.time}　{displayText(e.author)}
                   </span>
                   <b>
                     {x.room}　{x.patient.name}
                   </b>
                   <span>
                     {anyDrugName(code)}
-                    <DrugMarks codes={[code]} />　{usageText(e.order).text}
+                    <DrugMarks codes={[code]} />　{displayText(usageText(e.order).text)}
                   </span>
                   {e.status === "中止" && <span className="rounded bg-tab px-1.5 text-xs text-ink-soft">中止</span>}
                   <button type="button" onClick={() => { print(<RxSheet entry={e} items={items} patient={x.patient} room={x.room} today={today} />); log(oral ? "院内麻薬処方せんを印刷した" : "院内麻薬注射せんを印刷した", x.patient.name); }} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs hover:border-ai hover:text-ai">
@@ -136,7 +137,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
                       <tr key={i.item} className="border-t border-rule-soft align-top">
                         <td className="w-44 py-0.5 text-ink-soft">{i.item}</td>
                         <td className="py-0.5">{i.value}</td>
-                        <td className={`w-24 py-0.5 ${STATE_LABEL[i.state].cls}`}>{STATE_LABEL[i.state].text}</td>
+                        <td className={`w-24 py-0.5 ${STATE_LABEL[i.state].cls}`}>{displayText(STATE_LABEL[i.state].text)}</td>
                         <td className="w-48 py-0.5 text-[11px] text-ink-faint">{i.basis}</td>
                       </tr>
                     ))}
@@ -144,7 +145,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
                 </table>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                   {signed ? (
-                    <span className="text-wakatake">署名を確かめた {signed.at.time} {signed.by}</span>
+                    <span className="text-wakatake">署名を確かめた {signed.at.time} {displayText(signed.by)}</span>
                   ) : (
                     <button
                       type="button"
@@ -204,7 +205,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
               <DrugMarks codes={[s.code]} />
             </span>
             <span className="nums text-xs">
-              払出 {s.issuedA}A・施用 {s.usedMl}mL・残 {s.leftMl}mL・未使用 {s.unusedA}A　施用者 {s.prescriber}（{(LICENCES[s.prescriber] ?? []).find((l) => l.kind === "麻薬施用者")?.no ?? "免許番号なし"}）　返納 {s.returnedAt.time} {s.by}
+              払出 {s.issuedA}A・施用 {s.usedMl}mL・残 {s.leftMl}mL・未使用 {s.unusedA}A　施用者 {displayText(s.prescriber)}（{displayText((LICENCES[s.prescriber] ?? []).find((l) => l.kind === "麻薬施用者")?.no ?? "免許番号なし")}）　返納 {s.returnedAt.time} {displayText(s.by)}
             </span>
             <button
               type="button"
@@ -221,7 +222,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
         {leftovers.map((e) => (
           <Dispose
             key={e.id}
-            title={`${day(e.at.day)} ${e.at.time}　${anyDrugName(e.code)}　施用残 ${book.slips.find((s) => s.id === e.slipId)?.leftMl}mL（${e.note.split("　")[0]}）`}
+            title={displayText(`${day(e.at.day)} ${e.at.time}　${anyDrugName(e.code)}　施用残 ${book.slips.find((s) => s.id === e.slipId)?.leftMl}mL（${e.note.split("　")[0]}）`)}
             onDone={(witness, method) => {
               onBook((b) => disposeLeftover(b, e.id, ME, witness, method, now));
               log("麻薬の施用残液を廃棄した（立会い）", undefined, `${anyDrugName(e.code)} 立会 ${witness} ${method}`);
@@ -240,7 +241,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
             <div key={e.id} className="mb-1 flex flex-wrap items-center gap-2 text-xs">
               <span>
                 {day(e.at.day)}　{anyDrugName(e.code)}（{e.paren}
-                {unitOf(e.code)}）{e.note}　廃棄 {day(e.disposal.at.day)} {e.disposal.method}　立会 {e.disposal.witness}
+                {unitOf(e.code)}）{displayText(e.note)}　廃棄 {day(e.disposal.at.day)} {e.disposal.method}　立会 {displayText(e.disposal.witness)}
               </span>
               {e.notice &&
                 (e.notice.filedOn !== undefined ? (
@@ -257,7 +258,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
           ) : (
             <Dispose
               key={e.id}
-              title={`${day(e.at.day)} ${e.at.time}　${anyDrugName(e.code)}（${e.paren}${unitOf(e.code)}）${e.note}`}
+              title={displayText(`${day(e.at.day)} ${e.at.time}　${anyDrugName(e.code)}（${e.paren}${unitOf(e.code)}）${e.note}`)}
               onDone={(witness, method) => {
                 onBook((b) => disposeReturned(b, e.id, ME, witness, method, now));
                 log("返納された麻薬を廃棄した（立会い）", undefined, `${anyDrugName(e.code)} ${e.paren}${unitOf(e.code)} 立会 ${witness}`);
@@ -279,7 +280,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
           </a>
         ))}</p>
         <p className="mt-1">
-          <span className="hint">架空の病院の取り決め：{NARCOTIC_RULES.prn}{NARCOTIC_RULES.outpatient}立会者の候補・廃棄の方法の選択肢・卸売業者と製品番号は架空です。</span>届はどこにも送りません（模擬）。
+          <span className="hint">{NARCOTIC_RULES.prn}{NARCOTIC_RULES.outpatient}</span>届はどこにも送りません（模擬）。
         </p>
       </div>
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[10mm] print:block">{printing}</div>, document.body)}
@@ -320,7 +321,7 @@ function Dispose({ title, note, onDone }: { title: string; note: string; onDone:
         </button>
         {problem && witness && <span className="text-shu">{problem}</span>}
       </div>
-      <p className="mt-1 text-[11px] text-ink-faint">{note}</p>
+      <p className="mt-1 text-[11px] text-ink-faint">{displayText(note)}</p>
     </div>
   );
 }
@@ -379,13 +380,13 @@ function Ledger({ book, onBook, today, now, newId, log }: Sub) {
               <td className="py-0.5 text-right">{r.rest}</td>
               <td className="py-0.5 pl-3">
                 <span className="text-ink-soft">{r.kind}　</span>
-                {r.note}
+                {displayText(r.note)}
                 {r.disposal && (
                   <span className="text-ink-soft">
-                    　（{r.disposal.amount} 廃棄 {r.disposal.method}・立会者 {r.disposal.witness}）
+                    　（{r.disposal.amount} 廃棄 {r.disposal.method}・立会者 {displayText(r.disposal.witness)}）
                   </span>
                 )}
-                <span className="text-ink-faint">　{r.by}</span>
+                <span className="text-ink-faint">　{displayText(r.by)}</span>
               </td>
             </tr>
           ))}
@@ -476,9 +477,9 @@ function Accidents({ book, onBook, today, now, newId, log, print }: Sub & { prin
         const t = accidentText(a, classOf(a.code)?.product ?? anyDrugName(a.code), NARCOTIC_MANAGER, lic.ok ? lic.licence.no : "（免許番号なし）", date);
         return (
           <div key={a.id} className="mt-2 rounded-md border border-shu/40 bg-shu-soft/30 p-2 text-xs">
-            <pre className="whitespace-pre-wrap font-sans">{t}</pre>
+            <pre className="whitespace-pre-wrap font-sans">{displayText(t)}</pre>
             <div className="mt-1 flex gap-2">
-              <button type="button" onClick={() => print(<pre className="whitespace-pre-wrap font-sans text-[11pt]">{t}</pre>)} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 hover:border-ai hover:text-ai">
+              <button type="button" onClick={() => print(<pre className="whitespace-pre-wrap font-sans text-[11pt]">{displayText(t)}</pre>)} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 hover:border-ai hover:text-ai">
                 <Printer size={12} />
                 印刷
               </button>
@@ -506,7 +507,7 @@ function RxSheet({ entry, items, patient, room, today }: { entry: OrderEntry; it
       <div className="flex items-center gap-3 border-b border-black pb-2">
         <span className="inline-flex h-[12mm] w-[12mm] items-center justify-center rounded-full border-2 border-black text-[16pt] font-bold">麻</span>
         <span className="text-[15pt] font-bold tracking-widest">{oral ? "院内麻薬処方せん" : "院内麻薬注射せん"}</span>
-        <span className="ml-auto text-[9pt]">架空総合病院（試作・架空）</span>
+        <span className="ml-auto text-[9pt]">架空総合病院</span>
       </div>
       <table className="mt-2 w-full">
         <tbody>

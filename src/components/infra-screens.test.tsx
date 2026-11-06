@@ -82,7 +82,7 @@ describe("スキャン取込", () => {
   it("warns not to take in real papers, and lists what was taken in with the type, date and who", () => {
     const html = as("医事課", <ScanPanel patient={p} scans={[kept, withdraw({ ...kept, id: "s2", type: "問診票" }, "医事課 渡辺", { day: 0, time: "09:30" }, "別の患者の紙")]} today="11/4（水）" onAdd={() => {}} onWithdraw={() => {}} />);
     expect(html).toContain("実在の患者や医療機関の書類・写真は取り込まないでください");
-    expect(html).toContain("架空の見本を作る");
+    expect(html).toContain("見本を作る");
     expect(html).toContain("同意書</b>　文書の日付 2026-11-02");
     expect(html).toContain("取込 09:10 医事課 渡辺");
     expect(html).toContain("取り消し 09:30 医事課 渡辺：別の患者の紙");

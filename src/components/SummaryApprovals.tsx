@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { FileCheck } from "lucide-react";
 import { useState } from "react";
 import { HEAD_NURSE, SUMMARY_RULES, SUMMARY_SOURCES, lastReturn, latest, midDueList, stateOf, writerOf, type NurseSummary, type SummaryState } from "@/lib/nursing-summary";
@@ -31,7 +32,7 @@ function Card({ s, who, canReview, onApprove, onReturn, onOpen }: { s: NurseSumm
         {v.to && <span className="text-ink-soft">宛先：{v.to}</span>}
         <span className={`rounded px-1.5 text-[11px] font-bold ${STATE_STYLE[st]}`}>{st}</span>
         <span className="text-ink-faint">
-          第{s.versions.length}版 {v.at.day === 0 ? "今日" : v.at.day === -1 ? "昨日" : `${-v.at.day}日前`} {v.at.time} {v.by}
+          第{s.versions.length}版 {v.at.day === 0 ? "今日" : v.at.day === -1 ? "昨日" : `${-v.at.day}日前`} {v.at.time} {displayText(v.by)}
         </span>
         <button type="button" onClick={() => setOpen(!open)} className="ml-auto rounded border border-rule px-2 py-0.5">
           {open ? "閉じる" : "中身を見る"}
@@ -51,7 +52,7 @@ function Card({ s, who, canReview, onApprove, onReturn, onOpen }: { s: NurseSumm
             </div>
           ))}
           <div>
-            <b className="text-ink-soft">申し送り（{v.by}）</b>
+            <b className="text-ink-soft">申し送り（{displayText(v.by)}）</b>
             <p className="whitespace-pre-wrap pl-3">{v.words || "—"}</p>
           </div>
         </div>

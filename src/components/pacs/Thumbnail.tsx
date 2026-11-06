@@ -37,7 +37,7 @@ export function Thumbnail({ series, selected, onSelect }: { series: SeriesSpec; 
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(off, (SIZE - series.width * s) / 2, (SIZE - series.height * s) / 2, series.width * s, series.height * s);
     ctx.font = "10px ui-sans-serif, system-ui, 'Hiragino Sans', sans-serif";
-    text(ctx, photo ? "公開データ" : "架空", 4, 12, FICTION);
+    text(ctx, photo ? "公開データ" : "", 4, 12, FICTION);
     // photoV が進んだら（公開画像が読めたら）描き直す
   }, [series, photo, photoV]);
 

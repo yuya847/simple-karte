@@ -123,7 +123,7 @@ it("ICU のフォームと右端のお気に入りを開ける", () => {
   expect(html).toContain("SOFA 合計：未計算");
   const rail = as("医師", <ToolRail open="templates" openTemplate="rec-icu-admit" onOpen={noop} />);
   expect(rail).toContain(">ICU入室<");
-  expect(html).toContain("架空の病院の取り決め");
+  expect(html).not.toContain("架空の病院の取り決め");
 });
 
 

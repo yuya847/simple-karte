@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "../ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
 
@@ -65,9 +66,9 @@ export function TxBedsidePanel(p: Props) {
         const bags = unitsOf(p.bank, r.entry.id);
         return (
           <section key={r.entry.id} className="rounded-lg border border-rule bg-paper p-2.5">
-            <h3 className="font-bold">{txText(r.tx)}</h3>
+            <h3 className="font-bold">{displayText(txText(r.tx))}</h3>
             <p className="nums text-ink-soft">
-              輸血 {momentText(momentOf(r.at))}　{r.entry.author}　理由：{r.tx.reason}
+              輸血 {displayText(momentText(momentOf(r.at)))}　{displayText(r.entry.author)}　理由：{displayText(r.tx.reason)}
             </p>
             {bags.length === 0 && <p className="mt-1 text-ink-soft">輸血部門が製剤を割り付けて払い出すと、ここに出ます。</p>}
             {bags.map((u) => (
@@ -111,7 +112,7 @@ function Bag(p: BagProps) {
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-mono font-bold">{unit.lot}</span>
         <span>
-          {productName(unit.product)} {bagLabel(unit)} {typeText(unit.abo, unit.rh)}
+          {productName(unit.product)} {bagLabel(unit)} {displayText(typeText(unit.abo, unit.rh))}
         </span>
         <span className="font-bold text-ai">{state}</span>
       </p>
@@ -122,7 +123,7 @@ function Bag(p: BagProps) {
       ) : (
         <>
           <p className="text-ink-soft">
-            照合 {admin.check.time}：{admin.check.by} と {admin.check.second}（リストバンド・製剤のバーコード・外観）
+            照合 {admin.check.time}：{displayText(admin.check.by)} と {admin.check.second}（リストバンド・製剤のバーコード・外観）
           </p>
       <ExecutionHistory records={admin.cancellations} />
           {admin.start && <ExecutionUndo action="tx.bedside" patient={p.patient.name} detail={`輸血 ${unit.lot}`} onUndo={(by, at, reason) => { put({ ...cancelExecution(admin, ["start", "end", "obs", "reaction"], by, at, reason), obs: [] }); p.onVoidIo?.(unit.lot, reason); }} />}
@@ -176,7 +177,7 @@ function Check({ req, unit, bank, blood, nowTime, patient, put }: BagProps & { p
       <ul className="space-y-0.5">
         {r.lines.map((l) => (
           <li key={l.text} className={l.tone === "ok" ? "text-wakatake" : "font-bold text-shu"}>
-            {l.tone === "ok" ? "✓" : "×"} {l.text}
+            {l.tone === "ok" ? "✓" : "×"} {displayText(l.text)}
           </li>
         ))}
       </ul>
@@ -277,17 +278,17 @@ function Observe({ admin, put, nowTime, patient, unit, onIo, blood }: BagProps &
       </table>
       {admin.start && (
         <p className="text-ink-soft">
-          開始 {admin.start.time} {admin.start.by}。速さの目安：1mL/分ほどで始め、開始10〜15分で副反応の症状がなければ 5mL/分ほど（{pace.formula}。輸血療法実践ガイド Ⅱ-3-3)b）。
+          開始 {admin.start.time} {displayText(admin.start.by)}。速さの目安：1mL/分ほどで始め、開始10〜15分で副反応の症状がなければ 5mL/分ほど（{pace.formula}。輸血療法実践ガイド Ⅱ-3-3)b）。
         </p>
       )}
       {admin.reaction && (
         <p className="rounded bg-shu-soft px-2 py-1 font-bold text-shu">
-          副反応：{admin.reaction.symptoms.join("・")}（開始から {admin.reaction.onsetMin}分）　対応：{admin.reaction.action}　→ 輸血部門に届いています{admin.reaction.received ? `（${admin.reaction.received.time} ${admin.reaction.received.by}が受けた）` : ""}
+          副反応：{admin.reaction.symptoms.join("・")}（開始から {admin.reaction.onsetMin}分）　対応：{admin.reaction.action}　→ 輸血部門に届いています{displayText(admin.reaction.received ? `（${admin.reaction.received.time} ${admin.reaction.received.by}が受けた）` : "")}
         </p>
       )}
       {admin.end && (
         <p className={admin.end.rechecked ? "text-wakatake" : "font-bold text-shu"}>
-          {admin.end.stopped ? "中止" : "終了"} {admin.end.time} {admin.end.by}　量 {admin.end.ml}mL（水分出納の IN に入れた）　{admin.end.rechecked ? "終了後に患者名・血液型・製造番号を再確認" : "終了後の再確認の記録なし"}
+          {admin.end.stopped ? "中止" : "終了"} {admin.end.time} {displayText(admin.end.by)}　量 {admin.end.ml}mL（水分出納の IN に入れた）　{admin.end.rechecked ? "終了後に患者名・血液型・製造番号を再確認" : "終了後の再確認の記録なし"}
         </p>
       )}
 
@@ -353,7 +354,7 @@ function Observe({ admin, put, nowTime, patient, unit, onIo, blood }: BagProps &
             <button type="button" disabled={disabled || (ending && !recheck) || (newReaction && !action.trim())} onClick={() => record(next)} className="rounded bg-ai px-3 py-0.5 font-bold text-white disabled:opacity-40">
               {next === "終了時" ? "終了を記録" : ending ? "中止を記録" : "記録"}
             </button>
-            {next === "開始前" && <span className="text-ink-soft">開始前のバイタルを記録したあとで「開始」を押します<span className="hint">（この架空の病院の取り決め）</span>。</span>}
+            {next === "開始前" && <span className="text-ink-soft">開始前のバイタルを記録したあとで「開始」を押します。</span>}
             {newReaction && !action.trim() && <span className="text-ink-soft">対応を書くと記録できます。</span>}
           </div>
         </div>

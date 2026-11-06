@@ -31,9 +31,9 @@ export const CLINICS: Clinic[] = [
   { dept: "整形外科", doctor: "整形外科 長谷川（架空）", room: "診察室8", days: [1, 2, 3, 4, 5], sessions: [["09:00", "12:00"], ["14:00", "16:30"]], minutes: 15, capacity: 3 },
 ];
 
-export const CLINIC_NOTE = "診察室・外来の曜日と時間・1枠の時間と人数は、架空の病院の取り決めです。";
-export const ORDER_NOTE = "診察の順番の目安は、予約の患者は予約の時刻、予約外の患者は受付の時刻の順（架空の病院の取り決め）。呼ぶ患者を決めるのは医師・看護師です。";
-export const DISPLAY_NOTE = "待合の表示には受付番号だけを出し、氏名は出しません（架空の病院の取り決め）。";
+export const CLINIC_NOTE = "";
+export const ORDER_NOTE = "診察の順番の目安は、予約の患者は予約の時刻、予約外の患者は受付の時刻の順。呼ぶ患者を決めるのは医師・看護師です。";
+export const DISPLAY_NOTE = "待合の表示には受付番号だけを出し、氏名は出しません。";
 
 export const clinicOf = (doctor: string): Clinic | undefined => CLINICS.find((c) => c.doctor === doctor);
 export const deptsOf = (): string[] => [...new Set(CLINICS.map((c) => c.dept))];

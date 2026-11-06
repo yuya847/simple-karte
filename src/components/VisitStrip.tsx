@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Ambulance, BedDouble, CalendarPlus, Pill, ReceiptJapaneseYen, Stethoscope } from "lucide-react";
 import type { AdmissionRequest } from "@/lib/admission";
 import { JTAS_LABEL } from "@/lib/er";
@@ -44,7 +45,7 @@ export function VisitStrip({ visit, request, revisit, rxCount, paid, fmtDay, can
       ) : (
         <>
           <span className="nums">{visit.op.slot ? `予約 ${visit.op.slot}` : "予約なし"}（{visit.op.kind}）</span>
-          <span>目的：{visit.op.reason}</span>
+          <span>目的：{displayText(visit.op.reason)}</span>
         </>
       )}
       <label className="flex items-center gap-1">

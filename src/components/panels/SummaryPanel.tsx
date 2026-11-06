@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Printer } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -35,13 +36,13 @@ function Handed({ list, onRedo }: { list: NurseSummary[]; onRedo: (s: NurseSumma
               {v.to && <span className="ml-1 text-ink-soft">宛先：{v.to}</span>}
               <span className={`ml-2 rounded px-1.5 text-[11px] font-bold ${STATE_STYLE[st]}`}>{st}</span>
               <span className="ml-2 text-ink-faint">
-                第{s.versions.length}版 {v.at.time} {v.by}
+                第{s.versions.length}版 {v.at.time} {displayText(v.by)}
               </span>
               {s.events
                 .filter((e) => e.kind === "承認" || e.kind === "差し戻し")
                 .map((e, i) => (
                   <div key={i} className={e.kind === "承認" ? "text-wakatake" : "text-shu"}>
-                    {e.kind} {e.at.time} {e.by}
+                    {e.kind} {e.at.time} {displayText(e.by)}
                     {e.comment && `：${e.comment}`}
                   </div>
                 ))}
@@ -103,7 +104,7 @@ export function SummaryPanel({ patient, facts, today, nowTime, onSave, nursing }
         <h3 className="font-bold text-ink-soft">申し送り（{me.name}）</h3>
         <p className="whitespace-pre-wrap pl-3">{words || "—"}</p>
       </section>
-      <p className="text-[10px] text-ink-faint">項目はカルテの記録からコードで集めたもの（架空の患者）。申し送りは書いた人の言葉です。</p>
+      <p className="text-[10px] text-ink-faint">項目はカルテの記録からコードで集めたもの。申し送りは書いた人の言葉です。</p>
     </article>
   );
   const print = () => {

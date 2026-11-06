@@ -3,6 +3,7 @@
 // One report in full: what the department wrote under its headings (所見・診断・推奨 …), who reported it and when,
 // the link to the pictures, and the doctor's 確認 (who, when). Reading alone does not mark it as seen.
 
+import { displayText } from "@/lib/display-text";
 import { ScanLine } from "lucide-react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { readStateOf, type Report } from "@/lib/reports";
@@ -37,7 +38,7 @@ export function ReadMark({ report, acks, onSeen }: Pick<Props, "report" | "acks"
   if (s.state === "確認済み")
     return (
       <span className="text-wakatake">
-        確認 {s.ack.at.time} {s.ack.by}
+        確認 {s.ack.at.time} {displayText(s.ack.by)}
       </span>
     );
   if (s.state === "前の記録") return <span className="text-ink-faint">前の記録</span>;
@@ -65,22 +66,22 @@ export function ReportPanel({ report: r, acks, today, onSeen, onOpenImage, bare 
           <>
             <dt>検査</dt>
             <dd>
-              {dayText(today, r.examAt.day)} {r.examAt.time}
+              {displayText(dayText(today, r.examAt.day))} {r.examAt.time}
             </dd>
           </>
         )}
         <dt>報告</dt>
         <dd>
-          {dayText(today, r.at.day)} {r.at.time}　{r.by}
+          {displayText(dayText(today, r.at.day))} {r.at.time}　{displayText(r.by)}
           {r.version > 1 && <span className="ml-1 rounded bg-yamabuki px-1 text-[11px] font-bold text-white">第{r.version}版（訂正）</span>}
-          {r.version > 1 && r.reason && <span className="ml-1">理由：{r.reason}</span>}
+          {r.version > 1 && r.reason && <span className="ml-1">理由：{displayText(r.reason)}</span>}
         </dd>
       </dl>
       <div className="space-y-1.5 rounded-md border border-rule bg-sheet p-2">
         {r.sections.map((s) => (
           <section key={s.label}>
             <h4 className="text-[11px] font-bold text-ink-soft">{s.label}</h4>
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{s.text}</p>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{displayText(s.text)}</p>
           </section>
         ))}
       </div>

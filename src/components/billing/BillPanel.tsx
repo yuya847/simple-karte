@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import type { Insurance } from "@/lib/billing/insurance";
 import type { Bill } from "@/lib/billing/kaikei";
 import type { ClaimResult } from "@/lib/billing/model";
@@ -15,7 +16,7 @@ export function BillPanel({ claim, bill, insurance, month }: { claim: ClaimResul
     <div className="nums grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <section aria-label="領収金額" className="rounded-md border border-rule bg-paper p-4">
         <h3 className="mb-2 text-sm font-bold">
-          {y}年{m}月分（{claim.from ? `${m}/${claim.from}〜${m}/${claim.to}` : "入院日なし"}・{claim.days}日）
+          {y}年{m}月分（{displayText(claim.from ? `${m}/${claim.from}〜${m}/${claim.to}` : "入院日なし")}・{claim.days}日）
         </h3>
         <table className="w-full text-sm">
           <tbody>
@@ -42,7 +43,7 @@ export function BillPanel({ claim, bill, insurance, month }: { claim: ClaimResul
                 <th className="py-1 text-left font-normal text-ink-soft">
                   自己負担限度額（{insurance.incomeClass}）
                   <div className="text-[11px] text-ink-faint">{bill.limit.formula}</div>
-                  <div className="text-[10px] text-ink-faint">{bill.limit.source}</div>
+                  <div className="text-[10px] text-ink-faint">{displayText(bill.limit.source)}</div>
                 </th>
                 <td className="py-1 text-right">{yen(bill.limit.yen)}</td>
               </tr>
@@ -80,7 +81,7 @@ export function BillPanel({ claim, bill, insurance, month }: { claim: ClaimResul
         <div className="rounded-md border border-rule bg-sheet p-4">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-bold">
             保険
-            <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
             {insurance.assumed && <span className="rounded bg-yamabuki-soft px-1.5 py-0.5 text-[10px] font-normal text-yamabuki">年齢からの仮の保険</span>}
           </h3>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">

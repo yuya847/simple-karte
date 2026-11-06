@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Check, ClipboardPen } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -51,7 +52,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
       className={`w-full rounded border px-2 py-1 text-left text-[12px] ${on ? (tone === "ai" ? "border-ai bg-ai-soft" : "border-yamabuki bg-yamabuki-soft") : "border-rule bg-sheet hover:border-ai"}`}
     >
       <span className="nums block text-ink-soft">
-        {whenText(r.at)}　<PlaceMark place={r.place} room={r.room} /> <b className="text-ink">{r.name}</b>
+        {displayText(whenText(r.at))}　<PlaceMark place={r.place} room={r.room} /> <b className="text-ink">{r.name}</b>
         {r.redrawOf && <span className="ml-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">再採血</span>}
         {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
         {r.report && versionOf(r.report) > 1 && <span className="ml-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">訂正 第{versionOf(r.report)}版</span>}
@@ -128,7 +129,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
                 />
               ) : (
                 <p className="rounded-lg border border-rule bg-sheet p-3 text-ink-soft">
-                  {row.room} {row.name}さん {whenText(row.at)} {row.tests}：この画面で入れる項目はありません（{entryPlan(row.codes).other.map((o) => `${o.name}は${o.why}`).join("、")}）。
+                  {row.room} {row.name}さん {displayText(whenText(row.at))} {row.tests}：この画面で入れる項目はありません（{entryPlan(row.codes).other.map((o) => `${o.name}は${o.why}`).join("、")}）。
                   {culturesIn(row.codes).length > 0 && "培養は上の「培養」で、塗抹・中間報告・最終報告の順に報告します。"}
                 </p>
               )}
@@ -197,7 +198,7 @@ export function LabEntryForm({
           </b>
           <span className="text-ink-soft">{ageSex(p)}</span>
           <span className="nums text-ink-soft">
-            採血 {whenText(row.at)}　受付 {row.reception?.time} {row.reception?.by}
+            採血 {displayText(whenText(row.at))}　受付 {row.reception?.time} {displayText(row.reception?.by)}
           </span>
           <span className="nums font-mono text-[11px] text-ink-faint">{row.code}</span>
         </div>
@@ -215,7 +216,7 @@ export function LabEntryForm({
           <tbody>
             {plan.analytes.filter((a) => a.code in before).map((a) => (
               <tr key={a.code} className="border-b border-rule-soft text-ink-soft">
-                <td className="py-0.5 pr-2 font-bold">{a.name}</td><td className="nums py-0.5 pr-2">{fmt(before[a.code])}（報告済み）</td><td>{a.unit}</td><td>{rangeText(a, p.sex)}</td><td colSpan={2}>変更は「訂正」から</td>
+                <td className="py-0.5 pr-2 font-bold">{a.name}</td><td className="nums py-0.5 pr-2">{fmt(before[a.code])}（報告済み）</td><td>{a.unit}</td><td>{displayText(rangeText(a, p.sex))}</td><td colSpan={2}>変更は「訂正」から</td>
               </tr>
             ))}
             {check.rows.map((r, n) => (
@@ -235,8 +236,8 @@ export function LabEntryForm({
                 </td>
                 <td className="py-0.5 pr-2 text-ink-faint">{r.analyte.unit}</td>
                 <td className="nums py-0.5 pr-2 text-ink-faint">
-                  {rangeText(r.analyte, p.sex)}
-                  {r.analyte.source && <span className="text-[10px]">（{r.analyte.source === "共用基準範囲" ? "共用" : "SRL"}）</span>}
+                  {displayText(rangeText(r.analyte, p.sex))}
+                  {r.analyte.source && <span className="text-[10px]">（{displayText(r.analyte.source === "共用基準範囲" ? "共用" : "SRL")}）</span>}
                 </td>
                 <td className="py-0.5 pr-2">
                   {r.error ? (
@@ -255,7 +256,7 @@ export function LabEntryForm({
           </tbody>
         </table>
         {plan.other.length > 0 && <p className="mt-1 text-[11px] text-ink-faint">この画面で入れない項目：{plan.other.map((o) => `${o.name}（${o.why}）`).join("、")}</p>}
-        <p className="hint mt-1 text-[11px] text-ink-faint">H／L は基準範囲（JCCLS 共用基準範囲 2022・SRL 総合検査案内）との比較、パニック値はこの架空の病院の値で、どちらもコードが判定します。前回値は見比べるために並べるだけです。</p>
+        <p className="hint mt-1 text-[11px] text-ink-faint">H／L は基準範囲（JCCLS 共用基準範囲 2022・SRL 総合検査案内）との比較、パニック値はこの病院の値で、どちらもコードが判定します。前回値は見比べるために並べるだけです。</p>
         <p className="hint mt-1 text-[11px] text-ink-faint">入力した項目だけ報告します。空欄は未報告として残り、あとで追記できます。報告済みの値は「訂正」から直します。</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {check.panic.length > 0 && <b className="text-shu">パニック値：{panicLine}。確定すると「結果とパニック値」で医師への連絡に進みます。</b>}

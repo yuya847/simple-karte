@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { MessageSquareWarning, ScanText } from "lucide-react";
 import { useState } from "react";
 import { orderLines, oralName } from "@/lib/format";
@@ -43,7 +44,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
         <div key={r.id} className="mb-2">
           <div className="flex items-center gap-1 font-bold text-yamabuki">
             <MessageSquareWarning size={14} />
-            薬剤部から TDM の報告（{r.at} {r.by}）
+            薬剤部から TDM の報告（{r.at} {displayText(r.by)}）
           </div>
           <div className="nums text-ink-soft">
             {r.drug} {r.regimen.dose}mg {r.regimen.tau}時間ごと（点滴{r.regimen.tinf}時間）：AUC24 <b className="text-ink">{Math.round(r.auc24)}</b> μg·h/mL、Cmin {r.cmin.toFixed(1)}（2点採血<span className="hint">・コードで計算</span>）
@@ -61,11 +62,11 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
           <div key={q.id} className="mb-2">
             <div className="flex items-center gap-1 font-bold text-yamabuki">
               <MessageSquareWarning size={14} />
-              薬剤部から疑義照会（{q.askedAt} {q.by}）
+              薬剤部から疑義照会（{q.askedAt} {displayText(q.by)}）
             </div>
             {lines && (
               <div className="text-ink-soft">
-                対象：<b className="text-ink">{lines.main}</b> {lines.detail}
+                対象：<b className="text-ink">{lines.main}</b> {displayText(lines.detail)}
               </div>
             )}
             <div className="my-0.5 text-ink">「{q.question}」</div>
@@ -101,7 +102,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
           <div key={r.id} className="mb-2">
             <div className="flex items-center gap-1 font-bold text-yamabuki">
               <ScanText size={14} />
-              持参薬の鑑別報告（{r.at} {r.by}）：薬ごとに選んでください
+              持参薬の鑑別報告（{r.at} {displayText(r.by)}）：薬ごとに選んでください
             </div>
             {r.comment && <p className="text-ink-soft">薬剤師の所見：{r.comment}</p>}
             <ul className="mt-1 space-y-1">
@@ -117,7 +118,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
                         {x.unit}
                       </span>
                     )}
-                    {x.note && <span className="text-ink-soft">　{x.note}</span>}
+                    {x.note && <span className="text-ink-soft">　{displayText(x.note)}</span>}
                   </span>
                   {x.amount === null && x.decision && x.decision !== "中止" && (
                     <label className="flex items-center gap-1 text-shu">

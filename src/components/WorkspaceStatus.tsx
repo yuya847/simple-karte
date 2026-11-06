@@ -23,7 +23,7 @@ export function WorkspaceStatus({ status, id, onReset, live }: { status: Status;
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="記録の保存先（今日の記録・架空の患者だけ）。押すと、ほかの端末で開くリンクと「初めの状態に戻す」"
+        title="記録の保存先。押すと、ほかの端末で開くリンクと「初めの状態に戻す」"
         aria-label={`${LABEL[status]}。保存先の詳細を開く`}
         className="fixed bottom-2 right-2 z-30 flex items-center gap-1 rounded-full border border-rule bg-sheet px-2 py-0.5 text-[11px] text-ink-soft shadow hover:border-ai print:hidden"
       >
@@ -36,7 +36,7 @@ export function WorkspaceStatus({ status, id, onReset, live }: { status: Status;
   return (
     <div className="fixed bottom-2 right-2 z-30 flex flex-wrap items-center gap-2 rounded-md border border-rule bg-sheet px-2.5 py-1 text-[11px] text-ink-soft shadow print:hidden">
       {icon}
-      <span className={status === "error" ? "text-shu" : ""}>{LABEL[status]}（今日の記録・架空の患者だけ）</span>
+      <span className={status === "error" ? "text-shu" : ""}>{LABEL[status]}（今日の記録）</span>
       {live && <span className="hint">{live}</span>}
       {link && (
         <button

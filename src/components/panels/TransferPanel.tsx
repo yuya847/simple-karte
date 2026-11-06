@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Copy } from "lucide-react";
 import { useState } from "react";
 import { ASK_STATES, FACILITIES, decidedOf, type AskState, type TransferAsk } from "@/lib/transfer";
@@ -45,17 +46,17 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
       <p className="hint text-xs text-ink-faint">打診は模擬です。外部には送信しません。キーパーソンは続柄のみ、記録のない項目は「（記録なし）」と表示します。</p>
       {decided && (
         <p className="rounded-md bg-ai-soft px-2 py-1 font-bold text-ai">
-          決定：{decided.facility}（{decided.log.at(-1)?.note}）
+          決定：{displayText(decided.facility)}（{displayText(decided.log.at(-1)?.note)}）
         </p>
       )}
       <div className="rounded-md border border-rule-soft p-2">
-        <b className="text-xs text-ink-soft">打診先を選ぶ（架空の病院・施設）</b>
+        <b className="text-xs text-ink-soft">打診先を選ぶ</b>
         <ul className="mt-1 space-y-0.5">
           {FACILITIES.filter((f) => !asked.has(f.name)).map((f) => (
             <li key={f.name}>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={pick.includes(f.name)} onChange={() => setPick((p) => (p.includes(f.name) ? p.filter((x) => x !== f.name) : [...p, f.name]))} className="accent-ai" />
-                {f.name}
+                {displayText(f.name)}
                 <span className="text-xs text-ink-faint">{f.kind}</span>
               </label>
             </li>
@@ -79,7 +80,7 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
         return (
           <article key={a.id} className="rounded-md border border-rule p-2">
             <div className="flex flex-wrap items-baseline gap-2">
-              <b>{a.facility}</b>
+              <b>{displayText(a.facility)}</b>
               <span className="text-xs text-ink-faint">{a.kind}</span>
               <span className={`ml-auto rounded px-1.5 text-[11px] font-bold ${STATE_STYLE[a.state]}`}>{a.state}</span>
             </div>
@@ -87,14 +88,14 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
             <ul className="nums mt-1 space-y-0.5 text-xs text-ink-soft">
               {a.log.map((l, i) => (
                 <li key={i}>
-                  {l.at} {l.by}　{l.state}
-                  {l.note ? `：${l.note}` : ""}
+                  {l.at} {displayText(l.by)}　{l.state}
+                  {displayText(l.note ? `：${l.note}` : "")}
                 </li>
               ))}
             </ul>
             {a.state !== "決定" && a.state !== "取り下げ" && (
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                <select value={f.state} onChange={(e) => setForm((m) => ({ ...m, [a.id]: { ...f, state: e.target.value as AskState } }))} aria-label={`${a.facility} の状態`} className="rounded border border-rule bg-paper px-1 py-0.5">
+                <select value={f.state} onChange={(e) => setForm((m) => ({ ...m, [a.id]: { ...f, state: e.target.value as AskState } }))} aria-label={displayText(`${a.facility} の状態`)} className="rounded border border-rule bg-paper px-1 py-0.5">
                   <option value="">状態を変える</option>
                   {/* Only one place can be 決定. */}
                   {ASK_STATES.filter((s) => s !== a.state && s !== "打診中" && !(s === "決定" && decided)).map((s) => (
@@ -102,7 +103,7 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
                   ))}
                 </select>
                 {f.state === "面談・見学の予定" && <input value={f.meeting} onChange={(e) => setForm((m) => ({ ...m, [a.id]: { ...f, meeting: e.target.value } }))} placeholder="日時（例：11/6 14:00 家族と見学）" aria-label="面談・見学の日時" className="w-44 rounded border border-rule bg-paper px-1.5 py-0.5" />}
-                <input value={f.note} onChange={(e) => setForm((m) => ({ ...m, [a.id]: { ...f, note: e.target.value } }))} placeholder={needWho ? "誰が決めたか（例：本人・長女と主治医で決めた）" : "返事の内容（例：空床は11/10から）"} aria-label={`${a.facility} の返事`} className="min-w-40 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5" />
+                <input value={f.note} onChange={(e) => setForm((m) => ({ ...m, [a.id]: { ...f, note: e.target.value } }))} placeholder={needWho ? "誰が決めたか（例：本人・長女と主治医で決めた）" : "返事の内容（例：空床は11/10から）"} aria-label={displayText(`${a.facility} の返事`)} className="min-w-40 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5" />
                 <button
                   type="button"
                   disabled={!f.state || (needWho && !f.note.trim()) || (needWho && !!decided) || (f.state === "面談・見学の予定" && !f.meeting.trim())}

@@ -37,7 +37,7 @@ describe("外来予約の引き出し", () => {
     expect(html).toContain('aria-label="日付（明日〜90日先）"');
     expect(html).toContain("D90");
     expect(html).not.toContain(">D91<");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("この患者の外来予約");
     expect(html).toContain("D14 午前");
     expect(html).toContain("保存する");

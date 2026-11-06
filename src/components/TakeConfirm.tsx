@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { CONFIRM_SOURCES, type ConfirmPlan, type TakeBadge } from "@/lib/order-confirm";
@@ -12,7 +13,7 @@ const BADGE_CLASS: Record<TakeBadge["tone"], string> = { shu: "bg-shu-soft text-
 export function TakeBadgeMark({ badge, className = "" }: { badge: TakeBadge; className?: string }) {
   return (
     <span title="看護師の指示受けの状態" className={`inline-block whitespace-nowrap rounded px-1 text-[10px] font-bold ${BADGE_CLASS[badge.tone]} ${className}`}>
-      {badge.text}
+      {displayText(badge.text)}
     </span>
   );
 }
@@ -29,9 +30,9 @@ export function TakeConfirm({ row, plan, today, interactive, onConfirm, onClose 
     <div className="rounded-md border border-ai/40 bg-sheet px-3 py-2 text-[12px]">
       <p className="font-bold">
         指示確認：{row.kind === "変更" ? "【変】" : row.kind} {row.main}
-        <span className="ml-2 font-normal text-ink-soft">{row.detail}</span>
+        <span className="ml-2 font-normal text-ink-soft">{displayText(row.detail)}</span>
       </p>
-      <p className="mt-0.5 text-ink-soft">{plan.note}</p>
+      <p className="mt-0.5 text-ink-soft">{displayText(plan.note)}</p>
       {plan.days.some((d) => d.items.length > 0) && (
         <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
           {plan.days.map((d) => (
@@ -50,7 +51,7 @@ export function TakeConfirm({ row, plan, today, interactive, onConfirm, onClose 
                       <span className="w-8 shrink-0 text-ink-soft">{i.kind}</span>
                       <span>
                         {i.main}
-                        <span className="ml-1 text-ink-soft">{i.detail}</span>
+                        <span className="ml-1 text-ink-soft">{displayText(i.detail)}</span>
                       </span>
                     </li>
                   ))}
@@ -62,12 +63,12 @@ export function TakeConfirm({ row, plan, today, interactive, onConfirm, onClose 
       )}
       {plan.running.length > 0 && (
         <p className="mt-1">
-          <b>続くもの</b>　{plan.running.map((r) => `${r.main}（${r.detail}）`).join("／")}
+          <b>続くもの</b>　{displayText(plan.running.map((r) => `${r.main}（${r.detail}）`).join("／"))}
         </p>
       )}
       {plan.untimed.length > 0 && (
         <p className="mt-1">
-          <b>時刻のないもの（必要時・1日N回）</b>　{plan.untimed.map((i) => `${i.main}　${i.detail}`).join("／")}
+          <b>時刻のないもの（必要時・1日N回）</b>　{displayText(plan.untimed.map((i) => `${i.main}　${i.detail}`).join("／"))}
         </p>
       )}
       {interactive && (

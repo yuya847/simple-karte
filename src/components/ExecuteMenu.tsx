@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 // 実施・未実施 from an order: the menu that opens on an order row of the record (right click, ⋯, or a long
@@ -78,7 +79,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
   const back = <Item icon={ChevronLeft} label="戻る" onClick={() => setStep({ kind: "root" })} />;
   const occLine = (o: Occurrence) => (
     <div className="px-2 pb-0.5 pt-1 text-[11px] text-ink-soft">
-      {dayLabel} <span className="nums font-bold text-ink">{o.time}</span> の回　<span className={STATE_TONE[o.state]}>{stateText(o)}</span>
+      {dayLabel} <span className="nums font-bold text-ink">{o.time}</span> の回　<span className={STATE_TONE[o.state]}>{displayText(stateText(o))}</span>
     </div>
   );
   const glucoseEntry = (item: ExecItem) => item.sliding && <label className="block px-2 text-xs">血糖 mg/dL<input aria-label="血糖 mg/dL" type="number" min="0" className="w-20 border border-rule" value={glucose} onChange={e=>setGlucose(e.target.value)}/><span> → {slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) ?? "—"}単位</span>{item.sliding.callAbove != null && glucose && Number(glucose)>=item.sliding.callAbove && <b className="block text-shu">医師へ連絡してください</b>}</label>;
@@ -115,7 +116,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
           {occurrences.map((o, i) => (
             <button key={o.time} type="button" role="menuitem" onClick={() => setStep({ kind: "occ", i })} className={`${ITEM} nums`}>
               <span className="w-12 shrink-0 font-bold">{o.time}</span>
-              <span className={`min-w-0 flex-1 truncate text-[11px] ${STATE_TONE[o.state]}`}>{stateText(o)}</span>
+              <span className={`min-w-0 flex-1 truncate text-[11px] ${STATE_TONE[o.state]}`}>{displayText(stateText(o))}</span>
               <span className="text-ink-faint">›</span>
             </button>
           ))}

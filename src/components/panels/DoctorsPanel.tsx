@@ -4,6 +4,7 @@
 // コンサルト医 (asked by 他科依頼) from the staff list, with who, when and an optional word. The attending is
 // changed by 転科, not here. Who may change it follows roles.ts (架空の病院の取り決め). Nothing is suggested.
 
+import { displayText } from "@/lib/display-text";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { DOCTORS } from "@/lib/doctors";
@@ -78,15 +79,15 @@ export function DoctorsPanel({
                 {d.pending && <span className="ml-1 font-normal">依頼中</span>}
               </span>
               <span className="font-bold">
-                {d.name}
+                {displayText(d.name)}
                 {d.department && !d.name.includes(d.department) && <span className="ml-1 font-normal text-ink-soft">（{d.department}）</span>}
               </span>
               <span className="nums text-xs text-ink-faint">
-                {fmtDay(d.since.day)} {d.since.time}　{d.by}
-                {d.note && <>　{d.note}</>}
+                {fmtDay(d.since.day)} {d.since.time}　{displayText(d.by)}
+                {d.note && <>　{displayText(d.note)}</>}
               </span>
               {!denied && !d.pending && (
-                <button type="button" onClick={() => onRemove(d.name, d.role)} className="ml-auto inline-flex items-center gap-1 text-xs text-ink-faint hover:text-shu" title={`${d.role} ${d.name} を外す`}>
+                <button type="button" onClick={() => onRemove(d.name, d.role)} className="ml-auto inline-flex items-center gap-1 text-xs text-ink-faint hover:text-shu" title={displayText(`${d.role} ${d.name} を外す`)}>
                   <Trash2 size={12} />
                   外す
                 </button>
@@ -119,8 +120,8 @@ export function DoctorsPanel({
                   .filter((c) => c.name !== doctors.attending)
                   .map((c) => (
                     <option key={c.name} value={c.name}>
-                      {c.name}
-                      {c.department && !c.name.includes(c.department) ? `（${c.department}）` : ""}
+                      {displayText(c.name)}
+                      {displayText(c.department && !c.name.includes(c.department) ? `（${c.department}）` : "")}
                     </option>
                   ))}
                 <option value={OTHER}>一覧にない医師（名前を入れる）</option>

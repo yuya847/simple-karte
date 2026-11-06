@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Check, Microscope } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -108,7 +109,7 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
         <ol className="nums space-y-0.5 rounded border border-rule-soft bg-paper px-2 py-1 text-[11px] text-ink-soft">
           {c.log.map((l, n) => (
             <li key={n}>
-              {dayLabel(l.day)} {l.time} {l.by}　{l.text}
+              {dayLabel(l.day)} {l.time} {displayText(l.by)}　{displayText(l.text)}
             </li>
           ))}
         </ol>

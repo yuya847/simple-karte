@@ -3,6 +3,7 @@
 // Small parts shared by the department screens (地域医療連携・レセプト・統計・外来の受付): the screen's own
 // tabs, saving a file, and a sheet that only exists while printing.
 
+import { displayText } from "@/lib/display-text";
 import { useState, type ReactNode } from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { Icon } from "./nav-icons";
@@ -67,8 +68,9 @@ export function usePrintSheet(): [(node: ReactNode, opts?: { portrait?: boolean 
 }
 
 /** The 架空 mark beside a title. */
-export function Fictional({ text = "架空" }: { text?: string }) {
-  return <span className="ml-1 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">{text}</span>;
+export function Fictional({ text = "" }: { text?: string }) {
+  if (!text) return null;
+  return <span className="ml-1 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">{displayText(text)}</span>;
 }
 
 /** Sources (name and URL). Shown only with 「使い方」 (class "hint"). */

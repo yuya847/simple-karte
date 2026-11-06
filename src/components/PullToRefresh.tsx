@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -96,7 +97,7 @@ export function PullToRefresh({ refresh, blocked }: { refresh: () => Promise<voi
     <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center print:hidden" style={{ transform: `translateY(${Math.max(0, pull - 16)}px)`, transition: state === "pulling" || state === "ready" ? "none" : "transform 0.2s" }}>
       <div className={`flex max-w-[90vw] items-center gap-2 rounded-full border px-3 py-1.5 text-sm shadow-md ${state === "blocked" ? "border-yamabuki bg-yamabuki-soft text-ink" : "border-rule bg-sheet text-ink-soft"}`}>
         <RotateCw size={16} className={state === "refreshing" ? "animate-spin text-ai" : state === "ready" ? "text-ai" : "text-ink-faint"} style={state === "refreshing" ? undefined : { transform: `rotate(${pull * 3}deg)` }} />
-        {text}
+        {displayText(text)}
       </div>
     </div>
   );

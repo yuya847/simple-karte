@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { auditLog } from "@/lib/audit";
 import { BLOOD_RULES, BLOOD_SOURCES, SEVERE, SYMPTOMS, bagLabel, momentOf, momentText, productName, reactionCounts, usageRecords, type TxAdmin } from "@/lib/blood-bank";
 import { isoDate } from "@/lib/dates";
@@ -39,7 +40,7 @@ export function BloodReactions({ bank, onBank, nowAbs, people }: BloodBankProps 
               <span>{u ? `${productName(u.product)} ${bagLabel(u)}` : ""}</span>
               <span className="font-mono">{a.lot}</span>
               <span className="nums text-ink-soft">
-                開始 {a.start?.time ?? "—"}　記録 {momentText(r)} {r.by}
+                開始 {a.start?.time ?? "—"}　記録 {displayText(momentText(r))} {displayText(r.by)}
               </span>
             </header>
             <p className="mt-1">
@@ -57,7 +58,7 @@ export function BloodReactions({ bank, onBank, nowAbs, people }: BloodBankProps 
             <p className="mt-1 flex flex-wrap items-center gap-2">
               {r.received ? (
                 <span className="text-wakatake">
-                  輸血部門が受けた {r.received.time} {r.received.by}
+                  輸血部門が受けた {r.received.time} {displayText(r.received.by)}
                 </span>
               ) : (
                 <button type="button" disabled={!!deny} onClick={() => mark(a, "received")} className="rounded bg-ai px-2 py-0.5 font-bold text-white disabled:opacity-40">
@@ -66,7 +67,7 @@ export function BloodReactions({ bank, onBank, nowAbs, people }: BloodBankProps 
               )}
               {r.centre ? (
                 <span className="text-ink-soft">
-                  血液センターへ報告（模擬）{r.centre.time} {r.centre.by}
+                  血液センターへ報告（模擬）{r.centre.time} {displayText(r.centre.by)}
                 </span>
               ) : (
                 <button type="button" disabled={!!deny || !r.received} onClick={() => mark(a, "centre")} className="rounded border border-rule px-2 py-0.5 text-ink-soft disabled:opacity-40">
@@ -173,7 +174,7 @@ export function BloodRecords({ bank, people, today }: BloodBankProps) {
               <td className="px-2 py-1">
                 {r.name}（{r.patientId}）{r.reaction && <b className="ml-1 text-shu">副反応あり</b>}
               </td>
-              <td className="px-2 py-1 text-ink-soft">{r.address ?? "患者基本情報から（この試作の架空の患者には住所がない）"}</td>
+              <td className="px-2 py-1 text-ink-soft">{r.address ?? "患者基本情報から（住所の登録がない患者は空欄）"}</td>
               <td className="px-2 py-1">{r.product}</td>
               <td className="nums px-2 py-1 font-mono">{r.lot}</td>
               <td className="nums px-2 py-1">{isoDate(r.keep)} まで</td>

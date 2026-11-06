@@ -39,7 +39,7 @@ const OTHER_SIX: Record<string, { kind: OtherHospitalInfo["items"][number]["kind
 
 export const mockNationalServices: NationalServices = {
   simulated: true,
-  name: "模擬の接続（この試作の中で架空の答えを返す。本物の回線・証明書・契約が要るので、どこにもつながない）",
+  name: "模擬の接続（本物の回線・証明書・契約が要るので、どこにもつながない）",
 
   async checkQualification(req) {
     return fictionalQualification(req, req.today, req.time);

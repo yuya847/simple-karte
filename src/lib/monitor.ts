@@ -33,7 +33,7 @@ export const MONITOR_LIMITS: Limit[] = [
 
 export const MONITOR_NOTES = {
   simulated: "波形と数値は模擬です（実際の装置につないでいません）。数値は経過表の最新のバイタルを基に、コードで小さく揺らしています。",
-  limits: "アラームの上下限（心拍数 50〜120、SpO2 90 未満、呼吸数 8〜25、収縮期血圧 90〜180）はこの架空の病院の取り決めです。実際の病院では患者ごとに医師と看護師が決めます。",
+  limits: "アラームの上下限：心拍数 50〜120、SpO2 90 未満、呼吸数 8〜25、収縮期血圧 90〜180。患者ごとに医師と看護師が決めます。",
   silent: "音は鳴りません。",
   shapes: "波形の形は教科書的な一般の形（心電図の P-QRS-T、脈波、呼吸）で、特定の装置の表示をまねたものではありません。",
 } as const;
@@ -219,7 +219,7 @@ export const EMPTY_MANUAL: MonitorManual = { on: [], off: [] };
 
 export type MonitorReason = "酸素投与中" | "心拍数 100 以上" | "SpO2 95 未満" | "入院 2 日以内" | "手で装着";
 
-export const MONITOR_RULE = "モニターを付ける患者（受け持ちのうち、酸素投与中・心拍数 100 以上・SpO2 95 未満・入院 2 日以内）はこの架空の病院の取り決めです。看護師が手で付け外しできます。";
+export const MONITOR_RULE = "モニターを付ける患者：受け持ちのうち、酸素投与中・心拍数 100 以上・SpO2 95 未満・入院 2 日以内。看護師が手で付け外しできます。";
 
 /** Why the rule puts a patient on a monitor (empty: it does not). From the latest recorded vital signs. */
 export function autoReasons(p: MonitorCandidate): MonitorReason[] {

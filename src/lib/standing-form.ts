@@ -34,7 +34,7 @@ export function worksheetPrnLines(lines: StandingLine[], person: WorkPatient, no
 /** One hospital template; the doctor reviews the draft before confirming. */
 export const ADMISSION_TEMPLATE = {
   label: "入院時指示（一般）",
-  hint: "架空の病院の取り決め：安静度・清潔・測定・頓用・Dr.call の例です。医師が患者の状態に合わせて直し、確定します。食事は食事オーダで別に出します。不眠時は医師に連絡し、睡眠薬はオーダで出します。",
+  hint: "安静度・清潔・測定・頓用・Dr.call の例です。医師が患者の状態に合わせて直し、確定します。食事は食事オーダで別に出します。不眠時は医師に連絡し、睡眠薬はオーダで出します。",
   draft: (base: import("./standing").StandingOrders): import("./standing").StandingOrders => ({
     ...base, until: undefined, taken: undefined,
     rest: base.rest ?? "病棟内歩行", bath: "清拭", vitals: "1日3回", weight: "毎朝",

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { StandingBulkStop } from "./StandingBulkStop";
 import { dragEnd, type StandingStopDraft } from "@/lib/standing-calendar";
 import { useRef, useState } from "react";
@@ -87,7 +88,7 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
         </p>
       </div>
       {pending && <div role="dialog" aria-label="終了日の変更" className="border-t border-rule bg-paper p-3 text-[12px]">
-        <p>{pending.line.text.split("\n")[0]} を {pending.end === null ? "変えるまで続けます" : `${fmtDay(pending.end)}までにします`}</p>
+        <p>{displayText(pending.line.text.split("\n")[0])} を {pending.end === null ? "変えるまで続けます" : `${fmtDay(pending.end)}までにします`}</p>
         <label>理由（任意）<input autoFocus className="mx-2 rounded border border-rule bg-sheet px-2" value={endReason} onChange={(e) => setEndReason(e.target.value)} /></label>
         <button type="button" className="rounded bg-ai px-3 py-1 text-white" onClick={() => {
           const current = lines.find((l) => l.id === pending.line.id);
@@ -100,16 +101,16 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
           <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
             <CatChip cat={open.cat} />
             <div className="min-w-0 flex-1">
-              <div className={`whitespace-pre-wrap ${open.stop && open.stop.kind !== "終了" ? "line-through text-ink-soft" : ""}`}>{open.text}</div>
+              <div className={`whitespace-pre-wrap ${open.stop && open.stop.kind !== "終了" ? "line-through text-ink-soft" : ""}`}>{displayText(open.text)}</div>
               <div className="nums text-[11px] text-ink-soft">
-                {whenText(open.start, fmtDay)}から{open.end ? ` ${whenText(open.end, fmtDay)}まで` : "（変えるまで）"}　書いた人 {open.by}（{fmtDay(open.at.day)} {open.at.time}）
+                {displayText(whenText(open.start, fmtDay))}から{displayText(open.end ? ` ${whenText(open.end, fmtDay)}まで` : "（変えるまで）")}　書いた人 {displayText(open.by)}（{fmtDay(open.at.day)} {open.at.time}）
                 {open.fromFields && "　項目で選ぶ指示簿から"}
               </div>
-              {open.changed && <div className="text-ink-faint">変更前 {fmtDay(open.changed.day)} {open.changed.time} {open.changed.by} {open.changed.reason}</div>}
+              {open.changed && <div className="text-ink-faint">変更前 {fmtDay(open.changed.day)} {open.changed.time} {displayText(open.changed.by)} {displayText(open.changed.reason)}</div>}
               {open.stop && (
                 <div className="nums text-[11px] font-bold text-shu">
-                  {open.stop.kind ?? "中止"} {fmtDay(open.stop.day)} {open.stop.time}　{open.stop.by}
-                  {open.stop.reason ? `　理由：${open.stop.reason}` : ""}
+                  {open.stop.kind ?? "中止"} {fmtDay(open.stop.day)} {open.stop.time}　{displayText(open.stop.by)}
+                  {displayText(open.stop.reason ? `　理由：${open.stop.reason}` : "")}
                 </div>
               )}
             </div>
@@ -175,12 +176,12 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
         return (
           <tr key={l.id} className={chosen ? "bg-yamabuki-soft/30" : ""}>
             <th scope="row" className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1 text-left align-top font-normal">
-              {onToggle && !l.stop && !l.changed && !l.fromFields && <input type="checkbox" aria-label={`${l.text}を選択`} checked={selected.includes(l.id)} onChange={() => onToggle([l.id])} />}
-              <button type="button" onClick={() => onChoose(l.id)} aria-expanded={chosen} className={`block w-full truncate text-left hover:text-ai ${l.stop && l.stop.kind !== "終了" ? "text-ink-faint line-through" : ""}`} title={l.text}>
-                {l.text.split("\n")[0]}
+              {onToggle && !l.stop && !l.changed && !l.fromFields && <input type="checkbox" aria-label={displayText(`${l.text}を選択`)} checked={selected.includes(l.id)} onChange={() => onToggle([l.id])} />}
+              <button type="button" onClick={() => onChoose(l.id)} aria-expanded={chosen} className={`block w-full truncate text-left hover:text-ai ${l.stop && l.stop.kind !== "終了" ? "text-ink-faint line-through" : ""}`} title={displayText(l.text)}>
+                {displayText(l.text.split("\n")[0])}
               </button>
               <div className="text-[10px] text-ink-faint">
-                {l.by}
+                {displayText(l.by)}
                 {l.changed ? "　変更前" : l.stop ? `　${l.stop.kind ?? "中止"}` : l.end ? "　終了日あり" : ""}
               </div>
             </th>
@@ -195,15 +196,15 @@ function GroupRows({ today, cat, lines, days, last, openId, onChoose, nowPct, se
                     <button
                       type="button"
                       onClick={() => onChoose(l.id)}
-                      aria-label={`${l.text}　${c.label || (c.first ? "開始" : c.continues ? "続く" : "")}`}
+                      aria-label={displayText(`${l.text}　${c.label || (c.first ? "開始" : c.continues ? "続く" : "")}`)}
                       className={`relative my-1.5 block h-5 w-full truncate px-1 text-left text-[10px] leading-5 ${tone} ${c.first ? "rounded-l" : ""} ${c.last ? "rounded-r" : ""}`}
                     >
-                      {c.first || d === days[0] ? `${l.text.split("\n")[0]}　${c.label}` : c.label}
+                      {displayText(c.first || d === days[0] ? `${l.text.split("\n")[0]}　${c.label}` : c.label)}
                       {mark === "arrow" && <span className="absolute right-0 top-0 bg-ai-soft px-1 text-xl font-bold leading-5" aria-label="右へ続く">→</span>}{mark === "end" && !l.stop && <span className="absolute right-0 top-0 bg-ai-soft text-[10px]">〜{formatShort(addDays(today, d))}</span>}
                     </button>
                   )}
                   {preview?.id === l.id && d === preview.end && <span className="pointer-events-none absolute bottom-full right-0 z-30 whitespace-nowrap rounded border border-rule bg-sheet px-2 py-1 shadow">{formatShort(addDays(today, preview.end))}まで</span>}
-                  {handle && <button type="button" aria-label={`${l.text}の終了日をドラッグ`} title="終了日を変える" style={{ transform: preview?.id === l.id ? `translateX(${(preview.end - d) * COL_W}px)` : undefined }} className="group absolute -right-2 top-0 z-10 flex h-full w-6 cursor-ew-resize touch-none items-center justify-center"
+                  {handle && <button type="button" aria-label={displayText(`${l.text}の終了日をドラッグ`)} title="終了日を変える" style={{ transform: preview?.id === l.id ? `translateX(${(preview.end - d) * COL_W}px)` : undefined }} className="group absolute -right-2 top-0 z-10 flex h-full w-6 cursor-ew-resize touch-none items-center justify-center"
                     onClick={(e) => e.stopPropagation()}
                     onPointerDown={(e) => { if (!e.isPrimary || e.button !== 0) return; e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = { id: l.id, pointer: e.pointerId, x: e.clientX, day: d, moved: false }; }}
                     onPointerMove={(e) => { const active = dragging.current; if (!active || active.id !== l.id || active.pointer !== e.pointerId) return; active.moved ||= Math.abs(e.clientX - active.x) > 3; if (active.moved) setPreview({ id: l.id, end: targetDay(l, e.clientX) }); }}

@@ -13,7 +13,7 @@ export function orderDefaults(patientId: string, category: "定期" | "臨時", 
   };
 }
 
-export const ONCE_INFUSION_HINT = "1回だけの輸液の入力既定：500mLは1時間、250mL・100mLは30分（架空の病院の取り決め。医師が変更できます）";
+export const ONCE_INFUSION_HINT = "1回だけの輸液の入力既定：500mLは1時間、250mL・100mLは30分（医師が変更できます）";
 export function onceInfusionMinutes(volume: number): number | null {
   return ({ 500: 60, 250: 30, 100: 30 } as Record<number, number>)[volume] ?? null;
 }

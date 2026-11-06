@@ -35,10 +35,10 @@ export interface Channel {
 }
 
 export const FIXED_CHANNELS: Channel[] = [
-  { id: "hospital", name: "院内（全体）", kind: "院内", description: "院内の全職員へのお知らせ（架空）" },
-  { id: "nursing", name: "看護部", kind: "部署", description: "看護部の連絡（架空）" },
-  { id: "ward-5e", name: "5階東 病棟", kind: "部署", description: "5階東病棟の医師・看護師・薬剤師（架空）" },
-  { id: "pharmacy", name: "薬剤部", kind: "部署", description: "薬剤部への問い合わせ（架空）" },
+  { id: "hospital", name: "院内（全体）", kind: "院内", description: "院内の全職員へのお知らせ" },
+  { id: "nursing", name: "看護部", kind: "部署", description: "看護部の連絡" },
+  { id: "ward-5e", name: "5階東 病棟", kind: "部署", description: "5階東病棟の医師・看護師・薬剤師" },
+  { id: "pharmacy", name: "薬剤部", kind: "部署", description: "薬剤部への問い合わせ" },
 ];
 
 export const patientChannel = (patientId: string) => `patient-${patientId}`;

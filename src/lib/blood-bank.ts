@@ -44,7 +44,7 @@ export const BLOOD_RULES = {
   issue: "払出では患者・血液型・製剤の種類・製造番号・有効期限・数量を照合し、払い出した人と受け取った人を残す。一回に払い出すのは直ちに使う最小量、できれば一症例一バッグ（実践ガイド Ⅱ-1-2)d）。",
   bedside: "輸血の前に外観を確かめ、受け渡しと実施のときに患者氏名・血液型・製造番号などを2人で声に出して確かめて記録する。リストバンドと製剤の電子照合も有効（実践ガイド Ⅱ-3-3)a）。準備は一回に一患者。",
   observe: "開始後5分間はベッドサイドで観察し、15分経過後に再び観察する。終了後に患者名・血液型・製造番号を再び確かめ、終了時刻と副反応の有無を記録する（実践ガイド Ⅱ-3-3)b・c）。",
-  before: "輸血の前に体温・血圧・脈拍、できれば SpO2（経皮的動脈血酸素飽和度）を測る（廃止前の「輸血療法の実施に関する指針」Ⅶ-1-10)。実践ガイドに同じ記載はないため、この架空の病院の取り決めとして続けている）。",
+  before: "輸血の前に体温・血圧・脈拍、できれば SpO2（経皮的動脈血酸素飽和度）を測る（廃止前の「輸血療法の実施に関する指針」Ⅶ-1-10）。実践ガイドに同じ記載はありません。",
   records: "特定生物由来製品（輸血用血液製剤）は、使用の対象者の氏名・住所、製剤の名称と製造番号、使用した年月日などを記録し、使用した日から少なくとも20年保存する（医薬品医療機器等法 第68条の22、同施行規則 第237条・第240条第2項、実践ガイド Ⅱ-4-3)a）。",
   reaction: "副反応は詳細を記録し、輸血部門に知らせる。原因の究明のため、使用済みバッグと輸血セットは清潔に回収する。血液センターへの情報提供は原因究明と安全性の向上のため（実践ガイド Ⅱ-2-6)、Ⅱ-4-3)d）。",
   roomTime: "赤血球製剤は室温60分までは品質が保たれる、という研究がある（実践ガイド Ⅱ-2-4)a）。",
@@ -56,7 +56,7 @@ export const BLOOD_RULES = {
  */
 export const RETURN_RULE = {
   minutes: 60,
-  text: "この架空の病院の取り決め：払い出した製剤が使われなかったときは、すぐ輸血部門へ返す。赤血球で、払出から60分以内に戻り外観に異常がなければ在庫に戻す（ほかの患者に使える）。それ以外（60分を超えた・外観の異常・血漿・血小板）は廃棄し、廃棄の記録を残す。",
+  text: "払い出した製剤が使われなかったときは、すぐ輸血部門へ返す。赤血球で、払出から60分以内に戻り外観に異常がなければ在庫に戻す（ほかの患者に使える）。それ以外（60分を超えた・外観の異常・血漿・血小板）は廃棄し、廃棄の記録を残す。",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -486,7 +486,7 @@ export const severeOf = (s: Symptom[]) => s.filter((x) => SEVERE.includes(x));
 /** What happens to a bag returned unused (the fictional hospital's rule). */
 export function returnOutcome(unit: BloodUnit, returnAbs: number, appearanceOk: boolean): { minutesOut: number; outcome: "在庫に戻した" | "廃棄"; why: string } {
   const minutesOut = unit.issued ? returnAbs - mins(unit.issued) : 0;
-  if (unit.product !== "RBC") return { minutesOut, outcome: "廃棄", why: "血漿・血小板は払い出したあと在庫に戻さない（架空の病院の取り決め）" };
+  if (unit.product !== "RBC") return { minutesOut, outcome: "廃棄", why: "血漿・血小板は払い出したあと在庫に戻さない" };
   if (!appearanceOk) return { minutesOut, outcome: "廃棄", why: "外観に異常がある" };
   if (minutesOut > RETURN_RULE.minutes) return { minutesOut, outcome: "廃棄", why: `払出から${minutesOut}分（${RETURN_RULE.minutes}分を超えた）` };
   return { minutesOut, outcome: "在庫に戻した", why: `払出から${minutesOut}分（${RETURN_RULE.minutes}分以内）・外観に異常なし` };

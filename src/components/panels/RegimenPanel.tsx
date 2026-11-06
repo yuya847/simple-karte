@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { INJECTION_TIME_OPTIONS } from "@/lib/inj-entry";
 import { TimeInput } from "@/components/TimeInput";
 
@@ -66,7 +67,7 @@ function WarnLine({ w }: { w: Warn }) {
   return (
     <p className={`text-[11px] ${WARN_CLASS[w.level]}`}>
       {w.level === "info" ? "・" : "！"}
-      {w.text}
+      {displayText(w.text)}
       {w.source && (
         <span className="ml-1 font-normal text-ink-faint">
           （<SourceLink s={w.source} />）
@@ -181,7 +182,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
           </p>
         )}
         <p className="hint text-[11px] text-ink-faint">
-          {BSA_RULE.text}（四捨五入は{BSA_RULE.rounding}）：<SourceLink s={BSA_RULE.source} />。{GFR_RULE.text}：<SourceLink s={GFR_RULE.source} />。{GFR_RULE.capText}：<SourceLink s={GFR_RULE.capSource} />。
+          {displayText(BSA_RULE.text)}（四捨五入は{BSA_RULE.rounding}）：<SourceLink s={BSA_RULE.source} />。{displayText(GFR_RULE.text)}：<SourceLink s={GFR_RULE.source} />。{GFR_RULE.capText}：<SourceLink s={GFR_RULE.capSource} />。
         </p>
       </section>
 
@@ -192,7 +193,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
         )}
         {regimen && (
           <p className="pl-[4.375rem] text-[11px] text-ink-soft">
-            {regimen.disease}　{regimen.cycle}（院内登録レジメン・架空）　<Sources list={regimen.sources} />
+            {regimen.disease}　{regimen.cycle}（院内登録レジメン）　<Sources list={regimen.sources} />
           </p>
         )}
         {regimen &&
@@ -276,7 +277,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
                     </span>
                     <span className="text-ink-soft">
                       {rp.route}
-                      {rp.minutes ? `　${minutesText(rp.minutes)}` : ""}
+                      {displayText(rp.minutes ? `　${minutesText(rp.minutes)}` : "")}
                     </span>
                     {rate && <span className="text-[11px] text-ai">{rate}<span className="hint">（コードで計算）</span></span>}
                   </div>
@@ -299,7 +300,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
                     <b>
                       {o.name} {o.dose}
                     </b>
-                    　{o.text}　<Sources list={[o.source]} />
+                    　{displayText(o.text)}　<Sources list={[o.source]} />
                   </p>
                 ))}
             </div>
@@ -312,7 +313,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
           <h3 className="text-[11px] font-bold text-ink-soft">このレジメンについて</h3>
           {regimen.notes.map((n) => (
             <p key={n.text} className="text-[11px] text-ink-soft">
-              ・{n.text}
+              ・{displayText(n.text)}
               <span className="ml-1 text-ink-faint">
                 （<SourceLink s={n.source} />）
               </span>
@@ -351,7 +352,7 @@ function DoseRow({ l, value, onReduce }: { l: DoseLine; value: number | null; on
       <tr className={`align-baseline ${chemo ? "" : "text-ink-soft"}`}>
         <td className="py-1 pr-2">
           <b className={chemo ? "text-ink" : ""}>{l.drug.short}</b>
-          <span className="block text-[10px] text-ink-faint">{name}</span>
+          <span className="block text-[10px] text-ink-faint">{displayText(name)}</span>
         </td>
         <td className="py-1 pr-2 whitespace-nowrap">{l.base}</td>
         <td className="py-1 pr-2 text-right whitespace-nowrap">{l.raw !== null ? `${num(l.raw)}mg` : "—"}</td>
@@ -370,7 +371,7 @@ function DoseRow({ l, value, onReduce }: { l: DoseLine; value: number | null; on
           {/* A fixed dose with no rounding has nothing to work out. */}
           {l.steps.length > 0 && (l.drug.basis !== "固定" || l.drug.roundMg > 0) && <p className="text-[11px] text-ai">{l.steps.join("　→　")}<span className="hint">（コードで計算）</span></p>}
           {l.drug.roundMg > 0 && <p className="text-[11px] text-ink-faint">まるめ：{l.drug.roundNote}</p>}
-          {l.drug.note && <p className="text-[11px] text-ink-soft">{l.drug.note}</p>}
+          {l.drug.note && <p className="text-[11px] text-ink-soft">{displayText(l.drug.note)}</p>}
           {l.warnings.map((w) => (
             <WarnLine key={w.text} w={w} />
           ))}

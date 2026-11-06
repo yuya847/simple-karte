@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ArrowRightLeft, Check, Loader2, Mic, Plus, Sparkles, Square, X } from "lucide-react";
 import { useState } from "react";
 import { CLAUDE, auditLog } from "@/lib/audit";
@@ -158,14 +159,14 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
       {prev && (
         <details className="mb-3 rounded-lg border border-rule-soft bg-paper p-3">
           <summary className="cursor-pointer text-xs font-bold text-ink-soft">
-            前の勤務の申し送り（{prev.shift}　{prev.from}
+            前の勤務の申し送り（{prev.shift}　{displayText(prev.from)}
             {prev.sentAt ? ` ${prev.sentAt.time}` : ""}）
           </summary>
           <p className="mt-1">{prev.summary}</p>
           {prev.actions.length > 0 && (
             <ul className="mt-1 list-disc pl-5">
               {prev.actions.map((a, i) => (
-                <li key={i}>{a.text}</li>
+                <li key={i}>{displayText(a.text)}</li>
               ))}
             </ul>
           )}
@@ -309,12 +310,12 @@ function Card({ w, today, nowTime, shift, shiftLo, prev, facts, h: saved, onSave
         <div className="mt-3 rounded-lg border border-wakatake/40 bg-wakatake-soft/40 p-3">
           <Field letter="S" label={FIELDS[4].label} en={FIELDS[4].en}>
             <p className="mb-1 text-[11px] text-ink-soft">
-              {h.sentAt!.time} に {h.from} が送りました。受けた人は、聞いた要点を自分の言葉で言い直して（復唱して）残します。
+              {h.sentAt!.time} に {displayText(h.from)} が送りました。受けた人は、聞いた要点を自分の言葉で言い直して（復唱して）残します。
             </p>
             <fieldset disabled={received || !!deny} className="m-0 min-w-0 space-y-1 border-0 p-0">
               <label className="flex items-center gap-1 text-xs text-ink-soft">
                 受けた人
-                <input value={to} onChange={(e) => setTo(e.target.value)} className="w-56 rounded border border-rule bg-sheet px-1.5 py-0.5 text-ink" />
+                <input value={displayText(to)} onChange={(e) => setTo(e.target.value)} className="w-56 rounded border border-rule bg-sheet px-1.5 py-0.5 text-ink" />
               </label>
               <textarea value={synthesis} onChange={(e) => setSynthesis(e.target.value)} rows={2} aria-label="受けた人の復唱" placeholder="例：22時 VCM、朝の採血。38.5度超えで血培2セットと当直へ連絡。" className="w-full rounded border border-rule bg-sheet px-2 py-1 outline-none" />
             </fieldset>

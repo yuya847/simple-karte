@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ListX } from "lucide-react";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
@@ -39,7 +40,7 @@ export function DischargeStops({ groups, today, canStop, why, onStop }: { groups
                     return (
                       <li key={e.id}>
                         ・{l.main}
-                        <span className="ml-1 text-ink-faint">{l.detail}</span>
+                        <span className="ml-1 text-ink-faint">{displayText(l.detail)}</span>
                       </li>
                     );
                   })}

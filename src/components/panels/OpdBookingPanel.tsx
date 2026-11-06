@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { MonthPicker } from "../MonthPicker";
@@ -52,9 +53,9 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
             {booked.map((e) => (
               <li key={e.id} className="nums rounded-md border border-rule bg-sheet px-2 py-1">
                 <div className="text-[11px] text-ink-faint">
-                  {fmtDay(e.day)} {e.time}　{e.author}
+                  {fmtDay(e.day)} {e.time}　{displayText(e.author)}
                 </div>
-                {opdBookingText(e.order.opd, fmtDay)}
+                {displayText(opdBookingText(e.order.opd, fmtDay))}
               </li>
             ))}
           </ul>
@@ -71,7 +72,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
           <option value="">指定しない</option>
           {(dept ? opdDoctorsOf(dept) : []).map((d) => (
             <option key={d} value={d}>
-              {d}
+              {displayText(d)}
             </option>
           ))}
         </select>
@@ -122,9 +123,9 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
       <button type="button" disabled={missing.length > 0 || !!deny} onClick={submit} className="rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
         保存する
       </button>
-      {missing.length > 0 && <span className="text-yamabuki">未入力：{missing.map((name) => <button key={name} type="button" onClick={() => focusMissing(name)} className="mx-1 underline">{name}</button>)}</span>}
+      {missing.length > 0 && <span className="text-yamabuki">未入力：{missing.map((name) => <button key={name} type="button" onClick={() => focusMissing(name)} className="mx-1 underline">{displayText(name)}</button>)}</span>}
       </div>
-      <p className="text-[11px] text-ink-faint">{OPD_BOOKING_RULES.note}</p>
+      <p className="text-[11px] text-ink-faint">{displayText(OPD_BOOKING_RULES.note)}</p>
     </div>
   );
 }

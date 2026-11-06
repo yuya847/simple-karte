@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Megaphone, Printer, ReceiptJapaneseYen, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AdmissionRequest } from "@/lib/admission";
@@ -53,7 +54,7 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
         <h1 className="flex items-center gap-2 text-lg font-bold">
           <Stethoscope size={20} className="text-ai" />
           {title}
-          <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         {tools}
         <p className="nums text-sm text-ink-soft">
@@ -119,12 +120,12 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
                   {showDoctor && (
                     <td className="px-3 py-2 text-[12px]">
                       {p.department}
-                      <div className="text-ink-soft">{p.doctor}</div>
+                      <div className="text-ink-soft">{displayText(p.doctor)}</div>
                     </td>
                   )}
                   <td className="px-3 py-2">{p.kind}</td>
                   <td className="max-w-80 px-3 py-2">
-                    {p.reason}
+                    {displayText(p.reason)}
                     {p.referral && <div className="text-[11px] text-ink-soft">紹介状あり</div>}
                   </td>
                   <td className="px-3 py-2">
@@ -174,7 +175,7 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
             })}
           </tbody>
         </table>
-        <p className="px-5 py-3 text-[11px] text-ink-faint">患者はすべて架空です。<span className="hint">氏名の欄を押すと、その患者のタブが開き、今日の記録と入院申込を書けます。</span>外来の算定と処方せんは、この試作では扱いません。</p>
+        <p className="px-5 py-3 text-[11px] text-ink-faint"><span className="hint">氏名の欄を押すと、その患者のタブが開き、今日の記録と入院申込を書けます。</span>外来の算定と処方せんは、この試作では扱いません。</p>
       </div>
     </section>
   );

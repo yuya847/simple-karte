@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { CalendarDays, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatMonth, formatShort, type CalendarDate } from "@/lib/dates";
@@ -146,7 +147,7 @@ export function DateTree({ patient, entries, today, selectedDay, onSelect, visit
                     <li key={v.day}>
                       <button type="button" onClick={() => onSelect(v.day)} aria-current={selected ? "date" : undefined} className={`nums flex w-full items-center gap-1.5 py-1 pl-9 pr-2 text-[13px] text-left ${selected ? "bg-ai text-white" : "hover:bg-sheet"}`}>
                         <span className="whitespace-nowrap">{formatShort(addDays(today, v.day))}</span>
-                        <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{v.dept}</span>
+                        <span className={`ml-auto truncate text-[11px] ${selected ? "text-white/80" : "text-mizu"}`}>{displayText(v.dept)}</span>
                       </button>
                     </li>
                   );

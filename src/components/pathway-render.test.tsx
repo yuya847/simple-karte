@@ -39,7 +39,7 @@ describe("クリティカルパス", () => {
     expect(html).toContain("誤嚥性肺炎");
     expect(html).toContain("心不全（急性増悪）");
     expect(html).toContain("蜂窩織炎（下肢）");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("医師が患者ごとに選んでオーダします");
   });
 

@@ -34,7 +34,7 @@ export const IO_VOID_REASONS = ["別の患者に記録した", "量を間違え�
 export const IO_RULES = {
   dayClose: SHIFTS.night.to,
   dayShiftClose: SHIFTS.day.to,
-  label: `架空の病院の取り決め：勤務の終わりで締める（日勤 ${SHIFTS.night.to}〜${SHIFTS.day.to}、夜勤 ${SHIFTS.day.to}〜翌${SHIFTS.night.to}。1日は ${SHIFTS.night.to}〜翌${SHIFTS.night.to}）。締めの時刻ちょうどの記録は、その時刻で終わる勤務に入れる`,
+  label: `勤務の終わりで締める（日勤 ${SHIFTS.night.to}〜${SHIFTS.day.to}、夜勤 ${SHIFTS.day.to}〜翌${SHIFTS.night.to}。1日は ${SHIFTS.night.to}〜翌${SHIFTS.night.to}）。締めの時刻ちょうどの記録は、その時刻で終わる勤務に入れる`,
 };
 
 export const IO_NOT_INCLUDED = "不感蒸泄・代謝水の推定は入れていません（数えたのは、測って入れた量と注射の記録だけです）。";

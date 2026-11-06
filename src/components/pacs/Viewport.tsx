@@ -138,7 +138,7 @@ export function Viewport({
 
     if (!pacs || !series || !frame || !m) {
       text(ctx, pacs?.status === "未実施" ? "まだ撮影していません（予約中）。画像はありません。" : "画像がありません", size.w / 2, size.h / 2, OVERLAY, "center");
-      text(ctx, "架空の合成画像を表示する枠です", size.w / 2, size.h / 2 + 18, FICTION, "center");
+      text(ctx, "合成画像を表示する枠です", size.w / 2, size.h / 2 + 18, FICTION, "center");
       return;
     }
 
@@ -193,7 +193,7 @@ export function Viewport({
       ctx.font = "11px ui-sans-serif, system-ui, 'Hiragino Sans', 'Yu Gothic UI', sans-serif";
       text(ctx, PUBLIC_IMAGE_NOTE, size.w / 2, 18, FICTION, "center");
       ctx.font = FONT;
-    } else text(ctx, "架空の合成画像（実在の患者の画像ではありません）", size.w / 2, 18, FICTION, "center");
+    } else text(ctx, "合成画像（実在の患者の画像ではありません）", size.w / 2, 18, FICTION, "center");
 
     // 向きの文字（画面の上下左右が患者のどちら向きか）。公開画像の超音波は向きが決まらないので出さない
     if (!(photo && s.modality === "超音波")) {
@@ -388,7 +388,7 @@ export function Viewport({
         }}
         onContextMenu={(e) => e.preventDefault()}
         role="img"
-        aria-label={pacs ? `${pacs.study.modality} ${pacs.study.region}（${photo ? "公開データの教材用の画像。この患者のものではありません" : "架空の合成画像"}）` : "画像なし"}
+        aria-label={pacs ? `${pacs.study.modality} ${pacs.study.region}（${photo ? "公開データの教材用の画像。この患者のものではありません" : "合成画像"}）` : "画像なし"}
       />
     </div>
   );

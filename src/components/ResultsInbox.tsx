@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Eye, PhoneCall } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -60,13 +61,13 @@ export function ResultsInbox({ today, items, calls, onSeen, onOpenResults }: Pro
               {i.panic.length > 0 ? (
                 <b className="text-shu">パニック値：{i.panic.map(hitLine).join("、")}</b>
               ) : (
-                <span className="text-ink-soft">{i.detail}</span>
+                <span className="text-ink-soft">{displayText(i.detail)}</span>
               )}
               {i.corrected && <span className="w-full pl-10 font-bold text-yamabuki">{i.corrected}</span>}
               {call && (
                 <span className="flex items-center gap-0.5 text-ink-soft">
                   <PhoneCall size={11} />
-                  {call.at.time} {call.by} → {call.to}
+                  {call.at.time} {displayText(call.by)} → {call.to}
                   {call.readBack ? "（復唱あり）" : `（復唱なし${call.noReadBack ? `：${call.noReadBack}` : ""}）`}
                   {(call.attempts?.length ?? 1) > 1 && `（${call.attempts!.length}回目の連絡で報告）`}
                 </span>

@@ -262,7 +262,7 @@ describe("CT・MRI の方法と造影の確認", () => {
     const e = checkDraft(d, low).find((i) => i.key === "egfr")!;
     expect(e.level).toBe("ask");
     expect(e.message).toContain("45 未満");
-    expect(e.message).toContain("架空の病院の取り決め");
+    expect(e.message).not.toContain("架空の病院の取り決め");
     expect(e.message).not.toContain("ガイドライン2018");
     const vlow = ctx(sakura, { patientFacts: { sex: "女", age: 85, allergies: [], cre: { value: 2.4, day: 0 } } });
     expect(checkDraft(d, vlow).find((i) => i.key === "egfr")!.message).toContain("ガイドライン2018");

@@ -29,8 +29,8 @@ export const PRESSURE_SOURCES = {
 
 /** What the sources do not say: the fictional hospital's own rules. */
 export const PRESSURE_RULES = {
-  interval: "DESIGN-R®2020 の評価は7日ごと（変化があればその都度）。架空の病院の取り決め（通知に評価の間隔の定めはありません）",
-  photo: "写真は評価と同じ日に撮り、端末で縮小して記録に入れます（長い辺 480px）。架空の病院の取り決め。このデモの写真は図形で描いた架空の見本で、実際の創の写真ではありません",
+  interval: "DESIGN-R®2020 の評価は7日ごと（変化があればその都度）。院内の取り決め（通知に評価の間隔の定めはありません）",
+  photo: "写真は評価と同じ日に撮り、端末で縮小して記録に入れます（長い辺 480px）。このデモの写真は図形で描いた見本で、実際の創の写真ではありません",
 };
 
 /** Days between assessments (架空の病院の取り決め). */
@@ -261,9 +261,9 @@ export function samplePhoto(n: 1 | 2 | 3): UlcerPhoto {
     `<rect x="20" y="200" width="200" height="22" fill="#ffffff" stroke="#333"/>` +
     Array.from({ length: 11 }, (_, i) => `<line x1="${20 + i * 20}" y1="200" x2="${20 + i * 20}" y2="${i % 5 === 0 ? 214 : 208}" stroke="#333"/>`).join("") +
     `<text x="226" y="216" font-size="12" fill="#333">10cm</text>` +
-    `<text x="12" y="22" font-size="13" fill="#333">架空の見本（図形）${n}</text>` +
+    `<text x="12" y="22" font-size="13" fill="#333">見本（図形）${n}</text>` +
     `</svg>`;
-  return { dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, width: 320, height: 240, sample: true, name: `架空の見本${n}.svg` };
+  return { dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, width: 320, height: 240, sample: true, name: `見本${n}.svg` };
 }
 
 // ---------------------------------------------------------------------------

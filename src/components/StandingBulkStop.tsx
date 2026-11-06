@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { addDays, daysFrom, isoDate, type CalendarDate } from "@/lib/dates";
 import { standingStopDraft, type StandingStopDraft } from "@/lib/standing-calendar";
@@ -18,8 +19,8 @@ export function StandingBulkStop({ lines, ids, today, onConfirm, onClear }: { li
     <button type="button" disabled={!eligible.ids.length} onClick={() => setDraft(eligible)} className="rounded border border-shu px-2 py-1 text-shu disabled:opacity-40">選んだ指示を{kind}</button>
     {draft && <div role="region" aria-label={`${kind}の下書き`} className="w-full rounded border border-rule p-2">
       <b>{kind}の下書き：{draft.ids.length}件</b>
-      <ul>{draft.ids.map((id) => <li key={id}>{lines.find((l) => l.id === id)?.text}</li>)}</ul>
-      <p>{isoDate(addDays(today, draft.day))}　{draft.reason || "理由なし"}</p>
+      <ul>{draft.ids.map((id) => <li key={id}>{displayText(lines.find((l) => l.id === id)?.text)}</li>)}</ul>
+      <p>{isoDate(addDays(today, draft.day))}　{displayText(draft.reason || "理由なし")}</p>
       <button type="button" onClick={() => { const next = standingStopDraft(lines, draft.ids, draft.day, draft.reason); if (next.ids.length) onConfirm({ ...next, kind: draft.kind }); setDraft(null); onClear(); }} className="mt-2 rounded bg-shu px-3 py-1 text-white">{kind}を確定</button>
       <button type="button" onClick={() => setDraft(null)} className="ml-2">下書きを取り消す</button>
     </div>}

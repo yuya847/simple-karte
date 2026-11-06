@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { AlertOctagon, HelpCircle, Info, Plus, Scissors, X } from "lucide-react";
@@ -53,7 +54,7 @@ export function SurgeryView({ today, nowAbs, surgeries, people, onSave }: Props)
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <Scissors size={17} className="text-ai" />
           手術室
-          <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
           {[0, 1, 2].map((d) => (
@@ -63,7 +64,7 @@ export function SurgeryView({ today, nowAbs, surgeries, people, onSave }: Props)
           ))}
         </div>
         <span className="text-xs text-ink-faint">
-          {OR_RULES.open}〜{OR_RULES.close}・入れ替え{OR_RULES.turnover}分・予定手術の締切は前日{OR_RULES.deadline}（架空の院の約束）
+          {OR_RULES.open}〜{OR_RULES.close}・入れ替え{OR_RULES.turnover}分・予定手術の締切は前日{OR_RULES.deadline}（の院の約束）
         </span>
         <button type="button" onClick={() => setRequesting(true)} className="ml-auto flex items-center gap-1 rounded-md bg-ai px-3 py-1.5 text-sm font-bold text-white">
           <Plus size={15} />
@@ -146,7 +147,7 @@ function Checks({ checks }: { checks: ReturnType<typeof checkRequest> }) {
       {checks.map((c) => (
         <li key={c.text} className={`flex items-start gap-1 ${c.level === "stop" ? "font-bold text-shu" : c.level === "ask" ? "text-yamabuki" : "text-ink-soft"}`}>
           {c.level === "stop" ? <AlertOctagon size={13} className="mt-0.5 shrink-0" /> : c.level === "ask" ? <HelpCircle size={13} className="mt-0.5 shrink-0" /> : <Info size={13} className="mt-0.5 shrink-0" />}
-          {c.text}
+          {displayText(c.text)}
         </li>
       ))}
     </ul>

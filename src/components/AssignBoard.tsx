@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Users } from "lucide-react";
 import { useState } from "react";
 import { ASSIGN_RULES, ASSIGN_SOURCES, assign, assignIssues, copyPlan, emptySheet, loads, maxLoad, type AssignSheet, type Bed } from "@/lib/assignments";
@@ -93,7 +94,7 @@ function Plan({ rooms, beds, nurses, crew, sheet, prev, prevLabel, nowTime, canE
           return (
             <div key={r.no} className="rounded-md border border-rule bg-sheet">
               <button type="button" disabled={!canEdit || nurse === null} onClick={() => put(inRoom.flatMap((x) => (x.bed ? [x.bed.key] : [])))} className="nums w-full border-b border-rule-soft px-2 py-1 text-left text-[12px] font-bold hover:bg-ai-soft disabled:hover:bg-transparent">
-                {r.no}
+                {displayText(r.no)}
                 <span className="ml-1 text-[10px] font-normal text-ink-faint">{r.kind}</span>
               </button>
               <div className="space-y-0.5 p-1">
@@ -139,7 +140,7 @@ function Plan({ rooms, beds, nurses, crew, sheet, prev, prevLabel, nowTime, canE
         </div>
       )}
       <div className="rounded-md border border-rule bg-sheet p-2 text-[12px]">
-        {issues.length === 0 ? <p className="text-wakatake">✓ 患者全員に受け持ちがいます。</p> : issues.map((i) => <p key={i.text} className="text-yamabuki">{i.text}</p>)}
+        {issues.length === 0 ? <p className="text-wakatake">✓ 患者全員に受け持ちがいます。</p> : issues.map((i) => <p key={i.text} className="text-yamabuki">{displayText(i.text)}</p>)}
         <p className="nums mt-1 text-ink-soft">
           掲示：この勤務帯の看護職員1人当たりの受け持ち数は <b className="text-ink">{maxLoad(sheet, beds, crew)}人</b>以内です（受け持ちの多い人の数。コードで数える）。
         </p>
@@ -147,7 +148,7 @@ function Plan({ rooms, beds, nurses, crew, sheet, prev, prevLabel, nowTime, canE
       <div className="flex flex-wrap items-center gap-2 text-[12px]">
         {sheet.confirmed ? (
           <span className="font-bold text-wakatake">
-            分担を確定 {sheet.confirmed.at.time} {sheet.confirmed.by}
+            分担を確定 {sheet.confirmed.at.time} {displayText(sheet.confirmed.by)}
           </span>
         ) : (
           canEdit && (
@@ -170,10 +171,10 @@ function Plan({ rooms, beds, nurses, crew, sheet, prev, prevLabel, nowTime, canE
                     {c.bed} {c.patient}
                   </td>
                   <td className="px-1">
-                    {c.from ? short(c.from) : "（なし）"} → {c.to ? short(c.to) : "（外す）"}
+                    {displayText(c.from ? short(c.from) : "（なし）")} → {c.to ? short(c.to) : "（外す）"}
                   </td>
-                  <td className="px-1">{c.reason}</td>
-                  <td className="px-1 text-ink-faint">{c.by}</td>
+                  <td className="px-1">{displayText(c.reason)}</td>
+                  <td className="px-1 text-ink-faint">{displayText(c.by)}</td>
                 </tr>
               ))}
             </tbody>
@@ -213,7 +214,7 @@ export function AssignBoard({ pick, hasRoster, rooms, beds, nurses, crewOf, shee
       {hasRoster ? (
         <Plan key={`${pick.value}|${shiftKey(cur.day, cur.shift)}`} rooms={rooms} beds={beds} nurses={nurses} crew={crewOf(cur.day, cur.shift)} sheet={sheet} prev={prev} prevLabel={cur.shift === "day" ? "前の日の日勤" : "前の日の夜勤"} nowTime={nowTime} canEdit={canEdit} onChange={(s, what) => onChange(cur.day, cur.shift, s, what)} />
       ) : (
-        <p className="rounded-lg border border-rule bg-sheet p-4 text-sm text-ink-soft">このデモで勤務表があるのは5階東だけです（架空）。5階東を選んでください。</p>
+        <p className="rounded-lg border border-rule bg-sheet p-4 text-sm text-ink-soft">このデモで勤務表があるのは5階東だけです。5階東を選んでください。</p>
       )}
       <ul className="hint mt-3 space-y-0.5 text-[11px] text-ink-faint">
         {Object.values(ASSIGN_SOURCES).map((s) => (

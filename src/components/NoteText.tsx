@@ -1,17 +1,18 @@
+import { displayText } from "@/lib/display-text";
 import { isDividerLine } from "@/lib/note-blocks";
 import { Fragment } from "react";
 import { markLines, type MarkPart } from "@/lib/note-marks";
 
 const part = (p: MarkPart, i: number) =>
   p.kind === "text" ? (
-    <Fragment key={i}>{p.text}</Fragment>
+    <Fragment key={i}>{displayText(p.text)}</Fragment>
   ) : p.kind === "b" ? (
-    <b key={i}>{p.text}</b>
+    <b key={i}>{displayText(p.text)}</b>
   ) : p.kind === "i" ? (
-    <i key={i}>{p.text}</i>
+    <i key={i}>{displayText(p.text)}</i>
   ) : (
     <b key={i}>
-      <i>{p.text}</i>
+      <i>{displayText(p.text)}</i>
     </b>
   );
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import {
@@ -75,7 +76,7 @@ export function BloodTyping({ people, bank, onBank, stateOf, nowAbs }: BloodBank
                 <td className="px-2 py-1">
                   {x.room}　{x.patient.name}
                 </td>
-                <td className="px-2 py-1">{s.abo ? typeText(s.abo, s.rh!) : "未検査"}</td>
+                <td className="px-2 py-1">{displayText(s.abo ? typeText(s.abo, s.rh!) : "未検査")}</td>
                 <td className={`px-2 py-1 ${s.confirmed ? "text-wakatake" : "font-bold text-shu"}`}>
                   {s.samples}回{s.confirmed ? "（確定）" : "（2回目の検体が要る）"}
                   {s.conflict && <span className="block">{s.conflict}</span>}
@@ -87,8 +88,8 @@ export function BloodTyping({ people, bank, onBank, stateOf, nowAbs }: BloodBank
                 <td className="px-2 py-1 text-ink-soft">
                   {mine.map((t) => (
                     <span key={t.id} className="block">
-                      検体 {momentText(t.sample)}：{typeText(t.abo, t.rh)}
-                      {t.frontBackMatch ? "" : "（オモテ・ウラ不一致）"}・抗体 {t.antibody ?? "—"}　{t.by}／{t.checkedBy}
+                      検体 {displayText(momentText(t.sample))}：{displayText(typeText(t.abo, t.rh))}
+                      {t.frontBackMatch ? "" : "（オモテ・ウラ不一致）"}・抗体 {t.antibody ?? "—"}　{displayText(t.by)}／{t.checkedBy}
                     </span>
                   ))}
                 </td>
@@ -201,7 +202,7 @@ export function BloodStock({ bank, onBank, nowAbs, today, people }: BloodBankPro
         <b>在庫（割付のない製剤の単位数）</b>
         {counts.map((c) => (
           <p key={c.pr} className="nums">
-            {TX_PRODUCTS[c.pr].short}：{c.by.length ? c.by.map((x) => `${x.t} ${x.n}単位`).join("　") : "なし"}
+            {TX_PRODUCTS[c.pr].short}：{displayText(c.by.length ? c.by.map((x) => `${x.t} ${x.n}単位`).join("　") : "なし")}
           </p>
         ))}
       </div>
@@ -293,7 +294,7 @@ export function BloodStock({ bank, onBank, nowAbs, today, people }: BloodBankPro
                   {TX_PRODUCTS[u.product].short} {bagLabel(u)}
                   {u.product !== "FFP" && !u.irradiated && <b className="ml-1 text-shu">未照射</b>}
                 </td>
-                <td className="px-2 py-1">{typeText(u.abo, u.rh)}</td>
+                <td className="px-2 py-1">{displayText(typeText(u.abo, u.rh))}</td>
                 <td className={`nums px-2 py-1 ${st === "期限切れ" ? "font-bold text-shu" : left <= 2 ? "font-bold text-yamabuki" : ""}`}>
                   {isoDate(addDays(today, u.expires.day))}
                   {st === "期限切れ" ? "（過ぎた）" : `（あと${left}日）`}
@@ -306,7 +307,7 @@ export function BloodStock({ bank, onBank, nowAbs, today, people }: BloodBankPro
                 <td className="px-2 py-1">
                   {u.aboChecked ? (
                     <span className="text-wakatake">
-                      確認 {u.aboChecked.time} {u.aboChecked.by}
+                      確認 {u.aboChecked.time} {displayText(u.aboChecked.by)}
                     </span>
                   ) : u.product === "RBC" && st !== "期限切れ" ? (
                     <button
@@ -358,7 +359,7 @@ export function BloodStock({ bank, onBank, nowAbs, today, people }: BloodBankPro
           <b>廃棄の記録（廃棄処理伝票）</b>
           {gone.map((u) => (
             <p key={u.lot} className="nums">
-              {u.discarded!.time} {u.discarded!.by}　<span className="font-mono">{u.lot}</span>　{productName(u.product)} {bagLabel(u)} {typeText(u.abo, u.rh)}　理由：{u.discarded!.reason}
+              {u.discarded!.time} {displayText(u.discarded!.by)}　<span className="font-mono">{u.lot}</span>　{productName(u.product)} {bagLabel(u)} {displayText(typeText(u.abo, u.rh))}　理由：{displayText(u.discarded!.reason)}
             </p>
           ))}
         </div>
@@ -414,7 +415,7 @@ export function BloodReturns({ bank, onBank, nowAbs, nowTime, people, onIssued }
           <article key={u.lot} className={`${bbCard} flex flex-wrap items-center gap-3 p-3 text-[12px]`}>
             <span className="font-mono font-bold">{u.lot}</span>
             <span>
-              {productName(u.product)} {bagLabel(u)} {typeText(u.abo, u.rh)}
+              {productName(u.product)} {bagLabel(u)} {displayText(typeText(u.abo, u.rh))}
             </span>
             <span className="text-ink-soft">
               {nameOf(u.assigned?.patientId)}さん　払出 {u.issued!.time}（{u.issued!.to}）
@@ -437,7 +438,7 @@ export function BloodReturns({ bank, onBank, nowAbs, nowTime, people, onIssued }
           <b>返却の記録</b>
           {returned.map((u) => (
             <p key={u.lot} className="nums">
-              {momentText(u.returned!)} {u.returned!.by}　<span className="font-mono">{u.lot}</span>　払出から{u.returned!.minutesOut}分　外観 {u.returned!.appearanceOk ? "異常なし" : "異常あり"}　→ {u.returned!.outcome}
+              {displayText(momentText(u.returned!))} {displayText(u.returned!.by)}　<span className="font-mono">{u.lot}</span>　払出から{u.returned!.minutesOut}分　外観 {u.returned!.appearanceOk ? "異常なし" : "異常あり"}　→ {u.returned!.outcome}
             </p>
           ))}
         </div>

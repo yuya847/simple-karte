@@ -242,17 +242,17 @@ export function rosterIssues(nurses: RosterNurse[], month: RosterMonth, ngPairs:
       out.push({ day: d, kind: "基準", text: "夜勤に看護師がいません（看護師1人を含む）。", basis: "告示 第五 一 (7)", nurseIds: ids });
     }
     if (crew.length > 0 && crew.every((n) => n.newcomer)) {
-      out.push({ day: d, kind: "院内", text: `夜勤が1年目だけです（${crew.map((n) => n.name).join("・")}）。`, basis: "架空の病院の取り決め：1年目だけの夜勤にしない", nurseIds: ids });
+      out.push({ day: d, kind: "院内", text: `夜勤が1年目だけです（${crew.map((n) => n.name).join("・")}）。`, basis: "1年目だけの夜勤にしない", nurseIds: ids });
     }
     for (const [a, b] of ngPairs) {
-      if (ids.includes(a) && ids.includes(b)) out.push({ day: d, kind: "院内", text: `${name(a)}と${name(b)}は、同じ夜勤に入れない組み合わせとして登録されています。`, basis: "架空の病院の取り決め：看護師長が登録した組み合わせ", nurseIds: [a, b] });
+      if (ids.includes(a) && ids.includes(b)) out.push({ day: d, kind: "院内", text: `${name(a)}と${name(b)}は、同じ夜勤に入れない組み合わせとして登録されています。`, basis: "看護師長が登録した組み合わせ", nurseIds: [a, b] });
     }
     for (const n of nurses) {
       const prev = month.shifts[n.id]?.[d - 1];
       const cur = month.shifts[n.id]?.[d];
       if (prev !== "夜") continue;
       if (cur === "日") out.push({ day: d, kind: "重なり", text: `${n.name}：夜勤明け（〜${SHIFTS.night.to}）の日に日勤（${SHIFTS.day.from}〜）が入っています。`, basis: `この病院の勤務時間（日勤 ${SHIFTS.day.from}〜${SHIFTS.day.to}、夜勤 ${SHIFTS.night.from}〜翌${SHIFTS.night.to}）`, nurseIds: [n.id] });
-      if (cur === "夜") out.push({ day: d, kind: "院内", text: `${n.name}：夜勤明けの日にまた夜勤です。`, basis: "架空の病院の取り決め：夜勤明けの日は勤務を入れない", nurseIds: [n.id] });
+      if (cur === "夜") out.push({ day: d, kind: "院内", text: `${n.name}：夜勤明けの日にまた夜勤です。`, basis: "夜勤明けの日は勤務を入れない", nurseIds: [n.id] });
     }
   }
   return out;

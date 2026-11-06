@@ -69,7 +69,7 @@ export function UlcerBoard({ pick, ulcers, where, fmtDay, onOpen }: { pick: Pick
                 <td className="px-2">
                   {r.latest?.photo ? (
                     // eslint-disable-next-line @next/next/no-img-element -- a data URL kept in the record
-                    <img src={r.latest.photo.dataUrl} alt={r.latest.photo.sample ? "架空の見本（図形）" : "取り込んだ写真"} width={44} height={Math.round((44 * r.latest.photo.height) / r.latest.photo.width)} className="rounded border border-rule" />
+                    <img src={r.latest.photo.dataUrl} alt={r.latest.photo.sample ? "見本（図形）" : "取り込んだ写真"} width={44} height={Math.round((44 * r.latest.photo.height) / r.latest.photo.width)} className="rounded border border-rule" />
                   ) : (
                     "—"
                   )}
@@ -82,7 +82,7 @@ export function UlcerBoard({ pick, ulcers, where, fmtDay, onOpen }: { pick: Pick
           </tbody>
         </table>
       )}
-      <p className="mt-2 text-[11px] text-ink-faint">合計点は深さを除いた6項目の点数の和で、小さいほど軽い状態です。写真は記録に入れた縮小画像で、このデモの写真は図形で描いた架空の見本です。</p>
+      <p className="mt-2 text-[11px] text-ink-faint">合計点は深さを除いた6項目の点数の和で、小さいほど軽い状態です。写真は記録に入れた縮小画像で、このデモの写真は図形で描いた見本です。</p>
       <div className="mt-2">
         <Sources />
       </div>

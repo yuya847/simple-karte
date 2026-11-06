@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { LayoutList, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -26,7 +27,7 @@ import {
   type TeamRound,
 } from "@/lib/teams";
 import type { Patient } from "@/lib/types";
-import { Fictional, Sources, SubTabs } from "./DeskParts";
+import { Sources, SubTabs } from "./DeskParts";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 type Person = { patient: Patient; room: string };
@@ -71,7 +72,7 @@ export function TeamsView(p: Props) {
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <UsersRound size={18} className="text-ai" />
           チーム医療
-          <Fictional />
+
         </h1>
         <SubTabs
           label="チーム"
@@ -121,7 +122,7 @@ function Overview({ desk, people, onTeam, onOpen, today }: Props & { onTeam: (k:
                 </td>
                 <td className={`nums px-2 py-1 ${n("依頼中") ? "font-bold text-shu" : "text-ink-faint"}`}>{n("依頼中")}</td>
                 <td className="nums px-2 py-1">{n("介入中")}</td>
-                <td className="px-2 py-1 text-ink-soft">{t.addon ? `${t.addon.code} ${t.addon.name}（${t.addon.limit}）` : "患者ごとの加算なし"}</td>
+                <td className="px-2 py-1 text-ink-soft">{displayText(t.addon ? `${t.addon.code} ${t.addon.name}（${t.addon.limit}）` : "患者ごとの加算なし")}</td>
               </tr>
             );
           })}
@@ -134,7 +135,7 @@ function Overview({ desk, people, onTeam, onOpen, today }: Props & { onTeam: (k:
           const x = nameOf(round.patientId);
           return (
             <li key={rec.id} className={`${card} px-3 py-1.5 text-[12px]`}>
-              <b>{teamOf(round.team).name}</b>　{x ? `${x.room}　${x.patient.name}` : round.patientId}（主治医 {x?.patient.attending ?? "—"}）：{rec.text}
+              <b>{displayText(teamOf(round.team).name)}</b>　{displayText(x ? `${x.room}　${x.patient.name}` : round.patientId)}（主治医 {x?.patient.attending ?? "—"}）：{displayText(rec.text)}
               <span className="ml-2 text-ink-soft">
                 {dayWord(today, round.at.day)} {round.at.time} の回診
               </span>
@@ -157,7 +158,7 @@ export function AddonBox({ team }: { team: Team }) {
         <>
           <p>
             <b>
-              {team.addon.code} {team.addon.name}
+              {team.addon.code} {displayText(team.addon.name)}
             </b>
             　{team.addon.points}（{team.addon.limit}）
           </p>
@@ -190,7 +191,7 @@ export function RoundCard({ round, today, onDecide, locked }: { round: TeamRound
         <b>
           {dayWord(today, round.at.day)} {round.at.time}
         </b>{" "}
-        {teamOf(round.team).name}の回診（記録 {round.by}）
+        {displayText(teamOf(round.team).name)}の回診（記録 {displayText(round.by)}）
         <span className="ml-1 text-ink-soft">参加：{round.members.join("、")}</span>
       </p>
       <p className="whitespace-pre-wrap">{round.assessment}</p>
@@ -198,10 +199,10 @@ export function RoundCard({ round, today, onDecide, locked }: { round: TeamRound
       <ul className="space-y-0.5">
         {round.recs.map((rec) => (
           <li key={rec.id} className="flex flex-wrap items-center gap-1">
-            <span>・{rec.text}</span>
+            <span>・{displayText(rec.text)}</span>
             {rec.decision ? (
               <span className={rec.decision.adopt ? "text-wakatake" : "text-ink-soft"}>
-                → {rec.decision.adopt ? "採用" : `不採用（${rec.decision.reason ?? ""}）`}　{dayWord(today, rec.decision.at.day)} {rec.decision.at.time} {rec.decision.by}
+                → {displayText(rec.decision.adopt ? "採用" : `不採用（${rec.decision.reason ?? ""}）`)}　{dayWord(today, rec.decision.at.day)} {rec.decision.at.time} {displayText(rec.decision.by)}
               </span>
             ) : onDecide ? (
               <>
@@ -237,7 +238,7 @@ function TeamPage({ team, desk, onDesk, people, diagnoses, diets, today, nowTime
       <div className={`${card} space-y-1 p-3`}>
         <p className="text-[14px] font-bold">{team.long}</p>
         <p className="text-[12px] text-ink-soft">{team.what}</p>
-        <p className="text-[12px]">メンバー（架空）：{team.members.map((m) => `${m.name}（${m.job}）`).join("、")}</p>
+        <p className="text-[12px]">メンバー：{displayText(team.members.map((m) => `${m.name}（${m.job}）`).join("、"))}</p>
         <AddonBox team={team} />
       </div>
       <div className="flex items-center gap-2 text-[12px]">
@@ -313,20 +314,20 @@ function RequestCard({
         <span className={STATUS_TONE[status]}>{status}</span>
         {r.urgency === "至急" && <span className="rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
         <button type="button" onClick={() => onOpen(r.patientId)} className="font-bold text-ai underline">
-          {who ? `${who.room}　${who.patient.name}` : r.patientId}
+          {displayText(who ? `${who.room}　${who.patient.name}` : r.patientId)}
         </button>
         <span className="text-ink-soft">
           {who ? `${who.patient.sex}・${who.patient.age}歳　${who.patient.department}　主治医 ${who.patient.attending}` : ""}
         </span>
         <span className="text-ink-soft">
-          依頼 {dayWord(today, r.at.day)} {r.at.time} {r.by}
-          {r.accepted && `　受付 ${dayWord(today, r.accepted.day)} ${r.accepted.time} ${r.accepted.by}`}
+          依頼 {dayWord(today, r.at.day)} {r.at.time} {displayText(r.by)}
+          {displayText(r.accepted && `　受付 ${dayWord(today, r.accepted.day)} ${r.accepted.time} ${r.accepted.by}`)}
         </span>
       </header>
-      <p>依頼の理由：{r.reason}</p>
+      <p>依頼の理由：{displayText(r.reason)}</p>
       {r.closed && (
         <p className="text-ink-soft">
-          終了 {dayWord(today, r.closed.day)} {r.closed.time} {r.closed.by}：{r.closed.summary}
+          終了 {dayWord(today, r.closed.day)} {r.closed.time} {displayText(r.closed.by)}：{r.closed.summary}
         </p>
       )}
       {(facts.length > 0 || note) && (
@@ -336,10 +337,10 @@ function RequestCard({
             {facts.map((f) => (
               <li key={f.text} className={f.kind === "seen" ? "" : "text-ink-soft"}>
                 {f.kind === "seen" ? "記録から：" : "確かめる："}
-                {f.text}
+                {displayText(f.text)}
               </li>
             ))}
-            {note && <li className="text-ink-soft">{note}</li>}
+            {note && <li className="text-ink-soft">{displayText(note)}</li>}
           </ul>
         </div>
       )}
@@ -375,7 +376,7 @@ function RequestCard({
             {team.members.map((m) => (
               <label key={m.name} className="flex items-center gap-1">
                 <input type="checkbox" checked={form.members.includes(m.name)} onChange={(e) => setForm({ ...form, members: e.target.checked ? [...form.members, m.name] : form.members.filter((y) => y !== m.name) })} />
-                {m.name}
+                {displayText(m.name)}
               </label>
             ))}
           </p>

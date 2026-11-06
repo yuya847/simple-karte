@@ -16,8 +16,8 @@ export const FALL_SOURCES = {
 };
 
 export const FALL_RULES = {
-  interval: "前の評価から7日ごとに再評価します（架空の病院の取り決め。提言に間隔の定めはありません）。",
-  surgery: "手術のあとは、治療による状態の変化として再評価します（架空の病院の取り決め。提言7 の「治療による患者の状態の変化」をこの病院は手術と決めています）。",
+  interval: "前の評価から7日ごとに再評価します（提言に間隔の定めはありません）。",
+  surgery: "手術のあとは、治療による状態の変化として再評価します（提言7 の「治療による患者の状態の変化」をこの病院は手術と決めています）。",
   noScore: "点数の票は使いません。使用の許諾が示された公開のスコア票を見つけられなかったため、入院時の評価と同じ危険因子を確かめ直します。",
 };
 
@@ -72,7 +72,7 @@ export function fallDue(admittedOn: DayOffset, first: ChecklistRecord | undefine
   const steps = fallSteps(first, reviews);
   const last = steps.at(-1);
   const state = (d: DayOffset): FallDue["state"] => (d < 0 ? "期限切れ" : d === 0 ? "今日まで" : "期限内");
-  if (!last) return { dueOn: admittedOn, state: state(admittedOn), reasons: ["入院時の評価がまだです（入院日：架空の病院の取り決め）"] };
+  if (!last) return { dueOn: admittedOn, state: state(admittedOn), reasons: ["入院時の評価がまだです（入院日）"] };
   const after = triggers.filter((x) => t(x.at) > t(last.at)).sort((a, b) => t(a.at) - t(b.at));
   const periodic = last.at.day + FALL_INTERVAL;
   const firstTrigger = after[0];

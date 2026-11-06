@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { FileText, Hash, Mic, Send, Square, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { FIXED_CHANNELS, markCharted, markRead, patientChannel, postMessage, unreadCount, useChat, type Channel, type ChatMessage, type ChatRole } from "@/lib/chat";
@@ -66,7 +67,7 @@ export function ChatThread({ channel, today, nowTime, onChart }: ThreadProps) {
               <div className={`rounded-lg border px-3 py-2 ${m.urgent ? "border-shu bg-shu-soft/50" : "border-rule bg-sheet"}`}>
                 <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
                   <span className={`rounded px-1 font-bold ${ROLE_STYLE[m.role]}`}>{m.role}</span>
-                  <b className="text-ink">{m.author}</b>
+                  <b className="text-ink">{displayText(m.author)}</b>
                   <span className="nums text-ink-faint">{m.at.time}</span>
                   {m.urgent && <span className="font-bold text-shu">至急</span>}
                   {onChart && (
@@ -85,7 +86,7 @@ export function ChatThread({ channel, today, nowTime, onChart }: ThreadProps) {
                     </button>
                   )}
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap text-ink">{m.text}</p>
+                <p className="mt-0.5 whitespace-pre-wrap text-ink">{displayText(m.text)}</p>
               </div>
             </div>
           );
@@ -167,7 +168,7 @@ export function ChatView({ patients, today, nowTime, onChart }: Props) {
           <h2 className="mb-1 text-xs font-bold text-ink-soft">患者別</h2>
           <ul>{patientChannels.map(item)}</ul>
         </div>
-        <p className="hint text-[10px] text-ink-faint">架空の病院のチャットです。試作なので、このブラウザの中だけで共有されます（同じブラウザの別のタブにも出ます）。AI は使っていません。</p>
+        <p className="hint text-[10px] text-ink-faint">試作なので、このブラウザの中だけで共有されます（同じブラウザの別のタブにも出ます）。AI は使っていません。</p>
       </nav>
       <section className="flex min-h-0 flex-col rounded-lg border border-rule bg-paper p-3">
         <header className="mb-1 border-b border-rule pb-1">

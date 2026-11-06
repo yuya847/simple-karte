@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Ambulance, PhoneCall, Plus, X } from "lucide-react";
 import { useState } from "react";
 import type { AdmissionRequest } from "@/lib/admission";
@@ -53,7 +54,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
         <h1 className="flex items-center gap-2 text-lg font-bold">
           <Ambulance size={20} className="text-shu" />
           救急外来
-          <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <p className="nums text-sm text-ink-soft">
           対応中 <b className="text-ink">{active}</b>名・空床 <b className="text-ink">{emptyBeds(ward.beds).length}</b>床（5階東）
@@ -109,7 +110,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                       const h = erFeeHint(p, today);
                       return h ? (
                         <div className="mt-0.5 max-w-52 text-[10px] leading-tight text-ink-faint" title="救急外来医学管理料（B001-2-6、令和8年度）。この試作は外来の算定をしません。">
-                          {h.item}：{h.note}
+                          {h.item}：{displayText(h.note)}
                         </div>
                       ) : null;
                     })()}
@@ -171,7 +172,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                   </td>
                   <td className="px-3 py-2">
                     {p.complaint}
-                    {p.note && <div className="text-[11px] text-ink-soft">{p.note}</div>}
+                    {p.note && <div className="text-[11px] text-ink-soft">{displayText(p.note)}</div>}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-[12px]">
                     {p.vitals && (
@@ -227,7 +228,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
           </tbody>
         </table>
         <p className="px-5 py-3 text-[11px] text-ink-faint">
-          患者はすべて架空です。受付で入れた内容はこのブラウザの中だけにあり、サーバーには送りません。保険証の確認などの事務の手続きは、この試作では扱いません。トリアージの段階（JTAS）は看護師が判定して入れるもので、アプリは判定しません。アプリは前の判定からの時間を数え、再評価の目安（緊急15分・準緊急30分・低緊急60分・非緊急120分）を過ぎたら赤で出します。救急外来医学管理料の欄は、来院の仕方と時刻からコードで出した目安です（外来の算定はこの試作では行いません）。
+          受付で入れた内容はこのブラウザの中だけにあり、サーバーには送りません。保険証の確認などの事務の手続きは、この試作では扱いません。トリアージの段階（JTAS）は看護師が判定して入れるもので、アプリは判定しません。アプリは前の判定からの時間を数え、再評価の目安（緊急15分・準緊急30分・低緊急60分・非緊急120分）を過ぎたら赤で出します。救急外来医学管理料の欄は、来院の仕方と時刻からコードで出した目安です（外来の算定はこの試作では行いません）。
         </p>
       </div>
 
@@ -322,8 +323,8 @@ function RegisterDialog({ nowAbs, initial, onCancel, onSave }: { nowAbs: number;
   const missing = [!f.name.trim() && "氏名", (f.age.trim() === "" || !(Number(f.age) >= 0)) && "年齢", !f.complaint.trim() && "主訴", !f.jtas && "トリアージ"].filter(Boolean);
 
   return (
-    <Dialog title={initial ? "到着・受付（救急隊の情報を下書きにしています）" : "救急外来の受付（架空の患者）"} onClose={onCancel}>
-      <p className="mb-3 rounded-md bg-yamabuki-soft px-3 py-2 text-[12px] text-yamabuki">名前は架空のものを入れてください。実在の人の情報は入れないでください。</p>
+    <Dialog title={initial ? "到着・受付（救急隊の情報を下書きにしています）" : "救急外来の受付"} onClose={onCancel}>
+      <p className="mb-3 rounded-md bg-yamabuki-soft px-3 py-2 text-[12px] text-yamabuki">実在の人の情報は入れないでください。</p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="氏名">
           <input value={f.name} onChange={set("name")} className={input} />
@@ -479,7 +480,7 @@ function HotlineDialog({ nowAbs, onCancel, onSave }: { nowAbs: number; onCancel:
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} className={`${input} w-full`} placeholder="例：80代男性、呼吸苦。血圧160の90、脈110、SpO2 88…あと10分" />
       <div className="mt-2 flex items-center gap-2">
         <button type="button" onClick={() => setText(SAMPLE_CALL)} className="rounded border border-rule px-2 py-1 text-[12px] text-ink-soft">
-          例文（架空）
+          例文
         </button>
         <button type="button" disabled={!text.trim() || busy} onClick={read} className="rounded bg-ai px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40">
           {busy ? "読み取り中…" : "Claude で項目にする"}

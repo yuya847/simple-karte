@@ -5,6 +5,7 @@
 // 有効期限…) and works out what follows; a person registers. Each save keeps the earlier version with who,
 // when and why (監査ログも). 医事課・医師・看護師 may change it (roles.ts "insurance"; 架空の病院の取り決め).
 
+import { displayText } from "@/lib/display-text";
 import { BigChoice } from "@/components/BigChoice";
 import { ConfirmCheck } from "@/components/ConfirmCheck";
 import { AlertTriangle, Ban, CheckCircle2, Info, Pencil, Plus, Trash2 } from "lucide-react";
@@ -145,7 +146,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
       </div>
       <DenyNote action="insurance" className="mb-1" />
       <p className="hint mb-1 text-[11px] text-ink-faint">
-        保険証（資格確認書）・高齢受給者証・限度額適用認定証・公費の受給者証を見て入れます。年齢と負担割合の整合、番号の検証番号、有効期限はコードで確かめます。医事課の「算定」の保険の登録と同じ記録で、二重には持ちません。番号はすべて架空です。
+        保険証（資格確認書）・高齢受給者証・限度額適用認定証・公費の受給者証を見て入れます。年齢と負担割合の整合、番号の検証番号、有効期限はコードで確かめます。医事課の「算定」の保険の登録と同じ記録で、二重には持ちません。
       </p>
 
       {!edit && (
@@ -415,7 +416,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
                       <div className="flex items-start gap-2">
                         <Icon size={13} className="mt-0.5 shrink-0" />
                         <span className="shrink-0 font-bold">{s.label}</span>
-                        <span className="nums text-ink">{c.text}</span>
+                        <span className="nums text-ink">{displayText(c.text)}</span>
                       </div>
                       <div className="hint mt-0.5 pl-5 text-[10px] text-ink-faint">根拠：{c.basis}</div>
                     </li>
@@ -461,7 +462,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
               {me.name}　今日 {nowTime}
             </span>
           </div>
-          <p className="hint text-[11px] text-ink-faint">保存すると前の版が残り、誰が・いつ・なぜ変えたかが下の履歴と監査ログに出ます。実在の人の番号は入れないでください（架空の病院の試作です）。</p>
+          <p className="hint text-[11px] text-ink-faint">保存すると前の版が残り、誰が・いつ・なぜ変えたかが下の履歴と監査ログに出ます。実在の人の番号は入れないでください。</p>
         </fieldset>
       )}
 
@@ -476,9 +477,9 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
                   第{records.length - i}版 {r.action}
                 </span>
                 <span className="nums">{when(r.at)}</span>
-                <span>{r.by}</span>
+                <span>{displayText(r.by)}</span>
                 <span className="nums">{insuranceSummary(r.insurance)}</span>
-                {r.reason && <span className="text-ink-soft">理由：{r.reason}</span>}
+                {r.reason && <span className="text-ink-soft">理由：{displayText(r.reason)}</span>}
               </li>
             ))}
           </ol>
@@ -493,7 +494,7 @@ export function InsuranceSection({ patient: p, today, nowTime, fmtDay, records =
             </a>
           </li>
         ))}
-        <li>誰が登録・変更できるか（医事課・医師・看護師）は架空の病院の取り決めです。</li>
+        <li>登録・変更できる職種は医事課・医師・看護師です。</li>
       </ul>
     </section>
   );

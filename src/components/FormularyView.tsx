@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Download, ExternalLink, Megaphone, Printer, Search } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -144,10 +145,10 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
                         {n.important && <span className="rounded bg-shu px-1 text-[10px] font-bold text-white">重要</span>}
                         <b>{n.title}</b>
                         <span className="text-[11px] text-ink-faint">
-                          {formatShort(addDays(today, n.posted.day))} {n.posted.time} {n.by}
+                          {formatShort(addDays(today, n.posted.day))} {n.posted.time} {displayText(n.by)}
                         </span>
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap text-[12px]">{fillDates(n.body, today)}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-[12px]">{displayText(fillDates(n.body, today))}</p>
                       <div className="mt-1 text-[11px] text-ink-soft">
                         対象：
                         {n.drugs!.map((c) => (
@@ -157,7 +158,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
                           </span>
                         ))}
                       </div>
-                      {n.source && <p className="mt-1 text-[11px] text-ink-faint">出典：{n.source}</p>}
+                      {n.source && <p className="mt-1 text-[11px] text-ink-faint">出典：{displayText(n.source)}</p>}
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
                         <span className="text-ink-soft">
                           既読 {r.read.length}/{staff.length}人{r.unread.length > 0 && `（まだ：${r.unread.join("、")}）`}
@@ -186,7 +187,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
               ))}
             </p>
             <p className="mt-1">
-              架空の病院の取り決め：採用区分（{Object.entries(ADOPTION_NOTE).map(([k, v]) => `${k}＝${v}`).join("、")}）。ハイリスク薬は、薬剤管理指導料「1」の対象の分類（通知 B008 (2)）に、電子添文の薬効分類名と有効成分で当てはめたもので、厚生労働省の対象薬剤一覧とはまだ照らしていません。電子添文の製品は規制区分を読んだ製品で、算定に使う医薬品マスターの品目と製造販売業者が違うものがあります。電子添文の改訂の中身はここでは読み取っていません（リンク先で確かめる）。
+              採用区分（{Object.entries(ADOPTION_NOTE).map(([k, v]) => `${k}＝${v}`).join("、")}）。ハイリスク薬は、薬剤管理指導料「1」の対象の分類（通知 B008 (2)）に、電子添文の薬効分類名と有効成分で当てはめたもので、厚生労働省の対象薬剤一覧とはまだ照らしていません。電子添文の製品は規制区分を読んだ製品で、算定に使う医薬品マスターの品目と製造販売業者が違うものがあります。電子添文の改訂の中身はここでは読み取っていません（リンク先で確かめる）。
             </p>
           </div>
         </div>
@@ -208,7 +209,7 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
         </td>
         <td className="px-2 py-1.5">{x.cls.generic || <span className="text-ink-faint">（記載なし）</span>}</td>
         <td className="px-2 py-1.5">{x.cls.product}</td>
-        <td className="px-2 py-1.5">{kiseiText(x)}</td>
+        <td className="px-2 py-1.5">{displayText(kiseiText(x))}</td>
         <td className="px-2 py-1.5">
           {x.cls.yakko || <span className="text-ink-faint">（記載なし）</span>}
           <span className="nums block text-[10px] text-ink-faint">{x.cls.bunrui}</span>
@@ -226,12 +227,12 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
       {open && (
         <tr className="bg-ai-soft/20">
           <td colSpan={8} className="px-3 py-2 text-[12px]">
-            <p className="text-ink-soft">採用区分：{x.adoption}（{ADOPTION_NOTE[x.adoption]}<span className="hint">。架空の病院の取り決め</span>）{x.cls.b008 ? `　ハイリスク薬：${x.cls.b008.group}（${x.cls.b008.why}）` : ""}</p>
+            <p className="text-ink-soft">採用区分：{x.adoption}（{ADOPTION_NOTE[x.adoption]}<span className="hint">。院内の取り決め</span>）{x.cls.b008 ? `　ハイリスク薬：${x.cls.b008.group}（${x.cls.b008.why}）` : ""}</p>
             {n.length === 0 && <p className="text-ink-faint">この薬の DI のお知らせはありません。</p>}
             {n.map((y) => (
               <div key={y.id} className="mt-1">
-                <b>{y.title}</b> <span className="text-[11px] text-ink-faint">{formatShort(addDays(today, y.posted.day))} {y.by}</span>
-                <p className="whitespace-pre-wrap">{fillDates(y.body, today)}</p>
+                <b>{y.title}</b> <span className="text-[11px] text-ink-faint">{formatShort(addDays(today, y.posted.day))} {displayText(y.by)}</span>
+                <p className="whitespace-pre-wrap">{displayText(fillDates(y.body, today))}</p>
                 {!isRead(reads, y.id, meName) && (
                   <button type="button" onClick={() => onRead(y.id, meName)} className="mt-0.5 rounded border border-rule px-2 py-0.5 text-[11px] hover:border-ai hover:text-ai">
                     読んだ
@@ -335,7 +336,7 @@ function FormularySheet({ items, today, sort }: { items: FormularyItem[]; today:
               </td>
               <td>{x.cls.generic}</td>
               <td>{x.cls.product}</td>
-              <td>{kiseiText(x)}</td>
+              <td>{displayText(kiseiText(x))}</td>
               <td>
                 {x.cls.yakko}（{x.cls.bunrui}）
               </td>

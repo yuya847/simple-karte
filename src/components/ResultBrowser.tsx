@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState, type ComponentProps } from "react";
 import { TrendingUp } from "lucide-react";
 import { addDays, formatShort } from "@/lib/dates";
@@ -35,9 +36,9 @@ export function ResultBrowser({ items, calls, onSeen, extra, onTimeline, ...prop
         const flag = a ? flagOf(a, patient.sex, value) : "";
         const delta = previous === undefined ? undefined : Math.round((value - previous) * 1000) / 1000;
         return <tr key={code} className={`border-b border-rule-soft ${flag ? "text-shu" : ""}`}>{[a?.name ?? code, value, a?.unit ?? "—", a ? rangeText(a, patient.sex) : "—", flag || "—", previous ?? "—", delta === undefined ? "—" : `${delta > 0 ? "+" : ""}${delta}`].map((v, i) => <td key={i} className="p-2">{v}</td>)}</tr>;
-      })}</tbody></table></div> : <p className="whitespace-pre-wrap text-sm">{image?.report ?? visit.item.detail}</p>}
+      })}</tbody></table></div> : <p className="whitespace-pre-wrap text-sm">{displayText(image?.report ?? visit.item.detail)}</p>}
       {culture?.susceptibility && <ul className="text-sm">{culture.susceptibility.map((s) => <li key={s.drug}>{s.drug}：{s.result}（MIC {s.mic}）</li>)}</ul>}
-      <p className="text-sm">コメント：{visit.item.corrected ?? (lab ? "記録なし" : visit.item.detail || "記録なし")}</p>
+      <p className="text-sm">コメント：{displayText(visit.item.corrected ?? (lab ? "記録なし" : visit.item.detail || "記録なし"))}</p>
       {visit.unseen ? <ResultsInbox today={today} items={[visit.item]} calls={calls} onSeen={onSeen} /> : <p className="text-sm text-ink-soft">確認済み</p>}
     </section>;
   }

@@ -66,7 +66,7 @@ describe("パニック値の連絡：かけ直しと復唱", () => {
     expect(reachState([miss("10:00")])).toEqual({ failed: 1, goOthers: false });
     const msg: ContactAttempt = { ...miss("10:05"), result: "伝言・折り返しを頼んだ" };
     expect(reachState([miss("10:00"), msg])).toEqual({ failed: 2, goOthers: true });
-    expect(PANIC_REACH_RULE.text).toContain("架空の病院の取り決め");
+    expect(PANIC_REACH_RULE.text).not.toContain("架空の病院の取り決め");
     expect(reachList("山本（専攻医）")).toEqual(["主治医 山本（専攻医）（オーダーした医師）", "同じ科の医師", "管理当直"]);
   });
 

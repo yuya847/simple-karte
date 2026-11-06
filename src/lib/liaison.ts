@@ -117,7 +117,7 @@ export const EMPTY_LIAISON: LiaisonBook = { added: [], replies: {}, received: {}
  * The 通知 sets no deadline for this; a hospital sets its own.
  */
 export const REPLY_DAYS = 14;
-export const REPLY_RULE = `紹介を受けた患者の初回の返書（受診の報告）は、受診日から${REPLY_DAYS}日以内に送る（架空の病院の取り決め）`;
+export const REPLY_RULE = `紹介を受けた患者の初回の返書（受診の報告）は、受診日から${REPLY_DAYS}日以内に送る`;
 
 export type ReplyState = "受診待ち" | "返書待ち" | "期限切れ" | "返書済み" | "先方の返書待ち" | "先方の返書あり";
 

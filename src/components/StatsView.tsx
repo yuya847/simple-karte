@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { BedDouble, CalendarDays, ChartColumn, Download, Printer, Stethoscope } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { auditLog } from "@/lib/audit";
@@ -24,7 +25,7 @@ import {
 import { addDays, formatShort, isoDate, type CalendarDate } from "@/lib/dates";
 import { liaisonHistory, monthPeriods, todayVisits } from "@/lib/liaison";
 import type { BedAssignment, Floor } from "@/lib/ward";
-import { Fictional, saveFile, Sources, SubTabs, usePrintSheet } from "./DeskParts";
+import { saveFile, Sources, SubTabs, usePrintSheet } from "./DeskParts";
 import { useMe } from "./RoleContext";
 
 type Tab = "day" | "month" | "alos" | "dept";
@@ -82,7 +83,7 @@ export function StatsView({
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <ChartColumn size={18} className="text-ai" />
           統計・日報
-          <Fictional />
+
         </h1>
         <SubTabs
           label="統計の画面"
@@ -137,7 +138,7 @@ export function StatsView({
         {tab === "alos" && <AlosTab stays={stays} floors={floors} today={today} />}
         {tab === "dept" && <DeptTab stays={stays} visits={visits} period={periods[month]} label={periods[month].label} />}
         <p className="hint text-[11px] text-ink-faint">
-          病棟・患者・件数はすべて架空です。今日の数は、カルテのある患者・今日の入院・実施した退院・病棟の移動・ほかのチームの患者（ベッドの表示）から数えます。今日より前の入退院は、今日のベッドの様子から日をさかのぼって作った架空の記録で、外来の数は地域医療連携の画面と同じ架空の外来の日計です。計算はすべてコードで行い、AI は使いません。
+          今日の数は、カルテのある患者・今日の入院・実施した退院・病棟の移動・ほかのチームの患者（ベッドの表示）から数えます。今日より前の入退院は、今日のベッドの様子から日をさかのぼって作った記録で、外来の数は地域医療連携の画面と同じ外来の日計です。計算はすべてコードで行い、AI は使いません。
         </p>
       </div>
       {sheet}
@@ -212,7 +213,7 @@ function OpdTable({ rows, perDay }: { rows: { dept: string; first: number; revis
       <tbody>
         {rows.map((r) => (
           <tr key={r.dept} className="border-b border-rule-soft">
-            <td className="px-2 py-1">{r.dept}</td>
+            <td className="px-2 py-1">{displayText(r.dept)}</td>
             <td className={num}>{r.first}</td>
             <td className={num}>{r.revisit}</td>
             <td className={num}>{r.ambulance}</td>
@@ -393,7 +394,7 @@ function DeptTab({ stays, visits, period, label }: { stays: ReturnType<typeof ce
         <tbody>
           {rows.map((r) => (
             <tr key={r.dept} className="border-b border-rule-soft">
-              <td className="px-2 py-1">{r.dept}</td>
+              <td className="px-2 py-1">{displayText(r.dept)}</td>
               <td className={num}>{r.census}</td>
               <td className={num}>{r.admit}</td>
               <td className={num}>{r.discharge}</td>
@@ -413,10 +414,10 @@ function Sheet({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
       <h1 className="mb-2 text-base font-bold">
-        {title}　架空総合病院（架空）
+        {title}　架空総合病院
       </h1>
       {children}
-      <p className="mt-2 text-[8pt]">架空の記録からコードで数えたものです。</p>
+      <p className="mt-2 text-[8pt]">記録からコードで数えたものです。</p>
     </div>
   );
 }

@@ -5,6 +5,7 @@
 // the 資格 as checked. Nothing is preselected: the window chooses how the patient came (マイナ保険証 or
 // 資格確認書) and what the patient agreed to at the card reader.
 
+import { displayText } from "@/lib/display-text";
 import { IdCard } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -71,7 +72,7 @@ export function OnshiCheck({
         オンライン資格確認
         <MockMark />
       </h3>
-      <MockNote>オンライン資格確認等システムにはつないでいません（回線・証明書・契約が要るため）。答えは架空で、項目は公開資料にあるものです。</MockNote>
+      <MockNote>オンライン資格確認等システムにはつないでいません（回線・証明書・契約が要るため）。項目は公開資料にあるものです。</MockNote>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-ink-soft">受け付けたもの</span>
         {(["マイナ保険証", "資格確認書"] as const).map((h) => (
@@ -121,7 +122,7 @@ export function OnshiCheck({
               {result.checkedAt} 照会番号 {result.queryNo}（{result.how}）
             </span>
           </div>
-          {result.reason && <p className="text-yamabuki">{result.reason}</p>}
+          {result.reason && <p className="text-yamabuki">{displayText(result.reason)}</p>}
           {info && (
             <dl className="nums grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-0.5">
               {(
@@ -150,7 +151,7 @@ export function OnshiCheck({
 
           {result.drugs && (
             <div>
-              <h4 className="mb-0.5 font-bold text-ink-soft">薬剤情報（ほかの医療機関・薬局。架空）</h4>
+              <h4 className="mb-0.5 font-bold text-ink-soft">薬剤情報（ほかの医療機関・薬局）</h4>
               {result.drugs.length === 0 ? (
                 <p className="text-ink-faint">記録はありません。</p>
               ) : (
@@ -171,7 +172,7 @@ export function OnshiCheck({
                       <tr key={i} className="border-t border-rule-soft align-top">
                         <td>{d.date}</td>
                         <td>
-                          {d.pharmacy}（{d.institution}）
+                          {displayText(d.pharmacy)}（{displayText(d.institution)}）
                         </td>
                         <td>
                           {d.rxKind}・{d.use}
@@ -196,7 +197,7 @@ export function OnshiCheck({
 
           {result.checkups && (
             <div>
-              <h4 className="mb-0.5 font-bold text-ink-soft">特定健診情報（架空）</h4>
+              <h4 className="mb-0.5 font-bold text-ink-soft">特定健診情報</h4>
               {result.checkups.length === 0 ? (
                 <p className="text-ink-faint">40歳未満のため記録はありません。</p>
               ) : (

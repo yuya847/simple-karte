@@ -4,6 +4,7 @@
 // reason); what is answered flows on to the patient profile (介助), 入院時の評価 (as candidates the nurse
 // confirms there) and the 看護サマリ.
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { DISCHARGE_FACTORS } from "@/lib/admit-eval";
 import { ANAMNESIS_SECTIONS, ANAMNESIS_SOURCES, anamnesisChanges, anamnesisProblems, anamnesisVersions, answered, careToProfile, emptyAnamnesis, evalHints, type AnamnesisField, type AnamnesisFields, type AnamnesisRecord } from "@/lib/anamnesis";
@@ -76,7 +77,7 @@ export function AnamnesisPanel({ patient, record, care, fmtDay, onSave }: { pati
   return (
     <div className="space-y-3 text-[13px]">
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className={`rounded border px-1.5 py-0.5 text-xs ${record ? "border-wakatake/40 bg-wakatake-soft text-wakatake" : "border-yamabuki/40 bg-yamabuki-soft text-yamabuki"}`}>{record ? `第${versions.length}版　${when(record.at)} ${record.by}` : "まだ聞き取っていません"}</span>
+        <span className={`rounded border px-1.5 py-0.5 text-xs ${record ? "border-wakatake/40 bg-wakatake-soft text-wakatake" : "border-yamabuki/40 bg-yamabuki-soft text-yamabuki"}`}>{displayText(record ? `第${versions.length}版　${when(record.at)} ${record.by}` : "まだ聞き取っていません")}</span>
         <span className="nums text-xs text-ink-faint">
           答えた項目 {count.done}／{count.all}
         </span>
@@ -143,8 +144,8 @@ export function AnamnesisPanel({ patient, record, care, fmtDay, onSave }: { pati
             {versions.map((v, i) => (
               <li key={i}>
                 <span className="nums text-ink-faint">
-                  第{i + 1}版　{when(v.at)} {v.by}
-                  {v.reason ? `　理由：${v.reason}` : i === 0 ? "　（最初の聞き取り）" : ""}
+                  第{i + 1}版　{when(v.at)} {displayText(v.by)}
+                  {displayText(v.reason ? `　理由：${v.reason}` : i === 0 ? "　（最初の聞き取り）" : "")}
                 </span>
                 {i > 0 && (
                   <ul className="text-ink-soft">
@@ -160,7 +161,7 @@ export function AnamnesisPanel({ patient, record, care, fmtDay, onSave }: { pati
       )}
 
       <p className="hint text-[10px] text-ink-faint">
-        聞く項目の並びと選択肢は架空の病院の様式です。項目の根拠：
+        項目の根拠：
         {ANAMNESIS_SOURCES.map((s, i) => (
           <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
             {i > 0 ? "、" : ""}

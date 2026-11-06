@@ -5,6 +5,7 @@
 // Shared by the ward's 指示受け (TakeTable), the radiology's 指示受け・指示確認 (RadiologyTake) and the
 // ○ of an order block (OrderSheet).
 
+import { displayText } from "@/lib/display-text";
 import type { ReactNode } from "react";
 
 /** The words beside a disabled button that waits for the check. */
@@ -22,7 +23,7 @@ export function ConfirmCheck({ checked, onChange, disabled, children }: { checke
 
 /** The reason a button is disabled, beside it (nothing when it is not). */
 export function Waits({ on, text = CHECK_FIRST }: { on: boolean; text?: string }) {
-  return on ? <span className="text-[11px] font-bold text-yamabuki">{text}</span> : null;
+  return on ? <span className="text-[11px] font-bold text-yamabuki">{displayText(text)}</span> : null;
 }
 
 /** The button that waits for the check: plainly disabled (faint, no pointer) until it can be pressed. */

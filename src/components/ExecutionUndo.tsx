@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import type { ExecutionCancellation } from "@/lib/mar";
 import { useState } from "react";
 import { can, type Action } from "@/lib/roles";
@@ -26,7 +27,7 @@ export function ExecutionUndo({ action, patient, detail, onUndo }: { action: Act
 
 export function ExecutionHistory({ records }: { records?: ExecutionCancellation[] }) {
   if (!records?.length) return null;
-  return <span className="hint block text-[10px] text-ink-faint" title={records.map((r) => `${r.at} ${r.by} ${r.reason || "理由なし"}`).join("／")}>
-    {records.map((r, i) => <span key={i} className="block">取り消し {r.at} {r.by}（{r.reason || "理由なし"}）</span>)}
+  return <span className="hint block text-[10px] text-ink-faint" title={displayText(records.map((r) => `${r.at} ${r.by} ${r.reason || "理由なし"}`).join("／"))}>
+    {records.map((r, i) => <span key={i} className="block">取り消し {r.at} {displayText(r.by)}（{displayText(r.reason || "理由なし")}）</span>)}
   </span>;
 }

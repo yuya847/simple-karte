@@ -86,7 +86,7 @@ describe("指示受けの画面", () => {
     expect(html).toContain("指示を受ける");
     expect(html).toContain("指示票（今日・A4）");
     expect(html).toContain("denshi_gx.pdf");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
   });
 
   it("a taken change stays until its schedule is confirmed (with who took it and when); confirmed ones are hidden until 指示受け済みも表示する", () => {
@@ -160,7 +160,7 @@ describe("指示受けの画面", () => {
     expect(slip).toContain("セファメジンα注射用1g");
     expect(slip).toContain("11:00 看護師 佐藤");
     expect(slip).toContain("11:05 看護師 佐藤");
-    expect(slip).toContain("架空の患者");
+    expect(slip).not.toContain("架空の患者");
     expect(slip).not.toContain("大浦");
   });
 });

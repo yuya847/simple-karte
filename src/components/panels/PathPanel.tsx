@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Check, Minus, Route, X } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -86,8 +87,8 @@ export function PathPanel({ patient, book, onBook, entries, today, nowTime, newI
           <h3 className="font-bold">終わったパス</h3>
           {ended.map((a) => (
             <p key={a.id}>
-              {findPath(a.code)?.name}（1日目 {fmt(a.startDay)}）：{a.end!.kind} {fmt(a.end!.at.day)} {a.end!.at.time} {a.end!.by}
-              {a.end!.reason ? `「${a.end!.reason}」` : ""}
+              {findPath(a.code)?.name}（1日目 {fmt(a.startDay)}）：{a.end!.kind} {fmt(a.end!.at.day)} {a.end!.at.time} {displayText(a.end!.by)}
+              {displayText(a.end!.reason ? `「${a.end!.reason}」` : "")}
             </p>
           ))}
         </section>
@@ -215,7 +216,7 @@ function Active({ app, path, book, onBook, entries, fmt, at, newId, onDrafts, on
         </span>
         {now > path.length && <span className="rounded bg-yamabuki-soft px-1.5 text-[11px] font-bold text-yamabuki">標準の日数を {now - path.length}日 過ぎています</span>}
         <span className="ml-auto text-[11px] text-ink-faint">
-          適用：{app.by} {fmt(app.at.day)} {app.at.time}
+          適用：{displayText(app.by)} {fmt(app.at.day)} {app.at.time}
         </span>
       </header>
 
@@ -251,7 +252,7 @@ function Active({ app, path, book, onBook, entries, fmt, at, newId, onDrafts, on
                   return (
                     <div key={o.key} className={m === "未達成" ? "text-shu" : m === "未評価" ? "text-yamabuki" : m === "達成" ? "text-wakatake" : "text-ink-soft"}>
                       {m === "達成" ? <Check size={11} className="inline" /> : m === "未達成" ? <X size={11} className="inline" /> : m === "未評価" ? <Minus size={11} className="inline" /> : null}
-                      {o.text}
+                      {displayText(o.text)}
                       <span className="ml-0.5 text-[10px] text-ink-faint">（{o.who}）</span>
                     </div>
                   );
@@ -286,7 +287,7 @@ function Active({ app, path, book, onBook, entries, fmt, at, newId, onDrafts, on
               <div key={o.key} className="rounded border border-rule-soft bg-sheet px-2 py-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="nums text-[11px] text-ink-faint">{d}日目</span>
-                  <span className="flex-1">{o.text}</span>
+                  <span className="flex-1">{displayText(o.text)}</span>
                   {why ? (
                     <span className="text-[11px] text-ink-faint">{why}</span>
                   ) : (
@@ -332,7 +333,7 @@ function Active({ app, path, book, onBook, entries, fmt, at, newId, onDrafts, on
             </button>
           )}
         </div>
-        <p className="text-[11px] text-ink-faint">{PATH_RULES.variance}</p>
+
         {free && (
           <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
             <select value={free.sign} onChange={(e) => setFree({ ...free, sign: e.target.value as Variance["sign"] })} aria-label="バリアンスの向き" className="rounded border border-rule bg-paper px-1 py-0.5">
@@ -376,11 +377,11 @@ function Active({ app, path, book, onBook, entries, fmt, at, newId, onDrafts, on
                   <td className={`w-8 py-0.5 font-bold ${v.sign === "負" ? "text-shu" : "text-wakatake"}`}>{v.sign}</td>
                   <td className="w-32 py-0.5">{v.category}</td>
                   <td className="py-0.5">
-                    {v.detail}
+                    {displayText(v.detail)}
                     {v.outcomeKey && <span className="ml-1 text-[11px] text-ink-faint">（アウトカム未達成）</span>}
                   </td>
                   <td className="nums w-36 py-0.5 text-right text-[11px] text-ink-faint">
-                    {v.by} {fmt(v.at.day)} {v.at.time}
+                    {displayText(v.by)} {fmt(v.at.day)} {v.at.time}
                   </td>
                 </tr>
               ))}

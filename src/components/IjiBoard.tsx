@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { OutpatientDesk, type OutpatientDeskProps } from "./billing/OutpatientDesk";
 import { EmergencyDesk, type EmergencyDeskProps } from "./billing/EmergencyDesk";
 import { pendingDraftCount } from "@/lib/billing/emergency-visit";
@@ -153,7 +154,7 @@ export function IjiBoard({
                     <>
                       <div className="nums">{insuranceSummary(r.insurance.insurance)}</div>
                       <div className="nums text-[11px] text-ink-faint">
-                        {r.insurance.action} {day(r.insurance.at.day)} {r.insurance.at.time} {r.insurance.by}
+                        {r.insurance.action} {day(r.insurance.at.day)} {r.insurance.at.time} {displayText(r.insurance.by)}
                       </div>
                     </>
                   ) : (
@@ -170,7 +171,7 @@ export function IjiBoard({
                     <span className="text-ink-faint">入院中</span>
                   ) : r.settled ? (
                     <span className="text-wakatake">
-                      退院 {day(r.discharge.day)}・会計済み（{r.settled.at.time} {r.settled.by}）
+                      退院 {day(r.discharge.day)}・会計済み（{r.settled.at.time} {displayText(r.settled.by)}）
                     </span>
                   ) : (
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -194,7 +195,7 @@ export function IjiBoard({
                         {r.review.slice(0, 3).map((i) => (
                           <li key={i.level + i.text} className="leading-snug">
                             <span className="mr-1 font-bold text-yamabuki">{i.level === "choose" ? "人が選ぶ" : "確かめる"}</span>
-                            {i.text}
+                            {displayText(i.text)}
                           </li>
                         ))}
                       </ul>
@@ -227,7 +228,7 @@ export function IjiBoard({
         </tbody>
       </table>
       {shown.length === 0 && <p className="mt-3 text-xs text-ink-faint">やることがある患者はいません。</p>}
-      <p className="mt-3 text-[11px] text-ink-faint">患者・保険の番号はすべて架空です。登録と会計の記録はこのブラウザの中だけにあり、監査ログに残ります。</p>
+      <p className="mt-3 text-[11px] text-ink-faint">登録と会計の記録はこのブラウザの中だけにあり、監査ログに残ります。</p>
     </section>
   );
 }

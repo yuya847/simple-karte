@@ -70,4 +70,4 @@ export function creditLine(c: ImageCredit): string {
 }
 
 /** 画像の上に常に出す注記（実在の患者の画像と誤解させないため、hint にしない） */
-export const PUBLIC_IMAGE_NOTE = "公開データ（Wikimedia Commons ほか）。架空の患者に割り当てた教材用の画像で、この患者のものではありません";
+export const PUBLIC_IMAGE_NOTE = "公開データ（Wikimedia Commons ほか）。教材用の画像で、この患者のものではありません";

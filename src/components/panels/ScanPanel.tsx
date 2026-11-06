@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ExternalLink, FileText, ImagePlus, Sparkles, Undo2 } from "lucide-react";
 import { useState } from "react";
 import type { Patient } from "@/lib/types";
@@ -65,7 +66,7 @@ function sampleImage(patientName: string, today: string): string {
   g.fillText("診療情報提供書", 120, 200);
   g.font = "40px sans-serif";
   g.fillText(`架空総合病院 総合診療科 御侍史`, 120, 320);
-  g.fillText(`患者：${patientName} 様（架空）`, 120, 400);
+  g.fillText(`患者：${patientName} 様`, 120, 400);
   g.fillText(`紹介日：${today}`, 120, 470);
   g.font = "36px sans-serif";
   ["紹介目的：精査と加療のお願い（見本の文です）", "既往歴：高血圧症（見本）", "処方：見本の処方（実在の処方ではありません）", "経過：この紙は Simple Karte の取込の見本で、", "実在の患者・医療機関のものではありません。"].forEach((t, i) => g.fillText(t, 120, 600 + i * 70));
@@ -78,13 +79,13 @@ function sampleImage(patientName: string, today: string): string {
     g.stroke();
   }
   g.font = "40px sans-serif";
-  g.fillText("〇〇内科クリニック（架空） 院長 架空 太郎", 360, 1620);
+  g.fillText("〇〇内科クリニック 院長 架空 太郎", 360, 1620);
   g.save();
   g.translate(620, 900);
   g.rotate(-0.4);
   g.fillStyle = "rgba(181,64,43,0.18)";
   g.font = "bold 200px sans-serif";
-  g.fillText("見本（架空）", -560, 60);
+  g.fillText("見本", -560, 60);
   g.restore();
   return c.toDataURL("image/png");
 }
@@ -144,7 +145,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
     try {
       const png = sampleImage(patient.name, today);
       const r = await shrink(png);
-      setReady({ dataUrl: r.dataUrl, mime: "image/jpeg", width: r.width, height: r.height, original: { name: "架空の見本（紹介状）.png", type: "image/png", bytes: png.length }, sample: true });
+      setReady({ dataUrl: r.dataUrl, mime: "image/jpeg", width: r.width, height: r.height, original: { name: "見本（紹介状）.png", type: "image/png", bytes: png.length }, sample: true });
       setType("紹介状（他院から）");
     } finally {
       setBusy(false);
@@ -164,7 +165,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
 
   return (
     <div className="space-y-3 text-[13px]">
-      <p className="rounded-md border border-shu bg-shu-soft px-3 py-1.5 text-[12px]">実在の患者や医療機関の書類・写真は取り込まないでください（この試作は架空の患者だけです）。試すときは「架空の見本を作る」を使えます。</p>
+      <p className="rounded-md border border-shu bg-shu-soft px-3 py-1.5 text-[12px]">実在の患者や医療機関の書類・写真は取り込まないでください。試すときは「見本を作る」を使えます。</p>
       <section className="space-y-2 rounded-md border border-rule bg-paper p-3">
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex cursor-pointer items-center gap-1 rounded-md border border-rule bg-sheet px-2.5 py-1 hover:border-ai">
@@ -179,7 +180,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
           </label>
           <button type="button" disabled={busy} onClick={() => void makeSample()} className="flex items-center gap-1 rounded-md border border-dashed border-rule px-2.5 py-1 text-ink-soft hover:border-ai hover:text-ai">
             <Sparkles size={14} />
-            架空の見本を作る
+            見本を作る
           </button>
           {busy && <span className="text-ink-soft">小さくしています…</span>}
         </div>
@@ -197,7 +198,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
             <div className="space-y-1 text-[12px]">
               <div>
                 <b>{ready.original.name}</b>
-                {ready.sample && <span className="ml-1 rounded border border-dashed border-ink-faint px-1 text-[10px]">架空の見本</span>}
+                {ready.sample && <span className="ml-1 rounded border border-dashed border-ink-faint px-1 text-[10px]">見本</span>}
               </div>
               <div className="nums text-ink-soft">
                 元 {kb(ready.original.bytes)} → 保存 {kb(ready.dataUrl.length)}
@@ -255,15 +256,15 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
                 <div className="min-w-0 flex-1">
                   <div>
                     <b>{s.type}</b>　文書の日付 {s.docDate}
-                    {s.sample && <span className="ml-1 rounded border border-dashed border-ink-faint px-1 text-[10px]">架空の見本</span>}
+                    {s.sample && <span className="ml-1 rounded border border-dashed border-ink-faint px-1 text-[10px]">見本</span>}
                   </div>
                   <div className="nums text-ink-soft">
-                    取込 {s.at.time} {s.by}　{s.mime === "application/pdf" ? "PDF" : "画像"} {kb(s.bytes)}
-                    {s.note && `　${s.note}`}
+                    取込 {s.at.time} {displayText(s.by)}　{s.mime === "application/pdf" ? "PDF" : "画像"} {kb(s.bytes)}
+                    {displayText(s.note && `　${s.note}`)}
                   </div>
                   {s.withdrawn && (
                     <div>
-                      取り消し {s.withdrawn.at.time} {s.withdrawn.by}：{s.withdrawn.reason}
+                      取り消し {s.withdrawn.at.time} {displayText(s.withdrawn.by)}：{displayText(s.withdrawn.reason)}
                     </div>
                   )}
                 </div>
@@ -302,7 +303,7 @@ export function ScanPanel({ patient, scans, today, onAdd, onWithdraw }: { patien
             ))}
           </ul>
         )}
-        <p className="mt-1 text-[11px] text-ink-faint">取り消しても、取り込んだことと理由は残ります（画像は保存しません）。<span className="hint">取り込んだあとも紙の原本は保管し、取り込んだものは参照用として扱います（架空の病院の取り決め。安全管理ガイドライン システム運用編 16.2）。</span></p>
+        <p className="mt-1 text-[11px] text-ink-faint">取り消しても、取り込んだことと理由は残ります（画像は保存しません）。<span className="hint">取り込んだあとも紙の原本は保管し、取り込んだものは参照用として扱います（安全管理ガイドライン システム運用編 16.2）。</span></p>
       </section>
       <Sources items={SCAN_SOURCES} />
     </div>

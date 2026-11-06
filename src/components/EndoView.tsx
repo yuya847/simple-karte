@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { Cable, ClipboardList, Download, FilePen, ListChecks, Microscope, ShowerHead, Stethoscope } from "lucide-react";
@@ -41,7 +42,7 @@ import { abs } from "@/lib/flowsheet";
 import { caseTitle, pathStatus, requestProblems, type PathCase } from "@/lib/pathology";
 import type { Ack } from "@/lib/results";
 import type { OrderEntry, Patient } from "@/lib/types";
-import { Fictional, Sources, SubTabs, saveFile } from "./DeskParts";
+import { Sources, SubTabs, saveFile } from "./DeskParts";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 type Person = { patient: Patient; room: string; entries: OrderEntry[] };
@@ -88,7 +89,7 @@ export function EndoView(p: Props) {
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <Cable size={18} className="text-ai" />
           内視鏡室
-          <Fictional />
+
         </h1>
         <SubTabs
           label="内視鏡室の画面"
@@ -112,7 +113,7 @@ export function EndoView(p: Props) {
         <p className="text-[11px] text-ink-faint">
           {ENDO_HOUSE_RULES.rooms}
           {ENDO_HOUSE_RULES.scopes}
-          {ENDO_HOUSE_RULES.roles}患者・オーダ・記録は架空です。所見と診断を書くのは医師で、コードは判定しません。
+          {ENDO_HOUSE_RULES.roles}所見と診断を書くのは医師で、コードは判定しません。
         </p>
         <Sources items={Object.values(ENDO_SOURCES)} />
       </div>
@@ -127,7 +128,7 @@ function Head({ r }: { r: EndoRow }) {
   return (
     <header className="flex flex-wrap items-baseline gap-x-3">
       <span className="nums">
-        {whenText(r.at)}
+        {displayText(whenText(r.at))}
         {r.work?.slot && <span className="ml-1 text-ink-soft">{r.work.slot.room}</span>}
         {r.priority === "至急" && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
       </span>
@@ -137,7 +138,7 @@ function Head({ r }: { r: EndoRow }) {
       <span className="font-bold">{r.testName}</span>
       <span className="text-ink-soft">
         目的：{r.purpose}
-        {r.transport ? `（${r.transport}）` : ""}　{r.orderedBy}
+        {r.transport ? `（${r.transport}）` : ""}　{displayText(r.orderedBy)}
       </span>
       <span className={STATUS_STYLE[r.status]}>{r.status}</span>
     </header>
@@ -168,7 +169,7 @@ function List({ rows, onDesk, nowTime }: Props & { rows: EndoRow[] }) {
             {r.comment && <p className="text-ink-soft">コメント：{r.comment}</p>}
             {r.work?.arrived && (
               <p className="text-ink-soft">
-                受付 {r.work.arrived.time} {r.work.arrived.by}
+                受付 {r.work.arrived.time} {displayText(r.work.arrived.by)}
               </p>
             )}
             {r.status === "予約" && (
@@ -276,7 +277,7 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
         <ul className="nums">
           {w.prep.map((x, i) => (
             <li key={i}>
-              {x.time} {x.what} <span className="text-ink-soft">（{x.by}）</span>
+              {x.time} {x.what} <span className="text-ink-soft">（{displayText(x.by)}）</span>
             </li>
           ))}
           {w.prep.length === 0 && <li className="text-ink-faint">まだありません。</li>}
@@ -312,7 +313,7 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
           ))}
           {w.sedation && (
             <li className="text-ink-soft">
-              酸素：{w.sedation.o2 || "なし"}　鎮静の担当：医師 {w.sedation.doctor || "—"}・看護師 {w.sedation.nurse || "—"}
+              酸素：{w.sedation.o2 || "なし"}　鎮静の担当：医師 {displayText(w.sedation.doctor || "—")}・看護師 {displayText(w.sedation.nurse || "—")}
             </li>
           )}
           {!w.sedation && <li className="text-ink-faint">鎮静なし（記録なし）</li>}
@@ -364,12 +365,12 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
                   BP {x.sbp ?? "—"}/{x.dbp ?? "—"}
                 </td>
                 <td className="pr-3">SpO2 {x.spo2 ?? "—"}%</td>
-                <td className="text-ink-soft">{x.by}</td>
+                <td className="text-ink-soft">{displayText(x.by)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {gaps.length > 0 && <p className="font-bold text-yamabuki">検査中の観察の間隔が5分を超えています：{gaps.map((g) => `${g.from}〜${g.to}（${g.minutes}分）`).join("、")}</p>}
+        {gaps.length > 0 && <p className="font-bold text-yamabuki">検査中の観察の間隔が5分を超えています：{displayText(gaps.map((g) => `${g.from}〜${g.to}（${g.minutes}分）`).join("、"))}</p>}
         {!w.release && (
           <p className="mt-1 flex flex-wrap gap-1">
             <TimeInput value={obs.time} onChange={(e) => setObs({ ...obs, time: e.target.value })} aria-label="観察の時刻" className={field} disabled={nurseLock} />
@@ -401,7 +402,7 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
         <h3 className="font-bold">実施記録</h3>
         {w.done ? (
           <p className="nums">
-            {w.done.start}〜{w.done.end}　スコープ {w.done.scope}　実施医 {w.done.doctor}　介助 {w.done.assist || "—"}　生検 {w.done.biopsy}個　処置：{w.done.procedures || "なし"}　偶発症：{w.done.complication}
+            {w.done.start}〜{w.done.end}　スコープ {w.done.scope}　実施医 {displayText(w.done.doctor)}　介助 {displayText(w.done.assist || "—")}　生検 {w.done.biopsy}個　処置：{w.done.procedures || "なし"}　偶発症：{w.done.complication}
           </p>
         ) : (
           <div className="space-y-1">
@@ -452,7 +453,7 @@ function ExamForm({ r, desk, onDesk, nowTime }: Props & { r: EndoRow }) {
           <p className="text-[11px] text-ink-soft">{ENDO_RULES.release}</p>
           {w.release ? (
             <p>
-              {w.release.time} {w.release.by}：{w.release.assessment}
+              {w.release.time} {displayText(w.release.by)}：{w.release.assessment}
             </p>
           ) : (
             <p className="mt-1 flex gap-1">
@@ -545,7 +546,7 @@ function Scopes({ desk, onDesk, people, today, nowTime }: Props) {
           return (
             <div key={wsh} className={`${card} space-y-1 px-3 py-2 text-[12px]`}>
               <b>{wsh}</b>（{WASHER_AGENT[wsh]}）
-              <span className={`block ${c?.ok ? "text-wakatake" : "font-bold text-shu"}`}>{c ? `${c.time} ${c.by}：${c.ok ? "最低使用濃度以上" : "下回った（交換して確かめ直す）"}${c.note ? `（${c.note}）` : ""}` : "今日の確認がまだです"}</span>
+              <span className={`block ${c?.ok ? "text-wakatake" : "font-bold text-shu"}`}>{displayText(c ? `${c.time} ${c.by}：${c.ok ? "最低使用濃度以上" : "下回った（交換して確かめ直す）"}${c.note ? `（${c.note}）` : ""}` : "今日の確認がまだです")}</span>
               <p className="flex flex-wrap gap-1">
                 <input value={checkNote} onChange={(e) => setCheckNote(e.target.value)} placeholder="メモ（例：テストストリップ）" aria-label="濃度確認のメモ" className={`${field} w-40`} disabled={locked} />
                 {[true, false].map((ok) => (
@@ -581,7 +582,7 @@ function Scopes({ desk, onDesk, people, today, nowTime }: Props) {
             <p>
               <b>{r.scope}</b>　{nameOf(r.patientId)}（{r.patientId}）　使用 {r.used.time}
               <span className="ml-2 text-ink-soft">
-                {[r.bedside && `ベッドサイド洗浄 ${r.bedside.time} ${r.bedside.by}`, r.leak && `漏水テスト ${r.leak.time} ${r.leak.ok ? "漏れなし" : "漏れあり"}`, r.manual && `用手洗浄 ${r.manual.time} ${r.manual.by}`, r.machine && `${r.machine.washer} ${r.machine.start.time}〜${r.machine.end?.time ?? ""}${r.machine.ok === false ? "（異常）" : ""}`].filter(Boolean).join("　")}
+                {displayText([r.bedside && `ベッドサイド洗浄 ${r.bedside.time} ${r.bedside.by}`, r.leak && `漏水テスト ${r.leak.time} ${r.leak.ok ? "漏れなし" : "漏れあり"}`, r.manual && `用手洗浄 ${r.manual.time} ${r.manual.by}`, r.machine && `${r.machine.washer} ${r.machine.start.time}〜${r.machine.end?.time ?? ""}${r.machine.ok === false ? "（異常）" : ""}`].filter(Boolean).join("　"))}
               </span>
             </p>
             <p className="mt-1 flex flex-wrap items-center gap-2">
@@ -725,12 +726,12 @@ function ReportForm({ r, onDesk, nowTime, pathology, onAddPath, onGoPath }: Prop
       <Head r={r} />
       {w.done && (
         <p className="nums text-ink-soft">
-          実施 {w.done.start}〜{w.done.end}　{w.done.scope}　{w.done.doctor}　生検 {w.done.biopsy}個　処置：{w.done.procedures || "なし"}　偶発症：{w.done.complication}
+          実施 {w.done.start}〜{w.done.end}　{w.done.scope}　{displayText(w.done.doctor)}　生検 {w.done.biopsy}個　処置：{w.done.procedures || "なし"}　偶発症：{w.done.complication}
         </p>
       )}
       {prev && (
         <p className="text-ink-soft">
-          いまの版：第{versionOf(w)}版（{prev.time} {prev.by}）
+          いまの版：第{versionOf(w)}版（{prev.time} {displayText(prev.by)}）
         </p>
       )}
       <label className="block">
@@ -842,17 +843,17 @@ function Read({ rows, desk, acks }: Props & { rows: EndoRow[] }) {
             const rep = r.work?.report;
             return (
               <tr key={r.orderId} className="border-b border-rule-soft align-top">
-                <td className="nums px-2 py-1">{whenText(r.at)}</td>
+                <td className="nums px-2 py-1">{displayText(whenText(r.at))}</td>
                 <td className="px-2 py-1">
                   {r.room}　{r.name}
                 </td>
                 <td className="px-2 py-1">{r.testName}</td>
                 <td className={`px-2 py-1 ${STATUS_STYLE[r.status]}`}>
                   {r.status}
-                  {r.work?.notDone && <span className="block font-normal">{r.work.notDone.reason}</span>}
+                  {r.work?.notDone && <span className="block font-normal">{displayText(r.work.notDone.reason)}</span>}
                 </td>
                 <td className="px-2 py-1">{rep ? rep.diagnosis : "—"}</td>
-                <td className={`px-2 py-1 ${rep && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{rep ? (ack ? `${ack.at.time} ${ack.by}` : "まだ") : "—"}</td>
+                <td className={`px-2 py-1 ${rep && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(rep ? (ack ? `${ack.at.time} ${ack.by}` : "まだ") : "—")}</td>
               </tr>
             );
           })}

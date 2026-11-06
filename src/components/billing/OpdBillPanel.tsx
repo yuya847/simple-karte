@@ -5,6 +5,7 @@
 // 診療明細書 to print, and 入金 (現金・カード) by 医事課 (roles.ts "settle"). Below: today's visits whose bill is
 // still open (未収). Nothing is decided here: what the window cannot claim is listed as such.
 
+import { displayText } from "@/lib/display-text";
 import { AlertTriangle, Ban, CheckCircle2, Info, Loader2, Printer, ReceiptJapaneseYen, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -21,7 +22,7 @@ import type { OpdPatient } from "@/lib/opd";
 import { birthDateOf } from "@/lib/patient-contacts";
 import type { OrderEntry } from "@/lib/types";
 import { BigChoice } from "../BigChoice";
-import { Fictional, Sources, usePrintSheet } from "../DeskParts";
+import { Sources, usePrintSheet } from "../DeskParts";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
@@ -140,7 +141,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
         <h2 className="flex items-center gap-1.5 text-sm font-bold">
           <ReceiptJapaneseYen size={15} />
           外来の会計
-          <Fictional />
+
         </h2>
         <span className="text-ink-soft">
           {visit.name}　{visit.age}歳　{visit.department}　{visit.kind}　{date}
@@ -148,7 +149,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
         {settlement ? (
           <span className="inline-flex items-center gap-1 rounded bg-wakatake-soft px-1.5 py-0.5 text-[11px] font-bold text-wakatake">
             <CheckCircle2 size={12} />
-            会計済み　{settlement.receiptNo}　{yen(settlement.yen)}（{settlement.method}）　{settlement.at.time} {settlement.by}
+            会計済み　{settlement.receiptNo}　{yen(settlement.yen)}（{settlement.method}）　{settlement.at.time} {displayText(settlement.by)}
           </span>
         ) : (
           <span className="rounded bg-yamabuki-soft px-1.5 py-0.5 text-[11px] font-bold text-yamabuki">未収</span>
@@ -226,7 +227,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
                     <li key={x.text} className={`flex items-start gap-1.5 rounded border px-2 py-1 text-[11px] ${s.cls}`}>
                       <Icon size={12} className="mt-0.5 shrink-0" />
                       <span className="shrink-0 font-bold">{s.label}</span>
-                      <span className="text-ink">{x.text}</span>
+                      <span className="text-ink">{displayText(x.text)}</span>
                     </li>
                   );
                 })}
@@ -286,7 +287,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
                       <th className="py-0.5 text-left font-normal text-ink-soft">
                         自己負担限度額（外来）
                         <div className="text-[11px] text-ink-faint">{share.limit.formula}</div>
-                        <div className="hint text-[10px] text-ink-faint">{share.limit.source}</div>
+                        <div className="hint text-[10px] text-ink-faint">{displayText(share.limit.source)}</div>
                       </th>
                       <td className="nums py-0.5 text-right">{yen(share.limit.yen)}</td>
                     </tr>
@@ -378,7 +379,7 @@ export function OpdBillPanel({ emergency, visit, visitKey, entries, rx, records 
         )}
       </section>
       <Sources items={[...OPD_CLAIM_SOURCES, ...FUTAN_SOURCES]} />
-      <p className="hint text-[10px] text-ink-faint">1点10円で患者負担を出すこと、誰が入金を記録するか（医事課）は架空の病院の取り決めです。領収書・明細書の様式は療養担当規則5条の2（領収証・明細書の交付）に沿い、院の様式は架空です。生年月日 {formatShort(birth)} は保険の登録がなければ年齢から作った架空の日付です。</p>
+      <p className="hint text-[10px] text-ink-faint">1点10円で患者負担を出し、入金は医事課が記録します。領収書・明細書の様式は療養担当規則5条の2（領収証・明細書の交付）に沿っています。生年月日  {formatShort(birth)}  は保険の登録がなければ年齢から作った日付です。</p>
       {sheet}
     </div>
   );
@@ -389,7 +390,7 @@ function ReceiptSheet({ visit, date, sections: secs, share, insuranceLabel, assu
   return (
     <div className="mx-auto w-[170mm] text-[10pt]">
       <p className="text-center text-[16pt] font-bold">領収書</p>
-      <p className="text-center text-[9pt]">架空総合病院（架空）　神奈川県架空市（架空）</p>
+      <p className="text-center text-[9pt]">架空総合病院　神奈川県架空市</p>
       <div className="mt-4 flex justify-between">
         <span className="text-[12pt]">
           {visit.name} 様　<span className="text-[9pt]">{visit.age}歳</span>
@@ -459,9 +460,9 @@ function ReceiptSheet({ visit, date, sections: secs, share, insuranceLabel, assu
         </tbody>
       </table>
       <p className="mt-4 text-right text-[9pt]">
-        {time}　担当 {by}
+        {time}　担当 {displayText(by)}
       </p>
-      <p className="mt-3 text-[8pt]">この領収書は医療費控除の申告に使えます（再発行はしません）。点数は診療報酬点数表、負担割合は健康保険法・高齢者医療確保法によります。架空の病院の試作で、実在の医療機関・患者ではありません。</p>
+      <p className="mt-3 text-[8pt]">この領収書は医療費控除の申告に使えます（再発行はしません）。点数は診療報酬点数表、負担割合は健康保険法・高齢者医療確保法によります。</p>
     </div>
   );
 }
@@ -471,7 +472,7 @@ function DetailSheet({ visit, date, acts, total }: { visit: OpdPatient; date: st
   return (
     <div className="mx-auto w-[170mm] text-[10pt]">
       <p className="text-center text-[16pt] font-bold">診療明細書</p>
-      <p className="text-center text-[9pt]">架空総合病院（架空）</p>
+      <p className="text-center text-[9pt]">架空総合病院</p>
       <div className="mt-3 flex justify-between">
         <span className="text-[12pt]">{visit.name} 様</span>
         <span className="nums">
@@ -514,7 +515,7 @@ function DetailSheet({ visit, date, acts, total }: { visit: OpdPatient; date: st
           </tr>
         </tbody>
       </table>
-      <p className="mt-3 text-[8pt]">薬剤は名称と量、検査・画像・処置は項目名を点数表の名称で書いています。架空の病院の試作です。</p>
+      <p className="mt-3 text-[8pt]">薬剤は名称と量、検査・画像・処置は項目名を点数表の名称で書いています。</p>
     </div>
   );
 }

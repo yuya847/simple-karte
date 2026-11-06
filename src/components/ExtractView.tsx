@@ -30,7 +30,7 @@ export function ExtractView({ run, onExport }: { run: (q: ExtractQuery) => Extra
       <header className="border-b border-rule bg-sheet px-5 py-3">
         <h1 className="text-lg font-bold">
           データ抽出
-          <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空の患者だけ</span>
+
         </h1>
         <p className="text-[12px] text-ink-soft">条件をかけ合わせて患者を探し、表で見て CSV で保存します（例：肺炎で、抗菌薬を使っていて、CRP 10 以上）。空の条件は使いません。</p>
       </header>

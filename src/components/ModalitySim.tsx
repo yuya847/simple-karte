@@ -6,6 +6,7 @@
 // images that then appear in the PACS viewer. No device is connected. A local Orthanc can be used when someone
 // runs one (docs/dicom-local.md); on the hosted app that part stays off.
 
+import { displayText } from "@/lib/display-text";
 import { MonitorCog } from "lucide-react";
 import { useEffect, useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -71,7 +72,7 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
           撮影装置（模擬）
           <Fictional text="模擬：本物の装置にはつないでいません" />
         </h3>
-        <p className="hint text-ink-soft">装置を選んで「ワークリストを問い合わせる」を押すと、その装置に割り当てた受付済みの検査が、DICOM のワークリストの形で届きます（C-FIND の応答の模擬）。検査を始める・終える・中止すると MPPS（実施済み手続きの通知）の模擬が放射線部に届き、撮影済みと照射録の撮影条件・線量が入ります。「画像を送る」で架空の合成画像が PACS（カルテの放射線画像）に出ます。</p>
+        <p className="hint text-ink-soft">装置を選んで「ワークリストを問い合わせる」を押すと、その装置に割り当てた受付済みの検査が、DICOM のワークリストの形で届きます（C-FIND の応答の模擬）。検査を始める・終える・中止すると MPPS（実施済み手続きの通知）の模擬が放射線部に届き、撮影済みと照射録の撮影条件・線量が入ります。「画像を送る」で合成画像が PACS（カルテの放射線画像）に出ます。</p>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-ink-soft">装置</span>
           {RIS_ROOMS.map((r) => (
@@ -92,7 +93,7 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
           </button>
         </div>
         <p className="text-ink-soft">
-          {room.device}　AE タイトル {room.ae}　ステーション名 {room.station}
+          {displayText(room.device)}　AE タイトル {room.ae}　ステーション名 {room.station}
         </p>
       </div>
       {asked === ae && (
@@ -166,7 +167,7 @@ export function ModalitySim({ rows, onDesk, nowTime, today }: { rows: RisRow[]; 
       <LocalOrthanc target={target} today={today} />
       <p className="text-[11px] text-ink-faint">{MPPS_DOSE_NOTE}</p>
       <Sources items={[DICOM_SOURCES.mwl, DICOM_SOURCES.mpps, DICOM_SOURCES.registry, DICOM_SOURCES.dose, DICOM_SOURCES.pregnancy]} />
-      <p className="text-[11px] text-ink-faint">撮影条件・線量・画像の数は、模擬の装置がコードで作る架空の値です（同じオーダなら毎回同じ）。実在の装置の値ではありません。受付番号・Study Instance UID もオーダから作る架空のもの、生年月日は年齢から作った架空の日付です。</p>
+      <p className="text-[11px] text-ink-faint">撮影条件・線量・画像の数は、模擬の装置がコードで作る値です（同じオーダなら毎回同じ）。受付番号・Study Instance UID もオーダから作り、生年月日は年齢から作った日付です。</p>
     </section>
   );
 }
@@ -238,7 +239,7 @@ function Finish({ r, ae, today, nowTime, onDesk, onSent }: { r: RisRow; ae: stri
         撮影を終える（MPPS N-SET：COMPLETED）
       </button>
       <span className="text-ink-soft">
-        送る撮影条件と線量（模擬）：{doseText(r.order, acq.dose)}
+        送る撮影条件と線量（模擬）：{displayText(doseText(r.order, acq.dose))}
         {r.order.modality === "CT" && `　RDSR：${ctDoseConcepts(acq.dose).map((c) => `${c.meaning} (${c.code}, ${c.scheme}) ${c.value} ${c.unit}`).join("・")}`}
       </span>
       {block.length > 0 && <span className="w-full text-shu">{block.join(" ")}</span>}
@@ -269,7 +270,7 @@ function Stored({ rows, onDesk, nowTime, ae }: { rows: RisRow[]; onDesk: OnDesk;
               }}
               className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40"
             >
-              画像を送る（C-STORE の模擬・架空の合成画像 {r.work?.exposure?.films ?? acq.images}枚）
+              画像を送る（C-STORE の模擬・合成画像 {r.work?.exposure?.films ?? acq.images}枚）
             </button>
           </p>
         );
@@ -299,7 +300,7 @@ function LocalOrthanc({ target, today }: { target: RisRow | null; today: Calenda
       {local && !local.enabled && <p className="text-ink-soft">つないでいません（模擬だけ）：{local.why}</p>}
       {local?.enabled && (
         <>
-          <p className="text-ink-soft">{local.system ? `手元の ${local.system.name} ${local.system.version} につながります。` : (local.error ?? "")}</p>
+          <p className="text-ink-soft">{displayText(local.system ? `手元の ${local.system.name} ${local.system.version} につながります。` : (local.error ?? ""))}</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"

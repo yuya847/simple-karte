@@ -62,7 +62,7 @@ export const BASIC_ALOS_RULES = [
  * 架空の病院の取り決め: the three wards of this prototype (5階東・5階南・6階東) all bill 急性期一般入院料４
  * (一般病棟入院基本料), so 入院基本料の平均在院日数 is counted over the three together (one 病棟の種別).
  */
-export const UNIT_NOTE = "この試作の3病棟（5階東・5階南・6階東）は、どれも急性期一般入院料４（一般病棟入院基本料）を算定する病棟として、まとめて計算します（架空の病院の取り決め）。";
+export const UNIT_NOTE = "この試作の3病棟（5階東・5階南・6階東）は、どれも急性期一般入院料４（一般病棟入院基本料）を算定する病棟として、まとめて計算します。";
 
 // ---------------------------------------------------------------------------
 // The stays

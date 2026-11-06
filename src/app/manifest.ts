@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Simple Karte",
     short_name: "Simple Karte",
-    description: "病棟の電子カルテ（架空のデータ）。決めるのは医師、AI は入力係。",
+    description: "病棟の電子カルテ。決めるのは医師、AI は入力係。",
     lang: "ja",
     start_url: "/",
     scope: "/",

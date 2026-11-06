@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Mic, Printer, Square } from "lucide-react";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { SummaryApproval } from "../SummaryList";
@@ -358,7 +359,7 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
         <Prose key={s.key} title={s.label} text={d.sections[s.key]} />
       ))}
       {directive && <Rows title="事前指示" items={[directive]} />}
-      <p className="mt-3 text-[10px] text-ink-faint">病名・検査・処方・処置・培養・画像はカルテからコードで集めたもの。初期の文は記事・入院申込・退院オーダからコピーし、医師が確認・編集するもの。架空の病院・架空の患者。</p>
+      <p className="mt-3 text-[10px] text-ink-faint">病名・検査・処方・処置・培養・画像はカルテからコードで集めたもの。初期の文は記事・入院申込・退院オーダからコピーし、医師が確認・編集するもの。</p>
     </article>
   );
 }
@@ -370,15 +371,15 @@ function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: Discharg
       <div className="mb-3 flex justify-between text-[12px]">
         <div>
           <p>
-            {d.letter.to || "（紹介先の医療機関）"}　{d.letter.dept}
+            {d.letter.to || "（紹介先の医療機関）"}　{displayText(d.letter.dept)}
           </p>
-          <p>{d.letter.doctor || "　　　　"} 先生　御侍史</p>
+          <p>{displayText(d.letter.doctor || "　　　　")} 先生　御侍史</p>
         </div>
         <div className="text-right">
           <p>{formatShort(addDays(today, d.letter.issuedAt?.day ?? 0))}</p>
           <p>{HOSPITAL.name}</p>
           <p>
-            {p.department}　{doctor}
+            {p.department}　{displayText(doctor)}
           </p>
         </div>
       </div>
@@ -397,7 +398,7 @@ function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: Discharg
       {d.letter.attach && <Rows title="添付" items={["退院後の治療計画", "検査結果（上の推移）", "画像の所見（上の一覧）"]} />}
       <Prose title="今後の方針" text={d.sections.plan} />
       <p className="mt-3">ご高診のほど、よろしくお願い申し上げます。</p>
-      <p className="mt-3 text-[10px] text-ink-faint">架空の病院・架空の患者。事実はカルテから集め、文は医師が確認・編集したものです。</p>
+      <p className="mt-3 text-[10px] text-ink-faint">事実はカルテから集め、文は医師が確認・編集したものです。</p>
     </article>
   );
 }

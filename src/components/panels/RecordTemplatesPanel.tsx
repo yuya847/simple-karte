@@ -5,6 +5,7 @@
 // straight away as a note headed 【テンプレート名】. ★ puts a template on the right rail's お気に入り so it opens
 // in one press. Own templates are shared with the note box's テンプレート (kept per person in this browser).
 
+import { displayText } from "@/lib/display-text";
 import { Copy, ExternalLink, PencilLine, Plus, Star, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { fieldKey, parseTemplate, type NoteTemplate, type TemplateValues } from "@/lib/note-templates";
@@ -75,7 +76,7 @@ export function RecordTemplatesPanel({ facts: given, initialId = null, onInsert,
           <p className="hint text-[12px] text-ink-soft">決まった型の記録です。選ぶと項目（チェック・選択・数値・時刻・自由記載）が出て、埋めると決まった形の文になります。「記事に入れる」で右の記事に入り、「記事として確定」でそのまま経過に残ります。★ を押すと右端の道具のお気に入りに並び、1回で開けます。文はコードが組み、AI は使いません。</p>
           <section>
             <div className="mb-1 text-[11px] text-ink-faint">
-              この病院のテンプレート<span className="hint">（架空の病院の取り決め）</span>
+              この病院のテンプレート
             </div>
             {offered.builtIn.length === 0 ? (
               <p className="text-xs text-ink-faint">この職種のテンプレートはありません。自分のテンプレートは作れます。</p>
@@ -171,7 +172,7 @@ function RecordForm({ t, facts, star, onInsert, onConfirm, onOpenPanel }: { t: N
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-bold">{t.name}</h3>
         {star}
-        <span className="text-[11px] text-ink-faint">{t.by ? `自分のテンプレート（${t.by}）` : "この病院のテンプレート"}</span>
+        <span className="text-[11px] text-ink-faint">{displayText(t.by ? `自分のテンプレート（${t.by}）` : "この病院のテンプレート")}</span>
         {rec?.link && (
           <button type="button" onClick={() => onOpenPanel(rec.link!.panel)} className="ml-auto inline-flex items-center gap-1 rounded-md border border-rule bg-sheet px-2 py-0.5 text-xs text-ink-soft hover:text-ink">
             <ExternalLink size={12} />
@@ -190,7 +191,7 @@ function RecordForm({ t, facts, star, onInsert, onConfirm, onOpenPanel }: { t: N
       </div>
       <details open className="rounded-md border border-rule-soft bg-sheet px-2 py-1">
         <summary className="cursor-pointer text-[11px] text-ink-soft">記事に入る文（見本）</summary>
-        <pre className="nums mt-1 whitespace-pre-wrap font-[inherit] text-[12px] leading-relaxed">{text}</pre>
+        <pre className="nums mt-1 whitespace-pre-wrap font-[inherit] text-[12px] leading-relaxed">{displayText(text)}</pre>
       </details>
       {problems.length > 0 && (
         <ul className="text-[11px] text-yamabuki">

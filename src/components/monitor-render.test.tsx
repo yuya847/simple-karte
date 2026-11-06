@@ -26,7 +26,7 @@ describe("患者モニター（模擬）のウインドウ", () => {
     expect(html).toContain("音は鳴りません");
     expect(html).toContain("波形は模擬（実際の装置につないでいません）");
     expect(html).toContain(MONITOR_NOTES.limits);
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("NIBP 測定");
     expect(html).toContain("記録する（HR・SpO2・RR）");
     expect(html).toContain("<canvas");
@@ -83,7 +83,7 @@ describe("セントラルモニター", () => {
     expect(html).toContain("佐倉 花にモニターを付ける");
     expect(html).toContain("大浦 太郎にモニターを外す");
     expect(html).toContain("（取り決めの対象外）");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("音は鳴りません");
     expect(html).toContain(MONITOR_NOTES.simulated);
     expect(html).toContain('class="hint');

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { useMe } from "./RoleContext";
 import { can } from "@/lib/roles";
@@ -47,7 +48,7 @@ export function ConsultPanel({ patient, today, consults, replies, newId, onAdd, 
   return (
     <div className="space-y-3 text-sm">
       <p>他科依頼・紹介</p>
-      <p className="hint">模擬：架空のスタッフ・紹介先です。科の当番宛は同じ科の医師が受けます。引用は既存の記録のコピーです。内容は医師が確認します。</p>
+      <p className="hint">科の当番宛は同じ科の医師が受けます。引用は既存の記録のコピーです。内容は医師が確認します。</p>
       <div className="flex gap-2">
         {["院内へ相談", "院外へ紹介"].map(t => <button key={t} onClick={() => setTab(t)} aria-pressed={tab === t} className="rounded border border-rule p-2">{t}</button>)}
       </div>
@@ -65,7 +66,7 @@ export function ConsultPanel({ patient, today, consults, replies, newId, onAdd, 
           {!external && <label className="block">医師
             <select className={`${field} block w-36`} value={doctor} onChange={e => setDoctor(e.target.value)}>
               <option value="">科の当番</option>
-              {doctorsIn(dept).map(d => <option key={d.name}>{d.name}</option>)}
+              {doctorsIn(dept).map(d => <option key={d.name}>{displayText(d.name)}</option>)}
             </select>
           </label>}
         </div>
@@ -78,11 +79,11 @@ export function ConsultPanel({ patient, today, consults, replies, newId, onAdd, 
           }} className="rounded border border-rule px-2 py-0.5 hover:border-ai hover:text-ai">{t.label}</button>)}
           {before !== null && <button type="button" onClick={() => { setQuestion(before); setBefore(null); }} className="ml-1 text-ai underline">ひな形を入れる前に戻す</button>}
         </div>
-        <p className="hint text-[10px] text-ink-faint">ひな形は依頼状に書く項目（主病名・経過・所見と検査・依頼内容）と S-BAR の順に沿った架空の例です。直近の検査とバイタルはカルテから入ります。<a href={CONSULT_TEMPLATE_SOURCES[0].url} target="_blank" rel="noreferrer" className="underline">{CONSULT_TEMPLATE_SOURCES[0].label}</a></p>
+        <p className="hint text-[10px] text-ink-faint">ひな形は依頼状に書く項目（主病名・経過・所見と検査・依頼内容）と S-BAR の順に沿った例です。直近の検査とバイタルはカルテから入ります。<a href={CONSULT_TEMPLATE_SOURCES[0].url} target="_blank" rel="noreferrer" className="underline">{CONSULT_TEMPLATE_SOURCES[0].label}</a></p>
         <label className="block">本文
           <textarea rows={14} className={input} value={question} onChange={e => setQuestion(e.target.value)} placeholder={external ? "紹介の目的と経過" : "相談したいこと（質問・経過）"} />
         </label>
-        <p>依頼者：{me.name}</p>
+        <p>依頼者：{displayText(me.name)}</p>
         <button className="rounded bg-ai p-2 text-white disabled:opacity-40" disabled={!question.trim() || (external && !to.trim())} onClick={submit}>
           {external ? "診療情報提供書の下書きへ" : "オーダを保存する"}
         </button>
@@ -94,10 +95,10 @@ export function ConsultPanel({ patient, today, consults, replies, newId, onAdd, 
         const active = e.status === "有効" && !r?.closed;
         return (
           <section key={e.id} className="space-y-2 rounded border border-rule p-2">
-            <b>コンサルト {c.dept} {c.doctor || "科の当番"}（{c.urgency}）・{active ? consultState(r) : "終了"}</b>
-            <p>{e.author}：{c.question}</p>
+            <b>コンサルト {displayText(c.dept)} {displayText(c.doctor || "科の当番")}（{c.urgency}）・{active ? consultState(r) : "終了"}</b>
+            <p>{displayText(e.author)}：{c.question}</p>
             <p className="whitespace-pre-wrap">{c.summary}</p>
-            {r?.text && <p className="whitespace-pre-wrap">返書 {r.by}：{r.text}</p>}
+            {r?.text && <p className="whitespace-pre-wrap">返書 {displayText(r.by)}：{displayText(r.text)}</p>}
             {allowed && active && <>
               {addressedTo(e, me.name) && !r?.text && <>
                 <textarea aria-label="コンサルト返書" className={input} rows={6} value={answers[e.id] ?? REPLY_TEMPLATE} onChange={x => setAnswers({ ...answers, [e.id]: x.target.value })} />
@@ -117,8 +118,8 @@ export function ConsultBanner({ entries, replies, onOpen }: { entries: HistoryEn
   return <>{consultOrders(entries).filter(e => !replies[e.id]?.closed).map(e => {
     const c = e.order.type === "procedure" ? e.order.consult : undefined;
     return c && <div key={e.id} className="border-b border-rule bg-yamabuki-soft px-4 py-1 text-sm">
-      {me.role === "看護師" ? `コンサルト中：${c.dept}` : `コンサルト依頼あり：${c.question} ／ ${e.author} ／ ${c.urgency}`}
-      {can(me.role, "consult") && <button className="ml-3 underline" onClick={onOpen}>{addressedTo(e, me.name) ? "返書を書く" : "依頼・返書を見る"}</button>}
+      {displayText(me.role === "看護師" ? `コンサルト中：${c.dept}` : `コンサルト依頼あり：${c.question} ／ ${e.author} ／ ${c.urgency}`)}
+      {can(me.role, "consult") && <button className="ml-3 underline" onClick={onOpen}>{displayText(addressedTo(e, me.name) ? "返書を書く" : "依頼・返書を見る")}</button>}
     </div>;
   })}</>;
 }
@@ -130,8 +131,8 @@ export function ConsultInboxView({ rows, onOpen }: { rows: ReturnType<typeof con
     {rows.map(({ patient, entry, state }) => {
       const c = entry.order.type === "procedure" ? entry.order.consult : undefined;
       return <button key={entry.id} className="block w-full rounded border border-rule p-3 text-left" onClick={() => onOpen(patient.id)}>
-        <b>{patient.name} ／ {state}</b>
-        <p>依頼元 {entry.author} ／ {entry.day}日 {entry.time} ／ {c?.urgency}</p>
+        <b>{displayText(patient.name)} ／ {state}</b>
+        <p>依頼元 {displayText(entry.author)} ／ {entry.day}日 {entry.time} ／ {c?.urgency}</p>
         <p>{c?.question}</p><p className="whitespace-pre-wrap">{c?.summary}</p>
       </button>;
     })}

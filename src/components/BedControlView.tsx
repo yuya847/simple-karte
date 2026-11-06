@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { BedDouble } from "lucide-react";
 import { useState } from "react";
 import { CHART_WARDS, type AdmissionRequest } from "@/lib/admission";
@@ -33,7 +34,7 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
         <BedDouble size={18} />
         ベッドコントロール
       </h1>
-      <p className="mb-3 text-xs text-ink-soft">全病棟のベッド（架空の病院）。空床と、今日・明日の入院と退院の予定から、明日の朝の空床の見込みをコードで数えます。入院申込には、合うベッド（性別・個室の希望・感染対策）を理由つきで並べます。決めるのは人です。</p>
+      <p className="mb-3 text-xs text-ink-soft">全病棟のベッド。空床と、今日・明日の入院と退院の予定から、明日の朝の空床の見込みをコードで数えます。入院申込には、合うベッド（性別・個室の希望・感染対策）を理由つきで並べます。決めるのは人です。</p>
 
       <table className="nums mb-4 w-full rounded-lg bg-sheet">
         <thead>
@@ -101,7 +102,7 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
                   {r.diagnosis}（{r.department}・{r.attending}）
                   {NEEDS_PRIVATE.includes(r.isolation) && (
                     <>
-                      　→ 個室が要る<span className="hint">（架空の病院の取り決め）</span>
+                      　→ 個室が要る
                     </>
                   )}
                 </div>
@@ -116,17 +117,17 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
                       return (
                         <li key={`${f.bed.room.no}${f.bed.bed}`} className="flex flex-wrap items-center gap-2 border-b border-rule-soft py-0.5">
                           <b className="nums w-28">
-                            {f.bed.floor.replace("病棟", "")} {f.bed.room.no}
+                            {f.bed.floor.replace("病棟", "")} {displayText(f.bed.room.no)}
                             {f.bed.bed}
                           </b>
                           <span>{f.why}</span>
-                          {f.note && <span className="text-yamabuki">{f.note}</span>}
+                          {f.note && <span className="text-yamabuki">{displayText(f.note)}</span>}
                           {here ? (
                             <button type="button" disabled={!!deny} onClick={() => onAccept(r, { room: f.bed.room.no, bed: f.bed.bed })} className="ml-auto rounded bg-ai px-2 py-0.5 font-bold text-white disabled:opacity-40">
                               このベッドで入院にする
                             </button>
                           ) : (
-                            <span className="ml-auto text-ink-faint">{f.bed.floor === r.ward ? "カルテのない架空の病棟" : "希望の病棟と違う（病棟の希望を変えてから）"}</span>
+                            <span className="ml-auto text-ink-faint">{f.bed.floor === r.ward ? "カルテのない病棟" : "希望の病棟と違う（病棟の希望を変えてから）"}</span>
                           )}
                         </li>
                       );

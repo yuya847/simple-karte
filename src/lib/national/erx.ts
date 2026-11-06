@@ -123,7 +123,7 @@ const coverageType = (ins: Insurance) => (ins.kind === "後期高齢者" ? { cod
 export const ERX_UNFILLED: Unfilled[] = [
   { field: "MedicationRequest.medicationCodeableConcept（HOT9・YJ コード）", why: "この試作のマスターは HOT・YJ コードを持たないので、レセプト電算コード・薬価基準収載医薬品コード・一般名処方マスタのコード（医薬品マスターから）を入れる。" },
   { field: "dosageInstruction.timing.code（JAMI 標準用法コード16桁）", why: "用法にコードを付けていない（用法マスタの値を確かめていない）。text と日数だけ入れる。" },
-  { field: "Practitioner.qualification（医籍登録番号）", why: "架空の医師に医籍登録番号はない。入れない。" },
+  { field: "Practitioner.qualification（医籍登録番号）", why: "医籍登録番号は入れません。" },
   { field: "Practitioner.name のカナ・名", why: "この試作の医師は姓（と立場）だけ。" },
   { field: "Patient.address", why: "患者の住所の記録がない（麻薬処方箋のときだけ必須）。" },
   { field: "Composition.event.period.end（使用期間）", why: "指定がないので省く（法定の期限）。" },
@@ -193,7 +193,7 @@ export function buildErxBundle(x: ErxInput): ErxBuild {
     meta: profile("JP_Organization_ePrescriptionData_coveragePayer"),
     identifier: [{ system: OID.insurer, value: ins.insurerNumber }],
     type: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/organization-type", code: "ins" }] }],
-    name: `${ins.kind}（架空の保険者）`,
+    name: `${ins.kind}`,
   };
   const org = {
     resourceType: "Organization",

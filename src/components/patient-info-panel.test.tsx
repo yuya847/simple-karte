@@ -57,8 +57,9 @@ describe("患者基本情報の窓", () => {
     expect(html).toMatch(/介助<\/dt>[\s\S]*移動 歩行器/);
     expect(html).toContain("家に帰りたい");
     // The notes that do not hide.
-    expect(html).toContain("架空のデータです。実在の患者の情報は入れないでください。");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).toContain("実在の患者の情報は入れないでください。");
+    expect(html).not.toContain("架空の病院の取り決め");
+    expect(html).not.toContain(">架空の患者</span>");
     expect(html).toContain("nanbuweb.hosp.pref.okinawa.jp");
   });
 
@@ -69,7 +70,7 @@ describe("患者基本情報の窓", () => {
     expect(html).toContain("住所・連絡先・家族はまだ登録されていません。「登録する」で入れます。");
     expect(html).toContain("未登録です。「保険を登録する」で入れます");
     // The birth date is made from the age (a fictional one) and gives 72.
-    expect(html).toContain("年齢から作った架空の日付");
+    expect(html).toContain("年齢から作った日付");
     expect(html).toMatch(/19(53|54)年\d+月\d+日（昭和(28|29)年）/);
     // Allergies and 事前指示 with the links to their drawers.
     expect(html).toContain("ヨード造影剤（蕁麻疹）");

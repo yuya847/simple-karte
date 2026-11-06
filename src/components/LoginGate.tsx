@@ -130,7 +130,7 @@ export function LoginGate({ users, locked, current, onLogin, onTurnOff }: Props)
           </form>
         )}
         <div className="space-y-1 border-t border-rule-soft pt-2 text-[11px] text-ink-faint">
-          <p>架空の病院の職員だけです。パスワードは本物のものを使わないでください。二要素認証はありません（実際の電子カルテには要ります）。</p>
+          <p>この病院の職員だけです。パスワードは本物のものを使わないでください。二要素認証はありません（実際の電子カルテには要ります）。</p>
           <p className="flex flex-wrap gap-x-3">
             <button type="button" onClick={onTurnOff} className="underline hover:text-ai">
               ログインの仕組みを切る（この端末・デモ用）

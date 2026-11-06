@@ -256,7 +256,7 @@ export const PANIC_LIMITS: PanicLimit[] = [
   { code: "FDP", high: 20 },
 ];
 export const PANIC_SOURCE =
-  "日本臨床検査医学会「臨床検査『パニック値』運用に関する提言書（2024年改定版）」別表の例を、架空の病院の値として使っています（閾値は医療機関ごとに決めるもの）。グルコースの高値は入院の値、クレアチニンは急性腎不全の例、PT-INR はワルファリン治療中でないときの例、乳酸は 5.0 mmol/L を mg/dL に換算。境界の値を含めて判定します。連絡の手順は医療事故調査・支援センター「医療事故の再発防止に向けた提言 第20号」（2024年12月）：オーダーした医師に電話か対面で直接伝え、最後に復唱してもらい、検査室は報告の記録を、医師は対応の記録を残します。";
+  "日本臨床検査医学会「臨床検査『パニック値』運用に関する提言書（2024年改定版）」別表の例を、この病院の値として使っています（閾値は医療機関ごとに決めるもの）。グルコースの高値は入院の値、クレアチニンは急性腎不全の例、PT-INR はワルファリン治療中でないときの例、乳酸は 5.0 mmol/L を mg/dL に換算。境界の値を含めて判定します。連絡の手順は医療事故調査・支援センター「医療事故の再発防止に向けた提言 第20号」（2024年12月）：オーダーした医師に電話か対面で直接伝え、最後に復唱してもらい、検査室は報告の記録を、医師は対応の記録を残します。";
 
 /** Where the patient is: a ward chart, or a visit of 救急外来 / 外来 (ids "er:◯" / "opd:◯", like the visit tabs). */
 export type Place = "病棟" | "救急" | "外来";
@@ -288,7 +288,7 @@ export function callScript(item: ResultItem, p: { name: string; id: string }, ro
 export const PANIC_REACH_RULE = {
   /** Tries that did not reach the ordering doctor before going to another doctor. */
   triesBeforeOthers: 2,
-  text: "この架空の病院の取り決め：オーダーした医師につながらなければかけ直します。2回つながらなければ同じ科の医師へ、それでもつながらなければ管理当直へ連絡します。伝言は報告に数えません（直接伝えてから「報告した」）。",
+  text: "オーダーした医師につながらなければかけ直します。2回つながらなければ同じ科の医師へ、それでもつながらなければ管理当直へ連絡します。伝言は報告に数えません（直接伝えてから「報告した」）。",
 } as const;
 
 /** Who the laboratory may phone, in the order of the rule. */

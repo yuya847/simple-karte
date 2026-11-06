@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
@@ -81,7 +82,7 @@ export function IoTotals({ lines, days, nowAbs, today }: { lines: IoLine[]; days
             return (
               <tr key={`${d}-${w.label}`} className={`border-b border-rule-soft ${whole ? "bg-paper font-bold" : ""}`}>
                 <td className="px-1.5 py-1 align-top">
-                  {whole ? `${ioDayText(d, today)}（24時間）` : `${formatShort(addDays(today, d))} ${w.label} ${hm(w.lo)}〜${w.label === "夜勤" ? "翌" : ""}${hm(w.hi)}`}
+                  {displayText(whole ? `${ioDayText(d, today)}（24時間）` : `${formatShort(addDays(today, d))} ${w.label} ${hm(w.lo)}〜${w.label === "夜勤" ? "翌" : ""}${hm(w.hi)}`)}
                   {going && <span className="ml-1 rounded bg-yamabuki-soft px-1 text-[10px] font-bold text-yamabuki">途中（いままで）</span>}
                   {!notYet && <div className="text-[10px] font-normal text-ink-faint">{t.formula}</div>}
                 </td>
@@ -221,12 +222,12 @@ export function IoPanel({ patientId, entries, typed, records, sessionStart, nowT
               {shown.map((x, i) =>
                 "voided" in x ? (
                   <tr key={`v-${x.voided.id}`} className="border-b border-rule-soft text-ink-faint line-through decoration-ink-faint/60">
-                    <td className="w-20 py-1">{clockText(x.voided.at)}</td>
+                    <td className="w-20 py-1">{displayText(clockText(x.voided.at))}</td>
                     <td className="py-1">
                       {x.voided.side} {x.voided.kind} {n(x.voided.ml)}mL
                     </td>
                     <td className="py-1 text-[11px]" colSpan={2}>
-                      取り消し {x.voided.voided!.at} {x.voided.voided!.by}（{x.voided.voided!.reason}）
+                      取り消し {x.voided.voided!.at} {displayText(x.voided.voided!.by)}（{displayText(x.voided.voided!.reason)}）
                     </td>
                   </tr>
                 ) : (
@@ -248,7 +249,7 @@ export function IoPanel({ patientId, entries, typed, records, sessionStart, nowT
             {running.map((c) => (
               <li key={c.key} className={pastEnd(c, nowAbs) > 0 ? "text-shu" : ""}>
                 <b className="text-ink">{c.label}</b>
-                {c.bag ? `（${c.bag}本目）` : ""}　開始 {clockText(c.start)}（{c.startBy}）　<ExpectedEnd course={c} nowAbs={nowAbs} />
+                {c.bag ? `（${c.bag}本目）` : ""}　開始 {displayText(clockText(c.start))}（{c.startBy}）　<ExpectedEnd course={c} nowAbs={nowAbs} />
               </li>
             ))}
           </ul>
@@ -264,15 +265,15 @@ function LineRow({ line: l, onVoid }: { line: IoLine; onVoid: (id: string, reaso
   const [why, setWhy] = useState("");
   return (
     <tr className="border-b border-rule-soft align-top">
-      <td className="w-20 py-1">{clockText(l.at)}</td>
+      <td className="w-20 py-1">{displayText(clockText(l.at))}</td>
       <td className="py-1">
         <span className={`mr-1 rounded px-1 text-[10px] font-bold ${l.side === "IN" ? "bg-ai-soft text-ai" : "bg-yamabuki-soft text-yamabuki"}`}>{l.side}</span>
         {l.what} <b>{n(l.ml)}mL</b>
         {l.formula && <div className="text-[10px] text-ink-faint">{l.formula}</div>}
       </td>
       <td className="py-1 text-[11px] text-ink-soft">
-        {l.by}
-        <div className="text-[10px] text-ink-faint">{l.from}</div>
+        {displayText(l.by)}
+        <div className="text-[10px] text-ink-faint">{displayText(l.from)}</div>
       </td>
       <td className="w-36 py-1 text-right text-[11px]">
         {l.entryId &&

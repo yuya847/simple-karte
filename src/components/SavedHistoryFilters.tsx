@@ -41,6 +41,6 @@ export function SavedHistoryFilters({ list, current, onApply, onChange }: {
       <button type="button" onClick={() => setEditing(null)}>やめる</button>
       {error && <span role="alert" className="text-shu">{error}</span>}
     </span>}
-    <span className="hint">この端末のみに保存します。初回の「医師の記事だけ」は架空の使用例です。名前の変更・削除ができます。</span>
+    <span className="hint">この端末のみに保存します。初回の「医師の記事だけ」は使用例です。名前の変更・削除ができます。</span>
   </span>;
 }

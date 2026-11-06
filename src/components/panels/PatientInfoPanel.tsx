@@ -8,6 +8,7 @@
 // (roles.ts "profile.contacts"); the insurance is changed in 保険の登録, the interview in 情報収集.
 // Nothing is suggested: the window shows what was registered.
 
+import { displayText } from "@/lib/display-text";
 import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ANAMNESIS_SECTIONS, type AnamnesisFields, type AnamnesisRecord } from "@/lib/anamnesis";
@@ -96,7 +97,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
   // An outpatient has no height or weight until measured: 「—（未測定）」, never 0 cm.
   const body = bodyText(p, { spaced: true });
   const birth = birthDateOf(p, today, insurance?.insurance.birthDate);
-  const base = `${fmtDay(p.admittedOn)} 入院受付（架空の初期データ）`;
+  const base = `${fmtDay(p.admittedOn)} 入院受付（初期データ）`;
   const first = contacts ? primaryContact(contacts) : undefined;
   const others = contacts ? otherContacts(contacts) : [];
   const regBy = contacts ? `${when(contacts.registeredAt)} ${contacts.registeredBy}` : undefined;
@@ -128,10 +129,10 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
   return (
     <div className="space-y-3 text-[13px]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-lg font-bold">{p.name}</span>
+        <span className="text-lg font-bold">{displayText(p.name)}</span>
         <span className="text-xs text-ink-faint">{p.kana}</span>
         <span className="nums text-sm text-ink-soft">{ageSex(p)}</span>
-        <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] text-ink-soft">架空の患者</span>
+
         <nav aria-label="節へ移動" className="ml-auto flex flex-wrap gap-1">
           {SECTIONS.map((s) => (
             <button key={s.id} type="button" onClick={() => jump(s.id)} className="rounded px-1.5 py-0.5 text-[11px] text-ink-soft hover:bg-paper hover:text-ink">
@@ -141,7 +142,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
         </nav>
       </div>
       <p className="hint text-xs text-ink-soft">患者バーの名前をダブルクリック（iPad は長押し）で開きます。ここは登録された情報を並べて見るところです。連絡先・家族・介護保険・かかりつけはこの窓の「編集」で、保険・公費は「保険・制度」の「保険を編集」で（医事課の「保険の登録」と同じ記録）、入院前の情報収集は看護師の「情報収集」で、アレルギー・感染症・禁忌は「プロファイル」で変えます。</p>
-      <p className="text-xs text-shu">架空のデータです。実在の患者の情報は入れないでください。</p>
+      <p className="text-xs text-shu">実在の患者の情報は入れないでください。</p>
 
       {/* 基本 */}
       <section id="pi-basic" aria-labelledby="pi-basic-h" className="rounded-lg border border-rule bg-paper/50 p-3">
@@ -153,10 +154,10 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
             <span className="nums">{visit ? p.id.replace(/^(er|opd):/, "") : p.id}</span>
           </Row>
           <Row label="氏名" by={base}>
-            <b>{p.name}</b>
+            <b>{displayText(p.name)}</b>
             <span className="ml-2 text-xs text-ink-faint">{p.kana}</span>
           </Row>
-          <Row label="生年月日" by={insurance ? `${when(insurance.at)} ${insurance.by}（保険の登録）` : "年齢から作った架空の日付"}>
+          <Row label="生年月日" by={insurance ? `${when(insurance.at)} ${insurance.by}（保険の登録）` : "年齢から作った日付"}>
             <span className="nums">{formatBirth(birth)}</span>
             <span className="ml-2 text-ink-soft">{ageSex(p)}</span>
           </Row>
@@ -164,7 +165,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
             {p.sex}性
           </Row>
           <Row label="血液型" by={p.blood ? "プロファイル（医師・臨床検査技師）" : undefined}>
-            {bloodText(p.blood)}
+            {displayText(bloodText(p.blood))}
           </Row>
           <Row label="身長・体重" by={body.unmeasured ? "未測定" : "プロファイル（医師・看護師・管理栄養士）"}>
             <span className="nums">
@@ -234,7 +235,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
               <Row label="第一連絡先" by={regBy}>
                 {first ? (
                   <span>
-                    <b>{first.relation}</b> {first.name}　<span className="nums">{first.phone}</span>
+                    <b>{first.relation}</b> {displayText(first.name)}　<span className="nums">{first.phone}</span>
                     {first.when && <span className="ml-2 text-ink-soft">連絡できる時間帯：{first.when}</span>}
                   </span>
                 ) : (
@@ -243,7 +244,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
               </Row>
               {others.map((c, i) => (
                 <Row key={`${c.relation}-${c.name}`} label={`第${i + 2}連絡先`} by={regBy}>
-                  <b>{c.relation}</b> {c.name}　<span className="nums">{c.phone}</span>
+                  <b>{c.relation}</b> {displayText(c.name)}　<span className="nums">{c.phone}</span>
                   {c.when && <span className="ml-2 text-ink-soft">連絡できる時間帯：{c.when}</span>}
                 </Row>
               ))}
@@ -265,12 +266,12 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                       {contacts.family.map((m) => (
                         <tr key={`${m.relation}-${m.name}`} className="border-t border-rule-soft">
                           <td className="pr-2 font-bold">{m.relation}</td>
-                          <td className="pr-2">{m.name}</td>
+                          <td className="pr-2">{displayText(m.name)}</td>
                           <td className="nums pr-2">{m.age !== null ? `${m.age}歳` : "—"}</td>
                           <td className="pr-2">{m.cohabiting ? "同居" : "別居"}</td>
                           <td className="pr-2">{m.keyPerson ? <b className="text-ai">キーパーソン</b> : ""}</td>
                           <td className="nums pr-2">{m.phone || "—"}</td>
-                          <td className="text-ink-soft">{m.note}</td>
+                          <td className="text-ink-soft">{displayText(m.note)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -327,7 +328,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                   <div key={i} className="grid grid-cols-[auto_6rem_1fr_8rem_1fr_auto] items-center gap-1.5">
                     <input type="radio" name="primary-contact" aria-label={`第一連絡先にする（${i + 1}番目）`} checked={c.primary} onChange={() => setContact(i, { primary: true })} />
                     <input value={c.relation} onChange={(e) => setContact(i, { relation: e.target.value })} placeholder="続柄" aria-label={`連絡先${i + 1}の続柄`} className={input} />
-                    <input value={c.name} onChange={(e) => setContact(i, { name: e.target.value })} placeholder="名前（架空）" aria-label={`連絡先${i + 1}の名前`} className={input} />
+                    <input value={displayText(c.name)} onChange={(e) => setContact(i, { name: e.target.value })} placeholder="名前" aria-label={`連絡先${i + 1}の名前`} className={input} />
                     <input value={c.phone} onChange={(e) => setContact(i, { phone: e.target.value })} placeholder="090-0000-0000" inputMode="tel" aria-label={`連絡先${i + 1}の電話`} className={input} />
                     <input value={c.when} onChange={(e) => setContact(i, { when: e.target.value })} placeholder="連絡できる時間帯" aria-label={`連絡先${i + 1}の連絡できる時間帯`} className={input} />
                     <button type="button" onClick={() => setDraft({ ...draft, contacts: draft.contacts.filter((_, j) => j !== i) })} aria-label={`連絡先${i + 1}を消す`} className="rounded p-1 text-ink-faint hover:text-shu">
@@ -348,7 +349,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                 {draft.family.map((m, i) => (
                   <div key={i} className="grid grid-cols-[6rem_1fr_4rem_auto_auto_8rem_1fr_auto] items-center gap-1.5">
                     <input value={m.relation} onChange={(e) => setFamily(i, { relation: e.target.value })} placeholder="続柄" aria-label={`家族${i + 1}の続柄`} className={input} />
-                    <input value={m.name} onChange={(e) => setFamily(i, { name: e.target.value })} placeholder="名前（架空）" aria-label={`家族${i + 1}の名前`} className={input} />
+                    <input value={displayText(m.name)} onChange={(e) => setFamily(i, { name: e.target.value })} placeholder="名前" aria-label={`家族${i + 1}の名前`} className={input} />
                     <input value={m.age ?? ""} onChange={(e) => setFamily(i, { age: e.target.value === "" ? null : Number(e.target.value) })} placeholder="年齢" inputMode="numeric" aria-label={`家族${i + 1}の年齢`} className={`${input} text-right`} />
                     <label className="flex items-center gap-1 text-[11px] text-ink-soft">
                       <input type="checkbox" checked={m.cohabiting} onChange={(e) => setFamily(i, { cohabiting: e.target.checked })} />
@@ -359,7 +360,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                       キーパーソン
                     </label>
                     <input value={m.phone} onChange={(e) => setFamily(i, { phone: e.target.value })} placeholder="電話" inputMode="tel" aria-label={`家族${i + 1}の電話`} className={input} />
-                    <input value={m.note} onChange={(e) => setFamily(i, { note: e.target.value })} placeholder="備考" aria-label={`家族${i + 1}の備考`} className={input} />
+                    <input value={displayText(m.note)} onChange={(e) => setFamily(i, { note: e.target.value })} placeholder="備考" aria-label={`家族${i + 1}の備考`} className={input} />
                     <button type="button" onClick={() => setDraft({ ...draft, family: draft.family.filter((_, j) => j !== i) })} aria-label={`家族${i + 1}を消す`} className="rounded p-1 text-ink-faint hover:text-shu">
                       <Trash2 size={13} />
                     </button>
@@ -387,7 +388,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                 </label>
                 <label className="text-[11px] text-ink-soft">
                   担当ケアマネジャー
-                  <input value={draft.care.careManager} onChange={(e) => setDraft({ ...draft, care: { ...draft.care, careManager: e.target.value } })} placeholder="名前（架空）" className={input} />
+                  <input value={displayText(draft.care.careManager)} onChange={(e) => setDraft({ ...draft, care: { ...draft.care, careManager: e.target.value } })} placeholder="名前" className={input} />
                 </label>
                 <label className="text-[11px] text-ink-soft">
                   事業所
@@ -395,11 +396,11 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                 </label>
                 <label className="text-[11px] text-ink-soft">
                   かかりつけ医（院名）
-                  <input value={draft.care.familyDoctor} onChange={(e) => setDraft({ ...draft, care: { ...draft.care, familyDoctor: e.target.value } })} placeholder="例：架空町クリニック" className={input} />
+                  <input value={displayText(draft.care.familyDoctor)} onChange={(e) => setDraft({ ...draft, care: { ...draft.care, familyDoctor: e.target.value } })} placeholder="例：架空町クリニック" className={input} />
                 </label>
                 <label className="text-[11px] text-ink-soft">
                   かかりつけ薬局
-                  <input value={draft.care.pharmacy} onChange={(e) => setDraft({ ...draft, care: { ...draft.care, pharmacy: e.target.value } })} placeholder="例：架空薬局" className={input} />
+                  <input value={displayText(draft.care.pharmacy)} onChange={(e) => setDraft({ ...draft, care: { ...draft.care, pharmacy: e.target.value } })} placeholder="例：架空薬局" className={input} />
                 </label>
               </div>
             </div>
@@ -425,10 +426,10 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                 やめる
               </button>
               <span className="nums ml-auto text-[11px] text-ink-faint">
-                {me.name}　今日 {nowTime}
+                {displayText(me.name)}　今日 {nowTime}
               </span>
             </div>
-            <p className="hint text-[11px] text-ink-faint">保存すると前の版が残り、誰が・いつ・なぜ変えたかが履歴に出ます。実在の人の名前・住所・電話は入れないでください（架空の病院の試作です）。</p>
+            <p className="hint text-[11px] text-ink-faint">保存すると前の版が残り、誰が・いつ・なぜ変えたかが履歴に出ます。実在の人の名前・住所・電話は入れないでください。</p>
           </div>
         )}
       </section>
@@ -450,7 +451,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
           ) : null}
           {contacts?.insurance.note && (
             <Row label="保険の備考" by={regBy}>
-              {contacts.insurance.note}
+              {displayText(contacts.insurance.note)}
             </Row>
           )}
           <Row label="介護保険" by={regBy}>
@@ -477,7 +478,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
           </h3>
           {anamnesis && (
             <span className="nums text-[11px] text-ink-faint">
-              第{(anamnesis.earlier?.length ?? 0) + 1}版　{when(anamnesis.at)} {anamnesis.by}
+              第{(anamnesis.earlier?.length ?? 0) + 1}版　{when(anamnesis.at)} {displayText(anamnesis.by)}
             </span>
           )}
           <span className="ml-auto">{open("anamnesis", anamnesis ? "情報収集を開く" : "情報収集を始める")}</span>
@@ -492,7 +493,7 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
                     const v = answerText(anamnesis.fields, x.key);
                     return (
                       <Row key={x.key} label={x.label}>
-                        {v ? <span className="whitespace-pre-wrap">{v}</span> : none}
+                        {v ? <span className="whitespace-pre-wrap">{displayText(v)}</span> : none}
                       </Row>
                     );
                   })}
@@ -553,9 +554,9 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
               return (
                 <li key={`${v.registeredAt.day}-${v.registeredAt.time}-${i}`} className="border-b border-rule-soft pb-1 last:border-b-0">
                   <span className="nums">
-                    第{versions.length - i}版　{when(v.registeredAt)} {v.registeredBy}
+                    第{versions.length - i}版　{when(v.registeredAt)} {displayText(v.registeredBy)}
                   </span>
-                  {v.reason && <span className="ml-2 text-ink-soft">理由：{v.reason}</span>}
+                  {v.reason && <span className="ml-2 text-ink-soft">理由：{displayText(v.reason)}</span>}
                   {changes.length > 0 && (
                     <ul className="ml-4 list-disc text-ink-soft">
                       {changes.map((c) => (
@@ -579,11 +580,11 @@ export function PatientInfoPanel({ initialSection, patient: p, today, fmtDay, no
             <span key={s.url}>
               {i > 0 && "、"}
               <a href={s.url} target="_blank" rel="noreferrer" className="underline">
-                {s.name}
+                {displayText(s.name)}
               </a>
             </span>
           ))}
-          ）。様式と、誰が登録・変更できるか（医事課・看護師・医師）は架空の病院の取り決めです。生年月日は、保険の登録がない患者では年齢から作った架空の日付です（{formatBirth(birth)} は {fmtDay(0)} 時点で {p.age}歳）。
+          ）。生年月日は、保険の登録がない患者では年齢から作った日付です（{formatBirth(birth)} は {fmtDay(0)} 時点で {p.age}歳）。
         </p>
       </footer>
     </div>

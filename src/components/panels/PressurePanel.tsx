@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Camera, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import {
@@ -177,15 +178,15 @@ function AssessForm({ nowTime, onSave, onCancel }: { nowTime: string; onSave: (a
         </label>
         {([1, 2, 3] as const).map((n) => (
           <button key={n} type="button" onClick={() => setPhoto(samplePhoto(n))} className="rounded border border-dashed border-rule px-2 py-1 text-ink-soft hover:border-ai">
-            架空の見本{n}
+            見本{n}
           </button>
         ))}
         {photo && (
           <span className="flex items-center gap-1">
             {/* eslint-disable-next-line @next/next/no-img-element -- a data URL kept in the record */}
-            <img src={photo.dataUrl} alt={photo.sample ? "架空の見本（図形）" : "取り込んだ写真"} width={64} height={Math.round((64 * photo.height) / photo.width)} className="rounded border border-rule" />
+            <img src={photo.dataUrl} alt={photo.sample ? "見本（図形）" : "取り込んだ写真"} width={64} height={Math.round((64 * photo.height) / photo.width)} className="rounded border border-rule" />
             <span className="nums text-[11px] text-ink-faint">
-              {photo.width}×{photo.height}px{photo.sample ? "（架空の見本）" : ""}
+              {photo.width}×{photo.height}px{photo.sample ? "" : ""}
             </span>
             <button type="button" onClick={() => setPhoto(undefined)} className="rounded border border-rule px-1.5 text-[11px]">
               外す
@@ -193,7 +194,7 @@ function AssessForm({ nowTime, onSave, onCancel }: { nowTime: string; onSave: (a
           </span>
         )}
       </div>
-      <p className="text-[11px] font-bold text-shu">このデモは架空の患者です。実在の患者の写真は入れないでください。</p>
+      <p className="text-[11px] font-bold text-shu">このデモは患者です。実在の患者の写真は入れないでください。</p>
       <p className="hint text-[11px] text-ink-soft">写真は端末の中で長い辺 {PHOTO_MAX}px の JPEG に縮小してから記録に入れます（元のファイルとその撮影情報は記録に残りません）。</p>
       {err && <p className="text-shu">{err}</p>}
       <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="観察したこと（色・におい・周りの皮膚など）" aria-label="観察したこと" className="w-full rounded border border-rule bg-sheet px-2 py-1" />
@@ -214,7 +215,7 @@ function AssessForm({ nowTime, onSave, onCancel }: { nowTime: string; onSave: (a
         <button type="button" onClick={onCancel} className="rounded-md border border-rule px-3 py-1">
           やめる
         </button>
-        <span className="nums text-ink-soft">{done ? `${designText(s)}　合計 ${designTotal(s)}点` : "深さと6つの項目を選ぶと合計が出ます"}</span>
+        <span className="nums text-ink-soft">{displayText(done ? `${designText(s)}　合計 ${designTotal(s)}点` : "深さと6つの項目を選ぶと合計が出ます")}</span>
       </div>
     </div>
   );
@@ -335,7 +336,7 @@ export function PressurePanel({ patientId, ulcers, nowTime, fmtDay, newId, canRe
                         <td className="whitespace-nowrap px-1 py-1">
                           {fmtDay(a.at.day)} {a.at.time}
                         </td>
-                        <td className="px-1 font-bold">{designText(a.score)}</td>
+                        <td className="px-1 font-bold">{displayText(designText(a.score))}</td>
                         <td className="px-1 text-right">
                           <b>{t}</b>
                           {before !== undefined && t !== before && <span className={t < before ? "ml-1 text-wakatake" : "ml-1 text-shu"}>{t < before ? `▼${before - t}` : `▲${t - before}`}</span>}
@@ -343,17 +344,17 @@ export function PressurePanel({ patientId, ulcers, nowTime, fmtDay, newId, canRe
                         <td className="px-1">{a.size ? `${a.size.lengthCm}×${a.size.widthCm}cm（${areaOf(a.size)}cm²）` : "—"}</td>
                         <td className="px-1">
                           {a.photo ? (
-                            <a href={a.photo.dataUrl} target="_blank" rel="noreferrer" title={a.photo.sample ? "架空の見本（図形）" : "取り込んだ写真"}>
+                            <a href={a.photo.dataUrl} target="_blank" rel="noreferrer" title={a.photo.sample ? "見本（図形）" : "取り込んだ写真"}>
                               {/* eslint-disable-next-line @next/next/no-img-element -- a data URL kept in the record */}
-                              <img src={a.photo.dataUrl} alt={a.photo.sample ? "架空の見本（図形）" : "取り込んだ写真"} width={56} height={Math.round((56 * a.photo.height) / a.photo.width)} className="rounded border border-rule" />
+                              <img src={a.photo.dataUrl} alt={a.photo.sample ? "見本（図形）" : "取り込んだ写真"} width={56} height={Math.round((56 * a.photo.height) / a.photo.width)} className="rounded border border-rule" />
                             </a>
                           ) : (
                             "—"
                           )}
                         </td>
                         <td className="px-1">
-                          {a.note && <div>{a.note}</div>}
-                          <div className="text-[11px] text-ink-faint">{a.by}</div>
+                          {a.note && <div>{displayText(a.note)}</div>}
+                          <div className="text-[11px] text-ink-faint">{displayText(a.by)}</div>
                         </td>
                       </tr>
                     );

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ArrowDown, ArrowUp, Columns3, Search, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { upcomingToday } from "@/lib/calendar";
@@ -268,7 +269,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
       <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
         <h1 className="text-lg font-bold">
           {title}
-          <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
+
           <span className="nums ml-2 text-sm font-normal text-ink-soft">{rows.length === all.length ? `${people(rows)}人` : `${people(rows)}人（全${people(all)}人）`}</span>
         </h1>
         {pick && <PickSelect pick={pick} />}
@@ -428,7 +429,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                     )}
                     {tail > 0 && (
                       <td className={padGray} colSpan={tail}>
-                        {r.expected.note}
+                        {displayText(r.expected.note)}
                       </td>
                     )}
                   </tr>
@@ -448,7 +449,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                     key={`${g.key}|${roomKey(r.bed)}`}
                     onClick={r.patient ? () => onOpen(r.patient!.id) : undefined}
                     className={`border-b border-rule-soft text-ink-faint ${r.patient ? "cursor-pointer hover:bg-ai-soft/30" : ""} ${openable[at] === r ? "outline outline-2 -outline-offset-2 outline-ai" : ""}`}
-                    title={r.patient ? "受け持ち以外の患者（架空）。押すとカルテが開きます（開いた記録は監査ログに残ります）" : "受け持ち以外の患者（架空）"}
+                    title={r.patient ? "受け持ち以外の患者。押すとカルテが開きます（開いた記録は監査ログに残ります）" : "受け持ち以外の患者"}
                   >
                     {columns.map((c) =>
                       c.gray ? (
@@ -469,7 +470,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                     {tail > 0 && (
                       <td className={padGray} colSpan={tail}>
                         {r.mark && <span className="mr-2 font-bold text-wakatake">{r.mark}</span>}
-                        {[...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && !(x === "明日退院" && (planFor(r.bed).length || r.mark))).join("　")}
+                        {displayText([...planFor(r.bed).map(planText), r.bed.other?.note].filter((x) => x && !(x === "明日退院" && (planFor(r.bed).length || r.mark))).join("　"))}
                       </td>
                     )}
                   </tr>

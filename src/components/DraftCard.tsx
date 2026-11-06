@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { dietLabel } from "@/lib/diet";
 
 import { draftLine, draftSourceText, prescriptionUsage } from "@/lib/draft-line";
@@ -65,7 +66,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp }:
           {rp ? ` Rp${rp}` : ""}
         </span>
         <span className="truncate text-xs text-ink-faint" title="話した言葉">
-          {draftSourceText(draft.sourceText) ? `「${draftSourceText(draft.sourceText)}」` : ""}
+          {displayText(draftSourceText(draft.sourceText) ? `「${draftSourceText(draft.sourceText)}」` : "")}
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-1">
           {ready ? (
@@ -153,7 +154,7 @@ function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; 
               className="nums rounded-md border border-ai/40 bg-sheet px-2 py-1 text-left text-xs text-ai hover:bg-ai hover:text-white"
             >
               {c.label}
-              {c.note && <span className="block text-[10px] opacity-75">{c.note}</span>}
+              {c.note && <span className="block text-[10px] opacity-75">{displayText(c.note)}</span>}
             </button>
           ))}
         </div>
@@ -215,7 +216,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
       <div>
         <div className="font-bold">{dietLabel({ ...d, id: "", by: "", at: { day: 0, time: "" } })}</div>
         <div className="text-xs text-ink-soft">
-          {d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日"}の{d.from.meal}食から{d.comment ? `　${d.comment}` : ""}
+          {displayText(d.from.day === 0 ? "今日" : d.from.day === 1 ? "明日" : "明後日")}の{displayText(d.from.meal)}食から{d.comment ? `　${d.comment}` : ""}
         </div>
       </div>
     );
@@ -227,10 +228,10 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
       <div>
         <div className="font-bold">
           {draft.dept ?? <span className="text-shu">科？</span>}
-          {draft.doctor && <span className="ml-1 font-normal text-ink-soft">（{draft.doctor}）</span>}
+          {draft.doctor && <span className="ml-1 font-normal text-ink-soft">（{displayText(draft.doctor)}）</span>}
           <span className="ml-2">{when}</span>
         </div>
-        <div className="text-xs text-ink-soft">{opdPurposeOf(draft) || "目的？"}{draft.note.trim() ? `　${draft.note.trim()}` : ""}</div>
+        <div className="text-xs text-ink-soft">{opdPurposeOf(draft) || "目的？"}{displayText(draft.note.trim() ? `　${draft.note.trim()}` : "")}</div>
       </div>
     );
   }

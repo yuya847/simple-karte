@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Check, MessageCircleQuestion } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -79,7 +80,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                   ) : holding ? (
                     <span className="text-[11px] font-bold text-yamabuki">
                       医師に確認中
-                      <span className="block font-normal">{hold.reason}</span>
+                      <span className="block font-normal">{displayText(hold.reason)}</span>
                     </span>
                   ) : interactive ? (
                     <span className="flex flex-col items-start gap-1">
@@ -119,9 +120,9 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                     </div>
                   )}
                   <span className="mr-1 text-ink-faint">{r.type}</span>
-                  {r.before && <div className="text-[11px] text-ink-faint line-through">前：{r.before.main}　{r.before.detail}</div>}
+                  {r.before && <div className="text-[11px] text-ink-faint line-through">前：{r.before.main}　{displayText(r.before.detail)}</div>}
                   <span className={r.kind === "中止" ? "line-through" : "font-bold"}>{r.main}</span>
-                  <div className="text-ink-soft">{r.detail}</div>
+                  <div className="text-ink-soft">{displayText(r.detail)}</div>
                   {r.diff && r.diff.length > 0 && (
                     <div className="mt-0.5 flex flex-wrap gap-1">
                       {r.diff.map((d) => (
@@ -138,13 +139,13 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                   ))}
                   {hold && (
                     <div className="mt-0.5 rounded bg-paper px-1 text-[11px]">
-                      確認 {hold.at} {hold.by}：{hold.reason}
-                      {hold.note && `（${hold.note}）`}
-                      {hold.answer ? <span className="block text-ai">回答 {hold.answer.at} {hold.answer.by}：{hold.answer.text}</span> : <span className="block text-yamabuki">医師の回答待ち</span>}
+                      確認 {hold.at} {displayText(hold.by)}：{displayText(hold.reason)}
+                      {displayText(hold.note && `（${hold.note}）`)}
+                      {hold.answer ? <span className="block text-ai">回答 {hold.answer.at} {displayText(hold.answer.by)}：{displayText(hold.answer.text)}</span> : <span className="block text-yamabuki">医師の回答待ち</span>}
                     </div>
                   )}
                 </td>
-                <td className={td}>{r.author}</td>
+                <td className={td}>{displayText(r.author)}</td>
               </tr>,
               open === r.key && !ok && (
                 <tr key={`${r.key}-open`}>
@@ -197,7 +198,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
       </table>
       {notes && (
       <p className="hint mt-1 text-[10px] text-ink-faint">
-        【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。高リスク薬の一覧と時間外の区切りは架空の病院の取り決めです。
+        【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。
       </p>
       )}
     </>
@@ -225,12 +226,12 @@ export function TakeOnePanel({ row, nurses, onTake, onClose, today }: { row: Tak
           <b className={row.kind === "中止" ? "text-shu" : row.kind === "変更" ? "text-yamabuki" : ""}>{row.kind === "変更" ? "【変】" : row.kind}</b> <span className={row.kind === "中止" ? "line-through" : "font-bold"}>{row.main}</span>
         </dd>
         <dt className="text-ink-soft">量・方法</dt>
-        <dd>{row.detail || "—"}</dd>
+        <dd>{displayText(row.detail || "—")}</dd>
         {row.before && (
           <>
             <dt className="text-ink-soft">前</dt>
             <dd className="line-through text-ink-faint">
-              {row.before.main}　{row.before.detail}
+              {row.before.main}　{displayText(row.before.detail)}
             </dd>
           </>
         )}
@@ -243,7 +244,7 @@ export function TakeOnePanel({ row, nurses, onTake, onClose, today }: { row: Tak
         <dt className="text-ink-soft">指示の時刻</dt>
         <dd>{when}</dd>
         <dt className="text-ink-soft">指示した人</dt>
-        <dd>{row.author}</dd>
+        <dd>{displayText(row.author)}</dd>
         {row.flags.urgent && (
           <>
             <dt className="font-bold text-shu">至急</dt>

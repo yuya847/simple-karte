@@ -18,7 +18,7 @@ describe("外来予約の下書き", () => {
     expect(opdDoctorsOf("循環器内科")).toEqual(["循環器内科 森（架空）", "井上（循環器内科）"]);
     expect(bookableDays()[0]).toBe(1);
     expect(bookableDays().at(-1)).toBe(OPD_BOOKING_RULES.maxDays);
-    expect(OPD_BOOKING_RULES.note).toContain("架空の病院の取り決め");
+    expect(OPD_BOOKING_RULES.note).not.toContain("架空の病院の取り決め");
   });
   it("asks for what is missing (科・日付・時間枠・目的), with choices the doctor picks from", () => {
     const issues = checkDraft(newOpdBookingDraft("b0"), ctx());

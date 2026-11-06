@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Plus, StickyNote, X } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "./RoleContext";
@@ -43,10 +44,10 @@ export function StickyStrip({ stickies, onAdd, onRemove, newId, nowTime }: { sti
     <div className="flex flex-wrap items-center gap-1.5 border-b border-rule-soft bg-yamabuki-soft/40 px-4 py-1 text-[12px]">
       <StickyNote size={13} className="text-yamabuki" />
       {mine.map((s) => (
-        <span key={s.id} title={`${s.at} ${s.by}${s.shared ? "（みんなに）" : "（自分だけ）"}`} className="flex items-center gap-1 rounded bg-yamabuki-soft px-2 py-0.5 text-ink shadow-sm">
-          {s.text}
-          <span className="text-[10px] text-ink-faint">{s.shared ? s.by : "自分だけ"}</span>
-          <button type="button" onClick={() => onRemove(s.id)} aria-label={`付箋「${s.text}」をはがす`} className="text-ink-faint hover:text-shu">
+        <span key={s.id} title={displayText(`${s.at} ${s.by}${s.shared ? "（みんなに）" : "（自分だけ）"}`)} className="flex items-center gap-1 rounded bg-yamabuki-soft px-2 py-0.5 text-ink shadow-sm">
+          {displayText(s.text)}
+          <span className="text-[10px] text-ink-faint">{displayText(s.shared ? s.by : "自分だけ")}</span>
+          <button type="button" onClick={() => onRemove(s.id)} aria-label={displayText(`付箋「${s.text}」をはがす`)} className="text-ink-faint hover:text-shu">
             <X size={12} />
           </button>
         </span>

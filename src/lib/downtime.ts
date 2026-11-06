@@ -171,8 +171,8 @@ function patientHtml(p: DowntimePatient): string {
 export function downtimeBody(s: DowntimeSnapshot): string {
   return [
     `<header class="dt-head"><h1>障害時の参照　${esc(s.place)}</h1>`,
-    `<p><b>${esc(s.madeAt)} 現在</b>　${s.patients.length}人　作成 ${esc(s.by)}　架空総合病院（架空の患者のデータ）</p>`,
-    `<p class="note">電子カルテが使えないときの参照用です。作った時刻より後の指示・実施は載っていません。紙の運用に切り替えたら、指示と実施を紙に書き、使えるようになってから入力します（架空の病院の取り決め）。</p></header>`,
+    `<p><b>${esc(s.madeAt)} 現在</b>　${s.patients.length}人　作成 ${esc(s.by)}　架空総合病院</p>`,
+    `<p class="note">電子カルテが使えないときの参照用です。作った時刻より後の指示・実施は載っていません。紙の運用に切り替えたら、指示と実施を紙に書き、使えるようになってから入力します。</p></header>`,
     ...s.patients.map(patientHtml),
   ].join("");
 }

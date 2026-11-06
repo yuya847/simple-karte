@@ -35,8 +35,9 @@ describe("患者一覧・病棟マップ：受け持ち以外の患者もカル�
   it("the map: the team's 4 cards, the others gray buttons, and the note on the fictional charts", () => {
     const html = renderToStaticMarkup(<WardMap ward={ward} summaries={{}} mine={mine} onOpen={() => {}} />);
     expect(html).toContain("受け持ち <b class=\"text-ai\">4</b>名");
-    expect(html.match(/<button type="button" title="受け持ち以外の患者（架空）。押すとカルテが開きます/g)?.length).toBe(BEDS_WITH_CHARTS.length - PATIENTS.length);
-    expect(html).toContain("架空の小さな記録");
+    expect(html.match(/<button type="button" title="受け持ち以外の患者。押すとカルテが開きます/g)?.length).toBe(BEDS_WITH_CHARTS.length - PATIENTS.length);
+    expect(html).toContain("受け持ち以外の患者には、入院時の記事");
+    expect(html).not.toContain("架空");
     expect(html).not.toContain("カルテを開けません");
   });
 });

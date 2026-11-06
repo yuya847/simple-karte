@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { ArrowRight, Clock, FilePlus2, ShieldAlert, TriangleAlert, X } from "lucide-react";
@@ -103,7 +104,7 @@ export function IncidentView({ reports, patients, today, nowTime, onSubmit, onSt
         <h1 className="flex items-center gap-2 text-lg font-bold">
           <ShieldAlert size={20} className="text-shu" />
           インシデントレポート
-          <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <p className="nums flex flex-wrap gap-x-3 text-sm text-ink-soft">
           {STATUSES.map((s) => (
@@ -168,7 +169,7 @@ export function IncidentView({ reports, patients, today, nowTime, onSubmit, onSt
               </li>
             ))}
           </ul>
-          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">架空の病院の報告です。足りない項目と時刻の確かめ、レベルごとの次にすることはコードで出します。影響度レベルは報告する人が選びます。AI は使っていません。試作なので、報告はこのブラウザの中だけにあります。</p>
+          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">足りない項目と時刻の確かめ、レベルごとの次にすることはコードで出します。影響度レベルは報告する人が選びます。AI は使っていません。試作なので、報告はこのブラウザの中だけにあります。</p>
         </nav>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
@@ -192,11 +193,11 @@ function Notes({ notes }: { notes: LevelNote[] }) {
         <li key={i} className={`rounded-md border px-3 py-1.5 text-[12px] ${n.urgent ? "border-shu/50 bg-shu-soft/60 font-bold text-shu" : "border-rule-soft bg-paper text-ink"}`}>
           <span className="flex items-start gap-1.5">
             {n.urgent && <TriangleAlert size={13} className="mt-0.5 shrink-0" />}
-            <span>{n.text}</span>
+            <span>{displayText(n.text)}</span>
           </span>
           <span className="mt-0.5 block text-[10px] font-normal text-ink-faint">
-            {n.rule}
-            {n.source ? `：${n.source}` : ""}
+            {displayText(n.rule)}
+            {displayText(n.source ? `：${n.source}` : "")}
           </span>
         </li>
       ))}
@@ -252,7 +253,7 @@ function IncidentDetail({ report: r, when, onAdvance }: { report: IncidentReport
             {info.continuity}
             {info.degree ? `・${info.degree}` : ""}
           </span>
-          ：{info.text}
+          ：{displayText(info.text)}
         </p>
       </Section>
       <Section title="何が起きたか">
@@ -285,7 +286,7 @@ function IncidentDetail({ report: r, when, onAdvance }: { report: IncidentReport
           {r.log.map((c, i) => (
             <li key={i} className="nums flex items-center gap-1.5">
               <Clock size={11} className="text-ink-faint" />
-              {when(c.at)}　<b>{c.status}</b>　{c.by}
+              {when(c.at)}　<b>{c.status}</b>　{displayText(c.by)}
             </li>
           ))}
         </ol>
@@ -351,7 +352,7 @@ function IncidentForm({
           <X size={16} />
         </button>
       </div>
-      <p className="rounded-md bg-yamabuki-soft px-3 py-2 text-[12px] text-yamabuki">架空の病院の報告です。実在の患者・職員の情報は書かないでください。</p>
+      <p className="rounded-md bg-yamabuki-soft px-3 py-2 text-[12px] text-yamabuki">実在の患者・職員の情報は書かないでください。</p>
       <p className="text-[12px] text-ink-soft">
         報告する人：<b className="text-ink">{reporter}</b>（右上で選んだ職種）
       </p>
@@ -420,7 +421,7 @@ function IncidentForm({
                 {l.continuity}
                 {l.degree ? `・${l.degree}` : ""}
               </span>
-              <span className="text-[12px] leading-snug">{l.text}</span>
+              <span className="text-[12px] leading-snug">{displayText(l.text)}</span>
             </label>
           ))}
         </fieldset>

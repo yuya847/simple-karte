@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ClipboardCheck, Printer } from "lucide-react";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
@@ -44,11 +45,11 @@ export function TakeStatus({ rows, taken, isTaken, holds, confirms = {}, nowAbs,
               {r.flags.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">{r.flags.urgent}</span>}
               {hold && (
                 <div className="mt-0.5 rounded bg-paper px-2 py-1">
-                  <b>{hold.by}</b>（{hold.at}）：{hold.reason}
-                  {hold.note && `　${hold.note}`}
+                  <b>{displayText(hold.by)}</b>（{hold.at}）：{displayText(hold.reason)}
+                  {displayText(hold.note && `　${hold.note}`)}
                   {hold.answer ? (
                     <div className="text-ai">
-                      回答 {hold.answer.at} {hold.answer.by}：{hold.answer.text}
+                      回答 {hold.answer.at} {displayText(hold.answer.by)}：{displayText(hold.answer.text)}
                     </div>
                   ) : (
                     <div className="mt-1 flex gap-1.5">

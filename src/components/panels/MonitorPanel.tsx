@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { BellOff, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { alarmsOf, liveNumbers, MONITOR_LIMITS, MONITOR_NOTES, NIBP_SECONDS, RESTING, simulatedNibp, type MonitorValues } from "@/lib/monitor";
@@ -130,7 +131,7 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
         <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-shu bg-shu px-3 py-1.5 text-xs font-bold text-white">
           <span className="animate-pulse">アラーム</span>
           {alarms.map((a) => (
-            <span key={a.key}>{a.text}</span>
+            <span key={a.key}>{displayText(a.text)}</span>
           ))}
           <span className="ml-auto flex items-center gap-1 font-normal">
             <BellOff size={12} />
@@ -222,7 +223,7 @@ export function MonitorPanel({ patient, nowTime, lockedWhy, onRecord, fmtDay }: 
         </div>
         {recorded && (
           <p className="text-ink-soft">
-            記録しました：{recorded.time} {recorded.by}　{recorded.what}
+            記録しました：{recorded.time} {displayText(recorded.by)}　{recorded.what}
           </p>
         )}
         <p className="hint text-ink-soft">「NIBP 測定」で模擬のカフが {NIBP_SECONDS} 秒後に血圧を出し、「この血圧を経過表に入れる」で経過表のバイタルに記録します。「記録する」はいま表示している HR・SpO2・RR を記録します（誰が・いつも残ります）。記録はカルテのバイタルと同じ権限です。</p>

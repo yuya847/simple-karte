@@ -97,7 +97,7 @@ export const ANAMNESIS_SECTIONS: { title: string; fields: AnamnesisField[] }[] =
     title: "家族・社会的背景",
     fields: [
       { key: "family", label: "家族構成", type: "text", placeholder: "例：妻（80歳）と二人暮らし。長女が市内に住む" },
-      { key: "keyPerson", label: "キーパーソン（続柄・名前）", type: "text", placeholder: "例：長女（架空の名前）" },
+      { key: "keyPerson", label: "キーパーソン（続柄・名前）", type: "text", placeholder: "例：長女" },
       { key: "keyContact", label: "キーパーソンへの連絡", type: "text", placeholder: "例：日中は携帯に（番号は患者基本情報）" },
       { key: "careInsurance", label: "介護保険", type: "one", options: CARE_INSURANCE },
       { key: "careManager", label: "ケアマネジャー・事業所", type: "text" },

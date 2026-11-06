@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { AlertTriangle, Info, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { codeParts, FICTIONAL_COEFFICIENT, periodRanges } from "@/lib/billing/dpc";
@@ -81,7 +82,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
     <div className="nums space-y-3 text-sm">
       <p className="hint rounded-md border border-ai/30 bg-ai-soft px-3 py-2 text-xs leading-relaxed text-ink">
         <b>DPC（診断群分類別包括評価）の試算</b>
-        ：診断群分類（DPC コード）は、主治医が退院のときに決め（留意事項 第2の1(1)・(7)）、医事課が確かめます。この画面は、記録された病名・年齢・手術と処置から、厚生労働省の表どおりにコードで候補を出すだけです（AI は使っていません）。病院は架空で、医療機関別係数も架空の値です。
+        ：診断群分類（DPC コード）は、主治医が退院のときに決め（留意事項 第2の1(1)・(7)）、医事課が確かめます。この画面は、記録された病名・年齢・手術と処置から、厚生労働省の表どおりにコードで候補を出すだけです（AI は使っていません）。
       </p>
 
       <fieldset className="rounded-md border border-rule bg-paper px-3 py-2">
@@ -109,7 +110,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
             </label>
           )}
           <label className="flex items-center gap-1.5">
-            医療機関別係数（架空の病院の値）
+            医療機関別係数
             <input
               type="number"
               step="0.0001"
@@ -125,14 +126,14 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
       </fieldset>
 
       {error && <p className="rounded-md border border-shu/40 bg-shu-soft px-3 py-2 text-sm text-shu">{error}</p>}
-      {r?.outcome && !r.outcome.ok && <p className="rounded-md border border-yamabuki/40 bg-yamabuki-soft px-3 py-2 text-sm text-ink">{r.outcome.reason}</p>}
+      {r?.outcome && !r.outcome.ok && <p className="rounded-md border border-yamabuki/40 bg-yamabuki-soft px-3 py-2 text-sm text-ink">{displayText(r.outcome.reason)}</p>}
 
       {r && d && (
         <>
           <section aria-label="DPC コード" className="rounded-md border border-rule bg-sheet p-3">
             <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
               <div>
-                <div className="text-[10px] text-ink-faint">DPC コードの候補（{r.chosen?.by === "doctor" ? "医師が選んだ病名から" : "仮の病名から"}）</div>
+                <div className="text-[10px] text-ink-faint">DPC コードの候補（{displayText(r.chosen?.by === "doctor" ? "医師が選んだ病名から" : "仮の病名から")}）</div>
                 <div className="flex gap-1 font-mono">
                   {codeParts(d.code).map((p) => (
                     <span key={p.label} className="text-center">
@@ -180,7 +181,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
                     <td className="py-1 text-ink-faint">{s.at}</td>
                     <td className="py-1">{s.axis}</td>
                     <td className="py-1 font-mono font-bold">{s.digits}</td>
-                    <td className="py-1 leading-snug">{s.reason}</td>
+                    <td className="py-1 leading-snug">{displayText(s.reason)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -210,7 +211,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
                   {periodRanges(d.row).map((p) => (
                     <tr key={p.period} className={`border-b border-rule-soft ${p.period === r.now.period ? "bg-ai-soft font-bold" : ""}`}>
                       <td className="w-28 py-1">{p.period === "超え" ? "入院日Ⅲを超えた日" : `入院期間${p.period}`}</td>
-                      <td className="w-40 py-1 text-ink-soft">{p.to === null ? `${p.from}日目から` : `${p.from}〜${p.to}日目`}</td>
+                      <td className="w-40 py-1 text-ink-soft">{displayText(p.to === null ? `${p.from}日目から` : `${p.from}〜${p.to}日目`)}</td>
                       <td className="py-1">{p.points === null ? "医科点数表（出来高）で算定（留意事項 第3の1(5)）" : `${pts(p.points)}／日`}</td>
                     </tr>
                   ))}
@@ -233,7 +234,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
                       <td className="w-28 py-1">{l.period === "超え" ? "入院日Ⅲ超え" : `入院期間${l.period}`}</td>
                       <td className="w-40 py-1 text-ink-soft">
                         入院{l.from}
-                        {l.to !== l.from ? `〜${l.to}` : ""}日目（{l.days}日）
+                        {displayText(l.to !== l.from ? `〜${l.to}` : "")}日目（{l.days}日）
                       </td>
                       <td className="py-1">{l.points === null ? "出来高（下の表に入れています）" : `${pts(l.points)} × ${coef.toFixed(4)} = ${pts(l.perDay!)}／日 × ${l.days}日`}</td>
                       <td className="w-28 py-1 text-right">{l.points === null ? "—" : pts(l.subtotal)}</td>
@@ -320,7 +321,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
               >
                 <Icon size={13} className="mt-0.5 shrink-0" />
                 <span className="shrink-0 font-bold">{i.level === "review" ? "確かめる" : "決まり"}</span>
-                <span className="text-ink">{i.text}</span>
+                <span className="text-ink">{displayText(i.text)}</span>
               </li>
             );
           })}

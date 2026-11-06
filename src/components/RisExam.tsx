@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ExecutionUndo } from "./ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
 
@@ -55,17 +56,17 @@ export function RowHead({ r }: { r: RisRow }) {
   return (
     <header className="flex flex-wrap items-baseline gap-x-3">
       <span className="nums">
-        {whenText(r.at)}
+        {displayText(whenText(r.at))}
         {r.order.when.priority === "至急" && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
       </span>
       <b>
         {r.room}　{r.name}
       </b>
       <span className="font-bold">{r.label}</span>
-      {imagingMethodText(r.order) && <span>{imagingMethodText(r.order)}</span>}
-      {orderConsentText(r.order) && <span className={r.order.consent?.state === "取得済み" ? "text-wakatake" : "font-bold text-shu"}>{orderConsentText(r.order)}</span>}
+      {imagingMethodText(r.order) && <span>{displayText(imagingMethodText(r.order))}</span>}
+      {orderConsentText(r.order) && <span className={r.order.consent?.state === "取得済み" ? "text-wakatake" : "font-bold text-shu"}>{displayText(orderConsentText(r.order))}</span>}
       <span className="text-ink-soft">
-        {r.order.transport}　目的：{r.order.purpose}　{r.orderedBy}
+        {r.order.transport}　目的：{r.order.purpose}　{displayText(r.orderedBy)}
         {room ? `　${room.room}（${room.ae}）` : ""}
       </span>
       <span className={STATUS_TONE[r.status]}>{r.status}</span>
@@ -144,7 +145,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <RowHead r={r} />
       {(w.done || w.started || w.arrived) && <ExecutionUndo action="ris.exam" patient={r.name} detail={r.label} onUndo={(by, at, reason) => put((x) => cancelExecution(x, ["arrived", "confirmed", "called", "inRoom", "started", "done", "images", "record", "signed", "report", "contrast", "dose", "exposure"], by, at, reason))} />}
-      {w.cancellations?.map((c, i) => <span key={i} className="hint" title={`${c.at} ${c.by} ${c.reason}`}>撮影・受付の取り消し {c.at} {c.by} {c.reason}</span>)}
+      {w.cancellations?.map((c, i) => <span key={i} className="hint" title={displayText(`${c.at} ${c.by} ${c.reason}`)}>撮影・受付の取り消し {c.at} {displayText(c.by)} {displayText(c.reason)}</span>)}
       {(r.order.acks?.length || r.order.answers) && (
         <p className="text-ink-soft">
           オーダの確認：{[...(r.order.acks ?? []), r.order.answers?.metal && `体内金属 ${r.order.answers.metal}`, r.order.answers?.pregnancy && `妊娠 ${r.order.answers.pregnancy}`].filter(Boolean).join("・")}
@@ -200,7 +201,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
           </div>
           {w.contrast && (
             <p className="text-ink-soft">
-              記録：{w.contrast.name} {w.contrast.count}（{w.contrast.time} {w.contrast.by}）　副作用 {w.contrast.reaction}
+              記録：{w.contrast.name} {w.contrast.count}（{w.contrast.time} {displayText(w.contrast.by)}）　副作用 {w.contrast.reaction}
               {w.contrast.reactionNote ? `：${w.contrast.reactionNote}` : ""}
             </p>
           )}
@@ -244,7 +245,7 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
       )}
       {w.done && (
         <p className="text-ink-soft">
-          撮影済み {w.done.time} {w.done.by}（{w.done.via}）
+          撮影済み {w.done.time} {displayText(w.done.by)}（{w.done.via}）
           {w.images ? `　画像 ${w.images.count}枚を PACS へ送った（${w.images.time}・${w.images.via}）` : "　画像はまだ PACS へ送っていません"}
         </p>
       )}
@@ -263,15 +264,15 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
             ))}
             <dt className="text-ink-soft">線量</dt>
             <dd>
-              {doseText(r.order, preview.work?.dose)}
+              {displayText(doseText(r.order, preview.work?.dose))}
               {s.doseMissing.length > 0 && <span className="ml-1 text-shu">（未記入：{s.doseMissing.join("・")}）</span>}
             </dd>
             <dt className="text-ink-soft">指示をした医師の署名（法 第28条）</dt>
-            <dd>{w.signed ? `${w.signed.by}（${fmt(w.signed.day)} ${w.signed.time}）` : "まだ"}</dd>
+            <dd>{displayText(w.signed ? `${w.signed.by}（${fmt(w.signed.day)} ${w.signed.time}）` : "まだ")}</dd>
           </dl>
           {w.record ? (
             <p className="mt-1 text-wakatake">
-              照射録を確定 {w.record.time} {w.record.by}
+              照射録を確定 {w.record.time} {displayText(w.record.by)}
             </p>
           ) : (
             <>
@@ -310,7 +311,7 @@ export function SignButton({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDesk; 
   const deny = useDeny()("ris.sign");
   const w = r.work;
   if (!w?.record) return <span className="text-ink-faint">—</span>;
-  if (w.signed) return <span className="text-wakatake">署名 {w.signed.time} {w.signed.by}</span>;
+  if (w.signed) return <span className="text-wakatake">署名 {w.signed.time} {displayText(w.signed.by)}</span>;
   const other = !deny && me.name !== r.orderedBy ? `指示をした医師（${r.orderedBy}）が署名します。` : null;
   return (
     <button
@@ -348,8 +349,8 @@ export function ReadingForm({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDesk;
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <RowHead r={r} />
       <p className="text-ink-soft">
-        撮影 {w.done?.time} {w.done?.by}　画像 {w.images?.count ?? 0}枚
-        {prev && `　いまの版：第${reportVersion(w)}版（${prev.time} ${prev.by}）`}
+        撮影 {w.done?.time} {displayText(w.done?.by)}　画像 {w.images?.count ?? 0}枚
+        {displayText(prev && `　いまの版：第${reportVersion(w)}版（${prev.time} ${prev.by}）`)}
         {!needsReading(r.order) && "　（読影不要のオーダ）"}
       </p>
       <label className="block">

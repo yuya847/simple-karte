@@ -1,3 +1,4 @@
+import { displayText } from "@/lib/display-text";
 import type { VitalSign } from "@/lib/types";
 import { vitalsIn } from "@/lib/vitals-text";
 import { cautionHits } from "@/lib/rehab-record";
@@ -11,7 +12,7 @@ export function RehabVitals({ vitals, caution }: { vitals: VitalSign[]; caution:
     ["sbp", `BP ${v.sbp ?? "—"}/${v.dbp ?? "—"}mmHg`], ["spo2", `SpO2 ${v.spo2 ?? "—"}%`],
   ];
   return <>
-    <p className="nums text-ink-soft">今日の最新 {v.time}　{fields.map(([key, text]) => <span key={key} className={hits.includes(key) ? "mr-2 font-bold text-shu" : "mr-2"}>{text}</span>)}</p>
+    <p className="nums text-ink-soft">今日の最新 {v.time}　{fields.map(([key, text]) => <span key={key} className={hits.includes(key) ? "mr-2 font-bold text-shu" : "mr-2"}>{displayText(text)}</span>)}</p>
     <p className="hint text-[11px] text-ink-faint">注意の文からコードで読み取った値です。判断は療法士</p>
   </>;
 }

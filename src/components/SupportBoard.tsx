@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Hotel } from "lucide-react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { DISCHARGE_FACTORS, type AdmitEval } from "@/lib/admit-eval";
@@ -50,29 +51,29 @@ export function SupportBoard({ people, evals, documents, asks, today, discharged
               <tr key={x.patient.id} className="border-b border-rule-soft align-top">
                 <td className="px-2 py-1.5">
                   <button type="button" onClick={() => onOpen(x.patient.id)} className="text-left font-bold text-ai underline-offset-2 hover:underline">
-                    {x.room} {x.patient.name}
+                    {x.room} {displayText(x.patient.name)}
                   </button>
                   <div className="text-[11px] text-ink-faint">入院 {day(x.patient.admittedOn)}</div>
                 </td>
-                <td className="px-2"><button type="button" aria-label={`${x.patient.name}：退院困難な要因`} onClick={() => onStep(x.patient.id, "discharge")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{ds ? (ds.factors.length ? ds.factors.map((f) => `${f}　${DISCHARGE_FACTORS.find((x) => x.key === f)?.label ?? ""}`).join("／") : "なし") : <span className="text-ink-faint">まだ</span>}</button></td>
-                <td className="px-2"><button type="button" aria-label={`${x.patient.name}：話合い`} onClick={() => onStep(x.patient.id, "talk")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!ds?.talkedAt, ds?.talkedAt ? day(ds.talkedAt.day) : "")}</button></td>
-                <td className="px-2"><button type="button" aria-label={`${x.patient.name}：計画の着手`} onClick={() => onStep(x.patient.id, "talk")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!ds?.planStartedAt, ds?.planStartedAt ? day(ds.planStartedAt.day) : "")}</button></td>
-                <td className="px-2"><button type="button" aria-label={`${x.patient.name}：カンファレンス`} onClick={() => onStep(x.patient.id, "conference")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!ds?.conferenceAt, ds?.conferenceAt ? day(ds.conferenceAt.day) : "")}</button></td>
-                <td className="px-2"><button type="button" aria-label={`${x.patient.name}：退院支援計画書`} onClick={() => onStep(x.patient.id, "docs")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!doc, doc ? `${day(doc.at.day)} ${doc.by}` : "")}</button></td>
-                <td className="px-2"><button type="button" aria-label={`${x.patient.name}：転院・施設`} onClick={() => onStep(x.patient.id, "transfer")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">
+                <td className="px-2"><button type="button" aria-label={displayText(`${x.patient.name}：退院困難な要因`)} onClick={() => onStep(x.patient.id, "discharge")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{ds ? (ds.factors.length ? ds.factors.map((f) => `${f}　${DISCHARGE_FACTORS.find((x) => x.key === f)?.label ?? ""}`).join("／") : "なし") : <span className="text-ink-faint">まだ</span>}</button></td>
+                <td className="px-2"><button type="button" aria-label={displayText(`${x.patient.name}：話合い`)} onClick={() => onStep(x.patient.id, "talk")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!ds?.talkedAt, ds?.talkedAt ? day(ds.talkedAt.day) : "")}</button></td>
+                <td className="px-2"><button type="button" aria-label={displayText(`${x.patient.name}：計画の着手`)} onClick={() => onStep(x.patient.id, "talk")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!ds?.planStartedAt, ds?.planStartedAt ? day(ds.planStartedAt.day) : "")}</button></td>
+                <td className="px-2"><button type="button" aria-label={displayText(`${x.patient.name}：カンファレンス`)} onClick={() => onStep(x.patient.id, "conference")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!ds?.conferenceAt, ds?.conferenceAt ? day(ds.conferenceAt.day) : "")}</button></td>
+                <td className="px-2"><button type="button" aria-label={displayText(`${x.patient.name}：退院支援計画書`)} onClick={() => onStep(x.patient.id, "docs")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{mark(!!doc, doc ? `${day(doc.at.day)} ${doc.by}` : "")}</button></td>
+                <td className="px-2"><button type="button" aria-label={displayText(`${x.patient.name}：転院・施設`)} onClick={() => onStep(x.patient.id, "transfer")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">
                   {decided ? (
-                    <span className="font-bold text-ai">決定：{decided.facility}</span>
+                    <span className="font-bold text-ai">決定：{displayText(decided.facility)}</span>
                   ) : mine.length ? (
                     mine.map((a) => (
                       <div key={a.id}>
-                        {a.facility.replace(/（架空）/, "")}：{a.state}
+                        {displayText(a.facility.replace(/（架空）/, ""))}：{a.state}
                       </div>
                     ))
                   ) : (
                     <span className="text-ink-faint">まだ</span>
                   )}
                 </button></td>
-                <td className="px-2"><button type="button" disabled={me.role !== "医師"} title={me.role !== "医師" ? "医師が出します" : "退院オーダを開く"} aria-label={`${x.patient.name}：退院`} onClick={() => onStep(x.patient.id, "add-discharge")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{out ? <span className="text-wakatake">退院済み {out.time}</span> : leaveDay !== null ? `予定 ${day(leaveDay)}` : <span className="text-ink-faint">まだ</span>}</button></td>
+                <td className="px-2"><button type="button" disabled={me.role !== "医師"} title={me.role !== "医師" ? "医師が出します" : "退院オーダを開く"} aria-label={displayText(`${x.patient.name}：退院`)} onClick={() => onStep(x.patient.id, "add-discharge")} className="w-full rounded px-1 py-1 text-left hover:bg-ai-soft focus-visible:ring-2 focus-visible:ring-ai disabled:opacity-50">{out ? <span className="text-wakatake">退院済み {out.time}</span> : leaveDay !== null ? `予定 ${day(leaveDay)}` : <span className="text-ink-faint">まだ</span>}</button></td>
               </tr>
             );
           })}

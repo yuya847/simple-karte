@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import type { JournalLine } from "@/lib/journal";
 import type { Pick } from "./WardMap";
@@ -15,7 +16,7 @@ export function JournalView({ title, pick, lines, staff, saved, onSave, nowTime 
       <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
         <h1 className="text-lg font-bold">
           {title}
-          <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <PickSelect pick={pick} />
         <span className="nums text-sm text-ink-soft">{nowTime} 時点（カルテからコードで数えています）</span>
@@ -34,11 +35,11 @@ export function JournalView({ title, pick, lines, staff, saved, onSave, nowTime 
         </table>
         <div className="space-y-4">
           <section className="rounded-lg border border-rule bg-sheet p-3 text-[13px]">
-            <h2 className="mb-1 text-xs font-bold text-ink-soft">日勤の担当（架空）</h2>
+            <h2 className="mb-1 text-xs font-bold text-ink-soft">日勤の担当</h2>
             <ul className="nums space-y-0.5">
               {staff.map((s) => (
                 <li key={s.nurse}>
-                  {s.nurse}　<span className="text-ink-soft">{s.rooms.join("・")}</span>
+                  {displayText(s.nurse)}　<span className="text-ink-soft">{s.rooms.join("・")}</span>
                 </li>
               ))}
             </ul>
@@ -48,9 +49,9 @@ export function JournalView({ title, pick, lines, staff, saved, onSave, nowTime 
             {saved.map((s, i) => (
               <p key={i} className="mb-1 whitespace-pre-wrap border-l-2 border-ai/40 pl-2">
                 <span className="nums block text-[11px] text-ink-faint">
-                  {s.at} {s.by}
+                  {s.at} {displayText(s.by)}
                 </span>
-                {s.text}
+                {displayText(s.text)}
               </p>
             ))}
             <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="例：夜勤は転倒の危険が高い患者が3人。513号室の入院は14時の予定。" aria-label="看護日誌の所感" className="w-full rounded border border-rule bg-paper px-2 py-1" />

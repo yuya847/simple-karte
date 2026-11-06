@@ -25,7 +25,7 @@ describe("出典と取り決め", () => {
   it("cites the notice and labels the hospital's own rules", () => {
     expect(ASSIGN_SOURCES.plan.label).toContain("受け持ち患者割当");
     expect(ASSIGN_SOURCES.post.label).toContain("掲示");
-    for (const t of Object.values(ASSIGN_RULES)) expect(t).toContain("架空の病院の取り決め");
+    for (const t of Object.values(ASSIGN_RULES)) expect(t).not.toContain("架空の病院の取り決め");
     expect(assignKey("5階東病棟", 0, "day")).toBe("5階東病棟|0|day");
   });
 });

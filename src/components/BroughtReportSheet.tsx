@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { formulary, kiseiText } from "@/lib/formulary";
 import { daysOfCount, type BroughtReport } from "@/lib/pharmacy";
 import { oralName } from "@/lib/format";
@@ -17,7 +18,7 @@ export function BroughtReportSheet({ r, patient, room, date }: { r: BroughtRepor
     <div className="w-[190mm] text-[9pt] leading-snug text-black">
       <div className="flex items-baseline border-b-2 border-black pb-1">
         <h1 className="text-[14pt] font-bold tracking-widest">持参薬鑑別報告書</h1>
-        <span className="ml-auto text-[8.5pt]">架空総合病院 薬剤部（試作・架空）</span>
+        <span className="ml-auto text-[8.5pt]">架空総合病院 薬剤部</span>
       </div>
       <table className="mt-2 w-full">
         <tbody>
@@ -28,7 +29,7 @@ export function BroughtReportSheet({ r, patient, room, date }: { r: BroughtRepor
             </td>
             <td className="w-[28mm]">鑑別</td>
             <td>
-              {date} {r.at}　{r.by}
+              {date} {r.at}　{displayText(r.by)}
             </td>
           </tr>
           <tr>
@@ -71,11 +72,11 @@ export function BroughtReportSheet({ r, patient, room, date }: { r: BroughtRepor
                 </td>
                 <td>{x.match ? oralName(x.match) : "院内に同じ成分・規格なし"}</td>
                 <td>
-                  {item ? kiseiText(item) : "—"}
+                  {displayText(item ? kiseiText(item) : "—")}
                   {x.match && <DrugMarks codes={[x.match]} print />}
                 </td>
                 <td>{x.decision ?? "（医師の判断待ち）"}</td>
-                <td>{x.note ?? ""}</td>
+                <td>{displayText(x.note ?? "")}</td>
               </tr>
             );
           })}

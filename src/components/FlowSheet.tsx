@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { StandingMeasurements, type StandingMeasurementSource } from "./StandingMeasurements";
 
 import { ChevronLeft, ChevronRight, Copy, ClipboardPaste, Printer, Rows3 } from "lucide-react";
@@ -578,7 +579,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 type="button"
                 disabled={d > 0 || d < p.admittedOn}
                 onClick={() => onSelectDay(d)}
-                title={`${formatShort(addDays(today, d))}　入院${hospitalDayText(p.admittedOn, d)}${d === 0 ? "（今日）" : d > 0 ? "（明日・予定）" : ""}`}
+                title={displayText(`${formatShort(addDays(today, d))}　入院${hospitalDayText(p.admittedOn, d)}${d === 0 ? "（今日）" : d > 0 ? "（明日・予定）" : ""}`)}
                 className={`absolute top-0 flex h-9 flex-col items-center justify-center overflow-hidden border-l border-rule-soft text-center ${
                   d === selectedDay && !printing ? "bg-ai text-white" : d > 0 || d < p.admittedOn ? "text-ink-faint" : d === 0 ? "text-ai hover:bg-sheet" : "hover:bg-sheet"
                 }`}
@@ -586,7 +587,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
               >
                 <span className="whitespace-nowrap font-bold">{formatShort(addDays(today, d))}</span>
                 <span className={`whitespace-nowrap text-[10px] ${d === selectedDay && !printing ? "text-white/80" : "text-ink-faint"}`}>
-                  {hospitalDayText(p.admittedOn, d)}
+                  {displayText(hospitalDayText(p.admittedOn, d))}
                   {d === 0 && b.width >= 84 ? "・今日" : ""}
                 </span>
               </button>
@@ -709,7 +710,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
               <span>入院 {formatShort(addDays(today, p.admittedOn))}</span>
               <b>{windowLabel(win, today)}</b>
               <span className="ml-auto">
-                印刷 {formatShort(today)} {nowTime} {me.name}　架空の患者
+                印刷 {formatShort(today)} {nowTime} {me.name}
               </span>
             </div>
             {sheet}
@@ -847,11 +848,11 @@ function DietRow({ days, box, cell, meals, zoom }: { days: DayOffset[]; box: Day
               .map((m) => (
                 <span
                   key={m.at}
-                  title={`${m.meal}：${m.holds.length ? `${mealText(m)}（${m.holds.map((h) => h.label).join("、")}）` : m.label}`}
+                  title={displayText(`${m.meal}：${m.holds.length ? `${mealText(m)}（${m.holds.map((h) => h.label).join("、")}）` : m.label}`)}
                   className={`absolute top-0.5 -translate-x-1/2 whitespace-nowrap rounded-sm px-0.5 leading-5 ${m.holds.length ? "bg-yamabuki-soft text-yamabuki" : m.order?.kind === "絶食" ? "text-yamabuki" : "text-ink"}`}
                   style={{ left: zoom.xAbs(m.at) }}
                 >
-                  {m.meal} {mealText(m)}
+                  {m.meal} {displayText(mealText(m))}
                 </span>
               ))
           : days.map((d) => {
@@ -865,7 +866,7 @@ function DietRow({ days, box, cell, meals, zoom }: { days: DayOffset[]; box: Day
                   className={`absolute top-0.5 truncate rounded-sm px-0.5 text-center leading-5 ${c.held ? "bg-yamabuki-soft text-yamabuki" : c.text.startsWith("絶食") ? "text-yamabuki" : d > 0 ? "text-ink-faint" : "text-ink"} ${c.changed ? "font-bold ring-1 ring-inset ring-ai/50" : ""}`}
                   style={{ left: b.left + 1, width: Math.max(0, b.width - 2) }}
                 >
-                  {c.text}
+                  {displayText(c.text)}
                 </span>
               );
             })}
@@ -945,7 +946,7 @@ function Tooltip({ v, left, plotW, today }: { v: VitalSign; left: number; plotW:
           <div key={name} className="flex items-center gap-1.5 whitespace-nowrap">
             <span className="inline-block h-0.5 w-3 rounded" style={{ background: color }} />
             <b className="text-[12px] text-ink">{val}</b>
-            <span className="text-[10px] text-ink-faint">{name}</span>
+            <span className="text-[10px] text-ink-faint">{displayText(name)}</span>
           </div>
         ) : null,
       )}
@@ -1040,7 +1041,7 @@ function VitalCopy({ vitals, today, range, onRange, dayLabel, copied, onCopied, 
         )}
         {copied && <span className="text-wakatake">{copied}</span>}
       </div>
-      {vitals.length > 0 ? <pre className="nums mt-1 whitespace-pre-wrap font-sans text-[11px] text-ink-soft">{text}</pre> : <p className="mt-1 text-[11px] text-ink-faint">この範囲の測定はありません。</p>}
+      {vitals.length > 0 ? <pre className="nums mt-1 whitespace-pre-wrap font-sans text-[11px] text-ink-soft">{displayText(text)}</pre> : <p className="mt-1 text-[11px] text-ink-faint">この範囲の測定はありません。</p>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 // テンプレート: pick a template, fill in the form (choices, numbers, text; results and calculations come
@@ -71,7 +72,7 @@ export function TemplatePanel({ patient, today, onInsert, onClose, onOpenRecords
             </div>
           )}
           <div>
-            <div className="mb-1 text-[11px] text-ink-faint">ひな形<span className="hint">（架空の病院の取り決め）</span></div>
+            <div className="mb-1 text-[11px] text-ink-faint">ひな形</div>
             {offered.builtIn.length === 0 ? (
               <p className="text-xs text-ink-faint">この職種のひな形はありません。</p>
             ) : (
@@ -204,7 +205,7 @@ export function FieldInput({ f, values, set, facts, fields }: { f: TemplateField
             <span className="ml-2 text-[11px] text-ink-soft">
               計算：{fm.expr}
               {r.used.length > 0 && `（${r.used.map((u) => `${u.label} ${u.value}${u.unit}${u.from === "カルテ" ? "＝カルテ" : ""}`).join("、")}）`}
-              {fm.source && <span className="hint">　出典：{fm.source}</span>}
+              {fm.source && <span className="hint">　出典：{displayText(fm.source)}</span>}
             </span>
             {r.missing.length > 0 && <div className="text-[11px] text-yamabuki">{r.missing.join("・")}がありません</div>}
           </div>
@@ -215,7 +216,7 @@ export function FieldInput({ f, values, set, facts, fields }: { f: TemplateField
       return (
         <Row label={f.kind === "検査" ? (ANALYTES.find((a) => a.code === f.code)?.name ?? f.code) : f.kind}>
           <span className="nums text-ink-soft">
-            {fieldText(f, values, facts, fields)}
+            {displayText(fieldText(f, values, facts, fields))}
             <span className="ml-1 text-[10px] text-ink-faint">（カルテから）</span>
           </span>
         </Row>
@@ -241,7 +242,7 @@ function TemplateForm({ t, facts, onInsert }: { t: NoteTemplate; facts: Template
     <div className="space-y-2">
       <div className="flex items-baseline gap-2">
         <b>{t.name}</b>
-        <span className="text-[11px] text-ink-faint">{t.by ? `自分のテンプレート（${t.by}）` : "架空の病院のひな形"}</span>
+        <span className="text-[11px] text-ink-faint">{displayText(t.by ? `自分のテンプレート（${t.by}）` : "院内のひな形")}</span>
       </div>
       <div className="divide-y divide-rule-soft rounded-md border border-rule bg-paper/60 px-2 py-1">
         {parsed.fields.map((f) => (
@@ -251,7 +252,7 @@ function TemplateForm({ t, facts, onInsert }: { t: NoteTemplate; facts: Template
       </div>
       <details open className="rounded-md border border-rule-soft bg-sheet px-2 py-1">
         <summary className="cursor-pointer text-[11px] text-ink-soft">記事に入る文（見本）</summary>
-        <pre className="nums mt-1 whitespace-pre-wrap font-[inherit] text-[12px] leading-relaxed">{text}</pre>
+        <pre className="nums mt-1 whitespace-pre-wrap font-[inherit] text-[12px] leading-relaxed">{displayText(text)}</pre>
       </details>
       <div className="flex items-center gap-2">
         {left.length > 0 && <span className="text-[11px] text-yamabuki">まだ選んでいない・入れていない：{left.join("・")}（「未選択」「未入力」と入ります）</span>}

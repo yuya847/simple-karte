@@ -13,7 +13,7 @@ export const R8 = {
   pressure: "保医発0305第7号 別添2 第1の4(3)・別添6 別紙3（日常生活の自立度が低い患者の危険因子の評価。「できない」「あり」が1つ以上なら計画）",
   delirium: "保医発0305第6号 別添1 A247-2(4)・別紙様式7の3（リスク因子の確認は入院前か入院後3日以内、対策は確認後速やかに）",
   discharge: "保医発0305第6号 別添1 A246(2)(3)(5)（入退院支援加算１：退院困難な要因の抽出は入院後3日以内、話合い・計画の着手・カンファレンスは7日以内）",
-  fall: "診療報酬の要件ではない。項目は日本医療安全調査機構「医療事故の再発防止に向けた提言 第9号」（2019）の転倒・転落リスクから。期限は架空の病院の取り決め",
+  fall: "診療報酬の要件ではない。項目は日本医療安全調査機構「医療事故の再発防止に向けた提言 第9号」（2019）の転倒・転落リスクから。期限は院内の取り決め",
 };
 
 /** 障害高齢者の日常生活自立度（寝たきり度）, 別添6 別紙13. */
@@ -271,10 +271,10 @@ export function duesOf(a: AdmitEval, admittedOn: DayOffset): Due[] {
     who: ["看護師"],
     dueOn: d(2),
     doneOn: pr ? (pressurePlanNeeded(pr) && !pr.plan.trim() ? undefined : pr.at.day) : undefined,
-    note: pr && pressurePlanNeeded(pr) && !pr.plan.trim() ? "危険因子があるので看護計画が要ります" : pr && !pressureTarget(pr.adl) && !pr.ulcerNow ? `自立度 ${pr.adl}（評価の対象外）` : "期限は架空の病院の取り決め（入院後2日以内）。通知に期限の定めはありません",
+    note: pr && pressurePlanNeeded(pr) && !pr.plan.trim() ? "危険因子があるので看護計画が要ります" : pr && !pressureTarget(pr.adl) && !pr.ulcerNow ? `自立度 ${pr.adl}（評価の対象外）` : "期限は入院後2日以内。通知に期限の定めはありません",
     source: R8.pressure,
   });
-  add({ key: "fall", label: "転倒・転落の評価", who: ["看護師"], dueOn: d(1), doneOn: a.fall?.at.day, note: "院内様式（架空の病院の取り決め：入院日）", source: R8.fall });
+  add({ key: "fall", label: "転倒・転落の評価", who: ["看護師"], dueOn: d(1), doneOn: a.fall?.at.day, note: "院内様式（入院日）", source: R8.fall });
   const dl = a.delirium;
   add({
     key: "delirium",

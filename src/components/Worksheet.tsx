@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { StandingMeasurements, type StandingMeasurementSource } from "./StandingMeasurements";
 
 import { RemeasureRows, type RemeasureProps } from "./RemeasureRows";
@@ -162,7 +163,7 @@ export function Worksheet({ standingMeasurements, remeasureVitals, onMeasure, pe
           <Sheet {...props} onTake={onTake} interactive />
         </div>
         <p className="hint mx-auto mt-2 max-w-[1100px] text-[11px] text-ink-faint">
-          オーダからコードで集めています（AI は使っていません）。「照合」でリストバンドと薬・検体のラベルを読み（バーコードリーダーはキーボードと同じに入力されます）、患者・薬・時刻をコードが確かめてから実施を記録します。この画面を開く前の分は、前の勤務帯が記録したものとして扱います（架空）。点滴のつなぎ替えの時刻は、開始時刻と1日の本数から計算した目安です。
+          オーダからコードで集めています（AI は使っていません）。「照合」でリストバンドと薬・検体のラベルを読み（バーコードリーダーはキーボードと同じに入力されます）、患者・薬・時刻をコードが確かめてから実施を記録します。この画面を開く前の分は、前の勤務帯が記録したものとして扱います。点滴のつなぎ替えの時刻は、開始時刻と1日の本数から計算した目安です。
         </p>
       </div>
       {mounted &&
@@ -282,11 +283,11 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
       <header className="mb-3 flex items-baseline gap-3 border-b-2 border-ink pb-1">
         <h2 className="text-lg font-bold print:text-base">{WARD_NAME} ワークシート</h2>
         <span className="font-bold">
-          {formatShort(addDays(today, day))} {s.label} {s.from}〜{s.nextDay ? "翌" : ""}
+          {formatShort(addDays(today, day))} {s.label} {displayText(s.from)}〜{s.nextDay ? "翌" : ""}
           {s.to}
         </span>
         <span className="ml-auto text-ink-soft">
-          受け持ち {new Set([...timed, ...untimed, ...running].map((x) => x.patientId)).size}人　作成 {formatShort(today)} {nowTime}　架空の患者
+          受け持ち {new Set([...timed, ...untimed, ...running].map((x) => x.patientId)).size}人　作成 {formatShort(today)} {nowTime}
         </span>
       </header>
       {assignLines && (
@@ -314,8 +315,8 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
                     <Kind kind={r.kind} />
                   </td>
                   <td className={td}>
-                    <b>{r.main}</b>　<span className="text-ink-soft">{r.detail}</span>
-                    {rateOf(r.orderId) && <div className="nums text-[11px] text-ai">速さ {dripText(rateOf(r.orderId)!)}</div>}
+                    <b>{r.main}</b>　<span className="text-ink-soft">{displayText(r.detail)}</span>
+                    {rateOf(r.orderId) && <div className="nums text-[11px] text-ai">速さ {displayText(dripText(rateOf(r.orderId)!))}</div>}
                   </td>
                   <td className={`${td} w-32 text-ink-faint`}>確認 □□□</td>
                 </tr>
@@ -357,7 +358,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
                     </td>
                     <td className={td}>
                       <b>{i.main}</b><DrugMarks codes={codesOf(i.orderId)} />{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}
-                      {i.urgent && <span className="ml-1 font-bold text-shu">至急</span>}　<span className="text-ink-soft">{i.detail}</span>
+                      {i.urgent && <span className="ml-1 font-bold text-shu">至急</span>}　<span className="text-ink-soft">{displayText(i.detail)}</span>
                       {i.kind === "注射" && rateOf(i.orderId) && (
                         <div className="nums text-[11px] text-ai">
                           速さ {rateOf(i.orderId)!.mlPerH}mL/時 → 20滴セット 約{rateOf(i.orderId)!.drops20}滴/分・60滴セット 約{rateOf(i.orderId)!.drops60}滴/分
@@ -382,7 +383,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
       {care && <CareSheet {...care} people={people} {...shiftWindow(shift, day)} day={day} today={today} nowTime={nowTime} sessionStart={sessionStart} interactive={interactive} />}
 
       <Section title="指示簿の頓用（自由文）">
-        {standingFreePrn.length ? <table className="w-full border-collapse"><tbody>{standingFreePrn.map((l) => <tr key={`${l.patientId}-${l.id}`}><td className={`${td} w-28`}>{l.room}　{l.name}</td><td className={`${td} whitespace-pre-wrap`}>{l.text}</td></tr>)}</tbody></table> : <Empty>ありません</Empty>}
+        {standingFreePrn.length ? <table className="w-full border-collapse"><tbody>{standingFreePrn.map((l) => <tr key={`${l.patientId}-${l.id}`}><td className={`${td} w-28`}>{l.room}　{l.name}</td><td className={`${td} whitespace-pre-wrap`}>{displayText(l.text)}</td></tr>)}</tbody></table> : <Empty>ありません</Empty>}
         <p className="hint text-ink-faint">指示受け済みの有効な指示です。自由文から薬の量や投与間隔は判定しません。与薬の記録は処方・注射のオーダで行います。</p>
       </Section>
       <Section title="時刻の決まっていないもの（必要時・1日N回）">
@@ -400,7 +401,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
                     <Kind kind={i.kind} />
                   </td>
                   <td className={td}>
-                    <b>{i.main}</b><DrugMarks codes={codesOf(i.orderId)} />{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}　<span className="text-ink-soft">{i.detail}</span>
+                    <b>{i.main}</b><DrugMarks codes={codesOf(i.orderId)} />{queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}　<span className="text-ink-soft">{displayText(i.detail)}</span>
                   </td>
                   <td className={`${td} w-32 text-ink-faint`}>
                     {interactive ? (
@@ -412,7 +413,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
                           .sort((a, b) => a.at - b.at)
                           .map((r) => (
                             <div key={r.key} className="mt-0.5 text-[10px] text-ink-soft">
-                              {r.status} {r.doneAt} {r.by}
+                              {r.status} {r.doneAt} {displayText(r.by)}
                               {onVoid && <VoidControl record={r} onVoid={onVoid} />}
                             </div>
                           ))}
@@ -427,13 +428,13 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
           </table>
         )}
       </Section>
-      <p className="mt-2 text-[10px] text-ink-faint">Simple Karte の試作。架空の病院・架空の患者で、実際の看護には使えません。</p>
+
     </div>
   );
 }
 
 function PrintMar({ state, record }: { state: ReturnType<typeof marState>; record?: AdminRecord }) {
-  if (record) return <span>{record.status} {record.doneAt}{record.reason ? `（${record.reason}）` : ""}</span>;
+  if (record) return <span>{record.status} {record.doneAt}{displayText(record.reason ? `（${record.reason}）` : "")}</span>;
   if (state === "記録済み") return <span className="text-ink-faint">実施（前の勤務）</span>;
   return <span>□　　　</span>;
 }

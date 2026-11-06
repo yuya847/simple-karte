@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { History, PencilLine } from "lucide-react";
 import { useState } from "react";
 import { CORRECTION_REASONS, changeLine, changesOf, checkCorrection, checkEntry, correctionReason, entryPlan, flagOf, versionOf, versionsOf, whenText, type CorrectionCheck, type CorrectionReason, type DrawRow } from "@/lib/lab-desk";
@@ -53,7 +54,7 @@ export function LabCorrect({
           </b>
           <span className="text-ink-soft">{ageSex(p)}</span>
           <span className="nums text-ink-soft">
-            採血 {whenText(row.at)}　第{versionOf(report)}版 {report.reported.time} {report.by}
+            採血 {displayText(whenText(row.at))}　第{versionOf(report)}版 {report.reported.time} {displayText(report.by)}
           </span>
           <span className="nums font-mono text-[11px] text-ink-faint">{row.code}</span>
         </div>
@@ -137,8 +138,8 @@ export function LabCorrect({
           </li>
           {versionsOf(report).map((v, i, all) => (
             <li key={i} className={i === all.length - 1 ? "text-ink" : ""}>
-              第{i + 1}版　{v.reported.time} {v.by}
-              {v.reason ? `　理由：${v.reason}` : "　確定"}
+              第{i + 1}版　{v.reported.time} {displayText(v.by)}
+              {displayText(v.reason ? `　理由：${v.reason}` : "　確定")}
               {i > 0 && `　（${changeLine(changesOf(all[i - 1].values, v.values))}）`}
             </li>
           ))}

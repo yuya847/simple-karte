@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { formatShort, addDays, type CalendarDate } from "@/lib/dates";
 import { GUIDANCE_SOURCE, GUIDANCE_TIME_SOURCE, NUTRITION_ELIGIBLE, WHO_HEARD, guidanceProblems, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord, type GuideKind } from "@/lib/guidance";
@@ -42,8 +43,8 @@ export function GuideRecordPanel({ role, entries, records, today, onSave }: { ro
           <ul className="mt-1 space-y-0.5">
             {open.map((e) => (
               <li key={e.id}>
-                {formatShort(addDays(today, e.day))} {e.time} {e.author}
-                {e.order.type === "procedure" && e.order.guide?.note ? `：${e.order.guide.note}` : ""}
+                {formatShort(addDays(today, e.day))} {e.time} {displayText(e.author)}
+                {displayText(e.order.type === "procedure" && e.order.guide?.note ? `：${e.order.guide.note}` : "")}
               </li>
             ))}
             <li className="text-ink-soft">記録すると、この依頼は済みになります。</li>
@@ -95,9 +96,9 @@ export function GuideRecordPanel({ role, entries, records, today, onSave }: { ro
             {records.map((r) => (
               <li key={r.id} className="border-l-2 border-ai/40 pl-2">
                 <span className="nums text-ink-faint">
-                  {formatShort(addDays(today, r.at.day))} {r.at.time}　{r.by}
+                  {formatShort(addDays(today, r.at.day))} {r.at.time}　{displayText(r.by)}
                 </span>
-                　{r.kind}（{r.heard}・{r.minutes ?? "？"}分）{r.text}
+                　{r.kind}（{r.heard}・{r.minutes ?? "？"}分）{displayText(r.text)}
               </li>
             ))}
           </ul>

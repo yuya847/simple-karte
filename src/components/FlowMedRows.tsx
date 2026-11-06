@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { WARD_RULES, findDrug } from "@/lib/master";
 import { abs } from "@/lib/flowsheet";
 import { glucoseDayCell, insulinDoses, medCell, oralSlots, timingsOf, type GlucosePoint, type MedCell } from "@/lib/flow-meds";
@@ -58,11 +59,11 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom, onC
             const b = box(d);
             return zoom ? (
               <Cell key={d} {...press(t, d, time)} title={c.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[c.tone]}`} style={at(zoom.xAbs(time))}>
-                {c.text}
+                {displayText(c.text)}
               </Cell>
             ) : (
               <Cell key={d} {...press(t, d, time)} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
-                {c.text}
+                {displayText(c.text)}
               </Cell>
             );
           })}
@@ -71,7 +72,7 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom, onC
       {timings.length > 0 && (
         <p className="pl-[76px] pt-0.5 text-[10px] text-ink-faint">
           与薬の記録から：済＝実施、不可＝未実施、未＝時刻を過ぎて記録がまだ、・＝予定、中止＝その日に中止したオーダ。
-          <span className="hint">この画面を開く前の分は前の勤務帯が記録したものとして扱います（架空）。時刻は朝 {WARD_RULES.medTimes.朝}・昼 {WARD_RULES.medTimes.昼}・夕 {WARD_RULES.medTimes.夕}・眠前 {WARD_RULES.medTimes.眠前}（架空の病院の取り決め）。</span>
+          <span className="hint">この画面を開く前の分は前の勤務帯が記録したものとして扱います。時刻は朝 {WARD_RULES.medTimes.朝}・昼 {WARD_RULES.medTimes.昼}・夕 {WARD_RULES.medTimes.夕}・眠前 {WARD_RULES.medTimes.眠前}。</span>
         </p>
       )}
     </>
@@ -98,7 +99,7 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
               const b = box(d);
               return (
                 <span key={d} title={c.title} className="absolute top-1 truncate px-0.5 text-center text-ink" style={{ left: b.left, width: b.width }}>
-                  {c.text}
+                  {displayText(c.text)}
                 </span>
               );
             })}
@@ -110,7 +111,7 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
             {insulinDoses(e, lo, hi, mar.records, mar.sessionStart, nowAbs).map((x) => (
               <span
                 key={x.at}
-                title={`${x.state}${x.record ? ` ${x.record.doneAt} ${x.record.by}${x.record.insulin ? `・${x.record.insulin.units}単位` : ""}` : ""}`}
+                title={displayText(`${x.state}${x.record ? ` ${x.record.doneAt} ${x.record.by}${x.record.insulin ? `・${x.record.insulin.units}単位` : ""}` : ""}`)}
                 className={`absolute top-1 h-4 w-1 -translate-x-1/2 rounded ${x.state === "未実施" ? "bg-shu" : x.state === "未入力" ? "bg-yamabuki" : x.state === "予定" ? "bg-rule" : "bg-ink-soft"}`}
                 style={{ left: xAbs(x.at) }}
               />

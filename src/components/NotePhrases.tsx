@@ -3,6 +3,7 @@
 // 定型文・単語登録: the person's own sentences, put into the note at the cursor. Kept per person in this
 // browser; the list starts with fictional examples until the person registers their own.
 
+import { displayText } from "@/lib/display-text";
 import { Plus, Search, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { PHRASE_SOURCES, findPhrases, phraseProblems, savePhrases, type Phrase } from "@/lib/phrases";
@@ -42,7 +43,7 @@ export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }:
           <li key={p.id} className="flex items-start gap-1.5">
             <button type="button" onClick={() => onInsert(p.text)} className="flex min-w-0 flex-1 items-baseline gap-2 rounded-md border border-rule bg-sheet px-2 py-1 text-left hover:border-wakatake pointer-coarse:py-2">
               <b className="shrink-0 text-[11px] text-wakatake">;{p.key}</b>
-              <span className="min-w-0">{p.text}</span>
+              <span className="min-w-0">{displayText(p.text)}</span>
             </button>
             <button type="button" onClick={() => store(phrases.filter((x) => x.id !== p.id))} aria-label={`「${p.key}」を消す`} title="消す" className="mt-1 rounded p-1 text-ink-faint hover:bg-shu-soft hover:text-shu">
               <Trash2 size={12} />

@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { Thermometer } from "lucide-react";
@@ -97,7 +98,7 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
                 <td className="whitespace-nowrap px-1.5 py-1">
                   {p.room} <b>{p.name}</b>
                 </td>
-                <td className="px-1.5 py-1 text-[11px] text-ink-faint">{lastText(p.last)}</td>
+                <td className="px-1.5 py-1 text-[11px] text-ink-faint">{displayText(lastText(p.last))}</td>
                 {BULK_FIELDS.map((f) => (
                   <td key={f.key} className="px-1 py-1 text-right">
                     <input value={r.values[f.key] ?? ""} disabled={!canType} onChange={(e) => set(p, { values: { ...r.values, [f.key]: e.target.value } })} inputMode="decimal" aria-label={`${p.name}の${f.label}`} className={box} />
@@ -128,7 +129,7 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
                   {r.time && !timeOk(r.time) && !parsed.errors.length && <div className="text-shu">いまより前の時刻にしてください</div>}
                   {warns.map((w) => (
                     <div key={w.text} className={w.basis === "指示簿" ? "font-bold text-shu" : "text-yamabuki"}>
-                      {w.text}
+                      {displayText(w.text)}
                     </div>
                   ))}
                 </td>

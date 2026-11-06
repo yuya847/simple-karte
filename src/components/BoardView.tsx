@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Check, Megaphone, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -62,7 +63,7 @@ export function BoardView({ notices, reads, today, nowTime, onRead, onPost, staf
         <h1 className="flex items-center gap-2 text-lg font-bold">
           <Megaphone size={20} className="text-ai" />
           掲示板
-          <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <p className="nums text-sm text-ink-soft">
           {me.name}の未読 <b className={unread ? "text-shu" : "text-ink"}>{unread}</b>件
@@ -130,7 +131,7 @@ export function BoardView({ notices, reads, today, nowTime, onRead, onPost, staf
                         </>
                       )}
                       {n.important && <span className="rounded bg-shu-soft px-1 font-bold text-shu">重要</span>}
-                      <span className="text-ink-soft">{n.from}</span>
+                      <span className="text-ink-soft">{displayText(n.from)}</span>
                       <span className="nums ml-auto text-ink-faint">{postedAt(n, today)}</span>
                     </span>
                     <span className={`leading-snug ${read ? "" : "font-bold"}`}>{n.title}</span>
@@ -141,7 +142,7 @@ export function BoardView({ notices, reads, today, nowTime, onRead, onPost, staf
             })}
           </ul>
           <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">
-            架空の病院の掲示板です。並べ方（重要で未読 → 未読 → 既読、それぞれ新しい順）と期限切れを隠すのはコードで行います。AI は使っていません。試作なので、掲示と既読はこのブラウザの中だけにあります。
+            並べ方（重要で未読 → 未読 → 既読、それぞれ新しい順）と期限切れを隠すのはコードで行います。AI は使っていません。試作なので、掲示と既読はこのブラウザの中だけにあります。
           </p>
         </nav>
 
@@ -176,14 +177,14 @@ function NoticeDetail({ notice: n, readers, today, staff, reminded, onRemind }: 
     <article className="mx-auto max-w-3xl rounded-lg border border-rule bg-sheet p-5">
       <div className="mb-1 flex flex-wrap items-center gap-2 text-[12px]">
         {n.important && <span className="rounded bg-shu-soft px-1.5 py-0.5 font-bold text-shu">重要</span>}
-        <span className="rounded bg-tab px-1.5 py-0.5 text-ink">{n.from}</span>
+        <span className="rounded bg-tab px-1.5 py-0.5 text-ink">{displayText(n.from)}</span>
         {isExpired(n) && <span className="rounded border border-rule px-1.5 py-0.5 text-ink-faint">期限切れ</span>}
       </div>
       <h2 className="text-base font-bold leading-snug">{n.title}</h2>
       <p className="nums mt-1 text-[12px] text-ink-soft">
-        掲示 {postedAt(n, today)}・{n.by}・掲示期限 {untilLabel(n, today)}
+        掲示 {postedAt(n, today)}・{displayText(n.by)}・掲示期限 {untilLabel(n, today)}
       </p>
-      <p className="mt-4 whitespace-pre-wrap leading-relaxed text-ink">{fillDates(n.body, today)}</p>
+      <p className="mt-4 whitespace-pre-wrap leading-relaxed text-ink">{displayText(fillDates(n.body, today))}</p>
       {n.drugs && n.drugs.length > 0 && (
         <p className="mt-2 text-[12px] text-ink-soft">
           DI の対象：
@@ -215,7 +216,7 @@ function NoticeDetail({ notice: n, readers, today, staff, reminded, onRemind }: 
           )}
           {reminded && (
             <span className="nums">
-              （{reminded.at} {reminded.by} が {reminded.names.length}人に知らせました）
+              （{reminded.at} {displayText(reminded.by)} が {reminded.names.length}人に知らせました）
             </span>
           )}
         </p>
@@ -270,7 +271,7 @@ function PostForm({ dept, onCancel, onPost }: { dept: Dept; onCancel: () => void
           <X size={16} />
         </button>
       </div>
-      <p className="rounded-md bg-yamabuki-soft px-3 py-2 text-[12px] text-yamabuki">架空の病院の掲示です。実在の人・患者・院の情報は書かないでください。</p>
+      <p className="rounded-md bg-yamabuki-soft px-3 py-2 text-[12px] text-yamabuki">実在の人・患者・院の情報は書かないでください。</p>
       <p className="text-[12px] text-ink-soft">
         部署：<b className="text-ink">{dept}</b>（いま入っている職種から決まります）
       </p>

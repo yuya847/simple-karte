@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { careFlowMarks, careFlowRows, type CareFlowCell, type CareOrder, type CareRecord } from "@/lib/care-orders";
 import type { DayOffset } from "@/lib/types";
 import type { DayBox } from "./FlowDayRows";
@@ -45,7 +46,7 @@ export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs,
             {"marks" in r && zoom
               ? r.marks.map((m) => (
                   <Cell key={`${m.orderId}-${m.at}`} type={onCell ? "button" : undefined} onClick={onCell ? (e: React.MouseEvent) => onCell(e, r.label, Math.floor(m.at / 1440), m.at) : undefined} title={m.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[m.tone]}`} style={{ left: zoom.xAbs(m.at) }}>
-                    {m.text}
+                    {displayText(m.text)}
                   </Cell>
                 ))
               : "cells" in r &&
@@ -55,7 +56,7 @@ export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs,
                   const b = box(d);
                   return (
                     <Cell key={d} type={onCell ? "button" : undefined} onClick={onCell ? (e: React.MouseEvent) => onCell(e, r.label, d, null) : undefined} title={c.title} className={`absolute top-1 truncate px-0.5 text-center ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[c.tone]}`} style={{ left: b.left, width: b.width }}>
-                      {c.text}
+                      {displayText(c.text)}
                     </Cell>
                   );
                 })}

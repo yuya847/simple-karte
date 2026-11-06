@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { endStandingField } from "@/lib/standing-field-end";
 import { CosignMark } from "../Cosign";
 import { isResident } from "@/lib/doctors";
@@ -122,7 +123,7 @@ export function StandingPanel({
     const setPrn = (i: number, x: Partial<PrnRule>) => set({ prn: edit.prn.map((r, j) => (j === i ? { ...r, ...x } : r)) });
     const fieldEditor = (
       <div className="space-y-3 text-[12px]">
-        <h3 className="font-bold">変更：{editingLine ? `元の指示 ${editingLine.text}` : "項目で選ぶ指示"}</h3>
+        <h3 className="font-bold">変更：{displayText(editingLine ? `元の指示 ${editingLine.text}` : "項目で選ぶ指示")}</h3>
         <p className="hint text-[11px] text-ink-faint">項目は医師が選びます（最初から選ばれているものはありません）。確定すると新しい版になり、看護師が指示受けします。</p>
         {row("安静度", <select aria-label="安静度" value={edit.rest ?? ""} onChange={(e) => set({ rest: (e.target.value || null) as StandingOrders["rest"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{RESTS.map((x) => <option key={x}>{x}</option>)}</select>)}
         {row("清潔", <select aria-label="清潔" value={edit.bath ?? ""} onChange={(e) => set({ bath: (e.target.value || null) as StandingOrders["bath"] })} className="rounded border border-rule bg-sheet px-2 py-1"><option value="">指示なし（中止）</option>{BATHS.map((x) => <option key={x}>{x}</option>)}</select>)}
@@ -255,7 +256,7 @@ export function StandingPanel({
     <div className="space-y-3 text-[13px]">
       {sheet}
       {endingField && cur && <section aria-label="項目の終了" className="space-y-2 rounded border border-rule p-3">
-        <h3 className="font-bold">終了：{endingField.text}</h3>
+        <h3 className="font-bold">終了：{displayText(endingField.text)}</h3>
         <label>終了日（今日からの日数）<input type="number" aria-label="項目を終了する日" min={Math.max(0, endingField.start.day)} max={endingField.end?.day} value={endDay} onChange={(e) => setEndDay(Number(e.target.value))} /> {fmtDay(endDay)}</label>
         <label>理由（任意）<input aria-label="項目の終了理由" value={endReason} onChange={(e) => setEndReason(e.target.value)} /></label>
         <button type="button" disabled={!!deny("order") || endDay < Math.max(0, endingField.start.day) || (endingField.end !== undefined && endDay > endingField.end.day)} onClick={() => { onSave(confirmStanding(endStandingField(cur, endingField, endDay, endReason, me.name, nowTime), me.name, { day: 0, time: nowTime })); setEndingField(null); }}>終了を確定</button>
@@ -279,12 +280,12 @@ export function StandingPanel({
         <>
           <div className="flex flex-wrap items-center gap-2 text-[12px]">
             <span className="nums text-ink-soft">
-              有効：{fmtDay(cur.at.day)} 〜 {cur.until === undefined ? "変えるまで続く" : fmtDay(cur.until)}　{cur.at.time}　{cur.by}（第{versions.length}版）
+              有効：{fmtDay(cur.at.day)} 〜 {cur.until === undefined ? "変えるまで続く" : fmtDay(cur.until)}　{cur.at.time}　{displayText(cur.by)}（第{versions.length}版）
             </span>
             {lines && <CosignMark pendingLabel="研修医の指示（確認待ち）" refId={standingRef(lines.patient.id, versions.length)} />}
             {cur.taken ? (
               <span className="rounded bg-wakatake-soft px-1.5 text-wakatake">
-                指示受け済：{cur.taken.by} {cur.taken.time}
+                指示受け済：{displayText(cur.taken.by)} {cur.taken.time}
               </span>
             ) : (
               <span className="rounded bg-yamabuki-soft px-1.5 font-bold text-yamabuki">指示受けがまだ</span>
@@ -321,7 +322,7 @@ export function StandingPanel({
             .map((v, i) => (
               <div key={i} className="mt-2 border-l-2 border-rule pl-2 text-ink-soft">
                 <div className="nums text-[11px]">
-                  {fmtDay(v.at.day)} {v.at.time}　{v.by}
+                  {fmtDay(v.at.day)} {v.at.time}　{displayText(v.by)}
                 </div>
                 <StandingView s={v} />
               </div>
@@ -353,7 +354,7 @@ export function StandingView({ s }: { s: StandingOrders }) {
         s.prn.length ? (
           <ul>
             {s.prn.map((r) => (
-              <li key={r.id}>{prnText(r)}</li>
+              <li key={r.id}>{displayText(prnText(r))}</li>
             ))}
           </ul>
         ) : (
@@ -365,7 +366,7 @@ export function StandingView({ s }: { s: StandingOrders }) {
           "条件付き指示",
           <ul>
             {(s.conds ?? []).map((r) => (
-              <li key={r.id}>{ruleText(r)}</li>
+              <li key={r.id}>{displayText(ruleText(r))}</li>
             ))}
           </ul>,
         )}

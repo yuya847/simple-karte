@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput, TimeInputs } from "@/components/TimeInput";
 
 import { useState } from "react";
@@ -142,9 +143,9 @@ function CarePart({ orders, records, plans, patientId, nowTime, sessionStart, fm
                 </div>
                 {o.choices && <div className="text-[11px] text-ink-soft">選ぶ：{o.choices.join("・")}</div>}
                 {o.unit && <div className="text-[11px] text-ink-soft">単位：{o.unit}</div>}
-                {o.note && <div className="text-[12px]">{o.note}</div>}
+                {o.note && <div className="text-[12px]">{displayText(o.note)}</div>}
                 <div className="nums text-[11px] text-ink-faint">
-                  {fmtDay(o.start.day)} {o.start.time}から{o.endDay !== undefined ? ` ${fmtDay(o.endDay)}まで` : ""}　指示 {fmtDay(o.at.day)} {o.at.time} {o.by}
+                  {fmtDay(o.start.day)} {o.start.time}から{o.endDay !== undefined ? ` ${fmtDay(o.endDay)}まで` : ""}　指示 {fmtDay(o.at.day)} {o.at.time} {displayText(o.by)}
                   {o.replaces ? "（変更）" : ""}
                 </div>
                 {stopping?.id === o.id ? (
@@ -224,7 +225,7 @@ function CarePart({ orders, records, plans, patientId, nowTime, sessionStart, fm
           <ul className="mt-1 space-y-0.5">
             {past.map((o) => (
               <li key={o.id} className="nums text-ink-soft">
-                {o.item}　{scheduleLabel(o)}　{fmtDay(o.start.day)} {o.start.time}〜{o.stopped ? `${fmtDay(o.stopped.at.day)} ${o.stopped.at.time} 中止（${o.stopped.reason}・${o.stopped.by}）` : o.endDay !== undefined ? `${fmtDay(o.endDay)} 終了` : ""}
+                {o.item}　{scheduleLabel(o)}　{fmtDay(o.start.day)} {o.start.time}〜{displayText(o.stopped ? `${fmtDay(o.stopped.at.day)} ${o.stopped.at.time} 中止（${o.stopped.reason}・${o.stopped.by}）` : o.endDay !== undefined ? `${fmtDay(o.endDay)} 終了` : "")}
                 {(() => {
                   const n = records.filter((r) => r.orderId === o.id && !r.voided).length;
                   return n ? `　記録 ${n}件` : "";
@@ -235,7 +236,7 @@ function CarePart({ orders, records, plans, patientId, nowTime, sessionStart, fm
         </details>
       )}
       <p className="hint text-[11px] text-ink-faint">
-        よく使う項目と既定の時刻、時刻の1時間前から記録できること・1時間過ぎて記録がないと遅れとして出すことは、架空の病院の取り決めです。記録の出典：
+        既定の時刻の1時間前から記録でき、1時間過ぎて記録がなければ遅れとして出します。記録の出典：
         <a href={CARE_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline">
           {CARE_SOURCES.record.label}
         </a>
@@ -262,7 +263,7 @@ function CareEditor({ draft, onDraft, plans, fmtDay, nowTime, change, onCancel, 
       <h3 className="font-bold">{change ? "指示を変更する（前の指示は今止め、記録はそのまま残ります）" : "ケア・観察の指示を出す"}</h3>
       {!change && (
         <div>
-          <div className="mb-1 text-ink-soft">よく使う項目（架空の病院の一覧）から選ぶか、自由に書く</div>
+          <div className="mb-1 text-ink-soft">よく使う項目から選ぶか、自由に書く</div>
           <div className="flex flex-wrap gap-1">
             {CARE_ITEMS.map((it) => (
               <button
@@ -468,7 +469,7 @@ function PlanPart({ orders, plans, patientId, nowTime, fmtDay, newId, onPlans }:
         <section className="space-y-2 rounded-md border border-ai/40 bg-ai-soft/20 p-3 text-[12px]">
           <h3 className="font-bold">看護問題を立案する（#{nextNo(plans, patientId)}）</h3>
           <label className="flex items-center gap-1.5">
-            <span className="text-ink-soft">架空の病院の標準計画（例）から写す</span>
+            <span className="text-ink-soft">この病院の標準計画（例）から写す</span>
             <select value="" onChange={(e) => e.target.value && setDraft({ ...draft, body: structuredClone(PLAN_TEMPLATES[Number(e.target.value)].body) })} aria-label="標準計画から写す" className={small}>
               <option value="">選ばない</option>
               {PLAN_TEMPLATES.map((t, i) => (
@@ -524,7 +525,7 @@ function PlanPart({ orders, plans, patientId, nowTime, fmtDay, newId, onPlans }:
         </details>
       )}
       <p className="hint text-[11px] text-ink-faint">
-        評価予定日の既定（立案日・前の評価日から{EVAL_INTERVAL_DAYS}日後）は架空の病院の取り決めで、看護師が変えられます。標準計画は架空の病院の例です。出典：
+        評価予定日の既定（立案日・前の評価日から{EVAL_INTERVAL_DAYS}日後）は看護師が変えられます。標準計画は例です。出典：
         <a href={PLAN_SOURCES.record.url} target="_blank" rel="noreferrer" className="underline">
           {PLAN_SOURCES.record.label}
         </a>
@@ -540,8 +541,8 @@ function ProblemCard({ p, orders, fmtDay, today, children }: { p: NursingProblem
     <section className={`space-y-1.5 rounded-md border p-3 ${st?.late ? "border-shu/50" : st?.due ? "border-yamabuki/60" : "border-rule"}`}>
       <div className="flex flex-wrap items-baseline gap-2">
         <h3 className="font-bold">{problemTitle(p)}</h3>
-        {st && <span className={`nums ml-auto text-[12px] ${st.late ? "font-bold text-shu" : st.due ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{st.text}（{fmtDay(p.evalDue)}）</span>}
-        {p.closed && <span className="nums ml-auto text-[12px] text-wakatake">解決 {fmtDay(p.closed.day)} {p.closed.by}</span>}
+        {st && <span className={`nums ml-auto text-[12px] ${st.late ? "font-bold text-shu" : st.due ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(st.text)}（{fmtDay(p.evalDue)}）</span>}
+        {p.closed && <span className="nums ml-auto text-[12px] text-wakatake">解決 {fmtDay(p.closed.day)} {displayText(p.closed.by)}</span>}
       </div>
       <dl className="grid grid-cols-[8.5rem_1fr] gap-y-1 text-[12px]">
         <dt className="text-ink-faint">目標</dt>
@@ -574,14 +575,14 @@ function ProblemCard({ p, orders, fmtDay, today, children }: { p: NursingProblem
         })}
         <dt className="text-ink-faint">立案</dt>
         <dd className="nums">
-          {fmtDay(p.plannedOn)} {p.plannedAt} {p.by}
+          {fmtDay(p.plannedOn)} {p.plannedAt} {displayText(p.by)}
         </dd>
       </dl>
       {p.evaluations.length > 0 && (
         <ol className="space-y-0.5 border-l-2 border-rule pl-2 text-[12px]">
           {p.evaluations.map((e, i) => (
             <li key={i} className="nums">
-              {fmtDay(e.day)} {e.time} {e.by}：<b>{e.result}</b>　{e.note}
+              {fmtDay(e.day)} {e.time} {displayText(e.by)}：<b>{e.result}</b>　{displayText(e.note)}
               {e.nextDue !== undefined && <span className="text-ink-faint">（次の評価 {fmtDay(e.nextDue)}）</span>}
               {e.before && <span className="block text-[11px] text-ink-faint">修正前：{e.before.goal}／{[...e.before.op, ...e.before.tp, ...e.before.ep].join("、")}</span>}
             </li>
@@ -624,7 +625,7 @@ function DueSelect({ value, today, fmtDay, onChange, label }: { value: number; t
           </option>
         ))}
       </select>
-      <span className="text-[11px] text-ink-faint">既定は{EVAL_INTERVAL_DAYS}日後<span className="hint">（架空の病院の取り決め）</span></span>
+      <span className="text-[11px] text-ink-faint">既定は{EVAL_INTERVAL_DAYS}日後</span>
     </label>
   );
 }

@@ -28,7 +28,7 @@ describe("入院時の情報収集", () => {
     expect(html).toContain("まだ聞き取っていません");
     expect(html).toMatch(/aria-pressed="true"[^>]*>車椅子</);
     expect(html).toContain("退院後の生活の希望");
-    expect(html).toContain("架空の病院の様式");
+    expect(html).not.toContain("架空の病院の取り決め");
   });
 
   it("shows the versions with the reason and what changed, and where the answers go", () => {

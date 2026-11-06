@@ -353,7 +353,7 @@ export function AddImagingPanel({
                 {!facts && <li className="text-ink-faint">患者の値が渡されていないときは、下書きの確認で出ます。</li>}
               </ul>
               <p className="hint mt-1 text-[11px] text-ink-faint">
-                eGFR はコードで計算（日本腎臓学会の推算式）。閾値 {CONTRAST_RULES.egfrAsk} はこの架空の病院の取り決めで、指針（ヨード：{EXAM_SOURCES.iodine.label}、ガドリニウム：{EXAM_SOURCES.gadolinium.label}）は eGFR {CONTRAST_RULES.egfrGuideline} 未満を特に注意としています。ビグアナイドの案内の出典：{EXAM_SOURCES.biguanide.label}。
+                eGFR はコードで計算（日本腎臓学会の推算式）。閾値 {CONTRAST_RULES.egfrAsk}  は院内の確認基準です。指針（ヨード：{EXAM_SOURCES.iodine.label}、ガドリニウム：{EXAM_SOURCES.gadolinium.label}）は eGFR {CONTRAST_RULES.egfrGuideline} 未満を特に注意としています。ビグアナイドの案内の出典：{EXAM_SOURCES.biguanide.label}。
               </p>
             </div>
           )}
@@ -416,7 +416,7 @@ export function AddImagingPanel({
       </button>
       <p className="hint text-[11px] text-ink-faint">
         部位を選ぶと、マスターの標準の方向と体位が入ります。変えるときは押し直します。日時はここでも選べます。移動・読影は右の下書きで選びます。造影なら腎機能・造影剤アレルギー・喘息・ビグアナイド・同意、MRI なら体内金属の確認が下書きに出ます。{EXAM_SOURCES.naming}
-        造影剤の一般名と量は架空の病院の採用例で、製品と本数は放射線部が記録します。
+        造影剤の一般名と量は院内の採用品から選び、製品と本数は放射線部が記録します。
       </p>
     </div>
   );

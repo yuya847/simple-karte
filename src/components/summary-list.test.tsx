@@ -35,8 +35,8 @@ describe("退院サマリの一覧", () => {
     expect(html).toContain("前月（2026年10月）に退院した");
     expect(html).toContain("施設基準は毎月9割以上");
     expect(html).toContain("保医発0305第7号");
-    expect(html).toContain("架空の病院の取り決め");
-    expect(html).toContain("架空の過去の記録（カルテなし）");
+    expect(html).not.toContain("架空の病院の取り決め");
+    expect(html).toContain("過去の記録（カルテなし）");
     expect(html).not.toContain("開いて承認する");
   });
 

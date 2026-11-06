@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ClipboardX } from "lucide-react";
 import { useState } from "react";
 import { UNDONE_SOURCE, UNDONE_WINDOW, lateText, type GapRow, type UndoneRow } from "@/lib/undone";
@@ -23,7 +24,7 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
           <ClipboardX size={18} />
           未実施の一覧（実施漏れ・算定漏れ）
         </h2>
-        <span className="text-xs text-ink-soft">受け持ちのチームの患者・この画面を開いてからの予定（架空の患者）</span>
+        <span className="text-xs text-ink-soft">受け持ちのチームの患者・この画面を開いてからの予定</span>
       </header>
 
       <section aria-label="実施の記録がないもの" className="space-y-2">
@@ -72,9 +73,9 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
                   <td className={`${td} w-12`}>{r.kind}</td>
                   <td className={td}>
                     <b>{r.main}</b>
-                    <span className="ml-1 text-ink-soft">{r.detail}</span>
+                    <span className="ml-1 text-ink-soft">{displayText(r.detail)}</span>
                   </td>
-                  <td className={`${td} nums w-24 font-bold text-shu`}>{lateText(r.lateMin)}</td>
+                  <td className={`${td} nums w-24 font-bold text-shu`}>{displayText(lateText(r.lateMin))}</td>
                   <td className={`${td} w-24 text-right`}>
                     <button type="button" onClick={() => onOpen(r.patientId)} className="text-xs text-ai underline">
                       カルテを開く
@@ -115,7 +116,7 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
                   </td>
                   <td className={`${td} w-28`}>
                     <b>{g.main}</b>
-                    <div className="text-[11px] text-ink-faint">記録：{g.by}</div>
+                    <div className="text-[11px] text-ink-faint">記録：{displayText(g.by)}</div>
                   </td>
                   <td className={td}>
                     <b className={g.kind === "実施したが算定に入らない" ? "text-shu" : "text-yamabuki"}>{g.kind}</b>

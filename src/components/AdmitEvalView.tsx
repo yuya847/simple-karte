@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ClipboardList } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -119,7 +120,7 @@ export function AdmitEvalView({ people, evals, today, nowTime, onSave, hints = {
                       <button
                         type="button"
                         onClick={() => setSel(on ? null : { pid: w.patient.id, key: c.key })}
-                        title={[d.note, d.source].filter(Boolean).join("\n")}
+                        title={displayText([d.note, d.source].filter(Boolean).join("\n"))}
                         className={`w-full rounded border px-1 py-0.5 text-left leading-tight ${STATE_STYLE[d.state]} ${on ? "ring-2 ring-ai" : ""}`}
                       >
                         <span className="block">{d.state}</span>
@@ -164,8 +165,8 @@ function Detail({ w, ev, item, today, nowTime, onSave, hints, onBack }: { onBack
         {w.room} {w.patient.name}さん：{due.label}
         <button type="button" onClick={onBack} className="ml-3 rounded border border-rule px-2 py-0.5 text-xs font-normal text-ai">表に戻る</button>
       </h3>
-      <p className="hint mb-2 text-[11px] text-ink-faint">根拠：{due.source}</p>
-      {due.note && <p className="mb-2 text-xs text-yamabuki">{due.note}</p>}
+      <p className="hint mb-2 text-[11px] text-ink-faint">根拠：{displayText(due.source)}</p>
+      {due.note && <p className="mb-2 text-xs text-yamabuki">{displayText(due.note)}</p>}
       <DenyNote action={col.action} className="mb-2" />
       <fieldset disabled={locked} className="m-0 min-w-0 border-0 p-0">
         {item === "plan" && <PlanForm w={w} ev={ev} today={today} nowTime={nowTime} onSave={onSave} />}
@@ -285,7 +286,7 @@ function NutritionForm({ w, ev, today, nowTime, onSave, start }: { w: WorkPatien
       </p>
       {cur && (
         <p className="nums text-ink">
-          {mode ? `第${versions.length}版をもとに直しています` : `いまの版：第${versions.length}版`}（{day(cur.at.day)} {cur.at.time} {cur.by}
+          {mode ? `第${versions.length}版をもとに直しています` : `いまの版：第${versions.length}版`}（{day(cur.at.day)} {cur.at.time} {displayText(cur.by)}
           {cur.revision ? `・${cur.revision.kind}` : "・作成"}）
         </p>
       )}
@@ -399,7 +400,7 @@ function NutritionForm({ w, ev, today, nowTime, onSave, start }: { w: WorkPatien
           <ol className="space-y-1">
             {versions.map((v, i) => (
               <li key={i} className="nums">
-                <b className="text-ink">第{i + 1}版</b> {day(v.at.day)} {v.at.time} {v.by}　{v.revision ? `${v.revision.kind}${v.revision.reason ? `：${v.revision.reason}` : ""}` : "作成"}
+                <b className="text-ink">第{i + 1}版</b> {day(v.at.day)} {v.at.time} {displayText(v.by)}　{displayText(v.revision ? `${v.revision.kind}${v.revision.reason ? `：${v.revision.reason}` : ""}` : "作成")}
                 {i > 0 && (
                   <span className="block pl-4 text-ink-faint">
                     {nutritionChanges(versions[i - 1], v, day).join("／") || "内容の変更なし"}
@@ -431,7 +432,7 @@ function PressureForm({ ev, nowTime, onSave, adl }: { ev: AdmitEval; nowTime: st
           ))}
         </select>
         {!ev.pressure && adl && f.adl === adl && <span className="text-ink-faint">（入院時の情報収集から）</span>}
-        <span className="text-ink-faint">評価の対象：{PRESSURE_TARGET_RANKS.join("・")}（架空の病院の設定。通知にランクの線引きはありません）</span>
+        <span className="text-ink-faint">評価の対象：{PRESSURE_TARGET_RANKS.join("・")}（通知にランクの線引きはありません）</span>
       </label>
       {target && (
         <ul className="grid grid-cols-2 gap-x-4 gap-y-0.5">
@@ -441,7 +442,7 @@ function PressureForm({ ev, nowTime, onSave, adl }: { ev: AdmitEval; nowTime: st
               {[false, true].map((v) => (
                 <label key={String(v)} className="flex items-center gap-0.5">
                   <input type="radio" checked={f.items[i.key] === v} onChange={() => setF({ ...f, items: { ...f.items, [i.key]: v } })} className={v ? "accent-shu" : "accent-ai"} />
-                  {v ? i.yes : i.no}
+                  {displayText(v ? i.yes : i.no)}
                 </label>
               ))}
             </li>
@@ -461,7 +462,7 @@ function PressureForm({ ev, nowTime, onSave, adl }: { ev: AdmitEval; nowTime: st
       <div className="flex items-center justify-end gap-2">
         {saved && (
           <span className="text-wakatake">
-            {ev.pressure!.at.time} {ev.pressure!.by} が評価済み
+            {ev.pressure!.at.time} {displayText(ev.pressure!.by)} が評価済み
           </span>
         )}
         <button
@@ -525,7 +526,7 @@ function ChecklistForm({ kind, ev, nowTime, onSave, suggested, why = {} }: { kin
       <div className="flex items-center justify-end gap-2">
         {rec && (
           <span className="text-wakatake">
-            {rec.at.time} {rec.by} が確定
+            {rec.at.time} {displayText(rec.by)} が確定
           </span>
         )}
         <button
@@ -559,7 +560,7 @@ function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatien
     ds?.[field] ? (
       <span className="text-wakatake">
         {label}：済（{when(ds[field]!)}
-        {ds[field]!.by ? ` ${ds[field]!.by}` : ""}）
+        {displayText(ds[field]!.by ? ` ${ds[field]!.by}` : "")}）
       </span>
     ) : (
       <button type="button" disabled={!ds || ds.factors.length === 0} onClick={() => onSave({ ...ev, discharge: { ...ds!, [field]: now } }, `退院支援：${label}`)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">

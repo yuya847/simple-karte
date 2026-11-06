@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 // 放射線部の指示受け (診療放射線技師), in the ward's 指示受け form (OrderSheet.tsx): the date to move through, the
@@ -165,7 +166,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
                   <PatientBand patient={person.patient} room={g.room}>
                     {marks.map((m) => (
                       <span key={m.text} className={`rounded px-1 text-[10px] font-bold ${FLAG_CLASS[m.tone]}`}>
-                        {m.text}
+                        {displayText(m.text)}
                       </span>
                     ))}
                     <span className="ml-auto text-ink-soft">{w.length ? `未指示受け ${w.length}件` : "受け済み"}</span>
@@ -218,7 +219,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
                                 確認する（まだ）
                               </button>
                             ) : r.work?.confirmed ? (
-                              <span className="text-[10px] text-wakatake">確認 {r.work.confirmed.time} {r.work.confirmed.by}</span>
+                              <span className="text-[10px] text-wakatake">確認 {r.work.confirmed.time} {displayText(r.work.confirmed.by)}</span>
                             ) : null
                           ) : null
                         }
@@ -269,7 +270,7 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
             {RIS_TAKE_RULES.one}
             {RIS_TAKE_RULES.late}
             {RIS_TAKE_RULES.pregnancy}
-            {RIS_RULES.rooms}造影の確認の項目（同意・腎機能 eGFR 30・ヨードのアレルギー・ビグアナイド系の休薬）は、医師のオーダの確認と同じ指針に基づきます。これらは架空の病院の取り決めで、コードが並べるだけです（AI は使っていません）。
+            {RIS_RULES.rooms}造影の確認の項目（同意・腎機能 eGFR 30・ヨードのアレルギー・ビグアナイド系の休薬）は、医師のオーダの確認と同じ指針に基づきます。これらは院内の取り決めで、コードが並べるだけです（AI は使っていません）。
           </p>
           <Sources items={RIS_TAKE_SOURCES} />
         </SheetNotes>
@@ -285,7 +286,7 @@ function TakeOne({ r, reasons, onTake, onClose }: { r: RisRow; reasons: string[]
     <div className="mt-1 ml-3 rounded bg-paper px-3 py-2 text-[12px]">
       <p className="font-bold">1件ずつ受ける：{reasons.join("・")}</p>
       <p className="text-ink-soft">
-        {r.label}　{r.order.views?.join("＋")}　目的：{r.order.purpose}　{r.orderedBy}
+        {r.label}　{r.order.views?.join("＋")}　目的：{r.order.purpose}　{displayText(r.orderedBy)}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <ConfirmCheck checked={read} onChange={setRead}>
@@ -318,11 +319,11 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
     onDesk((d) => putWork(d, r, (w) => ({ ...w, room: key, slot: { day: r.order.when.day, time }, assignedBy: me.name })));
     log("装置を割り当て", `　${findRoom(key)?.room} ${time}`);
   };
-  if (r.work?.notDone) return <p className="text-[11px] text-shu">撮影できなかった：{r.work.notDone.reason}</p>;
+  if (r.work?.notDone) return <p className="text-[11px] text-shu">撮影できなかった：{displayText(r.work.notDone.reason)}</p>;
   return (
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
       <span className="text-ink-soft">
-        受付 {r.work?.arrived?.time} {r.work?.arrived?.by}
+        受付 {r.work?.arrived?.time} {displayText(r.work?.arrived?.by)}
       </span>
       <span className="text-ink-soft">撮影室・装置</span>
       <select value={roomKey} disabled={!!deny} aria-label="撮影室・装置" onChange={(e) => assign(e.target.value as RoomKey)} className={field}>
@@ -443,7 +444,7 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
       <h3 className="mb-1 flex items-center gap-2 font-bold">
         {title}
         <span className="nums font-normal text-ink-soft">{items.length}件</span>
-        {note && <span className="font-normal text-ink-faint">{note}</span>}
+        {note && <span className="font-normal text-ink-faint">{displayText(note)}</span>}
       </h3>
       {items.length === 0 ? (
         <p className="text-ink-faint">予定はありません。</p>
@@ -455,7 +456,7 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
             const pend = confirmPending(r);
             return (
               <li key={r.orderId} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft py-1 ${lateNow ? "bg-shu-soft/40" : ""}`}>
-                <b className="nums w-12">{r.work?.slot?.time ?? whenText(r.at).split(" ")[1]}</b>
+                <b className="nums w-12">{displayText(r.work?.slot?.time ?? whenText(r.at).split(" ")[1])}</b>
                 <span>
                   {r.room}　<b>{r.name}</b>
                 </span>
@@ -463,7 +464,7 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
                 {r.order.when.priority === "至急" && <span className="rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
                 {lateNow && <span className="rounded bg-shu px-1 text-[10px] font-bold text-white">遅れ（予定から{nowAbs - r.at}分）</span>}
                 {pend && <span className="rounded bg-yamabuki-soft px-1 text-[10px] font-bold text-yamabuki">確認がまだ</span>}
-                {r.work?.notDone && <span className="text-shu">中止：{r.work.notDone.reason}</span>}
+                {r.work?.notDone && <span className="text-shu">中止：{displayText(r.work.notDone.reason)}</span>}
                 <span className="text-ink-soft">{times(r)}</span>
                 {s !== "済" && !r.work?.notDone && (
                   <button type="button" disabled={!!deny || (s === "撮影開始" && pend)} title={s === "撮影開始" && pend ? "指示確認がまだです（指示受けの画面で「確認する」）" : s === "呼出" ? `呼出：${callHow(r.room)}を記録します` : undefined} onClick={() => step(r)} className={`ml-auto rounded px-2 py-0.5 font-bold text-white disabled:opacity-40 ${s === "撮影終了" ? "bg-wakatake" : "bg-ai"}`}>
@@ -491,10 +492,10 @@ export function Worklist({ rows, onDesk, nowTime, today }: { rows: RisRow[]; onD
           {dayName}（{formatShort(addDays(today, day))}）の受付済みの検査を、装置ごとに予定の時刻の順に並べます。
         </span>
       </div>
-      <p className="hint text-[11px] text-ink-soft">「呼出」は外来・救急の患者なら待合の表示に、病棟の患者なら病棟へ搬送を依頼した記録です。来室・撮影開始・撮影終了・画像送信を押した時刻で記録します（撮影条件と線量は「撮影・照射録」か「撮影装置（模擬）」で入れます。模擬装置で始めた検査もここに出ます）。予定から 15分を過ぎて始まっていないものを遅れとします（架空の病院の取り決め）。</p>
+      <p className="hint text-[11px] text-ink-soft">「呼出」は外来・救急の患者なら待合の表示に、病棟の患者なら病棟へ搬送を依頼した記録です。来室・撮影開始・撮影終了・画像送信を押した時刻で記録します（撮影条件と線量は「撮影・照射録」か「撮影装置（模擬）」で入れます。模擬装置で始めた検査もここに出ます）。予定から 15分を過ぎて始まっていないものを遅れとします。</p>
       {lanes.map((l) => lane(`${l.room.room}　${l.room.device}`, l.rows))}
       {unassigned.length > 0 && lane("装置がまだ決まっていない", unassigned, "指示受けの画面で撮影室・装置を割り当てます")}
-      <p className="hint text-[11px] text-ink-faint">{RIS_TAKE_RULES.rooms}架空の病院の取り決めです。</p>
+      <p className="hint text-[11px] text-ink-faint">{RIS_TAKE_RULES.rooms}</p>
     </section>
   );
 }
@@ -530,7 +531,7 @@ export function PortableRound({ rows, onDesk, nowTime }: { rows: RisRow[]; onDes
                   </span>
                   {r.order.when.priority === "至急" && <span className="rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
                   <span className="text-ink-soft">
-                    予定 {r.work?.slot?.time ?? whenText(r.at)}　目的：{r.order.purpose}
+                    予定 {displayText(r.work?.slot?.time ?? whenText(r.at))}　目的：{r.order.purpose}
                   </span>
                   {r.work?.inRoom && <span className="text-ink-soft">病室 {r.work.inRoom.time}</span>}
                   {r.work?.started && <span className="text-ink-soft">開始 {r.work.started.time}</span>}

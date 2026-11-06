@@ -2,7 +2,7 @@ import type { InjectionOrder, SlidingScale } from "./types";
 import { findDrug } from "./master";
 import { validDoseTime } from "./inj-entry";
 export const isInsulin = (o: Pick<InjectionOrder, "items">) => o.items.length === 1 && findDrug(o.items[0].drugCode)?.category === "インスリン";
-export const SLIDING_HINT = "架空の病院の取り決め：初期表は199以下0、200〜249は2、250〜299は4、300〜349は6、350以上8単位・医師へ連絡。医師が患者ごとに表と測定時刻を確かめて直してください。品目も架空で薬価はありません。";
+export const SLIDING_HINT = "初期表は199以下0、200〜249は2、250〜299は4、300〜349は6、350以上8単位・医師へ連絡。医師が患者ごとに表と測定時刻を確かめて直してください。薬価はありません。";
 export function defaultSliding(): SlidingScale { return { times: ["07:30", "11:30", "17:30", "21:00"], rows: [{from:0,to:199,units:0},{from:200,to:249,units:2},{from:250,to:299,units:4},{from:300,to:349,units:6},{from:350,to:null,units:8}], callAbove:350 }; }
 export function slidingProblems(s: SlidingScale): string[] {
   const bad = !s.rows.length || s.rows.some((r,i) => !Number.isInteger(r.from) || r.from < 0 || !Number.isFinite(r.units) || r.units < 0 || (r.to !== null && (!Number.isInteger(r.to) || r.to < r.from)) || (i > 0 && (s.rows[i-1].to === null || r.from !== s.rows[i-1].to! + 1))) || s.rows[0]?.from !== 0 || s.rows.at(-1)?.to !== null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { amountText, type MedBag } from "@/lib/discharge-rx";
 import { DRUG_INFO_SOURCE } from "@/lib/drug-info";
 
@@ -42,7 +43,7 @@ export function MedBagFace({ p, b, date, by }: { p: HomeRxPatient; b: MedBag; da
             ))}
           </tbody>
         </table>
-        <div className="nums text-[11pt] font-bold">{amountText(b)}</div>
+        <div className="nums text-[11pt] font-bold">{displayText(amountText(b))}</div>
         <p className="text-[8pt] leading-snug">飲み忘れに気づいても、2回分を一度に飲まないでください。わからないことは薬剤部へお問い合わせください。</p>
       </div>
       <div className="nums border-t border-ink/40 px-4 py-1.5 text-[7.5pt] leading-snug">
@@ -89,7 +90,7 @@ export function DrugInfoSheet({ p, bags, care, date, pharmacist }: { p: HomeRxPa
                   {b.how}
                   <br />
                   1回 {d.per}
-                  {d.unit}　{amountText(b)}
+                  {d.unit}　{displayText(amountText(b))}
                 </td>
                 <td className="border border-ink/40 px-2 py-1">
                   <div>{d.info.what}</div>
@@ -108,7 +109,7 @@ export function DrugInfoSheet({ p, bags, care, date, pharmacist }: { p: HomeRxPa
         ほかの病院や薬局でもらった薬、市販の薬やサプリメントを使うときは、この説明書とお薬手帳を見せてください。体調の変化があれば、自分の判断で止めずに連絡してください。
       </p>
       <p className="mt-1 text-[8pt] text-ink-soft">
-        説明した薬剤師：{pharmacist}　／　文面は添付文書（{DRUG_INFO_SOURCE.label}）をもとにした要約です。架空の病院・架空の患者です。
+        説明した薬剤師：{pharmacist}　／　文面は添付文書（{DRUG_INFO_SOURCE.label}）をもとにした要約です。
       </p>
     </div>
   );
@@ -125,7 +126,7 @@ export function NotebookSticker({ p, bags, date, doctor }: { p: HomeRxPatient; b
         </span>
       </div>
       <div className="border-b border-ink/20 py-0.5">
-        {p.name} 様　処方医 {doctor}
+        {p.name} 様　処方医 {displayText(doctor)}
       </div>
       {bags.map((b, i) => (
         <div key={b.rp} className="border-b border-ink/20 py-0.5">
@@ -137,7 +138,7 @@ export function NotebookSticker({ p, bags, date, doctor }: { p: HomeRxPatient; b
             </div>
           ))}
           <div className="pl-2">
-            {b.how}　{amountText(b)}
+            {b.how}　{displayText(amountText(b))}
           </div>
         </div>
       ))}

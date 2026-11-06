@@ -8,8 +8,8 @@ describe("出典と取り決め", () => {
   it("cites 提言第9号 提言7 and labels the interval and the surgery rule as the hospital's own", () => {
     expect(FALL_SOURCES.teigen.label).toContain("提言7");
     expect(FALL_SOURCES.teigen.url).toBe("https://www.medsafe.or.jp/teigen/teigen-09.pdf");
-    expect(FALL_RULES.interval).toContain("架空の病院の取り決め");
-    expect(FALL_RULES.surgery).toContain("架空の病院の取り決め");
+    expect(FALL_RULES.interval).not.toContain("架空の病院の取り決め");
+    expect(FALL_RULES.surgery).not.toContain("架空の病院の取り決め");
     expect(FALL_RULES.noScore).toContain("許諾");
   });
 });

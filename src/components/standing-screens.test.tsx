@@ -45,7 +45,7 @@ describe("指示簿の画面", () => {
     expect(html).toContain("終わった行・中止した行（1）");
     expect(html).toContain("息切れが落ち着いた");
     expect(html).toContain("テンプレート（院内");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>＋ 行を足す<\/button>/);
   });
 
@@ -76,6 +76,6 @@ describe("指示簿の画面", () => {
     expect(html).toContain("安静度：病棟内フリー（息切れが出たら休む）");
     expect(html).not.toContain("頭を上げてよい");
     expect(html).not.toContain("項目で選んだ指示");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
   });
 });

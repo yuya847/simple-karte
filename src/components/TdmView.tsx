@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Plus, Send, X } from "lucide-react";
 import { useState } from "react";
 import { anyDrugName } from "@/lib/master";
@@ -113,7 +114,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
             }}
             className="text-xs text-ai underline"
           >
-            例を入れる（架空の値）
+            例を入れる
           </button>
           <p className="text-[11px] text-ink-faint">トラフ1点だけでは AUC は計算しません（集団の値を使うベイズ推定のソフトが要ります）。</p>
           <details className="text-[11px] text-ink-soft">
@@ -121,7 +122,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
             <ul className="mt-0.5 list-disc pl-4">
               {VCM_NOTES.map((n) => (
                 <li key={n.text}>
-                  {n.text}（{n.source}）
+                  {displayText(n.text)}（{displayText(n.source)}）
                 </li>
               ))}
             </ul>
@@ -144,7 +145,7 @@ export function TdmView({ people, nowTime, reports, onReport }: Props) {
           </div>
           {VCM_TARGET.auc24 && (
             <p className="text-xs text-ink-soft">
-              ガイドラインの目標：AUC24 {VCM_TARGET.auc24[0]}〜{VCM_TARGET.auc24[1]} μg·h/mL<span className="hint">（{VCM_TARGET.source}）</span>
+              ガイドラインの目標：AUC24 {VCM_TARGET.auc24[0]}〜{VCM_TARGET.auc24[1]} μg·h/mL<span className="hint">（{displayText(VCM_TARGET.source)}）</span>
             </p>
           )}
           <details className="text-xs text-ink-soft">

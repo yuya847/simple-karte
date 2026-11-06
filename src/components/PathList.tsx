@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Route } from "lucide-react";
 import { useState } from "react";
 import { PATH_RULES, PATH_SOURCES, VARIANCE_CATEGORIES, dueOutcomes, findPath, pathDayOf, varianceCounts, type PathBook, type VarianceCategory } from "@/lib/pathway";
@@ -22,7 +23,7 @@ export function PathList({ book, patientOf, fmt, onOpen }: { book: PathBook; pat
           <Route size={18} />
           クリティカルパスの一覧
         </h2>
-        <span className="text-xs text-ink-soft">受け持ちのチームの患者（架空の患者）</span>
+        <span className="text-xs text-ink-soft">受け持ちのチームの患者</span>
       </header>
       <p className="text-[11px] text-ink-faint">{PATH_RULES.content}</p>
 
@@ -103,9 +104,9 @@ export function PathList({ book, patientOf, fmt, onOpen }: { book: PathBook; pat
                     </td>
                     <td className={`w-8 px-2 py-1 font-bold ${v.sign === "負" ? "text-shu" : "text-wakatake"}`}>{v.sign}</td>
                     <td className="w-32 px-2 py-1">{v.category}</td>
-                    <td className="px-2 py-1">{v.detail}</td>
+                    <td className="px-2 py-1">{displayText(v.detail)}</td>
                     <td className="nums w-40 px-2 py-1 text-right text-[11px] text-ink-faint">
-                      {v.by} {fmt(v.at.day)} {v.at.time}
+                      {displayText(v.by)} {fmt(v.at.day)} {v.at.time}
                     </td>
                   </tr>
                 );
@@ -113,7 +114,7 @@ export function PathList({ book, patientOf, fmt, onOpen }: { book: PathBook; pat
             </tbody>
           </table>
         )}
-        <p className="hint text-[11px] text-ink-faint">{PATH_RULES.variance}</p>
+
       </section>
       <p className="hint text-[11px] text-ink-faint">
         出典（機能）：

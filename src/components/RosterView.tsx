@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { useHints } from "@/lib/hints";
 import { BookOpenText, Check, HelpCircle, X } from "lucide-react";
@@ -115,7 +116,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-rule bg-sheet px-5 py-3">
         <h1 className="text-lg font-bold">
           勤務表と様式9（{WARD_NAME}）
-          <span className="ml-2 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
           {(
@@ -147,7 +148,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
           <p>
             看護師長が月の勤務を入れる画面です。「入れる勤務」を選んでからマスを押すと、その勤務が入ります（夜勤のあとの休みは「明」と出ます。夜勤は翌9:00まで）。入れるたびに、1人ずつの夜勤の回数と夜勤時間帯の時間、様式9の月平均夜勤時間数・看護職員の配置・看護師の比率を、通知の数え方でコードが数えます。夜勤の人数と看護師がいるか、1年目だけの夜勤、登録した組み合わせ、明けの日の勤務は日ごとに確かめ、マスに赤い枠が付きます。
           </p>
-          <p className="mt-1 text-[11px] text-ink-soft">勤務表はコードも AI も作りません。今月はデモの下書き（架空）が入っていて、確認の例が2つ残っています。決めるのは看護師長で、確認が残っていても確定できます。</p>
+          <p className="mt-1 text-[11px] text-ink-soft">勤務表はコードも AI も作りません。今月はデモの下書きが入っていて、確認の例が2つ残っています。決めるのは看護師長で、確認が残っていても確定できます。</p>
         </div>
       )}
 
@@ -161,7 +162,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
             </button>
           ))}
           <span className="ml-auto text-xs text-ink-soft">
-            夜勤時間帯：{NIGHT_BAND.from}〜翌{NIGHT_BAND.to}（16時間、22時〜翌5時を含む。架空の病院が定めたもの）
+            夜勤時間帯：{displayText(NIGHT_BAND.from)}〜翌{NIGHT_BAND.to}（16時間、22時〜翌5時を含むの病院が定めたもの）
           </span>
         </div>
 
@@ -294,7 +295,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                       aria-label="1日平均入院患者数"
                       className="w-20 rounded border border-rule bg-paper px-1.5 py-0.5 text-right"
                     />{" "}
-                    人<span className="ml-2 text-xs text-ink-faint">直近1年の延入院患者数 ÷ 延日数（架空の値。小数第1位までに切り上げて {f.A}）</span>
+                    人<span className="ml-2 text-xs text-ink-faint">直近1年の延入院患者数 ÷ 延日数（小数第1位までに切り上げて  {f.A}）</span>
                   </td>
                 </tr>
                 <tr className="border-b border-rule-soft">
@@ -318,7 +319,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                 <tr className="border-b border-rule-soft">
                   <th className="py-1.5 pr-2 text-left font-normal text-ink-soft">⑤ 夜勤時間帯（16時間）</th>
                   <td className="py-1.5">
-                    {NIGHT_BAND.from}〜翌{NIGHT_BAND.to}
+                    {displayText(NIGHT_BAND.from)}〜翌{NIGHT_BAND.to}
                   </td>
                 </tr>
                 <tr>
@@ -354,11 +355,11 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                 <ul className="scroll-thin max-h-72 space-y-1 overflow-y-auto">
                   {issues.map((x, i) => (
                     <li key={i}>
-                      <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${KIND_LABEL[x.kind].cls}`}>{KIND_LABEL[x.kind].text}</span>
+                      <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${KIND_LABEL[x.kind].cls}`}>{displayText(KIND_LABEL[x.kind].text)}</span>
                       <span className="nums mr-1 font-bold">
                         {ym.m}/{x.day}
                       </span>
-                      {x.text}
+                      {displayText(x.text)}
                       <span className="block pl-1 text-[11px] text-ink-faint">{x.basis}</span>
                     </li>
                   ))}
@@ -368,7 +369,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                 {month.confirmed ? (
                   <span className="flex items-center gap-1 text-wakatake">
                     <Check size={14} />
-                    確定 {month.confirmed.at}　{month.confirmed.by}（このあと直すと確定は外れます）
+                    確定 {month.confirmed.at}　{displayText(month.confirmed.by)}（このあと直すと確定は外れます）
                   </span>
                 ) : (
                   <>
@@ -383,7 +384,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
 
             <section className={`${card} p-4 text-[13px]`}>
               <h2 className="mb-1 font-bold">同じ夜勤に入れない組み合わせ</h2>
-              <p className="mb-2 text-[11px] text-ink-soft">看護師長が登録します。理由はここには書きません。<span className="hint">（架空の病院の取り決め）</span></p>
+              <p className="mb-2 text-[11px] text-ink-soft">看護師長が登録します。理由はここには書きません。</p>
               <ul className="mb-2 space-y-1">
                 {book.ngPairs.map(([a, b], i) => (
                   <li key={`${a}-${b}`} className="flex items-center gap-2">
@@ -422,7 +423,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
             </section>
           </div>
         </div>
-        <p className="text-[11px] text-ink-faint">看護師の名前・勤務・入院患者数はすべて架空です。この勤務表はこのブラウザの中だけにあります。</p>
+        <p className="text-[11px] text-ink-faint">この勤務表はこのブラウザの中だけにあります。</p>
       </div>
     </section>
   );

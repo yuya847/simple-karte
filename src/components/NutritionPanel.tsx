@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { bmi, requirements, weightLoss, compareDietNutrition } from "@/lib/nutrition";
 import { nutritionVersions, type AdmitEval, type NutritionRecord } from "@/lib/admit-eval";
@@ -51,7 +52,7 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
       <p>現在の食事：{dietLabel(diet)}／{prescribed.energyKcal ?? "未指定"}kcal・蛋白{prescribed.proteinG ?? "未指定"}g</p>
       <p>計算量 − 指示量：{energyDifference != null ? `${energyDifference}kcal` : "比較不可"}／{proteinDifference != null ? `${proteinDifference.toFixed(1)}g` : "比較不可"}</p>
       <button type="button" disabled={!result} className={field} onClick={() => { if(result) {setEnergy(result.kcal);setProteinG(result.protein);} }}>計算値を計画に入れる</button>
-      <p className="hint">活動・ストレス係数と蛋白量の初期値は、教科書的な一般値を参考にした架空の病院の取り決めです。疾患別の推奨ではありません。Harris-Benedict（原式）：男 66.473＋13.7516W＋5.0033H−6.755A、女 655.0955＋9.5634W＋1.8496H−4.6756A（W kg、H cm、A 歳）。<a href="https://nutritionalassessment.mumc.nl/en/calculating-energy-expenditure" target="_blank" rel="noreferrer">出典：Maastricht University Medical Center 栄養評価</a>。実測値と病態を確認し、人が必要量を決めます。</p>
+      <p className="hint">活動・ストレス係数と蛋白量の初期値は、教科書的な一般値を参考にしています。疾患別の推奨ではありません。Harris-Benedict（原式）：男 66.473＋13.7516W＋5.0033H−6.755A、女 655.0955＋9.5634W＋1.8496H−4.6756A（W kg、H cm、A 歳）。<a href="https://nutritionalassessment.mumc.nl/en/calculating-energy-expenditure" target="_blank" rel="noreferrer">出典：Maastricht University Medical Center 栄養評価</a>。実測値と病態を確認し、人が必要量を決めます。</p>
     </section>
     <section className="space-y-2"><h3 className="font-bold">栄養管理計画書</h3>{onPlan && <button type="button" className={field} onClick={onPlan}>計画書を作る</button>}
       <label className="block">目標<textarea className={`${field} w-full`} value={goal} onChange={e => setGoal(e.target.value)} /></label>
@@ -66,7 +67,7 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
         auditLog({role: me.role, actor: me.name, action: "確定（栄養管理計画）", patient: p.name, detail: text});
         onSave({ ...evaluation, patientId: p.id, nutrition: next }, text); setSaved("記録しました。再評価日は入院時の評価・やることと共通です。");
       }}>計画を記録</button>
-      <button type="button" className={`${field} ml-2`} onClick={() => print(<article className="p-6"><h1>栄養管理計画書（模擬・未署名）</h1><p>{p.name}（{p.id}）</p><pre className="whitespace-pre-wrap font-sans text-sm">{text}</pre></article>)}>印刷</button><p role="status">{saved}</p>
+      <button type="button" className={`${field} ml-2`} onClick={() => print(<article className="p-6"><h1>栄養管理計画書（模擬・未署名）</h1><p>{p.name}（{p.id}）</p><pre className="whitespace-pre-wrap font-sans text-sm">{displayText(text)}</pre></article>)}>印刷</button><p role="status">{saved}</p>
     </section>
   </div>;
 }

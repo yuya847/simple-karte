@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { CheckSquare, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { kanaMatch } from "@/lib/kana";
@@ -98,7 +99,7 @@ export function NewTabPage({ patients, openIds, under, todos, onPatient }: Props
                     <span className={`nums rounded-full px-1.5 text-[10px] font-bold leading-4 text-white ${t.tone === "shu" ? "bg-shu" : t.tone === "ai" ? "bg-ai" : "bg-yamabuki"}`}>{t.count}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block">{t.label}</span>
-                      {t.detail && <span className="block text-[11px] text-ink-faint">{t.detail}</span>}
+                      {t.detail && <span className="block text-[11px] text-ink-faint">{displayText(t.detail)}</span>}
                     </span>
                   </button>
                 </li>

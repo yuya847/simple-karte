@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { PencilLine } from "lucide-react";
 import { mergeTyping, withCarets } from "@/lib/coedit";
 import type { NoteEditor } from "@/lib/presence";
@@ -32,7 +33,7 @@ export function LiveNote({ editors, base, chipOf, onJoin }: { editors: NoteEdito
           "caret" in p ? (
             <span key={i} role="img" aria-label={`${byTab[p.caret]?.who ?? ""}のカーソル`} title={byTab[p.caret]?.who} className={`mx-px inline-block h-[1.1em] w-[2px] animate-pulse align-text-bottom ${chipOf(byTab[p.caret]?.role ?? "")}`} />
           ) : (
-            <span key={i}>{p.text}</span>
+            <span key={i}>{displayText(p.text)}</span>
           ),
         )}
       </div>

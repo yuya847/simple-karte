@@ -142,7 +142,7 @@ describe("日ごとの確認", () => {
     expect(fresh[0].text).toContain("1年目だけ");
     const ng = issuesOn(base({ a: nights(7), b: nights(7) }), 7, [["a", "b"]]);
     expect(ng.map((i) => [i.kind, i.nurseIds])).toEqual([["院内", ["a", "b"]]]);
-    expect(ng[0].basis).toContain("架空の病院の取り決め");
+    expect(ng[0].basis).not.toContain("架空の病院の取り決め");
   });
   it("夜勤明けの日の日勤は時間が重なる。明けの日の夜勤は院内の取り決めで知らせる", () => {
     const mo = base({ a: { 8: "夜", 9: "日" }, b: { 8: "夜", 9: "夜" }, c: nights(9) });

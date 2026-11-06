@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import Image from "next/image";
 import { CheckSquare, ChevronDown, ChevronRight, CircleHelp, LockKeyhole, LogOut, Megaphone, Plus, ScrollText, Search, Table2, UserRound, X, ArrowLeft, RotateCw } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -406,7 +407,7 @@ function TodoButton({ todos }: { todos: Todo[] }) {
                   <Badge n={t.count} tone={t.tone} />
                   <span className="min-w-0 flex-1">
                     <span className="block">{t.label}</span>
-                    {t.detail && <span className="block text-[11px] text-ink-faint">{t.detail}</span>}
+                    {t.detail && <span className="block text-[11px] text-ink-faint">{displayText(t.detail)}</span>}
                   </span>
                 </button>
               </li>
@@ -478,7 +479,7 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
                           className={`w-full rounded px-2 py-0.5 text-left text-[13px] hover:bg-paper pointer-coarse:py-1.5 ${on ? "font-bold text-ai" : ""}`}
                         >
                           {d.name}
-                          <span className="block text-[11px] font-normal leading-tight text-ink-faint">{d.note}</span>
+                          <span className="block text-[11px] font-normal leading-tight text-ink-faint">{displayText(d.note)}</span>
                         </button>
                       </li>
                     );

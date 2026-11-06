@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ClipboardCheck, Download, FileInput, FileSearch, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -30,7 +31,7 @@ import { isoDate, type CalendarDate } from "@/lib/dates";
 import type { Diagnosis } from "@/lib/diagnoses";
 import { CARDS } from "@/lib/opd-desk";
 import type { Patient } from "@/lib/types";
-import { Fictional, saveFile, Sources, SubTabs } from "./DeskParts";
+import { saveFile, Sources, SubTabs } from "./DeskParts";
 import { useDeny, useMe } from "./RoleContext";
 
 type Tab = "inspect" | "import" | "resubmit";
@@ -81,7 +82,7 @@ export function ReceiptDesk({
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <FileSearch size={18} className="text-ai" />
           レセプト点検・返戻
-          <Fictional />
+
         </h1>
         <SubTabs
           label="レセプトの画面"
@@ -99,7 +100,7 @@ export function ReceiptDesk({
         {tab === "inspect" && <Inspect patients={patients} diagnoses={diagnoses} today={today} nowTime={nowTime} month={month} payload={payload} onOpen={onOpen} />}
         {tab === "import" && <Import files={files} month={month} nowTime={nowTime} onDesk={onDesk} />}
         {tab === "resubmit" && <Resubmit files={files} desk={desk} nowTime={nowTime} onDesk={onDesk} />}
-        <p className="hint text-[11px] text-ink-faint">患者・保険・ファイルはすべて架空です。取り込んだファイルと再請求の記録は、このブラウザの中にあり、監査ログに残ります。計算と点検はコードで行い、AI は使いません。</p>
+        <p className="hint text-[11px] text-ink-faint">取り込んだファイルと再請求の記録は、このブラウザの中にあり、監査ログに残ります。計算と点検はコードで行い、AI は使いません。</p>
       </div>
     </section>
   );
@@ -185,8 +186,8 @@ function Inspect({ patients, diagnoses, today, nowTime, month, payload, onOpen }
                       {list.map((i) => (
                         <li key={i.kind + i.text} className="leading-snug">
                           <span className={`mr-1 rounded border px-1 text-[10px] font-bold ${KIND_TONE[i.kind]}`}>{i.kind}</span>
-                          {i.text}
-                          <span className="ml-1 text-[10px] text-ink-faint">（{i.from}）</span>
+                          {displayText(i.text)}
+                          <span className="ml-1 text-[10px] text-ink-faint">（{displayText(i.from)}）</span>
                         </li>
                       ))}
                     </ul>
@@ -249,7 +250,7 @@ function Import({ files, month, nowTime, onDesk }: { files: Parsed[]; month: str
       <div className="rounded-lg border border-rule bg-sheet p-3">
         <h2 className="font-bold">ファイルを取り込む</h2>
         <p className="mt-1 text-[12px] text-ink-soft">
-          オンライン請求から受け取る増減点連絡書（{"RIzogn…csv"}）と返戻内訳書（{"RIhenr…csv"}）の CSV を、公開されている記録の形のとおりに読みます（Shift_JIS）。この試作はオンライン請求につないでいないので、模擬のファイル（{Number(claim.slice(5))}月診療分・架空の外来の患者）を作って試せます。
+          オンライン請求から受け取る増減点連絡書（{"RIzogn…csv"}）と返戻内訳書（{"RIhenr…csv"}）の CSV を、公開されている記録の形のとおりに読みます（Shift_JIS）。この試作はオンライン請求につないでいないので、模擬のファイル（{Number(claim.slice(5))}月診療分・外来の患者）を作って試せます。
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <label className={`flex items-center gap-1 rounded-md border border-rule px-2 py-1 ${locked ? "opacity-40" : "cursor-pointer hover:border-ai hover:text-ai"}`}>
@@ -310,7 +311,7 @@ function Import({ files, month, nowTime, onDesk }: { files: Parsed[]; month: str
                   <td className="px-2">{head.payer}</td>
                   <td className="nums px-2 text-right">{(zogen ?? henrei)!.receipts.length}</td>
                   <td className="px-2 text-[11px] text-ink-soft">
-                    {f.at} {f.by}
+                    {f.at} {displayText(f.by)}
                   </td>
                 </tr>
               );
@@ -403,7 +404,7 @@ function Import({ files, month, nowTime, onDesk }: { files: Parsed[]; month: str
                     <td className="nums px-2">{r.uketsuke}</td>
                     <td className="nums px-2 text-right">{r.points?.toLocaleString("ja-JP")}</td>
                     <td className="nums px-2">{r.code}</td>
-                    <td className="px-2">{r.reason}</td>
+                    <td className="px-2">{displayText(r.reason)}</td>
                   </tr>
                 )),
               )}
@@ -474,9 +475,9 @@ function Resubmit({ files, desk, nowTime, onDesk }: { files: Parsed[]; desk: Ret
                 {desk.actions[it.key] ? (
                   <span className="text-wakatake">
                     <b>{desk.actions[it.key].kind}</b>
-                    {desk.actions[it.key].note && `：${desk.actions[it.key].note}`}
+                    {displayText(desk.actions[it.key].note && `：${desk.actions[it.key].note}`)}
                     <span className="block text-[11px] text-ink-faint">
-                      {desk.actions[it.key].time} {desk.actions[it.key].by}
+                      {desk.actions[it.key].time} {displayText(desk.actions[it.key].by)}
                     </span>
                   </span>
                 ) : (

@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { Plus, StickyNote, Trash2, X } from "lucide-react";
@@ -76,13 +77,13 @@ export function FlowStickyLane({ notes, xAbs, lo, hi, plotW, labelW, meName, fmt
                   e.stopPropagation();
                   setOpen(open === Math.round(g.x) ? null : Math.round(g.x));
                 }}
-                title={g.notes.map((n) => `${clock(n.at)} ${n.text}（${n.by}）`).join("\n")}
-                aria-label={`付箋 ${g.notes.length}枚：${g.notes.map((n) => n.text).join("、")}`}
+                title={displayText(g.notes.map((n) => `${clock(n.at)} ${n.text}（${n.by}）`).join("\n"))}
+                aria-label={displayText(`付箋 ${g.notes.length}枚：${g.notes.map((n) => n.text).join("、")}`)}
                 className="flex h-4 min-w-4 items-center justify-center rounded-sm border border-yamabuki/60 bg-yamabuki-soft px-0.5 text-[9px] font-bold text-yamabuki shadow-sm"
               >
                 {g.notes.length > 1 ? g.notes.length : "付"}
               </button>
-              <span className="hidden max-w-40 truncate text-[9px] text-yamabuki print:inline">{g.notes.map((n) => n.text).join("／")}</span>
+              <span className="hidden max-w-40 truncate text-[9px] text-yamabuki print:inline">{displayText(g.notes.map((n) => n.text).join("／"))}</span>
             </span>
           ))}
           {draftAt !== null && <span aria-hidden className="absolute inset-y-0 w-px bg-yamabuki" style={{ left: xAbs(draftAbs ?? draftAt) }} />}
@@ -96,9 +97,9 @@ export function FlowStickyLane({ notes, xAbs, lo, hi, plotW, labelW, meName, fmt
               </div>
               {shown.notes.map((n) => (
                 <div key={n.id} className="border-t border-rule-soft pt-1">
-                  <div className="whitespace-pre-wrap text-ink">{n.text}</div>
+                  <div className="whitespace-pre-wrap text-ink">{displayText(n.text)}</div>
                   <div className="nums flex items-center gap-1 text-[10px] text-ink-faint">
-                    {fmtAt(n.at)} の付箋　{n.by}（{n.written.time} に記入）
+                    {fmtAt(n.at)} の付箋　{displayText(n.by)}（{n.written.time} に記入）
                     {onRemove && canRemoveNote(n, meName) && (
                       <button type="button" onClick={() => onRemove(n.id)} className="ml-auto flex items-center gap-0.5 rounded px-1 text-shu hover:bg-shu-soft">
                         <Trash2 size={10} />

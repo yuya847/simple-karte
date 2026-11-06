@@ -680,7 +680,7 @@ function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
   // 抗がん薬 come only from the regimen panel, where the dose, premedication and order are worked out.
   const chemo = d.items.map((it) => (it.drugCode ? findDrug(it.drugCode) : undefined)).filter((m) => m?.chemo);
   if (chemo.length && !d.sourceText.startsWith("（レジメン ")) {
-    issues.push({ key: "chemo", level: "stop", title: "抗がん薬", message: `${chemo.map((m) => m!.name).join("・")}は、右の「レジメン」の欄から出します（量の計算・前投薬・投与の順番を確かめるため。架空の病院の取り決め）。` });
+    issues.push({ key: "chemo", level: "stop", title: "抗がん薬", message: `${chemo.map((m) => m!.name).join("・")}は、右の「レジメン」の欄から出します。` });
   }
 
   d.items.forEach((it, i) => {
@@ -1218,7 +1218,7 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
           key: "o2-range",
           level: "ask",
           title: "流量",
-          message: `${d.o2.device}で${d.o2.lpm}L/分です。この病棟の取り決め（架空）では、${d.o2.device}は${r.min}〜${r.max}L/分で使います。`,
+          message: `${d.o2.device}で${d.o2.lpm}L/分です。この病棟の取り決めでは、${d.o2.device}は${r.min}〜${r.max}L/分で使います。`,
           choices: [{ label: `${d.o2.lpm}L/分で出す`, apply: set({ flowOk: true }) }],
         });
       }

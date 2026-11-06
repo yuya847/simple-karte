@@ -3,6 +3,7 @@
 // リハビリテーション実施計画書（別紙様式21 の主な欄）: the doctor makes it (with the therapists); the doctor, or a
 // nurse or therapist the doctor asks, explains it and records the date and the person (no signature needed).
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { biTotal } from "@/lib/barthel";
@@ -85,7 +86,7 @@ export function RehabPlanForm({ rx, desk, onDesk, nowTime, fmtDay, today = 0 }: 
         </b>
         <span>{categoryOf(rx.order.field).name}</span>
         <span className="text-ink-soft">
-          処方 {rx.orderedBy}（{fmtDay(rx.orderedAt.day)}）　職種 {rx.order.therapists.join("・")}　起算日 {fmtDay(rx.order.onset)}
+          処方 {displayText(rx.orderedBy)}（{fmtDay(rx.orderedAt.day)}）　職種 {rx.order.therapists.join("・")}　起算日 {fmtDay(rx.order.onset)}
         </span>
         <span className={st.state.includes("過ぎた") || st.state.includes("説明まだ") || st.state.includes("見直し") ? "font-bold text-shu" : "text-wakatake"}>
           {st.state}
@@ -94,8 +95,8 @@ export function RehabPlanForm({ rx, desk, onDesk, nowTime, fmtDay, today = 0 }: 
       </header>
       {cur && (
         <p className="text-ink-soft">
-          いまの計画書：{fmtDay(cur.madeBy.day)} {cur.madeBy.by} 作成
-          {cur.explained ? `　説明 ${fmtDay(cur.explained.day)} ${cur.explained.by} → ${cur.explained.to}` : "　説明・交付はまだ"}
+          いまの計画書：{fmtDay(cur.madeBy.day)} {displayText(cur.madeBy.by)} 作成
+          {displayText(cur.explained ? `　説明 ${fmtDay(cur.explained.day)} ${cur.explained.by} → ${cur.explained.to}` : "　説明・交付はまだ")}
         </p>
       )}
       <div className="grid gap-2 md:grid-cols-2">
@@ -212,7 +213,7 @@ export function RehabPlanForm({ rx, desk, onDesk, nowTime, fmtDay, today = 0 }: 
         )}
       </div>
       <p className="text-[11px] text-ink-faint">{PLAN_NOTE}</p>
-      <p className="text-[11px] text-ink-faint">別紙様式21 の栄養・口腔の欄は、回復期リハビリテーション病棟入院料などを算定する場合に必ず記入する欄です。この架空の病棟（急性期一般入院料）では載せていません。廃用症候群リハビリテーション料の「廃用症候群に係る評価表」（別紙様式22）は、この試作にはありません。</p>
+      <p className="text-[11px] text-ink-faint">別紙様式21 の栄養・口腔の欄は、回復期リハビリテーション病棟入院料などを算定する場合に必ず記入する欄です。この病棟（急性期一般入院料）では載せていません。廃用症候群リハビリテーション料の「廃用症候群に係る評価表」（別紙様式22）は、この試作にはありません。</p>
     </article>
   );
 }

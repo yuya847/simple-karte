@@ -33,8 +33,8 @@ export const NARCOTIC_SOURCES = {
 
 /** What the sources do not decide: this fictional hospital's choices. */
 export const NARCOTIC_RULES = {
-  licences: "麻薬施用者・麻薬管理者の免許番号と有効期間は架空です（架空の病院・架空の職員）。",
-  prn: "麻薬は指示簿の頓用には入れず、その都度オーダします（架空の病院の取り決め）。",
+  licences: "",
+  prn: "麻薬は指示簿の頓用には入れず、その都度オーダします。",
   outpatient: "院外の麻薬処方せん（患者の住所・使用期間・麻薬業務所の名称と所在地が要る）は、この試作では出せません。",
 };
 

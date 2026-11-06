@@ -204,7 +204,7 @@ export function risConfirmItems(r: Pick<RisRow, "orderId" | "order">, patient: P
     const gd = o.modality === "MRI";
     const consent = consentTextOf(r.orderId, consents, today);
     const consented = consents?.find((c) => c.orderId === r.orderId)?.status === "同意";
-    items.push(consent ? { label: "同意", value: consent, tone: consented ? "ok" : "ask" } : { label: "同意", value: gd ? "MRI の造影には同意書の様式がありません（架空）。医師の説明を確かめる" : "同意書の記録がありません。医師に確かめる", tone: "ask" });
+    items.push(consent ? { label: "同意", value: consent, tone: consented ? "ok" : "ask" } : { label: "同意", value: gd ? "MRI の造影には同意書の様式がありません。医師の説明を確かめる" : "同意書の記録がありません。医師に確かめる", tone: "ask" });
     const cre = latestCre(patient);
     if (cre) {
       const e = egfr(cre.value, patient.age, patient.sex);

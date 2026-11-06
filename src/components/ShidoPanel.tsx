@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { b008Check } from "@/lib/pharmacy";
@@ -87,7 +88,7 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
               ? "なし"
               : facts.drugs.map((d, i) => (
                   <span key={i} className="mr-2">
-                    {d.text}
+                    {displayText(d.text)}
                     <DrugMarks codes={[d.code]} />
                   </span>
                 ))}
@@ -144,7 +145,7 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
                 {r.mayaku ? "・麻薬管理指導加算" : ""}
               </b>
               {"\n"}
-              {r.text}
+              {displayText(r.text)}
             </li>
           ))}
         </ul>
@@ -154,7 +155,7 @@ export function ShidoPanel({ people, today, records, onRecord }: { people: WorkP
         <a href={SHIDO_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
           {SHIDO_SOURCE.label}
         </a>
-        。「1」の対象の薬は、電子添文の薬効分類で当てはめたもの（架空の病院の薬剤部の取り決め。厚生労働省の対象薬剤一覧とは照らしていない）。
+        。「1」の対象の薬は、電子添文の薬効分類で当てはめたもの。
       </p>
     </section>
   );

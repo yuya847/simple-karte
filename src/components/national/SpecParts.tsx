@@ -3,6 +3,7 @@
 // Parts shared by the simulated national services (模擬): the 模擬 mark, the spec that was followed (name,
 // version, URL) with the fields this app cannot fill, and the JSON that would be sent.
 
+import { displayText } from "@/lib/display-text";
 import { Copy, Download } from "lucide-react";
 import { useState } from "react";
 import type { SpecRef, Unfilled } from "@/lib/national/spec";
@@ -10,7 +11,7 @@ import { saveFile } from "../DeskParts";
 
 /** The 模擬 mark: these screens never connect to the real service. */
 export function MockMark({ text = "模擬" }: { text?: string }) {
-  return <span className="ml-1 rounded border border-dashed border-shu/60 bg-shu-soft px-1.5 py-0.5 align-middle text-[10px] font-bold text-shu">{text}</span>;
+  return <span className="ml-1 rounded border border-dashed border-shu/60 bg-shu-soft px-1.5 py-0.5 align-middle text-[10px] font-bold text-shu">{displayText(text)}</span>;
 }
 
 /** One line under a title: what is simulated and that nothing is sent. */
@@ -27,12 +28,12 @@ export function SpecBox({ specs, unfilled }: { specs: SpecRef[]; unfilled?: Unfi
         <ul className="space-y-0.5 text-ink-faint">
           {specs.map((s) => (
             <li key={s.url + s.name}>
-              {s.name}
-              {s.version ? `（${s.version}）` : ""}{" "}
+              {displayText(s.name)}
+              {displayText(s.version ? `（${s.version}）` : "")}{" "}
               <a href={s.url} target="_blank" rel="noreferrer" className="break-all text-ai underline">
                 {s.url}
               </a>
-              {s.note ? <span className="block pl-3">{s.note}</span> : null}
+              {s.note ? <span className="block pl-3">{displayText(s.note)}</span> : null}
             </li>
           ))}
         </ul>
@@ -83,7 +84,7 @@ export function JsonView({ value, name, label = "送る JSON（FHIR）" }: { val
           保存
         </button>
       </div>
-      {open && <pre className="scroll-thin max-h-[50vh] overflow-auto border-t border-rule px-2.5 py-2 font-mono text-[10.5px] leading-snug whitespace-pre">{text}</pre>}
+      {open && <pre className="scroll-thin max-h-[50vh] overflow-auto border-t border-rule px-2.5 py-2 font-mono text-[10.5px] leading-snug whitespace-pre">{displayText(text)}</pre>}
     </div>
   );
 }

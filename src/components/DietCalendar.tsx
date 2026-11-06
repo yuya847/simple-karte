@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -133,7 +134,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
                       type="button"
                       disabled={!dietEdit || !!dietEdit.denied || c.served}
                       onClick={() => { setEditing({ day: d, meal: m }); setScope("from"); setError(""); }}
-                      title={`${dietEdit?.denied ?? (c.served ? "配膳済みの食事は変更できません" : "押して変える")}：${formatShort(addDays(today, d))} ${m}：${c.held.length ? `${holdTitle(c.holds)}（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`}
+                      title={displayText(`${dietEdit?.denied ?? (c.served ? "配膳済みの食事は変更できません" : "押して変える")}：${formatShort(addDays(today, d))} ${m}：${c.held.length ? `${holdTitle(c.holds)}（${c.held.join("、")}）` : c.label}${c.o ? `　${c.o.by}の指示` : ""}`)}
                       className={`block min-h-12 w-full rounded enabled:hover:bg-ai-soft enabled:hover:text-ai px-1.5 py-1 text-left ${tone} ${c.served ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${d === 0 ? "outline outline-1 outline-ai/30" : ""}`}
                     >
                       {c.changed && <span className="mb-0.5 block text-[9px] font-bold text-ai">ここから変更</span>}
@@ -202,7 +203,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
           </div>,
           document.body,
         )}
-      <p className="hint mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。食事を押すとその場で編集でき、下書きに入れてから「オーダーのみ」か「保存」で確定します。検査で止めるのは架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
+      <p className="hint mt-2 text-[10px] text-ink-faint">日付を押すと、その日の転床・転棟・転科・退院・外泊を予約できます（下書きになり、確定すると「予約」として出ます。当日「実施」で移ります）。食事の指示からコードが出しています。濃い枠は食事が変わる食、薄いのは配膳済み。食事を押すとその場で編集でき、下書きに入れてから「オーダーのみ」か「保存」で確定します。検査で止めるのは院内の取り決め（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</p>
     </div>
   );
 }

@@ -4,6 +4,7 @@
 // each changed with who and when (the change log keeps every version). Who may change what follows
 // roles.ts (架空の病院の取り決め).
 
+import { displayText } from "@/lib/display-text";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -63,15 +64,15 @@ export function ProfilePanel({ base, log, fmtDay, onChange }: { base: Patient; l
       <section>
         <h3 className="mb-1 text-sm font-bold">変更の履歴</h3>
         {history.length === 0 ? (
-          <p className="text-xs text-ink-faint">この患者のプロファイルはまだ変えていません（いまの内容は架空の記録です）。</p>
+          <p className="text-xs text-ink-faint">この患者のプロファイルはまだ変えていません。</p>
         ) : (
           <ol className="space-y-1 border-l-2 border-rule pl-2 text-[12px]">
             {history.map(({ change, text }) => (
               <li key={change.id}>
                 <span className="nums text-ink-faint">
-                  {when(change.at)} {change.by}（{change.role}）
+                  {when(change.at)} {displayText(change.by)}（{change.role}）
                 </span>
-                <div>{text}</div>
+                <div>{displayText(text)}</div>
               </li>
             ))}
           </ol>
@@ -79,7 +80,7 @@ export function ProfilePanel({ base, log, fmtDay, onChange }: { base: Patient; l
       </section>
 
       <p className="hint text-[10px] text-ink-faint">
-        誰が何を登録・変更するか、身長・体重の範囲と「前回との差が大きい」の目安、介助の選択肢は架空の病院の取り決めです。項目の根拠：
+        項目の根拠：
         {PROFILE_SOURCES.map((s, i) => (
           <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline">
             {i > 0 ? "、" : ""}
@@ -120,10 +121,10 @@ function ListSection({ kind, base, log, when, onChange, denied }: { kind: ListKi
           return (
             <li key={i.text} className={`rounded-md border px-2 py-1 ${tone}`}>
               <div className="flex items-center gap-2">
-                <b>{i.text}</b>
-                <span className="nums text-[11px] text-ink-faint">{i.since ? `${when(i.since.at)} ${i.since.by}` : "前からの記録（架空）"}</span>
+                <b>{displayText(i.text)}</b>
+                <span className="nums text-[11px] text-ink-faint">{displayText(i.since ? `${when(i.since.at)} ${i.since.by}` : "前からの記録")}</span>
                 {!denied && removing !== i.text && (
-                  <button type="button" onClick={() => (setRemoving(i.text), setReason(""))} aria-label={`${i.text}を外す`} title="外す（理由を書きます）" className="ml-auto rounded p-1 text-ink-faint hover:bg-sheet hover:text-shu">
+                  <button type="button" onClick={() => (setRemoving(i.text), setReason(""))} aria-label={displayText(`${i.text}を外す`)} title="外す（理由を書きます）" className="ml-auto rounded p-1 text-ink-faint hover:bg-sheet hover:text-shu">
                     <Trash2 size={13} />
                   </button>
                 )}
@@ -226,8 +227,8 @@ function BloodSection({ now, last, when, onChange, denied }: { now: Patient; las
     <section>
       <Head title="血液型" denied={denied} action={PROFILE_ACTION.blood} />
       <div className="flex flex-wrap items-center gap-2">
-        <b className="nums">{bloodText(now.blood)}</b>
-        <span className="nums text-[11px] text-ink-faint">{last ? `${when(last.at)} ${last.by}` : "前からの記録（架空）"}</span>
+        <b className="nums">{displayText(bloodText(now.blood))}</b>
+        <span className="nums text-[11px] text-ink-faint">{displayText(last ? `${when(last.at)} ${last.by}` : "前からの記録")}</span>
         {!denied && !open && (
           <button type="button" onClick={() => setOpen(true)} className="ml-auto rounded border border-rule px-2 py-0.5 text-[11px]">
             登録・変更
@@ -305,7 +306,7 @@ function BodySection({ now, last, when, onChange, denied }: { now: Patient; last
         <b className="nums">
           {now.heightCm}cm・{now.weightKg}kg
         </b>
-        <span className="nums text-[11px] text-ink-faint">{last ? `${when(last.at)} ${last.by}` : "前からの記録（架空）"}</span>
+        <span className="nums text-[11px] text-ink-faint">{displayText(last ? `${when(last.at)} ${last.by}` : "前からの記録")}</span>
       </div>
       <p className="hint text-[11px] text-ink-faint">帯の BMI・推定CCr、注射の体重あたりの量、テンプレートの計算はこの値を使います。</p>
       {!denied && (
@@ -339,7 +340,7 @@ function BodySection({ now, last, when, onChange, denied }: { now: Patient; last
             </label>
           )}
           <span className="w-full text-[10px] text-ink-faint">
-            範囲：身長 {BODY_LIMITS.heightCm.join("〜")}cm・体重 {BODY_LIMITS.weightKg.join("〜")}kg。前回から身長 {BODY_JUMP.heightCm}cm・体重 {BODY_JUMP.weightRatio * 100}% を超えて違うときは確かめる<span className="hint">（架空の病院の取り決め）</span>
+            範囲：身長 {BODY_LIMITS.heightCm.join("〜")}cm・体重 {BODY_LIMITS.weightKg.join("〜")}kg。前回から身長 {BODY_JUMP.heightCm}cm・体重 {BODY_JUMP.weightRatio * 100}% を超えて違うときは確かめる
           </span>
         </div>
       )}
@@ -375,7 +376,7 @@ function CareSection({ log, patientId, when, onChange, denied }: { log: ProfileC
                 );
               })}
             </div>
-            <span className="nums text-[11px] text-ink-faint">{now[k] ? `${when(now[k]!.at)} ${now[k]!.by}` : "未登録"}</span>
+            <span className="nums text-[11px] text-ink-faint">{displayText(now[k] ? `${when(now[k]!.at)} ${now[k]!.by}` : "未登録")}</span>
           </div>
         ))}
       </div>

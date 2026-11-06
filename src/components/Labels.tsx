@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { code128Widths } from "@/lib/barcode";
 import { DrugMarks } from "./DrugMarks";
 
@@ -93,7 +94,7 @@ export function SpecimenLabel({ p, s }: { p: LabelPatient; s: SpecimenItem }) {
         {s.site ? `　${s.site}` : ""}
       </div>
       <div className="truncate">{s.tests}</div>
-      {s.note && <div className="truncate text-[6.5pt]">{s.note}</div>}
+      {s.note && <div className="truncate text-[6.5pt]">{displayText(s.note)}</div>}
       <Barcode value={s.code} height={16} module={0.9} />
     </div>
   );
@@ -121,7 +122,7 @@ export function DrugLabel({ p, d }: { p: LabelPatient; d: DrugItem }) {
         {d.main}
         <DrugMarks codes={d.drugs ?? []} print />
       </div>
-      <div className="text-[7.5pt]">{d.detail}</div>
+      <div className="text-[7.5pt]">{displayText(d.detail)}</div>
       <div className="nums mt-0.5 font-bold">投与 {d.when}</div>
       {p.allergies.length > 0 && <div className="text-[7pt] font-bold">アレルギー：{p.allergies.join("、")}</div>}
       <Barcode value={d.code} height={18} module={1} />

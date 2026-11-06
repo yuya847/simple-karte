@@ -4,6 +4,7 @@
 // と病棟のポータブル回り → 撮影（照射録・線量・造影剤）→ 読影 → 一覧、線量の一覧, and the simulated modality. The orders come from the doctors' charts (画像検査); the claim reads what is
 // recorded here (ris.ts withExamRecords). Patients, devices and numbers are fictional.
 
+import { displayText } from "@/lib/display-text";
 import { Activity, CalendarClock, ClipboardCheck, FilePen, ListChecks, MonitorCog, Radiation, Route, ScanLine } from "lucide-react";
 import { useState } from "react";
 import type { ConsentRecord } from "@/lib/consent";
@@ -12,7 +13,7 @@ import type { Ack } from "@/lib/results";
 import { DRL_NOTE, doseGroups, doseText, drlFor, needsReading, RIS_RULES, RIS_SOURCES, risResultItems, risRows, unsignedRecords, type RisDesk, type RisRow } from "@/lib/ris";
 import { portableRound, risTodo } from "@/lib/ris-take";
 import type { WorkPatient } from "@/lib/worksheet";
-import { Fictional, Sources, SubTabs } from "./DeskParts";
+import { Sources, SubTabs } from "./DeskParts";
 import { ModalitySim } from "./ModalitySim";
 import { PortableRound, RadiologyTake, Worklist } from "./RadiologyTake";
 import { DenyNote } from "./RoleContext";
@@ -52,7 +53,7 @@ export function RadiologyView(p: Props) {
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <Radiation size={18} className="text-ai" />
           放射線部
-          <Fictional />
+
         </h1>
         <SubTabs
           label="放射線部の画面"
@@ -87,7 +88,7 @@ export function RadiologyView(p: Props) {
         {tab === "reading" && <Reading {...p} rows={toRead} done={rows.filter((r) => r.work?.report)} />}
         {tab === "dose" && <Dose rows={rows} />}
         {tab === "list" && <List {...p} rows={rows} />}
-        <p className="text-[11px] text-ink-faint">{RIS_RULES.rooms} 患者・オーダ・撮影条件・線量・画像はすべて架空です。読影の所見はコードが書くことはありません。</p>
+        <p className="text-[11px] text-ink-faint">{RIS_RULES.rooms} 読影の所見はコードが書くことはありません。</p>
       </div>
     </section>
   );
@@ -166,7 +167,7 @@ function Dose({ rows }: { rows: RisRow[] }) {
                 <td className="nums px-2 py-1">{r.work?.done?.time}</td>
                 <td className="px-2 py-1">{r.name}</td>
                 <td className="px-2 py-1">{r.label}</td>
-                <td className="nums px-2 py-1">{doseText(r.order, r.work?.dose)}</td>
+                <td className="nums px-2 py-1">{displayText(doseText(r.order, r.work?.dose))}</td>
                 <td className="px-2 py-1 text-ink-soft">{drl ? `${drl.protocol}：${drl.ctdiVol !== undefined ? `CTDIvol ${drl.ctdiVol} mGy・DLP ${drl.dlp} mGy・cm` : `${drl.esak} mGy`}` : why}</td>
               </tr>
             );
@@ -222,18 +223,18 @@ function List({ rows, desk, acks, onDesk, nowTime }: Props & { rows: RisRow[] })
             const ack = item ? acks[item.key] : undefined;
             return (
               <tr key={r.orderId} className="border-b border-rule-soft align-top">
-                <td className="nums px-2 py-1">{whenText(r.at)}</td>
+                <td className="nums px-2 py-1">{displayText(whenText(r.at))}</td>
                 <td className="px-2 py-1">
                   {r.room}　{r.name}
                 </td>
                 <td className="px-2 py-1">{r.label}</td>
                 <td className={`px-2 py-1 ${STATUS_TONE[r.status]}`}>
                   {r.status}
-                  {r.work?.notDone && <span className="block font-normal">{r.work.notDone.reason}</span>}
+                  {r.work?.notDone && <span className="block font-normal">{displayText(r.work.notDone.reason)}</span>}
                 </td>
                 <td className="px-2 py-1">{r.order.modality === "MRI" ? <span className="text-ink-faint">対象外（MRI）</span> : r.work?.record ? <SignButton r={r} onDesk={onDesk} nowTime={nowTime} /> : <span className="text-ink-faint">{r.work?.done ? "技師の確定まだ" : "—"}</span>}</td>
                 <td className="px-2 py-1">{r.work?.report?.impression ?? (needsReading(r.order) ? "—" : "読影不要")}</td>
-                <td className={`px-2 py-1 ${r.work?.report && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{r.work?.report ? (ack ? `${ack.at.time} ${ack.by}` : "まだ") : "—"}</td>
+                <td className={`px-2 py-1 ${r.work?.report && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(r.work?.report ? (ack ? `${ack.at.time} ${ack.by}` : "まだ") : "—")}</td>
               </tr>
             );
           })}

@@ -21,7 +21,7 @@ describe("インスリンと栄養書類の表示",()=>{
  });
  it("注射入力に編集できる表と架空の取り決めを示し、固定量0単位と表示しない",()=>{
   const html=renderToStaticMarkup(<AddInjectionPanel onAdd={()=>{}} newId={()=>"d"} drafts={[]} seed={{key:"seed",order,start:{day:0,time:"07:30"}}}/>);
-  expect(html).toContain("スケールで決める");expect(html).toContain("架空の病院の取り決め：初期表");expect(html).toContain("行を追加");expect(html).toContain("この血糖値以上は医師へ連絡");
+  expect(html).toContain("スケールで決める");expect(html).toContain("初期表");expect(html).toContain("行を追加");expect(html).toContain("この血糖値以上は医師へ連絡");
  });
  it("管理栄養士が同じ書類を作れ、A4印刷対象と同じ項目が入力できる",()=>{
   const html=renderToStaticMarkup(<RoleProvider value="管理栄養士"><DocsPanel patient={p} today="11/6" initialKind="栄養管理計画書" initial={()=>nutritionPlanDraft(p,[],undefined,undefined,{name:"栄養士",role:"管理栄養士"})} auto={()=>({})} saved={[]} onSave={()=>{}} onOpenReferral={()=>{}}/></RoleProvider>);

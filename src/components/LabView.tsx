@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelReception } from "@/lib/lab-desk";
 
@@ -54,7 +55,7 @@ const GUIDE: Record<Tab, string> = {
   receive:
     "今日と明日の朝（夜勤の終わる 9:00 まで）の病棟の採血・採尿と、今日の救急外来・外来の検体（「救急」「外来」の印）が時刻の順に並びます。病棟がワークシートの「照合」で採取を記録すると「採取済み」になります。届いた検体のラベルをバーコードリーダーで読むと（番号のあとに Enter が入ります）、コードがどの採血かを探して「受付済み」にし、時刻と受けた人を残します。一覧にない番号・中止の検査・受付済み・病棟が未実施と記録した採血・時刻より前で採取の記録もない採血・再採血を依頼した検体の古いラベルは止めます。デモでは行の「読む」で読めます。",
   enter:
-    "受け付けた検体が並びます。オーダの項目ごとに値を入れると（Enter で次の項目へ）、基準範囲との H／L とパニック値をコードが判定し、前回値を並べます（基準範囲は JCCLS 共用基準範囲・SRL、パニック値はこの架空の病院の値）。全部の項目を入れて「確定」すると、誰がいつ確定したかが残り、医師のカルテの「未確認の結果」と検査結果の表に出ます。パニック値があれば「結果とパニック値」に出ます。測れない検体（溶血・量不足・凝固・ラベル不一致・その他）は「再採血を依頼する」で理由を選ぶと、同じオーダの採血が新しいラベルで病棟のワークシートに「再採血」として戻ります。確定した結果は下の「確定した結果」から訂正でき、理由が要ります。前の版（誰・いつ・なぜ）は残り、医師には「訂正」の印でもう一度未確認として出ます。訂正でパニック値になれば連絡に進み、パニック値でなくなれば連絡の一覧から外れます。",
+    "受け付けた検体が並びます。オーダの項目ごとに値を入れると（Enter で次の項目へ）、基準範囲との H／L とパニック値をコードが判定し、前回値を並べます（基準範囲は JCCLS 共用基準範囲・SRL）。全部の項目を入れて「確定」すると、誰がいつ確定したかが残り、医師のカルテの「未確認の結果」と検査結果の表に出ます。パニック値があれば「結果とパニック値」に出ます。測れない検体（溶血・量不足・凝固・ラベル不一致・その他）は「再採血を依頼する」で理由を選ぶと、同じオーダの採血が新しいラベルで病棟のワークシートに「再採血」として戻ります。確定した結果は下の「確定した結果」から訂正でき、理由が要ります。前の版（誰・いつ・なぜ）は残り、医師には「訂正」の印でもう一度未確認として出ます。訂正でパニック値になれば連絡に進み、パニック値でなくなれば連絡の一覧から外れます。",
   culture:
     "血液培養・尿培養の検体を受け付けると「培養中」で並びます（記録にある培養中・中間報告の培養も）。塗抹（グラム染色）→ 中間報告（菌名）→ 最終報告（菌名と薬剤感受性 S／I／R）の順に、所見を選んで確定すると、誰がいつ報告したかが残り、医師のカルテの「未確認の結果」と細菌検査に出ます。陰性はそのまま最終報告にできます。血液培養の塗抹（陽性のボトル）はパニック値で、医師に連絡して記録するまで次の報告に進めません。S／I／R は検査室の判定を入れ、この画面は判定しません。",
   results:
@@ -245,7 +246,7 @@ function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; p
           {rows.map((r) => (
             <tr key={r.code} className="border-b border-rule-soft align-top">
               <td className="nums py-1 pr-2">
-                {whenText(r.at)}
+                {displayText(whenText(r.at))}
                 {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
               </td>
               <td className="min-w-[9rem] whitespace-nowrap py-1 pr-2">
@@ -254,7 +255,7 @@ function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; p
               <td className="py-1 pr-2">
                 {r.redrawOf && <span className="mr-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">再採血</span>}
                 {r.tests}
-                {r.redrawOf && <span className="block text-[10px] text-yamabuki">前の検体 {r.redrawOf.code}：{rejectText(r.redrawOf)}（{r.redrawOf.time} {r.redrawOf.by}）</span>}
+                {r.redrawOf && <span className="block text-[10px] text-yamabuki">前の検体 {r.redrawOf.code}：{displayText(rejectText(r.redrawOf))}（{r.redrawOf.time} {displayText(r.redrawOf.by)}）</span>}
               </td>
               <td className="py-1 pr-2 text-ink-soft">{r.container}</td>
               <td className="nums py-1 pr-2 font-mono text-[11px] text-ink-soft">{r.code}</td>
@@ -348,7 +349,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
                   </td>
                   <td className="py-1 pr-2">{i.title}</td>
                   <td className={`py-1 ${i.panic.length ? "font-bold text-shu" : ""}`}>
-                    {i.panic.length ? `パニック値：${i.panic.map(hitLine).join("、")}` : i.detail}
+                    {displayText(i.panic.length ? `パニック値：${i.panic.map(hitLine).join("、")}` : i.detail)}
                     {i.corrected && <span className="block font-bold text-yamabuki">{i.corrected}</span>}
                   </td>
                 </tr>
@@ -359,7 +360,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
       </section>
 
       <section className="mt-4 rounded-md border border-rule bg-sheet p-3 text-[11px] text-ink-soft">
-        <h3 className="mb-1 font-bold">この架空の病院のパニック値</h3>
+        <h3 className="mb-1 font-bold">パニック値</h3>
         <p className="nums">
           {limits
             .map((l) => {

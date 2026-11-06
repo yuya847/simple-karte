@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ArrowRight, Check, Plus, Square } from "lucide-react";
 import { useEffect, useState } from "react";
 import { injectionCell, prescriptionCell, procedureCell } from "@/lib/calendar";
@@ -53,8 +54,8 @@ const EXEC_NOTE = (execute: ExecuteProps | undefined) => (execute ? "時刻の�
 function MarMark({ r }: { r?: { status: "実施" | "未実施"; by: string; doneAt: string; reason?: string } }) {
   if (!r) return null;
   return (
-    <span className={`whitespace-nowrap text-[10px] font-bold ${r.status === "実施" ? "text-wakatake" : "text-shu"}`} title={`${r.status} ${r.doneAt} ${r.by}${r.reason ? `（${r.reason}）` : ""}`}>
-      {r.status === "実施" ? "済" : `未実施${r.reason ? `：${r.reason}` : ""}`}
+    <span className={`whitespace-nowrap text-[10px] font-bold ${r.status === "実施" ? "text-wakatake" : "text-shu"}`} title={displayText(`${r.status} ${r.doneAt} ${r.by}${r.reason ? `（${r.reason}）` : ""}`)}>
+      {displayText(r.status === "実施" ? "済" : `未実施${r.reason ? `：${r.reason}` : ""}`)}
     </span>
   );
 }
@@ -119,7 +120,7 @@ function Frame({
         </thead>
         <tbody>{children}</tbody>
       </table>
-      <p className="hint mt-2 px-3 text-[10px] text-ink-faint">{note}</p>
+      <p className="hint mt-2 px-3 text-[10px] text-ink-faint">{displayText(note)}</p>
     </div>
   );
 }
@@ -257,7 +258,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`✓ は与薬・実施の記録がある投与です。時刻を押すとその回をスキップ、もう一度押すと復活します（実施済みの回は「未実施に戻す」で取り消し）。枠だけのものはこれからの予定。${EXEC_NOTE(execute)}点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます（時刻帯の時刻は架空の病院の取り決め）。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
+      note={`✓ は与薬・実施の記録がある投与です。時刻を押すとその回をスキップ、もう一度押すと復活します（実施済みの回は「未実施に戻す」で取り消し）。枠だけのものはこれからの予定。${EXEC_NOTE(execute)}点滴量はオーダから計算した概算です。日数の決まった点滴は、終わりの日より右の空欄を押すか、終わりの日の → を右へ引くと延長の下書きになります（→ にカーソルを置いて ← → と Enter でも）。${onNewInjection ? "「＋ 新しい注射」の行で日付を押すと、その日と時刻帯を開始にした新しい注射を注射のタブで入れられます。中止したオーダの今日以降の欄を押すと、その日から同じ内容で新規（Do）。" : ""}`}
     >
       {INJ_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as InjectionOrder));
@@ -378,7 +379,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                 <td key={day} className={`border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${day === 0 ? "bg-ai-soft/30" : day > 0 ? "bg-paper/50" : ""}`}>
                   {day >= span.from && day <= span.to && (
                     <span className="whitespace-nowrap rounded border border-dashed border-yamabuki px-1 py-px text-[11px] text-yamabuki">
-                      {day === span.from && d.start.time ? `${d.start.time} ` : ""}
+                      {displayText(day === span.from && d.start.time ? `${d.start.time} ` : "")}
                       下書き
                     </span>
                   )}
@@ -470,7 +471,7 @@ function StartBandMenu({ label, onPick, onClose, alignRight }: { label: string; 
           {b.time && <span className="text-ink-faint">{b.time}</span>}
         </button>
       ))}
-      <p className="hint px-1 pt-1 text-[10px] text-ink-faint">時刻帯の時刻は架空の病院の取り決めです。注射のタブで時刻を打ち直せます。</p>
+      <p className="hint px-1 pt-1 text-[10px] text-ink-faint">注射のタブで時刻を打ち直せます。</p>
     </div>
   );
 }
@@ -545,7 +546,7 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`✓ は服用の時刻を過ぎたもの、済・未実施は与薬の記録から（記録のない過去の分は架空）。服用の時刻は病棟の約束（朝 8:00・昼 12:00・夕 18:00・眠前 21:00）。頓用は使った時刻を出します。${EXEC_NOTE(execute)}`}
+      note={`✓ は服用の時刻を過ぎたもの、済・未実施は与薬の記録から。服用の時刻は病棟の約束（朝 8:00・昼 12:00・夕 18:00・眠前 21:00）。頓用は使った時刻を出します。${EXEC_NOTE(execute)}`}
     >
       <tr>
         <th className="sticky left-0 z-[5] border-b border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">食事（主食・割）</th>
@@ -554,7 +555,7 @@ export function PrescriptionCalendar({ patient, entries, today, nowTime, selecte
           const text = !r?.meals ? "" : r.meals === "絶食" ? "絶食" : r.meals.map((m) => (m === null ? "−" : m)).join("/");
           return (
             <td key={d} className={`border-b border-l border-rule bg-paper px-1.5 py-1.5 text-center text-[11px] ${text === "絶食" ? "font-bold text-yamabuki" : ""}`}>
-              {text}
+              {displayText(text)}
             </td>
           );
         })}
@@ -644,7 +645,7 @@ export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDa
       patient={patient}
       selectedDay={selectedDay}
       onSelectDay={onSelectDay}
-      note={`決まった時刻の処置は、時刻を過ぎたものを ✓ に、済・未実施は実施の記録から（記録のない過去の分は架空）。時刻は病棟の約束（1日1回 10:00、1日2回 10:00・18:00、1日3回 6:00・14:00・22:00）。必要時の処置は、実施した時刻（架空の記録）を出します。${EXEC_NOTE(execute)}`}
+      note={`決まった時刻の処置は、時刻を過ぎたものを ✓ に、済・未実施は実施の記録から。時刻は病棟の約束（1日1回 10:00、1日2回 10:00・18:00、1日3回 6:00・14:00・22:00）。必要時の処置は、実施した時刻を出します。${EXEC_NOTE(execute)}`}
     >
       {PROC_GROUPS.map((g) => {
         const rows = orders.filter((e) => g.test(e.order as ProcedureOrder));
@@ -665,7 +666,7 @@ export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDa
                         {c.running && (
                           <Chip state={c.running.state}>
                             {o.o2 ? `${o.o2.lpm}L/分` : findProc(o.code)?.name === "膀胱留置カテーテル" ? "留置" : "実施中"}
-                            {c.running.from && <span className="opacity-75">{c.running.from}〜</span>}
+                            {c.running.from && <span className="opacity-75">{displayText(c.running.from)}〜</span>}
                           </Chip>
                         )}
                         {c.times.map((t) => {

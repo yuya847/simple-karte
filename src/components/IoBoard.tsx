@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
@@ -104,7 +105,7 @@ export function IoBoard({ people, typed, records, sessionStart, nowTime, today, 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px] space-y-3 rounded-lg border border-rule bg-sheet p-5 shadow-sm">
           <p className="nums text-[12px] text-ink-soft">
-            表示：<b className="text-ink">{windowText(w)}</b>（{formatShort(addDays(today, day))}）と、その日の24時間（{windowText(whole).replace("24時間 ", "")}）のいままで。{IO_RULES.label}。
+            表示：<b className="text-ink">{displayText(windowText(w))}</b>（{formatShort(addDays(today, day))}）と、その日の24時間（{displayText(windowText(whole).replace("24時間 ", ""))}）のいままで。{IO_RULES.label}。
           </p>
           <table className="nums w-full border-collapse text-[12px]">
             <thead>
@@ -195,7 +196,7 @@ export function IoBoard({ people, typed, records, sessionStart, nowTime, today, 
           )}
           {at === null && <p className="text-xs text-shu">時刻は 17:00 の形で入れてください。</p>}
           {bad.length > 0 && <p className="text-xs text-shu">{bad[0].problems[0]}</p>}
-          {canType && outside && pending.length > 0 && <p className="text-xs text-yamabuki">この時刻は表示中の勤務（{windowText(w)}）の外です。記録は入れた時刻の勤務に入ります。</p>}
+          {canType && outside && pending.length > 0 && <p className="text-xs text-yamabuki">この時刻は表示中の勤務（{displayText(windowText(w))}）の外です。記録は入れた時刻の勤務に入ります。</p>}
           <p className="text-[11px] text-ink-faint">
             合計と IN − OUT はコードが足し算しています（式はマウスを重ねると出ます）。点滴は注射の記録（終了の 1本 − 残量）から入り、ここでは入れません。IN か OUT の記録がない時間は差を出しません。{IO_NOT_INCLUDED}1人ずつの記録と取り消しは、カルテの「水分出納」で行います。
           </p>

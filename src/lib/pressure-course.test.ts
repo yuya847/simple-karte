@@ -109,7 +109,7 @@ describe("写真の取り込み", () => {
     const p = samplePhoto(1);
     expect(p.sample).toBe(true);
     expect(p.dataUrl.startsWith("data:image/svg+xml")).toBe(true);
-    expect(decodeURIComponent(p.dataUrl)).toContain("架空の見本（図形）");
+    expect(decodeURIComponent(p.dataUrl)).toContain("見本（図形）");
   });
 });
 

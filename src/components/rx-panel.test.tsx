@@ -12,7 +12,7 @@ describe("内服の罫線入力", () => {
     expect(html.match(/aria-label="処方全体の区分"/g)).toHaveLength(1);
     expect(html).not.toContain('aria-label="Rp1 の回数"');
     expect(html).toContain("この病棟の定期処方日：火曜");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("＋コメント");
   });
   it("記憶した処方を直せて、退院時の区分も引き継ぐ", () => {

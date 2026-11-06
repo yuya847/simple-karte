@@ -38,7 +38,7 @@ export const SOURCES = {
 } satisfies Record<string, Source>;
 
 /** The rules of the fictional hospital itself (not a public source). */
-export const HOSPITAL_RULE = "架空の病院の取り決め";
+export const HOSPITAL_RULE = "院内の取り決め";
 
 export type DoseBasis = "mg/m²" | "mg/kg" | "AUC" | "固定";
 
@@ -308,7 +308,7 @@ export const REGIMENS: Regimen[] = [
     oral: [],
     notes: [
       { text: "量は JCOG 9702（カルボプラチン AUC 5 day1 ＋ エトポシド 80mg/m² day1〜3、3〜4週ごと4コースまで）によります。", source: S.jcog9702 },
-      { text: "JCOG 9702 は 24時間 Ccr を Calvert 式の GFR として使っています。この病院（架空）は Cockcroft-Gault 式の推定値を使います。", source: S.jcog9702 },
+      { text: "JCOG 9702 は 24時間 Ccr を Calvert 式の GFR として使っています。この病院は Cockcroft-Gault 式の推定値を使います。", source: S.jcog9702 },
       { text: "JCOG 9702 では day4 以降の G-CSF の予防投与が推奨されていました（使ったかは主治医の判断）。この欄の下書きには入りません。", source: S.jcog9702 },
       { text: "エトポシド添付文書（肺小細胞癌）は 1日量 60〜100mg/m² を5日間連続、3週間休薬。day1〜3 の 80mg/m² は JCOG 9702 によります。", source: S.etpInsert },
       { text: "カルボプラチン添付文書の用量は 1日1回 300〜400mg/m²（少なくとも4週間休薬）で、AUC での量は載っていません。", source: S.cbdcaInsert },

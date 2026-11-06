@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { BookOpen, ExternalLink, Printer, Search, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -42,7 +43,7 @@ export function ManualView({ manuals = MANUALS, openId, onOpen }: Props) {
         <h1 className="flex items-center gap-2 text-lg font-bold">
           <BookOpen size={20} className="text-ai" />
           院内マニュアル
-          <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <p className="nums text-sm text-ink-soft">
           {manuals.length}件（{byChapter(searchManuals(manuals, "")).length}章）
@@ -85,7 +86,7 @@ export function ManualView({ manuals = MANUALS, openId, onOpen }: Props) {
                         >
                           <span className="leading-snug">{m.title}</span>
                           <span className="nums text-[11px] font-normal text-ink-faint">
-                            {m.version}・{revisedLabel(m.revised)} 改訂
+                            {displayText(m.version)}・{revisedLabel(m.revised)} 改訂
                           </span>
                           {h.steps.length > 0 && (
                             <span className="line-clamp-2 text-[11px] font-normal text-ink-soft">
@@ -100,7 +101,7 @@ export function ManualView({ manuals = MANUALS, openId, onOpen }: Props) {
               </div>
             ))}
           </div>
-          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">架空の病院のマニュアルです。手順は公的な資料（各マニュアルの出典）に沿った例で、薬の量や診療の判断は書いていません（判断は医師が行います）。検索と並べ方はコードで行い、AI は使っていません。</p>
+          <p className="hint border-t border-rule-soft px-4 py-2 text-[10px] text-ink-faint">手順は公的な資料（各マニュアルの出典）に沿った例で、薬の量や診療の判断は書いていません（判断は医師が行います）。検索と並べ方はコードで行い、AI は使いません。</p>
         </nav>
 
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-5">
@@ -132,11 +133,11 @@ function ManualSheet({ manual: m, matched, printed }: { manual: Manual; matched:
       <p className="text-[12px] text-ink-soft">
         {m.chapter}
         <span className="mx-1.5 text-ink-faint">／</span>
-        {m.dept}
+        {displayText(m.dept)}
       </p>
       <h2 className="mt-0.5 text-lg font-bold leading-snug">{m.title}</h2>
       <p className="nums mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-soft">
-        <span>{m.version}</span>
+        <span>{displayText(m.version)}</span>
         <span>改訂日 {revisedLabel(m.revised)}</span>
         <span className="rounded bg-yamabuki-soft px-1.5 py-0.5 text-[11px] font-bold text-yamabuki print:border print:border-ink/40 print:bg-transparent print:text-ink">{MANUAL_LABEL}</span>
       </p>
@@ -150,7 +151,7 @@ function ManualSheet({ manual: m, matched, printed }: { manual: Manual; matched:
         ))}
       </ol>
 
-      {m.note && <p className="mt-3 rounded-md border border-rule-soft bg-paper px-3 py-2 text-[12px] text-ink-soft print:bg-transparent">{m.note}</p>}
+      {m.note && <p className="mt-3 rounded-md border border-rule-soft bg-paper px-3 py-2 text-[12px] text-ink-soft print:bg-transparent">{displayText(m.note)}</p>}
 
       <section className="mt-5 border-t border-rule pt-3">
         <h3 className="mb-1.5 text-[12px] font-bold text-ink-soft">出典（公的な資料）</h3>
@@ -173,7 +174,7 @@ function ManualSheet({ manual: m, matched, printed }: { manual: Manual; matched:
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-[11px] text-ink-faint">この手順は{MANUAL_LABEL}です。版と改訂日も架空です。実際の病院では、各院の手順に従ってください。</p>
+        <p className="mt-3 text-[11px] text-ink-faint">この手順は{MANUAL_LABEL}です。各院の手順に従ってください。</p>
       </section>
     </article>
   );

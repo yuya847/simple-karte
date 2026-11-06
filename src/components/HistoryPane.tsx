@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { ConsultStatus } from "./ConsultContext";
 
 import { useEffect, useRef, useState } from "react";
@@ -769,13 +770,13 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
             {times.late ? "（遅れて記載）" : ""}
           </span>
           <span className={`rounded px-1 font-bold leading-4 ${tone.chip}`}>{entry.role}</span>
-          <span className="font-bold text-ink">{entry.author}</span>
+          <span className="font-bold text-ink">{displayText(entry.author)}</span>
           <CosignMark refId={entry.id} />
           {versions.length > 1 && (
             <button type="button" onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-0.5 rounded border border-yamabuki/50 px-1 text-yamabuki" aria-expanded={showHistory}>
               <History size={11} />
               更新 {last.day === 0 ? "" : formatShort(addDays(today, last.day))}
-              {last.time} {last.author}（第{versions.length}版）
+              {last.time} {displayText(last.author)}（第{versions.length}版）
             </button>
           )}
           {mine && !editing && (
@@ -857,8 +858,8 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
           {versions.map((v, i) => (
             <li key={i}>
               <div className="nums text-[11px] text-ink-faint">
-                第{i + 1}版　{v.day === 0 ? "今日" : formatShort(addDays(today, v.day))} {v.time}　{v.author}
-                {v.reason ? `　理由：${v.reason}` : i === 0 ? "　（最初の記録）" : ""}
+                第{i + 1}版　{v.day === 0 ? "今日" : formatShort(addDays(today, v.day))} {v.time}　{displayText(v.author)}
+                {displayText(v.reason ? `　理由：${v.reason}` : i === 0 ? "　（最初の記録）" : "")}
               </div>
               {i === 0 ? (
                 <div className="whitespace-pre-wrap text-ink-soft">
@@ -1002,7 +1003,7 @@ function ExecutionTags({ marks, today, now }: { marks: ReturnType<typeof executi
     <span className="flex min-w-0 shrink-0 flex-wrap items-center gap-1">
       {marks.map((p, i) => (
         <span key={i} data-exec-mark className={`nums whitespace-nowrap rounded border px-1 text-[10px] ${isAhead(p, now) ? "border-mizu/60 text-mizu" : "border-rule text-ink-faint"}`}>
-          {planVerb(p, now)} {whenText(today, p.day, p.time)}
+          {planVerb(p, now)} {displayText(whenText(today, p.day, p.time))}
         </span>
       ))}
     </span>
@@ -1056,12 +1057,12 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         </div>
         <div className="flex flex-wrap items-baseline justify-end gap-x-3 text-ink-soft">
           <span className="rounded bg-paper px-1 text-[11px]">{o.category}</span>
-          <span>{timingText(o)}</span>
+          <span>{displayText(timingText(o))}</span>
           <span className="font-bold text-ink">{o.days ? `${o.days}日分` : "継続"}</span>
         </div>
         <div className="text-right">
           {!hideStart && <Tag>
-            服用開始日：{whenText(today, o.start.day)}
+            服用開始日：{displayText(whenText(today, o.start.day))}
             {o.start.timing ? ` ${o.start.timing}` : ""}
           </Tag>}
           {o.dailyAmount && (
@@ -1089,21 +1090,21 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         <div className="flex flex-wrap items-baseline justify-end gap-x-3 text-ink-soft">
           <span>{o.route}</span>
           <span>{scheduleTextFor(o)}</span>
-          {o.minutesPerDose ? <span>1回{durationText(o.minutesPerDose)}</span> : null}
+          {o.minutesPerDose ? <span>1回{displayText(durationText(o.minutesPerDose))}</span> : null}
           {o.rateMlPerH ? <span>{o.rateMlPerH}mL/時</span> : null}
           <span className="font-bold text-ink">{o.days ? `${o.days}日間` : "継続"}</span>
         </div>
         <div className="text-right">
-          {!hideStart && <Tag>開始：{whenText(today, o.start.day, o.start.time)}</Tag>}
+          {!hideStart && <Tag>開始：{displayText(whenText(today, o.start.day, o.start.time))}</Tag>}
         </div>
         {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
       </div>
     ) : o.type === "lab" ? (
       <div className="nums space-y-0.5">
         <div className={`flex flex-wrap items-baseline gap-x-3 ${strike}`}>
-          <span className="min-w-0 flex-1">{labCardText(o)}</span>
+          <span className="min-w-0 flex-1">{displayText(labCardText(o))}</span>
           <span className="shrink-0 text-ink-soft">
-            {orderDay === "予定日" ? o.collect.time : `採取 ${whenText(today, o.collect.day, o.collect.time)}`}　{o.priority}
+            {displayText(orderDay === "予定日" ? o.collect.time : `採取 ${whenText(today, o.collect.day, o.collect.time)}`)}　{o.priority}
           </span>
         </div>
         {o.site && <div className="text-xs text-ink-soft">{o.site}</div>}
@@ -1120,7 +1121,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
     ) : (
       <div className="nums">
         <div className={strike}>{o.type === "procedure" && o.consult ? "コンサルト" : main}{o.type === "procedure" && o.consult && <ConsultStatus id={entry.id} />}</div>
-        <div className="text-xs text-ink-soft">{detail}</div>
+        <div className="text-xs text-ink-soft">{displayText(detail)}</div>
         {o.type === "imaging" && onOpenImage && !stopped && (
           <button type="button" onClick={() => onOpenImage(entry.id)} className="mt-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
             画像を開く（PACS）
@@ -1156,15 +1157,15 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         <>
           {menu && canExec && todays && <ExecuteMenu at={menu} onClose={() => setMenu(null)} title={main} occurrences={occurrenceStates(todays.timed, execute!.records, execute!.sessionStart, nowAbs)} untimed={todays.untimed} day={0} execute={execute} extra={extra} />}
           {menu && !canExec && <Menu at={menu} onClose={() => setMenu(null)} items={extra} />}
-          {!grouped && <><span>第1版：{whenText(today, entry.day, entry.time)}</span>
-          <span className="font-bold text-ink">{entry.author}</span></>}
+          {!grouped && <><span>第1版：{displayText(whenText(today, entry.day, entry.time))}</span>
+          <span className="font-bold text-ink">{displayText(entry.author)}</span></>}
           {entry.verbal && <VerbalReview entry={entry} />}
-          {entry.verbal && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">口頭指示 {entry.verbal.doctor} → 受け {entry.verbal.takenBy}</span>}
+          {entry.verbal && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">口頭指示 {displayText(entry.verbal.doctor)} → 受け {entry.verbal.takenBy}</span>}
           <CosignMark refId={entry.id} />
           {takeBadge && <TakeBadgeMark badge={takeBadge} />}
           {badge && (
             <span data-exec-badge={badge.tone} title={badge.title} className={`rounded border px-1 ${EXEC_BADGE_STYLE[badge.tone]}`}>
-              {badge.text}
+              {displayText(badge.text)}
             </span>
           )}
         <OrderReportMark orderId={entry.id} />
@@ -1200,10 +1201,10 @@ function RxCard({ entries, rpNo, takeBadgeOf, ...props }: {
       tone={entries.every((e) => e.status === "中止") ? STOPPED_TONE : ORDER_TONE}
       folded={props.folded} onFold={props.onFold} dragHandle={!!props.onDo}
       tag={<><button type="button" className="text-[10px] text-ink-faint underline" onClick={() => props.onJumpDay?.(first.day)}>依頼 {formatShort(addDays(props.today, first.day))}</button><ExecutionTags marks={sharedMarks} today={props.today} now={props.now} /></>}
-      meta={<><span>第1版：{whenText(props.today, first.day, first.time)}</span><span className="font-bold text-ink">{first.author}</span>
+      meta={<><span>第1版：{displayText(whenText(props.today, first.day, first.time))}</span><span className="font-bold text-ink">{displayText(first.author)}</span>
         {sameStatus && <span className={`ml-auto rounded border px-1 ${STATUS_STYLE[first.status]}`}>{first.status}{first.status === "中止" && first.stoppedOn === 0 ? "（今日）" : ""}</span>}</>}>
       {entries.map((entry) => <OrderRow key={entry.id} {...props} entry={entry} rpNo={rpNo.get(entry.id)} grouped sharedMarkKeys={sharedMarkKeys} hideStatus={sameStatus} hideStart={sameStart} takeBadge={takeBadgeOf?.(entry.id)} />)}
-      {sameStart && <div className="text-right"><Tag>{o.type === "prescription" ? `服用開始日：${whenText(props.today, o.start.day)}${o.start.timing ? ` ${o.start.timing}` : ""}` : o.type === "injection" ? `開始：${whenText(props.today, o.start.day, o.start.time)}` : ""}</Tag></div>}
+      {sameStart && <div className="text-right"><Tag>{displayText(o.type === "prescription" ? `服用開始日：${whenText(props.today, o.start.day)}${o.start.timing ? ` ${o.start.timing}` : ""}` : o.type === "injection" ? `開始：${whenText(props.today, o.start.day, o.start.time)}` : "")}</Tag></div>}
     </Card>
   );
 }

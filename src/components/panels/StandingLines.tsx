@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { Printer } from "lucide-react";
@@ -111,9 +112,9 @@ export function StandingLines({ patient, lines, fields, today, nowTime, onAdd, o
             <li key={l.id} className="flex flex-wrap items-start gap-x-2 gap-y-1 px-2 py-1.5">
               <CatChip cat={l.cat} />
               <div className="min-w-0 flex-1">
-                <div className="whitespace-pre-wrap">{l.text}</div>
+                <div className="whitespace-pre-wrap">{displayText(l.text)}</div>
                 <div className="nums text-[11px] text-ink-faint">
-                  {whenText(l.start, fmtDay)}から{l.end ? ` ${whenText(l.end, fmtDay)}まで` : "（変えるまで）"}　{l.by}
+                  {displayText(whenText(l.start, fmtDay))}から{displayText(l.end ? ` ${whenText(l.end, fmtDay)}まで` : "（変えるまで）")}　{displayText(l.by)}
                   {l.start.day > 0 && <span className="ml-1 rounded border border-ai/40 px-1 text-ai">予定</span>}
                 </div>
                 {stopping?.id === l.id && (
@@ -234,11 +235,11 @@ export function StandingLines({ patient, lines, fields, today, nowTime, onAdd, o
               <li key={t.id} className="flex items-center gap-1.5">
                 <button type="button" disabled={!canOrder} onClick={() => pick(t)} title="押すと行の文に入ります（直してから確定）" className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-paper disabled:opacity-40 pointer-coarse:py-1.5">
                   <CatChip cat={t.cat} small />
-                  <span className="truncate">{t.text}</span>
+                  <span className="truncate">{displayText(t.text)}</span>
                   {t.mine && <span className="ml-auto shrink-0 rounded border border-fuji/50 px-1 text-[10px] text-fuji">自分</span>}
                 </button>
                 {t.mine && (
-                  <button type="button" onClick={() => dropMine(t.id)} aria-label={`テンプレート「${t.text}」を消す`} className="text-[11px] text-ink-faint hover:text-shu">
+                  <button type="button" onClick={() => dropMine(t.id)} aria-label={displayText(`テンプレート「${t.text}」を消す`)} className="text-[11px] text-ink-faint hover:text-shu">
                     消す
                   </button>
                 )}
@@ -256,10 +257,10 @@ export function StandingLines({ patient, lines, fields, today, nowTime, onAdd, o
             {past.map((l) => (
               <li key={l.id} className="flex flex-wrap items-start gap-x-2">
                 <CatChip cat={l.cat} small />
-                <span className={l.changed || l.stop?.kind === "終了" ? "" : "line-through"}>{l.text}</span>
+                <span className={l.changed || l.stop?.kind === "終了" ? "" : "line-through"}>{displayText(l.text)}</span>
                 <span className="nums text-[11px] text-ink-faint">
-                  {whenText(l.start, fmtDay)}から　{l.by}
-                  {l.changed ? `　変更前 ${fmtDay(l.changed.day)} ${l.changed.time} ${l.changed.by}` : l.stop ? `　${l.stop.kind ?? "中止"} ${fmtDay(l.stop.day)} ${l.stop.time} ${l.stop.by}${l.stop.reason ? `（${l.stop.reason}）` : ""}` : l.end ? `　${whenText(l.end, fmtDay)}まで` : ""}
+                  {displayText(whenText(l.start, fmtDay))}から　{displayText(l.by)}
+                  {displayText(l.changed ? `　変更前 ${fmtDay(l.changed.day)} ${l.changed.time} ${l.changed.by}` : l.stop ? `　${l.stop.kind ?? "中止"} ${fmtDay(l.stop.day)} ${l.stop.time} ${l.stop.by}${l.stop.reason ? `（${l.stop.reason}）` : ""}` : l.end ? `　${whenText(l.end, fmtDay)}まで` : "")}
                 </span>
               </li>
             ))}
@@ -286,7 +287,7 @@ export function StandingPrintSheet({ patient, lines, fields, today, nowTime, by 
         </span>
       </div>
       <div className="nums mb-2 text-[9pt] text-ink-soft">
-        印刷 {formatShort(today)} {nowTime}　{by}　{HOSPITAL}
+        印刷 {formatShort(today)} {nowTime}　{displayText(by)}　{HOSPITAL}
       </div>
       <table className="w-full border-collapse text-[9.5pt]">
         <thead>
@@ -303,9 +304,9 @@ export function StandingPrintSheet({ patient, lines, fields, today, nowTime, by 
             <tr key={l.id} className="align-top">
               <td className="border border-ink/40 px-1 py-1">{l.cat}</td>
               <td className="border border-ink/40 px-2 py-1 whitespace-pre-wrap">{lineLabel(l)}</td>
-              <td className="nums border border-ink/40 px-1 py-1">{whenText(l.start, fmtDay)}</td>
-              <td className="nums border border-ink/40 px-1 py-1">{l.end ? whenText(l.end, fmtDay) : "変えるまで"}</td>
-              <td className="border border-ink/40 px-1 py-1">{l.by}</td>
+              <td className="nums border border-ink/40 px-1 py-1">{displayText(whenText(l.start, fmtDay))}</td>
+              <td className="nums border border-ink/40 px-1 py-1">{displayText(l.end ? whenText(l.end, fmtDay) : "変えるまで")}</td>
+              <td className="border border-ink/40 px-1 py-1">{displayText(l.by)}</td>
             </tr>
           ))}
           {lines.length === 0 && (
@@ -321,13 +322,13 @@ export function StandingPrintSheet({ patient, lines, fields, today, nowTime, by 
         <section className="mt-3">
           <h2 className="mb-1 border-l-4 border-ink pl-2 text-[11pt] font-bold">項目で選んだ指示</h2>
           <div className="nums mb-1 text-[9pt] text-ink-soft">
-            {fmtDay(fields.at.day)} {fields.at.time}　{fields.by}
-            {fields.taken ? `　指示受け ${fields.taken.by} ${fields.taken.time}` : "　指示受けがまだ"}
+            {fmtDay(fields.at.day)} {fields.at.time}　{displayText(fields.by)}
+            {displayText(fields.taken ? `　指示受け ${fields.taken.by} ${fields.taken.time}` : "　指示受けがまだ")}
           </div>
           <StandingView s={fields} />
         </section>
       )}
-      <p className="mt-3 text-[8pt] text-ink-soft">架空の患者の指示簿です。分類と院内のテンプレートは架空の病院の取り決め。印刷のあとに変わった指示は電子カルテで確かめてください。</p>
+      <p className="mt-3 text-[8pt] text-ink-soft">印刷のあとに変わった指示は電子カルテで確かめてください。</p>
     </div>
   );
 }

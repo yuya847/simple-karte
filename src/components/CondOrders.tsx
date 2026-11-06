@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { COND_LABS, COND_OPS, COND_VITALS, condMissing, emptyCond, ruleText, type CondAck, type CondHit, type CondOp, type CondRule } from "@/lib/cond-orders";
@@ -58,7 +59,7 @@ export function CondEditor({ conds, onChange, newId }: { conds: CondRule[]; onCh
               <input value={r.action} onChange={(e) => set(i, { action: e.target.value })} placeholder="ほかにすること（例：次のフロセミドは見合わせる）" aria-label="当たったときにすること" className="min-w-48 flex-1 rounded border border-rule bg-paper px-1 py-0.5" />
             </div>
             <div className="flex flex-wrap items-center gap-2 pl-2 text-[11px]">
-              {missing.length ? <span className="text-yamabuki">未入力：{missing.join("・")}</span> : <span className="text-ink-soft">{ruleText(r)}</span>}
+              {missing.length ? <span className="text-yamabuki">未入力：{missing.join("・")}</span> : <span className="text-ink-soft">{displayText(ruleText(r))}</span>}
               <button type="button" onClick={() => onChange(conds.filter((_, j) => j !== i))} className="text-ink-faint hover:text-shu">
                 この条件付き指示を消す
               </button>
@@ -88,15 +89,15 @@ export function CondHits({ hits, acks, fmtDay, canRecord, onRecord }: { hits: Co
         return (
           <div key={h.key} className="space-y-1 rounded border border-rule bg-sheet p-2">
             <div>
-              <b className={done ? "text-ink-soft" : "text-shu"}>{h.text}</b>
+              <b className={done ? "text-ink-soft" : "text-shu"}>{displayText(h.text)}</b>
               <span className="nums ml-1 text-ink-faint">
                 {fmtDay(h.at.day)} {h.at.time} の値
               </span>
             </div>
-            <div>指示：{ruleText(h.rule)}</div>
+            <div>指示：{displayText(ruleText(h.rule))}</div>
             {done ? (
               <div className="text-wakatake">
-                対応の記録：{done.at.time} {done.by}「{done.note}」
+                対応の記録：{done.at.time} {displayText(done.by)}「{displayText(done.note)}」
               </div>
             ) : canRecord ? (
               <div className="flex flex-wrap items-center gap-1.5">

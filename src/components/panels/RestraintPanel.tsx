@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { DEVICES, REQUIREMENTS, RESTRAINT_SOURCES, REVIEW_HOURS, durationText, emptyRestraint, minutesOf, reviewDue, startProblems, type Restraint, type RestraintDraft } from "@/lib/restraint";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
@@ -28,16 +29,16 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
       {active ? (
         <section className="space-y-2 rounded-md border border-shu/40 bg-shu-soft/30 p-3">
           <h3 className="font-bold text-shu">
-            身体的拘束中：{active.devices.join("・")}（{durationText(minutesOf(active, nowAbs))}）
+            身体的拘束中：{active.devices.join("・")}（{displayText(durationText(minutesOf(active, nowAbs)))}）
           </h3>
           {(() => {
             const due = reviewDue(active, nowAbs);
-            return due ? <p className={`nums font-bold ${due.late ? "text-shu" : "text-ink-soft"}`}>{due.text}（{REVIEW_HOURS}時間ごと＝勤務帯ごと<span className="hint">、架空の病院の取り決め</span>）</p> : null;
+            return due ? <p className={`nums font-bold ${due.late ? "text-shu" : "text-ink-soft"}`}>{displayText(due.text)}（{REVIEW_HOURS}時間ごと＝勤務帯ごと<span className="hint">、院内の取り決め</span>）</p> : null;
           })()}
           <dl className="grid grid-cols-[7rem_1fr] gap-y-1 text-[12px]">
             <dt className="text-ink-faint">開始</dt>
             <dd className="nums">
-              {fmtDay(active.start.day)} {active.start.time}　指示 {active.doctor}・確認 {active.confirmedBy}
+              {fmtDay(active.start.day)} {active.start.time}　指示 {displayText(active.doctor)}・確認 {active.confirmedBy}
             </dd>
             <dt className="text-ink-faint">理由</dt>
             <dd>{active.why}</dd>
@@ -58,7 +59,7 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
             <ol className="space-y-0.5 border-l-2 border-rule pl-2 text-[12px]">
               {active.reviews.map((v, i) => (
                 <li key={i} className="nums">
-                  {fmtDay(v.at.day)} {v.at.time}　{v.by}：<b>{v.decision}</b>　{v.note}
+                  {fmtDay(v.at.day)} {v.at.time}　{displayText(v.by)}：<b>{v.decision}</b>　{displayText(v.note)}
                 </li>
               ))}
             </ol>
@@ -163,7 +164,7 @@ export function RestraintPanel({ records, nowAbs, nowTime, fmtDay, onStart, onRe
           <ul className="space-y-1">
             {past.map((r) => (
               <li key={r.id} className="nums rounded border border-rule-soft px-2 py-1">
-                {fmtDay(r.start.day)} {r.start.time}〜{fmtDay(r.end!.at.day)} {r.end!.at.time}（{durationText(minutesOf(r, nowAbs))}）　{r.devices.join("・")}　解除：{r.end!.by}「{r.end!.note}」
+                {fmtDay(r.start.day)} {r.start.time}〜{fmtDay(r.end!.at.day)} {r.end!.at.time}（{displayText(durationText(minutesOf(r, nowAbs)))}）　{r.devices.join("・")}　解除：{displayText(r.end!.by)}「{displayText(r.end!.note)}」
               </li>
             ))}
           </ul>

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { fluidInWindow } from "@/lib/flowsheet";
 import { IN_KINDS, IO_NOT_INCLUDED, IO_RULES, OUT_KINDS, inWindow, ioDay, ioDayOf, ioShifts, ioTotal, signed, type IoEntry, type IoLine, type IoWindow } from "@/lib/io-balance";
 import type { AdminRecord } from "@/lib/mar";
@@ -35,7 +36,7 @@ type Cell = { top: string; sub?: string; title: string };
 export function IoHeading({ byTime, standingIo }: { byTime: boolean; standingIo: string | null }) {
   return (
     <span className="font-normal text-ink-faint">
-      mL　{byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}<span className="hint">（架空の病院の取り決め）</span>　指示簿：{standingIo ?? "なし"}
+      mL　{byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}　指示簿：{standingIo ?? "なし"}
     </span>
   );
 }
@@ -137,7 +138,7 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
         {ls
           .filter((l) => l.at >= t0 && l.at <= endAbs)
           .map((l, i) => (
-            <span key={`${l.at}-${i}`} title={`${l.what}：${l.formula ?? `${l.ml}mL`}（${l.from}・${l.by}）`} className="absolute top-1 -translate-x-1/2 whitespace-nowrap text-ink" style={{ left: xAbs(l.at) }}>
+            <span key={`${l.at}-${i}`} title={displayText(`${l.what}：${l.formula ?? `${l.ml}mL`}（${l.from}・${l.by}）`)} className="absolute top-1 -translate-x-1/2 whitespace-nowrap text-ink" style={{ left: xAbs(l.at) }}>
               {r(l.ml)}
             </span>
           ))}

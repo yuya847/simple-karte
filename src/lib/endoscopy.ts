@@ -42,9 +42,9 @@ export const ENDO_RULES = {
 
 /** The fictional hospital's rules (shown as such). */
 export const ENDO_HOUSE_RULES = {
-  rooms: "内視鏡室は2部屋（内視鏡1・内視鏡2）、予約は30分ごと（この架空の病院の取り決め）。",
-  scopes: "スコープ・洗浄消毒装置の番号と台数は架空です。",
-  roles: "受付・前処置・鎮静中の観察・洗浄消毒は看護師（と医師）、実施記録・監視解除・レポート・病理への提出は医師が記録します（この架空の病院の取り決め）。",
+  rooms: "内視鏡室は2部屋（内視鏡1・内視鏡2）、予約は30分ごと。",
+  scopes: "",
+  roles: "受付・前処置・鎮静中の観察・洗浄消毒は看護師（と医師）、実施記録・監視解除・レポート・病理への提出は医師が記録します。",
 } as const;
 
 export interface Moment {

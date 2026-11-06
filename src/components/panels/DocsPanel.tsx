@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { NUTRITION_PLAN_SOURCE, nutritionPlanProblems } from "@/lib/nutrition-plan";
 import { Printer } from "lucide-react";
 import { useState } from "react";
@@ -36,7 +37,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
         ))}
       </dl>
       <p className="nums pt-2 text-right">
-        {at}　{by}
+        {at}　{displayText(by)}
       </p>
     </article>
   );
@@ -133,7 +134,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
               <li key={r.id} className="nums flex items-center gap-2 rounded border border-rule-soft bg-sheet px-2 py-1">
                 <b>{r.kind}</b>
                 <span className="text-ink-faint">
-                  {r.at.time} {r.by}
+                  {r.at.time} {displayText(r.by)}
                 </span>
                 <button type="button" onClick={() => print(r)} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 hover:border-ai hover:text-ai">
                   <Printer size={13} />

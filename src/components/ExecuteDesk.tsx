@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { VoidControl } from "./MarCell";
@@ -90,7 +91,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
     const st = stateOf(i);
     return {
       start: e ? { at: startLabel(e.order, today), by: e.author } : EMPTY_STAMP,
-      done: r ? { at: `${r.cancellation ? "" : r.doneAt}${r.status === "未実施" ? "（未実施）" : ""}`, by: r.by } : st === "記録済み" ? { at: "", by: "前の勤務帯（架空）" } : EMPTY_STAMP,
+      done: r ? { at: `${r.cancellation ? "" : r.doneAt}${r.status === "未実施" ? "（未実施）" : ""}`, by: r.by } : st === "記録済み" ? { at: "", by: "前の勤務帯" } : EMPTY_STAMP,
       take: takeStampOf(i.orderId, taken, sessionKeys),
     };
   };
@@ -103,10 +104,10 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
     const st = stateOf(i);
     if (r)
       return (
-        <span title={r.cancellation ? `取り消し ${r.cancellation.at} ${r.cancellation.by} ${r.cancellation.reason}` : undefined} className={`text-[11px] font-bold ${r.status === "実施" ? "text-wakatake" : "text-shu"}`}>
+        <span title={displayText(r.cancellation ? `取り消し ${r.cancellation.at} ${r.cancellation.by} ${r.cancellation.reason}` : undefined)} className={`text-[11px] font-bold ${r.status === "実施" ? "text-wakatake" : "text-shu"}`}>
           {r.status} {r.cancellation ? "" : r.doneAt}
           {onVoid && !r.cancellation && <VoidControl record={r} onVoid={onVoid} />}
-          {r.reason ? `（${r.reason}）` : ""}
+          {displayText(r.reason ? `（${r.reason}）` : "")}
           {r.offBy !== undefined && <span className="ml-1 font-normal text-yamabuki">予定より{Math.abs(r.offBy)}分{r.offBy > 0 ? "遅れ" : "早め"}</span>}
         </span>
       );
@@ -243,7 +244,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
           )}
 
           <SheetNotes>
-            <p>実施の記録はワークシート・経過表と同じもの（与薬・実施の記録）に書きます。この画面から入れた記録には「{EXECUTE_NOTE}」と残り、監査ログにはリストバンド・ラベルの一致が「—」と出ます。点滴は開始として記録し、終了（残量）はワークシートで入れます。実施を入れられるのは今日と昨日の分だけで、この画面を開く前の時刻の予定は前の勤務帯が記録したものとして扱います（架空の病院の取り決め）。</p>
+            <p>実施の記録はワークシート・経過表と同じもの（与薬・実施の記録）に書きます。この画面から入れた記録には「{EXECUTE_NOTE}」と残り、監査ログにはリストバンド・ラベルの一致が「—」と出ます。点滴は開始として記録し、終了（残量）はワークシートで入れます。実施を入れられるのは今日と昨日の分だけで、この画面を開く前の時刻の予定は前の勤務帯が記録したものとして扱います。</p>
           </SheetNotes>
         </div>
       </div>

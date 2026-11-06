@@ -94,7 +94,7 @@ export function PatientPicker({ patients, openIds, onOpen, onInfo, onClose }: Pr
           ))}
           {list.length === 0 && <li className="px-4 py-3 text-sm text-ink-faint">見つかりません</li>}
         </ul>
-        <div className="border-t border-rule px-4 py-2 text-[11px] text-ink-faint">↑↓ で選ぶ・Enter で開く・Esc で閉じる。患者はすべて架空です。</div>
+        <div className="border-t border-rule px-4 py-2 text-[11px] text-ink-faint">↑↓ で選ぶ・Enter で開く・Esc で閉じる。</div>
       </div>
     </div>
   );

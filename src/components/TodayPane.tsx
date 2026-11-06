@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { VERBAL_RULE } from "@/lib/verbal";
@@ -248,7 +249,7 @@ export function TodayPane(p: Props) {
                   <br />
                   Enter で次の行（＃の下は字下げ）、行頭で Backspace で前の行につなぐ、↑↓ で行の間を移る、Tab で字下げ（Shift+Tab で戻す）、⌘B / Ctrl+B で **太字**、⌘I / Ctrl+I で *斜体*、「;読み」→ Tab で定型文、「LD」→ Tab で直近の血液検査（学会発表の書式）、「ばいたる」→ Tab で直近のバイタル。
                 </span>
-                <span className="ml-auto text-[11px] text-ink-faint">{isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します"}</span>
+                <span className="ml-auto text-[11px] text-ink-faint">{displayText(isBlankNote(p.note) ? "" : "上の「保存」で記事が確定します")}</span>
               </>
             )}
           </div>
@@ -332,11 +333,11 @@ export function TodayPane(p: Props) {
         <div className="text-xs text-ink-soft">
           {p.flash ? (
             <div className="text-wakatake" role="status">
-              {typeof p.flash === "string" ? p.flash : p.flash.text}
+              {displayText(typeof p.flash === "string" ? p.flash : p.flash.text)}
               {typeof p.flash !== "string" && p.flash.warn && <b className="ml-2 rounded bg-shu px-1.5 text-white">{p.flash.warn}</b>}
               {typeof p.flash !== "string" && p.flash.contact && <div>
                 {p.flash.contact.reasons.map((reason) => <p key={reason}>{reason}</p>)}
-                <p className="hint">架空の病院の取り決め：NEWS2 7点以上は医師へ連絡。院内連絡は模擬です。</p>
+                <p className="hint">NEWS2 7点以上は医師へ連絡。院内連絡は模擬です。</p>
                 <button type="button" disabled={!p.onContactDoctor} onClick={p.onContactDoctor} className="rounded bg-shu px-2 py-1 text-white">医師に連絡する</button>
               </div>}
             </div>

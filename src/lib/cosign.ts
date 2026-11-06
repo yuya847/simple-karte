@@ -25,9 +25,9 @@ export const COSIGN_SOURCES = {
 
 /** What the sources above do not say; this fictional hospital's choices. */
 export const COSIGN_RULES = {
-  effect: "研修医のオーダと指示簿は確定するとすぐ有効になり、指示受け・実施へ進みます。指導医か上級医があとで確かめます（架空の病院の取り決め。ガイドラインと施行通知には、確認の前にオーダを有効にするかの定めはありません）。",
-  blocked: "抗がん薬（レジメン）と麻薬は、研修医は確定できません。指導医か上級医が確定します（架空の病院の取り決め）。",
-  who: "確かめるのは同じチームの指導医か上級医です。書いた本人は確かめられません（架空の病院の取り決め）。",
+  effect: "研修医のオーダと指示簿は確定するとすぐ有効になり、指示受け・実施へ進みます。指導医か上級医があとで確かめます（ガイドラインと施行通知には、確認の前にオーダを有効にするかの定めはありません）。",
+  blocked: "抗がん薬（レジメン）と麻薬は、研修医は確定できません。指導医か上級医が確定します。",
+  who: "確かめるのは同じチームの指導医か上級医です。書いた本人は確かめられません。",
 };
 
 /** 麻薬 by drug code: the master items whose 電子添文 marks them 麻薬 (drug-class.ts). A 研修医 does not confirm them. */

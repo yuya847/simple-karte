@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Activity, BookOpenText, Check, Droplet, KeyRound, Package, HelpCircle, MessageSquareWarning, NotebookText, Pill, Printer, ScanText, Syringe, Tablets } from "lucide-react";
 import { useHints } from "@/lib/hints";
 import { createPortal, flushSync } from "react-dom";
@@ -94,7 +95,7 @@ const GUIDE: { tab: Tab; steps: string }[] = [
   { tab: "oral", steps: "病棟で飲む内服（定期・臨時）を、患者ごと・Rp ごとに並べます。「定期」は明日から選んだ日数分、「臨時（今日の新規）」は今日出た臨時の全日数と、今日出た定期の今日の分です。量は「1回量 × 服用回数」をオーダの開始・日数・中止からコードで数え、式を出します。Rp ごとに ①調剤 → ②鑑査（できれば別の薬剤師。同じ人なら印が付く）→ ③払出 を記録し、誰がいつかが残ります。疑義照会の回答待ち・まだ監査していないオーダは止まり、調剤のあとで処方が変わると調剤し直しになります。「配薬ラベル」で1回分（日付と朝・昼・夕・眠前）ごとのラベルを印刷できます（一包化の袋に貼る形）。持参薬と退院時処方は入りません（退院時は「退院時の薬」タブ）。頓用は回数が決まらないので数えません。" },
   { tab: "home", steps: "医師が内服の区分「退院時」で出した処方が患者ごとに並びます。①調剤 → ②鑑査 → ③説明して渡す、の順に記録します。薬袋（Rp ごと、合計の量はコードが数える）・お薬の説明書（薬剤情報提供文書）・お薬手帳のシールを印刷でき、説明書の「気をつけること」は印刷の前に直せます。" },
   { tab: "narcotic", steps: "麻薬の処方箋・注射せんごとに、法と施行規則の記載事項（免許番号・日数など）が並びます。印刷した処方箋の署名を確かめ、内服は払い出すと受払簿に入ります。注射は病棟が施用票を書いて残液・空アンプルを返したら受け取り、施用の日の払出として帳簿に入ります。残液と病棟から返った薬は立会者を選んで廃棄し、返納分の調剤済麻薬廃棄届の期限（30日）を出します。受入・在庫との照合・事故（事故届の文面、模擬）もここで書きます。" },
-  { tab: "blood", steps: "医師が確定した輸血のオーダと、検査室の輸血部門が払い出した製剤の製造番号（ロット）が並び、今日の日報に入ります。血液製剤の入庫・割付・交差適合試験・払出は輸血部門が一括して行います（この架空の病院の取り決め）。" },
+  { tab: "blood", steps: "医師が確定した輸血のオーダと、検査室の輸血部門が払い出した製剤の製造番号（ロット）が並び、今日の日報に入ります。血液製剤の入庫・割付・交差適合試験・払出は輸血部門が一括して行います。" },
   { tab: "tdm", steps: "バンコマイシンの血中濃度から、コードが AUC を計算します（式つき）。薬剤師が提案を書いて医師へ報告します。" },
   { tab: "journal", steps: "今日の監査・疑義照会・持参薬鑑別・服薬指導・払出（注射・内服）・TDM の件数をコードが数えます。所感を書き残せます。" },
 ];
@@ -127,7 +128,7 @@ export function PharmacyView(p: Props) {
             </button>
           ))}
         </div>
-        <span className="ml-auto text-xs text-ink-faint">{PHARMACIST}（架空）として操作します</span>
+        <span className="ml-auto text-xs text-ink-faint">{displayText(PHARMACIST)}として操作します</span>
         <button type="button" onClick={() => setGuide(!guide)} aria-expanded={guide} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
@@ -185,7 +186,7 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
           <article key={it.entry.id} className={`${card} px-4 py-2.5 text-[13px]`}>
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="text-xs text-ink-faint">
-                {formatShort(addDays(today, it.entry.day))} {it.entry.time}　{it.entry.author}
+                {formatShort(addDays(today, it.entry.day))} {it.entry.time}　{displayText(it.entry.author)}
               </span>
               <b>
                 {it.room}　{it.patient.name}
@@ -216,11 +217,11 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
               {main}
               <DrugMarks codes={drugCodesOf(it.entry.order)} />
             </div>
-            <div className="text-xs text-ink-soft">{detail}</div>
+            <div className="text-xs text-ink-soft">{displayText(detail)}</div>
             {it.checks.map((c) => (
               <div key={c.text} className={`mt-1 text-xs ${c.level === "ask" ? "font-bold text-yamabuki" : "text-ink-soft"}`}>
                 {c.level === "ask" ? "確認　" : ""}
-                {c.text}
+                {displayText(c.text)}
               </div>
             ))}
             <AuditInteractions
@@ -234,7 +235,7 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
             />
             {qs.map((q) => (
               <div key={q.id} className="mt-1.5 rounded bg-paper px-2 py-1 text-xs">
-                <b>照会</b> {q.askedAt} {q.by}：{q.question}
+                <b>照会</b> {q.askedAt} {displayText(q.by)}：{q.question}
                 {q.status !== "回答待ち" && (
                   <div>
                     <b>回答</b> {q.answeredAt}：{q.status}
@@ -245,7 +246,7 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
             ))}
             {asking === it.entry.id && (
               <div className="mt-2 flex gap-2">
-                <input value={text} onChange={(e) => setText(e.target.value)} placeholder="照会の内容（例：腎機能から量の確認をお願いします）" className="flex-1 rounded border border-rule bg-paper px-2 py-1 text-sm outline-none" autoFocus />
+                <input value={displayText(text)} onChange={(e) => setText(e.target.value)} placeholder="照会の内容（例：腎機能から量の確認をお願いします）" className="flex-1 rounded border border-rule bg-paper px-2 py-1 text-sm outline-none" autoFocus />
                 <button
                   type="button"
                   disabled={!text.trim()}
@@ -288,10 +289,10 @@ function AuditInteractions({ entry, entries, canAsk, onAsk }: { entry: OrderEntr
               {f.level}
               {f.level === "配合" && strong ? "（電子添文：混ぜない）" : ""}
             </b>
-            　{f.name} × {f.other.name}（{f.other.where}）：{f.text}
+            　{f.name} × {f.other.name}（{f.other.where}）：{displayText(f.text)}
             {r ? (
               <div className="mt-0.5 text-ink">
-                <b>医師の理由</b>（{r.drugs}）：{r.reason}
+                <b>医師の理由</b>（{r.drugs}）：{displayText(r.reason)}
               </div>
             ) : strong ? (
               <div className="mt-0.5 text-shu">このオーダに医師の理由の記録はありません。</div>
@@ -372,11 +373,11 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
             </select>
           </label>
           <button type="button" onClick={() => setText(SAMPLE)} className="rounded border border-rule px-2 py-1 text-xs text-ink-soft hover:text-ink">
-            例文（架空のお薬手帳）を入れる
+            例文を入れる
           </button>
         </div>
         <textarea
-          value={text}
+          value={displayText(text)}
           onChange={(e) => setText(e.target.value)}
           rows={6}
           placeholder="お薬手帳の薬の行を打つか貼り付けます。氏名・生年月日・ID は入れないでください（Claude に送るのは、この欄の文だけです）。"
@@ -518,7 +519,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
           </ul>
         </div>
       )}
-      <p className="text-[11px] text-ink-faint">今の時刻 {nowTime}。架空の病院・架空の患者です。</p>
+      <p className="text-[11px] text-ink-faint">今の時刻 {nowTime}。</p>
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[8mm] print:block">{printing}</div>, document.body)}
     </section>
   );
@@ -619,7 +620,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
           <Printer size={14} />
           全員のラベル（{doses.length}枚）
         </button>
-        {result && <p className={`w-full font-bold ${result.ok ? "text-wakatake" : "text-shu"}`}>{result.text}</p>}
+        {result && <p className={`w-full font-bold ${result.ok ? "text-wakatake" : "text-shu"}`}>{displayText(result.text)}</p>}
       </div>
       {byPatient.map((x) => (
         <div key={x.patient.id} className={`${card} p-4 text-[13px]`}>
@@ -638,7 +639,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
                   <span className="nums w-24 font-bold">{d.at !== null ? timeLabel(d.at, which === "tomorrow" ? dayNow + 1 : dayNow, today) : ""}</span>
                   <span className="flex-1">
                     {d.main}
-                    <DrugMarks codes={drugCodesOf(x.entries.find((e) => e.id === d.orderId)?.order)} />　<span className="text-xs text-ink-soft">{d.detail}</span>
+                    <DrugMarks codes={drugCodesOf(x.entries.find((e) => e.id === d.orderId)?.order)} />　<span className="text-xs text-ink-soft">{displayText(d.detail)}</span>
                   </span>
                   <span className="nums font-mono text-[11px] text-ink-faint">{labelFor(d.orderId, d.at!)}</span>
                   {blockOf(d.orderId) && !dispensed[key] ? (
@@ -669,7 +670,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
       ))}
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[5mm] print:block">{printing}</div>, document.body)}
       {byPatient.length === 0 && <p className="text-ink-faint">明日の注射はありません。</p>}
-      <p className="text-[11px] text-ink-faint">架空の病院・架空の患者です。</p>
+
     </section>
   );
 }
@@ -781,8 +782,8 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
         <label className="flex items-center gap-2">
           鑑査する人
           <select value={checker} onChange={(e) => setChecker(e.target.value)} className="rounded border border-rule bg-paper px-2 py-0.5">
-            <option value={PHARMACIST}>{PHARMACIST}（自分）</option>
-            <option value={COLLEAGUE}>{COLLEAGUE}（架空の同僚）</option>
+            <option value={PHARMACIST}>{displayText(PHARMACIST)}（自分）</option>
+            <option value={COLLEAGUE}>{displayText(COLLEAGUE)}</option>
           </select>
         </label>
         <span className="nums text-ink-soft">
@@ -841,13 +842,13 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
                         </div>
                       ))}
                       <div className="text-[11px] text-ink-faint">
-                        処方 {day(rp.writtenAt.day)} {rp.writtenAt.time}　{rp.doctor}
+                        処方 {day(rp.writtenAt.day)} {rp.writtenAt.time}　{displayText(rp.doctor)}
                       </div>
                       {rp.unbounded && <div className="text-[11px] font-bold text-shu">日数の指定がないので、量を数えられません。医師に日数を確かめてください。</div>}
                       {block && <div className="text-[11px] font-bold text-shu">{block}</div>}
                       {stale && (
                         <div className="text-[11px] font-bold text-yamabuki">
-                          調剤（{rec!.prepared!.at} {rec!.prepared!.by}）のあとで処方が変わりました。調剤し直してください。
+                          調剤（{rec!.prepared!.at} {displayText(rec!.prepared!.by)}）のあとで処方が変わりました。調剤し直してください。
                         </div>
                       )}
                       {!stale && sameHands(rec) && <div className="text-[11px] text-yamabuki">調剤した人と同じ薬剤師が鑑査しました（1人で行った記録）。</div>}
@@ -865,7 +866,7 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
                             {d ? (
                               <span className="nums text-[11px] leading-tight text-wakatake">
                                 <Check size={11} className="inline" /> {d.at.split(" ")[1]}
-                                <span className="block truncate">{d.by.replace("薬剤師 ", "")}</span>
+                                <span className="block truncate">{displayText(d.by.replace("薬剤師 ", ""))}</span>
                               </span>
                             ) : (
                               <button type="button" disabled={!!why} title={why ?? undefined} onClick={() => act(x, rp, s)} className="self-start rounded border border-ai px-1.5 py-0.5 text-[11px] text-ai hover:bg-ai hover:text-white disabled:border-rule disabled:text-ink-faint disabled:hover:bg-transparent">
@@ -880,13 +881,13 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Pr
                 );
               })}
             </ol>
-            {x.prn.length > 0 && <p className="mt-1 text-[11px] text-ink-faint">頓用（回数が決まらないので数えない）：{x.prn.map((q) => `${q.name} ${q.text}`).join("／")}</p>}
+            {x.prn.length > 0 && <p className="mt-1 text-[11px] text-ink-faint">頓用（回数が決まらないので数えない）：{displayText(x.prn.map((q) => `${q.name} ${q.text}`).join("／"))}</p>}
           </article>
         );
       })}
       {list.length === 0 && <p className="text-ink-faint">{mode === "定期" ? "定期の内服はありません。" : "今日出た臨時・定期の内服はありません（医師がカルテの「内服」から出すと、ここに入ります）。"}</p>}
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[5mm] print:block">{printing}</div>, document.body)}
-      <p className="text-[11px] text-ink-faint">鑑査は、調剤した人とは別の薬剤師が行うのが望ましいため、架空の同僚を選べます（同じ人のときは印が付きます）。架空の病院・架空の患者です。</p>
+      <p className="text-[11px] text-ink-faint">鑑査は、調剤した人とは別の薬剤師が行うのが望ましいため、同僚を選べます（同じ人のときは印が付きます）。</p>
     </section>
   );
 }
@@ -909,13 +910,13 @@ function Blood({ people, today, txIssued }: Props) {
             <b>
               {x.room}　{x.patient.name}
             </b>
-            <span>{o?.tx ? txText(o.tx) : ""}</span>
+            <span>{displayText(o?.tx ? txText(o.tx) : "")}</span>
             <span className="text-xs text-ink-soft">
-              {o ? `${formatShort(addDays(today, o.start.day))} ${o.start.time ?? ""}` : ""}　{e.author}
+              {o ? `${formatShort(addDays(today, o.start.day))} ${o.start.time ?? ""}` : ""}　{displayText(e.author)}
             </span>
             {done ? (
               <span className="ml-auto text-xs text-wakatake">
-                払出 {done.at}　製造番号 {done.lot}（{done.by}）
+                払出 {done.at}　製造番号 {done.lot}（{displayText(done.by)}）
               </span>
             ) : (
               <span className="ml-auto text-xs text-ink-soft">まだ払い出していません（払出は検査室の輸血部門が、割付と交差適合試験のあとに行います）</span>
@@ -932,7 +933,7 @@ function Blood({ people, today, txIssued }: Props) {
                 <tr key={e.id} className="border-t border-rule-soft">
                   <td className="py-0.5 pr-2">{txIssued[e.id].at}</td>
                   <td className="pr-2">{x.patient.name}</td>
-                  <td className="pr-2">{e.order.type === "procedure" && e.order.tx ? txText(e.order.tx) : ""}</td>
+                  <td className="pr-2">{displayText(e.order.type === "procedure" && e.order.tx ? txText(e.order.tx) : "")}</td>
                   <td className="font-mono">{txIssued[e.id].lot}</td>
                 </tr>
               ))}
@@ -940,7 +941,7 @@ function Blood({ people, today, txIssued }: Props) {
           </table>
         </div>
       )}
-      <p className="text-[11px] text-ink-faint">製造番号は、あとで製剤に問題がわかったときに使った患者をたどるため（遡及調査）に残します。架空の病院・架空の患者です。</p>
+      <p className="text-[11px] text-ink-faint">製造番号は、あとで製剤に問題がわかったときに使った患者をたどるため（遡及調査）に残します。</p>
     </section>
   );
 }
@@ -982,10 +983,10 @@ function Journal({ people, nowTime, audited, queries, reports, shido, dispensed,
         {journal.map((j, i) => (
           <p key={i} className="whitespace-pre-wrap border-l-2 border-ai/40 pl-2">
             <span className="nums block text-[11px] text-ink-faint">{j.at}</span>
-            {j.text}
+            {displayText(j.text)}
           </p>
         ))}
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="例：5階東の持参薬鑑別2件。バンコマイシンの TDM は明日の採血で再評価。" aria-label="業務日誌の所感" className="w-full rounded border border-rule bg-paper px-2 py-1" />
+        <textarea value={displayText(text)} onChange={(e) => setText(e.target.value)} rows={4} placeholder="例：5階東の持参薬鑑別2件。バンコマイシンの TDM は明日の採血で再評価。" aria-label="業務日誌の所感" className="w-full rounded border border-rule bg-paper px-2 py-1" />
         <button
           type="button"
           disabled={!text.trim()}
@@ -997,7 +998,7 @@ function Journal({ people, nowTime, audited, queries, reports, shido, dispensed,
         >
           書き残す
         </button>
-        <p className="text-[11px] text-ink-faint">件数はこの画面での記録からコードで数えています（架空のデータ）。</p>
+        <p className="text-[11px] text-ink-faint">件数はこの画面での記録からコードで数えています。</p>
       </div>
     </section>
   );
@@ -1047,7 +1048,7 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
             {done ? (
               <span className="flex items-center gap-1 text-xs text-wakatake">
                 <Check size={12} />
-                {done.at}　{done.by}
+                {done.at}　{displayText(done.by)}
               </span>
             ) : (
               <button type="button" disabled={!can} onClick={act} className="self-start rounded border border-ai px-2 py-0.5 text-xs text-ai hover:bg-ai hover:text-white disabled:opacity-40">
@@ -1062,7 +1063,7 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
             <h3 className="flex flex-wrap items-baseline gap-2 font-bold">
               {x.room}　{x.patient.name}
               <span className="text-xs font-normal text-ink-soft">
-                {leaveText}　／　処方 {formatShort(addDays(today, bags[0].at.day))} {bags[0].at.time} {bags[0].doctor}
+                {leaveText}　／　処方 {formatShort(addDays(today, bags[0].at.day))} {bags[0].at.time} {displayText(bags[0].doctor)}
               </span>
             </h3>
             <ol className="space-y-1">
@@ -1092,8 +1093,8 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
                 <span className="text-xs font-bold text-ink-soft">③説明して渡す</span>
                 {rec.handed ? (
                   <span className="text-xs text-wakatake">
-                    <Check size={12} className="inline" /> {rec.handed.at}　{rec.handed.by}
-                    {rec.handed.note && <span className="block text-ink">{rec.handed.note}</span>}
+                    <Check size={12} className="inline" /> {rec.handed.at}　{displayText(rec.handed.by)}
+                    {rec.handed.note && <span className="block text-ink">{displayText(rec.handed.note)}</span>}
                   </span>
                 ) : (
                   <>

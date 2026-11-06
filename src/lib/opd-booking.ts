@@ -14,7 +14,7 @@ export const OPD_BOOKING_RULES = {
   minDays: 1,
   maxDays: 90,
   slots: { 午前: "9:00〜12:00", 午後: "14:00〜16:30" } as const,
-  note: "外来予約の枠（午前 9:00〜12:00・午後 14:00〜16:30、または時刻の指定）、予約できる科と医師、「明日から90日先まで」という範囲は、架空の病院の取り決めです。当日の受診は受付で扱います。",
+  note: "外来予約は午前 9:00〜12:00・午後 14:00〜16:30、または時刻を指定します。予約できるのは明日から90日先までです。当日の受診は受付で扱います。",
 };
 
 export type OpdSlot = OpdBookingOrder["slot"];
@@ -62,10 +62,10 @@ const set =
 export function checkOpdBooking(d: OpdBookingDraft, ctx: CheckContext): Issue[] {
   const issues: Issue[] = [];
   if (!d.dept) issues.push({ key: "opd-dept", level: "ask", title: "診療科", message: "予約する科が抜けています。", choices: OPD_CLINICS.map((c) => ({ label: c.name, apply: set({ dept: c.name }) })) });
-  else if (!OPD_CLINICS.some((c) => c.name === d.dept)) issues.push({ key: "opd-dept", level: "stop", title: "診療科", message: `${d.dept} は外来予約を受けていません（架空の病院の取り決め）。` });
+  else if (!OPD_CLINICS.some((c) => c.name === d.dept)) issues.push({ key: "opd-dept", level: "stop", title: "診療科", message: `${d.dept} は外来予約を受けていません。` });
   if (d.day === null) issues.push({ key: "opd-day", level: "ask", title: "日付", message: "受診する日が抜けています。", choices: [7, 14, 28, 56].map((n) => ({ label: `${n / 7}週間後（${ctx.fmtDay(n)}）`, apply: set({ day: n }) })) });
   else if (d.day < OPD_BOOKING_RULES.minDays) issues.push({ key: "opd-day", level: "stop", title: "日付", message: d.day === 0 ? "今日の受診は予約でなく受付で扱います。明日以降の日を選んでください。" : "過ぎた日です。明日以降の日を選んでください。" });
-  else if (d.day > OPD_BOOKING_RULES.maxDays) issues.push({ key: "opd-day", level: "stop", title: "日付", message: `予約できるのは ${OPD_BOOKING_RULES.maxDays} 日先までです（架空の病院の取り決め）。` });
+  else if (d.day > OPD_BOOKING_RULES.maxDays) issues.push({ key: "opd-day", level: "stop", title: "日付", message: `予約できるのは ${OPD_BOOKING_RULES.maxDays} 日先までです。` });
   if (!d.slot) issues.push({ key: "opd-slot", level: "ask", title: "時間枠", message: "午前・午後か、時刻が抜けています。", choices: (["午前", "午後"] as const).map((s) => ({ label: `${s}（${OPD_BOOKING_RULES.slots[s]}）`, apply: set({ slot: s }) })) });
   else if (d.slot === "時刻" && !d.time) issues.push({ key: "opd-slot", level: "ask", title: "時間枠", message: "時刻が抜けています（外来予約の欄で入れてください）。" });
   if (!opdPurposeOf(d)) issues.push({ key: "opd-purpose", level: "ask", title: "目的", message: "何のための受診かが抜けています。", choices: OPD_PURPOSES.filter((p) => p !== "その他").map((p) => ({ label: p, apply: set({ purpose: p }) })) });

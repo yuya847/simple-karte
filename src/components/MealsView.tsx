@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Printer, Utensils } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -53,7 +54,7 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
           return (
             <th key={`${s.day}${s.meal}`} className={`min-w-28 px-1 pb-1 text-left font-normal ${s.meal === "朝" ? "border-l border-rule" : ""}`}>
               <span className="block font-bold text-ink">{s.meal}</span>
-              <span className={`nums block text-[10px] ${s.deadlinePassed ? "text-ink-faint" : soon ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{deadlineText(s, nowAbs)}</span>
+              <span className={`nums block text-[10px] ${s.deadlinePassed ? "text-ink-faint" : soon ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(deadlineText(s, nowAbs))}</span>
             </th>
           );
         })}
@@ -173,7 +174,7 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <Utensils size={18} />
           病棟の食事
-          <span className="ml-1 rounded border border-dashed border-ink-faint px-1.5 py-0.5 align-middle text-[10px] font-normal text-ink-soft">架空</span>
+
         </h1>
         <button type="button" onClick={print} className="flex items-center gap-1 rounded-md border border-rule px-2.5 py-1 text-sm hover:border-ai hover:text-ai">
           <Printer size={14} />
@@ -196,15 +197,15 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
                 </li>
               ))}
             </ul>
-            <p className="mt-1 text-[11px] text-ink-soft">献立と盛り付けに間に合うかは、厨房と確かめてください<span className="hint">（締切は架空の病院の取り決め）</span>。</p>
+            <p className="mt-1 text-[11px] text-ink-soft">献立と盛り付けに間に合うかは、厨房と確かめてください。</p>
           </section>
         )}
 
         {tables}
 
         <ul className="hint space-y-0.5 text-[11px] text-ink-faint">
-          <li>締切は、朝食が前日 {MEAL_DEADLINE.朝.time}、昼食が当日 {MEAL_DEADLINE.昼.time}、夕食が当日 {MEAL_DEADLINE.夕.time}（架空の病院の取り決め）。締切のあとに入った食事の指示・食止め・食止めの取り消しに印を付けます。</li>
-          <li>検査で止めるのは、架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</li>
+          <li>締切は、朝食が前日 {MEAL_DEADLINE.朝.time}、昼食が当日 {MEAL_DEADLINE.昼.time}、夕食が当日 {MEAL_DEADLINE.夕.time}。締切のあとに入った食事の指示・食止め・食止めの取り消しに印を付けます。</li>
+          <li>検査で止めるのは、院内の取り決め（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。</li>
           <li>アレルギーはカルテの記載のまま（薬のアレルギーを含む）。禁止・注意は食事の指示の注意の欄と、カルテの注意のうち食事・水分に関わるもの。</li>
           <li>食事を決めるのは医師です（カルテの右の「食事」）。この画面は見るだけで、AI は使いません。</li>
         </ul>
@@ -213,7 +214,7 @@ export function MealsView({ title, people, diets, today, nowTime }: Props) {
         createPortal(
           <div className="print-sheet hidden bg-white p-[5mm] text-[10pt] text-ink print:block">
             <h1 className="mb-2 text-base font-bold">
-              食数表　{title}　{nowTime} 時点（架空の病院）
+              食数表　{title}　{nowTime} 時点
             </h1>
             {tables}
           </div>,
@@ -236,7 +237,7 @@ function Cell({ c }: { c: MealCell }) {
   const tone = c.holds.length ? "bg-yamabuki-soft text-yamabuki" : c.order ? TONE[c.order.kind] : "bg-shu-soft text-shu";
   return (
     <div
-      title={[c.order ? `${c.order.by}の指示（${c.order.at.day === 0 ? "今日" : `${c.order.at.day}日`} ${c.order.at.time}）` : "食事の指示がありません", ...c.holds.map((h) => h.label), ...c.late].join("\n")}
+      title={displayText([c.order ? `${c.order.by}の指示（${c.order.at.day === 0 ? "今日" : `${c.order.at.day}日`} ${c.order.at.time}）` : "食事の指示がありません", ...c.holds.map((h) => h.label), ...c.late].join("\n"))}
       className={`min-h-10 rounded px-1.5 py-1 leading-tight ${tone} ${c.past ? "opacity-60" : ""} ${c.changed ? "ring-2 ring-inset ring-ai/60" : ""} ${c.late.length ? "outline outline-2 outline-shu" : ""}`}
     >
       {c.changed && <span className="mb-0.5 block text-[9px] font-bold text-ai">ここから変更</span>}

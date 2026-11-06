@@ -5,6 +5,7 @@
 // to see which of their patients have reports not yet confirmed. Nothing here is summarised by AI: the one
 // line is the first line of the report, cut out as it is.
 
+import { displayText } from "@/lib/display-text";
 import { ChevronDown, ChevronRight, FileText, UserRound } from "lucide-react";
 import { useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
@@ -45,14 +46,14 @@ export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey 
                 <span className="flex flex-wrap items-baseline gap-x-2">
                   <span className={`rounded px-1 text-[11px] font-bold ${KIND_CHIP[r.kind]}`}>{r.kind}</span>
                   <span className="nums text-ink-soft">
-                    {dayText(today, when.day)} {when.time}
+                    {displayText(dayText(today, when.day))} {when.time}
                   </span>
                   <b className={unread ? "text-ink" : "text-ink-soft"}>{r.title}</b>
                   {r.region && !r.title.includes(r.region) && <span className="text-ink-soft">{r.region}</span>}
-                  <span className="text-ink-faint">{r.by}</span>
+                  <span className="text-ink-faint">{displayText(r.by)}</span>
                   {r.version > 1 && <span className="rounded bg-yamabuki px-1 text-[11px] font-bold text-white">訂正</span>}
                   {r.important && <span className="rounded bg-shu px-1 text-[11px] font-bold text-white">重要な所見</span>}
-                  <span className={`ml-auto nums text-[11px] ${unread ? "font-bold text-shu" : s.state === "確認済み" ? "text-wakatake" : "text-ink-faint"}`}>{s.state === "確認済み" ? `確認 ${s.ack.at.time} ${s.ack.by}` : s.state}</span>
+                  <span className={`ml-auto nums text-[11px] ${unread ? "font-bold text-shu" : s.state === "確認済み" ? "text-wakatake" : "text-ink-faint"}`}>{displayText(s.state === "確認済み" ? `確認 ${s.ack.at.time} ${s.ack.by}` : s.state)}</span>
                 </span>
                 <span className="block truncate text-ink-soft">{summaryOf(r)}</span>
               </span>

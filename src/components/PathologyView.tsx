@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { BookOpenText, ClipboardList, FilePen, HelpCircle, ListChecks, Microscope } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -95,7 +96,7 @@ export function PathologyView(p: Props) {
             <p className="mt-1">{PATH_RULES.report}</p>
             <p className="mt-1">{PATH_RULES.frozen}</p>
             <p className="mt-1">{PATH_RULES.important}</p>
-            <p className="mt-1">症例はすべて架空です。</p>
+
           </div>
         </div>
       </div>
@@ -119,7 +120,7 @@ function RequestLines({ c }: { c: PathCase }) {
       </p>
       <p className="text-ink-soft">
         容器 {c.containers}個{c.fixed ? `　固定開始 ${c.fixed.day === 0 ? "今日" : c.fixed.day === -1 ? "昨日" : `${-c.fixed.day}日前`} ${c.fixed.time}` : ""}
-        {c.frozen ? `　術中迅速：${c.frozen.room} ${c.frozen.at.time}ごろ　結果の連絡先 ${c.frozen.phone}` : ""}　依頼 {c.ordered.time} {c.ordered.by}
+        {c.frozen ? `　術中迅速：${c.frozen.room} ${c.frozen.at.time}ごろ　結果の連絡先 ${c.frozen.phone}` : ""}　依頼 {c.ordered.time} {displayText(c.ordered.by)}
       </p>
     </div>
   );
@@ -163,13 +164,13 @@ function Work({ people, cases, onCases, nowTime, today }: Props) {
             </header>
             <RequestLines c={c} />
             <ol className="mt-1 flex flex-wrap gap-2 text-[12px]">
-              <li className={c.received ? "text-wakatake" : "text-ink-faint"}>受付{c.received ? ` ${c.received.time} ${c.received.by}` : ""}</li>
+              <li className={c.received ? "text-wakatake" : "text-ink-faint"}>受付{displayText(c.received ? ` ${c.received.time} ${c.received.by}` : "")}</li>
               {PATH_STEPS[c.kind].map((s) => {
                 const done = c.steps.find((x) => x.step === s);
                 return (
                   <li key={s} className={done ? "text-wakatake" : "text-ink-faint"}>
                     → {s}
-                    {done ? ` ${done.time} ${done.by}${done.note ? `（${done.note}）` : ""}` : ""}
+                    {displayText(done ? ` ${done.time} ${done.by}${done.note ? `（${done.note}）` : ""}` : "")}
                   </li>
                 );
               })}
@@ -241,7 +242,7 @@ function ReportForm({ c, people, onCases, nowTime, me, denied }: { c: PathCase; 
         <b>{who(people, c.patientId)}</b>
         <span>{caseTitle(c)}</span>
         <span className="nums font-mono">{c.received?.number}</span>
-        {c.report && <span className="text-ink-soft">いまの版：第{versionOf(c)}版（{c.report.time} {c.report.by}）</span>}
+        {c.report && <span className="text-ink-soft">いまの版：第{versionOf(c)}版（{c.report.time} {displayText(c.report.by)}）</span>}
       </header>
       <RequestLines c={c} />
       <label className="block">
@@ -274,7 +275,7 @@ function ReportForm({ c, people, onCases, nowTime, me, denied }: { c: PathCase; 
       </button>
       {c.called && (
         <p className="text-wakatake">
-          直接伝えた：{c.called.time} {c.called.by} → {c.called.to}
+          直接伝えた：{c.called.time} {displayText(c.called.by)} → {c.called.to}
         </p>
       )}
     </article>
@@ -318,7 +319,7 @@ function List({ people, cases, acks, nowTime }: Props) {
                     {c.report.important && <b className="text-shu">【重要な所見】</b>}
                     {c.report.diagnosis}
                     <span className="block text-ink-soft">
-                      {c.report.time} {c.report.by}
+                      {c.report.time} {displayText(c.report.by)}
                       {versionOf(c) > 1 && `（第${versionOf(c)}版）`}
                     </span>
                   </>
@@ -326,7 +327,7 @@ function List({ people, cases, acks, nowTime }: Props) {
                   "—"
                 )}
               </td>
-              <td className={`px-2 py-1 ${c.report && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{c.report ? (ack ? `${ack.at.time} ${ack.by}` : "まだ") : "—"}</td>
+              <td className={`px-2 py-1 ${c.report && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(c.report ? (ack ? `${ack.at.time} ${ack.by}` : "まだ") : "—")}</td>
             </tr>
           );
         })}

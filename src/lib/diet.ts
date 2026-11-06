@@ -144,7 +144,7 @@ export interface MealHold {
  * (fictional hospital rule): from the time of leaving (that meal included) up to the time of coming back
  * (a meal served at the time of coming back is served). 退院 has no coming back.
  */
-export const LEAVE_HOLD_RULE = "外泊・外出は出る時刻から戻る時刻まで、退院は出る時刻からあとの、配膳の時刻（朝7:30・昼12:00・夕18:00）がある食事を止める（架空の病院の取り決め）";
+export const LEAVE_HOLD_RULE = "外泊・外出は出る時刻から戻る時刻まで、退院は出る時刻からあとの、配膳の時刻（朝7:30・昼12:00・夕18:00）がある食事を止める";
 
 const relDay = (d: number) => (d === 0 ? "今日" : d === 1 ? "明日" : d === 2 ? "明後日" : d === -1 ? "昨日" : d > 0 ? `${d}日後` : `${-d}日前`);
 const clock = (m: number) => `${String(Math.floor((((m % 1440) + 1440) % 1440) / 60)).padStart(2, "0")}:${String(((m % 60) + 60) % 60).padStart(2, "0")}`;
@@ -234,7 +234,7 @@ export function specialDiet(o: DietOrder): { special: boolean; note: string; rev
   if (o.kind === "嚥下調整食")
     return DYSPHAGIA_SPECIAL_FILED
       ? { special: true, note: "嚥下調整食（令和8年度から特別食）", review: "単にペースト・刻みにしただけのものは対象外" }
-      : { special: false, note: "嚥下調整食の特別食加算は届出が要る（架空の病院は未届出）" };
+      : { special: false, note: "嚥下調整食の特別食加算は届出が要る" };
   if (o.kind !== "治療食") return { special: false, note: "" };
   switch (o.therapeutic) {
     case "TD-ENERGY":
@@ -271,8 +271,8 @@ export function mealsServed(orders: DietOrder[], entries: OrderEntry[], patientI
   return out;
 }
 
-export const DIET_ADJUSTMENT_HINT = "管理栄養士は主食の形態・禁止食品・補食・アレルギーの反映を直接調整します。食種・治療食・栄養量などの変更は主治医への提案とし、医師の確定後に反映します（架空の病院の取り決め）。";
-export const DIET_NUTRIENT_HINT = "食種ごとの1日指示量の既定（架空の病院の取り決め）：常食1800kcal/蛋白70g、減塩食1600/65、糖尿病食1600/70、腎臓食1800/50、肝臓食1600/50、嚥下調整食1400/55、流動食1000/40。個別の指定量があれば優先します。経管栄養の蛋白は未指定のままです。";
+export const DIET_ADJUSTMENT_HINT = "管理栄養士は主食の形態・禁止食品・補食・アレルギーの反映を直接調整します。食種・治療食・栄養量などの変更は主治医への提案とし、医師の確定後に反映します。";
+export const DIET_NUTRIENT_HINT = "食種ごとの1日指示量の既定：常食1800kcal/蛋白70g、減塩食1600/65、糖尿病食1600/70、腎臓食1800/50、肝臓食1600/50、嚥下調整食1400/55、流動食1000/40。個別の指定量があれば優先します。経管栄養の蛋白は未指定のままです。";
 export function dietNutrients(d?: DietOrder): { energyKcal?: number; proteinG?: number } {
   if (!d) return {};
   const defaults = d.kind === "治療食" ? findTherapeutic(d.therapeutic)?.defaults : ({ 常食: { energyKcal: 1800, proteinG: 70 }, 嚥下調整食: { energyKcal: 1400, proteinG: 55 }, 流動食: { energyKcal: 1000, proteinG: 40 }, 絶食: { energyKcal: 0, proteinG: 0 }, 経管栄養: { energyKcal: d.tube ? d.tube.mlPerMeal * 3 * (TUBE_PRODUCTS.find(p => p.code === d.tube?.product)?.kcalPerMl ?? 0) : undefined } } as Partial<Record<DietKind, { energyKcal?: number; proteinG?: number }>>)[d.kind];

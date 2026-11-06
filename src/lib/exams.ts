@@ -34,7 +34,7 @@ export type RegionGroup = "頭頸部" | "体幹" | "脊椎" | "上肢" | "下肢
 export const REGION_GROUPS: RegionGroup[] = ["頭頸部", "体幹", "脊椎", "上肢", "下肢"];
 
 export const EXAM_SOURCES = {
-  naming: "部位・方向（正面・側面・斜位・軸位・開口位 など）・体位（立位・座位・仰臥位・側臥位）の呼び方は、一般撮影で広く使われる呼称（日本放射線技術学会 監修の撮影技術の教科書など）に合わせています。どの部位にどの方向・体位を用意するか、標準の方向と枚数は、この架空の病院の取り決めです。",
+  naming: "部位・方向（正面・側面・斜位・軸位・開口位 など）・体位（立位・座位・仰臥位・側臥位）の呼び方は、一般撮影で広く使われる呼称（日本放射線技術学会 監修の撮影技術の教科書など）に合わせています。",
   gadolinium: { label: "腎障害患者におけるガドリニウム造影剤使用に関するガイドライン（第3版：2024年5月20日改訂）NSF とガドリニウム造影剤使用に関する合同委員会（日本医学放射線学会・日本腎臓学会）", url: "https://radiology.jp/content/files/gbcansf-gdl_202405.pdf" },
   iodine: { label: "腎障害患者におけるヨード造影剤使用に関するガイドライン2018（日本腎臓学会・日本医学放射線学会・日本循環器学会）", url: "https://cdn.jsn.or.jp/data/guideline-201911.pdf" },
   biguanide: { label: "ヨード造影剤とビグアナイド系糖尿病薬との併用注意について（第2報）合同造影剤安全性委員会 2012年4月", url: "https://www.radiology.jp/content/files/994.pdf" },
@@ -234,7 +234,7 @@ export interface PhysioMaster {
 export const PHYSIO: PhysioMaster[] = [
   { code: "PHY-ECG", name: "心電図（12誘導）", codes: ["160068410"], bedside: true, aliases: ["心電図", "ECG", "12誘導", "エクグ"] },
   { code: "PHY-UCG", name: "心エコー（経胸壁）", codes: ["160072510"], bedside: true, aliases: ["心エコー", "UCG", "心臓超音波", "TTE"] },
-  { code: "PHY-ABDUS", name: "腹部エコー", codes: ["160072210"], bedside: true, note: "検査の前は絶食（院内の約束・架空）", aliases: ["腹部エコー", "腹エコー", "腹部超音波"] },
+  { code: "PHY-ABDUS", name: "腹部エコー", codes: ["160072210"], bedside: true, note: "検査の前は絶食（院内の約束）", aliases: ["腹部エコー", "腹エコー", "腹部超音波"] },
   { code: "PHY-CAROTID", name: "頸動脈エコー", codes: ["160165010"], bedside: false, aliases: ["頸動脈エコー", "頸部エコー", "頸動脈超音波"] },
   { code: "PHY-LEVEIN", name: "下肢静脈エコー", codes: ["160213010"], bedside: true, aliases: ["下肢静脈エコー", "下肢エコー", "DVT検索", "下肢血管エコー"] },
   { code: "PHY-THYROID", name: "甲状腺エコー", codes: ["160165010"], bedside: false, aliases: ["甲状腺エコー", "甲状腺超音波"] },
@@ -245,9 +245,9 @@ export const PHYSIO: PhysioMaster[] = [
   { code: "PHY-HOLTER", name: "ホルター心電図（24時間）", codes: ["160069610"], bedside: true, aliases: ["ホルター", "24時間心電図"] },
   { code: "PHY-EEG", name: "脳波", codes: ["160075310"], bedside: false, aliases: ["脳波", "EEG"] },
   // 内視鏡（院内の約束・架空：上部は検査の前の食事を止める、大腸は前日から検査食と下剤）
-  { code: "PHY-EGD", name: "上部消化管内視鏡（胃カメラ）", codes: ["160093810"], bedside: false, note: "検査の前は絶食（院内の約束・架空）", aliases: ["胃カメラ", "上部内視鏡", "上部消化管内視鏡", "GF", "EGD", "GIF"] },
-  { code: "PHY-CF", name: "大腸内視鏡（全大腸）", codes: ["160094910"], bedside: false, note: "前日から検査食と下剤、当日は絶食（院内の約束・架空）", aliases: ["大腸カメラ", "大腸内視鏡", "下部内視鏡", "CF", "TCS"] },
-  { code: "PHY-BF", name: "気管支鏡", codes: ["160092810"], bedside: false, note: "検査の前は絶食（院内の約束・架空）", aliases: ["気管支鏡", "BF", "ブロンコ"] },
+  { code: "PHY-EGD", name: "上部消化管内視鏡（胃カメラ）", codes: ["160093810"], bedside: false, note: "検査の前は絶食（院内の約束）", aliases: ["胃カメラ", "上部内視鏡", "上部消化管内視鏡", "GF", "EGD", "GIF"] },
+  { code: "PHY-CF", name: "大腸内視鏡（全大腸）", codes: ["160094910"], bedside: false, note: "前日から検査食と下剤、当日は絶食（院内の約束）", aliases: ["大腸カメラ", "大腸内視鏡", "下部内視鏡", "CF", "TCS"] },
+  { code: "PHY-BF", name: "気管支鏡", codes: ["160092810"], bedside: false, note: "検査の前は絶食（院内の約束）", aliases: ["気管支鏡", "BF", "ブロンコ"] },
 ];
 
 export function findPhysio(code: string) {
@@ -472,7 +472,7 @@ export function checkImaging(d: ImagingDraft, ctx: CheckContext, pt: ExamPatient
           title: "腎機能",
           message: f.stale
             ? `${f.egfrText}。Cre の測定から${CONTRAST_RULES.creStaleDays}日を超えています。`
-            : `${f.egfrText}。eGFR ${CONTRAST_RULES.egfrAsk} 未満は造影の前に医師が確かめます（架空の病院の取り決め）。${f.egfrGuideline ? `${guideline}。` : ""}`,
+            : `${f.egfrText}。eGFR ${CONTRAST_RULES.egfrAsk} 未満は造影の前に医師が確かめます。${f.egfrGuideline ? `${guideline}。` : ""}`,
           choices: [{ label: `確かめた・承知（${EXAM_ACK.腎機能}）`, apply: ack(EXAM_ACK.腎機能) }],
         });
       } else issues.push({ key: "egfr", level: "info", title: "腎機能", message: f.egfrText });
@@ -581,7 +581,7 @@ export function checkPhysio(d: PhysioDraft, ctx: CheckContext, pt: ExamPatientFa
       choices: (m.bedside ? (["検査室", "ベッドサイド"] as const) : (["検査室"] as const)).map((p) => ({ label: p, apply: set<PhysioDraft>({ place: p }) })),
     });
   } else if (d.place === "ベッドサイド" && !m.bedside) {
-    issues.push({ key: "place", level: "stop", title: "場所", message: `${m.name}はベッドサイドでは行えません（院内の約束・架空）。` });
+    issues.push({ key: "place", level: "stop", title: "場所", message: `${m.name}はベッドサイドでは行えません（院内の約束）。` });
   } else if (d.place === "検査室" && !d.transport) {
     issues.push({ key: "transport", level: "ask", title: "移動", message: "移動の方法が抜けています。", choices: (["独歩", "車椅子", "ストレッチャー"] as Transport[]).map((t) => ({ label: t, apply: set<PhysioDraft>({ transport: t }) })) });
   }

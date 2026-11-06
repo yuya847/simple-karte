@@ -37,6 +37,6 @@ export function ExamCalendar({ kind, today, taken, value, onChange }: {
     </div>}
     </div>
     </div>
-    <p className="hint text-xs text-ink-faint">架空の病院の取り決め：今日から8週間の予約枠です。土曜は午前のみ、日曜・祝日・年末年始は休みです（祝日は2026年のみ対応）。ポータブルは時刻を直接入れます。ほかの患者の名前は予約の調整のために出しています。</p>
+    <p className="hint text-xs text-ink-faint">今日から8週間の予約枠です。土曜は午前のみ、日曜・祝日・年末年始は休みです（祝日は2026年のみ対応）。ポータブルは時刻を直接入れます。ほかの患者の名前は予約の調整のために出しています。</p>
   </section>;
 }

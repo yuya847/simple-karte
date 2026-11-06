@@ -4,6 +4,7 @@
 // over time, the day counts (標準的算定日数・早期リハビリテーション加算) and the state of the 実施計画書. The doctor
 // can mark the patient as one who may have 9 units a day (別に厚生労働大臣が定める患者); code does not decide it.
 
+import { displayText } from "@/lib/display-text";
 import { auditLog } from "@/lib/audit";
 import { BI_DROP_NOTE, biDrops } from "@/lib/barthel";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -43,7 +44,7 @@ export function RehabProgressPanel({ patient, entries, desk, onDesk, today, nowT
               </span>
             </h3>
             <p>
-              標準的算定日数：<b>{pr.standard.dayNo}日目</b>（{cat.countFromText}。{fmt(pr.standard.from)}から、あと{Math.max(0, pr.standard.left)}日）
+              標準的算定日数：<b>{pr.standard.dayNo}日目</b>（{cat.countFromText}。{displayText(fmt(pr.standard.from))}から、あと{Math.max(0, pr.standard.left)}日）
               {pr.standard.over && <b className="ml-1 text-shu">超えています（1月13単位まで。改善が期待できるなどで続けるかは医師が判断）</b>}
             </p>
             <p>
@@ -51,7 +52,7 @@ export function RehabProgressPanel({ patient, entries, desk, onDesk, today, nowT
             </p>
             <p className={pr.plan.state.includes("過ぎた") || pr.plan.state.includes("まだ") ? "font-bold text-yamabuki" : ""}>
               実施計画書：{pr.plan.state}
-              {pr.plan.plan && `（${fmt(pr.plan.plan.madeBy.day)} ${pr.plan.plan.madeBy.by}${pr.plan.plan.explained ? `、説明 ${fmt(pr.plan.plan.explained.day)} ${pr.plan.plan.explained.by}` : ""}）`}
+              {displayText(pr.plan.plan && `（${fmt(pr.plan.plan.madeBy.day)} ${pr.plan.plan.madeBy.by}${pr.plan.plan.explained ? `、説明 ${fmt(pr.plan.plan.explained.day)} ${pr.plan.plan.explained.by}` : ""}）`)}
               {!pr.plan.plan && pr.started !== null && `　原則 ${fmt(pr.plan.dueBy)}、遅くとも ${fmt(pr.plan.lastBy)} まで`}
             </p>
             <div>
@@ -73,7 +74,7 @@ export function RehabProgressPanel({ patient, entries, desk, onDesk, today, nowT
               {pr.bi.length === 0 ? <p className="text-ink-faint">まだ評価はありません。</p> : <p className="nums">{pr.bi.map((b) => `${fmt(b.day)} ${b.total ?? "—"}点`).join(" → ")}</p>}
               {drops.map((x) => (
                 <p key={x.to.id} className="font-bold text-yamabuki">
-                  {fmt(x.from.day)} から {fmt(x.to.day)} に {x.drop}点下がっています。{BI_DROP_NOTE}
+                  {displayText(fmt(x.from.day))} から {fmt(x.to.day)} に {x.drop}点下がっています。{BI_DROP_NOTE}
                 </p>
               ))}
             </div>
@@ -96,7 +97,7 @@ export function RehabProgressPanel({ patient, entries, desk, onDesk, today, nowT
       <p className="flex flex-wrap items-center gap-2">
         {nine ? (
           <span className="text-ink-soft">
-            1日9単位の対象（別に厚生労働大臣が定める患者）と判断：{nine.by}（{fmt(nine.day)} {nine.time}）
+            1日9単位の対象（別に厚生労働大臣が定める患者）と判断：{displayText(nine.by)}（{fmt(nine.day)} {nine.time}）
           </span>
         ) : (
           <button

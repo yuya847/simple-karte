@@ -4,6 +4,7 @@
 // not confirmed it and gray once seen. Pressing it opens the report in a small window over the record. The
 // reports come from a context WardApp provides, so HistoryPane only places the mark.
 
+import { displayText } from "@/lib/display-text";
 import { FileText, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -76,7 +77,7 @@ export function OrderReportMark({ orderId }: { orderId: string }) {
             key={r.key}
             type="button"
             aria-label={`${r.kind}のレポート（${s.state}）を読む`}
-            title={`${r.kind}のレポート：${s.state === "確認済み" ? `確認 ${s.ack.at.time} ${s.ack.by}` : s.state}。押すと読めます`}
+            title={displayText(`${r.kind}のレポート：${s.state === "確認済み" ? `確認 ${s.ack.at.time} ${s.ack.by}` : s.state}。押すと読めます`)}
             data-unread={unread || undefined}
             onClick={(e) => {
               const b = e.currentTarget.getBoundingClientRect();

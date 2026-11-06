@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { coverageOf, rateLabel, type Insurance } from "@/lib/billing/insurance";
 import { useState } from "react";
 
@@ -91,7 +92,7 @@ export function PatientBar({ rest, patient: p, today, diagnoses, directive, onOp
         <div className="nums text-sm text-ink-soft">
           {ageSex(p)}
         </div>
-        <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] text-ink-soft">架空の患者</span>
+
       </div>
       {actions && <div className="order-last ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">{actions}</div>}
 
@@ -135,7 +136,7 @@ export function PatientBar({ rest, patient: p, today, diagnoses, directive, onOp
       </dl>
 
       <div className="ml-auto flex flex-wrap items-center gap-1.5 text-xs">
-        <button type="button" onClick={onOpenDirective} title={directive ? `${formatShort(addDays(today, directive.decidedAt.day))} ${directive.by}${directive.discussedWith ? `（${directive.discussedWith}と）` : ""}` : "事前指示を記録する"}>
+        <button type="button" onClick={onOpenDirective} title={displayText(directive ? `${formatShort(addDays(today, directive.decidedAt.day))} ${directive.by}${directive.discussedWith ? `（${directive.discussedWith}と）` : ""}` : "事前指示を記録する")}>
           <Badge tone="shu" label="事前指示" values={[bandLabel(directive) + (reviewDue(directive) ? "（見直しの日）" : "")]} quiet={!directive || directive.cpr === "未確認"} />
         </button>
         {p.dietNow && (
@@ -196,7 +197,7 @@ export function PatientBar({ rest, patient: p, today, diagnoses, directive, onOp
           ))
         )}
         {flagsFor(p, [], 0, 0, undefined, 0, undefined, admissionMissing).filter((f) => f.action === "standing").map((f) => <button key={f.label} type="button" disabled={!onOpenStanding} onClick={onOpenStanding} title={f.title} className={onOpenStanding ? "rounded border border-yamabuki/40 bg-yamabuki-soft px-1.5 py-0.5 text-yamabuki" : "rounded border border-rule px-1.5 py-0.5 text-ink-faint"}>{f.label}</button>)}
-        {!!admissionMissing.length && <span className="hint text-ink-faint">架空の病院の取り決め：入院後、食事とバイタル測定の指示がそろうまで表示します。</span>}
+        {!!admissionMissing.length && <span className="hint text-ink-faint">入院後、食事とバイタル測定の指示がそろうまで表示します。</span>}
         {rest && <span className="rounded border border-rule px-1.5 py-0.5 text-ink-soft">安静度：{rest}</span>}
         {p.cautions.map((c) => (
           <Badge key={c} tone="yamabuki" label="注意" values={[c]} />

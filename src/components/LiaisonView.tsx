@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Building2, Calculator, Handshake, MailWarning, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -37,7 +38,7 @@ import {
   type ReplyState,
 } from "@/lib/liaison";
 import { useDeny, useMe } from "./RoleContext";
-import { Fictional, Sources, SubTabs } from "./DeskParts";
+import { Sources, SubTabs } from "./DeskParts";
 
 type Tab = "ledger" | "unanswered" | "rate" | "master";
 
@@ -110,7 +111,7 @@ export function LiaisonView({
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <Handshake size={18} className="text-ai" />
           地域医療連携
-          <Fictional />
+
         </h1>
         <SubTabs
           label="地域医療連携の画面"
@@ -131,7 +132,7 @@ export function LiaisonView({
         {tab === "rate" && <Rates periods={periods} visits={visits} rows={rows} />}
         {tab === "master" && <Master rows={rows} period={periods[0]} />}
         <p className="text-[11px] text-ink-faint">
-          医療機関・患者・件数はすべて架空です。今日より前の台帳と外来の数は架空の記録（同じ日付なら毎回同じ）で、今日の分は外来・救急外来の受付と、カルテの退院サマリで発行した紹介状から入ります。連携室が記録した返書・選んだ医療機関・足した行は、このブラウザの中にあり、監査ログに残ります。返書の文を書くのは担当医です。
+          今日より前の台帳と外来の数は日付から作った記録（同じ日付なら毎回同じ）で、今日の分は外来・救急外来の受付と、カルテの退院サマリで発行した紹介状から入ります。連携室が記録した返書・選んだ医療機関・足した行は、このブラウザの中にあり、監査ログに残ります。返書の文を書くのは担当医です。
         </p>
       </div>
     </section>
@@ -167,7 +168,7 @@ function StateCell({ row, day }: { row: LedgerRow; day: (d: number) => string })
       {r.state === "先方の返書待ち" && r.days !== null && `（${r.days}日）`}
       {r.reply && (
         <span className="block text-[11px] font-normal text-ink-faint">
-          {day(r.reply.day)} {r.reply.how} {r.reply.by}
+          {day(r.reply.day)} {r.reply.how} {displayText(r.reply.by)}
         </span>
       )}
     </span>
@@ -178,7 +179,7 @@ function FacilityCell({ row, locked, onFacility }: { row: LedgerRow; locked: str
   if (row.facility)
     return (
       <>
-        {row.facility.name}
+        {displayText(row.facility.name)}
         {row.facility.related && <span className="ml-1 rounded bg-fuji-soft px-1 text-[10px] text-fuji">特別の関係</span>}
       </>
     );
@@ -189,7 +190,7 @@ function FacilityCell({ row, locked, onFacility }: { row: LedgerRow; locked: str
         <option value="">マスタから選ぶ</option>
         {FACILITIES.map((f) => (
           <option key={f.id} value={f.id}>
-            {f.name}
+            {displayText(f.name)}
           </option>
         ))}
       </select>
@@ -288,7 +289,7 @@ function Ledger({
             <tr key={r.ref.id} className="border-b border-rule-soft align-top">
               <td className="nums px-2 py-1.5">
                 {r.ref.visitDay === null ? <span className="text-ink-soft">受診予定（紹介状 {day(r.ref.letterDay)}）</span> : day(r.ref.visitDay)}
-                <div className="text-[10px] text-ink-faint">{r.ref.source}</div>
+                <div className="text-[10px] text-ink-faint">{displayText(r.ref.source)}</div>
               </td>
               <td className="px-2 py-1.5">
                 <span className={r.ref.direction === "紹介" ? "text-ai" : "text-wakatake"}>{r.ref.direction}</span>
@@ -298,16 +299,16 @@ function Ledger({
               </td>
               <td className="px-2 py-1.5">
                 <div className="text-[10px] text-ink-faint">{r.ref.patient.kana}</div>
-                {r.ref.patient.name}
+                {displayText(r.ref.patient.name)}
               </td>
               <td className="px-2 py-1.5">
                 <FacilityCell row={r} locked={locked} onFacility={onFacility} />
               </td>
               <td className="px-2 py-1.5">
                 {r.ref.department}
-                <div className="text-[11px] text-ink-soft">{r.ref.doctor}</div>
+                <div className="text-[11px] text-ink-soft">{displayText(r.ref.doctor)}</div>
               </td>
-              <td className="max-w-64 px-2 py-1.5">{r.ref.reason}</td>
+              <td className="max-w-64 px-2 py-1.5">{displayText(r.ref.reason)}</td>
               <td className="px-2 py-1.5">
                 <StateCell row={r} day={day} />
                 <ReplyButtons row={r} locked={locked} onReply={onReply} />
@@ -376,7 +377,7 @@ function AddForm({ today, onAdd }: { today: CalendarDate; onAdd: (r: Referral) =
           <option value="">選ぶ</option>
           {FACILITIES.map((x) => (
             <option key={x.id} value={x.id}>
-              {x.name}
+              {displayText(x.name)}
             </option>
           ))}
         </select>
@@ -392,7 +393,7 @@ function AddForm({ today, onAdd }: { today: CalendarDate; onAdd: (r: Referral) =
       </label>
       <label className="flex items-center gap-2">
         患者の氏名
-        <input value={f.name} onChange={(e) => set({ name: e.target.value })} className={`${input} min-w-0 flex-1`} placeholder="架空の名前" required />
+        <input value={f.name} onChange={(e) => set({ name: e.target.value })} className={`${input} min-w-0 flex-1`} placeholder="名前" required />
       </label>
       <label className="flex items-center gap-2">
         カナ
@@ -468,14 +469,14 @@ function Unanswered({ rows, waiting, day, locked, onReply }: { rows: LedgerRow[]
                 <ReplyButtons row={r} locked={locked} onReply={onReply} />
               </td>
               <td className="nums px-2 py-1.5">{day(r.ref.visitDay ?? r.ref.letterDay)}</td>
-              <td className="px-2 py-1.5">{r.ref.patient.name}</td>
+              <td className="px-2 py-1.5">{displayText(r.ref.patient.name)}</td>
               <td className="px-2 py-1.5">
-                {r.facility?.name ?? r.ref.facilityText}
-                {r.facility && <div className="nums text-[11px] text-ink-faint">TEL {r.facility.tel}・FAX {r.facility.fax}</div>}
+                {displayText(r.facility?.name ?? r.ref.facilityText)}
+                {r.facility && <div className="nums text-[11px] text-ink-faint">TEL {displayText(r.facility.tel)}・FAX {displayText(r.facility.fax)}</div>}
               </td>
               <td className="px-2 py-1.5">
                 {r.ref.department}
-                <div className="text-[11px] text-ink-soft">{r.ref.doctor}</div>
+                <div className="text-[11px] text-ink-soft">{displayText(r.ref.doctor)}</div>
               </td>
             </tr>
           ))}
@@ -493,7 +494,7 @@ function Unanswered({ rows, waiting, day, locked, onReply }: { rows: LedgerRow[]
       </section>
       <section>
         <h2 className="mb-1 font-bold">逆紹介で、紹介先からの返書が30日以上ないもの {waiting.length}件</h2>
-        <p className="hint mb-2 text-[11px] text-ink-soft">30日は、問い合わせるかを考える目安として出しています（架空の病院の取り決め）。</p>
+        <p className="hint mb-2 text-[11px] text-ink-soft">30日は、問い合わせるかを考える目安として出しています。</p>
         {table(waiting, "ありません。")}
       </section>
     </>
@@ -518,7 +519,7 @@ function Rates({ periods, visits, rows }: { periods: Period[]; visits: Parameter
             </option>
           ))}
         </select>
-        <span className="text-[11px] text-ink-soft">{RATE_PERIOD_NOTE}この試作には架空の記録が直近の4か月分しかないので、月ごとに計算します。</span>
+        <span className="text-[11px] text-ink-soft">{RATE_PERIOD_NOTE}この試作には直近の4か月分の記録しかないので、月ごとに計算します。</span>
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="rounded-lg border border-rule bg-sheet p-3">
@@ -548,18 +549,18 @@ function Rates({ periods, visits, rows }: { periods: Period[]; visits: Parameter
         <tbody>
           {(
             [
-              ["初診の患者数", c.first, "外来の日計（架空の記録）と、今日の外来・救急外来の受付（救急車を除く）"],
-              ["再診の患者数", c.revisit, "外来の日計（架空の記録）と、今日の外来の受付"],
+              ["初診の患者数", c.first, "外来の日計と、今日の外来・救急外来の受付（救急車を除く）"],
+              ["再診の患者数", c.revisit, "外来の日計と、今日の外来の受付"],
               ["紹介患者数", c.referred, "この台帳の「紹介」のうち、受診日が期間内で初診のもの"],
               ["逆紹介患者数", c.reverse, "この台帳の「逆紹介」のうち、紹介した日が期間内のもの"],
-              ["救急患者数", c.ambulance, "救急外来の日計（架空の記録）と、今日の救急外来の救急車"],
+              ["救急患者数", c.ambulance, "救急外来の日計と、今日の救急外来の救急車"],
             ] as [string, number, string][]
           ).map(([t, v, from]) => (
             <tr key={t} className="border-b border-rule-soft align-top">
               <td className="px-2 py-1.5 font-bold">{t}</td>
               <td className="nums px-2 py-1.5 text-right">{n(v)}</td>
-              <td className="px-2 py-1.5 text-ink-soft">{from}</td>
-              <td className="px-2 py-1.5 text-[11px] text-ink-soft">{RATE_TERMS.find((x) => x.term === t)?.text}</td>
+              <td className="px-2 py-1.5 text-ink-soft">{displayText(from)}</td>
+              <td className="px-2 py-1.5 text-[11px] text-ink-soft">{displayText(RATE_TERMS.find((x) => x.term === t)?.text)}</td>
             </tr>
           ))}
         </tbody>
@@ -597,7 +598,7 @@ function Master({ rows, period }: { rows: LedgerRow[]; period: Period }) {
   const inMonth = rows.filter((r) => (r.ref.visitDay ?? r.ref.letterDay) >= period.from && (r.ref.visitDay ?? r.ref.letterDay) <= period.to);
   return (
     <>
-      <p className="text-[12px] text-ink-soft">連携先の医療機関（すべて架空。電話・FAX は 000 の番号で、実在しません）。「特別の関係」の医療機関からの紹介とそこへの逆紹介は、紹介割合・逆紹介割合に数えません（どこが当たるかは架空の病院の事実として決めています）。</p>
+      <p className="text-[12px] text-ink-soft">連携先の医療機関（電話・FAX は 000 の番号です）。「特別の関係」の医療機関からの紹介とそこへの逆紹介は、紹介割合・逆紹介割合に数えません。</p>
       <table className="w-full border-collapse rounded-lg bg-sheet text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -614,7 +615,7 @@ function Master({ rows, period }: { rows: LedgerRow[]; period: Period }) {
           {FACILITIES.map((f) => (
             <tr key={f.id} className="border-b border-rule-soft">
               <td className="px-2 py-1.5 font-bold">
-                {f.name}
+                {displayText(f.name)}
                 {f.related && <span className="ml-1 rounded bg-fuji-soft px-1 text-[10px] font-normal text-fuji">特別の関係</span>}
               </td>
               <td className="px-2">{f.kind}</td>

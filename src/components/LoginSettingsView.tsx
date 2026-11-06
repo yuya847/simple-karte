@@ -39,7 +39,7 @@ export function LoginSettingsView({ settings, onChange, users }: { settings: Log
           <li>
             {LOCK_RULE.tries}回続けて違うと{LOCK_RULE.minutes}分ログインできません。ログイン・失敗・ログアウト・画面ロックは監査ログに残ります。
             <span className="hint">
-              <Fictional text="回数と分は架空の病院の取り決め" />
+              <Fictional text="回数と分の設定" />
             </span>
           </li>
           <li>二要素認証（パスワードともう一つ）はありません。実際の電子カルテでは、令和9年度に向けて二要素認証が求められます（ガイドライン システム運用編 14 ⑤）。</li>

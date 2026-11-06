@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Download, LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import { LIMIT_SOURCES } from "@/lib/access-limit";
@@ -111,7 +112,7 @@ export function AccessLog() {
                     {e.patient ?? ""}
                   </td>
                   <td className={`py-1 pr-2 ${lim ? "text-fuji" : ""}`}>{e.action}</td>
-                  <td className="py-1 font-normal text-ink-soft">{e.detail ?? ""}</td>
+                  <td className="py-1 font-normal text-ink-soft">{displayText(e.detail ?? "")}</td>
                 </tr>
               );
             })}

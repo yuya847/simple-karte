@@ -26,7 +26,7 @@ export interface DocField {
 export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> = {
   栄養管理計画書: {purpose:"栄養状態と管理の計画を記録して説明する書類（模擬）",fields:NUTRITION_PLAN_FIELDS},
   入院診療計画書: {
-    purpose: "入院した日から7日以内に、患者と家族に説明して渡す計画（架空の病院の様式）",
+    purpose: "入院した日から7日以内に、患者と家族に説明して渡す計画",
     fields: [
       { key: "ward", label: "病棟（病室）", auto: true },
       { key: "attending", label: "主治医", auto: true },
@@ -43,7 +43,7 @@ export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> 
     ],
   },
   退院証明書: {
-    purpose: "ほかの病院に入院するときに、入院期間を通算するために渡す（架空の病院の様式）",
+    purpose: "ほかの病院に入院するときに、入院期間を通算するために渡す",
     fields: [
       { key: "name", label: "氏名", auto: true },
       { key: "admitted", label: "入院日", auto: true },
@@ -56,7 +56,7 @@ export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> 
     ],
   },
   診断書: {
-    purpose: "勤務先や保険などに出す一般的な診断書（架空の病院の様式）",
+    purpose: "勤務先や保険などに出す一般的な診断書",
     fields: [
       { key: "name", label: "氏名", auto: true },
       { key: "diagnosis", label: "病名", auto: true },
@@ -68,7 +68,7 @@ export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> 
     ],
   },
   退院療養計画書: {
-    purpose: "退院のときに、家での療養の注意を本人と家族に渡す（架空の病院の様式）",
+    purpose: "退院のときに、家での療養の注意を本人と家族に渡す",
     fields: [
       { key: "name", label: "氏名", auto: true },
       { key: "discharge", label: "退院日", auto: true },
@@ -80,7 +80,7 @@ export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> 
     ],
   },
   退院支援計画書: {
-    purpose: "退院困難な要因のある患者に、退院支援の計画を文書で説明して渡す（内容は通知 A246 (4) ア〜キのとおり。様式は架空の病院のもの）",
+    purpose: "退院困難な要因のある患者に、退院支援の計画を文書で説明して渡す",
     fields: [
       { key: "name", label: "患者氏名", auto: true },
       { key: "admitted", label: "入院日", auto: true },
@@ -99,7 +99,7 @@ export const DOC_DEFS: Record<DocKind, { purpose: string; fields: DocField[] }> 
   },
   // 項目は通知 別添6 別紙3（pressure-course.ts の PRESSURE_SOURCES）。様式の形は架空の病院のもの。
   褥瘡対策に関する診療計画書: {
-    purpose: "褥瘡に関する危険因子のある患者と褥瘡のある患者に、褥瘡対策チームの専任の医師と専任の看護職員が作る診療計画（項目は通知 別添6 別紙3 のとおり。様式は架空の病院のもの）",
+    purpose: "褥瘡に関する危険因子のある患者と褥瘡のある患者に、褥瘡対策チームの専任の医師と専任の看護職員が作る診療計画",
     fields: [
       { key: "ward", label: "病棟（病室）", auto: true },
       { key: "ulcerNow", label: "褥瘡の有無（現在）", auto: true },

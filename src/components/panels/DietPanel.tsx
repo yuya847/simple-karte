@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { dietNeedsProposal, dietAdjustment } from "@/lib/diet-workflow";
 import { useMe } from "../RoleContext";
 import { DIET_ADJUSTMENT_HINT } from "@/lib/diet";
@@ -78,7 +79,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
   const late = pastDeadline(f.from.day, f.from.meal, nowAbs);
   if (late) {
     const d = MEAL_DEADLINE[f.from.meal];
-    notes.push(`${DAY_LABEL[f.from.day] ?? ""}の${f.from.meal}食の締切（${d.dayBefore ? "前日" : "当日"} ${d.time}、架空の病院の取り決め）を過ぎています。確定したら栄養科に電話で伝えてください。`);
+    notes.push(`${DAY_LABEL[f.from.day] ?? ""}の${f.from.meal}食の締切（${d.dayBefore ? "前日" : "当日"} ${d.time}、院内の取り決め）を過ぎています。確定したら栄養科に電話で伝えてください。`);
   }
   const oral = entries.filter((e) => e.status === "有効" && e.order.type === "prescription");
   if (f.kind === "絶食" && oral.length) notes.push(`内服薬が ${oral.length}件 有効です。絶食中の内服をどうするか（少量の水で内服する・止めるなど）を指示してください。`);
@@ -124,13 +125,13 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
             ))}
           </tbody>
         </table>
-        <p className="mt-1 text-[10px] text-ink-faint">検査で止めるのは、架空の病院の約束（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。締切は朝食が前日17:00、昼食が当日10:00、夕食が当日15:00（架空）。</p>
+        <p className="mt-1 text-[10px] text-ink-faint">検査で止めるのは、院内の取り決め（腹部エコー・造影CT・内視鏡の前の1食）。{LEAVE_HOLD_RULE}。締切は朝食が前日17:00、昼食が当日10:00、夕食が当日15:00。</p>
       </section>}
 
       <section className="space-y-2 rounded-md border border-rule bg-paper p-3">
         <h3 className="font-bold">食事を変える</h3>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          {compact ? <span>{formatShort(addDays(today, f.from.day))} {f.from.meal}食から</span> : <>
+          {compact ? <span>{displayText(formatShort(addDays(today, f.from.day)))} {displayText(f.from.meal)}食から</span> : <>
           <span className="text-ink-soft">いつから</span>
           <select value={f.from.day} onChange={(e) => set({ from: { ...f.from, day: Number(e.target.value) } })} className={sel} aria-label="日">
             {[0, 1, 2].map((d) => (
@@ -250,7 +251,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
         <input value={f.comment ?? ""} onChange={(e) => set({ comment: e.target.value || undefined })} aria-label="注意（禁止食品・アレルギー・水分制限など）" placeholder="注意（禁止食品・アレルギー・水分制限など）" className="w-full rounded border border-rule bg-sheet px-2 py-1 text-xs" />
         <div className="rounded bg-sheet p-2 text-xs">
           <b>{dietLabel({ ...f, id: "", patientId: "", by: "", at: { day: 0, time: "" } })}</b>
-          <span className="text-ink-soft">　{DAY_LABEL[f.from.day] ?? formatShort(addDays(today, f.from.day))}の{f.from.meal}食から</span>
+          <span className="text-ink-soft">　{displayText(DAY_LABEL[f.from.day] ?? formatShort(addDays(today, f.from.day)))}の{displayText(f.from.meal)}食から</span>
           {errors.map((m) => (
             <p key={m} className="text-shu">
               {m}

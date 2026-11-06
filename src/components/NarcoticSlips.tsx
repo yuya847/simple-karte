@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -53,7 +54,7 @@ export function NarcoticSlips({ people, records, book, onBook, today, nowTime, n
           <ul className="space-y-1 text-[12px]">
             {mine.map((s) => (
               <li key={s.id}>
-                {formatShort(addDays(today, s.usedAt.day))} {s.usedAt.time}　{people.find((x) => x.patient.id === s.patientId)?.patient.name}　{anyDrugName(s.code)}　施用 {s.usedMl}mL・残 {s.leftMl}mL・未使用 {s.unusedA}A　返納 {s.returnedAt.time} {s.by}
+                {formatShort(addDays(today, s.usedAt.day))} {s.usedAt.time}　{people.find((x) => x.patient.id === s.patientId)?.patient.name}　{anyDrugName(s.code)}　施用 {s.usedMl}mL・残 {s.leftMl}mL・未使用 {s.unusedA}A　返納 {s.returnedAt.time} {displayText(s.by)}
                 <b className={s.received ? "text-wakatake" : "text-yamabuki"}>{s.received ? `薬剤部が受領 ${s.received.at.time}` : "薬剤部の受領待ち"}</b>
               </li>
             ))}
@@ -113,7 +114,7 @@ function SlipForm({ d, people, disabled, onReturn, nowTime }: { d: SlipDue; peop
           <DrugMarks codes={[d.item.drugCode]} />
         </span>
         <span className="text-xs text-ink-soft">
-          実施 {hhmm(d.at)}（記録 {d.doneAt} {d.by}）　施用者 {prescriber}（{lic?.no ?? "免許番号なし"}）
+          実施 {hhmm(d.at)}（記録 {d.doneAt} {displayText(d.by)}）　施用者 {prescriber}（{displayText(lic?.no ?? "免許番号なし")}）
         </span>
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">

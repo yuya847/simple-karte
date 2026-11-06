@@ -39,12 +39,12 @@ describe("患者プロファイル", () => {
   it("shows each item with who registered it, which checks use it, and the history", () => {
     const html = as("医師", <ProfilePanel base={sakura} log={log} fmtDay={(d) => `${d}日`} onChange={() => {}} />);
     expect(html).toContain("ヨード造影剤（蕁麻疹）");
-    expect(html).toContain("前からの記録（架空）");
+    expect(html).toContain("前からの記録");
     expect(html).toContain("オーダの確認に使われます：造影の画像検査（「造影剤」）");
     expect(html).toContain("今日 09:00 薬剤師 小林");
     expect(html).toContain("禁忌を追加：NSAIDs（腎機能低下）");
     expect(html).toContain("介助（移動）：未登録 → 車椅子");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
   });
 
   it("each role may change only its part (架空の病院の取り決め)", () => {

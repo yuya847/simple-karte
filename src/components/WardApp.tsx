@@ -2299,7 +2299,7 @@ export default function WardApp() {
         <CentralMonitor
           candidates={people.map((x) => ({ id: x.patient.id, name: x.patient.name, room: x.room, admittedOn: x.patient.admittedOn, latest: x.patient.vitals.at(-1) }))}
           manual={monitorManual}
-          lockedWhy={role === "看護師" ? null : "モニターの付け外しは看護師が行います（架空の病院の取り決め）。"}
+          lockedWhy={role === "看護師" ? null : "モニターの付け外しは看護師が行います。"}
           nowTime={nowTime}
           onToggle={(pid, on) => {
             auditLog({ role: me.role, actor: me.name, action: on ? "モニターを付けた（模擬）" : "モニターを外した（模擬）", patient: findPatient(pid)?.name });
@@ -3943,7 +3943,7 @@ export default function WardApp() {
                     today={formatShort(today)}
                     onAdd={(s) => {
                       infra.setScans((all) => [...all, { ...s, id: newId(), patientId: patient.id, by: me.name, role: me.role, at: { day: 0, time: nowTime } }]);
-                      auditLog({ role: me.role, actor: me.name, action: "確定（スキャン取込）", patient: patient.name, detail: `${s.type}　文書の日付 ${s.docDate}${s.sample ? "（架空の見本）" : ""}` });
+                      auditLog({ role: me.role, actor: me.name, action: "確定（スキャン取込）", patient: patient.name, detail: `${s.type}　文書の日付 ${s.docDate}${s.sample ? "（見本）" : ""}` });
                     }}
                     onWithdraw={(id, reason) => {
                       infra.setScans((all) => all.map((x) => (x.id === id ? withdraw(x, me.name, { day: 0, time: nowTime }, reason) : x)));
@@ -4004,7 +4004,7 @@ export default function WardApp() {
                       if (k === "栄養管理計画書") return { ...base, madeAt: fmt(0), ward: `${patient.ward} ${patient.room}号室` };
                       if (k === "入院診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, attending: patient.attending, staff: `${nurseFor(patient.room)}（看護）` };
                       if (k === "褥瘡対策に関する診療計画書") return { ...base, ward: `${patient.ward} ${patient.room}号室`, ...pressurePlanAuto({ ulcers: nm.ulcers.filter((u) => u.patientId === patient.id), risk: riskFromEval(evals[patient.id]?.pressure), fmt }) };
-                      if (k === "退院証明書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", stay: dDay !== null ? `${stayDays(patient.admittedOn, dDay)}日` : "—", fee: "急性期一般入院料４（架空の病院の届出）" };
+                      if (k === "退院証明書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", stay: dDay !== null ? `${stayDays(patient.admittedOn, dDay)}日` : "—", fee: "急性期一般入院料４" };
                       if (k === "退院療養計画書") return { ...base, discharge: dDay !== null ? fmt(dDay) : "（退院オーダがありません）", drugs: drugs || "なし" };
                       if (k === "退院支援計画書") {
                         const ds = evals[patient.id]?.discharge;

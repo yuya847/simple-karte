@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { BigChoice } from "@/components/BigChoice";
 import { ConfirmCheck } from "@/components/ConfirmCheck";
 import { AlertTriangle, Ban, CheckCircle2, Info, ShieldCheck } from "lucide-react";
@@ -85,14 +86,14 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
           保険の登録
           {current ? (
             <span className="rounded bg-wakatake-soft px-1.5 py-0.5 text-[11px] font-normal text-wakatake">
-              登録済み（{day(current.at.day)} {current.at.time} {current.by}）
+              登録済み（{day(current.at.day)} {current.at.time} {displayText(current.by)}）
             </span>
           ) : (
             <span className="rounded bg-shu-soft px-1.5 py-0.5 text-[11px] font-normal text-shu">未登録：算定は年齢からの仮の保険です</span>
           )}
         </h3>
         <p className="mb-3 text-[11px] leading-relaxed text-ink-soft">
-          保険証（資格確認書）・高齢受給者証・限度額適用認定証か、マイナ保険証のオンライン資格確認の画面を見て入れます。最初から選ばれている項目はありません。番号はすべて架空のものを入れてください（このブラウザの中だけに保存します）。公費（受給者証）・生活保護・自費・労災、有効期限、資格確認の方法は、患者基本情報の窓の「保険・制度」で入れます（同じ記録です）。
+          保険証（資格確認書）・高齢受給者証・限度額適用認定証か、マイナ保険証のオンライン資格確認の画面を見て入れます。最初から選ばれている項目はありません。このブラウザの中だけに保存します。公費（受給者証）・生活保護・自費・労災、有効期限、資格確認の方法は、患者基本情報の窓の「保険・制度」で入れます（同じ記録です）。
         </p>
 
         <fieldset disabled={!!locked} className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
@@ -245,7 +246,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
                       <div className="flex items-start gap-2">
                         <Icon size={13} className="mt-0.5 shrink-0" />
                         <span className="shrink-0 font-bold">{s.label}</span>
-                        <span className="nums text-ink">{c.text}</span>
+                        <span className="nums text-ink">{displayText(c.text)}</span>
                       </div>
                       <div className="hint mt-0.5 pl-5 text-[10px] text-ink-faint">根拠：{c.basis}</div>
                     </li>
@@ -284,7 +285,7 @@ export function InsurancePanel({ patient, records, today, nowTime, onRegister }:
                   <span className="nums">
                     {day(r.at.day)} {r.at.time}
                   </span>
-                  <span>{r.by}</span>
+                  <span>{displayText(r.by)}</span>
                   <span className="nums">{insuranceSummary(r.insurance)}</span>
                 </li>
               ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import {
   CircleDashed,
   Columns2,
@@ -598,7 +599,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
               </span>
             </h4>
             <p className="mt-1 text-[13px] leading-relaxed">{p.pacs.study.report}</p>
-            <p className="mt-1 text-[11px] text-ink-faint">{p.pacs.study.reader}</p>
+            <p className="mt-1 text-[11px] text-ink-faint">{displayText(p.pacs.study.reader)}</p>
             {creditsOf(p.pacs.series.flatMap((s) => (s.gen.kind === "photo" ? s.gen.images : []))).map((c) => (
               <p key={c.id} className="hint mt-1 text-[11px]">
                 画像の出典：{creditLine(c)}　{c.what}
@@ -632,7 +633,7 @@ export function PacsViewer({ patient, today, studies, focus }: { patient: Patien
       {full && (
         <div className="flex items-center justify-between">
           <h2 className="font-bold">
-            放射線画像<span className="ml-2 text-sm font-normal text-ink-soft">{patient.name}（ID {patient.id}）　画像は架空の合成画像か、公開データの教材用の画像です（この患者のものではありません）</span>
+            放射線画像<span className="ml-2 text-sm font-normal text-ink-soft">{patient.name}（ID {patient.id}）　画像は合成画像か、公開データの教材用の画像です（この患者のものではありません）</span>
           </h2>
           <button type="button" onClick={() => setFull(false)} aria-label="全画面を閉じる" className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
             <X size={18} />

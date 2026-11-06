@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { useState } from "react";
@@ -50,7 +51,7 @@ export function OpdRxPanel({ allergies, nowTime, newId, fmtDay, rx, onRx, memory
         {rx.map((r, i) => (
           <div key={i} className="mb-1 rounded bg-paper px-2 py-1 text-[12px]">
             <div className="nums text-[11px] text-ink-faint">
-              {r.at} {r.by}
+              {r.at} {displayText(r.by)}
             </div>
             {r.lines.map((l) => (
               <div key={l}>{l}</div>
@@ -117,7 +118,7 @@ export function RevisitPanel({ fmtDay, revisit, onRevisit }: { fmtDay: (d: numbe
         <h2 className="mb-2 text-xs font-bold text-ink-soft">再診予約</h2>
         {revisit ? (
           <p className="nums">
-            {fmtDay(revisit.day)} {revisit.time}　{revisit.purpose}　<span className="text-ink-faint">（{revisit.by}）</span>
+            {fmtDay(revisit.day)} {revisit.time}　{revisit.purpose}　<span className="text-ink-faint">（{displayText(revisit.by)}）</span>
           </p>
         ) : (
           <div className="space-y-1.5 text-[12px]">

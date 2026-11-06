@@ -23,8 +23,8 @@ export const TEAM_SOURCES = [
 
 /** The fictional hospital's rules (shown as such). */
 export const TEAM_HOUSE_RULES = {
-  filed: "この架空の病院は、ここに挙げた加算をすべて届け出ているものとします（架空）。チームの人は架空です。",
-  request: "チームへの依頼は医師（主治医）が出し、チームの提案を採用するかは医師が決めて記録します（この架空の病院の取り決め）。",
+  filed: "ここに挙げた加算をすべて届け出ているものとします。",
+  request: "チームへの依頼は医師（主治医）が出し、チームの提案を採用するかは医師が決めて記録します。",
   billing: "加算を算定するかは、条件を確かめて医師と医事課が決めます。この画面は算定しません。",
 } as const;
 

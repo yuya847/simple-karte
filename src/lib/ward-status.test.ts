@@ -32,7 +32,7 @@ describe("区分と出典", () => {
     expect([...PRECAUTIONS]).toEqual(["接触予防策", "飛沫予防策", "空気予防策"]);
     expect(STATUS_SOURCES.precautions.label).toContain("医政地発1219第1号");
     expect(STATUS_SOURCES.precautions.url).toMatch(/^https:\/\/www\.mhlw\.go\.jp\//);
-    for (const t of Object.values(STATUS_RULES)) expect(t).toContain("架空の病院の取り決め");
+    for (const t of Object.values(STATUS_RULES)) expect(t).not.toContain("架空の病院の取り決め");
     // The same 救護区分 as the bed information (院内連絡).
     expect(RESCUE_KINDS).toEqual([...RESCUE]);
   });

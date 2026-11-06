@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
 
@@ -95,7 +96,7 @@ export function PhysioView(p: Props) {
           {tab === "work" && <Work {...p} rows={rows} />}
           {tab === "report" && <Report {...p} rows={rows} />}
           {tab === "list" && <List {...p} rows={rows} />}
-          <p className="text-[11px] text-ink-soft">基準値による判定はしません（数値と所見を読むのは医師）。入力できる範囲は打ち間違いを止めるためのもので、基準範囲ではありません。患者とオーダは架空です。内視鏡（{ENDOSCOPY.length}種類）はこの画面に出ません。</p>
+          <p className="text-[11px] text-ink-soft">基準値による判定はしません（数値と所見を読むのは医師）。入力できる範囲は打ち間違いを止めるためのもので、基準範囲ではありません。内視鏡（{ENDOSCOPY.length}種類）はこの画面に出ません。</p>
         </div>
       </div>
     </div>
@@ -109,7 +110,7 @@ function Head({ r }: { r: PhysioRow }) {
   return (
     <header className="flex flex-wrap items-baseline gap-x-3">
       <span className="nums">
-        {whenText(r.at)}
+        {displayText(whenText(r.at))}
         {r.priority === "至急" && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
       </span>
       <b>
@@ -118,7 +119,7 @@ function Head({ r }: { r: PhysioRow }) {
       <span className="font-bold">{r.testName}</span>
       <span className="text-ink-soft">
         {r.place}
-        {r.transport ? `（${r.transport}）` : ""}　目的：{r.purpose}　{r.orderedBy}
+        {r.transport ? `（${r.transport}）` : ""}　目的：{r.purpose}　{displayText(r.orderedBy)}
       </span>
       <span className={STATUS_STYLE[r.status]}>{r.status}</span>
     </header>
@@ -157,7 +158,7 @@ function Work({ rows, onDesk, nowTime }: Props & { rows: PhysioRow[] }) {
             ) : (
               <>
                 <span className="text-ink-soft">
-                  受付 {r.work?.arrived?.time} {r.work?.arrived?.by}
+                  受付 {r.work?.arrived?.time} {displayText(r.work?.arrived?.by)}
                 </span>
                 <button
                   type="button"
@@ -233,7 +234,7 @@ function ReportForm({ r, onDesk, nowTime }: { r: PhysioRow; onDesk: Props["onDes
       <Head r={r} />
       {prev && (
         <p className="text-ink-soft">
-          いまの版：第{versionOf(r.work!)}版（{prev.time} {prev.by}）
+          いまの版：第{versionOf(r.work!)}版（{prev.time} {displayText(prev.by)}）
         </p>
       )}
       {fieldsOf(r.test).length > 0 && (
@@ -310,14 +311,14 @@ function List({ rows, desk, acks }: Props & { rows: PhysioRow[] }) {
           const rep = r.work?.report;
           return (
             <tr key={r.orderId} className="border-b border-rule-soft align-top">
-              <td className="nums px-2 py-1">{whenText(r.at)}</td>
+              <td className="nums px-2 py-1">{displayText(whenText(r.at))}</td>
               <td className="px-2 py-1">
                 {r.room}　{r.name}
               </td>
               <td className="px-2 py-1">{r.testName}</td>
               <td className={`px-2 py-1 ${STATUS_STYLE[r.status]}`}>
                 {r.status}
-                {r.work?.notDone && <span className="block font-normal">{r.work.notDone.reason}</span>}
+                {r.work?.notDone && <span className="block font-normal">{displayText(r.work.notDone.reason)}</span>}
               </td>
               <td className="px-2 py-1">
                 {rep ? (
@@ -329,7 +330,7 @@ function List({ rows, desk, acks }: Props & { rows: PhysioRow[] }) {
                   "—"
                 )}
               </td>
-              <td className={`px-2 py-1 ${rep && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{rep ? (ack ? `${ack.at.time} ${ack.by}` : rep.day < 0 ? "前の記録" : "まだ") : "—"}</td>
+              <td className={`px-2 py-1 ${rep && !ack ? "font-bold text-yamabuki" : "text-ink-soft"}`}>{displayText(rep ? (ack ? `${ack.at.time} ${ack.by}` : rep.day < 0 ? "前の記録" : "まだ") : "—")}</td>
             </tr>
           );
         })}

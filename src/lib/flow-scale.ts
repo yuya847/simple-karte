@@ -11,7 +11,7 @@ export const FLOW_SCALES: { key: FlowScale; label: string; title: string }[] = [
   { key: "week", label: "1週", title: "7日（1日1列）" },
   { key: "3d", label: "3日", title: "3日（時刻の位置に出す）" },
   { key: "1d", label: "1日", title: "0時〜24時" },
-  { key: "shift", label: "勤務帯", title: `日勤 ${SHIFTS.day.from}〜${SHIFTS.day.to}／夜勤 ${SHIFTS.night.from}〜翌${SHIFTS.night.to}（架空の病院の取り決め）` },
+  { key: "shift", label: "勤務帯", title: `日勤 ${SHIFTS.day.from}〜${SHIFTS.day.to}／夜勤 ${SHIFTS.night.from}〜翌${SHIFTS.night.to}` },
   { key: "1h", label: "1時間", title: "1時間（10分ごと）" },
 ];
 

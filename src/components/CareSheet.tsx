@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { ClipboardCheck } from "lucide-react";
@@ -71,7 +72,7 @@ export function CareSheet({ people, orders, records, plans, lo, hi, day, today, 
                 <td className={`${td} w-56`}>
                   <b>{o.item}</b>　<span className="text-ink-soft">{scheduleLabel(o)}</span>
                   {o.choices && <span className="block text-[11px] text-ink-faint">{o.choices.join("・")}</span>}
-                  {o.note && <span className="block text-[11px] text-ink-soft">{o.note}</span>}
+                  {o.note && <span className="block text-[11px] text-ink-soft">{displayText(o.note)}</span>}
                 </td>
                 <td className={td}>
                   <div className="flex flex-wrap gap-1">
@@ -109,7 +110,7 @@ export function CareSheet({ people, orders, records, plans, lo, hi, day, today, 
               const st = evalStatus(p, day)!;
               return (
                 <li key={p.id}>
-                  {who(p.patientId)?.room}　{who(p.patientId)?.patient.name}　{problemTitle(p)}　<span className={st.late ? "font-bold text-shu" : "text-yamabuki"}>{st.text.replace("今日", day === 0 ? "今日" : "この日")}</span>
+                  {who(p.patientId)?.room}　{who(p.patientId)?.patient.name}　{problemTitle(p)}　<span className={st.late ? "font-bold text-shu" : "text-yamabuki"}>{displayText(st.text.replace("今日", day === 0 ? "今日" : "この日"))}</span>
                 </li>
               );
             })}
@@ -133,10 +134,10 @@ function SlotCell({ order, at, label, record, state, late, nowTime, onRecord, on
         type="button"
         disabled={state === "記録済み" || (!record && early)}
         onClick={() => setOpen((o) => !o)}
-        title={early && !record ? `予定の時刻の${CARE_EARLY_MIN}分前から記録できます（架空の病院の取り決め）` : record ? `${record.by}　記録 ${record.writtenAt}${record.note ? `　${record.note}` : ""}${record.reason ? `　${record.reason}` : ""}` : "実施を記録する"}
+        title={displayText(early && !record ? `予定の時刻の${CARE_EARLY_MIN}分前から記録できます` : record ? `${record.by}　記録 ${record.writtenAt}${record.note ? `　${record.note}` : ""}${record.reason ? `　${record.reason}` : ""}` : "実施を記録する")}
         className={`nums whitespace-nowrap rounded border px-1 text-[11px] ${late && !record ? "border-shu" : "border-rule"} enabled:hover:border-ai disabled:cursor-default`}
       >
-        <b className="text-ink">{label}</b> <span className={tone}>{text}</span>
+        <b className="text-ink">{label}</b> <span className={tone}>{displayText(text)}</span>
       </button>
       {open && (
         <span className="absolute left-0 top-full z-20 mt-0.5 block w-64 rounded border border-rule bg-paper p-1.5 text-[11px] shadow-md">
@@ -272,13 +273,13 @@ function RecordView({ record, unit, onVoid }: { record: CareRecord; unit?: strin
       <span className={`block font-bold ${STATE_STYLE[record.status]}`}>
         {record.status} {record.doneAt}
         {record.value ? `　${record.value}${unit ?? ""}` : ""}
-        {record.reason ? `（${record.reason}）` : ""}
+        {displayText(record.reason ? `（${record.reason}）` : "")}
       </span>
       <span className="block text-ink-soft">
-        {record.by}　記録 {record.writtenAt}
+        {displayText(record.by)}　記録 {record.writtenAt}
         {hhmm(record.at) !== hhmm(minutesOf(record.doneAt)) ? `　予定 ${hhmm(record.at)}` : ""}
       </span>
-      {record.note && <span className="block">{record.note}</span>}
+      {record.note && <span className="block">{displayText(record.note)}</span>}
       <span className="flex flex-wrap items-center gap-1">
         <select value={reason} onChange={(e) => setReason(e.target.value)} aria-label="取り消す理由" className="rounded border border-rule bg-sheet px-0.5">
           <option value="">取り消す理由</option>

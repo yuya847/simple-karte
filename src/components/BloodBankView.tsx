@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { BookOpenText, ClipboardList, Droplet, FileClock, HelpCircle, Package, TestTubes, TriangleAlert, Undo2 } from "lucide-react";
@@ -66,7 +67,7 @@ const GUIDE: Record<Tab, string> = {
   stock:
     "血液センターから届いた製剤を、納品伝票と製剤本体で照合して入庫します（製造番号・製剤・単位・血液型・有効期限・照射）。期限を過ぎた製剤はコードが印を付けるので、廃棄の記録をします。赤血球をコンピュータクロスマッチで使うときは、入庫後に製剤の ABO をオモテ検査で確かめて「確認した」を押します。",
   return:
-    "払い出したが使わなかった製剤を、戻った時刻と外観で記録します。在庫に戻すか廃棄かは、払出からの時間と製剤の種類からコードが決めます（この架空の病院の取り決め）。",
+    "払い出したが使わなかった製剤を、戻った時刻と外観で記録します。在庫に戻すか廃棄かは、払出からの時間と製剤の種類からコードが決めます。",
   reactions:
     "病棟が記録した輸血の副反応が届きます。症状（学会の17項目）・始まった時刻・対応を確かめて「受けた」を押します。血液センターへの報告は模擬です（つながりません）。下の表は学会の報告書と同じく、バッグごとの件数です。",
   records:
@@ -220,9 +221,9 @@ function OrderCard({ req, blood, bank, onBank, nowAbs, nowTime, onIssued }: Bloo
         <b>
           {req.room}　{req.name}
         </b>
-        <span>{txText(req.tx)}</span>
+        <span>{displayText(txText(req.tx))}</span>
         <span className="nums text-xs text-ink-soft">
-          輸血 {momentText(momentOf(req.at))}　{req.entry.author}　理由：{req.tx.reason}
+          輸血 {displayText(momentText(momentOf(req.at)))}　{displayText(req.entry.author)}　理由：{displayText(req.tx.reason)}
         </span>
       </header>
       <p className={`mt-1 text-[12px] ${blood.confirmed && !blood.conflict ? "text-ink" : "font-bold text-shu"}`}>
@@ -252,13 +253,13 @@ function OrderCard({ req, blood, bank, onBank, nowAbs, nowTime, onIssued }: Bloo
                 <div key={n} className="flex flex-wrap items-center gap-2">
                   <span className="w-28">{bagLabel({ product: req.tx.product, units: n })}</span>
                   {opts.length === 0 ? (
-                    <span className="text-shu">在庫に合う製剤がありません（{typeText(blood.abo!, blood.rh!)}・{bagLabel({ product: req.tx.product, units: n })}）。血液センターに発注して入庫してください。</span>
+                    <span className="text-shu">在庫に合う製剤がありません（{displayText(typeText(blood.abo!, blood.rh!))}・{bagLabel({ product: req.tx.product, units: n })}）。血液センターに発注して入庫してください。</span>
                   ) : (
                     <>
                       <select value={pick[n] ?? opts[0].lot} onChange={(e) => setPick({ ...pick, [n]: e.target.value })} aria-label="割り付ける製剤" className={bbField} disabled={!!deny}>
                         {opts.map((u) => (
                           <option key={u.lot} value={u.lot}>
-                            {u.lot}　{typeText(u.abo, u.rh)}　期限 {momentText(u.expires)}
+                            {u.lot}　{displayText(typeText(u.abo, u.rh))}　期限 {displayText(momentText(u.expires))}
                           </option>
                         ))}
                       </select>
@@ -318,18 +319,18 @@ function BagRow({ unit, req, blood, bank, nowAbs, nowTime, set, onIssued }: { un
       <div className="flex flex-wrap items-baseline gap-x-3">
         <span className="font-mono font-bold">{unit.lot}</span>
         <span>
-          {bagLabel(unit)}　{typeText(unit.abo, unit.rh)}
+          {bagLabel(unit)}　{displayText(typeText(unit.abo, unit.rh))}
         </span>
-        <span className="nums text-ink-soft">期限 {momentText(unit.expires)}</span>
+        <span className="nums text-ink-soft">期限 {displayText(momentText(unit.expires))}</span>
         <span className={`font-bold ${state === "払出済み" || state === "輸血中" ? "text-ai" : state === "輸血済み" ? "text-wakatake" : state === "期限切れ" ? "text-shu" : "text-ink"}`}>{state}</span>
         {unit.issued && (
           <span className="nums text-ink-soft">
-            払出 {unit.issued.time} {unit.issued.by} → {unit.issued.to}
+            払出 {unit.issued.time} {displayText(unit.issued.by)} → {unit.issued.to}
           </span>
         )}
         {admin && (
           <span className="text-ink-soft">
-            病棟：照合 {admin.check.time}（{admin.check.by}・{admin.check.second}）{admin.start ? `　開始 ${admin.start.time}` : ""}
+            病棟：照合 {admin.check.time}（{displayText(admin.check.by)}・{admin.check.second}）{admin.start ? `　開始 ${admin.start.time}` : ""}
             {admin.end ? `　${admin.end.stopped ? "中止" : "終了"} ${admin.end.time}` : ""}
             {admin.reaction && <b className="ml-1 text-shu">副反応あり</b>}
           </span>
@@ -345,7 +346,7 @@ function BagRow({ unit, req, blood, bank, nowAbs, nowTime, set, onIssued }: { un
         <div className="mt-1 rounded border border-rule bg-sheet p-1.5">
           {unit.crossmatch ? (
             <p className={unit.crossmatch.major === "適合" ? "text-wakatake" : "font-bold text-shu"}>
-              交差適合試験：{unit.crossmatch.major}（{unit.crossmatch.method}・検体 {momentText(unit.crossmatch.sample)}採血）{unit.crossmatch.at.time} {unit.crossmatch.by}
+              交差適合試験：{unit.crossmatch.major}（{unit.crossmatch.method}・検体 {displayText(momentText(unit.crossmatch.sample))}採血）{unit.crossmatch.at.time} {displayText(unit.crossmatch.by)}
               {unit.crossmatch.checkedBy ? `・確認 ${unit.crossmatch.checkedBy}` : ""}
               {!deny && (
                 <button
@@ -386,7 +387,7 @@ function BagRow({ unit, req, blood, bank, nowAbs, nowTime, set, onIssued }: { un
                   条件：
                   {conds.map((c) => (
                     <span key={c.text} className={`mr-2 ${c.ok ? "text-wakatake" : "text-shu"}`}>
-                      {c.ok ? "✓" : "×"} {c.text}
+                      {c.ok ? "✓" : "×"} {displayText(c.text)}
                     </span>
                   ))}
                 </span>

@@ -711,7 +711,7 @@ export const LAB_INFO: Record<string, { material: string; container: string; tat
   "LAB-TNT": { material: "血清 0.5mL", container: "S09", tat: "院内・当日" },
   "LAB-TSH": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
   "LAB-FT4": { material: "血清 0.5mL", container: "S09", tat: "外注・2〜4日" },
-  "LAB-BGA": { material: "動脈血（ヘパリン加シリンジ）", container: "血ガス用シリンジ", tat: "院内・すぐ", note: "動脈穿刺は医師が行う（架空の病院の取り決め）。空気を抜いて密栓し、すぐ測る。院内で行った場合だけ算定できる（D007-35）" },
+  "LAB-BGA": { material: "動脈血（ヘパリン加シリンジ）", container: "血ガス用シリンジ", tat: "院内・すぐ", note: "動脈穿刺は医師が行う。空気を抜いて密栓し、すぐ測る。院内で行った場合だけ算定できる（D007-35）" },
   "LAB-UA": { material: "部分尿 10mL", container: "U40", tat: "院内・当日", note: "院内で行った場合だけ算定できる（D000）" },
   "LAB-UPRO": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },
   "LAB-UNA": { material: "蓄尿 0.5mL", container: "U00", tat: "院内・当日" },

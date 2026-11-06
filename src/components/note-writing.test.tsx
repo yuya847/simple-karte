@@ -97,5 +97,5 @@ it("連絡条件の帯には根拠と医師への連絡ボタンを出す", () =
   const html = as("看護師", pane("", null, { text: "記録しました", warn: "NEWS2 8点", contact: { score: 8, reasons: ["指示簿：SpO2 90%未満で Dr.call"] } }));
   expect(html).toContain("医師に連絡する");
   expect(html).toContain("指示簿：SpO2 90%未満で Dr.call");
-  expect(html).toContain("架空の病院の取り決め：NEWS2 7点以上は医師へ連絡");
+  expect(html).toContain("NEWS2 7点以上は医師へ連絡");
 });

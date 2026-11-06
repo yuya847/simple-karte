@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
@@ -23,7 +24,7 @@ export function VerbalReview({ entry }: { entry: OrderEntry }) {
   const v = entry.verbal;
   if (!v) return null;
   if (v.signedAt) return <span className="text-wakatake">承認 {v.signedBy} {v.signedAt.time}</span>;
-  if (v.cancelled) return <span className="text-shu">取り消し {v.cancelled.by} {v.cancelled.at.time}：{v.cancelled.reason}</span>;
+  if (v.cancelled) return <span className="text-shu">取り消し {displayText(v.cancelled.by)} {v.cancelled.at.time}：{displayText(v.cancelled.reason)}</span>;
   if (!canReviewVerbal(entry, me)) return null;
   return <span className="inline-flex flex-wrap items-center gap-2 text-xs">
     <button type="button" className="rounded border border-yamabuki px-2 text-yamabuki" onClick={() => review([entry.id])}>承認する</button>

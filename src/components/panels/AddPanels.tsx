@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 import { defaultSliding, isInsulin, slidingProblems } from "@/lib/insulin";
 import { SlidingScaleEditor } from "../SlidingScaleEditor";
@@ -447,7 +448,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                 <option value="">＋ 溶媒（輸液）を選ぶ</option>
                 {fluids.map((f) => (
                   <option key={f.code} value={f.code}>
-                    {f.name} {f.package}
+                    {f.name} {displayText(f.package)}
                   </option>
                 ))}
               </select>
@@ -544,7 +545,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                 <InjectionEntryRow step="times" active={rp.step}>
                 <DoseTimesEntry label={`Rp${first + i} の投与時刻`} times={rp.doseTimes ?? []} onChange={(doseTimes) => upd(i, { doseTimes, ...(rp.sliding ? {sliding:{...rp.sliding,times:doseTimes}} : {}) })} />
                 </InjectionEntryRow>
-                <p className="hint basis-full">投与時刻は架空の病院の取り決めです。1回ずつ書き替え、＋時刻・×で追加・削除できます。24:00 は翌日0時です。</p>
+                <p className="hint basis-full">1回ずつ書き替え、＋時刻・×で追加・削除できます。24:00 は翌日0時です。</p>
                 <InjectionEntryRow step="start" active={rp.step} className="basis-full">
                 <label className="block">開始日付 <input type="date" aria-label={`Rp${first + i} の開始日付`} value={(() => { const t = todayInTokyo(); return new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay)).toISOString().slice(0, 10); })()} onChange={(e) => { const t = todayInTokyo(); if (e.target.value) upd(i, { startDay: Math.round((Date.parse(e.target.value) - Date.UTC(t.y, t.m - 1, t.d)) / 86400000) }); }} className={field} /></label>
                 <label className="block">開始日（今日からの日数） <input type="number" value={rp.startDay} onChange={(e) => upd(i, { startDay: Number(e.target.value) })} className={`${field} w-16`} /></label>
@@ -665,7 +666,7 @@ function DripCalc({ rp }: { rp: InjRp }) {
       : rate > 0
         ? `1回 ${vol}mL ÷ ${rate}mL/時 = ${minutesLabel(Math.round((vol / rate) * 60))}`
         : null;
-  return text ? <span className="nums text-[11px] text-ai">{text}<span className="hint">（コードで計算）</span></span> : null;
+  return text ? <span className="nums text-[11px] text-ai">{displayText(text)}<span className="hint">（コードで計算）</span></span> : null;
 }
 
 /** A decided Rp as one line: only what was chosen (drugs, route, frequency, drip, start, days, comment). */
@@ -721,7 +722,7 @@ export function AddProcedurePanel({ onAdd, newId }: { onAdd: (d: Draft) => void;
           </li>
         ))}
       </ul>
-      <p className="hint mt-3 text-[11px] text-ink-faint">処置の項目と院内の取り決めは架空の病院のものです。算定のコードと点数は公式の医科診療行為マスターから読みます。</p>
+      <p className="hint mt-3 text-[11px] text-ink-faint">算定のコードと点数は公式の医科診療行為マスターから読みます。</p>
     </div>
   );
 }
@@ -900,7 +901,7 @@ export function AddRxPanel({
       <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />
       {category === "定期" && <p className="text-xs">{nextDay ? `この病棟の定期処方日：${"日月火水木金土"[REGULAR_RX_DAYS[ward.replace(/病棟$/, "")]]}曜。次は ${nextDay.getMonth() + 1}/${nextDay.getDate()}（${"日月火水木金土"[nextDay.getDay()]}）から` : "この病棟の定期処方日は未設定です。"}</p>}
       <p className="hint text-xs"><a href={ORAL_MASTER_SOURCE.url} target="_blank" rel="noreferrer" className="text-ai underline">{ORAL_MASTER_SOURCE.label}</a>。品目ごとの出典は院内医薬品集で確認できます。</p>
-      <p className="hint text-xs">定期処方日は架空の病院の取り決めです。薬名 → 1回量 → 回数 → 用法 → 日数を Enter または Tab、Esc で前の欄へ。数字・矢印で候補を選べます。「＋コメント」または薬名欄の ; でコメント行を入れます。</p>
+      <p className="hint text-xs">薬名 → 1回量 → 回数 → 用法 → 日数を Enter または Tab、Esc で前の欄へ。数字・矢印で候補を選べます。「＋コメント」または薬名欄の ; でコメント行を入れます。</p>
       <LineEntry>
       {rps.map((rp, i) => {
         const step = rp.step ?? (rp.rows.length ? "dose" : "drug");
@@ -927,7 +928,7 @@ export function AddRxPanel({
         const drugSearch = <RpDrugSearch options={options} onEmptyEnter={() => rp.rows.length ? focus(i, "dose") : submit()} onBack={() => i > 0 ? focus(i - 1, "dose") : undefined} onComment={(text) => { upd(i, { comment: text }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }} onPick={(c) => { upd(i, { rows: [...rp.rows, { drugCode: c, per: "" }], step: "dose" }); requestAnimationFrame(() => { const fields = panelRoot.current?.querySelectorAll<HTMLInputElement>(`[data-rp="${i}"] [data-step=dose] input`); fields?.[fields.length - 1]?.focus(); }); }} placeholder={`${label} に薬を入れる（名前・略称・ひらがな可）`} />;
         return <section key={i} data-rp={i} className="py-2">
           {rp.comment !== undefined && <div className="border-b border-rule py-1"><input data-comment aria-label={`${label} のコメント`} className="w-full bg-transparent outline-none" placeholder="フリーコメント" value={rp.comment} onChange={(e) => upd(i, { comment: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); focus(i, "drug"); } }} /></div>}
-          {step === "done" ? <button className="w-full py-1 text-left" onClick={() => focus(i, "dose")}><b>{label}</b>　{summary}　{rp.once ? "1回だけ・今すぐ" : howText(timingsOf(rp), rp.prn, Number(rp.maxPerDay) || null)}　{rp.once ? "" : `${rp.days}日分`}{rp.onePack ? "　一包化" : ""}{rp.alreadyDone ? "　実施済み" : ""}</button> : <>
+          {step === "done" ? <button className="w-full py-1 text-left" onClick={() => focus(i, "dose")}><b>{label}</b>　{summary}　{displayText(rp.once ? "1回だけ・今すぐ" : howText(timingsOf(rp), rp.prn, Number(rp.maxPerDay) || null))}　{rp.once ? "" : `${rp.days}日分`}{rp.onePack ? "　一包化" : ""}{rp.alreadyDone ? "　実施済み" : ""}</button> : <>
           {rp.once && <p className="text-yamabuki">1回だけ・今すぐ<span className="hint">（用法を変えると通常の処方になります）</span></p>}
           <div className="flex items-baseline gap-2">{!rp.rows.length && <><b>{label}</b><div data-step="drug" className="min-w-0 flex-1">{drugSearch}</div></>}<button type="button" aria-label={`${label} を消す`} className="ml-auto text-xs text-ink-faint" onClick={() => setRps((rs) => rs.length === 1 ? [freshRx()] : rs.filter((_, j) => j !== i))}>×</button><button type="button" className="text-xs text-ink-soft" onClick={() => { upd(i, { comment: rp.comment ?? "" }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }}>＋コメント</button></div>
           {rp.rows.map((r, k) => { const m = findOralDrug(r.drugCode)!; return <div key={k} data-step="dose" className="flex items-center justify-between border-b border-rule-soft py-1" onKeyDown={(e) => { if ((e.target as HTMLElement).tagName === "INPUT") advance(e, "dose", validDose(r.per, m)); }}>
@@ -1174,7 +1175,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
         </button>
         {missing.length > 0 && <p className="mt-1 text-[12px] text-yamabuki">未選択：{missing.join("・")}</p>}
       </div>
-      <p className="text-[11px] text-ink-faint">除水速度の目安：{HD_UF_RATE.source}（維持透析の目安。病棟の透析では参考として出します）。確定すると処置カレンダー・ワークシート・透析室の「病棟からの透析指示」に出ます。</p>
+      <p className="text-[11px] text-ink-faint">除水速度の目安：{displayText(HD_UF_RATE.source)}（維持透析の目安。病棟の透析では参考として出します）。確定すると処置カレンダー・ワークシート・透析室の「病棟からの透析指示」に出ます。</p>
     </div>
   );
 }
@@ -1250,7 +1251,7 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
           </div>
           {effect && (
             <div>
-              {effect.text}
+              {displayText(effect.text)}
               {effect.formula && (
                 <>
                   （{effect.formula}<span className="hint">、コードで計算</span>）
@@ -1453,7 +1454,7 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
               ))}
             </ul>
           )}
-          <p className="text-[11px] text-ink-faint">よく出す処方は、自分が過去に出した処方（架空のデータを含む）を Rp ごとにまとめ、回数と新しさの順に並べたものです。写したあと、量・日数を確かめてから下書きにします。</p>
+          <p className="text-[11px] text-ink-faint">よく出す処方は、自分が過去に出した処方を Rp ごとにまとめ、回数と新しさの順に並べたものです。写したあと、量・日数を確かめてから下書きにします。</p>
         </div>
       )}
     </MemoryPopover>
@@ -1542,18 +1543,18 @@ export function AddConsultPanel({ onAdd, newId, consults, replies, onReply }: { 
             return (
               <div key={e.id} className="rounded-md border border-rule bg-sheet p-2">
                 <div className="nums text-[11px] text-ink-faint">
-                  {e.time}　{e.author}
+                  {e.time}　{displayText(e.author)}
                 </div>
-                <div>{consultText(c)}</div>
+                <div>{displayText(consultText(c))}</div>
                 {r ? (
                   <p className="mt-1 whitespace-pre-wrap rounded bg-wakatake-soft px-2 py-1">
-                    <b>返書</b>（{r.at} {r.by}）：{r.text}
+                    <b>返書</b>（{r.at} {displayText(r.by)}）：{displayText(r.text)}
                   </p>
                 ) : (
                   <div className="mt-1 space-y-1">
-                    <textarea value={a.text} onChange={(x) => setAnswer((all) => ({ ...all, [e.id]: { ...a, text: x.target.value } }))} rows={2} placeholder={`${c.dept}の医師の返書（書いた本人が入れる）`} aria-label="返書" className={input} />
+                    <textarea value={a.text} onChange={(x) => setAnswer((all) => ({ ...all, [e.id]: { ...a, text: x.target.value } }))} rows={2} placeholder={displayText(`${c.dept}の医師の返書（書いた本人が入れる）`)} aria-label="返書" className={input} />
                     <div className="flex items-center gap-1.5">
-                      <input value={a.by} onChange={(x) => setAnswer((all) => ({ ...all, [e.id]: { ...a, by: x.target.value } }))} placeholder={`返書を書いた医師（例：${c.dept} 田中）`} aria-label="返書を書いた医師" className={`${input} flex-1`} />
+                      <input value={a.by} onChange={(x) => setAnswer((all) => ({ ...all, [e.id]: { ...a, by: x.target.value } }))} placeholder={displayText(`返書を書いた医師（例：${c.dept} 田中）`)} aria-label="返書を書いた医師" className={`${input} flex-1`} />
                       <button type="button" disabled={!a.text.trim() || !a.by.trim()} onClick={() => onReply(e.id, a.text.trim(), a.by.trim())} className="rounded bg-wakatake px-3 py-1 font-bold text-white disabled:opacity-40">
                         返書を記録
                       </button>
@@ -1633,7 +1634,7 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
               </li>
             ))}
           </ul>
-          <p className="text-[11px] text-ink-faint">自分が過去に出した注射（架空のデータを含む）を、同じ薬・経路・回数・落とし方ごとにまとめています。抗がん薬は出しません（レジメンの欄から）。写したあと、開始と日数を確かめて下書きにします。</p>
+          <p className="text-[11px] text-ink-faint">自分が過去に出した注射を、同じ薬・経路・回数・落とし方ごとにまとめています。抗がん薬は出しません（レジメンの欄から）。写したあと、開始と日数を確かめて下書きにします。</p>
         </div>
       )}
     </MemoryPopover>
@@ -1671,7 +1672,7 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
   );
   return (
     <div onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && (!(e.target instanceof HTMLButtonElement) || missing.length === 0)) { e.preventDefault(); submit(); } }} className="space-y-2 text-[12px]">
-      <p className="hint">架空の病院の取り決め：退院は10:00、外泊・外出は9:00を初期値にします。変更できます。日・行き先を入力後、Enterで下書きにします。</p>
+      <p className="hint">退院は10:00、外泊・外出は9:00を初期値にします。変更できます。日・行き先を入力後、Enterで下書きにします。</p>
       {kinds.length > 1 && row("種類", <TabChoice label="退院・外泊・外出" options={kinds.map((x) => ({ value: x, label: x }))} value={kind} onChange={(v) => { setKind(v); setTime(v === "退院" ? "10:00" : "09:00"); }} />)}
       {row(
         kind === "退院" ? "退院" : "出る",

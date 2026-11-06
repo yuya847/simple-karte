@@ -52,13 +52,13 @@ describe("実施入力の画面", () => {
     expect(html).toContain("指示開始日時");
     expect(html).toContain("実施日時");
     expect(html).toContain("指示受け日時：</span><span class=\"nums\">11:00");
-    expect(html).toContain("前の勤務帯（架空）"); // the prescription was taken before this session
+    expect(html).toContain("前の勤務帯"); // the prescription was taken before this session
     expect(html).toContain("手技</dt><dd class=\"nums\">点滴静注");
     expect(html).toContain("薬品</dt><dd class=\"nums\">メトホルミン");
     expect(html).toContain("実施した");
     expect(html).toContain("照合なし");
     expect(html).toContain("denshi_gx.pdf");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
   });
 
   it("a recorded item shows 実施 with the time and who, and leaves the list until 実施済みも表示する", () => {

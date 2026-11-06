@@ -65,7 +65,7 @@ export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }
       {dietEdit?.denied && <p>{dietEdit.denied}</p>}
     </section>
     <p className="hint">食事を押すと、その回から変えられます（主食・おかずの形・ペースト食などを押して「保存する」）。</p>
-    <p className="hint">回数を指定すると元の食事に戻す指示も下書きに入ります。予約済みの次の指示は残します。「この日の3回」は朝から夕までです。配膳済みの食事は変更できません（架空の病院の取り決め）。検査・外泊・退院による食止めは、この変更では解除されません。栄養部門への連携は模擬です。</p>
+    <p className="hint">回数を指定すると元の食事に戻す指示も下書きに入ります。予約済みの次の指示は残します。「この日の3回」は朝から夕までです。配膳済みの食事は変更できません。検査・外泊・退院による食止めは、この変更では解除されません。栄養部門への連携は模擬です。</p>
     {error && <p role="alert" className="text-shu">{error}</p>}
     {menu && (() => {
       const base = dietAt(diets, patient.id, menu.day, menu.meal) ?? { id: "", patientId: patient.id, from: menu, kind: "常食" as const, staple: "米飯" as const, side: "常菜" as const, by: dietEdit?.doctor ?? "", at: { day: 0, time: nowTime } };

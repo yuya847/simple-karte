@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ScanLine } from "lucide-react";
 import { useState } from "react";
 import { slidingUnits } from "@/lib/insulin";
@@ -93,17 +94,17 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
       <span className={STATE_STYLE[record.status]} title={record.status === "実施" ? `リストバンド ${record.checked.patient ? "一致" : "—"}${record.checked.label === null ? "" : `／ラベル ${record.checked.label ? "一致" : "—"}`}` : undefined}>
         {record.status} {record.doneAt}
         {record.insulin && <span className="block">{record.insulin.glucose != null ? `血糖 ${record.insulin.glucose} mg/dL・` : ""}{record.insulin.units}単位</span>}
-        {record.reason && <span className="block text-[10px]">{record.reason}</span>}
+        {record.reason && <span className="block text-[10px]">{displayText(record.reason)}</span>}
         {record.offBy !== undefined && <span className="block text-[10px] text-yamabuki">予定より{Math.abs(record.offBy)}分{record.offBy > 0 ? "遅れ" : "早め"}</span>}
         {onVoid && <VoidControl record={record} onVoid={onVoid} />}
       </span>
     );
   }
   return (
-    <div className="space-y-1" title={cancellation ? `取り消し ${cancellation.at} ${cancellation.by} ${cancellation.reason}` : undefined}>
+    <div className="space-y-1" title={displayText(cancellation ? `取り消し ${cancellation.at} ${cancellation.by} ${cancellation.reason}` : undefined)}>
       {voided.map((v, i) => (
-        <span key={i} className="block text-[10px] text-ink-faint line-through decoration-ink-faint/60" title={`取り消し：${v.at} ${v.by}（${v.reason}）`}>
-          {v.status}（取り消し {v.at}・{v.reason}）
+        <span key={i} className="block text-[10px] text-ink-faint line-through decoration-ink-faint/60" title={displayText(`取り消し：${v.at} ${v.by}（${v.reason}）`)}>
+          {v.status}（取り消し {v.at}・{displayText(v.reason)}）
         </span>
       ))}
       <div className="flex items-center gap-1">
@@ -160,7 +161,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
           {prn?.wait && <p className="font-bold text-shu">{prn.wait}</p>}
           {item.drip && (
             <p className="nums text-ink-soft">
-              点滴は開始と終了の2回記録します。いま開始すると終了予定 {item.drip.minutes === null ? "—（速さの指示なし）" : `${clockText(nowAbs + item.drip.minutes)}（${item.drip.volumeMl}mL ÷ ${item.drip.mlPerH}mL/時）`}
+              点滴は開始と終了の2回記録します。いま開始すると終了予定 {displayText(item.drip.minutes === null ? "—（速さの指示なし）" : `${clockText(nowAbs + item.drip.minutes)}（${item.drip.volumeMl}mL ÷ ${item.drip.mlPerH}mL/時）`)}
             </p>
           )}
           {queried && (

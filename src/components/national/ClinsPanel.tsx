@@ -5,6 +5,7 @@
 // chooses which allergies to send and how each is classed (nothing is chosen in advance), and confirms the
 // patient's consent. The other tab shows other hospitals' 6情報 (FICTIONAL) once the patient has agreed.
 
+import { displayText } from "@/lib/display-text";
 import { Building2, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -114,7 +115,7 @@ export function ClinsPanel({
         電子カルテ情報共有サービス
         <MockMark />
       </h3>
-      <MockNote>電子カルテ情報共有サービスにはつないでいません。送るものを JP-CLINS 実装ガイド v1.13.0 の FHIR で示し、送信と受付は架空の答えです。他院の情報も架空です。</MockNote>
+      <MockNote>電子カルテ情報共有サービスにはつないでいません。送るものを JP-CLINS 実装ガイド v1.13.0 の FHIR で示します。送信と受付は模擬です。</MockNote>
       <SubTabs
         label="電子カルテ情報共有サービス"
         tabs={[
@@ -142,8 +143,8 @@ export function ClinsPanel({
                       <td className="py-0.5 pr-2">
                         <label className="flex items-center gap-1">
                           <input type="checkbox" checked={a.send} disabled={!!locked} onChange={(e) => setAllergies((l) => l.map((x, j) => (j === i ? { ...x, send: e.target.checked } : x)))} />
-                          {a.text}
-                          <span className="text-ink-faint">（{a.from}）</span>
+                          {displayText(a.text)}
+                          <span className="text-ink-faint">（{displayText(a.from)}）</span>
                         </label>
                       </td>
                       <td>
@@ -158,7 +159,7 @@ export function ClinsPanel({
                   ))}
                 </tbody>
               </table>
-              {undecided.length > 0 && <p className="text-yamabuki">区分を選ぶと送れます：{undecided.map((a) => a.text).join("、")}</p>}
+              {undecided.length > 0 && <p className="text-yamabuki">区分を選ぶと送れます：{displayText(undecided.map((a) => a.text).join("、"))}</p>}
             </div>
           )}
           <ul className="space-y-1.5">
@@ -179,7 +180,7 @@ export function ClinsPanel({
                   {it.bundle && <JsonView value={it.bundle} name={`${patient.id}-${it.key}.json`} label="送る FHIR（JSON）" />}
                   {r && (
                     <p className="nums text-wakatake">
-                      受付番号（架空）{r.receiptNo}　{r.receivedAt}　{r.result}
+                      受付番号{r.receiptNo}　{r.receivedAt}　{r.result}
                     </p>
                   )}
                 </li>
@@ -206,7 +207,7 @@ export function ClinsPanel({
           {other && !other.consented && <p className="text-yamabuki">同意がないので見られません。</p>}
           {other?.consented &&
             (other.items.length === 0 ? (
-              <p className="text-ink-faint">ほかの医療機関が登録した情報はありません（架空）。</p>
+              <p className="text-ink-faint">ほかの医療機関が登録した情報はありません。</p>
             ) : (
               <table className="nums w-full text-[11px]">
                 <thead className="text-left text-ink-faint">
@@ -221,8 +222,8 @@ export function ClinsPanel({
                   {other.items.map((x, i) => (
                     <tr key={i} className="border-t border-rule-soft">
                       <td className="pr-2">{x.kind}</td>
-                      <td className="pr-2">{x.text}</td>
-                      <td className="pr-2">{x.from}</td>
+                      <td className="pr-2">{displayText(x.text)}</td>
+                      <td className="pr-2">{displayText(x.from)}</td>
                       <td>{x.date}</td>
                     </tr>
                   ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { CalendarClock, CheckCircle2, Keyboard, List, MonitorPlay, Printer, UserPlus } from "lucide-react";
 import { useState } from "react";
 import type { AdmissionRequest } from "@/lib/admission";
@@ -18,7 +19,6 @@ import {
   callToPay,
   CARDS,
   cardOf,
-  CLINIC_NOTE,
   clinicOf,
   CLINICS,
   deptsOf,
@@ -37,7 +37,7 @@ import {
   type Card,
 } from "@/lib/opd-desk";
 import { BigChoice } from "./BigChoice";
-import { Fictional, SubTabs, usePrintSheet } from "./DeskParts";
+import { SubTabs, usePrintSheet } from "./DeskParts";
 import { KioskScreen, WaitingDisplay } from "./OpdScreens";
 import { OpdBoard } from "./OpdBoard";
 import { ReceptionInsurance } from "./ReceptionInsurance";
@@ -258,7 +258,7 @@ function Slip({ p, ticket, room, date }: { p: OpdPatient; ticket?: number; room?
   return (
     <div className="w-[90mm] border border-ink p-[6mm] text-[10pt]">
       <p className="text-center text-[12pt] font-bold">受付票</p>
-      <p className="text-center text-[9pt]">架空総合病院（架空）</p>
+      <p className="text-center text-[9pt]">架空総合病院</p>
       <p className="mt-3 text-center text-[9pt]">受付番号</p>
       <p className="nums text-center text-[36pt] font-bold leading-none">{ticketLabel(ticket)}</p>
       <table className="mt-3 w-full text-[10pt]">
@@ -278,7 +278,7 @@ function Slip({ p, ticket, room, date }: { p: OpdPatient; ticket?: number; room?
           ).map(([k, v]) => (
             <tr key={k}>
               <th className="w-[22mm] py-0.5 text-left font-normal">{k}</th>
-              <td className="py-0.5">{v}</td>
+              <td className="py-0.5">{displayText(v)}</td>
             </tr>
           ))}
         </tbody>
@@ -369,7 +369,7 @@ export function Reception({
     <div className="scroll-thin min-h-0 flex-1 overflow-auto px-5 py-4 text-[13px]">
       <h2 className="mb-1 text-lg font-bold">
         受付（初診・予約外の再診）
-        <Fictional />
+
       </h2>
       <p className="mb-3 text-[12px] text-ink-soft">予約のある患者は、受付一覧の「受付する」か再来受付機（模擬）で受け付けます。受け付けると受付番号が付き、「受付票を印刷」で印刷します。{nowTime} 受付。</p>
       {locked && <p className="mb-2 text-[12px] text-ink-soft">{locked}</p>}
@@ -377,7 +377,7 @@ export function Reception({
         <div role="status" className="mb-3 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-wakatake/50 bg-wakatake-soft px-4 py-2">
           <CheckCircle2 size={16} className="shrink-0 text-wakatake" />
           <span>
-            受け付けました：<b>{done.name}</b>さん　受付番号 <b className="nums text-xl">{ticketLabel(done.ticket)}</b>
+            受け付けました：<b>{displayText(done.name)}</b>さん　受付番号 <b className="nums text-xl">{ticketLabel(done.ticket)}</b>
           </span>
           <button type="button" onClick={done.onPrint} className="inline-flex min-h-9 items-center gap-1 rounded-md border border-rule bg-sheet px-3 text-[13px] font-bold hover:border-ai hover:text-ai">
             <Printer size={14} />
@@ -407,7 +407,7 @@ export function Reception({
           <>
             <label className="flex items-center gap-2">
               氏名
-              <input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="架空の名前" className={`${input} min-w-0 flex-1`} />
+              <input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="名前" className={`${input} min-w-0 flex-1`} />
             </label>
             <label className="flex items-center gap-2">
               カナ
@@ -429,7 +429,7 @@ export function Reception({
                 <option value="">なし</option>
                 {FACILITIES.map((x) => (
                   <option key={x.id} value={x.id}>
-                    {x.name}
+                    {displayText(x.name)}
                   </option>
                 ))}
               </select>
@@ -442,7 +442,7 @@ export function Reception({
             <input value={f.cardNo} onChange={(e) => set({ cardNo: e.target.value })} placeholder="例：1000111" className={`${input} w-40`} />
             {card ? (
               <span>
-                <b>{card.name}</b>（{card.kana}・{card.sex}・{card.age}歳・{card.cardNo}）
+                <b>{displayText(card.name)}</b>（{card.kana}・{card.sex}・{card.age}歳・{card.cardNo}）
               </span>
             ) : (
               f.cardNo && <span className="text-shu">{isCardNo(f.cardNo) ? "この番号の診察券はありません" : "見つかりません"}</span>
@@ -466,7 +466,7 @@ export function Reception({
                 <option value="">選ぶ</option>
                 {doctors.map((c) => (
                   <option key={c.doctor} value={c.doctor}>
-                    {c.doctor}（{c.room}）
+                    {displayText(c.doctor)}（{c.room}）
                   </option>
                 ))}
               </select>
@@ -556,13 +556,13 @@ function Slots({
     <div className="scroll-thin min-h-0 flex-1 overflow-auto px-5 py-4 text-[13px]">
       <h2 className="mb-1 text-lg font-bold">
         予約の枠
-        <Fictional />
+
       </h2>
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <select value={doctor} onChange={(e) => (setDoctor(e.target.value), setPick(null))} aria-label="診療科・医師" className={input}>
           {CLINICS.map((x) => (
             <option key={x.doctor} value={x.doctor}>
-              {x.dept}　{x.doctor}（{x.room}）
+              {displayText(x.dept)}　{displayText(x.doctor)}（{x.room}）
             </option>
           ))}
         </select>
@@ -578,7 +578,7 @@ function Slots({
           {["日", "月", "火", "水", "木", "金", "土"].filter((_, i) => c.days.includes(i)).join("・")}曜　{c.sessions.map(([a, b]) => `${a}〜${b}`).join("、")}　1枠 {c.minutes}分・{c.capacity}人
         </span>
       </div>
-      <p className="mb-2 text-[11px] text-ink-faint">{CLINIC_NOTE}</p>
+
       <div className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {slots.map((s) => {
           const full = s.taken.length >= s.capacity;
@@ -597,8 +597,8 @@ function Slots({
                 {full ? " 満" : ""}
               </span>
               {s.taken.map((x, i) => (
-                <span key={i} className="block truncate text-[11px] text-ink-soft" title={x.from}>
-                  {x.name}（{x.kind}）
+                <span key={i} className="block truncate text-[11px] text-ink-soft" title={displayText(x.from)}>
+                  {displayText(x.name)}（{x.kind}）
                 </span>
               ))}
             </button>
@@ -608,7 +608,7 @@ function Slots({
       {pick && (
         <div className="mt-3 grid max-w-3xl gap-2 rounded-lg border border-ai/40 bg-sheet p-3 sm:grid-cols-2">
           <p className="font-bold sm:col-span-2">
-            {formatShort(addDays(today, d))} {pick}　{c.dept} {c.doctor} に予約を取る
+            {formatShort(addDays(today, d))} {pick}　{displayText(c.dept)} {displayText(c.doctor)} に予約を取る
           </p>
           <label className="flex items-center gap-2 sm:col-span-2">
             区分
@@ -623,14 +623,14 @@ function Slots({
             <label className="flex items-center gap-2 sm:col-span-2">
               診察券番号
               <input value={who.cardNo} onChange={(e) => setWho((w) => ({ ...w, cardNo: e.target.value.replace(/\D/g, "") }))} className={`${input} w-28`} placeholder="例：1000111" />
-              {card ? <b>{card.name}</b> : who.cardNo.length === 7 && <span className="text-shu">この番号の診察券はありません</span>}
+              {card ? <b>{displayText(card.name)}</b> : who.cardNo.length === 7 && <span className="text-shu">この番号の診察券はありません</span>}
             </label>
           )}
           {who.kind === "初診" && (
             <>
               <label className="flex items-center gap-2">
                 氏名
-                <input value={who.name} onChange={(e) => setWho((w) => ({ ...w, name: e.target.value }))} className={`${input} min-w-0 flex-1`} placeholder="架空の名前" />
+                <input value={who.name} onChange={(e) => setWho((w) => ({ ...w, name: e.target.value }))} className={`${input} min-w-0 flex-1`} placeholder="名前" />
               </label>
               <label className="flex items-center gap-2">
                 カナ

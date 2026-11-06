@@ -84,7 +84,7 @@ function drugPart(lines: ClaimLine[]): ClaimPart {
  */
 const TOKUREI_READ: Record<string, string> = {
   "190192110":
-    "回数の特例条件は、療養病棟入院基本料・精神病棟入院基本料など（特定機能病院の精神病棟を含む）で入院日から8週間を限度とするもの（令和6年 厚生労働省告示第57号 A244 注1 で確認。令和8年の本文は未確認）。この架空の病院は急性期一般入院料なので当たりません。",
+    "回数の特例条件は、療養病棟入院基本料・精神病棟入院基本料など（特定機能病院の精神病棟を含む）で入院日から8週間を限度とするもの（令和6年 厚生労働省告示第57号 A244 注1 で確認。令和8年の本文は未確認）。この病院は急性期一般入院料なので当たりません。",
 };
 
 // ---------- the engine ----------
@@ -405,7 +405,7 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
           shikibetsu: "33",
           parts: [
             { lines: [si(code)], points: pts(code) },
-            { lines: [{ record: "TO", code: mat, name: item?.name ?? mat, quantity: 1, unit: "本", unitCode: "007", product: picc ? "PICC カテーテル 4Fr（架空の院内採用品）" : "CVカテーテル トリプルルーメン 7Fr（架空の院内採用品）" }], points: materialPoints(yen) },
+            { lines: [{ record: "TO", code: mat, name: item?.name ?? mat, quantity: 1, unit: "本", unitCode: "007", product: picc ? "PICC カテーテル 4Fr" : "CVカテーテル トリプルルーメン 7Fr" }], points: materialPoints(yen) },
           ],
           basis: `${picc ? "G005-3 末梢留置型中心静脈注射用カテーテル挿入" : "G005-2 中心静脈注射用カテーテル挿入"}（${o.site ?? ""}。挿入に伴う検査・画像診断は所定点数に含む）＋ 材料（${item?.name ?? ""} ${yen.toLocaleString("ja-JP")}円 → ${materialPoints(yen)}点）`,
         });

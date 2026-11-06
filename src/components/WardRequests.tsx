@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { BedDouble } from "lucide-react";
 import { useState } from "react";
 import { CHART_WARDS, type AdmissionRequest } from "@/lib/admission";
@@ -41,7 +42,7 @@ export function WardRequests({ floor, requests, ward, rooms, fmtDay, onAccept }:
                 {r.allergies.length > 0 && <b className="ml-1 text-shu">アレルギー {r.allergies.join("、")}</b>}
               </span>
               <span className="text-ink-faint">
-                {r.from.kind === "er" ? "救急外来" : "外来"}・{r.by}
+                {displayText(r.from.kind === "er" ? "救急外来" : "外来")}・{displayText(r.by)}
               </span>
               {open !== r.id && (
                 <button
@@ -58,7 +59,7 @@ export function WardRequests({ floor, requests, ward, rooms, fmtDay, onAccept }:
                 </button>
               )}
             </div>
-            {r.note && <p className="mt-0.5 text-ink-soft">申し送り：{r.note}</p>}
+            {r.note && <p className="mt-0.5 text-ink-soft">申し送り：{displayText(r.note)}</p>}
             {open === r.id && (
               <div className="mt-2 space-y-2">
                 <BedPicker ward={ward} rooms={rooms} sex={r.sex} value={bed} onChange={setBed} />

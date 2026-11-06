@@ -48,11 +48,12 @@ describe("レポート一覧（カルテ）", () => {
     expect(html).toContain("未読 2件");
     expect(html).toContain("未読だけ");
     expect(html).toContain("未読をすべて確認した");
-    expect(html).toContain("放射線科 石田（架空）");
+    expect(html).toContain("放射線科 石田");
+    expect(html).not.toContain("（架空）");
     expect(html).toContain("前の記録");
     expect(html).toContain("画像診断報告書に関する提言");
     expect(html).toContain("画像診断報告書の確認不足等に関する医療安全対策についての見解");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
     // The row shows the first line of the text, not a summary made here.
     expect(html).toContain("臥位正面（AP）。両側の肋骨横隔膜角は前回（昨日）と同じく鈍。肺血管影の増強は軽度。");
     expect(html.indexOf("心電図") < html.indexOf("ポータブルX線")).toBe(true);

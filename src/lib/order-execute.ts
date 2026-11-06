@@ -70,8 +70,8 @@ export function actionsFor(occ: Occurrence): OccurrenceActions {
   if (occ.record && !occ.record.cancellation) return { kind: "void", record: occ.record };
   const day = Math.floor(occ.item.at! / 1440);
   if (day > 0) return { kind: "locked", why: "明日以降の分は、その日になってから記録します。" };
-  if (!canExecuteOn(day)) return { kind: "locked", why: "記録を入れられるのは今日と昨日の分だけです（架空の病院の取り決め）。" };
-  if (occ.state === "記録済み") return { kind: "locked", why: "この画面を開く前の時刻の分は、前の勤務帯が記録したものとして扱います（架空）。" };
+  if (!canExecuteOn(day)) return { kind: "locked", why: "記録を入れられるのは今日と昨日の分だけです。" };
+  if (occ.state === "記録済み") return { kind: "locked", why: "この画面を開く前の時刻の分は、前の勤務帯が記録したものとして扱います。" };
   return { kind: "record" };
 }
 
@@ -118,7 +118,7 @@ export function executionBadge(patient: Patient, entry: OrderEntry, records: Rec
   if (planned.length) parts.push({ text: `次は ${planned[0].time}`, tone: "plan" });
   if (!parts.length) return null;
   const title = [
-    ...occs.map((o) => `${o.time} ${o.record ? recordText(o.record) : o.state === "記録済み" ? "実施（前の勤務帯・架空）" : o.state}`),
+    ...occs.map((o) => `${o.time} ${o.record ? recordText(o.record) : o.state === "記録済み" ? "実施（前の勤務帯）" : o.state}`),
     ...prn.map((r) => `必要時 ${recordText(r)}`),
   ].join("／");
   return { text: parts.map((p) => p.text).join("・"), tone: parts[0].tone, title: `今日の実施：${title}` };

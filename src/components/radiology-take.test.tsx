@@ -75,7 +75,7 @@ describe("放射線部の指示受けの画面", () => {
     expect(html).toContain("1件ずつ受けます：MRI（体内金属の確認）");
     expect(html).not.toContain(">指示を受ける<");
     expect(html).toContain("denshi_gx.pdf");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
   });
 
   it("a taken contrast CT keeps its row with the room/time controls and 「確認する（まだ）」; a nurse sees the lock", () => {

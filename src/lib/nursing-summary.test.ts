@@ -42,8 +42,8 @@ describe("提出・承認・差し戻し", () => {
 
   it("cites the guideline on recording who confirmed when, and labels the hospital's own rules", () => {
     expect(SUMMARY_SOURCES.confirm.label).toContain("確定者");
-    expect(SUMMARY_RULES.approve).toContain("架空の病院の取り決め");
-    expect(SUMMARY_RULES.mid).toContain("架空の病院の取り決め");
+    expect(SUMMARY_RULES.approve).not.toContain("架空の病院の取り決め");
+    expect(SUMMARY_RULES.mid).not.toContain("架空の病院の取り決め");
     expect(HEAD_NURSE).toBe("看護師長 小松");
   });
 });

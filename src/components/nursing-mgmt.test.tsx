@@ -150,7 +150,7 @@ describe("状態の一括登録", () => {
     expect(html).toContain("まだ登録していません");
     expect(html).toMatch(/aria-pressed="true"[^>]*>接触</);
     expect(html).toContain("医政地発1219第1号");
-    expect(html.match(/架空の病院の取り決め/g)!.length).toBeGreaterThanOrEqual(3);
+    expect(html).not.toContain("架空の病院の取り決め");
     // 甲 has nothing chosen yet; 乙's 救護区分 comes from the bed.
     expect(html).toContain("未入力：重症度・観察の程度・生活の自由度・救護区分");
     expect(html).toMatch(/<option value="担送" title="[^"]*" selected="">担送/);
@@ -174,9 +174,9 @@ describe("褥瘡のある患者・褥瘡の経過", () => {
     expect(html).toContain("期限切れ");
     expect(html).toContain("D3-e3s6i1g3N3p0");
     expect(html).toContain("▼3点");
-    expect(html).toContain("架空の見本（図形）");
+    expect(html).toContain("見本（図形）");
     expect(html).toContain("保医発0305第7号");
-    expect(html).toContain("架空の病院の取り決め");
+    expect(html).not.toContain("架空の病院の取り決め");
   });
 
   it("the chart's course shows each assessment, its total and photo, and the warning on real photos", () => {

@@ -4,6 +4,7 @@
 // 資格確認（模擬）. The same form as 保険の登録 (registration.ts), with the fields a reception needs; 公費・生活
 // 保護・労災 are registered in the 患者基本情報 window. Code checks the entries; the person receives.
 
+import { displayText } from "@/lib/display-text";
 import { BigChoice } from "@/components/BigChoice";
 import { ConfirmCheck } from "@/components/ConfirmCheck";
 import { AlertTriangle, Ban, Info } from "lucide-react";
@@ -45,7 +46,7 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
           <b>{insuranceSummary(ins)}</b>
           {ins.verify && <span className="ml-2 text-ink-soft">{ins.verify.method}{ins.verify.on && `（確認日 ${ins.verify.on}）`}</span>}
           <span className="ml-2 text-ink-faint">
-            {existing.by}が{existing.action}（第{existing.at.day === 0 ? "今日" : `${existing.at.day}日`} {existing.at.time}）
+            {displayText(existing.by)}が{existing.action}（第{existing.at.day === 0 ? "今日" : `${existing.at.day}日`} {existing.at.time}）
           </span>
         </p>
         <p className="mt-0.5 text-[11px] text-ink-soft">受け付けると、この登録を今日の受診にも「確認」として引き継ぎます。変わっていれば、受け付けたあと患者基本情報の「保険・制度」で変更します。</p>
@@ -57,7 +58,7 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
       <legend className="px-1 text-[13px] font-bold">保険</legend>
       <p className="mb-1.5 text-[11px] text-ink-soft">
         上の「資格を確認（模擬）」が有効なら、答えからここが埋まります。保険証（資格確認書）を見て手で入れることもできます。種類を選ばなければ、保険は登録せずに受け付けられます（あとで医事課か患者基本情報で登録）。
-        <span className="hint">生活保護・労災・公費は患者基本情報の「保険・制度」で入れます。番号はすべて架空です。</span>
+        <span className="hint">生活保護・労災・公費は患者基本情報の「保険・制度」で入れます。</span>
       </p>
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         <label className="text-[11px] text-ink-soft">
@@ -181,7 +182,7 @@ export function ReceptionInsurance({ form, onChange, today, checks, existing, di
                   <div className="flex items-start gap-2">
                     <Icon size={13} className="mt-0.5 shrink-0" />
                     <span className="shrink-0 font-bold">{s.label}</span>
-                    <span className="nums text-ink">{c.text}</span>
+                    <span className="nums text-ink">{displayText(c.text)}</span>
                   </div>
                   <div className="hint mt-0.5 pl-5 text-[10px] text-ink-faint">根拠：{c.basis}</div>
                 </li>

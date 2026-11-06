@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { KitchenChanges } from "./KitchenChanges";
 import { ClipboardCheck, CookingPot, NotebookPen, Printer, Scale, ShoppingCart, Tag, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
@@ -33,7 +34,7 @@ import {
 import type { OrderEntry, Patient } from "@/lib/types";
 import { FLOORS, floorOf } from "@/lib/ward";
 import { mealCell, mealForm, type MealCell } from "@/lib/ward-meals";
-import { Fictional, Sources, SubTabs, usePrintSheet } from "./DeskParts";
+import { Sources, SubTabs, usePrintSheet } from "./DeskParts";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
 type Person = { patient: Patient; room: string; entries: OrderEntry[] };
@@ -79,7 +80,7 @@ export function KitchenView(p: Props) {
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <CookingPot size={18} className="text-ai" />
           栄養部門（給食）
-          <Fictional />
+
         </h1>
         <SubTabs
           label="給食の画面"
@@ -104,7 +105,7 @@ export function KitchenView(p: Props) {
         {tab === "kenshoku" && <KenshokuBook {...p} missing={missing} />}
         <p className="text-[11px] text-ink-faint">
           {KITCHEN_HOUSE_RULES.values}
-          {KITCHEN_HOUSE_RULES.lines}患者・食材・在庫・業者は架空です。食事の内容は医師の食事の指示（食事箋）で決まり、この画面は指示を変えません。
+          {KITCHEN_HOUSE_RULES.lines}食事の内容は医師の食事の指示（食事箋）で決まり、この画面は指示を変えません。
         </p>
         <Sources items={Object.values(KITCHEN_SOURCES)} />
       </div>
@@ -289,7 +290,7 @@ function Menus({ today, dowOf }: { today: CalendarDate; dowOf: (d: number) => nu
       </div>
       <p className="text-[12px]">
         <b>{line}</b>：{rule.how}
-        {sp.special && <span className="ml-2 rounded bg-ai-soft px-1.5 text-[11px] font-bold text-ai">特別食の献立表（{sp.note}）</span>}
+        {sp.special && <span className="ml-2 rounded bg-ai-soft px-1.5 text-[11px] font-bold text-ai">特別食の献立表（{displayText(sp.note)}）</span>}
         {rule.fitEnergy && <span className="ml-2 text-ink-soft">主食は通常量で表示。患者ごとの量は指示のエネルギーで変わります（{KITCHEN_HOUSE_RULES.staple}）</span>}
       </p>
       <div className={`${card} scroll-thin overflow-x-auto`}>
@@ -513,7 +514,7 @@ function TicketCard({
             return (
               <li key={x.id} className={c.length ? "text-shu" : ""}>
                 {s ? <s className="text-ink-faint">{x.name}</s> : x.name}
-                {s && <b className="ml-1 text-ink">→ {s.text}</b>}
+                {s && <b className="ml-1 text-ink">→ {displayText(s.text)}</b>}
                 {c.length > 0 && <span className="ml-1 text-[10px] font-bold">（{c.map((y) => `${y.kind}「${y.against}」：${y.what.join("・")}`).join("、")}）</span>}
                 {c.length > 0 && !s && !printing && onSub && (
                   <span className="ml-1 inline-flex gap-1">
@@ -611,8 +612,8 @@ function Checks(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
                 {r.check.rows.map((c, i) => (
                   <span key={i} className={`block ${TONE[c.state]}`}>
                     {MARK[c.state]} {c.label} {c.menu}
-                    {c.unit}／{c.ref}：{c.text}
-                    <span className="ml-1 text-[10px] font-normal text-ink-faint">{c.from === "order" ? "（食事の指示）" : c.from === "special" ? "（特別食の条件）" : "（食事摂取基準）"}</span>
+                    {c.unit}／{c.ref}：{displayText(c.text)}
+                    <span className="ml-1 text-[10px] font-normal text-ink-faint">{displayText(c.from === "order" ? "（食事の指示）" : c.from === "special" ? "（特別食の条件）" : "（食事摂取基準）")}</span>
                   </span>
                 ))}
               </td>
@@ -714,10 +715,10 @@ function Orders(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
       <ul className="space-y-1">
         {desk.orders.map((o) => (
           <li key={o.id} className={`${card} px-3 py-1.5 text-[12px]`}>
-            <span className="nums">{o.at.time}</span> {o.by}：{o.lines.map((l) => `${l.item} ${kg(l.g)}`).join("、")}
+            <span className="nums">{o.at.time}</span> {displayText(o.by)}：{o.lines.map((l) => `${l.item} ${kg(l.g)}`).join("、")}
             {o.received ? (
               <span className="ml-2 text-wakatake">
-                入庫 {o.received.time} {o.received.by}
+                入庫 {o.received.time} {displayText(o.received.by)}
               </span>
             ) : (
               <button type="button" disabled={!!locked} onClick={() => receive(o.id)} className="ml-2 rounded border border-wakatake px-1.5 text-[11px] text-wakatake disabled:opacity-40">
@@ -755,9 +756,9 @@ function KenshokuBook({ desk, onDesk, nowTime, today, missing }: Props & { missi
             </header>
             {rec ? (
               <p>
-                {rec.text}
+                {displayText(rec.text)}
                 <span className="ml-2 text-ink-soft">
-                  {rec.time} {rec.by}（{rec.role}）
+                  {rec.time} {displayText(rec.by)}（{rec.role}）
                 </span>
               </p>
             ) : (

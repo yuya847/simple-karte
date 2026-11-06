@@ -134,7 +134,7 @@ const HOUBETSU_SRC = "同 別表1 法別番号表（01 は当時の政府管掌�
 const RATE_SRC = "健康保険法74条1項・110条2項、高齢者の医療の確保に関する法律67条1項";
 const CLASS_SRC = "健康保険法施行令42条、高齢者の医療の確保に関する法律施行令15条（自己負担限度額の区分）";
 const KOUKI_SRC = "高齢者の医療の確保に関する法律50条・52条（75歳の誕生日から被保険者）";
-const FORMAT_SRC = "形式の確かめ（架空の病院の取り決め）";
+const FORMAT_SRC = "形式の確かめ";
 const UKE_SRC = "記録条件仕様（医科）HO レコード：記号・番号は38バイトまで";
 
 /** 法別番号 (8 digits) a kind of insurer may have. */
@@ -451,7 +451,7 @@ export function checkInsurance(f: InsuranceForm, ctx: { age: number; on: Ymd }):
     }
     if (f.coverage === "公費のみ" && !f.kohi.length) out.push({ level: "error", field: "kohi", text: "医保のない公費単独は、受給者証（公費）を1つ以上入れてください。", basis: FORMAT_SRC });
     if (f.coverage === "労災") out.push({ level: "info", text: "労災は労働基準監督署に請求します（様式第5号など）。この試作では労災の点数表で算定せず、患者負担は 0 円とします。", basis: "労働者災害補償保険法13条（療養補償給付）" });
-    if (f.coverage === "自費") out.push({ level: "info", text: "自費は保険を使いません。点数 × 10円の全額が患者負担です（架空の病院の取り決め）。", basis: FORMAT_SRC });
+    if (f.coverage === "自費") out.push({ level: "info", text: "自費は保険を使いません。点数 × 10円の全額が患者負担です。", basis: FORMAT_SRC });
     out.push(...checkKohi(f.kohi, ctx.on, f.validUntil), ...checkVerify(f, ctx.on));
     return out;
   }

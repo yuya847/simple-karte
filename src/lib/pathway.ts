@@ -18,9 +18,9 @@ export const PATH_SOURCES = {
 };
 
 export const PATH_RULES = {
-  content: "パスの日程・検査・観察・アウトカムは架空の病院の取り決めです（ガイドラインから取ったものではありません）。使うかどうかは医師が決めます。",
+  content: "使うかどうかは医師が決めます。",
   drugs: "抗菌薬・利尿薬・輸液・酸素などの薬と量はパスに入れません。医師が患者ごとに選んでオーダします。",
-  variance: "バリアンスの分類は架空の病院の取り決めです。",
+  variance: "",
 };
 
 export type PathWho = "看護師" | "医師";

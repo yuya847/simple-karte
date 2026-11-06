@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -40,7 +41,7 @@ function Line({ label, sub, labelW, children, action }: { label: string; sub?: s
 
 const CellAt = ({ c, box }: { c: Cell; box: { left: number; width: number } }) => (
   <span title={c.title} className={`absolute top-0.5 truncate rounded-sm px-0.5 text-center leading-5 ${TONE[c.tone]}`} style={{ left: box.left + 1, width: Math.max(0, box.width - 2) }}>
-    {c.text}
+    {displayText(c.text)}
   </span>
 );
 
@@ -88,7 +89,7 @@ export function FlowDayRows({ days, box, entries, moves, info, labelW, today, ad
           labelW={labelW}
           action={
             info?.onRemoveEvent && ev.by === info.meName ? (
-              <button type="button" onClick={() => info.onRemoveEvent!(ev.id)} aria-label={`「${ev.label}」の日数を外す`} title={`外す（${ev.by} が足した）`} className="mt-0.5 shrink-0 text-ink-faint hover:text-shu">
+              <button type="button" onClick={() => info.onRemoveEvent!(ev.id)} aria-label={`「${ev.label}」の日数を外す`} title={displayText(`外す（${ev.by} が足した）`)} className="mt-0.5 shrink-0 text-ink-faint hover:text-shu">
                 <X size={11} />
               </button>
             ) : undefined

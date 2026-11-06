@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ArrowDownUp, ChartLine, Copy, FileDown, Printer, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -104,7 +105,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
             </div>
             {note && (
               <p role="status" className="mb-2 text-[11px] text-wakatake">
-                {note}
+                {displayText(note)}
               </p>
             )}
             {trendAnalyte && <Trend analyte={trendAnalyte} patient={patient} today={today} onClose={() => setTrend(null)} />}
@@ -115,7 +116,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
                 <LabTable cols={cols} rows={rows} patient={patient} today={today} focusAt={focusAt} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
               </div>
             )}
-            <p className="mt-1 text-[11px] text-ink-faint">H／L は一般的な成人の基準範囲との比較（架空の病院の設定）。<span className="hint">項目名を押すと経過のグラフ。「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの。</span></p>
+            <p className="mt-1 text-[11px] text-ink-faint">H／L は一般的な成人の基準範囲との比較。<span className="hint">項目名を押すと経過のグラフ。「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの。</span></p>
           </>
         )}
       </section>
@@ -138,7 +139,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
                   <ol className="nums mb-1 text-[11px] text-ink-soft">
                     {c.log.map((l, n) => (
                       <li key={n}>
-                        {formatShort(addDays(today, l.day))} {l.time} {l.by}　{l.text}
+                        {formatShort(addDays(today, l.day))} {l.time} {displayText(l.by)}　{displayText(l.text)}
                       </li>
                     ))}
                   </ol>
@@ -179,7 +180,7 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
               <span>
                 {patient.name}（{patient.id}）{patient.sex}
               </span>
-              <span className="ml-auto">印刷 {formatShort(today)}　架空の患者</span>
+              <span className="ml-auto">印刷 {formatShort(today)}</span>
             </div>
             <LabTable cols={cols} rows={rows} patient={patient} today={today} />
           </div>,
@@ -203,7 +204,7 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, 
           {cols.map((c) => {
             const r = c.kind === "result" ? c.lab : null;
             return (
-              <th key={c.key} ref={isFocus(c) ? (el) => el?.scrollIntoView({ inline: "center", block: "nearest" }) : undefined} className={`py-1 pl-3 text-right align-bottom font-normal ${isFocus(c) ? "rounded-t bg-ai-soft text-ai" : ""} ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined}>
+              <th key={c.key} ref={isFocus(c) ? (el) => el?.scrollIntoView({ inline: "center", block: "nearest" }) : undefined} className={`py-1 pl-3 text-right align-bottom font-normal ${isFocus(c) ? "rounded-t bg-ai-soft text-ai" : ""} ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={displayText(r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined)}>
                 {onPick && c.kind === "result" && (
                   <input type="checkbox" className="mb-0.5 print:hidden" aria-label={`${formatShort(addDays(today, c.day))} ${c.time} の結果をコピーに入れる`} checked={picked?.includes(c.key) ?? false} onChange={(e) => onPick(c.key, e.target.checked)} />
                 )}
@@ -246,8 +247,8 @@ function LabTable({ cols, rows, patient, today, picked, onPick, trend, onTrend, 
             </td>
             <td className="py-1 pr-3 text-xs text-ink-faint">{a.unit}</td>
             <td className="py-1 pr-3 text-[11px] text-ink-faint" title={a.judgment ? `判断値：${a.judgment}` : undefined}>
-              {rangeText(a, patient.sex)}
-              {a.source ? `（${a.source === "共用基準範囲" ? "共用" : "SRL"}）` : ""}
+              {displayText(rangeText(a, patient.sex))}
+              {displayText(a.source ? `（${a.source === "共用基準範囲" ? "共用" : "SRL"}）` : "")}
               {a.judgment ? " ＊" : ""}
             </td>
             {cols.map((c) => {
@@ -308,7 +309,7 @@ function Trend({ analyte, patient, today, onClose }: { analyte: Analyte; patient
       <div className="mb-1 flex items-baseline gap-2 text-xs">
         <b className="text-sm">{analyte.name}</b>
         <span className="text-ink-faint">
-          {analyte.unit}　基準範囲 {rangeText(analyte, patient.sex)}（帯）　{pts.length}回
+          {analyte.unit}　基準範囲 {displayText(rangeText(analyte, patient.sex))}（帯）　{pts.length}回
         </span>
         <button type="button" onClick={onClose} aria-label="グラフを閉じる" className="ml-auto text-ink-faint hover:text-ink">
           <X size={14} />

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Footprints } from "lucide-react";
 import { useState } from "react";
 import { FALL_RISKS, R8, type ChecklistRecord } from "@/lib/admit-eval";
@@ -103,7 +104,7 @@ export function FallBoard({ patients, nowTime, canRecord, onReview, onOpen }: { 
                     <>
                       {r.last.kind} {rel(r.last.at.day)} {r.last.at.time}
                       <div className="text-[11px] text-ink-faint">
-                        {r.last.by}（記録 {steps.length}回）
+                        {displayText(r.last.by)}（記録 {steps.length}回）
                       </div>
                     </>
                   ) : (

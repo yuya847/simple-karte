@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { INJECTION_TIME_OPTIONS } from "@/lib/inj-entry";
 import { TimeInput } from "@/components/TimeInput";
 import { useId, useState } from "react";
@@ -73,5 +74,5 @@ export function DoseTimesEntry({ label, times, onChange }: { label: string; time
 /** 確定済みの段は罫線の一行。押すとその段へ戻る。 */
 export function DecidedEntryLines<S extends string>({ lines, onEdit }: { lines: { step: S; text: string }[]; onEdit: (step: S) => void }) {
   // Side by side (wrapping), not one full-width row each: several drips stay short.
-  return <div className="flex flex-wrap items-center gap-1 border-b border-rule pb-1">{lines.map(({ step, text }) => <button key={step} type="button" data-decided-step={step} title="押して直す" className="rounded border border-rule bg-sheet px-2 py-0.5 text-left hover:bg-paper focus:bg-ai-soft" onClick={() => onEdit(step)}>{text}</button>)}</div>;
+  return <div className="flex flex-wrap items-center gap-1 border-b border-rule pb-1">{lines.map(({ step, text }) => <button key={step} type="button" data-decided-step={step} title="押して直す" className="rounded border border-rule bg-sheet px-2 py-0.5 text-left hover:bg-paper focus:bg-ai-soft" onClick={() => onEdit(step)}>{displayText(text)}</button>)}</div>;
 }

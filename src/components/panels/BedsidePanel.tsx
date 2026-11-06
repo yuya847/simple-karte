@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { Printer } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -31,11 +32,11 @@ function Board({ b }: { b: BedsideInfo }) {
       <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xl">
         <div>
           <span className="text-sm text-ink-soft">主治医</span>
-          <div className="font-bold">{b.doctor}</div>
+          <div className="font-bold">{displayText(b.doctor)}</div>
         </div>
         <div>
           <span className="text-sm text-ink-soft">担当看護師（今日）</span>
-          <div className="font-bold">{b.nurse}</div>
+          <div className="font-bold">{displayText(b.nurse)}</div>
         </div>
         <div>
           <span className="text-sm text-ink-soft">安静度</span>

@@ -4,6 +4,7 @@
 // other institutions (FICTIONAL), the 模擬の署名 and the 登録 that gives a 引換番号. The doctor reads each finding
 // and decides; nothing is changed or blocked silently. Nothing is sent anywhere.
 
+import { displayText } from "@/lib/display-text";
 import { FileSignature, Pill, ShieldAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -121,7 +122,7 @@ export function ErxPanel({
         <span className="text-[11px] font-normal text-ink-faint">（{mode === "外来" ? "外来処方" : "退院時処方"}）</span>
       </h3>
       <MockNote>
-        電子処方箋管理サービスにはつないでいません。<span className="hint">処方の中身を、公開されている厚生労働省標準規格 HS036「処方情報 HL7 FHIR 記述仕様」の FHIR で示します（HS036 は電子処方箋のファイルそのものではなく、本物の登録は記録条件仕様の CSV を XML に入れて送ります）。</span>チェックの相手・引換番号はすべて架空です。
+        電子処方箋管理サービスにはつないでいません。<span className="hint">処方の中身を、公開されている厚生労働省標準規格 HS036「処方情報 HL7 FHIR 記述仕様」の FHIR で示します（HS036 は電子処方箋のファイルそのものではなく、本物の登録は記録条件仕様の CSV を XML に入れて送ります）。</span>
       </MockNote>
       {done.filter((r) => r.kind === "電子処方箋").length > 0 && (
         <ul className="space-y-0.5 rounded border border-rule bg-paper p-1.5 text-[11px]">
@@ -129,7 +130,7 @@ export function ErxPanel({
             r.kind === "電子処方箋" ? (
               <li key={r.prescriptionNo} className="nums">
                 登録済み（模擬）{r.at} {r.receipt.kind}　{r.prescriptionNo}
-                {r.receipt.exchangeNo && <b className="ml-1">引換番号 {r.receipt.exchangeNo}</b>}　{r.by}
+                {r.receipt.exchangeNo && <b className="ml-1">引換番号 {r.receipt.exchangeNo}</b>}　{displayText(r.by)}
               </li>
             ) : null,
           )}
@@ -188,7 +189,7 @@ export function ErxPanel({
                 <button type="button" onClick={check} disabled={!!locked || busy || !!receipt || build.problems.length > 0} className="rounded-md border border-ai px-2.5 py-1 font-bold text-ai hover:bg-ai-soft disabled:opacity-40">
                   重複投薬等チェック（模擬）
                 </button>
-                {findings && findings.length === 0 && <p className="text-wakatake">重複投薬・併用禁忌はありません（架空のほかの医療機関・薬局の記録と照らした結果）。</p>}
+                {findings && findings.length === 0 && <p className="text-wakatake">重複投薬・併用禁忌はありません（のほかの医療機関・薬局の記録と照らした結果）。</p>}
                 {findings && findings.length > 0 && (
                   <ul className="space-y-1">
                     {findings.map((f, i) => (
@@ -198,11 +199,11 @@ export function ErxPanel({
                           {f.other && (
                             <span className="text-ink-soft">
                               {" "}
-                              × {f.other.drugName}（{f.other.institution}・{f.other.pharmacy}、{f.other.issued}、{f.other.via}）
+                              × {f.other.drugName}（{displayText(f.other.institution)}・{displayText(f.other.pharmacy)}、{f.other.issued}、{f.other.via}）
                             </span>
                           )}
                         </div>
-                        <div>{f.text}</div>
+                        <div>{displayText(f.text)}</div>
                         {f.sources.map((s) => (
                           <div key={s.label} className="hint text-[10px] text-ink-faint">
                             根拠：{s.label}{" "}
@@ -247,10 +248,10 @@ export function ErxPanel({
               {receipt && (
                 <div className="nums rounded border border-wakatake/40 bg-wakatake-soft p-2">
                   <p className="font-bold text-wakatake">登録しました（模擬）{receipt.registeredAt}</p>
-                  <p>処方箋ID（架空）：{receipt.prescriptionId}</p>
+                  <p>処方箋ID：{receipt.prescriptionId}</p>
                   {receipt.exchangeNo ? (
                     <p>
-                      引換番号（架空・6桁）：<b className="text-base">{receipt.exchangeNo}</b>　患者に控えを渡し、薬局で被保険者の記号・番号などとあわせて示してもらいます。
+                      引換番号（・6桁）：<b className="text-base">{receipt.exchangeNo}</b>　患者に控えを渡し、薬局で被保険者の記号・番号などとあわせて示してもらいます。
                     </p>
                   ) : (
                     <p>院内処方の情報は処方箋ではないので、署名と引換番号はありません。ほかの医療機関・薬局の重複投薬等チェックの対象になります。</p>

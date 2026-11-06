@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { DIRECTIVE_ITEMS, DNAR_NOTE, DNAR_SOURCE, directiveLine, emptyItems, type AdvanceDirective, type CprChoice, type DirectiveItem, type ItemChoice } from "@/lib/directives";
@@ -58,7 +59,7 @@ export function DirectivePanel({ patientId, today, nowTime, doctor, history, cau
         </p>
         <label className="block text-xs text-ink-soft">
           話し合った人
-          <input value={withWhom} onChange={(e) => setWithWhom(e.target.value)} placeholder="本人、長女（キーパーソン）など" className="mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] text-ink" />
+          <input value={displayText(withWhom)} onChange={(e) => setWithWhom(e.target.value)} placeholder="本人、長女（キーパーソン）など" className="mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] text-ink" />
         </label>
         <label className="block text-xs text-ink-soft">
           経過・本人の意向（医師が書く）
@@ -84,7 +85,7 @@ export function DirectivePanel({ patientId, today, nowTime, doctor, history, cau
           }
           className="w-full rounded-md bg-ai px-3 py-2 font-bold text-white disabled:opacity-40"
         >
-          確定（{nowTime}　{doctor}）
+          確定（{nowTime}　{displayText(doctor)}）
         </button>
       </section>
       {history.length > 0 && (
@@ -93,8 +94,8 @@ export function DirectivePanel({ patientId, today, nowTime, doctor, history, cau
           <ul className="mt-1 space-y-1 text-[12px]">
             {[...history].reverse().map((d) => (
               <li key={d.id} className={d.status === "有効" && d === cur ? "" : "text-ink-faint line-through"}>
-                {formatShort(addDays(today, d.decidedAt.day))} {d.decidedAt.time} {d.by}：{directiveLine(d)}
-                {d.note && <div className="pl-3 text-ink-soft no-underline">{d.note}</div>}
+                {formatShort(addDays(today, d.decidedAt.day))} {d.decidedAt.time} {displayText(d.by)}：{displayText(directiveLine(d))}
+                {d.note && <div className="pl-3 text-ink-soft no-underline">{displayText(d.note)}</div>}
               </li>
             ))}
           </ul>

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
@@ -77,7 +78,7 @@ export function TeamPanel({ patientId, patientName, desk, onDesk, today, nowTime
         {mine.map((r) => (
           <div key={r.id} className="space-y-1 rounded-md border border-rule p-2">
             <p>
-              <b>{teamOf(r.team).name}</b> <span className={STATUS_TONE[requestStatus(r)]}>{requestStatus(r)}</span>　{r.urgency}　依頼 {r.at.time} {r.by}：{r.reason}
+              <b>{teamOf(r.team).name}</b> <span className={STATUS_TONE[requestStatus(r)]}>{requestStatus(r)}</span>　{r.urgency}　依頼 {r.at.time} {displayText(r.by)}：{displayText(r.reason)}
             </p>
             {r.closed && <p className="text-ink-soft">終了：{r.closed.summary}</p>}
             {desk.rounds
@@ -103,7 +104,7 @@ export function TeamPanel({ patientId, patientName, desk, onDesk, today, nowTime
         <DenyNote action="team.decide" />
       </section>
       <p className="hint text-[11px] text-ink-faint">
-        {TEAM_HOUSE_RULES.request}不採用は理由を書いて記録します（この架空の病院の取り決め）。チームの回診の記録は場所の「チーム医療」で書きます。
+        {TEAM_HOUSE_RULES.request}不採用は理由を書いて記録します。チームの回診の記録は場所の「チーム医療」で書きます。
       </p>
     </div>
   );

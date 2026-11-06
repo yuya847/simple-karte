@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { sessionNote } from "@/lib/rehab-record";
@@ -44,7 +45,7 @@ import {
   type RehabSession,
 } from "@/lib/rehab";
 import type { WorkPatient } from "@/lib/worksheet";
-import { Fictional, Sources, SubTabs } from "./DeskParts";
+import { Sources, SubTabs } from "./DeskParts";
 import { RehabPlanForm } from "./RehabPlanForm";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 
@@ -81,7 +82,7 @@ export function RehabView(p: Props) {
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <Footprints size={18} className="text-ai" />
           リハビリテーション部
-          <Fictional />
+
         </h1>
         <SubTabs
           label="リハビリテーション部の画面"
@@ -105,7 +106,7 @@ export function RehabView(p: Props) {
         {tab === "bi" && <Bi {...p} rxs={rxs} fmt={fmt} />}
         {tab === "plan" && <Plans {...p} rxs={rxs} fmt={fmt} />}
         {tab === "list" && <List {...p} rxs={rxs} fmt={fmt} />}
-        <p className="text-[11px] text-ink-faint">{FACILITY_NOTE} 療法士・予約・記録・評価はすべて架空です。</p>
+        <p className="text-[11px] text-ink-faint">{FACILITY_NOTE} </p>
         <Sources items={[REHAB_SOURCES.kokuji, REHAB_SOURCES.tsuchi, REHAB_SOURCES.form, REHAB_SOURCES.facility]} />
       </div>
     </section>
@@ -239,7 +240,7 @@ function Work({ desk, onDesk, onNote, people, rxs, bookings, nowTime, today, rec
         .sort((a, b) => a.start.localeCompare(b.start))
         .map((b) => {
           const rx = rxs.find((r) => r.orderId === b.orderId);
-          if (receipt?.bookingId === b.id) return <p key={b.id} role="status" className={`${card} px-3 py-2 text-ink-soft`}>{receipt.text}</p>;
+          if (receipt?.bookingId === b.id) return <p key={b.id} role="status" className={`${card} px-3 py-2 text-ink-soft`}>{displayText(receipt.text)}</p>;
           if (!rx) return null;
           return <SessionForm
             key={b.id} b={b} rx={rx} desk={desk} onDesk={onDesk} nowTime={nowTime} today={today}
@@ -305,7 +306,7 @@ function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRecorded }
       <div className="flex flex-wrap items-center gap-2">
         {cur?.arrived ? (
           <span className="text-ink-soft">
-            受付 {cur.arrived.time} {cur.arrived.by}
+            受付 {cur.arrived.time} {displayText(cur.arrived.by)}
           </span>
         ) : (
           <button
@@ -416,7 +417,7 @@ function Bi({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: 
                         <label key={o.score} className="flex items-start gap-1">
                           <input type="radio" name={`bi-${i.key}`} checked={scores[i.key] === o.score} onChange={() => setScores({ ...scores, [i.key]: o.score })} disabled={!!deny} className="mt-0.5 accent-ai" />
                           <span>
-                            <b className="nums">{o.score}</b> {o.text}
+                            <b className="nums">{o.score}</b> {displayText(o.text)}
                           </span>
                         </label>
                       ))}
@@ -452,13 +453,13 @@ function Bi({ desk, onDesk, rxs, nowTime, fmt }: Props & { rxs: RehabRx[]; fmt: 
         <ul className="space-y-0.5">
           {evals.map((e) => (
             <li key={e.id} className="nums">
-              {fmt(e.day)} {e.time}　<b>{biTotal(e.scores) ?? "—"}点</b>　{e.by}　<span className="text-ink-soft">{BI_ITEMS.map((i) => `${i.label} ${e.scores[i.key] ?? "—"}`).join("・")}</span>
+              {fmt(e.day)} {e.time}　<b>{biTotal(e.scores) ?? "—"}点</b>　{displayText(e.by)}　<span className="text-ink-soft">{BI_ITEMS.map((i) => `${i.label} ${e.scores[i.key] ?? "—"}`).join("・")}</span>
             </li>
           ))}
         </ul>
         {drops.map((x) => (
           <p key={x.to.id} className="mt-1 font-bold text-yamabuki">
-            {fmt(x.from.day)} から {fmt(x.to.day)} に {x.drop}点下がっています。{BI_DROP_NOTE}
+            {displayText(fmt(x.from.day))} から {fmt(x.to.day)} に {x.drop}点下がっています。{BI_DROP_NOTE}
           </p>
         ))}
       </div>
@@ -526,7 +527,7 @@ function List({ desk, rxs, fmt, today }: Props & { rxs: RehabRx[]; fmt: (d: numb
                   <span className="block text-ink-soft">{cat.tier ? `${cat.tier.name} 1単位 ${cat.tier.points}点` : "届出なし"}</span>
                 </td>
                 <td className={`px-2 py-1 ${pr.standard.over ? "font-bold text-shu" : ""}`}>
-                  {pr.standard.dayNo}日目（{fmt(pr.standard.from)}から。あと{Math.max(0, pr.standard.left)}日）
+                  {pr.standard.dayNo}日目（{displayText(fmt(pr.standard.from))}から。あと{Math.max(0, pr.standard.left)}日）
                   <span className="block text-ink-faint">{pr.standard.fromText}</span>
                 </td>
                 <td className="px-2 py-1">{pr.early.points ? `入院${pr.early.dayNo}日目：1単位 ${pr.early.points}点（${fmt(pr.early.until)} まで）` : `期間外（入院${pr.early.dayNo}日目）`}</td>

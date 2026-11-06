@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { FileClock } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -45,14 +46,14 @@ export function SummaryApproval({ record, attending, fmtDay, nowTime, onApprove,
         )}
         {record.approval && (
           <span className="nums text-wakatake">
-            承認：{record.approval.by} {fmtDay(record.approval.at.day)} {record.approval.at.time}
+            承認：{displayText(record.approval.by)} {fmtDay(record.approval.at.day)} {record.approval.at.time}
             {record.approval.comment ? `「${record.approval.comment}」` : ""}
           </span>
         )}
       </div>
       {state === "差し戻し" && record.returned && (
         <p className="text-shu">
-          差し戻し：{record.returned.by} {fmtDay(record.returned.at.day)} {record.returned.at.time}「{record.returned.comment}」。直して確定し直してください。
+          差し戻し：{displayText(record.returned.by)} {fmtDay(record.returned.at.day)} {record.returned.at.time}「{record.returned.comment}」。直して確定し直してください。
         </p>
       )}
       {state === "承認待ち" &&
@@ -88,7 +89,7 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
           <FileClock size={18} />
           退院サマリの一覧（承認待ち・未作成）
         </h2>
-        <span className="text-xs text-ink-soft">この試作のカルテの患者と、架空の過去の退院</span>
+        <span className="text-xs text-ink-soft">この試作のカルテの患者と、過去の退院</span>
       </header>
 
       <section aria-label="前月の期限内の割合" className="rounded-md border border-rule bg-paper px-3 py-2">
@@ -156,7 +157,7 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
                     )}
                     {r.record?.approval && (
                       <div>
-                        承認 {fmt(r.record.approval.at.day)} {r.record.approval.by}
+                        承認 {fmt(r.record.approval.at.day)} {displayText(r.record.approval.by)}
                       </div>
                     )}
                     {r.record?.returned && r.state === "差し戻し" && <div className="text-shu">差し戻し「{r.record.returned.comment}」</div>}
@@ -167,7 +168,7 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
                         {canApprove ? "開いて承認する" : "退院サマリを開く"}
                       </button>
                     ) : (
-                      <span className="text-[11px] text-ink-faint">架空の過去の記録（カルテなし）</span>
+                      <span className="text-[11px] text-ink-faint">過去の記録（カルテなし）</span>
                     )}
                   </td>
                 </tr>

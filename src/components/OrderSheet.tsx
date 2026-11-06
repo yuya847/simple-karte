@@ -6,6 +6,7 @@
 // on the left, the heading with the kind and the date and time, three 「日時／者」 pairs on the right, and
 // 「項目名：値」 lines). Colours and type are this app's own, not the vendor's.
 
+import { displayText } from "@/lib/display-text";
 import type { ReactNode } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { SHEET_CATEGORIES, SHEET_SOURCES, type SheetCategory, type SheetField, type Stamp } from "@/lib/order-sheet";
@@ -82,7 +83,7 @@ export function PatientBand({ patient, room, children }: { patient: Pick<Patient
       </b>
       <span>
         <span className="text-ink-faint">年齢 </span>
-        {ageText(patient.age, patient.ageMonths)}
+        {displayText(ageText(patient.age, patient.ageMonths))}
       </span>
       <span>
         <span className="text-ink-faint">性別 </span>
@@ -146,11 +147,11 @@ export function SheetBlock({ check, title, tag, when, flags = [], stamps, fields
         <div className="flex flex-wrap items-start gap-x-4 gap-y-0.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <b className={`text-[13px] ${struck ? "line-through" : "text-ai"}`}>{title}</b>
-            {tag && <span className={`rounded px-1 text-[10px] font-bold ${TAG_CLASS[tag.tone]}`}>{tag.text}</span>}
+            {tag && <span className={`rounded px-1 text-[10px] font-bold ${TAG_CLASS[tag.tone]}`}>{displayText(tag.text)}</span>}
             <b className={`nums ${struck ? "line-through" : "text-ai"}`}>{when}</b>
             {flags.map((f) => (
               <span key={f.text} className={`rounded px-1 text-[10px] font-bold ${f.className}`}>
-                {f.text}
+                {displayText(f.text)}
               </span>
             ))}
             {status}
@@ -180,7 +181,7 @@ export function SheetNotes({ children }: { children?: ReactNode }) {
   return (
     <div className="hint space-y-1 text-[11px] text-ink-faint">
       {children}
-      <p>画面の形（上の日付の移動と種類のチェック、患者の帯、指示ごとの見出しと右の「指示開始・実施・指示受け」の日時と者、「項目名：値」の本文）は、富士通 HOPE/EGMAIN-GX のカタログの「指示受け」「実施入力」の画面に合わせています。種類の分け方（処置・検査／注射・輸血／処方／看護指示／食事／その他）と日付の範囲（昨日〜明日）は架空の病院の取り決めです。オーダからコードで並べています（AI は使っていません）。</p>
+      <p>画面の形（上の日付の移動と種類のチェック、患者の帯、指示ごとの見出しと右の「指示開始・実施・指示受け」の日時と者、「項目名：値」の本文）は、富士通 HOPE/EGMAIN-GX のカタログの「指示受け」「実施入力」の画面に合わせています。オーダからコードで並べています（AI は使っていません）。</p>
       <Sources items={SHEET_SOURCES} />
     </div>
   );

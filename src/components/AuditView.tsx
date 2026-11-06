@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { AUDIT_KEEP, aiSummary, useAudit, type AuditRole } from "@/lib/audit";
 import { AccessLog } from "./AccessLog";
@@ -90,7 +91,7 @@ export function AuditView() {
                 </td>
                 <td className="py-1 pr-2 whitespace-nowrap">{e.action}</td>
                 <td className="py-1 pr-2 whitespace-nowrap">{e.patient ?? ""}</td>
-                <td className="py-1 text-ink-soft">{e.detail ?? ""}</td>
+                <td className="py-1 text-ink-soft">{displayText(e.detail ?? "")}</td>
               </tr>
             ))}
           </tbody>

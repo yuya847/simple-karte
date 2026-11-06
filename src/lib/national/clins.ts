@@ -434,7 +434,7 @@ export const CLINS_UNFILLED: Unfilled[] = [
   { field: "Condition の修飾語コード（修飾語管理番号）", why: "修飾語マスターの管理番号の列を確かめていないので、修飾語は病名の文（code.text）にだけ入れる。" },
   { field: "MedicationRequest の YJ コード・用法コード", why: "YJ コードを持たないので一般名処方マスタのコード（ないものは NOCODED）、用法はダミーの 0X0XXXXXXXXX0000。" },
   { field: "診療情報提供書の PDF（230 PDF セクション）", why: "文書全体の PDF は必須だが、この試作は PDF を作らない。" },
-  { field: "紹介先 Organization.identifier（医療機関コード）", why: "紹介先は架空の名前だけ。サービスの医療機関等マスタと一致しないので 0000000000 を入れる。" },
+  { field: "紹介先 Organization.identifier（医療機関コード）", why: "サービスの医療機関等マスタと一致しないので 0000000000 を入れます。" },
   { field: "333 入院中経過の DocumentReference", why: "経過は文だけ（section.text）。DocumentReference は作らない。" },
   { field: "健康診断結果報告書（HS037）", why: "この試作に健診の記録がないので作らない。" },
   { field: "処方を臨床情報として単独で送ること", why: "技術解説書 v2.1.0 で処方は臨床情報から外れた（電子処方箋管理サービスと重なるため）。文書の中にだけ入れる。" },

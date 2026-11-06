@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { bedProblem } from "@/lib/admission";
 import type { Sex } from "@/lib/types";
 import { ROOMS, emptyBeds, type Room, type WardState } from "@/lib/ward";
@@ -29,7 +30,7 @@ export function BedPicker({ ward, rooms = ROOMS, sex, value, onChange }: { ward:
             }`}
           >
             <b>
-              {room.no}
+              {displayText(room.no)}
               {bed && `-${bed}`}
             </b>
             <div className={`text-[10px] ${chosen ? "text-white/80" : ""}`}>{problem ?? room.kind}</div>

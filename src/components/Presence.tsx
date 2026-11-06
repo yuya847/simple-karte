@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { GitMerge, PencilLine, Users, X } from "lucide-react";
 import { editorLine, mergedText, peerLine, type NoteEditor, type Peer, type Where } from "@/lib/presence";
 
@@ -33,7 +34,7 @@ export function MergedNotice({ by, where, at, onClose }: { by: string; where: Wh
     <div role="status" className="fixed inset-x-0 top-0 z-40 flex items-center justify-center gap-2 px-4 py-1 print:hidden">
       <div className="flex items-center gap-2 rounded-full border border-wakatake bg-wakatake-soft px-3 py-1 text-[12px] text-ink shadow">
         <GitMerge size={13} className="text-wakatake" />
-        <span>{mergedText(by, where, at)}</span>
+        <span>{displayText(mergedText(by, where, at))}</span>
         <span className="hint text-ink-soft">この画面の記録と合わせました。書いている記事と下書きはそのままです。</span>
         <button type="button" onClick={onClose} aria-label="閉じる" className="rounded p-0.5 text-ink-soft hover:bg-sheet">
           <X size={12} />

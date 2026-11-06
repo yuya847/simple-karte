@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { type CalendarDate } from "@/lib/dates";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import type { FlowEntry } from "@/lib/flow-entry";
@@ -57,7 +58,7 @@ export function FlowEntryPanel({ req, person, today, nowTime, sessionStart, inte
                   <td className="py-1 pr-2">
                     <b>{i.main}</b>
                     {mar.queried[i.orderId] && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">疑義照会中</span>}
-                    <div className="text-[11px] text-ink-soft">{i.detail}</div>
+                    <div className="text-[11px] text-ink-soft">{displayText(i.detail)}</div>
                   </td>
                   <td className="w-32 py-1">
                     {interactive ? (

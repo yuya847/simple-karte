@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { VoidControl } from "./MarCell";
 import type { VoidReason } from "@/lib/mar";
 
@@ -135,7 +136,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
     return {
       start: e ? { at: startLabel(e.order, today), by: e.author } : { at: "", by: r.author },
       done: e ? doneStampOf(e.id, records) : EMPTY_STAMP,
-      take: isTaken(r) ? (takenHere(r) ? splitStamp(taken[r.keys.at(-1)!]) : { at: "", by: "前の勤務帯（架空）" }) : hold && !hold.answer ? { at: hold.at, by: `医師に確認中（${hold.by}）` } : EMPTY_STAMP,
+      take: isTaken(r) ? (takenHere(r) ? splitStamp(taken[r.keys.at(-1)!]) : { at: "", by: "前の勤務帯" }) : hold && !hold.answer ? { at: hold.at, by: `医師に確認中（${hold.by}）` } : EMPTY_STAMP,
     };
   };
 
@@ -287,7 +288,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                               {confirms[r.key] && <span className="font-normal text-ink-soft">　「指示受け済みも表示する」に移ります</span>}
                             </div>
                           )}
-                          {r.before && <div className="pl-3 text-[11px] text-ink-faint line-through">前：{r.before.main}　{r.before.detail}</div>}
+                          {r.before && <div className="pl-3 text-[11px] text-ink-faint line-through">前：{r.before.main}　{displayText(r.before.detail)}</div>}
                           {r.diff && r.diff.length > 0 && (
                             <div className="mt-0.5 flex flex-wrap gap-1 pl-3">
                               {r.diff.map((d) => (
@@ -304,9 +305,9 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                           ))}
                           {hold && (
                             <div className="mt-0.5 ml-3 rounded bg-paper px-1 text-[11px]">
-                              確認 {hold.at} {hold.by}：{hold.reason}
-                              {hold.note && `（${hold.note}）`}
-                              {hold.answer ? <span className="block text-ai">回答 {hold.answer.at} {hold.answer.by}：{hold.answer.text}</span> : <span className="block text-yamabuki">医師の回答待ち</span>}
+                              確認 {hold.at} {displayText(hold.by)}：{displayText(hold.reason)}
+                              {displayText(hold.note && `（${hold.note}）`)}
+                              {hold.answer ? <span className="block text-ai">回答 {hold.answer.at} {displayText(hold.answer.by)}：{displayText(hold.answer.text)}</span> : <span className="block text-yamabuki">医師の回答待ち</span>}
                             </div>
                           )}
                           {!ok && !isHeld && (
@@ -368,10 +369,10 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
 
           <SheetNotes>
             <p>
-              【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。高リスク薬の一覧と時間外の区切りは架空の病院の取り決めです。
+              【変】は同じ薬の中止と新規が同時に出たもので、変わったところだけを前後で示します（コードで比べるだけ）。至急・高リスク薬・口頭指示・変更・血糖を下げる薬が有効なときの食事の変更は、まとめて受けずに1件ずつ受けます。時間外は日勤（8:30〜17:00）以外に出た指示です。参考：{TAKE_SOURCES.map((s) => s.label).join("／")}。
             </p>
             <p>
-              指示受け → 指示確認 → 実施入力の流れと、未指示受けの一覧・患者ごとのまとめ・並べ替え・指示票は、公開されている電子カルテのカタログと病院の調達仕様の要件に合わせています。遅れの目安（至急 15分・ほかは 60分）、「自分の受け持ち」の決め方（その勤務帯の業務分担、なければ病棟の固定チーム）、今日と明日の予定を見ること、この画面を開く前の指示を前の勤務帯が受けたものとして扱うことは架空の病院の取り決めです。
+              指示受け → 指示確認 → 実施入力の流れと、未指示受けの一覧・患者ごとのまとめ・並べ替え・指示票は、公開されている電子カルテのカタログと病院の調達仕様の要件に合わせています。
             </p>
             <Sources items={CONFIRM_SOURCES.slice(1)} />
           </SheetNotes>

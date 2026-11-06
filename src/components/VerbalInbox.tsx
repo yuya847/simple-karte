@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useContext } from "react";
 import { VerbalReview, VerbalReviewContext } from "./VerbalControls";
 import { canReviewVerbal } from "@/lib/verbal";
@@ -46,7 +47,7 @@ export function VerbalInbox({ entries, today, nowAbs, onSign }: Props) {
             <li key={e.id} className="flex flex-wrap items-baseline gap-2">
               <span>{orderLines(e.order, today).main}</span>
               <span className="text-ink-soft">
-                {e.verbal!.at.time} {e.verbal!.doctor} → 受け {e.verbal!.takenBy}
+                {e.verbal!.at.time} {displayText(e.verbal!.doctor)} → 受け {e.verbal!.takenBy}
               </span>
               <span className={late ? "font-bold text-shu" : "text-ink-faint"}>
                 {late ? "承認の期限を過ぎています" : `期限 ${formatShort(addDays(today, Math.floor(due / 1440)))} ${clock(due)}`}

@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import { GLASS_REASONS, LIMIT_KINDS, LIMIT_RULES, LIMIT_SOURCES, glassProblem, glassText, limitProblem, type AccessLimit, type GlassEntry, type GlassReason, type LimitKind, careTeam } from "@/lib/access-limit";
@@ -46,7 +47,7 @@ export function GlassStep({ patient, me, onOpen, onBack }: { patient: { name: st
         <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded bg-fuji-soft/60 px-3 py-2 text-[12px]">
           <dt className="text-ink-faint">担当チーム</dt>
           <dd>
-            主治医 {team.attending}（とそのチームの医師）・受け持ち看護師 {team.nurse}
+            主治医 {team.attending}（とそのチームの医師）・受け持ち看護師 {displayText(team.nurse)}
             {team.nurseTeam ? `・${team.nurseTeam}を選んだ看護師` : ""}
           </dd>
           <dt className="text-ink-faint">いま</dt>
@@ -93,9 +94,9 @@ export function LimitStrip({ limit, inTeam, grant, fmtDay }: { limit: AccessLimi
         閲覧制限（{limit.kind ?? "その他"}）
       </b>
       <span className="text-ink-soft">
-        設定 {limit.by} {fmtDay(limit.at.day)} {limit.at.time}
+        設定 {displayText(limit.by)} {fmtDay(limit.at.day)} {limit.at.time}
       </span>
-      <span className="text-ink-soft">{inTeam ? "担当チームとして開いています。" : grant ? `理由を残して開いています（${grant.at.time} ${glassText(grant)}）。` : ""}開いた記録は監査ログに残ります。</span>
+      <span className="text-ink-soft">{displayText(inTeam ? "担当チームとして開いています。" : grant ? `理由を残して開いています（${grant.at.time} ${glassText(grant)}）。` : "")}開いた記録は監査ログに残ります。</span>
     </div>
   );
 }
@@ -112,7 +113,7 @@ export function LimitPanel({ history, current, fmtDay, onSave }: { history: Acce
         閲覧制限にした患者のカルテは、担当チームのほかの人が開くとき、理由を残してから開きます（一覧には「閲覧制限」の印が付きます）。開いた記録は監査ログの「カルテを開いた記録」で、患者・人・日付で絞って CSV（comma-separated values、カンマ区切りの表）に書き出せます。
       </p>
       <p className={`rounded px-2 py-1 ${current ? "bg-fuji-soft text-fuji" : "bg-paper text-ink-soft"}`}>
-        いま：{current ? `閲覧制限（${current.kind ?? "その他"}）　${current.by} ${fmtDay(current.at.day)} ${current.at.time}` : "閲覧制限なし"}
+        いま：{displayText(current ? `閲覧制限（${current.kind ?? "その他"}）　${current.by} ${fmtDay(current.at.day)} ${current.at.time}` : "閲覧制限なし")}
       </p>
       {on && (
         <fieldset>
@@ -155,7 +156,7 @@ export function LimitPanel({ history, current, fmtDay, onSave }: { history: Acce
                 <span className="nums text-ink-faint">
                   {fmtDay(h.at.day)} {h.at.time}
                 </span>{" "}
-                <b className={h.on ? "text-fuji" : "text-ink-soft"}>{h.on ? `設定（${h.kind ?? "その他"}）` : "解除"}</b> {h.by}：{h.reason}
+                <b className={h.on ? "text-fuji" : "text-ink-soft"}>{h.on ? `設定（${h.kind ?? "その他"}）` : "解除"}</b> {displayText(h.by)}：{displayText(h.reason)}
               </li>
             ))}
           </ol>

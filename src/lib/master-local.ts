@@ -216,7 +216,7 @@ export function masterIssues(d: Draft, ov: Overrides, log: readonly MasterChange
       key: `master-${kind}-${code}`,
       level: "stop",
       title: "マスタ",
-      message: `${name}は院内のマスタで「${f.stopped ? "中止" : "非採用"}」です${c ? `（${c.by} ${c.at.time}：${c.reason}）` : ""}。新しくはオーダできません（架空の病院の取り決め）。ほかの品目にするか、マスタ管理で戻してもらってください。`,
+      message: `${name}は院内のマスタで「${f.stopped ? "中止" : "非採用"}」です${c ? `（${c.by} ${c.at.time}：${c.reason}）` : ""}。新しくはオーダできません。ほかの品目にするか、マスタ管理で戻してもらってください。`,
       choices: [{ label: "この下書きを消す", remove: true }],
     });
   }

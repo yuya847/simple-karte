@@ -5,7 +5,7 @@ import type { VitalSign } from "./types";
 export type RecordedVital = VitalSign & { recordedTime?: string; remeasured?: boolean };
 
 export const REMEASURE_SOURCE = "https://www.rcp.ac.uk/media/a4ibkkbf/news2-final-report_0_0.pdf";
-export const REMEASURE_HINT = "架空の病院の取り決め：NEWS2 5〜6点は1時間後、7点以上は30分後に再測定の予定を出します。RCPの頻度の目安は5〜6点で少なくとも1時間ごと、7点以上で連続モニタリングです。30分後の予定は連続モニタリングの代わりではありません。「測った」で予定を済にできます。バイタルを確定した場合も前の予定は自動で済になり、高値なら次の予定を出します。";
+export const REMEASURE_HINT = "NEWS2 5〜6点は1時間後、7点以上は30分後に再測定の予定を出します。RCPの頻度の目安は5〜6点で少なくとも1時間ごと、7点以上で連続モニタリングです。30分後の予定は連続モニタリングの代わりではありません。「測った」で予定を済にできます。バイタルを確定した場合も前の予定は自動で済になり、高値なら次の予定を出します。";
 
 /** nowTime is the confirmation time; time can exceed 24:00 across midnight. */
 export function remeasureItem(vital: VitalSign, score: number, nowTime: string): { time: string; label: string } | null {

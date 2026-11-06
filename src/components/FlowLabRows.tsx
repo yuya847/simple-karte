@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { DEFAULT_FLOW_ANALYTES, analyteChoices, findAnalyte, labDayCell, labMarks, labValueText, type LabMark } from "@/lib/flow-labs";
@@ -16,7 +17,7 @@ function MarkText({ a, m, more }: { a: Analyte; m: LabMark; more?: number }) {
   if (m.kind === "pending") return <span className={m.status === "予定" ? "text-ink-faint" : "text-[10px] font-bold text-yamabuki"}>{PENDING_TEXT[m.status]}</span>;
   return (
     <span className={FLAG_STYLE[m.flag]}>
-      {labValueText(a, m.value)}
+      {displayText(labValueText(a, m.value))}
       {m.flag && <span className="text-[9px]">{m.flag}</span>}
       {!!more && <span className="ml-0.5 text-[9px] font-normal text-ink-faint">+{more}</span>}
     </span>
@@ -95,7 +96,7 @@ function AnalytePicker({ patient, value, onChange, onClose }: { patient: Patient
         <div className="mt-1 flex max-h-32 flex-wrap gap-x-3 gap-y-1 overflow-y-auto">{others.map(box)}</div>
       </details>
       <div className="flex items-center gap-2">
-        <span className="text-ink-faint">この端末のこの利用者のみに適用されます。初期は WBC・CRP・Hb・Cre・K<span className="hint">（架空の病院の取り決め）</span>。</span>
+        <span className="text-ink-faint">この端末のこの利用者のみに適用されます。初期は WBC・CRP・Hb・Cre・K。</span>
         <button type="button" onClick={() => onChange(DEFAULT_FLOW_ANALYTES)} className="ml-auto rounded border border-rule px-2 py-0.5">
           初期に戻す
         </button>

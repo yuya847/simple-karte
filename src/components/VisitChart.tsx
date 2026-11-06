@@ -1,4 +1,5 @@
 "use client";
+import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { BedDouble, X } from "lucide-react";
@@ -78,7 +79,7 @@ export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onR
         </dd>
         <dt className="text-ink-faint">申込</dt>
         <dd className="nums">
-          {request.at.time}　{request.by}
+          {request.at.time}　{displayText(request.by)}
         </dd>
       </dl>
       <button type="button" onClick={() => onCancelRequest(request.id)} className="text-[12px] text-ink-faint hover:text-shu">
@@ -121,7 +122,7 @@ export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onR
             <span className="ml-2 text-sm font-normal text-ink-soft">{ageSex(p)}</span>
           </h1>
         </div>
-        <span className="rounded border border-dashed border-ink-faint px-1.5 py-0.5 text-[10px] text-ink-soft">架空</span>
+
         <span className="text-sm text-ink-soft">{visit.kind === "er" ? "救急外来" : `外来・${visit.op.department}（${visit.op.kind}）`}</span>
         {p.allergies.length > 0 && <span className="text-sm font-bold text-shu">アレルギー：{p.allergies.join("、")}</span>}
         <label className="ml-auto flex items-center gap-1.5 text-sm text-ink-soft">
@@ -150,9 +151,9 @@ export function VisitChart({ visit, nowTime, fmtDay, notes, onNote, request, onR
                 {notes.map((n, i) => (
                   <li key={i} className="whitespace-pre-wrap border-l-2 border-ai/40 pl-2">
                     <div className="nums text-[11px] text-ink-faint">
-                      {n.at}　{n.by}
+                      {n.at}　{displayText(n.by)}
                     </div>
-                    {n.text}
+                    {displayText(n.text)}
                   </li>
                 ))}
               </ul>
@@ -258,7 +259,7 @@ function ErFacts({ er }: { er: ErPatient }) {
       {er.note && (
         <>
           <dt className="text-ink-faint">申し送り</dt>
-          <dd>{er.note}</dd>
+          <dd>{displayText(er.note)}</dd>
         </>
       )}
     </dl>
@@ -274,11 +275,11 @@ function OpdFacts({ op, fmtDay }: { op: OpdPatient; fmtDay: (d: number) => strin
         {op.slot ?? "予約外"}　{op.arrived ? `受付 ${op.arrived}` : "未受付"}
       </dd>
       <dt className="text-ink-faint">受診の理由</dt>
-      <dd>{op.reason}</dd>
+      <dd>{displayText(op.reason)}</dd>
       {op.referral && (
         <>
           <dt className="text-ink-faint">紹介状</dt>
-          <dd>{op.referral}</dd>
+          <dd>{displayText(op.referral)}</dd>
         </>
       )}
       {v && (
@@ -292,7 +293,7 @@ function OpdFacts({ op, fmtDay }: { op: OpdPatient; fmtDay: (d: number) => strin
       <dt className="text-ink-faint">処方中</dt>
       <dd>{op.meds.length ? op.meds.map((m) => <div key={m}>{m}</div>) : "—"}</dd>
       <dt className="text-ink-faint">前回まで</dt>
-      <dd>{op.visits.length ? op.visits.map((x) => <div key={x.day}>{fmtDay(x.day)}　{x.text}</div>) : "—"}</dd>
+      <dd>{op.visits.length ? op.visits.map((x) => <div key={x.day}>{fmtDay(x.day)}　{displayText(x.text)}</div>) : "—"}</dd>
     </dl>
   );
 }
@@ -423,7 +424,7 @@ export function RequestForm({ visit, me, nowTime, newId, onCancel, onSend }: { v
           const exact = document.getElementById(`${uid}-${name}`);
           const row = Array.from(formRef.current?.querySelectorAll<HTMLElement>("[data-request-field]") ?? []).find((el) => el.dataset.requestField === name);
           (exact ?? row?.querySelector<HTMLElement>('input, textarea, button[tabindex="0"], button'))?.focus();
-        }}>{name}</button></span>)}</span>}
+        }}>{displayText(name)}</button></span>)}</span>}
         <DenyNote action="er.admit" />
       </div>
     </div>

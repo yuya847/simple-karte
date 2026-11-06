@@ -53,7 +53,7 @@ export function DiagnosisDetail({ initial, today, department, query, onSave, onC
     {date("手術日", "surgeryDay")}<label>区分 <select className={field} value={d.outcome} onChange={e => patch({ outcome: e.target.value as Outcome, outcomeDay: e.target.value === "継続" ? undefined : d.outcomeDay ?? 0 })}>{["継続","治癒","死亡","中止","移行"].map(x => <option key={x}>{x}</option>)}</select></label>{date("転帰日", "outcomeDay")}</div>
     <label className="block">コメント<textarea className={`${field} block w-full`} maxLength={1000} value={d.comment ?? ""} onChange={e => patch({ comment: e.target.value })} /></label>
     <label className="block text-sm"><input type="checkbox" checked={d.hideCommentOnClaim ?? false} onChange={e => patch({ hideCommentOnClaim: e.target.checked })}/> コメントをレセプトに出さない</label>
-    <p className="hint text-xs">部位はマスターの名前（右・左・両側・上・下・前・後・内・外）から選びます。有効年月は開始月から終了月まで（両端を含む）。保険の選択は模擬の記録用です。いずれも架空の病院の取り決めです。レセプトの補足コメントは40バイト以内です。</p>
+    <p className="hint text-xs">部位はマスターの名前（右・左・両側・上・下・前・後・内・外）から選びます。有効年月は開始月から終了月まで（両端を含む）。保険の選択は模擬の記録用です。いずれも院内の取り決めです。レセプトの補足コメントは40バイト以内です。</p>
     <p className="hint text-xs">区分の移行は履歴を残し算定から除きます（ORCA 病名登録マニュアル）。</p>
     {problems.map(p => <p key={p} className="text-sm text-shu">{p}</p>)}{error && <p role="alert">{error}</p>}
     <div className="flex gap-3"><button type="button" className="rounded bg-ai px-4 py-2 text-white disabled:opacity-40" disabled={problems.length > 0} onClick={() => onSave(d)}>登録</button><button type="button" className={field} onClick={onClose}>閉じる</button></div>

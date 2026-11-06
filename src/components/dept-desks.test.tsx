@@ -31,7 +31,7 @@ describe("地域医療連携", () => {
     const html = as("医師", <LiaisonView today={today} nowTime="10:00" book={EMPTY_LIAISON} onBook={() => {}} opd={opd} er={[]} letters={[]} />);
     expect(html).toContain("紹介・逆紹介の台帳");
     expect(html).toContain("坂本 ヨシ");
-    expect(html).toContain("〇〇内科クリニック（架空）");
+    expect(html).toContain("〇〇内科クリニック");
     expect(html).toContain("MSW・医事課が行います");
   });
   it("lets the 連携室 record", () => {
@@ -67,7 +67,7 @@ describe("外来の受付", () => {
     const html = as("看護師", <OpdDesk patients={opd} onPatients={() => {}} desk={EMPTY_OPD_DESK} onDesk={() => {}} revisits={[]} today={today} nowTime="09:30" requests={{}} onOpen={() => {}} onOpenChart={() => {}} newId={() => "x"} />);
     expect(html).toContain("受付番号");
     expect(html).toContain("呼出");
-    expect(html).toContain("循環器内科 森（架空）");
+    expect(html).toContain("循環器内科 森");
     expect(html).toContain("再来受付機（模擬）を開く");
     // The whole 氏名 cell (カナ・氏名・年齢性別) is one button that opens the patient's tab; the 受付票 print is separate.
     expect(html).toContain('aria-label="石田 正男 のタブを開く"');

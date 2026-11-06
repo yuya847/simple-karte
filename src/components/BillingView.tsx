@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import type { DietOrder } from "@/lib/diet";
 import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "lucide-react";
 import { BillPanel } from "./billing/BillPanel";
@@ -198,7 +199,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
             {settlement ? (
               <p className="nums flex items-center gap-1.5 text-wakatake">
                 <CheckCircle2 size={13} />
-                退院時の会計：済み（{formatShort(addDays(today, settlement.at.day))} {settlement.at.time} {settlement.by}
+                退院時の会計：済み（{formatShort(addDays(today, settlement.at.day))} {settlement.at.time} {displayText(settlement.by)}
                 {settlement.yen !== null ? `、${Number(settlement.month.slice(5))}月分 ${yen(settlement.yen)}` : ""}）
               </p>
             ) : (
@@ -326,7 +327,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
                   <li key={i.level + i.text} className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs ${s.cls}`}>
                     <Icon size={13} className="mt-0.5 shrink-0" />
                     <span className="shrink-0 font-bold">{s.label}</span>
-                    <span className="text-ink">{i.text}</span>
+                    <span className="text-ink">{displayText(i.text)}</span>
                   </li>
                 );
               })}
@@ -423,7 +424,7 @@ export function BillingView({ patient, entries, diagnoses, today, nowTime, optio
           <div className="mt-3 space-y-0.5 text-[10px] text-ink-faint">
             <p className="flex items-center gap-1">
               <ListChecks size={11} />
-              施設基準は架空の病院（届出は実在の一般病院の公開情報にならった想定）。入院日 {formatShort(firstDayOfMonth(patient.admittedOn))}。
+              施設基準はこの病院（届出は実在の一般病院の公開情報にならった想定）。入院日 {formatShort(firstDayOfMonth(patient.admittedOn))}。
             </p>
             {result.sources.map((s) => (
               <p key={s} className="hint">出典：{s}</p>

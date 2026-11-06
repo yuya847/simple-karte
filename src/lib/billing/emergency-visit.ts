@@ -5,7 +5,7 @@ import type { HistoryEntry } from "../types";
 // 架空の病院の表示診療時間。祝日は明示した日付だけを扱う（日曜・年末年始は下で判定）。
 export const ER_HOURS = { open: 8 * 60, close: 18 * 60, saturdayClose: 12 * 60, nightStart: 22 * 60, nightEnd: 6 * 60 } as const;
 export const ER_HOLIDAYS = ["2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23", "2026-03-20", "2026-04-29", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06", "2026-07-20", "2026-08-11", "2026-09-21", "2026-09-22", "2026-09-23", "2026-10-12", "2026-11-03", "2026-11-23"];
-export const ER_RULE_HINT = "架空の病院の取り決め：表示診療時間は平日8〜18時・土曜8〜12時。日曜・2026年の祝日・12月29日〜1月3日は休日。深夜22〜6時を優先し、休日・時間外の順で1つだけ算定します。受診時刻は到着時刻で代用（予定受診ではない救急受診を想定）。2026年以外の祝日は未対応。初診・再診は人が確認します。下書きは算定に入りません。";
+export const ER_RULE_HINT = "表示診療時間は平日8〜18時・土曜8〜12時。日曜・2026年の祝日・12月29日〜1月3日は休日。深夜22〜6時を優先し、休日・時間外の順で1つだけ算定します。受診時刻は到着時刻で代用（予定受診ではない救急受診を想定）。2026年以外の祝日は未対応。初診・再診は人が確認します。下書きは算定に入りません。";
 export const ER_SOURCE = { label: "厚生労働省：医科点数表 A000・A001（時間外等）、A205（救急医療管理加算は入院）", url: "https://www.mhlw.go.jp/content/10808000/001662535.pdf" };
 export type EmergencyContext = { arrivedAbs: number; admittedAs?: string };
 export function arrivalDate(today: string, arrivedAbs: number): string {

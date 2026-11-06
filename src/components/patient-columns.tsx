@@ -4,6 +4,7 @@
 // and the gray row (the others), so 「表示」 can turn a column off in all three at once. 病室 and 氏名 are
 // always shown; the rest are the ListColumn keys of list-prefs.ts.
 
+import { displayText } from "@/lib/display-text";
 import { IdCard } from "lucide-react";
 import type { ReactNode } from "react";
 import { PatientAvatar } from "./PatientAvatar";
@@ -61,7 +62,7 @@ export function Flags({ flags }: { flags: Flag[] }) {
 export function DpcCell({ b }: { b?: DpcBriefs[string] }) {
   if (!b) return <span className="text-ink-faint">—</span>;
   if (b === "loading") return <span className="text-ink-faint">計算中</span>;
-  if (!b.ok) return <span className="text-[11px] text-ink-faint" title={b.reason}>コードなし</span>;
+  if (!b.ok) return <span className="text-[11px] text-ink-faint" title={displayText(b.reason)}>コードなし</span>;
   const tip = `${b.code} ${b.name}${b.days ? `\n${rangesText(b.days)}` : ""}${b.provisional ? "\n医療資源を最も投入した傷病名を主治医がまだ選んでいないため、仮のコードで数えています" : ""}`;
   return (
     <div title={tip} className="max-w-56 whitespace-normal">

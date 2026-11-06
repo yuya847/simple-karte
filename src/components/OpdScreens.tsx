@@ -3,6 +3,7 @@
 // Two full-screen pages of 外来 for a monitor or an iPad: the waiting-room display (受付番号だけ) and the
 // 再来受付機 (模擬: the 診察券 number is typed; no machine or card reader is connected).
 
+import { displayText } from "@/lib/display-text";
 import { Delete, Maximize, X } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { DISPLAY_NOTE, isCardNo, ticketLabel, type DisplayBoard, type KioskResult } from "@/lib/opd-desk";
@@ -12,7 +13,7 @@ function FullScreen({ label, onClose, children }: { label: string; onClose: () =
   return (
     <div ref={box} role="dialog" aria-modal="true" aria-label={label} className="fixed inset-0 z-50 flex flex-col overflow-auto bg-ink text-white">
       <div className="flex items-center gap-2 px-4 py-2 text-sm">
-        <span className="rounded border border-dashed border-white/50 px-1.5 py-0.5 text-[11px]">模擬・架空</span>
+        <span className="rounded border border-dashed border-white/50 px-1.5 py-0.5 text-[11px]">模擬</span>
         <span className="text-white/70">{label}</span>
         <button
           type="button"
@@ -61,7 +62,7 @@ export function WaitingDisplay({ board, nowTime, onClose }: { board: DisplayBoar
             <section key={r.room} className="rounded-xl border border-white/20 p-4">
               <h2 className="flex items-baseline justify-between">
                 <span className="text-2xl font-bold">{r.room}</span>
-                <span className="text-white/70">{r.dept}</span>
+                <span className="text-white/70">{displayText(r.dept)}</span>
               </h2>
               <p className="mt-2 text-sm text-white/70">お呼びしています。{r.room}へお入りください</p>
               <p className="flex flex-wrap gap-2 text-4xl font-bold">{nums(r.calling, true)}</p>
@@ -161,7 +162,7 @@ export function KioskScreen({ onRead, samples, onSlip, onClose }: { onRead: (car
             </button>
           </div>
         )}
-        <p className="text-xs text-white/60">この画面は再来受付機の模擬です。本物の受付機や診察券の読み取りにはつないでいません。予約のある再診の患者だけを受け付けます（初診と予約外は窓口<span className="hint">。架空の病院の取り決め</span>）。</p>
+        <p className="text-xs text-white/60">この画面は再来受付機の模擬です。本物の受付機や診察券の読み取りにはつないでいません。予約のある再診の患者だけを受け付けます（初診と予約外は窓口<span className="hint">。院内の取り決め</span>）。</p>
       </div>
     </FullScreen>
   );

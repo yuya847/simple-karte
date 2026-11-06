@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { NOTICE_FOCUS_EVENT } from "@/lib/notice-focus";
 import { BellRing, CalendarClock, History, Megaphone, Phone, PhoneCall, Siren, StickyNote, Tags } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -96,7 +97,7 @@ export function PhsView(p: Props) {
                   <span className="w-24 shrink-0 text-xs text-ink-soft">{c.role}</span>
                   <span className="min-w-0 flex-1">
                     <b>{c.name}</b>
-                    {c.note && <span className="block text-[11px] text-ink-faint">{c.note}</span>}
+                    {c.note && <span className="block text-[11px] text-ink-faint">{displayText(c.note)}</span>}
                   </span>
                   <button type="button" onClick={() => setTo(`${c.role} ${c.name}`)} className="nums flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs hover:border-ai hover:text-ai" title="通話メモの相手に入れる">
                     <PhoneCall size={12} />
@@ -105,7 +106,7 @@ export function PhsView(p: Props) {
                 </li>
               ))}
             </ul>
-            <p className="mt-1 text-[11px] text-ink-faint">時刻（日勤 8:30〜17:00、それ以外は当直）と曜日から、架空の病院の当番表を引いています。内線番号も架空です。</p>
+            <p className="mt-1 text-[11px] text-ink-faint">時刻（日勤 8:30〜17:00、それ以外は当直）と曜日から、当番表を引いています。</p>
           </div>
           <div className={`${card} space-y-2 p-3 text-[13px]`}>
             <h2 className="flex items-center gap-1.5 font-bold">
@@ -137,10 +138,10 @@ export function PhsView(p: Props) {
               {[...p.notes].reverse().map((n) => (
                 <li key={n.id} className="border-l-2 border-ai/40 pl-2">
                   <span className="nums text-ink-faint">
-                    {n.at}　{n.from} → {n.to}
+                    {n.at}　{displayText(n.from)} → {n.to}
                     {n.patientId ? `　${nameOf(n.patientId)}さん` : ""}
                   </span>
-                  <div>{n.text}</div>
+                  <div>{displayText(n.text)}</div>
                 </li>
               ))}
             </ul>
@@ -181,7 +182,7 @@ export function PhsView(p: Props) {
                 <button type="button" disabled={!ringBed} onClick={() => p.onRing(ringBed, ringKind)} className="rounded border border-shu px-2 py-0.5 font-bold text-shu disabled:opacity-40">
                   鳴らす
                 </button>
-                <span className="w-full text-ink-faint">担当の看護師へ。{PASS_ON_SECONDS}秒ごとに応答がなければ、同じチーム → 病棟リーダー → 全員の順に回します（呼出スライド<span className="hint">。架空の病院の取り決め</span>）。センサーは「ベッドの情報」で付けたベッドだけが鳴ります。</span>
+                <span className="w-full text-ink-faint">担当の看護師へ。{PASS_ON_SECONDS}秒ごとに応答がなければ、同じチーム → 病棟リーダー → 全員の順に回します（呼出スライド<span className="hint">。院内の取り決め</span>）。センサーは「ベッドの情報」で付けたベッドだけが鳴ります。</span>
               </div>
               {p.calls.length === 0 && <p className="text-sm text-ink-faint">いま鳴っているナースコールはありません。</p>}
               {[...p.calls].reverse().map((c) => {
@@ -217,9 +218,9 @@ export function PhsView(p: Props) {
                       </p>
                     ))}
                     <div className="nums mt-1 text-[11px] text-ink-soft">
-                      {c.answered && `応答 ${c.answered.at} ${c.answered.by}　`}
-                      {c.arrived && `訪室 ${c.arrived.at} ${c.arrived.by}　`}
-                      {c.done && `完了 ${c.done.at} ${c.done.by}（${c.done.reason}${c.done.memo ? `：${c.done.memo}` : ""}）`}
+                      {displayText(c.answered && `応答 ${c.answered.at} ${c.answered.by}　`)}
+                      {displayText(c.arrived && `訪室 ${c.arrived.at} ${c.arrived.by}　`)}
+                      {displayText(c.done && `完了 ${c.done.at} ${c.done.by}（${c.done.reason}${c.done.memo ? `：${c.done.memo}` : ""}）`)}
                     </div>
                     {st !== "完了" && me.role === "看護師" && (
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
@@ -280,14 +281,14 @@ export function PhsView(p: Props) {
                 <article key={n.id} className={`rounded-md border p-2 ${n.readBy.includes(me.name) ? "border-rule-soft" : "border-yamabuki"}`}>
                   <div className="nums flex flex-wrap items-baseline gap-2 text-xs text-ink-soft">
                     <span className="rounded bg-tab px-1 font-bold text-ink">{n.kind}</span>
-                    {n.at}　{n.from} → {n.to === "全員" ? "看護師全員" : `${n.to} チーム`}
+                    {n.at}　{displayText(n.from)} → {n.to === "全員" ? "看護師全員" : `${n.to} チーム`}
                     {!n.readBy.includes(me.name) && (
                       <button type="button" onClick={() => p.onReadNotice(n.id)} className="ml-auto rounded border border-rule px-1.5 hover:border-ai hover:text-ai">
                         見た
                       </button>
                     )}
                   </div>
-                  <div>{n.text}</div>
+                  <div>{displayText(n.text)}</div>
                   {n.readBy.length > 0 && <div className="text-[11px] text-ink-faint">見た人：{n.readBy.join("、")}</div>}
                 </article>
               ))}
@@ -405,7 +406,7 @@ export function PhsView(p: Props) {
                 {[...p.calls].reverse().map((c) => (
                   <li key={c.id} className="nums">
                     {c.at} {c.kind}　{c.room} {nameOf(c.patientId)}　{callState(c)}
-                    {c.done ? `　${c.done.reason}${c.done.memo ? `：${c.done.memo}` : ""}（${c.done.by}）` : ""}
+                    {displayText(c.done ? `　${c.done.reason}${c.done.memo ? `：${c.done.memo}` : ""}（${c.done.by}）` : "")}
                   </li>
                 ))}
               </ul>
@@ -467,7 +468,7 @@ export function PhsView(p: Props) {
               <div className="font-bold text-shu">{e.kind}</div>
               <div>{e.place}</div>
               <div className="nums text-xs text-ink-soft">
-                {e.at} 発信 {e.by}
+                {e.at} 発信 {displayText(e.by)}
               </div>
               {e.kind === "火災（避難）" && (
                 <div className="mt-1 rounded-md bg-shu-soft p-2 text-xs">
@@ -486,7 +487,7 @@ export function PhsView(p: Props) {
               </ul>
               {e.closed ? (
                 <p className="nums mt-1 text-xs text-ink-soft">
-                  解除 {e.closed.at} {e.closed.by}：{e.closed.note}
+                  解除 {e.closed.at} {displayText(e.closed.by)}：{displayText(e.closed.note)}
                 </p>
               ) : (
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">

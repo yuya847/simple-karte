@@ -3,6 +3,7 @@
 // In the chart's 放射線画像: what 放射線部 recorded for this patient's imaging orders — the state, the 照射録 the
 // ordering doctor signs (診療放射線技師法 第28条), and the reading report the doctor marks as read.
 
+import { displayText } from "@/lib/display-text";
 import { RIS_RULES, risResultItems, risRows, type RisDesk } from "@/lib/ris";
 import type { Ack } from "@/lib/results";
 import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
@@ -33,19 +34,19 @@ export function RisChartStrip({ patient, entries, desk, onDesk, acks, nowTime, o
           const ack = item ? acks[item.key] : undefined;
           return (
             <li key={r.orderId} className="flex flex-wrap items-baseline gap-x-2">
-              <span className="nums text-ink-soft">{whenText(r.at)}</span>
+              <span className="nums text-ink-soft">{displayText(whenText(r.at))}</span>
               <b>{r.label}</b>
               <span className={STATUS_TONE[r.status]}>{r.status}</span>
-              {r.work?.notDone && <span className="text-shu">{r.work.notDone.reason}</span>}
+              {r.work?.notDone && <span className="text-shu">{displayText(r.work.notDone.reason)}</span>}
               {r.order.modality !== "MRI" && r.work?.record && <SignButton r={r} onDesk={onDesk} nowTime={nowTime} />}
               {r.work?.report && (
                 <span className="basis-full pl-4">
-                  <span className="text-ink-soft">読影（{r.work.report.by} {r.work.report.time}）：</span>
+                  <span className="text-ink-soft">読影（{displayText(r.work.report.by)} {r.work.report.time}）：</span>
                   <b>{r.work.report.impression}</b>
                   <span className="ml-2">
                     {ack ? (
                       <span className="text-wakatake">
-                        確認 {ack.at.time} {ack.by}
+                        確認 {ack.at.time} {displayText(ack.by)}
                       </span>
                     ) : (
                       item && (

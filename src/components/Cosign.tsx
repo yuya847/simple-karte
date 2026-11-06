@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { UserCheck } from "lucide-react";
 import { createContext, useContext, useState } from "react";
 import { COSIGN_RULES, COSIGN_SOURCES, confirmDeny, cosignLabel, pendingOf, signerLabel, type CosignItem } from "@/lib/cosign";
@@ -18,7 +19,7 @@ export function CosignMark({ refId, pendingLabel }: { refId?: string; pendingLab
   const c = item.confirmed;
   return (
     <span
-      title={c ? `${item.by}（${item.at.time}）の${item.kind}。${signerLabel(c.by, c.as)}が ${c.at.time} に確認${c.comment ? `：${c.comment}` : ""}` : `${item.by}（${item.at.time}）の${item.kind}。同じチームの指導医か上級医の確認がまだです`}
+      title={displayText(c ? `${item.by}（${item.at.time}）の${item.kind}。${signerLabel(c.by, c.as)}が ${c.at.time} に確認${c.comment ? `：${c.comment}` : ""}` : `${item.by}（${item.at.time}）の${item.kind}。同じチームの指導医か上級医の確認がまだです`)}
       className={`rounded px-1 text-[10px] ${c ? "border border-wakatake/50 text-wakatake" : "bg-yamabuki-soft font-bold text-yamabuki"}`}
     >
       {!c && pendingLabel ? pendingLabel : cosignLabel(item)}
@@ -56,12 +57,12 @@ export function CosignStrip({ items, meName, onConfirm }: { items: CosignItem[];
           return (
             <li key={i.id} className="flex items-start gap-2 border-t border-yamabuki/20 pt-1">
               <span className="shrink-0 rounded border border-yamabuki/50 px-1 text-[11px] text-yamabuki">{i.kind}</span>
-              <span className={`min-w-0 flex-1 ${clamp}`} title={i.text}>
-                {i.text}
+              <span className={`min-w-0 flex-1 ${clamp}`} title={displayText(i.text)}>
+                {displayText(i.text)}
               </span>
               <span className="nums shrink-0 text-ink-soft">
-                {i.at.time} {i.by}
-                {i.version && i.version > 1 ? `（第${i.version}版）` : ""}
+                {i.at.time} {displayText(i.by)}
+                {displayText(i.version && i.version > 1 ? `（第${i.version}版）` : "")}
               </span>
               {!why && (
                 <button type="button" onClick={() => go([i.id])} className="shrink-0 rounded border border-yamabuki px-1.5 text-[11px] text-yamabuki hover:bg-sheet">
@@ -98,8 +99,8 @@ export function CosignPanel({ items, meName, onConfirm }: { items: CosignItem[];
             {done.map((i) => (
               <li key={i.id} className="flex items-start gap-2 border-t border-rule-soft pt-1">
                 <span className="shrink-0 rounded border border-rule px-1 text-[11px] text-ink-soft">{i.kind}</span>
-                <span className={`min-w-0 flex-1 ${clamp}`} title={i.text}>
-                  {i.text}
+                <span className={`min-w-0 flex-1 ${clamp}`} title={displayText(i.text)}>
+                  {displayText(i.text)}
                 </span>
                 <span className="nums shrink-0 text-wakatake">{cosignLabel(i)}</span>
               </li>
@@ -191,18 +192,18 @@ export function CosignList({ items, meName, patientOf, onConfirm, onOpen }: { it
                   </td>
                   <td className="whitespace-nowrap py-1 pr-2">
                     <button type="button" onClick={() => onOpen(i.patientId)} className="text-ai underline-offset-2 hover:underline">
-                      {p ? `${p.room} ${p.name}` : i.patientId}
+                      {displayText(p ? `${p.room} ${p.name}` : i.patientId)}
                     </button>
                   </td>
                   <td className="whitespace-nowrap py-1 pr-2">
                     {i.kind}
-                    {i.version && i.version > 1 ? `（第${i.version}版）` : ""}
+                    {displayText(i.version && i.version > 1 ? `（第${i.version}版）` : "")}
                   </td>
-                  <td className={`py-1 pr-2 ${clamp}`} title={i.text}>
-                    {i.text}
+                  <td className={`py-1 pr-2 ${clamp}`} title={displayText(i.text)}>
+                    {displayText(i.text)}
                   </td>
                   <td className="nums whitespace-nowrap py-1 pr-2">
-                    {i.at.time} {i.by}
+                    {i.at.time} {displayText(i.by)}
                   </td>
                   <td className="py-1">
                     {i.confirmed ? (
@@ -243,7 +244,7 @@ export function CosignBasis() {
           </li>
         ))}
       </ul>
-      <h2 className="pt-1 font-bold text-ink">架空の病院の取り決め</h2>
+      <h2 className="pt-1 font-bold text-ink">院内の取り決め</h2>
       <ul className="list-disc space-y-0.5 pl-5">
         {Object.values(COSIGN_RULES).map((t) => (
           <li key={t}>{t}</li>

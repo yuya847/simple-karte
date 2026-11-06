@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { B_ITEMS, FICTIONAL_AMBULANCE_PER_YEAR, WARD_STANDARD, bFor, bNeeded, evaluateDay, responseCoefficient, type BKey, type BRecord, type DayEval } from "@/lib/acuity";
 import { STAFF } from "@/lib/roles";
@@ -59,7 +60,7 @@ export function AcuityView({ people, today, nowTime, records, ambulance, fasting
           </span>
         </div>
         <div>
-          <div className="text-[11px] text-ink-faint">救急患者応需係数（架空：年{FICTIONAL_AMBULANCE_PER_YEAR.toLocaleString()}件 ÷ {HOSPITAL.beds.general}床 × 0.005）</div>
+          <div className="text-[11px] text-ink-faint">救急患者応需係数（年{FICTIONAL_AMBULANCE_PER_YEAR.toLocaleString()}件 ÷ {HOSPITAL.beds.general}床 × 0.005）</div>
           <b className="text-lg">＋{(coef * 100).toFixed(1)}%</b>
         </div>
         <div>
@@ -149,7 +150,7 @@ function Detail({ person, today, e, record, fasting, onSave }: { person: WorkPat
           <ul className="text-xs">
             {e.a.map((h) => (
               <li key={h.no}>
-                {h.no} {h.name}：{h.points}点 <span className="text-ink-faint">— {h.why}</span>
+                {displayText(h.no)} {h.name}：{h.points}点 <span className="text-ink-faint">— {h.why}</span>
               </li>
             ))}
           </ul>
@@ -161,7 +162,7 @@ function Detail({ person, today, e, record, fasting, onSave }: { person: WorkPat
           <ul className="text-xs">
             {e.c.map((h) => (
               <li key={h.no}>
-                {h.no} {h.name} <span className="text-ink-faint">— {h.why}</span>
+                {displayText(h.no)} {h.name} <span className="text-ink-faint">— {h.why}</span>
               </li>
             ))}
           </ul>
@@ -179,7 +180,7 @@ function Detail({ person, today, e, record, fasting, onSave }: { person: WorkPat
             {B_ITEMS.map((it) => (
               <tr key={it.key}>
                 <td className="pr-2">
-                  {it.no} {it.name}
+                  {displayText(it.no)} {it.name}
                 </td>
                 <td className="pr-2">
                   <select value={state[it.key]} onChange={(ev) => setState({ ...state, [it.key]: Number(ev.target.value) })} className="rounded border border-rule bg-paper px-1">

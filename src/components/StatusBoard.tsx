@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { ClipboardPen } from "lucide-react";
 import { useState } from "react";
 import {
@@ -72,14 +73,14 @@ function Table({ patients, book, day, shift, nowTime, canType, onRegister }: { p
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-rule bg-sheet px-3 py-2 text-[12px]">
         {now ? (
           <span className="font-bold text-wakatake">
-            登録済み {now.at.time} {now.by}
+            登録済み {now.at.time} {displayText(now.by)}
           </span>
         ) : (
           <span className="text-yamabuki">この勤務帯はまだ登録していません</span>
         )}
         {before && canType && (
           <button type="button" onClick={() => setRows(draftRows(patients, before.sheet))} className="rounded border border-rule px-2 py-0.5 hover:border-ai">
-            {before.day === -1 ? "昨日" : before.day === 0 ? "今日" : `${-before.day}日前`}の{SHIFT_LABEL[before.shift]}（{before.sheet.at.time} {before.sheet.by}）から写す
+            {before.day === -1 ? "昨日" : before.day === 0 ? "今日" : `${-before.day}日前`}の{SHIFT_LABEL[before.shift]}（{before.sheet.at.time} {displayText(before.sheet.by)}）から写す
           </button>
         )}
         {canType && (
@@ -150,7 +151,7 @@ function Table({ patients, book, day, shift, nowTime, canType, onRegister }: { p
                     <select value={r[f.key] ?? ""} disabled={!canType} onChange={(e) => setRows((all) => ({ ...all, [p.id]: { ...r, ...patchOf(f.key, e.target.value || undefined) } }))} aria-label={`${p.name}の${f.label}`} className={sel}>
                       <option value="">—</option>
                       {f.options.map((o) => (
-                        <option key={o.key} value={o.key} title={o.note}>
+                        <option key={o.key} value={o.key} title={displayText(o.note)}>
                           {o.key}
                         </option>
                       ))}
@@ -173,7 +174,7 @@ function Table({ patients, book, day, shift, nowTime, canType, onRegister }: { p
                   {mine.length ? (
                     mine.map((x) => (
                       <div key={x.text} className="text-yamabuki">
-                        {x.text}
+                        {displayText(x.text)}
                       </div>
                     ))
                   ) : (
@@ -238,8 +239,8 @@ export function StatusBoard({ pick, patients, book, nowTime, canType, onRegister
         <li>{STATUS_RULES.degree}</li>
         <li>{STATUS_RULES.rescue}</li>
         <li>
-          区分の言葉（架空の病院の取り決め）：
-          {[...FIELDS.slice(0, 3)].map((f) => `${f.label} ${f.options.map((o) => `${o.key}＝${o.note}`).join("、")}`).join("／")}／救護区分 {RESCUE_KINDS.map((k) => `${k}＝${RESCUE_NOTE[k]}`).join("、")}
+          区分の言葉：
+          {displayText([...FIELDS.slice(0, 3)].map((f) => `${f.label} ${f.options.map((o) => `${o.key}＝${o.note}`).join("、")}`).join("／"))}／救護区分 {RESCUE_KINDS.map((k) => `${k}＝${RESCUE_NOTE[k]}`).join("、")}
         </li>
       </ul>
     </section>

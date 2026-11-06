@@ -9,7 +9,7 @@ import { abs } from "@/lib/flowsheet";
 import type { AdminRecord } from "@/lib/mar";
 import { MANUALS } from "@/lib/manuals";
 import type { WorkPatient } from "@/lib/worksheet";
-import { Fictional, saveFile, Sources, SubTabs, usePrintSheet } from "./DeskParts";
+import { saveFile, Sources, SubTabs, usePrintSheet } from "./DeskParts";
 import { ManualView } from "./ManualView";
 import { useMe } from "./RoleContext";
 
@@ -78,7 +78,7 @@ export function DowntimeView({ places, rowsFor, today, nowTime, mar, sessionStar
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <LifeBuoy size={18} className="text-ai" />
           障害時の参照
-          <Fictional />
+
         </h1>
         <SubTabs
           label="障害時の画面"
@@ -167,7 +167,7 @@ export function DowntimeView({ places, rowsFor, today, nowTime, mar, sessionStar
             この画面を開くと、選んだ病棟の参照を作り、この端末に保存します。病棟を変えるか「いまの記録で作り直す」で作り直します。「印刷」は A4 縦で、PDF にするときは印刷の画面で「PDF に保存」を選びます。「HTML で保存」したファイルは、アプリやネットワークがなくても開けます。
           </p>
           <p className="hint text-[12px] text-ink-soft">
-            載せるのは、患者ごとの氏名・アレルギー・感染症・救命処置・有効な指示・今日の与薬予定（実施を手で書く欄つき）・直近のバイタル・直近の検査です。閲覧制限のある患者は、担当のチームでなければ安全に関わることだけを載せます。何を載せ、いつ作るかは架空の病院の取り決めです。保存した参照はこの端末に残るので、端末の管理（持ち出し・共用）に気をつけてください。
+            載せるのは、患者ごとの氏名・アレルギー・感染症・救命処置・有効な指示・今日の与薬予定（実施を手で書く欄つき）・直近のバイタル・直近の検査です。閲覧制限のある患者は、担当のチームでなければ安全に関わることだけを載せます。保存した参照はこの端末に残るので、端末の管理（持ち出し・共用）に気をつけてください。
           </p>
           <div className="rounded-lg border border-rule bg-white p-4">
             <div className="dt-sheet" dangerouslySetInnerHTML={{ __html: body }} />

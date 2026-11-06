@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { PhoneCall, PhoneOff } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
@@ -57,7 +58,7 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
           {history.map((t, n) => (
             <li key={n} className={`flex items-center gap-1 ${t.result === "伝えた" ? "font-bold text-wakatake" : "text-yamabuki"}`}>
               {t.result === "伝えた" ? <PhoneCall size={11} /> : <PhoneOff size={11} />}
-              {n + 1}回目 {t.at.time} {t.means} {t.to}：{t.result}（{t.by}）
+              {n + 1}回目 {t.at.time} {t.means} {t.to}：{t.result}（{displayText(t.by)}）
             </li>
           ))}
         </ol>
@@ -70,7 +71,7 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
           </p>
           {ack ? (
             <p className="text-wakatake">
-              医師の対応：{ack.at.time} {ack.by}「{ack.response ?? "確認した"}」
+              医師の対応：{ack.at.time} {displayText(ack.by)}「{ack.response ?? "確認した"}」
             </p>
           ) : (
             <p className="font-bold text-yamabuki">医師の対応の記録がまだです。続けば、もう一度連絡するか、同じ科の医師・管理当直に連絡します。</p>
@@ -152,7 +153,7 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
               </button>
             </span>
           </div>
-          <p className="text-[11px] text-ink-soft">{PANIC_REACH_RULE.text}</p>
+          <p className="text-[11px] text-ink-soft">{displayText(PANIC_REACH_RULE.text)}</p>
         </fieldset>
       )}
     </div>

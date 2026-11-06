@@ -158,7 +158,7 @@ export function ReceiptPanel({
             ))}
           </div>
         )}
-        <p className="mt-2 text-[11px] text-ink-faint">架空の病院・架空の患者のファイルです。実際の請求には使えません。</p>
+        <p className="mt-2 text-[11px] text-ink-faint">実際の請求には使えません。</p>
       </section>
     </div>
   );

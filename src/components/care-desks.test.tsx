@@ -105,7 +105,7 @@ describe("内視鏡室", () => {
     const html = endo("看護師");
     expect(html).toContain("受付（来室した）");
     expect(html).toContain(nameOf(ids[3]));
-    expect(html).toContain("消化器内科 石川（架空）");
+    expect(html).toContain("消化器内科 石川");
   });
   it("records 前処置・鎮静・観察 (nurses) and the 実施記録 (doctors) with only reprocessed scopes", () => {
     const html = endo("看護師", "exam");

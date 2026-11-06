@@ -1,5 +1,6 @@
 "use client";
 
+import { displayText } from "@/lib/display-text";
 import { FileSignature, Printer } from "lucide-react";
 import { DenyNote, useDeny } from "../RoleContext";
 import { useState } from "react";
@@ -66,7 +67,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
             </button>
           ))}
         </fieldset>
-        <p className="hint text-[10px] text-ink-faint">雛形の文は架空の病院のもので、AI は作りも書き換えもしません。患者の情報だけが入ります。署名は PC のマウスやタブレットの指・ペンでもらうか、印刷した紙にもらいます。</p>
+        <p className="hint text-[10px] text-ink-faint">雛形の文を AI が作ったり書き換えたりすることはありません。患者の情報だけが入ります。署名は PC のマウスやタブレットの指・ペンでもらうか、印刷した紙にもらいます。</p>
       </aside>
       {r ? (
         <div>
@@ -227,7 +228,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
       <header className="mb-3 border-b-2 border-ink pb-2">
         <div className="flex items-baseline justify-between text-[11px] text-ink-soft">
           <span>{HOSPITAL.name}</span>
-          <span>{t.version}</span>
+          <span>{displayText(t.version)}</span>
         </div>
         <h2 className="mt-1 text-center text-lg font-bold">{t.title}</h2>
         <div className="mt-2 grid grid-cols-2 gap-x-4 text-[12px]">
@@ -251,7 +252,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
           ))}
           {s.facts?.map((f) => (
             <p key={f.text} className="pl-3 text-[11px] text-ink-soft">
-              {f.text}<span className="hint">（出典：{f.source}）</span>
+              {displayText(f.text)}<span className="hint">（出典：{displayText(f.source)}）</span>
             </p>
           ))}
         </section>
@@ -289,7 +290,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
             説明した医師：{r.explainedBy ?? ""}　署名 <Sig r={r} role="説明した医師" />
           </span>
           <span>
-            同席者：{r.witness ?? ""}　署名 <Sig r={r} role="同席者" />
+            同席者：{displayText(r.witness ?? "")}　署名 <Sig r={r} role="同席者" />
           </span>
           <span>
             本人署名：<Sig r={r} role="本人" width="w-48" />
@@ -303,7 +304,7 @@ export function ConsentDocument({ r, patient, room, today, orders, print, readin
         <p className="mt-3 text-[11px] text-ink-soft">同意の撤回：　　年　月　日　本人／代諾者署名＿＿＿＿＿＿＿＿</p>
       </section>}
       {t.sources.length > 0 && <p className="hint mt-3 text-[10px] text-ink-faint">出典：{t.sources.map((s) => s.label).join("／")}</p>}
-      <p className="hint mt-2 text-[10px] text-ink-faint">一般的な説明文です。Simple Karte の試作。架空の病院・架空の患者の雛形で、実際の説明・同意には使えません。</p>
+      <p className="hint mt-2 text-[10px] text-ink-faint">一般的な説明文です。実際の説明・同意には使えません。</p>
     </article>
   );
 }
