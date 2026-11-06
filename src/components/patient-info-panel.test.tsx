@@ -60,7 +60,7 @@ describe("患者基本情報の窓", () => {
     expect(html).not.toContain("実在の患者の情報は入れないでください。");
     expect(html).not.toContain("架空の病院の取り決め");
     expect(html).not.toContain(">架空の患者</span>");
-    expect(html).toContain("nanbuweb.hosp.pref.okinawa.jp");
+    expect(html).not.toContain("nanbuweb.hosp.pref.okinawa.jp");
   });
 
   it("without an interview or contacts or insurance it says so and offers the drawers", () => {
