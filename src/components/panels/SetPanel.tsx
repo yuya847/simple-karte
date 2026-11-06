@@ -1,17 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { INITIAL_SAVED_SETS, loadSavedSets, expandSavedSet } from "@/lib/saved-sets";
+import { useMe } from "../RoleContext";
 import type { Draft } from "@/lib/drafts";
 import { CROSS_SETS, expandSet, itemLabel } from "@/lib/order-sets";
 
 /** セット展開: choose a set, take out what is not needed, and put the rest in as drafts. */
 export function SetPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newId: () => string }) {
+  const me = useMe();
+  const [saved, setSaved] = useState(loadSavedSets);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [indices, setIndices] = useState<number[]>([]);
+  useEffect(() => { const refresh = () => setSaved(loadSavedSets()); window.addEventListener('draft-sets-changed', refresh); window.addEventListener('storage', refresh); return () => { window.removeEventListener('draft-sets-changed', refresh); window.removeEventListener('storage', refresh); }; }, []);
+  const available = [...INITIAL_SAVED_SETS, ...saved.filter(s => s.scope !== '自分だけ' || s.owner === me.name)];
+  const current = available.find(s => s.id === chosen);
   const [code, setCode] = useState<string | null>(null);
   const [keep, setKeep] = useState<boolean[]>([]);
   const set = CROSS_SETS.find((s) => s.code === code);
   return (
     <div className="space-y-3 text-[13px]">
 
+      {available.map(s => <button type="button" key={s.id} onClick={() => { setChosen(s.id); setIndices(s.rows.map((_, i) => i)); }} className="mr-2 rounded border border-rule px-2 py-1">{s.name}</button>)}
+      {current && <section className="space-y-2 rounded border border-rule p-2"><h3 className="font-bold">{current.name}</h3><button type="button" onClick={() => setIndices(current.rows.map((_, i) => i))}>全部</button> <button type="button" onClick={() => setIndices([])}>選択を外す</button>
+        {[...new Set(current.rows.map(r => r.heading))].map(heading => <div key={heading}><label className="block font-bold"><input type="checkbox" checked={current.rows.every((r, i) => r.heading !== heading || indices.includes(i))} onChange={e => setIndices(v => current.rows.flatMap((r, i) => (r.heading === heading ? e.target.checked : v.includes(i)) ? [i] : []))} /> {heading || '項目'}</label>{current.rows.map((r, i) => r.heading === heading && <div key={i}><label className="flex gap-2"><input type="checkbox" checked={indices.includes(i)} onChange={e => setIndices(v => e.target.checked ? [...v, i] : v.filter(n => n !== i))} />{r.label}</label>{r.note && <p className="ml-6 text-[11px] text-ink-soft">{r.note}</p>}</div>)}</div>)}
+        <button type="button" disabled={!indices.length} onClick={() => onAdd(expandSavedSet(current, indices, newId))} className="rounded bg-ai px-3 py-2 text-white disabled:opacity-40">{indices.length}件を下書きに入れる</button>
+      </section>}
       <ul className="space-y-1.5">
         {CROSS_SETS.map((s) => (
           <li key={s.code}>
@@ -41,7 +55,7 @@ export function SetPanel({ onAdd, newId }: { onAdd: (d: Draft[]) => void; newId:
             </label>
           ))}
           <button type="button" disabled={!keep.some(Boolean)} onClick={() => onAdd(expandSet(set, keep, newId))} className="mt-1 w-full rounded-md bg-ai px-3 py-2 font-bold text-white disabled:opacity-40">
-            {keep.filter(Boolean).length}件を保存する
+            {keep.filter(Boolean).length}件を下書きに入れる
           </button>
         </section>
       )}

@@ -4,6 +4,7 @@
 // body under it move as one block; any other line moves alone. The numbers of the "＃" lines are given again
 // by renumberProblems after every move (note-problems.ts).
 
+import { noteLineStyle } from "./note-style";
 import { indentLines, INDENT } from "./note-edit";
 import { isProblemLine, moveProblem, problemBlocks, problemMarkerEnd, renumberProblems } from "./note-problems";
 
@@ -76,6 +77,14 @@ export function splitLine(text: string, line: number, col: number): Edited {
     }
     const marker = `${leadingSpace(cur)}☐ `;
     const out = fromLines([...lines.slice(0, line), head.replace(/[ \t　]+$/, ""), marker + tail.replace(/^[ \t　]*/, ""), ...lines.slice(line + 1)]);
+    return { text: out, caret: offsetOf(out, { line: line + 1, col: marker.length }) };
+  }
+  const styled = noteLineStyle(cur);
+  if (styled && styled.kind !== "check" && c >= styled.prefix) {
+    if (!styled.body.trim()) return replaceLine(text, line, styled.indent, styled.indent.length);
+    const number = styled.marker.match(/^(\d+)\. /);
+    const marker = styled.indent + (number ? `${Number(number[1]) + 1}. ` : styled.marker);
+    const out = fromLines([...lines.slice(0, line), head, marker + tail, ...lines.slice(line + 1)]);
     return { text: out, caret: offsetOf(out, { line: line + 1, col: marker.length }) };
   }
   let indent: string;

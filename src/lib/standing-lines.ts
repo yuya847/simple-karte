@@ -255,6 +255,7 @@ export const HOSPITAL_LINE_TEMPLATES: LineTemplate[] = [
   { id: "h-prn-nausea", cat: "頓用", text: "嘔気時、嘔吐時指示\n経口摂取可能時：ナウゼリン錠10mg（ドンペリドン）頓用。\n経口摂取不可能時：プリンペラン注10mg（メトクロプラミド）1A IV。" },
   { id: "h-prn-sleep", cat: "頓用", text: "不眠時指示\n医師に連絡。" },
   { id: "h-prn-constip", cat: "頓用", text: "便秘時指示\nプルゼニド錠12mg（センノシド）2錠 眠前。" },
+  { id: "h-prn-bp", cat: "頓用", text: "血圧上昇時指示\n連絡基準：\n対応：" },
   { id: "h-prn-glucose", cat: "頓用", text: "低血糖時指示\n血糖70mg/dl未満：経口摂取可能ならブドウ糖10g。\n経口摂取不可能なら50%ブドウ糖液20mL IV し Drコール。" },
   { id: "h-insulin", cat: "頓用", text: "インスリンスライディングスケール\n薬品：ノボラピッド注（インスリン アスパルト）皮下ワンショット\n用法：1日3回、食前の血糖値で確認\n血糖スケール：\n70mg/dl未満：低血糖時指示参照\n70〜180mg/dl：投与なし\n181〜230mg/dl：2単位\n231〜280mg/dl：4単位\n281〜330mg/dl：6単位\n331〜499mg/dl：Drコール\n500mg/dl以上：Drコール" },
   { id: "h-call", cat: "呼出基準", text: "Drコール指示\nSBP 90mmHg以下・180mmHg以上\nHR 120/分以上・40/分以下\nSpO2 92%未満\n意識レベル低下\n尿量0.5mL/kg/h未満が2時間続くとき\n上記の場合は医師に連絡。" },

@@ -1,11 +1,11 @@
 "use client";
 
+import { StandingTemplateSet } from "../StandingTemplateSet";
 import { displayText } from "@/lib/display-text";
 import { addDays, daysFrom, isoDate, type CalendarDate } from "@/lib/dates";
 import { periodText } from "@/lib/standing-calendar";
 import { useState } from "react";
 import { HOSPITAL_LINE_TEMPLATES, LINE_CATS, currentLines, categoryFromTitle, standingTitle, newestLines, linesFromFields, loadMyTemplates, saveMyTemplates, templateProblems, type LineCat, type LineTemplate, type StandingLine } from "@/lib/standing-lines";
-import { CATEGORY_LABELS } from "@/lib/standing-form";
 import type { StandingOrders } from "@/lib/standing";
 import { CosignMark } from "../Cosign";
 import { standingLineRef } from "@/lib/standing-cosign";
@@ -85,7 +85,7 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
       <button type="button" aria-expanded={templates} onClick={() => setTemplates(!templates)} className="rounded border border-rule px-3 py-2">テンプレート</button>
       {templates && <div className="space-y-2 rounded border border-rule p-2">
 
-        <div className="max-h-72 space-y-1 overflow-y-auto">{[...mine, ...HOSPITAL_LINE_TEMPLATES].filter((t) => !selected || t.cat === selected.cat).map((t) => <button key={t.id} type="button" disabled={!canOrder || !!selected?.fromFields} onClick={() => { pick(t.cat, t.text); setTemplates(false); }} className="block w-full border-b border-rule-soft p-1 text-left hover:bg-ai-soft"><span className="text-ink-faint">{CATEGORY_LABELS[t.cat] ?? t.cat}：</span>{displayText(standingTitle(t.text))}</button>)}</div>
+        <StandingTemplateSet templates={[...mine, ...HOSPITAL_LINE_TEMPLATES].filter(t => !selected || t.cat === selected.cat)} disabled={!canOrder || !!selected?.fromFields} onPick={(cat, text) => { pick(cat, text); setTemplates(false); }} />
 
       </div>}
       <button type="button" disabled={!canOrder || !text} onClick={() => { const errors = templateProblems(cat, text, mine); if (errors.length) return setNotice(errors.join(" ")); const next = [...mine, { id: newId(), cat, text }]; setMine(next); setNotice(saveMyTemplates(me.name, next) ? "自分のテンプレートに保存しました。" : "端末に保存できません。ページを閉じるまで使えます。"); }} className="block text-ai disabled:opacity-40">この文を自分のテンプレートに保存</button>

@@ -1,8 +1,10 @@
 "use client";
 
+import { noteLineStyle, noteSizeKey, readNoteSize } from "@/lib/note-style";
+import { useMe } from "./RoleContext";
 import { GripVertical } from "lucide-react";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { checkAt, toggleCheck, indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
+import { toggleCheck, indentBlock, isDividerLine, isSectionHeadingLine, isHeadingLine, joinWithNext, joinWithPrevious, moveLines, movedLine, nudgeLine, offsetOf, posOf, replaceLine, splitLine, toLines, unitAt, type Edited } from "@/lib/note-blocks";
 import { isProblemLine, problemMarkerEnd, stripProblemMarker } from "@/lib/note-problems";
 const leadingSpace = (l: string) => l.match(/^[ \t　]*/)![0];
 import { toggleMark } from "@/lib/note-edit";
@@ -26,6 +28,7 @@ interface Props {
   /** 定型文 for 「;読み」 then Tab. */
   phrases?: Phrase[];
   readOnly?: boolean;
+  onCommand?: (command: "template" | "phrase") => void;
   onPhrase?: (text: string, start: number, end: number) => void;
   /** The text selected in a line (for the 定型文 panel's "register the selection"). */
   onSelectedText?: (text: string) => void;
@@ -34,7 +37,7 @@ interface Props {
 }
 
 /** Typography shared by each line's box and the hidden copy that gives it its height. */
-const TEXT = "nums whitespace-pre-wrap break-words px-2 py-0.5 text-[13px] leading-relaxed pointer-coarse:text-[16px]";
+const TEXT = "nums whitespace-pre-wrap break-words px-2 py-0.5 text-[length:var(--note-size)] leading-relaxed";
 const LONG_PRESS_MS = 450;
 
 /**
@@ -45,7 +48,13 @@ const LONG_PRESS_MS = 450;
  * "＃" lines are numbered from the top after every change (renumberProblems). The text stays one string:
  * what the pane gets back is always the lines joined with "\n".
  */
-export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [], onPhrase }: Props) {
+export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [], onPhrase, onCommand }: Props) {
+  const me = useMe();
+  const [sizeState, setSize] = useState(() => ({ name: me.name, size: readNoteSize(me.name) }));
+  if (sizeState.name !== me.name) setSize({ name: me.name, size: readNoteSize(me.name) });
+  const size = sizeState.size;
+  const resize = (delta: number) => { const n = Math.max(13, Math.min(19, size + delta)); setSize({ name: me.name, size: n }); try { localStorage.setItem(noteSizeKey(me.name), String(n)); } catch {} };
+  const [activeLine, setActiveLine] = useState<number | null>(null);
   const [whole, setWhole] = useState(false);
   const wholeRef = useRef<HTMLTextAreaElement | null>(null);
   const wholeRange = useRef({ start: 0, end: 0 });
@@ -190,6 +199,10 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     const base = offsetOf(text, { line: i, col: 0 });
     const line = lines[i];
     const mod = e.metaKey || e.ctrlKey;
+    const style = noteLineStyle(line);
+    if (e.key === "Backspace" && !mod && s === en && style && s <= style.prefix) {
+      e.preventDefault(); commit(replaceLine(text, i, style.indent + style.body, style.indent.length)); return;
+    }
     if (mod && !e.altKey && !e.shiftKey && (e.key === "b" || e.key === "B" || e.key === "i" || e.key === "I")) {
       e.preventDefault();
       const r = toggleMark(line, s, en, e.key.toLowerCase() === "b" ? "**" : "*");
@@ -357,6 +370,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
           setWhole(true);
         } else pointerAnchor.current = at;
       }}
+      style={{ "--note-size": `${size}px` } as React.CSSProperties}
       role="group"
       aria-label="記事"
       // No box around the whole editor (an empty note is just a blank line); a problem line (＃) gets its own box below.
@@ -366,8 +380,9 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
         if (e.target === e.currentTarget) focusLine(lines.length - 1, Infinity);
       }}
     >
+      <div className="flex justify-end gap-2 text-xs text-ink-soft"><button type="button" aria-label="文字を小さく" disabled={size === 13} onClick={() => resize(-3)}>A−</button><button type="button" aria-label="文字を大きく" disabled={size === 19} onClick={() => resize(3)}>A＋</button></div>
       {whole && <textarea ref={wholeRef} aria-label="記事の全行" value={value} readOnly={readOnly}
-        className={`${TEXT} absolute left-6 top-1.5 z-20 w-[calc(100%-2rem)] h-[calc(100%-0.75rem)] min-h-20 resize-none bg-sheet outline-none`}
+        className={`${TEXT} absolute left-6 top-1.5 z-20 w-[calc(100%-2rem)] h-[calc(100%-0.75rem)] min-h-20 resize-none bg-sheet caret-ai outline-none`}
         onKeyDown={e => {
           if (readOnly || e.nativeEvent.isComposing || e.key !== "Tab" || e.shiftKey) return;
           const caret = e.currentTarget.selectionStart;
@@ -384,6 +399,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       />}
       <div className={whole ? "invisible" : ""}>
       {lines.map((line, i) => {
+        const style = noteLineStyle(line);
         const heading = isHeadingLine(line);
         const divider = isDividerLine(line);
         const sectionRule = isSectionHeadingLine(line) && i !== firstSection;
@@ -396,7 +412,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
             ref={(el) => {
               wraps.current[i] = el;
             }}
-            className={`group relative pl-6 pointer-coarse:pl-8 ${unit ? "opacity-40" : ""}`}
+            className={`group relative pl-6 pointer-coarse:pl-8 ${activeLine === i ? "bg-ai-soft/40 border-l-2 border-ai" : "border-l-2 border-transparent"} ${unit ? "opacity-40" : ""}`}
             onPointerDown={(e) => {
               if (readOnly || e.pointerType !== "touch" || !isProblemLine(line)) return;
               cancelPress();
@@ -440,17 +456,22 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                 <GripVertical size={14} aria-hidden />
               </button>
             )}
-            <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""}`}>
+            {!readOnly && line.trim() === "/" && activeLine === i && <div role="menu" aria-label="行のコマンド" className="absolute left-6 top-full z-30 flex flex-wrap gap-1 rounded border border-rule bg-sheet p-2 shadow">
+              {[["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
+            </div>}
+            <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""} ${style?.kind === "quote" ? "border-l-2 border-rule" : ""}`}>
+              {style?.kind === "check" && <input aria-label={`${i + 1}行目のチェック`} type="checkbox" checked={style.checked} disabled={readOnly} onChange={() => commit(replaceLine(value, i, toggleCheck(line), style.prefix))} className="absolute left-2 top-1.5 z-10 size-4 accent-ai" style={{ marginLeft: `${style.indent.length * .5}em` }} />}
               {divider && <span role="separator" className="pointer-events-none absolute inset-x-2 top-1/2 border-t border-rule" />}
               <div
                 ref={(el) => {
                   mirrors.current[i] = el;
                 }}
                 aria-hidden
-                className={`${TEXT} invisible [grid-area:1/1/2/2] ${heading ? "font-bold" : ""}`}
+                className={`${TEXT} invisible [grid-area:1/1/2/2] ${heading ? "font-bold !text-[length:calc(var(--note-size)*1.1)]" : ""}`}
               >
                 {line + " "}
               </div>
+              {style && <span aria-hidden className={`pointer-events-none absolute left-2 top-0.5 z-[1] bg-sheet ${style.kind === "quote" ? "border-l-2 border-rule" : ""}`} style={{ marginLeft: `${style.indent.length * .5}em`, width: `${style.marker.length * .65}em`, height: "1.5em", fontSize: size }}>{style.kind === "list" ? style.marker === "- " ? "・" : style.marker : ""}</span>}
               <textarea
                 ref={(el) => {
                   rows.current[i] = el;
@@ -468,25 +489,20 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                   typed(i, e.currentTarget, false);
                 }}
                 onKeyDown={(e) => keyDown(i, e)}
-                onClick={(e) => {
-                  // A click on the box ticks it (the caret lands just before or after the ☐).
-                  const at = checkAt(line);
-                  const caret = e.currentTarget.selectionStart;
-                  if (readOnly || at === null || e.currentTarget.selectionEnd !== caret || (caret !== at && caret !== at + 1)) return;
-                  commit(replaceLine(latest.current, i, toggleCheck(line), at + 2));
-                }}
                 onSelect={(e) => remember(i, e.currentTarget)}
                 onKeyUp={(e) => remember(i, e.currentTarget)}
                 onFocus={(e) => {
                   remember(i, e.currentTarget);
                   setShown(null);
+                  setActiveLine(i);
                 }}
                 onBlur={() => {
+                  setActiveLine(null);
                   if (readOnly) return;
                   const r = renumberProblems(latest.current);
                   if (r.text !== latest.current) onChange(r.text);
                 }}
-                className={`${TEXT} ${divider ? "text-transparent caret-transparent" : ""} resize-none overflow-hidden bg-transparent outline-none [grid-area:1/1/2/2] ${isProblemLine(line) || heading ? "font-bold text-ink" : ""}`}
+                className={`${TEXT} ${divider ? "text-transparent caret-transparent" : "caret-ai"} ${style?.checked ? "text-ink-faint line-through" : ""} ${style?.kind === "quote" ? "text-ink-soft" : ""} resize-none overflow-hidden bg-transparent outline-none [grid-area:1/1/2/2] ${isProblemLine(line) || heading ? "font-bold text-ink !text-[length:calc(var(--note-size)*1.1)]" : ""}`}
               />
             </div>
           </div>

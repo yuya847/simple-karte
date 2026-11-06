@@ -96,7 +96,7 @@ describe("記事の太字・見出しの表示", () => {
     expect(boxes.map((b) => b.attrs.includes('data-heading="true"'))).toEqual([true, true, true, false, true]);
     // The marks stay in the text as typed (drawn in the record).
     expect(boxes[3].text).toContain("**");
-    expect(boxes[3].attrs).toContain("pointer-coarse:text-[16px]");
+    expect(boxes[3].attrs).toContain("text-[length:var(--note-size)]");
     const empty = renderToStaticMarkup(<NoteBlocks value="" onChange={() => {}} />);
     expect(empty.match(/<textarea /g)?.length).toBe(1);
     const frame = renderToStaticMarkup(<NoteBlocks value={"# \nD) \nAct) \nR) \n"} onChange={() => {}} />);

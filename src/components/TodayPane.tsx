@@ -24,6 +24,8 @@ import { rxLastDay } from "@/lib/day-pattern";
 import { preparePhrase } from "@/lib/template-expansion";
 import { TemplatePanel, TemplateForm } from "./NoteTemplates";
 import { PhrasePanel } from "./NotePhrases";
+import { DraftSetComposer } from "./DraftSetComposer";
+import { reusableDraft } from "@/lib/saved-sets";
 import { NoteBlocks, type NoteBlocksHandle } from "./NoteBlocks";
 
 export interface DraftMeta {
@@ -81,6 +83,7 @@ const SHOW_DICTATION = false;
 
 /** Today's writing: the note on top, then the order drafts collecting under it. */
 export function TodayPane(p: Props) {
+  const [setSelection, setSetSelection] = useState<string[]>([]);
   const box = useRef<HTMLTextAreaElement>(null);
   const noteBox = useRef<NoteBlocksHandle>(null);
   const [tool, setTool] = useState<"template" | "phrase" | null>(null);
@@ -205,10 +208,11 @@ export function TodayPane(p: Props) {
             <button type="button" onClick={() => setPhraseForm(null)} className="text-xs underline">閉じる</button>
             {phraseForm.note !== p.note || phraseForm.patientId !== p.patient.id || phraseForm.author !== me.name || noteLocked ? <p>記事や記載者が変わりました。閉じて定型文を呼び直してください。</p> : <TemplateForm key={phraseForm.body} t={{ id: "phrase", name: "定型文", roles: [], body: phraseForm.body }} facts={facts} onInsert={text => { p.onNoteChange(p.note.slice(0, phraseForm.start) + text + p.note.slice(phraseForm.end)); noteBox.current?.select(phraseForm.start + text.length); setPhraseForm(null); }} />}
           </div>}
-          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
+          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onCommand={setTool} onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
           {p.orderSlot}
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き" className="space-y-1">
+              <DraftSetComposer key={`${p.patient.id}:${me.name}`} drafts={p.drafts} ctx={p.ctx} selected={setSelection} onDone={() => setSetSelection([])} />
               {/* One box per kind of order (内服・注射…), its Rp as rows inside (ユーザー 2026-11-06：内服毎に四角で分かれない). */}
               {draftGroups(p.drafts).map((group) => {
                 const rx = group[0].kind === "prescription";
@@ -223,8 +227,9 @@ export function TodayPane(p: Props) {
                       )}
                     </div>
                     {group.map((d) => (
-                      <DraftCard
-                        key={d.id}
+                      <div key={d.id} className="flex items-start">
+                      {reusableDraft(d) && <input aria-label="セットに含める下書き" type="checkbox" checked={setSelection.includes(d.id)} onChange={e => setSetSelection(v => e.target.checked ? [...v, d.id] : v.filter(id => id !== d.id))} className="m-2 accent-ai" />}
+                      <div className="min-w-0 flex-1"><DraftCard
                         bare
                         rp={rpNumbers(p.drafts)[d.id]}
                         draft={d}
@@ -240,7 +245,7 @@ export function TodayPane(p: Props) {
                               }
                             : undefined
                         }
-                      />
+                      /></div></div>
                     ))}
                   </section>
                 );
