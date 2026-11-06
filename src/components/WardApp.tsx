@@ -1,5 +1,8 @@
 "use client";
 
+import { usePanelWindows } from "@/lib/use-panel-windows";
+import { PatientWindowProvider, WindowTray } from "./WindowTray";
+
 import { AddSurgeryPanel } from "./panels/AddSurgeryPanel";
 import { examReservationProblem } from "@/lib/exam-slots";
 import { upsertSessionNote } from "@/lib/rehab-record";
@@ -527,7 +530,7 @@ export default function WardApp() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [orderWins, setOrderWins] = useState<string[]>([]);
   const openOrder = (key: string) => setOrderWins((v) => showOrderWindow(v, key));
-  const [panel, setPanel] = useState<PanelKind | null>(null);
+  const { panel, setPanel, open: panelWindows, activation: panelActivation, close: closePanelWindow } = usePanelWindows<PanelKind>(DRAWER_PANELS);
   /** The record template a pinned tile on the rail asked to open (テンプレート panel). */
   const [templateFocus, setTemplateFocus] = useState<string | null>(null);
   // 未確認の結果の窓: shown for a chart with unseen results until closed (per patient, this page).
@@ -1080,9 +1083,9 @@ export default function WardApp() {
   const closePanel = useCallback(() => {
     setPanel(null);
     setFlowReq(null);
-  }, []);
+  }, [setPanel]);
 
-  usePatientWindows(activeId, [...orderWins, ...(panel ? [panel] : []), ...Object.keys(floating)], () => { setOrderWins([]); setPanel(null); setFloating({}); setZOrder([]); });
+  usePatientWindows(activeId, [...orderWins, ...panelWindows, ...(doctorsOpen ? ["doctors"] : []), ...Object.keys(floating)], () => { setOrderWins([]); setPanel(null); setDoctorsOpen(false); setFloating({}); setZOrder([]); });
   const patient = activeId ? findPatient(activeId) : undefined;
   const chart = activeId ? mergedChart(charts, activeId, desk) : newChart();
   const today = useMemo(() => (todayKey ? parseIso(todayKey) : null), [todayKey]);
@@ -2998,6 +3001,7 @@ export default function WardApp() {
               />
             );
           })()}
+          <PatientWindowProvider key={`${patient.id}:${desk}`} focusKey={panel ? `panel:${panel}` : null} focusVersion={panelActivation} focusTabs={zOrder}><WindowTray />
           <StickyStrip
             stickies={stickies[patient.id] ?? []}
             nowTime={nowTime}
@@ -3196,9 +3200,9 @@ export default function WardApp() {
                       // A calendar's window is remembered in this browser only (this device).
                       if (WINDOW_TABS.has(t)) keepWin(t, w);
                     }}
-                    onDock={() => {
+                    onClose={() => {
                       setFloating((f) => ({ ...f, [t]: undefined }));
-                      update({ rightTab: t });
+                      update((c) => ({ openTabs: c.openTabs.filter((x) => x !== t), rightTab: c.rightTab === t ? "note" : c.rightTab }));
                     }}
                     onFront={() => toFront(t)}
                   >
@@ -3210,7 +3214,7 @@ export default function WardApp() {
                 const refProps = refPropsOf(patient);
                 return (
                   <>
-                    {docked === null && <p className="flex-1 bg-sheet p-6 text-sm text-ink-faint">右の欄のタブは、すべて別ウインドウで表示しています。ウインドウの「右の欄に戻す」で戻せます。</p>}
+                    {docked === null && <p className="flex-1 bg-sheet p-6 text-sm text-ink-faint">右の欄のタブは、別ウインドウで表示しています。</p>}
                     {dock(
                       "note",
                       "記事作成",
@@ -3330,6 +3334,9 @@ export default function WardApp() {
                   </>
                 );
               })()}
+              {panelWindows.map((panel) => {
+                const closePanel = () => { closePanelWindow(panel); setFlowReq(null); };
+                return <DrawerDefaults.Provider key={panel} value={{ panel, windowed: WINDOW_PANELS }}>
               {panel === "diagnoses" && (
                 <Drawer title="病名" onClose={closePanel} wide locked={deny("diagnosis")}>
                   <DiagnosisPanel
@@ -4169,24 +4176,6 @@ export default function WardApp() {
                   <NationalPanel patient={patient} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} diagnoses={diagnoses[patient.id] ?? []} draft={discharges[patient.id]} book={iji.insurance} today={today} nowTime={nowTime} log={national} onRecord={(r) => setNational((all) => [...all, r])} />
                 </Drawer>
               )}
-              {doctorsOpen && (
-                <Drawer title="主治医・担当医・コンサルト医" onClose={() => setDoctorsOpen(false)}>
-                  <DoctorsPanel
-                    doctors={doctorsFor(patient.id, entries)}
-                    fmtDay={(d) => formatShort(addDays(today, d))}
-                    onAdd={(d) => {
-                      if (deny("profile.doctors")) return;
-                      auditLog({ role: me.role, actor: me.name, action: `確定（${d.role}の登録）`, patient: patient.name, detail: `${d.name}${d.department ? `（${d.department}）` : ""}${d.note ? `　${d.note}` : ""}` });
-                      setDoctorBook((all) => ({ ...all, [patient.id]: addDoctor(all[patient.id] ?? [], { ...d, since: { day: 0, time: nowTime }, by: me.name }) }));
-                    }}
-                    onRemove={(name, r) => {
-                      if (deny("profile.doctors")) return;
-                      auditLog({ role: me.role, actor: me.name, action: `${r}を外した`, patient: patient.name, detail: name });
-                      setDoctorBook((all) => ({ ...all, [patient.id]: removeDoctor(all[patient.id] ?? [], name, r) }));
-                    }}
-                  />
-                </Drawer>
-              )}
               {panel === "patient-info" && (
                 <Drawer title={patientInfoTitle(patient)} onClose={closePanel} wide>
                   <PatientInfoPanel
@@ -4285,6 +4274,26 @@ export default function WardApp() {
                   <AddLabPanel patientId={patient.id} onAdd={(d) => { addManualLab(d); closePanel(); }} onSave={saveLab} newId={newId} today={today} levelDrugs={levelDrugsFrom(entries.filter((e): e is OrderEntry => e.kind === "order"), anyDrugName)} />
                 </Drawer>
               )}
+                </DrawerDefaults.Provider>;
+              })}
+              {doctorsOpen && (
+                <Drawer windowKey="doctors" title="主治医・担当医・コンサルト医" onClose={() => setDoctorsOpen(false)}>
+                  <DoctorsPanel
+                    doctors={doctorsFor(patient.id, entries)}
+                    fmtDay={(d) => formatShort(addDays(today, d))}
+                    onAdd={(d) => {
+                      if (deny("profile.doctors")) return;
+                      auditLog({ role: me.role, actor: me.name, action: `確定（${d.role}の登録）`, patient: patient.name, detail: `${d.name}${d.department ? `（${d.department}）` : ""}${d.note ? `　${d.note}` : ""}` });
+                      setDoctorBook((all) => ({ ...all, [patient.id]: addDoctor(all[patient.id] ?? [], { ...d, since: { day: 0, time: nowTime }, by: me.name }) }));
+                    }}
+                    onRemove={(name, r) => {
+                      if (deny("profile.doctors")) return;
+                      auditLog({ role: me.role, actor: me.name, action: `${r}を外した`, patient: patient.name, detail: name });
+                      setDoctorBook((all) => ({ ...all, [patient.id]: removeDoctor(all[patient.id] ?? [], name, r) }));
+                    }}
+                  />
+                </Drawer>
+              )}
             </div>
               </>
             )}
@@ -4306,7 +4315,7 @@ export default function WardApp() {
               calendars={REF_TABS.map((t) => ({ key: t, label: RIGHT_TABS[t].label, title: RIGHT_TABS[t].title, icon: RIGHT_TABS[t].icon, on: chart.openTabs.includes(t) && (chart.rightTab === t || !!floating[t]), open: () => openRight(t) }))}
             />
           </div>
-          </DrawerDefaults.Provider></WindowEntryContext.Provider></ImagingConsentProvider>
+          </DrawerDefaults.Provider></WindowEntryContext.Provider></ImagingConsentProvider></PatientWindowProvider>
         </>
       ) : (
         <div className="grid flex-1 place-items-center">

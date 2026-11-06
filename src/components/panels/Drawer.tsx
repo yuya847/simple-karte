@@ -1,7 +1,8 @@
 "use client";
 
+import { useTrayWindow } from "../WindowTray";
 import { orderWindows, orderWindowSize } from "@/lib/order-windows";
-import { AppWindow, GripHorizontal, Lock, Maximize2, Minimize2, PanelRightClose, X } from "lucide-react";
+import { AppWindow, GripHorizontal, Lock, Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { bigWin, clampWin, useWinDrag, type Win } from "../Dockable";
 
@@ -43,8 +44,7 @@ function saveRemembered(key: string, r: Remembered) {
 /**
  * Panel that slides over the right side of the chart (the chart behind stays as it was), or — with
  * 別ウインドウ — a window over the chart that is moved by its title bar and resized from the corner.
- * Which way it opens first comes from WardApp (DrawerDefaults); the last choice and the window's
- * place are remembered for this panel on this device only.
+ * WardApp (DrawerDefaults) が表示方法を決め、ウインドウの位置と大きさをこの端末に保存する。
  */
 export function Drawer({ title, onClose, children, wide, locked, expandable, windowKey, initialWidth }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; locked?: string | null; expandable?: boolean; windowKey?: string; initialWidth?: number }) {
   const defaults = useContext(DrawerDefaults);
@@ -55,20 +55,16 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     const w = bigWin();
     return initialWidth ? { ...w, w: initialWidth, x: Math.max(0, (window.innerWidth - initialWidth) / 2) } : w;
   };
-  // On the server (and in tests) there is no window: start as the drawer. In the browser the panel
-  // opens only after a click, so the first render already knows the remembered place.
+  // ウインドウ指定なら常にウインドウ。保存済みの表示方法は使わず、位置と大きさだけ戻す。
   const [win, setWin] = useState<Win | null>(() => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined") return windowedFirst ? bigWin() : null;
     const r = loadRemembered(key);
     // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
-    const mode = windowedFirst ? "window" : (r?.mode ?? "drawer");
+    const mode = windowedFirst ? "window" : "drawer";
     return mode === "window" ? clampWin(r?.win ?? initialWin()) : null;
   });
   const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? initialWin()));
-  const toDrawer = () => {
-    saveRemembered(key, { mode: "drawer", win: win ?? loadRemembered(key)?.win });
-    setWin(null);
-  };
+  const tray = useTrayWindow(`panel:${key}`, title, !!win, onClose);
   const { down, move, up } = useWinDrag(win, setWin);
   // Remember the window's place a moment after it stops moving (not on every pointer move).
   useEffect(() => {
@@ -95,11 +91,11 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   }, [win]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !tray.minimized && (!win || tray.frontmost)) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, tray.minimized, tray.frontmost, win]);
 
   const body = (
     <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-4">
@@ -127,7 +123,8 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
         aria-label={`${title}（別ウインドウ）`}
         data-drawer-window={key}
         className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-rule bg-sheet shadow-[0_12px_40px_-8px_rgba(38,34,28,0.45)]"
-        style={{ left: win.x, top: win.y, width: win.w, height: win.h }}
+        onPointerDownCapture={tray.front}
+        style={{ left: win.x, top: win.y, width: win.w, height: win.h, display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
       >
         <div
           className="flex shrink-0 cursor-move select-none items-center gap-2 border-b border-rule bg-tab px-3 py-1.5 text-sm"
@@ -142,12 +139,11 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={toDrawer}
-            title="右から出る引き出しに戻す"
+            onClick={tray.minimize}
+            aria-label="最小化"
             className="ml-auto flex items-center gap-1 rounded border border-rule bg-sheet px-2 py-0.5 text-xs text-ink-soft hover:text-ink pointer-coarse:py-1.5"
           >
-            <PanelRightClose size={13} />
-            引き出しに戻す
+            <Minus size={13} />
           </button>
           <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={onClose} aria-label="閉じる" className="rounded p-0.5 text-ink-faint hover:text-ink pointer-coarse:p-1.5">
             <X size={16} />

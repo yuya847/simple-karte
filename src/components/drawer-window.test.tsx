@@ -1,6 +1,4 @@
-// A panel's drawer renders on the server (no browser) with its 別ウインドウ button; which panels open
-// as a window first is a table WardApp gives through DrawerDefaults, and the server still draws the
-// drawer (there is no window to measure) so the markup never depends on a device.
+// ウインドウ指定のパネルは常にウインドウ。引き出し指定のものは従来のまま。
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { orderWindows } from "@/lib/order-windows";
@@ -21,7 +19,7 @@ describe("パネルの別ウインドウ", () => {
     expect(html).not.toContain("別ウインドウ）");
   });
 
-  it("a panel listed as windowed still renders as the drawer on the server, and 見るだけ stays", () => {
+  it("a panel listed as windowed always renders a window, and 見るだけ stays", () => {
     const html = renderToStaticMarkup(
       <DrawerDefaults.Provider value={{ panel: "add-lab", windowed: new Set(["add-lab"]) }}>
         <Drawer title="検体検査" onClose={() => {}} locked="医師が出します。">
@@ -29,7 +27,8 @@ describe("パネルの別ウインドウ", () => {
         </Drawer>
       </DrawerDefaults.Provider>,
     );
-    expect(html).toContain('aria-label="検体検査"');
+    expect(html).toContain('aria-label="検体検査（別ウインドウ）"');
+    expect(html).toContain('aria-label="最小化"');
     expect(html).not.toContain("引き出しに戻す");
     expect(html).toContain("見るだけです。医師が出します。");
     expect(html).toContain("<fieldset disabled");
@@ -49,6 +48,8 @@ describe("パネルの別ウインドウ", () => {
         expect(html).toContain(`data-drawer-window="${key}"`);
         expect(html).toContain("left:40px;top:70px;width:700px;height:600px");
         expect(html).not.toContain('aria-modal="true"');
+        expect(html).toContain('aria-label="最小化"');
+        expect(html).not.toContain("引き出しに戻す");
         expect(html).not.toContain("inset-0");
       }
     } finally {

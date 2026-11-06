@@ -1,6 +1,7 @@
 "use client";
 
-import { GripHorizontal, PanelRightClose, X } from "lucide-react";
+import { GripHorizontal, Minus, X } from "lucide-react";
+import { useTrayWindow } from "./WindowTray";
 import { useRef } from "react";
 
 export interface Win {
@@ -65,7 +66,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
 }
 
 /**
- * A right-side tab that can be shown in its own window (別ウインドウ) over the chart and docked back.
+ * A right-side tab that can be shown in its own window (別ウインドウ) over the chart and minimized.
  * The same element stays in the page either way, so what is being written in it is kept.
  * Move the window by its title bar, resize it from the corner (finger or mouse).
  */
@@ -77,7 +78,7 @@ export function Dockable({
   z,
   dockedClass,
   onMove,
-  onDock,
+  onClose,
   onFront,
   children,
 }: {
@@ -88,11 +89,13 @@ export function Dockable({
   z: number;
   dockedClass: string;
   onMove: (w: Win) => void;
-  onDock: () => void;
+  onClose: () => void;
   onFront: () => void;
   children: React.ReactNode;
 }) {
-  const { down, move, up } = useWinDrag(win, onMove, onFront);
+  const tray = useTrayWindow(`tab:${tab}`, title.split("：")[0], !!win, onClose);
+  const front = () => { onFront(); tray.front(); };
+  const { down, move, up } = useWinDrag(win, onMove, front);
 
   const floating = !!win;
   return (
@@ -100,7 +103,7 @@ export function Dockable({
       data-dock={tab}
       role={floating ? "dialog" : undefined}
       aria-label={floating ? `${title}（別ウインドウ）` : undefined}
-      onPointerDownCapture={floating ? onFront : undefined}
+      onPointerDownCapture={floating ? front : undefined}
       className={
         floating
           ? "fixed flex min-h-0 flex-col overflow-hidden rounded-lg border border-rule bg-sheet shadow-[0_12px_40px_-8px_rgba(38,34,28,0.45)]"
@@ -108,7 +111,7 @@ export function Dockable({
             ? dockedClass
             : "hidden"
       }
-      style={floating ? { left: win.x, top: win.y, width: win.w, height: win.h, zIndex: 40 + z } : undefined}
+      style={floating ? { left: win.x, top: win.y, width: win.w, height: win.h, zIndex: tray.z ?? 40 + z, display: tray.minimized ? "none" : undefined } : undefined}
     >
       {/* Always rendered (hidden when docked) so the content below keeps its place and its state. */}
       <div
@@ -124,14 +127,13 @@ export function Dockable({
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={onDock}
-          title="右の欄に戻す"
+          onClick={tray.minimize}
+          aria-label="最小化"
           className="ml-auto flex items-center gap-1 rounded border border-rule bg-sheet px-2 py-0.5 text-xs text-ink-soft hover:text-ink pointer-coarse:py-1.5"
         >
-          <PanelRightClose size={13} />
-          右の欄に戻す
+          <Minus size={13} />
         </button>
-        <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={onDock} aria-label="閉じて右の欄に戻す" className="rounded p-0.5 text-ink-faint hover:text-ink pointer-coarse:p-1.5">
+        <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={onClose} aria-label="閉じる" className="rounded p-0.5 text-ink-faint hover:text-ink pointer-coarse:p-1.5">
           <X size={14} />
         </button>
       </div>
