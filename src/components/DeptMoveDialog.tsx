@@ -1,4 +1,5 @@
 "use client";
+import { DayInput } from "./DayInput";
 import { TimeInput } from "@/components/TimeInput";
 
 import { X } from "lucide-react";
@@ -19,7 +20,8 @@ export const DEPT_DOCTORS: Record<string, string[]> = {
 };
 
 /** 転科の予約: the new department and attending doctor, the time and the reason (all chosen by the doctor). */
-export function DeptMoveDialog({ patient, dayLabel, onCancel, onBook }: { patient: Patient; dayLabel: string; onCancel: () => void; onBook: (m: { toDept: string; toDoctor: string; time: string; reason: string }) => void }) {
+export function DeptMoveDialog({ patient, dayLabel, initialDay = 0, onCancel, onBook }: { patient: Patient; dayLabel: string; initialDay?: number; onCancel: () => void; onBook: (m: { day?: number; toDept: string; toDoctor: string; time: string; reason: string }) => void }) {
+  const [day, setDay] = useState(initialDay);
   const [dept, setDept] = useState("");
   const [doctor, setDoctor] = useState("");
   const [time, setTime] = useState("");
@@ -69,6 +71,7 @@ export function DeptMoveDialog({ patient, dayLabel, onCancel, onBook }: { patien
           </label>
         )}
         <label className="flex items-center gap-2">
+          <DayInput label="転科の日付" value={day} onChange={setDay} />
           時刻
           <TimeInput value={time} onChange={(e) => setTime(e.target.value)} className={input} />
         </label>
@@ -77,7 +80,7 @@ export function DeptMoveDialog({ patient, dayLabel, onCancel, onBook }: { patien
           <button type="button" onClick={onCancel} className="rounded-md border border-rule px-3 py-1.5 text-ink-soft">
             やめる
           </button>
-          <button type="button" disabled={!dept || !doctor || !time || !reason.trim()} onClick={() => onBook({ toDept: dept, toDoctor: doctor, time, reason: reason.trim() })} className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40">
+          <button type="button" disabled={!dept || !doctor || !time || !reason.trim()} onClick={() => onBook({ day, toDept: dept, toDoctor: doctor, time, reason: reason.trim() })} className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40">
             転科の予約を保存する
           </button>
         </div>

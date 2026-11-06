@@ -306,7 +306,7 @@ import { ImagingPanel } from "./panels/ImagingPanel";
  */
 // Every tool opens as its own window, except the three order entries that belong beside the note:
 // 内服・注射・処置 (ユーザー 2026-11-06：「右側のアイコンは処置・点滴・内服以外は独立したウインドウで」).
-const DRAWER_PANELS: ReadonlySet<string> = new Set(["add-rx", "add-injection", "add-procedure"]);
+const DRAWER_PANELS: ReadonlySet<string> = new Set(["add-rx", "add-injection", "add-procedure", "add-discharge"]);
 const WINDOW_PANELS = { has: (k: string) => !DRAWER_PANELS.has(k) } as unknown as ReadonlySet<PanelKind>;
 import { RisChartStrip } from "./panels/RisChartStrip";
 import { ResultsPanel } from "./panels/ResultsPanel";
@@ -535,7 +535,7 @@ export default function WardApp() {
   const openOrder = (key: string) => {
     setOrderWins((v) => showOrderWindow(v, key));
     update((c) => ({ rightTab: "note", openTabs: c.openTabs }));
-    requestAnimationFrame(() => document.querySelector(`[aria-label^="${key === "add-rx" ? "内服" : "注射"}："]`)?.scrollIntoView({ block: "nearest" }));
+    requestAnimationFrame(() => document.querySelector(`[aria-label^="${key === "add-rx" ? "内服" : key === "add-discharge" ? "退院オーダ" : "注射"}："]`)?.scrollIntoView({ block: "nearest" }));
   };
   const { panel, setPanel, open: panelWindows, activation: panelActivation, close: closePanelWindow } = usePanelWindows<PanelKind>(DRAWER_PANELS);
   /** The record template a pinned tile on the rail asked to open (テンプレート panel). */
@@ -1529,7 +1529,7 @@ export default function WardApp() {
   const openRight = (t: RightTab) => {
     // The injection calendar and the reading tabs open in their own large window (where this browser last had it), not in the right column.
     // Always as a window, even when this browser docked it to the right column before (ユーザー 2026-11-06：「指示簿は基本新しいウインドウで」).
-    const win = WINDOW_TABS.has(t) && !floating[t] ? (keptWin(t, window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight)) : undefined;
+    const win = WINDOW_TABS.has(t) && !floating[t] ? (keptWin(t, window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight, t)) : undefined;
     if (win) setFloating((f) => ({ ...f, [t]: win }));
     const away = !!floating[t] || !!win;
     update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: away ? c.rightTab : t }));
@@ -2211,7 +2211,7 @@ export default function WardApp() {
       if (what === "move" || what === "dept") setBooking({ day, what });
       else if (what === "退院" || what === "外泊") {
         setLeavePreset(day);
-        setPanel(what === "退院" ? "add-discharge" : "add-leave");
+        if (what === "退院") openOrder("add-discharge"); else setPanel("add-leave");
       }
     },
     onDoMove: deny("bed.move") ? undefined : doMove,
@@ -2266,7 +2266,7 @@ export default function WardApp() {
       ) : screen === "iji" ? (
         <IjiBoard outpatient={{ visits: opd.map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`opd:${patient.id}`)!, sessionChanges[`opd:${patient.id}`]), dept.ris)), rx: opdRx[patient.id] ?? [], drafts: pendingDraftCount(charts, `opd:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) { setOpdBills((all) => ({ ...all, [s.visitId]: s })); setOpd((all) => all.map((p) => `opd:${p.id}` === s.visitId ? { ...p, status: "終了" } : p)); } } }} charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => (openPatient(id), setPanel(id.startsWith("er:") || id.startsWith("opd:") ? "patient-info" : where))} />
       ) : screen === "support" ? (
-        <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} onStep={(pid, step) => { if (step === "docs" || step === "transfer" || step === "add-discharge") { if (step === "add-discharge" && role !== "医師") return; setSupportDoc(step === "docs"); openPatient(pid); /* after the switch: windows of the previous patient close on the switch render */ setTimeout(() => setPanel(step), 0); } else { setAdmitSelection({ pid, key: step }); goWard("admit"); } }} />
+        <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} onStep={(pid, step) => { if (step === "docs" || step === "transfer" || step === "add-discharge") { if (step === "add-discharge" && role !== "医師") return; setSupportDoc(step === "docs"); openPatient(pid); /* after the switch: windows of the previous patient close on the switch render */ setTimeout(() => { if (step === "add-discharge") openOrder(step); else setPanel(step); }, 0); } else { setAdmitSelection({ pid, key: step }); goWard("admit"); } }} />
       ) : screen === "ulcers" ? (
         <UlcerBoard
           pick={floorPick}
@@ -3275,6 +3275,11 @@ export default function WardApp() {
                           {(() => { const v = visitOf(patient.id); return v?.kind === "opd" ? <OpdRxAfter op={v.op} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} legacy={opdRx[v.op.id] ?? []} insuranceBook={iji.insurance} today={today} nowTime={nowTime} national={national} onRegistered={(r) => setNational((all) => [...all, r])} /> : null; })()}
                       </InlineOrder>
                     )}
+                    {(orderWins.includes("add-discharge") || panel === "add-discharge") && <InlineOrder title={`退院オーダ：${patient.name}さん`} onClose={() => { setOrderWins(v => v.filter(k => k !== "add-discharge")); closePanelWindow("add-discharge"); }}>
+                      <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
+                        <AddLeavePanel key={`discharge-${leavePreset}`} newId={newId} kinds={["退院"]} initialDay={leavePreset} onAdd={d => { addManualLab(d); setOrderWins(v => v.filter(k => k !== "add-discharge")); closePanelWindow("add-discharge"); }} />
+                      </fieldset>
+                    </InlineOrder>}
                         </>}
                         onOpenRecordTemplates={() => setPanel("templates")}
                         patient={patient}
@@ -3811,20 +3816,6 @@ export default function WardApp() {
                   />
                 </Drawer>
               )}
-              {panel === "add-discharge" && (
-                <Drawer title="退院オーダ" onClose={closePanel} locked={orderBlock}>
-                  <AddLeavePanel
-                    key={`discharge-${leavePreset}`}
-                    newId={newId}
-                    kinds={["退院"]}
-                    initialDay={leavePreset}
-                    onAdd={(d) => {
-                      addManualLab(d);
-                      closePanel();
-                    }}
-                  />
-                </Drawer>
-              )}
               {panel === "add-guide" && (
                 <Drawer title="指導の依頼" onClose={closePanel} locked={orderBlock}>
                   <AddGuidePanel
@@ -4322,7 +4313,7 @@ export default function WardApp() {
               openTemplate={panel === "templates" ? templateFocus : null}
               onOpen={(p, o) => {
                 setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);
-                if (p === "add-injection" || p === "add-rx") openOrder(p);
+                if (p === "add-injection" || p === "add-rx" || p === "add-discharge") openOrder(p);
                 else {
                   if (p === "imaging") setImageFocus(null);
                   setFlowReq(null);
@@ -4644,10 +4635,10 @@ export default function WardApp() {
             return { room: b.room, bed: b.bed };
           })()}
           allBeds={{ beds: allBeds, patient: findPatient }}
-          reserve={{ label: formatShort(addDays(today, booking.day)) }}
+          reserve={{ label: formatShort(addDays(today, booking.day)), day: booking.day }}
           onCancel={() => setBooking(null)}
           onMove={(m) => {
-            addManualLab({ ...newProcedureDraft("PROC-MOVE", newId()), sourceText: "（移動・食事カレンダーから）", move: { kind: m.kind, to: m.to, reason: m.reason }, schedule: { kind: "once" }, start: { day: booking.day, time: m.time ?? null } });
+            addManualLab({ ...newProcedureDraft("PROC-MOVE", newId()), sourceText: "（移動・食事カレンダーから）", move: { kind: m.kind, to: m.to, reason: m.reason }, schedule: { kind: "once" }, start: { day: m.day ?? booking.day, time: m.time ?? null } });
             update({ flash: `${m.kind}の予約を下書きにしました。確かめて確定してください。` });
             openRight("note");
             setBooking(null);
@@ -4658,9 +4649,10 @@ export default function WardApp() {
         <DeptMoveDialog
           patient={patient}
           dayLabel={formatShort(addDays(today, booking.day))}
+          initialDay={booking.day}
           onCancel={() => setBooking(null)}
           onBook={(m) => {
-            addManualLab({ ...newProcedureDraft("PROC-MOVE", newId()), sourceText: "（移動・食事カレンダーから）", move: { kind: "転科", toDept: m.toDept, toDoctor: m.toDoctor, reason: m.reason }, schedule: { kind: "once" }, start: { day: booking.day, time: m.time } });
+            addManualLab({ ...newProcedureDraft("PROC-MOVE", newId()), sourceText: "（移動・食事カレンダーから）", move: { kind: "転科", toDept: m.toDept, toDoctor: m.toDoctor, reason: m.reason }, schedule: { kind: "once" }, start: { day: m.day ?? booking.day, time: m.time } });
             update({ flash: "転科の予約を下書きにしました。確かめて確定してください。" });
             openRight("note");
             setBooking(null);

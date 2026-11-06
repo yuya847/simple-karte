@@ -1,5 +1,6 @@
 "use client";
 import { displayText } from "@/lib/display-text";
+import { DayInput } from "../DayInput";
 import { TimeInput } from "@/components/TimeInput";
 
 import { Printer } from "lucide-react";
@@ -167,7 +168,7 @@ export function StandingLines({ patient, lines, fields, today, nowTime, onAdd, o
                   {o.label}
                 </option>
               ))}
-            </select>
+            </select><DayInput label="指示の開始日付" today={today} value={draft.start.day} onChange={day => setDraft({ ...draft, start: { ...draft.start, day } })} />
             <TimeInput value={draft.start.time ?? ""} onChange={(e) => setDraft({ ...draft, start: { ...draft.start, time: e.target.value || undefined } })} aria-label="開始の時刻（任意）" className="rounded border border-rule bg-sheet px-1 py-0.5" />
             <span className="text-[11px] text-ink-faint">時刻は任意</span>
           </div>
@@ -185,7 +186,7 @@ export function StandingLines({ patient, lines, fields, today, nowTime, onAdd, o
                       {o.label}
                     </option>
                   ))}
-                </select>
+                </select><DayInput label="指示の終了日付" today={today} value={draft.end!.day} onChange={day => setDraft({ ...draft, end: { ...draft.end!, day } })} />
                 <TimeInput value={draft.end.time ?? ""} onChange={(e) => setDraft({ ...draft, end: { ...draft.end!, time: e.target.value || undefined } })} aria-label="終了の時刻（任意）" className="rounded border border-rule bg-sheet px-1 py-0.5" />
                 <span className="text-[11px] text-ink-faint">その日まで</span>
               </>

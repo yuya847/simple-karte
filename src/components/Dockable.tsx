@@ -44,11 +44,11 @@ export function clampWin(w: Win): Win {
  */
 export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void, onFront?: () => void) {
   const start = useRef<{ px: number; py: number; win: Win; mode: "move" | "size" } | null>(null);
-  const down = (mode: "move" | "size") => (e: React.PointerEvent) => {
+  const down = (mode: "move" | "size", baseline = win) => (e: React.PointerEvent) => {
     if (!win) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    start.current = { px: e.clientX, py: e.clientY, win, mode };
+    start.current = { px: e.clientX, py: e.clientY, win: baseline ?? win, mode };
     onFront?.();
   };
   const move = (e: React.PointerEvent) => {

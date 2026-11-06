@@ -1,4 +1,5 @@
 "use client";
+import { DayInput } from "./DayInput";
 import { TimeInput } from "@/components/TimeInput";
 
 import { ArrowRight, X } from "lucide-react";
@@ -17,13 +18,14 @@ export interface BedMove {
   reason: string;
   /** Booked for a later time (from the 移動・食事 calendar): the time of day. */
   time?: string;
+  day?: number;
 }
 
 /**
  * 転棟・転床: choose the floor and an empty bed (shared rooms are single-sex), write the reason, and
  * confirm. A patient on contact precautions going into a shared room is asked about (cohorting).
  */
-export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMove, reserve }: { patient: Patient; from: { room: string; bed: string }; initial?: { room: string; bed: string }; allBeds: WardState; onCancel: () => void; onMove: (m: BedMove) => void; reserve?: { label: string } }) {
+export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMove, reserve }: { patient: Patient; from: { room: string; bed: string }; initial?: { room: string; bed: string }; allBeds: WardState; onCancel: () => void; onMove: (m: BedMove) => void; reserve?: { label: string; day?: number } }) {
   const [time, setTime] = useState("");
   const deny = useDeny()("bed.move");
   const [floor, setFloor] = useState(initial ? floorOf(initial.room) : floorOf(from.room));
@@ -37,6 +39,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
   };
   const dropped = initial ? problemOf(initial) : null;
   const [to, setTo] = useState<{ room: string; bed: string } | null>(initial && !dropped ? initial : null);
+  const [day, setDay] = useState(reserve?.day ?? 0);
   const [reason, setReason] = useState("");
   const [ok, setOk] = useState(false);
   const rooms = FLOORS.find((f) => f.name === floor)!.rooms;
@@ -91,6 +94,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
         </label>
         {reserve && (
           <label className="mt-2 flex items-center gap-1.5">
+            <DayInput label="移動の日付" value={day} onChange={setDay} />
             時刻
             <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="移動の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
             <span className="text-[11px] text-ink-faint">予約は下書きになり、確定したあと当日に病棟で「実施」します。</span>
@@ -110,7 +114,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
           <button
             type="button"
             disabled={!to || !!toProblem || !reason.trim() || (askIso && !ok) || (!!reserve && !time) || (!reserve && !!deny)}
-            onClick={() => to && onMove({ patientId: patient.id, from, to, kind, reason: reason.trim(), ...(reserve ? { time } : {}) })}
+            onClick={() => to && onMove({ patientId: patient.id, from, to, kind, reason: reason.trim(), ...(reserve ? { time, day } : {}) })}
             className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40"
           >
             {reserve ? `${kind}の予約を保存する` : `${kind}を確定`}

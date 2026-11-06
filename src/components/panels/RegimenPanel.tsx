@@ -1,6 +1,7 @@
 "use client";
 import { displayText } from "@/lib/display-text";
 import { INJECTION_TIME_OPTIONS } from "@/lib/inj-entry";
+import { DayInput } from "../DayInput";
 import { TimeInput } from "@/components/TimeInput";
 
 import { useEffect, useRef, useState } from "react";
@@ -223,7 +224,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
               ]}
               value={startDay}
               onChange={(v) => setStartDay(v)}
-            />
+            /><DayInput label="レジメンの開始日付" value={startDay} onChange={setStartDay} />
             <TimeInput options={INJECTION_TIME_OPTIONS} value={time} onChange={(e) => setTime(e.target.value)} aria-label="開始時刻（最初の Rp）" className={field} />
             <span className="text-[11px] text-ink-faint">最初の Rp の時刻。ほかの Rp の時刻はここから計算します</span>
           </>,

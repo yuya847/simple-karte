@@ -63,12 +63,12 @@ describe("パネルの別ウインドウ", () => {
   });
 });
 
-it("注射・内服の初回は760×520で左寄り、保存済みの位置と大きさを優先する", () => {
+it("フォームの初回は幅720pxで高さは内容に合わせる", () => {
   vi.stubGlobal("window", { innerWidth: 1400, innerHeight: 900, localStorage: { getItem: () => null } });
   try {
     for (const key of orderWindows) {
       const html = renderToStaticMarkup(<DrawerDefaults.Provider value={{ panel: key, windowed: new Set(orderWindows) }}><Drawer title={key} onClose={() => {}}>入力</Drawer></DrawerDefaults.Provider>);
-      expect(html).toContain("left:16px;top:190px;width:760px;height:520px");
+      expect(html).toContain("left:340px;top:67.5px;width:720px;height:auto;max-height:85vh");
     }
   } finally { vi.unstubAllGlobals(); }
 });

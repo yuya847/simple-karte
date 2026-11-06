@@ -7,9 +7,9 @@ const mem = () => {
 };
 
 describe("別ウインドウの既定の大きさ", () => {
-  it("注射カレンダーは画面の幅の 85%・高さの 80% で真ん中に開く", () => {
+  it("注射カレンダーは幅1200px・高さ800pxを上限に で真ん中に開く", () => {
     const w = bigWin(1600, 1000);
-    expect(w).toEqual({ x: 120, y: 100, w: 1360, h: 800 });
+    expect(w).toEqual({ x: 200, y: 100, w: 1200, h: 800 });
   });
   it("小さな画面でも画面からはみ出さず、320×200 より小さくならない", () => {
     const w = bigWin(360, 200);
@@ -24,7 +24,7 @@ describe("別ウインドウの既定の大きさ", () => {
   it("注射の入力の窓はカレンダーの窓の右側に、両方が見えるように重なる", () => {
     const cal = bigWin(1600, 1000);
     const inj = besideWin(cal, 1600, 1000);
-    expect(inj.w).toBe(560);
+    expect(inj.w).toBe(540);
     expect(inj.x + inj.w).toBeLessThanOrEqual(cal.x + cal.w);
     expect(inj.y).toBe(cal.y + 40);
     expect(inj.h).toBe(cal.h - 48);

@@ -1,5 +1,6 @@
 "use client";
 import { displayText } from "@/lib/display-text";
+import { DayInput } from "../DayInput";
 import { TimeInput } from "@/components/TimeInput";
 import { defaultSliding, isInsulin, slidingProblems } from "@/lib/insulin";
 import { SlidingScaleEditor } from "../SlidingScaleEditor";
@@ -1094,7 +1095,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
             ]}
             value={f.startDay}
             onChange={(v) => set({ startDay: v })}
-          />
+          /><DayInput label="透析の日付" value={f.startDay} onChange={(v) => set({ startDay: v })} />
           <TimeInput value={f.startTime} onChange={(e) => set({ startTime: e.target.value })} aria-label="透析の開始時刻" className={field} />
           <span className="text-[11px] text-ink-faint">空なら透析室と調整</span>
         </>,
@@ -1238,7 +1239,7 @@ export function AddTransfusionPanel({ onAdd, newId, blood, weightKg, latest }: {
             ]}
             value={day}
             onChange={setDay}
-          />
+          /><DayInput label="輸血の日付" value={day} onChange={setDay} />
           <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="輸血の開始時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
           <span className="text-[11px] text-ink-faint">空なら準備ができしだい</span>
         </>,
@@ -1501,7 +1502,7 @@ export function AddRehabPanel({ onAdd, newId, admittedOn, rest }: { onAdd: (d: D
           ]}
           value={onset}
           onChange={setOnset}
-        />
+        /><DayInput label="リハビリの起算日付" value={onset} onChange={setOnset} />
         <span className="text-[11px] text-ink-faint">発症・手術・急性増悪の日</span>
       </div>
       <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="目標（例：病棟内を杖歩行で自立、自宅退院）" aria-label="リハビリの目標" className={input} />
@@ -1671,13 +1672,13 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
     </div>
   );
   return (
-    <div onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && (!(e.target instanceof HTMLButtonElement) || missing.length === 0)) { e.preventDefault(); submit(); } }} className="space-y-2 text-[12px]">
+    <div onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && (!(e.target instanceof HTMLButtonElement) || missing.length === 0)) { e.preventDefault(); submit(); } }} className="max-w-[640px] space-y-2 text-[12px]">
       <p className="hint">退院は10:00、外泊・外出は9:00を初期値にします。変更できます。日・行き先を入力後、Enterで下書きにします。</p>
       {kinds.length > 1 && row("種類", <TabChoice label="退院・外泊・外出" options={kinds.map((x) => ({ value: x, label: x }))} value={kind} onChange={(v) => { setKind(v); setTime(v === "退院" ? "10:00" : "09:00"); }} />)}
       {row(
         kind === "退院" ? "退院" : "出る",
         <>
-          <TabChoice label="出る日" options={days} value={day} onChange={setDay} />
+          <TabChoice label="出る日" options={days} value={day} onChange={setDay} /><DayInput label="出る日付" value={day} onChange={setDay} />
           <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="出る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
         </>,
       )}
@@ -1685,13 +1686,13 @@ export function AddLeavePanel({ onAdd, newId, kinds = ["退院", "外泊", "外�
         row(
           "戻る",
           <>
-            <TabChoice label="戻る日" options={days} value={backDay} onChange={setBackDay} />
+            <TabChoice label="戻る日" options={days} value={backDay} onChange={setBackDay} /><DayInput label="戻る日付" value={backDay} onChange={setBackDay} />
             <TimeInput value={backTime} onChange={(e) => setBackTime(e.target.value)} aria-label="戻る時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />
           </>,
         )}
       {row("行き先", <input value={dest} onChange={(e) => setDest(e.target.value)} placeholder={kind === "退院" ? "例：自宅（長女と同居）・施設・転院先" : "例：自宅"} className="flex-1 rounded border border-rule bg-paper px-2 py-1" />)}
       <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="申し送り（例：介護タクシー、退院処方は7日分）" aria-label="退院・外泊の申し送り" className="w-full rounded border border-rule bg-paper px-2 py-1" />
-      <button type="button" disabled={missing.length > 0} onClick={submit} className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+      <button type="button" disabled={missing.length > 0} onClick={submit} className="ml-auto block rounded-md bg-ai px-3 py-1 text-sm font-bold text-white disabled:opacity-40">
         保存する
       </button>
       {missing.length > 0 && <p className="text-yamabuki">未入力：{missing.join("・")}</p>}

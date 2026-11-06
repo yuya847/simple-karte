@@ -1,10 +1,10 @@
 "use client";
 
 import { useTrayWindow } from "../WindowTray";
-import { orderWindows, orderWindowSize } from "@/lib/order-windows";
+import { panelSize } from "@/lib/panel-size";
 import { AppWindow, GripHorizontal, Lock, Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { bigWin, clampWin, useWinDrag, type Win } from "../Dockable";
+import { clampWin, useWinDrag, type Win } from "../Dockable";
 
 /**
  * What WardApp decides for the panels: which panel is open (its key) and which panels open in their
@@ -16,6 +16,7 @@ export const DrawerDefaults = createContext<{ panel: string | null; windowed: Re
 interface Remembered {
   mode: "window" | "drawer";
   win?: Win;
+  sized?: boolean;
 }
 const KEY = (k: string) => `simple-karte:drawer-win:${k}`;
 
@@ -27,7 +28,7 @@ function loadRemembered(key: string): Remembered | null {
     if (v.mode !== "window" && v.mode !== "drawer") return null;
     const w = v.win;
     const win = w && [w.x, w.y, w.w, w.h].every((n) => typeof n === "number" && Number.isFinite(n)) ? clampWin(w) : undefined;
-    return { mode: v.mode, win };
+    return { mode: v.mode, win, sized: v.sized !== false };
   } catch {
     // Storage blocked or unreadable: the panel opens the way WardApp says.
     return null;
@@ -51,27 +52,26 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   const key = windowKey ?? defaults.panel ?? title;
   const windowedFirst = defaults.windowed.has(key);
   const initialWin = () => {
-    if ((orderWindows as readonly string[]).includes(key)) return orderWindowSize(window.innerWidth, window.innerHeight);
-    const w = bigWin();
-    return initialWidth ? { ...w, w: initialWidth, x: Math.max(0, (window.innerWidth - initialWidth) / 2) } : w;
+    return panelSize(key, !!wide, window.innerWidth, window.innerHeight, initialWidth);
   };
   // ウインドウ指定なら常にウインドウ。保存済みの表示方法は使わず、位置と大きさだけ戻す。
   const [win, setWin] = useState<Win | null>(() => {
-    if (typeof window === "undefined") return windowedFirst ? bigWin() : null;
+    if (typeof window === "undefined") return windowedFirst ? panelSize(key, !!wide, 1200, 800, initialWidth) : null;
     const r = loadRemembered(key);
     // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
     const mode = windowedFirst ? "window" : "drawer";
     return mode === "window" ? clampWin(r?.win ?? initialWin()) : null;
   });
+  const [sized, setSized] = useState(() => typeof window !== "undefined" && !!loadRemembered(key)?.sized);
   const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? initialWin()));
   const tray = useTrayWindow(`panel:${key}`, title, !!win, onClose);
   const { down, move, up } = useWinDrag(win, setWin);
   // Remember the window's place a moment after it stops moving (not on every pointer move).
   useEffect(() => {
     if (!win) return;
-    const t = window.setTimeout(() => saveRemembered(key, { mode: "window", win }), 300);
+    const t = window.setTimeout(() => saveRemembered(key, { mode: "window", win, sized }), 300);
     return () => window.clearTimeout(t);
-  }, [win, key]);
+  }, [win, key, sized]);
 
   // 横いっぱい: cover the whole chart (the area marked data-drawer-bounds), keeping the patient bar in view.
   const [full, setFull] = useState<DOMRect | null>(null);
@@ -124,7 +124,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
         data-drawer-window={key}
         className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-rule bg-sheet shadow-[0_12px_40px_-8px_rgba(38,34,28,0.45)]"
         onPointerDownCapture={tray.front}
-        style={{ left: win.x, top: win.y, width: win.w, height: win.h, display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
+        style={{ left: win.x, top: win.y, width: win.w, height: sized ? win.h : "auto", maxHeight: sized ? undefined : "85vh", display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
       >
         <div
           className="flex shrink-0 cursor-move select-none items-center gap-2 border-b border-rule bg-tab px-3 py-1.5 text-sm"
@@ -155,7 +155,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
           aria-hidden
           className="absolute bottom-0 right-0 h-5 w-5 cursor-nwse-resize pointer-coarse:h-8 pointer-coarse:w-8"
           style={{ touchAction: "none", background: "linear-gradient(135deg, transparent 50%, rgba(140,132,115,0.55) 50%)" }}
-          onPointerDown={down("size")}
+          onPointerDown={(e) => { if (!ref.current) return; const box = ref.current.getBoundingClientRect(); const actual = { ...win, h: box.height }; setWin(actual); setSized(true); down("size", actual)(e); }}
           onPointerMove={move}
           onPointerUp={up}
           onPointerCancel={up}

@@ -1,6 +1,7 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
+import { DayInput } from "../DayInput";
 import { dietNeedsProposal, dietAdjustment } from "@/lib/diet-workflow";
 import { useMe } from "../RoleContext";
 import { DIET_ADJUSTMENT_HINT } from "@/lib/diet";
@@ -139,7 +140,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
                 {DAY_LABEL[d]} {formatShort(addDays(today, d))}
               </option>
             ))}
-          </select>
+          </select><DayInput label="食事の開始日付" today={today} value={f.from.day} onChange={day => set({ from: { ...f.from, day } })} />
           <select value={f.from.meal} onChange={(e) => set({ from: { ...f.from, meal: e.target.value as Meal } })} className={sel} aria-label="食事">
             {MEALS.map((m) => (
               <option key={m}>{m}</option>

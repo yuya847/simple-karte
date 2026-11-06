@@ -20,9 +20,9 @@ export function fitWin(win: Win, vw: number, vh: number): Win {
 }
 
 /** A large window over the middle of the screen: 85% of its width and 80% of its height (the injection calendar). */
-export function bigWin(vw: number, vh: number): Win {
-  const w = Math.round(vw * 0.85);
-  const h = Math.round(vh * 0.8);
+export function bigWin(vw: number, vh: number, tab?: string): Win {
+  const w = Math.min(tab === "bookings" ? 640 : 1200, Math.round(vw * 0.85));
+  const h = Math.min(tab === "bookings" ? 420 : 800, Math.round(vh * 0.8));
   return fitWin({ x: Math.round((vw - w) / 2), y: Math.round((vh - h) / 2), w, h }, vw, vh);
 }
 
