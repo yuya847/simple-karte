@@ -3,7 +3,7 @@ import { calendarGroup } from "@/lib/prescription-calendar";
 
 import { MessageSquareWarning, TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Settings2 } from "lucide-react";
+import { Calculator, ChartSpline, Settings2 } from "lucide-react";
 import { resolveTools } from "@/lib/tool-layout";
 import { ToolLayoutEditor } from "./ToolLayoutEditor";
 import { useState } from "react";
@@ -36,8 +36,8 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     main: [
       { key: "add-rx", label: "処方", icon: Pill },
       { key: "add-injection", label: "注射", icon: Syringe },
-      { key: "insulin", label: "インスリン", icon: Syringe },
-      { key: "abx-renal", label: "抗菌薬の量", icon: Pill },
+      { key: "insulin", label: "インスリン", icon: ChartSpline },
+      { key: "abx-renal", label: "抗菌薬の量", icon: Calculator },
       { key: "add-procedure", label: "処置", icon: Bandage },
       { key: "add-surgery", label: "手術申込", icon: ClipboardPen },
       { key: "diet", label: "食事", icon: Utensils },
