@@ -3,7 +3,7 @@
 import { addDays, daysFrom, isoDate, type CalendarDate } from "@/lib/dates";
 import { periodText } from "@/lib/standing-calendar";
 import { useState } from "react";
-import { HOSPITAL_LINE_TEMPLATES, LINE_CATS, currentLines, calendarRows, linesFromFields, loadMyTemplates, saveMyTemplates, templateProblems, type LineCat, type LineTemplate, type StandingLine } from "@/lib/standing-lines";
+import { HOSPITAL_LINE_SETS, HOSPITAL_LINE_TEMPLATES, LINE_CATS, currentLines, calendarRows, linesFromFields, loadMyTemplates, saveMyTemplates, templateProblems, type LineCat, type LineTemplate, type StandingLine } from "@/lib/standing-lines";
 import { ADMISSION_TEMPLATE, CATEGORY_LABELS, STANDING_CHOICES, STANDING_SOURCES, composeStandingText, splitStandingText } from "@/lib/standing-form";
 import type { StandingOrders } from "@/lib/standing";
 import { CosignMark } from "../Cosign";
@@ -36,6 +36,16 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
   const [templates, setTemplates] = useState(false);
   const [mine, setMine] = useState<LineTemplate[]>(() => loadMyTemplates(me.name));
   const [notice, setNotice] = useState("");
+  // A set opened for review: which of its lines are ticked (all at first).
+  const [setOpen, setSetOpen] = useState<{ id: string; on: boolean[] } | null>(null);
+  const addSet = (id: string, on: boolean[]) => {
+    const set = HOSPITAL_LINE_SETS.find((x) => x.id === id);
+    if (!set || !canOrder) return;
+    const picked = set.lines.filter((_, i) => on[i]);
+    for (const l of picked) onAdd({ id: newId(), cat: l.cat, text: l.text, start: { day: startDay, ...(startDay === 0 ? { time: nowTime } : {}) }, end: until === undefined ? undefined : { day: until }, by: me.name, at: { day: 0, time: nowTime } });
+    setSetOpen(null);
+    setNotice(`「${set.label}」の ${picked.length} 件を指示に入れました。`);
+  };
   const all = [...lines, ...linesFromFields(versions)];
   const text = composeStandingText(choice, comment);
   const active = selected && currentLines(lines).some((l) => l.id === selected.id);
@@ -86,6 +96,13 @@ export function StandingOrderForm({ lines, versions, nowTime, fmtDay, newId, onA
       <button type="button" aria-expanded={templates} onClick={() => setTemplates(!templates)} className="rounded border border-rule px-3 py-2">テンプレート</button>
       {templates && <div className="space-y-2 rounded border border-rule p-2">
         <p className="hint text-ink-faint">架空の病院の取り決め。自分のテンプレートは記事と同じく、利用者ごとにこの端末のみに保存されます。</p>
+        <div className="font-bold text-ink-soft">セット（まとめて出す）</div>
+        <div className="flex flex-wrap gap-1">{HOSPITAL_LINE_SETS.map((x) => <button key={x.id} type="button" disabled={!canOrder || !!selected} aria-pressed={setOpen?.id === x.id} onClick={() => setSetOpen(setOpen?.id === x.id ? null : { id: x.id, on: x.lines.map(() => true) })} className={`rounded border px-2 py-1 ${setOpen?.id === x.id ? "border-ai bg-ai-soft text-ai" : "border-rule"}`}>{x.label}（{x.lines.length}）</button>)}</div>
+        {setOpen && (() => { const x = HOSPITAL_LINE_SETS.find((s) => s.id === setOpen.id)!; const n = setOpen.on.filter(Boolean).length; return <div className="space-y-1 rounded border border-ai/40 bg-ai-soft/30 p-2" aria-label={`セット ${x.label}`}>
+          {x.lines.map((l, i) => <label key={i} className="flex items-start gap-1.5"><input type="checkbox" checked={setOpen.on[i]} onChange={() => setSetOpen({ id: x.id, on: setOpen.on.map((v, k) => (k === i ? !v : v)) })} className="mt-0.5 accent-ai" /><span><span className="mr-1 rounded bg-sheet px-1 text-[10px] text-ink-soft">{CATEGORY_LABELS[l.cat] ?? l.cat}</span>{l.text}</span></label>)}
+          <button type="button" disabled={!canOrder || n === 0} onClick={() => addSet(x.id, setOpen.on)} className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40">選んだ {n} 件を指示に入れる</button>
+          <p className="hint text-ink-faint">架空の病院の取り決めの例です。薬は一般名（商品名の例）。量・間隔・アレルギー・腎機能は医師が確かめて直してから入れてください（自動では確認しません）。開始日・終了日は上の欄のものを使います。</p>
+        </div>; })()}
         <button type="button" disabled={!canOrder} onClick={onAdmissionTemplate} className="block p-1 text-ai">{ADMISSION_TEMPLATE.label}</button>
         <p className="hint text-ink-faint">{ADMISSION_TEMPLATE.hint}</p>
         <div className="max-h-72 space-y-1 overflow-y-auto">{[...mine, ...HOSPITAL_LINE_TEMPLATES].filter((t) => !selected || t.cat === selected.cat).map((t) => <button key={t.id} type="button" disabled={!canOrder || !!selected?.fromFields} onClick={() => { pick(t.cat, t.text); setTemplates(false); }} className="block w-full border-b border-rule-soft p-1 text-left hover:bg-ai-soft"><span className="text-ink-faint">{CATEGORY_LABELS[t.cat] ?? t.cat}：</span>{t.text}</button>)}</div>

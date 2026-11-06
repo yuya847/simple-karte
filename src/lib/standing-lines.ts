@@ -283,6 +283,81 @@ export const HOSPITAL_LINE_TEMPLATES: LineTemplate[] = [
   { id: "h-other-family", cat: "その他", text: "家族が来たら医師に連絡" },
 ];
 
+/**
+ * 院内のセット（架空の病院の取り決め）: several lines at once — the common 頓用 and Dr.call of a general ward.
+ * Drug names are the generic name with a well-known product name as an example; the doctor checks the dose,
+ * the interval, allergies and the kidneys, edits, and confirms. Nothing here is checked automatically.
+ */
+export interface LineSet {
+  id: string;
+  label: string;
+  lines: { cat: LineCat; text: string }[];
+}
+export const HOSPITAL_LINE_SETS: LineSet[] = [
+  {
+    id: "set-prn-general",
+    label: "頓用（一般内科）",
+    lines: [
+      { cat: "頓用", text: "発熱時（38℃以上）：アセトアミノフェン（カロナール）500mg 1錠 内服、4時間以上あけて1日3回まで" },
+      { cat: "頓用", text: "疼痛時：アセトアミノフェン（カロナール）500mg 1錠 内服、4時間以上あけて1日3回まで（発熱時と合わせて数える）" },
+      { cat: "頓用", text: "便秘時（3日排便なし）：センノシド（プルゼニド）12mg 2錠 眠前、1日1回まで" },
+      { cat: "頓用", text: "嘔気時：メトクロプラミド（プリンペラン）5mg 1錠 内服、1日3回まで" },
+      { cat: "頓用", text: "不眠時：医師に連絡（睡眠薬はオーダで出す）" },
+    ],
+  },
+  {
+    id: "set-fever",
+    label: "発熱時",
+    lines: [
+      { cat: "頓用", text: "発熱時（38℃以上）：アセトアミノフェン（カロナール）500mg 1錠 内服、4時間以上あけて1日3回まで" },
+      { cat: "検査", text: "38.5℃以上で血液培養2セット採取し Dr.call" },
+      { cat: "処置", text: "発熱時はクーリング（腋窩・鼠径）をしてよい" },
+      { cat: "呼出基準", text: "体温 38.5℃以上が頓用で下がらないとき医師を呼ぶ" },
+    ],
+  },
+  {
+    id: "set-pain",
+    label: "疼痛時",
+    lines: [
+      { cat: "頓用", text: "疼痛時：アセトアミノフェン（カロナール）500mg 1錠 内服、4時間以上あけて1日3回まで" },
+      { cat: "頓用", text: "上で効かないとき：ロキソプロフェン（ロキソニン）60mg 1錠 内服、6時間以上あけて1日3回まで（腎機能・消化性潰瘍・喘息を医師が確かめてから）" },
+      { cat: "呼出基準", text: "痛みが強くなった・場所が変わったときは医師を呼ぶ" },
+    ],
+  },
+  {
+    id: "set-call",
+    label: "Dr.call（一般）",
+    lines: [
+      { cat: "呼出基準", text: "収縮期血圧 90mmHg以下、または 180mmHg以上で医師を呼ぶ" },
+      { cat: "呼出基準", text: "脈拍 120/分以上、または 40/分以下で医師を呼ぶ" },
+      { cat: "呼出基準", text: "SpO2 92%未満で医師を呼ぶ" },
+      { cat: "呼出基準", text: "体温 38.5℃以上が頓用で下がらないとき医師を呼ぶ" },
+      { cat: "呼出基準", text: "意識レベルが下がったら医師を呼ぶ" },
+      { cat: "呼出基準", text: "排尿が6時間以上ないとき医師を呼ぶ" },
+    ],
+  },
+  {
+    id: "set-glucose",
+    label: "血糖（糖尿病）",
+    lines: [
+      { cat: "頓用", text: "血糖70mg/dL未満でブドウ糖10g 内服し Dr.call（意識が清明で嚥下できる場合。嚥下できなければ内服せず直ちに Dr.call）" },
+      { cat: "呼出基準", text: "血糖 300mg/dL以上で医師を呼ぶ" },
+      { cat: "観察", text: "低血糖の症状（冷汗・ふるえ・意識の変化）を勤務ごとに見る" },
+    ],
+  },
+  {
+    id: "set-basic",
+    label: "入院時の基本（安静・清潔・測定）",
+    lines: [
+      { cat: "安静", text: "安静度：病棟内フリー" },
+      { cat: "清潔", text: "シャワー浴（介助で）" },
+      { cat: "バイタル", text: "バイタル測定：1日3回" },
+      { cat: "観察", text: "体重を毎朝測る" },
+      { cat: "その他", text: "転倒に注意（ベッド柵・離床センサー）" },
+    ],
+  },
+];
+
 /** Why a template cannot be registered yet (empty when it can). */
 export function templateProblems(cat: LineCat, text: string, mine: LineTemplate[]): string[] {
   const out: string[] = [];

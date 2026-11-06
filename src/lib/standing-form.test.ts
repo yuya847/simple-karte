@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { composeStandingText, splitStandingText, STANDING_CHOICES, worksheetPrnLines } from "./standing-form";
-import { HOSPITAL_LINE_TEMPLATES, linesFromFields, lineChanges, stopLine, type StandingLine } from "./standing-lines";
+import { HOSPITAL_LINE_SETS, HOSPITAL_LINE_TEMPLATES, linesFromFields, lineChanges, stopLine, type StandingLine } from "./standing-lines";
 import { changeKey, type WorkPatient } from "./worksheet";
 import { emptyStanding } from "./standing";
 import type { Patient } from "./types";
@@ -39,5 +39,14 @@ describe("指示簿の入力と看護師への接続", () => {
   it("解熱の例は添付文書の回数を採り、未指定の睡眠薬を作らない", () => {
     expect(HOSPITAL_LINE_TEMPLATES.find((t) => t.id === "h-prn-fever")?.text).toContain("1日2回まで");
     expect(HOSPITAL_LINE_TEMPLATES.find((t) => t.id === "h-prn-sleep")?.text).toContain("医師に連絡");
+  });
+});
+
+describe("指示簿のセット", () => {
+  it("どのセットも 1 件以上で、カテゴリは指示簿のカテゴリ、頓用の解熱にカロナールを含む", () => {
+    expect(HOSPITAL_LINE_SETS.length).toBeGreaterThan(3);
+    for (const s of HOSPITAL_LINE_SETS) expect(s.lines.length).toBeGreaterThan(0);
+    expect(HOSPITAL_LINE_SETS.find((s) => s.id === "set-fever")!.lines.some((l) => l.text.includes("カロナール"))).toBe(true);
+    expect(new Set(HOSPITAL_LINE_SETS.map((s) => s.id)).size).toBe(HOSPITAL_LINE_SETS.length);
   });
 });
