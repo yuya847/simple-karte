@@ -18,6 +18,8 @@ const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder
 export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }: Props) {
   const [newOrder, setNewOrder] = useState(false);
   const [menu, setMenu] = useState<DietOrder["from"] | null>(null);
+  // Where the menu floats: beside the cell that was pressed (screen coordinates).
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
   const [edit, setEdit] = useState<{ at: DietOrder["from"]; range: DietChangeRange; npo?: boolean } | null>(null);
   const [count, setCount] = useState(3);
   const [error, setError] = useState("");
@@ -61,7 +63,7 @@ export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }
     <p className="hint">右クリック（iPad は長押し）でその回から変えられます</p>
     <p className="hint">回数を指定すると元の食事に戻す指示も下書きに入ります。予約済みの次の指示は残します。「この日の3回」は朝から夕までです。配膳済みの食事は変更できません（架空の病院の取り決め）。検査・外泊・退院による食止めは、この変更では解除されません。栄養部門への連携は模擬です。</p>
     {error && <p role="alert" className="text-shu">{error}</p>}
-    {menu && <section role="menu" aria-label="食事の変更" className="space-y-1 rounded border border-rule bg-sheet p-2 shadow-lg">
+    {menu && <section role="menu" aria-label="食事の変更" style={menuAt ? { position: "fixed", left: Math.min(menuAt.x, window.innerWidth - 260), top: Math.min(menuAt.y, window.innerHeight - 420), zIndex: 60, width: 240 } : undefined} className="space-y-1 rounded border border-rule bg-sheet p-2 shadow-lg">
       <p>{formatShort(addDays(today, menu.day))} {menu.meal}食</p>
       <button type="button" role="menuitem" className="block p-2 hover:bg-paper" onClick={() => choose({ kind: "once" })}>この 1 回だけ</button>
       <button type="button" role="menuitem" disabled={abs(menu.day, MEAL_TIMES.朝) <= abs(0, nowTime)} className="block p-2 hover:bg-paper disabled:opacity-40" onClick={() => choose({ kind: "meals", count: 3 }, false, true)}>この日の 3 回</button>
@@ -94,10 +96,10 @@ export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }
           const holds = mealHolds(orders, day, meal, examTime);
           const served = abs(day, MEAL_TIMES[meal]) <= abs(0, nowTime);
           const label = [dietLabel(d), d?.side, d?.energyKcal !== undefined && `${d.energyKcal}kcal`, d?.saltG !== undefined && `塩分${d.saltG}g`, d?.comment].filter(Boolean).join("・");
-          const open = () => { if (!allowed || served) return; setMenu({ day, meal }); setError(""); setEdit(null); setNewOrder(false); };
-          return <td key={meal} className="border border-rule p-1 align-top"><button type="button" disabled={!allowed || served} aria-label={`${formatShort(addDays(today, day))} ${meal}食：${label}`} onClick={open}
-            onContextMenu={e => { e.preventDefault(); if (allowed && !served) open(); }}
-            onPointerDown={e => { if (e.pointerType !== "touch") return; cancelPress(); press.current = setTimeout(open, 450); }} onPointerMove={cancelPress} onPointerUp={cancelPress} onPointerCancel={cancelPress}
+          const open = (at?: { x: number; y: number }) => { if (!allowed || served) return; setMenu({ day, meal }); setMenuAt(at ?? null); setError(""); setEdit(null); setNewOrder(false); };
+          return <td key={meal} className="border border-rule p-1 align-top"><button type="button" disabled={!allowed || served} aria-label={`${formatShort(addDays(today, day))} ${meal}食：${label}`} onClick={(e) => open({ x: e.clientX, y: e.clientY })}
+            onContextMenu={e => { e.preventDefault(); if (allowed && !served) open({ x: e.clientX, y: e.clientY }); }}
+            onPointerDown={e => { if (e.pointerType !== "touch") return; cancelPress(); const at = { x: e.clientX, y: e.clientY }; press.current = setTimeout(() => open(at), 450); }} onPointerMove={cancelPress} onPointerUp={cancelPress} onPointerCancel={cancelPress}
             className="min-h-16 w-full select-none rounded p-1 text-left enabled:hover:bg-paper disabled:opacity-50">
             {holds.length > 0 && <span className="block text-yamabuki">{holdTitle(holds)}：{holds.map(h => h.label).join("、")}</span>}{label}
           </button></td>;
