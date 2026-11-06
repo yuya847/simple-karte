@@ -3289,7 +3289,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                         orderSlot={<>
                     {/* Other tools can open while these entry windows keep their unfinished Rp. */}
                     {orderWins.includes("add-injection") && (
-                      <InlineOrder key={`injection:${patient.id}:${desk}`} title={`注射：${patient.name}さん`} onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-injection"))}>
+                      <InlineOrder key={`injection:${patient.id}:${desk}`} title="注射オーダ" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-injection"))}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddInjectionPanel
                               patientId={patient.id}
@@ -3304,7 +3304,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                       </InlineOrder>
                     )}
                     {orderWins.includes("add-rx") && (
-                      <InlineOrder key={`rx:${patient.id}:${desk}`} title={`内服：${patient.name}さん`} onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-rx"))}>
+                      <InlineOrder key={`rx:${patient.id}:${desk}`} title="処方オーダ" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-rx"))}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddRxPanel
                               outpatient={visitOf(patient.id)?.kind === "opd"}
@@ -3324,7 +3324,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                           {(() => { const v = visitOf(patient.id); return v?.kind === "opd" ? <OpdRxAfter op={v.op} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} legacy={opdRx[v.op.id] ?? []} insuranceBook={iji.insurance} today={today} nowTime={nowTime} national={national} onRegistered={(r) => setNational((all) => [...all, r])} /> : null; })()}
                       </InlineOrder>
                     )}
-                    {(orderWins.includes("add-discharge") || panel === "add-discharge") && <InlineOrder title={`退院オーダ：${patient.name}さん`} onClose={() => { setOrderWins(v => v.filter(k => k !== "add-discharge")); closePanelWindow("add-discharge"); }}>
+                    {(orderWins.includes("add-discharge") || panel === "add-discharge") && <InlineOrder title="退院オーダ" onClose={() => { setOrderWins(v => v.filter(k => k !== "add-discharge")); closePanelWindow("add-discharge"); }}>
                       <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                         <AddLeavePanel key={`discharge-${leavePreset}`} newId={newId} kinds={["退院"]} initialDay={leavePreset} onAdd={d => { addManualLab(d); setOrderWins(v => v.filter(k => k !== "add-discharge")); closePanelWindow("add-discharge"); }} />
                       </fieldset>

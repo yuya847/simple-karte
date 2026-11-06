@@ -70,9 +70,11 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     }
   };
   const snapshot = () => ({ ...Object.fromEntries(Object.entries(statesRef.current).map(([k, [v]]) => [k, v])), ...(putting.current ?? {}) });
-  const putBack = (data: Record<string, unknown>) => {
+  const echoAccept = useRef(false);
+  const putBack = (data: Record<string, unknown>, accept: boolean) => {
     data = workspaceRecords(data);
     echo.current = data;
+    echoAccept.current = accept;
     putting.current = data;
     for (const [k, v] of Object.entries(data)) statesRef.current[k]?.[1](v as never);
   };
@@ -94,7 +96,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       // Include edits made while the request was in flight.
       const latest = mergeWorkspace(snapshot(), saved.data, data, optsRef.current.merge);
       warnConflicts(saved.conflicts);
-      putBack(latest.data);
+      putBack(latest.data, latest.kept.length === 0);
       base.current = saved.data;
       accepted.current = saved.data;
       failures.current = 0;
@@ -138,7 +140,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       .then((row) => {
         if (row) {
           const merged = mergeWorkspace(snapshot(), row.data, initial, optsRef.current.merge);
-          putBack(merged.data);
+          putBack(merged.data, false);
           accepted.current = mergeWorkspace(initial, row.data, initial, optsRef.current.merge).data;
           dirty.current = !sameJson(merged.data, accepted.current);
           base.current = row.data;
@@ -167,6 +169,13 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     if (echo.current) {
       const incoming = echo.current;
       echo.current = null;
+      // Right after this page's own save: what the states became (after the setters' own migrations, which
+      // may reshape the values) is what was saved. Comparing with the raw saved records made every save look
+      // like a change and saved again every few seconds.
+      if (echoAccept.current) {
+        accepted.current = snapshot();
+        return;
+      }
       if (sameJson(snapshot(), incoming)) return;
     }
     dirty.current = true;
@@ -213,7 +222,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       if (writer?.tab === thisTab()) return null;
       const r = mergeWorkspace(snapshot(), row.data, base.current, optsRef.current.merge);
       warnConflicts(r.conflicts);
-      if (r.changed.length) putBack(r.data);
+      if (r.changed.length) putBack(r.data, false);
       base.current = row.data;
       // Only a local edit can request a save; receiving data never starts an echo.
       if (!dirty.current) accepted.current = r.data;
