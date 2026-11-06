@@ -62,7 +62,8 @@ export function dpcReceiptSheet(sheet: ReceiptSheetData, dpc: DpcMonthView, bill
       periods: [...(dpc.outcome.d.row.days ?? [])], coefficient: dpc.coefficient,
       lines: dpc.pkg.lines, total: dpc.pkg.total, outsideTotal: dpc.outsideTotal,
       // 登録開始日は発症日ではない。入院契機の専用項目もないため、主病名から推測しない。
-      categories: registered.map(d => [
+      // Matched by the row's name: the sheet's rows follow the UKE records, not this order.
+      categories: sheet.diagnoses.map(x => registered.find(r => diagnosisLabel(r) === x.name)).map(d => !d ? "" : [
         d.id === dpc.chosen?.id ? "医療資源を最も投入した傷病名" : "",
         d.onsetDay !== undefined ? (d.onsetDay <= admittedOn ? "入院時併存症" : "入院後発症疾患") : "",
       ].filter(Boolean).join("・")),
