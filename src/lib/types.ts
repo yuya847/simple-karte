@@ -66,6 +66,8 @@ export interface VitalSign {
   o2?: string; // "室内気" or "鼻カニュラ 2L" etc.
   /** 意識（ACVPU）. */
   avpu?: "A" | "C" | "V" | "P" | "U";
+  jcs?: { score: "0" | "I-1" | "I-2" | "I-3" | "II-10" | "II-20" | "II-30" | "III-100" | "III-200" | "III-300"; modifiers?: ("R" | "I" | "A")[] };
+  gcs?: { e?: 1 | 2 | 3 | 4; v?: 1 | 2 | 3 | 4 | 5; m?: 1 | 2 | 3 | 4 | 5 | 6 };
   /** Who took it (entered in this app). */
   by?: string;
 }
@@ -74,6 +76,7 @@ export interface VitalSign {
 export interface DailyRecord {
   day: DayOffset;
   meals?: "絶食" | [number | null, number | null, number | null];
+  mealSides?: [number | null, number | null, number | null];
   urineMl?: number;
   stools?: number;
   weightKg?: number;

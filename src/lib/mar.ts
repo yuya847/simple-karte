@@ -40,7 +40,7 @@ export interface DripEnd {
 }
 
 export interface AdminRecord {
-  insulin?: { glucose?: number; units: number };
+  insulin?: { glucose?: number; units: number; measuredAt?: number };
   cancellation?: { by: string; at: string; reason: string };
   key: string;
   orderId: string;

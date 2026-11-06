@@ -115,10 +115,20 @@ export function IoEntryForm({ patientId, nowTime, onAdd, newId, defaultTime }: {
   const [side, setSide] = useState<IoSide>("OUT");
   const [kind, setKind] = useState<InKind | OutKind>("尿");
   const [ml, setMl] = useState("");
+  const [count, setCount] = useState("1");
+  const [catheter, setCatheter] = useState("");
+  const [bristol, setBristol] = useState("");
+  const [mealSlot, setMealSlot] = useState<0 | 1 | 2>(0);
+  const [staple, setStaple] = useState("");
+  const [mealSide, setMealSide] = useState("");
   const [time, setTime] = useState(defaultTime ?? "");
   const [note, setNote] = useState("");
   const at = time.trim() ? pastTime(time, nowAbs) : nowAbs;
-  const problems = ioProblems({ ml, at, nowAbs });
+  const isMeal = side === "IN" && kind === "食事";
+  const countOnly = kind === "便" && !ml.trim();
+  const problems = ioProblems({ ml: isMeal || countOnly ? "1" : ml, at, nowAbs });
+  if ((kind === "尿" || kind === "便") && (!Number.isInteger(Number(count)) || Number(count) < 1 || Number(count) > 100)) problems.push("回数は 1〜100 で入れてください");
+  if (isMeal && [staple, mealSide].some(v => !v.trim() || !Number.isInteger(Number(v)) || Number(v) < 0 || Number(v) > 10)) problems.push("食事は 0〜10 割で入れてください");
   const box = "rounded border border-rule bg-paper px-1.5 py-1 text-[13px] outline-none focus:border-ai";
   return (
     <div className="space-y-2 rounded-md border border-rule-soft bg-paper p-2 text-xs">
@@ -146,9 +156,13 @@ export function IoEntryForm({ patientId, nowTime, onAdd, newId, defaultTime }: {
       </div>
       <div className="nums flex flex-wrap items-end gap-2 text-ink-soft">
         <label className="flex flex-col gap-0.5">
-          量 mL
-          <input value={ml} onChange={(e) => setMl(e.target.value)} inputMode="numeric" aria-label={`${kind}の量（mL）`} className={`${box} w-20 text-right`} />
+          量 mL{kind === "便" ? "（任意）" : ""}
+          <input disabled={isMeal} value={ml} onChange={(e) => setMl(e.target.value)} inputMode="numeric" aria-label={`${kind}の量（mL）`} className={`${box} w-20 text-right`} />
         </label>
+        {(kind === "尿" || kind === "便") && <label>回数 <input aria-label="回数" type="number" min="1" max="100" value={count} onChange={e => setCount(e.target.value)} className={`${box} w-16`} /></label>}
+        {kind === "尿" && <label>尿道カテーテル <select className={box} value={catheter} onChange={e => setCatheter(e.target.value)}><option value="">未確認</option><option value="yes">あり</option><option value="no">なし</option></select></label>}
+        {kind === "便" && <label>ブリストル <select className={box} value={bristol} onChange={e => setBristol(e.target.value)}><option value="">未評価</option>{[1,2,3,4,5,6,7].map(v => <option key={v}>{v}</option>)}</select></label>}
+        {isMeal && <><label>食事 <select className={box} value={mealSlot} onChange={e => setMealSlot(Number(e.target.value) as 0 | 1 | 2)}>{["朝", "昼", "夕"].map((v, i) => <option key={v} value={i}>{v}</option>)}</select></label><label>主食 割 <input aria-label="主食の割" className={`${box} w-16`} type="number" min="0" max="10" value={staple} onChange={e => setStaple(e.target.value)} /></label><label>副食 割 <input aria-label="副食の割" className={`${box} w-16`} type="number" min="0" max="10" value={mealSide} onChange={e => setMealSide(e.target.value)} /></label></>}
         <label className="flex flex-col gap-0.5">
           時刻
           <TimeInput value={time} onChange={(e) => setTime(e.target.value)} placeholder={nowTime} aria-label="測った時刻" className={`${box} w-20`} />
@@ -162,7 +176,7 @@ export function IoEntryForm({ patientId, nowTime, onAdd, newId, defaultTime }: {
           disabled={problems.length > 0 || at === null}
           onClick={() => {
             if (at === null) return;
-            onAdd([{ id: newId(), patientId, side, kind, ml: Number(ml), at, by: me.name, recordedAt: nowTime, ...(note.trim() ? { note: note.trim() } : {}) }]);
+            onAdd([{ id: newId(), patientId, side, kind, ml: isMeal || countOnly ? 0 : Number(ml), ...(kind === "尿" || kind === "便" ? { count: Number(count) } : {}), ...(kind === "尿" && catheter ? { catheter: catheter === "yes" } : {}), ...(kind === "便" && bristol ? { bristol: Number(bristol) as IoEntry["bristol"] } : {}), ...(isMeal ? { meal: { slot: mealSlot, staple: Number(staple), side: Number(mealSide) } } : {}), at, by: me.name, recordedAt: nowTime, ...(note.trim() ? { note: note.trim() } : {}) }]);
             setMl("");
             setTime("");
             setNote("");
@@ -268,7 +282,7 @@ function LineRow({ line: l, onVoid }: { line: IoLine; onVoid: (id: string, reaso
       <td className="w-20 py-1">{displayText(clockText(l.at))}</td>
       <td className="py-1">
         <span className={`mr-1 rounded px-1 text-[10px] font-bold ${l.side === "IN" ? "bg-ai-soft text-ai" : "bg-yamabuki-soft text-yamabuki"}`}>{l.side}</span>
-        {l.what} <b>{n(l.ml)}mL</b>
+        {l.what} {l.measured !== false && <b>{n(l.ml)}mL</b>}
         {l.formula && <div className="text-[10px] text-ink-faint">{l.formula}</div>}
       </td>
       <td className="py-1 text-[11px] text-ink-soft">

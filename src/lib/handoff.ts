@@ -1,3 +1,4 @@
+import { consciousnessText } from "./consciousness";
 // 勤務交代の申し送り, in the I-PASS order. Facts (vitals, NEWS2, new orders, what is due in the next
 // shift, cultures still out, marks on the patient) are gathered from the chart by code. The person
 // handing over says the rest; Claude only places their own sentences into the fields. The severity is
@@ -73,6 +74,7 @@ export function nextShift(nowAbs: number): { label: string; from: string; lo: nu
 const vitalLine = (v: WorkPatient["patient"]["vitals"][number]) => {
   const n = news2(v);
   const parts = [
+    consciousnessText(v),
     v.bt !== undefined && `BT ${v.bt}`,
     v.hr !== undefined && `HR ${v.hr}`,
     v.sbp !== undefined && `BP ${v.sbp}/${v.dbp ?? "—"}`,

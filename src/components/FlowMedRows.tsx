@@ -1,5 +1,7 @@
 "use client";
 
+import { glucoseMark } from "@/lib/flow-observation";
+import { useState } from "react";
 import { displayText } from "@/lib/display-text";
 import { WARD_RULES, findDrug } from "@/lib/master";
 import { abs } from "@/lib/flowsheet";
@@ -16,7 +18,7 @@ export interface FlowMar {
   sessionStart: number;
 }
 
-function Line({ label, sub, labelW, children, onPlot }: { label: string; sub?: string; labelW: number; children: React.ReactNode; onPlot?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
+function Line({ label, sub, labelW, children, onPlot }: { label: string; sub?: string; labelW: number; children?: React.ReactNode; onPlot?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
   return (
     <div className="flex border-b border-rule-soft">
       <div className="shrink-0 py-1 pr-2 text-right text-ink-soft" style={{ width: labelW }}>
@@ -80,8 +82,10 @@ export function FlowOralRows({ orders, mar, nowAbs, days, box, labelW, zoom, onC
 }
 
 /** 血糖 (the values of each day, or each at its time when zoomed in) and one row per insulin order with its doses. */
-export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi, zoom, onGlucose }: { points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number; zoom?: FlowZoom; onGlucose?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
-  if (!points.length && !insulin.length) return null;
+export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, labelW, xAbs, lo, hi, zoom, onGlucose, onInsulin, limits = { low: 70, high: 300 }, onLimits }: { limits?: { low: number; high: number }; onLimits?: (v: { low: number; high: number }) => void; onInsulin?: (e: React.MouseEvent<HTMLDivElement>, id: string) => void; points: GlucosePoint[]; insulin: OrderEntry[]; mar: FlowMar; nowAbs: number; days: DayOffset[]; box: DayBox; labelW: number; xAbs: (a: number) => number; lo: number; hi: number; zoom?: FlowZoom; onGlucose?: (e: React.MouseEvent<HTMLDivElement>) => void }) {
+  const [limitDraft, setLimitDraft] = useState<{ low: string; high: string } | null>(null);
+  const graphMax = Math.max(400, ...points.map(p => Math.ceil(p.value / 100) * 100));
+  const thresholds = limitDraft ?? { low: String(limits.low), high: String(limits.high) };
   return (
     <>
       <Line label="血糖" sub="mg/dL" labelW={labelW} onPlot={onGlucose}>
@@ -89,8 +93,8 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
           ? points
               .filter((p) => inZoom(zoom, p.at))
               .map((p) => (
-                <span key={`${p.at}-${p.source}`} title={p.title} className="absolute top-1 -translate-x-1/2 whitespace-nowrap text-ink" style={at(zoom.xAbs(p.at))}>
-                  {p.value}
+                <span key={`${p.at}-${p.source}`} title={p.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${glucoseMark(p.value, limits) ? "font-bold text-shu" : "text-ink"}`} style={at(zoom.xAbs(p.at))}>
+                  {p.value}{glucoseMark(p.value, limits)}
                 </span>
               ))
           : days.map((d) => {
@@ -99,22 +103,27 @@ export function FlowGlucoseRows({ points, insulin, mar, nowAbs, days, box, label
               const b = box(d);
               return (
                 <span key={d} title={c.title} className="absolute top-1 truncate px-0.5 text-center text-ink" style={{ left: b.left, width: b.width }}>
-                  {displayText(c.text)}
+                  {points.filter(p => Math.floor(p.at / 1440) === d).map(p => `${p.value}${glucoseMark(p.value, limits)}`).join("/")}
                 </span>
               );
             })}
       </Line>
+      <Line label="血糖グラフ" labelW={labelW} onPlot={onGlucose}>
+        <svg width="100%" height={80} role="img" aria-label="血糖 mg/dL の点グラフ"><text x={2} y={10} fontSize={9}>{graphMax}</text><text x={2} y={77} fontSize={9}>0</text>{points.filter(p => p.at >= lo && p.at < hi).map((p, i) => <circle key={i} cx={xAbs(p.at)} cy={74 - p.value / graphMax * 68} r={4} fill={glucoseMark(p.value, limits) ? "#c33c36" : "#2a78d6"}><title>{p.title}</title></circle>)}</svg>
+      </Line>
+      {onLimits && <details className="px-2 py-1 text-xs"><summary>血糖の印</summary><label>低値 &lt; <input aria-label="血糖の低値閾値" type="number" className="w-16 border border-rule" value={thresholds.low} onChange={e => setLimitDraft({ ...thresholds, low: e.target.value })} /></label><label> 高値 &gt; <input aria-label="血糖の高値閾値" type="number" className="w-16 border border-rule" value={thresholds.high} onChange={e => setLimitDraft({ ...thresholds, high: e.target.value })} /></label><button type="button" disabled={!thresholds.low || !thresholds.high || Number(thresholds.low) < 0 || Number(thresholds.high) <= Number(thresholds.low)} onClick={() => { onLimits({ low: Number(thresholds.low), high: Number(thresholds.high) }); setLimitDraft(null); }}>保存</button></details>}
+      {!insulin.length && <Line label="インスリン" sub="指示なし" labelW={labelW} />}
       {insulin.map((e) => {
         const drug = e.order.type === "injection" ? findDrug(e.order.items[0].drugCode) : undefined;
         return (
-          <Line key={e.id} label={drug ? (drug.aliases[0] ?? drug.name) : "インスリン"} sub="与薬の記録" labelW={labelW}>
+          <Line key={e.id} label={drug ? (drug.aliases[0] ?? drug.name) : "インスリン"} sub="インスリン" labelW={labelW} onPlot={onInsulin ? ev => onInsulin(ev, e.id) : undefined}>
             {insulinDoses(e, lo, hi, mar.records, mar.sessionStart, nowAbs).map((x) => (
               <span
                 key={x.at}
                 title={displayText(`${x.state}${x.record ? ` ${x.record.doneAt} ${x.record.by}${x.record.insulin ? `・${x.record.insulin.units}単位` : ""}` : ""}`)}
-                className={`absolute top-1 h-4 w-1 -translate-x-1/2 rounded ${x.state === "未実施" ? "bg-shu" : x.state === "未入力" ? "bg-yamabuki" : x.state === "予定" ? "bg-rule" : "bg-ink-soft"}`}
+                className={`absolute top-1 h-4 min-w-1 text-[10px] text-white -translate-x-1/2 rounded ${x.state === "未実施" ? "bg-shu" : x.state === "未入力" ? "bg-yamabuki" : x.state === "予定" ? "bg-rule" : "bg-ink-soft"}`}
                 style={{ left: xAbs(x.at) }}
-              />
+              >{x.record?.insulin ? `${x.record.insulin.units}単位` : ""}</span>
             ))}
           </Line>
         );

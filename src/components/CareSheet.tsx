@@ -163,7 +163,7 @@ function PrnCell({ order, records, lo, hi, nowTime, interactive, onRecord, onVoi
       </button>
       {open && (
         <span className="absolute left-0 top-full z-20 mt-0.5 block w-64 rounded border border-rule bg-paper p-1.5 text-[11px] shadow-md">
-          <RecordForm order={order} at={null} label="必要時" nowTime={nowTime} onSave={(r) => (onRecord(r), setOpen(false))} onClose={() => setOpen(false)} />
+          <RecordForm order={order} at={null} atDay={Math.floor(Math.min(minutesOf(nowTime), hi - 1) / 1440)} label="必要時" nowTime={nowTime} onSave={(r) => (onRecord(r), setOpen(false))} onClose={() => setOpen(false)} />
         </span>
       )}
     </span>
@@ -186,7 +186,7 @@ function PrnDone({ record, unit, onVoid }: { record: CareRecord; unit?: string; 
   );
 }
 
-function RecordForm({ order, at, label, nowTime, onSave, onClose }: { order: CareOrder; at: number | null; label: string; nowTime: string; onSave: (r: CareRecord) => void; onClose: () => void }) {
+function RecordForm({ order, at, atDay = 0, label, nowTime, onSave, onClose }: { order: CareOrder; at: number | null; atDay?: number; label: string; nowTime: string; onSave: (r: CareRecord) => void; onClose: () => void }) {
   const me = useMe();
   const deny = useDeny()("mar");
   const [value, setValue] = useState("");
@@ -195,12 +195,13 @@ function RecordForm({ order, at, label, nowTime, onSave, onClose }: { order: Car
   const [reason, setReason] = useState<CareNotDone | "">("");
   const make = (status: CareRecord["status"]): CareRecord => {
     // 必要時: recorded at the time it was done.
-    const t = at ?? minutesOf(doneAt);
+    const t = at ?? atDay * 1440 + minutesOf(doneAt);
     return {
       key: careKey(order.id, t),
       orderId: order.id,
       patientId: order.patientId,
       at: t,
+      ...(status === "実施" && order.kind === "観察" ? { measuredAt: Math.floor(t / 1440) * 1440 + minutesOf(doneAt) } : {}),
       status,
       ...(status === "実施" && value.trim() ? { value: value.trim() } : {}),
       ...(status === "未実施" && reason ? { reason } : {}),
@@ -210,8 +211,8 @@ function RecordForm({ order, at, label, nowTime, onSave, onClose }: { order: Car
       by: me.name,
     };
   };
-  const missDone = recordProblems(order, { status: "実施", value, doneAt }, nowTime);
-  const missNot = recordProblems(order, { status: "未実施", reason, doneAt }, nowTime);
+  const missDone = recordProblems(order, { status: "実施", value, doneAt }, atDay < 0 ? "47:59" : nowTime);
+  const missNot = recordProblems(order, { status: "未実施", reason, doneAt }, atDay < 0 ? "47:59" : nowTime);
   return (
     <span className="block space-y-1">
       <span className="flex items-center justify-between font-bold">
@@ -231,7 +232,7 @@ function RecordForm({ order, at, label, nowTime, onSave, onClose }: { order: Car
           </span>
         ) : (
           <span className="flex items-center gap-1">
-            <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder="見たこと・測った値" aria-label="観察した内容" className="min-w-0 flex-1 rounded border border-rule bg-sheet px-1" />
+            <input autoFocus type={order.inputKind === "number" ? "number" : "text"} step="any" value={value} onChange={(e) => setValue(e.target.value)} placeholder="見たこと・測った値" aria-label="観察した内容" className="min-w-0 flex-1 rounded border border-rule bg-sheet px-1" />
             {order.unit}
           </span>
         ))}

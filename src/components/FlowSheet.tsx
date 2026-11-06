@@ -1,5 +1,9 @@
 "use client";
 
+import { FlowInlineEntry } from "./FlowInlineEntry";
+import { FlowObservationAdder } from "./FlowObservationAdder";
+import { observationOrder } from "@/lib/flow-observation";
+import { jcsText, gcsText } from "@/lib/consciousness";
 import { displayText } from "@/lib/display-text";
 import { StandingMeasurements, type StandingMeasurementSource } from "./StandingMeasurements";
 
@@ -81,7 +85,7 @@ export interface FlowSheetProps {
   /** Put copied vital-sign lines into the O) of today's note. */
   onInsertVitals?: (text: string) => void;
   /** 看護ケア指示 of this patient and their records, shown as rows under 観察・記録. */
-  care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
+  care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number; onAdd?: (o: CareOrder) => void; onLimits?: (id: string, limits: { low: number; high: number }) => void; onRecord?: (r: CareRecord) => void; onVoid?: (r: CareRecord, reason: string) => void };
   /** 水分出納 (IN/OUT) rows. */
   io?: FlowIo;
   /** 食事オーダー, for the 食種 row. */
@@ -104,6 +108,7 @@ export interface FlowSheetProps {
   onScale?: (s: FlowScale) => void;
   /** Open the chart's own entry for a pressed cell (バイタル・看護ケア・水分出納・与薬・指示受け). */
   onEntry?: (req: FlowEntry) => void;
+  onSaveVital?: (v: VitalSign) => void;
   /** Orders of this patient a nurse has not taken yet (指示受け). */
   untaken?: string[];
   /** Printed as 温度板 (for the audit log). */
@@ -138,7 +143,12 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ standingMeasurements, patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
+export function FlowSheet({ standingMeasurements, patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry: externalEntry, onSaveVital, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
+  const [inlineReq, setInlineReq] = useState<FlowEntry | null>(null);
+  const onEntry = externalEntry ? (req: FlowEntry) => {
+    if ((req.kind === "vitals" && onSaveVital) || (req.kind === "io" && io?.onAdd) || (req.kind === "care" && care?.onRecord && care?.onVoid)) setInlineReq(req);
+    else externalEntry(req);
+  } : undefined;
   const [wrap, width] = useWidth<HTMLDivElement>();
   const me = useMe();
   const [prefs, setPrefs] = useFlowPrefs(me.name);
@@ -357,6 +367,9 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
           {show("vitals.rr") && <PointRow label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />}
           {show("vitals.spo2") && <PointRow label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />}
           {show("vitals.o2") && <PointRow label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />}
+          <PointRow label="ACVPU" vitals={vitals} x={x} value={v => v.avpu ?? ""} />
+          <PointRow label="JCS" vitals={vitals} x={x} value={jcsText} />
+          <PointRow label="GCS" vitals={vitals} x={x} value={gcsText} />
           {/* NEWS2 from each set of vitals (code, RCP 2017): ＊ when a part is missing, bold red at 5 or more or a single 3. */}
           {show("vitals.news2") && (
             <PointRow
@@ -405,7 +418,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                 const r = p.daily.find((x) => x.day === d);
                 if (!r?.meals) return "";
                 if (r.meals === "絶食") return "絶食";
-                return r.meals.map((m) => (m === null ? "−" : m)).join("/");
+                return r.meals.map((m, i) => `${m === null ? "−" : m}${r.mealSides ? `・${r.mealSides[i] ?? "−"}` : ""}`).join("/");
               }}
             />
           )}
@@ -428,13 +441,13 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
     },
     care: {
       show: !!care,
-      extra: layout.activeSet ? <span className="font-normal text-ai">セット「{layout.activeSet}」の行だけ</span> : undefined,
+      extra: care?.onAdd && !deny("mar") ? <FlowObservationAdder patientId={p.id} nowTime={nowTime} onAdd={care.onAdd} /> : layout.activeSet ? <span className="font-normal text-ai">セット「{layout.activeSet}」の行だけ</span> : undefined,
       // 血糖測定 has its own row with the values (血糖・インスリン), so it is not repeated with the care rows.
       body: care && <CareFlowRows {...care} orders={careOrders} days={days} box={dayBox} labelW={LABEL_W} nowX={nowIn ? xAbs(nowAbs) : null} nowAbs={nowAbs} zoom={zoom} shown={(item) => careShown(layout, item)} onCell={onEntry ? (e, item, d, at) => press(e, `${item}（${at === null ? formatShort(addDays(today, d)) : fmtAt(at)}）`, [{ kind: "care", item, ...cellWindow(d, at) }]) : undefined} />,
     },
     io: {
       show: !!(io && ioRows),
-      extra: io ? <IoHeading byTime={!win.byDay} standingIo={io.standingIo} /> : undefined,
+      extra: io ? <><IoHeading byTime={!win.byDay} standingIo={io.standingIo} />{onEntry && !deny("vitals") && <button type="button" className="rounded border border-rule px-2 py-1" onClick={() => onEntry({ kind: "io", at: nowAbs })}>入力</button>}</> : undefined,
       // 水分出納: recorded and planned kept apart, one cell per 24 hours from the close.
       body: io && ioRows && (
         <div
@@ -477,9 +490,12 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
       ),
     },
     glucose: {
-      show: glucose.length > 0 || insulin.length > 0,
+      show: true,
       body: (
         <FlowGlucoseRows
+          limits={care?.orders.find(isGlucoseCare)?.glucoseLimits}
+          onLimits={care?.onLimits && glucoseItem && !deny("mar") ? limits => care.onLimits?.(care.orders.find(isGlucoseCare)!.id, limits) : undefined}
+          onInsulin={onEntry ? (e, id) => { const at = timeOf(e); const d = Math.floor(at / 1440); press(e, "インスリンの実施", [{ kind: "mar", orderIds: [id], ...cellWindow(d, win.byDay ? null : at), label: "インスリン" }]); } : undefined}
           points={glucose}
           insulin={insulin}
           mar={marRecs}
@@ -492,11 +508,13 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
           hi={t1}
           zoom={zoom}
           onGlucose={
-            onEntry && glucoseItem
+            onEntry && (glucoseItem || care?.onAdd)
               ? (e) => {
-                  const at = timeOf(e);
+                  const at = Math.min(nowAbs, timeOf(e));
                   const d = Math.floor(at / 1440);
-                  press(e, `${glucoseItem}（${win.byDay ? formatShort(addDays(today, d)) : fmtAt(at)}）`, [{ kind: "care", item: glucoseItem, ...cellWindow(d, win.byDay ? null : at) }]);
+                  const item = glucoseItem ?? "血糖測定（簡易血糖測定器）";
+                  if (!glucoseItem) care?.onAdd?.(observationOrder({ id: crypto.randomUUID(), item, inputKind: "number", unit: "mg/dL", schedule: { kind: "prn" }, patientId: p.id, by: me.name, time: clock(at).padStart(5, "0"), day: d }));
+                  press(e, `${item}（${win.byDay ? formatShort(addDays(today, d)) : fmtAt(at)}）`, [{ kind: "care", item, ...cellWindow(d, win.byDay ? null : at) }, ...(insulin.length ? [{ kind: "mar" as const, orderIds: insulin.map(o => o.id), ...cellWindow(d, win.byDay ? null : at), label: "血糖・インスリン" }] : [])]);
                 }
               : undefined
           }
@@ -616,6 +634,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
         .map((k) => (
           <FlowGroup key={k} id={k} title={FLOW_GROUPS.find((g) => g.key === k)!.title} layout={layout} onLayout={setLayout} extra={groups[k].extra}>
             {groups[k].body}
+            {!printing && inlineReq && ((k === "vitals" && inlineReq.kind === "vitals") || (k === "io" && inlineReq.kind === "io") || ((k === "care" || k === "glucose") && inlineReq.kind === "care" && (k === "glucose" ? /血糖/.test(inlineReq.item) : !/血糖/.test(inlineReq.item)))) && <FlowInlineEntry key={JSON.stringify(inlineReq)} req={inlineReq} patient={p} entries={orders} today={today} nowTime={nowTime} care={care} io={io} onSaveVital={onSaveVital} onClose={() => setInlineReq(null)} />}
           </FlowGroup>
         ))}
 
@@ -931,6 +950,8 @@ function Tooltip({ v, left, plotW, today }: { v: VitalSign; left: number; plotW:
   const flip = left > plotW * 0.6;
   const [copied, setCopied] = useState(false);
   const rows: [string, string, string | undefined][] = [
+    ["transparent", "JCS", jcsText(v) || undefined],
+    ["transparent", "GCS", gcsText(v) || undefined],
     [C_BT, "体温", v.bt !== undefined ? `${v.bt.toFixed(1)}℃` : undefined],
     [C_HR, "脈拍", v.hr !== undefined ? `${v.hr}/分` : undefined],
     [C_BP, "血圧", v.sbp !== undefined ? `${v.sbp}/${v.dbp}` : undefined],
@@ -985,6 +1006,7 @@ function VitalTable({ vitals, today }: { vitals: VitalSign[]; today: CalendarDat
           <th className="py-1 text-right font-normal">呼吸数</th>
           <th className="py-1 text-right font-normal">SpO2</th>
           <th className="py-1 pl-3 text-left font-normal">酸素</th>
+          <th>ACVPU</th><th>JCS</th><th>GCS</th>
           <th className="py-1 pl-3 text-right font-normal" title="NEWS2（RCP 2017）をコードで計算">NEWS2</th>
         </tr>
       </thead>
@@ -1002,6 +1024,7 @@ function VitalTable({ vitals, today }: { vitals: VitalSign[]; today: CalendarDat
             <td className="py-1 text-right">{v.rr}</td>
             <td className="py-1 text-right">{v.spo2}</td>
             <td className="py-1 pl-3">{v.o2}</td>
+            <td>{v.avpu}</td><td>{jcsText(v)}</td><td>{gcsText(v)}</td>
             <td className={`py-1 pl-3 text-right ${news2(v).total >= 5 || news2(v).red ? "font-bold text-shu" : ""}`}>
               {news2(v).total}
               {news2(v).missing.length ? "＊" : ""}

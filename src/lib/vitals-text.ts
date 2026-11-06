@@ -1,3 +1,4 @@
+import { consciousnessText } from "./consciousness";
 // Vital signs as text to copy into a note: "11/3 07:00 BT 37.6℃ HR 88 BP 122/70 RR 16 SpO2 97%（室内気）".
 // Made by code from the flow sheet; nothing is rounded or judged.
 
@@ -24,6 +25,7 @@ export function vitalLine(v: VitalSign, today: CalendarDate): string {
     v.sbp !== undefined && `BP ${v.sbp}/${v.dbp ?? "—"}`,
     v.rr !== undefined && `RR ${v.rr}`,
     v.spo2 !== undefined && `SpO2 ${v.spo2}%${v.o2 ? `（${v.o2}）` : ""}`,
+    consciousnessText(v),
     v.avpu && `意識 ${AVPU[v.avpu] ?? v.avpu}`,
   ];
   return parts.filter(Boolean).join(" ");

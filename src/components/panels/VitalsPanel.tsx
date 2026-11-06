@@ -1,4 +1,5 @@
 "use client";
+import { ConsciousnessInput } from "../ConsciousnessInput";
 import { OxygenInput } from "../OxygenInput";
 import { news2 } from "@/lib/news2";
 import { oxygenParts } from "@/lib/oxygen-input";
@@ -26,6 +27,7 @@ export interface DailyInput {
 }
 
 interface Props {
+  manualOnly?: boolean;
   nowTime: string;
   initialOxygen?: string;
   last?: VitalSign;
@@ -123,10 +125,11 @@ const num = (s: string) => (s.trim() === "" ? undefined : Number(s));
 
 
 /** Vital signs entry (typed or spoken). Claude copies the numbers; NEWS2 is code; the nurse confirms. */
-export function VitalsPanel({ initialOxygen, nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo, defaultAt, fmtDay }: Props) {
+export function VitalsPanel({ manualOnly = false, initialOxygen, nowTime, last, onSave, today, prevWeight, onDaily, onOpenIo, defaultAt, fmtDay }: Props) {
   const me = useMe();
   const [f, setF] = useState<Form>(() => ({ ...empty, o2: initialOxygen ?? "室内気" }));
   // 測った時刻: now, or the time of the flow sheet's cell (it can be changed, not later than now).
+  const [consciousness, setConsciousness] = useState<Pick<VitalSign, "jcs" | "gcs">>({});
   const [when, setWhen] = useState<{ day: number; time: string } | null>(defaultAt ?? null);
   const whenOk = !when || (/^([01]\d|2[0-3]):[0-5]\d$/.test(when.time) && when.day * 1440 + minutesOf(when.time) <= minutesOf(nowTime));
   const at = when && whenOk ? when : { day: 0, time: nowTime };
@@ -135,7 +138,7 @@ export function VitalsPanel({ initialOxygen, nowTime, last, onSave, today, prevW
   const [error, setError] = useState<string | null>(null);
   const speech = useSpeech((t) => setText((x) => (x ? `${x}、${t}` : t)));
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
-  const v = { bt: num(f.bt), hr: num(f.hr), sbp: num(f.sbp), dbp: num(f.dbp), rr: num(f.rr), spo2: num(f.spo2), o2: f.o2 || "室内気", avpu: f.avpu || undefined };
+  const v = { ...consciousness, bt: num(f.bt), hr: num(f.hr), sbp: num(f.sbp), dbp: num(f.dbp), rr: num(f.rr), spo2: num(f.spo2), o2: f.o2 || "室内気", avpu: f.avpu || undefined };
   const read = async () => {
     setBusy(true);
     setError(null);
@@ -157,10 +160,10 @@ export function VitalsPanel({ initialOxygen, nowTime, last, onSave, today, prevW
   const oxygen = oxygenParts(f.o2);
   const oxygenOk = oxygen.device === "室内気" || Number(oxygen.flow) > 0;
   const input = "w-full rounded border border-rule bg-paper px-1.5 py-1 text-right text-[13px] outline-none focus:border-ai";
-  const filled = Object.values({ ...f, o2: "" }).some((x) => x !== "");
+  const filled = !!consciousness.jcs || !!consciousness.gcs || Object.values({ ...f, o2: "" }).some((x) => x !== "");
   return (
     <div className="space-y-3 text-[13px]" onKeyDown={focusNextOnEnter}>
-      <div className="flex gap-2">
+      {!manualOnly && <div className="flex gap-2">
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="例：38度2分、脈104、98の60、呼吸24、93%、鼻カニュラ2L、清明" className="min-w-0 flex-1 rounded border border-rule bg-paper px-2 py-1.5 outline-none focus:border-ai" />
         {speech.supported && (
           <button type="button" onClick={speech.listening ? speech.stop : speech.start} className="shrink-0 rounded border border-rule px-2" title="話して入力">
@@ -170,7 +173,7 @@ export function VitalsPanel({ initialOxygen, nowTime, last, onSave, today, prevW
         <button type="button" disabled={!text.trim() || busy} onClick={read} className="shrink-0 whitespace-nowrap rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40">
           {busy ? "…" : "数値にする"}
         </button>
-      </div>
+      </div>}
       {error && <p className="text-shu">{error}</p>}
       <div className="nums grid grid-cols-2 gap-2 text-xs text-ink-soft">
         {(
@@ -203,6 +206,7 @@ export function VitalsPanel({ initialOxygen, nowTime, last, onSave, today, prevW
             ))}
           </select>
         </label>
+        <ConsciousnessInput value={consciousness} onChange={setConsciousness} />
       </div>
       {last && (
         <p className="text-[11px] text-ink-faint">
@@ -223,10 +227,11 @@ export function VitalsPanel({ initialOxygen, nowTime, last, onSave, today, prevW
       {filled && <p className="nums rounded border border-rule bg-paper px-2 py-1" aria-live="polite">NEWS2 {score.total}{score.missing.length > 0 ? `（未入力：${score.missing.join("・")}）` : ""}</p>}
       <button
         type="button"
-        disabled={!filled || !whenOk || !oxygenOk}
+        disabled={!filled || !whenOk || !oxygenOk || [f.bt, f.hr, f.sbp, f.dbp, f.rr, f.spo2].some(x => x.trim() !== "" && !Number.isFinite(Number(x)))}
         onClick={() => {
           onSave({ day: at.day, time: at.time, ...v, by: me.name });
           setF(empty);
+          setConsciousness({});
           setText("");
         }}
         className="w-full rounded-md bg-ai px-3 py-2 font-bold text-white disabled:opacity-40"

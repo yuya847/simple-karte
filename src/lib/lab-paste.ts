@@ -1,3 +1,4 @@
+import { consciousnessText } from "./consciousness";
 // 「LD」と打って Tab（または Enter）で、直近の血液検査を学会発表の症例提示の書式で記事に貼る。
 // 書式：項目名 値 単位 を「、」で並べ、基準範囲（master.ts の共用基準範囲・SRL）から外れる値に ↑↓ を付ける。
 // 血算・凝固・生化学・炎症・心・血液ガス の順（症例提示の慣習。架空の病院の取り決め）。値は直近 1 回分だけ。
@@ -66,6 +67,7 @@ export function vitalsPasteText(p: Pick<Patient, "vitals">, today: CalendarDate)
   const v = latestVital(p.vitals);
   if (!v) return null;
   const items = [
+    consciousnessText(v),
     v.avpu && `意識 ${AVPU_JA[v.avpu] ?? v.avpu}`,
     v.bt !== undefined && `BT ${v.bt}℃`,
     v.sbp !== undefined && `BP ${v.sbp}${v.dbp !== undefined ? `/${v.dbp}` : ""} mmHg`,

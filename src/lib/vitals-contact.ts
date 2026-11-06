@@ -1,3 +1,4 @@
+import { consciousnessText } from "./consciousness";
 import type { Flash } from "./flash";
 import type { CallNote } from "./phs";
 import { placeBlock } from "./note-insert";
@@ -16,6 +17,7 @@ export function contactVitalLine(v: VitalSign): string {
   return [v.time, v.bt !== undefined && `BT ${v.bt.toFixed(1)}℃`, v.hr !== undefined && `HR ${v.hr}`,
     (v.sbp !== undefined || v.dbp !== undefined) && `BP ${v.sbp ?? "—"}/${v.dbp ?? "—"}`,
     v.rr !== undefined && `RR ${v.rr}`, v.spo2 !== undefined && `SpO2 ${v.spo2}%（${v.o2 || "室内気"}）`,
+    consciousnessText(v),
     v.avpu && `意識 ${v.avpu}`].filter(Boolean).join(" ");
 }
 

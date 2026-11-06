@@ -15,7 +15,7 @@ import type { DailyRecord, OrderEntry } from "./types";
 import { IO } from "./standing";
 import { SHIFTS } from "./worksheet";
 
-export const IN_KINDS = ["経口", "経管", "点滴", "輸血", "その他"] as const;
+export const IN_KINDS = ["経口", "経管", "点滴", "輸血", "その他", "食事"] as const;
 export const OUT_KINDS = ["尿", "便", "ドレーン", "嘔吐", "出血", "その他"] as const;
 export type InKind = (typeof IN_KINDS)[number];
 export type OutKind = (typeof OUT_KINDS)[number];
@@ -46,6 +46,10 @@ export interface IoEntry {
   side: IoSide;
   kind: InKind | OutKind;
   ml: number;
+  count?: number;
+  catheter?: boolean;
+  bristol?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  meal?: { slot: 0 | 1 | 2; staple: number; side: number };
   /** When it was measured or given (minutes from today 00:00). */
   at: number;
   by: string;
@@ -68,6 +72,7 @@ export interface IoLine {
   formula?: string;
   orderId?: string;
   entryId?: string;
+  measured?: boolean;
 }
 
 /** A period: lo < t ≤ hi (minutes from today 00:00). */
@@ -107,7 +112,7 @@ export function ioLines(p: { patientId: string; entries: OrderEntry[]; typed: Io
   const out: IoLine[] = [];
   for (const e of p.typed) {
     if (e.patientId !== p.patientId || e.voided || e.at < p.from) continue;
-    out.push({ side: e.side, kind: e.kind, ml: e.ml, at: e.at, by: e.by, what: e.note ? `${e.kind}（${e.note}）` : e.kind, from: "入力", entryId: e.id });
+    out.push({ side: e.side, kind: e.kind, ml: e.ml, at: e.at, by: e.by, what: [e.kind, e.count !== undefined ? `${e.count}回` : "", e.catheter !== undefined ? `尿道カテーテル${e.catheter ? "あり" : "なし"}` : "", e.bristol ? `ブリストル${e.bristol}` : "", e.meal ? `${["朝", "昼", "夕"][e.meal.slot]} 主食${e.meal.staple}割・副食${e.meal.side}割` : "", e.note ?? ""].filter(Boolean).join("・"), from: "入力", measured: e.kind !== "食事" && e.ml > 0, entryId: e.id });
   }
   for (const c of dripCourses(p.patientId, p.entries, p.records, p.sessionStart, p.nowAbs, p.from)) {
     if (!c.end) continue;
@@ -153,7 +158,7 @@ export function ioTotal(lines: IoLine[], w: Pick<IoWindow, "lo" | "hi">): IoTota
   let inCount = 0;
   let outCount = 0;
   for (const l of lines) {
-    if (!inWindow(l.at, w)) continue;
+    if (!inWindow(l.at, w) || l.measured === false) continue;
     if (l.side === "IN") {
       inBy[l.kind as InKind] = (inBy[l.kind as InKind] ?? 0) + l.ml;
       inCount++;
@@ -178,13 +183,22 @@ export const plannedIvMl = (entries: OrderEntry[], w: Pick<IoWindow, "lo" | "hi"
 
 /** The patient's days with the typed urine added to each calendar day (0:00–24:00). */
 export function withIoUrine(daily: DailyRecord[], typed: IoEntry[]): DailyRecord[] {
-  const byDay = new Map<number, number>();
-  for (const e of typed) if (!e.voided && e.side === "OUT" && e.kind === "尿") byDay.set(Math.floor(e.at / 1440), (byDay.get(Math.floor(e.at / 1440)) ?? 0) + e.ml);
-  if (!byDay.size) return daily;
-  const days = new Map(daily.map((d) => [d.day, d]));
-  for (const [day, ml] of byDay) {
+  const days = new Map(daily.map(d => [d.day, { ...d }]));
+  for (const e of [...typed].sort((a, b) => a.at - b.at)) {
+    if (e.voided) continue;
+    const day = Math.floor(e.at / 1440);
     const d = days.get(day) ?? { day };
-    days.set(day, { ...d, urineMl: (d.urineMl ?? 0) + ml });
+    if (e.side === "OUT" && e.kind === "尿") d.urineMl = (d.urineMl ?? 0) + e.ml;
+    if (e.side === "OUT" && e.kind === "便" && e.count !== undefined) d.stools = (d.stools ?? 0) + e.count;
+    if (e.meal) {
+      const meals: [number | null, number | null, number | null] = Array.isArray(d.meals) ? [...d.meals] : [null, null, null];
+      const sides: [number | null, number | null, number | null] = d.mealSides ? [...d.mealSides] : [null, null, null];
+      meals[e.meal.slot] = e.meal.staple;
+      sides[e.meal.slot] = e.meal.side;
+      d.meals = meals;
+      d.mealSides = sides;
+    }
+    days.set(day, d);
   }
   return [...days.values()].sort((a, b) => a.day - b.day);
 }

@@ -93,7 +93,7 @@ const hhmm = (min: number) => {
 export function glucosePoints(orders: CareOrder[], records: CareRecord[], labs: LabResult[], mar: AdminRecord[] = []): GlucosePoint[] {
   const ids = new Set(orders.filter(isGlucoseCare).map((o) => o.id));
   // The observation belongs to the administration record, so cancelling it also withdraws the glucose.
-  const observed = mar.filter(r=>r.status === "実施" && !r.cancellation && r.insulin?.glucose != null).map(r=>({key:`insulin:${r.key}`,orderId:`insulin:${r.orderId}`,patientId:r.patientId,at:r.at,status:"実施" as const,value:String(r.insulin!.glucose),doneAt:r.doneAt,writtenAt:r.doneAt,by:r.by}));
+  const observed = mar.filter(r=>r.status === "実施" && !r.cancellation && r.insulin?.glucose != null).map(r=>({key:`insulin:${r.key}`,orderId:`insulin:${r.orderId}`,patientId:r.patientId,at:r.insulin?.measuredAt ?? r.at,status:"実施" as const,value:String(r.insulin!.glucose),doneAt:r.doneAt,writtenAt:r.doneAt,by:r.by}));
   observed.forEach(r=>ids.add(r.orderId));
   records = [...records,...observed];
   const out: GlucosePoint[] = [];
@@ -101,7 +101,7 @@ export function glucosePoints(orders: CareOrder[], records: CareRecord[], labs: 
     if (!ids.has(r.orderId) || r.voided || r.status !== "実施" || recordOf(records, r.key) !== r) continue;
     const v = Number(String(r.value ?? "").replace(/[^\d.]/g, ""));
     if (!r.value || !Number.isFinite(v) || v <= 0) continue;
-    out.push({ at: r.at, value: v, source: "簡易血糖", title: `簡易血糖 ${v} mg/dL　${r.doneAt} ${r.by}${r.note ? `　${r.note}` : ""}` });
+    out.push({ at: r.measuredAt ?? r.at, value: v, source: "簡易血糖", title: `簡易血糖 ${v} mg/dL　${r.doneAt} ${r.by}${r.note ? `　${r.note}` : ""}` });
   }
   for (const l of labs) {
     const v = l.values.Glu;

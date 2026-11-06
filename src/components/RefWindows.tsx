@@ -5,7 +5,6 @@ import type { CalendarDate } from "@/lib/dates";
 import type { DayOffset, HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 import type { Booking } from "@/lib/bookings";
 import type { DietOrder } from "@/lib/diet";
-import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import type { StandingLine } from "@/lib/standing-lines";
 import { PrescriptionCalendar, ProcedureCalendar, type CalendarProps } from "./Calendars";
 import { FlowSheet, type FlowSheetProps } from "./FlowSheet";
@@ -54,7 +53,7 @@ export interface RefWindowProps {
   onBook?: (day: number, what: BookWhat) => void;
   onDoMove?: (entryId: string) => void;
   /** 看護ケア指示 and their records, for the flow sheet. */
-  care?: { orders: CareOrder[]; records: CareRecord[]; sessionStart: number };
+  care?: FlowSheetProps["care"];
   /** 水分出納 rows of the flow sheet. */
   io?: FlowIo;
   /** 術後日数 and the counted days on the flow sheet's dates. */
@@ -77,7 +76,7 @@ export function RefWindow({ tab, onNewPrescription, onPrescriptionStop, onNewOrd
   </div>;
   switch (tab) {
     case "flowsheet":
-      return <FlowSheet patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} {...flow} />;
+      return <FlowSheet key={patient.id} patient={patient} entries={entries} today={today} nowTime={nowTime} selectedDay={selectedDay} onSelectDay={onSelectDay} onInsertVitals={onInsertVitals} care={care} io={io} diets={diets} moves={moves} dayInfo={flowDays} {...flow} />;
     case "rxcal":
       return <PrescriptionCalendar {...calendarProps} />;
     case "proccal":

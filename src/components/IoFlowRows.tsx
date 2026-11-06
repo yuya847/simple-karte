@@ -13,6 +13,7 @@ export interface FlowIo {
   records: Record<string, AdminRecord>;
   sessionStart: number;
   standingIo: string | null;
+  onAdd?: (entries: IoEntry[]) => void;
 }
 
 interface Props {
@@ -54,7 +55,7 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
   const wins = byTime ? days.flatMap((d) => ioShifts(d)).filter((w) => w.hi > t0 && w.lo < endAbs) : days.map((d) => ioDay(d));
   const state = (w: IoWindow) => (w.hi <= nowAbs ? "past" : w.lo >= nowAbs ? "future" : "now");
   const upTo = (w: IoWindow) => ({ lo: w.lo, hi: Math.min(w.hi, nowAbs) });
-  const sum = (ls: IoLine[], w: { lo: number; hi: number }) => ls.filter((l) => inWindow(l.at, w)).reduce((a, l) => a + l.ml, 0);
+  const sum = (ls: IoLine[], w: { lo: number; hi: number }) => ls.filter((l) => inWindow(l.at, w) && l.measured !== false).reduce((a, l) => a + l.ml, 0);
   const injections = orders.filter((e) => e.order.type === "injection");
   const planOf = (e: OrderEntry, w: IoWindow) => fluidInWindow([e], w.lo, w.hi, nowAbs);
   const drips = injections.filter((e) => lines.some((l) => l.orderId === e.id) || wins.some((w) => state(w) !== "past" && planOf(e, w) > 0));
@@ -75,7 +76,7 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
     return { top, sub: st !== "past" && plan ? `(${r(plan)})` : undefined, title: [`この期間 ${r(rec)}mL ／ 開始からの合計 ${r(cum)}mL`, ...detail, st !== "past" ? `オーダからの予定量 ${r(plan)}mL（記録とは別）` : ""].filter(Boolean).join("\n") };
   };
   const kindCell = (side: "IN" | "OUT", kind: string, w: IoWindow): Cell => {
-    const ls = lines.filter((l) => l.side === side && l.kind === kind && !l.orderId);
+    const ls = lines.filter((l) => l.side === side && l.kind === kind && !l.orderId && l.measured !== false);
     const v = sum(ls, upTo(w));
     return { top: state(w) === "future" || !ls.some((l) => inWindow(l.at, upTo(w))) ? "" : r(v), title: `${kind} ${r(v)}mL` };
   };
@@ -93,9 +94,10 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
     return { top: state(w) === "future" || t.balance === null ? "" : signed(t.balance), title: `${t.formula}\n${shiftTitle(w)}` };
   };
 
-  const inKinds = IN_KINDS.filter((k) => lines.some((l) => l.side === "IN" && l.kind === k && !l.orderId));
-  const outKinds = OUT_KINDS.filter((k) => lines.some((l) => l.side === "OUT" && l.kind === k));
-  if (!lines.length && !drips.length) return null;
+  const inKinds = IN_KINDS.filter(k => k !== "食事" && k !== "点滴");
+  const outKinds = OUT_KINDS;
+  const observations = lines.filter(l => l.entryId && (l.kind === "食事" || l.kind === "尿" || l.kind === "便"));
+
   const shortDrug = (e: OrderEntry) => {
     if (e.order.type !== "injection") return "";
     const d = findDrug(e.order.items[0].drugCode);
@@ -139,7 +141,7 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
           .filter((l) => l.at >= t0 && l.at <= endAbs)
           .map((l, i) => (
             <span key={`${l.at}-${i}`} title={displayText(`${l.what}：${l.formula ?? `${l.ml}mL`}（${l.from}・${l.by}）`)} className="absolute top-1 -translate-x-1/2 whitespace-nowrap text-ink" style={{ left: xAbs(l.at) }}>
-              {r(l.ml)}
+              {l.measured === false ? l.what : r(l.ml)}
             </span>
           ))}
       </div>
@@ -156,6 +158,7 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
         {row("in", "IN合計", undefined, (w) => totalCell("IN", w), true)}
         {outKinds.map((k) => (byTime ? lineRow(`out-${k}`, k, "OUT", lines.filter((l) => l.side === "OUT" && l.kind === k)) : row(`out-${k}`, k, "OUT", (w) => kindCell("OUT", k, w))))}
         {row("out", "OUT合計", undefined, (w) => totalCell("OUT", w), true)}
+        {lineRow("details", "食事・排泄", "回数・性状", observations.map(l => ({ ...l, measured: false })))}
         {row("bal", "IN − OUT", undefined, balanceCell, true)}
         {nowAbs > t0 && nowAbs < endAbs && <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-[#8c8473]" style={{ left: labelW + xAbs(nowAbs) }} />}
       </div>

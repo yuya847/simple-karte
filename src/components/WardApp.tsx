@@ -2218,9 +2218,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     pendingExtends: pendingExtends,
     marOf: (id, at) => mar[`${id}|${at}`],
     execute: executeProps,
-    io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standingNow(patient.id)?.io ?? null },
+    io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standingNow(patient.id)?.io ?? null, onAdd: deny("vitals") ? undefined : addIo },
     onModify: modifyOrder,
-    care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime) },
+    care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime), onRecord: deny("mar") ? undefined : recordCare, onVoid: deny("mar") ? undefined : voidCareRecord, onAdd: deny("mar") ? undefined : (o) => { setCareOrders(all => [...all, o]); auditLog({ role: me.role, actor: me.name, action: "確定（経過表の観察項目）", patient: patient.name, detail: o.item }); }, onLimits: deny("mar") ? undefined : (id, glucoseLimits) => setCareOrders(all => all.map(o => o.id === id ? { ...o, glucoseLimits } : o)) },
     standingCal: { onAdd: (l) => addStandingLine(patient.id, l), lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason, day, kind) => stopStandingLine(patient.id, id, reason, day, kind), onEndField: (l) => { setStandingEdit({ ...l, patientId: patient.id, endSelected: true }); setPanel("standing"); }, onEdit: (l) => { setStandingEdit({ ...l, patientId: patient.id }); setPanel("standing"); }, onOpenPanel: () => { setStandingEdit(undefined); setPanel("standing"); } },
     flowDays: {
       surgeries: surgeries.filter((x) => x.patientId === patient.id),
@@ -2237,6 +2237,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     flow:
       chart.leftView === "flowsheet" || chart.openTabs.includes("flowsheet")
         ? {
+            onSaveVital: deny("vitals") ? undefined : (v) => { setExtraVitals(all => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), { ...v, recordedTime: nowTime }] })); auditLog({ role: me.role, actor: me.name, action: "確定（経過表のバイタル）", patient: patient.name, detail: `${v.time} JCS ${v.jcs?.score ?? "—"}` }); },
             standingMeasurements: { lines: standingLines[patient.id] ?? [], fields: standing[patient.id]?.at(-1) },
             scale: chart.flowScale ?? "all",
             onScale: (s) => update({ flowScale: s }),

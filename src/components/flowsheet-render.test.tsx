@@ -42,7 +42,9 @@ describe("経過表の画面", () => {
     const kita = render("90010198", { mar: { records: {}, sessionStart: 540 } });
     expect(kita).toContain("定期・持参薬など、時刻の決まった分");
     expect(kita).toContain("済");
-    expect(kita).not.toContain("血糖・インスリン");
+    expect(kita).toContain("血糖・インスリン");
+    expect(kita).toContain("血糖グラフ");
+    expect(kita).toContain("指示なし");
     const sakura = render("90010231", { care: { orders: INITIAL_CARE_ORDERS.filter((o) => o.patientId === "90010231"), records: initialCareRecords(), sessionStart: 540 } });
     expect(sakura).toContain("血糖・インスリン");
     expect(sakura).toContain("186/214/198");

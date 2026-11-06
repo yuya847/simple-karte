@@ -41,6 +41,8 @@ export interface CareOrder {
   kind: CareKind;
   /** 観察: the answers to choose from (none = free words). */
   choices?: string[];
+  inputKind?: "number" | "choice" | "check" | "text";
+  glucoseLimits?: { low: number; high: number };
   /** 観察: the unit of a number (kg, cm …). */
   unit?: string;
   schedule: CareSchedule;
@@ -194,6 +196,7 @@ export const CARE_NOT_DONE = ["患者が拒否", "検査・リハビリなどで
 export type CareNotDone = (typeof CARE_NOT_DONE)[number];
 
 export interface CareRecord {
+  measuredAt?: number;
   key: string;
   orderId: string;
   patientId: string;
@@ -248,9 +251,11 @@ export const careLate = (task: { orderId: string; at: number | null }, records: 
 export const careOpen = (at: number | null, nowAbs: number) => at === null || at - nowAbs <= CARE_EARLY_MIN;
 
 /** What is missing or wrong before a 実施・未実施 record can be saved. */
-export function recordProblems(order: Pick<CareOrder, "kind">, r: { status: "実施" | "未実施"; value?: string; reason?: string; doneAt: string }, nowTime: string): string[] {
+export function recordProblems(order: Pick<CareOrder, "kind" | "inputKind" | "choices">, r: { status: "実施" | "未実施"; value?: string; reason?: string; doneAt: string }, nowTime: string): string[] {
   const out: string[] = [];
   if (r.status === "実施" && order.kind === "観察" && !r.value?.trim()) out.push("観察した内容");
+  if (r.status === "実施" && order.inputKind === "number" && (!r.value?.trim() || !Number.isFinite(Number(r.value)))) out.push("数値を入れてください");
+  if (r.status === "実施" && order.choices?.length && !order.choices.includes(r.value ?? "")) out.push("選択肢から選んでください");
   if (r.status === "未実施" && !r.reason) out.push("未実施の理由");
   if (!VALID_CONTINUED.test(r.doneAt)) out.push("実施した時刻（HH:MM）");
   else if (minutesOf(r.doneAt) > minutesOf(nowTime)) out.push("実施した時刻が今より後です");
@@ -268,6 +273,8 @@ export function lateCare(orders: CareOrder[], records: CareRecord[], patientIds:
 // ---------------------------------------------------------------------------
 
 export interface CareDraft {
+  inputKind?: CareOrder["inputKind"];
+  glucoseLimits?: CareOrder["glucoseLimits"];
   item: string;
   kind: CareKind;
   choices: string[];
@@ -292,6 +299,7 @@ export function draftFromItem(name: string, nowTime: string): CareDraft {
 
 /** A draft from an order in force (to change it). */
 export const draftFromOrder = (o: CareOrder, nowTime: string, today: DayOffset = 0): CareDraft => ({
+  inputKind: o.inputKind, glucoseLimits: o.glucoseLimits,
   item: o.item,
   kind: o.kind,
   choices: o.choices ?? [],
@@ -342,6 +350,8 @@ export function makeCareOrder(d: CareDraft, id: string, patientId: string, by: s
   return {
     id,
     patientId,
+    inputKind: d.inputKind,
+    glucoseLimits: d.glucoseLimits,
     item: d.item.trim(),
     kind: d.kind,
     ...(d.kind === "観察" && d.choices.length ? { choices: d.choices.map((c) => c.trim()) } : {}),
