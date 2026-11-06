@@ -7,7 +7,7 @@ import { ClipboardList, FilePen, HeartPulse, HelpCircle, ListChecks } from "luci
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { openHelp } from "@/lib/help/events";
-import { ENDOSCOPY, derivedValues, fieldsOf, physioResultItems, physioRows, reportProblems, valuesLine, versionOf, type PhysioDesk, type PhysioRow, type PhysioStatus, type PhysioWork } from "@/lib/physio-desk";
+import { derivedValues, fieldsOf, physioResultItems, physioRows, reportProblems, valuesLine, versionOf, type PhysioDesk, type PhysioRow, type PhysioStatus, type PhysioWork } from "@/lib/physio-desk";
 import type { Ack } from "@/lib/results";
 import type { WorkPatient } from "@/lib/worksheet";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
@@ -80,7 +80,6 @@ export function PhysioView(p: Props) {
           {tab === "work" && <Work {...p} rows={rows} />}
           {tab === "report" && <Report {...p} rows={rows} />}
           {tab === "list" && <List {...p} rows={rows} />}
-          <p className="text-[11px] text-ink-soft">基準値による判定はしません（数値と所見を読むのは医師）。入力できる範囲は打ち間違いを止めるためのもので、基準範囲ではありません。内視鏡（{ENDOSCOPY.length}種類）はこの画面に出ません。</p>
         </div>
       </div>
     </div>

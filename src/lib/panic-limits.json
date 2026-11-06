@@ -1,0 +1,105 @@
+[
+  {
+    "code": "Glu",
+    "low": 50,
+    "high": 500
+  },
+  {
+    "code": "Na",
+    "low": 115,
+    "high": 165
+  },
+  {
+    "code": "K",
+    "low": 1.5,
+    "high": 7.0
+  },
+  {
+    "code": "Cl",
+    "high": 120
+  },
+  {
+    "code": "Ca",
+    "low": 6.0,
+    "high": 12.0
+  },
+  {
+    "code": "BUN",
+    "high": 80
+  },
+  {
+    "code": "TP",
+    "low": 4.0,
+    "high": 10.0
+  },
+  {
+    "code": "Alb",
+    "low": 2.0,
+    "high": 6.0
+  },
+  {
+    "code": "UA",
+    "low": 1.0,
+    "high": 10.0
+  },
+  {
+    "code": "AST",
+    "high": 300
+  },
+  {
+    "code": "ALT",
+    "high": 300
+  },
+  {
+    "code": "LDH",
+    "high": 1000
+  },
+  {
+    "code": "AMY",
+    "high": 1000
+  },
+  {
+    "code": "Cre",
+    "high": 3.0
+  },
+  {
+    "code": "CK",
+    "high": 5000
+  },
+  {
+    "code": "ChE",
+    "low": 20
+  },
+  {
+    "code": "Lac",
+    "high": 45
+  },
+  {
+    "code": "WBC",
+    "low": 1500,
+    "high": 20000
+  },
+  {
+    "code": "Hb",
+    "low": 5,
+    "high": 20
+  },
+  {
+    "code": "Plt",
+    "low": 3,
+    "high": 100
+  },
+  {
+    "code": "PT-INR",
+    "high": 2.0
+  },
+  {
+    "code": "Fib",
+    "low": 100,
+    "high": 700
+  },
+  {
+    "code": "FDP",
+    "high": 20
+  }
+]

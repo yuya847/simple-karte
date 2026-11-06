@@ -37,6 +37,7 @@ export interface ReportVersion {
 
 /** A result the laboratory confirmed (values by analyte code). The fields of ReportVersion are the version in force. */
 export interface LabReport extends ReportVersion {
+  id?: string;
   code: string;
   orderId: string;
   patientId: string;
@@ -124,6 +125,27 @@ export interface DrawRow {
   cultureStarted?: boolean;
 }
 
+/** Identity of the specimen, independent of its printed barcode. */
+export const specimenId = (r: Pick<DrawRow, "patientId" | "orderId" | "at">) => `${r.patientId}|${r.orderId}|${r.at}`;
+
+/** Old workspaces used non-unique labels as keys. Only the stored identity can establish ownership. */
+export function specimenRecord<T extends { patientId: string; orderId: string; at: number }>(records: Record<string, T>, row: Pick<DrawRow, "patientId" | "orderId" | "at">): T | undefined {
+  const id = specimenId(row);
+  const candidate = records[id];
+  return candidate && specimenId(candidate) === id ? candidate : Object.values(records).find((r) => specimenId(r) === id);
+}
+
+/** Include legacy culture IDs while new cultures use the specimen identity. */
+const culturesOfSpecimen = (desk: LabDesk, row: Pick<DrawRow, "patientId" | "orderId" | "at">) => {
+  const reception = specimenRecord(desk.received, row);
+  return [...new Set([specimenId(row), labelFor(row.orderId, row.at), ...(reception ? [reception.code] : [])])].flatMap((id) => worksOfCode(desk.cultures, row.patientId, id));
+};
+
+function storeSpecimen<T extends { patientId: string; orderId: string; at: number }>(records: Record<string, T>, value: T): Record<string, T> {
+  const id = specimenId(value);
+  return { ...Object.fromEntries(Object.entries(records).filter(([, r]) => specimenId(r) !== id)), [id]: value };
+}
+
 const hhmm = (min: number) => {
   const m = ((min % 1440) + 1440) % 1440;
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -164,8 +186,9 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
     const person = people.find((x) => x.patient.id === i.patientId);
     const order = person?.entries.find((e) => e.id === i.orderId)?.order as LabOrder | undefined;
     const codes = order?.codes ?? [];
-    const redrawOf = Object.values(desk.rejected).find((r) => r.redrawId === i.orderId);
-    const started = worksOfCode(desk.cultures, i.patientId, code).some((w) => w.steps.length > 0);
+    const previous = Object.values(desk.rejected).find((r) => r.redrawId === i.orderId);
+    const redrawOf = previous ? { ...previous, code: labelFor(previous.orderId, previous.at) } : undefined;
+    const started = culturesOfSpecimen(desk, { patientId: i.patientId, orderId: i.orderId, at }).some((w) => w.steps.length > 0);
     const urgentItems = (order?.urgentCodes ?? []).map((c) => findLab(c)?.abbr ?? findLab(c)?.name ?? c);
     const base = {
       code,
@@ -190,12 +213,13 @@ export function drawRows(people: WorkPatient[], records: Record<string, AdminRec
         : {}),
       ...(started ? { cultureStarted: true } : {}),
     };
-    const report = desk.reports[code];
-    if (report) return { ...base, status: remainingAnalytes(entryPlan(codes), report.values).length ? "受付済み" as const : "報告済み" as const, report, reception: desk.received[code] };
-    const rejection = desk.rejected[code];
-    if (rejection) return { ...base, status: "再採血" as const, rejection, reception: desk.received[code] };
+    const identity = { patientId: i.patientId, orderId: i.orderId, at };
+    const report = specimenRecord(desk.reports, identity);
+    if (report) return { ...base, status: remainingAnalytes(entryPlan(codes), report.values).length ? "受付済み" as const : "報告済み" as const, report, reception: specimenRecord(desk.received, identity) };
+    const rejection = specimenRecord(desk.rejected, identity);
+    if (rejection) return { ...base, status: "再採血" as const, rejection, reception: specimenRecord(desk.received, identity) };
     if (person?.patient.labs.some((l) => !l.id && abs(l.day, l.time) === at)) return { ...base, status: "報告済み" as const, fromRecord: true };
-    const reception = desk.received[code];
+    const reception = specimenRecord(desk.received, identity);
     if (reception) return { ...base, status: "受付済み" as const, reception };
     const rec = records[`${i.orderId}|${at}`];
     const st = marState({ orderId: i.orderId, at }, records, sessionStart, nowAbs);
@@ -226,7 +250,9 @@ export interface SpecimenScan {
 export function scanSpecimen(input: string, rows: DrawRow[], people: WorkPatient[], nowAbs: number): SpecimenScan | null {
   const code = normalizeCode(input);
   if (!code) return null;
-  const row = rows.find((r) => r.code === code);
+  const matches = rows.filter((r) => r.code === code);
+  if (matches.length > 1) return { ok: false, tone: "stop", message: "検体番号が重複しています。受付を中止しました。" };
+  const row = matches[0];
   if (!row) {
     for (const { patient: p, entries } of people)
       for (const e of entries) {
@@ -258,8 +284,9 @@ export function scanSpecimen(input: string, rows: DrawRow[], people: WorkPatient
 
 /** 受付: who and when; a culture in the sample starts (培養中). */
 export function receive(desk: LabDesk, row: DrawRow, by: string, nowAbs: number): LabDesk {
+  if (specimenRecord(desk.received, row) || specimenRecord(desk.rejected, row) || specimenRecord(desk.reports, row)) return desk;
   const r: Reception = { code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, by, day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs), collected: row.status === "採取済み" };
-  return { ...desk, received: { ...desk.received, [row.code]: r }, cultures: startCultures(desk.cultures, row) };
+  return { ...desk, received: storeSpecimen(desk.received, r), cultures: startCultures(desk.cultures, row) };
 }
 
 /** How many draws are in each state. */
@@ -302,8 +329,8 @@ export function rejectSpecimen(desk: LabDesk, row: DrawRow, reason: RejectReason
   const count = Object.values(desk.rejected).filter((r) => rootOrderId(r.orderId) === root).length;
   const r: Rejection = { code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, reason, ...(n ? { note: n } : {}), by, day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs), redrawId: `${root}-re${count + 1}` };
   // A culture of the sample sent back did not start; the new draw starts its own.
-  const drop = new Set(worksOfCode(desk.cultures, row.patientId, row.code).map((w) => w.key));
-  return { ...desk, rejected: { ...desk.rejected, [row.code]: r }, cultures: Object.fromEntries(Object.entries(desk.cultures).filter(([k]) => !drop.has(k))) };
+  const drop = new Set(culturesOfSpecimen(desk, row).map((w) => w.key));
+  return { ...desk, rejected: storeSpecimen(desk.rejected, r), cultures: Object.fromEntries(Object.entries(desk.cultures).filter(([k]) => !drop.has(k))) };
 }
 
 /**
@@ -477,14 +504,14 @@ export function reportAddition(plan: EntryPlan, before: Record<string, number>, 
 
 /** Report entered items; previously reported values can only be changed by correction. */
 export function confirmReport(desk: LabDesk, row: DrawRow, values: Record<string, number>, by: string, nowAbs: number): LabDesk {
-  if (!desk.received[row.code] || desk.rejected[row.code]) return desk;
-  const before = desk.reports[row.code];
+  if (!specimenRecord(desk.received, row) || specimenRecord(desk.rejected, row)) return desk;
+  const before = specimenRecord(desk.reports, row);
   const plan = entryPlan(row.codes);
   const added = reportAddition(plan, before?.values ?? {}, values);
   if (!Object.keys(added).length) return desk;
   const addition: ReportVersion = { values: added, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) } };
-  const r: LabReport = { ...before, code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, values: { ...before?.values, ...added }, by, reported: addition.reported, expected: plan.analytes.map((a) => a.code), additions: [...(before?.additions ?? []), addition] };
-  return { ...desk, reports: { ...desk.reports, [row.code]: r } };
+  const r: LabReport = { ...before, id: before ? (before.id ?? before.code) : specimenId(row), code: row.code, orderId: row.orderId, patientId: row.patientId, at: row.at, values: { ...before?.values, ...added }, by, reported: addition.reported, expected: plan.analytes.map((a) => a.code), additions: [...(before?.additions ?? []), addition] };
+  return { ...desk, reports: storeSpecimen(desk.reports, r) };
 }
 
 /** The confirmed results of a patient, as rows of the result table (filed at the draw time). */
@@ -498,7 +525,7 @@ export function deskLabs(desk: LabDesk, patientId: string): ReportedLabResult[] 
         day: Math.floor(r.at / 1440),
         time: hhmm(r.at),
         values: r.values,
-        id: r.code,
+        id: r.id ?? r.code,
         reportedBy: r.by,
         reportedAt: r.reported,
         ...(r.expected && (r.additions?.length ?? 0) > 0 ? { progress: { expected: r.expected, sequence: r.additions!.length } } : {}),
@@ -572,13 +599,13 @@ export function checkCorrection(report: LabReport, entry: EntryCheck, reason: st
  * `earlier`. A report is corrected only with a reason and a changed value.
  */
 export function correctReport(desk: LabDesk, code: string, values: Record<string, number>, reason: string, by: string, nowAbs: number): LabDesk {
-  const r = desk.reports[code];
+  const r = desk.reports[code] ?? Object.values(desk.reports).find((r) => specimenId(r) === code || r.code === code);
   if (!r || !reason.trim() || changesOf(r.values, values).length === 0) return desk;
   const before: ReportVersion = { values: r.values, by: r.by, reported: r.reported, ...(r.reason ? { reason: r.reason } : {}) };
   if (Object.keys(r.values).some((c) => !Number.isFinite(values[c]) || values[c] < 0)) return desk;
   const correctedValues = Object.fromEntries(Object.keys(r.values).map((c) => [c, values[c]]));
   const next: LabReport = { ...r, values: correctedValues, by, reported: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, reason: reason.trim(), correction: { version: versionOf(r) + 1, reason: reason.trim(), by, at: { day: Math.floor(nowAbs / 1440), time: hhmm(nowAbs) }, before: r.values }, earlier: [...(r.earlier ?? []), before] };
-  return { ...desk, reports: { ...desk.reports, [code]: next } };
+  return { ...desk, reports: storeSpecimen(desk.reports, next) };
 }
 
 /** Every version of a report, oldest first (the last is in force). */
@@ -591,13 +618,12 @@ export function addTry(desk: LabDesk, key: string, t: ContactAttempt): LabDesk {
 
 /** Withdraw receipt and its dependent results; other specimens are untouched. */
 export function cancelReception(desk: LabDesk, code: string, patientId: string, by: string, at: string, reason = ""): LabDesk {
-  if (!desk.received[code]) return desk;
-  const related = worksOfCode(desk.cultures, patientId, code);
-  const snapshot = { reception: desk.received[code], report: desk.reports[code], rejection: desk.rejected[code], cultures: related };
+  const reception = Object.values(desk.received).find((r) => r.patientId === patientId && (specimenId(r) === code || r.code === code));
+  if (!reception) return desk;
+  const related = culturesOfSpecimen(desk, reception);
+  const snapshot = { reception, report: specimenRecord(desk.reports, reception), rejection: specimenRecord(desk.rejected, reception), cultures: related };
   const history = cancelExecution(snapshot, ["reception", "report", "rejection", "cultures"], by, at, reason).cancellations;
-  const received = { ...desk.received }; delete received[code];
-  const reports = { ...desk.reports }; delete reports[code];
-  const rejected = { ...desk.rejected }; delete rejected[code];
+  const remove = <T extends Reception | LabReport | Rejection>(rows: Record<string, T>) => Object.fromEntries(Object.entries(rows).filter(([, r]) => specimenId(r) !== specimenId(reception)));
   const cultures = { ...desk.cultures }; for (const w of related) delete cultures[w.key];
-  return { ...desk, received, reports, rejected, cultures, cancellations: [...(desk.cancellations ?? []), ...history] };
+  return { ...desk, received: remove(desk.received), reports: remove(desk.reports), rejected: remove(desk.rejected), cultures, cancellations: [...(desk.cancellations ?? []), ...history] };
 }

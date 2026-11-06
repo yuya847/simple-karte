@@ -2730,6 +2730,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         />
       ) : screen === "lab" ? (
         <LabView
+          onOpen={(id) => id.startsWith("er:") ? openVisit("er", id.slice(3)) : id.startsWith("opd:") ? openVisit("opd", id.slice(4)) : openPatient(id)}
           people={[...people, ...labVisits]}
           items={labItems}
           calls={calls}
@@ -4691,7 +4692,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           }}
         />
       )}
-      {pickerOpen && <PatientPicker patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onInfo={(id) => (openPatient(id), setPanel("patient-info"))} onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && <PatientPicker beds={allBeds} patients={allPatients} openIds={patientTabs.map((t) => t.id)} onOpen={openPatient} onInfo={(id) => (openPatient(id), setPanel("patient-info"))} onClose={() => setPickerOpen(false)} />}
     </div>
     </CosignRefs>
     </VerbalReviewProvider>

@@ -7,6 +7,7 @@ import type { Patient } from "@/lib/types";
 import { ageSex } from "@/lib/person";
 
 interface Props {
+  beds?: { patientId?: string; room: string; bed: string }[];
   patients: Patient[];
   openIds: string[];
   onOpen: (id: string) => void;
@@ -16,7 +17,7 @@ interface Props {
 }
 
 /** Ward patient list. Type to filter, ↑↓ to move, Enter to open in a tab. */
-export function PatientPicker({ patients, openIds, onOpen, onInfo, onClose }: Props) {
+export function PatientPicker({ beds, patients, openIds, onOpen, onInfo, onClose }: Props) {
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -26,8 +27,8 @@ export function PatientPicker({ patients, openIds, onOpen, onInfo, onClose }: Pr
   const list = useMemo(() => {
     const s = q.trim();
     if (!s) return patients;
-    return patients.filter((p) => [p.name, p.kana, p.room, p.id, p.admissionDiagnosis].some((f) => f.includes(s)));
-  }, [q, patients]);
+    return patients.filter((p) => [p.name, p.kana, p.room, p.id, p.admissionDiagnosis, ...(beds ?? []).filter((b) => b.patientId === p.id).map((b) => `${b.room}${b.bed}`)].some((f) => f.toUpperCase().includes(s.normalize("NFKC").toUpperCase())));
+  }, [q, patients, beds]);
 
   const at = Math.min(cursor, Math.max(list.length - 1, 0));
 

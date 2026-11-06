@@ -1,3 +1,4 @@
+import { specimenId } from "./lab-desk";
 import { describe, expect, it } from "vitest";
 import { initialErPatients } from "./er";
 import { EMPTY_DESK, confirmReport, drawRows, entryPlan, receive, rejectSpecimen, scanSpecimen, whenText } from "./lab-desk";
@@ -52,7 +53,7 @@ describe("救急外来・外来の検体", () => {
     visits = visitPeople(er, OPD_PATIENTS, orders, desk);
     const ishida = visits.find((v) => v.patient.id === "opd:opd-1")!;
     const items = resultsOf(ishida.patient, PANIC_LIMITS);
-    expect(items[0].key).toBe(`lab|opd:opd-1|0|09:45|${row.code}`);
+    expect(items[0].key).toBe(`lab|opd:opd-1|0|09:45|${specimenId(row)}`);
     const waiting = uncalled(items, {});
     expect(waiting[0].panic.map((h) => h.code)).toEqual(["K"]);
     expect(callScript(waiting[0], ishida.patient, ishida.room)[1]).toBe("① 外来");

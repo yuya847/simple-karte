@@ -3,6 +3,8 @@
 // The records of 輸血部門・病理・生理検査室・放射線部・リハビリテーション部, with the fictional state they start from. WardApp spreads
 // `states` into useWorkspace so they are saved with the other records of the session.
 
+import { SCENARIOS } from "./scenarios";
+import { scenarioMode } from "./scenarios/mode";
 import { useMemo, useState } from "react";
 import { EMPTY_BANK, initialBank, type BloodBank } from "./blood-bank";
 import { nowTimeInTokyo } from "./dates";
@@ -30,7 +32,7 @@ const demoOrders = (nowAbs: number): Record<string, OrderEntry[]> => {
 export function useDepartments() {
   const [bloodBank, setBloodBank] = useState<BloodBank>(onClient(EMPTY_BANK, initialBank));
   const [pathology, setPathology] = useState<PathCase[]>(onClient([], initialPathology));
-  const [physioDesk, setPhysioDesk] = useState<PhysioDesk>(onClient({}, initialPhysioDesk));
+  const [physioDesk, setPhysioDesk] = useState<PhysioDesk>(onClient({}, (now) => scenarioMode() ? SCENARIOS.physioDesk : initialPhysioDesk(now)));
   const [ris, setRis] = useState<RisDesk>(onClient({}, initialRisDesk));
   const [rehab, setRehab] = useState<RehabDesk>(onClient(EMPTY_REHAB, initialRehabDesk));
   /** Physiological tests, imaging and rehabilitation ordered for the fictional ward patients (merged into their records). */

@@ -71,7 +71,12 @@ export interface AdminRecord {
 export const marKey = (orderId: string, at: number) => `${orderId}|${at}`;
 
 /** The code printed on the drug label or specimen label for one dose (fictional format). */
-export const labelFor = (orderId: string, at: number) => `${orderId.replace(/[^A-Za-z0-9]/g, "").slice(-6).toUpperCase()}-${at}`;
+/** Stable numeric barcode; the complete order ID and draw time participate. Never use as a database key. */
+export const labelFor = (orderId: string, at: number) => {
+  let hash = BigInt("14695981039346656037");
+  for (const ch of `${orderId}|${at}`) hash = BigInt.asUintN(64, (hash ^ BigInt(ch.codePointAt(0)!)) * BigInt("1099511628211"));
+  return hash.toString().padStart(20, "0");
+};
 
 /** Kinds read with a label (drug or specimen). 処置・検査 only check the wristband. */
 export const needsLabel = (kind: WorkItem["kind"]) => kind === "注射" || kind === "内服" || kind === "採血";
@@ -97,7 +102,7 @@ export function checkScan(item: Pick<WorkItem, "orderId" | "patientId" | "kind" 
   if (needsLabel(item.kind)) {
     const want = item.at === null ? null : labelFor(item.orderId, item.at);
     lab = !lb ? "none" : lb === want ? "ok" : "mismatch";
-    if (lab === "mismatch") messages.push(want && lb.split("-")[0] === want.split("-")[0] ? `同じオーダの別の回のラベルです（${lb}）。この回は ${want} です。` : `ラベルがこのオーダのものではありません（${lb}）。`);
+    if (lab === "mismatch") messages.push(want && (lb.split("-")[0] === want.split("-")[0] || Array.from({ length: 2881 }, (_, m) => m - 1440 + (item.at ?? 0)).some((at) => labelFor(item.orderId, at) === lb)) ? `同じオーダの別の回のラベルです（${lb}）。この回は ${want} です。` : `ラベルがこのオーダのものではありません（${lb}）。`);
     if (lab === "none") messages.push(item.kind === "採血" ? "検体ラベルを読んでください。" : "薬のラベルを読んでください。");
   }
   let offBy: number | undefined;

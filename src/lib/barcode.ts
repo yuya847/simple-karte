@@ -20,13 +20,15 @@ const STOP = 106;
 
 /** Symbol values for set B: printable ASCII 32–126. Throws on anything else. */
 export function code128Values(text: string): number[] {
-  const vals = [...text].map((c) => {
+  const numeric = /^\d{20}$/.test(text);
+  const start = numeric ? 105 : START_B;
+  const vals = numeric ? text.match(/.{2}/g)!.map(Number) : [...text].map((c) => {
     const n = c.charCodeAt(0);
     if (n < 32 || n > 126) throw new Error(`Code 128B で表せない文字です：${c}`);
     return n - 32;
   });
-  const check = (START_B + vals.reduce((s, v, i) => s + v * (i + 1), 0)) % 103;
-  return [START_B, ...vals, check, STOP];
+  const check = (start + vals.reduce((s, v, i) => s + v * (i + 1), 0)) % 103;
+  return [start, ...vals, check, STOP];
 }
 
 /** Bar and space widths in modules, bar first, from start to stop. */

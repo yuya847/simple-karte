@@ -12,7 +12,7 @@ export function addWorkflow(p: Patient, diagnoses: Diagnosis[], end: number, i: 
   const name = p.admissionDiagnosis;
   const day = (after: number) => Math.min(p.admittedOn + after, end);
   const note = (after: number, role: NoteEntry["role"], text: string) => p.admittedOn + after <= end && p.history.push({ kind: "note", id: `${p.id}-workflow-${p.history.length}`, day: day(after), time: "11:00", role, author: role === "医師" ? p.attending : role === "看護師" ? nurseFor(p.room) : role, text });
-  const order = (after: number, o: Order) => p.admittedOn + after <= end && p.history.push({ kind: "order", id: `${p.id}-workflow-${p.history.length}`, day: day(after), time: "11:10", author: p.attending, status: "有効", order: o });
+  const order = (after: number, o: Order) => p.admittedOn + after <= end && p.history.push({ kind: "order", id: `${p.id}-workflow-${p.history.length}`, day: day(after), time: o.type === "lab" ? "08:30" : "11:10", author: p.attending, status: "有効", order: o });
   const surgery = /大腿骨頚部骨折|大腸癌/.test(name);
   const rehab = /骨折|脳梗塞|脳出血|脳塞栓|パーキンソン/.test(name);
   const infection = /肺炎|腎盂腎炎|菌|敗血症|蜂巣炎|胆管炎|呼吸不全/.test(name);

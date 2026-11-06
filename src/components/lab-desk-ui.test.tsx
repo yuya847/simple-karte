@@ -1,3 +1,4 @@
+import { specimenId } from "@/lib/lab-desk";
 // 検査室: the panic-value card says why 報告した cannot be pressed yet and keeps the report as one line; the
 // 受付 table's 読む button stays on one line. Rendered on the server (without a browser).
 import { renderToStaticMarkup } from "react-dom/server";
@@ -46,7 +47,7 @@ describe("パニック値の連絡の記録", () => {
     const html = card(call);
     expect(html).toContain("連絡 10:05 検査技師 中村 → 主治医 山本（専攻医）（オーダーした医師）（電話・復唱あり）");
     expect(html).not.toContain("報告した（10:05）");
-    expect(html).toContain("医師の対応の記録がまだです");
+    expect(html).toContain("検査室の連絡済み・医師の対応待ち");
   });
 });
 
@@ -80,18 +81,22 @@ describe("一部報告の画面", () => {
   const row = drawRows(people, {}, EMPTY_DESK, 540, 600)[0];
   const received = receive(EMPTY_DESK, row, "技師", 600);
   const partial = confirmReport(received, row, { K: 4 }, "技師", 601);
-  const form = (raw: Record<string, string>, report = false) => renderToStaticMarkup(<LabEntryForm row={{ ...row, ...(report ? { report: partial.reports[row.code] } : {}) }} person={people[0]} raw={raw} onRaw={noop} limits={PANIC_LIMITS} locked={false} onConfirm={noop} />);
+  const form = (raw: Record<string, string>, report = false) => renderToStaticMarkup(<LabEntryForm row={{ ...row, ...(report ? { report: partial.reports[specimenId(row)] } : {}) }} person={people[0]} raw={raw} onRaw={noop} limits={PANIC_LIMITS} locked={false} onConfirm={noop} />);
   it("空欄では報告できず、一つ入れると報告でき、数でない入力は止める", () => {
     expect(form({})).toMatch(/<button type="button" disabled=""[^>]*>.*入力済みの 0 項目を先に報告/);
     expect(form({ K: "4" })).toMatch(/<button type="button" class="[^"]*">.*入力済みの 1 項目を先に報告/);
     expect(form({ K: "4", Na: "abc" })).toMatch(/<button type="button" disabled=""/);
+  });
+  it("全項目がそろえば報告（確定）と表示する", () => {
+    expect(form({ Na: "140", K: "4", Cl: "103" })).toContain("報告（確定）");
+    expect(form({ Na: "140", Cl: "103" }, true)).toContain("報告（確定）");
   });
   it("報告済みの値を固定し、残りだけを報告する", () => {
     const html = form({ K: "99", Na: "140" }, true);
     expect(html).toContain("4（報告済み）");
     expect(html).not.toContain('aria-label="K"');
     expect(html).toContain('placeholder="未報告"');
-    const correction = renderToStaticMarkup(<LabCorrect row={{ ...row, report: partial.reports[row.code] }} person={people[0]} limits={PANIC_LIMITS} locked={false} onConfirm={noop} />);
+    const correction = renderToStaticMarkup(<LabCorrect row={{ ...row, report: partial.reports[specimenId(row)] }} person={people[0]} limits={PANIC_LIMITS} locked={false} onConfirm={noop} />);
     expect(correction).toContain('aria-label="K（訂正後）"');
     expect(correction).not.toContain('aria-label="Na（訂正後）"');
     expect(html).toMatch(/<button type="button" class="[^"]*">.*残りを報告/);

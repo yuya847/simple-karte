@@ -1,3 +1,4 @@
+import { addScenarioPhysiology } from "./physiology";
 import { clinicalProfile } from "./clinical-profiles";
 import { prepareClinical, addClinicalCourse } from "./clinical-course";
 import { linesFromFields } from "../standing-lines";
@@ -43,7 +44,7 @@ function insuranceForm(i: number, age: number): InsuranceForm | null {
   if (axis === 13) return null;
   const kind = age >= 75 ? "後期高齢者" : (["国保", "協会けんぽ", "組合健保", "共済"] as const)[i % 4];
   const body = kind === "国保" ? "14999" : ({ 後期高齢者: "3914999", 協会けんぽ: "0114999", 組合健保: "0614999", 共済: "3114999" } as const)[kind];
-  const coverage = axis === 7 ? "生活保護" : axis === 8 ? "自費" : axis === 9 ? "労災" : "医保";
+  const coverage = axis === 7 ? "生活保護" : axis === 8 ? "自費" : "医保";
   const law = axis === 7 ? "12" : axis === 10 ? "54" : axis === 11 ? "10" : axis === 12 ? "21" : null;
   const rate = age >= 75 ? (["10", "20", "30"] as const)[i % 3] : age < 6 || age >= 70 ? "20" : "30";
   return { ...EMPTY_FORM, coverage, kind, insurerNumber: body + checkDigit(body), number: String(700000 + i), relation: age < 18 ? "家族" : "本人", birthDate: age === 0 ? "2026-11-06" : `${2026 - age}-01-15`, rate,
@@ -132,6 +133,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
   });
   assignRooms(cases);
   const patients = cases.map((c) => c.patient);
+  const physioDesk = addScenarioPhysiology(patients);
   const er: ErPatient[] = cases.filter((c) => !c.planned || c.stage === "救急").map(({ patient: p, stage }) => ({ id: p.id, name: p.name, kana: p.kana, age: p.age, sex: p.sex, ageMonths: p.ageMonths, arrival: "救急車", arrivedAbs: stage === "救急" ? 480 : p.admittedOn * 1440 + 480, complaint: p.admissionDiagnosis, status: stage === "救急" ? "診察中" : "入院済", ...(stage === "救急" ? {} : { admittedAs: p.id }), jtas: 3, allergies: p.allergies, note: p.history.find((e) => e.kind === "note")?.text }));
   const opd: OpdPatient[] = cases.filter((c) => c.stage === "外来" && c.destination !== "死亡退院").map(({ patient: p }) => ({ id: p.id, name: p.name, kana: p.kana, age: p.age, sex: p.sex, department: p.department, doctor: p.attending, slot: "09:00", status: "診察待ち", kind: "再診", reason: `退院後のフォロー：${p.admissionDiagnosis}`, allergies: p.allergies, problems: [p.admissionDiagnosis], meds: [], visits: p.history.filter((e) => e.kind === "note").map((e) => ({ day: e.day, text: e.text ?? e.soap?.a ?? "経過確認" })) }));
   for (const p of [...er.map((p) => `er:${p.id}`), ...opd.map((p) => `opd:${p.id}`)]) { const id = p.slice(p.indexOf(":") + 1); if (insurance[id]) insurance[p] = insurance[id]; }
@@ -154,6 +156,6 @@ export function generateScenarios(seed = SCENARIO_SEED) {
   }));
   const standing = Object.fromEntries(patients.map((p) => [p.id, [{ ...emptyStanding(p.attending, { day: p.admittedOn, time: "10:00" }), rest: p.id === "99000013" ? "ベッド上" as const : /骨折|脳梗塞/.test(p.admissionDiagnosis) ? "室内" as const : "病棟内" as const, vitals: p.id === "99000013" ? "4時間ごと" as const : "1日3回" as const, ...(p.admittedOn < 0 && Number(p.id) % 19 !== 0 ? { taken: { by: nurseFor(p.room), time: "10:15" } } : {}), other: p.id === "99000013" ? "人工呼吸器装着中はICUで管理。抜管後は酸素指示を確認。" : "" }]]));
   const standingLines = Object.fromEntries(Object.entries(standing).map(([id, versions]) => [id, linesFromFields(versions).map((l, i) => ({ ...l, id: `${id}-standing-${i}` }))]));
-  return { cases, patients, er, opd, asks, insurance, discharges, visitOrders, visitNotes, visitChartNotes, restraints: cases.flatMap((c) => c.restraints), surgeries: cases.flatMap((c) => c.surgeries), directives: cases.flatMap((c) => c.directives), diagnoses: Object.fromEntries(cases.map((c) => [c.patient.id, c.diagnoses])), diets: cases.flatMap((c) => c.diets), beds: cases.filter((c) => c.stage !== "救急").map((c) => ({ room: c.patient.room, bed: c.bed, patientId: c.patient.id })), discharged: Object.fromEntries(patients.flatMap((p) => p.dischargedAt ? [[p.id, p.dischargedAt]] : [])), standing, standingLines, ...admissionState(cases) };
+  return { cases, patients, physioDesk, er, opd, asks, insurance, discharges, visitOrders, visitNotes, visitChartNotes, restraints: cases.flatMap((c) => c.restraints), surgeries: cases.flatMap((c) => c.surgeries), directives: cases.flatMap((c) => c.directives), diagnoses: Object.fromEntries(cases.map((c) => [c.patient.id, c.diagnoses])), diets: cases.flatMap((c) => c.diets), beds: cases.filter((c) => c.stage !== "救急").map((c) => ({ room: c.patient.room, bed: c.bed, patientId: c.patient.id })), discharged: Object.fromEntries(patients.flatMap((p) => p.dischargedAt ? [[p.id, p.dischargedAt]] : [])), standing, standingLines, ...admissionState(cases) };
 }
 export const SCENARIOS = generateScenarios();

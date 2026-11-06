@@ -91,7 +91,6 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
           {c.sets ? `　${c.sets}` : ""}
         </span>
         <span className="ml-auto rounded border border-rule px-1 text-ink-soft">{c.status}</span>
-        {c.id && <span className="nums font-mono text-[11px] text-ink-faint">{c.id}</span>}
       </div>
       <dl className="grid grid-cols-[7rem_1fr] gap-y-0.5">
         <dt className="text-ink-faint">グラム染色</dt>
@@ -121,6 +120,7 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
         <fieldset disabled={locked} className="m-0 min-w-0 space-y-2 border-0 border-t border-rule-soft p-0 pt-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-bold">次の報告</span>
+            {blood && item.next.includes("最終報告") && c.collectedOn <= -5 && <button type="button" className="rounded border border-ai px-2 text-ai" onClick={() => { setStage("最終報告"); set({ organism: NO_GROWTH, note: "5日間で発育なし" }); }}>陰性の最終報告（5日間）</button>}
             <TabChoice label="次の報告" options={item.next.map((s) => ({ value: s, label: STAGE_LABEL[s] }))} value={stage} onChange={setStage} />
           </div>
           {stage === "塗抹" && (
@@ -204,7 +204,7 @@ function Detail({ item, locked, dayLabel, onStep }: { item: CultureItem; locked:
           )}
           {stage && (
             <div className="flex flex-wrap items-center gap-2">
-              <input value={input.note} onChange={(e) => set({ note: e.target.value })} placeholder="コメント（任意）例：10⁵/mL、2菌種" aria-label="報告のコメント" className="min-w-0 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5" />
+              <input value={input.note} onChange={(e) => set({ note: e.target.value })} placeholder={item.culture.specimen === "血液" ? "コメント（任意）例：2セット中2セット陽性" : "コメント（任意）例：10⁵/mL、2菌種"} aria-label="報告のコメント" className="min-w-0 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5" />
               {check && check.missing.length > 0 && <span className="text-ink-soft">あと：{check.missing.join("・")}</span>}
               <button type="button" disabled={!check?.step} onClick={() => check?.step && onStep(check.step)} className="flex items-center gap-1 rounded bg-wakatake px-3 py-1 font-bold text-white disabled:opacity-40">
                 <Check size={13} />

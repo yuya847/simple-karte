@@ -31,7 +31,7 @@ export function PresenceStrip({ peers, editors = [] }: { peers: Peer[]; editors?
 /** For a few seconds after newer records of someone else were merged into this page. */
 export function MergedNotice({ by, where, at, onClose }: { by: string; where: Where; at: string; onClose: () => void }) {
   return (
-    <div role="status" className="fixed inset-x-0 top-0 z-40 flex items-center justify-center gap-2 px-4 py-1 print:hidden">
+    <div role="status" className="fixed bottom-4 right-4 z-40 flex items-center justify-center gap-2 px-4 py-1 print:hidden">
       <div className="flex items-center gap-2 rounded-full border border-wakatake bg-wakatake-soft px-3 py-1 text-[12px] text-ink shadow">
         <GitMerge size={13} className="text-wakatake" />
         <span>{displayText(mergedText(by, where, at))}</span>

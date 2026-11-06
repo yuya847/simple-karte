@@ -227,7 +227,7 @@ export function usePresence({ wsId, shared, me, patientId, note, drafts, savedRe
     merged,
     dismiss: () => setMerged(null),
     /** The others with this chart open. */
-    on: (pid: string) => peers.filter((p) => p.patient === pid),
+    on: (pid: string) => peers.filter((p) => p.patient === pid && !(p.who === me.name && p.role === me.role)),
     /** Who is correcting a note of this patient. */
     editorsOn: (pid: string) => (now ? editorsOn(state, pid, now) : []),
     coedit,

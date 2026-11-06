@@ -51,7 +51,7 @@ describe("実施の取り消し", () => {
 import { cancelReception, EMPTY_DESK } from "./lab-desk";
 it("検体の受付を戻すとき、別の検体を保ち、元の受付を履歴に残す", () => {
   const reception = { code: "a", orderId: "o", patientId: "p", at: 480, by: "技師", day: 0, time: "08:00", collected: true };
-  const desk = { ...EMPTY_DESK, received: { a: reception, b: { ...reception, code: "b" } } };
+  const desk = { ...EMPTY_DESK, received: { a: reception, b: { ...reception, code: "b", orderId: "o2" } } };
   const next = cancelReception(desk, "a", "p", "技師2", at, "誤って押した");
   expect(next.received.a).toBeUndefined();
   expect(next.received.b).toEqual(desk.received.b);

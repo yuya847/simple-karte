@@ -41,7 +41,6 @@ export function LabReject({ row, onReject }: { row: DrawRow; onReject: (reason: 
               className="min-w-0 flex-1 rounded border border-rule bg-paper px-1.5 py-0.5"
             />
           </div>
-          <p className="text-[11px] text-ink-soft">依頼すると、このラベル（{row.code}）は二度と受け付けません。同じオーダの採血が新しいラベルで病棟のワークシートに「再採血」として今の時刻で戻り、看護師の指示受けを待ちます（救急外来・外来の検体は受付の一覧に戻ります）。</p>
           <div className="flex items-center gap-2">
             <button type="button" disabled={!ready} onClick={() => onReject(reason!, note)} className="rounded bg-yamabuki px-3 py-1 font-bold text-white disabled:opacity-40">
               再採血を依頼

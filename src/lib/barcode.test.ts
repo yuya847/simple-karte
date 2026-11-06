@@ -20,3 +20,11 @@ describe("Code 128", () => {
     expect(() => code128Values("佐倉")).toThrow();
   });
 });
+
+it("数字20桁の検体ラベルを50mm幅に収めるCode 128Cで符号化する", () => {
+  const code = "01234567890123456789";
+  const values = code128Values(code);
+  expect(values[0]).toBe(105);
+  expect(values.slice(1, -2).map((n) => String(n).padStart(2, "0")).join("")).toBe(code);
+  expect(code128Widths(code).reduce((sum, width) => sum + width, 20) * 0.9).toBeLessThan(175);
+});

@@ -541,7 +541,7 @@ export function AppFrame(p: Props) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <Row
-        row={p.screens}
+        row={p.area === "lab" ? { ...p.screens, items: p.screens.items.filter((t) => t.label !== "検査室") } : p.screens}
         small={false}
         start={
           <div className="flex shrink-0 items-end gap-2 pr-1">

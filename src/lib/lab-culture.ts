@@ -95,14 +95,15 @@ export const setsFrom = (comment?: string) => /(\d+)\s*セット/.exec(comment ?
  * A sample with culture tests taken in: each culture starts (培養中), under the label code (and the
  * test, when one sample has two cultures). Called when the label is read.
  */
-export function startCultures(cultures: Record<string, CultureWork>, row: { code: string; patientId: string; at: number; codes: string[]; comment?: string }): Record<string, CultureWork> {
+export function startCultures(cultures: Record<string, CultureWork>, row: { code: string; orderId?: string; patientId: string; at: number; codes: string[]; comment?: string }): Record<string, CultureWork> {
   const tests = culturesIn(row.codes);
   if (!tests.length) return cultures;
   const out = { ...cultures };
   for (const t of tests) {
     const lab = findLab(t)!;
     const sets = lab.needs === "sets" ? setsFrom(row.comment) : undefined;
-    const base: CultureResult = { id: tests.length > 1 ? `${row.code}/${t}` : row.code, collectedOn: Math.floor(row.at / 1440), specimen: lab.specimen === "その他" ? lab.name.replace(/培養$/, "") : lab.specimen, ...(sets ? { sets } : {}), status: "培養中" };
+    const identity = row.orderId ? `${row.patientId}|${row.orderId}|${row.at}` : row.code;
+    const base: CultureResult = { id: tests.length > 1 ? `${identity}/${t}` : identity, collectedOn: Math.floor(row.at / 1440), specimen: lab.specimen === "その他" ? lab.name.replace(/培養$/, "") : lab.specimen, ...(sets ? { sets } : {}), status: "培養中" };
     const key = cultureKey(row.patientId, base);
     if (!out[key]) out[key] = { key, patientId: row.patientId, base, steps: [] };
   }

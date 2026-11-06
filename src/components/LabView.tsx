@@ -10,7 +10,7 @@ import { useRef, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { abs } from "@/lib/flowsheet";
 import { cultureQueue } from "@/lib/lab-culture";
-import { PLACE_NAME,drawRows,entryPlan,receive,redrawCode,rejectText,scanSpecimen,statusCounts,versionOf,whenText,type DrawRow,type DrawStatus,type LabDesk,type SpecimenScan } from "@/lib/lab-desk";
+import { specimenId,PLACE_NAME,drawRows,entryPlan,receive,redrawCode,rejectText,scanSpecimen,statusCounts,versionOf,whenText,type DrawRow,type DrawStatus,type LabDesk,type SpecimenScan } from "@/lib/lab-desk";
 import type { AdminRecord } from "@/lib/mar";
 import { callScript, hitLine, labBoard, partialReportLabel, placeOf, uncalled, type Ack, type PanicCall, type PanicLimit, type ResultItem } from "@/lib/results";
 import { ANALYTES } from "@/lib/master";
@@ -23,6 +23,7 @@ import { PanicCard } from "./PanicCard";
 
 interface Props {
   /** The ward's patients, and today's visits of 救急外来・外来 with lab orders (ids "er:◯" / "opd:◯"). */
+  onOpen?: (id: string) => void;
   people: WorkPatient[];
   /** Results of these patients (shown: from today on, and any panic value not reported yet). */
   items: ResultItem[];
@@ -77,7 +78,7 @@ export function LabView(p: Props) {
       <div className="flex flex-wrap items-center gap-3 border-b border-rule bg-sheet px-5 py-2">
         <h1 className="flex items-center gap-1.5 text-base font-bold">
           <FlaskConical size={17} />
-          検査室（5階東病棟・救急外来・外来）
+          検査室（病棟・救急外来・外来）
         </h1>
         <div role="tablist" className="flex rounded-md border border-rule p-0.5 text-sm">
           {TABS.map(({ key, label, icon: Icon }) => (
@@ -110,7 +111,7 @@ export function LabView(p: Props) {
         </p>
       )}
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper p-4 text-[13px]">
-        {tab === "receive" && <Receive rows={rows} people={people} nowAbs={nowAbs} onDesk={p.onDesk} history={desk.cancellations} />}
+        {tab === "receive" && <Receive onOpen={p.onOpen} rows={rows} people={people} nowAbs={nowAbs} onDesk={p.onDesk} history={desk.cancellations} />}
         {tab === "enter" && (
           <LabEntry
             rows={rows}
@@ -144,13 +145,15 @@ const TONE: Record<SpecimenScan["tone"], string> = {
   stop: "border-shu/50 bg-shu-soft text-shu",
 };
 
-function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; people: WorkPatient[]; nowAbs: number; onDesk: Props["onDesk"]; history?: LabDesk["cancellations"] }) {
+function Receive({ onOpen, rows, people, nowAbs, onDesk, history }: { onOpen?: (id: string) => void; rows: DrawRow[]; people: WorkPatient[]; nowAbs: number; onDesk: Props["onDesk"]; history?: LabDesk["cancellations"] }) {
   const me = useMe();
   const deny = useDeny()("lab.receive");
   const [code, setCode] = useState("");
   const box = useRef<HTMLInputElement>(null);
   const [scan, setScan] = useState<SpecimenScan | null>(null);
   const counts = statusCounts(rows);
+  const [showReported, setShowReported] = useState(false);
+  const visible = rows.filter((r) => showReported || r.status !== "報告済み").sort((a, b) => (["未採取", "採取済み", "受付済み", "再採血", "採取しなかった", "報告済み"].indexOf(a.status) - ["未採取", "採取済み", "受付済み", "再採血", "採取しなかった", "報告済み"].indexOf(b.status)) || a.at - b.at);
   const read = (input: string) => {
     const s = scanSpecimen(input, rows, people, nowAbs);
     setCode("");
@@ -201,6 +204,7 @@ function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; p
         )}
       </form>
 
+      <button type="button" className="text-xs text-ink-soft" onClick={() => setShowReported((v) => !v)}>{showReported ? "報告済みを閉じる" : `報告済み ${counts.報告済み}件を表示`}</button>
       <table className="w-full border-collapse text-[12px]">
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -221,14 +225,14 @@ function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; p
               </td>
             </tr>
           )}
-          {rows.map((r) => (
-            <tr key={r.code} className="border-b border-rule-soft align-top">
+          {visible.map((r) => (
+            <tr key={specimenId(r)} className="border-b border-rule-soft align-top">
               <td className="nums py-1 pr-2">
                 {displayText(whenText(r.at))}
                 {r.urgent && <span className="ml-1 rounded bg-shu px-1 text-[10px] font-bold text-white">至急</span>}
               </td>
               <td className="min-w-[9rem] whitespace-nowrap py-1 pr-2">
-                <PlaceMark place={r.place} room={r.room} /> {r.name}
+                <PlaceMark place={r.place} room={r.room} /> <button type="button" className="hover:text-ai hover:underline" onClick={() => onOpen?.(r.patientId)}>{r.name}</button>
               </td>
               <td className="py-1 pr-2">
                 {r.redrawOf && <span className="mr-1 rounded bg-yamabuki px-1 text-[10px] font-bold text-white">再採血</span>}
@@ -240,7 +244,7 @@ function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; p
               <td className={`py-1 pr-2 ${STATUS_STYLE[r.status]}`}>
                 {r.report ? partialReportLabel({ day: 0, time: "", values: r.report.values, progress: { expected: r.report.expected ?? entryPlan(r.codes).analytes.map((a) => a.code), sequence: r.report.additions?.length ?? 1 } }) || r.status : r.status}
                 <ExecutionHistory records={history?.filter((c) => (c.record.reception as { code?: string } | undefined)?.code === r.code)} />
-                {r.reception && <ExecutionUndo action="lab.receive" patient={r.name} detail={`検体受付 ${r.code}`} onUndo={(by, at, reason) => onDesk((d) => cancelReception(d, r.code, r.patientId, by, at, reason))} />}
+                {r.reception && <ExecutionUndo action="lab.receive" patient={r.name} detail={`検体受付 ${r.code}`} onUndo={(by, at, reason) => onDesk((d) => cancelReception(d, specimenId(r), r.patientId, by, at, reason))} />}
                 <span className="block text-[10px] font-normal text-ink-soft">{statusNote(r, nowAbs)}</span>
               </td>
               <td className="whitespace-nowrap py-1 text-right">
@@ -259,7 +263,7 @@ function Receive({ rows, people, nowAbs, onDesk, history }: { rows: DrawRow[]; p
 }
 
 function statusNote(r: DrawRow, nowAbs: number): string {
-  if (r.status === "報告済み") return r.report ? `${r.report.reported.time} ${r.report.by}${versionOf(r.report) > 1 ? `（訂正 第${versionOf(r.report)}版）` : ""}` : "前の記録";
+  if (r.status === "報告済み") return r.report ? `${r.report.reported.time} ${r.report.by}${versionOf(r.report) > 1 ? `（訂正 第${versionOf(r.report)}版）` : ""}` : "開始前に報告済み";
   if (r.status === "再採血" && r.rejection) return `${rejectText(r.rejection)} ${r.rejection.time} ${r.rejection.by} → 新しいラベル ${redrawCode(r.rejection)}`;
   if (r.status === "受付済み") return `${r.reception!.time} ${r.reception!.by}${r.reception!.collected ? "" : "（採取の記録なし）"}`;
   if (r.status === "採取済み") return r.collectedAt === "前の勤務" ? (r.place === "病棟" ? "前の勤務" : `${PLACE_NAME[r.place]}で採取`) : `${r.collectedAt ?? ""} ${r.collectedBy ?? ""}`.trim();
@@ -267,17 +271,17 @@ function statusNote(r: DrawRow, nowAbs: number): string {
   return r.at <= nowAbs ? "時刻を過ぎた" : "予定";
 }
 
-function Results({ people, items, calls, acks, limits, limitsSource, nowTime, attending, onCall, desk, onDesk, onReported }: Props & { onReported: () => void }) {
+function Results({ people, items, calls, acks, limits, nowTime, attending, onCall, desk, onDesk, onReported, onOpen }: Props & { onReported: () => void }) {
   const name = (pid: string) => people.find((x) => x.patient.id === pid);
   const sorted = [...items].sort((a, b) => a.day - b.day || (a.time || "99").localeCompare(b.time || "99"));
-  const panic = sorted.filter((i) => i.panic.length > 0);
+  const panic = sorted.filter((i) => i.panic.length > 0).sort((a, b) => Number(!!calls[a.key]) - Number(!!calls[b.key]));
   const when = (i: ResultItem) => (i.time ? whenText(abs(i.day, i.time)) : i.day === 0 ? "—" : whenText(i.day * 1440).replace(/ 00:00$/, ""));
   return (
     <div className="mx-auto max-w-[1100px]">
       <DenyNote action="panic.call" className="mb-2" />
       {panic.length > 0 && (
         <section className="mb-4 space-y-2">
-          <h3 className="text-xs font-bold text-shu">パニック値（コードで判定。連絡するのは人）</h3>
+          <h3 className="text-xs font-bold text-shu">パニック値</h3>
           {panic.map((i) => {
             const w = name(i.patientId);
             return (
@@ -323,7 +327,7 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
                 <tr key={i.key} className="border-b border-rule-soft align-top">
                   <td className="nums py-1 pr-2">{when(i)}</td>
                   <td className="min-w-[9rem] whitespace-nowrap py-1 pr-2">
-                    <PlaceMark place={placeOf(i.patientId)} room={w?.room ?? ""} /> {w?.patient.name}
+                    <PlaceMark place={placeOf(i.patientId)} room={w?.room ?? ""} /> <button type="button" className="hover:text-ai hover:underline" onClick={() => onOpen?.(i.patientId)}>{w?.patient.name}</button>
                   </td>
                   <td className="py-1 pr-2">{i.title}</td>
                   <td className={`py-1 ${i.panic.length ? "font-bold text-shu" : ""}`}>
@@ -347,7 +351,6 @@ function Results({ people, items, calls, acks, limits, limitsSource, nowTime, at
             })
             .join("　")}
         </p>
-        <p className="mt-1">{limitsSource}</p>
       </section>
     </div>
   );

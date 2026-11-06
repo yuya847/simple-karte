@@ -71,7 +71,7 @@ describe("培養：塗抹 → 中間報告 → 最終報告", () => {
     expect(gram).toMatchObject({ status: "中間報告", stage: "塗抹", gram: "グラム陰性桿菌", sets: "2セット中1セット陽性", reportedOn: 0, reportedTime: "15:00" });
     expect(gram.log).toEqual([{ stage: "塗抹", by, day: 0, time: "15:00", text: "塗抹（グラム染色）：グラム陰性桿菌（2セット中1セット陽性）" }]);
     const panic = uncalled(resultsOf(p1, PANIC_LIMITS), {});
-    expect(panic.map((i) => i.panic[0].name)).toEqual(["血液培養陽性（グラム陰性桿菌）"]);
+    expect(panic.map((i) => i.panic[0].name)).toEqual(["血液培養陽性（グラム陰性桿菌・2セット中1セット陽性）"]);
     item = cultureQueue(miyamoto(d), d, {}).find((i) => i.culture.specimen === "血液")!;
     expect(item.next).toEqual([]);
     expect(item.waits).toContain("連絡");

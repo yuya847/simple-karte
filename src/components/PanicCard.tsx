@@ -5,7 +5,7 @@ import { PhoneCall, PhoneOff } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { addTry, type LabDesk } from "@/lib/lab-desk";
-import { PANIC_REACH_RULE, callLine, canReport, hitLine, reachList, reachState, reportBlocker, reportCall, type Ack, type ContactAttempt, type PanicCall, type ResultItem } from "@/lib/results";
+import { callLine, canReport, hitLine, reachList, reachState, reportBlocker, reportCall, type Ack, type ContactAttempt, type PanicCall, type ResultItem } from "@/lib/results";
 import { useDeny, useMe } from "./RoleContext";
 
 interface Props {
@@ -44,13 +44,13 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
   const blocker = reportBlocker(to, readBack, noReadBack);
   const listId = `reach-${item.key}`;
   return (
-    <div className="rounded-lg border border-shu/50 bg-shu-soft/50 p-3">
+    <div className={`rounded-lg border p-3 ${call ? "border-rule bg-sheet text-ink-soft" : "border-shu/50 bg-shu-soft/50"}`}>
       <div className="flex flex-wrap items-baseline gap-2">
         <b>{who}</b>
         <span className="nums text-ink-soft">
           {item.kind === "培養" ? "報告" : "採取"} {when}
         </span>
-        <b className="text-shu">{item.panic.map(hitLine).join("、")}</b>
+        <b className={call ? "text-ink-soft" : "text-shu"}>{item.panic.map(hitLine).join("、")}</b>
       </div>
       {item.corrected && <p className="text-[11px] font-bold text-yamabuki">{item.corrected}。訂正した値として伝えます。</p>}
       {history.length > (call ? 1 : 0) && (
@@ -74,13 +74,13 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
               医師の対応：{ack.at.time} {displayText(ack.by)}「{ack.response ?? "確認した"}」
             </p>
           ) : (
-            <p className="font-bold text-yamabuki">医師の対応の記録がまだです。続けば、もう一度連絡するか、同じ科の医師・管理当直に連絡します。</p>
+            <p className="text-ink-soft">検査室の連絡済み・医師の対応待ち</p>
           )}
         </div>
       ) : (
         <fieldset disabled={!!deny} className="m-0 mt-1 min-w-0 space-y-1.5 border-0 p-0 text-xs">
           <div className="rounded border border-rule bg-sheet px-2 py-1 text-ink-soft">
-            <span className="font-bold">伝える内容（提言第20号の順。コードで並べた）：</span>
+            <span className="font-bold">伝える内容：</span>
             {script.join("　")}
           </div>
           {reach.goOthers && (
@@ -153,7 +153,6 @@ export function PanicCard({ item, who, name, when, script, call, ack, tries, now
               </button>
             </span>
           </div>
-          <p className="text-[11px] text-ink-soft">{displayText(PANIC_REACH_RULE.text)}</p>
         </fieldset>
       )}
     </div>

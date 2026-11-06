@@ -27,7 +27,7 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
   const order = (after: number, value: Order) => {
     const day = first + after;
     if (day > last) return;
-    p.history.push({ kind: "order", id: `${p.id}-course-${p.history.length}`, day, time: "09:30", author: p.attending, status: "有効", order: value });
+    p.history.push({ kind: "order", id: `${p.id}-course-${p.history.length}`, day, time: value.type === "lab" ? "05:30" : "09:30", author: p.attending, status: "有効", order: value });
   };
   const labOrder = (after: number, codes: string[]) => order(after, { type: "lab", codes, collect: { day: first + after, time: after === 0 ? "09:00" : "06:00" }, priority: after === 0 ? "至急" : "定時" });
   const injection = (after: number, code: string, amount: number, unit: string, count: number, days: number, route: "点滴静注" | "静注" = "点滴静注", dayPattern?: import("../types").DayPattern) => order(after, { type: "injection", items: [{ drugCode: code, amount, unit }], route, dayPattern, ...(dayPattern ? { doseTimes: ["12:00"] } : {}), schedule: { kind: "per_day", count }, start: { day: first + after, time: "12:00" }, days, end: { day: first + after + days - 1, time: "23:59" }, ...(route === "点滴静注" ? { minutesPerDose: 60 } : {}) });
@@ -36,7 +36,7 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
   // Workflow contributes event notes (surgery, ICU, TDM), while this module supplies daily SOAP.
   p.history = p.history.filter((e) => e.kind !== "note" || !e.id?.includes("-weekly-"));
   const initial = { WBC: 7200, Hb: p.sex === "女" ? 12.1 : 13.3, Plt: 22.4, CRP: 0.3, AST: 24, ALT: 21, BUN: 19, Cre: 0.85, Na: 138, K: 4.1, Alb: 3.6, ...c.initial };
-  if (p.age >= 18) { initial.Hb = round(initial.Hb + (i % 5 - 2) * 0.2); initial.WBC += (i % 7 - 3) * 100; }
+  if (p.age >= 18) { initial.Hb = round(initial.Hb + (i % 5 - 2) * 0.2); initial.WBC += (i % 7 - 3) * 100; initial.Alb = round(initial.Alb + (i % 7 - 3) * 0.1); initial.Cre = round(initial.Cre + (i % 9 - 4) * 0.03, 2); }
   const renalInterval = [35, 55, 75].includes(i) && c.name === "急性腎盂腎炎";
   if (renalInterval) { initial.Cre = 3.8; initial.BUN = 48; }
   const recovered = { ...initial, ...c.recovered, ...(renalInterval ? { Cre: 2.6, BUN: 35 } : {}) };
@@ -46,13 +46,19 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
   for (const after of [...samples].sort((a, b) => a - b)) {
     const progress = Math.min(1, after / 7);
     const values = Object.fromEntries(Object.entries(initial).map(([key, value]) => [key, round(value + ((recovered as Record<string, number>)[key] - value) * progress, key === "Cre" ? 2 : key === "WBC" ? 0 : 1)]));
+    for (const key of Object.keys(values)) {
+      const noise = Math.sin(i * 11 + after * 3 + key.length);
+      if (key === "WBC") values[key] = Math.round((values[key] + noise * 120) / 10) * 10;
+      else if (["Hb", "Plt", "Alb"].includes(key)) values[key] = round(values[key] + noise * 0.12);
+      else if (["AST", "ALT"].includes(key)) values[key] = Math.round(values[key] + noise * 2);
+    }
     // Perioperative inflammation peaks after surgery, rather than vanishing on the operation day.
     if (i === 17 && after >= 2 && after <= 4) { values.CRP = after === 3 ? 5.2 : 3.1; values.Hb = 10.1; }
     p.labs.push({ day: first + after, time: after === 0 ? "09:15" : "06:00", values });
     labOrder(after, [after === 0 ? "SET-ADMIT" : "SET-ROUTINE", ...("BNP" in initial ? ["LAB-BNP"] : []), ...("HbA1c" in initial && after === 0 ? ["LAB-HBA1C"] : []), ...("Lac" in initial ? ["LAB-LAC"] : [])]);
   }
   if (i === 6 && duration >= 4) {
-    p.cultures.push({ collectedOn: first + 3, reportedOn: first + 4, specimen: "血液", sets: "2セット", status: "中間報告", organism: "発育なし（24時間）" });
+    p.cultures.push({ collectedOn: first + 3, reportedOn: first + 4, specimen: "血液", sets: "2セット", status: "中間報告", stage: "中間報告", organism: "発育なし（24時間）" });
     labOrder(3, ["LAB-BCX"]);
     if (duration >= 8) p.cultures.push({ collectedOn: first + 3, reportedOn: first + 8, specimen: "血液", sets: "2セット", status: "最終報告", organism: "発育なし（5日間）" });
   }
@@ -127,6 +133,8 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
   if (i === 28) { order(0, { type: "prescription", category: "定期", drugCode: "ORAL-OXC5", amount: 1, unit: "錠", timings: ["朝", "夕"], start: { day: first, timing: "朝" }, days: duration + 1 }); oral(0, "ORAL-SENNA12", 1, "錠", duration + 1); }
   // Never expose a final culture result before its report day.
   p.cultures = p.cultures.map((r) => r.reportedOn !== undefined && r.reportedOn > last ? { collectedOn: r.collectedOn, specimen: r.specimen, sets: r.sets, status: "培養中" } : r);
+  // Keep the current stage per specimen. Intermediate and final rows must not share a React/result key.
+  p.cultures = p.cultures.filter((c, index, all) => !all.some((other, j) => j > index && other.collectedOn === c.collectedOn && other.specimen === c.specimen));
   p.history = p.history.map((e) => {
     if (e.kind !== "order") return e;
     if (e.order.type === "lab") return { ...e, status: "実施済" };

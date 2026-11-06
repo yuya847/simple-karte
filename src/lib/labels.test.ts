@@ -1,3 +1,4 @@
+import { buildWorksheet } from "./worksheet";
 import { describe, expect, it } from "vitest";
 import { labelItems } from "./labels";
 import { labelFor } from "./mar";
@@ -14,8 +15,8 @@ describe("ラベル", () => {
   });
   it("prints the code the bedside 照合 expects", () => {
     const d = drugs[0];
-    const [prefix, at] = d.code.split("-");
-    const entry = person.entries.find((e) => labelFor(e.id, Number(at)) === d.code);
-    expect(entry, prefix).toBeDefined();
+    const timed = buildWorksheet([person], 0, 2880, 480).timed;
+    const item = timed.find((i) => i.at !== null && labelFor(i.orderId, i.at) === d.code);
+    expect(item).toBeDefined();
   });
 });

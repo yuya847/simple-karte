@@ -1,3 +1,4 @@
+import { specimenId } from "./lab-desk";
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_DESK,
@@ -106,7 +107,7 @@ describe("検体の受付：一覧", () => {
     const row = rows.find((r) => r.orderId === "ord-t2")!;
     expect(row).toMatchObject({ status: "採取済み", collectedAt: "19:55", collectedBy: "看護師 佐藤" });
     const desk = receive(EMPTY_DESK, row, "検査技師 中村", T20 + 10);
-    expect(desk.received[row.code]).toMatchObject({ by: "検査技師 中村", time: "20:10", day: 0, collected: true });
+    expect(desk.received[specimenId(row)]).toMatchObject({ by: "検査技師 中村", time: "20:10", day: 0, collected: true });
     expect(drawRows(people, recs, desk, 9 * 60, T20 + 10).find((r) => r.orderId === "ord-t2")!.status).toBe("受付済み");
   });
 
@@ -229,12 +230,12 @@ describe("結果の入力", () => {
     const got = receive(EMPTY_DESK, row, "検査技師 中村", T20 + 10);
     expect(toEnter(drawRows(people, recs, got, 9 * 60, T20 + 10)).map((r) => r.orderId)).toEqual(["ord-t2"]);
     const done = confirmReport(got, row, { VCM: 12 }, "検査技師 中村", T20 + 40);
-    expect(done.reports[row.code]).toMatchObject({ by: "検査技師 中村", reported: { day: 0, time: "20:40" } });
+    expect(done.reports[specimenId(row)]).toMatchObject({ by: "検査技師 中村", reported: { day: 0, time: "20:40" } });
     expect(confirmReport(done, row, { VCM: 99 }, "x", T20 + 50)).toBe(done);
     expect(drawRows(people, recs, done, 9 * 60, T20 + 40).find((r) => r.orderId === "ord-t2")!.status).toBe("報告済み");
     const labs = deskLabs(done, sakura.id);
-    expect(labs).toEqual([{ day: 0, time: "20:00", values: { VCM: 12 }, id: row.code, reportedBy: "検査技師 中村", reportedAt: { day: 0, time: "20:40" }, progress: { expected: ["VCM"], sequence: 1 } }]);
-    expect(labKey(sakura.id, labs[0])).toBe(`lab|${sakura.id}|0|20:00|${row.code}`);
+    expect(labs).toEqual([{ day: 0, time: "20:00", values: { VCM: 12 }, id: specimenId(row), reportedBy: "検査技師 中村", reportedAt: { day: 0, time: "20:40" }, progress: { expected: ["VCM"], sequence: 1 } }]);
+    expect(labKey(sakura.id, labs[0])).toBe(`lab|${sakura.id}|0|20:00|${specimenId(row)}`);
     expect(labKey(sakura.id, { day: 0, time: "06:00", values: {} })).toBe(`lab|${sakura.id}|0|06:00`);
   });
 
@@ -307,7 +308,7 @@ describe("再採血", () => {
     expect(rejectSpecimen(got, row, "溶血", "", "x", T20 + 15)).toBe(got);
     expect(rejectSpecimen(got, received, "その他", " ", "x", T20 + 15)).toBe(got);
     expect(rejectSpecimen(got, received, null, "", "x", T20 + 15)).toBe(got);
-    expect(sent.rejected[row.code]).toMatchObject({ reason: "溶血", by: "検査技師 中村", day: 0, time: "20:15", redrawId: "ord-t2-re1" });
+    expect(sent.rejected[specimenId(row)]).toMatchObject({ reason: "溶血", by: "検査技師 中村", day: 0, time: "20:15", redrawId: "ord-t2-re1" });
     expect(rejectText({ reason: "その他", note: "容器違い" })).toBe("容器違い");
     expect(rejectText({ reason: "量不足", note: "2mL" })).toBe("量不足（2mL）");
   });
@@ -329,7 +330,7 @@ describe("再採血", () => {
     const old = rows.find((r) => r.code === row.code)!;
     expect(old).toMatchObject({ status: "再採血", rejection: { reason: "溶血" } });
     const fresh = rows.find((r) => r.orderId === "ord-t2-re1")!;
-    expect(fresh.code).toBe(redrawCode(sent.rejected[row.code]));
+    expect(fresh.code).toBe(redrawCode(sent.rejected[specimenId(row)]));
     expect(fresh.code).not.toBe(row.code);
     expect(fresh).toMatchObject({ status: "未採取", redrawOf: { code: row.code } });
     const again = scanSpecimen(row.code, rows, withNew(sent), T20 + 20)!;
@@ -346,7 +347,7 @@ describe("再採血", () => {
     const rows = drawRows(withNew(sent), recs, sent, 9 * 60, T20 + 15);
     const fresh = rows.find((r) => r.orderId === "ord-t2-re1")!;
     const d2 = rejectSpecimen(receive(sent, fresh, "x", T20 + 40), { ...fresh, status: "受付済み" }, "凝固", "", "検査技師 中村", T20 + 45);
-    expect(d2.rejected[fresh.code].redrawId).toBe("ord-t2-re2");
+    expect(d2.rejected[specimenId(fresh)].redrawId).toBe("ord-t2-re2");
     expect(withNew(d2)[0].entries.filter((e) => e.id.startsWith("ord-t2-re")).map((e) => e.id)).toEqual(["ord-t2-re1", "ord-t2-re2"]);
     const stopped = people.map((x) => ({ ...x, entries: x.entries.map((e) => (e.id === "ord-t2" ? { ...e, status: "中止" as const, stoppedOn: 0, stoppedTime: "20:30" } : e)) }));
     const redraws = withRedraws(stopped[0].entries, sent, sakura.id).filter((e) => e.id === "ord-t2-re1");
@@ -362,7 +363,7 @@ describe("結果の訂正", () => {
   const at = (d: typeof reported) => ({ ...sakura, labs: [...sakura.labs, ...deskLabs(d, sakura.id)] });
 
   it("needs a changed value, every value valid, and a reason", () => {
-    const r = reported.reports[row.code];
+    const r = reported.reports[specimenId(row)];
     const same = checkEntry(lytes, { Na: "139", K: "7.4", Cl: "104" }, sakura, PANIC_LIMITS, T6);
     expect(checkCorrection(r, same, "入力の誤り", PANIC_LIMITS)).toMatchObject({ ready: false, missing: ["変えた値"] });
     const fixed = checkEntry(lytes, { Na: "139", K: "4.7", Cl: "104" }, sakura, PANIC_LIMITS, T6);
@@ -384,20 +385,20 @@ describe("結果の訂正", () => {
     expect(correctReport(reported, row.code, { Na: 139, K: 7.4, Cl: 104 }, "入力の誤り", "検査技師 佐々木", T6 + 90)).toBe(reported);
     expect(correctReport(reported, "NOPE", { K: 1 }, "入力の誤り", "x", T6 + 90)).toBe(reported);
     const fixed = correctReport(reported, row.code, { Na: 139, K: 4.7, Cl: 104 }, "入力の誤り", "検査技師 佐々木", T6 + 90);
-    const r = fixed.reports[row.code];
+    const r = fixed.reports[specimenId(row)];
     expect(r).toMatchObject({ values: { K: 4.7 }, by: "検査技師 佐々木", reported: { day: 1, time: "07:30" }, reason: "入力の誤り" });
     expect(versionOf(r)).toBe(2);
     expect(versionsOf(r).map((v) => `${v.reported.time} ${v.by} K${v.values.K}${v.reason ? ` ${v.reason}` : ""}`)).toEqual(["07:00 検査技師 中村 K7.4", "07:30 検査技師 佐々木 K4.7 入力の誤り"]);
     const again = correctReport(fixed, row.code, { Na: 141, K: 4.7, Cl: 104 }, "再測定の結果", "検査技師 中村", T6 + 120);
-    expect(versionOf(again.reports[row.code])).toBe(3);
-    expect(again.reports[row.code].earlier!.map((v) => v.values.Na)).toEqual([139, 139]);
+    expect(versionOf(again.reports[specimenId(row)])).toBe(3);
+    expect(again.reports[specimenId(row)].earlier!.map((v) => v.values.Na)).toEqual([139, 139]);
   });
 
   it("the doctor sees a corrected result again as not seen, marked 訂正 with what changed", () => {
-    const before = resultsOf(at(reported), PANIC_LIMITS).find((i) => i.key.includes(row.code))!;
+    const before = resultsOf(at(reported), PANIC_LIMITS).find((i) => i.key.includes(specimenId(row)))!;
     const acks = { [before.key]: { by: "山本（専攻医）", at: { day: 1, time: "07:10" } } };
     const fixed = correctReport(reported, row.code, { Na: 139, K: 4.7, Cl: 104 }, "入力の誤り", "検査技師 佐々木", T6 + 90);
-    const after = resultsOf(at(fixed), PANIC_LIMITS).filter((i) => i.key.includes(row.code));
+    const after = resultsOf(at(fixed), PANIC_LIMITS).filter((i) => i.key.includes(specimenId(row)));
     expect(after).toHaveLength(1);
     expect(after[0].key).toBe(`${before.key}|v2`);
     expect(unseen(after, acks)).toHaveLength(1);
@@ -436,9 +437,9 @@ describe("部分報告", () => {
     const fixed = correctReport(first, row.code, { K: 7.3 }, "入力の誤り", "技師2", T6 + 6);
     const rest = Object.fromEntries(entryPlan(row.codes).analytes.map((a) => [a.code, 1]));
     const final = confirmReport(fixed, row, rest, "技師3", T6 + 10);
-    expect(final.reports[row.code].values.K).toBe(7.3);
-    expect(final.reports[row.code].additions).toHaveLength(2);
-    expect(versionOf(final.reports[row.code])).toBe(2);
+    expect(final.reports[specimenId(row)].values.K).toBe(7.3);
+    expect(final.reports[specimenId(row)].additions).toHaveLength(2);
+    expect(versionOf(final.reports[specimenId(row)])).toBe(2);
     expect(deskLabs(final, row.patientId)[0].corrected).toMatchObject({ by: "技師2", at: { time: "06:06" } });
     expect(drawRows(people, {}, final, 9 * 60, T6 + 10).find((r) => r.code === row.code)?.status).toBe("報告済み");
     expect(confirmReport(final, row, rest, "技師", T6 + 11)).toBe(final);

@@ -1,3 +1,4 @@
+import panicLimitTable from "./panic-limits.json";
 // Results the doctor has not yet seen, and panic values the laboratory must phone in.
 // Which results are new, which values cross a panic limit and what is still unconfirmed are all
 // worked out by code. A person phones, a person reads back, and the doctor marks a result as seen.
@@ -129,8 +130,9 @@ export function panicOf(values: Record<string, number>, limits: PanicLimit[]): P
  * Gram stain of the positive bottle). The organism named later is a result to see, not a new call.
  */
 export function bloodCulturePanic(c: CultureResult): PanicHit[] {
+  if (/^(?:発育なし|陰性|菌を認めない)/.test(c.gram ?? c.organism ?? "")) return [];
   if (c.specimen !== "血液" || c.status !== "中間報告" || !(c.gram || c.organism) || c.stage === "中間報告") return [];
-  return [{ code: "BC", name: `血液培養陽性（${c.gram ?? c.organism}）`, value: NaN, unit: "", side: "高", limit: NaN }];
+  return [{ code: "BC", name: `血液培養陽性（${c.gram ?? c.organism}${c.sets ? `・${c.sets}` : ""}）`, value: NaN, unit: "", side: "高", limit: NaN }];
 }
 
 export const hitLine = (h: PanicHit) =>
@@ -229,32 +231,7 @@ export function mergeCultures(base: CultureResult[], later: CultureResult[] = []
  * Panic limits of the fictional hospital: the examples in the JSLM table (2024年改定版 別表, the same
  * values as the 2021 table), for the analytes this chart has. Each hospital sets its own limits.
  */
-export const PANIC_LIMITS: PanicLimit[] = [
-  { code: "Glu", low: 50, high: 500 },
-  { code: "Na", low: 115, high: 165 },
-  { code: "K", low: 1.5, high: 7.0 },
-  { code: "Cl", high: 120 },
-  { code: "Ca", low: 6.0, high: 12.0 },
-  { code: "BUN", high: 80 },
-  { code: "TP", low: 4.0, high: 10.0 },
-  { code: "Alb", low: 2.0, high: 6.0 },
-  { code: "UA", low: 1.0, high: 10.0 },
-  { code: "AST", high: 300 },
-  { code: "ALT", high: 300 },
-  { code: "LDH", high: 1000 },
-  { code: "AMY", high: 1000 },
-  { code: "Cre", high: 3.0 },
-  { code: "CK", high: 5000 },
-  { code: "ChE", low: 20 },
-  // 乳酸 5.0 mmol/L, in this chart's unit (mg/dL): 5.0 × 9.01 ≈ 45.
-  { code: "Lac", high: 45 },
-  { code: "WBC", low: 1500, high: 20000 },
-  { code: "Hb", low: 5, high: 20 },
-  { code: "Plt", low: 3, high: 100 },
-  { code: "PT-INR", high: 2.0 },
-  { code: "Fib", low: 100, high: 700 },
-  { code: "FDP", high: 20 },
-];
+export const PANIC_LIMITS: PanicLimit[] = panicLimitTable;
 export const PANIC_SOURCE =
   "日本臨床検査医学会「臨床検査『パニック値』運用に関する提言書（2024年改定版）」別表の例を、この病院の値として使っています（閾値は医療機関ごとに決めるもの）。グルコースの高値は入院の値、クレアチニンは急性腎不全の例、PT-INR はワルファリン治療中でないときの例、乳酸は 5.0 mmol/L を mg/dL に換算。境界の値を含めて判定します。連絡の手順は医療事故調査・支援センター「医療事故の再発防止に向けた提言 第20号」（2024年12月）：オーダーした医師に電話か対面で直接伝え、最後に復唱してもらい、検査室は報告の記録を、医師は対応の記録を残します。";
 
@@ -265,10 +242,10 @@ export const placeOf = (patientId: string): Place => ({ ward: "病棟", er: "救
 const dayWord = (d: DayOffset) => (d === 0 ? "今日" : d === 1 ? "明日" : d === -1 ? "昨日" : d > 0 ? `${d}日後` : `${-d}日前`);
 
 /** What to say on the phone, in the order of 提言第20号 図2 (put together by code). */
-export function callScript(item: ResultItem, p: { name: string; id: string }, room: string): string[] {
+export function callScript(item: ResultItem, p: { name: string; id: string; ward?: string }, room: string): string[] {
   return [
     "「パニック値の報告です」",
-    { 病棟: `① 入院（5階東 ${room}）`, 救急: "① 救急外来", 外来: "① 外来" }[placeOf(item.patientId)],
+    { 病棟: `① 入院（${p.ward ?? "病棟"} ${room}）`, 救急: "① 救急外来", 外来: "① 外来" }[placeOf(item.patientId)],
     `② ${p.name}さん（ID ${p.id}）`,
     `③ ${item.kind === "培養" ? "報告" : "採取"} ${dayWord(item.day)} ${item.time || "—"}`,
     `④ ${item.panic.map(hitLine).join("、")}`,
