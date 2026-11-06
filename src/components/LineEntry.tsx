@@ -23,6 +23,9 @@ export function RpDrugSearch({ options, onPick, placeholder, prefix = false, onE
         <Search size={13} className="text-ink-faint" />
         <input
           value={q}
+          // Not the browser's own memory of past entries (it offered another patient's drug).
+          autoComplete="off"
+          name={`drug-search-${listId}`}
           onChange={(e) => {
             if (onComment && e.target.value.startsWith(";")) { onComment(e.target.value.slice(1)); setQ(""); return; }
             setQ(e.target.value);

@@ -1055,6 +1055,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   /** Bring a ② tab to the front (opening it in 病棟 if needed), showing a chart, 新しいタブ or its own screen. */
   const show = (o: Owner, what?: string) => {
+    // An unfinished Japanese input (IME) must not carry into the next patient's field.
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const w = wardTabOf(o);
     if (w) {
       setArea("ward");
@@ -1078,6 +1080,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     setRecentByPerson((all) => ({ ...all, [me.name]: list }));
   };
   const openPatient = (id: string) => {
+    // An unfinished Japanese input (IME) must not carry into the next patient's field.
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setRecentList(pushRecent(recentList, id, 0, nowTime ?? ""));
     // A limited chart (閲覧制限): on the care team, with a reason given, or the reason step next.
     const p = findPatient(id);
