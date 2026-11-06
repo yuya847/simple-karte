@@ -1,7 +1,7 @@
 "use client";
 import { labWindowWidth } from "@/lib/panel-size";
 import { CardiacCathPanel } from "./panels/CardiacCathPanel";
-import { injectionRateDraft, stopTimesOf, type InjectionChange } from "@/lib/injection-change";
+import { toggleInjectionDose, injectionRateDraft, stopTimesOf, type InjectionChange } from "@/lib/injection-change";
 import { LabPasteReceiver, requestLabPaste } from "./LabPasteReceiver";
 import { LAB_RESULT_MIME, readLabTransfer } from "@/lib/lab-transfer";
 import type { NoteTemplate } from "@/lib/note-templates";
@@ -1608,6 +1608,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     });
     openOrder("add-injection");
   };
+  const toggleDose = (e: OrderEntry, at: number) => update(c => {
+    const draft = toggleInjectionDose(e, at, abs(0, nowTime), c.drafts.filter((d): d is InjectionDraft => d.kind === "injection"), newId());
+    return { drafts: [...c.drafts.filter(d => !(d.kind === "injection" && d.duplicate?.orderId === e.id && d.sourceText === "（カレンダーから回を取り消し）")), ...(draft ? [draft] : [])] };
+  });
   const pendingExtends: Record<string, number> = Object.fromEntries(chart.drafts.flatMap((d) => (d.kind === "extend" ? [[d.targetOrderId, d.addDays]] : [])));
   const toFront = (t: RightTab) => setZOrder((z) => [...z.filter((x) => x !== t), t]);
   const openRight = (t: RightTab) => {
@@ -2240,6 +2244,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     onAdjustInsulin: !deny("order") ? (e, change) => { const next = insulinAdjustmentEntries(e, change, 0, newId(), me.name, nowTime); update(c => ({ added: [...c.added, next], flash: "明日からのインスリンを保存しました。看護師の指示受けに変更として出ます。" })); auditLog({role:me.role,actor:me.name,action:"確定（インスリンを調整）",patient:patient.name,detail:orderLines(next.order,today).main}); chartNote(patient.id, `インスリンを調整：${orderLines(next.order,today).main}（元の指示は今日まで、明日から）`); } : undefined,
     onStopDraft: (e, time) => addStopDraft(e, undefined, 0, time),
     onExtendDraft: deny("order") ? undefined : extendDraft,
+    onToggleDose: deny("order") ? undefined : toggleDose,
     pendingExtends: pendingExtends,
     pendingStopTimes: stopTimesOf(chart.drafts, nowTime),
     marOf: (id, at) => mar[`${id}|${at}`],
@@ -3474,6 +3479,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                           execute={executeProps}
                           onNewInjection={!deny("order") ? newInjection : undefined}
                           pendingNew={pendingNewInj}
+                          onToggleDose={deny("order") ? undefined : toggleDose}
+
                         />,
                       )}
                     {chart.openTabs.filter(isRefTab).map((t) => dock(t, RIGHT_TABS[t].label, "flex min-h-0 flex-1 flex-col bg-sheet", <RefWindow tab={t} {...refProps} />))}

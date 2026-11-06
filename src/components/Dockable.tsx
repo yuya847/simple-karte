@@ -110,8 +110,24 @@ export function Dockable({
 }) {
   const tray = useTrayWindow(`tab:${tab}`, title.split("：")[0], !!win, onClose);
   const front = () => { onFront(); tray.front(); };
-  const [adjusted, setAdjusted] = useState(() => typeof window !== "undefined" && !!keptWin(tab, window.innerWidth, window.innerHeight));
-  const shownWin = win && compact && !adjusted
+  const [adjusted, setAdjusted] = useState(() => tab !== "injcal" && typeof window !== "undefined" && !!keptWin(tab, window.innerWidth, window.innerHeight));
+  const floating = !!win;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentSize, setContentSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (tab !== "injcal" || !floating) return;
+    const table = contentRef.current?.querySelector("table");
+    if (!table) return;
+    const measure = () => setContentSize({ w: Math.min(table.scrollWidth + 2, window.innerWidth * 0.85), h: Math.min(table.offsetHeight + 90, window.innerHeight * 0.85) });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(table);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, [tab, floating]);
+  const shownWin = win && tab === "injcal" && contentSize && !adjusted
+    ? { ...win, ...contentSize, x: Math.max(0, (window.innerWidth - contentSize.w) / 2), y: Math.max(20, Math.min(win.y, window.innerHeight - contentSize.h)) }
+    : win && compact && !adjusted
     ? { ...win, x: Math.max(0, ((typeof window === "undefined" ? 1200 : window.innerWidth) - Math.min(480, win.w)) / 2), w: Math.min(480, win.w), h: 240 }
     : win;
   const drag = useWinDrag(shownWin, w => { setAdjusted(true); onMove(w); }, front);
@@ -123,10 +139,10 @@ export function Dockable({
     return () => window.removeEventListener("resize", fit);
   }, [win, onMove]);
 
-  const floating = !!win;
   return (
     <div
       data-dock={tab}
+      ref={contentRef}
       data-help-section={`panel:${tab}`}
       role={floating ? "dialog" : undefined}
       aria-label={floating ? `${title}（別ウインドウ）` : undefined}

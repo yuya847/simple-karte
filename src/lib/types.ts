@@ -190,6 +190,8 @@ export interface SlidingScale {
 }
 
 export interface InjectionOrder {
+  /** Omitted occurrences: day relative to the order start. */
+  omittedDoses?: { day: number; time: string }[];
   insulinDoses?: import("./insulin-doses").InsulinDose[];
   dayPattern?: DayPattern;
   sliding?: SlidingScale;

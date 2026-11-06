@@ -274,6 +274,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     }
     parts.push(`開始 ${ctx.fmtDay(draft.start.day ?? 0)} ${draft.start.time ?? "指示受け後"}`);
     if (draft.days) parts.push(`${draft.days}日間`);
+    if (draft.omittedDoses?.length) parts.push(`取り消す回：${draft.omittedDoses.map(x => `${ctx.fmtDay((draft.start.day ?? 0) + x.day)} ${x.time}`).join("・")}`);
     return (
       <div>
         <div className="font-bold">

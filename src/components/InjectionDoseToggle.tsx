@@ -1,17 +1,23 @@
 "use client";
 import { displayText } from "@/lib/display-text";
-import { useMe } from "./RoleContext";
+import { useMe, useDeny } from "./RoleContext";
 import { executeDeny } from "@/lib/order-execute";
 import type { ExecuteProps } from "./ExecuteMenu";
 import type { AdminRecord } from "@/lib/mar";
-export function InjectionDoseToggle({ execute, at, time, record }: { execute?: ExecuteProps; patientId: string; orderId: string; at: number; time: string; record?: AdminRecord }) {
+export function InjectionDoseToggle({ execute, at, time, record, onToggle, omitted = false }: { execute?: ExecuteProps; patientId: string; orderId: string; at: number; time: string; record?: AdminRecord; onToggle?: () => void; omitted?: boolean }) {
   const me = useMe();
+  const denied = useDeny()("order");
+  const toggle = denied ? undefined : onToggle;
   record = record?.cancellation ? undefined : record;
-  if (record?.status === "実施" && (!execute || executeDeny(me.role))) return <span>✓ {time}</span>;
-  const skipped = record?.status === "未実施" && !record.cancellation;
-  // A past dose with no record: shown as given (架空の記録、like the oral calendar), faint, so a day of doses
-  // does not look blank; a click opens the execution menu.
-  const nowAbs = execute ? Number(execute.nowTime.slice(0, 2)) * 60 + Number(execute.nowTime.slice(3, 5)) : null;
-  const assumedGiven = !record && nowAbs !== null && at < nowAbs;
-  return <button data-dose-menu="true" type="button" disabled={!execute || !!executeDeny(me.role)} title={displayText(record ? `${skipped ? "消した回" : record.status} ${record.doneAt} ${record.by}${record.cancellation ? `（取り消し：${record.cancellation.reason || "理由なし"}）` : ""}` : assumedGiven ? "記録のない過去の回（実施済みとして扱う）。クリックで実施・未実施のメニューを開く" : "クリックで実施・未実施のメニューを開く")} className={`text-[11px] ${skipped ? "opacity-40 line-through" : assumedGiven ? "text-wakatake/70" : ""}`}>{record?.status === "実施" || assumedGiven ? "✓ " : ""}{time}</button>;
+  if (record?.status === "実施" && (!execute || executeDeny(me.role))) return <span>✔︎ {time}</span>;
+  const future = !record && at >= (execute ? Number(execute.nowTime.slice(0, 2)) * 60 + Number(execute.nowTime.slice(3, 5)) : 0);
+  const skipped = record?.status === "未実施";
+  return <button data-dose-menu={future ? undefined : "true"} type="button"
+    disabled={future ? !toggle : !execute || !!executeDeny(me.role)}
+    onClick={future ? e => { e.stopPropagation(); toggle?.(); } : undefined}
+    aria-pressed={future ? omitted : undefined}
+    title={displayText(future ? toggle ? omitted ? "取り消しの下書きを戻す" : "この回を取り消す（下書き）" : "投与予定の変更は医師が行います" : record ? `${skipped ? "消した回" : record.status} ${record.doneAt} ${record.by}` : "右クリックで実施・未実施を記録")}
+    className={`text-[11px] ${skipped ? "opacity-40 line-through" : omitted ? "border border-dashed border-shu text-shu line-through" : ""}`}>
+    {record?.status === "実施" ? "✔︎ " : skipped ? "× " : "◯ "}{time}
+  </button>;
 }

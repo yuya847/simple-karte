@@ -22,6 +22,7 @@ export { REF_TABS, isRefTab, type RefTab } from "./RightTabs";
 export type FlowExtra = Partial<Omit<FlowSheetProps, "patient" | "entries" | "today" | "nowTime" | "selectedDay" | "onSelectDay" | "onInsertVitals" | "care" | "io" | "diets" | "moves" | "dayInfo">>;
 
 export interface RefWindowProps {
+  onToggleDose?: CalendarProps["onToggleDose"];
   onNewPrescription?: CalendarProps["onNewPrescription"];
   onPrescriptionStop?: CalendarProps["onPrescriptionStop"];
   insulinEdit?: InsulinEdit;

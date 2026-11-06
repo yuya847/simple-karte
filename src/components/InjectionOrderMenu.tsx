@@ -33,6 +33,7 @@ export function InjectionOrderMenu({ children, nowTime, onRate, onStop, onExtend
         <button type="button" className={btn} disabled={!onStop} onClick={() => setMode("stop")}>中止</button>
         <button type="button" className={btn} disabled={!onExtend} onClick={() => setMode("extend")}>延長</button>
         <button type="button" className={btn} disabled={!onDo} onClick={() => { onDo?.(); setPoint(null); }}>Do</button>
+        {onDo && !onStop && <button type="button" className={btn} onClick={() => { onDo(); setPoint(null); }}>再開（同じ内容で新しく）</button>}
         <button type="button" className={btn} onClick={async () => { try { await navigator.clipboard.writeText(text); setPoint(null); } catch { setError("コピーできませんでした"); } }}>テキストとしてコピー</button>
         {mode && <form className="space-y-2 border-t border-rule pt-2" onSubmit={e => { e.preventDefault(); if (mode === "rate") onRate?.({ time, rate: Number(rate) }); else if (mode === "stop") onStop?.(time); else onExtend?.(Number(days)); setPoint(null); }}>
           {mode !== "extend" && <label className="flex items-center gap-2">時刻<input aria-label="変更時刻" type="time" required value={time} onChange={e => setTime(e.target.value)} className="rounded border border-rule p-1" /></label>}

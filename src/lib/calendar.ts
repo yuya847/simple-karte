@@ -1,7 +1,7 @@
 import { patternDay, rxLastDay } from "./day-pattern";
 // Scheduled times for calendar cells. Actual administration is read from MAR by the view.
 
-import { abs, doseTimes, orderInterval } from "./flowsheet";
+import { abs, doseTimes, isOmittedDose, orderInterval } from "./flowsheet";
 import { doseVolumeMl } from "./drafts";
 import { findDrug, WARD_RULES } from "./master";
 import { procEvents, procInterval } from "./proc-timing";
@@ -43,7 +43,7 @@ export function injectionCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   if (o.schedule.kind !== "once" || o.doseTimes?.length) {
     cell.doses = scheduled.map((t) => ({ time: hhmm(t - lo), state: stateAt(t, nowAbs) }));
   } else if (o.schedule.kind === "once") {
-    if (from >= lo && from < hi) cell.doses = [{ time: hhmm(from - lo), state: stateAt(from, nowAbs) }];
+    if (from >= lo && from < hi && !isOmittedDose(o, from)) cell.doses = [{ time: hhmm(from - lo), state: stateAt(from, nowAbs) }];
   }
   if (o.schedule.kind === "per_day" && isFluidOrder(o) && !o.doseTimes?.length) {
     const start = Math.max(lo, from);

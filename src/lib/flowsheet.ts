@@ -37,7 +37,11 @@ export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: num
         if (at >= from && at >= lo && at < hi && (to === null || at < to)) out.push(at);
       }
     }
-    return [...new Set(out)].sort((a, b) => a - b);
+    return [...new Set(out)].sort((a, b) => a - b).filter(at => !isOmittedDose(o, at));
+  }
+  if (o.schedule.kind === "once") {
+    const { from, to } = orderInterval(entry, nowAbs);
+    return from >= lo && from < hi && (to === null || from < to) && !isOmittedDose(o, from) ? [from] : [];
   }
   if (o.schedule.kind !== "every_hours") return [];
   const { from, to } = orderInterval(entry, nowAbs);
@@ -45,7 +49,11 @@ export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: num
   const end = Math.min(hi, to ?? Infinity, o.days ? o.dayPattern ? (o.start.day + o.days) * 1440 : from + o.days * 1440 : Infinity);
   const out: number[] = [];
   for (let t = from; t < end; t += step) if (t >= lo && patternDay(o.dayPattern, o.start.day, Math.floor(t / 1440), base)) out.push(t);
-  return out;
+  return out.filter(at => !isOmittedDose(o, at));
+}
+
+export function isOmittedDose(o: InjectionOrder, at: number): boolean {
+  return !!o.omittedDoses?.some(x => abs(o.start.day + x.day, x.time) === at);
 }
 
 /** Infused volume (mL) in [lo, hi) from injection orders (not rounded). An estimate from the orders, not a measurement. */
@@ -58,6 +66,8 @@ export function fluidInWindow(entries: OrderEntry[], lo: number, hi: number, now
     if (vol === 0) continue;
     if (o.schedule.kind === "every_hours") {
       total += doseTimes(e, nowAbs, lo, hi).length * vol;
+    } else if (o.schedule.kind === "per_day" && o.omittedDoses?.length) {
+      total += doseTimes(e, nowAbs, lo, hi).length * vol;
     } else if (o.schedule.kind === "per_day") {
       const { from, to } = orderInterval(e, nowAbs);
       let overlap = 0;
@@ -67,7 +77,7 @@ export function fluidInWindow(entries: OrderEntry[], lo: number, hi: number, now
       total += ((vol * o.schedule.count) / 1440) * overlap;
     } else {
       const t = abs(o.start.day, o.start.time ?? e.time);
-      if (t >= lo && t < hi) total += vol;
+      if (t >= lo && t < hi && !isOmittedDose(o, t)) total += vol;
     }
   }
   return total;

@@ -22,3 +22,41 @@ it("中止の下書きの指定時刻を確定時刻と区別する", () => {
   const d: StopDraft = { kind: "stop", id: "s", origin: "manual", sourceText: "", comment: null, targetOrderId: "old", drugCode: "INJ-NS500", said: "生食", stopTime: "16:00" };
   expect(stopTimesOf([d], "12:00")).toEqual({ old: "16:00" });
 });
+
+it("予定の1回を取り消す下書きと復元：他の回・原本・実施記録は変更しない", async () => {
+  const { toggleInjectionDose } = await import("./injection-change");
+  const { doseTimes } = await import("./flowsheet");
+  const d = toggleInjectionDose(entry, 2040, 660, [], "cancel")!;
+  expect(d.omittedDoses).toEqual([{ day: 0, time: "10:00" }]);
+  expect(d.start).toEqual({ day: 1, time: "10:00" });
+  const result = toOrder(d, { nowTime: "11:00", activeOrders: [entry], drafts: [d] } as unknown as CheckContext);
+  const next = { ...entry, order: result.order! };
+  expect(doseTimes(next, 660, 660, 5760)).toEqual([3480]);
+  expect(toggleInjectionDose(entry, 2040, 660, [d], "restore")).toBeNull();
+  expect(() => toggleInjectionDose(entry, 540, 660, [], "past")).toThrow();
+  expect(entry.order).not.toHaveProperty("omittedDoses");
+});
+
+it("複数の回の取り消しをまとめ、戻した回だけ除き、一定間隔の時刻を保つ", async () => {
+  const { toggleInjectionDose } = await import("./injection-change");
+  const { doseTimes } = await import("./flowsheet");
+  const source: OrderEntry = { ...entry, order: { ...entry.order as import("./types").InjectionOrder, schedule: { kind: "every_hours", hours: 8 } } };
+  const before = doseTimes(source, 660, 660, 9000);
+  const a = toggleInjectionDose(source, before[0], 660, [], "a")!;
+  const b = toggleInjectionDose(source, before[1], 660, [a], "b")!;
+  const ctx = { nowTime: "11:00", activeOrders: [source], drafts: [b] } as unknown as CheckContext;
+  const confirmed = toOrder(b, ctx).order!;
+  expect(doseTimes({ ...entry, order: confirmed }, 660, 660, 9000)).toEqual(before.slice(2));
+  const restored = toggleInjectionDose(source, before[0], 660, [b], "c")!;
+  expect(restored.omittedDoses).toHaveLength(1);
+  expect(toggleInjectionDose(source, before[1], 660, [restored], "d")).toBeNull();
+});
+
+it("1回のみの注射を取り消して確定すると予定から除かれる", async () => {
+  const { toggleInjectionDose } = await import("./injection-change");
+  const { injectionCell } = await import("./calendar");
+  const source: OrderEntry = { ...entry, order: { ...entry.order as import("./types").InjectionOrder, schedule: { kind: "once" }, start: { day: 1, time: "14:00" } } };
+  const d = toggleInjectionDose(source, 2280, 660, [], "once")!;
+  const result = toOrder(d, { nowTime: "11:00", activeOrders: [source], drafts: [d] } as unknown as CheckContext);
+  expect(injectionCell({ ...source, order: result.order! }, 1, 660).doses).toEqual([]);
+});
