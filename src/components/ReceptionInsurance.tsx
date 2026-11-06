@@ -32,7 +32,7 @@ interface Props {
 }
 
 /** The insurance block of the 受付 form. */
-export function ReceptionInsurance({ form, onChange, today, checks, derived = [], existing, disabled }: Props) {
+export function ReceptionInsurance({ form, onChange, today, checks, existing, disabled }: Props) {
   const input = "w-full rounded border bg-sheet px-1.5 py-1 text-[13px] outline-none focus:border-ai";
   const tone = (k: keyof InsuranceForm) => (checks.some((c) => c.field === k && c.level === "error") ? "border-shu" : checks.some((c) => c.field === k && c.level === "warn") ? "border-yamabuki" : "border-rule");
   const medical = isMedical(form) && form.kind !== "";
@@ -169,13 +169,6 @@ export function ReceptionInsurance({ form, onChange, today, checks, derived = []
           </>
         )}
       </div>
-      {derived.length > 0 && (
-        <ul className="mt-1 text-[11px] text-yamabuki">
-          {derived.map((d) => (
-            <li key={d.field}>コードで入れた：{d.why}</li>
-          ))}
-        </ul>
-      )}
       {checks.length > 0 && (
         <ul className="mt-1.5 space-y-1">
           {[...checks]

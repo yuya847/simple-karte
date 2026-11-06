@@ -27,8 +27,8 @@ describe("/api/dpc/batch: the patient list's DPC column in a few requests", () =
       const { month, dpc: opts, ...rest } = one;
       expect(briefs[p.id]).toEqual(briefOf(dpcView(dpcMonth(rest as never, month, opts))));
     }
-    // 佐倉さん（右下腿蜂巣炎）: 080010, 入院4日目は期間Ⅰ.
-    expect(briefs["90010231"]).toMatchObject({ ok: true, code: "080010xxxx0xxx", period: "Ⅰ", hospitalDay: 4 });
+    // 佐倉さん: 選んでいないので点数が最も高い MRSA 菌血症（180010）、入院4日目は期間Ⅰ.
+    expect(briefs["90010231"]).toMatchObject({ ok: true, code: "180010x0xxx0xx", period: "Ⅰ", hospitalDay: 4 });
   });
 
   it("takes at most 40 patients in one request (the list sends the rest in the next)", () => {

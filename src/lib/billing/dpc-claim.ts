@@ -241,15 +241,19 @@ const monthOf = (ms: number) => {
   return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}`;
 };
 
-/** The doctor's choice, else (a proposal only) the 主病名 given first — the nearest to 入院の契機となった傷病名. */
-function chooseDiagnosis(diagnoses: Diagnosis[], id?: string): { d: Diagnosis; by: "doctor" | "default" } | null {
+/** The doctor's choice, else the 傷病名 (not suspected) with the highest score — the most points of the month. */
+function chooseDiagnosis(diagnoses: Diagnosis[], id: string | undefined, score: (d: Diagnosis) => number): { d: Diagnosis; by: "doctor" | "default" } | null {
   const coded = diagnoses.filter((d) => d.icd10);
   const picked = id ? coded.find((d) => d.id === id) : undefined;
   if (picked) return { d: picked, by: "doctor" };
-  const mains = coded.filter((d) => d.main && !isSuspected(d));
-  const pool = mains.length ? mains : coded.filter((d) => !isSuspected(d));
-  const first = [...pool].sort((a, b) => a.start - b.start)[0];
-  return first ? { d: first, by: "default" } : null;
+  const pool = coded.filter((d) => !isSuspected(d));
+  let best: { d: Diagnosis; s: number } | null = null;
+  // Ties keep the 主病名 given first.
+  for (const d of [...pool].sort((a, b) => Number(b.main) - Number(a.main) || a.start - b.start)) {
+    const s = score(d);
+    if (!best || s > best.s) best = { d, s };
+  }
+  return best ? { d: best.d, by: "default" } : null;
 }
 
 export function dpcMonth(input: Omit<ClaimInput, "month">, month: string, opts: DpcOptions): DpcMonth {
@@ -268,29 +272,26 @@ export function dpcMonth(input: Omit<ClaimInput, "month">, month: string, opts: 
   const acts = recordedActs(claims, input.entries);
 
   input = { ...input, diagnoses: input.diagnoses.filter(d => diagnosisClaimable(d, month)) };
-  const choice = chooseDiagnosis(input.diagnoses, opts.mainDiagnosisId);
-  const outcome: DpcOutcome | null = choice
-    ? deriveDpc({
-        icd10: choice.d.icd10!,
-        diagnosis: diagnosisLabel(choice.d),
-        age: p.age,
-        acts,
-        others: input.diagnoses.filter((d) => d.id !== choice.d.id && d.icd10 && !isSuspected(d)).map((d) => ({ icd10: d.icd10!, name: diagnosisLabel(d) })),
-        transfer: opts.transfer,
-      })
-    : null;
-  if (!choice) issues.push({ level: "review", text: "ICD-10 の付いた病名がないため、DPC コードを出せません。" });
-  if (choice?.by === "default")
-    issues.push({
-      level: "info",
-      text: `医療資源を最も投入した傷病名は主治医が選びます（留意事項 第2の1(2)）。まだ選ばれていないので、主病名のうち最も早く付いた「${diagnosisLabel(choice.d)}」で仮に計算しています。`,
-    });
-  issues.push({ level: "info", text: "年齢は入院時の年齢で分けます（留意事項 第2の3(3)）。この試作では患者の欄の年齢を使っています。" });
-
   const lastHd = Math.round(((base + last * dayMs) - admitted) / dayMs) + 1;
   const [cy, cm] = month.split("-").map(Number);
   const hospitalDay = (dom: number) => Math.round((Date.UTC(cy, cm - 1, dom) - admitted) / dayMs) + 1;
   const monthDays = claim.from === null || claim.to === null ? [] : Array.from({ length: claim.to - claim.from + 1 }, (_, i) => claim.from! + i);
+  const derive = (c: Diagnosis) =>
+    deriveDpc({
+      icd10: c.icd10!,
+      diagnosis: diagnosisLabel(c),
+      age: p.age,
+      acts,
+      others: input.diagnoses.filter((d) => d.id !== c.id && d.icd10 && !isSuspected(d)).map((d) => ({ icd10: d.icd10!, name: diagnosisLabel(d) })),
+      transfer: opts.transfer,
+    });
+  // Not chosen yet: the 傷病名 whose DPC gives the most points this month (the doctor changes it on the screen).
+  const score = (o: DpcOutcome) => (!o.ok ? -1 : o.d.hokatsu ? packagePoints(o.d.row, opts.coefficient, monthDays.map(hospitalDay)).total : 0);
+  const choice = chooseDiagnosis(input.diagnoses, opts.mainDiagnosisId, (c) => score(derive(c)));
+  const outcome: DpcOutcome | null = choice ? derive(choice.d) : null;
+  if (!choice) issues.push({ level: "review", text: "ICD-10 の付いた病名がないため、DPC コードを出せません。" });
+  issues.push({ level: "info", text: "年齢は入院時の年齢で分けます（留意事項 第2の3(3)）。この試作では患者の欄の年齢を使っています。" });
+
   const d = outcome?.ok ? outcome.d : null;
   const now = d ? { hospitalDay: lastHd, ...periodOf(d.row, lastHd) } : { hospitalDay: lastHd, period: null, points: null };
   const pkg = d?.hokatsu ? packagePoints(d.row, opts.coefficient, monthDays.map(hospitalDay)) : null;

@@ -90,7 +90,7 @@ export function DpcPanel({ patient, entries, diagnoses, today, nowTime, month, o
           <label className="flex items-center gap-1.5">
             医療資源を最も投入した傷病名
             <select value={mainId ?? ""} onChange={(e) => setMainId(e.target.value || undefined)} className="max-w-[22rem] rounded border border-rule bg-sheet px-1 py-0.5">
-              <option value="">（まだ選んでいない：主病名のうち最も早いもので仮に計算）</option>
+              <option value="">点数が最も高いもの{r?.chosen && !mainId ? `（${r.chosen.label}）` : ""}</option>
               {(r?.diagnoses ?? []).map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.label}（{x.icd10}）{x.main ? "・主病名" : ""}

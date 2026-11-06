@@ -11,9 +11,9 @@ import { auditLog } from "@/lib/audit";
 import type { InsuranceForm } from "@/lib/billing/registration";
 import type { CalendarDate } from "@/lib/dates";
 import { nationalServices } from "@/lib/national/adapter";
-import { CHECKUP_ITEMS, formFromQualification, LIMIT_CLASS_CODES, ONSHI_SOURCES, ONSHI_UNFILLED, type CardQuery, type CopiedForm, type OnshiPerson, type OnshiResult } from "@/lib/national/onshi";
+import { CHECKUP_ITEMS, formFromQualification, LIMIT_CLASS_CODES, type CardQuery, type CopiedForm, type OnshiPerson, type OnshiResult } from "@/lib/national/onshi";
 import { useMe } from "../RoleContext";
-import { MockMark, MockNote, SpecBox } from "./SpecParts";
+import { MockMark, MockNote } from "./SpecParts";
 
 const STATUS_CLS: Record<OnshiResult["status"], string> = { 有効: "bg-wakatake-soft text-wakatake", 無効: "bg-shu-soft text-shu", 該当資格なし: "bg-yamabuki-soft text-yamabuki" };
 
@@ -27,7 +27,7 @@ export function OnshiCheck({
   current,
   onCopy,
   onChecked,
-  compact,
+  compact: _compact,
 }: {
   person: OnshiPerson | null;
   today: CalendarDate;
@@ -123,20 +123,20 @@ export function OnshiCheck({
           </div>
           {result.reason && <p className="text-yamabuki">{result.reason}</p>}
           {info && (
-            <dl className="nums grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 sm:grid-cols-[auto_1fr_auto_1fr]">
+            <dl className="nums grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-0.5">
               {(
                 [
                   ["氏名", `${info.name}（${info.kana}）`],
                   ["性別・生年月日", `${info.sex}・${info.birthDate}`],
                   ["保険者番号", `${info.insurerNumber}（${info.insurerName}）`],
                   ["記号・番号・枝番", `${info.symbol || "（記号なし）"}・${info.number}・${info.branch || "（なし）"}`],
-                  ["本人・家族の別", info.relation ?? "（後期高齢者医療は設定なし）"],
+                  ...(info.relation ? [["本人・家族の別", info.relation]] : []),
                   ...(info.insuredName ? [["被保険者氏名", info.insuredName]] : []),
                   ["資格取得年月日", info.acquired],
                   ["被保険者証区分", `${info.card.kind}（有効 ${ymd(info.card.validFrom)}〜${ymd(info.card.validTo)}）`],
-                  ...(info.card.rate ? [["一部負担金割合（被保険者証）", `${info.card.rate / 10}割`]] : []),
+                  ...(info.card.rate ? [["負担割合", `${info.card.rate / 10}割`]] : []),
                   ...(info.elder ? [["高齢受給者証", `${info.elder.rate / 10}割（${info.elder.validFrom}〜${info.elder.validTo}）`]] : []),
-                  ...(info.limit ? [["限度額適用認定証関連情報", `${info.limit.kind}・適用区分 ${info.limit.classCode} ${limitLabel(info.limit.classCode)}（${info.limit.validFrom}〜${info.limit.validTo}）`]] : []),
+                  ...(info.limit ? [["限度額適用認定証", `${info.limit.kind}・適用区分 ${info.limit.classCode} ${limitLabel(info.limit.classCode)}（${info.limit.validFrom}〜${info.limit.validTo}）`]] : []),
                   ["住所", info.address || "（記録なし）"],
                 ] as [string, string][]
               ).map(([k, v]) => (
@@ -147,7 +147,6 @@ export function OnshiCheck({
               ))}
             </dl>
           )}
-          {result.notGiven.length > 0 && <p className="text-[11px] text-ink-faint">返らなかったもの：{result.notGiven.join("、")}</p>}
 
           {result.drugs && (
             <div>
@@ -239,18 +238,10 @@ export function OnshiCheck({
                 保険の登録の欄に写す
               </button>
               <span className="hint ml-2 text-[11px] text-ink-soft">写したあと、左の欄とコードの確かめを見て「登録する」を押します。</span>
-              {copied.derived.length > 0 && (
-                <ul className="text-[11px] text-yamabuki">
-                  {copied.derived.map((d) => (
-                    <li key={d.field}>コードで入れた：{d.why}</li>
-                  ))}
-                </ul>
-              )}
             </div>
           )}
         </div>
       )}
-      {!compact && <SpecBox specs={ONSHI_SOURCES} unfilled={ONSHI_UNFILLED} />}
     </section>
   );
 }

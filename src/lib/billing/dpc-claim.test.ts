@@ -53,8 +53,8 @@ describe("包括に含まれるもの・出来高に残るもの（告示第96�
 
 describe("デモの患者の月：包括 + 出来高に残る部分 と 出来高の算定", () => {
   it("佐倉さん（右下腿蜂巣炎）11月：080010xxxx0xxx、入院1〜4日目は入院期間Ⅰ 3,133点 × 1.3", () => {
-    const r = dpcMonth(input("90010231"), "2026-11", opts);
-    expect(r.chosen).toMatchObject({ icd10: "L031", by: "default" });
+    const r = dpcMonth(input("90010231"), "2026-11", { ...opts, mainDiagnosisId: "d-sakura-1" });
+    expect(r.chosen).toMatchObject({ icd10: "L031", by: "doctor" });
     expect(r.outcome?.ok && r.outcome.d.code).toBe("080010xxxx0xxx");
     expect(r.now).toEqual({ hospitalDay: 4, period: "Ⅰ", points: 3133 });
     expect(r.pkg?.lines).toEqual([{ period: "Ⅰ", from: 1, to: 4, days: 4, points: 3133, perDay: 4072.9, subtotal: 16291.6 }]);
@@ -68,6 +68,13 @@ describe("デモの患者の月：包括 + 出来高に残る部分 と 出来�
     expect(codes).toContain("180737910"); // 入院ベースアップ評価料
     expect(codes).toContain("190147510"); // 患者サポート体制充実加算
     expect(codes).not.toContain("190199910"); // 入院料は包括
+  });
+
+  it("まだ選んでいなければ、点数が最も高い傷病名（佐倉さんは MRSA 菌血症）", () => {
+    const r = dpcMonth(input("90010231"), "2026-11", opts);
+    expect(r.chosen).toMatchObject({ icd10: "A410", by: "default" });
+    const cellulitis = dpcMonth(input("90010231"), "2026-11", { ...opts, mainDiagnosisId: "d-sakura-1" });
+    expect(r.pkg!.total).toBeGreaterThan(cellulitis.pkg!.total);
   });
 
   it("佐倉さんで MRSA 菌血症を選ぶと 180010x0xxx0xx（3,428点）", () => {

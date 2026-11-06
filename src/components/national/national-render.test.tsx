@@ -23,12 +23,12 @@ const as = (role: Role, node: React.ReactNode) =>
 
 describe("オンライン資格確認（模擬）", () => {
   const p = PATIENTS[0];
-  it("is in 保険の登録, marked 模擬, with the public sources and what it cannot fill", () => {
+  it("is in 保険の登録, marked 模擬, without the list of sources and footnotes", () => {
     const html = as("医事課", <InsurancePanel patient={p} records={INITIAL_INSURANCE_BOOK[p.id]} today={today} nowTime="10:00" onRegister={() => {}} />);
     expect(html).toContain("資格を確認（模擬）");
     expect(html).toContain("オンライン資格確認等システムにはつないでいません");
-    expect(html).toContain("https://www.mhlw.go.jp/content/10200000/000726675.pdf");
-    expect(html).toContain("この試作では埋められない項目");
+    expect(html).not.toContain("従った仕様");
+    expect(html).not.toContain("この試作では埋められない項目");
   });
   it("chooses nothing in advance and cannot ask before the window chooses how the patient came", () => {
     const html = as("医事課", <OnshiCheck person={{ id: p.id, name: p.name, kana: p.kana, sex: p.sex, age: p.age }} today={today} nowTime="10:00" />);
