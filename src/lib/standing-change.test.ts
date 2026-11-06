@@ -97,3 +97,15 @@ describe("指示の変更と終了", () => {
     expect(marked.find((r) => r.main.includes("終了："))?.flags.resident).toContain("確認待ち");
   });
 });
+
+it("かたまりの変更・終了でも本文と改行と指示受けの変更印を保つ", () => {
+  const original = { ...line, cat: "頓用" as const, text: "嘔気時、嘔吐時指示\n経口可能時：医師に連絡\n経口不可能時：医師に連絡" };
+  const text = original.text.replace("経口可能時：医師に連絡", "経口可能時：処方を確認");
+  const changed = changeLine([original], original.id, { text, start: at }, line.by, at);
+  expect(changed.lines[1].text).toBe(text);
+  expect(changed.lines[1].cat).toBe("頓用");
+  expect(lineChanges([person], { p: changed.lines }, new Set([original.id]), 0, 801, String)[0].text.main).toContain(`→ ${text}`);
+  const ended = stopLine(changed.lines, changed.newId, { day: 1, time: "10:00", by: line.by, kind: "終了" });
+  expect(ended[1].text).toBe(text);
+  expect(barMark(ended[1], 1, 3)).toBe("end");
+});

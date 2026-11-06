@@ -9,14 +9,15 @@ export function standingFromRequest(request: AdmissionRequest, by: string, at: S
   return { ...emptyStanding(by, { ...at }), rest: request.rest === "歩行可" ? "病棟内歩行" : request.rest };
 }
 
-/** Fictional admission checklist: a diet (including fasting) and vital measurements. */
+/** Fictional checklist: diet and vitals, or a basic block with rest and diet filled in. */
 export function admissionOrdersMissing(standing: StandingOrders | StandingLine[] | undefined, dietOrders: DietOrder[]): string[] {
   const lines = Array.isArray(standing) ? standing : [];
-  const diet = dietOrders.length > 0 || lines.some((l) => l.cat === "食事" && l.text.trim());
+  const basic = lines.some((l) => /^基本指示\s*$/m.test(l.text) && /^安静度[：:][ \t]*\S.*$/m.test(l.text) && /^食事[：:][ \t]*\S.*$/m.test(l.text));
+  const diet = basic || dietOrders.length > 0 || lines.some((l) => l.cat === "食事" && l.text.trim());
   const vitals = Array.isArray(standing)
     ? lines.some((l) => l.cat === "バイタル" && l.text.trim() && !l.text.startsWith("体重"))
     : !!standing?.vitals;
-  return [...(!diet ? ["食事"] : []), ...(!vitals ? ["バイタル"] : [])];
+  return [...(!diet ? ["食事"] : []), ...(!vitals && !basic ? ["バイタル"] : [])];
 }
 
 /** Feed structured versions through the same line-change queue as free-text orders.

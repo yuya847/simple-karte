@@ -49,7 +49,7 @@ describe("指示簿の画面", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>＋ 行を足す<\/button>/);
   });
 
-  it("the 指示簿 panel shows current orders beside a category, choices and free comment form", () => {
+  it("the 指示簿 panel shows blocks beside a title and body form", () => {
     const html = renderToStaticMarkup(
       <RoleProvider value="医師">
         <StandingPanel versions={initialStanding()["90010198"]} allergies={[]} nowTime="10:30" fmtDay={(d) => `11/${4 + d}`} onSave={noop} onTake={noop} newId={id} lines={{ patient: oura, lines: initialLines()["90010198"], today: TODAY, onAdd: noop, onStop: noop }} />
@@ -57,10 +57,10 @@ describe("指示簿の画面", () => {
     );
     expect(html).toContain('aria-label="現在の指示"');
     expect(html).toContain('aria-label="指示の入力"');
-    expect(html).toMatch(/<select[^>]*aria-label="指示のカテゴリ"/);
-    expect(html).toMatch(/<select[^>]*aria-label="指示の選択肢"/);
-    expect(html).toMatch(/<textarea[^>]*aria-label="指示のフリーコメント"/);
-    expect(html).toContain("ADL");
+    expect(html).not.toContain('aria-label="指示のカテゴリ"');
+    expect(html).not.toContain('aria-label="指示の選択肢"');
+    expect(html).toMatch(/<textarea[^>]*aria-label="指示の見出しと本文"/);
+    expect(html).toContain("項目で入力（任意）");
     expect(html).toContain("テンプレート");
     expect(html).toContain("有効");
     expect(html).toContain("中止");

@@ -140,8 +140,8 @@ describe("指示受け", () => {
 });
 
 describe("テンプレート", () => {
-  it("has hospital templates for every category, each a plain sentence", () => {
-    for (const c of LINE_CATS) expect(HOSPITAL_LINE_TEMPLATES.some((t) => t.cat === c)).toBe(true);
+  it("has block templates with valid categories and unique ids", () => {
+    for (const t of HOSPITAL_LINE_TEMPLATES) expect(LINE_CATS).toContain(t.cat);
     expect(new Set(HOSPITAL_LINE_TEMPLATES.map((t) => t.id)).size).toBe(HOSPITAL_LINE_TEMPLATES.length);
   });
 

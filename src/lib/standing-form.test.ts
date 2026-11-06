@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { composeStandingText, splitStandingText, STANDING_CHOICES, worksheetPrnLines } from "./standing-form";
-import { HOSPITAL_LINE_SETS, HOSPITAL_LINE_TEMPLATES, linesFromFields, lineChanges, stopLine, type StandingLine } from "./standing-lines";
+import { categoryFromTitle, newestLines, HOSPITAL_LINE_TEMPLATES, linesFromFields, lineChanges, stopLine, type StandingLine } from "./standing-lines";
 import { changeKey, type WorkPatient } from "./worksheet";
 import { emptyStanding } from "./standing";
 import type { Patient } from "./types";
@@ -36,17 +36,27 @@ describe("指示簿の入力と看護師への接続", () => {
     expect(linesFromFields([first, next])).toEqual([expect.objectContaining({ cat: "呼出基準", end: next.at, fromFields: true })]);
     expect(first.conds).toHaveLength(1);
   });
-  it("解熱の例は添付文書の回数を採り、未指定の睡眠薬を作らない", () => {
-    expect(HOSPITAL_LINE_TEMPLATES.find((t) => t.id === "h-prn-fever")?.text).toContain("1日2回まで");
+  it("解熱の例は架空の取り決めの回数を採り、未指定の睡眠薬を作らない", () => {
+    expect(HOSPITAL_LINE_TEMPLATES.find((t) => t.id === "h-prn-fever")?.text).toContain("1日3回まで");
     expect(HOSPITAL_LINE_TEMPLATES.find((t) => t.id === "h-prn-sleep")?.text).toContain("医師に連絡");
   });
 });
 
-describe("指示簿のセット", () => {
-  it("どのセットも 1 件以上で、カテゴリは指示簿のカテゴリ、頓用の解熱にカロナールを含む", () => {
-    expect(HOSPITAL_LINE_SETS.length).toBeGreaterThan(3);
-    for (const s of HOSPITAL_LINE_SETS) expect(s.lines.length).toBeGreaterThan(0);
-    expect(HOSPITAL_LINE_SETS.find((s) => s.id === "set-fever")!.lines.some((l) => l.text.includes("カロナール"))).toBe(true);
-    expect(new Set(HOSPITAL_LINE_SETS.map((s) => s.id)).size).toBe(HOSPITAL_LINE_SETS.length);
+describe("かたまりのテンプレート", () => {
+  it("見出しから分類し、本文にあるDrコールには左右されない", () => {
+    for (const t of HOSPITAL_LINE_TEMPLATES) {
+      expect(t.text).toContain("\n");
+      expect(categoryFromTitle(t.text.split("\n")[0])).toBe(t.cat);
+    }
+    for (const title of ["Dr.call指示", "ドクターコール", "Drコール", "医師を呼ぶ"]) expect(categoryFromTitle(title)).toBe("呼出基準");
+    for (const title of ["疼痛時", "頓用", "スケール", "インスリン"]) expect(categoryFromTitle(title)).toBe("頓用");
+    for (const title of ["基本指示", "安静", "任意の文"]) expect(categoryFromTitle(title)).toBe("その他");
+  });
+  it("記入日時の新しい順に並べ、同時刻なら後の指示を先にする", () => {
+    expect(newestLines([line, { ...line, id: "later" }, { ...line, id: "old", at: { day: -1, time: "23:00" } }]).map((l) => l.id)).toEqual(["later", "new", "old"]);
+  });
+  it("頓用の欄に見出しと本文の最初の3行を残す", () => {
+    const text = "嘔気時、嘔吐時指示\n経口可能時\n経口不可能時\n医師に連絡\n補足";
+    expect(worksheetPrnLines([{ ...line, text }], person, 600, {}, new Set())[0].text).toBe(text.split("\n").slice(0, 4).join("\n"));
   });
 });

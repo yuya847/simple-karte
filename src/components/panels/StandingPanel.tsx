@@ -273,7 +273,7 @@ export function StandingPanel({
         </>
       )}
       <details>
-      <summary className="cursor-pointer text-ink-soft">項目で選ぶ指示・指示受け・前の版</summary>
+      <summary className="cursor-pointer text-ink-soft">項目で入力（任意）</summary>
       {cur ? (
         <>
           <div className="flex flex-wrap items-center gap-2 text-[12px]">

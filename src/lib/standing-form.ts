@@ -28,7 +28,7 @@ export function worksheetPrnLines(lines: StandingLine[], person: WorkPatient, no
   const day = Math.floor(now / 1440);
   const minutes = now - day * 1440;
   const time = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-  return lines.filter((l) => lineEffective(l, day, time) && l.cat === "頓用" && (!sessionKeys.has(changeKey(l.id, "新規")) || !!taken[changeKey(l.id, "新規")])).map((l) => ({ id: l.id, patientId: person.patient.id, room: person.room, name: person.patient.name, text: l.text }));
+  return lines.filter((l) => lineEffective(l, day, time) && l.cat === "頓用" && (!sessionKeys.has(changeKey(l.id, "新規")) || !!taken[changeKey(l.id, "新規")])).map((l) => ({ id: l.id, patientId: person.patient.id, room: person.room, name: person.patient.name, text: l.text.split("\n").slice(0, 4).join("\n") }));
 }
 
 /** One hospital template; the doctor reviews the draft before confirming. */

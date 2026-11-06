@@ -30,6 +30,11 @@ describe("指示カレンダーの操作と期間表示", () => {
     expect(html).toContain("有効：11/4 〜 変えるまで続く");
     expect(html).toMatch(/type="date" aria-label="指示の終了日"/);
     expect(html).toContain("2026-11-05");
+    expect(html).toContain('aria-label="指示の見出しと本文"');
+    expect(html).toContain("終了日を決める（指示迄）");
+    expect(html).toContain("保存する");
+    expect(html).not.toContain("指示の選択肢");
+    expect(html).not.toContain("セット（まとめて出す）");
   });
 });
 
