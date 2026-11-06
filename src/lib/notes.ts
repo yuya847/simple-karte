@@ -284,13 +284,14 @@ export function diffLines(before: string, after: string): DiffLine[] {
   return out;
 }
 
-/** The note template for a role: SOAP for doctors, nurses and pharmacists; free text otherwise. */
+/** The note template for a role: 看護師 start in フォーカス（DAR）; everyone else from an empty note (unless they chose a form). */
 export function preferredNoteForm(role: string): NoteForm {
   try {
     const saved = typeof localStorage === "undefined" ? null : localStorage.getItem(`simple-karte:note-form:${role}`);
     if (NOTE_FORMS.includes(saved as NoteForm)) return saved as NoteForm;
   } catch { /* Storage may be unavailable. */ }
-  return role === "看護師" ? "フォーカス（DAR）" : "SOAP";
+  // Doctors and pharmacists start from an empty note: typing S) O) A) P) draws the sections (note-blocks.ts).
+  return role === "看護師" ? "フォーカス（DAR）" : "自由文";
 }
 export function rememberNoteForm(role: string, form: NoteForm): void {
   try { localStorage.setItem(`simple-karte:note-form:${role}`, form); } catch { /* Keep writing without storage. */ }

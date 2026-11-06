@@ -141,3 +141,14 @@ it("separates section labels from problem headings and individual times", () => 
   for (const line of ["S)", " O) 所見", "A)", "P)", "D)", "Act)", "R)", "【経時記録】"]) expect(isSectionHeadingLine(line)).toBe(true);
   for (const line of ["＃1 肺炎", "# 転倒", "09:30 訪室", "---", "Sodium"]) expect(isSectionHeadingLine(line)).toBe(false);
 });
+
+describe("soapMark", () => {
+  it("full-width marks from the Japanese input become S) O) A) P)", async () => {
+    const { soapMark, replaceLine } = await import("./note-blocks");
+    expect(soapMark("Ｓ）頭痛")).toBe("S)頭痛");
+    expect(soapMark("O）")).toBe("O)");
+    expect(soapMark("  Ａ) x")).toBe("  A) x");
+    expect(soapMark("S と書く")).toBe("S と書く");
+    expect(replaceLine("x", 0, "Ｐ）経過観察").text).toBe("P)経過観察");
+  });
+});

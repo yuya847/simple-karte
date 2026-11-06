@@ -22,14 +22,14 @@ describe("医師への連絡条件", () => {
   });
 });
 describe("職種別の記事形式", () => {
-  it("看護師はDAR、医師はSOAPが既定で、保存は職種ごと", () => {
+  it("看護師はDAR、医師は空の記事（自由文）が既定で、保存は職種ごと", () => {
     const data = new Map<string, string>();
     vi.stubGlobal("localStorage", { getItem: (k: string) => data.get(k), setItem: (k: string, v: string) => data.set(k, v) });
     expect(noteTemplate("看護師")).toContain("Act)");
-    expect(preferredNoteForm("医師")).toBe("SOAP");
+    expect(preferredNoteForm("医師")).toBe("自由文");
     rememberNoteForm("看護師", "経時記録");
     expect(preferredNoteForm("看護師")).toBe("経時記録");
-    expect(preferredNoteForm("医師")).toBe("SOAP");
+    expect(preferredNoteForm("医師")).toBe("自由文");
     data.set("simple-karte:note-form:看護師", "壊れた値");
     expect(preferredNoteForm("看護師")).toBe("フォーカス（DAR）");
   });

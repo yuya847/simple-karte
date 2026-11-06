@@ -365,7 +365,7 @@ import { ReceiptDesk } from "./ReceiptDesk";
 import { EMPTY_RETURNS, type ReturnDesk } from "@/lib/billing/returns";
 import { EMPTY_LIAISON, type LiaisonBook } from "@/lib/liaison";
 
-const NOTE_TEMPLATE = "S)\nO)\nA)\nP)\n";
+const NOTE_TEMPLATE = "";
 /** The attending doctor of the four ward patients (fictional). */
 const DOCTOR = STAFF.医師.name;
 

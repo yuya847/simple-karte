@@ -47,7 +47,7 @@ describe("記録の形式", () => {
   it("a nurse goes on in the same form; others start from their template", () => {
     expect(nextFrame("看護師", "# 転倒\nD) x", "11:00")).toBe("# \nD) \nAct) \nR) \n");
     expect(nextFrame("看護師", "【経時記録】\n10:00 x", "11:00")).toBe("【経時記録】\n11:00 \n");
-    expect(nextFrame("医師", "【経時記録】\n10:00 x", "11:00")).toBe("S)\nO)\nA)\nP)\n");
+    expect(nextFrame("医師", "【経時記録】\n10:00 x", "11:00")).toBe("");
   });
 
   it("parts to narrow the record to", () => {

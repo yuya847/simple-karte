@@ -96,7 +96,7 @@ export const joinWithNext = (text: string, line: number): Edited => {
 /** The line replaced by what was typed into it (a pasted "\n" makes more lines); the caret after it. */
 export function replaceLine(text: string, line: number, value: string, caretInLine = value.length): Edited {
   const lines = toLines(text);
-  const next = [...lines.slice(0, line), ...value.split("\n").map((line) => isDividerLine(line) ? "---" : line), ...lines.slice(line + 1)];
+  const next = [...lines.slice(0, line), ...value.split("\n").map((line) => isDividerLine(line) ? "---" : soapMark(line)), ...lines.slice(line + 1)];
   const out = fromLines(next);
   const before = value.slice(0, caretInLine);
   const added = before.split("\n");
@@ -171,6 +171,10 @@ export function nudgeLine(text: string, line: number, col: number, dir: -1 | 1):
   const out = moveLines(text, line, line, at);
   return { text: out, caret: offsetOf(out, { line: movedLine(line, line, at), col }) };
 }
+
+/** "Ｓ）" "S）" typed with the Japanese input become "S)" (the mark that draws the section and its rule). */
+export const soapMark = (line: string): string =>
+  line.replace(/^([ \t　]*)([SOAPＳＯＡＰ])[)）]/, (_, lead: string, c: string) => `${lead}${String.fromCharCode(c.charCodeAt(0) > 0xff ? c.charCodeAt(0) - 0xfee0 : c.charCodeAt(0))})`);
 
 /** A whole line of three hyphens or horizontal bars, allowing indentation. */
 export const isDividerLine = (line: string): boolean => /^(---|―――)$/.test(line.trim());
