@@ -317,9 +317,8 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-3 text-[13px]">
       <CollectedRps drafts={drafts} kind="injection" />
-      <p className="hint">入れかけの入力は、この患者の下書きに残ります。</p>
       <TabChoice label="注射の区分" options={["定期", "臨時"].map((v) => ({ value: v as "定期" | "臨時", label: v }))} value={category} onChange={(v) => { setCategory(v); setRps((rs) => rs.map((r) => { const d = freshRp(v); return { ...r, sched: schedulesOf(r).findIndex((s) => s.value.kind === SCHEDULES[d.sched].value.kind), startDay: 0, startNow: d.startNow, startTime: d.startTime, doseTimes: d.doseTimes }; })); }} />
-      <p className="hint text-[11px] text-ink-faint">キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で保存する。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</p>
+      <details className="hint text-[11px] text-ink-faint"><summary className="cursor-pointer select-none">キーボードのこつ</summary>キーボードだけで入れられます：薬の名前を打って ↓↑ と Enter、Tab で次の欄へ、経路・回数は数字キー、時間は ← → で選ぶ。日数で Enter を押すと1行にたたみ、次の Rp へ。⌘Enter（Ctrl+Enter）で保存する。Shift+Enter または「＋混注」で同じ Rp に薬を足します。Esc で前の欄へ。量を空にして Backspace でその薬を外します。薬の欄の横の時計の印が「注射の記憶」（この患者の前回の注射・自分のよく出す注射）です。</details>
 
       <LineEntry>
       {rps.map((rp, i) => {
@@ -472,14 +471,14 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                     size="lg"
                     options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.lock ? t.key : t.route, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
                     value={rp.route || null}
-                    onChange={(v) => upd(i, { route: v, minutes: ROUTE_TABS.find((t) => t.key === v)?.route === "点滴静注" ? rp.minutes : 0 })}
+                    onChange={(v) => { upd(i, { route: v, minutes: ROUTE_TABS.find((t) => t.key === v)?.route === "点滴静注" ? rp.minutes : 0 }); focus(i, "schedule"); }}
                   />
                   {open.length === 0 && <span className="text-shu">同じ経路で使えない薬が混ざっています</span>}
                 </InjectionEntryRow>
                 {isInsulin({items:rp.rows.map(r=>({...r,amount:Number(r.amount)}))}) && <div className="space-y-2"><label><input type="checkbox" checked={!!rp.sliding} onChange={e=>{const sliding=e.target.checked?defaultSliding():undefined; upd(i,{sliding,...(sliding?{sched:schedules.findIndex(s=>s.value.kind==="per_day" && s.value.count===4),doseTimes:sliding.times,rows:rp.rows.map(r=>({...r,amount:"0"}))}:{rows:rp.rows.map(r=>({...r,amount:"1"}))})});}}/>スケール</label>{rp.sliding && <SlidingScaleEditor value={rp.sliding} onChange={sliding=>upd(i,{sliding,doseTimes:sliding.times,sched:schedules.findIndex(s=>s.value.kind==="per_day" && s.value.count===sliding.times.length)})}/>}</div>}
                 <InjectionEntryRow step="schedule" active={rp.sliding ? undefined : rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">回数</span>
-                  <TabChoice numbered label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => upd(i, { sched: v })} />
+                  <TabChoice numbered label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => { upd(i, { sched: v }); focus(i, "times"); }} />
                 </InjectionEntryRow>
                 {route === "点滴静注" && (
                   <InjectionEntryRow step="duration" active={rp.step}>
@@ -902,7 +901,7 @@ export function AddRxPanel({
       <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />
       {category === "定期" && <p className="text-xs">{nextDay ? `この病棟の定期処方日：${"日月火水木金土"[REGULAR_RX_DAYS[ward.replace(/病棟$/, "")]]}曜。次は ${nextDay.getMonth() + 1}/${nextDay.getDate()}（${"日月火水木金土"[nextDay.getDay()]}）から` : "この病棟の定期処方日は未設定です。"}</p>}
       <p className="hint text-xs"><a href={ORAL_MASTER_SOURCE.url} target="_blank" rel="noreferrer" className="text-ai underline">{ORAL_MASTER_SOURCE.label}</a>。品目ごとの出典は院内医薬品集で確認できます。</p>
-      <p className="hint text-xs">薬名 → 1回量 → 回数 → 用法 → 日数を Enter または Tab、Esc で前の欄へ。数字・矢印で候補を選べます。「＋コメント」または薬名欄の ; でコメント行を入れます。</p>
+      <details className="hint text-[11px] text-ink-faint"><summary className="cursor-pointer select-none">キーボードのこつ</summary>薬名 → 1回量 → 回数 → 用法 → 日数を Enter または Tab、Esc で前の欄へ。数字・矢印で候補を選べます。「＋コメント」または薬名欄の ; でコメント行を入れます。</details>
       <LineEntry>
       {rps.map((rp, i) => {
         const step = rp.step ?? (rp.rows.length ? "dose" : "drug");
