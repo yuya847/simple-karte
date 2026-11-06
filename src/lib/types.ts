@@ -185,6 +185,7 @@ export interface SlidingScale {
 }
 
 export interface InjectionOrder {
+  insulinDoses?: import("./insulin-doses").InsulinDose[];
   dayPattern?: DayPattern;
   sliding?: SlidingScale;
   replaces?: string;
@@ -239,6 +240,7 @@ export interface LabOrder {
 export type DoseTiming = "朝" | "昼" | "夕" | "眠前";
 
 export interface PrescriptionOrder {
+  administration?: import("./prescription-kind").PrescriptionUse;
   replaces?: string;
   dayPattern?: DayPattern;
   dispensing?: "院内" | "院外";

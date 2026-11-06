@@ -1,3 +1,4 @@
+import { insulinDoseTimes } from "./insulin-doses";
 import { patternDay } from "./day-pattern";
 // Calculations behind the flow sheet (経過表). Times are "absolute minutes": day offset × 1440
 // plus minutes since midnight, so today 18:00 is 1080 and yesterday 06:00 is -1080.
@@ -25,7 +26,7 @@ export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number
 /** Prescribed times, per-day defaults, or every-N-hours occurrences inside [lo, hi). */
 export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: number, base?: CalendarDate): number[] {
   const o = entry.order as InjectionOrder;
-  const times = o.sliding ? o.sliding.times : o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" ? defaultDoseTimes(o.schedule) : [];
+  const times = o.insulinDoses ? insulinDoseTimes(o.insulinDoses, o.sliding?.times) : o.sliding ? o.sliding.times : o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" ? defaultDoseTimes(o.schedule) : [];
   if (times.length) {
     const { from, to } = orderInterval(entry, nowAbs);
     const out: number[] = [];

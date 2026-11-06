@@ -16,6 +16,7 @@ export function slidingUnits(rows: SlidingScale["rows"], glucose: number): numbe
 export type InsulinChange = { units: number } | { sliding: SlidingScale };
 export function adjustInsulin(order: InjectionOrder, change: InsulinChange, today: number): { stop: InjectionOrder; next: InjectionOrder } {
   if (!isInsulin(order) || !Number.isInteger(today) || order.start.day > today) throw new Error("今日投与中のインスリンを選んでください。");
+  if ("units" in change && order.insulinDoses) throw new Error("時刻ごとの量は注射入力で変更してください。");
   if ("units" in change && (!Number.isFinite(change.units) || change.units <= 0 || order.sliding)) throw new Error("固定量は0より大きい単位で入力してください。");
   if ("sliding" in change && (!order.sliding || slidingProblems(change.sliding).length)) throw new Error("スケールを確認してください。");
   const boundary = today + 1;

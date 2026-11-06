@@ -14,13 +14,13 @@ export function candidateIndex(count: number, selected: number): number | null {
 export const halfWidthNumber = (value: string) => value.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/[．。]/g, ".").replace(/[／]/g, "/").trim();
 
 export function doseStep(drug: { unit: string; scored?: boolean }): number {
-  return drug.unit === "錠" ? drug.scored === undefined ? 0.25 : drug.scored ? 0.5 : 1 : drug.unit === "カプセル" ? 1 : 0.001;
+  return ["枚", "本", "個", "キット", "瓶", "管", "包"].includes(drug.unit) ? 1 : drug.unit === "錠" ? drug.scored === undefined ? 0.25 : drug.scored ? 0.5 : 1 : drug.unit === "カプセル" ? 1 : 0.001;
 }
 /** The usual 1回量 to choose from (the combo box): steps of the drug's smallest division, up to 4 tablets/capsules. */
 export function doseOptions(drug: { unit: string; scored?: boolean }): string[] {
   if (drug.unit === "g") return ["0.125", "0.25", "0.5", "1", "2", "3"];
   if (drug.unit === "mL") return ["1", "2", "5", "10", "15", "20"];
-  if (["包", "瓶", "個"].includes(drug.unit)) return ["1", "2", "3", "4"];
+  if (["包", "瓶", "個", "枚", "本", "キット", "管"].includes(drug.unit)) return ["1", "2", "3", "4"];
   const step = doseStep(drug);
   if (step < 0.25) return [];
   const out: string[] = [];
@@ -43,3 +43,5 @@ export function rxEntryLines(active: RxStep, values: { times: string; usage: str
 
 /** 日数欄は服用する日の数。間隔を変えても数量の基準は変えない。 */
 export const RX_DAY_COUNT_LABEL = "投与日数";
+
+export const RX_COMMENT_OPTIONS = ["粉砕", "一包化", "簡易懸濁", "自己管理", "看護師管理", "食直前", "食直後", "残薬調整", "脱カプセル"];

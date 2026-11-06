@@ -27,6 +27,7 @@ export function rpLine(d: Draft): string {
     return `${drugs}　${parts.join("　")}`;
   }
   if (d.kind === "prescription") {
+    if (d.administration) return `${d.items.map(it => `${it.drugCode ? oralName(it.drugCode) : it.said} 総量${it.perDose ?? "？"}${findOralDrug(it.drugCode ?? "")?.unit ?? ""}`).join("、")}　${d.administration.usage}　${d.category ?? ""}${d.comment ? `　${d.comment}` : ""}`;
     const times = d.timings === null ? 0 : d.timings.length;
     const drugs = d.items
       .map((it) => {

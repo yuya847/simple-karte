@@ -1,3 +1,5 @@
+import { insulinDoseText } from "./insulin-doses";
+import { rpLine } from "./rp";
 import { defaultSliding } from "./insulin";
 import { effectiveRoute, ratePlan, resolvedCollect, type CheckContext, type Draft } from "./drafts";
 import { drugName, durationText, imagingDraftText, labCardText, oralName, procName, scheduleLabel } from "./format";
@@ -19,10 +21,11 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
   switch (d.kind) {
     case "injection": {
       const p = ratePlan(d);
-      text = [d.items.map(i => `${i.drugCode ? d.sliding ? findDrug(i.drugCode)?.name ?? i.drugCode : drugName(i.drugCode) : `${i.said}（？）`} ${d.sliding ? "" : i.amount ?? "？"}${d.sliding ? "" : i.unit ?? ""}`).join(" ＋ "), effectiveRoute(d) ?? "経路？", d.sliding ? `スライディングスケール（${d.sliding.times.join() === defaultSliding().times.join() ? "毎食前・眠前" : d.sliding.times.join("・")}）` : d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？", p.minutesPerDose !== null ? `1回${durationText(p.minutesPerDose)}` : null, p.rateMlPerH !== null ? `${p.rateMlPerH}mL/時` : null, `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.schedule?.kind === "once" ? null : d.days ? `${d.days}日間` : "日数？"].filter(Boolean).join("　");
+      text = [d.insulinDoses ? insulinDoseText(d.insulinDoses) : null, d.items.map(i => `${i.drugCode ? d.sliding ? findDrug(i.drugCode)?.name ?? i.drugCode : drugName(i.drugCode) : `${i.said}（？）`} ${d.sliding ? "" : i.amount ?? "？"}${d.sliding ? "" : i.unit ?? ""}`).join(" ＋ "), effectiveRoute(d) ?? "経路？", d.sliding ? `スライディングスケール（${d.sliding.times.join() === defaultSliding().times.join() ? "毎食前・眠前" : d.sliding.times.join("・")}）` : d.schedule ? scheduleLabel(d.schedule, d.items[0]?.drugCode) : "回数？", p.minutesPerDose !== null ? `1回${durationText(p.minutesPerDose)}` : null, p.rateMlPerH !== null ? `${p.rateMlPerH}mL/時` : null, `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.schedule?.kind === "once" ? null : d.days ? `${d.days}日間` : "日数？"].filter(Boolean).join("　");
       break;
     }
     case "prescription": {
+      if (d.administration) { text = rpLine(d); break; }
       const n = d.timings?.length || 1;
       text = [d.items.map(i => `${i.drugCode ? oralName(i.drugCode) : `${i.said}（？）`} 1回${d.timings === null ? "？" : perDoseOf(i, n) ?? "？"}${i.drugCode ? findOralDrug(i.drugCode)?.unit ?? "" : ""}`).join(" ＋ "), d.timings === null ? "用法？" : d.timings.length ? `1日${n}回 ${timingName(d.timings)}` : `頓用 ${d.prn ?? "条件？"}${d.maxPerDay ? `（1日${d.maxPerDay}回まで）` : ""}`, d.days ? `${d.days}日分` : null, d.category, d.category === "退院時" ? (dischargeStartDay(d, ctx) === null ? "退院日から" : `${ctx.fmtDay(dischargeStartDay(d, ctx)!)}から`) : `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.timing ?? ""}から`].filter(Boolean).join("　");
       break;
@@ -49,7 +52,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
     case "opd-booking": text = `${d.dept ?? "科？"} ${d.doctor ?? ""}　${d.day === null ? "日付？" : ctx.fmtDay(d.day)} ${d.slot === "時刻" ? d.time ?? "時刻？" : d.slot ?? "午前・午後？"}　${opdPurposeOf(d) || "目的？"}　${d.note.trim()}`; break;
     case "unclear": text = `${d.sourceText}（${d.reason}）`; break;
   }
-  return `${LABEL[d.kind]}${rp && (d.kind === "injection" || d.kind === "prescription") ? ` Rp${rp}` : ""} ${text}${d.comment ? `　${d.comment}` : ""}`.replace(/\s+/g, " ").trim();
+  return `${d.kind === "prescription" && d.administration ? d.administration.kind : LABEL[d.kind]}${rp && (d.kind === "injection" || d.kind === "prescription") ? ` Rp${rp}` : ""} ${text}${d.comment ? `　${d.comment}` : ""}`.replace(/\s+/g, " ").trim();
 }
 
 /** Manual entry markers are not words dictated by the doctor. */
@@ -59,6 +62,7 @@ export function draftSourceText(source: string): string | null {
 }
 
 export function prescriptionUsage(d: Extract<Draft, { kind: "prescription" }>): string {
+  if (d.administration) return d.administration.usage;
   if (d.once) return "1回だけ・今すぐ";
   return [d.timings === null ? "用法？" : d.timings.length ? `1日${d.timings.length}回 ${timingName(d.timings)}` : `頓用 ${d.prn ?? "条件？"}${d.maxPerDay ? `（1日${d.maxPerDay}回まで）` : ""}`, d.days ? `${d.days}日分` : null].filter(Boolean).join("　");
 }

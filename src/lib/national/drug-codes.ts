@@ -1,3 +1,4 @@
+import { EAR_DROP } from "../prescription-kind";
 // The codes of the oral drugs of the fictional hospital's master, as the official 医薬品マスター
 // (社会保険診療報酬支払基金・厚生労働省 基本マスター y_20261013.csv) gives them: レセプト電算処理システム用
 // コード (9桁), 薬価基準収載医薬品コード (12桁) and, where the master has one, 一般名処方マスタのコードと一般名.
@@ -5,7 +6,7 @@
 // The other institutions' drugs (OTHER_DRUGS) are drugs of the same master used in the FICTIONAL records of
 // other hospitals and pharmacies (薬剤情報・他院の処方).
 
-import { ADOPTED_ORAL, ADOPTED_GENERIC_CODES } from "../formulary-items";
+import { ADOPTED_TOPICAL, ADOPTED_INJECTIONS, ADOPTED_ORAL, ADOPTED_GENERIC_CODES } from "../formulary-items";
 
 import { DRUG_CODES } from "../billing/codes";
 
@@ -80,3 +81,10 @@ export const ALL_DRUG_CODES: DrugCodes[] = [...Object.values(ORAL_DRUG_CODES), .
 
 /** The receipt code the billing already uses for an oral drug must be the same as here. */
 export const billingReceiptCode = (code: string): string | undefined => DRUG_CODES[code];
+
+/** 外用・自己注射の製品コード。一般名への置換は行わない。 */
+export const PRESCRIPTION_DRUG_CODES: Record<string, DrugCodes> = {
+  [EAR_DROP.code]: { receipt: EAR_DROP.code, yakka: EAR_DROP.yakka, name: EAR_DROP.name, unit: EAR_DROP.unit },
+  ...ORAL_DRUG_CODES,
+  ...Object.fromEntries([...ADOPTED_TOPICAL, ...ADOPTED_INJECTIONS].map(r => [r[0], { receipt: r[0], yakka: r[4], name: r[1], unit: r[2] }])),
+};

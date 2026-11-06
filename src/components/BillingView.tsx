@@ -43,6 +43,7 @@ interface Props extends DiseaseRequestProps {
   diets?: DietOrder[];
   letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[];
   /** Injection doses recorded as 未実施 on the ward ("orderId|minutes"). */
+  insulinGiven?: { key: string; units: number }[];
   notGiven?: string[];
   /** The insurance 医事課 registered for this patient (every version; the last is in force). */
   insurance?: InsuranceRecord[];
@@ -103,7 +104,7 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ surgeries = [], patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insurance: records = [], onRegister, settlement, onSettle, diseaseRequests, onDiseaseRequest }: Props) {
+export function BillingView({ surgeries = [], patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insulinGiven, insurance: records = [], onRegister, settlement, onSettle, diseaseRequests, onDiseaseRequest }: Props) {
   const me = useMe();
   const deny = useDeny();
   const registered = records[records.length - 1];
@@ -125,11 +126,11 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   const [loading, setLoading] = useState(false);
 
   // Diets, letters and the registered insurance by value, so a new array with the same content does not re-run the claim.
-  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insurance: registered?.insurance });
+  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insulinGiven: insulinGiven ?? [], insurance: registered?.insurance });
   useEffect(() => {
     if (!coefOk) return;
     const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[]; insurance?: Insurance };
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[]; insulinGiven: { key: string; units: number }[]; insurance?: Insurance };
     const run = async () => {
       setLoading(true);
       setError(null);

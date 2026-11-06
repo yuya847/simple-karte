@@ -1,3 +1,4 @@
+import { fixedInsulinUnits, insulinDoseText } from "./insulin-doses";
 import { injectionItemText } from "./format";
 import { patternDay, patternText } from "./day-pattern";
 // The ward worksheet: what each nurse does in a shift, gathered from the orders by code.
@@ -107,16 +108,16 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
       const o = e.order;
       if (o.type === "injection") {
         if (!live(e, lo, hi, nowAbs, orderInterval)) continue;
-        const main = o.items.map((it) => o.sliding ? `${drugName(it.drugCode)} スケール` : injectionItemText(it)).join(" ＋ ");
+        const main = o.insulinDoses ? `${drugName(o.items[0].drugCode)} ${insulinDoseText(o.insulinDoses)}` : o.items.map((it) => o.sliding ? `${drugName(it.drugCode)} スケール` : injectionItemText(it)).join(" ＋ ");
         const parts = [o.route, scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);
         const detail = parts.join("　");
         if (o.doseTimes?.length || o.schedule.kind === "every_hours" || (o.schedule.kind === "per_day" && !isFluid(o))) {
-          for (const t of doseTimes(e, nowAbs, lo, hi)) timed.push({ ...base, at: t, kind: "注射", sliding:o.sliding, insulinUnits:findDrug(o.items[0]?.drugCode)?.category === "インスリン" ? o.items[0].amount : undefined, main, detail, orderId: e.id, state: state(t) });
+          for (const t of doseTimes(e, nowAbs, lo, hi)) timed.push({ ...base, at: t, kind: "注射", sliding:o.sliding, insulinUnits:findDrug(o.items[0]?.drugCode)?.category === "インスリン" ? o.sliding && !o.insulinDoses ? 0 : fixedInsulinUnits(o, t) : undefined, main: o.insulinDoses ? `${drugName(o.items[0].drugCode)} ${fixedInsulinUnits(o, t)}U${o.sliding ? " ＋ スケール" : ""}` : main, detail, orderId: e.id, state: state(t) });
         } else if (o.schedule.kind === "once") {
           const { from } = orderInterval(e, nowAbs);
-          if (from >= lo && from < hi) timed.push({ ...base, at: from, kind: "注射", sliding:o.sliding, insulinUnits:findDrug(o.items[0]?.drugCode)?.category === "インスリン" ? o.items[0].amount : undefined, main, detail, orderId: e.id, state: state(from) });
+          if (from >= lo && from < hi) timed.push({ ...base, at: from, kind: "注射", sliding:o.sliding, insulinUnits:findDrug(o.items[0]?.drugCode)?.category === "インスリン" ? o.sliding && !o.insulinDoses ? 0 : o.items[0].amount : undefined, main, detail, orderId: e.id, state: state(from) });
         } else if (isFluid(o)) {
           // Bag changes use the same prescribed or default times as the calendar.
           const vol = doseVolumeMl(o.items);
@@ -131,7 +132,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         }
       } else if (o.type === "prescription") {
         const rx = o as PrescriptionOrder;
-        if (rx.category === "退院時") continue;
+        if (rx.category === "退院時" || rx.administration) continue;
         const main = `${oralName(rx.drugCode)} 1回${rx.amount}${rx.unit}`;
         if (rx.once) {
           const t = abs(rx.once.day, rx.once.time);

@@ -10,7 +10,7 @@ import { HOSPITAL } from "../billing/facility";
 import type { Insurance } from "../billing/insurance";
 import { findOralDrug } from "../master";
 import { timingName } from "../rx";
-import { ORAL_DRUG_CODES } from "./drug-codes";
+import { PRESCRIPTION_DRUG_CODES } from "./drug-codes";
 import { jstDateTime, uuidOf } from "./fictional";
 import type { RxLine } from "./rx-lines";
 import type { SpecRef, Unfilled } from "./spec";
@@ -102,6 +102,7 @@ export interface ErxReceipt {
 /** One line for the printed / screen text of a drug. */
 const lineText = (l: RxLine) => {
   const m = findOralDrug(l.drug);
+  if (l.administration) return `${l.administration.kind}　${l.administration.usage}　総量${l.perDose ?? "？"}${l.unit}`;
   const how = l.timings.length ? `1日${l.timings.length}回 ${timingName(l.timings)}` : `頓用 ${l.prn ?? ""}${l.maxPerDay ? `（1日${l.maxPerDay}回まで）` : ""}`;
   return `内服・経口・${l.dayPattern ? patternText(l.dayPattern) + "　" : ""}${how}　1回${l.perDose ?? "？"}${m?.unit ?? l.unit}　${l.days ? `${l.days}${l.timings.length ? l.dayPattern ? "投与日分" : "日分" : "回分"}` : "日数？"}`;
 };
@@ -235,16 +236,16 @@ export function buildErxBundle(x: ErxInput): ErxBuild {
   const meds = x.lines.map((l, i) => {
     const n = (rpOrder.get(l.rp) ?? 0) + 1;
     rpOrder.set(l.rp, n);
-    const c = ORAL_DRUG_CODES[l.drug];
+    const c = PRESCRIPTION_DRUG_CODES[l.drug];
     const m = findOralDrug(l.drug);
     const unit = { unit: l.unit, system: OID.drugUnit, code: UNIT_CODE[l.unit] ?? l.unit };
-    const prn = l.timings.length === 0;
+    const prn = !l.administration && l.timings.length === 0;
     const per = l.perDose ?? 0;
     if (l.perDose === null) problems.push(`Rp${l.rp} ${m?.name ?? l.drug}：1回量がありません。`);
-    if (!l.days) problems.push(`Rp${l.rp} ${m?.name ?? l.drug}：${prn ? "回数" : "日数"}がありません。`);
+    if (!l.administration && !l.days) problems.push(`Rp${l.rp} ${m?.name ?? l.drug}：${prn ? "回数" : "日数"}がありません。`);
     if (!c) problems.push(`Rp${l.rp} ${l.drug}：医薬品マスターのコードがありません。`);
-    const daily = prn ? null : per * l.timings.length;
-    const total = l.days ? (prn ? per * l.days : per * l.timings.length * l.days) : 0;
+    const daily = l.administration || prn ? null : per * l.timings.length;
+    const total = l.administration ? per : l.days ? (prn ? per * l.days : per * l.timings.length * l.days) : 0;
     return {
       fullUrl: u(`med-${i}`),
       resource: {
@@ -271,10 +272,10 @@ export function buildErxBundle(x: ErxInput): ErxBuild {
         dosageInstruction: [
           {
             text: lineText(l),
-            timing: prn || l.dayPattern ? undefined : { repeat: { boundsDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } } },
+            timing: l.administration || prn || l.dayPattern ? undefined : { repeat: { boundsDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } } },
             ...(prn ? { asNeededBoolean: true } : {}),
-            route: { coding: [{ system: "http://jpfhir.jp/fhir/ePrescription/CodeSystem/route-codes", code: "PO", display: "口" }] },
-            method: { coding: [{ system: OID.basicUsage, code: "1", display: "内服" }] },
+            route: l.administration ? { text: l.administration.kind } : { coding: [{ system: "http://jpfhir.jp/fhir/ePrescription/CodeSystem/route-codes", code: "PO", display: "口" }] },
+            method: l.administration ? { text: l.administration.usage } : { coding: [{ system: OID.basicUsage, code: "1", display: "内服" }] },
             doseAndRate: [
               {
                 type: { coding: [{ system: OID.strength, code: "1", display: "製剤量" }] },
@@ -287,7 +288,7 @@ export function buildErxBundle(x: ErxInput): ErxBuild {
         dispenseRequest: {
           ...(prn ? { extension: [{ url: `${EXT}JP_MedicationRequest_DispenseRequest_ExpectedRepeatCount`, valueInteger: l.days ?? 0 }] } : {}),
           quantity: { value: Math.round(total * 100) / 100, ...unit },
-          ...(prn || l.dayPattern ? {} : { expectedSupplyDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } }),
+          ...(l.administration || prn || l.dayPattern ? {} : { expectedSupplyDuration: { value: l.days ?? 0, unit: "日", system: "http://unitsofmeasure.org", code: "d" } }),
         },
         substitution: { allowedCodeableConcept: { coding: [{ system: OID.substitution, code: "0", display: "変更可" }] } },
       },

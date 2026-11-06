@@ -82,7 +82,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
       {dayLabel} <span className="nums font-bold text-ink">{o.time}</span> の回　<span className={STATE_TONE[o.state]}>{displayText(stateText(o))}</span>
     </div>
   );
-  const glucoseEntry = (item: ExecItem) => item.sliding && <label className="block px-2 text-xs">血糖 mg/dL<input aria-label="血糖 mg/dL" type="number" min="0" className="w-20 border border-rule" value={glucose} onChange={e=>setGlucose(e.target.value)}/><span> → {slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) ?? "—"}単位</span>{item.sliding.callAbove != null && glucose && Number(glucose)>=item.sliding.callAbove && <b className="block text-shu">医師へ連絡してください</b>}</label>;
+  const glucoseEntry = (item: ExecItem) => item.sliding && <label className="block px-2 text-xs">血糖 mg/dL<input aria-label="血糖 mg/dL" type="number" min="0" className="w-20 border border-rule" value={glucose} onChange={e=>setGlucose(e.target.value)}/><span> → {slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) === null ? "—" : (item.insulinUnits ?? 0) + slidingUnits(item.sliding.rows,Number(glucose))!}単位</span>{item.sliding.callAbove != null && glucose && Number(glucose)>=item.sliding.callAbove && <b className="block text-shu">医師へ連絡してください</b>}</label>;
   const glucoseMissing = (item: ExecItem) => !!item.sliding && slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) === null;
   const actions = (o: Occurrence, i: number) => {
     const a = actionsFor(o);

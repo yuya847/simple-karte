@@ -5,12 +5,14 @@ import type { Diagnosis } from "../diagnoses";
 import type { CultureResult, DailyRecord, DayOffset, HistoryEntry, Sex } from "../types";
 
 /** 診療識別 (記録条件仕様 別表20). */
-export type Shikibetsu = "11" | "12" | "13" | "21" | "22" | "24" | "27" | "31" | "32" | "33" | "40" | "60" | "70" | "80" | "90" | "92" | "97";
+export type Shikibetsu = "11" | "12" | "13" | "14" | "21" | "22" | "23" | "24" | "27" | "31" | "32" | "33" | "40" | "60" | "70" | "80" | "90" | "92" | "97";
 
 export const SHIKIBETSU_NAME: Record<Shikibetsu, string> = {
   "11": "初診",
   "12": "再診",
   "13": "医学管理",
+  "14": "在宅医療",
+  "23": "投薬 外用",
   "21": "投薬 内服",
   "22": "投薬 屯服",
   "24": "投薬 調剤",
@@ -119,6 +121,7 @@ export interface ClaimInput {
   };
   entries: HistoryEntry[];
   /** Injection doses the ward recorded as 未実施 ("orderId|minutes"): not claimed. */
+  insulinGiven?: { key: string; units: number }[];
   notGiven?: string[];
   daily: DailyRecord[];
   cultures: CultureResult[];

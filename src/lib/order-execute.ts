@@ -81,7 +81,7 @@ export function actionsFor(occ: Occurrence): OccurrenceActions {
  * or 未実施 has no reason.
  */
 export function menuRecord(item: ExecItem, x: { status: "実施" | "未実施"; day: number; time: string; by: string; reason?: NotDoneReason; glucose?: number }): AdminRecord | null {
-  const units = item.sliding ? slidingUnits(item.sliding.rows, x.glucose ?? NaN) : item.insulinUnits;
+  const units = item.sliding ? (slidingUnits(item.sliding.rows, x.glucose ?? NaN) === null ? null : (item.insulinUnits ?? 0) + slidingUnits(item.sliding.rows, x.glucose ?? NaN)!) : item.insulinUnits;
   if (x.status === "実施" && item.sliding && units == null) return null;
   const r = executeRecord(item, x);
   return r ? { ...r, ...(x.status === "実施" && units != null ? {insulin:{units,...(x.glucose != null ? {glucose:x.glucose} : {})}} : {}), note: MENU_NOTE } : null;

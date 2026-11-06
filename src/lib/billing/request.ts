@@ -52,6 +52,7 @@ export const PatientMonthSchema = z.object({
     dischargedOn: Day.optional(),
   }),
   entries: z.array(z.looseObject({ kind: z.enum(["note", "order"]) })).max(2000),
+  insulinGiven: z.array(z.object({ key: z.string().max(80), units: z.number().finite().min(0) })).max(3000).optional(),
   notGiven: z.array(z.string().max(80)).max(3000).optional(),
   daily: z.array(z.looseObject({ day: Day })).max(800),
   cultures: z.array(z.looseObject({ collectedOn: Day })).max(200),

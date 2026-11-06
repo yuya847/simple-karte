@@ -13,7 +13,8 @@ describe("内服の罫線入力", () => {
     expect(html).not.toContain('aria-label="Rp1 の回数"');
     expect(html).toContain("この病棟の定期処方日：火曜");
     expect(html).not.toContain("架空の病院の取り決め");
-    expect(html).toContain("＋コメント");
+    expect(html).not.toContain("＋コメント");
+    expect(html).toContain('title="コメント"');
   });
   it("記憶した処方を直せて、退院時の区分も引き継ぐ", () => {
     const pattern: RxPattern = { key: "apap", count: 1, lastDay: 0, patients: 1, rows: [{ drugCode: "ORAL-APAP500", per: 0.5 }], times: 3, timing: "毎食後", days: 7, category: "退院時" };

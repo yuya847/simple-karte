@@ -1,3 +1,4 @@
+import { insulinDoseProblems, insulinDoseTimes } from "./insulin-doses";
 import { rxLastDay, validDayPattern } from "./day-pattern";
 import { isInsulin, slidingProblems } from "./insulin";
 import { defaultDoseTimes, validateInjectionEnd } from "./inj-entry";
@@ -129,6 +130,7 @@ export interface DraftItem {
 }
 
 export interface InjectionDraft extends DraftBase {
+  insulinDoses?: import("./insulin-doses").InsulinDose[];
   dayPattern?: import("./types").DayPattern;
   sliding?: import("./types").SlidingScale;
   /** Resolve the start at confirmation, rather than when the panel opened. */
@@ -672,9 +674,10 @@ export function resolvedStopTarget(d: StopDraft, ctx: CheckContext): string | nu
 function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
   const issues: Issue[] = [];
   if (!validDayPattern(d.dayPattern)) issues.push({ key: "day-pattern", level: "stop", title: "投与日", message: "曜日または1以上の整数の日間隔を指定してください。" });
+  if (d.insulinDoses && (!isInsulin({ items: d.items.map(i => ({ drugCode: i.drugCode ?? "", amount: i.amount ?? 0, unit: i.unit ?? "" })) }) || !d.insulinDoses.some(x => x.units > 0) && !d.sliding)) issues.push({ key: "insulin-doses", level: "stop", title: "時刻ごとの量", message: "インスリン1品目と、投与する時刻の量を確認してください。" });
   if (d.sliding && (!isInsulin({items:d.items.map(i=>({drugCode:i.drugCode ?? "",amount:i.amount ?? 0,unit:i.unit ?? ""}))}) || slidingProblems(d.sliding).length)) issues.push({key:"sliding",level:"stop",title:"スケール",message:"インスリン1品目と、血糖範囲・単位・時刻を確認してください。"});
-  const timingErrors = validateInjectionEnd(d.start.day ?? 0, d.start.time ?? "", d.days ?? 0, d.end?.day, d.end?.time, ratePlan(d).minutesPerDose ?? 0, d.doseTimes);
-  if (!d.sliding && d.doseTimes?.length && d.schedule && d.schedule.kind !== "once" && d.doseTimes.length !== defaultDoseTimes(d.schedule).length) timingErrors.push("回数と投与時刻の数が一致していません。");
+  const timingErrors = [...insulinDoseProblems(d.insulinDoses), ...validateInjectionEnd(d.start.day ?? 0, d.start.time ?? "", d.days ?? 0, d.end?.day, d.end?.time, ratePlan(d).minutesPerDose ?? 0, d.doseTimes)];
+  if (!d.sliding && !d.insulinDoses && d.doseTimes?.length && d.schedule && d.schedule.kind !== "once" && d.doseTimes.length !== defaultDoseTimes(d.schedule).length) timingErrors.push("回数と投与時刻の数が一致していません。");
   for (const [i, message] of timingErrors.entries()) issues.push({ key: `injection-timing-${i}`, level: "stop", title: "投与日時", message });
   if (d.items.length === 0) {
     issues.push({ key: "drug", level: "stop", title: "薬", message: "薬が読み取れませんでした。言い直してください。" });
@@ -1632,9 +1635,10 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       items: d.items.map((it) => ({ drugCode: it.drugCode!, amount: it.amount!, unit: it.unit ?? "" })),
       route: effectiveRoute(d)!,
       dayPattern: d.dayPattern,
-      schedule: d.schedule!,
+      schedule: d.insulinDoses ? { kind: "per_day", count: insulinDoseTimes(d.insulinDoses, d.sliding?.times).length } : d.schedule!,
       sliding: d.sliding,
-      doseTimes: d.sliding?.times ?? d.doseTimes,
+      insulinDoses: d.insulinDoses,
+      doseTimes: d.insulinDoses ? insulinDoseTimes(d.insulinDoses, d.sliding?.times) : d.sliding?.times ?? d.doseTimes,
       end: d.end,
       minutesPerDose: effectiveRoute(d) === "点滴静注" && plan.minutesPerDose !== null ? Math.round(plan.minutesPerDose) : undefined,
       rateMlPerH: plan.rateMlPerH ?? undefined,

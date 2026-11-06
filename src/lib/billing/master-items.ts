@@ -168,3 +168,9 @@ export function tokkiItem(code: string): TokkiItem | undefined {
   }
   return tokki.get(code);
 }
+
+/** 外用薬の外来調剤料。コードと点数を現行マスターから取得する。 */
+export function topicalDispensingItem(): ShinryoItem | undefined {
+  shinryoItem("");
+  return [...shinryo!.values()].find(m => m.kubun === "F000" && m.name.normalize("NFKC") === "調剤料(外用薬)" && m.abolished === "99999999");
+}

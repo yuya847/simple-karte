@@ -4,6 +4,8 @@
 // other institutions (FICTIONAL), the 模擬の署名 and the 登録 that gives a 引換番号. The doctor reads each finding
 // and decides; nothing is changed or blocked silently. Nothing is sent anywhere.
 
+import { PrescriptionPrintButton } from "../PrescriptionPrint";
+import { prescriptionLineText } from "@/lib/national/rx-lines";
 import { displayText } from "@/lib/display-text";
 import { FileSignature, Pill, ShieldAlert } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -16,12 +18,10 @@ import { ERX_CHECK_SOURCES, type ErxFinding } from "@/lib/national/erx-check";
 import { jstDateTime } from "@/lib/national/fictional";
 import type { NationalRecord } from "@/lib/national/log";
 import type { RxLine } from "@/lib/national/rx-lines";
-import { findOralDrug } from "@/lib/master";
-import { timingName } from "@/lib/rx";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { JsonView, MockMark, MockNote, SpecBox } from "./SpecParts";
 
-const lineLabel = (l: RxLine) => `Rp${l.rp} ${findOralDrug(l.drug)?.name ?? l.drug}${findOralDrug(l.drug)?.strength ?? ""} 1回${l.perDose ?? "？"}${l.unit} ${l.timings.length ? `1日${l.timings.length}回 ${timingName(l.timings)}` : `頓用 ${l.prn ?? ""}`} ${l.days ?? "？"}${l.timings.length ? "日分" : "回分"}`;
+const lineLabel = prescriptionLineText;
 
 export function ErxPanel({
   patient,
@@ -143,6 +143,7 @@ export function ErxPanel({
         </div>
       ) : (
         <>
+          <PrescriptionPrintButton patient={patient} date={isoDate(today)} doctor={me.name} lines={lines} disabled={!!locked} />
           <ul className="nums space-y-0.5">
             {lines.map((l, i) => (
               <li key={i}>{lineLabel(l)}</li>

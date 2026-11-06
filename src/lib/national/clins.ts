@@ -11,7 +11,7 @@ import { diagnosisLabel, isSuspected, type Diagnosis } from "../diagnoses";
 import { labelOf, OUTCOMES, ROUTES, SECTIONS, type DischargeDraft } from "../discharge";
 import { ANALYTES } from "../master";
 import type { Patient } from "../types";
-import { ORAL_DRUG_CODES } from "./drug-codes";
+import { PRESCRIPTION_DRUG_CODES } from "./drug-codes";
 import { HOSPITAL_ADDRESS, INSTITUTION_10 } from "./erx";
 import { jstDateTime, uuidOf } from "./fictional";
 import type { RxLine } from "./rx-lines";
@@ -247,7 +247,7 @@ export function clinsBundle(c: ClinsContext, kind: "Condition" | "AllergyIntoler
 // ---------------------------------------------------------------------------
 
 const medResource = (c: ClinsContext, l: RxLine, i: number, at: string) => {
-  const codes = ORAL_DRUG_CODES[l.drug];
+  const codes = PRESCRIPTION_DRUG_CODES[l.drug];
   return {
     resourceType: "MedicationRequest",
     meta: meta(`${ECS}JP_MedicationRequest_eCS`, at),
@@ -267,7 +267,7 @@ const medResource = (c: ClinsContext, l: RxLine, i: number, at: string) => {
     authoredOn: at,
     dosageInstruction: [
       {
-        text: `1回${l.perDose ?? "？"}${l.unit} ${l.timings.length ? `1日${l.timings.length}回 ${l.timings.join("・")}` : `頓用 ${l.prn ?? ""}`} ${l.days ?? "？"}${l.timings.length ? "日分" : "回分"}`,
+        text: l.administration ? `${l.administration.usage} 総量${l.perDose ?? "？"}${l.unit}` : `1回${l.perDose ?? "？"}${l.unit} ${l.timings.length ? `1日${l.timings.length}回 ${l.timings.join("・")}` : `頓用 ${l.prn ?? ""}`} ${l.days ?? "？"}${l.timings.length ? "日分" : "回分"}`,
         timing: { code: { coding: [{ system: "http://jpfhir.jp/fhir/clins/CodeSystem/JP_CLINS_MedicationUsage_Uncoded_CS", code: "0X0XXXXXXXXX0000" }] } },
         doseAndRate: [{ doseQuantity: { value: l.perDose ?? 0, unit: l.unit } }],
       },

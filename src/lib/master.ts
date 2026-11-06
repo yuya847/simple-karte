@@ -1,3 +1,4 @@
+import { TOPICAL_PRESCRIPTIONS, PEN_NEEDLE } from "./prescription-kind";
 // Master data for a FICTIONAL hospital ("架空の病院").
 // Drug names and package sizes are public facts; the selection, aliases, set contents
 // and ward rules below are made up for this prototype and are not any real hospital's.
@@ -319,10 +320,11 @@ export const KCL_LIMITS = { maxMeqPerL: 40, maxMeqPerHour: 20, maxMeqPerDay: 100
 
 /** Oral drugs of the fictional hospital (public names and strengths). */
 export interface OralDrugMaster {
+  prescriptionKind?: "外用" | "材料" | "自己注射";
   code: string;
   name: string;
   strength: string;
-  unit: "錠" | "カプセル" | "包" | "g" | "mL" | "瓶" | "個";
+  unit: "錠" | "カプセル" | "包" | "g" | "mL" | "瓶" | "個" | "枚" | "本" | "キット" | "管";
   billingUnitsPerDoseUnit?: number;
   aliases: string[];
   /** Strength of one unit in mg (for the daily-amount check). */
@@ -380,6 +382,13 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   // 麻薬: オキシコンチンTR錠5mg の電子添文（1日量を2回に分けて12時間ごと。割ったり砕いたりしない：8.1）。
   { code: "ORAL-OXC5", name: "オキシコンチンTR錠5mg", strength: "5mg", unit: "錠", aliases: ["オキシコンチン", "オキシコンチンTR", "オキシコドン徐放", "オキシコドン"], mg: 5, classes: ["オピオイド"] },
   ...MORE_ORAL_DRUGS,
+];
+
+export const PRESCRIPTION_DRUGS: OralDrugMaster[] = [
+  ...ORAL_DRUGS,
+  ...TOPICAL_PRESCRIPTIONS,
+  PEN_NEEDLE,
+  ...MORE_DRUGS.filter(d => d.category === "インスリン" && d.insulinUnitsPerBillingUnit === 300).map((d): OralDrugMaster => ({ code: d.code, name: d.name, strength: d.package, unit: "本", prescriptionKind: "自己注射", aliases: d.aliases })),
 ];
 
 /** The active ingredient of an oral drug of the master (its name without the dosage form). */
@@ -768,7 +777,7 @@ export function drugLabel(d: DrugMaster): string {
 }
 
 const injectionByCode = new Map(DRUGS.map(d => [d.code, d]));
-const oralByCode = new Map(ORAL_DRUGS.map(d => [d.code, d]));
+const oralByCode = new Map(PRESCRIPTION_DRUGS.map(d => [d.code, d]));
 
 // 医薬品マスターの成分コードで規格違いをまとめ、既存薬の重複・アレルギー点検を引き継ぐ。
 const oralIngredientKeys = new Map([...Object.entries(LEGACY_INGREDIENTS), ...ADOPTED_ORAL.map(r => [r[0], r[4].slice(0, 7)] as [string, string])]);

@@ -1,3 +1,4 @@
+import { totalPrescriptionPart } from "./total-prescription";
 // 外来の1回の受診の算定 (出来高, 医科, 令和8年度): what the visit's orders come to in points, for the
 // window (会計). Server only: every point is read from the official 医科診療行為マスター (master-items.ts),
 // the lab 実施料 from lab-points.ts, the 薬剤料 from the 医薬品マスター. Rules this prototype applies are
@@ -15,7 +16,7 @@ import type { HistoryEntry, InjectionOrder, LabOrder, OrderEntry, ProcedureOrder
 import { CODES, IMAGING_CODES as IC, PROC_CODES, RESP_JUDGE } from "./codes";
 import { drugPoints, masterQuantity, officialDrugCode, procDrugPoints } from "./drug";
 import { labPoints } from "./lab-points";
-import { iyakuItem, shinryoItem } from "./master-items";
+import { iyakuItem, shinryoItem, topicalDispensingItem } from "./master-items";
 import type { ClaimAct, ClaimIssue, ClaimLine, ClaimPart, Shikibetsu } from "./model";
 import { masterMeta } from "../masters/server";
 
@@ -286,11 +287,22 @@ export function calculateOpdClaim(input: OpdClaimInput): OpdClaim {
   if (inside.length) {
     const items = inside.flatMap((r) => r.items);
     one("80", [new Set(items.filter((i) => i.timings.length).map((i) => i.drug)).size >= 7 ? OPD_CODES.処方料7種類以上 : OPD_CODES.処方料その他], "F100 処方料（院内）");
-    one("24", [OPD_CODES.調剤料外来], "F000 調剤料（入院外・内服薬・屯服薬、1処方につき）");
+    if (items.some(i => !i.administration)) one("24", [OPD_CODES.調剤料外来], "F000 調剤料（入院外・内服薬・屯服薬、1処方につき）");
+    if (items.some(i => i.administration?.kind === "外用")) {
+      const dispensing = topicalDispensingItem();
+      if (dispensing) one("24", [dispensing.code], "F000 調剤料（外用薬・1回の処方に係る調剤）");
+      else issues.push({ level: "review", text: "外用薬の調剤料の現行マスターを確認してください。" });
+    }
     for (const r of inside) {
       const lines: ClaimLine[] = [];
       let days: number | null = null;
       for (const it of r.items) {
+        if (it.administration) {
+          const part = totalPrescriptionPart(it.drug, it.perDose ?? 0, it.unit, it.administration);
+          if (part) add(it.administration.kind === "外用" ? "23" : "14", [part], `${it.administration.kind}（総量・1調剤）`);
+          else issues.push({ level: "review", text: "外用・材料・自己注射の総量と単位を確認してください。" });
+          continue;
+        }
         const m = findOralDrug(it.drug);
         const q = m && it.perDose !== null ? masterQuantity(it.drug, it.perDose * (it.timings.length || 1), it.unit) : null;
         const code = officialDrugCode(it.drug);
@@ -319,7 +331,7 @@ export function calculateOpdClaim(input: OpdClaimInput): OpdClaim {
   if (age < 6) issues.push({ level: "review", text: "6歳未満の乳幼児加算（初診・再診・処方箋料・注射など）はこの試作では入れていません。" });
 
   // 初診料・再診料 first, then the parts in the order of the 点数表.
-  const order = ["11", "12", "13", "21", "22", "24", "27", "31", "32", "33", "40", "60", "70", "80", "90", "92", "97"];
+  const order = ["11", "12", "13", "14", "21", "22", "23", "24", "27", "31", "32", "33", "40", "60", "70", "80", "90", "92", "97"];
   acts.sort((a, b) => order.indexOf(a.shikibetsu) - order.indexOf(b.shikibetsu));
   const totalPoints = acts.reduce((s, a) => s + a.parts.reduce((t, p) => t + p.points, 0) * a.count, 0);
   const meta = masterMeta();

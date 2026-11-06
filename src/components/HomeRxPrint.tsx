@@ -19,13 +19,13 @@ export function MedBagFace({ p, b, date, by }: { p: HomeRxPatient; b: MedBag; da
   const tonpuku = b.kind === "頓服";
   return (
     <div className="flex h-[140mm] w-[95mm] break-inside-avoid flex-col border border-ink/70 bg-white text-ink">
-      <div className={`py-2 text-center text-[20pt] font-bold tracking-[0.3em] text-white ${tonpuku ? "bg-shu" : "bg-ai"}`}>{tonpuku ? "頓服薬" : "内服薬"}</div>
+      <div className={`py-2 text-center text-[20pt] font-bold tracking-[0.3em] text-white ${tonpuku ? "bg-shu" : "bg-ai"}`}>{tonpuku ? "頓服薬" : b.kind === "内服" ? "内服薬" : b.kind}</div>
       <div className="flex-1 space-y-2 px-4 py-3 text-[10pt]">
         <div className="border-b border-ink/40 pb-1">
           <span className="text-[16pt] font-bold">{p.name}</span> 様<span className="nums ml-2 text-[8pt]">ID {p.id}</span>
         </div>
         <div>
-          <div className="text-[8pt] text-ink-soft">{tonpuku ? "飲むとき" : "飲み方"}</div>
+          <div className="text-[8pt] text-ink-soft">{b.kind === "内服" || tonpuku ? "飲み方" : "使い方"}</div>
           <div className="text-[14pt] font-bold leading-snug">{b.how}</div>
         </div>
         <table className="nums w-full text-[10pt]">
@@ -36,7 +36,7 @@ export function MedBagFace({ p, b, date, by }: { p: HomeRxPatient; b: MedBag; da
                   {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}
                 </td>
                 <td className="whitespace-nowrap py-1 pl-2 text-right font-bold">
-                  1回 {d.per}
+                  {["外用", "材料", "自己注射"].includes(b.kind) ? "総量" : "1回"} {d.per}
                   {d.unit}
                 </td>
               </tr>
@@ -44,7 +44,7 @@ export function MedBagFace({ p, b, date, by }: { p: HomeRxPatient; b: MedBag; da
           </tbody>
         </table>
         <div className="nums text-[11pt] font-bold">{displayText(amountText(b))}</div>
-        <p className="text-[8pt] leading-snug">飲み忘れに気づいても、2回分を一度に飲まないでください。わからないことは薬剤部へお問い合わせください。</p>
+        {(b.kind === "内服" || tonpuku) && <p className="text-[8pt] leading-snug">飲み忘れに気づいても、2回分を一度に飲まないでください。わからないことは薬剤部へお問い合わせください。</p>}
       </div>
       <div className="nums border-t border-ink/40 px-4 py-1.5 text-[7.5pt] leading-snug">
         調剤日 {date}　{HOSPITAL} 薬剤部
@@ -73,7 +73,7 @@ export function DrugInfoSheet({ p, bags, care, date, pharmacist }: { p: HomeRxPa
         <thead>
           <tr className="bg-ink/10">
             <th className="w-[30%] border border-ink/40 px-2 py-1 text-left">お薬の名前</th>
-            <th className="w-[20%] border border-ink/40 px-2 py-1 text-left">飲み方</th>
+            <th className="w-[20%] border border-ink/40 px-2 py-1 text-left">使い方</th>
             <th className="border border-ink/40 px-2 py-1 text-left">何の薬・気をつけること</th>
           </tr>
         </thead>
@@ -89,7 +89,7 @@ export function DrugInfoSheet({ p, bags, care, date, pharmacist }: { p: HomeRxPa
                 <td className="nums border border-ink/40 px-2 py-1">
                   {b.how}
                   <br />
-                  1回 {d.per}
+                  {["外用", "材料", "自己注射"].includes(b.kind) ? "総量" : "1回"} {d.per}
                   {d.unit}　{displayText(amountText(b))}
                 </td>
                 <td className="border border-ink/40 px-2 py-1">
@@ -131,7 +131,7 @@ export function NotebookSticker({ p, bags, date, doctor }: { p: HomeRxPatient; b
           <span className="font-bold">Rp{i + 1}</span>{" "}
           {b.drugs.map((d) => (
             <div key={d.code} className="pl-2">
-              {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}　1回{d.per}
+              {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}　{["外用", "材料", "自己注射"].includes(b.kind) ? "総量" : "1回"}{d.per}
               {d.unit}
             </div>
           ))}

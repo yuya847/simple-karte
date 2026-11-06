@@ -1,3 +1,4 @@
+import { insulinDoseText } from "./insulin-doses";
 import { patternCourse } from "./day-pattern";
 // Turn orders into the short lines shown in the chart.
 
@@ -64,7 +65,7 @@ export function injectionItemText(it: { drugCode: string; amount: number; unit: 
 }
 
 export function injectionLines(order: InjectionOrder, today: CalendarDate): { main: string; detail: string } {
-  const main = order.items.map((it) => order.sliding ? `${drugName(it.drugCode)}　スケール` : injectionItemText(it)).join(" ＋ ");
+  const main = order.insulinDoses ? `${drugName(order.items[0].drugCode)} ${insulinDoseText(order.insulinDoses)}` : order.items.map((it) => order.sliding ? `${drugName(it.drugCode)}　スケール` : injectionItemText(it)).join(" ＋ ");
   const parts = [order.route, scheduleTextFor(order)];
   if (order.minutesPerDose) parts.push(`1回${durationText(order.minutesPerDose)}`);
   if (order.rateMlPerH) parts.push(`${order.rateMlPerH}mL/時`);
@@ -116,16 +117,17 @@ export function oralName(code: string): string {
 
 /** "1日2回 朝・夕" or "頓用 発熱時（38.5℃以上） 1日3回まで" */
 export function timingText(o: PrescriptionOrder): string {
+  if (o.administration) return o.administration.usage;
   if (o.once) return `1回だけ・今すぐ（${o.once.time}）`;
   if (o.timings.length === 0) return `頓用 ${o.prn ?? ""}${o.maxPerDay ? ` 1日${o.maxPerDay}回まで` : ""}`.trim();
   return `1日${o.timings.length}回 ${timingName(o.timings)}`;
 }
 
 export function prescriptionLines(order: PrescriptionOrder, today: CalendarDate): { main: string; detail: string } {
-  const main = `${oralName(order.drugCode)}　1回${order.amount}${order.unit}${order.dailyAmount ? `（1日${order.dailyAmount}${order.unit}）` : ""}`;
+  const main = `${oralName(order.drugCode)}　${order.administration ? "総量" : "1回"}${order.amount}${order.unit}${order.dailyAmount ? `（1日${order.dailyAmount}${order.unit}）` : ""}`;
   const parts: string[] = [order.category, timingText(order)];
   parts.push(`開始 ${formatShort(addDays(today, order.start.day))}${order.start.timing ? ` ${order.start.timing}` : ""}`);
-  if (!order.once) parts.push(patternCourse(order.dayPattern, order.start.day, order.days, true, today));
+  if (!order.once && !order.administration) parts.push(patternCourse(order.dayPattern, order.start.day, order.days, true, today));
   if (order.comment) parts.push(order.comment);
   return { main, detail: parts.join("　") };
 }

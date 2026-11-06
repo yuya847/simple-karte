@@ -1,4 +1,5 @@
 "use client";
+import { insulinDoseText } from "@/lib/insulin-doses";
 
 import { displayText } from "@/lib/display-text";
 import { dietLabel } from "@/lib/diet";
@@ -62,7 +63,7 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp, b
       {open && <div id={detailId} className="mx-2 mb-1 border-t border-ai/20 pt-1">
       <header className="flex items-center gap-2 px-3 py-1.5">
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${draft.kind === "stop" ? "bg-shu-soft text-shu" : "bg-ai-soft text-ai"}`}>
-          {KIND_LABEL[draft.kind]}
+          {draft.kind === "prescription" && draft.administration ? draft.administration.kind : KIND_LABEL[draft.kind]}
           {rp ? ` Rp${rp}` : ""}
         </span>
         <span className="truncate text-xs text-ink-faint" title="話した言葉">
@@ -279,7 +280,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
               {i > 0 && <span className="font-normal text-ink-faint"> ＋ </span>}
               {it.drugCode ? drugName(it.drugCode) : <span className="text-shu">{it.said}（？）</span>}
               <DrugMarks codes={[it.drugCode]} />
-              <span className="ml-1">{it.amount ?? "？"}{it.unit ?? ""}</span>
+              <span className="ml-1">{draft.insulinDoses ? insulinDoseText(draft.insulinDoses) : `${it.amount ?? "？"}${it.unit ?? ""}`}</span>
             </span>
           ))}
         </div>
@@ -330,7 +331,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
                     <DrugMarks codes={[it.drugCode]} />
                   </td>
                   <td className="whitespace-nowrap text-right">
-                    1回{per ?? "？"}
+                    {draft.administration ? "総量" : "1回"}{per ?? "？"}
                     {m?.unit ?? ""}
                     <span className="ml-2">{prescriptionUsage(draft)}</span>
                     {!prn && per !== null && times > 0 && <span className="ml-2 text-[11px] text-ink-faint">（1日{it.daily ?? Math.round(per * times * 100) / 100}{m?.unit}）</span>}

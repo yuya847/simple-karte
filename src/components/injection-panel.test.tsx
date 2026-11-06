@@ -59,10 +59,12 @@ describe("注射の Rp：チップと見出し", () => {
 });
 
 describe("注射の罫線入力の表示", () => {
-  it("薬の量の段では混注検索・経路以降の段を閉じ、混注は明示的に足す", () => {
+  it("薬の量の段でも経路以降の全欄を表示し、混注は明示的に足す", () => {
     const html = render(ctrx);
-    for (const step of ["drug", "route", "schedule", "times", "duration", "start", "days"]) {
-      expect(html).toMatch(new RegExp(`data-step="${step}" hidden="" style="display:none"`));
+    expect(html).toMatch(/data-step="drug" hidden="" style="display:none"/);
+    for (const step of ["route", "schedule", "times", "duration", "start", "days"]) {
+      expect(html).toContain(`data-step="${step}" data-active=`);
+      expect(html).not.toMatch(new RegExp(`data-step="${step}" hidden=`));
     }
     expect(html).toContain("＋混注");
     expect(html).not.toContain("Shift+Enter");

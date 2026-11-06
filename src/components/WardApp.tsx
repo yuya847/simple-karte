@@ -6,6 +6,7 @@ import { RxExpiryStrip } from "./RxExpiryStrip";
 import { rxExpiries, visibleExpiryStickies } from "@/lib/rx-expiry";
 import { historyOrderHandlers } from "@/lib/history-order";
 import { OrderHistoryContext, useOrderUnlocks } from "./OrderHistoryActions";
+import { insulinGivenForBilling } from "@/lib/insulin-billing";
 import { standingPending } from "@/lib/standing-pending";
 import { roomLabel } from "@/lib/place-label";
 import { scenarioHandoffs } from "@/lib/scenarios/handoffs";
@@ -1515,7 +1516,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // What the billing APIs get for one patient: the record as it stands, with the insurance 医事課 registered.
   const claimPayloadOf = (p: Patient) => {
     const c = charts[p.id];
-    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insurance: currentInsurance(iji.insurance, p.id) });
+    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insulinGiven: insulinGivenForBilling(mar, p.id), insurance: currentInsurance(iji.insurance, p.id) });
   };
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
   // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.
@@ -3122,6 +3123,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   diets={diets}
                   letters={lettersOf(patient.id)}
                   notGiven={notGivenOf(patient.id)}
+                  insulinGiven={insulinGivenForBilling(mar, patient.id)}
                   onOptions={(next) => {
                     // What changed in the claim's options, for the audit log (医事課 and doctors change them).
                     const cur = billing[patient.id] ?? DEFAULT_OPTIONS;

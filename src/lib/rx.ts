@@ -6,7 +6,7 @@ import { validDayPattern } from "./day-pattern";
 
 import { doseStep } from "./rx-entry";
 import type { CheckContext, Draft, Issue } from "./drafts";
-import { ORAL_DRUGS, ingredientOf, findOralDrug, WARD_RULES } from "./master";
+import { PRESCRIPTION_DRUGS, ingredientOf, findOralDrug, WARD_RULES } from "./master";
 import { minutesOf } from "./dates";
 import type { DayOffset, DoseTiming, PrescriptionOrder } from "./types";
 
@@ -20,6 +20,7 @@ export interface RxItem {
 }
 
 export interface PrescriptionDraft {
+  administration?: import("./prescription-kind").PrescriptionUse;
   dayPattern?: import("./types").DayPattern;
   dispensing?: "院内" | "院外";
   once?: boolean;
@@ -111,7 +112,7 @@ export const ACK = { 重複: "重複承知", アレルギー: "アレルギー�
 
 function candidates(said: string) {
   const s = said.replace(/\s/g, "");
-  return ORAL_DRUGS.filter((d) => [d.name, ...d.aliases].some((a) => s && (a.includes(s) || s.includes(a)))).slice(0, 4);
+  return PRESCRIPTION_DRUGS.filter((d) => [d.name, ...d.aliases].some((a) => s && (a.includes(s) || s.includes(a)))).slice(0, 4);
 }
 
 /** The latest leave draft takes precedence over confirmed active orders of this patient. */
@@ -135,6 +136,8 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
   const ack = (a: string) => (x: Draft) => ({ ...(x as PrescriptionDraft), acks: [...new Set([...(x as PrescriptionDraft).acks, a])] });
   if (!d.items.length) return [{ key: "drug", level: "stop", title: "薬", message: "薬が読み取れませんでした。言い直してください。" }];
 
+  const total = !!d.administration;
+  if (total && !d.administration!.usage.trim()) issues.push({ key: "total-usage", level: "stop", title: "用法", message: "使い方を入力してください。" });
   const prn = d.timings !== null && d.timings.length === 0;
   const times = d.timings?.length ?? 0;
 
@@ -180,9 +183,11 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
     if (d.timings === null) return;
     const per = perDoseOf(it, prn ? 1 : times);
     if (per === null) return;
+    if (m.prescriptionKind && !total) issues.push({ key: `kind-${i}`, level: "stop", title: "区分", message: "外用・材料・自己注射は総量と使い方を入力してください。" });
+    if (total && m.prescriptionKind !== d.administration?.kind) issues.push({ key: `kind-${i}`, level: "stop", title: "区分", message: "処方の区分と品目が一致しません。" });
     // 1回量 must be whole units, or halves of a scored tablet.
     const step = doseStep(m);
-    if (Math.abs(per / step - Math.round(per / step)) > 1e-9 || per <= 0) {
+    if (!Number.isFinite(per) || Math.abs(per / step - Math.round(per / step)) > 1e-9 || per <= 0) {
       issues.push({
         key: `split-${i}`,
         level: "stop",
@@ -231,7 +236,7 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
   });
 
   if (d.acks.length) issues.push({ key: "acks", level: "info", title: "承知", message: d.acks.join("・") });
-  if (prn && !d.prn) issues.push({ key: "prn", level: "ask", title: "頓用", message: "頓用の条件（発熱時・疼痛時など）が抜けています。" });
+  if (prn && !total && !d.prn) issues.push({ key: "prn", level: "ask", title: "頓用", message: "頓用の条件（発熱時・疼痛時など）が抜けています。" });
   return issues;
 }
 
@@ -239,14 +244,15 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
 export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId: string, dischargeDay?: number | null): PrescriptionOrder[] {
   const prn = d.timings!.length === 0;
   if (d.category === "退院時" && d.start.day === null && dischargeDay == null) throw new Error("退院日を指定してください。");
-  const start = d.category === "退院時" ? { day: d.start.day ?? dischargeDay ?? 0, ...(!prn ? { timing: d.start.timing ?? d.timings![0] } : {}) } : prn ? { day: 0 } : d.start.day !== null && d.start.timing ? { day: d.start.day, timing: d.start.timing } : firstDose(d.timings!, nowTime);
+  const start = d.administration ? { day: d.start.day ?? dischargeDay ?? 0 } : d.category === "退院時" ? { day: d.start.day ?? dischargeDay ?? 0, ...(!prn ? { timing: d.start.timing ?? d.timings![0] } : {}) } : prn ? { day: 0 } : d.start.day !== null && d.start.timing ? { day: d.start.day, timing: d.start.timing } : firstDose(d.timings!, nowTime);
   return d.items.map((it) => {
     const m = findOralDrug(it.drugCode!)!;
     const per = perDoseOf(it, prn ? 1 : d.timings!.length)!;
     return {
       type: "prescription",
+      administration: d.administration,
       dispensing: d.dispensing,
-      category: d.category === "退院時" || d.category === "持参薬" ? d.category : prn ? "臨時" : d.category!,
+      category: d.administration ? d.category! : d.category === "退院時" || d.category === "持参薬" ? d.category : prn ? "臨時" : d.category!,
       drugCode: m.code,
       amount: per,
       unit: m.unit,
@@ -255,11 +261,11 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
       ...(d.once ? { once: { day: 0, time: nowTime } } : {}),
       ...(prn && !d.once ? { prn: d.prn ?? "必要時", maxPerDay: d.maxPerDay ?? undefined } : {}),
       start,
-      days: prn && !d.dispensing ? undefined : (d.days ?? undefined),
+      days: d.administration || prn && !d.dispensing ? undefined : (d.days ?? undefined),
       comment: [d.comment, d.onePack ? "一包化" : null].filter(Boolean).join("　") || undefined,
       onePack: !!d.onePack,
       rp: rpId,
-      dailyAmount: prn ? undefined : (it.daily ?? round2(per * d.timings!.length)),
+      dailyAmount: d.administration || prn ? undefined : (it.daily ?? round2(per * d.timings!.length)),
       acks: d.acks.length ? d.acks : undefined,
     };
   });

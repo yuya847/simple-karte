@@ -10,6 +10,7 @@ import { TIMINGS_BY_TIMES } from "./rx";
 import type { DoseTiming, OrderEntry, PrescriptionOrder } from "./types";
 
 export interface RxPattern {
+  administration?: import("./prescription-kind").PrescriptionUse;
   dayPattern?: import("./types").DayPattern;
   key: string;
   rows: { drugCode: string; per: number }[];
@@ -45,8 +46,8 @@ export function rpsOf(entries: { patientId: string; entry: OrderEntry }[]): (Omi
     const times: number | "頓用" = o.timings.length ? o.timings.length : "頓用";
     const timing = timingLabel(o.timings);
     const category = o.category === "持参薬" ? "定期" : o.category;
-    const key = [rows.map((r) => `${r.drugCode}:${r.per}`).join("+"), times, timing, o.days ?? "", category, o.prn ?? "", o.maxPerDay ?? "", JSON.stringify(o.dayPattern ?? null)].join("|");
-    return { key, rows, times, timing, dayPattern: o.dayPattern, days: o.days ?? null, category, prn: o.prn, maxPerDay: o.maxPerDay, day: g.day, patientId: g.patientId };
+    const key = [rows.map((r) => `${r.drugCode}:${r.per}`).join("+"), times, timing, o.days ?? "", category, o.prn ?? "", o.maxPerDay ?? "", JSON.stringify(o.administration ?? null), JSON.stringify(o.dayPattern ?? null)].join("|");
+    return { ...(o.administration ? { administration: o.administration } : {}), key, rows, times, timing, dayPattern: o.dayPattern, days: o.days ?? null, category, prn: o.prn, maxPerDay: o.maxPerDay, day: g.day, patientId: g.patientId };
   });
 }
 
@@ -76,12 +77,12 @@ export function previousOf(patientId: string, entries: OrderEntry[]): RxPattern[
     .map(({ day, patientId: _p, ...rest }) => ({ ...rest, count: 1, lastDay: day, patients: 1 }));
 }
 
-export const patternLine = (p: Pick<RxPattern, "rows" | "times" | "timing" | "days" | "category" | "prn" | "maxPerDay" | "dayPattern">) => {
+export const patternLine = (p: Pick<RxPattern, "rows" | "times" | "timing" | "days" | "category" | "prn" | "maxPerDay" | "dayPattern" | "administration">) => {
   const drugs = p.rows.map((r) => {
     const d = findOralDrug(r.drugCode);
-    return `${d ? `${d.name}${d.strength}` : r.drugCode} 1回${r.per}${d?.unit ?? ""}`;
+    return `${d ? `${d.name}${d.strength}` : r.drugCode} ${p.administration ? "総量" : "1回"}${r.per}${d?.unit ?? ""}`;
   });
-  const how = p.times === "頓用" ? `頓用 ${p.prn ?? ""}${p.maxPerDay ? `（1日${p.maxPerDay}回まで）` : ""}` : `1日${p.times}回 ${p.timing}${p.days ? `　${p.days}日分` : ""}　${p.category}`;
+  const how = p.administration?.usage ?? (p.times === "頓用" ? `頓用 ${p.prn ?? ""}${p.maxPerDay ? `（1日${p.maxPerDay}回まで）` : ""}` : `1日${p.times}回 ${p.timing}${p.days ? `　${p.days}日分` : ""}　${p.category}`);
   return `${drugs.join("、")}　${p.dayPattern ? patternText(p.dayPattern) + "　" : ""}${how}`;
 };
 

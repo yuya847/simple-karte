@@ -1,3 +1,5 @@
+import { totalPrescriptionPart } from "./total-prescription";
+import { fixedInsulinUnits } from "../insulin-doses";
 import { doseTimes } from "../flowsheet";
 import type { CalendarDate } from "../dates";
 import { patternDay, rxLastDay } from "../day-pattern";
@@ -294,18 +296,21 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
       byRoute[route] ??= { lines: new Map(), volume: 0 };
       const bucket = byRoute[route];
       for (const it of ord.items) {
-        const q = masterQuantity(it.drugCode, it.amount, it.unit);
+        const scheduled = ord.insulinDoses || ord.sliding ? doseTimes(e, nowAbs, lo, hi, cal(0)).filter(at => !notGiven.some(n => n.orderId === e.id && n.at === at)) : [];
+        const totalUnits = ord.insulinDoses || ord.sliding ? scheduled.reduce((sum, at) => sum + (input.insulinGiven?.find(r => r.key === `${e.id}|${at}`)?.units ?? (ord.insulinDoses ? fixedInsulinUnits(ord, at) : 0)), 0) : null;
+        const q = masterQuantity(it.drugCode, totalUnits ?? it.amount, it.unit);
         const official = officialDrugCode(it.drugCode);
-        if (ord.sliding && it.amount === 0) {
+        if (ord.sliding && scheduled.some(at => !input.insulinGiven?.some(r => r.key === `${e.id}|${at}`))) {
           issues.push({ level: "review", text: `${findDrug(it.drugCode)?.name ?? it.drugCode}（スライディングスケール）：打った単位は回ごとに違います。実施の記録で単位数を確かめてください。` });
-          continue;
+          if (!ord.insulinDoses && !totalUnits) continue;
         }
+        if (totalUnits !== null && totalUnits <= 0) continue;
         if (q === null || !official) {
           issues.push({ level: "review", text: `${findDrug(it.drugCode)?.name ?? it.drugCode} の量（${it.amount}${it.unit}）を医薬品マスターの単位に直せませんでした。` });
           continue;
         }
         const isFluidMain = doses.bags > 0;
-        const qty = isFluidMain ? doses.bags * (q > 0 ? 1 : 0) * (ord.items.length === 1 ? 1 : q) : q * doses.count;
+        const qty = totalUnits !== null ? q : isFluidMain ? doses.bags * (q > 0 ? 1 : 0) * (ord.items.length === 1 ? 1 : q) : q * doses.count;
         bucket.lines.set(official, (bucket.lines.get(official) ?? 0) + qty);
         const vol = findDrug(it.drugCode)?.volumeMl;
         if (vol) bucket.volume += vol * (isFluidMain ? doses.bags : q * doses.count);
@@ -723,6 +728,15 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     for (const e of rx) {
       const ord = e.order as PrescriptionOrder;
       if (ord.category === "持参薬") continue;
+      if (ord.administration) {
+        if (e.day !== d || e.day * DAY + minutesOf(e.time) >= hi) continue;
+        const part = totalPrescriptionPart(ord.drugCode, ord.amount, ord.unit, ord.administration);
+        if (part) {
+          add({ day: d, shikibetsu: ord.administration.kind === "外用" ? "23" : "14", parts: [part], basis: `${ord.administration.kind === "材料" ? "特定保険医療材料" : ord.administration.kind === "外用" ? "F200 外用薬" : "在宅自己注射薬"}（総量・1調剤）` });
+          if (ord.administration.kind === "外用") dispensingDays.add(d);
+        } else issues.push({ level: "review", text: `${ord.drugCode} の総量とマスターの単位を確認してください。` });
+        continue;
+      }
       const official = officialDrugCode(ord.drugCode);
       if (!official) continue;
       if (ord.timings.length) {
@@ -882,7 +896,7 @@ function expandLab(codes: string[]): string[] {
 /** Doses of an injection order inside [lo, hi): timed doses, or bags of a continuous fluid. */
 function injectionDoses(e: OrderEntry, lo: number, hi: number, nowAbs: number, base: CalendarDate): { count: number; bags: number } {
   const o = e.order as InjectionOrder;
-  if (o.dayPattern && o.schedule.kind !== "once") {
+  if ((o.insulinDoses || o.doseTimes?.length || o.dayPattern) && o.schedule.kind !== "once") {
     const n = doseTimes(e, nowAbs, lo, hi, base).length;
     return { count: n, bags: 0 };
   }
@@ -1056,7 +1070,7 @@ function applyRules(acts: DayAct[], ctx: RuleCtx): DayAct[] {
   return out;
 }
 
-const ORDER: Shikibetsu[] = ["13", "21", "22", "24", "27", "31", "32", "33", "40", "60", "70", "80", "90", "92", "97"];
+const ORDER: Shikibetsu[] = ["13", "14", "21", "22", "23", "24", "27", "31", "32", "33", "40", "60", "70", "80", "90", "92", "97"];
 
 /** Merge identical day entries into receipt entries (count = days × times). */
 function mergeActs(acts: DayAct[], cal: ReturnType<typeof calendar>): ClaimAct[] {

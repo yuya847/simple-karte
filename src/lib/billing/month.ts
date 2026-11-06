@@ -11,6 +11,7 @@ import { reviewIssues } from "./worklist";
 export interface PatientMonthInput {
   patient: ClaimInput["patient"] & { kana: string };
   entries: ClaimInput["entries"];
+  insulinGiven?: ClaimInput["insulinGiven"];
   notGiven?: ClaimInput["notGiven"];
   daily: ClaimInput["daily"];
   cultures: ClaimInput["cultures"];
@@ -69,6 +70,7 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     patient: input.patient,
     entries: input.entries,
     notGiven: input.notGiven,
+    insulinGiven: input.insulinGiven,
     daily: input.daily,
     cultures: input.cultures,
     diagnoses: input.diagnoses,

@@ -141,7 +141,7 @@ export function classifyCode(code: string): LineClass {
 function classifyPart(part: ClaimPart, act: ClaimAct): LineClass {
   const si = part.lines.find((l) => l.record === "SI") ?? act.parts.flatMap((p) => p.lines).find((l) => l.record === "SI");
   if (si) return classifyCode(si.code);
-  const byShikibetsu: Partial<Record<Shikibetsu, string>> = { "21": "投薬（第5部）", "22": "投薬（第5部）", "24": "投薬（第5部）", "27": "投薬（第5部）", "31": "注射（第6部）", "32": "注射（第6部）", "33": "注射（第6部）", "40": "処置（第9部）" };
+  const byShikibetsu: Partial<Record<Shikibetsu, string>> = { "23": "投薬（第5部）", "21": "投薬（第5部）", "22": "投薬（第5部）", "24": "投薬（第5部）", "27": "投薬（第5部）", "31": "注射（第6部）", "32": "注射（第6部）", "33": "注射（第6部）", "40": "処置（第9部）" };
   const w = byShikibetsu[act.shikibetsu];
   return w ? { inPackage: true, rule: `${w}の薬剤料：包括に含まれる（別表 2 イ）` } : { inPackage: false, rule: "区分を判定できない（確かめる）", review: true };
 }

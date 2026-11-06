@@ -43,7 +43,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
   const cancellation = record?.cancellation;
   if (cancellation) record = undefined;
   const [glucose, setGlucose] = useState("");
-  const units = item.sliding ? slidingUnits(item.sliding.rows, glucose === "" ? NaN : Number(glucose)) : item.insulinUnits;
+  const units = item.sliding ? (slidingUnits(item.sliding.rows, glucose === "" ? NaN : Number(glucose)) === null ? null : (item.insulinUnits ?? 0) + slidingUnits(item.sliding.rows, Number(glucose))!) : item.insulinUnits;
   const [queryAck, setQueryAck] = useState(false);
   const me = useMe();
   const [open, setOpen] = useState(false);

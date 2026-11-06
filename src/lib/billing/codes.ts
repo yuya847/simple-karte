@@ -2,10 +2,12 @@
 // Only codes live here: names, points and drug prices are always read from the official
 // masters at calculation time, so a revision never leaves stale numbers behind.
 
+import { EAR_DROP } from "../prescription-kind";
 import { ADOPTED_ROWS } from "../formulary-expansion";
 
 /** Products the fictional hospital stocks (医薬品マスター codes). */
 export const DRUG_CODES: Record<string, string> = {
+  [EAR_DROP.code]: EAR_DROP.code,
   ...Object.fromEntries(ADOPTED_ROWS.map((r) => [r[0], r[0]])),
   "ORAL-AMPC250": "616130132", // サワシリン錠２５０　２５０ｍｇ
   "ORAL-AMCL250": "621116301", // オーグメンチン配合錠２５０ＲＳ　（３７５ｍｇ）

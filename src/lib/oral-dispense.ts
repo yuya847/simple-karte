@@ -24,6 +24,7 @@ export interface DoseSlot {
 
 /** One drug of an Rp, with the doses counted in the range. */
 export interface OralLine {
+  totalOnly?: boolean;
   orderId: string;
   code: string;
   name: string;
@@ -82,6 +83,7 @@ function slotsOf(e: Rx, from: DayOffset, to: DayOffset, nowAbs: number): DoseSlo
 /** The range to count for this order in this batch, or null when it is not dispensed in it. */
 function rangeOf(e: Rx, batch: OralBatch): { from: DayOffset; to: DayOffset; first?: boolean; unbounded?: boolean } | null {
   const o = e.order;
+  if (o.administration) return batch.kind === "臨時" && e.day === 0 ? { from: o.start.day, to: o.start.day } : null;
   if (batch.kind === "定期") return o.category === "定期" ? { from: 1, to: batch.days } : null;
   if (e.day !== 0) return null;
   if (o.category === "定期") return o.start.day <= 0 ? { from: 0, to: 0, first: true } : null;
@@ -99,7 +101,7 @@ export function oralToDispense(people: WorkPatient[], batch: OralBatch, nowAbs: 
     for (const e of x.entries) {
       if (!isWardRx(e)) continue;
       const o = e.order;
-      if (o.timings.length === 0) {
+      if (!o.administration && o.timings.length === 0) {
         prn.push({ orderId: e.id, name: findOralDrug(o.drugCode)?.name ?? o.drugCode, text: `1回${o.amount}${o.unit}　頓用 ${o.prn ?? "必要時"}${o.maxPerDay ? `（1日${o.maxPerDay}回まで）` : ""}` });
         continue;
       }
@@ -114,15 +116,15 @@ export function oralToDispense(people: WorkPatient[], batch: OralBatch, nowAbs: 
       const lines: OralLine[] = es.map(({ e }) => {
         const m = findOralDrug(e.order.drugCode);
         const slots = range.unbounded ? [] : slotsOf(e, range.from, range.to, nowAbs);
-        return { orderId: e.id, code: e.order.drugCode, name: m?.name ?? e.order.drugCode, strength: m?.strength ?? "", per: e.order.amount, unit: e.order.unit, slots, total: round2(e.order.amount * slots.length) };
+        return { totalOnly: !!e.order.administration, orderId: e.id, code: e.order.drugCode, name: m?.name ?? e.order.drugCode, strength: m?.strength ?? "", per: e.order.amount, unit: e.order.unit, slots, total: e.order.administration ? e.order.amount : round2(e.order.amount * slots.length) };
       });
-      if (!range.unbounded && lines.every((l) => l.slots.length === 0)) continue;
+      if (!range.unbounded && lines.every((l) => !l.totalOnly && l.slots.length === 0)) continue;
       const used = lines.flatMap((l) => l.slots.map((s) => s.day));
       rps.push({
         key: k.split("|")[1],
         category: head.order.category as "定期" | "臨時",
         timings: head.order.timings,
-        how: `${head.order.dayPattern ? patternText(head.order.dayPattern) + "　" : ""}1日${head.order.timings.length}回　${timingName(head.order.timings)}`,
+        how: head.order.administration?.usage ?? `${head.order.dayPattern ? patternText(head.order.dayPattern) + "　" : ""}1日${head.order.timings.length}回　${timingName(head.order.timings)}`,
         lines,
         orderIds: es.map(({ e }) => e.id),
         doctor: head.author,
@@ -140,6 +142,7 @@ export function oralToDispense(people: WorkPatient[], batch: OralBatch, nowAbs: 
 
 /** "1回1錠 × 1日2回 × 4日 = 8錠", or "1回1錠 × 7回 = 7錠" when the first or last day is not whole. */
 export function qtyFormula(line: OralLine, timesPerDay: number): string {
+  if (line.totalOnly) return `総量 ${line.total}${line.unit}`;
   const days = new Set(line.slots.map((s) => s.day)).size;
   const n = line.slots.length;
   const head = `1回${line.per}${line.unit}`;

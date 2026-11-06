@@ -194,6 +194,7 @@ export function draftsFromReport(r: BroughtReport, nowTime: string, newId: () =>
     comment: o.comment ?? null,
     kind: "prescription",
     category: o.category === "退院時" ? null : o.category,
+    administration: o.administration,
     items: [{ drugCode: o.drugCode, said: findOralDrug(o.drugCode)?.name ?? o.drugCode, daily: null, perDose: o.amount }],
     dayPattern: o.dayPattern,
     timings: o.timings,
