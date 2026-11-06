@@ -121,17 +121,17 @@ describe("オーダ行の印", () => {
   const refused: AdminRecord = { ...done, status: "未実施", reason: "患者が拒否", doneAt: "08:10", checked: { patient: false, label: null } };
   it("記録があれば「実施 08:05」、残りの回があれば「予定 20:00」も", () => {
     const b = executionBadge(patient, inj, { [done.key]: done }, 420, noon)!;
-    expect(b.text).toBe("実施 08:05・予定 20:00");
+    expect(b.text).toBe("実施 08:05・次は 20:00");
     expect(b.tone).toBe("done");
     expect(b.title).toContain("08:00 実施 08:05 看護師 佐藤");
     expect(b.title).toContain("20:00 予定");
   });
   it("未実施は理由つき、時刻を過ぎて記録がなければ「未入力 08:00」が先", () => {
-    expect(executionBadge(patient, inj, { [refused.key]: refused }, 420, noon)).toMatchObject({ text: "未実施（患者が拒否） 08:10・予定 20:00", tone: "not" });
-    expect(executionBadge(patient, inj, {}, 420, noon)).toMatchObject({ text: "未入力 08:00・予定 20:00", tone: "late" });
+    expect(executionBadge(patient, inj, { [refused.key]: refused }, 420, noon)).toMatchObject({ text: "未実施（患者が拒否） 08:10・次は 20:00", tone: "not" });
+    expect(executionBadge(patient, inj, {}, 420, noon)).toMatchObject({ text: "実施の記録なし 08:00・次は 20:00", tone: "late" });
   });
   it("前の勤務帯の分（記録済み）は数えず、予定だけ。今日の回がないオーダは印なし", () => {
-    expect(executionBadge(patient, inj, {}, 600, noon)).toMatchObject({ text: "予定 20:00", tone: "plan" });
+    expect(executionBadge(patient, inj, {}, 600, noon)).toMatchObject({ text: "次は 20:00", tone: "plan" });
     expect(executionBadge(patient, opd, {}, 420, noon)).toBeNull();
   });
   it("頓用は今日使った記録を数える（2回なら「実施 2回」）", () => {

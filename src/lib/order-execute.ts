@@ -108,14 +108,14 @@ export function executionBadge(patient: Patient, entry: OrderEntry, records: Rec
   const late = occs.filter((o) => o.state === "未入力");
   const planned = occs.filter((o) => o.state === "予定");
   const parts: { text: string; tone: ExecBadge["tone"] }[] = [];
-  if (late.length) parts.push({ text: `未入力 ${late.map((o) => o.time).join("・")}`, tone: "late" });
+  if (late.length) parts.push({ text: `実施の記録なし ${late.map((o) => o.time).join("・")}`, tone: "late" });
   if (recorded.length === 1) parts.push({ text: `${recorded[0].status}${recorded[0].reason ? `（${recorded[0].reason}）` : ""} ${recorded[0].doneAt}`, tone: recorded[0].status === "実施" ? "done" : "not" });
   else if (recorded.length > 1) {
     const done = recorded.filter((r) => r.status === "実施").length;
     const not = recorded.length - done;
     parts.push({ text: [done ? `実施 ${done}回` : "", not ? `未実施 ${not}回` : ""].filter(Boolean).join("・"), tone: not && !done ? "not" : "done" });
   }
-  if (planned.length) parts.push({ text: `予定 ${planned[0].time}`, tone: "plan" });
+  if (planned.length) parts.push({ text: `次は ${planned[0].time}`, tone: "plan" });
   if (!parts.length) return null;
   const title = [
     ...occs.map((o) => `${o.time} ${o.record ? recordText(o.record) : o.state === "記録済み" ? "実施（前の勤務帯・架空）" : o.state}`),
