@@ -12,7 +12,7 @@ it("MSWの一覧は未着手の各段階をボタンにし、退院オーダだ�
     people: [{ patient, room: "101", entries: [] } as unknown as WorkPatient], evals: {}, documents: [], asks: [],
     today: { y: 2026, m: 11, d: 5 }, discharged: {}, onOpen: () => {}, onStep: () => {},
   })));
-  expect(html.match(/<button /g)).toHaveLength(8);
+  expect(html.match(/<button /g)).toHaveLength(11);
   expect(html.match(/disabled=""/g)).toHaveLength(1);
   expect(html).toContain('title="医師が出します"');
   expect(html.match(/>まだ</g)).toHaveLength(7);

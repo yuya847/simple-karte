@@ -1,5 +1,6 @@
 "use client";
 
+import { lifeLines, type LifeSupport } from "@/lib/life-support";
 import { displayText } from "@/lib/display-text";
 import { Copy } from "lucide-react";
 import { useState } from "react";
@@ -15,7 +16,7 @@ const STATE_STYLE: Record<AskState, string> = {
 };
 
 /** 転院・施設の調整: ask several places with a summary that does not name the patient; keep each answer. */
-export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: string[]; asks: TransferAsk[]; onAsk: (facilities: { name: string; kind: string }[]) => void; onUpdate: (id: string, state: AskState, note: string, meeting?: string) => void }) {
+export function TransferPanel({ summary, asks, onAsk, onUpdate, lifeSupport }: { lifeSupport?: LifeSupport; summary: string[]; asks: TransferAsk[]; onAsk: (facilities: { name: string; kind: string }[]) => void; onUpdate: (id: string, state: AskState, note: string, meeting?: string) => void }) {
   const [pick, setPick] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [form, setForm] = useState<Record<string, { state: AskState | ""; note: string; meeting: string }>>({});
@@ -23,9 +24,10 @@ export function TransferPanel({ summary, asks, onAsk, onUpdate }: { summary: str
   const decided = decidedOf(asks);
   return (
     <div className="space-y-3 text-[13px]">
+      {lifeLines(lifeSupport).length > 0 && <details className="rounded border border-rule bg-paper p-2"><summary className="cursor-pointer font-bold">生活・制度（院内）</summary>{lifeLines(lifeSupport).map(line => <p key={line}>{line}</p>)}</details>}
       <div className="rounded-md border border-rule bg-paper p-2">
         <div className="mb-1 flex items-center gap-2">
-          <b className="text-xs text-ink-soft">打診に使う要約（氏名・ID・生年月日・住所は入れません。カルテからコードで作成）</b>
+          <b className="text-xs text-ink-soft">打診に使う要約</b>
           <button
             type="button"
             onClick={() => {

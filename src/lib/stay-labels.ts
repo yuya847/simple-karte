@@ -22,19 +22,21 @@ export const earlierVisitsTitle = (kind: StayKind) => (kind === "入院" ? "入�
 
 /** The small tag on a day of the date tree: 「今日」, 「3日目」 (stay) or 「2日後」 (visit; the tree lists only today). */
 export function treeDayTag(kind: StayKind, admittedOn: DayOffset, day: DayOffset): string {
+  if (kind === "入院" && day < admittedOn) return "入院前";
   if (day === 0) return "今日";
   if (kind === "入院") return `${hospitalDay(admittedOn, day)}日目`;
   return day > 0 ? `${day}日後` : `${-day}日前`;
 }
 
 /**
- * The words after the date in a day heading of the record: 「入院3日目（今日）」「入院11日目（予定）」「入院の2日前」
+ * The words after the date in a day heading of the record: 「入院3日目（今日）」「入院11日目（予定）」「入院前」
  * for a stay; 「受診当日（今日）」「受診の1日後（予定）」「14日前の受診」 for a visit. `earlier` is a visit listed
  * under the stay (its own clinic), `future` a day ahead with only plans.
  */
 export function dayHeading(kind: StayKind, admittedOn: DayOffset, day: DayOffset, opts: { earlier?: boolean; future?: boolean } = {}): string {
   const back = admittedOn - day;
-  if (opts.earlier) return kind === "入院" ? `入院の${back}日前` : `${back}日前の受診`;
+  if (kind === "入院" && day < admittedOn) return "入院前";
+  if (opts.earlier) return kind === "入院" ? "入院前" : `${back}日前の受診`;
   const mark = day === 0 ? "（今日）" : opts.future ? "（予定）" : "";
   if (kind === "入院") return `入院${hospitalDay(admittedOn, day)}日目${mark}`;
   if (day === 0) return `受診当日${mark}`;

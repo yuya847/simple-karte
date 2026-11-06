@@ -14,7 +14,7 @@ import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type Rai
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 
-export type PanelKind = "insulin" | "abx-renal" | "pharmacy-shido" | "pharmacy-brought" | "pharmacy-tdm" | "pharmacy-audit" | "add-surgery" | "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-cath" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
+export type PanelKind = "msw-support" | "life-support" | "msw-interview" | "insulin" | "abx-renal" | "pharmacy-shido" | "pharmacy-brought" | "pharmacy-tdm" | "pharmacy-audit" | "add-surgery" | "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-cath" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
 
 interface Tool {
   key: PanelKind;
@@ -155,6 +155,18 @@ export function groupsFor(role: string): { key: GroupKey; title: string; main: T
   const only = ONLY[role];
   const forRole = (ts: Tool[]) => (role === "医師" ? ts : ts.filter((t) => !DOCTOR_ONLY.has(t.key) && !(role === "管理栄養士" && ["restraint", "discharge-stop", "path", "standing"].includes(t.key))));
   const groups = GROUPS.map((g) => ({ ...g, main: forRole(g.main), more: forRole(g.more) }));
+  if (role === "MSW") {
+    const first: Tool[] = [
+      { key: "msw-support", label: "退院支援", icon: HeartHandshake },
+      { key: "transfer", label: "転院・施設の調整", icon: Hotel },
+      { key: "msw-interview", label: "面談記録", icon: NotebookPen },
+      { key: "life-support", label: "生活・制度", icon: UsersRound },
+    ];
+    const keys = new Set(first.map(t => t.key));
+    const group = groups.find(g => g.key === "intervention")!;
+    for (const g of groups) { g.main = g.main.filter(t => !keys.has(t.key)); g.more = g.more.filter(t => !keys.has(t.key)); }
+    group.main = [...first, ...group.main];
+  }
   if (role === "療法士") {
     const reference = groups.find(g => g.key === "reference")!;
     reference.title = "リハビリ";
@@ -242,8 +254,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   const layout = resolveTools(defaults.map(g => ({ key: g.key, title: g.title, tools: [...g.main, ...g.more].map(t => t.key).concat(windows.filter(t => calendarGroup(t.pin.slice("calendar:".length)) === g.key).map(t => t.pin) as PanelKind[]) })), rail.layout);
   const groups = layout.groups.map(g => ({ ...g, main: defaults.flatMap(x => [...x.main, ...x.more]).filter(t => g.tools.includes(t.key)), more: [] as Tool[] }));
   const [groupRole, setGroupRole] = useState(me.role);
-  const [selectedGroup, setSelectedGroup] = useState<string>(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : specialistRoles.includes(me.role) ? "reference" : "intervention");
-  if (groupRole !== me.role) { setGroupRole(me.role); setSelectedGroup(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : specialistRoles.includes(me.role) ? "reference" : "intervention"); }
+  const [selectedGroup, setSelectedGroup] = useState<string>(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : me.role !== "MSW" && specialistRoles.includes(me.role) ? "reference" : "intervention");
+  if (groupRole !== me.role) { setGroupRole(me.role); setSelectedGroup(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : me.role !== "MSW" && specialistRoles.includes(me.role) ? "reference" : "intervention"); }
   const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
   const all = defaults.flatMap((g) => [...g.main, ...g.more]);

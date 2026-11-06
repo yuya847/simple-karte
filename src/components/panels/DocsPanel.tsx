@@ -22,6 +22,7 @@ import { DenyNote, useDeny, useMe } from "../RoleContext";
 export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral, initial, initialKind, onOpenConsent, consents = [], suggestions = [] }: { onOpenConsent?: (code?: ConsentCode, recordId?: string) => void; consents?: ConsentRecord[]; suggestions?: DocumentSuggestion[]; initialKind?: DocKind; patient: Patient; auto: (k: DocKind) => Record<string, string>; saved: DocRecord[]; today: string; onSave: (kind: DocKind, values: Record<string, string>) => void; onOpenReferral: () => void; initial?: (k: DocKind) => Record<string, string> }) {
   const me = useMe();
   const deny = useDeny();
+  const [created, setCreated] = useState(false);
   const [kind, setKind] = useState<DocKind | null>(initialKind ?? null);
   const [values, setValues] = useState<Record<string, string>>(() => initialKind ? initial?.(initialKind) ?? {} : {});
   const draftKey = `karte-document-drafts:${me.name}:${patient.id}`;
@@ -63,14 +64,15 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
   const missing = kind ? [...docMissing(kind, merged), ...(kind === "栄養管理計画書" ? nutritionPlanProblems(merged) : [])] : [];
   return (
     <div className="space-y-3 text-[13px]">
-      <DocumentBrowser key={me.name} actor={me.name} items={DOCUMENT_CATALOG} canCreate={id => id.startsWith("CONSENT-") ? !!onOpenConsent && !deny("consent") : id === "referral" ? !deny("discharge") : !deny(action(id as DocKind))} suggestions={suggestions.filter(s => !saved.some(r => r.kind === s.id) && !consents.some(c => c.code === s.id && (c.status === "説明前" || c.status === "同意")))} onCreate={id => {
+      {created && initialKind && <p role="status">{initialKind}を作成しました。</p>}
+      {!initialKind && <DocumentBrowser key={me.name} actor={me.name} items={DOCUMENT_CATALOG} canCreate={id => id.startsWith("CONSENT-") ? !!onOpenConsent && !deny("consent") : id === "referral" ? !deny("discharge") : !deny(action(id as DocKind))} suggestions={suggestions.filter(s => !saved.some(r => r.kind === s.id) && !consents.some(c => c.code === s.id && (c.status === "説明前" || c.status === "同意")))} onCreate={id => {
         if (id === "referral") return onOpenReferral();
         if (id.startsWith("CONSENT-")) return onOpenConsent?.(id as ConsentCode);
         const k = id as DocKind;
         setKind(k); setValues(loadDraft(k) ?? initial?.(k) ?? {});
-      }} />
-      {draftKinds.length > 0 && <section><h3 className="font-bold">この患者の下書き</h3>{draftKinds.map(k => <button key={k} type="button" className="mr-2 text-ai" onClick={() => { setKind(k); setValues(loadDraft(k) ?? {}); }}>{k}</button>)}</section>}
-      {consents.length > 0 && <section><h3 className="font-bold">この患者の同意書</h3>{consents.map(c => <div key={c.id} className="flex gap-2 border-b border-rule-soft py-1"><span>{findConsent(c.code).short}</span><span>{c.status === "説明前" ? "下書き" : c.status}</span><button type="button" className="ml-auto text-ai" onClick={() => onOpenConsent?.(undefined, c.id)}>開く</button></div>)}</section>}
+      }} />}
+      {!initialKind && draftKinds.length > 0 && <section><h3 className="font-bold">この患者の下書き</h3>{draftKinds.map(k => <button key={k} type="button" className="mr-2 text-ai" onClick={() => { setKind(k); setValues(loadDraft(k) ?? {}); }}>{k}</button>)}</section>}
+      {!initialKind && consents.length > 0 && <section><h3 className="font-bold">この患者の同意書</h3>{consents.map(c => <div key={c.id} className="flex gap-2 border-b border-rule-soft py-1"><span>{findConsent(c.code).short}</span><span>{c.status === "説明前" ? "下書き" : c.status}</span><button type="button" className="ml-auto text-ai" onClick={() => onOpenConsent?.(undefined, c.id)}>開く</button></div>)}</section>}
       {kind && (
         <section className="space-y-2 rounded-md border border-rule bg-paper p-3 text-[12px]">
           <p className="text-ink-soft">{DOC_DEFS[kind].purpose}</p>
@@ -113,6 +115,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
               disabled={missing.length > 0 || !!deny(action(kind))}
               onClick={() => {
                 onSave(kind, merged);
+                setCreated(true);
                 rememberDocument(me.name, kind);
                 saveDraft(kind);
                 setKind(null);
@@ -127,7 +130,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
           </div>
         </section>
       )}
-      {saved.length > 0 && (
+      {!initialKind && saved.length > 0 && (
         <section>
           <h3 className="mb-1 text-[12px] font-bold text-ink-soft">この患者の作成済み</h3>
           <ul className="space-y-1 text-[12px]">

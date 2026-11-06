@@ -1,3 +1,4 @@
+import type { LifeSupport } from "./life-support";
 // 転院・施設の調整: asking several hospitals or facilities at once with a summary that does not name the
 // patient, and keeping each one's answer (打診中 → 返事 → 面談 → 決定). The summary is put together by code
 // from the chart; who goes where is decided by the patient, the family and the doctor. Facilities are
@@ -50,7 +51,7 @@ const recordedChoice = (key: "living" | "careInsurance" | "cognition", value?: s
 const decade = (age: number) => (age >= 90 ? "90代" : `${Math.floor(age / 10) * 10}代`);
 
 /** A summary for asking, without the name, ID, birth date or address. Lines of facts from the chart. */
-export function transferSummary(p: Patient, orders: OrderEntry[], extra: { dietNow?: string; restrained: boolean; adl?: string; rest?: string | null; anamnesis?: AnamnesisFields }): string[] {
+export function transferSummary(p: Patient, orders: OrderEntry[], extra: { lifeSupport?: LifeSupport; dietNow?: string; restrained: boolean; adl?: string; rest?: string | null; anamnesis?: AnamnesisFields }): string[] {
   const live = orders.filter((e) => e.status === "有効");
   const has = (code: string) => live.some((e) => e.order.type === "procedure" && e.order.code === code);
   const drips = live.filter((e) => e.order.type === "injection").length;
@@ -64,6 +65,7 @@ export function transferSummary(p: Patient, orders: OrderEntry[], extra: { dietN
   const insulin = drugs.some(d => d?.name.includes("インスリン"));
   const missing = "（記録なし）";
   const f = extra.anamnesis;
+  const life = extra.lifeSupport;
   return [
     `${decade(p.age)}${p.sex}性`,
     `病名：${p.admissionDiagnosis}`,
@@ -71,9 +73,13 @@ export function transferSummary(p: Patient, orders: OrderEntry[], extra: { dietN
     `食事：${extra.dietNow ?? "（記録なし）"}`,
     `日常生活：${extra.adl || missing}`,
     `安静度：${extra.rest || missing}`,
-    `住まい：${recordedChoice("living", f?.living) || missing}`,
-    `介護保険：${recordedChoice("careInsurance", f?.careInsurance) || missing}`,
-    `キーパーソン（続柄）：${transferRelationship(f?.keyPerson ?? "") || missing}`,
+    `住まい：${recordedChoice("living", life?.housing) || recordedChoice("living", f?.living) || missing}`,
+    `介護保険：${recordedChoice("careInsurance", life?.careLevel) || recordedChoice("careInsurance", f?.careInsurance) || missing}`,
+    `キーパーソン（続柄）：${transferRelationship(life?.keyPerson ?? "") || transferRelationship(f?.keyPerson ?? "") || missing}`,
+    `介護保険の申請：${["未申請", "申請中", "認定済み", "区分変更申請中"].find(v => v === life?.application) || missing}`,
+    `制度：${["障害", "難病", "生活保護"].filter(v => life?.programs?.split(/[、,・\s]+/u).includes(v)).join("・") || missing}`,
+    `家族（続柄）：${transferRelationship(life?.family ?? "") || missing}`,
+    `ケアマネ：${life?.careManager?.trim() ? "担当あり（氏名省略）" : missing}`,
     `認知：${recordedChoice("cognition", f?.cognition) || missing}`,
     `定期の内服：${rp} Rp`,
     ...(anticoagulant || known ? [`抗凝固薬：${anticoagulant ? "あり" : "なし"}`] : []),

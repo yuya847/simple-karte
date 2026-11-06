@@ -1,4 +1,9 @@
 "use client";
+import { MswInterview } from "./MswInterview";
+import { LifeSupportForm, LifeSupportOverview } from "./LifeSupport";
+import { lifeWithIntake, lifeLines } from "@/lib/life-support";
+import { DischargeForm } from "./AdmitEvalView";
+
 import { CarryNote, NoteOverviewContext } from "./NoteOverview";
 import type { TodoCompletions } from "@/lib/note-overview";
 import { labWindowWidth } from "@/lib/panel-size";
@@ -2377,7 +2382,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "iji" ? (
         <IjiBoard diseaseRequests={stickies} onDiseaseRequest={requestDisease} outpatient={{ visits: opd.map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`opd:${patient.id}`)!, sessionChanges[`opd:${patient.id}`]), dept.ris)), rx: opdRx[patient.id] ?? [], drafts: pendingDraftCount(charts, `opd:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) { setOpdBills((all) => ({ ...all, [s.visitId]: s })); setOpd((all) => all.map((p) => `opd:${p.id}` === s.visitId ? { ...p, status: "終了" } : p)); } } }} charts={charts} emergency={{ visits: er.filter((p) => p.status !== "搬送中").map((patient) => ({ patient, entries: ordersOf(withExamRecords(currentEntries(findPatient(`er:${patient.id}`)!, sessionChanges[`er:${patient.id}`]), dept.ris)), drafts: pendingDraftCount(charts, `er:${patient.id}`) })), book: opdBills, onSettle: (s) => { if (!deny("settle")) setOpdBills((all) => ({ ...all, [s.visitId]: s })); } }} patients={teamPatients} dischargePlanOf={(id) => { const x = findPatient(id); if (!x) return null; const o = ordersOf(currentEntries(x, sessionChanges[id])).find((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院"); return o && o.order.type === "procedure" && o.order.leave ? o.order.leave.from : null; }} desk={iji} diagnoses={diagnoses} today={today} nowTime={nowTime} payload={() => teamPatients.map(claimPayloadOf)} onOpen={(id, where) => { openPatient(id); /* after the switch render (it closes the previous patient's windows) */ setTimeout(() => setPanel(id.startsWith("er:") || id.startsWith("opd:") ? "patient-info" : where), 0); }} />
       ) : screen === "support" ? (
-        <SupportBoard people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} onStep={(pid, step) => { if (step === "docs" || step === "transfer" || step === "add-discharge") { if (step === "add-discharge" && role !== "医師") return; setSupportDoc(step === "docs"); openPatient(pid); /* after the switch: windows of the previous patient close on the switch render */ setTimeout(() => { if (step === "add-discharge") openOrder(step); else setPanel(step); }, 0); } else { setAdmitSelection({ pid, key: step }); goWard("admit"); } }} />
+        <SupportBoard intakes={anamnesis} people={[...people, ...dischargedPeople]} evals={evals} documents={documents} asks={transferAsks} today={today} discharged={discharged} onOpen={openPatient} onStep={(pid, step) => { if (step === "docs" || step === "transfer" || step === "add-discharge") { if (step === "add-discharge" && role !== "医師") return; setSupportDoc(step === "docs"); openPatient(pid); /* after the switch: windows of the previous patient close on the switch render */ setTimeout(() => { if (step === "add-discharge") openOrder(step); else setPanel(step); }, 0); } else { setAdmitSelection({ pid, key: step }); goWard("admit"); } }} />
       ) : screen === "ulcers" ? (
         <UlcerBoard
           pick={floorPick}
@@ -2801,6 +2806,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             const p = findPatient(e.patientId);
             auditLog({ role: me.role, actor: me.name, action: `確定（入院時の評価：${what}）`, patient: p?.name });
             setEvals((all) => ({ ...all, [e.patientId]: e }));
+            chartNote(e.patientId, what);
             if (p) {
               const sen = deliriumBillable(e, p.admittedOn);
               const nyu = dischargeSupportMet(e, p.admittedOn);
@@ -3057,6 +3063,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           <PatientSwitchFlash patient={{ id: patient.id }} />
           {me.role === "診療放射線技師" && <button type="button" onClick={() => openArea("radiology")} className="self-start px-4 py-1 text-sm text-ai underline">放射線部へ戻る</button>}
           <ConsultBanner entries={entries} replies={consultReplies} onOpen={() => setPanel("add-consult")} />
+          {role === "MSW" && <LifeSupportOverview coordination={evals[patient.id]?.coordination} value={lifeWithIntake(evals[patient.id]?.lifeSupport, anamnesis[patient.id]?.fields)} onOpen={() => setPanel("life-support")} adjustment={transferAsks.filter(a => a.patientId === patient.id).map(a => `${a.facility}：${a.state}`).join(" ／ ")} />}
           <PatientBar
             roomLabel={workOf(patient.id)?.room}
             rest={standingNow(patient.id)?.rest}
@@ -3495,6 +3502,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panelWindows.map((panel) => {
                 const closePanel = () => { closePanelWindow(panel); setFlowReq(null); };
                 return <DrawerDefaults.Provider key={panel} value={{ panel, windowed: WINDOW_PANELS }}>
+              {panel === "life-support" && <Drawer title="生活・制度" onClose={closePanel} locked={deny("assess.discharge")} wide><LifeSupportForm key={patient.id} value={lifeWithIntake(evals[patient.id]?.lifeSupport, anamnesis[patient.id]?.fields)} onSave={v => { if (deny("assess.discharge")) return; setEvals(all => ({ ...all, [patient.id]: { ...(all[patient.id] ?? { patientId: patient.id }), lifeSupport: v } })); chartNote(patient.id, `生活・制度\n${lifeLines(v).join("\n")}\n返答待ち：${v.waiting ? "あり" : "なし"}`); }} /></Drawer>}
+              {panel === "msw-support" && <Drawer title="退院支援" onClose={closePanel} locked={deny("assess.discharge")} wide><DischargeForm key={patient.id} w={workOf(patient.id) ?? { patient, room: patient.room, entries: [] }} ev={evals[patient.id] ?? { patientId: patient.id }} today={today} nowTime={nowTime} onSave={(e, what) => { if (deny("assess.discharge")) return; setEvals(all => ({ ...all, [patient.id]: e })); chartNote(patient.id, what); }} /></Drawer>}
+              {panel === "msw-interview" && <Drawer title="面談記録" onClose={closePanel} wide><MswInterview onSave={text => { if (!deny("note")) chartNote(patient.id, text); }} today={isoDate(today)} nowTime={nowTime} /></Drawer>}
               {panel === "diagnoses" && (
                 <Drawer title="病名" onClose={closePanel} wide locked={deny("diagnosis")}>
                   <DiagnosisPanel
@@ -4045,8 +4055,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "transfer" && (
                 <Drawer title="転院・施設の調整" onClose={closePanel} wide>
-                  <TransferPanel
-                    summary={transferSummary(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), { dietNow: patient.dietNow, restrained: !!activeOf(restraints, patient.id), adl: transferAdl(dept.rehab.bi, patient.id), rest: standingNow(patient.id)?.rest, anamnesis: anamnesis[patient.id]?.fields })}
+                  <TransferPanel lifeSupport={lifeWithIntake(evals[patient.id]?.lifeSupport, anamnesis[patient.id]?.fields)}
+                    summary={transferSummary(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), { dietNow: patient.dietNow, restrained: !!activeOf(restraints, patient.id), adl: transferAdl(dept.rehab.bi, patient.id), rest: standingNow(patient.id)?.rest, lifeSupport: evals[patient.id]?.lifeSupport, anamnesis: anamnesis[patient.id]?.fields })}
                     asks={transferAsks.filter((a) => a.patientId === patient.id)}
                     onAsk={(fs) => {
                       auditLog({ role: me.role, actor: me.name, action: "転院・施設に打診した", patient: patient.name, detail: fs.map((f) => f.name).join("、") });
@@ -4122,7 +4132,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "docs" && (
                 <Drawer title="書類作成" onClose={() => { setSupportDoc(false); setNutritionDoc(false); closePanel(); }} wide>
                   <DocsPanel
-                    key={patient.id + me.name}
+                    key={`${patient.id}:${me.name}:${nutritionDoc ? "nutrition" : supportDoc ? "support" : "catalog"}`}
                     consents={consents.filter(c => c.patientId === patient.id)}
                     onOpenConsent={(code, recordId) => { setConsentSelection(recordId ?? null); if (code) createConsent(code); setPanel("consents"); }}
                     suggestions={suggestedDocuments(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), hasPlannedSurgery(surgeries, patient.id), hasActiveCancer(diagnoses[patient.id] ?? []))}
@@ -4232,7 +4242,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     today={formatShort(today)}
                     nowTime={nowTime}
                     facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { rehab: dept.rehab, diagnoses: diagnoses[patient.id] ?? [], standing: standingNow(patient.id), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
-                    onSave={(to, words, facts) => {
+                    coordination={evals[patient.id]?.coordination}
+                    onSave={(to, words, facts, coordination) => {
+                      if (coordination) setEvals(all => ({ ...all, [patient.id]: { ...(all[patient.id] ?? { patientId: patient.id }), coordination } }));
                       auditLog({ role: me.role, actor: me.name, action: "確定（連携サマリ）", patient: patient.name, detail: `宛先：${to}` });
                       chartNote(patient.id, `連携サマリ（宛先：${to}）\n${facts.map(s => `${s.heading}：${s.lines.join("、")}`).join("\n")}\n申し送り：${words}`);
                     }}

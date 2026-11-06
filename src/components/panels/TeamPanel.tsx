@@ -6,7 +6,7 @@ import { auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
 import { TEAMS, openRequest, requestProblems, requestStatus, teamOf, type TeamDesk, type TeamKey } from "@/lib/teams";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
-import { AddonBox, RoundCard, STATUS_TONE } from "../TeamsView";
+import { RoundCard, STATUS_TONE } from "../TeamsView";
 
 interface Props {
   patientId: string;
@@ -45,8 +45,7 @@ export function TeamPanel({ patientId, patientName, desk, onDesk, today, nowTime
         <p className="text-ink-soft">
           {teamOf(team).long}：{teamOf(team).what}
         </p>
-        <AddonBox team={teamOf(team)} />
-        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="依頼の理由・相談したいこと" aria-label="依頼の理由" className={`${field} block w-full`} disabled={requestLock} />
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="依頼の理由・相談したいこと" aria-label="依頼の理由" className={`${field} block w-full`} disabled={requestLock} />
         <p className="flex flex-wrap items-center gap-2">
           {(["通常", "至急"] as const).map((u) => (
             <label key={u} className="flex items-center gap-1">

@@ -70,8 +70,9 @@ describe("入院前の外来の受診", () => {
   it("the visits come under the stay with the clinic's mark, the place 外来 on their cards, and 入院の◯日前", () => {
     expect(html).toContain("外来・総合診療科 山本（専攻医）");
     expect(html).toContain(">総合診療科 外来<");
-    expect(html).toContain("入院の2日前");
-    expect(html).toContain("入院の42日前");
+    expect(html).toContain("入院前");
+    expect(html).not.toMatch(/入院-\d+日目/);
+    expect(html).toContain("過去の受診");
     expect(html).toContain("右下腿蜂窩織炎（軽症）");
     expect(html.indexOf("入院1日目")).toBeLessThan(html.indexOf("外来・総合診療科"));
     expect(html).toContain('data-place="opd"');

@@ -1,3 +1,4 @@
+import { currentScreening, lifeLines, lifeWithIntake } from "./life-support";
 // 連携サマリ・看護サマリ: what the next carer needs to know, gathered from the record by code — the
 // items listed for 介護・地域連携 (既往歴・感染症・病名・生活上の注意・検査データ・バイタル・処置/処方・
 // 制限事項・ADL). The writer adds their own words; nothing here is written by AI.
@@ -16,7 +17,7 @@ import { ANALYTES } from "./master";
 import { callText, prnText, type StandingOrders } from "./standing";
 import type { OrderEntry, Patient } from "./types";
 
-export const DESTINATIONS = ["介護施設・ケアマネジャー", "訪問看護（在宅）", "転院先の病院", "院内（転棟）"] as const;
+export const DESTINATIONS = ["介護施設・ケアマネジャー", "訪問看護（在宅）", "転院先の病院", "院内（転棟）", "地域連携室（院内）"] as const;
 export type Destination = (typeof DESTINATIONS)[number];
 
 export interface SummarySection {
@@ -43,9 +44,11 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
   const v = p.vitals.at(-1);
   const s = extra.standing;
   const ev = extra.evals;
+  const screening = currentScreening(ev?.discharge);
   const bi = extra.rehab?.bi.filter(e => e.patientId === p.id).sort((a,b) => a.day - b.day || a.time.localeCompare(b.time)).at(-1);
   const fim = extra.rehab?.fim?.filter(e => e.patientId === p.id).sort((a,b) => a.day - b.day || a.time.localeCompare(b.time)).at(-1);
   const out: SummarySection[] = [
+    { heading: "生活・制度", lines: lifeLines(lifeWithIntake(ev?.lifeSupport, extra.anamnesis)) },
     { heading: "病名", lines: dx.length ? dx.map((d) => `${diagnosisLabel(d)}${d.main ? "（主病名）" : ""}`) : [p.admissionDiagnosis] },
     { heading: "感染症・アレルギー", lines: [`感染症：${p.infections.join("、") || "なし"}`, `アレルギー：${p.allergies.join("、") || "なし"}`] },
     ...(p.contraindications?.length ? [{ heading: "禁忌", lines: p.contraindications }] : []),
@@ -79,7 +82,7 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
     { heading: "検査データ（最新）", lines: labs },
     { heading: "バイタル（最新）", lines: v ? [`${v.day === 0 ? "今日" : `${-v.day}日前`} ${v.time}　BT ${v.bt ?? "—"}　HR ${v.hr ?? "—"}　BP ${v.sbp ?? "—"}/${v.dbp ?? "—"}　RR ${v.rr ?? "—"}　SpO2 ${v.spo2 ?? "—"}%（${v.o2 ?? "室内気"}）`] : [] },
     { heading: "医師への連絡の基準・頓用（指示簿）", lines: s ? [...new Set([...s.calls.map(callText), ...(s.blockCallTexts ?? []), ...s.prn.map(prnText), ...(s.blockPrnTexts ?? [])])] : [] },
-    { heading: "退院支援", lines: ev?.discharge ? [`退院困難な要因：${ev.discharge.factors.join("、") || "なし"}`, ev.discharge.note].filter(Boolean) : [] },
+    { heading: "退院支援", lines: screening ? [`退院困難な要因：${screening.factors.join("、") || "なし"}`, screening.note].filter(Boolean) : [] },
   ];
   return out.map((x) => ({ ...x, lines: x.lines.length ? x.lines : ["記録なし"] }));
 }

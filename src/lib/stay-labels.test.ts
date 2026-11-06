@@ -31,7 +31,7 @@ describe("日の見出しの言葉", () => {
     expect(dayHeading("入院", -3, 0)).toBe("入院4日目（今日）");
     expect(dayHeading("入院", -3, -3)).toBe("入院1日目");
     expect(dayHeading("入院", -3, 7, { future: true })).toBe("入院11日目（予定）");
-    expect(dayHeading("入院", -3, -5, { earlier: true })).toBe("入院の2日前");
+    expect(dayHeading("入院", -3, -5, { earlier: true })).toBe("入院前");
   });
   it("a visit: 受診当日（今日）, 受診のN日後（予定）, and N日前の受診 for an earlier visit — never 入院", () => {
     expect(dayHeading("受診", 0, 0)).toBe("受診当日（今日）");

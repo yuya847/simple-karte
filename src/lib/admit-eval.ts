@@ -1,3 +1,4 @@
+import type { Coordination, LifeSupport, SupportConference } from "./life-support";
 // 入院時の評価セット（令和8年度）. What must be done after admission, by whom and by when, is worked
 // out by code from the admission day. People fill in the forms; nothing here is decided by AI.
 // Deadlines count the admission day as day 1 (the strict side: the notice says 「入院後３日以内」
@@ -136,6 +137,8 @@ export interface ChecklistRecord {
 }
 
 export interface DischargeSupport {
+  reassessments?: { date: string; factors: string[]; note: string; by: string }[];
+  conferences?: SupportConference[];
   factors: string[];
   note: string;
   extractedBy: string;
@@ -146,6 +149,8 @@ export interface DischargeSupport {
 }
 
 export interface AdmitEval {
+  lifeSupport?: LifeSupport;
+  coordination?: Coordination;
   patientId: string;
   /** 救急や休日の入院（栄養管理計画の期限が入院後7日以内になる）. */
   emergency?: boolean;

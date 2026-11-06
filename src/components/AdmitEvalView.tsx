@@ -1,4 +1,9 @@
 "use client";
+import { isoDate } from "@/lib/dates";
+
+import { SupportConference } from "./SupportConference";
+import { appendConference, appendReassessment, currentScreening, conferenceText } from "@/lib/life-support";
+
 
 import { displayText } from "@/lib/display-text";
 import { ClipboardList } from "lucide-react";
@@ -547,14 +552,15 @@ function ChecklistForm({ kind, ev, nowTime, onSave, suggested, why = {} }: { kin
   );
 }
 
-function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatient; ev: AdmitEval; nowTime: string; today: CalendarDate; onSave: (e: AdmitEval, what: string) => void; hints?: EvalHints }) {
+export function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatient; ev: AdmitEval; nowTime: string; today: CalendarDate; onSave: (e: AdmitEval, what: string) => void; hints?: EvalHints }) {
   const when = (a: { day: number; time: string }) => `${a.day === 0 ? "今日" : formatShort(addDays(today, a.day)).replace(/（.）/, "")} ${a.time}`;
   const me = useMe();
   const fromCode = suggestions(w.patient, !!ev.emergency).discharge;
   const sug = [...new Set([...fromCode, ...(hints?.discharge ?? [])])];
   const ds = ev.discharge;
-  const [factors, setFactors] = useState<string[]>(ds?.factors ?? sug);
-  const [note, setNote] = useState(ds?.note ?? "");
+  const [factors, setFactors] = useState<string[]>(currentScreening(ds)?.factors ?? sug);
+  const [note, setNote] = useState(currentScreening(ds)?.note ?? "");
+  const [reviewDate, setReviewDate] = useState(isoDate(today));
   const now = { day: 0, time: nowTime, by: me.name };
   const step = (label: string, field: "talkedAt" | "planStartedAt" | "conferenceAt") =>
     ds?.[field] ? (
@@ -574,7 +580,7 @@ function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatien
         {DISCHARGE_FACTORS.map((f) => (
           <li key={f.key}>
             <label className="flex items-start gap-1">
-              <input type="checkbox" disabled={!!ds} checked={factors.includes(f.key)} onChange={() => setFactors(factors.includes(f.key) ? factors.filter((x) => x !== f.key) : [...factors, f.key])} className="mt-0.5 accent-shu" />
+              <input type="checkbox" checked={factors.includes(f.key)} onChange={() => setFactors(factors.includes(f.key) ? factors.filter((x) => x !== f.key) : [...factors, f.key])} className="mt-0.5 accent-shu" />
               <span>
                 {f.key} {f.label}
                 {sug.includes(f.key) && <span className="text-ink-faint">（{[fromCode.includes(f.key) && `${f.key === "イ" ? "入院の経路" : "入院時の病名"}からコードで`, hints?.why[f.key]].filter(Boolean).join("・")}）</span>}
@@ -585,8 +591,9 @@ function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatien
       </ul>
       <label className="block text-ink-soft">
         メモ
-        <input value={note} readOnly={!!ds} onChange={(e) => setNote(e.target.value)} className={`mt-0.5 w-full ${input}`} />
+        <input value={note} onChange={(e) => setNote(e.target.value)} className={`mt-0.5 w-full ${input}`} />
       </label>
+      {ds && <><label>再評価日<input aria-label="再評価日" type="date" max={isoDate(today)} value={reviewDate} onChange={e => setReviewDate(e.target.value)} /></label><button type="button" disabled={!reviewDate || reviewDate > isoDate(today)} className="rounded bg-ai px-3 py-1 text-white" onClick={() => onSave({ ...ev, discharge: appendReassessment(ds, { date: reviewDate, factors, note: note.trim(), by: me.name }) }, `退院支援の再評価 ${reviewDate}：要因 ${factors.join("・") || "なし"}\n${note.trim()}`)}>再評価を追記</button>{ds.reassessments?.map((r, i) => <p key={i}>{r.date} {r.by}：{r.factors.join("・") || "要因なし"} {r.note}</p>)}</>}
       <div className="flex flex-wrap items-center gap-2">
         {ds ? (
           <span className="text-wakatake">
@@ -609,7 +616,7 @@ function DischargeForm({ w, ev, nowTime, today, onSave, hints }: { w: WorkPatien
           </>
         )}
       </div>
-      <p className="text-ink-faint">要件を期限内に満たすと、退院の日に入退院支援加算１（一般病棟入院基本料等の場合 700点）が算定に入ります。</p>
+      {ds && <SupportConference today={isoDate(today)} nowTime={nowTime} by={me.name} records={ds.conferences} onSave={c => onSave({ ...ev, discharge: appendConference(ds, c, today) }, conferenceText(c))} />}
     </div>
   );
 }

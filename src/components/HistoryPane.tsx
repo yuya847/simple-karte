@@ -483,7 +483,9 @@ function RecordList({
             {aheadOpen && ahead.days.map(renderSection)}
           </div>
         )}
-        {sections.filter((s) => !s.future).map(renderSection)}
+        {sections.filter((s) => !s.future && s.day >= patient.admittedOn).map(renderSection)}
+        {sections.some(s => !s.future && s.day < patient.admittedOn) && <h2 className="mt-4 border-t border-rule py-2 text-sm font-bold text-mizu">過去の受診</h2>}
+        {sections.filter(s => !s.future && s.day < patient.admittedOn).map(renderSection)}
         {narrowed && shownCount === 0 && <p className="py-6 text-center text-xs text-ink-faint">当てはまる記録はありません。</p>}
       </div>
     </div>

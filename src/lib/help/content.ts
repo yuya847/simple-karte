@@ -45,6 +45,7 @@ export const screenHelp = [
     "title": "入院時の評価",
     "bullets": [
       "期限は入院日を1日目として、コードで数えます",
+      "要件を期限内に満たすと、退院の日に入退院支援加算１（一般病棟入院基本料等の場合 700点）が算定に入ります。",
       "書くのは各職種、AI は使いません",
       "表の枠を押すと、その項目を書く欄が出ます",
       "太字の列が、いまの職種が書く項目です",
@@ -1216,7 +1217,7 @@ export const screenHelp = [
     "id": "TeamsView",
     "title": "チーム医療",
     "bullets": [
-      ...TEAMS.filter(t => t.key === "nst").flatMap(t => [...(t.addon?.who ?? []), ...(t.addon?.notes ?? []), t.staffing ?? ""]),
+      ...TEAMS.flatMap(t => [...(t.addon?.who ?? []), ...(t.addon?.notes ?? []), t.staffing ?? ""]),
       "依頼は医師がカルテの右端「オーダ › その他 › チーム依頼」から出します",
       "チームは依頼を受けて回診を記録し、提案を書きます",
       "提案を採用するかは主治医がカルテで決めます"
@@ -1795,6 +1796,7 @@ export const screenHelp = [
     "title": "チームへの依頼",
     "bullets": [
       "ここに挙げた加算をすべて届け出ているものとします",
+      ...TEAMS.flatMap(t => [...(t.addon?.who ?? []), ...(t.addon?.notes ?? []), t.staffing ?? ""]).filter(Boolean),
       "チームへの依頼は医師（主治医）が出し、チームの提案を採用するかは医師が決めて記録します",
       "加算を算定するかは、条件を確かめて医師と医事課が決めます",
       "この画面は算定しません",

@@ -1,4 +1,7 @@
 export const toolHelpLabels: Record<string, string> = {
+  "msw-support": "退院支援",
+  "life-support": "生活・制度",
+  "msw-interview": "面談記録",
   "add-rx": "処方",
   "add-injection": "注射",
   "add-procedure": "処置",
