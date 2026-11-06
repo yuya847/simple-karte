@@ -16,10 +16,14 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
   const n = evaluation?.nutrition;
   const [goal, setGoal] = useState(n?.goal ?? "");
   const [assessment, setAssessment] = useState(n?.assessment ?? "");
+  const [glim, setGlim] = useState(n?.glim ?? "");
   const [sga, setSga] = useState(n?.sga ?? "");
   const [activity, setActivity] = useState(1.2); const [stress, setStress] = useState(1);
   const [protein, setProtein] = useState(1);
-  const [energy, setEnergy] = useState(n?.energyKcal ?? 0); const [proteinG, setProteinG] = useState(n?.proteinG ?? 0);
+  const initialKg = p.daily.filter(x => x.day <= 0 && x.weightKg).sort((a,b) => b.day-a.day)[0]?.weightKg ?? p.weightKg;
+  const initialNeeds = requirements(p.sex, p.age, initialKg, p.heightCm, 1.2, 1, 1);
+  const [energy, setEnergy] = useState(n?.energyKcal ?? initialNeeds?.kcal ?? 0);
+  const [proteinG, setProteinG] = useState(n?.proteinG ?? initialNeeds?.protein ?? 0);
   const [route, setRoute] = useState<NutritionRecord["route"]>(n?.route ?? "経口");
   const [food, setFood] = useState(n?.food ?? ""); const [days, setDays] = useState(n?.reassessOn ?? 7);
   const [reason, setReason] = useState(""); const [saved, setSaved] = useState("");
@@ -33,13 +37,15 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
   const { prescribed, energyDifference, proteinDifference } = compareDietNutrition(diet, result);
   const latestLab = (key: string) => { const r = p.labs.filter(x => x.day <= 0 && x.values[key] != null).sort((a,b) => b.day - a.day || b.time.localeCompare(a.time))[0]; return r ? `${r.values[key]}（${formatShort(addDays(today, r.day))} ${r.time}）` : "記録なし"; };
   const intake = p.daily.filter(x => x.meals && x.day <= 0).sort((a,b) => b.day-a.day).slice(0,3).map(x => `${formatShort(addDays(today,x.day))} ${Array.isArray(x.meals) ? x.meals.map(v => v ?? "未記録").join("／") : x.meals}`).join("、") || "記録なし";
-  const body = `身長 ${p.heightCm}cm・体重 ${kg}kg・BMI ${show(bmi(kg,p.heightCm))}\n体重減少率：入院時 ${loss(p.admittedOn)}／1か月前 ${loss(-30)}\nAlb ${latestLab("Alb")}／CRP ${latestLab("CRP")}\n食事摂取量（主食・割）：${intake}\nSGA ${sga || "未選択"}：${assessment}`;
+  const body = `身長 ${p.heightCm}cm・体重 ${kg}kg・BMI ${show(bmi(kg,p.heightCm))}\n体重減少率：入院時 ${loss(p.admittedOn)}／1か月前 ${loss(-30)}\nAlb ${latestLab("Alb")}／CRP ${latestLab("CRP")}\n食事摂取量：朝／昼／夕（主食・割）：${intake}\nSGA ${sga || "未選択"}：${assessment}\nGLIM：${glim || "未記録"}`;
   const text = `栄養管理計画\n${body}\n目標：${goal}\n必要量：${energy}kcal・蛋白${proteinG}g/日\n算定：Harris-Benedict ${result?.basal ?? "算定不可"} × 活動${activity} × ストレス${stress}、蛋白${protein}g/kg\n食事：${food}\n現在の食事指示：${dietLabel(diet)}\n経路：${route}\n再評価：${formatShort(addDays(today, days))}\n${me.name} ${formatShort(today)} ${nowTime}`;
-  const valid = !!sga && !!assessment.trim() && !!goal.trim() && !!food.trim() && energy > 0 && proteinG > 0 && Number.isFinite(energy + proteinG + days) && Number.isInteger(days) && days >= 1 && (!n || !!reason.trim());
+  const missing = [!sga && "SGA", !assessment.trim() && "評価", !goal.trim() && "目標", !food.trim() && "食事の内容", !(energy > 0 && Number.isFinite(energy)) && "必要量", !(proteinG > 0 && Number.isFinite(proteinG)) && "蛋白量", !(Number.isInteger(days) && days >= 1) && "再評価の日", n && !reason.trim() && "再評価の理由"].filter(Boolean);
+  const valid = missing.length === 0;
   return <div className="space-y-4 p-4 text-sm">{sheet}
     <section className="space-y-2"><h3 className="font-bold">栄養評価</h3><p className="whitespace-pre-line">{body.split("\nSGA")[0]}</p>
 
       <label>SGA（主観的包括的栄養評価）<select className={field} value={sga} onChange={e => setSga(e.target.value)}><option value="">選択してください</option>{["A", "B", "C"].map(v => <option key={v}>{v}</option>)}</select></label>
+      <label className="block">GLIM（国際的な低栄養診断基準）の評価<input className={`${field} w-full`} value={glim} onChange={e => setGlim(e.target.value)} /></label>
       <label className="block">評価<textarea className={`${field} w-full`} value={assessment} onChange={e => setAssessment(e.target.value)} /></label>
 
     </section>
@@ -62,8 +68,9 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
       <label>経路<select className={field} value={route} onChange={e => setRoute(e.target.value as NutritionRecord["route"])}>{["経口","経腸栄養","静脈栄養"].map(v => <option key={v}>{v}</option>)}</select></label>
       <label>再評価（何日後）<input className={field} type="number" min="1" step="1" value={days} onChange={e => setDays(Number(e.target.value))} /></label><span>{formatShort(addDays(today,days || 0))}</span>
       {n && <label className="block">再評価の理由<input className={`${field} w-full`} value={reason} onChange={e => setReason(e.target.value)} /></label>}
+      {missing.length > 0 && <p role="status" className="text-shu">足りないもの：{missing.join("、")}</p>}
       <button type="button" disabled={!valid || !!deny("assess.nutrition")} className="rounded bg-ai px-3 py-1 text-white disabled:opacity-40" onClick={() => {
-        const next: NutritionRecord = { goal, energyKcal: energy, proteinG, route, counseling: n?.counseling ?? "", reassessOn: days, assessment, sga, food, by: me.name, at: { day: 0, time: nowTime }, ...(n ? { earlier: nutritionVersions(n), revision: { kind: "再評価", reason } } : {}) };
+        const next: NutritionRecord = { goal, energyKcal: energy, proteinG, route, counseling: n?.counseling ?? "", reassessOn: days, assessment, sga, glim, food, by: me.name, at: { day: 0, time: nowTime }, ...(n ? { earlier: nutritionVersions(n), revision: { kind: "再評価", reason } } : {}) };
         auditLog({role: me.role, actor: me.name, action: "確定（栄養管理計画）", patient: p.name, detail: text});
         onSave({ ...evaluation, patientId: p.id, nutrition: next }, text); setSaved("記録しました。再評価日は入院時の評価・やることと共通です。");
       }}>計画を記録</button>

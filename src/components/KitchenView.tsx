@@ -1,16 +1,18 @@
 "use client";
 
+import { kitchenBans } from "@/lib/kitchen-bans";
+import type { AdmitEval } from "@/lib/admit-eval";
 import { displayText } from "@/lib/display-text";
+import { NutritionToday, type NutritionTodayProps } from "./NutritionToday";
 import { KitchenChanges } from "./KitchenChanges";
 import { ClipboardCheck, CookingPot, NotebookPen, Printer, Scale, ShoppingCart, Tag, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { MEALS, MEAL_TIMES, TUBE_PRODUCTS, holdTitle, type DietOrder, type Meal } from "@/lib/diet";
+import { MEALS, MEAL_TIMES, TUBE_PRODUCTS, DYSPHAGIA_CODES, holdTitle, type DietOrder, type Meal } from "@/lib/diet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
 import { abs } from "@/lib/flowsheet";
 import {
-  KITCHEN_HOUSE_RULES,
   KITCHEN_RULES,
   KITCHEN_SOURCES,
   LINES,
@@ -44,6 +46,8 @@ interface Props {
   /** Every inpatient (all wards). */
   people: Person[];
   diets: DietOrder[];
+  evaluations?: Record<string, AdmitEval>;
+  work?: Pick<NutritionTodayProps,"teams"|"guidance"|"onOpen">;
   desk: KitchenDesk;
   onDesk: (f: (d: KitchenDesk) => KitchenDesk) => void;
   today: CalendarDate;
@@ -66,6 +70,7 @@ const floorOfRoom = (room: string) => floorOf(room.replace(/[A-Z]$/, ""));
  * (a mock), and the 検食簿. The 管理栄養士 records; the diet is the doctor's order. No AI.
  */
 export function KitchenView(p: Props) {
+  const me = useMe();
   const [tab, setTab] = useState<Tab>(p.start ?? "count");
   const nowAbs = abs(0, p.nowTime);
   const dowOf = (d: number) => {
@@ -97,16 +102,13 @@ export function KitchenView(p: Props) {
         />
       </header>
       <div className="space-y-4 px-5 py-4 text-[13px]">
+        {tab === "count" && me.role === "管理栄養士" && p.work && <NutritionToday people={p.people} evaluations={p.evaluations ?? {}} today={p.today} {...p.work} />}
         {tab === "count" && <><KitchenChanges {...p} /><Counts {...p} cellsOf={cellsOf} dowOf={dowOf} /></>}
         {tab === "menu" && <Menus today={p.today} dowOf={dowOf} />}
         {tab === "tickets" && <Tickets {...p} cellsOf={cellsOf} dowOf={dowOf} />}
         {tab === "check" && <Checks {...p} cellsOf={cellsOf} dowOf={dowOf} />}
         {tab === "order" && <Orders {...p} cellsOf={cellsOf} dowOf={dowOf} />}
         {tab === "kenshoku" && <KenshokuBook {...p} missing={missing} />}
-        <p className="text-[11px] text-ink-faint">
-          {KITCHEN_HOUSE_RULES.values}
-          {KITCHEN_HOUSE_RULES.lines}食事の内容は医師の食事の指示（食事箋）で決まり、この画面は指示を変えません。
-        </p>
         <Sources items={Object.values(KITCHEN_SOURCES)} />
       </div>
     </section>
@@ -275,7 +277,8 @@ const sampleOrder = (k: LineKey): DietOrder => ({ id: "sample", patientId: "", f
 
 function Menus({ today, dowOf }: { today: CalendarDate; dowOf: (d: number) => number }) {
   const [line, setLine] = useState<LineKey>("常食");
-  const o = sampleOrder(line);
+  const [code, setCode] = useState<DietOrder["dysphagia"]>("2-1");
+  const o = {...sampleOrder(line), ...(line === "嚥下調整食" ? {dysphagia:code} : {})};
   const rule = LINES.find((l) => l.key === line)!;
   const sp = specialOf(o);
   const days = [0, 1, 2, 3, 4, 5, 6];
@@ -288,10 +291,11 @@ function Menus({ today, dowOf }: { today: CalendarDate; dowOf: (d: number) => nu
           </button>
         ))}
       </div>
+      {line === "嚥下調整食" && <label>嚥下調整食のコード <select aria-label="献立の嚥下調整食コード" value={code} onChange={e => setCode(e.target.value as DietOrder["dysphagia"])} className={field}>{DYSPHAGIA_CODES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select></label>}
       <p className="text-[12px]">
         <b>{line}</b>：{rule.how}
         {sp.special && <span className="ml-2 rounded bg-ai-soft px-1.5 text-[11px] font-bold text-ai">特別食の献立表（{displayText(sp.note)}）</span>}
-        {rule.fitEnergy && <span className="ml-2 text-ink-soft">主食は通常量で表示。患者ごとの量は指示のエネルギーで変わります（{KITCHEN_HOUSE_RULES.staple}）</span>}
+
       </p>
       <div className={`${card} scroll-thin overflow-x-auto`}>
         <table className="w-auto table-auto self-start border-collapse text-[11px]">
@@ -372,7 +376,7 @@ function Tickets(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) 
     .filter(({ x }) => floor === "全病棟" || floorOfRoom(x.room) === floor)
     .map(({ x, cell }) => ({ x, cell, menu: cell.serve ? mealMenu(cell.order, p.dowOf(day), meal) : null }))
     .sort((a, b) => a.x.room.localeCompare(b.x.room, "ja"));
-  const flagged = (t: Ticket) => conflictsOf(t.menu, t.x.patient.allergies, desk.bans[t.x.patient.id] ?? []).length > 0;
+  const flagged = (t: Ticket) => conflictsOf(t.menu, t.x.patient.allergies, kitchenBans(desk, t.cell.order)).length > 0;
   const shown = onlyFlags ? tickets.filter(flagged) : tickets;
   const log = (t: Ticket, action: string, detail: string) => auditLog({ role: me.role, actor: me.name, action, patient: t.x.patient.name, detail });
   return (
@@ -469,7 +473,7 @@ function TicketCard({
   const [sub, setSub] = useState<Record<string, string>>({});
   const [ban, setBan] = useState({ food: "", why: "" });
   const o = t.cell.order;
-  const bans = desk.bans[t.x.patient.id] ?? [];
+  const bans = kitchenBans(desk, o);
   const conflicts = conflictsOf(t.menu, t.x.patient.allergies, bans);
   const sp = specialOf(o);
   const head = !o ? "指示なし" : o.kind === "絶食" ? `絶食${o.npoReason ? `（${o.npoReason}）` : ""}` : t.cell.holds.length ? `${holdTitle(t.cell.holds)}：${t.cell.holds.map((h) => h.label).join("、")}` : ticketType(o);
@@ -498,7 +502,7 @@ function TicketCard({
           <span key={i} className="mr-2 inline-block">
             {b.food}
             <span className="font-normal text-ink-soft">（{b.why}）</span>
-            {!printing && onUnban && (
+            {!printing && onUnban && i < (desk.bans[t.x.patient.id]?.length ?? 0) && (
               <button type="button" disabled={locked} onClick={() => onUnban(i)} className="ml-1 text-[10px] font-normal text-ink-faint underline disabled:opacity-40">
                 外す
               </button>
@@ -560,6 +564,7 @@ function TicketCard({
 function Checks(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
   const [day, setDay] = useState(0);
   const [onlyOff, setOnlyOff] = useState(false);
+  const [dri, setDri] = useState(false);
   // The order of the patient at 昼 of the day (the order's values are for the day).
   const rows = p
     .cellsOf(day, "昼")
@@ -567,7 +572,7 @@ function Checks(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
     .map(({ x, cell }) => {
       const o = cell.order!;
       const tube = o.kind === "経管栄養" ? TUBE_PRODUCTS.find((t) => t.code === o.tube?.product) : undefined;
-      return { x, o, check: nutritionCheck(o, x.patient, p.dowOf(day)), tubeKcal: tube && o.tube ? Math.round(tube.kcalPerMl * o.tube.mlPerMeal * 3) : null };
+      return { x, o, check: nutritionCheck(o, x.patient, p.dowOf(day), { dri, nutrition: p.evaluations?.[x.patient.id]?.nutrition }), tubeKcal: tube && o.tube ? Math.round(tube.kcalPerMl * o.tube.mlPerMeal * 3) : null };
     })
     .sort((a, b) => a.x.room.localeCompare(b.x.room, "ja"));
   const off = (r: (typeof rows)[number]) => r.check.rows.some((x) => x.state === "over" || x.state === "under");
@@ -580,13 +585,9 @@ function Checks(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
           <input type="checkbox" checked={onlyOff} onChange={(e) => setOnlyOff(e.target.checked)} />
           合わないものだけ（{rows.filter(off).length}人）
         </label>
+        <label><input type="checkbox" checked={dri} onChange={e => setDri(e.target.checked)} /> 食事摂取基準とも比べる</label>
       </div>
 
-      <ul className="space-y-0.5 text-[11px] text-ink-soft">
-        <li>{KITCHEN_HOUSE_RULES.tolerance}</li>
-        <li>{KITCHEN_RULES.saltSpecial}</li>
-        <li>{KITCHEN_RULES.general}食事摂取基準の推定エネルギー必要量は体位と身体活動レベルで変わるため、ここでは比べません。</li>
-      </ul>
       <table className={`${card} w-auto table-auto self-start border-collapse text-[12px]`}>
         <thead>
           <tr className="border-b border-rule text-left text-ink-soft">
@@ -609,11 +610,11 @@ function Checks(p: Props & { cellsOf: CellsOf; dowOf: (d: number) => number }) {
               <td className="nums px-2 py-1">{r.check.total ? `${r.check.total.kcal}kcal・たんぱく質${r.check.total.protein}g・食塩${r.check.total.salt}g` : r.tubeKcal !== null ? `${r.tubeKcal}kcal（製品の濃度×1回量×3回）` : "献立なし"}</td>
               <td className="px-2 py-1">
                 {r.check.rows.length === 0 && <span className="text-ink-faint">比べる指示の値がありません</span>}
-                {r.check.rows.map((c, i) => (
+                {r.check.rows.filter(c => !onlyOff || c.state === "over" || c.state === "under").map((c, i) => (
                   <span key={i} className={`block ${TONE[c.state]}`}>
                     {MARK[c.state]} {c.label} {c.menu}
                     {c.unit}／{c.ref}：{displayText(c.text)}
-                    <span className="ml-1 text-[10px] font-normal text-ink-faint">{displayText(c.from === "order" ? "（食事の指示）" : c.from === "special" ? "（特別食の条件）" : "（食事摂取基準）")}</span>
+                    <span className="ml-1 text-[10px] font-normal text-ink-faint">{displayText(c.from === "plan" ? "（栄養管理計画）" : c.from === "order" ? "（食事の指示）" : c.from === "special" ? "（特別食の条件）" : "（食事摂取基準）")}</span>
                   </span>
                 ))}
               </td>
@@ -742,7 +743,7 @@ function KenshokuBook({ desk, onDesk, nowTime, today, missing }: Props & { missi
   const [text, setText] = useState<Record<string, string>>({});
   return (
     <section className="space-y-2">
-      <p className="text-[12px]">今日（{formatShort(today)}）の検食簿。{KITCHEN_RULES.kenshoku}</p>
+      <p className="text-[12px]">今日（{formatShort(today)}）の検食簿。</p>
       <DenyNote action="kitchen.kenshoku" />
       {MEALS.map((m) => {
         const k = `0|${m}`;

@@ -85,7 +85,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
               </div>
             ) : f.choices ? (
               <div key={f.key} className="flex flex-wrap items-center gap-1.5">
-                <span className="w-40 shrink-0 text-ink-soft">{f.label}</span>
+                <span className="w-40 shrink-0 text-ink-soft">{f.label}{!f.optional && <span className="text-shu"> *</span>}</span>
                 {f.choices.map((c) => (
                   <button key={c} type="button" aria-pressed={values[f.key] === c} onClick={() => setValues((v) => ({ ...v, [f.key]: c }))} className={`rounded border px-2 py-0.5 ${values[f.key] === c ? "border-ink bg-ink text-white" : "border-rule"}`}>
                     {c}
@@ -96,7 +96,7 @@ export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral,
               <label key={f.key} className="flex gap-2">
                 <span className="w-40 shrink-0 pt-1 text-ink-soft">
                   {f.label}
-                  {f.optional && <span className="text-[10px] text-ink-faint">（任意）</span>}
+                  {!f.optional && <span className="text-[10px] text-shu"> *</span>}
                 </span>
                 {f.long ? (
                   <textarea value={values[f.key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} rows={2} className="flex-1 rounded border border-rule bg-sheet px-2 py-1" />

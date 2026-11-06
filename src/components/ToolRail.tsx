@@ -1,4 +1,5 @@
 "use client";
+import { nutritionTools } from "@/lib/nutrition-tools";
 import { calendarGroup } from "@/lib/prescription-calendar";
 
 import { MessageSquareWarning, TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
@@ -170,6 +171,7 @@ export function groupsFor(role: string): { key: GroupKey; title: string; main: T
       ...intervention.main,
     ];
   }
+  if (role === "管理栄養士") return nutritionTools(groups);
   if (!only) return groups;
   const pick = (ts: Tool[]) => ts.filter((t) => only.includes(t.key)).sort((a, b) => only.indexOf(a.key) - only.indexOf(b.key));
   return groups.map((g) => ({ ...g, main: pick(g.main), more: pick(g.more) })).filter((g) => g.main.length + g.more.length > 0);

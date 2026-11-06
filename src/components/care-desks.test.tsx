@@ -82,9 +82,9 @@ describe("栄養部門（給食）", () => {
   it("checks each patient's menu against the order and, for 常食, the 食事摂取基準", () => {
     const html = kitchen("管理栄養士", "check");
     expect(html).toContain("特別食（減塩食）");
-    expect(html).toContain("推奨量");
-    expect(html).toContain("目標量");
-    expect(html).toContain("推定エネルギー必要量は体位と身体活動レベルで変わるため");
+    expect(html).toContain("食事摂取基準とも比べる");
+    expect(html).not.toContain("推奨量");
+    expect(html).not.toContain("目標量");
   });
   it("orders tomorrow's shortage in packs as a mock", () => {
     const html = kitchen("管理栄養士", "order");
@@ -143,7 +143,7 @@ describe("チーム医療", () => {
   });
   it("shows the NST's fee with its conditions, this week's rounds and what the record shows", () => {
     const html = teams("管理栄養士", "nst");
-    expect(html).toContain("GLIM 基準");
+    expect(html).not.toContain("ア 栄養スクリーニングの結果を踏まえ");
     expect(html).toContain("今週（日〜土）の回診 1回：栄養サポートチーム加算は週1回まで");
     expect(html).toContain("食事の指示が絶食");
     expect(html).toContain("回診を記録する");

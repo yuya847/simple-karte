@@ -228,7 +228,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       if (!dirty.current) accepted.current = r.data;
       return { by: writer?.by ?? null, role: writer?.role ?? null, changed: r.changed };
     })();
-    pulling.current = p.finally(() => {
+    pulling.current = p.catch(() => { setStatus("error"); return null; }).finally(() => {
       pulling.current = null;
     });
     return pulling.current;

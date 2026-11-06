@@ -115,7 +115,7 @@ describe("処方・注射の入口", () => {
 it("職種共通の6群で、既存の道具を重複なく分類する", () => {
   for (const role of ROLES.filter((r) => r !== "診療放射線技師" && r !== "療法士")) {
     const groups = groupsFor(role);
-    expect(groups.map((g) => g.title)).toEqual(["介入", "検査", "看護", "参照", "事務", "その他"]);
+    expect(groups.map((g) => g.title)).toEqual([role === "管理栄養士" ? "栄養" : "介入", "検査", "看護", "参照", "事務", "その他"]);
     const keys = groups.flatMap((g) => [...g.main, ...g.more].map((t) => t.key));
     expect(new Set(keys).size).toBe(keys.length);
     expect(groups[1].main.map((t) => t.key)).toEqual(["add-lab", "add-imaging", "add-cath", "add-physio", "add-pathology"]);

@@ -38,3 +38,21 @@ it("無操作と取り込みでは保存せず、未保存入力は残し500を�
   fail = false; await vi.advanceTimersByTimeAsync(1); expect(WorkspaceHarness().status).toBe("saved");
   expect(notes.p.map(x => x.id)).toContain("local");
 });
+it("名前解決の失敗を定期取り込みの呼び元へ投げず、保存の表示をエラーにする", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://unreachable.test"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "test");
+  vi.stubGlobal("window", { location: { search: "" }, localStorage: { getItem: () => "00000000-0000-4000-8000-000000000000" } });
+  let offline=false;
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    if(offline) throw new TypeError("Failed to fetch");
+    return Response.json([]);
+  }));
+  const { useWorkspace }=await import("./use-workspace");
+  const WorkspaceHarness=()=>{h.cursor=0;h.ec=0;const api=useWorkspace({notes:[{},()=>{}]},"today");h.effects.splice(0).forEach(f=>f());return api;};
+  WorkspaceHarness(); for(let i=0;i<30;i++) await Promise.resolve();
+  let api=WorkspaceHarness();
+  offline=true;
+  await expect(api.pull()).resolves.toBeNull();
+  api=WorkspaceHarness(); expect(api.status).toBe("error");
+  offline=false;
+  await expect(api.pull()).resolves.toBeNull();
+});

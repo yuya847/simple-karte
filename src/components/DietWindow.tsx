@@ -1,5 +1,6 @@
 "use client";
 
+import { useMe } from "./RoleContext";
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { addDays, formatShort } from "@/lib/dates";
 import { dietAt, dietLabel, MEALS, MEAL_TIMES, mealHolds, holdTitle, SIDE_FORMS, STAPLES, type DietOrder, type DysphagiaCode, type SideForm } from "@/lib/diet";
@@ -24,6 +25,8 @@ const QUICK_DYSPHAGIA: { code: DysphagiaCode; label: string; side?: SideForm }[]
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
 
 export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }: Props) {
+  const me = useMe();
+  const [saved, setSaved] = useState("");
   const [newOrder, setNewOrder] = useState(false);
   const [menu, setMenu] = useState<DietOrder["from"] | null>(null);
   // Where the menu floats: beside the cell that was pressed (screen coordinates).
@@ -47,6 +50,7 @@ export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }
     // Restoration and undo must also pass the existing clinical-field permission check.
     const direct = adjust && dietEdit.onAdjust && added.every(d => !dietNeedsProposal(dietAt(diets, patient.id, d.from.day, d.from.meal), d));
     if (direct) dietEdit.onAdjust!(added); else dietEdit.onDraft(added);
+    setSaved(me.role === "管理栄養士" && !direct ? "主治医の下書きに入れました" : direct ? "食事の調整を反映しました" : "オーダの下書きに入れました");
     setEdit(null); setNewOrder(false); setMenu(null); setError("");
   };
   const save = (d: DietOrder, adjust = false) => {
@@ -66,6 +70,7 @@ export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }
     </section>
 
 
+    {saved && <p role="status">{saved}</p>}
     {error && <p role="alert" className="text-shu">{error}</p>}
     {menu && (() => {
       const base = dietAt(diets, patient.id, menu.day, menu.meal) ?? { id: "", patientId: patient.id, from: menu, kind: "常食" as const, staple: "米飯" as const, side: "常菜" as const, by: dietEdit?.doctor ?? "", at: { day: 0, time: nowTime } };

@@ -18,7 +18,7 @@ describe("栄養管理計画書",()=>{
  });
  it("未記録の検査・判断は補わず、看護記録と食事オーダがあれば引用する",()=>{
   const patient={...p,history:[{kind:"note" as const,role:"看護師" as const,day:0,time:"09:00",author:"看護師",text:"嚥下時にむせあり\n褥瘡なし"}]};
-  const v=nutritionPlanDraft(patient,[],undefined,undefined,me);expect(v.albumin).toBe("");expect(v.swallow).toContain("むせ");expect(v.pressure).toBe("褥瘡なし");expect(v.route).toBe("");
+  const v=nutritionPlanDraft(patient,[],undefined,undefined,me);expect(v.albumin).toBe("");expect(v.swallow).toBe("");expect(v.pressure).toBe("褥瘡なし");expect(v.route).toBe("");
  });
  it("保存した書類は既存評価の同じ履歴に一度だけ版を追加する",()=>{
   const values={...nutritionPlanDraft(p,[],undefined,fields,me),explainedTo:"本人に説明",food:"常食"};

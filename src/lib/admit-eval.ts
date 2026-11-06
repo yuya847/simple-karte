@@ -93,6 +93,7 @@ export interface PlanRecord {
 }
 
 export interface NutritionRecord {
+  glim?: string;
   assessment?: string;
   sga?: string;
   food?: string;

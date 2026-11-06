@@ -133,13 +133,7 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {compact ? <span>{displayText(formatShort(addDays(today, f.from.day)))} {displayText(f.from.meal)}食から</span> : <>
           <span className="text-ink-soft">いつから</span>
-          <select value={f.from.day} onChange={(e) => set({ from: { ...f.from, day: Number(e.target.value) } })} className={sel} aria-label="日">
-            {[0, 1, 2].map((d) => (
-              <option key={d} value={d}>
-                {DAY_LABEL[d]} {formatShort(addDays(today, d))}
-              </option>
-            ))}
-          </select><DayInput label="食事の開始日付" today={today} value={f.from.day} onChange={day => set({ from: { ...f.from, day } })} />
+          <DayInput label="食事の開始日付" today={today} value={f.from.day} onChange={day => set({ from: { ...f.from, day } })} />
           <select value={f.from.meal} onChange={(e) => set({ from: { ...f.from, meal: e.target.value as Meal } })} className={sel} aria-label="食事">
             {MEALS.map((m) => (
               <option key={m}>{m}</option>
@@ -213,6 +207,10 @@ export function DietPanel({ patient, today, nowTime, doctor, diets, entries, onS
             ))}
           </select>
         )}
+        {f.kind === "嚥下調整食" && <div className="flex gap-2 text-xs">
+          <label>エネルギー <input type="number" min="1" aria-label="エネルギー kcal" value={f.energyKcal ?? ""} onChange={e => set({ energyKcal: Number(e.target.value) || undefined })} className={sel} /> kcal</label>
+          <label>蛋白 <input type="number" min="1" aria-label="蛋白 g" value={f.proteinG ?? ""} onChange={e => set({ proteinG: Number(e.target.value) || undefined })} className={sel} /> g</label>
+        </div>}
         {f.kind !== "絶食" && f.kind !== "経管栄養" && (
           <label className="block text-xs">
             水分のとろみ{" "}

@@ -1,5 +1,6 @@
 "use client";
 
+import { NutritionRoundSchedule } from "./NutritionRoundSchedule";
 import { displayText } from "@/lib/display-text";
 import { LayoutList, UsersRound } from "lucide-react";
 import { useState } from "react";
@@ -152,6 +153,7 @@ function Overview({ desk, people, onTeam, onOpen, today }: Props & { onTeam: (k:
 
 /** The fee of the team as the 告示 and 通知 write it. */
 export function AddonBox({ team }: { team: Team }) {
+  if (team.key === "nst") return <p className="text-xs text-ink-soft">{team.addon?.name}</p>;
   return (
     <div className="space-y-1 rounded-md border border-rule bg-paper p-2 text-[12px]">
       {team.addon ? (
@@ -255,6 +257,11 @@ function TeamPage({ team, desk, onDesk, people, diagnoses, diets, today, nowTime
         const facts = factsFor(team.key, { diagnoses: (diagnoses[r.patientId] ?? []).map(diagnosisLabel), dietKind: dietAt(diets, r.patientId, next.day, next.meal)?.kind, cautions: x?.patient.cautions ?? [] });
         const note = limitNote(team, desk, r, 0, dow, x?.patient.admittedOn ?? 0);
         return (
+          <div key={r.id}>
+          {team.key === "nst" && !r.closed && <NutritionRoundSchedule value={r.nextRound} today={today} locked={locked} onSave={at => {
+            log(r,"回診の予定",`${at.day}日 ${at.time}`);
+            onDesk(d => ({...d,requests:d.requests.map(x => x.id === r.id ? {...x,nextRound:at} : x)}));
+          }} />}
           <RequestCard key={r.id} r={r} team={team} who={x} facts={facts} note={note} desk={desk} today={today} locked={locked} onOpen={onOpen}
             onAccept={() => {
               log(r, "依頼を受けた");
@@ -263,13 +270,14 @@ function TeamPage({ team, desk, onDesk, people, diagnoses, diets, today, nowTime
             onRound={(f) => {
               const id = `round-${r.id}-${desk.rounds.length + 1}`;
               log(r, "回診の記録", `${f.assessment.slice(0, 60)}　提案${f.recs.length}件`);
-              onDesk((d) => ({ ...d, rounds: [...d.rounds, { id, requestId: r.id, team: team.key, patientId: r.patientId, at: { day: 0, time: nowTime }, by: me.name, members: f.members, assessment: f.assessment, recs: f.recs.map((text, i) => ({ id: `${id}-rec${i + 1}`, text })) }] }));
+              onDesk((d) => ({ ...d, requests:d.requests.map(x => x.id === r.id ? {...x,nextRound:undefined} : x), rounds: [...d.rounds, { id, requestId: r.id, team: team.key, patientId: r.patientId, at: { day: 0, time: nowTime }, by: me.name, members: f.members, assessment: f.assessment, recs: f.recs.map((text, i) => ({ id: `${id}-rec${i + 1}`, text })) }] }));
             }}
             onClose={(summary) => {
               log(r, "終了", summary);
               onDesk((d) => ({ ...d, requests: d.requests.map((y) => (y.id === r.id ? { ...y, closed: { day: 0, time: nowTime, by: me.name, summary } } : y)) }));
             }}
           />
+          </div>
         );
       })}
     </section>
@@ -303,6 +311,7 @@ function RequestCard({
   onRound: (f: { members: string[]; assessment: string; recs: string[] }) => void;
   onClose: (summary: string) => void;
 }) {
+  const me = useMe();
   const [form, setForm] = useState<{ members: string[]; assessment: string; recs: string } | null>(null);
   const [summary, setSummary] = useState("");
   const status = requestStatus(r);
@@ -355,7 +364,7 @@ function RequestCard({
             </button>
           )}
           {status === "介入中" && !form && (
-            <button type="button" disabled={locked} onClick={() => setForm({ members: [], assessment: "", recs: "" })} className={btn}>
+            <button type="button" disabled={locked} onClick={() => setForm({ members: [me.name], assessment: "", recs: "" })} className={btn}>
               回診を記録する
             </button>
           )}
@@ -373,7 +382,7 @@ function RequestCard({
         <div className="space-y-1 rounded-md border border-ai p-2">
           <p className="flex flex-wrap gap-x-3">
             参加した人：
-            {team.members.map((m) => (
+            {[...team.members, ...(!team.members.some(m => m.name === me.name) ? [{name:me.name,job:me.role}] : [])].map((m) => (
               <label key={m.name} className="flex items-center gap-1">
                 <input type="checkbox" checked={form.members.includes(m.name)} onChange={(e) => setForm({ ...form, members: e.target.checked ? [...form.members, m.name] : form.members.filter((y) => y !== m.name) })} />
                 {displayText(m.name)}

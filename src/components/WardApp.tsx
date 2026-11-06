@@ -2755,7 +2755,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "endo" ? (
         <EndoView people={everyone} desk={care.endo} onDesk={care.setEndo} pathology={dept.pathology} onAddPath={(c) => dept.setPathology((cs) => [...cs, c])} onGoPath={() => openArea("path")} acks={acks} today={today} nowTime={nowTime} />
       ) : screen === "kitchen" ? (
-        <KitchenView people={everyone} diets={diets} desk={care.kitchen} onDesk={care.setKitchen} today={today} nowTime={nowTime} />
+        <KitchenView people={everyone} evaluations={evals} work={{ teams: care.teams, guidance, onOpen: (id, panel) => { openPatient(id); setTimeout(() => setPanel(panel), 0); } }} diets={diets} desk={care.kitchen} onDesk={care.setKitchen} today={today} nowTime={nowTime} />
       ) : screen === "teams" ? (
         <TeamsView people={everyone} desk={care.teams} onDesk={care.setTeams} diagnoses={diagnoses} diets={diets} today={today} nowTime={nowTime} onOpen={(id) => (openPatient(id), setPanel("team"))} />
       ) : screen === "bcp" ? (

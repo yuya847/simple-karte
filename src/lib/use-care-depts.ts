@@ -3,6 +3,9 @@
 // The records of 給食（栄養部門）・内視鏡室・チーム医療, with the fictional state they start from. WardApp spreads
 // `states` into useWorkspace so they are saved with the other records of the session.
 
+import { scenarioMode } from "./scenarios/mode";
+import { SCENARIOS } from "./scenarios";
+import { scenarioNutritionTeams } from "./scenarios/nutrition";
 import { useMemo, useState } from "react";
 import { nowTimeInTokyo } from "./dates";
 import { EMPTY_ENDO, demoEndoOrders, demoEndoPatients, endoResultItems, initialEndo, type EndoDesk } from "./endoscopy";
@@ -28,7 +31,7 @@ export function useCareDepts() {
   const [endo, setEndo] = useState<EndoDesk>(onClient(EMPTY_ENDO, (n) => initialEndo(DEMO_ENDO_IDS, n)));
   /** Endoscopies ordered for the fictional patients (merged into their records). */
   const [demoEndo] = useState<Record<string, OrderEntry[]>>(onClient({}, (n) => demoEndoOrders(DEMO_ENDO_IDS, n)));
-  const [teams, setTeams] = useState<TeamDesk>(initialTeams);
+  const [teams, setTeams] = useState<TeamDesk>(() => scenarioMode() ? scenarioNutritionTeams(SCENARIOS.patients) : initialTeams());
   /** Endoscopy reports the ordering doctor marks as read, like the other results. */
   const results: ResultItem[] = useMemo(() => endoResultItems(endo), [endo]);
   return {

@@ -1,4 +1,7 @@
 import { IMAGE_CREDITS, creditLine, PUBLIC_IMAGE_NOTE } from "../image-credits";
+import { KITCHEN_HOUSE_RULES, KITCHEN_RULES, KITCHEN_SOURCES } from "../kitchen";
+import { TEAMS } from "../teams";
+import { GUIDANCE_SOURCE, GUIDANCE_TIME_SOURCE } from "../guidance";
 import { RIS_SOURCES, DRL_NOTE } from "../ris";
 import { MPPS_DOSE_NOTE, DICOM_SOURCES } from "../dicom-mwl";
 // 画面ごとのヘルプ。文言はここで編集します。根拠・出典は移動元のコードコメントを参照。
@@ -481,13 +484,17 @@ export const screenHelp = [
     "id": "KitchenView",
     "title": "栄養部門",
     "bullets": [
+      "嚥下調整食の献立・栄養価は試験用の料理データです。0j・0tは訓練用です。2-1はペースト粥、2-2は粒のあるペースト粥です。とろみの段階は食事指示で決めます。",
       "全病棟の入院患者の食事の指示と、検査・外泊・退院の食止めから、食種ごとにコードで数えます",
       "病棟ごとの患者の一覧は「病棟 › 病棟の食事」にあります",
       "食札は食事の指示からコードで作ります",
       "献立にアレルギー（カルテのプロファイル）や禁止食品に当たる料理があれば印が付きます",
       "代わりの料理と禁止食品は管理栄養士が記録します",
       "患者ごとに、その日の3食の献立（食種の約束食事箋で展開し、主食の量を合わせたもの）の合計を、医師の食事の指示と比べます",
-      "常食の患者は日本人の食事摂取基準（2025年版）の値と比べます",
+      "食事指示の指定量、栄養管理計画、食種の既定量の順で比べる値を使います。常食の食事摂取基準との比較は切り替えて表示します",
+      KITCHEN_HOUSE_RULES.tolerance, KITCHEN_HOUSE_RULES.values, KITCHEN_HOUSE_RULES.lines, KITCHEN_HOUSE_RULES.staple,
+      KITCHEN_RULES.general, KITCHEN_RULES.saltSpecial, KITCHEN_RULES.kenshoku,
+      ...Object.values(KITCHEN_SOURCES).map(s => `${s.label} ${s.url}`),
       "合わないときに献立を直すかは管理栄養士が、指示を変えるかは医師が決めます"
     ]
   },
@@ -1209,6 +1216,7 @@ export const screenHelp = [
     "id": "TeamsView",
     "title": "チーム医療",
     "bullets": [
+      ...TEAMS.filter(t => t.key === "nst").flatMap(t => [...(t.addon?.who ?? []), ...(t.addon?.notes ?? []), t.staffing ?? ""]),
       "依頼は医師がカルテの右端「オーダ › その他 › チーム依頼」から出します",
       "チームは依頼を受けて回診を記録し、提案を書きます",
       "提案を採用するかは主治医がカルテで決めます"
@@ -1533,6 +1541,7 @@ export const screenHelp = [
     "id": "GuideRecordPanel",
     "title": "指導の記録",
     "bullets": [
+      `${GUIDANCE_SOURCE.label} ${GUIDANCE_SOURCE.url}`, `${GUIDANCE_TIME_SOURCE.label} ${GUIDANCE_TIME_SOURCE.url}`,
       "指導の記録は、栄養食事指導を管理栄養士、服薬指導を薬剤師（薬剤部の「服薬指導」）、退院時の生活指導を看護師が書きます",
       "依頼は医師が「指導の依頼」から出します"
     ]

@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { formatShort, addDays, type CalendarDate } from "@/lib/dates";
-import { GUIDANCE_SOURCE, GUIDANCE_TIME_SOURCE, NUTRITION_ELIGIBLE, WHO_HEARD, guidanceProblems, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord, type GuideKind } from "@/lib/guidance";
+import { NUTRITION_ELIGIBLE, WHO_HEARD, guidanceProblems, nutritionCountNote, nutritionTimeNote, openRequests, type GuidanceRecord, type GuideKind } from "@/lib/guidance";
 import type { Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
 import { TabChoice } from "../TabChoice";
@@ -110,11 +110,7 @@ export function GuideRecordPanel({ role, entries, records, today, onSave }: { ro
           </ul>
         </div>
       )}
-      {kind === "栄養食事指導" && (
-        <p className="text-[11px] text-ink-faint">
-          回数と時間の基準：{GUIDANCE_SOURCE.label}／{GUIDANCE_TIME_SOURCE.label}。対象かどうかは記録する人が選びます。
-        </p>
-      )}
+
     </div>
   );
 }

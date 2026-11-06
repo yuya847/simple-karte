@@ -1,3 +1,5 @@
+import { dysphagiaDishes } from "./kitchen-dysphagia";
+import { dietNutrients } from "./diet";
 // 給食（栄養部門）of the fictional hospital: the week's 献立 for each 食種, the 食札 of each patient's meal,
 // the ingredients the meals need (発注・在庫, a mock that reaches no supplier), the 検食簿, and a check of each
 // patient's day of meals against the doctor's diet order. The menus and their nutrient values are fictional
@@ -148,7 +150,7 @@ const FLUID_MEAL = ["miso-clear", "juice", "milk"];
 // Staples
 // ---------------------------------------------------------------------------
 
-export type StapleKind = Staple | "ゼリー粥" | "低たんぱくご飯" | "重湯";
+export type StapleKind = Staple | "訓練用ゼリー" | "とろみ水" | "栄養補助ムース" | "ペースト粥" | "粒のあるペースト粥" | "ゼリー粥" | "低たんぱくご飯" | "重湯";
 
 export interface StapleInfo {
   /** The usual portion. */
@@ -170,6 +172,11 @@ export const STAPLES_INFO: Record<StapleKind, StapleInfo> = {
   五分粥: { g: 300, kcal: 105, protein: 1.7, salt: 0, contains: [], item: ["米", 25] },
   三分粥: { g: 300, kcal: 60, protein: 1.0, salt: 0, contains: [], item: ["米", 15] },
   パン: { g: 90, kcal: 250, protein: 8, salt: 1.1, contains: ["小麦", "乳"], item: ["食パン", 90] },
+  訓練用ゼリー: { g: 100, kcal: 60, protein: 0, salt: 0, contains: [], item: ["ゼリー用調整粉", 10] },
+  とろみ水: { g: 100, kcal: 8, protein: 0, salt: 0, contains: [], item: ["とろみ調整粉", 2] },
+  栄養補助ムース: { g: 100, kcal: 150, protein: 6, salt: 0, contains: ["乳"], item: ["栄養補助ムース", 100] },
+  ペースト粥: { g: 200, kcal: 120, protein: 2, salt: 0, contains: [], item: ["米", 30] },
+  粒のあるペースト粥: { g: 200, kcal: 120, protein: 2, salt: 0, contains: [], item: ["米", 30] },
   ゼリー粥: { g: 200, kcal: 120, protein: 2, salt: 0, contains: [], item: ["米", 30] },
   低たんぱくご飯: { g: 180, kcal: 290, protein: 0.2, salt: 0, contains: [], item: ["低たんぱくご飯（180gパック）", 180] },
   重湯: { g: 200, kcal: 40, protein: 0.5, salt: 0, contains: [], item: ["米", 10] },
@@ -269,8 +276,9 @@ const add = (a: Nut, b: Nut): Nut => ({ kcal: a.kcal + b.kcal, protein: a.protei
 const ZERO: Nut = { kcal: 0, protein: 0, salt: 0 };
 
 /** The side dishes of a meal for a line (scaled), without the staple. */
-function sides(line: LineRule, dow: number, meal: Meal, dysphagia?: string): ServedDish[] {
+function sides(line: LineRule, dow: number, meal: Meal, dysphagia?: import("./diet").DysphagiaCode, thickness?: import("./diet").Thickness): ServedDish[] {
   const ids = line.key === "流動食" ? FLUID_MEAL : BASE_MENU[((dow % 7) + 7) % 7][meal];
+  if (line.key === "嚥下調整食") return dysphagiaDishes(ids.map(id => DISH.get(id)!), dysphagia, thickness);
   return ids
     .map((id) => DISH.get(id)!)
     .filter((x) => !line.drop.includes(x.role))
@@ -283,7 +291,10 @@ function sides(line: LineRule, dow: number, meal: Meal, dysphagia?: string): Ser
 /** The staple of the line and order (ゼリー粥 for 嚥下調整食 0j〜2-2, 全粥 for 3・4). */
 function stapleKind(line: LineRule, o: DietOrder): StapleKind {
   if (line.staple) return line.staple;
-  if (line.key === "嚥下調整食") return ["3", "4"].includes(o.dysphagia ?? "") ? "全粥" : "ゼリー粥";
+  if (line.key === "嚥下調整食" && o.dysphagia === "0j") return "訓練用ゼリー";
+  if (line.key === "嚥下調整食" && o.dysphagia === "0t") return "とろみ水";
+  if (line.key === "嚥下調整食" && o.dysphagia === "1j") return "栄養補助ムース";
+  if (line.key === "嚥下調整食") return o.dysphagia === "2-1" ? "ペースト粥" : o.dysphagia === "2-2" ? "粒のあるペースト粥" : ["3", "4"].includes(o.dysphagia ?? "") ? "全粥" : "ゼリー粥";
   return o.staple ?? "米飯";
 }
 
@@ -308,7 +319,8 @@ export function mealMenu(o: DietOrder | undefined, dow: number, meal: Meal): Mea
   const g = stapleGrams(line, o, dow);
   const k = g / info.g;
   const staple: ServedDish = { id: `staple-${kind}`, name: `${kind} ${g}g`, role: "主食", kcal: Math.round(info.kcal * k), protein: r1(info.protein * k), salt: r1(info.salt * k), contains: info.contains, items: [[info.item[0], Math.round(info.item[1] * k)]] };
-  const dishes = [staple, ...sides(line, dow, meal, o.dysphagia)];
+  const training = o.kind === "嚥下調整食" && ["0j","0t","1j"].includes(o.dysphagia ?? "");
+  const dishes = [...(training ? [] : [staple]), ...sides(line, dow, meal, o.dysphagia, o.thickness)];
   const total = dishes.reduce((n, x) => add(n, x), ZERO);
   return { line: key, staple: { kind, g }, dishes, total: { kcal: total.kcal, protein: r1(total.protein), salt: r1(total.salt) } };
 }
@@ -354,25 +366,28 @@ export interface NutRow {
   /** The result in words. */
   text: string;
   /** order = the doctor's 食事箋, special = 特別食の条件 (通知), dri = 食事摂取基準. */
-  from: "order" | "special" | "dri";
+  from: "order" | "plan" | "special" | "dri";
 }
 
 export const TOLERANCE = 0.1;
 
-function band(label: string, menu: number, want: number, unit: string): NutRow {
+function band(label: string, menu: number, want: number, unit: string, from: "order" | "plan" = "order"): NutRow {
   const diff = (menu - want) / want;
   const pct = Math.round(diff * 100);
   const state: CheckState = Math.abs(diff) <= TOLERANCE ? "ok" : diff > 0 ? "over" : "under";
-  return { label, menu, unit, ref: `指示 ${want}${unit}`, state, text: state === "ok" ? `指示の±10%以内（${pct >= 0 ? "+" : ""}${pct}%）` : `指示より${state === "over" ? "多い" : "少ない"}（${pct >= 0 ? "+" : ""}${pct}%）`, from: "order" };
+  return { label, menu, unit, ref: `${from === "plan" ? "計画" : "指示"} ${want}${unit}`, state, text: state === "ok" ? `${from === "plan" ? "計画" : "指示"}の±10%以内（${pct >= 0 ? "+" : ""}${pct}%）` : `${from === "plan" ? "計画" : "指示"}より${state === "over" ? "多い" : "少ない"}（${pct >= 0 ? "+" : ""}${pct}%）`, from };
 }
 
 /** The day's menu of the patient's order against the order (and the 特別食 condition, and the 食事摂取基準 for 常食). */
-export function nutritionCheck(o: DietOrder, p: { age: number; sex: Sex }, dow: number): { total: Nut | null; rows: NutRow[] } {
+export function nutritionCheck(o: DietOrder, p: { age: number; sex: Sex }, dow: number, options: { dri?: boolean; nutrition?: {energyKcal:number;proteinG:number} } = {}): { total: Nut | null; rows: NutRow[] } {
   const total = dayTotal(o, dow);
   if (!total) return { total: null, rows: [] };
   const rows: NutRow[] = [];
-  if (o.energyKcal) rows.push(band("エネルギー", total.kcal, o.energyKcal, "kcal"));
-  if (o.proteinG) rows.push(band("たんぱく質", total.protein, o.proteinG, "g"));
+  const prescribed = dietNutrients(o);
+  const energy = o.energyKcal ?? options.nutrition?.energyKcal ?? prescribed.energyKcal;
+  const protein = o.proteinG ?? options.nutrition?.proteinG ?? prescribed.proteinG;
+  if (energy) rows.push(band("エネルギー", total.kcal, energy, "kcal", o.energyKcal == null && options.nutrition?.energyKcal ? "plan" : "order"));
+  if (protein) rows.push(band("たんぱく質", total.protein, protein, "g", o.proteinG == null && options.nutrition?.proteinG ? "plan" : "order"));
   if (o.saltG !== undefined) {
     const ok = total.salt < o.saltG;
     rows.push({ label: "食塩相当量", menu: total.salt, unit: "g", ref: `指示 ${o.saltG}g未満`, state: ok ? "ok" : "over", text: ok ? "指示の未満に収まる" : "指示を超える", from: "order" });
@@ -381,7 +396,7 @@ export function nutritionCheck(o: DietOrder, p: { age: number; sex: Sex }, dow: 
     const ok = total.salt < 6;
     rows.push({ label: "特別食（減塩食）", menu: total.salt, unit: "g", ref: "食塩相当量 総量6g未満", state: ok ? "ok" : "over", text: ok ? "献立は6g未満" : "献立が6g以上（特別食の条件に届かない）", from: "special" });
   }
-  if (o.kind === "常食") {
+  if (o.kind === "常食" && options.dri) {
     const rda = proteinRda(p.age, p.sex);
     if (rda !== null) rows.push({ label: "たんぱく質", menu: total.protein, unit: "g", ref: `推奨量 ${rda}g（${p.sex}性・${p.age}歳）`, state: total.protein >= rda ? "ok" : "under", text: total.protein >= rda ? "推奨量以上" : "推奨量に届かない", from: "dri" });
     const goal = saltGoal(p.age, p.sex);
@@ -655,8 +670,8 @@ export interface KitchenChange {
 export function dietChanges(orders: DietOrder[]): KitchenChange[] {
   return orders.filter(o => o.at.day === 0 && o.from.day >= 0 && o.from.day <= 1).map(o => {
     const previous = dietAt(orders.filter((x, index) => x.id !== o.id && (x.at.day < o.at.day || x.at.day === o.at.day && (x.at.time < o.at.time || x.at.time === o.at.time && index < orders.indexOf(o)))), o.patientId, o.from.day, o.from.meal);
-    const action = o.kind === "絶食" ? "食止め" : previous ? "変更" : "新規";
-    return { id: `diet:${o.id}`, patientId: o.patientId, day: o.at.day, time: o.at.time, by: o.by, text: `${action}：${o.from.day === 0 ? "今日" : "明日"}${o.from.meal}食から ${previous ? `${dietLabel(previous)} → ` : ""}${dietLabel(o)} ${o.energyKcal ?? "未指定"}kcal・蛋白${o.proteinG ?? "未指定"}g${o.comment ? `・${o.comment}` : ""}` };
+    const action = o.kind === "絶食" ? "絶食" : previous ? "変更" : "新規";
+    return { id: `diet:${o.id}`, patientId: o.patientId, day: o.at.day, time: o.at.time, by: o.by, text: `${action}：${o.from.day === 0 ? "今日" : "明日"}${o.from.meal}食から ${previous ? `${dietLabel(previous)} → ` : ""}${dietLabel(o)}${o.energyKcal ? `・${o.energyKcal}kcal` : ""}${o.proteinG ? `・蛋白${o.proteinG}g` : ""}${o.comment ? `・${o.comment}` : ""}` };
   });
 }
 export function kitchenChanges(orders: DietOrder[], desk: KitchenDesk): KitchenChange[] {

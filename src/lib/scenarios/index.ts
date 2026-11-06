@@ -1,3 +1,4 @@
+import { scenarioNutrition } from "./nutrition";
 import { addRxExpiryCases } from "./rx-expiry";
 import { addScenarioAnesthesia } from "./anesthesia";
 import { replacementBoundaries } from "../order-revisions";
@@ -143,6 +144,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     const diets = clinicalDiets;
     if (i === 12) diets.push({ id: `${id}-tube`, patientId: id, from: { day: admittedOn + 1, meal: "昼" }, kind: "経管栄養", tube: { product: "EN-STD", mlPerMeal: 300, ratePerH: 100 }, by: patient.attending, at: { day: admittedOn + 1, time: "09:00" } });
     if (i === 12 && admittedOn + 4 <= (dischargeDay ?? 0)) diets.push({ id: `${id}-oral-restart`, patientId: id, from: { day: admittedOn + 4, meal: "昼" }, kind: "嚥下調整食", dysphagia: "2-1", by: patient.attending, at: { day: admittedOn + 4, time: "09:00" } });
+    scenarioNutrition(patient, diets, i);
     if (i === 13) diets.push({ id: `${id}-diabetes-diet`, patientId: id, from: { day: admittedOn, meal: "夕" }, kind: "治療食", therapeutic: "TD-ENERGY", energyKcal: 1600, by: patient.attending, at: { day: admittedOn, time: "09:00" } });
     const form = insuranceForm(i, age);
     if (form) insurance[id] = [{ form, insurance: toInsurance(form), action: "登録", by: "医事課", at: { day: admittedOn, time: "09:00" } }];

@@ -219,6 +219,7 @@ export interface Moment {
 }
 
 export interface TeamRequest {
+  nextRound?: Moment;
   id: string;
   team: TeamKey;
   patientId: string;

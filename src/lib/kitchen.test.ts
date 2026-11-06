@@ -38,11 +38,11 @@ describe("献立", () => {
     expect(lineOf(order({ kind: "絶食" }))).toBeNull();
     expect(lineOf(order({ kind: "経管栄養" }))).toBeNull();
   });
-  it("減塩食 drops the soup and cuts the salt; 嚥下調整食 serves ゼリー粥 for code 2-1 and 全粥 for code 4", () => {
+  it("減塩食 drops the soup and cuts the salt; 嚥下調整食 serves ペースト粥 for code 2-1 and 全粥 for code 4", () => {
     const salt = mealMenu(order({ kind: "治療食", therapeutic: "TD-SALT-HEART", saltG: 6 }), 0, "朝")!;
     expect(salt.dishes.some((d) => d.role === "汁物")).toBe(false);
     expect(salt.dishes.find((d) => d.id === "tamagoyaki")!.salt).toBeCloseTo(0.6);
-    expect(mealMenu(order({ kind: "嚥下調整食", dysphagia: "2-1" }), 0, "昼")!.staple.kind).toBe("ゼリー粥");
+    expect(mealMenu(order({ kind: "嚥下調整食", dysphagia: "2-1" }), 0, "昼")!.staple.kind).toBe("ペースト粥");
     expect(mealMenu(order({ kind: "嚥下調整食", dysphagia: "4" }), 0, "昼")!.staple.kind).toBe("全粥");
   });
   it("fits the staple to the ordered energy (10 g steps, 50〜250 g) for the lines with an energy order", () => {
@@ -83,7 +83,7 @@ describe("栄養量の確かめ", () => {
     expect(saltGoal(70, "男")).toBe(7.5);
     expect(saltGoal(70, "女")).toBe(6.5);
     expect(proteinRda(10, "男")).toBeNull();
-    const rows = nutritionCheck(order({}), { age: 72, sex: "男" }, 0).rows;
+    const rows = nutritionCheck(order({}), { age: 72, sex: "男" }, 0, {dri:true}).rows.filter(r => r.from === "dri");
     expect(rows.map((r) => r.from)).toEqual(["dri", "dri"]);
     expect(rows[1].ref).toBe("目標量 7.5g未満（男性）");
   });
@@ -152,7 +152,7 @@ describe("今日の食事変更", () => {
     const orders = [{ ...base, id: "a" }, { ...base, id: "b", energyKcal: 1600, from: { day: 1, meal: "朝" as const }, at: { day: 0, time: "09:00" } }, { ...base, id: "c", kind: "絶食" as const, at: { day: 0, time: "10:00" } }, { ...base, id: "future", from: { day: 2, meal: "朝" as const } }];
     const rows = dietChanges(orders);
     expect(rows).toHaveLength(3);
-    expect(rows.map(r => r.text.split("：")[0])).toEqual(["新規", "変更", "食止め"]);
+    expect(rows.map(r => r.text.split("：")[0])).toEqual(["新規", "変更", "絶食"]);
     expect(rows[1]).toMatchObject({ by: "医師", time: "09:00" });
     expect(kitchenWaiting(orders, { ...EMPTY_KITCHEN, received: { "diet:a": { by: "栄養士", day: 0, time: "08:30" } } })).toBe(2);
   });
