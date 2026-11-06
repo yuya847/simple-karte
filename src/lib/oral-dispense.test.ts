@@ -143,3 +143,25 @@ describe("払い出せないオーダ（注射と内服で共通）", () => {
     expect(dispenseBlock("kita-mgo", ppl, [], {})).toBeNull();
   });
 });
+
+describe("払出の記録更新でも操作順を守る", () => {
+  const rp = oralToDispense(people, { kind: "定期", days: 7 }, NOW).find((x) => x.patient.id === "90010198")!.rps[0];
+  const who = { by: "薬剤師", at: "11/6 10:00" };
+  it("調剤・鑑査を飛ばした払出を記録しない", () => {
+    expect(recordStep(undefined, "issued", rp, who)).toEqual({});
+    expect(recordStep(undefined, "checked", rp, who)).toEqual({});
+    const prepared = recordStep(undefined, "prepared", rp, who);
+    expect(recordStep(prepared, "issued", rp, who)).toEqual(prepared);
+    const checked = recordStep(prepared, "checked", rp, who);
+    const issued = recordStep(checked, "issued", rp, who);
+    expect(issued.issued).toEqual(who);
+    expect(recordStep(issued, "issued", rp, { ...who, at: "11:00" })).toEqual(issued);
+  });
+  it("麻薬は一般内服でどの段階も更新しない", () => {
+    const narcotic = { ...rp, lines: rp.lines.map((l) => ({ ...l, code: "ORAL-OXC5" })) };
+    for (const step of ["prepared", "checked", "issued"] as const) {
+      expect(stepBlock(step, undefined, narcotic, null)).toBe("麻薬の画面で払出");
+      expect(recordStep(undefined, step, narcotic, who)).toEqual({});
+    }
+  });
+});

@@ -81,6 +81,7 @@ export const hoursBetween = (a: { day: number; time: string }, b: { day: number;
 
 /** A TDM report from the pharmacist to the doctor (the proposal is the pharmacist's own words). */
 export interface TdmReport {
+  reportedDate?: string;
   id: string;
   patientId: string;
   drug: string;

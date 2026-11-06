@@ -33,7 +33,7 @@ export function MedBagFace({ p, b, date, by }: { p: HomeRxPatient; b: MedBag; da
             {b.drugs.map((d) => (
               <tr key={d.code} className="border-t border-ink/20 align-top">
                 <td className="py-1">
-                  {d.name} {d.strength}
+                  {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}
                 </td>
                 <td className="whitespace-nowrap py-1 pl-2 text-right font-bold">
                   1回 {d.per}
@@ -83,7 +83,7 @@ export function DrugInfoSheet({ p, bags, care, date, pharmacist }: { p: HomeRxPa
               <tr key={`${b.rp}-${d.code}`} className="align-top">
                 <td className="border border-ink/40 px-2 py-1">
                   <b>
-                    {d.name} {d.strength}
+                    {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}
                   </b>
                 </td>
                 <td className="nums border border-ink/40 px-2 py-1">
@@ -131,7 +131,7 @@ export function NotebookSticker({ p, bags, date, doctor }: { p: HomeRxPatient; b
           <span className="font-bold">Rp{i + 1}</span>{" "}
           {b.drugs.map((d) => (
             <div key={d.code} className="pl-2">
-              {d.name} {d.strength}　1回{d.per}
+              {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}　1回{d.per}
               {d.unit}
             </div>
           ))}

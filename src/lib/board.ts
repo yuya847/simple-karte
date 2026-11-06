@@ -4,6 +4,7 @@
 // keeps them); a real system would keep them on the hospital's server.
 
 import { addDays, formatShort, type CalendarDate } from "./dates";
+import { anyDrugName } from "./master";
 import { MEAL_DEADLINE } from "./diet";
 import { STAFF, type Role } from "./roles";
 import type { DayOffset } from "./types";
@@ -148,7 +149,7 @@ export const INITIAL_NOTICES: Notice[] = [
     id: "n-di-narcotic",
     from: "薬剤部",
     title: "【DI】麻薬2品目を採用しました：麻薬の注射は施用票を書いて残液・空アンプルを返納",
-    body: "{-1} から、モルヒネ塩酸塩注射液10mg「シオノギ」とオキシコンチンTR錠5mg を採用しました。\n麻薬は、麻薬施用者の免許のある医師だけがオーダできます（麻薬及び向精神薬取締法 第27条）。\n麻薬の注射を実施したら、病棟の「麻薬の施用票」で施用量と残量（mL）を書き、残液の入ったアンプルと空アンプルを薬剤部へ返してください。\nオキシコンチンTR錠は、割ったり、砕いたり、かみ砕いたりせずに服用する薬です（電子添文 8.1）。",
+    body: "{-1} から、モルヒネ塩酸塩注射液10mg「シオノギ」と" + anyDrugName("ORAL-OXC5") + " を採用しました。\n麻薬は、麻薬施用者の免許のある医師だけがオーダできます。\n麻薬の注射を実施したら、病棟の「麻薬の施用票」で施用量と残量（mL）を書き、残液の入ったアンプルと空アンプルを薬剤部へ返してください。\nオキシコンチンTR錠は、割ったり、砕いたり、かみ砕いたりせずに服用する薬です。",
     by: "薬剤師 小林",
     posted: { day: -1, time: "15:30" },
     important: true,

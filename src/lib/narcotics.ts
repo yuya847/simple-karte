@@ -125,7 +125,7 @@ const productName = (code: string) => {
   const inj = findDrug(code);
   if (inj) return `${inj.name} ${inj.package}`.normalize("NFKC");
   const o = findOralDrug(code);
-  return (o ? `${o.name} ${o.strength}` : anyDrugName(code)).normalize("NFKC");
+  return (o ? `${o.name}${o.name.includes(o.strength) ? "" : ` ${o.strength}`}` : anyDrugName(code)).normalize("NFKC");
 };
 
 /**

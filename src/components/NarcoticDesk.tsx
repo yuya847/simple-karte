@@ -43,13 +43,6 @@ const ME = STAFF.薬剤師.name;
 const WITNESSES = ["薬剤師 吉田", STAFF.看護師.name, STAFF.医師.name];
 const METHODS = ["放流", "焼却", "粉砕"];
 
-const STATE_LABEL: Record<RxItem["state"], { text: string; cls: string }> = {
-  ok: { text: "記載あり", cls: "text-wakatake" },
-  missing: { text: "足りない", cls: "font-bold text-shu" },
-  omitted: { text: "省略可", cls: "text-ink-faint" },
-  check: { text: "人が確かめる", cls: "text-yamabuki" },
-};
-
 interface Props {
   people: WorkPatient[];
   today: CalendarDate;
@@ -59,10 +52,11 @@ interface Props {
   newId: () => string;
   /** Why an order cannot be dispensed yet (疑義照会の回答待ち・未監査: pharmacy.ts dispenseBlock), or null. */
   blockOf?: (orderId: string) => string | null;
+  onAudit?: (orderId: string) => void;
 }
 
 /** 薬剤部の麻薬の管理: 麻薬処方箋の確認と払出、施用票の受領、残液の廃棄、病棟からの返納、受払簿、照合、事故届（模擬）. */
-export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, blockOf }: Props) {
+export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, blockOf, onAudit }: Props) {
   const now: When = { day: 0, time: nowTime };
   const day = (d: number) => formatShort(addDays(today, d));
   const who = (pid: string | undefined) => people.find((x) => x.patient.id === pid);
@@ -129,18 +123,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
                     {oral ? "院内麻薬処方せん" : "院内麻薬注射せん"}を印刷
                   </button>
                 </div>
-                <table className="mt-1.5 w-full text-[12px]">
-                  <tbody>
-                    {items.map((i) => (
-                      <tr key={i.item} className="border-t border-rule-soft align-top">
-                        <td className="w-44 py-0.5 text-ink-soft">{i.item}</td>
-                        <td className="py-0.5">{i.value}</td>
-                        <td className={`w-24 py-0.5 ${STATE_LABEL[i.state].cls}`}>{displayText(STATE_LABEL[i.state].text)}</td>
-                        <td className="w-48 py-0.5 text-[11px] text-ink-faint">{i.basis}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {items.some((i) => i.state === "missing") && <p className="mt-1 text-xs text-shu">不足：{items.filter((i) => i.state === "missing").map((i) => i.item).join("・")}</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                   {signed ? (
                     <span className="text-wakatake">署名を確かめた {signed.at.time} {displayText(signed.by)}</span>
@@ -170,6 +153,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
                           type="button"
                           disabled={!!block}
                           onClick={() => {
+                            if (blockOf?.(e.id)) return;
                             onBook((b) => dispenseOral(b, e, x.patient.id, ME, now, label(x.patient.id), newId));
                             log("麻薬を払い出した（受払簿に記載）", x.patient.name, `${anyDrugName(code)} ${q?.qty ?? ""}${unitOf(code)}`);
                           }}
@@ -178,6 +162,7 @@ export function NarcoticDesk({ people, today, nowTime, book, onBook, newId, bloc
                           払い出す{q ? `（${q.formula}）` : ""}
                         </button>
                         {block && <span className="text-ink-soft">{block}</span>}
+                        {blockOf?.(e.id)?.startsWith("まだ監査") && onAudit && <button type="button" onClick={() => onAudit(e.id)} className="text-ai underline">監査済にする</button>}
                       </>
                     ))}
                   {!oral && (
@@ -340,7 +325,7 @@ function Ledger({ book, onBook, today, now, newId, log }: Sub) {
         <select value={code} onChange={(e) => setCode(e.target.value)} className="rounded border border-rule bg-paper px-2 py-0.5 text-[13px]">
           {codes.map((k) => (
             <option key={k} value={k}>
-              {c && k === code ? c.product : (classOf(k)?.product ?? k)}
+              {anyDrugName(k)}
             </option>
           ))}
         </select>
@@ -439,7 +424,7 @@ function Accidents({ book, onBook, today, now, newId, log, print }: Sub & { prin
         <select value={code} onChange={(e) => setCode(e.target.value)} className="rounded border border-rule bg-paper px-1 py-0.5" aria-label="事故の麻薬">
           {codes.map((k) => (
             <option key={k} value={k}>
-              {classOf(k)?.product ?? k}
+              {anyDrugName(k)}
             </option>
           ))}
         </select>
@@ -466,7 +451,7 @@ function Accidents({ book, onBook, today, now, newId, log, print }: Sub & { prin
       </div>
 
       {book.accidents.map((a) => {
-        const t = accidentText(a, classOf(a.code)?.product ?? anyDrugName(a.code), NARCOTIC_MANAGER, lic.ok ? lic.licence.no : "（免許番号なし）", date);
+        const t = accidentText(a, anyDrugName(a.code), NARCOTIC_MANAGER, lic.ok ? lic.licence.no : "（免許番号なし）", date);
         return (
           <div key={a.id} className="mt-2 rounded-md border border-shu/40 bg-shu-soft/30 p-2 text-xs">
             <pre className="whitespace-pre-wrap font-sans">{displayText(t)}</pre>

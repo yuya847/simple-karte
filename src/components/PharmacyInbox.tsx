@@ -32,7 +32,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
   const pending = reports.filter((r) => r.status === "医師へ報告");
   const [keepText, setKeepText] = useState<Record<string, string>>({});
   const [choices, setChoices] = useState<Record<string, BroughtRow[]>>({});
-  const tdmNew = tdm.filter((r) => r.status === "医師へ報告");
+  const tdmNew = tdm.filter((r) => r.status === "医師へ報告").sort((a, b) => `${b.reportedDate ?? ""} ${b.at}`.localeCompare(`${a.reportedDate ?? ""} ${a.at}`));
   const locked = !!useDeny()("order.sign");
   if (!open.length && !waitingStop.length && !pending.length && !tdmNew.length) return null;
 
@@ -44,7 +44,7 @@ export function PharmacyInbox({ today, entries, queries, reports, onChange, onKe
         <div key={r.id} className="mb-2">
           <div className="flex items-center gap-1 font-bold text-yamabuki">
             <MessageSquareWarning size={14} />
-            薬剤部から TDM の報告（{r.at} {displayText(r.by)}）
+            薬剤部から TDM の報告（{r.reportedDate ?? "日付未記録"} {r.at} {displayText(r.by)}）
           </div>
           <div className="nums text-ink-soft">
             {r.drug} {r.regimen.dose}mg {r.regimen.tau}時間ごと（点滴{r.regimen.tinf}時間）：AUC24 <b className="text-ink">{Math.round(r.auc24)}</b> μg·h/mL、Cmin {r.cmin.toFixed(1)}（2点採血）

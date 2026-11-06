@@ -224,6 +224,7 @@ export const dispensedFor = (book: NarcoticBook, orderId: string) => book.ledger
 /** Why an oral 麻薬 cannot be dispensed now, or null. */
 export function oralBlock(book: NarcoticBook, entry: OrderEntry, rxOk: boolean): string | null {
   if (entry.order.type !== "prescription") return "内服のオーダではありません";
+  if (entry.status !== "有効") return "中止された処方です";
   if (dispensedFor(book, entry.id)) return "この麻薬処方箋はもう払い出しています";
   if (!rxOk) return "麻薬処方箋の記載事項に足りないものがあります";
   if (!book.signed[entry.id]) return "麻薬処方箋の署名を確かめてから払い出します";
@@ -236,7 +237,7 @@ export function oralBlock(book: NarcoticBook, entry: OrderEntry, rxOk: boolean):
 export function dispenseOral(book: NarcoticBook, entry: OrderEntry, patientId: string, by: string, now: When, patientLabel: string, newId: () => string): NarcoticBook {
   if (entry.order.type !== "prescription") return book;
   const q = oralQty(entry.order);
-  if (!q || dispensedFor(book, entry.id)) return book;
+  if (!q || oralBlock(book, entry, true)) return book;
   return {
     ...book,
     ledger: [...book.ledger, { id: newId(), code: entry.order.drugCode, at: now, kind: "払出", qty: -q.qty, note: `${patientLabel}　${q.formula}`, by, patientId, orderId: entry.id }],

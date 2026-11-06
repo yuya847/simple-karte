@@ -1,7 +1,7 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
-import { Download, ExternalLink, Megaphone, Printer, Search } from "lucide-react";
+import { Download, Megaphone, Printer, Search } from "lucide-react";
 import { useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { auditLog } from "@/lib/audit";
@@ -106,7 +106,6 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
                   <th className="px-2 py-1.5 font-normal">規制区分</th>
                   <th className="px-2 py-1.5 font-normal">薬効分類</th>
                   <th className="px-2 py-1.5 font-normal">採用区分</th>
-                  <th className="px-2 py-1.5 font-normal">出典</th>
                   <th className="px-2 py-1.5 font-normal">DI</th>
                 </tr>
               </thead>
@@ -119,7 +118,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
                 })}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-2 py-3 text-ink-faint">
+                    <td colSpan={7} className="px-2 py-3 text-ink-faint">
                       当てはまる薬はありません。
                     </td>
                   </tr>
@@ -158,7 +157,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
                           </span>
                         ))}
                       </div>
-                      {n.source && <p className="mt-1 text-[11px] text-ink-faint">出典：{displayText(n.source)}</p>}
+
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
                         <span className="text-ink-soft">
                           既読 {r.read.length}/{staff.length}人{r.unread.length > 0 && `（まだ：${r.unread.join("、")}）`}
@@ -203,17 +202,11 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
           <span className="nums block text-[10px] text-ink-faint">{x.cls.bunrui}</span>
         </td>
         <td className="px-2 py-1.5">{x.adoption}</td>
-        <td className="px-2 py-1.5">
-          <a href={x.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-0.5 text-ai underline">
-            {x.cls.doc ? "PMDA" : "医薬品マスター"}
-            <ExternalLink size={11} />
-          </a>
-        </td>
         <td className="px-2 py-1.5">{n.length > 0 && <span className={`rounded px-1.5 text-[11px] font-bold ${unread ? "bg-yamabuki-soft text-yamabuki" : "bg-tab text-ink-soft"}`}>{unread ? `未読 ${unread}` : `${n.length}件`}</span>}</td>
       </tr>
       {open && (
         <tr className="bg-ai-soft/20">
-          <td colSpan={8} className="px-3 py-2 text-[12px]">
+          <td colSpan={7} className="px-3 py-2 text-[12px]">
             <p className="text-ink-soft">採用区分：{x.adoption}（{ADOPTION_NOTE[x.adoption]}）{x.cls.b008 ? `　ハイリスク薬：${x.cls.b008.group}（${x.cls.b008.why}）` : ""}</p>
             {n.length === 0 && <p className="text-ink-faint">この薬の DI のお知らせはありません。</p>}
             {n.map((y) => (
@@ -302,7 +295,7 @@ function FormularySheet({ items, today, sort }: { items: FormularyItem[]; today:
   return (
     <div className="text-[8.5pt] text-black">
       <h1 className="mb-1 text-[13pt] font-bold">院内医薬品集（{sort === "薬効" ? "薬効順" : "読み順"}）</h1>
-      <p className="mb-2 text-[8pt]">{formatShort(today)} 現在。分類は電子添文または医薬品マスターから。各行の出典を確認。</p>
+      <p className="mb-2 text-[8pt]">{formatShort(today)} 現在</p>
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-black text-left">

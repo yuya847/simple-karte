@@ -4,13 +4,16 @@ import { displayText } from "@/lib/display-text";
 import { Plus, Send, X } from "lucide-react";
 import { useState } from "react";
 import { anyDrugName } from "@/lib/master";
-import { egfr, latestCre } from "@/lib/exams";
+import { estimatedCcr } from "@/lib/clinical";
+import { isoDate, type CalendarDate } from "@/lib/dates";
+import { latestCre } from "@/lib/exams";
 import { VCM_NOTES, VCM_TARGET, predict, regimenFromOrder, sawchukZaske, type Levels, type Regimen, type TdmReport } from "@/lib/tdm";
 import type { InjectionOrder } from "@/lib/types";
 import type { WorkPatient } from "@/lib/worksheet";
 import { ageSex } from "@/lib/person";
 
 interface Props {
+  today?: CalendarDate;
   people: WorkPatient[];
   nowTime: string;
   reports: TdmReport[];
@@ -21,7 +24,7 @@ const n = (s: string) => (s.trim() === "" ? NaN : Number(s));
 const f1 = (x: number, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : "—");
 
 /** The pharmacist's TDM screen (vancomycin): levels → k, Vd, CL, AUC24 by code; candidate regimens; report. */
-export function TdmView({ people, reports, onReport }: Props) {
+export function TdmView({ people, reports, onReport, today }: Props) {
   const withVcm = people.filter((x) => x.entries.some((e) => e.status === "有効" && e.order.type === "injection" && (e.order as InjectionOrder).items.some((i) => i.drugCode.startsWith("INJ-VCM"))));
   const [pid, setPid] = useState(withVcm[0]?.patient.id ?? people[0]?.patient.id ?? "");
   const person = people.find((x) => x.patient.id === pid);
@@ -69,8 +72,8 @@ export function TdmView({ people, reports, onReport }: Props) {
             {(() => {
               const c = latestCre(person.patient);
               if (!c) return null;
-              const g = egfr(c.value, person.patient.age, person.patient.sex);
-              return <span className={g < 30 ? "font-bold text-shu" : ""}>・Cre {c.value}（eGFR {g}）</span>;
+              const g = estimatedCcr(person.patient, c.value);
+              return <span className={g !== null && g < 30 ? "font-bold text-shu" : ""}>・Cre {c.value}（推定CCr {g?.toFixed(0) ?? "—"} mL/分）</span>;
             })()}
           </span>
         )}
@@ -107,7 +110,7 @@ export function TdmView({ people, reports, onReport }: Props) {
             トラフ：次の投与の <input value={lv.tb} onChange={(e) => setLv({ ...lv, tb: e.target.value })} className={input} /> 時間前に{" "}
             <input value={lv.tc} onChange={(e) => setLv({ ...lv, tc: e.target.value })} className={input} /> μg/mL
           </label>
-          <button
+          {!person?.patient.labs.some((l) => l.values.VCM !== undefined) && lv.tc === "" && lv.pc === "" && <button
             type="button"
             onClick={() => {
               setReg({ dose: "1000", tau: "12", tinf: "1" });
@@ -116,7 +119,7 @@ export function TdmView({ people, reports, onReport }: Props) {
             className="text-xs text-ai underline"
           >
             例を入れる
-          </button>
+          </button>}
           <details className="text-[11px] text-ink-soft">
             <summary className="cursor-pointer">ガイドラインの採血と腎機能の目安</summary>
             <ul className="mt-0.5 list-disc pl-4">
@@ -212,9 +215,9 @@ export function TdmView({ people, reports, onReport }: Props) {
           </label>
           <button
             type="button"
-            disabled={!proposal.trim() || !person}
+            disabled={!proposal.trim() || !person || !order}
             onClick={() => {
-              onReport({ patientId: pid, drug: "バンコマイシン", regimen, levels, auc24: ok.auc24, cmin: ok.cmin, proposal: proposal.trim() });
+              onReport({ ...(today ? { reportedDate: isoDate(today) } : {}), patientId: pid, drug: "バンコマイシン", regimen, levels, auc24: ok.auc24, cmin: ok.cmin, proposal: proposal.trim() });
               setProposal("");
             }}
             className="flex items-center gap-1 rounded bg-ai px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
@@ -229,9 +232,9 @@ export function TdmView({ people, reports, onReport }: Props) {
         <section>
           <h3 className="text-xs font-bold text-ink-soft">報告した TDM</h3>
           <ul className="mt-1 space-y-0.5 text-xs">
-            {reports.map((r) => (
+            {[...reports].sort((a, b) => `${b.reportedDate ?? ""} ${b.at}`.localeCompare(`${a.reportedDate ?? ""} ${a.at}`)).map((r) => (
               <li key={r.id}>
-                {r.at} {people.find((x) => x.patient.id === r.patientId)?.patient.name}：{r.drug} AUC24 {f1(r.auc24, 0)}「{r.proposal}」<span className={r.status === "確認済" ? "text-wakatake" : "text-yamabuki"}>{r.status}</span>
+                {r.reportedDate ?? "日付未記録"} {r.at} {people.find((x) => x.patient.id === r.patientId)?.patient.name}：{r.drug} AUC24 {f1(r.auc24, 0)}「{r.proposal}」<span className={r.status === "確認済" ? "text-wakatake" : "text-yamabuki"}>{r.status}</span>
               </li>
             ))}
           </ul>

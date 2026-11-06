@@ -24,6 +24,7 @@ const area = "w-full rounded border border-rule bg-paper px-2 py-1.5 text-[13px]
 /** 服薬指導（薬剤管理指導記録）: the items of the notice, what the chart has, and the 回数 (週1回・月4回) by code. */
 export function ShidoPanel({ people, today, records, onRecord, reports = [] }: { reports?: BroughtReport[]; people: WorkPatient[]; today: CalendarDate; records: Record<string, ShidoEntry[]>; onRecord: (patientId: string, rec: Omit<ShidoEntry, "at" | "day">) => void }) {
   const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
+  const [savedPatient, setSavedPatient] = useState<string | null>(null);
   const [form, setForm] = useState<ShidoForm>(EMPTY_FORM);
   const set = (x: Partial<ShidoForm>) => setForm((f) => ({ ...f, ...x }));
   const person = people.find((x) => x.patient.id === patientId);
@@ -48,7 +49,8 @@ export function ShidoPanel({ people, today, records, onRecord, reports = [] }: {
             value={patientId}
             onChange={(e) => {
               setPatientId(e.target.value);
-              setForm(EMPTY_FORM);
+              setSavedPatient(patientId);
+            setForm(EMPTY_FORM);
             }}
             className="rounded border border-rule bg-paper px-2 py-1"
           >
@@ -127,13 +129,14 @@ export function ShidoPanel({ people, today, records, onRecord, reports = [] }: {
           disabled={problems.length > 0 || !facts}
           onClick={() => {
             onRecord(patientId, { kind: form.kind, text: shidoText(form, facts!, fmtDay), ...(form.narcotic ? { mayaku: true } : {}) });
+            setSavedPatient(patientId);
             setForm(EMPTY_FORM);
           }}
           className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40"
         >
           記録する
         </button>
-        {recs.some((r) => r.day === 0) && <span role="status" className="text-xs text-wakatake">記録しました</span>}
+        {savedPatient === patientId && <span role="status" className="text-xs text-wakatake">記録しました</span>}
         {!recs.some((r) => r.day === 0) && problems.length > 0 && <span className="text-xs text-ink-soft">まだ：{problems.join("・")}</span>}
 
       </div>

@@ -10,6 +10,7 @@ import { rxLastDay, patternText } from "./day-pattern";
 
 import { prescriptionCell } from "./calendar";
 import { findOralDrug, WARD_RULES } from "./master";
+import { isNarcotic } from "./drug-class";
 import { timingName } from "./rx";
 import type { DayOffset, DoseTiming, OrderEntry, PrescriptionOrder } from "./types";
 import type { WorkPatient } from "./worksheet";
@@ -208,6 +209,7 @@ export const qtyText = (rp: OralRp) => rp.lines.map((l) => `${l.code}×${l.total
 
 /** Why this step cannot be recorded now, or null. `block` is the order's own block (dispenseBlock). */
 export function stepBlock(step: OralStepName, rec: OralRecord | undefined, rp: OralRp, block: string | null): string | null {
+  if (rp.lines.some((l) => isNarcotic(l.code))) return "麻薬の画面で払出";
   if (rp.unbounded) return "日数の指定がないので、量を数えられません。医師に日数を確かめてください。";
   if (block) return block;
   const fresh = !!rec?.prepared && rec.qty === qtyText(rp);
@@ -221,6 +223,7 @@ export function stepBlock(step: OralStepName, rec: OralRecord | undefined, rp: O
 
 /** The record after this step. A new 調剤 (after a change) starts the record again. */
 export function recordStep(rec: OralRecord | undefined, step: OralStepName, rp: OralRp, who: OralStep): OralRecord {
+  if (stepBlock(step, rec, rp, null)) return rec ?? {};
   if (step === "prepared") return { prepared: who, qty: qtyText(rp) };
   return { ...rec, [step]: who };
 }

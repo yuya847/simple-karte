@@ -18,7 +18,9 @@ describe("医薬品集・DI の画面", () => {
     const html = view("看護師");
     expect(html).toContain("院内医薬品集・DI");
     expect(html).toContain("オキシコンチンTR錠5mg");
-    expect(html).toContain("343018_8119002G5020_2_09");
+    expect(html).not.toContain(">出典</th>");
+    expect(html).not.toContain("出典：");
+    expect(html).not.toContain("（麻薬及び向精神薬取締法 第27条）");
     expect(html).toContain("既読 1/2人");
     expect(html).not.toContain("DI のお知らせを書く");
   });

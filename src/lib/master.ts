@@ -378,7 +378,7 @@ export const ORAL_DRUGS: OralDrugMaster[] = [
   { code: "ORAL-SENNA12", name: "センノシド錠", strength: "12mg", unit: "錠", aliases: ["センノシド", "プルゼニド"] },
   { code: "ORAL-MET250", name: "メトホルミン塩酸塩錠", strength: "250mg", unit: "錠", aliases: ["メトホルミン", "メトグルコ"], mg: 250, classes: ["ビグアナイド系"] },
   // 麻薬: オキシコンチンTR錠5mg の電子添文（1日量を2回に分けて12時間ごと。割ったり砕いたりしない：8.1）。
-  { code: "ORAL-OXC5", name: "オキシコドン塩酸塩徐放錠", strength: "5mg", unit: "錠", aliases: ["オキシコンチン", "オキシコンチンTR", "オキシコドン徐放", "オキシコドン"], mg: 5, classes: ["オピオイド"] },
+  { code: "ORAL-OXC5", name: "オキシコンチンTR錠5mg", strength: "5mg", unit: "錠", aliases: ["オキシコンチン", "オキシコンチンTR", "オキシコドン徐放", "オキシコドン"], mg: 5, classes: ["オピオイド"] },
   ...MORE_ORAL_DRUGS,
 ];
 

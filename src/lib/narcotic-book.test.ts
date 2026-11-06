@@ -25,7 +25,7 @@ import {
   type NarcoticBook,
   type UseSlip,
 } from "./narcotic-book";
-import type { OrderEntry } from "./types";
+import type { OrderEntry, PrescriptionOrder } from "./types";
 
 let n = 0;
 const id = () => `t${++n}`;
@@ -157,4 +157,17 @@ describe("事故届（模擬）", () => {
     expect(t).toContain("数量：2錠");
     expect(t).toContain("警察署");
   });
+});
+
+it("オキシコドン6錠の払出は重ねて押しても帳簿1件・6錠だけ", () => {
+  const entry: OrderEntry = { ...oxyEntry, order: { ...(oxyEntry.order as PrescriptionOrder), days: 3 } };
+  const signed = { ...INITIAL_BOOK, signed: { [entry.id]: { by: MGR, at: NOW } } };
+  const first = dispenseOral(signed, entry, "p1", MGR, NOW, "患者", id);
+  const second = dispenseOral(first, entry, "p1", MGR, NOW, "患者", id);
+  expect(second).toBe(first);
+  const rows = second.ledger.filter((e) => e.kind === "払出" && e.orderId === entry.id);
+  expect(rows).toHaveLength(1);
+  expect(rows.reduce((n, e) => n - e.qty, 0)).toBe(6);
+  expect(balance(signed.ledger, "ORAL-OXC5") - balance(second.ledger, "ORAL-OXC5")).toBe(6);
+  expect(dispenseOral(INITIAL_BOOK, entry, "p1", MGR, NOW, "患者", id)).toBe(INITIAL_BOOK);
 });

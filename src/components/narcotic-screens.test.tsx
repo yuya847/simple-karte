@@ -44,7 +44,8 @@ describe("麻薬の画面", () => {
     );
     expect(html).toContain("院内麻薬注射せん");
     expect(html).toContain("院内麻薬処方せん");
-    expect(html).toContain("第 1-04127 号");
+    expect(html).not.toContain("法 第27条第6項");
+    expect(html).not.toContain("院内の調剤所で調剤するため省略");
     expect(html).toContain("1回1錠 × 2回 × 7日 ＝ 14錠");
     expect(html).toContain("麻薬帳簿（受払簿）");
     expect(html).toContain("前帳簿から繰越し");

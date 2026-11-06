@@ -62,7 +62,7 @@ export const MORE_DRUGS: DrugMaster[] = ADOPTED_INJECTIONS.map((r) => {
 });
 // Oral cytotoxic/immunomodulatory cancer drugs remain in the formulary only until an oral regimen workflow exists.
 export const MORE_ORAL_DRUGS: OralDrugMaster[] = ADOPTED_ORAL.filter((r) => !isChemo(r)).map((r) => ({
-  code: r[0], name: normal(r[1]).trim(), strength: normal(r[1]).match(/\d+(?:\.\d+)?(?:mg|μg|%)/)?.[0] ?? r[2],
+  code: r[0], name: normal(r[1]).trim(), strength: r[0] === "620008047" ? "0.5g/瓶" : normal(r[1]).match(/\d+(?:\.\d+)?(?:mg|μg|%)/)?.[0] ?? r[2],
   unit: r[0] === "620008047" ? "g" : unitOf(r) as OralDrugMaster["unit"],
   ...(r[0] === "620008047" ? { billingUnitsPerDoseUnit: 2 } : {}),
   scored: false, aliases: adoptedAliases(r),

@@ -51,14 +51,26 @@ export function labName(code: string): string {
   return raw.replace(/（[^（）]*。[^（）]*）/g, "").trim();
 }
 
+/** Dose as package count when mass and package strength use compatible units. */
+export function injectionItemText(it: { drugCode: string; amount: number; unit: string }): string {
+  const d = findDrug(it.drugCode);
+  const st = d?.strength;
+  const mass = (v: number, u: string) => u === "mg" ? v / 1000 : v;
+  if (d && st && ["g", "mg"].includes(it.unit) && ["g", "mg"].includes(st.unit)) {
+    const count = mass(it.amount, it.unit) / mass(st.amount, st.unit);
+    return `${d.name}　${d.package} × ${Number(count.toFixed(3))}${st.per}`;
+  }
+  return `${drugName(it.drugCode)}　${it.amount}${it.unit}`;
+}
+
 export function injectionLines(order: InjectionOrder, today: CalendarDate): { main: string; detail: string } {
-  const main = order.items.map((it) => `${drugName(it.drugCode)}　${order.sliding ? "スケール" : `${it.amount}${it.unit}`}`).join(" ＋ ");
+  const main = order.items.map((it) => order.sliding ? `${drugName(it.drugCode)}　スケール` : injectionItemText(it)).join(" ＋ ");
   const parts = [order.route, scheduleTextFor(order)];
   if (order.minutesPerDose) parts.push(`1回${durationText(order.minutesPerDose)}`);
   if (order.rateMlPerH) parts.push(`${order.rateMlPerH}mL/時`);
   const start = formatShort(addDays(today, order.start.day));
   parts.push(`開始 ${start}${order.start.time ? ` ${order.start.time}` : ""}`);
-  parts.push(patternCourse(order.dayPattern, order.start.day, order.days, false, today));
+  if (order.schedule.kind !== "once") parts.push(patternCourse(order.dayPattern, order.start.day, order.days, false, today));
   if (order.comment) parts.push(order.comment);
   return { main, detail: parts.join("　") };
 }
@@ -99,7 +111,7 @@ export function labLines(order: LabOrder, today: CalendarDate): { main: string; 
 
 export function oralName(code: string): string {
   const d = findOralDrug(code);
-  return d ? `${d.name} ${d.strength}` : code;
+  return d ? `${d.name}${d.name.includes(d.strength) ? "" : ` ${d.strength}`}` : code;
 }
 
 /** "1日2回 朝・夕" or "頓用 発熱時（38.5℃以上） 1日3回まで" */

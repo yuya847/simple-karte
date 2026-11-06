@@ -8,7 +8,7 @@ const items = formulary();
 
 describe("院内医薬品集", () => {
   it("has every master drug once, each with a PMDA link", () => {
-    expect(items.length).toBe(DRUGS.filter(d => !d.fictional).length + ORAL_DRUGS.length + TOPICAL_DRUGS.length + FORMULARY_ONLY_ORAL.length);
+    expect(items.length).toBe(DRUGS.filter(d => !d.fictional && !/\(OK\)/.test(d.name)).length + ORAL_DRUGS.length + TOPICAL_DRUGS.length + FORMULARY_ONLY_ORAL.length);
     expect(new Set(items.map((x) => x.code)).size).toBe(items.length);
     expect(items.filter(x => x.cls.doc).every((x) => x.url.startsWith("https://www.pmda.go.jp/PmdaSearch/iyakuDetail/"))).toBe(true);
   });
@@ -59,4 +59,13 @@ describe("DI のお知らせ", () => {
     expect(diProblems({ title: "", body: "", drugs: [] })).toEqual(["題名", "本文", "対象の薬"]);
     expect(diProblems({ title: "a", body: "b", drugs: ["ORAL-AMLO5"] })).toEqual([]);
   });
+});
+
+it("KCL注10mEqにもハイリスクを付け、確認用のVCM重複を表示しない", () => {
+  const kcl = items.find((x) => /KCL.*10mEq/.test(x.name))!;
+  expect(kcl).toBeDefined();
+  expect(kcl.cls.b008?.group).toBe("カリウム製剤（注射薬に限る。）");
+  expect(items.some((x) => /バンコマイシン.*\(OK\)/.test(x.name))).toBe(false);
+  expect(items.find((x) => x.code === "620008047")?.spec).toBe("0.5g／瓶");
+  expect(items.find((x) => x.code === "INJ-NS500")?.cls.generic).toContain("生理食塩液");
 });

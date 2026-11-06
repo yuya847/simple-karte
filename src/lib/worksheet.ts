@@ -1,3 +1,4 @@
+import { injectionItemText } from "./format";
 import { patternDay, patternText } from "./day-pattern";
 // The ward worksheet: what each nurse does in a shift, gathered from the orders by code.
 // Nothing here is decided by AI. Times come from the orders and the ward's rules.
@@ -106,7 +107,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
       const o = e.order;
       if (o.type === "injection") {
         if (!live(e, lo, hi, nowAbs, orderInterval)) continue;
-        const main = o.items.map((it) => `${drugName(it.drugCode)} ${o.sliding ? "スケール" : `${it.amount}${it.unit}`}`).join(" ＋ ");
+        const main = o.items.map((it) => o.sliding ? `${drugName(it.drugCode)} スケール` : injectionItemText(it)).join(" ＋ ");
         const parts = [o.route, scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);
@@ -120,10 +121,10 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
           // Bag changes use the same prescribed or default times as the calendar.
           const vol = doseVolumeMl(o.items);
           if (Array.from({ length: Math.max(0, Math.ceil(hi / 1440) - Math.floor(lo / 1440)) }, (_, i) => Math.floor(lo / 1440) + i).some((day) => patternDay(o.dayPattern, o.start.day, day))) running.push({ ...base, kind: "注射", main, detail: `${detail}${vol ? `　1本 ${vol}mL` : ""}`, orderId: e.id });
-          let n = 0;
-          for (const t of doseTimes(e, nowAbs, lo, hi)) {
-            n++;
-            if (t >= lo) timed.push({ ...base, at: t, kind: "注射", main: `${main}（${n}本目）`, detail: "つなぎ替え", orderId: e.id, state: state(t) });
+          const scheduled = doseTimes(e, nowAbs, orderInterval(e, nowAbs).from, hi);
+          for (const [index, t] of scheduled.entries()) {
+            const n = index + 1;
+            if (t >= lo) timed.push({ ...base, at: t, kind: "注射", main: `${main}（${n}本目）`, detail: index === 0 ? "開始" : "つなぎ替え", orderId: e.id, state: state(t) });
           }
         } else {
           untimed.push({ ...base, at: null, kind: "注射", main, detail: `${detail}（時刻の指定なし）`, orderId: e.id, state: null });

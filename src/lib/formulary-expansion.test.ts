@@ -12,10 +12,10 @@ import { doseOf } from "./narcotic-book";
 
 const items = formulary();
 describe("総合病院の採用薬", () => {
-  it("内服600・実在注射400・外用150以上を重複なしで収載する", () => {
+  it("内服600・重複整理後の実在注射399・外用150以上を重複なしで収載する", () => {
     const counts = Object.fromEntries(["内服", "注射", "外用"].map(route => [route, items.filter(d => d.route === route).length]));
     expect(counts.内服).toBeGreaterThanOrEqual(600);
-    expect(counts.注射).toBeGreaterThanOrEqual(400);
+    expect(counts.注射).toBeGreaterThanOrEqual(399);
     expect(counts.外用).toBeGreaterThanOrEqual(150);
     expect(new Set(items.map(d => d.code)).size).toBe(items.length);
   });

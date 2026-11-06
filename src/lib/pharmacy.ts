@@ -99,7 +99,7 @@ export function dispenseBlock(orderId: string, people: { entries: OrderEntry[] }
   const e = x?.entries.find((y) => y.id === orderId);
   const q = queries.find((y) => y.orderId === orderId && queryOpen(y, x?.entries ?? []));
   if (q) return `疑義照会の回答待ちです（${q.question}）。回答のあとで払い出してください。`;
-  if (e && abs(e.day, e.time) >= -1440 && !audited[orderId]) return "まだ監査していません。「処方監査・疑義照会」で監査してから払い出してください。";
+  if (e && abs(e.day, e.time) >= -1440 && !audited[orderId]) return "まだ監査していません。";
   return null;
 }
 

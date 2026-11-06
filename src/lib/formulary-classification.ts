@@ -1,3 +1,4 @@
+import { ADOPTED_INJECTIONS } from "./formulary-items";
 import { ADOPTED_ROWS } from "./formulary-expansion";
 import type { B008Group, DrugClass, Kisei } from "./drug-class";
 
@@ -24,7 +25,7 @@ export const ADOPTED_CLASSES: Record<string, DrugClass> = Object.fromEntries(ADO
   const p = r[4].slice(0, 3);
   // 項番14の仕様：1麻薬、2毒薬、5向精神薬。劇薬・処方箋・生物由来はこの項番からは判断しない。
   const kisei: Kisei[] = r[6] === "1" ? ["麻薬"] : r[6] === "2" ? ["毒薬"] : r[6] === "5" ? ["向精神薬"] : [];
-  const group = highRisk[p] ?? (r[4].startsWith("2492") ? "膵臓ホルモン剤" : undefined);
+  const group = ADOPTED_INJECTIONS.some((injection) => injection[0] === r[0]) && /KCL|塩化カリウム|リン酸二カリウム|補正用.*カリウム/.test(r[1].normalize("NFKC")) && /注|液/.test(r[1]) ? "カリウム製剤（注射薬に限る。）" : highRisk[p] ?? (r[4].startsWith("2492") ? "膵臓ホルモン剤" : undefined);
   return [r[0], { kisei, yakko: therapeutic[p] ?? "", bunrui: "", generic: r[5].replace("【般】", ""), product: r[1],
     classificationSource: "医薬品マスター：薬価基準収載医薬品コードの薬効分類・項番14（劇薬・処方箋・生物由来の区分は未確認）",
     ...(group ? { b008: { group, why: `薬価基準コード ${r[4]} の分類（B008の対象薬剤一覧との個別照合は未実施）` } } : {}),

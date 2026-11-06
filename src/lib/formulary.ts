@@ -8,7 +8,8 @@ import { TOPICAL_DRUGS, FORMULARY_ONLY_ORAL, ADOPTION_SOURCE } from "./formulary
 import { DRUG_CLASSES, docOf, docUrl, marksOf, type DrugClass } from "./drug-class";
 import { csvOf } from "./extract";
 import { kanaMatch } from "./kana";
-import { DRUGS, ORAL_DRUGS } from "./master";
+import { ADOPTED_ROWS } from "./formulary-expansion";
+import { DRUGS, ORAL_DRUGS, ingredientOf } from "./master";
 import { isExpired, type Notice, type Reads } from "./board";
 
 /** 採用区分 of the fictional hospital (架空の病院の取り決め). */
@@ -44,7 +45,7 @@ export function formulary(): FormularyItem[] {
   for (const d of ORAL_DRUGS) {
     const cls = DRUG_CLASSES[d.code];
     if (!cls) continue;
-    out.push({ code: d.code, route: "内服", name: d.name, spec: `${d.strength}／${d.unit}`, aliases: d.aliases, cls, adoption: cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: cls.doc ? docUrl(cls.doc) : ADOPTION_SOURCE.url, revision: cls.doc ? docOf(cls.doc).revision : cls.classificationSource ?? "医薬品マスター" });
+    out.push({ code: d.code, route: "内服", name: d.name, spec: d.strength.includes("/") ? d.strength.replace("/", "／") : `${d.strength}／${d.unit}`, aliases: d.aliases, cls, adoption: cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: cls.doc ? docUrl(cls.doc) : ADOPTION_SOURCE.url, revision: cls.doc ? docOf(cls.doc).revision : cls.classificationSource ?? "医薬品マスター" });
   }
   for (const [route, drugs] of [["外用", TOPICAL_DRUGS], ["内服", FORMULARY_ONLY_ORAL]] as const) {
     for (const d of drugs) {
@@ -52,7 +53,8 @@ export function formulary(): FormularyItem[] {
       out.push({ ...d, route, cls, adoption: route === "内服" ? "採用（レジメン限定）" : cls.kisei.includes("麻薬") ? "採用（麻薬）" : "採用", url: ADOPTION_SOURCE.url, revision: cls.classificationSource ?? "医薬品マスター" });
     }
   }
-  return out;
+  const rows = new Map(ADOPTED_ROWS.map((r) => [r[0], r]));
+  return out.filter((x) => !/\(OK\)/.test(x.name)).map((x) => ({ ...x, name: x.code === "620008047" ? x.name.normalize("NFKC").replace(/\s+500mg$/, "") : x.name.normalize("NFKC"), cls: { ...x.cls, generic: (x.cls.generic || rows.get(x.code)?.[5]?.replace("【般】", "") || DRUGS.find((d) => d.code === x.code)?.generic || ingredientOf(x.code) || "").normalize("NFKC") } }));
 }
 
 export type KiseiFilter = "" | "麻薬" | "毒薬" | "劇薬" | "ハイリスク" | "処方箋医薬品以外";

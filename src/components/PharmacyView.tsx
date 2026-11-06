@@ -9,6 +9,8 @@ import { bagLine, bagsOf } from "@/lib/discharge-rx";
 import { DRUG_INFO_SOURCE, drugInfoOf } from "@/lib/drug-info";
 import { labelFor } from "@/lib/mar";
 import { txText } from "@/lib/procedures";
+import { estimatedCcr } from "@/lib/clinical";
+import { latestCre } from "@/lib/exams";
 import { ageSex } from "@/lib/person";
 import type { OrderEntry } from "@/lib/types";
 import { TdmView } from "./TdmView";
@@ -129,9 +131,9 @@ export function PharmacyView(props: PharmacyProps) {
           {tab === "dispense" && <Dispense {...p} />}
           {tab === "oral" && <Oral {...p} />}
           {tab === "home" && <Home {...p} />}
-          {tab === "narcotic" && <NarcoticDesk people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} blockOf={(id) => dispenseBlock(id, p.people, p.queries, p.audited)} />}
+          {tab === "narcotic" && <NarcoticDesk people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} today={p.today} nowTime={p.nowTime} book={p.narcBook} onBook={p.onNarcBook} newId={p.newId} onAudit={p.onAudit} blockOf={(id) => dispenseBlock(id, p.people, p.queries, p.audited)} />}
           {tab === "blood" && <Blood {...p} />}
-          {tab === "tdm" && <TdmView people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
+          {tab === "tdm" && <TdmView today={p.today} people={p.patientId ? p.people.filter((x) => x.patient.id === p.patientId) : p.people} nowTime={p.nowTime} reports={p.tdm} onReport={p.onTdm} />}
           {tab === "journal" && <Journal {...p} />}
         </div>
       </div>
@@ -145,12 +147,14 @@ const card = "rounded-lg border border-rule bg-sheet";
 
 function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: PharmacyProps) {
   const nowAbs = abs(0, nowTime);
-  const items = auditItems(people, -1440, nowAbs);
+  const [onlyPending, setOnlyPending] = useState(false);
+  const items = auditItems(people, -1440, nowAbs).filter((it) => !onlyPending || !audited[it.entry.id]);
   const [asking, setAsking] = useState<string | null>(null);
   const [text, setText] = useState("");
   return (
     <section className="space-y-2">
-      {items.length === 0 && <p className="text-ink-faint">新しいオーダはありません。</p>}
+      <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} />未監査だけ</label>
+      {items.length === 0 && <p className="text-ink-faint">{onlyPending ? "未監査のオーダはありません。" : "新しいオーダはありません。"}</p>}
       {/* One card per prescription (same patient, time and doctor): the drugs of one order are read together. */}
       {groupBy(items, (it) => `${it.patient.id}|${it.entry.day}|${it.entry.time}|${it.entry.author}`).map((group) => {
         const head = group[0];
@@ -164,7 +168,7 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pha
               <b>
                 {head.room}　{head.patient.name}
               </b>
-              {head.patient.allergies.length > 0 && <span className="text-xs font-bold text-shu">アレルギー：{head.patient.allergies.join("、")}</span>}
+              <span className="text-xs text-ink-soft">{head.patient.age}歳　{head.patient.weightKg}kg　推定CCr {estimatedCcr(head.patient, latestCre(head.patient)?.value)?.toFixed(0) ?? "—"} mL/分　アレルギー：{head.patient.allergies.join("、") || "なし"}</span>
               {(() => {
                 const rest = group.filter((g) => !audited[g.entry.id] && !queries.some((q) => q.orderId === g.entry.id && q.status === "回答待ち"));
                 return rest.length > 1 ? (
@@ -419,7 +423,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
                     <td className="py-1.5">
                       1回{r.amount ?? "？"}
                       {r.unit}　{r.usage ?? (r.timings.length ? `1日${r.timings.length}回 ${r.timings.join("・")}` : `頓用 ${r.prn ?? ""}`)}
-                      {r.daysLeft ? `　${r.daysLeft}日分` : ""}
+                      {r.daysLeft && !r.usage?.includes(`${r.daysLeft}日分`) ? `　${r.daysLeft}日分` : ""}
                     </td>
                     <td className="py-1.5">
                       {r.match ? (
@@ -519,7 +523,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
           </ul>
         </div>
       )}
-      <p className="text-[11px] text-ink-faint">今の時刻 {nowTime}。</p>
+
       {printing && typeof document !== "undefined" && createPortal(<div className="hidden bg-white p-[8mm] print:block">{printing}</div>, document.body)}
     </section>
   );
@@ -533,7 +537,7 @@ function Shido({ people, today, shido, onShido, reports, patientId }: PharmacyPr
 
 // ---------------------------------------------------------------------------
 
-function Dispense({ people, today, nowTime, dispensed, onDispense, audited, queries }: PharmacyProps) {
+function Dispense({ people, today, nowTime, dispensed, onDispense, audited, queries, onAudit }: PharmacyProps) {
   // Before dispensing: no open 疑義照会, and audited when written since yesterday (pharmacy.ts dispenseBlock).
   const blockOf = (orderId: string): string | null => dispenseBlock(orderId, people, queries, audited);
   // 明日分 (the usual daily dispensing) or 今日 (臨時・追加: every dose of today, past ones included, so that
@@ -646,6 +650,7 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
                   {blockOf(d.orderId) && !dispensed[key] ? (
                     <span className="max-w-56 text-[11px] font-bold text-shu" title={blockOf(d.orderId)!}>
                       {blockOf(d.orderId)!.startsWith("疑義") ? "疑義照会の回答待ち" : "未監査"}
+                      {blockOf(d.orderId)!.startsWith("まだ監査") && <button type="button" onClick={() => onAudit(d.orderId)} className="ml-2 text-ai underline">監査済にする</button>}
                     </span>
                   ) : dispensed[key] ? (
                     <span className="flex items-center gap-0.5 text-xs text-wakatake">
@@ -657,10 +662,10 @@ function Dispense({ people, today, nowTime, dispensed, onDispense, audited, quer
                       type="button"
                       onClick={() => {
                         auditLog({ role: "薬剤師", actor: PHARMACIST, action: "払い出した（ラベルを読まずに）", patient: x.patient.name, detail: `${d.main}　${timeLabel(d.at!, -99, today)}` });
-                        onDispense(key);
+                        if (!blockOf(d.orderId) && !dispensed[key]) onDispense(key);
                       }}
                       title="鑑査の欄でラベルを読むと、ここが自動で付きます" className="rounded border border-ai px-2 py-0.5 text-xs text-ai hover:bg-ai hover:text-white">
-                      払い出した
+                      払い出す
                     </button>
                   )}
                 </li>
@@ -702,7 +707,7 @@ function PacketLabel({ x, pack, date }: { x: OralPatient; pack: Packet; date: st
       <ul className="nums mt-0.5">
         {pack.drugs.map((d, i) => (
           <li key={i}>
-            {d.name} {d.strength}　<b>{d.per}{d.unit}</b>
+            {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}　<b>{d.per}{d.unit}</b>
           </li>
         ))}
       </ul>
@@ -711,7 +716,7 @@ function PacketLabel({ x, pack, date }: { x: OralPatient; pack: Packet; date: st
   );
 }
 
-function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: PharmacyProps) {
+function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx, onAudit }: PharmacyProps) {
   const [mode, setMode] = useState<"定期" | "臨時">("定期");
   const [days, setDays] = useState(7);
   const [checker, setChecker] = useState(PHARMACIST);
@@ -720,11 +725,12 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Ph
   const list = oralToDispense(people, mode === "定期" ? { kind: "定期", days } : { kind: "臨時" }, nowAbs).filter((x) => x.rps.length);
   const date = formatShort(today).replace(/（.）/, "");
   const day = (d: DayOffset) => formatShort(addDays(today, d));
-  const blockOf = (rp: OralRp) => rp.orderIds.map((id) => dispenseBlock(id, people, queries, audited)).find((b) => b) ?? null;
+  const blockOf = (rp: OralRp) => rp.lines.some((l) => isNarcotic(l.code)) ? "麻薬の画面で払出" : rp.orderIds.map((id) => dispenseBlock(id, people, queries, audited)).find((b) => b) ?? null;
   const fresh = (rp: OralRp) => !!oralRx[oralKey(rp)]?.prepared && oralRx[oralKey(rp)]?.qty === qtyText(rp);
   const done = (rp: OralRp, s: OralStepName) => fresh(rp) && !!oralRx[oralKey(rp)]?.[s];
   const act = (x: OralPatient, rp: OralRp, step: OralStepName) => {
     const key = oralKey(rp);
+    if (stepBlock(step, oralRx[key], rp, blockOf(rp))) return;
     const by = step === "checked" ? checker : PHARMACIST;
     onOralRx(key, recordStep(oralRx[key], step, rp, { by, at: `${date} ${nowTime}` }));
     auditLog({ role: "薬剤師", actor: by, action: `内服を${STEP_LABEL[step]}した`, patient: x.patient.name, detail: `${rp.category}　${rp.lines.map((l) => `${l.name} ${l.total}${l.unit}`).join("・")}` });
@@ -838,7 +844,7 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Ph
                       </div>
                       {rp.lines.map((l) => (
                         <div key={l.orderId} className="nums">
-                          {l.name} {l.strength}
+                          {l.name}{l.name.includes(l.strength) ? "" : ` ${l.strength}`}
                           <DrugMarks codes={[l.code]} />　<span className="text-xs text-ink-soft">{qtyFormula(l, rp.timings.length)}</span>　<b>計 {l.total}{l.unit}</b>
                         </div>
                       ))}
@@ -846,7 +852,8 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Ph
                         処方 {day(rp.writtenAt.day)} {rp.writtenAt.time}　{displayText(rp.doctor)}
                       </div>
                       {rp.unbounded && <div className="text-[11px] font-bold text-shu">日数の指定がないので、量を数えられません。医師に日数を確かめてください。</div>}
-                      {block && <div className="text-[11px] font-bold text-shu">{block}</div>}
+                      {block && block !== "麻薬の画面で払出" && <div className="text-[11px] font-bold text-shu">{block}</div>}
+                      {rp.orderIds.filter((id) => dispenseBlock(id, people, queries, audited)?.startsWith("まだ監査")).map((id) => <button key={id} type="button" onClick={() => onAudit(id)} className="mr-2 text-xs text-ai underline">監査済にする</button>)}
                       {stale && (
                         <div className="text-[11px] font-bold text-yamabuki">
                           調剤（{rec!.prepared!.at} {displayText(rec!.prepared!.by)}）のあとで処方が変わりました。調剤し直してください。
@@ -855,7 +862,7 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Ph
                       {!stale && sameHands(rec) && <div className="text-[11px] text-yamabuki">調剤した人と同じ薬剤師が鑑査しました（1人で行った記録）。</div>}
                     </div>
                     <div className="flex gap-1.5">
-                      {STEPS.map((s, j) => {
+                      {rp.lines.some((l) => isNarcotic(l.code)) ? <button type="button" disabled className="rounded border border-rule px-2 py-1 text-xs text-ink-soft">麻薬の画面で払出</button> : STEPS.map((s, j) => {
                         const why = stepBlock(s, rec, rp, block);
                         const d = done(rp, s) ? rec![s]! : null;
                         return (
@@ -874,6 +881,7 @@ function Oral({ people, today, nowTime, audited, queries, oralRx, onOralRx }: Ph
                                 {s === "prepared" && stale ? "調剤し直した" : `${STEP_LABEL[s]}した`}
                               </button>
                             )}
+                            {why && !d && <span className="text-[10px] text-ink-soft">{why}</span>}
                           </div>
                         );
                       })}
@@ -919,7 +927,7 @@ function Blood({ people, today, txIssued }: PharmacyProps) {
                 払出 {done.at}　製造番号 {done.lot}（{displayText(done.by)}）
               </span>
             ) : (
-              <span className="ml-auto text-xs text-ink-soft">まだ払い出していません（払出は検査室の輸血部門が、割付と交差適合試験のあとに行います）</span>
+              <span className="ml-auto text-xs text-ink-soft">まだ払い出していません</span>
             )}
           </article>
         );
@@ -1015,7 +1023,7 @@ export interface HomeRxRecord {
   care?: Record<string, string[]>;
 }
 
-function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx }: PharmacyProps) {
+function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx, queries, audited, onAudit }: PharmacyProps) {
   const [printing, setPrinting] = useState<React.ReactNode | null>(null);
   const [note, setNote] = useState<Record<string, string>>({});
   const date = formatShort(today).replace(/（.）/, "");
@@ -1035,6 +1043,8 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
     <section className="space-y-4">
       {list.map(({ x, bags }) => {
         const rec = homeRx[x.patient.id] ?? {};
+        const pending = x.entries.filter((e) => e.status === "有効" && e.order.type === "prescription" && e.order.category === "退院時").map((e) => ({ id: e.id, block: dispenseBlock(e.id, [...people, ...dischargedPeople], queries, audited) })).filter((e) => e.block);
+        const block = pending[0]?.block;
         const hp = { id: x.patient.id, name: x.patient.name, kana: x.patient.kana, ageSex: ageSex(x.patient), allergies: x.patient.allergies };
         const care = (code: string) => rec.care?.[code] ?? drugInfoOf(code).care;
         const by = { dispensed: rec.dispensed?.by.replace("薬剤師 ", ""), checked: rec.checked?.by.replace("薬剤師 ", "") };
@@ -1073,14 +1083,16 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
               ))}
             </ol>
             <div className="flex flex-wrap gap-2">
-              {step("①調剤", rec.dispensed, true, () => {
+              {step("①調剤", rec.dispensed, !block, () => {
+                if (block) return;
                 auditLog({ role: "薬剤師", actor: PHARMACIST, action: "退院時処方を調剤した", patient: x.patient.name });
                 onHomeRx(x.patient.id, { dispensed: { by: PHARMACIST, at: `${date} ${nowTime}` } });
-              })}
+              }, block ?? undefined)}
+              {pending.filter((e) => e.block?.startsWith("まだ監査")).map((e) => <button key={e.id} type="button" onClick={() => onAudit(e.id)} className="text-xs text-ai underline">監査済にする</button>)}
               {step(
                 "②鑑査",
                 rec.checked,
-                !!rec.dispensed,
+                !!rec.dispensed && !block,
                 () => {
                   auditLog({ role: "薬剤師", actor: PHARMACIST, action: "退院時処方を鑑査した", patient: x.patient.name });
                   onHomeRx(x.patient.id, { checked: { by: PHARMACIST, at: `${date} ${nowTime}` } });
@@ -1099,7 +1111,7 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
                     <input value={note[x.patient.id] ?? ""} onChange={(e) => setNote((m) => ({ ...m, [x.patient.id]: e.target.value }))} placeholder="誰に・何を説明したか（例：本人と長女に。ふらつき時は連絡）" aria-label="説明の記録" className="rounded border border-rule bg-paper px-2 py-0.5 text-xs" />
                     <button
                       type="button"
-                      disabled={!rec.checked || !(note[x.patient.id] ?? "").trim()}
+                      disabled={!!block || !rec.checked || !(note[x.patient.id] ?? "").trim()}
                       onClick={() => {
                         auditLog({ role: "薬剤師", actor: PHARMACIST, action: "退院時の薬を説明して渡した", patient: x.patient.name, detail: note[x.patient.id] });
                         onHomeRx(x.patient.id, { handed: { by: PHARMACIST, at: `${date} ${nowTime}`, note: note[x.patient.id].trim() } });
@@ -1133,7 +1145,7 @@ function Home({ people, dischargedPeople = [], today, nowTime, homeRx, onHomeRx 
                   b.drugs.map((d) => (
                     <label key={`${b.rp}-${d.code}`} className="block text-xs">
                       <b>
-                        {d.name} {d.strength}
+                        {d.name}{d.name.includes(d.strength) ? "" : ` ${d.strength}`}
                       </b>
                       <span className="ml-1 text-ink-soft">{d.info.what}</span>
                       <textarea

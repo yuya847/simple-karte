@@ -195,7 +195,7 @@ function NoticeDetail({ notice: n, readers, today, staff, reminded, onRemind }: 
           （「医薬品集・DI」で薬ごとに見られます）
         </p>
       )}
-      {n.source && (
+      {n.source && n.from !== "薬剤部" && (
         <p className="mt-4 border-t border-rule-soft pt-2 text-[11px] text-ink-soft">
           出典：<Linkified text={n.source} />
         </p>
