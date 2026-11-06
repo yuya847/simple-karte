@@ -22,7 +22,7 @@ import { recordBrought } from "@/lib/narcotic-book";
 import type { NarcoticBook } from "@/lib/narcotic-book";
 import { drugCodesOf } from "@/lib/drug-class";
 import { SourceLinks } from "./DraftCard";
-import { orderInteractions } from "@/lib/interactions";
+import { type InteractionFinding, orderInteractions } from "@/lib/interactions";
 import type { TdmReport } from "@/lib/tdm";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -141,7 +141,6 @@ export function PharmacyView(p: Props) {
             使い方：{TABS.find((t) => t.key === tab)?.label}
           </p>
           <p className="text-ink">{GUIDE.find((g) => g.tab === tab)?.steps}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">薬剤師として操作するには、右上の「自分」で「薬剤師」を選びます（デモではログインの代わり）。医師の側（疑義照会の回答・持参薬の指示・TDM の報告）は、医師でカルテを開くと右上に出ます。</p>
         </div>
       )}
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
@@ -173,24 +172,42 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
   const [text, setText] = useState("");
   return (
     <section className="space-y-2">
-      <p className="text-xs text-ink-soft">
-        昨日と今日に出た注射・内服のオーダです。重複と、院内の薬の組み合わせのうち電子添文で確かめた併用禁忌・併用注意・配合（同じ Rp の中だけ。ほかの Rp の側管は調べていません）はコードが調べます。表にない組み合わせは「問題なし」ではありません。飲み合わせ・量・腎機能の判断は薬剤師が行い、疑問は医師に照会します（医師はカルテの右上で答えます）。
-      </p>
       {items.length === 0 && <p className="text-ink-faint">新しいオーダはありません。</p>}
-      {items.map((it) => {
+      {/* One card per prescription (same patient, time and doctor): the drugs of one order are read together. */}
+      {groupBy(items, (it) => `${it.patient.id}|${it.entry.day}|${it.entry.time}|${it.entry.author}`).map((group) => {
+        const head = group[0];
+        const entries = people.find((x) => x.patient.id === head.patient.id)?.entries ?? [];
+        return (
+          <article key={head.entry.id} className={`${card} divide-y divide-rule-soft px-4 py-1.5 text-[13px]`}>
+            <div className="flex flex-wrap items-baseline gap-2 py-1">
+              <span className="text-xs text-ink-faint">
+                {formatShort(addDays(today, head.entry.day))} {head.entry.time}　{displayText(head.entry.author)}
+              </span>
+              <b>
+                {head.room}　{head.patient.name}
+              </b>
+              {head.patient.allergies.length > 0 && <span className="text-xs font-bold text-shu">アレルギー：{head.patient.allergies.join("、")}</span>}
+              {(() => {
+                const rest = group.filter((g) => !audited[g.entry.id] && !queries.some((q) => q.orderId === g.entry.id && q.status === "回答待ち"));
+                return rest.length > 1 ? (
+                  <button type="button" onClick={() => rest.forEach((g) => onAudit(g.entry.id))} className="ml-auto rounded border border-wakatake px-2 py-0.5 text-xs text-wakatake hover:bg-wakatake hover:text-white">
+                    まとめて監査済にする（{rest.length}）
+                  </button>
+                ) : null;
+              })()}
+            </div>
+            {group.map((it) => {
         const { main, detail } = orderLines(it.entry.order, today);
         const qs = queries.filter((q) => q.orderId === it.entry.id);
         const open = qs.find((q) => queryOpen(q, people.find((x) => x.patient.id === it.patient.id)?.entries ?? []));
         const changed = !open && qs.some((q) => q.status === "変更");
         return (
-          <article key={it.entry.id} className={`${card} px-4 py-2.5 text-[13px]`}>
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="text-xs text-ink-faint">
-                {formatShort(addDays(today, it.entry.day))} {it.entry.time}　{displayText(it.entry.author)}
-              </span>
-              <b>
-                {it.room}　{it.patient.name}
-              </b>
+          <div key={it.entry.id} className="py-1.5">
+            <div className="flex flex-wrap items-start gap-2">
+            <div className={`min-w-0 flex-1 ${it.entry.status === "中止" ? "text-ink-faint line-through" : "font-bold"}`}>
+              {main}
+              <DrugMarks codes={drugCodesOf(it.entry.order)} />
+            </div>
               <span className="ml-auto flex items-center gap-2 text-xs">
                 {open ? (
                   <span className="rounded bg-yamabuki-soft px-1.5 py-0.5 font-bold text-yamabuki">疑義照会 {open.status === "回答待ち" ? "回答待ち" : "変更待ち（前のオーダが有効）"}</span>
@@ -213,12 +230,8 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
                 )}
               </span>
             </div>
-            <div className={it.entry.status === "中止" ? "text-ink-faint line-through" : "font-bold"}>
-              {main}
-              <DrugMarks codes={drugCodesOf(it.entry.order)} />
-            </div>
             <div className="text-xs text-ink-soft">{displayText(detail)}</div>
-            {it.checks.map((c) => (
+            {it.checks.filter((c) => !c.text.startsWith("アレルギー：")).map((c) => (
               <div key={c.text} className={`mt-1 text-xs ${c.level === "ask" ? "font-bold text-yamabuki" : "text-ink-soft"}`}>
                 {c.level === "ask" ? "確認　" : ""}
                 {displayText(c.text)}
@@ -226,7 +239,9 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
             ))}
             <AuditInteractions
               entry={it.entry}
-              entries={people.find((x) => x.patient.id === it.patient.id)?.entries ?? []}
+              entries={entries}
+              // A pair inside this card is shown once, under the first drug of the pair.
+              skip={(f) => group.some((g) => g.entry.id !== it.entry.id && group.indexOf(g) < group.indexOf(it) && drugCodesOf(g.entry.order).includes(f.other.code))}
               canAsk={!open && !audited[it.entry.id]}
               onAsk={(t) => {
                 setAsking(it.entry.id);
@@ -261,11 +276,20 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
                 </button>
               </div>
             )}
+          </div>
+        );
+      })}
           </article>
         );
       })}
     </section>
   );
+}
+
+function groupBy<T>(xs: T[], key: (x: T) => string): T[][] {
+  const m = new Map<string, T[]>();
+  for (const x of xs) m.set(key(x), [...(m.get(key(x)) ?? []), x]);
+  return [...m.values()];
 }
 
 // ---------------------------------------------------------------------------
@@ -274,8 +298,8 @@ function Audit({ people, today, nowTime, audited, onAudit, queries, onAsk }: Pro
  * 併用禁忌・併用注意・配合 of a confirmed order against the patient's other running orders (code, from the
  * 電子添文), with the doctor's reason when one was entered. The pharmacist decides whether to ask the doctor.
  */
-function AuditInteractions({ entry, entries, canAsk, onAsk }: { entry: OrderEntry; entries: OrderEntry[]; canAsk: boolean; onAsk: (text: string) => void }) {
-  const found = orderInteractions(entry, entries);
+function AuditInteractions({ entry, entries, canAsk, onAsk, skip }: { entry: OrderEntry; entries: OrderEntry[]; canAsk: boolean; onAsk: (text: string) => void; skip?: (f: InteractionFinding) => boolean }) {
+  const found = orderInteractions(entry, entries).filter((f) => !skip?.(f));
   if (!found.length) return null;
   const reasons = entry.order.type === "injection" || entry.order.type === "prescription" ? (entry.order.interactionReasons ?? []) : [];
   return (
