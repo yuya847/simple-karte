@@ -1341,8 +1341,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       stopTimes: { ...c.stopTimes, ...Object.fromEntries(stops.map((id) => [id, nowTime])) },
       extended: { ...c.extended, ...extended },
       drafts: [],
-      note: lines.length ? `${c.note.replace(/\s*$/, "")}\n${lines.join("\n")}\n` : c.note,
-      flash: `${added.length + stops.length + Object.keys(extended).length + dietsAdded.length}件を確定しました。${dietsAdded.length ? `食事の変更は食事のオーダに入りました。` : ""}左の経過と記事の P) に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
+      // The orders stay in the left 経過 only; they are not written into the note (ユーザー 2026-11-06：わかりづらい).
+      note: c.note,
+      flash: `${added.length + stops.length + Object.keys(extended).length + dietsAdded.length}件を確定しました。${dietsAdded.length ? `食事の変更は食事のオーダに入りました。` : ""}左の経過に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
       selectedDay: 0,
     }));
   };
