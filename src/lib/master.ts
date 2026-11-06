@@ -37,7 +37,10 @@ export interface DrugMaster {
 }
 
 export const DRUGS: DrugMaster[] = [
-  ...MORE_DRUGS,
+  ...MORE_DRUGS.map((d) => {
+    const volume = ({ "643310190": 20, "622830801": 50, "643310476": 250 } as Record<string, number>)[d.code];
+    return volume ? { ...d, generic: "生理食塩液", aliases: [...d.aliases, `生食${volume}`, `NS${volume}`, `生食 ${volume}`] } : d;
+  }),
   ...[ ["HUMAN", "ヒト（速効型）注 100単位/mL"], ["ASPART", "アスパルト注"], ["LISPRO", "リスプロ注"], ["GLARGINE", "グラルギン注"], ["DEGLUDEC", "デグルデク注"] ].map(([code, name]): DrugMaster => ({ fictional: true, code: `DEMO-INS-${code}`, name: `インスリン ${name}`, generic: `インスリン ${name}`, category: "インスリン", package: "架空の品目（薬価なし）", kind: "その他", units: ["単位"], routes: ["皮下注"], aliases: ["インスリン", name] })),
   {
     code: "INJ-NS500",

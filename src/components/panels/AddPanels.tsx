@@ -1,4 +1,6 @@
 "use client";
+import { diluentChoices, chooseDiluent } from "@/lib/inj-diluent";
+import { InjectionDiluentChoice } from "./InjectionDiluentChoice";
 import { PrescriptionCommentInput } from "../PrescriptionCommentInput";
 import { TotalPrescriptionEditor } from "../TotalPrescriptionEditor";
 import { PEN_NEEDLE_CODE, type PrescriptionUse } from "@/lib/prescription-kind";
@@ -85,6 +87,7 @@ const routeOk = (rows: InjRow[], tab: (typeof ROUTE_TABS)[number]) =>
   rows.length > 0 && (tab.lock ? rows.every((r) => masterOf(r.drugCode)?.lock) : rows.every((r) => masterOf(r.drugCode)?.routes.includes(tab.route)));
 
 interface InjRp {
+  diluentDeclined?: boolean;
   insulinDoses?: import("@/lib/insulin-doses").InsulinDose[];
   dayPattern?: import("@/lib/types").DayPattern;
   step?: InjStep;
@@ -457,6 +460,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                 })}
               </tbody>
             </table>
+            <InjectionDiluentChoice volumes={diluentChoices(rp.rows, route, rp.diluentDeclined)} onChoose={volume => { const next = chooseDiluent(rp, volume); upd(i, { rows: next.rows, diluentDeclined: next.diluentDeclined }); focus(i, rp.step ?? "dose"); }} />
             <div data-step="drug" hidden={rp.rows.length > 0 && rp.step !== "drug"} style={{ display: (rp.rows.length > 0 && rp.step !== "drug") ? "none" : undefined }} className="flex items-start gap-1.5">
               <div className="min-w-0 flex-1">
                 <RpDrugSearch options={options} onEmptyEnter={() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] input[inputmode=decimal]`)?.focus()} onBack={() => focus(i, "dose")} onPick={(c) => { upd(i, { rows: [...rp.rows, rowFor(c)], step: "dose" }); requestAnimationFrame(() => { const fields = panelRoot.current?.querySelectorAll<HTMLInputElement>(`[data-rp="${i}"] input[inputmode=decimal]`); fields?.[rp.rows.length]?.focus(); fields?.[rp.rows.length]?.select(); }); }} placeholder={rp.rows.length ? `Rp${first + i} に混注する薬を足す（名前・略称・ひらがな可）` : `Rp${first + i} に薬を入れる（名前・略称・ひらがな可）`} />
