@@ -440,7 +440,7 @@ import { liveLabel, MergedNotice, PresenceStrip } from "./Presence";
 import { ScanPanel, openKept } from "./panels/ScanPanel";
 import { withdraw } from "@/lib/scans";
 import { photoScans, type KeptPage } from "@/lib/notebook-photo";
-import { broughtCards, confirmBrought } from "@/lib/brought-history";
+import { broughtCards, confirmBrought, decideBrought } from "@/lib/brought-history";
 import { SignBox } from "./panels/SignBox";
 import { useLogin } from "@/lib/use-login";
 import type { LoginUser } from "@/lib/login";
@@ -3433,7 +3433,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   }));
                   auditLog({ role: me.role, actor: me.name, action: "持参薬の指示を決めた（下書き）", patient: patient.name, detail: rows.map((x) => `${x.said}：${x.decision}`).join("、") });
                   // All 中止 (or nothing to order): nothing to confirm, so it is 指示済 now.
-                  setReports((rs) => rs.map((x) => (x.id === r.id ? { ...x, rows, status: made.length ? "指示の下書き" : "指示済" } : x)));
+                  setReports((rs) => rs.map((x) => (x.id === r.id ? decideBrought(x, rows, made.length ? "指示の下書き" : "指示済", { name: me.name, role: me.role, at: { day: 0, time: nowTime } }) : x)));
                 }}
               />
               <RightTabs
