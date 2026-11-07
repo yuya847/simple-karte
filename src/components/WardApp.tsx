@@ -3620,7 +3620,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "report-list" && (
                 <Drawer title="レポート一覧" onClose={closePanel} wide>
-                  <ReportList reports={reportsHere} acks={acks} today={today} onSeen={deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys)} onOpenImage={openReportImage} />
+                  <ReportList reports={reportsHere} acks={acks} today={today} onSeen={deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys)} onOpenImage={openReportImage} admittedOn={visitOf(patient.id) ? undefined : patient.admittedOn} />
                 </Drawer>
               )}
               {panel === "visit-request" && visitOf(patient.id) && (

@@ -1,7 +1,7 @@
 // The report screens render (on the server, without a browser): the mark on an order row, the patient's list,
 // the ward's list. What is unread and the one-line summary come from reports.ts.
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { wardTabsFor } from "@/lib/nav";
 import { PATIENTS } from "@/lib/patients";
 import { initialPhysioDesk } from "@/lib/physio-desk";
@@ -57,6 +57,43 @@ describe("レポート一覧（カルテ）", () => {
     // The row shows the first line of the text, not a summary made here.
     expect(html).toContain("臥位正面（AP）。両側の肋骨横隔膜角は前回（昨日）と同じく鈍。肺血管影の増強は軽度。");
     expect(html.indexOf("心電図") < html.indexOf("ポータブルX線")).toBe(true);
+  });
+});
+
+describe("レポート一覧の絞り込み", () => {
+  const sakura = PATIENTS.find((p) => p.id === "90010231")!;
+  const rs = reportsOf(sakura, sakura.history, src);
+  afterEach(() => vi.unstubAllGlobals());
+  it("shows one row of choices: the kinds the patient has with their numbers, 未読だけ, the period and the search", () => {
+    const html = as("医師", <ReportList reports={rs} acks={{}} today={today} onSeen={() => {}} admittedOn={sakura.admittedOn} />);
+    expect(html).toContain('aria-label="種類"');
+    expect(html).toMatch(/aria-checked="true"[^>]*>すべて \d+</);
+    expect(html).toContain(">細菌培養 1<");
+    expect(html).not.toContain(">病理 ");
+    expect(html).not.toContain(">内視鏡 ");
+    expect(html).toContain("未読だけ");
+    expect(html).toContain(">全期間<");
+    expect(html).toContain(">入院中<");
+    expect(html).toContain(">7日<");
+    expect(html).toContain('aria-label="レポートを検索"');
+    // On a visit there is no 入院中.
+    expect(as("医師", <ReportList reports={rs} acks={{}} today={today} />)).not.toContain(">入院中<");
+    // No reports, no choices.
+    const none = as("医師", <ReportList reports={[]} acks={{}} today={today} />);
+    expect(none).toContain("レポートはありません。");
+    expect(none).not.toContain('aria-label="種類"');
+  });
+  it("keeps the choice of this person; with nothing left, says 該当なし with the way back", () => {
+    const store = new Map([["simple-karte:report-filter:山本（専攻医）", JSON.stringify({ kind: "病理", unread: true, period: "7日" })]]);
+    vi.stubGlobal("window", { localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) } });
+    const html = as("医師", <ReportList reports={rs} acks={{}} today={today} onSeen={() => {}} admittedOn={sakura.admittedOn} />);
+    expect(html).toMatch(/aria-checked="true"[^>]*>病理 0</);
+    expect(html).toMatch(/<input type="checkbox"[^>]*checked=""/);
+    expect(html).toMatch(/aria-checked="true"[^>]*>7日</);
+    expect(html).toContain("表示 0件");
+    expect(html).toContain("該当なし");
+    expect(html).toContain("絞り込みを外す");
+    expect(html).not.toContain("未読をすべて確認した");
   });
 });
 

@@ -1,20 +1,23 @@
 "use client";
 
 // レポート一覧: the patient's reports newest first (kind, 検査日, 部位, 報告医, unread or not, the first line of
-// the text), each opening in full under its row; and the ward's list, by patient, for the nurse and the doctor
-// to see which of their patients have reports not yet confirmed. Nothing here is summarised by AI: the one
-// line is the first line of the report, cut out as it is.
+// the text), each opening in full under its row, narrowed by one row of choices (kind, 未読だけ, period, words —
+// report-filter.ts); and the ward's list, by patient, for the nurse and the doctor to see which of their patients
+// have reports not yet confirmed. Nothing here is summarised by AI: the one line is the first line of the report,
+// cut out as it is.
 
 import { displayText } from "@/lib/display-text";
-import { ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import type { OpenAt } from "@/lib/open-at";
-import { readStateOf, summaryOf, unreadReports, type Report, type WardReportRow } from "@/lib/reports";
+import { filterReports, isFiltered, kindCounts, loadReportFilter, NO_REPORT_FILTER, REPORT_PERIODS, saveReportFilter, type KindCount, type ReportFilter } from "@/lib/report-filter";
+import { readStateOf, summaryOf, unreadReports, type Report, type ReportKind, type WardReportRow } from "@/lib/reports";
 import type { Ack } from "@/lib/results";
+import type { DayOffset } from "@/lib/types";
 import { dayText, KindChip, ReportPanel, StageChip } from "./panels/ReportPanel";
 import { usePressMenu } from "./PressMenu";
-import { useDeny } from "./RoleContext";
+import { useDeny, useMe } from "./RoleContext";
 
 // The report to open when the chart's レポート一覧 opens next (a row of the ward's list double-clicked, or its menu's 「カルテで開く」).
 let openNext: string | null = null;
@@ -110,17 +113,65 @@ interface ListProps {
   today: CalendarDate;
   onSeen?: (keys: string[]) => void;
   onOpenImage?: (studyId: string) => void;
+  /** The admission day, for 「入院中」 (left out on a visit). */
+  admittedOn?: DayOffset;
 }
 
-/** In the chart: every report of the patient, with 「未読だけ」 (the one asked for from the ward's list opens at first). */
-export function ReportList({ reports, acks, today, onSeen, onOpenImage }: ListProps) {
+/** The kind chips (すべて・画像・生理・内視鏡・細菌培養・病理), each with how many it shows. */
+function KindChips({ chips, value, onChange }: { chips: KindCount[]; value: ReportKind | null; onChange: (k: ReportKind | null) => void }) {
+  return (
+    <div role="radiogroup" aria-label="種類" className="flex flex-wrap gap-1">
+      {chips.map((c) => (
+        <button
+          key={c.label}
+          type="button"
+          role="radio"
+          aria-checked={value === c.kind}
+          onClick={() => onChange(c.kind)}
+          className={`nums whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] pointer-coarse:py-1.5 ${value === c.kind ? "border-ink bg-ink font-bold text-white" : "border-rule bg-sheet text-ink-soft hover:border-ai hover:text-ink"}`}
+        >
+          {c.label} {c.count}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** One line when nothing is left: 該当なし and the way back. */
+function NoMatch({ onClear }: { onClear: () => void }) {
+  return (
+    <p className="flex items-center gap-2 px-2 py-2 text-[12px] text-ink-faint">
+      該当なし
+      <button type="button" onClick={onClear} className="rounded border border-ai/50 px-1.5 text-[11px] text-ai hover:bg-ai-soft pointer-coarse:py-1">
+        絞り込みを外す
+      </button>
+    </p>
+  );
+}
+
+/** In the chart: every report of the patient, narrowed by kind, 未読だけ, period and words (the one asked for from the ward's list opens at first). */
+export function ReportList({ reports, acks, today, onSeen, onOpenImage, admittedOn }: ListProps) {
+  const me = useMe();
+  const ctx = { acks, admittedOn };
   const unread = unreadReports(reports, acks);
-  const [onlyUnread, setOnlyUnread] = useState(false);
   const [first] = useState(() => (reports.some((r) => r.key === openNext) ? openNext : null));
+  // The choice kept in this browser stays when the patient changes; the report asked for is never hidden by it.
+  const [filter, setFilterState] = useState<ReportFilter>(() => {
+    const kept = loadReportFilter(me.name);
+    return first && !filterReports(reports, kept, ctx).some((r) => r.key === first) ? NO_REPORT_FILTER : kept;
+  });
+  const setFilter = (next: Partial<ReportFilter>) => {
+    const f = { ...filter, ...next };
+    setFilterState(f);
+    saveReportFilter(me.name, f);
+  };
   useEffect(() => {
     openNext = null;
   }, []);
-  const shown = onlyUnread ? unread : reports;
+  const shown = filterReports(reports, filter, ctx);
+  const narrowed = isFiltered(filter);
+  const shownUnread = narrowed ? unreadReports(shown, acks) : unread;
+  const choice = (on: boolean) => `whitespace-nowrap rounded px-2 py-0.5 text-[11px] pointer-coarse:py-1.5 ${on ? "bg-ink font-bold text-white" : "text-ink-soft hover:text-ink"}`;
   return (
     <div className="space-y-2 text-[12px]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -128,19 +179,41 @@ export function ReportList({ reports, acks, today, onSeen, onOpenImage }: ListPr
           レポート {reports.length}件
           {unread.length > 0 && <span className="ml-1 text-shu">（未読 {unread.length}件）</span>}
         </b>
-        <label className="flex cursor-pointer items-center gap-1 text-ink-soft">
-          <input type="checkbox" checked={onlyUnread} onChange={() => setOnlyUnread((v) => !v)} className="accent-ai" />
-          未読だけ
-        </label>
-        {onSeen && unread.length > 1 && (
-          <button type="button" onClick={() => onSeen(unread.map((r) => r.key))} className="ml-auto rounded border border-ai px-2 py-0.5 text-[11px] text-ai hover:bg-ai-soft">
-            未読をすべて確認した
+        {narrowed && <span className="nums text-ink-soft">表示 {shown.length}件</span>}
+        {onSeen && shownUnread.length > 1 && (
+          <button type="button" onClick={() => onSeen(shownUnread.map((r) => r.key))} className="ml-auto rounded border border-ai px-2 py-0.5 text-[11px] text-ai hover:bg-ai-soft">
+            {narrowed ? "表示中の未読を確認した" : "未読をすべて確認した"}
           </button>
         )}
       </div>
 
+      {reports.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <KindChips chips={kindCounts(reports, filter, ctx)} value={filter.kind} onChange={(kind) => setFilter({ kind })} />
+          <label className="flex cursor-pointer items-center gap-1 text-ink-soft">
+            <input type="checkbox" checked={filter.unread} onChange={() => setFilter({ unread: !filter.unread })} className="accent-ai" />
+            未読だけ
+          </label>
+          <div role="radiogroup" aria-label="期間" className="flex items-center rounded-md border border-rule p-0.5">
+            {REPORT_PERIODS.filter((p) => p !== "入院中" || admittedOn !== undefined).map((p) => (
+              <button key={p} type="button" role="radio" aria-checked={filter.period === p} onClick={() => setFilter({ period: p })} className={choice(filter.period === p)}>
+                {p === "すべて" ? "全期間" : p}
+              </button>
+            ))}
+          </div>
+          <label className="flex min-w-36 flex-1 items-center gap-1 rounded border border-rule bg-sheet px-1.5 focus-within:border-ai">
+            <Search size={12} className="shrink-0 text-ink-faint" />
+            <input type="search" aria-label="レポートを検索" value={filter.q} onChange={(e) => setFilter({ q: e.target.value })} placeholder="検索" className="w-full bg-transparent py-0.5 text-[12px] outline-none pointer-coarse:py-1.5" />
+          </label>
+        </div>
+      )}
+
       <div className="rounded-md border border-rule bg-sheet">
-        <ReportRows reports={shown} acks={acks} today={today} onSeen={onSeen} onOpenImage={onOpenImage} openKey={first} />
+        {reports.length > 0 && shown.length === 0 ? (
+          <NoMatch onClear={() => setFilter(NO_REPORT_FILTER)} />
+        ) : (
+          <ReportRows reports={shown} acks={acks} today={today} onSeen={onSeen} onOpenImage={onOpenImage} openKey={first} />
+        )}
       </div>
       <ReportNotes />
     </div>
