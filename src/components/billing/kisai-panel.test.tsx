@@ -2,9 +2,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { KisaiChecks } from "./KisaiPanel";
 import { ShokiPanel } from "./ShokiPanel";
+import { TekiyoPanel } from "./TekiyoPanel";
 import { RoleProvider } from "../RoleContext";
 import { checkKisai, type KisaiChart } from "@/lib/billing/kisai";
-import { factChips, kisaiTarget, saveShoki, shokiSeriesOf } from "@/lib/billing/kisai-view";
+import { factChips, kisaiTarget, saveAnswer, saveShoki, shokiSeriesOf } from "@/lib/billing/kisai-view";
+import { resolveTekiyo } from "@/lib/billing/tekiyo";
+import { loadTekiyoMaster } from "@/lib/billing/tekiyo-master";
+import type { OrderEntry } from "@/lib/types";
 import { kisaiWorkspace } from "@/lib/billing/kisai-workspace";
 import { collectShokiFacts, currentShoki } from "@/lib/billing/shoki";
 import type { ClaimResult } from "@/lib/billing/model";
@@ -85,5 +89,45 @@ describe("記載・書類：症状詳記", () => {
     const chips = factChips(facts);
     expect(chips.find((c) => c.group === "検査")?.text).toMatch(/12\.1（11\/5）→3\.4（11\/7）$/);
     expect(chips.find((c) => c.group === "経過")?.text).toBe("11/6 解熱した");
+  });
+});
+
+describe("記載・書類：摘要のコメント", () => {
+  const master = loadTekiyoMaster();
+  const one = (code: string, name: string) => claim([[code, name]]);
+  const base = { saved: kisaiWorkspace(), patientId: "p", month: "2026-11", today: "2026-11-07", admittedDate: "2026-11-01", at: "2026-11-07T12:00:00+09:00", onSave: () => {} };
+  const html = (role: "医師" | "医事課", c: ClaimResult, props: Partial<Parameters<typeof TekiyoPanel>[0]> = {}, entries: OrderEntry[] = []) => {
+    const saved = props.saved ?? base.saved;
+    const tasks = resolveTekiyo(c, { patientId: "p", today: "2026-11-07", entries, master, answers: saved.tekiyoAnswers });
+    return renderToStaticMarkup(<RoleProvider value={role}><TekiyoPanel claim={c} tasks={tasks} {...base} {...props} /></RoleProvider>);
+  };
+  it("救急医療管理加算は候補から人が選ぶ（絞り込み・確かめるのは医師）", () => {
+    const c = one("190171910", "救急医療管理加算１");
+    const doctor = html("医師", c);
+    expect(doctor).toContain("人が選ぶ");
+    expect(doctor).toContain("意識障害又は昏睡");
+    expect(doctor).toContain("候補を絞る");
+    expect(doctor).toContain("記載事項を確かめた（医師）");
+    expect(html("医事課", c)).toContain("摘要のコメントの記載事項の確認は医師が行います");
+  });
+  it("選んで医師が確かめると選択済みになり、選んだコメントが出る", () => {
+    const c = one("190171910", "救急医療管理加算１");
+    const saved = saveAnswer(kisaiWorkspace(), { patientId: "p", month: "2026-11", claimCode: "190171910", by: "医師 試験", at: base.at, reviewedRequirements: true, comments: [{ code: "820100411" }, { code: "831110001", text: "160000310" }] });
+    const out = html("医師", c, { saved });
+    expect(out).toContain("選択済み");
+    expect(out).toContain("急性薬物中毒");
+    expect(out).toContain("直す");
+  });
+  it("実施したCTの撮影部位は自動で入り、どの記録からかが出る", () => {
+    const e: OrderEntry = { kind: "order", id: "ct", day: -4, time: "09:00", author: "医師", status: "実施済", exam: { done: { day: -4, time: "10:00" } }, order: { type: "imaging", modality: "CT", region: "R-CHEST", purpose: "確認", when: { day: -4, priority: "至急" }, transport: "独歩" } };
+    const c: ClaimResult = { ...one("170032810", "ＣＴ撮影（１６列以上６４列未満）"), acts: [{ ...one("170032810", "ＣＴ撮影（１６列以上６４列未満）").acts[0], days: { 3: 1 } }] };
+    const out = html("医事課", c, {}, [e]);
+    expect(out).toContain("自動");
+    expect(out).toContain("撮影部位");
+    expect(out).toMatch(/記録：CT .+ 11\/3 実施/);
+    expect(out).not.toContain("候補を絞る");
+  });
+  it("摘要の対象がない月は「この月はありません」", () => {
+    expect(html("医師", one("160000310", "試験の検査"))).toContain("この月はありません");
   });
 });

@@ -12,7 +12,7 @@ import { DpcPanel, type Transfer } from "./billing/DpcPanel";
 import { dpcReceiptSheet } from "@/lib/billing/receipt-sheet";
 import type { ReceiptSheetData } from "@/lib/billing/receipt-sheet";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
-import { KisaiPanel } from "./billing/KisaiPanel";
+import { KisaiPanel, type KisaiSection } from "./billing/KisaiPanel";
 import { checkKisai, type KisaiChart } from "@/lib/billing/kisai";
 import type { KisaiTarget } from "@/lib/billing/kisai-view";
 import type { KisaiWorkspace } from "@/lib/billing/kisai-workspace";
@@ -109,6 +109,7 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
 
 // The tab each patient was on: opening a record from 記載・書類 closes this view, and coming back finds the same tab.
 const lastTab = new Map<string, Tab>();
+const lastSection = new Map<string, KisaiSection>();
 
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
@@ -120,6 +121,8 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   // 医事課 starts on 保険 while the patient has none registered; everyone else on 算定.
   const [tab, setTabState] = useState<Tab>(() => lastTab.get(patient.id) ?? (!registered && !deny("insurance") ? "insurance" : "claim"));
   const setTab = (t: Tab) => { lastTab.set(patient.id, t); setTabState(t); };
+  const [kisaiSection, setKisaiSectionState] = useState<KisaiSection>(() => lastSection.get(patient.id) ?? "checks");
+  const setKisaiSection = (k: KisaiSection) => { lastSection.set(patient.id, k); setKisaiSectionState(k); };
   const [mainId, setMainId] = useState<string | undefined>(undefined);
   const [transfer, setTransfer] = useState<Transfer>("unknown");
   const [coefText, setCoefText] = useState(FICTIONAL_COEFFICIENT.toFixed(4));
@@ -291,10 +294,14 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
           <KisaiPanel
             claim={result}
             checks={checks}
-            documentation={ready ? documentation : null}
+            documentation={documentation}
             facts={collectShokiFacts({ today: isoDate(today), month, diagnoses, labs: patient.labs, entries })}
             patientId={patient.id}
             month={month}
+            today={isoDate(today)}
+            admittedDate={isoDate(addDays(today, patient.admittedOn))}
+            section={kisaiSection}
+            onSection={setKisaiSection}
             saved={kisai.saved}
             at={`${isoDate(today)}T${nowTime}:00+09:00`}
             newId={() => `kisai-${crypto.randomUUID()}`}
@@ -399,6 +406,11 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                 <Icon size={13} className="mt-0.5 shrink-0" />
                 <span className="shrink-0 font-bold">{s.label}</span>
                 <span className="text-ink">{displayText(i.text)}</span>
+                {kisai && i.text.includes("いまは自動では入りません") && (
+                  <button type="button" onClick={() => { setKisaiSection("tekiyo"); setTab("kisai"); }} className="ml-auto shrink-0 rounded border border-yamabuki/50 bg-sheet px-2 py-0.5 font-bold">
+                    摘要のコメントへ
+                  </button>
+                )}
               </li>
             );
           };

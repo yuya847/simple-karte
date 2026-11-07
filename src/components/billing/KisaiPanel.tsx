@@ -11,8 +11,9 @@ import type { ClaimResult } from "@/lib/billing/model";
 import type { MonthDocumentation } from "@/lib/billing/month";
 import type { collectShokiFacts } from "@/lib/billing/shoki";
 import { ShokiPanel } from "./ShokiPanel";
+import { TekiyoPanel } from "./TekiyoPanel";
 
-type Section = "checks" | "shoki";
+export type KisaiSection = "checks" | "shoki" | "tekiyo";
 
 export interface KisaiPanelProps {
   claim: ClaimResult;
@@ -22,11 +23,17 @@ export interface KisaiPanelProps {
   facts: ReturnType<typeof collectShokiFacts>;
   patientId: string;
   month: string;
+  /** YYYY-MM-DD. */
+  today: string;
+  /** 入院日 YYYY-MM-DD. */
+  admittedDate: string;
   saved: KisaiWorkspace;
   at: string;
   newId: () => string;
   onSave?: (next: KisaiWorkspace, what: string) => void;
   onOpen?: (t: KisaiTarget) => void;
+  section: KisaiSection;
+  onSection: (s: KisaiSection) => void;
 }
 
 const STATUS: Record<KisaiCheck["status"], { cls: string; icon: typeof Info }> = {
@@ -38,13 +45,13 @@ const STATUS: Record<KisaiCheck["status"], { cls: string; icon: typeof Info }> =
 const md = (iso?: string) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` : "");
 
 /** 算定の「記載・書類」タブ：加算ごとに要る記載・書類の点検。 */
-export function KisaiPanel({ claim, checks, documentation, facts, patientId, month, saved, at, newId, onSave, onOpen }: KisaiPanelProps) {
-  const [section, setSection] = useState<Section>("checks");
+export function KisaiPanel({ claim, checks, documentation, facts, patientId, month, today, admittedDate, saved, at, newId, onSave, onOpen, section, onSection: setSection }: KisaiPanelProps) {
   const required = documentation?.requiredShoki ?? [];
   const confirmed = new Set(shokiSeriesOf(saved.shoki, patientId, month).filter((v) => v.versions.length).flatMap((v) => v.targets.map((t) => t.code)));
-  const tabs: { key: Section; label: string; count: number }[] = [
+  const tabs: { key: KisaiSection; label: string; count: number }[] = [
     { key: "checks", label: "点検", count: checks.filter((c) => c.status === "ない").length },
     { key: "shoki", label: "症状詳記", count: required.filter((r) => !confirmed.has(r.target.code)).length },
+    { key: "tekiyo", label: "摘要のコメント", count: (documentation?.tekiyo ?? []).filter((t) => t.status === "人が選ぶ").length },
   ];
   return (
     <div className="space-y-3">
@@ -57,6 +64,7 @@ export function KisaiPanel({ claim, checks, documentation, facts, patientId, mon
         ))}
       </div>
       {section === "checks" && <KisaiChecks claim={claim} checks={checks} onOpen={onOpen} />}
+      {section === "tekiyo" && documentation && <TekiyoPanel claim={claim} tasks={documentation.tekiyo} saved={saved} patientId={patientId} month={month} today={today} admittedDate={admittedDate} at={at} onSave={onSave} />}
       {section === "shoki" && <ShokiPanel required={required} facts={facts} saved={saved} patientId={patientId} month={month} at={at} newId={newId} onSave={onSave} />}
     </div>
   );
