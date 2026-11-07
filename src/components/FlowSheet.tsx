@@ -4,6 +4,7 @@ import { withAnesthesiaVitals } from '@/lib/anesthesia-flow';
 import { currentVital } from "@/lib/icu/current-oxygen";
 import { recordedVitals } from "@/lib/record-time";
 import { clockMinute } from "@/lib/time-input";
+import { cssPx } from "@/lib/page-zoom";
 
 import { FlowInlineEntry } from "./FlowInlineEntry";
 import { FlowObservationAdder } from "./FlowObservationAdder";
@@ -276,7 +277,7 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
   /** The time under the pointer on the axis (not cut to now). */
   const timeOf = (e: React.MouseEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    return Math.round(t0 + ((e.clientX - r.left) / plotW) * (t1 - t0));
+    return Math.round(t0 + (cssPx(e.clientX - r.left) / plotW) * (t1 - t0));
   };
   const icuAction = (at: number, group: "icu" | "io"): CellAction => ({ label: "ICU の1時間の記録を入れる", disabled: deny("vitals"), onClick: () => setIcuEntry({ at, group }) });
   const untakenSet = new Set(untaken);
@@ -304,14 +305,14 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
             // Over the values box: keep it (so its copy button can be pressed).
             if ((e.target as HTMLElement).closest?.("[data-vital-tip]")) return;
             const r = e.currentTarget.getBoundingClientRect();
-            const px = e.clientX - r.left - LABEL_W;
+            const px = cssPx(e.clientX - r.left) - LABEL_W;
             if (px >= 0) pickNearest(px);
           }}
           onPointerLeave={() => setHover(null)}
           onClick={(e) => {
             if ((e.target as HTMLElement).closest?.("[data-vital-tip]")) return;
             const r = e.currentTarget.getBoundingClientRect();
-            const px = e.clientX - r.left - LABEL_W;
+            const px = cssPx(e.clientX - r.left) - LABEL_W;
             if (px < 0 || (!onEntry && !onAddNote)) return;
             const at = timeAtX(px, plotW, t0, t1, nowAbs);
             // The graph always asks first (a touch there also shows the values): バイタル, or a 付箋 at that time.
@@ -418,7 +419,7 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
         <div
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            const px = e.clientX - r.left - LABEL_W;
+            const px = cssPx(e.clientX - r.left) - LABEL_W;
             if (px < 0 || !icuHourly.onSave || (e.target as HTMLElement).closest("form")) return;
             const at = timeAtX(px, plotW, t0, t1, nowAbs);
             e.stopPropagation();
@@ -481,7 +482,7 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
         <div
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            const px = e.clientX - r.left - LABEL_W;
+            const px = cssPx(e.clientX - r.left) - LABEL_W;
             // The rows only (not the note under them).
             if (px < 0 || !onEntry || (e.target as HTMLElement).closest("p")) return;
             const at = timeAtX(px, plotW, t0, t1, nowAbs);
