@@ -328,7 +328,7 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
 
       <span className="text-ink-soft">撮影室・装置</span>
-      <select value={roomKey} disabled={!!deny || !!r.work?.done || !!r.work?.record} aria-label="撮影室・装置" onChange={(e) => assign(e.target.value as RoomKey)} className={field}>
+      <select value={roomKey} disabled={!!deny || (!!r.work?.done && !!r.work?.room) || !!r.work?.record} aria-label="撮影室・装置" onChange={(e) => assign(e.target.value as RoomKey)} className={field}>
         {rooms.map((x) => (
           <option key={x.key} value={x.key}>
             {x.room}（{x.ae}）
@@ -336,7 +336,7 @@ export function AssignControls({ r, onDesk, nowTime }: { r: RisRow; onDesk: OnDe
         ))}
       </select>
       {r.order.when.priority === "至急" ? <span className="nums">{risScheduleText(r)}</span> : <TimeInput value={time} onChange={(e) => setSlot(e.target.value)} aria-label="撮影の予定時刻" disabled={!!deny} className={`${field} nums`} />}
-      <button type="button" disabled={!!deny || !!r.work?.done || !!r.work?.record} onClick={() => assign(roomKey)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
+      <button type="button" disabled={!!deny || (!!r.work?.done && !!r.work?.room) || !!r.work?.record} onClick={() => assign(roomKey)} className="rounded border border-ai px-2 py-0.5 text-ai disabled:opacity-40">
         {r.work?.room ? "予定を変える" : "割り当てる"}
       </button>
       {r.work?.room && (

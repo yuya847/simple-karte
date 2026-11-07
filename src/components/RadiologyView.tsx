@@ -1,4 +1,5 @@
 "use client";
+import { migrateRisOwners } from "@/lib/ris-ownership";
 import { ImagingPanel } from "./panels/ImagingPanel";
 import { risScheduleText } from "@/lib/ris";
 
@@ -8,7 +9,7 @@ import { risScheduleText } from "@/lib/ris";
 
 import { displayText } from "@/lib/display-text";
 import { Activity, CalendarClock, ClipboardCheck, FilePen, ListChecks, MonitorCog, Radiation, Route, ScanLine } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { ConsentRecord } from "@/lib/consent";
 import type { CalendarDate } from "@/lib/dates";
 import type { Ack } from "@/lib/results";
@@ -38,6 +39,8 @@ type Tab = "take" | "worklist" | "portable" | "exam" | "modality" | "reading" | 
 /** 放射線部. The technologist starts at 指示受け. */
 export function RadiologyView(p: Props) {
   const me = useMe();
+  const { people, onDesk } = p;
+  useEffect(() => { onDesk(d => migrateRisOwners(d, people)); }, [onDesk, people]);
   const [examId, setExamId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("take");
   const rows = risRows(p.people, p.desk);
@@ -105,7 +108,7 @@ function Exam({ rows, onDesk, nowTime, today, consents, initialPick }: Props & {
         {ready.length === 0 && <span className="text-ink-faint">撮影・照射録の記録を待っている検査はありません。</span>}
         {ready.map((r) => (
           <button key={r.orderId} type="button" onClick={() => setPick(r.orderId)} className={`rounded border px-2 py-0.5 ${target?.orderId === r.orderId ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule"}`}>
-            {r.name} {r.label}（<span className={STATUS_TONE[r.status]}>{r.status}</span>）
+            {r.name} {r.room} {r.patientId.replace(/^(er|opd):/, "")} {r.label}（<span className={STATUS_TONE[r.status]}>{r.status}</span>）
           </button>
         ))}
       </div>
@@ -125,7 +128,7 @@ function Reading({ rows, done, onDesk, nowTime }: Props & { rows: RisRow[]; done
         {all.length === 0 && <span className="text-ink-faint">読影を待っている検査はありません（画像を PACS へ送ると、ここに出ます）。</span>}
         {all.map((r) => (
           <button key={r.orderId} type="button" onClick={() => setPick(r.orderId)} className={`rounded border px-2 py-0.5 ${target?.orderId === r.orderId ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule"} ${r.work?.report ? "text-ink-soft" : ""}`}>
-            {r.name} {r.label}
+            {r.name} {r.room} {r.patientId.replace(/^(er|opd):/, "")} {r.label}
             {r.work?.report ? "（読影済み・訂正）" : r.order.when.priority === "至急" || r.order.reading === "緊急読影" ? "（至急）" : ""}
           </button>
         ))}

@@ -9,6 +9,7 @@ import type { StandingLine } from "@/lib/standing-lines";
 import type { AdminRecord } from "@/lib/mar";
 import type { Patient, OrderEntry } from "@/lib/types";
 import { can, denyReason, type Staff } from "@/lib/roles";
+import { equipmentRecordProblems } from "@/lib/equipment-record";
 import { compareOralPatients, antibioticMonitoring, infectionRank, latestRecords, toggleSpecialistRow, OHAT, ohatTotal, dotFor, antibioticsOf, infectionFlags, oralFlags, appendRecord, type SpecialistRecord, type SpecialistScreen } from "@/lib/specialist";
 
 import { DayInput } from "./DayInput";
@@ -113,7 +114,8 @@ function PatientWork({ patient: p, entries, records, save, initialDeviceId, ...p
   const denied = denyReason(props.me.role, `${props.screen}.record`);
   const selected = equipment.find(e => e.id === deviceId);
   const total = scores.every(s => s >= 0) ? ohatTotal(scores) : null;
-  const valid = props.screen === "equipment" ? !!selected && (kind !== "透析実施" || (!!selected.hd && !!start && !!end && end >= start && uf !== "" && Number(uf) >= 0 && qb !== "" && Number(qb) > 0 && !!anticoag.trim())) && (result !== "異常あり" || !!text.trim()) : props.screen === "oral" && oralKind === "OHAT-J 評価" ? total !== null : !!text.trim();
+  const missing = equipmentRecordProblems(selected, kind, start, end, uf, qb, anticoag, result, text);
+  const valid = props.screen === "equipment" ? missing.length === 0 : props.screen === "oral" && oralKind === "OHAT-J 評価" ? total !== null : !!text.trim();
   return <article className="mb-4 rounded border border-rule bg-sheet p-4"><button className="font-bold text-ai underline" onClick={() => props.onOpen(p.id)}>{p.room} {p.name}</button>
     <fieldset disabled={!!denied} title={denied ?? undefined} className="mt-3 flex flex-wrap items-end gap-3 disabled:opacity-50">
       <label>記録日時<RecordTime value={at} onChange={setAt} label="記録" /></label>
@@ -125,6 +127,7 @@ function PatientWork({ patient: p, entries, records, save, initialDeviceId, ...p
         const body = props.screen === "equipment" ? `${selected!.label} ${kind}：${kind === "透析実施" ? `${start}〜${end}、除水量 ${uf} L、血流量 ${qb} mL/分、抗凝固薬 ${anticoag}` : result} ${text}` : props.screen === "oral" && oralKind === "OHAT-J 評価" ? `OHAT-J ${OHAT.map((k, i) => `${k} ${scores[i]}`).join("・")} 合計 ${total}/16 ${text}` : text;
         save({ patientId: p.id, screen: props.screen, at, text: body, care: props.screen === "oral" && oralKind === "ケア実施・申し送り", ...(props.screen === "equipment" ? { equipmentId: deviceId, result: kind === "透析実施" ? "透析実施" : result } : {}), ...(props.screen === "oral" && oralKind === "OHAT-J 評価" ? { scores: [...scores] } : {}) });
       }}>記録を保存</button>
+      {props.screen === "equipment" && (!valid || !at) && <span className="text-[11px] text-shu">不足：{[...missing, ...(!at ? ["記録日時"] : [])].join("・")}</span>}
     </fieldset>
     {records.length > 0 && <ol className="mt-3 space-y-2 border-t border-rule pt-2 text-sm">{records.slice().reverse().map(r => <li key={r.id}><time>{r.at.replace("T", " ")}</time> {r.by} {r.scores && <strong>OHAT-J {ohatTotal(r.scores)}/16 </strong>}<p className="whitespace-pre-wrap">{r.text}</p></li>)}</ol>}
   </article>;

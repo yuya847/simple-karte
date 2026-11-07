@@ -68,7 +68,7 @@ export function visitPerson(kind: "er" | "opd", v: ErPatient | OpdPatient, order
     allergies: base?.allergies ?? v.allergies,
     infections: base?.infections ?? [],
     cautions: [],
-    history: [...(base?.history ?? []), ...orders].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)),
+    history: [...new Map([...(base?.history ?? []).map(e => e.kind === "order" && e.order.type === "imaging" ? { ...e, id: `${id}-${e.id}` } : e), ...orders].map(e => [e.id, e])).values()].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)),
     labs: [...(base?.labs ?? []), ...deskLabs(desk, id)],
     cultures: deskCultures(desk, id),
     imaging: [],

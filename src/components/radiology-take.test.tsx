@@ -8,7 +8,7 @@ import { demoRisOrders, initialRisDesk, putWork, risRows } from "@/lib/ris";
 import { risConfirmItems } from "@/lib/ris-take";
 import { STAFF, TABS, type Role } from "@/lib/roles";
 import type { OrderEntry } from "@/lib/types";
-import { PortableRound, RadiologyTake, RisConfirmPanel, Worklist } from "./RadiologyTake";
+import { AssignControls, PortableRound, RadiologyTake, RisConfirmPanel, Worklist } from "./RadiologyTake";
 import { RadiologyView } from "./RadiologyView";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { groupsFor, ToolRail } from "./ToolRail";
@@ -144,4 +144,13 @@ describe("放射線部の指示受けの画面", () => {
     expect(html).not.toContain("バイタル");
     expect(html).not.toContain("経過表");
   });
+});
+
+it("撮影後の未割り当て装置を補い、照射録確定後は変更できない", () => {
+ const r = risRows(people, desk)[0];
+ const done = { ...r, work: {...r.work!, room: undefined, done:{day:0,time:"10:00",by:"試験",via:"手入力" as const}} };
+ const html = as("診療放射線技師", <AssignControls r={done} onDesk={noop} nowTime="10:00" />);
+ expect(html.match(/<button[^>]*>割り当てる/)?.[0]).not.toContain('disabled=""');
+ const locked = as("診療放射線技師", <AssignControls r={{...done, work:{...done.work,record:{day:0,time:"10:01",by:"試験"}}}} onDesk={noop} nowTime="10:00" />);
+ expect(locked).toMatch(/<button[^>]*disabled=""[^>]*>割り当てる/);
 });

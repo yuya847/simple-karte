@@ -144,7 +144,7 @@ export function risTakeFields(r: Pick<RisRow, "order" | "orderedAt" | "at">, tod
   put("体位・方向", [o.position, o.views?.join("＋")].filter(Boolean).join("・"));
   put("造影", o.contrast);
   put("読影", o.reading);
-  put("予定", o.when.priority === "至急" ? risScheduleText(r) : `${dayText(today, o.when.day, o.when.time)} 予約`);
+  put("予定", o.when.priority === "至急" ? risScheduleText(r) : `${risScheduleText(r, today)} 予約`);
   put("搬送", o.transport);
   put("同意", consent ?? (usesContrast(o) ? "同意書の記録なし" : undefined));
   put("医師の確認", o.acks?.join("・"));

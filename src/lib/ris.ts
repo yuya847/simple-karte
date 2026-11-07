@@ -243,11 +243,17 @@ type Person = { patient: Pick<Patient, "id" | "name" | "kana" | "sex" | "age" | 
 /** The studies the department looks at: including future bookings, and older ones not finished. Stopped orders are left out. */
 export function risRows(people: Person[], desk: RisDesk): RisRow[] {
   const rows: RisRow[] = [];
+  const seen = new Set<string>();
   for (const x of people) {
     for (const e of x.entries) {
       if (e.order.type !== "imaging" || e.status === "中止") continue;
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
       const o = e.order;
-      const w = desk[e.id];
+      // Older saves could attach the inherited ward order to the emergency chart.
+      // The order ID owns the record; restore its actual chart owner on read.
+      const saved = desk[e.id];
+      const w = saved ? { ...saved, patientId: x.patient.id } : undefined;
       const status = risStatus(w);
       const finished = status === "中止" || status === "読影済み" || (status === "撮影済み" && (!needsReading(o) || !!w?.report));
       if (o.when.day < -1 && finished) continue;
@@ -285,7 +291,7 @@ export const risScheduleText = (r: Pick<RisRow, "order" | "orderedAt"> & { at?: 
   return `${today ? formatShort(addDays(today, day)) : label} ${hhmm(at)}`;
 };
 
-export const workOf = (desk: RisDesk, r: Pick<RisRow, "orderId" | "patientId" | "label">): RisWork => desk[r.orderId] ?? { orderId: r.orderId, patientId: r.patientId, label: r.label };
+export const workOf = (desk: RisDesk, r: Pick<RisRow, "orderId" | "patientId" | "label">): RisWork => (desk[r.orderId] ? { ...desk[r.orderId], patientId: r.patientId } : undefined) ?? { orderId: r.orderId, patientId: r.patientId, label: r.label };
 
 export const putWork = (desk: RisDesk, r: Pick<RisRow, "orderId" | "patientId" | "label">, f: (w: RisWork) => RisWork): RisDesk => ({ ...desk, [r.orderId]: f(workOf(desk, r)) });
 
