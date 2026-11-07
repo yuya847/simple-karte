@@ -5,6 +5,8 @@ import { GUIDANCE_SOURCE, GUIDANCE_TIME_SOURCE } from "../guidance";
 import { RIS_SOURCES, DRL_NOTE } from "../ris";
 import { MPPS_DOSE_NOTE, DICOM_SOURCES } from "../dicom-mwl";
 import { HD_UF_RATE } from "../procedures";
+import { HOSPITAL_RULE, REGIMENS } from "../regimen";
+import { displayText } from "../display-text";
 // 画面ごとのヘルプ。文言はここで編集します。根拠・出典は移動元のコードコメントを参照。
 export const screenHelp = [
   { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者だけを匿名化して読みます。保存した記録は読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。"] },
@@ -1762,7 +1764,16 @@ export const screenHelp = [
       "DuBois 式 体表面積（m²）= 0.007184 × 体重（kg）^0.425 × 身長（cm）^0.725",
       "最大量 = AUC × 150",
       "下書きは1本ずつ、ほかの注射と同じ確認（経路・単位・速度・時刻・重複）を通ります",
-      "G-CSF・内服薬・補液はこの欄では出しません"
+      "G-CSF・内服薬・補液はこの欄では出しません",
+      "レジメンは院内登録レジメンから選びます",
+      "開始時刻は最初の Rp の時刻です。ほかの Rp の時刻はここから計算します",
+      `まるめ・投与順・時刻・溶媒の量は${HOSPITAL_RULE}です`,
+      "内服の前投薬は、この欄の下書きには入りません（処方で出します）",
+      ...new Set(REGIMENS.flatMap((r) => r.rps.flatMap((rp) => rp.drugs.flatMap((d) => [
+        ...(d.roundMg > 0 ? [`${d.short} のまるめ：${displayText(d.roundNote)}`] : []),
+        ...(d.note ? [`${d.short}：${displayText(d.note)}`] : []),
+      ])))),
+      ...REGIMENS.flatMap((r) => r.notes.map((n) => `${r.name}：${displayText(n.text)}（${n.source.label} ${n.source.url}）`))
     ]
   },
   {

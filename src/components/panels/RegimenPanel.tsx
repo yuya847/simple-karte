@@ -11,7 +11,6 @@ import { findDrug } from "@/lib/master";
 import {
   BSA_RULE,
   GFR_RULE,
-  HOSPITAL_RULE,
   REDUCTIONS,
   REGIMENS,
   addMinutes,
@@ -44,13 +43,6 @@ function SourceLink({ s }: { s: Source }) {
     <a href={s.url} target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-2 hover:text-ai">
       {s.label}
     </a>
-  );
-}
-
-function Sources({ list }: { list: Source[] }) {
-  if (!list.length) return null;
-  return (
-    null
   );
 }
 
@@ -182,7 +174,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
         )}
         {regimen && (
           <p className="pl-[4.375rem] text-[11px] text-ink-soft">
-            {regimen.disease}　{regimen.cycle}（院内登録レジメン）　<Sources list={regimen.sources} />
+            {regimen.disease}　{regimen.cycle}
           </p>
         )}
         {regimen &&
@@ -198,7 +190,6 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
             "day",
             <>
               <TabChoice label="day" options={regimen.days.map((d) => ({ value: d, label: `day${d}` }))} value={day} onChange={(v) => setDay(v)} />
-              {regimen.days.length === 1 && <span className="text-[11px] text-ink-faint">このレジメンは day1 だけです</span>}
             </>,
           )}
         {row(
@@ -214,7 +205,6 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
               onChange={(v) => setStartDay(v)}
             /><DayInput label="レジメンの開始日付" value={startDay} onChange={setStartDay} />
             <TimeInput options={INJECTION_TIME_OPTIONS} value={time} onChange={(e) => setTime(e.target.value)} aria-label="開始時刻（最初の Rp）" className={field} />
-            <span className="text-[11px] text-ink-faint">最初の Rp の時刻。ほかの Rp の時刻はここから計算します</span>
           </>,
         )}
       </section>
@@ -222,7 +212,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
       {plan && (
         <section className="space-y-1">
           <h3 className="text-[11px] font-bold text-ink-soft">
-            量の計算（day{plan.day}）<span className="font-normal text-ink-faint">　まるめ・投与順・時刻・溶媒の量は{HOSPITAL_RULE}</span>
+            量の計算（day{plan.day}）
           </h3>
           <div className="overflow-x-auto">
             <table className="nums w-full border-collapse text-[12px]">
@@ -248,7 +238,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
 
       {plan && (
         <section className="space-y-1.5">
-          <h3 className="text-[11px] font-bold text-ink-soft">投与の順番と時刻（1本ずつ下書きになります）</h3>
+          <h3 className="text-[11px] font-bold text-ink-soft">投与の順番と時刻</h3>
           <ol className="space-y-1.5">
             {plan.rps.map((rp, i) => {
               const lines = lineOf(rp);
@@ -281,7 +271,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
           </ol>
           {regimen!.oral.filter((o) => o.day === plan.day).length > 0 && (
             <div className="rounded-md border border-dashed border-rule p-2">
-              <h4 className="text-[11px] font-bold text-ink-soft">内服の前投薬（処方で出してください。この欄の下書きには入りません）</h4>
+              <h4 className="text-[11px] font-bold text-ink-soft">内服の前投薬（処方で出してください）</h4>
               {regimen!.oral
                 .filter((o) => o.day === plan.day)
                 .map((o) => (
@@ -289,7 +279,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
                     <b>
                       {o.name} {o.dose}
                     </b>
-                    　{displayText(o.text)}　<Sources list={[o.source]} />
+                    　{displayText(o.text)}
                   </p>
                 ))}
             </div>
@@ -297,21 +287,7 @@ export function RegimenPanel({ patient, onAdd, newId }: { patient: RegimenPatien
         </section>
       )}
 
-      {regimen && (
-        <section className="space-y-0.5 rounded-md bg-paper p-2">
-          <h3 className="text-[11px] font-bold text-ink-soft">このレジメンについて</h3>
-          {regimen.notes.map((n) => (
-            <p key={n.text} className="text-[11px] text-ink-soft">
-              ・{displayText(n.text)}
-              <span className="ml-1 text-ink-faint">
-                （<SourceLink s={n.source} />）
-              </span>
-            </p>
-          ))}
-        </section>
-      )}
-
-      <div className="sticky bottom-0 border-t border-rule bg-sheet pt-3">
+      <div className="sticky -bottom-3 border-t border-rule bg-sheet py-3">
         <button type="button" disabled={!ready} onClick={submit} title="⌘Enter（Ctrl+Enter）でも押せます" className="w-full rounded-md bg-ai px-3 py-2 text-sm font-bold text-white disabled:opacity-40 pointer-coarse:py-3">
           保存する{ready && plan ? `（${plan.rps.length} 本）` : ""}
           <kbd className="ml-2 rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>
@@ -359,12 +335,10 @@ function DoseRow({ l, value, onReduce }: { l: DoseLine; value: number | null; on
         <td colSpan={6} className="pb-1.5">
           {/* A fixed dose with no rounding has nothing to work out. */}
           {l.steps.length > 0 && (l.drug.basis !== "固定" || l.drug.roundMg > 0) && <p className="text-[11px] text-ai">{l.steps.join("　→　")}</p>}
-          {l.drug.roundMg > 0 && <p className="text-[11px] text-ink-faint">まるめ：{l.drug.roundNote}</p>}
-          {l.drug.note && <p className="text-[11px] text-ink-soft">{displayText(l.drug.note)}</p>}
-          {l.warnings.map((w) => (
+          {/* "stop" lines are listed once, under the save button. */}
+          {l.warnings.filter((w) => w.level !== "stop").map((w) => (
             <WarnLine key={w.text} w={w} />
           ))}
-          <Sources list={l.drug.source} />
         </td>
       </tr>
     </>
