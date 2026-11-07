@@ -64,7 +64,7 @@ describe("画面別ヘルプ", () => {
       return readdirSync(dir, { withFileTypes: true }).flatMap((f) => f.isDirectory() ? files(join(dir, f.name)) : [join(dir, f.name)]);
     }
     // ICU 記録は依頼仕様により hint を保持。通常は hidden、式だけ明示操作で表示。
-    const deferred = /\/(AddPanels|Calendars|InsulinAdjustment|SlidingScaleEditor|IcuPanel)\.tsx$/;
+    const deferred = /\/(AddPanels|Calendars|InsulinAdjustment|SlidingScaleEditor|IcuPanel|icu\/Icu[A-Za-z]+)\.tsx$/;
     const remaining: string[] = [];
     for (const file of files("src/components").filter((f) => f.endsWith(".tsx") && !f.includes(".test.") && !deferred.test(f))) {
       const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
