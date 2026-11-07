@@ -79,7 +79,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto">
         <table className="nums w-full min-w-[1100px] border-collapse text-[13px]">
-          <thead className="sticky top-0 z-10 bg-paper text-left text-[11px] text-ink-faint shadow-[0_1px_0_var(--color-rule)]">
+          <thead className="sticky top-0 z-10 whitespace-nowrap bg-paper text-left text-[11px] text-ink-faint shadow-[0_1px_0_var(--color-rule)]">
             <tr>
               <th className="px-3 py-2 font-normal">来院</th>
               <th className="px-3 py-2 font-normal">トリアージ（看護師）</th>
@@ -97,22 +97,19 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                 <tr key={p.id} className={`border-b border-rule-soft align-top ${done ? "text-ink-faint" : "bg-sheet"}`}>
                   <td className="px-3 py-2">
                     <b className={done ? "" : "text-ink"}>{hhmm(p.arrivedAbs)}</b>
-                    <div className="whitespace-nowrap text-[11px]">
-                      {p.status === "搬送中" ? (
-                        <span className="font-bold text-shu">到着予定・あと{Math.max(0, p.arrivedAbs - nowAbs)}分</span>
-                      ) : (
-                        <>
-                          {p.arrival}・{Math.max(0, nowAbs - p.arrivedAbs)}分前
-                        </>
-                      )}
-                    </div>
-                    {p.status !== "搬送中" && (() => {
-                      const h = erFeeHint(p, today);
-                      return h ? (
-                        <div className="mt-0.5 max-w-52 text-[10px] leading-tight text-ink-faint" title="救急外来医学管理料（B001-2-6、令和8年度）。この試作は外来の算定をしません。">
-                          {h.item}：{displayText(h.note)}
+                    {(() => {
+                      const h = p.status !== "搬送中" ? erFeeHint(p, today) : null;
+                      return (
+                        <div className="whitespace-nowrap text-[11px]" title={h ? `${h.item}：${displayText(h.note)}` : undefined}>
+                          {p.status === "搬送中" ? (
+                            <span className="font-bold text-shu">到着予定・あと{Math.max(0, p.arrivedAbs - nowAbs)}分</span>
+                          ) : (
+                            <>
+                              {p.arrival}・{Math.max(0, nowAbs - p.arrivedAbs)}分前
+                            </>
+                          )}
                         </div>
-                      ) : null;
+                      );
                     })()}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
@@ -147,7 +144,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                         </div>
                       ) : (
                         <button type="button" onClick={() => setRetriage(p.id)} className="mt-1 block text-[11px] text-ai hover:underline">
-                          再判定を入れる（看護師）
+                          再判定
                         </button>
                       )
                     )}
@@ -155,7 +152,7 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                       <div className="mt-0.5 text-[10px] text-ink-faint">{p.triageLog.map((t) => `${hhmm(t.abs)} ${t.jtas}`).join(" → ")}</div>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2">
                     <div className="text-[10px] text-ink-faint">{p.kana}</div>
                     <button type="button" onClick={() => onOpenVisit(p.id)} title="この患者のタブを開く（記録・入院申込）" className={`font-bold hover:underline ${done ? "" : "text-ai"}`}>
                       {p.name}
@@ -172,7 +169,11 @@ export function EmergencyBoard({ patients, nowAbs, ward, today, onRegister, onUp
                   </td>
                   <td className="px-3 py-2">
                     {p.complaint}
-                    {p.note && <div className="text-[11px] text-ink-soft">{displayText(p.note)}</div>}
+                    {p.note && (
+                      <div className="line-clamp-1 text-[11px] text-ink-soft" title={displayText(p.note)}>
+                        {displayText(p.note).replace(/^救急初療記録\s*/, "")}
+                      </div>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-[12px]">
                     {p.vitals && (
