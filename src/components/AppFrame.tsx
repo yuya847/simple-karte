@@ -114,6 +114,8 @@ interface Props {
   todos: Todo[];
   /** ログインの仕組み is on and someone is logged in: the menu has ログアウト・画面をロック instead of the roles. */
   session?: { onLogout: () => void; onLock: () => void };
+  /** 直したい (その場で直す), before 使い方. */
+  improve?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -129,7 +131,7 @@ type Place = "below-right" | "below-left" | "beside";
  * A small menu drawn on top of the whole screen (not clipped by the menu it comes from), next to the
  * button that opened it. Closes on Esc or a press outside.
  */
-function Popover({ open, onClose, anchor, place, width, children }: { open: boolean; onClose: () => void; anchor: React.RefObject<HTMLElement | null>; place: Place; width: number; children: React.ReactNode }) {
+export function Popover({ open, onClose, anchor, place, width, children }: { open: boolean; onClose: () => void; anchor: React.RefObject<HTMLElement | null>; place: Place; width: number; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<React.CSSProperties>({ visibility: "hidden" });
   useLayoutEffect(() => {
@@ -352,7 +354,7 @@ export function Row({ row, small, start, end }: { row: TabRow; small: boolean; s
 }
 
 /** A button on the right of the top row (患者を開く・やること・掲示板・自分). */
-const barButton = "mb-1 flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2";
+export const barButton = "mb-1 flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-soft hover:bg-sheet hover:text-ink pointer-coarse:py-2";
 
 /** 場所: the pulldown at the start of the top row (部署, then the hospital's shared places). */
 function PlaceButton({ areas, area, onArea, onWardMenu, badges }: { areas: Area[]; area: AreaKey; onArea: (k: AreaKey) => void; onWardMenu?: () => void; badges: Partial<Record<AreaKey, number>> }) {
@@ -615,6 +617,7 @@ export function AppFrame(p: Props) {
               <span className="hidden xl:inline">患者を開く</span>
               <kbd className="hidden rounded border border-rule px-1 text-[10px] xl:inline">⌘K</kbd>
             </button>
+            {p.improve}
             <button type="button" onClick={() => openHelp()} aria-haspopup="dialog" aria-label="ヘルプを開く" title="ヘルプを開く" className={barButton}>
               <CircleHelp size={16} />
               <span className="hidden lg:inline">使い方</span>

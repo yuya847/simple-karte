@@ -237,6 +237,9 @@ import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { PortalIntake } from "./portal/PortalIntake";
 import { PortalQr } from "./portal/PortalQr";
 import { intakeCounts, pendingIntakes, readInbox, type PortalInboxEntry } from "@/lib/portal/inbox";
+import { ImproveButton } from "./ImproveButton";
+import { fixedFor, fixedTodo, fixSeen, readImproveRequests, screenLabel, type ImproveRequest } from "@/lib/improve/requests";
+import { openChanges } from "@/lib/improve/events";
 import { birthOf } from "@/lib/portal/view";
 import { formatBirth } from "@/lib/patient-contacts";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
@@ -902,6 +905,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [national, setNational] = useState<NationalRecord[]>([]);
   // 患者さんの入力（患者さんのページ・病棟の iPad）: the nurse confirms it into 入院時の情報収集.
   const [portalInbox, setPortalInbox] = useState<PortalInboxEntry[]>([]);
+  // その場で直す: the requests to change the app (Claude Code reads them and writes back the fix).
+  const [improveRequests, setImproveRequests] = useState<ImproveRequest[]>([]);
   // 記載・書類（算定）: 症状詳記の版と、摘要のコメントの答え。
   const [kisai, setKisai] = useState<KisaiWorkspace>(() => kisaiWorkspace());
   // 同時利用: after each save the other tabs and devices are told (usePresence fills this in).
@@ -1009,6 +1014,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       returns: [returns, setReturns],
       national: [national, setNational],
       portalInbox: [portalInbox, setPortalInbox],
+      improveRequests: [improveRequests, (v: unknown) => setImproveRequests(readImproveRequests(v))],
       // 記載・書類: a save from before has none (empty); a partial one is filled in.
       kisai: [kisai, (v: Partial<KisaiWorkspace>) => setKisai(kisaiWorkspace(v))],
       // A save from before an outpatient's registration existed gets the demo registrations back (records in the save win).
@@ -1994,6 +2000,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   if (role === "薬剤師" && orderUnlocks.requests.length) todos.push({ key: "order-unlocks", label: "処方のロック解除の依頼", count: orderUnlocks.requests.length, tone: "yamabuki", go: () => openArea("pharmacy") });
   if (role === "医師") todos.push(...diseaseRequestTodos(allPatients, stickies, me.name, id => diseaseRequestInput(claimPayloadOf(findPatient(id)!), isoDate(today), nowTime), id => { openPatient(id); setTimeout(() => setPanel("diagnoses"), 0); }));
   if (role === "看護師") for (const [pid, n] of intakeCounts(readInbox(portalInbox))) { const p = findPatient(pid); if (p) todos.push({ key: `portal-${pid}`, label: `患者さんの入力：${p.name}さん`, count: n, tone: "yamabuki", go: () => { openPatient(pid); setTimeout(() => setPanel("anamnesis"), 0); } }); }
+  todos.push(...fixedFor(improveRequests, me.name).map((r) => ({ ...fixedTodo(r), go: () => { setImproveRequests((all) => fixSeen(all, r.id)); openChanges(r.commit); } })));
   if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) { openPatient(n.patientId); updateFor(n.patientId, () => ({ leftView: "flowsheet", flowScale: "all" })); } } })));
   if (role === "管理栄養士" && kitchenPending) todos.push({ key: "kitchen", label: "給食の変更が未受け", count: kitchenPending, tone: "shu", go: () => openArea("kitchen") });
   if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
@@ -4836,6 +4843,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         areaBadges={{ kitchen: role === "管理栄養士" ? kitchenPending : 0, ward: (wardBadges.mine ?? 0) + (wardBadges.admit ?? 0), lab: uncalled(labItems, calls).length, phs: nurseCalls.filter((c) => !c.answered).length + emergencies.filter((e) => !e.closed).length + (role === "看護師" ? phsNotices.filter((n) => !n.readBy.includes(me.name) && forMyTeam(n)).length : 0), board: unreadCount(notices, reads, me.name) }}
         todos={todos}
         session={login.settings.on && login.session ? { onLogout: login.logout, onLock: login.lock } : undefined}
+        improve={<ImproveButton requests={improveRequests} onRequests={setImproveRequests} me={me} screen={screenLabel(screen, panel ?? chart.rightTab)} patients={allPatients} />}
       >
         {content}
       {expiryOpen && role === "医師" && <RxExpiryInbox inbox={expiryPatients} onOpen={openPatient} onClose={() => setExpiryOpen(false)} />}
