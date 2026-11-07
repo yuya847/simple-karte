@@ -240,7 +240,7 @@ function Card({ persisted, receiving, w, nowTime, shift, shiftLo, prev, facts, h
         </details>
       )}
 
-      {!(sent && h.facts.length === 0) && <div className="mb-3 rounded-lg border border-rule bg-sheet p-3">
+      <div className="mb-3 rounded-lg border border-rule bg-sheet p-3">
         <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから{sent && persisted && <span className="ml-1 font-normal">（{h.sentAt!.time} 時点）</span>}</h4>
         <ul className="list-disc space-y-0.5 pl-5">
           {(sent ? h.facts : facts).map((f, i) => (
@@ -250,7 +250,7 @@ function Card({ persisted, receiving, w, nowTime, shift, shiftLo, prev, facts, h
           ))}
           {facts.length === 0 && <li className="text-ink-faint">集める事実がありません。</li>}
         </ul>
-      </div>}
+      </div>
 
       {!locked && !receiving && (
         <div className="mb-3 rounded-lg border border-ai/30 bg-ai-soft/40 p-3">
