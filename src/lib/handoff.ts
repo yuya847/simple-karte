@@ -1,3 +1,4 @@
+import { vitalsIn } from "./vitals-text";
 import { consciousnessText } from "./consciousness";
 // 勤務交代の申し送り, in the I-PASS order. Facts (vitals, NEWS2, new orders, what is due in the next
 // shift, cultures still out, marks on the patient) are gathered from the chart by code. The person
@@ -88,7 +89,7 @@ const vitalLine = (v: WorkPatient["patient"]["vitals"][number]) => {
 export function handoffFacts(w: WorkPatient, nowAbs: number, today: CalendarDate, extra: string[] = []): string[] {
   const p = w.patient;
   const out: string[] = [];
-  const v = p.vitals.at(-1);
+  const v = vitalsIn(p.vitals, "latest", nowAbs, null)[0];
   if (v) out.push(vitalLine(v));
   const flags = flagsFor(p, w.entries, nowAbs).map((f) => f.label);
   if (flags.length) out.push(`患者の印：${flags.join("・")}`);

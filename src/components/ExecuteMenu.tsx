@@ -7,6 +7,7 @@ import { TimeInput } from "@/components/TimeInput";
 // more than one), then 実施した（いま）, 実施した（時刻を選ぶ）, 未実施（理由を選ぶ）, or takes a record back.
 // The record is the same 与薬・実施の記録 the worksheet writes; the wristband and label are not read here.
 
+import { useRecentGlucose } from "./GlucoseContext";
 import { slidingUnits } from "@/lib/insulin";
 import { Ban, Check, ChevronLeft, Clock, Undo2, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -65,14 +66,19 @@ const STATE_TONE: Record<Occurrence["state"], string> = { 実施: "text-wakatake
 export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, extra = [], onDone }: { title: string; occurrences: Occurrence[]; untimed?: ExecItem | null; day: number; execute?: ExecuteProps; extra?: MenuExtra[]; onDone: () => void }) {
   const me = useMe();
   const [step, setStep] = useState<Step>({ kind: "root" });
-  const [glucose, setGlucose] = useState("");
+  const [enteredGlucose, setGlucose] = useState("");
   const [time, setTime] = useState<string | null>(null);
+  const currentItem = "i" in step ? occurrences[step.i]?.item : untimed ?? occurrences[0]?.item;
+  const measurementTime = time ?? execute?.nowTime ?? "00:00";
+  const recent = useRecentGlucose(currentItem?.patientId ?? "", abs(day, measurementTime));
+  const glucose = recent ? String(recent.value) : enteredGlucose;
   const deny = executeDeny(me.role);
   const dayLabel = day === 0 ? "今日" : day === -1 ? "昨日" : day === 1 ? "明日" : `${Math.abs(day)}日${day < 0 ? "前" : "後"}`;
 
   const write = (item: ExecItem, x: { status: "実施" | "未実施"; time: string; reason?: NotDoneReason }) => {
     const r = menuRecord(item, { ...x, day, by: me.name, glucose:glucose ? Number(glucose) : undefined });
     if (!r || !execute) return;
+    if (r.insulin) r.insulin = { ...r.insulin, measuredAt: recent ? recent.measuredAt ?? recent.at : abs(day, x.time), ...(recent ? { glucoseKey: recent.key } : {}) };
     execute.onRecord(r);
     onDone();
   };
@@ -82,7 +88,7 @@ export function ExecuteMenuBody({ title, occurrences, untimed, day, execute, ext
       {dayLabel} <span className="nums font-bold text-ink">{o.time}</span> の回　<span className={STATE_TONE[o.state]}>{displayText(stateText(o))}</span>
     </div>
   );
-  const glucoseEntry = (item: ExecItem) => item.sliding && <label className="block px-2 text-xs">血糖 mg/dL<input aria-label="血糖 mg/dL" type="number" min="0" className="w-20 border border-rule" value={glucose} onChange={e=>setGlucose(e.target.value)}/><span> → {slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) === null ? "—" : (item.insulinUnits ?? 0) + slidingUnits(item.sliding.rows,Number(glucose))!}単位</span>{item.sliding.callAbove != null && glucose && Number(glucose)>=item.sliding.callAbove && <b className="block text-shu">医師へ連絡してください</b>}</label>;
+  const glucoseEntry = (item: ExecItem) => item.sliding && <label className="block px-2 text-xs">血糖 mg/dL<input aria-label="血糖 mg/dL" type="number" min="0" className="w-20 border border-rule" value={glucose} readOnly={!!recent} onChange={e=>setGlucose(e.target.value)}/>{recent && <span> {recent.doneAt}の記録</span>}<span> → {slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) === null ? "—" : (item.insulinUnits ?? 0) + slidingUnits(item.sliding.rows,Number(glucose))!}単位</span>{item.sliding.callAbove != null && glucose && Number(glucose)>=item.sliding.callAbove && <b className="block text-shu">医師へ連絡してください</b>}</label>;
   const glucoseMissing = (item: ExecItem) => !!item.sliding && slidingUnits(item.sliding.rows,glucose?Number(glucose):NaN) === null;
   const actions = (o: Occurrence, i: number) => {
     const a = actionsFor(o);

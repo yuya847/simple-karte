@@ -18,7 +18,7 @@ export interface InjectionCell {
   /** Fluids given continuously: volume over this day and whether it is past, ongoing or ahead. */
   infusion?: { volumeMl: number; state: MarkState | "now" };
   /** Set when the order was stopped on this day. */
-  stopped?: { time: string | null };
+  stopped?: { time: string | null; beforeStart?: boolean };
 }
 
 export function isFluidOrder(o: InjectionOrder): boolean {
@@ -31,11 +31,12 @@ export function injectionCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   const hi = lo + 1440;
   const { from, to } = orderInterval(entry, nowAbs);
   const scheduled = doseTimes(entry, nowAbs, lo, hi);
-  const running = scheduled.length > 0 || (patternDay(o.dayPattern, o.start.day, day) && from < hi && (to === null || to > lo));
+  const running = scheduled.length > 0 || (patternDay(o.dayPattern, o.start.day, day) && from < hi && (to === null || to > lo && to > from));
   const cell: InjectionCell = { running, doses: [] };
 
   if (entry.status === "中止" && (entry.stoppedOn ?? 0) === day) {
-    cell.stopped = { time: day === 0 && to !== null ? hhmm(to - lo) : null };
+    const stopped = entry.stoppedTime ? abs(day, entry.stoppedTime) : day === 0 ? nowAbs : hi - 1;
+    cell.stopped = { time: entry.stoppedTime ?? (day === 0 ? hhmm(((nowAbs % 1440) + 1440) % 1440) : null), ...(stopped < from ? { beforeStart: true } : {}) };
   }
   if (!running && !(isFluidOrder(o) && fluidInWindow([entry], lo, hi, nowAbs) > 0)) return cell;
 

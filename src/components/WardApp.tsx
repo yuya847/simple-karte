@@ -1,5 +1,6 @@
 "use client";
 import { useMcpReceiver } from "@/lib/mcp/receive";
+import { GlucoseContext } from "./GlucoseContext";
 import { useAnesthesiaPersistence } from "@/lib/use-anesthesia-persistence";
 import { upsertAnesthesiaNote, anesthesiaIo } from "@/lib/anesthesia";
 import { MswInterview } from "./MswInterview";
@@ -999,7 +1000,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         return {
           ...p,
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
-          vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
+          vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].filter(v => abs(v.day, v.time) <= abs(0, nowTime || "00:00")).sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
           history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoOrders[p.id] ?? []), ...(care.demoEndo[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
@@ -4629,7 +4630,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     <ScenarioSaveProvider value={workspace.status === "off" ? null : workspace.saveNow}>
     <OrderHistoryContext.Provider value={{ ...orderUnlocks, entries: entries.filter((e): e is OrderEntry => e.kind === "order"), canEdit: role === "医師" && !deny("order"), ...historyOrderHandlers({ entries: entries.filter((e): e is OrderEntry => e.kind === "order"), locked: orderUnlocks.locked, canEdit: role === "医師" && !deny("order"), modifyInjection: modifyOrder, stopDraft: addStopDraft, load: e => doFromHistory({ kind: "order", entryId: e.id }) }) }}>
     <WindowEntryContext.Provider value={{ scope: `department:${desk}`, entries: windowEntries, setEntries: setWindowEntries }}><RoleProvider value={role}>
-    <MeProvider value={me}>
+    <MeProvider value={me}><GlucoseContext.Provider value={{ orders: careOrders, records: careRecords }}>
     <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
     {patient && <CarryNote id={patient.id} value={chart.note} initial={chart.noteInitial} onChange={note => update({ note, noteInitial: note })} />}
     {verbalConfirmation.dialog}
@@ -4863,7 +4864,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     </div>
     </CosignRefs>
     </VerbalReviewProvider>
-    </MeProvider>
+    </GlucoseContext.Provider></MeProvider>
     </RoleProvider></WindowEntryContext.Provider>
     </OrderHistoryContext.Provider>
     </ScenarioSaveProvider>

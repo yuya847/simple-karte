@@ -468,6 +468,7 @@ export function careFlowRows(orders: CareOrder[], records: CareRecord[], days: D
 
 /** One time of a care row in the zoomed-in flow sheet (3日・1日・勤務帯・1時間): the task or the 必要時 record. */
 export interface CareFlowMark {
+  id: string;
   at: number;
   orderId: string;
   text: string;
@@ -497,11 +498,11 @@ export function careFlowMarks(orders: CareOrder[], records: CareRecord[], lo: nu
       const r = recordOf(records, careKey(s.orderId, s.at));
       const tone: CareFlowCell["tone"] = st === "未実施" ? "not" : st === "未入力" ? "late" : st === "予定" ? "plan" : "done";
       const text = st === "未実施" ? "不可" : st === "未入力" ? "未" : st === "予定" ? "・" : r?.value ? `${r.value}${unit}` : "済";
-      marks.push({ at: s.at, orderId: s.orderId, text, tone, title: `${hhmm(s.at)} ${latest.item}：${st === "記録済み" ? "実施（前の勤務）" : st}${r?.value ? ` ${r.value}${unit}` : ""}${r?.reason ? `（${r.reason}）` : ""}${r ? ` ${r.doneAt} ${r.by}` : ""}` });
+      marks.push({ id: r?.key ?? careKey(s.orderId, s.at), at: s.at, orderId: s.orderId, text, tone, title: `${hhmm(s.at)} ${latest.item}：${st === "記録済み" ? "実施（前の勤務）" : st}${r?.value ? ` ${r.value}${unit}` : ""}${r?.reason ? `（${r.reason}）` : ""}${r ? ` ${r.doneAt} ${r.by}` : ""}` });
     }
     for (const r of records) {
-      if (!ids.has(r.orderId) || r.voided || r.at < lo || r.at >= hi || slots.some((s) => careKey(s.orderId, s.at) === r.key)) continue;
-      marks.push({ at: r.at, orderId: r.orderId, text: r.value ? `${r.value}${unit}` : r.status === "実施" ? "済" : "不可", tone: r.status === "実施" ? "done" : "not", title: `${r.doneAt} ${latest.item}：${r.status}${r.value ? ` ${r.value}${unit}` : ""}${r.note ? ` ${r.note}` : ""} ${r.by}` });
+      if (!ids.has(r.orderId) || r.voided || recordOf(records, r.key) !== r || r.at < lo || r.at >= hi || slots.some((s) => careKey(s.orderId, s.at) === r.key)) continue;
+      marks.push({ id: r.key, at: r.at, orderId: r.orderId, text: r.value ? `${r.value}${unit}` : r.status === "実施" ? "済" : "不可", tone: r.status === "実施" ? "done" : "not", title: `${r.doneAt} ${latest.item}：${r.status}${r.value ? ` ${r.value}${unit}` : ""}${r.note ? ` ${r.note}` : ""} ${r.by}` });
     }
     if (marks.length) rows.push({ key, label: latest.item, sub: shortSchedule(latest), kind: latest.kind, marks: marks.sort((a, b) => a.at - b.at) });
   }

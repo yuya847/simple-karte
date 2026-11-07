@@ -224,3 +224,11 @@ describe("看護ケア指示：架空のデータ", () => {
     }
   });
 });
+
+it("同じ時刻の観察も記録のキーで区別し、訂正前の値を重ねない",()=>{
+  const o=order({id:"obs",kind:"観察",schedule:{kind:"prn"}});
+  const records=[rec("obs",600,{key:"first",value:"180"}),rec("obs",600,{key:"second",value:"190"}),rec("obs",600,{key:"first",value:"185"})];
+  const marks=careFlowMarks([o],records,0,1440,660,540)[0].marks;
+  expect(marks.map(m=>m.id)).toEqual(["second","first"]);
+  expect(marks.map(m=>m.text)).toEqual(["190","185"]);
+});

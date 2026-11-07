@@ -47,7 +47,7 @@ export function CareFlowRows({ orders, records, days, box, labelW, nowX, nowAbs,
             {nowX !== null && <span className="absolute inset-y-0 w-px bg-ink-faint/60" style={{ left: nowX }} aria-hidden />}
             {"marks" in r && zoom
               ? r.marks.map((m) => (
-                  <Cell key={`${m.orderId}-${m.at}`} type={onCell ? "button" : undefined} onClick={onCell ? (e: React.MouseEvent) => onCell(e, r.label, Math.floor(m.at / 1440), m.at) : undefined} title={m.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[m.tone]}`} style={{ left: zoom.xAbs(m.at) }}>
+                  <Cell key={m.id} type={onCell ? "button" : undefined} onClick={onCell ? (e: React.MouseEvent) => onCell(e, r.label, Math.floor(m.at / 1440), m.at) : undefined} title={m.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${onCell ? "rounded hover:bg-ai-soft" : ""} ${TONE[m.tone]}`} style={{ left: zoom.xAbs(m.at) }}>
                     {displayText(m.text)}
                   </Cell>
                 ))

@@ -53,3 +53,9 @@ describe("経過表の検査値", () => {
     expect(parseFlowPrefs(JSON.stringify({ analytes: ["Na", "K"] })).analytes).toEqual(["Na", "K"]);
   });
 });
+
+it("同じ採取時刻の別の検体を記録IDで区別する",()=>{
+  const a=findAnalyte("Glu")!;
+  const marks=labMarks(a,[{id:"sample-a",day:0,time:"10:18",values:{Glu:180}},{id:"sample-b",day:0,time:"10:18",values:{Glu:181}}],[],[],"女",660);
+  expect(marks.map(m=>m.id)).toEqual(["value:sample-a","value:sample-b"]);
+});

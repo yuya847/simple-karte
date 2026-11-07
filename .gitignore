@@ -47,3 +47,6 @@ next-env.d.ts
 
 # agent worktrees
 /.claude/worktrees/
+
+# local screen verification artifacts
+/codex-shots/

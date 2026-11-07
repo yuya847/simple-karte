@@ -349,6 +349,7 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
       <Rows title="画像" items={facts.imaging} />
       <Labs facts={facts} today={today} />
       <Rows title="退院時処方" items={facts.prescriptions} />
+      <Rows title="退院時に続いている内服" items={facts.continuingPrescriptions} />
       {SECTIONS.slice(4).map((s) => (
         <Prose key={s.key} title={s.label} text={d.sections[s.key]} />
       ))}
@@ -388,7 +389,8 @@ function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: Discharg
       <Prose title="経過" text={[`${facts.admitted}〜${facts.discharge} 入院。`, d.sections.course].join("\n")} />
       <Labs facts={facts} today={today} />
       <Rows title="培養" items={facts.cultures} />
-      <Rows title="現在の処方" items={facts.prescriptions} />
+      <Rows title="退院時処方" items={facts.prescriptions} />
+      <Rows title="退院時に続いている内服" items={facts.continuingPrescriptions} />
       {d.letter.attach && <Rows title="添付" items={["退院後の治療計画", "検査結果（上の推移）", "画像の所見（上の一覧）"]} />}
       <Prose title="今後の方針" text={d.sections.plan} />
       <p className="mt-3">ご高診のほど、よろしくお願い申し上げます。</p>

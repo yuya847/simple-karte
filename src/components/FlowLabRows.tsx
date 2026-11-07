@@ -45,8 +45,8 @@ export function FlowLabRows({ patient, pending, orders, nowAbs, days, box, label
               {zoom
                 ? marks
                     .filter((m) => m.at >= zoom.lo && m.at < zoom.hi)
-                    .map((m) => (
-                      <span key={`${m.kind}-${m.at}`} title={m.title} className="absolute top-1 -translate-x-1/2 whitespace-nowrap" style={{ left: zoom.xAbs(m.at) }}>
+                    .map((m, i) => (
+                      <span key={m.id ?? `${m.kind}-${i}`} title={m.title} className="absolute top-1 -translate-x-1/2 whitespace-nowrap" style={{ left: zoom.xAbs(m.at) }}>
                         <MarkText a={a} m={m} />
                       </span>
                     ))

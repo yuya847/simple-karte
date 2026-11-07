@@ -14,9 +14,9 @@ import type { DayOffset, LabResult, OrderEntry, Sex } from "./types";
 /** Shown until a person chooses others (架空の病院の取り決め). */
 export const DEFAULT_FLOW_ANALYTES = ["WBC", "CRP", "Hb", "Cre", "K"];
 
-export type LabMark =
+export type LabMark = { id?: string } & (
   | { kind: "value"; at: number; value: number; flag: Flag; title: string }
-  | { kind: "pending"; at: number; status: PendingDraw["status"] | "予定"; title: string };
+  | { kind: "pending"; at: number; status: PendingDraw["status"] | "予定"; title: string });
 
 const hhmm = (min: number) => {
   const m = ((min % 1440) + 1440) % 1440;
@@ -32,19 +32,19 @@ export const labValueText = (a: Analyte, v: number) => labNumber(a.code, v);
 export function labMarks(a: Analyte, labs: LabResult[], pending: PendingDraw[], entries: OrderEntry[], sex: Sex, nowAbs: number): LabMark[] {
   const range = `基準範囲 ${rangeText(a, sex)}${a.unit ? ` ${a.unit}` : ""}（${a.source ?? "—"}）`;
   const out: LabMark[] = [];
-  for (const l of labs) {
+  for (const [i, l] of labs.entries()) {
     const v = l.values[a.code];
     if (v === undefined) continue;
     const flag = flagOf(a, sex, v);
-    out.push({ kind: "value", at: abs(l.day, l.time), value: v, flag, title: `${a.name} ${labValueText(a, v)}${a.unit ? ` ${a.unit}` : ""}${flag ? `（${flag}）` : ""}　採取 ${l.time}${l.corrected ? `　訂正（第${l.corrected.version}版）` : ""}\n${range}` });
+    out.push({ id: `value:${l.id ?? i}`, kind: "value", at: abs(l.day, l.time), value: v, flag, title: `${a.name} ${labValueText(a, v)}${a.unit ? ` ${a.unit}` : ""}${flag ? `（${flag}）` : ""}　採取 ${l.time}${l.corrected ? `　訂正（第${l.corrected.version}版）` : ""}\n${range}` });
   }
-  for (const d of pending) if (d.analytes.includes(a.code)) out.push({ kind: "pending", at: d.at, status: d.status, title: `${a.name}：${d.status}（${hhmm(d.at)} の${d.urgent ? "至急の" : ""}採血 ${d.tests}）` });
+  for (const [i, d] of pending.entries()) if (d.analytes.includes(a.code)) out.push({ id: `pending:${i}`, kind: "pending", at: d.at, status: d.status, title: `${a.name}：${d.status}（${hhmm(d.at)} の${d.urgent ? "至急の" : ""}採血 ${d.tests}）` });
   for (const e of entries) {
     if (e.order.type !== "lab" || e.status === "中止") continue;
     const at = abs(e.order.collect.day, e.order.collect.time);
     if (at <= nowAbs || out.some((m) => m.at === at)) continue;
     if (!entryPlan(e.order.codes).analytes.some((x) => x.code === a.code)) continue;
-    out.push({ kind: "pending", at, status: "予定", title: `${a.name}：採血の予定（${hhmm(at)}${e.order.priority === "至急" ? "・至急" : ""}）` });
+    out.push({ id: `order:${e.id}`, kind: "pending", at, status: "予定", title: `${a.name}：採血の予定（${hhmm(at)}${e.order.priority === "至急" ? "・至急" : ""}）` });
   }
   return out.sort((x, y) => x.at - y.at);
 }

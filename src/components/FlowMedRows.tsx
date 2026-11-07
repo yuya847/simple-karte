@@ -95,7 +95,7 @@ export function FlowGlucoseRows({ layout, points, insulin, mar, nowAbs, days, bo
           ? points
               .filter((p) => inZoom(zoom, p.at))
               .map((p) => (
-                <span key={`${p.at}-${p.source}`} title={p.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${glucoseMark(p.value, limits) ? "font-bold text-shu" : "text-ink"}`} style={at(zoom.xAbs(p.at))}>
+                <span key={p.id} title={p.title} className={`absolute top-1 -translate-x-1/2 whitespace-nowrap ${glucoseMark(p.value, limits) ? "font-bold text-shu" : "text-ink"}`} style={at(zoom.xAbs(p.at))}>
                   {p.value}{glucoseMark(p.value, limits)}
                 </span>
               ))

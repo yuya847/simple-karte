@@ -65,3 +65,28 @@ it("日数・明示終了・中止を退院日と比較して終了表示する"
   expect(collectFacts(sakura,[oxygen],[],today,0).procedures[0]).toContain("終了（11/1");
   expect(collectFacts(sakura,[{...base,status:"中止",stoppedOn:-2,stoppedTime:"12:00"}],[],today,0).injections[0]).toContain("終了（11/1");
 });
+
+it("退院時処方と退院日に続く内服を分け、未来の開始・終了済みを除く", () => {
+  const rx = (id:string, start:number, category:"定期"|"退院時"="定期",days=7):OrderEntry=>({kind:"order",id,day:0,time:"10:00",author:"医師",status:"有効",order:{type:"prescription",category,drugCode:"ORAL-REBA100",amount:1,unit:"錠",timings:["朝"],start:{day:start,timing:"朝"},days}});
+  const f=collectFacts(sakura,[rx("future",3),rx("current",0),rx("home",1,"退院時"),rx("past",-10)],[],today,1);
+  expect(f.prescriptions).toHaveLength(1);
+  expect(f.continuingPrescriptions).toHaveLength(1);
+  expect(f.continuingPrescriptions[0]).toContain("7日分");
+  expect(f.continuingPrescriptions[0]).toContain("11/3");
+});
+it("入院日の入院時テンプレートを最初の転記に優先する", () => {
+  const note=(day:number,time:string,s:string,templateName?:string)=>({kind:"note" as const,day,time,author:"医師",role:"医師" as const,soap:{s,o:"所見"},templateName});
+  const d=createDischargeDraft({...sakura,admittedOn:-11},[note(-10,"08:00","入院2日目"),note(-11,"12:00","入院時の主訴","入院時"),note(-11,"07:00","経過")],[],today);
+  expect(d.sections.complaint).toBe("入院時の主訴");
+  expect(d.sources?.present).toContain("12:00");
+});
+it("開始前中止の注射に逆転した期間を出さない",()=>{
+  const iv:OrderEntry={kind:"order",id:"future",day:0,time:"10:00",author:"医師",status:"中止",stoppedOn:0,stoppedTime:"10:20",order:{type:"injection",items:[{drugCode:"INJ-NS100",amount:250,unit:"mL"}],route:"点滴静注",schedule:{kind:"per_day",count:1},start:{day:1,time:"10:00"},days:3}};
+  expect(collectFacts(sakura,[iv],[],today,1).injections[0]).toContain("開始前に中止");
+});
+
+it("SOAPでない入院時記録の主訴・現病歴を原文から転記する",()=>{
+  const history=[{kind:"note" as const,day:-11,time:"10:00",author:"医師",role:"医師" as const,text:"入院時記録\n主訴：発熱。現病歴：昨日から悪寒。既往歴：高血圧。\n身体所見：圧痛。"},{kind:"note" as const,day:-10,time:"09:00",author:"医師",role:"医師" as const,soap:{s:"入院2日目"}}];
+  const d=createDischargeDraft({...sakura,admittedOn:-11},history,[],today);
+  expect(d.sections.complaint).toBe("発熱。");expect(d.sections.present).toBe("昨日から悪寒。");expect(d.sources?.complaint).toContain("10/23");
+});

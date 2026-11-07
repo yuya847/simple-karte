@@ -14,6 +14,8 @@ import { orderInterval } from "./flowsheet";
 import { procInterval } from "./proc-timing";
 import { dischargeLeave } from "./rx";
 import { rpLine } from "./rp";
+import { admissionText, isAdmissionNote } from "./discharge-admission";
+import { rxLastDay } from "./day-pattern";
 import { verbalUnsigned } from "./verbal";
 
 export const SECTIONS = [
@@ -51,16 +53,20 @@ export const emptySections = (): Record<SectionKey, string> => ({ complaint: "",
 
 /** Copy chart text verbatim; never infer a course or clinical conclusion. Inputs belong to one patient. */
 export function createDischargeDraft(patient: Patient, entries: HistoryEntry[], drafts: Draft[], today: CalendarDate, request?: Pick<AdmissionRequest, "diagnosis" | "purpose">): DischargeDraft {
-  const notes = entries.filter((e): e is NoteEntry => e.kind === "note" && e.day >= patient.admittedOn && !!e.soap).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
-  const first = notes[0];
+  const notes = entries.filter((e): e is NoteEntry => e.kind === "note" && e.day >= patient.admittedOn && (!!e.soap || isAdmissionNote(e))).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
+  const first = notes.find(n => n.day === patient.admittedOn && isAdmissionNote(n))
+    ?? notes.find(n => n.day === patient.admittedOn)
+    ?? notes.find(n => isAdmissionNote(n))
+    ?? notes[0];
   const last = notes.at(-1);
   const orders = entries.filter((e): e is OrderEntry => e.kind === "order");
   const leave = dischargeLeave({ drafts, activeOrders: orders });
   const sections = emptySections();
   const sources: DischargeDraft["sources"] = {};
   const stamp = (n: NoteEntry | undefined) => n ? `記事 ${formatShort(addDays(today, n.day))} ${n.time}` : "";
-  sections.complaint = first?.soap?.s ?? "";
-  sections.present = [first?.soap?.s, first?.soap?.o].filter(Boolean).join("\n");
+  const admission = admissionText(first);
+  sections.complaint = admission.complaint;
+  sections.present = admission.present;
   sections.reason = request ? [request.diagnosis, request.purpose].filter(Boolean).join("\n") : patient.admissionDiagnosis;
   sections.status = last?.soap?.a ?? "";
   const prescriptions = [
@@ -121,6 +127,7 @@ export interface Facts {
   injections: string[];
   procedures: string[];
   prescriptions: string[];
+  continuingPrescriptions: string[];
   cultures: string[];
   imaging: string[];
   labs: ReturnType<typeof labTrend>;
@@ -133,6 +140,7 @@ export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagn
     const interval = e.order.type === "injection" ? orderInterval(e, cutoff) : procInterval(e, cutoff);
     const recordedEnd = (e.status === "中止" || e.status === "終了") && e.stoppedOn !== undefined ? e.stoppedOn : undefined;
     const endDay = Math.min(recordedEnd ?? Infinity, interval.to === null ? Infinity : Math.floor(interval.to / 1440));
+    if (e.status === "中止" && e.stoppedOn !== undefined && (e.stoppedOn < Math.floor(interval.from / 1440) || e.stoppedOn === Math.floor(interval.from / 1440) && e.stoppedTime && e.stoppedTime <= (e.order.type === "injection" || e.order.type === "procedure" ? e.order.start.time ?? e.time : e.time))) return "開始前に中止";
     const ended = endDay <= dischargeDay;
     return `${formatShort(addDays(today, Math.floor(interval.from / 1440)))}〜${ended ? `終了（${formatShort(addDays(today, endDay))}）` : "継続中"}`;
   };
@@ -146,7 +154,13 @@ export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagn
     infections: p.infections,
     injections: orders.filter((e) => e.order.type === "injection").map((e) => `${orderLines(e.order, today).main}（${span(e)}）`),
     procedures: orders.filter((e) => e.order.type === "procedure").map((e) => `${orderLines(e.order, today).main}（${span(e)}）`),
-    prescriptions: orders.filter((e) => e.order.type === "prescription" && e.status === "有効").map((e) => orderLines(e.order, today).main),
+    prescriptions: orders.filter((e) => e.order.type === "prescription" && e.order.category === "退院時" && e.status === "有効").map((e) => { const line = orderLines(e.order, today); return [line.main, line.detail].filter(Boolean).join("　"); }),
+    continuingPrescriptions: orders.filter(e => {
+      if (e.order.type !== "prescription" || e.order.category === "退院時" || e.order.start.day > dischargeDay) return false;
+      if (e.status !== "有効" && (e.stoppedOn === undefined || e.stoppedOn < dischargeDay)) return false;
+      const last = rxLastDay(e.order, today);
+      return last == null || last >= dischargeDay;
+    }).map(e => { const line = orderLines(e.order, today); return [line.main, line.detail].filter(Boolean).join("　"); }),
     cultures: p.cultures.map((c) => `${formatShort(addDays(today, c.collectedOn))} ${c.specimen}${c.sets ? ` ${c.sets}` : ""}：${c.organism ?? c.gram ?? c.status}${c.susceptibility?.length ? `（${c.susceptibility.map((s) => `${s.drug} ${s.result}`).join("、")}）` : ""}${c.status !== "最終報告" ? `［${c.status}］` : ""}`),
     imaging: p.imaging.filter((s) => !s.pending).map((s) => `${formatShort(addDays(today, s.day))} ${s.modality} ${s.region}：${s.report.split(/。/)[0]}。`),
     labs: labTrend(p),

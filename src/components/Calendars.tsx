@@ -7,7 +7,7 @@ import { patternCourse } from "@/lib/day-pattern";
 
 import { displayText } from "@/lib/display-text";
 import { ArrowRight, Check, Plus, Square } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { injectionCell, prescriptionCell, procedureCell } from "@/lib/calendar";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { abs, fluidByDay } from "@/lib/flowsheet";
@@ -88,8 +88,10 @@ function Frame({
   onSelectDay,
   children,
   allowFuture = false,
+  nearToday = false,
 }: {
   allowFuture?: boolean;
+  nearToday?: boolean;
   days: DayOffset[];
   today: CalendarDate;
   patient: Patient;
@@ -97,8 +99,13 @@ function Frame({
   onSelectDay: (d: DayOffset) => void;
   children: React.ReactNode;
 }) {
+  const scroll = useRef<HTMLDivElement>(null);
+  const firstDay = days[0] ?? 0;
+  useEffect(() => {
+    if (nearToday && scroll.current) scroll.current.scrollLeft = Math.max(0, -2 - firstDay) * COL_W;
+  }, [nearToday, patient.id, firstDay]);
   return (
-    <div className="scroll-thin min-h-0 flex-1 overflow-auto pb-4">
+    <div ref={scroll} className="scroll-thin min-h-0 flex-1 overflow-auto pb-4">
       <table className="nums border-separate border-spacing-0 text-[12px]" style={{ width: HEAD_W + days.length * COL_W }}>
         <colgroup>
           <col style={{ width: HEAD_W }} />
@@ -264,6 +271,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
 
   return (
     <Frame
+      nearToday
       days={days}
       today={today}
       patient={patient}
@@ -345,7 +353,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                             {c.infusion.volumeMl.toLocaleString("ja-JP")}mL
                           </Chip>
                         )}
-                        {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止{c.stopped.time ? ` ${c.stopped.time}` : ""}</span>}
+                        {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">{c.stopped.beforeStart ? "開始前に中止" : `中止${c.stopped.time ? ` ${c.stopped.time}` : ""}`}</span>}
                       </div>
                       </InjectionOrderMenu>
                       {end !== null && d === end && (

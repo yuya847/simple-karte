@@ -1,5 +1,6 @@
 "use client";
 
+import { readPending, writePending, clearPending } from "./workspace-pending";
 import { workspaceRecords } from "./workspace-records";
 import { useEffect, useRef, useState } from "react";
 import { mergeWorkspace, sameJson, type MergeOptions } from "./merge-workspace";
@@ -90,7 +91,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     if (!ws || !d || !loaded.current) return;
     // Newer records are being read: they go into the states first, so that the save carries them too.
     if (pulling.current) await pulling.current.catch(() => null);
-    if (sameJson(snapshot(), accepted.current)) { dirty.current = false; setStatus("saved"); return; }
+    if (sameJson(snapshot(), accepted.current)) { dirty.current = false; clearPending(ws, d); setStatus("saved"); return; }
     dirty.current = false;
     saveAgain.current = false;
     const data = snapshot();
@@ -104,6 +105,8 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       accepted.current = saved.data;
       failures.current = 0;
       if (latest.kept.length) { dirty.current = true; saveAgain.current = true; }
+      if (dirty.current) keepPending();
+      else clearPending(ws, d);
       setStatus(dirty.current ? "saving" : "saved");
       optsRef.current.onSaved?.();
     } catch {
@@ -121,7 +124,12 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     });
     return saving.current;
   };
+  const keepPending = () => {
+    const ws = idRef.current, d = dayRef.current;
+    if (ws && d) writePending(ws, d, snapshot(), base.current ?? accepted.current);
+  };
   const schedule = () => {
+    keepPending();
     if (timer.current) return;
     setStatus("saving");
     timer.current = setTimeout(() => {
@@ -136,11 +144,14 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     const ws = workspaceId();
     setId(ws);
     setStatus("loading");
+    idRef.current = ws;
     const initial = snapshot();
+    const pending = readPending(ws, day);
     setWorkspaceSeed(initial);
     accepted.current = initial;
     loadWorkspaceRow(ws, day)
       .then((row) => {
+        const local = snapshot();
         if (row) {
           const merged = mergeWorkspace(snapshot(), row.data, initial, optsRef.current.merge);
           putBack(merged.data, false);
@@ -151,12 +162,27 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
 
         }
         if (!row) dirty.current = !sameJson(snapshot(), accepted.current);
+        if (pending) {
+          const remote = accepted.current ?? initial;
+          const recovered = mergeWorkspace(pending.data, remote, pending.base, optsRef.current.merge).data;
+          const combined = mergeWorkspace(local, recovered, initial, optsRef.current.merge).data;
+          putBack(combined, false);
+          dirty.current = !sameJson(combined, remote);
+          if (!dirty.current) clearPending(ws, day);
+        }
         loaded.current = true;
         setStatus("saved");
         if (dirty.current) schedule();
       })
       .catch(() => {
+        if (pending) {
+          const recovered = mergeWorkspace(pending.data, snapshot(), pending.base, optsRef.current.merge).data;
+          putBack(recovered, false);
+          base.current = pending.base;
+          dirty.current = true;
+        }
         loaded.current = true;
+        if (dirty.current) schedule();
         setStatus("error");
       });
     // One initial read per day; scheduling reads the current values from refs.
@@ -198,16 +224,22 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
   useEffect(() => {
     const ask = (e: BeforeUnloadEvent) => {
       if (!dirty.current && !saving.current && !timer.current) return;
+      keepPending();
       e.preventDefault();
       e.returnValue = "";
     };
     if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
     window.addEventListener("beforeunload", ask);
     return () => window.removeEventListener("beforeunload", ask);
+    // The handler reads current records through refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const reset = async () => {
-    if (id) await resetWorkspace(id).catch(() => undefined);
+    if (id) {
+      await resetWorkspace(id).catch(() => undefined);
+      if (day) clearPending(id, day);
+    }
     window.location.reload();
   };
   /** Save now (before the page is reloaded), without waiting for the second after a change. */

@@ -78,6 +78,7 @@ export function medCell(slots: OralSlot[], stopped: string[]): MedCell | null {
 export const isGlucoseCare = (o: Pick<CareOrder, "item" | "kind">) => o.kind === "観察" && /血糖/.test(o.item);
 
 export interface GlucosePoint {
+  id: string;
   at: number;
   value: number;
   /** 簡易血糖 = measured on the ward (看護ケア・観察), 検体検査 = the laboratory's Glu. */
@@ -94,19 +95,23 @@ const hhmm = (min: number) => {
 export function glucosePoints(orders: CareOrder[], records: CareRecord[], labs: LabResult[], mar: AdminRecord[] = []): GlucosePoint[] {
   const ids = new Set(orders.filter(isGlucoseCare).map((o) => o.id));
   // The observation belongs to the administration record, so cancelling it also withdraws the glucose.
-  const observed = mar.filter(r=>r.status === "実施" && !r.cancellation && r.insulin?.glucose != null).map(r=>({key:`insulin:${r.key}`,orderId:`insulin:${r.orderId}`,patientId:r.patientId,at:r.insulin?.measuredAt ?? r.at,status:"実施" as const,value:String(r.insulin!.glucose),doneAt:r.doneAt,writtenAt:r.doneAt,by:r.by}));
+  const observed = mar.filter(r=>r.status === "実施" && !r.cancellation && !r.insulin?.glucoseKey && r.insulin?.glucose != null).map(r=>({key:`insulin:${r.key}`,orderId:`insulin:${r.orderId}`,patientId:r.patientId,at:r.insulin?.measuredAt ?? r.at,status:"実施" as const,value:String(r.insulin!.glucose),doneAt:r.doneAt,writtenAt:r.doneAt,by:r.by}));
   observed.forEach(r=>ids.add(r.orderId));
   records = [...records,...observed];
   const out: GlucosePoint[] = [];
+  const seen = new Set<string>();
   for (const r of records) {
     if (!ids.has(r.orderId) || r.voided || r.status !== "実施" || recordOf(records, r.key) !== r) continue;
     const v = Number(String(r.value ?? "").replace(/[^\d.]/g, ""));
     if (!r.value || !Number.isFinite(v) || v <= 0) continue;
-    out.push({ at: r.measuredAt ?? r.at, value: v, source: "簡易血糖", title: `簡易血糖 ${v} mg/dL　${r.doneAt} ${r.by}${r.note ? `　${r.note}` : ""}` });
+    const identity = JSON.stringify([r.patientId, r.measuredAt ?? r.at, v, r.by]);
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    out.push({ id: r.key, at: r.measuredAt ?? r.at, value: v, source: "簡易血糖", title: `簡易血糖 ${v} mg/dL　${r.doneAt} ${r.by}${r.note ? `　${r.note}` : ""}` });
   }
-  for (const l of labs) {
+  for (const [i, l] of labs.entries()) {
     const v = l.values.Glu;
-    if (v !== undefined) out.push({ at: abs(l.day, l.time), value: v, source: "検体検査", title: `検体検査 Glu ${v} mg/dL（採取 ${l.time}）` });
+    if (v !== undefined) out.push({ id: `lab:${i}`, at: abs(l.day, l.time), value: v, source: "検体検査", title: `検体検査 Glu ${v} mg/dL（採取 ${l.time}）` });
   }
   return out.sort((a, b) => a.at - b.at);
 }
@@ -128,4 +133,11 @@ export function insulinDoses(e: OrderEntry, lo: number, hi: number, records: Rec
   const times = e.order.sliding || e.order.doseTimes?.length || e.order.schedule.kind === "per_day" || e.order.schedule.kind === "every_hours" ? doseTimes(e, nowAbs, lo, hi) : e.order.schedule.kind === "once" ? [orderInterval(e, nowAbs).from].filter((t) => t >= lo && t < hi) : [];
   const recorded = Object.values(records).filter(r => r.orderId === e.id && r.insulin && !r.cancellation && r.at >= lo && r.at < hi).map(r => r.at);
   return [...new Set([...times, ...recorded])].sort((a,b) => a-b).map((at) => ({ at, state: marState({ orderId: e.id, at }, records, sessionStart, nowAbs), record: records[marKey(e.id, at)] }));
+}
+
+/** Reuse the closest existing bedside observation within 30 minutes; never another patient's. */
+export function recentGlucose(orders: CareOrder[], records: CareRecord[], patientId: string, at: number) {
+  const ids = new Set(orders.filter(o => o.patientId === patientId && isGlucoseCare(o)).map(o => o.id));
+  return records.filter(r => r.patientId === patientId && ids.has(r.orderId) && !r.voided && r.status === "実施" && recordOf(records, r.key) === r && Number(r.value) > 0 && Number.isFinite(Number(r.value)) && Math.abs((r.measuredAt ?? r.at) - at) <= 30)
+    .sort((a,b) => Math.abs((a.measuredAt ?? a.at) - at) - Math.abs((b.measuredAt ?? b.at) - at))[0];
 }

@@ -27,3 +27,8 @@ describe("vitals as text", () => {
     expect(insertIntoO("夜間良眠", "a")).toBe("夜間良眠\na\n");
   });
 });
+
+it("最新に未来の測定を出さない",()=>{
+  const vs=[{day:0,time:"10:18",bt:37},{day:0,time:"18:00",bt:39}];
+  expect(vitalsIn(vs,"latest",618,null)).toEqual([vs[0]]);
+});

@@ -77,3 +77,15 @@ it("品名にインスリンを含まないヒューマリンもMARから2単位
   expect(insulinOrders([e])).toEqual([e]);
   expect(insulinDoses(e,0,1440,{[record.key]:record},540,660).find(d => d.at === 600)?.record?.insulin?.units).toBe(2);
 });
+
+it("同じ時刻・値・記録者の血糖をまとめ、近い患者の観察だけを再利用する",async()=>{
+  const {recentGlucose}=await import("./flow-meds");
+  const o=INITIAL_CARE_ORDERS.find(isGlucoseCare)!;
+  const r={key:"obs",orderId:o.id,patientId:o.patientId,at:618,measuredAt:618,status:"実施" as const,value:"180",doneAt:"10:18",writtenAt:"10:18",by:"看護師 佐藤"};
+  const mar:AdminRecord={key:"ins|618",orderId:"ins",patientId:o.patientId,at:618,status:"実施",doneAt:"10:18",by:r.by,checked:{patient:true,label:true},insulin:{glucose:180,units:2,measuredAt:618}};
+  expect(glucosePoints([o],[r],[],[mar])).toHaveLength(1);
+  expect(recentGlucose([o],[r],o.patientId,648)).toBe(r);
+  expect(recentGlucose([o],[r],o.patientId,649)).toBeUndefined();
+  expect(recentGlucose([o],[r],"other",618)).toBeUndefined();
+  expect(glucosePoints([o],[r,{...r,key:"different",value:"200"}],[],[{...mar,insulin:{...mar.insulin!,glucoseKey:r.key}}]).map(p=>p.id)).toEqual(["obs","different"]);
+});

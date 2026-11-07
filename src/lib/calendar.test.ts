@@ -115,3 +115,9 @@ it("250mL・125mL毎時・毎日10時2日間は各日250mL、翌々日は0", () 
   expect(fluidByDay([crossing], [0,1,2], now)).toEqual({0:125,1:125,2:0});
   expect(fluidInWindow([{...crossing,status:"中止",stoppedOn:1,stoppedTime:"00:30"}],1440,2880,now)).toBeCloseTo(62.5);
 });
+
+it("未来に開始する注射の中止時刻は24時未満で、投与を出さない",()=>{
+  const e:OrderEntry={...vcm,status:"中止",stoppedOn:0,stoppedTime:"10:18",order:{...vcm.order as import("./types").InjectionOrder,start:{day:1,time:"10:00"},days:3}};
+  expect(injectionCell(e,0,618)).toMatchObject({running:false,doses:[],stopped:{time:"10:18",beforeStart:true}});
+  expect(injectionCell(e,1,618).doses).toEqual([]);
+});

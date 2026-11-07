@@ -1,5 +1,6 @@
 "use client";
 
+import { useRecentGlucose } from "./GlucoseContext";
 import { displayText } from "@/lib/display-text";
 import { dayTime } from "@/lib/flow-entry";
 import { TimeInput } from "./TimeInput";
@@ -44,9 +45,11 @@ const STATE_STYLE: Record<MarState, string> = {
 export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, prn, onRecord, onVoid, voided = [], queried }: Props) {
   const cancellation = record?.cancellation;
   if (cancellation) record = undefined;
-  const [glucose, setGlucose] = useState("");
+  const [enteredGlucose, setGlucose] = useState("");
   const [enteredUnits, setEnteredUnits] = useState("");
   const [givenTime, setGivenTime] = useState(item.at !== null && item.at < 0 ? dayTime(item.at).time : nowTime);
+  const recent = useRecentGlucose(item.patientId, Math.floor((item.at ?? nowAbs) / 1440) * 1440 + Number(givenTime.slice(0, 2)) * 60 + Number(givenTime.slice(3)));
+  const glucose = recent ? String(recent.value) : enteredGlucose;
   const insulin = insulinEntry(item, glucose, enteredUnits, givenTime, nowAbs);
   const { calculated: calculatedUnits, units, valid: insulinOk } = insulin;
   const [queryAck, setQueryAck] = useState(false);
@@ -64,7 +67,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
   const ok = item.at === null ? result.patient === "ok" : result.ok && (!offWindow || timeAck);
   const save = (status: AdminRecord["status"]) => {
     onRecord({
-      ...(status === "実施" && units != null ? {insulin:{units, measuredAt: insulin.measuredAt, ...(glucose ? {glucose:Number(glucose)} : {})}} : {}),
+      ...(status === "実施" && units != null ? {insulin:{units, measuredAt: recent ? recent.measuredAt ?? recent.at : insulin.measuredAt, ...(recent ? { glucoseKey: recent.key } : {}), ...(glucose ? {glucose:Number(glucose)} : {})}} : {}),
       key: marKey(item.orderId, at),
       orderId: item.orderId,
       patientId: item.patientId,
@@ -129,7 +132,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
       </div>
       {open && (
         <div className="w-64 space-y-1 rounded border border-rule bg-paper p-1.5 text-[11px]">
-          {(item.sliding || item.insulinUnits != null) && <div className="space-y-1"><label className="block">血糖 mg/dL <input type="number" min="1" value={glucose} onChange={e => setGlucose(e.target.value)} className="w-20 border border-rule" /></label><label className="block">インスリン 単位 <input type="number" min="0" step="any" value={enteredUnits || (calculatedUnits ?? "")} onChange={e => setEnteredUnits(e.target.value)} className="w-20 border border-rule" /></label><label className="block">測定・投与時刻 <TimeInput value={givenTime} onChange={e => setGivenTime(e.target.value)} /></label>{item.sliding?.callAbove !== undefined && glucose && Number(glucose) >= item.sliding.callAbove && <b className="block text-shu">指示の連絡値に達しています</b>}</div>}
+          {(item.sliding || item.insulinUnits != null) && <div className="space-y-1"><label className="block">血糖 mg/dL <input type="number" min="1" value={glucose} readOnly={!!recent} onChange={e => setGlucose(e.target.value)} className="w-20 border border-rule" />{recent && <span> {recent.doneAt}の記録</span>}</label><label className="block">インスリン 単位 <input type="number" min="0" step="any" value={enteredUnits || (calculatedUnits ?? "")} onChange={e => setEnteredUnits(e.target.value)} className="w-20 border border-rule" /></label><label className="block">測定・投与時刻 <TimeInput value={givenTime} onChange={e => setGivenTime(e.target.value)} /></label>{item.sliding?.callAbove !== undefined && glucose && Number(glucose) >= item.sliding.callAbove && <b className="block text-shu">指示の連絡値に達しています</b>}</div>}
           <label className="flex items-center gap-1">
             <span className="w-16">リストバンド</span>
             <input autoFocus value={wb} onChange={(e) => setWb(e.target.value)} placeholder="読み取る" className="w-24 rounded border border-rule bg-sheet px-1" />

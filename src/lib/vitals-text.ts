@@ -34,7 +34,7 @@ export function vitalLine(v: VitalSign, today: CalendarDate): string {
 /** The measurements in the range, oldest first. `day` is the day chosen on the flow sheet. */
 export function vitalsIn(vitals: VitalSign[], range: VitalRange, nowAbs: number, day: DayOffset | null): VitalSign[] {
   const sorted = [...vitals].sort((a, b) => a.day - b.day || minutesOf(a.time) - minutesOf(b.time));
-  if (range === "latest") return sorted.slice(-1);
+  if (range === "latest") return sorted.filter(v => abs(v.day, v.time) <= nowAbs).slice(-1);
   if (range === "today") return sorted.filter((v) => v.day === 0);
   if (range === "24h") return sorted.filter((v) => abs(v.day, v.time) > nowAbs - 1440 && abs(v.day, v.time) <= nowAbs);
   return day === null ? [] : sorted.filter((v) => v.day === day);

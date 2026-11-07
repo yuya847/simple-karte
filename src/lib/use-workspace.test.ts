@@ -123,3 +123,29 @@ it("値が同じまま保存完了した場合も、次の単純な値の編集�
   value="second";WorkspaceHarness();await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();
   expect(saves).toBe(2);
 });
+
+for (const alreadySaved of [false, true]) it(`保存待ちで閉じても復元し、サーバーに${alreadySaved ? "ある" : "ない"}入力を二度送らない`, async () => {
+  vi.useFakeTimers();
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.test"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "test");
+  const storage = new Map<string,string>();
+  vi.stubGlobal("window", {location:{search:"?scenarios=100"},localStorage:{getItem:(k:string)=>storage.get(k)??null,setItem:(k:string,v:string)=>storage.set(k,v),removeItem:(k:string)=>storage.delete(k)}});
+  let remote: unknown = null, saves = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url:string, init:RequestInit) => {
+    if(url.endsWith("load_workspace")) return Response.json(remote ? [{version:1,day:"today",data:remote}] : []);
+    remote=JSON.parse(String(init.body)).p_data;saves++;return Response.json(true);
+  }));
+  const {useWorkspace}=await import("./use-workspace");
+  let value: Record<string,{id:string;text:string}[]>={p:[]};
+  const WorkspaceHarness=()=>{h.cursor=0;h.ec=0;const api=useWorkspace({notes:[value,v=>{value=v;}]},"today");h.effects.splice(0).forEach(f=>f());return api;};
+  const flush=async()=>{for(let i=0;i<40;i++)await Promise.resolve();};
+  WorkspaceHarness();await flush();WorkspaceHarness();
+  value={p:[{id:"handoff",text:"保存待ちの申し送り"}]};WorkspaceHarness();
+  const pending=[...storage.entries()].find(([k])=>k.includes(":pending:"));expect(pending).toBeDefined();
+  if(alreadySaved)remote=JSON.parse(pending![1]).data;
+  vi.clearAllTimers();h.slots=[];h.deps=[];h.effects=[];value={p:[]};
+  WorkspaceHarness();await flush();WorkspaceHarness();
+  expect(value.p).toEqual([{id:"handoff",text:"保存待ちの申し送り"}]);
+  await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();await vi.advanceTimersByTimeAsync(15000);WorkspaceHarness();
+  expect(saves).toBe(alreadySaved?0:1);
+  expect([...storage.keys()].some(k=>k.includes(":pending:"))).toBe(false);
+});
