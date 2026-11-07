@@ -27,7 +27,6 @@ import {
   kiosk,
   newCardNo,
   openOn,
-  ORDER_NOTE,
   queueOf,
   receive,
   slotsFor,
@@ -386,7 +385,6 @@ export function Reception({
           <button type="button" onClick={done.onList} className="inline-flex min-h-9 items-center rounded-md border border-rule bg-sheet px-3 text-[13px] hover:border-ai hover:text-ai">
             受付一覧へ
           </button>
-          <span className="text-[11px] text-ink-soft">続けて次の人を受け付けられます。</span>
         </div>
       )}
       <div className="grid max-w-3xl gap-2 rounded-lg border border-rule bg-sheet p-3 sm:grid-cols-2">
@@ -510,12 +508,10 @@ export function Reception({
           <button type="button" disabled={!canPress} onClick={receiveNow} className="min-h-9 rounded-md bg-ai px-4 font-bold text-white disabled:opacity-40">
             受け付ける
           </button>
-          {missing.length > 0 ? (
+          {missing.length > 0 && (
             <span role="status" className="text-[12px] text-yamabuki">
               まだ入れるもの：{missing.join("・")}
             </span>
-          ) : (
-            <span className="text-[11px] text-ink-faint">受け付けると受付番号が出ます。受付票はそのあと「受付票を印刷」で。</span>
           )}
 
         </div>
@@ -656,11 +652,9 @@ function Slots({
               予約を取る
             </button>
             {locked && <span className="ml-2 text-[11px] text-ink-soft">{locked}</span>}
-            <span className="ml-2 text-[11px] text-ink-faint">今日の予約は受付一覧に「予約」で入ります。カルテで書いた再診予約も枠に入ります。</span>
           </div>
         </div>
       )}
-      <p className="mt-3 text-[11px] text-ink-faint">{ORDER_NOTE}</p>
     </div>
   );
 }

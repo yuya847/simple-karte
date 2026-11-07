@@ -128,14 +128,14 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
                     {displayText(p.reason)}
                     {p.referral && <div className="text-[11px] text-ink-soft">紹介状あり</div>}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2">
                     <select value={p.status} onChange={(e) => onStatus(p.id, e.target.value as OpdStatus)} aria-label={`${p.name} の状態`} className={`rounded border border-rule bg-sheet px-1 py-0.5 text-[12px] ${TONE[p.status]}`}>
                       {OPD_STATUSES.map((s) => (
                         <option key={s}>{s}</option>
                       ))}
                     </select>
                     {onCall && (p.status === "受付済" || p.status === "診察待ち") && (
-                      <div className="mt-1">
+                      <span className="ml-1.5">
                         {p.called ? (
                           <span className="text-[11px] font-bold text-yamabuki">呼出中 {p.called.at}</span>
                         ) : (
@@ -144,10 +144,10 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
                             呼出
                           </button>
                         )}
-                      </div>
+                      </span>
                     )}
                     {onPayCall && p.status === "会計待ち" && (
-                      <div className="mt-1">
+                      <span className="ml-1.5">
                         {p.payCalled ? (
                           <span className="text-[11px] font-bold text-wakatake">会計を呼出 {p.payCalled.at}</span>
                         ) : (
@@ -156,7 +156,7 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
                             会計の呼出
                           </button>
                         )}
-                      </div>
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-[12px]">
@@ -175,7 +175,6 @@ export function OpdBoard({ patients, nowTime, requests, onOpen, onStatus, onArri
             })}
           </tbody>
         </table>
-        <p className="px-5 py-3 text-[11px] text-ink-faint">外来の算定と処方せんは、この試作では扱いません。</p>
       </div>
     </section>
   );
