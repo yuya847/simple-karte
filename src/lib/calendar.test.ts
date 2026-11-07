@@ -95,11 +95,11 @@ describe("upcoming today", () => {
 
 
 describe("旧オーダの投与時刻の共有", () => {
-  it("北村のラシックスも既定時刻をカレンダーと実施メニューで共有する", () => {
+  it("北村のラシックスも指定開始時刻を起点にカレンダーと実施メニューで共有する", () => {
     const e = kitamura.history.find((e): e is OrderEntry => e.kind === "order" && e.order.type === "injection" && e.order.schedule.kind === "per_day" && e.order.schedule.count === 2 && e.order.items.some((it) => it.drugCode === "INJ-FRS20"))!;
     expect(e).toBeDefined();
-    expect(injectionCell(e, 0, now).doses.map((d) => d.time)).toEqual(["10:00", "22:00"]);
-    expect(occurrencesOn(kitamura, e, 0, now).timed.map((i) => i.at)).toEqual([600, 1320]);
+    expect(injectionCell(e, 0, now).doses.map((d) => d.time)).toEqual(["04:00", "16:00"]);
+    expect(occurrencesOn(kitamura, e, 0, now).timed.map((i) => i.at)).toEqual([240, 960]);
     expect(occurrencesOn(kitamura, e, 0, now).untimed).toBeNull();
   });
 });
@@ -120,4 +120,23 @@ it("未来に開始する注射の中止時刻は24時未満で、投与を出�
   const e:OrderEntry={...vcm,status:"中止",stoppedOn:0,stoppedTime:"10:18",order:{...vcm.order as import("./types").InjectionOrder,start:{day:1,time:"10:00"},days:3}};
   expect(injectionCell(e,0,618)).toMatchObject({running:false,doses:[],stopped:{time:"10:18",beforeStart:true}});
   expect(injectionCell(e,1,618).doses).toEqual([]);
+});
+
+it("開始12時の1日3回は12・20・翌4時、開始なしだけ既定の枠を使う", () => {
+  const order = { type: "injection" as const, items: [{ drugCode: "INJ-SBTABPC3", amount: 3, unit: "g" }], route: "点滴静注" as const, schedule: { kind: "per_day" as const, count: 3 }, start: { day: 0, time: "12:00" }, days: 3 };
+  const e: OrderEntry = { kind: "order", id: "first-noon", day: 0, time: "08:00", author: "医師", status: "有効", order };
+  expect(injectionCell(e, 0, 840).doses.map(d => d.time)).toEqual(["12:00", "20:00"]);
+  expect(injectionCell(e, 1, 840).doses.map(d => d.time)).toEqual(["04:00", "12:00", "20:00"]);
+  expect(injectionCell({ ...e, order: { ...order, start: { day: 0, time: undefined } } }, 0, 840).doses.map(d => d.time)).toEqual(["14:00", "22:00"]);
+  expect(injectionCell({ ...e, order: { ...order, doseTimes: ["12:00", "18:00"] } }, 0, 840).doses.map(d => d.time)).toEqual(["12:00", "18:00"]);
+  expect(injectionCell({ ...e, status: "中止", stoppedOn: 0, stoppedTime: "11:00" }, 0, 840).doses).toEqual([]);
+});
+
+it("楠岡99000002のスルバシリン初日は指定した12時を含む", async () => {
+  const { SCENARIOS } = await import("./scenarios");
+  const patient = SCENARIOS.patients.find(p => p.id === "99000002")!;
+  const e = patient.history.find((e): e is OrderEntry => e.kind === "order" && e.order.type === "injection" && e.order.items.some(it => it.drugCode === "INJ-SBTABPC3"))!;
+  expect(e.order.type).toBe("injection");
+  if (e.order.type !== "injection") return;
+  expect(injectionCell(e, e.order.start.day, 840).doses[0]?.time).toBe("12:00");
 });

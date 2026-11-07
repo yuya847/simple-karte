@@ -26,13 +26,13 @@ it("中止の下書きの指定時刻を確定時刻と区別する", () => {
 it("予定の1回を取り消す下書きと復元：他の回・原本・実施記録は変更しない", async () => {
   const { toggleInjectionDose } = await import("./injection-change");
   const { doseTimes } = await import("./flowsheet");
-  const d = toggleInjectionDose(entry, 2040, 660, [], "cancel")!;
-  expect(d.omittedDoses).toEqual([{ day: 0, time: "10:00" }]);
-  expect(d.start).toEqual({ day: 1, time: "10:00" });
+  const d = toggleInjectionDose(entry, 1980, 660, [], "cancel")!;
+  expect(d.omittedDoses).toEqual([{ day: 0, time: "09:00" }]);
+  expect(d.start).toEqual({ day: 1, time: "09:00" });
   const result = toOrder(d, { nowTime: "11:00", activeOrders: [entry], drafts: [d] } as unknown as CheckContext);
   const next = { ...entry, order: result.order! };
-  expect(doseTimes(next, 660, 660, 5760)).toEqual([3480]);
-  expect(toggleInjectionDose(entry, 2040, 660, [d], "restore")).toBeNull();
+  expect(doseTimes(next, 660, 660, 5760)).toEqual([3420]);
+  expect(toggleInjectionDose(entry, 1980, 660, [d], "restore")).toBeNull();
   expect(() => toggleInjectionDose(entry, 540, 660, [], "past")).toThrow();
   expect(entry.order).not.toHaveProperty("omittedDoses");
 });

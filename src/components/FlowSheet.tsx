@@ -1,5 +1,8 @@
 "use client";
 
+import { recordedVitals } from "@/lib/record-time";
+import { clockMinute } from "@/lib/time-input";
+
 import { FlowInlineEntry } from "./FlowInlineEntry";
 import { FlowObservationAdder } from "./FlowObservationAdder";
 import { observationOrder } from "@/lib/flow-observation";
@@ -62,10 +65,7 @@ const LABEL_W = 76;
 /** The sheet's width on A4 landscape (297 mm − margins, at 96 px an inch). */
 const PRINT_W = 1000;
 
-const clock = (min: number) => {
-  const m = ((min % 1440) + 1440) % 1440;
-  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
-};
+const clock = clockMinute;
 
 /** "11/2（月）〜11/4（水）", "11/4（水） 日勤 8:30〜17:00", "11/4（水） 10:00〜11:00". */
 function windowLabel(w: FlowWindow, today: CalendarDate): string {
@@ -207,7 +207,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
   const zoom = win.byDay ? undefined : { lo: t0, hi: t1, xAbs };
   const nowIn = inWin(nowAbs);
 
-  const vitals = p.vitals.filter((v) => inWin(abs(v.day, v.time)));
+  const vitals = recordedVitals(p.vitals, nowAbs).filter((v) => inWin(abs(v.day, v.time)));
   const orders = entries.filter((e): e is OrderEntry => e.kind === "order");
   const injections = orders.filter((o) => o.order.type === "injection");
   const labs = orders.filter((o) => o.order.type === "lab" && o.status !== "中止");
@@ -265,7 +265,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
   /** The time under the pointer on the axis (not cut to now). */
   const timeOf = (e: React.MouseEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    return t0 + ((e.clientX - r.left) / plotW) * (t1 - t0);
+    return Math.round(t0 + ((e.clientX - r.left) / plotW) * (t1 - t0));
   };
   const untakenSet = new Set(untaken);
   const takeReq = (ids: string[]): FlowEntry => ({ kind: "take", orderIds: ids });

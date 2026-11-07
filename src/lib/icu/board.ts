@@ -33,7 +33,7 @@ export function boardRows(unit: UnitKind, patients: Patient[], beds: BedAssignme
       vent: v && v.mode !== "なし" ? v.mode === "HFNC" ? `HFNC ${v.flow ?? "—"}L ${v.fio2}` : `${v.mode} FiO2 ${v.fio2}${v.peep !== undefined ? ` PEEP ${v.peep}` : ""}` : latestVital?.o2 ?? "—",
       infusions: records.infusions.filter(inf => inf.patientId === pid && rateAt(inf,nowAbs) !== null).map(inf => `${inf.name} ${doseText(inf,nowAbs).split("（")[0]}`),
       crrt: c ? `${c.mode} QB ${c.qb} 除水 ${c.removalMlPerH}mL/h` : "",
-      sofaToday: sofaScore(sofaFacts(patient,records,today)).total, sofaYesterday: sofaScore(sofaFacts(patient,records,today-1)).total,
+      sofaToday: sofaScore(sofaFacts(patient,records,today,nowAbs)).total, sofaYesterday: sofaScore(sofaFacts(patient,records,today-1,nowAbs)).total,
       lines: records.lines.filter(l => l.patientId === pid && abs(l.insertedAt.day,l.insertedAt.time) <= nowAbs && (!l.removedAt || abs(l.removedAt.day,l.removedAt.time) > nowAbs)).map(l => ({ kind: l.kind === "尿道カテーテル" ? "尿カテ" : l.kind, days: lineDays(l,today).replace("日目","日"), flag: today-l.insertedAt.day+1 >= 7 })),
       balance24h: balance, latest: { hr: latestVital?.hr, map: mapWithMeasured(measured,latestVital?.sbp,latestVital?.dbp), spo2: latestVital?.spo2, rr: latestVital?.rr, bt: latestVital?.bt, rass },
       planned: move ? { to: floorOf(move.move!.to!.room).replace("病棟",""), day: move.start.day, time: move.start.time ?? "" } : null, stay };

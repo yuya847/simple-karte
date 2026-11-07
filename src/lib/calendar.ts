@@ -1,3 +1,4 @@
+import { clockMinute } from "./time-input";
 import { patternDay, rxLastDay } from "./day-pattern";
 // Scheduled times for calendar cells. Actual administration is read from MAR by the view.
 
@@ -8,7 +9,7 @@ import type { DayOffset, DoseTiming, InjectionOrder, OrderEntry, PrescriptionOrd
 
 export type MarkState = "done" | "planned";
 
-const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+const hhmm = clockMinute;
 const stateAt = (t: number, nowAbs: number): MarkState => (t <= nowAbs ? "done" : "planned");
 
 export interface InjectionCell {

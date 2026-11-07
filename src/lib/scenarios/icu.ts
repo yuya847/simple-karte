@@ -147,7 +147,7 @@ export function addIcuCases(cases: IcuCase[], insuranceForm: (i: number, age: nu
     note(start, `${ward === "救急外来" ? "救急初療記録" : "ICU 入室時の記録（入院時記録）"}\n入室経路：救急外来。主病名：${p.admissionDiagnosis}。${stories[k]}\n呼吸・循環・意識・腎機能を評価し、装置と持続投与の記録のとおり医師が指示。家族へ病状説明。`);
     for (let d=day; d<=0; d++) {
       if (k < 11 && abs(at(d,"08:00")) >= abs(start)) note(at(d,"08:00"), `朝の回診：${morningNotes[k][d-day]}`);
-      for (let h=0; h<24 && (d<0 || h<=9); h++) {
+      for (let h=0; h<24; h++) {
         const a=at(d,`${String(h).padStart(2,"0")}:00`); if(abs(a)<abs(start)) continue;
         const v=records.vents.filter(v=>v.patientId===id && abs(v.at)<=abs(a)).at(-1);
         const historicalVent = k === 9 && d < -3;

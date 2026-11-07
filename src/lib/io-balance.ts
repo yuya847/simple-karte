@@ -17,7 +17,7 @@ import { drugName } from "./format";
 import type { AdminRecord } from "./mar";
 import type { DailyRecord, OrderEntry } from "./types";
 import { IO } from "./standing";
-import { SHIFTS } from "./worksheet";
+import { SHIFTS, shiftWindow } from "./shift";
 
 export const IN_KINDS = ["経口", "経管", "点滴", "輸血", "その他", "食事"] as const;
 export const OUT_KINDS = ["尿", "便", "ドレーン", "嘔吐", "出血", "その他"] as const;
@@ -33,12 +33,12 @@ export const IO_VOID_REASONS = ["別の患者に記録した", "量を間違え�
 
 /**
  * When the totals close. The shifts are the worksheet's (日勤 08:30–17:00, 夜勤 16:30–翌09:00); a shift
- * closes at its end, so the totals do not overlap. These are the fictional hospital's choices.
+ * uses the same window as the worksheet. The separate 24-hour total retains the existing 09:00 close.
  */
 export const IO_RULES = {
   dayClose: SHIFTS.night.to,
   dayShiftClose: SHIFTS.day.to,
-  label: `勤務の終わりで締める（日勤 ${SHIFTS.night.to}〜${SHIFTS.day.to}、夜勤 ${SHIFTS.day.to}〜翌${SHIFTS.night.to}。1日は ${SHIFTS.night.to}〜翌${SHIFTS.night.to}）。締めの時刻ちょうどの記録は、その時刻で終わる勤務に入れる`,
+  label: `日勤 ${SHIFTS.day.from}〜${SHIFTS.day.to}、夜勤 ${SHIFTS.night.from}〜翌${SHIFTS.night.to}`,
 };
 
 export const IO_NOT_INCLUDED = "不感蒸泄・代謝水の推定は入れていません（数えたのは、測って入れた量と注射の記録だけです）。";
@@ -92,8 +92,8 @@ export const inWindow = (t: number, w: Pick<IoWindow, "lo" | "hi">) => t > w.lo 
 export const ioDay = (d: number): IoWindow => ({ label: "24時間", lo: abs(d, IO_RULES.dayClose), hi: abs(d + 1, IO_RULES.dayClose) });
 
 export const ioShifts = (d: number): IoWindow[] => [
-  { label: "日勤", lo: abs(d, IO_RULES.dayClose), hi: abs(d, IO_RULES.dayShiftClose) },
-  { label: "夜勤", lo: abs(d, IO_RULES.dayShiftClose), hi: abs(d + 1, IO_RULES.dayClose) },
+  { label: "日勤", ...shiftWindow("day", d) },
+  { label: "夜勤", ...shiftWindow("night", d) },
 ];
 
 /** The 24-hour period a time falls in (its start day). */
@@ -102,7 +102,7 @@ export const ioDayOf = (t: number) => Math.ceil((t - minutesOf(IO_RULES.dayClose
 /** The shift a time falls in. */
 export const ioShiftAt = (t: number): IoWindow => ioShifts(ioDayOf(t)).find((w) => inWindow(t, w))!;
 
-/** "日勤 09:00〜17:00" / "夜勤 17:00〜翌09:00". */
+/** ワークシートと同じ勤務帯の表示。 */
 export const windowText = (w: IoWindow) => `${w.label} ${clockText(w.lo)}〜${clockText(w.hi)}`;
 
 const shortDrug = (o: OrderEntry) => (o.order.type === "injection" ? o.order.items.map((it) => drugName(it.drugCode)).join("＋") : "");

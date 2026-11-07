@@ -48,3 +48,11 @@ describe("MCP fictional ward", () => {
     expect(()=>callTool("propose_orders",{...p,patient:"P-000000000000"},"http://localhost")).toThrow();
   });
 });
+
+it("get_patient は固定した14時より後の一般病棟・ICUのバイタルを返さない", () => {
+  for (const p of fixtures.patients) {
+    const result = callTool("get_patient", { patient: pseudonym(p.id) }, "http://localhost", 840) as { vitals: { day: string; time: string }[] };
+    expect(result.vitals.every(v => v.day.endsWith("日前") || v.day === "今日" && Number(v.time.slice(0,2)) * 60 + Number(v.time.slice(3)) <= 840)).toBe(true);
+    if (Number(p.id) >= 99000101) expect(result.vitals[0]?.time).toBe("14:00");
+  }
+});

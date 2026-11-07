@@ -2,7 +2,7 @@
 // a week, three days, one day, one shift (勤務帯) or one hour, moved back and forth or back to now.
 // Times are absolute minutes from today 00:00 (see flowsheet.ts).
 
-import { SHIFTS } from "./worksheet";
+import { SHIFTS } from "./shift";
 
 export type FlowScale = "all" | "week" | "3d" | "1d" | "shift" | "1h";
 

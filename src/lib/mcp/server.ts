@@ -6,7 +6,8 @@ import { activeOrders } from "../active-orders";
 import { egfr } from "../exams";
 import { renalFunction } from "../abx-renal";
 import { orderLines } from "../format";
-import { todayInTokyo } from "../dates";
+import { recordedVitals } from "../record-time";
+import { minutesOf, nowTimeInTokyo, todayInTokyo } from "../dates";
 import { AiWireOrder } from "../ai-schema";
 import { pseudonym, scrub } from "./anonymize";
 import { encodePayload, parseProposal, proposal } from "./payload";
@@ -27,7 +28,7 @@ const descriptions = {
 export function toolsList() {
   return Object.entries(schemas).map(([name,schema]) => ({ name, description: descriptions[name as keyof typeof descriptions], inputSchema: name === "propose_orders" ? { ...z.toJSONSchema(proposal), properties: { patient: z.toJSONSchema(proposal.shape.patient), orders: { type: "array", minItems: 1, maxItems: 30, items: z.toJSONSchema(AiWireOrder) } } } : z.toJSONSchema(schema) }));
 }
-export function callTool(name: string, args: unknown, origin: string): unknown {
+export function callTool(name: string, args: unknown, origin: string, nowAbs = minutesOf(nowTimeInTokyo())): unknown {
   if (name === "list_patients") {
     const a = listInput.parse(args);
     return data.cases.filter(c => (!a.diagnosis || c.patient.admissionDiagnosis.includes(a.diagnosis)) && (!a.department || c.patient.department.includes(a.department)) && (!a.status || c.stage === (a.status === "入院中" ? "入院" : a.status))).map(c => scrub(summary(c), data.patients));
@@ -38,7 +39,7 @@ export function callTool(name: string, args: unknown, origin: string): unknown {
     const p = c.patient;
     const labs = p.labs.filter(v => v.day <= 0).sort((a,b) => b.day-a.day || b.time.localeCompare(a.time));
     const cre = labs.find(v => v.values.CRE !== undefined)?.values.CRE ?? labs.find(v => v.values.Cre !== undefined)?.values.Cre ?? null;
-    return scrub({ ...summary(c), problems: c.diagnoses.map(d => d.name), allergies: p.allergies, weightKg: p.weightKg, renal: { ...renalFunction(p.age,p.sex,p.weightKg,cre), egfr: cre && p.age >= 18 ? egfr(cre,p.age,p.sex) : null }, vitals: [...p.vitals].sort((a,b) => b.day-a.day || b.time.localeCompare(a.time)).slice(0,12), latestLabs: labs[0] ?? null, labTrend: labs.slice(0,8), orders: activeOrders(p.history).filter(e => e.day <= 0 && (!("start" in e.order) || typeof e.order.start !== "object" || e.order.start.day <= 0)).map(e => ({ day: e.day, text: e.kind === "order" ? orderLines(e.order,todayInTokyo()) : null, treatmentDay: `${1-("start" in e.order && typeof e.order.start === "object" ? e.order.start.day : e.day)}日目` })), notes: p.history.filter(e => e.kind === "note" && e.day <= 0).sort((a,b) => b.day-a.day || b.time.localeCompare(a.time)).slice(0,5) }, data.patients);
+    return scrub({ ...summary(c), problems: c.diagnoses.map(d => d.name), allergies: p.allergies, weightKg: p.weightKg, renal: { ...renalFunction(p.age,p.sex,p.weightKg,cre), egfr: cre && p.age >= 18 ? egfr(cre,p.age,p.sex) : null }, vitals: recordedVitals(p.vitals, nowAbs).sort((a,b) => b.day-a.day || b.time.localeCompare(a.time)).slice(0,12), latestLabs: labs[0] ?? null, labTrend: labs.slice(0,8), orders: activeOrders(p.history).filter(e => e.day <= 0 && (!("start" in e.order) || typeof e.order.start !== "object" || e.order.start.day <= 0)).map(e => ({ day: e.day, text: e.kind === "order" ? orderLines(e.order,todayInTokyo()) : null, treatmentDay: `${1-("start" in e.order && typeof e.order.start === "object" ? e.order.start.day : e.day)}日目` })), notes: p.history.filter(e => e.kind === "note" && e.day * 1440 + minutesOf(e.time) <= nowAbs).sort((a,b) => b.day-a.day || b.time.localeCompare(a.time)).slice(0,5) }, data.patients);
   }
   if (name === "search_master") {
     const a = masterInput.parse(args), q = a.query.normalize("NFKC").toLowerCase();

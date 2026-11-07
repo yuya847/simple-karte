@@ -19,21 +19,7 @@ import { procEvents, procInterval } from "./proc-timing";
 import { AREA_LABEL, findProc, findProcDrug, procScheduleText } from "./procedures";
 import type { DayOffset, InjectionOrder, LabOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "./types";
 
-export type Shift = "day" | "night" | "all";
-
-/** Shifts of the fictional ward. 夜勤 runs into the next morning. */
-export const SHIFTS: Record<Shift, { label: string; from: string; to: string; nextDay?: boolean }> = {
-  day: { label: "日勤", from: "08:30", to: "17:00" },
-  night: { label: "夜勤", from: "16:30", to: "09:00", nextDay: true },
-  all: { label: "終日", from: "00:00", to: "24:00" },
-};
-
-export function shiftWindow(shift: Shift, day: DayOffset): { lo: number; hi: number } {
-  const s = SHIFTS[shift];
-  const lo = abs(day, s.from);
-  const hi = s.to === "24:00" ? (day + 1) * 1440 : abs(day + (s.nextDay ? 1 : 0), s.to);
-  return { lo, hi };
-}
+export { SHIFTS, shiftWindow, type Shift } from "./shift";
 
 export type WorkKind = "注射" | "内服" | "処置" | "採血" | "検査";
 

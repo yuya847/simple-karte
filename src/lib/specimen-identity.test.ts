@@ -71,7 +71,7 @@ it("112人の生理検査は主病名に合う検査で、受付・実施・報�
   for (const status of ["予約", "実施済み", "下書き（技師）", "報告済み"]) expect(rows.filter((r) => r.status === status).length).toBeGreaterThan(3);
   for (const r of rows) {
     const p = SCENARIOS.patients.find((p) => p.id === r.patientId)!;
-    if (r.test === "PHY-SPIRO") expect(r.purpose).toMatch(/喘息|閉塞性肺疾患|間質性肺炎|術前/);
+    if (r.test === "PHY-SPIRO") expect(r.purpose).toContain(p.admissionDiagnosis);
     if (/腎盂腎炎/.test(p.admissionDiagnosis)) expect(["PHY-ABDUS", "PHY-ECG"]).toContain(r.test);
   }
 });

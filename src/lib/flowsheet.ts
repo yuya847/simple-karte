@@ -26,7 +26,7 @@ export function orderInterval(entry: OrderEntry, nowAbs: number): { from: number
 /** Prescribed times, per-day defaults, or every-N-hours occurrences inside [lo, hi). */
 export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: number, base?: CalendarDate): number[] {
   const o = entry.order as InjectionOrder;
-  const times = o.insulinDoses ? insulinDoseTimes(o.insulinDoses, o.sliding?.times) : o.sliding ? o.sliding.times : o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" ? defaultDoseTimes(o.schedule) : [];
+  const times = o.insulinDoses ? insulinDoseTimes(o.insulinDoses, o.sliding?.times) : o.sliding ? o.sliding.times : o.doseTimes?.length ? o.doseTimes : o.schedule.kind === "per_day" && !o.start.time ? defaultDoseTimes(o.schedule) : [];
   if (times.length) {
     const { from, to } = orderInterval(entry, nowAbs);
     const out: number[] = [];
@@ -43,9 +43,9 @@ export function doseTimes(entry: OrderEntry, nowAbs: number, lo: number, hi: num
     const { from, to } = orderInterval(entry, nowAbs);
     return from >= lo && from < hi && (to === null || from < to) && !isOmittedDose(o, from) ? [from] : [];
   }
-  if (o.schedule.kind !== "every_hours") return [];
+  if (o.schedule.kind !== "every_hours" && o.schedule.kind !== "per_day") return [];
   const { from, to } = orderInterval(entry, nowAbs);
-  const step = o.schedule.hours * 60;
+  const step = o.schedule.kind === "every_hours" ? o.schedule.hours * 60 : 1440 / o.schedule.count;
   const end = Math.min(hi, to ?? Infinity, o.days ? o.dayPattern ? (o.start.day + o.days) * 1440 : from + o.days * 1440 : Infinity);
   const out: number[] = [];
   for (let t = from; t < end; t += step) if (t >= lo && patternDay(o.dayPattern, o.start.day, Math.floor(t / 1440), base)) out.push(t);

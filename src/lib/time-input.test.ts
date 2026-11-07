@@ -18,3 +18,11 @@ describe("normalizeTime", () => {
     expect(HALF_HOUR_TIMES.at(-1)).toBe("23:30");
   });
 });
+
+it("分の小数を最寄りの分へ丸め、日付をまたいでもHH:MM", async () => {
+  const { clockMinute } = await import("./time-input");
+  expect(clockMinute(717.60035393009866)).toBe("11:58");
+  expect(clockMinute(1439.6)).toBe("00:00");
+  expect(clockMinute(-.6)).toBe("23:59");
+  expect(clockMinute(9 * 60)).toBe("09:00");
+});

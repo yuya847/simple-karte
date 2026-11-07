@@ -70,7 +70,7 @@ describe("経過表の画面", () => {
     expect(day).toContain("12時");
     expect(day).toContain("前");
     expect(render("90010244", { initialScale: "1h" })).toContain("10:30");
-    expect(render("90010244", { initialScale: "shift" })).toContain("日勤 8:30〜17:00");
+    expect(render("90010244", { initialScale: "shift" })).toContain("日勤 08:30〜17:00");
   });
 
   it("groups with headings that fold, and the 行の設定 panel", () => {

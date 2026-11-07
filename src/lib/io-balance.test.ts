@@ -11,11 +11,11 @@ const ordersOf = (id: string) => currentEntries(PATIENTS.find((p) => p.id === id
 const typed = (x: Partial<IoEntry> & Pick<IoEntry, "side" | "kind" | "ml" | "at">): IoEntry => ({ id: `t-${x.side}-${x.kind}-${x.at}`, patientId: "P1", by: "看護師 高橋", recordedAt: "10:00", ...x });
 
 describe("締めの時刻", () => {
-  it("1日は 9:00〜翌9:00、日勤 9:00〜17:00、夜勤 17:00〜翌9:00", () => {
+  it("1日は既存の9時締め、勤務帯はワークシートと同じ", () => {
     expect(ioDay(0)).toMatchObject({ lo: 540, hi: 1980 });
     expect(ioShifts(0).map((w) => [w.label, w.lo, w.hi])).toEqual([
-      ["日勤", 540, 1020],
-      ["夜勤", 1020, 1980],
+      ["日勤", 510, 1020],
+      ["夜勤", 990, 1980],
     ]);
   });
   it("a record at the close goes to the shift that closes then", () => {
@@ -23,7 +23,7 @@ describe("締めの時刻", () => {
     expect(ioDayOf(541)).toBe(0);
     expect(ioShiftAt(1020).label).toBe("日勤");
     expect(ioShiftAt(1021).label).toBe("夜勤");
-    expect(ioShiftAt(300)).toMatchObject({ label: "夜勤", lo: abs(-1, "17:00") });
+    expect(ioShiftAt(300)).toMatchObject({ label: "夜勤", lo: abs(-1, "16:30") });
   });
 });
 
@@ -53,7 +53,7 @@ describe("合計と IN − OUT", () => {
   });
   it("no balance when one side has no record", () => {
     const night = ioTotal(lines, ioShifts(0)[1]);
-    expect(night).toMatchObject({ in: 0, out: 40, balance: null });
+    expect(night).toMatchObject({ in: 0, out: 190, balance: null });
     expect(night.formula).toContain("IN 記録なし");
   });
   it("24 hours", () => {
@@ -155,4 +155,11 @@ it("ICU の速さの行は日・勤務をまたいでもそれぞれの窓で数
  const lines=ioLines({patientId:icuPatient.id,entries:[],typed:[],records:{},sessionStart:0,nowAbs:1080,from:0,icu:r});
  expect(ioTotal(lines,{lo:540,hi:1020}).in).toBeCloseTo(4.9*8);
  expect(ioTotal(lines,{lo:1020,hi:1080}).in).toBeCloseTo(4.9);
+});
+
+it("勤務帯はワークシート・申し送りが使う共通関数と一致し、24時間合計は重複しない", async () => {
+  const { shiftWindow } = await import("./shift");
+  for (const d of [-1, 0, 1]) {
+    expect(ioShifts(d).map(({lo, hi}) => ({lo, hi}))).toEqual([shiftWindow("day", d), shiftWindow("night", d)]);
+  }
 });

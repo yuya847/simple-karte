@@ -35,10 +35,12 @@ export function icuIoLines(records: IcuRecords, patientId: string, lo: number, h
 }
 
 /** 時間尿量がある日のみ、元の日量をその日の時間記録の合計で置き換える。 */
-export function withIcuUrine(daily: DailyRecord[], records: IcuRecords, patientId: string): DailyRecord[] {
+export function withIcuUrine(daily: DailyRecord[], records: IcuRecords, patientId: string, nowAbs = Infinity): DailyRecord[] {
   const sums = new Map<number, number>();
   for (const r of records.hourly) {
-    if (r.patientId === patientId && r.urineMl !== undefined) sums.set(r.at.day, (sums.get(r.at.day) ?? 0) + r.urineMl);
+    if (r.patientId !== patientId || r.urineMl === undefined || r.at.day > Math.floor(nowAbs / 1440)) continue;
+    if (!sums.has(r.at.day)) sums.set(r.at.day, 0);
+    if (abs(r.at.day, r.at.time) <= nowAbs) sums.set(r.at.day, sums.get(r.at.day)! + r.urineMl);
   }
   const days = new Map(daily.map(d => [d.day, { ...d }]));
   for (const [day, urineMl] of sums) days.set(day, { ...(days.get(day) ?? { day }), urineMl });

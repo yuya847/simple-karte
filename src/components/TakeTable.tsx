@@ -70,7 +70,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                       </span>
                       {/* 指示確認: only for changes taken in this session (earlier ones count as confirmed by the earlier shift). */}
                       {confirm && taken[r.keys.at(-1)!] && (confirm.confirms[r.key] ? <span className="text-[10px] text-wakatake">確認 {confirm.confirms[r.key]}</span> : interactive ? (
-                        <button type="button" onClick={() => setConfirming(confirming === r.key ? null : r.key)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[10px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
+                        <button type="button" onClick={() => confirm.onConfirm(r.key)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[10px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
                           予定を確認する（まだ）
                         </button>
                       ) : (

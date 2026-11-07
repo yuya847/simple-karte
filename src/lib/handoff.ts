@@ -5,7 +5,9 @@ import { consciousnessText } from "./consciousness";
 // handing over says the rest; Claude only places their own sentences into the fields. The severity is
 // chosen by the person, and the receiver says back what they heard (Synthesis by receiver).
 
-import { buildWorksheet, orderChanges, shiftWindow, timeLabel, type WorkPatient } from "./worksheet";
+import { shiftWindow, SHIFTS } from "./shift";
+import { minutesOf } from "./dates";
+import { buildWorksheet, orderChanges, timeLabel, type WorkPatient } from "./worksheet";
 import { news2 } from "./news2";
 import { flagsFor } from "./patient-flags";
 import type { CalendarDate } from "./dates";
@@ -67,8 +69,8 @@ export function nextShift(nowAbs: number): { label: string; from: string; lo: nu
   const m = nowAbs - day * 1440;
   // The shifts overlap 08:30–09:00 and 16:30–17:00, which is when the handoff is given: until 09:00 it
   // is still 夜勤→日勤, until 17:00 日勤→夜勤; after 17:00 the next one is tomorrow morning's.
-  if (m < 540) return { label: "夜勤→日勤", from: "日勤", ...shiftWindow("day", day) };
-  if (m < 1020) return { label: "日勤→夜勤", from: "夜勤", ...shiftWindow("night", day) };
+  if (m < minutesOf(SHIFTS.night.to)) return { label: "夜勤→日勤", from: "日勤", ...shiftWindow("day", day) };
+  if (m < minutesOf(SHIFTS.day.to)) return { label: "日勤→夜勤", from: "夜勤", ...shiftWindow("night", day) };
   return { label: "夜勤→日勤", from: "日勤", ...shiftWindow("day", day + 1) };
 }
 

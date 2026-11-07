@@ -332,6 +332,7 @@ import { patientChannel } from "@/lib/chat";
 import { CLAUDE, auditLog } from "@/lib/audit";
 import { cancelAdministration, overdue, type AdminRecord, type VoidReason, type VoidedRecord } from "@/lib/mar";
 import { clockText, dripAction, endText } from "@/lib/drip-course";
+import { recordedVitals, visibleIcuRecords, retainFutureHourly } from "@/lib/record-time";
 import { buildWorksheet } from "@/lib/worksheet";
 import { news2 } from "@/lib/news2";
 import { findConsent, type ConsentCode, type ConsentRecord } from "@/lib/consent";
@@ -1009,7 +1010,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         return {
           ...p,
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
-          vitals: [...p.vitals, ...(extraVitals[p.id] ?? [])].filter(v => abs(v.day, v.time) <= abs(0, nowTime || "00:00")).sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
+          vitals: recordedVitals([...p.vitals, ...(extraVitals[p.id] ?? [])], abs(0, nowTime || "00:00")).sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
           history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoOrders[p.id] ?? []), ...(care.demoEndo[p.id] ?? [])],
           labs: [...p.labs, ...deskLabs(labDesk, p.id)],
           cultures: mergeCultures(mergeCultures(p.cultures, arrivedCultures[p.id]), deskCultures(labDesk, p.id)),
@@ -1019,7 +1020,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           attending: deptChanges[p.id]?.doctor ?? p.attending,
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ...(discharged[p.id] ? { dischargedAt: discharged[p.id] } : {}),
-          daily: withIoUrine(withIcuUrine(withToday(p.daily, extraDaily[p.id]), icu, p.id), io.filter((e) => e.patientId === p.id)),
+          daily: withIoUrine(withIcuUrine(withToday(p.daily, extraDaily[p.id]), icu, p.id, abs(0, nowTime || "00:00")), io.filter((e) => e.patientId === p.id)),
           ward: p.room ? floorOf(moves[p.id]?.room ?? p.room) : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
@@ -1038,9 +1039,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     () =>
       [...er.map((v) => visitPerson("er", v, visitEntries[`er:${v.id}`] ?? [], labDesk, PATIENTS.find(p => p.id === v.id))), ...opd.map((v) => visitPerson("opd", v, visitEntries[`opd:${v.id}`] ?? [], labDesk))].map((x) => ({
         ...x,
-        patient: { ...x.patient, vitals: [...x.patient.vitals, ...(extraVitals[x.patient.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)), pregnancy: pregnancy[x.patient.id] ?? null },
+        patient: { ...x.patient, vitals: recordedVitals([...x.patient.vitals, ...(extraVitals[x.patient.id] ?? [])], abs(0, nowTime || "00:00")).sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)), pregnancy: pregnancy[x.patient.id] ?? null },
       })),
-    [er, opd, visitEntries, labDesk, extraVitals, pregnancy, PATIENTS],
+    [er, opd, visitEntries, labDesk, extraVitals, pregnancy, PATIENTS, nowTime],
   );
   // ~80 charts: looked up by number, not by searching the list.
   const patientById = useMemo(() => new Map([...visitPatientsAll.map((x) => x.patient), ...allPatients].map((p) => [p.id, p])), [allPatients, visitPatientsAll]);
@@ -3816,7 +3817,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} onVoidIo={(lot, reason) => transfusionIoIds(io, patient.id, lot).forEach((id) => voidIo(id, reason))} />
                 </Drawer>
               )}
-              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide initialWidth={1200}><IcuPanel key={patient.id} patient={patient.id.startsWith("er:") && PATIENTS.some(p => p.id === patient.id.slice(3)) ? { ...patient, id: patient.id.slice(3) } : patient} records={icu} onChange={setIcu} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} onOrder={ds => confirmDrafts(ds)} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
+              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide initialWidth={1200}><IcuPanel key={patient.id} patient={patient.id.startsWith("er:") && PATIENTS.some(p => p.id === patient.id.slice(3)) ? { ...patient, id: patient.id.slice(3) } : patient} records={visibleIcuRecords(icu, abs(0, nowTime))} onChange={next => setIcu(saved => retainFutureHourly(saved, next, abs(0, nowTime)))} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} onOrder={ds => confirmDrafts(ds)} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
               {panel === "io" && (
                 <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
                   <IoPanel

@@ -12,3 +12,9 @@ export function normalizeTime(text: string, { allow24 = false }: { allow24?: boo
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 export const HALF_HOUR_TIMES = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
+
+/** 絶対分を最寄りの分に丸め、日をまたぐ時刻も HH:MM にする。 */
+export function clockMinute(minutes: number): string {
+  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}

@@ -1,3 +1,4 @@
+import { clockMinute } from "./time-input";
 // Entering from a cell of the flow sheet (経過表): what a pressed cell asks for (which existing entry, at
 // what time) and who may do it. The entries themselves are the chart's own (バイタル・看護ケアの記録・
 // 水分出納・与薬の記録・指示受け); nothing here stores anything.
@@ -22,10 +23,7 @@ export const ENTRY_ACTION: Record<FlowEntry["kind"], Action> = { vitals: "vitals
 
 export const ENTRY_LABEL: Record<FlowEntry["kind"], string> = { vitals: "バイタルを入れる", care: "看護ケア・観察を記録する", io: "水分出納を入れる", mar: "実施を記録する（与薬）", take: "指示受けをする" };
 
-const hhmm = (min: number) => {
-  const m = ((min % 1440) + 1440) % 1440;
-  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-};
+const hhmm = clockMinute;
 
 /** The time on the axis under a point: rounded to 5 minutes, and not later than now. */
 export function timeAtX(px: number, plotW: number, lo: number, hi: number, nowAbs: number): number {
@@ -34,7 +32,7 @@ export function timeAtX(px: number, plotW: number, lo: number, hi: number, nowAb
 }
 
 /** The day and clock time of a time, for an entry that takes them ("14:20" of yesterday). */
-export const dayTime = (at: number) => ({ day: Math.floor(at / 1440), time: hhmm(at) });
+export const dayTime = (at: number) => ({ day: Math.floor(Math.round(at) / 1440), time: hhmm(at) });
 
 /** The tasks a pressed cell covers: its day (one column a day), or the shift that holds the time. */
 export function cellWindow(day: number, at: number | null): { lo: number; hi: number } {

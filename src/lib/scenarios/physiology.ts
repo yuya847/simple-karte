@@ -4,8 +4,11 @@ import type { PhysioDesk } from "../physio-desk";
 
 import { echoCalculated, physioCalculated, physioDraft, spiroCalculated, spiroPredicted, type PhysioSelections } from "../physio-calculations";
 
-/** Authored secondary histories fill the physiology cases without changing admission/billing diagnoses. */
-const BACKGROUNDS = ["気管支喘息の経過観察", "間質性肺炎の経過観察", "陳旧性心筋梗塞の経過観察", "大動脈弁狭窄症の経過観察", "慢性閉塞性肺疾患の経過観察", "術前評価", "術前評価", "術前評価"];
+// 既存の試験データの検査の組合せを保つ。病名や既往はこの並びから作らない。
+const FIXTURE_TESTS = [
+  ["PHY-SPIRO"], ["PHY-SPIRO"], ["PHY-UCG"], ["PHY-UCG"], ["PHY-SPIRO"],
+  ["PHY-SPIRO", "PHY-UCG"], ["PHY-SPIRO", "PHY-UCG"], ["PHY-SPIRO", "PHY-UCG"],
+];
 
 /** Orders, findings and signed reports for the existing 100-patient cohort, including prior studies. */
 export function addScenarioPhysiology(patients: Patient[]): PhysioDesk {
@@ -13,12 +16,10 @@ export function addScenarioPhysiology(patients: Patient[]): PhysioDesk {
   const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
   patients.forEach((p, i) => {
     const isAdult = p.age >= 18;
-    const background = isAdult && !/心不全|喘息|閉塞性肺疾患|間質性肺炎|術前|腎盂腎炎|尿路感染/.test(p.admissionDiagnosis) ? BACKGROUNDS[i % BACKGROUNDS.length] : "";
-    // Existing diagnosis stays the primary indication; secondary history is explicitly authored in the chart.
-    if (background) p.history.push({ kind: "note", id: `${p.id}-physiology-history`, day: p.dischargedAt?.day ?? Math.min(-1, p.admittedOn), time: "08:00", author: p.attending, role: "医師", text: `生理検査依頼時の病歴：${background}。` });
-    const context = background || p.admissionDiagnosis;
+    const context = p.admissionDiagnosis;
     const indication = physiologyIndication(context);
-    const tests = isAdult ? [...new Set([indication.test, "PHY-ECG", ...(/術前/.test(context) ? ["PHY-UCG", "PHY-SPIRO"] : [])])] : ["PHY-ECG"];
+    const fixture = !/心不全|喘息|閉塞性肺疾患|間質性肺炎|術前|腎盂腎炎|尿路感染/.test(context) ? FIXTURE_TESTS[i % FIXTURE_TESTS.length] : [indication.test];
+    const tests = isAdult ? [...new Set([...fixture, "PHY-ECG", ...(/術前/.test(context) ? ["PHY-UCG", "PHY-SPIRO"] : [])])] : ["PHY-ECG"];
     const day = p.dischargedAt?.day ?? 0;
     tests.forEach((test, j) => {
       const scheduled = 540 + ((i + j) % 12) * 15;

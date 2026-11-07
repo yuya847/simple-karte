@@ -18,14 +18,14 @@ export interface SofaFacts {
 }
 const supported = new Set(["A/C-VC","A/C-PC","SIMV","PSV","CPAP","NPPV"]);
 const finite = (n: number|undefined): n is number => n !== undefined && Number.isFinite(n) && n >= 0;
-export function sofaFacts(patient: Patient, records: IcuRecords, day: number): SofaFacts {
+export function sofaFacts(patient: Patient, records: IcuRecords, day: number, nowAbs = Infinity): SofaFacts {
   const inputs: SofaFacts["inputs"] = {};
   // 同日の再入力は記録時刻が最後のものを使う。元の記録は残す。
   for (const input of (records.sofaInputs ?? []).filter(i=>i.patientId===patient.id && i.day===day).sort((a,b)=>abs(a.at.day,a.at.time)-abs(b.at.day,b.at.time))) inputs[input.item]=input;
   const labs = patient.labs.filter(l=>l.day===day);
   const lab = (key:string) => labs.map(l=>l.values[key]).filter(finite);
-  const hourly=records.hourly.filter(r=>r.patientId===patient.id && r.at.day===day);
-  const vitals=patient.vitals.filter(v=>v.day===day);
+  const hourly=records.hourly.filter(r=>r.patientId===patient.id && r.at.day===day && abs(r.at.day,r.at.time)<=nowAbs);
+  const vitals=patient.vitals.filter(v=>v.day===day && abs(v.day,v.time)<=nowAbs);
   const infs=records.infusions.filter(i=>i.patientId===patient.id);
   const drugs: SofaFacts["drugs"]=[];
   for(const i of infs) {
