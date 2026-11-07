@@ -5,7 +5,7 @@ import { patternCourse } from "@/lib/day-pattern";
 import { displayText } from "@/lib/display-text";
 import { ConsultStatus } from "./ConsultContext";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { VerbalReview } from "./VerbalControls";
 import { CalendarDays, ChevronDown, FlaskConical, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
@@ -52,6 +52,7 @@ import type { RefWindowProps } from "./RefWindows";
 import { LetterDoc } from "./LetterDoc";
 import { letterTitle, versionNo, type Letter } from "@/lib/letters";
 import { dragGhost } from "./drag-ghost";
+import { useMarquee } from "./Marquee";
 
 export type LeftView = "record" | "flowsheet" | "rx-history" | "inj-history" | "results";
 
@@ -160,8 +161,8 @@ function carry(onCarry: (keys: string[]) => void, keys: string[]) {
   requestAnimationFrame(() => root.dataset.doDrag !== undefined && onCarry(keys));
 }
 
-/** What the cards of the record ask of the list: carrying them to the right (from the ⠿ grip) and whether they are being carried. */
-type PickApi = { drag: (e: React.DragEvent, key: string, one: DoPayload) => void; carried: (key: string) => boolean };
+/** What the cards of the record ask of the list: whether they are chosen (囲む・⌘クリック), carrying them to the right (from the ⠿ grip) and whether they are being carried. */
+type PickApi = { picked: (key: string) => boolean; drag: (e: React.DragEvent, key: string, one: DoPayload) => void; carried: (key: string) => boolean };
 const PickCtx = createContext<PickApi | null>(null);
 
 /**
@@ -287,7 +288,12 @@ function RecordList({
   const root = useRef<HTMLDivElement>(null);
   // Carrying to the right (Do): the card follows the pointer (its own look), and the card left behind fades.
   const [carried, setCarried] = useState<string[]>([]);
+  // 囲んで選ぶ: the cards chosen (by their key), for this patient only.
+  const [pickState, setPickState] = useState<{ patient: string; keys: string[] }>({ patient: patient.id, keys: [] });
+  const setPicked = useCallback((keys: string[]) => setPickState({ patient: patient.id, keys }), [patient.id]);
+  const marquee = useMarquee(root, pickState.patient === patient.id ? pickState.keys : [], setPicked);
   const pickApi: PickApi = {
+    picked: (k) => pickState.patient === patient.id && pickState.keys.includes(k),
     carried: (k) => carried.includes(k),
     drag: (e, k, one) => {
       if (!(e.target as HTMLElement).closest("[data-history-grip]")) {
@@ -541,7 +547,8 @@ function RecordList({
 
 
       </div>
-      <div ref={root} className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pb-24">
+      <div ref={root} {...marquee.handlers} className="scroll-thin relative min-h-0 flex-1 overflow-y-auto px-4 pb-24">
+        {marquee.view}
         {ahead.days.length > 0 && (
           <div data-ahead className="border-b border-rule-soft py-1.5">
             <button type="button" onClick={() => setAheadOpen((o) => !o)} aria-expanded={aheadOpen} className="nums flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-[12px] text-mizu hover:bg-sheet">
@@ -644,16 +651,16 @@ export const PLACE_COLORS = {
  * One record as a card: the heading row (【種類】 date and time in bold, the department and place small on the
  * right, ▸ to fold), a faint line with the version, the times and the writer, then the body.
  */
-function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag, row = false }: { row?: boolean; mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string; "data-pick"?: string }; tag?: React.ReactNode }) {
+function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag, row = false, picked = false }: { picked?: boolean; row?: boolean; mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string; "data-pick"?: string }; tag?: React.ReactNode }) {
   // The ⠿ grip starts the drag; the card's own onDragStart (the drag event comes up to it) takes it on.
   if (row) return (
-    <div {...article} className={`border-t border-rule-soft py-1 ${article?.className ?? ""}`}>
+    <div {...article} data-picked={picked || undefined} className={`border-t border-rule-soft py-1 ${picked ? "rounded-sm bg-ai-soft/60 ring-1 ring-ai/50" : ""} ${article?.className ?? ""}`}>
       <div className="nums flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">{dragHandle && <span data-history-grip draggable className="cursor-grab select-none"><GripVertical size={11} aria-hidden /></span>}{meta}{tag}</div>
       {children}
     </div>
   );
   return (
-    <article {...article} data-folded={folded || undefined} className={`group rounded-md border border-rule-soft border-l-[3px] bg-sheet text-[13px] leading-relaxed ${tone.edge} ${article?.className ?? ""}`}>
+    <article {...article} data-folded={folded || undefined} data-picked={picked || undefined} className={`group rounded-md border border-rule-soft border-l-[3px] text-[13px] leading-relaxed ${picked ? "bg-ai-soft/70 ring-2 ring-ai/60" : "bg-sheet"} ${tone.edge} ${article?.className ?? ""}`}>
       <div className={`flex items-center gap-1.5 rounded-tr-md px-2 py-1 ${tone.bg}`}>
         <button type="button" onClick={onFold} aria-expanded={!folded} aria-label={folded ? `${mark}を開く` : `${mark}をたたむ`} className="rounded p-0.5 text-ink-faint hover:bg-sheet hover:text-ink">
           {folded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
@@ -874,6 +881,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
       folded={folded && !editing}
       onFold={onFold}
       dragHandle={!!onDo}
+      picked={!!pick?.picked(pk)}
       article={article}
       meta={
         <>
@@ -1308,6 +1316,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
       folded={folded}
       onFold={onFold}
       dragHandle={canDo}
+      picked={!!pick?.picked(pk)}
       tag={<>{orderDay === "予定日" && <button type="button" className="text-[10px] text-ink-faint underline" onClick={() => onJumpDay?.(entry.day)}>依頼 {formatShort(addDays(today, entry.day))}</button>}<ExecutionTags marks={marks} today={today} now={now} /></>}
       article={{
         ...longPress,
