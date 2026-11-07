@@ -8,6 +8,7 @@ import { HOSPITAL } from "./facility";
 import { futanKubun, type Insurance, receiptType, tokkiCode } from "./insurance";
 import { shinryoItem } from "./master-items";
 import type { ClaimResult } from "./model";
+import { shokiRecords, type Shoki } from "./shoki";
 import { encodeSjis, sjisLength, unencodable } from "./sjis";
 
 export interface ReceiptPatient {
@@ -36,6 +37,8 @@ export interface WindowAmounts {
 }
 
 export interface Receipt {
+  /** workspaceから渡す。確定・患者・請求月が一致する詳記だけを出す。 */
+  shoki?: Shoki[];
   patient: ReceiptPatient;
   claim: ClaimResult;
   diagnoses: ReceiptDiagnosis[];
@@ -47,7 +50,7 @@ export type Payer = "1" | "2";
 /** 社保 → 1, 国保・後期高齢者 → 2. */
 export const payerOf = (ins: Insurance): Payer => (ins.kind === "国保" || ins.kind === "後期高齢者" ? "2" : "1");
 
-const FIELDS = { IR: 10, RE: 38, HO: 15, SN: 9, JD: 33, MF: 33, SY: 8, SI: 44, IY: 44, TO: 48, CO: 5, GO: 4 } as const;
+const FIELDS = { IR: 10, RE: 38, HO: 15, SN: 9, JD: 33, MF: 33, SY: 8, SI: 44, IY: 44, TO: 48, CO: 5, SJ: 3, GO: 4 } as const;
 
 function record(kind: keyof typeof FIELDS, values: (string | number | undefined | null)[]): string {
   const n = FIELDS[kind];
@@ -148,13 +151,18 @@ export function receiptRecords(r: Receipt, no: number, month: string): string[] 
 
   for (const act of c.acts) {
     let first = true;
+    const extra = [...(act.comments ?? [])];
     for (const part of act.parts) {
       part.lines.forEach((l, i) => {
-        const last = i === part.lines.length - 1;
+        const last = i === part.lines.findLastIndex(line => line.record !== "CO");
         const sk = first ? act.shikibetsu : null;
-        first = false;
         const points = last ? num(part.points) : null;
         const cm = (l.comments ?? []).slice(0, 3);
+        if (l.record === "CO") {
+          extra.push({ code: l.code, text: l.commentText, label: l.name });
+          return;
+        }
+        first = false;
         const commentCells = [0, 1, 2].flatMap((k) => [cm[k]?.code ?? null, cm[k]?.text ?? null]);
         if (l.record === "IY") {
           out.push(record("IY", ["IY", sk, 1, l.code, num(l.quantity ?? 0, 5), points, act.count, ...commentCells, ...days31(act.days)]));
@@ -181,9 +189,12 @@ export function receiptRecords(r: Receipt, no: number, month: string): string[] 
           const quantity = l.quantity !== undefined && shinryoQuantity(l.code) ? num(l.quantity) : null;
           out.push(record("SI", ["SI", sk, 1, l.code, quantity, points, act.count, ...commentCells, ...days31(act.days)]));
         }
+        extra.push(...(l.comments ?? []).slice(3));
       });
     }
+    for (const c of extra) out.push(record("CO", ["CO", act.shikibetsu, 1, c.code, c.text]));
   }
+  out.push(...shokiRecords(r.shoki ?? [], p.id, month));
   return out;
 }
 
@@ -242,6 +253,8 @@ export function checkUke(lines: string[], receipts: Receipt[]): string[] {
       const sum = cells.slice(kind === "TO" ? 17 : 13).reduce((s, v) => s + (v ? Number(v) : 0), 0);
       if (count !== sum) problems.push(`${i + 1}行目 ${kind}：回数 ${count} と算定日の合計 ${sum} が合いません`);
     }
+    if (kind === "CO" && sjisLength(cells[4] ?? "") > 76) problems.push(`${i + 1}行目 CO：文字データが76バイトを超えます`);
+    if (kind === "SJ" && sjisLength(cells[2] ?? "") > 2400) problems.push(`${i + 1}行目 SJ：症状詳記が2400バイトを超えます`);
     if (kind === "SY" && sjisLength(cells[7] ?? "") > 40) problems.push(`${i + 1}行目 SY：補足コメントが40バイトを超えます`);
     if (kind === "RE" && sjisLength(cells[4]) > 40) problems.push(`${i + 1}行目 RE：氏名が40バイトを超えます`);
   }

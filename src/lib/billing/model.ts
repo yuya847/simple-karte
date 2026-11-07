@@ -34,6 +34,8 @@ export interface ClaimLine {
   record: "SI" | "IY" | "TO" | "CO";
   code: string;
   name: string;
+  /** COの文字データ。選択式コメントでは省略（nameは表示名）。 */
+  commentText?: string;
   /** IY: amount in the master unit; SI: 数量データ (e.g. meals per day). */
   quantity?: number;
   unit?: string;
@@ -57,6 +59,8 @@ export interface ClaimPart {
 
 /** One 一連の行為 (a receipt entry), repeated `count` times over the month. */
 export interface ClaimAct {
+  /** 行内3件を超える摘要。ukeでCOとして出力。 */
+  comments?: NonNullable<ClaimLine["comments"]>;
   shikibetsu: Shikibetsu;
   parts: ClaimPart[];
   count: number;

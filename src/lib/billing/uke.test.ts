@@ -225,3 +225,23 @@ describe("紙の明細書", () => {
     expect(d.rows.some(r => r.checks.includes("既存の上限回数の指摘"))).toBe(true);
   });
 });
+
+describe("記載・書類から渡すSJとCO", () => {
+  it("確定詳記を摘要の後に出し、下書きと別月・別患者は出さない", () => {
+    const s = { id: "s", patientId: receipt.patient.id, month: "2026-10", targets: [], category: "03" as const, body: "治療の必要性。\n経過。", status: "確定" as const, by: "医師", at: "2026-11-07T10:00:00+09:00", version: 1 };
+    const r = { ...receipt, shoki: [s, { ...s, id: "draft", status: "下書き" as const }, { ...s, id: "other", patientId: "other" }, { ...s, id: "next", month: "2026-11" }] };
+    const lines = receiptRecords(r, 1, "2026-10");
+    expect(lines.slice(-2)).toEqual(["SJ,03,治療の必要性。", "SJ,,経過。"]);
+    const uke = buildUke([r], "1", "2026-10", "2026-11");
+    expect(uke.text).toContain("SJ,,経過。\r\nGO,");
+    expect(uke.problems.filter(p => /SJ|CO/.test(p))).toEqual([]);
+  });
+  it("行内3件の後に超過分のCOを置く（点数と回数は元のSIに保持）", () => {
+    const act = { ...receipt.claim.acts[0], comments: [{ code: "831110001", text: "160000310", label: "主要行為" }] };
+    const r = { ...receipt, claim: { ...receipt.claim, acts: [act] } };
+    const lines = receiptRecords(r, 1, "2026-10");
+    expect(lines.at(-1)).toBe(`CO,${act.shikibetsu},1,831110001,160000310`);
+    expect(lines.at(-1)?.split(",")).toHaveLength(5);
+    expect(lines.some(l => l.startsWith("SI,"))).toBe(true);
+  });
+});

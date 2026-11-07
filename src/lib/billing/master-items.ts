@@ -129,11 +129,11 @@ export interface CommentItem {
 
 let comments: Map<string, CommentItem> | null = null;
 
-/** コメントマスター (full rows: 4 パターン, 7 漢字名称, 22 コメントコード; 1-based). */
+/** コメントマスター (full rows: 4 パターン, 7 漢字名称, 23 コメントコード; 1-based). */
 export function commentItem(code: string): CommentItem | undefined {
   if (!comments) {
     const m = loadMaster("c");
-    comments = new Map(m.rows.map((r) => [r[21], { code: r[21], name: r[6], pattern: r[3] }]));
+    comments = new Map(m.rows.map((r) => [r[22], { code: r[22], name: r[6], pattern: r[3] }]));
   }
   return comments.get(code);
 }
