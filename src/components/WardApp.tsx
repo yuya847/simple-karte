@@ -96,6 +96,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { AiDraftResponse } from "@/lib/ai-schema";
 import { addDays, continuedTime, formatShort, isoDate, nowTimeInTokyo, todayInTokyo, type CalendarDate } from "@/lib/dates";
 import { checkDraft, draftsFromAi, isReady, newProcedureDraft, orderEndDay, toOrder, type CheckContext, type Draft, type ExtendDraft, type InjectionDraft, type Issue, type StopDraft } from "@/lib/drafts";
+import { resolveDraftCodes } from "@/lib/resolve-codes";
 import type { InjSeed, InjStart } from "@/lib/inj-calendar";
 import { bigWin, keepWin, keptWin } from "@/lib/win-prefs";
 import { orderLines, procedureTitle } from "@/lib/format";
@@ -1296,7 +1297,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       if (!res.ok) throw new Error(json.error ?? `エラー（${res.status}）`);
       const parsed = AiDraftResponse.safeParse(json.result);
       if (!parsed.success) throw new Error("下書きの形が正しくありませんでした。");
-      const drafts = draftsFromAi(parsed.data, newId);
+      const drafts = resolveDraftCodes(draftsFromAi(parsed.data, newId), ctx?.activeOrders ?? []);
       auditLog({ role: "AI", actor: CLAUDE, action: "下書きを作った", patient: patient?.name, detail: `${drafts.length}件 「${text.slice(0, 50)}${text.length > 50 ? "…" : ""}」${json.meta?.ms ? `（${(json.meta.ms / 1000).toFixed(1)}秒）` : ""}` });
       update((c) => ({ drafts: [...c.drafts, ...drafts], instruction: command === undefined && c.instruction === chart.instruction ? "" : c.instruction, drafting: false, meta: json.meta ?? null }));
     } catch (e) {

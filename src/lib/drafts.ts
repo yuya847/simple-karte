@@ -11,6 +11,7 @@ import { defaultDoseTimes, validateInjectionEnd } from "./inj-entry";
 
 import type { AiDraftResponse, AiOrder } from "./ai-schema";
 import { minutesOf } from "./dates";
+import { levelDrugCode } from "./resolve-codes";
 import { checkOpdBooking, toOpdBookingOrder } from "./opd-booking";
 import { dietLabel, type DietOrder } from "./diet";
 import { DRUGS, LAB_TESTS, ORDER_SETS, WARD_RULES, anyDrugName, findDrug, findLab, findOralDrug, findSet, type DrugMaster, KCL_LIMITS } from "./master";
@@ -926,8 +927,10 @@ function expandAnalytes(code: string): string[] {
 /** Where a timed level draw lands: N-th dose of a drug drafted now (or already running). */
 export function beforeDoseTime(d: LabDraft, ctx: CheckContext): { day: DayOffset; time: string; doseLabel: string } | null {
   const bd = d.collect.beforeDose;
-  if (!bd?.n || !bd.drugCode) return null;
-  const inj = ctx.drafts.find((x): x is InjectionDraft => x.kind === "injection" && x.items[0]?.drugCode === bd.drugCode);
+  // The drug said with the level may have been picked by the doctor after Claude left it empty.
+  const drugCode = bd?.n ? levelDrugCode(d, ctx.drafts, ctx.activeOrders) : null;
+  if (!bd?.n || !drugCode) return null;
+  const inj = ctx.drafts.find((x): x is InjectionDraft => x.kind === "injection" && x.items[0]?.drugCode === drugCode);
   let start: { day: number; time: string } | null = null;
   let hours: number | null = null;
   if (inj?.schedule?.kind === "every_hours" && inj.start.time) {
@@ -935,7 +938,7 @@ export function beforeDoseTime(d: LabDraft, ctx: CheckContext): { day: DayOffset
     hours = inj.schedule.hours;
   } else {
     const o = ctx.activeOrders.find(
-      (x) => x.order.type === "injection" && x.order.items[0]?.drugCode === bd.drugCode && x.order.schedule.kind === "every_hours",
+      (x) => x.order.type === "injection" && x.order.items[0]?.drugCode === drugCode && x.order.schedule.kind === "every_hours",
     );
     if (o && o.order.type === "injection" && o.order.schedule.kind === "every_hours" && o.order.start.time) {
       start = { day: o.order.start.day, time: o.order.start.time };
