@@ -59,7 +59,7 @@ interface Props {
   orderSlot?: React.ReactNode;
   /** Opens the 型のある記録 (IC・救急加算・ICU 入室 …) tool from the note's template popup. */
   onOpenRecordTemplates?: () => void;
-  onDraft: () => void;
+  onDraft: (text?: string) => void;
   onApply: (d: Draft) => void;
   onRemove: (id: string) => void;
   /** New order of the drafts (by id): 用法ごとに並べる. */
@@ -208,7 +208,7 @@ export function TodayPane(p: Props) {
             <button type="button" onClick={() => setPhraseForm(null)} className="text-xs underline">閉じる</button>
             {phraseForm.note !== p.note || phraseForm.patientId !== p.patient.id || phraseForm.author !== me.name || noteLocked ? <p>記事や記載者が変わりました。閉じて定型文を呼び直してください。</p> : <TemplateForm key={phraseForm.body} t={{ id: "phrase", name: "定型文", roles: [], body: phraseForm.body }} facts={facts} onInsert={text => { p.onNoteChange(p.note.slice(0, phraseForm.start) + text + p.note.slice(phraseForm.end)); noteBox.current?.select(phraseForm.start + text.length); setPhraseForm(null); }} />}
           </div>}
-          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onCommand={setTool} onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
+          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onClaude={p.orderMode !== "none" ? p.onDraft : undefined} drafting={p.drafting} onCommand={setTool} onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
           {p.orderSlot}
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き" className="space-y-1">
@@ -335,7 +335,7 @@ export function TodayPane(p: Props) {
             <button
               type="button"
               disabled={p.drafting || !p.instruction.trim()}
-              onClick={p.onDraft}
+              onClick={() => p.onDraft()}
               className="ml-auto flex items-center gap-1.5 rounded-md bg-ai px-3 py-1.5 text-xs font-bold text-white hover:bg-ai/90 disabled:bg-ai/40"
             >
               {p.drafting && <Loader2 size={14} className="animate-spin" />}
@@ -343,9 +343,9 @@ export function TodayPane(p: Props) {
               {!p.drafting && <kbd className="rounded border border-white/40 px-1 text-[10px] font-normal">⌘↵</kbd>}
             </button>
           </div>
-          {p.error && <p className="mt-2 text-xs text-shu">{p.error}</p>}
         </div>
         )}
+        {p.error && <p role="alert" className="mt-2 text-xs text-shu">{p.error}</p>}
 
 
 

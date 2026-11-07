@@ -1255,9 +1255,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   const updateFor = (id: string, patch: (c: ChartState) => Partial<ChartState>) => setCharts((all) => applyChart(all, id, desk, patch));
 
-  const requestDrafts = async () => {
-    const text = chart.instruction.trim();
-    if (!text) return;
+  const requestDrafts = async (command?: string) => {
+    const text = (command ?? chart.instruction).trim();
+    if (!text || chart.drafting) return;
     update({ drafting: true, error: null, flash: null });
     try {
       const res = await fetch("/api/draft", {
@@ -1271,7 +1271,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       if (!parsed.success) throw new Error("下書きの形が正しくありませんでした。");
       const drafts = draftsFromAi(parsed.data, newId);
       auditLog({ role: "AI", actor: CLAUDE, action: "下書きを作った", patient: patient?.name, detail: `${drafts.length}件 「${text.slice(0, 50)}${text.length > 50 ? "…" : ""}」${json.meta?.ms ? `（${(json.meta.ms / 1000).toFixed(1)}秒）` : ""}` });
-      update((c) => ({ drafts: [...c.drafts, ...drafts], instruction: "", drafting: false, meta: json.meta ?? null }));
+      update((c) => ({ drafts: [...c.drafts, ...drafts], instruction: command === undefined && c.instruction === chart.instruction ? "" : c.instruction, drafting: false, meta: json.meta ?? null }));
     } catch (e) {
       update({ drafting: false, error: e instanceof Error ? e.message : "下書きを作れませんでした。" });
     }

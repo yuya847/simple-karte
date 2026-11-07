@@ -1,5 +1,6 @@
 "use client";
 
+import { claudeCommand, isClaudeLine, removeClaudeLine } from "@/lib/claude-command";
 import { calloutClass, noteLineStyle, noteSizeKey, readNoteSize } from "@/lib/note-style";
 import { useMe } from "./RoleContext";
 import { GripVertical } from "lucide-react";
@@ -23,6 +24,8 @@ export interface NoteBlocksHandle {
 
 interface Props {
   ref?: Ref<NoteBlocksHandle>;
+  onClaude?: (text: string) => void;
+  drafting?: boolean;
   value: string;
   onChange: (text: string) => void;
   /** 定型文 for 「;読み」 then Tab. */
@@ -48,7 +51,7 @@ const LONG_PRESS_MS = 450;
  * "＃" lines are numbered from the top after every change (renumberProblems). The text stays one string:
  * what the pane gets back is always the lines joined with "\n".
  */
-export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [], onPhrase, onCommand }: Props) {
+export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = false, onSelectedText, pastes = [], onPhrase, onCommand, onClaude, drafting = false }: Props) {
   const me = useMe();
   const [sizeState, setSize] = useState(() => ({ name: me.name, size: readNoteSize(me.name) }));
   if (sizeState.name !== me.name) setSize({ name: me.name, size: readNoteSize(me.name) });
@@ -83,7 +86,10 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
     const text = latest.current;
     const line = toLines(text)[m.line] ?? "";
     const base = offsetOf(text, { line: m.line, col: 0 });
-    if (kind === "bold" || kind === "italic") {
+    if (kind === "claude") {
+      const instruction = (m.start === m.end ? line : line.slice(m.start, m.end)).trim();
+      if (!drafting && instruction) onClaude?.(claudeCommand(instruction) ?? instruction);
+    } else if (kind === "bold" || kind === "italic") {
       const r = toggleMark(line, m.start, m.end, kind === "bold" ? "**" : "*");
       commit({ text: replaceLine(text, m.line, r.text).text, start: base + r.start, end: base + r.end });
     } else if (kind === "cut") {
@@ -261,6 +267,15 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       commit(indentBlock(text, i, s, en, e.shiftKey));
       return;
     }
+    if (e.key === "Enter" && onClaude && isClaudeLine(line) && !mod && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      const instruction = claudeCommand(line);
+      if (!instruction || drafting) return;
+      const next = removeClaudeLine(text, i);
+      commit(numbered(next, Math.min(base, next.length)));
+      onClaude(instruction);
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       const cut = s === en ? text : replaceLine(text, i, line.slice(0, s) + line.slice(en), s).text;
@@ -413,6 +428,20 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       {whole && <textarea ref={wholeRef} aria-label="記事の全行" value={value} readOnly={readOnly}
         className={`${TEXT} absolute left-6 top-1.5 z-20 w-[calc(100%-2rem)] h-[calc(100%-0.75rem)] min-h-20 resize-none bg-sheet caret-ai outline-none`}
         onKeyDown={e => {
+          if (!readOnly && !e.nativeEvent.isComposing && !composing.current && e.keyCode !== 229 && e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && onClaude) {
+            const start = posOf(value, e.currentTarget.selectionStart);
+            const end = posOf(value, e.currentTarget.selectionEnd);
+            const line = lines[start.line];
+            if (start.line === end.line && isClaudeLine(line)) {
+              e.preventDefault();
+              const instruction = claudeCommand(line);
+              if (!instruction || drafting) return;
+              const next = removeClaudeLine(value, start.line);
+              commit(numbered(next, Math.min(offsetOf(value, { line: start.line, col: 0 }), next.length)));
+              onClaude(instruction);
+              return;
+            }
+          }
           if (readOnly || e.nativeEvent.isComposing || e.key !== "Tab" || e.shiftKey) return;
           const caret = e.currentTarget.selectionStart;
           if (caret !== e.currentTarget.selectionEnd) return;
@@ -486,7 +515,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               </button>
             )}
             {!readOnly && line.trim() === "/" && activeLine === i && <div role="menu" aria-label="行のコマンド" className="absolute left-6 top-full z-30 flex flex-wrap gap-1 rounded border border-rule bg-sheet p-2 shadow">
-              {[["サマリ", "📋 "], ["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["コールアウト", "💡 "], ["注意", "❗ "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
+              {[...(onClaude ? [["Claude", "/claude "]] : []), ["サマリ", "📋 "], ["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["コールアウト", "💡 "], ["注意", "❗ "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
             </div>}
             <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""} ${style?.kind === "quote" ? "border-l-2 border-rule" : ""} ${style?.kind === "callout" ? `${calloutClass(style.marker)} my-0.5 py-1` : ""}`}>
               {style?.kind === "check" && <input aria-label={`${i + 1}行目のチェック`} type="checkbox" checked={style.checked} disabled={readOnly} onChange={() => commit(replaceLine(value, i, toggleCheck(line), style.prefix))} className="absolute left-2 top-1.5 z-10 size-4 accent-ai" style={{ marginLeft: `${style.indent.length * .5}em` }} />}
@@ -500,6 +529,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               >
                 {line + " "}
               </div>
+              {onClaude && isClaudeLine(line) && <span aria-hidden className="pointer-events-none absolute left-2 top-0.5 z-[1] rounded bg-ai-soft text-ai" style={{ fontSize: size }} >{line.slice(0, 7)}</span>}
               {style && <span aria-hidden className={`pointer-events-none absolute left-2 top-0.5 z-[1] ${style.kind === "callout" ? (style.marker === "❗ " ? "bg-shu-soft" : "bg-ai-soft") : "bg-sheet"} ${style.kind === "quote" ? "border-l-2 border-rule" : ""}`} style={{ marginLeft: `${style.indent.length * .5}em`, width: `${style.marker.length * .65}em`, height: "1.5em", fontSize: size }}>{style.kind === "list" ? style.marker === "- " ? "・" : style.marker : ""}</span>}
               <textarea
                 ref={(el) => {
@@ -544,10 +574,11 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
         );
       })}
       </div>
+      {drafting && onClaude && <p role="status" className="px-8 py-1 text-xs text-ai">Claude が下書き中…</p>}
       {menu && (
         <div role="menu" aria-label="記事の書式" className="fixed z-50 min-w-[11rem] rounded-md border border-rule bg-sheet p-1 text-[13px] shadow-lg" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
-          {MENU_ITEMS.map(([label, key, kind], k) => (
-            <button key={label} type="button" role="menuitem" onMouseDown={(e) => e.preventDefault()} onClick={() => runMenu(kind)} className={`flex w-full items-center justify-between gap-4 rounded px-2 py-1 text-left hover:bg-ai-soft ${k === 2 || k === 8 ? "mt-1 border-t border-rule-soft pt-1.5" : ""}`}>
+          {MENU_ITEMS.filter(([, , kind]) => kind !== "claude" || !!onClaude).map(([label, key, kind], k) => (
+            <button key={label} type="button" role="menuitem" onMouseDown={(e) => e.preventDefault()} disabled={kind === "claude" && drafting} onClick={() => runMenu(kind)} className={`flex w-full items-center justify-between gap-4 rounded px-2 py-1 text-left hover:bg-ai-soft ${k === 2 || k === 8 ? "mt-1 border-t border-rule-soft pt-1.5" : ""}`}>
               <span className={kind === "bold" ? "font-bold" : kind === "italic" ? "italic" : ""}>{label}</span>
               <span className="text-[11px] text-ink-faint">{key}</span>
             </button>
@@ -558,8 +589,9 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
   );
 }
 
-type MenuKind = "📋 " | "bold" | "italic" | "cut" | "copy" | "paste" | "・ " | "1. " | "☐ " | "> " | "💡 " | "❗ ";
+type MenuKind = "claude" | "📋 " | "bold" | "italic" | "cut" | "copy" | "paste" | "・ " | "1. " | "☐ " | "> " | "💡 " | "❗ ";
 const MENU_ITEMS: [string, string, MenuKind][] = [
+  ["Claude に下書き", "", "claude"],
   ["太字", "⌘B", "bold"],
   ["斜体", "⌘I", "italic"],
   ["箇条書き", "・", "・ "],
