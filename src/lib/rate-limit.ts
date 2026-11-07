@@ -17,3 +17,21 @@ export function limited(request: Request): boolean {
   hits.set(ip, mine);
   return false;
 }
+
+const buckets = new Map<string, { hits: Map<string, number[]>; all: number[] }>();
+
+/** The same kind of limit, counted apart for one use (the patient's page asks every few seconds). */
+export function limitedBy(request: Request, bucket: string, perIp: number, perInstance = perIp * 15): boolean {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const now = Date.now();
+  const b = buckets.get(bucket) ?? { hits: new Map<string, number[]>(), all: [] };
+  buckets.set(bucket, b);
+  b.all = b.all.filter((t) => now - t < WINDOW_MS);
+  const mine = (b.hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (mine.length >= perIp || b.all.length >= perInstance) return true;
+  mine.push(now);
+  b.all.push(now);
+  b.hits.set(ip, mine);
+  if (b.hits.size > 5000) b.hits.clear();
+  return false;
+}
