@@ -1,3 +1,5 @@
+import { hourlyObservations, hourlyObservationText } from "./icu/hourly-observations";
+import type { IcuRecords } from "./icu/types";
 import { fixedInsulinUnits, insulinDoseText } from "./insulin-doses";
 import { injectionItemText } from "./format";
 import { patternDay, patternText } from "./day-pattern";
@@ -24,6 +26,7 @@ export { SHIFTS, shiftWindow, type Shift } from "./shift";
 export type WorkKind = "注射" | "内服" | "処置" | "採血" | "検査";
 
 export interface WorkPatient {
+  icu?: IcuRecords;
   patient: Patient;
   room: string;
   entries: OrderEntry[];
@@ -88,8 +91,12 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
   const running: RunningItem[] = [];
   const state = (t: number) => (t <= nowAbs ? "done" : "planned");
 
-  for (const { patient: p, room, entries } of people) {
+  for (const { patient: p, room, entries, icu } of people) {
     const base = { patientId: p.id, room, name: p.name };
+    if (icu) {
+      const hours = hourlyObservations(p, icu, lo, hi, nowAbs);
+      if (hours.length) running.push({ ...base, kind: "処置", main: "毎時の観察", detail: hourlyObservationText(hours, Math.floor(lo / 1440)), orderId: `hourly-${p.id}` });
+    }
     for (const e of entries) {
       const o = e.order;
       if (o.type === "injection") {
@@ -97,7 +104,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         const main = o.insulinDoses ? `${drugName(o.items[0].drugCode)} ${insulinDoseText(o.insulinDoses)}` : o.items.map((it) => o.sliding ? `${drugName(it.drugCode)} スケール` : injectionItemText(it)).join(" ＋ ");
         const parts = [o.route, scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
-        if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);
+        if (o.rateMlPerH) parts.push(`${o.rateMlPerH?.toFixed(1)}mL/時`);
         const detail = parts.join("　");
         if (o.continuous) {
           const { to } = orderInterval(e, nowAbs);

@@ -1,5 +1,6 @@
 "use client";
 
+import { currentVital } from "@/lib/icu/current-oxygen";
 import { recordedVitals } from "@/lib/record-time";
 import { clockMinute } from "@/lib/time-input";
 
@@ -649,7 +650,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
       </div>
       <StandingMeasurements source={standingMeasurements} day={selectedDay ?? 0} />
       <VitalCopy
-        vitals={vitalsIn(p.vitals, range, nowAbs, selectedDay)}
+        vitals={vitalsIn(p.vitals, range, nowAbs, selectedDay).map(v => range === "latest" ? currentVital(v, p) : v)}
         today={today}
         range={range}
         onRange={(r) => {
@@ -910,7 +911,7 @@ function InjectionBar({ entry, xAbs, plotW, nowAbs, startAbs, endAbs, untaken, o
   const main = o.items[0];
   const title = `${o.items.map((it) => `${findDrug(it.drugCode)?.name ?? it.drugCode} ${it.amount}${it.unit}`).join(" ＋ ")}　${o.route} ${scheduleTextFor(o)}${
     o.minutesPerDose ? ` 1回${durationText(o.minutesPerDose)}` : ""
-  }${o.rateMlPerH ? ` ${o.rateMlPerH}mL/時` : ""}${stopped ? "（中止）" : ""}`;
+  }${o.rateMlPerH ? ` ${o.rateMlPerH?.toFixed(1)}mL/時` : ""}${stopped ? "（中止）" : ""}`;
   return (
     <div className="flex border-b border-rule-soft">
       <div className="flex shrink-0 items-start justify-end gap-1 py-1 pr-2 text-right text-ink-soft" style={{ width: LABEL_W }}>

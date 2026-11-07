@@ -1,7 +1,8 @@
 "use client";
+import { currentOxygen, patientForCurrentDisplay } from "@/lib/icu/current-oxygen";
 import { moveBedPlans } from "@/lib/icu/move-plans";
 import { IcuBoard } from "./IcuBoard";
-import { stayOnArrive, stayOnMove } from "@/lib/icu/stays";
+import { stayOnMove } from "@/lib/icu/stays";
 import { unitOf } from "@/lib/icu/types";
 import { useMcpReceiver } from "@/lib/mcp/receive";
 import { GlucoseContext } from "./GlucoseContext";
@@ -96,7 +97,7 @@ import { bigWin, keepWin, keptWin } from "@/lib/win-prefs";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { standingFromRequest, standingTakeLines, admissionMissingNow } from "@/lib/admission-orders";
-import { INITIAL_REQUESTS, admitExistingPatient, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
+import { INITIAL_REQUESTS, admissionIcuRecords, admitExistingPatient, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
 import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
@@ -1011,6 +1012,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         const diet = currentDiet(diets, p.id, nowTime || "00:00");
         return {
           ...p,
+          currentOxygen: currentOxygen(icu, p.id, abs(0, nowTime || "00:00")),
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
           vitals: recordedVitals([...p.vitals, ...(extraVitals[p.id] ?? [])], abs(0, nowTime || "00:00")).sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)),
           history: [...p.history, ...(demoLabs[p.id] ?? []), ...(dept.demoOrders[p.id] ?? []), ...(care.demoEndo[p.id] ?? [])],
@@ -1442,7 +1444,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (!patient || !noteChanged(chart.note, chart.noteInitial)) return;
                           // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
                           const at = chart.noteAt ?? { day: 0, time: nowTime };
-                          const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
+                          const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, recordedDepartment: patient.department, recordedPlace: patient.ward, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
                           Object.assign(n, templateStamp(n, [...BUILTIN_RECORD_TEMPLATES, ...loadMyRecordTemplates(me.name)], chart.noteTemplate));
                           setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
                           void resolveNoteDiagnoses(chart.note, patient.admissionDiagnosis, diagnoses[patient.id] ?? [], { day: n.day, noteId: n.id, at: new Date().toISOString() }).then(result => {
@@ -1458,7 +1460,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // A record template's text, confirmed as a note of its own (【テンプレート名】 heading; the wording was put together by code).
   const confirmRecord = (text: string, label: string, templateId: string) => {
     if (!patient) return;
-    const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(text), templateId, templateName: label };
+    const n: NoteEntry = { kind: "note", id: newId(), day: 0, time: nowTime, writtenAt: { day: 0, time: nowTime }, recordedDepartment: patient.department, recordedPlace: patient.ward, author: me.name, role: me.role, ...parseNote(text), templateId, templateName: label };
     setNotes((all) => ({ ...all, [patient.id]: [...(all[patient.id] ?? []), n] }));
     auditLog({ role: me.role, actor: me.name, action: `確定（記事：${label}）`, patient: patient.name, detail: text.replace(/\s+/g, " ").slice(0, 120) });
     if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: text.trim() }], newId)]);
@@ -1509,7 +1511,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         id = e.id;
         built = admitExistingPatient(existing, r, bed, nowTime);
         const seeded = scenario ? SCENARIOS.visitChartNotes[vkey] ?? [] : [];
-        built.patient.history.splice(-1, 0, ...(notes[vkey] ?? []).filter(n => !seeded.some(s => s.id === n.id)));
+        built.patient.history.splice(-1, 0, ...(notes[vkey] ?? []).filter(n => !seeded.some(s => s.id === n.id)).map(n => ({ ...n, recordedDepartment: n.recordedDepartment ?? existing!.department, recordedPlace: n.recordedPlace ?? existing!.ward })));
       } else {
         built = admitFromEr(e, { diagnosis: r.diagnosis, department: r.department, heightCm: r.heightCm, weightKg: r.weightKg, allergies: r.allergies, room: bed.room, bed: bed.bed }, id, nowTime);
         built.patient.history.splice(1, 0, ...said.map((t) => ({ kind: "note" as const, day: 0, time: nowTime, author: r.attending, role: "医師" as const, text: `救急外来：${t}` })));
@@ -1527,7 +1529,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
     p.infections = r.isolation === "なし" || p.infections.includes(r.isolation) ? p.infections : [...p.infections, r.isolation];
     setStanding((all) => ({ ...all, [id]: [...(all[id] ?? []), standingFromRequest(r, r.by, { day: 0, time: nowTime })] }));
-    setIcu(all => unitOf(floorOf(b.room)) ? stayOnArrive(all, id, unitOf(floorOf(b.room))!, { day: 0, time: nowTime }, r.from.kind === "er" ? "救急外来" : "外来", [r.purpose, r.note].filter(Boolean).join("：")) : all);
+    setIcu(all => admissionIcuRecords(all, id, r, b.room, nowTime));
     setAdmitted((a) => [...a, p]);
     // 緊急入院 counts as emergency (退院困難な要因 イ, 栄養管理計画は7日以内).
     setEvals((all) => ({ ...all, [id]: { patientId: id, emergency: r.urgency === "緊急" } }));
@@ -1742,7 +1744,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (!p) return [];
     const entries = currentEntries(p, sessionChanges[p.id]).filter((e): e is OrderEntry => e.kind === "order");
     // 再採血 sent back by the laboratory are drawn again by the ward (worksheet, labels, 照合).
-    return [{ patient: p, room: roomLabel(b.room, b.bed), entries: withRedraws(entries, labDesk, p.id) }];
+    return [{ patient: p, icu, room: roomLabel(b.room, b.bed), entries: withRedraws(entries, labDesk, p.id) }];
   });
 
   // 指示受けがまだ: this session's new orders and stops that no nurse has taken yet.
@@ -2718,7 +2720,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         <div className="flex min-h-0 flex-1 flex-col">
           {asOfDay === 0 && <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} dropped={requestDrop} />}
           <WardMap
-            ward={{ beds: mapAsOf.beds, patient: findPatient }}
+            ward={{ beds: mapAsOf.beds, patient: id => { const p = findPatient(id); return p ? patientForCurrentDisplay(p) : undefined; } }}
             rooms={floorInfo.rooms}
             title="病棟マップ"
             pick={floorPick}

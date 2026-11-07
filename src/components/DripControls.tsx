@@ -18,7 +18,7 @@ export function ExpectedEnd({ course, nowAbs }: { course: { expectedEnd: number 
     <span className="nums">
       <span className="text-ink-soft" title="開始の時刻 ＋ 1本の量 ÷ 速さ（コードで計算）">
         終了予定 {displayText(clockText(course.expectedEnd))}
-        {course.mlPerH ? `（${course.volumeMl}mL ÷ ${course.mlPerH}mL/時）` : ""}
+        {course.mlPerH ? `（${course.volumeMl}mL ÷ ${course.mlPerH?.toFixed(1)}mL/時）` : ""}
       </span>
       {past > 0 && <span className="ml-1 rounded bg-shu-soft px-1 font-bold text-shu">終了予定を {displayText(durationText(past))} 過ぎています</span>}
     </span>

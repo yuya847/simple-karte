@@ -26,7 +26,7 @@ export function dripRate(o: InjectionOrder): DripRate | null {
   const fluid = o.items.every((it) => findDrug(it.drugCode)?.kind === "輸液");
   if (o.rateMlPerH) {
     mlPerH = o.rateMlPerH;
-    formula = `指示 ${o.rateMlPerH}mL/時`;
+    formula = `指示 ${o.rateMlPerH?.toFixed(1)}mL/時`;
   } else if (o.minutesPerDose) {
     mlPerH = (vol * 60) / o.minutesPerDose;
     formula = `${vol}mL ÷ ${o.minutesPerDose}分 × 60`;
@@ -40,5 +40,5 @@ export function dripRate(o: InjectionOrder): DripRate | null {
 export const dripText = (d: DripRate) => {
   const h = Math.floor(d.minutesPerBag / 60);
   const m = d.minutesPerBag % 60;
-  return `${d.mlPerH}mL/時（${d.formula}）→ 20滴セット 約${d.drops20}滴/分・60滴セット 約${d.drops60}滴/分。${d.volumeMl}mL は${h ? `約${h}時間` : ""}${m ? `${m}分` : ""}`;
+  return `${d.mlPerH?.toFixed(1)}mL/時（${d.formula}）→ 20滴セット 約${d.drops20}滴/分・60滴セット 約${d.drops60}滴/分。${d.volumeMl}mL は${h ? `約${h}時間` : ""}${m ? `${m}分` : ""}`;
 };

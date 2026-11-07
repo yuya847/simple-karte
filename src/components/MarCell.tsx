@@ -169,7 +169,7 @@ export function MarCell({ item, state, record, nowAbs, nowTime, otherPatientId, 
           {prn?.wait && <p className="font-bold text-shu">{prn.wait}</p>}
           {item.drip && (
             <p className="nums text-ink-soft">
-              点滴は開始と終了の2回記録します。いま開始すると終了予定 {displayText(item.drip.minutes === null ? "—（速さの指示なし）" : `${clockText(nowAbs + item.drip.minutes)}（${item.drip.volumeMl}mL ÷ ${item.drip.mlPerH}mL/時）`)}
+              点滴は開始と終了の2回記録します。いま開始すると終了予定 {displayText(item.drip.minutes === null ? "—（速さの指示なし）" : `${clockText(nowAbs + item.drip.minutes)}（${item.drip.volumeMl}mL ÷ ${item.drip.mlPerH?.toFixed(1)}mL/時）`)}
             </p>
           )}
           {queried && (

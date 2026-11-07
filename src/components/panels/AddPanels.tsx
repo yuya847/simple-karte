@@ -487,7 +487,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   route: rp.route === "ロック" ? "静注（ロック）" : route ?? "",
                   schedule: schedules[rp.sched]?.label ?? "",
                   times: rp.doseTimes ?? [],
-                  duration: modeOf(rp) === "time" ? minutesLabel(rp.minutes) : `${rp.rate}mL/時`,
+                  duration: modeOf(rp) === "time" ? minutesLabel(rp.minutes) : `${Number(rp.rate).toFixed(1)}mL/時`,
                   start: (() => { const t = todayInTokyo(); const d = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay)); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${rp.startTime || "指示受け後すぐ"}から`; })(),
                   days: patternCourse(rp.dayPattern, rp.startDay, Number(rp.days) || undefined, false),
                 }, route === "点滴静注")} onEdit={(step) => focus(i, step)} />
@@ -695,7 +695,7 @@ function DripCalc({ rp }: { rp: InjRp }) {
         ? `${vol}mL ÷ ${minutesLabel(rp.minutes)} = ${Math.round((vol / (rp.minutes / 60)) * 10) / 10}mL/時`
         : null
       : rate > 0
-        ? `1回 ${vol}mL ÷ ${rate}mL/時 = ${minutesLabel(Math.round((vol / rate) * 60))}`
+        ? `1回 ${vol}mL ÷ ${rate?.toFixed(1)}mL/時 = ${minutesLabel(Math.round((vol / rate) * 60))}`
         : null;
   return text ? <span className="nums text-[11px] text-ai">{displayText(text)}</span> : null;
 }
@@ -706,7 +706,7 @@ function RpSummary({ rp }: { rp: InjRp }) {
     const m = masterOf(r.drugCode)!;
     return `${m.name}（${m.package}）${rp.sliding ? "" : `${r.amount}${r.unit}`}`;
   });
-  const drip = routeOf(rp) === "点滴静注" ? (modeOf(rp) === "time" ? `1回${minutesLabel(rp.minutes)}` : `${rp.rate}mL/時`) : null;
+  const drip = routeOf(rp) === "点滴静注" ? (modeOf(rp) === "time" ? `1回${minutesLabel(rp.minutes)}` : `${Number(rp.rate).toFixed(1)}mL/時`) : null;
   const t = todayInTokyo();
   const date = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay));
   const start = `${date.getUTCMonth() + 1}/${date.getUTCDate()}${rp.startTime ? ` ${rp.startTime}` : ""}から`;
@@ -1632,7 +1632,7 @@ export function AddConsultPanel({ onAdd, newId, consults, replies, onReply }: { 
 }
 
 const injLine = (o: InjectionOrder) =>
-  `${o.dayPattern ? patternText(o.dayPattern) + "　" : ""}${o.items.map((i) => `${masterOf(i.drugCode)?.name ?? i.drugCode} ${i.amount}${i.unit}`).join(" ＋ ")}　${o.route}　${scheduleLabel(o.schedule, o.items[0]?.drugCode)}${o.minutesPerDose ? `　1回${minutesLabel(o.minutesPerDose)}` : ""}${o.rateMlPerH ? `　${o.rateMlPerH}mL/時` : ""}${o.days ? `　${o.days}日間` : ""}`;
+  `${o.dayPattern ? patternText(o.dayPattern) + "　" : ""}${o.items.map((i) => `${masterOf(i.drugCode)?.name ?? i.drugCode} ${i.amount}${i.unit}`).join(" ＋ ")}　${o.route}　${scheduleLabel(o.schedule, o.items[0]?.drugCode)}${o.minutesPerDose ? `　1回${minutesLabel(o.minutesPerDose)}` : ""}${o.rateMlPerH ? `　${o.rateMlPerH?.toFixed(1)}mL/時` : ""}${o.days ? `　${o.days}日間` : ""}`;
 
 /** 注射の記憶: the doctor's injections (most used first) and this patient's previous ones (Do). */
 function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previous: InjPattern[] }; onPut: (o: InjectionOrder) => void }) {

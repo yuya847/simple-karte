@@ -68,7 +68,7 @@ export function injectionLines(order: InjectionOrder, today: CalendarDate): { ma
   const main = order.insulinDoses ? `${drugName(order.items[0].drugCode)} ${insulinDoseText(order.insulinDoses)}` : order.items.map((it) => order.sliding ? `${drugName(it.drugCode)}　スケール` : injectionItemText(it)).join(" ＋ ");
   const parts = [order.route, scheduleTextFor(order)];
   if (order.minutesPerDose) parts.push(`1回${durationText(order.minutesPerDose)}`);
-  if (order.rateMlPerH) parts.push(`${order.rateMlPerH}mL/時`);
+  if (order.rateMlPerH) parts.push(`${order.rateMlPerH?.toFixed(1)}mL/時`);
   const start = formatShort(addDays(today, order.start.day));
   parts.push(`開始 ${start}${order.start.time ? ` ${order.start.time}` : ""}`);
   if (order.schedule.kind !== "once") parts.push(patternCourse(order.dayPattern, order.start.day, order.days, false, today));

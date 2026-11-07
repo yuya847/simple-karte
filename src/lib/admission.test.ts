@@ -95,7 +95,7 @@ it("ICU・HCUへ入院を申し込み、病棟で受けられる", () => {
     expect(patient).toMatchObject({ id: p.id, admittedOn: p.admittedOn, ward: "ICU", room: "ICU7", attending: r.attending, department: r.department, admissionDiagnosis: r.diagnosis, heightCm: r.heightCm, weightKg: r.weightKg });
     expect(patient.labs).toBe(p.labs);
     expect(patient.vitals).toBe(p.vitals);
-    expect(patient.history.slice(0, -1)).toEqual(p.history);
+    expect(patient.history.slice(0, -1).map(({ recordedDepartment, recordedPlace, ...entry }) => { expect(recordedDepartment).toBe(p.department); expect(recordedPlace).toBe(p.ward); return entry; })).toEqual(p.history);
     expect(patient.history).toHaveLength(p.history.length + 1);
     expect(patient.history.at(-1)).toMatchObject({ kind: "note", author: r.attending, text: "救急外来から入院。入院時病名：重症肺炎。ICU7 へ。" });
     expect(patient.infections).toContain("飛沫予防策");

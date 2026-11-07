@@ -173,9 +173,9 @@ export function dischargeChecks(p: Patient, entries: OrderEntry[], consentsPendi
   const out: string[] = [];
   const orders = entries.filter((e) => e.kind === "order");
   const iv = orders.filter((e) => e.status === "有効" && e.order.type === "injection");
-  if (iv.length) out.push(`注射が ${iv.length}件 有効のまま：${iv.map((e) => (e.order as InjectionOrder).items.map((i) => anyDrugName(i.drugCode)).join("＋")).join("、")}（退院までに中止するか、内服に変えるか）`);
+  if (iv.length) out.push(`退院の時点で有効な注射：${iv.map((e) => (e.order as InjectionOrder).items.map((i) => anyDrugName(i.drugCode)).join("＋")).join("、")}`);
   const pending = p.cultures.filter((c) => c.status !== "最終報告");
-  if (pending.length) out.push(`結果が出ていない培養：${pending.map((c) => c.specimen).join("、")}（退院後に誰が結果を見るか決める）`);
+  if (pending.length) out.push(`結果が出ていない培養：${pending.map((c) => c.specimen).join("、")}`);
   const verbal = verbalUnsigned(orders);
   if (verbal.length) out.push(`口頭指示の承認待ち ${verbal.length}件`);
   if (consentsPending.length) out.push(`説明前の同意書：${consentsPending.join("、")}`);

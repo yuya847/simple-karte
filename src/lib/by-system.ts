@@ -95,7 +95,7 @@ function pressorText(inf: Infusion, nowAbs: number): string | null {
   const c = concentrationMgPerMl(inf);
   if (rate === null || rate <= 0) return null;
   const dose = c === null ? null : doseFromMlPerH(rate, c, inf.weightKg, inf.doseUnit);
-  if (dose === null) return `${name} ${rate}mL/h`;
+  if (dose === null) return `${name} ${rate?.toFixed(1)}mL/h`;
   return `${name} ${dose.toFixed(inf.doseUnit === "γ" ? 2 : 1)}${inf.doseUnit}`;
 }
 

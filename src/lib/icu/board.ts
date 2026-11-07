@@ -2,7 +2,7 @@ import type { OrderEntry, Patient } from "../types";
 import type { BedAssignment } from "../ward";
 import { floorOf } from "../ward";
 import { abs } from "../flowsheet";
-import { ventAt } from "./abg";
+import { currentOxygen } from "./current-oxygen";
 import { doseText, rateAt } from "./gamma";
 import { hourlyBalance } from "./balance";
 import { sofaFacts, sofaScore } from "./sofa";
@@ -21,7 +21,6 @@ export function boardRows(unit: UnitKind, patients: Patient[], beds: BedAssignme
     const pid = patient.id;
     const stays = records.stays.filter(s => s.patientId === pid && abs(s.in.day,s.in.time) <= nowAbs).sort((a,b) => abs(a.in.day,a.in.time)-abs(b.in.day,b.in.time));
     const stay = stays.at(-1) ?? null;
-    const v = ventAt(records.vents,pid,nowAbs);
     const latestVital = patient.vitals.filter(v => abs(v.day,v.time) <= nowAbs).sort((a,b) => abs(a.day,a.time)-abs(b.day,b.time)).at(-1);
     const hourly = records.hourly.filter(h => h.patientId === pid && abs(h.at.day,h.at.time) <= nowAbs).sort((a,b) => abs(a.at.day,a.at.time)-abs(b.at.day,b.at.time));
     const measured = hourly.filter(h => h.map !== undefined).at(-1);
@@ -30,7 +29,7 @@ export function boardRows(unit: UnitKind, patients: Patient[], beds: BedAssignme
     const balance = hourlyBalance(patient,records,today,nowAbs).reduce((sum,h) => ({ inMl: sum.inMl+h.inMl, outMl: sum.outMl+h.outMl, netMl: sum.netMl+h.netMl }),{ inMl:0,outMl:0,netMl:0 });
     const move = (orders[pid] ?? []).flatMap(e => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-MOVE" && e.order.move?.to ? [e.order] : []).sort((a,b) => abs(a.start.day,a.start.time ?? "00:00")-abs(b.start.day,b.start.time ?? "00:00"))[0];
     return { ...base, days: today-(stays[0]?.in.day ?? patient.admittedOn)+1, diagnosis: patient.admissionDiagnosis,
-      vent: v && v.mode !== "なし" ? v.mode === "HFNC" ? `HFNC ${v.flow ?? "—"}L ${v.fio2}` : `${v.mode} FiO2 ${v.fio2}${v.peep !== undefined ? ` PEEP ${v.peep}` : ""}` : latestVital?.o2 ?? "—",
+      vent: currentOxygen(records, pid, nowAbs) ?? latestVital?.o2 ?? "—",
       infusions: records.infusions.filter(inf => inf.patientId === pid && rateAt(inf,nowAbs) !== null).map(inf => `${inf.name} ${doseText(inf,nowAbs).split("（")[0]}`),
       crrt: c ? `${c.mode} QB ${c.qb} 除水 ${c.removalMlPerH}mL/h` : "",
       sofaToday: sofaScore(sofaFacts(patient,records,today,nowAbs)).total, sofaYesterday: sofaScore(sofaFacts(patient,records,today-1,nowAbs)).total,

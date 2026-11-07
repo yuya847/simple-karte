@@ -22,7 +22,7 @@ describe("指示受け", () => {
     const rows = takeRows([ch("中止", inj("a", { rate: 80 }), 600), ch("新規", inj("b", { rate: 42 }), 600)], people, today);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ kind: "変更", keys: ["a|中止", "b|新規"] });
-    expect(rows[0].diff).toEqual([{ label: "速さ", before: "80mL/時", after: "42mL/時" }]);
+    expect(rows[0].diff).toEqual([{ label: "速さ", before: "80.0mL/時", after: "42.0mL/時" }]);
     expect(rows[0].mustOne).toContain("変更（前と後を確かめる）");
   });
   it("marks high-risk drugs, verbal and urgent orders as one-at-a-time, and off-hours orders", () => {

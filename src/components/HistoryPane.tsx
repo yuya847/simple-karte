@@ -260,7 +260,7 @@ function RecordList({
   const [departments, setDepartments] = useState<string[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const options = recordFacetOptions([
-    ...entries.map((entry) => ({ entry, department: patient.department })),
+    ...entries.map((entry) => ({ entry, department: entry.recordedDepartment ?? patient.department })),
     ...visits.flatMap((v) => v.entries.map((entry) => ({ entry, department: v.dept }))),
   ]);
   const facetActive = departments.length > 0 || roles.length > 0;
@@ -327,7 +327,7 @@ function RecordList({
 
   const keep = (e: HistoryEntry) => showStopped || e.kind !== "order" || e.status !== "中止";
   const key = searchKey(q.trim());
-  const pick = (e: HistoryEntry, department = patient.department) => matchesTemplate(e, templates, templateIds, onlyTemplates) && matchesRecordFacets(e, department, departments, roles) && CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key));
+  const pick = (e: HistoryEntry, department = patient.department) => matchesTemplate(e, templates, templateIds, onlyTemplates) && matchesRecordFacets(e, e.recordedDepartment ?? department, departments, roles) && CATS.some((c) => on.includes(c.key) && c.test(e)) && (!key || searchKey(textOf(e, today)).includes(key));
   const visible = [...entries, ...visits.flatMap((v) => v.entries)].filter(keep);
   const shown = entries.filter(keep).filter((e) => pick(e));
   const narrowed = on.length !== ALL_CATS.length || !!key || facetActive || templateActive;
@@ -543,7 +543,7 @@ function RecordList({
               return (
                 <li key={`${d}-${i}`} data-note-key={e.kind === "note" ? k : undefined}>
                   {e.kind === "note" ? (
-                    <Note entry={e} patientId={patient.id} today={today} place={place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
+                    <Note entry={e} patientId={patient.id} today={today} place={e.recordedPlace ? `${e.recordedDepartment ?? patient.department} ${e.recordedPlace}` : place} folded={isFolded(k, e)} onFold={() => fold(k, e)} onRevise={onReviseNote} coedit={coedit} onDo={onDo} />
                   ) : group.length > 1 ? (
                     <RxCard orderDay={orderDay} onJumpDay={jumpToDay} entries={group as OrderEntry[]} today={today} now={nowAbs} place={place} rpNo={rpNo} folded={isFolded(k, e)} onFold={() => fold(k, e)} onDo={onDo} takeBadgeOf={takeBadgeOf} patient={patient} execute={execute} />
                   ) : (
@@ -1130,7 +1130,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
           <span>{o.route}</span>
           <span>{scheduleTextFor(o)}</span>
           {o.minutesPerDose ? <span>1回{displayText(durationText(o.minutesPerDose))}</span> : null}
-          {o.rateMlPerH ? <span>{o.rateMlPerH}mL/時</span> : null}
+          {o.rateMlPerH ? <span>{o.rateMlPerH.toFixed(1)}mL/時</span> : null}
           <span className="font-bold text-ink">{patternCourse(o.dayPattern, o.start.day, o.days, false, today)}</span>
         </div>
         <div className="text-right">

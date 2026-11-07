@@ -42,6 +42,6 @@ export function doseText(inf: Infusion, atAbs: number): string {
   const dose = doseFromMlPerH(rate,c,inf.weightKg,inf.doseUnit);
   if (dose === null) return "—";
   const unit = inf.doseUnit === "単位/h" ? "単位" : "mg";
-  const formula = inf.doseUnit === "γ" ? `${rate}×${c}×1000÷(${inf.weightKg}×60)` : inf.doseUnit === "mg/kg/h" ? `${rate}×${c}÷${inf.weightKg}` : inf.doseUnit === "μg/h" ? `${rate}×${c}×1000` : inf.doseUnit === "mL/h" ? `${rate}` : `${rate}×${c}`;
+  const formula = inf.doseUnit === "γ" ? `${rate.toFixed(1)}×${c}×1000÷(${inf.weightKg}×60)` : inf.doseUnit === "mg/kg/h" ? `${rate.toFixed(1)}×${c}÷${inf.weightKg}` : inf.doseUnit === "μg/h" ? `${rate.toFixed(1)}×${c}×1000` : inf.doseUnit === "mL/h" ? `${rate.toFixed(1)}` : `${rate.toFixed(1)}×${c}`;
   return `${dose.toFixed(inf.doseUnit === "γ" ? 2 : 1)}${inf.doseUnit}（${rate.toFixed(1)}mL/h：${inf.amountMg}${unit}/${inf.volumeMl}mL＝${Number(c.toPrecision(8))}${unit}/mL、${inf.weightKg}kg；${formula}）`;
 }

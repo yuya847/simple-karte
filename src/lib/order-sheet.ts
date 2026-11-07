@@ -127,7 +127,7 @@ export function orderFields(o: Order, today: CalendarDate, place: string): Sheet
     for (const it of o.items) put("薬品", `${drugName(it.drugCode)}　${it.amount}${it.unit}`);
     put("用法", scheduleTextFor(o));
     put("1回の時間", o.minutesPerDose ? durationText(o.minutesPerDose) : undefined);
-    put("速度", o.rateMlPerH ? `${o.rateMlPerH} mL/時` : undefined);
+    put("速度", o.rateMlPerH ? `${o.rateMlPerH?.toFixed(1)} mL/時` : undefined);
     put("指示開始", dayText(today, o.start.day, o.start.time));
     put("日数", o.schedule.kind === "once" ? undefined : o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, false, today) : o.days ? `${o.days}日間` : "継続（変更まで）");
     put("実施場所", place);

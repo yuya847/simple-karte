@@ -1,3 +1,5 @@
+import { stayOnArrive } from "./icu/stays";
+import { unitOf, type IcuRecords } from "./icu/types";
 // Admitting a patient from the emergency department to the ward. Builds the ward patient
 // from what the ED recorded plus what the admitting doctor enters. Fictional data only.
 
@@ -76,6 +78,8 @@ export function admitFromEr(er: ErPatient, f: AdmitForm, id: string, nowTime: st
         kind: "note",
         day: arrivedDay,
         time: arrivedTime,
+        recordedDepartment: "救急科",
+        recordedPlace: "救急外来",
         author: "救急外来",
         role: "看護師",
         text: `${er.arrival}で来院。主訴：${er.complaint}。トリアージ JTAS ${er.jtas}。${vitalText ? `来院時 ${vitalText}。` : ""}${er.note ?? ""}`,
@@ -167,7 +171,7 @@ export function admitExistingPatient(p: Patient, r: AdmissionRequest, bed: { roo
       heightCm: r.heightCm > 0 ? r.heightCm : p.heightCm,
       weightKg: r.weightKg > 0 ? r.weightKg : p.weightKg,
       infections: r.isolation === "なし" || p.infections.includes(r.isolation) ? p.infections : [...p.infections, r.isolation],
-      history: [...p.history, { kind: "note", day: 0, time: nowTime, author: r.attending, role: "医師", text: `救急外来から入院。入院時病名：${r.diagnosis.trim()}。${bed.room}${bed.bed ? `-${bed.bed}` : ""} へ。` }],
+      history: [...p.history.map(e => ({ ...e, recordedDepartment: e.recordedDepartment ?? p.department, recordedPlace: e.recordedPlace ?? p.ward })), { recordedDepartment: r.department, recordedPlace: floorOf(bed.room), kind: "note", day: 0, time: nowTime, author: r.attending, role: "医師", text: `救急外来から入院。入院時病名：${r.diagnosis.trim()}。${bed.room}${bed.bed ? `-${bed.bed}` : ""} へ。` }],
     },
     bed: { ...bed, patientId: p.id },
   };
@@ -245,3 +249,9 @@ export const INITIAL_REQUESTS: AdmissionRequest[] = [
     at: { day: 0, time: "09:30" },
   },
 ];
+
+/** The same admission path records the unit arrival without changing the chart identity. */
+export function admissionIcuRecords(records: IcuRecords, patientId: string, request: AdmissionRequest, room: string, time: string): IcuRecords {
+  const unit = unitOf(floorOf(room));
+  return unit ? stayOnArrive(records, patientId, unit, { day: 0, time }, request.from.kind === "er" ? "救急外来" : "外来", [request.purpose, request.note].filter(Boolean).join("：")) : records;
+}

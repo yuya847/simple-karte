@@ -528,7 +528,7 @@ export function ratePlan(d: InjectionDraft): RatePlan {
     return {
       minutesPerDose: min,
       rateMlPerH: d.rateMlPerH,
-      formula: vol > 0 ? `${vol}mL ÷ ${d.rateMlPerH}mL/時 = 1回 ${hoursText(Math.round(min!))}` : null,
+      formula: vol > 0 ? `${vol}mL ÷ ${d.rateMlPerH?.toFixed(1)}mL/時 = 1回 ${hoursText(Math.round(min!))}` : null,
     };
   }
   if (fromTime) return { minutesPerDose: fromTime.min, rateMlPerH: fromTime.rate === null ? null : round1(fromTime.rate), formula: fromTime.formula || null };
@@ -812,11 +812,11 @@ function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
             key: "rate-mismatch",
             level: "ask",
             title: "計算",
-            message: `時間から計算した速度（${timeOnly.rateMlPerH}mL/時）と、言われた速度（${d.rateMlPerH}mL/時）が合いません。`,
+            message: `時間から計算した速度（${timeOnly.rateMlPerH?.toFixed(1)}mL/時）と、言われた速度（${d.rateMlPerH?.toFixed(1)}mL/時）が合いません。`,
             formula: timeOnly.formula ?? undefined,
             choices: [
-              { label: `時間に合わせる（${timeOnly.rateMlPerH}mL/時）`, apply: (x) => ({ ...(x as InjectionDraft), prefer: "time" }) },
-              { label: `速度に合わせる（${d.rateMlPerH}mL/時）`, apply: (x) => ({ ...(x as InjectionDraft), prefer: "rate" }) },
+              { label: `時間に合わせる（${timeOnly.rateMlPerH?.toFixed(1)}mL/時）`, apply: (x) => ({ ...(x as InjectionDraft), prefer: "time" }) },
+              { label: `速度に合わせる（${d.rateMlPerH?.toFixed(1)}mL/時）`, apply: (x) => ({ ...(x as InjectionDraft), prefer: "rate" }) },
             ],
           });
         }

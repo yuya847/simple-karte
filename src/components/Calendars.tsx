@@ -307,7 +307,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
             const main = findDrug(o.items[0].drugCode);
             const lines = [
               o.insulinDoses ? `${findDrug(o.items[0].drugCode)?.name ?? ""} ${insulinDoseText(o.insulinDoses)}` : o.items.map((it) => `${findDrug(it.drugCode)?.name ?? it.drugCode} ${it.amount}${it.unit}`).join(" ＋ "),
-              [o.route, scheduleTextFor(o), o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, false, today) : null, o.minutesPerDose ? `1回${durationText(o.minutesPerDose)}` : null, o.rateMlPerH ? `${o.rateMlPerH}mL/時` : null]
+              [o.route, scheduleTextFor(o), o.dayPattern ? patternCourse(o.dayPattern, o.start.day, o.days, false, today) : null, o.minutesPerDose ? `1回${durationText(o.minutesPerDose)}` : null, o.rateMlPerH ? `${o.rateMlPerH?.toFixed(1)}mL/時` : null]
                 .filter(Boolean)
                 .join("　"),
             ];

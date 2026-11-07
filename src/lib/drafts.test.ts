@@ -112,8 +112,8 @@ describe("infusion time and rate", () => {
     const issues = checkDraft(injection({ infusionScope: "whole_day", rateMlPerH: 80 }), ctx());
     const issue = keyOf(issues, "rate-mismatch");
     expect(issue?.level).toBe("ask");
-    expect(issue?.message).toContain("50mL/時");
-    expect(issue?.message).toContain("80mL/時");
+    expect(issue?.message).toContain("50.0mL/時");
+    expect(issue?.message).toContain("80.0mL/時");
   });
 
   it("uses the rate when the doctor prefers it", () => {

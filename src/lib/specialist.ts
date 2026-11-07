@@ -31,7 +31,7 @@ export interface Equipment { id: string; label: string; hd?: HdOrder }
 export function equipmentOf(entries: OrderEntry[], lines: StandingLine[] = [], nowTime = "23:59"): Equipment[] {
   const ordered: Equipment[] = activeOrders(entries).flatMap(e => {
     const o = e.order;
-    if (o.type === "injection" && o.rateMlPerH && o.rateMlPerH > 0) return [{ id: e.id, label: `シリンジ／輸液ポンプ ${o.rateMlPerH} mL/時` }];
+    if (o.type === "injection" && o.rateMlPerH && o.rateMlPerH > 0) return [{ id: e.id, label: `シリンジ／輸液ポンプ ${o.rateMlPerH?.toFixed(1)} mL/時` }];
     if (o.type !== "procedure") return [];
     const label = findProc(o.code)?.name ?? o.code;
     if (o.hd) return [{ id: e.id, label: `透析 ${o.hd.method}`, hd: o.hd }];

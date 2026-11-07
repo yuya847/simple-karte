@@ -380,7 +380,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
                       {i.urgent && <span className="ml-1 font-bold text-shu">至急</span>}　<span className="text-ink-soft">{displayText(i.detail)}</span>
                       {i.kind === "注射" && rateOf(i.orderId) && (
                         <div className="nums text-[11px] text-ai">
-                          速さ {rateOf(i.orderId)!.mlPerH}mL/時 → 20滴セット 約{rateOf(i.orderId)!.drops20}滴/分・60滴セット 約{rateOf(i.orderId)!.drops60}滴/分
+                          速さ {rateOf(i.orderId)!.mlPerH.toFixed(1)}mL/時 → 20滴セット 約{rateOf(i.orderId)!.drops20}滴/分・60滴セット 約{rateOf(i.orderId)!.drops60}滴/分
                         </div>
                       )}
                     </td>

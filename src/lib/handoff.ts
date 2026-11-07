@@ -1,3 +1,5 @@
+import { icuHandoffFacts } from "./icu/handoff";
+import { currentOxygen, currentVital } from "./icu/current-oxygen";
 import { vitalsIn } from "./vitals-text";
 import { consciousnessText } from "./consciousness";
 // 勤務交代の申し送り, in the I-PASS order. Facts (vitals, NEWS2, new orders, what is due in the next
@@ -92,7 +94,7 @@ export function handoffFacts(w: WorkPatient, nowAbs: number, today: CalendarDate
   const p = w.patient;
   const out: string[] = [];
   const v = vitalsIn(p.vitals, "latest", nowAbs, null)[0];
-  if (v) out.push(vitalLine(v));
+  if (v) out.push(vitalLine(currentVital(v, { currentOxygen: w.icu ? currentOxygen(w.icu, p.id, nowAbs) : p.currentOxygen })));
   const flags = flagsFor(p, w.entries, nowAbs).map((f) => f.label);
   if (flags.length) out.push(`患者の印：${flags.join("・")}`);
   const changes = orderChanges([w], nowAbs - 720, nowAbs);
@@ -110,7 +112,7 @@ export function handoffFacts(w: WorkPatient, nowAbs: number, today: CalendarDate
   if (sheet.running.length) out.push(`続いているもの：${sheet.running.map((r) => r.main).join("／")}`);
   const pending = p.cultures.filter((c) => c.status !== "最終報告");
   if (pending.length) out.push(`結果待ちの培養：${pending.map((c) => `${c.specimen}（${c.status}）`).join("、")}`);
-  return [...out, ...extra];
+  return [...out, ...(w.icu ? icuHandoffFacts(p, w.icu, nowAbs) : []), ...extra];
 }
 
 /** What is missing before sending (a person must choose the severity and say the summary). */

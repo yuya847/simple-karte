@@ -43,6 +43,7 @@ export interface Patient {
   cautions: string[];
   /** 禁忌 registered in the patient profile (薬・検査など), filled in by the app. */
   contraindications?: string[];
+  currentOxygen?: string;
   history: HistoryEntry[];
   labs: LabResult[];
   cultures: CultureResult[];
@@ -89,6 +90,8 @@ export interface DailyRecord {
 export type HistoryEntry = NoteEntry | OrderEntry;
 
 export interface NoteEntry {
+  recordedDepartment?: string;
+  recordedPlace?: string;
   templateId?: string;
   templateName?: string;
   kind: "note";
@@ -139,6 +142,8 @@ export interface NoteVersion {
 export type OrderStatus = "有効" | "中止" | "終了" | "実施済";
 
 export interface OrderEntry {
+  recordedDepartment?: string;
+  recordedPlace?: string;
   kind: "order";
   id: string;
   day: DayOffset;

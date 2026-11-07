@@ -43,7 +43,7 @@ const injFields = (o: InjectionOrder): [string, string][] => [
   ["回数・時刻", scheduleTextFor(o)],
   ["投与日", patternText(o.dayPattern)],
   ["1回の時間", o.minutesPerDose ? `${o.minutesPerDose}分` : "—"],
-  ["速さ", o.rateMlPerH ? `${o.rateMlPerH}mL/時` : "—"],
+  ["速さ", o.rateMlPerH ? `${o.rateMlPerH?.toFixed(1)}mL/時` : "—"],
   ["日数", o.days ? `${o.days}日間` : "継続"],
 ];
 const rxFields = (o: PrescriptionOrder): [string, string][] => [
