@@ -1625,7 +1625,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // What the billing APIs get for one patient: the record as it stands, with the insurance 医事課 registered.
   const claimPayloadOf = (p: Patient) => {
     const c = charts[p.id];
-    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, stopDays: c.stopDays, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insulinGiven: insulinGivenForBilling(mar, p.id), insuranceHistory: insuranceRecords(iji.insurance, p.id).map(r => r.insurance), insurance: currentInsurance(iji.insurance, p.id) });
+    return patientMonthPayload(p, withRis(p.id, currentEntries(p, c ? { added: c.added, stopped: c.stopped, stopTimes: c.stopTimes, stopDays: c.stopDays, extended: c.extended, notes: notes[p.id], revised: revised[p.id] } : undefined)), diagnoses[p.id] ?? [], billing[p.id] ?? DEFAULT_OPTIONS, { diets, letters: lettersOf(p.id), notGiven: notGivenOf(p.id), insulinGiven: insulinGivenForBilling(mar, p.id), insuranceHistory: insuranceRecords(iji.insurance, p.id).map(r => r.insurance), insurance: currentInsurance(iji.insurance, p.id), kisai });
   };
   // 指導の記録: kept, answers the open 指導の依頼, goes into the chart as the writer's note, and for an
   // eligible 栄養食事指導 within the fee schedule's limits (週1回・入院中2回) goes to the claim.

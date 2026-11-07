@@ -3,9 +3,9 @@ import { ASSUMED_INSURANCE_ISSUE, INSURANCE, type Insurance } from "./insurance"
 import { DEFAULT_OPTIONS } from "./model";
 import { patientMonth, type PatientMonthInput } from "./month";
 import { kisaiOf, patientMonthPayload } from "./payload";
-import { receiptRecords } from "./uke";
+import { buildUke, payerOf, receiptRecords } from "./uke";
 import type { KisaiWorkspace } from "./kisai-workspace";
-import { ClaimRequest } from "./request";
+import { ClaimRequest, ReceiptRequest } from "./request";
 import { PATIENTS } from "../patients";
 import type { OrderEntry } from "../types";
 
@@ -102,5 +102,20 @@ describe("記載・書類をレセプトへ", () => {
     const k = kisaiOf({ shoki: [shoki, { ...shoki, id: "x", patientId: "other" }], tekiyoAnswers: [{ ...answer, reviewedRequirements: false }, answer, { ...answer, patientId: "other" }] }, p.id);
     expect(k.shoki.map((s) => s.id)).toEqual(["s1"]);
     expect(k.tekiyoAnswers).toEqual([answer]);
+  });
+});
+
+describe("病棟のレセプトファイルに記載・書類", () => {
+  it("病棟の全員分の要求でも、その患者の確定した詳記はSJ、選んだコメントはSIのコメント欄に入る", () => {
+    const p = { ...PATIENTS[0], history: [] };
+    const answer = { patientId: p.id, month: "2026-11", claimCode: "190171910", by: "医師 試験", at: "2026-11-07T12:00:00+09:00", reviewedRequirements: true, comments: [{ code: "820100411" }, { code: "831110001", text: "160000310" }] };
+    const shoki = { id: "s1", patientId: p.id, month: "2026-11", targets: [], category: "03" as const, body: "入院時の状態。", status: "確定" as const, by: "医師 試験", at: "2026-11-07T12:00:00+09:00", version: 1 };
+    const body = ReceiptRequest.parse({ today: "2026-11-07", nowTime: "12:00", month: "2026-11", patients: [patientMonthPayload(p, [], [], { ...DEFAULT_OPTIONS, kyukyu: "1" }, { kisai: { shoki: [shoki], tekiyoAnswers: [answer] } })] });
+    const pm = patientMonth(body.patients[0] as unknown as PatientMonthInput, body.today, body.nowTime, body.month);
+    const file = buildUke([pm.receipt], payerOf(pm.insurance), "2026-11", "2026-12");
+    expect(file.text).toContain("SJ,03,入院時の状態。\r\n");
+    expect(file.text).toMatch(/SI,[^\r]*,190171910,[^\r]*820100411,,831110001,160000310,/);
+    // 傷病名を渡していないので SY の注意だけ。SJ・SI の形の注意は出ない。
+    expect(file.problems.filter((x) => /SJ|SI|CO|シフトJIS|項目数/.test(x))).toEqual([]);
   });
 });
