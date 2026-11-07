@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendTexts, batchDo, batchDoFlash, orderDrafts, recordsText, setRowsOf, stoppableOrders } from "./history-batch";
+import { appendTexts, batchDo, batchDoFlash, orderDrafts, pickActions, recordsText, setRowsOf, stoppableOrders } from "./history-batch";
 import type { HistoryEntry, NoteEntry, OrderEntry } from "./types";
 
 const today = { y: 2026, m: 11, d: 7 };
@@ -76,5 +76,33 @@ describe("本文をコピー", () => {
       "【記事】11/6（金） 08:00 山本（専攻医）\nS) 痛みは軽い\nA) 改善",
       "【注射】11/6（金） 09:00 山本（専攻医）\n大塚生食注 500mLソフトバッグ 500mL/袋　500mL\n点滴静注　1日1本　1回2時間　開始 11/6（金） 10:00　5日間　左腕",
     ]);
+  });
+});
+
+describe("選んだものの右クリックのメニュー（職種で押せないものは灰色）", () => {
+  const chosen = [note, rx("a", "ORAL-LOX60", "rp1"), inj, lab, proc] as HistoryEntry[];
+  const ok = { note: null, order: null, stop: null };
+  it("医師：記事と内服・注射・検体検査を写し、セットに登録し、有効な内服・注射の中止の下書きを作れる", () => {
+    const r = pickActions(chosen, ok);
+    expect(r.doItems).toHaveLength(4);
+    expect(r.setOrders.map((e) => e.id)).toEqual(["a", "inj-1", "lab-1"]);
+    expect(r.stopOrders.map((e) => e.id)).toEqual(["a", "inj-1"]);
+    expect(r.why).toEqual({ do: undefined, set: undefined, stop: undefined });
+  });
+  it("看護師（口頭指示の代行入力はできる）：中止は医師だけなので灰色", () => {
+    const r = pickActions(chosen, { ...ok, stop: "医師が操作できます" });
+    expect(r.doItems).toHaveLength(4);
+    expect(r.why.stop).toBe("医師が操作できます");
+    expect(r.why.set).toBeUndefined();
+  });
+  it("オーダを入れない職種：記事だけ写せて、セット・中止は灰色", () => {
+    const r = pickActions(chosen, { note: null, order: "オーダの確定は医師が行います", stop: "医師が操作できます" });
+    expect(r.doItems).toEqual([note]);
+    expect(r.why.set).toBe("オーダの確定は医師が行います");
+    expect(pickActions([inj], { note: null, order: "オーダの確定は医師が行います", stop: null }).why.do).toBe("オーダの確定は医師が行います");
+  });
+  it("記事を書けない職種で記事だけを選ぶと Do も灰色。監査済みの内服は中止に数えない", () => {
+    expect(pickActions([note], { note: "記事の記録は…", order: null, stop: null }).why.do).toBe("記事の記録は…");
+    expect(pickActions([rx("a", "ORAL-LOX60", "rp1")], ok, () => true).why.stop).toBe("中止できる有効な内服・注射がありません");
   });
 });

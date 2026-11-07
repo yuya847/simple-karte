@@ -8,7 +8,7 @@ import { ConsultStatus } from "./ConsultContext";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { VerbalReview } from "./VerbalControls";
-import { CalendarDays, ChevronDown, FlaskConical, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
+import { Ban, CalendarDays, ChevronDown, ClipboardCopy, FlaskConical, ChevronRight, Copy, Filter, GripVertical, History, Layers, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
 import { matchesTemplate, templateOptions } from "@/lib/record-filter";
 import { BUILTIN_RECORD_TEMPLATES, loadMyRecordTemplates } from "@/lib/record-templates";
 import { loadFilters, saveFilters, sameFilter, type SavedFilter } from "@/lib/history-filters";
@@ -53,7 +53,9 @@ import { LetterDoc } from "./LetterDoc";
 import { letterTitle, versionNo, type Letter } from "@/lib/letters";
 import { dragGhost } from "./drag-ghost";
 import { useMarquee } from "./Marquee";
-import { recordsText, reusableOrder, type DoItem } from "@/lib/history-batch";
+import { pickActions, recordsText, setRowsOf, type DoItem } from "@/lib/history-batch";
+import { saveSavedSet, SET_SCOPES, staffPlace, type SetScope } from "@/lib/saved-sets";
+import { Menu } from "./PopMenu";
 import { inTimeOrder } from "@/lib/record-select";
 
 export type LeftView = "record" | "flowsheet" | "rx-history" | "inj-history" | "results";
@@ -164,7 +166,7 @@ function carry(onCarry: (keys: string[]) => void, keys: string[]) {
 }
 
 /** What the cards of the record ask of the list: whether they are chosen (囲む・⌘クリック), carrying them to the right (from the ⠿ grip) and whether they are being carried. */
-type PickApi = { picked: (key: string) => boolean; drag: (e: React.DragEvent, key: string, one: DoItem | null) => void; carried: (key: string) => boolean };
+type PickApi = { picked: (key: string) => boolean; drag: (e: React.DragEvent, key: string, one: DoItem | null) => void; carried: (key: string) => boolean; menu: (e: React.MouseEvent, key: string) => boolean };
 const PickCtx = createContext<PickApi | null>(null);
 
 /**
@@ -302,12 +304,12 @@ function RecordList({
     // role may write on the right, in the order of their time (the notes into the note, the orders into the drafts).
     drag: (e, k, one) => {
       const chosen = pickedKeys.includes(k);
-      const batch = chosen && pickedKeys.length > 1 ? carriedOf(pickedKeys) : null;
+      const batch = chosen && pickedKeys.length > 1 ? actionsOf(pickedKeys).doItems : null;
       if ((!chosen && !(e.target as HTMLElement).closest("[data-history-grip]")) || (batch ? !batch.length : !one)) {
         e.preventDefault();
         return;
       }
-      const payload: DoPayload = batch ? { kind: "many", items: batch.map(itemOf) } : one!;
+      const payload: DoPayload = batch ? payloadOf(batch) : one!;
       e.dataTransfer.setData(DO_MIME, JSON.stringify(payload));
       e.dataTransfer.setData("text/plain", batch ? recordsText(batch, today, orderMarkOf) : one!.kind === "note" ? one!.text : "");
       e.dataTransfer.effectAllowed = "copy";
@@ -318,24 +320,71 @@ function RecordList({
       setTimeout(() => ghost.remove(), 0);
       carry(setCarried, batch ? batch.map(pickKey) : [k]);
     },
+    // Right click on a chosen card: the menu of all those chosen (the card's own menu otherwise).
+    menu: (e, k) => {
+      if (!pickedKeys.includes(k)) return false;
+      e.preventDefault();
+      e.stopPropagation();
+      setPickMenu({ x: e.clientX, y: e.clientY });
+      return true;
+    },
   };
-  // What may be carried to the right by this role: notes (記事を書ける職種) and 内服・注射・検体検査 (オーダを入れられる職種).
+  const [pickMenu, setPickMenu] = useState<{ x: number; y: number } | null>(null);
+  const [setForm, setSetForm] = useState<{ x: number; y: number } | null>(null);
+  const [pickNote, setPickNote] = useState("");
+  const tell = (text: string) => {
+    setPickNote(text);
+    setTimeout(() => setPickNote((t) => (t === text ? "" : t)), 2500);
+  };
+  // What this role may do with the chosen records (the same rules as Do・中止 of one record): notes by those who write
+  // notes, 内服・注射・検体検査 by those who enter orders (the doctor, a nurse taking a spoken order), 中止 by the doctor.
   const deny = useDeny();
-  const may = { note: !deny("note"), order: !deny("order") || !deny("order.verbal") };
+  const orderActions = useOrderHistoryActions();
+  const denied = { note: deny("note"), order: deny("order") && deny("order.verbal") ? deny("order") : null, stop: orderActions?.canEdit ? null : "医師が操作できます" };
   // The time each card shows in its heading (an order on its 予定日 with the planned time, or when it was ordered).
   const shownAt = (x: HistoryEntry) => {
     if (x.kind === "note") return { day: x.day, time: x.time };
     const day = entryDayFor(x, orderDay);
     return { day, time: (orderDay === "予定日" ? planItemsOf(x).find((p) => p.day === day)?.time : x.time) ?? x.time };
   };
-  const carriedOf = (keys: string[]): HistoryEntry[] =>
+  const chosenOf = (keys: string[]): HistoryEntry[] =>
     inTimeOrder(
       sections
         .flatMap((x) => x.entries)
-        .filter((x) => keys.includes(pickKey(x)) && (x.kind === "note" ? may.note : may.order && reusableOrder(x)))
+        .filter((x) => keys.includes(pickKey(x)))
         .map((entry) => ({ entry, ...shownAt(entry) })),
     ).map((x) => x.entry);
+  const actionsOf = (keys: string[]) => pickActions(chosenOf(keys), denied, orderActions?.locked);
   const itemOf = (x: HistoryEntry): DoItem => (x.kind === "note" ? { kind: "note", text: noteText(x), label: `${x.time} ${x.author}` } : { kind: "order", entryId: x.id });
+  const payloadOf = (xs: HistoryEntry[]): DoPayload => (xs.length === 1 ? itemOf(xs[0]) : { kind: "many", items: xs.map(itemOf) });
+  const pickMenuView = () => {
+    if (!pickMenu || !pickedKeys.length) return null;
+    const acts = actionsOf(pickedKeys);
+    return (
+      <Menu
+        at={pickMenu}
+        onClose={() => setPickMenu(null)}
+        items={[
+          { label: `右へ写す（Do）${acts.doItems.length}件`, icon: Copy, onClick: () => onDo?.(payloadOf(acts.doItems)), disabled: onDo ? acts.why.do : "写せません" },
+          { label: `セットに登録（${acts.setOrders.length}件）`, icon: Layers, onClick: () => setSetForm(pickMenu), disabled: acts.why.set },
+          {
+            label: `中止の下書きを作る（${acts.stopOrders.length}件）`,
+            icon: Ban,
+            onClick: () => {
+              acts.stopOrders.forEach((x) => orderActions?.stop(x));
+              tell(`中止の下書きを作りました（${acts.stopOrders.length}件）`);
+            },
+            disabled: acts.why.stop,
+          },
+          {
+            label: "本文をコピー",
+            icon: ClipboardCopy,
+            onClick: () => void navigator.clipboard.writeText(recordsText(chosenOf(pickedKeys), today, orderMarkOf)).then(() => tell("コピーしました")).catch(() => tell("コピーできませんでした")),
+          },
+        ]}
+      />
+    );
+  };
   // A draw's result is filed under the collection time (the same as the printed label).
   const resultAt = (e: HistoryEntry) => {
     if (e.kind !== "order" || e.order.type !== "lab") return null;
@@ -508,6 +557,7 @@ function RecordList({
           </>}
           {tools === "filter" && <SavedHistoryFilters key={me.name} list={saved} current={currentFilter} onApply={applyFilter} onChange={changeFilters} />}
           {saveError && <span role="alert" className="text-shu">{saveError}</span>}
+          {pickNote && <span role="status" className="text-wakatake">{pickNote}</span>}
           {tools === "filter" && (["note", "order"] as const).map((g) => (
             <span key={g} role="group" aria-label={g === "note" ? "記載を書いた職種" : "オーダの種類"} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="text-ink-faint">{g === "note" ? "記載" : "オーダ"}</span>
@@ -573,8 +623,32 @@ function RecordList({
 
 
       </div>
-      <div ref={root} {...marquee.handlers} className="scroll-thin relative min-h-0 flex-1 overflow-y-auto px-4 pb-24">
+      <div
+        ref={root}
+        {...marquee.handlers}
+        onContextMenu={(e) => {
+          // Right click where there is no card, with records chosen: their menu.
+          if (e.defaultPrevented || !pickedKeys.length || (e.target as Element).closest("[data-pick]")) return;
+          e.preventDefault();
+          setPickMenu({ x: e.clientX, y: e.clientY });
+        }}
+        className="scroll-thin relative min-h-0 flex-1 overflow-y-auto px-4 pb-24"
+      >
         {marquee.view}
+        {pickMenuView()}
+        {setForm && (
+          <SetForm
+            at={setForm}
+            count={actionsOf(pickedKeys).setOrders.length}
+            onClose={() => setSetForm(null)}
+            onSave={(name, scope) => {
+              const rows = setRowsOf(actionsOf(pickedKeys).setOrders, () => "");
+              const ok = saveSavedSet({ id: crypto.randomUUID(), name, owner: me.name, scope, ...staffPlace(me), rows });
+              tell(ok ? `セット「${name}」に登録しました（${rows.length}件）` : "この端末に保存できませんでした");
+              setSetForm(null);
+            }}
+          />
+        )}
         {ahead.days.length > 0 && (
           <div data-ahead className="border-b border-rule-soft py-1.5">
             <button type="button" onClick={() => setAheadOpen((o) => !o)} aria-expanded={aheadOpen} className="nums flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-[12px] text-mizu hover:bg-sheet">
@@ -673,6 +747,47 @@ export const PLACE_COLORS = {
   opd: { chip: "bg-mizu text-white", edge: "border-l-mizu", bg: "bg-mizu-soft/40", text: "text-mizu" },
 };
 
+/** セットに登録: the name (and who may use it) typed in a small box where the menu was. Enter saves; Esc or a press outside closes. */
+function SetForm({ at, count, onClose, onSave }: { at: { x: number; y: number }; count: number; onClose: () => void; onSave: (name: string, scope: SetScope) => void }) {
+  const [name, setName] = useState("");
+  const [scope, setScope] = useState<SetScope>("個人");
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && onClose();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("pointerdown", away, true);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("pointerdown", away, true);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [onClose]);
+  const left = Math.min(at.x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 280);
+  const top = Math.min(at.y, (typeof window === "undefined" ? 800 : window.innerHeight) - 90);
+  return createPortal(
+    <form
+      ref={ref}
+      role="dialog"
+      aria-label="セットに登録"
+      data-pick-popover
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim()) onSave(name.trim(), scope);
+      }}
+      style={{ position: "fixed", left, top, zIndex: 1000 }}
+      className="flex w-[17rem] flex-wrap items-center gap-1.5 rounded-lg border border-rule bg-sheet p-2 text-[12px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]"
+    >
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-label="セット名" placeholder={`セット名（${count}件）`} className="w-full rounded border border-rule bg-paper px-1.5 py-1 outline-none focus:border-ai" />
+      <select value={scope} onChange={(e) => setScope(e.target.value as SetScope)} aria-label="公開範囲" className="rounded border border-rule bg-paper px-1 py-1">
+        {SET_SCOPES.map((x) => <option key={x}>{x}</option>)}
+      </select>
+      <button type="button" onClick={onClose} className="ml-auto rounded px-2 py-1 text-ink-soft hover:text-ink">やめる</button>
+      <button type="submit" disabled={!name.trim()} className="rounded bg-ai px-2.5 py-1 font-bold text-white disabled:opacity-40">登録</button>
+    </form>,
+    document.body,
+  );
+}
+
 /**
  * One record as a card: the heading row (【種類】 date and time in bold, the department and place small on the
  * right, ▸ to fold), a faint line with the version, the times and the writer, then the body.
@@ -736,50 +851,6 @@ function LetterRow({ letter: l, patient, today, place, folded, onFold, onOpen }:
     >
       <LetterDoc letter={l} patient={patient} today={today} doctor={l.confirmedBy ?? ""} />
     </Card>
-  );
-}
-
-/** A small menu at the pointer (right click) or under the 「…」 button (touch). Esc or a press outside closes it. */
-function Menu({ at, onClose, items }: { at: { x: number; y: number }; onClose: () => void; items: { label: string; icon: typeof Copy; onClick: () => void; disabled?: string }[] }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const away = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && onClose();
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("pointerdown", away, true);
-    window.addEventListener("keydown", esc);
-    ref.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
-    return () => {
-      window.removeEventListener("pointerdown", away, true);
-      window.removeEventListener("keydown", esc);
-    };
-  }, [onClose]);
-  const left = Math.min(at.x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 230);
-  const top = Math.min(at.y, (typeof window === "undefined" ? 800 : window.innerHeight) - 40 * items.length - 16);
-  return createPortal(
-    <div ref={ref} role="menu" style={{ position: "fixed", left, top, zIndex: 1000 }} className="w-56 rounded-lg border border-rule bg-sheet p-1 text-[13px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
-      {items.map((it) => {
-        const Icon = it.icon;
-        return (
-          <button
-            key={it.label}
-            type="button"
-            role="menuitem"
-            disabled={!!it.disabled}
-            title={it.disabled}
-            onClick={() => {
-              onClose();
-              it.onClick();
-            }}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-paper disabled:text-ink-faint/60 pointer-coarse:py-2.5"
-          >
-            <Icon size={14} />
-            {it.label}
-            {it.disabled && <span className="ml-auto text-[10px]">—</span>}
-          </button>
-        );
-      })}
-    </div>,
-    document.body,
   );
 }
 
@@ -893,7 +964,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
     onDragStart: onDo && pick ? (e: React.DragEvent) => pick.drag(e, pk, doPayload) : undefined,
     onDoubleClick: () => (editing ? undefined : mine ? startEdit() : setShowHistory((v) => !v)),
     onContextMenu: (e: React.MouseEvent) => {
-      if (editing) return;
+      if (editing || pick?.menu(e, pk)) return;
       e.preventDefault();
       setMenu({ x: e.clientX, y: e.clientY });
     },
@@ -1356,7 +1427,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         "data-pick": pk,
         onDragStart: pick && (canDo || chosen) && onDo ? (e: React.DragEvent) => pick.drag(e, pk, canDo ? doPayload : null) : undefined,
         onContextMenu: (e: React.MouseEvent) => {
-          if (!hasMenu) return;
+          if (pick?.menu(e, pk) || !hasMenu) return;
           e.preventDefault();
           setMenu({ x: e.clientX, y: e.clientY });
         },

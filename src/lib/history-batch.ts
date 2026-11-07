@@ -138,3 +138,31 @@ export function recordsText(entries: HistoryEntry[], today: CalendarDate, mark: 
     })
     .join("\n\n");
 }
+
+/**
+ * What the menu of the chosen records can do for this person, and why an item is grey: Do (notes when the role
+ * writes notes; 内服・注射・検体検査 when it enters orders), セットに登録 (those orders), 中止の下書き (有効 内服・注射;
+ * the doctor), each null reason meaning allowed. A confirmed record is never deleted (the menu has no 削除).
+ */
+export function pickActions(
+  chosen: HistoryEntry[],
+  denied: { note: string | null; order: string | null; stop: string | null },
+  locked: (id: string) => boolean = () => false,
+): { doItems: HistoryEntry[]; setOrders: OrderEntry[]; stopOrders: OrderEntry[]; why: { do?: string; set?: string; stop?: string } } {
+  const orders = chosen.filter((e): e is OrderEntry => e.kind === "order");
+  const reusable = orders.filter(reusableOrder);
+  const doItems = chosen.filter((e) => (e.kind === "note" ? !denied.note : !denied.order && reusableOrder(e)));
+  const setOrders = denied.order ? [] : reusable;
+  const stopOrders = denied.stop ? [] : stoppableOrders(orders, locked);
+  const hasNotes = chosen.some((e) => e.kind === "note");
+  return {
+    doItems,
+    setOrders,
+    stopOrders,
+    why: {
+      do: doItems.length ? undefined : (hasNotes ? denied.note : null) ?? (reusable.length ? denied.order : null) ?? "写せる記録がありません",
+      set: setOrders.length ? undefined : (reusable.length ? denied.order : null) ?? "セットにできるオーダ（内服・注射・検体検査）がありません",
+      stop: stopOrders.length ? undefined : denied.stop ?? "中止できる有効な内服・注射がありません",
+    },
+  };
+}
