@@ -5,7 +5,7 @@ import { checkDiseases } from "@/lib/billing/disease-check";
 import { DiseaseCandidates, type DiseaseRequestProps } from "./billing/DiseaseCandidates";
 import { displayText } from "@/lib/display-text";
 import type { DietOrder } from "@/lib/diet";
-import { AlertTriangle, Ban, CheckCircle2, Info, ListChecks, Loader2 } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { BillPanel } from "./billing/BillPanel";
 import { InsurancePanel } from "./billing/InsurancePanel";
 import { DpcPanel, type Transfer } from "./billing/DpcPanel";
@@ -114,6 +114,12 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   const [result, setResult] = useState<ClaimResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [openBasis, setOpenBasis] = useState<Set<string>>(() => new Set());
+  const toggleBasis = (key: string) => setOpenBasis((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   // Diets, letters and the registered insurance by value, so a new array with the same content does not re-run the claim.
   const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insulinGiven: insulinGiven ?? [], insurance: registered?.insurance, insuranceHistory: records.map(r => r.insurance) });
@@ -171,7 +177,6 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   const nDays = daysInMonth(month);
   const [, mm] = month.split("-").map(Number);
   const set = (patch: Partial<BillingOptions>) => onOptions({ ...options, ...patch });
-  const firstDayOfMonth = (d: number) => addDays(today, d);
 
   return (
     <section aria-label="算定" className="flex min-h-0 flex-col border-l border-rule bg-sheet">
@@ -240,7 +245,6 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                 >
                   会計を済ませた{bill ? `（お支払い ${yen(bill.totalYen)}）` : ""}
                 </button>
-                <span className="text-[11px] text-ink-faint">お金のやりとりはこの試作にはありません。窓口で受け取ったことを記録します。</span>
                 <DenyNote action="settle" className="w-full" />
               </div>
             )}
@@ -285,13 +289,13 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
         {result && (
           <div className="nums mb-3 flex flex-wrap items-end gap-x-8 gap-y-2">
             <Stat label="入院日数（この月）" value={`${result.days}日`} sub={result.from ? `${mm}/${result.from}〜${mm}/${result.to}` : "なし"} />
-            <Stat label="合計点数" value={`${result.totalPoints.toLocaleString("ja-JP")}点`} sub={`医療費 ${yen(result.totalPoints * 10)}（1点10円）`} strong />
+            <Stat label="合計点数" value={`${result.totalPoints.toLocaleString("ja-JP")}点`} sub={`医療費 ${yen(result.totalPoints * 10)}`} strong />
             <Stat label="入院時食事療養" value={yen(result.meals.ryoyoYen)} sub={insurance && coverageOf(insurance) === "自費" ? `全額自費 ${yen(bill?.mealFutanYen ?? result.meals.ryoyoYen)}` : `うち標準負担額 ${yen(result.meals.futanYen)}`} />
           </div>
         )}
 
         <fieldset className="mb-3 rounded-md border border-rule bg-paper px-3 py-2">
-          <legend className="px-1 text-xs font-bold text-ink-soft">患者の状態で決まる加算（人が確かめて入れます。コードは決めません）</legend>
+          <legend className="px-1 text-xs font-bold text-ink-soft">患者の状態で決まる加算</legend>
           <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
             <label className="flex items-center gap-1.5">
               救急医療管理加算
@@ -323,7 +327,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                 <option value="2">それ以外（200点）</option>
               </select>
             </label>
-            <Check label="特別食（食事オーダーがないときだけ使う）" checked={options.specialDiet} onChange={(v) => set({ specialDiet: v })} />
+            <Check label="特別食" checked={options.specialDiet} onChange={(v) => set({ specialDiet: v })} />
             <label className="flex items-center gap-1.5">
               薬剤管理指導料（今日）
               <select
@@ -376,10 +380,10 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
 
         {result && (
           <table className="nums w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-sheet">
+            <thead className="sticky -top-3 z-10 bg-sheet">
               <tr className="border-b border-rule text-[10px] text-ink-faint">
                 <th className="w-10 py-1 text-left font-normal">識別</th>
-                <th className="py-1 text-left font-normal">内容（コード）と根拠</th>
+                <th className="py-1 text-left font-normal">内容（コード）</th>
                 <th className="w-14 py-1 text-right font-normal">点数</th>
                 <th className="w-10 py-1 text-right font-normal">回数</th>
                 {Array.from({ length: nDays }, (_, i) => {
@@ -405,7 +409,10 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                     </td>
                     <td colSpan={nDays} />
                   </tr>
-                  {acts.map((a, i) => (
+                  {acts.map((a, i) => {
+                    const basisKey = `${month}-${sk}-${i}`;
+                    const basisOpen = openBasis.has(basisKey);
+                    return (
                     <tr key={i} className="border-b border-rule-soft align-top">
                       <td />
                       <td className="py-1 pr-2">
@@ -430,6 +437,18 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                                   </span>
                                 )}
                                 <span className="ml-1.5 text-[10px] text-ink-faint">{l.code}</span>
+                                {pi === 0 && li === 0 && (
+                                  <button
+                                    type="button"
+                                    aria-label="算定の根拠"
+                                    aria-expanded={basisOpen}
+                                    title="算定の根拠"
+                                    onClick={() => toggleBasis(basisKey)}
+                                    className={`ml-1 inline-flex align-[-1px] ${basisOpen ? "text-ai" : "text-ink-faint hover:text-ink"}`}
+                                  >
+                                    <Info size={11} />
+                                  </button>
+                                )}
                                 {l.comments?.map((c) => (
                                   <div key={c.code} className="ml-3 text-[10px] text-fuji">
                                     コメント {c.label}
@@ -441,7 +460,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                             {a.parts.length > 1 && <div className="text-right text-[10px] text-ink-faint">{p.yen ? yen(p.points) : `${p.points}点`}</div>}
                           </div>
                         ))}
-                        <details className="mt-0.5 text-[10px] leading-snug text-ink-faint"><summary className="cursor-pointer">算定の根拠</summary>{a.basis}</details>
+                        {basisOpen && <p className="mt-0.5 text-[10px] leading-snug text-ink-soft">{a.basis}</p>}
                       </td>
                       <td className="py-1 text-right font-bold">
                         {isYen ? yen(a.parts.reduce((s, p) => s + p.points, 0)) : a.parts.reduce((s, p) => s + p.points, 0).toLocaleString("ja-JP")}
@@ -453,22 +472,14 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
                         </td>
                       ))}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               );
             })}
           </table>
         )}
 
-        {result && (
-          <div className="mt-3 space-y-0.5 text-[10px] text-ink-faint">
-            <p className="flex items-center gap-1">
-              <ListChecks size={11} />
-              施設基準・入院日 {formatShort(firstDayOfMonth(patient.admittedOn))}。
-            </p>
-
-          </div>
-        )}
           </>
         )}
       </div>
