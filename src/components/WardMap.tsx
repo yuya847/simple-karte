@@ -1,12 +1,17 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
+import { roomLabel } from "@/lib/place-label";
 import { FlaskConical, ShieldAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { bedProblem } from "@/lib/admission";
+import type { OpenAt } from "@/lib/open-at";
 import { hospitalDay } from "@/lib/dates";
 import { news2 } from "@/lib/news2";
 import { PatientAvatar } from "./PatientAvatar";
-import type { Patient } from "@/lib/types";
+import { usePressMenu } from "./PressMenu";
+import type { CellAction } from "./FlowCellMenu";
+import type { Patient, Sex } from "@/lib/types";
 import { ROOMS, WARD_NAME, isolationFor, occupant, type OtherPatient, type Room, type WardState } from "@/lib/ward";
 import type { BedAssignment } from "@/lib/ward";
 import { ageSex } from "@/lib/person";
@@ -55,8 +60,12 @@ interface Props {
   pick?: Pick;
   summaries: Record<string, ChartSummary>;
   onOpen: (patientId: string) => void;
-  /** 転棟・転床: a patient card dropped on an empty bed, or the card's 「移動」 (no bed chosen yet). */
+  /** 転棟・転床: a patient card dropped on an empty bed, or 「移動」 of the card's menu (no bed chosen yet). */
   onMove?: (patientId: string, to?: { room: string; bed: string }) => void;
+  /** The chart with one of its tools (経過表 from the card's menu). */
+  onOpenAt?: (patientId: string, where: OpenAt) => void;
+  /** 入院申込 (WardRequests) dropped on an empty bed that can take the patient. */
+  onDropRequest?: (requestId: string, to: { room: string; bed: string }) => void;
   /** A 病棟 tab narrower than the ward (受け持ち, a department): its beds stay clear, the rest fade. */
   scope?: { label: string; test: (b: BedAssignment) => boolean };
   /** The viewer's own team (受け持ち): it stands out while 「受け持ちを目立たせる」 is on. Everyone when not given. */
@@ -76,16 +85,32 @@ const noFmt = (d: number) => `${d}日後`;
  * Floor plan of the ward. Every patient opens on click. With 「受け持ちを目立たせる」 (the default) the viewer's
  * team gets the full card and the others a short gray one; without it, everyone gets the full card.
  */
-export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, onMove, scope, mine: mineOf = everyone, roomNote, dayNav, asOf }: Props) {
+export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summaries, onOpen, onMove, onOpenAt, onDropRequest, scope, mine: mineOf = everyone, roomNote, dayNav, asOf }: Props) {
   const [mineOnly, setMineOnly] = useState(false);
   const [emphasize, setEmphasize] = useEmphasizeTeam();
+  const { bind, menu } = usePressMenu();
+  // While a 入院申込 is dragged: the sex it carries, so every empty bed shows at once whether it can take the patient.
+  const [carrying, setCarrying] = useState<Sex | null>(null);
+  useEffect(() => {
+    if (!onDropRequest) return;
+    const start = (e: DragEvent) => setCarrying(e.dataTransfer ? requestSex(e.dataTransfer.types) : null);
+    const end = () => setCarrying(null);
+    window.addEventListener("dragstart", start);
+    window.addEventListener("dragend", end);
+    window.addEventListener("drop", end);
+    return () => {
+      window.removeEventListener("dragstart", start);
+      window.removeEventListener("dragend", end);
+      window.removeEventListener("drop", end);
+    };
+  }, [onDropRequest]);
   const day = asOf?.day ?? 0;
   const fmtDay = dayNav?.fmtDay ?? noFmt;
   const occupied = asOf ? asOf.counts.occupied : ward.beds.length;
   const totalBeds = rooms.reduce((n, r) => n + r.beds.length, 0);
   const empty = asOf ? asOf.counts.empty : totalBeds - occupied;
   const mine = ward.beds.filter((b) => b.patientId && mineOf(b.patientId)).length;
-  const look: Look = { emphasize, mineOnly, mine: mineOf, roomNote, day, fmtDay };
+  const look: Look = { emphasize, mineOnly, mine: mineOf, roomNote, day, fmtDay, press: bind, onOpenAt, onDropRequest, carrying };
   const north = rooms.filter((r) => r.side === "north");
   const south = rooms.filter((r) => r.side === "south");
   const southBeforeNs = south.slice(0, 3);
@@ -133,12 +158,24 @@ export function WardMap({ ward, rooms = ROOMS, title = WARD_NAME, pick, summarie
           <RoomRow ward={ward} rooms={southAfterNs} summaries={summaries} onOpen={onOpen} onMove={onMove} look={look} scope={scope} inline />
         </div>
       </div>
-
+      {menu}
     </section>
   );
 }
 
 const BED_MIME = "application/x-simple-karte-bed";
+/** A 入院申込 being dragged: its id, and the patient's sex as a type of its own (types can be read while dragging, the data only on the drop). */
+export const REQUEST_MIME = "application/x-simple-karte-request";
+const SEX_TYPE: Record<Sex, string> = { 男: `${REQUEST_MIME}-sex-m`, 女: `${REQUEST_MIME}-sex-f` };
+export function setRequestDrag(dt: DataTransfer, requestId: string, sex: Sex) {
+  dt.setData(REQUEST_MIME, requestId);
+  dt.setData(SEX_TYPE[sex], sex);
+  dt.effectAllowed = "copy";
+}
+function requestSex(types: readonly string[]): Sex | null {
+  if (!types.includes(REQUEST_MIME)) return null;
+  return types.includes(SEX_TYPE.男) ? "男" : types.includes(SEX_TYPE.女) ? "女" : null;
+}
 
 /** How the beds are drawn: the team emphasized or not, and 受け持ちだけ表示 (the others faded). */
 interface Look {
@@ -149,6 +186,12 @@ interface Look {
   /** The day shown (0 = today): 入院◯日目 and 新入院 are counted for it; today's vitals and results show on today only. */
   day: number;
   fmtDay: (day: number) => string;
+  /** The card's menu (右クリック・長押し). */
+  press: ReturnType<typeof usePressMenu>["bind"];
+  onOpenAt?: Props["onOpenAt"];
+  onDropRequest?: Props["onDropRequest"];
+  /** The sex of the 入院申込 being dragged (null: none). */
+  carrying: Sex | null;
 }
 
 function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }: { ward: WardState; rooms: Room[]; summaries: Record<string, ChartSummary>; onOpen: (id: string) => void; onMove?: Props["onMove"]; look: Look; scope?: Props["scope"]; inline?: boolean }) {
@@ -192,30 +235,12 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
                   <span className="text-[10px] text-ink-soft">{displayText(markText(mark, look.day, look.fmtDay).replace(/^空く予定/, ""))}</span>
                 </div>
               ) : patient && (mine || !look.emphasize) ? (
-                // 移動 is offered for the team's patients (their bed moves are the team's work).
-                <MyBed patient={patient} bed={b} day={look.day} summary={summaries[patient.id]} onOpen={() => onOpen(patient.id)} onMove={onMove && mine ? () => onMove(patient.id) : undefined} />
+                // 移動 is offered for the team's patients (their bed moves are the team's work): drag the card, or its menu.
+                <MyBed patient={patient} bed={b} day={look.day} summary={summaries[patient.id]} onOpen={() => onOpen(patient.id)} onMove={onMove && mine ? () => onMove(patient.id) : undefined} press={look.press(`${roomLabel(r.no, b)} ${patient.name}`, () => cardActions(patient.id, onOpen, look.onOpenAt, onMove && mine ? () => onMove(patient.id) : undefined, onMove ? "受け持ちの患者を動かします" : "この日・この職種では動かせません"))} />
               ) : patient || occ?.other ? (
-                <OtherBed other={occ!.other} patient={patient} bed={b} faded={faded} onOpen={patient ? () => onOpen(patient.id) : undefined} />
+                <OtherBed other={occ!.other} patient={patient} bed={b} faded={faded} onOpen={patient ? () => onOpen(patient.id) : undefined} press={patient ? look.press(`${roomLabel(r.no, b)} ${patient.name}`, () => cardActions(patient.id, onOpen, look.onOpenAt, undefined, "受け持ちの患者を動かします")) : undefined} />
               ) : (
-                <div
-                  onDragOver={(e) => {
-                    if (!onMove || !e.dataTransfer.types.includes(BED_MIME)) return;
-                    e.preventDefault();
-                    e.currentTarget.classList.add("border-ai", "bg-ai-soft");
-                  }}
-                  onDragLeave={(e) => e.currentTarget.classList.remove("border-ai", "bg-ai-soft")}
-                  onDrop={(e) => {
-                    e.currentTarget.classList.remove("border-ai", "bg-ai-soft");
-                    const pid = e.dataTransfer.getData(BED_MIME);
-                    if (pid && onMove) {
-                      e.preventDefault();
-                      onMove(pid, { room: r.no, bed: b });
-                    }
-                  }}
-                  className="flex h-full items-center justify-center rounded-md border border-dashed border-rule text-[11px] text-ink-faint"
-                >
-                  {b && <span className="mr-1">{b}</span>}空床
-                </div>
+                <EmptyBed room={r} bed={b} ward={ward} onMove={onMove} look={look} />
               )}
             </div>
           );
@@ -226,7 +251,55 @@ function RoomRow({ ward, rooms, summaries, onOpen, onMove, look, scope, inline }
   return inline ? <>{body}</> : <div className="flex gap-2">{body}</div>;
 }
 
-function MyBed({ patient: p, bed, day, summary, onOpen, onMove }: { patient: Patient; bed: string; day: number; summary?: ChartSummary; onOpen: () => void; onMove?: () => void }) {
+/** The card's menu: the chart, its 経過表, and 移動 (転床・転棟; the reason when it cannot be done here). */
+function cardActions(id: string, onOpen: (id: string) => void, onOpenAt: Props["onOpenAt"], onMove: (() => void) | undefined, whyNoMove: string): CellAction[] {
+  return [
+    { label: "カルテを開く", onClick: () => onOpen(id) },
+    { label: "移動（転床・転棟）", onClick: () => onMove?.(), disabled: onMove ? null : whyNoMove },
+    { label: "経過表", onClick: () => onOpenAt?.(id, "flowsheet"), disabled: onOpenAt ? null : "カルテから開きます" },
+  ];
+}
+
+/** An empty bed: a team's card dropped here moves the patient (転床); a 入院申込 dropped here is taken in on this bed. */
+function EmptyBed({ room: r, bed: b, ward, onMove, look }: { room: Room; bed: string; ward: WardState; onMove?: Props["onMove"]; look: Look }) {
+  const [over, setOver] = useState(false);
+  // While a 入院申込 is dragged, every empty bed says whether it can take the patient (BedPicker's rule: 個室, the sex of a shared room).
+  const problem = look.carrying ? bedProblem(ward, r, look.carrying) : null;
+  const takes = !!look.carrying && !problem && !!look.onDropRequest;
+  const accepts = (types: readonly string[]) => (types.includes(BED_MIME) && !!onMove) || (types.includes(REQUEST_MIME) && !!look.onDropRequest && !(requestSex(types) && bedProblem(ward, r, requestSex(types)!)));
+  return (
+    <div
+      onDragOver={(e) => {
+        if (!accepts(e.dataTransfer.types)) return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        setOver(false);
+        const pid = e.dataTransfer.getData(BED_MIME);
+        const req = e.dataTransfer.getData(REQUEST_MIME);
+        if (pid && onMove) {
+          e.preventDefault();
+          onMove(pid, { room: r.no, bed: b });
+        } else if (req && look.onDropRequest && accepts(e.dataTransfer.types)) {
+          e.preventDefault();
+          look.onDropRequest(req, { room: r.no, bed: b });
+        }
+      }}
+      title={problem ?? undefined}
+      data-takes={takes || undefined}
+      className={`flex h-full flex-col items-center justify-center rounded-md border text-[11px] ${over ? "border-2 border-ai bg-ai-soft text-ai" : takes ? "border-2 border-ai bg-ai-soft/40 text-ai" : problem ? "border-dashed border-rule text-ink-faint opacity-40" : "border-dashed border-rule text-ink-faint"}`}
+    >
+      <span>
+        {b && <span className="mr-1">{b}</span>}空床
+      </span>
+      {problem && <span className="text-[10px]">{problem}</span>}
+    </div>
+  );
+}
+
+function MyBed({ patient: p, bed, day, summary, onOpen, onMove, press }: { patient: Patient; bed: string; day: number; summary?: ChartSummary; onOpen: () => void; onMove?: () => void; press: ReturnType<Look["press"]> }) {
   // Today's vitals and results are today's: on another day the card shows the standing facts only.
   const latest = day === 0 ? p.vitals.at(-1) : undefined;
   const score = latest ? news2(latest) : null;
@@ -235,13 +308,9 @@ function MyBed({ patient: p, bed, day, summary, onOpen, onMove }: { patient: Pat
   const labsToday = day === 0 && p.labs.some((l) => l.day === 0);
   return (
     <div className="relative h-full">
-    {onMove && (
-      <button type="button" onClick={onMove} title="転棟・転床（空床へドラッグしても動かせます）" className="absolute right-1 top-1 z-10 rounded border border-rule bg-sheet px-1 text-[10px] text-ink-soft hover:border-ai hover:text-ai pointer-coarse:px-2 pointer-coarse:py-1">
-        移動
-      </button>
-    )}
     <button
       type="button"
+      {...press}
       onClick={onOpen}
       draggable={!!onMove}
       onDragStart={(e) => {
@@ -305,7 +374,7 @@ function MyBed({ patient: p, bed, day, summary, onOpen, onMove }: { patient: Pat
 }
 
 /** Another team's patient while 「受け持ちを目立たせる」 is on: name, age, department and the bed's note, in gray. */
-function OtherBed({ other, patient, bed, faded, onOpen }: { other?: OtherPatient; patient?: Patient; bed: string; faded: boolean; onOpen?: () => void }) {
+function OtherBed({ other, patient, bed, faded, onOpen, press }: { other?: OtherPatient; patient?: Patient; bed: string; faded: boolean; onOpen?: () => void; press?: ReturnType<Look["press"]> }) {
   const who = patient ?? other;
   const body = (
     <>
@@ -321,7 +390,7 @@ function OtherBed({ other, patient, bed, faded, onOpen }: { other?: OtherPatient
   );
   const cls = `nums flex h-full w-full flex-col gap-0.5 rounded-md bg-paper px-2 py-1.5 text-left text-[11px] text-ink-faint ${faded ? "opacity-30" : ""}`;
   return onOpen ? (
-    <button type="button" onClick={onOpen} title="受け持ち以外の患者。押すとカルテが開きます（開いた記録は監査ログに残ります）" className={`${cls} hover:bg-ai-soft/30 hover:ring-1 hover:ring-ai/40`}>
+    <button type="button" {...press} onClick={onOpen} title="受け持ち以外の患者。押すとカルテが開きます（開いた記録は監査ログに残ります）" className={`${cls} hover:bg-ai-soft/30 hover:ring-1 hover:ring-ai/40`}>
       {body}
     </button>
   ) : (

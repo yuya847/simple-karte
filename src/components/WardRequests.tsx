@@ -9,15 +9,27 @@ import { ageSex } from "@/lib/person";
 import type { Room, WardState } from "@/lib/ward";
 import { BedPicker } from "./BedPicker";
 import { DenyNote, useDeny } from "./RoleContext";
+import { setRequestDrag } from "./WardMap";
+
+type Bed = { room: string; bed: string };
 
 /**
  * 入院申込 waiting on this floor: the ward decides the bed and takes the patient in (病棟のカルテができる).
  * Shown above 病棟マップ and the floor's patient list.
  */
-export function WardRequests({ floor, requests, ward, rooms, fmtDay, onAccept }: { floor: string; requests: AdmissionRequest[]; ward: WardState; rooms: Room[]; fmtDay: (d: number) => string; onAccept: (r: AdmissionRequest, bed: { room: string; bed: string }) => void }) {
+export function WardRequests({ floor, requests, ward, rooms, fmtDay, onAccept, dropped = null }: { floor: string; requests: AdmissionRequest[]; ward: WardState; rooms: Room[]; fmtDay: (d: number) => string; onAccept: (r: AdmissionRequest, bed: Bed) => void; dropped?: { id: string; bed: Bed } | null }) {
   const deny = useDeny()("bed.assign");
   const [open, setOpen] = useState<string | null>(null);
-  const [bed, setBed] = useState<{ room: string; bed: string } | null>(null);
+  const [bed, setBed] = useState<Bed | null>(null);
+  // A request dropped on an empty bed of the map: it opens with that bed chosen (taking it in is still the button).
+  const [seen, setSeen] = useState(dropped);
+  if (dropped !== seen) {
+    setSeen(dropped);
+    if (dropped) {
+      setOpen(dropped.id);
+      setBed(dropped.bed);
+    }
+  }
   const mine = requests.filter((r) => r.status === "申込" && r.ward === floor).sort((a, b) => (a.urgency === b.urgency ? a.when.day - b.when.day : a.urgency === "緊急" ? -1 : 1));
   if (!mine.length) return null;
   const canChart = CHART_WARDS.includes(floor);
@@ -30,7 +42,11 @@ export function WardRequests({ floor, requests, ward, rooms, fmtDay, onAccept }:
       <ul className="space-y-1.5">
         {mine.map((r) => (
           <li key={r.id} className="rounded-md border border-rule bg-sheet px-3 py-2">
-            <div className="nums flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <div
+              draggable={canChart && !deny}
+              onDragStart={(e) => setRequestDrag(e.dataTransfer, r.id, r.sex)}
+              className={`nums flex flex-wrap items-baseline gap-x-3 gap-y-0.5 ${canChart && !deny ? "cursor-grab active:cursor-grabbing" : ""}`}
+            >
               <span className={`rounded px-1.5 font-bold ${r.urgency === "緊急" ? "bg-shu-soft text-shu" : "bg-paper text-ink-soft"}`}>{r.urgency}</span>
               <b>{r.name}</b>
               <span>{ageSex(r)}</span>

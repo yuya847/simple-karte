@@ -274,6 +274,7 @@ import { useVerbalConfirmation, VerbalReviewProvider } from "./VerbalControls";
 import { canReviewVerbal, verbalConfirmationProblems, type VerbalConfirmation, verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
+import type { OpenAt } from "@/lib/open-at";
 import { RIGHT_TABS, RightTabs, WINDOW_TABS, type RightTab } from "./RightTabs";
 import { Dockable, defaultWin, type Win } from "./Dockable";
 import { InjectionCalendar } from "./Calendars";
@@ -1254,6 +1255,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // Wait until the saved records and this device's tabs are back (the same moment useDisplayState restores), so they do not close the chart just opened.
   useMcpReceiver(scenario && !!todayKey && workspace.status !== "loading" && (workspace.status !== "off" || !workspaceOn()), (id, drafts) => { setTimeout(() => openPatient(id), 0); setCharts(all => applyChart(all, id, desk, c => ({ drafts: [...c.drafts, ...drafts] }))); }, newId);
 
+  const [requestDrop, setRequestDrop] = useState<{ id: string; bed: { room: string; bed: string } } | null>(null);
   if (!today || !nowTime || (patient && !ctx)) {
     return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
   }
@@ -1796,6 +1798,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const areas = areasFor(role);
   /** A ② screen of 病棟, shown on its own (from やること, its menu …). */
   const goWard = (t: WardTab) => show(wardOwner(t), undefined);
+  // A mark of a list, a card's menu, a worksheet row: the chart, then its tool after the switch render (it closes the previous patient's windows; a reading tab opens as its window).
+  const openAt = (id: string, where?: OpenAt) => { if (where === "execute") return goWard("execute"); openPatient(id); if (where) setTimeout(() => { if (where !== "rxcal" && where !== "flowsheet") return setPanel(where); setFloating((f) => (f[where] ? f : { ...f, [where]: keptWin(where, window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight, where) })); updateFor(id, (c) => ({ openTabs: c.openTabs.includes(where) ? c.openTabs : [...c.openTabs, where] })); toFront(where); }, 0); };
   const openArea = (k: AreaKey) => {
     setPharmacyFocus(null);
     const a = areas.find((x) => x.key === k);
@@ -2711,7 +2715,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         />
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {asOfDay === 0 && <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} />}
+          {asOfDay === 0 && <WardRequests floor={floor} requests={requests} ward={ward} rooms={floorInfo.rooms} fmtDay={(d) => formatShort(addDays(today, d))} onAccept={acceptRequest} dropped={requestDrop} />}
           <WardMap
             ward={{ beds: mapAsOf.beds, patient: findPatient }}
             rooms={floorInfo.rooms}
@@ -2724,6 +2728,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             onOpen={openPatient}
             // 転棟・転床 is today's work: another day is for looking only.
             onMove={asOfDay !== 0 || deny("bed.move") ? undefined : (patientId, to) => setMoving({ patientId, to })}
+            onOpenAt={openAt} onDropRequest={asOfDay === 0 ? (id, bed) => setRequestDrop({ id, bed }) : undefined}
             roomNote={floor === WARD_NAME ? (r) => roomNurses(planNow, r.no, r.beds, rosterNow!.nurses).map((n) => n.replace(/^(看護師長|准看護師|看護師) /, "")).join("・") || undefined : undefined}
           />
         </div>

@@ -43,7 +43,7 @@ describe("患者一覧・病棟マップ：受け持ち以外の患者もカル�
 });
 
 describe("患者一覧・病棟マップ：日付を動かすと、その日のベッドを出す", () => {
-  it("the map today: the date, the counts, the reserved bed as 入院予定, and no band; 転床 is still offered", () => {
+  it("the map today: the date, the counts, the reserved bed as 入院予定, and no band; 転床 is still offered (drag the card, or its menu)", () => {
     const asOf = asOfOn(0);
     const html = renderToStaticMarkup(<WardMap ward={{ beds: asOf.beds, patient: ward.patient }} summaries={{}} mine={mine} onOpen={() => {}} onMove={() => {}} dayNav={navFor(asOf)} asOf={asOf} />);
     expect(html).toContain("今日 11/4（水）");
@@ -52,7 +52,8 @@ describe("患者一覧・病棟マップ：日付を動かすと、その日の�
     expect(html).toContain("（うち入院予定 1）");
     expect(html).toContain("小川 節子");
     expect(html).toContain("入院予定 14:00");
-    expect(html).toContain("移動");
+    expect(html).toContain('draggable="true"');
+    expect(html).not.toContain(">移動<");
   });
 
   it("the map tomorrow: the band, the 退院予定 marks, the dotted 入院予定 bed, and the counts of that morning", () => {
