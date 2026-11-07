@@ -1,20 +1,23 @@
 // 確定したオーダを ICU 記録として読む（読み替え）。人工呼吸の設定のオーダ（PROC-VENT）は呼吸器の設定の行に、持続の
-// 注射オーダ（continuous）は持続投与（注射カレンダーの速さの変更＝中止と新規も速さの履歴に）になり、いまの設定・量
+// 注射オーダ（continuous）は持続投与（注射カレンダーの速さの変更＝中止と新規も速さの履歴に）に、持続の透析のオーダ
+// （PROC-HD の CHDF・CHD・CHF）は CRRT の条件になり、いまの設定・量
 // （current-oxygen・一覧・SOFA・P/F・出納・申し送り）はそこから出る。保存しているのは ICU 記録の元の行だけで、
 // 読み替えた行（fromOrder）は保存しない（savedIcuRecords）。オーダのない患者は元の行をそのまま読む。
 import { abs } from "../flowsheet";
 import { findDrug } from "../master";
+import { isCrrt } from "../procedures";
 import { currentEntries, type SessionChanges } from "../record";
 import type { HistoryEntry, InjectionOrder, OrderEntry, Patient, ProcedureOrder } from "../types";
 import { itemMg, itemMl } from "./injection-gamma";
-import type { At, IcuRecords, Infusion, VentSetting } from "./types";
+import type { At, CrrtSetting, IcuRecords, Infusion, VentSetting } from "./types";
 
 type Proc = OrderEntry & { order: ProcedureOrder };
 type Inj = OrderEntry & { order: InjectionOrder };
 const isVent = (e: HistoryEntry): e is Proc => e.kind === "order" && e.order.type === "procedure" && e.order.code === "PROC-VENT" && !!e.order.vent;
 const isDrip = (e: HistoryEntry): e is Inj => e.kind === "order" && e.order.type === "injection" && !!e.order.continuous;
+const isCrrtOrder = (e: HistoryEntry): e is Proc => e.kind === "order" && e.order.type === "procedure" && e.order.code === "PROC-HD" && isCrrt(e.order.hd);
 /** The orders read into ICU 記録. */
-export const isIcuOrder = (e: HistoryEntry): e is OrderEntry => isVent(e) || isDrip(e);
+export const isIcuOrder = (e: HistoryEntry): e is OrderEntry => isVent(e) || isDrip(e) || isCrrtOrder(e);
 
 export interface IcuOrders { weightKg?: number; entries: OrderEntry[] }
 
@@ -77,13 +80,37 @@ export function infusionsOf(patientId: string, entries: OrderEntry[], saved: Inf
   return out;
 }
 
+/** 持続の透析のオーダから CRRT の条件（中止・置き換えでその時刻に終わる）。 */
+export function crrtRowsOf(patientId: string, entries: OrderEntry[]): CrrtSetting[] {
+  return entries.filter(isCrrtOrder).flatMap((e) => {
+    const h = e.order.hd!, at = startOf(e), end = endOf(e);
+    if (end && t(end) <= t(at)) return [];
+    return [{ id: `order:${e.id}`, patientId, at, by: e.author, mode: h.method as CrrtSetting["mode"], qb: h.qb, qd: h.qd ?? 0, qf: h.qf ?? 0, removalMlPerH: h.removalMlPerH ?? 0, anticoag: { drug: h.anticoag.drug, ratePerH: h.anticoag.hourly ?? 0, unit: h.anticoag.drug === "ヘパリン" ? "単位/h" : "mg/h" }, access: h.access, fromOrder: e.id, ...(end ? { end } : {}) }];
+  });
+}
+
 /** ICU 記録に、確定したオーダを読み替えた行を足したもの（読む画面・計算はこれを見る）。 */
 export function withIcuOrders(records: IcuRecords, orders: Record<string, IcuOrders>): IcuRecords {
   const vents = Object.entries(orders).flatMap(([pid, o]) => ventRowsOf(pid, o.entries));
   const drips = Object.entries(orders).flatMap(([pid, o]) => infusionsOf(pid, o.entries, records.infusions, o.weightKg));
-  if (!vents.length && !drips.length) return records;
+  const crrt = Object.entries(orders).flatMap(([pid, o]) => crrtRowsOf(pid, o.entries));
+  if (!vents.length && !drips.length && !crrt.length) return records;
   const merged = new Map(drips.map((i) => [i.id, i]));
-  return { ...records, vents: vents.length ? [...records.vents, ...vents] : records.vents, infusions: drips.length ? [...records.infusions.map((i) => merged.get(i.id) ?? i), ...drips.filter((i) => i.fromOrder)] : records.infusions };
+  // An older CRRT record still running when the patient's first CRRT order starts ends there (not counted twice).
+  const firstOrder = new Map<string, number>();
+  for (const c of crrt) firstOrder.set(c.patientId, Math.min(firstOrder.get(c.patientId) ?? Infinity, t(c.at)));
+  const legacy = records.crrt.map((c) => {
+    const from = firstOrder.get(c.patientId);
+    if (from === undefined || t(c.at) > from || (c.end && t(c.end) <= from)) return c;
+    const day = Math.floor(from / 1440), m = from - day * 1440;
+    return { ...c, end: { day, time: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}` }, endFromOrder: true };
+  });
+  return {
+    ...records,
+    vents: vents.length ? [...records.vents, ...vents] : records.vents,
+    infusions: drips.length ? [...records.infusions.map((i) => merged.get(i.id) ?? i), ...drips.filter((i) => i.fromOrder)] : records.infusions,
+    crrt: crrt.length ? [...legacy, ...crrt] : records.crrt,
+  };
 }
 
 /** 保存する ICU 記録：読み替えた行・速さ・終了を外す。 */
@@ -91,6 +118,13 @@ export function savedIcuRecords(records: IcuRecords): IcuRecords {
   return {
     ...records,
     vents: records.vents.filter((v) => !v.fromOrder),
+    crrt: records.crrt.filter((c) => !c.fromOrder).map((c) => {
+      if (!c.endFromOrder) return c;
+      const rest = { ...c };
+      delete rest.end;
+      delete rest.endFromOrder;
+      return rest;
+    }),
     infusions: records.infusions.filter((i) => !i.fromOrder).map((i) => {
       if (!i.endFromOrder && !i.changes.some((c) => c.fromOrder)) return i;
       const { end, endFromOrder, ...rest } = i;

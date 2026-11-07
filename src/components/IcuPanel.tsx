@@ -19,9 +19,8 @@ import { IcuLinesPane } from "./icu/IcuLinesPane";
 import { IcuSofaPane } from "./icu/IcuSofaPane";
 import { IcuRoundHistory } from "./icu/IcuRoundPane";
 import { IcuBand } from "./icu/IcuBand";
-import { IcuCrrtPane } from "./icu/IcuCrrtPane";
 
-const tabs=["SOFA","呼吸器・血液ガス","CRRT","ライン・チューブ"] as const;
+const tabs=["SOFA","呼吸器・血液ガス","ライン・チューブ"] as const;
 type Tab=typeof tabs[number];
 export interface IcuPanelProps {
   patient: Patient; records: IcuRecords; onChange(next:IcuRecords):void; role:Role; me:Staff;
@@ -52,7 +51,6 @@ export function IcuPanel(p:IcuPanelProps) {
     {error&&<p role="alert" className="text-shu">{error}</p>}
     {tab==="SOFA"&&<IcuSofaPane {...pane}/>}
     {tab==="呼吸器・血液ガス"&&<IcuVentPane {...pane} entries={p.entries} onDraft={p.onDraft}/>}
-    {tab==="CRRT"&&<IcuCrrtPane {...pane}/>}
     {tab==="ライン・チューブ"&&<IcuLinesPane {...pane}/>}
     <IcuRoundHistory patient={patient} records={records} today={today}/>
   </div>;

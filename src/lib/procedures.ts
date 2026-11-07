@@ -269,7 +269,10 @@ export const PROCEDURES: ProcMaster[] = [
 // ---------------------------------------------------------------------------
 
 export const HD_PURPOSES: HdOrder["purpose"][] = ["導入", "維持", "緊急"];
-export const HD_METHODS: HdOrder["method"][] = ["HD", "オンラインHDF", "ECUM"];
+export const HD_METHODS: HdOrder["method"][] = ["HD", "オンラインHDF", "ECUM", "CHDF", "CHD", "CHF"];
+/** 持続（CRRT）の方法：開始から中止まで続き、1回の時間がない。 */
+export const CRRT_METHODS: readonly HdOrder["method"][] = ["CHDF", "CHD", "CHF"];
+export const isCrrt = (h?: Pick<HdOrder, "method"> | null): boolean => !!h && CRRT_METHODS.includes(h.method);
 export const HD_MINUTES = [120, 180, 240, 300];
 export const HD_QB = [100, 150, 200, 250];
 export const HD_MEMBRANES = [1.0, 1.3, 1.5, 1.8, 2.1];
@@ -299,6 +302,7 @@ export function hdText(h: HdOrder): string {
     h.anticoag.drug === "なし"
       ? "抗凝固薬なし"
       : `${h.anticoag.drug} ${[a.initial && h.anticoag.initial !== null ? `初回${h.anticoag.initial.toLocaleString("ja-JP")}${a.initial.unit}` : null, a.hourly && h.anticoag.hourly !== null ? `持続${h.anticoag.hourly.toLocaleString("ja-JP")}${a.hourly.unit}` : null].filter(Boolean).join("・")}`;
+  if (isCrrt(h)) return ["持続", `Qb ${h.qb}mL/分`, h.qd !== undefined ? `QD ${h.qd}mL/時` : null, h.qf !== undefined ? `QF ${h.qf}mL/時` : null, `除水 ${h.removalMlPerH ?? 0}mL/時`, `膜面積 ${h.membrane.toFixed(1)}m²`, ac, h.access].filter(Boolean).join("　");
   return [hm(h.minutes), `Qb ${h.qb}mL/分`, `膜面積 ${h.membrane.toFixed(1)}m²`, ac, `除水 ${h.uf}L`, h.dw !== null ? `DW ${h.dw}kg` : null, h.access].filter(Boolean).join("　");
 }
 

@@ -1,3 +1,4 @@
+import { isCrrt } from "./procedures";
 import type { HistoryEntry, InjectionOrder, Patient } from "./types";
 import { chooseDiluent, diluentChoices } from "./inj-diluent";
 
@@ -28,7 +29,7 @@ export function renalFunction(age: number, sex: Patient["sex"], weight: number |
 /** Unrounded values decide the band. Dialysis never falls back to a non-dialysis band. */
 export function dialysisFromOrders(entries: HistoryEntry[]): Dialysis {
   const active = entries.filter(e => e.kind === "order" && e.status === "有効" && e.order.type === "procedure" && e.order.start.day <= 0 && (e.order.days === undefined || e.order.start.day + e.order.days > 0));
-  if (active.some(e => e.kind === "order" && e.order.type === "procedure" && e.order.code === "PROC-CHDF")) return "CHDF";
+  if (active.some(e => e.kind === "order" && e.order.type === "procedure" && (e.order.code === "PROC-CHDF" || isCrrt(e.order.hd)))) return "CHDF";
   if (active.some(e => e.kind === "order" && e.order.type === "procedure" && (e.order.hd?.method === "HD" || e.order.hd?.method === "オンラインHDF" || (e.order.code === "PROC-HD" && !e.order.hd)))) return "HD";
   return null;
 }

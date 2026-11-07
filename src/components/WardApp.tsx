@@ -307,6 +307,7 @@ import type { FlowEvent } from "@/lib/flow-days";
 import { dayTime, ioTimeFor, untakenOf, type FlowEntry } from "@/lib/flow-entry";
 import type { GraphNote } from "@/lib/flow-stickies";
 import { HD_PATIENTS, initialHdSessions, type HdPatient, type HdSession } from "@/lib/dialysis";
+import { isCrrt } from "@/lib/procedures";
 import { b008Check, draftsFromReport, queryOpen, type BroughtReport, type Query } from "@/lib/pharmacy";
 import { orderChanges, otherChanges, sessionChangeKeys, type WorkPatient } from "@/lib/worksheet";
 import { ActiveOrdersPanel } from "./panels/ActiveOrdersPanel";
@@ -3031,7 +3032,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           onSession={(id, s) => setHdSessions((all) => ({ ...all, [id]: s }))}
           wardOrders={people.flatMap((x) =>
             x.entries
-              .filter((e) => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-HD")
+              .filter((e) => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-HD" && !isCrrt(e.order.hd))
               .map((entry) => ({ patientId: x.patient.id, name: x.patient.name, room: x.room, entry })),
           )}
           onOpenChart={openPatient}

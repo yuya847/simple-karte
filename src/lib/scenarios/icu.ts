@@ -143,7 +143,8 @@ export function addIcuCases(cases: IcuCase[], insuranceForm: (i: number, age: nu
     if (k === 2) line("その他","右大腿動脈シース",start,at(-1,"08:00"));
     if (k === 9 || k === 7 || k === 8) line("末梢静脈","左前腕",k === 9 ? at(-2,"12:00") : start);
     if (k === 3) line("胸腔ドレーン","右胸腔");
-    if (k === 0) { line("透析用カテーテル","右大腿",at(-2)); records.crrt.push({ id:uid("crrt"),patientId:id,at:at(-2),by,mode:"CHDF",qb:100,qd:500,qf:300,removalMlPerH:50,anticoag:{drug:"ナファモスタット",ratePerH:20,unit:"mg/h"},access:"右大腿" }); }
+    // CHDF は透析のオーダ（持続）。条件は医師が決めた架空の値。
+    if (k === 0) { line("透析用カテーテル","右大腿",at(-2)); order(at(-2),{type:"procedure",code:"PROC-HD",start:at(-2),schedule:{kind:"continuous"},hd:{purpose:"緊急",method:"CHDF",minutes:0,qb:100,qd:500,qf:300,removalMlPerH:50,membrane:1.0,anticoag:{drug:"ナファモスタット",initial:null,hourly:20},uf:0,dw:null,access:"透析用カテーテル（右大腿静脈）"}}); }
     note(start, `${ward === "救急外来" ? "救急初療記録" : "ICU 入室時の記録（入院時記録）"}\n入室経路：救急外来。主病名：${p.admissionDiagnosis}。${stories[k]}\n呼吸・循環・意識・腎機能を評価し、装置と持続投与の記録のとおり医師が指示。家族へ病状説明。`);
     for (let d=day; d<=0; d++) {
       if (k < 11 && abs(at(d,"08:00")) >= abs(start)) note(at(d,"08:00"), `朝の回診：${morningNotes[k][d-day]}`);

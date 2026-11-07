@@ -1,4 +1,5 @@
 "use client";
+import { isCrrt } from "@/lib/procedures";
 import { injectionGamma } from "@/lib/icu/injection-gamma";
 import { DoseIngredient } from "../DoseIngredient";
 import type { PrescriptionSeed } from "@/lib/prescription-calendar";
@@ -1111,20 +1112,29 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
     dw: "",
     access: null as string | null,
     comment: "",
+    qd: "",
+    qf: "",
+    removal: "",
   });
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }));
   const ac = f.drug ? HD_ANTICOAG[f.drug] : null;
+  // 持続（CHDF・CHD・CHF）: 1回の時間・回数・除水量 L はなく、開始から継続。QD・QF・除水は mL/時。
+  const crrt = isCrrt(f.method ? { method: f.method } : null);
+  const usesQd = f.method === "CHDF" || f.method === "CHD", usesQf = f.method === "CHDF" || f.method === "CHF";
   const missing = [
     !f.purpose && "区分",
     !f.method && "方法",
-    f.sched === null && "回数",
-    !f.minutes && "時間",
+    !crrt && f.sched === null && "回数",
+    !crrt && !f.minutes && "時間",
+    crrt && usesQd && f.qd.trim() === "" && "QD",
+    crrt && usesQf && f.qf.trim() === "" && "QF",
+    crrt && f.removal.trim() === "" && "除水",
     !f.qb && "血流量",
     !f.membrane && "膜面積",
     !f.drug && "抗凝固薬",
     !!ac?.initial && f.initial.trim() === "" && "初回量",
     !!ac?.hourly && f.hourly.trim() === "" && "持続量",
-    f.uf.trim() === "" && "除水量",
+    !crrt && f.uf.trim() === "" && "除水量",
     !f.access && "アクセス",
   ].filter((x): x is string => !!x);
   const uf = Number(f.uf);
@@ -1134,21 +1144,22 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
     const hd: HdOrder = {
       purpose: f.purpose!,
       method: f.method!,
-      minutes: f.minutes!,
+      minutes: crrt ? 0 : f.minutes!,
       qb: f.qb!,
       membrane: f.membrane!,
       anticoag: { drug: f.drug!, initial: ac?.initial ? Number(f.initial) : null, hourly: ac?.hourly ? Number(f.hourly) : null },
-      uf,
+      uf: crrt ? 0 : uf,
       dw: f.dw.trim() ? Number(f.dw) : null,
       access: f.access!,
+      ...(crrt ? { ...(usesQd ? { qd: Number(f.qd) } : {}), ...(usesQf ? { qf: Number(f.qf) } : {}), removalMlPerH: Number(f.removal) } : {}),
     };
     onAdd({
       ...newProcedureDraft("PROC-HD", newId()),
       sourceText: "（透析の欄から）",
       hd,
-      schedule: master.schedules[f.sched!],
+      schedule: crrt ? { kind: "continuous" } : master.schedules[f.sched!],
       start: { day: f.startDay, time: f.startTime || null },
-      days: Number(f.days) > 0 ? Number(f.days) : null,
+      days: !crrt && Number(f.days) > 0 ? Number(f.days) : null,
       comment: f.comment.trim() || null,
     });
   };
@@ -1179,7 +1190,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
           <TimeInput value={f.startTime} onChange={(e) => set({ startTime: e.target.value })} placeholder="任意" aria-label="透析の開始時刻" className={field} />
         </>,
       )}
-      {row(
+      {crrt ? row("回数", <span>継続</span>) : row(
         "回数",
         <>
           <TabChoice label="透析の回数" options={master.schedules.map((x, i) => ({ value: i, label: procScheduleText(x) }))} value={f.sched} onChange={(v) => set({ sched: v })} />
@@ -1191,7 +1202,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
           )}
         </>,
       )}
-      {row("時間", <TabChoice label="透析の時間" options={HD_MINUTES.map((m) => ({ value: m, label: `${m / 60}時間` }))} value={f.minutes} onChange={(v) => set({ minutes: v })} />)}
+      {!crrt && row("時間", <TabChoice label="透析の時間" options={HD_MINUTES.map((m) => ({ value: m, label: `${m / 60}時間` }))} value={f.minutes} onChange={(v) => set({ minutes: v })} />)}
       {row(
         "血流量",
         <>
@@ -1225,7 +1236,10 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
             <TabChoice label="よく使う持続量" options={ac.hourly.choices.map((n) => ({ value: n, label: n.toLocaleString("ja-JP") }))} value={f.hourly === "" ? null : Number(f.hourly)} onChange={(v) => set({ hourly: String(v) })} />
           </>,
         )}
-      {row(
+      {crrt && ([["qd", "QD", "透析液の流量（mL/時）", usesQd], ["qf", "QF", "置換液の流量（mL/時）", usesQf], ["removal", "除水", "除水の速さ（mL/時）", true]] as const).filter(([, , , on]) => on).map(([k, label, aria]) => (
+        <div key={k}>{row(label, <><input value={f[k]} onChange={(e) => set({ [k]: halfWidthNumber(e.target.value) })} inputMode="decimal" aria-label={aria} className={`${field} w-16 text-right`} />mL/時</>)}</div>
+      ))}
+      {!crrt && row(
         "除水量",
         <>
           <input value={f.uf} onChange={(e) => set({ uf: e.target.value })} inputMode="decimal" aria-label="除水量（L）" className={`${field} w-14 text-right`} />

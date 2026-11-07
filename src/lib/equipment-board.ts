@@ -10,7 +10,7 @@ export function boardEquipment(patientId: string, entries: OrderEntry[], lines: 
   const now = minute({ day: 0, time: nowTime });
   const latest = <T extends { patientId: string; at: At }>(xs: T[]) => xs.filter(x => x.patientId === patientId && minute(x.at) <= now).sort((a, b) => minute(b.at) - minute(a.at))[0];
   const vent = ventAt(icu?.vents ?? [], patientId, now);
-  const crrt = latest(icu?.crrt ?? []);
+  const crrt = latest((icu?.crrt ?? []).filter(c => !c.end || minute(c.end) > now));
   const devices = equipmentOf(entries, lines, nowTime);
   const kind = (e: Equipment) => e.hd && !/CHDF|CHD|CHF/.test(e.hd.method) ? `dialysis:${e.hd.method}` : /CHDF|CHD|CHF/.test(e.label) ? "crrt" : /人工呼吸|NPPV|ハイフロー|HFNC/.test(e.label) ? "vent" : e.id;
   const rows = new Map<string, Equipment & { aliases?: string[] }>();

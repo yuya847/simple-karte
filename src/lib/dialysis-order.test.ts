@@ -69,3 +69,17 @@ describe("透析指示", () => {
     expect(isReady(issues)).toBe(true);
   });
 });
+
+describe("透析指示の持続（CHDF・CHD・CHF）", () => {
+  const crrt: HdOrder = { ...hd, method: "CHDF", minutes: 0, uf: 0, qb: 100, membrane: 1.0, anticoag: { drug: "ナファモスタット", initial: null, hourly: 20 }, qd: 500, qf: 300, removalMlPerH: 50 };
+  it("1回の時間はなく、QD・QF・除水を mL/時で1行に書き、開始から継続のオーダになる", () => {
+    expect(hdText(crrt)).toBe("持続　Qb 100mL/分　QD 500mL/時　QF 300mL/時　除水 50mL/時　膜面積 1.0m²　ナファモスタット 持続20mg/時　透析用カテーテル（右内頸静脈）");
+    expect(hdText({ ...crrt, method: "CHD", qf: undefined })).not.toContain("QF");
+    const d = draft(crrt, { schedule: { kind: "continuous" } });
+    const issues = checkDraft(d, ctx(55));
+    expect(isReady(issues)).toBe(true);
+    expect(issues.some((i) => i.key === "hd-uf")).toBe(false);
+    const r = toOrder(d, ctx(55));
+    expect("order" in r && r.order).toMatchObject({ code: "PROC-HD", schedule: { kind: "continuous" }, hd: { method: "CHDF", qd: 500, qf: 300, removalMlPerH: 50 } });
+  });
+});

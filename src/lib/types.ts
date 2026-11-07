@@ -294,7 +294,9 @@ export interface PrescriptionOrder {
 export interface HdOrder {
   /** 導入（透析を始める）・維持（維持透析の患者の入院中）・緊急. */
   purpose: "導入" | "維持" | "緊急";
-  method: "HD" | "オンラインHDF" | "ECUM";
+  /** CHDF・CHD・CHF は持続（CRRT）：1回の時間がなく、開始から中止まで（schedule は継続）。 */
+  method: "HD" | "オンラインHDF" | "ECUM" | "CHDF" | "CHD" | "CHF";
+  /** 1回の時間（分）。持続では 0。 */
   minutes: number;
   /** 血流量 mL/分 */
   qb: number;
@@ -302,8 +304,12 @@ export interface HdOrder {
   membrane: number;
   /** 抗凝固薬: ヘパリンは初回（単位）と持続（単位/時）、ナファモスタットは持続（mg/時）. */
   anticoag: { drug: "ヘパリン" | "ナファモスタット" | "なし"; initial: number | null; hourly: number | null };
-  /** 除水量 L */
+  /** 除水量 L（持続では 0。除水は removalMlPerH） */
   uf: number;
+  /** 持続（CHDF・CHD・CHF）：透析液 QD・置換液 QF・除水の速さ（mL/時）。 */
+  qd?: number;
+  qf?: number;
+  removalMlPerH?: number;
   /** ドライウェイト kg（決まっていれば） */
   dw: number | null;
   /** バスキュラーアクセス */

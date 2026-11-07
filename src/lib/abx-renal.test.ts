@@ -72,3 +72,10 @@ describe("電子添文の腎機能用量", () => {
     expect(SCENARIOS.patients.some(p => dialysisFromOrders(p.history) === "HD")).toBe(true);
   });
 });
+
+describe("持続の透析のオーダは CHDF", () => {
+  it("PROC-HD の方法が CHDF・CHD・CHF なら CHDF", () => {
+    const e = { kind: "order" as const, id: "o", day: 0, time: "08:00", author: "架空医師", status: "有効" as const, order: { type: "procedure" as const, code: "PROC-HD", schedule: { kind: "continuous" as const }, start: { day: 0 }, hd: { purpose: "緊急" as const, method: "CHD" as const, minutes: 0, qb: 100, membrane: 1, anticoag: { drug: "なし" as const, initial: null, hourly: null }, uf: 0, dw: null, access: "架空" } } };
+    expect(dialysisFromOrders([e])).toBe("CHDF");
+  });
+});

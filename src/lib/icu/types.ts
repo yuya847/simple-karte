@@ -63,6 +63,10 @@ export interface CrrtSetting {
   anticoag: { drug: "ナファモスタット" | "ヘパリン" | "なし"; ratePerH: number; unit: "mg/h" | "単位/h" };
   access: string;
   end?: At;
+  /** 確定した持続の透析のオーダ（PROC-HD の CHDF・CHD・CHF）から読み替えた行：その注文の id。保存しない（ordered.ts）。 */
+  fromOrder?: string;
+  /** 終了が、持続の透析のオーダの開始で区切ったもの。保存しない。 */
+  endFromOrder?: boolean;
 }
 
 /** ライン・チューブ・ドレーン。日数は lines.ts が数える。 */
