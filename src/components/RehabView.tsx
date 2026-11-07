@@ -291,11 +291,11 @@ export function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRec
         <span>
           {cat.name}（{b.discipline}・{b.therapist}）
         </span>
-        <span className="text-ink-soft">
-          {b.place}　目標：{rx.order.goal}
-          {rx.order.cautions && `　注意：${rx.order.cautions}`}
-        </span>
       </header>
+      <p className="text-ink-soft">
+        目標：{rx.order.goal}
+        {rx.order.cautions && `　注意：${rx.order.cautions}`}
+      </p>
       <RehabVitals vitals={vitals} caution={rx.order.cautions ?? ""} />
       <div className="flex flex-wrap items-center gap-2">
         {cur?.arrived ? (
@@ -328,24 +328,22 @@ export function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRec
             <option key={x}>{x}</option>
           ))}
         </select>
-        <label>分<input aria-label="実施の分" type="number" min={0} max={480} step={1} value={u.minutes} onChange={e => setEnd(plus(start, Number(e.target.value)))} className={`${field} w-16`} /></label>
-        <b className="nums">
-          {u.minutes}分 → {u.units}単位
-        </b>
+        <label className="flex items-center gap-1"><input aria-label="実施の分" type="number" min={0} max={480} step={1} value={u.minutes} onChange={e => setEnd(plus(start, Number(e.target.value)))} className={`${field} nums w-14 text-right`} />分</label>
+        <b className="nums">→ {u.units}単位</b>
         <span className="text-ink-soft">
           今日のこの患者：{already + u.units}／{limit}単位
           {already + u.units > limit && <b className="ml-1 text-shu">（{already + u.units - limit}単位は算定できません）</b>}
         </span>
       </div>
-      <input value={content} onChange={(e) => setContent(e.target.value)} placeholder="訓練の内容の要点（例：歩行器で病棟内30m、立ち上がり10回×2）" aria-label="訓練の内容" disabled={!!deny} className={`${field} w-full`} />
+      <input value={content} onChange={(e) => setContent(e.target.value)} placeholder="訓練の内容の要点" aria-label="訓練の内容" disabled={!!deny} className={`${field} w-full`} />
       {load.notes.map((x) => (
         <p key={x} className="text-shu">
           {x}
         </p>
       ))}
       <p className="text-ink-soft">
-        算定の目安（医事課が確かめる）：{cat.tier ? `${cat.name}${cat.tier.name} ${cat.tier.points}点 × ${u.units}単位` : `${cat.name}はこの病院の届出にありません`}
-        {early.points > 0 ? `　早期リハビリテーション加算 入院${early.dayNo}日目 ${early.points}点 × ${u.units}単位` : "　早期リハビリテーション加算の期間は過ぎています"}
+        算定の目安：{cat.tier ? `${cat.name}${cat.tier.name} ${cat.tier.points}点 × ${u.units}単位` : `${cat.name}はこの病院の届出にありません`}
+        {early.points > 0 ? `　早期リハビリテーション加算 入院${early.dayNo}日目 ${early.points}点 × ${u.units}単位` : ""}
         {holiday ? `　休日リハビリテーション加算 25点 × ${u.units}単位` : ""}
       </p>
       <div className="flex flex-wrap items-center gap-2">
@@ -361,7 +359,7 @@ export function SessionForm({ b, rx, desk, onDesk, nowTime, today, vitals, onRec
           実施を記録
         </button>
         {!deny && problems.length > 0 && <span className="text-[11px] font-bold text-yamabuki">記録するには：{problems.join("・")}</span>}
-        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="できなかった理由（例：発熱で中止）" aria-label="できなかった理由" disabled={!!deny} className={`${field} ml-auto w-56`} />
+        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="できなかった理由" aria-label="できなかった理由" disabled={!!deny} className={`${field} ml-auto w-56`} />
         <button
           type="button"
           disabled={!!deny || !reason.trim()}
