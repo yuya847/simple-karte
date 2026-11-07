@@ -1774,6 +1774,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   for (const c of [...orderChanges(people, -1440, abs(0, nowTime)), ...others]) {
     if (sessionKeys.has(c.key) && !taken[c.key]) waiting[c.patientId] = (waiting[c.patientId] ?? 0) + 1;
   }
+  // 「指示受けがまだ」 on the lists and the map is the nurses' work: only they see it (ユーザー 2026-11-07).
+  const waitingShown: Record<string, number> = role === "看護師" ? waiting : {};
 
   // Results per patient on the ward: what the doctor has not seen, and panic values not yet phoned in.
   // 病理・生理 reports are read and marked like the other results.
@@ -1971,7 +1973,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       if (condsMet[pid].length) out.push({ label: `条件付き指示 ${condsMet[pid].length}`, tone: "shu", title: condsMet[pid].map((h) => h.text).join("、") });
       const pa = activePath(paths, pid);
       if (pa) out.push({ label: `パス ${pathDayOf(pa, 0)}日目`, tone: "ai", title: `${findPath(pa.code)?.name ?? ""}（標準 ${findPath(pa.code)?.length ?? "?"}日）` });
-      if (standingNow(pid) && standingPending(pid, others, taken, !!standingNow(pid)!.taken)) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
+      if (role === "看護師" && standingNow(pid) && standingPending(pid, others, taken, !!standingNow(pid)!.taken)) out.push({ label: "指示簿 指示受けがまだ", tone: "yamabuki", title: "指示簿が変わりました" });
       out.push(...leaveFlags(x.entries));
       const rs = activeOf(restraints, pid);
       if (rs) out.push({ label: `身体的拘束中 ${durationText(minutesOf(rs, abs(0, nowTime)))}`, tone: "shu", title: `${rs.devices.join("・")}　${reviewDue(rs, abs(0, nowTime))?.text ?? ""}` });
@@ -2235,7 +2237,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const summaries: Record<string, ChartSummary> = Object.fromEntries(
     Object.entries(charts)
       .filter(([k]) => !k.includes("|"))
-      .map(([id, c]) => [id, { drafts: charts[deskKeyOf(id, desk)]?.drafts.length ?? 0, confirmedToday: c.added.length + c.stopped.length, waiting: waiting[id] ?? 0 }]),
+      .map(([id, c]) => [id, { drafts: charts[deskKeyOf(id, desk)]?.drafts.length ?? 0, confirmedToday: c.added.length + c.stopped.length, waiting: waitingShown[id] ?? 0 }]),
   );
 
   // 新しいタブ (＋ on ③, or on ② in 救急外来・外来): find a patient and open the chart under that tab.
@@ -3075,7 +3077,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "recent" ? (
         <RecentPatients list={recentList} patient={findPatient} onOpen={openPatient} onClear={() => setRecentList([])} />
       ) : screen === "favorites" ? (
-        <FavoritePatients patient={findPatient} nowTime={nowTime} changes={sessionChanges} waiting={waiting} resultState={resultState} extraFlags={listFlags} diagnoses={diagnoses} onOpen={openPatient} />
+        <FavoritePatients patient={findPatient} nowTime={nowTime} changes={sessionChanges} waiting={waitingShown} resultState={resultState} extraFlags={listFlags} diagnoses={diagnoses} onOpen={openPatient} />
       ) : listKey === "mine" && role === "療法士" ? (
         <RehabPatients people={everyone} desk={dept.rehab} me={me.name} onOpen={openPatient} />
       ) : listKey ? (
@@ -3094,7 +3096,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           nowTime={nowTime}
           changes={sessionChanges}
           summaries={summaries}
-          waiting={waiting}
+          waiting={waitingShown}
           resultState={resultState}
           extraFlags={listFlags}
           expiryDone={stickies}
