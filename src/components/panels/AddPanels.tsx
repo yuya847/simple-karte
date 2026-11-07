@@ -1,4 +1,5 @@
 "use client";
+import { DoseIngredient } from "../DoseIngredient";
 import type { PrescriptionSeed } from "@/lib/prescription-calendar";
 import { diluentChoices, chooseDiluent } from "@/lib/inj-diluent";
 import { InjectionDiluentChoice } from "./InjectionDiluentChoice";
@@ -810,6 +811,7 @@ const rpFromPattern = (p: Pick<RxPattern, "rows" | "times" | "timing" | "days" |
 });
 
 export function AddRxPanel({
+  patient,
   onAdd,
   newId,
   drafts = [],
@@ -818,6 +820,7 @@ export function AddRxPanel({
   ward = "",
   outpatient = false,
 }: {
+  patient?: Patient;
   ward?: string;
   outpatient?: boolean;
   onAdd: (d: Draft[]) => void;
@@ -981,7 +984,7 @@ export function AddRxPanel({
           {rp.once && <p className="text-yamabuki">1回だけ・今すぐ</p>}
           <div className="flex items-baseline gap-2">{!rp.rows.length && <><b>{label}</b><div data-step="drug" className="min-w-0 flex-1">{drugSearch}</div></>}<button type="button" aria-label={`${label} を消す`} className="ml-auto text-xs text-ink-faint" onClick={() => setRps((rs) => rs.length === 1 ? [freshRx()] : rs.filter((_, j) => j !== i))}>×</button><button type="button" title="コメント" aria-label={`${label} のコメントを開く`} className="text-xs text-ink-soft" onClick={() => { upd(i, { comment: rp.comment ?? "" }); requestAnimationFrame(() => panelRoot.current?.querySelector<HTMLInputElement>(`[data-rp="${i}"] [data-comment]`)?.focus()); }}><MessageSquarePlus size={16} /></button></div>
           {rp.rows.map((r, k) => { const m = findOralDrug(r.drugCode)!; return <div key={k} data-step="dose" className="flex items-center justify-between border-b border-rule-soft py-1" onKeyDown={(e) => { if (!rp.administration && (e.target as HTMLElement).tagName === "INPUT") advance(e, "dose", validDose(r.per, m)); }}>
-            <span>{k === 0 && <b className="mr-2">{label}</b>}{m.name} {m.strength}</span>{step !== "dose" ? <button type="button" onClick={() => focus(i, "dose")}>{rp.administration ? "総量" : "1回"} {r.per}{m.unit}</button> : <label>{rp.administration ? "総量" : "1回"} <input onKeyDown={(e) => { if (e.key === "Backspace" && !r.per) { e.preventDefault(); const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); } }} aria-label={`${m.name}の${rp.administration ? "総量" : "1回量"}`} list={`rx-dose-${i}-${k}`} className={`${field} w-16`} inputMode="decimal" value={r.per} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => j === k ? { ...x, per: halfWidthNumber(e.target.value) } : x) })} /><datalist id={`rx-dose-${i}-${k}`}>{doseOptions(m).map((v) => <option key={v} value={v} />)}</datalist> {m.unit}</label>}<button type="button" aria-label={`${m.name}を外す`} onClick={() => { const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); }}>×</button>
+            <span>{k === 0 && <b className="mr-2">{label}</b>}{m.name} {m.strength}</span>{step !== "dose" ? <button type="button" onClick={() => focus(i, "dose")}>{rp.administration ? "総量" : "1回"} {r.per}{m.unit}</button> : <label>{rp.administration ? "総量" : "1回"} <input onKeyDown={(e) => { if (e.key === "Backspace" && !r.per) { e.preventDefault(); const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); } }} aria-label={`${m.name}の${rp.administration ? "総量" : "1回量"}`} list={`rx-dose-${i}-${k}`} className={`${field} w-16`} inputMode="decimal" value={r.per} onChange={(e) => upd(i, { rows: rp.rows.map((x, j) => j === k ? { ...x, per: halfWidthNumber(e.target.value) } : x) })} /><datalist id={`rx-dose-${i}-${k}`}>{doseOptions(m).map((v) => <option key={v} value={v} />)}</datalist> {m.unit}</label>}{!rp.administration && <DoseIngredient drug={m} amount={r.per} patient={patient} />}<button type="button" aria-label={`${m.name}を外す`} onClick={() => { const rows = rp.rows.filter((_, j) => j !== k); upd(i, { rows, step: rows.length ? "dose" : "drug" }); }}>×</button>
           </div>; })}
           <div data-step="drug">
             {rp.rows.length > 0 && step === "drug" && drugSearch}

@@ -661,7 +661,7 @@ function stopTargets(drugCode: string, ctx: CheckContext): OrderEntry[] {
 
 /** Running orders of a procedure. */
 function procTargets(code: string, ctx: CheckContext): OrderEntry[] {
-  return ctx.activeOrders.filter((o) => o.order.type === "procedure" && o.order.code === code);
+  return ctx.activeOrders.filter((o) => o.status === "有効" && o.order.type === "procedure" && o.order.code === code && !(o.order.schedule.kind === "once" && o.order.start.day < 0));
 }
 
 function targetsOf(d: StopDraft, ctx: CheckContext): OrderEntry[] {

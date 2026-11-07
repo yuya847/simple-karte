@@ -1,4 +1,5 @@
 "use client";
+import { pregnancyLabel } from "@/lib/pregnancy";
 import { wardLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
@@ -34,7 +35,7 @@ interface Props {
   /** 患者プロファイル (allergies, infections, contraindications, blood type, height and weight). */
   onOpenProfile?: () => void;
   /** 妊娠中の印 (set by a doctor or nurse). */
-  onPregnancy?: (v: { weeks: number | null } | null) => void;
+  onPregnancy?: (v: NonNullable<Patient["pregnancy"]> | null) => void;
   /** 主治医・担当医・コンサルト医 (without it the bar shows the attending alone). */
   doctors?: PatientDoctors;
   /** Opens the doctors' list (to add or remove a 担当医・コンサルト医). */
@@ -165,7 +166,7 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
         {p.dischargedAt && <Badge tone="fuji" label="退院済み" values={[`${formatShort(addDays(today, p.dischargedAt.day))} ${p.dischargedAt.time}`]} />}
         {p.pregnancy ? (
           <button type="button" onClick={() => onPregnancy?.(null)} title="押すと妊娠中の印を外します">
-            <Badge tone="shu" label="妊娠中" values={[p.pregnancy.weeks ? `${p.pregnancy.weeks}週` : "週数不明"]} />
+            <Badge tone="shu" label="妊娠中" values={[pregnancyLabel(p.pregnancy, p.admittedOn)]} />
           </button>
         ) : (
           onPregnancy &&
@@ -180,7 +181,7 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
               <button
                 type="button"
                 onClick={() => {
-                  onPregnancy({ weeks: Number(weeks) > 0 ? Number(weeks) : null });
+                  onPregnancy({ weeks: Number(weeks) > 0 ? Number(weeks) : null, referenceDay: 0, days: 0 });
                   setPregEdit(false);
                   setWeeks("");
                 }}

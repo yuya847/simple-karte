@@ -1,3 +1,4 @@
+import { finalizeLabNotes } from "./lab-notes";
 import { addIcuCases, addIcuCathResults, standingDefaults } from "./icu";
 import { scenarioNutrition } from "./nutrition";
 import { addRxExpiryCases } from "./rx-expiry";
@@ -87,7 +88,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     let destination = ["自宅", "介護施設", "回復期リハビリ病院", "療養病院", "死亡退院"][Math.floor(i / 10) % 5];
     if (i === 28) destination = "死亡退院";
     if (i !== 28 && destination === "死亡退院") destination = "自宅";
-    const patient: Patient = { ...p, id, ...identity, age, sex: base.patient.sex, ...(i === 4 ? { sex: "女", pregnancy: { weeks: 28 } } : {}), ...(age === 0 ? { ageMonths: 0, heightCm: 49, weightKg: 3.1 } : age === 5 ? { heightCm: 110, weightKg: 18 } : {}), ward: floor.name, room: slot.room, attending: doctorFor(p.department), admittedOn,
+    const patient: Patient = { ...p, id, ...identity, age, sex: base.patient.sex, ...(i === 4 ? { sex: "女", pregnancy: { weeks: 28, referenceDay: admittedOn, days: 0 } } : {}), ...(age === 0 ? { ageMonths: 0, heightCm: 49, weightKg: 3.1 } : age === 5 ? { heightCm: 110, weightKg: 18 } : {}), ward: floor.name, room: slot.room, attending: doctorFor(p.department), admittedOn,
       ...(dischargeDay !== undefined ? { dischargedAt: { day: dischargeDay, time: "10:00", by: "山本（専攻医）" } } : {}),
       history: p.history.filter((e) => e.day <= (dischargeDay ?? 0)), labs: p.labs.filter((e) => e.day <= (dischargeDay ?? 0)), cultures: p.cultures.filter((e) => e.collectedOn <= (dischargeDay ?? 0) && (e.reportedOn ?? 0) <= (dischargeDay ?? 0)), vitals: p.vitals.filter((e) => e.day <= (dischargeDay ?? 0)), daily: p.daily.filter((e) => e.day <= (dischargeDay ?? 0)), imaging: p.imaging.filter((e) => e.day <= (dischargeDay ?? 0)) };
     if (age >= 18) patient.weightKg = Math.round((base.patient.weightKg + (i % 11 - 5) * 0.6) * 10) / 10;
@@ -140,6 +141,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     if (stage === "救急") patient.history = patient.history.map((e) => e.kind === "order" && e.order.type === "lab" && e.order.collect?.day === patient.admittedOn ? { ...e, order: { ...e.order, collect: { ...e.order.collect, time: scenarioTime(490 + Math.floor(i / 10) * 13) } } } : e);
     addPharmacyOrders(patient, i, stage);
     addRxExpiryCases(patient, i, stage);
+    finalizeLabNotes(patient);
     replacementBoundaries(patient.history.filter((e): e is import("../types").OrderEntry => e.kind === "order"));
     patient.history.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
 

@@ -120,7 +120,7 @@ export function addClinicalCourse(p: Patient, c: ClinicalProfile, end: number, i
   if (duration >= 5) addNote(first + 5, "MSW", { text: `${p.age}歳、${c.name}。${["日中の家族の付き添いを希望", "自宅での生活再開を希望", "通院の送迎について相談希望", "退院後の服薬支援について相談希望", "食事の準備について相談希望"][i % 5]}。急性期経過を病棟と共有。本人・${p.age < 18 ? "保護者" : "家族"}と${destination === "死亡退院" ? "面会と療養の希望" : `退院先候補（${destination}）、介助量と通院手段`}を相談。${/脳梗塞|骨折|脳出血/.test(c.name) ? "療法士の移乗評価を添えて受け入れ先へ照会" : "家族の支援可能な曜日を確認"}。` });
 
   if (c.antibiotic) {
-    if (duration >= 1) addNote(first + 1, "薬剤師", { text: `${p.age}歳、${c.name}の抗菌薬監査。体重${p.weightKg}kg、入院時Cre${initial.Cre}mg/dL。${c.antibiotic}の投与履歴を照合。アレルギー申告なし。${c.name === "急性腎盂腎炎" ? "尿培養の感受性報告後に狭域化を確認する" : "局所所見とCRPの変化を踏まえ治療終了日を医師と確認する"}。` });
+    if (duration >= 1) addNote(first + 1, "薬剤師", { text: `${p.age}歳、${c.name}の抗菌薬監査。体重${p.weightKg}kg、入院時Cre${p.labs.find(l => l.day === first && l.values.CRP !== undefined)!.values.Cre}mg/dL。${c.antibiotic}の投与履歴を照合。アレルギー申告なし。${c.name === "急性腎盂腎炎" ? "尿培養の感受性報告後に狭域化を確認する" : "局所所見とCRPの変化を踏まえ治療終了日を医師と確認する"}。` });
     p.cultures.push({ collectedOn: first, specimen: "血液", sets: "2セット", ...(duration >= 5 ? { reportedOn: first + 5, status: "最終報告" as const, organism: "発育なし（5日間）" } : { status: "培養中" as const }) });
     const changed = c.name === "急性腎盂腎炎" && duration >= 2;
     injection(0, c.antibiotic, c.antibiotic === "INJ-SBTABPC3" ? 3 : c.antibiotic === "INJ-CTRX1" ? 2 : 1, "g", c.antibiotic === "INJ-SBTABPC3" ? 3 : c.antibiotic === "INJ-CTRX1" ? 1 : 3, changed ? 2 : 7);

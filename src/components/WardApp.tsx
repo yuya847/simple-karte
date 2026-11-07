@@ -775,7 +775,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 勤務表と様式9 (5階東): null = the fictional draft, until the 看護師長 changes it.
   const [rosterBook, setRosterBook] = useState<RosterBook | null>(null);
   // 妊娠中の印 and 付箋, per patient.
-  const [pregnancy, setPregnancy] = useState<Record<string, { weeks: number | null } | null>>({});
+  const [pregnancy, setPregnancy] = useState<Record<string, Patient["pregnancy"]>>({});
   // 担当医・コンサルト医 per patient (the attending is in the record); the list opens from the patient bar.
   const [doctorBook, setDoctorBook] = useState<DoctorBook>(INITIAL_DOCTOR_BOOK);
   // 患者基本情報 (住所・連絡先・家族・公費・介護・かかりつけ), per patient id (patient-contacts.ts).
@@ -3428,6 +3428,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                       <InlineOrder key={`rx:${patient.id}:${desk}`} title="処方オーダ" onClose={() => setOrderWins((v) => v.filter((k) => k !== "add-rx"))}>
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddRxPanel
+                              patient={patient}
                               outpatient={visitOf(patient.id)?.kind === "opd"}
                               ward={patient.ward}
                               key={patient.id}

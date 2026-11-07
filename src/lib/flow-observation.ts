@@ -1,5 +1,6 @@
 import type { CareOrder, CareSchedule } from "./care-orders";
 export const OBSERVATION_PRESETS = [
+  { item: "NIHSS", inputKind: "number", unit: "点" },
   { item: "疼痛 NRS", inputKind: "choice", choices: Array.from({ length: 11 }, (_, i) => String(i)) },
   { item: "浮腫", inputKind: "choice", choices: ["なし", "あり"] },
   { item: "褥瘡", inputKind: "text" }, { item: "創部", inputKind: "text" }, { item: "ドレーン", inputKind: "text" },

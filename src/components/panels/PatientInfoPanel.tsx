@@ -1,4 +1,5 @@
 "use client";
+import { pregnancyLabel } from "@/lib/pregnancy";
 import { wardLabel } from "@/lib/place-label";
 
 // 患者基本情報: the window opened by double-clicking the patient's name (iPad: a long press). Everything
@@ -531,7 +532,7 @@ export function PatientInfoPanel({ roomLabel, initialSection, patient: p, today,
           </Row>
           {p.pregnancy && (
             <Row label="妊娠中" by="医師・看護師">
-              {p.pregnancy.weeks ? `${p.pregnancy.weeks}週` : "週数不明"}
+              {pregnancyLabel(p.pregnancy, p.admittedOn)}
             </Row>
           )}
           <Row label="事前指示" by={directive ? `${when(directive.decidedAt)} ${directive.by}${directive.discussedWith ? `（${directive.discussedWith}と）` : ""}` : "未確認"}>
