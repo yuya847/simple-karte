@@ -123,6 +123,7 @@ export function gengoDate(iso: string): string | undefined {
 }
 
 const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+const short = (s: string) => (s.length > 32 ? `${s.slice(0, 31)}…` : s);
 
 export interface FactChip {
   group: "病名" | "検査" | "経過" | "薬";
@@ -135,17 +136,18 @@ export interface FactChip {
 /** カルテの事実を、押すと本文に貼れる形に並べる。検査は項目ごとに日付順。 */
 export function factChips(facts: ReturnType<typeof collectShokiFacts>): FactChip[] {
   const out: FactChip[] = [];
-  for (const d of facts.diagnoses) out.push({ group: "病名", id: `dx:${d.id}`, label: d.name, text: `${d.name}（${md(d.startDate)}〜）` });
+  // 「〜」（波ダッシュ）はレセプトの文字（シフトJIS）にないので「から」と書く。
+  for (const d of facts.diagnoses) out.push({ group: "病名", id: `dx:${d.id}`, label: d.name, text: `${d.name}（${md(d.startDate)}から）` });
   const labs = new Map<string, typeof facts.labs>();
   for (const l of facts.labs) labs.set(l.code, [...(labs.get(l.code) ?? []), l]);
   for (const [code, vs] of labs) {
     const series = vs.map((v) => `${v.value}（${md(v.date)}）`).join("→");
     out.push({ group: "検査", id: `lab:${code}`, label: `${labName(code)} ${vs.slice(-3).map((v) => v.value).join("→")}`, text: `${labName(code)} ${series}` });
   }
-  for (const n of facts.notes) out.push({ group: "経過", id: `note:${n.id ?? `${n.date}${n.time}`}`, label: `${md(n.date)} ${n.heading}`, text: `${md(n.date)} ${n.heading}` });
+  for (const n of facts.notes) out.push({ group: "経過", id: `note:${n.id ?? `${n.date}${n.time}`}`, label: short(`${md(n.date)} ${n.heading}`), text: `${md(n.date)} ${n.heading}` });
   for (const m of facts.medications) {
     const what = m.items.map((i) => `${i.name} ${i.amount}${i.unit}`).join("・");
-    out.push({ group: "薬", id: `rx:${m.id}`, label: what, text: `${what}（${md(m.date)}〜）` });
+    out.push({ group: "薬", id: `rx:${m.id}`, label: what, text: `${what}（${md(m.date)}から）` });
   }
   return out;
 }

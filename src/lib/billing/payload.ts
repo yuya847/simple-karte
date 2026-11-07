@@ -5,6 +5,7 @@ import type { DietOrder } from "../diet";
 import type { HistoryEntry, Patient } from "../types";
 import type { Insurance } from "./insurance";
 import type { KisaiWorkspace } from "./kisai-workspace";
+import { currentShoki } from "./shoki";
 import type { BillingOptions } from "./model";
 import type { LetterClaim } from "../letters";
 
@@ -33,7 +34,7 @@ export function patientMonthPayload(
     // The insurance 医事課 registered (保険の登録); left out while there is none.
     ...(extra.insuranceHistory ? { insuranceHistory: extra.insuranceHistory } : {}),
     ...(extra.insurance ? { insurance: extra.insurance } : {}),
-    // 記載・書類: this patient's 症状詳記 and only the latest 摘要の答え per month and item (the one the claim reads).
+    // 記載・書類: this patient's confirmed 症状詳記 and only the latest 摘要の答え per month and item (the one the claim reads).
     ...(extra.kisai ? { kisai: kisaiOf(extra.kisai, patient.id) } : {}),
   };
 }
@@ -41,7 +42,8 @@ export function patientMonthPayload(
 export function kisaiOf(w: KisaiWorkspace, patientId: string): KisaiWorkspace {
   const latest = new Map<string, KisaiWorkspace["tekiyoAnswers"][number]>();
   for (const a of w.tekiyoAnswers) if (a.patientId === patientId) latest.set(`${a.month}|${a.claimCode}`, a);
-  return { shoki: w.shoki.filter((s) => s.patientId === patientId), tekiyoAnswers: [...latest.values()] };
+  // Only what the claim reads: the latest confirmed version of each 症状詳記 (a draft being written does not re-run the claim).
+  return { shoki: currentShoki(w.shoki.filter((s) => s.patientId === patientId)), tekiyoAnswers: [...latest.values()] };
 }
 
 export type PatientMonthPayload = ReturnType<typeof patientMonthPayload>;

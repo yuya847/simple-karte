@@ -5,10 +5,29 @@ import { useState } from "react";
 import { displayText } from "@/lib/display-text";
 import type { KisaiCheck } from "@/lib/billing/kisai";
 import { KISAI_SOURCES } from "@/lib/billing/kisai-sources";
-import { kisaiTarget, PANEL_LABEL, siLines, unverifiedLines, type KisaiTarget } from "@/lib/billing/kisai-view";
+import { kisaiTarget, PANEL_LABEL, shokiSeriesOf, siLines, unverifiedLines, type KisaiTarget } from "@/lib/billing/kisai-view";
+import type { KisaiWorkspace } from "@/lib/billing/kisai-workspace";
 import type { ClaimResult } from "@/lib/billing/model";
+import type { MonthDocumentation } from "@/lib/billing/month";
+import type { collectShokiFacts } from "@/lib/billing/shoki";
+import { ShokiPanel } from "./ShokiPanel";
 
-type Section = "checks";
+type Section = "checks" | "shoki";
+
+export interface KisaiPanelProps {
+  claim: ClaimResult;
+  checks: KisaiCheck[];
+  /** サーバーが返す摘要・詳記の結果（計算中は null）。 */
+  documentation: MonthDocumentation | null;
+  facts: ReturnType<typeof collectShokiFacts>;
+  patientId: string;
+  month: string;
+  saved: KisaiWorkspace;
+  at: string;
+  newId: () => string;
+  onSave?: (next: KisaiWorkspace, what: string) => void;
+  onOpen?: (t: KisaiTarget) => void;
+}
 
 const STATUS: Record<KisaiCheck["status"], { cls: string; icon: typeof Info }> = {
   ある: { cls: "text-wakatake", icon: CheckCircle2 },
@@ -19,9 +38,14 @@ const STATUS: Record<KisaiCheck["status"], { cls: string; icon: typeof Info }> =
 const md = (iso?: string) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` : "");
 
 /** 算定の「記載・書類」タブ：加算ごとに要る記載・書類の点検。 */
-export function KisaiPanel({ claim, checks, onOpen }: { claim: ClaimResult; checks: KisaiCheck[]; onOpen?: (t: KisaiTarget) => void }) {
+export function KisaiPanel({ claim, checks, documentation, facts, patientId, month, saved, at, newId, onSave, onOpen }: KisaiPanelProps) {
   const [section, setSection] = useState<Section>("checks");
-  const tabs: { key: Section; label: string; count: number }[] = [{ key: "checks", label: "点検", count: checks.filter((c) => c.status === "ない").length }];
+  const required = documentation?.requiredShoki ?? [];
+  const confirmed = new Set(shokiSeriesOf(saved.shoki, patientId, month).filter((v) => v.versions.length).flatMap((v) => v.targets.map((t) => t.code)));
+  const tabs: { key: Section; label: string; count: number }[] = [
+    { key: "checks", label: "点検", count: checks.filter((c) => c.status === "ない").length },
+    { key: "shoki", label: "症状詳記", count: required.filter((r) => !confirmed.has(r.target.code)).length },
+  ];
   return (
     <div className="space-y-3">
       <div role="tablist" aria-label="記載・書類" className="flex gap-1 text-xs">
@@ -33,6 +57,7 @@ export function KisaiPanel({ claim, checks, onOpen }: { claim: ClaimResult; chec
         ))}
       </div>
       {section === "checks" && <KisaiChecks claim={claim} checks={checks} onOpen={onOpen} />}
+      {section === "shoki" && <ShokiPanel required={required} facts={facts} saved={saved} patientId={patientId} month={month} at={at} newId={newId} onSave={onSave} />}
     </div>
   );
 }

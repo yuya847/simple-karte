@@ -115,6 +115,7 @@ import { visitPrescriptions } from "@/lib/billing/opd-visit";
 import { OpdRxAfter } from "./OpdRxAfter";
 import { OpdBillPanel } from "./billing/OpdBillPanel";
 import { BillingView } from "./BillingView";
+import { kisaiWorkspace, type KisaiWorkspace } from "@/lib/billing/kisai-workspace";
 import { IjiBoard } from "./IjiBoard";
 import { initialErPatients, type ErPatient, type ErStatus } from "@/lib/er";
 import { abs } from "@/lib/flowsheet";
@@ -898,6 +899,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [national, setNational] = useState<NationalRecord[]>([]);
   // 患者さんの入力（患者さんのページ・病棟の iPad）: the nurse confirms it into 入院時の情報収集.
   const [portalInbox, setPortalInbox] = useState<PortalInboxEntry[]>([]);
+  // 記載・書類（算定）: 症状詳記の版と、摘要のコメントの答え。
+  const [kisai, setKisai] = useState<KisaiWorkspace>(() => kisaiWorkspace());
   // 同時利用: after each save the other tabs and devices are told (usePresence fills this in).
   const onSaved = useRef<(() => void) | null>(null);
   // Who saved the records last (this tab), for the other devices.
@@ -3304,7 +3307,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   onRegister={(r) => setIji((d) => withInsurance(d, patient.id, r))}
                   settlement={iji.settled[patient.id]}
                   onSettle={(s) => setIji((d) => withSettlement(d, patient.id, s))}
-                  kisai={{ chart: { evaluation: evals[patient.id], documents, guidance, letters: lettersFor(patient.id, letters, discharges[patient.id]), nursingPlans, tdmReports, restraints },
+                  kisai={{ saved: kisai, onSave: setKisai, chart: { evaluation: evals[patient.id], documents, guidance, letters: lettersFor(patient.id, letters, discharges[patient.id]), nursingPlans, tdmReports, restraints },
                     onOpen: (t) => { if (t.panel === "letter") return openLetter(t.key ? { id: t.key } : {}); setSupportDoc(t.docKind === "退院支援計画書"); setNutritionDoc(t.docKind === "栄養管理計画書"); if (t.panel !== "billing") return setPanel(t.panel); setPanel(null); if (t.day !== undefined) update({ selectedDay: t.day }); } }}
                 />
               </div>

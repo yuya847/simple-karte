@@ -88,6 +88,8 @@ export type Action =
   | "acuity"
   | "pharmacy"
   | "billing"
+  | "shoki"
+  | "tekiyo.review"
   | "insurance"
   | "settle"
   | "note"
@@ -168,6 +170,9 @@ const RULES: Record<Action, { label: string; who: Role[] }> = {
   acuity: { label: "看護必要度の評価", who: ["看護師"] },
   pharmacy: { label: "薬剤部の業務", who: ["薬剤師"] },
   billing: { label: "算定の入力", who: ["医事課", "医師"] },
+  // 記載・書類：症状詳記の文と、摘要のコメントの条件付きの記載事項（状態・指標・根拠）を確かめるのは医師。
+  shoki: { label: "症状詳記の記載と確定", who: ["医師"] },
+  "tekiyo.review": { label: "摘要のコメントの記載事項の確認", who: ["医師"] },
   insurance: { label: "保険の登録・変更（患者基本情報の保険・制度）", who: ["医事課", "医師", "看護師"] },
   settle: { label: "会計の記録", who: ["医事課"] },
   note: { label: "記事の記録", who: ["臨床工学技士", "ICT", "歯科衛生士", "医師", "看護師", "薬剤師", "臨床検査技師", "診療放射線技師", "療法士", "管理栄養士", "MSW"] },

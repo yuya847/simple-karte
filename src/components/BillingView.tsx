@@ -15,13 +15,16 @@ import { ReceiptPanel } from "./billing/ReceiptPanel";
 import { KisaiPanel } from "./billing/KisaiPanel";
 import { checkKisai, type KisaiChart } from "@/lib/billing/kisai";
 import type { KisaiTarget } from "@/lib/billing/kisai-view";
+import type { KisaiWorkspace } from "@/lib/billing/kisai-workspace";
+import type { MonthDocumentation } from "@/lib/billing/month";
+import { collectShokiFacts } from "@/lib/billing/shoki";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
 import { coverageOf, type Insurance } from "@/lib/billing/insurance";
 import { FICTIONAL_COEFFICIENT } from "@/lib/billing/dpc";
 import type { DpcMonthView } from "@/lib/billing/dpc-claim";
 import { inpatientBill } from "@/lib/billing/inpatient-bill";
-import { patientMonthPayload, type PatientMonthPayload } from "@/lib/billing/payload";
+import { kisaiOf, patientMonthPayload, type PatientMonthPayload } from "@/lib/billing/payload";
 import type { InsuranceRecord } from "@/lib/billing/registration";
 import type { Settlement } from "@/lib/billing/worklist";
 import { useEffect, useMemo, useState } from "react";
@@ -60,6 +63,9 @@ interface Props extends DiseaseRequestProps {
   kisai?: {
     chart: Omit<KisaiChart, "patientId" | "today" | "admittedOn" | "entries">;
     onOpen?: (t: KisaiTarget) => void;
+    /** 症状詳記と摘要のコメントの答え（全患者分）。 */
+    saved: KisaiWorkspace;
+    onSave?: (next: KisaiWorkspace) => void;
   };
 }
 
@@ -126,6 +132,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   const months = useMemo(() => admissionMonths(today, patient.admittedOn, patient.dischargedAt?.day), [today, patient.admittedOn, patient.dischargedAt?.day]);
   const [month, setMonth] = useState(months[months.length - 1]);
   const [result, setResult] = useState<ClaimResult | null>(null);
+  const [documentation, setDocumentation] = useState<MonthDocumentation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [openBasis, setOpenBasis] = useState<Set<string>>(() => new Set());
@@ -136,11 +143,11 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   });
 
   // Diets, letters and the registered insurance by value, so a new array with the same content does not re-run the claim.
-  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insulinGiven: insulinGiven ?? [], insurance: registered?.insurance, insuranceHistory: records.map(r => r.insurance) });
+  const extraJson = JSON.stringify({ diets: (diets ?? []).filter((d) => d.patientId === patient.id), letters: letters ?? [], notGiven: notGiven ?? [], insulinGiven: insulinGiven ?? [], insurance: registered?.insurance, insuranceHistory: records.map(r => r.insurance), ...(kisai ? { kisai: kisaiOf(kisai.saved, patient.id) } : {}) });
   useEffect(() => {
     if (!coefOk) return;
     const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: LetterClaim[]; notGiven: string[]; insulinGiven: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[] };
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: LetterClaim[]; notGiven: string[]; insulinGiven: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[]; kisai?: KisaiWorkspace };
     const run = async () => {
       setLoading(true);
       setError(null);
@@ -161,6 +168,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
         if (ctl.signal.aborted) return;
         setDpc(dpcJson as DpcMonthView);
         setResult(json.result as ClaimResult);
+        setDocumentation(json.documentation as MonthDocumentation);
         setInsurance(json.insurance);
         setReceiptLines(json.receipt.lines as string[]);
         setReceiptSheet(json.receipt.sheet as ReceiptSheetData);
@@ -279,7 +287,21 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
         {tab === "receipt" && result && (
           <ReceiptPanel selfPay={!!insurance && coverageOf(insurance) === "自費"} data={displayedReceipt} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
-        {tab === "kisai" && result && <KisaiPanel claim={result} checks={checks} onOpen={kisai?.onOpen} />}
+        {tab === "kisai" && result && kisai && (
+          <KisaiPanel
+            claim={result}
+            checks={checks}
+            documentation={ready ? documentation : null}
+            facts={collectShokiFacts({ today: isoDate(today), month, diagnoses, labs: patient.labs, entries })}
+            patientId={patient.id}
+            month={month}
+            saved={kisai.saved}
+            at={`${isoDate(today)}T${nowTime}:00+09:00`}
+            newId={() => `kisai-${crypto.randomUUID()}`}
+            onOpen={kisai.onOpen}
+            onSave={kisai.onSave ? (next, what) => { auditLog({ role: me.role, actor: me.name, action: what, patient: patient.name, detail: `${Number(month.slice(5))}月分` }); kisai.onSave!(next); } : undefined}
+          />
+        )}
         {tab === "dpc" && <DpcPanel month={month} mainId={mainId} setMainId={(value) => { if (value !== mainId) { setLoading(true); setMainId(value); } }} transfer={transfer} setTransfer={(value) => { if (value !== transfer) { setLoading(true); setTransfer(value); } }} coefText={coefText} setCoefText={(value) => { if (Number(value) !== coef) setLoading(true); setCoefText(value); }} r={ready ? dpc : null} error={error} loading={loading} />}
         {tab === "claim" && surgeries.map(s => <section key={s.id} className="rounded border border-rule p-3"><h3>麻酔 {s.procedure}</h3><AnesthesiaBilling surgery={s}/></section>)}
         {tab === "claim" && (
