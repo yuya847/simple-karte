@@ -12,7 +12,7 @@ import type { IcuRecords, Infusion, VentSetting } from "./icu/types";
 import { activeOrders } from "./active-orders";
 import { ANALYTES, findDrug, findOralDrug, ingredientOf, rangeFor } from "./master";
 import { INDENT } from "./note-edit";
-import type { DayOffset, LabResult, OrderEntry, Patient } from "./types";
+import type { DayOffset, HistoryEntry, LabResult, OrderEntry, Patient } from "./types";
 
 /** 「/by system」「/bysystem」「／ｂｙ　ｓｙｓｔｅｍ」（大文字小文字を問わない）だけの行。 */
 export const isBySystemLine = (line: string) => /^\/by[ _-]*system$/i.test(line.normalize("NFKC").trim());
@@ -117,12 +117,15 @@ const drugCodes = (e: OrderEntry): string[] => (e.order.type === "injection" ? e
 const startDay = (e: OrderEntry): number | null => (e.order.type === "injection" || e.order.type === "prescription" ? e.order.start.day : null);
 
 /** 「MEPM 4日目」: the antibiotics in effect today, counted from the first order they replaced (the start day is 1日目). */
-function antibiotics(x: BySystemInput): string[] {
+const antibiotics = (x: BySystemInput) => antibioticDays(x.patient.history, x.orders);
+
+/** The same for any list of orders (the 回診表 too): `history` holds the orders replaced before. */
+export function antibioticDays(history: HistoryEntry[], orders: OrderEntry[]): string[] {
   const all = new Map<string, OrderEntry>();
-  for (const e of x.patient.history) if (e.kind === "order") all.set(e.id, e);
-  for (const e of x.orders) all.set(e.id, e);
+  for (const e of history) if (e.kind === "order") all.set(e.id, e);
+  for (const e of orders) all.set(e.id, e);
   const seen = new Map<string, number>();
-  for (const e of activeOrders(x.orders, 0)) {
+  for (const e of activeOrders(orders, 0)) {
     const start = startDay(e);
     if (start === null || start > 0) continue;
     const names = drugCodes(e).map(abxName).filter((n): n is string => !!n);
