@@ -30,12 +30,12 @@ export const hospitalDayText = (admittedOn: DayOffset, day: DayOffset) => (day <
  * 術後日数 (POD): the operation day is 手術日 (術後0日), the next day 術後1日. Counted from the last operation on
  * or before the day; an operation booked later in the stay shows as 手術予定 on its day.
  */
-export function podCell(surgeries: Pick<Surgery, "day" | "procedure" | "status" | "start">[], day: DayOffset): Cell | null {
+export function podCell(surgeries: (Pick<Surgery, "day" | "procedure" | "status" | "start"> & Pick<Partial<Surgery>, "anesthesiaCase">)[], day: DayOffset): Cell | null {
   const on = surgeries.filter((s) => s.day === day);
   const before = surgeries.filter((s) => s.day < day).sort((a, b) => b.day - a.day);
   const all = [...surgeries].sort((a, b) => a.day - b.day).map((s) => `${s.procedure}（${s.day === 0 ? "今日" : s.day > 0 ? `${s.day}日後` : `${-s.day}日前`}${s.start ? ` ${s.start}` : ""}・${s.status}）`);
   if (on.length) {
-    const done = on.some((s) => s.status === "入室" || s.status === "退室");
+    const done = on.some((s) => s.status === "入室" || s.status === "退室" || s.anesthesiaCase?.events["手術終了"] !== undefined);
     const planned = !done && day >= 0;
     return { text: planned ? "手術予定" : "手術日", title: `${on.map((s) => s.procedure).join("、")}\n${all.join("\n")}`, tone: planned ? "faint" : "ai" };
   }

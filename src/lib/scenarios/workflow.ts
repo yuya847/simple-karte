@@ -14,18 +14,19 @@ export function addWorkflow(p: Patient, diagnoses: Diagnosis[], end: number, i: 
   const note = (after: number, role: NoteEntry["role"], text: string) => p.admittedOn + after <= end && p.history.push({ kind: "note", id: `${p.id}-workflow-${p.history.length}`, day: day(after), time: "11:00", role, author: role === "医師" ? p.attending : role === "看護師" ? nurseFor(p.room) : role, text });
   const order = (after: number, o: Order) => p.admittedOn + after <= end && p.history.push({ kind: "order", id: `${p.id}-workflow-${p.history.length}`, day: day(after), time: o.type === "lab" ? "08:30" : "11:10", author: p.attending, status: "有効", order: o });
   const surgery = /大腿骨頚部骨折|大腸癌/.test(name);
+  const awaitingSurgery = p.id === "99000018";
   const rehab = /骨折|脳梗塞|脳出血|脳塞栓|パーキンソン/.test(name);
   const infection = /肺炎|腎盂腎炎|菌|敗血症|蜂巣炎|胆管炎|呼吸不全/.test(name);
   const restraints: Restraint[] = [];
   const surgeries: Surgery[] = [];
   const directives: AdvanceDirective[] = [];
 
-  if (rehab) {
+  if (rehab && !awaitingSurgery) {
     order(1, { type: "procedure", code: "PROC-REHAB", start: { day: day(1), time: "11:10" }, schedule: { kind: "per_day", count: 1 }, rehab: { field: /骨折/.test(name) ? "運動器" : "脳血管疾患等", therapists: /骨折/.test(name) ? ["PT", "OT"] : ["PT", "OT", "ST"], onset: p.admittedOn, goal: "移乗と歩行の介助量を減らし、退院先で生活する", cautions: "主治医の離床・荷重指示と嚥下評価を確認" } });
     note(3, "療法士", /骨折/.test(name) ? `${name}：疼痛を確認し端座位・移乗練習。歩行器で5m、見守りを要する。装具・荷重の指示を照合。` : `${name}：麻痺側の支持を介助して移乗練習。座位保持5分。STが嚥下評価を実施し食形態を共有。`);
     note(5, "療法士", `${name}：移乗は見守り、歩行器で20m。${/骨折/.test(name) ? "疼痛NRS2、装具・荷重指示を添付。" : "麻痺側への注意が必要、嚥下評価を添付。"}受け入れ先へ介助量を連絡。`);
   }
-  if (surgery && p.admittedOn + 2 <= end) {
+  if (surgery && !awaitingSurgery && p.admittedOn + 2 <= end) {
     note(0, "医師", "手術説明と同意を確認。麻酔科に依頼。術前検査と絶食を指示。");
     note(2, "医師", `${name}に対して左人工骨頭置換術を施行。出血150mL、術中合併症なし。術後は足背動脈触知、足趾運動良好。創部・Hb・疼痛を観察し、翌日から荷重と離床を進める。`);
     surgeries.push({ id: `${p.id}-surgery`, patientId: p.id, name: p.name, age: p.age, sex: p.sex, ward: p.ward, department: p.department, day: day(2), room: "手術室1", start: "09:00", minutes: 90, procedure: /骨折/.test(name) ? "人工骨頭置換術" : /ヘルニア/.test(name) ? "ヘルニア手術" : /胆のう/.test(name) ? "胆嚢摘出術" : /変形性/.test(name) ? "人工関節置換術" : "悪性腫瘍手術", site: /骨折|変形性/.test(name) ? "下肢" : "腹部", side: "なし", position: "仰臥位", anesthesia: "全身麻酔", laparoscopic: false, kind: "予定", blood: "血液型・不規則抗体", after: "病棟", anesthesiaConsult: true, infections: p.infections, allergies: p.allergies, status: "退室", requestedAt: p.admittedOn * 1440 + 600, surgeon: p.attending });

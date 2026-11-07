@@ -79,6 +79,7 @@ export const CLINICAL = {
 // 21 non-DPC-class admissions + 49 admissions in the five shipped DPC classes.
 const assigned: Record<number, keyof typeof CLINICAL> = { 2: "asthma", 4: "preterm", 11: "cd", 12: "respiratory", 13: "diabetes", 14: "dialysis", 15: "copd", 16: "stroke", 17: "hip", 18: "lung", 21: "pancreatitis", 22: "ileus", 23: "upper", 24: "lower", 25: "cirrhosis", 26: "aki", 27: "sodium", 31: "compression", 32: "cholangitis", 33: "af", 34: "hemorrhage" };
 export function clinicalProfile(i: number): ClinicalProfile {
+  if (i === 17) return {...CLINICAL.hip, symptoms:["体動時に股関節が痛む","安静時の痛みは軽減","手術の説明を受けた"], findings:["左下肢短縮・外旋、末梢循環良好","足趾運動・末梢循環良好","皮膚障害なし、末梢循環良好"], assessment:["左大腿骨頚部骨折、転位あり","人工骨頭挿入術を予定、術前評価中","予定の人工骨頭挿入術に向け準備"], plan:["鎮痛、手術説明、術前検査、機械的VTE予防","疼痛と皮膚・末梢循環を観察","予定の手術に向け絶飲食・同意を確認"]};
   if (assigned[i]) return CLINICAL[assigned[i]];
   if (i === 6) return CLINICAL.mrsa;
   if (i === 7) return CLINICAL.esbl;

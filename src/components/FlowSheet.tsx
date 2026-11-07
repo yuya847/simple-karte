@@ -1,4 +1,5 @@
 "use client";
+import { withAnesthesiaVitals } from '@/lib/anesthesia-flow';
 
 import { currentVital } from "@/lib/icu/current-oxygen";
 import { recordedVitals } from "@/lib/record-time";
@@ -148,7 +149,8 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ standingMeasurements, patient: p, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry: externalEntry, onSaveVital, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
+export function FlowSheet({ standingMeasurements, patient: sourcePatient, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry: externalEntry, onSaveVital, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
+  const p = withAnesthesiaVitals(sourcePatient, dayInfo?.surgeries ?? []);
   const [inlineReq, setInlineReq] = useState<FlowEntry | null>(null);
   const onEntry = externalEntry ? (req: FlowEntry) => {
     if ((req.kind === "vitals" && onSaveVital) || (req.kind === "io" && io?.onAdd) || (req.kind === "care" && care?.onRecord && care?.onVoid)) setInlineReq(req);
@@ -325,6 +327,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                   {dayBands}
                   {nowLine}
                   {crosshair}
+                  {vitals.filter(v=>v.by==='麻酔記録' && v.bt!==undefined).map((v,i)=><text key={i} x={x(v.day,v.time)} y={y(v.bt!)-6} fontSize={9}><title>麻酔記録 {v.time}</title>麻</text>)}
                   <Series points={vitals.filter((v) => v.bt !== undefined).map((v) => [x(v.day, v.time), y(v.bt!)])} color={C_BT} />
                   <EndLabel vitals={vitals} pick={(v) => v.bt?.toFixed(1)} x={x} y={(v) => y(v.bt!)} />
                 </>
@@ -357,6 +360,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
                       const cx = x(v.day, v.time);
                       return (
                         <g key={i} stroke={C_BP} strokeWidth={2} strokeLinecap="round">
+                          {v.by === "麻酔記録" && <text x={cx} y={y(v.sbp!)-6} stroke="none" fill={C_BP} fontSize={9}><title>麻酔記録 {v.time}</title>麻</text>}
                           <line x1={cx} x2={cx} y1={y(v.sbp!)} y2={y(v.dbp!)} />
                           <line x1={cx - 4} x2={cx + 4} y1={y(v.sbp!)} y2={y(v.sbp!)} />
                           <line x1={cx - 4} x2={cx + 4} y1={y(v.dbp!)} y2={y(v.dbp!)} />
@@ -972,7 +976,7 @@ function Tooltip({ v, left, plotW, today }: { v: VitalSign; left: number; plotW:
       style={flip ? { right: `calc(100% - ${left - 12}px)` } : { left: left + 12 }}
     >
       <div className="mb-1 flex items-center gap-2 text-[10px] text-ink-faint">
-        {formatShort(addDays(today, v.day))} {v.time}
+        {formatShort(addDays(today, v.day))} {v.time}{v.by === "麻酔記録" && <small title="麻酔記録"> 麻</small>}
         <button
           type="button"
           aria-label="この測定値をコピー"
@@ -1020,7 +1024,7 @@ function VitalTable({ vitals, today }: { vitals: VitalSign[]; today: CalendarDat
         {sorted.map((v, i) => (
           <tr key={i} className="border-b border-rule-soft">
             <td className="py-1">
-              {formatShort(addDays(today, v.day))} {v.time}
+              {formatShort(addDays(today, v.day))} {v.time}{v.by === "麻酔記録" && <small title="麻酔記録"> 麻</small>}
             </td>
             <td className="py-1 text-right">{v.bt?.toFixed(1)}</td>
             <td className="py-1 text-right">{v.hr}</td>

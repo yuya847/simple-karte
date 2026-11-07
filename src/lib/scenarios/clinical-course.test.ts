@@ -63,7 +63,7 @@ describe("病名と経過がつながる100人の臨床記録", () => {
 
   it("術後、抜管、食事再開、透析導入、終末期の記録が実際のイベントと一致する", () => {
     const hip = scenarios.patients[17];
-    expect(scenarios.surgeries.some((s) => s.patientId === hip.id && s.procedure === "人工骨頭置換術")).toBe(true);
+    expect(scenarios.surgeries.some((s) => s.patientId === hip.id && s.procedure === "人工骨頭挿入術" && s.day === 0)).toBe(true);
     expect(hip.history.some((e) => e.kind === "note" && e.text?.includes("機械的VTE予防"))).toBe(true);
     const respiratory = scenarios.patients[12];
     expect(respiratory.vitals.find((v) => v.day === respiratory.admittedOn + 1)?.o2).toContain("人工呼吸器");

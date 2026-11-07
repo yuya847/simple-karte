@@ -160,6 +160,7 @@ export function IoFlowRows({ lines, orders, nowAbs, t0, endAbs, xAbs, plotW, lab
         {byTime
           ? drips.map((e) => lineRow(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　終了時` : undefined, lines.filter((l) => l.orderId === e.id)))
           : drips.map((e) => row(e.id, shortDrug(e), e.order.type === "injection" ? `${e.order.route}　今回/計` : undefined, (w) => dripCell(e, w)))}
+        {[...new Set(lines.filter(l=>l.side==='IN' && l.kind==='点滴' && !l.orderId).map(l=>l.what))].map(what => { const mine=lines.filter(l=>l.side==='IN' && l.kind==='点滴' && !l.orderId && l.what===what); return byTime ? lineRow(`fluid-${what}`,what,'IN',mine) : row(`fluid-${what}`,what,'IN',w=>({top:state(w)==='future' || !mine.some(l=>inWindow(l.at,upTo(w))) ? '' : r(sum(mine,upTo(w))),title:what})); })}
         {inKinds.map((k) => (byTime ? lineRow(`in-${k}`, k, "IN", lines.filter((l) => l.side === "IN" && l.kind === k && !l.orderId)) : row(`in-${k}`, k, "IN", (w) => kindCell("IN", k, w))))}
         {row("in", "IN合計", undefined, (w) => totalCell("IN", w), true)}
         {outKinds.map((k) => (byTime ? lineRow(`out-${k}`, k, "OUT", lines.filter((l) => l.side === "OUT" && l.kind === k)) : row(`out-${k}`, k, "OUT", (w) => kindCell("OUT", k, w))))}

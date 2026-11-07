@@ -74,6 +74,8 @@ export function standingFromBlocks(lines: StandingLine[], fields?: StandingOrder
   const basic = Object.assign({}, ...basics.map(l => parseBasicBlock(l.text))) as BasicBlock;
   // Free text is retained verbatim; consumers display it or recognize a supported measurement frequency.
   for (const key of ['rest','bath','vitals','weight','io'] as const) if (basic[key] !== undefined) (s[key] as string | null) = basic[key];
+  const restLine = active.filter(l=>l.cat==='安静').at(-1);
+  if(restLine) (s.rest as string | null) = restLine.text.replace(/^(?:術後指示|安静度)[：:]\s*/, '');
   s.blockCallTexts = calls.flatMap(l => l.text.split("\n").slice(1).filter(Boolean));
   s.blockPrnTexts = active.filter(l => l.cat === "頓用").map(l => l.text);
   const parsed = calls.flatMap(l => parseCallBlock(l.text));

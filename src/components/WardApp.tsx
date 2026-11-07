@@ -1,4 +1,5 @@
 "use client";
+import { anesthesiaPostopOrders } from '@/lib/anesthesia-orders';
 import { useTransferSummaryPersistence } from "@/lib/use-transfer-summary-persistence";
 import { pendingChartDrafts } from "@/lib/confirmed-drafts";
 import { currentOxygen, patientForCurrentDisplay } from "@/lib/icu/current-oxygen";
@@ -2982,7 +2983,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           nowAbs={abs(0, nowTime)}
           surgeries={surgeries} initialAnesthesiaTab={anesthesiaTab?.tab} initialAnesthesiaPatientId={anesthesiaTab?.patientId}
           onRecord={(pid, text, sid) => setNotes(all => ({...all,[pid]:upsertAnesthesiaNote(all[pid]??[],{kind:"note",id:`anesthesia:${sid}`,day:0,time:nowTime,author:me.name,role:me.role,text})}))}
-          postopOrders={{lines:standingLines,onAdd:(pid,text,cat)=>addStandingLine(pid,{id:newId(),cat,text,start:{day:0,time:nowTime},by:me.name,at:{day:0,time:nowTime}})}}
+          postopOrders={anesthesiaPostopOrders(standingLines,standing,setStanding,addStandingLine,me.name,nowTime,newId)}
           onNote={chartNote} physio={dept.physioDesk} consents={consents} onConsent={(r) => setConsents(all => all.some(c => c.id === r.id) ? all.map(c => c.id === r.id ? r : c) : [...all, r])}
           onFasting={(pid, text) => addStandingLine(pid, { id: newId(), cat: "食事", text, start: { day: 0, time: nowTime }, by: me.name, at: { day: 0, time: nowTime } })}
           people={examPeople}
