@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { RoleProvider } from "./RoleContext";
 import { LetterPanel } from "./panels/LetterPanel";
 import { LetterDoc } from "./LetterDoc";
+import { HistoryPane } from "./HistoryPane";
 import { PATIENTS } from "@/lib/patients";
 import { confirmLetter, newLetter, type Letter } from "@/lib/letters";
 import type { Role } from "@/lib/roles";
@@ -42,5 +43,21 @@ describe("紹介状の道具", () => {
     const draft = newLetter("d", chart, "照会", "山本（専攻医）", { day: 0, time: "10:00" });
     expect(renderToStaticMarkup(createElement(LetterDoc, { letter: draft, patient, today, doctor: "山本（専攻医）" }))).toContain(">下書き</span>");
     expect(renderToStaticMarkup(createElement(LetterDoc, { letter: done, patient, today, doctor: "山本（専攻医）" }))).not.toContain(">下書き</span>");
+  });
+});
+
+describe("左の経過", () => {
+  const history = (letters: Letter[]) => as("医師", createElement(HistoryPane, { patient, entries: patient.history, today, selectedDay: null, showStopped: false, onToggleStopped() {}, letters, onOpenLetter() {} }));
+  it("確定した紹介状はその日時の行に【紹介状】と宛先・種類で入り、「開く」がある。開く前は本文を出さない", () => {
+    const html = history([done]);
+    expect(html).toContain("【紹介状】 11/7（土） 09:30");
+    expect(html).toContain("架空みどり病院 循環器内科（紹介）");
+    expect(html).toContain('aria-label="右の紹介状の道具で開く"');
+    expect(html).not.toContain("平素より大変お世話になっております");
+  });
+  it("下書きは経過に出さない", () => {
+    const draft = newLetter("d", chart, "照会", "山本（専攻医）", { day: 0, time: "10:00" });
+    const html = history([{ ...draft, to: "下書き病院" }]);
+    expect(html).not.toContain("下書き病院");
   });
 });

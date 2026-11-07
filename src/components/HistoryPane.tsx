@@ -49,6 +49,8 @@ import { useLongPress } from "@/lib/use-long-press";
 import { FlowSheet } from "./FlowSheet";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import type { RefWindowProps } from "./RefWindows";
+import { LetterDoc } from "./LetterDoc";
+import { letterTitle, versionNo, type Letter } from "@/lib/letters";
 
 export type LeftView = "record" | "flowsheet" | "rx-history" | "inj-history" | "results";
 
@@ -110,6 +112,9 @@ interface Props {
   takeBadgeOf?: (entryId: string) => TakeBadge | null;
   /** 実施・未実施 from an order row (right click, ⋯, long press) and the calendars' dose cells. Absent: no such menu. */
   execute?: ExecuteProps;
+  /** 確定した紹介状: a row at the time it was confirmed, its text when opened, 「開く」 to the 紹介状 tool. */
+  letters?: Letter[];
+  onOpenLetter?: (id: string) => void;
 }
 
 /** What is copied to the right (Do): a past note's text, or a past order to write again. */
@@ -136,7 +141,7 @@ const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
  * calendars of 処置・移動・食事・指示簿 and the 予約 list open from the tools on the far right (参照).
  */
 export function HistoryPane(props: Props) {
-  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, planned, nowTime, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown } = props;
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, planned, nowTime, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown, letters, onOpenLetter } = props;
   const view = asLeftView(props.view);
   const v = views;
   const calendarProps: CalendarProps | null = v ? { onToggleDose: v.onToggleDose, patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, pendingStopTimes: v.pendingStopTimes, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewPrescription: v.onNewPrescription, onPrescriptionStop: v.onPrescriptionStop, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew, execute } : null;
@@ -178,7 +183,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} noteId={focus?.noteId} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onToggleStopped={onToggleStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} noteId={focus?.noteId} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onToggleStopped={onToggleStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} letters={letters} onOpenLetter={onOpenLetter} />
       )}
     </section>
   );
@@ -196,6 +201,8 @@ const CATS: { key: string; group: "note" | "order"; label: string; test: (e: His
   { key: "exam", group: "order", label: "画像・生理", test: (e) => e.kind === "order" && (e.order.type === "imaging" || e.order.type === "physio") },
   { key: "procedure", group: "order", label: "処置・透析・輸血", test: (e) => e.kind === "order" && e.order.type === "procedure" && !e.order.opd },
   { key: "opd", group: "order", label: "外来予約", test: (e) => e.kind === "order" && e.order.type === "procedure" && !!e.order.opd },
+  // 紹介状 are not entries of the record; their rows are added by RecordList (letters).
+  { key: "letter", group: "order", label: "紹介状", test: () => false },
 ];
 const ALL_CATS = CATS.map((c) => c.key);
 /** The categories a quick choice stands for (記載だけ・オーダだけ), or an old single-kind key. */
@@ -223,7 +230,11 @@ function RecordList({
   takeBadgeOf,
   execute,
   onShown,
+  letters = [],
+  onOpenLetter,
 }: {
+  letters?: Letter[];
+  onOpenLetter?: (id: string) => void;
   kindInit?: string;
   noteId?: string;
   patient: Patient;
@@ -347,8 +358,13 @@ function RecordList({
   for (const e of shown) {
     if (!sections.some((s) => s.day === e.day)) sections.push({ day: e.day, place: null, entries: [], plans: [] });
   }
+  // 確定した紹介状: by the same filters (種類・診療科・職種・検索; not a template's note).
+  const lettersShown = letters.filter((l) => l.status === "確定" && l.confirmedAt && on.includes("letter") && !templateActive && (!departments.length || departments.includes(patient.department)) && (!roles.length || roles.includes("医師")) && (!key || searchKey(`${letterTitle(l)} ${l.purpose} ${Object.values(l.body).join(" ")}`).includes(key)));
+  for (const l of lettersShown) {
+    if (!sections.some((s) => s.day === l.confirmedAt!.day && !s.place)) sections.push({ day: l.confirmedAt!.day, place: null, entries: [], plans: [] });
+  }
   sections.sort((a, b) => b.day - a.day);
-  const shownCount = sections.reduce((n, s) => n + s.entries.length, 0);
+  const shownCount = sections.reduce((n, s) => n + s.entries.length, 0) + lettersShown.length;
   const ahead = aheadSummary(sections, today);
   // 日付ツリーにも表示する節の日を渡す。オーダの依頼日時は元の entries に保持する。
   const shownKey = orderDay + showStopped + shown.map((e) => `${e.kind}:${e.day}:${e.time}:${e.kind === "order" ? e.id : e.author}`).join("|");
@@ -357,7 +373,7 @@ function RecordList({
     // `shownKey` stands for `shown`/`narrowed`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownKey]);
-  const counts = Object.fromEntries(CATS.map((c) => [c.key, visible.filter(c.test).length]));
+  const counts = Object.fromEntries(CATS.map((c) => [c.key, c.key === "letter" ? letters.filter((l) => l.status === "確定").length : visible.filter(c.test).length]));
   const allOf = (g: "note" | "order") => CATS.filter((c) => c.group === g).every((c) => on.includes(c.key));
   const onlyOf = (g: "note" | "order") => allOf(g) && CATS.filter((c) => c.group !== g).every((c) => !on.includes(c.key));
   // 科・場所 of the stay's records: the ward (or the clinic, for a visit opened in the chart).
@@ -500,6 +516,7 @@ function RecordList({
     const d = s.day;
     const place = s.place ? `${s.place.dept} 外来` : herePlace;
     const rpNo = rpNoOf(s.entries);
+    const dayLetters = s.place ? [] : lettersShown.filter((l) => l.confirmedAt!.day === d);
     // 終了・帰院・手術など、本体の開始日以外に残す予定。
     const additionalPlans = s.plans.filter((p) => {
       const order = shown.find((e) => e.kind === "order" && e.id === p.orderId);
@@ -535,9 +552,18 @@ function RecordList({
             {p.time} {planVerb(p, nowAbs)} {p.label}{p.orderedOn === null ? "（手術の予定表から）" : ""}
           </p>
         ))}
-        {s.entries.length === 0 ? null : (
+        {s.entries.length + dayLetters.length === 0 ? null : (
           <ol className="space-y-2">
-            {groupRx(s.entries).map((group, i) => {
+            {[...groupRx(s.entries).map((group, i) => ({ time: group[0].time, group, i })), ...dayLetters.map((l) => ({ time: l.confirmedAt!.time, letter: l }))].sort((a, b) => a.time.localeCompare(b.time)).map((item) => {
+              if ("letter" in item) {
+                const l = item.letter, k = `letter:${l.id}`;
+                return (
+                  <li key={k}>
+                    <LetterRow letter={l} patient={patient} today={today} place={place} folded={folded.each[k] ?? true} onFold={() => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !(f.each[k] ?? true) } }))} onOpen={onOpenLetter ? () => onOpenLetter(l.id) : undefined} />
+                  </li>
+                );
+              }
+              const { group, i } = item;
               const e = group[0];
               const k = e.kind === "note" ? noteKey(e) : e.id;
               return (
@@ -596,6 +622,38 @@ function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHan
 
 /** "11/4（水） 10:00" */
 const whenText = (today: CalendarDate, day: DayOffset, time?: string) => `${formatShort(addDays(today, day))}${time ? ` ${time}` : ""}`;
+
+/** A confirmed 紹介状 in the record: 【紹介状】 when, the address and kind; opened, the letter as sent. */
+function LetterRow({ letter: l, patient, today, place, folded, onFold, onOpen }: { letter: Letter; patient: Patient; today: CalendarDate; place: string; folded: boolean; onFold: () => void; onOpen?: () => void }) {
+  const at = l.confirmedAt!;
+  return (
+    <Card
+      mark="紹介状"
+      when={whenText(today, at.day, at.time)}
+      place={place}
+      tone={ROLE_COLORS.医師}
+      folded={folded}
+      onFold={onFold}
+      article={{ id: `letter-${l.id}` }}
+      tag={onOpen && (
+        <button type="button" onClick={onOpen} aria-label="右の紹介状の道具で開く" title="右の紹介状の道具で開く（印刷もそこから）" className="shrink-0 rounded border border-rule bg-sheet px-1.5 text-[11px] text-ink-soft hover:border-ai hover:text-ai">
+          開く
+        </button>
+      )}
+      meta={
+        <>
+          <span className="basis-full text-[13px] font-bold text-ink">{letterTitle(l)}</span>
+          <span>第{versionNo(l)}版：</span>
+          <span className={`rounded px-1 font-bold leading-4 ${ROLE_COLORS.医師.chip}`}>医師</span>
+          <span className="font-bold text-ink">{displayText(l.confirmedBy)}</span>
+          {l.revised && <span className="rounded border border-yamabuki/50 px-1 text-yamabuki">更新 {whenText(today, l.revised.at.day, l.revised.at.time)}（{l.revised.reason}）</span>}
+        </>
+      }
+    >
+      <LetterDoc letter={l} patient={patient} today={today} doctor={l.confirmedBy ?? ""} />
+    </Card>
+  );
+}
 
 /** A small menu at the pointer (right click) or under the 「…」 button (touch). Esc or a press outside closes it. */
 function Menu({ at, onClose, items }: { at: { x: number; y: number }; onClose: () => void; items: { label: string; icon: typeof Copy; onClick: () => void; disabled?: string }[] }) {

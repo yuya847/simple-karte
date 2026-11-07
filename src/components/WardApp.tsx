@@ -3289,6 +3289,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               <>
             <ConsultContext.Provider value={consultReplies}><ReportContext.Provider value={{ ris: dept.ris, reports: reportsHere, labs: deskLabs(labDesk, patient.id).map((lab) => ({ lab, orderId: labDesk.reports[lab.id!].orderId })), acks, today, onSeen: deny("result.ack") ? undefined : (keys) => markSeen(patient.id, keys), onOpenImage: openReportImage }}>
             <HistoryPane
+              letters={lettersFor(patient.id, letters, discharges[patient.id])}
+              onOpenLetter={(id) => openLetter({ id })}
               onShown={setShownEntries}
               patient={patient}
               coedit={presence.coedit}
