@@ -2,11 +2,11 @@
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
-import { MonthPicker } from "../MonthPicker";
-import type { CalendarDate } from "@/lib/dates";
+import { addDays, daysFrom, isoDate, todayInTokyo, type CalendarDate } from "@/lib/dates";
+import { IsoDayInput } from "../DayInput";
 import { useRef, useState } from "react";
 import { type Draft } from "@/lib/drafts";
-import { OPD_BOOKING_RULES, OPD_CLINICS, OPD_PURPOSES, OPD_SLOTS, bookableDays, newOpdBookingDraft, opdBookingText, opdBookingsOf, opdDoctorsOf, type OpdSlot } from "@/lib/opd-booking";
+import { OPD_BOOKING_RULES, OPD_CLINICS, OPD_PURPOSES, OPD_SLOTS, newOpdBookingDraft, opdBookingText, opdBookingsOf, opdDoctorsOf, type OpdSlot } from "@/lib/opd-booking";
 import type { OrderEntry } from "@/lib/types";
 import { DenyNote, useDeny } from "../RoleContext";
 import { TabChoice } from "../TabChoice";
@@ -30,6 +30,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
   const [purposeNote, setPurposeNote] = useState("");
   const [note, setNote] = useState("");
   const booked = opdBookingsOf(entries);
+  const base = today ?? todayInTokyo();
   const missing = [!dept && "診療科", day === null && "日付", !slot && "時間枠", slot === "時刻" && !time && "時刻", !(purpose && (purpose !== "その他" || purposeNote.trim())) && "目的"].filter((x): x is string => !!x);
   const submit = () => {
     if (missing.length) return;
@@ -45,7 +46,7 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
   const row = "flex flex-wrap items-center gap-2";
   const label = "w-16 shrink-0 text-ink-soft";
   return (
-    <div ref={fields} className="space-y-3 text-[12px]">
+    <div ref={fields} className="space-y-2 text-[12px]">
       {booked.length > 0 && (
         <section className="space-y-1">
           <h3 className="font-bold text-ink-soft">この患者の外来予約</h3>
@@ -76,7 +77,6 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
             </option>
           ))}
         </select>
-        <span className="text-[11px] text-ink-faint">任意</span>
       </div>
       <div data-booking-field="日付" className={row}>
         <span className={label}>日付</span>
@@ -86,26 +86,19 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
           value={day !== null && [7, 14, 28, 56].includes(day) ? day : null}
           onChange={setDay}
         />
-        {today && (
-          <MonthPicker
-            today={today}
-            value={day}
-            min={OPD_BOOKING_RULES.minDays}
-            max={OPD_BOOKING_RULES.maxDays}
-            onChange={setDay}
-            marks={Object.fromEntries(Object.entries(entries.reduce<Record<number, number>>((acc, e) => { if (e.order.type === "procedure" && e.order.opd && e.status !== "中止") acc[e.order.opd.day] = (acc[e.order.opd.day] ?? 0) + 1; return acc; }, {})).map(([d, n]) => [d, `予約${n}`]))}
-            label="日付をカレンダーで選ぶ"
-          />
-        )}
-        <select value={day ?? ""} onChange={(e) => setDay(e.target.value === "" ? null : Number(e.target.value))} aria-label="日付（明日〜90日先）" className="nums rounded border border-rule bg-paper px-1.5 py-0.5">
-          <option value="">日を選ぶ</option>
-          {bookableDays().map((d) => (
-            <option key={d} value={d}>
-              {fmtDay(d)}
-              {d === 1 ? "（明日）" : ""}
-            </option>
-          ))}
-        </select>
+        <IsoDayInput
+          aria-label="日付（明日〜90日先）"
+          min={isoDate(addDays(base, OPD_BOOKING_RULES.minDays))}
+          max={isoDate(addDays(base, OPD_BOOKING_RULES.maxDays))}
+          value={day === null ? "" : isoDate(addDays(base, day))}
+          onChange={(e) => {
+            if (!e.target.value) return;
+            const [y, m, d] = e.target.value.split("-").map(Number);
+            const n = daysFrom(base, { y, m, d });
+            if (n >= OPD_BOOKING_RULES.minDays && n <= OPD_BOOKING_RULES.maxDays) setDay(n);
+          }}
+        />
+        {day !== null && <span className="text-ink-soft">{(() => { const c = addDays(base, day); return `${"日月火水木金土"[new Date(Date.UTC(c.y, c.m - 1, c.d)).getUTCDay()]}曜`; })()}</span>}
       </div>
       <div data-booking-field="時間枠" className={row}>
         <span className={label}>時間枠</span>
@@ -125,7 +118,6 @@ export function OpdBookingPanel({ entries, defaultDept, newId, fmtDay, onAdd, to
       </button>
       {missing.length > 0 && <span className="text-yamabuki">未入力：{missing.map((name) => <button key={name} type="button" onClick={() => focusMissing(name)} className="mx-1 underline">{displayText(name)}</button>)}</span>}
       </div>
-      <p className="text-[11px] text-ink-faint">{displayText(OPD_BOOKING_RULES.note)}</p>
     </div>
   );
 }

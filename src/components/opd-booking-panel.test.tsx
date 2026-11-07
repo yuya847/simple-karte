@@ -2,6 +2,7 @@
 // and the order in the record and the booking list.
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { addDays, isoDate, todayInTokyo } from "@/lib/dates";
 import { checkDraft, type CheckContext } from "@/lib/drafts";
 import { newOpdBookingDraft } from "@/lib/opd-booking";
 import { PATIENTS } from "@/lib/patients";
@@ -34,9 +35,11 @@ describe("外来予約の引き出し", () => {
     expect(html).toContain("時刻を指定");
     expect(html).toContain("退院後の初回");
     expect(html).toContain("検査の結果説明");
+    // The day is the chip with the calendar, limited to tomorrow .. 90 days ahead.
     expect(html).toContain('aria-label="日付（明日〜90日先）"');
-    expect(html).toContain("D90");
-    expect(html).not.toContain(">D91<");
+    expect(html).toContain(`min="${isoDate(addDays(todayInTokyo(), 1))}"`);
+    expect(html).toContain(`max="${isoDate(addDays(todayInTokyo(), 90))}"`);
+    expect(html).toContain("日付を選ぶ");
     expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("この患者の外来予約");
     expect(html).toContain("D14 午前");
