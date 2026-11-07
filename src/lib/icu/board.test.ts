@@ -37,3 +37,14 @@ describe("ICU・HCU のベッド一覧", () => {
     expect(row.infusions).toEqual([]); expect(row.lines).toEqual([]); expect(row.vent).toBe("A/C-PC FiO2 0.4 PEEP 8");
   });
 });
+
+describe("入ってくる予約", () => {
+  it("ICU・HCU の床へ移る予約を、その床に「← 氏名（いまの病棟）」で出す", () => {
+    const p = structuredClone(icuPatient), er = { ...p, id: "er", name: "架空 救急", ward: "救急外来", room: "", labs: [], vitals: [] };
+    const into: OrderEntry = { kind:"order", id:"in",day:0,time:"09:00",author:"架空医師",status:"有効",order:{type:"procedure",code:"PROC-MOVE",start:{day:1,time:"10:00"},move:{kind:"転棟",to:{room:"ICU7",bed:""},reason:"架空"},schedule:{kind:"once"}} };
+    const rows = boardRows("ICU",[p,er],[{room:"ICU1",bed:"",patientId:p.id}],icuFixture(),0,600,{[er.id]:[into]});
+    expect(rows[6].patient).toBeNull();
+    expect(rows[6].incoming).toEqual({ id:"er", name:"架空 救急", from:"救急外来", day:1, time:"10:00" });
+    expect(rows.filter(r => r.incoming)).toHaveLength(1);
+  });
+});

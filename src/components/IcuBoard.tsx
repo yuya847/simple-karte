@@ -34,22 +34,26 @@ export function IcuBoard({ patients, beds, records, nowTime, onOpen, orders }: {
   </section>;
 }
 
+const when = (day: number) => day === 1 ? "明日" : day === 0 ? "今日" : `${day}日後`;
+
 function BedTile({ r, right, pinned, onPeek, onOpen }: { r: Row; right: boolean; pinned: boolean; onPeek: () => void; onOpen: (id: string) => void }) {
   // A long press ends with the finger lifted: that click must not also open the chart.
   const held = useRef(false);
   const press = useLongPress<HTMLButtonElement>(r.patient ? () => { held.current = true; onPeek(); } : undefined);
-  return <button disabled={!r.patient} aria-describedby={r.patient ? `icu-card-${r.bed}` : undefined}
+  const opens = r.patient?.id ?? r.incoming?.id;
+  return <button disabled={!opens} aria-describedby={r.patient ? `icu-card-${r.bed}` : undefined}
     {...press}
     onPointerDownCapture={() => { held.current = false; }}
-    onClick={() => { if (held.current) { held.current = false; return; } if (r.patient) onOpen(r.patient.id); }}
+    onClick={() => { if (held.current) { held.current = false; return; } if (opens) onOpen(opens); }}
     className="group relative flex min-h-24 select-none flex-col justify-start rounded border border-rule bg-sheet p-2 text-left text-xs [-webkit-touch-callout:none] hover:bg-paper disabled:border-dashed disabled:bg-transparent disabled:text-ink-faint">
     <div className="flex w-full items-baseline gap-1.5"><b className="text-sm">{r.bed}</b>{r.patient ? <><span className="truncate text-sm">{r.patient.name}</span><span className="ml-auto shrink-0 text-ink-faint">{r.patient.age}{r.patient.sex}・{r.days}日目</span></> : <span>空床</span>}</div>
     {r.patient && <>
       <div className="mt-0.5 truncate text-ink-soft">{r.diagnosis}</div>
       <div className="mt-1 flex flex-wrap gap-1">{r.vent && <span className={chip}>{r.vent.split(" ")[0]}</span>}{r.infusions.map((inf,i) => <span key={i} className={chip}>{shortDrug(inf)}</span>)}{r.crrt && <span className={chip}>{r.crrt.split(" ")[0]}</span>}</div>
-      {r.planned && <div className="mt-1 text-ai">→ {r.planned.to} {r.planned.day === 1 ? "明日" : r.planned.day === 0 ? "今日" : `${r.planned.day}日後`} {r.planned.time}</div>}
+      {r.planned && <div className="mt-1 text-ai">→ {r.planned.to} {when(r.planned.day)} {r.planned.time}</div>}
       <BedCard r={r} id={`icu-card-${r.bed}`} right={right} pinned={pinned}/>
     </>}
+    {r.incoming && <div className="mt-1 text-ai">← {r.incoming.name}（{r.incoming.from}）{when(r.incoming.day)} {r.incoming.time}</div>}
   </button>;
 }
 

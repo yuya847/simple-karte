@@ -11,12 +11,22 @@ import { mapWithMeasured } from "./vitals";
 import type { IcuRecords, UnitKind } from "./types";
 
 export type BoardOrders = Record<string, OrderEntry[]>;
+/** The planned moves into a bed (転床・転棟 orders still to be done), for the board's "← 入室予定". */
+function incomingTo(bed: string, occupant: string | undefined, patients: Patient[], orders: BoardOrders) {
+  const into = Object.entries(orders).flatMap(([pid, entries]) => pid === occupant ? [] : entries.flatMap(e => {
+    const to = e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-MOVE" ? e.order.move?.to : undefined;
+    return to && (to.room === bed || `${to.room}${to.bed}` === bed) && e.order.type === "procedure" ? [{ pid, start: e.order.start }] : [];
+  })).sort((a, b) => abs(a.start.day, a.start.time ?? "00:00") - abs(b.start.day, b.start.time ?? "00:00"))[0];
+  const p = into && patients.find(x => x.id === into.pid && !x.dischargedAt);
+  return p && into ? { id: p.id, name: p.name, from: p.ward, day: into.start.day, time: into.start.time ?? "" } : null;
+}
+
 export function boardRows(unit: UnitKind, patients: Patient[], beds: BedAssignment[], records: IcuRecords, today: number, nowAbs: number, orders: BoardOrders = {}) {
   return Array.from({ length: 8 }, (_, i) => {
     const bed = `${unit}${i + 1}`;
     const assignment = beds.find(b => b.room === bed && b.patientId);
     const patient = patients.find(p => p.id === assignment?.patientId && !p.dischargedAt) ?? null;
-    const base = { bed, patient };
+    const base = { bed, patient, incoming: incomingTo(bed, patient?.id, patients, orders) };
     if (!patient) return { ...base, days: null, diagnosis: "", vent: "", infusions: [], drips: [], crrt: "", sofaToday: null, sofaYesterday: null, sofaAssumed: { today: false, yesterday: false }, lines: [], balance24h: null, latest: null, planned: null, stay: null };
     const pid = patient.id;
     const stays = records.stays.filter(s => s.patientId === pid && abs(s.in.day,s.in.time) <= nowAbs).sort((a,b) => abs(a.in.day,a.in.time)-abs(b.in.day,b.in.time));
