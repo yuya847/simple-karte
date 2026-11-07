@@ -1138,7 +1138,6 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
   );
   return (
     <div ref={panelRoot} onKeyDown={panelKeys} className="space-y-2 text-[12px]">
-      <p className="text-[11px] text-ink-faint">項目は医師が選びます（最初から選ばれているものはありません）。← → で選び、Tab で次の項目へ、⌘Enter（Ctrl+Enter）で下書きにします。</p>
       {row("区分", <TabChoice label="透析の区分" options={HD_PURPOSES.map((x) => ({ value: x, label: x }))} value={f.purpose} onChange={(v) => set({ purpose: v })} />)}
       {row("方法", <TabChoice label="透析の方法" options={HD_METHODS.map((x) => ({ value: x, label: x }))} value={f.method} onChange={(v) => set({ method: v })} />)}
       {row(
@@ -1153,8 +1152,7 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
             value={f.startDay}
             onChange={(v) => set({ startDay: v })}
           /><DayInput label="透析の日付" value={f.startDay} onChange={(v) => set({ startDay: v })} />
-          <TimeInput value={f.startTime} onChange={(e) => set({ startTime: e.target.value })} aria-label="透析の開始時刻" className={field} />
-          <span className="text-[11px] text-ink-faint">空なら透析室と調整</span>
+          <TimeInput value={f.startTime} onChange={(e) => set({ startTime: e.target.value })} placeholder="任意" aria-label="透析の開始時刻" className={field} />
         </>,
       )}
       {row(
@@ -1233,7 +1231,6 @@ export function AddDialysisPanel({ onAdd, newId, weightKg }: { onAdd: (d: Draft)
         </button>
         {missing.length > 0 && <p className="mt-1 text-[12px] text-yamabuki">未選択：{missing.join("・")}</p>}
       </div>
-      <p className="text-[11px] text-ink-faint">除水速度の目安：{displayText(HD_UF_RATE.source)}（維持透析の目安。病棟の透析では参考として出します）。確定すると処置カレンダー・ワークシート・透析室の「病棟からの透析指示」に出ます。</p>
     </div>
   );
 }

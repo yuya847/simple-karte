@@ -452,7 +452,8 @@ export const helpRoutes: Record<string, string[]> = {
   ],
   "panel:add-dialysis": [
     "Drawer",
-    "AddPanels"
+    "AddPanels",
+    "AddDialysisPanel"
   ],
   "panel:add-lab": [
     "Drawer",

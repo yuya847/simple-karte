@@ -4,6 +4,7 @@ import { TEAMS } from "../teams";
 import { GUIDANCE_SOURCE, GUIDANCE_TIME_SOURCE } from "../guidance";
 import { RIS_SOURCES, DRL_NOTE } from "../ris";
 import { MPPS_DOSE_NOTE, DICOM_SOURCES } from "../dicom-mwl";
+import { HD_UF_RATE } from "../procedures";
 // 画面ごとのヘルプ。文言はここで編集します。根拠・出典は移動元のコードコメントを参照。
 export const screenHelp = [
   { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者だけを匿名化して読みます。保存した記録は読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。"] },
@@ -1929,6 +1930,18 @@ export const screenHelp = [
       "「麻酔が困難な患者」（告示の別表）は麻酔科医が確かめて入れます。L008 の区分は申込の体位・腹腔鏡からコードで決めます",
       "麻酔開始と麻酔終了が入ると、麻酔の時間と L008 の点数を計算します（2時間を超えたら30分ごと、端数を含む）",
       "点数を計算するのは全身麻酔（L008）だけです。腰椎麻酔などの点数は、この試作では計算しません"
+    ]
+  },
+  {
+    "id": "AddDialysisPanel",
+    "title": "透析指示",
+    "bullets": [
+      "項目は医師が選びます（最初から選ばれているものはありません）",
+      "← → で選び、Tab で次の項目へ、⌘Enter（Ctrl+Enter）で下書きにします",
+      "開始時刻が空なら、透析室と調整します",
+      "除水速度は除水量・時間・カルテの体重からコードで計算します",
+      `除水速度の目安：${HD_UF_RATE.source}（維持透析の目安。病棟の透析では参考として出します）`,
+      "確定すると処置カレンダー・ワークシート・透析室の「病棟からの透析指示」に出ます"
     ]
   },
   {
