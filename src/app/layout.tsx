@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { KeyboardGuard } from "@/components/KeyboardGuard";
 import { BIZ_UDPGothic } from "next/font/google";
+import { appearanceBootScript } from "@/lib/appearance";
 import "./globals.css";
 
 const biz = BIZ_UDPGothic({
@@ -28,7 +29,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ja" className={biz.variable}>
+    // The script puts this browser's last look (設定：見た目・字の大きさ) on <html> before the first paint; React then
+    // keeps those attributes (suppressHydrationWarning) and the 設定 button applies the person's own choice.
+    <html lang="ja" className={biz.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: appearanceBootScript() }} />
+      </head>
       <body className="font-sans antialiased">
         <KeyboardGuard />
         {children}

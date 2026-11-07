@@ -32,6 +32,109 @@
   --font-sans: var(--font-biz), "Hiragino Sans", "Yu Gothic UI", sans-serif;
 }
 
+/*
+  設定 › 見た目（人ごと・この端末のみ。src/lib/appearance.ts が <html> に data-theme を付ける）。
+  The same tokens are drawn again; components keep their colour classes. Paper (印刷) always uses 紙.
+  Every text colour stays 4.5:1 or more on paper, sheet and tab (appearance-css.test.ts).
+*/
+@media screen {
+  :root[data-theme="white"] {
+    --color-paper: #f4f4f2;
+    --color-sheet: #ffffff;
+    --color-tab: #ededea;
+    --color-rule: #d6d6d2;
+    --color-rule-soft: #e8e8e5;
+    --color-ink: #1d1d1b;
+    --color-ink-soft: #52524e;
+    --color-ink-faint: #656561;
+    --color-yamabuki: #8a5a0f;
+    --color-wakatake: #356b48;
+  }
+
+  /* ダーク: the paper screen dimmed. Accents get lighter so they read as letters on the dark sheet; on a filled
+     accent (bg-ai, bg-ink…) the "white" letters turn dark, so those pairs keep their contrast too. */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-paper: #1c1a16;
+    --color-sheet: #24211c;
+    --color-tab: #2e2a23;
+    --color-rule: #4b453b;
+    --color-rule-soft: #38332b;
+    --color-ink: #ece5d6;
+    --color-ink-soft: #c9c0ae;
+    --color-ink-faint: #a39a88;
+    --color-ai: #9fb9e6;
+    --color-ai-soft: #26324a;
+    --color-shu: #f19a86;
+    --color-shu-soft: #47261f;
+    --color-yamabuki: #e2b462;
+    --color-yamabuki-soft: #3f321a;
+    --color-wakatake: #8fcca2;
+    --color-wakatake-soft: #1f3828;
+    --color-fuji: #c6abeb;
+    --color-fuji-soft: #352b47;
+    --color-mizu: #86c8d6;
+    --color-mizu-soft: #1d3940;
+    --color-kuri: #dcaa82;
+    --color-kuri-soft: #3d2d20;
+    --color-white: #1c1a16;
+  }
+  /* Real black stays black with white letters (毒, the image viewer); paper-like surfaces that are drawn on
+     (signature, barcode, scanned pictures) stay white. */
+  :root[data-theme="dark"] .bg-black {
+    --color-white: #fff;
+  }
+  :root[data-theme="dark"] :is(canvas, svg, img).bg-white {
+    background-color: #fff;
+  }
+  /* The veil behind a dialog darkens instead of lightening. */
+  :root[data-theme="dark"] :is(.bg-ink\/30, .bg-ink\/20) {
+    background-color: rgb(0 0 0 / 0.5);
+  }
+  :root[data-theme="dark"] ::selection,
+  :root[data-theme="dark"] :is(input, textarea, [contenteditable])::selection {
+    background: #3d5480;
+    color: var(--color-ink);
+  }
+  /* 経過表のグラフ: lines and labels written as fixed colours of the paper screen. */
+  :root[data-theme="dark"] svg [stroke="#ebe4d4"] { stroke: var(--color-rule-soft); }
+  :root[data-theme="dark"] svg [stroke="#d9cfba"] { stroke: var(--color-rule); }
+  :root[data-theme="dark"] svg [stroke="#fffdf7"] { stroke: var(--color-sheet); }
+  :root[data-theme="dark"] svg [fill="#fffdf7"] { fill: var(--color-sheet); }
+  :root[data-theme="dark"] svg [fill="#f5f1e6"] { fill: var(--color-paper); }
+  :root[data-theme="dark"] svg [fill="#e6ecf6"] { fill: var(--color-ai-soft); }
+  :root[data-theme="dark"] svg [fill="#26221c"] { fill: var(--color-ink); }
+  :root[data-theme="dark"] svg [stroke="#26221c"] { stroke: var(--color-ink); }
+  :root[data-theme="dark"] svg [stroke="#8c8473"] { stroke: var(--color-ink-faint); }
+  :root[data-theme="dark"] svg [stroke="#9a6512"] { stroke: var(--color-yamabuki); }
+
+  /* くっきり: white, black letters, darker lines and accents. */
+  :root[data-theme="contrast"] {
+    --color-paper: #ffffff;
+    --color-sheet: #ffffff;
+    --color-tab: #e6e6e6;
+    --color-rule: #6b6b6b;
+    --color-rule-soft: #a8a8a8;
+    --color-ink: #000000;
+    --color-ink-soft: #1f1f1f;
+    --color-ink-faint: #454545;
+    --color-ai: #12336b;
+    --color-ai-soft: #dde6f5;
+    --color-shu: #8f1d0c;
+    --color-shu-soft: #fbe3dd;
+    --color-yamabuki: #6b4300;
+    --color-yamabuki-soft: #fbefd6;
+    --color-wakatake: #1d5232;
+    --color-wakatake-soft: #dcefe2;
+    --color-fuji: #4b2a78;
+    --color-fuji-soft: #ece3f7;
+    --color-mizu: #154d5c;
+    --color-mizu-soft: #d9edf2;
+    --color-kuri: #5a3214;
+    --color-kuri-soft: #f1e4d8;
+  }
+}
+
 html,
 body {
   height: 100%;

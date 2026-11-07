@@ -1,7 +1,6 @@
 // 設定：見た目と字の大きさ。人ごとに、この端末（ブラウザ）だけに覚える（無くてもカルテは使える）。
 // <html> に data-theme・data-font を付け、色と拡大は globals.css が受け持つ（部品の色クラスはそのまま）。
 
-import { useSyncExternalStore } from "react";
 import { FONT_ZOOM } from "./page-zoom";
 
 export const THEMES = [
@@ -112,35 +111,4 @@ export function appearanceBootScript(): string {
   const themes = JSON.stringify(THEMES.map((t) => t.key).filter((k) => k !== DEFAULT_APPEARANCE.theme));
   const fonts = JSON.stringify(FONT_SIZES.map((f) => f.key).filter((k) => k !== DEFAULT_APPEARANCE.font));
   return `(function(){try{var v=JSON.parse(localStorage.getItem(${JSON.stringify(LAST_APPEARANCE_KEY)})||"null");if(!v)return;var d=document.documentElement;if(${themes}.indexOf(v.theme)>=0)d.setAttribute("data-theme",v.theme);if(${fonts}.indexOf(v.font)>=0)d.setAttribute("data-font",v.font)}catch(e){}})()`;
-}
-
-const listeners = new Set<() => void>();
-const cache = new Map<string, Appearance>();
-const subscribe = (f: () => void) => {
-  listeners.add(f);
-  return () => {
-    listeners.delete(f);
-  };
-};
-function read(person: string): Appearance {
-  if (typeof window === "undefined") return DEFAULT_APPEARANCE;
-  const c = cache.get(person);
-  if (c) return c;
-  const v = loadAppearance(person);
-  cache.set(person, v);
-  return v;
-}
-
-/** This person's look, shared by the 設定 window and the part that puts it on the page. */
-export function useAppearance(person: string): [Appearance, (v: Appearance) => void] {
-  const snapshot = () => read(person);
-  const state = useSyncExternalStore(subscribe, snapshot, snapshot);
-  return [
-    state,
-    (v) => {
-      cache.set(person, v);
-      saveAppearance(person, v);
-      for (const f of listeners) f();
-    },
-  ];
 }
