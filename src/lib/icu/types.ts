@@ -24,7 +24,13 @@ export interface VentSetting {
   tubeCm?: number;
   /** 実測（看護師・臨床工学技士が入れる） */
   measured?: { ppeak?: number; pplat?: number; vte?: number; rrTotal?: number; etco2?: number; mv?: number };
+  /** 確定した人工呼吸の設定のオーダ（PROC-VENT）から読み替えた行：その注文の id。保存しない（ordered.ts）。 */
+  fromOrder?: string;
+  /** オーダが止まった日時（置き換えのないとき）。この時刻からは設定なし。 */
+  end?: At;
 }
+/** 人工呼吸の設定のオーダ（PROC-VENT）で医師が決める値。 */
+export type VentOrder = Pick<VentSetting, "mode" | "airway" | "fio2" | "peep" | "ps" | "vt" | "pc" | "rr" | "flow" | "tubeCm">;
 
 /** 持続投与（シリンジポンプ・輸液ポンプ）。速さの変更は changes に積む。 */
 export interface Infusion {

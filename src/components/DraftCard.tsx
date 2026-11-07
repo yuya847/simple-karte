@@ -10,6 +10,7 @@ import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from 
 import { applyChoice, isReady, procArea, procSchedule, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import { labName, procName } from "@/lib/format";
 import { anyDrugName, findLab } from "@/lib/master";
+import { ventSettingText } from "@/lib/icu/vent-text";
 import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
 import { perDoseOf } from "@/lib/rx";
@@ -288,6 +289,7 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
     if (m?.needs.includes("hd")) head.push(draft.hd ? `${draft.hd.method}（${draft.hd.purpose}）` : "条件？");
     const parts: string[] = [];
     if (m?.needs.includes("hd") && draft.hd) parts.push(hdText(draft.hd));
+    if (m?.needs.includes("vent")) parts.push(draft.vent ? ventSettingText(draft.vent) : "設定？");
     if (m?.needs.includes("tx")) parts.push(draft.tx ? txText(draft.tx) : "製剤？");
     if (m?.needs.includes("rehab")) parts.push(draft.rehab ? rehabText(draft.rehab) : "区分？");
     if (m?.needs.includes("consult")) parts.push(draft.consult ? consultText(draft.consult) : "依頼先？");

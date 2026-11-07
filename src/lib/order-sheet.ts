@@ -12,6 +12,7 @@ import { WARD_RULES } from "./master";
 import { marKey, type AdminRecord, type NotDoneReason } from "./mar";
 import { CONFIRM_SOURCES } from "./order-confirm";
 import type { TakeRow } from "./order-take";
+import { ventSettingText } from "./icu/vent-text";
 import { AREA_LABEL, DEPTH_LABEL, consultText, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "./procedures";
 import type { DayOffset, Order, OrderEntry } from "./types";
 import { changeKey, type WorkItem, type WorkKind } from "./worksheet";
@@ -166,7 +167,7 @@ export function orderFields(o: Order, today: CalendarDate, place: string): Sheet
     put("コメント", o.comment);
   } else {
     put("処置", procedureTitle(o));
-    put("内容", o.hd ? hdText(o.hd) : o.tx ? txText(o.tx) : o.rehab ? rehabText(o.rehab) : o.consult ? consultText(o.consult) : o.leave ? leaveText(o.leave, (d) => formatShort(addDays(today, d as DayOffset))) : o.guide ? guideText(o.guide) : o.move ? moveText(o.move) : undefined);
+    put("内容", o.hd ? hdText(o.hd) : o.vent ? ventSettingText(o.vent) : o.tx ? txText(o.tx) : o.rehab ? rehabText(o.rehab) : o.consult ? consultText(o.consult) : o.leave ? leaveText(o.leave, (d) => formatShort(addDays(today, d as DayOffset))) : o.guide ? guideText(o.guide) : o.move ? moveText(o.move) : undefined);
     put("深さ", o.depth ? DEPTH_LABEL[o.depth].split(" ")[0] : undefined);
     put("範囲", o.area ? AREA_LABEL[o.area] : undefined);
     put("回数", procScheduleText(o.schedule));

@@ -1,3 +1,4 @@
+import { ventSettingText } from "./icu/vent-text";
 import { insulinDoseText } from "./insulin-doses";
 import { rpLine } from "./rp";
 import { defaultSliding } from "./insulin";
@@ -44,7 +45,7 @@ export function draftLine(d: Draft, ctx: CheckContext, rp?: number): string {
     case "procedure": {
       if (d.leave) return leaveText({ ...d.leave, note: "" }, ctx.fmtDay).replace(/\s+/g, " ").trim();
       const s = procSchedule(d);
-      text = [d.code ? procName(d.code) : `${d.said}（？）`, d.site, d.hd ? hdText(d.hd) : null, d.tx ? txText(d.tx) : null, d.rehab ? rehabText(d.rehab) : null, d.consult ? consultText(d.consult) : null, d.leave ? leaveText(d.leave, ctx.fmtDay) : null, d.guide ? guideText(d.guide) : null, d.move ? moveText(d.move) : null, d.o2.device ? `${d.o2.device} ${d.o2.lpm ?? "？"}L/分` : null, s ? procScheduleText(s) : "回数？", `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.days ? `${d.days}日間` : null].filter(Boolean).join("　"); break;
+      text = [d.code ? procName(d.code) : `${d.said}（？）`, d.site, d.hd ? hdText(d.hd) : null, d.vent ? ventSettingText(d.vent) : null, d.tx ? txText(d.tx) : null, d.rehab ? rehabText(d.rehab) : null, d.consult ? consultText(d.consult) : null, d.leave ? leaveText(d.leave, ctx.fmtDay) : null, d.guide ? guideText(d.guide) : null, d.move ? moveText(d.move) : null, d.o2.device ? `${d.o2.device} ${d.o2.lpm ?? "？"}L/分` : null, s ? procScheduleText(s) : "回数？", `${ctx.fmtDay(d.start.day ?? 0)} ${d.start.time ?? "指示受け後"}から`, d.days ? `${d.days}日間` : null].filter(Boolean).join("　"); break;
     }
     case "stop": text = `${d.procCode ? procName(d.procCode) : d.drugCode ? anyDrugName(d.drugCode) : d.said} を中止${d.stopTime ? `（${d.stopTime}から）` : ""}`; break;
     case "extend": { const o = ctx.activeOrders.find(o => o.id === d.targetOrderId); text = `${o ? ctx.describe(o) : "対象？"} ${d.addDays}日延長`; break; }

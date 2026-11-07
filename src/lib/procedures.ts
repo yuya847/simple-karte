@@ -108,7 +108,7 @@ export interface ProcMaster {
   code: string;
   name: string;
   /** What the order must say to be complete. */
-  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx" | "rehab" | "consult" | "leave" | "guide" | "move" | "opd")[];
+  needs: ("site" | "area" | "depth" | "o2" | "hd" | "tx" | "rehab" | "consult" | "leave" | "guide" | "move" | "opd" | "vent")[];
   /** Schedules a doctor may choose for this item. The first is never preselected. */
   schedules: ProcSchedule[];
   /** For 留置 and 酸素: the order runs until stopped; its schedule is always 継続. */
@@ -140,6 +140,15 @@ export const PROCEDURES: ProcMaster[] = [
     schedules: [{ kind: "continuous" }],
     continuous: true,
     aliases: ["酸素", "O2", "酸素投与", "オーツー"],
+  },
+  {
+    // 架空の院内コード。設定は ICU 記録の呼吸器のタブで入れる。算定はこの試作では行わない。
+    code: "PROC-VENT",
+    name: "人工呼吸の設定",
+    needs: ["vent"],
+    schedules: [{ kind: "continuous" }],
+    continuous: true,
+    aliases: ["人工呼吸", "人工呼吸器", "呼吸器設定", "ベンチレーター"],
   },
   {
     code: "PROC-SUCTION",

@@ -1,7 +1,14 @@
 import { abs } from "../flowsheet";
 import type { Patient } from "../types";
 import type { VentSetting } from "./types";
-export const ventAt = (vents: VentSetting[], patientId: string, atAbs: number) => vents.filter(v => v.patientId === patientId && abs(v.at.day,v.at.time) <= atAbs).sort((a,b) => abs(a.at.day,a.at.time)-abs(b.at.day,b.at.time)).at(-1) ?? null;
+/**
+ * The setting in force at a time: the last setting row (a measured row only repeats the setting it was taken on), and
+ * none once the order it was read from was stopped without another setting.
+ */
+export function ventAt(vents: VentSetting[], patientId: string, atAbs: number): VentSetting | null {
+  const v = vents.filter(v => v.patientId === patientId && !v.measured && abs(v.at.day,v.at.time) <= atAbs).sort((a,b) => abs(a.at.day,a.at.time)-abs(b.at.day,b.at.time)).at(-1) ?? null;
+  return v?.end && abs(v.end.day, v.end.time) <= atAbs ? null : v;
+}
 export function fio2At(vents: VentSetting[], patientId: string, atAbs: number): number | null {
   const v = ventAt(vents,patientId,atAbs);
   return v && (v.mode !== "なし" || v.airway === "鼻カニュラ" || v.airway === "マスク") && Number.isFinite(v.fio2) && v.fio2 >= .21 && v.fio2 <= 1 ? v.fio2 : null;

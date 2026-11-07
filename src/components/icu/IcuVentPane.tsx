@@ -3,7 +3,10 @@
 import type { FormEvent, ReactNode, SyntheticEvent } from "react";
 import { abs } from "@/lib/flowsheet";
 import { abgRows, ventAt, mgPerDlToMmolPerL, LACTATE_HINT } from "@/lib/icu";
-import type { VentSetting } from "@/lib/icu";
+import type { VentOrder, VentSetting } from "@/lib/icu";
+import { runningVentOrder, ventOrderDraft } from "@/lib/icu/vent-orders";
+import type { Draft } from "@/lib/drafts";
+import type { OrderEntry } from "@/lib/types";
 import { useWindowEntry } from "@/lib/window-entry";
 import { Field, button, input, n, s, when, type IcuPaneProps } from "./parts";
 
@@ -31,8 +34,11 @@ function Box({title,row,today,children}:{title:string;row:VentSetting|null;today
 /** 「Ppeak 22 cmH2O・VTe 420 mL」 for the history. */
 const measuredText=(m:Measured)=>measuredFields.filter(([k])=>m[k]!==undefined).map(([k,,label,unit],i)=><span key={k} className="whitespace-nowrap">{i>0&&"・"}{label} {m[k]}<Unit>{unit}</Unit></span>);
 
-/** 呼吸器・血液ガス: 医師の設定と測った実測を別の箱に、設定と実測の履歴の表、血液ガスと P/F の表。 */
-export function IcuVentPane(p:IcuPaneProps) {
+/**
+ * 呼吸器・血液ガス: 医師の設定（確定したオーダから）と測った実測を別の箱に、設定と実測の履歴の表、血液ガスと P/F の表。
+ * 医師の新しい設定は「オーダにする」で記事の下のオーダの下書き（人工呼吸の設定）になり、確定はそこで行う。実測は記録のまま。
+ */
+export function IcuVentPane(p:IcuPaneProps&{entries?:OrderEntry[];onDraft?:(d:Draft)=>void}) {
   const {patient,records,me,today,at,now,doc,measured,commit,permit,setError,newId}=p;
   const vent=ventAt(records.vents,patient.id,now);
   const rows=records.vents.filter(v=>v.patientId===patient.id).sort((a,b)=>t(b.at)-t(a.at));
@@ -49,11 +55,18 @@ export function IcuVentPane(p:IcuPaneProps) {
     e.preventDefault();if(!permit(actual?measured:doc,actual?"vitals":"order"))return;
     if(actual&&!vent)return;
     const f=new FormData(e.currentTarget);
-    const row:VentSetting=actual?{...vent!,id:newId(),at,by:me.name,measured:{}}:{id:newId(),patientId:patient.id,at,by:me.name,mode:s(f,"mode") as VentSetting["mode"],airway:s(f,"airway") as VentSetting["airway"],fio2:n(f,"fio2")!};
-    if(actual) {for(const [k] of measuredFields)row.measured![k]=n(f,k);if(!hasMeasured(row)){setError("実測の値を入れてください");return;}}
-    else {for(const [k] of settingFields)row[k]=n(f,k);}
-    commit({...records,vents:[...records.vents,row]},actual?"呼吸器の実測":"呼吸器の設定",`${row.mode} FiO2 ${row.fio2}`);
-    if(actual){setMeasuredDraft({});setOpen(o=>({...o,measured:false}));}else{setSettingDraft({});setOpen(o=>({...o,setting:false}));}
+    if(!actual){
+      const order:VentOrder={mode:s(f,"mode") as VentSetting["mode"],airway:s(f,"airway") as VentSetting["airway"],fio2:n(f,"fio2")!};
+      for(const [k] of settingFields){const v=n(f,k);if(v!==undefined)order[k]=v;}
+      p.onDraft?.(ventOrderDraft(order,newId(),runningVentOrder(p.entries??[])));
+      setSettingDraft({});setOpen(o=>({...o,setting:false}));
+      return;
+    }
+    // The measured row repeats the setting it was taken on; it is a record of its own (not read from the order).
+    const row:VentSetting={...vent!,id:newId(),at,by:me.name,measured:{}};delete row.fromOrder;delete row.end;
+    for(const [k] of measuredFields)row.measured![k]=n(f,k);if(!hasMeasured(row)){setError("実測の値を入れてください");return;}
+    commit({...records,vents:[...records.vents,row]},"呼吸器の実測",`${row.mode} FiO2 ${row.fio2}`);
+    setMeasuredDraft({});setOpen(o=>({...o,measured:false}));
   }
   return <div className="space-y-3">
     <div className="grid gap-3 md:grid-cols-2">
@@ -62,13 +75,13 @@ export function IcuVentPane(p:IcuPaneProps) {
           <Item label="mode">{setting.mode}</Item><Item label="気道">{setting.airway}</Item><Item label="FiO2">{setting.fio2}</Item>
           {settingFields.filter(([k])=>setting[k]!==undefined).map(([k,,label,unit])=><Item key={k} label={label} unit={unit}>{setting[k]}</Item>)}
         </dl>:<p>—</p>}
-        {doc&&<details open={!!open.setting} onToggle={toggle("setting")}><summary className="cursor-pointer text-xs text-ai">新しい設定</summary>
+        {doc&&p.onDraft&&<details open={!!open.setting} onToggle={toggle("setting")}><summary className="cursor-pointer text-xs text-ai">新しい設定</summary>
           <form onSubmit={e=>saveVent(e)} className="mt-2 space-y-2"><div className="grid grid-cols-2 gap-2">
             <Field label="mode"><select name="mode" className={input} value={settingValue("mode",vent?.mode??"A/C-PC")} onChange={e=>setSettingDraft(d=>({...d,mode:e.target.value}))}>{modes.map(m=><option key={m}>{m}</option>)}</select></Field>
             <Field label="airway"><select name="airway" className={input} value={settingValue("airway",vent?.airway??"経口挿管")} onChange={e=>setSettingDraft(d=>({...d,airway:e.target.value}))}>{airways.map(m=><option key={m}>{m}</option>)}</select></Field>
             <Field label="FiO2"><input name="fio2" className={input} type="number" min="0.21" max="1" step="0.01" required value={settingValue("fio2",vent?.fio2)} onChange={e=>setSettingDraft(d=>({...d,fio2:e.target.value}))}/></Field>
             {settingFields.map(([k,l])=><Field key={k} label={l}><input name={k} className={input} type="number" min="0" step="any" value={settingValue(k,vent?.[k])} onChange={e=>setSettingDraft(d=>({...d,[k]:e.target.value}))}/></Field>)}
-          </div><button className={button}>設定を保存</button></form>
+          </div><button className={button}>オーダにする</button></form>
         </details>}
       </Box>
       <Box title="実測" row={lastMeasured} today={today}>

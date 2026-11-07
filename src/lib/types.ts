@@ -395,6 +395,8 @@ export interface ProcedureOrder {
   o2?: { device: O2Device; lpm: number };
   /** 血液透析の条件 (PROC-HD). */
   hd?: HdOrder;
+  /** 人工呼吸の設定 (PROC-VENT): 人工呼吸器・NPPV・HFNC. */
+  vent?: import("./icu/types").VentOrder;
   /** 輸血 (PROC-TX). */
   tx?: TxOrder;
   /** リハビリ処方 (PROC-REHAB). */

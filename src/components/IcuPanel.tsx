@@ -30,6 +30,8 @@ export interface IcuPanelProps {
   auditLog(event:Omit<AuditEvent,"seq"|"at"|"date">):void; newId():string;
   initialTab?:Tab;
   entries?: OrderEntry[]; onOrder?: (drafts: Draft[]) => void;
+  /** 呼吸器の新しい設定を、記事の下のオーダの下書き（人工呼吸の設定）に入れる。 */
+  onDraft?: (draft: Draft) => void;
   /** 指示簿の医師の文（standing.other）。帯にそのまま出す。 */
   targets?: string;
 }
@@ -50,7 +52,7 @@ export function IcuPanel(p:IcuPanelProps) {
     <TabChoice label="ICU 記録のタブ" options={tabs.map(t=>({value:t,label:t}))} value={tab} onChange={setTab}/>
     {error&&<p role="alert" className="text-shu">{error}</p>}
     {tab==="SOFA"&&<IcuSofaPane {...pane}/>}
-    {tab==="呼吸器・血液ガス"&&<IcuVentPane {...pane}/>}
+    {tab==="呼吸器・血液ガス"&&<IcuVentPane {...pane} entries={p.entries} onDraft={p.onDraft}/>}
     {tab==="持続投与"&&<IcuInfusionPane {...pane} entries={p.entries} onOrder={p.onOrder}/>}
     {tab==="CRRT"&&<IcuCrrtPane {...pane}/>}
     {tab==="ライン・チューブ"&&<IcuLinesPane {...pane}/>}

@@ -1,3 +1,5 @@
+import { ventSettingText } from "./icu/vent-text";
+import type { VentOrder } from "./icu/types";
 import { cathConsents } from "./cardiac-cath";
 import { insulinDoseProblems, insulinDoseTimes } from "./insulin-doses";
 import { rxLastDay, validDayPattern } from "./day-pattern";
@@ -203,6 +205,8 @@ export interface ProcedureDraft extends DraftBase {
   hd?: HdOrder | null;
   /** Doctor's answer when the ultrafiltration rate is over the guideline's mark. */
   hdOk?: boolean;
+  /** 人工呼吸の設定 (PROC-VENT), entered in ICU 記録の呼吸器. */
+  vent?: VentOrder | null;
   /** 輸血 (PROC-TX), entered in the 輸血 panel. */
   tx?: TxOrder | null;
   rehab?: RehabOrder | null;
@@ -1285,6 +1289,12 @@ function checkProcedure(d: ProcedureDraft, ctx: CheckContext): Issue[] {
     }
   }
 
+  // 人工呼吸の設定: entered by the doctor in ICU 記録の呼吸器; shown as entered (the app decides nothing).
+  if (m.needs.includes("vent")) {
+    if (!d.vent) issues.push({ key: "vent", level: "stop", title: "人工呼吸", message: "設定（mode・FiO2・PEEP など）は、ICU 記録の呼吸器のタブで入れてください。" });
+    else issues.push({ key: "vent", level: "info", title: "設定", message: ventSettingText(d.vent) });
+  }
+
   // リハビリ処方 and 他科依頼: entered in their panels.
   if (m.needs.includes("rehab")) {
     if (!d.rehab) issues.push({ key: "rehab", level: "stop", title: "リハビリ", message: "疾患別の区分・職種・起算日・目標は、右の「リハビリ」の欄で入れてください。" });
@@ -1623,6 +1633,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
       depth: m.needs.includes("depth") ? d.depth! : undefined,
       o2: m.needs.includes("o2") ? { device: d.o2.device!, lpm: d.o2.lpm! } : undefined,
       hd: m.needs.includes("hd") && d.hd ? d.hd : undefined,
+      vent: m.needs.includes("vent") && d.vent ? d.vent : undefined,
       tx: m.needs.includes("tx") && d.tx ? d.tx : undefined,
       rehab: m.needs.includes("rehab") && d.rehab ? d.rehab : undefined,
       consult: m.needs.includes("consult") && d.consult ? d.consult : undefined,

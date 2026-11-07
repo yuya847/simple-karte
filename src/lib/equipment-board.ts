@@ -1,5 +1,6 @@
 import { equipmentOf, type Equipment } from "./specialist";
 import type { IcuRecords, At } from "./icu/types";
+import { ventAt } from "./icu/abg";
 import type { OrderEntry } from "./types";
 import type { StandingLine } from "./standing-lines";
 
@@ -8,7 +9,7 @@ const minute = (at: At) => at.day * 1440 + Number(at.time.slice(0, 2)) * 60 + Nu
 export function boardEquipment(patientId: string, entries: OrderEntry[], lines: StandingLine[] = [], nowTime = "23:59", icu?: IcuRecords): (Equipment & { aliases?: string[] })[] {
   const now = minute({ day: 0, time: nowTime });
   const latest = <T extends { patientId: string; at: At }>(xs: T[]) => xs.filter(x => x.patientId === patientId && minute(x.at) <= now).sort((a, b) => minute(b.at) - minute(a.at))[0];
-  const vent = latest(icu?.vents ?? []);
+  const vent = ventAt(icu?.vents ?? [], patientId, now);
   const crrt = latest(icu?.crrt ?? []);
   const devices = equipmentOf(entries, lines, nowTime);
   const kind = (e: Equipment) => e.hd && !/CHDF|CHD|CHF/.test(e.hd.method) ? `dialysis:${e.hd.method}` : /CHDF|CHD|CHF/.test(e.label) ? "crrt" : /人工呼吸|NPPV|ハイフロー|HFNC/.test(e.label) ? "vent" : e.id;

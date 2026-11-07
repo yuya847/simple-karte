@@ -49,7 +49,7 @@ function BedTile({ r, right, pinned, onPeek, onOpen }: { r: Row; right: boolean;
     <div className="flex w-full items-baseline gap-1.5"><b className="text-sm">{r.bed}</b>{r.patient ? <><span className="truncate text-sm">{r.patient.name}</span><span className="ml-auto shrink-0 text-ink-faint">{r.patient.age}{r.patient.sex}・{r.days}</span></> : <span>空床</span>}</div>
     {r.patient && <>
       <div className="mt-0.5 truncate text-ink-soft">{r.diagnosis}</div>
-      <div className="mt-1 flex flex-wrap gap-1">{r.vent && <span className={chip}>{r.vent.split(" ")[0]}</span>}{r.infusions.map((inf,i) => <span key={i} className={chip}>{shortDrug(inf)}</span>)}{r.crrt && <span className={chip}>{r.crrt.split(" ")[0]}</span>}</div>
+      <div className="mt-1 flex flex-wrap gap-1">{r.vent && <span className={chip} title={r.vent}>{r.vent.split(" ")[0]}</span>}{r.infusions.map((inf,i) => <span key={i} className={chip}>{shortDrug(inf)}</span>)}{r.crrt && <span className={chip}>{r.crrt.split(" ")[0]}</span>}</div>
       {r.planned && <div className="mt-1 text-ai">→ {r.planned.to} {when(r.planned.day)} {r.planned.time}{r.planned.conflict && <span className="text-shu">・{r.planned.conflict}</span>}</div>}
       <BedCard r={r} id={`icu-card-${r.bed}`} right={right} pinned={pinned}/>
     </>}

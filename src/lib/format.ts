@@ -8,6 +8,7 @@ import { addDays, formatShort, type CalendarDate } from "./dates";
 import { LAB_TESTS, findDrug, findLab, findOralDrug, findSet } from "./master";
 import { AREA_LABEL, DEPTH_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "./procedures";
 import { opdBookingText } from "./opd-booking";
+import { ventSettingText } from "./icu/vent-text";
 import type { ImagingOrder, InjectionOrder, InjectionSchedule, LabOrder, Order, PhysioOrder, PrescriptionOrder, ProcedureOrder } from "./types";
 import { consentText, defaultPosition, findAgent, findPhysio, findRegion, regionLabel, usesContrast, viewsText, type ImagingDraft } from "./exams";
 
@@ -141,6 +142,7 @@ export function procedureTitle(o: ProcedureOrder): string {
   const parts = [procName(o.code)];
   if (o.o2) parts.push(`${o.o2.device} ${o.o2.lpm}L/分`);
   if (o.hd) parts.push(`${o.hd.method}（${o.hd.purpose}）`);
+  if (o.vent) parts.push(o.vent.mode);
   if (o.site) parts.push(o.site);
   return parts.join("　");
 }
@@ -150,6 +152,7 @@ export function procedureLines(order: ProcedureOrder, today: CalendarDate): { ma
   if (order.opd) return { main: `${procName(order.code)}　${order.opd.dept}`, detail: [opdBookingText(order.opd, (d) => formatShort(addDays(today, d))), order.comment].filter(Boolean).join("　") };
   const parts: string[] = [];
   if (order.hd) parts.push(hdText(order.hd));
+  if (order.vent) parts.push(ventSettingText(order.vent));
   if (order.tx) parts.push(txText(order.tx));
   if (order.rehab) parts.push(rehabText(order.rehab));
   if (order.consult) parts.push(consultText(order.consult));
