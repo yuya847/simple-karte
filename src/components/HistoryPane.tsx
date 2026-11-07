@@ -25,7 +25,7 @@ import type { Coedit } from "@/lib/use-presence";
 import { LiveNote } from "./LiveNote";
 import { CompletedNote } from "./NoteOverview";
 import { NoteText } from "./NoteText";
-import { useMe } from "./RoleContext";
+import { useDeny, useMe } from "./RoleContext";
 import { CosignMark } from "./Cosign";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { groupRx, rxStartKey } from "@/lib/order-groups";
@@ -53,6 +53,8 @@ import { LetterDoc } from "./LetterDoc";
 import { letterTitle, versionNo, type Letter } from "@/lib/letters";
 import { dragGhost } from "./drag-ghost";
 import { useMarquee } from "./Marquee";
+import { recordsText, reusableOrder, type DoItem } from "@/lib/history-batch";
+import { inTimeOrder } from "@/lib/record-select";
 
 export type LeftView = "record" | "flowsheet" | "rx-history" | "inj-history" | "results";
 
@@ -119,8 +121,8 @@ interface Props {
   onOpenLetter?: (id: string) => void;
 }
 
-/** What is copied to the right (Do): a past note's text, or a past order to write again. */
-export type DoPayload = { kind: "note"; text: string; label: string } | { kind: "order"; entryId: string };
+/** What is copied to the right (Do): a past note's text, a past order to write again, or several chosen records (in the order of their time). */
+export type DoPayload = DoItem | { kind: "many"; items: DoItem[] };
 export const DO_MIME = "application/x-simple-karte-do";
 export function readDo(e: React.DragEvent): DoPayload | null {
   try {
@@ -162,7 +164,7 @@ function carry(onCarry: (keys: string[]) => void, keys: string[]) {
 }
 
 /** What the cards of the record ask of the list: whether they are chosen (囲む・⌘クリック), carrying them to the right (from the ⠿ grip) and whether they are being carried. */
-type PickApi = { picked: (key: string) => boolean; drag: (e: React.DragEvent, key: string, one: DoPayload) => void; carried: (key: string) => boolean };
+type PickApi = { picked: (key: string) => boolean; drag: (e: React.DragEvent, key: string, one: DoItem | null) => void; carried: (key: string) => boolean };
 const PickCtx = createContext<PickApi | null>(null);
 
 /**
@@ -292,24 +294,48 @@ function RecordList({
   const [pickState, setPickState] = useState<{ patient: string; keys: string[] }>({ patient: patient.id, keys: [] });
   const setPicked = useCallback((keys: string[]) => setPickState({ patient: patient.id, keys }), [patient.id]);
   const marquee = useMarquee(root, pickState.patient === patient.id ? pickState.keys : [], setPicked);
+  const pickedKeys = pickState.patient === patient.id ? pickState.keys : [];
   const pickApi: PickApi = {
-    picked: (k) => pickState.patient === patient.id && pickState.keys.includes(k),
+    picked: (k) => pickedKeys.includes(k),
     carried: (k) => carried.includes(k),
+    // From the ⠿ grip: this card. A chosen card (from anywhere on it) with others chosen: all of them that this
+    // role may write on the right, in the order of their time (the notes into the note, the orders into the drafts).
     drag: (e, k, one) => {
-      if (!(e.target as HTMLElement).closest("[data-history-grip]")) {
+      const chosen = pickedKeys.includes(k);
+      const batch = chosen && pickedKeys.length > 1 ? carriedOf(pickedKeys) : null;
+      if ((!chosen && !(e.target as HTMLElement).closest("[data-history-grip]")) || (batch ? !batch.length : !one)) {
         e.preventDefault();
         return;
       }
-      e.dataTransfer.setData(DO_MIME, JSON.stringify(one));
-      e.dataTransfer.setData("text/plain", one.kind === "note" ? one.text : "");
+      const payload: DoPayload = batch ? { kind: "many", items: batch.map(itemOf) } : one!;
+      e.dataTransfer.setData(DO_MIME, JSON.stringify(payload));
+      e.dataTransfer.setData("text/plain", batch ? recordsText(batch, today, orderMarkOf) : one!.kind === "note" ? one!.text : "");
       e.dataTransfer.effectAllowed = "copy";
       const card = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-pick]") ?? (e.currentTarget as HTMLElement);
-      const ghost = dragGhost([card], 1);
+      const cards = batch ? batch.flatMap((x) => [...(root.current?.querySelectorAll<HTMLElement>("[data-pick]") ?? [])].filter((c) => c.dataset.pick === pickKey(x))) : [card];
+      const ghost = dragGhost(cards, batch ? batch.length : 1);
       e.dataTransfer.setDragImage(ghost, 24, 14);
       setTimeout(() => ghost.remove(), 0);
-      carry(setCarried, [k]);
+      carry(setCarried, batch ? batch.map(pickKey) : [k]);
     },
   };
+  // What may be carried to the right by this role: notes (記事を書ける職種) and 内服・注射・検体検査 (オーダを入れられる職種).
+  const deny = useDeny();
+  const may = { note: !deny("note"), order: !deny("order") || !deny("order.verbal") };
+  // The time each card shows in its heading (an order on its 予定日 with the planned time, or when it was ordered).
+  const shownAt = (x: HistoryEntry) => {
+    if (x.kind === "note") return { day: x.day, time: x.time };
+    const day = entryDayFor(x, orderDay);
+    return { day, time: (orderDay === "予定日" ? planItemsOf(x).find((p) => p.day === day)?.time : x.time) ?? x.time };
+  };
+  const carriedOf = (keys: string[]): HistoryEntry[] =>
+    inTimeOrder(
+      sections
+        .flatMap((x) => x.entries)
+        .filter((x) => keys.includes(pickKey(x)) && (x.kind === "note" ? may.note : may.order && reusableOrder(x)))
+        .map((entry) => ({ entry, ...shownAt(entry) })),
+    ).map((x) => x.entry);
+  const itemOf = (x: HistoryEntry): DoItem => (x.kind === "note" ? { kind: "note", text: noteText(x), label: `${x.time} ${x.author}` } : { kind: "order", entryId: x.id });
   // A draw's result is filed under the collection time (the same as the printed label).
   const resultAt = (e: HistoryEntry) => {
     if (e.kind !== "order" || e.order.type !== "lab") return null;
@@ -855,13 +881,15 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
     textarea.current.setSelectionRange(caret.current, caret.current);
     caret.current = null;
   }, [draft]);
-  const doPayload: DoPayload = { kind: "note", text: noteText(entry), label: `${entry.time} ${entry.author}` };
+  const doPayload: DoItem = { kind: "note", text: noteText(entry), label: `${entry.time} ${entry.author}` };
   const tone = ROLE_COLORS[entry.role];
   const pick = useContext(PickCtx);
   const pk = pickKey(entry);
+  const chosen = !!pick?.picked(pk);
   const article = {
     "data-pick": pk,
-    draggable: false,
+    // A chosen card is taken from anywhere on it (with the others chosen); otherwise from the ⠿ grip only.
+    draggable: chosen && !!onDo,
     onDragStart: onDo && pick ? (e: React.DragEvent) => pick.drag(e, pk, doPayload) : undefined,
     onDoubleClick: () => (editing ? undefined : mine ? startEdit() : setShowHistory((v) => !v)),
     onContextMenu: (e: React.MouseEvent) => {
@@ -881,7 +909,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
       folded={folded && !editing}
       onFold={onFold}
       dragHandle={!!onDo}
-      picked={!!pick?.picked(pk)}
+      picked={chosen}
       article={article}
       meta={
         <>
@@ -1107,6 +1135,8 @@ const STATUS_STYLE: Record<OrderEntry["status"], string> = {
   中止: "border-shu/40 text-shu",
 };
 
+const orderMarkOf = (e: OrderEntry) => orderMark(e.order);
+
 /** The mark in the card's heading: 【処方】【注射】【検体検査】【画像検査】【生理検査】【処置】【透析】【輸血】【リハビリ】【他科依頼】【外来予約】… */
 export function orderMark(o: OrderEntry["order"]): string {
   if (o.type === "prescription") return "処方";
@@ -1159,9 +1189,10 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
   // 依頼日と実施日: when the order is carried out on another day (or is still ahead), say so in the heading.
   const marks = (orderDay === "予定日" ? [] : executionMarks(entry, now)).filter((p) => !sharedMarkKeys.includes(executionMarkKey(p)));
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const doPayload: DoPayload = { kind: "order", entryId: entry.id };
+  const doPayload: DoItem = { kind: "order", entryId: entry.id };
   const pick = useContext(PickCtx);
   const pk = pickKey(entry);
+  const chosen = !!pick?.picked(pk);
   const canDo = !!onDo && ["prescription", "injection", "lab"].includes(o.type);
   // 実施・未実施 from this row: the order's occurrences today (the worksheet's), and the small mark of today's state.
   const canExec = !!execute && !!patient && canHaveExecution(entry);
@@ -1316,14 +1347,14 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
       folded={folded}
       onFold={onFold}
       dragHandle={canDo}
-      picked={!!pick?.picked(pk)}
+      picked={chosen}
       tag={<>{orderDay === "予定日" && <button type="button" className="text-[10px] text-ink-faint underline" onClick={() => onJumpDay?.(entry.day)}>依頼 {formatShort(addDays(today, entry.day))}</button>}<ExecutionTags marks={marks} today={today} now={now} /></>}
       article={{
         ...longPress,
         "data-order-id": entry.id,
-        draggable: false,
+        draggable: chosen && !!onDo,
         "data-pick": pk,
-        onDragStart: canDo && pick ? (e: React.DragEvent) => pick.drag(e, pk, doPayload) : undefined,
+        onDragStart: pick && (canDo || chosen) && onDo ? (e: React.DragEvent) => pick.drag(e, pk, canDo ? doPayload : null) : undefined,
         onContextMenu: (e: React.MouseEvent) => {
           if (!hasMenu) return;
           e.preventDefault();

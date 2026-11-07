@@ -129,6 +129,7 @@ import type { DayOffset, HistoryEntry, InjectionOrder, NoteEntry, OrderEntry, Pa
 import { ResizableChart } from "./ResizableChart";
 import { DateTree } from "./DateTree";
 import { readDo, DO_MIME, type DoPayload } from "./HistoryPane";
+import { appendTexts, batchDo, batchDoFlash } from "@/lib/history-batch";
 import { prescriptionCalendarSeed, type PrescriptionSeed } from "@/lib/prescription-calendar";
 import { calendarChange } from "@/lib/calendar-change";
 import { PAST_RX, patternsOf, previousOf } from "@/lib/rx-memory";
@@ -1703,6 +1704,12 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   // Do: a past note or order copied to the right (dragged from the left, or from its menu).
   const doFromHistory = (p: DoPayload) => {
+    if (p.kind === "many") {
+      const r = batchDo(p.items, entries, newId);
+      update((c) => ({ note: appendTexts(c.note, r.texts), drafts: [...c.drafts, ...r.drafts], flash: batchDoFlash(r) }));
+      openRight("note");
+      return;
+    }
     if (p.kind === "note") {
       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${p.text}\n`, flash: `${p.label} の記載を記事に写しました（Do）。直してから確定してください。` }));
       openRight("note");
@@ -3355,7 +3362,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               }}
             >
               <LabPasteReceiver key={patient.id} patientId={patient.id} onPaste={text => { update(c => ({ note: `${c.note.replace(/\s*$/, "")}\n${text}\n` })); openRight("note"); setPanel(null); }} />
-              {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと記事へ写します</div>}
+              {dropping && <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-ai px-3 py-1 text-center text-[12px] font-bold text-white">ここで離すと写します（Do）</div>}
               <PharmacyInbox
                 today={today}
                 entries={entries.filter((e): e is OrderEntry => e.kind === "order")}
