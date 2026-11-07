@@ -18,6 +18,9 @@ import { PRESSURE_SOURCES, SITES, designText, designTotal, latestOf, type Pressu
 import { DEVICES, RESTRAINT_SOURCES, type Restraint } from "./restraint";
 import type { Role } from "./roles";
 import type { Patient } from "./types";
+import { FAST_HUG, FAST_HUG_SOURCE } from "./icu/checklist";
+import { icuRoundValues } from "./icu/round-facts";
+import type { IcuRecords } from "./icu/types";
 
 export { loadMyTemplates as loadMyRecordTemplates, saveMyTemplates as saveMyRecordTemplates };
 
@@ -41,6 +44,8 @@ export interface RecordFacts extends TemplateFacts {
   restraint?: Restraint | null;
   /** The pressure ulcers not yet healed. */
   ulcers?: PressureUlcer[];
+  /** ICU 記録（確定したオーダを読み替えたもの）and now in minutes from today 0:00, for ICU 回診. */
+  icu?: { records: IcuRecords; nowAbs: number };
 }
 
 export interface RecordTemplate extends NoteTemplate {
@@ -185,6 +190,27 @@ export const BUILTIN_RECORD_TEMPLATES: RecordTemplate[] = [
       "担当医：{{文:担当医}}",
     ].join("\n"),
     prefill: (f) => ({ ...icuPrefill(f), "文:担当医": doctorName(f) }),
+  },
+  {
+    id: "rec-icu-round",
+    name: "ICU 回診",
+    short: "ICU回診",
+    about: "SOFA・P/F・呼吸器・持続投与・出納・ライン・RASS のカルテの値と FAST HUG の項目",
+    roles: ["医師", "看護師"],
+    sources: [FAST_HUG_SOURCE],
+    body: [
+      "回診：{{日付}} {{時刻:回診時刻}}",
+      "SOFA：今日 {{文:SOFA 今日}}　昨日 {{文:SOFA 昨日}}",
+      "SOFA の内訳（今日）：{{文:SOFA の内訳}}",
+      "P/F：{{文:P/F}}",
+      "呼吸器：{{文:呼吸器}}",
+      "持続投与：{{文:持続投与}}",
+      "出納：{{文:出納}}",
+      "ライン：{{文:ライン}}",
+      "RASS：{{文:RASS}}",
+      ...FAST_HUG.map((item) => `${item.label}：{{文:${item.label}}}`),
+    ].join("\n"),
+    prefill: (f) => ({ "時刻:回診時刻": f.nowTime, ...(f.icu && f.patient.id ? icuRoundValues(f.patient as Patient, f.icu.records, f.icu.nowAbs) : {}) }),
   },
   {
     id: "rec-plan",

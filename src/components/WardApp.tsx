@@ -4246,7 +4246,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   <RecordTemplatesPanel
                     key={templateFocus ?? "list"}
                     initialId={templateFocus}
-                    facts={{ patient, today, nowTime, standing: standingNow(patient.id), restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed) }}
+                    facts={{ patient, today, nowTime, standing: standingNow(patient.id), restraint: activeOf(restraints, patient.id) ?? null, ulcers: nm.ulcers.filter((u) => u.patientId === patient.id && !u.healed), icu: { records: visibleIcuRecords(icu, abs(0, nowTime)), nowAbs: abs(0, nowTime) } }}
                     onInsert={(text, noteTemplate) => { update((c) => ({ noteTemplate, note: isBlankNote(c.note) ? `${text}\n` : `${c.note.replace(/\s*$/, "")}${c.note.trim() ? "\n" : ""}${text}\n`, rightTab: floating.note ? c.rightTab : "note", flash: `「${noteTemplate.templateName}」を記事に入れました。直してから保存してください。` })); /* the template window would hide the note it just filled */ setPanel(null); }}
                     onConfirm={confirmRecord}
                     onOpenPanel={(p) => setPanel(p)}
