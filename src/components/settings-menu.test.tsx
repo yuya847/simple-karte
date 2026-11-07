@@ -33,7 +33,7 @@ describe("設定のウインドウ", () => {
   it("医師・看護師には「通知」：この端末に通知を受ける／通知を止める。使えないときは灰色で、理由は title", () => {
     const device = (x: Partial<PushDevice>): PushDevice => ({ state: "off", reason: null, error: null, turnOn: () => {}, turnOff: () => {}, ...x });
     const withPush = (d: PushDevice) => renderToStaticMarkup(<SettingsPanel value={{ theme: "paper", font: "md" }} onChange={() => {}} railMode="icons" onRailMode={() => {}} hiddenCount={0} onShowAll={() => {}} push={d} />);
-    expect(text(withPush(device({})))).toBe("見た目 あ 紙 あ 白 あ ダーク あ くっきり 字の大きさ あ 小 あ 標準 あ 大 あ 特大 右の道具 アイコン 名前の一覧 隠した道具を全部戻す 通知 この端末に通知を受ける この端末のみに適用されます");
+    expect(text(withPush(device({})))).toBe("見た目 あ 紙 あ 白 あ ダーク あ くっきり 字の大きさ あ 小 あ 標準 あ 大 右の道具 アイコン 名前の一覧 隠した道具を全部戻す 通知 この端末に通知を受ける この端末のみに適用されます");
     expect(withPush(device({}))).toMatch(/<button type="button"(?! disabled)[^>]*>.*この端末に通知を受ける<\/button>/);
     expect(text(withPush(device({ state: "on" })))).toContain("通知 通知を止める");
     const off = withPush(device({ reason: "通知の鍵（VAPID）が設定されていません" }));
