@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { FileCheck } from "lucide-react";
 import { useState } from "react";
-import { HEAD_NURSE, SUMMARY_RULES, SUMMARY_SOURCES, lastReturn, latest, midDueList, stateOf, writerOf, type NurseSummary, type SummaryState } from "@/lib/nursing-summary";
+import { HEAD_NURSE, lastReturn, latest, midDueList, stateOf, writerOf, type NurseSummary, type SummaryState } from "@/lib/nursing-summary";
 import { PickSelect, type Pick } from "./WardMap";
 
 export interface SummaryPatient {
@@ -38,7 +38,7 @@ function Card({ s, who, canReview, onApprove, onReturn, onOpen }: { s: NurseSumm
           {open ? "閉じる" : "中身を見る"}
         </button>
       </div>
-      {st === "差し戻し" && <p className="mt-1 text-shu">差し戻し：{lastReturn(s)?.comment}（書いた人が直して出し直すのを待っています）</p>}
+      {st === "差し戻し" && <p className="mt-1 text-shu">差し戻し：{lastReturn(s)?.comment}</p>}
       {open && (
         <div className="mt-1 space-y-1 rounded border border-rule-soft bg-paper p-2">
           {v.sections.map((x) => (
@@ -86,12 +86,10 @@ export function SummaryApprovals({ pick, patients, summaries, canReview, onAppro
     const xs = group(st);
     return (
       <section>
-        <h2 className="mb-1 text-sm font-bold">
+        <h2 className={`mb-1 text-sm font-bold ${xs.length === 0 ? "text-ink-faint" : ""}`}>
           {title}（{xs.length}件）
         </h2>
-        {xs.length === 0 ? (
-          <p className="text-[12px] text-ink-faint">ありません</p>
-        ) : (
+        {xs.length > 0 && (
           <ul className="space-y-1.5">
             {xs.map((s) => (
               <Card key={s.id} s={s} who={who(s.patientId)} canReview={canReview} onApprove={() => onApprove(s)} onReturn={(c) => onReturn(s, c)} onOpen={() => onOpen(s.patientId)} />
@@ -102,24 +100,21 @@ export function SummaryApprovals({ pick, patients, summaries, canReview, onAppro
     );
   };
   return (
-    <section aria-label="看護サマリの承認" className="scroll-thin min-h-0 flex-1 space-y-4 overflow-auto bg-paper p-5">
+    <section aria-label="看護サマリの承認" className="scroll-thin min-h-0 flex-1 space-y-3 overflow-auto bg-paper px-5 py-4">
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="flex items-center gap-1.5 text-lg font-bold">
           <FileCheck size={18} />
           看護サマリの承認
         </h1>
         <PickSelect pick={pick} />
-        <span className="text-xs text-ink-faint">{SUMMARY_RULES.demo}</span>
       </header>
 
       {list("承認待ち", "承認待ち")}
       {list("差し戻し", "差し戻し中")}
       <section>
-        <h2 className="mb-1 text-sm font-bold">中間サマリの期限（3日以内・過ぎたもの）</h2>
-        {due.length === 0 ? (
-          <p className="text-[12px] text-ink-faint">ありません</p>
-        ) : (
-          <table className="nums w-full border-collapse rounded-lg bg-sheet text-[12px]">
+        <h2 className={`mb-1 text-sm font-bold ${due.length === 0 ? "text-ink-faint" : ""}`}>中間サマリの期限（3日以内・過ぎたもの　{due.length}件）</h2>
+        {due.length > 0 && (
+          <table className="nums w-full max-w-4xl border-collapse rounded-lg bg-sheet text-[12px]">
             <tbody>
               {due.map((d) => {
                 const p = who(d.patientId)!;
@@ -141,17 +136,8 @@ export function SummaryApprovals({ pick, patients, summaries, canReview, onAppro
             </tbody>
           </table>
         )}
-        <p className="mt-1 text-[11px] text-ink-faint">{SUMMARY_RULES.mid}</p>
       </section>
       {list("承認済み", "承認済み")}
-      <ul className="space-y-0.5 text-[11px] text-ink-faint">
-        <li>{SUMMARY_RULES.approve}</li>
-        <li>
-          <a href={SUMMARY_SOURCES.confirm.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
-            {SUMMARY_SOURCES.confirm.label}
-          </a>
-        </li>
-      </ul>
     </section>
   );
 }

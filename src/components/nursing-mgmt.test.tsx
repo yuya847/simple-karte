@@ -9,6 +9,7 @@ import { ROOMS } from "@/lib/ward";
 import { BEDS_WITH_CHARTS, WARD_CHART_PATIENTS } from "@/lib/ward-charts";
 import { initialEvals } from "@/lib/admit-eval";
 import { initialSummaries } from "@/lib/nursing-summary";
+import { screenHelp } from "@/lib/help/content";
 import { FallBoard } from "./FallBoard";
 import { VitalsBulk } from "./VitalsBulk";
 import { AssignBoard } from "./AssignBoard";
@@ -77,8 +78,12 @@ describe("看護サマリの提出と承認", () => {
     // 藤井（入院21日目）has no 中間サマリ: overdue.
     expect(html).toMatch(/藤井 さよ<\/button><\/td><td class="px-2">入院21日目/);
     expect(html).toContain("期限切れ");
-    expect(html).toContain("確定者");
-    expect(html).toContain("デモでは看護師で開けます");
+    // The rules, the demo note and the guideline are in the help, not on the screen.
+    expect(html).not.toContain("確定者");
+    expect(html).not.toContain("デモでは看護師で開けます");
+    const help = JSON.stringify(screenHelp.find((h) => h.id === "SummaryApprovals"));
+    expect(help).toContain("確定者");
+    expect(help).toContain("デモでは看護師で開けます");
   });
 
   it("a returned summary shows the comment; a viewer who may not review sees no buttons", () => {
