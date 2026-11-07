@@ -5,7 +5,7 @@ import { patternCourse } from "@/lib/day-pattern";
 import { displayText } from "@/lib/display-text";
 import { ConsultStatus } from "./ConsultContext";
 
-import { useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { VerbalReview } from "./VerbalControls";
 import { CalendarDays, ChevronDown, FlaskConical, ChevronRight, Copy, Filter, GripVertical, History, MoreHorizontal, PencilLine, PictureInPicture2, Search, Stethoscope, X } from "lucide-react";
@@ -51,6 +51,7 @@ import { ResultsPanel } from "./panels/ResultsPanel";
 import type { RefWindowProps } from "./RefWindows";
 import { LetterDoc } from "./LetterDoc";
 import { letterTitle, versionNo, type Letter } from "@/lib/letters";
+import { dragGhost } from "./drag-ghost";
 
 export type LeftView = "record" | "flowsheet" | "rx-history" | "inj-history" | "results";
 
@@ -128,12 +129,40 @@ export function readDo(e: React.DragEvent): DoPayload | null {
     return null;
   }
 }
-const dragDo = (p: DoPayload) => (e: React.DragEvent) => {
-  if (!(e.target as HTMLElement).closest("[data-history-grip]")) { e.preventDefault(); return; }
-  e.dataTransfer.setData(DO_MIME, JSON.stringify(p));
-  e.dataTransfer.setData("text/plain", p.kind === "note" ? p.text : "");
-  e.dataTransfer.effectAllowed = "copy";
-};
+
+/** The key of a card of the record (a note, or one order: a row of an Rp card is its own). */
+const pickKey = (e: HistoryEntry) => (e.kind === "note" ? `n:${noteKey(e)}` : `o:${e.id}`);
+
+/**
+ * While records are carried to the right: the page is marked (the places to drop get an outline, globals.css
+ * [data-do-drop]), a place that takes nothing shows the 「できない」 pointer, and the cards carried fade. All of it
+ * ends with the drag (dropped or not).
+ */
+function carry(onCarry: (keys: string[]) => void, keys: string[]) {
+  const root = document.documentElement;
+  const nowhere = (e: DragEvent) => {
+    if (e.defaultPrevented || !e.dataTransfer) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "none";
+  };
+  const end = () => {
+    delete root.dataset.doDrag;
+    window.removeEventListener("dragover", nowhere);
+    window.removeEventListener("dragend", end, true);
+    window.removeEventListener("drop", end, true);
+    onCarry([]);
+  };
+  root.dataset.doDrag = "";
+  window.addEventListener("dragover", nowhere);
+  window.addEventListener("dragend", end, true);
+  window.addEventListener("drop", end, true);
+  // After the browser took the picture of the card (fading it at once would fade the picture too).
+  requestAnimationFrame(() => root.dataset.doDrag !== undefined && onCarry(keys));
+}
+
+/** What the cards of the record ask of the list: carrying them to the right (from the ⠿ grip) and whether they are being carried. */
+type PickApi = { drag: (e: React.DragEvent, key: string, one: DoPayload) => void; carried: (key: string) => boolean };
+const PickCtx = createContext<PickApi | null>(null);
 
 /**
  * Left pane: what to read while writing on the right — 経過 (the record), 経過表, 内服歴, 注射歴 and 検査結果
@@ -256,6 +285,25 @@ function RecordList({
   execute?: ExecuteProps;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  // Carrying to the right (Do): the card follows the pointer (its own look), and the card left behind fades.
+  const [carried, setCarried] = useState<string[]>([]);
+  const pickApi: PickApi = {
+    carried: (k) => carried.includes(k),
+    drag: (e, k, one) => {
+      if (!(e.target as HTMLElement).closest("[data-history-grip]")) {
+        e.preventDefault();
+        return;
+      }
+      e.dataTransfer.setData(DO_MIME, JSON.stringify(one));
+      e.dataTransfer.setData("text/plain", one.kind === "note" ? one.text : "");
+      e.dataTransfer.effectAllowed = "copy";
+      const card = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-pick]") ?? (e.currentTarget as HTMLElement);
+      const ghost = dragGhost([card], 1);
+      e.dataTransfer.setDragImage(ghost, 24, 14);
+      setTimeout(() => ghost.remove(), 0);
+      carry(setCarried, [k]);
+    },
+  };
   // A draw's result is filed under the collection time (the same as the printed label).
   const resultAt = (e: HistoryEntry) => {
     if (e.kind !== "order" || e.order.type !== "lab") return null;
@@ -392,6 +440,7 @@ function RecordList({
   };
 
   return (
+    <PickCtx.Provider value={pickApi}>
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-1.5 border-b border-rule-soft px-4 py-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
@@ -509,6 +558,7 @@ function RecordList({
         {narrowed && shownCount === 0 && <p className="py-6 text-center text-xs text-ink-faint">当てはまる記録はありません。</p>}
       </div>
     </div>
+    </PickCtx.Provider>
   );
 
   /** One day of the record: the heading (date, hospital day, a clinic's or 予定's mark), the plans on it, then its cards. */
@@ -594,10 +644,11 @@ export const PLACE_COLORS = {
  * One record as a card: the heading row (【種類】 date and time in bold, the department and place small on the
  * right, ▸ to fold), a faint line with the version, the times and the writer, then the body.
  */
-function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag, row = false }: { row?: boolean; mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string }; tag?: React.ReactNode }) {
+function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHandle, article, tag, row = false }: { row?: boolean; mark: string; when: string; place: string; tone: { chip: string; edge: string; bg: string }; meta: React.ReactNode; folded: boolean; onFold: () => void; children: React.ReactNode; dragHandle?: boolean; article?: React.HTMLAttributes<HTMLElement> & { draggable?: boolean; "data-order-id"?: string; "data-pick"?: string }; tag?: React.ReactNode }) {
+  // The ⠿ grip starts the drag; the card's own onDragStart (the drag event comes up to it) takes it on.
   if (row) return (
     <div {...article} className={`border-t border-rule-soft py-1 ${article?.className ?? ""}`}>
-      <div className="nums flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">{dragHandle && <span data-history-grip draggable onDragStart={article?.onDragStart} className="cursor-grab select-none"><GripVertical size={11} aria-hidden /></span>}{meta}{tag}</div>
+      <div className="nums flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">{dragHandle && <span data-history-grip draggable className="cursor-grab select-none"><GripVertical size={11} aria-hidden /></span>}{meta}{tag}</div>
       {children}
     </div>
   );
@@ -607,7 +658,7 @@ function Card({ mark, when, place, tone, meta, folded, onFold, children, dragHan
         <button type="button" onClick={onFold} aria-expanded={!folded} aria-label={folded ? `${mark}を開く` : `${mark}をたたむ`} className="rounded p-0.5 text-ink-faint hover:bg-sheet hover:text-ink">
           {folded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </button>
-        {dragHandle && <span data-history-grip draggable onDragStart={article?.onDragStart} className="cursor-grab select-none"><GripVertical size={11} className="text-ink-faint/60" aria-hidden /></span>}
+        {dragHandle && <span data-history-grip draggable className="cursor-grab select-none"><GripVertical size={11} className="text-ink-faint/60" aria-hidden /></span>}
         <span className="nums truncate text-[13px] font-bold">
           【{mark}】 {when}
         </span>
@@ -799,9 +850,12 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
   }, [draft]);
   const doPayload: DoPayload = { kind: "note", text: noteText(entry), label: `${entry.time} ${entry.author}` };
   const tone = ROLE_COLORS[entry.role];
+  const pick = useContext(PickCtx);
+  const pk = pickKey(entry);
   const article = {
+    "data-pick": pk,
     draggable: false,
-    onDragStart: onDo ? dragDo(doPayload) : undefined,
+    onDragStart: onDo && pick ? (e: React.DragEvent) => pick.drag(e, pk, doPayload) : undefined,
     onDoubleClick: () => (editing ? undefined : mine ? startEdit() : setShowHistory((v) => !v)),
     onContextMenu: (e: React.MouseEvent) => {
       if (editing) return;
@@ -809,7 +863,7 @@ function Note({ entry, patientId, today, place, folded, onFold, part = "全", on
       setMenu({ x: e.clientX, y: e.clientY });
     },
     title: mine ? "ダブルクリックで修正、右クリックでメニュー" : "ダブルクリックで履歴、右クリックでメニュー",
-    className: "select-text",
+    className: `select-text ${pick?.carried(pk) ? "opacity-40" : ""}`,
   };
   return (
     <Card
@@ -1098,6 +1152,8 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
   const marks = (orderDay === "予定日" ? [] : executionMarks(entry, now)).filter((p) => !sharedMarkKeys.includes(executionMarkKey(p)));
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const doPayload: DoPayload = { kind: "order", entryId: entry.id };
+  const pick = useContext(PickCtx);
+  const pk = pickKey(entry);
   const canDo = !!onDo && ["prescription", "injection", "lab"].includes(o.type);
   // 実施・未実施 from this row: the order's occurrences today (the worksheet's), and the small mark of today's state.
   const canExec = !!execute && !!patient && canHaveExecution(entry);
@@ -1257,14 +1313,15 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         ...longPress,
         "data-order-id": entry.id,
         draggable: false,
-        onDragStart: canDo ? dragDo(doPayload) : undefined,
+        "data-pick": pk,
+        onDragStart: canDo && pick ? (e: React.DragEvent) => pick.drag(e, pk, doPayload) : undefined,
         onContextMenu: (e: React.MouseEvent) => {
           if (!hasMenu) return;
           e.preventDefault();
           setMenu({ x: e.clientX, y: e.clientY });
         },
         title: canDo && canExec ? "右へドラッグで同じオーダを写せます（Do）。右クリック（iPad は長押し）で Do と実施・未実施の記録" : canDo ? "右へドラッグするか右クリックで、同じオーダを写せます（Do）" : canExec ? "右クリック（iPad は長押し）か ⋯ で実施・未実施を記録" : undefined,
-        className: `${stopped ? "opacity-70" : ""} select-text`,
+        className: `${pick?.carried(pk) ? "opacity-40" : stopped ? "opacity-70" : ""} select-text`,
       }}
       meta={
         <>

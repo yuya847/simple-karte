@@ -3333,6 +3333,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             />
             </ReportContext.Provider></ConsultContext.Provider>
             <div
+              data-do-drop
               className={`relative flex min-h-0 flex-col ${dropping ? "ring-2 ring-inset ring-ai" : ""}`}
               onDragOver={(e) => {
                 if (!e.dataTransfer.types.includes(DO_MIME) && !e.dataTransfer.types.includes(LAB_RESULT_MIME)) return;
