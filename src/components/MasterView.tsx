@@ -104,7 +104,7 @@ export function MasterView({ nowTime, newId }: { nowTime: string; newId: () => s
         <SubTabs label="マスタの種類" value={kind} onChange={(k) => (setKind(k), setForm(null), setQ(""))} tabs={MASTER_KINDS.map((k) => ({ key: k, label: k }))} />
         <label className="flex items-center gap-1 rounded-md border border-rule bg-sheet px-2 py-1">
           <Search size={14} className="text-ink-faint" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・コードで探す（ひらがな可）" aria-label="マスタを探す" className="w-56 bg-transparent outline-none" />
+          <input autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・コードで探す（ひらがな可）" aria-label="マスタを探す" className="w-56 bg-transparent outline-none" />
         </label>
         <span className="text-[12px] text-ink-soft">{changedCount ? `院内で変えた品目 ${changedCount}件` : "変えた品目はありません（初めの状態）"}</span>
       </div>

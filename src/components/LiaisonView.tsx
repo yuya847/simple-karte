@@ -252,7 +252,7 @@ function Ledger({
             <option key={d}>{d}</option>
           ))}
         </select>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="患者・医療機関で探す" className={`${input} w-48`} />
+        <input autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="患者・医療機関で探す" className={`${input} w-48`} />
         <span className="nums text-ink-soft">{shown.length}件</span>
         <button type="button" onClick={() => setAdding((a) => !a)} disabled={!!locked} title={locked ?? undefined} className="ml-auto flex items-center gap-1 rounded-md border border-rule bg-sheet px-2 py-1 text-ai hover:border-ai disabled:opacity-40">
           <Plus size={14} />

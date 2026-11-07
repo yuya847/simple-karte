@@ -43,7 +43,7 @@ export function AbxRenalWindow({ patient, entries, today, canOrder, onOrder, onT
       <p className="text-xs text-ink-soft">CG式：(140−年齢)×体重÷(72×Cre){patient.sex === "女" ? "×0.85" : ""}</p>
       <p className="text-xs text-ink-soft">eGFR：194×Cre⁻¹·⁰⁹⁴×年齢⁻⁰·²⁸⁷{patient.sex === "女" ? "×0.739" : ""}</p>
     </div>
-    <label className="block">抗菌薬 <input aria-label="抗菌薬を検索" placeholder="薬品名・略語" value={query} onChange={e => setQuery(e.target.value)} className={`${field} ml-2`} /></label>
+    <label className="block">抗菌薬 <input autoComplete="off" aria-label="抗菌薬を検索" placeholder="薬品名・略語" value={query} onChange={e => setQuery(e.target.value)} className={`${field} ml-2`} /></label>
     <select aria-label="抗菌薬を選ぶ" value={code} onChange={e => changeDrug(e.target.value)} className={`${field} w-full`}><option value="">選んでください</option>{ABX_RENAL.filter(d => `${d.name} ${d.abbreviation}`.normalize("NFKC").toLowerCase().includes(query.normalize("NFKC").toLowerCase())).map(d => <option key={d.code} value={d.code}>{d.abbreviation}・{d.name}（{d.route}）</option>)}</select>
     {item && <>
       <a href={item.source.url} target="_blank" rel="noreferrer" title={`${item.source.version}／${item.source.sections}／確認日 ${item.source.checked}`} className="text-xs text-ai underline">出典</a>

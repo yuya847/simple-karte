@@ -434,7 +434,7 @@ function RecordList({
           {tools === "search" && (
           <label className="flex min-w-40 flex-1 items-center gap-1.5 rounded-md border border-rule bg-paper px-2 py-1 focus-within:border-ai">
             <Search size={13} className="shrink-0 text-ink-faint" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" autoFocus className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
+            <input autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="記録の中を探す（ひらがな可）" aria-label="記録の中を探す" autoFocus className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
             {q && (
               <button type="button" onClick={() => setQ("")} aria-label="検索を消す" className="text-ink-faint hover:text-ink">
                 <X size={13} />

@@ -33,8 +33,9 @@ export function RpDrugSearch({ options, onPick, placeholder, prefix = false, onE
           }}
           onKeyDown={(e) => {
             if (e.nativeEvent.isComposing) return;
-            if (e.key === "ArrowDown" && hits.length) setAt((a) => Math.min(a + 1, hits.length - 1));
-            else if (e.key === "ArrowUp" && hits.length) setAt((a) => Math.max(a - 1, 0));
+            // Arrow keys never fall through: Chrome would open its own list of words typed earlier (once another patient's drug).
+            if (e.key === "ArrowDown") setAt((a) => Math.min(a + 1, Math.max(hits.length - 1, 0)));
+            else if (e.key === "ArrowUp") setAt((a) => Math.max(a - 1, 0));
             else if ((e.key === "Enter" || (e.key === "Tab" && onEmptyEnter && !e.shiftKey)) && !e.metaKey && !e.ctrlKey && candidateIndex(hits.length, at) !== null) pick(hits[candidateIndex(hits.length, at)!].code);
             else if (e.key === "Enter" && !q && onEmptyEnter) onEmptyEnter();
             else if (e.key === "Escape" && q) setQ("");

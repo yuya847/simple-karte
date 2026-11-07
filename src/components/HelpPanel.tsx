@@ -70,7 +70,7 @@ export function HelpWindow({ selected, query, onQuery, onSelect, onClose }: {
         onPointerDown={e => { if ((e.target as HTMLElement).closest("input, button")) return; drag.down("move")(e); }}
         onPointerMove={drag.move} onPointerUp={drag.up} onPointerCancel={drag.up}>
         <h1 className="font-bold">ヘルプ</h1>
-        <input ref={search} aria-label="ヘルプを検索" placeholder="ヘルプを検索" value={query} onChange={(e) => onQuery(e.target.value)} className="min-w-0 flex-1 rounded border border-rule px-3 py-2" />
+        <input autoComplete="off" ref={search} aria-label="ヘルプを検索" placeholder="ヘルプを検索" value={query} onChange={(e) => onQuery(e.target.value)} className="min-w-0 flex-1 rounded border border-rule px-3 py-2" />
         <button type="button" onClick={dismiss} className="rounded border border-rule px-3 py-2">閉じる</button>
       </header>
       <div className="flex min-h-0 flex-1">

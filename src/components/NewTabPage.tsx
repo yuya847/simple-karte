@@ -40,7 +40,8 @@ export function NewTabPage({ patients, openIds, under, todos, onPatient }: Props
             <Search size={16} className="text-ink-faint" />
             <input
               ref={box}
-              value={q}
+              autoComplete="off"
+            value={q}
               onChange={(e) => {
                 setQ(e.target.value);
                 setAt(0);

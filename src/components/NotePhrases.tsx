@@ -40,7 +40,7 @@ export function PhrasePanel({ phrases, onPhrases, selected, onInsert, onClose }:
 
       <label className="mb-2 flex items-center gap-1.5 rounded-md border border-rule bg-sheet px-2 py-1 focus-within:border-ai">
         <Search size={13} className="shrink-0 text-ink-faint" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="読み・文で探す（ひらがな可）" aria-label="定型文を探す" className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
+        <input autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="読み・文で探す（ひらがな可）" aria-label="定型文を探す" className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" />
       </label>
       <ul className="max-h-48 space-y-1 overflow-y-auto">
         {shown.map((p) => (

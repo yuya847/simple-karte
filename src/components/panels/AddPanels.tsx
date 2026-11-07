@@ -1428,7 +1428,7 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
               value={tab}
               onChange={(v) => setTab(v as typeof tab)}
             />
-            {tab !== "sets" && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬で絞る（ひらがな可）" aria-label="処方の記憶を薬で絞る" className="flex-1 rounded border border-rule bg-sheet px-2 py-0.5" />}
+            {tab !== "sets" && <input autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬で絞る（ひらがな可）" aria-label="処方の記憶を薬で絞る" className="flex-1 rounded border border-rule bg-sheet px-2 py-0.5" />}
           </div>
           {tab === "sets" ? (
             <>
@@ -1656,7 +1656,7 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
               value={tab}
               onChange={(v) => setTab(v as typeof tab)}
             />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬で絞る（ひらがな可）" aria-label="注射の記憶を薬で絞る" className="flex-1 rounded border border-rule bg-sheet px-2 py-0.5" />
+            <input autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="薬で絞る（ひらがな可）" aria-label="注射の記憶を薬で絞る" className="flex-1 rounded border border-rule bg-sheet px-2 py-0.5" />
           </div>
           <ul className="scroll-thin max-h-52 space-y-1 overflow-y-auto">
             {list.length === 0 && <li className="text-ink-faint">{tab === "prev" ? "この患者の前の注射はありません。" : "当てはまる注射はありません。"}</li>}

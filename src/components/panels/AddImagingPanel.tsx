@@ -163,7 +163,7 @@ export function AddImagingPanel({
           <TabChoice label="部位の区分" options={groups.map((g) => ({ value: g, label: g }))} value={query.trim() ? null : group} onChange={(g) => { setGroup(g); setQuery(""); }} />
           <label className="flex items-center gap-1 rounded-md border border-rule bg-sheet px-2 py-1">
             <Search size={14} className="text-ink-faint" aria-hidden />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="部位を検索（手関節・ひざ）" aria-label="部位を検索" className="w-40 bg-transparent text-[13px] outline-none" />
+            <input autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="部位を検索（手関節・ひざ）" aria-label="部位を検索" className="w-40 bg-transparent text-[13px] outline-none" />
           </label>
         </div>
         <div className="mt-1.5 grid grid-cols-3 gap-1.5" role="listbox" aria-label={`部位（${modality}）`}>

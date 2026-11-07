@@ -27,7 +27,7 @@ function MasterSearch({ modifier, onPick, initial = "" }: { modifier?: "prefix" 
     }, 200);
     return () => { clearTimeout(t); controller.abort(); };
   }, [q, modifier]);
-  return <div><input aria-label={modifier ? "修飾語を検索" : "病名を検索"} placeholder={modifier ? "修飾語を検索" : "病名・読みで検索"} className={field} value={q} onChange={e => { setQ(e.target.value); setHits([]); }} />{error && <p role="alert">{error}</p>}{q.trim() && <ul className="max-h-40 overflow-auto">{hits.map(h => <li key={h.code}><button type="button" className="w-full p-1 text-left text-sm hover:bg-paper" onClick={() => { onPick(h); setQ(""); setHits([]); }}>{h.name}　{h.code}{"icd10" in h ? `　${h.icd10}${h.notClaimable ? "　保険請求外" : ""}` : ""}</button></li>)}</ul>}</div>;
+  return <div><input autoComplete="off" aria-label={modifier ? "修飾語を検索" : "病名を検索"} placeholder={modifier ? "修飾語を検索" : "病名・読みで検索"} className={field} value={q} onChange={e => { setQ(e.target.value); setHits([]); }} />{error && <p role="alert">{error}</p>}{q.trim() && <ul className="max-h-40 overflow-auto">{hits.map(h => <li key={h.code}><button type="button" className="w-full p-1 text-left text-sm hover:bg-paper" onClick={() => { onPick(h); setQ(""); setHits([]); }}>{h.name}　{h.code}{"icd10" in h ? `　${h.icd10}${h.notClaimable ? "　保険請求外" : ""}` : ""}</button></li>)}</ul>}</div>;
 }
 export function DiagnosisDetail({ initial, today, department, query, onSave, onClose }: { initial: Diagnosis; today: CalendarDate; department: string; query?: string; onSave: (d: Diagnosis) => void; onClose: () => void }) {
   const [d, setD] = useState<Diagnosis>({ ...initial, department: initial.department ?? department, encounter: initial.encounter ?? "入院", insurance: initial.insurance ?? "全保険共通" });

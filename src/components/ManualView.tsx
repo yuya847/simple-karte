@@ -59,7 +59,7 @@ export function ManualView({ manuals = MANUALS, openId, onOpen }: Props) {
           <div className="border-b border-rule-soft p-3">
             <label className="flex items-center gap-1.5 rounded-md border border-rule bg-paper px-2 focus-within:border-ai">
               <Search size={14} className="shrink-0 text-ink-faint" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="題名と手順の中を探す（ひらがなでも）" aria-label="マニュアルを探す" className="min-w-0 flex-1 bg-transparent py-1.5 outline-none pointer-coarse:py-2" />
+              <input autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="題名と手順の中を探す（ひらがなでも）" aria-label="マニュアルを探す" className="min-w-0 flex-1 bg-transparent py-1.5 outline-none pointer-coarse:py-2" />
               {q && (
                 <button type="button" onClick={() => setQ("")} aria-label="検索を消す" className="text-ink-faint hover:text-ink">
                   <X size={14} />

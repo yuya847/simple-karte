@@ -325,6 +325,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
         <label className="flex items-center gap-2 rounded-md border border-rule bg-sheet px-2 py-1">
           <Search size={14} className="text-ink-faint" />
           <input
+            autoComplete="off"
             value={q}
             onChange={(e) => {
               setQ(e.target.value);

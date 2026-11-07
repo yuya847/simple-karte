@@ -196,7 +196,7 @@ export function AddLabPanel({
             </div>
             <label className="relative shrink-0" title="項目検索：名前・略語・かなで引きます（例 でぃーだいまー、BNP、肝炎）">
               <Search size={13} className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-ink-faint" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="項目検索" aria-label="項目検索" className="w-32 rounded border border-rule bg-sheet py-0.5 pl-6 pr-1.5 text-[12px]" />
+              <input autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="項目検索" aria-label="項目検索" className="w-32 rounded border border-rule bg-sheet py-0.5 pl-6 pr-1.5 text-[12px]" />
             </label>
           </div>
           <div id={`${tabId}-items`} role="tabpanel" aria-labelledby={`${tabId}-${current.key}`}>

@@ -45,6 +45,7 @@ export function PatientPicker({ beds, patients, openIds, onOpen, onInfo, onClose
           <Search size={16} className="text-ink-faint" />
           <input
             ref={input}
+            autoComplete="off"
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
