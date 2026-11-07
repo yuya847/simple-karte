@@ -423,7 +423,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       role="group"
       aria-label="記事"
       // No box around the whole editor (an empty note is just a blank line); a problem line (＃) gets its own box below.
-      className={`relative rounded-md py-1.5 pr-2 ${readOnly ? "bg-paper" : ""}`}
+      className={`relative rounded-md py-1.5 pr-2 ${readOnly ? "bg-paper" : ""} ${!readOnly && value === "" ? "min-h-40 cursor-text" : ""}`}
       onClick={(e) => {
         // A click on the margin under the last line puts the caret at its end.
         if (e.target === e.currentTarget) focusLine(lines.length - 1, Infinity);
@@ -534,6 +534,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               >
                 {line + " "}
               </div>
+              {/* An empty note shows where writing starts: a blinking bar until a line takes the focus (ユーザー 2026-11-07). */}
+              {i === 0 && !readOnly && value === "" && activeLine === null && <span aria-hidden data-note-caret className="note-caret pointer-events-none absolute left-2 top-1 z-[1] w-[2px] bg-ink" style={{ height: size * 1.25 }} />}
               {onClaude && isClaudeLine(line) && <span aria-hidden className="pointer-events-none absolute left-2 top-0.5 z-[1] rounded bg-ai-soft text-ai" style={{ fontSize: size }} >{line.slice(0, 7)}</span>}
               {/* The indent and the marker are laid out as text (invisible), so the cover is exactly over the marker. */}
               {style && <span aria-hidden className="pointer-events-none absolute left-2 top-0.5 z-[1] flex whitespace-pre" style={{ fontSize: size }}><span className="invisible">{style.indent}</span><span className={`relative ${style.kind === "callout" ? (style.marker === "❗ " ? "bg-shu-soft" : "bg-ai-soft") : "bg-sheet"} ${style.kind === "quote" ? "border-l-2 border-rule" : ""}`} style={{ height: "1.5em" }}><span className="invisible">{style.marker}</span>{style.kind === "list" && <span className="absolute left-0 top-0">{style.marker === "- " ? "・" : style.marker}</span>}</span></span>}
