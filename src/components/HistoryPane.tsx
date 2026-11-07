@@ -285,8 +285,9 @@ function RecordList({
   // 絞り込みと検索はふだん畳んである（アイコンで開く）。
   const [tools, setTools] = useState<"none" | "filter" | "search">("none");
   // 記録は全部開いた状態が基本。長い記事（12行か600字を超える）だけは畳んでおき、▸ で個別に開く（ユーザーの決め）。
+  // 今日の記事は畳まない（書いて確定したばかりの記事が畳まれて、保存されなかったように見えた）。
   const isLong = (e: HistoryEntry) => {
-    if (e.kind !== "note") return false;
+    if (e.kind !== "note" || e.day === 0) return false;
     const t = noteText(e);
     return t.length > 600 || t.split("\n").length > 12;
   };
