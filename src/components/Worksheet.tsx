@@ -19,7 +19,9 @@ import { findOralDrug } from "@/lib/master";
 import { dripRate, dripText } from "@/lib/drip";
 import { MarCell, VoidControl } from "./MarCell";
 import { RunningDrips } from "./DripControls";
-import { TakeTable, type ConfirmProps } from "./TakeTable";
+import { TakeTable, Who, type ConfirmProps } from "./TakeTable";
+import { usePressMenu } from "./PressMenu";
+import type { OpenAt } from "@/lib/open-at";
 import { unconfirmed } from "@/lib/order-confirm";
 import { CareSheet } from "./CareSheet";
 import { DrugMarks } from "./DrugMarks";
@@ -67,6 +69,8 @@ interface Props extends RemeasureProps {
   assigned?: (day: number, shift: "day" | "night") => string[];
   /** 指示確認: who looked at the schedule a taken change makes, and confirming one (the orders come from `people`). */
   confirm?: Omit<ConfirmProps, "people" | "nowAbs">;
+  /** A patient's 部屋・患者 pressed: the chart (with a tool from the row's menu: 指示受け, or 実施入力 of the ward). */
+  onOpen?: (patientId: string, where?: OpenAt) => void;
 }
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -84,7 +88,7 @@ const noSubscribe = () => () => {};
  * The ward worksheet for a shift: order changes to take (指示受け), what runs all shift, what is
  * due by the clock, and what has no set time. Built from the orders by code; printed on A4.
  */
-export function Worksheet({ expiryNotice, standingMeasurements, remeasureVitals, onMeasure, people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], standingFreePrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm }: Props) {
+export function Worksheet({ expiryNotice, standingMeasurements, remeasureVitals, onMeasure, people, today, nowTime, taken, sessionKeys, onTake, records, sessionStart, onRecord, onVoid, voided = {}, standingPrn = [], standingFreePrn = [], queried = {}, others = [], holds = {}, onHold = () => {}, nurses = [], care, assigned, confirm, onOpen }: Props) {
   // Opens on the shift going on now: before 08:30 that is the night shift that began the day before (昨日の夜勤);
   // left open past the next morning, tomorrow's day shift.
   const start = (() => {
@@ -162,7 +166,7 @@ export function Worksheet({ expiryNotice, standingMeasurements, remeasureVitals,
       </div>
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
         <div className="mx-auto max-w-[1100px] rounded-lg border border-rule bg-sheet p-5 shadow-sm">
-          <Sheet {...props} onTake={onTake} interactive />
+          <Sheet {...props} onTake={onTake} interactive onOpen={onOpen} />
         </div>
 
       </div>
@@ -229,12 +233,25 @@ interface SheetProps extends RemeasureProps {
   /** 指示確認 (optional), and how many taken changes still wait for it. */
   confirm?: ConfirmProps;
   notConfirmed: number;
+  /** On the screen only (not on paper). */
+  onOpen?: Props["onOpen"];
 }
 
 type DayOffsetLike = -1 | 0 | 1;
 
-function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart: openedAt, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm, notConfirmed }: SheetProps) {
+function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, isRowTaken, holds, onHold, nurses, kinds, today, day, shift, nowTime, taken, onTake, interactive, records, sessionStart: openedAt, onRecord, onVoid, voided, standingPrn, standingFreePrn, queried, people, care, assignLines, confirm, notConfirmed, onOpen }: SheetProps) {
   const nowAbs = abs(0, nowTime);
+  // 部屋・患者 opens the chart; a row's menu (右クリック・長押し) has the chart, 指示受け and 実施入力. On paper, neither.
+  const { bind, menu } = usePressMenu();
+  const open = interactive ? onOpen : undefined;
+  const rowMenu = (id: string, room: string, name: string) =>
+    open
+      ? bind(`${room} ${name}`, () => [
+          { label: "カルテを開く", onClick: () => open(id) },
+          { label: "指示受け", onClick: () => open(id, "take") },
+          { label: "実施入力", onClick: () => open(id, "execute") },
+        ])
+      : {};
   const sessionStart = Math.min(openedAt, shiftWindow(shift, day).lo);
   const other = (pid: string) => people.find((x) => x.patient.id !== pid)?.patient.id;
   // 麻・毒・劇・ハイリスク of the order's drugs (drug-class.ts).
@@ -298,7 +315,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
       )}
 
       <Section title={`指示の変更（昨日と今日）　指示受けがまだ ${rows.filter((r) => !isRowTaken(r)).length}件${notConfirmed ? `　受けたが予定の確認がまだ ${notConfirmed}件` : ""}`}>
-        {rows.length === 0 ? <Empty>変更はありません</Empty> : <><TakeTable rows={rows.filter(r => !isRowTaken(r))} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} /><details><summary className="cursor-pointer py-2">受け済み {rows.filter(isRowTaken).length}件</summary><TakeTable rows={rows.filter(isRowTaken)} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} /></details></>}
+        {rows.length === 0 ? <Empty>変更はありません</Empty> : <><TakeTable rows={rows.filter(r => !isRowTaken(r))} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} onOpen={open} /><details><summary className="cursor-pointer py-2">受け済み {rows.filter(isRowTaken).length}件</summary><TakeTable rows={rows.filter(isRowTaken)} taken={taken} isTaken={isRowTaken} holds={holds} interactive={interactive} day={day} today={today} nurses={nurses} onTake={onTake} onHold={onHold} confirm={confirm} onOpen={open} /></details></>}
       </Section>
 
       <Section title="勤務のあいだ続くもの（点滴・酸素・留置）">
@@ -308,10 +325,10 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
           <table className="w-full border-collapse">
             <tbody>
               {running.map((r, i) => (
-                <tr key={r.orderId}>
+                <tr key={r.orderId} {...rowMenu(r.patientId, r.room, r.name)}>
                   {/* The patient once, over all of their lines (the list is in room order). */}
                   <td className={`${td} w-28 align-top`}>
-                    {i === 0 || running[i - 1].name !== r.name || running[i - 1].room !== r.room ? <>{r.room}　{r.name}</> : null}
+                    {i === 0 || running[i - 1].name !== r.name || running[i - 1].room !== r.room ? <Who id={r.patientId} room={r.room} name={r.name} onOpen={open} /> : null}
                   </td>
                   <td className={`${td} w-14`}>
                     <Kind kind={r.kind} />
@@ -350,10 +367,10 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
                 const prev = timed[k - 1];
                 const newHour = !prev || Math.floor((prev.at ?? 0) / 60) !== Math.floor((i.at ?? 0) / 60);
                 return (
-                  <tr data-patient={i.patientId} data-notice-destination="sheet" key={`${i.orderId}-${i.at}-${k}`} className={newHour ? "border-t border-ink/30" : ""}>
+                  <tr data-patient={i.patientId} data-notice-destination="sheet" key={`${i.orderId}-${i.at}-${k}`} className={newHour ? "border-t border-ink/30" : ""} {...rowMenu(i.patientId, i.room, i.name)}>
                     <td className={`${td} font-bold`}>{i.at !== null ? timeLabel(i.at, day, today) : ""}</td>
                     <td className={td}>
-                      {i.room}　{i.name}
+                      <Who id={i.patientId} room={i.room} name={i.name} onOpen={open} />
                     </td>
                     <td className={td}>
                       <Kind kind={i.kind} />
@@ -385,7 +402,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
       {care && <CareSheet {...care} people={people} {...shiftWindow(shift, day)} day={day} today={today} nowTime={nowTime} sessionStart={sessionStart} interactive={interactive} />}
 
       <Section title="指示簿の頓用（自由文）">
-        {standingFreePrn.length ? <table className="w-full border-collapse"><tbody>{standingFreePrn.map((l) => <tr key={`${l.patientId}-${l.id}`}><td className={`${td} w-28`}>{l.room}　{l.name}</td><td className={`${td} whitespace-pre-wrap`}>{displayText(l.text)}</td></tr>)}</tbody></table> : <Empty>ありません</Empty>}
+        {standingFreePrn.length ? <table className="w-full border-collapse"><tbody>{standingFreePrn.map((l) => <tr key={`${l.patientId}-${l.id}`} {...rowMenu(l.patientId, l.room, l.name)}><td className={`${td} w-28`}><Who id={l.patientId} room={l.room} name={l.name} onOpen={open} /></td><td className={`${td} whitespace-pre-wrap`}>{displayText(l.text)}</td></tr>)}</tbody></table> : <Empty>ありません</Empty>}
 
       </Section>
       <Section title="時刻の決まっていないもの（必要時・1日N回）">
@@ -395,9 +412,9 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
           <table className="w-full border-collapse">
             <tbody>
               {untimed.map((i) => (
-                <tr data-patient={i.patientId} data-notice-destination="sheet" key={i.orderId}>
+                <tr data-patient={i.patientId} data-notice-destination="sheet" key={i.orderId} {...rowMenu(i.patientId, i.room, i.name)}>
                   <td className={`${td} w-28`}>
-                    {i.room}　{i.name}
+                    <Who id={i.patientId} room={i.room} name={i.name} onOpen={open} />
                   </td>
                   <td className={`${td} w-14`}>
                     <Kind kind={i.kind} />
@@ -430,7 +447,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
           </table>
         )}
       </Section>
-
+      {menu}
     </div>
   );
 }

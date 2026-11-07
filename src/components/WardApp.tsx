@@ -2773,7 +2773,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "execute" ? (
         <ExecuteDesk onVoid={voidMar} people={people} today={today} nowTime={nowTime} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} onRecord={recordMar} taken={taken} sessionKeys={sessionKeys} nurses={[...new Set([...people.map((x) => nurseFor(x.room.replace(/[A-Z]$/, ""))), "看護師 田中", "看護師 渡辺", "看護師 佐藤"])]} onOpen={openPatient} onSheet={() => goWard("sheet")} onTakeDesk={() => goWard("take")} />
       ) : screen === "sheet" ? (
-        <Worksheet expiryNotice={expiryNotice}
+        <Worksheet expiryNotice={expiryNotice} onOpen={openAt}
           standingMeasurements={Object.fromEntries(people.map(x => [x.patient.id, { lines: standingLines[x.patient.id] ?? [], fields: standing[x.patient.id]?.at(-1) }]))}
           remeasureVitals={extraVitals}
           onMeasure={(id) => setExtraVitals((all) => ({ ...all, [id]: markRemeasured(all[id] ?? []) }))}

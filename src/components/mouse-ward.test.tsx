@@ -5,11 +5,16 @@ import { PATIENTS } from "@/lib/patients";
 import { BEDS_WITH_CHARTS, WARD_CHART_PATIENTS } from "@/lib/ward-charts";
 import type { AdmissionRequest } from "@/lib/admission";
 import { flagsFor, withRxAction } from "@/lib/patient-flags";
+import { currentEntries } from "@/lib/record";
+import type { OrderEntry } from "@/lib/types";
 import { STAFF } from "@/lib/roles";
 import { PatientList } from "./PatientList";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { WardMap } from "./WardMap";
 import { WardRequests } from "./WardRequests";
+import { Worksheet } from "./Worksheet";
+import { TakeTable } from "./TakeTable";
+import type { TakeRow } from "@/lib/order-take";
 
 const all = [...PATIENTS, ...WARD_CHART_PATIENTS];
 const ward = { beds: BEDS_WITH_CHARTS, patient: (id: string) => all.find((p) => p.id === id) };
@@ -96,5 +101,29 @@ describe("入院患者一覧：印を押すと、その患者のその道具が�
   it("診療科・担当 is one line, cut at the column; the whole is on the cursor", () => {
     const html = list(() => {});
     expect(html).toMatch(new RegExp(`<div title="${p.department}\\n${p.attending.replace(/[()（）]/g, ".")}[^"]*" class="max-w-60 truncate whitespace-nowrap">`));
+  });
+});
+
+describe("ワークシート：部屋・氏名を押すとカルテ", () => {
+  const sheetPeople = PATIENTS.slice(0, 2).map((p, i) => ({ patient: p, room: `50${6 + i}A`, entries: currentEntries(p).filter((e): e is OrderEntry => e.kind === "order") }));
+  const sheet = (onOpen?: (id: string) => void) =>
+    renderToStaticMarkup(
+      <RoleProvider value="看護師">
+        <MeProvider value={STAFF.看護師}>
+          <Worksheet people={sheetPeople} today={{ y: 2026, m: 11, d: 4 }} nowTime="10:00" taken={{}} sessionKeys={new Set()} onTake={() => {}} records={{}} sessionStart={0} onRecord={() => {}} onOpen={onOpen} />
+        </MeProvider>
+      </RoleProvider>,
+    );
+  it("on the screen the name of a row is a button; without a place to open, it stays text", () => {
+    const name = `${sheetPeople[0].room}　${PATIENTS[0].name}`;
+    expect(sheet(() => {})).toContain(`hover:underline">${name}</button>`);
+    expect(sheet()).not.toContain(`hover:underline">${name}</button>`);
+  });
+  it("on paper (not interactive) the 指示受け table keeps the name as text", () => {
+    const row = { key: "k", keys: ["k"], patientId: "p1", room: "512", name: "佐倉 修", at: 600, timeKnown: true, kind: "新規", type: "注射", main: "生理食塩液", detail: "", flags: {}, related: [], mustOne: [], author: "山本（専攻医）" } as unknown as TakeRow;
+    const table = (interactive: boolean) => renderToStaticMarkup(<TakeTable rows={[row]} taken={{}} isTaken={() => false} holds={{}} interactive={interactive} day={0} today={{ y: 2026, m: 11, d: 4 }} nurses={[]} onTake={() => {}} onHold={() => {}} onOpen={() => {}} />);
+    expect(table(true)).toContain('hover:underline">512　佐倉 修</button>');
+    expect(table(false)).not.toContain("512　佐倉 修</button>");
+    expect(table(false)).toContain("512　佐倉 修");
   });
 });

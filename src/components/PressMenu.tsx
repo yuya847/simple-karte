@@ -39,6 +39,9 @@ export function usePressMenu() {
       onPointerDown: (e: PointerEvent) => {
         held.current = false;
         if (e.pointerType === "mouse") return;
+        // A finger on a control inside the row (a button, a field) is for that control.
+        const control = (e.target as Element).closest("button, input, select, textarea, a, label");
+        if (control && control !== e.currentTarget) return;
         origin.current = { x: e.clientX, y: e.clientY };
         cancel();
         const { clientX, clientY } = e;

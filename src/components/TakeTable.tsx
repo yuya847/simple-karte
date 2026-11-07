@@ -11,6 +11,8 @@ import { timeLabel, type WorkPatient } from "@/lib/worksheet";
 import { ConfirmCheck, WAITING_BUTTON, Waits } from "./ConfirmCheck";
 import { useMe } from "./RoleContext";
 import { TakeConfirm } from "./TakeConfirm";
+import { usePressMenu } from "./PressMenu";
+import type { OpenAt } from "@/lib/open-at";
 
 /** 指示確認 after 指示受け: who looked at the schedule the change makes (by row key), confirming one, and the orders to expand it from. */
 export interface ConfirmProps {
@@ -24,13 +26,26 @@ const td = "border-b border-rule-soft px-1.5 py-1 align-top";
 const th = "border-b border-rule px-1.5 py-1 text-left font-normal text-ink-soft";
 export const FLAG_STYLE = { resident: "bg-yamabuki-soft text-yamabuki", urgent: "bg-shu text-white", highRisk: "bg-shu-soft text-shu", verbal: "bg-fuji-soft text-fuji", changed: "bg-yamabuki-soft text-yamabuki", offHours: "bg-tab text-ink" } as const;
 
+/** 部屋・患者 of a row: pressed, the patient's chart. On paper (no onOpen), the text as it was. */
+export function Who({ id, room, name, onOpen }: { id: string; room: string; name: string; onOpen?: (patientId: string) => void }) {
+  if (!onOpen) return <>{room}　{name}</>;
+  return (
+    <button type="button" onClick={() => onOpen(id)} className="text-left hover:text-ai hover:underline">
+      {room}　{name}
+    </button>
+  );
+}
+
 /**
  * 指示受け: each change with what it is, flags (至急・高リスク・口頭指示・変更・時間外), a 変更 with before and
  * after, and orders related to it. Some must be taken one at a time with a check, high-risk ones with a
  * second nurse; any can be held to ask the doctor first.
  */
-export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today, nurses, onTake, onHold, confirm, showPatient = true }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; interactive: boolean; day: number; today: CalendarDate; nurses: string[]; onTake: (keys: string[], second?: string) => void; onHold: (key: string, reason: TakeHold["reason"], note: string) => void; confirm?: ConfirmProps; showPatient?: boolean; notes?: boolean }) {
+export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today, nurses, onTake, onHold, confirm, showPatient = true, onOpen }: { rows: TakeRow[]; taken: Record<string, string>; isTaken: (r: TakeRow) => boolean; holds: Record<string, TakeHold>; interactive: boolean; day: number; today: CalendarDate; nurses: string[]; onTake: (keys: string[], second?: string) => void; onHold: (key: string, reason: TakeHold["reason"], note: string) => void; confirm?: ConfirmProps; showPatient?: boolean; notes?: boolean; onOpen?: (patientId: string, where?: OpenAt) => void }) {
   const [open, setOpen] = useState<string | null>(null);
+  // 部屋・患者 opens the chart; a row's menu (右クリック・長押し) has the chart, 指示受け and 実施入力 (on the screen only).
+  const { bind, menu } = usePressMenu();
+  const chart = interactive ? onOpen : undefined;
   const [confirming, setConfirming] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const close = () => setOpen(null);
@@ -60,7 +75,11 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
             const holding = !!hold && !hold.answer && !ok;
             const flags = (Object.entries(r.flags) as [keyof typeof FLAG_STYLE, string][]).filter(([, v]) => v);
             return [
-              <tr key={r.key} data-patient={r.patientId} data-notice-destination="sheet" className={r.kind === "中止" ? "text-ink-soft" : ok ? "" : r.flags.urgent ? "bg-shu-soft/30" : ""}>
+              <tr key={r.key} data-patient={r.patientId} data-notice-destination="sheet" className={r.kind === "中止" ? "text-ink-soft" : ok ? "" : r.flags.urgent ? "bg-shu-soft/30" : ""} {...(chart ? bind(`${r.room} ${r.name}`, () => [
+                  { label: "カルテを開く", onClick: () => chart(r.patientId) },
+                  { label: "指示受け", onClick: () => chart(r.patientId, "take") },
+                  { label: "実施入力", onClick: () => chart(r.patientId, "execute") },
+                ]) : {})}>
                 <td className={td}>
                   {ok ? (
                     <span className="flex flex-col items-start gap-0.5">
@@ -105,7 +124,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                 <td className={td}>{r.timeKnown ? timeLabel(r.at, day, today) : `${formatShort(addDays(today, Math.floor(r.at / 1440))).replace(/（.）/, "")}（時刻なし）`}</td>
                 {showPatient && (
                   <td className={td}>
-                    {r.room}　{r.name}
+                    <Who id={r.patientId} room={r.room} name={r.name} onOpen={chart} />
                   </td>
                 )}
                 <td className={`${td} font-bold ${r.kind === "中止" ? "text-shu" : r.kind === "変更" ? "text-yamabuki" : ""}`}>{r.kind === "変更" ? "【変】" : r.kind}</td>
@@ -196,7 +215,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
           })}
         </tbody>
       </table>
-
+      {menu}
     </>
   );
 }
