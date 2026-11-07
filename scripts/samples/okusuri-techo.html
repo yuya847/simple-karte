@@ -1,0 +1,65 @@
+<!doctype html>
+<!--
+  架空のお薬手帳の見本（2ページ）。public/samples/okusuri-techo-1.jpg・-2.jpg はこれをヘッドレスのブラウザで撮ったもの。
+  薬局・医療機関・氏名はすべて架空。院内のマスターにある薬とない薬を混ぜてある。
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #ddd; font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; color: #222; }
+  .page { width: 1000px; height: 1340px; box-sizing: border-box; padding: 56px 64px; margin: 0 0 40px; background: #fbf8f1; position: relative; }
+  .head { border: 2px solid #c9b48a; border-radius: 10px; padding: 18px 24px; background: #f6efdf; }
+  .head h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: 0.3em; color: #7a5a2a; }
+  .head dl { display: grid; grid-template-columns: 7em 1fr; margin: 0; font-size: 24px; row-gap: 6px; }
+  .head dt { color: #7a5a2a; }
+  .head dd { margin: 0; }
+  .sticker { margin-top: 44px; border: 1.5px solid #9a9a9a; background: #fff; padding: 22px 28px 26px; box-shadow: 2px 3px 0 rgba(0,0,0,0.08); font-family: "Osaka-Mono", "Hiragino Kaku Gothic ProN", monospace; }
+  .sticker .top { font-size: 22px; line-height: 1.5; border-bottom: 1.5px dashed #9a9a9a; padding-bottom: 10px; margin-bottom: 12px; }
+  .rx { font-size: 27px; line-height: 1.45; margin: 10px 0; }
+  .rx .use { padding-left: 2.2em; font-size: 25px; color: #333; }
+  .note { position: absolute; bottom: 48px; left: 64px; right: 64px; font-size: 20px; color: #7a5a2a; border-top: 1px solid #c9b48a; padding-top: 10px; }
+  .mihon { position: absolute; top: 40px; right: 60px; border: 3px solid #b5402b; color: #b5402b; font-size: 30px; font-weight: bold; padding: 4px 14px; transform: rotate(8deg); opacity: 0.8; }
+</style>
+</head>
+<body>
+<section class="page" id="p1">
+  <div class="mihon">見本</div>
+  <div class="head">
+    <h1>おくすり手帳</h1>
+    <dl>
+      <dt>氏名</dt><dd>見本 太郎 様（架空）</dd>
+      <dt>生年月日</dt><dd>見本（架空）</dd>
+      <dt>住所</dt><dd>見本県 見本市（架空）</dd>
+      <dt>アレルギー</dt><dd>なし（見本）</dd>
+    </dl>
+  </div>
+  <div class="sticker">
+    <div class="top">2026年10月20日 調剤　みほん薬局 さくら店（架空）<br>処方：あおば内科クリニック（架空）</div>
+    <div class="rx">【1】ノルバスク錠5mg　　1回1錠<div class="use">1日1回　朝食後　28日分</div></div>
+    <div class="rx">【2】ラシックス錠20mg　1回1錠<div class="use">1日1回　朝食後　28日分</div></div>
+    <div class="rx">【3】酸化マグネシウム錠330mg　1回1錠<div class="use">1日3回　毎食後　28日分</div></div>
+    <div class="rx">【4】エクア錠50mg　　　1回1錠<div class="use">1日2回　朝夕食後　28日分</div></div>
+    <div class="rx">【5】カロナール錠500　1回1錠<div class="use">頓用　疼痛時　10回分</div></div>
+  </div>
+  <div class="note">この手帳は Simple Karte の見本です。実在の患者・薬局・医療機関のものではありません。</div>
+</section>
+<section class="page" id="p2">
+  <div class="mihon">見本</div>
+  <div class="head">
+    <h1>おくすり手帳</h1>
+    <dl>
+      <dt>氏名</dt><dd>見本 太郎 様（架空）</dd>
+      <dt>生年月日</dt><dd>見本（架空）</dd>
+    </dl>
+  </div>
+  <div class="sticker">
+    <div class="top">2026年10月27日 調剤　みほん調剤薬局 えき前店（架空）<br>処方：みどり整形外科（架空）</div>
+    <div class="rx">【1】リリカOD錠75mg　　1回1錠<div class="use">1日2回　朝夕食後　14日分</div></div>
+    <div class="rx">【2】タケプロンOD錠15　1回1錠<div class="use">1日1回　朝食後　14日分</div></div>
+    <div class="rx">【3】ムコスタ錠100mg　　1回1錠<div class="use">1日3回　毎食後　14日分</div></div>
+  </div>
+  <div class="note">この手帳は Simple Karte の見本です。実在の患者・薬局・医療機関のものではありません。</div>
+</section>
+</body>
+</html>
