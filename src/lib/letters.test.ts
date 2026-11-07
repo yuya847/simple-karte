@@ -5,7 +5,7 @@ import { shinryoItem } from "./billing/master-items";
 import { PATIENTS } from "./patients";
 import { createDischargeDraft } from "./discharge";
 import {
-  LETTER_FEES, LETTER_HOSPITAL, chartDischargeDay, claimLetters, confirmLetter, consultSeed, dischargeSeed, judgeLetters, ledgerLetters, legacyId, legacyLetter, letterRights, letterVerdict, lettersFor, newLetter, saveDraft, verdictLine,
+  LETTER_FEES, LETTER_HOSPITAL, chartDischargeDay, claimLetters, confirmLetter, consultSeed, dischargeSeed, judgeLetters, ledgerLetters, legacyId, legacyLetter, letterRights, letterSignedContent, letterVerdict, lettersFor, newLetter, saveDraft, sentNow, signedNow, verdictLine,
   type Letter, type LetterClaim, type LetterFlags, type LetterType,
 } from "./letters";
 
@@ -245,3 +245,23 @@ describe("退院サマリ・他科依頼から作る、台帳に入れる", () =
     expect(new Set(rows.map((r) => r.id)).size).toBe(2);
   });
 });
+
+describe("電子署名と送信（模擬）の記録", () => {
+  const patient = PATIENTS[0];
+  const chart = { patient, entries: patient.history, diagnoses: [], today };
+  const at = { day: 0, time: "10:00" };
+  const record = { id: "s", patientId: patient.id, kind: "診療情報提供書" as const, docHash: "0".repeat(64), signature: "x", keyId: "k", signer: "医師", role: "医師", at: { date: "2026-11-03", time: "10:05:00" }, alg: "ECDSA P-256 / SHA-256（模擬）" as const };
+  it("署名と送信はその版のもの。修正すると版が変わり、署名し直して送る（前の送信は残る）", () => {
+    const l = confirmLetter({ ...newLetter("a", chart, "紹介", "医師", at), to: "架空みどり病院" }, undefined, "医師", at);
+    expect(signedNow(l)).toBe(false);
+    const signed: Letter = { ...l, signed: { version: 1, record } };
+    const sent: Letter = { ...signed, sends: [{ at, by: "医師", version: 1, documentId: "x^2026^DOC-a", to: "架空みどり病院", receiptNo: "R1", attached: false }] };
+    expect([signedNow(sent), sentNow(sent)]).toEqual([true, true]);
+    const fixed = confirmLetter({ ...sent, purpose: "目的" }, sent, "医師", { day: 0, time: "11:00" }, "目的を足した");
+    expect([signedNow(fixed), sentNow(fixed)]).toEqual([false, false]);
+    expect(fixed.sends).toHaveLength(1);
+    expect(letterSignedContent(fixed)).toMatchObject({ version: 2, purpose: "目的", to: "架空みどり病院" });
+    expect(signedNow({ ...saveDraft(l), status: "下書き", signed: { version: 1, record } })).toBe(false);
+  });
+});
+

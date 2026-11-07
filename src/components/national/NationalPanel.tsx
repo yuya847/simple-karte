@@ -10,6 +10,7 @@ import { currentInsurance, type InsuranceBook } from "@/lib/billing/registration
 import type { CalendarDate } from "@/lib/dates";
 import type { Diagnosis } from "@/lib/diagnoses";
 import type { DischargeDraft } from "@/lib/discharge";
+import type { Letter } from "@/lib/letters";
 import { birthDateOf } from "@/lib/national/fictional";
 import { nextSerial, recordsOf, type NationalRecord } from "@/lib/national/log";
 import { linesFromHomeRx } from "@/lib/national/rx-lines";
@@ -24,10 +25,15 @@ export function insuranceFor(book: InsuranceBook, p: { id: string; age: number }
   return ins ? { insurance: ins, assumed: false } : { insurance: assumedInsurance(p.age, today), assumed: true };
 }
 
-export function NationalPanel({ patient, entries, diagnoses, draft, book, today, nowTime, log, onRecord }: { patient: Patient; entries: OrderEntry[]; diagnoses: Diagnosis[]; draft?: DischargeDraft; book: InsuranceBook; today: CalendarDate; nowTime: string; log: NationalRecord[]; onRecord: (r: NationalRecord) => void }) {
+/** The insurance and the birth date the FHIR documents carry (the card's, or the assumption's and a fictional day). */
+export function clinsPatient(book: InsuranceBook, p: { id: string; age: number }, today: CalendarDate) {
+  const { insurance, assumed } = insuranceFor(book, p, today);
+  return { insurance, assumed, birthDate: insurance && !assumed ? insurance.birthDate : birthDateOf(p, today) };
+}
+
+export function NationalPanel({ patient, entries, diagnoses, draft, letters, book, today, nowTime, log, onRecord }: { patient: Patient; entries: OrderEntry[]; diagnoses: Diagnosis[]; draft?: DischargeDraft; letters: Letter[]; book: InsuranceBook; today: CalendarDate; nowTime: string; log: NationalRecord[]; onRecord: (r: NationalRecord) => void }) {
   const [tab, setTab] = useState<"erx" | "clins">("erx");
-  const { insurance, assumed } = insuranceFor(book, patient, today);
-  const birthDate = insurance && !assumed ? insurance.birthDate : birthDateOf(patient, today);
+  const { insurance, assumed, birthDate } = clinsPatient(book, patient, today);
   const lines = linesFromHomeRx(entries);
   const mine = recordsOf(log, patient.id);
   return (
@@ -59,7 +65,7 @@ export function NationalPanel({ patient, entries, diagnoses, draft, book, today,
           onRegistered={onRecord}
         />
       ) : (
-        <ClinsPanel patient={patient} birthDate={birthDate} insurance={insurance} insuranceAssumed={assumed} diagnoses={diagnoses} draft={draft} entries={entries} today={today} nowTime={nowTime} done={mine} onSent={onRecord} />
+        <ClinsPanel patient={patient} birthDate={birthDate} insurance={insurance} insuranceAssumed={assumed} diagnoses={diagnoses} draft={draft} letters={letters} entries={entries} today={today} nowTime={nowTime} done={mine} onSent={onRecord} />
       )}
     </div>
   );

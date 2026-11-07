@@ -7,7 +7,8 @@ import { diseaseKeysOf } from "../masters/byomei";
 import { PATIENTS } from "../patients";
 import type { OrderEntry } from "../types";
 import { nationalServices } from "./adapter";
-import { buildDocuments, clinsBundle, conditionResource, labResources, memberId, splitAllergy, type ClinsContext } from "./clins";
+import { confirmLetter, legacyLetter, newLetter, type Letter, type LetterType } from "../letters";
+import { CLINS_NOT_SENT, clinsBundle, conditionResource, labResources, memberId, referralBundleFromLetter, splitAllergy, summaryDocument, type ClinsContext } from "./clins";
 import { buildErxBundle, INSTITUTION_10, mockSign } from "./erx";
 import { fictionalQualification, formFromQualification, kindOfNumber } from "./onshi";
 import { linesFromHomeRx } from "./rx-lines";
@@ -146,16 +147,18 @@ describe("電子カルテ情報共有サービス（模擬）: JP-CLINS", () => 
     expect(JSON.stringify(b).includes(`"reference":"${b.entry[0].fullUrl}"`)).toBe(true);
   });
 
-  it("makes the 退院時サマリー, and the 診療情報提供書 once the letter is issued, with the same document id", () => {
-    const draft: DischargeDraft = { patientId: kitamura.id, dischargeDay: 1, destination: "自宅", outcome: "1", route: "1", sections: { ...emptySections(), complaint: "息切れ", course: "利尿薬で改善" }, status: "確定", letter: { to: "みなと循環器クリニック", dept: "循環器内科", doctor: "", purpose: "退院後の経過観察", issuedAt: { day: 0, time: "11:00" } } };
+  it("makes the 退院時サマリー, and the 診療情報提供書 of the letter the old 退院サマリ issued, with the same document id", () => {
+    const draft: DischargeDraft = { patientId: kitamura.id, dischargeDay: 1, destination: "自宅", outcome: "1", route: "1", sections: { ...emptySections(), complaint: "息切れ", course: "利尿薬で改善" }, status: "確定", confirmedBy: "山本（専攻医）", letter: { to: "みなと循環器クリニック", dept: "循環器内科", doctor: "", purpose: "退院後の経過観察", issuedAt: { day: 0, time: "11:00" } } };
     const lines = linesFromHomeRx(kitamura.history.filter((e): e is OrderEntry => e.kind === "order"));
-    const docs = buildDocuments(ctx, { draft, admittedOn: kitamura.admittedOn, lines, allergies: [{ text: "NSAIDs（喘息発作）", from: "アレルギー", send: true, category: "medication" }] });
+    const summary = summaryDocument(ctx, { draft, admittedOn: kitamura.admittedOn, lines, allergies: [{ text: "NSAIDs（喘息発作）", from: "アレルギー", send: true, category: "medication" }] });
+    const docs = { summary, referral: referralBundleFromLetter(ctx, { letter: legacyLetter(draft)!, admittedOn: kitamura.admittedOn, lines, allergies: [], discharge: draft }).referral };
     const s = docs.summary as { identifier: { value: string }; entry: { resource: Res }[] };
     expect(s.entry[0].resource.meta.profile[0]).toBe("http://jpfhir.jp/fhir/eDischargeSummary/StructureDefinition/JP_Composition_eDischargeSummary|1.13.0");
     const codes = JSON.stringify(s.entry[0].resource).match(/"code":"(\d{3})"/g)!.map((x) => x.slice(8, 11));
     for (const c of ["300", "322", "312", "324", "342", "352", "360", "333", "344", "444", "424"]) expect(codes).toContain(c);
     const r = docs.referral as { identifier: { value: string }; entry: { resource: Res }[] };
     expect(r.identifier.value).toBe(s.identifier.value);
+    expect(r.identifier.value).toBe(`${INSTITUTION_10}^2026^DOC-${kitamura.id}`);
     const rc = JSON.stringify(r.entry[0].resource);
     for (const c of ["920", "910", "300", "950", "340", "360"]) expect(rc).toContain(`"code":"${c}"`);
     expect(JSON.stringify(docs)).not.toContain("<table");
@@ -169,3 +172,74 @@ describe("電子カルテ情報共有サービス（模擬）: JP-CLINS", () => 
     expect(yes.items.map((i) => i.kind)).toContain("薬剤アレルギー等");
   });
 });
+
+describe("電子カルテ情報共有サービス（模擬）: 紹介状から診療情報提供書（HS038）", () => {
+  const diagnoses = INITIAL_DIAGNOSES[kitamura.id];
+  const ctx: ClinsContext = { patient: kitamura, birthDate: INSURANCE[kitamura.id].birthDate, insurance: INSURANCE[kitamura.id], insuranceAssumed: false, diagnoses, diseaseKeys: diseaseKeysOf(diagnoses.map((d) => d.code)), doctor: "看護師 太郎", today, time: "11:00" };
+  const chart = { patient: kitamura, entries: kitamura.history, diagnoses, today };
+  const at = { day: 0, time: "10:00" };
+  const lines = linesFromHomeRx(kitamura.history.filter((e): e is OrderEntry => e.kind === "order"));
+  const letter = (type: LetterType, patch: Partial<Letter> = {}): Letter => confirmLetter({ ...newLetter(`L-${type}`, chart, type, "山本（専攻医）", at), to: "架空みどり病院", dept: "循環器内科", purpose: "経過観察のお願い", ...patch }, undefined, "山本（専攻医）", at);
+  const build = (l: Letter, discharge?: DischargeDraft) => referralBundleFromLetter(ctx, { letter: l, admittedOn: kitamura.admittedOn, lines, allergies: [], discharge });
+  const comp = (b: Record<string, unknown> | null) => (b!.entry as { resource: Res }[])[0].resource;
+  const summaryDraft = (status: DischargeDraft["status"]): DischargeDraft => ({ patientId: kitamura.id, dischargeDay: 1, destination: "自宅", outcome: "1", route: "1", sections: { ...emptySections(), course: "利尿薬で改善" }, status, letter: { to: "", dept: "", doctor: "", purpose: "" } });
+
+  it("sends the kinds written to a 医療機関 (紹介・返書・照会・歯科), not 老健・介護医療院, 市町村・居宅 nor セカンドオピニオン, and never a draft", () => {
+    for (const t of ["紹介", "返書", "照会", "歯科"] as LetterType[]) {
+      const d = build(letter(t));
+      expect(d.notSent, t).toBeNull();
+      expect(d.referral, t).not.toBeNull();
+    }
+    for (const t of ["介護施設", "保健福祉", "セカンドオピニオン"] as LetterType[]) {
+      const d = build(letter(t));
+      expect(d.referral, t).toBeNull();
+      expect(d.notSent, t).toBe(CLINS_NOT_SENT[t]);
+    }
+    expect(build(letter("セカンドオピニオン")).notSent).toContain("患者に渡す");
+    expect(build({ ...newLetter("d", chart, "紹介", "山本（専攻医）", at), to: "架空みどり病院", purpose: "x" }).notSent).toBe("確定していない");
+  });
+
+  it("names what is missing (Unfilled) instead of making the document: 宛先, 紹介目的, 傷病名, the doctor who confirmed", () => {
+    const d = build(letter("紹介", { to: " ", purpose: "" }));
+    expect(d.referral).toBeNull();
+    expect(d.missing.map((m) => m.field)).toEqual(["紹介先情報（910）の医療機関名（必須）", "紹介目的（950）（必須）"]);
+    expect(d.missing[0].why).toBe("紹介先の医療機関が空");
+    const bare = referralBundleFromLetter({ ...ctx, diagnoses: [] }, { letter: { ...letter("紹介", { body: {} }), confirmedBy: "" }, admittedOn: kitamura.admittedOn, lines, allergies: [] });
+    expect(bare.missing.map((m) => m.field)).toEqual(["傷病名・主訴（340）（必須）", "作成者（Composition.author の医師）（必須）"]);
+  });
+
+  it("puts the letter's fields in the sections, the confirming doctor as the author, and the version", () => {
+    const l = letter("照会", { body: { diagnosis: "慢性心不全", question: "以前の心エコーの結果", findings: "BNP 286", remarks: "特になし" } });
+    const c = comp(build(l).referral);
+    const text = JSON.stringify(c);
+    expect(c.meta.profile[0]).toBe("http://jpfhir.jp/fhir/eReferral/StructureDefinition/JP_Composition_eReferral|1.13.0");
+    expect(c.title).toBe("診療情報提供のお願い");
+    expect(text).toContain("<p>お尋ねしたいこと：以前の心エコーの結果</p>");
+    expect(text).toContain("<p>症状経過・検査結果：BNP 286</p><p>備考：特になし</p>");
+    expect(text).toContain("<p>慢性心不全</p>");
+    expect(text).not.toContain('"code":"210"');
+    const doctor = (build(l).referral!.entry as { resource: Res }[]).find((e) => e.resource.resourceType === "Practitioner")!.resource;
+    expect(JSON.stringify(doctor)).toContain("山本");
+    expect(JSON.stringify(doctor)).not.toContain("看護師");
+    const fixed = confirmLetter({ ...l, purpose: "心エコーの結果のお願い" }, l, "山本（専攻医）", { day: 0, time: "12:00" }, "目的を直した");
+    const c2 = comp(build(fixed).referral) as Res & { extension: { valueString: string }[]; date: string };
+    expect(c2.extension[0].valueString).toBe("2");
+    expect(c2.date).toBe("2026-11-04T12:00:00+09:00");
+    expect(build(fixed).documentId).toBe(build(l).documentId);
+    expect(build(l).documentId).toBe(`${INSTITUTION_10}^2026^DOC-L-照会`);
+  });
+
+  it("attaches the 退院時サマリー with the same document id only to a 紹介 with 注8's 添付, once the summary is confirmed", () => {
+    const attach = letter("紹介", { flags: { consent: true, attach: true } });
+    const d = build(attach, summaryDraft("確定"));
+    expect(d.summary).not.toBeNull();
+    expect((d.summary as { identifier: { value: string } }).identifier.value).toBe(d.documentId);
+    expect((d.referral as { identifier: { value: string } }).identifier.value).toBe(d.documentId);
+    expect(JSON.stringify(comp(d.referral))).toContain('"code":"210"');
+    expect(comp(d.summary).meta.profile[0]).toContain("JP_Composition_eDischargeSummary");
+    expect(build(attach, summaryDraft("作成中")).summary).toBeNull();
+    expect(build(letter("紹介", { flags: { consent: true } }), summaryDraft("確定")).summary).toBeNull();
+    expect(build(letter("返書", { flags: { attach: true } }), summaryDraft("確定")).summary).toBeNull();
+  });
+});
+

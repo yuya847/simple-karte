@@ -13,6 +13,7 @@ import { diagnosisLabel, type Diagnosis } from "./diagnoses";
 import { labPasteText } from "./lab-paste";
 import { orderLines } from "./format";
 import { dischargeLeave } from "./rx";
+import type { SignRecord } from "./esign";
 import type { DayOffset, HistoryEntry, OrderEntry, Patient } from "./types";
 
 export type LetterType = "紹介" | "返書" | "照会" | "介護施設" | "保健福祉" | "歯科" | "セカンドオピニオン";
@@ -62,6 +63,19 @@ export interface LetterContent {
   flags: LetterFlags;
 }
 
+/** One send to the 電子カルテ情報共有サービス（模擬）: when, by whom, which version, the document id and the address. */
+export interface LetterSend {
+  at: Stamp;
+  by: string;
+  version: number;
+  documentId: string;
+  to: string;
+  /** The service's 受付番号 (FICTIONAL). */
+  receiptNo: string;
+  /** The 退院時サマリー went with it (same document id). */
+  attached: boolean;
+}
+
 /** An earlier confirmed version of a corrected letter (the fields of the letter are the latest one). */
 export interface LetterVersion extends LetterContent {
   at: Stamp;
@@ -88,6 +102,10 @@ export interface Letter extends LetterContent {
   from?: "退院サマリ" | "他科依頼";
   /** A letter issued from the 退院サマリ before this tool (kept readable, billed once). */
   legacy?: boolean;
+  /** 電子署名（模擬）of one confirmed version (esign.ts). A correction makes a new version, signed again. */
+  signed?: { version: number; record: SignRecord };
+  /** Sends to the 電子カルテ情報共有サービス（模擬）. */
+  sends?: LetterSend[];
 }
 
 /** Kinds written to a 医療機関 (the others go to a 施設・事業所 or through the patient). */
@@ -226,6 +244,13 @@ export function confirmLetter(l: Letter, saved: Letter | undefined, by: string, 
 
 /** 第N版. */
 export const versionNo = (l: Letter) => (l.versions?.length ?? 0) + 1;
+
+/** What the 電子署名（模擬）covers: the confirmed letter as it stands (kind, address, fields, version). */
+export const letterSignedContent = (l: Letter) => ({ id: l.id, patientId: l.patientId, version: versionNo(l), ...contentOf(l), confirmedAt: l.confirmedAt, revised: l.revised });
+
+/** The version now is signed / has been sent (模擬). */
+export const signedNow = (l: Letter) => l.status === "確定" && l.signed?.version === versionNo(l);
+export const sentNow = (l: Letter) => l.status === "確定" && !!l.sends?.some((s) => s.version === versionNo(l));
 
 /** Whether the role may save a draft of this kind, and confirm it (roles.ts: discharge = 医師; assess.discharge = MSW・看護師). */
 export function letterRights(can: (a: "discharge" | "assess.discharge") => boolean, type: LetterType) {

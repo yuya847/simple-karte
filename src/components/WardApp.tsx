@@ -4449,7 +4449,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "national" && (
                 <Drawer title="国のサービス（模擬）：電子処方箋・電子カルテ情報共有サービス" onClose={closePanel} wide>
-                  <NationalPanel patient={patient} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} diagnoses={diagnoses[patient.id] ?? []} draft={discharges[patient.id]} book={iji.insurance} today={today} nowTime={nowTime} log={national} onRecord={(r) => setNational((all) => [...all, r])} />
+                  <NationalPanel patient={patient} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} diagnoses={diagnoses[patient.id] ?? []} draft={discharges[patient.id]} letters={lettersFor(patient.id, letters, discharges[patient.id])} book={iji.insurance} today={today} nowTime={nowTime} log={national} onRecord={(r) => setNational((all) => [...all, r])} />
                 </Drawer>
               )}
               {panel === "patient-info" && (

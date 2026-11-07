@@ -1,20 +1,22 @@
 "use client";
 
-// 電子カルテ情報共有サービス（模擬）: what would be sent — the 退院時サマリー and 診療情報提供書 as JP-CLINS documents,
-// and the 臨床情報 (傷病名・アレルギー・検査) — shown as FHIR; the send and the receipt are SIMULATED. The doctor
-// chooses which allergies to send and how each is classed (nothing is chosen in advance), and confirms the
-// patient's consent. The other tab shows other hospitals' 6情報 (FICTIONAL) once the patient has agreed.
+// 電子カルテ情報共有サービス（模擬）: what would be sent — the 退院時サマリー and the 診療情報提供書 (made from one
+// confirmed 紹介状, chosen here; it is signed and sent from the 紹介状 tool) as JP-CLINS documents, and the 臨床情報
+// (傷病名・アレルギー・検査) — shown as FHIR; the send and the receipt are SIMULATED. The doctor chooses which
+// allergies to send and how each is classed (nothing is chosen in advance), and confirms the patient's consent.
+// The other tab shows other hospitals' 6情報 (FICTIONAL) once the patient has agreed.
 
 import { displayText } from "@/lib/display-text";
 import { Building2, Send } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { auditLog } from "@/lib/audit";
 import type { Insurance } from "@/lib/billing/insurance";
-import type { CalendarDate } from "@/lib/dates";
+import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { Diagnosis } from "@/lib/diagnoses";
 import type { DischargeDraft } from "@/lib/discharge";
+import { letterTitle, signedNow, versionNo, type Letter } from "@/lib/letters";
 import { nationalServices } from "@/lib/national/adapter";
-import { allergyResource, buildDocuments, CLINS_SPECS, CLINS_UNFILLED, clinsBundle, conditionResource, labResources, type AllergyChoice, type ClinsContext, type ClinsReceipt, type DiseaseKeys, type OtherHospitalInfo } from "@/lib/national/clins";
+import { allergyResource, CLINS_NOT_SENT, CLINS_SPECS, CLINS_UNFILLED, clinsBundle, conditionResource, labResources, referralBundleFromLetter, summaryDocument, type AllergyChoice, type ClinsContext, type ClinsReceipt, type OtherHospitalInfo } from "@/lib/national/clins";
 import { jstDateTime } from "@/lib/national/fictional";
 import type { NationalRecord } from "@/lib/national/log";
 import { linesFromHomeRx } from "@/lib/national/rx-lines";
@@ -23,6 +25,7 @@ import type { OrderEntry, Patient } from "@/lib/types";
 import { SubTabs } from "../DeskParts";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { JsonView, MockMark, MockNote, SpecBox } from "./SpecParts";
+import { useDiseaseKeys } from "./use-disease-keys";
 
 type Kind = ClinsReceipt["kind"];
 
@@ -33,6 +36,7 @@ export function ClinsPanel({
   insuranceAssumed,
   diagnoses,
   draft,
+  letters,
   entries,
   today,
   nowTime,
@@ -45,6 +49,8 @@ export function ClinsPanel({
   insuranceAssumed: boolean;
   diagnoses: Diagnosis[];
   draft?: DischargeDraft;
+  /** This patient's 紹介状 (letters.ts lettersFor). */
+  letters: Letter[];
   entries: OrderEntry[];
   today: CalendarDate;
   nowTime: string;
@@ -54,8 +60,7 @@ export function ClinsPanel({
   const me = useMe();
   const locked = useDeny()("clins");
   const [tab, setTab] = useState<"send" | "view">("send");
-  const [keys, setKeys] = useState<DiseaseKeys>({});
-  const [keysNote, setKeysNote] = useState("");
+  const { keys, note: keysNote } = useDiseaseKeys(diagnoses);
   const [consent, setConsent] = useState(false);
   const [viewConsent, setViewConsent] = useState(false);
   const [other, setOther] = useState<OtherHospitalInfo | null>(null);
@@ -64,30 +69,24 @@ export function ClinsPanel({
     ...(patient.contraindications ?? []).map((text) => ({ text, from: "禁忌" as const, send: false, category: "" as const })),
   ]);
   const [receipts, setReceipts] = useState<Partial<Record<string, ClinsReceipt>>>({});
-
-  // 病名管理番号: asked of the server, where the official 傷病名マスター is.
-  const codes = diagnoses.map((d) => d.code).join(",");
-  useEffect(() => {
-    if (!codes) return;
-    let live = true;
-    fetch(`/api/byomei?keys=${codes}`)
-      .then((r) => r.json())
-      .then((j: { keys: DiseaseKeys }) => live && setKeys(j.keys))
-      .catch(() => live && setKeysNote("傷病名マスターに問い合わせられなかったので、病名管理番号は「99999999」（コード化できない）のままです。"));
-    return () => {
-      live = false;
-    };
-  }, [codes]);
+  // 診療情報提供書: one of the confirmed 紹介状 (the newest one the service carries, until the doctor picks another).
+  const confirmed = letters.filter((l) => l.status === "確定");
+  const [pick, setPick] = useState(() => (confirmed.find((l) => !CLINS_NOT_SENT[l.type]) ?? confirmed[0])?.id ?? "");
+  const letter = confirmed.find((l) => l.id === pick) ?? confirmed[0];
 
   const ctx: ClinsContext = { patient, birthDate, insurance, insuranceAssumed, diagnoses, diseaseKeys: keys, doctor: me.name, today, time: nowTime };
   const at = jstDateTime(isoDate(today), nowTime);
   const lines = useMemo(() => linesFromHomeRx(entries), [entries]);
-  const docs = draft ? buildDocuments(ctx, { draft, admittedOn: patient.admittedOn, lines, allergies }) : null;
+  // The letter's document is the one the 紹介状 tool signs and sends (no allergies chosen here go into it).
+  const ld = letter ? referralBundleFromLetter(ctx, { letter, admittedOn: patient.admittedOn, lines, allergies: [], discharge: draft }) : null;
+  const summary = ld?.summary ?? (draft?.status === "確定" ? summaryDocument(ctx, { draft, admittedOn: patient.admittedOn, lines, allergies }) : null);
+  const letterWhy = !letter ? "確定した紹介状がありません（右のツール「紹介状」）。" : ld?.notSent ? `${ld.notSent}。` : ld?.missing.length ? `足りない：${ld.missing.map((m) => m.why).join("、")}` : undefined;
+  const sent = letter?.sends?.filter((s) => s.version === versionNo(letter)).at(-1);
   const chosen = allergies.filter((a) => a.send && a.category);
   const undecided = allergies.filter((a) => a.send && !a.category);
   const items: { key: string; kind: Kind; what: string; bundle: Record<string, unknown> | null; why?: string }[] = [
-    { key: "summary", kind: "退院時サマリー", what: "退院時サマリー（HS039）", bundle: draft?.status === "確定" ? (docs?.summary ?? null) : null, why: draft ? (draft.status === "確定" ? undefined : "退院時サマリーがまだ確定していません。") : "退院時サマリーがまだありません（右のツール「退院サマリ」）。" },
-    { key: "referral", kind: "診療情報提供書", what: "診療情報提供書（HS038。退院時サマリーを同じ文書IDで添付）", bundle: docs?.referral ?? null, why: docs?.referral ? undefined : "診療情報提供書（紹介状）がまだ発行されていません。" },
+    { key: "summary", kind: "退院時サマリー", what: ld?.summary ? "退院時サマリー（HS039。紹介状に同じ文書IDで添付）" : "退院時サマリー（HS039）", bundle: summary, why: draft ? (draft.status === "確定" ? undefined : "退院時サマリーがまだ確定していません。") : "退院時サマリーがまだありません（右のツール「退院サマリ」）。" },
+    { key: "referral", kind: "診療情報提供書", what: "診療情報提供書（HS038）", bundle: ld?.referral ?? null, why: letterWhy },
     { key: "cond", kind: "6情報", what: `臨床情報：傷病名（${diagnoses.length}件）`, bundle: diagnoses.length ? clinsBundle(ctx, "Condition", diagnoses.map((d) => conditionResource(ctx, d, at))) : null, why: diagnoses.length ? undefined : "病名がありません。" },
     { key: "alg", kind: "6情報", what: `臨床情報：アレルギー（${chosen.length}件）`, bundle: chosen.length ? clinsBundle(ctx, "AllergyIntolerance", chosen.map((a, i) => allergyResource(ctx, a, i, at))) : null, why: chosen.length ? undefined : allergies.length ? "送るアレルギーを下で選んでください（区分も）。" : "アレルギー・禁忌の登録がありません。" },
     { key: "lab", kind: "6情報", what: `臨床情報：検査（${patient.labs.length}回分）`, bundle: patient.labs.length ? clinsBundle(ctx, "Observation", labResources(ctx, at)) : null, why: patient.labs.length ? undefined : "検体検査の結果がありません。" },
@@ -165,6 +164,36 @@ export function ClinsPanel({
           <ul className="space-y-1.5">
             {items.map((it) => {
               const r = receipts[it.key];
+              if (it.key === "referral")
+                return (
+                  <li key={it.key} className="space-y-1 rounded border border-rule bg-paper p-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <b>{it.what}</b>
+                      {confirmed.length > 1 ? (
+                        <select aria-label="文書にする紹介状" value={letter?.id ?? ""} onChange={(e) => setPick(e.target.value)} className="max-w-[22rem] rounded border border-rule bg-sheet px-1">
+                          {confirmed.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {displayText(`${letterTitle(l)} ${formatShort(addDays(today, l.confirmedAt!.day))}`)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        letter && <span className="text-ink-soft">{displayText(letterTitle(letter))}</span>
+                      )}
+                      {it.bundle ? (
+                        <span className={`ml-auto rounded px-1.5 font-bold ${sent ? "bg-wakatake-soft text-wakatake" : "text-ink-soft"}`}>{sent ? "送信済み（模擬）" : signedNow(letter!) ? "署名済み（模擬）" : "未署名"}</span>
+                      ) : (
+                        <span className="ml-auto text-ink-faint">{it.why}</span>
+                      )}
+                    </div>
+                    {it.bundle && <JsonView value={it.bundle} name={`${patient.id}-referral.json`} label="送る FHIR（JSON）" />}
+                    {sent && (
+                      <p className="nums text-wakatake">
+                        受付番号{sent.receiptNo}　{formatShort(addDays(today, sent.at.day))} {sent.at.time} {sent.by}　{sent.documentId}
+                      </p>
+                    )}
+                  </li>
+                );
               return (
                 <li key={it.key} className="space-y-1 rounded border border-rule bg-paper p-2">
                   <div className="flex flex-wrap items-center gap-2">

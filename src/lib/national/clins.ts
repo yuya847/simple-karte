@@ -1,4 +1,4 @@
-// 電子カルテ情報共有サービス（模擬）: the 診療情報提供書 and 退院時サマリー as FHIR documents, and the
+// 電子カルテ情報共有サービス（模擬）: the 診療情報提供書 (from a confirmed 紹介状) and 退院時サマリー as FHIR documents, and the
 // 臨床情報 (傷病名・アレルギー・検査; 感染症 when there are its lab results) as the collections the service
 // takes, following the public JP-CLINS 実装ガイド v1.13.0 (HS038・HS039) — profile names, code systems and
 // required elements, as far as the app's data goes. Nothing is sent: the send and the receipt are SIMULATED
@@ -9,6 +9,7 @@ import { HOSPITAL } from "../billing/facility";
 import type { Insurance } from "../billing/insurance";
 import { diagnosisLabel, isSuspected, type Diagnosis } from "../diagnoses";
 import { labelOf, OUTCOMES, ROUTES, SECTIONS, type DischargeDraft } from "../discharge";
+import { legacyId, letterKind, versionNo, type Letter, type LetterField, type LetterType } from "../letters";
 import { ANALYTES } from "../master";
 import type { Patient } from "../types";
 import { PRESCRIPTION_DRUG_CODES } from "./drug-codes";
@@ -243,7 +244,7 @@ export function clinsBundle(c: ClinsContext, kind: "Condition" | "AllergyIntoler
 }
 
 // ---------------------------------------------------------------------------
-// 2文書: 診療情報提供書（退院時の紹介状）and 退院時サマリー
+// 2文書: 診療情報提供書 and 退院時サマリー
 // ---------------------------------------------------------------------------
 
 const medResource = (c: ClinsContext, l: RxLine, i: number, at: string) => {
@@ -278,150 +279,235 @@ const medResource = (c: ClinsContext, l: RxLine, i: number, at: string) => {
 
 export interface DocsInput {
   draft: DischargeDraft;
-  /** 入院日・退院日 (day offsets). */
+  /** 入院日 (day offset). */
   admittedOn: number;
   lines: RxLine[];
   allergies: AllergyChoice[];
 }
 
-export interface ClinsDocs {
-  referral: Record<string, unknown> | null;
-  summary: Record<string, unknown>;
-  /** The same Bundle.identifier for both (the summary is attached to the letter). */
-  documentId: string;
+/** Bundle.identifier: 医療機関コード^年^文書の番号 (the 退院時サマリー attached to a letter carries the letter's). */
+const documentIdOf = (year: number, local: string) => `${INSTITUTION_10}^${year}^${local}`;
+
+/** The stay the documents are about. */
+interface Stay {
+  admittedOn: number;
+  /** Unset while the patient is still in (the Encounter is then in progress). */
+  dischargeDay?: number;
+  reason: string;
+  route?: string;
+  outcome?: string;
 }
 
-/** The 退院時サマリー (always) and the 診療情報提供書 when the letter has been issued. */
-export function buildDocuments(c: ClinsContext, x: DocsInput): ClinsDocs {
+const stayOf = (c: ClinsContext, d: DischargeDraft, admittedOn: number): Stay => ({ admittedOn, dischargeDay: d.dischargeDay, reason: d.sections.reason || c.patient.admissionDiagnosis, route: d.route, outcome: d.outcome });
+
+/** What both documents carry: the Patient, the author, the hospital, the stay, and the 病名・アレルギー・処方. */
+function documentParts(c: ClinsContext, documentId: string, stay: Stay, lines: RxLine[], allergies: AllergyChoice[], author: string) {
   const at = jstDateTime(isoDate(c.today), c.time);
-  const documentId = `${INSTITUTION_10}^${c.today.y}^DOC-${c.patient.id}`;
   const u = (k: string) => `urn:uuid:${uuidOf(`${documentId}|${k}`)}`;
   const day = (n: number) => isoDate(addDays(c.today, n));
-  const d = x.draft;
-  const s = (k: (typeof SECTIONS)[number]["key"]) => d.sections[k] ?? "";
   const ref = { patient: u("patient"), doctor: u("doctor"), org: u("org"), dest: u("dest"), enc: u("enc") };
   const conds = c.diagnoses.map((dx) => ({ url: u(`cond-${dx.id}`), res: conditionResource(c, dx, at) }));
-  const allergies = x.allergies.filter((a) => a.send && a.category).map((a, i) => ({ url: u(`alg-${i}`), res: allergyResource(c, a, i, at) }));
-  const meds = x.lines.map((l, i) => ({ url: u(`med-${i}`), res: medResource(c, l, i, at) }));
+  const sent = allergies.filter((a) => a.send && a.category);
+  const algs = sent.map((a, i) => ({ url: u(`alg-${i}`), res: allergyResource(c, a, i, at) }));
+  const meds = lines.map((l, i) => ({ url: u(`med-${i}`), res: medResource(c, l, i, at) }));
+  const end = stay.dischargeDay;
   const encounter = {
     resourceType: "Encounter",
     meta: meta(`${ECS}JP_Encounter_eCS`, at),
     identifier: [idOf(c.today.y, `enc-${c.patient.id}`)],
-    status: "finished",
+    status: end === undefined ? "in-progress" : "finished",
     class: { system: "http://terminology.hl7.org/CodeSystem/v3-ActCode", code: "IMP", display: "入院" },
     subject: { reference: ref.patient },
-    period: { start: day(x.admittedOn), end: day(d.dischargeDay) },
-    length: { value: d.dischargeDay - x.admittedOn + 1, unit: "日", system: "http://unitsofmeasure.org", code: "d" },
-    reasonCode: [{ text: s("reason") || c.patient.admissionDiagnosis }],
+    period: { start: day(stay.admittedOn), ...(end === undefined ? {} : { end: day(end) }) },
+    ...(end === undefined ? {} : { length: { value: end - stay.admittedOn + 1, unit: "日", system: "http://unitsofmeasure.org", code: "d" } }),
+    reasonCode: [{ text: stay.reason }],
     hospitalization: {
-      ...(d.route ? { admitSource: { coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/admit-Source", code: d.route, display: labelOf(ROUTES, d.route) }] } } : {}),
-      ...(d.outcome ? { dischargeDisposition: { coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/discharge-disposition", code: d.outcome, display: labelOf(OUTCOMES, d.outcome) }] } } : {}),
+      ...(stay.route ? { admitSource: { coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/admit-Source", code: stay.route, display: labelOf(ROUTES, stay.route) }] } } : {}),
+      ...(stay.outcome ? { dischargeDisposition: { coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/discharge-disposition", code: stay.outcome, display: labelOf(OUTCOMES, stay.outcome) }] } } : {}),
     },
   };
   const fix = (v: unknown) => JSON.parse(JSON.stringify(v).replaceAll("urn:uuid:patient", ref.patient));
   const common = [
     { fullUrl: ref.patient, resource: patientResource(c, at) },
-    { fullUrl: ref.doctor, resource: practitioner(c.doctor, at) },
+    { fullUrl: ref.doctor, resource: practitioner(author, at) },
     { fullUrl: ref.org, resource: hospitalOrg(at) },
     { fullUrl: ref.enc, resource: encounter },
     ...conds.map((x) => ({ fullUrl: x.url, resource: fix(x.res) })),
-    ...allergies.map((x) => ({ fullUrl: x.url, resource: fix(x.res) })),
+    ...algs.map((x) => ({ fullUrl: x.url, resource: fix(x.res) })),
     ...meds.map((x) => ({ fullUrl: x.url, resource: fix(x.res) })),
   ];
-  const compBase = (profile: string, local: string) => ({
+  const composition = (profile: string, local: string, o: { year?: number; date?: string; version?: number } = {}) => ({
     resourceType: "Composition",
     meta: meta(profile, at),
-    extension: [{ url: "http://hl7.org/fhir/StructureDefinition/composition-clinicaldocument-versionNumber", valueString: "1" }],
-    identifier: idOf(c.today.y, local),
+    extension: [{ url: "http://hl7.org/fhir/StructureDefinition/composition-clinicaldocument-versionNumber", valueString: String(o.version ?? 1) }],
+    identifier: idOf(o.year ?? c.today.y, local),
     status: "final",
     subject: { reference: ref.patient },
     encounter: { reference: ref.enc },
-    date: at,
+    date: o.date ?? at,
     custodian: { reference: ref.org },
   });
-  const empty = { emptyReason: { coding: [{ system: EMPTY_CS, code: "unavailable" }] } };
-  const dxText = c.diagnoses.map((dx) => `${diagnosisLabel(dx)}${dx.main ? "（主）" : ""}`);
+  const bundle = (profile: string, first: string, comp: Record<string, unknown>, extra: { fullUrl: string; resource: unknown }[] = []): Record<string, unknown> => ({
+    resourceType: "Bundle",
+    meta: { lastUpdated: at, profile: [`${CLINS_SD}${profile}${V}`] },
+    identifier: { system: "http://jpfhir.jp/fhir/clins/bundle-identifier", value: documentId },
+    type: "document",
+    timestamp: at,
+    entry: [{ fullUrl: u(first), resource: comp }, ...common, ...extra],
+  });
+  return { day, ref, conds, algs, allergyText: sent.map((a) => a.text), meds, composition, bundle };
+}
+type Parts = ReturnType<typeof documentParts>;
 
-  const summaryComp = {
-    ...compBase("http://jpfhir.jp/fhir/eDischargeSummary/StructureDefinition/JP_Composition_eDischargeSummary", `DS-${c.patient.id}`),
+const empty = { emptyReason: { coding: [{ system: EMPTY_CS, code: "unavailable" }] } };
+const dxLines = (c: ClinsContext) => c.diagnoses.map((dx) => `${diagnosisLabel(dx)}${dx.main ? "（主）" : ""}`);
+
+function summaryFrom(c: ClinsContext, p: Parts, d: DischargeDraft, admittedOn: number) {
+  const s = (k: (typeof SECTIONS)[number]["key"]) => d.sections[k] ?? "";
+  const { day, ref } = p;
+  const comp = {
+    ...p.composition("http://jpfhir.jp/fhir/eDischargeSummary/StructureDefinition/JP_Composition_eDischargeSummary", `DS-${c.patient.id}`),
     type: { coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/doc-typecodes", code: "18842-5", display: "退院時サマリー" }] },
     category: [{ coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/doc-subtypecodes", code: "DISCHARGE", display: "退院時文書" }] }],
     author: [{ reference: ref.doctor }, { reference: ref.org }],
     title: "退院時サマリー",
-    event: [{ period: { start: day(x.admittedOn), end: day(d.dischargeDay) } }],
+    event: [{ period: { start: day(admittedOn), end: day(d.dischargeDay) } }],
     section: [
       {
         ...sec("300", "構造情報"),
         ...empty,
         section: [
-          { ...sec("322", "入院時詳細"), entry: [{ reference: ref.enc }], text: narrative([`入院日 ${day(x.admittedOn)}`, `入院経路 ${labelOf(ROUTES, d.route)}`]) },
+          { ...sec("322", "入院時詳細"), entry: [{ reference: ref.enc }], text: narrative([`入院日 ${day(admittedOn)}`, `入院経路 ${labelOf(ROUTES, d.route)}`]) },
           { ...sec("312", "入院理由"), entry: [{ reference: ref.enc }], text: narrative([s("reason") || c.patient.admissionDiagnosis]) },
           { ...sec("324", "退院時詳細"), entry: [{ reference: ref.enc }], text: narrative([`退院日 ${day(d.dischargeDay)}`, `退院時転帰 ${labelOf(OUTCOMES, d.outcome)}`, `退院先 ${d.destination}`]) },
           { ...sec("342", "入院時診断"), text: narrative([c.patient.admissionDiagnosis]) },
           { ...sec("352", "主訴"), text: narrative([s("complaint")]) },
           { ...sec("360", "現病歴"), text: narrative([s("present")]) },
           { ...sec("333", "入院中経過"), text: narrative([s("course")]) },
-          { ...sec("344", "退院時診断"), entry: conds.map((x) => ({ reference: x.url })), text: narrative(dxText) },
-          ...(allergies.length ? [{ ...sec("510", "アレルギー・不耐性反応"), entry: allergies.map((x) => ({ reference: x.url })), text: narrative(x.allergies.filter((a) => a.send && a.category).map((a) => a.text)) }] : []),
-          { ...sec("444", "退院時投薬指示"), entry: meds.map((x) => ({ reference: x.url })), text: narrative(meds.length ? meds.map((m) => `${m.res.medicationCodeableConcept.text} ${m.res.dosageInstruction[0].text}`) : ["退院時処方なし"]) },
+          { ...sec("344", "退院時診断"), entry: p.conds.map((x) => ({ reference: x.url })), text: narrative(dxLines(c)) },
+          ...(p.algs.length ? [{ ...sec("510", "アレルギー・不耐性反応"), entry: p.algs.map((x) => ({ reference: x.url })), text: narrative(p.allergyText) }] : []),
+          { ...sec("444", "退院時投薬指示"), entry: p.meds.map((x) => ({ reference: x.url })), text: narrative(p.meds.length ? p.meds.map((m) => `${m.res.medicationCodeableConcept.text} ${m.res.dosageInstruction[0].text}`) : ["退院時処方なし"]) },
           { ...sec("424", "退院時方針指示"), text: narrative([s("status") && `退院時の状態：${s("status")}`, s("plan")]) },
         ],
       },
     ],
   };
-  const summary = {
-    resourceType: "Bundle",
-    meta: { lastUpdated: at, profile: [`${CLINS_SD}JP_Bundle_eDischargeSummary${V}`] },
-    identifier: { system: "http://jpfhir.jp/fhir/clins/bundle-identifier", value: documentId },
-    type: "document",
-    timestamp: at,
-    entry: [{ fullUrl: u("ds"), resource: summaryComp }, ...common],
-  };
+  return p.bundle("JP_Bundle_eDischargeSummary", "ds", comp);
+}
 
-  let referral: Record<string, unknown> | null = null;
-  if (d.letter.issuedAt) {
-    const dest = {
-      resourceType: "Organization",
-      meta: meta(`${ECS}JP_Organization_eCS`, at),
-      identifier: [{ system: INST_NO, value: "0000000000" }],
-      type: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/organization-type", code: "prov" }] }],
-      name: d.letter.to,
-    };
-    const refComp = {
-      ...compBase("http://jpfhir.jp/fhir/eReferral/StructureDefinition/JP_Composition_eReferral", `RD-${c.patient.id}`),
-      type: { coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/doc-typecodes", code: "57133-1", display: "診療情報提供書" }] },
-      category: [{ coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/doc-subtypecodes", code: "DISCHARGE", display: "退院時文書" }] }],
-      author: [{ reference: ref.doctor }, { reference: ref.org }],
-      title: "診療情報提供書",
-      event: [{ code: [{ text: "診療情報提供書発行" }], period: { start: day(d.letter.issuedAt.day) } }],
-      section: [
-        { ...sec("920", "紹介元情報"), entry: [{ reference: ref.org }, { reference: ref.doctor }] },
-        { ...sec("910", "紹介先情報"), entry: [{ reference: ref.dest }], text: narrative([`${d.letter.to} ${d.letter.dept}${d.letter.doctor ? ` ${d.letter.doctor}先生` : ""}`]) },
-        {
-          ...sec("300", "構造情報"),
-          ...empty,
-          section: [
-            { ...sec("950", "紹介目的"), text: narrative([d.letter.purpose]), ...empty },
-            { ...sec("340", "傷病名・主訴"), entry: conds.map((x) => ({ reference: x.url })), text: narrative([...dxText, s("complaint") && `主訴：${s("complaint")}`]) },
-            { ...sec("360", "現病歴"), text: narrative([s("present"), s("course") && `入院後の経過：${s("course")}`]) },
-            ...(allergies.length ? [{ ...sec("510", "アレルギー・不耐性反応"), entry: allergies.map((x) => ({ reference: x.url })) }] : []),
-            ...(meds.length ? [{ ...sec("430", "投薬指示"), entry: meds.map((x) => ({ reference: x.url })) }] : []),
-            { ...sec("420", "診療方針指示"), text: narrative([s("plan")]) },
-          ],
-        },
-        { ...sec("210", "添付情報"), text: narrative(["退院時サマリー（同じ文書IDで添付）"]) },
-      ],
-    };
-    referral = {
-      resourceType: "Bundle",
-      meta: { lastUpdated: at, profile: [`${CLINS_SD}JP_Bundle_eReferral${V}`] },
-      identifier: { system: "http://jpfhir.jp/fhir/clins/bundle-identifier", value: documentId },
-      type: "document",
-      timestamp: at,
-      entry: [{ fullUrl: u("rd"), resource: refComp }, ...common, { fullUrl: ref.dest, resource: dest }],
-    };
-  }
-  return { referral, summary, documentId };
+/** The 退院時サマリー on its own, under the patient's document id (a letter that attaches it gives it the letter's). */
+export function summaryDocument(c: ClinsContext, x: DocsInput): Record<string, unknown> {
+  const p = documentParts(c, documentIdOf(c.today.y, `DOC-${c.patient.id}`), stayOf(c, x.draft, x.admittedOn), x.lines, x.allergies, c.doctor);
+  return summaryFrom(c, p, x.draft, x.admittedOn);
+}
+
+// ---------------------------------------------------------------------------
+// 診療情報提供書 from one confirmed 紹介状 (letters.ts)
+// ---------------------------------------------------------------------------
+
+/** Kinds the service does not carry, and why. The others (紹介・返書・照会・歯科) are written to a 医療機関. */
+export const CLINS_NOT_SENT: Partial<Record<LetterType, string>> = {
+  介護施設: "老健・介護医療院あては送らない（送り先は医療機関）",
+  保健福祉: "市町村・居宅あては送らない（送り先は医療機関）",
+  セカンドオピニオン: "患者に渡す文書なので送らない",
+};
+
+/** The 退院時サマリー goes with the letter: the summary is confirmed, and the letter is a 紹介 with 注8's 添付. */
+export const attachesSummary = (l: Pick<Letter, "type" | "flags">, d?: DischargeDraft) => d?.status === "確定" && l.type === "紹介" && !!l.flags.attach;
+
+/** The letter's document id: the old 退院サマリ's letter keeps the patient's, a letter of the tool has its own. */
+export function letterDocumentId(c: Pick<ClinsContext, "patient" | "today">, l: Letter): string {
+  const year = addDays(c.today, (l.confirmedAt ?? l.createdAt).day).y;
+  return documentIdOf(year, l.id === legacyId(c.patient.id) ? `DOC-${c.patient.id}` : `DOC-${l.id}`);
+}
+
+export interface LetterDocInput {
+  letter: Letter;
+  /** 入院日 (day offset). */
+  admittedOn: number;
+  lines: RxLine[];
+  allergies: AllergyChoice[];
+  /** The 退院サマリ (its 退院時サマリー is attached under attachesSummary). */
+  discharge?: DischargeDraft;
+}
+
+export interface LetterDocs {
+  documentId: string;
+  /** Why the letter is not sent at all (a draft, or a kind the service does not carry). */
+  notSent: string | null;
+  /** Required elements the letter lacks: no document is made until they are filled. */
+  missing: Unfilled[];
+  referral: Record<string, unknown> | null;
+  /** The 退院時サマリー attached with the same document id (null when not attached). */
+  summary: Record<string, unknown> | null;
+}
+
+/** The letter's fields that go into 360 現病歴, each under its own heading (既往歴・家族歴 and 備考 included: see CLINS_UNFILLED). */
+const PRESENT: LetterField[] = ["result", "history", "findings", "treatment", "remarks"];
+
+/** HS038 診療情報提供書 from a confirmed 紹介状 of a kind written to a 医療機関 (the old 退院サマリ's letter too). */
+export function referralBundleFromLetter(c: ClinsContext, x: LetterDocInput): LetterDocs {
+  const l = x.letter;
+  const documentId = letterDocumentId(c, l);
+  const none = (notSent: string | null, missing: Unfilled[] = []): LetterDocs => ({ documentId, notSent, missing, referral: null, summary: null });
+  if (l.status !== "確定" || !l.confirmedAt) return none("確定していない");
+  const not = CLINS_NOT_SENT[l.type];
+  if (not) return none(not);
+
+  const kind = letterKind(l.type);
+  const text = (k: LetterField) => (l.body[k] ?? "").trim();
+  const dx = text("diagnosis") ? text("diagnosis").split("\n") : dxLines(c);
+  const author = (l.revised?.by ?? l.confirmedBy ?? "").trim();
+  const missing: Unfilled[] = [
+    ...(l.to.trim() ? [] : [{ field: "紹介先情報（910）の医療機関名（必須）", why: `${kind.to}が空` }]),
+    ...(l.purpose.trim() ? [] : [{ field: "紹介目的（950）（必須）", why: `${kind.purpose}が空` }]),
+    ...(dx.length ? [] : [{ field: "傷病名・主訴（340）（必須）", why: "傷病名が空で、カルテにも病名がない" }]),
+    ...(author ? [] : [{ field: "作成者（Composition.author の医師）（必須）", why: "確定した医師の記録がない" }]),
+  ];
+  if (missing.length) return none(null, missing);
+
+  const attach = attachesSummary(l, x.discharge);
+  const d = x.discharge?.status === "確定" ? x.discharge : undefined;
+  const stay: Stay = d ? stayOf(c, d, x.admittedOn) : { admittedOn: x.admittedOn, dischargeDay: c.patient.dischargedAt?.day, reason: c.patient.admissionDiagnosis };
+  const p = documentParts(c, documentId, stay, x.lines, x.allergies, author);
+  const issued = addDays(c.today, l.confirmedAt.day);
+  const last = l.revised?.at ?? l.confirmedAt;
+  const label = (k: LetterField) => kind.fields.find(([f]) => f === k)?.[1] ?? "";
+  const present = kind.fields.filter(([k]) => PRESENT.includes(k) && text(k)).map(([k]) => `${label(k)}：${text(k)}`);
+  const discharge = l.from === "退院サマリ" || !!l.legacy || attach;
+  const dest = {
+    resourceType: "Organization",
+    meta: meta(`${ECS}JP_Organization_eCS`, jstDateTime(isoDate(c.today), c.time)),
+    identifier: [{ system: INST_NO, value: "0000000000" }],
+    type: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/organization-type", code: "prov" }] }],
+    name: l.to.trim(),
+  };
+  const comp = {
+    ...p.composition("http://jpfhir.jp/fhir/eReferral/StructureDefinition/JP_Composition_eReferral", `RD-${l.id === legacyId(c.patient.id) ? c.patient.id : l.id}`, { year: issued.y, date: jstDateTime(isoDate(addDays(c.today, last.day)), last.time), version: versionNo(l) }),
+    type: { coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/doc-typecodes", code: "57133-1", display: "診療情報提供書" }] },
+    ...(discharge ? { category: [{ coding: [{ system: "http://jpfhir.jp/fhir/Common/CodeSystem/doc-subtypecodes", code: "DISCHARGE", display: "退院時文書" }] }] } : {}),
+    author: [{ reference: p.ref.doctor }, { reference: p.ref.org }],
+    title: kind.title,
+    event: [{ code: [{ text: "診療情報提供書発行" }], period: { start: isoDate(issued) } }],
+    section: [
+      { ...sec("920", "紹介元情報"), entry: [{ reference: p.ref.org }, { reference: p.ref.doctor }] },
+      { ...sec("910", "紹介先情報"), entry: [{ reference: p.ref.dest }], text: narrative([`${l.to.trim()} ${l.dept.trim()}${l.doctor.trim() ? ` ${l.doctor.trim()}先生` : ""}`]) },
+      {
+        ...sec("300", "構造情報"),
+        ...empty,
+        section: [
+          { ...sec("950", "紹介目的"), text: narrative([l.purpose, l.type === "照会" && text("question") ? `${label("question")}：${text("question")}` : ""]), ...empty },
+          { ...sec("340", "傷病名・主訴"), entry: p.conds.map((x) => ({ reference: x.url })), text: narrative(dx) },
+          { ...sec("360", "現病歴"), text: narrative(present) },
+          ...(p.algs.length ? [{ ...sec("510", "アレルギー・不耐性反応"), entry: p.algs.map((x) => ({ reference: x.url })) }] : []),
+          ...(p.meds.length || text("medication") ? [{ ...sec("430", "投薬指示"), ...(p.meds.length ? { entry: p.meds.map((x) => ({ reference: x.url })) } : {}), text: narrative([text("medication")]) }] : []),
+          { ...sec("420", "診療方針指示"), text: narrative([text("plan")]) },
+        ],
+      },
+      ...(attach ? [{ ...sec("210", "添付情報"), text: narrative(["退院時サマリー（同じ文書IDで添付）"]) }] : []),
+    ],
+  };
+  return { documentId, notSent: null, missing: [], referral: p.bundle("JP_Bundle_eReferral", "rd", comp, [{ fullUrl: p.ref.dest, resource: dest }]), summary: attach && d ? summaryFrom(c, p, d, x.admittedOn) : null };
 }
 
 /** What the app cannot fill, for every patient. */
@@ -436,6 +522,9 @@ export const CLINS_UNFILLED: Unfilled[] = [
   { field: "診療情報提供書の PDF（230 PDF セクション）", why: "文書全体の PDF は必須だが、この試作は PDF を作らない。" },
   { field: "紹介先 Organization.identifier（医療機関コード）", why: "サービスの医療機関等マスタと一致しないので 0000000000 を入れます。" },
   { field: "333 入院中経過の DocumentReference", why: "経過は文だけ（section.text）。DocumentReference は作らない。" },
+  { field: "紹介状の既往歴・家族歴と備考のセクション", why: "セクションのコードを配布パッケージで確かめていないので、360 現病歴の文に欄の名前を付けて入れる。" },
+  { field: "診療情報提供書の Composition.category（退院時以外の文書区分）", why: "退院時以外の区分のコードを確かめていないので、退院サマリから作った紹介状にだけ「退院時文書（DISCHARGE）」を入れる。" },
+  { field: "紹介状から作る文書の 510 アレルギー・不耐性反応", why: "アレルギーの区分は医師が選んで臨床情報で送る。紹介状の文書には備考の文で入る。" },
   { field: "健康診断結果報告書（HS037）", why: "この試作に健診の記録がないので作らない。" },
   { field: "処方を臨床情報として単独で送ること", why: "技術解説書 v2.1.0 で処方は臨床情報から外れた（電子処方箋管理サービスと重なるため）。文書の中にだけ入れる。" },
 ];

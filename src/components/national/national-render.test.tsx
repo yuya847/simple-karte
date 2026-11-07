@@ -9,6 +9,7 @@ import { MeProvider, RoleProvider } from "../RoleContext";
 import { OnshiCheck } from "./OnshiCheck";
 import { INITIAL_DIAGNOSES } from "@/lib/diagnoses";
 import type { OrderEntry } from "@/lib/types";
+import { confirmLetter, newLetter, type Letter } from "@/lib/letters";
 import { ClinsPanel } from "./ClinsPanel";
 import { ErxPanel } from "./ErxPanel";
 import { NationalPanel } from "./NationalPanel";
@@ -48,7 +49,7 @@ describe("電子処方箋（模擬）と電子カルテ情報共有サービス�
   const ins = INITIAL_INSURANCE_BOOK["90010198"][0].insurance;
 
   it("shows the 退院時処方, asks 院内 or 院外 first, and names HS036", () => {
-    const html = as("医師", <NationalPanel patient={kitamura} entries={entries} diagnoses={INITIAL_DIAGNOSES[kitamura.id]} book={INITIAL_INSURANCE_BOOK} today={today} nowTime="10:30" log={[]} onRecord={() => {}} />);
+    const html = as("医師", <NationalPanel patient={kitamura} entries={entries} diagnoses={INITIAL_DIAGNOSES[kitamura.id]} letters={[]} book={INITIAL_INSURANCE_BOOK} today={today} nowTime="10:30" log={[]} onRecord={() => {}} />);
     expect(html).toContain("電子処方箋");
     expect(html).toContain("模擬");
     expect(html).toContain("Rp2 酸化マグネシウム錠330mg 1回1錠 1日2回 朝夕食後 14日分");
@@ -70,12 +71,30 @@ describe("電子処方箋（模擬）と電子カルテ情報共有サービス�
   });
 
   it("lists what would be sent to the 電子カルテ情報共有サービス, and needs the consent first", () => {
-    const html = as("医師", <ClinsPanel patient={kitamura} birthDate="1947-05-03" insurance={ins} insuranceAssumed={false} diagnoses={INITIAL_DIAGNOSES[kitamura.id]} entries={entries} today={today} nowTime="10:30" done={[]} onSent={() => {}} />);
+    const html = as("医師", <ClinsPanel patient={kitamura} birthDate="1947-05-03" insurance={ins} insuranceAssumed={false} diagnoses={INITIAL_DIAGNOSES[kitamura.id]} letters={[]} entries={entries} today={today} nowTime="10:30" done={[]} onSent={() => {}} />);
     expect(html).toContain("臨床情報：傷病名（2件）");
     expect(html).toContain("退院時サマリーがまだありません");
+    expect(html).toContain("確定した紹介状がありません");
     expect(html).toContain("NSAIDs（喘息発作）");
     expect(html).toContain("JP-CLINS");
     expect(html).toMatch(/<button[^>]*disabled[^>]*>送る（模擬）/);
     expect(html).toContain("健康診断結果報告書");
+  });
+
+  it("makes the 診療情報提供書 from the confirmed 紹介状 chosen in a list, and shows whether the letter tool sent it", () => {
+    const chart = { patient: kitamura, entries: kitamura.history, diagnoses: INITIAL_DIAGNOSES[kitamura.id], today };
+    const at = { day: 0, time: "10:00" };
+    const ok = (id: string, to: string): Letter => confirmLetter({ ...newLetter(id, chart, "紹介", "山本（専攻医）", at), to, purpose: "経過観察のお願い" }, undefined, "山本（専攻医）", at);
+    const a = ok("a", "架空みどり病院");
+    const b = { ...ok("b", "さくら坂病院"), sends: [{ at, by: "山本（専攻医）", version: 1, documentId: "1419900010^2026^DOC-b", to: "さくら坂病院", receiptNo: "R00000001", attached: false }] };
+    const draft = { ...newLetter("c", chart, "照会", "山本（専攻医）", at), to: "下書き病院" };
+    const html = as("医師", <ClinsPanel patient={kitamura} birthDate="1947-05-03" insurance={ins} insuranceAssumed={false} diagnoses={INITIAL_DIAGNOSES[kitamura.id]} letters={[b, a, draft]} entries={entries} today={today} nowTime="10:30" done={[]} onSent={() => {}} />);
+    expect(html).toContain('aria-label="文書にする紹介状"');
+    expect(html).toContain("架空みどり病院（紹介）");
+    expect(html).not.toContain("下書き病院");
+    expect(html).toContain("送信済み（模擬）");
+    expect(html).toContain("受付番号R00000001");
+    const care = confirmLetter({ ...newLetter("k", chart, "介護施設", "山本（専攻医）", at), to: "架空の老健" }, undefined, "山本（専攻医）", at);
+    expect(as("医師", <ClinsPanel patient={kitamura} birthDate="1947-05-03" insurance={ins} insuranceAssumed={false} diagnoses={INITIAL_DIAGNOSES[kitamura.id]} letters={[care]} entries={entries} today={today} nowTime="10:30" done={[]} onSent={() => {}} />)).toContain("老健・介護医療院あては送らない");
   });
 });
