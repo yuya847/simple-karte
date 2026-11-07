@@ -8,11 +8,14 @@ import { Calculator, ChartSpline, Settings2, Gauge, Sigma } from "lucide-react";
 import { resolveTools } from "@/lib/tool-layout";
 import { ToolLayoutEditor } from "./ToolLayoutEditor";
 import { useState } from "react";
+import type { DragEvent, PointerEvent } from "react";
 import { specialistRoles } from "@/lib/specialist";
 import { loadMyTemplates } from "@/lib/note-templates";
 import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type RailGroupKey } from "@/lib/rail";
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
+import { usePressMenu } from "./PressMenu";
+import type { CellAction } from "./FlowCellMenu";
 
 export type PanelKind = "icu" | "calc" | "msw-support" | "life-support" | "msw-interview" | "insulin" | "abx-renal" | "pharmacy-shido" | "pharmacy-brought" | "pharmacy-tdm" | "pharmacy-audit" | "add-surgery" | "nutrition" | "templates" | "diagnoses" | "add-injection" | "add-rx" | "add-lab" | "add-imaging" | "add-cath" | "add-physio" | "add-procedure" | "add-dialysis" | "add-transfusion" | "regimen" | "standing" | "restraint" | "summary" | "sets" | "add-rehab" | "add-consult" | "schema" | "add-leave" | "add-discharge" | "add-guide" | "guide-record" | "transfer" | "bedside" | "docs" | "labels" | "consents" | "vitals" | "directive" | "chat" | "diet" | "discharge" | "results" | "results-timeline" | "imaging" | "active-orders" | "billing" | "care-orders" | "nursing-plan" | "access-limit" | "io" | "flow-entry" | "tx-bedside" | "add-pathology" | "reports" | "profile" | "anamnesis" | "visit-request" | "visit-rx" | "national" | "discharge-stop" | "path" | "team" | "pressure" | "scans" | "rehab-progress" | "report-list" | "opd-booking" | "patient-info" | "monitor" | "take" | "opd-bill" | "cosign";
 
@@ -234,6 +237,14 @@ export const GROUP_TAB_CLASS = "relative inline-flex min-h-7 items-center justif
 const toolClass = (off: boolean, active: boolean) =>
   `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
 
+/** What a dragged tool carries: its pin, for the お気に入り column to take. */
+const PIN_DRAG = "application/x-simple-karte-pin";
+
+/** The menu of a tool (right-click, long press, the ContextMenu key): ★ puts it in お気に入り or takes it out. */
+export function pinActions(pins: RailPin[], pin: RailPin, onPins: (pins: RailPin[]) => void): CellAction[] {
+  return [{ label: pins.includes(pin) ? "★お気に入りから外す" : "★お気に入りに入れる", onClick: () => onPins(togglePin(pins, pin)) }];
+}
+
 /** The red circle with a count on a tool (shu for a panic value, ai otherwise). */
 const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ${urgent ? "bg-shu" : "bg-ai"}`;
 
@@ -260,6 +271,10 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   if (groupRole !== me.role) { setGroupRole(me.role); setSelectedGroup(me.role === "看護師" ? "nursing" : me.role === "医事課" ? "admin" : me.role !== "MSW" && specialistRoles.includes(me.role) ? "reference" : "intervention"); }
   const tab = groups.find((g) => g.key === selectedGroup)?.key ?? groups[0].key;
   const [editPins, setEditPins] = useState(false);
+  const { bind, menu } = usePressMenu();
+  const setPins = (pins: RailPin[]) => put({ ...rail, pins });
+  // A tool dragged over the お気に入り column lights it; dropping it there pins it.
+  const [dropping, setDropping] = useState(false);
   const all = defaults.flatMap((g) => [...g.main, ...g.more]);
   // Every tile stays visible (ユーザー 2026-11-05：「すべて表示は常時オン」); the ones a role cannot use are greyed with the reason.
   const showAll = true;
@@ -298,12 +313,26 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
     const isPin = rail.pins.includes(t.pin);
     const badge = t.badge;
     const tileList = list && where === "tab";
+    const press = bind(t.label, () => pinActions(rail.pins, t.pin, setPins));
+    // Only a mouse drags a tool to お気に入り; a finger's long press is the menu (an iPad would start a drag instead).
+    const drag = where === "tab" && !off
+      ? {
+          onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
+            e.currentTarget.draggable = e.pointerType === "mouse";
+            press.onPointerDown(e);
+          },
+          onDragStart: (e: DragEvent<HTMLButtonElement>) => {
+            e.dataTransfer.setData(PIN_DRAG, t.pin);
+            e.dataTransfer.effectAllowed = "copy";
+          },
+        }
+      : {};
     const base = tileList
       ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`
       : toolClass(off, active);
     return (
       <div key={`${where}-${t.pin}`} className="relative">
-        <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.title ?? t.label)} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
+        <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.title ?? t.label)} {...press} {...drag} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
           <Icon size={tileList ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
           <span className={tileList ? "truncate" : where === "pins" ? "w-full break-words text-center" : ""}>{t.label}{t.pin === "add-consult" && where !== "pins" && <small className="block text-[9px] font-normal">他科依頼・紹介</small>}</span>
           {tileList && badge && badge.n > 0 && <span className={`${badgeClass(badge.urgent)} ml-auto`}>{badge.n}</span>}
@@ -318,7 +347,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
             type="button"
             aria-label={isPin ? `${t.label}をお気に入りから外す` : `${t.label}をお気に入りに入れる`}
             aria-pressed={isPin}
-            onClick={() => put({ ...rail, pins: togglePin(rail.pins, t.pin) })}
+            onClick={() => setPins(togglePin(rail.pins, t.pin))}
             className={`absolute -right-0.5 -top-0.5 rounded-full border bg-sheet p-0.5 ${isPin ? "border-yamabuki text-yamabuki" : "border-rule text-ink-faint hover:text-yamabuki"}`}
           >
             <Star size={11} fill={isPin ? "currentColor" : "none"} />
@@ -331,7 +360,24 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
 
   return (
     <aside aria-label="ツール" className="flex min-h-0 overflow-hidden border-l border-rule bg-paper">
-      <section aria-label="お気に入り" className="scroll-thin flex w-14 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule bg-yamabuki-soft/30 px-1 py-1.5">
+      <section
+        aria-label="お気に入り"
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes(PIN_DRAG)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          setDropping(true);
+        }}
+        onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setDropping(false)}
+        onDrop={(e) => {
+          const pin = e.dataTransfer.getData(PIN_DRAG);
+          setDropping(false);
+          if (!pin) return;
+          e.preventDefault();
+          if (!rail.pins.includes(pin)) setPins([...rail.pins, pin]);
+        }}
+        className={`scroll-thin flex w-14 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule px-1 py-1.5 ${dropping ? "bg-yamabuki-soft ring-2 ring-inset ring-yamabuki" : "bg-yamabuki-soft/30"}`}
+      >
         {pinned.length === 0 ? null : pinned.map((t) => tile(t, "pins"))}
       </section>
       <div className={`scroll-thin flex min-h-0 shrink-0 flex-col overflow-y-auto px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
@@ -370,6 +416,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
         </div>}
 
       </div>
+      {menu}
     </aside>
   );
 }

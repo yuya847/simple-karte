@@ -14,6 +14,7 @@ import { MeProvider, RoleProvider } from "./RoleContext";
 import { ResultsPanel } from "./panels/ResultsPanel";
 import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar } from "./Calendars";
 import { RefWindow } from "./RefWindows";
+import { ToolRail, pinActions } from "./ToolRail";
 
 const today = { y: 2026, m: 11, d: 4 };
 
@@ -119,5 +120,30 @@ describe("内服・注射カレンダー：同じボタンを並べず、帯を�
     expect(html).toMatch(/border-y border-rule-soft opacity-0 group-hover\/ext:opacity-100/);
     expect(html).toMatch(/aria-label="[^"]+ 0–6 ここまで延長"/);
     expect(html).toMatch(/opacity-0 hover:border-ai hover:text-ai focus-visible:opacity-100 group-hover\/new:opacity-100[^"]*"><svg[\s\S]*?<\/svg>新規<\/button>/);
+  });
+});
+
+describe("右の道具：右クリック・長押しで★", () => {
+  it("お気に入りにないものは入れ、あるものは外す（同じ仕組みの togglePin）", () => {
+    const seen: string[][] = [];
+    const [put] = pinActions(["add-rx"], "add-lab", (p) => seen.push(p));
+    expect(put.label).toBe("★お気に入りに入れる");
+    put.onClick();
+    const [take] = pinActions(["add-rx", "add-lab"], "add-rx", (p) => seen.push(p));
+    expect(take.label).toBe("★お気に入りから外す");
+    take.onClick();
+    expect(seen).toEqual([["add-rx", "add-lab"], ["add-lab"]]);
+  });
+  it("道具の札は増えず、画面に説明の文を足さない", () => {
+    const html = renderToStaticMarkup(
+      <RoleProvider value="医師">
+        <MeProvider value={STAFF.医師}>
+          <ToolRail open={null} onOpen={() => {}} />
+        </MeProvider>
+      </RoleProvider>,
+    );
+    expect(html).toContain('aria-label="お気に入り"');
+    expect(html).not.toContain("お気に入りに入れる");
+    expect(html).not.toContain("★ をここに");
   });
 });
