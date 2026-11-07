@@ -57,7 +57,7 @@ const codesOf = (e: OrderEntry) => (e.order.type === "injection" ? e.order.items
 
 export function shidoFacts(p: Pick<Patient, "name" | "sex" | "age" | "id" | "admittedOn" | "allergies">, entries: OrderEntry[], reports: BroughtReport[] = []): ShidoFacts {
   const rs = running(entries);
-  const latestReport = reports.filter((r) => r.patientId === p.id).at(-1);
+  const latestReport = reports.filter((r) => r.patientId === p.id && r.status !== "鑑別中").at(-1);
   const brought = (latestReport?.rows ?? []).filter((r) => r.decision !== "中止");
   const codes = [...new Set([...rs.flatMap(codesOf), ...brought.flatMap((r) => r.match ? [r.match] : [])])];
   const drugs = rs.map((e) => ({ code: codesOf(e)[0], text: `${codesOf(e).map(anyDrugName).join("＋")}（${e.order.type === "prescription" ? `内服・${e.order.category}` : `注射・${e.order.type === "injection" ? e.order.route : ""}`}）` }));

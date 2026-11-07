@@ -19,7 +19,7 @@ interface Ready {
   sample?: boolean;
 }
 
-const loadImage = (src: string) =>
+export const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((ok, fail) => {
     const img = new Image();
     img.onload = () => ok(img);
@@ -28,7 +28,7 @@ const loadImage = (src: string) =>
   });
 
 /** Draw the image smaller as JPEG, trying smaller sizes until it fits one file's limit. */
-async function shrink(src: string): Promise<{ dataUrl: string; width: number; height: number }> {
+export async function shrink(src: string): Promise<{ dataUrl: string; width: number; height: number }> {
   const img = await loadImage(src);
   let last = { dataUrl: "", width: 0, height: 0 };
   for (const step of SHRINK_STEPS) {
@@ -92,7 +92,7 @@ function sampleImage(patientName: string, today: string): string {
   return c.toDataURL("image/png");
 }
 
-const openKept = (s: ScanDoc) => {
+export const openKept = (s: ScanDoc) => {
   const blob = dataUrlBlob(s.dataUrl);
   if (!blob) return;
   const url = URL.createObjectURL(blob);

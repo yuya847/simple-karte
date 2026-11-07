@@ -3,7 +3,7 @@
 // Nothing is boxed at first, and nothing can be sent until every page is boxed. The calculations are
 // here (pure); the canvas work is in NotebookCapture.
 
-import { fitSize } from "./scans";
+import { fitProblem, fitSize, type ScanDoc } from "./scans";
 
 export const PHOTO_LIMITS = {
   /** Pages sent together. */
@@ -77,3 +77,42 @@ export function photoFileProblem(f: { type: string; size: number; name: string }
 
 /** The fictional notebook pages for 見本で試す (public/samples). */
 export const SAMPLE_PAGES = ["/samples/okusuri-techo-1.jpg", "/samples/okusuri-techo-2.jpg"] as const;
+
+/** A page as kept in the patient's 文書 (the whole photo, made smaller in the browser; it is not sent anywhere). */
+export interface KeptPage {
+  dataUrl: string;
+  width: number;
+  height: number;
+  name: string;
+  bytes: number;
+  sample?: boolean;
+}
+
+/**
+ * The photos of the notebook as documents of the patient (スキャン取込, type お薬手帳), with today's other scans.
+ * A page that does not fit the limits of the day's scans (scans.ts) is left out.
+ */
+export function photoScans(pages: readonly KeptPage[], scans: readonly ScanDoc[], ctx: { patientId: string; by: string; role: string; at: { day: number; time: string }; docDate: string; newId: () => string }): ScanDoc[] {
+  const out: ScanDoc[] = [];
+  for (const p of pages) {
+    if (!/^data:image\/jpeg;base64,/.test(p.dataUrl) || fitProblem(p.dataUrl.length, [...scans, ...out])) continue;
+    out.push({
+      id: ctx.newId(),
+      patientId: ctx.patientId,
+      type: "お薬手帳",
+      docDate: ctx.docDate,
+      note: "持参薬鑑別で取込",
+      by: ctx.by,
+      role: ctx.role,
+      at: ctx.at,
+      mime: "image/jpeg",
+      dataUrl: p.dataUrl,
+      bytes: p.dataUrl.length,
+      width: p.width,
+      height: p.height,
+      original: { name: p.name, type: "image/jpeg", bytes: p.bytes },
+      ...(p.sample ? { sample: true } : {}),
+    });
+  }
+  return out;
+}

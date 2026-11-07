@@ -141,6 +141,14 @@ export interface BroughtReport {
   status: "鑑別中" | "医師へ報告" | "指示の下書き" | "指示済";
   /** 鑑別の所見 the pharmacist writes for the whole report (服薬の状況・管理の方法など). */
   comment?: string;
+  /** The day of `at` (today when absent). 鑑別中 is a draft taken in by a nurse or doctor for the pharmacist. */
+  day?: DayOffset;
+  /** 鑑別 and then each 医師の判断, oldest first (brought-history.ts). */
+  versions?: import("./brought-history").BroughtVersion[];
+  /** Photos of the お薬手帳 kept in the patient's 文書 (スキャン取込, type お薬手帳). */
+  scanIds?: string[];
+  /** Who took the notebook in, when a nurse or doctor did it before the pharmacist. */
+  takenBy?: { name: string; role: string; at: { day: DayOffset; time: string } };
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { boxFrom, boxPixels, jpegData, photoFileProblem, PHOTO_LIMITS, sendProblem, sendSize } from "./notebook-photo";
+import { boxFrom, boxPixels, jpegData, photoFileProblem, photoScans, PHOTO_LIMITS, sendProblem, sendSize } from "./notebook-photo";
+import { SCAN_LIMITS } from "./scans";
 
 const jpeg = (n: number) => `/9j/${"A".repeat(Math.max(0, n - 4))}`;
 
@@ -37,5 +38,15 @@ describe("お薬手帳の写真：囲んだ部分だけを送る", () => {
     expect(photoFileProblem({ type: "application/pdf", size: 100, name: "a.pdf" })).toContain("PDF");
     expect(photoFileProblem({ type: "text/plain", size: 100, name: "a.txt" })).toContain("画像");
     expect(photoFileProblem({ type: "image/png", size: PHOTO_LIMITS.original + 1, name: "a.png" })).toContain("大きすぎ");
+  });
+
+  it("撮った写真は患者の文書（お薬手帳）に残し、今日の取込の上限を超える分は残さない", () => {
+    let n = 0;
+    const ctx = { patientId: "p1", by: "看護師 佐藤", role: "看護師", at: { day: 0, time: "09:10" }, docDate: "2026-11-07", newId: () => `s${++n}` };
+    const page = (chars: number) => ({ dataUrl: `data:image/jpeg;base64,${"A".repeat(chars)}`, width: 1200, height: 1600, name: "見本.jpg", bytes: 1000, sample: true });
+    const docs = photoScans([page(1000), page(2000)], [], ctx);
+    expect(docs.map((d) => [d.id, d.type, d.docDate, d.sample, d.patientId])).toEqual([["s1", "お薬手帳", "2026-11-07", true, "p1"], ["s2", "お薬手帳", "2026-11-07", true, "p1"]]);
+    expect(photoScans([page(SCAN_LIMITS.perFile + 1)], [], ctx)).toEqual([]);
+    expect(photoScans([{ ...page(10), dataUrl: "data:image/png;base64,AAAA" }], [], ctx)).toEqual([]);
   });
 });

@@ -28,6 +28,9 @@ import { type InteractionFinding, orderInteractions } from "@/lib/interactions";
 import type { TdmReport } from "@/lib/tdm";
 import { isExtraInjection } from "@/lib/pharmacy-work";
 import { readNotebook } from "@/lib/notebook";
+import { NotebookCapture, type KeptPage, type PhotoRead } from "./NotebookCapture";
+import { MatchTag } from "./BroughtParts";
+import type { BroughtInput } from "@/lib/brought-history";
 import { useWindowEntry } from "@/lib/window-entry";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -55,7 +58,10 @@ export interface PharmacyProps {
   queries: Query[];
   onAsk: (q: Omit<Query, "id" | "askedAt" | "by" | "status">) => void;
   reports: BroughtReport[];
-  onReport: (r: Omit<BroughtReport, "id" | "at" | "by" | "status">) => void;
+  /** 医師へ報告 (確定): a new report, or the draft a nurse or doctor took in. */
+  onReport: (r: BroughtInput) => void;
+  /** Keep the photos of the お薬手帳 in the patient's 文書 (type お薬手帳); the ids of what was kept. */
+  onPhotos?: (patientId: string, pages: KeptPage[]) => string[];
   shido: Record<string, ShidoRecord[]>;
   onShido: (patientId: string, rec: Omit<ShidoRecord, "at" | "day">) => void;
   dispensed: Record<string, string>;
@@ -329,11 +335,17 @@ Rp2　ラシックス錠20mg　1回1錠　1日1回　朝食後　28日分
 Rp3　マグミット錠330mg　1回2錠　1日2回　朝夕食後　28日分
 Rp4　カロナール錠500　1回1錠　頓用　疼痛時　10回分`;
 
-function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBook, newId }: PharmacyProps) {
+function Brought({ people, today, nowTime, reports: allReports, onReport, onPhotos, narcBook, onNarcBook, newId }: PharmacyProps) {
   const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
   const [text, setText] = useWindowEntry(`brought-text`, "", `${patientId}:薬剤師`);
   const [rows, setRows] = useWindowEntry<BroughtRow[] | null>(`brought-rows`, null, `${patientId}:薬剤師`);
   const [comment, setComment] = useWindowEntry(`brought-comment`, "", `${patientId}:薬剤師`);
+  // The photos kept in the 文書, what Claude could not read, and the draft (a nurse's or doctor's) being finished.
+  const [scanIds, setScanIds] = useWindowEntry<string[]>(`brought-scans`, [], `${patientId}:薬剤師`);
+  const [notRead, setNotRead] = useWindowEntry<PhotoRead["notRead"]>(`brought-not-read`, [], `${patientId}:薬剤師`);
+  const [draftId, setDraftId] = useWindowEntry<string | null>(`brought-draft`, null, `${patientId}:薬剤師`);
+  const drafts = allReports.filter((r) => r.status === "鑑別中" && people.some((x) => x.patient.id === r.patientId));
+  const reports = allReports.filter((r) => r.status !== "鑑別中");
   const [printing, setPrinting] = useState<React.ReactNode | null>(null);
   const setRow = (i: number, patch: Partial<BroughtRow>) => setRows((rs) => rs!.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const printReport = (r: BroughtReport) => {
@@ -360,15 +372,55 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
       setRows(
         (json.rows as Omit<BroughtRow, "match" | "checked" | "decision">[]).map((r) => ({ ...r, match: matchOral(r.said, r.strength), checked: false, decision: null })),
       );
+      setNotRead([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み取れませんでした。");
     } finally {
       setBusy(false);
     }
   };
+  // Photos read into rows: the rows are matched to the master by code, the whole photos go to the 文書.
+  const fromPhotos = (r: PhotoRead) => {
+    setRows([...(rows ?? []), ...r.rows.map((x) => ({ ...x, match: matchOral(x.said, x.strength), checked: false, decision: null as BroughtRow["decision"] }))]);
+    setNotRead([...notRead, ...r.notRead]);
+    setScanIds([...scanIds, ...(onPhotos?.(patientId, r.pages) ?? [])]);
+  };
+  // A draft opens under its patient (the entries are kept per patient, so they are written once that patient is chosen).
+  const [opening, setOpening] = useState<BroughtReport | null>(null);
+  const openDraft = (d: BroughtReport) => {
+    setPatientId(d.patientId);
+    setOpening(d);
+  };
+  if (opening && opening.patientId === patientId) {
+    setOpening(null);
+    setRows(opening.rows.map((x) => ({ ...x, checked: false })));
+    setScanIds(opening.scanIds ?? []);
+    setDraftId(opening.id);
+    setNotRead([]);
+  }
 
   return (
     <section className="space-y-4">
+      {drafts.length > 0 && (
+        <div className={`${card} p-4 text-[13px]`}>
+          <h3 className="mb-1 font-bold">取り込まれた手帳（実物と確かめる）</h3>
+          <ul className="space-y-1">
+            {drafts.map((d) => {
+              const pt = people.find((x) => x.patient.id === d.patientId);
+              return (
+                <li key={d.id} className="flex flex-wrap items-center gap-x-2">
+                  <span>
+                    {d.takenBy?.at.time ?? d.at}　{pt?.room} {pt?.patient.name}　{d.rows.length}剤　<span className="text-ink-soft">{displayText(d.takenBy ? `${d.takenBy.role} ${d.takenBy.name}` : d.by)}</span>
+                  </span>
+                  <button type="button" disabled={draftId === d.id && patientId === d.patientId} onClick={() => openDraft(d)} className="rounded border border-rule px-1.5 py-0.5 text-xs hover:border-ai hover:text-ai disabled:opacity-40">
+                    開く
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       <div className={`${card} space-y-2 p-4 text-[13px]`}>
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2">
@@ -385,6 +437,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
             例文を入れる
           </button>
         </div>
+        <NotebookCapture onRead={fromPhotos} disabled={!patientId} />
         <textarea
           value={displayText(text)}
           onChange={(e) => setText(e.target.value)}
@@ -438,9 +491,8 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
                           {already.length > 0 && <div className="text-xs font-bold text-yamabuki">同じ成分がもう登録されています（{already.map((e) => (e.order.type === "prescription" ? e.order.category : "")).join("・")}）</div>}
                           {isNarcotic(r.match) && <div className="text-[11px] text-shu">持参した麻薬：続けるときは麻薬帳簿の受入欄に（ ）で書き、残高に加えません（麻薬管理マニュアル 第4(11)）。報告のあと「報告した鑑別」から記載できます。</div>}
                         </>
-                      ) : (
-                        <span className="text-shu">院内のマスターにありません</span>
-                      )}
+                      ) : null}
+                      <div><MatchTag row={r} /></div>
                     </td>
                     <td className="py-1.5 text-xs">
                       <input
@@ -467,16 +519,28 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
               })}
             </tbody>
           </table>
+          {notRead.length > 0 && (
+            <ul className="mt-2 text-[12px] text-yamabuki">
+              {notRead.map((x, i) => (
+                <li key={i}>
+                  読めなかった行：{displayText(x.text)}（{displayText(x.reason)}）
+                </li>
+              ))}
+            </ul>
+          )}
           <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="所見：服薬の状況、自己管理か看護師管理か、手帳と実物の違いなど（報告書に載る）" aria-label="鑑別の所見" className="mt-2 w-full rounded border border-rule bg-paper px-2 py-1 text-[12px] outline-none" />
           <div className="mt-3 flex items-center gap-3">
             <button
               type="button"
               disabled={!rows.length || !rows.every((r) => r.checked)}
               onClick={() => {
-                onReport({ patientId, rows, ...(comment.trim() ? { comment: comment.trim() } : {}) });
+                onReport({ patientId, rows, ...(comment.trim() ? { comment: comment.trim() } : {}), ...(scanIds.length ? { scanIds } : {}), ...(draftId ? { draftId } : {}) });
                 setRows(null);
                 setText("");
                 setComment("");
+                setScanIds([]);
+                setNotRead([]);
+                setDraftId(null);
               }}
               className="rounded bg-ai px-3 py-1.5 font-bold text-white disabled:opacity-40"
             >

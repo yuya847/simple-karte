@@ -439,6 +439,8 @@ import { chartDeskOf } from "@/lib/merge-workspace";
 import { liveLabel, MergedNotice, PresenceStrip } from "./Presence";
 import { ScanPanel } from "./panels/ScanPanel";
 import { withdraw } from "@/lib/scans";
+import { photoScans, type KeptPage } from "@/lib/notebook-photo";
+import { confirmBrought } from "@/lib/brought-history";
 import { SignBox } from "./panels/SignBox";
 import { useLogin } from "@/lib/use-login";
 import type { LoginUser } from "@/lib/login";
@@ -1592,6 +1594,13 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // A stop chosen on a calendar becomes a draft like any other; the doctor confirms it on the right.
   // お知らせ for a nurse: to everyone, or to the team chosen in 受け持ち患者 (all teams when none is chosen).
   const forMyTeam = (n: PhsNotice) => n.to === "全員" || !myTeam || n.to === myTeam;
+  // お薬手帳の写真 taken in for 持参薬鑑別 are kept in the patient's 文書 (スキャン取込, type お薬手帳).
+  const keepNotebook = (pid: string, pages: KeptPage[]) => {
+    const docs = photoScans(pages, infra.scans, { patientId: pid, by: me.name, role: me.role, at: { day: 0, time: nowTime }, docDate: isoDate(today), newId });
+    if (docs.length) infra.setScans((all) => [...all, ...docs]);
+    if (docs.length) auditLog({ role: me.role, actor: me.name, action: "確定（スキャン取込）", patient: findPatient(pid)?.name, detail: `お薬手帳 ${docs.length}枚（持参薬鑑別）` });
+    return docs.map((d) => d.id);
+  };
   // A 持参薬 report whose drafts are all removed (消す・やり直す) goes back to the doctor's inbox.
   const releaseReport = (draftId: string) => {
     const rid = (chart.drafts.find((d) => d.id === draftId) as { reportId?: string } | undefined)?.reportId;
@@ -3062,8 +3071,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           reports={reports}
           onReport={(r) => {
             auditLog({ role: me.role, actor: me.name, action: "確定（持参薬鑑別を報告）", patient: findPatient(r.patientId)?.name, detail: `${r.rows.length}剤` });
-            setReports((rs) => [...rs, { ...r, id: newId(), at: nowTime, by: me.name, status: "医師へ報告" }]);
+            setReports((rs) => confirmBrought(rs, r, { id: newId(), name: me.name, role: me.role, at: { day: 0, time: nowTime } }));
           }}
+          onPhotos={keepNotebook}
           shido={shido}
           onShido={(pid, rec) => {
             const days = (shido[pid] ?? []).map((x) => x.day);
