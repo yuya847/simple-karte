@@ -3948,6 +3948,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     letters={lettersFor(patient.id, letters, discharges[patient.id])} discharge={discharges[patient.id]} open={letterOpen} contact={letterContact(contactsBook[patient.id])}
                     onSave={(l, how) => { const may = letterRights((a) => !deny(a), l.type); if (how === "確定" ? !may.confirm : !may.draft) return; setLetters((all) => upsertLetter(all, l)); auditLog({ role: me.role, actor: me.name, action: how === "確定" ? "確定（紹介状）" : "紹介状の下書きを保存", patient: patient.name, detail: letterTitle(l) }); update({ flash: how === "確定" ? "紹介状を確定しました。" : "紹介状の下書きを保存しました。" }); }}
                     onPrint={(l) => auditLog({ role: me.role, actor: me.name, action: "紹介状を印刷", patient: patient.name, detail: `${letterTitle(l)}・${l.status}` })}
+                    book={iji.insurance}
+                    onSigned={(l) => { if (!deny("discharge")) setLetters((all) => upsertLetter(all, l)); }}
+                    onSent={(l, rs) => { if (!deny("clins")) { setLetters((all) => upsertLetter(all, l)); setNational((all) => [...all, ...rs]); } }}
                   />
                 </Drawer>
               )}

@@ -3,17 +3,16 @@
 import { BadgeCheck, KeyRound, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import type { DischargeDraft } from "@/lib/discharge";
-import { browserKeys, ESIGN_SOURCES, nowStamp, signDoc, signedContent, verificationText, verifyDoc, type KeyStore, type SignedKind, type SignRecord } from "@/lib/esign";
+import { deviceKeys as keys, ESIGN_SOURCES, nowStamp, signDoc, signedContent, verificationText, verifyDoc, type SignedKind, type SignRecord } from "@/lib/esign";
 import { Sources } from "../DeskParts";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 
 const KINDS: SignedKind[] = ["退院時サマリー", "診療情報提供書"];
-let shared: KeyStore | null = null;
-const keys = () => (shared ??= browserKeys());
 
 /**
- * 電子署名（模擬）under the 退院サマリ panel: the confirmed summary and the issued letter are signed with a key
- * made in this browser, and each signature is checked against the document as it is now.
+ * 電子署名（模擬）under the 退院サマリ panel: the confirmed summary (and the letter the old 退院サマリ issued) is
+ * signed with a key made in this browser, and each signature is checked against the document as it is now. A
+ * 紹介状 of the letter tool is signed in that tool.
  */
 export function SignBox({ patientId, draft, records, onSigned, newId }: { patientId: string; draft?: DischargeDraft; records: SignRecord[]; onSigned: (r: SignRecord) => void; newId: () => string }) {
   const me = useMe();
@@ -53,6 +52,7 @@ export function SignBox({ patientId, draft, records, onSigned, newId }: { patien
       {KINDS.map((kind) => {
         const ready = !!signedContent(kind, draft);
         const mine = records.filter((r) => r.patientId === patientId && r.kind === kind);
+        if (kind === "診療情報提供書" && !ready && !mine.length) return null;
         return (
           <div key={kind} className="rounded border border-rule-soft bg-sheet p-2">
             <div className="flex flex-wrap items-center gap-2">

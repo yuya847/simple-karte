@@ -94,13 +94,15 @@ describe("スキャン取込", () => {
 describe("電子署名（模擬）", () => {
   const draft: DischargeDraft = { patientId: "p1", dischargeDay: 1, destination: "自宅", outcome: "1", route: "1", sections: emptySections(), status: "確定", confirmedAt: { day: 0, time: "10:00" }, confirmedBy: "山本（専攻医）", letter: { to: "", dept: "", doctor: "", purpose: "" } };
   const rec = { id: "g1", patientId: "p1", kind: "退院時サマリー" as const, docHash: "a".repeat(64), signature: "MEUC".repeat(20), keyId: "3fa2".repeat(8), signer: "山本（専攻医）", role: "医師", at: { date: "2026-11-04", time: "10:32:05" }, alg: "ECDSA P-256 / SHA-256（模擬）" as const };
-  it("lets a doctor sign the confirmed summary (not the letter not yet issued), shows the signatures and says what it is not", () => {
+  it("lets a doctor sign the confirmed summary (a 紹介状 is signed in the letter tool), shows the signatures and says what it is not", () => {
     const html = as("医師", <SignBox patientId="p1" draft={draft} records={[rec]} onSigned={() => {}} newId={() => "x"} />);
     expect(html).toContain("模擬");
     expect(html).not.toContain("HPKI（保健医療福祉分野の公開鍵基盤）");
     expect(html).not.toContain("法的な署名にはなりません");
     expect(html).toContain("確定済み");
-    expect(html).toContain("まだ発行していません");
+    expect(html).not.toContain("診療情報提供書");
+    const issued = { ...draft, letter: { ...draft.letter, to: "架空みどり病院", issuedAt: { day: 0, time: "11:00" } } };
+    expect(as("医師", <SignBox patientId="p1" draft={issued} records={[]} onSigned={() => {}} newId={() => "x"} />)).toContain("<b>診療情報提供書</b><span class=\"text-ink-soft\">発行済み</span>");
     expect(html).toContain("署名 2026-11-04 10:32:05");
     expect(html).toContain("鍵の指紋 3fa23fa2…");
     expect(html).not.toContain("企画管理編」14");

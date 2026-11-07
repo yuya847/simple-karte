@@ -1,18 +1,27 @@
 "use client";
-import { Plus, Printer } from "lucide-react";
+import { KeyRound, Plus, Printer, Send } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { createPortal, flushSync } from "react-dom";
+import { auditLog } from "@/lib/audit";
+import type { InsuranceBook } from "@/lib/billing/registration";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { DischargeDraft } from "@/lib/discharge";
 import type { Diagnosis } from "@/lib/diagnoses";
+import { deviceKeys, nowStamp, signDoc } from "@/lib/esign";
 import { FACILITIES } from "@/lib/liaison";
 import {
-  LETTER_HOSPITAL, LETTER_TYPES, MEDICAL, PARTNERS, chartDischargeDay, confirmLetter, letterKind, letterRights, letterTitle, letterVerdict, newLetter, saveDraft, verdictLine, versionNo,
-  type Letter, type LetterFlags, type LetterSeed, type LetterType, type PatientKind,
+  LETTER_HOSPITAL, LETTER_TYPES, MEDICAL, PARTNERS, chartDischargeDay, confirmLetter, letterKind, letterRights, letterSignedContent, letterTitle, letterVerdict, newLetter, saveDraft, sentNow, signedNow, verdictLine, versionNo,
+  type Letter, type LetterFlags, type LetterSeed, type LetterSend, type LetterType, type PatientKind,
 } from "@/lib/letters";
+import { nationalServices } from "@/lib/national/adapter";
+import { CLINS_NOT_SENT, referralBundleFromLetter } from "@/lib/national/clins";
+import type { NationalRecord } from "@/lib/national/log";
+import { linesFromHomeRx } from "@/lib/national/rx-lines";
 import { can } from "@/lib/roles";
-import type { HistoryEntry, Patient } from "@/lib/types";
+import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 import { LetterDoc } from "../LetterDoc";
+import { clinsPatient } from "../national/NationalPanel";
+import { useDiseaseKeys } from "../national/use-disease-keys";
 import { useDeny, useMe } from "../RoleContext";
 
 interface Props {
@@ -31,6 +40,12 @@ interface Props {
   newId: () => string;
   onSave: (l: Letter, how: "下書き" | "確定") => void;
   onPrint?: (l: Letter) => void;
+  /** 保険の登録 (the FHIR document carries the patient's insurance). */
+  book?: InsuranceBook;
+  /** 電子署名（模擬）: the letter with its signature. */
+  onSigned?: (l: Letter) => void;
+  /** 電子で送る（模擬）: the letter with its send, and what the simulated service received. */
+  onSent?: (l: Letter, records: NationalRecord[]) => void;
 }
 
 const noSubscribe = () => () => {};
@@ -40,9 +55,10 @@ const field = "mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-
  * 紹介状: choose the kind (tabs), the address, the fields, then 下書きを保存・確定して保存・印刷. The chart's facts are in
  * the fields from the start; the fee of the letter is one line under the address. Below, this patient's letters.
  */
-export function LetterPanel({ patient, entries, diagnoses, today, nowTime, letters, discharge, open, contact, newId, onSave, onPrint }: Props) {
+export function LetterPanel({ patient, entries, diagnoses, today, nowTime, letters, discharge, open, contact, newId, onSave, onPrint, book = {}, onSigned, onSent }: Props) {
   const me = useMe();
-  const denyReason = useDeny()("discharge");
+  const deny = useDeny();
+  const denyReason = deny("discharge");
   const rightsOf = (t: LetterType) => letterRights((a) => can(me.role, a), t);
   const chart = { patient, entries, diagnoses, today, discharge };
   const now = { day: 0, time: nowTime };
@@ -52,6 +68,9 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
   const [editing, setEditing] = useState(false);
   const [reason, setReason] = useState("");
   const [printing, setPrinting] = useState(false);
+  const [busy, setBusy] = useState<"sign" | "send" | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const { keys: diseaseKeys } = useDiseaseKeys(diagnoses);
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const saved = letters.find((l) => l.id === cur.id);
   const rights = rightsOf(cur.type);
@@ -63,7 +82,7 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
   const verdict = letterVerdict(confirmed ? cur : { ...cur, dischargeDay }, letters, today, now, { dischargedOn: patient.dischargedAt?.day, inpatient });
   const set = (patch: Partial<Letter>) => setCur((x) => ({ ...x, ...patch }));
   const flag = (patch: LetterFlags) => setCur((x) => ({ ...x, flags: { ...x.flags, ...patch } }));
-  const openLetter = (l: Letter) => { setCur(l); setEditing(false); setReason(""); };
+  const openLetter = (l: Letter) => { setCur(l); setEditing(false); setReason(""); setProblem(null); };
   const facilities = MEDICAL.includes(cur.type) ? FACILITIES.filter((f) => f.kind !== "介護施設") : cur.type === "介護施設" ? FACILITIES.filter((f) => f.kind === "介護施設") : [];
 
   const save = (how: "下書き" | "確定") => {
@@ -72,6 +91,52 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
     onSave(next, how);
     openLetter(next);
   };
+  // 電子カルテ情報共有サービス（模擬）: a confirmed letter to a 医療機関 is signed, then sent. Nothing leaves the app.
+  const ready = confirmed && !editing;
+  const notSent = CLINS_NOT_SENT[cur.type];
+  const clinsDocs = () => {
+    const ins = clinsPatient(book, patient, today);
+    const ctx = { patient, birthDate: ins.birthDate, insurance: ins.insurance, insuranceAssumed: ins.assumed, diagnoses, diseaseKeys, doctor: me.name, today, time: nowTime };
+    return referralBundleFromLetter(ctx, { letter: cur, admittedOn: patient.admittedOn, lines: linesFromHomeRx(entries.filter((e): e is OrderEntry => e.kind === "order")), allergies: [], discharge });
+  };
+  const docs = ready && !notSent ? clinsDocs() : null;
+  const signWhy = !ready ? "確定した紹介状だけ" : notSent ?? (rights.confirm ? null : (denyReason ?? "医師だけ"));
+  const sendWhy = signWhy ?? deny("clins") ?? (docs?.missing.length ? `足りない：${docs.missing.map((m) => m.why).join("、")}` : signedNow(cur) ? null : "電子署名（模擬）してから");
+  const sign = async () => {
+    if (signWhy || signedNow(cur)) return;
+    setBusy("sign");
+    setProblem(null);
+    try {
+      const record = await signDoc(deviceKeys(), { id: newId(), kind: "診療情報提供書", patientId: patient.id, doc: letterSignedContent(cur), signer: me.name, role: me.role, at: nowStamp() });
+      const next: Letter = { ...cur, signed: { version: versionNo(cur), record } };
+      setCur(next);
+      onSigned?.(next);
+      auditLog({ role: me.role, actor: me.name, action: "確定（電子署名・模擬：紹介状）", patient: patient.name, detail: `${letterTitle(cur)} 第${versionNo(cur)}版　鍵の指紋 ${record.keyId.slice(0, 8)}` });
+    } catch {
+      setProblem("署名できませんでした（このブラウザで鍵を作れないか、保存できません）。");
+    } finally {
+      setBusy(null);
+    }
+  };
+  const send = async () => {
+    const d = docs;
+    if (sendWhy || sentNow(cur) || !d?.referral) return;
+    setBusy("send");
+    try {
+      const when = { patientKey: patient.id, today, time: nowTime };
+      const r = await nationalServices.sendClinical({ ...when, kind: "診療情報提供書", bundle: d.referral });
+      const rs = d.summary ? await nationalServices.sendClinical({ ...when, kind: "退院時サマリー", bundle: d.summary }) : null;
+      const s: LetterSend = { at: now, by: me.name, version: versionNo(cur), documentId: d.documentId, to: cur.to, receiptNo: r.receiptNo, attached: !!rs };
+      const next: Letter = { ...cur, sends: [...(cur.sends ?? []), s] };
+      const rec = (receipt: typeof r, what: string): NationalRecord => ({ kind: "電子カルテ情報共有", patientKey: patient.id, receipt, what, by: me.name, at: nowTime });
+      setCur(next);
+      onSent?.(next, [rec(r, `診療情報提供書（HS038）：${letterTitle(cur)}`), ...(rs ? [rec(rs, "退院時サマリー（HS039。同じ文書IDで添付）")] : [])]);
+      auditLog({ role: me.role, actor: me.name, action: "電子カルテ情報共有サービスへ送信（模擬）", patient: patient.name, detail: `${letterTitle(cur)} 第${versionNo(cur)}版　文書ID ${d.documentId}　受付番号 ${r.receiptNo}` });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const print = () => {
     flushSync(() => setPrinting(true));
     const done = () => { setPrinting(false); window.removeEventListener("afterprint", done); };
@@ -175,6 +240,21 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
           {locked && <span title={verdict.cite} className="ml-2 font-bold">{verdictLine(verdict, true)}</span>}
         </p>
       )}
+      {confirmed && (cur.signed || !!cur.sends?.length) && (
+        <ul className="nums space-y-0.5 text-xs text-ink-soft">
+          {cur.signed && (
+            <li>
+              電子署名（模擬）第{cur.signed.version}版 {cur.signed.record.at.date} {cur.signed.record.at.time.slice(0, 5)} {cur.signed.record.signer}　鍵の指紋 {cur.signed.record.keyId.slice(0, 8)}…
+            </li>
+          )}
+          {cur.sends?.map((x, i) => (
+            <li key={i}>
+              送信（模擬）第{x.version}版 {formatShort(addDays(today, x.at.day))} {x.at.time} {x.by} → {x.to}　受付番号 {x.receiptNo}{x.attached ? "　退院時サマリー添付" : ""}
+              <span className="block break-all text-ink-faint">文書ID {x.documentId}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {confirmed && !!cur.versions?.length && (
         <details className="text-xs">
           <summary className="cursor-pointer text-ink-soft">前の版（{cur.versions.length}）</summary>
@@ -208,11 +288,20 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
             {editing && <button type="button" onClick={() => openLetter(saved ?? cur)} className="text-xs text-ink-soft underline">直すのをやめる</button>}
           </>
         )}
-        <button type="button" onClick={print} className="ml-auto flex items-center gap-1 rounded border border-ai px-3 py-1 text-xs font-bold text-ai">
+        <button type="button" disabled={!!signWhy || signedNow(cur) || busy !== null} title={signWhy ?? undefined} onClick={() => void sign()} className="ml-auto flex items-center gap-1 rounded border border-rule px-3 py-1 text-xs disabled:opacity-40">
+          <KeyRound size={13} />
+          {busy === "sign" ? "署名しています…" : signedNow(cur) ? "署名済み（模擬）" : "電子署名（模擬）"}
+        </button>
+        <button type="button" disabled={!!sendWhy || sentNow(cur) || busy !== null} title={sendWhy ?? undefined} onClick={() => void send()} className="flex items-center gap-1 rounded bg-ai px-3 py-1 text-xs font-bold text-white disabled:opacity-40">
+          <Send size={13} />
+          {busy === "send" ? "送っています…" : sentNow(cur) ? "送信済み（模擬）" : "電子で送る（模擬）"}
+        </button>
+        <button type="button" onClick={print} className="flex items-center gap-1 rounded border border-ai px-3 py-1 text-xs font-bold text-ai">
           <Printer size={13} />
           印刷
         </button>
       </div>
+      {problem && <p className="text-xs text-yamabuki">{problem}</p>}
 
       <section aria-label="この患者の紹介状" className="border-t border-rule-soft pt-2">
         <div className="mb-1 flex items-center gap-2 text-xs">
@@ -233,6 +322,7 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
                   </td>
                   <td className="py-1">
                     <button type="button" onClick={() => openLetter(l)} className="text-left hover:text-ai hover:underline">{letterTitle(l)}</button>
+                    {!!l.sends?.length && <span className="ml-2 whitespace-nowrap rounded bg-ai-soft px-1.5 font-bold text-ai">{sentNow(l) ? "送信済み（模擬）" : "前の版を送信済み（模擬）"}</span>}
                   </td>
                   <td className="whitespace-nowrap py-1 text-right text-ink-soft">{when(l)}</td>
                 </tr>

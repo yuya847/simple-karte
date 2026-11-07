@@ -1,4 +1,4 @@
-// 電子署名（模擬）: a confirmed 退院時サマリー or 診療情報提供書 is signed with a key made in this browser (Web
+// 電子署名（模擬）: a confirmed 退院時サマリー or 診療情報提供書 (紹介状) is signed with a key made in this browser (Web
 // Crypto, ECDSA P-256 with SHA-256). The signature covers the document's SHA-256, the kind, the patient, the
 // signer and the time; checking it later tells whether the content is still the same and whether the
 // signature fits. The private key never leaves the browser (kept in IndexedDB as a key that cannot be taken
@@ -106,6 +106,10 @@ export function browserKeys(): KeyStore {
   };
 }
 
+let shared: KeyStore | null = null;
+/** The keys of this browser, one store for every screen that signs. */
+export const deviceKeys = () => (shared ??= browserKeys());
+
 export const keyIdOf = async (pub: CryptoKey) => hex(await crypto.subtle.digest("SHA-256", await crypto.subtle.exportKey("spki", pub))).slice(0, 32);
 
 /** This person's key pair in this browser, made the first time. */
@@ -185,7 +189,7 @@ export function validSignatures(v: unknown): SignRecord[] {
   });
 }
 
-/** What is signed of the 退院時サマリー or the 診療情報提供書 (null while it is not confirmed or issued). */
+/** What is signed of the 退院時サマリー or the old 退院サマリ's 診療情報提供書 (null while it is not confirmed or issued). A 紹介状 of the letter tool is signed there (letters.ts letterSignedContent). */
 export function signedContent(kind: SignedKind, d: DischargeDraft | undefined): unknown | null {
   if (!d) return null;
   if (kind === "退院時サマリー")
