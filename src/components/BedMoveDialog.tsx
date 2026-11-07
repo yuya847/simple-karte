@@ -51,7 +51,7 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
   const kind: BedMove["kind"] = to && floorOf(to.room) !== floorOf(from.room) ? "転棟" : "転床";
   const label = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${roomLabel(b.room, b.bed)}`;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" role="dialog" aria-label="転棟・転床">
+    <div className="fixed inset-0 z-[1000] grid place-items-center bg-ink/30 p-4" role="dialog" aria-label="転棟・転床">
       <div className="w-full max-w-2xl rounded-lg border border-rule bg-sheet p-4 text-[13px] shadow-xl">
         <div className="mb-3 flex items-center gap-2">
           <h2 className="text-base font-bold">

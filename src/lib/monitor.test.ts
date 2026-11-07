@@ -153,6 +153,13 @@ describe("セントラルモニター: 誰にモニターを付けるか", () =>
     expect(monitored([quiet, fast], { on: [], off: ["2"] })).toEqual([]);
   });
 
+  it("ICU・HCU は手動で外されても常に対象", () => {
+    for (const ward of ["ICU", "HCU"]) {
+      const patient = p("icu", { ward });
+      expect(monitored([patient], {on:[],off:[patient.id]})).toMatchObject([{patient, reasons:["ICU・HCU"]}]);
+    }
+  });
+
   it("toggling by hand moves the id between the two lists", () => {
     let m = toggleMonitor({ on: [], off: [] }, "x", true);
     expect(m).toEqual({ on: ["x"], off: [] });

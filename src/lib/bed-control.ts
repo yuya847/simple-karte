@@ -30,6 +30,7 @@ export interface PlannedMove {
   floor: string;
   day: number;
   kind: "入院" | "退院";
+  transfer?: boolean;
 }
 
 const sexOf = (b: BedAssignment, patient: (id: string) => { sex: Sex } | undefined): Sex | undefined => (b.patientId ? patient(b.patientId)?.sex : b.other?.sex);
@@ -52,7 +53,7 @@ export function floorCounts(floors: Floor[], beds: BedAssignment[], patient: (id
     const count = (kind: PlannedMove["kind"], day: number) => plans.filter((p) => p.floor === f.name && p.kind === kind && p.day === day).length;
     const admit: [number, number] = [count("入院", 0), count("入院", 1)];
     const discharge: [number, number] = [count("退院", 0), count("退院", 1)];
-    return { floor: f.name, beds: total, occupied: total - mine.length, empty: mine, admit, discharge, tomorrowEmpty: mine.length + discharge[0] - admit[0] };
+    return { floor: f.name, beds: total, occupied: total - mine.length, empty: mine, admit, discharge, tomorrowEmpty: mine.length + discharge[0] - admit[0] + plans.filter(p => p.floor === f.name && p.transfer && p.day === 1).reduce((n,p) => n + (p.kind === "退院" ? 1 : -1), 0) };
   });
 }
 

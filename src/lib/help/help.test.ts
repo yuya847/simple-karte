@@ -25,6 +25,7 @@ describe("画面別ヘルプ", () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const a of AREAS.filter((a) => a.key !== "ward")) expect(ids).toContain(`screen:${a.key}`);
     for (const t of WARD_TABS) expect(ids).toContain(`screen:${t.key}`);
+    expect(helpSections.find(s => s.id === "screen:icu")?.bullets.join(" ")).toContain("0時");
     expect(helpSections.find((s) => s.id === "keyboard")?.bullets.join(" ")).toContain("⌘B");
   });
   it("各節に操作説明か関連する節があり、重複文を持たない", () => {

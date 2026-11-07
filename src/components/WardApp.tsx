@@ -1,4 +1,8 @@
 "use client";
+import { moveBedPlans } from "@/lib/icu/move-plans";
+import { IcuBoard } from "./IcuBoard";
+import { stayOnArrive, stayOnMove } from "@/lib/icu/stays";
+import { unitOf } from "@/lib/icu/types";
 import { useMcpReceiver } from "@/lib/mcp/receive";
 import { GlucoseContext } from "./GlucoseContext";
 import { useAnesthesiaPersistence } from "@/lib/use-anesthesia-persistence";
@@ -1507,6 +1511,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
     p.infections = r.isolation === "なし" ? p.infections : [...p.infections, r.isolation];
     setStanding((all) => ({ ...all, [id]: [...(all[id] ?? []), standingFromRequest(r, r.by, { day: 0, time: nowTime })] }));
+    setIcu(all => unitOf(floorOf(b.room)) ? stayOnArrive(all, id, unitOf(floorOf(b.room))!, { day: 0, time: nowTime }, r.from.kind === "er" ? "救急外来" : "外来", [r.purpose, r.note].filter(Boolean).join("：")) : all);
     setAdmitted((a) => [...a, p]);
     // 緊急入院 counts as emergency (退院困難な要因 イ, 栄養管理計画は7日以内).
     setEvals((all) => ({ ...all, [id]: { patientId: id, emergency: r.urgency === "緊急" } }));
@@ -1999,6 +2004,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         update({ flash: `実施できません：${problem}。予約を中止して、別のベッドで予約し直してください。` });
         return;
       }
+      setIcu(all => stayOnMove(all, pid, x.patient.ward, floorOf(to.room), { day: 0, time: nowTime }));
       setMoves((all) => ({ ...all, [pid]: to }));
     }
     auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}の実施）`, patient: x.patient.name, detail: moveText(m) });
@@ -2384,6 +2390,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           beds={allBeds}
           patient={findPatient}
           plans={[
+            ...moveBedPlans(allPatients, Object.fromEntries(allPatients.map(p => [p.id, ordersOf(currentEntries(p, sessionChanges[p.id])).filter(e => !movesDone[e.id])]))),
             ...WARD_PLANS.filter((w) => w.day >= 0 && w.day <= 1).map((w) => ({ floor: WARD_NAME, day: w.day, kind: w.kind })),
             ...requests.filter((r) => r.status === "申込" && r.when.day >= 0 && r.when.day <= 1).map((r) => ({ floor: r.ward, day: r.when.day, kind: "入院" as const })),
             ...people.flatMap((x) =>
@@ -2431,9 +2438,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             nm.setAssignBook((all) => ({ ...all, [assignKey(floor, d, s)]: sheet }));
           }}
         />
+      ) : screen === "icu" ? (
+        <IcuBoard patients={allPatients} beds={allBeds} records={icu} today={today} nowTime={nowTime} orders={Object.fromEntries(allPatients.map(p => [p.id, ordersOf(currentEntries(p, sessionChanges[p.id])).filter(e => !movesDone[e.id])]))} onOpen={id => { openPatient(id); setTimeout(() => setPanel("icu"), 0); }} />
       ) : screen === "monitor" ? (
         <CentralMonitor
-          candidates={people.map((x) => ({ id: x.patient.id, name: x.patient.name, room: x.room, admittedOn: x.patient.admittedOn, latest: x.patient.vitals.at(-1) }))}
+          candidates={[...people, ...allPatients.filter(p => unitOf(p.ward) && !p.dischargedAt && !people.some(x => x.patient.id === p.id)).map(patient => ({ patient, room: patient.room }))].map((x) => ({ ward: x.patient.ward, id: x.patient.id, name: x.patient.name, room: x.room, admittedOn: x.patient.admittedOn, latest: x.patient.vitals.at(-1) }))}
           manual={monitorManual}
           lockedWhy={role === "看護師" ? null : "モニターの付け外しは看護師が行います。"}
           nowTime={nowTime}
@@ -4811,7 +4820,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         <BedMoveDialog
           patient={findPatient(moving.patientId)!}
           from={(() => {
-            const b = ward.beds.find((x) => x.patientId === moving.patientId)!;
+            const b = allBeds.find((x) => x.patientId === moving.patientId)!;
             return { room: b.room, bed: b.bed };
           })()}
           initial={moving.to}
@@ -4821,6 +4830,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             const who = findPatient(m.patientId)!;
             const at = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `${b.bed}` : ""}`;
             auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}）`, patient: who.name, detail: `${at(m.from)} → ${at(m.to)}　理由：${m.reason}` });
+            setIcu(all => stayOnMove(all, m.patientId, floorOf(m.from.room), floorOf(m.to.room), { day: 0, time: nowTime }));
             setMoves((all) => ({ ...all, [m.patientId]: m.to }));
             setMoveLog((l) => [...l, { patientId: m.patientId, label: `${m.kind} ${m.from.room}→${m.to.room}${m.to.bed ? `${m.to.bed}` : ""}`, time: nowTime }]);
             updateFor(m.patientId, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${m.kind}：${at(m.from)} → ${at(m.to)}（${m.reason}）\n` }));

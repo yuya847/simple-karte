@@ -136,9 +136,9 @@ export interface AdmissionRequest {
   admittedAs?: string;
 }
 
-export const REQUEST_WARDS = ["5階東病棟", "5階南病棟", "6階東病棟"];
+export const REQUEST_WARDS = ["5階東病棟", "5階南病棟", "6階東病棟", "ICU", "HCU"];
 /** Wards whose charts this prototype can hold. */
-export const CHART_WARDS = ["5階東病棟"];
+export const CHART_WARDS = ["5階東病棟", "ICU", "HCU"];
 
 /** What is missing before the request can be sent. */
 export function requestProblems(r: Pick<AdmissionRequest, "diagnosis" | "purpose" | "heightCm" | "weightKg">): string[] {

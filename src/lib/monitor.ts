@@ -1,3 +1,4 @@
+import { unitOf } from "./icu/types";
 // 患者モニター（模擬）: the bedside monitor and the central monitor of the fictional ward. No device is
 // connected: the numbers start from the patient's latest recorded vital signs and wobble a little, the
 // waveforms are drawn from textbook shapes (P-QRS-T, the pulse wave, the breath), the alarm limits are the
@@ -205,6 +206,7 @@ export interface MonitorCandidate {
   id: string;
   name: string;
   room: string;
+  ward?: string;
   admittedOn: DayOffset;
   latest?: VitalSign;
 }
@@ -217,13 +219,14 @@ export interface MonitorManual {
 
 export const EMPTY_MANUAL: MonitorManual = { on: [], off: [] };
 
-export type MonitorReason = "酸素投与中" | "心拍数 100 以上" | "SpO2 95 未満" | "入院 2 日以内" | "手で装着";
+export type MonitorReason = "酸素投与中" | "心拍数 100 以上" | "SpO2 95 未満" | "入院 2 日以内" | "手で装着" | "ICU・HCU";
 
-export const MONITOR_RULE = "モニターを付ける患者：受け持ちのうち、酸素投与中・心拍数 100 以上・SpO2 95 未満・入院 2 日以内。看護師が手で付け外しできます。";
+export const MONITOR_RULE = "モニターを付ける患者：ICU・HCU は常に対象。受け持ちのうち、酸素投与中・心拍数 100 以上・SpO2 95 未満・入院 2 日以内。看護師が手で付け外しできます。";
 
 /** Why the rule puts a patient on a monitor (empty: it does not). From the latest recorded vital signs. */
 export function autoReasons(p: MonitorCandidate): MonitorReason[] {
   const out: MonitorReason[] = [];
+  if (unitOf(p.ward ?? "")) out.push("ICU・HCU");
   const v = p.latest;
   if (v && onOxygen(v.o2)) out.push("酸素投与中");
   if (v?.hr !== undefined && v.hr >= 100) out.push("心拍数 100 以上");
@@ -241,7 +244,7 @@ export interface Monitored<T extends MonitorCandidate = MonitorCandidate> {
 export function monitored<T extends MonitorCandidate>(candidates: T[], manual: MonitorManual = EMPTY_MANUAL): Monitored<T>[] {
   const out: Monitored<T>[] = [];
   for (const p of candidates) {
-    if (manual.off.includes(p.id)) continue;
+    if (manual.off.includes(p.id) && !unitOf(p.ward ?? "")) continue;
     const reasons = autoReasons(p);
     if (manual.on.includes(p.id)) reasons.push("手で装着");
     if (reasons.length > 0) out.push({ patient: p, reasons });

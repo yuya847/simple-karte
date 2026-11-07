@@ -63,7 +63,7 @@ const NEEDS: Partial<Record<AreaKey, PinnedTab>> = { er: "er", or: "or", dialysi
 // ② inside 病棟
 // ---------------------------------------------------------------------------
 
-export type WardTab = "equipment" | "infection" | "oral" | "consults" | "map" | "mine" | "all" | "sheet" | "take" | "execute" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals" | "monitor";
+export type WardTab = "equipment" | "infection" | "oral" | "consults" | "map" | "mine" | "all" | "sheet" | "take" | "execute" | "handoff" | "admit" | "support" | "beds" | "meals" | "acuity" | "journal" | "iji" | "roster" | "cosign" | "io" | "narcotic" | "recent" | "favorites" | "reports" | "undone" | "summaries" | "nsummaries" | "paths" | "ulcers" | "status" | "assign" | "falls" | "vitals" | "monitor" | "icu";
 
 export interface WardTabInfo {
   key: WardTab;
@@ -95,7 +95,8 @@ export const WARD_TABS: WardTabInfo[] = [
   { key: "narcotic", label: "麻薬の施用票", hint: "麻薬の注射を実施したら施用票（施用量・残量 mL）を書き、残液・空アンプルを薬剤部へ返納する。残った内服の麻薬の返納も", group: "work", needs: "sheet" },
   { key: "undone", label: "未実施の一覧", hint: "時刻を過ぎても実施・未実施の記録がないオーダ（実施漏れ）と、処置の実施の記録と算定が合わないもの（算定漏れの候補）", group: "work", needs: ["sheet", "iji"] },
   { key: "vitals", label: "バイタルの一括入力", hint: "業務分担の受け持ち・チーム・階の全員のバイタルを1つの表で入れ、指示簿の連絡基準と NEWS2 で知らせる（カルテのバイタルと同じ記録）", group: "work", needs: "sheet" },
-  { key: "monitor", label: "セントラルモニター", hint: "受け持ちのうちモニターを付けている患者（酸素投与中・心拍数 100 以上・SpO2 95 未満・入院 2 日以内＋看護師が手で付けた患者）を分割画面で。模擬：装置にはつないでいません。枠を押すとカルテと患者モニターが開きます", group: "work", needs: ["sheet", "handoff"] },
+  { key: "monitor", label: "セントラルモニター", hint: "ICU・HCU と、受け持ちのうちモニターを付けている患者（酸素投与中・心拍数 100 以上・SpO2 95 未満・入院 2 日以内＋看護師が手で付けた患者）を分割画面で。模擬：装置にはつないでいません。枠を押すとカルテと患者モニターが開きます", group: "work", needs: ["sheet", "handoff"] },
+  { key: "icu", label: "ICU・HCU", hint: "ICU・HCU のベッドごとに、入室日数・診断・呼吸器・持続投与（γ はコードで計算）・SOFA（コードで計算）・ライン日数・24 時間の水分出納・転出の予定。枠を押すとカルテと ICU 記録が開きます", group: "patients", needs: ["sheet", "handoff"] },
   { key: "assign", label: "業務分担", hint: "勤務表のその勤務帯の看護師に部屋・ベッドの受け持ちを割り当てる（ワークシートと病棟マップに出る。確定のあとの変更は理由つきで記録）", group: "work", needs: "sheet" },
   { key: "status", label: "状態の一括登録", hint: "勤務帯ごとに、階の全員の重症度・看護度・救護区分・感染経路別予防策を1つの表で入れて登録する", group: "work", needs: "sheet" },
   { key: "reports", label: "レポート", hint: "受け持ちの患者の読影・病理・内視鏡・生理検査のレポートを患者ごとに、未読の多い順に。本文を読み、医師は「確認した」で既読にする", group: "work", needs: "handoff" },

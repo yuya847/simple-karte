@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, bedProblem, formProblems, requestProblems, type AdmissionRequest, type AdmitForm } from "./admission";
+import { REQUEST_WARDS, CHART_WARDS, INITIAL_REQUESTS, admitFromEr, admitFromOpd, bedProblem, formProblems, requestProblems, type AdmissionRequest, type AdmitForm } from "./admission";
 import { OPD_PATIENTS, waitingMinutes } from "./opd";
 import { initialErPatients } from "./er";
 import { abs } from "./flowsheet";
@@ -79,4 +79,9 @@ describe("入院申込 from 外来", () => {
     expect(waitingMinutes(OPD_PATIENTS.find((x) => x.id === "opd-2")!, 9 * 60 + 35)).toBe(30);
     expect(waitingMinutes(op, 9 * 60 + 35)).toBeNull(); // 診察中
   });
+});
+
+it("ICU・HCUへ入院を申し込み、病棟で受けられる", () => {
+  expect(REQUEST_WARDS).toEqual(expect.arrayContaining(["ICU", "HCU"]));
+  expect(CHART_WARDS).toEqual(expect.arrayContaining(["ICU", "HCU"]));
 });

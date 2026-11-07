@@ -117,7 +117,7 @@ describe("② inside 病棟", () => {
   });
   it("◯階の患者一覧 is gone: 入院患者一覧 has the ward pulldown (全病棟 or one ward with its empty beds)", () => {
     expect(WARD_TABS.map((t) => t.key)).not.toContain("floor");
-    expect(WARD_TABS.filter((t) => t.group === "patients").map((t) => t.key)).toEqual(["all", "map", "mine", "recent", "favorites"]);
+    expect(WARD_TABS.filter((t) => t.group === "patients").map((t) => t.key)).toEqual(["all", "map", "mine", "recent", "favorites", "icu"]);
     expect(wardTabInfo("all").hint).toContain("空床");
   });
   it("reads a saved ◯階の患者一覧 (最初に開く) as 入院患者一覧, once", () => {
@@ -153,3 +153,7 @@ describe("③ charts under the tab they were opened from", () => {
 });
 
  it("コンサルト依頼は医師の病棟メニューに出す", () => { expect(wardTabsFor("医師")).toContain("consults"); expect(wardTabsFor("看護師")).not.toContain("consults"); });
+
+it("ICU・HCU は医師・看護師・デバッグだけ", () => {
+  for (const role of Object.keys(TABS) as (keyof typeof TABS)[]) expect(wardTabsFor(role).includes("icu")).toBe(["医師", "看護師", "デバッグ"].includes(role));
+});

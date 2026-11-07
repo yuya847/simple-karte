@@ -43,9 +43,9 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
             <th className={th}>定床</th>
             <th className={th}>在院</th>
             <th className={th}>空床（個室・男性の部屋・女性の部屋・空室）</th>
-            <th className={th}>今日 入院／退院</th>
-            <th className={th}>明日 入院／退院</th>
-            <th className={th}>明日の朝の空床（見込み）</th>
+            <th className={th}>今日 入院・転入／退院・転出</th>
+            <th className={th}>明日 入院・転入／退院・転出</th>
+            <th className={th}>明日の空床（見込み）</th>
           </tr>
         </thead>
         <tbody>
@@ -77,7 +77,7 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
           })}
         </tbody>
       </table>
-      <p className="-mt-3 mb-4 text-[11px] text-ink-faint">明日の朝の空床 ＝ いまの空床 ＋ 今日の退院 − 今日の入院（申込・予定のうちまだベッドに入っていないもの）。</p>
+      <p className="-mt-3 mb-4 text-[11px] text-ink-faint">明日の空床 ＝ いまの空床 ＋ 今日の退院 − 今日の入院（申込・予定のうちまだベッドに入っていないもの）＋ 明日の転出 − 明日の転入。</p>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="space-y-2">
@@ -161,5 +161,5 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
 }
 
 /* Help migration source (references and dynamic wording):
-<p >全病棟のベッド。空床と、今日・明日の入院と退院の予定から、明日の朝の空床の見込みをコードで数えます。入院申込には、合うベッド（性別・個室の希望・感染対策）を理由つきで並べます。決めるのは人です。</p>
+<p >全病棟のベッド。空床と、今日・明日の入院と退院の予定から、明日の空床の見込みをコードで数えます。入院申込には、合うベッド（性別・個室の希望・感染対策）を理由つきで並べます。決めるのは人です。</p>
 */

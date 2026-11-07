@@ -124,6 +124,7 @@ export const WARD_ICON: Record<WardTab, Icon> = {
   nsummaries: FileCheck,
   falls: Footprints,
   vitals: Thermometer,
+  icu: HeartPulse,
   monitor: Activity,
   reports: FileText,
 };
