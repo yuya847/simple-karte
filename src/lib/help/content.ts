@@ -11,7 +11,14 @@ import { PATH_RULES as PATHWAY_RULES } from "../pathway";
 import { IO_NOT_INCLUDED, IO_RULES } from "../io-balance";
 // 画面ごとのヘルプ。文言はここで編集します。根拠・出典は移動元のコードコメントを参照。
 export const screenHelp = [
-  { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者だけを匿名化して読みます。保存した記録は読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。"] },
+  { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者だけを匿名化して読みます。患者の道具は保存した記録を読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。", "アプリへの要望は list_requests / resolve_request（その場で直す）。"] },
+  { id: "Improve", title: "その場で直す", bullets: [
+    "上の帯の「直したい」から、使っている画面への要望を送ります。画面（場所・病棟の画面・開いている道具）と職種はアプリが付けます。文は打つか、マイクで話して入れます。",
+    "患者の名前・番号・電話・日付・住所・部屋番号らしい表記は、保存の前にコードで置き換えます。送った要望はこの記録（ワークスペース）に残り、日が変わっても消えません。",
+    "Claude Code で list_requests を使うと要望の一覧（id・職種・時刻・画面・文・状態）を読めます。workspace には「ほかの端末で開くリンク」をそのまま渡します。例：「アプリの要望を読んで直して」。",
+    "直したら resolve_request で、直したときのコミットとひとことを書き戻します。状態は 受付 → 作業中 → 直った。直ると、送った人のやることに「直りました」が出ます。押すと最近の変更のその行が開き、読むと消えます。",
+    "最近の変更は、公開しているリポジトリ（GitHub）の変更の記録を新しい順に並べます。要望から直したものには「要望から」が付きます。読めないとき（オフライン・回数の上限）は何も出しません。",
+  ] },
   { id: "IcuBoard", title: "ICU・HCU", bullets: [
     "入室日数は最初の入室日（記録がなければ入院日）を1日目として暦日で数えます。24h は今日0時から現在までの記録の合計です。",
     "ベッドにカーソルを置く（iPad は長押し）と、SOFA（今日・昨日）・24h の IN/OUT と差・ラインの日数・持続投与の量と mL/h・最新のバイタルが出ます。押すと ICU 記録が開きます。",
