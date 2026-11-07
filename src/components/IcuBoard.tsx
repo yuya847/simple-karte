@@ -11,17 +11,18 @@ import { abs } from "@/lib/flowsheet";
 export function IcuBoard({ patients, beds, records, nowTime, onOpen, orders }: { patients: Patient[]; beds: BedAssignment[]; records: IcuRecords; today: CalendarDate | null; nowTime: string; onOpen: (id: string) => void; orders: BoardOrders }) {
   const [unit,setUnit] = useState<UnitKind>("ICU");
   const rows = boardRows(unit,patients,beds,records,0,abs(0,nowTime),orders);
-  const show = (n: number | null | undefined) => n ?? "—";
+  // A ward map, not a chart: who is in which bed and what keeps them going. The numbers are in the ICU 記録.
+  // The drug's name without the product's strength and maker (ノルアドレナリン注射液 0.1%1mL → ノルアドレナリン), then the dose.
+  const shortDrug = (s: string) => { const parts = s.split(" "); return `${parts[0].match(/^[ァ-ヶー]+/)?.[0] ?? parts[0]} ${parts.at(-1)}`; };
+  const chip = "rounded bg-paper px-1.5 py-px";
   return <section className="space-y-3 p-4" aria-label="ICU・HCU">
     <TabChoice label="病棟" options={[{ value:"ICU",label:"ICU" },{ value:"HCU",label:"HCU" }]} value={unit} onChange={setUnit}/>
-    <div className="grid grid-cols-2 gap-2">{rows.map(r => <button key={r.bed} disabled={!r.patient} onClick={() => r.patient && onOpen(r.patient.id)} className="min-h-44 rounded border border-rule bg-sheet p-3 text-left text-xs leading-relaxed hover:bg-paper disabled:text-ink/40">
-      <div className="text-sm"><b>{r.bed}</b>　{r.patient ? <>{r.patient.name}　{r.patient.age}歳{r.patient.sex}　入室 {r.days} 日目</> : "空床"}</div>
-      {r.patient && <><div>{r.diagnosis}</div><div>{r.vent}</div>{r.infusions.map((inf,i) => <div key={i}>{inf}</div>)}{r.crrt && <div>{r.crrt}</div>}
-        <div>SOFA 今日 {show(r.sofaToday)}（昨日 {show(r.sofaYesterday)}）</div>
-        <div>{r.lines.map((l,i) => <span key={i}>{i > 0 && "・"}{l.flag ? <strong>{l.kind} {l.days}</strong> : `${l.kind} ${l.days}`}</span>)}</div>
-        <div>24h IN {Math.round(r.balance24h!.inMl)} / OUT {Math.round(r.balance24h!.outMl)} / 差 {Math.round(r.balance24h!.netMl)} mL</div>
-        <div>HR {show(r.latest?.hr)}　MAP {show(r.latest?.map)}　SpO2 {show(r.latest?.spo2)}　RR {show(r.latest?.rr)}　BT {show(r.latest?.bt)}　RASS {show(r.latest?.rass)}</div>
-        {r.planned && <div>{r.planned.day === 1 ? "明日" : r.planned.day === 0 ? "今日" : `${r.planned.day}日後`} {r.planned.time} → {r.planned.to}</div>}
+    <div className="grid grid-cols-4 gap-2">{rows.map(r => <button key={r.bed} disabled={!r.patient} onClick={() => r.patient && onOpen(r.patient.id)} className="flex min-h-24 flex-col justify-start rounded border border-rule bg-sheet p-2 text-left text-xs hover:bg-paper disabled:border-dashed disabled:bg-transparent disabled:text-ink-faint">
+      <div className="flex w-full items-baseline gap-1.5"><b className="text-sm">{r.bed}</b>{r.patient ? <><span className="truncate text-sm">{r.patient.name}</span><span className="ml-auto shrink-0 text-ink-faint">{r.patient.age}{r.patient.sex}・{r.days}日目</span></> : <span>空床</span>}</div>
+      {r.patient && <>
+        <div className="mt-0.5 truncate text-ink-soft">{r.diagnosis}</div>
+        <div className="mt-1 flex flex-wrap gap-1">{r.vent && <span className={chip}>{r.vent.split(" ")[0]}</span>}{r.infusions.map((inf,i) => <span key={i} className={chip}>{shortDrug(inf)}</span>)}{r.crrt && <span className={chip}>{r.crrt.split(" ")[0]}</span>}</div>
+        {r.planned && <div className="mt-1 text-ai">→ {r.planned.to} {r.planned.day === 1 ? "明日" : r.planned.day === 0 ? "今日" : `${r.planned.day}日後`} {r.planned.time}</div>}
       </>}
     </button>)}</div>
   </section>;
