@@ -40,6 +40,7 @@ import {
   risTakeTitle,
   consentTextOf,
   consentReady,
+  contrastSafetyProblems, CONTRAST_CHECKS,
   rowFlags,
   usesContrast,
   worklist,
@@ -282,8 +283,8 @@ export function RadiologyTake({ people, rows, onDesk, nowTime, today, consents }
 export function TakeOne({ r, reasons, items, consentOk, onTake, onClose }: { r: RisRow; items: ConfirmItem[]; consentOk: boolean; reasons: string[]; onTake: () => void; onClose: () => void }) {
   const [read, setRead] = useState(false);
   const [checks, setChecks] = useState<string[]>([]);
-  const labels = usesContrast(r.order) ? ["腎機能を確かめた", "アレルギーを確かめた", "同意書あり"] : [];
-  const ready = read && labels.every((label) => checks.includes(label)) && (!usesContrast(r.order) || consentOk);
+  const labels = usesContrast(r.order) ? CONTRAST_CHECKS : [];
+  const ready = read && contrastSafetyProblems(r, consentOk, checks).length === 0;
   return (
     <div className="mt-1 ml-3 rounded bg-paper px-3 py-2 text-[12px]">
       <p className="font-bold">1件ずつ受ける：{reasons.join("・")}</p>
@@ -369,9 +370,9 @@ const ITEM_CLASS: Record<ConfirmItem["tone"], string> = { ok: "text-ink", warn: 
 export function RisConfirmPanel({ r, items, onConfirm, onClose }: { r: RisRow; items: ConfirmItem[]; onConfirm: (items: string[]) => void; onClose: () => void }) {
   const [looked, setLooked] = useState(false);
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
-  const contrastLabels = usesContrast(r.order) ? ["腎機能を確かめた", "アレルギーを確かめた", "同意書あり"] : [];
+  const contrastLabels = usesContrast(r.order) ? CONTRAST_CHECKS : [];
   const consentOk = !usesContrast(r.order) || items.some((i) => i.label === "同意" && i.tone === "ok");
-  const ready = ((usesContrast(r.order) && r.order.modality !== "MRI") || looked) && consentOk && contrastLabels.every((label) => checkedItems.includes(label));
+  const ready = ((usesContrast(r.order) && r.order.modality !== "MRI") || looked) && contrastSafetyProblems(r, consentOk, checkedItems).length === 0;
   const deny = useDeny()("ris.exam");
   return (
     <div className="rounded-md border border-ai/40 bg-sheet px-3 py-2 text-[12px]">

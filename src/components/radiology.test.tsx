@@ -39,7 +39,8 @@ describe("放射線部", () => {
     expect(html).toContain("2相の撮影なので、1相の DRL とは比べません。");
     expect(html).toContain("イオパミロン注３００シリンジ");
     expect(html).toContain("四　指示を受けた医師の氏名及びその指示の内容");
-    expect(html).toContain("使った造影剤を記録してください");
+    expect(html).toContain("同意書がありません。");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>撮影済みにする/);
   });
   it("shows the simulated modality with its devices, labelled 模擬", () => {
     const html = as("診療放射線技師", <ModalitySim rows={risRows(people, desk)} onDesk={() => {}} nowTime="10:00" today={today} />);
@@ -102,7 +103,7 @@ it("技師の読影は状態一覧だけ、所見・診断の入力欄を表示�
   const { ReadingStatus } = await import("./RadiologyView");
   const html = as("診療放射線技師", <ReadingStatus rows={risRows(people, desk)} />);
   expect(html).toContain("確定");
-  expect(html).toContain("未");
+  expect(html).toContain("読影待ち");
   expect(html).not.toContain("textarea");
   expect(html).not.toContain("訂正");
 });
@@ -116,4 +117,13 @@ it("造影の受付には値と3項目のチェック、同意書なしの受け
   for (const text of ["Cre", "eGFR", "ヨードのアレルギー", "同意", "腎機能を確かめた", "アレルギーを確かめた", "同意書あり", "同意書がないため受けられません"]) expect(html).toContain(text);
   expect(html).toMatch(/<button[^>]*disabled=""[^>]*>指示を受ける/);
   expect(html).not.toContain("自分の目で");
+});
+
+it("造影剤を記録し本人・受付・装置・指示確認が済んでも、同意撤回なら撮影完了を止める", () => {
+  const ct = risRows(people, desk).find(r => r.orderId === "o-ris-demo2")!;
+  const at = { day: 0, time: "10:00", by: "技師" };
+  const r = { ...ct, order: { ...ct.order, consent: { state: "取得済み" as const, at: null, by: null, form: null, reason: null } }, work: { ...ct.work!, orderId: ct.orderId, patientId: ct.patientId, label: ct.label, room: "CT1" as const, arrived: at, identityChecked: at, confirmed: { ...at, items: ["確認済み"] }, contrast: { ...at, code: "test", name: "試験", count: 1, route: "静注" as const, lot: "test", reaction: "なし" as const } } };
+  const html = as("診療放射線技師", <ExamForm r={r} onDesk={() => {}} nowTime="10:00" today={today} consents={[{ orderId: ct.orderId, status: "撤回" } as import("@/lib/consent").ConsentRecord]} />);
+  expect(html).toContain("同意書がありません。");
+  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>撮影済みにする/);
 });

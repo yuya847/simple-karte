@@ -318,3 +318,10 @@ export function consentReady(r: Pick<RisRow, "orderId" | "order">, consents?: Pi
   const form = consents?.find((c) => c.orderId === r.orderId);
   return form ? form.status === "同意" : r.order.consent?.state === "取得済み";
 }
+
+/** 受付と撮影完了で共通の、人による造影前確認。 */
+export const CONTRAST_CHECKS = ["腎機能を確かめた", "アレルギーを確かめた", "同意書あり"];
+export function contrastSafetyProblems(r: Pick<RisRow, "order">, consentOk: boolean, checks: string[]): string[] {
+  if (!usesContrast(r.order)) return [];
+  return [...(!consentOk ? ["同意書がありません。"] : []), ...CONTRAST_CHECKS.filter(x => !checks.includes(x)).map(x => x === "同意書あり" ? "同意書の確認がまだです。" : x.replace("を確かめた", "の確認がまだです。"))];
+}

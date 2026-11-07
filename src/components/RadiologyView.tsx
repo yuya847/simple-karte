@@ -1,4 +1,5 @@
 "use client";
+import { ImagingPanel } from "./panels/ImagingPanel";
 import { risScheduleText } from "@/lib/ris";
 
 // 放射線部（RIS）: 指示受け（受付・撮影室と装置の割り当て・造影と MRI の指示確認）→ 当日の予定（装置ごとのワークリスト）
@@ -7,7 +8,7 @@ import { risScheduleText } from "@/lib/ris";
 
 import { displayText } from "@/lib/display-text";
 import { Activity, CalendarClock, ClipboardCheck, FilePen, ListChecks, MonitorCog, Radiation, Route, ScanLine } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { ConsentRecord } from "@/lib/consent";
 import type { CalendarDate } from "@/lib/dates";
 import type { Ack } from "@/lib/results";
@@ -85,7 +86,7 @@ export function RadiologyView(p: Props) {
             <ModalitySim rows={rows} onDesk={p.onDesk} nowTime={p.nowTime} today={p.today} />
           </>
         )}
-        {tab === "reading" && (me.role === "診療放射線技師" ? <ReadingStatus rows={rows} /> : <Reading {...p} rows={toRead} done={rows.filter((r) => r.work?.report)} />)}
+        {tab === "reading" && (me.role === "診療放射線技師" ? <ReadingStatus rows={rows} people={p.people} desk={p.desk} today={p.today} /> : <Reading {...p} rows={toRead} done={rows.filter((r) => r.work?.report)} />)}
         {tab === "dose" && <Dose rows={rows} />}
         {tab === "list" && <List {...p} rows={rows} />}
       </div>
@@ -93,7 +94,7 @@ export function RadiologyView(p: Props) {
   );
 }
 
-function Exam({ rows, onDesk, nowTime, today, initialPick }: Props & { rows: RisRow[]; initialPick: string | null }) {
+function Exam({ rows, onDesk, nowTime, today, consents, initialPick }: Props & { rows: RisRow[]; initialPick: string | null }) {
   const ready = rows.filter((r) => r.status !== "依頼" && r.status !== "中止" || r.work?.cancellations?.length);
   const [pick, setPick] = useState<string | null>(initialPick ?? ready[0]?.orderId ?? null);
   const target = ready.find((r) => r.orderId === pick) ?? ready[0] ?? null;
@@ -108,7 +109,7 @@ function Exam({ rows, onDesk, nowTime, today, initialPick }: Props & { rows: Ris
           </button>
         ))}
       </div>
-      {target && <ExamForm key={target.orderId} r={target} onDesk={onDesk} nowTime={nowTime} today={today} />}
+      {target && <ExamForm key={target.orderId} r={target} onDesk={onDesk} nowTime={nowTime} today={today} consents={consents} />}
     </section>
   );
 }
@@ -245,6 +246,12 @@ function List({ rows, desk, acks, onDesk, nowTime, today }: Props & { rows: RisR
         </p>
 */
 
-export function ReadingStatus({ rows }: { rows: RisRow[] }) {
-  return <section aria-label="読影レポートの状態">{rows.filter((r) => needsReading(r.order)).map((r) => <p key={r.orderId}>{r.name}　{r.label}　{r.work?.report ? "確定" : "未"}</p>)}</section>;
+export function ReadingStatus({ rows, people = [], desk = {}, today }: { rows: RisRow[]; people?: WorkPatient[]; desk?: RisDesk; today?: CalendarDate }) {
+  const [pick, setPick] = useState<string | null>(null);
+  const target = rows.find(r => r.orderId === pick);
+  const person = people.find(p => p.patient.id === target?.patientId);
+  return <section aria-label="読影レポートの状態" className="space-y-3">{rows.filter(r => needsReading(r.order)).map(r => <Fragment key={r.orderId}>
+    <button className="block text-ai underline" aria-expanded={pick === r.orderId} onClick={() => setPick(r.orderId)}>{r.name}　{r.label}　{r.work?.report ? "確定" : "読影待ち"}</button>
+    {target?.orderId === r.orderId && <article className={`${card} p-3`}><p>{target.name}　{target.label}</p><p>読影依頼：{target.order.reading ?? "あり"}　読影医：{target.work?.report?.by ?? "未確定"}</p>{!target.work?.images && <p>画像未送信</p>}{person && today && <ImagingPanel patient={person.patient} entries={person.entries} today={today} ris={desk} focus={target.orderId} />}</article>}
+  </Fragment>)}</section>;
 }

@@ -1,12 +1,14 @@
 "use client";
 
+import { boardEquipment } from "@/lib/equipment-board";
+import type { IcuRecords } from "@/lib/icu/types";
 import { Fragment, useState } from "react";
 import type { Diagnosis } from "@/lib/diagnoses";
 import type { StandingLine } from "@/lib/standing-lines";
 import type { AdminRecord } from "@/lib/mar";
 import type { Patient, OrderEntry } from "@/lib/types";
 import { can, denyReason, type Staff } from "@/lib/roles";
-import { antibioticMonitoring, infectionRank, latestRecords, toggleSpecialistRow, OHAT, ohatTotal, dotFor, equipmentOf, antibioticsOf, infectionFlags, oralFlags, appendRecord, type SpecialistRecord, type SpecialistScreen } from "@/lib/specialist";
+import { antibioticMonitoring, infectionRank, latestRecords, toggleSpecialistRow, OHAT, ohatTotal, dotFor, antibioticsOf, infectionFlags, oralFlags, appendRecord, type SpecialistRecord, type SpecialistScreen } from "@/lib/specialist";
 
 import { DayInput } from "./DayInput";
 import { TimeInput } from "./TimeInput";
@@ -14,6 +16,8 @@ import { addDays, daysFrom, isoDate, todayInTokyo, nowTimeInTokyo } from "@/lib/
 
 interface Props {
   screen: SpecialistScreen;
+  icu?: IcuRecords;
+  beds?: { patientId?: string; room: string; bed: string }[];
   administrations: AdminRecord[];
   standingLines: Record<string, StandingLine[]>;
   nowTime: string;
@@ -45,12 +49,12 @@ export function SpecialistBoard(props: Props) {
   };
   const today = isoDate(todayInTokyo());
   const flagsOf = (p: Patient, entries: OrderEntry[]) => oralFlags(p, entries, props.surgeryIds.includes(p.id), props.standingLines[p.id], props.nowTime, props.diagnoses?.[p.id]?.filter(d => d.outcome === "継続" && d.start <= 0 && !d.auto).map(d => d.name));
-  const people = props.people.filter(x => !x.patient.dischargedAt);
+  const people = props.people.filter(x => !x.patient.dischargedAt).map(x => { const bed = props.beds?.find(b => b.patientId === x.patient.id); return bed ? { ...x, patient: { ...x.patient, room: `${bed.room}${bed.bed}` } } : x; });
   const rows = people.flatMap(({ patient: p, entries }) => {
-    const devices = props.screen === "equipment" ? equipmentOf(entries, props.standingLines[p.id], props.nowTime) : [undefined];
+    const devices = props.screen === "equipment" ? boardEquipment(p.id, entries, props.standingLines[p.id], props.nowTime, props.icu) : [undefined];
     if (props.screen === "infection" && !infectionFlags(p).length && !antibioticsOf(entries).length) return [];
     return devices.map(device => {
-      const history = latestRecords(records.filter(r => r.patientId === p.id && r.screen === props.screen && (!device || r.equipmentId === device.id)));
+      const history = latestRecords(records.filter(r => r.patientId === p.id && r.screen === props.screen && (!device || (r.equipmentId === device.id || device.aliases?.includes(r.equipmentId ?? "")))));
       const assessments = history.filter(r => r.scores);
       const done = history.some(r => r.at.slice(0, 10) === today && r.at <= `${today}T${nowTimeInTokyo()}` && (props.screen !== "oral" || r.care || !r.scores));
       return { p, entries, device, history, assessments, done, key: `${props.screen}:${p.id}:${device?.id ?? ""}` };
@@ -62,7 +66,7 @@ export function SpecialistBoard(props: Props) {
     <table className="w-full text-left text-sm"><thead><tr><th>部屋</th><th>氏名</th>{props.screen === "equipment" ? <><th>機器</th><th>最後の点検（日時・結果・者）</th><th>今日の点検</th></> : props.screen === "oral" ? <><th>優先の理由</th><th>最後の OHAT-J</th><th>前回比</th><th>今日のケア</th></> : <><th>耐性菌</th><th>抗菌薬（日数・DOT）</th><th>培養</th><th>TDM</th><th>確かめる</th><th>ラウンド</th></>}</tr></thead><tbody>
       {rows.map(({ p, entries, device, history, assessments, done, key }, i) => <Fragment key={key}>
         <tr className="cursor-pointer border-t border-rule hover:bg-paper" onClick={() => setOpened(toggleSpecialistRow(opened, key))}>
-          <td className="p-2">{i > 0 && rows[i - 1].p.id === p.id ? "" : p.room}</td><td className={i > 0 && rows[i - 1].p.id === p.id ? "opacity-0" : ""}><button aria-expanded={opened === key} aria-controls={`form-${key}`} onClick={e => { e.stopPropagation(); setOpened(toggleSpecialistRow(opened, key)); }} className="text-ai underline">{p.name}</button></td>
+          <td className="p-2">{props.screen !== "equipment" && i > 0 && rows[i - 1].p.id === p.id ? "" : p.room}</td><td className={props.screen !== "equipment" && i > 0 && rows[i - 1].p.id === p.id ? "opacity-0" : ""}><button aria-expanded={opened === key} aria-controls={`form-${key}`} onClick={e => { e.stopPropagation(); setOpened(toggleSpecialistRow(opened, key)); }} className="text-ai underline">{p.name}</button></td>
           {props.screen === "equipment" ? <><td>{device?.label}</td><td>{history[0] ? `${history[0].at.replace("T", " ")} ${history[0].result ?? history[0].text} ${history[0].by}` : "未点検"}</td><td>{done ? "済" : "未"}</td></> : props.screen === "oral" ? <><td>{flagsOf(p, entries).priority.join("・") || "—"}</td><td>{assessments[0] ? `${ohatTotal(assessments[0].scores!)}/16（${assessments[0].at.slice(0, 10)}）` : "未評価"}</td><td>{assessments.length > 1 ? `${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!) > 0 ? "+" : ""}${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!)}` : "—"}</td><td>{done ? "済" : "未"}</td></> : <InfectionCells patient={p} entries={entries} administrations={props.administrations} last={history[0]?.at.replace("T", " ") ?? "未記録"} />}
         </tr>
         {opened === key && <tr id={`form-${key}`}><td colSpan={props.screen === "oral" ? 6 : props.screen === "equipment" ? 5 : 8}><PatientWork key={key} {...props} patient={p} entries={entries} initialDeviceId={device?.id} records={history} save={save} /></td></tr>}
@@ -103,7 +107,7 @@ function PatientWork({ patient: p, entries, records, save, initialDeviceId, ...p
   const [start, setStart] = useState(""); const [end, setEnd] = useState("");
   const [uf, setUf] = useState(""); const [qb, setQb] = useState(""); const [anticoag, setAnticoag] = useState("");
   const [oralKind, setOralKind] = useState("OHAT-J 評価");
-  const equipment = equipmentOf(entries, props.standingLines[p.id], props.nowTime);
+  const equipment = boardEquipment(p.id, entries, props.standingLines[p.id], props.nowTime, props.icu);
   const denied = denyReason(props.me.role, `${props.screen}.record`);
   const selected = equipment.find(e => e.id === deviceId);
   const total = scores.every(s => s >= 0) ? ohatTotal(scores) : null;

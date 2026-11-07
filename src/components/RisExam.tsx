@@ -1,4 +1,6 @@
 "use client";
+import type { ConsentRecord } from "@/lib/consent";
+import { consentReady, contrastSafetyProblems, CONTRAST_CHECKS, usesContrast } from "@/lib/ris-take";
 import { AssignControls } from "./RadiologyTake";
 import { IdentityCheck } from "./RisIdentity";
 import { risScheduleText } from "@/lib/ris";
@@ -80,7 +82,7 @@ const num = (s: string | undefined) => (s === undefined || s.trim() === "" ? und
 const str = (v: number | undefined) => (v === undefined ? "" : String(v));
 
 /** 撮影の記録：照射の方法・線量・造影剤、撮影済み、照射録の確定。 */
-export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnDesk; nowTime: string; today: CalendarDate }) {
+export function ExamForm({ r, onDesk, nowTime, today, consents }: { r: RisRow; onDesk: OnDesk; nowTime: string; today: CalendarDate; consents?: ConsentRecord[] }) {
   const me = useMe();
   const deny = useDeny()("ris.exam");
   const w: RisWork = r.work ?? { orderId: r.orderId, patientId: r.patientId, label: r.label };
@@ -130,7 +132,8 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
     log("造影剤を記録", `　${c.name} ${c.count}${product.unit}　ロット ${c.lot || "（未記入）"}　副作用 ${c.reaction}${c.reactionNote ? `：${c.reactionNote}` : ""}`);
   };
   const preview: RisRow = { ...r, work: { ...w, exposure: clean(exposure), dose: clean(dose) } };
-  const blockDone = doneProblems(r, w);
+  const [safetyChecks, setSafetyChecks] = useState<string[]>([]);
+  const blockDone = [...contrastSafetyProblems(r, consentReady(r, consents), w.confirmed ? CONTRAST_CHECKS : safetyChecks), ...doneProblems(r, w)];
   const recProblems = recordProblems(preview, fmt);
   const s = irradiates(r.order.modality) ? shoshaRoku(preview, fmt) : null;
   const { drl, why } = drlFor(r.order, preview.work);
@@ -212,20 +215,22 @@ export function ExamForm({ r, onDesk, nowTime, today }: { r: RisRow; onDesk: OnD
 
         </fieldset>
       ) : null}
+      {!w.done && !w.confirmed && usesContrast(r.order) && <div className="flex gap-3">{CONTRAST_CHECKS.map(label => <label key={label}><input type="checkbox" checked={safetyChecks.includes(label)} onChange={e => setSafetyChecks(xs => e.target.checked ? [...xs, label] : xs.filter(x => x !== label))} />{label}</label>)}</div>}
       {!w.done && !w.notDone && (
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={!!deny || blockDone.length > 0}
             onClick={() => {
-              put((x) => ({ ...x, exposure: clean(exposure), dose: clean(dose), ...(x.started ? {} : { started: { ...at, by: me.name, via: "手入力" as const } }), done: { ...at, by: me.name, via: "手入力" } }));
+              if (blockDone.length || deny) return;
+              put((x) => ({ ...x, exposure: clean(exposure), dose: clean(dose), ...(usesContrast(r.order) ? { confirmed: x.confirmed ?? { ...at, by: me.name, items: CONTRAST_CHECKS } } : {}), ...(x.started ? {} : { started: { ...at, by: me.name, via: "手入力" as const } }), done: { ...at, by: me.name, via: "手入力" } }));
               log("撮影済み（手入力）");
             }}
             className="rounded bg-wakatake px-2.5 py-0.5 font-bold text-white disabled:opacity-40"
           >
             撮影済みにする（手入力）
           </button>
-          {(deny || blockDone.length > 0) && <span className="text-xs text-ink-soft">{deny ?? blockDone.join("　")}</span>}
+          {(deny || blockDone.length > 0) && <span className="text-xs text-ink-soft">{deny ?? (usesContrast(r.order) ? blockDone[0] : blockDone.join("　"))}</span>}
           <input value={stopReason} onChange={(e) => setStopReason(e.target.value)} placeholder="撮影できなかった理由" aria-label="撮影できなかった理由" disabled={!!deny} className={`${field} ml-auto w-56`} />
           <button
             type="button"

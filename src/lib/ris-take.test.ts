@@ -207,3 +207,12 @@ it("造影同意は取得済みだけを許可し、別紙の未同意・撤回�
   expect(consentReady({ ...r, order: { ...r.order, consent: undefined } })).toBe(false);
   expect(consentReady(r, [{ orderId: r.orderId, status: "撤回" }])).toBe(false);
 });
+
+it("受付と撮影完了は同じ造影前確認を通し、同意撤回も止める", async () => {
+  const { contrastSafetyProblems, CONTRAST_CHECKS, consentReady } = await import("./ris-take");
+  const r = { orderId: "c", order: { contrast: "造影", consent: { state: "取得済み" } } } as Parameters<typeof consentReady>[0];
+  expect(contrastSafetyProblems(r, false, CONTRAST_CHECKS)[0]).toBe("同意書がありません。");
+  expect(contrastSafetyProblems(r, true, [])).toHaveLength(3);
+  expect(contrastSafetyProblems(r, true, CONTRAST_CHECKS)).toEqual([]);
+  expect(contrastSafetyProblems(r, consentReady(r, [{ orderId: "c", status: "撤回" }]), CONTRAST_CHECKS)).toHaveLength(1);
+});
