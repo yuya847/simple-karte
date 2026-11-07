@@ -4865,8 +4865,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           })()}
           initial={moving.to}
           allBeds={{ beds: allBeds, patient: findPatient }}
+          nowTime={nowTime}
           onCancel={() => setMoving(null)}
           onMove={(m) => {
+            // 今日・明日の時刻: the same 移動 order draft as the calendar's booking, in that patient's chart to confirm.
+            if (m.time) { openPatient(m.patientId); updateFor(m.patientId, (c) => ({ drafts: [...c.drafts, { ...newProcedureDraft("PROC-MOVE", newId()), sourceText: "（病棟マップから）", move: { kind: m.kind, to: m.to, reason: m.reason }, schedule: { kind: "once" }, start: { day: m.day ?? 0, time: m.time ?? null } }], flash: `${m.kind}の予約を下書きにしました。確かめて確定してください。`, rightTab: floating.note ? c.rightTab : "note" })); return setMoving(null); }
             const who = findPatient(m.patientId)!;
             const at = (b: { room: string; bed: string }) => `${floorOf(b.room)} ${b.room}${b.bed ? `${b.bed}` : ""}`;
             auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}）`, patient: who.name, detail: `${at(m.from)} → ${at(m.to)}　理由：${m.reason}` });

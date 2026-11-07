@@ -10,6 +10,7 @@ import { FLOORS, floorOf, isolationFor, occupant, type WardState } from "@/lib/w
 import type { Patient } from "@/lib/types";
 import { BedPicker } from "./BedPicker";
 import { DenyNote, useDeny } from "./RoleContext";
+import { TabChoice } from "./TabChoice";
 
 export interface BedMove {
   patientId: string;
@@ -26,8 +27,17 @@ export interface BedMove {
  * 転棟・転床: choose the floor and an empty bed (shared rooms are single-sex), write the reason, and
  * confirm. A patient on contact precautions going into a shared room is asked about (cohorting).
  */
-export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMove, reserve }: { patient: Patient; from: { room: string; bed: string }; initial?: { room: string; bed: string }; allBeds: WardState; onCancel: () => void; onMove: (m: BedMove) => void; reserve?: { label: string; day?: number } }) {
+export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMove, reserve, nowTime }: { patient: Patient; from: { room: string; bed: string }; initial?: { room: string; bed: string }; allBeds: WardState; onCancel: () => void; onMove: (m: BedMove) => void; reserve?: { label: string; day?: number }; nowTime?: string }) {
   const [time, setTime] = useState("");
+  // いま moves now; 今日・明日 at a time books the move (a 移動 order, like the calendar's).
+  const [when, setWhen] = useState<"now" | 0 | 1>("now");
+  const nextHour = nowTime && Number(nowTime.slice(0, 2)) < 23 ? `${String(Number(nowTime.slice(0, 2)) + 1).padStart(2, "0")}:00` : "";
+  const pickWhen = (w: "now" | 0 | 1) => {
+    setWhen(w);
+    if (w === 1 && !time) setTime("10:00");
+    if (w === 0 && (!time || (!!nowTime && time <= nowTime))) setTime(nextHour);
+  };
+  const booking = !!reserve || when !== "now";
   const deny = useDeny()("bed.move");
   const [floor, setFloor] = useState(initial ? floorOf(initial.room) : floorOf(from.room));
   const allRooms = FLOORS.flatMap((f) => f.rooms);
@@ -100,6 +110,12 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
             <span className="text-[11px] text-ink-faint">予約は下書きになり、確定したあと当日に病棟で「実施」します。</span>
           </label>
         )}
+        {!reserve && (
+          <div className="mt-2 flex items-center gap-2">
+            <TabChoice label="いつ" options={[{ value: "now" as const, label: "いま" }, { value: 0 as const, label: "今日" }, { value: 1 as const, label: "明日" }]} value={when} onChange={pickWhen} />
+            {when !== "now" && <TimeInput value={time} onChange={(e) => setTime(e.target.value)} aria-label="移動の時刻" className="rounded border border-rule bg-paper px-1 py-0.5" />}
+          </div>
+        )}
         {askIso && (
           <label className="mt-2 flex items-center gap-1.5 text-yamabuki">
             <input type="checkbox" checked={ok} onChange={() => setOk(!ok)} className="accent-yamabuki" />
@@ -113,11 +129,11 @@ export function BedMoveDialog({ patient, from, initial, allBeds, onCancel, onMov
           </button>
           <button
             type="button"
-            disabled={!to || !!toProblem || !reason.trim() || (askIso && !ok) || (!!reserve && !time) || (!reserve && !!deny)}
-            onClick={() => to && onMove({ patientId: patient.id, from, to, kind, reason: reason.trim(), ...(reserve ? { time, day } : {}) })}
+            disabled={!to || !!toProblem || !reason.trim() || (askIso && !ok) || (booking && !time) || (!reserve && !!deny)}
+            onClick={() => to && onMove({ patientId: patient.id, from, to, kind, reason: reason.trim(), ...(reserve ? { time, day } : when !== "now" ? { time, day: when } : {}) })}
             className="rounded-md bg-ai px-4 py-1.5 font-bold text-white disabled:opacity-40"
           >
-            {reserve ? `${kind}の予約を保存する` : `${kind}を確定`}
+            {booking ? `${kind}の予約を保存する` : `${kind}を確定`}
           </button>
         </div>
       </div>
