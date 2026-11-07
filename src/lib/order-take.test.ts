@@ -25,6 +25,13 @@ describe("指示受け", () => {
     expect(rows[0].diff).toEqual([{ label: "速さ", before: "80.0mL/時", after: "42.0mL/時" }]);
     expect(rows[0].mustOne).toContain("変更（前と後を確かめる）");
   });
+  it("carries the doctor's own words of a /claude order to the row, and none for an order picked from the master", () => {
+    const said = { ...inj("s"), said: "VCM 1g 12時間ごと、生食100に溶いて1時間で" };
+    const [r] = takeRows([ch("新規", said, 600)], people, today);
+    expect(r.said).toBe("VCM 1g 12時間ごと、生食100に溶いて1時間で");
+    const [m] = takeRows([ch("新規", inj("m"), 600)], people, today);
+    expect(m.said).toBeUndefined();
+  });
   it("marks high-risk drugs, verbal and urgent orders as one-at-a-time, and off-hours orders", () => {
     const [k] = takeRows([ch("新規", inj("k", { drug: "INJ-KCL20", amount: 20 }), 600)], people, today);
     expect(k.flags.highRisk).toContain("カリウム");

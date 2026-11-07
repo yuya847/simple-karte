@@ -201,7 +201,7 @@ const ALL_CATS = CATS.map((c) => c.key);
 /** The categories a quick choice stands for (記載だけ・オーダだけ), or an old single-kind key. */
 const catsFor = (key: string): string[] => (key === "notes" ? CATS.filter((c) => c.group === "note").map((c) => c.key) : key === "orders" ? CATS.filter((c) => c.group === "order").map((c) => c.key) : CATS.some((c) => c.key === key) ? [key] : ALL_CATS);
 
-const textOf = (e: HistoryEntry, today: CalendarDate) => (e.kind === "note" ? `${e.author} ${noteText(e)}` : `${orderLines(e.order, today).main} ${orderLines(e.order, today).detail} ${e.author}`);
+const textOf = (e: HistoryEntry, today: CalendarDate) => (e.kind === "note" ? `${e.author} ${noteText(e)}` : `${orderLines(e.order, today).main} ${orderLines(e.order, today).detail} ${e.author} ${e.said ?? ""}`);
 
 function RecordList({
   kindInit = "all",
@@ -1234,6 +1234,7 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
       }
     >
       {body}
+      {entry.said && <p className="mt-0.5 text-[11px] text-ink-faint">“{entry.said}”</p>}
     </Card>
   );
 }

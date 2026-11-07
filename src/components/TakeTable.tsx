@@ -142,6 +142,7 @@ export function TakeTable({ rows, taken, isTaken, holds, interactive, day, today
                   {r.before && <div className="text-[11px] text-ink-faint line-through">前：{r.before.main}　{displayText(r.before.detail)}</div>}
                   <span className={r.kind === "中止" ? "line-through" : "font-bold"}>{r.main}</span>
                   <div className="text-ink-soft">{displayText(r.detail)}</div>
+                  {r.said && <div className="text-[11px] text-ink-faint">“{r.said}”</div>}
                   {r.diff && r.diff.length > 0 && (
                     <div className="mt-0.5 flex flex-wrap gap-1">
                       {r.diff.map((d) => (
@@ -242,6 +243,12 @@ export function TakeOnePanel({ row, nurses, onTake, onClose, today }: { row: Tak
         </dd>
         <dt className="text-ink-soft">量・方法</dt>
         <dd>{displayText(row.detail || "—")}</dd>
+        {row.said && (
+          <>
+            <dt className="text-ink-soft">医師の言葉</dt>
+            <dd className="text-ink-soft">“{row.said}”</dd>
+          </>
+        )}
         {row.before && (
           <>
             <dt className="text-ink-soft">前</dt>

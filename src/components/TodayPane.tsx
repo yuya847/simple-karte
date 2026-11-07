@@ -88,6 +88,8 @@ const SHOW_DICTATION = false;
 /** Today's writing: the note on top, then the order drafts collecting under it. */
 export function TodayPane(p: Props) {
   const [setSelection, setSetSelection] = useState<string[]>([]);
+  // The boxes to pick drafts for a set appear only after 「セットにする」 is pressed.
+  const [picking, setPicking] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
   const noteBox = useRef<NoteBlocksHandle>(null);
   const [tool, setTool] = useState<"template" | "phrase" | null>(null);
@@ -216,7 +218,7 @@ export function TodayPane(p: Props) {
           {p.orderSlot}
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き" className="space-y-1">
-              <DraftSetComposer key={`${p.patient.id}:${me.name}`} drafts={p.drafts} ctx={p.ctx} selected={setSelection} onDone={() => setSetSelection([])} />
+              <DraftSetComposer key={`${p.patient.id}:${me.name}`} drafts={p.drafts} ctx={p.ctx} selected={setSelection} picking={picking} onPick={setPicking} onDone={() => { setSetSelection([]); setPicking(false); }} />
               {/* One box per kind of order (内服・注射…), its Rp as rows inside (ユーザー 2026-11-06：内服毎に四角で分かれない). */}
               {draftGroups(p.drafts).map((group) => {
                 const rx = group[0].kind === "prescription";
@@ -232,7 +234,7 @@ export function TodayPane(p: Props) {
                     </div>
                     {group.map((d) => (
                       <div key={d.id} className="flex items-start">
-                      {reusableDraft(d) && <input aria-label="セットに含める下書き" type="checkbox" checked={setSelection.includes(d.id)} onChange={e => setSetSelection(v => e.target.checked ? [...v, d.id] : v.filter(id => id !== d.id))} className="m-2 accent-ai" />}
+                      {picking && reusableDraft(d) && <input aria-label="セットに含める下書き" type="checkbox" checked={setSelection.includes(d.id)} onChange={e => setSetSelection(v => e.target.checked ? [...v, d.id] : v.filter(id => id !== d.id))} className="m-2 accent-ai" />}
                       <div className="min-w-0 flex-1"><DraftCard
                         bare
                         rp={rpNumbers(p.drafts)[d.id]}

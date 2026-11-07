@@ -1298,7 +1298,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       const parsed = AiDraftResponse.safeParse(json.result);
       if (!parsed.success) throw new Error("下書きの形が正しくありませんでした。");
       const drafts = resolveDraftCodes(draftsFromAi(parsed.data, newId), ctx?.activeOrders ?? []);
-      auditLog({ role: "AI", actor: CLAUDE, action: "下書きを作った", patient: patient?.name, detail: `${drafts.length}件 「${text.slice(0, 50)}${text.length > 50 ? "…" : ""}」${json.meta?.ms ? `（${(json.meta.ms / 1000).toFixed(1)}秒）` : ""}` });
+      auditLog({ role: "AI", actor: CLAUDE, action: "下書きを作った", patient: patient?.name, detail: `${drafts.length}件 「${text}」${json.meta?.ms ? `（${(json.meta.ms / 1000).toFixed(1)}秒）` : ""}` });
       update((c) => ({ drafts: [...c.drafts, ...drafts], instruction: command === undefined && c.instruction === chart.instruction ? "" : c.instruction, drafting: false, meta: json.meta ?? null }));
     } catch (e) {
       update({ drafting: false, error: e instanceof Error ? e.message : "下書きを作れませんでした。" });
@@ -1332,7 +1332,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       for (const o of [...(r.order ? [r.order] : []), ...(r.orders ?? [])]) {
         const id = newId();
         ids.push(id);
-        added.push({ kind: "order", id, day: 0, time: nowTime, author: verbal?.doctor ?? me.name, status: "有効", order: o, ...(verbal ? { verbal: { takenBy: me.name, doctor: verbal.doctor, readBack: verbal.readBack, at: { day: 0, time: verbal.time } } } : {}) });
+        added.push({ kind: "order", id, day: 0, time: nowTime, author: verbal?.doctor ?? me.name, status: "有効", order: o, ...(d.origin === "ai" && d.sourceText.trim() ? { said: d.sourceText.trim() } : {}), ...(verbal ? { verbal: { takenBy: me.name, doctor: verbal.doctor, readBack: verbal.readBack, at: { day: 0, time: verbal.time } } } : {}) });
       }
       if ("alreadyDone" in d && d.alreadyDone) completed.push(...added.filter((e) => ids.includes(e.id)));
       // A consent form to prepare with the order (説明前): the doctor explains before it is done.

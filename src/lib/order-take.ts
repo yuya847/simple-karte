@@ -88,6 +88,8 @@ export interface TakeRow {
   main: string;
   detail: string;
   author: string;
+  /** The doctor's own words the order was drafted from (/claude), shown as said. */
+  said?: string;
   /** 変更: the order before, and what changed. */
   before?: { main: string; detail: string };
   diff?: DiffLine[];
@@ -154,7 +156,7 @@ export function takeRows(changes: (OrderChange | OtherChange)[], people: WorkPat
     if (entry.verbal) flags.verbal = `口頭指示（${entry.verbal.doctor} → ${entry.verbal.takenBy}）`;
     if (kind === "変更") flags.changed = "変更（前と後を確かめる）";
     const mustOne = [flags.highRisk, flags.urgent, flags.verbal, flags.changed].filter((x): x is string => !!x);
-    rows.push({ key: keys[0], keys, kind, at: c.at, timeKnown: c.timeKnown, patientId: c.patientId, room: c.room, name: c.name, type: typeLabel(entry), main, detail, author: entry.author, before, diff, flags, related: [], mustOne });
+    rows.push({ key: keys[0], keys, kind, at: c.at, timeKnown: c.timeKnown, patientId: c.patientId, room: c.room, name: c.name, type: typeLabel(entry), main, detail, author: entry.author, ...(entry.said ? { said: entry.said } : {}), before, diff, flags, related: [], mustOne });
   }
   return rows;
 }

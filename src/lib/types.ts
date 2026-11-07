@@ -155,6 +155,8 @@ export interface OrderEntry {
   /** Clock time of the stop, when known ("HH:MM"). Without it the order counts to the end of stoppedOn. */
   stoppedTime?: string;
   order: Order;
+  /** The doctor's own words this order was drafted from (the part of a /claude dictation), kept as said. */
+  said?: string;
   /** 口頭指示: a nurse entered it on the doctor's spoken order; the doctor signs afterwards. */
   verbal?: { takenBy: string; doctor: string; at: { day: DayOffset; time: string }; readBack?: boolean; signedBy?: string; cancelled?: { by: string; at: { day: DayOffset; time: string }; reason: string }; signedAt?: { day: DayOffset; time: string } };
   /** 画像検査: what 放射線部 recorded (ris.ts), for the claim. Without it a study counts as done once its time passed. */
