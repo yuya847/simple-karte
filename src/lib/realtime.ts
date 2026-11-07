@@ -16,6 +16,15 @@ export interface LiveChannel {
   close(): void;
 }
 
+// One client per page: a new client on every (re)join made the library warn of several auth clients in one tab.
+let shared: { url: string; key: string; client: Promise<import("@supabase/supabase-js").SupabaseClient> } | null = null;
+function sharedClient(url: string, key: string) {
+  if (!shared || shared.url !== url || shared.key !== key) {
+    shared = { url, key, client: import("@supabase/supabase-js").then(({ createClient }) => createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })) };
+  }
+  return shared.client;
+}
+
 /** The channel name of a workspace ('realtime' alone is reserved by Supabase). */
 export const channelName = (wsId: string) => `simple-karte:ws:${wsId}`;
 
@@ -28,8 +37,7 @@ export async function openLive(wsId: string, onMsg: (payload: unknown) => void, 
   const env = supabaseEnv();
   if (!env) return null;
   try {
-    const { createClient } = await import("@supabase/supabase-js");
-    const client = createClient(env.url, env.key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const client = await sharedClient(env.url, env.key);
     const channel = client.channel(channelName(wsId), { config: { broadcast: { self: false, ack: false } } });
     channel.on("broadcast", { event: "msg" }, (e: { payload?: unknown }) => onMsg(e.payload));
     channel.subscribe((status: string) => {
