@@ -127,10 +127,9 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
           ))}
         </div>
         <span className="text-xs text-ink-soft">
-          届出：{WARD_BASE.name}（看護職員 {WARD_BASE.ratio}対1・看護師7割以上・夜勤は看護師1人を含む2人以上・月平均夜勤時間数 72時間以下）
+          届出：{WARD_BASE.name}（{WARD_BASE.ratio}対1）
         </span>
-        <span className="ml-auto text-xs text-ink-faint">看護師長の画面です（デモでは看護師で開けます。{me.name}として記録）</span>
-        <button type="button" onClick={() => openHelp("screen:roster")} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
+        <button type="button" onClick={() => openHelp("screen:roster")} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-ink-soft hover:text-ai">
           <HelpCircle size={13} />
           使い方
         </button>
@@ -146,9 +145,6 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
               {p.label}
             </button>
           ))}
-          <span className="ml-auto text-xs text-ink-soft">
-            夜勤時間帯：{displayText(NIGHT_BAND.from)}〜翌{NIGHT_BAND.to}（16時間、22時〜翌5時を含むの病院が定めたもの）
-          </span>
         </div>
 
         <div className="scroll-thin overflow-x-auto rounded-lg border border-rule bg-sheet">
@@ -280,25 +276,21 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                       aria-label="1日平均入院患者数"
                       className="w-20 rounded border border-rule bg-paper px-1.5 py-0.5 text-right"
                     />{" "}
-                    人<span className="ml-2 text-xs text-ink-faint">直近1年の延入院患者数 ÷ 延日数（小数第1位までに切り上げて  {f.A}）</span>
+                    人
                   </td>
                 </tr>
                 <tr className="border-b border-rule-soft">
                   <th className="py-1.5 pr-2 text-left font-normal text-ink-soft">② 月平均1日当たり看護職員配置数</th>
                   <td className="py-1.5">
                     <b className="text-base">{f.M}</b> 人　{mark(f.staffOk)}
-                    <div className="text-xs text-ink-soft">
-                      〔C〕{hours(f.C)}時間 ÷（{days}日 × 8）、小数第2位以下切り捨て。必要数 {f.required} 人 ＝（A {f.A} ÷ {WARD_BASE.ratio}）× 3、小数第1位までに切り上げ
-                    </div>
+                    <span className="ml-2 text-xs text-ink-soft">必要数 {f.required} 人</span>
                   </td>
                 </tr>
                 <tr className="border-b border-rule-soft">
                   <th className="py-1.5 pr-2 text-left font-normal text-ink-soft">③ 看護職員中の看護師の比率</th>
                   <td className="py-1.5">
                     <b className="text-base">{f.nurseShare === null ? "—" : `${(Math.floor(f.nurseShare * 1000) / 10).toFixed(1)}%`}</b>　{mark(f.shareOk)}
-                    <div className="text-xs text-ink-soft">
-                      （看護師の時間 {hours(f.cNurse)} ÷（{days}日 × 8））÷ 必要数 {f.required}。7割以上（必要数に対する比なので、多く配置すると100%を超えます）
-                    </div>
+                    <span className="ml-2 text-xs text-ink-soft">7割以上</span>
                   </td>
                 </tr>
                 <tr className="border-b border-rule-soft">
@@ -311,9 +303,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                   <th className="py-1.5 pr-2 text-left font-normal text-ink-soft">⑥ 月平均夜勤時間数</th>
                   <td className="py-1.5">
                     <b className="text-base">{f.avgNight ?? "—"}</b> 時間　{f.avgNight !== null && mark(f.nightOk)}
-                    <div className="text-xs text-ink-soft">
-                      （〔D〕{hours(f.D)} − 〔E〕{hours(f.E)}）÷〔B〕{f.B} 人、小数第2位以下切り捨て。72時間以下。E は夜勤専従者と、月の夜勤時間が16時間未満の人の夜勤時間（B にも入れない）
-                    </div>
+                    <span className="ml-2 text-xs text-ink-soft">72時間以下</span>
                   </td>
                 </tr>
               </tbody>
@@ -354,7 +344,6 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                     <button type="button" disabled={!canEdit} onClick={confirm} className="rounded-md bg-ai px-3 py-1 font-bold text-white disabled:opacity-40">
                       この月の勤務表を確定する
                     </button>
-                    <span className="text-xs text-ink-faint">確認が残っていても確定できます（決めるのは看護師長です）。</span>
                   </>
                 )}
               </div>
@@ -362,7 +351,6 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
 
             <section className={`${card} p-4 text-[13px]`}>
               <h2 className="mb-1 font-bold">同じ夜勤に入れない組み合わせ</h2>
-              <p className="mb-2 text-[11px] text-ink-soft">看護師長が登録します。理由はここには書きません。</p>
               <ul className="mb-2 space-y-1">
                 {book.ngPairs.map(([a, b], i) => (
                   <li key={`${a}-${b}`} className="flex items-center gap-2">
@@ -401,7 +389,6 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
             </section>
           </div>
         </div>
-        <p className="text-[11px] text-ink-faint">この勤務表はこのブラウザの中だけにあります。</p>
       </div>
     </section>
   );
