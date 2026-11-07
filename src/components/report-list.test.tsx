@@ -146,5 +146,14 @@ describe("病棟のレポート一覧", () => {
     expect(doctor).not.toMatch(/disabled=""[^>]*>確認した/);
     const empty = renderToStaticMarkup(<WardReportList rows={rows} mine={() => false} acks={{}} today={today} onOpen={() => {}} />);
     expect(empty).toContain("未読のレポートはありません");
+    expect(empty).not.toContain('aria-label="種類"');
+  });
+  it("has the same kind chips as the chart, counting the unread reports shown (佐倉さんの血液培養 among them)", () => {
+    const html = as("医師", <WardReportList rows={rows} mine={() => true} acks={{}} today={today} onOpen={() => {}} />);
+    const unread = rows.reduce((n, r) => n + r.unread, 0);
+    expect(html).toContain('aria-label="種類"');
+    expect(html).toMatch(new RegExp(`aria-checked="true"[^>]*>すべて ${unread}<`));
+    expect(html).toContain(">細菌培養 1<");
+    expect(html).toContain("血液培養 2セット");
   });
 });

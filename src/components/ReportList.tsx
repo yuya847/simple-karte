@@ -233,14 +233,14 @@ interface WardProps {
   onOpenImage?: (patientId: string, studyId: string) => void;
 }
 
-/** 病棟の画面「レポート」: by patient, those with unread reports first; 受け持ちだけ and 未読だけ to narrow. */
+/** 病棟の画面「レポート」: by patient, those with unread reports first; 受け持ちだけ, 未読だけ and the kind to narrow. */
 export function WardReportList({ rows, mine, acks, today, onSeen, onOpen, onOpenImage }: WardProps) {
   const [onlyMine, setOnlyMine] = useState(true);
   const [onlyUnread, setOnlyUnread] = useState(true);
-  const shown = rows
-    .filter((r) => !onlyMine || mine(r.patientId))
-    .map((r) => ({ ...r, reports: onlyUnread ? unreadReports(r.reports, acks) : r.reports }))
-    .filter((r) => r.reports.length > 0);
+  const [kind, setKind] = useState<ReportKind | null>(null);
+  const base = rows.filter((r) => !onlyMine || mine(r.patientId)).map((r) => ({ ...r, reports: onlyUnread ? unreadReports(r.reports, acks) : r.reports }));
+  const chips = kindCounts(base.flatMap((r) => r.reports), { ...NO_REPORT_FILTER, kind }, { acks });
+  const shown = base.map((r) => ({ ...r, reports: kind ? r.reports.filter((x) => x.kind === kind) : r.reports })).filter((r) => r.reports.length > 0);
   const unreadAll = rows.filter((r) => !onlyMine || mine(r.patientId)).reduce((n, r) => n + r.unread, 0);
   return (
     <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-paper">
@@ -258,9 +258,15 @@ export function WardReportList({ rows, mine, acks, today, onSeen, onOpen, onOpen
             <input type="checkbox" checked={onlyUnread} onChange={() => setOnlyUnread((v) => !v)} className="accent-ai" />
             未読だけ
           </label>
+          {chips.length > 1 && <KindChips chips={chips} value={kind} onChange={setKind} />}
         </header>
 
-        {shown.length === 0 && <p className="rounded-md border border-rule bg-sheet px-3 py-4 text-center text-[12px] text-ink-faint">{onlyUnread ? "未読のレポートはありません。" : "レポートはありません。"}</p>}
+        {shown.length === 0 && kind && (
+          <div className="rounded-md border border-rule bg-sheet">
+            <NoMatch onClear={() => setKind(null)} />
+          </div>
+        )}
+        {shown.length === 0 && !kind && <p className="rounded-md border border-rule bg-sheet px-3 py-4 text-center text-[12px] text-ink-faint">{onlyUnread ? "未読のレポートはありません。" : "レポートはありません。"}</p>}
         {shown.map((r) => (
           <section key={r.patientId} className="rounded-md border border-rule bg-sheet">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft px-3 py-1.5">
