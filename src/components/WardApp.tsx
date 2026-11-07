@@ -4447,7 +4447,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "anamnesis" && (
                 <Drawer title="入院時の情報収集（アナムネーシス）" onClose={closePanel} wide>
-                  <PortalIntake key={patient.id} patient={patient} record={anamnesis[patient.id]} inbox={portalInbox} onInbox={setPortalInbox} nowTime={nowTime} onOpenProfile={() => setPanel("profile")}
+                  <PortalIntake key={patient.id} patient={patient} record={anamnesis[patient.id]} inbox={portalInbox} onInbox={setPortalInbox} nowTime={nowTime} newId={newId} onOpenProfile={() => setPanel("profile")}
                     onSave={(fields, reason, origin) => { setAnamnesis((all) => ({ ...all, [patient.id]: saveAnamnesis(all[patient.id], patient.id, fields, me.name, { day: 0, time: nowTime }, reason, origin) })); auditLog({ role: me.role, actor: me.name, action: "確定（入院時の情報収集・患者さんの入力から）", patient: patient.name, detail: origin }); }} />
                   <AnamnesisPanel
                     key={`${patient.id}-${anamnesisVersionsCount(anamnesis[patient.id])}`}

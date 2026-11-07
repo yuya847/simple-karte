@@ -1,14 +1,16 @@
 "use client";
 
 // 情報収集の上：患者さんの入力（スマートフォン・病棟の iPad）を項目ごとに並べ、看護師が確かめて（直して）確定すると
-// 入院時の情報収集の新しい版になる（誰がいつ、元は患者さんの入力）。
+// 入院時の情報収集の新しい版になる（誰がいつ、元は患者さんの入力）。病棟の iPad を患者さんに渡す入口もここ。
 
 import { displayText } from "@/lib/display-text";
+import { Tablet } from "lucide-react";
 import { useState } from "react";
 import { ANAMNESIS_SECTIONS, anamnesisChanges, emptyAnamnesis, type AnamnesisFields, type AnamnesisRecord } from "@/lib/anamnesis";
 import { confirmEntry, pendingIntakes, readInbox, type PortalInboxEntry } from "@/lib/portal/inbox";
 import { intakeRows, intakeToFields, type IntakeAnswers, type IntakeItem } from "@/lib/portal/intake";
 import { useDeny, useMe } from "../RoleContext";
+import { PortalHandover } from "./PortalHandover";
 
 const input = "w-full rounded border border-rule bg-sheet px-1.5 py-0.5 text-[13px] outline-none focus:border-ai";
 const chip = (on: boolean) => `rounded-md border px-2 py-0.5 text-[12px] pointer-coarse:py-1.5 ${on ? "border-wakatake bg-wakatake font-bold text-white" : "border-rule bg-sheet text-ink-soft hover:text-ink"}`;
@@ -106,6 +108,7 @@ export function PortalIntake({
   onInbox,
   onSave,
   nowTime,
+  newId,
   onOpenProfile,
 }: {
   patient: { id: string; name: string; allergies: string[] };
@@ -115,10 +118,12 @@ export function PortalIntake({
   /** A new version of 入院時の情報収集 (the reason for an update, and where it came from). */
   onSave: (fields: AnamnesisFields, reason: string, origin: string) => void;
   nowTime: string;
+  newId: () => string;
   onOpenProfile: () => void;
 }) {
   const me = useMe();
   const locked = !!useDeny()("anamnesis");
+  const [handover, setHandover] = useState(false);
   const pending = pendingIntakes(readInbox(inbox), patient.id);
   const confirm = (e: PortalInboxEntry, a: IntakeAnswers, edited: boolean) => {
     if (locked) return;
@@ -129,9 +134,22 @@ export function PortalIntake({
   };
   return (
     <div className="mb-3 space-y-2">
+      <div className="flex justify-end">
+        <button type="button" disabled={locked} onClick={() => setHandover(true)} className="flex items-center gap-1.5 rounded-md border border-rule px-2.5 py-1 text-xs hover:border-ai hover:text-ai disabled:opacity-40">
+          <Tablet size={13} />
+          患者さんに入力してもらう
+        </button>
+      </div>
       {pending.map((e) => (
         <Review key={e.id} entry={e} record={record} allergies={patient.allergies} locked={locked} onConfirm={(a, edited) => confirm(e, a, edited)} onOpenProfile={onOpenProfile} />
       ))}
+      {handover && (
+        <PortalHandover
+          name={patient.name}
+          onExit={() => setHandover(false)}
+          onSend={(answers) => onInbox((all) => [...readInbox(all), { id: newId(), patientId: patient.id, kind: "intake", at: { day: 0, time: nowTime }, iso: new Date().toISOString(), via: "病棟の iPad", answers }])}
+        />
+      )}
     </div>
   );
 }
