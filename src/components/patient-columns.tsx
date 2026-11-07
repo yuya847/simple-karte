@@ -15,6 +15,7 @@ import type { ChartSummary } from "./WardMap";
 import type { ListColumn } from "@/lib/list-prefs";
 import { relationMark, relationOf, type PatientDoctors, type Relation } from "@/lib/patient-doctors";
 import type { Flag, FlagTone } from "@/lib/patient-flags";
+import type { OpenAt } from "@/lib/open-at";
 import { ageSex } from "@/lib/person";
 import { periodNote, rangesText } from "@/lib/dpc-brief";
 import type { DpcBriefs } from "@/lib/use-dpc-briefs";
@@ -49,14 +50,30 @@ const TONE: Record<FlagTone, string> = {
   ink: "bg-tab text-ink-soft",
 };
 
-export function Flags({ flags }: { flags: Flag[] }) {
+/** The marks; with `onFlag`, a mark that has a place (Flag.action) opens it (the row's own press opens the chart). */
+export function Flags({ flags, onFlag }: { flags: Flag[]; onFlag?: (where: OpenAt) => void }) {
   return (
     <div className="flex max-w-60 flex-wrap gap-1 text-[10px] font-bold">
-      {flags.map((f) => (
-        <span key={f.label} title={f.title} className={`whitespace-nowrap rounded px-1 ${TONE[f.tone]}`}>
-          {f.label}
-        </span>
-      ))}
+      {flags.map((f) =>
+        onFlag && f.action ? (
+          <button
+            key={f.label}
+            type="button"
+            title={f.title}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFlag(f.action!);
+            }}
+            className={`whitespace-nowrap rounded px-1 underline-offset-2 hover:underline hover:ring-1 hover:ring-current pointer-coarse:py-1 ${TONE[f.tone]}`}
+          >
+            {f.label}
+          </button>
+        ) : (
+          <span key={f.label} title={f.title} className={`whitespace-nowrap rounded px-1 ${TONE[f.tone]}`}>
+            {f.label}
+          </span>
+        ),
+      )}
     </div>
   );
 }
@@ -81,18 +98,21 @@ export function DpcCell({ b }: { b?: DpcBriefs[string] }) {
   );
 }
 
-/** The attending, then each 担当医・コンサルト医 on its own line (依頼中 in yellow). */
-export function DoctorLines({ attending, doctors }: { attending: string; doctors?: PatientDoctors }) {
+/** 診療科・主治医・担当医／コンサルト医・担当看護師 on one line, cut at the column's width; the whole on the cursor. */
+function TeamLine({ department, attending, doctors, nurse, gray }: { department: string; attending: string; doctors?: PatientDoctors; nurse: string; gray?: boolean }) {
+  const others = doctors?.others ?? [];
+  const whole = [department, attending, ...others.map((d) => `${relationMark(d.role)} ${d.name}${d.pending ? "（依頼中）" : ""}`), nurse].filter(Boolean).join("\n");
   return (
-    <>
-      <div>{attending}</div>
-      {doctors?.others.map((d) => (
-        <div key={`${d.role}:${d.name}`} className={d.pending ? "text-yamabuki" : "text-ink-faint"}>
-          {relationMark(d.role)} {d.name}
+    <div title={whole} className="max-w-60 truncate whitespace-nowrap">
+      <b className={gray ? "" : "text-ink"}>{department}</b>　{attending}
+      {others.map((d) => (
+        <span key={`${d.role}:${d.name}`} className={d.pending ? "text-yamabuki" : "text-ink-faint"}>
+          ・{relationMark(d.role)} {d.name}
           {d.pending ? "（依頼中）" : ""}
-        </div>
+        </span>
       ))}
-    </>
+      ・{nurse}
+    </div>
   );
 }
 
@@ -131,6 +151,8 @@ export interface FullCell {
   onOpen: () => void;
   /** Opens the chart with 患者基本情報 (住所・連絡先・家族 …) on top. */
   onInfo?: () => void;
+  /** A mark pressed: the chart with that mark's tool. */
+  onFlag?: (where: OpenAt) => void;
 }
 
 /** What a gray row's cells get (another team's patient, or a bed whose patient this prototype has no chart of). */
@@ -289,28 +311,16 @@ export const COLUMNS: Column[] = [
     key: "team",
     label: "診療科・担当",
     fullClass: "whitespace-nowrap text-[11px] text-ink-soft",
-    full: ({ row, patient: p, doctors }) => (
-      <>
-        <div className="font-bold text-ink">{p.department}</div>
-        <DoctorLines attending={p.attending} doctors={doctors} />
-        <div>{nurseFor(row.bed.room)}</div>
-      </>
-    ),
+    full: ({ row, patient: p, doctors }) => <TeamLine department={p.department} attending={p.attending} doctors={doctors} nurse={nurseFor(row.bed.room)} />,
     grayClass: "text-[11px]",
-    gray: ({ row, doctors }) => (
-      <>
-        <div className="font-bold">{row.patient?.department ?? row.bed.other?.department}</div>
-        <DoctorLines attending={row.patient?.attending ?? doctorFor(row.bed.other?.department ?? "")} doctors={row.patient ? doctors : undefined} />
-        <div>{nurseFor(row.bed.room)}</div>
-      </>
-    ),
+    gray: ({ row, doctors }) => <TeamLine gray department={row.patient?.department ?? row.bed.other?.department ?? ""} attending={row.patient?.attending ?? doctorFor(row.bed.other?.department ?? "")} doctors={row.patient ? doctors : undefined} nurse={nurseFor(row.bed.room)} />,
   },
   {
     key: "flags",
     label: "印（記録から）",
     // The ward's plan and the 退院 order say the same thing: shown once. On another day the bed's mark comes first and the marks of today's record are left out.
-    full: ({ mark, plans, flags, day }) => (
-      <Flags flags={[...(mark ? [{ label: mark, tone: "wakatake" as const }] : []), ...plans.map((x) => ({ label: planText(x), tone: "wakatake" as const })), ...(day === 0 ? flags : [])].filter((f, i, xs) => xs.findIndex((y) => y.label === f.label) === i)} />
+    full: ({ mark, plans, flags, day, onFlag }) => (
+      <Flags onFlag={onFlag} flags={[...(mark ? [{ label: mark, tone: "wakatake" as const }] : []), ...plans.map((x) => ({ label: planText(x), tone: "wakatake" as const })), ...(day === 0 ? flags : [])].filter((f, i, xs) => xs.findIndex((y) => y.label === f.label) === i)} />
     ),
   },
   {

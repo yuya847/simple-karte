@@ -9,7 +9,9 @@ import { upcomingToday } from "@/lib/calendar";
 import { abs } from "@/lib/flowsheet";
 import { addDays, formatShort, hospitalDay } from "@/lib/dates";
 import { currentEntries, ordersOf, type SessionChanges } from "@/lib/record";
-import { flagsFor, type Flag } from "@/lib/patient-flags";
+import { flagsFor, withRxAction, type Flag } from "@/lib/patient-flags";
+import type { OpenAt } from "@/lib/open-at";
+import { usePressMenu } from "./PressMenu";
 import { WARD_PLANS, doctorFor, floorOf, nurseFor, type BedAssignment, type WardState } from "@/lib/ward";
 import { expectedOf, isUnknownBed, markOf, markText, type WardAsOf } from "@/lib/ward-asof";
 import { AsOfBand, DayNav, type DayNavProps } from "./DayNav";
@@ -68,6 +70,8 @@ interface Props {
   onOpen: (patientId: string) => void;
   /** Opens the chart with 患者基本情報 on top (the card icon after the name). */
   onInfo?: (patientId: string) => void;
+  /** Opens the chart with one of its tools: a mark pressed (未確認の結果 → 検査結果 …), or the row's menu. */
+  onOpenAt?: (patientId: string, where: OpenAt) => void;
 }
 
 /** What this person chose in this browser: the columns and row height (「表示」) and the starred patients (☆). */
@@ -111,8 +115,20 @@ export function PatientList(props: Props) {
 }
 
 /** The list with its choices given (PatientList reads them for the person; tests pass them). */
-export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, expiryDone = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
+export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, expiryDone = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, onOpenAt, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
   const overview = useContext(NoteOverviewContext);
+  const { bind, menu } = usePressMenu();
+  // A row's menu (右クリック・長押し): the chart, its 経過表 or 指示受け, and ☆.
+  const rowMenu = (r: Row) => {
+    const p = r.patient!;
+    const at = (where: OpenAt) => ({ onClick: () => onOpenAt?.(p.id, where), disabled: onOpenAt ? null : "カルテから開きます" });
+    return bind(`${roomLabel(r.bed.room, r.bed.bed)} ${p.name}`, () => [
+      { label: "カルテを開く", onClick: () => onOpen(p.id) },
+      { label: "経過表", ...at("flowsheet") },
+      { label: "指示受け", ...at("take") },
+      { label: favorites.includes(p.id) ? "お気に入りから外す" : "お気に入りに入れる", onClick: () => onToggleFavorite(p.id) },
+    ]);
+  };
   const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroup);
   const [q, setQ] = useState("");
   const [cond, setCond] = useState<ListFilter>(EMPTY_FILTER);
@@ -168,7 +184,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
           const entries = ordersOf(currentEntries(p, changes[p.id]));
           const flags = [...(extraFlags[p.id] ?? []), ...flagsFor(p, entries, nowAbs, waiting[p.id] ?? 0, consentState[p.id], marPending[p.id] ?? 0, resultState[p.id])];
           const expiry = rxExpiries(p, entries, today).filter(r => !(expiryDone[p.id] ?? []).some(s => s.id === `${expiryKey(r)}:done`));
-          const visibleFlags = [...flags.filter(f => !f.label.startsWith("処方切れ")), ...expiryFlags(expiry)];
+          const visibleFlags = [...flags.filter(f => !f.label.startsWith("処方切れ")), ...withRxAction(expiryFlags(expiry))];
           const leaving = entries.some((e) => e.status === "有効" && e.order.type === "procedure" && e.order.leave?.kind === "退院" && e.order.leave.from.day >= 0 && e.order.leave.from.day <= 1);
           return [[p.id, { entries, flags: visibleFlags, upcoming: upcomingToday(entries, nowAbs), leaving, doctors: doctorsOf?.(p.id, entries) }]];
         }),
@@ -379,6 +395,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                 r.patient && full(r) ? (
                   <tr
                     key={`${g.key}|${roomKey(r.bed)}`}
+                    {...rowMenu(r)}
                     onClick={() => onOpen(r.patient!.id)}
                     className={`cursor-pointer border-b border-rule-soft bg-sheet align-top hover:bg-ai-soft/40 ${openable[at] === r ? "outline outline-2 -outline-offset-2 outline-ai" : ""} ${r.mark?.startsWith("退院予定") ? "opacity-70" : ""}`}
                   >
@@ -401,6 +418,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                           onStar: () => onToggleFavorite(r.patient!.id),
                           onOpen: () => onOpen(r.patient!.id),
                           onInfo: onInfo && (() => onInfo(r.patient!.id)),
+                          onFlag: onOpenAt && ((where) => onOpenAt(r.patient!.id, where)),
                         })}
                       </td>
                     ))}
@@ -456,6 +474,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
                 ) : (
                   <tr
                     key={`${g.key}|${roomKey(r.bed)}`}
+                    {...(r.patient ? rowMenu(r) : {})}
                     onClick={r.patient ? () => onOpen(r.patient!.id) : undefined}
                     className={`border-b border-rule-soft text-ink-faint ${r.patient ? "cursor-pointer hover:bg-ai-soft/30" : ""} ${openable[at] === r ? "outline outline-2 -outline-offset-2 outline-ai" : ""}`}
                     title={r.patient ? "受け持ち以外の患者。押すとカルテが開きます（開いた記録は監査ログに残ります）" : "受け持ち以外の患者"}
@@ -496,6 +515,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
           </tbody>
         </table>
       </div>
+      {menu}
     </section>
   );
 }

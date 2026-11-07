@@ -3102,6 +3102,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           )}
           onOpen={openPatient}
           onInfo={(id) => (openPatient(id), setPanel("patient-info"))}
+          onOpenAt={openAt}
         />
         </div>
       ) : patient && limitNow && !inTeamNow && !grantNow ? (
