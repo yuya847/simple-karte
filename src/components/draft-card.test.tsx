@@ -14,7 +14,7 @@ it("shows the order boxed (so it is not read as note text); with something to an
   expect(html).toContain('aria-label="確認 1件・理由を開く"');
   expect(html).toContain('aria-label="この下書きを消す"');
   expect(html).toContain("詳細だけの理由");
-  expect(html).toContain("件・理由を開く</button>");
+  expect(html).toContain("確認 1件</button>");
   expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(2);
   expect(html).toMatch(/<article class="[^"]*rounded-md border border-ai\/40/);
   const ok = renderToStaticMarkup(<DraftCard draft={draft} ctx={ctx} issues={[]} onApply={() => {}} onRemove={() => {}} />);
@@ -55,8 +55,31 @@ it("救急の既存採血との重複理由と選択肢を、詳細の検査一�
   expect(html).toContain(blocking[0].message);
   expect(html).toContain(">重ねて出す</button>");
   expect(html).toContain(">この下書きを消す</button>");
-  const detail = html.slice(html.indexOf("<header"));
-  expect(detail.indexOf(blocking[0].message)).toBeLessThan(detail.indexOf('class="nums px-3 py-2"'));
+  const detail = html.slice(html.indexOf('aria-label="下書きの詳細"'));
+  expect(detail.indexOf(blocking[0].message)).toBeGreaterThan(0);
+  expect(detail.indexOf(blocking[0].message)).toBeLessThan(detail.indexOf('class="nums px-1 py-0.5"'));
   const accepted = applyChoice(d, blocking[0].choices![0]);
   expect(isReady(checkDraft(accepted, c))).toBe(true);
+});
+
+it("注射の下書きは1行に1回だけ出し、足りない値は欄に短い印を付ける（説明の文は出さない）", () => {
+  const d: Draft = { id: "ctrx", kind: "injection", origin: "ai", sourceText: "セフトリアキソン 2g 1日1回 点滴 5日間", comment: null, items: [{ drugCode: "620002955", said: "セフトリアキソン", amount: 2, unit: "g" }], route: "点滴静注", schedule: { kind: "per_day", count: 1 }, infusionMinutes: null, infusionScope: null, rateMlPerH: null, prefer: null, start: { day: null, time: null }, days: 5, duplicate: null };
+  const issues = checkDraft(d, ctx);
+  expect(issues.filter((i) => i.level !== "info").map((i) => i.key)).toEqual(["unit-0", "rate"]);
+  const html = renderToStaticMarkup(<DraftCard bare rp={1} draft={d} ctx={ctx} issues={issues} onApply={() => {}} onRemove={() => {}} />);
+  expect(html).toContain('<b class="text-ai">Rp1</b>');
+  expect(html).not.toContain("注射 Rp1");
+  expect(html.match(/セフトリアキソン 2g 1日1回 点滴 5日間/g)).toHaveLength(1);
+  expect(html.match(/aria-label="この下書きを消す"/g)).toHaveLength(1);
+  expect(html).toContain("確認 2件</button>");
+  expect(html).toContain(">点滴時間？</span>");
+  expect(html).toContain(">単位？</span>");
+  expect(html).not.toContain("入れ直してください");
+  expect(html).not.toContain("指示受け後すぐ（日付の指定なし");
+  // The unit and the drip time are fixed in place, and the card is then ready.
+  const fixed: Draft = { ...d, items: [{ ...d.items[0], amount: 2, unit: "キット" }], infusionMinutes: 30, infusionScope: "per_dose", prefer: "time" };
+  const after = checkDraft(fixed, ctx);
+  expect(isReady(after)).toBe(true);
+  const ok = renderToStaticMarkup(<DraftCard bare rp={1} draft={fixed} ctx={ctx} issues={after} onApply={() => {}} onRemove={() => {}} />);
+  expect(ok).not.toContain("？</span>");
 });

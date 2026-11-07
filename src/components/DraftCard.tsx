@@ -1,6 +1,5 @@
 "use client";
-import { InjectionDraftEditor } from "./InjectionDraftEditor";
-import { insulinDoseText } from "@/lib/insulin-doses";
+import { InjectionDraftEditor, injectionFieldOf } from "./InjectionDraftEditor";
 
 import { displayText } from "@/lib/display-text";
 import { dietLabel } from "@/lib/diet";
@@ -8,8 +7,8 @@ import { dietLabel } from "@/lib/diet";
 import { draftLine, draftSourceText, prescriptionUsage } from "@/lib/draft-line";
 import { useId, useState } from "react";
 import { AlertOctagon, CheckCircle2, HelpCircle, Info, RotateCcw, Trash2 } from "lucide-react";
-import { applyChoice, effectiveRoute, isReady, procArea, procSchedule, ratePlan, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
-import { drugName, durationText, labName, procName, scheduleLabel } from "@/lib/format";
+import { applyChoice, isReady, procArea, procSchedule, resolvedCollect, resolvedStopTarget, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
+import { labName, procName } from "@/lib/format";
 import { anyDrugName, findLab } from "@/lib/master";
 import { AREA_LABEL, consultText, findProc, findProcDrug, guideText, hdText, leaveText, moveText, procScheduleText, rehabText, txText } from "@/lib/procedures";
 import { findOralDrug } from "@/lib/master";
@@ -34,7 +33,7 @@ interface Props {
 
 const KIND_LABEL: Record<Draft["kind"], string> = { injection: "注射", lab: "検体検査", procedure: "処置", prescription: "内服", extend: "延長", imaging: "画像検査", physio: "生理検査", stop: "中止", unclear: "聞き取れず", diet: "食事", "opd-booking": "外来予約" };
 
-/** One order draft: what was understood, then the checks with choices for the doctor. */
+/** One order draft: one line with what will be ordered, and under it the fields and the checks for the doctor. */
 export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp, bare }: Props & { bare?: boolean }) {
   // Open from the start when something still has to be filled in (目的・同意書…), so the fields are right there.
   const [open, setOpen] = useState(() => issues.some((i) => i.level !== "info"));
@@ -47,126 +46,82 @@ export function DraftCard({ draft, issues, ctx, onApply, onRemove, onRedo, rp, b
   const detailId = useId();
   const ready = isReady(issues);
   const blocking = issues.filter((i) => i.level !== "info");
-  const infos = issues.filter((i) => i.level === "info");
+  // 注射: a missing value is marked on its field; only the rest stay as rows. The fields already show 開始 and 経路.
+  const rows = draft.kind === "injection" ? blocking.filter((i) => !injectionFieldOf(i, draft)) : blocking;
+  const infos = issues.filter((i) => i.level === "info" && !(draft.kind === "injection" && (i.key === "start" || i.key === "route")));
+  const label = draft.kind === "prescription" && draft.administration ? draft.administration.kind : KIND_LABEL[draft.kind];
+  const line = draftLine(draft, ctx, rp);
+  // In a box of one kind (注射オーダ…) the kind is not repeated on every line; 内服・外用 stay apart.
+  const body = bare && draft.kind !== "prescription" && line.startsWith(`${label} `) ? line.slice(label.length + 1) : line;
+  const rpMatch = /^Rp\d+ /.exec(body);
+  const said = draftSourceText(draft.sourceText);
+  const issueRows = rows.map((i) => <IssueRow key={i.key} issue={i} draft={draft} onApply={onApply} onRemove={onRemove} />);
 
   return (
     // An order below the note is boxed, so it never reads as text of the note (ユーザー 2026-11-06).
     <article className={`text-[13px] leading-relaxed pointer-coarse:text-[16px] ${bare ? "border-t border-ai/15 first:border-t-0" : "my-1 rounded-md border border-ai/40 bg-ai-soft/20"}`}>
-      <div className="flex flex-wrap items-start gap-1 px-2 py-1">
+      <div className="flex items-start gap-1 px-2 py-1">
         <button id={`draft-line-${draft.id}`} type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className="nums min-w-[10rem] flex-1 whitespace-pre-wrap break-words text-left hover:bg-ai-soft/30">
-          {draftLine(draft, ctx, rp)}
+          {rpMatch ? <><b className="text-ai">{rpMatch[0].trim()}</b> {body.slice(rpMatch[0].length)}</> : body}
+          {said && <span className="ml-1.5 text-[11px] text-ink-faint" title="話した言葉">“{displayText(said)}”</span>}
         </button>
-        <button type="button" aria-label={ready ? "確定できます・詳細を開く" : `確認 ${blocking.length}件・理由を開く`} aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className={`shrink-0 p-1 ${ready ? "text-wakatake" : "text-yamabuki"}`}>
-          {ready ? <CheckCircle2 size={14} /> : <><AlertOctagon size={14} className="inline" /> 確認 {blocking.length}件・理由を開く</>}
+        <button type="button" aria-label={ready ? "確定できます・詳細を開く" : `確認 ${blocking.length}件・理由を開く`} aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((value) => !value)} className={`flex shrink-0 items-center gap-0.5 whitespace-nowrap p-1 text-xs ${ready ? "text-wakatake" : "text-yamabuki"}`}>
+          {ready ? <CheckCircle2 size={14} /> : <><AlertOctagon size={13} />{`確認 ${blocking.length}件`}</>}
         </button>
+        {onRedo && (
+          <button type="button" onClick={onRedo} title="言い直す（指示の欄に戻す）" className="shrink-0 p-1 text-ink-faint hover:text-ink">
+            <RotateCcw size={14} />
+          </button>
+        )}
         <button type="button" onClick={onRemove} aria-label="この下書きを消す" title="この下書きを消す" className="shrink-0 p-1 text-ink-faint hover:text-shu"><Trash2 size={14} /></button>
       </div>
-      {open && <div id={detailId} className="mx-2 mb-1 border-t border-ai/20 pt-1">
-      <header className="flex items-center gap-2 px-3 py-1.5">
-        <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${draft.kind === "stop" ? "bg-shu-soft text-shu" : "bg-ai-soft text-ai"}`}>
-          {draft.kind === "prescription" && draft.administration ? draft.administration.kind : KIND_LABEL[draft.kind]}
-          {rp ? ` Rp${rp}` : ""}
-        </span>
-        <span className="truncate text-xs text-ink-faint" title="話した言葉">
-          {displayText(draftSourceText(draft.sourceText) ? `「${draftSourceText(draft.sourceText)}」` : "")}
-        </span>
-        <span className="ml-auto flex shrink-0 items-center gap-1">
-          {ready ? (
-            <span className="flex items-center gap-1 text-xs text-wakatake">
-              <CheckCircle2 size={14} />
-              確定できます
-            </span>
-          ) : (
-            <span className="text-xs text-yamabuki">確認 {blocking.length}件</span>
-          )}
-          {onRedo && (
-            <button type="button" onClick={onRedo} title="言い直す（指示の欄に戻す）" className="rounded p-1 text-ink-faint hover:bg-paper hover:text-ink">
-              <RotateCcw size={14} />
-            </button>
-          )}
-          <button type="button" onClick={onRemove} title="この下書きを消す" className="rounded p-1 text-ink-faint hover:bg-paper hover:text-shu">
-            <Trash2 size={14} />
-          </button>
-        </span>
-      </header>
-
-      {draft.kind === "lab" && blocking.length > 0 && (
-        <ul className="space-y-2 px-3 pb-2">
-          {blocking.map((i) => (
-            <IssueRow key={i.key} issue={i} draft={draft} onApply={onApply} onRemove={onRemove} canRedo={!!onRedo} />
-          ))}
-        </ul>
-      )}
-
-      <div className="nums px-3 py-2">
-        <Summary draft={draft} ctx={ctx} />
-      </div>
-
-      {draft.kind === "injection" && <InjectionDraftEditor draft={draft} onApply={onApply} />}
-      {draft.kind === "imaging" && <ImagingDraftEditor draft={draft} onApply={onApply} />}
-      {draft.kind !== "lab" && blocking.length > 0 && (
-        <ul className="space-y-2 px-3 pb-2">
-          {blocking.map((i) => (
-            <IssueRow key={i.key} issue={i} draft={draft} onApply={onApply} onRemove={onRemove} canRedo={!!onRedo} />
-          ))}
-        </ul>
-      )}
-      {infos.length > 0 && (
-        <ul className="nums space-y-0.5 border-t border-rule-soft px-3 py-1.5 text-xs text-ink-soft">
-          {infos.map((i) => (
-            <li key={i.key} className="flex items-start gap-1.5">
-              <Info size={12} className="mt-0.5 shrink-0 text-ink-faint" />
-              <span>
-                <b className="text-ink-faint">{i.title}</b>　{i.message === "速度" ? "" : i.message}
-                {i.formula && <span className="ml-1 rounded bg-paper px-1">{i.formula}</span>}
-                <SourceLinks sources={i.sources} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {open && <div id={detailId} role="group" aria-label="下書きの詳細" className="mx-2 mb-1.5 space-y-1 border-t border-ai/15 pt-1">
+        {draft.kind === "lab" && issueRows.length > 0 && <ul className="space-y-1">{issueRows}</ul>}
+        {draft.kind === "injection" ? <InjectionDraftEditor draft={draft} issues={blocking} onApply={onApply} /> : <div className="nums px-1 py-0.5"><Summary draft={draft} ctx={ctx} /></div>}
+        {draft.kind === "imaging" && <ImagingDraftEditor draft={draft} onApply={onApply} />}
+        {draft.kind !== "lab" && issueRows.length > 0 && <ul className="space-y-1">{issueRows}</ul>}
+        {infos.length > 0 && (
+          <ul className="nums space-y-0.5 px-1 py-0.5 text-xs text-ink-soft">
+            {infos.map((i) => (
+              <li key={i.key} className="flex items-start gap-1.5">
+                <Info size={12} className="mt-0.5 shrink-0 text-ink-faint" />
+                <span>
+                  <b className="text-ink-faint">{i.title}</b>　{i.message === "速度" ? "" : i.message}
+                  {i.formula && <span className="ml-1 rounded bg-paper px-1">{i.formula}</span>}
+                  <SourceLinks sources={i.sources} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>}
     </article>
   );
 }
 
-function IssueRow({ issue, draft, onApply, onRemove, canRedo }: { issue: Issue; draft: Draft; onApply: (d: Draft) => void; onRemove: () => void; canRedo: boolean }) {
+function IssueRow({ issue, draft, onApply, onRemove }: { issue: Issue; draft: Draft; onApply: (d: Draft) => void; onRemove: () => void }) {
   const stop = issue.level === "stop";
   return (
-    <li className={`rounded-md px-2.5 py-2 ${stop ? "bg-shu-soft" : "bg-yamabuki-soft"}`}>
-      <div className={`flex items-start gap-1.5 ${stop ? "text-shu" : "text-yamabuki"}`}>
-        {stop ? <AlertOctagon size={14} className="mt-0.5 shrink-0" /> : <HelpCircle size={14} className="mt-0.5 shrink-0" />}
-        <span className="text-ink">
-          <b className={stop ? "text-shu" : "text-yamabuki"}>{issue.title}</b>　{issue.message}
-        </span>
+    <li className={`rounded px-2 py-1 text-xs ${stop ? "bg-shu-soft" : "bg-yamabuki-soft"}`}>
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        {stop ? <AlertOctagon size={13} className="shrink-0 text-shu" /> : <HelpCircle size={13} className="shrink-0 text-yamabuki" />}
+        <b className={stop ? "text-shu" : "text-yamabuki"}>{issue.title}</b>
+        <span className="text-ink">{issue.message}</span>
+        {issue.formula && <span className="nums rounded bg-sheet px-1.5">{issue.formula}</span>}
+        <SourceLinks sources={issue.sources} />
+        {issue.choices?.map((c) => (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => (c.remove ? onRemove() : onApply(applyChoice(draft, c)))}
+            className="nums rounded border border-ai/40 bg-sheet px-1.5 py-0.5 text-left text-xs text-ai hover:bg-ai hover:text-white"
+          >
+            {c.label}
+            {c.note && <span className="block text-[10px] opacity-75">{displayText(c.note)}</span>}
+          </button>
+        ))}
       </div>
-      {issue.formula && <div className="nums mt-1 ml-5 inline-block rounded bg-sheet px-1.5 text-xs">{issue.formula}</div>}
-      {issue.sources && issue.sources.length > 0 && (
-        <div className="mt-1 ml-5 text-xs">
-          <SourceLinks sources={issue.sources} />
-        </div>
-      )}
       {issue.input && <ReasonInput key={issue.key} input={issue.input} draft={draft} onApply={onApply} />}
-      {issue.choices && issue.choices.length > 0 && (
-        <div className="mt-1.5 ml-5 flex flex-wrap gap-1.5">
-          {issue.choices.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              onClick={() => (c.remove ? onRemove() : onApply(applyChoice(draft, c)))}
-              className="nums rounded-md border border-ai/40 bg-sheet px-2 py-1 text-left text-xs text-ai hover:bg-ai hover:text-white"
-            >
-              {c.label}
-              {c.note && <span className="block text-[10px] opacity-75">{displayText(c.note)}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {(!issue.choices || issue.choices.length === 0) && !issue.input && !(draft.kind === "imaging" && ["purpose", "consent"].includes(issue.key)) && (
-        <div className="mt-1 ml-5 text-[11px] text-ink-soft">
-          {canRedo ? "↺ で指示の欄に戻して、言い直してください。" : "この下書きを消して（ごみ箱）、右のツールで入れ直してください。"}
-        </div>
-      )}
     </li>
   );
 }
@@ -190,7 +145,7 @@ function ReasonInput({ input, draft, onApply }: { input: NonNullable<Issue["inpu
   const [text, setText] = useState("");
   const done = () => text.trim() && onApply(input.apply(draft, text));
   return (
-    <div className="mt-1.5 ml-5 flex flex-wrap gap-1.5">
+    <div className="mt-1 ml-5 flex flex-wrap gap-1.5">
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -212,6 +167,8 @@ function ReasonInput({ input, draft, onApply }: { input: NonNullable<Issue["inpu
 }
 
 function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
+  // 注射 is shown by its line and its fields (InjectionDraftEditor).
+  if (draft.kind === "injection") return null;
   if (draft.kind === "unclear") return <p className="text-ink-soft">この部分はオーダにできませんでした。</p>;
   if (draft.kind === "diet") {
     const d = draft.diet;
@@ -257,39 +214,6 @@ function Summary({ draft, ctx }: { draft: Draft; ctx: CheckContext }) {
         <b>{draft.procCode ? procName(draft.procCode) : draft.drugCode ? anyDrugName(draft.drugCode) : draft.said}</b> を中止{draft.effectiveDay !== undefined && `（${draft.effectiveDay === 0 ? "今日" : `${draft.effectiveDay}日後`}から）`}
         {o && <span className="block text-xs text-ink-soft">{ctx.describe(o)}</span>}
       </p>
-    );
-  }
-
-  if (draft.kind === "injection") {
-    const plan = ratePlan(draft);
-    const route = effectiveRoute(draft);
-    const parts = [
-      route ?? "経路？",
-      draft.schedule ? scheduleLabel(draft.schedule, draft.items[0]?.drugCode) : "回数？",
-    ];
-    if (route === "点滴静注") {
-      if (plan.minutesPerDose !== null) parts.push(`1回${durationText(plan.minutesPerDose)}`);
-      if (plan.rateMlPerH !== null) parts.push(`${plan.rateMlPerH}mL/時`);
-      if (plan.minutesPerDose === null && plan.rateMlPerH === null) parts.push("速度？");
-    }
-    parts.push(`開始 ${ctx.fmtDay(draft.start.day ?? 0)} ${draft.start.time ?? "指示受け後"}`);
-    if (draft.days) parts.push(`${draft.days}日間`);
-    if (draft.omittedDoses?.length) parts.push(`取り消す回：${draft.omittedDoses.map(x => `${ctx.fmtDay((draft.start.day ?? 0) + x.day)} ${x.time}`).join("・")}`);
-    return (
-      <div>
-        <div className="font-bold">
-          {draft.items.map((it, i) => (
-            <span key={i}>
-              {i > 0 && <span className="font-normal text-ink-faint"> ＋ </span>}
-              {it.drugCode ? drugName(it.drugCode) : <span className="text-shu">{it.said}（？）</span>}
-              <DrugMarks codes={[it.drugCode]} />
-              <span className="ml-1">{draft.insulinDoses ? insulinDoseText(draft.insulinDoses) : `${it.amount ?? "？"}${it.unit ?? ""}`}</span>
-            </span>
-          ))}
-        </div>
-        <div className="text-xs text-ink-soft">{parts.join("　")}</div>
-        {draft.comment && <div className="text-xs text-ink-soft">コメント：{draft.comment}</div>}
-      </div>
     );
   }
 
