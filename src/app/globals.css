@@ -236,14 +236,14 @@ body {
   background-color: var(--color-yamabuki-soft);
 }
 
-/* Chrome-like tabs (AppFrame): the chosen tab flows into the page with inward curves at its foot; the others are
-   set apart by a thin divider that hides next to the chosen or hovered tab. */
 /* 経過の記録を右へ運んでいる間（Do）：落とせる場所（右の記事・Rp・下書きの欄）の枠 */
 html[data-do-drag] [data-do-drop] {
   outline: 2px dashed color-mix(in srgb, var(--color-ai) 55%, transparent);
   outline-offset: -4px;
 }
 
+/* Chrome-like tabs (AppFrame): the chosen tab flows into the page with inward curves at its foot; the others are
+   set apart by a thin divider that hides next to the chosen or hovered tab. */
 .tab-on::before,
 .tab-on::after {
   content: "";
