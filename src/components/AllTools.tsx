@@ -71,7 +71,7 @@ export function AllToolsList({ groups, query, onOpen, onDragTool, menuFor }: { g
                     className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-[12px] ${off ? "cursor-not-allowed text-ink-faint/50" : `cursor-grab hover:bg-paper ${t.hidden ? "text-ink-faint" : "text-ink-soft hover:text-ink"}`}`}
                   >
                     <Icon size={15} strokeWidth={1.8} className={`shrink-0 ${t.hidden ? "opacity-50" : ""}`} />
-                    <span className={`min-w-0 flex-1 truncate ${t.hidden ? "opacity-70" : ""}`}>{t.label}</span>
+                    <span className="min-w-0 flex-1 truncate">{t.label}</span>
                     {t.hidden && <span className="shrink-0 rounded border border-rule px-1 text-[10px] leading-4 text-ink-faint">隠し中</span>}
                   </button>
                 </li>
@@ -142,7 +142,7 @@ export function AllTools({ anchor, rail, groups, onOpen, onEdit, onClose, onDrag
           <Search size={13} className="shrink-0 text-ink-faint" />
           <input
             ref={search}
-            type="search"
+            type="text"
             aria-label="道具を探す"
             placeholder="道具を探す"
             autoComplete="off"
