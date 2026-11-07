@@ -2,6 +2,7 @@
 
 import { displayText } from "@/lib/display-text";
 import { Plus, Send, X } from "lucide-react";
+import { useWindowEntry } from "@/lib/window-entry";
 import { useState } from "react";
 import { anyDrugName } from "@/lib/master";
 import { estimatedCcr } from "@/lib/clinical";
@@ -30,10 +31,10 @@ export function TdmView({ people, reports, onReport, today }: Props) {
   const person = people.find((x) => x.patient.id === pid);
   const order = person?.entries.find((e) => e.status === "有効" && e.order.type === "injection" && (e.order as InjectionOrder).items.some((i) => i.drugCode.startsWith("INJ-VCM")));
   const fromOrder = order ? regimenFromOrder(order.order as InjectionOrder) : {};
-  const [reg, setReg] = useState({ dose: String(fromOrder.dose ?? ""), tau: String(fromOrder.tau ?? ""), tinf: String(fromOrder.tinf ?? "") });
-  const [lv, setLv] = useState({ pt: "", pc: "", tb: "0", tc: String(person?.patient.labs.filter((l) => l.values.VCM !== undefined).at(-1)?.values.VCM ?? "") });
-  const [cands, setCands] = useState<{ dose: string; tau: string; tinf: string }[]>([]);
-  const [proposal, setProposal] = useState("");
+  const [reg, setReg] = useWindowEntry("tdm-reg", { dose: String(fromOrder.dose ?? ""), tau: String(fromOrder.tau ?? ""), tinf: String(fromOrder.tinf ?? "") }, `${pid}:薬剤師`);
+  const [lv, setLv] = useWindowEntry("tdm-lv", { pt: "", pc: "", tb: "0", tc: String(person?.patient.labs.filter((l) => l.values.VCM !== undefined).at(-1)?.values.VCM ?? "") }, `${pid}:薬剤師`);
+  const [cands, setCands] = useWindowEntry<{ dose: string; tau: string; tinf: string }[]>("tdm-cands", [], `${pid}:薬剤師`);
+  const [proposal, setProposal] = useWindowEntry("tdm-proposal", "", `${pid}:薬剤師`);
   const regimen: Regimen = { dose: n(reg.dose), tau: n(reg.tau), tinf: n(reg.tinf) };
   const levels: Levels = { peak: { t: n(lv.pt), c: n(lv.pc) }, trough: { before: n(lv.tb), c: n(lv.tc) } };
   const filled = Object.values(lv).every((x) => x.trim() !== "") && Object.values(reg).every((x) => x.trim() !== "");
@@ -43,13 +44,7 @@ export function TdmView({ people, reports, onReport, today }: Props) {
   const input = "w-16 rounded border border-rule bg-sheet px-1 py-0.5 text-right";
   const choose = (id: string) => {
     setPid(id);
-    const p = people.find((x) => x.patient.id === id);
-    const o = p?.entries.find((e) => e.status === "有効" && e.order.type === "injection" && (e.order as InjectionOrder).items.some((i) => i.drugCode.startsWith("INJ-VCM")));
-    const r = o ? regimenFromOrder(o.order as InjectionOrder) : {};
-    setReg({ dose: String(r.dose ?? ""), tau: String(r.tau ?? ""), tinf: String(r.tinf ?? "") });
-    setLv({ pt: "", pc: "", tb: "0", tc: String(p?.patient.labs.filter((l) => l.values.VCM !== undefined).at(-1)?.values.VCM ?? "") });
-    setCands([]);
-    setProposal("");
+
   };
   return (
     <div className="space-y-4 text-[13px]">

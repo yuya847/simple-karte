@@ -44,3 +44,18 @@ it("workspaceの遅い取り込みを同じ患者のフォームへ戻し、ほ�
   Harness()[1]("直したA"); expect(Harness()[0]).toBe("直したA");
   expect(entries[entryKey("B:医師", "inj")]).toBe("B");
 });
+it("部門の同じ画面で患者scopeを指定すると患者ごとの途中入力が復元される", () => {
+  let entries: WindowEntries = {};
+  const Harness = (patient: string) => {
+    h.context = { scope: "department:薬剤師", entries, setEntries: (f: (all: WindowEntries) => WindowEntries) => { entries = f(entries); } };
+    h.cursor = 0;
+    const result = useWindowEntry("tdm-lv", { peak: "" }, `${patient}:薬剤師`);
+    h.effects.splice(0).forEach(f => f());
+    return result;
+  };
+  Harness("A")[1]({ peak: "30" }); Harness("A");
+  expect(Harness("B")[0]).toEqual({ peak: "" });
+  Harness("B")[1]({ peak: "25" }); Harness("B");
+  expect(Harness("A")[0]).toEqual({ peak: "30" });
+  expect(Harness("B")[0]).toEqual({ peak: "25" });
+});

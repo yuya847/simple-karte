@@ -1,3 +1,6 @@
+import { LICENCES } from "../narcotics";
+import { pharmacyBook } from "./pharmacy-orders";
+import { merge3 } from "../merge-workspace";
 import { describe, expect, it } from "vitest";
 import { SCENARIOS } from ".";
 import { ordersOf } from "../record";
@@ -41,7 +44,7 @@ describe("薬剤部の試験用オーダ", () => {
       expect(p.patient.labs.at(-1)?.values.Hb).toBeLessThan(8);
     }
     expect(SCENARIOS.narcBook.slips.length).toBeGreaterThan(2);
-    expect(SCENARIOS.narcBook.ledger.filter((e) => e.kind === "返納").length).toBeGreaterThan(2);
+    expect(SCENARIOS.narcBook.ledger.filter((e) => e.kind === "返納")).toHaveLength(1);
   });
   it("今日の臨時・追加に前から続く定時注射を混ぜない", () => {
     const regular = people.flatMap((p) => p.entries).find((e) => e.day < 0 && e.order.type === "injection" && e.order.schedule.kind === "per_day")!;
@@ -85,4 +88,20 @@ describe("薬剤部データの整合", () => {
       expect(x.patient.history.some((e) => e.kind === "note" && /TDM|トラフ/.test(e.text ?? "") && /VCM|バンコマイシン|抗MRSA/.test(e.text ?? ""))).toBe(false);
     }
   });
+});
+
+it("100人の試験データでも返納例は1件で、施用票の患者と施用者免許を特定できる", () => {
+  const patients = SCENARIOS.cases.map(c => c.patient);
+  const book = pharmacyBook(patients);
+  const returns = book.ledger.filter(e => e.kind === "返納");
+  expect(returns).toHaveLength(1);
+  expect(patients.find(p => p.id === returns[0].patientId)?.name).toBeTruthy();
+  expect(book.slips.length).toBeGreaterThan(0);
+  for (const slip of book.slips) {
+    expect(patients.find(p => p.id === slip.patientId)?.name).toBeTruthy();
+    expect(LICENCES[slip.prescriber]?.find(l => l.kind === "麻薬施用者")?.no).toBeTruthy();
+  }
+  const merged = merge3(book, book, undefined) as typeof book;
+  expect(merged.ledger.filter(e => e.kind === "返納")).toHaveLength(1);
+  expect(merged.slips).toHaveLength(book.slips.length);
 });

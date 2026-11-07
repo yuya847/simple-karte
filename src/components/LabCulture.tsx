@@ -2,6 +2,7 @@
 
 import { displayText } from "@/lib/display-text";
 import { Check, Microscope } from "lucide-react";
+import { useWindowEntry } from "@/lib/window-entry";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { AST_DRUGS, EMPTY_STEP, GRAM_RESULTS, NO_GROWTH, organismCandidates, positiveBlood, mrsaConflict, STAGE_LABEL, addCultureStep, checkStep, cultureOf, cultureQueue, setsDrawn, stepText, type CultureItem, type Sir, type StepInput } from "@/lib/lab-culture";
@@ -75,8 +76,8 @@ export function LabCulture({ people, desk, calls, nowAbs, dayLabel, onDesk, onPa
 
 function Detail({ item, locked, dayLabel, onStep, onReportPanic }: { onReportPanic: () => void; item: CultureItem; locked: boolean; dayLabel: (d: number) => string; onStep: (s: NonNullable<ReturnType<typeof checkStep>["step"]>) => void }) {
   const c = item.culture;
-  const [stage, setStage] = useState<CultureStage | null>(item.next[0] ?? null);
-  const [input, setInput] = useState<StepInput>({ ...EMPTY_STEP, organism: c.organism ?? "" });
+  const [stage, setStage] = useWindowEntry<CultureStage | null>(`culture-${item.key}-${c.log?.length ?? 0}-stage`, item.next[0] ?? null, `${item.patientId}:臨床検査技師`);
+  const [input, setInput] = useWindowEntry<StepInput>(`culture-${item.key}-${c.log?.length ?? 0}-input`, { ...EMPTY_STEP, organism: c.organism ?? "" }, `${item.patientId}:臨床検査技師`);
   const set = (x: Partial<StepInput>) => setInput((v) => ({ ...v, ...x }));
   const check = stage ? checkStep(stage, c, input) : null;
   const blood = c.specimen === "血液";

@@ -1,3 +1,4 @@
+import { DEFAULT_DOCTOR } from "../doctors";
 import { marKey } from "../mar";
 import type { Order, Patient } from "../types";
 import { DRUGS, ORAL_DRUGS } from "../master";
@@ -17,7 +18,7 @@ export function addPharmacyOrders(p: Patient, i: number, stage: string) {
         }
       }
     }
-    p.history.push({ kind: "order", id: `${p.id}-pharmacy-${suffix}`, day: Math.max(day, p.admittedOn), time: "08:00", author: p.attending, status: "有効", order });
+    p.history.push({ kind: "order", id: `${p.id}-pharmacy-${suffix}`, day: Math.max(day, p.admittedOn), time: "08:00", author: suffix === "morphine" ? DEFAULT_DOCTOR : p.attending, status: "有効", order });
   };
   const oral = (suffix: string, code: string, category: "定期" | "臨時" | "退院時" = "定期", amount = 1, timings: import("../types").DoseTiming[] = ["朝"]) => put(suffix, { type: "prescription", category, drugCode: code, amount, unit: "錠", timings, start: { day: category === "退院時" ? 1 : 0, timing: timings[0] }, days: category === "退院時" ? 7 : 3 }, category === "臨時" ? 0 : -1);
   // Authored cases: usual adult doses from PMDA electronic inserts (not prescribing rules).
@@ -111,8 +112,8 @@ export function pharmacyBook(patients: Patient[]): NarcoticBook {
   for (const p of patients) {
     const order = p.history.find((e) => e.id === `${p.id}-pharmacy-morphine`);
     if (!order?.id) continue;
-    book.slips.push({ id: `${order.id}-slip`, orderId: order.id, patientId: p.id, code: "INJ-MOR10", marKey: marKey(order.id, 540), usedAt: { day: 0, time: "09:00" }, issuedA: 1, usedMl: 0.5, leftMl: 0.5, unusedA: 0, prescriber: p.attending, by: "病棟看護師", returnedAt: { day: 0, time: "09:30" } });
-    book.ledger.push({ id: `${p.id}-pharmacy-return`, code: "ORAL-OXC5", patientId: p.id, at: { day: -1, time: "16:00" }, kind: "返納", qty: 0, paren: 2, note: "前回調剤分の残薬2錠を病棟から返納", by: "小林（薬剤師）" });
+    book.slips.push({ id: `${order.id}-slip`, orderId: order.id, patientId: p.id, code: "INJ-MOR10", marKey: marKey(order.id, 540), usedAt: { day: 0, time: "09:00" }, issuedA: 1, usedMl: 0.5, leftMl: 0.5, unusedA: 0, prescriber: DEFAULT_DOCTOR, by: "病棟看護師", returnedAt: { day: 0, time: "09:30" } });
+    if (!book.ledger.some(e => e.id.endsWith("-pharmacy-return"))) book.ledger.push({ id: `${p.id}-pharmacy-return`, code: "ORAL-OXC5", patientId: p.id, at: { day: -1, time: "16:00" }, kind: "返納", qty: 0, paren: 2, note: "前回調剤分の残薬2錠を病棟から返納", by: "小林（薬剤師）" });
   }
   return book;
 }

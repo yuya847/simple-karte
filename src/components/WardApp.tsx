@@ -67,6 +67,7 @@ import { useKitchenAllergies } from "@/lib/use-kitchen-allergies";
 import { useNoticeFocus } from "./useNoticeFocus";
 import { calendarDietDrafts } from "@/lib/diet-calendar-edit";
 import { usePatientWindows } from "@/lib/use-patient-windows";
+import { repairPharmacyFixtures } from "@/lib/pharmacy-fixtures";
 import { WindowEntryContext, type WindowEntries } from "@/lib/window-entry";
 import { normalizeRightState, orderWindows, showOrderWindow } from "@/lib/order-windows";
 import { ConsultContext } from "./ConsultContext";
@@ -712,7 +713,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const orderUnlocks = useOrderUnlocks(audited, dispensed);
   const [oralRx, setOralRx] = useState<Record<string, OralRecord>>({});
   // 麻薬の管理（受払簿・施用票・返納・廃棄・事故）: narcotic-book.ts.
-  const [narcBook, setNarcBook] = useState<NarcoticBook>(() => scenario ? SCENARIOS.narcBook : INITIAL_BOOK);
+  const [narcBook, setNarcBookState] = useState<NarcoticBook>(() => scenario ? SCENARIOS.narcBook : INITIAL_BOOK);
+  const setNarcBook = useCallback((next: React.SetStateAction<NarcoticBook>) => setNarcBookState(current => {
+    const book = typeof next === "function" ? next(current) : next;
+    return scenario ? repairPharmacyFixtures(book) : book;
+  }), [scenario]);
   const [pharmacyFocus, setPharmacyFocus] = useState<{ tab: import("./PharmacyView").Tab; patientId: string } | null>(null);
   // Dialysis unit (fictional; kept in this browser only).
   const [hdPatients, setHdPatients] = useState<HdPatient[]>(HD_PATIENTS);
@@ -2978,7 +2983,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           onDispense={(key) => { orderUnlocks.relock(key.split("|")[0]); setDispensed((d) => ({ ...d, [key]: nowTime })); }}
           oralRx={oralRx}
           onOralRx={(key, rec) => setOralRx((all) => ({ ...all, [key]: rec }))}
-          narcoticPatientNames={Object.fromEntries(allPatients.map(p => [p.id, p.name]))}
+          narcoticPatientNames={Object.fromEntries([...patientById.values()].map(p => [p.id, p.name]))}
           narcBook={narcBook}
           onNarcBook={setNarcBook}
           newId={newId}
@@ -4604,7 +4609,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     <NoteOverviewContext.Provider value={{ patientId: patient?.id, entriesOf: id => { const p = findPatient(id); return p ? currentEntries(p, { ...(sessionChanges[id] ?? { added: [], stopped: [] }), notes: notes[id], revised: revised[id] }) : []; }, role, done: noteTodoDone, complete: key => setNoteTodoDone(all => ({ ...all, [key]: all[key] ?? { by: me.name, at: new Date().toISOString() } })) }}>
     <ScenarioSaveProvider value={workspace.status === "off" ? null : workspace.saveNow}>
     <OrderHistoryContext.Provider value={{ ...orderUnlocks, entries: entries.filter((e): e is OrderEntry => e.kind === "order"), canEdit: role === "医師" && !deny("order"), ...historyOrderHandlers({ entries: entries.filter((e): e is OrderEntry => e.kind === "order"), locked: orderUnlocks.locked, canEdit: role === "医師" && !deny("order"), modifyInjection: modifyOrder, stopDraft: addStopDraft, load: e => doFromHistory({ kind: "order", entryId: e.id }) }) }}>
-    <RoleProvider value={role}>
+    <WindowEntryContext.Provider value={{ scope: `department:${desk}`, entries: windowEntries, setEntries: setWindowEntries }}><RoleProvider value={role}>
     <MeProvider value={me}>
     <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
     {patient && <CarryNote id={patient.id} value={chart.note} onChange={note => update({ note })} />}
@@ -4840,7 +4845,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     </CosignRefs>
     </VerbalReviewProvider>
     </MeProvider>
-    </RoleProvider>
+    </RoleProvider></WindowEntryContext.Provider>
     </OrderHistoryContext.Provider>
     </ScenarioSaveProvider>
     </NoteOverviewContext.Provider>

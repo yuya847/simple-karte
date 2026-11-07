@@ -4,6 +4,7 @@ import { labNumber } from "@/lib/lab-number";
 import { specimenId } from "@/lib/lab-desk";
 import { displayText } from "@/lib/display-text";
 import { Check, ClipboardPen } from "lucide-react";
+import { useWindowEntry } from "@/lib/window-entry";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { culturesIn } from "@/lib/lab-culture";
@@ -35,7 +36,6 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
   const me = useMe();
   const deny = useDeny()("lab.result");
   const [sel, setSel] = useState<string | null>(null);
-  const [raw, setRaw] = useState<Record<string, Record<string, string>>>({});
   const received = toEnter(rows);
   const withItems = received.filter((r) => entryPlan(r.codes).analytes.length > 0);
   const without = received.filter((r) => entryPlan(r.codes).analytes.length === 0);
@@ -44,6 +44,7 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
   const [correcting, setCorrecting] = useState(false);
   const fixing = correcting ? reported.find((r) => specimenId(r) === sel) : undefined;
   const row = fixing ? undefined : (received.find((r) => specimenId(r) === sel) ?? withItems[0] ?? without[0]);
+  const [raw, setRaw] = useWindowEntry<Record<string, string>>(`lab-${row ? specimenId(row) : "none"}`, {}, `${row?.patientId ?? "none"}:臨床検査技師`);
   const [sentBack, setSentBack] = useState("");
   const fixPerson = fixing && people.find((x) => x.patient.id === fixing.patientId);
   const fixLab = fixPerson?.patient.labs.find((l) => l.id === (fixing!.report?.id ?? fixing!.report?.code));
@@ -117,8 +118,8 @@ export function LabEntry({ rows, people, limits, nowAbs, calls, onDesk, onPanic 
                   key={specimenId(row)}
                   row={row}
                   person={people.find((x) => x.patient.id === row.patientId)}
-                  raw={raw[specimenId(row)] ?? {}}
-                  onRaw={(v) => setRaw((all) => ({ ...all, [specimenId(row)]: v }))}
+                  raw={raw}
+                  onRaw={setRaw}
                   limits={limits}
                   locked={!!deny}
                   onConfirm={(values, panicLine, n) => {

@@ -28,6 +28,7 @@ import { type InteractionFinding, orderInteractions } from "@/lib/interactions";
 import type { TdmReport } from "@/lib/tdm";
 import { isExtraInjection } from "@/lib/pharmacy-work";
 import { readNotebook } from "@/lib/notebook";
+import { useWindowEntry } from "@/lib/window-entry";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
@@ -330,9 +331,9 @@ Rp4　カロナール錠500　1回1錠　頓用　疼痛時　10回分`;
 
 function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBook, newId }: PharmacyProps) {
   const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
-  const [text, setText] = useState("");
-  const [rows, setRows] = useState<BroughtRow[] | null>(null);
-  const [comment, setComment] = useState("");
+  const [text, setText] = useWindowEntry(`brought-text`, "", `${patientId}:薬剤師`);
+  const [rows, setRows] = useWindowEntry<BroughtRow[] | null>(`brought-rows`, null, `${patientId}:薬剤師`);
+  const [comment, setComment] = useWindowEntry(`brought-comment`, "", `${patientId}:薬剤師`);
   const [printing, setPrinting] = useState<React.ReactNode | null>(null);
   const setRow = (i: number, patch: Partial<BroughtRow>) => setRows((rs) => rs!.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const printReport = (r: BroughtReport) => {
@@ -372,7 +373,7 @@ function Brought({ people, today, nowTime, reports, onReport, narcBook, onNarcBo
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2">
             患者
-            <select value={patientId} onChange={(e) => { setPatientId(e.target.value); setRows(null); }} className="rounded border border-rule bg-paper px-2 py-1">
+            <select value={patientId} onChange={(e) => { setPatientId(e.target.value); }} className="rounded border border-rule bg-paper px-2 py-1">
               {people.map((x) => (
                 <option key={x.patient.id} value={x.patient.id}>
                   {x.room}　{x.patient.name}

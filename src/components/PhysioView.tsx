@@ -7,6 +7,7 @@ import { ExecutionHistory, ExecutionUndo } from "./ExecutionUndo";
 import { cancelExecution } from "@/lib/mar";
 
 import { ClipboardList, FilePen, HeartPulse, HelpCircle, ListChecks } from "lucide-react";
+import { useWindowEntry } from "@/lib/window-entry";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import { openHelp } from "@/lib/help/events";
@@ -184,16 +185,15 @@ function Report({ rows, onDesk, nowTime, people, desk }: Props & { rows: PhysioR
   const ready = rows.filter((r) => r.status === "実施済み" || r.status === "下書き（技師）" || r.status === "報告済み");
   const [pick, setPick] = useState<string | null>(null);
   const target = ready.find((r) => r.orderId === pick) ?? ready.find((r) => r.status === "下書き（技師）" || r.status === "実施済み") ?? ready[0] ?? null;
+  const rowButton = (r: PhysioRow) => <button key={r.orderId} type="button" onClick={() => setPick(r.orderId)} className={`block w-full border-b border-rule px-2 py-1 text-left ${target?.orderId === r.orderId ? "bg-ai-soft font-bold text-ai" : ""}`}>{r.room}　{r.name}　{r.testName}　{r.status}</button>;
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-[12px]">
+      <div className="text-[12px]">
         {ready.length === 0 && <span className="text-ink-faint">実施した検査はありません。</span>}
-        {ready.map((r) => (
-          <button key={r.orderId} type="button" onClick={() => setPick(r.orderId)} className={`rounded border px-2 py-0.5 ${target?.orderId === r.orderId ? "border-ai bg-ai-soft font-bold text-ai" : "border-rule"} ${r.status === "報告済み" ? "text-ink-soft" : ""}`}>
-            {r.name} {r.testName.replace(/（.*?）/, "")}
-            {r.status === "報告済み" ? "（報告済み）" : ""}
-          </button>
-        ))}
+        <div className="max-h-40 overflow-y-auto">{ready.filter(r => r.status !== "報告済み").map(rowButton)}</div>
+        <details><summary className="cursor-pointer text-ink-soft">報告済み（{ready.filter(r => r.status === "報告済み").length}）</summary>
+          <div className="max-h-40 overflow-y-auto">{ready.filter(r => r.status === "報告済み").map(rowButton)}</div>
+        </details>
       </div>
       {target && <ReportForm key={target.orderId} r={target} onDesk={onDesk} nowTime={nowTime} people={people} desk={desk} />}
     </section>
@@ -206,13 +206,17 @@ function ReportForm({ r, onDesk, nowTime, people, desk }: Pick<Props, "onDesk" |
   const prev = r.work?.draft ?? r.work?.report;
   const facts = people.find((p) => p.patient.id === r.patientId)?.patient;
   const previous = previousPhysio(desk, r)?.report;
-  const [selections, setSelections] = useState<PhysioSelections>(prev?.selections ?? {});
-  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(prev?.values ?? {}).map(([k, v]) => [k, String(v)])));
-  const [manual, setManual] = useState<Set<string>>(() => new Set(prev?.manualValues ?? Object.keys(prev?.values ?? {})));
+  const [selections, setSelections] = useWindowEntry<PhysioSelections>(`physio-${r.orderId}-selections`, prev?.selections ?? {}, `${r.patientId}:${me.role}`);
+  const [vals, setVals] = useWindowEntry<Record<string, string>>(`physio-${r.orderId}-vals`, () => Object.fromEntries(Object.entries(prev?.values ?? {}).map(([k, v]) => [k, String(v)])), `${r.patientId}:${me.role}`);
+  const [manualKeys, setManualKeys] = useWindowEntry<string[]>(`physio-${r.orderId}-manual`, () => prev?.manualValues ?? Object.keys(prev?.values ?? {}), `${r.patientId}:${me.role}`);
+  const manual = new Set(manualKeys);
   const effective = physioWithCalculated(r.test === "PHY-UCG" ? "" : r.test, vals, r.test === "PHY-ECG" ? new Set() : manual);
-  const [findings, setFindings] = useState(prev?.findings ?? "");
-  const [conclusion, setConclusion] = useState(prev?.conclusion ?? "");
-  const [reason, setReason] = useState(r.work?.draft?.reason ?? "");
+  const [findings, setFindings] = useWindowEntry(`physio-${r.orderId}-findings`, prev?.findings ?? "", `${r.patientId}:${me.role}`);
+  const [conclusion, setConclusion] = useWindowEntry(`physio-${r.orderId}-conclusion`, prev?.conclusion ?? "", `${r.patientId}:${me.role}`);
+  const [reason, setReason] = useWindowEntry(`physio-${r.orderId}-reason`, r.work?.draft?.reason ?? "", `${r.patientId}:${me.role}`);
+  const signature = JSON.stringify([vals, manualKeys, selections, findings, conclusion, reason]);
+  const [savedSignature, setSavedSignature] = useWindowEntry(`physio-${r.orderId}-saved`, signature, `${r.patientId}:${me.role}`);
+  const changed = signature !== savedSignature;
   const measured = Object.fromEntries(Object.entries(effective).filter(([k, v]) => v.trim() !== "" && !(r.test === "PHY-UCG" && k in ECHO_FORMULAS) && !(r.test === "PHY-SPIRO" && /^(pred|lln|pVC|pFVC|pFEV1|ratio|response)/.test(k))).map(([k, v]) => [k, Number(v)]));
   const values = { ...measured, ...(r.test === "PHY-UCG" ? echoCalculated(measured, facts) : r.test === "PHY-SPIRO" && facts ? spiroCalculated(measured, facts) : {}) };
   const problems = reportProblems(r.test, { values, findings, conclusion, reason }, !!r.work?.report);
@@ -221,11 +225,13 @@ function ReportForm({ r, onDesk, nowTime, people, desk }: Pick<Props, "onDesk" |
     if (deny || problems.length || (finalize && me.role !== "医師")) return;
     const rep = { day: 0, time: nowTime, values, selections, technologist: prev?.technologist, facts: facts ? { age: facts.age, sex: facts.sex, heightCm: facts.heightCm, weightKg: facts.weightKg } : undefined, manualValues: [...manual], findings: findings.trim(), conclusion: conclusion.trim(), by: me.name, ...(r.work?.report ? { reason: reason.trim() } : {}) };
     put(onDesk, r, (w) => savePhysioReport(w, rep, me.role, finalize));
+    setSavedSignature(signature);
     auditLog({ role: me.role, actor: me.name, action: finalize ? "確定（生理検査の判読）" : "保存（生理検査の技師所見）", patient: r.name, detail: `${r.testName}　${conclusion.trim().slice(0, 60)}` });
   };
   return (
     <article className={`${card} space-y-2 p-3 text-[12px]`}>
       <Head r={r} />
+      {changed && <p role="status" className="text-yamabuki">未保存の変更</p>}
       {prev && (
         <p className="text-ink-soft">
           {r.work?.report ? `確定済み：第${versionOf(r.work)}版` : "技師の所見"}（{prev.time} {displayText(prev.by)}）
@@ -234,7 +240,7 @@ function ReportForm({ r, onDesk, nowTime, people, desk }: Pick<Props, "onDesk" |
       {r.work?.draft && <p className="text-yamabuki">下書き（技師）　{r.work.draft.by}　{r.work.draft.time}</p>}
       <PhysioMeasurements test={r.test} raw={effective} values={values} onValue={(key, value) => {
         setVals({ ...vals, [key]: value });
-        setManual((current) => { const next = new Set(current); if (value.trim()) next.add(key); else next.delete(key); return next; });
+        setManualKeys((current) => { const next = new Set(current); if (value.trim()) next.add(key); else next.delete(key); return [...next]; });
       }} facts={facts} selections={selections} onSelections={setSelections} disabled={!!deny} previous={previous} />
       <button type="button" disabled={!!deny} className="rounded border border-ai px-2 text-ai" onClick={() => setFindings(physioDraft(r.test, values, selections, facts))}>所見の下書きを作る</button>
       {derived.length > 0 && r.test !== "PHY-UCG" && r.test !== "PHY-SPIRO" && (

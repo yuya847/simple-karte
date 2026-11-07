@@ -8,9 +8,9 @@ export const WindowEntryContext = createContext<{ scope: string; entries: Window
 
 export const entryKey = (scope: string, field: string) => JSON.stringify([scope, field]);
 
-export function useWindowEntry<T>(field: string, initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>, () => void] {
+export function useWindowEntry<T>(field: string, initial: T | (() => T), scope?: string): [T, Dispatch<SetStateAction<T>>, () => void] {
   const context = useContext(WindowEntryContext);
-  const key = entryKey(context?.scope ?? "", field);
+  const key = entryKey(scope ?? context?.scope ?? "", field);
   const read = (): T => context && key in context.entries ? context.entries[key] as T : typeof initial === "function" ? (initial as () => T)() : initial;
   const fresh = () => { const value = read(); return { key, value, source: context?.entries[key], published: value, cleared: false }; };
   const [stored, setStored] = useState(fresh);

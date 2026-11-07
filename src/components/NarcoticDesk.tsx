@@ -63,8 +63,7 @@ export function NarcoticDesk({ people, patientNames = {}, today, nowTime, book, 
   const who = (pid: string | undefined) => people.find((x) => x.patient.id === pid);
   const patientName = (pid: string | undefined) => who(pid)?.patient.name ?? (pid ? patientNames[pid] ?? `患者ID ${pid}` : "患者ID不明");
   const label = (pid: string | undefined) => {
-    const x = who(pid);
-    return x ? `${x.patient.name}（ID ${x.patient.id}）` : patientName(pid);
+    return `${patientName(pid)}（ID ${pid ?? "不明"}）`;
   };
   const orders = people.flatMap((x) => narcoticOrders(x.entries, -1).map((e) => ({ x, e })));
   const [printing, setPrinting] = useState<React.ReactNode | null>(null);
@@ -186,7 +185,7 @@ export function NarcoticDesk({ people, patientNames = {}, today, nowTime, book, 
         {toReceive.map((s) => (
           <div key={s.id} className="mb-2 flex flex-wrap items-center gap-3 rounded-md border border-rule-soft px-3 py-2">
             <span>
-              {day(s.usedAt.day)} {s.usedAt.time}　<b>{patientName(s.patientId)}</b>　{anyDrugName(s.code)}
+              {day(s.usedAt.day)} {s.usedAt.time}　<b>{label(s.patientId)}　施用票 {s.id}</b>　{anyDrugName(s.code)}
               <DrugMarks codes={[s.code]} />
             </span>
             <span className="nums text-xs">
@@ -226,7 +225,7 @@ export function NarcoticDesk({ people, patientNames = {}, today, nowTime, book, 
             <div key={e.id} className="mb-1 flex flex-wrap items-center gap-2 text-xs">
               <span>
                 {day(e.at.day)}　{anyDrugName(e.code)}（{e.paren}
-                {unitOf(e.code)}）{displayText(e.note)}　廃棄 {day(e.disposal.at.day)} {e.disposal.method}　立会 {displayText(e.disposal.witness)}
+                {unitOf(e.code)}）{label(e.patientId)}　返納番号 {e.id}　{displayText(e.note)}　廃棄 {day(e.disposal.at.day)} {e.disposal.method}　立会 {displayText(e.disposal.witness)}
               </span>
               {e.notice &&
                 (e.notice.filedOn !== undefined ? (
@@ -243,7 +242,7 @@ export function NarcoticDesk({ people, patientNames = {}, today, nowTime, book, 
           ) : (
             <Dispose
               key={e.id}
-              title={displayText(`${day(e.at.day)} ${e.at.time}　${anyDrugName(e.code)}（${e.paren}${unitOf(e.code)}）${e.note}`)}
+              title={displayText(`${day(e.at.day)} ${e.at.time}　${anyDrugName(e.code)}（${e.paren}${unitOf(e.code)}）${label(e.patientId)}　${e.slipId ? `施用票 ${e.slipId}` : `返納番号 ${e.id}`}　${e.note}`)}
               onDone={(witness, method) => {
                 onBook((b) => disposeReturned(b, e.id, ME, witness, method, now));
                 log("返納された麻薬を廃棄した（立会い）", undefined, `${anyDrugName(e.code)} ${e.paren}${unitOf(e.code)} 立会 ${witness}`);
@@ -254,7 +253,7 @@ export function NarcoticDesk({ people, patientNames = {}, today, nowTime, book, 
         )}
       </div>
 
-      <Ledger book={book} onBook={onBook} today={today} now={now} newId={newId} log={log} />
+      <Ledger patientLabel={label} book={book} onBook={onBook} today={today} now={now} newId={newId} log={log} />
 
       <Accidents book={book} onBook={onBook} today={today} now={now} newId={newId} log={log} print={print} />
 
@@ -310,7 +309,7 @@ function Dispose({ title, note, onDone }: { title: string; note: string; onDone:
 type Sub = { book: NarcoticBook; onBook: Props["onBook"]; today: CalendarDate; now: When; newId: () => string; log: (a: string, p?: string, d?: string) => void };
 
 /** 麻薬帳簿（受払簿）: one account per item, 受入・払出・残高・備考, and the 受入・照合 lines. */
-function Ledger({ book, onBook, today, now, newId, log }: Sub) {
+function Ledger({ book, onBook, today, now, newId, log, patientLabel }: Sub & { patientLabel: (id: string | undefined) => string }) {
   const codes = [...NARCOTICS];
   const [code, setCode] = useState(codes[0]);
   const [inQty, setInQty] = useState("");
@@ -361,7 +360,7 @@ function Ledger({ book, onBook, today, now, newId, log }: Sub) {
               <td className="py-0.5 text-right">{r.rest}</td>
               <td className="py-0.5 pl-3">
                 <span className="text-ink-soft">{r.kind}　</span>
-                {displayText(r.note)}
+                {r.patientId && <span>{patientLabel(r.patientId)}　{r.slipId ? `施用票 ${r.slipId}` : `記録番号 ${r.id}`}　</span>}{displayText(r.note)}
                 {r.disposal && (
                   <span className="text-ink-soft">
                     　（{r.disposal.amount} 廃棄 {r.disposal.method}・立会者 {displayText(r.disposal.witness)}）

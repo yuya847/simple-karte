@@ -1,6 +1,7 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
+import { useWindowEntry } from "@/lib/window-entry";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { BroughtReport } from "@/lib/pharmacy";
@@ -25,7 +26,7 @@ const area = "w-full rounded border border-rule bg-paper px-2 py-1.5 text-[13px]
 export function ShidoPanel({ people, today, records, onRecord, reports = [] }: { reports?: BroughtReport[]; people: WorkPatient[]; today: CalendarDate; records: Record<string, ShidoEntry[]>; onRecord: (patientId: string, rec: Omit<ShidoEntry, "at" | "day">) => void }) {
   const [patientId, setPatientId] = useState(people[0]?.patient.id ?? "");
   const [savedPatient, setSavedPatient] = useState<string | null>(null);
-  const [form, setForm] = useState<ShidoForm>(EMPTY_FORM);
+  const [form, setForm] = useWindowEntry<ShidoForm>(`shido-form`, EMPTY_FORM, `${patientId}:薬剤師`);
   const set = (x: Partial<ShidoForm>) => setForm((f) => ({ ...f, ...x }));
   const person = people.find((x) => x.patient.id === patientId);
   const recs = records[patientId] ?? [];
@@ -49,8 +50,7 @@ export function ShidoPanel({ people, today, records, onRecord, reports = [] }: {
             value={patientId}
             onChange={(e) => {
               setPatientId(e.target.value);
-              setSavedPatient(patientId);
-            setForm(EMPTY_FORM);
+              setSavedPatient(null);
             }}
             className="rounded border border-rule bg-paper px-2 py-1"
           >
