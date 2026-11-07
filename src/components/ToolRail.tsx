@@ -5,14 +5,14 @@ import { calendarGroup } from "@/lib/prescription-calendar";
 import { MessageSquareWarning, TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Calculator, ChartSpline, Gauge, Grip, Sigma, Mail } from "lucide-react";
-import { placeTool, resolveTools, showTool } from "@/lib/tool-layout";
+import { hideTool, placeTool, resolveTools, showTool } from "@/lib/tool-layout";
 import { ToolLayoutEditor } from "./ToolLayoutEditor";
 import { AllTools, type AllToolGroup } from "./AllTools";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DragEvent, PointerEvent } from "react";
 import { specialistRoles } from "@/lib/specialist";
 import { loadMyTemplates } from "@/lib/note-templates";
-import { PIN_DRAG, isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type RailGroupKey } from "@/lib/rail";
+import { PIN_DRAG, isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type RailGroupKey, type RailState } from "@/lib/rail";
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 import { usePressMenu } from "./PressMenu";
@@ -244,6 +244,14 @@ export function pinActions(pins: RailPin[], pin: RailPin, onPins: (pins: RailPin
   return [{ label: pins.includes(pin) ? "★お気に入りから外す" : "★お気に入りに入れる", onClick: () => onPins(togglePin(pins, pin)) }];
 }
 
+/**
+ * The whole menu of a tile (right-click, long press, the ContextMenu key; also in 全ツール): ★, and この道具を隠す
+ * (表示に戻す for a hidden one). A pinned template is not a tool of the rail, so it has only ★.
+ */
+export function tileActions(pins: RailPin[], pin: RailPin, onPins: (pins: RailPin[]) => void, tool: { hidden: boolean; onHide: () => void; onShow: () => void } | null): CellAction[] {
+  return [...pinActions(pins, pin, onPins), ...(tool ? [tool.hidden ? { label: "表示に戻す", onClick: tool.onShow } : { label: "この道具を隠す", onClick: tool.onHide }] : [])];
+}
+
 /** The red circle with a count on a tool (shu for a panic value, ai otherwise). */
 const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ${urgent ? "bg-shu" : "bg-ai"}`;
 
@@ -275,13 +283,54 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   // A tool dragged over the お気に入り column lights it; dropping it there pins it.
   const [dropping, setDropping] = useState(false);
   const all = defaults.flatMap((g) => [...g.main, ...g.more]);
-  // 全ツール (every tool, to open or to drag back) and the tiles lit while a tool is dragged over them.
+  // 全ツール (every tool, to open or to drag back), the tiles lit while a tool is dragged over them, the tile being
+  // dragged from the rail (let go outside the rail: hidden, or out of お気に入り), and the note that offers 元に戻す.
   const [allOpen, setAllOpen] = useState(false);
   const allButton = useRef<HTMLButtonElement>(null);
   const aside = useRef<HTMLElement>(null);
   const [gridDrop, setGridDrop] = useState(false);
+  const dragFrom = useRef<{ pin: RailPin; where: "pins" | "tab" } | null>(null);
+  const [undo, setUndo] = useState<{ text: string; before: RailState } | null>(null);
+  useEffect(() => {
+    if (!undo) return;
+    const t = window.setTimeout(() => setUndo(null), 5000);
+    return () => window.clearTimeout(t);
+  }, [undo]);
   const isTool = (pin: RailPin) => layout.groups.some((g) => g.tools.includes(pin));
-  const actionsFor = (pin: RailPin): CellAction[] => pinActions(rail.pins, pin, setPins);
+  const change = (next: RailState, text: string) => {
+    setUndo({ text, before: rail });
+    put(next);
+  };
+  const hide = (pin: RailPin) => change({ ...rail, layout: hideTool(layout, pin) }, "隠しました");
+  const unpin = (pin: RailPin) => change({ ...rail, pins: rail.pins.filter((p) => p !== pin) }, "お気に入りから外しました");
+  const actionsFor = (pin: RailPin): CellAction[] =>
+    tileActions(rail.pins, pin, setPins, isTool(pin) ? { hidden: layout.hidden.includes(pin), onHide: () => hide(pin), onShow: () => put({ ...rail, layout: showTool(layout, pin) }) } : null);
+  const outside = useRef<(d: { pin: RailPin; where: "pins" | "tab" }) => void>(() => {});
+  useEffect(() => {
+    outside.current = (d) => (d.where === "pins" ? unpin(d.pin) : isTool(d.pin) && hide(d.pin));
+  });
+  useEffect(() => {
+    // Anywhere outside the rail takes a tile dragged from the rail (nothing else there takes it).
+    const away = (e: globalThis.DragEvent) => !!dragFrom.current && !e.defaultPrevented && !aside.current?.contains(e.target as Node);
+    const over = (e: globalThis.DragEvent) => {
+      if (!away(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    };
+    const drop = (e: globalThis.DragEvent) => {
+      if (!away(e)) return;
+      e.preventDefault();
+      const d = dragFrom.current!;
+      dragFrom.current = null;
+      outside.current(d);
+    };
+    window.addEventListener("dragover", over);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("drop", drop);
+    };
+  }, []);
   // Every tile stays visible (ユーザー 2026-11-05：「すべて表示は常時オン」); the ones a role cannot use are greyed with the reason.
   const showAll = true;
   const list = rail.mode === "list";
@@ -331,8 +380,10 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           onDragStart: (e: DragEvent<HTMLButtonElement>) => {
             e.dataTransfer.setData(PIN_DRAG, t.pin);
             e.dataTransfer.effectAllowed = "copyMove";
+            dragFrom.current = { pin: t.pin, where };
           },
           onDragEnd: () => {
+            dragFrom.current = null;
             setGridDrop(false);
             setDropping(false);
           },
@@ -399,6 +450,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           setDropping(false);
           if (!pin) return;
           e.preventDefault();
+          dragFrom.current = null;
           // A hidden tool dropped here (from 全ツール) is shown again.
           put({ ...rail, pins: rail.pins.includes(pin) ? rail.pins : [...rail.pins, pin], layout: layout.hidden.includes(pin) ? showTool(layout, pin) : rail.layout });
         }}
@@ -456,6 +508,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
             setGridDrop(false);
             if (!pin) return;
             e.preventDefault();
+            dragFrom.current = null;
             const before = (e.target as Element).closest<HTMLElement>("[data-tool]")?.dataset.tool;
             if (isTool(pin)) put({ ...rail, layout: placeTool(layout, pin, group.key, before) });
           }}
@@ -487,6 +540,14 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           onClose={() => setAllOpen(false)}
           menuFor={(t) => actionsFor(t.pin)}
         />
+      )}
+      {undo && (
+        <div role="status" className="absolute inset-x-1.5 bottom-1.5 z-20 flex items-center gap-2 rounded-md border border-rule bg-sheet px-2 py-1.5 text-[11px] text-ink shadow-[0_8px_20px_-8px_rgba(38,34,28,0.45)]">
+          {undo.text}
+          <button type="button" onClick={() => { put(undo.before); setUndo(null); }} className="ml-auto rounded px-1.5 py-0.5 font-bold text-ai hover:bg-ai-soft">
+            元に戻す
+          </button>
+        </div>
       )}
     </aside>
   );

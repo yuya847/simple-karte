@@ -8,7 +8,7 @@ import { resolveTools } from "@/lib/tool-layout";
 import { STAFF } from "@/lib/roles";
 import { AllToolsList, type AllToolGroup } from "./AllTools";
 import { MeProvider, RoleProvider } from "./RoleContext";
-import { ToolRail, groupsFor } from "./ToolRail";
+import { ToolRail, groupsFor, tileActions } from "./ToolRail";
 
 const doctor = (el: React.ReactElement) =>
   renderToStaticMarkup(
@@ -52,10 +52,23 @@ describe("全ツールの一覧", () => {
   });
 });
 
-describe("隠した道具（人ごと）", () => {
+describe("道具を隠す・戻す（人ごと）", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     saveRail(STAFF["医師"].name, { mode: "icons", pins: [] });
+  });
+
+  it("右クリック・長押しのメニュー：★と「この道具を隠す」、隠しているものは「表示に戻す」。テンプレートの★は★だけ", () => {
+    const calls: string[] = [];
+    const tool = (hidden: boolean) => ({ hidden, onHide: () => calls.push("hide"), onShow: () => calls.push("show") });
+    const shown = tileActions([], "add-rx", () => calls.push("pin"), tool(false));
+    expect(shown.map((a) => a.label)).toEqual(["★お気に入りに入れる", "この道具を隠す"]);
+    shown[1].onClick();
+    const hidden = tileActions([], "add-rx", () => {}, tool(true));
+    expect(hidden.map((a) => a.label)).toEqual(["★お気に入りに入れる", "表示に戻す"]);
+    hidden[1].onClick();
+    expect(calls).toEqual(["hide", "show"]);
+    expect(tileActions(["template:t1"], "template:t1", () => {}, null).map((a) => a.label)).toEqual(["★お気に入りから外す"]);
   });
 
   it("隠した道具は種類のタブの並びにもお気に入りにも出ない。ほかの道具は落とし先の印（data-tool）を持つ", () => {
