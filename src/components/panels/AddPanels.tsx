@@ -595,7 +595,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                 </InjectionEntryRow>
                 <InjectionEntryRow step="days" active={rp.step} className="basis-full">
                 <label className="block">終了 <input aria-label={`Rp${first + i} の終了日`} type="number" placeholder="今日からの日数" value={rp.endDay ?? ""} onChange={(e) => upd(i, { endDay: e.target.value ? Number(e.target.value) : undefined })} className={`${field} w-16`} /> <TimeInput allow24 options={[...(rp.doseTimes ?? []), ...INJECTION_TIME_OPTIONS]} aria-label={`Rp${first + i} の終了時刻`} value={rp.endTime ?? ""} onChange={(e) => upd(i, { endTime: e.target.value })} className={field} /></label>
-                {!rp.endTime && autoEnd && <p className="text-xs">最終投与の終了予定：{autoEnd.day === 0 ? "今日" : `${autoEnd.day}日後`} {autoEnd.time}（量と時間から計算）</p>}
+                {!rp.endTime && autoEnd && !contOf(rp) && <p className="text-xs">最終投与の終了予定：{autoEnd.day === 0 ? "今日" : `${autoEnd.day}日後`} {autoEnd.time}（量と時間から計算）</p>}
                 {validateInjectionEnd(rp.startDay, rp.startTime, Number(rp.days), rp.endDay, rp.endTime, rp.minutes, rp.doseTimes).map((m) => <p key={m} className="text-shu">{m}</p>)}
                 </InjectionEntryRow>
                 <label className="whitespace-nowrap"><input type="checkbox" disabled={!!rp.sliding} checked={!rp.sliding && !!rp.alreadyDone} onChange={(e) => upd(i, { alreadyDone: e.target.checked })} /> 実施済み</label>
