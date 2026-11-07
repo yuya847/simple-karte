@@ -15,7 +15,6 @@ export const FONT_SIZES = [
   { key: "sm", label: "小" },
   { key: "md", label: "標準" },
   { key: "lg", label: "大" },
-  { key: "xl", label: "特大" },
 ] as const;
 export type FontSize = (typeof FONT_SIZES)[number]["key"];
 
@@ -46,7 +45,8 @@ export function normalizeAppearance(raw: unknown): Appearance {
   const o = raw as { theme?: unknown; font?: unknown };
   return {
     theme: typeof o.theme === "string" && THEME_KEYS.has(o.theme) ? (o.theme as Theme) : DEFAULT_APPEARANCE.theme,
-    font: typeof o.font === "string" && FONT_KEYS.has(o.font) ? (o.font as FontSize) : DEFAULT_APPEARANCE.font,
+    // 字の大きさは3段階（2026-11-07 ユーザー）。前の「特大」は「大」として読む。
+    font: o.font === "xl" ? "lg" : typeof o.font === "string" && FONT_KEYS.has(o.font) ? (o.font as FontSize) : DEFAULT_APPEARANCE.font,
   };
 }
 

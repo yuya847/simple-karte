@@ -430,7 +430,6 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
         if (e.target === e.currentTarget) focusLine(lines.length - 1, Infinity);
       }}
     >
-      <div className="flex justify-end gap-2 text-xs text-ink-soft"><button type="button" aria-label="文字を小さく" disabled={size === 13} onClick={() => resize(-3)}>A−</button><button type="button" aria-label="文字を大きく" disabled={size === 19} onClick={() => resize(3)}>A＋</button></div>
       {whole && <textarea ref={wholeRef} aria-label="記事の全行" value={value} readOnly={readOnly}
         className={`${TEXT} absolute left-6 top-1.5 z-20 w-[calc(100%-2rem)] h-[calc(100%-0.75rem)] min-h-20 resize-none bg-sheet caret-ai outline-none`}
         onKeyDown={e => {
@@ -592,11 +591,22 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               <span className="text-[11px] text-ink-faint">{key}</span>
             </button>
           ))}
+          {/* 記事の字の大きさ（3段階）。前の A−／A+ のボタンの代わり（ユーザー 2026-11-07「アイコンなくして右クリックで」）。 */}
+          <div role="group" aria-label="記事の字の大きさ" className="mt-1 flex items-center gap-1 border-t border-rule px-2 pb-0.5 pt-1.5 text-[12px]">
+            <span className="mr-auto text-ink-soft">字の大きさ</span>
+            {NOTE_SIZES.map(([label, n]) => (
+              <button key={n} type="button" role="menuitemradio" aria-checked={size === n} onMouseDown={(e) => e.preventDefault()} onClick={() => { resize(n - size); setMenu(null); }} className={`rounded px-2 py-0.5 ${size === n ? "bg-ai text-white" : "hover:bg-ai-soft"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+const NOTE_SIZES: [string, number][] = [["小", 13], ["中", 16], ["大", 19]];
 
 type MenuKind = "claude" | "📋 " | "bold" | "italic" | "cut" | "copy" | "paste" | "・ " | "1. " | "☐ " | "> " | "💡 " | "❗ ";
 const MENU_ITEMS: [string, string, MenuKind][] = [

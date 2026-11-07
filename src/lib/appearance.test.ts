@@ -21,10 +21,10 @@ afterEach(() => vi.unstubAllGlobals());
 describe("設定の読み書き（人ごと・この端末だけ）", () => {
   it("人ごとに保存し、別の人は標準のまま。最後に出した見た目も覚える", () => {
     const { data, store } = memory();
-    saveAppearance("山本", { theme: "dark", font: "xl" }, store);
-    expect(loadAppearance("山本", store)).toEqual({ theme: "dark", font: "xl" });
+    saveAppearance("山本", { theme: "dark", font: "lg" }, store);
+    expect(loadAppearance("山本", store)).toEqual({ theme: "dark", font: "lg" });
     expect(loadAppearance("田中", store)).toEqual(DEFAULT_APPEARANCE);
-    expect(JSON.parse(data.get(LAST_APPEARANCE_KEY)!)).toEqual({ theme: "dark", font: "xl" });
+    expect(JSON.parse(data.get(LAST_APPEARANCE_KEY)!)).toEqual({ theme: "dark", font: "lg" });
   });
 
   it("壊れた値・知らない値・読めない保存先は標準", () => {
@@ -38,19 +38,20 @@ describe("設定の読み書き（人ごと・この端末だけ）", () => {
     expect(() => saveAppearance("山本", { theme: "dark", font: "md" }, blocked)).not.toThrow();
   });
 
-  it("見た目は紙・白・ダーク・くっきり、字の大きさは小・標準・大・特大（0.9・1・1.12・1.25）", () => {
+  it("見た目は紙・白・ダーク・くっきり、字の大きさは小・標準・大の3段階（0.9・1・1.12）。前の「特大」は「大」として読む", () => {
     expect(THEMES.map((t) => t.label)).toEqual(["紙", "白", "ダーク", "くっきり"]);
-    expect(FONT_SIZES.map((f) => f.label)).toEqual(["小", "標準", "大", "特大"]);
-    expect(FONT_SIZES.map((f) => fontZoom(f.key))).toEqual([0.9, 1, 1.12, 1.25]);
+    expect(FONT_SIZES.map((f) => f.label)).toEqual(["小", "標準", "大"]);
+    expect(FONT_SIZES.map((f) => fontZoom(f.key))).toEqual([0.9, 1, 1.12]);
+    expect(loadAppearance("古い保存", { getItem: () => JSON.stringify({ theme: "dark", font: "xl" }), setItem: () => {} })).toEqual({ theme: "dark", font: "lg" });
   });
 });
 
 describe("ページに付ける", () => {
   it("紙・標準は属性を外し、ほかは data-theme・data-font を付ける。バーの色も替える", () => {
     const { a, meta, doc } = fakeDoc({ "data-theme": "dark", "data-font": "lg" });
-    applyAppearance({ theme: "white", font: "xl" }, doc);
+    applyAppearance({ theme: "white", font: "lg" }, doc);
     expect(a.get("data-theme")).toBe("white");
-    expect(a.get("data-font")).toBe("xl");
+    expect(a.get("data-font")).toBe("lg");
     expect(meta.get("content")).toBe("#f4f4f2");
     applyAppearance(DEFAULT_APPEARANCE, doc);
     expect(a.has("data-theme")).toBe(false);
@@ -74,7 +75,7 @@ describe("ページに付ける", () => {
       new Function("localStorage", "document", appearanceBootScript())(localStorage, doc);
       return Object.fromEntries(a);
     };
-    expect(run(JSON.stringify({ theme: "dark", font: "xl" }))).toEqual({ "data-theme": "dark", "data-font": "xl" });
+    expect(run(JSON.stringify({ theme: "dark", font: "lg" }))).toEqual({ "data-theme": "dark", "data-font": "lg" });
     expect(run(JSON.stringify({ theme: "paper", font: "md" }))).toEqual({});
     expect(run(JSON.stringify({ theme: "<x>", font: "huge" }))).toEqual({});
     expect(run(null)).toEqual({});
