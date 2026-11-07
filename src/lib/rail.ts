@@ -53,6 +53,9 @@ export function saveRail(person: string, v: RailState) {
   for (const f of listeners) f();
 }
 
+/** What a dragged tool carries (from the rail or from 全ツール): its pin. */
+export const PIN_DRAG = "application/x-simple-karte-pin";
+
 /** Adds the pin when it is missing, removes it when it is there. */
 export const togglePin = (pins: RailPin[], p: RailPin): RailPin[] => (pins.includes(p) ? pins.filter((k) => k !== p) : [...pins, p]);
 

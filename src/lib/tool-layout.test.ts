@@ -26,3 +26,19 @@ it("隠した道具を全部戻す：並びはそのまま、隠したものだ�
   expect(showAllTools(l)).toEqual({ ...l, hidden: [] });
   expect(showAllTools(undefined)).toBeUndefined();
 });
+it("隠す・戻す・落とした所に置く（人ごとの layout.hidden）", async () => {
+  const { hideTool, showTool, placeTool } = await import("./tool-layout");
+  const l = resolveTools(defaults);
+  const hidden = hideTool(hideTool(l, "inj"), "inj");
+  expect(hidden.hidden).toEqual(["inj"]);
+  expect(hidden.groups).toEqual(l.groups);
+  expect(showTool(hidden, "inj")).toEqual(l);
+  // Dropped on its own group's tiles: shown where it was; on another tile: before it; on another group: at its end.
+  expect(placeTool(hidden, "inj", "intervention")).toEqual(l);
+  expect(placeTool(hidden, "inj", "intervention", "rx").groups[0].tools).toEqual(["inj", "rx"]);
+  const moved = placeTool(hidden, "inj", "reference");
+  expect(moved.hidden).toEqual([]);
+  expect(moved.groups.map((g) => g.tools)).toEqual([["rx"], ["calendar", "inj"]]);
+  // A tool this role does not have is not added.
+  expect(placeTool(l, "forbidden", "reference")).toBe(l);
+});

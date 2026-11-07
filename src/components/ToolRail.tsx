@@ -4,14 +4,15 @@ import { calendarGroup } from "@/lib/prescription-calendar";
 
 import { MessageSquareWarning, TrendingUp, Pill, Syringe, Activity, Bandage, UserCheck, Barcode, CalendarClock, CalendarDays, LayoutGrid, LayoutTemplate, List, Star, ClipboardCheck, ClipboardList, DoorOpen, Droplet, Droplets, FileHeart, FileSearch, FileSignature, FileStack, FileText, FlaskConical, FlaskRound, Footprints, GlassWater, GraduationCap, HeartHandshake, HeartPulse, Hotel, Layers, ListChecks, ListTodo, LockKeyhole, Luggage, MessagesSquare, Microscope, MonitorSmartphone, NotebookPen, PenTool, Radiation, ReceiptJapaneseYen, ScanLine, Share2, TestTube, Thermometer, Utensils, IdCard, ClipboardPen, Landmark, ListX, Route, UsersRound, ScanText, MessageSquareShare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Calculator, ChartSpline, Settings2, Gauge, Sigma, Mail } from "lucide-react";
-import { resolveTools } from "@/lib/tool-layout";
+import { Calculator, ChartSpline, Gauge, Grip, Sigma, Mail } from "lucide-react";
+import { placeTool, resolveTools, showTool } from "@/lib/tool-layout";
 import { ToolLayoutEditor } from "./ToolLayoutEditor";
-import { useState } from "react";
+import { AllTools, type AllToolGroup } from "./AllTools";
+import { useRef, useState } from "react";
 import type { DragEvent, PointerEvent } from "react";
 import { specialistRoles } from "@/lib/specialist";
 import { loadMyTemplates } from "@/lib/note-templates";
-import { isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type RailGroupKey } from "@/lib/rail";
+import { PIN_DRAG, isTemplatePin, templateIdOf, togglePin, useRail, type RailPin, type RailGroupKey } from "@/lib/rail";
 import { findRecordTemplate, shortNameOf } from "@/lib/record-templates";
 import { useMe } from "./RoleContext";
 import { usePressMenu } from "./PressMenu";
@@ -238,9 +239,6 @@ export const GROUP_TAB_CLASS = "relative inline-flex min-h-7 items-center justif
 const toolClass = (off: boolean, active: boolean) =>
   `flex w-full flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] leading-tight ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`;
 
-/** What a dragged tool carries: its pin, for the お気に入り column to take. */
-const PIN_DRAG = "application/x-simple-karte-pin";
-
 /** The menu of a tool (right-click, long press, the ContextMenu key): ★ puts it in お気に入り or takes it out. */
 export function pinActions(pins: RailPin[], pin: RailPin, onPins: (pins: RailPin[]) => void): CellAction[] {
   return [{ label: pins.includes(pin) ? "★お気に入りから外す" : "★お気に入りに入れる", onClick: () => onPins(togglePin(pins, pin)) }];
@@ -277,6 +275,13 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
   // A tool dragged over the お気に入り column lights it; dropping it there pins it.
   const [dropping, setDropping] = useState(false);
   const all = defaults.flatMap((g) => [...g.main, ...g.more]);
+  // 全ツール (every tool, to open or to drag back) and the tiles lit while a tool is dragged over them.
+  const [allOpen, setAllOpen] = useState(false);
+  const allButton = useRef<HTMLButtonElement>(null);
+  const aside = useRef<HTMLElement>(null);
+  const [gridDrop, setGridDrop] = useState(false);
+  const isTool = (pin: RailPin) => layout.groups.some((g) => g.tools.includes(pin));
+  const actionsFor = (pin: RailPin): CellAction[] => pinActions(rail.pins, pin, setPins);
   // Every tile stays visible (ユーザー 2026-11-05：「すべて表示は常時オン」); the ones a role cannot use are greyed with the reason.
   const showAll = true;
   const list = rail.mode === "list";
@@ -314,9 +319,10 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
     const isPin = rail.pins.includes(t.pin);
     const badge = t.badge;
     const tileList = list && where === "tab";
-    const press = bind(t.label, () => pinActions(rail.pins, t.pin, setPins));
-    // Only a mouse drags a tool to お気に入り; a finger's long press is the menu (an iPad would start a drag instead).
-    const drag = where === "tab" && !off
+    const press = bind(t.label, () => actionsFor(t.pin));
+    // Only a mouse drags a tool (to お気に入り, among the tiles, or out of the rail); a finger's long press is the menu
+    // (an iPad would start a drag instead).
+    const drag = !off
       ? {
           onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
             e.currentTarget.draggable = e.pointerType === "mouse";
@@ -324,7 +330,11 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           },
           onDragStart: (e: DragEvent<HTMLButtonElement>) => {
             e.dataTransfer.setData(PIN_DRAG, t.pin);
-            e.dataTransfer.effectAllowed = "copy";
+            e.dataTransfer.effectAllowed = "copyMove";
+          },
+          onDragEnd: () => {
+            setGridDrop(false);
+            setDropping(false);
           },
         }
       : {};
@@ -332,7 +342,7 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
       ? `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ${off ? "cursor-not-allowed text-ink-faint/50" : active ? "bg-ai text-white" : "text-ink-soft hover:bg-sheet hover:text-ink"}`
       : toolClass(off, active);
     return (
-      <div key={`${where}-${t.pin}`} className="relative">
+      <div key={`${where}-${t.pin}`} data-tool={where === "tab" ? t.pin : undefined} className="relative">
         <button type="button" disabled={off} title={why ?? (t.disabled ? `${t.label}（この試作では未対応）` : t.title ?? t.label)} {...press} {...drag} onClick={() => !off && t.go()} aria-pressed={active} className={base}>
           <Icon size={tileList ? 15 : 18} strokeWidth={1.8} className="shrink-0" />
           <span className={tileList ? "truncate" : where === "pins" ? "w-full break-words text-center" : ""}>{t.label}{t.pin === "add-consult" && where !== "pins" && <small className="block text-[9px] font-normal">他科依頼・紹介</small>}</span>
@@ -358,9 +368,23 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
     );
   };
   const grid = list ? "flex flex-col gap-0.5" : "grid grid-cols-3 gap-0.5";
+  // 全ツール: every tool of the role in the rail's groups and order, the hidden ones too.
+  const allGroups = (): AllToolGroup[] =>
+    layout.groups
+      .map((g) => ({
+        key: g.key,
+        title: g.title,
+        tools: g.tools.flatMap((key) => {
+          const w = windows.find((x) => x.pin === key);
+          const t = all.find((x) => x.key === key);
+          const tile = w ?? (t ? toolTile(t) : null);
+          return tile ? [{ pin: tile.pin, label: tile.label, icon: tile.icon, hidden: layout.hidden.includes(tile.pin), why: tile.why ?? (tile.disabled ? "この試作では未対応" : undefined) }] : [];
+        }),
+      }))
+      .filter((g) => g.tools.length > 0);
 
   return (
-    <aside aria-label="ツール" className="flex min-h-0 overflow-hidden border-l border-rule bg-paper">
+    <aside ref={aside} aria-label="ツール" className="flex min-h-0 overflow-hidden border-l border-rule bg-paper relative">
       <section
         aria-label="お気に入り"
         onDragOver={(e) => {
@@ -375,7 +399,8 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           setDropping(false);
           if (!pin) return;
           e.preventDefault();
-          if (!rail.pins.includes(pin)) setPins([...rail.pins, pin]);
+          // A hidden tool dropped here (from 全ツール) is shown again.
+          put({ ...rail, pins: rail.pins.includes(pin) ? rail.pins : [...rail.pins, pin], layout: layout.hidden.includes(pin) ? showTool(layout, pin) : rail.layout });
         }}
         className={`scroll-thin flex w-14 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-rule px-1 py-1.5 ${dropping ? "bg-yamabuki-soft ring-2 ring-inset ring-yamabuki" : "bg-yamabuki-soft/30"}`}
       >
@@ -383,16 +408,24 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
       </section>
       <div className={`scroll-thin flex min-h-0 shrink-0 flex-col overflow-y-auto px-1 py-1.5 ${list ? "w-44" : "w-52"}`}>
         <div className="mb-1 flex items-center justify-between px-0.5">
-          <span className="text-[10px] text-ink-faint">オーダと道具</span>
-          <span className="flex items-center gap-0.5">
-            <button type="button" title="道具の配置を編集" aria-pressed={editing} onClick={() => setEditing(!editing)} className="rounded p-1"><Settings2 size={13} /></button>
-            <button type="button" onClick={() => setEditPins((v) => !v)} aria-pressed={editPins} title="お気に入りを選ぶ（★を押して出し入れ）" className={`rounded p-1 ${editPins ? "bg-yamabuki-soft text-yamabuki" : "text-ink-faint hover:bg-sheet hover:text-ink"}`}>
-              <Star size={13} />
+          <button ref={allButton} type="button" onClick={() => setAllOpen((v) => !v)} aria-haspopup="dialog" aria-expanded={allOpen} className={`flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] ${allOpen ? "bg-ai-soft text-ai" : "text-ink-soft hover:bg-sheet hover:text-ink"}`}>
+            <Grip size={13} />
+            全ツール
+          </button>
+          {editing ? (
+            <button type="button" onClick={() => setEditing(false)} className="rounded-md bg-ink px-2 py-0.5 text-[11px] font-bold text-white">
+              完了
             </button>
-            <button type="button" onClick={() => put({ ...rail, mode: list ? "icons" : "list" })} title={list ? "アイコンで並べる（3列）" : "名前の一覧で並べる"} className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
-              {list ? <LayoutGrid size={13} /> : <List size={13} />}
-            </button>
-          </span>
+          ) : (
+            <span className="flex items-center gap-0.5">
+              <button type="button" onClick={() => setEditPins((v) => !v)} aria-pressed={editPins} title="お気に入りを選ぶ（★を押して出し入れ）" className={`rounded p-1 ${editPins ? "bg-yamabuki-soft text-yamabuki" : "text-ink-faint hover:bg-sheet hover:text-ink"}`}>
+                <Star size={13} />
+              </button>
+              <button type="button" onClick={() => put({ ...rail, mode: list ? "icons" : "list" })} title={list ? "アイコンで並べる（3列）" : "名前の一覧で並べる"} className="rounded p-1 text-ink-faint hover:bg-sheet hover:text-ink">
+                {list ? <LayoutGrid size={13} /> : <List size={13} />}
+              </button>
+            </span>
+          )}
         </div>
         {me.role === "医師" && me.name.startsWith("麻酔科 ") && onAnesthesia && <div className="mb-2 flex flex-col gap-1">{["術前診察", "麻酔記録", "術後回診"].map(tab => <button key={tab} className="rounded border border-rule bg-sheet px-2 py-1 text-left text-xs" onClick={() => onAnesthesia(tab)}>{tab}</button>)}</div>}
         <div className="mb-1 flex items-start gap-1">
@@ -408,7 +441,25 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
           })}
         </div>
         </div>
-        {editing ? <ToolLayoutEditor layout={layout} icons={Object.fromEntries([...all.map(toolTile), ...windows].map(t => [t.pin, t.icon]))} labels={Object.fromEntries([...all.map(toolTile), ...windows].map(t => [t.pin, t.label]))} onChange={v => put({ ...rail, layout: v })} onReset={() => put({ ...rail, layout: undefined })} /> : <div className={grid}>
+        {editing ? <ToolLayoutEditor layout={layout} icons={Object.fromEntries([...all.map(toolTile), ...windows].map(t => [t.pin, t.icon]))} labels={Object.fromEntries([...all.map(toolTile), ...windows].map(t => [t.pin, t.label]))} onChange={v => put({ ...rail, layout: v })} onReset={() => put({ ...rail, layout: undefined })} /> : <div
+          className={`${grid} rounded-md ${gridDrop ? "bg-ai-soft/60 ring-2 ring-inset ring-ai" : ""}`}
+          // A tool dropped on the tiles (from 全ツール or the rail) is shown here, before the tile it lands on.
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes(PIN_DRAG)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setGridDrop(true);
+          }}
+          onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setGridDrop(false)}
+          onDrop={(e) => {
+            const pin = e.dataTransfer.getData(PIN_DRAG);
+            setGridDrop(false);
+            if (!pin) return;
+            e.preventDefault();
+            const before = (e.target as Element).closest<HTMLElement>("[data-tool]")?.dataset.tool;
+            if (isTool(pin)) put({ ...rail, layout: placeTool(layout, pin, group.key, before) });
+          }}
+        >
           {group.tools.filter(key => !layout.hidden.includes(key)).map(key => {
             const w = windows.find(t => t.pin === key);
             const t = all.find(t => t.key === key);
@@ -418,6 +469,25 @@ export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, inje
 
       </div>
       {menu}
+      {allOpen && (
+        <AllTools
+          anchor={allButton}
+          rail={aside}
+          groups={allGroups()}
+          onOpen={(pin) => {
+            setAllOpen(false);
+            const w = windows.find((x) => x.pin === pin);
+            if (w) w.go();
+            else onOpen(pin as PanelKind);
+          }}
+          onEdit={() => {
+            setAllOpen(false);
+            setEditing(true);
+          }}
+          onClose={() => setAllOpen(false)}
+          menuFor={(t) => actionsFor(t.pin)}
+        />
+      )}
     </aside>
   );
 }

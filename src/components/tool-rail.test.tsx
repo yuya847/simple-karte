@@ -172,7 +172,7 @@ describe("アイコン列の左のお気に入り", () => {
     expect(fav).toContain("w-14 shrink-0");
     expect(fav).not.toMatch(/<p class="hint [^"]*">★ をここに<\/p>/);
     expect(fav).not.toContain("<button");
-    expect(html.indexOf(fav)).toBeLessThan(html.indexOf("オーダと道具"));
+    expect(html.indexOf(fav)).toBeLessThan(html.indexOf("全ツール"));
   });
 
   it.each(["icons", "list"] as const)("%s表示でも保存順に縦タイルを並べ、選択と件数を表示する", (mode) => {

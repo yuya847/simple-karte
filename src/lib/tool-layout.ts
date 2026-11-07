@@ -43,3 +43,21 @@ export function deleteToolGroup(layout: ToolLayout, key: string): ToolLayout {
 export function showAllTools(saved?: ToolLayout): ToolLayout | undefined {
   return saved ? { ...saved, hidden: [] } : undefined;
 }
+/** この道具を隠す: it keeps its place in its group and comes back there when shown again. */
+export function hideTool(layout: ToolLayout, tool: string): ToolLayout {
+  return layout.hidden.includes(tool) ? layout : { ...layout, hidden: [...layout.hidden, tool] };
+}
+/** Show a hidden tool again where it was. */
+export function showTool(layout: ToolLayout, tool: string): ToolLayout {
+  return layout.hidden.includes(tool) ? { ...layout, hidden: layout.hidden.filter((t) => t !== tool) } : layout;
+}
+/**
+ * A tool dropped on a group's tiles (from 全ツール or the rail itself): shown again, and placed before the tile it
+ * was dropped on, or at the end of that group when it came from another group. A tool the role does not have stays out.
+ */
+export function placeTool(layout: ToolLayout, tool: string, group: string, before?: string): ToolLayout {
+  if (!layout.groups.some((g) => g.tools.includes(tool))) return layout;
+  const shown = showTool(layout, tool);
+  if (before && before !== tool) return moveTool(shown, tool, group, before);
+  return shown.groups.find((g) => g.key === group)?.tools.includes(tool) ? shown : moveTool(shown, tool, group);
+}
