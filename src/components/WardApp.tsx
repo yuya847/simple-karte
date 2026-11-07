@@ -3874,7 +3874,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} onVoidIo={(lot, reason) => transfusionIoIds(io, patient.id, lot).forEach((id) => voidIo(id, reason))} />
                 </Drawer>
               )}
-              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide initialWidth={1200}><IcuPanel key={patient.id} patient={patient.id.startsWith("er:") && PATIENTS.some(p => p.id === patient.id.slice(3)) ? { ...patient, id: patient.id.slice(3) } : patient} records={visibleIcuRecords(icu, abs(0, nowTime))} onChange={next => setIcu(saved => retainFutureHourly(saved, savedIcuRecords(next), abs(0, nowTime)))} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} onOrder={ds => confirmDrafts(ds)} onDraft={deny("order") ? undefined : (d) => { addManualLab(d); closePanel(); focusDraftLine(d.id); }} targets={standingNow(patient.id)?.other ?? ""} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
+              {panel === "icu" && icuRecordShown(patient, icu) && <Drawer title="ICU 記録" onClose={closePanel} wide initialWidth={1200}><IcuPanel key={patient.id} patient={patient.id.startsWith("er:") && PATIENTS.some(p => p.id === patient.id.slice(3)) ? { ...patient, id: patient.id.slice(3) } : patient} records={visibleIcuRecords(icu, abs(0, nowTime))} onChange={next => setIcu(saved => retainFutureHourly(saved, savedIcuRecords(next), abs(0, nowTime)))} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} onOrder={ds => confirmDrafts(ds)} onDraft={deny("order") ? undefined : (d) => { addManualLab(d); closePanel(); focusDraftLine(d.id); }} targets={standingNow(patient.id)?.other ?? ""} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
               {panel === "io" && (
                 <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
                   <IoPanel
@@ -4607,6 +4607,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               </>
             )}
             <ToolRail key={patient.id}
+              unavailable={icuRecordShown(patient, icu) ? [] : ["icu"]}
               onAnesthesia={(tab) => { setAnesthesiaTab({tab, patientId: patient.id}); openArea("or"); setFront(f => ({ ...f, or: undefined })); }}
               open={panel}
               badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, anamnesis: { n: pendingIntakes(readInbox(portalInbox), patient.id).length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}

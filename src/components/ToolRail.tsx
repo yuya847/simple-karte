@@ -214,6 +214,8 @@ interface Props {
   calendars?: { key: string; label: string; title?: string; icon: LucideIcon; on: boolean; open: () => void }[];
   /** Counts shown as a red circle on a tool's icon (e.g. 未確認の結果 on 検査結果); urgent = a panic value among them. */
   badges?: Partial<Record<PanelKind, { n: number; urgent?: boolean }>>;
+  /** Tools that do not apply to this patient (ICU 記録 outside ICU・HCU): not shown, not in 全ツール or お気に入り. */
+  unavailable?: readonly PanelKind[];
 }
 
 /** One button on the rail: a tool, or a pinned template that opens straight into its form. */
@@ -261,9 +263,9 @@ const badgeClass = (urgent?: boolean) => `nums inline-flex h-4 min-w-4 items-cen
  * this person pinned (★) — and the record templates pinned from the テンプレート panel, each opening straight
  * into its form. The pins and the look are kept per person in this browser (src/lib/rail.ts).
  */
-export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, injectionCalendar, calendars = [], badges = {}, onAnesthesia }: Props) {
+export function ToolRail({ open, onOpen, openTemplate = null, blocked = {}, injectionCalendar, calendars = [], badges = {}, onAnesthesia, unavailable = [] }: Props) {
   const me = useMe();
-  const defaults = groupsFor(me.role);
+  const defaults = groupsFor(me.role).map((g) => ({ ...g, main: g.main.filter((t) => !unavailable.includes(t.key)), more: g.more.filter((t) => !unavailable.includes(t.key)) }));
   const short = railIsShort(me.role);
   const [rail, put] = useRail(me.name);
   const [editing, setEditing] = useState(false);
