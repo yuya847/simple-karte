@@ -161,7 +161,11 @@ describe("状態の一括登録", () => {
     expect(html).not.toContain("医政地発1219第1号");
     expect(html).not.toContain("架空の病院の取り決め");
     // 甲 has nothing chosen yet; 乙's 救護区分 comes from the bed.
-    expect(html).toContain("未入力：重症度・観察の程度・生活の自由度・救護区分");
+    // 未入力 is a short mark with the number; the names are in its hover text.
+    expect(html).toMatch(/title="未入力：重症度・観察の程度・生活の自由度・救護区分"[^>]*>未入力 (<!-- -->)?4</);
+    // A row is picked by pressing it (or running down the check column); no separate buttons per row.
+    expect(html).toContain("data-pick-cell");
+    expect(html).toMatch(/<tr class="[^"]*cursor-pointer/);
     expect(html).toMatch(/<option value="担送" title="[^"]*" selected="">担送/);
   });
 
@@ -171,6 +175,7 @@ describe("状態の一括登録", () => {
     expect(html).toContain("登録済み 09:10 看護師 佐藤");
     expect(html).toContain("重症 1");
     expect(html).not.toContain("人を登録する");
+    expect(html).not.toMatch(/<tr class="[^"]*cursor-pointer/);
   });
 });
 

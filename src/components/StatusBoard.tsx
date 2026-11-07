@@ -2,7 +2,7 @@
 
 import { displayText } from "@/lib/display-text";
 import { ClipboardPen } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import {
   FREEDOM,
   OBSERVE,
@@ -27,6 +27,7 @@ import {
   type StatusBook,
   type StatusSheet,
 } from "@/lib/ward-status";
+import { pickRange } from "./OrderSheet";
 import { useMe } from "./RoleContext";
 import { PickSelect, type Pick } from "./WardMap";
 
@@ -61,6 +62,44 @@ function Table({ patients, book, day, shift, nowTime, canType, onRegister }: { p
   const before = lastBefore(book, day, shift);
   const [rows, setRows] = useState<Record<string, PatientStatus>>(() => draftRows(patients, now));
   const [picked, setPicked] = useState<string[]>([]);
+  // Pressing a row picks it (Shift: every row from the last one pressed); running down the check column picks
+  // (or unpicks, when the first row was picked) every row it passes.
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const drag = useRef<boolean | null>(null);
+  useEffect(() => {
+    const up = () => {
+      drag.current = null;
+    };
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, []);
+  const pickOne = (id: string, on: boolean) => setPicked((x) => (on ? (x.includes(id) ? x : [...x, id]) : x.filter((y) => y !== id)));
+  const pressRow = (id: string, e: MouseEvent) => {
+    if (!canType || (e.target as Element).closest("select, button, input, a, label, [data-pick-cell]")) return;
+    if (e.shiftKey && anchor) {
+      const ids = pickRange(
+        patients.map((p) => p.id),
+        anchor,
+        id,
+      );
+      setPicked((x) => [...new Set([...x, ...ids])]);
+    } else pickOne(id, !picked.includes(id));
+    setAnchor(id);
+  };
+  const startRun = (id: string, e: PointerEvent<HTMLTableCellElement>) => {
+    if (!canType || e.button !== 0) return;
+    e.preventDefault();
+    // A finger keeps the pointer on the first cell unless released.
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    const on = !picked.includes(id);
+    drag.current = on;
+    pickOne(id, on);
+    setAnchor(id);
+  };
   const issues = statusIssues(rows, patients);
   const changed = changedRows(rows, now);
   const set = (ids: string[], patch: Parameters<typeof applyToMany>[2]) => setRows((r) => applyToMany(r, ids, patch));
@@ -135,10 +174,25 @@ function Table({ patients, book, day, shift, nowTime, canType, onRegister }: { p
           {patients.map((p) => {
             const r = rows[p.id] ?? { precautions: [] };
             const mine = issues.filter((x) => x.patientId === p.id);
+            const on = picked.includes(p.id);
             return (
-              <tr key={p.id} className={`border-b border-rule-soft align-top ${changed.includes(p.id) && now ? "bg-yamabuki-soft/40" : ""}`}>
-                <td className="px-1.5 py-1">
-                  <input type="checkbox" aria-label={`${p.name}を選ぶ`} checked={picked.includes(p.id)} onChange={() => setPicked((x) => (x.includes(p.id) ? x.filter((y) => y !== p.id) : [...x, p.id]))} className="accent-ai" disabled={!canType} />
+              <tr
+                key={p.id}
+                onMouseDown={(e) => {
+                  if (e.shiftKey && canType) e.preventDefault();
+                }}
+                onClick={(e) => pressRow(p.id, e)}
+                className={`border-b border-rule-soft align-top ${canType ? "cursor-pointer" : ""} ${on ? "bg-ai-soft/60" : changed.includes(p.id) && now ? "bg-yamabuki-soft/40" : ""}`}
+              >
+                <td
+                  data-pick-cell
+                  onPointerDown={(e) => startRun(p.id, e)}
+                  onPointerEnter={() => {
+                    if (drag.current !== null) pickOne(p.id, drag.current);
+                  }}
+                  className={`px-1.5 py-1 ${canType ? "touch-none" : ""}`}
+                >
+                  <input type="checkbox" aria-label={`${p.name}を選ぶ`} checked={on} onChange={() => pickOne(p.id, !on)} className="pointer-events-none accent-ai" disabled={!canType} />
                 </td>
                 <td className="whitespace-nowrap px-1.5 py-1">
                   {p.room} <b>{p.name}</b>
@@ -170,11 +224,17 @@ function Table({ patients, book, day, shift, nowTime, canType, onRegister }: { p
                 </td>
                 <td className="px-1.5 py-1 text-[11px]">
                   {mine.length ? (
-                    mine.map((x) => (
-                      <div key={x.text} className="text-yamabuki">
-                        {displayText(x.text)}
-                      </div>
-                    ))
+                    mine.map((x) =>
+                      x.text.startsWith("未入力：") ? (
+                        <span key={x.text} title={displayText(x.text)} className="inline-block whitespace-nowrap rounded bg-yamabuki-soft px-1 font-bold text-yamabuki">
+                          未入力 {x.text.slice(4).split("・").length}
+                        </span>
+                      ) : (
+                        <div key={x.text} className="text-yamabuki">
+                          {displayText(x.text)}
+                        </div>
+                      ),
+                    )
                   ) : (
                     <span className="text-wakatake">✓</span>
                   )}
