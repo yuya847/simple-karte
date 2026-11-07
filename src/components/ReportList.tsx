@@ -12,7 +12,7 @@ import type { CalendarDate } from "@/lib/dates";
 import type { OpenAt } from "@/lib/open-at";
 import { readStateOf, summaryOf, unreadReports, type Report, type WardReportRow } from "@/lib/reports";
 import type { Ack } from "@/lib/results";
-import { dayText, KIND_CHIP, ReportPanel } from "./panels/ReportPanel";
+import { dayText, KindChip, ReportPanel, StageChip } from "./panels/ReportPanel";
 import { usePressMenu } from "./PressMenu";
 import { useDeny } from "./RoleContext";
 
@@ -69,13 +69,14 @@ export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey 
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-baseline gap-x-2">
-                  <span className={`rounded px-1 text-[11px] font-bold ${KIND_CHIP[r.kind]}`}>{r.kind}</span>
+                  <KindChip kind={r.kind} />
                   <span className="nums text-ink-soft">
                     {displayText(dayText(today, when.day))} {when.time}
                   </span>
                   <b className={unread ? "text-ink" : "text-ink-soft"}>{r.title}</b>
                   {r.region && !r.title.includes(r.region) && <span className="text-ink-soft">{r.region}</span>}
                   <span className="text-ink-faint">{displayText(r.by)}</span>
+                  <StageChip stage={r.stage} />
                   {r.version > 1 && <span className="rounded bg-yamabuki px-1 text-[11px] font-bold text-white">訂正</span>}
                   {r.important && <span className="rounded bg-shu px-1 text-[11px] font-bold text-white">重要な所見</span>}
                   <span className={`ml-auto nums text-[11px] ${unread ? "font-bold text-shu" : s.state === "確認済み" ? "text-wakatake" : "text-ink-faint"}`}>{displayText(s.state === "確認済み" ? `確認 ${s.ack.at.time} ${s.ack.by}` : s.state)}</span>

@@ -60,6 +60,30 @@ describe("レポート一覧（カルテ）", () => {
   });
 });
 
+describe("細菌培養のレポート", () => {
+  const sakura = PATIENTS.find((p) => p.id === "90010231")!;
+  const culture = reportsOf(sakura, [], {}).find((r) => r.kind === "細菌")!;
+  it("shows 細菌培養 with its step, and opens to the organism, the Gram stain and the table as the laboratory entered it", () => {
+    const html = as("医師", <ReportRows reports={[culture]} acks={{}} today={today} onSeen={() => {}} openKey={culture.key} />);
+    expect(html).toContain(">細菌培養<");
+    expect(html).toContain(">最終報告<");
+    expect(html).toContain("血液培養 2セット");
+    expect(html).toContain("採取");
+    expect(html).toContain("MIC（μg/mL）");
+    expect(html).toMatch(/<td class="font-bold text-shu">R<\/td>/);
+    expect(html).toContain('<td class="pr-4">VCM</td>');
+    expect(html).not.toContain("訂正");
+    expect(html).not.toContain("前の報告");
+    expect(html).toMatch(/<button[^>]*>確認した<\/button>/);
+  });
+  it("lets the reports before the latest be read", () => {
+    const later = { ...culture, earlier: [{ at: { day: -1, time: "09:30" }, by: "検査技師 中村", text: "塗抹（グラム染色）：グラム陽性球菌（ブドウ状）（2セット中2セット陽性）" }] };
+    const html = as("医師", <ReportRows reports={[later]} acks={{}} today={today} openKey={later.key} />);
+    expect(html).toContain("前の報告 1件");
+    expect(html).toContain("09:30 検査技師 中村　塗抹（グラム染色）");
+  });
+});
+
 describe("病棟のレポート一覧", () => {
   const people = PATIENTS.map((p, i) => ({ patient: p, room: `51${i}`, entries: [...p.history, ...(demoRisOrders(NOW)[p.id] ?? [])] }));
   const rows = wardReportRows(people, src, {});

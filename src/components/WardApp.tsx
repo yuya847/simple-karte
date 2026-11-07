@@ -1441,7 +1441,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 口頭指示 waiting for a doctor's signature: a count on the 有効なオーダ tool, the inbox inside it (not over the note).
   const verbalHere = patient ? verbalUnsigned(entries.filter((e): e is OrderEntry => e.kind === "order")) : [];
   // レポート一覧 and the marks on the order rows (reports.ts): the same keys and 確認 as the results above.
-  const reportSrc = { ris: dept.ris, physio: dept.physioDesk, pathology: dept.pathology, endo: care.endo };
+  const reportSrc = { ris: dept.ris, physio: dept.physioDesk, pathology: dept.pathology, endo: care.endo, cultures: labDesk.cultures };
   const reportsHere = patient ? reportsOf(patient, entries, reportSrc) : [];
   const unreadHere = unreadReports(reportsHere, acks);
   const openReportImage = (id: string) => {

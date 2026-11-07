@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { initialEndo } from "./endoscopy";
+import { addCultureStep, cultureKey, deskCultures } from "./lab-culture";
+import { EMPTY_DESK } from "./lab-desk";
 import { initialPathology } from "./pathology";
 import { PATIENTS } from "./patients";
 import { initialPhysioDesk } from "./physio-desk";
 import { demoRisOrders, initialRisDesk } from "./ris";
-import { readStateOf, reportsForOrder, reportsOf, sectionsOf, summaryOf, unreadReports, wardReportRows } from "./reports";
+import { cultureReport, CULTURE_LAB, readStateOf, reportsForOrder, reportsOf, sectionsOf, summaryOf, unreadReports, wardReportRows } from "./reports";
+import { PANIC_LIMITS, cultureArrivals, mergeCultures, resultsOf, unseen } from "./results";
 
 const NOW = 10 * 60;
 const ris = initialRisDesk(NOW);
@@ -84,6 +87,81 @@ describe("病棟のレポート一覧", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].unread).toBeGreaterThan(0);
     for (let i = 1; i < rows.length; i++) expect(rows[i - 1].unread).toBeGreaterThanOrEqual(rows[i].unread);
-    expect(wardReportRows([{ patient: { ...PATIENTS[0], imaging: [] }, room: "500", entries: [] }], {}, {})).toEqual([]);
+    expect(wardReportRows([{ patient: { ...PATIENTS[0], imaging: [], cultures: [] }, room: "500", entries: [] }], {}, {})).toEqual([]);
+  });
+});
+
+describe("細菌培養のレポート", () => {
+  const ack = { by: "山本（専攻医）", at: { day: 0 as const, time: "10:05" } };
+  const sakura = find("90010231");
+
+  it("the final report of 佐倉さん's blood culture: 菌名 first, the Gram stain with the positive sets, the table as entered", () => {
+    const r = reportsOf(sakura, entriesOf(sakura.id), src).find((x) => x.kind === "細菌")!;
+    expect(r.title).toBe("血液培養 2セット");
+    expect(r.stage).toBe("最終報告");
+    expect(r.by).toBe(CULTURE_LAB);
+    expect(r.version).toBe(1);
+    expect(r.examAt).toEqual({ day: -3, time: "" });
+    expect(r.sections).toEqual([
+      { label: "菌名", text: "MRSA（メチシリン耐性黄色ブドウ球菌）" },
+      { label: "塗抹", text: "グラム陽性球菌（ブドウ状）\n2/2セット陽性" },
+    ]);
+    // S/I/R and the MIC are the laboratory's: copied as they are, in its order.
+    expect(r.susceptibility).toEqual(sakura.cultures[0].susceptibility);
+    expect(summaryOf(r)).toBe("MRSA（メチシリン耐性黄色ブドウ球菌）");
+    expect(unreadReports([r], {}).map((x) => x.key)).toEqual([r.key]);
+  });
+
+  it("uses the key of 未確認の結果: a 確認 in either one is a 確認 in the other", () => {
+    const r = reportsOf(sakura, [], {}).find((x) => x.kind === "細菌")!;
+    const item = resultsOf(sakura, PANIC_LIMITS).find((i) => i.kind === "培養")!;
+    expect(r.key).toBe(item.key);
+    // 確認した in the report list → gone from 未確認の結果.
+    expect(unseen(resultsOf(sakura, PANIC_LIMITS), { [r.key]: ack }).some((i) => i.kind === "培養")).toBe(false);
+    // 確認 from 未確認の結果 → the report shows who and when.
+    expect(readStateOf(r, { [item.key]: ack })).toEqual({ state: "確認済み", ack });
+    expect(unreadReports([r], { [item.key]: ack })).toEqual([]);
+  });
+
+  it("a culture still growing is not a report; a Gram stain from yesterday is 前の記録", () => {
+    expect(reportsOf(find("90010198"), [], {}).some((r) => r.kind === "細菌")).toBe(false);
+    const mori = reportsOf(find("90010260"), [], {}).find((r) => r.kind === "細菌")!;
+    expect(mori.title).toBe("尿培養");
+    expect(mori.stage).toBe("塗抹");
+    expect(mori.sections).toEqual([{ label: "塗抹", text: "グラム陰性桿菌 10⁵/mL" }]);
+    expect(mori.susceptibility).toBeUndefined();
+    expect(readStateOf(mori, {})).toEqual({ state: "前の記録" });
+  });
+
+  it("as the laboratory goes on (塗抹 → 菌名 → 最終報告), the latest is the body and the ones before can be read; each step is a new report to confirm", () => {
+    const oura = find("90010244");
+    const arrived = cultureArrivals(NOW)[oura.id][0];
+    const item = { key: cultureKey(oura.id, arrived), patientId: oura.id, culture: arrived };
+    const by = "検査技師 中村";
+    let desk = addCultureStep(EMPTY_DESK, item, { stage: "中間報告", organism: "黄色ブドウ球菌（MSSA）" }, by, NOW + 60);
+    const named = deskCultures(desk, oura.id)[0];
+    const sir = [
+      { drug: "MPIPC", mic: "≦0.25", result: "S" as const },
+      { drug: "CEZ", mic: "≦1", result: "S" as const },
+      { drug: "LVFX", mic: "4", result: "R" as const },
+    ];
+    desk = addCultureStep(desk, { ...item, culture: named }, { stage: "最終報告", organism: "黄色ブドウ球菌（MSSA）", susceptibility: sir, note: "2セットとも同じ菌" }, by, NOW + 300);
+    const patient = { ...oura, cultures: mergeCultures(mergeCultures(oura.cultures, [arrived]), deskCultures(desk, oura.id)) };
+    const r = reportsOf(patient, [], { cultures: desk.cultures }).find((x) => x.kind === "細菌")!;
+    expect(r.stage).toBe("最終報告");
+    expect(r.by).toBe(by);
+    expect(r.at).toEqual({ day: 0, time: "15:00" });
+    expect(r.title).toBe("血液培養 2セット");
+    expect(r.sections.map((s) => s.label)).toEqual(["菌名", "塗抹", "コメント"]);
+    expect(r.susceptibility).toEqual(sir);
+    expect(r.earlier).toEqual([
+      { at: { day: 0, time: arrived.reportedTime }, by: CULTURE_LAB, text: "塗抹（グラム染色）：グラム陽性球菌（ブドウ状）（2セット中1セット陽性）" },
+      { at: { day: 0, time: "11:00" }, by, text: "中間報告（菌名）：黄色ブドウ球菌（MSSA）" },
+    ]);
+    // The key moved on with the step: a 確認 of the Gram stain does not cover the final report.
+    const gramKey = cultureReport(oura.id, arrived).key;
+    expect(r.key).not.toBe(gramKey);
+    expect(unreadReports([r], { [gramKey]: ack })).toEqual([r]);
+    expect(resultsOf(patient, PANIC_LIMITS).find((i) => i.kind === "培養")!.key).toBe(r.key);
   });
 });

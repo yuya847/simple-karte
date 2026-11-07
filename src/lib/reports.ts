@@ -1,18 +1,24 @@
-// レポート（読影レポート・病理・内視鏡・生理検査の報告書）を、カルテの一つの一覧にまとめる。
-// 放射線部（ris.ts）・生理検査室（physio-desk.ts）・内視鏡室（endoscopy.ts）・病理（pathology.ts）が確定した報告と、
-// 入院前からある架空の画像検査（Patient.imaging）を、同じ形（見出しと本文）に揃える。どれが未読かは、
+// レポート（読影レポート・病理・内視鏡・生理検査・細菌培養の報告書）を、カルテの一つの一覧にまとめる。
+// 放射線部（ris.ts）・生理検査室（physio-desk.ts）・内視鏡室（endoscopy.ts）・病理（pathology.ts）・細菌検査室
+// （lab-culture.ts）が確定した報告と、入院前からある架空の画像検査・培養（Patient.imaging・cultures）を、同じ形
+// （見出しと本文）に揃える。培養の感受性（S/I/R）は検査室が入れた判定をそのまま写し、ここでは判定しない。どれが未読かは、
 // 「未確認の結果」と同じ既読の記録（results.ts の Ack、キーも同じ）で決める。要約は本文の1行目を切り出すだけ
 // （AI で要約しない）。並び・数・切り出しはコードで行い、読んだかどうかは医師が「確認した」で残す。
 
 import { findPhysio, findRegion } from "./exams";
+import { cultureKey, setsDrawn, stepText, type CultureWork } from "./lab-culture";
 import { caseTitle, versionOf as pathVersion, type PathCase } from "./pathology";
 import { versionOf as endoVersion, type EndoDesk } from "./endoscopy";
 import { valuesLine, versionOf as physioVersion, type PhysioDesk } from "./physio-desk";
-import type { Ack } from "./results";
+import { cultureKeyOf, type Ack } from "./results";
 import { reportVersion, type RisDesk } from "./ris";
-import type { DayOffset, HistoryEntry, ImagingStudy, OrderEntry } from "./types";
+import type { CultureResult, CultureStage, DayOffset, HistoryEntry, ImagingStudy, OrderEntry } from "./types";
 
-export type ReportKind = "画像" | "病理" | "内視鏡" | "生理";
+export type ReportKind = "画像" | "生理" | "内視鏡" | "細菌" | "病理";
+
+/** The kinds in the order of the chips, and the name each has on the screen. */
+export const REPORT_KINDS: readonly ReportKind[] = ["画像", "生理", "内視鏡", "細菌", "病理"];
+export const KIND_LABEL: Record<ReportKind, string> = { 画像: "画像", 生理: "生理", 内視鏡: "内視鏡", 細菌: "細菌培養", 病理: "病理" };
 
 export interface Moment {
   day: DayOffset;
@@ -50,6 +56,12 @@ export interface Report {
   imageOf?: string;
   /** The pathologist marked it as needing a direct word with the attending. */
   important?: boolean;
+  /** 細菌培養: the step this report is (塗抹・中間報告・最終報告). A culture moves on by steps; a step is not a correction. */
+  stage?: CultureStage;
+  /** 細菌培養: the drugs with the MIC and the S/I/R the laboratory entered, copied as they are. */
+  susceptibility?: NonNullable<CultureResult["susceptibility"]>;
+  /** The reports this one came after (細菌培養: 塗抹 → 菌名 → 最終報告), oldest first. */
+  earlier?: { at: Moment; by: string; text: string }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +116,8 @@ export interface ReportSources {
   physio?: PhysioDesk;
   pathology?: PathCase[];
   endo?: EndoDesk;
+  /** The laboratory's cultures reported step by step in this session (lab-desk.ts), by culture key: the report a step came after. */
+  cultures?: Record<string, CultureWork>;
 }
 
 const minutes = (m: Moment) => m.day * 1440 + Number(m.time.slice(0, 2) || 0) * 60 + Number(m.time.slice(3) || 0);
@@ -113,9 +127,50 @@ const orderOf = (entries: readonly HistoryEntry[], id: string): OrderEntry | und
 /** A pathology case made from an endoscopic biopsy carries the endoscopy's order id (endoscopy.ts biopsyCase). */
 const ENDO_CASE = "path-endo-";
 
+/** Who reported a culture when the record does not say (the cultures from before this session). */
+export const CULTURE_LAB = "微生物検査室";
+
+const stageOf = (c: CultureResult): CultureStage => c.stage ?? (c.status === "最終報告" ? "最終報告" : c.organism ? "中間報告" : "塗抹");
+
+/**
+ * A culture as the laboratory reported it (塗抹・中間報告・最終報告). The latest report is the body: the organism, the
+ * Gram stain (with the positive sets of a blood culture) and the susceptibility table as entered. The reports before
+ * it are kept to read under it. The key is the one of 未確認の結果 (results.ts), so one 確認 serves both.
+ */
+export function cultureReport(patientId: string, c: CultureResult, work?: CultureWork): Report {
+  const log = c.log ?? [];
+  const positive = c.sets && /陽性|陰性/.test(c.sets) ? c.sets : "";
+  const smear = [c.gram ?? "", positive].filter(Boolean).join("\n");
+  const note = work?.steps.at(-1)?.note;
+  // A culture taken up already reported (e.g. a Gram stain from before): that report came before the steps of this session.
+  const b = work && work.steps.length > 0 && work.base.status !== "培養中" && !work.base.log?.length ? work.base : undefined;
+  const earlier = [
+    ...(b ? [{ at: { day: b.reportedOn ?? b.collectedOn, time: b.reportedTime ?? "" }, by: CULTURE_LAB, text: stepText({ stage: stageOf(b), gram: b.gram, sets: b.sets, organism: b.organism, susceptibility: b.susceptibility }) }] : []),
+    ...log.slice(0, -1).map((l) => ({ at: { day: l.day, time: l.time }, by: l.by, text: l.text })),
+  ];
+  return {
+    key: cultureKeyOf(patientId, c),
+    patientId,
+    kind: "細菌",
+    title: `${c.specimen}培養${c.specimen === "血液" && c.sets ? ` ${setsDrawn(c)}セット` : ""}`,
+    examAt: { day: c.collectedOn, time: "" },
+    at: { day: c.reportedOn ?? c.collectedOn, time: c.reportedTime ?? "" },
+    by: log.at(-1)?.by ?? CULTURE_LAB,
+    version: 1,
+    stage: stageOf(c),
+    sections: [...(c.organism ? [{ label: "菌名", text: c.organism }] : []), ...(smear ? [{ label: "塗抹", text: smear }] : []), ...(note ? [{ label: "コメント", text: note }] : [])],
+    ...(c.susceptibility?.length ? { susceptibility: c.susceptibility } : {}),
+    ...(earlier.length ? { earlier } : {}),
+  };
+}
+
 /** Every report of a patient, newest first. */
-export function reportsOf(patient: { id: string; imaging: ImagingStudy[] }, entries: readonly HistoryEntry[], src: ReportSources): Report[] {
+export function reportsOf(patient: { id: string; imaging: ImagingStudy[]; cultures?: CultureResult[] }, entries: readonly HistoryEntry[], src: ReportSources): Report[] {
   const out: Report[] = [];
+  for (const c of patient.cultures ?? []) {
+    if (c.status === "培養中") continue;
+    out.push(cultureReport(patient.id, c, src.cultures?.[cultureKey(patient.id, c)]));
+  }
   for (const s of patient.imaging) {
     if (s.pending) continue;
     const at = { day: s.day, time: s.time ?? "" };
@@ -225,7 +280,7 @@ export interface WardReportRow {
   unread: number;
 }
 
-export function wardReportRows(people: readonly { patient: { id: string; name: string; imaging: ImagingStudy[] }; room: string; entries: readonly HistoryEntry[] }[], src: ReportSources, acks: Record<string, Ack>): WardReportRow[] {
+export function wardReportRows(people: readonly { patient: { id: string; name: string; imaging: ImagingStudy[]; cultures?: CultureResult[] }; room: string; entries: readonly HistoryEntry[] }[], src: ReportSources, acks: Record<string, Ack>): WardReportRow[] {
   return people
     .map((x) => {
       const reports = reportsOf(x.patient, x.entries, src);
