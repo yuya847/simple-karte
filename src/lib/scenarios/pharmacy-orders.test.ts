@@ -54,7 +54,8 @@ describe("薬剤部の試験用オーダ", () => {
   });
   it("薬剤師の介入から4業務へ入れる", () => {
     expect(groupsFor("薬剤師").find((g) => g.key === "intervention")!.main.slice(0, 4).map((t) => t.label)).toEqual(["服薬指導", "持参薬鑑別", "TDM", "疑義照会"]);
-    expect(groupsFor("医師").flatMap((g) => g.main).some((t) => t.key.startsWith("pharmacy-"))).toBe(false);
+    // The doctor and the nurse get only 持参薬 (taking the お薬手帳 in at admission); the pharmacist's other work stays the pharmacist's.
+    for (const role of ["医師", "看護師"]) expect(groupsFor(role).flatMap((g) => g.main).filter((t) => t.key.startsWith("pharmacy-")).map((t) => t.key)).toEqual(["pharmacy-brought"]);
   });
 });
 
