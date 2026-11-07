@@ -530,7 +530,8 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
                 {line + " "}
               </div>
               {onClaude && isClaudeLine(line) && <span aria-hidden className="pointer-events-none absolute left-2 top-0.5 z-[1] rounded bg-ai-soft text-ai" style={{ fontSize: size }} >{line.slice(0, 7)}</span>}
-              {style && <span aria-hidden className={`pointer-events-none absolute left-2 top-0.5 z-[1] ${style.kind === "callout" ? (style.marker === "❗ " ? "bg-shu-soft" : "bg-ai-soft") : "bg-sheet"} ${style.kind === "quote" ? "border-l-2 border-rule" : ""}`} style={{ marginLeft: `${style.indent.length * .5}em`, width: `${style.marker.length * .65}em`, height: "1.5em", fontSize: size }}>{style.kind === "list" ? style.marker === "- " ? "・" : style.marker : ""}</span>}
+              {/* The indent and the marker are laid out as text (invisible), so the cover is exactly over the marker. */}
+              {style && <span aria-hidden className="pointer-events-none absolute left-2 top-0.5 z-[1] flex whitespace-pre" style={{ fontSize: size }}><span className="invisible">{style.indent}</span><span className={`relative ${style.kind === "callout" ? (style.marker === "❗ " ? "bg-shu-soft" : "bg-ai-soft") : "bg-sheet"} ${style.kind === "quote" ? "border-l-2 border-rule" : ""}`} style={{ height: "1.5em" }}><span className="invisible">{style.marker}</span>{style.kind === "list" && <span className="absolute left-0 top-0">{style.marker === "- " ? "・" : style.marker}</span>}</span></span>}
               <textarea
                 ref={(el) => {
                   rows.current[i] = el;
