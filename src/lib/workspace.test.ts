@@ -28,6 +28,15 @@ describe("記録の保存（Supabase）", () => {
     const { loadWorkspaceRow } = await import("./workspace");
     expect(await loadWorkspaceRow("ws", "2026-11-06")).toEqual({ data: { improveRequests }, updatedAt: "stamp" });
   });
+  it("carries the devices that receive notifications and the hospital's notification setting into the next day, without yesterday's records", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
+    const pushSubs = [{ id: "s1", name: "山本（専攻医）", role: "医師", device: "iPhone", iso: "2026-11-05T12:00:00Z", sub: null }];
+    const pushPrefs = { detail: false };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{ version: 1, day: "2026-11-05", data: { pushSubs, pushPrefs, pushSent: { k: "t" }, notes: [{ id: "old-note" }] }, updated_at: "stamp" }]))));
+    const { loadWorkspaceRow } = await import("./workspace");
+    expect(await loadWorkspaceRow("ws", "2026-11-06")).toEqual({ data: { pushSubs, pushPrefs }, updatedAt: "stamp" });
+  });
   it("reads back only the same day's records of this version, through the RPC with the public key", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");

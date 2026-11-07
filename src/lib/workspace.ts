@@ -33,7 +33,6 @@ const rpc = async <T>(fn: string, body: Record<string, unknown>): Promise<T> => 
 };
 
 const STORE = "simple-karte:workspace";
-const CARRIED = ["sharedNoteTemplates", "improveRequests"];
 const isId = (s: string | null): s is string => !!s && /^[0-9a-f-]{36}$/i.test(s);
 
 /** This browser's workspace: ?ws=<id> in the address (to open the same records elsewhere), else the one kept here. */
@@ -57,17 +56,21 @@ export function workspaceId(): string {
   }
 }
 
+const isObject = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v);
+/** Records that are settings rather than the day's records (kept from one day to the next). */
+const SETTINGS_KEYS: Record<string, (v: unknown) => boolean> = { sharedNoteTemplates: Array.isArray, improveRequests: Array.isArray, pushSubs: Array.isArray, pushPrefs: isObject };
+
 /** The saved records of the day with when they were saved (null: nothing of this day and version). */
 export async function loadWorkspaceRow(id: string, day: string): Promise<{ data: Record<string, unknown>; updatedAt: string | null } | null> {
   const rows = await rpc<{ version: number; day: string; data: Record<string, unknown>; updated_at?: string }[]>("load_workspace", { p_id: id });
   const r = rows?.[0];
   if (!r || r.version !== WORKSPACE_VERSION) return null;
   const data = seed ? decodeWorkspace(r.data, seed) : r.data;
-  // Template definitions and the requests to change the app (その場で直す) are not of the day's patients, so carry
-  // only these across the chart's daily reset.
+  // Template definitions, the requests to change the app (その場で直す) and the devices that receive notifications are
+  // not of the day's patients, so carry only these across the chart's daily reset.
   if (r.day !== day) {
-    const carried = Object.fromEntries(CARRIED.filter((k) => Array.isArray(data[k])).map((k) => [k, data[k]]));
-    return Object.keys(carried).length ? { data: carried, updatedAt: r.updated_at ?? null } : null;
+    const kept = Object.fromEntries(Object.entries(SETTINGS_KEYS).filter(([k, ok]) => ok(data[k])).map(([k]) => [k, data[k]]));
+    return Object.keys(kept).length ? { data: kept, updatedAt: r.updated_at ?? null } : null;
   }
   return { data, updatedAt: r.updated_at ?? null };
 }
