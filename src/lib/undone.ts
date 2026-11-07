@@ -7,7 +7,6 @@
 //   医事課 to check. Code lists them; people decide what to correct. The standard spec asks for the list
 //   (電子カルテ標準仕様 v1.0 2.02-14-3 未実施患者一覧). All data is fictional.
 
-import { WARD_RULES } from "./master";
 import { overdue, type AdminRecord } from "./mar";
 import { procEvents } from "./proc-timing";
 import { procedureTitle } from "./format";
@@ -88,6 +87,3 @@ export function billingGaps(people: WorkPatient[], records: Record<string, Admin
 
 /** 「12分」「2時間5分」 */
 export const lateText = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}時間${min % 60 ? `${min % 60}分` : ""}` : `${min}分`);
-
-/** The window the ward allows before an item counts as late (master.ts, 架空の病院の取り決め). */
-export const UNDONE_WINDOW = `予定の時刻から${WARD_RULES.marWindowMin}分を過ぎても記録がないもの（この病棟の取り決め：前後${WARD_RULES.marWindowMin}分）`;
