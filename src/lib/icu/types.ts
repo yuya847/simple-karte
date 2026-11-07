@@ -29,6 +29,7 @@ export interface VentSetting {
 /** 持続投与（シリンジポンプ・輸液ポンプ）。速さの変更は changes に積む。 */
 export interface Infusion {
   id: string; patientId: string;
+  orderId?: string;
   drugCode: string; name: string;
   /** 溶液：薬剤量と総量（例 ノルアドレナリン 5mg / 50mL）。濃度 = amountMg ÷ volumeMl（mg/mL）。インスリンは「単位」を mg の欄に入れ doseUnit を 単位/h にする。 */
   amountMg: number; volumeMl: number;
@@ -94,7 +95,19 @@ export interface UnitStay {
   reason: string;
 }
 
+/** SOFA の材料のうち、人が入れ直した値（コードは置かない。医師が見て決めた入力）。 */
+export interface SofaInput {
+  id: string; patientId: string; day: DayOffset; by: string; at: At;
+  item: "cns" | "respiratory";
+  /** 中枢神経：医師が評価した GCS（挿管中の V、鎮静前の値など）。 */
+  gcs?: { e: number; v: number; m: number };
+  /** 呼吸：採血時の FiO2（室内気 0.21 を含む。医師が入れる）。 */
+  fio2?: number;
+  reason: string;
+}
+
 export interface IcuRecords {
+  sofaInputs?: SofaInput[];
   stays: UnitStay[];
   vents: VentSetting[];
   infusions: Infusion[];
@@ -103,4 +116,4 @@ export interface IcuRecords {
   hourly: HourlyRecord[];
   rounds: RoundCheck[];
 }
-export const emptyIcuRecords = (): IcuRecords => ({ stays: [], vents: [], infusions: [], crrt: [], lines: [], hourly: [], rounds: [] });
+export const emptyIcuRecords = (): IcuRecords => ({ sofaInputs: [], stays: [], vents: [], infusions: [], crrt: [], lines: [], hourly: [], rounds: [] });

@@ -6,3 +6,4 @@ export * from "./sofa";
 export * from "./balance";
 export * from "./lines";
 export * from "./checklist";
+export * from "./lactate";

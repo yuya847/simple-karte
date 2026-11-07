@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {sofaScore,sofaFacts,type SofaFacts} from './sofa';
 import {icuFixture,icuPatient} from './test-fixture';
-const base=():SofaFacts=>({respiratory:[{pf:400,support:true,basis:''}],platelets:[15],bilirubin:[1],maps:[70],drugs:[],gcs:[{value:15,basis:''}],creatinine:[1],urineMl:720,urineHours:24});
+const base=():SofaFacts=>({inputs:{},respiratory:[{pf:400,support:true,basis:''}],platelets:[15],bilirubin:[1],maps:[70],drugs:[],gcs:[{value:15,basis:''}],creatinine:[1],urineMl:720,urineHours:24});
 const score=(f:SofaFacts,k:string)=>sofaScore(f).items.find(i=>i.key===k)!.score;
 describe('SOFA 境界は依頼の不等号で評価',()=>{
  it.each([[400,0],[399,1],[300,1],[299,2],[200,2],[199,3],[100,3],[99,4]])('P/F %s → %s',(pf,s)=>expect(score({...base(),respiratory:[{pf,support:true,basis:''}]},'respiratory')).toBe(s));
@@ -15,4 +15,16 @@ describe('SOFA 境界は依頼の不等号で評価',()=>{
  it('欠測は合計不明・不完全な尿量を使わない',()=>{const f={...base(),creatinine:[],urineMl:0,urineHours:23};const result=sofaScore(f);expect(result.total).toBeNull();expect(result.missing).toEqual(['腎']);expect(result.items[5].basis).toContain('尿量 23 時間分のみ');});
  it('その日の最悪値・前日開始の薬・挿管V=1・鎮静・HFNC',()=>{const r=icuFixture();const p=structuredClone(icuPatient);p.labs.push({day:0,time:'10:00',values:{Plt:1,'T-Bil':12,Cre:5,PaO2:20}});p.vitals.push({day:0,time:'10:00',gcs:{e:2,m:3}});r.infusions.push({...r.infusions[0],id:'sed',name:'プロポフォール'});r.vents.push({...r.vents[0],id:'hf',at:{day:0,time:'09:00'},mode:'HFNC'});const f=sofaFacts(p,r,0),result=sofaScore(f);expect(score(f,'coagulation')).toBe(4);expect(score(f,'cardiovascular')).toBe(4);expect(f.gcs[1].basis).toContain('V は挿管のため 1 と置いた');expect(f.gcs[1].basis).toContain('鎮静中');expect(f.respiratory[1].basis).toContain('HFNC は呼吸補助に数えない');expect(result.total).toBe(21);});
  it('24件が同じ時間に重複しても24時間としない',()=>{const r=icuFixture();r.hourly=r.hourly.map(h=>({...h,at:{day:0,time:'01:00'}}));expect(sofaFacts(icuPatient,r,0).urineHours).toBe(1);});
+});
+it('医師入力は同日の材料だけを置換し根拠と入力を残す',()=>{
+ const r=icuFixture(),p=structuredClone(icuPatient);
+ const original=sofaFacts(p,r,0);
+ r.sofaInputs=[{id:'cns',patientId:p.id,day:0,by:'担当医',at:{day:0,time:'09:00'},item:'cns',gcs:{e:2,v:1,m:5},reason:'鎮静前を確認'},{id:'resp',patientId:p.id,day:0,by:'担当医',at:{day:0,time:'09:00'},item:'respiratory',fio2:.8,reason:'採血時の記録'}];
+ const f=sofaFacts(p,r,0);
+ expect(score(original,'cns')).not.toBe(score(f,'cns'));
+ expect(f.gcs).toHaveLength(1);expect(f.gcs[0].value).toBe(8);
+ expect(f.gcs[0].basis).toContain('医師入力 GCS 8（E2V1M5）');expect(f.gcs[0].basis).toContain('担当医 09:00');
+ expect(f.respiratory[0].pf).toBe(original.respiratory[0].pf/2);expect(f.respiratory[0].basis).toContain('FiO2 は医師入力（採血時の記録）');expect(f.inputs.cns?.id).toBe('cns');
+ expect(sofaFacts(p,r,-1)).toEqual(sofaFacts(p,{...r,sofaInputs:undefined},-1));
+ expect(sofaFacts(p,{...r,sofaInputs:undefined},0)).toEqual(original);
 });

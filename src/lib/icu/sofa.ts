@@ -4,11 +4,12 @@ import { SOFA_SOURCE } from "../record-sofa";
 import { fio2At, ventAt } from "./abg";
 import { concentrationMgPerMl, gammaFromMlPerH, rateAt } from "./gamma";
 import { mapWithMeasured } from "./vitals";
-import type { IcuRecords } from "./types";
+import type { IcuRecords, SofaInput } from "./types";
 export { SOFA_SOURCE };
 export const SOFA_ORIGINAL = {label:"Vincent JL ほか. Intensive Care Med 1996;22:707-710",url:"https://doi.org/10.1007/BF01709751"};
 type Score = 0|1|2|3|4;
 export interface SofaFacts {
+  inputs: { cns?: SofaInput; respiratory?: SofaInput };
   respiratory: {pf:number; support:boolean; basis:string}[];
   platelets: number[]; bilirubin: number[]; maps: number[];
   drugs: {name:string; gamma:number}[];
@@ -18,6 +19,9 @@ export interface SofaFacts {
 const supported = new Set(["A/C-VC","A/C-PC","SIMV","PSV","CPAP","NPPV"]);
 const finite = (n: number|undefined): n is number => n !== undefined && Number.isFinite(n) && n >= 0;
 export function sofaFacts(patient: Patient, records: IcuRecords, day: number): SofaFacts {
+  const inputs: SofaFacts["inputs"] = {};
+  // 同日の再入力は記録時刻が最後のものを使う。元の記録は残す。
+  for (const input of (records.sofaInputs ?? []).filter(i=>i.patientId===patient.id && i.day===day).sort((a,b)=>abs(a.at.day,a.at.time)-abs(b.at.day,b.at.time))) inputs[input.item]=input;
   const labs = patient.labs.filter(l=>l.day===day);
   const lab = (key:string) => labs.map(l=>l.values[key]).filter(finite);
   const hourly=records.hourly.filter(r=>r.patientId===patient.id && r.at.day===day);
@@ -35,7 +39,7 @@ export function sofaFacts(patient: Patient, records: IcuRecords, day: number): S
     const h=hourly.find(h=>h.at.time===v.time);
     return mapWithMeasured(h,v.sbp,v.dbp);
   }).filter((x): x is number=>x!==null && finite(x))];
-  const gcs=vitals.flatMap(v=>{
+  const gcs=inputs.cns ? (inputs.cns.gcs ? [{value:inputs.cns.gcs.e+inputs.cns.gcs.v+inputs.cns.gcs.m,basis:`医師入力 GCS ${inputs.cns.gcs.e+inputs.cns.gcs.v+inputs.cns.gcs.m}（E${inputs.cns.gcs.e}V${inputs.cns.gcs.v}M${inputs.cns.gcs.m}）：${inputs.cns.reason}　${inputs.cns.by} ${inputs.cns.at.time}`}] : []) : vitals.flatMap(v=>{
     if(!v.gcs?.e || !v.gcs.m) return [];
     const t=abs(v.day,v.time),vent=ventAt(records.vents,patient.id,t);
     const intubated=vent && (vent.airway==="経口挿管" || vent.airway==="気管切開");
@@ -45,10 +49,10 @@ export function sofaFacts(patient: Patient, records: IcuRecords, day: number): S
     return [{value:v.gcs.e+verbal+v.gcs.m,basis:`${v.time} E${v.gcs.e}V${verbal}M${v.gcs.m}${v.gcs.v===undefined&&intubated?"；V は挿管のため 1 と置いた":""}${sedated?"；鎮静中":""}`}];
   });
   const urine=hourly.filter(h=>finite(h.urineMl));
-  return {respiratory:labs.flatMap(l=>{
-    const f=fio2At(records.vents,patient.id,abs(l.day,l.time)),v=ventAt(records.vents,patient.id,abs(l.day,l.time));
-    if(!finite(l.values.PaO2) || f===null) return [];
-    return [{pf:l.values.PaO2/f,support:!!v&&supported.has(v.mode),basis:`${l.time} PaO2 ${l.values.PaO2} ÷ FiO2 ${f}${v?`；${v.mode}`:""}${v?.mode==="HFNC"?"（HFNC は呼吸補助に数えない）":""}`}];
+  return {inputs,respiratory:labs.flatMap(l=>{
+    const f=inputs.respiratory ? inputs.respiratory.fio2 ?? null : fio2At(records.vents,patient.id,abs(l.day,l.time)),v=ventAt(records.vents,patient.id,abs(l.day,l.time));
+    if(!finite(l.values.PaO2) || f===null || !Number.isFinite(f) || f<.21 || f>1) return [];
+    return [{pf:l.values.PaO2/f,support:!!v&&supported.has(v.mode),basis:`${l.time} PaO2 ${l.values.PaO2} ÷ FiO2 ${f}${inputs.respiratory?`；FiO2 は医師入力（${inputs.respiratory.reason}）`:""}${v?`；${v.mode}`:""}${v?.mode==="HFNC"?"（HFNC は呼吸補助に数えない）":""}`}];
   }),platelets:lab("Plt"),bilirubin:lab("T-Bil"),maps,drugs,gcs,creatinine:lab("Cre"),urineMl:urine.reduce((s,h)=>s+h.urineMl!,0),urineHours:new Set(urine.map(h=>Number(h.at.time.slice(0,2)))).size};
 }
 /* SOFA threshold table (Vincent 1996; above and SOFA_SOURCE).

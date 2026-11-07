@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SCENARIOS, generateScenarios } from ".";
 import { GENERAL_FLOORS, UNITS, nurseFor } from "../ward";
 import { loadMaster } from "../masters/server";
+import { sofaFacts, sofaScore } from "../icu/sofa";
 import type { At } from "../icu/types";
 const abs = (a: At) => a.day * 1440 + Number(a.time.slice(0,2))*60 + Number(a.time.slice(3));
 const s = SCENARIOS;
@@ -46,3 +47,24 @@ describe("固定のICU・HCUの架空データ",()=>{
     expect(s.icu.lines.find(r=>r.patientId==="99000110"&&r.kind==="尿道カテーテル")).toMatchObject({insertedAt:{day:-8,time:"00:00"},removedAt:undefined});
   });
 });
+
+it('患者ごとのバイタルと出納・毎日の検査と記事・医師入力が揃う',()=>{
+ const latest=added.map(p=>p.vitals.filter(v=>v.day===0).at(-1)!);
+ expect(new Set(latest.map(v=>v.hr)).size).toBeGreaterThan(5);
+ for(const p of added) for(const v of p.vitals) expect(v.bt).toBe(Math.round(v.bt!*10)/10);
+ const outputs=added.map(p=>s.icu.hourly.filter(r=>r.patientId===p.id&&abs(r.at)>=-14*60&&abs(r.at)<600).reduce((n,r)=>n+(r.urineMl??0)+(r.drainMl??0)+(r.gastricMl??0)+(r.bloodLossMl??0),0));
+ expect(new Set(outputs).size).toBeGreaterThan(8);
+ expect(s.icu.hourly.filter(r=>r.patientId==='99000101'&&abs(r.at)>=-14*60&&abs(r.at)<600).reduce((n,r)=>n+(r.urineMl??0),0)).toBeLessThan(1000);
+ for(const p of added){
+  // 救急患者だけは来院08:40の初療採血。来院前の検査を作らない。
+  const labs=p.labs.filter(l=>l.day===0&&l.time===(p.id==='99000112'?'08:40':'06:00'));
+  expect(labs).toHaveLength(1);
+  for(const key of ['Plt','T-Bil','Cre','Lac']) expect(labs[0].values[key]).toBeGreaterThan(0);
+  for(const l of p.labs.filter(l=>l.values.Lac!==undefined)) expect(l.values.Lac).toBeGreaterThanOrEqual(10);
+  const notes=p.history.filter(n=>n.kind==='note'&&n.text?.startsWith('朝の回診：'));
+  expect(new Set(notes.map(n=>n.kind==='note'?n.text:'')).size).toBe(notes.length);
+ }
+ for(const id of ['99000107','99000108']) expect(s.icu.sofaInputs?.some(i=>i.patientId===id&&i.item==='respiratory')).toBe(true);
+});
+
+it("ICU6人とHCU5人の今日のSOFAが計算できる",()=>{for(const p of added.filter(p=>p.ward!=="救急外来")) expect(sofaScore(sofaFacts(p,s.icu,0)).total,p.id).not.toBeNull();});
