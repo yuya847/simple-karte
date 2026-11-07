@@ -17,7 +17,8 @@ export function SummaryCell({ id, onOpen }: { id: string; onOpen: () => void }) 
 }
 export function TodoCell({ id }: { id: string }) {
   const { todos, complete } = useNoteOverview(id);
-  return <details onClick={e => e.stopPropagation()} className="relative min-w-20 text-xs"><summary className="cursor-pointer text-ai">ToDo {todos.length}</summary><div className="absolute right-0 z-30 w-72 rounded border border-rule bg-sheet p-3 shadow-lg">{todos.length ? todos.map(t => <label key={t.key} className="flex gap-2 py-1"><input type="checkbox" aria-label={t.text} onChange={() => complete(t.key)} />{t.text}</label>) : "—"}</div></details>;
+  // Every open ToDo, small and one line each, so the list shows them without opening anything.
+  return <div onClick={e => e.stopPropagation()} aria-label={`ToDo ${todos.length}`} className="w-52 text-[10px] leading-[1.3]">{todos.length ? todos.map(t => <label key={t.key} title={t.text} className="flex items-start gap-1"><input type="checkbox" aria-label={t.text} onChange={() => complete(t.key)} className="mt-px h-2.5 w-2.5 shrink-0" /><span className="line-clamp-1">{t.text}</span></label>) : <span className="text-ink-faint">—</span>}</div>;
 }
 export function CompletedNote({ note }: { note: NoteEntry }) {
   const c = useContext(NoteOverviewContext);

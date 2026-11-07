@@ -10,6 +10,7 @@ describe("一覧と記事の完了表示", () => {
     const key = noteTodos(n)[0].key;
     const render = (done: boolean) => renderToStaticMarkup(<NoteOverviewContext.Provider value={{ patientId: "p", role: "医師", entriesOf: () => [n], done: done ? { [`p:${key}`]: { by: "山本", at: "2026-11-07T10:30:00+09:00" } } : {}, complete: () => {} }}><SummaryCell id="p" onOpen={() => {}} /><TodoCell id="p" /><CompletedNote note={n} /></NoteOverviewContext.Provider>);
     expect(render(false)).toContain("ToDo 1");
+    expect(render(false)).toContain("CRP再検");
     expect(render(true)).toContain("ToDo 0");
     expect(render(true)).toContain('aria-label="チェック済み"');
     expect(render(true)).toContain("山本");

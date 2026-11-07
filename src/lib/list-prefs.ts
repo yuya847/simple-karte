@@ -1,6 +1,6 @@
 // 入院患者一覧の「表示」: which columns the list shows and how tall its rows are. A per-viewer
 // convenience kept in this browser only (per person); the list works without it and shows every
-// column by default. Nothing here decides anything about a patient.
+// column but 最新バイタル by default (turned on in 表示). Nothing here decides anything about a patient.
 
 /** The columns that can be turned off (病室 and 氏名 are always shown). */
 export type ListColumn = "shortSummary" | "todo" | "ageId" | "day" | "dpc" | "team" | "flags" | "vitals" | "upcoming" | "results" | "orders";
@@ -27,7 +27,7 @@ export interface ListPrefs {
   density: RowDensity;
 }
 
-export const DEFAULT_LIST_PREFS: ListPrefs = { hidden: [], density: "normal" };
+export const DEFAULT_LIST_PREFS: ListPrefs = { hidden: ["vitals"], density: "normal" };
 
 export const showsColumn = (prefs: ListPrefs, key: ListColumn) => !prefs.hidden.includes(key);
 
@@ -42,7 +42,7 @@ const KNOWN = new Set<string>(LIST_COLUMNS.map((c) => c.key));
 export function normalizeListPrefs(raw: unknown): ListPrefs {
   if (!raw || typeof raw !== "object") return DEFAULT_LIST_PREFS;
   const o = raw as { hidden?: unknown; density?: unknown };
-  const hidden = Array.isArray(o.hidden) ? (o.hidden.filter((k): k is ListColumn => typeof k === "string" && KNOWN.has(k)) as ListColumn[]) : [];
+  const hidden = Array.isArray(o.hidden) ? (o.hidden.filter((k): k is ListColumn => typeof k === "string" && KNOWN.has(k)) as ListColumn[]) : DEFAULT_LIST_PREFS.hidden;
   return { hidden: [...new Set(hidden)], density: o.density === "compact" ? "compact" : "normal" };
 }
 

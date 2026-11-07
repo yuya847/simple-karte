@@ -20,8 +20,9 @@ const list = (over: Partial<Parameters<typeof PatientListView>[0]> = {}) =>
   );
 
 describe("患者一覧の「表示」", () => {
-  it("shows every column by default, with the 表示 button", () => {
-    const html = list();
+  it("shows every column but the latest vitals by default, with the 表示 button", () => {
+    expect(list()).not.toContain("最新バイタル");
+    const html = list({ prefs: { hidden: [], density: "normal" } });
     for (const c of LIST_COLUMNS) expect(html).toContain(c.key === "day" ? ">入院<" : c.label);
     expect(html).toContain("表示</button>");
     expect(html).toContain("min-w-[1180px]");

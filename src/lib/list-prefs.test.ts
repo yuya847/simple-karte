@@ -12,15 +12,16 @@ function fakeStorage(seed: Record<string, string> = {}) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("入院患者一覧の表示オプション", () => {
-  it("shows every column at normal height by default", () => {
-    for (const c of LIST_COLUMNS) expect(showsColumn(DEFAULT_LIST_PREFS, c.key)).toBe(true);
+  it("shows every column but the latest vitals at normal height by default", () => {
+    for (const c of LIST_COLUMNS) expect(showsColumn(DEFAULT_LIST_PREFS, c.key)).toBe(c.key !== "vitals");
     expect(DEFAULT_LIST_PREFS.density).toBe("normal");
   });
   it("turns a column off and on again", () => {
-    const off = toggleColumn(DEFAULT_LIST_PREFS, "vitals");
-    expect(showsColumn(off, "vitals")).toBe(false);
-    expect(showsColumn(off, "flags")).toBe(true);
-    expect(toggleColumn(off, "vitals")).toEqual(DEFAULT_LIST_PREFS);
+    const off = toggleColumn(DEFAULT_LIST_PREFS, "flags");
+    expect(showsColumn(off, "flags")).toBe(false);
+    expect(showsColumn(off, "dpc")).toBe(true);
+    expect(toggleColumn(off, "flags")).toEqual(DEFAULT_LIST_PREFS);
+    expect(showsColumn(toggleColumn(DEFAULT_LIST_PREFS, "vitals"), "vitals")).toBe(true);
   });
   it("saves per person and reads it back", () => {
     const store = fakeStorage();
