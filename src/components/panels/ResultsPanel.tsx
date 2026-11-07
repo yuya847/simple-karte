@@ -1,35 +1,59 @@
 "use client";
 import { LAB_RESULT_MIME, LAB_SELECTIONS, labTransfer, selectLabSet } from "@/lib/lab-transfer";
 import { requestLabPaste } from "../LabPasteReceiver";
+import { FlowCellMenu, type CellAction } from "../FlowCellMenu";
 import { labNumber } from "@/lib/lab-number";
+import { pickWithShift, valueTip } from "@/lib/lab-pick";
+import { useLongPress } from "@/lib/use-long-press";
 
 import { displayText } from "@/lib/display-text";
-import { ArrowDownUp, ChartLine, Copy, FileDown, Printer, X } from "lucide-react";
-import { useState } from "react";
+import { X } from "lucide-react";
+import { useCallback, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { cellOf, copyText, labColumns, labCsv, labRows, PERIODS, rangeText, trendOf, type LabColumn, type Order, type PendingDraw, type PeriodKey } from "@/lib/lab-table";
 import { ANALYTES, rangeFor, type Analyte } from "@/lib/master";
 import type { Patient } from "@/lib/types";
 
-/** Lab results by date, plus culture reports. Values are shown, never judged. */
+/** What the table does with the pointer: press an item or a date to choose it, drag to the note, right click for the rest. */
+type Pick = {
+  rows: string[];
+  cols: string[];
+  /** The cells that go into the note or the copy (shown only once something is chosen). */
+  area: { rows: string[]; cols: string[] } | null;
+  trend: string | null;
+  onRow: (code: string, shift: boolean) => void;
+  onCol: (key: string, shift: boolean) => void;
+  onTrend: (code: string) => void;
+  onDrag: (e: React.DragEvent, col?: LabColumn) => void;
+};
+
+/**
+ * Lab results by date, plus culture reports. Values are shown, never judged. Pressing an item (row) or a date (column)
+ * chooses it (Shift for a run of them); what is chosen can be dragged into the note from any cell, and the rest
+ * (paste, copy, the graph, sets of items, CSV, print) is on the right-click menu (a long press on a finger).
+ */
 export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }: { patient: Patient; today: CalendarDate; pending?: PendingDraw[]; onExport?: (what: "CSV" | "コピー" | "印刷", n: number) => void; focusAt?: { day: number; time: string } }) {
   const [order, setOrder] = useState<Order>("旧→新");
   const [period, setPeriod] = useState<PeriodKey>("all");
   const [abnormalOnly, setAbnormalOnly] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
-  const [selectedCodes, setSelectedCodes] = useState<string[] | null>(null);
+  const [codes, setCodes] = useState<string[]>([]);
+  const [anchor, setAnchor] = useState<{ row: string | null; col: string | null }>({ row: null, col: null });
   const [showSelectedTrends, setShowSelectedTrends] = useState(false);
   const [trend, setTrend] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [printing, setPrinting] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; code?: string } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const longPress = useLongPress<HTMLDivElement>((at) => setMenu(at));
 
   const days = PERIODS.find((p) => p.key === period)?.days ?? null;
   const cols = labColumns(patient.labs, pending, order, days === null ? null : 1 - days);
   const rows = labRows(cols, patient.sex, abnormalOnly);
   const resultCols = cols.filter((c) => c.kind === "result");
   const chosen = picked.length ? resultCols.filter((c) => picked.includes(c.key)) : [...resultCols].sort((a, b) => b.at - a.at).slice(0, 1);
-  const chosenRows = rows.filter(a => selectedCodes === null || selectedCodes.includes(a.code));
+  const chosenRows = codes.length ? rows.filter((a) => codes.includes(a.code)) : rows;
   const payload = labTransfer(patient, chosen.flatMap(c => c.kind === "result" ? [c.lab] : []), chosenRows.map(a => a.code), today);
   const dragResults = (e: React.DragEvent, columns: LabColumn[] = chosen) => {
     e.stopPropagation();
@@ -41,6 +65,23 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
   };
   const trendPatient = { ...patient, labs: (picked.length ? chosen : resultCols).flatMap(c => c.kind === "result" ? [c.lab] : []) };
   const trendAnalyte = trend ? ANALYTES.find((a) => a.code === trend) : undefined;
+  const allCodes = rows.map((a) => a.code);
+  const pick: Pick = {
+    rows: codes,
+    cols: picked,
+    area: codes.length || picked.length ? { rows: chosenRows.map((a) => a.code), cols: chosen.map((c) => c.key) } : null,
+    trend,
+    onRow: (code, shift) => {
+      setCodes((c) => pickWithShift(c, allCodes, code, anchor.row, shift));
+      setAnchor((a) => ({ ...a, row: code }));
+    },
+    onCol: (key, shift) => {
+      setPicked((p) => pickWithShift(p, resultCols.map((c) => c.key), key, anchor.col, shift));
+      setAnchor((a) => ({ ...a, col: key }));
+    },
+    onTrend: (code) => setTrend((t) => (t === code ? null : code)),
+    onDrag: (e, col) => dragResults(e, col && !picked.includes(col.key) ? [col] : chosen),
+  };
 
   const flash = (t: string) => {
     setNote(t);
@@ -77,8 +118,26 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
     window.print();
     onExport?.("印刷", cols.length);
   };
-
-  const btn = "inline-flex items-center gap-1 rounded border border-rule bg-sheet px-2 py-0.5 text-xs hover:bg-paper disabled:opacity-40";
+  const clear = () => {
+    setCodes([]);
+    setPicked([]);
+  };
+  const what = `${codes.length ? `${chosenRows.length}項目` : "全項目"}・${picked.length ? `${chosen.length}回` : "最新の回"}`;
+  const menuActions: CellAction[] = [
+    { label: "記事に貼る", disabled: payload.text ? null : "貼る値がありません", onClick: () => requestLabPaste(payload) },
+    { label: "コピー", disabled: payload.text ? null : "値がありません", onClick: () => void copy() },
+    { label: "時系列で見る", disabled: chosenRows.length && resultCols.length ? null : "結果がありません", onClick: () => (!codes.length && menu?.code ? setTrend(menu.code) : setShowSelectedTrends(true)) },
+    ...Object.keys(LAB_SELECTIONS)
+      .filter((name) => selectLabSet(allCodes, name).length)
+      .map((name) => ({ label: `${name}を選ぶ`, onClick: () => setCodes(selectLabSet(allCodes, name)) })),
+    { label: "全部選ぶ", onClick: () => { setCodes(allCodes); setPicked(resultCols.map((c) => c.key)); } },
+    ...(codes.length || picked.length ? [{ label: "選択を外す", onClick: clear }] : []),
+    { label: order === "旧→新" ? "新しい回を左に並べる" : "古い回を左に並べる", onClick: () => setOrder((o) => (o === "旧→新" ? "新→旧" : "旧→新")) },
+    { label: "CSV で保存", disabled: cols.length ? null : "結果がありません", onClick: saveCsv },
+    { label: "印刷", disabled: cols.length ? null : "結果がありません", onClick: print },
+  ];
+  const codeAt = (t: EventTarget) => (t instanceof Element ? (t.closest("[data-code]")?.getAttribute("data-code") ?? undefined) : undefined);
+  const tag = "rounded px-1.5 py-0.5";
 
   return (
     <div className="space-y-3">
@@ -89,44 +148,16 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
         ) : (
           <>
             <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-              <button type="button" className={btn} onClick={() => setOrder((o) => (o === "旧→新" ? "新→旧" : "旧→新"))} title="列の並びを入れ替える">
-                <ArrowDownUp size={12} />
-                {order}
-              </button>
               <span className="flex items-center gap-1" role="group" aria-label="期間">
                 {PERIODS.map((p) => (
-                  <button key={p.key} type="button" aria-pressed={period === p.key} onClick={() => setPeriod(p.key)} className={`rounded px-1.5 py-0.5 ${period === p.key ? "bg-ai text-sheet" : "text-ink-soft hover:bg-paper"}`}>
+                  <button key={p.key} type="button" aria-pressed={period === p.key} onClick={() => setPeriod(p.key)} className={`${tag} ${period === p.key ? "bg-ai text-sheet" : "text-ink-soft hover:bg-paper"}`}>
                     {p.label}
                   </button>
                 ))}
               </span>
-              <label className="flex items-center gap-1 text-ink-soft">
-                <input type="checkbox" checked={abnormalOnly} onChange={(e) => setAbnormalOnly(e.target.checked)} />
-                H・L のある項目だけ
-              </label>
-              <span className="flex flex-wrap items-center gap-1.5">
-                <button type="button" className={btn} onClick={copy} disabled={!resultCols.length} title="記事（O）に貼るための文字にしてコピーする。列の上の□で回を選べる">
-                  <Copy size={12} />
-                  {picked.length ? `選んだ${chosen.length}回をコピー` : "最新の結果をコピー"}
-                </button>
-                <button type="button" className={btn} onClick={saveCsv} disabled={!cols.length} title="CSV（カンマ区切りのファイル）。表計算ソフトで開ける">
-                  <FileDown size={12} />
-                  CSV
-                </button>
-                <button type="button" className={btn} onClick={print} disabled={!cols.length}>
-                  <Printer size={12} />
-                  印刷
-                </button>
-              </span>
-            </div>
-            <div className="mb-2 flex flex-wrap gap-2 text-xs">
-              <button type="button" className={btn} onClick={() => setSelectedCodes(rows.map(a => a.code))}>全選択</button>
-              <button type="button" className={btn} onClick={() => setSelectedCodes([])}>全解除</button>
-              {Object.keys(LAB_SELECTIONS).map(name => <button key={name} type="button" className={btn} onClick={() => setSelectedCodes(selectLabSet(rows.map(a => a.code), name))}>{name}</button>)}
-              <button type="button" draggable={!!payload.text} onDragStart={e => dragResults(e)} disabled={!payload.text} className={btn} onClick={() => requestLabPaste(payload)}>記事に貼る</button>
-              <button type="button" className={btn} disabled={!chosenRows.length || !chosen.length} onClick={() => setShowSelectedTrends(v => !v)}>時系列で見る</button>
-              <button type="button" className={btn} onClick={() => setPicked(resultCols.map(c => c.key))}>全日付</button>
-              <button type="button" className={btn} onClick={() => setPicked([])}>日付を解除</button>
+              <button type="button" aria-pressed={abnormalOnly} onClick={() => setAbnormalOnly((v) => !v)} className={`${tag} ${abnormalOnly ? "bg-ai text-sheet" : "text-ink-soft hover:bg-paper"}`}>
+                H・L だけ
+              </button>
             </div>
             {showSelectedTrends && chosenRows.map(a => <Trend key={a.code} analyte={a} patient={trendPatient} today={today} onClose={() => setShowSelectedTrends(false)} />)}
             {note && (
@@ -138,10 +169,27 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
             {cols.length === 0 ? (
               <p className="text-sm text-ink-faint">この期間の結果はありません</p>
             ) : (
-              <div className="scroll-thin overflow-x-auto">
-                <LabTable selectedCodes={chosenRows.map(a => a.code)} onCode={(code, on) => setSelectedCodes(on ? [...chosenRows.map(a => a.code), code] : chosenRows.map(a => a.code).filter(c => c !== code))} onDragColumn={(e, c) => dragResults(e, picked.includes(c.key) ? chosen : [c])} cols={cols} rows={rows} patient={patient} today={today} focusAt={focusAt} picked={picked} onPick={(key, on) => setPicked((p) => (on ? [...p, key] : p.filter((k) => k !== key)))} trend={trend} onTrend={setTrend} />
+              <div
+                className="scroll-thin overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-ai/40"
+                tabIndex={0}
+                aria-label="検査結果の表（右クリック・長押しで操作）"
+                {...longPress}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, code: codeAt(e.target) });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+                    e.preventDefault();
+                    const r = (e.target as Element).getBoundingClientRect();
+                    setMenu({ x: r.left, y: r.bottom, code: codeAt(e.target) });
+                  } else if (e.key === "Escape" && (codes.length || picked.length)) clear();
+                }}
+              >
+                <LabTable cols={cols} rows={rows} patient={patient} today={today} focusAt={focusAt} pick={pick} />
               </div>
             )}
+            {menu && <FlowCellMenu at={menu} title={`検査結果（${what}）`} actions={menuActions} onClose={closeMenu} />}
           </>
         )}
       </section>
@@ -215,8 +263,11 @@ export function ResultsPanel({ patient, today, pending = [], onExport, focusAt }
   );
 }
 
-function LabTable({ selectedCodes, onCode, onDragColumn, cols, rows, patient, today, picked, onPick, trend, onTrend, focusAt }: { selectedCodes?: string[]; onCode?: (code: string, on: boolean) => void; onDragColumn?: (e: React.DragEvent, c: LabColumn) => void; cols: LabColumn[]; rows: Analyte[]; patient: Patient; today: CalendarDate; picked?: string[]; onPick?: (key: string, on: boolean) => void; trend?: string | null; onTrend?: (code: string | null) => void; focusAt?: { day: number; time: string } }) {
+function LabTable({ cols, rows, patient, today, focusAt, pick }: { cols: LabColumn[]; rows: Analyte[]; patient: Patient; today: CalendarDate; focusAt?: { day: number; time: string }; pick?: Pick }) {
   const isFocus = (c: LabColumn) => !!focusAt && c.kind === "result" && c.day === focusAt.day && c.time === focusAt.time;
+  const inArea = (c: LabColumn, a: Analyte) => !!pick?.area && pick.area.rows.includes(a.code) && pick.area.cols.includes(c.key);
+  // Shift+press chooses a run; keep it from also selecting the text.
+  const noShiftSelect = (e: React.MouseEvent) => e.shiftKey && e.preventDefault();
   return (
     <table className="nums w-auto table-auto self-start whitespace-nowrap border-collapse text-[13px] print:text-[9pt]">
       <thead>
@@ -228,15 +279,23 @@ function LabTable({ selectedCodes, onCode, onDragColumn, cols, rows, patient, to
           </th>
           {cols.map((c) => {
             const r = c.kind === "result" ? c.lab : null;
-            return (
-              <th draggable={!!onDragColumn && c.kind === "result"} onDragStart={e => onDragColumn?.(e, c)} key={c.key} ref={isFocus(c) ? (el) => el?.scrollIntoView({ inline: "center", block: "nearest" }) : undefined} className={`py-1 pl-3 text-right align-bottom font-normal ${isFocus(c) ? "rounded-t bg-ai-soft text-ai" : ""} ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={displayText(r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined)}>
-                {onPick && c.kind === "result" && (
-                  <input type="checkbox" className="mb-0.5 print:hidden" aria-label={`${formatShort(addDays(today, c.day))} ${c.time} の結果をコピーに入れる`} checked={picked?.includes(c.key) ?? false} onChange={(e) => onPick(c.key, e.target.checked)} />
-                )}
-                <br className="print:hidden" />
+            const on = !!pick && pick.cols.includes(c.key);
+            const when = (
+              <>
                 {formatShort(addDays(today, c.day))}
                 <br />
                 {c.time}
+              </>
+            );
+            return (
+              <th draggable={!!pick && c.kind === "result"} onDragStart={(e) => pick?.onDrag(e, c)} key={c.key} ref={isFocus(c) ? (el) => el?.scrollIntoView({ inline: "center", block: "nearest" }) : undefined} className={`py-1 pl-3 text-right align-bottom font-normal ${isFocus(c) && !on ? "rounded-t bg-yamabuki-soft text-ink" : ""} ${c.kind === "pending" ? "text-yamabuki" : ""}`} title={displayText(r?.corrected ? `訂正（第${r.corrected.version}版）${r.corrected.at.time} ${r.corrected.by}　理由：${r.corrected.reason}` : c.kind === "pending" ? c.draw.tests : undefined)}>
+                {pick && c.kind === "result" ? (
+                  <button type="button" aria-pressed={on} onMouseDown={noShiftSelect} onClick={(e) => pick.onCol(c.key, e.shiftKey)} className={`-mr-1 rounded px-1 py-0.5 text-right ${on ? "bg-ai font-bold text-sheet" : "hover:bg-ai-soft hover:text-ai"}`}>
+                    {when}
+                  </button>
+                ) : (
+                  when
+                )}
                 {c.kind === "pending" && (
                   <>
                     <br />
@@ -258,44 +317,45 @@ function LabTable({ selectedCodes, onCode, onDragColumn, cols, rows, patient, to
         </tr>
       </thead>
       <tbody>
-        {rows.map((a) => (
-          <tr key={a.code} className={`border-b border-rule-soft ${trend === a.code ? "bg-ai-soft/60" : ""}`}>
-            <td className="sticky left-0 z-10 bg-sheet py-1 pr-3 font-bold print:static">
-              {onCode && <input type="checkbox" aria-label={`${a.name}を選択`} checked={selectedCodes?.includes(a.code) ?? false} onChange={e => onCode(a.code, e.target.checked)} className="mr-1 print:hidden" />}
-              {onTrend ? (
-                <button type="button" onClick={() => onTrend(trend === a.code ? null : a.code)} className="inline-flex items-center gap-1 hover:text-ai" title="経過のグラフ">
-                  {a.name}
-                  <ChartLine size={11} className="text-ink-faint" />
-                </button>
-              ) : (
-                a.name
-              )}
-            </td>
-            <td className="py-1 pr-3 text-xs text-ink-faint">{a.unit}</td>
-            <td className="py-1 pr-3 text-[11px] text-ink-faint" title={a.judgment ? `判断値：${a.judgment}` : undefined}>
-              {displayText(rangeText(a, patient.sex))}
+        {rows.map((a) => {
+          const on = !!pick && pick.rows.includes(a.code);
+          return (
+            <tr key={a.code} data-code={a.code} draggable={!!pick} onDragStart={(e) => pick?.onDrag(e)} className={`border-b border-rule-soft ${pick?.trend === a.code ? "bg-ai-soft/60" : ""}`}>
+              <td className="sticky left-0 z-10 bg-sheet py-1 pr-3 font-bold print:static">
+                {pick ? (
+                  <button type="button" aria-pressed={on} onMouseDown={noShiftSelect} onClick={(e) => pick.onRow(a.code, e.shiftKey)} onDoubleClick={() => pick.onTrend(a.code)} className={`-mx-1 rounded px-1 ${on ? "bg-ai text-sheet" : "hover:bg-ai-soft hover:text-ai"}`}>
+                    {a.name}
+                  </button>
+                ) : (
+                  a.name
+                )}
+              </td>
+              <td className="py-1 pr-3 text-xs text-ink-faint">{a.unit}</td>
+              <td className="py-1 pr-3 text-[11px] text-ink-faint" title={a.judgment ? `判断値：${a.judgment}` : undefined}>
+                {displayText(rangeText(a, patient.sex))}
 
-              {a.judgment ? " ＊" : ""}
-            </td>
-            {cols.map((c) => {
-              const x = cellOf(c, a, patient.sex);
-              return (
-                <td key={c.key} className={`py-1 pl-3 text-right ${isFocus(c) ? "bg-ai-soft/60" : ""} ${x.kind === "value" && x.flag === "H" ? "text-shu" : x.kind === "value" && x.flag === "L" ? "text-ai" : ""}`}>
-                  {x.kind === "value" ? (
-                    <>
-                      {labNumber(a.code, x.value)}
-                      <span className="inline-block w-3 text-[10px]">{x.flag}</span>
-                    </>
-                  ) : x.kind === "pending" ? (
-                    <span className="text-[11px] text-yamabuki">{x.status}</span>
-                  ) : (
-                    <span className="text-ink-faint">—</span>
-                  )}
-                </td>
-              );
-            })}
-          </tr>
-        ))}
+                {a.judgment ? " ＊" : ""}
+              </td>
+              {cols.map((c) => {
+                const x = cellOf(c, a, patient.sex);
+                return (
+                  <td key={c.key} title={pick && x.kind === "value" && c.kind === "result" ? displayText(valueTip(patient.labs, c.lab, a.code, a.unit, rangeText(a, patient.sex), today)) : undefined} className={`py-1 pl-3 text-right ${inArea(c, a) ? "bg-ai-soft" : isFocus(c) ? "bg-yamabuki-soft/60" : ""} ${x.kind === "value" && x.flag === "H" ? "text-shu" : x.kind === "value" && x.flag === "L" ? "text-ai" : ""}`}>
+                    {x.kind === "value" ? (
+                      <>
+                        {labNumber(a.code, x.value)}
+                        <span className="inline-block w-3 text-[10px]">{x.flag}</span>
+                      </>
+                    ) : x.kind === "pending" ? (
+                      <span className="text-[11px] text-yamabuki">{x.status}</span>
+                    ) : (
+                      <span className="text-ink-faint">—</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -387,5 +447,5 @@ function Trend({ analyte, patient, today, onClose }: { analyte: Analyte; patient
 }
 
 /* Help migration source (references and dynamic wording):
-<span >項目名を押すと経過のグラフ。「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの。</span>
+<span >項目名や日付を押すと選び（Shift で範囲）、ダブルクリックで経過のグラフ。「検査中」は採血・受付が済んで結果がまだのもの、「採取待ち」は予定の時刻を過ぎて採血の記録がないもの。</span>
 */

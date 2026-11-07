@@ -2,14 +2,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { labelsThatFit } from "@/lib/point-labels";
+import { pickWithShift, valueTip } from "@/lib/lab-pick";
 import { PATIENTS } from "@/lib/patients";
-import type { VitalSign } from "@/lib/types";
+import type { LabResult, VitalSign } from "@/lib/types";
 import { ANALYTES } from "@/lib/master";
 import { flagOf } from "@/lib/lab-desk";
 import { STAFF } from "@/lib/roles";
 import { FlowSheet } from "./FlowSheet";
 import { HistoryPane } from "./HistoryPane";
 import { MeProvider, RoleProvider } from "./RoleContext";
+import { ResultsPanel } from "./panels/ResultsPanel";
 
 const today = { y: 2026, m: 11, d: 4 };
 
@@ -48,5 +50,31 @@ describe("経過の検体検査カード：カーソルでその回の H・L", (
       if (flagOf(a, p.sex, v)) expect(tip).toContain(`${a.name} <b`);
       else expect(tip).not.toContain(`>${a.name} <b`);
     }
+  });
+});
+
+describe("検査結果：表を押して選び、右クリックで操作", () => {
+  it("押すと1つずつ足し引き、Shift で前に押したところから続けて選ぶ", () => {
+    const order = ["WBC", "Hb", "Plt", "CRP"];
+    expect(pickWithShift([], order, "Hb", null, false)).toEqual(["Hb"]);
+    expect(pickWithShift(["Hb"], order, "Hb", "Hb", false)).toEqual([]);
+    expect(pickWithShift(["Hb"], order, "CRP", "Hb", true)).toEqual(["Hb", "Plt", "CRP"]);
+    expect(pickWithShift(["CRP"], order, "WBC", "Plt", true)).toEqual(["CRP", "WBC", "Hb", "Plt"]);
+  });
+  it("値にカーソルで前回の値と日付、いまの値、基準範囲", () => {
+    const labs: LabResult[] = [{ day: -4, time: "06:00", values: { CRP: 12.2 } }, { day: -1, time: "06:00", values: { WBC: 6000 } }, { day: 0, time: "06:00", values: { CRP: 0.5 } }];
+    expect(valueTip(labs, labs[2], "CRP", "mg/dL", "0.14以下", today)).toBe("前回 12.20（10/31）→ 0.50 mg/dL、基準 0.14以下");
+    expect(valueTip(labs, labs[0], "CRP", "mg/dL", "0.14以下", today)).toBe("12.20 mg/dL、基準 0.14以下");
+  });
+  it("上に残るのは期間と「H・L だけ」。チェックボックスと14個のボタンはなく、項目名と日付が押して選ぶボタンになり、行はドラッグできる", () => {
+    const p = PATIENTS.find((x) => x.labs.length >= 2)!;
+    const html = renderToStaticMarkup(<ResultsPanel patient={p} today={today} />);
+    expect(html).not.toContain('type="checkbox"');
+    for (const gone of ["全選択", "全解除", "記事に貼る", "時系列で見る", "全日付", "日付を解除", "旧→新", ">CSV<", ">印刷<", "最新の結果をコピー"]) expect(html).not.toContain(gone);
+    expect(html).toContain(">H・L だけ</button>");
+    expect(html).toContain(">直近7日</button>");
+    expect((html.match(/aria-pressed="false"/g) ?? []).length).toBeGreaterThan(p.labs.length);
+    expect(html).toMatch(/data-code="[^"]+" draggable="true"/);
+    expect(html).toMatch(/title="前回 [^"]+→ [^"]+、基準 /);
   });
 });
