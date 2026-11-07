@@ -6,12 +6,18 @@
 // line is the first line of the report, cut out as it is.
 
 import { displayText } from "@/lib/display-text";
-import { ChevronDown, ChevronRight, FileText, UserRound } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
+import type { OpenAt } from "@/lib/open-at";
 import { readStateOf, summaryOf, unreadReports, type Report, type WardReportRow } from "@/lib/reports";
 import type { Ack } from "@/lib/results";
 import { dayText, KIND_CHIP, ReportPanel } from "./panels/ReportPanel";
+import { usePressMenu } from "./PressMenu";
+import { useDeny } from "./RoleContext";
+
+// The report to open when the chart's レポート一覧 opens next (a row of the ward's list double-clicked, or its menu's 「カルテで開く」).
+let openNext: string | null = null;
 
 interface RowsProps {
   reports: Report[];
@@ -21,12 +27,24 @@ interface RowsProps {
   onOpenImage?: (studyId: string) => void;
   /** Open this report's row at first (e.g. the one pressed elsewhere). */
   openKey?: string | null;
+  /** The ward's list: a row's double-click (and its menu) opens the report in the patient's chart. */
+  onOpenChart?: (key: string) => void;
 }
 
-/** The rows of reports; a press opens the report in full under the row. */
-export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey = null }: RowsProps) {
+/** The rows of reports; a press opens the report in full under the row; the right-click (a long press) offers 確認した・カルテで開く・画像を開く. */
+export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey = null, onOpenChart }: RowsProps) {
   const [open, setOpen] = useState<string | null>(openKey);
+  const { bind, menu } = usePressMenu();
+  const denied = useDeny()("result.ack");
   if (reports.length === 0) return <p className="py-2 text-[12px] text-ink-faint">レポートはありません。</p>;
+  const actions = (r: Report) => {
+    const state = readStateOf(r, acks).state;
+    return [
+      { label: "確認した", onClick: () => onSeen?.([r.key]), disabled: denied ?? (state === "確認済み" ? "確認済みです" : state === "前の記録" ? "前の記録です" : onSeen ? null : "ここでは確認しません") },
+      ...(onOpenChart ? [{ label: "カルテで開く", onClick: () => onOpenChart(r.key) }] : []),
+      { label: "画像を開く", onClick: () => r.imageOf && onOpenImage?.(r.imageOf), disabled: !r.imageOf ? "画像のないレポートです" : onOpenImage ? null : "カルテから開きます" },
+    ];
+  };
   return (
     <ul className="divide-y divide-rule-soft">
       {reports.map((r) => {
@@ -36,7 +54,14 @@ export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey 
         const when = r.examAt ?? r.at;
         return (
           <li key={r.key} data-unread={unread || undefined} className={unread ? "bg-shu-soft/30" : ""}>
-            <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : r.key)} className="flex w-full items-start gap-2 px-2 py-1.5 text-left text-[12px] hover:bg-sheet pointer-coarse:py-2.5">
+            <button
+              type="button"
+              aria-expanded={isOpen}
+              {...bind(`${r.kind} ${r.title}`, () => actions(r))}
+              onClick={() => setOpen(isOpen ? null : r.key)}
+              onDoubleClick={onOpenChart ? () => onOpenChart(r.key) : undefined}
+              className="flex w-full items-start gap-2 px-2 py-1.5 text-left text-[12px] hover:bg-sheet pointer-coarse:py-2.5"
+            >
               {isOpen ? <ChevronDown size={14} className="mt-0.5 shrink-0 text-ink-faint" /> : <ChevronRight size={14} className="mt-0.5 shrink-0 text-ink-faint" />}
               <span className="relative mt-0.5 shrink-0 text-ink-soft">
                 <FileText size={14} />
@@ -66,6 +91,7 @@ export function ReportRows({ reports, acks, today, onSeen, onOpenImage, openKey 
           </li>
         );
       })}
+      {menu}
     </ul>
   );
 }
@@ -85,10 +111,14 @@ interface ListProps {
   onOpenImage?: (studyId: string) => void;
 }
 
-/** In the chart: every report of the patient, with 「未読だけ」. */
+/** In the chart: every report of the patient, with 「未読だけ」 (the one asked for from the ward's list opens at first). */
 export function ReportList({ reports, acks, today, onSeen, onOpenImage }: ListProps) {
   const unread = unreadReports(reports, acks);
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const [first] = useState(() => (reports.some((r) => r.key === openNext) ? openNext : null));
+  useEffect(() => {
+    openNext = null;
+  }, []);
   const shown = onlyUnread ? unread : reports;
   return (
     <div className="space-y-2 text-[12px]">
@@ -109,7 +139,7 @@ export function ReportList({ reports, acks, today, onSeen, onOpenImage }: ListPr
       </div>
 
       <div className="rounded-md border border-rule bg-sheet">
-        <ReportRows reports={shown} acks={acks} today={today} onSeen={onSeen} onOpenImage={onOpenImage} />
+        <ReportRows reports={shown} acks={acks} today={today} onSeen={onSeen} onOpenImage={onOpenImage} openKey={first} />
       </div>
       <ReportNotes />
     </div>
@@ -123,11 +153,14 @@ interface WardProps {
   acks: Record<string, Ack>;
   today: CalendarDate;
   onSeen?: (patientId: string, keys: string[]) => void;
-  onOpen: (patientId: string) => void;
+  /** The chart (the patient's name), or the chart with its レポート一覧 (a report's double-click or menu). */
+  onOpen: (patientId: string, where?: OpenAt) => void;
+  /** The report's images (PACS) in the patient's chart. */
+  onOpenImage?: (patientId: string, studyId: string) => void;
 }
 
 /** 病棟の画面「レポート」: by patient, those with unread reports first; 受け持ちだけ and 未読だけ to narrow. */
-export function WardReportList({ rows, mine, acks, today, onSeen, onOpen }: WardProps) {
+export function WardReportList({ rows, mine, acks, today, onSeen, onOpen, onOpenImage }: WardProps) {
   const [onlyMine, setOnlyMine] = useState(true);
   const [onlyUnread, setOnlyUnread] = useState(true);
   const shown = rows
@@ -157,16 +190,24 @@ export function WardReportList({ rows, mine, acks, today, onSeen, onOpen }: Ward
         {shown.map((r) => (
           <section key={r.patientId} className="rounded-md border border-rule bg-sheet">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft px-3 py-1.5">
-              <span className="nums text-ink-soft">{r.room}</span>
-              <b>{r.name}</b>
+              <button type="button" onClick={() => onOpen(r.patientId)} className="flex items-baseline gap-3 rounded text-left hover:text-ai hover:underline">
+                <span className="nums text-ink-soft">{r.room}</span>
+                <b>{r.name}</b>
+              </button>
               {mine(r.patientId) && <span className="rounded border border-ai/50 px-1 text-[11px] text-ai">受け持ち</span>}
               {r.unread > 0 ? <span className="nums rounded-full bg-shu px-1.5 text-[11px] font-bold text-white">未読 {r.unread}</span> : <span className="text-[11px] text-ink-faint">未読なし</span>}
-              <button type="button" onClick={() => onOpen(r.patientId)} className="ml-auto flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-[11px] text-ink-soft hover:bg-paper hover:text-ink">
-                <UserRound size={12} />
-                カルテを開く
-              </button>
             </div>
-            <ReportRows reports={r.reports} acks={acks} today={today} onSeen={onSeen ? (keys) => onSeen(r.patientId, keys) : undefined} />
+            <ReportRows
+              reports={r.reports}
+              acks={acks}
+              today={today}
+              onSeen={onSeen ? (keys) => onSeen(r.patientId, keys) : undefined}
+              onOpenImage={onOpenImage && ((id) => onOpenImage(r.patientId, id))}
+              onOpenChart={(key) => {
+                openNext = key;
+                onOpen(r.patientId, "report-list");
+              }}
+            />
           </section>
         ))}
         <ReportNotes />

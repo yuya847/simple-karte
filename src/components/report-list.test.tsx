@@ -74,7 +74,9 @@ describe("病棟のレポート一覧", () => {
     expect(html).toContain("北村 博");
     expect(html).toContain("佐倉 修");
     expect(html).toContain("未読 2");
-    expect(html).toContain("カルテを開く");
+    // The patient's name opens the chart (no 「カルテを開く」 button on each patient).
+    expect(html).toMatch(/<button type="button" class="[^"]*hover:underline"><span class="nums text-ink-soft">51\d<\/span><b>北村 博<\/b><\/button>/);
+    expect(html).not.toContain("カルテを開く");
     // A nurse reads the open report; 確認 is the doctor's (the button is locked).
     const open = as("看護師", <ReportRows reports={rows[0].reports} acks={{}} today={today} onSeen={() => {}} openKey={rows[0].reports[0].key} />);
     expect(open).toMatch(/<button[^>]*disabled=""[^>]*>確認した<\/button>/);

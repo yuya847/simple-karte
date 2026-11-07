@@ -2588,7 +2588,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "consults" ? (
         <ConsultInboxView rows={inbox} onOpen={(id) => { openPatient(id); setPanel("add-consult"); }} />
       ) : screen === "reports" ? (
-        <WardReportList rows={wardReports} mine={isMine} acks={acks} today={today} onSeen={deny("result.ack") ? undefined : (pid, keys) => markSeen(pid, keys)} onOpen={openPatient} />
+        <WardReportList rows={wardReports} mine={isMine} acks={acks} today={today} onSeen={deny("result.ack") ? undefined : (pid, keys) => markSeen(pid, keys)} onOpen={openAt} onOpenImage={(pid, id) => { openPatient(pid); setTimeout(() => openReportImage(id), 0); }} />
       ) : screen === "undone" ? (
         <UndoneView rows={undoneNow} gaps={gapsNow} clock={clockText} forBilling={role === "医事課"} onOpen={openPatient} onSheet={TABS[role].includes("sheet") ? () => goWard("sheet") : undefined} onBilling={role === "医事課" ? (pid) => { openPatient(pid); setTimeout(() => setPanel("billing"), 0); } : undefined} />
       ) : screen === "roster" ? (
