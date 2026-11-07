@@ -20,6 +20,7 @@ import { IcuInfusionPane } from "./icu/IcuInfusionPane";
 import { IcuLinesPane } from "./icu/IcuLinesPane";
 import { IcuSofaPane } from "./icu/IcuSofaPane";
 import { IcuRoundPane } from "./icu/IcuRoundPane";
+import { IcuBand } from "./icu/IcuBand";
 
 const tabs=["時間表","呼吸器・血液ガス","持続投与","ライン・チューブ","SOFA","回診"] as const;
 type Tab=typeof tabs[number];
@@ -29,6 +30,8 @@ export interface IcuPanelProps {
   auditLog(event:Omit<AuditEvent,"seq"|"at"|"date">):void; newId():string;
   initialTab?:Tab;
   entries?: OrderEntry[]; onOrder?: (drafts: Draft[]) => void;
+  /** 指示簿の医師の文（standing.other）。帯にそのまま出す。 */
+  targets?: string;
 }
 
 export function IcuPanel(p:IcuPanelProps) {
@@ -44,6 +47,7 @@ export function IcuPanel(p:IcuPanelProps) {
   const permit=(ok:boolean,action:Action)=>{if(ok)return true;setError(deny(action)??"この職種では記録できません");return false;};
   const pane:IcuPaneProps={patient,records,role,me,today,nowTime,newId,at:{day:0,time:nowTime},now:abs(0,nowTime),doc,nurse,pump,measured,commit,permit,setError};
   return <div className="space-y-3 p-3 text-sm" data-help="IcuPanel">
+    <IcuBand patient={patient} records={records} today={today} now={pane.now} targets={p.targets}/>
     <TabChoice label="ICU 記録のタブ" options={tabs.map(t=>({value:t,label:t}))} value={tab} onChange={setTab}/>
     {error&&<p role="alert" className="text-shu">{error}</p>}
     {tab==="時間表"&&<IcuTimeTable {...pane} day={day} setDay={setDay}/>}
