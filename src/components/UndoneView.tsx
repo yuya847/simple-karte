@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { ClipboardX } from "lucide-react";
 import { useState } from "react";
-import { UNDONE_WINDOW, lateText, type GapRow, type UndoneRow } from "@/lib/undone";
+import { lateText, type GapRow, type UndoneRow } from "@/lib/undone";
 import type { WorkKind } from "@/lib/worksheet";
 
 const KINDS: WorkKind[] = ["注射", "内服", "処置", "採血", "検査"];
@@ -18,13 +18,12 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
   const [kind, setKind] = useState<WorkKind | "all">("all");
   const shown = rows.filter((r) => kind === "all" || r.kind === kind);
   return (
-    <div className="scroll-thin min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-[13px]">
+    <div className="scroll-thin min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-[13px]">
       <header className="flex flex-wrap items-center gap-2">
         <h2 className="flex items-center gap-1.5 text-base font-bold">
           <ClipboardX size={18} />
           未実施の一覧（実施漏れ・算定漏れ）
         </h2>
-        <span className="text-xs text-ink-soft">受け持ちのチームの患者・この画面を開いてからの予定</span>
       </header>
 
       <section aria-label="実施の記録がないもの" className="space-y-2">
@@ -45,10 +44,7 @@ export function UndoneView({ rows, gaps, clock, forBilling, onOpen, onSheet, onB
             </button>
           )}
         </div>
-        <p className="text-[11px] text-ink-faint">
-          {UNDONE_WINDOW}。
-        </p>
-        {forBilling && <p className="text-[11px] text-yamabuki">記録のないまま算定に入っています。実施記録を確認してください。</p>}
+        {forBilling && <p className="text-[12px] text-yamabuki">記録のないまま算定に入っています。</p>}
         {shown.length === 0 ? (
           <p className="rounded-md border border-rule bg-paper px-3 py-2 text-wakatake">記録がないまま時刻を過ぎたものはありません。</p>
         ) : (
