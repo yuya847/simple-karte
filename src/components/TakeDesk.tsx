@@ -16,6 +16,7 @@ import type { WorkPatient } from "@/lib/worksheet";
 import { Sources, usePrintSheet } from "./DeskParts";
 import { OrderSlipPrint } from "./OrderSlipPrint";
 import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
+import { useEscFirst } from "@/lib/use-esc-first";
 import { PatientBand, SheetBand, SheetBlock, SheetNotes, pickRange, rowTime } from "./OrderSheet";
 import { useMe } from "./RoleContext";
 import { TakeConfirm } from "./TakeConfirm";
@@ -77,6 +78,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ key: string; at: { x: number; y: number } } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  useEscFirst(!!menu, closeMenu);
   // 手応え: the row just taken or confirmed keeps a green band 「受けました／確認しました（hh:mm 誰）」 for a few
   // seconds (a confirmed row stays in the list that long, then folds away into 指示受け済み).
   const [done, setDone] = useState<Record<string, string>>({});

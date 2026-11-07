@@ -13,6 +13,7 @@ import { EMPTY_STAMP, EXECUTE_DAYS, EXECUTE_NOTE, canExecuteOn, categoryOfWork, 
 import { wardLabel } from "@/lib/place-label";
 import { buildWorksheet, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
 import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
+import { useEscFirst } from "@/lib/use-esc-first";
 import { PatientBand, SheetBand, SheetBlock, SheetNotes, pickRange, rowTime } from "./OrderSheet";
 import { useMe } from "./RoleContext";
 
@@ -56,6 +57,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ key: string; at: { x: number; y: number } } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  useEscFirst(!!menu, closeMenu);
   const [form, setForm] = useState<{ time: string; by: string; status: "実施" | "未実施"; reason: NotDoneReason | "" }>({ time: nowTime, by: me.name, status: "実施", reason: "" });
   const nowAbs = abs(0, nowTime);
   const { lo, hi } = dayWindow(day);
