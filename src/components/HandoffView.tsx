@@ -187,10 +187,10 @@ function Card({ persisted, receiving, w, nowTime, shift, shiftLo, prev, facts, h
           </button>
         </div>
       ) : sent ? (
-        <div className="mt-3 rounded-lg border border-wakatake/40 bg-wakatake-soft/40 p-3">
+        <div className="mb-3 rounded-lg border border-wakatake/40 bg-wakatake-soft/40 p-3">
           <Field letter="S" label={FIELDS[4].label} en={FIELDS[4].en}>
             <p className="mb-1 text-[11px] text-ink-soft">
-              {h.sentAt!.time} に {displayText(h.from)} が送りました。受けた人は、聞いた要点を自分の言葉で言い直して（復唱して）残します。
+              {h.sentAt!.time}　{displayText(h.from)} から
             </p>
             <fieldset disabled={received || !!deny} className="m-0 min-w-0 space-y-1 border-0 p-0">
               <label className="flex items-center gap-1 text-xs text-ink-soft">
@@ -220,7 +220,7 @@ function Card({ persisted, receiving, w, nowTime, shift, shiftLo, prev, facts, h
             )}
           </Field>
         </div>
-      ) : <p>この勤務への申し送りはまだ届いていません。</p>}
+      ) : <p className="mb-2 text-ink-soft">この勤務への申し送りはまだ届いていません。</p>}
 
       {prev && (
         <details className="mb-3 rounded-lg border border-rule-soft bg-paper p-3">
@@ -240,8 +240,8 @@ function Card({ persisted, receiving, w, nowTime, shift, shiftLo, prev, facts, h
         </details>
       )}
 
-      <div className="mb-3 rounded-lg border border-rule bg-sheet p-3">
-        <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから</h4>
+      {!(sent && h.facts.length === 0) && <div className="mb-3 rounded-lg border border-rule bg-sheet p-3">
+        <h4 className="mb-1 text-xs font-bold text-ink-soft">カルテから{sent && persisted && <span className="ml-1 font-normal">（{h.sentAt!.time} 時点）</span>}</h4>
         <ul className="list-disc space-y-0.5 pl-5">
           {(sent ? h.facts : facts).map((f, i) => (
             <li key={i} className="nums">
@@ -250,15 +250,13 @@ function Card({ persisted, receiving, w, nowTime, shift, shiftLo, prev, facts, h
           ))}
           {facts.length === 0 && <li className="text-ink-faint">集める事実がありません。</li>}
         </ul>
-        {sent && persisted && <p className="mt-1 text-[11px] text-ink-faint">送った時点（{h.sentAt!.time}）の内容です。</p>}
-      </div>
+      </div>}
 
       {!locked && !receiving && (
         <div className="mb-3 rounded-lg border border-ai/30 bg-ai-soft/40 p-3">
           <div className="mb-1 flex items-center gap-1.5 text-sm font-bold text-ai">
             <Sparkles size={14} />
             話す・打つ
-            <span className="text-xs font-normal text-ink-soft">→ Claude が下の欄に分けます（言葉は変えません）</span>
           </div>
           <textarea
             value={text}
