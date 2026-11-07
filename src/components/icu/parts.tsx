@@ -6,7 +6,7 @@
 import type { ReactNode } from "react";
 import type { Patient } from "@/lib/types";
 import type { Action, Role, Staff } from "@/lib/roles";
-import type { CalendarDate } from "@/lib/dates";
+import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { At, IcuRecords } from "@/lib/icu";
 
 /** What the shell hands every tab. */
@@ -41,4 +41,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 export const n = (f: FormData, k: string) => (String(f.get(k) ?? "").trim() === "" ? undefined : Number(f.get(k)));
 export const s = (f: FormData, k: string) => String(f.get(k) ?? "");
 export const stamp = (a: { day: number; time: string }) => `${a.day === 0 ? "今日" : `${a.day}日`} ${a.time}`;
+/** On the screen: 「今日 08:00」「昨日 08:00」「11/4（水） 08:00」 (without today's date, as stamp). */
+export const when = (a: { day: number; time: string }, today: CalendarDate | null) =>
+  today ? `${a.day === 0 ? "今日" : a.day === -1 ? "昨日" : formatShort(addDays(today, a.day))} ${a.time}` : stamp(a);
 export const show = (v: number | null | undefined) => (v === undefined || v === null ? "—" : Number(v.toFixed(1)));
