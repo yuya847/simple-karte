@@ -308,6 +308,7 @@ import { IoBoard } from "./IoBoard";
 import { VerbalInbox } from "./VerbalInbox";
 import { DirectivePanel } from "./panels/DirectivePanel";
 import { AbxRenalWindow } from "./AbxRenalWindow";
+import { CalcWindow } from "./CalcWindow";
 import { DietWindow } from "./DietWindow";
 import { DischargePanel } from "./panels/DischargePanel";
 import type { DischargeDraft } from "@/lib/discharge";
@@ -3923,6 +3924,11 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "abx-renal" && (
                 <Drawer title="抗菌薬の量" onClose={closePanel} wide>
                   <AbxRenalWindow key={patient.id} patient={patient} entries={entries} today={today} canOrder={role === "医師" && !deny("order")} onOrder={o => { if (role === "医師" && !deny("order")) { newInjection({ day: o.start.day, time: o.start.time ?? null }, o); closePanel(); } }} onTdm={() => setPharmacyFocus({ tab: "tdm", patientId: patient.id })} />
+                </Drawer>
+              )}
+              {panel === "calc" && (
+                <Drawer title="計算" onClose={closePanel} wide initialWidth={1080}>
+                  <CalcWindow key={patient.id} patient={patient} entries={entries} today={today} nowTime={nowTime} icu={visibleIcuRecords(icu, abs(0, nowTime))} onOpenTool={setPanel} onInsert={deny("note") ? undefined : (line) => update((c) => ({ note: insertIntoO(c.note, line), rightTab: floating.note ? c.rightTab : "note", flash: `記事の O) に入れました：${line}` }))} />
                 </Drawer>
               )}
               {panel === "diet" && (

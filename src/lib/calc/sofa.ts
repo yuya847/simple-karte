@@ -137,7 +137,7 @@ export function sofaPrefill(patient: Patient, icu: IcuRecords, icuId: string, no
   }
   for (const d of SOFA_DRUGS) {
     const gs = facts.drugs.filter((x) => (d.key === "ad" ? /アドレナリン/.test(x.name) && !/ノルアドレナリン/.test(x.name) : x.name.includes(d.name))).map((x) => x.gamma);
-    out[d.key] = gs.length ? { value: fmt(Math.max(...gs), 3), from: "ICU 持続投与 今日の最大" } : null;
+    out[d.key] = gs.length ? { value: fmt(Math.max(...gs), 3), from: "ICU 今日の最大" } : null;
   }
 
   // 中枢神経：今日の GCS の最小（ICU 記録の置き方の注記を含む）、なければ最新の GCS。
