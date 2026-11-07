@@ -59,6 +59,14 @@ describe("右端ツールの中の帯（指示受け・研修医の記録の確�
     expect(as("看護師", <ToolRail open={null} onOpen={() => {}} />)).not.toContain("研修医の記録の確認");
   });
 
+  it("ICU 記録 is the first tool of the first group (介入), not under 看護", () => {
+    for (const role of ["医師", "看護師"] as const) {
+      const groups = groupsFor(role);
+      expect(groups[0].main[0].key).toBe("icu");
+      expect(groups.find((g) => g.key === "nursing")!.main.some((t) => t.key === "icu")).toBe(false);
+    }
+  });
+
   it("指示受け (take) under 看護 shows its count to the doctor too", () => {
     const html = as("医師", <ToolRail open="take" onOpen={() => {}} badges={{ take: { n: 1, urgent: true } }} />);
     expect(html).toContain('aria-label="指示受け：未確認 1件"');
@@ -90,8 +98,8 @@ describe("処方・注射の入口", () => {
     expect(prescription).not.toContain("disabled");
   });
 
-  it("介入の先頭に処方・注射を並べ、既存の権限による無効表示を使う", () => {
-    expect(groupsFor("医師")[0].main.slice(0, 2).map((t) => t.key)).toEqual(["add-rx", "add-injection"]);
+  it("介入の先頭（ICU 記録の次）に処方・注射を並べ、既存の権限による無効表示を使う", () => {
+    expect(groupsFor("医師")[0].main.slice(0, 3).map((t) => t.key)).toEqual(["icu", "add-rx", "add-injection"]);
     for (const role of ROLES) {
       const allowed = can(role, "order") || can(role, "order.verbal");
       const why = allowed ? undefined : "オーダの確定は医師が行います";

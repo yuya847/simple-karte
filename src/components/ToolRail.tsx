@@ -35,6 +35,7 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     key: "intervention",
     title: "介入",
     main: [
+      { key: "icu", label: "ICU 記録", icon: Gauge },
       { key: "add-rx", label: "処方", icon: Pill },
       { key: "add-injection", label: "注射", icon: Syringe },
       { key: "insulin", label: "インスリン", icon: ChartSpline },
@@ -75,7 +76,6 @@ const GROUPS: { key: GroupKey; title: string; main: Tool[]; more: Tool[] }[] = [
     key: "nursing",
     title: "看護",
     main: [
-      { key: "icu", label: "ICU 記録", icon: Gauge },
       { key: "take", label: "指示受け", icon: ClipboardCheck },
       { key: "vitals", label: "バイタル", icon: Thermometer },
       { key: "care-orders", label: "ケア指示", icon: ListTodo },
