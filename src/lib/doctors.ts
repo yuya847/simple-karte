@@ -23,6 +23,8 @@ export const DOCTORS: Doctor[] = [
   { name: "木下（総合診療科 B）", rank: "医師", team: "総合診療科 B（木下チーム）", note: "ほかのチームの医師（当直のときなど）" },
   { name: "井上（循環器内科）", rank: "医師", team: "循環器内科", note: "コンサルト担当" },
   { name: "放射線科 石田", rank: "医師", team: "放射線科", note: "放射線科医。放射線部で読影レポートを書く" },
+  { name: "大野（集中治療科）", rank: "医師", team: "集中治療科", note: "集中治療科。ICU の主治医" },
+  { name: "白石（救急科）", rank: "医師", team: "救急科", note: "救急外来の医師" },
   ...["麻酔科 青木", "麻酔科 藤原", "麻酔科 西村"].map(name => ({ name, rank: "医師" as const, team: "麻酔科", note: "術前診察・麻酔管理・術後回診" })),
 ];
 

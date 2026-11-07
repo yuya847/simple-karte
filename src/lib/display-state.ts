@@ -1,4 +1,5 @@
 import { STAFF, ROLES, type Role, type Staff } from "./roles";
+import { NURSES } from "./nurses";
 import { DEFAULT_DOCTOR, doctorOf } from "./doctors";
 import { allowedWardTabs, areasFor, homeScreen, wardTabOf, type AreaKey, type Owner, type PatientTab, type WardTab } from "./nav";
 
@@ -13,6 +14,7 @@ export function readPerson(raw: string | null): Staff {
   if (!object(v) || !ROLES.includes(v.role as Role)) return STAFF.医師;
   const role = v.role as Role;
   if (role === "医師") return { role, name: typeof v.name === "string" && doctorOf(v.name) ? v.name : DEFAULT_DOCTOR };
+  if (role === "看護師" && NURSES.some(n => n.name === v.name)) return { role, name: v.name as string };
   return v.name === STAFF[role].name ? STAFF[role] : STAFF.医師;
 }
 export interface DisplayState {

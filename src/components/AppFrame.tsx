@@ -86,6 +86,8 @@ interface Props {
   /** The doctors to choose from inside 医師, and choosing one. */
   doctors?: PersonChoice[];
   onDoctor?: (name: string) => void;
+  nurses?: PersonChoice[];
+  onNurse?: (name: string) => void;
   /** The places and tools this role uses. */
   areas: Area[];
   /** The place chosen (病棟・救急外来・外来・手術室…), from the pulldown at the start of the top row. */
@@ -448,7 +450,7 @@ function TodoButton({ todos }: { todos: Todo[] }) {
 }
 
 /** 自分: the role (login stand-in for the demo), データ抽出 and the audit log. */
-function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors, onDoctor, session }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; meName?: string; doctors?: PersonChoice[]; onDoctor?: (name: string) => void; session?: Props["session"] }) {
+function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors, onDoctor, nurses, onNurse, session }: { role: Role; onRole: (r: Role) => void; onArea: (k: AreaKey) => void; auditOn: boolean; extractOn: boolean; meName?: string; doctors?: PersonChoice[]; onDoctor?: (name: string) => void; nurses?: PersonChoice[]; onNurse?: (name: string) => void; session?: Props["session"] }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   return (
@@ -502,6 +504,29 @@ function UserButton({ role, onRole, onArea, auditOn, extractOn, meName, doctors,
                           onClick={() => {
                             setOpen(false);
                             onDoctor(d.name);
+                          }}
+                          className={`w-full rounded px-2 py-0.5 text-left text-[13px] hover:bg-paper pointer-coarse:py-1.5 ${on ? "font-bold text-ai" : ""}`}
+                        >
+                          {d.name}
+                          <span className="block text-[11px] font-normal leading-tight text-ink-faint">{displayText(d.note)}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {r === "看護師" && nurses && onNurse && (
+                <ul aria-label="看護師を選ぶ" className="mb-1 ml-4 border-l border-rule-soft pl-1">
+                  {nurses.map((d) => {
+                    const on = role === "看護師" && meName === d.name;
+                    return (
+                      <li key={d.name}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => {
+                            setOpen(false);
+                            onNurse(d.name);
                           }}
                           className={`w-full rounded px-2 py-0.5 text-left text-[13px] hover:bg-paper pointer-coarse:py-1.5 ${on ? "font-bold text-ai" : ""}`}
                         >
@@ -598,7 +623,7 @@ export function AppFrame(p: Props) {
                 <Badge n={p.areaBadges.board ?? 0} />
               </button>
             )}
-            <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} session={p.session} />
+            <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} nurses={p.nurses} onNurse={p.onNurse} session={p.session} />
           </div>
         }
       />

@@ -60,6 +60,8 @@ import { workspaceOn } from "@/lib/workspace";
 import { useNavHistory } from "@/lib/use-nav-history";
 import { migrateStandingLines, migrateStandingVersions } from "@/lib/standing-seeds";
 import { patientPlace } from "@/lib/patient-place";
+import { DEFAULT_NURSE, NURSES } from "@/lib/nurses";
+import { teamIdsFor } from "@/lib/team-ids";
 import { useDisplayState } from "@/lib/use-display-state";
 import { useStandingCosign } from "@/lib/use-standing-cosign";
 import { markStandingTake } from "@/lib/standing-cosign";
@@ -626,6 +628,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [role, setRole] = useState<Role>("医師");
   // Inside 医師, the person too (研修医・専攻医・指導医・ほかのチームの医師; all fictional).
   const [doctorName, setDoctorName] = useState(DEFAULT_DOCTOR);
+  const [nurseName, setNurseName] = useState(DEFAULT_NURSE);
   // ①②③: the place chosen in the left menu; inside 病棟 the screens open as tabs (②) and the one in
   // front ("menu" = 病棟's menu of screens); the charts, each under the tab it was opened from (③; in
   // 救急外来 and 外来 they follow the list on ②); and what each tab shows (a chart id, 新しいタブ, or
@@ -657,7 +660,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [recentByPerson, setRecentByPerson] = useState<Record<string, RecentOpen[]>>({});
   // 受け持ち患者 of a nurse: the team chosen for this shift (5階東 A = 501–508, B = 510–516), or the whole ward.
   const [myTeam, setMyTeam] = useState("");
-  const me = useMemo(() => (role === "医師" ? { role, name: doctorName } : STAFF[role]), [role, doctorName]);
+  const me = useMemo(() => (role === "医師" ? { role, name: doctorName } : role === "看護師" ? { role, name: nurseName } : STAFF[role]), [role, doctorName, nurseName]);
   // ログインの仕組み（既定はオフ。この端末だけ）: when on, the role follows the person who logged in.
   const login = useLogin();
   const loginUsers: LoginUser[] = useMemo(() => [...DOCTORS.map((d) => ({ name: d.name, role: "医師" as const })), ...ROLES.filter((r) => r !== "医師").map((r) => ({ name: STAFF[r].name, role: r }))], []);
@@ -1039,16 +1042,12 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   );
   // ~80 charts: looked up by number, not by searching the list.
   const patientById = useMemo(() => new Map([...allPatients, ...visitPatientsAll.map((x) => x.patient)].map((p) => [p.id, p])), [allPatients, visitPatientsAll]);
-  useDisplayState(role, me.name, setRole, setDoctorName, { area, wardTabs, wardTab, patientTabs, front }, { area: setArea, wardTabs: setWardTabs, wardTab: setWardTab, patientTabs: setPatientTabs, front: setFront }, new Set(patientById.keys()), !!todayKey && workspace.status !== "loading" && (workspace.status !== "off" || !workspaceOn()), defaultsOf(wardDefaults, role));
+  useDisplayState(role, me.name, setRole, setDoctorName, { area, wardTabs, wardTab, patientTabs, front }, { area: setArea, wardTabs: setWardTabs, wardTab: setWardTab, patientTabs: setPatientTabs, front: setFront }, new Set(patientById.keys()), !!todayKey && workspace.status !== "loading" && (workspace.status !== "off" || !workspaceOn()), defaultsOf(wardDefaults, role), setNurseName);
   useStandingCosign(standing, standingLines, setCosign);
   const findPatient = useCallback((id: string) => patientById.get(id), [patientById]);
   // The 山本チーム's patients (and today's admissions): the worksheet, やること and the boards are theirs.
   // A doctor's 受け持ち also has every patient they are 主治医 (team), 担当医 or コンサルト医 of, so none is missed.
-  const teamIds = useMemo(() => {
-    const ids = new Set([...PATIENTS, ...admitted].filter((p) => !scenario || involved(role === "医師" ? me.name : STAFF.医師.name, doctorsOf(p.attending, doctorBook[p.id]))).map((p) => p.id));
-    if (role === "医師") for (const p of allPatients) if (!ids.has(p.id) && involved(me.name, doctorsOf(p.attending, doctorBook[p.id]))) ids.add(p.id);
-    return ids;
-  }, [PATIENTS, admitted, role, me.name, allPatients, doctorBook, scenario]);
+  const teamIds = useMemo(() => teamIdsFor({ role, meName: me.name, patients: allPatients, basePatients: [...PATIENTS, ...admitted], beds: [...BEDS_WITH_CHARTS, ...newBeds].filter(b => !(b.patientId && discharged[b.patientId])).map(b => b.patientId && moves[b.patientId] ? { ...b, ...moves[b.patientId] } : b), doctorBook, scenario }), [PATIENTS, admitted, role, me.name, allPatients, BEDS_WITH_CHARTS, newBeds, moves, discharged, doctorBook, scenario]);
   // 医事課 and the receipt file stay the team's: the claim APIs take up to 100 patients in one request.
   const teamPatients = useMemo(() => allPatients.filter((p) => teamIds.has(p.id)), [allPatients, teamIds]);
   // 5階東 (and anyone moved from it or admitted today), and every floor's beds.
@@ -2216,7 +2215,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   };
 
   const switchRole = (r: Role, who?: string) => {
-    auditLog({ role: r, actor: who ?? (r === "医師" ? doctorName : STAFF[r].name), action: "職種を選んで入った（デモではログインの代わり）" });
+    auditLog({ role: r, actor: who ?? (r === "医師" ? doctorName : r === "看護師" ? nurseName : STAFF[r].name), action: "職種を選んで入った（デモではログインの代わり）" });
     setRole(r);
     // Charts stay open; those under a screen the role cannot open move to its first patient list.
     const moved = rehome(patientTabs, wardTabsFor(r));
@@ -2236,6 +2235,12 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (role !== "医師") switchRole("医師", name);
     else if (name !== doctorName) auditLog({ role: "医師", actor: name, action: "医師を選んで入った（デモではログインの代わり）" });
     setDoctorName(name);
+    setPanel(null);
+  };
+  const switchNurse = (name: string) => {
+    if (role !== "看護師") switchRole("看護師", name);
+    else if (name !== nurseName) auditLog({ role: "看護師", actor: name, action: "看護師を選んで入った（デモではログインの代わり）" });
+    setNurseName(name);
     setPanel(null);
   };
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
@@ -4679,6 +4684,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         meName={me.name}
         doctors={DOCTORS}
         onDoctor={switchDoctor}
+        nurses={NURSES.map(n => ({ name: n.name, note: n.note }))}
+        onNurse={switchNurse}
         areas={areas}
         helpScreen={screen}
         helpPanel={panel ?? chart.rightTab}

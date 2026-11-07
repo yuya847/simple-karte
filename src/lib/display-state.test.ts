@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readDisplay, readPerson, displayKey } from "./display-state";
+import { NURSES } from "./nurses";
 import { STAFF } from "./roles";
 describe("端末の利用者と表示", () => {
   it("既知の職員・選択可能な医師だけ復元する", () => {
-    for (const person of [...Object.values(STAFF), { role: "医師", name: "研修医 田中" }]) expect(readPerson(JSON.stringify(person))).toEqual(person);
+    for (const person of [...Object.values(STAFF), ...NURSES.map(n => ({ role: "看護師", name: n.name })), { role: "医師", name: "研修医 田中" }]) expect(readPerson(JSON.stringify(person))).toEqual(person);
     for (const raw of [null, "{", "null", '[]', '{"role":"不明"}', '{"role":"看護師","name":"不明"}']) expect(readPerson(raw)).toEqual(STAFF.医師);
     expect(readPerson('{"role":"医師","name":"不明"}')).toEqual(STAFF.医師);
   });
