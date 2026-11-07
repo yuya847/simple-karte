@@ -190,6 +190,11 @@ export function groupsFor(role: string): { key: GroupKey; title: string; main: T
       ...intervention.main,
     ];
   }
+  // 持参薬: the nurse and the doctor take the お薬手帳 in at admission (a draft for the pharmacist's 持参薬鑑別).
+  if (role === "医師" || role === "看護師") {
+    const intervention = groups.find((g) => g.key === "intervention")!;
+    intervention.main = [...intervention.main, { key: "pharmacy-brought", label: "持参薬", icon: ScanText }];
+  }
   if (role === "管理栄養士") return nutritionTools(groups);
   if (!only) return groups;
   const pick = (ts: Tool[]) => ts.filter((t) => only.includes(t.key)).sort((a, b) => only.indexOf(a.key) - only.indexOf(b.key));

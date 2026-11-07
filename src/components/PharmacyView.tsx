@@ -410,7 +410,7 @@ function Brought({ people, today, nowTime, reports: allReports, onReport, onPhot
               return (
                 <li key={d.id} className="flex flex-wrap items-center gap-x-2">
                   <span>
-                    {d.takenBy?.at.time ?? d.at}　{pt?.room} {pt?.patient.name}　{d.rows.length}剤　<span className="text-ink-soft">{displayText(d.takenBy ? `${d.takenBy.role} ${d.takenBy.name}` : d.by)}</span>
+                    {d.takenBy?.at.time ?? d.at}　{pt?.room} {pt?.patient.name}　{d.rows.length}剤　<span className="text-ink-soft">{displayText(d.takenBy?.name ?? d.by)}</span>
                   </span>
                   <button type="button" disabled={draftId === d.id && patientId === d.patientId} onClick={() => openDraft(d)} className="rounded border border-rule px-1.5 py-0.5 text-xs hover:border-ai hover:text-ai disabled:opacity-40">
                     開く

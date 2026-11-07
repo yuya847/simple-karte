@@ -440,7 +440,8 @@ import { liveLabel, MergedNotice, PresenceStrip } from "./Presence";
 import { ScanPanel, openKept } from "./panels/ScanPanel";
 import { withdraw } from "@/lib/scans";
 import { photoScans, type KeptPage } from "@/lib/notebook-photo";
-import { broughtCards, confirmBrought, decideBrought } from "@/lib/brought-history";
+import { broughtCards, confirmBrought, decideBrought, draftBrought } from "@/lib/brought-history";
+import { BroughtDesk } from "./BroughtDesk";
 import { SignBox } from "./panels/SignBox";
 import { useLogin } from "@/lib/use-login";
 import type { LoginUser } from "@/lib/login";
@@ -1600,6 +1601,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     if (docs.length) infra.setScans((all) => [...all, ...docs]);
     if (docs.length) auditLog({ role: me.role, actor: me.name, action: "確定（スキャン取込）", patient: findPatient(pid)?.name, detail: `お薬手帳 ${docs.length}枚（持参薬鑑別）` });
     return docs.map((d) => d.id);
+  };
+  const openScan = (id: string) => {
+    const doc = infra.scans.find((x) => x.id === id && !x.withdrawn);
+    if (doc) openKept(doc);
   };
   // A 持参薬 report whose drafts are all removed (消す・やり直す) goes back to the doctor's inbox.
   const releaseReport = (draftId: string) => {
@@ -3330,8 +3335,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               letters={lettersFor(patient.id, letters, discharges[patient.id])}
               onOpenLetter={(id) => openLetter({ id })}
               brought={broughtCards(reports, patient.id, new Set(infra.scans.filter((x) => x.patientId === patient.id && !x.withdrawn).map((x) => x.id)))}
-              onOpenBrought={role === "薬剤師" ? () => setPharmacyFocus({ tab: "brought", patientId: patient.id }) : undefined}
-              onOpenPhoto={(id) => { const doc = infra.scans.find((x) => x.id === id && !x.withdrawn); if (doc) openKept(doc); }}
+              onOpenBrought={() => (role === "薬剤師" ? setPharmacyFocus({ tab: "brought", patientId: patient.id }) : setPanel("pharmacy-brought"))}
+              onOpenPhoto={openScan}
               onShown={setShownEntries}
               patient={patient}
               coedit={presence.coedit}
@@ -4235,6 +4240,21 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   />
                 </Drawer>
               )}
+              {panel === "pharmacy-brought" && (
+                <Drawer title="持参薬" onClose={closePanel} wide>
+                  <BroughtDesk
+                    key={patient.id}
+                    patientId={patient.id}
+                    reports={reports.filter((r) => r.patientId === patient.id)}
+                    onPhotos={(pages) => keepNotebook(patient.id, pages)}
+                    onOpenPhoto={openScan}
+                    onDraft={(r) => {
+                      auditLog({ role: me.role, actor: me.name, action: "持参薬（お薬手帳）を取り込んで薬剤師へ回した", patient: patient.name, detail: `${r.rows.length}剤` });
+                      setReports((rs) => draftBrought(rs, r, { id: newId(), name: me.name, role: me.role, at: { day: 0, time: nowTime } }));
+                    }}
+                  />
+                </Drawer>
+              )}
               {panel === "scans" && (
                 <Drawer title="スキャン取込" onClose={closePanel} wide>
                   <ScanPanel
@@ -4633,7 +4653,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, anamnesis: { n: pendingIntakes(readInbox(portalInbox), patient.id).length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
               openTemplate={panel === "templates" ? templateFocus : null}
               onOpen={(p, o) => {
-                if (p?.startsWith("pharmacy-")) { setPharmacyFocus({ tab: p.slice(9) as import("./PharmacyView").Tab, patientId: patient.id }); return; }
+                if (p?.startsWith("pharmacy-") && role === "薬剤師") { setPharmacyFocus({ tab: p.slice(9) as import("./PharmacyView").Tab, patientId: patient.id }); return; }
                 setTemplateFocus(p === "templates" ? (o?.templateId ?? null) : null);
                 if (p === "insulin") openRight("insulin");
                 else if (p === "add-injection" || p === "add-rx" || p === "add-discharge") openOrder(p);
