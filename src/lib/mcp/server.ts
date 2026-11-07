@@ -19,7 +19,7 @@ const patientInput = z.object({ patient: proposal.shape.patient });
 const masterInput = z.object({ kind: z.enum(["drug", "oral", "injection", "topical", "lab", "procedure"]), query: z.string().min(1).max(100) });
 const schemas = { list_patients: listInput, get_patient: patientInput, search_master: masterInput, propose_orders: proposal };
 const descriptions = {
-  list_patients: "固定の架空の100人の現在状態。病名・科・入院中/外来で絞り込み。保存記録は読みません。",
+  list_patients: "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者の現在状態。病名・科・入院中/外来で絞り込み。保存記録は読みません。",
   get_patient: "仮IDで匿名化した現在のカルテを読む。日付は相対、年齢は年代。",
   search_master: "内服・注射・外用薬、検査、処置のマスターから名前・別名・コードを検索。",
   propose_orders: "医師が確認する下書きのみ作る。確定しない。orders は AiOrder または AiWireOrder。未指定値は wire では空文字/0/unspecified。医師が述べた内容を入力する。",

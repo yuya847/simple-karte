@@ -6,9 +6,9 @@ import { readMcpDraft } from "./receive";
 
 import { sampleOrder } from "./test-fixture";
 describe("MCP fictional ward", () => {
-  it("does not disclose any patient identity in all 100 clinical outputs", () => {
-    expect(fixtures.patients).toHaveLength(100);
-    expect(new Set(fixtures.patients.map(p => pseudonym(p.id))).size).toBe(100);
+  it("does not disclose any patient identity in every clinical output (100 ward + ICU・HCU)", () => {
+    expect(fixtures.patients.length).toBeGreaterThanOrEqual(100);
+    expect(new Set(fixtures.patients.map(p => pseudonym(p.id))).size).toBe(fixtures.patients.length);
     for (const p of fixtures.patients) {
       const json = JSON.stringify(callTool("get_patient",{patient:pseudonym(p.id)},"http://localhost"));
       for (const identity of [p.name,p.kana,p.id,fixtures.insurance[p.id]?.[0]?.form.birthDate].filter((s): s is string => !!s)) expect(json).not.toContain(identity);
