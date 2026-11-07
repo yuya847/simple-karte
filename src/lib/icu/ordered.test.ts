@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DRUGS } from "../master";
-import type { InjectionOrder, OrderEntry } from "../types";
+import type { HdOrder, InjectionOrder, OrderEntry } from "../types";
 import { rateAt, doseText } from "./gamma";
 import { icuOrderEntries, savedIcuRecords, withIcuOrders } from "./ordered";
 import { icuFixture, icuPatient } from "./test-fixture";
@@ -45,7 +45,7 @@ describe("持続投与は注射のオーダ（持続）から読む", () => {
 });
 
 describe("CRRT は透析のオーダ（持続）から読む", () => {
-  const hd = { purpose: "緊急" as const, method: "CHDF" as const, minutes: 0, qb: 100, membrane: 1.0, anticoag: { drug: "ナファモスタット" as const, initial: null, hourly: 20 }, uf: 0, dw: null, access: "透析用カテーテル（右大腿静脈）", qd: 500, qf: 300, removalMlPerH: 50 };
+  const hd = { purpose: "緊急" as const, method: "CHDF" as HdOrder["method"], minutes: 0, qb: 100, membrane: 1.0, anticoag: { drug: "ナファモスタット" as const, initial: null, hourly: 20 }, uf: 0, dw: null, access: "透析用カテーテル（右大腿静脈）", qd: 500, qf: 300, removalMlPerH: 50 };
   const order = (id: string, over: Partial<typeof hd> = {}, start = { day: -2, time: "00:00" }, extra: Partial<OrderEntry> = {}): OrderEntry => ({ kind: "order", id, day: start.day, time: start.time, author: "架空医師", status: "有効", order: { type: "procedure", code: "PROC-HD", schedule: { kind: "continuous" }, start, hd: { ...hd, ...over } }, ...extra });
   it("有効な持続の透析のオーダが CRRT の条件になり、一覧の札・出納の除水に使われ、保存はしない", () => {
     const p = { ...icuPatient, history: [order("hd1")] };
