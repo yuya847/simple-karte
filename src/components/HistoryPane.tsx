@@ -52,6 +52,8 @@ import { ResultsPanel } from "./panels/ResultsPanel";
 import type { RefWindowProps } from "./RefWindows";
 import { LetterDoc } from "./LetterDoc";
 import { letterTitle, versionNo, type Letter } from "@/lib/letters";
+import { broughtLines, broughtSearchText, type BroughtCard } from "@/lib/brought-history";
+import { BroughtLinesTable } from "./BroughtParts";
 import { dragGhost } from "./drag-ghost";
 import { useMarquee } from "./Marquee";
 import { pickActions, recordsText, setRowsOf, type DoItem } from "@/lib/history-batch";
@@ -122,6 +124,10 @@ interface Props {
   /** 確定した紹介状: a row at the time it was confirmed, its text when opened, 「開く」 to the 紹介状 tool. */
   letters?: Letter[];
   onOpenLetter?: (id: string) => void;
+  /** 持参薬鑑別 (確定 by the pharmacist): a 【持参薬】 row at that time, one line per drug; 「開く」 to 持参薬鑑別, the notebook's photos from the 文書. */
+  brought?: BroughtCard[];
+  onOpenBrought?: (id: string) => void;
+  onOpenPhoto?: (scanId: string) => void;
 }
 
 /** What is copied to the right (Do): a past note's text, a past order to write again, or several chosen records (in the order of their time). */
@@ -176,7 +182,7 @@ const PickCtx = createContext<PickApi | null>(null);
  * calendars of 処置・移動・食事・指示簿 and the 予約 list open from the tools on the far right (参照).
  */
 export function HistoryPane(props: Props) {
-  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, planned, nowTime, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown, letters, onOpenLetter } = props;
+  const { patient, today, selectedDay, showStopped, onToggleStopped, entries, visits, planned, nowTime, focus, onView, onFloat, views, onReviseNote, coedit, onDo, onOpenImage, onOpenResult, takeBadgeOf, execute, onShown, letters, onOpenLetter, brought, onOpenBrought, onOpenPhoto } = props;
   const view = asLeftView(props.view);
   const v = views;
   const calendarProps: CalendarProps | null = v ? { onToggleDose: v.onToggleDose, patient, entries, today, nowTime: v.nowTime, selectedDay, onSelectDay: v.onSelectDay, onStopDraft: v.onStopDraft, draftedStops: v.draftedStops, pendingStopTimes: v.pendingStopTimes, onExtendDraft: v.onExtendDraft, onModify: v.onModify, pendingExtends: v.pendingExtends, marOf: v.marOf, onNewPrescription: v.onNewPrescription, onPrescriptionStop: v.onPrescriptionStop, onNewInjection: v.onNewInjection, pendingNew: v.pendingNew, execute } : null;
@@ -218,7 +224,7 @@ export function HistoryPane(props: Props) {
           <ResultsPanel patient={patient} today={today} pending={v?.results?.pending} onExport={v?.results?.onExport} focusAt={v?.results?.focusAt} />
         </div>
       ) : (
-        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} noteId={focus?.noteId} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onToggleStopped={onToggleStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} letters={letters} onOpenLetter={onOpenLetter} />
+        <RecordList key={focus?.n ?? 0} kindInit={focus?.kind ?? "all"} noteId={focus?.noteId} patient={patient} entries={entries} visits={visits} planned={planned} nowTime={nowTime} today={today} selectedDay={selectedDay} showStopped={showStopped} onToggleStopped={onToggleStopped} onReviseNote={onReviseNote} coedit={coedit} onDo={onDo} onOpenImage={onOpenImage} onOpenResult={onOpenResult} takeBadgeOf={takeBadgeOf} execute={execute} onShown={onShown} letters={letters} onOpenLetter={onOpenLetter} brought={brought} onOpenBrought={onOpenBrought} onOpenPhoto={onOpenPhoto} />
       )}
     </section>
   );
@@ -231,6 +237,8 @@ const CATS: { key: string; group: "note" | "order"; label: string; test: (e: His
   { key: "nurse", group: "note", label: "看護師", test: (e) => e.kind === "note" && e.role === "看護師" },
   { key: "staff", group: "note", label: "ほかの職種", test: (e) => e.kind === "note" && e.role !== "医師" && e.role !== "看護師" },
   { key: "prescription", group: "order", label: "内服", test: (e) => e.kind === "order" && e.order.type === "prescription" },
+  // 持参薬鑑別 are not entries of the record; their rows are added by RecordList (brought).
+  { key: "brought", group: "order", label: "持参薬", test: () => false },
   { key: "injection", group: "order", label: "注射", test: (e) => e.kind === "order" && e.order.type === "injection" },
   { key: "lab", group: "order", label: "検体検査", test: (e) => e.kind === "order" && e.order.type === "lab" },
   { key: "exam", group: "order", label: "画像・生理", test: (e) => e.kind === "order" && (e.order.type === "imaging" || e.order.type === "physio") },
@@ -267,9 +275,15 @@ function RecordList({
   onShown,
   letters = [],
   onOpenLetter,
+  brought = [],
+  onOpenBrought,
+  onOpenPhoto,
 }: {
   letters?: Letter[];
   onOpenLetter?: (id: string) => void;
+  brought?: BroughtCard[];
+  onOpenBrought?: (id: string) => void;
+  onOpenPhoto?: (scanId: string) => void;
   kindInit?: string;
   noteId?: string;
   patient: Patient;
@@ -493,8 +507,13 @@ function RecordList({
   for (const l of lettersShown) {
     if (!sections.some((s) => s.day === l.confirmedAt!.day && !s.place)) sections.push({ day: l.confirmedAt!.day, place: null, entries: [], plans: [] });
   }
+  // 持参薬鑑別: by the same filters (種類・診療科・職種 of who wrote a version・検索; not a template's note).
+  const broughtShown = brought.filter((c) => on.includes("brought") && !templateActive && (!departments.length || departments.includes(patient.department)) && (!roles.length || c.versions.some((v) => roles.includes(v.role))) && (!key || searchKey(broughtSearchText(c)).includes(key)));
+  for (const c of broughtShown) {
+    if (!sections.some((s) => s.day === c.day && !s.place)) sections.push({ day: c.day, place: null, entries: [], plans: [] });
+  }
   sections.sort((a, b) => b.day - a.day);
-  const shownCount = sections.reduce((n, s) => n + s.entries.length, 0) + lettersShown.length;
+  const shownCount = sections.reduce((n, s) => n + s.entries.length, 0) + lettersShown.length + broughtShown.length;
   const ahead = aheadSummary(sections, today);
   // 日付ツリーにも表示する節の日を渡す。オーダの依頼日時は元の entries に保持する。
   const shownKey = orderDay + showStopped + shown.map((e) => `${e.kind}:${e.day}:${e.time}:${e.kind === "order" ? e.id : e.author}`).join("|");
@@ -503,7 +522,7 @@ function RecordList({
     // `shownKey` stands for `shown`/`narrowed`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownKey]);
-  const counts = Object.fromEntries(CATS.map((c) => [c.key, c.key === "letter" ? letters.filter((l) => l.status === "確定").length : visible.filter(c.test).length]));
+  const counts = Object.fromEntries(CATS.map((c) => [c.key, c.key === "letter" ? letters.filter((l) => l.status === "確定").length : c.key === "brought" ? brought.length : visible.filter(c.test).length]));
   const allOf = (g: "note" | "order") => CATS.filter((c) => c.group === g).every((c) => on.includes(c.key));
   const onlyOf = (g: "note" | "order") => allOf(g) && CATS.filter((c) => c.group !== g).every((c) => !on.includes(c.key));
   // 科・場所 of the stay's records: the ward (or the clinic, for a visit opened in the chart).
@@ -675,6 +694,7 @@ function RecordList({
     const place = s.place ? `${s.place.dept} 外来` : herePlace;
     const rpNo = rpNoOf(s.entries);
     const dayLetters = s.place ? [] : lettersShown.filter((l) => l.confirmedAt!.day === d);
+    const dayBrought = s.place ? [] : broughtShown.filter((c) => c.day === d);
     // 終了・帰院・手術など、本体の開始日以外に残す予定。
     const additionalPlans = s.plans.filter((p) => {
       const order = shown.find((e) => e.kind === "order" && e.id === p.orderId);
@@ -710,9 +730,17 @@ function RecordList({
             {p.time} {planVerb(p, nowAbs)} {p.label}{p.orderedOn === null ? "（手術の予定表から）" : ""}
           </p>
         ))}
-        {s.entries.length + dayLetters.length === 0 ? null : (
+        {s.entries.length + dayLetters.length + dayBrought.length === 0 ? null : (
           <ol className="space-y-2">
-            {[...groupRx(s.entries).map((group, i) => ({ time: group[0].time, group, i })), ...dayLetters.map((l) => ({ time: l.confirmedAt!.time, letter: l }))].sort((a, b) => a.time.localeCompare(b.time)).map((item) => {
+            {[...groupRx(s.entries).map((group, i) => ({ time: group[0].time, group, i })), ...dayLetters.map((l) => ({ time: l.confirmedAt!.time, letter: l })), ...dayBrought.map((c) => ({ time: c.time, brought: c }))].sort((a, b) => a.time.localeCompare(b.time)).map((item) => {
+              if ("brought" in item) {
+                const c = item.brought, k = `brought:${c.id}`;
+                return (
+                  <li key={k}>
+                    <BroughtCardRow card={c} today={today} place={place} folded={folded.each[k] ?? false} onFold={() => setFolded((f) => ({ ...f, each: { ...f.each, [k]: !(f.each[k] ?? false) } }))} onOpen={onOpenBrought ? () => onOpenBrought(c.id) : undefined} onOpenPhoto={onOpenPhoto} />
+                  </li>
+                );
+              }
               if ("letter" in item) {
                 const l = item.letter, k = `letter:${l.id}`;
                 return (
@@ -852,6 +880,72 @@ function LetterRow({ letter: l, patient, today, place, folded, onFold, onOpen }:
       }
     >
       <LetterDoc letter={l} patient={patient} today={today} doctor={l.confirmedBy ?? ""} />
+    </Card>
+  );
+}
+
+/**
+ * A 持参薬鑑別 in the record: 【持参薬】 when the pharmacist confirmed it; opened, one line per drug (the latest
+ * version: the doctor's choices once made), the earlier versions under 前の版, and the notebook's photos.
+ */
+function BroughtCardRow({ card: c, today, place, folded, onFold, onOpen, onOpenPhoto }: { card: BroughtCard; today: CalendarDate; place: string; folded: boolean; onFold: () => void; onOpen?: () => void; onOpenPhoto?: (scanId: string) => void }) {
+  const [older, setOlder] = useState(false);
+  const n = c.versions.length;
+  const tone = ROLE_COLORS.薬剤師;
+  return (
+    <Card
+      mark="持参薬"
+      when={whenText(today, c.day, c.time)}
+      place={place}
+      tone={tone}
+      folded={folded}
+      onFold={onFold}
+      article={{ id: `brought-${c.id}` }}
+      tag={onOpen && (
+        <button type="button" onClick={onOpen} aria-label="持参薬鑑別で開く" title="持参薬鑑別で開く" className="shrink-0 rounded border border-rule bg-sheet px-1.5 text-[11px] text-ink-soft hover:border-ai hover:text-ai">
+          開く
+        </button>
+      )}
+      meta={
+        <>
+          <span>第{n}版：</span>
+          <span className={`rounded px-1 font-bold leading-4 ${chipOf(c.latest.role)}`}>{c.latest.role}</span>
+          <span className="font-bold text-ink">{displayText(c.latest.by)}</span>
+          {n > 1 && <span>{c.latest.kind} {whenText(today, c.latest.at.day, c.latest.at.time)}</span>}
+          <span>{c.lines.length}剤</span>
+          {c.takenBy && <span>取込 {displayText(c.takenBy.name)}</span>}
+        </>
+      }
+    >
+      <BroughtLinesTable lines={c.lines} />
+      {c.comment && <p className="mt-1 text-[12px] text-ink-soft">所見：{displayText(c.comment)}</p>}
+      {(c.scanIds.length > 0 || n > 1) && (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+          {c.scanIds.map((id, i) => (
+            <button key={id} type="button" onClick={() => onOpenPhoto?.(id)} disabled={!onOpenPhoto} className="rounded border border-rule bg-sheet px-1.5 text-ink-soft hover:border-ai hover:text-ai disabled:opacity-40">
+              お薬手帳{c.scanIds.length > 1 ? ` ${i + 1}` : ""}
+            </button>
+          ))}
+          {n > 1 && (
+            <button type="button" onClick={() => setOlder((v) => !v)} aria-expanded={older} className="ml-auto text-ink-faint hover:text-ink">
+              {older ? "前の版をたたむ" : `前の版（${n - 1}）`}
+            </button>
+          )}
+        </div>
+      )}
+      {older &&
+        c.versions
+          .slice(0, -1)
+          .map((v, i) => ({ v, no: i + 1 }))
+          .reverse()
+          .map(({ v, no }) => (
+            <div key={no} className="mt-1.5 border-t border-dashed border-rule pt-1 opacity-80">
+              <div className="nums text-[11px] text-ink-faint">
+                第{no}版：{v.kind} {whenText(today, v.at.day, v.at.time)} {displayText(v.by)}
+              </div>
+              <BroughtLinesTable lines={broughtLines(v.rows)} />
+            </div>
+          ))}
     </Card>
   );
 }

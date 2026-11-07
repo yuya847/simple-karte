@@ -22,36 +22,34 @@ const DECISION_TONE: Record<DecisionShort, string> = { 継続: "text-wakatake", 
 /** The drugs of a 持参薬鑑別, one row each (the record's 【持参薬】 card, and the nurse's and doctor's 持参薬 tool). */
 export function BroughtLinesTable({ lines, decisions = true }: { lines: BroughtLine[]; decisions?: boolean }) {
   return (
-    <div className="scroll-thin overflow-x-auto">
-      <table className="nums w-full min-w-[26rem] border-collapse text-[12px] leading-snug">
-        <thead className="text-left text-[10px] text-ink-faint">
-          <tr>
-            <th className="py-0.5 pr-2 font-normal">薬</th>
-            <th className="py-0.5 pr-2 font-normal">1回量</th>
-            <th className="py-0.5 pr-2 font-normal">用法</th>
-            <th className="py-0.5 pr-2 font-normal">残り</th>
-            <th className="py-0.5 pr-2 font-normal">院内の薬</th>
-            {decisions && <th className="py-0.5 font-normal">判断</th>}
+    <table className="nums w-full border-collapse text-[12px] leading-snug">
+      <thead className="text-left text-[10px] text-ink-faint">
+        <tr>
+          <th className="py-0.5 pr-1.5 font-normal">薬</th>
+          <th className="py-0.5 pr-1.5 font-normal">1回量・用法</th>
+          <th className="py-0.5 pr-1.5 font-normal">残り</th>
+          <th className="py-0.5 pr-1.5 font-normal">院内の薬</th>
+          {decisions && <th className="py-0.5 font-normal">判断</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {lines.map((l, i) => (
+          <tr key={i} className="border-t border-rule-soft align-top">
+            <td className="py-1 pr-1.5">
+              <b>{displayText(l.name)}</b> {displayText(l.strength)}
+            </td>
+            <td className="py-1 pr-1.5">
+              <span className="whitespace-nowrap">1回{l.dose}</span> {displayText(l.usage)}
+            </td>
+            <td className="whitespace-nowrap py-1 pr-1.5">{l.left}</td>
+            <td className="py-1 pr-1.5">
+              <MatchTag kind={l.match} />
+              {l.hospital && l.match !== "同じ" && <div className="text-[10px] leading-tight text-ink-soft">{oralName(l.hospital)}</div>}
+            </td>
+            {decisions && <td className={`whitespace-nowrap py-1 font-bold ${DECISION_TONE[l.decision]}`}>{l.decision}</td>}
           </tr>
-        </thead>
-        <tbody>
-          {lines.map((l, i) => (
-            <tr key={i} className="border-t border-rule-soft align-top">
-              <td className="py-1 pr-2">
-                <b>{displayText(l.name)}</b> {displayText(l.strength)}
-              </td>
-              <td className="whitespace-nowrap py-1 pr-2">{l.dose}</td>
-              <td className="py-1 pr-2">{displayText(l.usage)}</td>
-              <td className="whitespace-nowrap py-1 pr-2">{l.left}</td>
-              <td className="py-1 pr-2">
-                <MatchTag kind={l.match} />
-                {l.hospital && l.match !== "同じ" && <div className="text-[10px] text-ink-soft">{oralName(l.hospital)}</div>}
-              </td>
-              {decisions && <td className={`whitespace-nowrap py-1 font-bold ${DECISION_TONE[l.decision]}`}>{l.decision}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }

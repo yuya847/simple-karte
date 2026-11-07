@@ -437,10 +437,10 @@ import { usePresence } from "@/lib/use-presence";
 import { thisTab } from "@/lib/presence";
 import { chartDeskOf } from "@/lib/merge-workspace";
 import { liveLabel, MergedNotice, PresenceStrip } from "./Presence";
-import { ScanPanel } from "./panels/ScanPanel";
+import { ScanPanel, openKept } from "./panels/ScanPanel";
 import { withdraw } from "@/lib/scans";
 import { photoScans, type KeptPage } from "@/lib/notebook-photo";
-import { confirmBrought } from "@/lib/brought-history";
+import { broughtCards, confirmBrought } from "@/lib/brought-history";
 import { SignBox } from "./panels/SignBox";
 import { useLogin } from "@/lib/use-login";
 import type { LoginUser } from "@/lib/login";
@@ -3329,6 +3329,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             <HistoryPane
               letters={lettersFor(patient.id, letters, discharges[patient.id])}
               onOpenLetter={(id) => openLetter({ id })}
+              brought={broughtCards(reports, patient.id, new Set(infra.scans.filter((x) => x.patientId === patient.id && !x.withdrawn).map((x) => x.id)))}
+              onOpenBrought={role === "薬剤師" ? () => setPharmacyFocus({ tab: "brought", patientId: patient.id }) : undefined}
+              onOpenPhoto={(id) => { const doc = infra.scans.find((x) => x.id === id && !x.withdrawn); if (doc) openKept(doc); }}
               onShown={setShownEntries}
               patient={patient}
               coedit={presence.coedit}
