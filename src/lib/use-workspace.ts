@@ -245,5 +245,5 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
     });
     return pulling.current;
   };
-  return { status, id, reset, saveNow, pull };
+  return { status, id, reset, saveNow, pull, isSaved: (key: string, value: unknown) => status === "saved" && sameJson(value, accepted.current?.[key]) };
 }

@@ -3,12 +3,13 @@
 // 済 / 不可 (未実施) / 未 (not yet recorded) / 中止. Glucose values come from the 血糖測定 recorded as a
 // 看護ケア・観察 (and the 検体検査 Glu); insulin from injection orders. Code only gathers what was recorded.
 
+import { isInsulin } from "./insulin";
 import { prescriptionCell } from "./calendar";
 import { recordOf, type CareOrder, type CareRecord } from "./care-orders";
 import { abs, doseTimes, orderInterval } from "./flowsheet";
 import { oralName } from "./format";
 import { marKey, marState, type AdminRecord, type MarState } from "./mar";
-import { findDrug, WARD_RULES } from "./master";
+import { WARD_RULES } from "./master";
 import type { DayOffset, DoseTiming, LabResult, OrderEntry, PrescriptionOrder } from "./types";
 
 export const TIMINGS: DoseTiming[] = ["朝", "昼", "夕", "眠前"];
@@ -119,11 +120,12 @@ export function glucoseDayCell(points: GlucosePoint[], day: DayOffset): { text: 
 
 /** Injection orders with insulin in them (by the drug's name in the master). */
 export const insulinOrders = (entries: OrderEntry[]) =>
-  entries.filter((e) => e.order.type === "injection" && e.order.items.some((it) => /インスリン/.test(findDrug(it.drugCode)?.name ?? "")));
+  entries.filter((e) => e.order.type === "injection" && isInsulin(e.order));
 
 /** The doses of an insulin order in [lo, hi) with what the MAR says (scheduled doses only). */
 export function insulinDoses(e: OrderEntry, lo: number, hi: number, records: Record<string, AdminRecord>, sessionStart: number, nowAbs: number): { at: number; state: MarState; record?: AdminRecord }[] {
   if (e.order.type !== "injection") return [];
   const times = e.order.sliding || e.order.doseTimes?.length || e.order.schedule.kind === "per_day" || e.order.schedule.kind === "every_hours" ? doseTimes(e, nowAbs, lo, hi) : e.order.schedule.kind === "once" ? [orderInterval(e, nowAbs).from].filter((t) => t >= lo && t < hi) : [];
-  return times.map((at) => ({ at, state: marState({ orderId: e.id, at }, records, sessionStart, nowAbs), record: records[marKey(e.id, at)] }));
+  const recorded = Object.values(records).filter(r => r.orderId === e.id && r.insulin && !r.cancellation && r.at >= lo && r.at < hi).map(r => r.at);
+  return [...new Set([...times, ...recorded])].sort((a,b) => a-b).map((at) => ({ at, state: marState({ orderId: e.id, at }, records, sessionStart, nowAbs), record: records[marKey(e.id, at)] }));
 }

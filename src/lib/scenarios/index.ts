@@ -8,7 +8,7 @@ import { addScenarioPhysiology } from "./physiology";
 import { addPharmacyOrders, pharmacyBook, pharmacyBloodIssues } from "./pharmacy-orders";
 import { clinicalProfile } from "./clinical-profiles";
 import { prepareClinical, addClinicalCourse } from "./clinical-course";
-import { linesFromFields } from "../standing-lines";
+import type { StandingLine } from "../standing-lines";
 import { addWorkflow } from "./workflow";
 import { createDischargeDraft } from "../discharge";
 // Deterministic, entirely fictional workflow fixtures. Clinical decisions are authored fixtures,
@@ -183,7 +183,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
     return [c.patient.id, { ...d, outcome: c.destination === "死亡退院" ? "6" : "1", dischargeDay: c.patient.dischargedAt!.day, destination: c.destination, sections: { ...d.sections, complaint: clinical.complaint, present: clinical.onset, reason: clinical.assessment[0], status: clinical.findings[2], course: c.patient.history.filter((e) => e.kind === "note").map((e) => `${e.day}日 ${e.text ?? e.soap?.a ?? ""}`).join("\n"), plan: c.destination === "死亡退院" ? "死亡確認の経過を家族に説明済み。" : clinical.plan[2] }, letter: { ...d.letter, to: c.destination, dept: c.patient.department, purpose: `${c.patient.admissionDiagnosis}の継続診療の依頼。${clinical.assessment[2]}。${clinical.plan[2]}。`, issuedAt: { day: c.patient.dischargedAt!.day, time: "09:00" } } }];
   }));
   const standing = Object.fromEntries(patients.map((p) => [p.id, [{ ...emptyStanding(p.attending, { day: p.admittedOn, time: "10:00" }), rest: p.id === "99000013" ? "ベッド上" as const : /骨折|脳梗塞/.test(p.admissionDiagnosis) ? "室内" as const : "病棟内" as const, vitals: p.id === "99000013" ? "4時間ごと" as const : "1日3回" as const, ...(p.admittedOn < 0 && Number(p.id) % 19 !== 0 ? { taken: { by: nurseFor(p.room), time: "10:15" } } : {}), other: p.id === "99000013" ? "人工呼吸器装着中はICUで管理。抜管後は酸素指示を確認。" : "" }]]));
-  const standingLines = Object.fromEntries(Object.entries(standing).map(([id, versions]) => [id, linesFromFields(versions).map((l, i) => ({ ...l, id: `${id}-standing-${i}` }))]));
+  const standingLines = Object.fromEntries(Object.keys(standing).map(id => [id, [] as StandingLine[]]));
   const admission = admissionState(cases);
   const nursing = nursingState(cases, admission.evals);
   return { nursing, txIssued: pharmacyBloodIssues(patients), narcBook: pharmacyBook(patients), cases, patients, physioDesk, ris, er, opd, asks, insurance, discharges, visitOrders, visitNotes, visitChartNotes, restraints: cases.flatMap((c) => c.restraints), surgeries: addScenarioAnesthesia(patients, cases.flatMap((c) => c.surgeries)), directives: cases.flatMap((c) => c.directives), diagnoses: Object.fromEntries(cases.map((c) => [c.patient.id, c.diagnoses])), diets: cases.flatMap((c) => c.diets), beds: cases.filter((c) => c.stage !== "救急").map((c) => ({ room: c.patient.room, bed: c.bed, patientId: c.patient.id, specialty: c.patient.age < 18 ? "小児" as const : c.patient.pregnancy ? "産科" as const : undefined })), discharged: Object.fromEntries(patients.flatMap((p) => p.dischargedAt ? [[p.id, p.dischargedAt]] : [])), standing, standingLines, ...admission };

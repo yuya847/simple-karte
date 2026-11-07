@@ -56,6 +56,22 @@ export function isOmittedDose(o: InjectionOrder, at: number): boolean {
   return !!o.omittedDoses?.some(x => abs(o.start.day + x.day, x.time) === at);
 }
 
+/** Each bag occupies its prescribed start through completion (or explicit stop). */
+export function infusionSegments(e: OrderEntry, lo: number, hi: number, nowAbs: number) {
+  if (e.order.type !== "injection") return [];
+  const o = e.order;
+  const vol = doseVolumeMl(o.items);
+  if (!vol || !(o.minutesPerDose || o.rateMlPerH && (o.doseTimes?.length || o.schedule.kind !== "per_day"))) return [];
+  const rate = o.rateMlPerH ? o.rateMlPerH / 60 : vol / o.minutesPerDose!;
+  const duration = vol / rate;
+  const { to } = orderInterval(e, nowAbs);
+  return doseTimes(e, nowAbs, lo - duration, hi).flatMap(at => {
+    const from = Math.max(lo, at);
+    const end = Math.min(hi, at + duration, to ?? Infinity);
+    return end > from ? [{ from, to: end, volume: rate * (end - from) }] : [];
+  });
+}
+
 /** Infused volume (mL) in [lo, hi) from injection orders (not rounded). An estimate from the orders, not a measurement. */
 export function fluidInWindow(entries: OrderEntry[], lo: number, hi: number, nowAbs: number): number {
   let total = 0;
@@ -64,7 +80,9 @@ export function fluidInWindow(entries: OrderEntry[], lo: number, hi: number, now
     const o = e.order;
     const vol = doseVolumeMl(o.items);
     if (vol === 0) continue;
-    if (o.schedule.kind === "every_hours") {
+    if (o.minutesPerDose || o.rateMlPerH && (o.doseTimes?.length || o.schedule.kind !== "per_day")) {
+      total += infusionSegments(e, lo, hi, nowAbs).reduce((sum, bag) => sum + bag.volume, 0);
+    } else if (o.schedule.kind === "every_hours") {
       total += doseTimes(e, nowAbs, lo, hi).length * vol;
     } else if (o.schedule.kind === "per_day" && o.omittedDoses?.length) {
       total += doseTimes(e, nowAbs, lo, hi).length * vol;
@@ -86,6 +104,9 @@ export function fluidInWindow(entries: OrderEntry[], lo: number, hi: number, now
 /** Infused volume (mL) per day from injection orders. An estimate from the orders, not a measurement. */
 export function fluidByDay(entries: OrderEntry[], days: DayOffset[], nowAbs: number): Record<number, number> {
   const out: Record<number, number> = {};
-  for (const d of days) out[d] = Math.round(fluidInWindow(entries, d * 1440, d * 1440 + 1440, nowAbs) / 10) * 10;
+  for (const d of days) out[d] = Math.round(entries.reduce((sum, e) => {
+    const volume = fluidInWindow([e], d * 1440, (d + 1) * 1440, nowAbs);
+    return sum + (infusionSegments(e, d * 1440, (d + 1) * 1440, nowAbs).length ? volume : Math.round(volume / 10) * 10);
+  }, 0) * 10) / 10;
   return out;
 }

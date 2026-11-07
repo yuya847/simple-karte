@@ -119,7 +119,7 @@ export function FlowGlucoseRows({ layout, points, insulin, mar, nowAbs, days, bo
       {insulin.map((e) => {
         const drug = e.order.type === "injection" ? findDrug(e.order.items[0].drugCode) : undefined;
         return (
-          <Line key={e.id} label={drug ? (drug.aliases[0] ?? drug.name) : "インスリン"} sub="インスリン" labelW={labelW} onPlot={onInsulin ? ev => onInsulin(ev, e.id) : undefined}>
+          <Line key={e.id} label={drug ? (drug.name) : "インスリン"} sub="インスリン" labelW={labelW} onPlot={onInsulin ? ev => onInsulin(ev, e.id) : undefined}>
             {insulinDoses(e, lo, hi, mar.records, mar.sessionStart, nowAbs).map((x) => (
               <span
                 key={x.at}

@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { linesFromFields } from "@/lib/standing-lines";
 import { SCENARIOS } from "@/lib/scenarios";
 import { PATIENTS } from "@/lib/patients";
 import { activeOrders, activeStandingLines, emptyCalendar } from "@/lib/active-orders";
@@ -17,8 +18,9 @@ const today = { y: 2026, m: 11, d: 6 };
 const noop = () => {};
 describe("右のツールの点検で見つかった表示", () => {
   it("試験病棟の患者の指示簿も有効オーダに出す", () => {
-    const p = SCENARIOS.patients.find(p => (SCENARIOS.standingLines[p.id] ?? []).length > 0)!;
-    const lines = SCENARIOS.standingLines[p.id];
+    const p = SCENARIOS.patients.find(p => (SCENARIOS.standing[p.id] ?? []).length > 0)!;
+    const lines = [...SCENARIOS.standingLines[p.id], ...linesFromFields(SCENARIOS.standing[p.id])];
+    expect(new Set(lines.map(l => l.text)).size).toBe(lines.length);
     expect(activeStandingLines(lines).length).toBeGreaterThan(0);
     const html = renderToStaticMarkup(<ActiveOrdersPanel entries={p.history} lines={lines} today={today} />);
     expect(html).toContain("指示簿");

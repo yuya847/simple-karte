@@ -139,7 +139,7 @@ function useWidth<T extends HTMLElement>() {
 
 const shortDrug = (code: string) => {
   const d = findDrug(code);
-  return d ? (d.aliases[0] ?? d.name) : code;
+  return d ? (d.category === "インスリン" ? d.name : d.aliases[0] ?? d.name) : code;
 };
 
 /**

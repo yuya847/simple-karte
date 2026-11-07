@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorksheetSelection } from "@/lib/use-worksheet-selection";
+import { useMe } from "./RoleContext";
 import { displayText } from "@/lib/display-text";
 import { StandingMeasurements, type StandingMeasurementSource } from "./StandingMeasurements";
 
@@ -89,8 +91,9 @@ export function Worksheet({ expiryNotice, standingMeasurements, remeasureVitals,
     const { day: dd, shift: sh } = nursingShift(abs(0, nowTime));
     return { day: Math.max(-1, Math.min(1, dd)) as DayOffsetLike, shift: sh };
   })();
-  const [day, setDay] = useState<DayOffsetLike>(start.day);
-  const [shift, setShift] = useState<Shift>(start.shift);
+  const me = useMe();
+  const [{ day, shift }, setSelection] = useWorksheetSelection(`${me.role}:${me.name}`, start);
+  const remember = (day: DayOffsetLike, shift: Shift) => setSelection({ day, shift });
   const [kinds, setKinds] = useState<WorkKind[]>(KINDS);
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
   const nowAbs = abs(0, nowTime);
@@ -126,9 +129,9 @@ export function Worksheet({ expiryNotice, standingMeasurements, remeasureVitals,
             { value: 0, label: `今日 ${formatShort(today)}` },
             { value: 1, label: `明日 ${formatShort(addDays(today, 1))}` },
           ]}
-          onChange={setDay}
+          onChange={d => remember(d, shift)}
         />
-        <Segmented label="勤務帯" value={shift} options={(Object.keys(SHIFTS) as Shift[]).map((s) => ({ value: s, label: SHIFTS[s].label }))} onChange={setShift} />
+        <Segmented label="勤務帯" value={shift} options={(Object.keys(SHIFTS) as Shift[]).map((s) => ({ value: s, label: SHIFTS[s].label }))} onChange={sh => remember(day, sh)} />
         <fieldset className="flex items-center gap-2">
           <legend className="sr-only">出す種類</legend>
           {KINDS.map((k) => (

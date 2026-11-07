@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_CARE_ORDERS, initialCareRecords } from "./care-orders";
-import { glucoseDayCell, glucosePoints, insulinOrders, isGlucoseCare, medCell, oralSlots, timedOral, timingsOf } from "./flow-meds";
+import { glucoseDayCell, glucosePoints, insulinDoses, insulinOrders, isGlucoseCare, medCell, oralSlots, timedOral, timingsOf } from "./flow-meds";
 import { abs } from "./flowsheet";
 import type { AdminRecord } from "./mar";
 import { PATIENTS } from "./patients";
@@ -66,4 +66,14 @@ describe("経過表の血糖・インスリン", () => {
   it("no insulin in the fictional master: no insulin rows", () => {
     expect(PATIENTS.flatMap((p) => insulinOrders(p.history.filter((e): e is OrderEntry => e.kind === "order")))).toEqual([]);
   });
+});
+
+it("品名にインスリンを含まないヒューマリンもMARから2単位を経過表へ出す", async () => {
+  const { DRUGS } = await import("./master");
+  const drug = DRUGS.find(d => d.name.includes("ヒューマリン") && d.category === "インスリン")!;
+  expect(drug).toBeDefined();
+  const e: OrderEntry = {kind:"order",id:"insulin",day:0,time:"08:00",author:"医師",status:"有効",order:{type:"injection",items:[{drugCode:drug.code,amount:2,unit:"単位"}],route:"皮下注",schedule:{kind:"once"},start:{day:0,time:"08:00"}}};
+  const record: AdminRecord = {checked: {patient:true,label:true},key:"insulin|600",orderId:e.id,patientId:"p",at:600,status:"実施",doneAt:"10:00",by:"看護師",insulin:{glucose:180,units:2}};
+  expect(insulinOrders([e])).toEqual([e]);
+  expect(insulinDoses(e,0,1440,{[record.key]:record},540,660).find(d => d.at === 600)?.record?.insulin?.units).toBe(2);
 });

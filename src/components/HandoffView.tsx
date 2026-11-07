@@ -21,6 +21,7 @@ interface Props {
   today: CalendarDate;
   nowTime: string;
   handoffs: Record<string, Handoff>;
+  saved?: boolean;
   /** More facts per patient gathered elsewhere (e.g. results not yet seen). */
   extraFacts?: Record<string, string[]>;
   onSave: (h: Handoff) => void;
@@ -41,7 +42,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 /** 申し送り for the whole ward, one patient at a time, in the I-PASS order. */
-export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {}, onSave, onSend, onReceive }: Props) {
+export function HandoffView({ people, today, nowTime, handoffs, saved = false, extraFacts = {}, onSave, onSend, onReceive }: Props) {
   const me = useMe();
   const nowAbs = abs(0, nowTime);
   const [receiving, setReceiving] = useState(true);
@@ -74,7 +75,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
                   <span className="min-w-0 flex-1">
                     <span className="nums text-xs text-ink-faint">{x.room}</span> <b>{x.patient.name}</b>
                     <span className={`block text-[11px] ${STATUS_STYLE[st]}`}>
-                      {st}
+                      {h?.sentAt && !saved ? "保存待ち" : st}
                       {sev ? `・${sev.key}` : ""}
                     </span>
                   </span>
@@ -98,6 +99,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
           shift={ns.label}
           facts={handoffFacts(w, nowAbs, today, extraFacts[w.patient.id])}
           h={handoffs[handoffKey(w.patient.id, ns.lo, me.role)]}
+          persisted={saved}
           onSave={onSave}
           onSend={onSend}
           onReceive={onReceive}
@@ -109,7 +111,7 @@ export function HandoffView({ people, today, nowTime, handoffs, extraFacts = {},
   );
 }
 
-function Card({ receiving, w, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { receiving: boolean; w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
+function Card({ persisted, receiving, w, nowTime, shift, shiftLo, prev, facts, h: saved, onSave, onSend, onReceive }: { persisted: boolean; receiving: boolean; w: WorkPatient; today: CalendarDate; nowTime: string; shift: string; shiftLo: number; prev?: Handoff; facts: string[]; h?: Handoff; onSave: (h: Handoff) => void; onSend: (h: Handoff) => void; onReceive: (h: Handoff) => void }) {
   const me = useMe();
   const deny = useDeny()("handoff");
   const overview = useNoteOverview(w.patient.id);
@@ -161,7 +163,7 @@ function Card({ receiving, w, nowTime, shift, shiftLo, prev, facts, h: saved, on
         <span className="text-xs text-ink-soft">
           {ageSex(w.patient)}　{shift}
         </span>
-        <span className={`ml-auto text-xs font-bold ${STATUS_STYLE[statusOf(saved)]}`}>{statusOf(saved)}</span>
+        <span className={`ml-auto text-xs font-bold ${STATUS_STYLE[statusOf(saved)]}`}>{h.sentAt && !persisted ? "保存待ち" : statusOf(saved)}</span>
       </header>
       <DenyNote action="handoff" className="mb-2" />
       {receiving && sent && <div className="mb-3 rounded border border-rule bg-sheet p-3"><h4 className="font-bold">受けた申し送り</h4><p className="whitespace-pre-wrap">{h.summary}</p><ul>{h.actions.map((a, i) => <li key={i}>{a.text}</li>)}</ul><p>{h.contingency}</p></div>}
@@ -248,7 +250,7 @@ function Card({ receiving, w, nowTime, shift, shiftLo, prev, facts, h: saved, on
           ))}
           {facts.length === 0 && <li className="text-ink-faint">集める事実がありません。</li>}
         </ul>
-        {sent && <p className="mt-1 text-[11px] text-ink-faint">送った時点（{h.sentAt!.time}）の内容です。</p>}
+        {sent && persisted && <p className="mt-1 text-[11px] text-ink-faint">送った時点（{h.sentAt!.time}）の内容です。</p>}
       </div>
 
       {!locked && !receiving && (

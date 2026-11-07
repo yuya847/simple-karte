@@ -29,6 +29,7 @@ it("無操作と取り込みでは保存せず、未保存入力は残し500を�
   await api.pull(); api = WorkspaceHarness(); await vi.advanceTimersByTimeAsync(15000);
   expect(fetcher.mock.calls.filter(([url]) => url.includes("save_workspace"))).toHaveLength(0);
   notes = { p: [...notes.p, { id: "local" }] }; api = WorkspaceHarness();
+  expect(api.isSaved("notes", notes)).toBe(false);
   remote = { notes: { p: [{ id: "remote" }, { id: "other" }] } }; stamp = "3";
   await api.pull(); WorkspaceHarness(); expect(notes.p.map(x => x.id)).toContain("local");
   fail = true; await vi.advanceTimersByTimeAsync(1000); expect(WorkspaceHarness().status).toBe("error");
@@ -37,6 +38,7 @@ it("無操作と取り込みでは保存せず、未保存入力は残し500を�
   await vi.advanceTimersByTimeAsync(3999); expect(count()).toBe(2);
   fail = false; await vi.advanceTimersByTimeAsync(1); expect(WorkspaceHarness().status).toBe("saved");
   expect(notes.p.map(x => x.id)).toContain("local");
+  expect(WorkspaceHarness().isSaved("notes", notes)).toBe(true);
 });
 it("名前解決の失敗を定期取り込みの呼び元へ投げず、保存の表示をエラーにする", async () => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://unreachable.test"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "test");

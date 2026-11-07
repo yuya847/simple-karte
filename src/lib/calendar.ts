@@ -1,8 +1,7 @@
 import { patternDay, rxLastDay } from "./day-pattern";
 // Scheduled times for calendar cells. Actual administration is read from MAR by the view.
 
-import { abs, doseTimes, isOmittedDose, orderInterval } from "./flowsheet";
-import { doseVolumeMl } from "./drafts";
+import { abs, doseTimes, fluidInWindow, infusionSegments, isOmittedDose, orderInterval } from "./flowsheet";
 import { findDrug, WARD_RULES } from "./master";
 import { procEvents, procInterval } from "./proc-timing";
 import type { DayOffset, DoseTiming, InjectionOrder, OrderEntry, PrescriptionOrder, ProcedureOrder } from "./types";
@@ -38,18 +37,24 @@ export function injectionCell(entry: OrderEntry, day: DayOffset, nowAbs: number)
   if (entry.status === "中止" && (entry.stoppedOn ?? 0) === day) {
     cell.stopped = { time: day === 0 && to !== null ? hhmm(to - lo) : null };
   }
-  if (!running) return cell;
+  if (!running && !(isFluidOrder(o) && fluidInWindow([entry], lo, hi, nowAbs) > 0)) return cell;
 
   if (o.schedule.kind !== "once" || o.doseTimes?.length) {
     cell.doses = scheduled.map((t) => ({ time: hhmm(t - lo), state: stateAt(t, nowAbs) }));
   } else if (o.schedule.kind === "once") {
     if (from >= lo && from < hi && !isOmittedDose(o, from)) cell.doses = [{ time: hhmm(from - lo), state: stateAt(from, nowAbs) }];
   }
-  if (o.schedule.kind === "per_day" && isFluidOrder(o) && !o.doseTimes?.length) {
+  if (isFluidOrder(o) && (o.rateMlPerH || o.minutesPerDose || o.schedule.kind === "per_day" && !o.doseTimes?.length)) {
     const start = Math.max(lo, from);
     const end = Math.min(hi, to ?? Infinity);
-    const volumeMl = Math.round(((doseVolumeMl(o.items) * o.schedule.count) / 1440) * Math.max(0, end - start) / 10) * 10;
-    cell.infusion = { volumeMl, state: end <= nowAbs ? "done" : start > nowAbs ? "planned" : "now" };
+    const timed = o.minutesPerDose || o.rateMlPerH && (o.doseTimes?.length || o.schedule.kind !== "per_day");
+    const volume = fluidInWindow([entry], lo, hi, nowAbs);
+    const volumeMl = timed ? Math.round(volume * 10) / 10 : Math.round(volume / 10) * 10;
+    const bags = timed ? infusionSegments(entry, lo, hi, nowAbs) : [];
+    if (timed) cell.running = bags.length > 0;
+    const finished = timed ? bags.every(b => b.to <= nowAbs) : end <= nowAbs;
+    const future = timed ? bags.every(b => b.from > nowAbs) : start > nowAbs;
+    if (!timed || bags.length) cell.infusion = { volumeMl, state: finished ? "done" : future ? "planned" : "now" };
   }
   return cell;
 }

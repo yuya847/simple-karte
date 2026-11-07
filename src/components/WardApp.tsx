@@ -5,6 +5,7 @@ import { lifeWithIntake, lifeLines } from "@/lib/life-support";
 import { DischargeForm } from "./AdmitEvalView";
 
 import { CarryNote, NoteOverviewContext } from "./NoteOverview";
+import { noteChanged } from "@/lib/note-overview";
 import type { TodoCompletions } from "@/lib/note-overview";
 import { labWindowWidth } from "@/lib/panel-size";
 import { CardiacCathPanel } from "./panels/CardiacCathPanel";
@@ -432,6 +433,7 @@ interface ChartState {
   /** Tabs open on the right besides 記事作成 (opened from the tools, closed with ×). */
   openTabs: RightTab[];
   note: string;
+  noteInitial?: string;
   noteTemplate?: { templateId: string; templateName: string } | null;
   instruction: string;
   drafts: Draft[];
@@ -1413,7 +1415,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     setPanel("imaging");
   };
   const confirmNote = () => {
-    if (!patient) return;
+    if (!patient || !noteChanged(chart.note, chart.noteInitial)) return;
                           // 記録時刻 (when it happened; set earlier when writing late) and 記載時刻 (now, kept as is).
                           const at = chart.noteAt ?? { day: 0, time: nowTime };
                           const n: NoteEntry = { kind: "note", id: newId(), day: at.day, time: at.time, writtenAt: { day: 0, time: nowTime }, author: me.name, role: me.role, ...parseNote(chart.note), ...(chart.figures?.length ? { figures: chart.figures } : {}) };
@@ -1426,7 +1428,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
                           auditLog({ role: me.role, actor: me.name, action: "確定（記事）", patient: patient.name, detail: `${chart.noteAt ? `記録時刻 ${formatShort(addDays(today, at.day))} ${at.time}　` : ""}${chart.note.replace(/\s+/g, " ").slice(0, 120)}` });
                           if (resident) setCosign((all) => [...all, ...newItems({ patientId: patient.id, by: me.name, at: { day: 0, time: nowTime } }, [{ ref: n.id!, kind: "記事", text: chart.note.trim() }], newId)]);
-                          update({ note: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, noteTemplate: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
+                          update({ note: nextFrame(me.role, chart.note, nowTime), noteInitial: nextFrame(me.role, chart.note, nowTime), figures: [], noteAt: null, noteTemplate: null, flash: chart.noteAt ? `記事を確定しました（記録時刻 ${at.time}、書いた時刻 ${nowTime}）。左の経過に入りました。` : "記事を確定しました。左の経過に入りました。" });
                           };
 
   // A record template's text, confirmed as a note of its own (【テンプレート名】 heading; the wording was put together by code).
@@ -2217,7 +2219,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     setPanel(null);
   };
   const orderMode = !deny("order") ? "doctor" : !deny("order.verbal") ? "verbal" : "none";
-  const noteReady = !!patient && !isBlankNote(chart.note) && !deny("note") && !(chart.noteAt && eventTimeProblem(chart.noteAt, { day: 0, time: nowTime }, patient.admittedOn));
+  const noteReady = !!patient && noteChanged(chart.note, chart.noteInitial) && !deny("note") && !(chart.noteAt && eventTimeProblem(chart.noteAt, { day: 0, time: nowTime }, patient.admittedOn));
   const ordersReady = !!ctx && orderMode !== "none" && chart.drafts.length > 0 && chart.drafts.every((d) => isReady(issues[d.id] ?? []));
 
   const orderBlock = orderMode === "none" ? deny("order") ?? undefined : undefined;
@@ -2232,7 +2234,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
   const wardReports = wardReportRows(people, reportSrc, acks);
-  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "医師" ? unseenResults.filter((i) => isMine(i.patientId)).length : 0, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length, reports: wardReports.filter((r) => isMine(r.patientId)).reduce((n, r) => n + r.unread, 0) };
+  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: lists.mine.beds.filter(b => b.patientId).length, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length, reports: wardReports.filter((r) => isMine(r.patientId)).reduce((n, r) => n + r.unread, 0) };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabInfo(w).label : o === "er" ? "救急外来" : "外来";
@@ -2859,6 +2861,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           today={today}
           nowTime={nowTime}
           handoffs={handoffs}
+          saved={workspace.isSaved("handoffs", handoffs)}
           extraFacts={Object.fromEntries(
             people.map((x) => {
               const pid = x.patient.id;
@@ -4612,7 +4615,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     <WindowEntryContext.Provider value={{ scope: `department:${desk}`, entries: windowEntries, setEntries: setWindowEntries }}><RoleProvider value={role}>
     <MeProvider value={me}>
     <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
-    {patient && <CarryNote id={patient.id} value={chart.note} onChange={note => update({ note })} />}
+    {patient && <CarryNote id={patient.id} value={chart.note} initial={chart.noteInitial} onChange={note => update({ note, noteInitial: note })} />}
     {verbalConfirmation.dialog}
     <CosignRefs value={byRef(cosign)}>
     <div className="flex h-screen flex-col print:hidden">

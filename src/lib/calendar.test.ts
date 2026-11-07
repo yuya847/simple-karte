@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { injectionCell, prescriptionCell, upcomingToday } from "./calendar";
-import { abs } from "./flowsheet";
+import { abs, fluidInWindow, fluidByDay } from "./flowsheet";
 import { occurrencesOn } from "./order-execute";
 import { PATIENTS } from "./patients";
 import type { OrderEntry } from "./types";
@@ -102,4 +102,16 @@ describe("旧オーダの投与時刻の共有", () => {
     expect(occurrencesOn(kitamura, e, 0, now).timed.map((i) => i.at)).toEqual([600, 1320]);
     expect(occurrencesOn(kitamura, e, 0, now).untimed).toBeNull();
   });
+});
+
+it("250mL・125mL毎時・毎日10時2日間は各日250mL、翌々日は0", () => {
+  const e: OrderEntry = { ...vcm, order: { type: "injection", items: [{ drugCode: "INJ-NS100", amount: 250, unit: "mL" }], route: "点滴静注", schedule: { kind: "per_day", count: 1 }, rateMlPerH: 125, start: { day: 0, time: "10:00" }, doseTimes: ["10:00"], days: 2 } };
+  expect([0,1,2].map(day => injectionCell(e, day, now).infusion?.volumeMl ?? 0)).toEqual([250,250,0]);
+  expect(fluidInWindow([e], 600, 660, now)).toBeCloseTo(125);
+  expect(fluidInWindow([e], 720, 1440, now)).toBe(0);
+  expect(injectionCell(e, 0, 780).infusion?.state).toBe("done");
+  const crossing: OrderEntry = { ...e, order: { ...e.order as import("./types").InjectionOrder, start: { day: 0, time: "23:00" }, doseTimes: ["23:00"], days: 1 } };
+  expect([0,1,2].map(day => Math.round(fluidInWindow([crossing], day*1440, (day+1)*1440, now)))).toEqual([125,125,0]);
+  expect(fluidByDay([crossing], [0,1,2], now)).toEqual({0:125,1:125,2:0});
+  expect(fluidInWindow([{...crossing,status:"中止",stoppedOn:1,stoppedTime:"00:30"}],1440,2880,now)).toBeCloseTo(62.5);
 });

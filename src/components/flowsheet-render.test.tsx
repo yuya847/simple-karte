@@ -158,3 +158,14 @@ describe("経過表の画面", () => {
     expect(html).toContain("日数を数える日を足す");
   });
 });
+
+it("インスリンの実施量と両方の行の品名を元のオーダから表示する", async () => {
+  const { DRUGS } = await import("@/lib/master");
+  const drug = DRUGS.find(d => d.name.includes("ヒューマリン") && d.category === "インスリン")!;
+  const e: OrderEntry = {kind:"order",id:"ins",day:0,time:"08:00",author:"医師",status:"有効",order:{type:"injection",items:[{drugCode:drug.code,amount:2,unit:"単位"}],route:"皮下注",schedule:{kind:"once"},start:{day:0,time:"08:00"}}};
+  const html = render(PATIENTS[0].id, { entries: [e], mar: { sessionStart:540,records:{"ins|600":{key:"ins|600",patientId:PATIENTS[0].id,orderId:"ins",at:600,doneAt:"10:00",by:"看護師",status:"実施",checked:{patient:true,label:true},insulin:{glucose:180,units:2}}} } });
+  expect(html).toContain("2単位");
+  expect(html).toContain(drug.name);
+  expect(html).not.toContain("ノボリン");
+  expect(html.split(drug.name).length - 1).toBeGreaterThanOrEqual(2);
+});

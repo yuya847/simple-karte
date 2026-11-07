@@ -18,3 +18,10 @@ describe("保存された古い指示をかたまりに移す", () => {
     expect(migrateStandingVersions({ a: [v("山本（専攻医）", -3), v("研修医 田中", 0)] }).a).toEqual([v("研修医 田中", 0)]);
   });
 });
+
+it("項目から作った行を再び取り込まず、同内容同時刻の行は1件、別の終了履歴は保持する", () => {
+  const line = old("a", "バイタル測定1日3回");
+  const out = migrateStandingLines({ p: [line, {...line,id:"b"}, {...line,id:"fields",fromFields:true}, {...line,id:"stop",stop:{day:0,time:"12:00",by:"医師"}}] }, {});
+  expect(out.p.map(l => l.id)).toEqual(["a","stop"]);
+  expect(migrateStandingLines(out, {})).toEqual(out);
+});

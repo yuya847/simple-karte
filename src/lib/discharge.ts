@@ -10,6 +10,8 @@ import { ANALYTES, anyDrugName } from "./master";
 import type { HistoryEntry, NoteEntry, InjectionOrder, OrderEntry, Patient } from "./types";
 import type { Draft } from "./drafts";
 import type { AdmissionRequest } from "./admission";
+import { orderInterval } from "./flowsheet";
+import { procInterval } from "./proc-timing";
 import { dischargeLeave } from "./rx";
 import { rpLine } from "./rp";
 import { verbalUnsigned } from "./verbal";
@@ -126,7 +128,14 @@ export interface Facts {
 
 export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagnosis[], today: CalendarDate, dischargeDay: number): Facts {
   const orders = entries.filter((e) => e.kind === "order");
-  const span = (e: OrderEntry) => `${formatShort(addDays(today, e.day))}〜${e.status === "中止" && e.stoppedOn !== undefined ? formatShort(addDays(today, e.stoppedOn)) : "継続中"}`;
+  const span = (e: OrderEntry) => {
+    const cutoff = (dischargeDay + 1) * 1440;
+    const interval = e.order.type === "injection" ? orderInterval(e, cutoff) : procInterval(e, cutoff);
+    const recordedEnd = (e.status === "中止" || e.status === "終了") && e.stoppedOn !== undefined ? e.stoppedOn : undefined;
+    const endDay = Math.min(recordedEnd ?? Infinity, interval.to === null ? Infinity : Math.floor(interval.to / 1440));
+    const ended = endDay <= dischargeDay;
+    return `${formatShort(addDays(today, Math.floor(interval.from / 1440)))}〜${ended ? `終了（${formatShort(addDays(today, endDay))}）` : "継続中"}`;
+  };
   return {
     admitted: formatShort(addDays(today, p.admittedOn)),
     discharge: formatShort(addDays(today, dischargeDay)),

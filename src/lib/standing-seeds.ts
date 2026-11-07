@@ -247,10 +247,16 @@ export function migrateStandingLines(saved: Record<string, StandingLine[]>, seed
   for (const pid of new Set([...Object.keys(saved), ...Object.keys(seeds)])) {
     const seed = seeds[pid] ?? [];
     const seedIds = new Set(seed.map((l) => l.id));
-    const kept = (saved[pid] ?? []).filter((l) => !(OLD_SEED_LINE_IDS.has(l.id) && !seedIds.has(l.id)));
+    const kept = (saved[pid] ?? []).filter((l) => !l.fromFields && !(OLD_SEED_LINE_IDS.has(l.id) && !seedIds.has(l.id)));
     const fromSeed = kept.map((l) => (seedIds.has(l.id) && !l.text.includes("\n") ? seed.find((s) => s.id === l.id)! : l));
     const missing = seed.filter((s) => !fromSeed.some((l) => l.id === s.id));
-    out[pid] = [...missing, ...fromSeed];
+    const seen = new Set<string>();
+    out[pid] = [...fromSeed, ...missing].filter(line => {
+      const key = JSON.stringify([line.text.trim(), line.cat, line.start, line.at, line.by, line.end, line.stop, line.changed, line.changedFrom]);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
   return out;
 }

@@ -47,3 +47,12 @@ export function completedNote(n: NoteEntry, done: TodoCompletions): string {
   for (const t of noteTodos(n, done)) if (t.done) lines[t.line] = lines[t.line].replace("☐", "☑");
   return lines.join("\n");
 }
+
+/** A carried summary and template alone are not a new clinical record. */
+export const noteChanged = (value: string, initial?: string) => !isBlankNote(value) && value.trim() !== initial?.trim();
+
+/** Refresh only inherited checkboxes; the newest occurrence determines whether a task remains open. */
+export function refreshCarriedTodos(value: string, entries: HistoryEntry[], role: string, done: TodoCompletions): string {
+  const pending = new Set(noteOverview(entries, role, done).todos.map(t => t.text));
+  return value.split("\n").filter(line => !line.startsWith("☐ ") || pending.has(line.slice(2))).join("\n");
+}

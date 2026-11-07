@@ -53,3 +53,15 @@ it("記事のない患者の内容を推測しない", () => {
   expect(d.sections.status).toBe("");
   expect(d.destination).toBe("");
 });
+
+it("日数・明示終了・中止を退院日と比較して終了表示する", () => {
+  const base: OrderEntry = { kind:"order",id:"iv",day:-3,time:"10:00",author:"医師",status:"有効",order:{type:"injection",items:[{drugCode:"INJ-NS100",amount:100,unit:"mL"}],route:"点滴静注",schedule:{kind:"per_day",count:1},start:{day:-3,time:"10:00"},days:2} };
+  expect(collectFacts(sakura,[base],[],today,0).injections[0]).toContain("終了（11/2");
+  expect(collectFacts(sakura,[{...base,status:"終了",stoppedOn:-2,order:{...base.order as import("./types").InjectionOrder,days:undefined}}],[],today,0).injections[0]).toContain("終了（11/1");
+  expect(collectFacts(sakura,[{...base,order:{...base.order as import("./types").InjectionOrder,end:{day:-1,time:"00:00"}}}],[],today,0).injections[0]).toContain("終了（11/2");
+  expect(collectFacts(sakura,[{...base,status:"中止",stoppedOn:0,stoppedTime:"12:00"}],[],today,0).injections[0]).toContain("終了（11/2");
+  expect(collectFacts(sakura,[base],[],today,-2).injections[0]).toContain("継続中");
+  const oxygen: OrderEntry = {...base,order:{type:"procedure",code:"PROC-O2",schedule:{kind:"continuous"},start:{day:-3,time:"10:00"},days:1}};
+  expect(collectFacts(sakura,[oxygen],[],today,0).procedures[0]).toContain("終了（11/1");
+  expect(collectFacts(sakura,[{...base,status:"中止",stoppedOn:-2,stoppedTime:"12:00"}],[],today,0).injections[0]).toContain("終了（11/1");
+});

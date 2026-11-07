@@ -1,7 +1,8 @@
 "use client";
 import { createContext, useContext, useEffect } from "react";
+import { noteTemplate } from "@/lib/notes";
 import type { HistoryEntry, NoteEntry } from "@/lib/types";
-import { carryNote, completedNote, noteOverview, type TodoCompletions } from "@/lib/note-overview";
+import { carryNote, completedNote, noteOverview, refreshCarriedTodos, type TodoCompletions } from "@/lib/note-overview";
 import { NoteText } from "./NoteText";
 
 export const NoteOverviewContext = createContext<{ patientId?: string; entriesOf: (id: string) => HistoryEntry[]; role: string; done: TodoCompletions; complete: (key: string) => void }>({ entriesOf: () => [], role: "医師", done: {}, complete: () => {} });
@@ -24,8 +25,15 @@ export function CompletedNote({ note }: { note: NoteEntry }) {
   const audit = Object.entries(done).filter(([key]) => key.startsWith(JSON.stringify([note.id ?? `${note.day}|${note.time}|${note.author}`]).slice(0, -1))).map(([, d]) => `${d.by} ${d.at}`).join("\n");
   return <div className="whitespace-pre-wrap" title={audit || undefined}><NoteText text={completedNote(note, done)} /></div>;
 }
-export function CarryNote({ id, value, onChange }: { id: string; value: string; onChange: (s: string) => void }) {
+export function CarryNote({ id, value, initial, onChange }: { id: string; value: string; initial?: string; onChange: (s: string) => void }) {
   const c = useContext(NoteOverviewContext);
-  useEffect(() => { const next = carryNote(value, c.entriesOf(id), c.role, patientTodoDone(c.done, id)); if (next !== value) onChange(next); }, [id, value, onChange, c]);
+  useEffect(() => {
+    const entries = c.entriesOf(id);
+    const done = patientTodoDone(c.done, id);
+    const restoredInitial = initial === undefined && value.trim() === carryNote(noteTemplate(c.role), entries, c.role).trim();
+    const raw = value === initial || restoredInitial ? refreshCarriedTodos(value, entries, c.role, done) : value;
+    const next = carryNote(raw, entries, c.role, done);
+    if (next !== value || restoredInitial) onChange(next);
+  }, [id, value, initial, onChange, c]);
   return null;
 }
