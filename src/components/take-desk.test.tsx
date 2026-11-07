@@ -64,21 +64,21 @@ describe("指示受けの画面", () => {
     expect(html).toContain("大浦 トメ");
     expect(html).toContain("受け持ち"); // 512 is this nurse's
     expect(html).toContain("2時間10分"); // 10:00 → 12:10
-    // Each change: the check, the heading (kind and the order's date and time), the three pairs, the lines.
+    // Each change in one line: the check, the time (without the band's date), the kind, the gist, who ordered.
+    // All the 項目名：値 lines and the filled 日時／者 are in the line's hover text; empty pairs are not shown.
     expect(html).toContain("入院注射");
+    expect(html).toContain('<b class="nums w-[5.5rem] shrink-0 text-ai">10:00</b>');
     expect(html).toContain("11/4（水） 10:00");
-    expect(html).toContain("指示開始日時");
-    expect(html).toContain("指示者");
-    expect(html).toContain("実施日時");
-    expect(html).toContain("実施者");
-    expect(html).toContain("指示受け日時");
-    expect(html).toContain("指示受け者");
-    expect(html).toContain("11/4（水） 14:00"); // 指示開始
+    expect(html).toContain("指示開始日時：11/4（水） 14:00　指示者：山本（専攻医）");
+    expect(html).not.toContain("実施日時");
+    expect(html).not.toContain("指示受け日時");
     expect(html).toContain("山本（専攻医）");
-    expect(html).toContain("手技</dt><dd class=\"nums\">点滴静注");
+    expect(html).toContain("手技：点滴静注");
     expect(html).toContain("セファメジンα注射用1g");
-    expect(html).toContain("用法</dt><dd class=\"nums\">12時間ごと");
-    expect(html).toContain("実施場所</dt><dd class=\"nums\">5階東病棟");
+    expect(html).toContain("用法：12時間ごと");
+    expect(html).toContain("実施場所：5階東病棟");
+    expect(html).not.toContain("<dl"); // the fields open under a line only when it is pressed
+    expect(html).not.toContain(">カルテを開く<"); // the name opens the chart
     expect(html).toContain('type="checkbox" aria-label="佐倉 修 入院注射 をチェック"');
     expect(html).toContain("高リスク薬（カリウム注）");
     expect(html).toContain("開いて受ける"); // KCl one at a time: its check is disabled
@@ -98,7 +98,7 @@ describe("指示受けの画面", () => {
     );
     expect(html).toContain("未指示受け 1件");
     expect(html).toContain("受けたが予定の確認がまだ 1件");
-    expect(html).toContain("指示受け日時：</span><span class=\"nums\">11:00");
+    expect(html).toContain("指示受け日時：11:00　指示受け者：看護師 佐藤");
     expect(html).toContain("看護師 佐藤");
     expect(html).toContain("予定を確認する（まだ）");
     const done = renderToStaticMarkup(
@@ -118,7 +118,7 @@ describe("指示受けの画面", () => {
         <TakeDesk {...base} taken={{}} isTaken={() => false} confirms={{}} isMine={() => false} records={{ "a|840": { key: "a|840", orderId: "a", patientId: "p1", at: 840, status: "実施", doneAt: "14:05", by: "看護師 田中", checked: { patient: true, label: true } } }} />
       </RoleProvider>,
     );
-    expect(html).toContain("実施日時：</span><span class=\"nums\">14:05");
+    expect(html).toContain("実施日時：14:05　実施者：看護師 田中");
     expect(html).toContain("看護師 田中");
   });
 

@@ -5,14 +5,15 @@ import { TimeInput } from "@/components/TimeInput";
 import { VoidControl } from "./MarCell";
 import type { VoidReason } from "@/lib/mar";
 import { ExternalLink } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import { NOT_DONE_REASONS,marKey,type AdminRecord,type NotDoneReason } from "@/lib/mar";
 import { EMPTY_STAMP, EXECUTE_DAYS, EXECUTE_NOTE, canExecuteOn, categoryOfWork, dayWindow, executeRecord, executeState, momentLabel, orderFields, SHEET_CATEGORIES, startLabel, takeStampOf, timeOfAbs, workTitle, type SheetCategory, type SheetField, type Stamp } from "@/lib/order-sheet";
 import { wardLabel } from "@/lib/place-label";
 import { buildWorksheet, type WorkItem, type WorkKind, type WorkPatient } from "@/lib/worksheet";
-import { PatientBand, SheetBand, SheetBlock, SheetNotes } from "./OrderSheet";
+import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
+import { PatientBand, SheetBand, SheetBlock, SheetNotes, pickRange, rowTime } from "./OrderSheet";
 import { useMe } from "./RoleContext";
 
 interface Props {
@@ -49,6 +50,12 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
   const [cats, setCats] = useState<SheetCategory[]>(SHEET_CATEGORIES);
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
   const [open, setOpen] = useState<string | null>(null);
+  // The lines opened to show all their fields (each press opens or closes its own line, so the lines above
+  // never move under the pointer), the last line pressed (for Shift), and the menu of a line.
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ key: string; at: { x: number; y: number } } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const [form, setForm] = useState<{ time: string; by: string; status: "実施" | "未実施"; reason: NotDoneReason | "" }>({ time: nowTime, by: me.name, status: "実施", reason: "" });
   const nowAbs = abs(0, nowTime);
   const { lo, hi } = dayWindow(day);
@@ -85,6 +92,40 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
     setOpen(keyOf(i));
   };
 
+  const groups = groupBy(list);
+  const order = groups.flatMap((g) => g.items.map(keyOf));
+  // Pressing a line ticks it (Shift: every line from the last one pressed) and opens its fields.
+  const press = (i: WorkItem, shiftKey: boolean) => {
+    const k = keyOf(i);
+    const can = new Set(bulkable.map(keyOf));
+    if (shiftKey && anchor) setChecked((s) => new Set([...s, ...pickRange(order, anchor, k).filter((x) => can.has(x))]));
+    else {
+      if (can.has(k))
+        setChecked((s) => {
+          const n = new Set(s);
+          if (n.has(k)) n.delete(k);
+          else n.add(k);
+          return n;
+        });
+      setOpened((s) => {
+        const n = new Set(s);
+        if (n.has(k)) n.delete(k);
+        else n.add(k);
+        return n;
+      });
+    }
+    setAnchor(k);
+  };
+  const menuActions = (i: WorkItem): CellAction[] => {
+    const left = !recorded(i) && canType;
+    const now = { time: nowTime, by: me.name, status: "実施" as const };
+    return [
+      { label: `いま（${nowTime}）実施した`, onClick: () => save(i, now), disabled: !left ? "記録済みです" : day !== 0 ? "いまの時刻で入れられるのは今日の分だけです" : !executeRecord(i, { day, ...now }) ? "この時刻では記録できません" : null },
+      { label: "時刻を入れて実施", onClick: () => openFor(i), disabled: left ? null : recorded(i) ? "記録済みです" : "明日の分は見るだけです" },
+      { label: "カルテを開く", onClick: () => onOpen(i.patientId) },
+    ];
+  };
+  const menuItem = menu ? list.find((i) => keyOf(i) === menu.key) : undefined;
   const stampsOf = (i: WorkItem): { start: Stamp; done: Stamp; take: Stamp } => {
     const e = entryOf(i);
     const r = records[keyOf(i)];
@@ -155,17 +196,14 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
           {list.length === 0 ? (
             <p className="rounded-lg border border-rule bg-sheet px-4 py-3 text-[12px] text-ink-faint">{items.length ? "この日の予定はすべて記録しています。「実施済みも表示する」で見られます。" : "この日に時刻の決まった予定はありません。"}</p>
           ) : (
-            groupBy(list).map((g) => {
+            groups.map((g) => {
               const person = people.find((x) => x.patient.id === g.patientId);
               const left = g.items.filter((i) => !recorded(i)).length;
               return (
                 <section key={g.patientId} className="rounded-lg border border-rule bg-sheet">
                   {person && (
-                    <PatientBand patient={person.patient} room={g.room}>
+                    <PatientBand patient={person.patient} room={g.room} onOpen={() => onOpen(g.patientId)}>
                       <span className="text-ink-soft">{left ? `実施がまだ ${left}件` : "すべて記録済み"}</span>
-                      <button type="button" onClick={() => onOpen(g.patientId)} className="ml-auto text-[11px] text-ai underline">
-                        カルテを開く
-                      </button>
                     </PatientBand>
                   )}
                   <div className="px-2 pb-1">
@@ -183,10 +221,28 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
                           stamps={stampsOf(i)}
                           fields={fieldsOf(i)}
                           status={statusOf(i)}
+                          compact={{
+                            time: rowTime(i.at!, day, today),
+                            gist: `${i.main}　${i.detail}`,
+                            by: entryOf(i)?.author,
+                            picked: checked.has(k),
+                            open: opened.has(k),
+                            onPress: (e) => press(i, e.shiftKey),
+                            onDouble: () => {
+                              if (!done && canType) openFor(i);
+                            },
+                            onMenu: (at) => setMenu({ key: k, at }),
+                            actions:
+                              !done && canType && open !== k ? (
+                                <button type="button" onClick={() => openFor(i)} className="rounded border border-ai px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai hover:text-white">
+                                  実施した
+                                </button>
+                              ) : undefined,
+                          }}
                         >
-                          {!done && canType && (
+                          {!done && canType && open === k && (
                             <div className="mt-1 pl-3">
-                              {open === k ? (
+                              {(
                                 <div className="flex flex-wrap items-center gap-2 rounded bg-paper px-3 py-2">
                                   <label className="flex items-center gap-1">
                                     実施日時
@@ -225,10 +281,6 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
                                   </button>
                                   <span className="w-full text-[10px] text-ink-faint">{EXECUTE_NOTE}。予定の時刻と60分より離れていると、ずれを記録に残します。</span>
                                 </div>
-                              ) : (
-                                <button type="button" onClick={() => openFor(i)} className="rounded border border-ai px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai hover:text-white">
-                                  実施した
-                                </button>
                               )}
                             </div>
                           )}
@@ -246,6 +298,7 @@ export function ExecuteDesk({ people, today, nowTime, records, sessionStart, onR
           </SheetNotes>
         </div>
       </div>
+      {menu && menuItem && <FlowCellMenu at={menu.at} title={`${menuItem.room} ${menuItem.name}　${workTitle(menuItem.kind)} ${rowTime(menuItem.at!, day, today)}`} actions={menuActions(menuItem)} onClose={closeMenu} />}
     </div>
   );
 }

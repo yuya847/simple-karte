@@ -50,11 +50,12 @@ describe("実施入力の画面", () => {
     expect(html).toContain("実施済みも表示する<span class=\"nums text-ink-faint\">（1件）");
     expect(html).toContain("実施がまだ 2件");
     expect(html).toContain("指示開始日時");
-    expect(html).toContain("実施日時");
-    expect(html).toContain("指示受け日時：</span><span class=\"nums\">11:00");
+    expect(html).not.toContain("実施日時"); // an empty pair is not shown
+    expect(html).toContain("指示受け日時：11:00　指示受け者：看護師 佐藤");
     expect(html).not.toContain("前の勤務帯"); // no timestamp or receiver is invented
-    expect(html).toContain("手技</dt><dd class=\"nums\">点滴静注");
-    expect(html).toContain("薬品</dt><dd class=\"nums\">メトホルミン");
+    expect(html).toContain("手技：点滴静注");
+    expect(html).toContain("薬品：メトホルミン");
+    expect(html).toContain('<b class="nums w-[5.5rem] shrink-0 text-ai">14:00</b>');
     expect(html).toContain("実施した");
     expect(html).toContain("照合なし");
     expect(html).not.toContain("denshi_gx.pdf");

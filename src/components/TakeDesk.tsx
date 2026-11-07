@@ -4,7 +4,7 @@ import { VoidControl } from "./MarCell";
 import type { VoidReason } from "@/lib/mar";
 
 import { Check, ExternalLink, MessageCircleQuestion, Printer } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
 import type { AdminRecord } from "@/lib/mar";
@@ -15,7 +15,8 @@ import { wardLabel } from "@/lib/place-label";
 import type { WorkPatient } from "@/lib/worksheet";
 import { Sources, usePrintSheet } from "./DeskParts";
 import { OrderSlipPrint } from "./OrderSlipPrint";
-import { PatientBand, SheetBand, SheetBlock, SheetNotes } from "./OrderSheet";
+import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
+import { PatientBand, SheetBand, SheetBlock, SheetNotes, pickRange, rowTime } from "./OrderSheet";
 import { useMe } from "./RoleContext";
 import { TakeConfirm } from "./TakeConfirm";
 import { AskDoctorPanel, FLAG_STYLE, TakeOnePanel } from "./TakeTable";
@@ -70,6 +71,12 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
   const [mineOnly, setMineOnly] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
   const [open, setOpen] = useState<{ key: string; what: "one" | "ask" | "confirm" } | null>(null);
+  // The lines opened to show all their fields (each press opens or closes its own line, so the lines above
+  // never move under the pointer), the last line pressed (for Shift), and the menu of a line.
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ key: string; at: { x: number; y: number } } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   // 手応え: the row just taken or confirmed keeps a green band 「受けました／確認しました（hh:mm 誰）」 for a few
   // seconds (a confirmed row stays in the list that long, then folds away into 指示受け済み).
   const [done, setDone] = useState<Record<string, string>>({});
@@ -105,6 +112,8 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
   // a moment ago stays while its band shows.
   const justDone = shown.filter((r) => done[r.key] && isTaken(r) && !!confirms[r.key]);
   const list = [...sortTakeList(showTaken ? shown : [...waiting, ...notConfirmed, ...justDone], sort)].sort((a, b) => Number(isTaken(a)) - Number(isTaken(b)));
+  const groups = groupByPatient(list);
+  const order = groups.flatMap((g) => g.rows.map((r) => r.key));
   const held = waiting.filter(holding);
   const late = waiting.filter((r) => takeLate(r, nowAbs) && !holding(r));
   const otherDays = rows.filter((r) => !isTaken(r) && !takeRowOnDay(r, day, entryOf(r))).length;
@@ -127,6 +136,43 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
     setChecked(new Set());
     setOpen(null);
   };
+  // Pressing a line ticks it (Shift: every line from the last one pressed) and opens its fields.
+  const checkable = (r: TakeRow) => !isTaken(r) && !holding(r) && r.mustOne.length === 0;
+  const press = (r: TakeRow, shiftKey: boolean) => {
+    if (shiftKey && anchor) {
+      const keys = pickRange(order, anchor, r.key).filter((k) => {
+        const x = list.find((y) => y.key === k);
+        return !!x && checkable(x);
+      });
+      setChecked((s) => new Set([...s, ...keys]));
+    } else {
+      if (checkable(r))
+        setChecked((s) => {
+          const n = new Set(s);
+          if (n.has(r.key)) n.delete(r.key);
+          else n.add(r.key);
+          return n;
+        });
+      setOpened((s) => {
+        const n = new Set(s);
+        if (n.has(r.key)) n.delete(r.key);
+        else n.add(r.key);
+        return n;
+      });
+    }
+    setAnchor(r.key);
+  };
+  // Double-click: take it (one-at-a-time ones open first); a taken one opens its schedule to confirm.
+  const double = (r: TakeRow) => {
+    if (isTaken(r)) {
+      if (takenHere(r) && !confirms[r.key]) setOpen({ key: r.key, what: "confirm" });
+      return;
+    }
+    if (holding(r)) return;
+    if (r.mustOne.length === 0) take(r);
+    else setOpen({ key: r.key, what: "one" });
+  };
+  const menuRow = menu ? list.find((r) => r.key === menu.key) : undefined;
   const printSlip = (g: { patientId: string; room: string; name: string }) => print(<OrderSlipPrint ward={wardLabel(g.room)} patient={{ id: g.patientId, name: g.name, room: g.room }} day={0} today={today} nowTime={nowTime} by={me.name} lines={slipLines(rows, g.patientId, 0, ctx)} />, { portrait: true });
 
   const stampsOf = (r: TakeRow): { start: Stamp; done: Stamp; take: Stamp } => {
@@ -195,7 +241,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
           {list.length === 0 ? (
             <p className="rounded-lg border border-rule bg-sheet px-4 py-3 text-[12px] text-ink-faint">{waiting.length === 0 && takenShown.length > 0 ? "この日の指示はすべて受けています。「指示受け済みも表示する」で見られます。" : "この日に受ける指示はありません。"}</p>
           ) : (
-            groupByPatient(list).map((g) => {
+            groups.map((g) => {
               const person = people.find((x) => x.patient.id === g.patientId);
               const w = g.rows.filter((r) => !isTaken(r));
               const oldest = w.length ? Math.min(...w.map((r) => r.at)) : null;
@@ -203,7 +249,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
               return (
                 <section key={g.patientId} className="rounded-lg border border-rule bg-sheet">
                   {person ? (
-                    <PatientBand patient={person.patient} room={g.room}>
+                    <PatientBand patient={person.patient} room={g.room} onOpen={() => onOpen(g.patientId)}>
                       {isMine(g.room) && <span className="rounded bg-ai-soft px-1 text-[10px] font-bold text-ai">受け持ち</span>}
                       <span className="text-ink-soft">
                         {w.length ? `未指示受け ${w.length}件` : `受け済み ${g.rows.length}件`}
@@ -216,10 +262,7 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                         </span>
                       )}
                       {w.some((r) => r.flags.urgent) && <span className="rounded bg-shu px-1 text-[10px] font-bold text-white">至急あり</span>}
-                      <button type="button" onClick={() => onOpen(g.patientId)} className="ml-auto text-[11px] text-ai underline">
-                        カルテを開く
-                      </button>
-                      <button type="button" onClick={() => printSlip(g)} className="flex items-center gap-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft">
+                      <button type="button" onClick={() => printSlip(g)} className="ml-auto flex items-center gap-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft">
                         <Printer size={12} />
                         指示票（今日・A4）
                       </button>
@@ -263,10 +306,40 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                           stamps={stampsOf(r)}
                           fields={takeFields(r, entryOf(r), today, wardLabel(r.room))}
                           struck={r.kind === "中止"}
+                          compact={{
+                            time: rowTime(r.at, day, today, r.timeKnown),
+                            gist: [r.main, r.detail].filter(Boolean).join("　"),
+                            by: r.author,
+                            picked: checked.has(r.key),
+                            open: opened.has(r.key),
+                            onPress: (e) => press(r, e.shiftKey),
+                            onDouble: () => double(r),
+                            onMenu: (at) => setMenu({ key: r.key, at }),
+                            actions:
+                              !ok && !isHeld ? (
+                                <>
+                                  {r.mustOne.length === 0 ? (
+                                    <button type="button" onClick={() => take(r)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[11px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
+                                      指示を受ける
+                                    </button>
+                                  ) : (
+                                    <button type="button" onClick={() => setOpen(mine === "one" ? null : { key: r.key, what: "one" })} className="rounded border border-shu px-1.5 py-0.5 text-[11px] font-bold text-shu hover:bg-shu hover:text-white">
+                                      開いて受ける
+                                    </button>
+                                  )}
+                                  <button type="button" onClick={() => setOpen(mine === "ask" ? null : { key: r.key, what: "ask" })} className="flex items-center gap-0.5 text-[10px] text-ink-soft underline hover:text-ai">
+                                    <MessageCircleQuestion size={11} />
+                                    医師に確認
+                                  </button>
+                                </>
+                              ) : undefined,
+                          }}
                           status={
                             ok && takenHere(r) ? (
                               confirms[r.key] ? (
-                                <span className="text-[10px] text-wakatake">確認 {confirms[r.key]}</span>
+                                <span className="text-[10px] text-wakatake">
+                                  受け {taken[r.keys.at(-1)!]}・確認 {confirms[r.key]}
+                                </span>
                               ) : (
                                 <button type="button" onClick={() => setOpen(mine === "confirm" ? null : { key: r.key, what: "confirm" })} className="rounded border border-yamabuki px-1.5 py-0.5 text-[10px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
                                   予定を確認する（まだ）
@@ -305,23 +378,6 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
                               確認 {hold.at} {displayText(hold.by)}：{displayText(hold.reason)}
                               {displayText(hold.note && `（${hold.note}）`)}
                               {hold.answer ? <span className="block text-ai">回答 {hold.answer.at} {displayText(hold.answer.by)}：{displayText(hold.answer.text)}</span> : <span className="block text-yamabuki">医師の回答待ち</span>}
-                            </div>
-                          )}
-                          {!ok && !isHeld && (
-                            <div className="mt-1 flex flex-wrap items-center gap-2 pl-3">
-                              {r.mustOne.length === 0 ? (
-                                <button type="button" onClick={() => take(r)} className="rounded border border-yamabuki px-1.5 py-0.5 text-[11px] font-bold text-yamabuki hover:bg-yamabuki hover:text-white">
-                                  指示を受ける
-                                </button>
-                              ) : (
-                                <button type="button" onClick={() => setOpen(mine === "one" ? null : { key: r.key, what: "one" })} className="rounded border border-shu px-1.5 py-0.5 text-[11px] font-bold text-shu hover:bg-shu hover:text-white">
-                                  開いて受ける
-                                </button>
-                              )}
-                              <button type="button" onClick={() => setOpen(mine === "ask" ? null : { key: r.key, what: "ask" })} className="flex items-center gap-0.5 text-[10px] text-ink-soft underline hover:text-ai">
-                                <MessageCircleQuestion size={11} />
-                                医師に確認
-                              </button>
                             </div>
                           )}
                           {mine === "one" && !ok && (
@@ -372,8 +428,35 @@ export function TakeDesk({ people, rows, taken, isTaken, holds, confirms, nurses
         </div>
       </div>
       {printSheet}
+      {menu && menuRow && (
+        <RowMenu
+          at={menu.at}
+          row={menuRow}
+          state={isTaken(menuRow) ? (takenHere(menuRow) && !confirms[menuRow.key] ? "confirm" : "taken") : holding(menuRow) ? "held" : "waiting"}
+          onTake={() => take(menuRow)}
+          onPanel={(what) => setOpen({ key: menuRow.key, what })}
+          onChart={() => onOpen(menuRow.patientId)}
+          onClose={closeMenu}
+        />
+      )}
     </div>
   );
+}
+
+/** The right-click menu of a line: what pressing, double-clicking and the hover buttons do, in words. */
+function RowMenu({ at, row, state, onTake, onPanel, onChart, onClose }: { at: { x: number; y: number }; row: TakeRow; state: "waiting" | "held" | "confirm" | "taken"; onTake: () => void; onPanel: (what: "one" | "ask" | "confirm") => void; onChart: () => void; onClose: () => void }) {
+  const why = state === "held" ? "医師に確認中" : null;
+  const acts: CellAction[] =
+    state === "confirm"
+      ? [{ label: "予定を確認する", onClick: () => onPanel("confirm") }]
+      : state === "taken"
+        ? []
+        : [
+            { label: "指示を受ける", onClick: onTake, disabled: why ?? (row.mustOne.length ? `1件ずつ受けます：${row.mustOne.join("・")}` : null) },
+            { label: "開いて受ける", onClick: () => onPanel("one"), disabled: why },
+            { label: "医師に確認", onClick: () => onPanel("ask"), disabled: why },
+          ];
+  return <FlowCellMenu at={at} title={`${row.room} ${row.name}　${sheetTitle(row)}`} actions={[...acts, { label: "カルテを開く", onClick: onChart }]} onClose={onClose} />;
 }
 
 /* Help migration source (references and dynamic wording):

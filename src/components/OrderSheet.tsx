@@ -7,11 +7,12 @@
 // 「項目名：値」 lines). Colours and type are this app's own, not the vendor's.
 
 import { displayText } from "@/lib/display-text";
-import type { ReactNode } from "react";
+import { useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { SHEET_CATEGORIES, type SheetCategory, type SheetField, type Stamp } from "@/lib/order-sheet";
 import { ageText } from "@/lib/person";
 import type { Patient } from "@/lib/types";
+import { useLongPress } from "@/lib/use-long-press";
 import { BlockCheck } from "./ConfirmCheck";
 import { DayNav } from "./DayNav";
 
@@ -68,8 +69,9 @@ export function SheetBand<C extends string = SheetCategory>({ day, range, onDay,
   );
 }
 
-/** The band of a patient: 患者ID・氏名・年齢・性別・部屋, then whatever the screen adds (受け持ち, buttons). */
-export function PatientBand({ patient, room, children }: { patient: Pick<Patient, "id" | "name" | "age" | "ageMonths" | "sex">; room: string; children?: ReactNode }) {
+/** The band of a patient: 患者ID・氏名・年齢・性別・部屋, then whatever the screen adds (受け持ち, buttons). With
+ * `onOpen` the name opens the chart. */
+export function PatientBand({ patient, room, children, onOpen }: { patient: Pick<Patient, "id" | "name" | "age" | "ageMonths" | "sex">; room: string; children?: ReactNode; onOpen?: () => void }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule-soft bg-paper px-2 py-1 text-[12px]">
       <span>
@@ -78,7 +80,13 @@ export function PatientBand({ patient, room, children }: { patient: Pick<Patient
       </span>
       <b className="text-[13px]">
         <span className="font-normal text-ink-faint">氏名 </span>
-        {patient.name}
+        {onOpen ? (
+          <button type="button" onClick={onOpen} title="カルテを開く" className="font-bold hover:text-ai hover:underline">
+            {patient.name}
+          </button>
+        ) : (
+          patient.name
+        )}
       </b>
       <span>
         <span className="text-ink-faint">年齢 </span>
@@ -116,6 +124,47 @@ export interface SheetBlockProps {
   status?: ReactNode;
   /** The names of the three pairs when the screen's are not 指示開始・実施・指示受け (the radiology's 指示・予定・指示受け). */
   labels?: { start: readonly [string, string]; done: readonly [string, string]; take: readonly [string, string] };
+  /** One line per order instead of the catalog's block (指示受け・実施入力). Left out: the block as before. */
+  compact?: SheetRow;
+}
+
+/** The one-line form of an order and what the mouse does on it. */
+export interface SheetRow {
+  /** The time at the start of the line (the band's day is not repeated). */
+  time: string;
+  /** What is ordered, in one line (cut with …; all of it on hover and when opened). */
+  gist: string;
+  /** 指示者. */
+  by?: string;
+  /** Ticked: the line is coloured. */
+  picked?: boolean;
+  /** The 項目名：値 lines and the filled 日時／者 shown under the line. */
+  open?: boolean;
+  /** A press on the line (not on a button in it); Shift for a range. */
+  onPress?: (e: { shiftKey: boolean }) => void;
+  onDouble?: () => void;
+  /** Right click, a long press, or the ContextMenu key / Shift+F10: where to open the menu. */
+  onMenu?: (at: { x: number; y: number }) => void;
+  /** Buttons shown while the pointer or the focus is on the line (always when opened). */
+  actions?: ReactNode;
+}
+
+/** The time of an order on the line: hh:mm on the band's day, else the date too. */
+export function rowTime(at: number, day: number, today: CalendarDate, timeKnown = true): string {
+  const m = ((at % 1440) + 1440) % 1440;
+  const hhmm = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const d = Math.floor(at / 1440);
+  const date = formatShort(addDays(today, d)).replace(/（.）/, "");
+  if (!timeKnown) return d === day ? "時刻なし" : date;
+  return d === day ? hhmm : `${date} ${hhmm}`;
+}
+
+/** Shift+press: the keys from the last pressed one to this one (in the order shown), both included. */
+export function pickRange(order: string[], from: string | null, to: string): string[] {
+  const a = from === null ? -1 : order.indexOf(from);
+  const b = order.indexOf(to);
+  if (a < 0 || b < 0) return [to];
+  return order.slice(Math.min(a, b), Math.max(a, b) + 1);
 }
 
 const WARD_LABELS = { start: ["指示開始日時", "指示者"], done: ["実施日時", "実施者"], take: ["指示受け日時", "指示受け者"] } as const;
@@ -135,8 +184,109 @@ const StampLine = ({ a, b, at, by }: { a: string; b: string; at: string; by: str
   </span>
 );
 
-/** One order in the catalog's form. */
-export function SheetBlock({ check, title, tag, when, flags = [], stamps, fields, struck, children, status, labels = WARD_LABELS }: SheetBlockProps) {
+type Labels = NonNullable<SheetBlockProps["labels"]>;
+const filled = (labels: Labels, stamps: SheetBlockProps["stamps"]) =>
+  (["start", "done", "take"] as const).filter((k) => stamps[k].at || stamps[k].by).map((k) => ({ k, a: labels[k][0], b: labels[k][1], ...stamps[k] }));
+
+const INSIDE = "button, input, select, textarea, a, label, [role=menu], [role=dialog]";
+
+/** One order in the catalog's form (or, with `compact`, in one line). */
+export function SheetBlock(props: SheetBlockProps) {
+  const { check, title, tag, when, flags = [], stamps, fields, struck, children, status, labels = WARD_LABELS, compact } = props;
+  // A long press opens the menu; the click that follows the finger's release does not tick the line.
+  const longDone = useRef(false);
+  const long = useLongPress<HTMLDivElement>(
+    compact?.onMenu
+      ? (at) => {
+          longDone.current = true;
+          compact.onMenu!(at);
+        }
+      : undefined,
+  );
+  if (compact) {
+    const c = compact;
+    const shown = filled(labels, stamps);
+    const tip = [`${title}${tag ? ` ${tag.text}` : ""}　${when}`, ...fields.map((f) => `${f.label}：${f.value}`), ...shown.map((x) => `${x.a}：${x.at}　${x.b}：${x.by}`)].join("\n");
+    const inside = (e: { target: EventTarget }) => !!(e.target as Element).closest?.(INSIDE);
+    return (
+      <div data-sheet-row className={`group border-b border-rule-soft text-[12px] ${struck ? "text-ink-soft" : ""} ${c.picked ? "bg-ai-soft/60" : ""}`}>
+        <div
+          tabIndex={0}
+          title={displayText(tip)}
+          aria-expanded={c.open}
+          className="flex min-h-9 cursor-default items-center gap-2 px-1 select-none hover:bg-paper/70 focus-visible:outline-2 focus-visible:outline-ai"
+          onMouseDown={(e: MouseEvent) => {
+            if (e.shiftKey && !inside(e)) e.preventDefault();
+          }}
+          onClick={(e: MouseEvent) => {
+            if (longDone.current) {
+              longDone.current = false;
+              return;
+            }
+            if (!inside(e)) c.onPress?.({ shiftKey: e.shiftKey });
+          }}
+          onDoubleClick={(e: MouseEvent) => {
+            if (!inside(e)) c.onDouble?.();
+          }}
+          onContextMenu={(e: MouseEvent) => {
+            if (!c.onMenu) return;
+            e.preventDefault();
+            e.stopPropagation();
+            c.onMenu({ x: e.clientX, y: e.clientY });
+          }}
+          onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+            if (e.target !== e.currentTarget) return;
+            if (c.onMenu && (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10"))) {
+              e.preventDefault();
+              const r = e.currentTarget.getBoundingClientRect();
+              c.onMenu({ x: r.left + 40, y: r.bottom });
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              c.onDouble?.();
+            } else if (e.key === " ") {
+              e.preventDefault();
+              c.onPress?.({ shiftKey: e.shiftKey });
+            }
+          }}
+          {...long}
+        >
+          <div className="flex w-8 shrink-0 justify-center">{check ? <BlockCheck checked={check.checked} disabled={check.disabled} title={check.title} label={check.label} onChange={check.onChange} /> : <span className="text-ink-faint">—</span>}</div>
+          <b className={`nums w-[5.5rem] shrink-0 ${struck ? "line-through" : "text-ai"}`}>{c.time}</b>
+          <b className={`shrink-0 text-[13px] ${struck ? "line-through" : "text-ai"}`}>{title}</b>
+          {tag && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${TAG_CLASS[tag.tone]}`}>{displayText(tag.text)}</span>}
+          <span className={`min-w-0 flex-1 truncate ${struck ? "line-through" : ""}`}>{displayText(c.gist)}</span>
+          {flags.map((f) => (
+            <span key={f.text} className={`shrink-0 rounded px-1 text-[10px] font-bold ${f.className}`}>
+              {displayText(f.text)}
+            </span>
+          ))}
+          {status && <span className="shrink-0">{status}</span>}
+          {c.by && <span className="max-w-32 shrink-0 truncate text-[11px] text-ink-soft">{displayText(c.by)}</span>}
+          {c.actions && <span className={`flex shrink-0 items-center gap-1.5 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 ${c.open ? "opacity-100" : "opacity-0"}`}>{c.actions}</span>}
+        </div>
+        {c.open && (
+          <div className="pb-1.5 pl-[3.25rem] pr-2">
+            {shown.length > 0 && (
+              <div className="mb-0.5 flex flex-wrap gap-x-4 text-[11px]">
+                {shown.map((x) => (
+                  <StampLine key={x.k} a={x.a} b={x.b} at={x.at} by={x.by} />
+                ))}
+              </div>
+            )}
+            <dl className={`grid grid-cols-[auto_1fr] gap-x-1 gap-y-0 ${struck ? "line-through" : ""}`}>
+              {fields.map((f, i) => (
+                <div key={`${f.label}-${i}`} className="contents">
+                  <dt className="text-ink-soft after:content-['：']">{f.label}</dt>
+                  <dd className="nums">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+        {children && <div className="pl-9 empty:hidden">{children}</div>}
+      </div>
+    );
+  }
   return (
     <div className={`flex gap-2 border-b border-rule-soft px-1 py-1.5 text-[12px] ${struck ? "text-ink-soft" : ""}`}>
       <div className="flex w-8 shrink-0 justify-center">
