@@ -1,5 +1,6 @@
 // 画面・パネルと、説明の移動元の部品の対応。
 export const helpRoutes: Record<string, string[]> = {
+  "panel:icu": ["IcuPanel"],
   "screen:chart": [],
   "screen:visit": [],
   "screen:endo": [

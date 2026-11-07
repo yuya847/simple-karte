@@ -1,4 +1,5 @@
 export const toolHelpLabels: Record<string, string> = {
+  icu: "ICU 記録",
   "msw-support": "退院支援",
   "life-support": "生活・制度",
   "msw-interview": "面談記録",

@@ -176,6 +176,8 @@ import { markRemeasured, type RecordedVital } from "@/lib/take-desk-remeasure";
 import { contactDraft, vitalsContact, vitalsContactTodos } from "@/lib/vitals-contact";
 import { vitalsFlash, type Flash } from "@/lib/flash";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
+import { IcuPanel } from "./IcuPanel";
+import { emptyIcuRecords, type IcuRecords } from "@/lib/icu/types";
 import { useWorkspace } from "@/lib/use-workspace";
 import { WorkspaceStatus } from "./WorkspaceStatus";
 import { TransferPanel } from "./panels/TransferPanel";
@@ -803,6 +805,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 実施・未実施 records taken back (with who, when and why), by dose key.
   const [marVoided, setMarVoided] = useState<Record<string, VoidedRecord[]>>({});
   // 水分出納 (IN/OUT) typed by the nurses; 点滴 comes from the drip records. Fictional records since yesterday 09:00.
+  const [icu, setIcu] = useState<IcuRecords>(() => scenarioMode() ? ((SCENARIOS as { icu?: IcuRecords }).icu ?? emptyIcuRecords()) : emptyIcuRecords());
   const [io, setIo] = useState<IoEntry[]>(() => (typeof window === "undefined" ? [] : initialIo(abs(0, nowTimeInTokyo()))));
   // A nurse confirming orders is always entering a doctor's spoken order (口頭指示).
   const verbalMode = role === "看護師";
@@ -864,6 +867,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [sharedNoteTemplates, setSharedNoteTemplates] = useState<NoteTemplate[]>([]);
   const workspace = useWorkspace(
     {
+      icu: [icu, setIcu],
       sharedNoteTemplates: [sharedNoteTemplates, setSharedNoteTemplates],
       windowEntries: [windowEntries, setWindowEntries],
       charts: [charts, setCharts],
@@ -3780,6 +3784,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} onVoidIo={(lot, reason) => transfusionIoIds(io, patient.id, lot).forEach((id) => voidIo(id, reason))} />
                 </Drawer>
               )}
+              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide><IcuPanel key={patient.id} patient={patient} records={icu} onChange={setIcu} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
               {panel === "io" && (
                 <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
                   <IoPanel

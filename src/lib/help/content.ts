@@ -6,7 +6,18 @@ import { RIS_SOURCES, DRL_NOTE } from "../ris";
 import { MPPS_DOSE_NOTE, DICOM_SOURCES } from "../dicom-mwl";
 // 画面ごとのヘルプ。文言はここで編集します。根拠・出典は移動元のコードコメントを参照。
 export const screenHelp = [
-  { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "固定の試験用100人だけを匿名化して読みます。保存した記録は読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。"] },
+  { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者だけを匿名化して読みます。保存した記録は読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。"] },
+  { id: "IcuPanel", title: "ICU 記録", bullets: [
+    "時間表のセルから、その1時間の量・観察を記録します。体温・脈拍・血圧・呼吸数・SpO2・GCS はバイタルの記録を表示します。",
+    "γ = mL/h × mg/mL ×1000 ÷（kg ×60）。逆算は γ × kg ×60 ÷（mg/mL ×1000）。濃度 = 薬剤量 ÷ 総量。γ は小数2桁、mL/h は小数1桁で表示し、内部では丸めません。インスリンの濃度は単位/mL。",
+    "mg/h・単位/h = mL/h ×濃度。μg/h = mL/h ×濃度×1000。mg/kg/h = mL/h ×濃度÷kg。速度への逆算は各式の逆。",
+    "P/F = PaO2 ÷採血時以前の最後のFiO2（整数）。設定なし・mode『なし』は不明とし、室内気0.21を推定しません。MAP =（SBP +2×DBP）÷3（整数）。動脈ラインの実測MAPを優先します。",
+    "ICU 記録の 1 時間ごとの量と持続投与の速さから。病棟の水分出納の画面とは別に数えています。持続投与は速度×時間、変更・開始・終了で分割。IN は持続投与＋経腸＋その他、OUT は尿＋ドレーン＋胃管＋便＋出血。差 = IN − OUT。未記録の量は累積に加えません。尿量mL/kg/h = 1時間の尿量mL ÷体重kg。",
+    "SOFA は各日の最悪値。1項目でも欠測なら合計は不明。血小板は万/μL ×10で×10³/μLへ換算。呼吸補助はA/C-VC・A/C-PC・SIMV・PSV・CPAP・NPPV、HFNCは含めません。尿量条件は24時間分あるときだけ使用。挿管でVが不明なら1と置き、鎮静中の記録にはその旨を表示します。",
+    "SOFA：Vincent JL ほか. Intensive Care Med 1996;22:707-710. https://doi.org/10.1007/BF01709751 ／ 厚生労働省 中医協 入院（その2）令和3年11月10日 https://www.mhlw.go.jp/content/12404000/000855421.pdf",
+    "FAST HUG：Vincent JL. Crit Care Med 2005;33:1225-1229. https://doi.org/10.1097/01.CCM.0000165962.16682.46 。今日確認したかだけを保存し、何をするかは医師が記事に書きます。",
+    "架空の病院の取り決め：呼吸器の設定は医師、実測は医師・看護師・臨床工学技士。ラインは挿入日を1日目として暦日で数え、7日以上は数字を太字にするだけです。"
+  ] },
   {
     "id": "SetupForm",
     "title": "記録の保存先（Supabase）の設定",
