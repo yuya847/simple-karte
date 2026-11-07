@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 
 export interface CellAction {
   label: string;
@@ -24,8 +25,9 @@ export function FlowCellMenu({ at, title, actions, onClose }: { at: { x: number;
       window.removeEventListener("keydown", esc);
     };
   }, [onClose]);
-  const left = Math.min(at.x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 260);
-  const top = Math.min(at.y + 4, (typeof window === "undefined" ? 800 : window.innerHeight) - 48 * actions.length - 40);
+  // `at` is where the pointer was (screen px); the menu is placed in the page's CSS px (字の大きさ zooms the page).
+  const left = Math.min(cssPx(at.x), viewW() - 260);
+  const top = Math.min(cssPx(at.y) + 4, viewH() - 48 * actions.length - 40);
   return createPortal(
     <div ref={ref} role="menu" aria-label={title} style={{ position: "fixed", left, top, zIndex: 1000 }} className="w-64 rounded-lg border border-rule bg-sheet p-1 text-[12px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
       <div className="px-2 py-1 text-[11px] font-bold text-ink-soft">{title}</div>

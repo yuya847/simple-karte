@@ -282,6 +282,7 @@ import { useVerbalConfirmation, VerbalReviewProvider } from "./VerbalControls";
 import { canReviewVerbal, verbalConfirmationProblems, type VerbalConfirmation, verbalUnsigned } from "@/lib/verbal";
 import { TodayPane, type DraftMeta } from "./TodayPane";
 import { ToolRail, type PanelKind } from "./ToolRail";
+import { viewH, viewW } from "@/lib/page-zoom";
 import type { OpenAt } from "@/lib/open-at";
 import { RIGHT_TABS, RightTabs, WINDOW_TABS, type RightTab } from "./RightTabs";
 import { Dockable, defaultWin, type Win } from "./Dockable";
@@ -1685,7 +1686,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const openRight = (t: RightTab) => {
     // The injection calendar and the reading tabs open in their own large window (where this browser last had it), not in the right column.
     // Always as a window, even when this browser docked it to the right column before (ユーザー 2026-11-06：「指示簿は基本新しいウインドウで」).
-    const win = WINDOW_TABS.has(t) && !floating[t] ? (keptWin(t, window.innerWidth, window.innerHeight) ?? bigWin(window.innerWidth, window.innerHeight, t)) : undefined;
+    const win = WINDOW_TABS.has(t) && !floating[t] ? (keptWin(t, viewW(), viewH()) ?? bigWin(viewW(), viewH(), t)) : undefined;
     if (win) setFloating((f) => ({ ...f, [t]: win }));
     const away = !!floating[t] || !!win;
     update((c) => ({ openTabs: t === "note" || c.openTabs.includes(t) ? c.openTabs : [...c.openTabs, t], rightTab: away ? c.rightTab : t }));

@@ -11,6 +11,7 @@ const leadingSpace = (l: string) => l.match(/^[ \t　]*/)![0];
 import { toggleMark } from "@/lib/note-edit";
 import { renumberProblems } from "@/lib/note-problems";
 import { expandAt, type Phrase } from "@/lib/phrases";
+import { cssPx } from "@/lib/page-zoom";
 
 /** What the pane around the editor can ask of it (the text itself comes and goes through value/onChange). */
 export interface NoteBlocksHandle {
@@ -584,7 +585,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       </div>
       {drafting && onClaude && <p role="status" className="px-8 py-1 text-xs text-ai">Claude が下書き中…</p>}
       {menu && (
-        <div role="menu" aria-label="記事の書式" className="fixed z-50 min-w-[11rem] rounded-md border border-rule bg-sheet p-1 text-[13px] shadow-lg" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
+        <div role="menu" aria-label="記事の書式" className="fixed z-50 min-w-[11rem] rounded-md border border-rule bg-sheet p-1 text-[13px] shadow-lg" style={{ left: cssPx(menu.x), top: cssPx(menu.y) }} onMouseLeave={() => setMenu(null)}>
           {MENU_ITEMS.filter(([, , kind]) => kind !== "claude" || !!onClaude).map(([label, key, kind], k) => (
             <button key={label} type="button" role="menuitem" onMouseDown={(e) => e.preventDefault()} disabled={kind === "claude" && drafting} onClick={() => runMenu(kind)} className={`flex w-full items-center justify-between gap-4 rounded px-2 py-1 text-left hover:bg-ai-soft ${k === 2 || k === 8 ? "mt-1 border-t border-rule-soft pt-1.5" : ""}`}>
               <span className={kind === "bold" ? "font-bold" : kind === "italic" ? "italic" : ""}>{label}</span>

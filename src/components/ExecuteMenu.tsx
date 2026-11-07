@@ -20,6 +20,7 @@ import { parseHHMM } from "@/lib/order-sheet";
 import type { OrderEntry, Patient } from "@/lib/types";
 import { useLongPress } from "@/lib/use-long-press";
 import { useMe } from "./RoleContext";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 
 /** What the chart hands the order rows and the calendars so that they can record 実施・未実施. */
 export interface ExecuteProps {
@@ -222,8 +223,8 @@ export function ExecuteMenu({ at, onClose, ...body }: { at: { x: number; y: numb
       window.removeEventListener("keydown", esc);
     };
   }, [onClose]);
-  const left = Math.min(at.x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 290);
-  const top = Math.min(at.y, (typeof window === "undefined" ? 800 : window.innerHeight) - 320);
+  const left = Math.min(cssPx(at.x), viewW() - 290);
+  const top = Math.min(cssPx(at.y), viewH() - 320);
   return createPortal(
     <div ref={ref} role="menu" aria-label={`${body.title} の実施・未実施`} style={{ position: "fixed", left, top, zIndex: 1000 }} className="w-72 rounded-lg border border-rule bg-sheet p-1 text-[13px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]" onClick={(e) => e.stopPropagation()}>
       <ExecuteMenuBody {...body} onDone={onClose} />

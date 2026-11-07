@@ -12,6 +12,7 @@ import type { CalendarDate } from "@/lib/dates";
 import { readStateOf, reportsForOrder, type Report } from "@/lib/reports";
 import { partialReportLabel, type ReportedLabResult, type Ack } from "@/lib/results";
 import { ReportPanel } from "./panels/ReportPanel";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 
 export interface ReportCtx {
   ris?: import("@/lib/ris").RisDesk;
@@ -41,12 +42,12 @@ function Popover({ at, onClose, children, label }: { at: { x: number; y: number 
       window.removeEventListener("keydown", esc);
     };
   }, [onClose]);
-  const vw = typeof window === "undefined" ? 1200 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  const vw = viewW();
+  const vh = viewH();
   const width = Math.min(WIDTH, vw - 16);
-  const left = Math.max(8, Math.min(at.x, vw - width - 8));
+  const left = Math.max(8, Math.min(cssPx(at.x), vw - width - 8));
   const maxH = Math.round(vh * 0.7);
-  const top = Math.max(8, Math.min(at.y, vh - maxH - 8));
+  const top = Math.max(8, Math.min(cssPx(at.y), vh - maxH - 8));
   return createPortal(
     <div ref={ref} role="dialog" aria-label={label} style={{ position: "fixed", left, top, width, maxHeight: maxH, zIndex: 1000 }} className="scroll-thin flex flex-col overflow-y-auto rounded-lg border border-rule bg-paper p-3 shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
       <button type="button" onClick={onClose} aria-label="閉じる" className="absolute right-1.5 top-1.5 rounded p-0.5 text-ink-faint hover:bg-sheet hover:text-ink">

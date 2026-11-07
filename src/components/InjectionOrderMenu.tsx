@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { InjectionChange } from "@/lib/injection-change";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 
 export function InjectionOrderMenu({ children, nowTime, onRate, onStop, onExtend, onDo, text }: { children: ReactNode; nowTime: string; onRate?: (c: InjectionChange) => void; onStop?: (time: string) => void; onExtend?: (days: number) => void; onDo?: () => void; text: string }) {
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
@@ -28,7 +29,7 @@ export function InjectionOrderMenu({ children, nowTime, onRate, onStop, onExtend
     onClickCapture={e => { if (point && !(e.target as Element).closest('[role="dialog"]')) { e.preventDefault(); e.stopPropagation(); } }}>
     {children}
     {point && createPortal(<div className="fixed inset-0 z-[200]" onClick={e => e.stopPropagation()} onPointerDown={e => { if (e.target === e.currentTarget) setPoint(null); }}>
-      <div role="dialog" aria-label="注射の操作" style={{ left: Math.max(8, Math.min(point.x, window.innerWidth - 280)), top: Math.max(8, Math.min(point.y, window.innerHeight - 360)) }} className="fixed w-[264px] rounded border border-rule bg-sheet p-2 text-[13px] shadow-xl" onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }}>
+      <div role="dialog" aria-label="注射の操作" style={{ left: Math.max(8, Math.min(cssPx(point.x), viewW() - 280)), top: Math.max(8, Math.min(cssPx(point.y), viewH() - 360)) }} className="fixed w-[264px] rounded border border-rule bg-sheet p-2 text-[13px] shadow-xl" onContextMenu={e => { e.preventDefault(); e.stopPropagation(); }}>
         <button type="button" className={btn} disabled={!onRate} onClick={() => setMode("rate")}>速度を変える</button>
         <button type="button" className={btn} disabled={!onStop} onClick={() => setMode("stop")}>中止</button>
         <button type="button" className={btn} disabled={!onExtend} onClick={() => setMode("extend")}>延長</button>

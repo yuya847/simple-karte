@@ -14,6 +14,7 @@ import type { Sex } from "@/lib/types";
 import { AREA_ICON, type Icon } from "./nav-icons";
 import { PatientAvatar } from "./PatientAvatar";
 import { openHelp } from "@/lib/help/events";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 import { HelpPanel } from "./HelpPanel";
 
 export interface Todo {
@@ -133,10 +134,12 @@ function Popover({ open, onClose, anchor, place, width, children }: { open: bool
   useLayoutEffect(() => {
     if (!open) return;
     const put = () => {
-      const a = anchor.current?.getBoundingClientRect();
-      if (!a) return;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+      const r = anchor.current?.getBoundingClientRect();
+      if (!r) return;
+      // In the page's CSS px (字の大きさ zooms the page; a rect is in screen px).
+      const a = { left: cssPx(r.left), right: cssPx(r.right), bottom: cssPx(r.bottom) };
+      const vw = viewW();
+      const vh = viewH();
       const left = place === "beside" ? a.right + 6 : place === "below-left" ? a.left : a.right - width;
       const x = Math.max(8, Math.min(left, vw - width - 8));
       setPos(place === "beside" ? { left: x, bottom: Math.max(8, vh - a.bottom), maxHeight: vh - 16 } : { left: x, top: a.bottom + 4, maxHeight: vh - a.bottom - 12 });

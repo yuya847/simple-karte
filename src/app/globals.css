@@ -135,6 +135,39 @@
   }
 }
 
+/*
+  設定 › 字の大きさ（data-font）: most letters are set in px, so the whole page is zoomed (src/lib/page-zoom.ts has
+  the same numbers, for code that places windows in px). Under zoom a vh is still the unzoomed screen, so
+  the heights made of vh are divided back by the zoom and do not run off the screen.
+*/
+:root {
+  --page-zoom: 1;
+}
+@media screen {
+  :root[data-font="sm"] {
+    zoom: 0.9;
+    --page-zoom: 0.9;
+  }
+  :root[data-font="lg"] {
+    zoom: 1.12;
+    --page-zoom: 1.12;
+  }
+  :root[data-font="xl"] {
+    zoom: 1.25;
+    --page-zoom: 1.25;
+  }
+  :root[data-font] .h-screen { height: calc(100vh / var(--page-zoom)); }
+  :root[data-font] .h-\[70vh\] { height: calc(70vh / var(--page-zoom)); }
+  :root[data-font] .min-h-\[70vh\] { min-height: calc(70vh / var(--page-zoom)); }
+  :root[data-font] .max-h-\[90vh\] { max-height: calc(90vh / var(--page-zoom)); }
+  :root[data-font] .max-h-\[85vh\] { max-height: calc(85vh / var(--page-zoom)); }
+  :root[data-font] .max-h-\[80vh\] { max-height: calc(80vh / var(--page-zoom)); }
+  :root[data-font] .max-h-\[78vh\] { max-height: calc(78vh / var(--page-zoom)); }
+  :root[data-font] .max-h-\[75vh\] { max-height: calc(75vh / var(--page-zoom)); }
+  :root[data-font] .max-h-\[calc\(100vh-140px\)\] { max-height: calc(100vh / var(--page-zoom) - 140px); }
+  :root[data-font] .max-w-\[90vw\] { max-width: calc(90vw / var(--page-zoom)); }
+}
+
 html,
 body {
   height: 100%;

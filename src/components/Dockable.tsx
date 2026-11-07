@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { fitWin, keptWin } from "@/lib/win-prefs";
 import { resizeWin, restoredWin, snapArea, snapAt, snappedAs, snapWin, type ResizeEdge, type Snap } from "@/lib/window-resize";
 import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 
 export interface Win {
   x: number;
@@ -17,8 +18,8 @@ export interface Win {
 
 /** Where a tab's own window opens first: a large window over the middle of the screen. */
 export function defaultWin(i = 0): Win {
-  const vw = typeof window === "undefined" ? 1200 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  const vw = viewW();
+  const vh = viewH();
   const w = Math.min(760, vw - 40);
   const h = Math.min(Math.round(vh * 0.72), vh - 80);
   return { x: Math.max(20, Math.round((vw - w) / 2) + i * 28), y: 64 + i * 28, w, h };
@@ -26,17 +27,22 @@ export function defaultWin(i = 0): Win {
 
 /** A window of about 80% of the screen, centred (for panels that open as a window first). */
 export function bigWin(): Win {
-  const vw = typeof window === "undefined" ? 1200 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  const vw = viewW();
+  const vh = viewH();
   const w = Math.max(320, Math.round(vw * 0.8));
   const h = Math.max(200, Math.round(vh * 0.8));
   return { x: Math.round((vw - w) / 2), y: Math.round((vh - h) / 2), w, h };
 }
 
-/** Keep the whole window on screen, so its title bar and resize corner can always be reached. */
+/**
+ * Keep the whole window on screen, so its title bar and resize corner can always be reached. Windows are placed
+ * in the page's CSS px: under 字の大きさ (zoom) the screen is narrower in those (src/lib/page-zoom.ts).
+ */
 export function clampWin(w: Win): Win {
-  const fitted = fitWin(w, window.innerWidth, window.innerHeight);
-  return { ...fitted, x: Math.max(0, Math.min(w.x, window.innerWidth - fitted.w)), y: Math.max(0, Math.min(w.y, window.innerHeight - fitted.h)) };
+  const vw = viewW();
+  const vh = viewH();
+  const fitted = fitWin(w, vw, vh);
+  return { ...fitted, x: Math.max(0, Math.min(w.x, vw - fitted.w)), y: Math.max(0, Math.min(w.y, vh - fitted.h)) };
 }
 
 /**
@@ -60,7 +66,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
     hold.current = null;
   };
   useEffect(() => stopHold, []);
-  const screen = () => [window.innerWidth, window.innerHeight] as const;
+  const screen = () => [viewW(), viewH()] as const;
   const snapTo = (to: Snap) => {
     if (!win) return;
     if (!snappedAs(win, areaNow())) before.current = win;
@@ -80,7 +86,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
     if (!win || e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    start.current = { px: e.clientX, py: e.clientY, win: baseline ?? win, mode, snapped: mode === "move" && !!snap && !!snappedAs(win, areaNow()), moved: false };
+    start.current = { px: cssPx(e.clientX), py: cssPx(e.clientY), win: baseline ?? win, mode, snapped: mode === "move" && !!snap && !!snappedAs(win, areaNow()), moved: false };
     onFront?.();
     if (snap && mode === "move" && e.pointerType !== "mouse") {
       stopHold();
@@ -91,8 +97,8 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
   const move = (e: React.PointerEvent) => {
     const s = start.current;
     if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const dx = e.clientX - s.px;
-    const dy = e.clientY - s.py;
+    const dx = cssPx(e.clientX) - s.px;
+    const dy = cssPx(e.clientY) - s.py;
     // A title pressed without moving (a click, a double-click) does not move the window.
     if (!s.moved && snap && s.mode === "move" && Math.hypot(dx, dy) < 6) return;
     if (!s.moved) {
@@ -105,8 +111,8 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
         s.win = { ...back, x: Math.round(s.px - ((s.px - s.win.x) / s.win.w) * back.w), y: s.win.y };
       }
     }
-    if (s.mode === "move" && snap) setHint(snapAt(e.clientX, e.clientY, ...screen()));
-    onMove(clampWin(s.mode === "move" ? { ...s.win, x: s.win.x + dx, y: s.win.y + dy } : resizeWin(s.win, s.mode === "size" ? "se" : s.mode, dx, dy, window.innerWidth, window.innerHeight)));
+    if (s.mode === "move" && snap) setHint(snapAt(cssPx(e.clientX), cssPx(e.clientY), ...screen()));
+    onMove(clampWin(s.mode === "move" ? { ...s.win, x: s.win.x + dx, y: s.win.y + dy } : resizeWin(s.win, s.mode === "size" ? "se" : s.mode, dx, dy, ...screen())));
   };
   const up = (e: React.PointerEvent) => {
     stopHold();
@@ -114,7 +120,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     start.current = null;
     setHint(null);
-    const to = s?.mode === "move" && s.moved && snap ? snapAt(e.clientX, e.clientY, ...screen()) : null;
+    const to = s?.mode === "move" && s.moved && snap ? snapAt(cssPx(e.clientX), cssPx(e.clientY), ...screen()) : null;
     if (s && to) {
       before.current = s.win;
       snap?.onSnap?.();
@@ -156,7 +162,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
 /** The area windows snap into (under the patient bar of the chart open, else the screen). */
 function areaNow() {
   const chart = typeof document === "undefined" ? undefined : document.querySelector("[data-drawer-bounds]")?.getBoundingClientRect();
-  return snapArea(window.innerWidth, window.innerHeight, chart && chart.height > 0 ? chart.top : null);
+  return snapArea(viewW(), viewH(), chart && chart.height > 0 ? cssPx(chart.top) : null);
 }
 
 /** Where the window will go if let go now: a faint frame under the window being dragged. */
@@ -211,7 +217,7 @@ export function Dockable({
 }) {
   const tray = useTrayWindow(`tab:${tab}`, title.split("：")[0], !!win, onClose);
   const front = () => { onFront(); tray.front(); };
-  const [adjusted, setAdjusted] = useState(() => tab !== "injcal" && typeof window !== "undefined" && !!keptWin(tab, window.innerWidth, window.innerHeight));
+  const [adjusted, setAdjusted] = useState(() => tab !== "injcal" && typeof window !== "undefined" && !!keptWin(tab, viewW(), viewH()));
   const floating = !!win;
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentSize, setContentSize] = useState<{ w: number; h: number } | null>(null);
@@ -219,7 +225,7 @@ export function Dockable({
     if (tab !== "injcal" || !floating) return;
     const table = contentRef.current?.querySelector("table");
     if (!table) return;
-    const measure = () => setContentSize({ w: Math.min(table.scrollWidth + 2, window.innerWidth * 0.85), h: Math.min(table.offsetHeight + 90, window.innerHeight * 0.85) });
+    const measure = () => setContentSize({ w: Math.min(table.scrollWidth + 2, viewW() * 0.85), h: Math.min(table.offsetHeight + 90, viewH() * 0.85) });
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(table);
@@ -227,9 +233,9 @@ export function Dockable({
     return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
   }, [tab, floating]);
   const shownWin = win && tab === "injcal" && contentSize && !adjusted
-    ? { ...win, ...contentSize, x: Math.max(0, (window.innerWidth - contentSize.w) / 2), y: Math.max(20, Math.min(win.y, window.innerHeight - contentSize.h)) }
+    ? { ...win, ...contentSize, x: Math.max(0, (viewW() - contentSize.w) / 2), y: Math.max(20, Math.min(win.y, viewH() - contentSize.h)) }
     : win && compact && !adjusted
-    ? { ...win, x: Math.max(0, ((typeof window === "undefined" ? 1200 : window.innerWidth) - Math.min(480, win.w)) / 2), w: Math.min(480, win.w), h: 240 }
+    ? { ...win, x: Math.max(0, (viewW() - Math.min(480, win.w)) / 2), w: Math.min(480, win.w), h: 240 }
     : win;
   const drag = useWinDrag(shownWin, w => { setAdjusted(true); onMove(w); }, front, {});
   const { down, move, up } = drag;

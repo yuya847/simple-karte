@@ -2,6 +2,7 @@
 
 import { useTrayWindow } from "../WindowTray";
 import { panelSize } from "@/lib/panel-size";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 import { AppWindow, GripHorizontal, Lock, Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { clampWin, useWinDrag, WindowResizeHandles, type Win } from "../Dockable";
@@ -52,7 +53,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   const key = windowKey ?? defaults.panel ?? title;
   const windowedFirst = defaults.windowed.has(key);
   const initialWin = () => {
-    return panelSize(key, !!wide, window.innerWidth, window.innerHeight, initialWidth);
+    return panelSize(key, !!wide, viewW(), viewH(), initialWidth);
   };
   // ウインドウ指定なら常にウインドウ。保存済みの表示方法は使わず、位置と大きさだけ戻す。
   const [win, setWin] = useState<Win | null>(() => {
@@ -61,7 +62,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
     // A panel listed as windowed always opens as a window (the remembered place is kept, not the mode).
     const mode = windowedFirst ? "window" : "drawer";
     const remembered = r?.win ? { ...r.win, ...(!r.sized && initialWidth ? { w: initialWin().w } : {}) } : initialWin();
-    const position = key === "templates" ? { x: Math.max(0, (window.innerWidth - remembered.w) / 2), y: initialWin().y } : {};
+    const position = key === "templates" ? { x: Math.max(0, (viewW() - remembered.w) / 2), y: initialWin().y } : {};
     return mode === "window" ? clampWin({ ...remembered, ...position }) : null;
   });
   const [sized, setSized] = useState(() => typeof window !== "undefined" && !!loadRemembered(key)?.sized);
@@ -79,9 +80,13 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   // 横いっぱい: cover the whole chart (the area marked data-drawer-bounds), keeping the patient bar in view.
   const [drawerWidth, setDrawerWidth] = useState<number | null>(null);
   const drawerStart = useRef<{ x: number; width: number } | null>(null);
-  const [full, setFull] = useState<DOMRect | null>(null);
+  const [full, setFull] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const bounds = () => ref.current?.parentElement?.closest("[data-drawer-bounds]")?.getBoundingClientRect() ?? null;
+  // In the page's CSS px (字の大きさ zooms the page; a rect is in screen px).
+  const bounds = () => {
+    const r = ref.current?.parentElement?.closest("[data-drawer-bounds]")?.getBoundingClientRect();
+    return r ? { left: cssPx(r.left), top: cssPx(r.top), width: cssPx(r.width), height: cssPx(r.height) } : null;
+  };
   useEffect(() => {
     if (!full) return;
     const onResize = () => setFull(bounds());
@@ -130,7 +135,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
         data-drawer-window={key}
         className="fixed z-50 flex min-h-0 flex-col overflow-hidden rounded-lg border border-rule bg-sheet shadow-[0_12px_40px_-8px_rgba(38,34,28,0.45)]"
         onPointerDownCapture={tray.front}
-        style={{ left: win.x, top: win.y, width: win.w, height: sized ? win.h : "auto", minHeight: sized ? "min(200px, 100vh)" : "min(240px, 85vh)", maxHeight: sized ? undefined : "85vh", display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
+        style={{ left: win.x, top: win.y, width: win.w, height: sized ? win.h : "auto", minHeight: sized ? "min(200px, calc(100vh / var(--page-zoom, 1)))" : "min(240px, calc(85vh / var(--page-zoom, 1)))", maxHeight: sized ? undefined : "calc(85vh / var(--page-zoom, 1))", display: tray.minimized ? "none" : undefined, zIndex: tray.z }}
       >
         <div
           className="flex shrink-0 cursor-move select-none items-center gap-2 border-b border-rule bg-tab px-3 py-1.5 text-sm"
@@ -159,7 +164,8 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
         {lockedStrip}
         {body}
         <WindowResizeHandles drag={drag} baseline={() => {
-          const actual = { ...win, h: ref.current?.getBoundingClientRect().height ?? win.h };
+          const r = ref.current?.getBoundingClientRect();
+          const actual = { ...win, h: r ? cssPx(r.height) : win.h };
           setSized(true);
           return actual;
         }} />
@@ -186,17 +192,17 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
           if (e.key === "Home") setDrawerWidth(null);
           if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
           e.preventDefault();
-          setDrawerWidth(Math.max(320, Math.min((ref.current?.getBoundingClientRect().width ?? 560) + (e.key === "ArrowLeft" ? 16 : -16), bounds()?.width ?? window.innerWidth)));
+          setDrawerWidth(Math.max(320, Math.min(cssPx(ref.current?.getBoundingClientRect().width ?? 560) + (e.key === "ArrowLeft" ? 16 : -16), bounds()?.width ?? viewW())));
         }}
         onPointerDown={e => {
           if (e.button !== 0) return;
           e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId);
-          drawerStart.current = { x: e.clientX, width: ref.current?.getBoundingClientRect().width ?? 560 };
+          drawerStart.current = { x: cssPx(e.clientX), width: cssPx(ref.current?.getBoundingClientRect().width ?? 560) };
         }}
         onPointerMove={e => {
           const s = drawerStart.current;
           if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
-          setDrawerWidth(Math.max(320, Math.min(s.width + s.x - e.clientX, bounds()?.width ?? window.innerWidth)));
+          setDrawerWidth(Math.max(320, Math.min(s.width + s.x - cssPx(e.clientX), bounds()?.width ?? viewW())));
         }}
         onPointerUp={e => { drawerStart.current = null; if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); }}
         onPointerCancel={() => { drawerStart.current = null; }}

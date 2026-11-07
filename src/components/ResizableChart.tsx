@@ -2,6 +2,7 @@
 
 import { resizeColumns } from "@/lib/column-resize";
 import { useEffect, useRef, useState, type HTMLAttributes } from "react";
+import { cssPx } from "@/lib/page-zoom";
 
 /** Keep the existing responsive grid, exposing its internal column boundaries. */
 export function ResizableChart({ children, ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -38,12 +39,12 @@ export function ResizableChart({ children, ...props }: HTMLAttributes<HTMLDivEle
       onPointerDown={e => {
         if (e.button !== 0) return;
         e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId);
-        start.current = { x: e.clientX, widths: columns, index };
+        start.current = { x: cssPx(e.clientX), widths: columns, index };
       }}
       onPointerMove={e => {
         const s = start.current;
         if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
-        setWidths(resizeColumns(s.widths, s.index, e.clientX - s.x));
+        setWidths(resizeColumns(s.widths, s.index, cssPx(e.clientX) - s.x));
       }}
       onPointerUp={e => { start.current = null; if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); }}
       onPointerCancel={() => { start.current = null; }}

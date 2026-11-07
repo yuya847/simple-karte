@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { THEMES, THEME_SWATCH } from "./appearance";
+import { FONT_ZOOM } from "./page-zoom";
 
 const css = readFileSync(fileURLToPath(new URL("../app/globals.css", import.meta.url)), "utf8");
 
@@ -52,5 +53,14 @@ describe("見た目（白・ダーク・くっきり）", () => {
 
   it("ダーク: the flow sheet's fixed colours are redrawn (grid, halo, labels)", () => {
     for (const hex of ["#ebe4d4", "#fffdf7", "#26221c"]) expect(css).toMatch(new RegExp(`data-theme="dark"\\] svg \\[(stroke|fill)="${hex}"\\]`));
+  });
+});
+
+describe("字の大きさ", () => {
+  it("zoom on <html> with the same numbers as page-zoom.ts, and vh heights divided back", () => {
+    for (const [key, z] of Object.entries(FONT_ZOOM)) {
+      expect(css).toMatch(new RegExp(`:root\\[data-font="${key}"\\] \\{\\s*zoom: ${z};\\s*--page-zoom: ${z};`));
+    }
+    expect(css).toContain(":root[data-font] .h-screen { height: calc(100vh / var(--page-zoom)); }");
   });
 });

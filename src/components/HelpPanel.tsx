@@ -5,6 +5,7 @@ import { contextualHelp, foregroundHelp, helpSections, searchHelp } from "@/lib/
 import { useWinDrag, WindowResizeHandles, clampWin } from "./Dockable";
 import { bigWin, keepWin, keptWin } from "@/lib/win-prefs";
 import { HELP_EVENT } from "@/lib/help/events";
+import { viewH, viewW } from "@/lib/page-zoom";
 
 export function HelpPanel({ screen, panel }: { screen: string; panel?: string | null }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -36,8 +37,8 @@ export function HelpWindow({ selected, query, onQuery, onSelect, onClose }: {
   onSelect: (section: string) => void; onClose: () => void;
 }) {
   const [win, setWin] = useState(() => {
-    const vw = typeof window === "undefined" ? 1200 : window.innerWidth;
-    const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+    const vw = viewW();
+    const vh = viewH();
     return keptWin("help", vw, vh) ?? bigWin(vw, vh, "help");
   });
   const drag = useWinDrag(win, setWin);

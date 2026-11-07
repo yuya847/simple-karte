@@ -11,6 +11,7 @@ import { dietNeedsProposal } from "@/lib/diet-workflow";
 import type { OrderEntry } from "@/lib/types";
 import type { DietCalendar } from "./DietCalendar";
 import { DietPanel } from "./panels/DietPanel";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 
 type Props = Pick<ComponentProps<typeof DietCalendar>, "patient" | "entries" | "diets" | "today" | "nowTime" | "dietEdit">;
 const newId = () => `diet-${crypto.randomUUID()}`;
@@ -85,7 +86,7 @@ export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }
         try { submit(dietChangeOrders(diets, { ...next, id: newId(), patientId: patient.id, by: dietEdit!.doctor, at: { day: 0, time: nowTime } }, at, range, newId), !!dietEdit?.onAdjust); setQuick({}); }
         catch (e) { setError((e as Error).message); }
       };
-      return <section role="dialog" aria-label="食事を変える" style={menuAt ? { position: "fixed", left: Math.min(menuAt.x, window.innerWidth - 420), top: Math.min(menuAt.y, window.innerHeight - 520), zIndex: 60, width: 400 } : undefined} className="space-y-2 rounded border border-rule bg-sheet p-3 shadow-lg">
+      return <section role="dialog" aria-label="食事を変える" style={menuAt ? { position: "fixed", left: Math.min(cssPx(menuAt.x), viewW() - 420), top: Math.min(cssPx(menuAt.y), viewH() - 520), zIndex: 60, width: 400 } : undefined} className="space-y-2 rounded border border-rule bg-sheet p-3 shadow-lg">
         <div className="flex items-baseline justify-between"><b>{formatShort(addDays(today, menu.day))} {menu.meal}食を変える</b><button type="button" onClick={() => { setMenu(null); setQuick({}); }} aria-label="閉じる" className="text-ink-faint">×</button></div>
         <p className="text-ink-soft">いま：{dietLabel(base)}{base.side ? `・${base.side}` : ""}</p>
         <div><div className="mb-1 text-[11px] text-ink-faint">主食</div><div className="flex flex-wrap gap-1">{STAPLES.map((x) => <button key={x} type="button" className={chip(next.staple === x && next.kind !== "絶食")} onClick={() => setQuick({ ...quick, staple: x, ...(next.kind === "絶食" ? { kind: "常食" } : {}) })}>{x}</button>)}</div></div>

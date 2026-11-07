@@ -68,7 +68,7 @@ it("フォームの初回は幅720pxで高さは内容に合わせる", () => {
   try {
     for (const key of orderWindows) {
       const html = renderToStaticMarkup(<DrawerDefaults.Provider value={{ panel: key, windowed: new Set(orderWindows) }}><Drawer title={key} onClose={() => {}}>入力</Drawer></DrawerDefaults.Provider>);
-      expect(html).toContain("left:340px;top:67.5px;width:720px;height:auto;min-height:min(240px, 85vh);max-height:85vh");
+      expect(html).toContain("left:340px;top:67.5px;width:720px;height:auto;min-height:min(240px, calc(85vh / var(--page-zoom, 1)));max-height:calc(85vh / var(--page-zoom, 1))");
     }
   } finally { vi.unstubAllGlobals(); }
 });
@@ -76,7 +76,7 @@ it("フォームの初回は幅720pxで高さは内容に合わせる", () => {
 it("短い参照パネルも240px以上で開く", () => {
   for (const key of ["rehab", "active-orders", "pathology", "physio"]) {
     const html = renderToStaticMarkup(<DrawerDefaults.Provider value={{ panel: key, windowed: new Set([key]) }}><Drawer title={key} onClose={() => {}}>記録なし</Drawer></DrawerDefaults.Provider>);
-    expect(html).toContain("min-height:min(240px, 85vh)");
+    expect(html).toContain("min-height:min(240px, calc(85vh / var(--page-zoom, 1)))");
   }
 });
 it("テンプレートは保存された左端の位置より中央を優先する", () => {

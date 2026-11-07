@@ -13,6 +13,7 @@ import type { HistoryEntry, OrderEntry, Patient } from "@/lib/types";
 
 import { DietPanel } from "./panels/DietPanel";
 import { calendarDietOrders, type DietScope } from "@/lib/diet-calendar-edit";
+import { cssPx, viewW } from "@/lib/page-zoom";
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
 
@@ -170,7 +171,7 @@ export function DietCalendar({ patient, entries, diets, today, nowTime, onOpenDi
         </div>, document.body)}
       {menu &&
         createPortal(
-          <div role="menu" style={{ position: "fixed", left: Math.min(menu.x, window.innerWidth - 240), top: menu.y, zIndex: 1000 }} className="w-56 rounded-lg border border-rule bg-sheet p-1 text-[13px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
+          <div role="menu" style={{ position: "fixed", left: Math.min(cssPx(menu.x), viewW() - 240), top: cssPx(menu.y), zIndex: 1000 }} className="w-56 rounded-lg border border-rule bg-sheet p-1 text-[13px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
             <div className="px-2 py-1 text-[11px] text-ink-faint">{formatShort(addDays(today, menu.day))} に</div>
             {(
               [

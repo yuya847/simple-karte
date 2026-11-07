@@ -11,6 +11,7 @@ import { barMark, barCell, calendarRows, lineCalendarDays, whenText, type Standi
 import type { Patient } from "@/lib/types";
 import { CatChip } from "./panels/StandingLines";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 
 const HEAD_W = 150;
 const COL_W = 44;
@@ -90,7 +91,7 @@ export function StandingCalendar({ patient, lines, today, nowTime, onStop, onOpe
 
       </div>
       {context && <div className="fixed inset-0 z-50" onClick={() => setContext(null)} onContextMenu={e => { e.preventDefault(); setContext(null); }} onKeyDown={e => { if (e.key === "Escape") setContext(null); }}>
-        <div className="fixed" style={{ left: Math.min(context.x, Math.max(0, window.innerWidth - 216)), top: Math.min(context.y, Math.max(0, window.innerHeight - 210)) }}>
+        <div className="fixed" style={{ left: Math.min(cssPx(context.x), Math.max(0, viewW() - 216)), top: Math.min(cssPx(context.y), Math.max(0, viewH() - 210)) }}>
           <StandingLineMenu line={context.line} canOrder={!deny("order")} canAdd={!!onAdd} onAction={i => {
             const l = context.line; setContext(null);
             if (i === 0) { if (onEdit) onEdit(l); else onOpenPanel?.(); }
@@ -184,7 +185,7 @@ function GroupRows({ onMenu, today, cat, lines, days, last, openId, onChoose, no
   const cancelHold = () => { if (hold.current) clearTimeout(hold.current); hold.current = null; };
   const [preview, setPreview] = useState<{ id: string; end: number } | null>(null);
   const dragging = useRef<{ id: string; pointer: number; x: number; day: number; moved: boolean } | null>(null);
-  const targetDay = (l: StandingLine, x: number) => dragEnd(l, Math.min(last, dragging.current!.day + Math.round((x - dragging.current!.x) / COL_W)), 0).end!;
+  const targetDay = (l: StandingLine, x: number) => dragEnd(l, Math.min(last, dragging.current!.day + Math.round(cssPx(x - dragging.current!.x) / COL_W)), 0).end!;
   return (
     <>
       <tr>
