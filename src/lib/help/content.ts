@@ -6,6 +6,7 @@ import { RIS_SOURCES, DRL_NOTE } from "../ris";
 import { MPPS_DOSE_NOTE, DICOM_SOURCES } from "../dicom-mwl";
 // 画面ごとのヘルプ。文言はここで編集します。根拠・出典は移動元のコードコメントを参照。
 export const screenHelp = [
+  { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "固定の試験用100人だけを匿名化して読みます。保存した記録は読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。"] },
   {
     "id": "SetupForm",
     "title": "記録の保存先（Supabase）の設定",

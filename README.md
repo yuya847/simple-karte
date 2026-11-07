@@ -209,3 +209,18 @@ npm test                     # 確認のルールのテスト
 - [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript)、zod
 - vitest（確認のルールのテスト）
 - 公開先：Vercel
+
+## Claude Code とつなぐ
+
+```sh
+claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp
+```
+
+- `list_patients`：病名（diagnosis）・科（department）・入院中/外来（status）で絞って患者一覧。
+- `get_patient(patient)`：仮IDから問題リスト・アレルギー・体重・腎機能・バイタル・検査・有効なオーダ・記事。
+- `search_master(kind, query)`：drug / oral / injection / topical / lab / procedure の名前・コード検索。
+- `propose_orders(patient, orders)`：AiWireOrder または AiOrder の配列を検証し、下書きを開くURLを返す。道具一覧に入力の JSON Schema があります。
+
+固定種の架空の試験用100人の現在状態のみを扱い、Supabase や保存記録は読みません。患者IDは HMAC-SHA256 の先頭12桁による仮ID、年齢は10歳刻み、日付は入院日数・相対日付にします。名前・かな・生年月日・患者番号・住所・電話・保険番号・家族名・部屋番号は公開項目に含めません。記事等は既知の患者・家族・職員名、電話・日付・住所らしい表記を置換します（任意の自由文の完全な匿名化を保証する仕組みではありません）。`MCP_PSEUDONYM_SECRET` を設定すると仮IDの鍵を変更できます。未設定では固定の開発用文字列を使います。
+
+**決めるのは医師、AI は入力係。** アプリはこの連携でAIを呼びません。返されたURLを医師が開くと、試験用病棟の患者の下書きに追加され、監査記録が残ります。オーダは確定されません。URLに下書き本文が含まれるため、試験データだけで使ってください。

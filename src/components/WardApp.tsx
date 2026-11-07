@@ -1,4 +1,5 @@
 "use client";
+import { useMcpReceiver } from "@/lib/mcp/receive";
 import { useAnesthesiaPersistence } from "@/lib/use-anesthesia-persistence";
 import { upsertAnesthesiaNote, anesthesiaIo } from "@/lib/anesthesia";
 import { MswInterview } from "./MswInterview";
@@ -1237,6 +1238,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     pull: workspace.pull,
     onMerged: (m) => auditLog({ role: me.role, actor: me.name, action: "別のタブ・端末で保存された記録を取り込んだ", detail: `${m.by}${m.role ? `（${m.role}）` : ""}が ${m.at} に保存${m.changed.length ? `　変わった記録：${m.changed.slice(0, 12).join("・")}` : ""}` }),
   });
+
+  useMcpReceiver(scenario && !!todayKey && workspace.status !== "loading", (id, drafts) => { openPatient(id); setCharts(all => applyChart(all, id, desk, c => ({ drafts: [...c.drafts, ...drafts] }))); }, newId);
 
   if (!today || !nowTime || (patient && !ctx)) {
     return <div className="grid h-screen place-items-center text-sm text-ink-faint">読み込み中…</div>;
