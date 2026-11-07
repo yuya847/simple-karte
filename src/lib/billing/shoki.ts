@@ -22,6 +22,19 @@ export interface Shoki {
   by: string;
   at: string;
   version: number;
+  /** 版の系列。直した版は別のidで残し、同じseriesにする。省略時はid。 */
+  series?: string;
+}
+export const shokiSeries = (s: Shoki) => s.series ?? s.id;
+/** 系列ごとに確定した最新の版だけ。下書き中も前に確定した版はレセプトに残る。 */
+export function currentShoki(items: Shoki[]): Shoki[] {
+  const latest = new Map<string, Shoki>();
+  for (const s of items) {
+    if (s.status !== "確定") continue;
+    const prev = latest.get(shokiSeries(s));
+    if (!prev || s.version > prev.version) latest.set(shokiSeries(s), s);
+  }
+  return items.filter(s => latest.get(shokiSeries(s)) === s);
 }
 export interface ShokiRequirement { target: ShokiTarget; basis: KisaiBasis; alternative: "摘要欄でも可" }
 /** 明示的に症状詳記を求める項目だけ。通常の入院・A205等を一律に必須にしない。

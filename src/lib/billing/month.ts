@@ -3,10 +3,15 @@
 import { birthDateOf } from "../patient-contacts";
 import { isoDate } from "../dates";
 import { diagnosisClaimable, type Diagnosis } from "../diagnoses";
+import { prepareBillingDocumentation } from "./documentation";
 import { calculateClaim } from "./engine";
 import { ageOn, ASSUMED_INSURANCE_ISSUE, assumedInsurance, INSURANCE, type Insurance } from "./insurance";
 import { calculateBill, type Bill } from "./kaikei";
+import type { KisaiWorkspace } from "./kisai-workspace";
 import type { BillingOptions, ClaimInput, ClaimIssue, ClaimResult } from "./model";
+import type { ShokiRequirement } from "./shoki";
+import type { TekiyoTask } from "./tekiyo";
+import { loadTekiyoMaster } from "./tekiyo-master";
 import type { Receipt, ReceiptDiagnosis } from "./uke";
 import { reviewIssues } from "./worklist";
 
@@ -24,6 +29,14 @@ export interface PatientMonthInput {
   /** The insurance 医事課 registered (保険の登録). Without it: the demo's own, else assumed from age. */
   insurance?: Insurance;
   insuranceHistory?: Insurance[];
+  /** 記載・書類の保存（症状詳記・摘要のコメントの答え）。無ければ自動で決まるコメントだけ。 */
+  kisai?: Partial<KisaiWorkspace>;
+}
+
+/** 記載・書類の画面に返すもの。点検（checkKisai）は画面がカルテの記録で行う。 */
+export interface MonthDocumentation {
+  tekiyo: TekiyoTask[];
+  requiredShoki: ShokiRequirement[];
 }
 
 export interface PatientMonth {
@@ -31,6 +44,7 @@ export interface PatientMonth {
   claim: ClaimResult;
   bill: Bill;
   receipt: Receipt;
+  documentation: MonthDocumentation;
 }
 
 const parse = (iso: string) => {
@@ -67,7 +81,7 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
   const t = parse(today);
   const historyInsurance = input.insuranceHistory ? [...input.insuranceHistory].reverse().find(i => (!i.validFrom || i.validFrom.slice(0, 7) <= month) && (!i.validUntil || i.validUntil.slice(0, 7) >= month)) : input.insurance;
   const insurance = historyInsurance ?? INSURANCE[input.patient.id] ?? { ...assumedInsurance(input.patient.age, t), birthDate: isoDate(birthDateOf(input.patient, t)) };
-  const claim = calculateClaim({
+  const computed = calculateClaim({
     today,
     nowTime,
     month,
@@ -83,12 +97,16 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     diets: input.diets,
     letters: input.letters,
   });
-  if ("assumed" in insurance) claim.issues.push({ level: "review", text: ASSUMED_INSURANCE_ISSUE });
+  if ("assumed" in insurance) computed.issues.push({ level: "review", text: ASSUMED_INSURANCE_ISSUE });
+  // 摘要のコメント（決まっているものは自動、人が選んだもの）を足し、確定した症状詳記をレセプトへ。点数・回数は変えない。
+  const doc = prepareBillingDocumentation(computed, { patientId: input.patient.id, today, admittedOn: input.patient.admittedOn, entries: input.entries }, loadTekiyoMaster(), input.kisai);
+  const claim = doc.claim;
   const ageAtMonth = ageOn(insurance.birthDate, parse(`${month}-01`));
   const [by, bm, bd] = insurance.birthDate.split("-").map(Number);
   const turns75ThisMonth = Number(month.slice(0, 4)) - by === 75 && Number(month.slice(5)) === bm && bd !== 1;
   const bill = calculateBill(claim, insurance, { turns75ThisMonth });
   const receipt: Receipt = {
+    shoki: doc.shoki,
     patient: {
       id: input.patient.id,
       name: input.patient.name,
@@ -103,7 +121,7 @@ export function patientMonth(input: PatientMonthInput, today: string, nowTime: s
     diagnoses: receiptDiagnoses(input.diagnoses, today, month),
     window: { medicalYen: bill.medicalYen, kogaku: bill.kogaku, tasuu: false },
   };
-  return { insurance, claim, bill, receipt };
+  return { insurance, claim, bill, receipt, documentation: { tekiyo: doc.tekiyo, requiredShoki: doc.requiredShoki } };
 }
 
 /** For 医事課の仕事: each patient's month through the same claim, keeping only what a person must look at. */

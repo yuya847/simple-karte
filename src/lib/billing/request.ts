@@ -42,6 +42,32 @@ export const InsuranceSchema = z
   // 医保 needs a well-formed 保険者番号・番号 and a 10〜30% rate; the cases without 医保 carry none.
   .refine((i) => (i.coverage && i.coverage !== "医保") || (validInsurerNumber(i.insurerNumber) && i.number.length > 0 && [10, 20, 30].includes(i.rate)), { message: "保険の内容が読めません。" });
 
+/** 記載・書類の保存（kisai-workspace の形）。確定した症状詳記は SJ、選んだ摘要のコメントは CO になる。 */
+const Code9 = z.string().regex(/^\d{9}$/);
+const ShokiSchema = z.object({
+  id: z.string().max(80),
+  series: z.string().max(80).optional(),
+  patientId: z.string().max(40),
+  month: Month,
+  targets: z.array(z.object({ code: Code9, kubun: z.string().max(20), name: z.string().max(200), points: z.number().finite(), shikibetsu: z.string().regex(/^\d{2}$/) })).max(20),
+  category: z.enum(["01", "02", "03", "04", "05", "06", "07", "50", "51", "52", "90"]),
+  body: z.string().max(20_000),
+  status: z.enum(["下書き", "確定"]),
+  by: z.string().max(80),
+  at: z.string().max(40),
+  version: z.number().int().min(1).max(999),
+});
+const TekiyoAnswerSchema = z.object({
+  patientId: z.string().max(40),
+  month: Month,
+  claimCode: Code9,
+  comments: z.array(z.object({ code: Code9, text: z.string().max(200).optional() })).max(60),
+  reviewedRequirements: z.boolean(),
+  by: z.string().max(80),
+  at: z.string().max(40),
+});
+export const KisaiSchema = z.object({ shoki: z.array(ShokiSchema).max(300), tekiyoAnswers: z.array(TekiyoAnswerSchema).max(300) });
+
 export const PatientMonthSchema = z.object({
   patient: z.object({
     ward: z.string().max(60).optional(),
@@ -106,6 +132,7 @@ export const PatientMonthSchema = z.object({
   }),
   insurance: InsuranceSchema.optional(),
   insuranceHistory: z.array(InsuranceSchema).max(200).optional(),
+  kisai: KisaiSchema.optional(),
 });
 
 export const ClaimRequest = PatientMonthSchema.extend({ today: IsoDate, nowTime: z.string().regex(/^\d{2}:\d{2}$/), month: Month });

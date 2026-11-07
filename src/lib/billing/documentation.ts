@@ -7,7 +7,7 @@
 import { checkKisai, type KisaiChart } from "./kisai";
 import { kisaiWorkspace, type KisaiWorkspace } from "./kisai-workspace";
 import type { ClaimResult } from "./model";
-import { requiredShoki } from "./shoki";
+import { currentShoki, requiredShoki } from "./shoki";
 import { applyTekiyo, resolveTekiyo, type TekiyoMaster } from "./tekiyo";
 
 export function prepareBillingDocumentation(claim: ClaimResult, chart: KisaiChart, master: TekiyoMaster[], saved?: Partial<KisaiWorkspace> | null) {
@@ -19,7 +19,8 @@ export function prepareBillingDocumentation(claim: ClaimResult, chart: KisaiChar
   const lines = [...new Map(claim.acts.flatMap(a => a.parts.flatMap(p => p.lines)).filter(l => l.record === "SI").map(l => [l.code, l])).values()];
   return {
     claim: applyTekiyo(claim, tekiyo),
-    shoki: workspace.shoki.filter(s => s.patientId === chart.patientId && s.month === claim.month),
+    /** 系列ごとに確定した最新の版（前の版・下書きは保存に残り、レセプトには出さない）。 */
+    shoki: currentShoki(workspace.shoki.filter(s => s.patientId === chart.patientId && s.month === claim.month)),
     requiredShoki: requiredShoki(claim),
     checks,
     tekiyo,

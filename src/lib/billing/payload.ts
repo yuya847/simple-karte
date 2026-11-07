@@ -4,6 +4,7 @@ import type { Diagnosis } from "../diagnoses";
 import type { DietOrder } from "../diet";
 import type { HistoryEntry, Patient } from "../types";
 import type { Insurance } from "./insurance";
+import type { KisaiWorkspace } from "./kisai-workspace";
 import type { BillingOptions } from "./model";
 import type { LetterClaim } from "../letters";
 
@@ -12,7 +13,7 @@ export function patientMonthPayload(
   entries: HistoryEntry[],
   diagnoses: Diagnosis[],
   options: BillingOptions,
-  extra: { diets?: DietOrder[]; letters?: LetterClaim[]; notGiven?: string[]; insulinGiven?: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[] } = {},
+  extra: { diets?: DietOrder[]; letters?: LetterClaim[]; notGiven?: string[]; insulinGiven?: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[]; kisai?: KisaiWorkspace } = {},
 ) {
   // 退院を実施した日 (入退院支援加算１ is claimed on it).
   // 未実施 doses of this patient's injections only.
@@ -32,7 +33,15 @@ export function patientMonthPayload(
     // The insurance 医事課 registered (保険の登録); left out while there is none.
     ...(extra.insuranceHistory ? { insuranceHistory: extra.insuranceHistory } : {}),
     ...(extra.insurance ? { insurance: extra.insurance } : {}),
+    // 記載・書類: this patient's 症状詳記 and only the latest 摘要の答え per month and item (the one the claim reads).
+    ...(extra.kisai ? { kisai: kisaiOf(extra.kisai, patient.id) } : {}),
   };
+}
+
+export function kisaiOf(w: KisaiWorkspace, patientId: string): KisaiWorkspace {
+  const latest = new Map<string, KisaiWorkspace["tekiyoAnswers"][number]>();
+  for (const a of w.tekiyoAnswers) if (a.patientId === patientId) latest.set(`${a.month}|${a.claimCode}`, a);
+  return { shoki: w.shoki.filter((s) => s.patientId === patientId), tekiyoAnswers: [...latest.values()] };
 }
 
 export type PatientMonthPayload = ReturnType<typeof patientMonthPayload>;

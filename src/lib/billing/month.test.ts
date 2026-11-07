@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { ASSUMED_INSURANCE_ISSUE, INSURANCE, type Insurance } from "./insurance";
 import { DEFAULT_OPTIONS } from "./model";
 import { patientMonth, type PatientMonthInput } from "./month";
-import { patientMonthPayload } from "./payload";
+import { kisaiOf, patientMonthPayload } from "./payload";
+import { receiptRecords } from "./uke";
+import type { KisaiWorkspace } from "./kisai-workspace";
 import { ClaimRequest } from "./request";
 import { PATIENTS } from "../patients";
 import type { OrderEntry } from "../types";
@@ -71,5 +73,34 @@ describe("保険の適用期間", () => {
     expect(patientMonth(input, "2026-11-07", "10:00", "2026-10").insurance).toEqual(old);
     expect(patientMonth(input, "2026-11-07", "10:00", "2026-11").insurance).toEqual(next);
     expect(patientMonth(input, "2026-11-07", "10:00", "2026-09").insurance.assumed).toBe(true);
+  });
+});
+
+describe("記載・書類をレセプトへ", () => {
+  const p = { ...PATIENTS[0], history: [] };
+  const answer = { patientId: p.id, month: "2026-11", claimCode: "190171910", by: "医師 試験", at: "2026-11-07T12:00:00+09:00", reviewedRequirements: true, comments: [{ code: "820100411" }, { code: "831110001", text: "160000310" }] };
+  const shoki = { id: "s1", patientId: p.id, month: "2026-11", targets: [], category: "03" as const, body: "発熱と意識障害で入院。", status: "確定" as const, by: "医師 試験", at: "2026-11-07T12:00:00+09:00", version: 1 };
+  const run = (kisai?: KisaiWorkspace) =>
+    patientMonth(ClaimRequest.parse({ today: "2026-11-07", nowTime: "12:00", month: "2026-11", ...patientMonthPayload(p, [], [], { ...DEFAULT_OPTIONS, kyukyu: "1" }, { kisai }) }) as unknown as PatientMonthInput, "2026-11-07", "12:00", "2026-11");
+  it("選んだ摘要のコメントがSIのコメント欄に入り、救急医療管理加算の注意が消える", () => {
+    const before = run();
+    expect(before.claim.issues.some((i) => i.text.includes("いまは自動では入りません"))).toBe(true);
+    expect(before.documentation.tekiyo.find((t) => t.claimCode === "190171910")?.status).toBe("人が選ぶ");
+    const after = run({ shoki: [], tekiyoAnswers: [answer] });
+    expect(after.claim.issues.some((i) => i.text.includes("いまは自動では入りません"))).toBe(false);
+    expect(after.claim.totalPoints).toBe(before.claim.totalPoints);
+    const si = receiptRecords(after.receipt, 1, "2026-11").find((l) => l.startsWith("SI,") && l.includes(",190171910,"));
+    expect(si).toContain(",820100411,,831110001,160000310,");
+  });
+  it("確定した症状詳記の最新の版だけがSJになり、下書きと前の版は出ない", () => {
+    const v2 = { ...shoki, id: "s1-2", series: "s1", version: 2, body: "第2版の文。" };
+    const draft = { ...shoki, id: "s1-3", series: "s1", version: 3, status: "下書き" as const, body: "直している途中" };
+    const lines = receiptRecords(run({ shoki: [shoki, v2, draft, { ...shoki, id: "other", patientId: "someone" }], tekiyoAnswers: [] }).receipt, 1, "2026-11");
+    expect(lines.filter((l) => l.startsWith("SJ,"))).toEqual(["SJ,03,第2版の文。"]);
+  });
+  it("患者ごとに送る：その患者の詳記と、月・項目ごとの最新の答えだけ", () => {
+    const k = kisaiOf({ shoki: [shoki, { ...shoki, id: "x", patientId: "other" }], tekiyoAnswers: [{ ...answer, reviewedRequirements: false }, answer, { ...answer, patientId: "other" }] }, p.id);
+    expect(k.shoki.map((s) => s.id)).toEqual(["s1"]);
+    expect(k.tekiyoAnswers).toEqual([answer]);
   });
 });
