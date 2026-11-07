@@ -82,13 +82,18 @@ describe("セントラルモニター", () => {
     expect(html).toContain('data-alarm="true"');
     expect(html).toContain("border-shu");
     expect(html).toContain("酸素投与中・心拍数 100 以上・SpO2 95 未満・入院 2 日以内");
+    // The rule and the 模擬 notes are in the help, not on the screen.
+    const help = JSON.stringify(helpSections);
+    expect(html).not.toContain("モニターを付ける患者：");
+    expect(help).toContain("モニターを付ける患者：");
     // The table lists both, the quiet one as outside the rule, with the checkbox to put on.
     expect(html).toContain("佐倉 花にモニターを付ける");
     expect(html).toContain("大浦 太郎にモニターを外す");
-    expect(html).toContain("（取り決めの対象外）");
+    expect(html).toContain(">対象外<");
     expect(html).not.toContain("架空の病院の取り決め");
     expect(html).toContain("音は鳴りません");
-    expect(html).toContain(MONITOR_NOTES.simulated);
+    expect(html).not.toContain(MONITOR_NOTES.simulated);
+    expect(help).toContain(MONITOR_NOTES.simulated);
     expect(html).not.toContain('class="hint');
   });
 

@@ -2,7 +2,7 @@
 
 import { BellOff, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { alarmsOf, autoReasons, liveNumbers, MONITOR_NOTES, MONITOR_RULE, monitored, RESTING, type MonitorCandidate, type MonitorManual } from "@/lib/monitor";
+import { alarmsOf, autoReasons, liveNumbers, MONITOR_NOTES, monitored, RESTING, type MonitorCandidate, type MonitorManual } from "@/lib/monitor";
 import { MonitorCanvas, type Trace } from "./MonitorCanvas";
 
 interface Props {
@@ -77,7 +77,7 @@ export function CentralMonitor({ candidates, manual, lockedWhy, onToggle, onOpen
 
 
       {list.length === 0 ? (
-        <p className="rounded-md border border-dashed border-rule p-3 text-center text-ink-soft">モニターを付けている患者はいません。下の表で付けられます。</p>
+        <p className="rounded-md border border-dashed border-rule p-3 text-center text-ink-soft">モニターを付けている患者はいません。</p>
       ) : (
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {shown.map(({ patient: p, reasons }) => {
@@ -138,22 +138,21 @@ export function CentralMonitor({ candidates, manual, lockedWhy, onToggle, onOpen
         </div>
       )}
 
-      <section className="rounded-md border border-rule-soft bg-paper p-2">
-        <h3 className="mb-1 text-xs font-bold">装着の付け外し（看護師）</h3>
-        <p className="text-[11px] text-ink-soft">{MONITOR_RULE}</p>
+      <section className="border-t border-rule pt-2">
+        <h3 className="mb-1 text-xs font-bold">装着の付け外し</h3>
         {lockedWhy && (
           <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-soft">
             <Lock size={12} />
             {lockedWhy}
           </p>
         )}
-        <table className="mt-1 w-full text-xs">
+        <table className="mt-1 text-xs">
           <thead>
             <tr className="text-left text-ink-soft">
               <th className="py-0.5 pr-2 font-normal">装着</th>
               <th className="py-0.5 pr-2 font-normal">部屋</th>
               <th className="py-0.5 pr-2 font-normal">患者</th>
-              <th className="py-0.5 pr-2 font-normal">取り決めの理由（記録から）</th>
+              <th className="py-0.5 pr-6 font-normal">理由</th>
               <th className="py-0.5 font-normal">最新のバイタル</th>
             </tr>
           </thead>
@@ -171,8 +170,8 @@ export function CentralMonitor({ candidates, manual, lockedWhy, onToggle, onOpen
                     </td>
                     <td className="nums py-0.5 pr-2">{p.room}</td>
                     <td className="py-0.5 pr-2 font-bold">{p.name}</td>
-                    <td className="py-0.5 pr-2 text-ink-soft">
-                      {auto.join("・") || "（取り決めの対象外）"}
+                    <td className="py-0.5 pr-6 text-ink-soft">
+                      {auto.join("・") || "対象外"}
                       {manual.on.includes(p.id) && <span className="ml-1 text-ai">手で装着</span>}
                       {manual.off.includes(p.id) && <span className="ml-1 text-ink-faint">手で外した</span>}
                     </td>
@@ -183,12 +182,6 @@ export function CentralMonitor({ candidates, manual, lockedWhy, onToggle, onOpen
           </tbody>
         </table>
       </section>
-
-      <div className="space-y-0.5 text-[11px] text-ink-soft">
-        <p>{MONITOR_NOTES.simulated}</p>
-        <p>{MONITOR_NOTES.limits}</p>
-        <p>{MONITOR_NOTES.shapes}</p>
-      </div>
     </div>
   );
 }
