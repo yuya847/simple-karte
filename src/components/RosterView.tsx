@@ -243,7 +243,7 @@ export function RosterView({ book: saved, today, nowTime, onChange }: Props) {
                 {Array.from({ length: days }, (_, k) => {
                   const u = dayUnits(f, k + 1);
                   return (
-                    <td key={k} className={`text-center text-[10px] ${u < f.required ? "text-yamabuki" : ""}`}>
+                    <td key={k} className={`px-0.5 text-center text-[10px] ${u < f.required ? "text-yamabuki" : ""}`}>
                       {u.toFixed(1)}
                     </td>
                   );
