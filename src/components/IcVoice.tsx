@@ -9,6 +9,9 @@
 // on, the voice is also told apart inside this browser (open-source sherpa-onnx in a Web Worker; the model is
 // fetched only then), and Claude says who each voice number is. A person's choice always wins. Everything sent
 // can be read in 送った文を見る; 送る前に見る (this device) brings back the step of seeing the text first.
+// With NEXT_PUBLIC_IC_LOCAL_ASR_URL (the hospital's own server, e.g. Haas-ja-v1.0 + open-source diarization;
+// lib/ic/local-asr.ts) the browser's speech recognition is not used: the voice goes as pieces to that server
+// and comes back as lines with voice numbers, so it stays in the hospital's network.
 // 4) 「IC の記録にする」 has Claude say which spoken words go in 説明内容・相手の反応・同席者; code checks every
 // piece is really in what was said and puts the original words in. The doctor edits and confirms: the note
 // keeps the consent mark and the whole transcript. The voice itself never reaches this app's server.
@@ -20,6 +23,7 @@ import { auditLog, CLAUDE } from "@/lib/audit";
 import { icNames, PLACEHOLDER, redactLine, type IcPatient, type Redacted } from "@/lib/ic/anonymize";
 import { autoBatch, dueNow, newAutoState, waitingLines } from "@/lib/ic/auto";
 import { voiceSample, voicesForLines, type VoicePiece } from "@/lib/ic/diarize";
+import { linesFromLocal, localAsrUrl, type LocalSegment } from "@/lib/ic/local-asr";
 import { consentLine, consentWho, icRecordText, icValues, unplacedLines, type RecordingConsent } from "@/lib/ic/place";
 import { addLine, ALL_SPEAKERS, applyGuesses, applyVoiceGuesses, clockNow, confirmGuesses, isGuess, linesFromPaste, setSpeaker, setVoices, speakerCounts, speakerKey, speakerOf, SPEAKERS, type Guess, type IcLine, type Speaker } from "@/lib/ic/transcript";
 import { useVoiceDiarizer } from "@/lib/ic/use-voice-diarizer";
@@ -38,6 +42,8 @@ const TONE: Record<Speaker, { on: string; chip: string }> = {
   不明: { on: "border-ink-soft bg-ink-soft text-white", chip: "border-rule bg-paper text-ink-soft" },
 };
 const DEV = process.env.NODE_ENV !== "production";
+/** The hospital's speech-recognition server, when the app was built with its address. */
+const LOCAL_ASR = localAsrUrl();
 /** 送る前に見る: this device only. */
 const PREVIEW_KEY = "simple-karte:ic-preview";
 const readPreview = () => {
@@ -77,7 +83,7 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
   const [step, setStep] = useState<Step>({ kind: "talk" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [claude, setClaude] = useState({ speakers: false, place: false, voice: false });
+  const [claude, setClaude] = useState<{ speakers: boolean; place: boolean; voice?: "端末" | "院内" }>({ speakers: false, place: false });
   const [paste, setPaste] = useState("");
   const [preview, setPreviewState] = useState(readPreview);
   const [autoBusy, setAutoBusy] = useState(false);
@@ -117,7 +123,7 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
   const restarts = useRef<number[]>([]);
   const fatal = !!speech.error && !/no-speech|network|aborted/.test(speech.error);
   useEffect(() => {
-    if (!recording || listening || fatal) return;
+    if (LOCAL_ASR || !recording || listening || fatal) return;
     const now = Date.now();
     restarts.current = restarts.current.filter((x) => now - x < 30_000);
     if (restarts.current.length >= 5) return;
@@ -171,7 +177,7 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
     const sample = voiceSample(ls, textOf);
     if (!sample.length) return null;
     const json = (await post("voices", sample.map((l) => ({ ...sentLine(l, l.said ?? "?"), v: l.voice })))) as { voices: { voice: string; speaker: Guess }[]; meta?: { ms?: number } };
-    setClaude((c) => ({ ...c, speakers: true, voice: true }));
+    setClaude((c) => ({ ...c, speakers: true, voice: LOCAL_ASR ? "院内" : "端末" }));
     auditLog({ role: "AI", actor: CLAUDE, action: "IC の声の番号ごとに話し手の見立てを付けた", patient: patient.name, detail: `声の番号 ${json.voices.length}・${sample.length}行を送った（名前などを置き換えた文。声は端末の外に出していない）${secs(json.meta)}` });
     return json;
   };
@@ -278,12 +284,13 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
 
   // 声でも分ける: when recording has stopped and every piece is told apart, the lines get their voice numbers;
   // without 送る前に見る, Claude names the numbers at once (with it, 話し手を整える does).
+  // (With the hospital's server the lines came with their numbers already.)
   const onVoices = (pieces: VoicePiece[]) => {
     const tags = voicesForLines(linesRef.current, pieces);
-    if (!tags.size) return;
-    const tagged = setVoices(linesRef.current, tags);
-    setLines((cur) => setVoices(cur, tags));
-    if (!autoOnRef.current || !consent) return;
+    if (!tags.size && !LOCAL_ASR) return;
+    const tagged = tags.size ? setVoices(linesRef.current, tags) : linesRef.current;
+    if (tags.size) setLines((cur) => setVoices(cur, tags));
+    if (!autoOnRef.current || !consent || !tagged.some((l) => l.voice && !l.said)) return;
     setVoiceBusy(true);
     nameVoices(tagged)
       .then((named) => {
@@ -292,7 +299,14 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
       .catch((e) => setError(e instanceof Error ? e.message : "読み取れませんでした。"))
       .finally(() => setVoiceBusy(false));
   };
-  const voice = useVoiceDiarizer(onVoices);
+  // The hospital's server: each piece's stretches become lines at once (the ref too, for onVoices right after).
+  const onLocal = (piece: { take: number; startedAt: number }, segs: LocalSegment[]) => {
+    if (!segs.length) return;
+    linesRef.current = linesFromLocal(linesRef.current, piece, segs);
+    setLines((cur) => linesFromLocal(cur, piece, segs));
+  };
+  const voice = useVoiceDiarizer(onVoices, { local: LOCAL_ASR, onLocal });
+  const canRecord = LOCAL_ASR ? voice.supported : speech.supported;
   // Turned on while already recording: the voice is recorded from now on.
   const { on: voiceOn, start: startVoice } = voice;
   useEffect(() => {
@@ -346,7 +360,7 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
   }, []);
 
   const markConsent = (by: RecordingConsent["by"]) => {
-    const c: RecordingConsent = { by, ...(by === "代理の方" ? { relation: relation.trim() } : {}), recordedBy: me.name, at: clockNow() };
+    const c: RecordingConsent = { by, ...(by === "代理の方" ? { relation: relation.trim() } : {}), recordedBy: me.name, at: clockNow(), ...(LOCAL_ASR ? { local: true } : {}) };
     setConsent(c);
     auditLog({ role: me.role, actor: me.name, action: "確定（録音とクラウドの文字起こしへの同意）", patient: patient.name, detail: consentWho(c) });
   };
@@ -359,9 +373,9 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
     if (!consent) return;
     restarts.current = [];
     setRecording(true);
-    startSpeech();
+    if (!LOCAL_ASR) startSpeech();
     void voice.start();
-    auditLog({ role: me.role, actor: me.name, action: "IC の録音（文字起こし）を始めた", patient: patient.name, detail: `${consentLine(consent)}${voice.on ? "・声でも分ける（端末の中）" : ""}` });
+    auditLog({ role: me.role, actor: me.name, action: "IC の録音（文字起こし）を始めた", patient: patient.name, detail: `${consentLine(consent)}${LOCAL_ASR ? "・院内のサーバーで文字起こし" : voice.on ? "・声でも分ける（端末の中）" : ""}` });
   };
   const stopRec = () => {
     setRecording(false);
@@ -445,7 +459,10 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
               ) : (
                 <div className="space-y-3">
                   <p className="leading-relaxed">
-                    説明の会話を録音して文字にします。声はブラウザの音声認識（Chrome では Google）に送られて文字になります。名前などを置き換えた文だけを Claude（Anthropic）に送り、話し手と記録の欄を整えます。声はこのカルテには残しません。
+                    {LOCAL_ASR
+                      ? "説明の会話を録音して、院内のサーバーで文字にします。声は院外に出しません。"
+                      : "説明の会話を録音して文字にします。声はブラウザの音声認識（Chrome では Google）に送られて文字になります。"}
+                    名前などを置き換えた文だけを Claude（Anthropic）に送り、話し手と記録の欄を整えます。声はこのカルテには残しません。
                   </p>
                   <p className="font-bold">患者さん（または代理の方）が同意しましたか。</p>
                   <div className="flex flex-wrap items-center gap-3">
@@ -476,7 +493,7 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
                 ))}
                 <button
                   type="button"
-                  disabled={!speech.supported || !!sending || busy}
+                  disabled={!canRecord || !!sending || busy}
                   onClick={recording ? stopRec : startRec}
                   className={`${big} ml-auto flex items-center gap-2 ${recording ? "border-shu bg-shu text-white" : "border-ai bg-ai text-white"}`}
                 >
@@ -485,7 +502,13 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                {voice.supported && (
+                {LOCAL_ASR && (
+                  <span className="flex items-center gap-1.5 rounded-lg border border-rule bg-sheet px-3 py-1.5 text-ink-soft">
+                    <AudioLines size={14} />
+                    院内の文字起こし
+                  </span>
+                )}
+                {!LOCAL_ASR && voice.supported && (
                   <button
                     type="button"
                     aria-pressed={voice.on}
@@ -500,7 +523,7 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
                 {(voice.pending > 0 || voiceBusy) && (
                   <span className="flex items-center gap-1 text-ink-soft">
                     <Loader2 size={14} className="animate-spin" />
-                    声を分けています
+                    {LOCAL_ASR ? "文字にしています" : "声を分けています"}
                   </span>
                 )}
                 {autoBusy && (
@@ -514,7 +537,8 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
                   送る前に見る
                 </label>
               </div>
-              {!speech.supported && <p className="text-sm text-yamabuki">この端末のブラウザでは音声認識が使えません。</p>}
+              {!canRecord && <p className="text-sm text-yamabuki">この端末のブラウザでは{LOCAL_ASR ? "録音" : "音声認識"}が使えません。</p>}
+              {LOCAL_ASR && voice.error && <p className="text-sm text-shu">{voice.error}</p>}
               {speech.error && <p className="text-sm text-shu">{speech.error}</p>}
               {DEV && !recording && (
                 <details className="rounded-lg border border-dashed border-rule px-3 py-2 text-sm">
@@ -571,7 +595,7 @@ export function IcVoice({ patient, facts, template: t, onConfirm, onClose }: { p
                     <span className="min-w-0 flex-1 pt-0.5 leading-relaxed">{sending ? <Masked text={redacted.get(l.id)?.text ?? l.text} /> : l.text}</span>
                   </li>
                 ))}
-                {recording && <li className="px-4 py-2 text-ink-soft">{interim ? `…${interim}` : listening ? "聞いています" : ""}</li>}
+                {recording && <li className="px-4 py-2 text-ink-soft">{interim ? `…${interim}` : listening ? "聞いています" : LOCAL_ASR ? "録っています" : ""}</li>}
               </ol>
               <div ref={endRef} />
             </section>

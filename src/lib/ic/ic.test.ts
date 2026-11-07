@@ -170,7 +170,8 @@ describe("欄への配置の検証（Claude が足した文がないこと）", 
     expect(text).toContain("10:00:00 患者（見立て）：質問ですが痛みはありますか");
     expect(text.split("\n").filter((l) => /^\d\d:\d\d:\d\d /.test(l))).toHaveLength(5);
     expect(consentLine(consent)).toContain("本人");
-    expect(icRecordText(t, {}, facts, consent, lines, { speakers: true, place: true, voice: true })).toContain("Claude：話し手の見立て（声の区切りは端末の中で sherpa-onnx）・欄への配置");
+    expect(icRecordText(t, {}, facts, consent, lines, { speakers: true, place: true, voice: "端末" })).toContain("Claude：話し手の見立て（声の区切りは端末の中で sherpa-onnx）・欄への配置");
+    expect(icRecordText(t, {}, facts, consent, lines, { speakers: true, place: false, voice: "院内" })).toContain("Claude：話し手の見立て（声の区切りは院内のサーバー）（");
   });
 });
 
