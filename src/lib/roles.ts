@@ -47,16 +47,16 @@ export const ROLE_LONG: Record<Role, string> = {
 };
 
 /** The ward-level tabs pinned before the patient tabs. */
-export type PinnedTab = "equipment" | "infection" | "oral" | "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "ris" | "rehab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit" | "iji";
+export type PinnedTab = "icu" | "equipment" | "infection" | "oral" | "map" | "list" | "sheet" | "handoff" | "admit" | "meals" | "lab" | "ris" | "rehab" | "er" | "pharmacy" | "dialysis" | "or" | "acuity" | "chat" | "audit" | "iji";
 
 /** The tabs each role sees, first one is where the role starts. */
 export const TABS: Record<Role, PinnedTab[]> = {
-  臨床工学技士: ["equipment", "map", "list", "chat"],
-  ICT: ["infection", "map", "list", "chat"],
-  歯科衛生士: ["oral", "map", "list", "chat"],
+  臨床工学技士: ["equipment", "icu", "map", "list", "chat"],
+  ICT: ["infection", "icu", "map", "list", "chat"],
+  歯科衛生士: ["oral", "icu", "map", "list", "chat"],
   医師: ["map", "list", "handoff", "admit", "er", "or", "dialysis", "chat", "audit"],
   看護師: ["sheet", "map", "list", "handoff", "admit", "meals", "acuity", "er", "or", "dialysis", "chat"],
-  薬剤師: ["pharmacy", "map", "list", "chat"],
+  薬剤師: ["pharmacy", "icu", "map", "list", "chat"],
   臨床検査技師: ["lab", "map", "list", "chat"],
   診療放射線技師: ["ris", "map", "list", "chat"],
   療法士: ["rehab", "map", "list", "chat"],

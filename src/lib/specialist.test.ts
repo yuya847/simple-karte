@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { antibioticMonitoring, infectionRank, toggleSpecialistRow, activeOrders, appendRecord, dotFor, equipmentOf, infectionFlags, ohatTotal, oralFlags, antibioticsOf, type SpecialistRecord } from "./specialist";
+import { compareOralPatients, antibioticMonitoring, infectionRank, toggleSpecialistRow, activeOrders, appendRecord, dotFor, equipmentOf, infectionFlags, ohatTotal, oralFlags, antibioticsOf, type SpecialistRecord } from "./specialist";
 import { can, STAFF, ROLES } from "./roles";
 import { homeScreen, wardTabsFor } from "./nav";
 import { specialistTileBlocks, SPECIALIST_READ_TOOLS } from "./specialist-tools";
@@ -94,5 +94,38 @@ describe("一覧の判定", () => {
     expect(toggleSpecialistRow(null, "a")).toBe("a");
     expect(toggleSpecialistRow("a", "b")).toBe("b");
     expect(toggleSpecialistRow("a", "a")).toBeNull();
+  });
+});
+
+
+describe("点検の回帰", () => {
+  it("注射は終了日なし・終了済・未来・中止・隔日の今日をカレンダーとそろえる", () => {
+    if (pump.order.type !== "injection") throw Error();
+    const e: OrderEntry = { ...pump, order: { ...pump.order, items: [{ drugCode: "INJ-VCM05", amount: 1, unit: "g" }] } };
+    expect(antibioticsOf([e])).toHaveLength(1);
+    expect(antibioticsOf([{ ...e, order: { ...e.order, days: null } } as unknown as OrderEntry])).toHaveLength(1);
+    expect(antibioticsOf([{ ...e, order: { ...e.order, dayPattern: { kind: "every", n: 3 } } } as OrderEntry])).toEqual([]);
+    expect(antibioticsOf([{ ...e, order: { ...e.order, dayPattern: { kind: "every", n: 2 } } } as OrderEntry])).toHaveLength(1);
+    expect(antibioticsOf([{ ...e, status: "中止" }])).toEqual([]);
+    for (const extra of [{ start: { day: 1 } }, { days: 1 }, { end: { day: -1, time: "23:59" } }]) {
+      expect(antibioticsOf([{ ...e, order: { ...e.order, ...extra } } as OrderEntry])).toEqual([]);
+    }
+  });
+  it.each(["A/C-VC", "NPPV", "HFNC", "なし"] as const)("最新の呼吸器設定 %s を使い、未来・他患者は使わない", mode => {
+    const v = { id: "v", patientId: patient.id, at: { day: -1, time: "10:00" }, by: "医師", mode, airway: "経口挿管" as const, fio2: 0.4 };
+    const flags = oralFlags({ ...patient, dietNow: "常食" }, [], false, [], "10:00", [], [v, { ...v, id: "future", mode: "なし", at: { day: 1, time: "00:00" } }, { ...v, patientId: "other", mode: "なし" }]);
+    expect(flags.priority).toEqual(mode === "なし" ? [] : [mode === "A/C-VC" ? "人工呼吸" : mode]);
+    expect(oralFlags(patient, [], false, [], "10:00", [], [v, { ...v, mode: "なし", at: { day: 0, time: "09:00" } }]).priority).not.toContain("人工呼吸");
+  });
+  it("OHAT-J とケアの保存・入力配列の並びによらず優先度と部屋で固定", () => {
+    const a = { ...patient, id: "a", room: "ICU2" }, b = { ...patient, id: "b", room: "ICU10" };
+    const sort = (rows: { p: Patient; priority: number; scores?: number[]; done?: boolean }[]) => rows.sort((x, y) => compareOralPatients(x.p, x.priority, y.p, y.priority)).map(x => x.p.id);
+    expect(sort([{ p: b, priority: 1 }, { p: a, priority: 1 }])).toEqual(["a", "b"]);
+    expect(sort([{ p: b, priority: 1 }, { p: a, priority: 1, scores: Array(8).fill(0), done: true }])).toEqual(["a", "b"]);
+    expect(sort([{ p: a, priority: 0 }, { p: b, priority: 1 }])).toEqual(["b", "a"]);
+  });
+  it.each(["ICT", "臨床工学技士", "歯科衛生士", "薬剤師"] as const)("%s の ICU は閲覧のみ", role => {
+    expect(wardTabsFor(role)).toContain("icu");
+    for (const action of ["order", "vitals", "io", "bed.move"] as const) expect(can(role, action)).toBe(false);
   });
 });

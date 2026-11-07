@@ -154,6 +154,6 @@ describe("③ charts under the tab they were opened from", () => {
 
  it("コンサルト依頼は医師の病棟メニューに出す", () => { expect(wardTabsFor("医師")).toContain("consults"); expect(wardTabsFor("看護師")).not.toContain("consults"); });
 
-it("ICU・HCU は医師・看護師・デバッグだけ", () => {
-  for (const role of Object.keys(TABS) as (keyof typeof TABS)[]) expect(wardTabsFor(role).includes("icu")).toBe(["医師", "看護師", "デバッグ"].includes(role));
+it("ICU・HCU は担当職種も閲覧できる", () => {
+  for (const role of Object.keys(TABS) as (keyof typeof TABS)[]) expect(wardTabsFor(role).includes("icu")).toBe(["医師", "看護師", "デバッグ", "ICT", "臨床工学技士", "歯科衛生士", "薬剤師"].includes(role));
 });

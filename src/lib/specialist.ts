@@ -1,3 +1,7 @@
+import { injectionCell } from "./calendar";
+import { abs } from "./flowsheet";
+import { ventAt } from "./icu/abg";
+import type { VentSetting } from "./icu/types";
 import { rxLastDay } from "./day-pattern";
 import { lineEffective } from "./standing-calendar";
 import type { StandingLine } from "./standing-lines";
@@ -48,7 +52,7 @@ export const ANTIBIOTIC_RULES = [
   { match: /バンコマイシン|テイコプラニン|アルベカシン|リネゾリド|ダプトマイシン/, kind: "抗MRSA・届出確認" },
 ];
 export function antibioticsOf(entries: OrderEntry[]) {
-  return activeOrders(entries).flatMap(e => {
+  return entries.filter(e => e.order.type === "injection" ? e.status === "有効" && injectionCell(e, 0, 1439).running : activeOrders([e]).length > 0).flatMap(e => {
     const o = e.order;
     const codes = o.type === "injection" ? o.items.map(i => i.drugCode) : o.type === "prescription" ? [o.drugCode] : [];
     return [...new Set(codes)].flatMap(code => {
@@ -72,10 +76,14 @@ export function infectionFlags(p: Patient) {
     return hit ? [{ text: hit.join("・"), specimen: c.specimen, precaution: "接触予防策・個室の要否を確認" }] : [];
   });
 }
-export function oralFlags(p: Patient, entries: OrderEntry[], surgery: boolean, lines: StandingLine[] = [], nowTime = "23:59", diagnoses: string[] = []) {
+export function oralFlags(p: Patient, entries: OrderEntry[], surgery: boolean, lines: StandingLine[] = [], nowTime = "23:59", diagnoses: string[] = [], vents: VentSetting[] = []) {
   const diagnosisText = diagnoses.join("・");
   const equipment = equipmentOf(entries, lines, nowTime);
-  const priority = [surgery ? "手術予定" : "", /誤嚥性肺炎/.test(diagnosisText) ? "誤嚥性肺炎" : "", /絶食|食止/.test(p.dietNow ?? "") ? "絶食" : "", equipment.some(e => /人工呼吸/.test(e.label)) ? "挿管・人工呼吸" : ""].filter(Boolean);
+  const vent = ventAt(vents, p.id, abs(0, nowTime));
+  const respiratory = vent
+    ? vent.mode === "なし" ? "" : vent.mode === "NPPV" || vent.mode === "HFNC" ? vent.mode : "人工呼吸"
+    : equipment.some(e => /人工呼吸/.test(e.label)) ? "挿管・人工呼吸" : equipment.find(e => /NPPV|HFNC|ハイフロー/.test(e.label))?.label.match(/NPPV|HFNC|ハイフロー/)?.[0] ?? "";
+  const priority = [surgery ? "手術予定" : "", /誤嚥性肺炎/.test(diagnosisText) ? "誤嚥性肺炎" : "", /絶食|食止/.test(p.dietNow ?? "") ? "絶食" : "", respiratory].filter(Boolean);
   const management = surgery || /がん|癌|悪性/.test(diagnosisText) || activeOrders(entries).some(e => /化学療法|抗がん|レジメン/.test(JSON.stringify(e.order)) || (e.order.type === "injection" && e.order.items.some(i => findDrug(i.drugCode)?.chemo)));
   return { priority, management };
 }
@@ -105,3 +113,8 @@ export function latestRecords(records: SpecialistRecord[]) {
   return records.slice().sort((a, b) => b.at.localeCompare(a.at));
 }
 export function toggleSpecialistRow(current: string | null, key: string) { return current === key ? null : key; }
+
+/** 記録の有無・保存時刻に依存せず、優先度、部屋、患者IDで固定する。 */
+export function compareOralPatients(a: Patient, aPriority: number, b: Patient, bPriority: number) {
+  return bPriority - aPriority || a.room.localeCompare(b.room, "ja", { numeric: true }) || a.id.localeCompare(b.id);
+}

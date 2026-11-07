@@ -2,19 +2,21 @@
 
 import { boardEquipment } from "@/lib/equipment-board";
 import type { IcuRecords } from "@/lib/icu/types";
+import type { VentSetting } from "@/lib/icu/types";
 import { Fragment, useState } from "react";
 import type { Diagnosis } from "@/lib/diagnoses";
 import type { StandingLine } from "@/lib/standing-lines";
 import type { AdminRecord } from "@/lib/mar";
 import type { Patient, OrderEntry } from "@/lib/types";
 import { can, denyReason, type Staff } from "@/lib/roles";
-import { antibioticMonitoring, infectionRank, latestRecords, toggleSpecialistRow, OHAT, ohatTotal, dotFor, antibioticsOf, infectionFlags, oralFlags, appendRecord, type SpecialistRecord, type SpecialistScreen } from "@/lib/specialist";
+import { compareOralPatients, antibioticMonitoring, infectionRank, latestRecords, toggleSpecialistRow, OHAT, ohatTotal, dotFor, antibioticsOf, infectionFlags, oralFlags, appendRecord, type SpecialistRecord, type SpecialistScreen } from "@/lib/specialist";
 
 import { DayInput } from "./DayInput";
 import { TimeInput } from "./TimeInput";
 import { addDays, daysFrom, isoDate, todayInTokyo, nowTimeInTokyo } from "@/lib/dates";
 
 interface Props {
+  vents?: VentSetting[];
   screen: SpecialistScreen;
   icu?: IcuRecords;
   beds?: { patientId?: string; room: string; bed: string }[];
@@ -48,7 +50,7 @@ export function SpecialistBoard(props: Props) {
     } catch { setError("保存できませんでした。入力内容と端末の保存容量を確認してください。"); }
   };
   const today = isoDate(todayInTokyo());
-  const flagsOf = (p: Patient, entries: OrderEntry[]) => oralFlags(p, entries, props.surgeryIds.includes(p.id), props.standingLines[p.id], props.nowTime, props.diagnoses?.[p.id]?.filter(d => d.outcome === "継続" && d.start <= 0 && !d.auto).map(d => d.name));
+  const flagsOf = (p: Patient, entries: OrderEntry[]) => oralFlags(p, entries, props.surgeryIds.includes(p.id), props.standingLines[p.id], props.nowTime, props.diagnoses?.[p.id]?.filter(d => d.outcome === "継続" && d.start <= 0 && !d.auto).map(d => d.name), props.vents);
   const people = props.people.filter(x => !x.patient.dischargedAt).map(x => { const bed = props.beds?.find(b => b.patientId === x.patient.id); return bed ? { ...x, patient: { ...x.patient, room: `${bed.room}${bed.bed}` } } : x; });
   const rows = people.flatMap(({ patient: p, entries }) => {
     const devices = props.screen === "equipment" ? boardEquipment(p.id, entries, props.standingLines[p.id], props.nowTime, props.icu) : [undefined];
@@ -59,7 +61,7 @@ export function SpecialistBoard(props: Props) {
       const done = history.some(r => r.at.slice(0, 10) === today && r.at <= `${today}T${nowTimeInTokyo()}` && (props.screen !== "oral" || r.care || !r.scores));
       return { p, entries, device, history, assessments, done, key: `${props.screen}:${p.id}:${device?.id ?? ""}` };
     });
-  }).sort((a, b) => props.screen === "infection" ? infectionRank(a.p, a.entries) - infectionRank(b.p, b.entries) : Number(a.done) - Number(b.done) || (props.screen === "oral" ? Number(!!a.assessments.length) - Number(!!b.assessments.length) || flagsOf(b.p, b.entries).priority.length - flagsOf(a.p, a.entries).priority.length : 0));
+  }).sort((a, b) => props.screen === "infection" ? infectionRank(a.p, a.entries) - infectionRank(b.p, b.entries) : props.screen === "oral" ? compareOralPatients(a.p, flagsOf(a.p, a.entries).priority.length, b.p, flagsOf(b.p, b.entries).priority.length) : Number(a.done) - Number(b.done));
   const abxPeople = people.map(x => ({ ...x, abx: antibioticsOf(x.entries) }));
   return <section className="h-full overflow-auto bg-paper p-5"><h1 className="mb-3 text-lg font-bold">{{ equipment: "医療機器", infection: "感染対策", oral: "口腔ケア" }[props.screen]}</h1>{error && <p role="alert" className="text-shu">{error}</p>}
     {props.screen === "infection" && <p className="mb-3 text-sm">耐性菌 {people.filter(x => infectionFlags(x.patient).length).length} 人 ／ 抗MRSA薬 {abxPeople.filter(x => x.abx.some(a => a.kind.includes("抗MRSA"))).length} 人 ／ 広域 {abxPeople.filter(x => x.abx.some(a => a.kind && !a.kind.includes("抗MRSA"))).length} 人 ／ 培養未提出で抗菌薬使用中 {abxPeople.filter(x => x.abx.some(a => !antibioticMonitoring(x.patient, a.startDay).culture)).length} 人</p>}
