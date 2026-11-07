@@ -36,6 +36,9 @@ describe("バイタルの一括入力", () => {
     expect(html).toMatch(/aria-checked="true"[^>]*>業務分担で自分の受け持ち（1人）/);
     expect(html.match(/の体温"/g)?.length).toBe(1);
     expect(html).toContain("入れた 0人分を確定");
+    // 前回 is pressed to copy it into the empty boxes; Enter／↓ goes to the same box of the next patient.
+    expect(html).toContain(`aria-label="${patients[0].name}の前回の値を写す"`);
+    expect(html).toContain('data-bulk-row="0" data-bulk-field="bt"');
     expect(html).not.toContain("Royal College of Physicians");
     expect(html).not.toContain("指示簿");
   });
@@ -45,6 +48,7 @@ describe("バイタルの一括入力", () => {
     expect(html).toMatch(/aria-checked="true"[^>]*>受け持ちのチーム（4人）/);
     expect(html).toMatch(/disabled=""[^>]*>業務分担で自分の受け持ち（0人）/);
     expect(html).not.toContain("人分を確定");
+    expect(html).not.toContain("の前回の値を写す");
   });
 });
 

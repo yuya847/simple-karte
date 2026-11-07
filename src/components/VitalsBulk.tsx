@@ -3,11 +3,11 @@ import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { Thermometer } from "lucide-react";
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { ACVPU_LABEL, type Acvpu } from "@/lib/news2";
 import type { StandingOrders } from "@/lib/standing";
 import type { VitalSign } from "@/lib/types";
-import { BULK_FIELDS, parseRow, rowWarnings, rowsWithErrors, toSave, type BulkRow } from "@/lib/vitals-bulk";
+import { BULK_FIELDS, parseRow, rowWarnings, rowsWithErrors, toSave, type BulkField, type BulkRow } from "@/lib/vitals-bulk";
 import { useMe } from "./RoleContext";
 import { PickSelect, type Pick } from "./WardMap";
 
@@ -43,6 +43,24 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
   const bad = rowsWithErrors(visible);
   const lateRow = Object.entries(visible).filter(([, r]) => r.time && !timeOk(r.time)).map(([id]) => id);
   const box = "w-14 rounded border border-rule bg-paper px-1 py-0.5 text-right text-[12px]";
+  // 前回: the last values go into the row's empty boxes (what was typed stays).
+  const copyLast = (p: BulkPatient) => {
+    const v = p.last;
+    if (!v) return;
+    const r = rowOf(p);
+    const values = { ...r.values };
+    for (const f of BULK_FIELDS) if (!(values[f.key] ?? "").trim() && v[f.key] !== undefined) values[f.key] = String(v[f.key]);
+    set(p, { values, avpu: r.avpu || v.avpu || "", o2: r.o2 || (v.o2 && v.o2 !== "室内気" ? v.o2 : "") });
+  };
+  // Enter or ↓: the same box of the next patient; ↑: of the one above.
+  const move = (e: KeyboardEvent<HTMLInputElement>, row: number, key: BulkField) => {
+    const step = e.key === "Enter" || e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+    if (!step || e.nativeEvent.isComposing) return;
+    const next = e.currentTarget.closest("table")?.querySelector<HTMLInputElement>(`input[data-bulk-field="${key}"][data-bulk-row="${row + step}"]`);
+    e.preventDefault();
+    next?.focus();
+    next?.select();
+  };
   const counts = { mine: mine.length, team: team.length, all: patients.length };
   return (
     <section aria-label="バイタルの一括入力" className="scroll-thin min-h-0 flex-1 overflow-auto bg-paper p-5">
@@ -89,7 +107,7 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
           </tr>
         </thead>
         <tbody>
-          {shown.map((p) => {
+          {shown.map((p, row) => {
             const r = rowOf(p);
             const parsed = parseRow(r);
             const warns = parsed.vital ? rowWarnings(parsed.vital, p.standing) : [];
@@ -98,10 +116,18 @@ export function VitalsBulk({ pick, patients, mine, team, nowTime, canType, onSav
                 <td className="whitespace-nowrap px-1.5 py-1">
                   {p.room} <b>{p.name}</b>
                 </td>
-                <td className="px-1.5 py-1 text-[11px] text-ink-faint">{displayText(lastText(p.last))}</td>
+                <td className="px-1.5 py-1 text-[11px] text-ink-faint">
+                  {p.last && canType ? (
+                    <button type="button" onClick={() => copyLast(p)} aria-label={`${p.name}の前回の値を写す`} title="前回の値を空欄に写す" className="nums rounded px-1 py-0.5 text-left text-ink-soft hover:bg-ai-soft hover:text-ai">
+                      {displayText(lastText(p.last))}
+                    </button>
+                  ) : (
+                    displayText(lastText(p.last))
+                  )}
+                </td>
                 {BULK_FIELDS.map((f) => (
                   <td key={f.key} className="px-1 py-1 text-right">
-                    <input value={r.values[f.key] ?? ""} disabled={!canType} onChange={(e) => set(p, { values: { ...r.values, [f.key]: e.target.value } })} inputMode="decimal" aria-label={`${p.name}の${f.label}`} className={box} />
+                    <input value={r.values[f.key] ?? ""} disabled={!canType} onChange={(e) => set(p, { values: { ...r.values, [f.key]: e.target.value } })} onKeyDown={(e) => move(e, row, f.key)} data-bulk-row={row} data-bulk-field={f.key} inputMode="decimal" aria-label={`${p.name}の${f.label}`} className={box} />
                   </td>
                 ))}
                 <td className="px-1 py-1">
