@@ -1006,6 +1006,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       returns: [returns, setReturns],
       national: [national, setNational],
       portalInbox: [portalInbox, setPortalInbox],
+      // 記載・書類: a save from before has none (empty); a partial one is filled in.
+      kisai: [kisai, (v: Partial<KisaiWorkspace>) => setKisai(kisaiWorkspace(v))],
       // A save from before an outpatient's registration existed gets the demo registrations back (records in the save win).
       iji: [iji, (v: IjiDesk) => setIji(withInitialInsurance(v))],
       takeHolds: [takeHolds, setTakeHolds],
