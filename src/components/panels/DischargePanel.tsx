@@ -6,7 +6,7 @@ import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { SummaryApproval } from "../SummaryList";
 import { confirmSummary, summaryState } from "@/lib/summary-approval";
 import { useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { HOSPITAL } from "@/lib/billing/facility";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import { abs } from "@/lib/flowsheet";
@@ -58,6 +58,14 @@ export function DischargePanel({ icu, patient, today, nowTime, entries, history,
   const [unplaced, setUnplaced] = useState("");
   const speech = useSpeech((t) => setText((x) => (x ? `${x}${t}` : t)));
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  // The sheet goes into <body> only while printing, so another open window (紹介状) does not print with it.
+  const [printing, setPrinting] = useState(false);
+  const print = () => {
+    flushSync(() => setPrinting(true));
+    const done = () => { setPrinting(false); window.removeEventListener("afterprint", done); };
+    window.addEventListener("afterprint", done);
+    window.print();
+  };
   const facts = collectFacts(patient, entries, diagnoses, today, d.dischargeDay, icu, abs(0, nowTime));
   const checks = dischargeChecks(patient, entries, consentsPending);
   const deny = useDeny()("discharge");
@@ -207,14 +215,14 @@ export function DischargePanel({ icu, patient, today, nowTime, entries, history,
             紹介状を作る
           </button>
         )}
-        <button type="button" onClick={() => window.print()} className="ml-auto flex items-center gap-1 rounded border border-ai px-3 py-1 text-xs font-bold text-ai">
+        <button type="button" onClick={print} className="ml-auto flex items-center gap-1 rounded border border-ai px-3 py-1 text-xs font-bold text-ai">
           <Printer size={13} />
           印刷（A4縦）
         </button>
       </div>
 
       <div className="rounded-lg border border-rule bg-sheet p-5 shadow-sm">{doc()}</div>
-      {mounted && createPortal(<div className="print-consent hidden print:block">{doc(true)}</div>, document.body)}
+      {mounted && printing && createPortal(<div className="print-consent hidden print:block">{doc(true)}</div>, document.body)}
     </div>
   );
 }

@@ -98,7 +98,7 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
       <>
         <label className="flex items-center gap-1">
           相手
-          <select disabled={locked} value={f.partner ?? ""} onChange={(e) => { const partner = (e.target.value || undefined) as LetterFlags["partner"]; flag({ partner, ...(partner === "産科" && patient.pregnancy && !f.patientKind ? { patientKind: "妊娠中" as PatientKind } : {}) }); }} className="rounded border border-rule bg-sheet px-1">
+          <select aria-label="相手の区分" disabled={locked} value={f.partner ?? ""} onChange={(e) => { const partner = (e.target.value || undefined) as LetterFlags["partner"]; flag({ partner, ...(partner === "産科" && patient.pregnancy && !f.patientKind ? { patientKind: "妊娠中" as PatientKind } : {}) }); }} className="rounded border border-rule bg-sheet px-1">
             <option value="">未選択</option>
             {PARTNERS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
           </select>
@@ -106,7 +106,7 @@ export function LetterPanel({ patient, entries, diagnoses, today, nowTime, lette
         {special && (
           <label className="flex items-center gap-1">
             患者
-            <select disabled={locked} value={f.patientKind ?? ""} onChange={(e) => flag({ patientKind: (e.target.value || undefined) as PatientKind | undefined })} className="rounded border border-rule bg-sheet px-1">
+            <select aria-label="患者の区分" disabled={locked} value={f.patientKind ?? ""} onChange={(e) => flag({ patientKind: (e.target.value || undefined) as PatientKind | undefined })} className="rounded border border-rule bg-sheet px-1">
               <option value="">未選択</option>
               {(["難病・てんかん", "妊娠中", "どちらでもない"] as const).map((k) => <option key={k}>{k}</option>)}
             </select>
