@@ -69,11 +69,11 @@ export function unplacedLines(lines: IcLine[], found: Record<keyof Placement, Fo
 }
 
 /**
- * The note: the template filled in, the consent mark, what Claude did (if anything), and the whole transcript
- * with speakers and times.
+ * The note: the template filled in, the consent mark, what Claude did (if anything; and whether the voice was
+ * told apart on the device), and the whole transcript with speakers and times.
  */
-export function icRecordText(t: NoteTemplate, values: TemplateValues, facts: RecordFacts, consent: RecordingConsent, lines: IcLine[], claude: { speakers: boolean; place: boolean }): string {
-  const did = [claude.speakers ? "話し手の見立て" : "", claude.place ? "欄への配置" : ""].filter(Boolean).join("・");
+export function icRecordText(t: NoteTemplate, values: TemplateValues, facts: RecordFacts, consent: RecordingConsent, lines: IcLine[], claude: { speakers: boolean; place: boolean; voice?: boolean }): string {
+  const did = [claude.speakers ? `話し手の見立て${claude.voice ? "（声の区切りは端末の中で sherpa-onnx）" : ""}` : "", claude.place ? "欄への配置" : ""].filter(Boolean).join("・");
   return [
     buildRecord(t, values, facts),
     consentLine(consent),
