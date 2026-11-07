@@ -6,7 +6,8 @@
 
 import { addDays, type CalendarDate } from "./dates";
 import { HOSPITAL } from "./billing/facility";
-import { facilityByName } from "./liaison";
+import { facilityByName, type LetterLike } from "./liaison";
+import { formatAddress, type PatientContacts } from "./patient-contacts";
 import { collectFacts, type DischargeDraft } from "./discharge";
 import { diagnosisLabel, type Diagnosis } from "./diagnoses";
 import { labPasteText } from "./lab-paste";
@@ -181,8 +182,11 @@ export function chartFields(c: LetterChart): Partial<Record<LetterField, string>
   };
 }
 
+/** What a letter started from another screen comes with (退院サマリ: 紹介 with 注8's 添付; 他科依頼: 宛先と目的). */
+export type LetterSeed = Partial<Pick<Letter, "to" | "dept" | "doctor" | "purpose" | "from">> & { flags?: LetterFlags };
+
 /** A new letter (not saved yet) with the chart's facts in its fields. */
-export function newLetter(id: string, c: LetterChart, type: LetterType, by: string, at: Stamp, seed: Partial<Pick<Letter, "to" | "dept" | "doctor" | "purpose" | "from">> & { flags?: LetterFlags } = {}): Letter {
+export function newLetter(id: string, c: LetterChart, type: LetterType, by: string, at: Stamp, seed: LetterSeed = {}): Letter {
   return {
     id, patientId: c.patient.id, type, to: seed.to ?? "", dept: seed.dept ?? "", doctor: seed.doctor ?? "", purpose: seed.purpose ?? "",
     body: chartFields(c), flags: seed.flags ?? {}, status: "下書き", createdBy: by, createdAt: at, dischargeDay: chartDischargeDay(c),
@@ -411,7 +415,7 @@ export function judgeLetters(input: LetterClaim[], today: CalendarDate, opts: { 
     const pairC = H.obstetrics ? !!p && p !== "産科" : p === "産科";
     let note: string;
     if (pairA) {
-      if (!H.b011Standard) return not("自院が施設基準を満たさない（架空の病院の設定）");
+      if (!H.b011Standard) return not("自院が施設基準を満たさない");
       note = "注1";
     } else if (pairB || pairC) {
       const need: PatientKind = pairB ? "難病・てんかん" : "妊娠中";
@@ -451,5 +455,24 @@ export function verdictLine(v: LetterVerdict, confirmed: boolean): string {
   return `${v.fee}・${v.limit}${confirmed ? "" : `（${v.free}）`}${v.note8 ? `／${v.note8}` : ""}`;
 }
 
-/** 地域医療連携の台帳: confirmed 紹介 to a 医療機関 = 逆紹介. */
-export const ledgerLetters = (letters: Letter[]) => letters.filter((l) => l.status === "確定" && l.type === "紹介");
+/** 地域医療連携の台帳: confirmed 紹介 to a 医療機関 = 逆紹介 (one row per letter, the old 退院サマリ's included once). */
+export function ledgerLetters(saved: Letter[], discharges: Record<string, DischargeDraft>, find: (id: string) => Pick<Patient, "name" | "kana" | "department" | "attending"> | undefined): LetterLike[] {
+  const ids = [...new Set([...Object.keys(discharges), ...saved.map((l) => l.patientId)])];
+  return ids.flatMap((pid) => {
+    const p = find(pid);
+    if (!p) return [];
+    return lettersFor(pid, saved, discharges[pid])
+      .filter((l) => l.status === "確定" && l.type === "紹介" && l.confirmedAt)
+      .map((l) => ({ id: l.id, patientId: pid, name: p.name, kana: p.kana, department: p.department, doctor: l.confirmedBy || p.attending, to: l.to, purpose: l.purpose, issuedDay: l.confirmedAt!.day }));
+  });
+}
+
+/** Saving a letter: the same id is replaced in place, a new one is added. */
+export const upsertLetter = (all: Letter[], l: Letter): Letter[] => (all.some((x) => x.id === l.id) ? all.map((x) => (x.id === l.id ? l : x)) : [...all, l]);
+
+/** 患者の住所・電話 for the letter (患者基本情報). */
+export const letterContact = (c?: Pick<PatientContacts, "address" | "phones">): string | undefined => {
+  if (!c) return undefined;
+  const text = [formatAddress(c.address), c.phones.home || c.phones.mobile].filter(Boolean).join("　");
+  return text || undefined;
+};

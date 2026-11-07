@@ -318,6 +318,8 @@ import { AbxRenalWindow } from "./AbxRenalWindow";
 import { CalcWindow } from "./CalcWindow";
 import { DietWindow } from "./DietWindow";
 import { DischargePanel } from "./panels/DischargePanel";
+import { LetterPanel } from "./panels/LetterPanel";
+import { claimLetters, letterContact, letterTitle, lettersFor, upsertLetter, type Letter, type LetterSeed, type LetterType } from "@/lib/letters";
 import type { DischargeDraft } from "@/lib/discharge";
 import type { TdmReport } from "@/lib/tdm";
 import { INITIAL_DIETS, MEALS, currentDiet, dietAt, dietLabel, type DietOrder } from "@/lib/diet";
@@ -629,6 +631,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const { panel, setPanel, open: panelWindows, activation: panelActivation, close: closePanelWindow } = usePanelWindows<PanelKind>(DRAWER_PANELS);
   /** The record template a pinned tile on the rail asked to open (テンプレート panel). */
   const [templateFocus, setTemplateFocus] = useState<string | null>(null);
+  // 紹介状 to open (a saved one, or a new one with these values); n renews the panel.
+  const [letterOpen, setLetterOpen] = useState<{ id?: string; seed?: LetterSeed & { type?: LetterType }; n: number } | null>(null);
   // 未確認の結果の窓: shown for a chart with unseen results until closed (per patient, this page).
   // 結果を表示 from a lab order in the record: the draw to show in the results table.
   const [resultFocus, setResultFocus] = useState<{ day: number; time: string } | null>(null);
@@ -839,6 +843,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [tdmReports, setTdmReports] = useState<TdmReport[]>([]);
   const [bRecords, setBRecords] = useState<BRecord[]>(INITIAL_B);
   const [discharges, setDischarges] = useState<Record<string, DischargeDraft>>(() => scenario ? SCENARIOS.discharges : {});
+  const [letters, setLetters] = useState<Letter[]>([]);
   const [extraCautions, setExtraCautions] = useState<Record<string, string[]>>({});
   // 患者プロファイルの変更（アレルギー・感染症・禁忌・血液型・身長体重・介助）, every change kept.
   const [profileLog, setProfileLog] = useState<ProfileChange[]>([]);
@@ -968,6 +973,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       tdmReports: [tdmReports, setTdmReports],
       bRecords: [bRecords, setBRecords],
       discharges: [discharges, setDischarges],
+      letters: [letters, setLetters],
       extraCautions: [extraCautions, setExtraCautions],
       profileLog: [profileLog, setProfileLog],
       anamnesis: [anamnesis, setAnamnesis],
@@ -1484,10 +1490,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     for (const i of r.done) auditLog({ role: me.role, actor: me.name, action: `確定（研修医の${i.kind}を確認）`, patient: findPatient(i.patientId)?.name, detail: `${i.by} ${i.at.time}：${i.text.replace(/\s+/g, " ").slice(0, 80)}${i.confirmed?.comment ? `　コメント：${i.confirmed.comment}` : ""}` });
   };
 
-  const lettersOf = (pid: string) => {
-    const d = discharges[pid];
-    return d?.letter.issuedAt ? [{ day: d.letter.issuedAt.day, to: d.letter.to, dischargeDay: d.dischargeDay, attach: !!d.letter.attach }] : [];
-  };
+  // 確定した紹介状だけが算定に入る（以前の退院サマリで発行したものも1通として）.
+  const lettersOf = (pid: string) => claimLetters(lettersFor(pid, letters, discharges[pid]));
+  const openLetter = (o: { id?: string; seed?: LetterSeed & { type?: LetterType } }) => { setLetterOpen({ ...o, n: Date.now() }); setPanel("letter"); };
 
   const createConsent = (code: ConsentCode) => {
     if (!patient || deny("consent")) return;
@@ -3940,6 +3945,17 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   />
                 </Drawer>
               )}
+              {panel === "letter" && (
+                <Drawer title="紹介状" onClose={closePanel} wide>
+                  <LetterPanel
+                    key={`${patient.id}:${letterOpen?.n ?? 0}`}
+                    patient={patient} entries={entries} diagnoses={diagnoses[patient.id] ?? []} today={today} nowTime={nowTime} newId={newId}
+                    letters={lettersFor(patient.id, letters, discharges[patient.id])} discharge={discharges[patient.id]} open={letterOpen} contact={letterContact(contactsBook[patient.id])}
+                    onSave={(l, how) => { setLetters((all) => upsertLetter(all, l)); auditLog({ role: me.role, actor: me.name, action: how === "確定" ? "確定（紹介状）" : "紹介状の下書きを保存", patient: patient.name, detail: letterTitle(l) }); update({ flash: how === "確定" ? "紹介状を確定しました。" : "紹介状の下書きを保存しました。" }); }}
+                    onPrint={(l) => auditLog({ role: me.role, actor: me.name, action: "紹介状を印刷", patient: patient.name, detail: `${letterTitle(l)}・${l.status}` })}
+                  />
+                </Drawer>
+              )}
               {panel === "nutrition" && <Drawer title="栄養管理" onClose={closePanel} wide locked={deny("assess.nutrition")}><NutritionPanel onPlan={() => { setNutritionDoc(true); setPanel("docs"); }} key={patient.id} patient={patient} evaluation={evals[patient.id]} diets={diets} today={today} nowTime={nowTime} onSave={(e, text) => { setEvals(all => ({ ...all, [e.patientId]: e })); chartNote(patient.id, text); }} /></Drawer>}
               {panel === "abx-renal" && (
                 <Drawer title="抗菌薬の量" onClose={closePanel} wide>
@@ -4230,7 +4246,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     patient={patient}
                     today={formatShort(today)}
                     saved={documents.filter((d) => d.patientId === patient.id)}
-                    onOpenReferral={() => setPanel("discharge")}
+                    onOpenReferral={() => openLetter({})}
                     initial={(k: DocKind): Record<string, string> => {
                       if (k === "栄養管理計画書") return { ...nutritionPlanDraft(patient, patient.labs, currentDiet(diets, patient.id, nowTime), evals[patient.id]?.nutrition, me), ...nutritionPressure(nm.ulcers, patient.id) };
                       const pl = evals[patient.id]?.plan;

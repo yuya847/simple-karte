@@ -90,7 +90,7 @@ describe("返書（B011）", () => {
   it("B009 は紹介なので算定しない。B011 は既定の設定（自院が施設基準を満たさない）で算定なし", () => {
     const v = judge([claim("返書", "架空大学病院", 0, { consent: true, request: true, partner: "大病院" })])[0];
     expect(v.codes).toEqual([]);
-    expect(verdictLine(v, true)).toBe("算定なし：返書は紹介ではない（B009 なし）。B011 は自院が施設基準を満たさない（架空の病院の設定）");
+    expect(verdictLine(v, true)).toBe("算定なし：返書は紹介ではない（B009 なし）。B011 は自院が施設基準を満たさない");
   });
   it("求めがない・区分が当たらない", () => {
     expect(judge([claim("返書", "X", 0, { consent: true })])[0].reason).toContain("求め");

@@ -127,7 +127,7 @@ it("職種共通の6群で、既存の道具を重複なく分類する", () => 
     const keys = groups.flatMap((g) => [...g.main, ...g.more].map((t) => t.key));
     expect(new Set(keys).size).toBe(keys.length);
     expect(groups[1].main.map((t) => t.key)).toEqual(["add-lab", "add-imaging", "add-cath", "add-physio", "add-pathology"]);
-    expect(groups[4].main.map((t) => t.key)).toEqual(["billing", "consents", "discharge", "docs"]);
+    expect(groups[4].main.map((t) => t.key)).toEqual(["billing", "consents", "discharge", "docs", "letter"]);
     expect(groups[5].main.map((t) => t.key)).toContain("opd-booking");
   }
 });

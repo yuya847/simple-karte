@@ -51,6 +51,7 @@ export const toolHelpLabels: Record<string, string> = {
   "consents": "同意書",
   "discharge": "退院サマリ",
   "docs": "書類作成",
+  "letter": "紹介状",
   "scans": "スキャン取込",
   "directive": "事前指示",
   "summary": "連携サマリ",

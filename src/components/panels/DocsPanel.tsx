@@ -17,7 +17,7 @@ import { DenyNote, useDeny, useMe } from "../RoleContext";
 
 /**
  * 書類作成: choose a form; what the chart says is filled in (カルテから), the doctor writes the rest,
- * confirms (kept in the record) and prints. 紹介状 is written in the 退院サマリ panel.
+ * confirms (kept in the record) and prints. 紹介状 is written in its own tool (LetterPanel).
  */
 export function DocsPanel({ patient, auto, saved, today, onSave, onOpenReferral, initial, initialKind, onOpenConsent, consents = [], suggestions = [] }: { onOpenConsent?: (code?: ConsentCode, recordId?: string) => void; consents?: ConsentRecord[]; suggestions?: DocumentSuggestion[]; initialKind?: DocKind; patient: Patient; auto: (k: DocKind) => Record<string, string>; saved: DocRecord[]; today: string; onSave: (kind: DocKind, values: Record<string, string>) => void; onOpenReferral: () => void; initial?: (k: DocKind) => Record<string, string> }) {
   const me = useMe();
