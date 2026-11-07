@@ -33,6 +33,7 @@ const rpc = async <T>(fn: string, body: Record<string, unknown>): Promise<T> => 
 };
 
 const STORE = "simple-karte:workspace";
+const CARRIED = ["sharedNoteTemplates", "improveRequests"];
 const isId = (s: string | null): s is string => !!s && /^[0-9a-f-]{36}$/i.test(s);
 
 /** This browser's workspace: ?ws=<id> in the address (to open the same records elsewhere), else the one kept here. */
@@ -62,8 +63,12 @@ export async function loadWorkspaceRow(id: string, day: string): Promise<{ data:
   const r = rows?.[0];
   if (!r || r.version !== WORKSPACE_VERSION) return null;
   const data = seed ? decodeWorkspace(r.data, seed) : r.data;
-  // Template definitions are settings, so carry only these across the chart's daily reset.
-  if (r.day !== day) return Array.isArray(data.sharedNoteTemplates) ? { data: { sharedNoteTemplates: data.sharedNoteTemplates }, updatedAt: r.updated_at ?? null } : null;
+  // Template definitions and the requests to change the app (その場で直す) are not of the day's patients, so carry
+  // only these across the chart's daily reset.
+  if (r.day !== day) {
+    const carried = Object.fromEntries(CARRIED.filter((k) => Array.isArray(data[k])).map((k) => [k, data[k]]));
+    return Object.keys(carried).length ? { data: carried, updatedAt: r.updated_at ?? null } : null;
+  }
   return { data, updatedAt: r.updated_at ?? null };
 }
 

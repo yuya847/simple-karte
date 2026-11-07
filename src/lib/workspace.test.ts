@@ -20,6 +20,14 @@ describe("記録の保存（Supabase）", () => {
     const { loadWorkspaceRow } = await import("./workspace");
     expect(await loadWorkspaceRow("ws", "2026-11-06")).toEqual({ data: { sharedNoteTemplates: templates }, updatedAt: "stamp" });
   });
+  it("その場で直すの要望も翌日に持ち越し、患者の記録は持ち越さない", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
+    const improveRequests = [{ id: "r1", by: "看護師 佐藤", role: "看護師", iso: "2026-11-05T01:00:00.000Z", screen: "病棟 › 入院患者一覧", text: "体温の欄を大きく", status: "受付" }];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{ version: 1, day: "2026-11-05", data: { improveRequests, notes: [{ id: "old-note" }] }, updated_at: "stamp" }]))));
+    const { loadWorkspaceRow } = await import("./workspace");
+    expect(await loadWorkspaceRow("ws", "2026-11-06")).toEqual({ data: { improveRequests }, updatedAt: "stamp" });
+  });
   it("reads back only the same day's records of this version, through the RPC with the public key", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
