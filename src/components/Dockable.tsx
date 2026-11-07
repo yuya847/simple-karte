@@ -3,8 +3,10 @@
 import { GripHorizontal, Minus, X } from "lucide-react";
 import { useTrayWindow } from "./WindowTray";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { fitWin, keptWin } from "@/lib/win-prefs";
-import { resizeWin, type ResizeEdge } from "@/lib/window-resize";
+import { resizeWin, restoredWin, snapArea, snapAt, snappedAs, snapWin, type ResizeEdge, type Snap } from "@/lib/window-resize";
+import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
 
 export interface Win {
   x: number;
@@ -40,28 +42,118 @@ export function clampWin(w: Win): Win {
 /**
  * Pointer handlers that move a window by its title bar or resize it from a corner (finger or mouse).
  * Shared by the right-side tabs (Dockable) and the panels (Drawer) so both behave the same.
+ * With `snap`: the title dragged to the top edge fills the screen, to the left or right edge takes that half
+ * (`hint` is the place it would take, while dragging); the title's double-click fills the screen or goes back;
+ * its right-click (a long press with a finger) offers the same. `titleProps` and `extras` carry these.
  */
-export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void, onFront?: () => void) {
-  const start = useRef<{ px: number; py: number; win: Win; mode: "move" | "size" | ResizeEdge } | null>(null);
+export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void, onFront?: () => void, snap?: { onSnap?: () => void }) {
+  const start = useRef<{ px: number; py: number; win: Win; mode: "move" | "size" | ResizeEdge; snapped: boolean; moved: boolean } | null>(null);
+  // The window before it was snapped, to go back to (this page only; a window kept snapped goes back to the middle).
+  const before = useRef<Win | null>(null);
+  const [hint, setHint] = useState<Snap | null>(null);
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+  const hold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopHold = () => {
+    if (hold.current) clearTimeout(hold.current);
+    hold.current = null;
+  };
+  useEffect(() => stopHold, []);
+  const screen = () => [window.innerWidth, window.innerHeight] as const;
+  const snapTo = (to: Snap) => {
+    if (!win) return;
+    if (!snappedAs(win, areaNow())) before.current = win;
+    snap?.onSnap?.();
+    onMove(snapWin(to, areaNow()));
+  };
+  const restore = () => {
+    if (!win) return;
+    const back = before.current ?? restoredWin(...screen());
+    before.current = null;
+    onMove(clampWin(back));
+  };
+  const snappedNow = win && typeof window !== "undefined" ? snappedAs(win, areaNow()) : null;
+  const toggleMax = () => (snappedNow === "max" ? restore() : snapTo("max"));
   const down = (mode: "move" | "size" | ResizeEdge, baseline = win) => (e: React.PointerEvent) => {
     if (!win || e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    start.current = { px: e.clientX, py: e.clientY, win: baseline ?? win, mode };
+    start.current = { px: e.clientX, py: e.clientY, win: baseline ?? win, mode, snapped: mode === "move" && !!snap && !!snappedAs(win, areaNow()), moved: false };
     onFront?.();
+    if (snap && mode === "move" && e.pointerType !== "mouse") {
+      stopHold();
+      const at = { x: e.clientX, y: e.clientY };
+      hold.current = setTimeout(() => setMenuAt(at), 600);
+    }
   };
   const move = (e: React.PointerEvent) => {
     const s = start.current;
     if (!s || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const dx = e.clientX - s.px;
     const dy = e.clientY - s.py;
+    // A title pressed without moving (a click, a double-click) does not move the window.
+    if (!s.moved && snap && s.mode === "move" && Math.hypot(dx, dy) < 6) return;
+    if (!s.moved) {
+      s.moved = true;
+      stopHold();
+      // A snapped window pulled away gets its size back, held at the same place of its title.
+      if (s.snapped) {
+        const back = before.current ?? restoredWin(...screen());
+        before.current = null;
+        s.win = { ...back, x: Math.round(s.px - ((s.px - s.win.x) / s.win.w) * back.w), y: s.win.y };
+      }
+    }
+    if (s.mode === "move" && snap) setHint(snapAt(e.clientX, e.clientY, ...screen()));
     onMove(clampWin(s.mode === "move" ? { ...s.win, x: s.win.x + dx, y: s.win.y + dy } : resizeWin(s.win, s.mode === "size" ? "se" : s.mode, dx, dy, window.innerWidth, window.innerHeight)));
   };
   const up = (e: React.PointerEvent) => {
+    stopHold();
+    const s = start.current;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     start.current = null;
+    setHint(null);
+    const to = s?.mode === "move" && s.moved && snap ? snapAt(e.clientX, e.clientY, ...screen()) : null;
+    if (s && to) {
+      before.current = s.win;
+      snap?.onSnap?.();
+      onMove(snapWin(to, areaNow()));
+    }
   };
-  return { down, move, up };
+  const actions: CellAction[] = [
+    ...(snappedNow !== "max" ? [{ label: "画面いっぱい", onClick: () => snapTo("max") }] : []),
+    ...(snappedNow !== "left" ? [{ label: "左半分", onClick: () => snapTo("left") }] : []),
+    ...(snappedNow !== "right" ? [{ label: "右半分", onClick: () => snapTo("right") }] : []),
+    ...(snappedNow ? [{ label: "元の大きさに戻す", onClick: restore }] : []),
+  ];
+  const titleProps = snap
+    ? {
+        onDoubleClick: (e: React.MouseEvent) => {
+          if (!(e.target as Element).closest("button")) toggleMax();
+        },
+        onContextMenu: (e: React.MouseEvent) => {
+          e.preventDefault();
+          setMenuAt({ x: e.clientX, y: e.clientY });
+        },
+      }
+    : {};
+  const extras = snap ? (
+    <>
+      {hint && <SnapPreview to={hint} />}
+      {menuAt && <FlowCellMenu at={menuAt} title="ウインドウ" actions={actions} onClose={() => setMenuAt(null)} />}
+    </>
+  ) : null;
+  return { down, move, up, toggleMax, snapTo, titleProps, extras };
+}
+
+/** The area windows snap into (under the patient bar of the chart open, else the screen). */
+function areaNow() {
+  const chart = document.querySelector("[data-drawer-bounds]")?.getBoundingClientRect();
+  return snapArea(window.innerWidth, window.innerHeight, chart && chart.height > 0 ? chart.top : null);
+}
+
+/** Where the window will go if let go now: a faint frame under the window being dragged. */
+function SnapPreview({ to }: { to: Snap }) {
+  const r = snapWin(to, areaNow());
+  return createPortal(<div aria-hidden data-snap-preview={to} className="pointer-events-none fixed z-[39] rounded-lg border-2 border-ai bg-ai/10" style={{ left: r.x + 4, top: r.y + 4, width: r.w - 8, height: r.h - 8 }} />, document.body);
 }
 
 /** Shared pointer targets for every floating window. Corners take priority over edges. */
@@ -130,7 +222,7 @@ export function Dockable({
     : win && compact && !adjusted
     ? { ...win, x: Math.max(0, ((typeof window === "undefined" ? 1200 : window.innerWidth) - Math.min(480, win.w)) / 2), w: Math.min(480, win.w), h: 240 }
     : win;
-  const drag = useWinDrag(shownWin, w => { setAdjusted(true); onMove(w); }, front);
+  const drag = useWinDrag(shownWin, w => { setAdjusted(true); onMove(w); }, front, {});
   const { down, move, up } = drag;
   useEffect(() => {
     if (!win) return;
@@ -164,6 +256,7 @@ export function Dockable({
         onPointerMove={move}
         onPointerUp={up}
         onPointerCancel={up}
+        {...(floating ? drag.titleProps : {})}
       >
         <GripHorizontal size={14} className="text-ink-faint" />
         <b className="truncate">{title}</b>
@@ -182,6 +275,7 @@ export function Dockable({
       </div>
       {children}
       {floating && <WindowResizeHandles drag={drag} />}
+      {floating && drag.extras}
     </div>
   );
 }

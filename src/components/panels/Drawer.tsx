@@ -67,7 +67,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
   const [sized, setSized] = useState(() => typeof window !== "undefined" && !!loadRemembered(key)?.sized);
   const toWindow = () => setWin(clampWin(loadRemembered(key)?.win ?? initialWin()));
   const tray = useTrayWindow(`panel:${key}`, title, !!win, onClose);
-  const drag = useWinDrag(win, setWin);
+  const drag = useWinDrag(win, setWin, undefined, { onSnap: () => setSized(true) });
   const { down, move, up } = drag;
   // Remember the window's place a moment after it stops moving (not on every pointer move).
   useEffect(() => {
@@ -139,6 +139,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
           onPointerMove={move}
           onPointerUp={up}
           onPointerCancel={up}
+          {...drag.titleProps}
         >
           <GripHorizontal size={14} className="text-ink-faint" />
           <h2 className="truncate font-bold">{title}</h2>
@@ -162,6 +163,7 @@ export function Drawer({ title, onClose, children, wide, locked, expandable, win
           setSized(true);
           return actual;
         }} />
+        {drag.extras}
       </div>
     );
   }
