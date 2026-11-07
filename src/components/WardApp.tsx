@@ -4087,6 +4087,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     onOpenDirective={() => setPanel("directive")}
                     onCreate={createConsent}
                     onUpdate={updateConsent}
+                    onIcRecord={confirmRecord}
                   />
                 </Drawer>
               )}

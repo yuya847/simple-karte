@@ -12,6 +12,9 @@ import { PLACEMENT_FIELDS, type Found, type Placement } from "./verify";
 import { speakerOf, transcriptText, type IcLine, type Speaker } from "./transcript";
 
 /** The consent to recording and to cloud speech recognition / transcription, and who marked it when. */
+/** The templates the window can fill (記事のテンプレート「IC の記録」「IC（簡易）」). */
+export const IC_TEMPLATE_IDS = ["rec-ic", "rec-ic-short"];
+
 export interface RecordingConsent {
   by: "本人" | "代理の方";
   /** 続柄 of the person who consented for the patient. */

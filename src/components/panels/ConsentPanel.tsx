@@ -4,7 +4,8 @@ import { DocumentBrowser } from "../DocumentBrowser";
 import { DOCUMENT_CATALOG, type DocumentSuggestion } from "@/lib/document-catalog";
 import { displayText } from "@/lib/display-text";
 import { Printer } from "lucide-react";
-import { DenyNote, useDeny } from "../RoleContext";
+import { DenyNote, useDeny, useMe } from "../RoleContext";
+import { IcVoiceButton } from "../IcVoice";
 import { useState } from "react";
 import { usePrintSheet } from "../DeskParts";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
@@ -29,6 +30,8 @@ interface Props {
   suggestions?: DocumentSuggestion[];
   onOpenDirective?: () => void;
   onUpdate: (r: ConsentRecord) => void;
+  /** IC を声で記録: confirms the IC record (a note) made from the conversation. */
+  onIcRecord?: (text: string, name: string, templateId: string) => void;
 }
 
 const STATUS_STYLE: Record<ConsentStatus, string> = {
@@ -40,7 +43,8 @@ const STATUS_STYLE: Record<ConsentStatus, string> = {
 
 
 /** The patient's explanation and consent forms: list, fill in, record the answer, print on A4. */
-export function ConsentPanel({ patient, room, today, nowTime, doctor, records, orders, onCreate, onUpdate, onOpenDirective, initialRecordId, suggestions = [] }: Props) {
+export function ConsentPanel({ patient, room, today, nowTime, doctor, records, orders, onCreate, onUpdate, onOpenDirective, onIcRecord, initialRecordId, suggestions = [] }: Props) {
+  const me = useMe();
   const [selected, setSelected] = useState<string | null>(initialRecordId ?? records.at(-1)?.id ?? null);
   const [signing, setSigning] = useState(false);
   const [print, sheet] = usePrintSheet();
@@ -65,6 +69,7 @@ export function ConsentPanel({ patient, room, today, nowTime, doctor, records, o
           ))}
           {records.length === 0 && <li className="text-ink-faint">同意書はまだありません。</li>}
         </ul>
+        {onIcRecord && <IcVoiceButton patient={patient} facts={{ patient, today, nowTime, me }} onConfirm={onIcRecord} className="w-full justify-center" />}
 
       </aside>
       {r ? (

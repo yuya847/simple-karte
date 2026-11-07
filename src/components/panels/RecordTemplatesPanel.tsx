@@ -13,6 +13,8 @@ import { pinOfTemplate, togglePin, useRail } from "@/lib/rail";
 import { buildRecord, findRecordTemplate, loadMyRecordTemplates, recordProblems, recordTemplatesFor, saveMyRecordTemplates, startRecordValues, type LinkedPanel, type RecordFacts, type RecordTemplate } from "@/lib/record-templates";
 import { FieldInput, TemplateEditor } from "../NoteTemplates";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
+import { IcVoiceButton } from "../IcVoice";
+import { IC_TEMPLATE_IDS } from "@/lib/ic/place";
 
 type View = { kind: "list" } | { kind: "fill"; t: NoteTemplate } | { kind: "edit"; t: NoteTemplate | null; seed: string; name: string };
 
@@ -173,6 +175,7 @@ function RecordForm({ t, facts, star, onInsert, onConfirm, onOpenPanel }: { t: N
         <h3 className="text-sm font-bold">{t.name}</h3>
         {star}
         <span className="text-[11px] text-ink-faint">{displayText(t.by ? `自分のテンプレート（${t.by}）` : "この病院のテンプレート")}</span>
+        {IC_TEMPLATE_IDS.includes(t.id) && <IcVoiceButton patient={facts.patient} facts={facts} templateId={t.id} onConfirm={(text) => onConfirm(text)} className="ml-auto text-xs" />}
         {rec?.link && (
           <button type="button" onClick={() => onOpenPanel(rec.link!.panel)} className="ml-auto inline-flex items-center gap-1 rounded-md border border-rule bg-sheet px-2 py-0.5 text-xs text-ink-soft hover:text-ink">
             <ExternalLink size={12} />
