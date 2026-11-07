@@ -11,6 +11,7 @@ import type { OrderEntry } from "@/lib/types";
 
 /** 水分出納 for the flow sheet: the typed IN/OUT of the patient, the drip records, and the 指示簿. */
 export interface FlowIo {
+  icu?: import("@/lib/icu/types").IcuRecords;
   typed: IoEntry[];
   records: Record<string, AdminRecord>;
   sessionStart: number;

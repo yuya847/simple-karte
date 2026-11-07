@@ -2,6 +2,8 @@ import type { OrderEntry, Patient } from "../types";
 import type { BedAssignment } from "../ward";
 import { floorOf } from "../ward";
 import { abs } from "../flowsheet";
+import { moveConflict } from "./move-conflict";
+import { stayDayText } from "./stays";
 import { currentOxygen } from "./current-oxygen";
 import { doseText, rateAt } from "./gamma";
 import { hourlyBalance } from "./balance";
@@ -40,7 +42,7 @@ export function boardRows(unit: UnitKind, patients: Patient[], beds: BedAssignme
     const running = records.infusions.filter(inf => inf.patientId === pid && rateAt(inf,nowAbs) !== null);
     const sofaNow = sofaScore(sofaFacts(patient,records,today,nowAbs)), sofaBefore = sofaScore(sofaFacts(patient,records,today-1,nowAbs));
     const move = (orders[pid] ?? []).flatMap(e => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-MOVE" && e.order.move?.to ? [e.order] : []).sort((a,b) => abs(a.start.day,a.start.time ?? "00:00")-abs(b.start.day,b.start.time ?? "00:00"))[0];
-    return { ...base, days: today-(stays[0]?.in.day ?? patient.admittedOn)+1, diagnosis: patient.admissionDiagnosis,
+    return { ...base, days: stayDayText(records, pid, nowAbs) ?? `${today-patient.admittedOn+1}日目`, diagnosis: patient.admissionDiagnosis,
       vent: currentOxygen(records, pid, nowAbs) ?? latestVital?.o2 ?? "—",
       infusions: running.map(inf => `${inf.name} ${doseText(inf,nowAbs).split("（")[0]}`),
       // Each running drip's dose (γ etc.) and its rate in mL/h.
@@ -49,7 +51,7 @@ export function boardRows(unit: UnitKind, patients: Patient[], beds: BedAssignme
       sofaToday: sofaNow.total, sofaYesterday: sofaBefore.total,
       sofaAssumed: { today: sofaNow.total !== null && sofaNow.assumed.length > 0, yesterday: sofaBefore.total !== null && sofaBefore.assumed.length > 0 },
       lines: records.lines.filter(l => l.patientId === pid && abs(l.insertedAt.day,l.insertedAt.time) <= nowAbs && (!l.removedAt || abs(l.removedAt.day,l.removedAt.time) > nowAbs)).map(l => ({ kind: l.kind === "尿道カテーテル" ? "尿カテ" : l.kind, days: lineDays(l,today).replace("日目","日"), flag: today-l.insertedAt.day+1 >= 7 })),
-      balance24h: balance, latest: { hr: latestVital?.hr, map: mapWithMeasured(measured,latestVital?.sbp,latestVital?.dbp), spo2: latestVital?.spo2, rr: latestVital?.rr, bt: latestVital?.bt, rass },
-      planned: move ? { to: floorOf(move.move!.to!.room).replace("病棟",""), day: move.start.day, time: move.start.time ?? "" } : null, stay };
+      balance24h: { ...balance, range: `今日 0〜${Math.floor(nowAbs % 1440 / 60)}時` }, latest: { hr: latestVital?.hr, map: mapWithMeasured(measured,latestVital?.sbp,latestVital?.dbp), spo2: latestVital?.spo2, rr: latestVital?.rr, bt: latestVital?.bt, rass },
+      planned: move ? { to: floorOf(move.move!.to!.room).replace("病棟",""), day: move.start.day, time: move.start.time ?? "", conflict: moveConflict(pid, move, beds, patients, orders) } : null, stay };
   });
 }

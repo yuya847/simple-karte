@@ -14,13 +14,13 @@ describe("ICU・HCU のベッド一覧", () => {
     expect(rows).toHaveLength(8);
     expect(rows.map(r => r.bed)).toEqual(Array.from({length:8},(_,i)=>`ICU${i+1}`));
     expect(rows.filter(r => !r.patient)).toHaveLength(6);
-    expect(rows[0].days).toBe(5);
-    expect(rows[1].days).toBe(3);
+    expect(rows[0].days).toBe("ICU 5日目");
+    expect(rows[1].days).toBe("3日目");
     expect(rows[0].sofaToday).toBe(4);
     expect(rows[1].sofaToday).toBeNull();
     expect(rows[0].sofaYesterday).toBeNull();
     expect(rows[0].lines[0]).toMatchObject({days:"7日",flag:true});
-    expect(rows[0].planned).toEqual({to:"5階東",day:1,time:"10:00"});
+    expect(rows[0].planned).toMatchObject({to:"5階東",day:1,time:"10:00"});
     expect(rows[0].infusions).toEqual(["ノルアドレナリン 0.12γ"]);
     expect(rows[0].drips).toEqual([{ name: "ノルアドレナリン", dose: "0.12γ", mlh: 4.9 }]);
     // 330 mL of urine in 11 hours could still make the renal score 3; yesterday has no total.

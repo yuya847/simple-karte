@@ -1,4 +1,4 @@
-import { currentInfusion } from "./icu/current-infusion";
+import { currentInfusion, infusionSpeedText } from "./icu/current-infusion";
 import { hourlyObservations, hourlyObservationText } from "./icu/hourly-observations";
 import type { IcuRecords } from "./icu/types";
 import { fixedInsulinUnits, insulinDoseText } from "./insulin-doses";
@@ -106,7 +106,7 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         const parts = [o.route, o.continuous ? "持続" : scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         const current = o.continuous ? currentInfusion(o, icu, p.id, nowAbs) : undefined;
-        if (current) parts.push(`${current.rate}mL/時${current.rate !== o.rateMlPerH ? `（指示 ${o.rateMlPerH}）` : ""}`);
+        if (current) parts.push(infusionSpeedText(current.inf, nowAbs, o.rateMlPerH));
         else if (o.rateMlPerH) parts.push(`${o.rateMlPerH.toFixed(1)}mL/時`);
         const detail = parts.join("　");
         if (o.continuous) {

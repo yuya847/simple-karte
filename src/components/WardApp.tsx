@@ -1,5 +1,8 @@
 "use client";
+import { useTransferSummaryPersistence } from "@/lib/use-transfer-summary-persistence";
+import { pendingChartDrafts } from "@/lib/confirmed-drafts";
 import { currentOxygen, patientForCurrentDisplay } from "@/lib/icu/current-oxygen";
+import { moveConflict } from "@/lib/icu/move-conflict";
 import { moveBedPlans } from "@/lib/icu/move-plans";
 import { IcuBoard } from "./IcuBoard";
 import { moveAdministration } from "@/lib/move-administration";
@@ -473,6 +476,7 @@ interface ChartState {
   noteAt?: { day: DayOffset; time: string } | null;
   /** Do of a past prescription (or one picked from 処方の記憶): copied into the 内服 tab. */
   rxSeed?: PrescriptionSeed;
+  confirmedDraftIds?: string[];
   drafting: boolean;
   error: string | null;
   meta: DraftMeta | null;
@@ -484,14 +488,14 @@ interface ChartState {
  * patient id; what one person is writing (the note, the instruction, drafts, what is on screen) under
  * "id|role", so that a nurse never confirms a doctor's half-written note or drafts as their own.
  */
-const SHARED_KEYS = ["added", "stopped", "stopTimes", "stopDays", "extended"] as const;
+const SHARED_KEYS = ["added", "stopped", "stopTimes", "stopDays", "extended", "confirmedDraftIds"] as const;
 type SharedKey = (typeof SHARED_KEYS)[number];
 const isShared = (k: string): k is SharedKey => (SHARED_KEYS as readonly string[]).includes(k);
 const deskKeyOf = (id: string, role: string) => `${id}|${role}`;
 function mergedChart(all: Record<string, ChartState>, id: string, role: string): ChartState {
   const base = all[id] ?? newChart();
   const desk = all[deskKeyOf(id, role)] ?? newChart();
-  return { ...desk, ...normalizeRightState(desk), added: base.added, stopped: base.stopped, stopTimes: base.stopTimes, stopDays: base.stopDays, extended: base.extended };
+  return { ...desk, ...normalizeRightState(desk), drafts: pendingChartDrafts(desk.drafts, base.confirmedDraftIds), confirmedDraftIds: base.confirmedDraftIds, added: base.added, stopped: base.stopped, stopTimes: base.stopTimes, stopDays: base.stopDays, extended: base.extended };
 }
 function applyChart(all: Record<string, ChartState>, id: string, role: string, patch: (c: ChartState) => Partial<ChartState>): Record<string, ChartState> {
   const p = patch(mergedChart(all, id, role));
@@ -1039,6 +1043,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   // 救急外来・外来 of today: each visit is a (small) patient too, so it opens in the same chart screen as a
   // ward patient (its record is the visit's orders and notes; a chart opened for the visit keeps the rest).
   useInfusionPersistence(icu, charts, allPatients, todayKey, setIcu, setCharts, newChart);
+  useTransferSummaryPersistence(charts, nm.summaries, todayKey, setCharts, nm.setSummaries, newChart);
   useKitchenAllergies(allPatients, care.kitchen, care.setKitchen, me, nowTime ?? "");
   const visitPatientsAll: WorkPatient[] = useMemo(
     () =>
@@ -1420,6 +1425,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       stopDays: { ...c.stopDays, ...Object.fromEntries(drafts.flatMap(d => d.kind === "stop" && d.targetOrderId ? [[d.targetOrderId, d.effectiveDay ?? 0]] : [])) },
       extended: { ...c.extended, ...extended },
       drafts: [],
+      confirmedDraftIds: [...new Set([...(c.confirmedDraftIds ?? []), ...drafts.map(d => d.id)])],
       // The orders stay in the left 経過 only; they are not written into the note (ユーザー 2026-11-06：わかりづらい).
       note: c.note,
       flash: `${added.length + stops.length + Object.keys(extended).length + dietsAdded.length}件を確定しました。${dietsAdded.length ? `食事の変更は食事のオーダに入りました。` : ""}左の経過に入りました。${newConsents.length ? `同意書の下書き ${newConsents.length}件（右の「同意書」）。` : ""}`,
@@ -1997,7 +2003,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ...es.flatMap((e): MoveEvent[] => {
         const o = e.order;
         if (o.type !== "procedure") return [];
-        if (o.move) return [{ day: o.start.day, time: o.start.time ?? null, label: moveText(o.move), tone: "ai", entryId: e.id, done: !!movesDone[e.id] }];
+        if (o.move) return [{ day: o.start.day, time: o.start.time ?? null, label: [moveText(o.move), moveConflict(pid, o, allBeds, allPatients, Object.fromEntries(allPatients.map(p => [p.id, workOf(p.id)?.entries ?? []])))].filter(Boolean).join("・"), tone: "ai", entryId: e.id, done: !!movesDone[e.id] }];
         if (o.leave) return [{ day: o.leave.from.day, time: o.leave.from.time, label: `${o.leave.kind}（${o.leave.destination}）`, tone: o.leave.kind === "退院" ? "wakatake" : "yamabuki", ...(o.leave.kind === "退院" ? { entryId: e.id, done: !!discharged[pid] } : {}) }, ...(o.leave.back ? [{ day: o.leave.back.day, time: o.leave.back.time, label: `${o.leave.kind}から帰院`, tone: "yamabuki" as const }] : [])];
         return [];
       }),
@@ -2320,7 +2326,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     pendingStopTimes: stopTimesOf(chart.drafts, nowTime),
     marOf: (id, at) => mar[`${id}|${at}`],
     execute: executeProps,
-    io: { typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standingNow(patient.id)?.io ?? null, onAdd: deny("vitals") ? undefined : addIo },
+    io: { icu, typed: io.filter((e) => e.patientId === patient.id), records: mar, sessionStart: sessionStart ?? abs(0, nowTime), standingIo: standingNow(patient.id)?.io ?? null, onAdd: deny("vitals") ? undefined : addIo },
     onModify: modifyOrder,
     care: { orders: careOrders.filter((o) => o.patientId === patient.id), records: careRecords, sessionStart: sessionStart ?? abs(0, nowTime), onRecord: deny("mar") ? undefined : recordCare, onVoid: deny("mar") ? undefined : voidCareRecord, onAdd: deny("mar") ? undefined : (o) => { setCareOrders(all => [...all, o]); auditLog({ role: me.role, actor: me.name, action: "確定（経過表の観察項目）", patient: patient.name, detail: o.item }); }, onLimits: deny("mar") ? undefined : (id, glucoseLimits) => setCareOrders(all => all.map(o => o.id === id ? { ...o, glucoseLimits } : o)) },
     standingCal: { onAdd: (l) => addStandingLine(patient.id, l), lines: [...(standingLines[patient.id] ?? []), ...linesFromFields(standing[patient.id] ?? [])], onStop: deny("order") ? undefined : (id, reason, day, kind) => stopStandingLine(patient.id, id, reason, day, kind), onEndField: (l) => { setStandingEdit({ ...l, patientId: patient.id, endSelected: true }); setPanel("standing"); }, onEdit: (l) => { setStandingEdit({ ...l, patientId: patient.id }); setPanel("standing"); }, onOpenPanel: () => { setStandingEdit(undefined); setPanel("standing"); } },
@@ -2425,7 +2431,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           beds={allBeds}
           patient={findPatient}
           plans={[
-            ...moveBedPlans(allPatients, Object.fromEntries(allPatients.map(p => [p.id, ordersOf(currentEntries(p, sessionChanges[p.id])).filter(e => !movesDone[e.id])]))),
+            ...moveBedPlans(allPatients, Object.fromEntries(allPatients.map(p => [p.id, ordersOf(currentEntries(p, sessionChanges[p.id])).filter(e => !movesDone[e.id])])), allBeds),
             ...WARD_PLANS.filter((w) => w.day >= 0 && w.day <= 1).map((w) => ({ floor: WARD_NAME, day: w.day, kind: w.kind })),
             ...requests.filter((r) => r.status === "申込" && r.when.day >= 0 && r.when.day <= 1).map((r) => ({ floor: r.ward, day: r.when.day, kind: "入院" as const })),
             ...people.flatMap((x) =>
@@ -2477,7 +2483,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         <IcuBoard patients={allPatients} beds={allBeds} records={icu} today={today} nowTime={nowTime} orders={Object.fromEntries(allPatients.map(p => [p.id, ordersOf(currentEntries(p, sessionChanges[p.id])).filter(e => !movesDone[e.id])]))} onOpen={id => { openPatient(id); setTimeout(() => setPanel("icu"), 0); }} />
       ) : screen === "monitor" ? (
         <CentralMonitor
-          candidates={[...people, ...allPatients.filter(p => unitOf(p.ward) && !p.dischargedAt && !people.some(x => x.patient.id === p.id)).map(patient => ({ patient, room: patient.room }))].map((x) => ({ ward: x.patient.ward, id: x.patient.id, name: x.patient.name, room: x.room, admittedOn: x.patient.admittedOn, latest: x.patient.vitals.at(-1) }))}
+          candidates={[...people, ...allPatients.filter(p => unitOf(p.ward) && !p.dischargedAt && !people.some(x => x.patient.id === p.id)).map(patient => ({ patient, room: patient.room }))].map((x) => ({ ward: x.patient.ward, id: x.patient.id, name: x.patient.name, room: x.room, admittedOn: x.patient.admittedOn, latest: patientForCurrentDisplay(x.patient).vitals.at(-1) }))}
           manual={monitorManual}
           lockedWhy={role === "看護師" ? null : "モニターの付け外しは看護師が行います。"}
           nowTime={nowTime}
@@ -4037,7 +4043,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "add-procedure" && (
                 <Drawer title="処置（マスターから選ぶ）" onClose={closePanel} locked={orderBlock}>
-                  <AddProcedurePanel onAdd={(d) => { addManualLab(d); closePanel(); }} newId={newId} />
+                  <AddProcedurePanel onAdd={(d) => { closePanel(); if (d.kind === "procedure" && d.code === "PROC-MOVE") { setBooking({ day: 0, what: "move" }); return; } addManualLab(d); }} newId={newId} />
                 </Drawer>
               )}
               {panel === "add-leave" && (

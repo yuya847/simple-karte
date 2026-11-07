@@ -21,7 +21,7 @@ export interface NursingSummaries {
 const STATE_STYLE = { 承認待ち: "bg-yamabuki-soft text-yamabuki", 差し戻し: "bg-shu-soft text-shu", 承認済み: "bg-wakatake-soft text-wakatake" } as const;
 
 /** This patient's 看護サマリ with their state, the 看護師長's comment, and 「直して出し直す」. */
-function Handed({ list, onRedo }: { list: NurseSummary[]; onRedo: (s: NurseSummary) => void }) {
+function Handed({ list, onOpen, onRedo }: { list: NurseSummary[]; onOpen: (s: NurseSummary) => void; onRedo: (s: NurseSummary) => void }) {
   if (!list.length) return null;
   return (
     <section className="rounded-md border border-rule bg-sheet p-2 text-[12px]">
@@ -33,12 +33,13 @@ function Handed({ list, onRedo }: { list: NurseSummary[]; onRedo: (s: NurseSumma
           const v = latest(s);
           return (
             <li key={s.id} className="nums rounded border border-rule-soft bg-paper px-2 py-1">
-              <span className="font-bold">{s.kind}</span>
+              <button type="button" onClick={() => onOpen(s)} className="w-full text-left"><span className="font-bold">{s.kind}</span>
               {v.to && <span className="ml-1 text-ink-soft">宛先：{v.to}</span>}
               <span className={`ml-2 rounded px-1.5 text-[11px] font-bold ${STATE_STYLE[st]}`}>{st}</span>
               <span className="ml-2 text-ink-faint">
                 第{s.versions.length}版 {v.at.time} {displayText(v.by)}
               </span>
+              </button>
               {s.events
                 .filter((e) => e.kind === "承認" || e.kind === "差し戻し")
                 .map((e, i) => (
@@ -67,6 +68,9 @@ function Handed({ list, onRedo }: { list: NurseSummary[]; onRedo: (s: NurseSumma
  */
 export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nursing, coordination }: { room?: string; patient: Patient; facts: SummarySection[]; today: string; nowTime: string; onSave: (to: Destination, words: string, facts: SummarySection[], coordination?: Coordination) => void; coordination?: Coordination; nursing?: NursingSummaries }) {
   const me = useMe();
+  const submitted = nursing?.summaries.filter(s => s.patientId === patient.id).at(-1);
+  const [viewed, setViewed] = useState<NurseSummary | undefined>(submitted);
+  const version = viewed ? latest(viewed) : undefined;
   const [to, setTo] = useState<Destination | null>(null);
   const [words, setWords] = useState("");
   const [coord, setCoord] = useState<Coordination>(coordination ?? { pending: "", owner: "", due: "", receipt: "未受領" });
@@ -93,7 +97,7 @@ export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nur
           {patient.name}（{patient.kana}）　{ageSex(patient)}　ID {patient.id}　{patient.ward} {room ?? patient.room}　主治医 {patient.attending}　作成 {today} {nowTime} {me.name}
         </p>
       </header>
-      {facts.map((s) => (
+      {(version?.sections ?? facts).map((s) => (
         <section key={s.heading}>
           <h3 className="font-bold text-ink-soft">{s.heading}</h3>
           <ul className="pl-3">
@@ -107,7 +111,7 @@ export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nur
       ))}
       <section>
         <h3 className="font-bold text-ink-soft">申し送り（{me.name}）</h3>
-        <p className="whitespace-pre-wrap pl-3">{finalWords || "—"}</p>
+        <p className="whitespace-pre-wrap pl-3">{version?.words ?? (finalWords || "—")}</p>
       </section>
     </article>
   );
@@ -126,7 +130,9 @@ export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nur
         <>
           <Handed
             list={mine}
+            onOpen={s => { setViewed(s); setKind(s.kind); setTo(latest(s).to ?? null); setWords(latest(s).words); }}
             onRedo={(s) => {
+              setViewed(undefined);
               setRedo(s.id);
               setKind(s.kind);
               setTo(latest(s).to ?? null);
@@ -135,7 +141,7 @@ export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nur
           />
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-ink-soft">種類</span>
-            <TabChoice label="サマリの種類" options={SUMMARY_KINDS.map((k) => ({ value: k, label: k === "中間" ? "中間サマリ" : k }))} value={kind} onChange={(k) => (setKind(k), setRedo(null))} />
+            <TabChoice label="サマリの種類" options={SUMMARY_KINDS.map((k) => ({ value: k, label: k === "中間" ? "中間サマリ" : k }))} value={kind} onChange={(k) => (setKind(k), setRedo(null), setViewed(undefined))} />
             {redo && <span className="rounded bg-shu-soft px-1.5 text-[11px] font-bold text-shu">差し戻されたサマリを直しています</span>}
           </div>
         </>
@@ -147,7 +153,7 @@ export function SummaryPanel({ room, patient, facts, today, nowTime, onSave, nur
         </div>
       )}
       {handoff && <fieldset className="grid grid-cols-2 gap-2">{([ ["pending", "確認待ち事項"], ["owner", "担当"], ["due", "期限"] ] as const).map(([key, label]) => <label key={key}>{label}<input aria-label={label} type={key === "due" ? "date" : "text"} value={coord[key]} onChange={e => { setCoord({ ...coord, [key]: e.target.value }); setSaved(false); }} className="block w-full rounded border border-rule bg-paper px-2 py-1" /></label>)}<label>受領の状態<select aria-label="受領の状態" value={coord.receipt} onChange={e => { setCoord({ ...coord, receipt: e.target.value as Coordination["receipt"] }); setSaved(false); }}>{["未受領", "受領済み", "確認済み"].map(s => <option key={s}>{s}</option>)}</select></label></fieldset>}
-      <textarea value={words} onChange={(e) => setWords(e.target.value)} rows={4} placeholder={kind === "中間" ? "ここまでの経過と、これからの看護で大事なこと（自分の言葉で）" : "申し送り（自分の言葉で：本人・家族の希望、介護で気をつけること、続けてほしいケアなど）"} aria-label="申し送り" className="w-full rounded border border-rule bg-paper px-2 py-1" />
+      <textarea value={words} onChange={(e) => { setWords(e.target.value); setViewed(undefined); }} rows={4} placeholder={kind === "中間" ? "ここまでの経過と、これからの看護で大事なこと（自分の言葉で）" : "申し送り（自分の言葉で：本人・家族の希望、介護で気をつけること、続けてほしいケアなど）"} aria-label="申し送り" className="w-full rounded border border-rule bg-paper px-2 py-1" />
       <div className="flex flex-wrap items-center gap-2">
         {handIn ? (
           <button

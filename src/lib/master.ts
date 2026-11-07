@@ -645,6 +645,10 @@ export interface Analyte {
 }
 
 export const ANALYTES: Analyte[] = [
+  { code: "pH", name: "pH（血液ガス）", unit: "" },
+  { code: "PaO2", name: "PaO2（血液ガス）", unit: "mmHg" },
+  { code: "PaCO2", name: "PaCO2（血液ガス）", unit: "mmHg" },
+  { code: "HCO3", name: "HCO3（血液ガス）", unit: "mmol/L" },
   { code: "WBC", name: "WBC", unit: "/μL", low: 3300, high: 8600, source: "共用基準範囲" },
   { code: "Neut", name: "好中球", unit: "%", low: 41.2, high: 75.4, source: "SRL" },
   { code: "Hb", name: "Hb", unit: "g/dL", m: { low: 13.7, high: 16.8 }, f: { low: 11.6, high: 14.8 }, source: "共用基準範囲" },

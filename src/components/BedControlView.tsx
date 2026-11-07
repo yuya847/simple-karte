@@ -71,7 +71,7 @@ export function BedControlView({ floors, beds, patient, plans, requests, moves, 
                 <td className="px-2">
                   {c.admit[1]}／{c.discharge[1]}
                 </td>
-                <td className={`px-2 font-bold ${c.tomorrowEmpty <= 1 ? "text-shu" : ""}`}>{c.tomorrowEmpty}</td>
+                <td className={`px-2 font-bold ${c.tomorrowEmpty <= 1 ? "text-shu" : ""}`}>{c.tomorrowEmpty}{c.conflicts.map(c => <span key={c} className="block text-xs text-shu">{c}</span>)}</td>
               </tr>
             );
           })}

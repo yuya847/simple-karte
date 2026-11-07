@@ -41,6 +41,7 @@ export function useNursingMgmt(seed?: { ulcers: PressureUlcer[]; fallReviews: Re
     assignBook,
     setAssignBook,
     summaries,
+    setSummaries,
     handIn,
     review,
     fallReviews,

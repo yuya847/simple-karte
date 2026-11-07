@@ -46,11 +46,11 @@ function BedTile({ r, right, pinned, onPeek, onOpen }: { r: Row; right: boolean;
     onPointerDownCapture={() => { held.current = false; }}
     onClick={() => { if (held.current) { held.current = false; return; } if (opens) onOpen(opens); }}
     className="group relative flex min-h-24 select-none flex-col justify-start rounded border border-rule bg-sheet p-2 text-left text-xs [-webkit-touch-callout:none] hover:bg-paper disabled:border-dashed disabled:bg-transparent disabled:text-ink-faint">
-    <div className="flex w-full items-baseline gap-1.5"><b className="text-sm">{r.bed}</b>{r.patient ? <><span className="truncate text-sm">{r.patient.name}</span><span className="ml-auto shrink-0 text-ink-faint">{r.patient.age}{r.patient.sex}・{r.days}日目</span></> : <span>空床</span>}</div>
+    <div className="flex w-full items-baseline gap-1.5"><b className="text-sm">{r.bed}</b>{r.patient ? <><span className="truncate text-sm">{r.patient.name}</span><span className="ml-auto shrink-0 text-ink-faint">{r.patient.age}{r.patient.sex}・{r.days}</span></> : <span>空床</span>}</div>
     {r.patient && <>
       <div className="mt-0.5 truncate text-ink-soft">{r.diagnosis}</div>
       <div className="mt-1 flex flex-wrap gap-1">{r.vent && <span className={chip}>{r.vent.split(" ")[0]}</span>}{r.infusions.map((inf,i) => <span key={i} className={chip}>{shortDrug(inf)}</span>)}{r.crrt && <span className={chip}>{r.crrt.split(" ")[0]}</span>}</div>
-      {r.planned && <div className="mt-1 text-ai">→ {r.planned.to} {when(r.planned.day)} {r.planned.time}</div>}
+      {r.planned && <div className="mt-1 text-ai">→ {r.planned.to} {when(r.planned.day)} {r.planned.time}{r.planned.conflict && <span className="text-shu">・{r.planned.conflict}</span>}</div>}
       <BedCard r={r} id={`icu-card-${r.bed}`} right={right} pinned={pinned}/>
     </>}
     {r.incoming && <div className="mt-1 text-ai">← {r.incoming.name}（{r.incoming.from}）{when(r.incoming.day)} {r.incoming.time}</div>}
@@ -66,7 +66,7 @@ function BedCard({ r, id, right, pinned }: { r: Row; id: string; right: boolean;
   const label = "text-ink-faint";
   return <span id={id} role="tooltip" className={`nums pointer-events-none absolute top-full z-20 mt-1 grid w-96 grid-cols-[auto_1fr] items-baseline gap-x-2.5 gap-y-1 rounded-md border border-rule bg-sheet p-2.5 text-[12px] leading-snug text-ink shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)] transition-[opacity,visibility] duration-100 ${right ? "right-0" : "left-0"} ${pinned ? "visible opacity-100" : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:delay-300 group-focus-visible:visible group-focus-visible:opacity-100"}`}>
     {(r.sofaToday !== null || r.sofaYesterday !== null) && <><span className={label}>SOFA</span><span>{sofa(r.sofaToday, r.sofaAssumed.today)}<span className={`ml-3 ${label}`}>昨日</span> {sofa(r.sofaYesterday, r.sofaAssumed.yesterday)}</span></>}
-    {b && <><span className={label}>24h</span><span>IN {ml(b.inMl)}　OUT {ml(b.outMl)}　<b>{b.netMl >= 0 ? "+" : "−"}{ml(Math.abs(b.netMl))}</b> mL</span></>}
+    {b && <><span className={label}>{b.range}</span><span>IN {ml(b.inMl)}　OUT {ml(b.outMl)}　<b>{b.netMl >= 0 ? "+" : "−"}{ml(Math.abs(b.netMl))}</b> mL</span></>}
     {r.lines.length > 0 && <><span className={label}>ライン</span><span>{r.lines.map((l, i) => <span key={i} className="mr-2 inline-block">{l.kind} {l.flag ? <b>{l.days}</b> : l.days}</span>)}</span></>}
     {r.drips.length > 0 && <><span className={label}>持続</span><span>{r.drips.map((d, i) => <span key={i} className="block">{shortName(d.name)} <b>{d.dose}</b>{d.mlh !== null && <span className="text-ink-soft">　{d.mlh.toFixed(1)} mL/h</span>}</span>)}</span></>}
     {vitals.length > 0 && <span className="col-span-2 flex flex-wrap gap-x-2.5 border-t border-rule pt-1">{vitals.map(([k, x]) => <span key={k}><span className={label}>{k}</span> {x}</span>)}</span>}

@@ -51,7 +51,7 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
   const me = useMe();
   const [tab, setTab] = useState<"summary" | "letter">(draft?.letter.to ? "letter" : "summary");
   const [d, setD] = useState<DischargeDraft>(
-    () => draft ?? createDischargeDraft(patient, history ?? patient.history, orderDrafts, today, admissionRequest),
+    () => draft ?? createDischargeDraft(patient, history ?? patient.history, orderDrafts, today, admissionRequest, icu, abs(0, nowTime)),
   );
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -111,6 +111,7 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
         <label className="text-xs text-ink-soft">
           転帰{" "}
           <select disabled={locked} value={d.outcome} onChange={(e) => setD({ ...d, outcome: e.target.value })} className="rounded border border-rule bg-sheet px-1">
+            <option value="">未選択</option>
             {OUTCOMES.map((o) => (
               <option key={o.code} value={o.code}>
                 {o.label}
@@ -121,6 +122,7 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
         <label className="text-xs text-ink-soft">
           入院経路{" "}
           <select disabled={locked} value={d.route} onChange={(e) => setD({ ...d, route: e.target.value })} className="rounded border border-rule bg-sheet px-1">
+            <option value="">未選択</option>
             {ROUTES.map((o) => (
               <option key={o.code} value={o.code}>
                 {o.label}
@@ -218,6 +220,7 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
         </section>
       )}
 
+      {!locked && (!d.outcome || !d.route) && <p className="text-xs text-yamabuki">確定には転帰・入院経路の選択が必要です。</p>}
       <div className="flex flex-wrap gap-2">
         {!locked && (
           <button type="button" onClick={() => onSave(d)} className="rounded border border-rule px-3 py-1 text-xs">
@@ -227,7 +230,7 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
         {tab === "summary" && !locked && (
           <button
             type="button"
-            disabled={!d.sections.course.trim()}
+            disabled={!d.sections.course.trim() || !d.outcome || !d.route}
             onClick={() => {
               const x: DischargeDraft = confirmSummary(d, me.name, { day: 0, time: nowTime });
               setD(x);

@@ -218,7 +218,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
   const marRecs: FlowMar = mar ?? { records: io?.records ?? {}, sessionStart: io?.sessionStart ?? care?.sessionStart ?? nowAbs };
   const glucose = glucosePoints(care?.orders ?? [], care?.records ?? [], p.labs, Object.values(marRecs.records).filter(r=>r.patientId === p.id));
   const insulin = insulinOrders(orders);
-  const ioRows = io ? ioLines({ patientId: p.id, entries: orders, typed: io.typed, records: io.records, sessionStart: io.sessionStart, nowAbs, from: t0 - 1440 }) : null;
+  const ioRows = io ? ioLines({ patientId: p.id, icu: io.icu, entries: orders, typed: io.typed, records: io.records, sessionStart: io.sessionStart, nowAbs, from: t0 - 1440 }) : null;
 
   const hovered = hover === null ? null : vitals[hover];
 
