@@ -183,13 +183,24 @@ export function chartFields(c: LetterChart): Partial<Record<LetterField, string>
 }
 
 /** What a letter started from another screen comes with (退院サマリ: 紹介 with 注8's 添付; 他科依頼: 宛先と目的). */
-export type LetterSeed = Partial<Pick<Letter, "to" | "dept" | "doctor" | "purpose" | "from">> & { flags?: LetterFlags };
+export type LetterSeed = Partial<Pick<Letter, "to" | "dept" | "doctor" | "purpose" | "from">> & { type?: LetterType; flags?: LetterFlags; /** Text written elsewhere, put before the chart's facts in 症状経過・検査結果. */ note?: string };
+
+/** From the 退院時サマリー: 紹介 with 注8's 添付 marked, to the summary's 退院先 (or the address written there before). */
+export const dischargeSeed = (d: DischargeDraft): LetterSeed => ({ type: "紹介", to: d.letter.to || d.destination, dept: d.letter.dept, doctor: d.letter.doctor, purpose: d.letter.purpose, flags: { attach: true }, from: "退院サマリ" });
+
+/** From 他科依頼「院外へ紹介」: the address, and the text written there (one line as the 目的, more lines into 症状経過). */
+export const consultSeed = (to: string, dept: string, text: string): LetterSeed => {
+  const t = text.trim();
+  return { type: "紹介", to, dept, ...(t.includes("\n") ? { note: t } : { purpose: t }), from: "他科依頼" };
+};
 
 /** A new letter (not saved yet) with the chart's facts in its fields. */
 export function newLetter(id: string, c: LetterChart, type: LetterType, by: string, at: Stamp, seed: LetterSeed = {}): Letter {
+  const body = chartFields(c);
+  if (seed.note) body.findings = [seed.note, body.findings].filter(Boolean).join("\n\n");
   return {
     id, patientId: c.patient.id, type, to: seed.to ?? "", dept: seed.dept ?? "", doctor: seed.doctor ?? "", purpose: seed.purpose ?? "",
-    body: chartFields(c), flags: seed.flags ?? {}, status: "下書き", createdBy: by, createdAt: at, dischargeDay: chartDischargeDay(c),
+    body, flags: seed.flags ?? {}, status: "下書き", createdBy: by, createdAt: at, dischargeDay: chartDischargeDay(c),
     ...(seed.from ? { from: seed.from } : {}),
   };
 }

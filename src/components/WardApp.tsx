@@ -90,7 +90,7 @@ import { WindowEntryContext, type WindowEntries } from "@/lib/window-entry";
 import { normalizeRightState, orderWindows, showOrderWindow } from "@/lib/order-windows";
 import { ConsultContext } from "./ConsultContext";
 import { ConsultPanel, ConsultBanner, ConsultInboxView } from "./ConsultPanel";
-import { consultInbox, consultNotifications, referralDraft, consultReplyNote, replyConsult, closeConsult, type ConsultReplies } from "@/lib/consult";
+import { consultInbox, consultNotifications, consultReplyNote, replyConsult, closeConsult, type ConsultReplies } from "@/lib/consult";
 import { recordsForCompletedOrders } from "@/lib/completed-orders";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -319,7 +319,7 @@ import { CalcWindow } from "./CalcWindow";
 import { DietWindow } from "./DietWindow";
 import { DischargePanel } from "./panels/DischargePanel";
 import { LetterPanel } from "./panels/LetterPanel";
-import { claimLetters, letterContact, letterTitle, lettersFor, upsertLetter, type Letter, type LetterSeed, type LetterType } from "@/lib/letters";
+import { claimLetters, consultSeed, dischargeSeed, ledgerLetters, letterContact, letterTitle, lettersFor, upsertLetter, type Letter, type LetterSeed } from "@/lib/letters";
 import type { DischargeDraft } from "@/lib/discharge";
 import type { TdmReport } from "@/lib/tdm";
 import { INITIAL_DIETS, MEALS, currentDiet, dietAt, dietLabel, type DietOrder } from "@/lib/diet";
@@ -632,7 +632,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   /** The record template a pinned tile on the rail asked to open (テンプレート panel). */
   const [templateFocus, setTemplateFocus] = useState<string | null>(null);
   // 紹介状 to open (a saved one, or a new one with these values); n renews the panel.
-  const [letterOpen, setLetterOpen] = useState<{ id?: string; seed?: LetterSeed & { type?: LetterType }; n: number } | null>(null);
+  const [letterOpen, setLetterOpen] = useState<{ id?: string; seed?: LetterSeed; n: number } | null>(null);
   // 未確認の結果の窓: shown for a chart with unseen results until closed (per patient, this page).
   // 結果を表示 from a lab order in the record: the draw to show in the results table.
   const [resultFocus, setResultFocus] = useState<{ day: number; time: string } | null>(null);
@@ -1492,7 +1492,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   // 確定した紹介状だけが算定に入る（以前の退院サマリで発行したものも1通として）.
   const lettersOf = (pid: string) => claimLetters(lettersFor(pid, letters, discharges[pid]));
-  const openLetter = (o: { id?: string; seed?: LetterSeed & { type?: LetterType } }) => { setLetterOpen({ ...o, n: Date.now() }); setPanel("letter"); };
+  const openLetter = (o: { id?: string; seed?: LetterSeed }) => { setLetterOpen({ ...o, n: Date.now() }); setPanel("letter"); };
 
   const createConsent = (code: ConsentCode) => {
     if (!patient || deny("consent")) return;
@@ -2846,10 +2846,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           onBook={setLiaison}
           opd={opd}
           er={er}
-          letters={Object.entries(discharges).flatMap(([pid, d]) => {
-            const p = findPatient(pid);
-            return p && d.letter.issuedAt ? [{ patientId: pid, name: p.name, kana: p.kana, department: p.department, doctor: p.attending, to: d.letter.to, purpose: d.letter.purpose, issuedDay: d.letter.issuedAt.day }] : [];
-          })}
+          letters={ledgerLetters(letters, discharges, findPatient)}
         />
       ) : screen === "endo" ? (
         <EndoView people={everyone} desk={care.endo} onDesk={care.setEndo} pathology={dept.pathology} onAddPath={(c) => dept.setPathology((cs) => [...cs, c])} onGoPath={() => openArea("path")} acks={acks} today={today} nowTime={nowTime} />
@@ -3897,7 +3894,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                 </Drawer>
               )}
               {panel === "discharge" && (
-                <Drawer title="退院時サマリー・診療情報提供書" onClose={closePanel} wide>
+                <Drawer title="退院時サマリー" onClose={closePanel} wide>
                   <DischargePanel
                     icu={icu}
                     history={entries}
@@ -3921,11 +3918,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                       auditLog({ role: me.role, actor: me.name, action: "確定（退院時サマリー）", patient: patient.name, detail: `退院 ${d.dischargeDay}日後・${d.destination}` });
                       update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・退院時サマリーを確定（退院先：${d.destination}）\n` }));
                     }}
-                    onIssueLetter={(d) => {
-                      setDischarges((all) => ({ ...all, [patient.id]: d }));
-                      auditLog({ role: me.role, actor: me.name, action: "確定（診療情報提供書）", patient: patient.name, detail: `${d.letter.to} ${d.letter.dept}：${d.letter.purpose}` });
-                      update((c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・診療情報提供書：${d.letter.to} ${d.letter.dept} ${d.letter.doctor ? `${d.letter.doctor}先生` : ""}（${d.letter.purpose}）\n` }));
-                    }}
+                    onLetter={(d) => { if (!deny("discharge")) setDischarges((all) => ({ ...all, [patient.id]: d })); openLetter({ seed: dischargeSeed(d) }); }}
                     onApprove={(d) => {
                       setDischarges((all) => ({ ...all, [patient.id]: d }));
                       auditLog({ role: me.role, actor: me.name, action: "確定（退院時サマリーの承認）", patient: patient.name, detail: `確定 ${d.confirmedBy ?? ""}${d.approval?.comment ? `　コメント：${d.approval.comment}` : ""}` });
@@ -4112,7 +4105,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     today={today}
                     patient={patient} entries={entries}
                     onCloseConsult={(id) => { if (deny("consult")) return; setConsultReplies(all => ({ ...all, [id]: closeConsult(all[id]) })); }}
-                    onRefer={(to, dept, purpose, summary) => { if (deny("consult")) return; setDischarges(all => ({ ...all, [patient.id]: referralDraft(patient.id, to, dept, purpose, summary) })); setPanel("discharge"); }}
+                    onRefer={(to, dept, text) => { if (!deny("consult")) openLetter({ seed: consultSeed(to, dept, text) }); }}
                     newId={newId}
                     consults={entries.filter((e): e is OrderEntry => e.kind === "order" && e.order.type === "procedure" && e.order.code === "PROC-CONSULT")}
                     replies={consultReplies}

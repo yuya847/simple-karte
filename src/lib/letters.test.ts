@@ -5,7 +5,7 @@ import { shinryoItem } from "./billing/master-items";
 import { PATIENTS } from "./patients";
 import { createDischargeDraft } from "./discharge";
 import {
-  LETTER_FEES, LETTER_HOSPITAL, claimLetters, confirmLetter, judgeLetters, legacyId, legacyLetter, letterRights, letterVerdict, lettersFor, newLetter, saveDraft, verdictLine,
+  LETTER_FEES, LETTER_HOSPITAL, claimLetters, confirmLetter, consultSeed, dischargeSeed, judgeLetters, ledgerLetters, legacyId, legacyLetter, letterRights, letterVerdict, lettersFor, newLetter, saveDraft, verdictLine,
   type Letter, type LetterClaim, type LetterFlags, type LetterType,
 } from "./letters";
 
@@ -203,5 +203,29 @@ describe("退院サマリで発行した紹介状（以前の保存データ）"
     const r = run([{ id: "r", day: 0, time: "10:00", to: "架空大学病院", type: "返書", flags: { consent: true, request: true, partner: "大病院" } }]);
     expect(r.acts.filter((a) => a.shikibetsu === "13")).toEqual([]);
     expect(r.issues.map((i) => i.text).join("\n")).toContain("B011 は自院が施設基準を満たさない");
+  });
+});
+
+describe("退院サマリ・他科依頼から作る、台帳に入れる", () => {
+  const patient = PATIENTS[0];
+  const chart = { patient, entries: [], diagnoses: [], today };
+  it("退院サマリからは「紹介」で注8 の添付に印、宛先は退院先", () => {
+    const d = { ...createDischargeDraft(patient, patient.history, [], today), destination: "みどり台リハビリテーション病院" };
+    expect(dischargeSeed(d)).toMatchObject({ type: "紹介", to: "みどり台リハビリテーション病院", flags: { attach: true }, from: "退院サマリ" });
+  });
+  it("他科依頼の1行は目的、複数行は症状経過の先頭へ", () => {
+    expect(consultSeed("A病院", "循環器内科", "精査のお願い")).toMatchObject({ to: "A病院", dept: "循環器内科", purpose: "精査のお願い" });
+    const l = newLetter("x", chart, "紹介", "医師", { day: 0, time: "10:00" }, consultSeed("A病院", "循環器内科", "【紹介の目的】\n精査"));
+    expect(l.purpose).toBe("");
+    expect(l.body.findings?.startsWith("【紹介の目的】\n精査")).toBe(true);
+  });
+  it("台帳には確定した「紹介」だけ、1通ずつ（以前の退院サマリの1通も）", () => {
+    const issued = { ...createDischargeDraft(patient, patient.history, [], today), letter: { to: "さくら坂病院", dept: "", doctor: "", purpose: "療養", issuedAt: { day: -1, time: "09:00" } } };
+    const a = confirmLetter({ ...newLetter("a", chart, "紹介", "医師", { day: 0, time: "10:00" }), to: "A病院", flags: ok }, undefined, "医師", { day: 0, time: "10:00" });
+    const reply = confirmLetter({ ...newLetter("r", chart, "返書", "医師", { day: 0, time: "10:00" }), to: "B病院" }, undefined, "医師", { day: 0, time: "11:00" });
+    const draft = { ...newLetter("d", chart, "紹介", "医師", { day: 0, time: "12:00" }), to: "C病院" };
+    const rows = ledgerLetters([a, reply, draft], { [patient.id]: issued }, () => patient);
+    expect(rows.map((r) => r.to).sort()).toEqual(["A病院", "さくら坂病院"]);
+    expect(new Set(rows.map((r) => r.id)).size).toBe(2);
   });
 });

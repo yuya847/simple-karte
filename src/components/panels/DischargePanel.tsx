@@ -1,7 +1,6 @@
 "use client";
 import { DayInput } from "../DayInput";
 
-import { displayText } from "@/lib/display-text";
 import { Mic, Printer, Square } from "lucide-react";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { SummaryApproval } from "../SummaryList";
@@ -37,7 +36,8 @@ interface Props {
   draft?: DischargeDraft;
   onSave: (d: DischargeDraft) => void;
   onConfirm: (d: DischargeDraft) => void;
-  onIssueLetter: (d: DischargeDraft) => void;
+  /** 紹介状を作る: opens the 紹介状 tool with a 紹介 from this summary (its 退院先 and 注8's 添付). */
+  onLetter?: (d: DischargeDraft) => void;
   /** The patient's attending doctor (whose team approves), and the approver's 承認・差し戻し. */
   attending?: string;
   onApprove?: (d: DischargeDraft) => void;
@@ -47,9 +47,8 @@ interface Props {
 const noSubscribe = () => () => {};
 
 /** 退院時サマリー and 診療情報提供書: facts by code, the doctor's account placed by Claude, signed by the doctor. */
-export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, history, orderDrafts = [], admissionRequest, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter, attending = patient.attending, onApprove, onReturn }: Props) {
+export function DischargePanel({ icu, patient, today, nowTime, entries, history, orderDrafts = [], admissionRequest, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onLetter, attending = patient.attending, onApprove, onReturn }: Props) {
   const me = useMe();
-  const [tab, setTab] = useState<"summary" | "letter">(draft?.letter.to ? "letter" : "summary");
   const [d, setD] = useState<DischargeDraft>(
     () => draft ?? createDischargeDraft(patient, history ?? patient.history, orderDrafts, today, admissionRequest, icu, abs(0, nowTime)),
   );
@@ -84,23 +83,11 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
     }
   };
 
-  const doc = (print?: boolean) => (tab === "summary" ? <SummaryDoc d={d} patient={patient} facts={facts} directive={directive} today={today} print={print} /> : <LetterDoc d={d} patient={patient} facts={facts} today={today} doctor={doctor} print={print} />);
+  const doc = (print?: boolean) => <SummaryDoc d={d} patient={patient} facts={facts} directive={directive} today={today} print={print} />;
   return (
     <div className="space-y-3 text-[13px]">
       <DenyNote action="discharge" />
       <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" className="flex rounded-md border border-rule p-0.5">
-          {(
-            [
-              ["summary", "退院時サマリー"],
-              ["letter", "診療情報提供書"],
-            ] as const
-          ).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} type="button" onClick={() => setTab(k)} className={`rounded px-3 py-0.5 text-xs ${tab === k ? "bg-ink font-bold text-white" : "text-ink-soft"}`}>
-              {l}
-            </button>
-          ))}
-        </div>
         <label className="text-xs text-ink-soft">
           退院日{" "}
           <DayInput label="サマリの退院日付" disabled={locked} today={today} value={d.dischargeDay} onChange={dischargeDay => setD({ ...d, dischargeDay })} />
@@ -166,7 +153,7 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
         </div>
       )}
 
-      {tab === "summary" && !locked && (
+      {!locked && (
         <section className="space-y-2 rounded-md border border-rule bg-paper p-3">
           <h3 className="font-bold">経過を話す・打つ（Claude は文を欄に分けるだけ。足したり言い換えたりしません）</h3>
           <div className="flex gap-1.5">
@@ -194,32 +181,6 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
         </section>
       )}
 
-      {tab === "letter" && (
-        <section className="grid grid-cols-2 gap-2 rounded-md border border-rule bg-paper p-3 text-xs">
-          {(
-            [
-              ["to", "紹介先の医療機関"],
-              ["dept", "診療科"],
-              ["doctor", "先生のお名前"],
-            ] as const
-          ).map(([k, l]) => (
-            <label key={k} className="text-ink-soft">
-              {l}
-              <input value={d.letter[k]} onChange={(e) => setD({ ...d, letter: { ...d.letter, [k]: e.target.value } })} className="mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] text-ink" />
-            </label>
-          ))}
-          <label className="col-span-2 text-ink-soft">
-            紹介の目的
-            <input value={d.letter.purpose} onChange={(e) => setD({ ...d, letter: { ...d.letter, purpose: e.target.value } })} placeholder="例：退院後の経過観察と血液検査のお願い" className="mt-0.5 w-full rounded border border-rule bg-sheet px-2 py-1 text-[13px] text-ink" />
-          </label>
-          <label className="col-span-2 flex items-center gap-1 text-ink-soft">
-            <input type="checkbox" checked={!!d.letter.attach} onChange={(e) => setD({ ...d, letter: { ...d.letter, attach: e.target.checked } })} className="accent-ai" />
-            退院後の治療計画・検査結果・画像の情報を添付する（退院の月かその翌月なら B009 注8 退院時診療状況添付加算）
-          </label>
-          <p className="col-span-2 text-ink-faint">経過・検査・処方は退院時サマリーと同じもの（カルテから）を載せます。</p>
-        </section>
-      )}
-
       {!locked && (!d.outcome || !d.route) && <p className="text-xs text-yamabuki">確定には転帰・入院経路の選択が必要です。</p>}
       <div className="flex flex-wrap gap-2">
         {!locked && (
@@ -227,7 +188,7 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
             書いたところまで残す
           </button>
         )}
-        {tab === "summary" && !locked && (
+        {!locked && (
           <button
             type="button"
             disabled={!d.sections.course.trim() || !d.outcome || !d.route}
@@ -241,19 +202,9 @@ export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, 
             内容を確かめて確定（{me.name}）
           </button>
         )}
-        {tab === "letter" && (
-          <button
-            type="button"
-            disabled={!!deny || !d.letter.to.trim() || !d.letter.purpose.trim() || !d.sections.course.trim()}
-            title={!d.sections.course.trim() ? "退院時サマリーの経過を先に書いてください" : undefined}
-            onClick={() => {
-              const x: DischargeDraft = { ...d, letter: { ...d.letter, issuedAt: { day: 0, time: nowTime } } };
-              setD(x);
-              onIssueLetter(x);
-            }}
-            className="rounded bg-ai px-3 py-1 text-xs font-bold text-white disabled:opacity-40"
-          >
-            {d.letter.issuedAt ? `発行済み（${d.letter.issuedAt.time}）・もう一度記録` : "紹介状を発行する（算定に入る）"}
+        {onLetter && (
+          <button type="button" onClick={() => onLetter(d)} className="rounded border border-ai px-3 py-1 text-xs font-bold text-ai">
+            紹介状を作る
           </button>
         )}
         <button type="button" onClick={() => window.print()} className="ml-auto flex items-center gap-1 rounded border border-ai px-3 py-1 text-xs font-bold text-ai">
@@ -360,46 +311,6 @@ function SummaryDoc({ d, patient: p, facts, directive, today, print }: { d: Disc
       ))}
       {directive && <Rows title="事前指示" items={[directive]} />}
 
-    </article>
-  );
-}
-
-function LetterDoc({ d, patient: p, facts, today, doctor, print }: { d: DischargeDraft; patient: Patient; facts: Facts; today: CalendarDate; doctor: string; print?: boolean }) {
-  return (
-    <article className={`text-[12.5px] leading-relaxed text-ink ${print ? "print:text-[10.5px]" : ""}`}>
-      <h2 className="mb-3 text-center text-lg font-bold">診療情報提供書</h2>
-      <div className="mb-3 flex justify-between text-[12px]">
-        <div>
-          <p>
-            {d.letter.to || "（紹介先の医療機関）"}　{displayText(d.letter.dept)}
-          </p>
-          <p>{displayText(d.letter.doctor || "　　　　")} 先生　御侍史</p>
-        </div>
-        <div className="text-right">
-          <p>{formatShort(addDays(today, d.letter.issuedAt?.day ?? 0))}</p>
-          <p>{HOSPITAL.name}</p>
-          <p>
-            {p.department}　{displayText(doctor)}
-          </p>
-        </div>
-      </div>
-      <p className="mb-2">
-        患者：<b>{p.name}</b> 様（{ageSex(p)}）
-      </p>
-      <p className="mb-2">平素より大変お世話になっております。下記の患者さんをご紹介いたします。</p>
-      <Rows title="紹介の目的" items={d.letter.purpose ? [d.letter.purpose] : []} />
-      <Rows title="傷病名" items={facts.diagnoses.length ? facts.diagnoses : [facts.admissionDiagnosis]} />
-      <Rows title="アレルギー・薬剤禁忌" items={facts.allergies} />
-      <Rows title="感染症" items={facts.infections} />
-      <Prose title="経過" text={[`${facts.admitted}〜${facts.discharge} 入院。`, d.sections.course].join("\n")} />
-      <Labs facts={facts} today={today} />
-      <Rows title="培養" items={facts.cultures} />
-      <Rows title="退院時処方" items={facts.prescriptions} />
-      <Rows title="退院時に続いている内服" items={facts.continuingPrescriptions} />
-      {d.letter.attach && <Rows title="添付" items={["退院後の治療計画", "検査結果（上の推移）", "画像の所見（上の一覧）"]} />}
-      <Prose title="今後の方針" text={d.sections.plan} />
-      <p className="mt-3">ご高診のほど、よろしくお願い申し上げます。</p>
-      <p className="mt-3 text-[10px] text-ink-faint">事実はカルテから集め、文は医師が確認・編集したものです。</p>
     </article>
   );
 }

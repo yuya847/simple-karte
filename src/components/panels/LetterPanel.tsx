@@ -25,7 +25,7 @@ interface Props {
   letters: Letter[];
   discharge?: DischargeDraft;
   /** Open this letter, or start a new one with these values. */
-  open?: { id?: string; seed?: LetterSeed & { type?: LetterType } } | null;
+  open?: { id?: string; seed?: LetterSeed } | null;
   /** 患者の住所・電話（患者基本情報）. */
   contact?: string;
   newId: () => string;

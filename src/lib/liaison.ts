@@ -61,7 +61,7 @@ export function facilityByName(text: string, list: Facility[] = FACILITIES): Fac
 /** 紹介 = 他の医療機関から当院へ, 逆紹介 = 当院から他の医療機関へ. */
 export type Direction = "紹介" | "逆紹介";
 
-export type ReferralSource = "記録" | "外来の受付" | "救急外来" | "退院サマリの紹介状" | "台帳に記録";
+export type ReferralSource = "記録" | "外来の受付" | "救急外来" | "カルテの紹介状" | "台帳に記録";
 
 export interface Referral {
   id: string;
@@ -222,6 +222,8 @@ export function fromEr(list: ErLike[], doctor: string): Referral[] {
 }
 
 export interface LetterLike {
+  /** The letter (one patient may have several); absent in older callers. */
+  id?: string;
   patientId: string;
   name: string;
   kana: string;
@@ -232,12 +234,12 @@ export interface LetterLike {
   issuedDay: DayOffset;
 }
 
-/** 退院サマリで発行した紹介状 = 逆紹介 (the destination matched to the master by its name). */
+/** 確定した紹介状 = 逆紹介 (the destination matched to the master by its name). */
 export function fromLetters(list: LetterLike[]): Referral[] {
   return list.map((l) => {
     const f = facilityByName(l.to);
     return {
-      id: `letter:${l.patientId}`,
+      id: `letter:${l.id ?? l.patientId}`,
       direction: "逆紹介",
       facilityId: f?.id ?? null,
       ...(f ? {} : { facilityText: l.to || "（紹介先が書かれていない）" }),
@@ -249,7 +251,7 @@ export function fromLetters(list: LetterLike[]): Referral[] {
       firstVisit: false,
       ambulance: false,
       reason: l.purpose,
-      source: "退院サマリの紹介状",
+      source: "カルテの紹介状",
     };
   });
 }
