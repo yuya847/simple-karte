@@ -2,7 +2,7 @@
 
 import { GripHorizontal, Minus, X } from "lucide-react";
 import { useTrayWindow } from "./WindowTray";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { fitWin, keptWin } from "@/lib/win-prefs";
 import { resizeWin, restoredWin, snapArea, snapAt, snappedAs, snapWin, type ResizeEdge, type Snap } from "@/lib/window-resize";
@@ -51,7 +51,9 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
   // The window before it was snapped, to go back to (this page only; a window kept snapped goes back to the middle).
   const before = useRef<Win | null>(null);
   const [hint, setHint] = useState<Snap | null>(null);
-  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+  // The title's menu: where it opened and its choices (worked out when it opens, from how the window sits then).
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; actions: CellAction[] } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const hold = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopHold = () => {
     if (hold.current) clearTimeout(hold.current);
@@ -71,8 +73,9 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
     before.current = null;
     onMove(clampWin(back));
   };
-  const snappedNow = win && typeof window !== "undefined" ? snappedAs(win, areaNow()) : null;
-  const toggleMax = () => (snappedNow === "max" ? restore() : snapTo("max"));
+  // Read when used (a press, the menu), not while drawing: the area comes from the page.
+  const snappedNow = () => (win ? snappedAs(win, areaNow()) : null);
+  const toggleMax = () => (snappedNow() === "max" ? restore() : snapTo("max"));
   const down = (mode: "move" | "size" | ResizeEdge, baseline = win) => (e: React.PointerEvent) => {
     if (!win || e.button !== 0) return;
     e.preventDefault();
@@ -82,7 +85,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
     if (snap && mode === "move" && e.pointerType !== "mouse") {
       stopHold();
       const at = { x: e.clientX, y: e.clientY };
-      hold.current = setTimeout(() => setMenuAt(at), 600);
+      hold.current = setTimeout(() => openMenu(at), 600);
     }
   };
   const move = (e: React.PointerEvent) => {
@@ -118,12 +121,18 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
       onMove(snapWin(to, areaNow()));
     }
   };
-  const actions: CellAction[] = [
-    ...(snappedNow !== "max" ? [{ label: "画面いっぱい", onClick: () => snapTo("max") }] : []),
-    ...(snappedNow !== "left" ? [{ label: "左半分", onClick: () => snapTo("left") }] : []),
-    ...(snappedNow !== "right" ? [{ label: "右半分", onClick: () => snapTo("right") }] : []),
-    ...(snappedNow ? [{ label: "元の大きさに戻す", onClick: restore }] : []),
-  ];
+  function openMenu(at: { x: number; y: number }) {
+    const now = snappedNow();
+    setMenu({
+      at,
+      actions: [
+        ...(now !== "max" ? [{ label: "画面いっぱい", onClick: () => snapTo("max") }] : []),
+        ...(now !== "left" ? [{ label: "左半分", onClick: () => snapTo("left") }] : []),
+        ...(now !== "right" ? [{ label: "右半分", onClick: () => snapTo("right") }] : []),
+        ...(now ? [{ label: "元の大きさに戻す", onClick: restore }] : []),
+      ],
+    });
+  }
   const titleProps = snap
     ? {
         onDoubleClick: (e: React.MouseEvent) => {
@@ -131,14 +140,14 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
         },
         onContextMenu: (e: React.MouseEvent) => {
           e.preventDefault();
-          setMenuAt({ x: e.clientX, y: e.clientY });
+          openMenu({ x: e.clientX, y: e.clientY });
         },
       }
     : {};
   const extras = snap ? (
     <>
       {hint && <SnapPreview to={hint} />}
-      {menuAt && <FlowCellMenu at={menuAt} title="ウインドウ" actions={actions} onClose={() => setMenuAt(null)} />}
+      {menu && <FlowCellMenu at={menu.at} title="ウインドウ" actions={menu.actions} onClose={closeMenu} />}
     </>
   ) : null;
   return { down, move, up, toggleMax, snapTo, titleProps, extras };
@@ -146,7 +155,7 @@ export function useWinDrag(win: Win | null | undefined, onMove: (w: Win) => void
 
 /** The area windows snap into (under the patient bar of the chart open, else the screen). */
 function areaNow() {
-  const chart = document.querySelector("[data-drawer-bounds]")?.getBoundingClientRect();
+  const chart = typeof document === "undefined" ? undefined : document.querySelector("[data-drawer-bounds]")?.getBoundingClientRect();
   return snapArea(window.innerWidth, window.innerHeight, chart && chart.height > 0 ? chart.top : null);
 }
 
