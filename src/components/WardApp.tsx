@@ -10,6 +10,8 @@ import { moveAdministration } from "@/lib/move-administration";
 import { icuRecordShown, stayOnMove } from "@/lib/icu/stays";
 import { unitOf } from "@/lib/icu/types";
 import { useMcpReceiver } from "@/lib/mcp/receive";
+import { doctorsToTell } from "@/lib/push/targets";
+import { usePushRecords } from "@/lib/push/use-push";
 import { GlucoseContext } from "./GlucoseContext";
 import { useAnesthesiaPersistence } from "@/lib/use-anesthesia-persistence";
 import { pendingAnesthesiaPreop, upsertAnesthesiaNote, anesthesiaIo } from "@/lib/anesthesia";
@@ -435,6 +437,7 @@ import { PressurePanel } from "./panels/PressurePanel";
 import { useInfra } from "@/lib/use-infra";
 import { masterIssues } from "@/lib/master-local";
 import { SystemView } from "./SystemView";
+import { PushLanding, PushResults } from "./PushResults";
 import { DowntimeView } from "./DowntimeView";
 import { usePresence } from "@/lib/use-presence";
 import { thisTab } from "@/lib/presence";
@@ -907,6 +910,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [portalInbox, setPortalInbox] = useState<PortalInboxEntry[]>([]);
   // その場で直す: the requests to change the app (Claude Code reads them and writes back the fix).
   const [improveRequests, setImproveRequests] = useState<ImproveRequest[]>([]);
+  // スマートフォンへの通知: the devices that receive, and whether the text carries a pseudonym and the value (the hospital's setting).
+  const push = usePushRecords();
   // 記載・書類（算定）: 症状詳記の版と、摘要のコメントの答え。
   const [kisai, setKisai] = useState<KisaiWorkspace>(() => kisaiWorkspace());
   // 同時利用: after each save the other tabs and devices are told (usePresence fills this in).
@@ -1031,6 +1036,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ...care.states,
       ...nm.states,
       ...infra.states,
+      ...push.states,
       __writer: [writer, () => {}],
     } as unknown as Record<string, [unknown, (v: never) => void]>,
     todayKey,
@@ -2899,7 +2905,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           letters={ledgerLetters(letters, discharges, findPatient)}
         />
       ) : screen === "endo" ? (
-        <EndoView people={everyone} desk={care.endo} onDesk={care.setEndo} pathology={dept.pathology} onAddPath={(c) => dept.setPathology((cs) => [...cs, c])} onGoPath={() => openArea("path")} acks={acks} today={today} nowTime={nowTime} />
+        <EndoView people={everyone} desk={care.endo} onDesk={push.arm(care.setEndo)} pathology={dept.pathology} onAddPath={(c) => dept.setPathology((cs) => [...cs, c])} onGoPath={() => openArea("path")} acks={acks} today={today} nowTime={nowTime} />
       ) : screen === "kitchen" ? (
         <KitchenView people={everyone} evaluations={evals} work={{ teams: care.teams, guidance, onOpen: (id, panel) => { openPatient(id); setTimeout(() => setPanel(panel), 0); } }} diets={diets} desk={care.kitchen} onDesk={care.setKitchen} today={today} nowTime={nowTime} />
       ) : screen === "teams" ? (
@@ -2963,18 +2969,18 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           records={mar}
           sessionStart={sessionStart ?? abs(0, nowTime)}
           desk={labDesk}
-          onDesk={setLabDesk}
+          onDesk={push.arm(setLabDesk)}
         />
       ) : screen === "blood" ? (
         <BloodBankView people={people} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood} nowTime={nowTime} today={today} onIssued={(id, rec) => setTxIssued((all) => Object.fromEntries([...Object.entries(all).filter(([k]) => k !== id), ...(rec ? [[id, rec] as const] : [])]))} />
       ) : screen === "physio" ? (
-        <PhysioView people={examPeople} desk={dept.physioDesk} onDesk={dept.setPhysioDesk} acks={acks} nowTime={nowTime} />
+        <PhysioView people={examPeople} desk={dept.physioDesk} onDesk={push.arm(dept.setPhysioDesk)} acks={acks} nowTime={nowTime} />
       ) : screen === "radiology" ? (
-        <RadiologyView people={examPeople} desk={dept.ris} onDesk={dept.setRis} acks={acks} nowTime={nowTime} today={today} consents={consents} />
+        <RadiologyView people={examPeople} desk={dept.ris} onDesk={push.arm(dept.setRis)} acks={acks} nowTime={nowTime} today={today} consents={consents} />
       ) : screen === "rehab" ? (
         <RehabView onNote={(pid, note) => setNotes((all) => ({ ...all, [pid]: upsertSessionNote(all[pid] ?? [], note) }))} onOpen={openPatient} people={everyone} desk={wardRehabDesk(dept.rehab, everyone)} onDesk={dept.setRehab} nowTime={nowTime} today={today} />
       ) : screen === "path" ? (
-        <PathologyView people={everyone} cases={dept.pathology} onCases={dept.setPathology} acks={acks} nowTime={nowTime} today={today} />
+        <PathologyView people={everyone} cases={dept.pathology} onCases={push.arm(dept.setPathology)} acks={acks} nowTime={nowTime} today={today} />
       ) : screen === "handoff" ? (
         <HandoffView
           people={people}
@@ -4792,6 +4798,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     <VerbalReviewProvider nowTime={nowTime} patientName={patient?.name} onReview={(f) => update((c) => ({ added: f(c.added) }))}>
     {patient && <CarryNote id={patient.id} value={chart.note} initial={chart.noteInitial} onChange={note => update({ note, noteInitial: note })} />}
     {verbalConfirmation.dialog}
+    {/* スマートフォンへの通知: results confirmed on this page go to the devices of the patient's doctors (a panic value also to the bed's nurse); pressing one opens the results. */}
+    <PushResults ws={workspace.id} items={unseen([...labItems, ...deptResults], acks)} push={push} about={(pid) => ({ patient: findPatient(pid), doctors: doctorsToTell(doctorsOf(findPatient(pid)?.attending ?? "", doctorBook[pid])), nurse: ((r?: string) => r && ((planNow && rosterNow ? nurseOfBed(planNow, r, rosterNow.nurses) : undefined) ?? nurseFor(r.replace(/[A-Z]$/, ""))))(workOf(pid)?.room) })} />
+    <PushLanding ready={workspace.status !== "loading" && (workspace.status !== "off" || !workspaceOn())} go={() => { const ids = Object.keys(resultState).filter((id) => resultState[id].unseen > 0); if (ids.length === 1) { openPatient(ids[0]); setTimeout(() => setPanel("results"), 0); } else goWard("mine"); }} />
     <CosignRefs value={byRef(cosign)}>
     <div className="flex h-screen flex-col print:hidden">
       <div aria-hidden className="standalone-edge" />
