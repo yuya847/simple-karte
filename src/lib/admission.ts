@@ -5,7 +5,7 @@ import type { ErPatient } from "./er";
 import type { OpdPatient } from "./opd";
 import type { HistoryEntry, Patient } from "./types";
 import type { BedAssignment, Room, WardState } from "./ward";
-import { roomSex } from "./ward";
+import { floorOf, roomSex } from "./ward";
 
 export interface AdmitForm {
   diagnosis: string;
@@ -153,6 +153,25 @@ export function requestProblems(r: Pick<AdmissionRequest, "diagnosis" | "purpose
 /** One line for lists: "緊急　11/3 14:00　5階東病棟　尿路感染症の疑い（総合診療科）". */
 export const requestLine = (r: AdmissionRequest, fmtDay: (d: number) => string) =>
   `${r.urgency}　${fmtDay(r.when.day)}${r.when.time ? ` ${r.when.time}` : ""}　${r.ward}　${r.diagnosis}（${r.department}）`;
+
+/** Keep the existing emergency chart and its patient identity on admission. */
+export function admitExistingPatient(p: Patient, r: AdmissionRequest, bed: { room: string; bed: string }, nowTime: string): { patient: Patient; bed: BedAssignment } {
+  return {
+    patient: {
+      ...p,
+      ward: floorOf(bed.room),
+      room: bed.room,
+      department: r.department,
+      attending: r.attending,
+      admissionDiagnosis: r.diagnosis.trim(),
+      heightCm: r.heightCm > 0 ? r.heightCm : p.heightCm,
+      weightKg: r.weightKg > 0 ? r.weightKg : p.weightKg,
+      infections: r.isolation === "なし" || p.infections.includes(r.isolation) ? p.infections : [...p.infections, r.isolation],
+      history: [...p.history, { kind: "note", day: 0, time: nowTime, author: r.attending, role: "医師", text: `救急外来から入院。入院時病名：${r.diagnosis.trim()}。${bed.room}${bed.bed ? `-${bed.bed}` : ""} へ。` }],
+    },
+    bed: { ...bed, patientId: p.id },
+  };
+}
 
 /** Admit from an outpatient visit: the ward patient built from the request and the outpatient record. */
 export function admitFromOpd(op: OpdPatient, r: AdmissionRequest, bed: { room: string; bed: string }, id: string, nowTime: string, visitNotes: string[]): { patient: Patient; bed: BedAssignment } {

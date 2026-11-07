@@ -45,7 +45,7 @@ export function visitLabOrders(nowAbs: number): Record<string, OrderEntry[]> {
 }
 
 /** A small chart for the laboratory: who the visit is, its lab orders and the results confirmed so far. */
-export function visitPerson(kind: "er" | "opd", v: ErPatient | OpdPatient, orders: OrderEntry[], desk: LabDesk): WorkPatient {
+export function visitPerson(kind: "er" | "opd", v: ErPatient | OpdPatient, orders: OrderEntry[], desk: LabDesk, base?: Patient): WorkPatient {
   const id = visitPatientId(kind, v.id);
   const er = kind === "er" ? (v as ErPatient) : null;
   const op = kind === "opd" ? (v as OpdPatient) : null;
@@ -59,20 +59,20 @@ export function visitPerson(kind: "er" | "opd", v: ErPatient | OpdPatient, order
     ...(v.ageMonths !== undefined ? { ageMonths: v.ageMonths } : {}),
     ward: er ? "救急外来" : "外来",
     room,
-    department: op ? op.department : "救急外来",
-    attending: op ? op.doctor : (orders[0]?.author ?? STAFF.医師.name),
+    department: base?.department ?? (op ? op.department : "救急外来"),
+    attending: base?.attending ?? (op ? op.doctor : (orders[0]?.author ?? STAFF.医師.name)),
     admittedOn: 0,
-    admissionDiagnosis: er ? er.complaint : op!.reason,
-    heightCm: v.heightCm ?? 0,
-    weightKg: v.weightKg ?? 0,
-    allergies: v.allergies,
-    infections: [],
+    admissionDiagnosis: base?.admissionDiagnosis ?? (er ? er.complaint : op!.reason),
+    heightCm: base?.heightCm ?? v.heightCm ?? 0,
+    weightKg: base?.weightKg ?? v.weightKg ?? 0,
+    allergies: base?.allergies ?? v.allergies,
+    infections: base?.infections ?? [],
     cautions: [],
-    history: orders,
-    labs: deskLabs(desk, id),
+    history: [...(base?.history ?? []), ...orders].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)),
+    labs: [...(base?.labs ?? []), ...deskLabs(desk, id)],
     cultures: deskCultures(desk, id),
     imaging: [],
-    vitals: [],
+    vitals: base?.vitals ?? [],
     daily: [],
   };
   return { patient, room, entries: withRedraws(orders, desk, id) };

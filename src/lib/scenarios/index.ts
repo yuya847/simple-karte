@@ -167,7 +167,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
   const physioDesk = addScenarioPhysiology(patients.slice(0, 100));
   addIcuCathResults(patients.slice(100), physioDesk);
   const ris = addScenarioImaging(patients.slice(0, 100));
-  const er: ErPatient[] = cases.filter((c) => !c.planned || c.stage === "救急").map(({ patient: p, stage }) => ({ id: p.id, name: p.name, kana: p.kana, age: p.age, sex: p.sex, ageMonths: p.ageMonths, arrival: "救急車", arrivedAbs: p.id === "99000112" ? 520 : stage === "救急" ? 480 : p.admittedOn * 1440 + 480, complaint: p.admissionDiagnosis, status: stage === "救急" ? "診察中" : "入院済", ...(stage === "救急" ? {} : { admittedAs: p.id }), jtas: p.id === "99000112" ? 1 : 3, allergies: p.allergies, note: p.history.find((e) => e.kind === "note")?.text }));
+  const er: ErPatient[] = cases.filter((c) => !c.planned || c.stage === "救急").map(({ patient: p, stage }) => ({ id: p.id, name: p.name, kana: p.kana, age: p.age, sex: p.sex, ageMonths: p.ageMonths, arrival: "救急車", arrivedAbs: p.id === "99000112" ? 520 : stage === "救急" ? 480 : p.admittedOn * 1440 + 480, complaint: p.admissionDiagnosis, status: stage === "救急" ? "診察中" : "入院済", ...(stage === "救急" ? { heightCm: p.heightCm, weightKg: p.weightKg, vitals: p.vitals.toSorted((a, b) => b.day - a.day || b.time.localeCompare(a.time)).map(({ bt, hr, sbp, dbp, rr, spo2, o2 }) => ({ bt, hr, sbp, dbp, rr, spo2, o2 }))[0] } : { admittedAs: p.id }), jtas: p.id === "99000112" ? 1 : 3, allergies: p.allergies, note: p.history.find((e) => e.kind === "note")?.text }));
   const opd: OpdPatient[] = cases.filter((c) => c.stage === "外来" && c.destination !== "死亡退院").map(({ patient: p }) => ({ id: p.id, name: p.name, kana: p.kana, age: p.age, sex: p.sex, department: p.department, doctor: p.attending, slot: "09:00", status: "診察待ち", kind: "再診", reason: `退院後のフォロー：${p.admissionDiagnosis}`, allergies: p.allergies, problems: [p.admissionDiagnosis], meds: [], visits: p.history.filter((e) => e.kind === "note").map((e) => ({ day: e.day, text: e.text ?? e.soap?.a ?? "経過確認" })) }));
   for (const p of [...er.map((p) => `er:${p.id}`), ...opd.map((p) => `opd:${p.id}`)]) { const id = p.slice(p.indexOf(":") + 1); if (insurance[id]) insurance[p] = insurance[id]; }
   const visitOrders: Record<string, import("../types").OrderEntry[]> = {};
@@ -175,6 +175,7 @@ export function generateScenarios(seed = SCENARIO_SEED) {
   const visitNotes: Record<string, { text: string; at: string; by: string }[]> = {};
   for (const [kind, visits] of [["er", er], ["opd", opd]] as const) for (const v of visits) {
     const c = cases.find((c) => c.patient.id === v.id)!;
+    if (kind === "er" && c.stage === "救急") continue;
     const key = `${kind}:${v.id}`;
     const entries = kind === "opd" ? c.patient.history.filter((e) => e.day === 0) : c.patient.history.filter((e) => e.day === c.patient.admittedOn);
     visitOrders[key] = entries.filter((e): e is import("../types").OrderEntry => e.kind === "order").map((e) => ({ ...e, id: `${key}-${e.id}`, day: 0 }));

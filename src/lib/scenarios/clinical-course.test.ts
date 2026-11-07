@@ -1,3 +1,6 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PatientBar } from "../../components/PatientBar";
 import { describe, expect, it } from "vitest";
 import { generateScenarios } from ".";
 import type { NoteEntry } from "../types";
@@ -74,7 +77,12 @@ describe("病名と経過がつながる100人の臨床記録", () => {
   });
 
   it("救急・外来の診療記事と退院サマリ・紹介状が病名ごとの内容を持つ", () => {
-    for (const er of scenarios.er.filter((e) => !e.admittedAs)) expect(scenarios.visitNotes[`er:${er.id}`].some((n) => n.text.includes("救急初療記録"))).toBe(true);
+    for (const er of scenarios.er.filter((e) => !e.admittedAs)) {
+      const base = scenarios.patients.find(p => p.id === er.id)!;
+      expect(base.history.some(n => n.kind === "note" && n.text?.includes("救急初療記録"))).toBe(true);
+      expect(scenarios.visitChartNotes[`er:${er.id}`] ?? []).toHaveLength(0);
+      expect(scenarios.visitOrders[`er:${er.id}`] ?? []).toHaveLength(0);
+    }
     for (const opd of scenarios.opd) expect(scenarios.visitNotes[`opd:${opd.id}`].some((n) => n.text.includes("外来再診 SOAP"))).toBe(true);
     for (const draft of Object.values(scenarios.discharges)) {
       expect(draft.sections.complaint.length).toBeGreaterThan(2);
@@ -82,4 +90,11 @@ describe("病名と経過がつながる100人の臨床記録", () => {
       expect(draft.letter.purpose).toContain(scenarios.patients.find((p) => p.id === draft.patientId)!.admissionDiagnosis);
     }
   });
+});
+
+it("部屋のない救急患者を直接開いても病棟名へ置き換えない", () => {
+  const p = scenarios.patients.find(p => p.id === "99000112")!;
+  const html = renderToStaticMarkup(createElement(PatientBar, { patient: p, today: { y: 2026, m: 11, d: 7 }, diagnoses: [], onOpenDiagnoses: () => {}, onOpenDirective: () => {} }));
+  expect(html).toContain("救急外来");
+  expect(html).not.toContain("5階東病棟");
 });

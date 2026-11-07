@@ -2,7 +2,7 @@ import { specimenId } from "./lab-desk";
 import { describe, expect, it } from "vitest";
 import { initialErPatients } from "./er";
 import { EMPTY_DESK, confirmReport, drawRows, entryPlan, receive, rejectSpecimen, scanSpecimen, whenText } from "./lab-desk";
-import { visitLabOrders, visitPatientId, visitPeople } from "./lab-visits";
+import { visitLabOrders, visitPatientId, visitPeople, visitPerson } from "./lab-visits";
 import { OPD_PATIENTS } from "./opd";
 import { PANIC_LIMITS, callScript, placeOf, resultsOf, uncalled } from "./results";
 
@@ -70,4 +70,19 @@ describe("救急外来・外来の検体", () => {
     const rows = drawRows(visitPeople(er, OPD_PATIENTS, orders, sent), {}, sent, NOW, NOW + 10).filter((r) => r.name === "永井 茂");
     expect(rows.map((r) => `${r.status}${r.redrawOf ? " 再採血" : ""}`)).toEqual(["再採血", "未採取 再採血"]);
   });
+});
+
+it("既存患者の救急カルテは元の検査・体重・主治医・時系列を使う", async () => {
+  const { SCENARIOS } = await import("./scenarios");
+  const base = SCENARIOS.patients.find(p => p.id === "99000112")!;
+  const v = SCENARIOS.er.find(p => p.id === base.id)!;
+  expect(v.weightKg).toBe(80);
+  expect(v.vitals).toMatchObject({ hr: base.vitals.at(-1)!.hr, spo2: base.vitals.at(-1)!.spo2 });
+  const extra = { ...orders["er:er-3"][0], id: "session", day: 0, time: "12:00" };
+  const { patient } = visitPerson("er", v, [...(SCENARIOS.visitOrders[`er:${v.id}`] ?? []), extra], EMPTY_DESK, base);
+  expect(patient).toMatchObject({ name: v.name, attending: base.attending, weightKg: 80, heightCm: base.heightCm, department: base.department, admissionDiagnosis: base.admissionDiagnosis });
+  expect(patient.labs).toEqual(base.labs);
+  expect(patient.vitals).toBe(base.vitals);
+  expect(patient.history).toHaveLength(base.history.length + 1);
+  expect(patient.history.at(-1)).toEqual(extra);
 });

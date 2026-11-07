@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REQUEST_WARDS, CHART_WARDS, INITIAL_REQUESTS, admitFromEr, admitFromOpd, bedProblem, formProblems, requestProblems, type AdmissionRequest, type AdmitForm } from "./admission";
+import { REQUEST_WARDS, CHART_WARDS, INITIAL_REQUESTS, admitExistingPatient, admitFromEr, admitFromOpd, bedProblem, formProblems, requestProblems, type AdmissionRequest, type AdmitForm } from "./admission";
 import { OPD_PATIENTS, waitingMinutes } from "./opd";
 import { initialErPatients } from "./er";
 import { abs } from "./flowsheet";
@@ -84,4 +84,28 @@ describe("入院申込 from 外来", () => {
 it("ICU・HCUへ入院を申し込み、病棟で受けられる", () => {
   expect(REQUEST_WARDS).toEqual(expect.arrayContaining(["ICU", "HCU"]));
   expect(CHART_WARDS).toEqual(expect.arrayContaining(["ICU", "HCU"]));
+});
+
+ describe("既存の救急患者の受け入れ", () => {
+  const p = findPatient("90010231") ?? ward.patient(BEDS.find(b => b.patientId)!.patientId!)!;
+  const r: AdmissionRequest = { ...INITIAL_REQUESTS[0], attending: "白石", diagnosis: "重症肺炎", department: "集中治療科", isolation: "飛沫予防策" };
+  it("IDと検査・バイタル・来院日を保ち、入院記事だけを加える", () => {
+    const before = structuredClone(p);
+    const { patient, bed } = admitExistingPatient(p, r, { room: "ICU7", bed: "" }, "12:00");
+    expect(patient).toMatchObject({ id: p.id, admittedOn: p.admittedOn, ward: "ICU", room: "ICU7", attending: r.attending, department: r.department, admissionDiagnosis: r.diagnosis, heightCm: r.heightCm, weightKg: r.weightKg });
+    expect(patient.labs).toBe(p.labs);
+    expect(patient.vitals).toBe(p.vitals);
+    expect(patient.history.slice(0, -1)).toEqual(p.history);
+    expect(patient.history).toHaveLength(p.history.length + 1);
+    expect(patient.history.at(-1)).toMatchObject({ kind: "note", author: r.attending, text: "救急外来から入院。入院時病名：重症肺炎。ICU7 へ。" });
+    expect(patient.infections).toContain("飛沫予防策");
+    expect(bed.patientId).toBe(p.id);
+    expect(p).toEqual(before);
+  });
+  it("身長体重が未入力なら既存値を保ち、感染対策を重複させない", () => {
+    const { patient } = admitExistingPatient({ ...p, infections: [r.isolation] }, { ...r, heightCm: 0, weightKg: 0 }, { room: "ICU7", bed: "" }, "12:00");
+    expect(patient.heightCm).toBe(p.heightCm);
+    expect(patient.weightKg).toBe(p.weightKg);
+    expect(patient.infections).toEqual([r.isolation]);
+  });
 });

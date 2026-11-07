@@ -96,7 +96,7 @@ import { bigWin, keepWin, keptWin } from "@/lib/win-prefs";
 import { orderLines, procedureTitle } from "@/lib/format";
 import { anyDrugName } from "@/lib/master";
 import { standingFromRequest, standingTakeLines, admissionMissingNow } from "@/lib/admission-orders";
-import { INITIAL_REQUESTS, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
+import { INITIAL_REQUESTS, admitExistingPatient, admitFromEr, admitFromOpd, type AdmissionRequest } from "@/lib/admission";
 import { OPD_PATIENTS, type OpdPatient, type OpdStatus } from "@/lib/opd";
 import { INITIAL_DIAGNOSES, UNCODED, type Diagnosis } from "@/lib/diagnoses";
 import { DEFAULT_OPTIONS, type BillingOptions } from "@/lib/billing/model";
@@ -1001,7 +1001,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [arrivedCultures] = useState(() => (typeof window === "undefined" ? {} : cultureArrivals(abs(0, nowTimeInTokyo()))));
   const allPatients = useMemo(
     () =>
-      [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].map((p0) => {
+      [...new Map([...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].map(p => [p.id, p])).values()].map((p0) => {
         const p = applyProfile(p0, profileLog);
         const d = currentDirective(directives, p.id);
         const diet = currentDiet(diets, p.id, nowTime || "00:00");
@@ -1019,7 +1019,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ...(discharged[p.id] ? { dischargedAt: discharged[p.id] } : {}),
           daily: withIoUrine(withIcuUrine(withToday(p.daily, extraDaily[p.id]), icu, p.id), io.filter((e) => e.patientId === p.id)),
-          ward: floorOf(moves[p.id]?.room ?? p.room),
+          ward: p.room ? floorOf(moves[p.id]?.room ?? p.room) : p.ward,
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
@@ -1028,20 +1028,20 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     [PATIENTS, WARD_CHART_PATIENTS, admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, icu, dept.bloodBank, dept.demoOrders, profileLog, care.demoEndo],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
-  const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
+  const recordBlood = (id: string) => new Map([...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].map(p => [p.id, p])).get(id)?.blood;
   // 救急外来・外来 of today: each visit is a (small) patient too, so it opens in the same chart screen as a
   // ward patient (its record is the visit's orders and notes; a chart opened for the visit keeps the rest).
   useKitchenAllergies(allPatients, care.kitchen, care.setKitchen, me, nowTime ?? "");
   const visitPatientsAll: WorkPatient[] = useMemo(
     () =>
-      [...er.map((v) => visitPerson("er", v, visitEntries[`er:${v.id}`] ?? [], labDesk)), ...opd.map((v) => visitPerson("opd", v, visitEntries[`opd:${v.id}`] ?? [], labDesk))].map((x) => ({
+      [...er.map((v) => visitPerson("er", v, visitEntries[`er:${v.id}`] ?? [], labDesk, PATIENTS.find(p => p.id === v.id))), ...opd.map((v) => visitPerson("opd", v, visitEntries[`opd:${v.id}`] ?? [], labDesk))].map((x) => ({
         ...x,
         patient: { ...x.patient, vitals: [...x.patient.vitals, ...(extraVitals[x.patient.id] ?? [])].sort((a, b) => abs(a.day, a.time) - abs(b.day, b.time)), pregnancy: pregnancy[x.patient.id] ?? null },
       })),
-    [er, opd, visitEntries, labDesk, extraVitals, pregnancy],
+    [er, opd, visitEntries, labDesk, extraVitals, pregnancy, PATIENTS],
   );
   // ~80 charts: looked up by number, not by searching the list.
-  const patientById = useMemo(() => new Map([...allPatients, ...visitPatientsAll.map((x) => x.patient)].map((p) => [p.id, p])), [allPatients, visitPatientsAll]);
+  const patientById = useMemo(() => new Map([...visitPatientsAll.map((x) => x.patient), ...allPatients].map((p) => [p.id, p])), [allPatients, visitPatientsAll]);
   useDisplayState(role, me.name, setRole, setDoctorName, { area, wardTabs, wardTab, patientTabs, front }, { area: setArea, wardTabs: setWardTabs, wardTab: setWardTab, patientTabs: setPatientTabs, front: setFront }, new Set(patientById.keys()), !!todayKey && workspace.status !== "loading" && (workspace.status !== "off" || !workspaceOn()), defaultsOf(wardDefaults, role), setNurseName);
   useStandingCosign(standing, standingLines, setCosign);
   const findPatient = useCallback((id: string) => patientById.get(id), [patientById]);
@@ -1488,16 +1488,25 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   // The ward takes in an 入院申込: the bed is decided and the ward chart is made from the visit.
   const acceptRequest = (r: AdmissionRequest, bed: { room: string; bed: string }) => {
-    const id = `9002${String(admitted.length + 1).padStart(4, "0")}`;
+    let id = `9002${String(admitted.length + 1).padStart(4, "0")}`;
     const vkey = `${r.from.kind}:${r.from.id}`;
     if (r.from.kind === "er" && opdBills[vkey]) { window.alert("救急外来で入金済みです。二重会計を防ぐため入院への変更を止めました。この試作では入金の取消・返金は未対応です。"); return; }
     const said = [...(visitNotes[vkey] ?? []).map((n) => n.text), ...(notes[vkey] ?? []).map((n) => noteText(n))];
     let built: ReturnType<typeof admitFromOpd> | null = null;
+    let existing: Patient | undefined;
     if (r.from.kind === "er") {
       const e = er.find((x) => x.id === r.from.id);
       if (!e) return;
-      built = admitFromEr(e, { diagnosis: r.diagnosis, department: r.department, heightCm: r.heightCm, weightKg: r.weightKg, allergies: r.allergies, room: bed.room, bed: bed.bed }, id, nowTime);
-      built.patient.history.splice(1, 0, ...said.map((t) => ({ kind: "note" as const, day: 0, time: nowTime, author: r.attending, role: "医師" as const, text: `救急外来：${t}` })));
+      existing = PATIENTS.find(p => p.id === e.id);
+      if (existing) {
+        id = e.id;
+        built = admitExistingPatient(existing, r, bed, nowTime);
+        const seeded = scenario ? SCENARIOS.visitChartNotes[vkey] ?? [] : [];
+        built.patient.history.splice(-1, 0, ...(notes[vkey] ?? []).filter(n => !seeded.some(s => s.id === n.id)));
+      } else {
+        built = admitFromEr(e, { diagnosis: r.diagnosis, department: r.department, heightCm: r.heightCm, weightKg: r.weightKg, allergies: r.allergies, room: bed.room, bed: bed.bed }, id, nowTime);
+        built.patient.history.splice(1, 0, ...said.map((t) => ({ kind: "note" as const, day: 0, time: nowTime, author: r.attending, role: "医師" as const, text: `救急外来：${t}` })));
+      }
       setEr((list) => list.map((x) => (x.id === e.id ? { ...x, status: "入院済", admittedAs: id } : x)));
       setIji(d => ({...d, insurance: linkInsurance(d.insurance, `er:${e.id}`, id)}));
     } else {
@@ -1507,9 +1516,9 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       setOpd((list) => list.map((x) => (x.id === o.id ? { ...x, status: "終了" } : x)));
     }
     const { patient: p, bed: b } = built;
-    if (r.from.kind === "er") p.history = transferEmergencyOrders(p.history, withExamRecords(currentEntries(findPatient(vkey)!, charts[vkey]), dept.ris));
+    if (r.from.kind === "er") p.history = transferEmergencyOrders(p.history, withExamRecords(currentEntries(existing ? { ...existing, history: [] } : findPatient(vkey)!, charts[vkey]), dept.ris));
     auditLog({ role: me.role, actor: me.name, action: "確定（入院を受けた・ベッドを決めた）", patient: p.name, detail: `${b.room}${b.bed ? `${b.bed}` : ""}　${r.urgency}　${r.diagnosis}` });
-    p.infections = r.isolation === "なし" ? p.infections : [...p.infections, r.isolation];
+    p.infections = r.isolation === "なし" || p.infections.includes(r.isolation) ? p.infections : [...p.infections, r.isolation];
     setStanding((all) => ({ ...all, [id]: [...(all[id] ?? []), standingFromRequest(r, r.by, { day: 0, time: nowTime })] }));
     setIcu(all => unitOf(floorOf(b.room)) ? stayOnArrive(all, id, unitOf(floorOf(b.room))!, { day: 0, time: nowTime }, r.from.kind === "er" ? "救急外来" : "外来", [r.purpose, r.note].filter(Boolean).join("：")) : all);
     setAdmitted((a) => [...a, p]);
@@ -1519,7 +1528,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     // The admission diagnosis is kept as 未コード化傷病名 until a master name is chosen.
     setDiagnoses((all) => ({
       ...all,
-      [id]: [{ id: newId(), code: UNCODED, name: r.diagnosis.trim(), prefixes: [], suffixes: [], main: true, start: 0, outcome: "継続" }],
+      [id]: all[id] ?? [{ id: newId(), code: UNCODED, name: r.diagnosis.trim(), prefixes: [], suffixes: [], main: true, start: 0, outcome: "継続" }],
     }));
     setRequests((rs) => rs.map((x) => (x.id === r.id ? { ...x, status: "入院済", admittedAs: id } : x)));
     openPatient(id);
@@ -3802,7 +3811,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} onVoidIo={(lot, reason) => transfusionIoIds(io, patient.id, lot).forEach((id) => voidIo(id, reason))} />
                 </Drawer>
               )}
-              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide><IcuPanel key={patient.id} patient={patient} records={icu} onChange={setIcu} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
+              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide><IcuPanel key={patient.id} patient={patient.id.startsWith("er:") && PATIENTS.some(p => p.id === patient.id.slice(3)) ? { ...patient, id: patient.id.slice(3) } : patient} records={icu} onChange={setIcu} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
               {panel === "io" && (
                 <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
                   <IoPanel
