@@ -65,7 +65,9 @@ describe("指示簿の画面", () => {
     expect(html).toContain("有効");
     expect(html).toContain("中止");
     expect(html).toContain("指示簿を印刷（A4 縦）");
-    expect(html).toContain("指示を変更");
+    // 指示を変更・終了 are on each line's right click (and the double-click), not buttons under every line.
+    expect(html).toContain('data-line-id="');
+    expect(html).not.toContain(">指示を変更<");
   });
 
   it("the printed 指示簿 (A4 portrait) has the patient, the lines in force and the fields", () => {
