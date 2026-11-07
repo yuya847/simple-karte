@@ -1,0 +1,23 @@
+IC を声で記録 — 声での分離（話者分離）に使う、オープンソースのプログラムとモデル
+
+この中の sherpa-onnx-* の4つのファイルは、sherpa-onnx の公開リリースの WebAssembly 版を、そのまま置いたものです（書き換えていません）。
+ic-diarize-worker.js だけが、このアプリのために書いたものです。
+
+- 出どころ: https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.7
+  sherpa-onnx-wasm-simd-v1.13.7-speaker-diarization.tar.bz2
+  （SHA-256 f197725498893010a8da8f18c62ee67c62ed7294ab33d68a0b182211fcba0b7d、2026-11-07 に取得）
+- 中身（.data に入っているモデル）:
+  - segmentation.onnx = sherpa-onnx-pyannote-segmentation-3-0 の model.onnx
+    （pyannote/segmentation-3.0 を ONNX にしたもの。MIT License。LICENSE-pyannote.txt）
+  - embedding.onnx = 3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx
+    （3D-Speaker の ERes2Net。Apache License 2.0。文面は LICENSE-sherpa-onnx.txt と同じ）
+- sherpa-onnx: Apache License 2.0（LICENSE-sherpa-onnx.txt）。https://github.com/k2-fsa/sherpa-onnx
+
+大きさ: .data 45,587,685 バイト、.wasm 12,364,192 バイト、.js 81,899 + 7,625 バイト（合わせて約 58 MB）。
+「声でも分ける」を押したときだけ読み込みます。声は端末の外に出しません。
+
+SHA-256:
+59961f3445655861b8dbb9bcb5504bfb4ebd7ff08f734868d9642e302fee7088  sherpa-onnx-wasm-main-speaker-diarization.data
+d99e64e62f2d78652457bf45cb7608181fcd70efed47d3e9d23c862372305eb6  sherpa-onnx-wasm-main-speaker-diarization.wasm
+442e594c75c68b400419306ef0842b785d3edea32d12531ecb4b248134030c55  sherpa-onnx-wasm-main-speaker-diarization.js
+7f1a37ea0c31e4352347f8e8945115a7ccffdf93b974c49c01878a8fa472e5bd  sherpa-onnx-speaker-diarization.js
