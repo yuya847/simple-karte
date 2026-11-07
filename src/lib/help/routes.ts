@@ -2,6 +2,7 @@
 export const helpRoutes: Record<string, string[]> = {
   "screen:icu": ["IcuBoard"],
   "panel:icu": ["IcuPanel"],
+  "panel:calc": ["CalcWindow"],
   "screen:chart": [],
   "screen:visit": [],
   "screen:endo": [
