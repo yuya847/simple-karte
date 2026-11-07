@@ -634,6 +634,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [reloadNote, setReloadNote] = useState<string | null>(null);
   // 戻る (the app installed from Chrome has no browser buttons): the place, the ward tab and what is in front.
   const nav = useNavHistory({ area, wardTab, front }, (t) => {
+    // Back/forward also leaves the field first, as show() and openPatient() do (no half-typed word follows to the next patient).
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setArea(t.area);
     setWardTab(t.wardTab);
     setFront(t.front);
