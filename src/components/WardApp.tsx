@@ -232,6 +232,8 @@ import { NursingPanel } from "./panels/NursingPanel";
 import { ProfilePanel } from "./panels/ProfilePanel";
 import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/profile";
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
+import { PortalIntake } from "./portal/PortalIntake";
+import { intakeCounts, pendingIntakes, readInbox, type PortalInboxEntry } from "@/lib/portal/inbox";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { worksheetPrnLines } from "@/lib/standing-form";
 import { endStandingBlocks, standingFromBlocks } from "@/lib/standing-blocks";
@@ -886,6 +888,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const [returns, setReturns] = useState<ReturnDesk>(EMPTY_RETURNS);
   // 国のサービス（模擬）: what was registered with or sent to the simulated services.
   const [national, setNational] = useState<NationalRecord[]>([]);
+  // 患者さんの入力（患者さんのページ・病棟の iPad）: the nurse confirms it into 入院時の情報収集.
+  const [portalInbox, setPortalInbox] = useState<PortalInboxEntry[]>([]);
   // 同時利用: after each save the other tabs and devices are told (usePresence fills this in).
   const onSaved = useRef<(() => void) | null>(null);
   // Who saved the records last (this tab), for the other devices.
@@ -990,6 +994,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       liaison: [liaison, setLiaison],
       returns: [returns, setReturns],
       national: [national, setNational],
+      portalInbox: [portalInbox, setPortalInbox],
       // A save from before an outpatient's registration existed gets the demo registrations back (records in the save win).
       iji: [iji, (v: IjiDesk) => setIji(withInitialInsurance(v))],
       takeHolds: [takeHolds, setTakeHolds],
@@ -1961,6 +1966,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   if (role === "医師" && expiryN.total) todos.push({ key: "rx-expiry", label: `処方切れ（今日 ${expiryN.today}・明日 ${expiryN.tomorrow}）`, detail: expiryPatients.flatMap(x => x.messages).join("、"), count: expiryN.total, tone: expiryN.today ? "shu" : "yamabuki", go: () => setExpiryOpen(true) });
   if (role === "薬剤師" && orderUnlocks.requests.length) todos.push({ key: "order-unlocks", label: "処方のロック解除の依頼", count: orderUnlocks.requests.length, tone: "yamabuki", go: () => openArea("pharmacy") });
   if (role === "医師") todos.push(...diseaseRequestTodos(allPatients, stickies, me.name, id => diseaseRequestInput(claimPayloadOf(findPatient(id)!), isoDate(today), nowTime), id => { openPatient(id); setTimeout(() => setPanel("diagnoses"), 0); }));
+  if (role === "看護師") for (const [pid, n] of intakeCounts(readInbox(portalInbox))) { const p = findPatient(pid); if (p) todos.push({ key: `portal-${pid}`, label: `患者さんの入力：${p.name}さん`, count: n, tone: "yamabuki", go: () => { openPatient(pid); setTimeout(() => setPanel("anamnesis"), 0); } }); }
   if (role === "医師") todos.push(...vitalsContactTodos(callNotes).map((n) => ({ ...n, go: () => { if (n.patientId) { openPatient(n.patientId); updateFor(n.patientId, () => ({ leftView: "flowsheet", flowScale: "all" })); } } })));
   if (role === "管理栄養士" && kitchenPending) todos.push({ key: "kitchen", label: "給食の変更が未受け", count: kitchenPending, tone: "shu", go: () => openArea("kitchen") });
   if (!deny("consult")) todos.push(...consultNotifications(consultPeople, me.name, consultReplies).map(n => ({ ...n, tone: "shu" as const, go: () => { if (n.patientId) { openPatient(n.patientId); setPanel("add-consult"); } else goWard("consults"); } })));
@@ -4441,6 +4447,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               )}
               {panel === "anamnesis" && (
                 <Drawer title="入院時の情報収集（アナムネーシス）" onClose={closePanel} wide>
+                  <PortalIntake key={patient.id} patient={patient} record={anamnesis[patient.id]} inbox={portalInbox} onInbox={setPortalInbox} nowTime={nowTime} onOpenProfile={() => setPanel("profile")}
+                    onSave={(fields, reason, origin) => { setAnamnesis((all) => ({ ...all, [patient.id]: saveAnamnesis(all[patient.id], patient.id, fields, me.name, { day: 0, time: nowTime }, reason, origin) })); auditLog({ role: me.role, actor: me.name, action: "確定（入院時の情報収集・患者さんの入力から）", patient: patient.name, detail: origin }); }} />
                   <AnamnesisPanel
                     key={`${patient.id}-${anamnesisVersionsCount(anamnesis[patient.id])}`}
                     patient={patient}
@@ -4589,7 +4597,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             <ToolRail key={patient.id}
               onAnesthesia={(tab) => { setAnesthesiaTab({tab, patientId: patient.id}); openArea("or"); setFront(f => ({ ...f, or: undefined })); }}
               open={panel}
-              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
+              badges={{ results: { n: unseenHere.length, urgent: unseenHere.some((i) => i.panic.length > 0) }, "active-orders": { n: deny("order.sign") ? 0 : verbalHere.length }, take: { n: deny("mar") ? 0 : takeWaitingRows.filter((r) => r.patientId === patient.id).length, urgent: allTakeRows.some((r) => r.patientId === patient.id && r.keys.some((k) => sessionKeys.has(k) && !taken[k]) && !!r.flags.urgent) }, "report-list": { n: unreadHere.length }, anamnesis: { n: pendingIntakes(readInbox(portalInbox), patient.id).length }, cosign: { n: role === "医師" ? pendingOf(cosign, patient.id).filter((i) => !confirmDeny(me.name, i)).length : 0 } }}
               openTemplate={panel === "templates" ? templateFocus : null}
               onOpen={(p, o) => {
                 if (p?.startsWith("pharmacy-")) { setPharmacyFocus({ tab: p.slice(9) as import("./PharmacyView").Tab, patientId: patient.id }); return; }

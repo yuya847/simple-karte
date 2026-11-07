@@ -56,3 +56,10 @@ export function labsAgreed(inbox: PortalInboxEntry[], patientId: string): { agre
 /** The entry confirmed by the nurse. */
 export const confirmEntry = (inbox: PortalInboxEntry[], id: string, by: string, at: { day: number; time: string }, edited: boolean): PortalInboxEntry[] =>
   inbox.map((e) => (e.id === id && !e.done ? { ...e, done: { by, at, edited } } : e));
+
+/** Patients with answers not confirmed yet, and how many (for やること). */
+export function intakeCounts(inbox: PortalInboxEntry[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const e of pendingIntakes(inbox)) out.set(e.patientId, (out.get(e.patientId) ?? 0) + 1);
+  return out;
+}

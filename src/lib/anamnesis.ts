@@ -155,6 +155,8 @@ export interface AnamnesisVersion {
   at: At;
   /** Why it was updated (none for the first version). */
   reason?: string;
+  /** Where the answers came from when not asked by the nurse (患者さんの入力). */
+  origin?: string;
 }
 
 export interface AnamnesisRecord extends AnamnesisVersion {
@@ -192,13 +194,14 @@ export function anamnesisProblems(prev: AnamnesisRecord | undefined, next: Anamn
 }
 
 /** A new version; the one in force becomes the latest earlier one. */
-export function saveAnamnesis(prev: AnamnesisRecord | undefined, patientId: string, fields: AnamnesisFields, by: string, at: At, reason: string): AnamnesisRecord {
-  if (!prev) return { patientId, fields, by, at };
-  const cur: AnamnesisVersion = { fields: prev.fields, by: prev.by, at: prev.at, ...(prev.reason ? { reason: prev.reason } : {}) };
-  return { patientId, fields, by, at, reason: reason.trim(), earlier: [...(prev.earlier ?? []), cur] };
+export function saveAnamnesis(prev: AnamnesisRecord | undefined, patientId: string, fields: AnamnesisFields, by: string, at: At, reason: string, origin?: string): AnamnesisRecord {
+  const from = origin ? { origin } : {};
+  if (!prev) return { patientId, fields, by, at, ...from };
+  const cur: AnamnesisVersion = { fields: prev.fields, by: prev.by, at: prev.at, ...(prev.reason ? { reason: prev.reason } : {}), ...(prev.origin ? { origin: prev.origin } : {}) };
+  return { patientId, fields, by, at, reason: reason.trim(), ...from, earlier: [...(prev.earlier ?? []), cur] };
 }
 
-export const anamnesisVersions = (r: AnamnesisRecord): AnamnesisVersion[] => [...(r.earlier ?? []), { fields: r.fields, by: r.by, at: r.at, reason: r.reason }];
+export const anamnesisVersions = (r: AnamnesisRecord): AnamnesisVersion[] => [...(r.earlier ?? []), { fields: r.fields, by: r.by, at: r.at, reason: r.reason, ...(r.origin ? { origin: r.origin } : {}) }];
 
 // ---------- つながる先 ----------
 

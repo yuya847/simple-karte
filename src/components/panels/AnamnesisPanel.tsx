@@ -145,7 +145,8 @@ export function AnamnesisPanel({ patient, record, care, fmtDay, onSave }: { pati
               <li key={i}>
                 <span className="nums text-ink-faint">
                   第{i + 1}版　{when(v.at)} {displayText(v.by)}
-                  {displayText(v.reason ? `　理由：${v.reason}` : i === 0 ? "　（最初の聞き取り）" : "")}
+                  {displayText(v.reason ? `　理由：${v.reason}` : i === 0 && !v.origin ? "　（最初の聞き取り）" : "")}
+                  {v.origin && !v.reason && displayText(`　元：${v.origin}`)}
                 </span>
                 {i > 0 && (
                   <ul className="text-ink-soft">

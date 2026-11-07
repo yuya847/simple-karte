@@ -60,6 +60,10 @@ interface Args {
 export function usePresence({ wsId, shared, me, patientId, note, drafts, savedRef, pull, onMerged }: Args) {
   const [tab] = useState(thisTab);
   const [state, setState] = useState<PresenceState>(EMPTY_PRESENCE);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  });
   const [now, setNow] = useState(0);
   const [devices, setDevices] = useState<DeviceWatch>("unknown");
   const [live, setLive] = useState<LiveStatus>("unknown");
@@ -181,20 +185,24 @@ export function usePresence({ wsId, shared, me, patientId, note, drafts, savedRe
         const rows = await touchPresence(wsId, { tab, who: liveRef.current.me.name, role: liveRef.current.me.role, patient: liveRef.current.patientId, editing: editingNow() });
         if (stopped) return;
         const others = rows.filter((r) => r.tab && r.who && r.role).map((r) => ({ tab: r.tab!, who: r.who!, role: r.role!, patient: r.patient, editing: !!r.editing }));
-        setState((s) => {
-          let next = withDevices(s, others, Date.now());
-          const stamp = rows[0];
-          if (stamp?.ws_updated) {
-            const mine = stamp.ws_writer === tab;
-            // Another tab of this browser is heard of through the channel already.
-            const knownTab = !!stamp.ws_writer && s.peers[stamp.ws_writer]?.where === "タブ";
-            if (base.current === null || mine || knownTab) base.current = stamp.ws_updated;
-            else if (stamp.ws_updated !== base.current) {
-              base.current = stamp.ws_updated;
-              next = savedElsewhere(next, stamp.ws_by ?? "誰か", "", hhmm(new Date(stamp.ws_updated)));
-            }
+        // Decided outside the state update (React runs an updater twice in development, and the baseline is a ref).
+        const stamp = rows[0];
+        let elsewhere = false;
+        if (stamp?.ws_updated) {
+          const mine = stamp.ws_writer === tab;
+          // Another tab of this browser is heard of through the channel already.
+          const knownTab = !!stamp.ws_writer && stateRef.current.peers[stamp.ws_writer]?.where === "タブ";
+          // Right after this page saved (or opened), the next save seen is the baseline only when it is this
+          // page's own: a save by another writer in between (the patient's page) is read in.
+          if (mine || knownTab || (base.current === null && !stamp.ws_writer)) base.current = stamp.ws_updated;
+          else if (stamp.ws_updated !== base.current) {
+            base.current = stamp.ws_updated;
+            elsewhere = true;
           }
-          return next;
+        }
+        setState((s) => {
+          const next = withDevices(s, others, Date.now());
+          return elsewhere && stamp?.ws_updated ? savedElsewhere(next, stamp.ws_by ?? "誰か", "", hhmm(new Date(stamp.ws_updated))) : next;
         });
         setDevices("on");
         setNow(Date.now());
