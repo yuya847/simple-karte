@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dripsOf, labTrend, labValueText, mainDiagnosis, oxygenOf, paginateRounds, rowHeightMm, roundsRow, ROW_MIN_MM, todayPlans, vitalsText, type RoundsRow } from "./rounds-sheet";
+import { dripsOf, labTrend, mainDiagnosis, oxygenOf, paginateRounds, rowHeightMm, roundsRow, ROW_MIN_MM, textWidth, todayPlans, vitalsText, type RoundsRow } from "./rounds-sheet";
 import { abs } from "./flowsheet";
 import type { Diagnosis } from "./diagnoses";
 import type { OrderEntry, Patient } from "./types";
@@ -38,11 +38,6 @@ describe("検査値の前回からの変化", () => {
   it("今より後の結果は読まない", () => {
     expect(labTrend(patient.labs, "WBC", now)?.value).toBe(11800);
     expect(labTrend(patient.labs, "WBC", abs(0, "10:00"))).toMatchObject({ value: 9000, prev: 11800, trend: "↓" });
-  });
-  it("1000 以上の整数だけ桁区切りを付ける", () => {
-    expect(labValueText(11800)).toBe("11,800");
-    expect(labValueText(8.1)).toBe("8.1");
-    expect(labValueText(136)).toBe("136");
   });
 });
 
@@ -119,6 +114,11 @@ describe("ページ分け", () => {
     const pages = paginateRounds(rows, rowHeightMm);
     expect(pages.flat()).toEqual(rows);
     expect(pages[0].length).toBeLessThan(6);
+  });
+  it("数字・英字は全角の半分ほどの幅で数える", () => {
+    expect(textWidth("06:00 採取")).toBeCloseTo(5);
+    const today = (texts: string[]): RoundsRow => ({ ...box(0), today: texts });
+    expect(rowHeightMm(today(["06:00 採取 定期採血セット", "09:30 検査 心電図（12誘導）"]))).toBe(ROW_MIN_MM);
   });
   it("1人で1枚を超えても、その人だけの紙にする", () => {
     expect(paginateRounds([box(80), box(1)], rowHeightMm).map((p) => p.length)).toEqual([1, 1]);

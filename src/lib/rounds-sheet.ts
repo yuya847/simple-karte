@@ -169,18 +169,17 @@ export function roundsRow(x: RoundsInput): RoundsRow {
   };
 }
 
-/** Labs are shown as recorded: 12300 stays 12300 (thousands get a comma to be read at a glance). */
-export const labValueText = (v: number) => (Number.isInteger(v) && Math.abs(v) >= 1000 ? v.toLocaleString("en-US") : String(v));
-
 // The page: A4 landscape inside 10mm margins is 277 × 190mm; the heading, the column heads and the footer take
-// about 20mm. A box is at least ROW_MIN_MM tall (room to write) and grows with its longest column.
-export const PAGE_BODY_MM = 170;
+// about 18mm. A box is at least ROW_MIN_MM tall (room to write) and grows with its longest column.
+export const PAGE_BODY_MM = 172;
 export const ROW_MIN_MM = 27;
 const LINE_MM = 3.7;
-/** Characters a line holds in each column (8pt; a half-width character counts as one, so this errs long). */
-const COLUMN_CHARS = { todo: 18, today: 11, treat: 12 };
+/** Full-width characters a line holds in each column (8pt). */
+const COLUMN_CHARS = { todo: 15, today: 14, treat: 9 };
 
-const linesOf = (texts: string[], perLine: number) => texts.reduce((n, t) => n + Math.max(1, Math.ceil(t.length / perLine)), 0);
+/** The width of a text in full-width characters (digits, letters and spaces are about half). */
+export const textWidth = (t: string) => [...t].reduce((n, ch) => n + (ch.charCodeAt(0) < 0x80 ? 0.5 : 1), 0);
+const linesOf = (texts: string[], perLine: number) => texts.reduce((n, t) => n + Math.max(1, Math.ceil(textWidth(t) / perLine)), 0);
 
 /** How tall a box is expected to print (mm). */
 export function rowHeightMm(r: RoundsRow): number {
