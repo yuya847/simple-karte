@@ -6,6 +6,8 @@ import { AlertOctagon, HelpCircle, Info, Plus, Scissors, X } from "lucide-react"
 import { useState } from "react";
 import { addDays, formatShort, minutesOf, type CalendarDate } from "@/lib/dates";
 import {
+  surgeryTimes,
+  surgeryAnesthesia,
   ANESTHESIAS,
   OR_ROOMS,
   OR_RULES,
@@ -27,7 +29,7 @@ import { ageSex } from "@/lib/person";
 
 import { AnesthesiaView, type AnesthesiaProps } from "./AnesthesiaView";
 
-interface Props extends Pick<AnesthesiaProps, "onNote" | "onFasting" | "consents" | "onConsent" | "physio"> {
+interface Props extends Pick<AnesthesiaProps, "onRecord" | "postopOrders" | "onNote" | "onFasting" | "consents" | "onConsent" | "physio"> {
   initialAnesthesiaTab?: string;
   initialAnesthesiaPatientId?: string;
   today: CalendarDate;
@@ -127,6 +129,7 @@ export function SurgeryView({ today, nowAbs, surgeries, people, onSave, initialA
           {cases.some((x) => !x.room || !x.start) && <p className="mt-2 text-[12px] text-yamabuki">部屋や時刻が決まっていない申込があります。</p>}
         </div>
 
+        <table className="mt-3 w-full text-left text-sm"><thead><tr>{['患者','入室','執刀','終了','退室'].map(t=><th key={t}>{t}</th>)}</tr></thead><tbody>{cases.map(x=>{const r=surgeryTimes(x);return <tr key={x.id} className="border-b border-rule"><td><button className="py-2 text-ai" onClick={()=>setSelected(x.id)}>{x.name}</button></td>{[x.anesthesiaCase?.events['入室']??r.anesStart,r.opStart,r.opEnd,x.anesthesiaCase?.events['退室']??r.anesEnd].map((at,i)=><td key={i}>{abs2hhmm(at)}</td>)}</tr>;})}</tbody></table>
         {sel && <CaseDetail key={sel.id} x={sel} all={surgeries} nowAbs={nowAbs} onSave={onSave} />}
       </div>
 
@@ -162,8 +165,8 @@ function Checks({ checks }: { checks: ReturnType<typeof checkRequest> }) {
 }
 
 function CaseDetail({ x, all, nowAbs, onSave }: { x: Surgery; all: Surgery[]; nowAbs: number; onSave: (s: Surgery) => void }) {
-  const rec = x.record ?? {};
-  const set = (k: keyof AnesRecord) => onSave({ ...x, record: { ...rec, [k]: nowAbs }, status: k === "anesEnd" ? "退室" : "入室" });
+  const rec = surgeryTimes(x);
+  const set = (k: keyof AnesRecord) => { const c=surgeryAnesthesia(x); const event=({anesStart:'麻酔器接続',opStart:'執刀',opEnd:'手術終了',anesEnd:'麻酔器離脱'} as const)[k]; onSave({...x,record:undefined,anesthesiaCase:{...c,events:{...c.events,[event]:nowAbs}},status:k==='anesEnd'?'退室':'入室'}); };
   const fee = l008Fee(x);
   const cat = l008Category(x);
   const step = (k: keyof AnesRecord, label: string, enabled: boolean) => (
@@ -194,7 +197,7 @@ function CaseDetail({ x, all, nowAbs, onSave }: { x: Surgery; all: Surgery[]; no
         )}
       </div>
       <div>
-        <h3 className="font-bold">麻酔の記録（時刻は押した時刻）</h3>
+        <h3 className="font-bold">麻酔の記録（時刻は押した時刻）</h3><p>入室 {abs2hhmm(x.anesthesiaCase?.events["入室"] ?? rec.anesStart)} · 執刀 {abs2hhmm(rec.opStart)} · 終了 {abs2hhmm(rec.opEnd)} · 退室 {abs2hhmm(x.anesthesiaCase?.events["退室"] ?? rec.anesEnd)}</p>
         <div className="mt-1 flex flex-wrap gap-1.5">
           {step("anesStart", "麻酔開始（麻酔器を接続）", x.status !== "申込")}
           {step("opStart", "手術開始", rec.anesStart !== undefined)}

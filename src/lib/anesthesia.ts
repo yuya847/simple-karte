@@ -1,5 +1,5 @@
 import { oralName } from "./format";
-import type { Patient, OrderEntry } from './types';
+import type { Patient, OrderEntry, NoteEntry } from './types';
 import type { Surgery } from './surgery';
 
 export const ANESTHESIA_METHODS = ['全身麻酔', '脊髄くも膜下麻酔', '硬膜外麻酔', '伝達麻酔', '鎮静'] as const;
@@ -42,9 +42,28 @@ export function anesthesiaSummary(c: AnesthesiaCase) {
 export function preopNote(p: PreopAssessment): string {
   return `【麻酔科術前診察】\n担当 ${p.doctor} ASA-PS ${p.asa} 麻酔法 ${p.method}\n既往 ${p.history}\n内服・休薬（有無・日付） ${p.medications}\nアレルギー ${p.allergies}\n気道 Mallampati ${p.mallampati} 開口 ${p.mouth} 頸部可動 ${p.neck} 歯牙 ${p.teeth}\n身長 ${p.height}cm 体重 ${p.weight}kg BMI ${bmi(p.height,p.weight)}\n検査 ${p.tests}\n最終食事 ${p.food} 最終清澄水 ${p.water}\n前投薬 ${p.premedication}\n輸血準備 ${p.blood}\n説明 ${p.explanation}`;
 }
+export const anesthesiaClock = (at: number) => `${String(Math.floor(((at % 1440) + 1440) % 1440 / 60)).padStart(2,'0')}:${String(((at % 60) + 60) % 60).padStart(2,'0')}`;
+export function orderedAnesthesia(c: AnesthesiaCase): AnesthesiaCase {
+  return {...c, vitals: [...c.vitals].sort((a,b)=>a.at-b.at), administrations: [...c.administrations].sort((a,b)=>a.at-b.at)};
+}
 export function anesthesiaNote(c: AnesthesiaCase): string {
-  const s = anesthesiaSummary(c);
-  return `【麻酔記録】\n麻酔時間 ${s.anesthesiaMinutes ?? '未確定'}分 手術時間 ${s.surgeryMinutes ?? '未確定'}分\n総輸液 ${s.fluid}mL 輸血 ${s.blood}mL 出血 ${s.bleeding}mL 尿量 ${s.urine}mL\n${Object.entries(c.events).map(([k,v])=>`${k} ${Math.floor(v!/60)}:${String(v!%60).padStart(2,'0')}`).join('\n')}\n${c.administrations.map(x=>`${x.at}分 ${x.kind} ${x.name} ${x.dose}${x.unit}`).join('\n')}\nバイタル ${JSON.stringify(c.vitals)}`;
+  const s = anesthesiaSummary(c), ordered = orderedAnesthesia(c);
+  return [`【麻酔記録】`, `麻酔時間 ${s.anesthesiaMinutes ?? '未確定'}分 手術時間 ${s.surgeryMinutes ?? '未確定'}分`,
+    `総輸液 ${s.fluid}mL 輸血 ${s.blood}mL 出血 ${s.bleeding}mL 尿量 ${s.urine}mL`,
+    ...Object.entries(c.events).sort((a,b)=>a[1]!-b[1]!).map(([k,v])=>`${anesthesiaClock(v!)} ${k}`),
+    ...ordered.administrations.map(x=>`${anesthesiaClock(x.at)} ${x.kind==='薬剤' ? '' : x.kind+' '}${x.kind==='出血'||x.kind==='尿量' ? '' : x.name+' '}${x.dose}${x.unit}`),
+    ...ordered.vitals.map(v=>[anesthesiaClock(v.at), v.sbp!==undefined || v.dbp!==undefined ? `BP ${v.sbp??'—'}/${v.dbp??'—'}` : '', v.hr!==undefined ? `HR ${v.hr}` : '', v.spo2!==undefined ? `SpO2 ${v.spo2}%` : '', v.etco2!==undefined ? `EtCO2 ${v.etco2}` : '', v.temperature!==undefined ? `体温 ${v.temperature}℃` : ''].filter(Boolean).join(' '))].join('\n');
+}
+export function upsertAnesthesiaNote(notes: NoteEntry[], note: NoteEntry): NoteEntry[] {
+  const old = notes.find(n=>n.id===note.id);
+  if (!old) return [...notes,note];
+  const versions = [...(old.versions ?? [{day:old.day,time:old.time,author:old.author,text:old.text}]), {day:note.day,time:note.time,author:note.author,text:note.text,reason:'麻酔記録の修正'}];
+  return notes.map(n=>n.id===note.id ? {...note, day:old.day,time:old.time,writtenAt:old.writtenAt,versions} : n);
+}
+/** Replace this surgery's derived balance entries; never accumulate totals on resave. */
+export function anesthesiaIo(s: Surgery, by: string, recordedAt: string): import('./io-balance').IoEntry[] {
+  if (!s.patientId) return [];
+  return (s.anesthesiaCase?.administrations ?? []).flatMap((x,i)=> x.kind==='薬剤' ? [] : [{id:`anesthesia:${s.id}:${i}`,patientId:s.patientId!,side:x.kind==='出血'||x.kind==='尿量' ? 'OUT' as const : 'IN' as const,kind:x.kind==='輸液' ? '点滴' as const : x.kind==='尿量' ? '尿' as const : x.kind,ml:x.dose,at:x.at,by,recordedAt,note:`麻酔記録 ${x.kind==='出血'||x.kind==='尿量' ? '' : x.name}`}]);
 }
 export function postopNote(p: PostopAssessment): string { return `【麻酔科術後回診】\nNRS ${p.nrs} PONV ${p.ponv}\n神経障害 ${p.nerve}\n硬膜外カテーテル ${p.epidural}\n呼吸 ${p.breathing}\n意識 ${p.consciousness}`; }
 /** Only explicitly confirmed categories are mapped. Special cases remain for human selection. */

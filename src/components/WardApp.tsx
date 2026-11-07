@@ -1,4 +1,6 @@
 "use client";
+import { useAnesthesiaPersistence } from "@/lib/use-anesthesia-persistence";
+import { upsertAnesthesiaNote, anesthesiaIo } from "@/lib/anesthesia";
 import { MswInterview } from "./MswInterview";
 import { LifeSupportForm, LifeSupportOverview } from "./LifeSupport";
 import { lifeWithIntake, lifeLines } from "@/lib/life-support";
@@ -854,6 +856,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const onSaved = useRef<(() => void) | null>(null);
   // Who saved the records last (this tab), for the other devices.
   const writer = useMemo(() => ({ tab: thisTab(), by: me.name, role: me.role }), [me]);
+  useAnesthesiaPersistence({surgeries,notes,io}, todayKey, setSurgeries, setNotes, setIo);
   // 記録の保存 (Supabase, when configured): every record of the session, read back the same day.
   const [sharedNoteTemplates, setSharedNoteTemplates] = useState<NoteTemplate[]>([]);
   const workspace = useWorkspace(
@@ -2914,11 +2917,14 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           today={today}
           nowAbs={abs(0, nowTime)}
           surgeries={surgeries} initialAnesthesiaTab={anesthesiaTab?.tab} initialAnesthesiaPatientId={anesthesiaTab?.patientId}
+          onRecord={(pid, text, sid) => setNotes(all => ({...all,[pid]:upsertAnesthesiaNote(all[pid]??[],{kind:"note",id:`anesthesia:${sid}`,day:0,time:nowTime,author:me.name,role:me.role,text})}))}
+          postopOrders={{lines:standingLines,onAdd:(pid,text,cat)=>addStandingLine(pid,{id:newId(),cat,text,start:{day:0,time:nowTime},by:me.name,at:{day:0,time:nowTime}})}}
           onNote={chartNote} physio={dept.physioDesk} consents={consents} onConsent={(r) => setConsents(all => all.some(c => c.id === r.id) ? all.map(c => c.id === r.id ? r : c) : [...all, r])}
           onFasting={(pid, text) => addStandingLine(pid, { id: newId(), cat: "食事", text, start: { day: 0, time: nowTime }, by: me.name, at: { day: 0, time: nowTime } })}
           people={examPeople}
           onSave={(x) => {
             auditLog({ role: me.role, actor: me.name, action: x.status === "申込" ? "確定（手術申込）" : "手術室の記録", patient: x.name, detail: `${x.procedure} ${x.room ?? ""} ${x.start ?? ""}` });
+            if (x.anesthesiaCase) setIo(all => [...all.filter(e=>!e.id.startsWith(`anesthesia:${x.id}:`)),...anesthesiaIo(x,me.name,nowTime)]);
             setSurgeries((list) => (list.some((y) => y.id === x.id) ? list.map((y) => (y.id === x.id ? x : y)) : [...list, x]));
           }}
         />

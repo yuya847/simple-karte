@@ -190,8 +190,8 @@ export function l008Category(x: Surgery): { cat: 3 | 4 | 5; why: string } {
 }
 
 export function l008Fee(x: Surgery): { points: number; minutes: number; extra: number; formula: string; why: string } | null {
-  if (x.anesthesia !== "全身麻酔" || x.record?.anesStart === undefined || x.record.anesEnd === undefined) return null;
-  const minutes = x.record.anesEnd - x.record.anesStart;
+  if (x.anesthesia !== "全身麻酔" || surgeryTimes(x).anesStart === undefined || surgeryTimes(x).anesEnd === undefined) return null;
+  const minutes = surgeryTimes(x).anesEnd! - surgeryTimes(x).anesStart!;
   const { cat, why } = l008Category(x);
   const t = L008[cat];
   const base = x.difficult ? t.hard : t.base;
@@ -204,4 +204,13 @@ export function l008Fee(x: Surgery): { points: number; minutes: number; extra: n
     why: `${why}・${x.difficult ? "麻酔が困難な患者（イ）" : "イ以外（ロ）"}`,
     formula: `${base.toLocaleString("ja-JP")}点${extra ? ` ＋ ${t.per30}点 × ${extra}（2時間を超えた ${minutes - 120}分 → 30分ごと、端数を含む）` : ""} = ${points.toLocaleString("ja-JP")}点（麻酔 ${Math.floor(minutes / 60)}時間${minutes % 60}分）`,
   };
+}
+
+/** Canonical event times, with migration of the older record on first edit. */
+export function surgeryTimes(s: Surgery): AnesRecord {
+  const e = s.anesthesiaCase?.events;
+  return e ? {anesStart:e['麻酔器接続'],opStart:e['執刀'],opEnd:e['手術終了'],anesEnd:e['麻酔器離脱']} : s.record ?? {};
+}
+export function surgeryAnesthesia(s: Surgery): import('./anesthesia').AnesthesiaCase {
+  return s.anesthesiaCase ?? {events:{...(s.record?.anesStart!==undefined ? {'麻酔器接続':s.record.anesStart}:{}),...(s.record?.opStart!==undefined ? {'執刀':s.record.opStart}:{}),...(s.record?.opEnd!==undefined ? {'手術終了':s.record.opEnd}:{}),...(s.record?.anesEnd!==undefined ? {'麻酔器離脱':s.record.anesEnd}:{})},vitals:[],administrations:[]};
 }
