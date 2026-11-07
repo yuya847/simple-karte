@@ -24,8 +24,9 @@ export function useLongPress<T extends Element>(onLongPress: ((at: { x: number; 
     onPointerDown: (e: ReactPointerEvent<T>) => {
       // A mouse double-clicks; only a finger or a pen long-presses.
       if (e.pointerType === "mouse") return;
-      // A button inside (☆ etc.) does its own thing.
-      if ((e.target as Element).closest("button")) return;
+      // A button inside (☆ etc.) does its own thing (the element itself may be a button: a bed on the ICU・HCU board).
+      const control = (e.target as Element).closest("button");
+      if (control && control !== (e.currentTarget as Element)) return;
       clear();
       const at = { x: e.clientX, y: e.clientY };
       start.current = at;

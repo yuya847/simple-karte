@@ -22,6 +22,10 @@ describe("ICU・HCU のベッド一覧", () => {
     expect(rows[0].lines[0]).toMatchObject({days:"7日",flag:true});
     expect(rows[0].planned).toEqual({to:"5階東",day:1,time:"10:00"});
     expect(rows[0].infusions).toEqual(["ノルアドレナリン 0.12γ"]);
+    expect(rows[0].drips).toEqual([{ name: "ノルアドレナリン", dose: "0.12γ", mlh: 4.9 }]);
+    // 330 mL of urine in 11 hours could still make the renal score 3; yesterday has no total.
+    expect(rows[0].sofaAssumed).toEqual({ today: true, yesterday: false });
+    expect(rows[1].drips).toEqual([]);
     // Today so far, (前日 23:00, 10:00]: the 11 hourly records 00:00–10:00 and 11 hours of the infusion.
     expect(rows[0].balance24h?.outMl).toBe(330);
     expect(rows[0].balance24h?.inMl).toBeCloseTo(4.9*11);

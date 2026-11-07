@@ -14,6 +14,7 @@ export const screenHelp = [
   { id: "MCP", title: "Claude Code とつなぐ", bullets: ["claude mcp add --transport http simple-karte https://simple-karte.vercel.app/api/mcp", "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者だけを匿名化して読みます。保存した記録は読みません。仮ID・年代・相対日付を使い、記事の氏名・電話・日付・住所らしい表記を置き換えます。", "list_patients / get_patient / search_master / propose_orders。受け取るのは下書きだけです。決めるのは医師、AI は入力係。医師がアプリで確かめ、確定してください。"] },
   { id: "IcuBoard", title: "ICU・HCU", bullets: [
     "入室日数は最初の入室日（記録がなければ入院日）を1日目として暦日で数えます。24h は今日0時から現在までの記録の合計です。",
+    "ベッドにカーソルを置く（iPad は長押し）と、SOFA（今日・昨日）・24h の IN/OUT と差・ラインの日数・持続投与の量と mL/h・最新のバイタルが出ます。押すと ICU 記録が開きます。",
     "時間表のセルから、その1時間の量・観察を記録します。体温・脈拍・血圧・呼吸数・SpO2・GCS はバイタルの記録を表示します。",
     "γ = mL/h × mg/mL ×1000 ÷（kg ×60）。逆算は γ × kg ×60 ÷（mg/mL ×1000）。濃度 = 薬剤量 ÷ 総量。γ は小数2桁、mL/h は小数1桁で表示し、内部では丸めません。インスリンの濃度は単位/mL。",
     "mg/h・単位/h = mL/h ×濃度。μg/h = mL/h ×濃度×1000。mg/kg/h = mL/h ×濃度÷kg。速度への逆算は各式の逆。",
