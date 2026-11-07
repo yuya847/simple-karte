@@ -1774,7 +1774,7 @@ export const screenHelp = [
       "内服の前投薬は、この欄の下書きには入りません（処方で出します）",
       ...new Set(REGIMENS.flatMap((r) => r.rps.flatMap((rp) => rp.drugs.flatMap((d) => [
         ...(d.roundMg > 0 ? [`${d.short} のまるめ：${displayText(d.roundNote)}`] : []),
-        ...(d.note ? [`${d.short}：${displayText(d.note)}`] : []),
+        ...(d.note ? [`${r.name}の${d.short}：${displayText(d.note)}`] : []),
       ])))),
       ...REGIMENS.flatMap((r) => r.notes.map((n) => `${r.name}：${displayText(n.text)}（${n.source.label} ${n.source.url}）`))
     ]
