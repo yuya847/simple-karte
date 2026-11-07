@@ -197,6 +197,7 @@ export const helpRoutes: Record<string, string[]> = {
   ],
   "panel:billing": [
     "BillingView",
+    "KisaiPanel",
     "InsurancePanel",
     "ReceiptPanel",
     "DpcPanel"
