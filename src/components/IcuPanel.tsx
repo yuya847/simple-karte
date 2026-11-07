@@ -15,14 +15,13 @@ import type { IcuRecords } from "@/lib/icu";
 import { TabChoice } from "./TabChoice";
 import type { IcuPaneProps } from "./icu/parts";
 import { IcuVentPane } from "./icu/IcuVentPane";
-import { IcuInfusionPane } from "./icu/IcuInfusionPane";
 import { IcuLinesPane } from "./icu/IcuLinesPane";
 import { IcuSofaPane } from "./icu/IcuSofaPane";
 import { IcuRoundHistory } from "./icu/IcuRoundPane";
 import { IcuBand } from "./icu/IcuBand";
 import { IcuCrrtPane } from "./icu/IcuCrrtPane";
 
-const tabs=["SOFA","呼吸器・血液ガス","持続投与","CRRT","ライン・チューブ"] as const;
+const tabs=["SOFA","呼吸器・血液ガス","CRRT","ライン・チューブ"] as const;
 type Tab=typeof tabs[number];
 export interface IcuPanelProps {
   patient: Patient; records: IcuRecords; onChange(next:IcuRecords):void; role:Role; me:Staff;
@@ -53,7 +52,6 @@ export function IcuPanel(p:IcuPanelProps) {
     {error&&<p role="alert" className="text-shu">{error}</p>}
     {tab==="SOFA"&&<IcuSofaPane {...pane}/>}
     {tab==="呼吸器・血液ガス"&&<IcuVentPane {...pane} entries={p.entries} onDraft={p.onDraft}/>}
-    {tab==="持続投与"&&<IcuInfusionPane {...pane} entries={p.entries} onOrder={p.onOrder}/>}
     {tab==="CRRT"&&<IcuCrrtPane {...pane}/>}
     {tab==="ライン・チューブ"&&<IcuLinesPane {...pane}/>}
     <IcuRoundHistory patient={patient} records={records} today={today}/>

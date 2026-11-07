@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { InjectionOrder } from "@/lib/types";
 import { TAB_CHOICE_LG } from "./TabChoice";
 import { AddInjectionPanel } from "./panels/AddPanels";
+import { DRUGS } from "@/lib/master";
 
 const ctrx: InjectionOrder = { type: "injection", items: [{ drugCode: "INJ-CTRX1", amount: 2, unit: "g" }], route: "点滴静注", schedule: { kind: "per_day", count: 1 }, minutesPerDose: 60, start: { day: 0, time: "10:00" }, days: 5 };
 const render = (order: InjectionOrder) => renderToStaticMarkup(<AddInjectionPanel onAdd={() => {}} newId={() => "d1"} drafts={[]} seed={{ key: "s1", order, start: { day: 0, time: "10:00" } }} />);
@@ -90,4 +91,15 @@ it("新規の注射に区分があり、既定の開始をカレンダー由来�
 it("輸液も1回だけを選べる", () => {
   const html = render({ ...ctrx, items: [{ drugCode: "INJ-SOL3A500", amount: 1, unit: "本" }], schedule: { kind: "once" } });
   expect(group(html, "Rp1 の回数")).toMatch(/aria-checked="true"[^>]*>(?:<span[^>]*>[^<]*<\/span>)?1回だけ<\/button>/); // 番号付きの選択肢（1 1回だけ）
+});
+
+describe("注射の持続（ポンプ、mL/時）", () => {
+  const nor = DRUGS.find((d) => d.name.normalize("NFKC").includes("ノルアドレナリン注射液"))!.code, saline = DRUGS.find((d) => d.name.normalize("NFKC").includes("大塚生食注 50mL"))!.code;
+  const order: InjectionOrder = { type: "injection", items: [{ drugCode: nor, amount: 5, unit: "A" }, { drugCode: saline, amount: 45, unit: "mL" }], route: "点滴静注", schedule: { kind: "once" }, start: { day: 0 }, rateMlPerH: 3, continuous: { infusionId: "inf1" } };
+  it("経路の「持続」は持続の注射オーダから戻り、速さの横に体重と濃度からの γ を式とともに出す（体重がなければ出さない）", () => {
+    const html = renderToStaticMarkup(<AddInjectionPanel onAdd={() => {}} newId={() => "d1"} drafts={[]} weightKg={50} seed={{ key: "s1", order, start: { day: 0, time: "10:00" } }} />);
+    expect(html).toMatch(/aria-checked="true"[^>]*>(<[^>]+>)*6(<[^>]+>)*\s*持続/);
+    expect(html).toContain("3mL/時 × 5mg/50mL × 1000 ÷（50kg × 60）= 0.10μg/kg/分");
+    expect(renderToStaticMarkup(<AddInjectionPanel onAdd={() => {}} newId={() => "d1"} drafts={[]} seed={{ key: "s1", order, start: { day: 0, time: "10:00" } }} />)).not.toContain("μg/kg/分");
+  });
 });

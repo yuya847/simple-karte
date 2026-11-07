@@ -44,9 +44,13 @@ export interface Infusion {
   /** 計算に使う体重 kg（指示のときに医師が決める）。 */
   weightKg: number;
   start: At; end?: At; by: string;
-  /** 速さ（mL/h）の履歴。γ などは gamma.ts がここから計算する。 */
-  changes: { at: At; rateMlPerH: number; by: string; reason?: string }[];
+  /** 速さ（mL/h）の履歴。γ などは gamma.ts がここから計算する。fromOrder：確定した注射のオーダ（速さの変更）から読み替えた行。 */
+  changes: { at: At; rateMlPerH: number; by: string; reason?: string; fromOrder?: string }[];
   note?: string;
+  /** 持続の注射オーダから読み替えた持続投与（記録がないとき）：最初のオーダの id。保存しない（ordered.ts）。 */
+  fromOrder?: string;
+  /** 終了がオーダの中止から読み替えたもの。保存しない。 */
+  endFromOrder?: boolean;
 }
 
 /** CRRT（持続的腎代替療法）の条件。 */

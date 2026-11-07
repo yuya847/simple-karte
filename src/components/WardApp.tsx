@@ -1064,7 +1064,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const recordBlood = (id: string) => new Map([...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].map(p => [p.id, p])).get(id)?.blood;
   // 救急外来・外来 of today: each visit is a (small) patient too, so it opens in the same chart screen as a
   // ward patient (its record is the visit's orders and notes; a chart opened for the visit keeps the rest).
-  useInfusionPersistence(icu, charts, allPatients, todayKey, setIcu, setCharts, newChart);
+  useInfusionPersistence(icuSaved, charts, allPatients, todayKey, setIcu, setCharts, newChart);
   useTransferSummaryPersistence(charts, nm.summaries, todayKey, setCharts, nm.setSummaries, newChart);
   useKitchenAllergies(allPatients, care.kitchen, care.setKitchen, me, nowTime ?? "");
   const visitPatientsAll: WorkPatient[] = useMemo(
@@ -3488,6 +3488,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                           <fieldset disabled={!!orderBlock} className="m-0 min-w-0 border-0 p-0">
                             <AddInjectionPanel
                               patientId={patient.id}
+                              weightKg={patient.weightKg}
                               key={patient.id}
                               newId={newId}
                               drafts={chart.drafts}

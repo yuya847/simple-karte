@@ -39,7 +39,7 @@ describe("呼吸器の設定はオーダ（人工呼吸の設定 PROC-VENT）", 
     expect(currentOxygen(v2, p.id, 640)).toBe("A/C-PC FiO2 0.3 PEEP 6");
     expect(currentOxygen(v2, p.id, 620)).toBe("A/C-PC FiO2 0.35 PEEP 6");
     // 置き換えのない中止：その時刻から設定なし。
-    const stopped = withIcuOrders(r, { [p.id]: currentEntries(p, { added: [], stopped: ["o1"], stopTimes: { o1: "11:00" } }) as OrderEntry[] });
+    const stopped = withIcuOrders(r, { [p.id]: { entries: currentEntries(p, { added: [], stopped: ["o1"], stopTimes: { o1: "11:00" } }) as OrderEntry[] } });
     expect(ventAt(stopped.vents, p.id, 650)?.fio2).toBe(0.35);
     expect(ventAt(stopped.vents, p.id, 670)).toBeNull();
   });

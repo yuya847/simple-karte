@@ -1,4 +1,5 @@
 "use client";
+import { injectionGamma } from "@/lib/icu/injection-gamma";
 import { DoseIngredient } from "../DoseIngredient";
 import type { PrescriptionSeed } from "@/lib/prescription-calendar";
 import { diluentChoices, chooseDiluent } from "@/lib/inj-diluent";
@@ -77,17 +78,19 @@ interface InjRow {
  * Routes as the ward says them. 末梢静脈 is a drip, ワンショット an IV push, ロック a flush of 生食 or
  * heparin to keep the line open (given as 静注; the word ロック goes into the order's comment).
  */
-const ROUTE_TABS: { key: string; route: InjectionRoute; lock?: boolean; title: string }[] = [
+const ROUTE_TABS: { key: string; route: InjectionRoute; lock?: boolean; continuous?: boolean; title: string }[] = [
   { key: "末梢静脈", route: "点滴静注", title: "末梢静脈からの点滴（点滴静注）" },
   { key: "ワンショット", route: "静注", title: "静脈注射（ワンショット）" },
   { key: "筋注", route: "筋注", title: "筋肉注射" },
   { key: "皮下注", route: "皮下注", title: "皮下注射" },
   { key: "ロック", route: "静注", lock: true, title: "生食・ヘパリンでルートの閉塞を防ぐ（静注として出す）" },
+  // 持続（シリンジポンプ・輸液ポンプ）: mL/時 で中止まで。経路は薬のマスターの静注（なければ点滴静注）。
+  { key: "持続", route: "静注", continuous: true, title: "ポンプで持続（mL/時）、中止まで" },
 ];
 const masterOf = (code: string) => DRUGS.find((d) => d.code === code);
 /** Whether every drug in the Rp can be given this way. */
 const routeOk = (rows: InjRow[], tab: (typeof ROUTE_TABS)[number]) =>
-  rows.length > 0 && (tab.lock ? rows.every((r) => masterOf(r.drugCode)?.lock) : rows.every((r) => masterOf(r.drugCode)?.routes.includes(tab.route)));
+  rows.length > 0 && (tab.lock ? rows.every((r) => masterOf(r.drugCode)?.lock) : tab.continuous ? (["静注", "点滴静注"] as const).some((x) => rows.every((r) => masterOf(r.drugCode)?.routes.includes(x))) : rows.every((r) => masterOf(r.drugCode)?.routes.includes(tab.route)));
 
 interface InjRp {
   diluentDeclined?: boolean;
@@ -126,7 +129,15 @@ const rowFor = (code: string): InjRow => {
 };
 /** The route tabs open for these drugs. */
 const routeTabsFor = (rows: InjRow[]) => ROUTE_TABS.filter((t) => routeOk(rows, t));
-const routeOf = (rp: InjRp): InjectionRoute | null => ROUTE_TABS.find((t) => t.key === rp.route)?.route ?? null;
+const routeOf = (rp: InjRp): InjectionRoute | null => {
+  const t = ROUTE_TABS.find((t) => t.key === rp.route);
+  if (!t?.continuous) return t?.route ?? null;
+  return rp.rows.every((r) => masterOf(r.drugCode)?.routes.includes("静注")) ? "静注" : "点滴静注";
+};
+/** 持続（ポンプ、mL/時、中止まで）の Rp. */
+const contOf = (rp: InjRp) => !!ROUTE_TABS.find((t) => t.key === rp.route)?.continuous;
+/** The Rp has a drip line (時間で・速度で): 点滴静注, or 持続. */
+const dripOf = (rp: InjRp) => routeOf(rp) === "点滴静注" || contOf(rp);
 
 /**
  * A drug search inside one Rp. Keyboard: type, ↓ ↑ to move in the list, Enter to put the drug in,
@@ -172,7 +183,7 @@ function CollectedRps({ drafts, kind }: { drafts: Draft[]; kind: "injection" | "
  * drug, drugs mixed in, and the fluid), then the route, frequency, drip time and start. Each Rp
  * becomes a draft that goes through the same checks as a spoken one; the doctor confirms.
  */
-export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientId = "" }: { patientId?: string; onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] } }) {
+export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientId = "", weightKg }: { patientId?: string; onAdd: (d: Draft[]) => void; newId: () => string; drafts: Draft[]; seed?: InjSeed; memory?: { patterns: InjPattern[]; previous: InjPattern[] }; weightKg?: number }) {
   const mode = useMe().role === "看護師" ? "verbal" : "doctor";
   const [category, setCategory] = useWindowEntry<"定期" | "臨時">("injection.category", "定期");
   const freshRp = (kind = category): InjRp => {
@@ -268,7 +279,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
     ...(!rp.sliding && !rp.insulinDoses && rp.doseTimes?.length && rp.sched >= 0 && schedulesOf(rp)[rp.sched].value.kind !== "once" && rp.doseTimes.length !== defaultDoseTimes(schedulesOf(rp)[rp.sched].value).length ? ["回数と投与時刻の数が一致していません"] : []),
     ...(rp.route ? [] : ["経路"]),
     ...(rp.sched >= 0 ? [] : ["回数"]),
-    ...(routeOf(rp) === "点滴静注" && (modeOf(rp) === "time" ? !rp.minutes : !(Number(rp.rate) > 0)) ? [modeOf(rp) === "time" ? "1回の時間" : "速度"] : []),
+    ...(dripOf(rp) && (modeOf(rp) === "time" ? !rp.minutes : !(Number(rp.rate) > 0)) ? [modeOf(rp) === "time" ? "1回の時間" : "速度"] : []),
   ];
   const complete = (rp: InjRp) => rp.rows.length > 0 && missingOf(rp).length === 0;
   // 決める: put the choice buttons away and show only what was chosen; go on to the next empty Rp.
@@ -317,12 +328,13 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
       route,
       dayPattern: schedulesOf(rp)[rp.sched]?.value.kind === "once" ? undefined : rp.dayPattern,
       schedule: rp.insulinDoses ? { kind: "per_day", count: rp.doseTimes!.length } : rp.sliding ? {kind:"per_day",count:rp.sliding.times.length} : schedulesOf(rp)[rp.sched].value,
-      infusionMinutes: route === "点滴静注" && modeOf(rp) === "time" ? rp.minutes : null,
-      infusionScope: route === "点滴静注" ? "per_dose" : null,
-      rateMlPerH: route === "点滴静注" && modeOf(rp) === "rate" ? Number(rp.rate) : null,
+      infusionMinutes: dripOf(rp) && modeOf(rp) === "time" ? rp.minutes : null,
+      infusionScope: dripOf(rp) ? "per_dose" : null,
+      rateMlPerH: dripOf(rp) && modeOf(rp) === "rate" ? Number(rp.rate) : null,
+      ...(contOf(rp) ? { continuous: { infusionId: newId() } } : {}),
       prefer: null,
       start: { day: rp.startDay, time: rp.startTime || null },
-      days: Number(rp.days) > 0 ? Number(rp.days) : null,
+      days: !contOf(rp) && Number(rp.days) > 0 ? Number(rp.days) : null,
       duplicate: null,
     };
   };
@@ -375,7 +387,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
             if (e.key !== "ArrowUp" || e.nativeEvent.isComposing || e.metaKey || e.ctrlKey) return;
             const current = (e.target as HTMLElement).closest<HTMLElement>("[data-step]")?.dataset.step as InjStep | undefined;
             if (!current || current === "drug") return;
-            e.preventDefault(); e.stopPropagation(); focus(i, injEntryStep(current, "ArrowUp", route === "点滴静注"));
+            e.preventDefault(); e.stopPropagation(); focus(i, injEntryStep(current, "ArrowUp", dripOf(rp)));
           }} onKeyDown={(e) => {
             if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
             if (e.shiftKey && e.key === "Enter" && rp.rows.length) { e.preventDefault(); focus(i, "drug"); return; }
@@ -406,7 +418,7 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
               const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }).format(new Date());
               if (!rp.startTime) { const start = nextInjectionStart(rp.doseTimes ?? [], now); upd(i, { startDay: rp.startDay || start.day, startTime: start.time }); }
             }
-            const next = injEntryStep(current, e.key, route === "点滴静注", valid);
+            const next = injEntryStep(current, e.key, dripOf(rp), valid);
             if (next === "done") decide(i); else focus(i, next);
           }} className="space-y-1.5 py-2">
             <div className="flex items-baseline gap-2">
@@ -484,21 +496,21 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                 <button type="button" className="text-ai" onClick={() => focus(i, "drug")}>＋混注</button>
                 {isInsulin({ items: rp.rows.map(r => ({ ...r, amount: Number(r.amount) })) }) && <InjectionEntryRow step="times" active={rp.step}><InsulinDoseEditor value={rp.insulinDoses} onChange={insulinDoses => upd(i, { insulinDoses })} /></InjectionEntryRow>}
                 <DecidedEntryLines lines={injectionEntryLines(rp.step ?? "dose", {
-                  route: rp.route === "ロック" ? "静注（ロック）" : route ?? "",
+                  route: rp.route === "ロック" ? "静注（ロック）" : contOf(rp) ? `${route ?? ""}（持続）` : route ?? "",
                   schedule: schedules[rp.sched]?.label ?? "",
                   times: rp.doseTimes ?? [],
                   duration: modeOf(rp) === "time" ? minutesLabel(rp.minutes) : `${Number(rp.rate).toFixed(1)}mL/時`,
                   start: (() => { const t = todayInTokyo(); const d = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay)); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${rp.startTime || "指示受け後すぐ"}から`; })(),
                   days: patternCourse(rp.dayPattern, rp.startDay, Number(rp.days) || undefined, false),
-                }, route === "点滴静注")} onEdit={(step) => focus(i, step)} />
+                }, dripOf(rp))} onEdit={(step) => focus(i, step)} />
                 <InjectionEntryRow step="route" active={rp.step} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 text-ink-soft">経路</span>
                   <TabChoice
                     numbered label={`Rp${first + i} の経路`}
                     size="lg"
-                    options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.lock ? t.key : t.route, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
+                    options={ROUTE_TABS.map((t) => ({ value: t.key, label: t.lock || t.continuous ? t.key : t.route, disabled: !open.includes(t), title: open.includes(t) ? t.title : `${t.title}：この薬では使えません` }))}
                     value={rp.route || null}
-                    onChange={(v) => { upd(i, { route: v, minutes: ROUTE_TABS.find((t) => t.key === v)?.route === "点滴静注" ? rp.minutes : 0 }); focus(i, "schedule"); }}
+                    onChange={(v) => { const tab = ROUTE_TABS.find((t) => t.key === v); upd(i, { route: v, minutes: tab?.route === "点滴静注" ? rp.minutes : 0, ...(tab?.continuous ? { sched: schedules.findIndex((x) => x.value.kind === "once"), rateMode: "rate" as const, minutes: 0, days: "" } : {}) }); focus(i, tab?.continuous ? "duration" : "schedule"); }}
                   />
                   {open.length === 0 && <span className="text-shu">同じ経路で使えない薬が混ざっています</span>}
                 </InjectionEntryRow>
@@ -507,9 +519,9 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                   <span className="w-16 text-ink-soft">回数</span>
                   <TabChoice numbered label={`Rp${first + i} の回数`} size="lg" options={schedules.map((x, j) => ({ value: j, label: x.label }))} value={rp.sched >= 0 ? rp.sched : null} onChange={(v) => { upd(i, { sched: v }); focus(i, "times"); }} />
                 </InjectionEntryRow>
-                {route === "点滴静注" && (
+                {dripOf(rp) && (
                   <InjectionEntryRow step="duration" active={rp.step}>
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div hidden={contOf(rp)} className="flex flex-wrap items-center gap-1.5">
                       <span className="w-16 text-ink-soft">落とし方</span>
                       <TabChoice
                         label={`Rp${first + i} の落とし方`}
@@ -533,8 +545,9 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
                         <span className="w-16 text-ink-soft">速度</span>
                         <input value={rp.rate} onChange={(e) => upd(i, { rate: halfWidthNumber(e.target.value) })} inputMode="decimal" aria-label={`Rp${first + i} の速度（mL/時）`} className={`${field} w-16 text-right`} />
                         mL/時
-                        <TabChoice label={`Rp${first + i} のよく使う速度`} options={DRIP_RATES.map((r) => ({ value: r, label: String(r) }))} value={Number(rp.rate) || null} onChange={(v) => upd(i, { rate: String(v) })} />
-                        <DripCalc rp={rp} />
+                        {!contOf(rp) && <TabChoice label={`Rp${first + i} のよく使う速度`} options={DRIP_RATES.map((r) => ({ value: r, label: String(r) }))} value={Number(rp.rate) || null} onChange={(v) => upd(i, { rate: String(v) })} />}
+                        {!contOf(rp) && <DripCalc rp={rp} />}
+                        <GammaCalc rp={rp} weightKg={weightKg} />
                       </div>
                     )}
                   </InjectionEntryRow>
@@ -659,8 +672,14 @@ function rpFromOrder(o: InjectionOrder): InjRp {
   rp.doseTimes = o.doseTimes ?? defaultDoseTimes(o.schedule);
   rp.endDay = o.end?.day;
   rp.endTime = o.end?.time;
+  // 持続 (pump, until stopped) comes back as 持続 with its rate.
+  if (o.continuous) {
+    rp.route = "持続";
+    rp.rateMode = "rate";
+    rp.rate = String(o.rateMlPerH ?? "");
+  }
   // A drip given by rate (or with a time not among the choices) is copied by its rate.
-  if (o.route === "点滴静注" && o.rateMlPerH && !rp.minutes) {
+  else if (o.route === "点滴静注" && o.rateMlPerH && !rp.minutes) {
     rp.rateMode = "rate";
     rp.rate = String(o.rateMlPerH);
   }
@@ -681,7 +700,7 @@ function rpFromSeed(seed: InjSeed): InjRp {
 }
 
 /** How the drip is given: as chosen, else by rate for a bag (fluid first) and by time for a drug. */
-const modeOf = (rp: InjRp): "time" | "rate" => rp.rateMode ?? (isFluidRp(rp) && schedulesOf(rp)[rp.sched]?.value.kind !== "once" ? "rate" : "time");
+const modeOf = (rp: InjRp): "time" | "rate" => contOf(rp) ? "rate" : rp.rateMode ?? (isFluidRp(rp) && schedulesOf(rp)[rp.sched]?.value.kind !== "once" ? "rate" : "time");
 
 /** The other half, worked out by code: the rate from the time, or the time per bag from the rate. */
 function DripCalc({ rp }: { rp: InjRp }) {
@@ -700,17 +719,23 @@ function DripCalc({ rp }: { rp: InjRp }) {
   return text ? <span className="nums text-[11px] text-ai">{displayText(text)}</span> : null;
 }
 
+/** 持続（mL/時）の γ（μg/kg/分）: 体重と濃度があるときだけ、式とともに（表示だけ）。 */
+function GammaCalc({ rp, weightKg }: { rp: InjRp; weightKg?: number }) {
+  const g = injectionGamma(rp.rows.map((r) => ({ drugCode: r.drugCode, amount: Number(r.amount) || null, unit: r.unit })), Number(rp.rate), weightKg);
+  return g ? <span className="nums text-[11px] text-ai">{g.text}</span> : null;
+}
+
 /** A decided Rp as one line: only what was chosen (drugs, route, frequency, drip, start, days, comment). */
 function RpSummary({ rp }: { rp: InjRp }) {
   const drugs = rp.rows.map((r) => {
     const m = masterOf(r.drugCode)!;
     return `${m.name}（${m.package}）${rp.sliding ? "" : `${r.amount}${r.unit}`}`;
   });
-  const drip = routeOf(rp) === "点滴静注" ? (modeOf(rp) === "time" ? `1回${minutesLabel(rp.minutes)}` : `${Number(rp.rate).toFixed(1)}mL/時`) : null;
+  const drip = dripOf(rp) ? (modeOf(rp) === "time" ? `1回${minutesLabel(rp.minutes)}` : `${Number(rp.rate).toFixed(1)}mL/時`) : null;
   const t = todayInTokyo();
   const date = new Date(Date.UTC(t.y, t.m - 1, t.d + rp.startDay));
   const start = `${date.getUTCMonth() + 1}/${date.getUTCDate()}${rp.startTime ? ` ${rp.startTime}` : ""}から`;
-  const parts = [rp.insulinDoses ? insulinDoseText(rp.insulinDoses) : null, rp.dayPattern ? patternText(rp.dayPattern) : null, routeOf(rp), rp.sliding ? "スライディングスケール" : schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, schedulesOf(rp)[rp.sched]?.value.kind !== "once" && Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
+  const parts = [rp.insulinDoses ? insulinDoseText(rp.insulinDoses) : null, rp.dayPattern ? patternText(rp.dayPattern) : null, contOf(rp) ? `${routeOf(rp)}（持続）` : routeOf(rp), rp.sliding ? "スライディングスケール" : schedulesOf(rp)[rp.sched]?.label, rp.doseTimes?.join("・"), drip, start, rp.endTime ? `終了 ${rp.endDay ?? rp.startDay}日後 ${rp.endTime}` : null, rp.alreadyDone ? "実施済み" : null, schedulesOf(rp)[rp.sched]?.value.kind !== "once" && Number(rp.days) > 0 ? `${rp.days}日間` : null, rp.comment.trim() || null].filter(Boolean);
   return (
     <>
       <b>{drugs.join(" ＋ ")}</b>
