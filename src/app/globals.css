@@ -41,21 +41,21 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
   font-feature-settings: "palt" 1;
-  /* 青のアクセント：チェック・ラジオの色と、入力中の日本語の変換候補（iPad の外付けキーボードでスペースを押した
-     ときの選択中の文節）の色。紙色の画面だと選択の色が薄くて見えないので、はっきりした青にする。 */
-  accent-color: #1a66ff;
-  caret-color: #1a66ff;
+  /* アクセント：チェック・ラジオ・カーソルは画面の紺（ai）。選択（入力中の日本語の変換の文節も）は紺を薄めた色で、
+     紙色の上でも見え、鮮やかな青ほど目立たない（ユーザー 2026-11-07「選択の時のアクセントカラーが青すぎる」）。 */
+  accent-color: var(--color-ai);
+  caret-color: var(--color-ai);
 }
 
 ::selection {
-  background: #1a66ff;
-  color: #fff;
+  background: #b9c8e2;
+  color: var(--color-ink);
 }
 input::selection,
 textarea::selection,
 [contenteditable]::selection {
-  background: #1a66ff;
-  color: #fff;
+  background: #b9c8e2;
+  color: var(--color-ink);
 }
 
 /* Numbers line up in tables and order lines. */
