@@ -41,6 +41,9 @@ import { ReportContext, OrderReportMark } from "./ReportMark";
 import { InjectionCalendar, PrescriptionCalendar, type CalendarProps } from "./Calendars";
 import { ExecuteMenu, type ExecuteProps, type MenuExtra } from "./ExecuteMenu";
 import { abs } from "@/lib/flowsheet";
+import { ANALYTES } from "@/lib/master";
+import { flagOf } from "@/lib/lab-desk";
+import { labNumber } from "@/lib/lab-number";
 import { canHaveExecution, executionBadge, occurrenceStates, occurrencesOn } from "@/lib/order-execute";
 import { useLongPress } from "@/lib/use-long-press";
 import { FlowSheet } from "./FlowSheet";
@@ -1147,11 +1150,26 @@ function OrderRow({ orderDay = "予定日", onJumpDay, sharedMarkKeys = [], grou
         {o.purpose && <div className="text-xs text-ink-soft">目的：{o.purpose}</div>}
         {o.comment && <div className="text-xs text-ink-soft">{o.comment}</div>}
         {onOpenResult && !stopped && (
-          <div className="flex justify-end">
-            <button type="button" onClick={onOpenResult} className="mt-1 inline-flex items-center gap-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
+          <div className="group/res relative flex justify-end">
+            <button type="button" onClick={onOpenResult} aria-describedby={`lab-hl-${entry.id}`} className="mt-1 inline-flex items-center gap-1 rounded border border-ai/50 px-2 py-0.5 text-[11px] font-bold text-ai hover:bg-ai-soft pointer-coarse:py-1.5">
               <FlaskConical size={12} aria-hidden />
               結果を表示
             </button>
+            <span id={`lab-hl-${entry.id}`} role="tooltip" className="nums pointer-events-none absolute bottom-full right-0 z-20 mb-1 hidden w-max max-w-80 flex-wrap gap-x-2.5 rounded border border-rule bg-sheet px-2 py-1 text-[11px] text-ink shadow-md group-focus-within/res:flex group-hover/res:flex">
+              {(() => {
+                const lab = patient?.labs.find((l) => l.day === o.collect.day && l.time === o.collect.time);
+                const flagged = lab && patient ? ANALYTES.flatMap((a) => {
+                  const v = lab.values[a.code];
+                  const f = v === undefined ? "" : flagOf(a, patient.sex, v);
+                  return f ? [{ a, v, f }] : [];
+                }) : [];
+                return flagged.length ? flagged.map(({ a, v, f }) => (
+                  <span key={a.code} className="whitespace-nowrap">
+                    {a.name} <b className={f === "H" ? "text-shu" : "text-ai"}>{labNumber(a.code, v)} {f}</b>
+                  </span>
+                )) : "H・L なし";
+              })()}
+            </span>
           </div>
         )}
       </div>
