@@ -3,7 +3,7 @@ import { expiryFlags, expiryKey, rxExpiries } from "@/lib/rx-expiry";
 import { roomLabel } from "@/lib/place-label";
 
 import { displayText } from "@/lib/display-text";
-import { ArrowDown, ArrowUp, Columns3, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Columns3, Printer, Search, SlidersHorizontal, X } from "lucide-react";
 import { useContext, useMemo, useState } from "react";
 import { upcomingToday } from "@/lib/calendar";
 import { abs } from "@/lib/flowsheet";
@@ -31,6 +31,10 @@ import type { OrderEntry } from "@/lib/types";
 
 import { NoteOverviewContext, patientTodoDone } from "./NoteOverview";
 import { noteOverview } from "@/lib/note-overview";
+import { roundsRow } from "@/lib/rounds-sheet";
+import type { PlannedSurgery } from "@/lib/schedule-days";
+import type { Diagnosis } from "@/lib/diagnoses";
+import { RoundsPreview } from "./RoundsSheet";
 
 interface Props {
   expiryDone?: Record<string, { id: string }[]>;
@@ -72,6 +76,8 @@ interface Props {
   onInfo?: (patientId: string) => void;
   /** Opens the chart with one of its tools: a mark pressed (未確認の結果 → 検査結果 …), or the row's menu. */
   onOpenAt?: (patientId: string, where: OpenAt) => void;
+  /** 回診表を印刷 (the full rows, in the list's order): who prints, the OR list, the diagnoses, and the audit line. */
+  rounds?: { by: string; surgeries: (PlannedSurgery & { patientId?: string })[]; diagnoses: Record<string, Diagnosis[]>; onPrinted: (names: string[]) => void };
 }
 
 /** What this person chose in this browser: the columns and row height (「表示」) and the starred patients (☆). */
@@ -115,7 +121,7 @@ export function PatientList(props: Props) {
 }
 
 /** The list with its choices given (PatientList reads them for the person; tests pass them). */
-export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, expiryDone = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, onOpenAt, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
+export function PatientListView({ ward, title, pick, defaultGroup = "room", dayNav, asOf, nowTime, changes, summaries, waiting, consentState = {}, marPending = {}, resultState = {}, extraFlags = {}, expiryDone = {}, dpcPayload, today, mine: mineOf = everyone, doctorsOf, viewer, onOpen, onInfo, onOpenAt, rounds, prefs, onPrefs, favorites, onToggleFavorite }: Props & Prefs) {
   const overview = useContext(NoteOverviewContext);
   const { bind, menu } = usePressMenu();
   // A row's menu (右クリック・長押し): the chart, its 経過表 or 指示受け, and ☆.
@@ -137,6 +143,7 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
   const [emphasize, setEmphasize] = useEmphasizeTeam();
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "room", asc: true });
   const [cursor, setCursor] = useState(0);
+  const [showRounds, setShowRounds] = useState(false);
   const nowAbs = abs(0, nowTime);
   // The day listed (0 = today): 入院◯日目 and 新入院 are counted for it.
   const viewDay = asOf?.day ?? 0;
@@ -269,6 +276,27 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
   // Rows that are people (a bed that is 空く予定 is a row too, but not a person).
   const people = (rs: Row[]) => rs.filter((r) => r.patient || r.bed.other || r.expected).length;
   const at = Math.min(cursor, Math.max(openable.length - 1, 0));
+  // 回診表: the patients shown in full (受け持ち, or everyone without 「受け持ちを目立たせる」), as listed today.
+  const roundsShown = !!rounds && !!today && viewDay === 0;
+  const roundsList = openable.filter(full);
+  const nurse = overview.role === "看護師";
+  const roundsRows = () =>
+    roundsList.map((r) => {
+      const p = r.patient!;
+      return roundsRow({
+        patient: p,
+        room: roomKey(r.bed),
+        orders: work.get(p.id)?.entries ?? [],
+        todos: noteOverview(overview.entriesOf(p.id), nurse ? "看護師" : "医師", patientTodoDone(overview.done, p.id)).todos.map((t) => t.text),
+        surgeries: rounds!.surgeries,
+        diagnoses: rounds!.diagnoses[p.id],
+        plans: planFor(r.bed).filter((x) => x.day === 0).map((x) => `${x.time} ${x.kind}`),
+        results: resultState[p.id],
+        waiting: nurse ? waiting[p.id] ?? 0 : null,
+        today: today!,
+        now: nowTime,
+      });
+    });
 
   const header = (key: SortKey, label: string) => (
     <button
@@ -362,7 +390,26 @@ export function PatientListView({ ward, title, pick, defaultGroup = "room", dayN
             className="w-64 bg-transparent text-sm outline-none placeholder:text-ink-faint"
           />
         </label>
+        {roundsShown && (
+          <button
+            type="button"
+            disabled={!roundsList.length}
+            onClick={() => setShowRounds(true)}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-ai px-2 py-1 text-sm font-bold text-ai hover:bg-ai-soft disabled:opacity-40"
+          >
+            <Printer size={14} />
+            回診表を印刷
+          </button>
+        )}
       </header>
+      {showRounds && roundsShown && (
+        <RoundsPreview
+          rows={roundsRows()}
+          info={{ title, today: today!, now: nowTime, by: rounds!.by }}
+          onPrinted={() => rounds!.onPrinted(roundsList.map((r) => r.patient!.name))}
+          onClose={() => setShowRounds(false)}
+        />
+      )}
 
       {(showCond || nCond > 0) && (
         <CondBar cond={cond} choices={choices} onChange={(c) => (setCond(c), setCursor(0))} />

@@ -3169,6 +3169,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           onOpen={openPatient}
           onInfo={(id) => (openPatient(id), setPanel("patient-info"))}
           onOpenAt={openAt}
+          rounds={{ by: me.name.startsWith(me.role) ? me.name : `${me.role} ${me.name}`, surgeries, diagnoses, onPrinted: (names) => auditLog({ role: me.role, actor: me.name, action: "回診表を印刷", detail: `${lists[listKey].title}　${names.length}人：${names.join("・")}`.slice(0, 400) }) }}
         />
         </div>
       ) : patient && limitNow && !inTeamNow && !grantNow ? (
