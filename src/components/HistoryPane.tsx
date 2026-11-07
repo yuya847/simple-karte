@@ -1,5 +1,6 @@
 "use client";
 import { prescriptionText, revisionEntries } from "@/lib/history-order";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 import { useOrderHistoryActions } from "./OrderHistoryActions";
 import { patternCourse } from "@/lib/day-pattern";
 import { displayText } from "@/lib/display-text";
@@ -762,8 +763,9 @@ function SetForm({ at, count, onClose, onSave }: { at: { x: number; y: number };
       window.removeEventListener("keydown", esc);
     };
   }, [onClose]);
-  const left = Math.min(at.x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 280);
-  const top = Math.min(at.y, (typeof window === "undefined" ? 800 : window.innerHeight) - 90);
+  // Pointer positions are screen pixels; with the 字の大きさ zoom the menu is placed in CSS pixels.
+  const left = Math.min(cssPx(at.x), viewW() - 280);
+  const top = Math.min(cssPx(at.y), viewH() - 90);
   return createPortal(
     <form
       ref={ref}

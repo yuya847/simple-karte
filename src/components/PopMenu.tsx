@@ -2,6 +2,7 @@
 // The small menu of the record and of the drafts: at the pointer (right click) or under a 「…」 button (touch).
 
 import { useEffect, useRef } from "react";
+import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 import { createPortal } from "react-dom";
 import type { Copy } from "lucide-react";
 
@@ -19,8 +20,9 @@ export function Menu({ at, onClose, items }: { at: { x: number; y: number }; onC
       window.removeEventListener("keydown", esc);
     };
   }, [onClose]);
-  const left = Math.min(at.x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 230);
-  const top = Math.min(at.y, (typeof window === "undefined" ? 800 : window.innerHeight) - 40 * items.length - 16);
+  // Pointer positions are screen pixels; with the 字の大きさ zoom the menu is placed in CSS pixels.
+  const left = Math.min(cssPx(at.x), viewW() - 230);
+  const top = Math.min(cssPx(at.y), viewH() - 40 * items.length - 16);
   return createPortal(
     <div ref={ref} role="menu" style={{ position: "fixed", left, top, zIndex: 1000 }} className="w-56 rounded-lg border border-rule bg-sheet p-1 text-[13px] shadow-[0_12px_32px_-8px_rgba(38,34,28,0.4)]">
       {items.map((it) => {
