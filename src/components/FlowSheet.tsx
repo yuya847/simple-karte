@@ -443,7 +443,7 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
     },
     io: {
       show: !!(io && ioRows),
-      extra: io ? <><IoHeading byTime={!win.byDay} standingIo={io.standingIo} />{onEntry && !deny("vitals") && <button type="button" className="rounded border border-rule px-2 py-1" onClick={() => onEntry({ kind: "io", at: nowAbs })}>入力</button>}</> : undefined,
+      extra: io ? <><IoHeading standingIo={io.standingIo} />{onEntry && !deny("vitals") && <button type="button" className="rounded border border-rule px-2 py-1" onClick={() => onEntry({ kind: "io", at: nowAbs })}>入力</button>}</> : undefined,
       // 水分出納: recorded and planned kept apart, one cell per 24 hours from the close.
       body: io && ioRows && (
         <div
@@ -643,7 +643,6 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
   return (
     <div ref={wrap} className="scroll-thin min-h-0 flex-1 overflow-auto px-3 pb-24 pt-2">
       <div className="mb-2 flex items-center gap-3 text-[11px] text-ink-faint">
-        <span>グラフに触れると、その時刻の値が出ます（キーボードは ← →）。</span>
         <button type="button" onClick={() => setShowTable(!showTable)} className="ml-auto rounded border border-rule px-2 py-0.5 text-ink-soft hover:text-ink">
           {showTable ? "グラフで見る" : "表で見る"}
         </button>

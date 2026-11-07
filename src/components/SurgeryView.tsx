@@ -327,7 +327,6 @@ function RequestDialog({ people, all, nowAbs, onCancel, onSave }: { people: Work
                 </option>
               ))}
             </select>
-            <span className="text-[11px] text-ink-faint">感染症・アレルギー・身長体重はカルテから自動で入ります。</span>
           </label>
           <div className="flex gap-2">
             <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} className="flex-1 rounded border border-rule bg-paper px-2 py-1.5 outline-none" placeholder="話すか打つ（例：明日の午後1時半から手術室3で…）" />

@@ -231,7 +231,6 @@ function PlanForm({ w, ev, today, nowTime, onSave }: { w: WorkPatient; ev: Admit
         </label>
       </div>
       <div className="col-span-2 flex items-center gap-2">
-        <span className="text-[11px] text-ink-faint">令和8年度から署名は要りません。説明した日と説明した人を記録し、文書を渡します。</span>
         {done ? (
           <span className="ml-auto text-xs font-bold text-wakatake">
             {formatShort(addDays(today, ev.plan!.explainedAt.day))} {ev.plan!.explainedAt.time} {ev.plan!.explainedBy} が {ev.plan!.explainedTo} に説明して渡しました

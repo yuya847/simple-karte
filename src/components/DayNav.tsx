@@ -62,7 +62,6 @@ export function AsOfBand({ asOf, fmtDay }: { asOf: Pick<WardAsOf, "day" | "known
     return (
       <div role="status" className="shrink-0 border-b border-yamabuki/40 bg-yamabuki-soft/60 px-5 py-1.5 text-[12px] text-ink">
         <b className="text-yamabuki">{fmtDay(asOf.day)}の見込み（予定から計算）</b>
-        <span className="ml-2 text-ink-soft">その日の朝のベッド。見るだけで、転棟・転床や入院申込の操作は今日の画面で行います。</span>
 
       </div>
     );

@@ -8,7 +8,6 @@ import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { Draft } from "@/lib/drafts";
 import {
   PATHWAYS,
-  PATH_RULES,
   VARIANCE_CATEGORIES,
   VARIANCE_HINTS,
   activePath,
@@ -60,10 +59,6 @@ export function PathPanel({ patient, book, onBook, entries, today, nowTime, newI
   const at = { day: 0, time: nowTime };
   return (
     <div className="space-y-3 text-[13px]">
-      <p className="text-[11px] text-ink-faint">
-        {PATH_RULES.content}
-        {PATH_RULES.drugs}
-      </p>
       {app ? (
         <Active app={app} path={findPath(app.code)!} book={book} onBook={onBook} entries={entries} fmt={fmt} at={at} newId={newId} onDrafts={onDrafts} onNote={onNote} patientName={patient.name} />
       ) : deny("order") ? (
@@ -112,7 +107,7 @@ function Apply({ patient, fmt, onApply }: { patient: Patient; fmt: (d: number) =
     <section className="space-y-2">
       <h3 className="flex items-center gap-1 font-bold">
         <Route size={14} />
-        パスを選ぶ（使うかどうかは医師が決めます）
+        パスを選ぶ
       </h3>
       <ul className="space-y-1.5">
         {PATHWAYS.map((p) => (

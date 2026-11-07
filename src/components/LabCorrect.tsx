@@ -129,7 +129,6 @@ export function LabCorrect({
           {check.panicAfter.length > 0 && (
             <p className="font-bold text-shu">訂正後の値はパニック値です（{check.panicAfter.map(hitLine).join("、")}）。確定すると、訂正した値で医師にもう一度連絡します（「結果とパニック値」に出ます）。</p>
           )}
-          <p className="text-[11px] text-ink-faint">訂正しても前の版は消えません（誰が・いつ・なぜ）。医師のカルテでは「訂正」の印が付き、もう一度「未確認の結果」に出ます。</p>
         </div>
 
         <ol className="nums mt-2 space-y-0.5 rounded border border-rule-soft bg-paper px-2 py-1 text-[11px] text-ink-soft">

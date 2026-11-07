@@ -411,7 +411,6 @@ export function AddInjectionPanel({ onAdd, newId, drafts, seed, memory, patientI
           }} className="space-y-1.5 py-2">
             <div className="flex items-baseline gap-2">
               <b className="text-ai">Rp{first + i}</b>
-              {rp.rows.length === 0 && <span className="text-[11px] text-ink-faint">最初に選んだ薬が主薬。続けて選ぶと混注（輸液を最初に選ぶと「1日◯本」で数えます）</span>}
               {rp.rows.length === 0 && (seed && (rp.startDay !== 0 || rp.startTime)) && (
                 <span className="nums text-[11px] text-ai" data-start={`${rp.startDay}|${rp.startTime}`}>
                   開始：{rp.startDay === 0 ? "今日" : rp.startDay === 1 ? "明日" : `${rp.startDay}日後`} {rp.startTime || "時刻なし"}（カレンダーから。薬を選ぶと直せます）
@@ -1499,7 +1498,6 @@ function RxMemory({ memory, rps, onPut, newId }: { memory: { patterns: RxPattern
               ))}
             </ul>
           )}
-          <p className="text-[11px] text-ink-faint">よく出す処方は、自分が過去に出した処方を Rp ごとにまとめ、回数と新しさの順に並べたものです。写したあと、量・日数を確かめてから下書きにします。</p>
         </div>
       )}
     </MemoryPopover>
@@ -1679,7 +1677,6 @@ function InjMemory({ memory, onPut }: { memory: { patterns: InjPattern[]; previo
               </li>
             ))}
           </ul>
-          <p className="text-[11px] text-ink-faint">自分が過去に出した注射を、同じ薬・経路・回数・落とし方ごとにまとめています。抗がん薬は出しません（レジメンの欄から）。写したあと、開始と日数を確かめて下書きにします。</p>
         </div>
       )}
     </MemoryPopover>

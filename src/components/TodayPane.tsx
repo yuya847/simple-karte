@@ -278,13 +278,6 @@ export function TodayPane(p: Props) {
           )}
           <div className="mt-1 flex items-center gap-2">
             <DenyNote action="note" />
-            {!noteLocked && (
-              <>
-                {/* The keys, folded: the note area stays a writing area. */}
-
-                <span className="ml-auto text-[11px] text-ink-faint">{displayText(isBlankNote(p.note) ? "" : "上の「オーダー」か「保存して閉じる」で記事が確定します")}</span>
-              </>
-            )}
           </div>
         </div>
 

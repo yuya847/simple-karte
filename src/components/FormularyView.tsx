@@ -173,7 +173,7 @@ export function FormularyView({ notices, reads, today, nowTime, staff, onRead, o
                 })}
               </ul>
             </div>
-            {can(me.role, "pharmacy") ? <DiPost today={today} nowTime={nowTime} onPost={onPost} /> : null}
+            {can(me.role, "pharmacy") ? <DiPost nowTime={nowTime} onPost={onPost} /> : null}
           </div>
 
 
@@ -228,7 +228,7 @@ function Row({ x, n, open, onToggle, today, reads, meName, onRead }: { x: Formul
 }
 
 /** 薬剤師: a DI notice naming the drugs, put up on the 掲示板 as a 薬剤部 post. */
-function DiPost({ today, nowTime, onPost }: { today: CalendarDate; nowTime: string; onPost: (n: Notice) => void }) {
+function DiPost({ nowTime, onPost }: { nowTime: string; onPost: (n: Notice) => void }) {
   const me = useMe();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -285,7 +285,6 @@ function DiPost({ today, nowTime, onPost }: { today: CalendarDate; nowTime: stri
         病棟に掲示する
       </button>
       {problems.length > 0 && (title || body || drugs.length > 0) && <span className="ml-2 text-xs text-ink-soft">まだ：{problems.join("・")}</span>}
-      <p className="mt-1 text-[11px] text-ink-faint">{formatShort(today)} の掲示板に「薬剤部」の掲示として出ます。だれが読んだかは掲示板と同じ記録です。</p>
     </div>
   );
 }

@@ -18,7 +18,7 @@ export const PATH_SOURCES = {
 };
 
 export const PATH_RULES = {
-  content: "使うかどうかは医師が決めます。",
+  content: "パスを使うかどうかは医師が決めます。",
   drugs: "抗菌薬・利尿薬・輸液・酸素などの薬と量はパスに入れません。医師が患者ごとに選んでオーダします。",
   variance: "",
 };

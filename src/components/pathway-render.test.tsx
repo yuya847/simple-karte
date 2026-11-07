@@ -33,14 +33,15 @@ describe("クリティカルパス", () => {
     expect(wardTabsFor("医事課")).not.toContain("paths");
   });
 
-  it("lets a doctor choose a path, with the fictional hospital's note and no drugs", () => {
+  it("lets a doctor choose a path, without the notes that moved to the help", () => {
     const html = panel("医師", EMPTY_PATHS);
-    expect(html).toContain("パスを選ぶ（使うかどうかは医師が決めます）");
+    expect(html).toContain("パスを選ぶ");
+    expect(html).not.toContain("使うかどうかは医師が決めます");
     expect(html).toContain("誤嚥性肺炎");
     expect(html).toContain("心不全（急性増悪）");
     expect(html).toContain("蜂窩織炎（下肢）");
     expect(html).not.toContain("架空の病院の取り決め");
-    expect(html).toContain("医師が患者ごとに選んでオーダします");
+    expect(html).not.toContain("医師が患者ごとに選んでオーダします");
   });
 
   it("does not let a nurse apply one", () => {

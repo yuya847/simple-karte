@@ -534,7 +534,6 @@ function ViewMenu({ prefs, onChange, onClose }: { prefs: ListPrefs; onChange: (p
             </button>
           )}
         </div>
-        <p className="mb-1 text-[11px] text-ink-faint">病室・氏名はいつも出ます。</p>
         <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
           {LIST_COLUMNS.map((c) => (
             <li key={c.key}>
@@ -562,9 +561,6 @@ function ViewMenu({ prefs, onChange, onClose }: { prefs: ListPrefs; onChange: (p
             ))}
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-ink-faint">
-          この選択は自分の名前で、この端末のみに保存されます。
-        </p>
       </div>
     </>
   );

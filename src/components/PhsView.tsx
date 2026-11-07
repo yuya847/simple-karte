@@ -106,7 +106,6 @@ export function PhsView(p: Props) {
                 </li>
               ))}
             </ul>
-            <p className="mt-1 text-[11px] text-ink-faint">時刻（日勤 8:30〜17:00、それ以外は当直）と曜日から、当番表を引いています。</p>
           </div>
           <div className={`${card} space-y-2 p-3 text-[13px]`}>
             <h2 className="flex items-center gap-1.5 font-bold">
@@ -145,7 +144,6 @@ export function PhsView(p: Props) {
                 </li>
               ))}
             </ul>
-            <p className="text-[11px] text-ink-faint">電話はかけません（試作）。誰が・誰に・いつ・何を話したかを残し、患者の件はその記録にも残ります。</p>
           </div>
         </section>
 

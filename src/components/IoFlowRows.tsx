@@ -4,7 +4,7 @@ import { FlowOrderedRows, FlowRow } from "./FlowOrderedRows";
 import { DEFAULT_LAYOUT, type FlowLayout } from "@/lib/flow-layout";
 import { displayText } from "@/lib/display-text";
 import { fluidInWindow } from "@/lib/flowsheet";
-import { IN_KINDS, IO_RULES, OUT_KINDS, inWindow, ioDay, ioDayOf, ioShifts, ioTotal, signed, type IoEntry, type IoLine, type IoWindow } from "@/lib/io-balance";
+import { IN_KINDS, OUT_KINDS, inWindow, ioDay, ioDayOf, ioShifts, ioTotal, signed, type IoEntry, type IoLine, type IoWindow } from "@/lib/io-balance";
 import type { AdminRecord } from "@/lib/mar";
 import { findDrug } from "@/lib/master";
 import type { OrderEntry } from "@/lib/types";
@@ -36,11 +36,11 @@ interface Props {
 
 type Cell = { top: string; sub?: string; title: string };
 
-/** What the heading of the 水分出納 group says: the unit, how the cells are cut, and the 指示簿. */
-export function IoHeading({ byTime, standingIo }: { byTime: boolean; standingIo: string | null }) {
+/** What the heading of the 水分出納 group says: the unit and the 指示簿 (how the cells are cut is in the help). */
+export function IoHeading({ standingIo }: { standingIo: string | null }) {
   return (
     <span className="font-normal text-ink-faint">
-      mL　{byTime ? `量はその時刻に、合計は勤務ごと（日勤 ${IO_RULES.dayClose}〜${IO_RULES.dayShiftClose}・夜勤 〜翌${IO_RULES.dayClose}）` : `セルは ${IO_RULES.dayClose}〜翌${IO_RULES.dayClose}`}　指示簿：{standingIo ?? "なし"}
+      mL　指示簿：{standingIo ?? "なし"}
     </span>
   );
 }

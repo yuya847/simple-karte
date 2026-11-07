@@ -9,7 +9,6 @@ import { clockText, dripCourses, hm, pastEnd, pastTime } from "@/lib/drip-course
 import { abs } from "@/lib/flowsheet";
 import {
   IN_TYPED,
-  IO_NOT_INCLUDED,
   IO_RULES,
   IO_VOID_REASONS,
   OUT_KINDS,
@@ -211,9 +210,6 @@ export function IoPanel({ patientId, entries, typed, records, icu, sessionStart,
         指示簿：<b className="text-ink">{standingIo ?? "（水分出納の指示なし）"}</b>
       </p>
       <IoTotals lines={lines} days={[d - 1, d]} nowAbs={nowAbs} today={today} />
-      <p className="text-[11px] text-ink-faint">
-        {IO_RULES.label}。{IO_NOT_INCLUDED}点滴は終了の記録（1本 − 残量）の時刻に入れ、続いている点滴はまだ入れていません。
-      </p>
       <IoEntryForm patientId={patientId} nowTime={nowTime} onAdd={onAdd} newId={newId} defaultTime={defaultTime} />
       {legacyUrineMl ? <p className="text-[11px] text-yamabuki">時刻のない尿量 {n(legacyUrineMl)}mL（前の画面の「尿量を足す」で入れた分）は、今日の尿量（経過表の「尿量」）には入っていますが、勤務ごとの合計には入れていません。</p> : null}
 
@@ -270,7 +266,6 @@ export function IoPanel({ patientId, entries, typed, records, icu, sessionStart,
             ))}
           </ul>
         )}
-        <p className="mt-1 text-[11px] text-ink-faint">終了（全量か残量）は、ワークシートの「勤務のあいだ続くもの」で記録します。</p>
       </section>
     </div>
   );

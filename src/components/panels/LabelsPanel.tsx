@@ -80,7 +80,6 @@ export function LabelsPanel({ p, specimens, drugs, onPrint }: { p: LabelPatient;
           <Printer size={14} />
           {label}を印刷（{count}枚）
         </button>
-        <span className="text-[11px] text-ink-faint">ラベルプリンタがない場合は、ふつうのプリンタで切って使えます。</span>
       </div>
       <div className="flex flex-wrap gap-2 overflow-x-auto rounded-md border border-rule bg-paper p-2">{sheet}</div>
 

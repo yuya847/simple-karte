@@ -157,7 +157,6 @@ export function RehabPlanForm({ rx, desk, onDesk, nowTime, fmtDay, today = 0 }: 
               </option>
             ))}
           </select>
-          <span className="text-ink-faint">評価は「ADL（BI）」で療法士が入れます。</span>
         </div>
       </fieldset>
       <div className="grid gap-2 md:grid-cols-2">

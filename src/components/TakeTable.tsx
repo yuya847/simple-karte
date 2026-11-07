@@ -346,7 +346,6 @@ export function AskDoctorPanel({ onHold }: { onHold: (reason: TakeHold["reason"]
           医師に送る
         </button>
       </div>
-      <p className="mt-1 text-ink-faint">送ると、受けないまま「医師に確認中」になり、医師のやることとカルテに出ます。回答のあとで受けます。</p>
     </>
   );
 }

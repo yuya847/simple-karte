@@ -3,7 +3,7 @@
 import { displayText } from "@/lib/display-text";
 import { Route } from "lucide-react";
 import { useState } from "react";
-import { PATH_RULES, VARIANCE_CATEGORIES, dueOutcomes, findPath, pathDayOf, varianceCounts, type PathBook, type VarianceCategory } from "@/lib/pathway";
+import { VARIANCE_CATEGORIES, dueOutcomes, findPath, pathDayOf, varianceCounts, type PathBook, type VarianceCategory } from "@/lib/pathway";
 
 /**
  * クリティカルパスの一覧: the team's patients on a path (today's day, outcomes not evaluated yet, variances),
@@ -25,7 +25,6 @@ export function PathList({ book, patientOf, fmt, onOpen }: { book: PathBook; pat
         </h2>
         <span className="text-xs text-ink-soft">受け持ちのチームの患者</span>
       </header>
-      <p className="text-[11px] text-ink-faint">{PATH_RULES.content}</p>
 
       <section aria-label="パスを使っている患者">
         {apps.length === 0 ? (
