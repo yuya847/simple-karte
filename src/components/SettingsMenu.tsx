@@ -1,9 +1,10 @@
 "use client";
 
 // 設定（右上、人の名前のメニューの左の歯車）：見た目・字の大きさ・右の道具。人ごとに、この端末だけに覚える。
+// 医師・看護師には、この端末に通知を受ける／止めるもある（スマートフォンへの通知）。
 // The button is always on the top row, so it is also what puts this person's look on the page.
 
-import { LayoutGrid, List, Settings, X } from "lucide-react";
+import { Bell, BellOff, LayoutGrid, List, Settings, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FONT_SIZES, THEMES, THEME_SWATCH, applyAppearance, rememberShown, type Appearance } from "@/lib/appearance";
@@ -11,6 +12,7 @@ import { useAppearance } from "@/lib/use-appearance";
 import { useRail, type RailMode } from "@/lib/rail";
 import { showAllTools } from "@/lib/tool-layout";
 import { cssPx, viewW } from "@/lib/page-zoom";
+import { usePushDevice, type PushDevice } from "@/lib/push/use-push";
 import { useMe } from "./RoleContext";
 
 /** The size of the "あ" on each 字の大きさ button (what 標準 looks like at 13px). */
@@ -35,8 +37,28 @@ function Choices<K extends string>({ name, label, value, items, onChange }: { na
   );
 }
 
+/** 通知: this device receives or stops (greyed with the reason as its title when it cannot be used here). */
+export function PushRow({ device }: { device: PushDevice }) {
+  const on = device.state === "on";
+  const Icon = on ? BellOff : Bell;
+  return (
+    <div className="space-y-1" title={device.reason ?? undefined}>
+      <span className="mb-1 block text-[12px] font-bold text-ink-soft">通知</span>
+      <button type="button" disabled={!!device.reason || device.state === "busy"} title={device.reason ?? undefined} onClick={on ? device.turnOff : device.turnOn} className="flex w-full items-center justify-center gap-1.5 rounded-md border border-rule bg-sheet px-2 py-1.5 text-[12px] text-ink-soft hover:border-ai hover:text-ai disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-rule disabled:hover:text-ink-soft">
+        <Icon aria-hidden size={14} />
+        {on ? "通知を止める" : "この端末に通知を受ける"}
+      </button>
+      {device.error && (
+        <p role="status" className="text-[11px] text-shu">
+          {device.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** What the 設定 window shows (drawn without a browser in the tests). */
-export function SettingsPanel({ value, onChange, railMode, onRailMode, hiddenCount, onShowAll }: { value: Appearance; onChange: (v: Appearance) => void; railMode: RailMode; onRailMode: (m: RailMode) => void; hiddenCount: number; onShowAll: () => void }) {
+export function SettingsPanel({ value, onChange, railMode, onRailMode, hiddenCount, onShowAll, push }: { value: Appearance; onChange: (v: Appearance) => void; railMode: RailMode; onRailMode: (m: RailMode) => void; hiddenCount: number; onShowAll: () => void; push?: PushDevice | null }) {
   return (
     <div className="space-y-3">
       <Choices
@@ -71,6 +93,7 @@ export function SettingsPanel({ value, onChange, railMode, onRailMode, hiddenCou
           隠した道具を全部戻す{hiddenCount > 0 && <span className="nums">（{hiddenCount}）</span>}
         </button>
       </div>
+      {push && <PushRow device={push} />}
       <p className="text-[11px] text-ink-faint">この端末のみに適用されます</p>
     </div>
   );
@@ -85,6 +108,7 @@ export function SettingsButton({ className }: { className: string }) {
   const [look, setLook] = useAppearance(me.name);
   const [rail, putRail] = useRail(me.name);
   const [open, setOpen] = useState(false);
+  const push = usePushDevice(me, open);
   const btn = useRef<HTMLButtonElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -97,7 +121,8 @@ export function SettingsButton({ className }: { className: string }) {
     if (!open) return;
     const put = () => {
       const r = btn.current?.getBoundingClientRect();
-      if (r) setPos({ top: cssPx(r.bottom) + 4, right: Math.max(8, viewW() - cssPx(r.right)) });
+      // On a phone the window also stays inside the left edge (it is where 「この端末に通知を受ける」 is pressed).
+      if (r) setPos({ top: cssPx(r.bottom) + 4, right: Math.max(8, Math.min(viewW() - cssPx(r.right), viewW() - 308)) });
     };
     put();
     window.addEventListener("resize", put);
@@ -139,7 +164,7 @@ export function SettingsButton({ className }: { className: string }) {
                 <X size={16} />
               </button>
             </div>
-            <SettingsPanel value={look} onChange={setLook} railMode={rail.mode} onRailMode={(mode) => putRail({ ...rail, mode })} hiddenCount={hiddenCount} onShowAll={() => putRail({ ...rail, layout: showAllTools(rail.layout) })} />
+            <SettingsPanel value={look} onChange={setLook} railMode={rail.mode} onRailMode={(mode) => putRail({ ...rail, mode })} hiddenCount={hiddenCount} onShowAll={() => putRail({ ...rail, layout: showAllTools(rail.layout) })} push={push} />
           </div>,
           document.body,
         )}

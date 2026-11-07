@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { STAFF } from "@/lib/roles";
 import { MeProvider, RoleProvider } from "./RoleContext";
+import type { PushDevice } from "@/lib/push/use-push";
 import { SettingsButton, SettingsPanel } from "./SettingsMenu";
 
 const panel = (hiddenCount = 0) =>
@@ -27,6 +28,18 @@ describe("設定のウインドウ", () => {
     expect(text(panel())).toBe("見た目 あ 紙 あ 白 あ ダーク あ くっきり 字の大きさ あ 小 あ 標準 あ 大 右の道具 アイコン 名前の一覧 隠した道具を全部戻す この端末のみに適用されます");
     expect(panel()).toMatch(/<button type="button" disabled=""[^>]*>隠した道具を全部戻す<\/button>/);
     expect(panel(3)).toMatch(/<button type="button"(?! disabled)[^>]*>隠した道具を全部戻す<span class="nums">（3）<\/span><\/button>/);
+  });
+
+  it("医師・看護師には「通知」：この端末に通知を受ける／通知を止める。使えないときは灰色で、理由は title", () => {
+    const device = (x: Partial<PushDevice>): PushDevice => ({ state: "off", reason: null, error: null, turnOn: () => {}, turnOff: () => {}, ...x });
+    const withPush = (d: PushDevice) => renderToStaticMarkup(<SettingsPanel value={{ theme: "paper", font: "md" }} onChange={() => {}} railMode="icons" onRailMode={() => {}} hiddenCount={0} onShowAll={() => {}} push={d} />);
+    expect(text(withPush(device({})))).toBe("見た目 あ 紙 あ 白 あ ダーク あ くっきり 字の大きさ あ 小 あ 標準 あ 大 あ 特大 右の道具 アイコン 名前の一覧 隠した道具を全部戻す 通知 この端末に通知を受ける この端末のみに適用されます");
+    expect(withPush(device({}))).toMatch(/<button type="button"(?! disabled)[^>]*>.*この端末に通知を受ける<\/button>/);
+    expect(text(withPush(device({ state: "on" })))).toContain("通知 通知を止める");
+    const off = withPush(device({ reason: "通知の鍵（VAPID）が設定されていません" }));
+    expect(off).toMatch(/<button type="button" disabled="" title="通知の鍵（VAPID）が設定されていません"/);
+    expect(text(off)).not.toContain("VAPID");
+    expect(text(withPush(device({ error: "通知が許可されませんでした" })))).toContain("通知が許可されませんでした");
   });
 
   it("歯車のボタンは「設定」の名前を持ち、閉じているときはウインドウを出さない", () => {
