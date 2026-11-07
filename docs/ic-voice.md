@@ -8,7 +8,7 @@
 
 1. **同意の印**：患者さん（または代理の方と続柄）が「録音と、クラウドの音声認識・文字起こし」に同意したことを記録します。
    誰がいつ記録したかが残り、印がないと録れず、何も送りません。同意は記事（`録音とクラウドの音声認識・文字起こしへの同意：…`）と監査ログに残ります。
-2. **録る**：ブラウザの音声認識（Web Speech API）で文字にします。行の時刻と話し手は、その発言が始まったときのものです。
+2. **録る**：ブラウザの音声認識（Web Speech API）で文字にします（③院内のサーバーの構成では使わず、院内のサーバーで文字にします）。行の時刻と話し手は、その発言が始まったときのものです。
    話している人（医師・患者・家族・看護師、キーの 1〜4）を押すと、その人の発言として札が付きます（押さなくてもよい）。
 3. **話し手が自動で付く（文脈で）**：札のない行は、録っている間も（6行たまるか、いちばん古い行が20秒待ったら）、止めたときにも、
    名前などを置き換えた文が Claude に送られ、話し手（医師・患者・家族・不明）の見立てが「見立て」の印で付きます。押す釦はありません。
@@ -39,12 +39,34 @@
 
 監査ログには、録っている間の自動の見立てをまとめて1件（止めたとき）、止めたあとは1回ごとに1件残します。
 
+## 3つの構成（どこで声が文字になり、どこで話し手が分かれるか）
+
+```
+① 標準（いまの本番）
+  マイク ─声→ Chrome の音声認識（Google のサービス）─文→ 画面の行
+                                                     └置き換えた文→ /api/ic-transcript → Claude（話し手の見立て・欄）
+
+② ＋「声でも分ける」（押したときだけ。声の分離は端末の中）
+  マイク ─声→ Chrome の音声認識（Google）─文→ 画面の行
+     └─声→ ブラウザの中の sherpa-onnx（Web Worker）─時刻と話者の番号→ 行に合わせる
+                                                     └置き換えた文＋番号→ Claude（番号ごとに誰か）
+
+③ 院内のサーバー（NEXT_PUBLIC_IC_LOCAL_ASR_URL を入れて作ったとき。声は院外に出ない）
+  マイク ─声（1分ごとの WAV）→ ［院内 LAN］院内のサーバー：Haas-ja-v1.0（文字起こし）＋ OSS の話者分離
+                                   └─時刻・話者の番号・文→ 画面の行
+                                                     └置き換えた文＋番号→ Claude（番号ごとに誰か）
+```
+
+Chrome の音声認識は声を Google のサービスに送って文字にします。③では声は院内のネットワークの中だけで文字になり、院外に出るのは
+名前などを置き換えた文（Claude へ）だけです。
+
 ## 送るもの・送らないもの
 
 | もの | 行き先 |
 | --- | --- |
 | 声（文字にするため） | ブラウザの音声認識（Chrome では Google のサービス、Safari では Apple の音声認識）。このアプリのサーバーには送らず、保存もしない |
 | 声（声でも分けるとき） | この端末のブラウザの中だけ（Web Worker の sherpa-onnx）。数分ごとの区切りを分け終えたら捨てる。どこにも送らず、保存もしない |
+| 声（③院内のサーバー） | ブラウザから院内のサーバーへ直接（このアプリのサーバーは通らない）。Chrome の音声認識は使わない |
 | 書き起こしの文（置き換え前） | この端末の画面と、確定した記事だけ |
 | 置き換えた文（行番号・話し手、声の番号つき） | `/api/ic-transcript` → Claude（Anthropic）。「送った文を見る」でいつでも見られる |
 
@@ -96,14 +118,66 @@ Claude が返すのは「行番号と、その行から写した部分（`""` �
 | 院内のサーバーで OSS | pyannote.audio（<https://github.com/pyannote/pyannote-audio>） | MIT。学習済みの `pyannote/speaker-diarization-3.1` は MIT だが Hugging Face で利用条件への同意（トークン）が要る。`community-1` は CC-BY-4.0 | Python と GPU のサーバーが要る。声は院内から出ない |
 | 院内のサーバーで OSS | WhisperX（<https://github.com/m-bain/whisperX>） | BSD-2-Clause。話者分離は pyannote を使う | 文字起こしと話者分離を一度に。同上 |
 | 院内のサーバーで OSS | NVIDIA NeMo（<https://github.com/NVIDIA/NeMo>） | Apache-2.0 | GPU 前提。大きい |
+| 院内のサーバーで OSS（文字起こし） | Haas-ja-v1.0（<https://huggingface.co/third-intelligence/Haas-ja-v1.0>） | Apache-2.0。話者分離は別のモデルと組み合わせる | Chrome の音声認識の代わりに院内で文字にする。下の③ |
 | クラウド | AmiVoice API（<https://docs.amivoice.com/amivoice-api/manual/speaker-diarization>） | 同期 HTTP で `segmenterProperties=useDiarizer=1`、結果の単語ごとに `speaker0` などの札。医療の会話のエンジン `-a-medical`。ログ保存なしの入口 `https://acp-api.amivoice.com/v1/nolog/recognize`。1回 16,777,215 バイトまで（<https://docs.amivoice.com/amivoice-api/manual/limitations>）。会話_医療・ログ保存なし 222.75円/時間（税込）、各エンジン月60分無料（<https://acp.amivoice.com/amivoice_api/price/>） | 日本語の医療の語彙。声そのものを送るので同意の文に送り先を足す。鍵（API キー）はマイページの「接続情報」で発行 |
 | クラウド | Amazon Transcribe（<https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html>） | ja-JP はバッチ（S3 が要る）とストリーミング | 設定が多い（IAM・S3） |
 | クラウド | Google Cloud Speech-to-Text（Chirp 3。<https://docs.cloud.google.com/speech-to-text/docs/models/chirp-3>） | ja-JP の話者分離は BatchRecognize（と Recognize）。リージョンは us・eu | 国内のリージョンで使えない |
 | クラウド | Azure AI Speech（fast transcription。<https://learn.microsoft.com/en-us/azure/ai-services/speech-service/fast-transcription-create>） | `diarization` を有効に。ja-JP を含む。5時間・500 MB 未満 | リソース名と鍵が要る |
 
-院内のサーバーやクラウドにつなぐときは、Worker の代わりに「区切り（時刻と話者の番号）」を返す口を作れば、`fromSherpa` の代わりの読み取りだけで、
-行に合わせる所（`voicesForLines`）から先はそのまま使えます。クラウドに声を送るときは、同意の文に送り先を足し、鍵はサーバーの環境変数に置いて
-リポジトリに入れません（Vercel では Project Settings → Environment Variables。入れるのはユーザー本人）。
+クラウドに声を送るときは、同意の文に送り先を足し、鍵はサーバーの環境変数に置いてリポジトリに入れません
+（Vercel では Project Settings → Environment Variables。入れるのはユーザー本人）。
+
+## 院内のサーバーで文字起こし＋話者分離（③。Haas-ja-v1.0 ＋ OSS の話者分離）
+
+Vercel やブラウザでは動かない、自前の GPU サーバー向けの形です。このアプリの側は「つなぎ口」だけ作ってあります
+（`src/lib/ic/local-asr.ts`・`src/lib/ic/use-voice-diarizer.ts`。架空の返事を返す見本のサーバーで、録る→送る→行→Claude の名付け→記事 までを確かめた）。
+
+### 使うもの（一次資料。2026-11-07 に読んだ）
+
+- **Haas-ja-v1.0**（Third Intelligence。日本語の音声認識＝文字起こし）
+  - モデルカード <https://huggingface.co/third-intelligence/Haas-ja-v1.0>（2026-10-30 更新）、コード <https://github.com/third-intelligence/Haas-ASR>
+  - NVIDIA Parakeet-TDT の構成（FastConformer の符号器＋TDT の復号器。予測の網は Kimi Delta Attention）。615.8M パラメータ。入力は 16 kHz モノラル
+  - **ライセンス**：重みも推論のコードも Apache-2.0（第三者の部品はそれぞれのライセンス）
+  - **動く所**：Linux と NVIDIA の GPU、Python 3.11 以上、NeMo 2.7。flash-linear-attention（Triton・CUDA）を使うので CPU と macOS では動かない
+  - 30秒より長い音声は `transcribe_longform`（静かな所で切って一括）。名前や用語は `Vocabulary` で足せる（読みを強める。処理は約1.3倍）
+  - **話者分離はしない**（誰が話したかは出さない）。話者つきにするには話者分離のモデルと組み合わせる。リポジトリに NVIDIA の
+    Nemotron-3-Diarization と組み合わせる例（`examples/speakers/transcribe_with_speakers.py`。Python 3.12 と新しい NeMo の別の環境）がある
+  - オフライン（発話全体を見て文字にする）向け。言いよどみは省きがち
+  - **性能は開発元の発表値**（この試作では確かめていない）：公開の5つの日本語のデータを合わせた asr-ja-bench v1.1 で CER strict 6.12%
+    （評価したオープンなモデルで最も低い）。NVIDIA H200 1枚・バッチ 512 で RTFx 3,236（1秒で約3,236秒分）。1時間の音声で約 $0.003〜0.004（H200 の時間からの見積もり）
+- **話者分離（どれか1つ）**
+  - NVIDIA Nemotron-3-Diarization（<https://huggingface.co/nvidia/Nemotron-3-Diarization>。ライセンス OpenMDW-1.1）— Haas-ASR の例がそのまま使う
+  - pyannote.audio（MIT。学習済みは Hugging Face で利用条件への同意が要る）— 上の「代わりの選び方」
+
+### このアプリとサーバーの約束（つなぎ口）
+
+- このアプリを作るときに `NEXT_PUBLIC_IC_LOCAL_ASR_URL=https://（院内のサーバー）/ic` を入れる（秘密ではない。入れなければ①②のまま）。
+- 録っている間、1分ごとと止めたときに、その区切りを **16 kHz・16 bit・モノラルの WAV** にして、ブラウザから直接 `POST` する
+  （`content-type: audio/wav`、`x-ic-piece: 区切りの番号`）。Haas の `load_audio` はそのまま WAV を読める。
+- サーバーの返事（JSON）：
+
+```json
+{ "segments": [
+  { "start": 0.8, "end": 3.1, "speaker": 0, "text": "本日は胃カメラの検査について説明します" },
+  { "start": 3.4, "end": 4.9, "speaker": 1, "text": "はいお願いします" }
+] }
+```
+
+  `start`・`end` は区切りの頭からの秒、`speaker` は話者の番号（0, 1, … か短い名前）、`text` は文。番号は区切りごとでよい
+  （同じ人を同じ番号にしなくてよい。どの番号が誰かは Claude が置き換えた文から当て、医師が直す）。
+- ブラウザから直接送るので、サーバーは院内で HTTPS にし、このアプリのオリジンからの CORS（`POST`・`OPTIONS`、`content-type`・`x-ic-piece`）を許す。
+  サーバーは声を保存しない作りにする。
+
+### 手順（院内の担当者）
+
+1. NVIDIA の GPU のある Linux のサーバーを用意し、Haas-ASR の README のとおりに入れる（`uv sync`）。話者つきの例
+   （`uv run --project examples/speakers python examples/speakers/transcribe_with_speakers.py example.wav`）が動くことを確かめる。
+2. その例の「話者分離 → 話者の区切りごとに Haas で文字起こし」を、上の約束の HTTP の口（WAV を受けて `segments` を返す）で包む。
+3. 院内の HTTPS と CORS を設定し、このアプリを `NEXT_PUBLIC_IC_LOCAL_ASR_URL` を入れて作り直す。
+4. 架空の会話の録音で、行と話し手の番号が返ることを確かめる。日本語の説明の会話（2〜4人）での精度は、ここで確かめる。
+
+この形では、このアプリを院外（Vercel など）に置いたままでも、声はブラウザと院内のサーバーの間だけを通ります。
+院外に出るのは、名前などを置き換えた文を Claude に送るときだけです。
 
 ## 実際の病院で使う前に
 
