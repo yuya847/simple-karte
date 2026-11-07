@@ -2924,7 +2924,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           }}
         />
       ) : screen === "system" ? (
-        <SystemView nowTime={nowTime} newId={newId} login={{ settings: login.settings, onChange: (s) => login.change(s, me), users: loginUsers }} />
+        <SystemView nowTime={nowTime} newId={newId} login={{ settings: login.settings, onChange: (s) => login.change(s, me), users: loginUsers }} push={push} />
       ) : screen === "audit" ? (
         <AuditView />
       ) : screen === "admit" ? (
