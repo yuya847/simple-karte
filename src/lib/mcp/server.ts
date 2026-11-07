@@ -11,6 +11,8 @@ import { minutesOf, nowTimeInTokyo, todayInTokyo } from "../dates";
 import { AiWireOrder } from "../ai-schema";
 import { pseudonym, scrub } from "./anonymize";
 import { encodePayload, parseProposal, proposal } from "./payload";
+import { ImproveError, KNOWN_PATIENTS, workspaceArg } from "../improve/requests";
+import { listRequests, resolveRequest, workspaceStore, type ImproveStore } from "../improve/server";
 
 const data = generateScenarios();
 export const fixtures = data;
@@ -18,13 +20,21 @@ export const resolvePatient = (id: string) => data.cases.find(c => pseudonym(c.p
 const listInput = z.object({ diagnosis: z.string().max(100).optional(), department: z.string().max(100).optional(), status: z.enum(["入院中", "外来", "入院", "救急", "退院"]).optional() });
 const patientInput = z.object({ patient: proposal.shape.patient });
 const masterInput = z.object({ kind: z.enum(["drug", "oral", "injection", "topical", "lab", "procedure"]), query: z.string().min(1).max(100) });
-const schemas = { list_patients: listInput, get_patient: patientInput, search_master: masterInput, propose_orders: proposal };
+const workspaceInput = z.string().min(36).max(400).describe("アプリの「ほかの端末で開くリンク」か、その ws= の値");
+const requestsInput = z.object({ workspace: workspaceInput });
+const resolveInput = z.object({ workspace: workspaceInput, id: z.string().min(1).max(100), commit: z.string().regex(/^[0-9a-fA-F]{7,40}$/).optional().describe("直したときのコミット（短い形でよい）。直ったにするときは必須"), note: z.string().max(200).optional().describe("何をどう直したか、ひとこと"), status: z.enum(["直った", "作業中"]).optional().describe("省略時は直った") });
+const schemas = { list_patients: listInput, get_patient: patientInput, search_master: masterInput, propose_orders: proposal, list_requests: requestsInput, resolve_request: resolveInput };
 const descriptions = {
   list_patients: "試験用の病棟（一般病棟・ICU・HCU・救急外来）の架空の患者の現在状態。病名・科・入院中/外来で絞り込み。保存記録は読みません。",
   get_patient: "仮IDで匿名化した現在のカルテを読む。日付は相対、年齢は年代。",
   search_master: "内服・注射・外用薬、検査、処置のマスターから名前・別名・コードを検索。",
   propose_orders: "医師が確認する下書きのみ作る。確定しない。orders は AiOrder または AiWireOrder。未指定値は wire では空文字/0/unspecified。医師が述べた内容を入力する。",
+  list_requests: "アプリの「直したい」から送られた、アプリ自体への要望の一覧（id・職種・時刻・画面・文・状態）。文は名前などを置き換え済み。直していないものが先。",
+  resolve_request: "要望を「直った」にし、直したときのコミットとひとことを書き戻す（送った人のやることに「直りました」が出る）。status に作業中を渡すと作業中にする（コミット不要）。",
 };
+const improveTools = new Set(["list_requests", "resolve_request"]);
+// Requests are redacted once more with every patient the app and the test ward know (one list, so redact keeps its pattern).
+const improvePatients = [...data.patients, ...KNOWN_PATIENTS];
 export function toolsList() {
   return Object.entries(schemas).map(([name,schema]) => ({ name, description: descriptions[name as keyof typeof descriptions], inputSchema: name === "propose_orders" ? { ...z.toJSONSchema(proposal), properties: { patient: z.toJSONSchema(proposal.shape.patient), orders: { type: "array", minItems: 1, maxItems: 30, items: z.toJSONSchema(AiWireOrder) } } } : z.toJSONSchema(schema) }));
 }
@@ -56,12 +66,27 @@ export function callTool(name: string, args: unknown, origin: string, nowAbs = m
   }
   throw new Error("未知の道具です");
 }
+/** The tools that read or write a workspace (その場で直す): async, through the store (Supabase in the app). */
+export async function callImproveTool(name: string, args: unknown, store: ImproveStore = workspaceStore): Promise<unknown> {
+  if (name === "list_requests") {
+    const ws = workspaceArg(requestsInput.parse(args).workspace);
+    if (!ws) throw new ImproveError("workspace はアプリの「ほかの端末で開くリンク」か、その ws= の値を渡してください");
+    return listRequests(store, ws, improvePatients);
+  }
+  if (name === "resolve_request") {
+    const a = resolveInput.parse(args);
+    const ws = workspaceArg(a.workspace);
+    if (!ws) throw new ImproveError("workspace はアプリの「ほかの端末で開くリンク」か、その ws= の値を渡してください");
+    return resolveRequest(store, ws, { id: a.id, status: a.status, commit: a.commit, note: a.note }, improvePatients);
+  }
+  throw new Error("未知の道具です");
+}
 function summary(c: typeof data.cases[number]) {
   const p = c.patient;
   return { patient: pseudonym(p.id), ageBand: `${Math.floor(p.age/10)*10}代`, sex:p.sex, department:p.department, diagnosis:p.admissionDiagnosis, admissionDay:`入院${1-p.admittedOn}日目`, status:c.stage, condition:p.cautions.join("、") || "記録された注意事項なし" };
 }
 const rpc = z.object({ jsonrpc:z.literal("2.0"), id:z.union([z.string(),z.number(),z.null()]).optional(), method:z.string(), params:z.unknown().optional() });
-export function handleRpc(value: unknown, origin: string): { status: number; body?: unknown } {
+export async function handleRpc(value: unknown, origin: string, store?: ImproveStore): Promise<{ status: number; body?: unknown }> {
   const parsed = rpc.safeParse(value);
   if (!parsed.success) return { status:400,body:{jsonrpc:"2.0",id:null,error:{code:-32600,message:"Invalid Request"}} };
   const r = parsed.data;
@@ -70,15 +95,15 @@ export function handleRpc(value: unknown, origin: string): { status: number; bod
   if (r.method === "initialize") {
     const p = z.object({protocolVersion:z.string()}).safeParse(r.params);
     const version = p.success && ["2025-11-25","2025-06-18","2025-03-26"].includes(p.data.protocolVersion) ? p.data.protocolVersion : "2025-06-18";
-    return respond({protocolVersion:version,capabilities:{tools:{}},serverInfo:{name:"simple-karte",version:"1.0.0"},instructions:"架空の試験データのみ。決めるのは医師、AI は入力係。オーダは下書きです。"});
+    return respond({protocolVersion:version,capabilities:{tools:{}},serverInfo:{name:"simple-karte",version:"1.0.0"},instructions:"架空の試験データのみ。決めるのは医師、AI は入力係。オーダは下書きです。アプリへの要望は list_requests で読み、直したら resolve_request でコミットとひとことを書き戻します。"});
   }
   if (r.method === "ping") return respond({});
   if (r.method === "tools/list") return respond({tools:toolsList()});
   if (r.method === "tools/call") {
     const p = z.object({name:z.string(),arguments:z.unknown().optional()}).safeParse(r.params);
     if (!p.success) return {status:200,body:{jsonrpc:"2.0",id:r.id,error:{code:-32602,message:"Invalid params"}}};
-    try { const result = callTool(p.data.name,p.data.arguments ?? {},origin); return respond({content:[{type:"text",text:typeof result === "string" ? result : JSON.stringify(result)}]}); }
-    catch { return respond({isError:true,content:[{type:"text",text:"入力を確認してください。仮ID・道具名・下書きの形式が不正です。"}]}); }
+    try { const result = improveTools.has(p.data.name) ? await callImproveTool(p.data.name,p.data.arguments ?? {},store) : callTool(p.data.name,p.data.arguments ?? {},origin); return respond({content:[{type:"text",text:typeof result === "string" ? result : JSON.stringify(result)}]}); }
+    catch (e) { return respond({isError:true,content:[{type:"text",text:e instanceof ImproveError ? e.message : improveTools.has(p.data.name) ? "入力を確認してください。workspace・id・コミットの形式が不正です。" : "入力を確認してください。仮ID・道具名・下書きの形式が不正です。"}]}); }
   }
   return {status:200,body:{jsonrpc:"2.0",id:r.id,error:{code:-32601,message:"Method not found"}}};
 }
