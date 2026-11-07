@@ -180,24 +180,34 @@ describe("退院サマリで発行した紹介状（以前の保存データ）"
   const patient = PATIENTS[0];
   const issued = { ...createDischargeDraft(patient, patient.history, [], today), letter: { to: "架空みどり病院", dept: "循環器内科", doctor: "", purpose: "経過観察", issuedAt: { day: 0, time: "09:00" }, attach: true } };
   const run = (letters: LetterClaim[]) => calculateClaim({ today: "2026-11-03", nowTime: "20:00", month: "2026-11", patient: { id: patient.id, name: "x", sex: "男", age: 70, admittedOn: -2 }, entries: [], daily: [], cultures: [], diagnoses: [], options: DEFAULT_OPTIONS, letters });
-  const b009 = (r: ReturnType<typeof run>) => r.acts.filter((a) => a.parts.some((p) => p.lines.some((l) => l.code === LETTER_FEES.B009.code)));
+  // Acts of the same day and content are merged (count), so count them.
+  const b009 = (r: ReturnType<typeof run>) => r.acts.filter((a) => a.parts.some((p) => p.lines.some((l) => l.code === LETTER_FEES.B009.code))).reduce((n, a) => n + a.count, 0);
   it("一覧に1通として見え、算定にも1回だけ入る", () => {
     const all = lettersFor(patient.id, [], issued);
     expect(all).toHaveLength(1);
     expect(all[0]).toMatchObject({ id: legacyId(patient.id), status: "確定", type: "紹介", legacy: true });
-    expect(b009(run(claimLetters(all)))).toHaveLength(1);
+    expect(b009(run(claimLetters(all)))).toBe(1);
   });
   it("新しい道具で直して保存しても（同じ id）二重にならない", () => {
     const copy = confirmLetter({ ...legacyLetter(issued)!, purpose: "経過観察と採血" }, legacyLetter(issued)!, "医師", { day: 0, time: "10:00" }, "目的を足した");
     const all = lettersFor(patient.id, [copy], issued);
     expect(all).toHaveLength(1);
-    expect(b009(run(claimLetters(all)))).toHaveLength(1);
+    expect(b009(run(claimLetters(all)))).toBe(1);
   });
   it("同じ宛先へ同じ月に新しい紹介状を確定しても B009 は1回", () => {
     const again = confirmLetter({ ...newLetter("new", { patient, entries: [], diagnoses: [], today }, "紹介", "医師", { day: 0, time: "11:00" }), to: "架空みどり病院", flags: ok }, undefined, "医師", { day: 0, time: "11:00" });
     const all = lettersFor(patient.id, [again], issued);
     expect(all).toHaveLength(2);
-    expect(b009(run(claimLetters(all)))).toHaveLength(1);
+    expect(b009(run(claimLetters(all)))).toBe(1);
+  });
+  it("電子点数表の「月1回（特例条件あり）」と月の背反は、告示の宛先ごとの判定にまかせる", () => {
+    const codes = (r: ReturnType<typeof run>) => r.acts.filter((a) => a.shikibetsu === "13").flatMap((a) => Array.from({ length: a.count }, () => a.parts.flatMap((p) => p.lines.map((l) => l.code))).flat());
+    const two = run([{ id: "a", day: 0, to: "A病院", type: "紹介", flags: ok }, { id: "b", day: 0, to: "B病院", type: "紹介", flags: ok }]);
+    expect(codes(two)).toEqual([LETTER_FEES.B009.code, LETTER_FEES.B009.code]);
+    const dental = run([{ id: "a", day: 0, to: "A病院", type: "紹介", flags: ok }, { id: "d", day: 0, to: "架空歯科", type: "歯科", flags: { consent: true, request: true } }]);
+    expect(codes(dental).sort()).toEqual([LETTER_FEES.B010_2.code, LETTER_FEES.B009.code].sort());
+    const same = run([{ id: "a", day: 0, to: "架空歯科", type: "紹介", flags: ok }, { id: "d", day: 0, to: "架空歯科", type: "歯科", flags: { consent: true, request: true } }]);
+    expect(codes(same)).toEqual([LETTER_FEES.B009.code]);
   });
   it("算定の画面には返書の算定なしの理由が出る", () => {
     const r = run([{ id: "r", day: 0, time: "10:00", to: "架空大学病院", type: "返書", flags: { consent: true, request: true, partner: "大病院" } }]);

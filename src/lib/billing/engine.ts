@@ -25,7 +25,7 @@ import { bukkaFor, commentItem, iyakuItem, shinryoItem, tokkiItem } from "./mast
 import type { ClaimAct, ClaimInput, ClaimIssue, ClaimLine, ClaimPart, ClaimResult, MealClass, Shikibetsu } from "./model";
 import { allowedKasan, haihan, kaisuLimits, type HaihanWindow } from "./tables";
 import { masterMeta } from "../masters/server";
-import { judgeLetters } from "../letters";
+import { judgeLetters, letterKind } from "../letters";
 
 const DAY = 1440;
 const abs = (day: number, time: string) => day * DAY + minutesOf(time);
@@ -60,6 +60,11 @@ interface DayAct {
   parts: ClaimPart[];
   basis: string;
   times?: number; // how many times on that day (default 1)
+  /**
+   * 紹介状: the 告示's 特例条件 of 回数 and 背反 (紹介先ごと・提供先ごと・同一の保険医療機関に限る) were applied by
+   * letters.ts, so the 電子点数表's plain 月1回 and month 背反 marked 特例条件 are not applied again.
+   */
+  letter?: boolean;
 }
 
 function si(code: string, quantity?: number): ClaimLine {
@@ -203,16 +208,16 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
 
   // ===== 13 診療情報提供料（B009・B010・B010-2・B011）: 確定した紹介状だけ。種類ごとの点数・制限・根拠は letters.ts =====
   const letterInput = input.letters ?? [];
-  const verdicts = judgeLetters(letterInput.map((l, i) => ({ ...l, id: l.id ?? `#${i}` })), parseCalendar(input.today), { dischargedOn: p.dischargedOn });
+  const verdicts = judgeLetters(letterInput.map((l, i) => ({ ...l, id: `${i}:${l.id ?? ""}` })), parseCalendar(input.today), { dischargedOn: p.dischargedOn });
   letterInput.forEach((l, i) => {
     if (!inMonth.has(l.day)) return;
-    const v = verdicts.get(l.id ?? `#${i}`)!;
-    const what = `紹介状（${l.type ?? "紹介"}）${l.to.trim() || "宛先なし"}`;
+    const v = verdicts.get(`${i}:${l.id ?? ""}`)!;
+    const what = `紹介状（${letterKind(l.type ?? "紹介").tab}）${l.to.trim() || "宛先なし"}`;
     if (!v.codes.length) {
       issues.push({ level: "info", text: `${what}：算定なし：${v.reason}（${v.cite}）。` });
       return;
     }
-    add({ day: l.day, shikibetsu: "13", parts: [{ lines: v.codes.map((c) => si(c)), points: v.codes.reduce((n, c) => n + pts(c), 0) }], basis: v.basis });
+    add({ day: l.day, shikibetsu: "13", parts: [{ lines: v.codes.map((c) => si(c)), points: v.codes.reduce((n, c) => n + pts(c), 0) }], basis: v.basis, letter: true });
     for (const text of v.reviews) issues.push({ level: "review", text });
   });
 
@@ -1014,7 +1019,7 @@ function applyRules(acts: DayAct[], ctx: RuleCtx): DayAct[] {
           for (const b of siCodes(B)) {
             if (a === b || dropped.has(A) || dropped.has(B)) continue;
             const h = relation(window, a, b);
-            if (!h) continue;
+            if (!h || (h.tokurei && A.letter && B.letter)) continue;
             if (h.kubun === 3) {
               ctx.issues.push({ level: "choose", text: `${shinryoItem(a)?.name} と ${shinryoItem(b)?.name} は${WINDOW_WORD[window]}に併せて算定できません。どちらかを選んでください。`, codes: [a, b] });
               continue;
@@ -1045,7 +1050,7 @@ function applyRules(acts: DayAct[], ctx: RuleCtx): DayAct[] {
         const c = ctx.cal(a.day);
         const key =
           lim.unit === "121" ? `${code}|d${a.day}` : lim.unit === "131" ? `${code}|m${c.y}-${c.m}` : lim.unit === "138" ? `${code}|w${a.day - c.dow}` : lim.unit === "133" || lim.unit === "132" ? `${code}|adm` : null;
-        if (!key) continue;
+        if (!key || (lim.tokurei && a.letter)) continue;
         const n = (counts.get(key) ?? 0) + (a.times ?? 1);
         if (lim.unit === "132" && ctx.hospitalDay(a.day) !== 1) {
           ctx.issues.push({ level: "excluded", text: `${shinryoItem(code)?.name} は入院初日だけ算定できます。`, codes: [code] });
