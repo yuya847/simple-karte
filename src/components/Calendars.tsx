@@ -6,8 +6,8 @@ import { insulinDoseText } from "@/lib/insulin-doses";
 import { patternCourse } from "@/lib/day-pattern";
 
 import { displayText } from "@/lib/display-text";
-import { ArrowRight, Check, Plus, Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowLeftRight, ArrowRight, Check, Plus, Square } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { injectionCell, prescriptionCell, procedureCell } from "@/lib/calendar";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { abs, fluidByDay } from "@/lib/flowsheet";
@@ -19,6 +19,8 @@ import { InsulinAdjustment } from "./InsulinAdjustment";
 import { isInsulin, type InsulinChange } from "@/lib/insulin";
 import { InjectionDoseToggle } from "./InjectionDoseToggle";
 import { ExecuteTarget, type ExecuteProps } from "./ExecuteMenu";
+import { FlowCellMenu, type CellAction } from "./FlowCellMenu";
+import { useLongPress } from "@/lib/use-long-press";
 import { orderEndDay, type InjectionDraft } from "@/lib/drafts";
 import { START_BANDS, doStartOf, draftSpan, startAt, type InjStart } from "@/lib/inj-calendar";
 import type { DayOffset, HistoryEntry, InjectionOrder, OrderEntry, Patient, PrescriptionOrder, ProcedureOrder } from "@/lib/types";
@@ -177,6 +179,17 @@ function RowHead({
 }) {
   const stopped = entry.status === "中止";
   const active = entry.status === "有効";
+  // 処置: its own right-click menu (処方 and 注射 have theirs around the row).
+  const own = !rxOptions && entry.order.type !== "injection";
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+  const closeMenu = useCallback(() => setMenuAt(null), []);
+  const longPress = useLongPress<HTMLDivElement>(own ? setMenuAt : undefined);
+  const ownActions: CellAction[] = [
+    ...(active && onExtend && endLabel ? [3, 7].map((n) => ({ label: `${n}日延長`, onClick: () => onExtend(n) })) : []),
+    ...(active && !drafted ? [{ label: "中止の下書き", onClick: () => onStopDraft(entry) }] : []),
+    ...(active && !drafted && onModify ? [{ label: "修正", onClick: onModify }] : []),
+  ];
+  const hoverOnly = "opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100";
   let content = <>
       <div className={`font-bold ${stopped ? "text-ink-faint line-through" : "text-ink"}`}>{title}</div>
       {rxOptions?.pendingExtends?.[entry.id] && <div className="text-xs text-ai">日数変更の下書き：{rxOptions.pendingExtends[entry.id] > 0 ? "+" : ""}{rxOptions.pendingExtends[entry.id]}日</div>}
@@ -188,10 +201,9 @@ function RowHead({
       {endLabel !== undefined && active && <div className="text-[11px] text-ink-soft">{endLabel ? `${endLabel}まで` : "終了日なし（変えるまで続く）"}</div>}
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
         <span className={`rounded border px-1 ${stopped ? "border-shu/40 text-shu" : "border-wakatake/40 text-wakatake"}`}>{entry.status}</span>
-        {active &&
-          (drafted ? (
-            <span className="text-yamabuki">中止の下書きあり</span>
-          ) : (
+        {active && drafted && <span className="text-yamabuki">中止の下書きあり</span>}
+        <span className={`flex flex-wrap items-center gap-1.5 ${hoverOnly}`}>
+          {active && !drafted && (
             <>
               <button type="button" onClick={() => onStopDraft(entry)} className="rounded border border-rule px-1.5 text-ink-soft hover:border-shu hover:text-shu pointer-coarse:py-1">
                 中止の下書き
@@ -201,41 +213,48 @@ function RowHead({
                   修正
                 </button>
               )}
-              {onExtend && endLabel && (
-                <select
-                  value=""
-                  aria-label={`${title}を延長`}
-                  onChange={(e) => e.target.value && onExtend(Number(e.target.value))}
-                  className="rounded border border-rule bg-sheet px-1 text-ink-soft hover:border-ai pointer-coarse:py-1"
-                >
-                  <option value="">延長…</option>
-                  {[1, 2, 3, 5, 7, 14].map((n) => (
-                    <option key={n} value={n}>
-                      ＋{n}日
-                    </option>
-                  ))}
-                </select>
-              )}
             </>
-          ))}
-        {onDo && (
-          <button
-            type="button"
-            onClick={onDo}
-            title={active && endLabel ? "同じ内容で新しい注射を出す（終わりの翌日から。注射のタブに写します）" : "同じ内容で新しい注射を出す（今日から。注射のタブに写します）"}
-            className="rounded border border-rule px-1.5 text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1"
-          >
-            同じ内容で新規
-          </button>
-        )}
+          )}
+          {onDo && (
+            <button
+              type="button"
+              onClick={onDo}
+              title={active && endLabel ? "同じ内容で新しい注射を出す（終わりの翌日から。注射のタブに写します）" : "同じ内容で新しい注射を出す（今日から。注射のタブに写します）"}
+              className="rounded border border-rule px-1.5 text-ink-soft hover:border-ai hover:text-ai pointer-coarse:py-1"
+            >
+              同じ内容で新規
+            </button>
+          )}
+        </span>
       </div>
     </>;
   if (entry.order.type === "injection") content = <InjectionOrderMenu nowTime="00:00" text={[title, ...lines].join("\n")} onDo={onDo}>{content}</InjectionOrderMenu>;
-  return <th className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1.5 text-left align-top font-normal">{rxOptions ? <PrescriptionCalendarMenu entry={entry} day={rxOptions.selectedDay ?? 0} options={rxOptions}>{content}</PrescriptionCalendarMenu> : content}</th>;
+  else if (own && ownActions.length)
+    content = (
+      <div
+        tabIndex={0}
+        className="rounded outline-none focus-visible:ring-2 focus-visible:ring-ai/40"
+        {...longPress}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenuAt({ x: e.clientX, y: e.clientY });
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "ContextMenu" && !(e.shiftKey && e.key === "F10")) return;
+          e.preventDefault();
+          const r = e.currentTarget.getBoundingClientRect();
+          setMenuAt({ x: r.left, y: r.bottom });
+        }}
+      >
+        {content}
+        {menuAt && <FlowCellMenu at={menuAt} title={title} actions={ownActions} onClose={closeMenu} />}
+      </div>
+    );
+  return <th className="sticky left-0 z-[5] border-b border-rule-soft bg-sheet px-3 py-1.5 text-left align-top font-normal">{rxOptions ? <PrescriptionCalendarMenu entry={entry} day={rxOptions.selectedDay ?? 0} options={rxOptions} focusable>{content}</PrescriptionCalendarMenu> : content}</th>;
 }
 
 function Cell({ day, children }: { day: DayOffset; children?: React.ReactNode }) {
-  return <td className={`border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${day === 0 ? "bg-ai-soft/30" : day > 0 ? "bg-paper/50" : ""}`}>{children}</td>;
+  return <td data-cal-day={day} className={`relative border-b border-l border-rule-soft px-1.5 py-1.5 align-top ${day === 0 ? "bg-ai-soft/30" : day > 0 ? "bg-paper/50" : ""}`}>{children}</td>;
 }
 
 function Chip({ state, children }: { state: "done" | "planned" | "now"; children: React.ReactNode }) {
@@ -293,7 +312,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                 .join("　"),
             ];
             return (
-              <tr key={e.id}>
+              <tr key={e.id} className="group/row">
                 <RowHead
                   entry={e}
                   title={main?.aliases[0] ?? main?.name ?? ""}
@@ -328,13 +347,13 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                         onExtend={end !== null && onExtendDraft ? n => onExtendDraft(e, n) : undefined}
                         onDo={onNewInjection ? () => onNewInjection(doStartOf(o, e.status === "有効" ? "有効" : "中止"), o) : undefined}>
                       <div className="flex flex-col items-start min-h-8 gap-1">
-                        {(extendable || redoable) && <div className="w-full divide-y divide-rule-soft border-y border-rule-soft">
+                        {(extendable || redoable) && <div className={`w-full divide-y divide-rule-soft border-y border-rule-soft ${inPreview ? "" : "opacity-0 group-hover/ext:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100"}`}>
                           {["0–6", "6–12", "12–18", "18–24"].map((band, index) => <button key={band} type="button" aria-label={`${fmt(d)} ${band} ${extendable ? "ここまで延長" : "同じ内容で新規"}`} onClick={ev => { ev.stopPropagation(); if (extendable) onExtendDraft!(e, d - end!); else onNewInjection!(startAt(d, o.start.time), o); }} className={`block min-h-6 w-full text-left text-[10px] text-ink-faint hover:bg-ai-soft hover:text-ai ${inPreview ? "border border-dashed border-ai" : ""}`}><span>{band}</span>{inPreview && c.doses.filter(x => Math.floor(Number(x.time.slice(0, 2)) / 6) === index).map(x => <span key={x.time} className="block text-[11px] text-ai">◯ {x.time}</span>)}</button>)}
                         </div>}
 
                         {inPreview && <span className="block w-full whitespace-nowrap rounded border-2 border-dashed border-ai px-1 py-px text-[11px] text-ai">延長{drag?.id === e.id ? "" : "（下書き）"}</span>}
-                        {extendable && !inPreview && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋延長</span>}
-                        {redoable && <span className="hidden text-[11px] text-ai/70 group-hover/ext:inline pointer-coarse:inline pointer-coarse:text-ai/40">＋新規（Do）</span>}
+                        {extendable && !inPreview && <span className="invisible text-[11px] text-ai/70 group-hover/ext:visible pointer-coarse:visible pointer-coarse:text-ai/40">＋延長</span>}
+                        {redoable && <span className="invisible text-[11px] text-ai/70 group-hover/ext:visible pointer-coarse:visible pointer-coarse:text-ai/40">＋新規（Do）</span>}
                         {(draftedStops.includes(e.id) || pendingNew.some(x => x.sourceText !== "（カレンダーから回を取り消し）" && x.duplicate?.action === "replace" && x.duplicate.orderId === e.id)) && d >= 0 && (c.running || inPreview) && <span className="border border-dashed border-shu px-1 text-[10px] text-shu" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 4px, #b34b4520 4px, #b34b4520 6px)" }}>{d === 0 ? `${pendingStopTimes[e.id] ?? pendingNew.find(x => x.duplicate?.orderId === e.id)?.start.time ?? nowTime}〜 ` : ""}中止（下書き）</span>}
                         {(inPreview ? [] : c.doses).map((x) => {
                           const at = d * 1440 + Number(x.time.slice(0, 2)) * 60 + Number(x.time.slice(3, 5));
@@ -431,7 +450,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
 
           </th>
           {days.map((d) => (
-            <td key={d} data-new-pick className={`relative border-b border-l border-t border-rule px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""}`}>
+            <td key={d} data-new-pick className={`group/new relative border-b border-l border-t border-rule px-1.5 py-1.5 align-top ${d === 0 ? "bg-ai-soft/30" : d > 0 ? "bg-paper/50" : ""}`}>
               {d >= 0 && (
                 <button
                   type="button"
@@ -439,7 +458,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                   aria-expanded={pick === d}
                   aria-haspopup="menu"
                   title={`${fmt(d)}から新しい注射（時刻帯を選びます）`}
-                  className={`flex w-full items-center justify-center gap-0.5 rounded border border-dashed px-1 py-1 text-[11px] pointer-coarse:py-2 ${pick === d ? "border-ai bg-ai text-white" : "border-rule text-ink-faint hover:border-ai hover:text-ai"}`}
+                  className={`flex w-full items-center justify-center gap-0.5 rounded border border-dashed px-1 py-1 text-[11px] pointer-coarse:py-2 ${pick === d ? "border-ai bg-ai text-white" : "border-rule text-ink-faint opacity-0 hover:border-ai hover:text-ai focus-visible:opacity-100 group-hover/new:opacity-100 pointer-coarse:opacity-100"}`}
                 >
                   <Plus size={11} />
                   新規
@@ -512,22 +531,22 @@ function StartBandMenu({ label, onPick, onClose, alignRight }: { label: string; 
  * The arrow at the end of a drip: drag it right to extend (finger or mouse), or with the keyboard,
  * ← → to choose the day and Enter to make the draft (Esc cancels).
  */
-function ExtendHandle({ label, end, max, value, fmt, onMove, onDone }: { label: string; end: DayOffset; max: DayOffset; value: DayOffset; fmt: (d: DayOffset) => string; onMove: (to: DayOffset) => void; onDone: (to: DayOffset) => void }) {
+function ExtendHandle({ label, end, min = end, max, value, fmt, onMove, onDone, className = "" }: { label: string; end: DayOffset; /** Below `end` when the order can also be shortened. */ min?: DayOffset; max: DayOffset; value: DayOffset; fmt: (d: DayOffset) => string; onMove: (to: DayOffset) => void; onDone: (to: DayOffset) => void; className?: string }) {
   const dayAt = (x: number, y: number): DayOffset | null => {
     const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-cal-day]");
     return el ? Number(el.dataset.calDay) : null;
   };
-  const clamp = (d: number) => Math.min(max, Math.max(end, d));
+  const clamp = (d: number) => Math.min(max, Math.max(min, d));
   return (
     <button
       type="button"
       role="slider"
-      aria-label={`${label}。右へ引くか ← → で延長`}
-      aria-valuemin={end}
+      aria-label={`${label}。${min < end ? "左右" : "右"}へ引くか ← → で${min < end ? "日数を変える" : "延長"}`}
+      aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={value}
-      aria-valuetext={value > end ? `〜${fmt(value)}（${value - end}日延長）` : `〜${fmt(end)}`}
-      title="右へ引くと延長（← → と Enter でも）"
+      aria-valuetext={value > end ? `〜${fmt(value)}（${value - end}日延長）` : value < end ? `〜${fmt(value)}（${end - value}日短縮）` : `〜${fmt(end)}`}
+      title={min < end ? "左右へ引くと日数を変える（← → と Enter でも）" : "右へ引くと延長（← → と Enter でも）"}
       style={{ touchAction: "none" }}
       onClick={(ev) => ev.stopPropagation()}
       onPointerDown={(ev) => {
@@ -555,9 +574,9 @@ function ExtendHandle({ label, end, max, value, fmt, onMove, onDone }: { label: 
         else return;
         ev.preventDefault();
       }}
-      className="absolute right-0 top-1/2 flex h-7 w-6 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-l bg-ai/90 text-white shadow outline-none focus-visible:ring-2 focus-visible:ring-ai/60 pointer-coarse:h-9 pointer-coarse:w-8"
+      className={`absolute right-0 top-1/2 flex h-7 w-6 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-l bg-ai/90 text-white shadow outline-none focus-visible:ring-2 focus-visible:ring-ai/60 pointer-coarse:h-9 pointer-coarse:w-8 ${className}`}
     >
-      <ArrowRight size={14} />
+      {min < end ? <ArrowLeftRight size={14} /> : <ArrowRight size={14} />}
     </button>
   );
 }
@@ -570,12 +589,17 @@ export function PrescriptionCalendar(options: CalendarProps) {
   const { patient, entries, today, nowTime, selectedDay, onSelectDay, onStopDraft, draftedStops, marOf, execute, onNewPrescription, onModify, onExtendDraft } = options;
   const nowAbs = abs(0, nowTime);
   const orders = ordersOf(entries).filter((e) => e.order.type === "prescription");
-  const days = calendarDays(patient, Math.max(7, ...orders.map(e => orderEndDay(e.order) ?? 0)));
+  // A few days past the last end, so the end can be dragged out.
+  const days = calendarDays(patient, Math.max(7, ...orders.map(e => (orderEndDay(e.order) ?? 0) + (e.status === "有効" ? 3 : 0))));
+  const lastDay = days[days.length - 1];
+  const fmt = (d: DayOffset) => formatShort(addDays(today, d));
+  // The end being dragged (or moved with ← →) on one prescription, before it becomes a draft.
+  const [drag, setDrag] = useState<{ id: string; to: DayOffset } | null>(null);
 
   return (
     <>
-    {onNewPrescription && <button type="button" onClick={() => onNewPrescription(0)} className="px-3 py-2 text-ai">＋ 処方</button>}
     <Frame
+      nearToday
       days={days}
       today={today}
       patient={patient}
@@ -583,7 +607,23 @@ export function PrescriptionCalendar(options: CalendarProps) {
       onSelectDay={onNewPrescription ?? onSelectDay}
       allowFuture={!!onNewPrescription}
     >
-      <tr><th className="sticky left-0 bg-sheet">新規処方</th>{days.map(d => <td key={d} className="border border-rule"><button className="w-full py-2 text-ai" disabled={!onNewPrescription} onClick={() => onNewPrescription?.(d)}>＋ 処方</button></td>)}</tr>
+      {onNewPrescription && (
+        <tr>
+          <th className="sticky left-0 z-[5] border-b border-rule bg-sheet px-3 py-1.5 text-left align-top font-normal">
+            <button type="button" onClick={() => onNewPrescription(0)} className="flex items-center gap-1 font-bold text-ai hover:underline">
+              <Plus size={13} />
+              新規処方
+            </button>
+          </th>
+          {days.map((d) => (
+            <td key={d} className="group/new border-b border-l border-rule p-0.5">
+              <button type="button" onClick={() => onNewPrescription(d)} aria-label={`${fmt(d)}から処方`} className="w-full rounded py-1 text-[11px] text-ai opacity-0 hover:bg-ai-soft focus-visible:opacity-100 group-hover/new:opacity-100 pointer-coarse:opacity-60">
+                ＋ 処方
+              </button>
+            </td>
+          ))}
+        </tr>
+      )}
       <tr>
         <th className="sticky left-0 z-[5] border-b border-rule bg-paper px-3 py-1.5 text-left text-[11px] font-normal text-ink-soft">食事（主食・割）</th>
         {days.map((d) => {
@@ -603,8 +643,10 @@ export function PrescriptionCalendar(options: CalendarProps) {
           <GroupRow key={cat} title={cat} span={days.length + 1} />,
           ...rows.map((e) => {
             const o = e.order as PrescriptionOrder;
+            const end = e.status === "有効" && onExtendDraft ? orderEndDay(o) : null;
+            const to = drag?.id === e.id ? drag.to : null;
             return (
-              <tr key={e.id}>
+              <tr key={e.id} className="group/row">
                 <RowHead
                   rxOptions={options}
                   entry={e}
@@ -618,9 +660,11 @@ export function PrescriptionCalendar(options: CalendarProps) {
                 />
                 {days.map((d) => {
                   const c = prescriptionCell(e, d, nowAbs);
+                  const added = end !== null && to !== null && d > end && d <= to;
+                  const cut = end !== null && to !== null && d > to && d <= end;
                   return (
                     <Cell key={d} day={d}>
-                      <PrescriptionCalendarMenu entry={e} day={d} options={options}><div className="flex flex-wrap gap-1">
+                      <PrescriptionCalendarMenu entry={e} day={d} options={options}><div className={`flex flex-wrap gap-1 ${cut ? "line-through opacity-40" : ""}`}>
                         {c.slots.map((s) =>
                           s.state ? (
                             (() => {
@@ -645,9 +689,26 @@ export function PrescriptionCalendar(options: CalendarProps) {
                           </Chip>
                         ))}
                         {c.stopped && <span className="whitespace-nowrap text-[11px] font-bold text-shu">中止</span>}
+                        {added && <span className="whitespace-nowrap rounded border-2 border-dashed border-ai px-1 py-px text-[11px] text-ai">延長</span>}
                       </div>
-                      {e.status === "有効" && orderEndDay(o) === d && onExtendDraft && <button aria-label="処方の終了日を動かす" className="cursor-ew-resize touch-none text-ai" onPointerDown={event => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); event.currentTarget.dataset.startX = String(event.clientX); }} onPointerUp={event => { const delta = resizedPrescriptionDays(o.days ?? 0, event.clientX - Number(event.currentTarget.dataset.startX), COL_W, o, today); if (delta) onExtendDraft(e, delta); }}>↔</button>}
                       </PrescriptionCalendarMenu>
+                      {end !== null && d === end && (
+                        <ExtendHandle
+                          label={`${oralName(o.drugCode)}の終わりの日（〜${fmt(end)}）`}
+                          end={end}
+                          min={Math.min(end, Math.max(o.start.day, 0))}
+                          max={lastDay}
+                          value={to ?? end}
+                          fmt={fmt}
+                          className={to !== null ? "" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}
+                          onMove={(t) => setDrag({ id: e.id, to: t })}
+                          onDone={(t) => {
+                            setDrag(null);
+                            const delta = t === end ? null : resizedPrescriptionDays(o.days ?? 0, (t - end) * COL_W, COL_W, o, today);
+                            if (delta) onExtendDraft!(e, delta);
+                          }}
+                        />
+                      )}
                     </Cell>
                   );
                 })}
@@ -698,7 +759,7 @@ export function ProcedureCalendar({ patient, entries, today, nowTime, selectedDa
             const o = e.order as ProcedureOrder;
             const { main, detail } = procedureLines(o, today);
             return (
-              <tr key={e.id}>
+              <tr key={e.id} className="group/row">
                 <RowHead onModify={onModify ? () => onModify(e) : undefined} onExtend={onExtendDraft ? d => onExtendDraft(e, d) : undefined} endLabel={orderEndDay(e.order) === null ? null : formatShort(addDays(today, orderEndDay(e.order)!))} entry={e} title={main} lines={[detail]} onStopDraft={onStopDraft} drafted={draftedStops.includes(e.id)} />
                 {days.map((d) => {
                   const c = procedureCell(e, d, nowAbs);

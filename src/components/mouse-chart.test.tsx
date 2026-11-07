@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { labelsThatFit } from "@/lib/point-labels";
 import { pickWithShift, valueTip } from "@/lib/lab-pick";
 import { PATIENTS } from "@/lib/patients";
-import type { LabResult, VitalSign } from "@/lib/types";
+import type { InjectionOrder, LabResult, OrderEntry, PrescriptionOrder, VitalSign } from "@/lib/types";
 import { ANALYTES } from "@/lib/master";
 import { flagOf } from "@/lib/lab-desk";
 import { STAFF } from "@/lib/roles";
@@ -12,6 +12,8 @@ import { FlowSheet } from "./FlowSheet";
 import { HistoryPane } from "./HistoryPane";
 import { MeProvider, RoleProvider } from "./RoleContext";
 import { ResultsPanel } from "./panels/ResultsPanel";
+import { InjectionCalendar, PrescriptionCalendar, ProcedureCalendar } from "./Calendars";
+import { RefWindow } from "./RefWindows";
 
 const today = { y: 2026, m: 11, d: 4 };
 
@@ -76,5 +78,46 @@ describe("検査結果：表を押して選び、右クリックで操作", () =
     expect((html.match(/aria-pressed="false"/g) ?? []).length).toBeGreaterThan(p.labs.length);
     expect(html).toMatch(/data-code="[^"]+" draggable="true"/);
     expect(html).toMatch(/title="前回 [^"]+→ [^"]+、基準 /);
+  });
+});
+
+describe("内服・注射カレンダー：同じボタンを並べず、帯を直接動かす", () => {
+  const base = { today, nowTime: "10:00", selectedDay: null, onSelectDay: () => {}, onStopDraft: () => {}, draftedStops: [] as string[] };
+  const rxEntry = (): OrderEntry => {
+    const e = PATIENTS[0].history.find((x): x is OrderEntry => x.kind === "order" && x.order.type === "prescription")!;
+    return { ...e, status: "有効", order: { ...(e.order as PrescriptionOrder), start: { day: -2 }, days: 5 } };
+  };
+  it("処方：見出しの「＋処方」はなく、新規処方の行の「＋」は日の欄にカーソルがあるときだけ。「延長…」のセレクトはなく、帯の終わりをつかんで延ばす（縮める）", () => {
+    const html = renderToStaticMarkup(<PrescriptionCalendar {...base} patient={PATIENTS[0]} entries={[rxEntry()]} onNewPrescription={() => {}} onExtendDraft={() => {}} />);
+    expect(html).not.toContain("<select");
+    expect(html).not.toContain("延長…");
+    expect((html.match(/新規処方/g) ?? []).length).toBe(1);
+    expect(html).toMatch(/class="[^"]*opacity-0[^"]*group-hover\/new:opacity-100[^"]*">＋ 処方<\/button>/);
+    expect(html).toMatch(/role="slider" aria-label="[^"]+の終わりの日（〜11\/6（金））。左右へ引くか ← → で日数を変える" aria-valuemin="0"/);
+    expect(html).toContain('<tr class="group/row">');
+  });
+  it("処置：「延長…」のセレクトの代わりに右クリック（長押し）の 3日・7日延長", () => {
+    const p = PATIENTS.find((x) => x.history.some((e) => e.kind === "order" && e.order.type === "procedure" && e.status === "有効"))!;
+    const html = renderToStaticMarkup(<ProcedureCalendar {...base} patient={p} entries={p.history} onExtendDraft={() => {}} onModify={() => {}} />);
+    expect(html).not.toContain("<select");
+    expect(html).toContain('<div tabindex="0" class="rounded outline-none');
+  });
+  it("処方をオーダできない人には新規処方の行を出さない", () => {
+    const html = renderToStaticMarkup(<PrescriptionCalendar {...base} patient={PATIENTS[0]} entries={[rxEntry()]} />);
+    expect(html).not.toContain("新規処方");
+    expect(html).not.toContain('role="slider"');
+  });
+  it("参照の内服カレンダーの窓にも見出しの「＋ 処方」を重ねない", () => {
+    const html = renderToStaticMarkup(<RefWindow tab="rxcal" {...base} patient={PATIENTS[0]} entries={[rxEntry()]} onNewPrescription={() => {}} onNewOrder={() => {}} />);
+    expect(html.startsWith("<div")).toBe(true);
+    expect((html.match(/新規処方/g) ?? []).length).toBe(1);
+  });
+  it("注射：先の日の「0–6…」と「＋新規」はその日の欄にカーソルがあるときだけ（押して延長・新規は今のまま）", () => {
+    const ctrx: InjectionOrder = { type: "injection", items: [{ drugCode: "INJ-CTRX1", amount: 2, unit: "g" }], route: "点滴静注", schedule: { kind: "per_day", count: 1 }, minutesPerDose: 60, start: { day: -2, time: "10:00" }, days: 3 };
+    const entry = { kind: "order", id: "o1", day: -2, time: "09:00", author: "山田", role: "医師", status: "有効", order: ctrx } as OrderEntry;
+    const html = renderToStaticMarkup(<InjectionCalendar {...base} patient={{ ...PATIENTS[0], admittedOn: -2 }} entries={[entry]} onExtendDraft={() => {}} onNewInjection={() => {}} />);
+    expect(html).toMatch(/border-y border-rule-soft opacity-0 group-hover\/ext:opacity-100/);
+    expect(html).toMatch(/aria-label="[^"]+ 0–6 ここまで延長"/);
+    expect(html).toMatch(/opacity-0 hover:border-ai hover:text-ai focus-visible:opacity-100 group-hover\/new:opacity-100[^"]*"><svg[\s\S]*?<\/svg>新規<\/button>/);
   });
 });
