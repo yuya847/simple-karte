@@ -15,7 +15,7 @@ export function infusionDraft(inf: Infusion, by: string, id: string): InjectionD
   if (!drug) throw new Error("薬をマスターから選んでください");
   const now = latest(inf);
   return { id, origin: "manual", sourceText: `${by} 持続投与`, comment: comment(inf, now.at), kind: "injection",
-    items: [{ drugCode: inf.drugCode, said: inf.name, amount: inf.amountMg, unit: drug.units.includes(unit) ? unit : drug.units[0] }],
+    items: [{ drugCode: inf.drugCode, said: inf.name, amount: inf.amountMg, unit }],
     route: "静注", schedule: { kind: "once" }, start: { ...inf.start }, days: null,
     infusionMinutes: null, infusionScope: "per_dose", rateMlPerH: now.rateMlPerH, prefer: "rate", duplicate: null,
     continuous: { infusionId: inf.id } };

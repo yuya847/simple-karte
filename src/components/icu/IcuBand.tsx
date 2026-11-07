@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { stayDayText } from "@/lib/icu/stays";
 import { abs } from "@/lib/flowsheet";
 import { abgRows, doseText, rateAt, ventAt } from "@/lib/icu";
 import { when, type IcuPaneProps } from "./parts";
@@ -16,16 +17,14 @@ const Unit=({children}:{children:ReactNode})=><span className="ml-0.5 text-[10px
  * 値は記録とコードの計算のまま。無いものは出さない。
  */
 export function IcuBand({patient,records,today,now,targets}:Pick<IcuPaneProps,"patient"|"records"|"today"|"now">&{targets?:string}) {
-  const stays=records.stays.filter(s=>s.patientId===patient.id&&t(s.in)<=now).sort((a,b)=>t(a.in)-t(b.in));
-  // Counted from the first stay, as the ICU・HCU board counts it; only while the patient is in a unit.
-  const days=stays.some(s=>!s.out||t(s.out)>now)?Math.floor(now/1440)-stays[0].in.day+1:null;
+  const days=stayDayText(records,patient.id,now);
   const vent=ventAt(records.vents,patient.id,now);
   const pf=abgRows(patient,records.vents).filter(r=>r.pf!==null&&t(r)<=now).at(-1);
   const infusions=records.infusions.filter(i=>i.patientId===patient.id&&rateAt(i,now)!==null);
   const crrt=records.crrt.filter(c=>c.patientId===patient.id&&t(c.at)<=now&&(!c.end||t(c.end)>now)).sort((a,b)=>t(a.at)-t(b.at)).at(-1);
   const goal=targets?.trim()??"";
   const items:{key:string;node:ReactNode}[]=[];
-  if(days!==null)items.push({key:"days",node:<><Label>入室</Label>{days}日目</>});
+  if(days!==null)items.push({key:"days",node:<>{days}</>});
   if(vent&&vent.mode!=="なし")items.push({key:"vent",node:<><Label>呼吸器</Label>{vent.mode}{vent.mode==="HFNC"&&vent.flow!==undefined&&<> {vent.flow}<Unit>L/分</Unit></>} <Label>FiO2</Label>{vent.fio2}{vent.mode!=="HFNC"&&vent.peep!==undefined&&<> <Label>PEEP</Label>{vent.peep}</>}</>});
   if(pf)items.push({key:"pf",node:<><Label>P/F</Label>{pf.pf}<span className="ml-1 text-ink-soft">{when(pf,today)}</span></>});
   for(const i of infusions){

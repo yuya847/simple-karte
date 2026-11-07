@@ -1,3 +1,8 @@
+import { currentInfusion } from "./icu/current-infusion";
+import { lineDays } from "./icu/lines";
+import type { IcuRecords } from "./icu/types";
+import type { StandingLine } from "./standing-lines";
+import { abs } from "./flowsheet";
 import { currentScreening, lifeLines, lifeWithIntake } from "./life-support";
 // 連携サマリ・看護サマリ: what the next carer needs to know, gathered from the record by code — the
 // items listed for 介護・地域連携 (既往歴・感染症・病名・生活上の注意・検査データ・バイタル・処置/処方・
@@ -27,12 +32,13 @@ export interface SummarySection {
 
 const KEY_LABS = ["WBC", "Hb", "Plt", "Alb", "Cre", "Na", "K", "CRP"];
 
-export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { rehab?: RehabDesk; diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] }; anamnesis?: AnamnesisFields }): SummarySection[] {
+export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { icu?: IcuRecords; now?: number; standingLines?: StandingLine[]; rehab?: RehabDesk; diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] }; anamnesis?: AnamnesisFields }): SummarySection[] {
   const active = entries.filter((e) => e.status === "有効");
   const lines = (type: OrderEntry["order"]["type"]) =>
     entries.filter((e) => (e.status === "有効" || e.status === "実施済") && e.order.type === type && !(type === "procedure" && e.order.type === "procedure" && (e.order.rehab || e.order.leave))).map((e) => {
       const l = orderLines(e.order, today);
-      return `${l.main}　${e.status === "実施済" ? `実施（${formatShort(addDays(today, e.order.type === "procedure" ? e.order.start.day : e.day))}）` : l.detail}`;
+      const current = e.order.type === "injection" ? currentInfusion(e.order,extra.icu,p.id,extra.now ?? 1439) : undefined;
+      return `${l.main}　${e.status === "実施済" ? `実施（${formatShort(addDays(today, e.order.type === "procedure" ? e.order.start.day : e.day))}）` : current?.text ?? l.detail}`;
     });
   const dx = extra.diagnoses.filter((d) => d.outcome === "継続");
   const labs = KEY_LABS.flatMap((code) => {
@@ -77,11 +83,11 @@ export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarD
       : []),
     { heading: "処方（内服）", lines: lines("prescription") },
     { heading: "注射", lines: lines("injection") },
-    { heading: "処置", lines: lines("procedure") },
+    { heading: "処置", lines: [...lines("procedure"), ...(extra.icu?.lines ?? []).filter(l=>l.patientId===p.id&&abs(l.insertedAt.day,l.insertedAt.time)<=(extra.now??1439)&&(!l.removedAt||abs(l.removedAt.day,l.removedAt.time)>(extra.now??1439))).map(l=>`${l.kind} ${l.site} ${lineDays(l, Math.floor((extra.now??1439)/1440))}`)] },
     ...["リハビリ処方", "退院・外泊"].map((heading, i) => ({ heading, lines: active.filter(e => e.order.type === "procedure" && (i === 0 ? e.order.rehab : e.order.leave)).map(e => { const l = orderLines(e.order, today); return `${l.main} ${l.detail}`; }) })),
     { heading: "検査データ（最新）", lines: labs },
     { heading: "バイタル（最新）", lines: v ? [`${v.day === 0 ? "今日" : `${-v.day}日前`} ${v.time}　BT ${v.bt ?? "—"}　HR ${v.hr ?? "—"}　BP ${v.sbp ?? "—"}/${v.dbp ?? "—"}　RR ${v.rr ?? "—"}　SpO2 ${v.spo2 ?? "—"}%（${v.o2 ?? "室内気"}）`] : [] },
-    { heading: "医師への連絡の基準・頓用（指示簿）", lines: s ? [...new Set([...s.calls.map(callText), ...(s.blockCallTexts ?? []), ...s.prn.map(prnText), ...(s.blockPrnTexts ?? [])])] : [] },
+    { heading: "医師への連絡の基準・頓用（指示簿）", lines: s ? [...new Set([...(extra.standingLines ?? []).filter(l=>abs(l.start.day,l.start.time??"00:00")<=(extra.now??1439)&&(!l.stop||abs(l.stop.day,l.stop.time)>(extra.now??1439))&&(!l.changed||abs(l.changed.day,l.changed.time)>(extra.now??1439))&&(!l.end||abs(l.end.day,l.end.time??"23:59")>=(extra.now??1439))).map(l=>`${l.text}（${l.by}）`), ...(s.other ? [s.other] : []), ...s.calls.map(callText), ...(s.blockCallTexts ?? []), ...s.prn.map(prnText), ...(s.blockPrnTexts ?? [])])] : [] },
     { heading: "退院支援", lines: screening ? [`退院困難な要因：${screening.factors.join("、") || "なし"}`, screening.note].filter(Boolean) : [] },
   ];
   return out.map((x) => ({ ...x, lines: x.lines.length ? x.lines : ["記録なし"] }));

@@ -11,3 +11,11 @@ export function stayOnMove(records: IcuRecords, patientId: string, fromWard: str
   const next = { ...records, stays: records.stays.map(s => s.patientId === patientId && s.unit === from && !s.out ? { ...s, out: { ...at }, to: toWard } : s) };
   return to ? stayOnArrive(next, patientId, to, at, fromWard, "転棟") : next;
 }
+
+export function stayDayText(records: IcuRecords, patientId: string, now: number): string | null {
+  const stays = records.stays.filter(s => s.patientId === patientId && abs(s.in.day,s.in.time) <= now).sort((a,b)=>abs(a.in.day,a.in.time)-abs(b.in.day,b.in.time));
+  const current = stays.filter(s => !s.out || abs(s.out.day,s.out.time)>now).at(-1);
+  if (!current) return null;
+  const day = Math.floor(now/1440);
+  return `${current.unit} ${day-current.in.day+1}日目${stays[0].id!==current.id ? `（${stays[0].unit} から ${day-stays[0].in.day+1}日目）` : ""}`;
+}

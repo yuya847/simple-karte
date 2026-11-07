@@ -709,7 +709,7 @@ function checkInjection(d: InjectionDraft, ctx: CheckContext): Issue[] {
       });
       return;
     }
-    if (it.unit && !master.units.includes(it.unit)) {
+    if (it.unit && !master.units.includes(it.unit) && !(d.continuous && ["mg", "単位"].includes(it.unit))) {
       issues.push({
         key: `unit-${i}`,
         level: "stop",

@@ -1,5 +1,6 @@
 "use client";
 
+import { hourlyObservations } from "@/lib/icu/hourly-observations";
 import { useWorksheetSelection } from "@/lib/use-worksheet-selection";
 import { useMe } from "./RoleContext";
 import { displayText } from "@/lib/display-text";
@@ -347,7 +348,7 @@ function Sheet({ standingMeasurements, remeasureVitals, onMeasure, sheet, rows, 
       </Section>
 
       <Section title="時刻の決まっているもの">
-        {people.flatMap(x => (shift === 'night' ? [day, day + 1] : [day]).map(d => <StandingMeasurements key={`${x.patient.id}:${d}`} label={`${x.room} ${x.patient.name}`} source={standingMeasurements?.[x.patient.id]} day={d} from={shift === 'all' ? '00:00' : d === day ? (shift === 'day' ? '08:30' : '16:30') : '00:00'} to={d === day ? (shift === 'day' ? '16:59' : '23:59') : '08:29'} />))}
+        {people.flatMap(x => (shift === 'night' ? [day, day + 1] : [day]).map(d => <StandingMeasurements exclude={x.icu ? hourlyObservations(x.patient,x.icu,d*1440,(d+1)*1440,abs(0,nowTime)).map(r=>String(Math.floor((r.at-d*1440)/60)).padStart(2,"0")+":00") : []} key={`${x.patient.id}:${d}`} label={`${x.room} ${x.patient.name}`} source={standingMeasurements?.[x.patient.id]} day={d} from={shift === 'all' ? '00:00' : d === day ? (shift === 'day' ? '08:30' : '16:30') : '00:00'} to={d === day ? (shift === 'day' ? '16:59' : '23:59') : '08:29'} />))}
         <RemeasureRows {...{ people, remeasureVitals, onMeasure, day, shift, today, interactive }} />
         {timed.length === 0 ? (
           <Empty>オーダーの予定はありません</Empty>

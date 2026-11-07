@@ -10,6 +10,7 @@ import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { HOSPITAL } from "@/lib/billing/facility";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
+import { abs } from "@/lib/flowsheet";
 import { OUTCOMES, ROUTES, SECTIONS, SUMMARY_DEADLINE_DAYS, SUMMARY_DEADLINE_SOURCE, labelOf, collectFacts, dischargeChecks, createDischargeDraft, type DischargeDraft, type Facts, type SectionKey } from "@/lib/discharge";
 import type { Diagnosis } from "@/lib/diagnoses";
 import { useSpeech } from "@/lib/use-speech";
@@ -21,6 +22,7 @@ import type { Draft } from "@/lib/drafts";
 import type { AdmissionRequest } from "@/lib/admission";
 
 interface Props {
+  icu?: import("@/lib/icu/types").IcuRecords;
   history?: HistoryEntry[];
   orderDrafts?: Draft[];
   admissionRequest?: AdmissionRequest;
@@ -45,7 +47,7 @@ interface Props {
 const noSubscribe = () => () => {};
 
 /** 退院時サマリー and 診療情報提供書: facts by code, the doctor's account placed by Claude, signed by the doctor. */
-export function DischargePanel({ patient, today, nowTime, doctor, entries, history, orderDrafts = [], admissionRequest, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter, attending = patient.attending, onApprove, onReturn }: Props) {
+export function DischargePanel({ icu, patient, today, nowTime, doctor, entries, history, orderDrafts = [], admissionRequest, diagnoses, consentsPending, directive, draft, onSave, onConfirm, onIssueLetter, attending = patient.attending, onApprove, onReturn }: Props) {
   const me = useMe();
   const [tab, setTab] = useState<"summary" | "letter">(draft?.letter.to ? "letter" : "summary");
   const [d, setD] = useState<DischargeDraft>(
@@ -57,7 +59,7 @@ export function DischargePanel({ patient, today, nowTime, doctor, entries, histo
   const [unplaced, setUnplaced] = useState("");
   const speech = useSpeech((t) => setText((x) => (x ? `${x}${t}` : t)));
   const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
-  const facts = collectFacts(patient, entries, diagnoses, today, d.dischargeDay);
+  const facts = collectFacts(patient, entries, diagnoses, today, d.dischargeDay, icu, abs(0, nowTime));
   const checks = dischargeChecks(patient, entries, consentsPending);
   const deny = useDeny()("discharge");
   const locked = d.status === "確定" || !!deny;

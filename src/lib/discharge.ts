@@ -5,6 +5,8 @@
 
 import { addDays, formatShort, type CalendarDate } from "./dates";
 import { diagnosisLabel, type Diagnosis } from "./diagnoses";
+import { currentInfusion } from "./icu/current-infusion";
+import type { IcuRecords } from "./icu/types";
 import { orderLines } from "./format";
 import { ANALYTES, anyDrugName } from "./master";
 import type { HistoryEntry, NoteEntry, InjectionOrder, OrderEntry, Patient } from "./types";
@@ -133,7 +135,7 @@ export interface Facts {
   labs: ReturnType<typeof labTrend>;
 }
 
-export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagnosis[], today: CalendarDate, dischargeDay: number): Facts {
+export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagnosis[], today: CalendarDate, dischargeDay: number, icu?: IcuRecords, now = 1439): Facts {
   const orders = entries.filter((e) => e.kind === "order");
   const span = (e: OrderEntry) => {
     if (e.status === "実施済") return `実施（${formatShort(addDays(today, e.order.type === "procedure" ? e.order.start.day : e.day))}）`;
@@ -142,6 +144,7 @@ export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagn
     const recordedEnd = (e.status === "中止" || e.status === "終了") && e.stoppedOn !== undefined ? e.stoppedOn : undefined;
     const endDay = Math.min(recordedEnd ?? Infinity, interval.to === null ? Infinity : Math.floor(interval.to / 1440));
     if (e.status === "中止" && e.stoppedOn !== undefined && (e.stoppedOn < Math.floor(interval.from / 1440) || e.stoppedOn === Math.floor(interval.from / 1440) && e.stoppedTime && e.stoppedTime <= (e.order.type === "injection" || e.order.type === "procedure" ? e.order.start.time ?? e.time : e.time))) return "開始前に中止";
+    if (interval.from > Math.min(now, cutoff-1)) return `${formatShort(addDays(today, Math.floor(interval.from / 1440)))} 予定`;
     const ended = endDay <= dischargeDay;
     return `${formatShort(addDays(today, Math.floor(interval.from / 1440)))}〜${ended ? `終了（${formatShort(addDays(today, endDay))}）` : "継続中"}`;
   };
@@ -153,7 +156,7 @@ export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagn
     diagnoses: diagnoses.map((d) => `${diagnosisLabel(d)}${d.main ? "（主）" : ""}${d.outcome !== "継続" ? `：${d.outcome}` : ""}`),
     allergies: p.allergies,
     infections: p.infections,
-    injections: orders.filter((e) => e.order.type === "injection").map((e) => `${orderLines(e.order, today).main}（${span(e)}）`),
+    injections: orders.filter((e) => e.order.type === "injection").map((e) => `${orderLines(e.order, today).main}${e.order.type === "injection" ? ` ${currentInfusion(e.order, icu, p.id, now)?.text ?? ""}` : ""}（${span(e)}）`),
     procedures: orders.filter((e) => e.order.type === "procedure").map((e) => `${orderLines(e.order, today).main}（${span(e)}）`),
     prescriptions: orders.filter((e) => e.order.type === "prescription" && e.order.category === "退院時" && e.status === "有効").map((e) => { const line = orderLines(e.order, today); return [line.main, line.detail].filter(Boolean).join("　"); }),
     continuingPrescriptions: orders.filter(e => {

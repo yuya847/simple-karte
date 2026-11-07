@@ -1,5 +1,6 @@
 "use client";
 
+import { hourlyGcs } from "@/lib/icu/hourly-gcs";
 import { useState } from "react";
 import type { ReactNode, FormEvent } from "react";
 import { X } from "lucide-react";
@@ -48,6 +49,7 @@ export function IcuTimeTable(p:IcuPaneProps&{day:number;setDay(day:number):void}
     row.arterialLine=f.get("arterialLine")==="on";row.camIcu=(s(f,"camIcu")||undefined) as HourlyRecord["camIcu"];
     const right=n(f,"pupilRight"),left=n(f,"pupilLeft");
     row.pupils=right!==undefined&&left!==undefined?{right,left,reactRight:s(f,"reactRight") as "+",reactLeft:s(f,"reactLeft") as "+"}:undefined;
+    try { row.gcs = hourlyGcs(s(f,"gcsE"), s(f,"gcsV"), s(f,"gcsM")); } catch (error) { setError((error as Error).message); return; }
     row.note=s(f,"note");
     commit({...records,hourly:[...records.hourly.filter(r=>r.id!==row.id),row]},"時間記録",`${stamp(row.at)} 尿量 ${row.urineMl??"—"}mL`);setEditHour(null);
   }
@@ -60,7 +62,7 @@ export function IcuTimeTable(p:IcuPaneProps&{day:number;setDay(day:number):void}
     {key:"bt",name:"BT",always:true,cell:h=>vital(h)?.bt?.toFixed(1)},
     ...([['cvp','CVP'],['rass','RASS'],['cpot','CPOT'],['camIcu','CAM-ICU']] as const).map(([k,l]):Row=>({key:k,name:l,small:k==="camIcu",cell:h=>hrec(h)?.[k]})),
     {key:"pupils",name:"瞳孔",small:true,cell:h=>{const x=hrec(h)?.pupils;return x?<>{x.right}{x.reactRight}/<wbr/>{x.left}{x.reactLeft}</>:null;}},
-    {key:"gcs",name:"GCS",always:true,small:true,cell:h=>{const g=vital(h)?.gcs;return g?<>E{g.e??"—"}V{g.v??"—"}<wbr/>M{g.m??"—"}</>:null;}},
+    {key:"gcs",name:"GCS",always:true,small:true,cell:h=>{const g=hrec(h)?.gcs??vital(h)?.gcs;return g?<>E{g.e??"—"}V{g.v??"—"}<wbr/>M{g.m??"—"}</>:null;}},
     {key:"vent",name:"呼吸器",small:true,label:<>呼吸器<span className="block font-normal text-ink-soft">FiO2/PEEP</span></>,cell:h=>{const v=ventAt(records.vents,patient.id,hourAt(h));return v?<><span className="whitespace-nowrap">{v.mode}</span><br/>{v.fio2}/{v.peep??"—"}</>:null;}},
     ...infusions.map((i):Row=>({key:i.id,name:i.name,title:i.name,infusion:i,label:<span className="text-[10px]">{shortName(i.name)}<span className="block font-normal text-ink-soft">{i.doseUnit}・mL/h</span></span>,cell:h=>{const t=doseText(i,hourAt(h));return t==="—"?null:t;}})),
     ...([['urineMl','尿量',true],['drainMl','ドレーン'],['gastricMl','胃管'],['otherOutMl','その他 OUT'],['infusionMl','IN 持続投与'],['enteralMl','IN 経腸'],['otherInMl','IN その他'],['netMl','IN−OUT',true],['cumulativeMl','0時から累積',true],['sinceAdmissionMl','入室から累積',true]] as const).map(([k,l,always]):Row=>({key:k,name:l,always:!!always,cell:h=>{
@@ -93,6 +95,7 @@ export function IcuTimeTable(p:IcuPaneProps&{day:number;setDay(day:number):void}
       </table></div>
       <p hidden className="hint">{MAP_HINT} {BALANCE_HINT} γ = μg/kg/分。FiO2 は採血時以前の最後の設定。設定なし・mode「なし」は不明。</p>
       {editHour!==null&&<form key={`${day}-${editHour}`} onSubmit={saveHourly} className="border border-rule rounded p-3 space-y-2"><b>{editHour}時の記録</b><div className="grid grid-cols-2 gap-2">{hourlyFields.map(([k,l])=><Field key={k} label={l}><input className={input} name={k} type="number" step="any" min={k==="rass"?-5:0} max={k==="rass"?4:k==="cpot"?8:undefined} defaultValue={hrec(editHour)?.[k]}/></Field>)}
+        {(["e","v","m"] as const).map(k=><Field key={k} label={`GCS ${k.toUpperCase()}`}><select className={input} name={`gcs${k.toUpperCase()}`} defaultValue={hrec(editHour)?.gcs?.[k]??vital(editHour)?.gcs?.[k]??""}><option value="" />{Array.from({length:k==="e"?4:k==="v"?5:6},(_,i)=><option key={i+1}>{i+1}</option>)}{k==="v"&&<option>T</option>}</select></Field>)}
         <Field label="CAM-ICU"><select name="camIcu" className={input} defaultValue={hrec(editHour)?.camIcu??""}>{["","陰性","陽性","評価不能"].map(x=><option key={x}>{x}</option>)}</select></Field>
         <label><input name="arterialLine" type="checkbox" defaultChecked={hrec(editHour)?.arterialLine}/>動脈ライン</label>
         {([['pupilRight','右瞳孔 mm'],['pupilLeft','左瞳孔 mm']] as const).map(([k,l],i)=><Field key={k} label={l}><input name={k} className={input} type="number" min="0" step="0.1" defaultValue={i?hrec(editHour)?.pupils?.left:hrec(editHour)?.pupils?.right}/></Field>)}

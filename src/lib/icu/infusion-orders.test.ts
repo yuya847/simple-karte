@@ -4,7 +4,6 @@ import { infusionDraft, infusionOrderEntry, infusionRateChangeDraft, infusionSto
 import { toOrder, type CheckContext } from "../drafts";
 import { buildWorksheet, orderChanges, sessionChangeKeys } from "../worksheet";
 import { takeRows } from "../order-take";
-import { findDrug } from "../master";
 import { injectionCell } from "../calendar";
 const inf = SCENARIOS.icu.infusions.find(i => i.patientId === "99000101")!;
 it("持続投与を静注・変更までの注射にし、確定しても紐付けと速さを保つ", () => {
@@ -44,8 +43,7 @@ it("カレンダーは継続の帯、ワークシートは持続中、確定し�
 it("単位/hとマスターにmgの無い薬の単位を合わせる", () => {
   for (const infusion of SCENARIOS.icu.infusions) {
     const d = infusionDraft(infusion, "医師", "d");
-    const units = findDrug(infusion.drugCode)!.units;
     const preferred = infusion.doseUnit === "単位/h" ? "単位" : "mg";
-    expect(d.items[0]).toMatchObject({ amount: infusion.amountMg, unit: units.includes(preferred) ? preferred : units[0] });
+    expect(d.items[0]).toMatchObject({ amount: infusion.amountMg, unit: preferred });
   }
 });

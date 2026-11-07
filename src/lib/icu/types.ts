@@ -64,7 +64,7 @@ export interface LineDevice {
   /** 太さ・長さ・固定の cm など */ spec?: string;
 }
 
-/** 1 時間ごとの看護記録（体温・脈拍・血圧・呼吸数・SpO2・GCS は patient.vitals に入れる。ここはそれ以外）。 */
+/** 1 時間ごとの看護記録（体温・脈拍・血圧・呼吸数・SpO2 は patient.vitals に入れる。GCS は時間表からも記録する）。 */
 export interface HourlyRecord {
   id: string; patientId: string; at: At; by: string;
   /** mmHg（動脈ラインの実測。なければ balance 側で収縮期・拡張期から計算） */ map?: number; cvp?: number;
@@ -78,6 +78,7 @@ export interface HourlyRecord {
   /** 持続投与以外の IN mL（ボーラス・輸血・経腸栄養以外） */ otherInMl?: number;
   /** 経腸栄養 mL */ enteralMl?: number;
   glucose?: number;
+  gcs?: { e?: number; v?: number | "T"; m?: number };
   note?: string;
 }
 
@@ -87,7 +88,7 @@ export interface RoundCheck {
   items: Record<string, "確認" | "該当なし" | null>;
 }
 
-/** 転入・転出（救急外来→ICU→HCU→病棟）。移動オーダ（PROC-MOVE）の実施とは別に、集中治療の視点で残す。 */
+/** 転入・転出（救急外来→ICU→HCU→病棟）。移動オーダ（PROC-MOVE）と共通の実施に合わせ、集中治療の視点で残す。 */
 export interface UnitStay {
   id: string; patientId: string; unit: UnitKind;
   in: At; out?: At;

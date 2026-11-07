@@ -2,6 +2,7 @@
 import { currentOxygen, patientForCurrentDisplay } from "@/lib/icu/current-oxygen";
 import { moveBedPlans } from "@/lib/icu/move-plans";
 import { IcuBoard } from "./IcuBoard";
+import { moveAdministration } from "@/lib/move-administration";
 import { stayOnMove } from "@/lib/icu/stays";
 import { unitOf } from "@/lib/icu/types";
 import { useMcpReceiver } from "@/lib/mcp/receive";
@@ -2004,7 +2005,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     ];
   };
   // 実施: carry out a booked move now (the bed is checked again: still empty, the room's sex).
-  const doMove = (entryId: string) => {
+  const doMove = (entryId: string, administration?: AdminRecord) => {
+    if (movesDone[entryId]) return true;
     if (deny("bed.move")) return;
     const x = people.find((y) => y.entries.some((e) => e.id === entryId)) ?? (activeId ? workOf(activeId) : undefined);
     const e = x?.entries.find((y) => y.id === entryId);
@@ -2029,7 +2031,10 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
     }
     auditLog({ role: me.role, actor: me.name, action: `確定（${m.kind}の実施）`, patient: x.patient.name, detail: moveText(m) });
     setMovesDone((all) => ({ ...all, [entryId]: nowTime }));
+    const record = moveAdministration(e, pid, nowTime, me.name, administration);
+    setMar(all => ({ ...all, [record.key]: record }));
     updateFor(pid, (c) => ({ note: `${c.note.replace(/\s*$/, "")}\n・${m.kind}を実施（${nowTime}）：${moveText(m)}\n` }));
+    return true;
   };
   const openStanding = (pid: string) => {
     openPatient(pid);
@@ -2156,6 +2161,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const recordMar = (r: AdminRecord) => {
     const who = findPatient(r.patientId);
     const item = people.flatMap((x) => x.entries).find((e) => e.id === r.orderId);
+    if (item?.order.type === "procedure" && item.order.code === "PROC-MOVE" && r.status === "実施") { doMove(item.id, r); return; }
     // 点滴 (2回実施): the 開始, the 終了 with what went in, or the 終了 taken back.
     const drip = dripAction(r, mar[r.key]);
     auditLog({
@@ -2295,6 +2301,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   };
   /** What the left tabs (経過表・内服歴・注射歴) and the reading windows show and do, for the chart in front. */
   const refPropsOf = (patient: Patient): RefWindowProps => ({
+    icu: visibleIcuRecords(icu, abs(0, nowTime)),
     onNewPrescription: deny("order") ? undefined : (day, from) => { update({ rxSeed: prescriptionCalendarSeed(newId(), day, patient.id, from) }); openOrder("add-rx"); },
     onPrescriptionStop: deny("order") ? undefined : (entry, day) => addStopDraft(entry, "（内服カレンダーから）", day),
     insulinEdit: { onDraft: deny("order") ? undefined : d => update(c => ({ drafts: [...c.drafts, d], flash: "インスリンの変更を下書きに入れました。保存で確定します。" })), onGlucose: deny("vitals") ? undefined : (day, time) => { const entry = glucoseEntry(careOrders, patient.id, day, time, me.name, newId()); if (entry.order) setCareOrders(all => [...all, entry.order!]); setFlowReq(entry.request); setPanel("flow-entry"); } },
@@ -3875,6 +3882,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "discharge" && (
                 <Drawer title="退院時サマリー・診療情報提供書" onClose={closePanel} wide>
                   <DischargePanel
+                    icu={icu}
                     history={entries}
                     orderDrafts={chart.drafts}
                     admissionRequest={requests.find((r) => r.admittedAs === patient.id)}
@@ -4313,7 +4321,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     patient={patient}
                     today={formatShort(today)}
                     nowTime={nowTime}
-                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { rehab: dept.rehab, diagnoses: diagnoses[patient.id] ?? [], standing: standingNow(patient.id), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
+                    facts={summaryFacts(patient, entries.filter((e): e is OrderEntry => e.kind === "order"), today, { icu, now: abs(0, nowTime), standingLines: standingLines[patient.id], rehab: dept.rehab, diagnoses: diagnoses[patient.id] ?? [], standing: standingNow(patient.id), dietNow: patient.dietNow, evals: evals[patient.id], nursing: { problems: nursingPlans, care: careOrders.filter((o) => careActive(o, abs(0, nowTime))) }, anamnesis: anamnesis[patient.id]?.fields })}
                     coordination={evals[patient.id]?.coordination}
                     onSave={(to, words, facts, coordination) => {
                       if (coordination) setEvals(all => ({ ...all, [patient.id]: { ...(all[patient.id] ?? { patientId: patient.id }), coordination } }));

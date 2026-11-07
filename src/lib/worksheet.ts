@@ -1,3 +1,4 @@
+import { currentInfusion } from "./icu/current-infusion";
 import { hourlyObservations, hourlyObservationText } from "./icu/hourly-observations";
 import type { IcuRecords } from "./icu/types";
 import { fixedInsulinUnits, insulinDoseText } from "./insulin-doses";
@@ -102,9 +103,11 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
       if (o.type === "injection") {
         if (!live(e, lo, hi, nowAbs, orderInterval)) continue;
         const main = o.insulinDoses ? `${drugName(o.items[0].drugCode)} ${insulinDoseText(o.insulinDoses)}` : o.items.map((it) => o.sliding ? `${drugName(it.drugCode)} スケール` : injectionItemText(it)).join(" ＋ ");
-        const parts = [o.route, scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
+        const parts = [o.route, o.continuous ? "持続" : scheduleTextFor(o), ...(o.dayPattern ? [patternText(o.dayPattern)] : [])];
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
-        if (o.rateMlPerH) parts.push(`${o.rateMlPerH?.toFixed(1)}mL/時`);
+        const current = o.continuous ? currentInfusion(o, icu, p.id, nowAbs) : undefined;
+        if (current) parts.push(`${current.rate}mL/時${current.rate !== o.rateMlPerH ? `（指示 ${o.rateMlPerH}）` : ""}`);
+        else if (o.rateMlPerH) parts.push(`${o.rateMlPerH.toFixed(1)}mL/時`);
         const detail = parts.join("　");
         if (o.continuous) {
           const { to } = orderInterval(e, nowAbs);
