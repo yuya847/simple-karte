@@ -35,6 +35,8 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
   const states = workspaceRecords(inputStates);
   const [status, setStatus] = useState<WorkspaceStatus>("off");
   const [id, setId] = useState<string | null>(null);
+  // Run the echo acknowledgement even when restored values are unchanged scalars.
+  const [restored, setRestored] = useState<Record<string, unknown> | null>(null);
   const loaded = useRef(false);
   // Just read back: putting the records into the states is not a change to save (nor to tell the other tabs).
   const echo = useRef<Record<string, unknown> | null>(null);
@@ -74,6 +76,7 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
   const putBack = (data: Record<string, unknown>, accept: boolean) => {
     data = workspaceRecords(data);
     echo.current = data;
+    setRestored(data);
     echoAccept.current = accept;
     putting.current = data;
     for (const [k, v] of Object.entries(data)) statesRef.current[k]?.[1](v as never);
@@ -165,8 +168,9 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
   useEffect(() => {
     if (!day || !id || !loaded.current) return;
     // The records just read back (and what follows from them in the same moment) are not saved again.
-    if (sameJson(snapshot(), accepted.current)) return;
     if (echo.current) {
+      // Consume the echo on its render, even when it equals accepted. Otherwise the next
+      // human edit is mistaken for this save response and silently accepted without saving.
       const incoming = echo.current;
       echo.current = null;
       // Right after this page's own save: what the states became (after the setters' own migrations, which
@@ -178,10 +182,11 @@ export function useWorkspace(inputStates: Record<string, [unknown, (v: never) =>
       }
       if (sameJson(snapshot(), incoming)) return;
     }
+    if (sameJson(snapshot(), accepted.current)) return;
     dirty.current = true;
     schedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day, id, ...values]);
+  }, [day, id, restored, ...values]);
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);

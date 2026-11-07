@@ -299,7 +299,7 @@ import { DietWindow } from "./DietWindow";
 import { DischargePanel } from "./panels/DischargePanel";
 import type { DischargeDraft } from "@/lib/discharge";
 import type { TdmReport } from "@/lib/tdm";
-import { INITIAL_DIETS, MEALS, dietAt, dietLabel, nextMeal, type DietOrder } from "@/lib/diet";
+import { INITIAL_DIETS, MEALS, currentDiet, dietAt, dietLabel, type DietOrder } from "@/lib/diet";
 import { INITIAL_DIRECTIVES, bandLabel, current as currentDirective, directiveLine, type AdvanceDirective } from "@/lib/directives";
 import { AuditView } from "./AuditView";
 import { ChatThread, ChatView } from "./ChatView";
@@ -988,8 +988,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].map((p0) => {
         const p = applyProfile(p0, profileLog);
         const d = currentDirective(directives, p.id);
-        const next = nextMeal(nowTime ? abs(0, nowTime) : 0);
-        const diet = dietAt(diets, p.id, next.day, next.meal);
+        const diet = currentDiet(diets, p.id, nowTime || "00:00");
         return {
           ...p,
           // In time order: a measurement may be entered later with its own time (from the flow sheet).
@@ -4156,7 +4155,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                     saved={documents.filter((d) => d.patientId === patient.id)}
                     onOpenReferral={() => setPanel("discharge")}
                     initial={(k: DocKind): Record<string, string> => {
-                      if (k === "栄養管理計画書") return { ...nutritionPlanDraft(patient, patient.labs, dietAt(diets, patient.id, 0, "夕"), evals[patient.id]?.nutrition, me), ...nutritionPressure(nm.ulcers, patient.id) };
+                      if (k === "栄養管理計画書") return { ...nutritionPlanDraft(patient, patient.labs, currentDiet(diets, patient.id, nowTime), evals[patient.id]?.nutrition, me), ...nutritionPressure(nm.ulcers, patient.id) };
                       const pl = evals[patient.id]?.plan;
                       if (k === "褥瘡対策に関する診療計画書") return { ulcerPast: nm.ulcers.some((u) => u.patientId === patient.id && u.healed) ? "あり（この入院で治癒）" : "", nurse: me.role === "看護師" ? me.name : "", doctor: me.role === "医師" ? me.name : "" };
                       return k === "入院診療計画書" && pl ? { symptoms: pl.symptoms, treatment: pl.treatment, tests: pl.tests, surgery: pl.surgery, days: String(pl.days), nutrition: pl.nutritionNeeded, other: pl.other, explainedTo: pl.explainedTo } : {};

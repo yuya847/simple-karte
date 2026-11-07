@@ -68,3 +68,16 @@ describe("外泊・外出・退院の食止め", () => {
     expect(holdTitle([{ kind: "検査" }, { kind: "外出" }])).toBe("食止め");
   });
 });
+
+it("現在の食事は全画面で次の配膳を使い、昼の禁止と翌朝の変更を同じ境界で読む", async () => {
+  const { currentDiet } = await import("./diet");
+  const orders: import("./diet").DietOrder[] = [
+    {id:"a",patientId:"p",from:{day:-1,meal:"朝"},kind:"常食",by:"医師",at:{day:-1,time:"09:00"}},
+    {id:"b",patientId:"p",from:{day:0,meal:"昼"},kind:"常食",prohibited:"納豆",by:"医師",at:{day:0,time:"09:00"}},
+    {id:"c",patientId:"p",from:{day:1,meal:"朝"},kind:"絶食",by:"医師",at:{day:0,time:"09:00"}},
+  ];
+  expect(currentDiet(orders,"p","07:29")?.id).toBe("a");
+  expect(currentDiet(orders,"p","09:38")?.prohibited).toBe("納豆");
+  expect(currentDiet(orders,"p","12:00")?.id).toBe("b");
+  expect(currentDiet(orders,"p","18:00")?.id).toBe("c");
+});

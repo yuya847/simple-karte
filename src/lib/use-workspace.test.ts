@@ -1,3 +1,4 @@
+import { registeredKeys } from "./workspace-test-keys";
 import { afterEach, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ slots: [] as unknown[], cursor: 0, effects: [] as (() => void)[], deps: [] as unknown[][], ec: 0 }));
 vi.mock("react", () => ({
@@ -57,4 +58,68 @@ it("名前解決の失敗を定期取り込みの呼び元へ投げず、保存�
   api=WorkspaceHarness(); expect(api.status).toBe("error");
   offline=false;
   await expect(api.pull()).resolves.toBeNull();
+});
+it("種の回診・受領を保存し、差分を新しい種へ戻して再読込する", async () => {
+  vi.useFakeTimers();
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.test"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "test");
+  vi.stubGlobal("window", { location: { search: "?scenarios=100" }, localStorage: { getItem: () => "00000000-0000-4000-8000-000000000000" } });
+  const initial = () => ({ teamDesk: { requests: [{ id: "r", reason: "before" }], rounds: [] as {id:string;assessment:string}[] }, kitchenDesk: { received: {} as Record<string, {by:string}> } });
+  let remote: unknown = null;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("load_workspace")) return Response.json(remote ? [{version:1,day:"today",data:remote}] : []);
+    remote = JSON.parse(String(init.body)).p_data; return Response.json(true);
+  }));
+  const { useWorkspace } = await import("./use-workspace");
+  let records = initial();
+  const WorkspaceHarness = () => { h.cursor=0;h.ec=0; const api=useWorkspace(Object.fromEntries(Object.entries(records).map(([k,v])=>[k,[v,(x:never)=>{records={...records,[k]:x};}]])),"today");h.effects.splice(0).forEach(f=>f());return api; };
+  const flush=async()=>{for(let i=0;i<40;i++) await Promise.resolve();};
+  WorkspaceHarness();await flush();WorkspaceHarness();
+  records={teamDesk:{requests:[{id:"r",reason:"changed"}],rounds:[{id:"round",assessment:"所見"}]},kitchenDesk:{received:{diet:{by:"高橋"}}}};
+  WorkspaceHarness();await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();
+  records = {...records, teamDesk: {...records.teamDesk, requests: [{id:"r",reason:"second change"}]}};
+  WorkspaceHarness();await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();
+  h.slots=[];h.deps=[];h.effects=[];records=initial();WorkspaceHarness();await flush();WorkspaceHarness();
+  expect(records.teamDesk.requests[0].reason).toBe("second change");
+  expect(records.teamDesk.rounds[0]?.assessment).toBe("所見");
+  expect(records.kitchenDesk.received.diet?.by).toBe("高橋");
+});
+
+for (const key of registeredKeys()) it(`${key}: 保存完了の次の編集も保存要求を出し再読込で残る`, async () => {
+  vi.useFakeTimers();
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.test"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "test");
+  vi.stubGlobal("window", { location: {search:"?scenarios=100"}, localStorage:{getItem:()=>"00000000-0000-4000-8000-000000000000"} });
+  let remote: unknown = null;
+  let saves=0;
+  vi.stubGlobal("fetch", vi.fn(async (url:string, init:RequestInit) => {
+    if(url.endsWith("load_workspace")) return Response.json(remote ? [{version:1,day:"today",data:remote}] : []);
+    remote=JSON.parse(String(init.body)).p_data; saves++; return Response.json(true);
+  }));
+  const {useWorkspace}=await import("./use-workspace");
+  const seed=()=>({patient:[{id:"seed",text:"before",received:false}]});
+  let value=seed();
+  const WorkspaceHarness=()=>{h.cursor=0;h.ec=0;const api=useWorkspace({[key]:[value,v=>{value=v;}]},"today");h.effects.splice(0).forEach(f=>f());return api;};
+  const flush=async()=>{for(let i=0;i<40;i++)await Promise.resolve();};
+  WorkspaceHarness();await flush();WorkspaceHarness();
+  value={patient:[{id:"seed",text:"first",received:false}]};WorkspaceHarness();await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();
+  value={patient:[{id:"seed",text:"second",received:true}]};WorkspaceHarness();await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();
+  expect(saves).toBe(2);
+  h.slots=[];h.deps=[];h.effects=[];value=seed();WorkspaceHarness();await flush();WorkspaceHarness();
+  expect(value.patient[0]).toEqual({id:"seed",text:"second",received:true});
+});
+
+it("値が同じまま保存完了した場合も、次の単純な値の編集を落とさない", async () => {
+  vi.useFakeTimers();
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.test"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "test");
+  vi.stubGlobal("window", {location:{search:"?scenarios=100"},localStorage:{getItem:()=>"00000000-0000-4000-8000-000000000000"}});
+  let remote: unknown=null;let saves=0;
+  vi.stubGlobal("fetch",vi.fn(async(url:string,init:RequestInit)=>{
+    if(url.endsWith("load_workspace"))return Response.json(remote?[{version:1,day:"today",data:remote}]:[]);
+    remote=JSON.parse(String(init.body)).p_data;saves++;return Response.json(true);
+  }));
+  const {useWorkspace}=await import("./use-workspace");let value="before";
+  const WorkspaceHarness=()=>{h.cursor=0;h.ec=0;useWorkspace({sessionStart:[value,v=>{value=v;}]},"today");h.effects.splice(0).forEach(f=>f());};
+  WorkspaceHarness();for(let i=0;i<40;i++)await Promise.resolve();WorkspaceHarness();
+  value="first";WorkspaceHarness();await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();
+  value="second";WorkspaceHarness();await vi.advanceTimersByTimeAsync(1000);WorkspaceHarness();
+  expect(saves).toBe(2);
 });

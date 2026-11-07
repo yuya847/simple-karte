@@ -39,3 +39,13 @@ describe("管理栄養士の画面",()=>{
   expect(html).toContain("今日の仕事");expect(html).toContain("入院時スクリーニング");expect(html).toContain(p.name);
  });
 });
+
+it("今日を先頭に、期限切れは閉じた一覧、予定はその後に分ける", () => {
+ const html=as(<NutritionToday people={[-7,0,7].map((day,i)=>({patient:{...p,id:`p${i}`,name:`対象${i}`,admittedOn:day},room:p.room,entries:[]}))} evaluations={{}} teams={{requests:[],rounds:[]}} guidance={[]} today={today} />);
+ expect(html).toContain("今日の仕事（1）");
+ expect(html).toContain("期限切れ（1）");
+ expect(html).toContain("これから（1）");
+ expect(html.indexOf("対象1")).toBeLessThan(html.indexOf("<details>"));
+ expect(html.indexOf("対象0")).toBeGreaterThan(html.indexOf("<details>"));
+ expect(html).not.toContain("<details open");
+});

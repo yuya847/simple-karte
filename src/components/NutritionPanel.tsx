@@ -3,7 +3,7 @@ import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { bmi, requirements, weightLoss, compareDietNutrition } from "@/lib/nutrition";
 import { nutritionVersions, type AdmitEval, type NutritionRecord } from "@/lib/admit-eval";
-import { dietAt, dietLabel, type DietOrder } from "@/lib/diet";
+import { currentDiet, dietLabel, type DietOrder } from "@/lib/diet";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
 import type { Patient } from "@/lib/types";
 import { auditLog } from "@/lib/audit";
@@ -33,7 +33,7 @@ export function NutritionPanel({ patient: p, evaluation, diets, today, nowTime, 
   const show = (v: number | null | undefined) => v == null ? "記録なし" : v.toFixed(1);
   const loss = (day: number) => { const w = baseline(day); return w ? `${show(weightLoss(kg, w))}%（${w}kg）` : "記録なし"; };
   const result = requirements(p.sex, p.age, kg, p.heightCm, activity, stress, protein);
-  const diet = dietAt(diets, p.id, 0, "夕");
+  const diet = currentDiet(diets, p.id, nowTime);
   const { prescribed, energyDifference, proteinDifference } = compareDietNutrition(diet, result);
   const latestLab = (key: string) => { const r = p.labs.filter(x => x.day <= 0 && x.values[key] != null).sort((a,b) => b.day - a.day || b.time.localeCompare(a.time))[0]; return r ? `${r.values[key]}（${formatShort(addDays(today, r.day))} ${r.time}）` : "記録なし"; };
   const intake = p.daily.filter(x => x.meals && x.day <= 0).sort((a,b) => b.day-a.day).slice(0,3).map(x => `${formatShort(addDays(today,x.day))} ${Array.isArray(x.meals) ? x.meals.map(v => v ?? "未記録").join("／") : x.meals}`).join("、") || "記録なし";

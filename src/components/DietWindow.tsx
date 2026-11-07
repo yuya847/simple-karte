@@ -3,7 +3,7 @@
 import { useMe } from "./RoleContext";
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { addDays, formatShort } from "@/lib/dates";
-import { dietAt, dietLabel, MEALS, MEAL_TIMES, mealHolds, holdTitle, SIDE_FORMS, STAPLES, type DietOrder, type DysphagiaCode, type SideForm } from "@/lib/diet";
+import { currentDiet, nextMeal, dietAt, dietLabel, MEALS, MEAL_TIMES, mealHolds, holdTitle, SIDE_FORMS, STAPLES, type DietOrder, type DysphagiaCode, type SideForm } from "@/lib/diet";
 import { dietChangeOrders, undoDietChange, type DietChangeRange } from "@/lib/diet-change";
 import { abs } from "@/lib/flowsheet";
 import { examAt, type ImagingOrder, type PhysioOrder } from "@/lib/exams";
@@ -41,9 +41,9 @@ export function DietWindow({ patient, entries, diets, today, nowTime, dietEdit }
   const cancelPress = () => { if (press.current) clearTimeout(press.current); press.current = null; };
   useEffect(() => () => { if (press.current) clearTimeout(press.current); }, []);
   const orders = entries.filter((e): e is OrderEntry => e.kind === "order");
-  const currentMeal = [...MEALS].reverse().find(m => abs(0, MEAL_TIMES[m]) <= abs(0, nowTime)) ?? "朝";
-  const current = dietAt(diets, patient.id, 0, currentMeal);
-  const todayHolds = mealHolds(orders, 0, currentMeal, examTime);
+  const next = nextMeal(abs(0, nowTime));
+  const current = currentDiet(diets, patient.id, nowTime);
+  const todayHolds = mealHolds(orders, next.day, next.meal, examTime);
   const allowed = !!dietEdit && !dietEdit.denied;
   const submit = (added: DietOrder[], adjust = false) => {
     if (!allowed) return;

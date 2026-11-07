@@ -99,6 +99,12 @@ export function dietAt(orders: DietOrder[], patientId: string, day: number, meal
     .at(-1);
 }
 
+/** The current displayed instruction is for the next meal to be served, as in the patient banner. */
+export function currentDiet(orders: DietOrder[], patientId: string, nowTime: string): DietOrder | undefined {
+  const next = nextMeal(abs(0, nowTime));
+  return dietAt(orders, patientId, next.day, next.meal);
+}
+
 /** One line for the note, the grid and the worksheet. */
 export function dietLabel(o?: DietOrder): string {
   if (!o) return "指示なし";
