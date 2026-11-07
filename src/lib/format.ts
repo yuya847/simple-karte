@@ -30,7 +30,7 @@ export function scheduleLabel(s: InjectionSchedule, mainDrugCode?: string | null
 }
 
 export function scheduleTextFor(order: InjectionOrder): string {
-  return order.sliding ? `スライディングスケール（${order.sliding.times.join("・")}）` : scheduleLabel(order.schedule, order.items[0]?.drugCode);
+  return order.rateMlPerH && !order.days && !order.end && order.schedule.kind !== "once" ? "速度指定" : order.sliding ? `スライディングスケール（${order.sliding.times.join("・")}）` : scheduleLabel(order.schedule, order.items[0]?.drugCode);
 }
 
 /** "30分", "1時間", "10時間", "1時間30分" */

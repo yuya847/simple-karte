@@ -6,7 +6,7 @@ const dow = (d: number) => (((3 + d) % 7) + 7) % 7;
 
 describe("チームと加算", () => {
   it("has the seven teams; each fee has its 告示 code, points and limit, ICT has none per patient", () => {
-    expect(TEAMS.map((t) => t.key)).toEqual(["nst", "ict", "pc", "pu", "rst", "dementia", "liaison"]);
+    expect(TEAMS.map((t) => t.key)).toEqual(["nst", "ict", "pc", "pu", "rst", "dementia", "liaison", "oral"]);
     expect(teamOf("nst").addon).toMatchObject({ code: "A233-2", points: "200点", limit: "週1回" });
     expect(teamOf("pc").addon).toMatchObject({ code: "A226-2", points: "390点", limit: "1日につき" });
     expect(teamOf("pu").addon).toMatchObject({ code: "A236", points: "500点", limit: "入院中1回" });

@@ -59,3 +59,21 @@ it("部門の同じ画面で患者scopeを指定すると患者ごとの途中�
   expect(Harness("A")[0]).toEqual({ peak: "30" });
   expect(Harness("B")[0]).toEqual({ peak: "25" });
 });
+it("ICTのコメントとOHAT-Jは行を閉じて別患者を開いても患者・職種別に復元する", () => {
+  let entries: WindowEntries = {};
+  const Harness = (patient: string, role: string) => {
+    h.context = { scope: `department:${role}`, entries, setEntries: (f: (all: WindowEntries) => WindowEntries) => { entries = f(entries); } };
+    h.cursor = 0;
+    const scope = `${patient}:${role}:${role === "ICT" ? "infection" : "oral"}`;
+    const text = useWindowEntry("specialist.text", "", scope);
+    const scores = useWindowEntry("specialist.scores", () => Array(8).fill(-1), scope);
+    h.effects.splice(0).forEach(f => f());
+    return { text, scores };
+  };
+  Harness("A", "ICT").text[1]("確認途中のコメント"); Harness("A", "ICT");
+  h.slots = []; expect(Harness("B", "ICT").text[0]).toBe("");
+  h.slots = []; expect(Harness("A", "ICT").text[0]).toBe("確認途中のコメント");
+  h.slots = []; Harness("A", "歯科衛生士").scores[1]([1, 2, -1, -1, -1, -1, -1, -1]); Harness("A", "歯科衛生士");
+  h.slots = []; expect(Harness("B", "歯科衛生士").scores[0]).toEqual(Array(8).fill(-1));
+  h.slots = []; expect(Harness("A", "歯科衛生士").scores[0]).toEqual([1, 2, -1, -1, -1, -1, -1, -1]);
+});

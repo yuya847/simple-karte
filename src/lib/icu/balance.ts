@@ -26,8 +26,8 @@ export function hourlyBalance(patient: Patient, records: IcuRecords, day: number
     // (前日 23:00, 23:00], the same records as the day's urine total on the flowsheet.
     const end=day*1440+hour*60, lo=end-60, hi=Math.min(end,nowAbs), future=lo>=nowAbs, a=amounts(lo,hi);
     cumulativeMl+=a.netMl;
-    // The current column includes the elapsed part for the stay total, even when arrival was after H:00.
-    const sinceHi = end <= nowAbs && nowAbs < end + 60 ? nowAbs : hi;
+    // Both totals end at the same column boundary. Only a just-arrived current column starts at zero.
+    const sinceHi = first !== undefined && first > hi && first <= nowAbs && end <= nowAbs && nowAbs < end + 60 ? first : hi;
     return {hour,...a,cumulativeMl:future?null:cumulativeMl,sinceAdmissionMl:future||first===undefined||sinceHi<first?null:amounts(first,sinceHi).netMl};
   });
 }

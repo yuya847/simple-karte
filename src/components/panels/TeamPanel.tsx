@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { useState } from "react";
 import { auditLog } from "@/lib/audit";
 import type { CalendarDate } from "@/lib/dates";
-import { TEAMS, openRequest, requestProblems, requestStatus, teamOf, type TeamDesk, type TeamKey } from "@/lib/teams";
+import { TEAMS, canRoundTeam, openRequest, requestProblems, requestStatus, teamOf, type TeamDesk, type TeamKey } from "@/lib/teams";
 import { DenyNote, useDeny, useMe } from "../RoleContext";
 import { RoundCard, STATUS_TONE } from "../TeamsView";
 
@@ -79,6 +79,10 @@ export function TeamPanel({ patientId, patientName, desk, onDesk, today, nowTime
             <p>
               <b>{teamOf(r.team).name}</b> <span className={STATUS_TONE[requestStatus(r)]}>{requestStatus(r)}</span>　{r.urgency}　依頼 {r.at.time} {displayText(r.by)}：{displayText(r.reason)}
             </p>
+            {!r.accepted && !r.closed && canRoundTeam(me.role, r.team) && <button type="button" className="text-ai underline" onClick={() => {
+              auditLog({ role: me.role, actor: me.name, action: `確定（${teamOf(r.team).name}：依頼を受けた）`, patient: patientName, detail: r.reason });
+              onDesk(d => ({ ...d, requests: d.requests.map(x => x.id === r.id && !x.accepted && !x.closed ? { ...x, accepted: { day: 0, time: nowTime, by: me.name } } : x) }));
+            }}>依頼を受ける</button>}
             {r.closed && <p className="text-ink-soft">終了：{r.closed.summary}</p>}
             {desk.rounds
               .filter((x) => x.requestId === r.id)

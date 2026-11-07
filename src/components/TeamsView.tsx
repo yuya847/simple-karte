@@ -18,6 +18,7 @@ import {
   requestStatus,
   roundProblems,
   teamOf,
+  canRoundTeam,
   undecided,
   worklist,
   type RequestStatus,
@@ -228,7 +229,7 @@ export function RoundCard({ round, today, onDecide, locked }: { round: TeamRound
 
 function TeamPage({ team, desk, onDesk, people, diagnoses, diets, today, nowTime, onOpen }: Props & { team: Team }) {
   const me = useMe();
-  const locked = !!useDeny()("team.round");
+  const locked = !!useDeny()("team.round") || !canRoundTeam(me.role, team.key);
   const [withClosed, setWithClosed] = useState(false);
   const list = worklist(desk, team.key, withClosed);
   const dow = dowFrom(today);

@@ -876,7 +876,7 @@ export function AddRxPanel({
   const courseOf = (rp: Rp) => {
     if (category === "退院時" && rp.dayPattern) return `${patternText(rp.dayPattern)}・${rp.days}投与日分（退院日から）`;
     const timings = timingsOf(rp);
-    const start = category === "定期" && nextDay ? regularDayOffset(ward, today) ?? 0 : timings?.length ? firstDose(timings, nowTimeInTokyo()).day : 0;
+    const start = category === "定期" && rp.times !== "頓用" && nextDay ? regularDayOffset(ward, today) ?? 0 : timings?.length ? firstDose(timings, nowTimeInTokyo()).day : 0;
     return patternCourse(rp.dayPattern, start, Number(rp.days) || undefined, true, tokyo);
   };
   const missingOf = (rp: Rp) => {
@@ -913,7 +913,7 @@ export function AddRxPanel({
       timings: rp.administration ? [] : timingsOf(rp),
       prn: prn ? rp.prn.trim() || null : null,
       maxPerDay: prn ? Number(rp.maxPerDay) || null : null,
-      days: rp.administration || prn ? null : Number(rp.days) || null,
+      days: rp.administration ? null : Number(rp.days) || null,
       start: rp.startDay !== undefined ? { day: rp.startDay, timing: null } : category === "定期" && !prn && nextDay
         ? { day: regularDayOffset(ward, today), timing: timingsOf(rp)?.[0] ?? null }
         : { day: null, timing: null },
@@ -947,7 +947,7 @@ export function AddRxPanel({
       <CollectedRps drafts={drafts} kind="prescription" />
 
       <TabChoice label="処方全体の区分" options={["定期", "臨時", "退院時"].map((v) => ({ value: v, label: v }))} value={category} onChange={(v) => { setCategory(v as Rp["category"]); setRps((rs) => rs.map((r) => ({ ...r, days: v === "臨時" ? "3" : "7" }))); }} />
-      {category === "定期" && <p className="text-xs">{nextDay ? `この病棟の定期処方日：${"日月火水木金土"[REGULAR_RX_DAYS[ward.replace(/病棟$/, "")]]}曜。次は ${nextDay.getMonth() + 1}/${nextDay.getDate()}（${"日月火水木金土"[nextDay.getDay()]}）から` : "この病棟の定期処方日は未設定です。"}</p>}
+      {category === "定期" && <p className="text-xs">{nextDay ? `この病棟の定期処方日：${"日月火水木金土"[REGULAR_RX_DAYS[ward.replace(/病棟$/, "")]]}曜。定時の開始は ${nextDay.getMonth() + 1}/${nextDay.getDate()}（${"日月火水木金土"[nextDay.getDay()]}）から。頓用は指定日（未指定は今日）から` : "この病棟の定期処方日は未設定です。"}</p>}
 
 
       <LineEntry>

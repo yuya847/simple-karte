@@ -1,5 +1,6 @@
 "use client";
 
+import { useWindowEntry } from "@/lib/window-entry";
 import { boardEquipment } from "@/lib/equipment-board";
 import type { IcuRecords } from "@/lib/icu/types";
 import type { VentSetting } from "@/lib/icu/types";
@@ -29,6 +30,7 @@ interface Props {
   surgeryIds: string[];
   me: Staff;
   onOpen: (id: string) => void;
+  onReview?: (id: string) => void;
   onNote: (id: string, text: string) => void;
   onRound: (id: string, text: string) => void;
 }
@@ -40,7 +42,7 @@ export function SpecialistBoard(props: Props) {
   const [opened, setOpened] = useState<string | null>(null);
   const [error, setError] = useState("");
   const save = (r: Omit<SpecialistRecord, "id" | "by">) => {
-    if (!can(props.me.role, `${props.screen}.record`)) return;
+    if (!can(props.me.role, `${props.screen}.record`)) return false;
     const record = { ...r, id: crypto.randomUUID(), by: props.me.name };
     try {
       const next = appendRecord(records, record);
@@ -48,7 +50,8 @@ export function SpecialistBoard(props: Props) {
       setRecords(next); setError(""); setOpened(null);
       props.onNote(r.patientId, `【${{ equipment: "臨床工学技士の記録", infection: "ICT ラウンド", oral: "口腔ケア・申し送り（医師・看護師宛）" }[r.screen]}】${r.at}\n${r.text}`);
       if (r.screen === "infection") props.onRound(r.patientId, r.text);
-    } catch { setError("保存できませんでした。入力内容と端末の保存容量を確認してください。"); }
+      return true;
+    } catch { setError("保存できませんでした。入力内容と端末の保存容量を確認してください。"); return false; }
   };
   const today = isoDate(todayInTokyo());
   const flagsOf = (p: Patient, entries: OrderEntry[]) => oralFlags(p, entries, props.surgeryIds.includes(p.id), props.standingLines[p.id], props.nowTime, props.diagnoses?.[p.id]?.filter(d => d.outcome === "継続" && d.start <= 0 && !d.auto).map(d => d.name), props.vents);
@@ -69,8 +72,8 @@ export function SpecialistBoard(props: Props) {
     <table className="w-full text-left text-sm"><thead><tr><th>部屋</th><th>氏名</th>{props.screen === "equipment" ? <><th>機器</th><th>最後の点検（日時・結果・者）</th><th>今日の点検</th></> : props.screen === "oral" ? <><th>優先の理由</th><th>最後の OHAT-J</th><th>前回比</th><th>今日のケア</th></> : <><th>耐性菌</th><th>抗菌薬（日数・DOT）</th><th>培養</th><th>TDM</th><th>確かめる</th><th>ラウンド</th></>}</tr></thead><tbody>
       {rows.map(({ p, entries, device, history, assessments, done, key }, i) => <Fragment key={key}>
         <tr className="cursor-pointer border-t border-rule hover:bg-paper" onClick={() => setOpened(toggleSpecialistRow(opened, key))}>
-          <td className="p-2">{props.screen !== "equipment" && i > 0 && rows[i - 1].p.id === p.id ? "" : p.room}</td><td className={props.screen !== "equipment" && i > 0 && rows[i - 1].p.id === p.id ? "opacity-0" : ""}><button aria-expanded={opened === key} aria-controls={`form-${key}`} onClick={e => { e.stopPropagation(); setOpened(toggleSpecialistRow(opened, key)); }} className="text-ai underline">{p.name}</button></td>
-          {props.screen === "equipment" ? <><td>{device?.label}</td><td>{history[0] ? `${history[0].at.replace("T", " ")} ${history[0].result ?? history[0].text} ${history[0].by}` : "未点検"}</td><td>{done ? "済" : "未"}</td></> : props.screen === "oral" ? <><td>{flagsOf(p, entries).priority.join("・") || "—"}</td><td>{assessments[0] ? `${ohatTotal(assessments[0].scores!)}/16（${assessments[0].at.slice(0, 10)}）` : "未評価"}</td><td>{assessments.length > 1 ? `${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!) > 0 ? "+" : ""}${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!)}` : "—"}</td><td>{done ? "済" : "未"}</td></> : <InfectionCells patient={p} entries={entries} administrations={props.administrations} last={history[0]?.at.replace("T", " ") ?? "未記録"} />}
+          <td className="p-2">{props.screen !== "equipment" && i > 0 && rows[i - 1].p.id === p.id ? "" : p.room || p.ward}</td><td className={props.screen !== "equipment" && i > 0 && rows[i - 1].p.id === p.id ? "opacity-0" : ""}><button aria-expanded={opened === key} aria-controls={`form-${key}`} onClick={e => { e.stopPropagation(); setOpened(toggleSpecialistRow(opened, key)); }} className="text-ai underline">{p.name}</button></td>
+          {props.screen === "equipment" ? <><td>{device?.label}</td><td>{history[0] ? `${history[0].at.replace("T", " ")} ${history[0].result ?? history[0].text} ${history[0].by}` : "未点検"}</td><td>{done ? "済" : "未"}</td></> : props.screen === "oral" ? <><td>{flagsOf(p, entries).priority.join("・") || "—"}</td><td>{assessments[0] ? `${ohatTotal(assessments[0].scores!)}/16（${assessments[0].at.slice(0, 10)}）` : "未評価"}</td><td>{assessments.length > 1 ? `${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!) > 0 ? "+" : ""}${ohatTotal(assessments[0].scores!) - ohatTotal(assessments[1].scores!)}` : "—"}</td><td>{done ? "済" : "未"}</td></> : <InfectionCells patient={p} entries={entries} administrations={props.administrations} onReview={() => props.onReview?.(p.id)} last={history[0]?.at.replace("T", " ") ?? "未記録"} />}
         </tr>
         {opened === key && <tr id={`form-${key}`}><td colSpan={props.screen === "oral" ? 6 : props.screen === "equipment" ? 5 : 8}><PatientWork key={key} {...props} patient={p} entries={entries} initialDeviceId={device?.id} records={history} save={save} /></td></tr>}
       </Fragment>)}
@@ -78,7 +81,7 @@ export function SpecialistBoard(props: Props) {
   </section>;
 }
 /** One row per patient: the 耐性菌, every antibiotic (days from the start and DOT), culture, TDM and what to check. */
-function InfectionCells({ patient: p, entries, administrations, last }: { patient: Patient; entries: OrderEntry[]; administrations: AdminRecord[]; last: string }) {
+function InfectionCells({ patient: p, entries, administrations, last, onReview }: { patient: Patient; entries: OrderEntry[]; administrations: AdminRecord[]; last: string; onReview: () => void }) {
   const antibiotics = antibioticsOf(entries);
   const flags = infectionFlags(p);
   const mon = antibiotics.map((a) => antibioticMonitoring(p, a.startDay));
@@ -92,7 +95,7 @@ function InfectionCells({ patient: p, entries, administrations, last }: { patien
   ];
   return <>
     <td className="py-1.5 align-top">{flags.length ? flags.map((f, i) => <div key={i} className="font-bold text-shu">{f.specimen} {f.text}</div>) : "—"}</td>
-    <td className="align-top">{antibiotics.length ? antibiotics.map((a) => <div key={`${a.id}:${a.code}`}>{a.names}{a.kind && <span className="ml-1 rounded bg-yamabuki-soft px-1 text-[11px] text-yamabuki">{a.kind}</span>} <span className="nums text-ink-soft">{a.days}日目・DOT {dot(a)}日</span></div>) : "—"}</td>
+    <td className="align-top">{antibiotics.length ? antibiotics.map((a) => <div key={`${a.id}:${a.code}`}>{a.names}{a.kind && <button type="button" onClick={e => { e.stopPropagation(); onReview(); }} className="ml-1 rounded bg-yamabuki-soft px-1 text-[11px] text-yamabuki">{a.kind}</button>} <span className="nums text-ink-soft">{a.days}日目・DOT {dot(a)}日</span></div>) : "—"}</td>
     <td className="align-top">{antibiotics.length ? (mon.some((m) => m.culture) ? "提出あり" : <span className="text-yamabuki">なし</span>) : "—"}</td>
     <td className="align-top">{mon.some((m) => m.tdm) ? "結果あり" : "—"}</td>
     <td className="align-top">{checks.length ? checks.map((c) => <div key={c} className="text-yamabuki">{c}</div>) : "—"}</td>
@@ -100,16 +103,17 @@ function InfectionCells({ patient: p, entries, administrations, last }: { patien
   </>;
 }
 
-function PatientWork({ patient: p, entries, records, save, initialDeviceId, ...props }: Props & { patient: Patient; entries: OrderEntry[]; initialDeviceId?: string; records: SpecialistRecord[]; save: (r: Omit<SpecialistRecord, "id" | "by">) => void }) {
-  const [scores, setScores] = useState<number[]>(Array(8).fill(-1));
+function PatientWork({ patient: p, entries, records, save, initialDeviceId, ...props }: Props & { patient: Patient; entries: OrderEntry[]; initialDeviceId?: string; records: SpecialistRecord[]; save: (r: Omit<SpecialistRecord, "id" | "by">) => boolean }) {
+  const scope = `${p.id}:${props.me.role}:${props.screen}`;
+  const [scores, setScores, clearScores] = useWindowEntry<number[]>("specialist.scores", () => Array(8).fill(-1), scope);
   const [kind, setKind] = useState("始業点検");
   const [deviceId, setDeviceId] = useState(initialDeviceId ?? "");
   const [result, setResult] = useState("異常なし");
-  const [text, setText] = useState("");
-  const [at, setAt] = useState(() => `${isoDate(todayInTokyo())}T${nowTimeInTokyo()}`);
+  const [text, setText, clearText] = useWindowEntry("specialist.text", "", scope);
+  const [at, setAt, clearAt] = useWindowEntry("specialist.at", () => `${isoDate(todayInTokyo())}T${nowTimeInTokyo()}`, scope);
   const [start, setStart] = useState(""); const [end, setEnd] = useState("");
   const [uf, setUf] = useState(""); const [qb, setQb] = useState(""); const [anticoag, setAnticoag] = useState("");
-  const [oralKind, setOralKind] = useState("OHAT-J 評価");
+  const [oralKind, setOralKind, clearOralKind] = useWindowEntry("specialist.oralKind", "OHAT-J 評価", scope);
   const equipment = boardEquipment(p.id, entries, props.standingLines[p.id], props.nowTime, props.icu);
   const denied = denyReason(props.me.role, `${props.screen}.record`);
   const selected = equipment.find(e => e.id === deviceId);
@@ -125,7 +129,7 @@ function PatientWork({ patient: p, entries, records, save, initialDeviceId, ...p
       <button className="rounded bg-ai px-3 py-2 text-white disabled:opacity-40" disabled={!valid || !at} onClick={() => {
         if (!valid || denied) return;
         const body = props.screen === "equipment" ? `${selected!.label} ${kind}：${kind === "透析実施" ? `${start}〜${end}、除水量 ${uf} L、血流量 ${qb} mL/分、抗凝固薬 ${anticoag}` : result} ${text}` : props.screen === "oral" && oralKind === "OHAT-J 評価" ? `OHAT-J ${OHAT.map((k, i) => `${k} ${scores[i]}`).join("・")} 合計 ${total}/16 ${text}` : text;
-        save({ patientId: p.id, screen: props.screen, at, text: body, care: props.screen === "oral" && oralKind === "ケア実施・申し送り", ...(props.screen === "equipment" ? { equipmentId: deviceId, result: kind === "透析実施" ? "透析実施" : result } : {}), ...(props.screen === "oral" && oralKind === "OHAT-J 評価" ? { scores: [...scores] } : {}) });
+        if (save({ patientId: p.id, screen: props.screen, at, text: body, care: props.screen === "oral" && oralKind === "ケア実施・申し送り", ...(props.screen === "equipment" ? { equipmentId: deviceId, result: kind === "透析実施" ? "透析実施" : result } : {}), ...(props.screen === "oral" && oralKind === "OHAT-J 評価" ? { scores: [...scores] } : {}) })) { clearScores(); clearText(); clearAt(); clearOralKind(); }
       }}>記録を保存</button>
       {props.screen === "equipment" && (!valid || !at) && <span className="text-[11px] text-shu">不足：{[...missing, ...(!at ? ["記録日時"] : [])].join("・")}</span>}
     </fieldset>

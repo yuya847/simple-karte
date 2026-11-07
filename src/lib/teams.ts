@@ -4,6 +4,7 @@
 // (加算), its conditions are shown as the 告示 and 通知 write them, with what the record shows (病名・食事の
 // 指示) and how many rounds there were this week. Whether a patient meets a condition is for people to judge.
 
+import { can, type Role } from "./roles";
 import type { DayOffset } from "./types";
 
 export const TEAM_SOURCES = [
@@ -28,7 +29,7 @@ export const TEAM_HOUSE_RULES = {
   billing: "加算を算定するかは、条件を確かめて医師と医事課が決めます。この画面は算定しません。",
 } as const;
 
-export type TeamKey = "nst" | "ict" | "pc" | "pu" | "rst" | "dementia" | "liaison";
+export type TeamKey = "oral" | "nst" | "ict" | "pc" | "pu" | "rst" | "dementia" | "liaison";
 
 export interface Addon {
   code: string;
@@ -209,6 +210,7 @@ export const TEAMS: Team[] = [
       notes: ["「2」について週2回以上診療した場合は、複数回診療加算として週1回に限り300点（注2）", "1週間当たりの算定患者数は、1チームにつき概ね30人以内", "初回に診療実施計画書（別紙様式29の2）を作り、患者等に説明して診療録等に添付する", "認知症ケア加算1とは別に算定できない"],
     },
   },
+  { key: "oral", name: "口腔ケア", long: "口腔ケア", what: "口腔の評価・ケアと申し送り", members: [{ name: "歯科衛生士 森田", job: "歯科衛生士" }] },
 ];
 
 export const teamOf = (k: TeamKey) => TEAMS.find((t) => t.key === k)!;
@@ -429,4 +431,9 @@ export function initialTeams(): TeamDesk {
       },
     ],
   };
+}
+
+/** 専門職は担当するチームだけ受付・回診を記録する。 */
+export function canRoundTeam(role: Role, team: TeamKey): boolean {
+  return can(role, "team.round") && (role !== "ICT" || team === "ict") && (role !== "歯科衛生士" || team === "oral");
 }

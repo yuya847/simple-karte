@@ -50,3 +50,9 @@ export function estimatedCcr(p: { age: number; weightKg: number; sex: "男" | "�
   if (serumCr === undefined || !measured(p.weightKg) || !(serumCr > 0)) return null;
   return cockcroftGault(p.age, p.weightKg, serumCr, p.sex);
 }
+
+/** 経過表と同じ日別測定値から、今日までの最新の体重を読む。 */
+export function latestWeight(p: Pick<Patient, "weightKg" | "daily">): { weightKg: number; day?: number } {
+  const record = p.daily.filter(r => r.day <= 0 && measured(r.weightKg)).sort((a, b) => b.day - a.day)[0];
+  return record ? { weightKg: record.weightKg!, day: record.day } : { weightKg: p.weightKg };
+}

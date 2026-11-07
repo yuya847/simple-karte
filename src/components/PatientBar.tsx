@@ -6,7 +6,7 @@ import { displayText } from "@/lib/display-text";
 import { coverageOf, rateLabel, type Insurance } from "@/lib/billing/insurance";
 import { useState } from "react";
 
-import { bodyText, estimatedCcr, latestValue } from "@/lib/clinical";
+import { bodyText, estimatedCcr, latestValue, latestWeight } from "@/lib/clinical";
 import { addDays, formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { diagnosisLabel, type Diagnosis } from "@/lib/diagnoses";
 import { bandLabel, reviewDue, type AdvanceDirective } from "@/lib/directives";
@@ -63,8 +63,12 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
   const mains = diagnoses.filter((d) => d.main && d.outcome === "継続");
   const cre = latestValue(p, "Cre");
   // 推定CCr needs the weight: an outpatient without one gets 「測定なし」, not a number from 0 kg.
-  const ccr = estimatedCcr(p, cre?.value);
-  const body = bodyText(p);
+  const weight = latestWeight(p);
+  const weightDate = weight.day === undefined ? undefined : addDays(today, weight.day);
+  const weightDay = weightDate ? `${weightDate.m}/${weightDate.d}` : undefined;
+  const measuredPatient = { ...p, weightKg: weight.weightKg };
+  const ccr = estimatedCcr(measuredPatient, cre?.value);
+  const body = bodyText(measuredPatient);
   const admitted = addDays(today, p.admittedOn);
   // A 救急外来・外来 visit opened in the chart screen (its id is "er:…" / "opd:…"): no bed, no 入院日数.
   const visit = /^(er|opd):/.test(p.id);
@@ -122,7 +126,7 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
       <dl className="nums grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs text-ink-soft">
         <dt className="text-ink-faint">体格</dt>
         <dd>
-          {body.height}　<b className="text-ink">{body.weight}</b>　BMI {body.bmi}
+          {body.height}　<b className="text-ink">{body.weight}{weight.day !== undefined ? `（${weightDay}）` : ""}</b>　BMI {body.bmi}
           {body.unmeasured && <span className="ml-1 text-ink-faint">（未測定）</span>}
         </dd>
         <dt className="text-ink-faint">腎機能</dt>
@@ -130,7 +134,7 @@ export function PatientBar({ roomLabel, rest, patient: p, today, diagnoses, dire
           {cre ? (
             <>
               Cre <b className="text-ink">{cre.value.toFixed(2)}</b>（{dayLabel(cre.day)}）　推定CCr {ccr !== null ? `${ccr.toFixed(0)} mL/分` : "測定なし（体重の記録がない）"}
-              {ccr !== null && <span className="text-ink-faint">（CG式）</span>}
+              {ccr !== null && <span className="text-ink-faint" title={`計算の体重：${weight.weightKg}kg${weight.day !== undefined ? `（${weightDay}）` : "（基本情報）"}`}>（CG式）</span>}
             </>
           ) : (
             "測定なし"

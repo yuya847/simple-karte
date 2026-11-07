@@ -1,3 +1,4 @@
+import { isolationFor } from "./ward";
 import { injectionCell } from "./calendar";
 import { abs } from "./flowsheet";
 import { ventAt } from "./icu/abg";
@@ -69,12 +70,12 @@ export function antibioticsOf(entries: OrderEntry[]) {
 // 個室・接触予防策を自動確定せず、培養陽性から確認対象を示す。
 // 耐性菌名の明示だけを拾う。陰性記載・単なる菌種名から耐性や隔離を推測しない。
 export function infectionFlags(p: Patient) {
-  return p.cultures.flatMap(c => {
+  return [...(p.infections ?? []).map(text => ({ text, specimen: "", precaution: isolationFor([text]) ?? "" })), ...p.cultures.flatMap(c => {
     const t = c.organism ?? "";
     if (/陰性|検出せず|negative/i.test(t)) return [];
     const hit = t.match(/MRSA|ESBL|CRE|CD\s*トキシン|C\.?\s*difficile/ig);
     return hit ? [{ text: hit.join("・"), specimen: c.specimen, precaution: "接触予防策・個室の要否を確認" }] : [];
-  });
+  })];
 }
 export function oralFlags(p: Patient, entries: OrderEntry[], surgery: boolean, lines: StandingLine[] = [], nowTime = "23:59", diagnoses: string[] = [], vents: VentSetting[] = []) {
   const diagnosisText = diagnoses.join("・");

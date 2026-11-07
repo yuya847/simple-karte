@@ -244,7 +244,7 @@ export function checkPrescription(d: PrescriptionDraft, ctx: CheckContext, aller
 export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId: string, dischargeDay?: number | null): PrescriptionOrder[] {
   const prn = d.timings!.length === 0;
   if (d.category === "退院時" && d.start.day === null && dischargeDay == null) throw new Error("退院日を指定してください。");
-  const start = d.administration ? { day: d.start.day ?? dischargeDay ?? 0 } : d.category === "退院時" ? { day: d.start.day ?? dischargeDay ?? 0, ...(!prn ? { timing: d.start.timing ?? d.timings![0] } : {}) } : prn ? { day: 0 } : d.start.day !== null && d.start.timing ? { day: d.start.day, timing: d.start.timing } : firstDose(d.timings!, nowTime);
+  const start = d.administration ? { day: d.start.day ?? dischargeDay ?? 0 } : d.category === "退院時" ? { day: d.start.day ?? dischargeDay ?? 0, ...(!prn ? { timing: d.start.timing ?? d.timings![0] } : {}) } : prn ? { day: d.start.day ?? 0 } : d.start.day !== null && d.start.timing ? { day: d.start.day, timing: d.start.timing } : firstDose(d.timings!, nowTime);
   return d.items.map((it) => {
     const m = findOralDrug(it.drugCode!)!;
     const per = perDoseOf(it, prn ? 1 : d.timings!.length)!;
@@ -252,7 +252,7 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
       type: "prescription",
       administration: d.administration,
       dispensing: d.dispensing,
-      category: d.administration ? d.category! : d.category === "退院時" || d.category === "持参薬" ? d.category : prn ? "臨時" : d.category!,
+      category: d.category ?? (prn ? "臨時" : "定期"),
       drugCode: m.code,
       amount: per,
       unit: m.unit,
@@ -261,7 +261,7 @@ export function toPrescriptionOrders(d: PrescriptionDraft, nowTime: string, rpId
       ...(d.once ? { once: { day: 0, time: nowTime } } : {}),
       ...(prn && !d.once ? { prn: d.prn ?? "必要時", maxPerDay: d.maxPerDay ?? undefined } : {}),
       start,
-      days: d.administration || prn && !d.dispensing ? undefined : (d.days ?? undefined),
+      days: d.administration ? undefined : (d.days ?? undefined),
       comment: [d.comment, d.onePack ? "一包化" : null].filter(Boolean).join("　") || undefined,
       onePack: !!d.onePack,
       rp: rpId,
