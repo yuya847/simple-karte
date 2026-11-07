@@ -68,3 +68,11 @@ it('患者ごとのバイタルと出納・毎日の検査と記事・医師入�
 });
 
 it("ICU6人とHCU5人の今日のSOFAが計算できる",()=>{for(const p of added.filter(p=>p.ward!=="救急外来")) expect(sofaScore(sofaFacts(p,s.icu,0)).total,p.id).not.toBeNull();});
+
+it("全持続投与がhistoryの注射オーダにつながる",()=>{
+  for(const inf of s.icu.infusions){
+    expect(inf.orderId).toBeTruthy();
+    const entry=s.patients.find(p=>p.id===inf.patientId)!.history.find(e=>e.id===inf.orderId);
+    expect(entry).toMatchObject({kind:"order",status:inf.end?"終了":"有効",order:{type:"injection",continuous:{infusionId:inf.id},...(inf.end?{end:inf.end}:{})}});
+  }
+});

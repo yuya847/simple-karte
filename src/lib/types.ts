@@ -190,6 +190,8 @@ export interface SlidingScale {
 }
 
 export interface InjectionOrder {
+  /** ICU 記録の持続投与（シリンジポンプ）。速さの履歴は icu の Infusion.changes にある。 */
+  continuous?: { infusionId: string };
   /** Omitted occurrences: day relative to the order start. */
   omittedDoses?: { day: number; time: string }[];
   insulinDoses?: import("./insulin-doses").InsulinDose[];

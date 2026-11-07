@@ -31,3 +31,24 @@ describe("連携サマリ", () => {
     expect(summaryFacts(p, [], { y: 2026, m: 11, d: 4 }, { diagnoses: [] }).some((x) => x.heading.startsWith("看護問題"))).toBe(false);
   });
 });
+
+it("ICUの注射と実施済み輸血をサマリに出す",async()=>{
+ const {SCENARIOS}=await import('./scenarios');
+ const {collectFacts}=await import('./discharge');
+ for(const id of ['99000101','99000106']){
+  const p=SCENARIOS.patients.find(p=>p.id===id)!;
+  const entries=p.history.filter((e):e is OrderEntry=>e.kind==='order');
+  const facts=collectFacts(p,entries,[],{y:2026,m:11,d:7},0);
+  const sections=summaryFacts(p,entries,{y:2026,m:11,d:7},{diagnoses:[]});
+  if(id==='99000101'){
+   expect(sections.find(s=>s.heading==='注射')!.lines.join('\n')).toContain('ノルアドレナリン');
+   expect(facts.injections.join('\n')).toContain('ノルアドレナリン');
+  }else{
+   const tx=entries.filter(e=>e.order.type==='procedure'&&e.order.code==='PROC-TX');
+   expect(tx.length).toBeGreaterThan(0);
+   for(const e of tx) expect(e.status).toBe('実施済');
+   expect(facts.procedures.filter(l=>l.includes('実施')).length).toBeGreaterThanOrEqual(tx.length);
+   expect(sections.find(s=>s.heading==='処置')!.lines.some(l=>l.includes('実施（'))).toBe(true);
+  }
+ }
+});

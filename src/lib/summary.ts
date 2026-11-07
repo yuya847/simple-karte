@@ -30,9 +30,9 @@ const KEY_LABS = ["WBC", "Hb", "Plt", "Alb", "Cre", "Na", "K", "CRP"];
 export function summaryFacts(p: Patient, entries: OrderEntry[], today: CalendarDate, extra: { rehab?: RehabDesk; diagnoses: Diagnosis[]; standing?: StandingOrders; dietNow?: string; evals?: AdmitEval; nursing?: { problems: NursingProblem[]; care: CareOrder[] }; anamnesis?: AnamnesisFields }): SummarySection[] {
   const active = entries.filter((e) => e.status === "有効");
   const lines = (type: OrderEntry["order"]["type"]) =>
-    active.filter((e) => e.order.type === type && !(type === "procedure" && e.order.type === "procedure" && (e.order.rehab || e.order.leave))).map((e) => {
+    entries.filter((e) => (e.status === "有効" || e.status === "実施済") && e.order.type === type && !(type === "procedure" && e.order.type === "procedure" && (e.order.rehab || e.order.leave))).map((e) => {
       const l = orderLines(e.order, today);
-      return `${l.main}　${l.detail}`;
+      return `${l.main}　${e.status === "実施済" ? `実施（${formatShort(addDays(today, e.order.type === "procedure" ? e.order.start.day : e.day))}）` : l.detail}`;
     });
   const dx = extra.diagnoses.filter((d) => d.outcome === "継続");
   const labs = KEY_LABS.flatMap((code) => {

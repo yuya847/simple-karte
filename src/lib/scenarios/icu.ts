@@ -1,3 +1,4 @@
+import { infusionOrderEntry } from "../icu/infusion-orders";
 // 医師が設定した架空の値。臨床判断・治療推奨には使用しない。
 import type { Patient, Sex, Order, OrderEntry } from "../types";
 import type { Diagnosis } from "../diagnoses";
@@ -117,6 +118,10 @@ export function addIcuCases(cases: IcuCase[], insuranceForm: (i: number, age: nu
       const drug = DRUGS.find(d => `${d.name} ${d.generic ?? ""}`.normalize("NFKC").includes(search.normalize("NFKC")));
       if (!drug) throw new Error(`ICU種に必要な薬がない：${search}`);
       records.infusions.push({ id: uid(`inf-${records.infusions.length}`), patientId: id, drugCode: drug.code, name: drug.name, amountMg, volumeMl: 50, doseUnit, weightKg: p.weightKg, start: changes[0][0], end, by, changes: changes.map(([a,rateMlPerH])=>({ at:a, rateMlPerH, by })) });
+      const inf = records.infusions.at(-1)!;
+      const entry = infusionOrderEntry(inf, by);
+      order(inf.start, entry.order, entry.status);
+      inf.orderId = p.history.at(-1)!.id;
     };
     // 速度は医師が決めた固定値（5mg/50mL、体重別の処方値）。
     if ([0,2,3,4,5,9].includes(k)) {

@@ -184,6 +184,7 @@ import { markRemeasured, type RecordedVital } from "@/lib/take-desk-remeasure";
 import { contactDraft, vitalsContact, vitalsContactTodos } from "@/lib/vitals-contact";
 import { vitalsFlash, type Flash } from "@/lib/flash";
 import { takeRows, type TakeHold, type TakeRow } from "@/lib/order-take";
+import { useInfusionPersistence } from "@/lib/icu/use-infusion-persistence";
 import { IcuPanel } from "./IcuPanel";
 import { emptyIcuRecords, type IcuRecords } from "@/lib/icu/types";
 import { useWorkspace } from "@/lib/use-workspace";
@@ -1031,6 +1032,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const recordBlood = (id: string) => new Map([...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].map(p => [p.id, p])).get(id)?.blood;
   // 救急外来・外来 of today: each visit is a (small) patient too, so it opens in the same chart screen as a
   // ward patient (its record is the visit's orders and notes; a chart opened for the visit keeps the rest).
+  useInfusionPersistence(icu, charts, allPatients, todayKey, setIcu, setCharts, newChart);
   useKitchenAllergies(allPatients, care.kitchen, care.setKitchen, me, nowTime ?? "");
   const visitPatientsAll: WorkPatient[] = useMemo(
     () =>
@@ -1337,6 +1339,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       // The left 経過 shows the change too (the diet book alone is not in the record).
       chartNote(patient!.id, ["【食事】", ...dietsAdded.map((d) => `${dietLabel(d)}（${fromText(d)}）${d.comment ? `　${d.comment}` : ""}`)].join("\n"));
     }
+    if (added.some(e => e.order.type === "injection" && e.order.continuous)) setIcu(all => ({ ...all, infusions: all.infusions.map(inf => { const e = added.find(e => e.order.type === "injection" && e.order.continuous?.infusionId === inf.id); return e ? { ...inf, orderId: e.id } : inf; }) }));
     const stoppedEntries = entries.filter((e): e is OrderEntry => e.kind === "order" && stops.includes(e.id));
     const lines = [
       ...stoppedEntries.map((e) => {
@@ -2032,6 +2035,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
   const stopAtDischarge = (pid: string, keys: StopGroupKey[]) => {
     if (deny("order")) return;
     const r = chosenStops(stopGroupsOf(pid), keys);
+    const infusionIds = new Set(r.groups.flatMap(g => g.entries.flatMap(e => e.order.type === "injection" && e.order.continuous ? [e.order.continuous.infusionId] : [])));
+    if (infusionIds.size) setIcu(all => ({ ...all, infusions: all.infusions.map(inf => infusionIds.has(inf.id) ? { ...inf, end: { day: 0, time: nowTime } } : inf) }));
     const what = (g: (typeof r.groups)[number]) => (g.key === "指示簿" ? "指示簿を終了" : g.entries.map((e) => orderLines(e.order, today).main).join("、"));
     for (const g of r.groups) auditLog({ role: me.role, actor: me.name, action: "確定（退院時の一括中止）", patient: findPatient(pid)?.name, detail: `${g.key}：${what(g)}`.slice(0, 200) });
     if (r.standing) setStandingLines(all => ({ ...all, [pid]: endStandingBlocks(all[pid] ?? [], me.name, 0, nowTime) }));
@@ -3811,7 +3816,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   <TxBedsidePanel patient={patient} room={people.find((x) => x.patient.id === patient.id)?.room ?? patient.room} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} bank={dept.bloodBank} onBank={dept.setBloodBank} recordBlood={recordBlood(patient.id)} nowTime={nowTime} onIo={addIo} onVoidIo={(lot, reason) => transfusionIoIds(io, patient.id, lot).forEach((id) => voidIo(id, reason))} />
                 </Drawer>
               )}
-              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide><IcuPanel key={patient.id} patient={patient.id.startsWith("er:") && PATIENTS.some(p => p.id === patient.id.slice(3)) ? { ...patient, id: patient.id.slice(3) } : patient} records={icu} onChange={setIcu} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
+              {panel === "icu" && <Drawer title="ICU 記録" onClose={closePanel} wide><IcuPanel key={patient.id} patient={patient.id.startsWith("er:") && PATIENTS.some(p => p.id === patient.id.slice(3)) ? { ...patient, id: patient.id.slice(3) } : patient} records={icu} onChange={setIcu} entries={entries.filter((e): e is OrderEntry => e.kind === "order")} onOrder={ds => confirmDrafts(ds)} role={role} me={me} today={today} nowTime={nowTime} deny={deny} auditLog={auditLog} newId={newId}/></Drawer>}
               {panel === "io" && (
                 <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
                   <IoPanel

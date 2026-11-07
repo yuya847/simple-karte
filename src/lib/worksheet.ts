@@ -113,7 +113,10 @@ export function buildWorksheet(people: WorkPatient[], lo: number, hi: number, no
         if (o.minutesPerDose) parts.push(`1回${durationText(o.minutesPerDose)}`);
         if (o.rateMlPerH) parts.push(`${o.rateMlPerH}mL/時`);
         const detail = parts.join("　");
-        if (o.doseTimes?.length || o.schedule.kind === "every_hours" || (o.schedule.kind === "per_day" && !isFluid(o))) {
+        if (o.continuous) {
+          const { to } = orderInterval(e, nowAbs);
+          if (to === null || to > Math.max(lo, nowAbs)) running.push({ ...base, kind: "注射", main, detail, orderId: e.id });
+        } else if (o.doseTimes?.length || o.schedule.kind === "every_hours" || (o.schedule.kind === "per_day" && !isFluid(o))) {
           for (const t of doseTimes(e, nowAbs, lo, hi)) timed.push({ ...base, at: t, kind: "注射", sliding:o.sliding, insulinUnits:findDrug(o.items[0]?.drugCode)?.category === "インスリン" ? o.sliding && !o.insulinDoses ? 0 : fixedInsulinUnits(o, t) : undefined, main: o.insulinDoses ? `${drugName(o.items[0].drugCode)} ${fixedInsulinUnits(o, t)}U${o.sliding ? " ＋ スケール" : ""}` : main, detail, orderId: e.id, state: state(t) });
         } else if (o.schedule.kind === "once") {
           const { from } = orderInterval(e, nowAbs);

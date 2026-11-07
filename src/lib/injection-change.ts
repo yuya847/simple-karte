@@ -8,11 +8,12 @@ export const validChangeTime = (time: string) => /^([01]\d|2[0-3]):[0-5]\d$/.tes
 
 /** Copy values into a new version; the original order is never mutated. */
 export function injectionRateDraft(entry: OrderEntry, change: InjectionChange, id: string): InjectionDraft {
-  if (entry.order.type !== "injection" || !validChangeTime(change.time) || !Number.isFinite(change.rate) || change.rate <= 0) throw new Error("速度・時刻を確認してください");
+  if (entry.order.type !== "injection" || !validChangeTime(change.time) || !Number.isFinite(change.rate) || (change.rate < 0 || (change.rate === 0 && !entry.order.continuous))) throw new Error("速度・時刻を確認してください");
   const o = entry.order;
   const end = orderEndDay(o);
   return {
     id, origin: "manual", sourceText: "（カレンダーから速度変更）", comment: o.comment ?? null, kind: "injection",
+    continuous: o.continuous,
     items: o.items.map(i => ({ ...i, said: i.drugCode })), route: o.route, schedule: { ...o.schedule },
     infusionMinutes: null, infusionScope: "per_dose", rateMlPerH: change.rate, prefer: "rate",
     start: { day: 0, time: change.time }, days: end === null ? null : Math.max(1, end + 1),

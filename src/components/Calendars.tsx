@@ -347,6 +347,7 @@ export function InjectionCalendar({ patient, entries, today, nowTime, selectedDa
                             </ExecuteTarget>
                           );
                         })}
+                        {o.continuous && c.running && <Chip state={d < 0 ? "done" : "planned"}>継続</Chip>}
                         {c.infusion && (
                           <Chip state={c.infusion.state}>
                             {c.infusion.state === "now" ? "投与中 " : ""}

@@ -131,6 +131,7 @@ export interface DraftItem {
 }
 
 export interface InjectionDraft extends DraftBase {
+  continuous?: InjectionOrder["continuous"];
   omittedDoses?: { day: number; time: string }[];
   insulinDoses?: import("./insulin-doses").InsulinDose[];
   dayPattern?: import("./types").DayPattern;
@@ -1638,6 +1639,7 @@ export function toOrder(d: Draft, ctx: CheckContext): ConfirmResult {
     const plan = ratePlan(d);
     const order: InjectionOrder = {
       type: "injection",
+      continuous: d.continuous,
       omittedDoses: d.omittedDoses,
       replaces: d.duplicate?.action === "replace" ? d.duplicate.orderId : undefined,
       items: d.items.map((it) => ({ drugCode: it.drugCode!, amount: it.amount!, unit: it.unit ?? "" })),

@@ -68,3 +68,11 @@ describe("退院時の一括中止", () => {
     expect(groups.every((g) => g.key === "指示簿" || g.entries.length > 0)).toBe(true);
   });
 });
+
+it("ICUのノルアドレナリンを一括中止の注射に含める",async()=>{
+ const {SCENARIOS}=await import('./scenarios');
+ const p=SCENARIOS.patients.find(p=>p.id==='99000101')!;
+ const entries=p.history.filter((e):e is OrderEntry=>e.kind==='order');
+ const inf=SCENARIOS.icu.infusions.find(i=>i.patientId===p.id&&i.name.includes('ノルアドレナリン'))!;
+ expect(remainingGroups(entries,600).find(g=>g.key==='注射')!.entries.some(e=>e.id===inf.orderId)).toBe(true);
+});

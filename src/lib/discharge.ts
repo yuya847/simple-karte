@@ -136,6 +136,7 @@ export interface Facts {
 export function collectFacts(p: Patient, entries: OrderEntry[], diagnoses: Diagnosis[], today: CalendarDate, dischargeDay: number): Facts {
   const orders = entries.filter((e) => e.kind === "order");
   const span = (e: OrderEntry) => {
+    if (e.status === "実施済") return `実施（${formatShort(addDays(today, e.order.type === "procedure" ? e.order.start.day : e.day))}）`;
     const cutoff = (dischargeDay + 1) * 1440;
     const interval = e.order.type === "injection" ? orderInterval(e, cutoff) : procInterval(e, cutoff);
     const recordedEnd = (e.status === "中止" || e.status === "終了") && e.stoppedOn !== undefined ? e.stoppedOn : undefined;
