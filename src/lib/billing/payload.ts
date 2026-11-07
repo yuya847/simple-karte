@@ -5,13 +5,14 @@ import type { DietOrder } from "../diet";
 import type { HistoryEntry, Patient } from "../types";
 import type { Insurance } from "./insurance";
 import type { BillingOptions } from "./model";
+import type { LetterClaim } from "../letters";
 
 export function patientMonthPayload(
   patient: Patient,
   entries: HistoryEntry[],
   diagnoses: Diagnosis[],
   options: BillingOptions,
-  extra: { diets?: DietOrder[]; letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven?: string[]; insulinGiven?: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[] } = {},
+  extra: { diets?: DietOrder[]; letters?: LetterClaim[]; notGiven?: string[]; insulinGiven?: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[] } = {},
 ) {
   // 退院を実施した日 (入退院支援加算１ is claimed on it).
   // 未実施 doses of this patient's injections only.

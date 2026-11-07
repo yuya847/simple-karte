@@ -3,6 +3,7 @@
 import type { DietOrder } from "../diet";
 import type { Diagnosis } from "../diagnoses";
 import type { CultureResult, DailyRecord, DayOffset, HistoryEntry, Sex } from "../types";
+import type { LetterClaim } from "../letters";
 
 /** 診療識別 (記録条件仕様 別表20). */
 export type Shikibetsu = "11" | "12" | "13" | "14" | "21" | "22" | "23" | "24" | "27" | "31" | "32" | "33" | "40" | "60" | "70" | "80" | "90" | "92" | "97";
@@ -131,8 +132,8 @@ export interface ClaimInput {
   mealClass?: MealClass;
   /** Diet orders (when given, meals are counted from them). */
   diets?: DietOrder[];
-  /** 診療情報提供書 issued (day offsets). */
-  letters?: { day: DayOffset; to: string; dischargeDay?: DayOffset; attach?: boolean }[];
+  /** 確定した紹介状 (day offsets; letters.ts judges each kind's fee). */
+  letters?: LetterClaim[];
 }
 
 export interface ClaimResult {

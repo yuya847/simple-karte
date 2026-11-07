@@ -59,7 +59,19 @@ export const PatientMonthSchema = z.object({
   daily: z.array(z.looseObject({ day: Day })).max(800),
   cultures: z.array(z.looseObject({ collectedOn: Day })).max(200),
   diets: z.array(z.looseObject({ patientId: z.string().max(40) })).max(300).optional(),
-  letters: z.array(z.object({ day: Day, to: z.string().max(80), dischargeDay: Day.optional(), attach: z.boolean().optional() })).max(20).optional(),
+  letters: z.array(z.object({
+    id: z.string().max(80).optional(),
+    day: Day,
+    time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    to: z.string().max(80),
+    type: z.enum(["紹介", "返書", "照会", "介護施設", "保健福祉", "歯科", "セカンドオピニオン"]).optional(),
+    flags: z.object({
+      consent: z.boolean().optional(), attach: z.boolean().optional(), home: z.boolean().optional(), kaigoShien: z.boolean().optional(), request: z.boolean().optional(),
+      partner: z.enum(["大病院", "中小", "難病", "産科", "その他"]).optional(), patientKind: z.enum(["難病・てんかん", "妊娠中", "どちらでもない"]).optional(), partnerStandard: z.boolean().optional(), wish: z.boolean().optional(),
+    }).optional(),
+    dischargeDay: Day.optional(),
+    attach: z.boolean().optional(),
+  })).max(100).optional(),
   diagnoses: z
     .array(
       z.object({

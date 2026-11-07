@@ -26,6 +26,7 @@ import { addDays, formatShort, isoDate, type CalendarDate } from "@/lib/dates";
 import type { Diagnosis } from "@/lib/diagnoses";
 import { type BillingOptions, type ClaimAct, type ClaimIssue, type ClaimResult, SHIKIBETSU_NAME, type Shikibetsu } from "@/lib/billing/model";
 import type { HistoryEntry, Patient } from "@/lib/types";
+import type { LetterClaim } from "@/lib/letters";
 
 import { AnesthesiaBilling } from "./AnesthesiaView";
 import type { Surgery } from "@/lib/surgery";
@@ -42,7 +43,7 @@ interface Props extends DiseaseRequestProps {
   /** Every patient of the ward, for the month's receipt files. */
   wardPayload: () => PatientMonthPayload[];
   diets?: DietOrder[];
-  letters?: { day: number; to: string; dischargeDay?: number; attach?: boolean }[];
+  letters?: LetterClaim[];
   /** Injection doses recorded as 未実施 on the ward ("orderId|minutes"). */
   insulinGiven?: { key: string; units: number }[];
   notGiven?: string[];
@@ -126,7 +127,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
   useEffect(() => {
     if (!coefOk) return;
     const ctl = new AbortController();
-    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: { day: number; to: string; dischargeDay?: number; attach?: boolean }[]; notGiven: string[]; insulinGiven: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[] };
+    const extra = JSON.parse(extraJson) as { diets: DietOrder[]; letters: LetterClaim[]; notGiven: string[]; insulinGiven: { key: string; units: number }[]; insurance?: Insurance; insuranceHistory?: Insurance[] };
     const run = async () => {
       setLoading(true);
       setError(null);

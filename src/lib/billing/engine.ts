@@ -25,11 +25,18 @@ import { bukkaFor, commentItem, iyakuItem, shinryoItem, tokkiItem } from "./mast
 import type { ClaimAct, ClaimInput, ClaimIssue, ClaimLine, ClaimPart, ClaimResult, MealClass, Shikibetsu } from "./model";
 import { allowedKasan, haihan, kaisuLimits, type HaihanWindow } from "./tables";
 import { masterMeta } from "../masters/server";
+import { judgeLetters } from "../letters";
 
 const DAY = 1440;
 const abs = (day: number, time: string) => day * DAY + minutesOf(time);
 
 // ---------- dates ----------
+
+/** "YYYY-MM-DD" as a calendar date. */
+function parseCalendar(s: string) {
+  const [y, m, d] = s.split("-").map(Number);
+  return { y, m, d };
+}
 
 function parseDate(s: string) {
   const [y, m, d] = s.split("-").map(Number);
@@ -194,33 +201,20 @@ export function calculateClaim(input: ClaimInput): ClaimResult {
     } else issues.push({ level: "info", text: "入退院支援加算１は退院した日に算定します（まだ退院していません）。" });
   }
 
-  // ===== 13 診療情報提供料（Ⅰ）: 紹介先の医療機関ごとに患者1人につき月1回（B009）=====
-  const sentTo = new Set<string>();
-  for (const l of input.letters ?? []) {
-    if (!inMonth.has(l.day)) continue;
-    const key = l.to.trim() || "（紹介先）";
-    if (sentTo.has(key)) {
-      issues.push({ level: "info", text: `診療情報提供料（Ⅰ）は紹介先ごとに月1回です（${key} へは今月もう算定しています）。` });
-      continue;
+  // ===== 13 診療情報提供料（B009・B010・B010-2・B011）: 確定した紹介状だけ。種類ごとの点数・制限・根拠は letters.ts =====
+  const letterInput = input.letters ?? [];
+  const verdicts = judgeLetters(letterInput.map((l, i) => ({ ...l, id: l.id ?? `#${i}` })), parseCalendar(input.today), { dischargedOn: p.dischargedOn });
+  letterInput.forEach((l, i) => {
+    if (!inMonth.has(l.day)) return;
+    const v = verdicts.get(l.id ?? `#${i}`)!;
+    const what = `紹介状（${l.type ?? "紹介"}）${l.to.trim() || "宛先なし"}`;
+    if (!v.codes.length) {
+      issues.push({ level: "info", text: `${what}：算定なし：${v.reason}（${v.cite}）。` });
+      return;
     }
-    sentTo.add(key);
-    const lines: ClaimLine[] = [si("180016110")];
-    let points = pts("180016110");
-    let basis = `B009 診療情報提供料（Ⅰ）（${key} へ。紹介先ごとに月1回）`;
-    // 注8: 退院の日の属する月又はその翌月に、退院後の治療計画・検査結果・画像情報などを添付して紹介した場合.
-    if (l.attach && l.dischargeDay !== undefined) {
-      const dm = cal(l.dischargeDay);
-      const lm = cal(l.day);
-      const months = lm.y * 12 + lm.m - (dm.y * 12 + dm.m);
-      if (months === 0 || months === 1) {
-        lines.push(si("113009470"));
-        points += pts("113009470");
-        basis += "＋注8 退院時診療状況添付加算（退院の月かその翌月、治療計画・検査結果・画像を添付）";
-        if (l.day < l.dischargeDay) issues.push({ level: "review", text: "退院時診療状況添付加算は退院する患者の紹介に付きます。退院日より前に発行しているので、退院が決まっているか確かめてください。" });
-      }
-    }
-    add({ day: l.day, shikibetsu: "13", parts: [{ lines, points }], basis });
-  }
+    add({ day: l.day, shikibetsu: "13", parts: [{ lines: v.codes.map((c) => si(c)), points: v.codes.reduce((n, c) => n + pts(c), 0) }], basis: v.basis });
+    for (const text of v.reviews) issues.push({ level: "review", text });
+  });
 
   // ===== 80 その他（評価料・物価対応料。1日につき1回）=====
   const bukka = bukkaFor(base).find((b) => !b.name.includes("看護・多職種協働"));
