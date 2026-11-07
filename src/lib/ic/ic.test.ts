@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { PATIENTS } from "../patients";
 import { BUILTIN_RECORD_TEMPLATES, type RecordFacts } from "../record-templates";
 import { align, icNames, redactLine, toOriginal } from "./anonymize";
-import { adapterFor, diarizeConfig, segmentsToLines, tagsOf } from "./diarize";
+import { fromSherpa, voiceSample, voicesForLines, voicesOf } from "./diarize";
 import { consentLine, icRecordText, icValues, originalOf, unplacedLines, type RecordingConsent } from "./place";
-import { addLine, applyGuesses, confirmGuesses, isGuess, linesFromPaste, setSpeaker, speakerCounts, speakerKey, speakerOf, transcriptText, turns, type IcLine } from "./transcript";
+import { addLine, applyGuesses, applyVoiceGuesses, confirmGuesses, isGuess, linesFromPaste, setSpeaker, setVoices, speakerCounts, speakerKey, speakerOf, transcriptText, turns, type IcLine } from "./transcript";
 import { locate, verifyPlacement, verifyQuotes } from "./verify";
 import { IcRequest, transcriptForClaude } from "./wire";
 
@@ -173,26 +173,65 @@ describe("欄への配置の検証（Claude が足した文がないこと）", 
   });
 });
 
-describe("話者分離のサービスのつなぎ口（鍵がなければ使わない）", () => {
-  it("環境変数がなければ null。あるときだけ設定を返す", () => {
-    expect(diarizeConfig({})).toBeNull();
-    expect(diarizeConfig({ IC_DIARIZE_PROVIDER: "amivoice" })).toBeNull();
-    expect(diarizeConfig({ IC_DIARIZE_PROVIDER: "unknown", IC_DIARIZE_KEY: "k" })).toBeNull();
-    expect(diarizeConfig({ IC_DIARIZE_PROVIDER: "AmiVoice", IC_DIARIZE_KEY: " k ", IC_DIARIZE_REGION: "" })).toEqual({ provider: "amivoice", key: "k" });
-    expect(adapterFor(diarizeConfig({ IC_DIARIZE_PROVIDER: "google", IC_DIARIZE_KEY: "k" }))).toBeNull();
+describe("声での分離（端末の中の sherpa-onnx の区切りを行に合わせる）", () => {
+  // The worker's result for one piece, in sherpa-onnx's shape: seconds, speaker numbers (they may skip).
+  const SHERPA = [
+    { start: 0.32, end: 6.87, speaker: 0 },
+    { start: 7.0, end: 9.1, speaker: 2 },
+    { start: 9.6, end: 15.4, speaker: 0 },
+    { start: 16.0, end: 18.2, speaker: 2 },
+    { start: 18.5, end: 21.0, speaker: 3 },
+    { start: 3, end: 2, speaker: 1 },
+    { start: 1, end: 2, speaker: -1 },
+    null,
+  ];
+
+  it("sherpa-onnx の返事を区切り（ms・番号）にし、おかしな区切りは外す", () => {
+    expect(fromSherpa(SHERPA)).toEqual([
+      { speaker: "s0", startMs: 320, endMs: 6870 },
+      { speaker: "s2", startMs: 7000, endMs: 9100 },
+      { speaker: "s0", startMs: 9600, endMs: 15400 },
+      { speaker: "s2", startMs: 16000, endMs: 18200 },
+      { speaker: "s3", startMs: 18500, endMs: 21000 },
+    ]);
+    expect(fromSherpa(null)).toEqual([]);
   });
 
-  it("サービスの区間は時刻順の行になり、医師が対応を決めた札だけが話し手になる", () => {
-    const segs = [
-      { speaker: "speaker1", startMs: 4200, endMs: 5000, text: "はい" },
-      { speaker: "speaker0", startMs: 0, endMs: 4000, text: "説明します" },
-      { speaker: "speaker2", startMs: 61000, endMs: 62000, text: "娘です" },
-    ];
-    expect(tagsOf(segs)).toEqual(["speaker0", "speaker1", "speaker2"]);
-    expect(segmentsToLines(segs, "10:00:00", { speaker0: "医師", speaker1: "患者" })).toEqual([
-      { id: 1, at: "10:00:00", text: "説明します", said: "医師" },
-      { id: 2, at: "10:00:04", text: "はい", said: "患者" },
-      { id: 3, at: "10:01:01", text: "娘です" },
+  it("行の時刻（始まりの少し前〜終わり）と重なりのいちばん長い番号が、その行の声の番号になる", () => {
+    const at = 1_700_000_000_000;
+    const piece = { take: 2, startedAt: at, segments: fromSherpa(SHERPA) };
+    let ls: IcLine[] = [];
+    ls = addLine(ls, "胃カメラの検査について説明します", "10:00:00", null, { t0: at + 1500, t1: at + 7200 });
+    ls = addLine(ls, "はいお願いします", "10:00:07", null, { t0: at + 8000, t1: at + 9400 });
+    ls = addLine(ls, "喉に麻酔をします", "10:00:10", "医師", { t0: at + 10800, t1: at + 15600 });
+    ls = addLine(ls, "娘です", "10:00:19", null, { t0: at + 19500, t1: at + 21200 });
+    ls = addLine(ls, "貼った行", "10:00:30");
+    ls = addLine(ls, "録音の外", "10:05:00", null, { t0: at + 300_000, t1: at + 302_000 });
+    const v = voicesForLines(ls, [piece]);
+    expect([...v]).toEqual([
+      [1, "2-s0"],
+      [2, "2-s2"],
+      [3, "2-s0"],
+      [4, "2-s3"],
     ]);
+    const tagged = setVoices(ls, v);
+    expect(voicesOf(tagged)).toEqual(["2-s0", "2-s2", "2-s3"]);
+    const named = applyVoiceGuesses(tagged, [
+      { voice: "2-s0", speaker: "医師" },
+      { voice: "2-s2", speaker: "患者" },
+      { voice: "2-s3", speaker: "家族" },
+    ]);
+    expect(named.map(speakerOf)).toEqual(["医師", "患者", "医師", "家族", "不明", "不明"]);
+    expect(named[2].said).toBe("医師");
+  });
+
+  it("番号の名付けに送る行：全部、長いときは番号ごとに数行。送る文は番号つき", () => {
+    const ls = setVoices(linesFromPaste("あ\nい\nう\nえ", "10:00:00"), new Map([[1, "1-s0"], [2, "1-s1"], [3, "1-s0"]]));
+    expect(voiceSample(ls, (l) => l.text).map((l) => l.id)).toEqual([1, 2, 3]);
+    expect(voiceSample(ls, () => "x".repeat(100), 150, 1).map((l) => l.id)).toEqual([1, 2]);
+    expect(transcriptForClaude([{ n: 1, who: "?", v: "1-s0", text: "説明します" }])).toBe("1\t1-s0\t?\t説明します");
+    expect(IcRequest.safeParse({ mode: "voices", lines: [{ n: 1, who: "?", v: "1-s0", text: "a" }] }).success).toBe(true);
+    expect(IcRequest.safeParse({ mode: "voices", lines: [{ n: 1, who: "?", text: "a" }] }).success).toBe(false);
+    expect(IcRequest.safeParse({ mode: "voices", lines: [{ n: 1, who: "?", v: "1 s0; drop", text: "a" }] }).success).toBe(false);
   });
 });

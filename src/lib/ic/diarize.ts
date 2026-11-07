@@ -1,82 +1,88 @@
-// IC を声で記録: the place to plug in a speech-to-text service that tells speakers apart by voice (話者分離,
-// speaker diarization). Without its key nothing here is used and the window works as it does now (the browser's
-// speech recognition, the person choosing the speaker, Claude's guess from the words). The key is an environment
-// variable on the server, never in the repository. How to connect one: docs/ic-voice.md.
-//
-// Only the shape is here: which service and key the server has, what a service returns (segments with a
-// speaker tag such as "speaker0" and times), and how those become the window's lines. A service gives a tag,
-// not a person: the doctor says which tag is 医師・患者・家族 (mapTags), so the person still decides.
+// IC を声で記録, 声での分離: telling speakers apart by the voice (話者分離, speaker diarization) inside this
+// browser, so the voice never leaves the device. The person turns 声でも分ける on (only then is the model
+// fetched); the window records the voice in pieces of a few minutes next to the browser's speech recognition,
+// and a Web Worker (public/diarize/) runs the open-source sherpa-onnx diarization (WebAssembly) on each piece.
+// What comes back is stretches of time with a speaker number. Here they are lined up with the window's lines
+// by time, and Claude then says who each number is from the replaced text — one person per number — shown as
+// 見立て. A person's choice still wins. Why this one and the other choices: docs/ic-voice.md.
 
-import { ALL_SPEAKERS, type IcLine, type Speaker } from "./transcript";
+import type { IcLine } from "./transcript";
 
-export const DIARIZE_PROVIDERS = ["amivoice", "google", "aws", "azure"] as const;
-export type DiarizeProvider = (typeof DIARIZE_PROVIDERS)[number];
+/** The sample rate the diarization model takes (Hz). */
+export const SAMPLE_RATE = 16_000;
+/** A piece of the recording is diarized when it reaches this length (ms), so the wait after 止める stays short. */
+export const PIECE_MS = 5 * 60_000;
 
-export interface DiarizeConfig {
-  provider: DiarizeProvider;
-  /** The service's key (server only). */
-  key: string;
-  /** Region or endpoint, when the service needs one (e.g. asia-northeast1, ap-northeast-1, japaneast). */
-  region?: string;
-}
-
-/**
- * The service the server is set up for, from IC_DIARIZE_PROVIDER and IC_DIARIZE_KEY (and IC_DIARIZE_REGION).
- * Without both, or with an unknown provider: null — not used.
- */
-export function diarizeConfig(env: Record<string, string | undefined> = process.env): DiarizeConfig | null {
-  const provider = env.IC_DIARIZE_PROVIDER?.trim().toLowerCase();
-  const key = env.IC_DIARIZE_KEY?.trim();
-  if (!provider || !key || !(DIARIZE_PROVIDERS as readonly string[]).includes(provider)) return null;
-  const region = env.IC_DIARIZE_REGION?.trim();
-  return { provider: provider as DiarizeProvider, key, ...(region ? { region } : {}) };
-}
-
-/** One stretch of speech from the service: its speaker tag, when (ms from the start of the recording), and the words. */
+/** One stretch of speech: its speaker number and when (ms from the start of the piece). */
 export interface DiarizedSegment {
   speaker: string;
   startMs: number;
   endMs: number;
-  text: string;
 }
+
+/** sherpa-onnx's result (seconds, speaker 0, 1, …) as stretches; nonsense entries are dropped. */
+export function fromSherpa(segments: unknown): DiarizedSegment[] {
+  if (!Array.isArray(segments)) return [];
+  return segments
+    .filter((s): s is { start: number; end: number; speaker: number } => !!s && Number.isFinite(s.start) && Number.isFinite(s.end) && Number.isInteger(s.speaker) && s.speaker >= 0 && s.end > s.start)
+    .map((s) => ({ speaker: `s${s.speaker}`, startMs: Math.round(s.start * 1000), endMs: Math.round(s.end * 1000) }))
+    .sort((a, b) => a.startMs - b.startMs);
+}
+
+/** One piece of the recording, diarized: which piece, when it began (ms since 1970), and its stretches. */
+export interface VoicePiece {
+  take: number;
+  startedAt: number;
+  segments: DiarizedSegment[];
+}
+
+/** Chrome writes the first words a moment after they were said: a line is taken to begin this much earlier (ms). */
+export const LEAD_MS = 1500;
+/**
+ * "2-s0": piece 2, speaker 0. The model numbers speakers in each piece on its own, so a number holds only within
+ * a piece (Claude names each one).
+ */
+export const voiceId = (take: number, speaker: string) => `${take}-${speaker}`;
 
 /**
- * What a service adapter does. The audio goes from the browser to the service (with a short-lived token the
- * server makes from the key), so this app's server neither receives nor keeps the voice.
+ * The voice number of each line: the stretches its time touches (from LEAD_MS before it began to when it
+ * ended), counted by how long they overlap; the number with the most wins. Lines without times (pasted text)
+ * and lines no stretch touches get none.
  */
-export interface DiarizeAdapter {
-  provider: DiarizeProvider;
-  /** Server: a short-lived token and the address for the browser to send the audio to. */
-  issueToken(config: DiarizeConfig): Promise<{ token: string; url: string; expiresAt: number }>;
-  /** Browser: the service's result read into segments. */
-  readResult(result: unknown): DiarizedSegment[];
+export function voicesForLines(lines: IcLine[], pieces: VoicePiece[]): Map<number, string> {
+  const spans = pieces.flatMap((p) => p.segments.map((s) => ({ id: voiceId(p.take, s.speaker), a: p.startedAt + s.startMs, b: p.startedAt + s.endMs })));
+  const out = new Map<number, string>();
+  for (const l of lines) {
+    if (l.t0 === undefined) continue;
+    const a = l.t0 - LEAD_MS;
+    const b = Math.max(l.t1 ?? l.t0, l.t0);
+    const score = new Map<string, number>();
+    for (const s of spans) {
+      const overlap = Math.min(b, s.b) - Math.max(a, s.a);
+      if (overlap > 0) score.set(s.id, (score.get(s.id) ?? 0) + overlap);
+    }
+    let best = "";
+    let most = 0;
+    for (const [id, n] of score) if (n > most) [best, most] = [id, n];
+    if (best) out.set(l.id, best);
+  }
+  return out;
 }
 
-/** No service is connected yet (shape only). Returns null for every provider until an adapter is written. */
-export function adapterFor(config: DiarizeConfig | null): DiarizeAdapter | null {
-  void config;
-  return null;
-}
-
-/** The tags in the order they first speak ("speaker0", "speaker1" …), for the doctor to say who each is. */
-export const tagsOf = (segments: DiarizedSegment[]): string[] => [...new Set([...segments].sort((a, b) => a.startMs - b.startMs).map((s) => s.speaker))];
-
-const clockAfter = (start: string, ms: number) => {
-  const [h, m, s] = start.split(":").map(Number);
-  const t = h * 3600 + m * 60 + s + Math.floor(ms / 1000);
-  return [Math.floor(t / 3600), Math.floor((t % 3600) / 60), t % 60].map((n) => String(n).padStart(2, "0")).join(":");
-};
+/** The voice numbers in the order they first speak. */
+export const voicesOf = (lines: IcLine[]): string[] => [...new Set(lines.flatMap((l) => (l.voice ? [l.voice] : [])))];
 
 /**
- * The service's segments as the window's lines, in time order. A tag the doctor mapped (mapTags) becomes that
- * person's choice; an unmapped tag stays unlabelled (Claude may then guess from the words).
+ * The lines sent for Claude to say who each voice number is: every line with a number, or — when that is more
+ * than `maxChars` of sent text — up to `per` lines of each number.
  */
-export function segmentsToLines(segments: DiarizedSegment[], startedAt: string, mapTags: Record<string, Speaker | undefined>): IcLine[] {
-  return [...segments]
-    .sort((a, b) => a.startMs - b.startMs)
-    .filter((s) => s.text.trim())
-    .map((s, i) => {
-      const said = mapTags[s.speaker];
-      return { id: i + 1, at: clockAfter(startedAt, s.startMs), text: s.text.trim(), ...(said && ALL_SPEAKERS.includes(said) ? { said } : {}) };
-    });
+export function voiceSample(lines: IcLine[], textOf: (l: IcLine) => string, maxChars = 12000, per = 8): IcLine[] {
+  const voiced = lines.filter((l) => l.voice);
+  if (voiced.reduce((n, l) => n + textOf(l).length, 0) <= maxChars) return voiced;
+  const count = new Map<string, number>();
+  return voiced.filter((l) => {
+    const n = count.get(l.voice!) ?? 0;
+    count.set(l.voice!, n + 1);
+    return n < per;
+  });
 }
