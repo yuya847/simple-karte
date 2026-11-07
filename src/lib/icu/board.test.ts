@@ -22,8 +22,9 @@ describe("ICU・HCU のベッド一覧", () => {
     expect(rows[0].lines[0]).toMatchObject({days:"7日",flag:true});
     expect(rows[0].planned).toEqual({to:"5階東",day:1,time:"10:00"});
     expect(rows[0].infusions).toEqual(["ノルアドレナリン 0.12γ"]);
-    expect(rows[0].balance24h?.outMl).toBe(300);
-    expect(rows[0].balance24h?.inMl).toBeCloseTo(4.9*10);
+    // Today so far, (前日 23:00, 10:00]: the 11 hourly records 00:00–10:00 and 11 hours of the infusion.
+    expect(rows[0].balance24h?.outMl).toBe(330);
+    expect(rows[0].balance24h?.inMl).toBeCloseTo(4.9*11);
   });
   it("未来の設定・終了した投与とライン・中止予約は出さない", () => {
     const records=icuFixture(); records.infusions[0].end={day:0,time:"10:00"}; records.lines[0].removedAt={day:0,time:"10:00"};

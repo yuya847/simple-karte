@@ -21,7 +21,10 @@ export function hourlyBalance(patient: Patient, records: IcuRecords, day: number
   };
   let cumulativeMl=0;
   return Array.from({length:24},(_,hour)=>{
-    const lo=day*1440+hour*60, hi=Math.min(lo+60,nowAbs), future=lo>=nowAbs, a=amounts(lo,hi);
+    // The column "H時" is the hour that ends at H:00: the time table and the seed write an hour's amounts at H:00
+    // (urine at 11:00 = 10:00–11:00), and icuIoLines counts a record in the hour it ends. So a day is
+    // (前日 23:00, 23:00], the same records as the day's urine total on the flowsheet.
+    const end=day*1440+hour*60, lo=end-60, hi=Math.min(end,nowAbs), future=lo>=nowAbs, a=amounts(lo,hi);
     cumulativeMl+=a.netMl;
     return {hour,...a,cumulativeMl:future?null:cumulativeMl,sinceAdmissionMl:future||first===undefined||hi<=first?null:amounts(first,hi).netMl};
   });

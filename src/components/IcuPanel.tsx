@@ -58,10 +58,11 @@ export function IcuPanel(p:IcuPanelProps) {
   const lines=records.lines.filter(l=>l.patientId===patient.id);
   const vent=ventAt(records.vents,patient.id,now);
   const balances=hourlyBalance(patient,records,day,now);
-  const hs=records.hourly.filter(h=>h.patientId===patient.id&&h.at.day===day);
   const hours=Array.from({length:24},(_,h)=>h);
   const hourAt=(h:number)=>abs(day,`${String(h).padStart(2,"0")}:59`);
-  const hrec=(h:number)=>hs.filter(r=>Number(r.at.time.slice(0,2))===h).sort((a,b)=>a.at.time.localeCompare(b.at.time)).at(-1);
+  // The record of the column "H時": the last one in the hour that ends at H:00 (as hourlyBalance counts it).
+  const hourRecs=(h:number)=>{const end=abs(day,`${String(h).padStart(2,"0")}:00`);return records.hourly.filter(r=>r.patientId===patient.id&&abs(r.at.day,r.at.time)>end-60&&abs(r.at.day,r.at.time)<=end).sort((a,b)=>abs(a.at.day,a.at.time)-abs(b.at.day,b.at.time));};
+  const hrec=(h:number)=>hourRecs(h).at(-1);
   const vital=(h:number)=>patient.vitals.filter(v=>v.day===day&&Number(v.time.slice(0,2))===h).sort((a,b)=>a.time.localeCompare(b.time)).at(-1);
   const round=checkedToday(records.rounds,patient.id,0);
   const preview=mlPerHFromDose(draft.target,draft.amount/draft.volume,draft.kg,draft.unit);
@@ -103,7 +104,7 @@ export function IcuPanel(p:IcuPanelProps) {
         {([['urineMl','尿量'],['drainMl','ドレーン'],['gastricMl','胃管'],['otherOutMl','その他 OUT'],['infusionMl','IN 持続投与'],['enteralMl','IN 経腸'],['otherInMl','IN その他'],['netMl','時間差'],['cumulativeMl','0時から累積'],['sinceAdmissionMl','入室から累積']] as const).map(([k,l])=>tableRow(l,h=>{
           const fields:Partial<Record<typeof k,(keyof HourlyRecord)[]>>={urineMl:['urineMl'],drainMl:['drainMl'],gastricMl:['gastricMl'],otherOutMl:['stoolMl','bloodLossMl'],enteralMl:['enteralMl'],otherInMl:['otherInMl']};
           const keys=fields[k];
-          if(keys&&!hs.some(r=>Number(r.at.time.slice(0,2))===h&&keys.some(key=>r[key]!==undefined)))return null;
+          if(keys&&!hourRecs(h).some(r=>keys.some(key=>r[key]!==undefined)))return null;
           return balances[h].recorded||k==="cumulativeMl"||k==="sinceAdmissionMl"?show(balances[h][k]):null;
         }))}
       </tbody></table></div>
