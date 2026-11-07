@@ -22,7 +22,7 @@ describe("ICU・HCU のベッド一覧", () => {
     expect(rows[0].lines[0]).toMatchObject({days:"7日",flag:true});
     expect(rows[0].planned).toEqual({to:"5階東",day:1,time:"10:00"});
     expect(rows[0].infusions).toEqual(["ノルアドレナリン 0.12γ"]);
-    expect(rows[0].balance24h?.outMl).toBe(330);
+    expect(rows[0].balance24h?.outMl).toBe(300);
     expect(rows[0].balance24h?.inMl).toBeCloseTo(4.9*10);
   });
   it("未来の設定・終了した投与とライン・中止予約は出さない", () => {

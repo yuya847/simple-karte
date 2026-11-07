@@ -194,7 +194,7 @@ import { transferAdl, transferSummary, type TransferAsk } from "@/lib/transfer";
 import { callTarget, onDuty, slide, teamOf, type BedInfo, type CallNote, type Emergency, type NurseCall, type PhsNotice } from "@/lib/phs";
 import type { ScheduleItem } from "./PhsView";
 import { addDaily, prevWeightOf, withToday, type DailyAdd } from "@/lib/daily-input";
-import { initialIo, ioMissing, transfusionIoIds, windowText, withIoUrine, type IoEntry } from "@/lib/io-balance";
+import { initialIo, ioMissing, transfusionIoIds, windowText, withIcuUrine, withIoUrine, type IoEntry } from "@/lib/io-balance";
 import { DischargeDialog } from "./DischargeDialog";
 import { dischargeChecklist } from "@/lib/discharge-check";
 import { chosenStops, endedStanding, remainingGroups, type StopGroupKey } from "@/lib/discharge-stop";
@@ -1015,14 +1015,14 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           attending: deptChanges[p.id]?.doctor ?? p.attending,
           pregnancy: pregnancy[p.id] ?? p.pregnancy ?? null,
           ...(discharged[p.id] ? { dischargedAt: discharged[p.id] } : {}),
-          daily: withIoUrine(withToday(p.daily, extraDaily[p.id]), io.filter((e) => e.patientId === p.id)),
+          daily: withIoUrine(withIcuUrine(withToday(p.daily, extraDaily[p.id]), icu, p.id), io.filter((e) => e.patientId === p.id)),
           ward: floorOf(moves[p.id]?.room ?? p.room),
           codeStatus: d && d.cpr !== "未確認" ? bandLabel(d) : undefined,
           dietNow: diet ? dietLabel(diet) : undefined,
           blood: bloodOf(p.blood, dept.bloodBank.typings.filter((t) => t.patientId === p.id)),
         };
       }),
-    [PATIENTS, WARD_CHART_PATIENTS, admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, dept.bloodBank, dept.demoOrders, profileLog, care.demoEndo],
+    [PATIENTS, WARD_CHART_PATIENTS, admitted, extraVitals, extraCautions, directives, diets, nowTime, arrivedCultures, moves, pregnancy, deptChanges, discharged, labDesk, demoLabs, extraDaily, io, icu, dept.bloodBank, dept.demoOrders, profileLog, care.demoEndo],
   );
   /** The blood type in the record before this session (輸血部門 adds its typings to it). */
   const recordBlood = (id: string) => [...PATIENTS, ...WARD_CHART_PATIENTS, ...admitted].find((x) => x.id === id)?.blood;
@@ -2560,7 +2560,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
       ) : screen === "summaries" ? (
         <SummaryList rows={summaryNow} today={today} onOpen={(id) => (openPatient(id), setPanel("discharge"))} />
       ) : screen === "io" ? (
-        <IoBoard people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standingNow(pid)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
+        <IoBoard icu={icu} people={people} typed={io} records={mar} sessionStart={sessionStart ?? abs(0, nowTime)} nowTime={nowTime} today={today} standingIoOf={(pid) => standingNow(pid)?.io ?? null} onAdd={addIo} newId={newId} onOpen={openPatient} canType={!deny("vitals")} />
       ) : screen === "consults" ? (
         <ConsultInboxView rows={inbox} onOpen={(id) => { openPatient(id); setPanel("add-consult"); }} />
       ) : screen === "reports" ? (
@@ -3801,6 +3801,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
               {panel === "io" && (
                 <Drawer title="水分出納（IN/OUT）" onClose={closePanel} wide locked={deny("vitals")}>
                   <IoPanel
+                    icu={icu}
                     key={flowReq?.kind === "io" ? flowReq.at : "now"}
                     defaultTime={flowReq?.kind === "io" ? ioTimeFor(flowReq.at, abs(0, nowTime)) : undefined}
                     patientId={patient.id}

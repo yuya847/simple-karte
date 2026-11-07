@@ -27,9 +27,7 @@ export function boardRows(unit: UnitKind, patients: Patient[], beds: BedAssignme
     const measured = hourly.filter(h => h.map !== undefined).at(-1);
     const rass = hourly.filter(h => h.rass !== undefined).at(-1)?.rass;
     const c = records.crrt.filter(c => c.patientId === pid && abs(c.at.day,c.at.time) <= nowAbs && (!c.end || abs(c.end.day,c.end.time) > nowAbs)).sort((a,b) => abs(a.at.day,a.at.time)-abs(b.at.day,b.at.time)).at(-1);
-    const asOf = { day: Math.floor(nowAbs / 1440), time: `${String(Math.floor(((nowAbs % 1440) + 1440) % 1440 / 60)).padStart(2,"0")}:${String(((nowAbs % 60) + 60) % 60).padStart(2,"0")}` };
-    const balanceRecords = { ...records, hourly: records.hourly.filter(h => abs(h.at.day,h.at.time) <= nowAbs), infusions: records.infusions.map(inf => !inf.end || abs(inf.end.day,inf.end.time) > nowAbs ? { ...inf, end: asOf } : inf) };
-    const balance = hourlyBalance(patient,balanceRecords,today).reduce((sum,h) => ({ inMl: sum.inMl+h.inMl, outMl: sum.outMl+h.outMl, netMl: sum.netMl+h.netMl }),{ inMl:0,outMl:0,netMl:0 });
+    const balance = hourlyBalance(patient,records,today,nowAbs).reduce((sum,h) => ({ inMl: sum.inMl+h.inMl, outMl: sum.outMl+h.outMl, netMl: sum.netMl+h.netMl }),{ inMl:0,outMl:0,netMl:0 });
     const move = (orders[pid] ?? []).flatMap(e => e.status === "有効" && e.order.type === "procedure" && e.order.code === "PROC-MOVE" && e.order.move?.to ? [e.order] : []).sort((a,b) => abs(a.start.day,a.start.time ?? "00:00")-abs(b.start.day,b.start.time ?? "00:00"))[0];
     return { ...base, days: today-(stays[0]?.in.day ?? patient.admittedOn)+1, diagnosis: patient.admissionDiagnosis,
       vent: v && v.mode !== "なし" ? v.mode === "HFNC" ? `HFNC ${v.flow ?? "—"}L ${v.fio2}` : `${v.mode} FiO2 ${v.fio2}${v.peep !== undefined ? ` PEEP ${v.peep}` : ""}` : latestVital?.o2 ?? "—",

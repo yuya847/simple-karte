@@ -1,4 +1,5 @@
 "use client";
+import type { IcuRecords } from "@/lib/icu/types";
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
@@ -35,6 +36,7 @@ import { TabChoice } from "./TabChoice";
 import { ExpectedEnd } from "./DripControls";
 
 interface Props {
+  icu?: IcuRecords;
   patientId: string;
   entries: OrderEntry[];
   /** This patient's typed IN/OUT (taken back ones too, shown struck through). */
@@ -193,12 +195,12 @@ export function IoEntryForm({ patientId, nowTime, onAdd, newId, defaultTime }: {
 }
 
 /** One patient's 水分出納: the totals, typing IN/OUT, the lines of a period, and the drips still running. */
-export function IoPanel({ patientId, entries, typed, records, sessionStart, nowTime, today, standingIo, legacyUrineMl, onAdd, onVoid, newId, defaultTime }: Props) {
+export function IoPanel({ patientId, entries, typed, records, icu, sessionStart, nowTime, today, standingIo, legacyUrineMl, onAdd, onVoid, newId, defaultTime }: Props) {
   const nowAbs = abs(0, nowTime);
   const d = ioDayOf(nowAbs);
   const [day, setDay] = useState(d);
   const from = ioDay(d - 1).lo;
-  const lines = ioLines({ patientId, entries, typed, records, sessionStart, nowAbs, from });
+  const lines = ioLines({ patientId, entries, typed, records, icu, sessionStart, nowAbs, from });
   const w: IoWindow = ioDay(day);
   const running = dripCourses(patientId, entries, records, sessionStart, nowAbs, nowAbs - 2880).filter((c) => !c.end);
   const shown = [...lines.filter((l) => inWindow(l.at, w)), ...typed.filter((e) => e.voided && inWindow(e.at, w)).map((e) => ({ voided: e }))].sort((a, b) => ("voided" in a ? a.voided.at : a.at) - ("voided" in b ? b.voided.at : b.at));

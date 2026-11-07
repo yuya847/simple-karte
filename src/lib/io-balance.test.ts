@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { withToday } from "./daily-input";
 import { abs } from "./flowsheet";
-import { initialIo, ioDay, ioDayOf, ioLines, ioMissing, ioProblems, ioShiftAt, ioShifts, ioTotal, plannedIvMl, withIoUrine, type IoEntry } from "./io-balance";
+import { initialIo, ioDay, ioDayOf, ioLines, ioMissing, ioProblems, ioShiftAt, ioShifts, ioTotal, plannedIvMl, withIoUrine, withIcuUrine, type IoEntry } from "./io-balance";
 import { marKey, type AdminRecord } from "./mar";
 import { PATIENTS } from "./patients";
 import { currentEntries } from "./record";
@@ -128,4 +128,31 @@ describe("架空のデータ：北村さん（心不全）は昨日の9時から
     expect(t).toMatchObject({ in: 750, out: 2050, balance: -1300 });
     expect(ioMissing([{ id: p.id, io: "水分出納（IN/OUT）を測る" }], io, 630)).toEqual([]);
   });
+});
+
+it("ICU の行を共通集計し、日尿量を時間記録で置き換える", async()=>{
+ const {icuFixture,icuPatient}=await import('./icu/test-fixture');
+ const r=icuFixture();r.hourly=r.hourly.slice(0,2);r.hourly[0].urineMl=230;r.hourly[1].urineMl=35;
+ const lines=ioLines({patientId:icuPatient.id,entries:[],typed:[],records:{},sessionStart:0,nowAbs:120,from:-1,icu:r});
+ expect(lines.some(l=>l.from==='ICU 記録'&&l.what.includes('持続'))).toBe(true);
+ expect(ioTotal(lines,{lo:-1,hi:120}).out).toBe(265);
+ expect(withIcuUrine([{day:0,urineMl:230}],r,icuPatient.id)[0].urineMl).toBe(265);
+});
+it("continuous の注射は注射の枝で重ねて数えない",()=>{
+ const e=structuredClone(ordersOf('90010198').find(e=>e.order.type==='injection')!);
+ expect(e).toBeDefined();
+ if(e.order.type!=='injection') throw new Error('injection required');
+ Object.assign(e.order,{continuous:true,route:'静注',items:[{drugCode:'',amount:10,unit:'mL'}]});
+ const r={orderId:e.id,patientId:'90010198',status:'実施',doneAt:'10:00',by:'看護師'} as AdminRecord;
+ const args={patientId:'90010198',entries:[e],typed:[],records:{test:r},sessionStart:0,nowAbs:660,from:0};
+ expect(ioLines(args)).toEqual([]);
+ Object.assign(e.order,{continuous:undefined});
+ expect(ioLines(args).some(l=>l.ml===10&&l.from==='注射の記録')).toBe(true);
+});
+
+it("ICU の速さの行は日・勤務をまたいでもそれぞれの窓で数える",async()=>{
+ const {icuFixture,icuPatient}=await import('./icu/test-fixture');const r=icuFixture();r.hourly=[];
+ const lines=ioLines({patientId:icuPatient.id,entries:[],typed:[],records:{},sessionStart:0,nowAbs:1080,from:0,icu:r});
+ expect(ioTotal(lines,{lo:540,hi:1020}).in).toBeCloseTo(4.9*8);
+ expect(ioTotal(lines,{lo:1020,hi:1080}).in).toBeCloseTo(4.9);
 });

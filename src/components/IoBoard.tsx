@@ -1,4 +1,5 @@
 "use client";
+import type { IcuRecords } from "@/lib/icu/types";
 import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
@@ -14,6 +15,7 @@ import { useMe } from "./RoleContext";
 import { TabChoice } from "./TabChoice";
 
 interface Props {
+  icu?: IcuRecords;
   people: WorkPatient[];
   typed: IoEntry[];
   records: Record<string, AdminRecord>;
@@ -50,7 +52,7 @@ const n = (x: number) => x.toLocaleString("ja-JP");
  * the 24 hours so far, and a row to type 経口・尿・one other kind at one time. Code adds up; 点滴 comes
  * from the drip records. Patients whose 指示簿 says to measure IN/OUT and have nothing typed are marked.
  */
-export function IoBoard({ people, typed, records, sessionStart, nowTime, today, standingIoOf, onAdd, newId, onOpen, canType }: Props) {
+export function IoBoard({ people, typed, records, icu, sessionStart, nowTime, today, standingIoOf, onAdd, newId, onOpen, canType }: Props) {
   const me = useMe();
   const nowAbs = abs(0, nowTime);
   const cur = ioShiftAt(nowAbs);
@@ -122,7 +124,7 @@ export function IoBoard({ people, typed, records, sessionStart, nowTime, today, 
             <tbody>
               {shown.map((x) => {
                 const pid = x.patient.id;
-                const lines = ioLines({ patientId: pid, entries: x.entries, typed, records, sessionStart, nowAbs, from: whole.lo });
+                const lines = ioLines({ patientId: pid, entries: x.entries, typed, records, icu, sessionStart, nowAbs, from: whole.lo });
                 const t = ioTotal(lines, { lo: w.lo, hi: Math.min(w.hi, nowAbs) });
                 const d24 = ioTotal(lines, { lo: whole.lo, hi: Math.min(whole.hi, nowAbs) });
                 const st = standingIoOf(pid);

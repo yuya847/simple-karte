@@ -57,7 +57,7 @@ export function IcuPanel(p:IcuPanelProps) {
   const infusions=records.infusions.filter(i=>i.patientId===patient.id);
   const lines=records.lines.filter(l=>l.patientId===patient.id);
   const vent=ventAt(records.vents,patient.id,now);
-  const balances=hourlyBalance(patient,records,day);
+  const balances=hourlyBalance(patient,records,day,now);
   const hs=records.hourly.filter(h=>h.patientId===patient.id&&h.at.day===day);
   const hours=Array.from({length:24},(_,h)=>h);
   const hourAt=(h:number)=>abs(day,`${String(h).padStart(2,"0")}:59`);

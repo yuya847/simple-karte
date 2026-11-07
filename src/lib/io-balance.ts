@@ -5,6 +5,10 @@
 // IN − OUT is shown only when both sides have records. Estimates such as 不感蒸泄 or 代謝水 are not
 // added (no official formula is used here). All data is fictional.
 
+import { icuIoLines } from "./icu/io-lines";
+import type { IcuRecords } from "./icu/types";
+export { withIcuUrine } from "./icu/io-lines";
+
 import { minutesOf } from "./dates";
 import { doseVolumeMl } from "./drafts";
 import { clockText, doseStarts, dripCourses, EARLIER_SHIFT, hm, isDripOrder } from "./drip-course";
@@ -68,7 +72,7 @@ export interface IoLine {
   at: number;
   by: string;
   what: string;
-  from: "入力" | "点滴の記録" | "注射の記録" | "前の勤務";
+  from: "入力" | "点滴の記録" | "注射の記録" | "前の勤務" | "ICU 記録";
   formula?: string;
   orderId?: string;
   entryId?: string;
@@ -108,19 +112,28 @@ const shortDrug = (o: OrderEntry) => (o.order.type === "injection" ? o.order.ite
  * 残量, at the end), and one-shot injections with a volume in mL (at the time given). Doses due before
  * this session are taken as given by the earlier shift (fictional), as on the worksheet.
  */
-export function ioLines(p: { patientId: string; entries: OrderEntry[]; typed: IoEntry[]; records: Record<string, AdminRecord>; sessionStart: number; nowAbs: number; from: number }): IoLine[] {
+export function ioLines(p: { patientId: string; entries: OrderEntry[]; typed: IoEntry[]; records: Record<string, AdminRecord>; sessionStart: number; nowAbs: number; from: number; icu?: IcuRecords }): IoLine[] {
   const out: IoLine[] = [];
+  // Split rate-derived lines at hour boundaries so the same lines also total correctly
+  // for historical days and shifts (rather than attributing the whole volume to now).
+  if (p.icu) {
+    for (let lo = p.from; lo < p.nowAbs;) {
+      const hi = Math.min(p.nowAbs, (Math.floor(lo / 60) + 1) * 60);
+      out.push(...icuIoLines(p.icu, p.patientId, lo, hi));
+      lo = hi;
+    }
+  }
   for (const e of p.typed) {
     if (e.patientId !== p.patientId || e.voided || e.at < p.from) continue;
     out.push({ side: e.side, kind: e.kind, ml: e.ml, at: e.at, by: e.by, what: [e.kind, e.count !== undefined ? `${e.count}回` : "", e.catheter !== undefined ? `尿道カテーテル${e.catheter ? "あり" : "なし"}` : "", e.bristol ? `ブリストル${e.bristol}` : "", e.meal ? `${["朝", "昼", "夕"][e.meal.slot]} 主食${e.meal.staple}割・副食${e.meal.side}割` : "", e.note ?? ""].filter(Boolean).join("・"), from: "入力", measured: e.kind !== "食事" && e.ml > 0, entryId: e.id });
   }
-  for (const c of dripCourses(p.patientId, p.entries, p.records, p.sessionStart, p.nowAbs, p.from)) {
+  for (const c of dripCourses(p.patientId, p.entries.filter(e => e.order.type !== "injection" || !(e.order as { continuous?: unknown }).continuous), p.records, p.sessionStart, p.nowAbs, p.from)) {
     if (!c.end) continue;
     out.push({ side: "IN", kind: "点滴", ml: c.end.givenMl, at: c.end.at, by: c.end.by, what: `${c.label}${c.bag ? `（${c.bag}本目）` : ""}`, from: c.source === "前の勤務" ? "前の勤務" : "点滴の記録", formula: c.end.formula, orderId: c.orderId });
   }
   // One-shot injections (静注 and the like) with a volume in mL: one record, counted when given.
   for (const e of p.entries) {
-    if (e.order.type !== "injection" || isDripOrder(e.order)) continue;
+    if (e.order.type !== "injection" || isDripOrder(e.order) || (e.order as { continuous?: unknown }).continuous) continue;
     const vol = doseVolumeMl(e.order.items);
     if (vol <= 0) continue;
     const what = `${shortDrug(e)}（${e.order.route}）`;
