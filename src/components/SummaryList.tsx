@@ -4,7 +4,7 @@ import { displayText } from "@/lib/display-text";
 import { FileClock } from "lucide-react";
 import { useState } from "react";
 import { addDays, formatShort, type CalendarDate } from "@/lib/dates";
-import { SUMMARY_RULES, SUMMARY_STATES, approve, approveDeny, lastMonthRate, sendBack, summaryState, type SummaryRecord, type SummaryRow, type SummaryState } from "@/lib/summary-approval";
+import { SUMMARY_STATES, approve, approveDeny, lastMonthRate, sendBack, summaryState, type SummaryRecord, type SummaryRow, type SummaryState } from "@/lib/summary-approval";
 import { useMe } from "./RoleContext";
 
 const TONE: Record<SummaryState, string> = {
@@ -44,7 +44,7 @@ export function SummaryApproval({ record, attending, fmtDay, nowTime, onApprove,
       </div>
       {state === "差し戻し" && record.returned && (
         <p className="text-shu">
-          差し戻し：{displayText(record.returned.by)} {fmtDay(record.returned.at.day)} {record.returned.at.time}「{record.returned.comment}」。直して確定し直してください。
+          差し戻し：{displayText(record.returned.by)} {fmtDay(record.returned.at.day)} {record.returned.at.time}「{record.returned.comment}」
         </p>
       )}
       {state === "承認待ち" &&
@@ -61,7 +61,6 @@ export function SummaryApproval({ record, attending, fmtDay, nowTime, onApprove,
             </button>
           </div>
         ))}
-      <p className="text-[11px] text-ink-faint">{SUMMARY_RULES.who}</p>
     </section>
   );
 }
@@ -80,10 +79,9 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
           <FileClock size={18} />
           退院サマリの一覧（承認待ち・未作成）
         </h2>
-        <span className="text-xs text-ink-soft">この試作のカルテの患者と、過去の退院</span>
       </header>
 
-      <section aria-label="前月の期限内の割合" className="rounded-md border border-rule bg-paper px-3 py-2">
+      <section aria-label="前月の期限内の割合">
         <div className="flex flex-wrap items-baseline gap-2">
           <b>前月（{rate.label}）に退院した {rate.discharges}人</b>
           <span>のうち、退院日の翌日から14日以内に承認まで済んだ {rate.onTime}人</span>
@@ -95,7 +93,7 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
 
       </section>
 
-      <div role="tablist" className="flex flex-wrap rounded-md border border-rule p-0.5 text-xs">
+      <div role="tablist" className="flex w-fit flex-wrap rounded-md border border-rule p-0.5 text-xs">
         {(["all", "late", ...SUMMARY_STATES] as const).map((k) => {
           const n = k === "all" ? rows.length : k === "late" ? rows.filter((r) => r.late && r.state !== "承認済").length : rows.filter((r) => r.state === k).length;
           return (
@@ -168,7 +166,6 @@ export function SummaryList({ rows, today, onOpen }: { rows: SummaryRow[]; today
           </tbody>
         </table>
       )}
-      <p className="text-[11px] text-ink-faint">{SUMMARY_RULES.who}</p>
       <Sources />
     </div>
   );
