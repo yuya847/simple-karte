@@ -325,7 +325,8 @@ export const helpRoutes: Record<string, string[]> = {
   ],
   "panel:consents": [
     "Drawer",
-    "ConsentPanel"
+    "ConsentPanel",
+    "IcVoice"
   ],
   "panel:add-imaging": [
     "Drawer",
@@ -385,7 +386,8 @@ export const helpRoutes: Record<string, string[]> = {
   ],
   "panel:templates": [
     "Drawer",
-    "RecordTemplatesPanel"
+    "RecordTemplatesPanel",
+    "IcVoice"
   ],
   "panel:docs": [
     "Drawer",
