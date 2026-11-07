@@ -53,6 +53,7 @@ export const toolHelpLabels: Record<string, string> = {
   "docs": "書類作成",
   "letter": "紹介状",
   "scans": "スキャン取込",
+  "pharmacy-brought": "持参薬",
   "directive": "事前指示",
   "summary": "連携サマリ",
   "labels": "ラベル",

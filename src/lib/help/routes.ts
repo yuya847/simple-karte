@@ -375,6 +375,10 @@ export const helpRoutes: Record<string, string[]> = {
     "Drawer",
     "ScanPanel"
   ],
+  "panel:pharmacy-brought": [
+    "Drawer",
+    "BroughtDesk"
+  ],
   "panel:labels": [
     "Drawer",
     "LabelsPanel"
