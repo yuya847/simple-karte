@@ -23,6 +23,7 @@ import { abs, doseTimes, fluidByDay, orderInterval } from "@/lib/flowsheet";
 import { durationText, labName, scheduleTextFor } from "@/lib/format";
 import { findDrug } from "@/lib/master";
 import { news2 } from "@/lib/news2";
+import { labelsThatFit } from "@/lib/point-labels";
 import type { DayOffset, HistoryEntry, ImagingOrder, InjectionOrder, OrderEntry, Patient, PhysioOrder, VitalSign } from "@/lib/types";
 import type { CareOrder, CareRecord } from "@/lib/care-orders";
 import { CareFlowRows } from "./CareFlowRows";
@@ -367,15 +368,15 @@ export function FlowSheet({ standingMeasurements, patient: p, entries, today, no
           )}</FlowRow>
 
           {/* Values at each measurement */}
-          <FlowRow key="vitals.rr" id="vitals.rr">{show("vitals.rr") && <PointRow label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />}</FlowRow>
-          <FlowRow key="vitals.spo2" id="vitals.spo2">{show("vitals.spo2") && <PointRow label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />}</FlowRow>
-          <FlowRow key="vitals.o2" id="vitals.o2">{show("vitals.o2") && <PointRow label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />}</FlowRow>
-          <FlowRow id="vitals.acvpu">{show("vitals.acvpu") && <PointRow label="ACVPU" vitals={vitals} x={x} value={v => v.avpu ?? ""} />}</FlowRow>
-          <FlowRow id="vitals.jcs">{show("vitals.jcs") && <PointRow label="JCS" vitals={vitals} x={x} value={jcsText} />}</FlowRow>
-          <FlowRow id="vitals.gcs">{show("vitals.gcs") && <PointRow label="GCS" vitals={vitals} x={x} value={gcsText} />}</FlowRow>
+          <FlowRow key="vitals.rr" id="vitals.rr">{show("vitals.rr") && <PointRow today={today} label="呼吸数" vitals={vitals} x={x} value={(v) => (v.rr ? String(v.rr) : "")} />}</FlowRow>
+          <FlowRow key="vitals.spo2" id="vitals.spo2">{show("vitals.spo2") && <PointRow today={today} label="SpO2" vitals={vitals} x={x} value={(v) => (v.spo2 ? `${v.spo2}` : "")} />}</FlowRow>
+          <FlowRow key="vitals.o2" id="vitals.o2">{show("vitals.o2") && <PointRow today={today} label="酸素" vitals={vitals} x={x} value={(v) => (v.o2 && v.o2 !== "室内気" ? v.o2.replace("鼻カニュラ ", "") : "")} />}</FlowRow>
+          <FlowRow id="vitals.acvpu">{show("vitals.acvpu") && <PointRow today={today} label="ACVPU" vitals={vitals} x={x} value={v => v.avpu ?? ""} />}</FlowRow>
+          <FlowRow id="vitals.jcs">{show("vitals.jcs") && <PointRow today={today} label="JCS" vitals={vitals} x={x} value={jcsText} />}</FlowRow>
+          <FlowRow id="vitals.gcs">{show("vitals.gcs") && <PointRow today={today} label="GCS" vitals={vitals} x={x} value={gcsText} />}</FlowRow>
           {/* NEWS2 from each set of vitals (code, RCP 2017): ＊ when a part is missing, bold red at 5 or more or a single 3. */}
           <FlowRow key="vitals.news2" id="vitals.news2">{show("vitals.news2") && (
-            <PointRow
+            <PointRow today={today}
               label="NEWS2"
               vitals={vitals}
               x={x}
@@ -817,15 +818,24 @@ function EndLabel({ vitals, pick, x, y }: { vitals: VitalSign[]; pick: (v: Vital
   );
 }
 
-function PointRow({ label, vitals, x, value, tone }: { label: string; vitals: VitalSign[]; x: (d: number, t: string) => number; value: (v: VitalSign) => string; tone?: (v: VitalSign) => string }) {
+/** The value at each measurement. Numbers too close together show as dots (the newer keeps its number); each shows its time under the pointer. */
+function PointRow({ label, vitals, x, value, tone, today }: { label: string; vitals: VitalSign[]; x: (d: number, t: string) => number; value: (v: VitalSign) => string; tone?: (v: VitalSign) => string; today: CalendarDate }) {
+  const marks = vitals.map((v) => ({ v, at: x(v.day, v.time), text: value(v) })).filter((m) => m.text).sort((a, b) => a.at - b.at);
+  const keep = labelsThatFit(marks);
   return (
     <Row label={label}>
       <div className="relative h-5">
-        {vitals.map((v, i) => (
-          <span key={i} className={`absolute top-0.5 -translate-x-1/2 whitespace-nowrap text-[10px] ${tone?.(v) || "text-ink-soft"}`} style={{ left: x(v.day, v.time) }}>
-            {value(v)}
-          </span>
-        ))}
+        {marks.map(({ v, at, text }, i) => {
+          const d = addDays(today, v.day);
+          const tip = `${d.m}/${d.d} ${v.time} ${label} ${text}`;
+          return keep[i] ? (
+            <span key={i} title={tip} className={`absolute top-0.5 -translate-x-1/2 whitespace-nowrap text-[10px] ${tone?.(v) || "text-ink-soft"}`} style={{ left: at }}>
+              {text}
+            </span>
+          ) : (
+            <span key={i} title={tip} aria-label={tip} className={`absolute top-2 h-1 w-1 -translate-x-1/2 rounded-full bg-current ${tone?.(v) || "text-ink-faint"}`} style={{ left: at }} />
+          );
+        })}
       </div>
     </Row>
   );
