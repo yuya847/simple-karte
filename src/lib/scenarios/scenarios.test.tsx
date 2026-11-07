@@ -32,13 +32,13 @@ const noop = () => {};
 const masterDx = new Map(loadMaster("b").rows.map((r) => [r[0], r]));
 const inputs = SCENARIOS.cases.map((c) => patientMonthPayload(c.patient, c.patient.history, c.diagnoses, DEFAULT_OPTIONS, { diets: c.diets, insurance: SCENARIOS.insurance[c.patient.id]?.[0].insurance }));
 
-describe("100人の再現可能な時系列", () => {
+describe("112人の再現可能な時系列", () => {
   it("seed・ID・年齢・段階・保存対象が再現される", () => {
     expect(generateScenarios()).toEqual(SCENARIOS);
     expect(generateScenarios(42).patients).not.toEqual(SCENARIOS.patients);
-    expect(SCENARIOS.patients).toHaveLength(100);
-    expect(new Set(SCENARIOS.patients.map((p) => p.id)).size).toBe(100);
-    expect(new Set(SCENARIOS.patients.map((p) => p.name)).size).toBe(100);
+    expect(SCENARIOS.patients).toHaveLength(112);
+    expect(new Set(SCENARIOS.patients.map((p) => p.id)).size).toBe(112);
+    expect(new Set(SCENARIOS.patients.map((p) => p.name)).size).toBe(112);
     expect(new Set(SCENARIOS.cases.map((c) => c.stage)).size).toBe(4);
     expect(Math.min(...SCENARIOS.patients.map((p) => p.age))).toBe(0);
     expect(Math.max(...SCENARIOS.patients.map((p) => p.age))).toBe(100);
@@ -55,10 +55,13 @@ describe("100人の再現可能な時系列", () => {
     }
   });
 
-  it("100人の算定API入力と全オーダのマスター参照が有効", () => {
-    const parsed = ReceiptRequest.safeParse({ today: iso, nowTime: "12:00", month: "2026-11", patients: inputs });
-    expect(parsed.success, parsed.success ? "" : parsed.error.message).toBe(true);
-    expect(ReceiptRequest.safeParse({ today: iso, nowTime: "12:00", month: "2026-11", patients: [...inputs, inputs[0]] }).success).toBe(false);
+  it("112人の算定API入力と全オーダのマスター参照が有効", () => {
+    // The API accepts at most 100 patients per request; verify both fixture batches.
+    for (const patients of [inputs.slice(0, 100), inputs.slice(100)]) {
+      const parsed = ReceiptRequest.safeParse({ today: iso, nowTime: "12:00", month: "2026-11", patients });
+      expect(parsed.success, parsed.success ? "" : parsed.error.message).toBe(true);
+    }
+    expect(ReceiptRequest.safeParse({ today: iso, nowTime: "12:00", month: "2026-11", patients: [...inputs.slice(0, 100), inputs[0]] }).success).toBe(false);
     for (const p of SCENARIOS.patients) for (const e of ordersOf(p.history)) {
       if (e.order.type === "injection") for (const item of e.order.items) expect(findDrug(item.drugCode), item.drugCode).toBeDefined();
       if (e.order.type === "prescription") expect(findOralDrug(e.order.drugCode), e.order.drugCode).toBeDefined();
@@ -98,13 +101,13 @@ describe("100人の再現可能な時系列", () => {
     expect(transferSummary(p, orders, { restrained: false })).toBeInstanceOf(Array);
   });
 
-  it("入院患者の7割以上で、記録のオーダを含むDPC算定からコードが出る", () => {
-    const admitted = SCENARIOS.cases.flatMap((c, i) => c.stage === "入院" ? [inputs[i]] : []);
+  it("従来100人の入院患者の7割以上で、記録のオーダを含むDPC算定からコードが出る", () => {
+    const admitted = SCENARIOS.cases.flatMap((c, i) => c.stage === "入院" && Number(c.patient.id) <= 99000100 ? [inputs[i]] : []);
     const coded = admitted.filter((input) => dpcMonth({ ...input, today: iso, nowTime: "12:00" }, "2026-11", { coefficient: FICTIONAL_COEFFICIENT, transfer: null }).outcome?.ok);
     expect(coded.length / admitted.length).toBeGreaterThanOrEqual(0.7);
   });
 
-  it("100人で主要なカルテ画面をサーバーレンダリングできる", () => {
+  it("112人で主要なカルテ画面をサーバーレンダリングできる", () => {
     for (const p of SCENARIOS.patients) {
       const common = { patient: p, entries: p.history, today, nowTime: "12:00", selectedDay: null, onSelectDay: noop, onStopDraft: noop, draftedStops: [] };
       for (const Component of [InjectionCalendar, PrescriptionCalendar, ProcedureCalendar]) expect(renderToStaticMarkup(createElement(Component, common))).toContain("table");

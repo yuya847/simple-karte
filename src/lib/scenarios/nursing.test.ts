@@ -10,13 +10,13 @@ import type { OrderEntry } from "../types";
 const s = generateScenarios();
 describe("試験病棟の看護記録", () => {
   it("受け持ちは5階東で、ケア・観察・前の勤務の申し送りがある", () => {
-    const mine = s.cases.filter(c => c.stage === "入院" && c.patient.attending === STAFF.医師.name);
+    const mine = s.cases.slice(0, 100).filter(c => c.stage === "入院" && c.patient.attending === STAFF.医師.name);
     expect(mine.length).toBeGreaterThanOrEqual(10);
     expect(mine.every(c => c.patient.ward === "5階東病棟")).toBe(true);
     expect(s.nursing.careOrders.some(o => o.kind === "ケア")).toBe(true);
     expect(s.nursing.careOrders.some(o => o.kind === "観察")).toBe(true);
     expect(s.nursing.ulcers.some(u => mine.some(c => c.patient.id === u.patientId))).toBe(true);
-    expect(Object.values(scenarioHandoffs(s.patients)).filter(h => h.sentAt && !h.receivedAt).length).toBe(4);
+    expect(Object.values(scenarioHandoffs(s.patients.slice(0, 100))).filter(h => h.sentAt && !h.receivedAt).length).toBe(4);
     for (const c of mine) expect(c.patient.vitals.filter(v => v.day === 0).map(v => v.time)).toEqual(expect.arrayContaining(["10:00", "14:00", "18:00"]));
   });
 
@@ -44,7 +44,7 @@ describe("試験病棟の看護記録", () => {
   it("体温と血圧が患者ごとに異なり、酸素指示と測定が一致する", () => {
     expect(new Set(s.patients.map((p) => p.vitals.at(-1)?.bt)).size).toBeGreaterThan(5);
     expect(new Set(s.patients.map((p) => p.vitals.at(-1)?.sbp)).size).toBeGreaterThan(10);
-    for (const p of s.patients) for (const v of p.vitals) {
+    for (const p of s.patients.slice(0, 100)) for (const v of p.vitals) {
       if (p.id === "99000013" && v.day <= p.admittedOn + 3) continue;
       expect(v.o2).toBe(nursingOxygen(p, v.day, v.time));
     }

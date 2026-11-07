@@ -10,7 +10,8 @@ import { regimenFromOrder } from "../tdm";
 import { orderInteractions } from "../interactions";
 import { isExtraInjection } from "../pharmacy-work";
 import { groupsFor } from "@/components/ToolRail";
-const people = SCENARIOS.cases.filter((c) => c.stage === "入院").map(({ patient }) => ({ patient, room: patient.room, entries: ordersOf(patient.history) }));
+// These assertions describe the pharmacy fixtures of the original cohort.
+const people = SCENARIOS.cases.slice(0, 100).filter((c) => c.stage === "入院").map(({ patient }) => ({ patient, room: patient.room, entries: ordersOf(patient.history) }));
 
 describe("薬剤部の試験用オーダ", () => {
   it("昨日と今日の監査、内服の定期・臨時・退院時、明日の注射が数人ずつある", () => {

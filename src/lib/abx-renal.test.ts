@@ -66,8 +66,8 @@ describe("電子添文の腎機能用量", () => {
     expect(dialysisFromOrders(p.history.map(e => e.kind === "order" ? { ...e, status: "中止" } : e))).toBeNull();
     expect(dialysisFromOrders(p.history.map(e => e.kind === "order" && e.order.type === "procedure" ? { ...e, order: { ...e.order, start: { day: 1 } } } : e))).toBeNull();
   });
-  it("100人にCCr20前後と透析患者がいる", () => {
-    expect(SCENARIOS.patients).toHaveLength(100);
+  it("112人にCCr20前後と透析患者がいる", () => {
+    expect(SCENARIOS.patients).toHaveLength(112);
     expect(SCENARIOS.patients.some(p => { const ccr = renalFunction(p.age, p.sex, p.weightKg, latestCre(p)?.value ?? null).ccr; return ccr !== null && ccr >= 19 && ccr <= 21; })).toBe(true);
     expect(SCENARIOS.patients.some(p => dialysisFromOrders(p.history) === "HD")).toBe(true);
   });

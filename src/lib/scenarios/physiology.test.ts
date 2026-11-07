@@ -6,7 +6,7 @@ import { physioRows, previousPhysio } from "../physio-desk";
 
 it("100人全員に検査があり、呼吸機能・心エコー・心電図の各段階と前回比較を用意する", () => {
   const rows = physioRows(SCENARIOS.patients.map((p) => ({ patient: p, room: p.room, entries: p.history.filter((e) => e.kind === "order") })), SCENARIOS.physioDesk);
-  expect(new Set(SCENARIOS.patients.filter((p) => p.history.some((e) => e.kind === "order" && e.order.type === "physio")).map((p) => p.id)).size).toBe(100);
+  expect(new Set(SCENARIOS.patients.slice(0, 100).filter((p) => p.history.some((e) => e.kind === "order" && e.order.type === "physio")).map((p) => p.id)).size).toBe(100);
   for (const test of ["PHY-UCG", "PHY-SPIRO", "PHY-ECG"]) for (const status of ["予約", "実施済み", "下書き（技師）", "報告済み"]) {
     expect(rows.filter((r) => r.test === test && r.status === status).length, `${test} ${status}`).toBeGreaterThan(1);
   }

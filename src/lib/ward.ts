@@ -2,6 +2,9 @@
 // hospitals do. Patients of other teams are fictional too: each bed below gives the name, sex,
 // age, department and a note, and ward-charts.ts makes a small chart for each from them.
 
+import type { UnitKind } from "./icu/types";
+import { UNIT_NAMES, UNIT_BEDS } from "./icu/types";
+
 import type { Patient, Sex } from "./types";
 
 export interface Room {
@@ -121,6 +124,22 @@ const NURSE_BY_ROOM: Record<string, string> = {
   "506": "看護師 高橋", "507": "看護師 高橋", "508": "看護師 高橋",
   "510": "看護師 伊藤", "511": "看護師 伊藤", "512": "看護師 伊藤", "513": "看護師 伊藤",
   "515": "看護師 渡辺", "516": "看護師 渡辺",
+  "ICU1": "看護師 三浦",
+  "ICU2": "看護師 三浦",
+  "ICU3": "看護師 三浦",
+  "ICU4": "看護師 三浦",
+  "ICU5": "看護師 篠原",
+  "ICU6": "看護師 篠原",
+  "ICU7": "看護師 篠原",
+  "ICU8": "看護師 篠原",
+  "HCU1": "看護師 大久保",
+  "HCU2": "看護師 大久保",
+  "HCU3": "看護師 大久保",
+  "HCU4": "看護師 大久保",
+  "HCU5": "看護師 平井",
+  "HCU6": "看護師 平井",
+  "HCU7": "看護師 平井",
+  "HCU8": "看護師 平井",
   // 5階南
   "520": "看護師 岡本", "521": "看護師 岡本", "522": "看護師 岡本", "523": "看護師 岡本",
   "525": "看護師 長谷川", "526": "看護師 長谷川", "527": "看護師 長谷川",
@@ -139,6 +158,8 @@ export function nurseFor(room: string): string {
 
 /** Attending doctors of the other teams (fictional), by department. */
 const DOCTOR_BY_DEPARTMENT: Record<string, string> = {
+  集中治療科: "大野（集中治療科）",
+  救急科: "白石（救急科）",
   消化器内科: "田村（消化器内科）",
   循環器内科: "中川（循環器内科）",
   呼吸器内科: "佐藤（呼吸器内科）",
@@ -182,6 +203,7 @@ export const WARD_PLANS: WardPlan[] = [
 // ---------------------------------------------------------------------------
 
 export interface Floor {
+  unit?: UnitKind;
   name: string;
   rooms: Room[];
 }
@@ -198,11 +220,17 @@ function layout(nos: string[]): Room[] {
   return nos.map((no, i) => ({ no, kind: kinds[i][0], beds: kinds[i][0] === "4床室" ? four : [""], side: kinds[i][1] }));
 }
 
-export const FLOORS: Floor[] = [
+export const GENERAL_FLOORS: Floor[] = [
   { name: WARD_NAME, rooms: ROOMS },
   { name: "5階南病棟", rooms: layout(["536", "535", "533", "532", "531", "530", "520", "521", "522", "523", "525", "526", "527"]) },
   { name: "6階東病棟", rooms: layout(["616", "615", "613", "612", "611", "610", "601", "602", "603", "605", "606", "607", "608"]) },
 ];
+
+export const UNITS: Floor[] = (["ICU", "HCU"] as const).map(unit => ({
+  name: UNIT_NAMES[unit], unit,
+  rooms: Array.from({ length: UNIT_BEDS }, (_, i) => ({ no: `${unit}${i + 1}`, kind: "個室" as const, beds: [""], side: i % 2 ? "south" as const : "north" as const })),
+}));
+export const FLOORS = [...GENERAL_FLOORS, ...UNITS];
 
 export const floorOf = (room: string): string => FLOORS.find((f) => f.rooms.some((r) => r.no === room))?.name ?? WARD_NAME;
 

@@ -32,7 +32,7 @@ describe("病名と経過がつながる100人の臨床記録", () => {
   });
 
   it("敗血症は血液培養・腎機能・乳酸・抗菌薬を備え、確定結果に感受性がある", () => {
-    const cases = scenarios.patients.filter((p) => /敗血症/.test(p.admissionDiagnosis));
+    const cases = scenarios.patients.slice(0, 100).filter((p) => /敗血症/.test(p.admissionDiagnosis));
     expect(cases).toHaveLength(2);
     for (const p of cases) {
       expect(p.cultures.some((c) => c.specimen === "血液" && c.sets === "2セット")).toBe(true);

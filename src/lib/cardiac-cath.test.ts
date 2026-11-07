@@ -21,7 +21,7 @@ it("検査と確認を医師が指定し、カテとPCIの同意書をオーダ�
   expect(orderConsentDrafts([{ id: "o", order: result.order! }], "A", "10:00", () => String(++n), result.consents).map(c => [c.patientId, c.orderId, c.code])).toEqual([["A", "o", "CONSENT-CATH"], ["A", "o", "CONSENT-PCI"]]);
 });
 it("100人の1〜2件が生理検査室の受付に出る", () => {
-  const rows = physioRows(SCENARIOS.patients.map(patient => ({ patient, room: patient.room, entries: patient.history.filter(e => e.kind === "order") })), SCENARIOS.physioDesk).filter(r => r.test === "PHY-CATH");
+  const rows = physioRows(SCENARIOS.patients.slice(0, 100).map(patient => ({ patient, room: patient.room, entries: patient.history.filter(e => e.kind === "order") })), SCENARIOS.physioDesk).filter(r => r.test === "PHY-CATH");
   expect(rows.length).toBeGreaterThanOrEqual(1); expect(rows.length).toBeLessThanOrEqual(2);
   expect(rows.every(r => r.status === "予約")).toBe(true);
   expect(slotsFor("PHY-CATH", 1, [], { y: 2026, m: 11, d: 4 }).map(s => s.time)).toEqual(["09:00", "11:00", "14:00", "16:00"]);

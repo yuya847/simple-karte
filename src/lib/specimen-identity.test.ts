@@ -13,12 +13,12 @@ const people: WorkPatient[] = SCENARIOS.patients.map((p) => ({
 const rowsOf = (desk: LabDesk) => drawRows(people, {}, desk, 480, 600);
 
 describe("検体の識別と旧workspace", () => {
-  it("100人の同じ末尾のオーダーでも検体番号は数字20桁で重複しない", () => {
+  it("112人の同じ末尾のオーダーでも検体番号は数字20桁で重複しない", () => {
     const rows = rowsOf(EMPTY_DESK);
-    expect(rows).toHaveLength(100);
-    expect(new Set(rows.map((r) => r.code)).size).toBe(100);
+    expect(rows).toHaveLength(112);
+    expect(new Set(rows.map((r) => r.code)).size).toBe(112);
     expect(rows.every((r) => /^\d{20}$/.test(r.code))).toBe(true);
-    expect(new Set(rows.map(specimenId)).size).toBe(100);
+    expect(new Set(rows.map(specimenId)).size).toBe(112);
     expect(rowsOf(EMPTY_DESK).map((r) => r.code)).toEqual(rows.map((r) => r.code));
   });
   it("読む・確定で対象の検体1件だけが動く", () => {
@@ -57,7 +57,7 @@ describe("検体の識別と旧workspace", () => {
     rows[1] = { ...rows[1], code: rows[0].code };
     expect(scanSpecimen(rows[0].code, rows, people, 600)).toMatchObject({ ok: false, tone: "stop" });
   });
-  it("実際の100人シナリオと受診者の検体でも重複しない", () => {
+  it("実際の112人シナリオと受診者の検体でも重複しない", () => {
     const ward: WorkPatient[] = SCENARIOS.cases.filter((c) => c.stage === "入院").map((c) => ({ patient: c.patient, room: c.patient.room, entries: c.patient.history.filter((e) => e.kind === "order") }));
     const visits = visitPeople(SCENARIOS.er.filter((v) => v.status !== "入院済"), SCENARIOS.opd, SCENARIOS.visitOrders, EMPTY_DESK);
     const rows = drawRows([...ward, ...visits], {}, EMPTY_DESK, 480, 600);
@@ -65,7 +65,7 @@ describe("検体の識別と旧workspace", () => {
   });
 });
 
-it("100人の生理検査は主病名に合う検査で、受付・実施・報告の各段階がある", () => {
+it("112人の生理検査は主病名に合う検査で、受付・実施・報告の各段階がある", () => {
   const rows = physioRows(SCENARIOS.patients.map((p) => ({ patient: p, room: p.room, entries: p.history.filter((e) => e.kind === "order") })), SCENARIOS.physioDesk);
   expect(rows.length).toBeGreaterThan(100);
   for (const status of ["予約", "実施済み", "下書き（技師）", "報告済み"]) expect(rows.filter((r) => r.status === status).length).toBeGreaterThan(3);
@@ -82,7 +82,7 @@ it("発育なしは血液培養陽性にせず、陽性にはセット数を含�
 });
 
 it("患者名・主病名・受診者の情報は同じ患者から作り、労災を無関係に割り当てない", () => {
-  expect(new Set(SCENARIOS.patients.map((p) => p.name)).size).toBe(100);
+  expect(new Set(SCENARIOS.patients.map((p) => p.name)).size).toBe(112);
   for (const c of SCENARIOS.cases) {
     expect(c.diagnoses.find((d) => d.main)?.name).toBe(c.patient.admissionDiagnosis);
     expect(SCENARIOS.insurance[c.patient.id]?.some((r) => r.form.coverage === "労災")).not.toBe(true);

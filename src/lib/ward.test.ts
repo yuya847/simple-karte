@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { FLOORS, OTHER_FLOOR_BEDS, floorOf, nurseFor, doctorFor, BEDS } from "./ward";
+import { GENERAL_FLOORS, FLOORS, OTHER_FLOOR_BEDS, floorOf, nurseFor, doctorFor, BEDS } from "./ward";
 
 describe("other floors (fictional)", () => {
   it("room numbers skip 4 and 9, and every bed is in a room of its floor", () => {
-    for (const f of FLOORS) for (const r of f.rooms) expect(r.no, f.name).not.toMatch(/[49]$/);
+    for (const f of GENERAL_FLOORS) for (const r of f.rooms) expect(r.no, f.name).not.toMatch(/[49]$/);
     for (const b of OTHER_FLOOR_BEDS) {
       const room = FLOORS.flatMap((f) => f.rooms).find((r) => r.no === b.room);
       expect(room, b.room).toBeDefined();
