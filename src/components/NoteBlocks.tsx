@@ -35,8 +35,8 @@ interface Props {
   onPhrase?: (text: string, start: number, end: number) => void;
   /** The text selected in a line (for the 定型文 panel's "register the selection"). */
   onSelectedText?: (text: string) => void;
-  /** 「LD」「ばいたる」 then Tab or Enter: the latest blood test or vital signs replace the line (lab-paste.ts); null when none. */
-  pastes?: { test: (line: string) => boolean; text: () => string | null }[];
+  /** 「LD」「ばいたる」「/by system」 then Tab or Enter: the latest blood test, vital signs or the by-system list replace the line (lab-paste.ts, by-system.ts); null when none. caret: where the caret goes in the pasted text (its end when absent). */
+  pastes?: { test: (line: string) => boolean; text: () => string | null; caret?: (pasted: string) => number }[];
 }
 
 /** Typography shared by each line's box and the hidden copy that gives it its height. */
@@ -141,6 +141,11 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
   };
   /** The text with the "＃" numbers given again, the caret kept; nothing pending when nothing changed. */
   const numbered = (text: string, caret: number): Edited => renumberProblems(text, caret);
+  /** A paste (LD・ばいたる・by system) in place of line i, its "＃" numbered. */
+  const pasteAt = (text: string, i: number, pasted: string, caret?: (pasted: string) => number): Edited => {
+    const r = replaceLine(text, i, pasted, caret?.(pasted));
+    return numbered(r.text, r.caret);
+  };
 
   useImperativeHandle(ref, () => ({
     focus() {
@@ -244,13 +249,13 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
       commit({ text: replaceLine(text, i, r.text).text, start: base + r.start, end: base + r.end });
       return;
     }
-    // 「LD」 on its own line, then Tab or Enter: the latest blood test (学会発表の書式) replaces the line.
+    // 「LD」「ばいたる」「/by system」 on its own line, then Tab or Enter: the pasted text replaces the line.
     const paste = (e.key === "Tab" || e.key === "Enter") && !e.shiftKey && !mod ? pastes.find((x) => x.test(line)) : undefined;
     if (paste) {
       const pasted = paste.text();
       if (pasted) {
         e.preventDefault();
-        commit(replaceLine(text, i, pasted));
+        commit(pasteAt(text, i, pasted, paste.caret));
         return;
       }
     }
@@ -515,7 +520,7 @@ export function NoteBlocks({ ref, value, onChange, phrases = [], readOnly = fals
               </button>
             )}
             {!readOnly && line.trim() === "/" && activeLine === i && <div role="menu" aria-label="行のコマンド" className="absolute left-6 top-full z-30 flex flex-wrap gap-1 rounded border border-rule bg-sheet p-2 shadow">
-              {[...(onClaude ? [["Claude", "/claude "]] : []), ["サマリ", "📋 "], ["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["コールアウト", "💡 "], ["注意", "❗ "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); commit(replaceLine(value, i, paste?.text() ?? command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
+              {[...(onClaude ? [["Claude", "/claude "]] : []), ["サマリ", "📋 "], ["見出し", "＃ "], ["チェック", "☐ "], ["箇条書き", "- "], ["番号", "1. "], ["引用", "> "], ["コールアウト", "💡 "], ["注意", "❗ "], ["区切り", "---"], ["テンプレート", "template"], ["定型文", "phrase"], ["LD", "LD"], ["ばいたる", "ばいたる"], ["by system", "/by system"]].map(([label, command]) => <button key={label} role="menuitem" type="button" onMouseDown={e => e.preventDefault()} onClick={() => { if (command === "template" || command === "phrase") { commit(replaceLine(value, i, "")); onCommand?.(command); } else { const paste = pastes.find(p => p.test(command)); const pasted = paste?.text(); commit(pasted ? pasteAt(value, i, pasted, paste?.caret) : replaceLine(value, i, command)); } }} className="rounded px-2 py-1 hover:bg-ai-soft">{label}</button>)}
             </div>}
             <div className={`relative grid ${sectionRule ? "border-t border-rule" : ""} ${style?.kind === "quote" ? "border-l-2 border-rule" : ""} ${style?.kind === "callout" ? `${calloutClass(style.marker)} my-0.5 py-1` : ""}`}>
               {style?.kind === "check" && <input aria-label={`${i + 1}行目のチェック`} type="checkbox" checked={style.checked} disabled={readOnly} onChange={() => commit(replaceLine(value, i, toggleCheck(line), style.prefix))} className="absolute left-2 top-1.5 z-10 size-4 accent-ai" style={{ marginLeft: `${style.indent.length * .5}em` }} />}

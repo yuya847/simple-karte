@@ -14,6 +14,8 @@ import { useSpeech } from "@/lib/use-speech";
 import { DraftCard } from "./DraftCard";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { isLabPasteLine, isVitalsPasteLine, labPasteText, vitalsPasteText } from "@/lib/lab-paste";
+import { bySystemCaret, bySystemText, isBySystemLine } from "@/lib/by-system";
+import type { IcuRecords } from "@/lib/icu/types";
 import { preferredNoteForm, rememberNoteForm, NOTE_FORMS, eventDays, eventTimeProblem, formFrame, isBlankNote, normalMoment, noteFormOf } from "@/lib/notes";
 import { addDays } from "@/lib/dates";
 import { rpNumbers } from "@/lib/rp";
@@ -38,6 +40,8 @@ interface Props {
   sharedNoteTemplates?: NoteTemplate[];
   onSharedNoteTemplates?: (list: NoteTemplate[]) => void;
   patient: Patient;
+  /** The ICU record up to now (呼吸器・持続投与・ライン・1時間ごと), for 「/by system」. */
+  icu?: IcuRecords;
   today: CalendarDate;
   /** Now ("HH:MM"), for a line of a 経時記録. */
   nowTime: string;
@@ -208,7 +212,7 @@ export function TodayPane(p: Props) {
             <button type="button" onClick={() => setPhraseForm(null)} className="text-xs underline">閉じる</button>
             {phraseForm.note !== p.note || phraseForm.patientId !== p.patient.id || phraseForm.author !== me.name || noteLocked ? <p>記事や記載者が変わりました。閉じて定型文を呼び直してください。</p> : <TemplateForm key={phraseForm.body} t={{ id: "phrase", name: "定型文", roles: [], body: phraseForm.body }} facts={facts} onInsert={text => { p.onNoteChange(p.note.slice(0, phraseForm.start) + text + p.note.slice(phraseForm.end)); noteBox.current?.select(phraseForm.start + text.length); setPhraseForm(null); }} />}
           </div>}
-          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onClaude={p.orderMode !== "none" ? p.onDraft : undefined} drafting={p.drafting} onCommand={setTool} onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }]} /></div>
+          <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onClaude={p.orderMode !== "none" ? p.onDraft : undefined} drafting={p.drafting} onCommand={setTool} onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }, { test: isBySystemLine, text: () => bySystemText({ patient: p.patient, orders: p.ctx.activeOrders, icu: p.icu, today: p.today, now: p.nowTime }), caret: bySystemCaret }]} /></div>
           {p.orderSlot}
           {p.drafts.length > 0 && (
             <div aria-label="オーダの下書き" className="space-y-1">

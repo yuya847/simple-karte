@@ -3475,6 +3475,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                         sharedNoteTemplates={sharedNoteTemplates} onSharedNoteTemplates={setSharedNoteTemplates}
                         onOpenRecordTemplates={() => setPanel("templates")}
                         patient={patient}
+                        icu={visibleIcuRecords(icu, abs(0, nowTime))}
                         today={today}
                         nowTime={nowTime}
                         note={chart.note}
