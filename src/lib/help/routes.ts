@@ -148,7 +148,8 @@ export const helpRoutes: Record<string, string[]> = {
   "screen:system": [
     "SystemView",
     "LoginSettingsView",
-    "MasterView"
+    "MasterView",
+    "PushSettingsView"
   ],
   "screen:audit": [
     "AuditView"
