@@ -4,8 +4,8 @@ import { displayText } from "@/lib/display-text";
 import { TimeInput } from "@/components/TimeInput";
 
 import { VERBAL_RULE } from "@/lib/verbal";
-import { Clock3, LayoutTemplate, Loader2, Mic, MicOff, Sparkles, TextQuote } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Clock3, Layers, LayoutTemplate, Loader2, Mic, MicOff, Sparkles, TextQuote, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatShort, hospitalDay, type CalendarDate } from "@/lib/dates";
 import { isReady, type CheckContext, type Draft, type Issue } from "@/lib/drafts";
 import type { Flash } from "@/lib/flash";
@@ -29,6 +29,8 @@ import { PhrasePanel } from "./NotePhrases";
 import { DraftSetComposer } from "./DraftSetComposer";
 import { reusableDraft } from "@/lib/saved-sets";
 import { NoteBlocks, type NoteBlocksHandle } from "./NoteBlocks";
+import { useMarquee } from "./Marquee";
+import { Menu } from "./PopMenu";
 
 export interface DraftMeta {
   model: string;
@@ -87,9 +89,16 @@ const SHOW_DICTATION = false;
 
 /** Today's writing: the note on top, then the order drafts collecting under it. */
 export function TodayPane(p: Props) {
-  const [setSelection, setSetSelection] = useState<string[]>([]);
-  // The boxes to pick drafts for a set appear only after 「セットにする」 is pressed.
-  const [picking, setPicking] = useState(false);
+  // 下書きを選ぶ: drawn round (from where there is no draft), ⌘/Shift + click, or a right click; the menu deletes them
+  // or makes a set of them. The set being made (the drafts at the time it was opened), null when closed.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [pick, setPick] = useState<string[]>([]);
+  const picked = pick.filter((id) => p.drafts.some((d) => d.id === id));
+  const choose = useCallback((ids: string[]) => setPick(ids), []);
+  const marquee = useMarquee(scroller, picked, choose);
+  const [pickMenu, setPickMenu] = useState<{ x: number; y: number } | null>(null);
+  const [composer, setComposer] = useState<string[] | null>(null);
+  const reusablePicked = p.drafts.filter((d) => picked.includes(d.id) && reusableDraft(d)).map((d) => d.id);
   const box = useRef<HTMLTextAreaElement>(null);
   const noteBox = useRef<NoteBlocksHandle>(null);
   const [tool, setTool] = useState<"template" | "phrase" | null>(null);
@@ -159,7 +168,25 @@ export function TodayPane(p: Props) {
         )}
       </div>
 
-      <div className="scroll-thin min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
+      <div ref={scroller} className="scroll-thin relative min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
+        {marquee.view}
+        {pickMenu && picked.length > 0 && (
+          <Menu
+            at={pickMenu}
+            onClose={() => setPickMenu(null)}
+            items={[
+              {
+                label: `削除（${picked.length}件）`,
+                icon: Trash2,
+                onClick: () => {
+                  picked.forEach((id) => p.onRemove(id));
+                  setPick([]);
+                },
+              },
+              { label: `セットにする（${reusablePicked.length}件）`, icon: Layers, onClick: () => setComposer(reusablePicked), disabled: reusablePicked.length ? undefined : "セットにできる下書き（中止・延長・外来予約のほか）がありません" },
+            ]}
+          />
+        )}
         <div>
           {!noteLocked && (
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
@@ -217,8 +244,20 @@ export function TodayPane(p: Props) {
           <div className={hasLabTable(p.note) ? "font-mono" : undefined}><NoteBlocks onClaude={p.orderMode !== "none" ? p.onDraft : undefined} drafting={p.drafting} onCommand={setTool} onPhrase={expandPhrase} ref={noteBox} value={p.note} onChange={p.onNoteChange} phrases={ph.list} readOnly={noteLocked} onSelectedText={setSelected} pastes={[{ test: isLabPasteLine, text: () => labPasteText(p.patient, p.today) }, { test: isVitalsPasteLine, text: () => vitalsPasteText(p.patient, p.today) }, { test: isBySystemLine, text: () => bySystemText({ patient: p.patient, orders: p.ctx.activeOrders, icu: p.icu, today: p.today, now: p.nowTime }), caret: bySystemCaret }]} /></div>
           {p.orderSlot}
           {p.drafts.length > 0 && (
-            <div aria-label="オーダの下書き" className="space-y-1">
-              <DraftSetComposer key={`${p.patient.id}:${me.name}`} drafts={p.drafts} ctx={p.ctx} selected={setSelection} picking={picking} onPick={setPicking} onDone={() => { setSetSelection([]); setPicking(false); }} />
+            <div
+              aria-label="オーダの下書き"
+              {...marquee.handlers}
+              onContextMenu={(e) => {
+                // On a draft not chosen: that one alone. Where there is no draft: the drafts chosen (if any).
+                const card = (e.target as Element).closest<HTMLElement>("[data-pick]");
+                if ((e.target as Element).closest("input, textarea, select") || (!card && !picked.length)) return;
+                e.preventDefault();
+                if (card && !picked.includes(card.dataset.pick!)) setPick([card.dataset.pick!]);
+                setPickMenu({ x: e.clientX, y: e.clientY });
+              }}
+              className="space-y-1 pb-3"
+            >
+              <DraftSetComposer key={`${p.patient.id}:${me.name}`} drafts={p.drafts} ctx={p.ctx} ids={composer} picked={reusablePicked.length} onOpen={() => setComposer(reusablePicked.length ? reusablePicked : p.drafts.filter(reusableDraft).map((d) => d.id))} onDone={() => { setComposer(null); setPick([]); }} />
               {/* One box per kind of order (内服・注射…), its Rp as rows inside (ユーザー 2026-11-06：内服毎に四角で分かれない). */}
               {draftGroups(p.drafts).map((group) => {
                 const rx = group[0].kind === "prescription";
@@ -233,8 +272,7 @@ export function TodayPane(p: Props) {
                       )}
                     </div>
                     {group.map((d) => (
-                      <div key={d.id} className="flex items-start">
-                      {picking && reusableDraft(d) && <input aria-label="セットに含める下書き" type="checkbox" checked={setSelection.includes(d.id)} onChange={e => setSetSelection(v => e.target.checked ? [...v, d.id] : v.filter(id => id !== d.id))} className="m-2 accent-ai" />}
+                      <div key={d.id} data-pick={d.id} data-picked={picked.includes(d.id) || undefined} className={`flex items-start ${picked.includes(d.id) ? "bg-ai-soft/70 ring-1 ring-inset ring-ai/60" : ""}`}>
                       <div className="min-w-0 flex-1"><DraftCard
                         bare
                         rp={rpNumbers(p.drafts)[d.id]}
