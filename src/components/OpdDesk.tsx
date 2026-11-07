@@ -1,7 +1,7 @@
 "use client";
 
 import { displayText } from "@/lib/display-text";
-import { CalendarClock, CheckCircle2, Keyboard, List, MonitorPlay, Printer, UserPlus } from "lucide-react";
+import { CalendarClock, CheckCircle2, IdCard, Keyboard, List, MonitorPlay, Printer, UserPlus } from "lucide-react";
 import { useState } from "react";
 import type { AdmissionRequest } from "@/lib/admission";
 import { auditLog } from "@/lib/audit";
@@ -42,6 +42,7 @@ import { OpdBoard } from "./OpdBoard";
 import { ReceptionInsurance } from "./ReceptionInsurance";
 import { useDeny, useMe } from "./RoleContext";
 import { OnshiCheck } from "./national/OnshiCheck";
+import { CardDesk } from "./portal/CardDesk";
 
 /** What the 受付 keeps (in this browser): bookings on later days and the 診察券 issued today. */
 export interface OpdDeskBook {
@@ -50,7 +51,7 @@ export interface OpdDeskBook {
 }
 export const EMPTY_OPD_DESK: OpdDeskBook = { bookings: [], cards: [] };
 
-type Tab = "list" | "reception" | "slots";
+type Tab = "list" | "reception" | "slots" | "cards";
 
 const dow = (today: CalendarDate, d: number) => {
   const x = addDays(today, d);
@@ -75,6 +76,7 @@ export function OpdDesk({
   newId,
   insuranceBook,
   onInsurance,
+  portalWs = null,
 }: {
   patients: OpdPatient[];
   onPatients: (f: (list: OpdPatient[]) => OpdPatient[]) => void;
@@ -91,6 +93,8 @@ export function OpdDesk({
   /** 保険の登録 (iji.insurance, keyed "opd:" + id): read for a 再診, written when the window registers at reception. */
   insuranceBook?: InsuranceBook;
   onInsurance?: (key: string, r: InsuranceRecord) => void;
+  /** The workspace the patient's page reads (null: the fictional records of the code). */
+  portalWs?: string | null;
 }) {
   const me = useMe();
   const deny = useDeny();
@@ -125,6 +129,7 @@ export function OpdDesk({
             { key: "list", label: "受付一覧", icon: List },
             { key: "reception", label: "受付（初診・予約外）", icon: UserPlus },
             { key: "slots", label: "予約の枠", icon: CalendarClock },
+            { key: "cards", label: "診察券", icon: IdCard },
           ]}
         />
         <button type="button" onClick={() => setScreen("display")} className="flex items-center gap-1 rounded-md border border-rule px-2 py-1 text-sm hover:border-ai hover:text-ai">
@@ -228,6 +233,7 @@ export function OpdDesk({
           }}
         />
       )}
+      {tab === "cards" && <CardDesk cards={cards} patients={patients} ws={portalWs} book={insuranceBook ?? {}} today={today} />}
       {screen === "display" && <WaitingDisplay board={displayBoard(patients, dow(today, 0))} nowTime={nowTime} onClose={() => setScreen(null)} />}
       {screen === "kiosk" && (
         <KioskScreen

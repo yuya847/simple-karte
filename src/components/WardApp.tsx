@@ -233,7 +233,10 @@ import { ProfilePanel } from "./panels/ProfilePanel";
 import { applyProfile, careNow, checkList, type ProfileChange } from "@/lib/profile";
 import { AnamnesisPanel } from "./panels/AnamnesisPanel";
 import { PortalIntake } from "./portal/PortalIntake";
+import { PortalQr } from "./portal/PortalQr";
 import { intakeCounts, pendingIntakes, readInbox, type PortalInboxEntry } from "@/lib/portal/inbox";
+import { birthOf } from "@/lib/portal/view";
+import { formatBirth } from "@/lib/patient-contacts";
 import { careToProfile, evalHints, saveAnamnesis, type AnamnesisRecord } from "@/lib/anamnesis";
 import { worksheetPrnLines } from "@/lib/standing-form";
 import { endStandingBlocks, standingFromBlocks } from "@/lib/standing-blocks";
@@ -2751,6 +2754,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           newId={newId}
           insuranceBook={iji.insurance}
           onInsurance={(key, r) => setIji((d) => withInsurance(d, key, r))}
+          portalWs={workspace.id}
         />
       ) : screen === "map" ? (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -4170,6 +4174,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                         .map((x) => ({ when: x.when, what: x.what })),
                     }}
                   />
+                  <div className="mt-3"><PortalQr ws={workspace.id} subject={patient.id} name={patient.name} kana={patient.kana} birth={formatBirth(birthOf(patient.id, patient.age, iji.insurance, today))} /></div>
                 </Drawer>
               )}
               {panel === "transfer" && (
