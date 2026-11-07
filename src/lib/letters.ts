@@ -155,11 +155,14 @@ export interface LetterChart {
   discharge?: DischargeDraft;
 }
 
-/** 退院日 as the chart has it: discharged, then the 退院 order, then the 退院時サマリー. */
+/**
+ * 退院日 as the chart has it: discharged, then the 退院 order, then a confirmed 退院時サマリー (its 退院日 starts as today
+ * until the doctor sets it, so a summary still being written does not count).
+ */
 export function chartDischargeDay(c: Pick<LetterChart, "patient" | "entries" | "discharge">): DayOffset | undefined {
   if (c.patient.dischargedAt) return c.patient.dischargedAt.day;
   const leave = dischargeLeave({ drafts: [], activeOrders: c.entries.filter((e): e is OrderEntry => e.kind === "order") });
-  return leave?.from.day ?? c.discharge?.dischargeDay;
+  return leave?.from.day ?? (c.discharge?.status === "確定" ? c.discharge.dischargeDay : undefined);
 }
 
 const list = (title: string, items: string[]) => (items.length ? `${title}\n${items.map((x) => `・${x}`).join("\n")}` : "");

@@ -5,7 +5,7 @@ import { shinryoItem } from "./billing/master-items";
 import { PATIENTS } from "./patients";
 import { createDischargeDraft } from "./discharge";
 import {
-  LETTER_FEES, LETTER_HOSPITAL, claimLetters, confirmLetter, consultSeed, dischargeSeed, judgeLetters, ledgerLetters, legacyId, legacyLetter, letterRights, letterVerdict, lettersFor, newLetter, saveDraft, verdictLine,
+  LETTER_FEES, LETTER_HOSPITAL, chartDischargeDay, claimLetters, confirmLetter, consultSeed, dischargeSeed, judgeLetters, ledgerLetters, legacyId, legacyLetter, letterRights, letterVerdict, lettersFor, newLetter, saveDraft, verdictLine,
   type Letter, type LetterClaim, type LetterFlags, type LetterType,
 } from "./letters";
 
@@ -219,6 +219,12 @@ describe("退院サマリで発行した紹介状（以前の保存データ）"
 describe("退院サマリ・他科依頼から作る、台帳に入れる", () => {
   const patient = PATIENTS[0];
   const chart = { patient, entries: [], diagnoses: [], today };
+  it("退院日：退院の記録、退院オーダ、確定した退院サマリの順（書きかけのサマリの既定の今日は使わない）", () => {
+    const d = createDischargeDraft(patient, [], [], today);
+    expect(chartDischargeDay({ patient, entries: [], discharge: d })).toBeUndefined();
+    expect(chartDischargeDay({ patient, entries: [], discharge: { ...d, status: "確定", dischargeDay: 3 } })).toBe(3);
+    expect(chartDischargeDay({ patient: { ...patient, dischargedAt: { day: -1, time: "10:00", by: "x" } }, entries: [], discharge: { ...d, status: "確定", dischargeDay: 3 } })).toBe(-1);
+  });
   it("退院サマリからは「紹介」で注8 の添付に印、宛先は退院先", () => {
     const d = { ...createDischargeDraft(patient, patient.history, [], today), destination: "みどり台リハビリテーション病院" };
     expect(dischargeSeed(d)).toMatchObject({ type: "紹介", to: "みどり台リハビリテーション病院", flags: { attach: true }, from: "退院サマリ" });
