@@ -74,15 +74,27 @@ export const voicesOf = (lines: IcLine[]): string[] => [...new Set(lines.flatMap
 
 /**
  * The lines sent for Claude to say who each voice number is: every line with a number, or — when that is more
- * than `maxChars` of sent text — up to `per` lines of each number.
+ * than `maxChars` of sent text — up to `per` lines of each number (fewer, down to one, until it fits; with very
+ * many numbers, the first lines of each that fit).
  */
 export function voiceSample(lines: IcLine[], textOf: (l: IcLine) => string, maxChars = 12000, per = 8): IcLine[] {
   const voiced = lines.filter((l) => l.voice);
-  if (voiced.reduce((n, l) => n + textOf(l).length, 0) <= maxChars) return voiced;
-  const count = new Map<string, number>();
-  return voiced.filter((l) => {
-    const n = count.get(l.voice!) ?? 0;
-    count.set(l.voice!, n + 1);
-    return n < per;
-  });
+  const size = (ls: IcLine[]) => ls.reduce((n, l) => n + textOf(l).length, 0);
+  if (size(voiced) <= maxChars) return voiced;
+  const upTo = (k: number) => {
+    const count = new Map<string, number>();
+    return voiced.filter((l) => {
+      const n = count.get(l.voice!) ?? 0;
+      count.set(l.voice!, n + 1);
+      return n < k;
+    });
+  };
+  for (let k = per; k >= 1; k = k > 1 ? Math.floor(k / 2) : 0) {
+    const s = upTo(k);
+    if (size(s) <= maxChars || k === 1) {
+      let total = 0;
+      return s.filter((l) => (total += textOf(l).length) <= maxChars);
+    }
+  }
+  return [];
 }

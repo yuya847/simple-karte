@@ -229,7 +229,7 @@ describe("声での分離（端末の中の sherpa-onnx の区切りを行に合
   it("番号の名付けに送る行：全部、長いときは番号ごとに数行。送る文は番号つき", () => {
     const ls = setVoices(linesFromPaste("あ\nい\nう\nえ", "10:00:00"), new Map([[1, "1-s0"], [2, "1-s1"], [3, "1-s0"]]));
     expect(voiceSample(ls, (l) => l.text).map((l) => l.id)).toEqual([1, 2, 3]);
-    expect(voiceSample(ls, () => "x".repeat(100), 150, 1).map((l) => l.id)).toEqual([1, 2]);
+    expect(voiceSample(ls, () => "x".repeat(100), 200, 1).map((l) => l.id)).toEqual([1, 2]);
     expect(transcriptForClaude([{ n: 1, who: "?", v: "1-s0", text: "説明します" }])).toBe("1\t1-s0\t?\t説明します");
     expect(IcRequest.safeParse({ mode: "voices", lines: [{ n: 1, who: "?", v: "1-s0", text: "a" }] }).success).toBe(true);
     expect(IcRequest.safeParse({ mode: "voices", lines: [{ n: 1, who: "?", text: "a" }] }).success).toBe(false);

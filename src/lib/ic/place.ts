@@ -21,9 +21,11 @@ export interface RecordingConsent {
   relation?: string;
   recordedBy: string;
   at: string;
+  /** The voice is written down by the hospital's own server (lib/ic/local-asr.ts), not a cloud service. */
+  local?: boolean;
 }
 export const consentWho = (c: RecordingConsent) => (c.by === "本人" ? "本人" : `代理の方（${c.relation?.trim() || "続柄未記入"}）`);
-export const consentLine = (c: RecordingConsent) => `録音とクラウドの音声認識・文字起こしへの同意：${consentWho(c)}（記録 ${c.recordedBy} ${c.at}）`;
+export const consentLine = (c: RecordingConsent) => `録音と${c.local ? "院内のサーバーでの文字起こし" : "クラウドの音声認識・文字起こし"}への同意：${consentWho(c)}（記録 ${c.recordedBy} ${c.at}）`;
 
 const join = (xs: string[]) => xs.filter(Boolean).join("\n　");
 
