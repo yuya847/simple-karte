@@ -3304,6 +3304,8 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
                   onRegister={(r) => setIji((d) => withInsurance(d, patient.id, r))}
                   settlement={iji.settled[patient.id]}
                   onSettle={(s) => setIji((d) => withSettlement(d, patient.id, s))}
+                  kisai={{ chart: { evaluation: evals[patient.id], documents, guidance, letters: lettersFor(patient.id, letters, discharges[patient.id]), nursingPlans, tdmReports, restraints },
+                    onOpen: (t) => { if (t.panel === "letter") return openLetter(t.key ? { id: t.key } : {}); setSupportDoc(t.docKind === "退院支援計画書"); setNutritionDoc(t.docKind === "栄養管理計画書"); if (t.panel !== "billing") return setPanel(t.panel); setPanel(null); if (t.day !== undefined) update({ selectedDay: t.day }); } }}
                 />
               </div>
             ) : (

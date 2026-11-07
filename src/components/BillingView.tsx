@@ -12,6 +12,9 @@ import { DpcPanel, type Transfer } from "./billing/DpcPanel";
 import { dpcReceiptSheet } from "@/lib/billing/receipt-sheet";
 import type { ReceiptSheetData } from "@/lib/billing/receipt-sheet";
 import { ReceiptPanel } from "./billing/ReceiptPanel";
+import { KisaiPanel } from "./billing/KisaiPanel";
+import { checkKisai, type KisaiChart } from "@/lib/billing/kisai";
+import type { KisaiTarget } from "@/lib/billing/kisai-view";
 import { DenyNote, useDeny, useMe } from "./RoleContext";
 import { auditLog } from "@/lib/audit";
 import { coverageOf, type Insurance } from "@/lib/billing/insurance";
@@ -53,12 +56,18 @@ interface Props extends DiseaseRequestProps {
   /** 退院時の会計, once recorded. */
   settlement?: Settlement;
   onSettle?: (s: Settlement) => void;
+  /** 記載・書類：点検に使うカルテの記録と、押したときに開く場所。 */
+  kisai?: {
+    chart: Omit<KisaiChart, "patientId" | "today" | "admittedOn" | "entries">;
+    onOpen?: (t: KisaiTarget) => void;
+  };
 }
 
-type Tab = "insurance" | "claim" | "bill" | "receipt" | "dpc";
+type Tab = "insurance" | "claim" | "kisai" | "bill" | "receipt" | "dpc";
 const TABS: { key: Tab; label: string }[] = [
   { key: "insurance", label: "保険" },
   { key: "claim", label: "算定" },
+  { key: "kisai", label: "記載・書類" },
   { key: "bill", label: "会計" },
   { key: "receipt", label: "レセプト" },
   { key: "dpc", label: "DPC" },
@@ -92,15 +101,19 @@ const ISSUE_STYLE: Record<ClaimIssue["level"], { label: string; cls: string; ico
   },
 };
 
+// The tab each patient was on: opening a record from 記載・書類 closes this view, and coming back finds the same tab.
+const lastTab = new Map<string, Tab>();
+
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
 /** The month's inpatient 出来高 claim: every line with its code, points, days and the rule it rests on. */
-export function BillingView({ surgeries = [], patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insulinGiven, insurance: records = [], onRegister, settlement, onSettle, diseaseRequests, onDiseaseRequest }: Props) {
+export function BillingView({ surgeries = [], patient, entries, diagnoses, today, nowTime, options, onOptions, wardPayload, diets, letters, notGiven, insulinGiven, insurance: records = [], onRegister, settlement, onSettle, diseaseRequests, onDiseaseRequest, kisai }: Props) {
   const me = useMe();
   const deny = useDeny();
   const registered = records[records.length - 1];
   // 医事課 starts on 保険 while the patient has none registered; everyone else on 算定.
-  const [tab, setTab] = useState<Tab>(() => (!registered && !deny("insurance") ? "insurance" : "claim"));
+  const [tab, setTabState] = useState<Tab>(() => lastTab.get(patient.id) ?? (!registered && !deny("insurance") ? "insurance" : "claim"));
+  const setTab = (t: Tab) => { lastTab.set(patient.id, t); setTabState(t); };
   const [mainId, setMainId] = useState<string | undefined>(undefined);
   const [transfer, setTransfer] = useState<Transfer>("unknown");
   const [coefText, setCoefText] = useState(FICTIONAL_COEFFICIENT.toFixed(4));
@@ -173,6 +186,9 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
     for (const a of result?.acts ?? []) g.set(a.shikibetsu, [...(g.get(a.shikibetsu) ?? []), a]);
     return [...g.entries()];
   }, [result]);
+
+  const kisaiChart = kisai?.chart;
+  const checks = useMemo(() => (result && kisaiChart ? checkKisai(result, { ...kisaiChart, patientId: patient.id, today: isoDate(today), admittedOn: patient.admittedOn, entries }) : []), [result, kisaiChart, patient.id, patient.admittedOn, today, entries]);
 
   const diseaseCandidates = checkDiseases({ entries, diagnoses, today: isoDate(today), nowTime, month, admittedOn: patient.admittedOn, dischargedOn: patient.dischargedAt?.day, notGiven });
   const nDays = daysInMonth(month);
@@ -263,6 +279,7 @@ export function BillingView({ surgeries = [], patient, entries, diagnoses, today
         {tab === "receipt" && result && (
           <ReceiptPanel selfPay={!!insurance && coverageOf(insurance) === "自費"} data={displayedReceipt} lines={receiptLines} month={month} today={isoDate(today)} nowTime={nowTime} wardPayload={wardPayload} />
         )}
+        {tab === "kisai" && result && <KisaiPanel claim={result} checks={checks} onOpen={kisai?.onOpen} />}
         {tab === "dpc" && <DpcPanel month={month} mainId={mainId} setMainId={(value) => { if (value !== mainId) { setLoading(true); setMainId(value); } }} transfer={transfer} setTransfer={(value) => { if (value !== transfer) { setLoading(true); setTransfer(value); } }} coefText={coefText} setCoefText={(value) => { if (Number(value) !== coef) setLoading(true); setCoefText(value); }} r={ready ? dpc : null} error={error} loading={loading} />}
         {tab === "claim" && surgeries.map(s => <section key={s.id} className="rounded border border-rule p-3"><h3>麻酔 {s.procedure}</h3><AnesthesiaBilling surgery={s}/></section>)}
         {tab === "claim" && (
