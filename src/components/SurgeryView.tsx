@@ -29,7 +29,7 @@ import { ageSex } from "@/lib/person";
 
 import { AnesthesiaView, type AnesthesiaProps } from "./AnesthesiaView";
 
-interface Props extends Pick<AnesthesiaProps, "onRecord" | "postopOrders" | "onNote" | "onFasting" | "consents" | "onConsent" | "physio"> {
+interface Props extends Pick<AnesthesiaProps, "diagnoses" | "onRecord" | "postopOrders" | "onNote" | "onFasting" | "consents" | "onConsent" | "physio"> {
   initialAnesthesiaTab?: string;
   initialAnesthesiaPatientId?: string;
   today: CalendarDate;

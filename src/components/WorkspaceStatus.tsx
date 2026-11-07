@@ -11,11 +11,12 @@ const LABEL: Record<Status, string> = { off: "", loading: "読み込み中…", 
  * Folded to a small pill by default so it does not cover the bottom of the right column (the 「記録しました」
  * band after vitals, the drafts' count); the pill opens on click.
  */
-export function WorkspaceStatus({ status, id, onReset, onRetry, live }: { status: Status; id: string | null; onReset: () => void; onRetry?: () => void; live?: string }) {
+export function WorkspaceStatus({ status, id, onReset, onRetry, live, pending }: { status: Status; id: string | null; onReset: () => void; onRetry?: () => void; live?: string; pending?: boolean }) {
   const [open, setOpen] = useState(false);
   const [sure, setSure] = useState(false);
   const [copied, setCopied] = useState(false);
   if (status === "off") return null;
+  const label = status === "saved" && pending ? "未保存の入力があります" : LABEL[status];
   const link = id ? `${window.location.origin}${window.location.pathname}?ws=${id}` : "";
   const icon = status === "error" ? <CloudOff size={13} className="text-shu" /> : <Cloud size={13} className="text-ai" />;
   if (!open && status !== "error") {
@@ -24,11 +25,11 @@ export function WorkspaceStatus({ status, id, onReset, onRetry, live }: { status
         type="button"
         onClick={() => setOpen(true)}
         title="記録の保存先。押すと、ほかの端末で開くリンクと「初めの状態に戻す」"
-        aria-label={`${LABEL[status]}。保存先の詳細を開く`}
+        aria-label={`${label}。保存先の詳細を開く`}
         className="fixed bottom-2 right-2 z-30 flex items-center gap-1 rounded-full border border-rule bg-sheet px-2 py-0.5 text-[11px] text-ink-soft shadow hover:border-ai print:hidden"
       >
         {icon}
-        {LABEL[status]}
+        {label}
         <ChevronRight size={11} />
       </button>
     );
@@ -36,7 +37,7 @@ export function WorkspaceStatus({ status, id, onReset, onRetry, live }: { status
   return (
     <div className="fixed bottom-2 right-2 z-30 flex flex-wrap items-center gap-2 rounded-md border border-rule bg-sheet px-2.5 py-1 text-[11px] text-ink-soft shadow print:hidden">
       {icon}
-      <span className={status === "error" ? "text-shu" : ""}>{LABEL[status]}（今日の記録）</span>
+      <span className={status === "error" ? "text-shu" : ""}>{label}（今日の記録）</span>
       {status === "error" && onRetry && <button type="button" onClick={onRetry} className="underline">再試行</button>}
       {live && <span>{live}</span>}
       {link && (

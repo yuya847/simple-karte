@@ -6,7 +6,7 @@ import { unitOf } from "@/lib/icu/types";
 import { useMcpReceiver } from "@/lib/mcp/receive";
 import { GlucoseContext } from "./GlucoseContext";
 import { useAnesthesiaPersistence } from "@/lib/use-anesthesia-persistence";
-import { upsertAnesthesiaNote, anesthesiaIo } from "@/lib/anesthesia";
+import { pendingAnesthesiaPreop, upsertAnesthesiaNote, anesthesiaIo } from "@/lib/anesthesia";
 import { MswInterview } from "./MswInterview";
 import { LifeSupportForm, LifeSupportOverview } from "./LifeSupport";
 import { lifeWithIntake, lifeLines } from "@/lib/life-support";
@@ -40,6 +40,7 @@ import { scenarioHandoffs } from "@/lib/scenarios/handoffs";
 import { nursingOxygen } from "@/lib/scenarios/nursing";
 import { replacementConflict } from "@/lib/order-revision-drafts";
 import { RehabPatients } from "./RehabPatients";
+import { rehabPrescriptions } from "@/lib/rehab";
 import { wardRehabDesk } from "@/lib/rehab-workflow";
 import { nursingShiftStart } from "@/lib/nursing-shift";
 import { SpecialistBoard } from "./SpecialistBoard";
@@ -2253,7 +2254,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
 
   // 受け持ち患者 of a doctor are their own patients (主治医): the badge counts only theirs.
   const wardReports = wardReportRows(people, reportSrc, acks);
-  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: lists.mine.beds.filter(b => b.patientId).length, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length, reports: wardReports.filter((r) => isMine(r.patientId)).reduce((n, r) => n + r.unread, 0) };
+  const wardBadges: Partial<Record<WardTab, number>> = { take: role === "看護師" ? takeWaiting : 0, mine: role === "療法士" ? rehabPrescriptions(everyone).length : lists.mine.beds.filter(b => b.patientId).length, admit: admitDue, cosign: toCosign.length, summaries: toApprove.length, undone: undoneNow.length, reports: wardReports.filter((r) => isMine(r.patientId)).reduce((n, r) => n + r.unread, 0) };
   const ownerLabel = (o: Owner) => {
     const w = wardTabOf(o);
     return w ? wardTabInfo(w).label : o === "er" ? "救急外来" : "外来";
@@ -2509,7 +2510,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
           }}
         />
       ) : screen === "meals" ? (
-        <MealsView title={WARD_NAME} people={people} diets={diets} today={today} nowTime={nowTime} />
+        <MealsView title={`受け持ち ${people.length}人`} people={people} diets={diets} today={today} nowTime={nowTime} />
       ) : screen === "journal" ? (
         <JournalView
           title="看護日誌"
@@ -2933,7 +2934,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
         />
       ) : screen === "or" ? (
         <SurgeryView
-          today={today}
+          diagnoses={diagnoses} today={today}
           nowAbs={abs(0, nowTime)}
           surgeries={surgeries} initialAnesthesiaTab={anesthesiaTab?.tab} initialAnesthesiaPatientId={anesthesiaTab?.patientId}
           onRecord={(pid, text, sid) => setNotes(all => ({...all,[pid]:upsertAnesthesiaNote(all[pid]??[],{kind:"note",id:`anesthesia:${sid}`,day:0,time:nowTime,author:me.name,role:me.role,text})}))}
@@ -4770,7 +4771,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             ))}
         </div>
       )}
-      <WorkspaceStatus status={workspace.status} id={workspace.id} onReset={workspace.reset} onRetry={() => { void workspace.saveNow().catch(() => undefined); }} live={liveLabel(presence.live)} />
+      <WorkspaceStatus pending={pendingAnesthesiaPreop(windowEntries,surgeries,today)} status={workspace.status} id={workspace.id} onReset={workspace.reset} onRetry={() => { void workspace.saveNow().catch(() => undefined); }} live={liveLabel(presence.live)} />
       {login.gate && (
         <LoginGate
           users={loginUsers}

@@ -3,7 +3,7 @@
 // (exams, 外泊・外出・退院): the 食種 and 形態 of each meal, the 食数 per 食種, the kitchen's deadline
 // (MEAL_DEADLINE, a rule of the fictional hospital) and the changes made after it. Nothing is decided here.
 
-import { MEALS, MEAL_DEADLINE, MEAL_TIMES, TUBE_PRODUCTS, dietAt, findTherapeutic, mealHolds, type DietOrder, type ExamTime, type Meal, type MealHold } from "./diet";
+import { currentDiet, MEALS, MEAL_DEADLINE, MEAL_TIMES, TUBE_PRODUCTS, dietAt, findTherapeutic, mealHolds, type DietOrder, type ExamTime, type Meal, type MealHold } from "./diet";
 import { abs } from "./flowsheet";
 import type { DayOffset, OrderEntry, Patient } from "./types";
 
@@ -133,7 +133,7 @@ export function wardMeals(people: MealPerson[], diets: DietOrder[], days: number
     const cells = days.flatMap((day) => MEALS.map((meal) => mealCell(p, diets, day, meal, nowAbs, examTime)));
     const comments = [...new Set(cells.flatMap((c) => (c.order?.comment ? [c.order.comment] : [])))];
     const cautions = p.patient.cautions.filter((c) => /水分|食|禁|嚥下|とろみ/.test(c) && !comments.some((x) => x.includes(c)));
-    return { patientId: p.patient.id, name: p.patient.name, room: p.room, allergies: p.patient.allergies, notes: [...comments, ...cautions], cells };
+    return { patientId: p.patient.id, name: p.patient.name, room: p.room, allergies: p.patient.allergies, notes: [...new Set([currentDiet(diets,p.patient.id,hmClock(nowAbs))?.prohibited ? `禁止：${currentDiet(diets,p.patient.id,hmClock(nowAbs))!.prohibited}` : "", ...cells.flatMap(c=>[c.order?.prohibited ? `禁止：${c.order.prohibited}` : "",c.order?.allergyNote ? `アレルギー：${c.order.allergyNote}` : ""]), ...comments, ...cautions].filter(Boolean))], cells };
   });
   const slots: MealSlot[] = days.flatMap((day) =>
     MEALS.map((meal) => {
@@ -171,3 +171,5 @@ export function deadlineText(s: Pick<MealSlot, "day" | "meal" | "deadline" | "de
   const left = abs(s.deadline.day, s.deadline.time) - nowAbs;
   return `${head}（あと${left >= 60 ? `${Math.floor(left / 60)}時間` : ""}${left % 60 ? `${left % 60}分` : ""}）`;
 }
+
+const hmClock = (at:number) => `${String(Math.floor(((at%1440)+1440)%1440/60)).padStart(2,"0")}:${String(((at%60)+60)%60).padStart(2,"0")}`;

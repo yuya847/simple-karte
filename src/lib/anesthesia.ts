@@ -1,3 +1,4 @@
+import { addDays, type CalendarDate } from "./dates";
 import { oralName } from "./format";
 import type { Patient, OrderEntry, NoteEntry } from './types';
 import type { Surgery } from './surgery';
@@ -9,6 +10,7 @@ export interface PreopAssessment {
   asa: string; doctor: string; method: string; history: string; medications: string;
   allergies: string; mallampati: string; mouth: string; neck: string; teeth: string;
   height: string; weight: string; tests: string; food: string; water: string;
+  airwayPlan?: string; inductionPlan?: string; maintenancePlan?: string; analgesiaPlan?: string;
   premedication: string; blood: string; explanation: string; savedAt?: number;
 }
 export interface AnesthesiaPoint {
@@ -22,12 +24,12 @@ export interface AnesthesiaCase {
   billingCategory?: '1' | '2' | '3' | '4' | '5'; management?: 'I' | 'II'; difficult?: boolean;
 }
 export const emptyAnesthesia = (): AnesthesiaCase => ({ events: {}, vitals: [], administrations: [] });
-export function preopFromChart(patient: Patient | undefined, orders: OrderEntry[], doctor: string): PreopAssessment {
-  return { asa: '', doctor, method: '', history: patient?.admissionDiagnosis ?? '',
+export function preopFromChart(patient: Patient | undefined, orders: OrderEntry[], doctor: string, today?: CalendarDate): PreopAssessment {
+  return { asa: '', doctor, method: '', history: preopChartHistory(patient).join('、'),
     medications: orders.filter(e => e.status === '有効' && e.order.type === 'prescription').map(e => e.order.type === 'prescription' ? `${oralName(e.order.drugCode)} ${e.order.amount}${e.order.unit} ${e.order.timings.join('・')} 休薬：未確認` : '').join('\n'),
     allergies: patient?.allergies.join('、') ?? '', mallampati: '', mouth: '', neck: '', teeth: '',
     height: patient ? String(patient.heightCm) : '', weight: patient ? String(patient.weightKg) : '',
-    tests: patient ? [...patient.labs].sort((a,b) => b.day-a.day || b.time.localeCompare(a.time)).map(l => `${l.day}日 ${l.time} ${Object.entries(l.values).filter(([k]) => ['Hb','Plt','PT-INR','INR','APTT','Cre','Cr','K','Glu','GLU','BS'].includes(k)).map(([k,v]) => `${k} ${v}`).join(' / ')}`).join('\n') + '\n' + patient.imaging.filter(x => x.modality === 'X線' && /胸/.test(x.region) && !x.pending).map(x => `${x.day}日 胸部X線 ${x.report}`).join('\n') : '',
+    tests: patient ? [...patient.labs].sort((a,b) => b.day-a.day || b.time.localeCompare(a.time)).map(l => `${anesthesiaDate(l.day, today)} ${l.time} ${Object.entries(l.values).filter(([k]) => ['Hb','Plt','PT-INR','INR','APTT','Cre','Cr','K','Glu','GLU','BS'].includes(k)).map(([k,v]) => `${k} ${v}`).join(' / ')}`).join('\n') + '\n' + patient.imaging.filter(x => x.modality === 'X線' && /胸/.test(x.region) && !x.pending).map(x => `${anesthesiaDate(x.day, today)} 胸部X線 ${x.report}`).join('\n') : '',
     food: '', water: '', premedication: '', blood: '', explanation: '' };
 }
 export function bmi(height: string, weight: string): string {
@@ -40,7 +42,7 @@ export function anesthesiaSummary(c: AnesthesiaCase) {
   return { anesthesiaMinutes: duration('麻酔器接続','麻酔器離脱'), surgeryMinutes: duration('執刀','手術終了'), fluid: total('輸液'), blood: total('輸血'), bleeding: total('出血'), urine: total('尿量') };
 }
 export function preopNote(p: PreopAssessment): string {
-  return `【麻酔科術前診察】\n担当 ${p.doctor} ASA-PS ${p.asa} 麻酔法 ${p.method}\n既往 ${p.history}\n内服・休薬（有無・日付） ${p.medications}\nアレルギー ${p.allergies}\n気道 Mallampati ${p.mallampati} 開口 ${p.mouth} 頸部可動 ${p.neck} 歯牙 ${p.teeth}\n身長 ${p.height}cm 体重 ${p.weight}kg BMI ${bmi(p.height,p.weight)}\n検査 ${p.tests}\n最終食事 ${p.food} 最終清澄水 ${p.water}\n前投薬 ${p.premedication}\n輸血準備 ${p.blood}\n説明 ${p.explanation}`;
+  return `【麻酔科術前診察】\n担当 ${p.doctor} ASA-PS ${p.asa} 麻酔法 ${p.method}\n既往 ${p.history}\n内服・休薬（有無・日付） ${p.medications}\nアレルギー ${p.allergies}\n気道 Mallampati ${p.mallampati} 開口 ${p.mouth} 頸部可動 ${p.neck} 歯牙 ${p.teeth}\n身長 ${p.height}cm 体重 ${p.weight}kg BMI ${bmi(p.height,p.weight)}\n検査 ${p.tests}\n最終食事 ${p.food} 最終清澄水 ${p.water}\n麻酔計画 気道確保 ${p.airwayPlan ?? ""} / 導入 ${p.inductionPlan ?? ""} / 維持 ${p.maintenancePlan ?? ""} / 術後鎮痛 ${p.analgesiaPlan ?? ""}\n前投薬 ${p.premedication}\n輸血準備 ${p.blood}\n説明 ${p.explanation}`;
 }
 export const anesthesiaClock = (at: number) => `${String(Math.floor(((at % 1440) + 1440) % 1440 / 60)).padStart(2,'0')}:${String(((at % 60) + 60) % 60).padStart(2,'0')}`;
 export function orderedAnesthesia(c: AnesthesiaCase): AnesthesiaCase {
@@ -89,4 +91,43 @@ export function routineAnesthesiaCategory(s: Surgery): '3' | '4' | '5' {
 }
 export function anesthesiaTimeUnits(minutes: number | null): number | null {
   return minutes === null || minutes < 0 ? null : Math.max(0, Math.ceil((minutes-120)/30));
+}
+
+export function anesthesiaDate(day: number, today?: CalendarDate): string {
+  if (!today) return `${day}日`;
+  const d = addDays(today, day);
+  return `${d.m}/${d.d}${day === 0 ? '（今日）' : ''}`;
+}
+/** Validate only recorded events; missing events may be entered later. */
+export function anesthesiaEventError(events: AnesthesiaCase['events']): string {
+  let previous: AnesthesiaEvent | undefined;
+  for (const event of ANESTHESIA_EVENTS) {
+    if (events[event] === undefined) continue;
+    if (previous && events[event]! < events[previous]!) return `${event.replace('麻酔器','')}は${previous.replace('麻酔器','')}より後に`;
+    previous = event;
+  }
+  return '';
+}
+export function anesthesiaSaveReason(c: AnesthesiaCase, patientId?: string): string {
+  if (!patientId) return '患者を確認してください';
+  return anesthesiaEventError(c.events) || (anesthesiaSummary(c).anesthesiaMinutes === null ? '接続・離脱の時刻を登録してください' : anesthesiaSummary(c).surgeryMinutes === null ? '執刀・手術終了の時刻を登録してください' : '');
+}
+
+export function preopHasChanges(value: PreopAssessment, saved: PreopAssessment | undefined, today: CalendarDate): boolean {
+  const normalize = (p: PreopAssessment | undefined) => p && {...p, tests:p.tests.replace(/(-?\d+)日(?= )/g,(_,d)=>anesthesiaDate(Number(d),today))};
+  return JSON.stringify(normalize(value)) !== JSON.stringify(normalize(saved));
+}
+export function pendingAnesthesiaPreop(entries: Record<string,unknown>, surgeries: Surgery[], today: CalendarDate): boolean {
+  return Object.entries(entries).some(([key,value])=>{
+    const [scope,field] = JSON.parse(key) as string[];
+    if(field !== 'anesthesia-preop' || !value) return false;
+    const saved = surgeries.find(s => (s.patientId ?? s.id) === scope)?.anesthesiaCase?.preop;
+    return preopHasChanges(value as PreopAssessment,saved,today);
+  });
+}
+
+/** Copy explicitly labelled history verbatim; do not infer diagnoses from narrative. */
+export function preopChartHistory(patient: Patient | undefined, diagnoses: string[] = []): string[] {
+  const history = patient?.history.flatMap(e => e.kind === 'note' ? [...(e.text ?? '').matchAll(/既往歴[：:]([^。\n]+)/g)].map(m=>`記事の既往：${m[1].trim()}`) : []) ?? [];
+  return [...new Set([...(diagnoses.length ? diagnoses : patient ? [patient.admissionDiagnosis] : []), ...history])];
 }

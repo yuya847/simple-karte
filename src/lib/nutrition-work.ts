@@ -11,6 +11,7 @@ export function nutritionWork(people: {patient: Patient;room:string;entries:Orde
     if (n) jobs.push({kind:"栄養の再評価",day:n.reassessOn,detail:n.goal,panel:"nutrition"});
     for (const r of teams.requests.filter(r => r.team === "nst" && r.patientId === p.id && !r.closed)) {
       const future = r.nextRound;
+      if (teams.rounds.some(x => x.requestId === r.id && x.at.day === 0) && (!future || future.day <= 0)) continue;
       jobs.push({kind:"NST 回診",day:future?.day ?? 0,detail:future ? `${future.time} ${r.reason}` : `回診待ち：${r.reason}`,panel:"team"});
     }
     for (const r of openRequests(entries,"栄養食事指導",guidance.filter(g => g.patientId === p.id))) jobs.push({kind:"栄養食事指導の依頼",day:r.day,detail:r.author,panel:"guide-record"});
