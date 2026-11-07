@@ -39,3 +39,7 @@ export function deleteToolGroup(layout: ToolLayout, key: string): ToolLayout {
   other.tools.push(...(removed?.tools ?? []));
   return { ...layout, groups };
 }
+/** 隠した道具を全部戻す（設定）: the placement stays, nothing is hidden. Without a saved layout there is nothing to undo. */
+export function showAllTools(saved?: ToolLayout): ToolLayout | undefined {
+  return saved ? { ...saved, hidden: [] } : undefined;
+}

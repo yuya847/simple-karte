@@ -20,3 +20,9 @@ it("初期値に追加された道具を補い、権限外の道具・重複・�
   expect(l.groups.flatMap(g => g.tools).sort()).toEqual(["calendar", "inj", "rx"]);
   expect(resolveTools(defaults).groups).toEqual(defaults);
 });
+it("隠した道具を全部戻す：並びはそのまま、隠したものだけ表示に戻る", async () => {
+  const { showAllTools } = await import("./tool-layout");
+  const l = { ...moveTool(resolveTools(defaults), "rx", "reference"), hidden: ["inj", "calendar"] };
+  expect(showAllTools(l)).toEqual({ ...l, hidden: [] });
+  expect(showAllTools(undefined)).toBeUndefined();
+});

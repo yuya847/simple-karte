@@ -16,6 +16,7 @@ import { PatientAvatar } from "./PatientAvatar";
 import { openHelp } from "@/lib/help/events";
 import { cssPx, viewH, viewW } from "@/lib/page-zoom";
 import { HelpPanel } from "./HelpPanel";
+import { SettingsButton } from "./SettingsMenu";
 
 export interface Todo {
   key: string;
@@ -626,6 +627,7 @@ export function AppFrame(p: Props) {
                 <Badge n={p.areaBadges.board ?? 0} />
               </button>
             )}
+            <SettingsButton className={barButton} />
             <UserButton role={p.role} onRole={p.onRole} onArea={p.onArea} auditOn={p.areas.some((a) => a.key === "audit")} extractOn={p.areas.some((a) => a.key === "extract")} meName={p.meName} doctors={p.doctors} onDoctor={p.onDoctor} nurses={p.nurses} onNurse={p.onNurse} session={p.session} />
           </div>
         }
