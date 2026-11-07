@@ -19,3 +19,8 @@ export function stayDayText(records: IcuRecords, patientId: string, now: number)
   const day = Math.floor(now/1440);
   return `${current.unit} ${day-current.in.day+1}日目${stays[0].id!==current.id ? `（${stays[0].unit} から ${day-stays[0].in.day+1}日目）` : ""}`;
 }
+
+/** ICU・HCU のベッドにいる、または今日（day 0）まで入室していた患者：ICU 記録の道具と経過表の ICU の行を出す。 */
+export function icuRecordShown(p: { id: string; ward: string }, records: Pick<IcuRecords, "stays">, today = 0): boolean {
+  return !!unitOf(p.ward) || records.stays.some(s => s.patientId === p.id && (!s.out || s.out.day >= today));
+}

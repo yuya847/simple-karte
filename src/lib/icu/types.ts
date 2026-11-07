@@ -64,7 +64,7 @@ export interface LineDevice {
   /** 太さ・長さ・固定の cm など */ spec?: string;
 }
 
-/** 1 時間ごとの看護記録（体温・脈拍・血圧・呼吸数・SpO2 は patient.vitals に入れる。GCS は時間表からも記録する）。 */
+/** 1 時間ごとの看護記録（体温・脈拍・血圧・呼吸数・SpO2 は patient.vitals に入れる。GCS は経過表の ICU の1時間の記録からも記録する）。 */
 export interface HourlyRecord {
   id: string; patientId: string; at: At; by: string;
   /** mmHg（動脈ラインの実測。なければ balance 側で収縮期・拡張期から計算） */ map?: number; cvp?: number;

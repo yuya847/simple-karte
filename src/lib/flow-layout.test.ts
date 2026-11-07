@@ -8,7 +8,7 @@ describe("経過表の行の設定", () => {
     const l = moveGroup(DEFAULT_LAYOUT, "notes", -1);
     expect(groupOrder(l.order).slice(-2)).toEqual(["notes", "lab"]);
     // An order kept before a group existed: the missing one goes after its default neighbour.
-    expect(groupOrder(["obs", "vitals"])).toEqual(["obs", "vitals", "care", "io", "oral", "glucose", "inj", "lab", "notes"]);
+    expect(groupOrder(["obs", "vitals"])).toEqual(["obs", "vitals", "icu", "care", "io", "oral", "glucose", "inj", "lab", "notes"]);
     expect(moveGroup(DEFAULT_LAYOUT, "vitals", -1)).toBe(DEFAULT_LAYOUT);
   });
 

@@ -5,6 +5,7 @@ import { IN_KINDS, OUT_KINDS } from "./io-balance";
 
 export const FLOW_GROUPS = [
   { key: "vitals", title: "バイタル" },
+  { key: "icu", title: "ICU・HCU の1時間の記録" },
   { key: "obs", title: "観察・記録" },
   { key: "care", title: "看護ケア・観察（看護師の指示）" },
   { key: "io", title: "水分出納（IN/OUT）" },
@@ -31,6 +32,15 @@ export const FLOW_ROWS: Partial<Record<FlowGroupKey, { key: string; label: strin
     { key: "vitals.gcs", label: "GCS" },
     { key: "vitals.news2", label: "NEWS2（コードで計算）" },
     { key: "vitals.nursing", label: "看護記録" },
+  ],
+  icu: [
+    { key: "icu.rass", label: "RASS" },
+    { key: "icu.cpot", label: "CPOT" },
+    { key: "icu.cam", label: "CAM-ICU" },
+    { key: "icu.gcs", label: "GCS" },
+    { key: "icu.pupils", label: "瞳孔" },
+    { key: "icu.map", label: "MAP" },
+    { key: "icu.cvp", label: "CVP" },
   ],
   glucose: [{ key: "glucose.value", label: "血糖" }, { key: "glucose.graph", label: "血糖グラフ" }, { key: "glucose.insulin", label: "インスリン" }],
   io: [...IN_KINDS.map(k => ({ key: `io:in-${k}`, label: k })), { key: "io:in", label: "IN合計" }, ...OUT_KINDS.map(k => ({ key: `io:out-${k}`, label: k })), { key: "io:out", label: "OUT合計" }, { key: "io:bal", label: "IN − OUT" }],

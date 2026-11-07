@@ -169,3 +169,15 @@ it("インスリンの実施量と両方の行の品名を元のオーダから�
   expect(html).not.toContain("ノボリン");
   expect(html.split(drug.name).length - 1).toBeGreaterThanOrEqual(2);
 });
+
+describe("経過表の ICU・HCU の1時間の記録", () => {
+  const rec = (h: number, x: object) => ({ id: `h${h}`, patientId: "90010231", at: { day: 0, time: `${String(h).padStart(2, "0")}:00` }, by: "架空看護師", ...x });
+  it("ICU・HCU の患者だけに行が出て、RASS・CPOT・GCS・瞳孔が記録の時刻に並ぶ", () => {
+    const icuHourly = { records: [rec(8, { rass: -2, cpot: 1, gcs: { e: 3, v: 4, m: 6 }, pupils: { right: 3, left: 3, reactRight: "+", reactLeft: "+" } })], by: "架空看護師", newId: () => "n", onSave: () => {} };
+    const html = render("90010231", { icuHourly, scale: "1d" });
+    expect(html).toContain("ICU・HCU の1時間の記録");
+    for (const x of [">RASS<", ">CPOT<", ">GCS<", ">瞳孔<", ">-2<", ">E3V4M6<", ">3+/3+<"]) expect(html).toContain(x);
+    expect(html).not.toContain(">CVP<");
+    expect(render("90010231")).not.toContain("ICU・HCU の1時間の記録");
+  });
+});

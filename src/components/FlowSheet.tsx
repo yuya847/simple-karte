@@ -54,6 +54,9 @@ import type { NoteGroupKey } from "@/lib/flow-notes";
 import { FlowNursingNotes } from "./FlowNursingNotes";
 import { FlowNoteRows, WriteNoteButton } from "./FlowNoteRows";
 import { FlowGroup, FlowLayoutPanel } from "./FlowLayoutPanel";
+import { FlowIcuRows } from "./FlowIcuRows";
+import { IcuHourForm } from "./icu/IcuHourForm";
+import type { HourlyRecord } from "@/lib/icu/types";
 import { FLOW_GROUPS, careShown, groupOrder, groupShown, type FlowGroupKey, type FlowLayout } from "@/lib/flow-layout";
 
 // Series colors (validated with the dataviz palette checker against the sheet color):
@@ -123,6 +126,8 @@ export interface FlowSheetProps {
   graphNotes?: GraphNote[];
   onAddNote?: (n: { at: number; text: string }) => void;
   onRemoveNote?: (id: string) => void;
+  /** ICU・HCU の患者だけ：1時間ごとの記録（ICU 記録の hourly）の行と、セルから入れる1時間の記録。 */
+  icuHourly?: { records: HourlyRecord[]; by: string; newId: () => string; onSave?: (r: HourlyRecord) => void };
 }
 
 const examTime = (e: OrderEntry) => examAt(e.order as ImagingOrder | PhysioOrder, abs(e.day, e.time));
@@ -149,7 +154,7 @@ const shortDrug = (code: string) => {
  * Flow sheet: vital signs as aligned strips on one time axis (no shared multi-scale plot),
  * then nursing records, injections as bars over time, and blood draws.
  */
-export function FlowSheet({ standingMeasurements, patient: sourcePatient, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry: externalEntry, onSaveVital, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote }: FlowSheetProps) {
+export function FlowSheet({ standingMeasurements, patient: sourcePatient, entries, today, nowTime, selectedDay, onSelectDay, onInsertVitals, care, io, diets = [], moves = [], dayInfo, pendingLabs = [], mar, onOpenRecord, onWriteNote, initialScale = "all", scale: scaleProp, onScale, onEntry: externalEntry, onSaveVital, untaken = [], onPrint, graphNotes = [], onAddNote, onRemoveNote, icuHourly }: FlowSheetProps) {
   const p = withAnesthesiaVitals(sourcePatient, dayInfo?.surgeries ?? []);
   const [inlineReq, setInlineReq] = useState<FlowEntry | null>(null);
   const onEntry = externalEntry ? (req: FlowEntry) => {
@@ -193,6 +198,8 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
   const deny = useDeny();
   const [menu, setMenu] = useState<{ x: number; y: number; title: string; reqs: FlowEntry[]; extra?: CellAction[] } | null>(null);
   const [noteDraft, setNoteDraft] = useState<number | null>(null);
+  // ICU・HCU の1時間の記録を入れる欄（押したグループの下に開く）。
+  const [icuEntry, setIcuEntry] = useState<{ at: number; group: "icu" | "io" } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const win = flowWindow(scale, anchor ?? nowAbs, p.admittedOn);
   const { lo: t0, hi: t1 } = win;
@@ -271,6 +278,7 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
     const r = e.currentTarget.getBoundingClientRect();
     return Math.round(t0 + ((e.clientX - r.left) / plotW) * (t1 - t0));
   };
+  const icuAction = (at: number, group: "icu" | "io"): CellAction => ({ label: "ICU の1時間の記録を入れる", disabled: deny("vitals"), onClick: () => setIcuEntry({ at, group }) });
   const untakenSet = new Set(untaken);
   const takeReq = (ids: string[]): FlowEntry => ({ kind: "take", orderIds: ids });
   const glucoseItem = care?.orders.find(isGlucoseCare)?.item;
@@ -404,6 +412,25 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
         </>
       ),
     },
+    icu: {
+      show: !!icuHourly,
+      body: icuHourly && (
+        <div
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            const px = e.clientX - r.left - LABEL_W;
+            if (px < 0 || !icuHourly.onSave || (e.target as HTMLElement).closest("form")) return;
+            const at = timeAtX(px, plotW, t0, t1, nowAbs);
+            e.stopPropagation();
+            if (!deny("vitals")) setIcuEntry({ at, group: "icu" });
+            else setMenu({ x: e.clientX, y: e.clientY, title: fmtAt(at), reqs: [], extra: [icuAction(at, "icu")] });
+          }}
+          className={icuHourly.onSave ? "cursor-pointer" : ""}
+        >
+          <FlowIcuRows records={icuHourly.records} lo={t0} hi={t1} xAbs={xAbs} labelW={LABEL_W} today={today} layout={layout} shown={show} />
+        </div>
+      ),
+    },
     obs: {
       show: true,
       body: (
@@ -458,7 +485,10 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
             // The rows only (not the note under them).
             if (px < 0 || !onEntry || (e.target as HTMLElement).closest("p")) return;
             const at = timeAtX(px, plotW, t0, t1, nowAbs);
-            press(e, `${fmtAt(at)} の水分出納`, [{ kind: "io", at }]);
+            if (icuHourly?.onSave) {
+              e.stopPropagation();
+              setMenu({ x: e.clientX, y: e.clientY, title: `${fmtAt(at)} の水分出納`, reqs: [{ kind: "io", at }], extra: [icuAction(at, "io")] });
+            } else press(e, `${fmtAt(at)} の水分出納`, [{ kind: "io", at }]);
           }}
           className={onEntry ? "cursor-pointer" : ""}
         >
@@ -636,6 +666,7 @@ export function FlowSheet({ standingMeasurements, patient: sourcePatient, entrie
         .map((k) => (
           <FlowGroup key={k} id={k} title={FLOW_GROUPS.find((g) => g.key === k)!.title} layout={layout} onLayout={setLayout} extra={groups[k].extra}>
             {groups[k].body}
+            {!printing && icuEntry && icuEntry.group === k && icuHourly?.onSave && <IcuHourForm patientId={p.id} records={icuHourly.records} vitals={p.vitals} at={icuEntry.at} nowAbs={nowAbs} by={icuHourly.by} newId={icuHourly.newId} label={(d) => formatShort(addDays(today, d))} onSave={icuHourly.onSave} onClose={() => setIcuEntry(null)} />}
             {!printing && inlineReq && ((k === "vitals" && inlineReq.kind === "vitals") || (k === "io" && inlineReq.kind === "io") || ((k === "care" || k === "glucose") && inlineReq.kind === "care" && (k === "glucose" ? /血糖/.test(inlineReq.item) : !/血糖/.test(inlineReq.item)))) && <FlowInlineEntry key={JSON.stringify(inlineReq)} req={inlineReq} patient={p} entries={orders} today={today} nowTime={nowTime} care={care} io={io} onSaveVital={onSaveVital} onClose={() => setInlineReq(null)} />}
           </FlowGroup>
         ))}

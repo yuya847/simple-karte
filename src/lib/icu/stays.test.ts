@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stayOnArrive, stayOnMove } from "./stays";
+import { icuRecordShown, stayOnArrive, stayOnMove } from "./stays";
 import { emptyIcuRecords } from "./types";
 const at = {day:0,time:"10:00"};
 describe("集中治療の入退室", () => {
@@ -22,5 +22,17 @@ describe("集中治療の入退室", () => {
   it("同じ病棟内の転床では入退室を増やさない", () => {
     const r=stayOnArrive(emptyIcuRecords(),"p","ICU",at,"救急外来","");
     expect(stayOnMove(r,"p","ICU","ICU",at)).toBe(r);
+  });
+});
+
+describe("ICU 記録を出す患者", () => {
+  const stay = (out?: { day: number; time: string }) => ({ ...emptyIcuRecords(), stays: [{ id: "s", patientId: "p", unit: "ICU" as const, in: { day: -3, time: "00:00" }, from: "救急外来", reason: "架空", ...(out ? { out, to: "5階東" } : {}) }] });
+  it("ICU・HCU のベッドにいる・今日まで入室していた患者だけ", () => {
+    expect(icuRecordShown({ id: "p", ward: "ICU" }, emptyIcuRecords())).toBe(true);
+    expect(icuRecordShown({ id: "p", ward: "HCU" }, emptyIcuRecords())).toBe(true);
+    expect(icuRecordShown({ id: "p", ward: "5階東" }, emptyIcuRecords())).toBe(false);
+    expect(icuRecordShown({ id: "p", ward: "5階東" }, stay({ day: 0, time: "10:00" }))).toBe(true);
+    expect(icuRecordShown({ id: "p", ward: "5階東" }, stay({ day: -1, time: "10:00" }))).toBe(false);
+    expect(icuRecordShown({ id: "q", ward: "5階東" }, stay())).toBe(false);
   });
 });

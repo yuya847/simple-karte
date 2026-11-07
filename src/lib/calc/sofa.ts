@@ -148,7 +148,7 @@ export function sofaPrefill(patient: Patient, icu: IcuRecords, icuId: string, no
     out.gcs = last && last.e && last.v && last.m ? { value: String(last.e + last.v + last.m), from: `E${last.e}V${last.v}M${last.m}（${whenText(last.day, last.time, today)}）` } : null;
   }
 
-  // 尿量：ICU の時間表に今日の24時間分がそろったときだけ。
-  out.urine = facts.urineHours === 24 ? { value: String(facts.urineMl), from: "ICU 時間表 24時間" } : null;
+  // 尿量：ICU の1時間の記録に今日の24時間分がそろったときだけ。
+  out.urine = facts.urineHours === 24 ? { value: String(facts.urineMl), from: "ICU の1時間の記録 24時間" } : null;
   return out;
 }

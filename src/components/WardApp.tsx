@@ -7,7 +7,7 @@ import { moveConflict } from "@/lib/icu/move-conflict";
 import { moveBedPlans } from "@/lib/icu/move-plans";
 import { IcuBoard } from "./IcuBoard";
 import { moveAdministration } from "@/lib/move-administration";
-import { stayOnMove } from "@/lib/icu/stays";
+import { icuRecordShown, stayOnMove } from "@/lib/icu/stays";
 import { unitOf } from "@/lib/icu/types";
 import { useMcpReceiver } from "@/lib/mcp/receive";
 import { GlucoseContext } from "./GlucoseContext";
@@ -2385,6 +2385,7 @@ function WardAppContent({ scenario }: { scenario: boolean }) {
             },
             onPrint: () => auditLog({ role: me.role, actor: me.name, action: "経過表（温度板）を印刷", patient: patient.name }),
             graphNotes: graphNotes.filter((n) => n.patientId === patient.id),
+            icuHourly: icuRecordShown(patient, icu) ? { records: visibleIcuRecords(icu, abs(0, nowTime)).hourly.filter((r) => r.patientId === patient.id), by: me.name, newId, onSave: deny("vitals") ? undefined : (r) => { setIcu((all) => ({ ...all, hourly: [...all.hourly.filter((x) => x.id !== r.id), r] })); auditLog({ role: me.role, actor: me.name, action: "確定（経過表の ICU の1時間の記録）", patient: patient.name, detail: `${r.at.time} 尿量 ${r.urineMl ?? "—"}mL` }); } } : undefined,
             onAddNote: deny("note")
               ? undefined
               : (n) => {

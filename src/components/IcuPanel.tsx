@@ -14,7 +14,6 @@ import { abs } from "@/lib/flowsheet";
 import type { IcuRecords } from "@/lib/icu";
 import { TabChoice } from "./TabChoice";
 import type { IcuPaneProps } from "./icu/parts";
-import { IcuTimeTable } from "./icu/IcuTimeTable";
 import { IcuVentPane } from "./icu/IcuVentPane";
 import { IcuInfusionPane } from "./icu/IcuInfusionPane";
 import { IcuLinesPane } from "./icu/IcuLinesPane";
@@ -23,7 +22,7 @@ import { IcuRoundHistory } from "./icu/IcuRoundPane";
 import { IcuBand } from "./icu/IcuBand";
 import { IcuCrrtPane } from "./icu/IcuCrrtPane";
 
-const tabs=["時間表","呼吸器・血液ガス","持続投与","CRRT","ライン・チューブ","SOFA"] as const;
+const tabs=["SOFA","呼吸器・血液ガス","持続投与","CRRT","ライン・チューブ"] as const;
 type Tab=typeof tabs[number];
 export interface IcuPanelProps {
   patient: Patient; records: IcuRecords; onChange(next:IcuRecords):void; role:Role; me:Staff;
@@ -37,8 +36,7 @@ export interface IcuPanelProps {
 
 export function IcuPanel(p:IcuPanelProps) {
   const {patient,records,onChange,role,me,today,nowTime,deny,auditLog,newId}=p;
-  const [tab,setTab]=useState<Tab>(p.initialTab??"時間表");
-  const [day,setDay]=useState(0);
+  const [tab,setTab]=useState<Tab>(p.initialTab??"SOFA");
   const [error,setError]=useState("");
   const doc=(role==="医師"||role==="デバッグ")&&!deny("order");
   const nurse=(role==="医師"||role==="看護師"||role==="デバッグ")&&!deny("vitals");
@@ -51,12 +49,11 @@ export function IcuPanel(p:IcuPanelProps) {
     <IcuBand patient={patient} records={records} today={today} now={pane.now} targets={p.targets}/>
     <TabChoice label="ICU 記録のタブ" options={tabs.map(t=>({value:t,label:t}))} value={tab} onChange={setTab}/>
     {error&&<p role="alert" className="text-shu">{error}</p>}
-    {tab==="時間表"&&<IcuTimeTable {...pane} day={day} setDay={setDay}/>}
+    {tab==="SOFA"&&<IcuSofaPane {...pane}/>}
     {tab==="呼吸器・血液ガス"&&<IcuVentPane {...pane}/>}
     {tab==="持続投与"&&<IcuInfusionPane {...pane} entries={p.entries} onOrder={p.onOrder}/>}
     {tab==="CRRT"&&<IcuCrrtPane {...pane}/>}
     {tab==="ライン・チューブ"&&<IcuLinesPane {...pane}/>}
-    {tab==="SOFA"&&<IcuSofaPane {...pane}/>}
     <IcuRoundHistory patient={patient} records={records} today={today}/>
   </div>;
 }
