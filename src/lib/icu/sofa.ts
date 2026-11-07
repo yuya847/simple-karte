@@ -13,7 +13,8 @@ export interface SofaFacts {
   respiratory: {pf:number; support:boolean; basis:string}[];
   platelets: number[]; bilirubin: number[]; maps: number[];
   drugs: {name:string; gamma:number}[];
-  gcs: {value:number; basis:string}[];
+  /** assumed: V was put at 1 for the tube, or taken while sedated. */
+  gcs: {value:number; basis:string; assumed?:boolean}[];
   creatinine: number[]; urineMl: number; urineHours: number;
 }
 const supported = new Set(["A/C-VC","A/C-PC","SIMV","PSV","CPAP","NPPV"]);
@@ -46,7 +47,7 @@ export function sofaFacts(patient: Patient, records: IcuRecords, day: number, no
     const verbal=v.gcs.v ?? (intubated?1:undefined);
     if(verbal===undefined) return [];
     const sedated=infs.some(i=>/プロポフォール|ミダゾラム|デクスメデトミジン/.test(i.name) && (rateAt(i,t)??0)>0);
-    return [{value:v.gcs.e+verbal+v.gcs.m,basis:`${v.time} E${v.gcs.e}V${verbal}M${v.gcs.m}${v.gcs.v===undefined&&intubated?"；V は挿管のため 1 と置いた":""}${sedated?"；鎮静中":""}`}];
+    return [{value:v.gcs.e+verbal+v.gcs.m,basis:`${v.time} E${v.gcs.e}V${verbal}M${v.gcs.m}${v.gcs.v===undefined&&intubated?"；V は挿管のため 1 と置いた":""}${sedated?"；鎮静中":""}`,assumed:(v.gcs.v===undefined&&!!intubated)||sedated}];
   });
   const urine=hourly.filter(h=>finite(h.urineMl));
   return {inputs,respiratory:labs.flatMap(l=>{
@@ -65,11 +66,15 @@ GCS          15       13–14     10–12      6–9              <6
 Cre mg/dL    <1.2     <2        <3.5       <5 or U<500      ≥5 or U<200
 U = complete 24 hourly urine volumes only; HFNC excluded from respiratory support.
 */
+/**
+ * An item is 推定 (assumed) when its worst value rests on a value put in (V=1 for the tube, a sedated GCS) or
+ * when the urine of fewer than 24 hours so far could still raise the renal score.
+ */
 export function sofaScore(f: SofaFacts) {
-  const items: {key:string;label:string;score:Score|null;basis:string}[]=[];
-  const add=(key:string,label:string,c:{score:Score;basis:string}[],extra="")=>{
+  const items: {key:string;label:string;score:Score|null;basis:string;assumed:boolean}[]=[];
+  const add=(key:string,label:string,c:{score:Score;basis:string;assumed?:boolean}[],extra="")=>{
     const worst=c.sort((a,b)=>b.score-a.score)[0];
-    items.push({key,label,score:worst?.score??null,basis:[worst?.basis??"記録なし",extra].filter(Boolean).join("；")});
+    items.push({key,label,score:worst?.score??null,basis:[worst?.basis??"記録なし",extra].filter(Boolean).join("；"),assumed:!!worst?.assumed});
   };
   add("respiratory","呼吸",f.respiratory.map(r=>({score:r.support&&r.pf<100?4:r.support&&r.pf<200?3:r.pf<300?2:r.pf<400?1:0,basis:`P/F ${Math.round(r.pf)}（${r.basis}）`})));
   add("coagulation","凝固",f.platelets.map(p=>({score:p<2?4:p<5?3:p<10?2:p<15?1:0,basis:`Plt ${p}万/μL ×10 = ${p*10}×10³/μL`})));
@@ -81,11 +86,13 @@ export function sofaScore(f: SofaFacts) {
     cardio.push({score,basis:`${d.name} ${Number(g.toPrecision(8))}γ（mL/h × mg/mL ×1000 ÷ kg ÷60）`});
   }
   add("cardiovascular","循環",cardio);
-  add("cns","中枢神経",f.gcs.map(g=>({score:g.value<6?4:g.value<10?3:g.value<13?2:g.value<15?1:0,basis:`GCS ${g.value}（${g.basis}）`})));
+  add("cns","中枢神経",f.gcs.map(g=>({score:g.value<6?4:g.value<10?3:g.value<13?2:g.value<15?1:0,basis:`GCS ${g.value}（${g.basis}）`,assumed:g.assumed})));
   const renal:{score:Score;basis:string}[]=f.creatinine.map(c=>({score:c>=5?4:c>=3.5?3:c>=2?2:c>=1.2?1:0,basis:`Cre ${c}mg/dL`}));
   // Complete urine output only supplies a score when its threshold applies.
   if(f.urineHours===24 && f.urineMl<500) renal.push({score:f.urineMl<200?4:3,basis:`尿量 ${f.urineMl}mL/日（24時間）`});
   add("renal","腎",renal,f.urineHours===24?`尿量 ${f.urineMl}mL/日（24時間）`:`尿量 ${f.urineHours} 時間分のみ`);
+  const kidney=items.at(-1)!, couldReach=f.urineMl<200?4:f.urineMl<500?3:0;
+  if(f.urineHours!==24 && kidney.score!==null && couldReach>kidney.score) kidney.assumed=true;
   const missing=items.filter(i=>i.score===null).map(i=>i.label);
-  return {items,total:missing.length?null:items.reduce((s,i)=>s+i.score!,0),missing};
+  return {items,total:missing.length?null:items.reduce((s,i)=>s+i.score!,0),missing,assumed:items.filter(i=>i.assumed).map(i=>i.label)};
 }

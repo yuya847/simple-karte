@@ -13,7 +13,17 @@ describe('SOFA 境界は依頼の不等号で評価',()=>{
  it.each([[1.19,0],[1.2,1],[2,2],[3.5,3],[5,4]])('Cre %s → %s',(c,s)=>expect(score({...base(),creatinine:[c]},'renal')).toBe(s));
  it.each([[500,0],[499,3],[200,3],[199,4]])('尿量 %s → %s',(u,s)=>expect(score({...base(),urineMl:u},'renal')).toBe(s));
  it('欠測は合計不明・不完全な尿量を使わない',()=>{const f={...base(),creatinine:[],urineMl:0,urineHours:23};const result=sofaScore(f);expect(result.total).toBeNull();expect(result.missing).toEqual(['腎']);expect(result.items[5].basis).toContain('尿量 23 時間分のみ');});
- it('その日の最悪値・前日開始の薬・挿管V=1・鎮静・HFNC',()=>{const r=icuFixture();const p=structuredClone(icuPatient);p.labs.push({day:0,time:'10:00',values:{Plt:1,'T-Bil':12,Cre:5,PaO2:20}});p.vitals.push({day:0,time:'10:00',gcs:{e:2,m:3}});r.infusions.push({...r.infusions[0],id:'sed',name:'プロポフォール'});r.vents.push({...r.vents[0],id:'hf',at:{day:0,time:'09:00'},mode:'HFNC'});const f=sofaFacts(p,r,0),result=sofaScore(f);expect(score(f,'coagulation')).toBe(4);expect(score(f,'cardiovascular')).toBe(4);expect(f.gcs[1].basis).toContain('V は挿管のため 1 と置いた');expect(f.gcs[1].basis).toContain('鎮静中');expect(f.respiratory[1].basis).toContain('HFNC は呼吸補助に数えない');expect(result.total).toBe(21);});
+ it('その日の最悪値・前日開始の薬・挿管V=1・鎮静・HFNC',()=>{const r=icuFixture();const p=structuredClone(icuPatient);p.labs.push({day:0,time:'10:00',values:{Plt:1,'T-Bil':12,Cre:5,PaO2:20}});p.vitals.push({day:0,time:'10:00',gcs:{e:2,m:3}});r.infusions.push({...r.infusions[0],id:'sed',name:'プロポフォール'});r.vents.push({...r.vents[0],id:'hf',at:{day:0,time:'09:00'},mode:'HFNC'});const f=sofaFacts(p,r,0),result=sofaScore(f);expect(score(f,'coagulation')).toBe(4);expect(score(f,'cardiovascular')).toBe(4);expect(f.gcs[1].basis).toContain('V は挿管のため 1 と置いた');expect(f.gcs[1].basis).toContain('鎮静中');expect(f.respiratory[1].basis).toContain('HFNC は呼吸補助に数えない');expect(result.total).toBe(21);expect(f.gcs[1].assumed).toBe(true);});
+ it('推定：挿管のV=1・鎮静中のGCS・24時間に満たず点が上がりうる尿量',()=>{
+  const r=sofaScore({...base(),gcs:[{value:9,basis:'',assumed:true},{value:14,basis:''}]});
+  expect(r.items.find(i=>i.key==='cns')!.assumed).toBe(true);expect(r.assumed).toEqual(['中枢神経']);
+  expect(sofaScore({...base(),gcs:[{value:14,basis:'',assumed:true},{value:9,basis:''}]}).assumed).toEqual([]);
+  expect(sofaScore({...base(),urineMl:300,urineHours:10}).assumed).toEqual(['腎']);
+  expect(sofaScore({...base(),urineMl:600,urineHours:10}).assumed).toEqual([]);
+  expect(sofaScore({...base(),creatinine:[5],urineMl:100,urineHours:10}).assumed).toEqual([]);
+  expect(sofaScore({...base(),creatinine:[],urineMl:100,urineHours:10}).assumed).toEqual([]);
+  expect(sofaScore(base()).assumed).toEqual([]);
+ });
  it('24件が同じ時間に重複しても24時間としない',()=>{const r=icuFixture();r.hourly=r.hourly.map(h=>({...h,at:{day:0,time:'01:00'}}));expect(sofaFacts(icuPatient,r,0).urineHours).toBe(1);});
 });
 it('医師入力は同日の材料だけを置換し根拠と入力を残す',()=>{

@@ -66,7 +66,7 @@ export function IcuSofaPane(p:IcuPaneProps) {
             const item=c.result?.items.find(i=>i.key===key);
             const input=key==="cns"||key==="respiratory"?c.facts?.inputs[key]:undefined;
             return <td key={c.label} className="border border-rule p-2 align-top">
-              <b className="text-xl leading-none nums">{item?.score??'—'}</b>
+              <b title={item?.assumed?"推定":undefined} className={`text-xl leading-none nums ${item?.assumed?"inline-block rounded border border-dashed border-yamabuki px-1 text-ink-soft":""}`}>{item?.score??'—'}</b>
               {input&&item&&<p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-ink-soft"><span className="rounded border border-fuji px-1 text-[10px] leading-4 text-fuji">医師入力</span>{byWhom(input,item.basis)}</p>}
               <ul className="mt-1 space-y-0.5 text-[11px] leading-snug text-ink-soft">{(item?.basis??'入室記録なし').split('；').map((line,k)=><li key={k}>{marked(line)}</li>)}</ul>
               {doc&&c.label==='今日'&&(key==="cns"||key==="respiratory")&&<button type="button" aria-expanded={draft.open===key} className="mt-1.5 rounded border border-rule px-2 py-0.5 text-[11px] hover:bg-paper" onClick={()=>setDraft({...draft,open:draft.open===key?null:key})}>材料を入れる</button>}
@@ -77,7 +77,7 @@ export function IcuSofaPane(p:IcuPaneProps) {
         </Fragment>)}
         <tr>
           <th className="p-2 text-left">合計</th>
-          {cols.map(c=><td key={c.label} className="p-2 align-top"><b className="text-xl leading-none nums">{c.result?.total??'—'}</b>{!!c.result?.missing.length&&<p className="mt-1 text-[11px]">不足：{c.result.missing.join('・')}</p>}</td>)}
+          {cols.map(c=><td key={c.label} className="p-2 align-top"><b className="text-xl leading-none nums">{c.result?.total??'—'}</b>{c.result?.total!=null&&!!c.result.assumed.length&&<span title={c.result.assumed.join('・')} className="ml-1.5 rounded border border-yamabuki px-1 align-[3px] text-[11px] leading-4 text-yamabuki">推定を含む</span>}{!!c.result?.missing.length&&<p className="mt-1 text-[11px]">不足：{c.result.missing.join('・')}</p>}</td>)}
         </tr>
       </tbody>
     </table>
