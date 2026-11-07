@@ -72,9 +72,6 @@ export function SurgeryView({ today, nowAbs, surgeries, people, onSave, initialA
             </button>
           ))}
         </div>
-        <span className="text-xs text-ink-faint">
-          {OR_RULES.open}〜{OR_RULES.close}・入れ替え{OR_RULES.turnover}分・予定手術の締切は前日{OR_RULES.deadline}（の院の約束）
-        </span>
         <button type="button" onClick={() => setRequesting(true)} className="ml-auto flex items-center gap-1 rounded-md bg-ai px-3 py-1.5 text-sm font-bold text-white">
           <Plus size={15} />
           手術申込
@@ -129,8 +126,8 @@ export function SurgeryView({ today, nowAbs, surgeries, people, onSave, initialA
           {cases.some((x) => !x.room || !x.start) && <p className="mt-2 text-[12px] text-yamabuki">部屋や時刻が決まっていない申込があります。</p>}
         </div>
 
-        <table className="mt-3 w-full text-left text-sm"><thead><tr>{['患者','入室','執刀','終了','退室'].map(t=><th key={t}>{t}</th>)}</tr></thead><tbody>{cases.map(x=>{const r=surgeryTimes(x);return <tr key={x.id} className="border-b border-rule"><td><button className="py-2 text-ai" onClick={()=>setSelected(x.id)}>{x.name}</button></td>{[x.anesthesiaCase?.events['入室']??r.anesStart,r.opStart,r.opEnd,x.anesthesiaCase?.events['退室']??r.anesEnd].map((at,i)=><td key={i}>{abs2hhmm(at)}</td>)}</tr>;})}</tbody></table>
-        {sel && <CaseDetail key={sel.id} x={sel} all={surgeries} nowAbs={nowAbs} onSave={onSave} />}
+        {cases.length > 0 && <table className="mt-3 w-full text-left text-sm"><thead><tr>{['患者','入室','執刀','終了','退室'].map(t=><th key={t} className="font-normal text-ink-soft">{t}</th>)}</tr></thead><tbody>{cases.map(x=>{const r=surgeryTimes(x);return <tr key={x.id} className="border-b border-rule"><td><button className="py-2 text-ai" onClick={()=>setSelected(x.id)}>{x.name}</button></td>{[x.anesthesiaCase?.events['入室']??r.anesStart,r.opStart,r.opEnd,x.anesthesiaCase?.events['退室']??r.anesEnd].map((at,i)=><td key={i} className="nums">{abs2hhmm(at)}</td>)}</tr>;})}</tbody></table>}
+        {sel && cases.some((c) => c.id === sel.id) && <CaseDetail key={sel.id} x={sel} all={surgeries} nowAbs={nowAbs} onSave={onSave} />}
       </div>
 
       {requesting && (
@@ -197,7 +194,7 @@ function CaseDetail({ x, all, nowAbs, onSave }: { x: Surgery; all: Surgery[]; no
         )}
       </div>
       <div>
-        <h3 className="font-bold">麻酔の記録（時刻は押した時刻）</h3><p>入室 {abs2hhmm(x.anesthesiaCase?.events["入室"] ?? rec.anesStart)} · 執刀 {abs2hhmm(rec.opStart)} · 終了 {abs2hhmm(rec.opEnd)} · 退室 {abs2hhmm(x.anesthesiaCase?.events["退室"] ?? rec.anesEnd)}</p>
+        <h3 className="font-bold">麻酔の記録</h3>
         <div className="mt-1 flex flex-wrap gap-1.5">
           {step("anesStart", "麻酔開始（麻酔器を接続）", x.status !== "申込")}
           {step("opStart", "手術開始", rec.anesStart !== undefined)}
@@ -205,23 +202,18 @@ function CaseDetail({ x, all, nowAbs, onSave }: { x: Surgery; all: Surgery[]; no
           {step("anesEnd", "麻酔終了（麻酔器から離脱）", rec.opEnd !== undefined)}
         </div>
         {x.anesthesia === "全身麻酔" ? (
-          <div className="mt-2 rounded-md bg-paper px-3 py-2 text-[12px]">
+          <div className="mt-2 space-y-1 border-t border-rule-soft pt-2 text-[12px]">
             <label className="flex items-center gap-1.5">
               <input type="checkbox" className="accent-ai" checked={!!x.difficult} onChange={() => onSave({ ...x, difficult: !x.difficult })} />
-              麻酔が困難な患者（告示の別表。麻酔科医が確かめて入れる）
+              麻酔が困難な患者
             </label>
-            <p className="mt-1 text-ink-soft">区分：{cat.why}（申込の体位・腹腔鏡からコードで決める）</p>
-            {fee ? (
-              <p className="nums mt-1">
-                <b>L008 {fee.points.toLocaleString("ja-JP")}点</b>　{fee.formula}
-              </p>
-            ) : (
-              <p className="mt-1 text-ink-faint">麻酔開始と麻酔終了が入ると、時間と点数を計算します（2時間を超えたら30分ごと、端数を含む）。</p>
-            )}
+            <p className="text-ink-soft">区分：{cat.why}</p>
+            <p className="nums">
+              <b>L008 {fee ? `${fee.points.toLocaleString("ja-JP")}点` : "—"}</b>
+              {fee && <>　{fee.formula}</>}
+            </p>
           </div>
-        ) : (
-          <p className="mt-2 text-[12px] text-ink-faint">{x.anesthesia}の点数は、この試作では計算しません（全身麻酔 L008 だけ）。</p>
-        )}
+        ) : null}
       </div>
     </section>
   );
